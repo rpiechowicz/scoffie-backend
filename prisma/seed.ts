@@ -10,48 +10,39 @@ async function main(): Promise<void> {
 
   const anna = await prisma.user.create({
     data: {
-      provider: 'google',
-      providerId: 'google-anna',
+      googleId: 'google-anna',
       displayName: 'Anna Nowak',
+      email: 'anna@example.com',
       avatarUrl: 'https://i.pravatar.cc/150?img=47',
-    },
-  });
-
-  const jan = await prisma.user.create({
-    data: {
-      provider: 'apple',
-      providerId: 'apple-jan',
-      displayName: 'Jan Kowalski',
-      avatarUrl: 'https://i.pravatar.cc/150?img=12',
     },
   });
 
   await prisma.recipe.createMany({
     data: [
       {
-        title: 'Makaron z pomidorami',
-        description: 'Prosty makaron z sosem pomidorowym i bazylią.',
+        title: 'Pasta with tomatoes',
+        description: 'Simple pasta with tomato sauce and basil.',
         authorId: anna.id,
       },
       {
-        title: 'Owsianka z owocami',
-        description: 'Szybkie śniadanie na start dnia.',
+        title: 'Oatmeal with fruit',
+        description: 'Quick breakfast to start the day.',
         authorId: anna.id,
       },
       {
-        title: 'Kurczak z ryżem',
-        description: 'Klasyk na obiad z warzywami.',
-        authorId: jan.id,
-      },
-      {
-        title: 'Sałatka grecka',
-        description: 'Pomidor, ogórek, oliwki, feta.',
+        title: 'Chicken with rice',
+        description: 'Classic lunch with vegetables.',
         authorId: anna.id,
       },
       {
-        title: 'Zupa krem z dyni',
-        description: 'Rozgrzewająca zupa na chłodniejsze dni.',
-        authorId: jan.id,
+        title: 'Greek salad',
+        description: 'Tomato, cucumber, olives, feta.',
+        authorId: anna.id,
+      },
+      {
+        title: 'Pumpkin soup',
+        description: 'Warm soup for colder days.',
+        authorId: anna.id,
       },
     ],
   });

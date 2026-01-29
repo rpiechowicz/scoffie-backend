@@ -9,16 +9,14 @@ datasource db {
 
 model User {
   id          String   @id @default(uuid()) @db.Uuid
-  provider    String
-  providerId  String
+  googleId    String   @unique
   displayName String
+  email       String?
   avatarUrl   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   recipes Recipe[]
-
-  @@unique([provider, providerId])
 }
 
 model Recipe {

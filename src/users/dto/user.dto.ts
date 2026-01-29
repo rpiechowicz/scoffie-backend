@@ -4,14 +4,14 @@ export class UserDto {
   @ApiProperty()
   id: string;
 
-  @ApiProperty({ enum: ['google', 'apple'] })
-  provider: string;
-
   @ApiProperty()
-  providerId: string;
+  googleId: string;
 
   @ApiProperty()
   displayName: string;
+
+  @ApiProperty({ required: false, nullable: true })
+  email?: string | null;
 
   @ApiProperty({ required: false, nullable: true })
   avatarUrl?: string | null;
