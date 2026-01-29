@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { RecipeDto } from '../../recipes/dto/recipe.dto';
 
 export class PlanItemDto {
   @ApiProperty()
@@ -9,6 +10,9 @@ export class PlanItemDto {
 
   @ApiProperty()
   recipeId: string;
+
+  @ApiProperty({ type: RecipeDto })
+  recipe?: RecipeDto;
 
   @ApiProperty({ enum: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] })
   dayOfWeek: string;

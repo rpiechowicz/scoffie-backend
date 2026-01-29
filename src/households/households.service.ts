@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
@@ -9,40 +9,66 @@ import { CreateInvitationDto } from './dto/create-invitation.dto';
 export class HouseholdsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.household.findMany({ orderBy: { createdAt: 'desc' } });
+  private async ensureMembership(userId: string, householdId: string) {
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_householdId: { userId, householdId } },
+    });
+    if (!membership) {
+      throw new ForbiddenException('User is not a member of this household');
+    }
+    return membership;
   }
 
-  async findById(id: string) {
+  async findAll(userId: string) {
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId },
+      select: { householdId: true },
+    });
+    const householdIds = memberships.map((m) => m.householdId);
+    return this.prisma.household.findMany({
+      where: { id: { in: householdIds } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findById(userId: string, id: string) {
     const household = await this.prisma.household.findUnique({ where: { id } });
     if (!household) {
       throw new NotFoundException('Household not found');
     }
+    await this.ensureMembership(userId, id);
     return household;
   }
 
-  async create(dto: CreateHouseholdDto) {
+  async create(userId: string, dto: CreateHouseholdDto) {
     const household = await this.prisma.household.create({
       data: {
         name: dto.name,
-        createdById: dto.createdById ?? null,
+        createdById: userId,
       },
     });
 
-    if (dto.createdById) {
-      await this.prisma.membership.create({
-        data: {
-          userId: dto.createdById,
-          householdId: household.id,
-          role: 'OWNER',
-        },
-      });
-    }
+    await this.prisma.membership.create({
+      data: {
+        userId,
+        householdId: household.id,
+        role: 'OWNER',
+      },
+    });
 
     return household;
   }
 
-  async createInvitation(householdId: string, dto: CreateInvitationDto, createdById?: string) {
+  async createInvitation(
+    userId: string,
+    householdId: string,
+    dto: CreateInvitationDto,
+  ) {
+    const membership = await this.ensureMembership(userId, householdId);
+    if (membership.role !== 'OWNER') {
+      throw new ForbiddenException('Only owners can create invitations');
+    }
+
     const token = randomBytes(16).toString('hex');
     const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : new Date(Date.now() + 7 * 86400000);
 
@@ -50,13 +76,13 @@ export class HouseholdsService {
       data: {
         token,
         householdId,
-        createdById: createdById ?? null,
+        createdById: userId,
         expiresAt,
       },
     });
   }
 
-  async acceptInvitation(dto: AcceptInvitationDto) {
+  async acceptInvitation(userId: string, dto: AcceptInvitationDto) {
     const invitation = await this.prisma.invitation.findUnique({
       where: { token: dto.token },
     });
@@ -73,13 +99,13 @@ export class HouseholdsService {
     const membership = await this.prisma.membership.upsert({
       where: {
         userId_householdId: {
-          userId: dto.userId,
+          userId,
           householdId: invitation.householdId,
         },
       },
       update: {},
       create: {
-        userId: dto.userId,
+        userId,
         householdId: invitation.householdId,
         role: 'MEMBER',
       },
@@ -89,7 +115,7 @@ export class HouseholdsService {
       where: { id: invitation.id },
       data: {
         redeemedAt: new Date(),
-        redeemedById: dto.userId,
+        redeemedById: userId,
       },
     });
 

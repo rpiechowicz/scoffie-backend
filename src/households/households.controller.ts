@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { CreateHouseholdDto } from './dto/create-household.dto';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
@@ -8,25 +9,26 @@ import { HouseholdsService } from './households.service';
 
 @ApiTags('households')
 @Controller('households')
+@UseGuards(JwtAuthGuard)
 export class HouseholdsController {
   constructor(private readonly householdsService: HouseholdsService) {}
 
   @Get()
   @ApiOkResponse({ type: [HouseholdDto] })
-  findAll() {
-    return this.householdsService.findAll();
+  findAll(@Req() req: any) {
+    return this.householdsService.findAll(req.user.id);
   }
 
   @Get(':id')
   @ApiOkResponse({ type: HouseholdDto })
-  findById(@Param('id') id: string) {
-    return this.householdsService.findById(id);
+  findById(@Req() req: any, @Param('id') id: string) {
+    return this.householdsService.findById(req.user.id, id);
   }
 
   @Post()
   @ApiCreatedResponse({ type: HouseholdDto })
-  create(@Body() dto: CreateHouseholdDto) {
-    return this.householdsService.create(dto);
+  create(@Req() req: any, @Body() dto: CreateHouseholdDto) {
+    return this.householdsService.create(req.user.id, dto);
   }
 
   @Post(':id/invitations')
@@ -39,12 +41,8 @@ export class HouseholdsController {
       },
     },
   })
-  createInvitation(
-    @Param('id') householdId: string,
-    @Body() dto: CreateInvitationDto,
-    @Query('createdById') createdById?: string,
-  ) {
-    return this.householdsService.createInvitation(householdId, dto, createdById);
+  createInvitation(@Req() req: any, @Param('id') householdId: string, @Body() dto: CreateInvitationDto) {
+    return this.householdsService.createInvitation(req.user.id, householdId, dto);
   }
 
   @Post('invitations/accept')
@@ -58,7 +56,7 @@ export class HouseholdsController {
       },
     },
   })
-  acceptInvitation(@Body() dto: AcceptInvitationDto) {
-    return this.householdsService.acceptInvitation(dto);
+  acceptInvitation(@Req() req: any, @Body() dto: AcceptInvitationDto) {
+    return this.householdsService.acceptInvitation(req.user.id, dto);
   }
 }

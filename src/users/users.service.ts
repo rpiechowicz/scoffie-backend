@@ -17,4 +17,17 @@ export class UsersService {
   create(data: CreateUserDto) {
     return this.prisma.user.create({ data });
   }
+
+  getMe(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        memberships: {
+          include: {
+            household: true,
+          },
+        },
+      },
+    });
+  }
 }
