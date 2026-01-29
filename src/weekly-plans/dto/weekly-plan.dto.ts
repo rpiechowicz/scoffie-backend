@@ -1,20 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class RecipeDto {
+export class WeeklyPlanDto {
   @ApiProperty()
   id: string;
 
   @ApiProperty()
-  title: string;
-
-  @ApiProperty({ required: false, nullable: true })
-  description?: string | null;
-
-  @ApiProperty()
-  authorId: string;
-
-  @ApiProperty()
   householdId: string;
+
+  @ApiProperty()
+  weekStart: Date;
 
   @ApiProperty()
   createdAt: Date;

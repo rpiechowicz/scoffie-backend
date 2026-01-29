@@ -16,7 +16,11 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  recipes Recipe[]
+  recipes      Recipe[]
+  memberships  Membership[]
+  createdHomes Household[] @relation("HouseholdCreator")
+  invitations  Invitation[] @relation("InvitationCreator")
+  acceptedInvites Invitation[] @relation("InvitationRedeemer")
 }
 
 model Recipe {
@@ -26,6 +30,99 @@ model Recipe {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  authorId String   @db.Uuid
-  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId    String   @db.Uuid
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  householdId String   @db.Uuid
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  planItems PlanItem[]
+}
+
+model Household {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?  @db.Uuid
+  createdBy   User?    @relation("HouseholdCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  memberships Membership[]
+  recipes     Recipe[]
+  invitations Invitation[]
+  weeklyPlans WeeklyPlan[]
+}
+
+model Membership {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  householdId String   @db.Uuid
+  role        MembershipRole @default(MEMBER)
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, householdId])
+}
+
+model Invitation {
+  id           String   @id @default(uuid()) @db.Uuid
+  token        String   @unique
+  householdId  String   @db.Uuid
+  createdById  String?  @db.Uuid
+  redeemedById String?  @db.Uuid
+  expiresAt    DateTime
+  redeemedAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  household  Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy  User?     @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  redeemedBy User?     @relation("InvitationRedeemer", fields: [redeemedById], references: [id], onDelete: SetNull)
+}
+
+model WeeklyPlan {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  weekStart   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items     PlanItem[]
+
+  @@unique([householdId, weekStart])
+}
+
+model PlanItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  weeklyPlanId String   @db.Uuid
+  recipeId     String   @db.Uuid
+  dayOfWeek    DayOfWeek
+  mealType     MealType
+  createdAt    DateTime @default(now())
+
+  weeklyPlan WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
+  recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+}
+
+enum MembershipRole {
+  OWNER
+  MEMBER
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
 }
