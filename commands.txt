@@ -3,3 +3,5 @@ docker compose build --no-cache api
 docker compose up -d
 docker compose exec api --% pnpm prisma migrate dev --name init
 docker compose exec api --% pnpm prisma:seed
+
+docker compose exec api pnpm prisma studio -- --hostname 0.0.0.0 --port 5555
