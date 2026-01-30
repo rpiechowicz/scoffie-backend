@@ -102,8 +102,9 @@ export class AuthService {
     return { accessToken, refreshToken: newRefreshToken };
   }
 
-  private async issueAccessToken(userId: string) {
-    return this.jwtService.signAsync({ sub: userId });
+  async issueAccessToken(userId: string) {
+    const expiresIn = process.env.JWT_EXPIRES_IN ?? '30d';
+    return this.jwtService.signAsync({ sub: userId }, { expiresIn: expiresIn as any });
   }
 
   private async issueRefreshToken(userId: string) {
