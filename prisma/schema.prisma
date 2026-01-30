@@ -21,6 +21,21 @@ model User {
   createdHomes Household[] @relation("HouseholdCreator")
   invitations  Invitation[] @relation("InvitationCreator")
   acceptedInvites Invitation[] @relation("InvitationRedeemer")
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  tokenHash String   @unique
+  userId    String   @db.Uuid
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Recipe {

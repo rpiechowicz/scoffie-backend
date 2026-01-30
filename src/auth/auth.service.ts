@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Issuer, Client } from 'openid-client';
+import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { GoogleOauthDto } from './dto/google-oauth.dto';
 
@@ -14,6 +15,10 @@ type GoogleProfile = {
 @Injectable()
 export class AuthService {
   private googleClientPromise: Promise<Client> | null = null;
+  private readonly refreshTokenDays =
+    Number(process.env.REFRESH_TOKEN_DAYS ?? '30') || 30;
+  private readonly refreshTokenPepper =
+    process.env.REFRESH_TOKEN_PEPPER ?? process.env.JWT_SECRET ?? 'dev-pepper';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -66,10 +71,62 @@ export class AuthService {
       },
     });
 
-    const accessToken = await this.jwtService.signAsync({
-      sub: user.id,
+    const accessToken = await this.issueAccessToken(user.id);
+    const refreshToken = await this.issueRefreshToken(user.id);
+
+    return { accessToken, refreshToken };
+  }
+
+  async refreshAccessToken(refreshToken: string) {
+    const tokenHash = this.hashRefreshToken(refreshToken);
+    const storedToken = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
     });
 
-    return { accessToken, user };
+    if (
+      !storedToken ||
+      storedToken.revokedAt ||
+      storedToken.expiresAt <= new Date()
+    ) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { tokenHash },
+      data: { revokedAt: new Date() },
+    });
+
+    const accessToken = await this.issueAccessToken(storedToken.userId);
+    const newRefreshToken = await this.issueRefreshToken(storedToken.userId);
+
+    return { accessToken, refreshToken: newRefreshToken };
+  }
+
+  private async issueAccessToken(userId: string) {
+    return this.jwtService.signAsync({ sub: userId });
+  }
+
+  private async issueRefreshToken(userId: string) {
+    const rawToken = randomBytes(64).toString('hex');
+    const tokenHash = this.hashRefreshToken(rawToken);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + this.refreshTokenDays);
+
+    await this.prisma.refreshToken.create({
+      data: {
+        tokenHash,
+        userId,
+        expiresAt,
+      },
+    });
+
+    return rawToken;
+  }
+
+  private hashRefreshToken(token: string) {
+    return createHash('sha256')
+      .update(token)
+      .update(this.refreshTokenPepper)
+      .digest('hex');
   }
 }
