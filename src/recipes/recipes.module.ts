@@ -1,11 +1,8 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from '../auth/auth.module';
-import { RecipesController } from './recipes.controller';
+import { RecipesGateway } from './recipes.gateway';
 import { RecipesService } from './recipes.service';
 
 @Module({
-  imports: [AuthModule],
-  controllers: [RecipesController],
-  providers: [RecipesService],
+  providers: [RecipesService, RecipesGateway],
 })
 export class RecipesModule {}

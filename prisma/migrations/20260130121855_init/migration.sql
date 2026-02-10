@@ -5,7 +5,7 @@ CREATE TYPE "MembershipRole" AS ENUM ('OWNER', 'MEMBER');
 CREATE TYPE "DayOfWeek" AS ENUM ('MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN');
 
 -- CreateEnum
-CREATE TYPE "MealType" AS ENUM ('BREAKFAST', 'LUNCH', 'DINNER', 'SNACK');
+CREATE TYPE "MealType" AS ENUM ('BREAKFAST', 'LUNCH', 'DINNER');
 
 -- CreateTable
 CREATE TABLE "User" (

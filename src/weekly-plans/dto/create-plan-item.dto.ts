@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsIn, IsString } from 'class-validator';
 
 const dayOfWeek = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
-const mealType = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as const;
+const mealType = ['BREAKFAST', 'LUNCH', 'DINNER'] as const;
 
 export class CreatePlanItemDto {
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })

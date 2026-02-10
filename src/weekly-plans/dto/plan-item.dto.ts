@@ -17,7 +17,7 @@ export class PlanItemDto {
   @ApiProperty({ enum: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] })
   dayOfWeek: string;
 
-  @ApiProperty({ enum: ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] })
+  @ApiProperty({ enum: ['BREAKFAST', 'LUNCH', 'DINNER'] })
   mealType: string;
 
   @ApiProperty()
