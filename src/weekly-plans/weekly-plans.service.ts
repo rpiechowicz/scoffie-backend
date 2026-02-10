@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
@@ -21,7 +22,7 @@ export class WeeklyPlansService {
   private parseWeekStart(weekStart: string): Date {
     const parsed = new Date(weekStart);
     if (Number.isNaN(parsed.getTime())) {
-      throw new BadRequestException('Invalid weekStart date format');
+      throw new AppException('VALIDATION_ERROR', 'Invalid weekStart date format', HttpStatus.BAD_REQUEST);
     }
     return parsed;
   }
@@ -116,7 +117,11 @@ export class WeeklyPlansService {
       throw new NotFoundException('Recipe not found');
     }
     if (recipe.householdId !== plan.householdId) {
-      throw new BadRequestException('Recipe does not belong to this household');
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Recipe does not belong to this household',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const [existingForMealType, existingTotal, existingSlot] = await Promise.all([
@@ -143,11 +148,19 @@ export class WeeklyPlansService {
     }
 
     if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
-      throw new BadRequestException('Meal type limit reached (max 7 per week)');
+      throw new AppException(
+        'PLAN_SLOT_LIMIT_REACHED',
+        'Meal type limit reached (max 7 per week)',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     if (existingTotal >= WeeklyPlansService.MAX_ITEMS_TOTAL) {
-      throw new BadRequestException('Weekly plan total limit reached (max 21 items)');
+      throw new AppException(
+        'PLAN_TOTAL_LIMIT_REACHED',
+        'Weekly plan total limit reached (max 21 items)',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     return this.prisma.planItem.create({

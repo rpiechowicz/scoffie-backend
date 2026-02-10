@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { AppErrorCode } from './app-error-code';
 
 export type WsSuccess<T> = { ok: true; data: T };
 export type WsError = {
@@ -34,16 +35,29 @@ function extractMessage(response: unknown): string {
   return 'Unexpected error';
 }
 
+function extractCode(response: unknown): AppErrorCode | null {
+  if (!response || typeof response !== 'object') {
+    return null;
+  }
+
+  if ('code' in response && typeof (response as { code?: unknown }).code === 'string') {
+    return (response as { code: AppErrorCode }).code;
+  }
+
+  return null;
+}
+
 export async function wsRespond<T>(action: () => Promise<T>): Promise<WsSuccess<T> | WsError> {
   try {
     return { ok: true, data: await action() };
   } catch (error: unknown) {
     if (error instanceof HttpException) {
       const status = error.getStatus();
+      const response = error.getResponse();
       return {
         ok: false,
-        error: extractMessage(error.getResponse()),
-        code: STATUS_CODE_MAP[status] ?? 'HTTP_ERROR',
+        error: extractMessage(response),
+        code: extractCode(response) ?? STATUS_CODE_MAP[status] ?? 'HTTP_ERROR',
         status,
       };
     }

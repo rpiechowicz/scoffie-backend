@@ -1,5 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { CreateHouseholdDto } from './dto/create-household.dto';
@@ -116,10 +117,14 @@ export class HouseholdsService {
       throw new NotFoundException('Invitation not found');
     }
     if (invitation.redeemedAt) {
-      throw new BadRequestException('Invitation already redeemed');
+      throw new AppException(
+        'INVITATION_ALREADY_REDEEMED',
+        'Invitation already redeemed',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     if (invitation.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException('Invitation expired');
+      throw new AppException('INVITATION_EXPIRED', 'Invitation expired', HttpStatus.BAD_REQUEST);
     }
 
     const membership = await this.prisma.membership.upsert({
