@@ -4,10 +4,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { CreateHouseholdDto } from './dto/create-household.dto';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
+import { UpdateHouseholdDto } from './dto/update-household.dto';
+import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 
 @Injectable()
 export class HouseholdsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async getHouseholdOrThrow(householdId: string) {
+    const household = await this.prisma.household.findUnique({
+      where: { id: householdId },
+    });
+    if (!household) {
+      throw new NotFoundException('Household not found');
+    }
+    return household;
+  }
 
   private async ensureMembership(userId: string, householdId: string) {
     const membership = await this.prisma.membership.findUnique({
@@ -17,6 +29,23 @@ export class HouseholdsService {
       throw new ForbiddenException('User is not a member of this household');
     }
     return membership;
+  }
+
+  private async ensureOwner(userId: string, householdId: string) {
+    const membership = await this.ensureMembership(userId, householdId);
+    if (membership.role !== 'OWNER') {
+      throw new ForbiddenException('Only owners can manage household members');
+    }
+    return membership;
+  }
+
+  private async countOwners(householdId: string) {
+    return this.prisma.membership.count({
+      where: {
+        householdId,
+        role: 'OWNER',
+      },
+    });
   }
 
   async findAll(userId: string) {
@@ -32,10 +61,7 @@ export class HouseholdsService {
   }
 
   async findById(userId: string, id: string) {
-    const household = await this.prisma.household.findUnique({ where: { id } });
-    if (!household) {
-      throw new NotFoundException('Household not found');
-    }
+    const household = await this.getHouseholdOrThrow(id);
     await this.ensureMembership(userId, id);
     return household;
   }
@@ -120,5 +146,91 @@ export class HouseholdsService {
     });
 
     return membership;
+  }
+
+  async updateName(userId: string, householdId: string, dto: UpdateHouseholdDto) {
+    await this.getHouseholdOrThrow(householdId);
+    await this.ensureOwner(userId, householdId);
+    return this.prisma.household.update({
+      where: { id: householdId },
+      data: { name: dto.name },
+    });
+  }
+
+  async listMembers(userId: string, householdId: string) {
+    await this.getHouseholdOrThrow(householdId);
+    await this.ensureMembership(userId, householdId);
+    return this.prisma.membership.findMany({
+      where: { householdId },
+      orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+            avatarUrl: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateMemberRole(
+    userId: string,
+    householdId: string,
+    memberUserId: string,
+    dto: UpdateMemberRoleDto,
+  ) {
+    await this.getHouseholdOrThrow(householdId);
+    await this.ensureOwner(userId, householdId);
+
+    const targetMembership = await this.prisma.membership.findUnique({
+      where: { userId_householdId: { userId: memberUserId, householdId } },
+    });
+    if (!targetMembership) {
+      throw new NotFoundException('Member not found in this household');
+    }
+
+    if (targetMembership.role === dto.role) {
+      return targetMembership;
+    }
+
+    if (targetMembership.role === 'OWNER' && dto.role !== 'OWNER') {
+      const ownerCount = await this.countOwners(householdId);
+      if (ownerCount <= 1) {
+        throw new BadRequestException('Household must have at least one owner');
+      }
+    }
+
+    return this.prisma.membership.update({
+      where: { userId_householdId: { userId: memberUserId, householdId } },
+      data: { role: dto.role },
+    });
+  }
+
+  async removeMember(userId: string, householdId: string, memberUserId: string) {
+    await this.getHouseholdOrThrow(householdId);
+    await this.ensureOwner(userId, householdId);
+
+    const targetMembership = await this.prisma.membership.findUnique({
+      where: { userId_householdId: { userId: memberUserId, householdId } },
+    });
+    if (!targetMembership) {
+      throw new NotFoundException('Member not found in this household');
+    }
+
+    if (targetMembership.role === 'OWNER') {
+      const ownerCount = await this.countOwners(householdId);
+      if (ownerCount <= 1) {
+        throw new BadRequestException('Cannot remove the last owner from household');
+      }
+    }
+
+    return this.prisma.membership.delete({
+      where: { userId_householdId: { userId: memberUserId, householdId } },
+    });
   }
 }

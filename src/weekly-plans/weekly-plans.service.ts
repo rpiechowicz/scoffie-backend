@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
@@ -6,6 +6,8 @@ import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 @Injectable()
 export class WeeklyPlansService {
   constructor(private readonly prisma: PrismaService) {}
+  private static readonly MAX_ITEMS_PER_MEAL_TYPE = 7;
+  private static readonly MAX_ITEMS_TOTAL = 21;
 
   private async ensureMembership(userId: string, householdId: string) {
     const membership = await this.prisma.membership.findUnique({
@@ -84,6 +86,49 @@ export class WeeklyPlansService {
       throw new NotFoundException('Weekly plan not found');
     }
     await this.ensureMembership(userId, plan.householdId);
+
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: dto.recipeId },
+      select: { id: true, householdId: true },
+    });
+    if (!recipe) {
+      throw new NotFoundException('Recipe not found');
+    }
+    if (recipe.householdId !== plan.householdId) {
+      throw new BadRequestException('Recipe does not belong to this household');
+    }
+
+    const [existingForMealType, existingTotal, existingSlot] = await Promise.all([
+      this.prisma.planItem.count({
+        where: {
+          weeklyPlanId,
+          mealType: dto.mealType,
+        },
+      }),
+      this.prisma.planItem.count({
+        where: { weeklyPlanId },
+      }),
+      this.prisma.planItem.findFirst({
+        where: {
+          weeklyPlanId,
+          dayOfWeek: dto.dayOfWeek,
+          mealType: dto.mealType,
+        },
+      }),
+    ]);
+
+    if (existingSlot) {
+      throw new ConflictException('This day and meal slot is already assigned in weekly plan');
+    }
+
+    if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
+      throw new BadRequestException('Meal type limit reached (max 7 per week)');
+    }
+
+    if (existingTotal >= WeeklyPlansService.MAX_ITEMS_TOTAL) {
+      throw new BadRequestException('Weekly plan total limit reached (max 21 items)');
+    }
+
     return this.prisma.planItem.create({
       data: {
         weeklyPlanId,
