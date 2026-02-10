@@ -1,19 +1,24 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class GoogleOauthDto {
-  @ApiProperty({ example: '4/0AfJohXl9...' })
+  @ApiProperty({ example: 'google-1234567890' })
   @IsString()
-  @MinLength(6)
-  code: string;
+  @MinLength(3)
+  googleId: string;
 
-  @ApiProperty({ example: 's256-code-verifier-from-frontend' })
+  @ApiProperty({ example: 'Rafi' })
   @IsString()
-  @MinLength(16)
-  codeVerifier: string;
+  @MinLength(2)
+  displayName: string;
 
-  @ApiProperty({ example: 'http://localhost:5173/auth/callback/google' })
+  @ApiProperty({ example: 'rafi@example.com', required: false })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiProperty({ example: 'https://lh3.googleusercontent.com/a/avatar', required: false })
+  @IsOptional()
   @IsString()
-  @MinLength(10)
-  redirectUri: string;
+  avatarUrl?: string;
 }

@@ -26,9 +26,6 @@ services:
     environment:
       DATABASE_URL: postgresql://weeklymeals:weeklymeals@db:5432/weeklymeals?schema=public
       JWT_SECRET: dev-secret-change-me
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
     ports:
       - "3000:3000"
       - "5555:5555"
