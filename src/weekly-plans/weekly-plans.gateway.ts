@@ -5,6 +5,8 @@ import { WeeklyPlansService } from './weekly-plans.service';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
+import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
+import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 
 class WeeklyPlansListPayload {
   userId: string;
@@ -45,6 +47,20 @@ class WeeklyPlansSetShoppingItemCheckedPayload {
   householdId: string;
   weekStart: string;
   data: UpdateShoppingItemCheckDto;
+}
+
+class WeeklyPlansUpsertWeekSlotPayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+  data: UpsertWeekSlotDto;
+}
+
+class WeeklyPlansRemoveWeekSlotPayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+  data: RemoveWeekSlotDto;
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
@@ -89,6 +105,30 @@ export class WeeklyPlansGateway {
   setShoppingItemChecked(@MessageBody() payload: WeeklyPlansSetShoppingItemCheckedPayload) {
     return wsRespond(() =>
       this.weeklyPlansService.setShoppingItemChecked(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      ),
+    );
+  }
+
+  @SubscribeMessage('weeklyPlans:upsertWeekSlot')
+  upsertWeekSlot(@MessageBody() payload: WeeklyPlansUpsertWeekSlotPayload) {
+    return wsRespond(() =>
+      this.weeklyPlansService.upsertWeekSlot(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      ),
+    );
+  }
+
+  @SubscribeMessage('weeklyPlans:removeWeekSlot')
+  removeWeekSlot(@MessageBody() payload: WeeklyPlansRemoveWeekSlotPayload) {
+    return wsRespond(() =>
+      this.weeklyPlansService.removeWeekSlot(
         payload.userId,
         payload.householdId,
         payload.weekStart,

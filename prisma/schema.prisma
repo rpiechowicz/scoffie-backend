@@ -42,6 +42,19 @@ model Recipe {
   id          String   @id @default(uuid()) @db.Uuid
   title       String
   description String?
+  mealType    MealType
+  difficulty  Difficulty @default(EASY)
+  prepTimeMinutes Int @default(0)
+  servings    Int @default(1)
+  imageUrl    String?
+  nutritionKcal    Float @default(0)
+  nutritionProtein Float @default(0)
+  nutritionFat     Float @default(0)
+  nutritionCarbs   Float @default(0)
+  nutritionFiber   Float @default(0)
+  nutritionSalt    Float @default(0)
+  isActive    Boolean @default(true)
+  isFavorite  Boolean @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -120,6 +133,8 @@ model PlanItem {
 
   weeklyPlan WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
   recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([weeklyPlanId, dayOfWeek, mealType])
 }
 
 model RecipeIngredient {
@@ -171,4 +186,10 @@ enum MealType {
   BREAKFAST
   LUNCH
   DINNER
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
 }

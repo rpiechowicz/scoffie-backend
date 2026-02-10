@@ -46,40 +46,127 @@ async function main(): Promise<void> {
     },
   });
 
-  await prisma.recipe.createMany({
-    data: [
-      {
-        title: 'Pasta with tomatoes',
-        description: 'Simple pasta with tomato sauce and basil.',
+  const recipesToCreate = [
+    {
+      title: 'Pasta with tomatoes',
+      description: 'Simple pasta with tomato sauce and basil.',
+      mealType: 'DINNER' as const,
+      difficulty: 'EASY' as const,
+      prepTimeMinutes: 25,
+      servings: 2,
+      nutritionKcal: 820,
+      nutritionProtein: 28,
+      nutritionFat: 18,
+      nutritionCarbs: 130,
+      nutritionFiber: 8,
+      nutritionSalt: 2.1,
+      ingredients: [
+        { name: 'Pasta', amount: 220, unit: 'g', department: 'Zboża i makarony' },
+        { name: 'Tomatoes', amount: 300, unit: 'g', department: 'Warzywa' },
+        { name: 'Basil', amount: 10, unit: 'g', department: 'Warzywa' },
+      ],
+    },
+    {
+      title: 'Oatmeal with fruit',
+      description: 'Quick breakfast to start the day.',
+      mealType: 'BREAKFAST' as const,
+      difficulty: 'EASY' as const,
+      prepTimeMinutes: 10,
+      servings: 2,
+      nutritionKcal: 640,
+      nutritionProtein: 20,
+      nutritionFat: 10,
+      nutritionCarbs: 110,
+      nutritionFiber: 9,
+      nutritionSalt: 0.6,
+      ingredients: [
+        { name: 'Oats', amount: 100, unit: 'g', department: 'Zboża i makarony' },
+        { name: 'Milk', amount: 300, unit: 'ml', department: 'Nabiał' },
+        { name: 'Banana', amount: 1, unit: 'szt', department: 'Owoce' },
+      ],
+    },
+    {
+      title: 'Chicken with rice',
+      description: 'Classic lunch with vegetables.',
+      mealType: 'LUNCH' as const,
+      difficulty: 'MEDIUM' as const,
+      prepTimeMinutes: 30,
+      servings: 2,
+      nutritionKcal: 980,
+      nutritionProtein: 62,
+      nutritionFat: 22,
+      nutritionCarbs: 120,
+      nutritionFiber: 7,
+      nutritionSalt: 1.8,
+      ingredients: [
+        { name: 'Chicken breast', amount: 300, unit: 'g', department: 'Mięso' },
+        { name: 'Rice', amount: 180, unit: 'g', department: 'Zboża i makarony' },
+        { name: 'Broccoli', amount: 200, unit: 'g', department: 'Warzywa' },
+      ],
+    },
+    {
+      title: 'Greek salad',
+      description: 'Tomato, cucumber, olives, feta.',
+      mealType: 'LUNCH' as const,
+      difficulty: 'EASY' as const,
+      prepTimeMinutes: 15,
+      servings: 2,
+      nutritionKcal: 520,
+      nutritionProtein: 18,
+      nutritionFat: 36,
+      nutritionCarbs: 24,
+      nutritionFiber: 6,
+      nutritionSalt: 2.7,
+      ingredients: [
+        { name: 'Tomato', amount: 220, unit: 'g', department: 'Warzywa' },
+        { name: 'Cucumber', amount: 180, unit: 'g', department: 'Warzywa' },
+        { name: 'Feta', amount: 120, unit: 'g', department: 'Nabiał' },
+      ],
+    },
+    {
+      title: 'Pumpkin soup',
+      description: 'Warm soup for colder days.',
+      mealType: 'DINNER' as const,
+      difficulty: 'EASY' as const,
+      prepTimeMinutes: 35,
+      servings: 4,
+      nutritionKcal: 760,
+      nutritionProtein: 18,
+      nutritionFat: 24,
+      nutritionCarbs: 108,
+      nutritionFiber: 12,
+      nutritionSalt: 2.2,
+      ingredients: [
+        { name: 'Pumpkin', amount: 900, unit: 'g', department: 'Warzywa' },
+        { name: 'Vegetable stock', amount: 1200, unit: 'ml', department: 'Konserwy' },
+        { name: 'Cream', amount: 120, unit: 'ml', department: 'Nabiał' },
+      ],
+    },
+  ];
+
+  for (const recipe of recipesToCreate) {
+    await prisma.recipe.create({
+      data: {
+        title: recipe.title,
+        description: recipe.description,
+        mealType: recipe.mealType,
+        difficulty: recipe.difficulty,
+        prepTimeMinutes: recipe.prepTimeMinutes,
+        servings: recipe.servings,
+        nutritionKcal: recipe.nutritionKcal,
+        nutritionProtein: recipe.nutritionProtein,
+        nutritionFat: recipe.nutritionFat,
+        nutritionCarbs: recipe.nutritionCarbs,
+        nutritionFiber: recipe.nutritionFiber,
+        nutritionSalt: recipe.nutritionSalt,
         authorId: anna.id,
         householdId: home.id,
+        ingredients: {
+          create: recipe.ingredients,
+        },
       },
-      {
-        title: 'Oatmeal with fruit',
-        description: 'Quick breakfast to start the day.',
-        authorId: anna.id,
-        householdId: home.id,
-      },
-      {
-        title: 'Chicken with rice',
-        description: 'Classic lunch with vegetables.',
-        authorId: anna.id,
-        householdId: home.id,
-      },
-      {
-        title: 'Greek salad',
-        description: 'Tomato, cucumber, olives, feta.',
-        authorId: anna.id,
-        householdId: home.id,
-      },
-      {
-        title: 'Pumpkin soup',
-        description: 'Warm soup for colder days.',
-        authorId: anna.id,
-        householdId: home.id,
-      },
-    ],
-  });
+    });
+  }
 
   const weeklyPlan = await prisma.weeklyPlan.create({
     data: {

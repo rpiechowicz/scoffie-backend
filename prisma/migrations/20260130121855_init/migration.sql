@@ -7,6 +7,9 @@ CREATE TYPE "DayOfWeek" AS ENUM ('MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'
 -- CreateEnum
 CREATE TYPE "MealType" AS ENUM ('BREAKFAST', 'LUNCH', 'DINNER');
 
+-- CreateEnum
+CREATE TYPE "Difficulty" AS ENUM ('EASY', 'MEDIUM', 'HARD');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" UUID NOT NULL,
@@ -37,6 +40,19 @@ CREATE TABLE "Recipe" (
     "id" UUID NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT,
+    "mealType" "MealType" NOT NULL,
+    "difficulty" "Difficulty" NOT NULL DEFAULT 'EASY',
+    "prepTimeMinutes" INTEGER NOT NULL DEFAULT 0,
+    "servings" INTEGER NOT NULL DEFAULT 1,
+    "imageUrl" TEXT,
+    "nutritionKcal" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "nutritionProtein" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "nutritionFat" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "nutritionCarbs" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "nutritionFiber" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "nutritionSalt" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "isFavorite" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "authorId" UUID NOT NULL,
@@ -151,6 +167,9 @@ CREATE UNIQUE INDEX "Invitation_token_key" ON "Invitation"("token");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "WeeklyPlan_householdId_weekStart_key" ON "WeeklyPlan"("householdId", "weekStart");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PlanItem_weeklyPlanId_dayOfWeek_mealType_key" ON "PlanItem"("weeklyPlanId", "dayOfWeek", "mealType");
 
 -- CreateIndex
 CREATE INDEX "RecipeIngredient_recipeId_idx" ON "RecipeIngredient"("recipeId");

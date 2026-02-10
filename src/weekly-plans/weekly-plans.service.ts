@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
+import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
+import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 
 type ShoppingAccumulator = {
   productKey: string;
@@ -31,6 +33,24 @@ export class WeeklyPlansService {
     return `${name.trim().toLowerCase()}::${unit.trim().toLowerCase()}`;
   }
 
+  private async ensureRecipeForHousehold(recipeId: string, householdId: string) {
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      select: { id: true, householdId: true },
+    });
+    if (!recipe) {
+      throw new NotFoundException('Recipe not found');
+    }
+    if (recipe.householdId !== householdId) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Recipe does not belong to this household',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return recipe;
+  }
+
   private async ensureMembership(userId: string, householdId: string) {
     const membership = await this.prisma.membership.findUnique({
       where: { userId_householdId: { userId, householdId } },
@@ -54,8 +74,21 @@ export class WeeklyPlansService {
                 id: true,
                 title: true,
                 description: true,
+                mealType: true,
+                difficulty: true,
+                prepTimeMinutes: true,
+                servings: true,
+                imageUrl: true,
+                nutritionKcal: true,
+                nutritionProtein: true,
+                nutritionFat: true,
+                nutritionCarbs: true,
+                nutritionFiber: true,
+                nutritionSalt: true,
+                isActive: true,
                 authorId: true,
                 householdId: true,
+                ingredients: true,
               },
             },
           },
@@ -76,8 +109,21 @@ export class WeeklyPlansService {
                 id: true,
                 title: true,
                 description: true,
+                mealType: true,
+                difficulty: true,
+                prepTimeMinutes: true,
+                servings: true,
+                imageUrl: true,
+                nutritionKcal: true,
+                nutritionProtein: true,
+                nutritionFat: true,
+                nutritionCarbs: true,
+                nutritionFiber: true,
+                nutritionSalt: true,
+                isActive: true,
                 authorId: true,
                 householdId: true,
+                ingredients: true,
               },
             },
           },
@@ -109,20 +155,7 @@ export class WeeklyPlansService {
     }
     await this.ensureMembership(userId, plan.householdId);
 
-    const recipe = await this.prisma.recipe.findUnique({
-      where: { id: dto.recipeId },
-      select: { id: true, householdId: true },
-    });
-    if (!recipe) {
-      throw new NotFoundException('Recipe not found');
-    }
-    if (recipe.householdId !== plan.householdId) {
-      throw new AppException(
-        'VALIDATION_ERROR',
-        'Recipe does not belong to this household',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    await this.ensureRecipeForHousehold(dto.recipeId, plan.householdId);
 
     const [existingForMealType, existingTotal, existingSlot] = await Promise.all([
       this.prisma.planItem.count({
@@ -306,6 +339,125 @@ export class WeeklyPlansService {
         productKey: dto.productKey,
         isChecked: dto.isChecked,
       },
+    });
+  }
+
+  async upsertWeekSlot(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    dto: UpsertWeekSlotDto,
+  ) {
+    await this.ensureMembership(userId, householdId);
+    const weekStartDate = this.parseWeekStart(weekStart);
+    await this.ensureRecipeForHousehold(dto.recipeId, householdId);
+
+    const weeklyPlan = await this.prisma.weeklyPlan.upsert({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      update: {},
+      create: {
+        householdId,
+        weekStart: weekStartDate,
+      },
+      select: { id: true },
+    });
+
+    const existingSlot = await this.prisma.planItem.findFirst({
+      where: {
+        weeklyPlanId: weeklyPlan.id,
+        dayOfWeek: dto.dayOfWeek,
+        mealType: dto.mealType,
+      },
+    });
+
+    if (existingSlot) {
+      return this.prisma.planItem.update({
+        where: { id: existingSlot.id },
+        data: { recipeId: dto.recipeId },
+      });
+    }
+
+    const [existingForMealType, existingTotal] = await Promise.all([
+      this.prisma.planItem.count({
+        where: {
+          weeklyPlanId: weeklyPlan.id,
+          mealType: dto.mealType,
+        },
+      }),
+      this.prisma.planItem.count({
+        where: { weeklyPlanId: weeklyPlan.id },
+      }),
+    ]);
+
+    if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
+      throw new AppException(
+        'PLAN_SLOT_LIMIT_REACHED',
+        'Meal type limit reached (max 7 per week)',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (existingTotal >= WeeklyPlansService.MAX_ITEMS_TOTAL) {
+      throw new AppException(
+        'PLAN_TOTAL_LIMIT_REACHED',
+        'Weekly plan total limit reached (max 21 items)',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return this.prisma.planItem.create({
+      data: {
+        weeklyPlanId: weeklyPlan.id,
+        dayOfWeek: dto.dayOfWeek,
+        mealType: dto.mealType,
+        recipeId: dto.recipeId,
+      },
+    });
+  }
+
+  async removeWeekSlot(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    dto: RemoveWeekSlotDto,
+  ) {
+    await this.ensureMembership(userId, householdId);
+    const weekStartDate = this.parseWeekStart(weekStart);
+
+    const weeklyPlan = await this.prisma.weeklyPlan.findUnique({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!weeklyPlan) {
+      return null;
+    }
+
+    const existingSlot = await this.prisma.planItem.findFirst({
+      where: {
+        weeklyPlanId: weeklyPlan.id,
+        dayOfWeek: dto.dayOfWeek,
+        mealType: dto.mealType,
+      },
+      select: { id: true },
+    });
+
+    if (!existingSlot) {
+      return null;
+    }
+
+    return this.prisma.planItem.delete({
+      where: { id: existingSlot.id },
     });
   }
 }
