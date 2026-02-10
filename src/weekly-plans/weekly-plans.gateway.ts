@@ -4,6 +4,7 @@ import { wsRespond } from '../common/ws-response';
 import { WeeklyPlansService } from './weekly-plans.service';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
+import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
 
 class WeeklyPlansListPayload {
   userId: string;
@@ -31,6 +32,19 @@ class WeeklyPlansAddItemPayload {
 class WeeklyPlansRemoveItemPayload {
   userId: string;
   itemId: string;
+}
+
+class WeeklyPlansGetShoppingListPayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+}
+
+class WeeklyPlansSetShoppingItemCheckedPayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+  data: UpdateShoppingItemCheckDto;
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
@@ -62,5 +76,24 @@ export class WeeklyPlansGateway {
   @SubscribeMessage('weeklyPlans:removeItem')
   removeItem(@MessageBody() payload: WeeklyPlansRemoveItemPayload) {
     return wsRespond(() => this.weeklyPlansService.removeItem(payload.userId, payload.itemId));
+  }
+
+  @SubscribeMessage('weeklyPlans:getShoppingList')
+  getShoppingList(@MessageBody() payload: WeeklyPlansGetShoppingListPayload) {
+    return wsRespond(() =>
+      this.weeklyPlansService.getShoppingList(payload.userId, payload.householdId, payload.weekStart),
+    );
+  }
+
+  @SubscribeMessage('weeklyPlans:setShoppingItemChecked')
+  setShoppingItemChecked(@MessageBody() payload: WeeklyPlansSetShoppingItemCheckedPayload) {
+    return wsRespond(() =>
+      this.weeklyPlansService.setShoppingItemChecked(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      ),
+    );
   }
 }

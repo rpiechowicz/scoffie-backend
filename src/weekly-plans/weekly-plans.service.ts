@@ -2,12 +2,33 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
+import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
+
+type ShoppingAccumulator = {
+  productKey: string;
+  name: string;
+  unit: string;
+  department: string;
+  totalAmount: number;
+};
 
 @Injectable()
 export class WeeklyPlansService {
   constructor(private readonly prisma: PrismaService) {}
   private static readonly MAX_ITEMS_PER_MEAL_TYPE = 7;
   private static readonly MAX_ITEMS_TOTAL = 21;
+
+  private parseWeekStart(weekStart: string): Date {
+    const parsed = new Date(weekStart);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException('Invalid weekStart date format');
+    }
+    return parsed;
+  }
+
+  private normalizeProductKey(name: string, unit: string): string {
+    return `${name.trim().toLowerCase()}::${unit.trim().toLowerCase()}`;
+  }
 
   private async ensureMembership(userId: string, householdId: string) {
     const membership = await this.prisma.membership.findUnique({
@@ -149,5 +170,129 @@ export class WeeklyPlansService {
     }
     await this.ensureMembership(userId, item.weeklyPlan.householdId);
     return this.prisma.planItem.delete({ where: { id: itemId } });
+  }
+
+  async getShoppingList(userId: string, householdId: string, weekStart: string) {
+    await this.ensureMembership(userId, householdId);
+    const weekStartDate = this.parseWeekStart(weekStart);
+
+    const plan = await this.prisma.weeklyPlan.findUnique({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      include: {
+        items: {
+          include: {
+            recipe: {
+              include: {
+                ingredients: {
+                  select: {
+                    name: true,
+                    amount: true,
+                    unit: true,
+                    department: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!plan) {
+      return [];
+    }
+
+    const aggregated = new Map<string, ShoppingAccumulator>();
+    for (const item of plan.items) {
+      for (const ingredient of item.recipe.ingredients) {
+        const productKey = this.normalizeProductKey(ingredient.name, ingredient.unit);
+        const current = aggregated.get(productKey);
+        if (current) {
+          current.totalAmount += ingredient.amount;
+          continue;
+        }
+        aggregated.set(productKey, {
+          productKey,
+          name: ingredient.name,
+          unit: ingredient.unit,
+          department: ingredient.department,
+          totalAmount: ingredient.amount,
+        });
+      }
+    }
+
+    if (aggregated.size === 0) {
+      return [];
+    }
+
+    const productKeys = Array.from(aggregated.keys());
+    const checks = await this.prisma.shoppingItemCheck.findMany({
+      where: {
+        householdId,
+        weekStart: weekStartDate,
+        productKey: {
+          in: productKeys,
+        },
+      },
+      select: {
+        productKey: true,
+        isChecked: true,
+      },
+    });
+    const checkedMap = new Map(checks.map((check) => [check.productKey, check.isChecked]));
+
+    return Array.from(aggregated.values())
+      .map((item) => ({
+        ...item,
+        totalAmount: Number(item.totalAmount.toFixed(2)),
+        isChecked: checkedMap.get(item.productKey) ?? false,
+      }))
+      .sort((a, b) => {
+        if (a.department === b.department) {
+          return a.name.localeCompare(b.name);
+        }
+        return a.department.localeCompare(b.department);
+      });
+  }
+
+  async setShoppingItemChecked(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    dto: UpdateShoppingItemCheckDto,
+  ) {
+    await this.ensureMembership(userId, householdId);
+    const weekStartDate = this.parseWeekStart(weekStart);
+
+    // Validate that the product exists in current shopping list of the selected week.
+    const shoppingItems = await this.getShoppingList(userId, householdId, weekStart);
+    const exists = shoppingItems.some((item) => item.productKey === dto.productKey);
+    if (!exists) {
+      throw new NotFoundException('Shopping item not found for this household and week');
+    }
+
+    return this.prisma.shoppingItemCheck.upsert({
+      where: {
+        householdId_weekStart_productKey: {
+          householdId,
+          weekStart: weekStartDate,
+          productKey: dto.productKey,
+        },
+      },
+      update: {
+        isChecked: dto.isChecked,
+      },
+      create: {
+        householdId,
+        weekStart: weekStartDate,
+        productKey: dto.productKey,
+        isChecked: dto.isChecked,
+      },
+    });
   }
 }

@@ -104,6 +104,33 @@ CREATE TABLE "PlanItem" (
     CONSTRAINT "PlanItem_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "RecipeIngredient" (
+    "id" UUID NOT NULL,
+    "recipeId" UUID NOT NULL,
+    "name" TEXT NOT NULL,
+    "amount" DOUBLE PRECISION NOT NULL,
+    "unit" TEXT NOT NULL,
+    "department" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "RecipeIngredient_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ShoppingItemCheck" (
+    "id" UUID NOT NULL,
+    "householdId" UUID NOT NULL,
+    "weekStart" TIMESTAMP(3) NOT NULL,
+    "productKey" TEXT NOT NULL,
+    "isChecked" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ShoppingItemCheck_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_googleId_key" ON "User"("googleId");
 
@@ -124,6 +151,15 @@ CREATE UNIQUE INDEX "Invitation_token_key" ON "Invitation"("token");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "WeeklyPlan_householdId_weekStart_key" ON "WeeklyPlan"("householdId", "weekStart");
+
+-- CreateIndex
+CREATE INDEX "RecipeIngredient_recipeId_idx" ON "RecipeIngredient"("recipeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ShoppingItemCheck_householdId_weekStart_productKey_key" ON "ShoppingItemCheck"("householdId", "weekStart", "productKey");
+
+-- CreateIndex
+CREATE INDEX "ShoppingItemCheck_householdId_weekStart_idx" ON "ShoppingItemCheck"("householdId", "weekStart");
 
 -- AddForeignKey
 ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -160,3 +196,9 @@ ALTER TABLE "PlanItem" ADD CONSTRAINT "PlanItem_weeklyPlanId_fkey" FOREIGN KEY (
 
 -- AddForeignKey
 ALTER TABLE "PlanItem" ADD CONSTRAINT "PlanItem_recipeId_fkey" FOREIGN KEY ("recipeId") REFERENCES "Recipe"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RecipeIngredient" ADD CONSTRAINT "RecipeIngredient_recipeId_fkey" FOREIGN KEY ("recipeId") REFERENCES "Recipe"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShoppingItemCheck" ADD CONSTRAINT "ShoppingItemCheck_householdId_fkey" FOREIGN KEY ("householdId") REFERENCES "Household"("id") ON DELETE CASCADE ON UPDATE CASCADE;
