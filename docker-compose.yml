@@ -23,9 +23,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://weeklymeals:weeklymeals@db:5432/weeklymeals?schema=public
-      JWT_SECRET: dev-secret-change-me
     ports:
       - "3000:3000"
       - "5555:5555"

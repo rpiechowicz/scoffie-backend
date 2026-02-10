@@ -13,6 +13,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "pnpm prisma migrate deploy && node dist/main",
     "ws:smoke": "tsx scripts/ws-smoke.ts",
+    "import:recipes": "pnpm prisma migrate deploy && tsx scripts/import-recipes.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
