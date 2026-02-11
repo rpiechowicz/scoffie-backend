@@ -42,6 +42,21 @@ model Recipe {
   id          String   @id @default(uuid()) @db.Uuid
   title       String
   description String?
+  sourceProvider String?
+  sourceRecipeId String?
+  sourceCategory String?
+  sourceCuisine String?
+  sourceTags     String[] @default([])
+  sourceMeta     Json?
+  sourceDietary  Json?
+  sourceStorage  Json?
+  sourceEquipment Json?
+  sourceInstructions Json?
+  sourceTroubleshooting Json?
+  sourceChefNotes Json?
+  sourceCulturalContext String?
+  sourceNutrition Json?
+  sourceRaw      Json?
   mealType    MealType
   difficulty  Difficulty @default(EASY)
   prepTimeMinutes Int @default(0)

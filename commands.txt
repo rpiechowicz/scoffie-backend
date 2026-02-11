@@ -17,3 +17,19 @@ docker compose exec api pnpm ws:smoke users:findAll '{}'
 docker compose exec api pnpm ws:smoke households:findAll '{"userId":"<USER_ID>"}'
 docker compose exec api pnpm ws:smoke recipes:findAll '{"userId":"<USER_ID>"}'
 docker compose exec api pnpm ws:smoke weeklyPlans:listByHousehold '{"userId":"<USER_ID>","householdId":"<HOUSEHOLD_ID>"}'
+
+// TRANSLATE EXISTING RECIPES TO POLISH
+docker compose exec api pnpm run translate:recipes:pl
+
+// GENERATE RECIPE IMAGES (fills imageUrl)
+docker compose exec api pnpm run generate:recipe:images
+
+// RESET DB + IMPORT (5 recipes with detail payload)
+docker compose exec db psql -U weeklymeals -d weeklymeals -c "TRUNCATE TABLE \"PlanItem\", \"WeeklyPlan\", \"ShoppingItemCheck\", \"RecipeIngredient\", \"Recipe\", \"Invitation\", \"Membership\", \"Household\", \"RefreshToken\", \"User\" RESTART IDENTITY CASCADE;"
+docker compose exec api pnpm run import:recipes
+
+// SEED RECIPES
+docker compose exec api pnpm run import:recipes
+
+// AI Recipes Image
+https://www.recraft.ai

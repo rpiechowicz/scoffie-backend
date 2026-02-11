@@ -4,10 +4,12 @@ import { wsRespond } from '../common/ws-response';
 import { RecipesService } from './recipes.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
+import { FindRecipesDto } from './dto/find-recipes.dto';
 
 class RecipesFindAllPayload {
   userId: string;
   householdId?: string;
+  filters?: FindRecipesDto;
 }
 
 class RecipesFindByIdPayload {
@@ -31,7 +33,8 @@ export class RecipesGateway {
 
   @SubscribeMessage('recipes:findAll')
   findAll(@MessageBody() payload: RecipesFindAllPayload) {
-    return wsRespond(() => this.recipesService.findAll(payload.userId, payload.householdId));
+    const filters = payload.filters ?? (payload.householdId ? { householdId: payload.householdId } : undefined);
+    return wsRespond(() => this.recipesService.findAll(payload.userId, filters));
   }
 
   @SubscribeMessage('recipes:findById')

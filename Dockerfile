@@ -32,6 +32,7 @@ RUN corepack enable && corepack prepare pnpm@10.15.1 --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/public ./public
 COPY prisma ./prisma
 COPY prisma.config.ts ./prisma.config.ts
 COPY tsconfig.json ./tsconfig.json

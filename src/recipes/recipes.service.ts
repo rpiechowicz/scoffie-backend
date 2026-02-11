@@ -2,12 +2,81 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
+import { FindRecipesDto } from './dto/find-recipes.dto';
 
 @Injectable()
 export class RecipesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async ensureMembership(userId: string, householdId: string) {
+  private readonly autoRecoverMissingUser = process.env.AUTO_RECOVER_MISSING_USER === 'true';
+  private readonly recoveryHouseholdName = process.env.AUTO_RECOVER_HOUSEHOLD_NAME ?? 'Home';
+
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  }
+
+  private async recoverMissingUserById(userId: string): Promise<string | null> {
+    if (!this.autoRecoverMissingUser || !this.isUuid(userId)) return null;
+
+    const recovered = await this.prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: {
+        id: userId,
+        googleId: `legacy-${userId}`,
+        displayName: 'Recovered User',
+        email: null,
+      },
+      select: { id: true },
+    });
+
+    const household = await this.prisma.household.findFirst({
+      where: { name: this.recoveryHouseholdName },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+
+    if (household) {
+      await this.prisma.membership.upsert({
+        where: {
+          userId_householdId: {
+            userId: recovered.id,
+            householdId: household.id,
+          },
+        },
+        update: {},
+        create: {
+          userId: recovered.id,
+          householdId: household.id,
+          role: 'MEMBER',
+        },
+      });
+    }
+
+    return recovered.id;
+  }
+
+  private async resolveUserId(userIdentifier: string): Promise<string> {
+    const byId = await this.prisma.user.findUnique({
+      where: { id: userIdentifier },
+      select: { id: true },
+    });
+    if (byId) return byId.id;
+
+    const byGoogleId = await this.prisma.user.findUnique({
+      where: { googleId: userIdentifier },
+      select: { id: true },
+    });
+    if (byGoogleId) return byGoogleId.id;
+
+    const recovered = await this.recoverMissingUserById(userIdentifier);
+    if (recovered) return recovered;
+
+    throw new ForbiddenException('User not found');
+  }
+
+  private async ensureMembership(userIdentifier: string, householdId: string) {
+    const userId = await this.resolveUserId(userIdentifier);
     const membership = await this.prisma.membership.findUnique({
       where: { userId_householdId: { userId, householdId } },
     });
@@ -16,17 +85,24 @@ export class RecipesService {
     }
   }
 
-  async findAll(userId: string, householdId?: string) {
+  async findAll(userIdentifier: string, filters?: FindRecipesDto) {
+    const userId = await this.resolveUserId(userIdentifier);
+    const householdId = filters?.householdId;
     const include = {
       ingredients: {
         orderBy: { createdAt: 'asc' as const },
       },
     };
+    const whereBase = {
+      isActive: true,
+      ...(filters?.mealType ? { mealType: filters.mealType } : {}),
+      ...(typeof filters?.isFavorite === 'boolean' ? { isFavorite: filters.isFavorite } : {}),
+    };
 
     if (householdId) {
       await this.ensureMembership(userId, householdId);
       return this.prisma.recipe.findMany({
-        where: { householdId },
+        where: { ...whereBase, householdId },
         orderBy: { createdAt: 'desc' },
         include,
       });
@@ -39,13 +115,13 @@ export class RecipesService {
     const householdIds = memberships.map((m) => m.householdId);
 
     return this.prisma.recipe.findMany({
-      where: { householdId: { in: householdIds } },
+      where: { ...whereBase, householdId: { in: householdIds } },
       orderBy: { createdAt: 'desc' },
       include,
     });
   }
 
-  async findById(userId: string, id: string) {
+  async findById(userIdentifier: string, id: string) {
     const recipe = await this.prisma.recipe.findUnique({
       where: { id },
       include: {
@@ -57,12 +133,13 @@ export class RecipesService {
     if (!recipe) {
       throw new NotFoundException('Recipe not found');
     }
-    await this.ensureMembership(userId, recipe.householdId);
+    await this.ensureMembership(userIdentifier, recipe.householdId);
     return recipe;
   }
 
-  async create(userId: string, data: CreateRecipeDto) {
-    await this.ensureMembership(userId, data.householdId);
+  async create(userIdentifier: string, data: CreateRecipeDto) {
+    const userId = await this.resolveUserId(userIdentifier);
+    await this.ensureMembership(userIdentifier, data.householdId);
     return this.prisma.recipe.create({
       data: {
         title: data.title,
@@ -99,7 +176,7 @@ export class RecipesService {
     });
   }
 
-  async setFavorite(userId: string, data: UpdateRecipeFavoriteDto) {
+  async setFavorite(userIdentifier: string, data: UpdateRecipeFavoriteDto) {
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: data.recipeId },
       select: {
@@ -111,7 +188,7 @@ export class RecipesService {
       throw new NotFoundException('Recipe not found');
     }
 
-    await this.ensureMembership(userId, recipe.householdId);
+    await this.ensureMembership(userIdentifier, recipe.householdId);
 
     await this.prisma.recipe.update({
       where: { id: data.recipeId },
@@ -120,6 +197,6 @@ export class RecipesService {
       },
     });
 
-    return this.findById(userId, data.recipeId);
+    return this.findById(userIdentifier, data.recipeId);
   }
 }
