@@ -1,13 +1,22 @@
-docker compose down -v --remove-orphans
-docker compose build --no-cache api
-docker compose up -d
+// -----------------------------
+// SAFE DAILY COMMANDS (NO DB RESET)
+// -----------------------------
 
+// Start/restart stack (keeps DB volume and data)
+docker compose up -d --build
+docker compose stop
+docker compose down --remove-orphans
+
+// Apply existing migrations safely (never use migrate dev on persistent DB)
 // WINDOWS
-docker compose exec api --% pnpm prisma migrate dev --name init
-docker compose exec api --% pnpm prisma:seed
-
+docker compose exec api --% pnpm prisma migrate deploy
 // MACOS
-docker compose exec api pnpm prisma migrate dev --name init
+docker compose exec api pnpm prisma migrate deploy
+
+// Optional seed (may add/overwrite seed records depending on seed script logic)
+// WINDOWS
+docker compose exec api --% pnpm prisma:seed
+// MACOS
 docker compose exec api pnpm prisma:seed
 
 docker compose exec api pnpm prisma studio -- --hostname 0.0.0.0 --port 5555
@@ -24,12 +33,24 @@ docker compose exec api pnpm run translate:recipes:pl
 // GENERATE RECIPE IMAGES (fills imageUrl)
 docker compose exec api pnpm run generate:recipe:images
 
-// RESET DB + IMPORT (5 recipes with detail payload)
-docker compose exec db psql -U weeklymeals -d weeklymeals -c "TRUNCATE TABLE \"PlanItem\", \"WeeklyPlan\", \"ShoppingItemCheck\", \"RecipeIngredient\", \"Recipe\", \"Invitation\", \"Membership\", \"Household\", \"RefreshToken\", \"User\" RESTART IDENTITY CASCADE;"
-docker compose exec api pnpm run import:recipes
+// UPLOAD LOCAL RECIPE IMAGES TO S3 + UPDATE imageUrl
+docker compose exec api pnpm run upload:recipe:images:s3
 
-// SEED RECIPES
-docker compose exec api pnpm run import:recipes
+// Import recipes safely (do NOT clear existing)
+docker compose exec api sh -lc "IMPORT_CLEAR_EXISTING=false pnpm run import:recipes"
+
+// -----------------------------
+// DANGEROUS / DESTRUCTIVE (MANUAL ONLY)
+// -----------------------------
+
+// Deletes database volume (all DB data lost):
+// docker compose down -v --remove-orphans
+
+// Full DB truncate (all app data lost):
+// docker compose exec db psql -U weeklymeals -d weeklymeals -c "TRUNCATE TABLE \"PlanItem\", \"WeeklyPlan\", \"ShoppingItemCheck\", \"RecipeIngredient\", \"Recipe\", \"Invitation\", \"Membership\", \"Household\", \"RefreshToken\", \"User\" RESTART IDENTITY CASCADE;"
+
+// Use only on throwaway DB (can reset on drift/conflict):
+// docker compose exec api pnpm prisma migrate dev --name init
 
 // AI Recipes Image
 https://www.recraft.ai

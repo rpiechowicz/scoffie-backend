@@ -15,7 +15,9 @@
     "ws:smoke": "tsx scripts/ws-smoke.ts",
     "import:recipes": "pnpm prisma migrate deploy && tsx scripts/import-recipes.ts",
     "translate:recipes:pl": "pnpm prisma migrate deploy && tsx scripts/translate-recipes-to-polish.ts",
+    "translate:instructions:pl": "pnpm prisma migrate deploy && tsx scripts/translate-recipe-instructions-to-polish.ts",
     "generate:recipe:images": "pnpm prisma migrate deploy && tsx scripts/generate-recipe-images.ts",
+    "upload:recipe:images:s3": "pnpm prisma migrate deploy && tsx scripts/upload-recipe-images-to-s3.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
@@ -29,6 +31,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.896.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-socket.io": "^11.0.1",
