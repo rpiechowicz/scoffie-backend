@@ -1,7 +1,13 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { DevLoginDto } from './dto/dev-login.dto';
 import { GoogleOauthDto } from './dto/google-oauth.dto';
 
 @Injectable()
@@ -40,6 +46,62 @@ export class AuthService {
     const refreshToken = await this.issueRefreshToken(user.id);
 
     return { accessToken, refreshToken };
+  }
+
+  async loginDev(dto: DevLoginDto) {
+    if (process.env.AUTH_DEV_LOGIN_ENABLED === 'false') {
+      throw new ForbiddenException('Dev login is disabled');
+    }
+
+    if (!dto.displayName?.trim()) {
+      throw new BadRequestException('Missing displayName');
+    }
+
+    const displayName = dto.displayName.trim();
+    const normalizedEmail = dto.email?.trim().toLowerCase() || null;
+    const googleIdSeed = normalizedEmail || displayName.toLowerCase();
+    const googleId = `dev:${googleIdSeed.replace(/\s+/g, '-')}`;
+
+    const user = await this.prisma.user.upsert({
+      where: { googleId },
+      update: {
+        displayName,
+        email: normalizedEmail,
+      },
+      create: {
+        googleId,
+        displayName,
+        email: normalizedEmail,
+      },
+    });
+
+    const existingMembership = await this.prisma.membership.findFirst({
+      where: { userId: user.id },
+      include: { household: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const household = existingMembership?.household ?? null;
+
+    const accessToken = await this.issueAccessToken(user.id);
+    const refreshToken = await this.issueRefreshToken(user.id);
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        displayName: user.displayName,
+        email: user.email,
+      },
+      household:
+        household === null
+          ? null
+          : {
+              id: household.id,
+              name: household.name,
+            },
+    };
   }
 
   async refreshAccessToken(refreshToken: string) {

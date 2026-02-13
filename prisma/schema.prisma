@@ -69,7 +69,6 @@ model Recipe {
   nutritionFiber   Float @default(0)
   nutritionSalt    Float @default(0)
   isActive    Boolean @default(true)
-  isFavorite  Boolean @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -80,6 +79,8 @@ model Recipe {
 
   planItems    PlanItem[]
   ingredients  RecipeIngredient[]
+  favorites    RecipeFavorite[]
+  sharedMealPlanItems SharedMealPlanItem[]
 }
 
 model Household {
@@ -95,6 +96,21 @@ model Household {
   invitations Invitation[]
   weeklyPlans WeeklyPlan[]
   shoppingItemChecks ShoppingItemCheck[]
+  recipeFavorites RecipeFavorite[]
+  sharedMealPlans SharedMealPlan[]
+}
+
+model RecipeFavorite {
+  id          String   @id @default(uuid()) @db.Uuid
+  recipeId    String   @db.Uuid
+  householdId String   @db.Uuid
+  createdAt   DateTime @default(now())
+
+  recipe    Recipe    @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, householdId])
+  @@index([householdId])
 }
 
 model Membership {
@@ -180,6 +196,35 @@ model ShoppingItemCheck {
 
   @@unique([householdId, weekStart, productKey])
   @@index([householdId, weekStart])
+}
+
+model SharedMealPlan {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  weekStart   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items     SharedMealPlanItem[]
+
+  @@unique([householdId, weekStart])
+}
+
+model SharedMealPlanItem {
+  id               String   @id @default(uuid()) @db.Uuid
+  sharedMealPlanId String   @db.Uuid
+  recipeId         String   @db.Uuid
+  mealType         MealType
+  quantity         Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sharedMealPlan SharedMealPlan @relation(fields: [sharedMealPlanId], references: [id], onDelete: Cascade)
+  recipe         Recipe         @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([sharedMealPlanId, mealType, recipeId])
+  @@index([sharedMealPlanId, mealType])
 }
 
 enum MembershipRole {

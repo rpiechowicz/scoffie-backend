@@ -1,6 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { DevLoginDto } from './dto/dev-login.dto';
 import { GoogleOauthDto } from './dto/google-oauth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 
@@ -20,6 +21,28 @@ export class AuthController {
   })
   loginWithGoogle(@Body() dto: GoogleOauthDto) {
     return this.authService.loginWithGoogle(dto);
+  }
+
+  @Post('dev')
+  @ApiOkResponse({
+    schema: {
+      example: {
+        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        refreshToken: 'd3b07384d113edec49eaa6238ad5ff00...',
+        user: {
+          id: 'edbc139a-636b-4aaf-953f-9b4644eb8b55',
+          displayName: 'Rafał Piechowicz',
+          email: 'rafal@example.com',
+        },
+        household: {
+          id: 'f6478b3a-5f76-47fd-94cd-e85c2564e366',
+          name: 'Home',
+        },
+      },
+    },
+  })
+  loginDev(@Body() dto: DevLoginDto) {
+    return this.authService.loginDev(dto);
   }
 
   @Post('refresh')

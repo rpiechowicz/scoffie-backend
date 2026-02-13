@@ -238,4 +238,15 @@ export class HouseholdsService {
       where: { userId_householdId: { userId: memberUserId, householdId } },
     });
   }
+
+  async leave(userId: string, householdId: string) {
+    await this.getHouseholdOrThrow(householdId);
+    await this.ensureMembership(userId, householdId);
+
+    await this.prisma.membership.delete({
+      where: { userId_householdId: { userId, householdId } },
+    });
+
+    return { success: true };
+  }
 }

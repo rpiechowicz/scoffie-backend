@@ -57,6 +57,11 @@ class HouseholdsRemoveMemberPayload {
   memberUserId: string;
 }
 
+class HouseholdsLeavePayload {
+  userId: string;
+  householdId: string;
+}
+
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
 export class HouseholdsGateway {
   constructor(private readonly householdsService: HouseholdsService) {}
@@ -117,5 +122,10 @@ export class HouseholdsGateway {
     return wsRespond(() =>
       this.householdsService.removeMember(payload.userId, payload.householdId, payload.memberUserId),
     );
+  }
+
+  @SubscribeMessage('households:leave')
+  leave(@MessageBody() payload: HouseholdsLeavePayload) {
+    return wsRespond(() => this.householdsService.leave(payload.userId, payload.householdId));
   }
 }

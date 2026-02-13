@@ -1,4 +1,4 @@
-import { MessageBody, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
+import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { WeeklyPlansService } from './weekly-plans.service';
@@ -7,6 +7,8 @@ import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
+import { Server } from 'socket.io';
+import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
 
 class WeeklyPlansListPayload {
   userId: string;
@@ -63,8 +65,24 @@ class WeeklyPlansRemoveWeekSlotPayload {
   data: RemoveWeekSlotDto;
 }
 
+class WeeklyPlansGetSavedPlanPayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+}
+
+class WeeklyPlansSaveSavedPlanPayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+  data: SaveSharedMealPlanDto;
+}
+
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
 export class WeeklyPlansGateway {
+  @WebSocketServer()
+  private server: Server;
+
   constructor(private readonly weeklyPlansService: WeeklyPlansService) {}
 
   @SubscribeMessage('weeklyPlans:listByHousehold')
@@ -103,37 +121,92 @@ export class WeeklyPlansGateway {
 
   @SubscribeMessage('weeklyPlans:setShoppingItemChecked')
   setShoppingItemChecked(@MessageBody() payload: WeeklyPlansSetShoppingItemCheckedPayload) {
-    return wsRespond(() =>
-      this.weeklyPlansService.setShoppingItemChecked(
+    return wsRespond(async () => {
+      const result = await this.weeklyPlansService.setShoppingItemChecked(
         payload.userId,
         payload.householdId,
         payload.weekStart,
         payload.data,
-      ),
-    );
+      );
+
+      this.server.emit('weeklyPlans:shoppingListChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        productKey: payload.data.productKey,
+        isChecked: payload.data.isChecked,
+      });
+
+      return result;
+    });
   }
 
   @SubscribeMessage('weeklyPlans:upsertWeekSlot')
   upsertWeekSlot(@MessageBody() payload: WeeklyPlansUpsertWeekSlotPayload) {
-    return wsRespond(() =>
-      this.weeklyPlansService.upsertWeekSlot(
+    return wsRespond(async () => {
+      const result = await this.weeklyPlansService.upsertWeekSlot(
         payload.userId,
         payload.householdId,
         payload.weekStart,
         payload.data,
-      ),
-    );
+      );
+
+      this.server.emit('weeklyPlans:weekChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'UPSERT_SLOT',
+      });
+
+      return result;
+    });
   }
 
   @SubscribeMessage('weeklyPlans:removeWeekSlot')
   removeWeekSlot(@MessageBody() payload: WeeklyPlansRemoveWeekSlotPayload) {
-    return wsRespond(() =>
-      this.weeklyPlansService.removeWeekSlot(
+    return wsRespond(async () => {
+      const result = await this.weeklyPlansService.removeWeekSlot(
         payload.userId,
         payload.householdId,
         payload.weekStart,
         payload.data,
-      ),
+      );
+
+      this.server.emit('weeklyPlans:weekChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'REMOVE_SLOT',
+      });
+
+      return result;
+    });
+  }
+
+  @SubscribeMessage('weeklyPlans:getSavedPlan')
+  getSavedPlan(@MessageBody() payload: WeeklyPlansGetSavedPlanPayload) {
+    return wsRespond(() =>
+      this.weeklyPlansService.getSharedMealPlan(payload.userId, payload.householdId, payload.weekStart),
     );
+  }
+
+  @SubscribeMessage('weeklyPlans:saveSavedPlan')
+  saveSavedPlan(@MessageBody() payload: WeeklyPlansSaveSavedPlanPayload) {
+    return wsRespond(async () => {
+      const result = await this.weeklyPlansService.saveSharedMealPlan(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      );
+
+      this.server.emit('weeklyPlans:savedPlanChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+      });
+      this.server.emit('weeklyPlans:shoppingListChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+      });
+
+      return result;
+    });
   }
 }

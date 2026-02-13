@@ -15,6 +15,7 @@ class RecipesFindAllPayload {
 class RecipesFindByIdPayload {
   userId: string;
   id: string;
+  householdId?: string;
 }
 
 class RecipesCreatePayload {
@@ -33,13 +34,12 @@ export class RecipesGateway {
 
   @SubscribeMessage('recipes:findAll')
   findAll(@MessageBody() payload: RecipesFindAllPayload) {
-    const filters = payload.filters ?? (payload.householdId ? { householdId: payload.householdId } : undefined);
-    return wsRespond(() => this.recipesService.findAll(payload.userId, filters));
+    return wsRespond(() => this.recipesService.findAll(payload.userId, payload.filters));
   }
 
   @SubscribeMessage('recipes:findById')
   findById(@MessageBody() payload: RecipesFindByIdPayload) {
-    return wsRespond(() => this.recipesService.findById(payload.userId, payload.id));
+    return wsRespond(() => this.recipesService.findById(payload.userId, payload.id, payload.householdId));
   }
 
   @SubscribeMessage('recipes:create')
