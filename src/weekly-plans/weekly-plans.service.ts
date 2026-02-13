@@ -782,6 +782,65 @@ export class WeeklyPlansService {
     });
   }
 
+  async clearWeekPlan(userId: string, householdId: string, weekStart: string) {
+    await this.ensureMembership(userId, householdId);
+    const weekStartDate = this.parseWeekStart(weekStart);
+
+    const weeklyPlan = await this.prisma.weeklyPlan.findUnique({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      select: { id: true },
+    });
+
+    const sharedPlan = await this.prisma.sharedMealPlan.findUnique({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      select: { id: true },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      if (weeklyPlan) {
+        await tx.planItem.deleteMany({
+          where: { weeklyPlanId: weeklyPlan.id },
+        });
+      }
+
+      if (sharedPlan) {
+        await tx.sharedMealPlanItem.deleteMany({
+          where: { sharedMealPlanId: sharedPlan.id },
+        });
+        await tx.sharedMealPlan.delete({
+          where: { id: sharedPlan.id },
+        });
+      }
+
+      await tx.shoppingItemCheck.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      });
+    });
+
+    return { success: true };
+  }
+
+  async getUserDisplayName(userId: string): Promise<string | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    return user?.displayName ?? null;
+  }
+
   async getSharedMealPlan(userId: string, householdId: string, weekStart: string) {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);

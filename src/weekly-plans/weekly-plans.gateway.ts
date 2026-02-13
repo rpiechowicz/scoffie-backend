@@ -78,6 +78,12 @@ class WeeklyPlansSaveSavedPlanPayload {
   data: SaveSharedMealPlanDto;
 }
 
+class WeeklyPlansClearWeekPlanPayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+}
+
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
 export class WeeklyPlansGateway {
   @WebSocketServer()
@@ -143,6 +149,7 @@ export class WeeklyPlansGateway {
   @SubscribeMessage('weeklyPlans:upsertWeekSlot')
   upsertWeekSlot(@MessageBody() payload: WeeklyPlansUpsertWeekSlotPayload) {
     return wsRespond(async () => {
+      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result = await this.weeklyPlansService.upsertWeekSlot(
         payload.userId,
         payload.householdId,
@@ -154,6 +161,8 @@ export class WeeklyPlansGateway {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         action: 'UPSERT_SLOT',
+        changedByUserId: payload.userId,
+        changedByDisplayName,
       });
 
       return result;
@@ -163,6 +172,7 @@ export class WeeklyPlansGateway {
   @SubscribeMessage('weeklyPlans:removeWeekSlot')
   removeWeekSlot(@MessageBody() payload: WeeklyPlansRemoveWeekSlotPayload) {
     return wsRespond(async () => {
+      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result = await this.weeklyPlansService.removeWeekSlot(
         payload.userId,
         payload.householdId,
@@ -174,6 +184,8 @@ export class WeeklyPlansGateway {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         action: 'REMOVE_SLOT',
+        changedByUserId: payload.userId,
+        changedByDisplayName,
       });
 
       return result;
@@ -190,6 +202,7 @@ export class WeeklyPlansGateway {
   @SubscribeMessage('weeklyPlans:saveSavedPlan')
   saveSavedPlan(@MessageBody() payload: WeeklyPlansSaveSavedPlanPayload) {
     return wsRespond(async () => {
+      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result = await this.weeklyPlansService.saveSharedMealPlan(
         payload.userId,
         payload.householdId,
@@ -200,6 +213,42 @@ export class WeeklyPlansGateway {
       this.server.emit('weeklyPlans:savedPlanChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+        action: 'SAVE_PLAN',
+      });
+      this.server.emit('weeklyPlans:shoppingListChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+      });
+
+      return result;
+    });
+  }
+
+  @SubscribeMessage('weeklyPlans:clearWeekPlan')
+  clearWeekPlan(@MessageBody() payload: WeeklyPlansClearWeekPlanPayload) {
+    return wsRespond(async () => {
+      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
+      const result = await this.weeklyPlansService.clearWeekPlan(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+      );
+
+      this.server.emit('weeklyPlans:weekChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'CLEAR_PLAN',
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+      });
+      this.server.emit('weeklyPlans:savedPlanChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+        action: 'CLEAR_PLAN',
       });
       this.server.emit('weeklyPlans:shoppingListChanged', {
         householdId: payload.householdId,
