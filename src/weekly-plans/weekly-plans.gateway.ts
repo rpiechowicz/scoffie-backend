@@ -9,6 +9,7 @@ import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { Server } from 'socket.io';
 import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 class WeeklyPlansListPayload {
   userId: string;
@@ -89,7 +90,28 @@ export class WeeklyPlansGateway {
   @WebSocketServer()
   private server: Server;
 
-  constructor(private readonly weeklyPlansService: WeeklyPlansService) {}
+  constructor(
+    private readonly weeklyPlansService: WeeklyPlansService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
+
+  private notifyPlanChanged(
+    householdId: string,
+    changedByUserId: string,
+    changedByDisplayName: string | null | undefined,
+    action: string,
+    context?: { dayOfWeek?: string | null; mealType?: string | null },
+  ): void {
+    void this.notificationsService
+      .notifyWeeklyPlanChanged({
+        householdId,
+        changedByUserId,
+        changedByDisplayName,
+        action,
+        context,
+      })
+      .catch(() => undefined);
+  }
 
   @SubscribeMessage('weeklyPlans:listByHousehold')
   listByHousehold(@MessageBody() payload: WeeklyPlansListPayload) {
@@ -163,6 +185,12 @@ export class WeeklyPlansGateway {
         action: 'UPSERT_SLOT',
         changedByUserId: payload.userId,
         changedByDisplayName,
+        dayOfWeek: payload.data?.dayOfWeek,
+        mealType: payload.data?.mealType,
+      });
+      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'UPSERT_SLOT', {
+        dayOfWeek: payload.data?.dayOfWeek,
+        mealType: payload.data?.mealType,
       });
 
       return result;
@@ -186,6 +214,12 @@ export class WeeklyPlansGateway {
         action: 'REMOVE_SLOT',
         changedByUserId: payload.userId,
         changedByDisplayName,
+        dayOfWeek: payload.data?.dayOfWeek,
+        mealType: payload.data?.mealType,
+      });
+      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'REMOVE_SLOT', {
+        dayOfWeek: payload.data?.dayOfWeek,
+        mealType: payload.data?.mealType,
       });
 
       return result;
@@ -221,6 +255,7 @@ export class WeeklyPlansGateway {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
       });
+      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'SAVE_PLAN');
 
       return result;
     });
@@ -254,6 +289,7 @@ export class WeeklyPlansGateway {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
       });
+      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'CLEAR_PLAN');
 
       return result;
     });

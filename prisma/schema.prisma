@@ -22,6 +22,7 @@ model User {
   invitations  Invitation[] @relation("InvitationCreator")
   acceptedInvites Invitation[] @relation("InvitationRedeemer")
   refreshTokens RefreshToken[]
+  pushDevices   PushDevice[]
 }
 
 model RefreshToken {
@@ -227,6 +228,22 @@ model SharedMealPlanItem {
   @@index([sharedMealPlanId, mealType])
 }
 
+model PushDevice {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @db.Uuid
+  deviceToken String        @unique
+  platform    PushPlatform
+  appBundleId String
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  lastSeenAt  DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+}
+
 enum MembershipRole {
   OWNER
   MEMBER
@@ -252,4 +269,8 @@ enum Difficulty {
   EASY
   MEDIUM
   HARD
+}
+
+enum PushPlatform {
+  IOS
 }
