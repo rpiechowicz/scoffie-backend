@@ -1,10 +1,11 @@
-import { MessageBody, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
+import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { RecipesService } from './recipes.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
 import { FindRecipesDto } from './dto/find-recipes.dto';
+import { Server } from 'socket.io';
 
 class RecipesFindAllPayload {
   userId: string;
@@ -30,6 +31,9 @@ class RecipesSetFavoritePayload {
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
 export class RecipesGateway {
+  @WebSocketServer()
+  private server: Server;
+
   constructor(private readonly recipesService: RecipesService) {}
 
   @SubscribeMessage('recipes:findAll')
@@ -49,6 +53,15 @@ export class RecipesGateway {
 
   @SubscribeMessage('recipes:setFavorite')
   setFavorite(@MessageBody() payload: RecipesSetFavoritePayload) {
-    return wsRespond(() => this.recipesService.setFavorite(payload.userId, payload.data));
+    return wsRespond(async () => {
+      const result = await this.recipesService.setFavorite(payload.userId, payload.data);
+      this.server.emit('recipes:favoritesChanged', {
+        householdId: payload.data.householdId,
+        recipeId: payload.data.recipeId,
+        isFavorite: payload.data.isFavorite,
+        changedByUserId: payload.userId,
+      });
+      return result;
+    });
   }
 }

@@ -12,6 +12,12 @@ import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 export class HouseholdsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private invitationStatusFrom(invitation: { expiresAt: Date; redeemedAt: Date | null }) {
+    if (invitation.redeemedAt) return 'REDEEMED' as const;
+    if (invitation.expiresAt.getTime() < Date.now()) return 'EXPIRED' as const;
+    return 'PENDING' as const;
+  }
+
   private async getHouseholdOrThrow(householdId: string) {
     const household = await this.prisma.household.findUnique({
       where: { id: householdId },
@@ -153,6 +159,55 @@ export class HouseholdsService {
     return membership;
   }
 
+  async previewInvitation(userId: string, dto: AcceptInvitationDto) {
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { token: dto.token },
+      include: {
+        household: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        createdBy: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    if (!invitation) {
+      return {
+        token: dto.token,
+        status: 'NOT_FOUND',
+        household: null,
+        invitedByDisplayName: null,
+        expiresAt: null,
+      };
+    }
+
+    const existingMembership = await this.prisma.membership.findUnique({
+      where: {
+        userId_householdId: {
+          userId,
+          householdId: invitation.householdId,
+        },
+      },
+    });
+
+    const baseStatus = this.invitationStatusFrom(invitation);
+    const status = existingMembership ? 'ALREADY_MEMBER' : baseStatus;
+
+    return {
+      token: invitation.token,
+      status,
+      household: invitation.household,
+      invitedByDisplayName: invitation.createdBy?.displayName ?? null,
+      expiresAt: invitation.expiresAt,
+    };
+  }
+
   async updateName(userId: string, householdId: string, dto: UpdateHouseholdDto) {
     await this.getHouseholdOrThrow(householdId);
     await this.ensureOwner(userId, householdId);
@@ -248,5 +303,13 @@ export class HouseholdsService {
     });
 
     return { success: true };
+  }
+
+  async getUserDisplayName(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    return user?.displayName ?? 'Domownik';
   }
 }
