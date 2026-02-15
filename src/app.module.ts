@@ -6,6 +6,7 @@ import { RecipesModule } from './recipes/recipes.module';
 import { HouseholdsModule } from './households/households.module';
 import { WeeklyPlansModule } from './weekly-plans/weekly-plans.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ObservabilityModule } from './observability/observability.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     HouseholdsModule,
     WeeklyPlansModule,
     NotificationsModule,
+    ObservabilityModule,
   ],
 })
 export class AppModule {}

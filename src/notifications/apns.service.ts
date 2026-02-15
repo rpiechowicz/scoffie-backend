@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { createPrivateKey } from 'crypto';
 import { connect } from 'http2';
 import { SignJWT } from 'jose';
@@ -20,7 +20,7 @@ export class ApnsSendError extends Error {
 }
 
 @Injectable()
-export class ApnsService {
+export class ApnsService implements OnModuleInit {
   private readonly logger = new Logger(ApnsService.name);
 
   private readonly enabled = process.env.APNS_ENABLED === 'true';
@@ -34,6 +34,18 @@ export class ApnsService {
 
   private get host(): string {
     return this.useSandbox ? 'api.sandbox.push.apple.com' : 'api.push.apple.com';
+  }
+
+  onModuleInit(): void {
+    if (!this.enabled) {
+      this.logger.log('APNs disabled (APNS_ENABLED=false).');
+      return;
+    }
+    if (!this.isConfigured()) {
+      this.logger.warn('APNs enabled but configuration is incomplete. Check APNS_KEY_ID/APNS_TEAM_ID/APNS_BUNDLE_ID/APNS_PRIVATE_KEY.');
+      return;
+    }
+    this.logger.log(`APNs enabled (${this.useSandbox ? 'sandbox' : 'production'}).`);
   }
 
   isConfigured(): boolean {
@@ -60,10 +72,12 @@ export class ApnsService {
     return token;
   }
 
-  async sendToDevice(deviceToken: string, payload: PushPayload): Promise<void> {
+  async sendToDevice(deviceToken: string, payload: PushPayload, appBundleId?: string): Promise<void> {
     if (!this.isConfigured()) {
       return;
     }
+
+    const topic = appBundleId?.trim() || this.bundleId;
 
     const jwt = await this.getJwt();
     const client = connect(`https://${this.host}`);
@@ -74,7 +88,7 @@ export class ApnsService {
           ':method': 'POST',
           ':path': `/3/device/${deviceToken}`,
           authorization: `bearer ${jwt}`,
-          'apns-topic': this.bundleId,
+          'apns-topic': topic,
           'apns-push-type': 'alert',
           'content-type': 'application/json',
         });

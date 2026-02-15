@@ -88,7 +88,7 @@ export class NotificationsService {
         isActive: true,
         platform: PushPlatform.IOS,
       },
-      select: { id: true, deviceToken: true },
+      select: { id: true, deviceToken: true, appBundleId: true },
     });
 
     if (!devices.length) {
@@ -112,7 +112,7 @@ export class NotificationsService {
             title: 'Plan posiłków',
             body,
             data,
-          });
+          }, device.appBundleId);
         } catch (error) {
           if (this.shouldDeactivateToken(error)) {
             await this.prisma.pushDevice.update({
@@ -237,4 +237,3 @@ export class NotificationsService {
     }
   }
 }
-

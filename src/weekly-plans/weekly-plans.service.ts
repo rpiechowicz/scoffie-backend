@@ -7,6 +7,7 @@ import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
+import { Prisma } from '@prisma/client';
 
 type ShoppingAccumulator = {
   productKey: string;
@@ -319,6 +320,34 @@ export class WeeklyPlansService {
     return membership;
   }
 
+  private isSerializableConflict(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2034'
+    );
+  }
+
+  private async runSerializable<T>(
+    operation: (tx: Prisma.TransactionClient) => Promise<T>,
+    maxRetries = 2,
+  ): Promise<T> {
+    let attempts = 0;
+    while (true) {
+      try {
+        return await this.prisma.$transaction(
+          async (tx) => operation(tx),
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        if (this.isSerializableConflict(error) && attempts < maxRetries) {
+          attempts += 1;
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
   async listByHousehold(userId: string, householdId: string) {
     await this.ensureMembership(userId, householdId);
     return this.prisma.weeklyPlan.findMany({
@@ -415,52 +444,54 @@ export class WeeklyPlansService {
 
     await this.ensureRecipeForHousehold(dto.recipeId, plan.householdId);
 
-    const [existingForMealType, existingTotal, existingSlot] = await Promise.all([
-      this.prisma.planItem.count({
-        where: {
+    return this.runSerializable(async (tx) => {
+      const [existingForMealType, existingTotal, existingSlot] = await Promise.all([
+        tx.planItem.count({
+          where: {
+            weeklyPlanId,
+            mealType: dto.mealType,
+          },
+        }),
+        tx.planItem.count({
+          where: { weeklyPlanId },
+        }),
+        tx.planItem.findFirst({
+          where: {
+            weeklyPlanId,
+            dayOfWeek: dto.dayOfWeek,
+            mealType: dto.mealType,
+          },
+        }),
+      ]);
+
+      if (existingSlot) {
+        throw new ConflictException('This day and meal slot is already assigned in weekly plan');
+      }
+
+      if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
+        throw new AppException(
+          'PLAN_SLOT_LIMIT_REACHED',
+          'Meal type limit reached (max 7 per week)',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (existingTotal >= WeeklyPlansService.MAX_ITEMS_TOTAL) {
+        throw new AppException(
+          'PLAN_TOTAL_LIMIT_REACHED',
+          'Weekly plan total limit reached (max 21 items)',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      return tx.planItem.create({
+        data: {
           weeklyPlanId,
-          mealType: dto.mealType,
-        },
-      }),
-      this.prisma.planItem.count({
-        where: { weeklyPlanId },
-      }),
-      this.prisma.planItem.findFirst({
-        where: {
-          weeklyPlanId,
+          recipeId: dto.recipeId,
           dayOfWeek: dto.dayOfWeek,
           mealType: dto.mealType,
         },
-      }),
-    ]);
-
-    if (existingSlot) {
-      throw new ConflictException('This day and meal slot is already assigned in weekly plan');
-    }
-
-    if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
-      throw new AppException(
-        'PLAN_SLOT_LIMIT_REACHED',
-        'Meal type limit reached (max 7 per week)',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    if (existingTotal >= WeeklyPlansService.MAX_ITEMS_TOTAL) {
-      throw new AppException(
-        'PLAN_TOTAL_LIMIT_REACHED',
-        'Weekly plan total limit reached (max 21 items)',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return this.prisma.planItem.create({
-      data: {
-        weeklyPlanId,
-        recipeId: dto.recipeId,
-        dayOfWeek: dto.dayOfWeek,
-        mealType: dto.mealType,
-      },
+      });
     });
   }
 
@@ -673,71 +704,73 @@ export class WeeklyPlansService {
     const weekStartDate = this.parseWeekStart(weekStart);
     await this.ensureRecipeForHousehold(dto.recipeId, householdId);
 
-    const weeklyPlan = await this.prisma.weeklyPlan.upsert({
-      where: {
-        householdId_weekStart: {
+    return this.runSerializable(async (tx) => {
+      const weeklyPlan = await tx.weeklyPlan.upsert({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
+        },
+        update: {},
+        create: {
           householdId,
           weekStart: weekStartDate,
         },
-      },
-      update: {},
-      create: {
-        householdId,
-        weekStart: weekStartDate,
-      },
-      select: { id: true },
-    });
-
-    const existingSlot = await this.prisma.planItem.findFirst({
-      where: {
-        weeklyPlanId: weeklyPlan.id,
-        dayOfWeek: dto.dayOfWeek,
-        mealType: dto.mealType,
-      },
-    });
-
-    if (existingSlot) {
-      return this.prisma.planItem.update({
-        where: { id: existingSlot.id },
-        data: { recipeId: dto.recipeId },
+        select: { id: true },
       });
-    }
 
-    const [existingForMealType, existingTotal] = await Promise.all([
-      this.prisma.planItem.count({
+      const existingSlot = await tx.planItem.findFirst({
         where: {
           weeklyPlanId: weeklyPlan.id,
+          dayOfWeek: dto.dayOfWeek,
           mealType: dto.mealType,
         },
-      }),
-      this.prisma.planItem.count({
-        where: { weeklyPlanId: weeklyPlan.id },
-      }),
-    ]);
+      });
 
-    if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
-      throw new AppException(
-        'PLAN_SLOT_LIMIT_REACHED',
-        'Meal type limit reached (max 7 per week)',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+      if (existingSlot) {
+        return tx.planItem.update({
+          where: { id: existingSlot.id },
+          data: { recipeId: dto.recipeId },
+        });
+      }
 
-    if (existingTotal >= WeeklyPlansService.MAX_ITEMS_TOTAL) {
-      throw new AppException(
-        'PLAN_TOTAL_LIMIT_REACHED',
-        'Weekly plan total limit reached (max 21 items)',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+      const [existingForMealType, existingTotal] = await Promise.all([
+        tx.planItem.count({
+          where: {
+            weeklyPlanId: weeklyPlan.id,
+            mealType: dto.mealType,
+          },
+        }),
+        tx.planItem.count({
+          where: { weeklyPlanId: weeklyPlan.id },
+        }),
+      ]);
 
-    return this.prisma.planItem.create({
-      data: {
-        weeklyPlanId: weeklyPlan.id,
-        dayOfWeek: dto.dayOfWeek,
-        mealType: dto.mealType,
-        recipeId: dto.recipeId,
-      },
+      if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
+        throw new AppException(
+          'PLAN_SLOT_LIMIT_REACHED',
+          'Meal type limit reached (max 7 per week)',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (existingTotal >= WeeklyPlansService.MAX_ITEMS_TOTAL) {
+        throw new AppException(
+          'PLAN_TOTAL_LIMIT_REACHED',
+          'Weekly plan total limit reached (max 21 items)',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      return tx.planItem.create({
+        data: {
+          weeklyPlanId: weeklyPlan.id,
+          dayOfWeek: dto.dayOfWeek,
+          mealType: dto.mealType,
+          recipeId: dto.recipeId,
+        },
+      });
     });
   }
 
@@ -750,35 +783,37 @@ export class WeeklyPlansService {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
 
-    const weeklyPlan = await this.prisma.weeklyPlan.findUnique({
-      where: {
-        householdId_weekStart: {
-          householdId,
-          weekStart: weekStartDate,
+    return this.runSerializable(async (tx) => {
+      const weeklyPlan = await tx.weeklyPlan.findUnique({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
         },
-      },
-      select: { id: true },
-    });
+        select: { id: true },
+      });
 
-    if (!weeklyPlan) {
-      return null;
-    }
+      if (!weeklyPlan) {
+        return null;
+      }
 
-    const existingSlot = await this.prisma.planItem.findFirst({
-      where: {
-        weeklyPlanId: weeklyPlan.id,
-        dayOfWeek: dto.dayOfWeek,
-        mealType: dto.mealType,
-      },
-      select: { id: true },
-    });
+      const existingSlot = await tx.planItem.findFirst({
+        where: {
+          weeklyPlanId: weeklyPlan.id,
+          dayOfWeek: dto.dayOfWeek,
+          mealType: dto.mealType,
+        },
+        select: { id: true },
+      });
 
-    if (!existingSlot) {
-      return null;
-    }
+      if (!existingSlot) {
+        return null;
+      }
 
-    return this.prisma.planItem.delete({
-      where: { id: existingSlot.id },
+      return tx.planItem.delete({
+        where: { id: existingSlot.id },
+      });
     });
   }
 
@@ -786,27 +821,27 @@ export class WeeklyPlansService {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
 
-    const weeklyPlan = await this.prisma.weeklyPlan.findUnique({
-      where: {
-        householdId_weekStart: {
-          householdId,
-          weekStart: weekStartDate,
+    await this.runSerializable(async (tx) => {
+      const weeklyPlan = await tx.weeklyPlan.findUnique({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
         },
-      },
-      select: { id: true },
-    });
+        select: { id: true },
+      });
 
-    const sharedPlan = await this.prisma.sharedMealPlan.findUnique({
-      where: {
-        householdId_weekStart: {
-          householdId,
-          weekStart: weekStartDate,
+      const sharedPlan = await tx.sharedMealPlan.findUnique({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
         },
-      },
-      select: { id: true },
-    });
+        select: { id: true },
+      });
 
-    await this.prisma.$transaction(async (tx) => {
       if (weeklyPlan) {
         await tx.planItem.deleteMany({
           where: { weeklyPlanId: weeklyPlan.id },
@@ -917,19 +952,6 @@ export class WeeklyPlansService {
     const allIds = [...breakfast, ...lunch, ...dinner];
     const uniqueIds = Array.from(new Set(allIds));
 
-    if (uniqueIds.length > 0) {
-      const recipes = await this.prisma.recipe.findMany({
-        where: {
-          id: { in: uniqueIds },
-        },
-        select: { id: true },
-      });
-
-      if (recipes.length !== uniqueIds.length) {
-        throw new NotFoundException('One or more recipes from shared plan do not exist');
-      }
-    }
-
     const countByRecipe = (ids: string[]) =>
       ids.reduce<Map<string, number>>((map, id) => {
         map.set(id, (map.get(id) ?? 0) + 1);
@@ -940,56 +962,68 @@ export class WeeklyPlansService {
     const lunchCounts = countByRecipe(lunch);
     const dinnerCounts = countByRecipe(dinner);
 
-    const sharedPlan = await this.prisma.sharedMealPlan.upsert({
-      where: {
-        householdId_weekStart: {
+    await this.runSerializable(async (tx) => {
+      if (uniqueIds.length > 0) {
+        const recipes = await tx.recipe.findMany({
+          where: {
+            id: { in: uniqueIds },
+          },
+          select: { id: true },
+        });
+
+        if (recipes.length !== uniqueIds.length) {
+          throw new NotFoundException('One or more recipes from shared plan do not exist');
+        }
+      }
+
+      const sharedPlan = await tx.sharedMealPlan.upsert({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
+        },
+        update: {},
+        create: {
           householdId,
           weekStart: weekStartDate,
         },
-      },
-      update: {},
-      create: {
-        householdId,
-        weekStart: weekStartDate,
-      },
-      select: { id: true },
-    });
+        select: { id: true },
+      });
 
-    const rows = [
-      ...Array.from(breakfastCounts.entries()).map(([recipeId, quantity]) => ({
-        sharedMealPlanId: sharedPlan.id,
-        recipeId,
-        mealType: 'BREAKFAST' as const,
-        quantity,
-      })),
-      ...Array.from(lunchCounts.entries()).map(([recipeId, quantity]) => ({
-        sharedMealPlanId: sharedPlan.id,
-        recipeId,
-        mealType: 'LUNCH' as const,
-        quantity,
-      })),
-      ...Array.from(dinnerCounts.entries()).map(([recipeId, quantity]) => ({
-        sharedMealPlanId: sharedPlan.id,
-        recipeId,
-        mealType: 'DINNER' as const,
-        quantity,
-      })),
-    ].filter((row) => row.quantity > 0);
+      const rows = [
+        ...Array.from(breakfastCounts.entries()).map(([recipeId, quantity]) => ({
+          sharedMealPlanId: sharedPlan.id,
+          recipeId,
+          mealType: 'BREAKFAST' as const,
+          quantity,
+        })),
+        ...Array.from(lunchCounts.entries()).map(([recipeId, quantity]) => ({
+          sharedMealPlanId: sharedPlan.id,
+          recipeId,
+          mealType: 'LUNCH' as const,
+          quantity,
+        })),
+        ...Array.from(dinnerCounts.entries()).map(([recipeId, quantity]) => ({
+          sharedMealPlanId: sharedPlan.id,
+          recipeId,
+          mealType: 'DINNER' as const,
+          quantity,
+        })),
+      ].filter((row) => row.quantity > 0);
 
-    await this.prisma.$transaction([
-      this.prisma.sharedMealPlanItem.deleteMany({
+      await tx.sharedMealPlanItem.deleteMany({
         where: {
           sharedMealPlanId: sharedPlan.id,
         },
-      }),
-      ...(rows.length > 0
-        ? [
-            this.prisma.sharedMealPlanItem.createMany({
-              data: rows,
-            }),
-          ]
-        : []),
-    ]);
+      });
+
+      if (rows.length > 0) {
+        await tx.sharedMealPlanItem.createMany({
+          data: rows,
+        });
+      }
+    });
 
     return this.getSharedMealPlan(userId, householdId, weekStart);
   }
