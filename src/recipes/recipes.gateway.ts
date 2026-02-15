@@ -1,11 +1,19 @@
-import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import {
+  MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { RecipesService } from './recipes.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
 import { FindRecipesDto } from './dto/find-recipes.dto';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
+import { WsTelemetryService } from '../common/ws-telemetry.service';
 
 class RecipesFindAllPayload {
   userId: string;
@@ -30,11 +38,22 @@ class RecipesSetFavoritePayload {
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
-export class RecipesGateway {
+export class RecipesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   private server: Server;
 
-  constructor(private readonly recipesService: RecipesService) {}
+  constructor(
+    private readonly recipesService: RecipesService,
+    private readonly wsTelemetry: WsTelemetryService,
+  ) {}
+
+  handleConnection(_client: Socket) {
+    this.wsTelemetry.onConnect(RecipesGateway.name);
+  }
+
+  handleDisconnect(_client: Socket) {
+    this.wsTelemetry.onDisconnect(RecipesGateway.name);
+  }
 
   @SubscribeMessage('recipes:findAll')
   findAll(@MessageBody() payload: RecipesFindAllPayload) {

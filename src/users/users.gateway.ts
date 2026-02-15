@@ -1,8 +1,16 @@
-import { MessageBody, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
+import {
+  MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  SubscribeMessage,
+  WebSocketGateway,
+} from '@nestjs/websockets';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { Socket } from 'socket.io';
+import { WsTelemetryService } from '../common/ws-telemetry.service';
 
 class UsersMePayload {
   userId: string;
@@ -13,8 +21,19 @@ class UsersFindByIdPayload {
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
-export class UsersGateway {
-  constructor(private readonly usersService: UsersService) {}
+export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly wsTelemetry: WsTelemetryService,
+  ) {}
+
+  handleConnection(_client: Socket) {
+    this.wsTelemetry.onConnect(UsersGateway.name);
+  }
+
+  handleDisconnect(_client: Socket) {
+    this.wsTelemetry.onDisconnect(UsersGateway.name);
+  }
 
   @SubscribeMessage('users:me')
   me(@MessageBody() payload: UsersMePayload) {

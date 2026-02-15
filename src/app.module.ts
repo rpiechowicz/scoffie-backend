@@ -7,10 +7,12 @@ import { HouseholdsModule } from './households/households.module';
 import { WeeklyPlansModule } from './weekly-plans/weekly-plans.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
     PrismaModule,
+    CommonModule,
     UsersModule,
     AuthModule,
     RecipesModule,

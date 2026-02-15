@@ -5,5 +5,6 @@ import { RecipesCacheService } from './recipes-cache.service';
 
 @Module({
   providers: [RecipesService, RecipesGateway, RecipesCacheService],
+  exports: [RecipesCacheService],
 })
 export class RecipesModule {}

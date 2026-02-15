@@ -1,4 +1,11 @@
-import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import {
+  MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { HouseholdsService } from './households.service';
@@ -7,7 +14,8 @@ import { CreateHouseholdDto } from './dto/create-household.dto';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { UpdateHouseholdDto } from './dto/update-household.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
+import { WsTelemetryService } from '../common/ws-telemetry.service';
 
 class HouseholdsUserPayload {
   userId: string;
@@ -69,11 +77,22 @@ class HouseholdsLeavePayload {
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
-export class HouseholdsGateway {
+export class HouseholdsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   private server: Server;
 
-  constructor(private readonly householdsService: HouseholdsService) {}
+  constructor(
+    private readonly householdsService: HouseholdsService,
+    private readonly wsTelemetry: WsTelemetryService,
+  ) {}
+
+  handleConnection(_client: Socket) {
+    this.wsTelemetry.onConnect(HouseholdsGateway.name);
+  }
+
+  handleDisconnect(_client: Socket) {
+    this.wsTelemetry.onDisconnect(HouseholdsGateway.name);
+  }
 
   @SubscribeMessage('households:findAll')
   findAll(@MessageBody() payload: HouseholdsUserPayload) {

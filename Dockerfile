@@ -31,11 +31,15 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 RUN corepack enable && corepack prepare pnpm@10.15.1 --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/test ./test
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/nest-cli.json ./nest-cli.json
 COPY prisma ./prisma
 COPY prisma.config.ts ./prisma.config.ts
 COPY tsconfig.json ./tsconfig.json
+COPY tsconfig.build.json ./tsconfig.build.json
 COPY package.json ./
 EXPOSE 3000
 CMD ["node", "dist/main"]

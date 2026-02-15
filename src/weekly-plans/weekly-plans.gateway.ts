@@ -1,4 +1,11 @@
-import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import {
+  MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { WeeklyPlansService } from './weekly-plans.service';
@@ -7,9 +14,10 @@ import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WsTelemetryService } from '../common/ws-telemetry.service';
 
 class WeeklyPlansListPayload {
   userId: string;
@@ -86,14 +94,23 @@ class WeeklyPlansClearWeekPlanPayload {
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
-export class WeeklyPlansGateway {
+export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   private server: Server;
 
   constructor(
     private readonly weeklyPlansService: WeeklyPlansService,
     private readonly notificationsService: NotificationsService,
+    private readonly wsTelemetry: WsTelemetryService,
   ) {}
+
+  handleConnection(_client: Socket) {
+    this.wsTelemetry.onConnect(WeeklyPlansGateway.name);
+  }
+
+  handleDisconnect(_client: Socket) {
+    this.wsTelemetry.onDisconnect(WeeklyPlansGateway.name);
+  }
 
   private notifyPlanChanged(
     householdId: string,
@@ -111,6 +128,10 @@ export class WeeklyPlansGateway {
         context,
       })
       .catch(() => undefined);
+  }
+
+  private nextChangeVersion(): number {
+    return Date.now();
   }
 
   private buildSavedPlanFingerprint(plan: { items?: Array<{ mealType: string; quantity: number; recipe: { id: string } }> } | null | undefined): string {
@@ -165,11 +186,13 @@ export class WeeklyPlansGateway {
         payload.data,
       );
 
+      const changeVersion = this.nextChangeVersion()
       this.server.emit('weeklyPlans:shoppingListChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         productKey: payload.data.productKey,
         isChecked: payload.data.isChecked,
+        changeVersion,
       });
 
       return result;
@@ -187,6 +210,7 @@ export class WeeklyPlansGateway {
         payload.data,
       );
 
+      const changeVersion = this.nextChangeVersion()
       this.server.emit('weeklyPlans:weekChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
@@ -195,6 +219,7 @@ export class WeeklyPlansGateway {
         changedByDisplayName,
         dayOfWeek: payload.data?.dayOfWeek,
         mealType: payload.data?.mealType,
+        changeVersion,
       });
       this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'UPSERT_SLOT', {
         dayOfWeek: payload.data?.dayOfWeek,
@@ -221,6 +246,7 @@ export class WeeklyPlansGateway {
         return result;
       }
 
+      const changeVersion = this.nextChangeVersion()
       this.server.emit('weeklyPlans:weekChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
@@ -229,6 +255,7 @@ export class WeeklyPlansGateway {
         changedByDisplayName,
         dayOfWeek: payload.data?.dayOfWeek,
         mealType: payload.data?.mealType,
+        changeVersion,
       });
       this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'REMOVE_SLOT', {
         dayOfWeek: payload.data?.dayOfWeek,
@@ -272,16 +299,19 @@ export class WeeklyPlansGateway {
         return result;
       }
 
+      const changeVersion = this.nextChangeVersion()
       this.server.emit('weeklyPlans:savedPlanChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         changedByUserId: payload.userId,
         changedByDisplayName,
         action: 'SAVE_PLAN',
+        changeVersion,
       });
       this.server.emit('weeklyPlans:shoppingListChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
+        changeVersion,
       });
       this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'SAVE_PLAN', {
         weekStart: payload.weekStart,
@@ -301,12 +331,14 @@ export class WeeklyPlansGateway {
         payload.weekStart,
       );
 
+      const changeVersion = this.nextChangeVersion()
       this.server.emit('weeklyPlans:weekChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         action: 'CLEAR_PLAN',
         changedByUserId: payload.userId,
         changedByDisplayName,
+        changeVersion,
       });
       this.server.emit('weeklyPlans:savedPlanChanged', {
         householdId: payload.householdId,
@@ -314,10 +346,12 @@ export class WeeklyPlansGateway {
         changedByUserId: payload.userId,
         changedByDisplayName,
         action: 'CLEAR_PLAN',
+        changeVersion,
       });
       this.server.emit('weeklyPlans:shoppingListChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
+        changeVersion,
       });
       this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'CLEAR_PLAN', {
         weekStart: payload.weekStart,

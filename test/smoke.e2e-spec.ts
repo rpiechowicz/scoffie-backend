@@ -1,0 +1,188 @@
+import { INestApplication } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { io, Socket } from 'socket.io-client';
+import request from 'supertest';
+import { AddressInfo } from 'net';
+import { AppModule } from '../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
+
+type WsEnvelope<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; code: string; status?: number };
+
+type DevLoginResponse = {
+  user: { id: string; displayName: string };
+  household: { id: string; name: string } | null;
+};
+
+describe('Smoke E2E', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let socket: Socket;
+  let baseUrl: string;
+
+  const makeNextMonday = (): string => {
+    const now = new Date();
+    const day = now.getDay(); // 0=Sun ... 6=Sat
+    const daysUntilMonday = ((8 - day) % 7) || 7;
+    const nextMonday = new Date(now);
+    nextMonday.setHours(0, 0, 0, 0);
+    nextMonday.setDate(now.getDate() + daysUntilMonday);
+    return nextMonday.toISOString().slice(0, 10);
+  };
+
+  const waitForSocketConnect = async (client: Socket): Promise<void> => {
+    await new Promise<void>((resolve, reject) => {
+      const onConnect = () => {
+        client.off('connect_error', onError);
+        resolve();
+      };
+      const onError = (err: Error) => {
+        client.off('connect', onConnect);
+        reject(err);
+      };
+      client.once('connect', onConnect);
+      client.once('connect_error', onError);
+    });
+  };
+
+  const emitWithAck = async <T>(event: string, payload: unknown): Promise<WsEnvelope<T>> => {
+    return await new Promise<WsEnvelope<T>>((resolve, reject) => {
+      socket.timeout(7000).emit(event, payload, (err: Error | null, ack: WsEnvelope<T>) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(ack);
+      });
+    });
+  };
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+    await app.listen(0);
+
+    const address = app.getHttpServer().address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+    prisma = app.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    socket?.disconnect();
+    await app.close();
+  });
+
+  it('GET /ops/health and /ops/metrics should return observability payload', async () => {
+    const health = await request(app.getHttpServer()).get('/ops/health').expect(200);
+    expect(health.body.status).toBe('ok');
+    expect(typeof health.body.timestamp).toBe('string');
+
+    const metrics = await request(app.getHttpServer()).get('/ops/metrics').expect(200);
+    expect(metrics.body).toEqual(
+      expect.objectContaining({
+        http: expect.any(Object),
+        ws: expect.any(Object),
+        caches: expect.objectContaining({
+          recipesList: expect.any(Object),
+        }),
+      }),
+    );
+  });
+
+  it('weeklyPlans:upsertWeekSlot should emit weekChanged with changeVersion', async () => {
+    const displayName = `E2E User ${Date.now()}`;
+    const devLogin = await request(app.getHttpServer())
+      .post('/auth/dev')
+      .send({
+        displayName,
+        email: `${Date.now()}@e2e.local`,
+        householdName: `E2E Home ${Date.now()}`,
+      })
+      .expect(201);
+
+    const loginBody = devLogin.body as DevLoginResponse;
+    expect(loginBody.user?.id).toBeTruthy();
+
+    const userId = loginBody.user.id;
+    const householdId =
+      loginBody.household?.id ??
+      (
+        await prisma.household.create({
+          data: {
+            name: `E2E Created Home ${Date.now()}`,
+            createdById: userId,
+            memberships: {
+              create: {
+                userId,
+                role: 'OWNER',
+              },
+            },
+          },
+          select: { id: true },
+        })
+      ).id;
+
+    const recipe = await prisma.recipe.create({
+      data: {
+        title: 'E2E Recipe',
+        description: 'E2E smoke recipe',
+        mealType: 'BREAKFAST',
+        difficulty: 'EASY',
+        prepTimeMinutes: 10,
+        servings: 1,
+        authorId: userId,
+        householdId,
+        nutritionKcal: 100,
+      },
+      select: { id: true },
+    });
+
+    socket = io(baseUrl, {
+      transports: ['websocket'],
+      forceNew: true,
+      reconnection: false,
+    });
+    await waitForSocketConnect(socket);
+
+    const weekStart = makeNextMonday();
+    const weekChangedPromise = new Promise<{
+      householdId: string;
+      weekStart: string;
+      changeVersion?: number;
+    }>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout waiting for weeklyPlans:weekChanged'));
+      }, 7000);
+      socket.once('weeklyPlans:weekChanged', (payload) => {
+        clearTimeout(timeout);
+        resolve(payload);
+      });
+    });
+
+    const ack = await emitWithAck<{ id: string }>('weeklyPlans:upsertWeekSlot', {
+      userId,
+      householdId,
+      weekStart,
+      data: {
+        dayOfWeek: 'MON',
+        mealType: 'BREAKFAST',
+        recipeId: recipe.id,
+      },
+    });
+
+    expect(ack.ok).toBe(true);
+
+    const changed = await weekChangedPromise;
+    expect(changed.householdId).toBe(householdId);
+    expect(changed.weekStart).toBe(weekStart);
+    expect(typeof changed.changeVersion).toBe('number');
+
+    const metrics = await request(app.getHttpServer()).get('/ops/metrics').expect(200);
+    expect(metrics.body.ws?.totals?.totalConnections).toBeGreaterThanOrEqual(1);
+  });
+});

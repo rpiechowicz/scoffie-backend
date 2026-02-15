@@ -1,9 +1,30 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
 import { FindRecipesDto } from './dto/find-recipes.dto';
 import { RecipesCacheService } from './recipes-cache.service';
+
+const recipeListSelect = {
+  id: true,
+  title: true,
+  description: true,
+  mealType: true,
+  difficulty: true,
+  prepTimeMinutes: true,
+  servings: true,
+  imageUrl: true,
+  nutritionKcal: true,
+  nutritionProtein: true,
+  nutritionFat: true,
+  nutritionCarbs: true,
+  nutritionFiber: true,
+  nutritionSalt: true,
+  isActive: true,
+} as const;
+
+type RecipeListRow = Prisma.RecipeGetPayload<{ select: typeof recipeListSelect }>;
 
 @Injectable()
 export class RecipesService {
@@ -89,23 +110,7 @@ export class RecipesService {
     }
   }
 
-  private readonly listSelect = {
-    id: true,
-    title: true,
-    description: true,
-    mealType: true,
-    difficulty: true,
-    prepTimeMinutes: true,
-    servings: true,
-    imageUrl: true,
-    nutritionKcal: true,
-    nutritionProtein: true,
-    nutritionFat: true,
-    nutritionCarbs: true,
-    nutritionFiber: true,
-    nutritionSalt: true,
-    isActive: true,
-  } as const;
+  private readonly listSelect = recipeListSelect;
 
   private readonly detailSelect = {
     id: true,
@@ -144,16 +149,6 @@ export class RecipesService {
     const page = Math.max(1, filters?.page ?? 1);
     const limit = Math.min(100, Math.max(1, filters?.limit ?? 24));
     const skip = (page - 1) * limit;
-    const cacheKey = this.recipesCache.buildRecipesListKey({
-      userId,
-      householdId,
-      mealType: filters?.mealType,
-      isFavorite: filters?.isFavorite,
-      page,
-      limit,
-    });
-    const cached = this.recipesCache.get<unknown[]>(cacheKey);
-    if (cached) return cached;
     const whereBase: {
       isActive: boolean;
       mealType?: FindRecipesDto['mealType'];
@@ -164,6 +159,7 @@ export class RecipesService {
     };
 
     let favoriteRecipeIds = new Set<string>();
+    let sharedListCacheKey: string | null = null;
     if (householdId) {
       await this.ensureMembership(userId, householdId);
       const favorites = await this.prisma.recipeFavorite.findMany({
@@ -175,23 +171,54 @@ export class RecipesService {
         whereBase.id = { in: Array.from(favoriteRecipeIds) };
       } else if (filters?.isFavorite === false) {
         whereBase.id = { notIn: Array.from(favoriteRecipeIds) };
+      } else {
+        // For mixed view (all recipes + isFavorite flag), share cache across users/households.
+        sharedListCacheKey = this.recipesCache.buildRecipesListKey({
+          userId: 'global',
+          mealType: filters?.mealType,
+          isFavorite: undefined,
+          page,
+          limit,
+        });
       }
     } else if (filters?.isFavorite === true) {
       return [];
+    } else {
+      // No household context -> recipe list is global and can be shared by all users.
+      sharedListCacheKey = this.recipesCache.buildRecipesListKey({
+        userId: 'global',
+        mealType: filters?.mealType,
+        isFavorite: filters?.isFavorite,
+        page,
+        limit,
+      });
     }
 
-    const recipes = await this.prisma.recipe.findMany({
-      where: whereBase,
-      orderBy: { createdAt: 'desc' },
-      select: this.listSelect,
-      skip,
-      take: limit,
-    });
-    const mapped = recipes.map((recipe) => ({
+    let recipes: RecipeListRow[] | null = null;
+
+    if (sharedListCacheKey) {
+      recipes = this.recipesCache.get<RecipeListRow[]>(sharedListCacheKey);
+    }
+
+    if (!recipes) {
+      recipes = await this.prisma.recipe.findMany({
+        where: whereBase,
+        orderBy: { createdAt: 'desc' },
+        select: this.listSelect,
+        skip,
+        take: limit,
+      });
+
+      if (sharedListCacheKey) {
+        this.recipesCache.set(sharedListCacheKey, recipes);
+      }
+    }
+
+    const mapped = (recipes ?? []).map((recipe) => ({
       ...recipe,
       isFavorite: favoriteRecipeIds.has(recipe.id),
     }));
-    this.recipesCache.set(cacheKey, mapped);
+
     return mapped;
   }
 

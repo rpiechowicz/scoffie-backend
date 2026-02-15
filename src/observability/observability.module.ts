@@ -3,8 +3,10 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { OpsController } from './ops.controller';
 import { RequestLoggingInterceptor } from './request-logging.interceptor';
 import { RequestMetricsService } from './request-metrics.service';
+import { RecipesModule } from '../recipes/recipes.module';
 
 @Module({
+  imports: [RecipesModule],
   controllers: [OpsController],
   providers: [
     RequestMetricsService,
