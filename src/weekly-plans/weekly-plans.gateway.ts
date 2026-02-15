@@ -100,7 +100,7 @@ export class WeeklyPlansGateway {
     changedByUserId: string,
     changedByDisplayName: string | null | undefined,
     action: string,
-    context?: { dayOfWeek?: string | null; mealType?: string | null },
+    context?: { dayOfWeek?: string | null; mealType?: string | null; weekStart?: string | null },
   ): void {
     void this.notificationsService
       .notifyWeeklyPlanChanged({
@@ -111,6 +111,14 @@ export class WeeklyPlansGateway {
         context,
       })
       .catch(() => undefined);
+  }
+
+  private buildSavedPlanFingerprint(plan: { items?: Array<{ mealType: string; quantity: number; recipe: { id: string } }> } | null | undefined): string {
+    const items = plan?.items ?? [];
+    return items
+      .map((item) => `${item.mealType}:${item.recipe.id}:${item.quantity}`)
+      .sort()
+      .join('|');
   }
 
   @SubscribeMessage('weeklyPlans:listByHousehold')
@@ -191,6 +199,7 @@ export class WeeklyPlansGateway {
       this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'UPSERT_SLOT', {
         dayOfWeek: payload.data?.dayOfWeek,
         mealType: payload.data?.mealType,
+        weekStart: payload.weekStart,
       });
 
       return result;
@@ -208,6 +217,10 @@ export class WeeklyPlansGateway {
         payload.data,
       );
 
+      if (!result) {
+        return result;
+      }
+
       this.server.emit('weeklyPlans:weekChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
@@ -220,6 +233,7 @@ export class WeeklyPlansGateway {
       this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'REMOVE_SLOT', {
         dayOfWeek: payload.data?.dayOfWeek,
         mealType: payload.data?.mealType,
+        weekStart: payload.weekStart,
       });
 
       return result;
@@ -237,12 +251,26 @@ export class WeeklyPlansGateway {
   saveSavedPlan(@MessageBody() payload: WeeklyPlansSaveSavedPlanPayload) {
     return wsRespond(async () => {
       const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
+
+      const before = await this.weeklyPlansService.getSharedMealPlan(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+      );
+      const beforeFingerprint = this.buildSavedPlanFingerprint(before);
+
       const result = await this.weeklyPlansService.saveSharedMealPlan(
         payload.userId,
         payload.householdId,
         payload.weekStart,
         payload.data,
       );
+      const afterFingerprint = this.buildSavedPlanFingerprint(result);
+      const changed = beforeFingerprint !== afterFingerprint;
+
+      if (!changed) {
+        return result;
+      }
 
       this.server.emit('weeklyPlans:savedPlanChanged', {
         householdId: payload.householdId,
@@ -255,7 +283,9 @@ export class WeeklyPlansGateway {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
       });
-      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'SAVE_PLAN');
+      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'SAVE_PLAN', {
+        weekStart: payload.weekStart,
+      });
 
       return result;
     });
@@ -289,7 +319,9 @@ export class WeeklyPlansGateway {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
       });
-      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'CLEAR_PLAN');
+      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'CLEAR_PLAN', {
+        weekStart: payload.weekStart,
+      });
 
       return result;
     });

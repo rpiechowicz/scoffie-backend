@@ -8,12 +8,14 @@ type PlanChangeAction = 'UPSERT_SLOT' | 'REMOVE_SLOT' | 'SAVE_PLAN' | 'CLEAR_PLA
 type PlanChangeContext = {
   dayOfWeek?: string | null;
   mealType?: string | null;
+  weekStart?: string | null;
 };
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private readonly dedupeWindowMs = 1500;
+  private readonly dedupeWindowDefaultMs = 1500;
+  private readonly dedupeWindowPlanWideMs = 8000;
   private readonly dedupeCache = new Map<string, number>();
 
   constructor(
@@ -152,10 +154,13 @@ export class NotificationsService {
     action?: PlanChangeAction;
     context?: PlanChangeContext;
   }): boolean {
+    const action = (params.action ?? 'UPDATE').toString().toUpperCase();
+    const weekStart = params.context?.weekStart ?? '';
     const key = [
       params.householdId,
       params.changedByUserId,
-      params.action ?? 'UPDATE',
+      action,
+      weekStart,
       params.context?.dayOfWeek ?? '',
       params.context?.mealType ?? '',
     ].join('|');
@@ -164,13 +169,18 @@ export class NotificationsService {
     const previous = this.dedupeCache.get(key);
     this.dedupeCache.set(key, now);
 
+    const dedupeWindowMs =
+      action === 'SAVE_PLAN' || action === 'CLEAR_PLAN'
+        ? this.dedupeWindowPlanWideMs
+        : this.dedupeWindowDefaultMs;
+
     for (const [cacheKey, ts] of this.dedupeCache.entries()) {
-      if (now - ts > this.dedupeWindowMs) {
+      if (now - ts > this.dedupeWindowPlanWideMs) {
         this.dedupeCache.delete(cacheKey);
       }
     }
 
-    return Boolean(previous && now - previous < this.dedupeWindowMs);
+    return Boolean(previous && now - previous < dedupeWindowMs);
   }
 
   private buildPlanChangeMessage(
