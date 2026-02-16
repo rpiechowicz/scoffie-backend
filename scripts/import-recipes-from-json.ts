@@ -234,13 +234,31 @@ async function ensureImportContext() {
 }
 
 async function resolveIngredientMap() {
-  const ingredients = await prisma.ingredient.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, category: true },
-  });
+  const [ingredients, aliases] = await Promise.all([
+    prisma.ingredient.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, category: true, normalizedName: true },
+    }),
+    prisma.ingredientAlias.findMany({
+      select: {
+        normalizedAlias: true,
+        ingredient: {
+          select: { id: true, name: true, category: true, isActive: true, normalizedName: true },
+        },
+      },
+    }),
+  ]);
   const byName = new Map<string, { id: string; name: string; category: string }>();
   for (const ingredient of ingredients) {
-    byName.set(normalizeText(ingredient.name), ingredient);
+    byName.set(ingredient.normalizedName, ingredient);
+  }
+  for (const alias of aliases) {
+    if (!alias.ingredient.isActive) continue;
+    byName.set(alias.normalizedAlias, {
+      id: alias.ingredient.id,
+      name: alias.ingredient.name,
+      category: alias.ingredient.category,
+    });
   }
   return byName;
 }

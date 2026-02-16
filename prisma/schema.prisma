@@ -23,6 +23,7 @@ model User {
   acceptedInvites Invitation[] @relation("InvitationRedeemer")
   refreshTokens RefreshToken[]
   pushDevices   PushDevice[]
+  manualShoppingItems ManualShoppingItem[]
 }
 
 model RefreshToken {
@@ -87,6 +88,7 @@ model Recipe {
 model Ingredient {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @unique
+  normalizedName String @unique
   category  String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -100,6 +102,7 @@ model IngredientAlias {
   id           String   @id @default(uuid()) @db.Uuid
   ingredientId String   @db.Uuid
   alias        String   @unique
+  normalizedAlias String @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -121,6 +124,7 @@ model Household {
   invitations Invitation[]
   weeklyPlans WeeklyPlan[]
   shoppingItemChecks ShoppingItemCheck[]
+  manualShoppingItems ManualShoppingItem[]
   recipeFavorites RecipeFavorite[]
   sharedMealPlans SharedMealPlan[]
 }
@@ -226,6 +230,27 @@ model ShoppingItemCheck {
 
   @@unique([householdId, weekStart, productKey])
   @@index([householdId, weekStart])
+}
+
+model ManualShoppingItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  householdId String  @db.Uuid
+  createdById String? @db.Uuid
+  weekStart  DateTime
+  productKey String
+  name       String
+  amount     Float
+  unit       String
+  department String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([householdId, weekStart, productKey])
+  @@index([householdId, weekStart])
+  @@index([createdById])
 }
 
 model SharedMealPlan {

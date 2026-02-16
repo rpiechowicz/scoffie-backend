@@ -2,6 +2,24 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+function normalizeText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[ł]/g, 'l')
+    .replace(/[ą]/g, 'a')
+    .replace(/[ć]/g, 'c')
+    .replace(/[ę]/g, 'e')
+    .replace(/[ń]/g, 'n')
+    .replace(/[ó]/g, 'o')
+    .replace(/[ś]/g, 's')
+    .replace(/[ź]/g, 'z')
+    .replace(/[ż]/g, 'z')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 async function main(): Promise<void> {
   await prisma.$transaction([
     prisma.planItem.deleteMany(),
@@ -150,13 +168,15 @@ async function main(): Promise<void> {
     const ingredientRows = await Promise.all(
       recipe.ingredients.map(async (ingredient) =>
         prisma.ingredient.upsert({
-          where: { name: ingredient.name },
+          where: { normalizedName: normalizeText(ingredient.name) },
           update: {
+            name: ingredient.name,
             category: ingredient.department,
             isActive: true,
           },
           create: {
             name: ingredient.name,
+            normalizedName: normalizeText(ingredient.name),
             category: ingredient.department,
             isActive: true,
           },

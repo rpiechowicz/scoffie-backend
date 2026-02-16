@@ -132,20 +132,39 @@ function applyPolishName(name: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function normalizeText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[ł]/g, 'l')
+    .replace(/[ą]/g, 'a')
+    .replace(/[ć]/g, 'c')
+    .replace(/[ę]/g, 'e')
+    .replace(/[ń]/g, 'n')
+    .replace(/[ó]/g, 'o')
+    .replace(/[ś]/g, 's')
+    .replace(/[ź]/g, 'z')
+    .replace(/[ż]/g, 'z')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 async function main() {
   const ingredients = await prisma.ingredient.findMany({
     orderBy: { name: 'asc' },
-    select: { id: true, name: true },
+    select: { id: true, name: true, normalizedName: true },
   });
 
   let updated = 0;
   let conflicts = 0;
   for (const ingredient of ingredients) {
     const nextName = applyPolishName(ingredient.name);
-    if (!nextName || nextName === ingredient.name) continue;
+    const nextNormalized = normalizeText(nextName);
+    if (!nextName || (nextName === ingredient.name && nextNormalized === ingredient.normalizedName)) continue;
 
     const existing = await prisma.ingredient.findUnique({
-      where: { name: nextName },
+      where: { normalizedName: nextNormalized },
       select: { id: true },
     });
     if (existing && existing.id !== ingredient.id) {
@@ -158,12 +177,16 @@ async function main() {
     await prisma.$transaction([
       prisma.ingredient.update({
         where: { id: ingredient.id },
-        data: { name: nextName },
+        data: { name: nextName, normalizedName: nextNormalized },
       }),
       prisma.ingredientAlias.upsert({
-        where: { alias: ingredient.name },
+        where: { normalizedAlias: normalizeText(ingredient.name) },
         update: {},
-        create: { ingredientId: ingredient.id, alias: ingredient.name },
+        create: {
+          ingredientId: ingredient.id,
+          alias: ingredient.name,
+          normalizedAlias: normalizeText(ingredient.name),
+        },
       }),
     ]);
     updated += 1;
