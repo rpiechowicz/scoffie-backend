@@ -9,6 +9,8 @@ async function main(): Promise<void> {
     prisma.invitation.deleteMany(),
     prisma.membership.deleteMany(),
     prisma.recipe.deleteMany(),
+    prisma.ingredientAlias.deleteMany(),
+    prisma.ingredient.deleteMany(),
     prisma.household.deleteMany(),
     prisma.user.deleteMany(),
   ]);
@@ -145,6 +147,30 @@ async function main(): Promise<void> {
   ];
 
   for (const recipe of recipesToCreate) {
+    const ingredientRows = await Promise.all(
+      recipe.ingredients.map(async (ingredient) =>
+        prisma.ingredient.upsert({
+          where: { name: ingredient.name },
+          update: {
+            category: ingredient.department,
+            isActive: true,
+          },
+          create: {
+            name: ingredient.name,
+            category: ingredient.department,
+            isActive: true,
+          },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+          },
+        }),
+      ),
+    );
+
+    const ingredientMap = new Map(ingredientRows.map((ingredient) => [ingredient.name, ingredient]));
+
     await prisma.recipe.create({
       data: {
         title: recipe.title,
@@ -162,7 +188,15 @@ async function main(): Promise<void> {
         authorId: anna.id,
         householdId: home.id,
         ingredients: {
-          create: recipe.ingredients,
+          create: recipe.ingredients.map((ingredient) => ({
+            ingredientId: ingredientMap.get(ingredient.name)!.id,
+            name: ingredient.name,
+            amount: ingredient.amount,
+            unit: ingredient.unit,
+            normalizedAmount: ingredient.amount,
+            normalizedUnit: ingredient.unit,
+            department: ingredient.department,
+          })),
         },
       },
     });

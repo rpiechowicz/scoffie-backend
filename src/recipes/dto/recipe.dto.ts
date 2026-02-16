@@ -8,6 +8,9 @@ export class RecipeIngredientDto {
   recipeId: string;
 
   @ApiProperty()
+  ingredientId: string;
+
+  @ApiProperty()
   name: string;
 
   @ApiProperty()
@@ -15,6 +18,12 @@ export class RecipeIngredientDto {
 
   @ApiProperty()
   unit: string;
+
+  @ApiProperty()
+  normalizedAmount: number;
+
+  @ApiProperty()
+  normalizedUnit: string;
 
   @ApiProperty()
   department: string;

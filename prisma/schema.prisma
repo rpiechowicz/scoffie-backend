@@ -84,6 +84,30 @@ model Recipe {
   sharedMealPlanItems SharedMealPlanItem[]
 }
 
+model Ingredient {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  category  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  aliases           IngredientAlias[]
+  recipeIngredients RecipeIngredient[]
+}
+
+model IngredientAlias {
+  id           String   @id @default(uuid()) @db.Uuid
+  ingredientId String   @db.Uuid
+  alias        String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@index([ingredientId])
+}
+
 model Household {
   id          String   @id @default(uuid()) @db.Uuid
   name        String
@@ -172,16 +196,21 @@ model PlanItem {
 model RecipeIngredient {
   id         String   @id @default(uuid()) @db.Uuid
   recipeId   String   @db.Uuid
+  ingredientId String @db.Uuid
   name       String
   amount     Float
   unit       String
+  normalizedAmount Float
+  normalizedUnit   String
   department String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipe      Recipe      @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient  Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
 
   @@index([recipeId])
+  @@index([ingredientId])
 }
 
 model ShoppingItemCheck {

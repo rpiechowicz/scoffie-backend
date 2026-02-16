@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
@@ -26,6 +26,11 @@ const recipeListSelect = {
 
 type RecipeListRow = Prisma.RecipeGetPayload<{ select: typeof recipeListSelect }>;
 
+type NormalizedIngredient = {
+  normalizedAmount: number;
+  normalizedUnit: 'g' | 'ml' | 'szt';
+};
+
 @Injectable()
 export class RecipesService {
   constructor(
@@ -35,6 +40,37 @@ export class RecipesService {
 
   private readonly autoRecoverMissingUser = process.env.AUTO_RECOVER_MISSING_USER === 'true';
   private readonly recoveryHouseholdName = process.env.AUTO_RECOVER_HOUSEHOLD_NAME ?? 'Home';
+  private static readonly LIQUID_SPOON_UNITS_IN_ML: Record<'lyzeczka' | 'lyzka' | 'szczypta', number> = {
+    lyzeczka: 5,
+    lyzka: 15,
+    szczypta: 0.5,
+  };
+  private static readonly SPICE_GRAMS_PER_TEASPOON_BY_NAME: Record<string, number> = {
+    'sol': 6,
+    'pieprz czarny': 2.3,
+    'pieprz': 2.3,
+    'papryka slodka mielona': 2.3,
+    'papryka ostra mielona': 2.3,
+    'cynamon': 2.6,
+    'kurkuma': 2.2,
+    'kminek': 2.1,
+    'oregano': 1,
+    'tymianek suszony': 1,
+    'bazylia suszona': 0.8,
+    'imbir mielony': 2.2,
+    'czosnek granulowany': 2.8,
+    'cukier': 4,
+    'cukier brazowy': 4,
+  };
+  private static readonly LIQUID_CONDIMENTS = new Set<string>([
+    'ketchup',
+    'musztarda',
+    'majonez',
+    'ocet jablkowy',
+    'ocet winny',
+    'sos pomidorowy',
+    'sos sojowy',
+  ]);
 
   private isUuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -110,6 +146,67 @@ export class RecipesService {
     }
   }
 
+  private normalizeText(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[ł]/g, 'l')
+      .replace(/[ą]/g, 'a')
+      .replace(/[ć]/g, 'c')
+      .replace(/[ę]/g, 'e')
+      .replace(/[ń]/g, 'n')
+      .replace(/[ó]/g, 'o')
+      .replace(/[ś]/g, 's')
+      .replace(/[ź]/g, 'z')
+      .replace(/[ż]/g, 'z')
+      .trim();
+  }
+
+  private normalizeIngredientAmount(
+    ingredientName: string,
+    category: string,
+    amount: number,
+    unit: string,
+  ): NormalizedIngredient {
+    const normalizedUnit = this.normalizeText(unit) as
+      | 'g'
+      | 'kg'
+      | 'ml'
+      | 'l'
+      | 'szt'
+      | 'szczypta'
+      | 'lyzeczka'
+      | 'lyzka';
+    if (normalizedUnit === 'g') return { normalizedAmount: amount, normalizedUnit: 'g' };
+    if (normalizedUnit === 'kg') return { normalizedAmount: amount * 1000, normalizedUnit: 'g' };
+    if (normalizedUnit === 'ml') return { normalizedAmount: amount, normalizedUnit: 'ml' };
+    if (normalizedUnit === 'l') return { normalizedAmount: amount * 1000, normalizedUnit: 'ml' };
+    if (normalizedUnit === 'szt') return { normalizedAmount: amount, normalizedUnit: 'szt' };
+
+    const normalizedCategory = this.normalizeText(category);
+    if (normalizedCategory !== 'przyprawy i sosy') {
+      throw new BadRequestException(
+        `Unit "${unit}" is allowed only for category "Przyprawy i sosy".`,
+      );
+    }
+
+    const spoonFactor = normalizedUnit === 'lyzka' ? 3 : normalizedUnit === 'szczypta' ? 1 / 16 : 1;
+    const normalizedName = this.normalizeText(ingredientName);
+
+    if (RecipesService.LIQUID_CONDIMENTS.has(normalizedName)) {
+      const mlPerUnit = RecipesService.LIQUID_SPOON_UNITS_IN_ML[normalizedUnit];
+      return { normalizedAmount: amount * mlPerUnit, normalizedUnit: 'ml' };
+    }
+
+    const gramsPerTeaspoon =
+      RecipesService.SPICE_GRAMS_PER_TEASPOON_BY_NAME[normalizedName] ?? 2.5;
+    return {
+      normalizedAmount: amount * gramsPerTeaspoon * spoonFactor,
+      normalizedUnit: 'g',
+    };
+  }
+
   private readonly listSelect = recipeListSelect;
 
   private readonly detailSelect = {
@@ -135,9 +232,12 @@ export class RecipesService {
       select: {
         id: true,
         recipeId: true,
+        ingredientId: true,
         name: true,
         amount: true,
         unit: true,
+        normalizedAmount: true,
+        normalizedUnit: true,
         department: true,
       },
     },
@@ -251,6 +351,27 @@ export class RecipesService {
   async create(userIdentifier: string, data: CreateRecipeDto) {
     const userId = await this.resolveUserId(userIdentifier);
     await this.ensureMembership(userIdentifier, data.householdId);
+
+    let ingredientById = new Map<string, { id: string; name: string; category: string }>();
+    if (data.ingredients?.length) {
+      const uniqueIds = Array.from(new Set(data.ingredients.map((ingredient) => ingredient.ingredientId)));
+      const ingredientRows = await this.prisma.ingredient.findMany({
+        where: {
+          id: { in: uniqueIds },
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+        },
+      });
+      ingredientById = new Map(ingredientRows.map((ingredient) => [ingredient.id, ingredient]));
+      if (ingredientById.size !== uniqueIds.length) {
+        throw new NotFoundException('One or more ingredients were not found or are inactive');
+      }
+    }
+
     const created = await this.prisma.recipe.create({
       data: {
         title: data.title,
@@ -270,12 +391,24 @@ export class RecipesService {
         authorId: userId,
         ingredients: data.ingredients?.length
           ? {
-              create: data.ingredients.map((ingredient) => ({
-                name: ingredient.name,
-                amount: ingredient.amount,
-                unit: ingredient.unit,
-                department: ingredient.department,
-              })),
+              create: data.ingredients.map((item) => {
+                const ingredient = ingredientById.get(item.ingredientId)!;
+                const normalized = this.normalizeIngredientAmount(
+                  ingredient.name,
+                  ingredient.category,
+                  item.amount,
+                  item.unit,
+                );
+                return {
+                  ingredientId: ingredient.id,
+                  name: ingredient.name,
+                  amount: item.amount,
+                  unit: item.unit,
+                  normalizedAmount: Number(normalized.normalizedAmount.toFixed(4)),
+                  normalizedUnit: normalized.normalizedUnit,
+                  department: ingredient.category,
+                };
+              }),
             }
           : undefined,
       },

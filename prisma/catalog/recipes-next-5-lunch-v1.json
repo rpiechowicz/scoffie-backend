@@ -1,0 +1,402 @@
+{
+  "version": "v1",
+  "servingsPolicy": "all recipes are calculated for 2 servings",
+  "recipes": [
+    {
+      "title": "Makaron penne z kurczakiem i brokułem",
+      "description": "Syty obiad z makaronem, kurczakiem i warzywami w lekkim sosie. Danie jest proste i bardzo domowe w smaku.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 860,
+        "protein": 61,
+        "carbs": 88,
+        "fat": 28,
+        "fiber": 9,
+        "salt": 2.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj makaron penne al dente. Brokuł podziel na małe różyczki i krótko obgotuj."
+        },
+        {
+          "step": 2,
+          "instruction": "Pokrój filet z kurczaka i usmaż na oleju do zrumienienia. Dopraw solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj brokuł i śmietankę, a następnie wymieszaj. Wsyp ugotowany makaron i połącz składniki."
+        },
+        {
+          "step": 4,
+          "instruction": "Podgrzej razem 2-3 minuty. Podawaj od razu po przygotowaniu, gdy sos jest kremowy."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "makaron penne",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "filet z kurczaka",
+          "amount": 320,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "brokuł",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "śmietanka 30",
+          "amount": 120,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 0.5,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 3,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Makaron penne z kurczakiem i brokułem, penne pasta with seared chicken pieces and broccoli in light creamy sauce, steam visible, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "title": "Ryż z kurczakiem i papryką",
+      "description": "Prosty obiad jednogarnkowy z ryżem, kurczakiem i papryką. Smak jest łagodny, ale bardzo przyjemny i domowy.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 28,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 790,
+        "protein": 56,
+        "carbs": 92,
+        "fat": 19,
+        "fiber": 6,
+        "salt": 1.9
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj ryż basmati według instrukcji. Pokrój kurczaka i paprykę w kostkę."
+        },
+        {
+          "step": 2,
+          "instruction": "Usmaż kurczaka na oleju na złoty kolor. Dodaj cebulę i paprykę, a potem krótko podsmaż."
+        },
+        {
+          "step": 3,
+          "instruction": "Wsyp ugotowany ryż i dokładnie wymieszaj. Dopraw solą, pieprzem i papryką słodką."
+        },
+        {
+          "step": 4,
+          "instruction": "Podgrzej wszystko razem przez chwilę. Podawaj od razu, gdy danie jest ciepłe."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ryż basmati",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "filet z kurczaka",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 90,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 0.5,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 2,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Ryż z kurczakiem i papryką, fluffy basmati rice with chicken and red bell pepper in skillet style, home cooking look, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "title": "Spaghetti z sosem pomidorowym i mięsem",
+      "description": "Klasyczne spaghetti z sosem pomidorowym i mięsem mielonym. Smak jest bogaty, a wykonanie nadal bardzo proste.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 920,
+        "protein": 50,
+        "carbs": 102,
+        "fat": 35,
+        "fiber": 10,
+        "salt": 2.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj makaron spaghetti al dente. W osobnej patelni zeszklij cebulę na oleju."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj wieprzowinę i wołowinę mieloną i smaż do zmiany koloru. Wsyp oregano i pieprz."
+        },
+        {
+          "step": 3,
+          "instruction": "Wlej passatę pomidorową i gotuj sos 10-12 minut. Dopraw solą do smaku."
+        },
+        {
+          "step": 4,
+          "instruction": "Połącz makaron z sosem lub podawaj oddzielnie. Posyp na końcu parmezanem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "makaron spaghetti",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "wieprzowina i wołowina mielona",
+          "amount": 260,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "passata pomidorowa",
+          "amount": 350,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 90,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "oregano",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "ser parmezan",
+          "amount": 25,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 0.5,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 2,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Spaghetti z sosem pomidorowym i mięsem, spaghetti pasta coated in rich tomato meat sauce with parmesan, comforting dinner plate, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "title": "Łosoś pieczony z ziemniakiem i sałatą",
+      "description": "Pieczony łosoś z prostym dodatkiem ziemniaka i świeżej sałaty. To lekki, ale konkretny obiad o czystym smaku.",
+      "mealType": "LUNCH",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 780,
+        "protein": 54,
+        "carbs": 54,
+        "fat": 36,
+        "fiber": 7,
+        "salt": 1.7
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój ziemniak i ugotuj go do miękkości. Łososia dopraw solą, pieprzem i odrobiną oliwy."
+        },
+        {
+          "step": 2,
+          "instruction": "Piecz łososia w 200C przez około 15-18 minut. W tym czasie przygotuj sałatę lodową i pomidora koktajlowego."
+        },
+        {
+          "step": 3,
+          "instruction": "Wymieszaj sałatę z odrobiną oliwy i soli. Podawaj łososia z ziemniakiem i sałatą obok."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "łosoś",
+          "amount": 320,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ziemniak",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sałata lodowa",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 12,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 0.5,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 3,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Łosoś pieczony z ziemniakiem i sałatą, baked salmon fillet with boiled potatoes and crisp lettuce salad with cherry tomatoes, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "title": "Kurczak curry z ryżem",
+      "description": "Łagodne curry z kurczakiem i ryżem, idealne na codzienny obiad. Sos jest kremowy i dobrze łączy przyprawy z mięsem.",
+      "mealType": "LUNCH",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 32,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 870,
+        "protein": 55,
+        "carbs": 93,
+        "fat": 30,
+        "fiber": 6,
+        "salt": 2.1
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj ryż jaśminowy według instrukcji. Pokrój filet z kurczaka oraz cebulę."
+        },
+        {
+          "step": 2,
+          "instruction": "Usmaż kurczaka na oleju, a potem dodaj cebulę i czosnek. Wsyp curry i krótko podsmaż."
+        },
+        {
+          "step": 3,
+          "instruction": "Wlej mleko kokosowe z puszki i duś 8-10 minut. Dopraw solą oraz pieprzem."
+        },
+        {
+          "step": 4,
+          "instruction": "Podawaj curry z gorącym ryżem. Danie najlepiej smakuje zaraz po przygotowaniu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "filet z kurczaka",
+          "amount": 320,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ryż jaśminowy",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 90,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 250,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "curry",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 0.5,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 2,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kurczak curry z ryżem, creamy chicken curry served with jasmine rice, warm golden sauce and simple plating, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing",
+        "imageUrl": null
+      }
+    }
+  ]
+}

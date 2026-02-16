@@ -14,13 +14,24 @@ import {
 
 const mealTypes = ['BREAKFAST', 'LUNCH', 'DINNER'] as const;
 const difficulties = ['EASY', 'MEDIUM', 'HARD'] as const;
+const ingredientUnits = [
+  'g',
+  'kg',
+  'ml',
+  'l',
+  'szt',
+  'szczypta',
+  'łyżeczka',
+  'łyżka',
+  // backward compatibility for existing clients
+  'lyzeczka',
+  'lyzka',
+] as const;
 
 export class CreateRecipeIngredientDto {
-  @ApiProperty({ example: 'Pomidor' })
+  @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   @IsString()
-  @MinLength(1)
-  @MaxLength(120)
-  name: string;
+  ingredientId: string;
 
   @ApiProperty({ example: 250 })
   @Type(() => Number)
@@ -28,17 +39,9 @@ export class CreateRecipeIngredientDto {
   @Min(0)
   amount: number;
 
-  @ApiProperty({ example: 'g' })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(32)
+  @ApiProperty({ enum: ingredientUnits, example: 'g' })
+  @IsIn(ingredientUnits)
   unit: string;
-
-  @ApiProperty({ example: 'Warzywa' })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(64)
-  department: string;
 }
 
 export class CreateRecipeDto {

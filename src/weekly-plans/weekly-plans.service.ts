@@ -139,6 +139,64 @@ export class WeeklyPlansService {
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
   }
 
+  private toPolishDisplayText(value: string): string {
+    let output = value.trim().toLowerCase();
+    if (!output) return output;
+
+    const phraseReplacements: Array<[string, string]> = [
+      ['papryka slodka', 'papryka słodka'],
+      ['papryka ostra', 'papryka ostra'],
+      ['papryka zolta', 'papryka żółta'],
+      ['fasola biala', 'fasola biała'],
+      ['wino biale', 'wino białe'],
+      ['wino czerwone polslodkie', 'wino czerwone półsłodkie'],
+      ['wino czerwone polwytrawne', 'wino czerwone półwytrawne'],
+      ['wino biale polslodkie', 'wino białe półsłodkie'],
+      ['wino biale polwytrawne', 'wino białe półwytrawne'],
+    ];
+
+    for (const [from, to] of phraseReplacements) {
+      output = output.replace(new RegExp(`\\b${this.escapeForRegex(from)}\\b`, 'g'), to);
+    }
+
+    const tokenReplacements: Array<[string, string]> = [
+      ['ogorek', 'ogórek'],
+      ['maslo', 'masło'],
+      ['salata', 'sałata'],
+      ['platki', 'płatki'],
+      ['losos', 'łosoś'],
+      ['brokul', 'brokuł'],
+      ['ryz', 'ryż'],
+      ['smietana', 'śmietana'],
+      ['smietanka', 'śmietanka'],
+      ['sol', 'sól'],
+      ['zolta', 'żółta'],
+      ['zolty', 'żółty'],
+      ['biala', 'biała'],
+      ['biale', 'białe'],
+      ['bialy', 'biały'],
+      ['brazowy', 'brązowy'],
+      ['jasminowy', 'jaśminowy'],
+      ['zytni', 'żytni'],
+      ['zytnie', 'żytnie'],
+      ['wloski', 'włoski'],
+      ['twarozek', 'twarożek'],
+      ['kielbasa', 'kiełbasa'],
+      ['lopatka', 'łopatka'],
+      ['wolowina', 'wołowina'],
+      ['jablko', 'jabłko'],
+      ['jablka', 'jabłka'],
+      ['polslodkie', 'półsłodkie'],
+      ['polwytrawne', 'półwytrawne'],
+    ];
+
+    for (const [from, to] of tokenReplacements) {
+      output = output.replace(new RegExp(`\\b${this.escapeForRegex(from)}\\b`, 'g'), to);
+    }
+
+    return output.replace(/\s+/g, ' ').trim();
+  }
+
   private escapeForRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
@@ -248,13 +306,13 @@ export class WeeklyPlansService {
     if (/soczewic/.test(raw)) return 'Soczewica brązowa';
     if (/ocet jablk/.test(raw)) return 'Ocet jabłkowy';
     if (/sok jablk/.test(raw)) return 'Sok jabłkowy';
-    if (/jablk/.test(raw)) return normalizedUnit === 'ml' ? 'Sok jabłkowy' : 'Jabłka';
+    if (/jablk/.test(raw)) return normalizedUnit === 'ml' ? 'Sok jabłkowy' : 'Jabłko';
     if (/cebul/.test(raw)) return 'Cebula';
-    if (/ziemniak/.test(raw)) return 'Ziemniaki';
+    if (/ziemniak/.test(raw)) return 'Ziemniak';
     if (/czosn/.test(raw)) return 'Czosnek';
     if (/marchew/.test(raw)) return 'Marchew';
     if (/seler/.test(raw)) return 'Seler naciowy';
-    if (/jajk/.test(raw)) return 'Jajka';
+    if (/jajk/.test(raw)) return 'Jajko';
     if (/miod/.test(raw)) return 'Miód';
     if (/cukier puder/.test(raw)) return 'Cukier puder';
     if (/cukier/.test(raw)) return 'Cukier';
@@ -265,7 +323,7 @@ export class WeeklyPlansService {
     if (/sol/.test(raw)) return 'Sól';
     if (/pieprz/.test(raw)) return 'Pieprz';
 
-    return this.toTitleCase(raw);
+    return this.toTitleCase(this.toPolishDisplayText(raw));
   }
 
   private mapDepartmentLabel(rawDepartment?: string | null): string {
@@ -528,6 +586,8 @@ export class WeeklyPlansService {
                     name: true,
                     amount: true,
                     unit: true,
+                    normalizedAmount: true,
+                    normalizedUnit: true,
                     department: true,
                   },
                 },
@@ -538,7 +598,19 @@ export class WeeklyPlansService {
       },
     });
 
-    let ingredientSources: Array<{ recipe: { ingredients: Array<{ name: string; amount: number; unit: string; department: string }> }; quantity: number }> = [];
+    let ingredientSources: Array<{
+      recipe: {
+        ingredients: Array<{
+          name: string;
+          amount: number;
+          unit: string;
+          normalizedAmount: number;
+          normalizedUnit: string;
+          department: string;
+        }>;
+      };
+      quantity: number;
+    }> = [];
     if (sharedPlan && sharedPlan.items.length > 0) {
       ingredientSources = sharedPlan.items.map((item) => ({
         recipe: item.recipe,
@@ -563,6 +635,8 @@ export class WeeklyPlansService {
                       name: true,
                       amount: true,
                       unit: true,
+                      normalizedAmount: true,
+                      normalizedUnit: true,
                       department: true,
                     },
                   },
@@ -584,10 +658,12 @@ export class WeeklyPlansService {
     const aggregated = new Map<string, ShoppingAccumulator>();
     for (const source of ingredientSources) {
       for (const ingredient of source.recipe.ingredients) {
-        const canonicalName = this.canonicalizeIngredientName(ingredient.name, ingredient.unit);
-        const productKey = this.normalizeProductKey(canonicalName, ingredient.unit);
+        const baseAmount = ingredient.normalizedAmount ?? ingredient.amount;
+        const baseUnit = ingredient.normalizedUnit ?? ingredient.unit;
+        const canonicalName = this.canonicalizeIngredientName(ingredient.name, baseUnit);
+        const productKey = this.normalizeProductKey(canonicalName, baseUnit);
         const current = aggregated.get(productKey);
-        const amountToAdd = ingredient.amount * source.quantity;
+        const amountToAdd = baseAmount * source.quantity;
         if (current) {
           current.totalAmount += amountToAdd;
           continue;
@@ -595,7 +671,7 @@ export class WeeklyPlansService {
         aggregated.set(productKey, {
           productKey,
           name: canonicalName,
-          unit: ingredient.unit,
+          unit: baseUnit,
           department: this.resolveDepartment(ingredient.department, canonicalName),
           totalAmount: amountToAdd,
         });
@@ -961,6 +1037,9 @@ export class WeeklyPlansService {
     const breakfastCounts = countByRecipe(breakfast);
     const lunchCounts = countByRecipe(lunch);
     const dinnerCounts = countByRecipe(dinner);
+    const breakfastAllowed = Array.from(breakfastCounts.keys());
+    const lunchAllowed = Array.from(lunchCounts.keys());
+    const dinnerAllowed = Array.from(dinnerCounts.keys());
 
     await this.runSerializable(async (tx) => {
       if (uniqueIds.length > 0) {
@@ -1023,6 +1102,49 @@ export class WeeklyPlansService {
           data: rows,
         });
       }
+
+      const weeklyPlan = await tx.weeklyPlan.findUnique({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!weeklyPlan) {
+        return;
+      }
+
+      const pruneByMealType = async (
+        mealType: 'BREAKFAST' | 'LUNCH' | 'DINNER',
+        allowedRecipeIds: string[],
+      ) => {
+        if (allowedRecipeIds.length === 0) {
+          await tx.planItem.deleteMany({
+            where: {
+              weeklyPlanId: weeklyPlan.id,
+              mealType,
+            },
+          });
+          return;
+        }
+
+        await tx.planItem.deleteMany({
+          where: {
+            weeklyPlanId: weeklyPlan.id,
+            mealType,
+            recipeId: { notIn: allowedRecipeIds },
+          },
+        });
+      };
+
+      await Promise.all([
+        pruneByMealType('BREAKFAST', breakfastAllowed),
+        pruneByMealType('LUNCH', lunchAllowed),
+        pruneByMealType('DINNER', dinnerAllowed),
+      ]);
     });
 
     return this.getSharedMealPlan(userId, householdId, weekStart);

@@ -27,17 +27,19 @@ docker compose exec api pnpm ws:smoke households:findAll '{"userId":"<USER_ID>"}
 docker compose exec api pnpm ws:smoke recipes:findAll '{"userId":"<USER_ID>"}'
 docker compose exec api pnpm ws:smoke weeklyPlans:listByHousehold '{"userId":"<USER_ID>","householdId":"<HOUSEHOLD_ID>"}'
 
-// TRANSLATE EXISTING RECIPES TO POLISH
-docker compose exec api pnpm run translate:recipes:pl
-
 // GENERATE RECIPE IMAGES (fills imageUrl)
 docker compose exec api pnpm run generate:recipe:images
 
-// UPLOAD LOCAL RECIPE IMAGES TO S3 + UPDATE imageUrl
-docker compose exec api pnpm run upload:recipe:images:s3
+// UPLOAD LOCAL RECIPE IMAGES TO CLOUDFLARE R2 + UPDATE imageUrl
+docker compose exec api pnpm run upload:recipe:images:r2
 
-// Import recipes safely (do NOT clear existing)
-docker compose exec api sh -lc "IMPORT_CLEAR_EXISTING=false pnpm run import:recipes"
+// LOAD INGREDIENT CATALOG (from prisma/catalog/*.txt)
+docker compose exec api pnpm run catalog:ingredients:load
+
+// IMPORT RECIPES FROM JSON (uses RECIPE_IMPORT_* env vars)
+docker compose exec api pnpm run recipes:import:json
+
+// Rebuild recipes will be done from local/internal source (no external recipes/translator APIs).
 
 // -----------------------------
 // DANGEROUS / DESTRUCTIVE (MANUAL ONLY)
@@ -47,7 +49,7 @@ docker compose exec api sh -lc "IMPORT_CLEAR_EXISTING=false pnpm run import:reci
 // docker compose down -v --remove-orphans
 
 // Full DB truncate (all app data lost):
-// docker compose exec db psql -U weeklymeals -d weeklymeals -c "TRUNCATE TABLE \"PlanItem\", \"WeeklyPlan\", \"ShoppingItemCheck\", \"RecipeIngredient\", \"Recipe\", \"Invitation\", \"Membership\", \"Household\", \"RefreshToken\", \"User\" RESTART IDENTITY CASCADE;"
+// docker compose exec db psql -U weeklymeals -d weeklymeals -c "TRUNCATE TABLE \"PlanItem\", \"WeeklyPlan\", \"ShoppingItemCheck\", \"SharedMealPlanItem\", \"SharedMealPlan\", \"RecipeFavorite\", \"RecipeIngredient\", \"Recipe\", \"Invitation\", \"Membership\", \"PushDevice\", \"RefreshToken\", \"Household\", \"User\" RESTART IDENTITY CASCADE;"
 
 // Use only on throwaway DB (can reset on drift/conflict):
 // docker compose exec api pnpm prisma migrate dev --name init

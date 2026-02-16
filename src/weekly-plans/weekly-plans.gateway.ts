@@ -308,6 +308,14 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         action: 'SAVE_PLAN',
         changeVersion,
       });
+      this.server.emit('weeklyPlans:weekChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'SAVE_PLAN_SYNC',
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+        changeVersion,
+      });
       this.server.emit('weeklyPlans:shoppingListChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,

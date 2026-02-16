@@ -1,0 +1,19 @@
+herbata czarna
+herbata mietowa
+herbata owocowa
+herbata rumiankowa
+herbata zielona
+kawa bezkofeinowa
+kawa mielona
+kawa rozpuszczalna
+kawa ziarnista
+napoj energetyczny
+napoj izotoniczny
+napoj tonic
+pepsi
+sprite
+sok jablkowy
+sok marchwiowy
+sok pomaranczowy
+woda gazowana
+woda niegazowana
