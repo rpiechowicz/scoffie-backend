@@ -10,7 +10,7 @@ const IMAGE_GENERATOR_STYLE =
   process.env.IMAGE_GENERATOR_STYLE ??
   'ultra realistic food photography, natural light, 50mm lens, shallow depth of field';
 const IMAGE_GENERATOR_SEED_PREFIX = process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'weekly-meals';
-const IMAGE_HOUSEHOLD_NAME = process.env.IMAGE_HOUSEHOLD_NAME ?? 'Home';
+const IMAGE_HOUSEHOLD_NAME = (process.env.IMAGE_HOUSEHOLD_NAME ?? 'Home').trim();
 const IMAGE_RECIPE_LIMIT = Number(process.env.IMAGE_RECIPE_LIMIT ?? '0') || 0;
 const IMAGE_OVERWRITE_EXISTING = process.env.IMAGE_OVERWRITE_EXISTING === 'true';
 
@@ -36,19 +36,30 @@ function buildImageUrl(recipeId: string, title: string, description: string | nu
 }
 
 async function main() {
-  const household = await prisma.household.findFirst({
-    where: { name: IMAGE_HOUSEHOLD_NAME },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true, name: true },
-  });
+  let householdId: string | undefined;
+  let householdLabel = 'all households';
 
-  if (!household) {
-    throw new Error(`Household "${IMAGE_HOUSEHOLD_NAME}" not found.`);
+  if (IMAGE_HOUSEHOLD_NAME.length > 0) {
+    const household = await prisma.household.findFirst({
+      where: { name: IMAGE_HOUSEHOLD_NAME },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, name: true },
+    });
+
+    if (household) {
+      householdId = household.id;
+      householdLabel = `"${household.name}" (${household.id})`;
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[generate:recipe:images] Household "${IMAGE_HOUSEHOLD_NAME}" not found. Falling back to all households.`,
+      );
+    }
   }
 
   const recipes = await prisma.recipe.findMany({
     where: {
-      householdId: household.id,
+      ...(householdId ? { householdId } : {}),
       ...(IMAGE_OVERWRITE_EXISTING ? {} : { OR: [{ imageUrl: null }, { imageUrl: '' }] }),
     },
     orderBy: { createdAt: 'asc' },
@@ -79,7 +90,7 @@ async function main() {
 
   // eslint-disable-next-line no-console
   console.log(
-    `Generated image URLs for ${updated} recipes in household "${household.name}" (${household.id}).`,
+    `Generated image URLs for ${updated} recipes in ${householdLabel}.`,
   );
 }
 

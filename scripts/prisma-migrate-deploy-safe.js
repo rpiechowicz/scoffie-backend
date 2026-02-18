@@ -46,6 +46,23 @@ function runWithEnv(command, args, extraEnv = {}, allowedStatuses = [0]) {
   return status;
 }
 
+function runSoft(command, args, extraEnv = {}) {
+  const result = spawnSync(command, args, {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      ...extraEnv,
+    },
+  });
+
+  if (result.error) {
+    console.warn('[safe-migrate] Optional command failed to start:', result.error.message);
+    return 1;
+  }
+
+  return typeof result.status === 'number' ? result.status : 1;
+}
+
 async function getFailedMigrations(prisma) {
   try {
     const rows = await prisma.$queryRaw`
@@ -376,6 +393,25 @@ function runOptionalBootstrap() {
   );
 }
 
+function runOptionalRecipeImageGeneration() {
+  const enabled = process.env.SAFE_MIGRATE_GENERATE_RECIPE_IMAGES !== 'false';
+  if (!enabled) {
+    console.log(
+      '[safe-migrate] Recipe image URL generation disabled (SAFE_MIGRATE_GENERATE_RECIPE_IMAGES=false).',
+    );
+    return;
+  }
+
+  console.log('[safe-migrate] Ensuring recipe image URLs are generated...');
+
+  const status = runSoft(PNPM_BIN, ['exec', 'tsx', 'scripts/generate-recipe-images.ts']);
+  if (status !== 0) {
+    console.warn(
+      '[safe-migrate] Recipe image URL generation failed. Continuing startup without blocking deploy.',
+    );
+  }
+}
+
 async function main() {
   const prisma = new PrismaClient();
   let failedMigrations = [];
@@ -477,6 +513,8 @@ async function main() {
   if (process.env.SAFE_MIGRATE_REBUILD_DB === 'true') {
     runOptionalBootstrap();
   }
+
+  runOptionalRecipeImageGeneration();
 }
 
 main().catch((error) => {
