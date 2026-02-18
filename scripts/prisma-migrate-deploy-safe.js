@@ -109,10 +109,78 @@ async function isIngredientCatalogAlreadyPresent(prisma) {
   return notNullOk && Number.isFinite(nullCount) && nullCount === 0;
 }
 
+async function tableExists(prisma, tableName) {
+  const rows = await prisma.$queryRaw`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name = ${tableName}
+    ) AS value
+  `;
+
+  return Boolean(Array.isArray(rows) && rows[0]?.value);
+}
+
+async function ensureRecipeIngredientBaseTable(prisma) {
+  const exists = await tableExists(prisma, 'RecipeIngredient');
+  if (exists) {
+    return;
+  }
+
+  console.log(
+    '[safe-migrate] Table "RecipeIngredient" is missing. Recreating base table for migration recovery...',
+  );
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "RecipeIngredient" (
+      "id" UUID NOT NULL,
+      "recipeId" UUID NOT NULL,
+      "name" TEXT NOT NULL,
+      "amount" DOUBLE PRECISION NOT NULL,
+      "unit" TEXT NOT NULL,
+      "department" TEXT NOT NULL,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL,
+      CONSTRAINT "RecipeIngredient_pkey" PRIMARY KEY ("id")
+    );
+  `);
+
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS "RecipeIngredient_recipeId_idx" ON "RecipeIngredient"("recipeId");`,
+  );
+
+  await prisma.$executeRawUnsafe(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'Recipe'
+      ) AND NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'RecipeIngredient_recipeId_fkey'
+      ) THEN
+        ALTER TABLE "RecipeIngredient"
+          ADD CONSTRAINT "RecipeIngredient_recipeId_fkey"
+          FOREIGN KEY ("recipeId")
+          REFERENCES "Recipe"("id")
+          ON DELETE CASCADE
+          ON UPDATE CASCADE;
+      END IF;
+    END
+    $$;
+  `);
+}
+
 async function repairIncompleteIngredientCatalogMigration(prisma) {
   console.log(
     `[safe-migrate] Attempting automatic repair for ${TARGET_FAILED_MIGRATION}...`,
   );
+
+  await ensureRecipeIngredientBaseTable(prisma);
 
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "Ingredient" (
