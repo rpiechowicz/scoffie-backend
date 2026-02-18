@@ -1,10 +1,11 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFile, readdir } from 'node:fs/promises';
+import { extname, join } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 type RecipeInput = {
+  id?: string;
   title: string;
   description: string;
   mealType: 'BREAKFAST' | 'LUNCH' | 'DINNER';
@@ -50,6 +51,17 @@ const RECIPE_IMPORT_OWNER_LEGACY_SUB =
 const RECIPE_IMPORT_OWNER_DISPLAY_NAME = process.env.RECIPE_IMPORT_OWNER_DISPLAY_NAME ?? 'Recipe Import Bot';
 const RECIPE_IMPORT_OWNER_EMAIL = process.env.RECIPE_IMPORT_OWNER_EMAIL ?? 'import-bot@example.com';
 const RECIPE_IMPORT_HOUSEHOLD_NAME = process.env.RECIPE_IMPORT_HOUSEHOLD_NAME ?? 'Home';
+const RECIPE_IMPORT_ID_POOL = process.env.RECIPE_IMPORT_ID_POOL ?? '';
+const RECIPE_IMPORT_ID_POOL_FILE =
+  process.env.RECIPE_IMPORT_ID_POOL_FILE ?? 'prisma/catalog/recipes-approved-30-image-ids.txt';
+const RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS = process.env.RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS !== 'false';
+const RECIPE_IMPORT_BUILD_R2_IMAGE_URLS = process.env.RECIPE_IMPORT_BUILD_R2_IMAGE_URLS !== 'false';
+const RECIPE_IMPORT_IMAGE_EXTENSION = (process.env.RECIPE_IMPORT_IMAGE_EXTENSION ?? 'png')
+  .trim()
+  .replace(/^\./, '')
+  .toLowerCase();
+const R2_PUBLIC_BASE_URL = (process.env.R2_PUBLIC_BASE_URL ?? '').trim().replace(/\/+$/g, '');
+const R2_KEY_PREFIX = (process.env.R2_KEY_PREFIX ?? 'recipe-images').trim().replace(/^\/+|\/+$/g, '');
 
 const ALLOWED_UNITS = new Set(['g', 'kg', 'ml', 'l', 'szt', 'szczypta', 'łyżeczka', 'łyżka', 'lyzeczka', 'lyzka']);
 const LIQUID_SPOON_UNITS_IN_ML: Record<'lyzeczka' | 'lyzka' | 'szczypta', number> = {
@@ -83,6 +95,139 @@ const LIQUID_CONDIMENTS = new Set([
   'sos pomidorowy',
   'sos sojowy',
 ]);
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
+
+function parseRecipeIdPoolFromEnv(): string[] {
+  if (!RECIPE_IMPORT_ID_POOL.trim()) return [];
+
+  const parsed = RECIPE_IMPORT_ID_POOL
+    .split(/[\s,;]+/g)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const unique = Array.from(new Set(parsed));
+  const invalid = unique.filter((value) => !isUuid(value));
+  if (invalid.length > 0) {
+    throw new Error(
+      `Invalid RECIPE_IMPORT_ID_POOL entries (must be UUID): ${invalid.join(', ')}`,
+    );
+  }
+  return unique;
+}
+
+async function parseRecipeIdPoolFromFile(): Promise<string[]> {
+  if (!RECIPE_IMPORT_ID_POOL_FILE.trim()) return [];
+
+  const filePath = join(process.cwd(), RECIPE_IMPORT_ID_POOL_FILE);
+  let raw = '';
+  try {
+    raw = await readFile(filePath, 'utf8');
+  } catch {
+    return [];
+  }
+
+  const parsed = raw
+    .split(/[\s,;]+/g)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const unique = Array.from(new Set(parsed));
+  const invalid = unique.filter((value) => !isUuid(value));
+  if (invalid.length > 0) {
+    throw new Error(
+      `Invalid UUID entries in ${RECIPE_IMPORT_ID_POOL_FILE}: ${invalid.join(', ')}`,
+    );
+  }
+  return unique;
+}
+
+async function parseRecipeIdPoolFromPublicImages(): Promise<string[]> {
+  if (!RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS) return [];
+
+  const directoryPath = join(process.cwd(), 'public', 'recipe-images');
+  let entries: string[] = [];
+  try {
+    entries = await readdir(directoryPath);
+  } catch {
+    return [];
+  }
+
+  const ids = entries
+    .map((fileName) => {
+      const extension = extname(fileName);
+      if (!extension) return '';
+      return fileName.slice(0, -extension.length);
+    })
+    .filter((name) => isUuid(name));
+
+  return Array.from(new Set(ids)).sort((a, b) => a.localeCompare(b));
+}
+
+async function resolveRecipeIdPool(totalRecipes: number): Promise<string[]> {
+  const fromEnv = parseRecipeIdPoolFromEnv();
+  if (fromEnv.length > 0) {
+    if (fromEnv.length < totalRecipes) {
+      throw new Error(
+        `RECIPE_IMPORT_ID_POOL contains ${fromEnv.length} UUIDs but ${totalRecipes} recipes are being imported.`,
+      );
+    }
+    if (fromEnv.length > totalRecipes) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[recipes-import] RECIPE_IMPORT_ID_POOL has more UUIDs (${fromEnv.length}) than recipes (${totalRecipes}); extra values will be ignored.`,
+      );
+    }
+    return fromEnv;
+  }
+
+  const fromFile = await parseRecipeIdPoolFromFile();
+  if (fromFile.length > 0) {
+    if (fromFile.length < totalRecipes) {
+      throw new Error(
+        `RECIPE_IMPORT_ID_POOL_FILE (${RECIPE_IMPORT_ID_POOL_FILE}) contains ${fromFile.length} UUIDs but ${totalRecipes} recipes are being imported.`,
+      );
+    }
+
+    if (fromFile.length > totalRecipes) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[recipes-import] ${RECIPE_IMPORT_ID_POOL_FILE} has more UUIDs (${fromFile.length}) than recipes (${totalRecipes}); extra values will be ignored.`,
+      );
+    }
+
+    return fromFile;
+  }
+
+  const fromPublicImages = await parseRecipeIdPoolFromPublicImages();
+  if (fromPublicImages.length === 0) return [];
+
+  if (fromPublicImages.length < totalRecipes) {
+    throw new Error(
+      `Found ${fromPublicImages.length} UUID-named image files in public/recipe-images but ${totalRecipes} recipes are being imported.`,
+    );
+  }
+
+  if (fromPublicImages.length > totalRecipes) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[recipes-import] Found ${fromPublicImages.length} UUID image files for ${totalRecipes} recipes; extra files will be ignored.`,
+    );
+  }
+
+  return fromPublicImages;
+}
+
+function buildR2ImageUrl(recipeId: string): string | null {
+  if (!RECIPE_IMPORT_BUILD_R2_IMAGE_URLS) return null;
+  if (!R2_PUBLIC_BASE_URL) return null;
+  return `${R2_PUBLIC_BASE_URL}/${R2_KEY_PREFIX}/${recipeId}.${RECIPE_IMPORT_IMAGE_EXTENSION}`;
+}
 
 function normalizeText(value: string): string {
   return value
@@ -151,6 +296,9 @@ function validateBatch(input: RecipeBatchInput): void {
   }
 
   for (const recipe of input.recipes) {
+    if (recipe.id?.trim() && !isUuid(recipe.id.trim())) {
+      throw new Error(`Recipe "${recipe.title}" has invalid id "${recipe.id}". Expected UUID.`);
+    }
     if (!recipe.title?.trim()) throw new Error('Recipe title is required.');
     if (!['BREAKFAST', 'LUNCH', 'DINNER'].includes(recipe.mealType)) {
       throw new Error(`Invalid mealType for recipe "${recipe.title}".`);
@@ -269,6 +417,7 @@ async function main(): Promise<void> {
   const raw = await readFile(filePath, 'utf8');
   const input = JSON.parse(raw) as RecipeBatchInput;
   validateBatch(input);
+  const recipeIdPool = await resolveRecipeIdPool(input.recipes.length);
 
   if (RECIPE_IMPORT_CLEAR_EXISTING) {
     await prisma.planItem.deleteMany();
@@ -278,10 +427,11 @@ async function main(): Promise<void> {
   }
 
   const ingredientMap = await resolveIngredientMap();
+  const assignedRecipeIds = new Set<string>();
 
   let created = 0;
   let updated = 0;
-  for (const recipe of input.recipes) {
+  for (const [index, recipe] of input.recipes.entries()) {
     const mappedIngredients = recipe.ingredients.map((ingredient) => {
       const found = ingredientMap.get(normalizeText(ingredient.ingredientName));
       if (!found) {
@@ -307,13 +457,31 @@ async function main(): Promise<void> {
       };
     });
 
-    const existing = await prisma.recipe.findFirst({
-      where: {
-        householdId,
-        title: recipe.title,
-      },
-      select: { id: true },
-    });
+    const incomingRecipeId = recipe.id?.trim() || recipeIdPool[index] || null;
+    if (incomingRecipeId) {
+      if (assignedRecipeIds.has(incomingRecipeId)) {
+        throw new Error(
+          `Duplicate recipe id "${incomingRecipeId}" detected in import input/pool.`,
+        );
+      }
+      assignedRecipeIds.add(incomingRecipeId);
+    }
+    const existing = incomingRecipeId
+      ? await prisma.recipe.findUnique({
+          where: { id: incomingRecipeId },
+          select: { id: true, imageUrl: true },
+        })
+      : await prisma.recipe.findFirst({
+          where: {
+            householdId,
+            title: recipe.title,
+          },
+          select: { id: true, imageUrl: true },
+        });
+
+    const incomingImageUrl =
+      recipe.image?.imageUrl?.trim() ||
+      (incomingRecipeId ? buildR2ImageUrl(incomingRecipeId) : null);
 
     const commonData = {
       title: recipe.title,
@@ -322,7 +490,6 @@ async function main(): Promise<void> {
       difficulty: recipe.difficulty,
       prepTimeMinutes: recipe.prepTimeMinutes,
       servings: recipe.servings,
-      imageUrl: recipe.image?.imageUrl ?? null,
       nutritionKcal: recipe.nutrition.kcal,
       nutritionProtein: recipe.nutrition.protein,
       nutritionFat: recipe.nutrition.fat,
@@ -347,6 +514,7 @@ async function main(): Promise<void> {
         where: { id: existing.id },
         data: {
           ...commonData,
+          imageUrl: incomingImageUrl ?? existing.imageUrl ?? null,
           ingredients: {
             deleteMany: {},
             create: mappedIngredients,
@@ -357,7 +525,9 @@ async function main(): Promise<void> {
     } else {
       await prisma.recipe.create({
         data: {
+          ...(incomingRecipeId ? { id: incomingRecipeId } : {}),
           ...commonData,
+          imageUrl: incomingImageUrl,
           ingredients: {
             create: mappedIngredients,
           },

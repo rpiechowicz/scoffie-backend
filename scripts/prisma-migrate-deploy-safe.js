@@ -393,21 +393,25 @@ function runOptionalBootstrap() {
   );
 }
 
-function runOptionalRecipeImageGeneration() {
-  const enabled = process.env.SAFE_MIGRATE_GENERATE_RECIPE_IMAGES !== 'false';
+function runOptionalR2ImageBackfill() {
+  const enabled = process.env.SAFE_MIGRATE_BACKFILL_R2_IMAGE_URLS !== 'false';
   if (!enabled) {
     console.log(
-      '[safe-migrate] Recipe image URL generation disabled (SAFE_MIGRATE_GENERATE_RECIPE_IMAGES=false).',
+      '[safe-migrate] R2 image URL backfill disabled (SAFE_MIGRATE_BACKFILL_R2_IMAGE_URLS=false).',
     );
     return;
   }
 
-  console.log('[safe-migrate] Ensuring recipe image URLs are generated...');
+  console.log('[safe-migrate] Syncing recipe image URLs from existing R2 objects...');
 
-  const status = runSoft(PNPM_BIN, ['exec', 'tsx', 'scripts/generate-recipe-images.ts']);
+  const status = runSoft(PNPM_BIN, [
+    'exec',
+    'tsx',
+    'scripts/backfill-recipe-image-urls-from-r2.ts',
+  ]);
   if (status !== 0) {
     console.warn(
-      '[safe-migrate] Recipe image URL generation failed. Continuing startup without blocking deploy.',
+      '[safe-migrate] R2 image URL backfill failed. Continuing startup without blocking deploy.',
     );
   }
 }
@@ -514,7 +518,7 @@ async function main() {
     runOptionalBootstrap();
   }
 
-  runOptionalRecipeImageGeneration();
+  runOptionalR2ImageBackfill();
 }
 
 main().catch((error) => {
