@@ -16,8 +16,6 @@ import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { Server, Socket } from 'socket.io';
 import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
-import { UpsertManualShoppingItemDto } from './dto/upsert-manual-shopping-item.dto';
-import { RemoveManualShoppingItemDto } from './dto/remove-manual-shopping-item.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
@@ -60,20 +58,6 @@ class WeeklyPlansSetShoppingItemCheckedPayload {
   householdId: string;
   weekStart: string;
   data: UpdateShoppingItemCheckDto;
-}
-
-class WeeklyPlansUpsertManualShoppingItemPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-  data: UpsertManualShoppingItemDto;
-}
-
-class WeeklyPlansRemoveManualShoppingItemPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-  data: RemoveManualShoppingItemDto;
 }
 
 class WeeklyPlansUpsertWeekSlotPayload {
@@ -211,44 +195,6 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         changeVersion,
       });
 
-      return result;
-    });
-  }
-
-  @SubscribeMessage('weeklyPlans:upsertManualShoppingItem')
-  upsertManualShoppingItem(@MessageBody() payload: WeeklyPlansUpsertManualShoppingItemPayload) {
-    return wsRespond(async () => {
-      const result = await this.weeklyPlansService.upsertManualShoppingItem(
-        payload.userId,
-        payload.householdId,
-        payload.weekStart,
-        payload.data,
-      );
-      const changeVersion = this.nextChangeVersion()
-      this.server.emit('weeklyPlans:shoppingListChanged', {
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        changeVersion,
-      });
-      return result;
-    });
-  }
-
-  @SubscribeMessage('weeklyPlans:removeManualShoppingItem')
-  removeManualShoppingItem(@MessageBody() payload: WeeklyPlansRemoveManualShoppingItemPayload) {
-    return wsRespond(async () => {
-      const result = await this.weeklyPlansService.removeManualShoppingItem(
-        payload.userId,
-        payload.householdId,
-        payload.weekStart,
-        payload.data,
-      );
-      const changeVersion = this.nextChangeVersion()
-      this.server.emit('weeklyPlans:shoppingListChanged', {
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        changeVersion,
-      });
       return result;
     });
   }

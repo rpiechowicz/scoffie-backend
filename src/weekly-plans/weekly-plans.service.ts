@@ -7,8 +7,6 @@ import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
-import { UpsertManualShoppingItemDto } from './dto/upsert-manual-shopping-item.dto';
-import { RemoveManualShoppingItemDto } from './dto/remove-manual-shopping-item.dto';
 import { Prisma } from '@prisma/client';
 
 type ShoppingAccumulator = {
@@ -18,8 +16,6 @@ type ShoppingAccumulator = {
   department: string;
   totalAmount: number;
 };
-
-type ManualBaseUnit = 'g' | 'ml' | 'szt';
 
 enum ShoppingDepartment {
   VEGETABLES = 'Warzywa',
@@ -46,8 +42,6 @@ export class WeeklyPlansService {
   constructor(private readonly prisma: PrismaService) {}
   private static readonly MAX_ITEMS_PER_MEAL_TYPE = 7;
   private static readonly MAX_ITEMS_TOTAL = 21;
-  private static readonly MAX_MANUAL_ITEMS_PER_WEEK = 150;
-  private static readonly MAX_MANUAL_ITEM_AMOUNT = 100000;
   private static readonly DEPARTMENT_OTHER = ShoppingDepartment.OTHER;
   private static readonly DEPARTMENT_ORDER: Record<string, number> = {
     [ShoppingDepartment.VEGETABLES]: 1,
@@ -363,53 +357,6 @@ export class WeeklyPlansService {
     const mapped = this.mapDepartmentLabel(rawDepartment);
     if (mapped !== WeeklyPlansService.DEPARTMENT_OTHER) return mapped;
     return this.inferDepartmentFromName(ingredientName);
-  }
-
-  private normalizeManualUnit(unit: string): ManualBaseUnit {
-    const normalized = this.normalizeText(unit);
-    if (normalized === 'g') return 'g';
-    if (normalized === 'kg') return 'g';
-    if (normalized === 'ml') return 'ml';
-    if (normalized === 'l') return 'ml';
-    if (normalized === 'szt') return 'szt';
-    throw new AppException(
-      'VALIDATION_ERROR',
-      'Unsupported unit for manual shopping item. Allowed: g, kg, ml, l, szt',
-      HttpStatus.BAD_REQUEST,
-    );
-  }
-
-  private normalizeManualAmount(amount: number, unit: string): { amount: number; unit: ManualBaseUnit } {
-    const baseUnit = this.normalizeManualUnit(unit);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      throw new AppException('VALIDATION_ERROR', 'Manual shopping item amount must be greater than 0', HttpStatus.BAD_REQUEST);
-    }
-    if (amount > WeeklyPlansService.MAX_MANUAL_ITEM_AMOUNT) {
-      throw new AppException(
-        'VALIDATION_ERROR',
-        `Manual shopping item amount is too large (max ${WeeklyPlansService.MAX_MANUAL_ITEM_AMOUNT})`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    let normalizedAmount = amount;
-    const normalizedUnit = this.normalizeText(unit);
-    if (normalizedUnit === 'kg') normalizedAmount = amount * 1000;
-    if (normalizedUnit === 'l') normalizedAmount = amount * 1000;
-
-    if (baseUnit === 'szt' && !Number.isInteger(normalizedAmount)) {
-      throw new AppException('VALIDATION_ERROR', 'For unit "szt" amount must be an integer', HttpStatus.BAD_REQUEST);
-    }
-
-    return { amount: Number(normalizedAmount.toFixed(2)), unit: baseUnit };
-  }
-
-  private normalizeManualName(rawName: string, unit: string): string {
-    const trimmed = rawName.trim();
-    if (trimmed.length < 2 || trimmed.length > 120) {
-      throw new AppException('VALIDATION_ERROR', 'Manual shopping item name must have 2-120 characters', HttpStatus.BAD_REQUEST);
-    }
-    return this.canonicalizeIngredientName(trimmed, unit);
   }
 
   private async ensureRecipeForHousehold(recipeId: string, householdId: string) {
@@ -730,34 +677,6 @@ export class WeeklyPlansService {
       }
     }
 
-    const manualItems = await this.prisma.manualShoppingItem.findMany({
-      where: {
-        householdId,
-        weekStart: weekStartDate,
-      },
-      select: {
-        productKey: true,
-        name: true,
-        unit: true,
-        amount: true,
-        department: true,
-      },
-    });
-    for (const item of manualItems) {
-      const current = aggregated.get(item.productKey);
-      if (current) {
-        current.totalAmount += item.amount;
-        continue;
-      }
-      aggregated.set(item.productKey, {
-        productKey: item.productKey,
-        name: item.name,
-        unit: item.unit,
-        department: item.department,
-        totalAmount: item.amount,
-      });
-    }
-
     if (aggregated.size === 0) {
       return [];
     }
@@ -848,100 +767,6 @@ export class WeeklyPlansService {
         isChecked: dto.isChecked,
       },
     });
-  }
-
-  async upsertManualShoppingItem(
-    userId: string,
-    householdId: string,
-    weekStart: string,
-    dto: UpsertManualShoppingItemDto,
-  ) {
-    await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
-
-    const { amount, unit } = this.normalizeManualAmount(dto.amount, dto.unit);
-    const name = this.normalizeManualName(dto.name, unit);
-    const productKey = this.normalizeProductKey(name, unit);
-    const department = dto.department?.trim().length
-      ? this.resolveDepartment(dto.department, name)
-      : this.resolveDepartment('', name);
-
-    const existing = await this.prisma.manualShoppingItem.findUnique({
-      where: {
-        householdId_weekStart_productKey: {
-          householdId,
-          weekStart: weekStartDate,
-          productKey,
-        },
-      },
-      select: { id: true },
-    });
-
-    if (!existing) {
-      const count = await this.prisma.manualShoppingItem.count({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-        },
-      });
-      if (count >= WeeklyPlansService.MAX_MANUAL_ITEMS_PER_WEEK) {
-        throw new AppException(
-          'VALIDATION_ERROR',
-          `Manual shopping item limit reached (max ${WeeklyPlansService.MAX_MANUAL_ITEMS_PER_WEEK} per week)`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
-    return this.prisma.manualShoppingItem.upsert({
-      where: {
-        householdId_weekStart_productKey: {
-          householdId,
-          weekStart: weekStartDate,
-          productKey,
-        },
-      },
-      update: {
-        name,
-        amount,
-        unit,
-        department,
-      },
-      create: {
-        householdId,
-        createdById: userId,
-        weekStart: weekStartDate,
-        productKey,
-        name,
-        amount,
-        unit,
-        department,
-      },
-    });
-  }
-
-  async removeManualShoppingItem(
-    userId: string,
-    householdId: string,
-    weekStart: string,
-    dto: RemoveManualShoppingItemDto,
-  ) {
-    await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
-
-    const deleted = await this.prisma.manualShoppingItem.deleteMany({
-      where: {
-        householdId,
-        weekStart: weekStartDate,
-        productKey: dto.productKey,
-      },
-    });
-
-    if (deleted.count === 0) {
-      throw new NotFoundException('Manual shopping item not found');
-    }
-
-    return { deleted: true };
   }
 
   async upsertWeekSlot(
