@@ -4,6 +4,8 @@ const { PrismaClient } = require('@prisma/client');
 
 const TARGET_FAILED_MIGRATION = '20260216094429_ingredient_catalog_v1';
 const PNPM_BIN = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+const UNKNOWN_INGREDIENT_ID = '00000000-0000-0000-0000-000000000001';
+const UNKNOWN_INGREDIENT_NAME = '__unknown_ingredient__';
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -44,8 +46,22 @@ async function hasFailedTargetMigration(prisma) {
 
 async function isIngredientCatalogAlreadyPresent(prisma) {
   const [ingredientTable, aliasTable, recipeIngredientColumn] = await Promise.all([
-    prisma.$queryRaw`SELECT to_regclass('public."Ingredient"')::text AS value`,
-    prisma.$queryRaw`SELECT to_regclass('public."IngredientAlias"')::text AS value`,
+    prisma.$queryRaw`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'Ingredient'
+      ) AS value
+    `,
+    prisma.$queryRaw`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'IngredientAlias'
+      ) AS value
+    `,
     prisma.$queryRaw`
       SELECT EXISTS (
         SELECT 1
@@ -59,11 +75,175 @@ async function isIngredientCatalogAlreadyPresent(prisma) {
 
   const ingredientOk = Boolean(Array.isArray(ingredientTable) && ingredientTable[0]?.value);
   const aliasOk = Boolean(Array.isArray(aliasTable) && aliasTable[0]?.value);
-  const recipeIngredientOk = Boolean(
+  const recipeIngredientColumnOk = Boolean(
     Array.isArray(recipeIngredientColumn) && recipeIngredientColumn[0]?.value,
   );
 
-  return ingredientOk && aliasOk && recipeIngredientOk;
+  if (!ingredientOk || !aliasOk || !recipeIngredientColumnOk) {
+    return false;
+  }
+
+  const [recipeIngredientColumnNotNull, recipeIngredientNullCount] = await Promise.all([
+    prisma.$queryRaw`
+      SELECT CASE WHEN is_nullable = 'NO' THEN true ELSE false END AS value
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'RecipeIngredient'
+        AND column_name = 'ingredientId'
+      LIMIT 1
+    `,
+    prisma.$queryRaw`
+      SELECT COUNT(*)::bigint AS value
+      FROM "RecipeIngredient"
+      WHERE "ingredientId" IS NULL
+    `,
+  ]);
+
+  const notNullOk = Boolean(
+    Array.isArray(recipeIngredientColumnNotNull) && recipeIngredientColumnNotNull[0]?.value,
+  );
+  const nullCount = Array.isArray(recipeIngredientNullCount)
+    ? Number(recipeIngredientNullCount[0]?.value ?? 0)
+    : Number.NaN;
+
+  return notNullOk && Number.isFinite(nullCount) && nullCount === 0;
+}
+
+async function repairIncompleteIngredientCatalogMigration(prisma) {
+  console.log(
+    `[safe-migrate] Attempting automatic repair for ${TARGET_FAILED_MIGRATION}...`,
+  );
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "Ingredient" (
+      "id" UUID NOT NULL,
+      "name" TEXT NOT NULL,
+      "category" TEXT NOT NULL,
+      "isActive" BOOLEAN NOT NULL DEFAULT true,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL,
+      CONSTRAINT "Ingredient_pkey" PRIMARY KEY ("id")
+    );
+  `);
+  await prisma.$executeRawUnsafe(
+    `CREATE UNIQUE INDEX IF NOT EXISTS "Ingredient_name_key" ON "Ingredient"("name");`,
+  );
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "IngredientAlias" (
+      "id" UUID NOT NULL,
+      "ingredientId" UUID NOT NULL,
+      "alias" TEXT NOT NULL,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL,
+      CONSTRAINT "IngredientAlias_pkey" PRIMARY KEY ("id")
+    );
+  `);
+  await prisma.$executeRawUnsafe(
+    `CREATE UNIQUE INDEX IF NOT EXISTS "IngredientAlias_alias_key" ON "IngredientAlias"("alias");`,
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS "IngredientAlias_ingredientId_idx" ON "IngredientAlias"("ingredientId");`,
+  );
+  await prisma.$executeRawUnsafe(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'IngredientAlias_ingredientId_fkey'
+      ) THEN
+        ALTER TABLE "IngredientAlias"
+          ADD CONSTRAINT "IngredientAlias_ingredientId_fkey"
+          FOREIGN KEY ("ingredientId")
+          REFERENCES "Ingredient"("id")
+          ON DELETE CASCADE
+          ON UPDATE CASCADE;
+      END IF;
+    END
+    $$;
+  `);
+
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "RecipeIngredient" ADD COLUMN IF NOT EXISTS "ingredientId" UUID;`,
+  );
+
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO "Ingredient" ("id", "name", "category", "isActive", "createdAt", "updatedAt")
+    SELECT
+      (
+        substr(md5('ingredient:' || lower(src.name)), 1, 8) || '-' ||
+        substr(md5('ingredient:' || lower(src.name)), 9, 4) || '-' ||
+        substr(md5('ingredient:' || lower(src.name)), 13, 4) || '-' ||
+        substr(md5('ingredient:' || lower(src.name)), 17, 4) || '-' ||
+        substr(md5('ingredient:' || lower(src.name)), 21, 12)
+      )::uuid,
+      src.name,
+      'Inne',
+      true,
+      CURRENT_TIMESTAMP,
+      CURRENT_TIMESTAMP
+    FROM (
+      SELECT DISTINCT btrim("name") AS name
+      FROM "RecipeIngredient"
+      WHERE btrim("name") <> ''
+    ) AS src
+    ON CONFLICT ("name") DO NOTHING;
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    UPDATE "RecipeIngredient" ri
+    SET "ingredientId" = i."id"
+    FROM "Ingredient" i
+    WHERE ri."ingredientId" IS NULL
+      AND i."name" = btrim(ri."name");
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO "Ingredient" ("id", "name", "category", "isActive", "createdAt", "updatedAt")
+    VALUES (
+      '${UNKNOWN_INGREDIENT_ID}'::uuid,
+      '${UNKNOWN_INGREDIENT_NAME}',
+      'Inne',
+      true,
+      CURRENT_TIMESTAMP,
+      CURRENT_TIMESTAMP
+    )
+    ON CONFLICT ("name") DO NOTHING;
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    UPDATE "RecipeIngredient"
+    SET "ingredientId" = '${UNKNOWN_INGREDIENT_ID}'::uuid
+    WHERE "ingredientId" IS NULL;
+  `);
+
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "RecipeIngredient" ALTER COLUMN "ingredientId" SET NOT NULL;`,
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS "RecipeIngredient_ingredientId_idx" ON "RecipeIngredient"("ingredientId");`,
+  );
+  await prisma.$executeRawUnsafe(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'RecipeIngredient_ingredientId_fkey'
+      ) THEN
+        ALTER TABLE "RecipeIngredient"
+          ADD CONSTRAINT "RecipeIngredient_ingredientId_fkey"
+          FOREIGN KEY ("ingredientId")
+          REFERENCES "Ingredient"("id")
+          ON DELETE RESTRICT
+          ON UPDATE CASCADE;
+      END IF;
+    END
+    $$;
+  `);
+
+  console.log(`[safe-migrate] Automatic repair for ${TARGET_FAILED_MIGRATION} completed.`);
 }
 
 async function main() {
@@ -73,11 +253,16 @@ async function main() {
     const failed = await hasFailedTargetMigration(prisma);
 
     if (failed) {
-      const alreadyApplied = await isIngredientCatalogAlreadyPresent(prisma);
+      let alreadyApplied = await isIngredientCatalogAlreadyPresent(prisma);
+
+      if (!alreadyApplied) {
+        await repairIncompleteIngredientCatalogMigration(prisma);
+        alreadyApplied = await isIngredientCatalogAlreadyPresent(prisma);
+      }
 
       if (!alreadyApplied) {
         console.error(
-          `[safe-migrate] Migration ${TARGET_FAILED_MIGRATION} is failed and schema is incomplete. Manual intervention required.`,
+          `[safe-migrate] Migration ${TARGET_FAILED_MIGRATION} is failed and schema is still incomplete after auto-repair. Manual intervention required.`,
         );
         process.exit(1);
       }
