@@ -25,6 +25,27 @@ function run(command, args, allowedStatuses = [0]) {
   return status;
 }
 
+function runWithEnv(command, args, extraEnv = {}, allowedStatuses = [0]) {
+  const result = spawnSync(command, args, {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      ...extraEnv,
+    },
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const status = typeof result.status === 'number' ? result.status : 1;
+  if (!allowedStatuses.includes(status)) {
+    process.exit(result.status);
+  }
+
+  return status;
+}
+
 async function getFailedMigrations(prisma) {
   try {
     const rows = await prisma.$queryRaw`
@@ -320,11 +341,58 @@ async function repairIncompleteIngredientCatalogMigration(prisma) {
   console.log(`[safe-migrate] Automatic repair for ${TARGET_FAILED_MIGRATION} completed.`);
 }
 
+async function rebuildDatabaseFromScratch(prisma) {
+  console.log('[safe-migrate] Rebuild mode enabled. Dropping and recreating public schema...');
+  await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS public CASCADE;`);
+  await prisma.$executeRawUnsafe(`CREATE SCHEMA public;`);
+  await prisma.$executeRawUnsafe(`GRANT ALL ON SCHEMA public TO CURRENT_USER;`);
+  console.log('[safe-migrate] Public schema recreated.');
+}
+
+function runOptionalBootstrap() {
+  const shouldBootstrap = process.env.SAFE_MIGRATE_BOOTSTRAP_RECIPES !== 'false';
+  if (!shouldBootstrap) {
+    console.log('[safe-migrate] Bootstrap disabled (SAFE_MIGRATE_BOOTSTRAP_RECIPES=false).');
+    return;
+  }
+
+  const recipeImportFile =
+    process.env.RECIPE_IMPORT_FILE ?? 'prisma/catalog/recipes-approved-30-v1.json';
+
+  console.log('[safe-migrate] Bootstrapping ingredient catalog...');
+  run(PNPM_BIN, ['exec', 'tsx', 'scripts/load-ingredient-catalog.ts']);
+
+  console.log('[safe-migrate] Normalizing ingredient aliases...');
+  run(PNPM_BIN, ['exec', 'tsx', 'scripts/normalize-ingredients-polish.ts']);
+
+  console.log(`[safe-migrate] Importing recipes from ${recipeImportFile}...`);
+  runWithEnv(
+    PNPM_BIN,
+    ['exec', 'tsx', 'scripts/import-recipes-from-json.ts'],
+    {
+      RECIPE_IMPORT_CLEAR_EXISTING: process.env.RECIPE_IMPORT_CLEAR_EXISTING ?? 'true',
+      RECIPE_IMPORT_FILE: recipeImportFile,
+    },
+  );
+}
+
 async function main() {
   const prisma = new PrismaClient();
   let failedMigrations = [];
 
   try {
+    const rebuildEnabled = process.env.SAFE_MIGRATE_REBUILD_DB === 'true';
+    if (rebuildEnabled) {
+      const confirm = process.env.SAFE_MIGRATE_REBUILD_CONFIRM;
+      if (confirm !== 'YES_I_UNDERSTAND') {
+        console.error(
+          '[safe-migrate] SAFE_MIGRATE_REBUILD_DB=true requires SAFE_MIGRATE_REBUILD_CONFIRM=YES_I_UNDERSTAND',
+        );
+        process.exit(1);
+      }
+      await rebuildDatabaseFromScratch(prisma);
+    }
+
     failedMigrations = await getFailedMigrations(prisma);
 
     if (failedMigrations.length > 0) {
@@ -405,6 +473,10 @@ async function main() {
 
   console.log('[safe-migrate] Running prisma migrate deploy');
   run(PNPM_BIN, ['prisma', 'migrate', 'deploy']);
+
+  if (process.env.SAFE_MIGRATE_REBUILD_DB === 'true') {
+    runOptionalBootstrap();
+  }
 }
 
 main().catch((error) => {
