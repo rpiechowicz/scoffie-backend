@@ -39,9 +39,11 @@ async function getFailedMigrations(prisma) {
       return [];
     }
 
-    return rows
+    const names = rows
       .map((row) => row?.migration_name)
       .filter((name) => typeof name === 'string' && name.length > 0);
+
+    return Array.from(new Set(names));
   } catch (error) {
     // On fresh databases the table may not exist yet.
     return [];
@@ -351,37 +353,53 @@ async function main() {
   }
 
   if (failedMigrations.length > 0) {
-    if (!process.env.DATABASE_URL) {
-      console.error('[safe-migrate] DATABASE_URL is required to validate schema drift.');
-      process.exit(1);
-    }
-
-    console.log('[safe-migrate] Verifying database schema against current Prisma schema...');
-    const diffStatus = run(
-      PNPM_BIN,
-      [
-        'prisma',
-        'migrate',
-        'diff',
-        '--from-url',
-        process.env.DATABASE_URL,
-        '--to-schema-datamodel',
-        'prisma/schema.prisma',
-        '--exit-code',
-      ],
-      [0, 2],
+    const unknownFailedMigrations = failedMigrations.filter(
+      (name) => name !== TARGET_FAILED_MIGRATION,
     );
 
-    if (diffStatus !== 0) {
-      console.error(
-        '[safe-migrate] Database schema differs from prisma/schema.prisma. Not auto-resolving failed migrations.',
+    if (unknownFailedMigrations.length === 0) {
+      // We have already verified/repaired the known ingredient catalog failure above.
+      console.log(
+        `[safe-migrate] Marking failed migration as applied: ${TARGET_FAILED_MIGRATION}`,
       );
-      process.exit(1);
-    }
+      run(PNPM_BIN, ['prisma', 'migrate', 'resolve', '--applied', TARGET_FAILED_MIGRATION]);
+    } else {
+      if (!process.env.DATABASE_URL) {
+        console.error('[safe-migrate] DATABASE_URL is required to validate schema drift.');
+        process.exit(1);
+      }
 
-    for (const migrationName of failedMigrations) {
-      console.log(`[safe-migrate] Marking failed migration as applied: ${migrationName}`);
-      run(PNPM_BIN, ['prisma', 'migrate', 'resolve', '--applied', migrationName]);
+      console.log(
+        `[safe-migrate] Unknown failed migrations detected: ${unknownFailedMigrations.join(', ')}`,
+      );
+      console.log('[safe-migrate] Verifying database schema against current Prisma schema...');
+
+      const diffStatus = run(
+        PNPM_BIN,
+        [
+          'prisma',
+          'migrate',
+          'diff',
+          '--from-url',
+          process.env.DATABASE_URL,
+          '--to-schema-datamodel',
+          'prisma/schema.prisma',
+          '--exit-code',
+        ],
+        [0, 2],
+      );
+
+      if (diffStatus !== 0) {
+        console.error(
+          '[safe-migrate] Database schema differs from prisma/schema.prisma. Not auto-resolving unknown failed migrations.',
+        );
+        process.exit(1);
+      }
+
+      for (const migrationName of failedMigrations) {
+        console.log(`[safe-migrate] Marking failed migration as applied: ${migrationName}`);
+        run(PNPM_BIN, ['prisma', 'migrate', 'resolve', '--applied', migrationName]);
+      }
     }
   }
 
