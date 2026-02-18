@@ -7,7 +7,7 @@ const PNPM_BIN = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const UNKNOWN_INGREDIENT_ID = '00000000-0000-0000-0000-000000000001';
 const UNKNOWN_INGREDIENT_NAME = '__unknown_ingredient__';
 
-function run(command, args) {
+function run(command, args, allowedStatuses = [0]) {
   const result = spawnSync(command, args, {
     stdio: 'inherit',
     env: process.env,
@@ -17,30 +17,34 @@ function run(command, args) {
     throw result.error;
   }
 
-  if (typeof result.status === 'number' && result.status !== 0) {
+  const status = typeof result.status === 'number' ? result.status : 1;
+  if (!allowedStatuses.includes(status)) {
     process.exit(result.status);
   }
+
+  return status;
 }
 
-async function hasFailedTargetMigration(prisma) {
+async function getFailedMigrations(prisma) {
   try {
     const rows = await prisma.$queryRaw`
-      SELECT migration_name, finished_at, rolled_back_at
+      SELECT migration_name, started_at
       FROM "_prisma_migrations"
-      WHERE migration_name = ${TARGET_FAILED_MIGRATION}
-      ORDER BY started_at DESC
-      LIMIT 1
+      WHERE finished_at IS NULL
+        AND rolled_back_at IS NULL
+      ORDER BY started_at ASC
     `;
 
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return false;
+    if (!Array.isArray(rows)) {
+      return [];
     }
 
-    const row = rows[0];
-    return !row.finished_at && !row.rolled_back_at;
+    return rows
+      .map((row) => row?.migration_name)
+      .filter((name) => typeof name === 'string' && name.length > 0);
   } catch (error) {
     // On fresh databases the table may not exist yet.
-    return false;
+    return [];
   }
 }
 
@@ -316,32 +320,69 @@ async function repairIncompleteIngredientCatalogMigration(prisma) {
 
 async function main() {
   const prisma = new PrismaClient();
+  let failedMigrations = [];
 
   try {
-    const failed = await hasFailedTargetMigration(prisma);
+    failedMigrations = await getFailedMigrations(prisma);
 
-    if (failed) {
-      let alreadyApplied = await isIngredientCatalogAlreadyPresent(prisma);
+    if (failedMigrations.length > 0) {
+      console.log(
+        `[safe-migrate] Failed migrations detected: ${failedMigrations.join(', ')}`,
+      );
+    }
 
-      if (!alreadyApplied) {
+    if (failedMigrations.includes(TARGET_FAILED_MIGRATION)) {
+      let ingredientCatalogApplied = await isIngredientCatalogAlreadyPresent(prisma);
+
+      if (!ingredientCatalogApplied) {
         await repairIncompleteIngredientCatalogMigration(prisma);
-        alreadyApplied = await isIngredientCatalogAlreadyPresent(prisma);
+        ingredientCatalogApplied = await isIngredientCatalogAlreadyPresent(prisma);
       }
 
-      if (!alreadyApplied) {
+      if (!ingredientCatalogApplied) {
         console.error(
-          `[safe-migrate] Migration ${TARGET_FAILED_MIGRATION} is failed and schema is still incomplete after auto-repair. Manual intervention required.`,
+          `[safe-migrate] Migration ${TARGET_FAILED_MIGRATION} is failed and schema is still incomplete after auto-repair.`,
         );
         process.exit(1);
       }
-
-      console.log(
-        `[safe-migrate] Marking failed migration as applied: ${TARGET_FAILED_MIGRATION}`,
-      );
-      run(PNPM_BIN, ['prisma', 'migrate', 'resolve', '--applied', TARGET_FAILED_MIGRATION]);
     }
   } finally {
     await prisma.$disconnect();
+  }
+
+  if (failedMigrations.length > 0) {
+    if (!process.env.DATABASE_URL) {
+      console.error('[safe-migrate] DATABASE_URL is required to validate schema drift.');
+      process.exit(1);
+    }
+
+    console.log('[safe-migrate] Verifying database schema against current Prisma schema...');
+    const diffStatus = run(
+      PNPM_BIN,
+      [
+        'prisma',
+        'migrate',
+        'diff',
+        '--from-url',
+        process.env.DATABASE_URL,
+        '--to-schema-datamodel',
+        'prisma/schema.prisma',
+        '--exit-code',
+      ],
+      [0, 2],
+    );
+
+    if (diffStatus !== 0) {
+      console.error(
+        '[safe-migrate] Database schema differs from prisma/schema.prisma. Not auto-resolving failed migrations.',
+      );
+      process.exit(1);
+    }
+
+    for (const migrationName of failedMigrations) {
+      console.log(`[safe-migrate] Marking failed migration as applied: ${migrationName}`);
+      run(PNPM_BIN, ['prisma', 'migrate', 'resolve', '--applied', migrationName]);
+    }
   }
 
   console.log('[safe-migrate] Running prisma migrate deploy');
