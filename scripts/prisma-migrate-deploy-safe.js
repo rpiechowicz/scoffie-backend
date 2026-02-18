@@ -44,8 +44,8 @@ async function hasFailedTargetMigration(prisma) {
 
 async function isIngredientCatalogAlreadyPresent(prisma) {
   const [ingredientTable, aliasTable, recipeIngredientColumn] = await Promise.all([
-    prisma.$queryRaw`SELECT to_regclass('public."Ingredient"') AS value`,
-    prisma.$queryRaw`SELECT to_regclass('public."IngredientAlias"') AS value`,
+    prisma.$queryRaw`SELECT to_regclass('public."Ingredient"')::text AS value`,
+    prisma.$queryRaw`SELECT to_regclass('public."IngredientAlias"')::text AS value`,
     prisma.$queryRaw`
       SELECT EXISTS (
         SELECT 1
