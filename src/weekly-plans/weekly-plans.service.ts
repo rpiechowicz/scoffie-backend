@@ -17,6 +17,27 @@ type ShoppingAccumulator = {
   totalAmount: number;
 };
 
+type ShoppingListItem = ShoppingAccumulator & {
+  isChecked: boolean;
+};
+
+type ShoppingListArchiveSnapshot = {
+  archiveId: string;
+  weekStart: string;
+  weekLabel: string;
+  revision: number;
+  archivedAt: number;
+  isCurrentClosed: boolean;
+  items: ShoppingListItem[];
+};
+
+type ShoppingListStateDto = {
+  items: ShoppingListItem[];
+  archives: ShoppingListArchiveSnapshot[];
+};
+
+type PrismaReadClient = Prisma.TransactionClient | PrismaService;
+
 enum ShoppingDepartment {
   VEGETABLES = 'Warzywa',
   FRUITS = 'Owoce',
@@ -111,6 +132,10 @@ export class WeeklyPlansService {
     return parsed;
   }
 
+  private formatWeekStart(value: Date): string {
+    return value.toISOString().slice(0, 10);
+  }
+
   private normalizeProductKey(name: string, unit: string): string {
     return `${name.trim().toLowerCase()}::${unit.trim().toLowerCase()}`;
   }
@@ -131,6 +156,71 @@ export class WeeklyPlansService {
       .replace(/[ż]/g, 'z')
       .trim();
     return normalized;
+  }
+
+  private itemSignature(items: ShoppingListItem[]): string {
+    return items
+      .map((item) =>
+        [
+          item.productKey,
+          item.totalAmount.toFixed(6),
+          item.unit,
+          item.department,
+          item.name,
+        ].join('|'),
+      )
+      .sort()
+      .join('||');
+  }
+
+  private sortShoppingItems(items: ShoppingListItem[]): ShoppingListItem[] {
+    return [...items].sort((a, b) => {
+      const rankA = WeeklyPlansService.DEPARTMENT_ORDER[a.department] ?? WeeklyPlansService.DEPARTMENT_ORDER.Inne;
+      const rankB = WeeklyPlansService.DEPARTMENT_ORDER[b.department] ?? WeeklyPlansService.DEPARTMENT_ORDER.Inne;
+      if (rankA !== rankB) return rankA - rankB;
+      if (a.department === b.department) {
+        return a.name.localeCompare(b.name);
+      }
+      return a.department.localeCompare(b.department);
+    });
+  }
+
+  private toArchiveSnapshot(
+    archive: {
+      id: string;
+      weekStart: Date;
+      weekLabel: string;
+      revision: number;
+      archivedAt: Date;
+      items: Array<{
+        productKey: string;
+        name: string;
+        unit: string;
+        department: string;
+        totalAmount: number;
+        isChecked: boolean;
+      }>;
+    },
+    currentArchiveIds: Set<string>,
+  ): ShoppingListArchiveSnapshot {
+    return {
+      archiveId: archive.id,
+      weekStart: this.formatWeekStart(archive.weekStart),
+      weekLabel: archive.weekLabel,
+      revision: archive.revision,
+      archivedAt: archive.archivedAt.getTime(),
+      isCurrentClosed: currentArchiveIds.has(archive.id),
+      items: this.sortShoppingItems(
+        archive.items.map((item) => ({
+          productKey: item.productKey,
+          name: item.name,
+          unit: item.unit,
+          department: item.department,
+          totalAmount: Number(item.totalAmount.toFixed(2)),
+          isChecked: item.isChecked,
+        })),
+      ),
+    };
   }
 
   private toTitleCase(value: string): string {
@@ -567,11 +657,12 @@ export class WeeklyPlansService {
     return this.prisma.planItem.delete({ where: { id: itemId } });
   }
 
-  async getShoppingList(userId: string, householdId: string, weekStart: string) {
-    await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
-
-    const sharedPlan = await this.prisma.sharedMealPlan.findUnique({
+  private async buildShoppingList(
+    householdId: string,
+    weekStartDate: Date,
+    client: PrismaReadClient = this.prisma,
+  ): Promise<ShoppingListItem[]> {
+    const sharedPlan = await client.sharedMealPlan.findUnique({
       where: {
         householdId_weekStart: {
           householdId,
@@ -620,7 +711,7 @@ export class WeeklyPlansService {
       }));
     } else {
       // Backward compatibility fallback: if shared plan is not yet saved, derive list from calendar slots.
-      const weeklyPlan = await this.prisma.weeklyPlan.findUnique({
+      const weeklyPlan = await client.weeklyPlan.findUnique({
         where: {
           householdId_weekStart: {
             householdId,
@@ -682,7 +773,7 @@ export class WeeklyPlansService {
     }
 
     const productKeys = Array.from(aggregated.keys());
-    const checks = await this.prisma.shoppingItemCheck.findMany({
+    const checks = await client.shoppingItemCheck.findMany({
       where: {
         householdId,
         weekStart: weekStartDate,
@@ -733,6 +824,292 @@ export class WeeklyPlansService {
       });
   }
 
+  async getShoppingList(userId: string, householdId: string, weekStart: string) {
+    await this.ensureMembership(userId, householdId);
+    const weekStartDate = this.parseWeekStart(weekStart);
+    return this.buildShoppingList(householdId, weekStartDate);
+  }
+
+  async getShoppingListState(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+  ): Promise<ShoppingListStateDto> {
+    await this.ensureMembership(userId, householdId);
+    const weekStartDate = this.parseWeekStart(weekStart);
+
+    const [items, archives, archiveStates] = await Promise.all([
+      this.buildShoppingList(householdId, weekStartDate),
+      this.prisma.shoppingListArchive.findMany({
+        where: { householdId },
+        orderBy: [{ archivedAt: 'desc' }, { revision: 'desc' }],
+        include: {
+          items: {
+            orderBy: [{ department: 'asc' }, { name: 'asc' }],
+          },
+        },
+      }),
+      this.prisma.shoppingListArchiveState.findMany({
+        where: {
+          householdId,
+          currentArchiveId: { not: null },
+        },
+        select: { currentArchiveId: true },
+      }),
+    ]);
+
+    const currentArchiveIds = new Set(
+      archiveStates
+        .map((state) => state.currentArchiveId)
+        .filter((value): value is string => Boolean(value)),
+    );
+
+    return {
+      items,
+      archives: archives.map((archive) => this.toArchiveSnapshot(archive, currentArchiveIds)),
+    };
+  }
+
+  async archiveShoppingList(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    weekLabel: string,
+  ) {
+    await this.ensureMembership(userId, householdId);
+    const weekStartDate = this.parseWeekStart(weekStart);
+
+    return this.runSerializable(async (tx) => {
+      const items = await this.buildShoppingList(householdId, weekStartDate, tx);
+
+      if (items.length === 0) {
+        throw new AppException(
+          'SHOPPING_LIST_EMPTY',
+          'Shopping list is empty and cannot be archived',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (items.some((item) => !item.isChecked)) {
+        throw new AppException(
+          'SHOPPING_LIST_NOT_COMPLETED',
+          'Shopping list must be fully checked before archiving',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const signature = this.itemSignature(items);
+      const now = new Date();
+      const existingArchive = await tx.shoppingListArchive.findUnique({
+        where: {
+          householdId_weekStart_signature: {
+            householdId,
+            weekStart: weekStartDate,
+            signature,
+          },
+        },
+        select: {
+          id: true,
+          revision: true,
+        },
+      });
+
+      let archiveId: string;
+      if (existingArchive) {
+        archiveId = existingArchive.id;
+        await tx.shoppingListArchive.update({
+          where: { id: existingArchive.id },
+          data: {
+            weekLabel,
+            archivedAt: now,
+          },
+        });
+      } else {
+        const revisionAggregate = await tx.shoppingListArchive.aggregate({
+          where: {
+            householdId,
+            weekStart: weekStartDate,
+          },
+          _max: { revision: true },
+        });
+
+        const createdArchive = await tx.shoppingListArchive.create({
+          data: {
+            householdId,
+            weekStart: weekStartDate,
+            weekLabel,
+            revision: (revisionAggregate._max.revision ?? 0) + 1,
+            signature,
+            archivedAt: now,
+            items: {
+              create: items.map((item) => ({
+                productKey: item.productKey,
+                name: item.name,
+                unit: item.unit,
+                department: item.department,
+                totalAmount: item.totalAmount,
+                isChecked: item.isChecked,
+              })),
+            },
+          },
+          select: { id: true },
+        });
+        archiveId = createdArchive.id;
+      }
+
+      await tx.shoppingListArchiveState.upsert({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
+        },
+        update: {
+          currentArchiveId: archiveId,
+        },
+        create: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: archiveId,
+        },
+      });
+
+      return { archiveId };
+    });
+  }
+
+  async selectShoppingListArchive(
+    userId: string,
+    householdId: string,
+    archiveId: string,
+  ) {
+    await this.ensureMembership(userId, householdId);
+
+    return this.runSerializable(async (tx) => {
+      const archive = await tx.shoppingListArchive.findUnique({
+        where: { id: archiveId },
+        select: {
+          id: true,
+          householdId: true,
+          weekStart: true,
+        },
+      });
+
+      if (!archive || archive.householdId !== householdId) {
+        throw new NotFoundException('Shopping list archive not found');
+      }
+
+      await tx.shoppingListArchiveState.upsert({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: archive.weekStart,
+          },
+        },
+        update: {
+          currentArchiveId: archive.id,
+        },
+        create: {
+          householdId,
+          weekStart: archive.weekStart,
+          currentArchiveId: archive.id,
+        },
+      });
+
+      return {
+        archiveId: archive.id,
+        weekStart: this.formatWeekStart(archive.weekStart),
+      };
+    });
+  }
+
+  async deleteShoppingListArchive(
+    userId: string,
+    householdId: string,
+    archiveId: string,
+  ) {
+    await this.ensureMembership(userId, householdId);
+
+    return this.runSerializable(async (tx) => {
+      const archive = await tx.shoppingListArchive.findUnique({
+        where: { id: archiveId },
+        select: {
+          id: true,
+          householdId: true,
+          weekStart: true,
+        },
+      });
+
+      if (!archive || archive.householdId !== householdId) {
+        throw new NotFoundException('Shopping list archive not found');
+      }
+
+      const weekStart = archive.weekStart;
+
+      await tx.shoppingListArchive.delete({
+        where: { id: archive.id },
+      });
+
+      const replacementArchive = await tx.shoppingListArchive.findFirst({
+        where: {
+          householdId,
+          weekStart,
+        },
+        orderBy: [{ archivedAt: 'desc' }, { revision: 'desc' }],
+        select: { id: true },
+      });
+
+      if (replacementArchive) {
+        await tx.shoppingListArchiveState.upsert({
+          where: {
+            householdId_weekStart: {
+              householdId,
+              weekStart,
+            },
+          },
+          update: {
+            currentArchiveId: replacementArchive.id,
+          },
+          create: {
+            householdId,
+            weekStart,
+            currentArchiveId: replacementArchive.id,
+          },
+        });
+      } else {
+        await tx.shoppingListArchiveState.deleteMany({
+          where: {
+            householdId,
+            weekStart,
+          },
+        });
+      }
+
+      return {
+        archiveId,
+        weekStart: this.formatWeekStart(weekStart),
+      };
+    });
+  }
+
+  async deleteAllShoppingListArchives(
+    userId: string,
+    householdId: string,
+  ) {
+    await this.ensureMembership(userId, householdId);
+
+    return this.runSerializable(async (tx) => {
+      await tx.shoppingListArchiveState.deleteMany({
+        where: { householdId },
+      });
+      await tx.shoppingListArchive.deleteMany({
+        where: { householdId },
+      });
+
+      return { success: true };
+    });
+  }
+
   async setShoppingItemChecked(
     userId: string,
     householdId: string,
@@ -742,8 +1119,7 @@ export class WeeklyPlansService {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
 
-    // Validate that the product exists in current shopping list of the selected week.
-    const shoppingItems = await this.getShoppingList(userId, householdId, weekStart);
+    const shoppingItems = await this.buildShoppingList(householdId, weekStartDate);
     const exists = shoppingItems.some((item) => item.productKey === dto.productKey);
     if (!exists) {
       throw new NotFoundException('Shopping item not found for this household and week');

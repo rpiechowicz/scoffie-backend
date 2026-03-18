@@ -53,6 +53,37 @@ class WeeklyPlansGetShoppingListPayload {
   weekStart: string;
 }
 
+class WeeklyPlansGetShoppingListStatePayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+}
+
+class WeeklyPlansArchiveShoppingListPayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+  weekLabel: string;
+}
+
+class WeeklyPlansSelectShoppingListArchivePayload {
+  userId: string;
+  householdId: string;
+  archiveId: string;
+}
+
+class WeeklyPlansDeleteShoppingListArchivePayload {
+  userId: string;
+  householdId: string;
+  archiveId: string;
+}
+
+class WeeklyPlansDeleteAllShoppingListArchivesPayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+}
+
 class WeeklyPlansSetShoppingItemCheckedPayload {
   userId: string;
   householdId: string;
@@ -174,6 +205,97 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
     return wsRespond(() =>
       this.weeklyPlansService.getShoppingList(payload.userId, payload.householdId, payload.weekStart),
     );
+  }
+
+  @SubscribeMessage('weeklyPlans:getShoppingListState')
+  getShoppingListState(@MessageBody() payload: WeeklyPlansGetShoppingListStatePayload) {
+    return wsRespond(() =>
+      this.weeklyPlansService.getShoppingListState(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+      ),
+    );
+  }
+
+  @SubscribeMessage('weeklyPlans:archiveShoppingList')
+  archiveShoppingList(@MessageBody() payload: WeeklyPlansArchiveShoppingListPayload) {
+    return wsRespond(async () => {
+      const result = await this.weeklyPlansService.archiveShoppingList(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.weekLabel,
+      );
+
+      const changeVersion = this.nextChangeVersion();
+      this.server.emit('weeklyPlans:shoppingListChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        changeVersion,
+      });
+
+      return result;
+    });
+  }
+
+  @SubscribeMessage('weeklyPlans:selectShoppingListArchive')
+  selectShoppingListArchive(@MessageBody() payload: WeeklyPlansSelectShoppingListArchivePayload) {
+    return wsRespond(async () => {
+      const result = await this.weeklyPlansService.selectShoppingListArchive(
+        payload.userId,
+        payload.householdId,
+        payload.archiveId,
+      );
+
+      const changeVersion = this.nextChangeVersion();
+      this.server.emit('weeklyPlans:shoppingListChanged', {
+        householdId: payload.householdId,
+        weekStart: result.weekStart,
+        changeVersion,
+      });
+
+      return result;
+    });
+  }
+
+  @SubscribeMessage('weeklyPlans:deleteShoppingListArchive')
+  deleteShoppingListArchive(@MessageBody() payload: WeeklyPlansDeleteShoppingListArchivePayload) {
+    return wsRespond(async () => {
+      const result = await this.weeklyPlansService.deleteShoppingListArchive(
+        payload.userId,
+        payload.householdId,
+        payload.archiveId,
+      );
+
+      const changeVersion = this.nextChangeVersion();
+      this.server.emit('weeklyPlans:shoppingListChanged', {
+        householdId: payload.householdId,
+        weekStart: result.weekStart,
+        changeVersion,
+      });
+
+      return result;
+    });
+  }
+
+  @SubscribeMessage('weeklyPlans:deleteAllShoppingListArchives')
+  deleteAllShoppingListArchives(@MessageBody() payload: WeeklyPlansDeleteAllShoppingListArchivesPayload) {
+    return wsRespond(async () => {
+      const result = await this.weeklyPlansService.deleteAllShoppingListArchives(
+        payload.userId,
+        payload.householdId,
+      );
+
+      const changeVersion = this.nextChangeVersion();
+      this.server.emit('weeklyPlans:shoppingListChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        changeVersion,
+      });
+
+      return result;
+    });
   }
 
   @SubscribeMessage('weeklyPlans:setShoppingItemChecked')

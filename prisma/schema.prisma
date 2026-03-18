@@ -123,6 +123,8 @@ model Household {
   invitations Invitation[]
   weeklyPlans WeeklyPlan[]
   shoppingItemChecks ShoppingItemCheck[]
+  shoppingListArchives ShoppingListArchive[]
+  shoppingListArchiveStates ShoppingListArchiveState[]
   recipeFavorites RecipeFavorite[]
   sharedMealPlans SharedMealPlan[]
 }
@@ -228,6 +230,59 @@ model ShoppingItemCheck {
 
   @@unique([householdId, weekStart, productKey])
   @@index([householdId, weekStart])
+}
+
+model ShoppingListArchive {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  weekStart   DateTime
+  weekLabel   String
+  revision    Int
+  signature   String
+  archivedAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items     ShoppingListArchiveItem[]
+  currentStates ShoppingListArchiveState[] @relation("CurrentShoppingListArchive")
+
+  @@unique([householdId, weekStart, revision])
+  @@unique([householdId, weekStart, signature])
+  @@index([householdId, archivedAt])
+  @@index([householdId, weekStart])
+}
+
+model ShoppingListArchiveItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  archiveId   String   @db.Uuid
+  productKey  String
+  name        String
+  unit        String
+  department  String
+  totalAmount Float
+  isChecked   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  archive ShoppingListArchive @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+
+  @@unique([archiveId, productKey])
+  @@index([archiveId])
+}
+
+model ShoppingListArchiveState {
+  id               String   @id @default(uuid()) @db.Uuid
+  householdId      String   @db.Uuid
+  weekStart        DateTime
+  currentArchiveId String?  @db.Uuid
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  currentArchive ShoppingListArchive? @relation("CurrentShoppingListArchive", fields: [currentArchiveId], references: [id], onDelete: SetNull)
+
+  @@unique([householdId, weekStart])
+  @@index([householdId, currentArchiveId])
 }
 
 model SharedMealPlan {
