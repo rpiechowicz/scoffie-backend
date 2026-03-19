@@ -285,6 +285,7 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
       const result = await this.weeklyPlansService.deleteAllShoppingListArchives(
         payload.userId,
         payload.householdId,
+        payload.weekStart,
       );
 
       const changeVersion = this.nextChangeVersion();

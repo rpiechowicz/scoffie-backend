@@ -838,7 +838,7 @@ export class WeeklyPlansService {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
 
-    const [items, archives, archiveStates] = await Promise.all([
+    const [items, archives, currentArchiveStates, currentWeekArchiveState] = await Promise.all([
       this.buildShoppingList(householdId, weekStartDate),
       this.prisma.shoppingListArchive.findMany({
         where: { householdId },
@@ -854,18 +854,32 @@ export class WeeklyPlansService {
           householdId,
           currentArchiveId: { not: null },
         },
-        select: { currentArchiveId: true },
+        select: {
+          currentArchiveId: true,
+        },
+      }),
+      this.prisma.shoppingListArchiveState.findUnique({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
+        },
+        select: {
+          currentArchiveId: true,
+        },
       }),
     ]);
 
     const currentArchiveIds = new Set(
-      archiveStates
+      currentArchiveStates
         .map((state) => state.currentArchiveId)
         .filter((value): value is string => Boolean(value)),
     );
+    const shouldHideCurrentWeekList = currentWeekArchiveState?.currentArchiveId === null;
 
     return {
-      items,
+      items: shouldHideCurrentWeekList ? [] : items,
       archives: archives.map((archive) => this.toArchiveSnapshot(archive, currentArchiveIds)),
     };
   }
@@ -1077,10 +1091,20 @@ export class WeeklyPlansService {
           },
         });
       } else {
-        await tx.shoppingListArchiveState.deleteMany({
+        await tx.shoppingListArchiveState.upsert({
           where: {
+            householdId_weekStart: {
+              householdId,
+              weekStart,
+            },
+          },
+          update: {
+            currentArchiveId: null,
+          },
+          create: {
             householdId,
             weekStart,
+            currentArchiveId: null,
           },
         });
       }
@@ -1095,8 +1119,10 @@ export class WeeklyPlansService {
   async deleteAllShoppingListArchives(
     userId: string,
     householdId: string,
+    weekStart: string,
   ) {
     await this.ensureMembership(userId, householdId);
+    const weekStartDate = this.parseWeekStart(weekStart);
 
     return this.runSerializable(async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
@@ -1104,6 +1130,13 @@ export class WeeklyPlansService {
       });
       await tx.shoppingListArchive.deleteMany({
         where: { householdId },
+      });
+      await tx.shoppingListArchiveState.create({
+        data: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
       });
 
       return { success: true };
@@ -1156,6 +1189,14 @@ export class WeeklyPlansService {
     await this.ensureRecipeForHousehold(dto.recipeId, householdId);
 
     return this.runSerializable(async (tx) => {
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
+      });
+
       const weeklyPlan = await tx.weeklyPlan.upsert({
         where: {
           householdId_weekStart: {
@@ -1235,6 +1276,14 @@ export class WeeklyPlansService {
     const weekStartDate = this.parseWeekStart(weekStart);
 
     return this.runSerializable(async (tx) => {
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
+      });
+
       const weeklyPlan = await tx.weeklyPlan.findUnique({
         where: {
           householdId_weekStart: {
@@ -1431,6 +1480,14 @@ export class WeeklyPlansService {
     const dinnerAllowed = Array.from(dinnerCounts.keys());
 
     await this.runSerializable(async (tx) => {
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
+      });
+
       if (uniqueIds.length > 0) {
         const recipes = await tx.recipe.findMany({
           where: {
