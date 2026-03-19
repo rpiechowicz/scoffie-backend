@@ -1314,6 +1314,20 @@ export class WeeklyPlansService {
           weekStart: weekStartDate,
         },
       });
+
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      });
+
+      await tx.shoppingListArchive.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      });
     });
 
     return { success: true };
