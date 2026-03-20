@@ -185,6 +185,64 @@ export class WeeklyPlansService {
     });
   }
 
+  private buildDisplayShoppingItems(
+    aggregatedItems: ShoppingAccumulator[],
+    checkedMap: Map<string, boolean>,
+  ): ShoppingListItem[] {
+    if (aggregatedItems.length === 0) {
+      return [];
+    }
+
+    const normalized = aggregatedItems.map((item) => ({
+      ...item,
+      totalAmount: Number(item.totalAmount.toFixed(2)),
+      isChecked: checkedMap.get(item.productKey) ?? false,
+    }));
+
+    const unitsByName = new Map<string, Set<string>>();
+    for (const item of normalized) {
+      const set = unitsByName.get(item.name) ?? new Set<string>();
+      set.add(this.normalizeText(item.unit));
+      unitsByName.set(item.name, set);
+    }
+
+    return this.sortShoppingItems(
+      normalized.map((item) => {
+        const units = unitsByName.get(item.name);
+        if (units && units.size > 1) {
+          return {
+            ...item,
+            // Avoid visually duplicated product rows when same canonical name has different units.
+            name: `${item.name} (${item.unit})`,
+          };
+        }
+        return item;
+      }),
+    );
+  }
+
+  private mapSnapshotItems(
+    items: Array<{
+      productKey: string;
+      name: string;
+      unit: string;
+      department: string;
+      totalAmount: number;
+      isChecked: boolean;
+    }>,
+  ): ShoppingListItem[] {
+    return this.sortShoppingItems(
+      items.map((item) => ({
+        productKey: item.productKey,
+        name: item.name,
+        unit: item.unit,
+        department: item.department,
+        totalAmount: Number(item.totalAmount.toFixed(2)),
+        isChecked: item.isChecked,
+      })),
+    );
+  }
+
   private toArchiveSnapshot(
     archive: {
       id: string;
@@ -634,7 +692,7 @@ export class WeeklyPlansService {
         );
       }
 
-      return tx.planItem.create({
+      const createdItem = await tx.planItem.create({
         data: {
           weeklyPlanId,
           recipeId: dto.recipeId,
@@ -642,6 +700,10 @@ export class WeeklyPlansService {
           mealType: dto.mealType,
         },
       });
+
+      await this.rebuildShoppingListSnapshot(plan.householdId, plan.weekStart, tx);
+
+      return createdItem;
     });
   }
 
@@ -654,14 +716,22 @@ export class WeeklyPlansService {
       throw new NotFoundException('Plan item not found');
     }
     await this.ensureMembership(userId, item.weeklyPlan.householdId);
-    return this.prisma.planItem.delete({ where: { id: itemId } });
+    return this.runSerializable(async (tx) => {
+      const deletedItem = await tx.planItem.delete({ where: { id: itemId } });
+      await this.rebuildShoppingListSnapshot(
+        item.weeklyPlan.householdId,
+        item.weeklyPlan.weekStart,
+        tx,
+      );
+      return deletedItem;
+    });
   }
 
-  private async buildShoppingList(
+  private async buildShoppingListBase(
     householdId: string,
     weekStartDate: Date,
     client: PrismaReadClient = this.prisma,
-  ): Promise<ShoppingListItem[]> {
+  ): Promise<ShoppingAccumulator[]> {
     const sharedPlan = await client.sharedMealPlan.findUnique({
       where: {
         householdId_weekStart: {
@@ -772,62 +842,171 @@ export class WeeklyPlansService {
       return [];
     }
 
-    const productKeys = Array.from(aggregated.keys());
-    const checks = await client.shoppingItemCheck.findMany({
+    return Array.from(aggregated.values());
+  }
+
+  private async rebuildShoppingListSnapshot(
+    householdId: string,
+    weekStartDate: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<ShoppingListItem[]> {
+    const aggregatedItems = await this.buildShoppingListBase(householdId, weekStartDate, tx);
+
+    const shoppingList = await tx.shoppingList.upsert({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      update: {
+        updatedAt: new Date(),
+      },
+      create: {
+        householdId,
+        weekStart: weekStartDate,
+      },
+      include: {
+        items: {
+          select: {
+            productKey: true,
+            isChecked: true,
+          },
+        },
+      },
+    });
+
+    const productKeys = aggregatedItems.map((item) => item.productKey);
+    const legacyChecks = productKeys.length > 0
+      ? await tx.shoppingItemCheck.findMany({
+          where: {
+            householdId,
+            weekStart: weekStartDate,
+            productKey: {
+              in: productKeys,
+            },
+          },
+          select: {
+            productKey: true,
+            isChecked: true,
+          },
+        })
+      : [];
+
+    const existingCheckedMap = new Map(
+      shoppingList.items.map((item) => [item.productKey, item.isChecked]),
+    );
+    const legacyCheckedMap = new Map(
+      legacyChecks.map((item) => [item.productKey, item.isChecked]),
+    );
+    const checkedMap = new Map<string, boolean>();
+    for (const item of aggregatedItems) {
+      checkedMap.set(
+        item.productKey,
+        existingCheckedMap.get(item.productKey) ?? legacyCheckedMap.get(item.productKey) ?? false,
+      );
+    }
+
+    const nextItems = this.buildDisplayShoppingItems(aggregatedItems, checkedMap);
+
+    if (nextItems.length === 0) {
+      await tx.shoppingListItem.deleteMany({
+        where: { shoppingListId: shoppingList.id },
+      });
+      await tx.shoppingItemCheck.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      });
+      return [];
+    }
+
+    await tx.shoppingListItem.deleteMany({
+      where: {
+        shoppingListId: shoppingList.id,
+        productKey: {
+          notIn: nextItems.map((item) => item.productKey),
+        },
+      },
+    });
+
+    await tx.shoppingItemCheck.deleteMany({
       where: {
         householdId,
         weekStart: weekStartDate,
         productKey: {
-          in: productKeys,
+          notIn: nextItems.map((item) => item.productKey),
         },
       },
-      select: {
-        productKey: true,
-        isChecked: true,
-      },
     });
-    const checkedMap = new Map(checks.map((check) => [check.productKey, check.isChecked]));
 
-    const normalized = Array.from(aggregated.values()).map((item) => ({
-        ...item,
-        totalAmount: Number(item.totalAmount.toFixed(2)),
-        isChecked: checkedMap.get(item.productKey) ?? false,
-      }));
-
-    const unitsByName = new Map<string, Set<string>>();
-    for (const item of normalized) {
-      const set = unitsByName.get(item.name) ?? new Set<string>();
-      set.add(this.normalizeText(item.unit));
-      unitsByName.set(item.name, set);
+    for (const item of nextItems) {
+      await tx.shoppingListItem.upsert({
+        where: {
+          shoppingListId_productKey: {
+            shoppingListId: shoppingList.id,
+            productKey: item.productKey,
+          },
+        },
+        update: {
+          name: item.name,
+          unit: item.unit,
+          department: item.department,
+          totalAmount: item.totalAmount,
+          isChecked: item.isChecked,
+        },
+        create: {
+          shoppingListId: shoppingList.id,
+          productKey: item.productKey,
+          name: item.name,
+          unit: item.unit,
+          department: item.department,
+          totalAmount: item.totalAmount,
+          isChecked: item.isChecked,
+        },
+      });
     }
 
-    return normalized
-      .map((item) => {
-        const units = unitsByName.get(item.name);
-        if (units && units.size > 1) {
-          return {
-            ...item,
-            // Avoid visually duplicated product rows when same canonical name has different units.
-            name: `${item.name} (${item.unit})`,
-          };
-        }
-        return item;
-      })
-      .sort((a, b) => {
-        const rankA = WeeklyPlansService.DEPARTMENT_ORDER[a.department] ?? WeeklyPlansService.DEPARTMENT_ORDER.Inne;
-        const rankB = WeeklyPlansService.DEPARTMENT_ORDER[b.department] ?? WeeklyPlansService.DEPARTMENT_ORDER.Inne;
-        if (rankA !== rankB) return rankA - rankB;
-        if (a.department === b.department) {
-          return a.name.localeCompare(b.name);
-        }
-        return a.department.localeCompare(b.department);
-      });
+    return nextItems;
+  }
+
+  private async getShoppingListSnapshot(
+    householdId: string,
+    weekStartDate: Date,
+    client: PrismaReadClient = this.prisma,
+  ): Promise<ShoppingListItem[]> {
+    const snapshot = await client.shoppingList.findUnique({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    if (snapshot) {
+      return this.mapSnapshotItems(snapshot.items);
+    }
+
+    if (client === this.prisma) {
+      return this.runSerializable((tx) => this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx));
+    }
+
+    return this.rebuildShoppingListSnapshot(
+      householdId,
+      weekStartDate,
+      client as Prisma.TransactionClient,
+    );
   }
 
   async getShoppingList(userId: string, householdId: string, weekStart: string) {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
-    return this.buildShoppingList(householdId, weekStartDate);
+    return this.getShoppingListSnapshot(householdId, weekStartDate);
   }
 
   async getShoppingListState(
@@ -839,7 +1018,7 @@ export class WeeklyPlansService {
     const weekStartDate = this.parseWeekStart(weekStart);
 
     const [items, archives, currentArchiveStates, currentWeekArchiveState] = await Promise.all([
-      this.buildShoppingList(householdId, weekStartDate),
+      this.getShoppingListSnapshot(householdId, weekStartDate),
       this.prisma.shoppingListArchive.findMany({
         where: { householdId },
         orderBy: [{ archivedAt: 'desc' }, { revision: 'desc' }],
@@ -894,7 +1073,7 @@ export class WeeklyPlansService {
     const weekStartDate = this.parseWeekStart(weekStart);
 
     return this.runSerializable(async (tx) => {
-      const items = await this.buildShoppingList(householdId, weekStartDate, tx);
+      const items = await this.getShoppingListSnapshot(householdId, weekStartDate, tx);
 
       if (items.length === 0) {
         throw new AppException(
@@ -1152,29 +1331,63 @@ export class WeeklyPlansService {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
 
-    const shoppingItems = await this.buildShoppingList(householdId, weekStartDate);
-    const exists = shoppingItems.some((item) => item.productKey === dto.productKey);
-    if (!exists) {
-      throw new NotFoundException('Shopping item not found for this household and week');
-    }
+    return this.runSerializable(async (tx) => {
+      await this.getShoppingListSnapshot(householdId, weekStartDate, tx);
 
-    return this.prisma.shoppingItemCheck.upsert({
-      where: {
-        householdId_weekStart_productKey: {
+      const snapshot = await tx.shoppingList.findUnique({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
+        },
+        select: {
+          id: true,
+          items: {
+            where: {
+              productKey: dto.productKey,
+            },
+            select: {
+              productKey: true,
+            },
+          },
+        },
+      });
+
+      if (!snapshot || snapshot.items.length === 0) {
+        throw new NotFoundException('Shopping item not found for this household and week');
+      }
+
+      await tx.shoppingListItem.update({
+        where: {
+          shoppingListId_productKey: {
+            shoppingListId: snapshot.id,
+            productKey: dto.productKey,
+          },
+        },
+        data: {
+          isChecked: dto.isChecked,
+        },
+      });
+
+      return tx.shoppingItemCheck.upsert({
+        where: {
+          householdId_weekStart_productKey: {
+            householdId,
+            weekStart: weekStartDate,
+            productKey: dto.productKey,
+          },
+        },
+        update: {
+          isChecked: dto.isChecked,
+        },
+        create: {
           householdId,
           weekStart: weekStartDate,
           productKey: dto.productKey,
+          isChecked: dto.isChecked,
         },
-      },
-      update: {
-        isChecked: dto.isChecked,
-      },
-      create: {
-        householdId,
-        weekStart: weekStartDate,
-        productKey: dto.productKey,
-        isChecked: dto.isChecked,
-      },
+      });
     });
   }
 
@@ -1221,10 +1434,12 @@ export class WeeklyPlansService {
       });
 
       if (existingSlot) {
-        return tx.planItem.update({
+        const updatedItem = await tx.planItem.update({
           where: { id: existingSlot.id },
           data: { recipeId: dto.recipeId },
         });
+        await this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx);
+        return updatedItem;
       }
 
       const [existingForMealType, existingTotal] = await Promise.all([
@@ -1255,7 +1470,7 @@ export class WeeklyPlansService {
         );
       }
 
-      return tx.planItem.create({
+      const createdItem = await tx.planItem.create({
         data: {
           weeklyPlanId: weeklyPlan.id,
           dayOfWeek: dto.dayOfWeek,
@@ -1263,6 +1478,10 @@ export class WeeklyPlansService {
           recipeId: dto.recipeId,
         },
       });
+
+      await this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx);
+
+      return createdItem;
     });
   }
 
@@ -1311,9 +1530,13 @@ export class WeeklyPlansService {
         return null;
       }
 
-      return tx.planItem.delete({
+      const deletedItem = await tx.planItem.delete({
         where: { id: existingSlot.id },
       });
+
+      await this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx);
+
+      return deletedItem;
     });
   }
 
@@ -1358,6 +1581,13 @@ export class WeeklyPlansService {
       }
 
       await tx.shoppingItemCheck.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      });
+
+      await tx.shoppingList.deleteMany({
         where: {
           householdId,
           weekStart: weekStartDate,
@@ -1591,6 +1821,8 @@ export class WeeklyPlansService {
         pruneByMealType('LUNCH', lunchAllowed),
         pruneByMealType('DINNER', dinnerAllowed),
       ]);
+
+      await this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx);
     });
 
     return this.getSharedMealPlan(userId, householdId, weekStart);

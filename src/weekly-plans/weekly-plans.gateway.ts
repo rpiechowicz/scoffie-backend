@@ -344,6 +344,11 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         mealType: payload.data?.mealType,
         changeVersion,
       });
+      this.server.emit('weeklyPlans:shoppingListChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        changeVersion,
+      });
       this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'UPSERT_SLOT', {
         dayOfWeek: payload.data?.dayOfWeek,
         mealType: payload.data?.mealType,
@@ -378,6 +383,11 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         changedByDisplayName,
         dayOfWeek: payload.data?.dayOfWeek,
         mealType: payload.data?.mealType,
+        changeVersion,
+      });
+      this.server.emit('weeklyPlans:shoppingListChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
         changeVersion,
       });
       this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'REMOVE_SLOT', {

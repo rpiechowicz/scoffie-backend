@@ -122,6 +122,7 @@ model Household {
   recipes     Recipe[]
   invitations Invitation[]
   weeklyPlans WeeklyPlan[]
+  shoppingLists ShoppingList[]
   shoppingItemChecks ShoppingItemCheck[]
   shoppingListArchives ShoppingListArchive[]
   shoppingListArchiveStates ShoppingListArchiveState[]
@@ -230,6 +231,38 @@ model ShoppingItemCheck {
 
   @@unique([householdId, weekStart, productKey])
   @@index([householdId, weekStart])
+}
+
+model ShoppingList {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  weekStart   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items     ShoppingListItem[]
+
+  @@unique([householdId, weekStart])
+  @@index([householdId, updatedAt])
+}
+
+model ShoppingListItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  shoppingListId String   @db.Uuid
+  productKey     String
+  name           String
+  unit           String
+  department     String
+  totalAmount    Float
+  isChecked      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  shoppingList ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+
+  @@unique([shoppingListId, productKey])
+  @@index([shoppingListId])
 }
 
 model ShoppingListArchive {
