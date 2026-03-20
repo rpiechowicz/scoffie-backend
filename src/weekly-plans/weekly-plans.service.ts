@@ -971,6 +971,61 @@ export class WeeklyPlansService {
     return nextItems;
   }
 
+  private async hasShoppingSourceData(
+    householdId: string,
+    weekStartDate: Date,
+    client: PrismaReadClient = this.prisma,
+  ): Promise<boolean> {
+    const [sharedPlan, weeklyPlan] = await Promise.all([
+      client.sharedMealPlan.findUnique({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
+        },
+        select: {
+          items: {
+            select: { id: true },
+            take: 1,
+          },
+        },
+      }),
+      client.weeklyPlan.findUnique({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: weekStartDate,
+          },
+        },
+        select: {
+          items: {
+            select: { id: true },
+            take: 1,
+          },
+        },
+      }),
+    ]);
+
+    return (sharedPlan?.items.length ?? 0) > 0 || (weeklyPlan?.items.length ?? 0) > 0;
+  }
+
+  private async rebuildShoppingListSnapshotWithClient(
+    householdId: string,
+    weekStartDate: Date,
+    client: PrismaReadClient = this.prisma,
+  ): Promise<ShoppingListItem[]> {
+    if (client === this.prisma) {
+      return this.runSerializable((tx) => this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx));
+    }
+
+    return this.rebuildShoppingListSnapshot(
+      householdId,
+      weekStartDate,
+      client as Prisma.TransactionClient,
+    );
+  }
+
   private async getShoppingListSnapshot(
     householdId: string,
     weekStartDate: Date,
@@ -989,18 +1044,17 @@ export class WeeklyPlansService {
     });
 
     if (snapshot) {
+      const hasSourceData = await this.hasShoppingSourceData(householdId, weekStartDate, client);
+      if (snapshot.items.length === 0 && hasSourceData) {
+        return this.rebuildShoppingListSnapshotWithClient(householdId, weekStartDate, client);
+      }
+      if (snapshot.items.length > 0 && !hasSourceData) {
+        return this.rebuildShoppingListSnapshotWithClient(householdId, weekStartDate, client);
+      }
       return this.mapSnapshotItems(snapshot.items);
     }
 
-    if (client === this.prisma) {
-      return this.runSerializable((tx) => this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx));
-    }
-
-    return this.rebuildShoppingListSnapshot(
-      householdId,
-      weekStartDate,
-      client as Prisma.TransactionClient,
-    );
+    return this.rebuildShoppingListSnapshotWithClient(householdId, weekStartDate, client);
   }
 
   async getShoppingList(userId: string, householdId: string, weekStart: string) {
@@ -1790,6 +1844,7 @@ export class WeeklyPlansService {
       });
 
       if (!weeklyPlan) {
+        await this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx);
         return;
       }
 
