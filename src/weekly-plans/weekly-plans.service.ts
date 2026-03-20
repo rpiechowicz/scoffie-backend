@@ -875,6 +875,27 @@ export class WeeklyPlansService {
         },
       },
     });
+    const currentArchiveState = await tx.shoppingListArchiveState.findUnique({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      select: {
+        currentArchiveId: true,
+        currentArchive: {
+          select: {
+            items: {
+              select: {
+                productKey: true,
+                totalAmount: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
     const productKeys = aggregatedItems.map((item) => item.productKey);
     const legacyChecks = productKeys.length > 0
@@ -899,11 +920,25 @@ export class WeeklyPlansService {
     const legacyCheckedMap = new Map(
       legacyChecks.map((item) => [item.productKey, item.isChecked]),
     );
+    const baselineAmounts = new Map(
+      (currentArchiveState?.currentArchive?.items ?? []).map((item) => [
+        item.productKey,
+        item.totalAmount,
+      ]),
+    );
     const checkedMap = new Map<string, boolean>();
     for (const item of aggregatedItems) {
+      const previousAmount = baselineAmounts.get(item.productKey) ?? 0;
+      const hasNewUncheckedDelta = Boolean(
+        currentArchiveState?.currentArchiveId
+          && item.totalAmount > previousAmount + 0.000_001,
+      );
+
       checkedMap.set(
         item.productKey,
-        existingCheckedMap.get(item.productKey) ?? legacyCheckedMap.get(item.productKey) ?? false,
+        hasNewUncheckedDelta
+          ? false
+          : existingCheckedMap.get(item.productKey) ?? legacyCheckedMap.get(item.productKey) ?? false,
       );
     }
 
