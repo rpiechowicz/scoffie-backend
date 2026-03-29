@@ -9,6 +9,7 @@ import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { DevLoginDto } from './dto/dev-login.dto';
 import { GoogleOauthDto } from './dto/google-oauth.dto';
+import { resolveJwtExpiresIn } from './jwt-expiration.util';
 
 @Injectable()
 export class AuthService {
@@ -130,8 +131,8 @@ export class AuthService {
   }
 
   async issueAccessToken(userId: string) {
-    const expiresIn = process.env.JWT_EXPIRES_IN ?? '30d';
-    return this.jwtService.signAsync({ sub: userId }, { expiresIn: expiresIn as any });
+    const expiresIn = resolveJwtExpiresIn(process.env.JWT_EXPIRES_IN);
+    return this.jwtService.signAsync({ sub: userId }, { expiresIn });
   }
 
   private async issueRefreshToken(userId: string) {

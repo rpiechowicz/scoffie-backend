@@ -17,7 +17,10 @@ export class GoogleOauthDto {
   @IsEmail()
   email?: string;
 
-  @ApiProperty({ example: 'https://lh3.googleusercontent.com/a/avatar', required: false })
+  @ApiProperty({
+    example: 'https://lh3.googleusercontent.com/a/avatar',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   avatarUrl?: string;

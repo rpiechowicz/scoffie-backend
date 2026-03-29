@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { resolveJwtExpiresIn } from './jwt-expiration.util';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RollingTokenInterceptor } from './rolling-token.interceptor';
 
@@ -9,7 +10,9 @@ import { RollingTokenInterceptor } from './rolling-token.interceptor';
   imports: [
     JwtModule.register({
       secret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
-      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN ?? '30d') as any },
+      signOptions: {
+        expiresIn: resolveJwtExpiresIn(process.env.JWT_EXPIRES_IN),
+      },
     }),
   ],
   controllers: [AuthController],
