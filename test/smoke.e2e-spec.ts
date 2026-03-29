@@ -94,6 +94,35 @@ describe('Smoke E2E', () => {
     );
   });
 
+  it('POST /auth/refresh should rotate refresh tokens and reject reused tokens', async () => {
+    const devLogin = await request(app.getHttpServer())
+      .post('/auth/dev')
+      .send({
+        displayName: `Refresh User ${Date.now()}`,
+        email: `${Date.now()}@refresh.local`,
+      })
+      .expect(201);
+
+    expect(typeof devLogin.body.accessToken).toBe('string');
+    expect(typeof devLogin.body.refreshToken).toBe('string');
+
+    const originalRefreshToken = devLogin.body.refreshToken as string;
+
+    const refreshResponse = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: originalRefreshToken })
+      .expect(201);
+
+    expect(typeof refreshResponse.body.accessToken).toBe('string');
+    expect(typeof refreshResponse.body.refreshToken).toBe('string');
+    expect(refreshResponse.body.refreshToken).not.toBe(originalRefreshToken);
+
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: originalRefreshToken })
+      .expect(401);
+  });
+
   it('weeklyPlans:upsertWeekSlot should emit weekChanged with changeVersion', async () => {
     const displayName = `E2E User ${Date.now()}`;
     const devLogin = await request(app.getHttpServer())
