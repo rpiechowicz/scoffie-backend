@@ -35,6 +35,15 @@ function buildImageUrl(recipeId: string, title: string, description: string | nu
   return '';
 }
 
+function extractImagePrompt(sourceMeta: unknown): string | null {
+  if (!sourceMeta || typeof sourceMeta !== 'object' || Array.isArray(sourceMeta)) {
+    return null;
+  }
+
+  const prompt = (sourceMeta as Record<string, unknown>).imagePrompt;
+  return typeof prompt === 'string' && prompt.trim().length > 0 ? prompt.trim() : null;
+}
+
 async function main() {
   let householdId: string | undefined;
   let householdLabel = 'all households';
@@ -69,12 +78,16 @@ async function main() {
       title: true,
       description: true,
       imageUrl: true,
+      sourceMeta: true,
     },
   });
 
   let updated = 0;
   for (const recipe of recipes) {
-    const imageUrl = buildImageUrl(recipe.id, recipe.title, recipe.description);
+    const promptOverride = extractImagePrompt(recipe.sourceMeta);
+    const imageUrl = promptOverride
+      ? buildImageUrl(recipe.id, promptOverride, null)
+      : buildImageUrl(recipe.id, recipe.title, recipe.description);
     if (!imageUrl) continue;
 
     if (!IMAGE_OVERWRITE_EXISTING && recipe.imageUrl && recipe.imageUrl.trim()) {

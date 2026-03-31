@@ -60,6 +60,14 @@ const RECIPE_IMPORT_IMAGE_EXTENSION = (process.env.RECIPE_IMPORT_IMAGE_EXTENSION
   .trim()
   .replace(/^\./, '')
   .toLowerCase();
+const IMAGE_GENERATOR_PROVIDER = (process.env.IMAGE_GENERATOR_PROVIDER ?? 'pollinations').toLowerCase();
+const IMAGE_GENERATOR_BASE_URL =
+  process.env.IMAGE_GENERATOR_BASE_URL ?? 'https://image.pollinations.ai/prompt';
+const IMAGE_GENERATOR_QUERY = process.env.IMAGE_GENERATOR_QUERY ?? 'width=1200&height=800&nologo=true';
+const IMAGE_GENERATOR_STYLE =
+  process.env.IMAGE_GENERATOR_STYLE
+  ?? 'ultra realistic food photography, natural light, 50mm lens, shallow depth of field';
+const IMAGE_GENERATOR_SEED_PREFIX = process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'weekly-meals';
 const R2_PUBLIC_BASE_URL = (process.env.R2_PUBLIC_BASE_URL ?? '').trim().replace(/\/+$/g, '');
 const R2_KEY_PREFIX = (process.env.R2_KEY_PREFIX ?? 'recipe-images').trim().replace(/^\/+|\/+$/g, '');
 
@@ -227,6 +235,31 @@ function buildR2ImageUrl(recipeId: string): string | null {
   if (!RECIPE_IMPORT_BUILD_R2_IMAGE_URLS) return null;
   if (!R2_PUBLIC_BASE_URL) return null;
   return `${R2_PUBLIC_BASE_URL}/${R2_KEY_PREFIX}/${recipeId}.${RECIPE_IMPORT_IMAGE_EXTENSION}`;
+}
+
+function buildGeneratedImageUrl(
+  recipeId: string,
+  recipe: RecipeInput,
+): string | null {
+  if (IMAGE_GENERATOR_PROVIDER !== 'pollinations') return null;
+
+  const prompt = recipe.image?.prompt?.trim()
+    || [
+      'professional food photo',
+      recipe.title,
+      recipe.description,
+      IMAGE_GENERATOR_STYLE,
+      'no text, no watermark, plated dish, appetizing',
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+  if (!prompt) return null;
+
+  const encodedPrompt = encodeURIComponent(prompt);
+  const query = IMAGE_GENERATOR_QUERY ? `&${IMAGE_GENERATOR_QUERY}` : '';
+  const seed = `${IMAGE_GENERATOR_SEED_PREFIX}-${recipeId}`;
+  return `${IMAGE_GENERATOR_BASE_URL}/${encodedPrompt}?seed=${encodeURIComponent(seed)}${query}`;
 }
 
 function normalizeText(value: string): string {
@@ -479,9 +512,11 @@ async function main(): Promise<void> {
           select: { id: true, imageUrl: true },
         });
 
+    const resolvedRecipeId = incomingRecipeId ?? existing?.id ?? null;
     const incomingImageUrl =
-      recipe.image?.imageUrl?.trim() ||
-      (incomingRecipeId ? buildR2ImageUrl(incomingRecipeId) : null);
+      recipe.image?.imageUrl?.trim()
+      || (resolvedRecipeId ? buildGeneratedImageUrl(resolvedRecipeId, recipe) : null)
+      || (resolvedRecipeId ? buildR2ImageUrl(resolvedRecipeId) : null);
 
     const commonData = {
       title: recipe.title,

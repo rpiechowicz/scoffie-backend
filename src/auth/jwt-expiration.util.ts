@@ -1,10 +1,12 @@
-import type { SignOptions } from 'jsonwebtoken';
+import type { JwtService } from '@nestjs/jwt';
 
-const DEFAULT_JWT_EXPIRES_IN: SignOptions['expiresIn'] = '30d';
+type JwtExpiresIn = NonNullable<Parameters<JwtService['signAsync']>[1]>['expiresIn'];
+
+const DEFAULT_JWT_EXPIRES_IN: JwtExpiresIn = '30d';
 
 export function resolveJwtExpiresIn(
   rawValue: string | undefined,
-): SignOptions['expiresIn'] {
+): JwtExpiresIn {
   const value = rawValue?.trim();
 
   if (!value) {
@@ -18,5 +20,5 @@ export function resolveJwtExpiresIn(
     }
   }
 
-  return value as SignOptions['expiresIn'];
+  return value as JwtExpiresIn;
 }
