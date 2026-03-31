@@ -15,6 +15,7 @@ const recipeListSelect = {
   prepTimeMinutes: true,
   servings: true,
   imageUrl: true,
+  sourceMeta: true,
   nutritionKcal: true,
   nutritionProtein: true,
   nutritionFat: true,
@@ -31,6 +32,14 @@ type NormalizedIngredient = {
   normalizedUnit: 'g' | 'ml' | 'szt';
 };
 
+type RecipeImageSource = {
+  id: string;
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+  sourceMeta?: Prisma.JsonValue | null;
+};
+
 @Injectable()
 export class RecipesService {
   constructor(
@@ -40,6 +49,15 @@ export class RecipesService {
 
   private readonly autoRecoverMissingUser = process.env.AUTO_RECOVER_MISSING_USER === 'true';
   private readonly recoveryHouseholdName = process.env.AUTO_RECOVER_HOUSEHOLD_NAME ?? 'Home';
+  private readonly imageGeneratorBaseUrl =
+    process.env.IMAGE_GENERATOR_BASE_URL ?? 'https://image.pollinations.ai/prompt';
+  private readonly imageGeneratorQuery =
+    process.env.IMAGE_GENERATOR_QUERY ?? 'width=1200&height=800&nologo=true';
+  private readonly imageGeneratorStyle =
+    process.env.IMAGE_GENERATOR_STYLE
+      ?? 'ultra realistic food photography, natural light, 50mm lens, shallow depth of field';
+  private readonly imageGeneratorSeedPrefix = process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'weekly-meals';
+  private readonly r2PublicBaseUrl = (process.env.R2_PUBLIC_BASE_URL ?? '').trim().replace(/\/+$/g, '');
   private static readonly LIQUID_SPOON_UNITS_IN_ML: Record<'lyzeczka' | 'lyzka' | 'szczypta', number> = {
     lyzeczka: 5,
     lyzka: 15,
@@ -218,6 +236,7 @@ export class RecipesService {
     prepTimeMinutes: true,
     servings: true,
     imageUrl: true,
+    sourceMeta: true,
     nutritionKcal: true,
     nutritionProtein: true,
     nutritionFat: true,
@@ -242,6 +261,56 @@ export class RecipesService {
       },
     },
   } as const;
+
+  private extractImagePrompt(sourceMeta?: Prisma.JsonValue | null): string | null {
+    if (!sourceMeta || typeof sourceMeta !== 'object' || Array.isArray(sourceMeta)) {
+      return null;
+    }
+
+    const prompt = (sourceMeta as Prisma.JsonObject).imagePrompt;
+    return typeof prompt === 'string' && prompt.trim().length > 0
+      ? prompt.trim()
+      : null;
+  }
+
+  private isLegacyStaticRecipeImageUrl(imageUrl?: string | null): boolean {
+    if (!imageUrl || !imageUrl.trim()) return false;
+
+    const normalized = imageUrl.trim();
+    if (this.r2PublicBaseUrl && normalized.startsWith(`${this.r2PublicBaseUrl}/`)) {
+      return false;
+    }
+
+    return /(?:^|\/)recipe-images\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(png|jpe?g|webp)(?:\?.*)?$/i
+      .test(normalized);
+  }
+
+  private buildGeneratedImageUrl(recipe: RecipeImageSource): string {
+    const prompt = this.extractImagePrompt(recipe.sourceMeta)
+      ?? [
+        'professional food photo',
+        recipe.title,
+        recipe.description ?? '',
+        this.imageGeneratorStyle,
+        'no text, no watermark, plated dish, appetizing',
+      ]
+        .filter(Boolean)
+        .join(', ');
+
+    const encodedPrompt = encodeURIComponent(prompt);
+    const query = this.imageGeneratorQuery ? `&${this.imageGeneratorQuery}` : '';
+    const seed = `${this.imageGeneratorSeedPrefix}-${recipe.id}`;
+    return `${this.imageGeneratorBaseUrl}/${encodedPrompt}?seed=${encodeURIComponent(seed)}${query}`;
+  }
+
+  private resolveRecipeImageUrl(recipe: RecipeImageSource): string {
+    const currentImageUrl = recipe.imageUrl?.trim() ?? '';
+    if (currentImageUrl && !this.isLegacyStaticRecipeImageUrl(currentImageUrl)) {
+      return currentImageUrl;
+    }
+
+    return this.buildGeneratedImageUrl(recipe);
+  }
 
   async findAll(userIdentifier: string, filters?: FindRecipesDto) {
     const userId = await this.resolveUserId(userIdentifier);
@@ -314,10 +383,14 @@ export class RecipesService {
       }
     }
 
-    const mapped = (recipes ?? []).map((recipe) => ({
-      ...recipe,
-      isFavorite: favoriteRecipeIds.has(recipe.id),
-    }));
+    const mapped = (recipes ?? []).map((recipe) => {
+      const { sourceMeta, ...base } = recipe;
+      return {
+        ...base,
+        imageUrl: this.resolveRecipeImageUrl(recipe),
+        isFavorite: favoriteRecipeIds.has(recipe.id),
+      };
+    });
 
     return mapped;
   }
@@ -345,7 +418,12 @@ export class RecipesService {
       });
       isFavorite = Boolean(favorite);
     }
-    return { ...recipe, isFavorite };
+    const { sourceMeta, ...base } = recipe;
+    return {
+      ...base,
+      imageUrl: this.resolveRecipeImageUrl(recipe),
+      isFavorite,
+    };
   }
 
   async create(userIdentifier: string, data: CreateRecipeDto) {
