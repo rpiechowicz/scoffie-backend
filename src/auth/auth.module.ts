@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { AppleIdentityService } from './apple-identity.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { resolveJwtExpiresIn } from './jwt-expiration.util';
@@ -16,7 +17,12 @@ import { RollingTokenInterceptor } from './rolling-token.interceptor';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, RollingTokenInterceptor],
+  providers: [
+    AuthService,
+    AppleIdentityService,
+    JwtAuthGuard,
+    RollingTokenInterceptor,
+  ],
   exports: [JwtModule, JwtAuthGuard, RollingTokenInterceptor],
 })
 export class AuthModule {}

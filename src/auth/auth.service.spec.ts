@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { AuthProvider } from '@prisma/client';
 import { AuthService } from './auth.service';
+import { AppleIdentityService, VerifiedAppleIdentity } from './apple-identity.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Mock factories ────────────────────────────────────────────────────────────
@@ -9,9 +11,25 @@ import { PrismaService } from '../prisma/prisma.service';
 const mockUser = {
   id: 'user-123',
   googleId: 'dev:testuser',
+  appleSub: null,
+  authProvider: AuthProvider.DEV,
   displayName: 'Test User',
   email: 'test@example.com',
+  emailVerified: false,
   avatarUrl: null,
+  lastLoginAt: new Date(),
+};
+
+const mockAppleUser = {
+  id: 'user-apple-1',
+  googleId: null,
+  appleSub: '000111.abcdef.2222',
+  authProvider: AuthProvider.APPLE,
+  displayName: 'Rafał Piechowicz',
+  email: 'rafal@example.com',
+  emailVerified: true,
+  avatarUrl: null,
+  lastLoginAt: new Date(),
 };
 
 const mockRefreshToken = {
@@ -24,7 +42,9 @@ const mockRefreshToken = {
 const makePrismaMock = () => ({
   user: {
     upsert: jest.fn().mockResolvedValue(mockUser),
-    findUnique: jest.fn().mockResolvedValue(mockUser),
+    findUnique: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue(mockAppleUser),
+    update: jest.fn().mockResolvedValue(mockAppleUser),
   },
   refreshToken: {
     create: jest.fn().mockResolvedValue(mockRefreshToken),
@@ -40,22 +60,30 @@ const makeJwtMock = () => ({
   signAsync: jest.fn().mockResolvedValue('mock-access-token'),
 });
 
+const makeAppleMock = () => ({
+  verify: jest.fn<Promise<VerifiedAppleIdentity>, [string, string]>(),
+  hashNonce: jest.fn((n: string) => `hash:${n}`),
+});
+
 // ─── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: ReturnType<typeof makePrismaMock>;
   let jwt: ReturnType<typeof makeJwtMock>;
+  let apple: ReturnType<typeof makeAppleMock>;
 
   beforeEach(async () => {
     prisma = makePrismaMock();
     jwt = makeJwtMock();
+    apple = makeAppleMock();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwt },
+        { provide: AppleIdentityService, useValue: apple },
       ],
     }).compile();
 
@@ -71,7 +99,6 @@ describe('AuthService', () => {
 
   describe('loginDev', () => {
     beforeEach(() => {
-      // Ensure dev login is enabled by default in tests
       process.env.AUTH_DEV_LOGIN_ENABLED = 'true';
     });
 
@@ -87,6 +114,7 @@ describe('AuthService', () => {
         id: mockUser.id,
         displayName: mockUser.displayName,
         email: mockUser.email,
+        provider: AuthProvider.DEV,
       });
       expect(result.household).toBeNull();
     });
@@ -97,8 +125,14 @@ describe('AuthService', () => {
       expect(prisma.user.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { googleId: 'dev:jan@example.com' },
-          create: expect.objectContaining({ displayName: 'Jan Kowalski' }),
-          update: expect.objectContaining({ displayName: 'Jan Kowalski' }),
+          create: expect.objectContaining({
+            displayName: 'Jan Kowalski',
+            authProvider: AuthProvider.DEV,
+          }),
+          update: expect.objectContaining({
+            displayName: 'Jan Kowalski',
+            authProvider: AuthProvider.DEV,
+          }),
         }),
       );
     });
@@ -155,6 +189,7 @@ describe('AuthService', () => {
 
       expect(result).toHaveProperty('accessToken', 'mock-access-token');
       expect(result).toHaveProperty('refreshToken');
+      expect(result.user.provider).toBe(AuthProvider.DEV); // mockUser returns DEV; just assert we pass through
     });
 
     it('powinno odrzucić gdy brak googleId', async () => {
@@ -180,9 +215,145 @@ describe('AuthService', () => {
       expect(prisma.user.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { googleId: 'g-abc' },
-          update: expect.objectContaining({ displayName: 'New Name' }),
+          update: expect.objectContaining({
+            displayName: 'New Name',
+            authProvider: AuthProvider.GOOGLE,
+          }),
         }),
       );
+    });
+  });
+
+  // ─── loginWithApple ───────────────────────────────────────────────────────
+
+  describe('loginWithApple', () => {
+    const verified: VerifiedAppleIdentity = {
+      appleSub: '000111.abcdef.2222',
+      email: 'rafal@example.com',
+      emailVerified: true,
+      issuedAt: Math.floor(Date.now() / 1000),
+      expiresAt: Math.floor(Date.now() / 1000) + 600,
+      audience: 'rpiechowicz.weekly-meals',
+    };
+
+    it('powinno odrzucić gdy brak identityToken', async () => {
+      await expect(
+        service.loginWithApple({
+          identityToken: '',
+          rawNonce: 'nonce-value',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('powinno odrzucić gdy brak rawNonce', async () => {
+      await expect(
+        service.loginWithApple({
+          identityToken: 'eyJ...',
+          rawNonce: '',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('powinno utworzyć nowego użytkownika gdy Apple sub nie istnieje', async () => {
+      apple.verify.mockResolvedValue(verified);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(mockAppleUser);
+
+      const result = await service.loginWithApple({
+        identityToken: 'eyJ.valid.token',
+        rawNonce: 'raw-nonce',
+        givenName: 'Rafał',
+        familyName: 'Piechowicz',
+      });
+
+      expect(apple.verify).toHaveBeenCalledWith('eyJ.valid.token', 'raw-nonce');
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            appleSub: verified.appleSub,
+            authProvider: AuthProvider.APPLE,
+            displayName: 'Rafał Piechowicz',
+            email: 'rafal@example.com',
+            emailVerified: true,
+          }),
+        }),
+      );
+      expect(result.user).toMatchObject({
+        id: mockAppleUser.id,
+        displayName: mockAppleUser.displayName,
+        email: mockAppleUser.email,
+        provider: AuthProvider.APPLE,
+      });
+    });
+
+    it('powinno użyć fallback displayName jeśli Apple nie podał imienia', async () => {
+      apple.verify.mockResolvedValue({ ...verified, email: 'anon@example.com' });
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await service.loginWithApple({
+        identityToken: 'eyJ.valid.token',
+        rawNonce: 'raw-nonce',
+      });
+
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            displayName: 'anon', // email local-part fallback
+          }),
+        }),
+      );
+    });
+
+    it('powinno nadpisać placeholder displayName gdy Apple wreszcie przysyła prawdziwe imię', async () => {
+      apple.verify.mockResolvedValue(verified);
+      prisma.user.findUnique.mockResolvedValue({
+        ...mockAppleUser,
+        displayName: 'rafal', // placeholder (lowercase local part)
+      });
+
+      await service.loginWithApple({
+        identityToken: 'eyJ.valid.token',
+        rawNonce: 'raw-nonce',
+        givenName: 'Rafał',
+        familyName: 'Piechowicz',
+      });
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { appleSub: verified.appleSub },
+          data: expect.objectContaining({
+            displayName: 'Rafał Piechowicz',
+            authProvider: AuthProvider.APPLE,
+          }),
+        }),
+      );
+    });
+
+    it('nie powinno nadpisywać dobrego displayName gdy Apple nie dostarcza nowego', async () => {
+      apple.verify.mockResolvedValue(verified);
+      prisma.user.findUnique.mockResolvedValue({
+        ...mockAppleUser,
+        displayName: 'Rafał Piechowicz',
+      });
+
+      await service.loginWithApple({
+        identityToken: 'eyJ.valid.token',
+        rawNonce: 'raw-nonce',
+      });
+
+      const updateCall = prisma.user.update.mock.calls[0][0];
+      expect(updateCall.data).not.toHaveProperty('displayName');
+    });
+
+    it('powinno propagować UnauthorizedException z AppleIdentityService', async () => {
+      apple.verify.mockRejectedValue(new UnauthorizedException('Invalid Apple identity token.'));
+
+      await expect(
+        service.loginWithApple({
+          identityToken: 'eyJ.bad.token',
+          rawNonce: 'raw-nonce',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 
@@ -194,7 +365,6 @@ describe('AuthService', () => {
 
       expect(result).toHaveProperty('accessToken', 'mock-access-token');
       expect(result).toHaveProperty('refreshToken');
-      // Stary token powinien zostać unieważniony
       expect(prisma.refreshToken.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ revokedAt: expect.any(Date) }),
@@ -224,7 +394,7 @@ describe('AuthService', () => {
     it('powinno odrzucić wygasły token', async () => {
       prisma.refreshToken.findUnique.mockResolvedValue({
         ...mockRefreshToken,
-        expiresAt: new Date(Date.now() - 1000), // wygasł sekundę temu
+        expiresAt: new Date(Date.now() - 1000),
         revokedAt: null,
       });
 
