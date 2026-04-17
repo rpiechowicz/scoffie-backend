@@ -1,0 +1,740 @@
+{
+  "version": "v1-approved-30",
+  "servingsPolicy": "all recipes are calculated for 2 servings",
+  "recipes": [
+    {
+      "title": "Owsianka z bananem i borówką",
+      "description": "Kremowa owsianka na mleku z dodatkiem banana i borówki. Śniadanie jest szybkie, sycące i dobre na codzienny start.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 12,
+      "servings": 2,
+      "nutrition": { "kcal": 690, "protein": 23, "carbs": 108, "fat": 18, "fiber": 12, "salt": 0.6 },
+      "steps": [
+        { "step": 1, "instruction": "Wlej mleko do garnka i podgrzej na średnim ogniu. Wsyp płatki owsiane i mieszaj, aby nic nie przywarło." },
+        { "step": 2, "instruction": "Gotuj 5-6 minut, aż owsianka zgęstnieje. W razie potrzeby dodaj odrobinę mleka." },
+        { "step": 3, "instruction": "Pokrój banana i dorzuć połowę do garnka. Delikatnie wymieszaj dla naturalnej słodyczy." },
+        { "step": 4, "instruction": "Przełóż owsiankę do misek i dodaj borówkę oraz resztę banana. Podawaj od razu na ciepło." }
+      ],
+      "ingredients": [
+        { "ingredientName": "płatki owsiane", "amount": 100, "unit": "g" },
+        { "ingredientName": "mleko", "amount": 400, "unit": "ml" },
+        { "ingredientName": "banan", "amount": 2, "unit": "szt" },
+        { "ingredientName": "borówka", "amount": 100, "unit": "g" }
+      ],
+      "image": { "prompt": "professional food photo, Owsianka z bananem i borówką, creamy oatmeal in ceramic bowl, sliced banana and fresh blueberries on top, soft morning light, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Jajecznica ze szczypiorkiem i pomidorem",
+      "description": "Klasyczna jajecznica z masłem i świeżym szczypiorkiem. Prosty pomidor z boku dodaje świeżości i równoważy smak.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": { "kcal": 520, "protein": 30, "carbs": 8, "fat": 40, "fiber": 2, "salt": 1.8 },
+      "steps": [
+        { "step": 1, "instruction": "Roztrzep jajko w misce z solą i pieprzem. Posiekaj szczypiorek i pokrój pomidor." },
+        { "step": 2, "instruction": "Rozpuść masło na patelni na małym ogniu. Wlej jajko i mieszaj powoli." },
+        { "step": 3, "instruction": "Smaż do ulubionej konsystencji, nie przesuszaj. Dodaj szczypiorek pod koniec smażenia." },
+        { "step": 4, "instruction": "Przełóż jajecznicę na talerz i podawaj z pomidorem. Danie najlepiej smakuje od razu po przygotowaniu." }
+      ],
+      "ingredients": [
+        { "ingredientName": "jajko", "amount": 6, "unit": "szt" },
+        { "ingredientName": "masło", "amount": 15, "unit": "g" },
+        { "ingredientName": "szczypiorek", "amount": 10, "unit": "g" },
+        { "ingredientName": "pomidor", "amount": 200, "unit": "g" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Jajecznica ze szczypiorkiem i pomidorem, soft scrambled eggs with chopped chives and fresh tomato slices, warm breakfast plate, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Omlet ze szpinakiem i fetą",
+      "description": "Puszysty omlet z dodatkiem szpinaku i sera feta. Smak jest wyraźny, a przygotowanie zajmuje tylko chwilę.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 12,
+      "servings": 2,
+      "nutrition": { "kcal": 610, "protein": 36, "carbs": 10, "fat": 46, "fiber": 3, "salt": 2.2 },
+      "steps": [
+        { "step": 1, "instruction": "Roztrzep jajko z odrobiną soli i pieprzu. Rozgrzej patelnię z małą ilością oleju." },
+        { "step": 2, "instruction": "Wrzuć szpinak i podsmaż minutę, aż lekko zwiędnie. Wlej masę jajeczną i zmniejsz ogień." },
+        { "step": 3, "instruction": "Dodaj pokruszony ser feta na wierzch omletu. Smaż do momentu, aż masa się zetnie." },
+        { "step": 4, "instruction": "Złóż omlet na pół i podawaj od razu. Możesz podać z pomidorem obok." }
+      ],
+      "ingredients": [
+        { "ingredientName": "jajko", "amount": 6, "unit": "szt" },
+        { "ingredientName": "szpinak", "amount": 120, "unit": "g" },
+        { "ingredientName": "ser feta", "amount": 100, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 8, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Omlet ze szpinakiem i fetą, folded omelette with wilted spinach and crumbled feta cheese, golden edges, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Tost z awokado i jajkiem",
+      "description": "Chrupiący tost z kremowym awokado i jajkiem sadzonym. To proste śniadanie, które syci i dobrze smakuje o każdej porze dnia.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 14,
+      "servings": 2,
+      "nutrition": { "kcal": 640, "protein": 26, "carbs": 48, "fat": 40, "fiber": 11, "salt": 1.4 },
+      "steps": [
+        { "step": 1, "instruction": "Podpiecz chleb tostowy na złoto. Rozgnieć awokado widelcem z odrobiną soli." },
+        { "step": 2, "instruction": "Usmaż jajko sadzone na niewielkiej ilości oleju. Smaż krótko, aby żółtko zostało lekko płynne." },
+        { "step": 3, "instruction": "Posmaruj tosty pastą z awokado. Ułóż na nich jajko i dopraw pieprzem." },
+        { "step": 4, "instruction": "Podawaj od razu, gdy tosty są jeszcze ciepłe. Dla świeżości dodaj pomidor koktajlowy obok." }
+      ],
+      "ingredients": [
+        { "ingredientName": "chleb tostowy", "amount": 120, "unit": "g" },
+        { "ingredientName": "awokado", "amount": 1, "unit": "szt" },
+        { "ingredientName": "jajko", "amount": 4, "unit": "szt" },
+        { "ingredientName": "olej rzepakowy", "amount": 8, "unit": "ml" },
+        { "ingredientName": "pomidor koktajlowy", "amount": 120, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Tost z awokado i jajkiem, toasted bread with smashed avocado and sunny side up egg, cherry tomatoes on side, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Kanapka z twarożkiem i ogórkiem",
+      "description": "Świeża kanapka z kremowym twarożkiem i chrupiącym ogórkiem. To lekkie śniadanie, które robi się w kilka minut.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 8,
+      "servings": 2,
+      "nutrition": { "kcal": 560, "protein": 31, "carbs": 58, "fat": 22, "fiber": 6, "salt": 1.5 },
+      "steps": [
+        { "step": 1, "instruction": "Pokrój chleb i lekko go podpiecz, jeśli lubisz chrupiącą wersję. Ogórek pokrój w cienkie plasterki." },
+        { "step": 2, "instruction": "Wymieszaj twarożek z odrobiną soli i pieprzu. Dodaj posiekany szczypiorek dla aromatu." },
+        { "step": 3, "instruction": "Posmaruj pieczywo twarożkiem. Ułóż na wierzchu ogórek i dodatkowy szczypiorek." },
+        { "step": 4, "instruction": "Podawaj od razu po przygotowaniu. Kanapki najlepiej smakują na świeżo." }
+      ],
+      "ingredients": [
+        { "ingredientName": "chleb", "amount": 140, "unit": "g" },
+        { "ingredientName": "twarożek", "amount": 180, "unit": "g" },
+        { "ingredientName": "ogórek", "amount": 180, "unit": "g" },
+        { "ingredientName": "szczypiorek", "amount": 8, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Kanapka z twarożkiem i ogórkiem, rustic bread slices topped with creamy twarozek and cucumber, fresh chives, bright breakfast table, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Placuszki owsiane z jogurtem i owocami",
+      "description": "Miękkie placuszki owsiane z jogurtem naturalnym i świeżymi owocami. To sycące śniadanie na słodko bez dużego wysiłku.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": { "kcal": 720, "protein": 28, "carbs": 102, "fat": 22, "fiber": 10, "salt": 1.0 },
+      "steps": [
+        { "step": 1, "instruction": "Roztrzep jajka z mlekiem. Dodaj płatki owsiane i odstaw na chwilę, aby zmiękły." },
+        { "step": 2, "instruction": "Smaż małe placuszki na patelni z odrobiną oleju po 2-3 minuty z każdej strony." },
+        { "step": 3, "instruction": "Podawaj placuszki z jogurtem naturalnym i pokrojoną truskawką oraz borówką." }
+      ],
+      "ingredients": [
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "mleko", "amount": 120, "unit": "ml" },
+        { "ingredientName": "płatki owsiane", "amount": 120, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 8, "unit": "ml" },
+        { "ingredientName": "jogurt naturalny", "amount": 150, "unit": "g" },
+        { "ingredientName": "truskawka", "amount": 120, "unit": "g" },
+        { "ingredientName": "borówka", "amount": 80, "unit": "g" }
+      ],
+      "image": { "prompt": "professional food photo, Placuszki owsiane z jogurtem i owocami, golden oat pancakes served with yogurt, strawberries and blueberries, cozy breakfast mood, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Szakszuka z papryką i cebulą",
+      "description": "Jajka duszone w gęstym pomidorowym sosie z papryką i cebulą. To śniadanie jest wyraziste, ale nadal proste do zrobienia.",
+      "mealType": "BREAKFAST",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 22,
+      "servings": 2,
+      "nutrition": { "kcal": 520, "protein": 25, "carbs": 24, "fat": 34, "fiber": 6, "salt": 1.9 },
+      "steps": [
+        { "step": 1, "instruction": "Podsmaż cebulę i paprykę na oleju, aż zmiękną. Wlej passatę pomidorową i chwilę duś." },
+        { "step": 2, "instruction": "Dopraw solą, pieprzem i odrobiną papryki słodkiej. Zrób wgłębienia i wbij jajka." },
+        { "step": 3, "instruction": "Przykryj i gotuj na małym ogniu, aż białka się zetną. Podawaj od razu z pieczywem." }
+      ],
+      "ingredients": [
+        { "ingredientName": "jajko", "amount": 4, "unit": "szt" },
+        { "ingredientName": "passata pomidorowa", "amount": 300, "unit": "ml" },
+        { "ingredientName": "papryka czerwona", "amount": 150, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 100, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "papryka słodka mielona", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Szakszuka z papryką i cebulą, eggs poached in rich tomato sauce with bell pepper and onion, rustic pan style plating, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Naleśniki z twarożkiem i truskawkami",
+      "description": "Delikatne naleśniki z kremowym twarożkiem i świeżymi truskawkami. Klasyczne śniadanie na słodko, które zawsze się sprawdza.",
+      "mealType": "BREAKFAST",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 28,
+      "servings": 2,
+      "nutrition": { "kcal": 820, "protein": 34, "carbs": 102, "fat": 30, "fiber": 5, "salt": 1.2 },
+      "steps": [
+        { "step": 1, "instruction": "Wymieszaj mąkę pszenną, mleko i jajka na gładkie ciasto. Odstaw je na 5 minut." },
+        { "step": 2, "instruction": "Usmaż cienkie naleśniki na lekko natłuszczonej patelni. Każdy smaż krótko z obu stron." },
+        { "step": 3, "instruction": "Posmaruj naleśniki twarożkiem, dodaj pokrojoną truskawkę i zwiń. Podawaj od razu." }
+      ],
+      "ingredients": [
+        { "ingredientName": "mąka pszenna", "amount": 140, "unit": "g" },
+        { "ingredientName": "mleko", "amount": 280, "unit": "ml" },
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "olej rzepakowy", "amount": 8, "unit": "ml" },
+        { "ingredientName": "twarożek", "amount": 180, "unit": "g" },
+        { "ingredientName": "truskawka", "amount": 150, "unit": "g" }
+      ],
+      "image": { "prompt": "professional food photo, Naleśniki z twarożkiem i truskawkami, thin folded crepes filled with creamy twarozek and fresh strawberries, bright breakfast plate, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Jogurt naturalny z musli i jabłkiem",
+      "description": "Szybkie śniadanie na zimno z jogurtem naturalnym, chrupiącym dodatkiem i jabłkiem. Lekkie, ale dobrze sycące na poranek.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 6,
+      "servings": 2,
+      "nutrition": { "kcal": 560, "protein": 23, "carbs": 74, "fat": 18, "fiber": 7, "salt": 0.5 },
+      "steps": [
+        { "step": 1, "instruction": "Przełóż jogurt naturalny do misek. Jabłko pokrój w drobną kostkę." },
+        { "step": 2, "instruction": "Pokrusz baton musli na mniejsze kawałki. Dodaj wszystko na wierzch jogurtu." },
+        { "step": 3, "instruction": "Wymieszaj tuż przed jedzeniem, aby zachować chrupkość dodatku." }
+      ],
+      "ingredients": [
+        { "ingredientName": "jogurt naturalny", "amount": 350, "unit": "g" },
+        { "ingredientName": "jabłko", "amount": 180, "unit": "g" },
+        { "ingredientName": "baton musli", "amount": 80, "unit": "g" },
+        { "ingredientName": "borówka", "amount": 60, "unit": "g" }
+      ],
+      "image": { "prompt": "professional food photo, Jogurt naturalny z musli i jabłkiem, yogurt bowl with apple pieces and crunchy granola topping, simple fresh breakfast styling, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Tortilla śniadaniowa z jajkiem i serem",
+      "description": "Ciepła tortilla z jajkiem, serem i warzywami to szybkie śniadanie na wynos lub do zjedzenia w domu. Smak jest łagodny i bardzo uniwersalny.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": { "kcal": 760, "protein": 36, "carbs": 62, "fat": 40, "fiber": 5, "salt": 2.1 },
+      "steps": [
+        { "step": 1, "instruction": "Roztrzep jajka i podsmaż je na patelni na małej ilości oleju. Dodaj cebulę i paprykę." },
+        { "step": 2, "instruction": "Po chwili dodaj starty ser gouda i wymieszaj. Zdejmij farsz z ognia." },
+        { "step": 3, "instruction": "Nałóż farsz na tortille pszenne, zwiń i podgrzej chwilę na suchej patelni." }
+      ],
+      "ingredients": [
+        { "ingredientName": "tortilla pszenna", "amount": 2, "unit": "szt" },
+        { "ingredientName": "jajko", "amount": 4, "unit": "szt" },
+        { "ingredientName": "ser gouda", "amount": 90, "unit": "g" },
+        { "ingredientName": "papryka czerwona", "amount": 100, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 70, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 8, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Tortilla śniadaniowa z jajkiem i serem, warm breakfast wrap with scrambled egg, melted cheese, onion and red pepper, cut in half, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+
+    {
+      "title": "Makaron penne z kurczakiem i brokułem",
+      "description": "Syty obiad z makaronem, kurczakiem i warzywami w lekkim sosie. Danie jest proste i bardzo domowe w smaku.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": { "kcal": 860, "protein": 61, "carbs": 88, "fat": 28, "fiber": 9, "salt": 2.2 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj makaron penne al dente. Brokuł podziel na małe różyczki i krótko obgotuj." },
+        { "step": 2, "instruction": "Pokrój filet z kurczaka i usmaż na oleju do zrumienienia. Dopraw solą i pieprzem." },
+        { "step": 3, "instruction": "Dodaj brokuł i śmietankę, a następnie wymieszaj. Wsyp ugotowany makaron i połącz składniki." },
+        { "step": 4, "instruction": "Podgrzej razem 2-3 minuty. Podawaj od razu po przygotowaniu, gdy sos jest kremowy." }
+      ],
+      "ingredients": [
+        { "ingredientName": "makaron penne", "amount": 180, "unit": "g" },
+        { "ingredientName": "filet z kurczaka", "amount": 320, "unit": "g" },
+        { "ingredientName": "brokuł", "amount": 250, "unit": "g" },
+        { "ingredientName": "śmietanka 30", "amount": 120, "unit": "ml" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 3, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Makaron penne z kurczakiem i brokułem, penne pasta with seared chicken pieces and broccoli in light creamy sauce, steam visible, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Ryż z kurczakiem i papryką",
+      "description": "Prosty obiad jednogarnkowy z ryżem, kurczakiem i papryką. Smak jest łagodny, ale bardzo przyjemny i domowy.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 28,
+      "servings": 2,
+      "nutrition": { "kcal": 790, "protein": 56, "carbs": 92, "fat": 19, "fiber": 6, "salt": 1.9 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj ryż basmati według instrukcji. Pokrój kurczaka i paprykę w kostkę." },
+        { "step": 2, "instruction": "Usmaż kurczaka na oleju na złoty kolor. Dodaj cebulę i paprykę, a potem krótko podsmaż." },
+        { "step": 3, "instruction": "Wsyp ugotowany ryż i dokładnie wymieszaj. Dopraw solą, pieprzem i papryką słodką." },
+        { "step": 4, "instruction": "Podgrzej wszystko razem przez chwilę. Podawaj od razu, gdy danie jest ciepłe." }
+      ],
+      "ingredients": [
+        { "ingredientName": "ryż basmati", "amount": 180, "unit": "g" },
+        { "ingredientName": "filet z kurczaka", "amount": 300, "unit": "g" },
+        { "ingredientName": "papryka czerwona", "amount": 160, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 90, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "papryka słodka mielona", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Ryż z kurczakiem i papryką, fluffy basmati rice with chicken and red bell pepper in skillet style, home cooking look, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Spaghetti z sosem pomidorowym i mięsem",
+      "description": "Klasyczne spaghetti z sosem pomidorowym i mięsem mielonym. Smak jest bogaty, a wykonanie nadal bardzo proste.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": { "kcal": 920, "protein": 50, "carbs": 102, "fat": 35, "fiber": 10, "salt": 2.5 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj makaron spaghetti al dente. W osobnej patelni zeszklij cebulę na oleju." },
+        { "step": 2, "instruction": "Dodaj wieprzowinę i wołowinę mieloną i smaż do zmiany koloru. Wsyp oregano i pieprz." },
+        { "step": 3, "instruction": "Wlej passatę pomidorową i gotuj sos 10-12 minut. Dopraw solą do smaku." },
+        { "step": 4, "instruction": "Połącz makaron z sosem lub podawaj oddzielnie. Posyp na końcu parmezanem." }
+      ],
+      "ingredients": [
+        { "ingredientName": "makaron spaghetti", "amount": 180, "unit": "g" },
+        { "ingredientName": "wieprzowina i wołowina mielona", "amount": 260, "unit": "g" },
+        { "ingredientName": "passata pomidorowa", "amount": 350, "unit": "ml" },
+        { "ingredientName": "cebula", "amount": 90, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "oregano", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "ser parmezan", "amount": 25, "unit": "g" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Spaghetti z sosem pomidorowym i mięsem, spaghetti pasta coated in rich tomato meat sauce with parmesan, comforting dinner plate, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Łosoś pieczony z ziemniakiem i sałatą",
+      "description": "Pieczony łosoś z prostym dodatkiem ziemniaka i świeżej sałaty. To lekki, ale konkretny obiad o czystym smaku.",
+      "mealType": "LUNCH",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": { "kcal": 780, "protein": 54, "carbs": 54, "fat": 36, "fiber": 7, "salt": 1.7 },
+      "steps": [
+        { "step": 1, "instruction": "Pokrój ziemniak i ugotuj go do miękkości. Łososia dopraw solą, pieprzem i odrobiną oliwy." },
+        { "step": 2, "instruction": "Piecz łososia w 200C przez około 15-18 minut. W tym czasie przygotuj sałatę lodową i pomidora koktajlowego." },
+        { "step": 3, "instruction": "Wymieszaj sałatę z odrobiną oliwy i soli. Podawaj łososia z ziemniakiem i sałatą obok." }
+      ],
+      "ingredients": [
+        { "ingredientName": "łosoś", "amount": 320, "unit": "g" },
+        { "ingredientName": "ziemniak", "amount": 400, "unit": "g" },
+        { "ingredientName": "sałata lodowa", "amount": 120, "unit": "g" },
+        { "ingredientName": "pomidor koktajlowy", "amount": 120, "unit": "g" },
+        { "ingredientName": "oliwa z oliwek", "amount": 12, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 3, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Łosoś pieczony z ziemniakiem i sałatą, baked salmon fillet with boiled potatoes and crisp lettuce salad with cherry tomatoes, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Kurczak curry z ryżem",
+      "description": "Łagodne curry z kurczakiem i ryżem, idealne na codzienny obiad. Sos jest kremowy i dobrze łączy przyprawy z mięsem.",
+      "mealType": "LUNCH",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 32,
+      "servings": 2,
+      "nutrition": { "kcal": 870, "protein": 55, "carbs": 93, "fat": 30, "fiber": 6, "salt": 2.1 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj ryż jaśminowy według instrukcji. Pokrój filet z kurczaka oraz cebulę." },
+        { "step": 2, "instruction": "Usmaż kurczaka na oleju, a potem dodaj cebulę i czosnek. Wsyp curry i krótko podsmaż." },
+        { "step": 3, "instruction": "Wlej mleko kokosowe z puszki i duś 8-10 minut. Dopraw solą oraz pieprzem." },
+        { "step": 4, "instruction": "Podawaj curry z gorącym ryżem. Danie najlepiej smakuje zaraz po przygotowaniu." }
+      ],
+      "ingredients": [
+        { "ingredientName": "filet z kurczaka", "amount": 320, "unit": "g" },
+        { "ingredientName": "ryż jaśminowy", "amount": 180, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 90, "unit": "g" },
+        { "ingredientName": "czosnek", "amount": 2, "unit": "szt" },
+        { "ingredientName": "mleko kokosowe z puszki", "amount": 250, "unit": "ml" },
+        { "ingredientName": "curry", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Kurczak curry z ryżem, creamy chicken curry served with jasmine rice, warm golden sauce and simple plating, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Tortilla z kurczakiem i warzywami",
+      "description": "Domowa tortilla z soczystym kurczakiem i warzywami. To szybki obiad, który dobrze sprawdza się też na wynos.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 22,
+      "servings": 2,
+      "nutrition": { "kcal": 810, "protein": 53, "carbs": 64, "fat": 34, "fiber": 7, "salt": 2.2 },
+      "steps": [
+        { "step": 1, "instruction": "Pokrój filet z kurczaka, cebulę i paprykę. Kurczaka usmaż na oleju do zrumienienia." },
+        { "step": 2, "instruction": "Dodaj warzywa i smaż jeszcze kilka minut. Dopraw solą i pieprzem." },
+        { "step": 3, "instruction": "Przełóż farsz na tortille, zwiń i podgrzej chwilę na suchej patelni." }
+      ],
+      "ingredients": [
+        { "ingredientName": "tortilla pszenna", "amount": 2, "unit": "szt" },
+        { "ingredientName": "filet z kurczaka", "amount": 280, "unit": "g" },
+        { "ingredientName": "papryka czerwona", "amount": 140, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 90, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Tortilla z kurczakiem i warzywami, grilled chicken wraps with bell pepper and onion, cut halves showing filling, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Kurczak pieczony z batatem i cukinią",
+      "description": "Pieczony kurczak z warzywami z jednej blachy to wygodny obiad bez zbędnego stania przy kuchni. Smak jest prosty i bardzo domowy.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": { "kcal": 760, "protein": 58, "carbs": 62, "fat": 24, "fiber": 10, "salt": 1.8 },
+      "steps": [
+        { "step": 1, "instruction": "Pokrój batata i cukinię. Kurczaka pokrój na kawałki." },
+        { "step": 2, "instruction": "Wymieszaj wszystko z olejem, papryką słodką, solą i pieprzem. Przełóż na blachę." },
+        { "step": 3, "instruction": "Piecz 25-30 minut w 200C, aż kurczak będzie gotowy, a warzywa miękkie." }
+      ],
+      "ingredients": [
+        { "ingredientName": "filet z kurczaka", "amount": 320, "unit": "g" },
+        { "ingredientName": "batat", "amount": 320, "unit": "g" },
+        { "ingredientName": "cukinia", "amount": 250, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 12, "unit": "ml" },
+        { "ingredientName": "papryka słodka mielona", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Kurczak pieczony z batatem i cukinią, roasted chicken with sweet potato and zucchini on sheet pan style plate, golden edges, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Makaron z pieczarką i śmietanką",
+      "description": "Kremowy makaron z pieczarkami i śmietanką to szybki obiad na co dzień. Danie jest łagodne i bardzo komfortowe w smaku.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 26,
+      "servings": 2,
+      "nutrition": { "kcal": 820, "protein": 27, "carbs": 96, "fat": 34, "fiber": 7, "salt": 1.9 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj makaron swider al dente. Pieczarki pokrój, czosnek drobno posiekaj." },
+        { "step": 2, "instruction": "Podsmaż pieczarki z czosnkiem na oleju. Dodaj śmietankę i chwilę gotuj." },
+        { "step": 3, "instruction": "Dodaj makaron i wymieszaj. Dopraw solą, pieprzem i podaj z tartym parmezanem." }
+      ],
+      "ingredients": [
+        { "ingredientName": "makaron swider", "amount": 180, "unit": "g" },
+        { "ingredientName": "pieczarka", "amount": 280, "unit": "g" },
+        { "ingredientName": "czosnek", "amount": 2, "unit": "szt" },
+        { "ingredientName": "śmietanka 30", "amount": 140, "unit": "ml" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "ser parmezan", "amount": 20, "unit": "g" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Makaron z pieczarką i śmietanką, creamy mushroom pasta with visible garlic and parmesan flakes, cozy dinner vibe, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Zupa pomidorowa z ryżem",
+      "description": "Klasyczna zupa pomidorowa z ryżem, gęsta i delikatnie kremowa. To prosty obiad, który smakuje całej rodzinie.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": { "kcal": 520, "protein": 12, "carbs": 86, "fat": 14, "fiber": 5, "salt": 2.0 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj ryż w osobnym garnku. W drugim podgrzej bulion warzywny i passatę pomidorową." },
+        { "step": 2, "instruction": "Dodaj śmietanę 18 i oregano, dokładnie wymieszaj. Gotuj całość 10 minut na małym ogniu." },
+        { "step": 3, "instruction": "Dopraw solą i pieprzem. Podawaj z ugotowanym ryżem." }
+      ],
+      "ingredients": [
+        { "ingredientName": "ryż basmati", "amount": 140, "unit": "g" },
+        { "ingredientName": "passata pomidorowa", "amount": 400, "unit": "ml" },
+        { "ingredientName": "bulion warzywny", "amount": 500, "unit": "ml" },
+        { "ingredientName": "śmietana 18", "amount": 80, "unit": "g" },
+        { "ingredientName": "oregano", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Zupa pomidorowa z ryżem, creamy tomato soup with white rice in bowl, comforting home style plating, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Sałatka z kurczakiem i fetą",
+      "description": "Lekka sałatka z kurczakiem, fetą i świeżymi warzywami. To szybki obiad, gdy chcesz zjeść coś lżejszego.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": { "kcal": 610, "protein": 52, "carbs": 18, "fat": 34, "fiber": 6, "salt": 2.1 },
+      "steps": [
+        { "step": 1, "instruction": "Pokrój i usmaż kurczaka na oleju. Dopraw solą i pieprzem." },
+        { "step": 2, "instruction": "Do miski dodaj sałatę lodową, ogórka i pomidora koktajlowego. Dodaj usmażonego kurczaka." },
+        { "step": 3, "instruction": "Posyp pokruszoną fetą i skrop oliwą. Podawaj od razu." }
+      ],
+      "ingredients": [
+        { "ingredientName": "filet z kurczaka", "amount": 280, "unit": "g" },
+        { "ingredientName": "sałata lodowa", "amount": 140, "unit": "g" },
+        { "ingredientName": "ogórek", "amount": 140, "unit": "g" },
+        { "ingredientName": "pomidor koktajlowy", "amount": 140, "unit": "g" },
+        { "ingredientName": "ser feta", "amount": 100, "unit": "g" },
+        { "ingredientName": "oliwa z oliwek", "amount": 12, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Sałatka z kurczakiem i fetą, fresh salad bowl with grilled chicken, cucumber, cherry tomatoes and feta, clean healthy plating, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+
+    {
+      "title": "Tosty z szynką i serem",
+      "description": "Ciepłe tosty z szynką i ciągnącym się serem to szybka kolacja lub sycące śniadanie. Proste składniki i bardzo dobry efekt.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 12,
+      "servings": 2,
+      "nutrition": { "kcal": 720, "protein": 35, "carbs": 60, "fat": 36, "fiber": 4, "salt": 2.4 },
+      "steps": [
+        { "step": 1, "instruction": "Posmaruj pieczywo tostowe cienką warstwą masła." },
+        { "step": 2, "instruction": "Na kromkach ułóż szynkę i ser gouda, przykryj kolejną kromką." },
+        { "step": 3, "instruction": "Opiekaj na patelni lub w opiekaczu do zrumienienia. Podawaj z pomidorem obok." }
+      ],
+      "ingredients": [
+        { "ingredientName": "chleb tostowy", "amount": 160, "unit": "g" },
+        { "ingredientName": "szynka", "amount": 100, "unit": "g" },
+        { "ingredientName": "ser gouda", "amount": 100, "unit": "g" },
+        { "ingredientName": "masło", "amount": 12, "unit": "g" },
+        { "ingredientName": "pomidor", "amount": 160, "unit": "g" }
+      ],
+      "image": { "prompt": "professional food photo, Tosty z szynką i serem, golden toasted sandwiches with ham and melted cheese, sliced tomato on side, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Sałatka grecka z pieczywem",
+      "description": "Prosta sałatka w stylu greckim z pieczywem, dobra na lekką kolację. Świeże warzywa i feta dają wyrazisty, ale przyjemny smak.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 14,
+      "servings": 2,
+      "nutrition": { "kcal": 640, "protein": 20, "carbs": 52, "fat": 38, "fiber": 8, "salt": 2.0 },
+      "steps": [
+        { "step": 1, "instruction": "Pokrój pomidora, ogórka i cebulę. Sałatę lodową porwij na mniejsze kawałki." },
+        { "step": 2, "instruction": "Dodaj pokruszoną fetę i skrop oliwą. Dopraw solą oraz pieprzem." },
+        { "step": 3, "instruction": "Podawaj z bułką pokrojoną na kromki." }
+      ],
+      "ingredients": [
+        { "ingredientName": "sałata lodowa", "amount": 120, "unit": "g" },
+        { "ingredientName": "pomidor", "amount": 220, "unit": "g" },
+        { "ingredientName": "ogórek", "amount": 180, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 70, "unit": "g" },
+        { "ingredientName": "ser feta", "amount": 110, "unit": "g" },
+        { "ingredientName": "oliwa z oliwek", "amount": 12, "unit": "ml" },
+        { "ingredientName": "bułka", "amount": 120, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Sałatka grecka z pieczywem, fresh salad bowl with tomato cucumber onion feta and bread on side, light dinner styling, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Kurczak w sosie śmietanowym z ryżem",
+      "description": "Delikatny kurczak w kremowym sosie śmietanowym podany z ryżem. Danie jest sycące i bardzo lubiane w domowej kuchni.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": { "kcal": 840, "protein": 58, "carbs": 84, "fat": 30, "fiber": 4, "salt": 2.0 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj ryż basmati. Kurczaka pokrój i usmaż na oleju do zrumienienia." },
+        { "step": 2, "instruction": "Dodaj cebulę i chwilę podsmaż. Wmieszaj śmietanę 18 i gotuj 5 minut." },
+        { "step": 3, "instruction": "Dopraw solą i pieprzem. Podawaj kurczaka z gorącym ryżem." }
+      ],
+      "ingredients": [
+        { "ingredientName": "filet z kurczaka", "amount": 320, "unit": "g" },
+        { "ingredientName": "ryż basmati", "amount": 170, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 90, "unit": "g" },
+        { "ingredientName": "śmietana 18", "amount": 140, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Kurczak w sosie śmietanowym z ryżem, chicken pieces in creamy sauce served with fluffy rice, homestyle comfort food plating, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Zapiekanka ziemniaczana z kurczakiem i serem",
+      "description": "Warstwowa zapiekanka ziemniaczana z kurczakiem i serem to sycąca kolacja dla dwóch osób. Danie jest proste, a efekt bardzo satysfakcjonujący.",
+      "mealType": "DINNER",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": { "kcal": 920, "protein": 60, "carbs": 78, "fat": 40, "fiber": 7, "salt": 2.3 },
+      "steps": [
+        { "step": 1, "instruction": "Pokrój ziemniaki w cienkie plasterki. Kurczaka i cebulę pokrój drobniej." },
+        { "step": 2, "instruction": "Podsmaż kurczaka z cebulą. W naczyniu układaj warstwami ziemniaki, kurczaka i starty ser." },
+        { "step": 3, "instruction": "Polej śmietaną 18, dopraw i piecz około 30 minut w 200C." }
+      ],
+      "ingredients": [
+        { "ingredientName": "ziemniak", "amount": 600, "unit": "g" },
+        { "ingredientName": "filet z kurczaka", "amount": 280, "unit": "g" },
+        { "ingredientName": "ser gouda", "amount": 140, "unit": "g" },
+        { "ingredientName": "śmietana 18", "amount": 160, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 90, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 8, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Zapiekanka ziemniaczana z kurczakiem i serem, baked potato casserole with chicken and melted cheese, golden crust, cozy dinner plate, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Ryż smażony z jajkiem i warzywami",
+      "description": "Szybki ryż smażony z jajkiem i warzywami to świetny sposób na prostą kolację. Smak jest wyrazisty, a przygotowanie zajmuje niewiele czasu.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 22,
+      "servings": 2,
+      "nutrition": { "kcal": 700, "protein": 24, "carbs": 98, "fat": 22, "fiber": 6, "salt": 1.7 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj ryż jaśminowy i wystudź chwilę. Pokrój cebulę, paprykę i marchew." },
+        { "step": 2, "instruction": "Na oleju podsmaż warzywa, dodaj ryż i mieszaj na większym ogniu." },
+        { "step": 3, "instruction": "Wbij jajka i smaż, aż się zetną. Dopraw solą i pieprzem." }
+      ],
+      "ingredients": [
+        { "ingredientName": "ryż jaśminowy", "amount": 170, "unit": "g" },
+        { "ingredientName": "jajko", "amount": 3, "unit": "szt" },
+        { "ingredientName": "marchew", "amount": 120, "unit": "g" },
+        { "ingredientName": "papryka czerwona", "amount": 120, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 80, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 12, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Ryż smażony z jajkiem i warzywami, fried rice with scrambled egg and colorful vegetables in skillet style, quick homemade dinner look, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Makaron z tuńczykiem i passatą pomidorową",
+      "description": "Makaron z tuńczykiem w lekkim sosie pomidorowym to szybka i wygodna kolacja. Danie jest proste, a jednocześnie sycące.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 24,
+      "servings": 2,
+      "nutrition": { "kcal": 760, "protein": 44, "carbs": 92, "fat": 20, "fiber": 8, "salt": 2.2 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj makaron penne al dente. Cebulę i czosnek drobno posiekaj." },
+        { "step": 2, "instruction": "Podsmaż cebulę z czosnkiem na oleju. Dodaj passatę pomidorową i gotuj kilka minut." },
+        { "step": 3, "instruction": "Dodaj tuńczyka z puszki i wymieszaj z makaronem. Dopraw solą i pieprzem." }
+      ],
+      "ingredients": [
+        { "ingredientName": "makaron penne", "amount": 180, "unit": "g" },
+        { "ingredientName": "tuńczyk w puszce", "amount": 180, "unit": "g" },
+        { "ingredientName": "passata pomidorowa", "amount": 300, "unit": "ml" },
+        { "ingredientName": "cebula", "amount": 80, "unit": "g" },
+        { "ingredientName": "czosnek", "amount": 2, "unit": "szt" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Makaron z tuńczykiem i passatą pomidorową, penne pasta with tuna in light tomato sauce, simple home dinner styling, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Kanapki na ciepło z mozzarellą i pomidorem",
+      "description": "Szybkie kanapki na ciepło z roztopioną mozzarellą i pomidorem. Świetna kolacja, gdy chcesz zjeść coś prostego i smacznego.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 14,
+      "servings": 2,
+      "nutrition": { "kcal": 650, "protein": 27, "carbs": 66, "fat": 30, "fiber": 5, "salt": 1.9 },
+      "steps": [
+        { "step": 1, "instruction": "Pokrój chleb i pomidora. Mozzarellę pokrój w plasterki." },
+        { "step": 2, "instruction": "Ułóż na pieczywie pomidora i mozzarellę. Skrop delikatnie oliwą." },
+        { "step": 3, "instruction": "Zapiekaj 6-8 minut, aż ser się roztopi. Dopraw solą i pieprzem." }
+      ],
+      "ingredients": [
+        { "ingredientName": "chleb", "amount": 180, "unit": "g" },
+        { "ingredientName": "mozzarella", "amount": 130, "unit": "g" },
+        { "ingredientName": "pomidor", "amount": 180, "unit": "g" },
+        { "ingredientName": "oliwa z oliwek", "amount": 8, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Kanapki na ciepło z mozzarellą i pomidorem, hot open sandwiches with melted mozzarella and tomato slices, simple baked toast style, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Krem z pomidorów z grzankami",
+      "description": "Gładki krem z pomidorów z chrupiącymi grzankami to lekka i bardzo przyjemna kolacja. Smak jest prosty, ale wyrazisty.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 26,
+      "servings": 2,
+      "nutrition": { "kcal": 520, "protein": 11, "carbs": 64, "fat": 22, "fiber": 6, "salt": 1.8 },
+      "steps": [
+        { "step": 1, "instruction": "Podgrzej bulion warzywny z passatą pomidorową. Dodaj czosnek i gotuj 10 minut." },
+        { "step": 2, "instruction": "Dodaj śmietanę 18 i dopraw solą oraz pieprzem. Zblenduj zupę na gładki krem." },
+        { "step": 3, "instruction": "Chleb pokrój w kostkę i podpiecz z odrobiną oliwy na grzanki. Podawaj z kremem." }
+      ],
+      "ingredients": [
+        { "ingredientName": "passata pomidorowa", "amount": 450, "unit": "ml" },
+        { "ingredientName": "bulion warzywny", "amount": 450, "unit": "ml" },
+        { "ingredientName": "śmietana 18", "amount": 80, "unit": "g" },
+        { "ingredientName": "czosnek", "amount": 1, "unit": "szt" },
+        { "ingredientName": "chleb", "amount": 120, "unit": "g" },
+        { "ingredientName": "oliwa z oliwek", "amount": 10, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Krem z pomidorów z grzankami, smooth tomato soup served with crispy bread croutons, warm bowl close-up, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Jajka sadzone z ziemniakami i mizerią",
+      "description": "Klasyczny, prosty zestaw na ciepłą kolację: jajka sadzone, ziemniaki i mizeria. Smak domowy i dobrze znany.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 28,
+      "servings": 2,
+      "nutrition": { "kcal": 700, "protein": 24, "carbs": 72, "fat": 34, "fiber": 8, "salt": 1.7 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj ziemniaki do miękkości. Ogórka pokrój cienko i wymieszaj z jogurtem naturalnym." },
+        { "step": 2, "instruction": "Mizerię dopraw solą i pieprzem. Na patelni usmaż jajka sadzone." },
+        { "step": 3, "instruction": "Podawaj jajka z ziemniakami i mizerią obok." }
+      ],
+      "ingredients": [
+        { "ingredientName": "jajko", "amount": 4, "unit": "szt" },
+        { "ingredientName": "ziemniak", "amount": 500, "unit": "g" },
+        { "ingredientName": "ogórek", "amount": 220, "unit": "g" },
+        { "ingredientName": "jogurt naturalny", "amount": 120, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 8, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Jajka sadzone z ziemniakami i mizerią, sunny side eggs with boiled potatoes and cucumber yogurt salad on side, classic home dinner plate, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    },
+    {
+      "title": "Klopsiki z indyka w sosie pomidorowym z ryżem",
+      "description": "Delikatne klopsiki z indyka w prostym sosie pomidorowym, podane z ryżem. To sycąca i bardzo praktyczna kolacja.",
+      "mealType": "DINNER",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 38,
+      "servings": 2,
+      "nutrition": { "kcal": 850, "protein": 60, "carbs": 92, "fat": 26, "fiber": 6, "salt": 2.2 },
+      "steps": [
+        { "step": 1, "instruction": "Ugotuj ryż basmati. Filet z indyka drobno posiekaj lub zmiel i uformuj małe klopsiki." },
+        { "step": 2, "instruction": "Podsmaż klopsiki na oleju. Dodaj cebulę i czosnek, a następnie wlej passatę pomidorową." },
+        { "step": 3, "instruction": "Duś 12-15 minut na małym ogniu. Dopraw solą i pieprzem, podawaj z ryżem." }
+      ],
+      "ingredients": [
+        { "ingredientName": "filet z indyka", "amount": 320, "unit": "g" },
+        { "ingredientName": "ryż basmati", "amount": 180, "unit": "g" },
+        { "ingredientName": "passata pomidorowa", "amount": 350, "unit": "ml" },
+        { "ingredientName": "cebula", "amount": 90, "unit": "g" },
+        { "ingredientName": "czosnek", "amount": 2, "unit": "szt" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 2, "unit": "szczypta" }
+      ],
+      "image": { "prompt": "professional food photo, Klopsiki z indyka w sosie pomidorowym z ryżem, turkey meatballs in tomato sauce served with fluffy rice, comforting dinner plating, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing", "imageUrl": null }
+    }
+  ]
+}

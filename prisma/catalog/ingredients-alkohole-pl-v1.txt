@@ -1,0 +1,24 @@
+piwo
+piwo bezalkoholowe
+piwo pszeniczne
+piwo lager
+piwo smakowe
+wino czerwone wytrawne
+wino czerwone polwytrawne
+wino czerwone polslodkie
+wino czerwone slodkie
+wino biale wytrawne
+wino biale polwytrawne
+wino biale polslodkie
+wino biale slodkie
+prosecco
+szampan
+cydr
+wodka
+whisky
+rum
+gin
+tequila
+likier
+nalewka
+brandy
