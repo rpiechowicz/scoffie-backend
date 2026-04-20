@@ -56,3 +56,11 @@ docker compose exec api pnpm run recipes:import:json
 
 // AI Recipes Image
 https://www.recraft.ai
+
+
+----------
+
+railway run --service weakly-meals-backend pnpm exec tsx scripts/load-ingredient-catalog.ts
+railway run --service weakly-meals-backend pnpm exec tsx scripts/normalize-ingredients-polish.ts
+railway run --service weakly-meals-backend bash -c "RECIPE_IMPORT_FILE=prisma/catalog/recipes-approved-30-v1.json RECIPE_IMPORT_CLEAR_EXISTING=false pnpm exec tsx scripts/import-recipes-from-json.ts"
+railway run --service weakly-meals-backend pnpm exec tsx scripts/fix-recipe-image-urls.ts
