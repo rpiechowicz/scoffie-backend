@@ -22,6 +22,7 @@ export interface AuthResult {
     id: string;
     displayName: string;
     email: string | null;
+    avatarUrl: string | null;
     provider: AuthProvider;
   };
   household: { id: string; name: string } | null;
@@ -227,6 +228,7 @@ export class AuthService {
     id: string;
     displayName: string;
     email: string | null;
+    avatarUrl: string | null;
     authProvider: AuthProvider;
   }): Promise<AuthResult> {
     const [accessToken, refreshToken, membership] = await Promise.all([
@@ -246,6 +248,7 @@ export class AuthService {
         id: user.id,
         displayName: user.displayName,
         email: user.email,
+        avatarUrl: user.avatarUrl ?? null,
         provider: user.authProvider,
       },
       household: membership?.household
