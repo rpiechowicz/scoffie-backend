@@ -3,12 +3,12 @@ import { PushPlatform } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApnsSendError, ApnsService } from './apns.service';
 
-type PlanChangeAction =
+type KnownPlanChangeAction =
   | 'UPSERT_SLOT'
   | 'REMOVE_SLOT'
   | 'SAVE_PLAN'
-  | 'CLEAR_PLAN'
-  | string;
+  | 'CLEAR_PLAN';
+type PlanChangeAction = KnownPlanChangeAction | (string & {});
 
 type PlanChangeContext = {
   dayOfWeek?: string | null;

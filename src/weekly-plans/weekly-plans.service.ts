@@ -740,14 +740,16 @@ export class WeeklyPlansService {
     return this.toTitleCase(this.toPolishDisplayText(raw));
   }
 
-  private mapDepartmentLabel(rawDepartment?: string | null): string {
+  private mapDepartmentLabel(
+    rawDepartment?: string | null,
+  ): ShoppingDepartment {
     const value = this.normalizeText(rawDepartment ?? '');
     if (!value) return WeeklyPlansService.DEPARTMENT_OTHER;
     const detected = this.detectDepartmentByKeywords(value);
     return detected ?? WeeklyPlansService.DEPARTMENT_OTHER;
   }
 
-  private inferDepartmentFromName(name: string): string {
+  private inferDepartmentFromName(name: string): ShoppingDepartment {
     const value = this.normalizeText(name);
     if (!value) return WeeklyPlansService.DEPARTMENT_OTHER;
     const detected = this.detectDepartmentByKeywords(value);
@@ -780,7 +782,7 @@ export class WeeklyPlansService {
 
   private async ensureRecipeForHousehold(
     recipeId: string,
-    householdId: string,
+    _householdId: string,
   ) {
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: recipeId },

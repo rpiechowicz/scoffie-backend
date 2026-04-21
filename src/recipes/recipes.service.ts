@@ -304,7 +304,7 @@ export class RecipesService {
       return null;
     }
 
-    const prompt = (sourceMeta as Prisma.JsonObject).imagePrompt;
+    const prompt = sourceMeta.imagePrompt;
     return typeof prompt === 'string' && prompt.trim().length > 0
       ? prompt.trim()
       : null;
