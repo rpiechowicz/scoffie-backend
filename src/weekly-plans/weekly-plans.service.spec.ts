@@ -147,7 +147,7 @@ const makePrismaMock = () => {
     sharedMealPlanItem: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
-    $transaction: jest.fn().mockImplementation((cbOrOps: any, opts?: any) => {
+    $transaction: jest.fn().mockImplementation((cbOrOps: any, _opts?: any) => {
       if (typeof cbOrOps === 'function') {
         return cbOrOps(mock);
       }
