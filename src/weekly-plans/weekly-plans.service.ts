@@ -652,7 +652,7 @@ export class WeeklyPlansService {
 
     await this.ensureRecipeForHousehold(dto.recipeId, plan.householdId);
 
-    return this.runSerializable(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const [existingForMealType, existingTotal, existingSlot] = await Promise.all([
         tx.planItem.count({
           where: {
@@ -692,16 +692,24 @@ export class WeeklyPlansService {
         );
       }
 
-      const createdItem = await tx.planItem.create({
-        data: {
-          weeklyPlanId,
-          recipeId: dto.recipeId,
-          dayOfWeek: dto.dayOfWeek,
-          mealType: dto.mealType,
-        },
-      });
+      let createdItem;
+      try {
+        createdItem = await tx.planItem.create({
+          data: {
+            weeklyPlanId,
+            recipeId: dto.recipeId,
+            dayOfWeek: dto.dayOfWeek,
+            mealType: dto.mealType,
+          },
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new ConflictException('This day and meal slot is already assigned in weekly plan');
+        }
+        throw error;
+      }
 
-      await this.rebuildShoppingListSnapshot(plan.householdId, plan.weekStart, tx);
+      await this.markShoppingListStale(plan.householdId, plan.weekStart, tx);
 
       return createdItem;
     });
@@ -716,14 +724,21 @@ export class WeeklyPlansService {
       throw new NotFoundException('Plan item not found');
     }
     await this.ensureMembership(userId, item.weeklyPlan.householdId);
-    return this.runSerializable(async (tx) => {
-      const deletedItem = await tx.planItem.delete({ where: { id: itemId } });
-      await this.rebuildShoppingListSnapshot(
-        item.weeklyPlan.householdId,
-        item.weeklyPlan.weekStart,
-        tx,
-      );
-      return deletedItem;
+    return this.prisma.$transaction(async (tx) => {
+      try {
+        const deletedItem = await tx.planItem.delete({ where: { id: itemId } });
+        await this.markShoppingListStale(
+          item.weeklyPlan.householdId,
+          item.weeklyPlan.weekStart,
+          tx,
+        );
+        return deletedItem;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new NotFoundException('Plan item not found');
+        }
+        throw error;
+      }
     });
   }
 
@@ -860,11 +875,13 @@ export class WeeklyPlansService {
         },
       },
       update: {
+        isStale: false,
         updatedAt: new Date(),
       },
       create: {
         householdId,
         weekStart: weekStartDate,
+        isStale: false,
       },
       include: {
         items: {
@@ -1051,7 +1068,7 @@ export class WeeklyPlansService {
     client: PrismaReadClient = this.prisma,
   ): Promise<ShoppingListItem[]> {
     if (client === this.prisma) {
-      return this.runSerializable((tx) => this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx));
+      return this.prisma.$transaction((tx) => this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx));
     }
 
     return this.rebuildShoppingListSnapshot(
@@ -1059,6 +1076,31 @@ export class WeeklyPlansService {
       weekStartDate,
       client as Prisma.TransactionClient,
     );
+  }
+
+  private async markShoppingListStale(
+    householdId: string,
+    weekStartDate: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.shoppingList.upsert({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      },
+      update: {
+        isStale: true,
+        updatedAt: new Date(),
+      },
+      create: {
+        householdId,
+        weekStart: weekStartDate,
+        isStale: true,
+      },
+      select: { id: true },
+    });
   }
 
   private async getShoppingListSnapshot(
@@ -1079,6 +1121,9 @@ export class WeeklyPlansService {
     });
 
     if (snapshot) {
+      if (snapshot.isStale) {
+        return this.rebuildShoppingListSnapshotWithClient(householdId, weekStartDate, client);
+      }
       const hasSourceData = await this.hasShoppingSourceData(householdId, weekStartDate, client);
       if (snapshot.items.length === 0 && hasSourceData) {
         return this.rebuildShoppingListSnapshotWithClient(householdId, weekStartDate, client);
@@ -1420,7 +1465,7 @@ export class WeeklyPlansService {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
 
-    return this.runSerializable(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await this.getShoppingListSnapshot(householdId, weekStartDate, tx);
 
       const snapshot = await tx.shoppingList.findUnique({
@@ -1490,7 +1535,7 @@ export class WeeklyPlansService {
     const weekStartDate = this.parseWeekStart(weekStart);
     await this.ensureRecipeForHousehold(dto.recipeId, householdId);
 
-    return this.runSerializable(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
         where: {
           householdId,
@@ -1527,7 +1572,7 @@ export class WeeklyPlansService {
           where: { id: existingSlot.id },
           data: { recipeId: dto.recipeId },
         });
-        await this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx);
+        await this.markShoppingListStale(householdId, weekStartDate, tx);
         return updatedItem;
       }
 
@@ -1559,8 +1604,16 @@ export class WeeklyPlansService {
         );
       }
 
-      const createdItem = await tx.planItem.create({
-        data: {
+      const createdItem = await tx.planItem.upsert({
+        where: {
+          weeklyPlanId_dayOfWeek_mealType: {
+            weeklyPlanId: weeklyPlan.id,
+            dayOfWeek: dto.dayOfWeek,
+            mealType: dto.mealType,
+          },
+        },
+        update: { recipeId: dto.recipeId },
+        create: {
           weeklyPlanId: weeklyPlan.id,
           dayOfWeek: dto.dayOfWeek,
           mealType: dto.mealType,
@@ -1568,7 +1621,7 @@ export class WeeklyPlansService {
         },
       });
 
-      await this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx);
+      await this.markShoppingListStale(householdId, weekStartDate, tx);
 
       return createdItem;
     });
@@ -1583,7 +1636,7 @@ export class WeeklyPlansService {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
 
-    return this.runSerializable(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
         where: {
           householdId,
@@ -1619,13 +1672,18 @@ export class WeeklyPlansService {
         return null;
       }
 
-      const deletedItem = await tx.planItem.delete({
-        where: { id: existingSlot.id },
-      });
-
-      await this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx);
-
-      return deletedItem;
+      try {
+        const deletedItem = await tx.planItem.delete({
+          where: { id: existingSlot.id },
+        });
+        await this.markShoppingListStale(householdId, weekStartDate, tx);
+        return deletedItem;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          return null;
+        }
+        throw error;
+      }
     });
   }
 
@@ -1879,7 +1937,7 @@ export class WeeklyPlansService {
       });
 
       if (!weeklyPlan) {
-        await this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx);
+        await this.markShoppingListStale(householdId, weekStartDate, tx);
         return;
       }
 
@@ -1912,7 +1970,7 @@ export class WeeklyPlansService {
         pruneByMealType('DINNER', dinnerAllowed),
       ]);
 
-      await this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx);
+      await this.markShoppingListStale(householdId, weekStartDate, tx);
     });
 
     return this.getSharedMealPlan(userId, householdId, weekStart);
