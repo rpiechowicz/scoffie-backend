@@ -8,4 +8,3 @@ export class UpdateMemberRoleDto {
   @IsIn(membershipRoles)
   role: (typeof membershipRoles)[number];
 }
-

@@ -1,9 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
-import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthProvider } from '@prisma/client';
 import { AuthService } from './auth.service';
-import { AppleIdentityService, VerifiedAppleIdentity } from './apple-identity.service';
+import {
+  AppleIdentityService,
+  VerifiedAppleIdentity,
+} from './apple-identity.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Mock factories ────────────────────────────────────────────────────────────
@@ -49,7 +56,9 @@ const makePrismaMock = () => ({
   refreshToken: {
     create: jest.fn().mockResolvedValue(mockRefreshToken),
     findUnique: jest.fn().mockResolvedValue(mockRefreshToken),
-    update: jest.fn().mockResolvedValue({ ...mockRefreshToken, revokedAt: new Date() }),
+    update: jest
+      .fn()
+      .mockResolvedValue({ ...mockRefreshToken, revokedAt: new Date() }),
   },
   membership: {
     findFirst: jest.fn().mockResolvedValue(null),
@@ -120,7 +129,10 @@ describe('AuthService', () => {
     });
 
     it('powinno upsertować użytkownika z unikalnym googleId dev:', async () => {
-      await service.loginDev({ displayName: 'Jan Kowalski', email: 'jan@example.com' });
+      await service.loginDev({
+        displayName: 'Jan Kowalski',
+        email: 'jan@example.com',
+      });
 
       expect(prisma.user.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -138,19 +150,19 @@ describe('AuthService', () => {
     });
 
     it('powinno odrzucić gdy brak displayName', async () => {
-      await expect(service.loginDev({ displayName: '', email: null })).rejects.toThrow(
-        BadRequestException,
-      );
-      await expect(service.loginDev({ displayName: '   ', email: null })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.loginDev({ displayName: '', email: null }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.loginDev({ displayName: '   ', email: null }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('powinno odrzucić gdy AUTH_DEV_LOGIN_ENABLED=false', async () => {
       process.env.AUTH_DEV_LOGIN_ENABLED = 'false';
-      await expect(service.loginDev({ displayName: 'Test', email: null })).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.loginDev({ displayName: 'Test', email: null }),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('powinno zwrócić household jeśli użytkownik należy do jednego', async () => {
@@ -161,7 +173,10 @@ describe('AuthService', () => {
         createdAt: new Date(),
       });
 
-      const result = await service.loginDev({ displayName: 'Test User', email: null });
+      const result = await service.loginDev({
+        displayName: 'Test User',
+        email: null,
+      });
       expect(result.household).toEqual({ id: 'hh-1', name: 'Dom' });
     });
 
@@ -194,13 +209,23 @@ describe('AuthService', () => {
 
     it('powinno odrzucić gdy brak googleId', async () => {
       await expect(
-        service.loginWithGoogle({ googleId: '', displayName: 'Test', email: null, avatarUrl: null }),
+        service.loginWithGoogle({
+          googleId: '',
+          displayName: 'Test',
+          email: null,
+          avatarUrl: null,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('powinno odrzucić gdy brak displayName', async () => {
       await expect(
-        service.loginWithGoogle({ googleId: 'g-123', displayName: '', email: null, avatarUrl: null }),
+        service.loginWithGoogle({
+          googleId: 'g-123',
+          displayName: '',
+          email: null,
+          avatarUrl: null,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -287,7 +312,10 @@ describe('AuthService', () => {
     });
 
     it('powinno użyć fallback displayName jeśli Apple nie podał imienia', async () => {
-      apple.verify.mockResolvedValue({ ...verified, email: 'anon@example.com' });
+      apple.verify.mockResolvedValue({
+        ...verified,
+        email: 'anon@example.com',
+      });
       prisma.user.findUnique.mockResolvedValue(null);
 
       await service.loginWithApple({
@@ -346,7 +374,9 @@ describe('AuthService', () => {
     });
 
     it('powinno propagować UnauthorizedException z AppleIdentityService', async () => {
-      apple.verify.mockRejectedValue(new UnauthorizedException('Invalid Apple identity token.'));
+      apple.verify.mockRejectedValue(
+        new UnauthorizedException('Invalid Apple identity token.'),
+      );
 
       await expect(
         service.loginWithApple({

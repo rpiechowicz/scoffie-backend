@@ -8,4 +8,3 @@ import { ApnsService } from './apns.service';
   exports: [NotificationsService],
 })
 export class NotificationsModule {}
-

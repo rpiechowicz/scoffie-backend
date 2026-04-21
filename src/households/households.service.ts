@@ -1,4 +1,10 @@
-import { BadRequestException, ForbiddenException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,7 +18,10 @@ import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 export class HouseholdsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private invitationStatusFrom(invitation: { expiresAt: Date; redeemedAt: Date | null }) {
+  private invitationStatusFrom(invitation: {
+    expiresAt: Date;
+    redeemedAt: Date | null;
+  }) {
     if (invitation.redeemedAt) return 'REDEEMED' as const;
     if (invitation.expiresAt.getTime() < Date.now()) return 'EXPIRED' as const;
     return 'PENDING' as const;
@@ -103,7 +112,9 @@ export class HouseholdsService {
     }
 
     const token = randomBytes(16).toString('hex');
-    const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : new Date(Date.now() + 7 * 86400000);
+    const expiresAt = dto.expiresAt
+      ? new Date(dto.expiresAt)
+      : new Date(Date.now() + 7 * 86400000);
 
     return this.prisma.invitation.create({
       data: {
@@ -130,7 +141,11 @@ export class HouseholdsService {
       );
     }
     if (invitation.expiresAt.getTime() < Date.now()) {
-      throw new AppException('INVITATION_EXPIRED', 'Invitation expired', HttpStatus.BAD_REQUEST);
+      throw new AppException(
+        'INVITATION_EXPIRED',
+        'Invitation expired',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const membership = await this.prisma.membership.upsert({
@@ -208,7 +223,11 @@ export class HouseholdsService {
     };
   }
 
-  async updateName(userId: string, householdId: string, dto: UpdateHouseholdDto) {
+  async updateName(
+    userId: string,
+    householdId: string,
+    dto: UpdateHouseholdDto,
+  ) {
     await this.getHouseholdOrThrow(householdId);
     await this.ensureOwner(userId, householdId);
     return this.prisma.household.update({
@@ -271,7 +290,11 @@ export class HouseholdsService {
     });
   }
 
-  async removeMember(userId: string, householdId: string, memberUserId: string) {
+  async removeMember(
+    userId: string,
+    householdId: string,
+    memberUserId: string,
+  ) {
     await this.getHouseholdOrThrow(householdId);
     await this.ensureOwner(userId, householdId);
 
@@ -285,7 +308,9 @@ export class HouseholdsService {
     if (targetMembership.role === 'OWNER') {
       const ownerCount = await this.countOwners(householdId);
       if (ownerCount <= 1) {
-        throw new BadRequestException('Cannot remove the last owner from household');
+        throw new BadRequestException(
+          'Cannot remove the last owner from household',
+        );
       }
     }
 

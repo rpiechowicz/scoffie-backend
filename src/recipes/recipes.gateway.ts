@@ -38,7 +38,9 @@ class RecipesSetFavoritePayload {
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
-export class RecipesGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class RecipesGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   private server: Server;
 
@@ -57,23 +59,36 @@ export class RecipesGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
   @SubscribeMessage('recipes:findAll')
   findAll(@MessageBody() payload: RecipesFindAllPayload) {
-    return wsRespond(() => this.recipesService.findAll(payload.userId, payload.filters));
+    return wsRespond(() =>
+      this.recipesService.findAll(payload.userId, payload.filters),
+    );
   }
 
   @SubscribeMessage('recipes:findById')
   findById(@MessageBody() payload: RecipesFindByIdPayload) {
-    return wsRespond(() => this.recipesService.findById(payload.userId, payload.id, payload.householdId));
+    return wsRespond(() =>
+      this.recipesService.findById(
+        payload.userId,
+        payload.id,
+        payload.householdId,
+      ),
+    );
   }
 
   @SubscribeMessage('recipes:create')
   create(@MessageBody() payload: RecipesCreatePayload) {
-    return wsRespond(() => this.recipesService.create(payload.userId, payload.data));
+    return wsRespond(() =>
+      this.recipesService.create(payload.userId, payload.data),
+    );
   }
 
   @SubscribeMessage('recipes:setFavorite')
   setFavorite(@MessageBody() payload: RecipesSetFavoritePayload) {
     return wsRespond(async () => {
-      const result = await this.recipesService.setFavorite(payload.userId, payload.data);
+      const result = await this.recipesService.setFavorite(
+        payload.userId,
+        payload.data,
+      );
       this.server.emit('recipes:favoritesChanged', {
         householdId: payload.data.householdId,
         recipeId: payload.data.recipeId,

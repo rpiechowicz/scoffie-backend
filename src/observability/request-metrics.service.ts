@@ -52,7 +52,9 @@ export class RequestMetricsService {
         route,
         count: stats.count,
         errors: stats.errors,
-        avgDurationMs: Number((stats.totalDurationMs / Math.max(stats.count, 1)).toFixed(2)),
+        avgDurationMs: Number(
+          (stats.totalDurationMs / Math.max(stats.count, 1)).toFixed(2),
+        ),
         maxDurationMs: Number(stats.maxDurationMs.toFixed(2)),
       }))
       .sort((a, b) => b.count - a.count);
@@ -69,7 +71,9 @@ export class RequestMetricsService {
     };
   }
 
-  private statusToBucket(statusCode: number): '2xx' | '3xx' | '4xx' | '5xx' | 'other' {
+  private statusToBucket(
+    statusCode: number,
+  ): '2xx' | '3xx' | '4xx' | '5xx' | 'other' {
     if (statusCode >= 200 && statusCode < 300) return '2xx';
     if (statusCode >= 300 && statusCode < 400) return '3xx';
     if (statusCode >= 400 && statusCode < 500) return '4xx';

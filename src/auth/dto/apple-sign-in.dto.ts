@@ -18,7 +18,8 @@ import {
  */
 export class AppleSignInDto {
   @ApiProperty({
-    description: 'Apple identityToken (JWT) returned by ASAuthorizationAppleIDCredential.',
+    description:
+      'Apple identityToken (JWT) returned by ASAuthorizationAppleIDCredential.',
     example: 'eyJraWQiOiJXNldjT0tCIi...',
   })
   @IsString()

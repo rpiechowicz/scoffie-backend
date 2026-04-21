@@ -18,4 +18,3 @@ export class AppException extends HttpException {
     );
   }
 }
-

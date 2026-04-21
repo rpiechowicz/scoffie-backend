@@ -1,12 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { HouseholdsService } from './households.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
 const mockUser = { id: 'user-1', displayName: 'Jan', email: 'jan@example.com' };
-const mockUser2 = { id: 'user-2', displayName: 'Anna', email: 'anna@example.com' };
+const mockUser2 = {
+  id: 'user-2',
+  displayName: 'Anna',
+  email: 'anna@example.com',
+};
 
 const mockHousehold = {
   id: 'hh-1',
@@ -49,7 +57,9 @@ const makePrismaMock = () => ({
   householdInvitation: {
     create: jest.fn().mockResolvedValue(mockInvitation),
     findUnique: jest.fn().mockResolvedValue(mockInvitation),
-    update: jest.fn().mockResolvedValue({ ...mockInvitation, usedAt: new Date() }),
+    update: jest
+      .fn()
+      .mockResolvedValue({ ...mockInvitation, usedAt: new Date() }),
     findFirst: jest.fn().mockResolvedValue(mockInvitation),
   },
   $transaction: jest.fn().mockImplementation((cb) => cb(makePrismaMock())),
@@ -80,27 +90,32 @@ describe('HouseholdsService', () => {
 
   describe('createHousehold', () => {
     it('powinno stworzyć household i dodać twórcę jako OWNER', async () => {
-      const result = await service.createHousehold(mockUser.id, { name: 'Dom Kowalskich' });
+      const result = await service.createHousehold(mockUser.id, {
+        name: 'Dom Kowalskich',
+      });
 
       expect(prisma.household.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ name: 'Dom Kowalskich' }),
         }),
       );
-      expect(result).toMatchObject({ id: mockHousehold.id, name: mockHousehold.name });
+      expect(result).toMatchObject({
+        id: mockHousehold.id,
+        name: mockHousehold.name,
+      });
     });
 
     it('powinno odrzucić pustą nazwę', async () => {
-      await expect(service.createHousehold(mockUser.id, { name: '' })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.createHousehold(mockUser.id, { name: '' }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('powinno odrzucić zbyt długą nazwę (>100 znaków)', async () => {
       const longName = 'A'.repeat(101);
-      await expect(service.createHousehold(mockUser.id, { name: longName })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.createHousehold(mockUser.id, { name: longName }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -108,26 +123,32 @@ describe('HouseholdsService', () => {
 
   describe('createInvitation', () => {
     it('powinno stworzyć zaproszenie tylko dla OWNER', async () => {
-      const result = await service.createInvitation(mockUser.id, mockHousehold.id);
+      const result = await service.createInvitation(
+        mockUser.id,
+        mockHousehold.id,
+      );
 
       expect(prisma.householdInvitation.create).toHaveBeenCalled();
       expect(result).toHaveProperty('token');
     });
 
     it('powinno odrzucić zaproszenie od non-OWNER', async () => {
-      prisma.membership.findFirst.mockResolvedValue({ ...mockMembership, role: 'MEMBER' });
+      prisma.membership.findFirst.mockResolvedValue({
+        ...mockMembership,
+        role: 'MEMBER',
+      });
 
-      await expect(service.createInvitation(mockUser2.id, mockHousehold.id)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.createInvitation(mockUser2.id, mockHousehold.id),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('powinno odrzucić gdy użytkownik nie należy do household', async () => {
       prisma.membership.findFirst.mockResolvedValue(null);
 
-      await expect(service.createInvitation(mockUser.id, mockHousehold.id)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.createInvitation(mockUser.id, mockHousehold.id),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -156,7 +177,9 @@ describe('HouseholdsService', () => {
         expiresAt: new Date(Date.now() - 1000), // wygasł
       });
 
-      await expect(service.acceptInvitation(mockUser2.id, 'expired-token')).rejects.toThrow();
+      await expect(
+        service.acceptInvitation(mockUser2.id, 'expired-token'),
+      ).rejects.toThrow();
     });
 
     it('powinno odrzucić już użyty token', async () => {
@@ -165,14 +188,18 @@ describe('HouseholdsService', () => {
         usedAt: new Date(Date.now() - 1000), // już użyty
       });
 
-      await expect(service.acceptInvitation(mockUser2.id, 'used-token')).rejects.toThrow();
+      await expect(
+        service.acceptInvitation(mockUser2.id, 'used-token'),
+      ).rejects.toThrow();
     });
 
     it('powinno odrzucić gdy użytkownik już jest w household', async () => {
       // User jest już członkiem
       prisma.membership.findFirst.mockResolvedValue(mockMembership);
 
-      await expect(service.acceptInvitation(mockUser.id, 'valid-token-abc123')).rejects.toThrow();
+      await expect(
+        service.acceptInvitation(mockUser.id, 'valid-token-abc123'),
+      ).rejects.toThrow();
     });
   });
 
@@ -180,7 +207,12 @@ describe('HouseholdsService', () => {
 
   describe('updateMemberRole', () => {
     it('powinno zaktualizować rolę przez OWNER', async () => {
-      await service.updateMemberRole(mockUser.id, mockHousehold.id, mockUser2.id, 'MEMBER');
+      await service.updateMemberRole(
+        mockUser.id,
+        mockHousehold.id,
+        mockUser2.id,
+        'MEMBER',
+      );
 
       expect(prisma.membership.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -190,16 +222,29 @@ describe('HouseholdsService', () => {
     });
 
     it('powinno odrzucić zmianę roli przez non-OWNER', async () => {
-      prisma.membership.findFirst.mockResolvedValueOnce({ ...mockMembership, role: 'MEMBER' });
+      prisma.membership.findFirst.mockResolvedValueOnce({
+        ...mockMembership,
+        role: 'MEMBER',
+      });
 
       await expect(
-        service.updateMemberRole(mockUser2.id, mockHousehold.id, mockUser.id, 'OWNER'),
+        service.updateMemberRole(
+          mockUser2.id,
+          mockHousehold.id,
+          mockUser.id,
+          'OWNER',
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('nie powinno pozwolić OWNER na degradację samego siebie', async () => {
       await expect(
-        service.updateMemberRole(mockUser.id, mockHousehold.id, mockUser.id, 'MEMBER'),
+        service.updateMemberRole(
+          mockUser.id,
+          mockHousehold.id,
+          mockUser.id,
+          'MEMBER',
+        ),
       ).rejects.toThrow();
     });
   });
@@ -210,7 +255,13 @@ describe('HouseholdsService', () => {
     it('powinno zwrócić listę członków household', async () => {
       prisma.membership.findMany.mockResolvedValue([
         { ...mockMembership, user: mockUser },
-        { ...mockMembership, id: 'mem-2', userId: mockUser2.id, role: 'MEMBER', user: mockUser2 },
+        {
+          ...mockMembership,
+          id: 'mem-2',
+          userId: mockUser2.id,
+          role: 'MEMBER',
+          user: mockUser2,
+        },
       ]);
 
       const result = await service.listMembers(mockUser.id, mockHousehold.id);
@@ -220,9 +271,9 @@ describe('HouseholdsService', () => {
     it('powinno odrzucić gdy użytkownik nie należy do household', async () => {
       prisma.membership.findFirst.mockResolvedValue(null);
 
-      await expect(service.listMembers('outsider-id', mockHousehold.id)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.listMembers('outsider-id', mockHousehold.id),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

@@ -40,14 +40,19 @@ function extractCode(response: unknown): AppErrorCode | null {
     return null;
   }
 
-  if ('code' in response && typeof (response as { code?: unknown }).code === 'string') {
+  if (
+    'code' in response &&
+    typeof (response as { code?: unknown }).code === 'string'
+  ) {
     return (response as { code: AppErrorCode }).code;
   }
 
   return null;
 }
 
-export async function wsRespond<T>(action: () => Promise<T>): Promise<WsSuccess<T> | WsError> {
+export async function wsRespond<T>(
+  action: () => Promise<T>,
+): Promise<WsSuccess<T> | WsError> {
   try {
     return { ok: true, data: await action() };
   } catch (error: unknown) {

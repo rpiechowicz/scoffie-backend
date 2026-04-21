@@ -27,13 +27,18 @@ export class ApnsService implements OnModuleInit {
   private readonly keyId = process.env.APNS_KEY_ID ?? '';
   private readonly teamId = process.env.APNS_TEAM_ID ?? '';
   private readonly bundleId = process.env.APNS_BUNDLE_ID ?? '';
-  private readonly privateKeyRaw = (process.env.APNS_PRIVATE_KEY ?? '').replace(/\\n/g, '\n');
+  private readonly privateKeyRaw = (process.env.APNS_PRIVATE_KEY ?? '').replace(
+    /\\n/g,
+    '\n',
+  );
   private readonly useSandbox = process.env.APNS_USE_SANDBOX !== 'false';
 
   private cachedJwt: { token: string; expiresAtMs: number } | null = null;
 
   private get host(): string {
-    return this.useSandbox ? 'api.sandbox.push.apple.com' : 'api.push.apple.com';
+    return this.useSandbox
+      ? 'api.sandbox.push.apple.com'
+      : 'api.push.apple.com';
   }
 
   onModuleInit(): void {
@@ -42,14 +47,21 @@ export class ApnsService implements OnModuleInit {
       return;
     }
     if (!this.isConfigured()) {
-      this.logger.warn('APNs enabled but configuration is incomplete. Check APNS_KEY_ID/APNS_TEAM_ID/APNS_BUNDLE_ID/APNS_PRIVATE_KEY.');
+      this.logger.warn(
+        'APNs enabled but configuration is incomplete. Check APNS_KEY_ID/APNS_TEAM_ID/APNS_BUNDLE_ID/APNS_PRIVATE_KEY.',
+      );
       return;
     }
-    this.logger.log(`APNs enabled (${this.useSandbox ? 'sandbox' : 'production'}).`);
+    this.logger.log(
+      `APNs enabled (${this.useSandbox ? 'sandbox' : 'production'}).`,
+    );
   }
 
   isConfigured(): boolean {
-    return this.enabled && Boolean(this.keyId && this.teamId && this.bundleId && this.privateKeyRaw);
+    return (
+      this.enabled &&
+      Boolean(this.keyId && this.teamId && this.bundleId && this.privateKeyRaw)
+    );
   }
 
   private async getJwt(): Promise<string> {
@@ -72,7 +84,11 @@ export class ApnsService implements OnModuleInit {
     return token;
   }
 
-  async sendToDevice(deviceToken: string, payload: PushPayload, appBundleId?: string): Promise<void> {
+  async sendToDevice(
+    deviceToken: string,
+    payload: PushPayload,
+    appBundleId?: string,
+  ): Promise<void> {
     if (!this.isConfigured()) {
       return;
     }
@@ -147,7 +163,9 @@ export class ApnsService implements OnModuleInit {
         try {
           await this.sendToDevice(token, payload);
         } catch (error) {
-          this.logger.warn(`Failed APNs send for token tail=${token.slice(-8)}: ${(error as Error).message}`);
+          this.logger.warn(
+            `Failed APNs send for token tail=${token.slice(-8)}: ${(error as Error).message}`,
+          );
         }
       }),
     );

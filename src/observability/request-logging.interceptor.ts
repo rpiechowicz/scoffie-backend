@@ -33,20 +33,26 @@ export class RequestLoggingInterceptor implements NestInterceptor {
 
     const requestIdHeader = req.headers['x-request-id'];
     const requestId =
-      (Array.isArray(requestIdHeader) ? requestIdHeader[0] : requestIdHeader) || randomUUID();
+      (Array.isArray(requestIdHeader) ? requestIdHeader[0] : requestIdHeader) ||
+      randomUUID();
 
     req.requestId = requestId;
     res.setHeader('x-request-id', requestId);
 
     const method = req.method;
-    const routePath = (req.route?.path as string | undefined) || req.path || req.originalUrl || '/';
+    const routePath =
+      (req.route?.path as string | undefined) ||
+      req.path ||
+      req.originalUrl ||
+      '/';
     const routeKey = `${method} ${routePath}`;
     const userId = req.user?.id ?? null;
     const startedAt = process.hrtime.bigint();
 
     return next.handle().pipe(
       finalize(() => {
-        const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+        const durationMs =
+          Number(process.hrtime.bigint() - startedAt) / 1_000_000;
         const statusCode = res.statusCode || 500;
 
         this.metrics.record(routeKey, statusCode, durationMs);

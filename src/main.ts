@@ -19,7 +19,11 @@ async function bootstrap() {
     exposedHeaders: ['x-access-token', 'x-request-id'],
   });
   app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
   );
   app.useStaticAssets(join(process.cwd(), 'public'), { prefix: '/static/' });
 

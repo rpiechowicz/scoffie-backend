@@ -21,7 +21,9 @@ export class HouseholdsService {
       throw new BadRequestException('Household name is required');
     }
     if (dto.name.length > 100) {
-      throw new BadRequestException('Household name must be at most 100 characters');
+      throw new BadRequestException(
+        'Household name must be at most 100 characters',
+      );
     }
     const household = await this.prisma.household.create({
       data: { name: dto.name.trim() },
@@ -66,7 +68,9 @@ export class HouseholdsService {
       where: { userId, householdId: invitation.householdId },
     });
     if (existing) {
-      throw new BadRequestException('User is already a member of this household');
+      throw new BadRequestException(
+        'User is already a member of this household',
+      );
     }
     await this.prisma.householdInvitation.update({
       where: { token },
@@ -93,7 +97,9 @@ export class HouseholdsService {
       throw new ForbiddenException('Only OWNER can change roles');
     }
     return this.prisma.membership.update({
-      where: { userId_householdId: { userId: targetUserId, householdId } } as any,
+      where: {
+        userId_householdId: { userId: targetUserId, householdId },
+      } as any,
       data: { role },
     });
   }

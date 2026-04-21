@@ -77,7 +77,9 @@ class HouseholdsLeavePayload {
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
-export class HouseholdsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class HouseholdsGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   private server: Server;
 
@@ -101,14 +103,20 @@ export class HouseholdsGateway implements OnGatewayConnection, OnGatewayDisconne
 
   @SubscribeMessage('households:findById')
   findById(@MessageBody() payload: HouseholdsFindByIdPayload) {
-    return wsRespond(() => this.householdsService.findById(payload.userId, payload.id));
+    return wsRespond(() =>
+      this.householdsService.findById(payload.userId, payload.id),
+    );
   }
 
   @SubscribeMessage('households:create')
   create(@MessageBody() payload: HouseholdsCreatePayload) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.householdsService.getUserDisplayName(payload.userId);
-      const result = await this.householdsService.create(payload.userId, payload.data);
+      const changedByDisplayName =
+        await this.householdsService.getUserDisplayName(payload.userId);
+      const result = await this.householdsService.create(
+        payload.userId,
+        payload.data,
+      );
       this.server.emit('households:membersChanged', {
         householdId: result.id,
         action: 'CREATE_HOUSEHOLD',
@@ -122,15 +130,23 @@ export class HouseholdsGateway implements OnGatewayConnection, OnGatewayDisconne
   @SubscribeMessage('households:createInvitation')
   createInvitation(@MessageBody() payload: HouseholdsCreateInvitationPayload) {
     return wsRespond(() =>
-      this.householdsService.createInvitation(payload.userId, payload.householdId, payload.data),
+      this.householdsService.createInvitation(
+        payload.userId,
+        payload.householdId,
+        payload.data,
+      ),
     );
   }
 
   @SubscribeMessage('households:acceptInvitation')
   acceptInvitation(@MessageBody() payload: HouseholdsAcceptInvitationPayload) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.householdsService.getUserDisplayName(payload.userId);
-      const result = await this.householdsService.acceptInvitation(payload.userId, payload.data);
+      const changedByDisplayName =
+        await this.householdsService.getUserDisplayName(payload.userId);
+      const result = await this.householdsService.acceptInvitation(
+        payload.userId,
+        payload.data,
+      );
       this.server.emit('households:membersChanged', {
         householdId: result.householdId,
         action: 'ACCEPT_INVITATION',
@@ -142,15 +158,24 @@ export class HouseholdsGateway implements OnGatewayConnection, OnGatewayDisconne
   }
 
   @SubscribeMessage('households:previewInvitation')
-  previewInvitation(@MessageBody() payload: HouseholdsPreviewInvitationPayload) {
-    return wsRespond(() => this.householdsService.previewInvitation(payload.userId, payload.data));
+  previewInvitation(
+    @MessageBody() payload: HouseholdsPreviewInvitationPayload,
+  ) {
+    return wsRespond(() =>
+      this.householdsService.previewInvitation(payload.userId, payload.data),
+    );
   }
 
   @SubscribeMessage('households:updateName')
   updateName(@MessageBody() payload: HouseholdsUpdateNamePayload) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.householdsService.getUserDisplayName(payload.userId);
-      const result = await this.householdsService.updateName(payload.userId, payload.householdId, payload.data);
+      const changedByDisplayName =
+        await this.householdsService.getUserDisplayName(payload.userId);
+      const result = await this.householdsService.updateName(
+        payload.userId,
+        payload.householdId,
+        payload.data,
+      );
       this.server.emit('households:membersChanged', {
         householdId: payload.householdId,
         action: 'UPDATE_NAME',
@@ -163,13 +188,16 @@ export class HouseholdsGateway implements OnGatewayConnection, OnGatewayDisconne
 
   @SubscribeMessage('households:listMembers')
   listMembers(@MessageBody() payload: HouseholdsListMembersPayload) {
-    return wsRespond(() => this.householdsService.listMembers(payload.userId, payload.householdId));
+    return wsRespond(() =>
+      this.householdsService.listMembers(payload.userId, payload.householdId),
+    );
   }
 
   @SubscribeMessage('households:updateMemberRole')
   updateMemberRole(@MessageBody() payload: HouseholdsUpdateMemberRolePayload) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.householdsService.getUserDisplayName(payload.userId);
+      const changedByDisplayName =
+        await this.householdsService.getUserDisplayName(payload.userId);
       const result = await this.householdsService.updateMemberRole(
         payload.userId,
         payload.householdId,
@@ -189,7 +217,8 @@ export class HouseholdsGateway implements OnGatewayConnection, OnGatewayDisconne
   @SubscribeMessage('households:removeMember')
   removeMember(@MessageBody() payload: HouseholdsRemoveMemberPayload) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.householdsService.getUserDisplayName(payload.userId);
+      const changedByDisplayName =
+        await this.householdsService.getUserDisplayName(payload.userId);
       const result = await this.householdsService.removeMember(
         payload.userId,
         payload.householdId,
@@ -208,8 +237,12 @@ export class HouseholdsGateway implements OnGatewayConnection, OnGatewayDisconne
   @SubscribeMessage('households:leave')
   leave(@MessageBody() payload: HouseholdsLeavePayload) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.householdsService.getUserDisplayName(payload.userId);
-      const result = await this.householdsService.leave(payload.userId, payload.householdId);
+      const changedByDisplayName =
+        await this.householdsService.getUserDisplayName(payload.userId);
+      const result = await this.householdsService.leave(
+        payload.userId,
+        payload.householdId,
+      );
       this.server.emit('households:membersChanged', {
         householdId: payload.householdId,
         action: 'LEAVE',
