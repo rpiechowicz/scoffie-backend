@@ -8,4 +8,3 @@ export class UpdateHouseholdDto {
   @MaxLength(64)
   name: string;
 }
-

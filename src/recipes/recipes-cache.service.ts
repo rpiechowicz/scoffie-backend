@@ -13,7 +13,10 @@ export class RecipesCacheService {
   private misses = 0;
 
   private readonly enabled = process.env.RECIPES_LIST_CACHE_ENABLED !== 'false';
-  private readonly ttlSeconds = Number.parseInt(process.env.RECIPES_LIST_CACHE_TTL_SECONDS ?? '90', 10);
+  private readonly ttlSeconds = Number.parseInt(
+    process.env.RECIPES_LIST_CACHE_TTL_SECONDS ?? '90',
+    10,
+  );
 
   private now(): number {
     return Date.now();
@@ -54,7 +57,10 @@ export class RecipesCacheService {
   }): string {
     const householdPart = input.householdId ?? 'all-households';
     const mealTypePart = input.mealType ?? 'all-meals';
-    const favoritePart = typeof input.isFavorite === 'boolean' ? String(input.isFavorite) : 'all-favorites';
+    const favoritePart =
+      typeof input.isFavorite === 'boolean'
+        ? String(input.isFavorite)
+        : 'all-favorites';
     return `${this.recipesListPrefix}${input.userId}:${householdPart}:${mealTypePart}:${favoritePart}:${input.page}:${input.limit}`;
   }
 
@@ -74,7 +80,10 @@ export class RecipesCacheService {
       size: this.store.size,
       hits: this.hits,
       misses: this.misses,
-      hitRate: this.hits + this.misses > 0 ? Number((this.hits / (this.hits + this.misses)).toFixed(4)) : 0,
+      hitRate:
+        this.hits + this.misses > 0
+          ? Number((this.hits / (this.hits + this.misses)).toFixed(4))
+          : 0,
     };
   }
 }

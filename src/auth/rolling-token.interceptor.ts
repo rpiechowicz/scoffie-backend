@@ -23,7 +23,9 @@ export class RollingTokenInterceptor implements NestInterceptor {
     return next.handle().pipe(
       mergeMap(async (data) => {
         if (request.user?.id) {
-          const token = await this.authService.issueAccessToken(request.user.id);
+          const token = await this.authService.issueAccessToken(
+            request.user.id,
+          );
           response.setHeader('x-access-token', token);
         }
         return data;

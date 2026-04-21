@@ -1,6 +1,8 @@
 import type { JwtService } from '@nestjs/jwt';
 
-type JwtExpiresIn = NonNullable<Parameters<JwtService['signAsync']>[1]>['expiresIn'];
+type JwtExpiresIn = NonNullable<
+  Parameters<JwtService['signAsync']>[1]
+>['expiresIn'];
 
 const DEFAULT_JWT_EXPIRES_IN: JwtExpiresIn = '30d';
 

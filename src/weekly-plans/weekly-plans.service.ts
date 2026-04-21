@@ -1,4 +1,10 @@
-import { ConflictException, ForbiddenException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
@@ -87,47 +93,291 @@ export class WeeklyPlansService {
     department: ShoppingDepartment;
     keywords: string[];
   }> = [
-    { department: ShoppingDepartment.VEGETABLES, keywords: ['warzyw', 'veget', 'produce', 'ziemniak', 'cebula', 'czosn', 'marchew', 'seler', 'pomidor', 'papryk', 'ogorek', 'szpinak', 'salata', 'kalafior', 'brokul', 'cukini', 'baklazan', 'burak', 'por', 'jarmuz', 'pietruszk'] },
-    { department: ShoppingDepartment.FRUITS, keywords: ['owoc', 'fruit', 'jablk', 'banan', 'cytryn', 'limonk', 'pomarancz', 'gruszk', 'truskawk', 'borowk', 'malin', 'winogron', 'ananas', 'awokado'] },
-    { department: ShoppingDepartment.MEAT, keywords: ['mies', 'meat', 'drob', 'poultry', 'kaczk', 'kurczak', 'wolowin', 'wieprz', 'indyk', 'kielbas', 'boczek', 'schab'] },
-    { department: ShoppingDepartment.FISH, keywords: ['ryb', 'fish', 'seafood', 'dorsz', 'losos', 'tunczyk', 'krewetk', 'mintaj', 'halibut', 'makrela'] },
-    { department: ShoppingDepartment.DAIRY, keywords: ['nabial', 'dairy', 'milk', 'mleko', 'jogurt', 'kefir', 'skyr', 'maslo', 'smietan', 'twarog', 'jajk', 'ser', 'sery', 'sera', 'serek', 'gouda', 'mozzarella', 'mozarella', 'feta', 'parmezan', 'cheddar', 'ricotta', 'brie', 'camembert'] },
-    { department: ShoppingDepartment.BAKERY, keywords: ['piekarn', 'bakery', 'bread', 'chleb', 'bulk', 'pieczyw', 'tortill', 'pita', 'bagietk'] },
-    { department: ShoppingDepartment.GRAINS, keywords: ['zboz', 'grain', 'pasta', 'rice', 'makaron', 'ryz', 'kasz', 'platki', 'maka', 'owsian', 'soczewic', 'ciecierzyc', 'quinoa', 'komosa', 'fasol'] },
-    { department: ShoppingDepartment.CANNED, keywords: ['konserw', 'canned', 'jar', 'sloik', 'puszka', 'oliwk', 'passata', 'bulion', 'mleko kokosowe'] },
-    { department: ShoppingDepartment.SPICES, keywords: ['przypraw', 'spice', 'herb', 'sauce', 'sos', 'sol', 'pieprz', 'papryk', 'curry', 'oregano', 'bazyl', 'cynamon', 'musztard', 'majonez', 'ocet', 'ziola', 'kmink', 'jalowiec', 'proszek do pieczenia', 'soda'] },
-    { department: ShoppingDepartment.OILS, keywords: ['olej', 'tluszcz', 'oil', 'fat', 'oliwa', 'smalec'] },
-    { department: ShoppingDepartment.ALCOHOLS, keywords: ['alkohol', 'wino', 'piwo', 'whisky', 'whiskey', 'wodka', 'rum', 'gin', 'tequila', 'brandy', 'likier', 'prosecco', 'szampan', 'cydr', 'riesling', 'merlot', 'cabernet'] },
-    { department: ShoppingDepartment.BEVERAGES, keywords: ['napoj', 'beverage', 'drink', 'woda', 'kawa', 'herbat', 'sok'] },
-    { department: ShoppingDepartment.SNACKS, keywords: ['slodycz', 'przekask', 'snack', 'sweet', 'czekolad', 'ciastk', 'chips', 'orzech', 'miod', 'baton'] },
-    { department: ShoppingDepartment.FROZEN, keywords: ['mrozon', 'frozen', 'lody'] },
-    { department: ShoppingDepartment.CONFECTIONERY, keywords: ['cukiern', 'pastry', 'dessert', 'cake', 'cukier', 'drozdzowk', 'biszkopt'] },
-    { department: ShoppingDepartment.HOUSEHOLD, keywords: ['chemia', 'household', 'clean', 'papier', 'plyn', 'proszek do prania', 'worki na smieci', 'reczniki papierowe'] },
+    {
+      department: ShoppingDepartment.VEGETABLES,
+      keywords: [
+        'warzyw',
+        'veget',
+        'produce',
+        'ziemniak',
+        'cebula',
+        'czosn',
+        'marchew',
+        'seler',
+        'pomidor',
+        'papryk',
+        'ogorek',
+        'szpinak',
+        'salata',
+        'kalafior',
+        'brokul',
+        'cukini',
+        'baklazan',
+        'burak',
+        'por',
+        'jarmuz',
+        'pietruszk',
+      ],
+    },
+    {
+      department: ShoppingDepartment.FRUITS,
+      keywords: [
+        'owoc',
+        'fruit',
+        'jablk',
+        'banan',
+        'cytryn',
+        'limonk',
+        'pomarancz',
+        'gruszk',
+        'truskawk',
+        'borowk',
+        'malin',
+        'winogron',
+        'ananas',
+        'awokado',
+      ],
+    },
+    {
+      department: ShoppingDepartment.MEAT,
+      keywords: [
+        'mies',
+        'meat',
+        'drob',
+        'poultry',
+        'kaczk',
+        'kurczak',
+        'wolowin',
+        'wieprz',
+        'indyk',
+        'kielbas',
+        'boczek',
+        'schab',
+      ],
+    },
+    {
+      department: ShoppingDepartment.FISH,
+      keywords: [
+        'ryb',
+        'fish',
+        'seafood',
+        'dorsz',
+        'losos',
+        'tunczyk',
+        'krewetk',
+        'mintaj',
+        'halibut',
+        'makrela',
+      ],
+    },
+    {
+      department: ShoppingDepartment.DAIRY,
+      keywords: [
+        'nabial',
+        'dairy',
+        'milk',
+        'mleko',
+        'jogurt',
+        'kefir',
+        'skyr',
+        'maslo',
+        'smietan',
+        'twarog',
+        'jajk',
+        'ser',
+        'sery',
+        'sera',
+        'serek',
+        'gouda',
+        'mozzarella',
+        'mozarella',
+        'feta',
+        'parmezan',
+        'cheddar',
+        'ricotta',
+        'brie',
+        'camembert',
+      ],
+    },
+    {
+      department: ShoppingDepartment.BAKERY,
+      keywords: [
+        'piekarn',
+        'bakery',
+        'bread',
+        'chleb',
+        'bulk',
+        'pieczyw',
+        'tortill',
+        'pita',
+        'bagietk',
+      ],
+    },
+    {
+      department: ShoppingDepartment.GRAINS,
+      keywords: [
+        'zboz',
+        'grain',
+        'pasta',
+        'rice',
+        'makaron',
+        'ryz',
+        'kasz',
+        'platki',
+        'maka',
+        'owsian',
+        'soczewic',
+        'ciecierzyc',
+        'quinoa',
+        'komosa',
+        'fasol',
+      ],
+    },
+    {
+      department: ShoppingDepartment.CANNED,
+      keywords: [
+        'konserw',
+        'canned',
+        'jar',
+        'sloik',
+        'puszka',
+        'oliwk',
+        'passata',
+        'bulion',
+        'mleko kokosowe',
+      ],
+    },
+    {
+      department: ShoppingDepartment.SPICES,
+      keywords: [
+        'przypraw',
+        'spice',
+        'herb',
+        'sauce',
+        'sos',
+        'sol',
+        'pieprz',
+        'papryk',
+        'curry',
+        'oregano',
+        'bazyl',
+        'cynamon',
+        'musztard',
+        'majonez',
+        'ocet',
+        'ziola',
+        'kmink',
+        'jalowiec',
+        'proszek do pieczenia',
+        'soda',
+      ],
+    },
+    {
+      department: ShoppingDepartment.OILS,
+      keywords: ['olej', 'tluszcz', 'oil', 'fat', 'oliwa', 'smalec'],
+    },
+    {
+      department: ShoppingDepartment.ALCOHOLS,
+      keywords: [
+        'alkohol',
+        'wino',
+        'piwo',
+        'whisky',
+        'whiskey',
+        'wodka',
+        'rum',
+        'gin',
+        'tequila',
+        'brandy',
+        'likier',
+        'prosecco',
+        'szampan',
+        'cydr',
+        'riesling',
+        'merlot',
+        'cabernet',
+      ],
+    },
+    {
+      department: ShoppingDepartment.BEVERAGES,
+      keywords: ['napoj', 'beverage', 'drink', 'woda', 'kawa', 'herbat', 'sok'],
+    },
+    {
+      department: ShoppingDepartment.SNACKS,
+      keywords: [
+        'slodycz',
+        'przekask',
+        'snack',
+        'sweet',
+        'czekolad',
+        'ciastk',
+        'chips',
+        'orzech',
+        'miod',
+        'baton',
+      ],
+    },
+    {
+      department: ShoppingDepartment.FROZEN,
+      keywords: ['mrozon', 'frozen', 'lody'],
+    },
+    {
+      department: ShoppingDepartment.CONFECTIONERY,
+      keywords: [
+        'cukiern',
+        'pastry',
+        'dessert',
+        'cake',
+        'cukier',
+        'drozdzowk',
+        'biszkopt',
+      ],
+    },
+    {
+      department: ShoppingDepartment.HOUSEHOLD,
+      keywords: [
+        'chemia',
+        'household',
+        'clean',
+        'papier',
+        'plyn',
+        'proszek do prania',
+        'worki na smieci',
+        'reczniki papierowe',
+      ],
+    },
   ];
-  private static readonly CANONICAL_DEPARTMENT_OVERRIDES: Record<string, ShoppingDepartment> = {
-    'kielbasa': ShoppingDepartment.MEAT,
+  private static readonly CANONICAL_DEPARTMENT_OVERRIDES: Record<
+    string,
+    ShoppingDepartment
+  > = {
+    kielbasa: ShoppingDepartment.MEAT,
     'kielbasa wedzona': ShoppingDepartment.MEAT,
-    'maslo': ShoppingDepartment.DAIRY,
+    maslo: ShoppingDepartment.DAIRY,
     'smietana kwasna': ShoppingDepartment.DAIRY,
-    'jajka': ShoppingDepartment.DAIRY,
+    jajka: ShoppingDepartment.DAIRY,
     'kapusta kiszona': ShoppingDepartment.VEGETABLES,
     'liscie laurowe': ShoppingDepartment.SPICES,
-    'jalowiec': ShoppingDepartment.SPICES,
-    'kminek': ShoppingDepartment.SPICES,
-    'tymianek': ShoppingDepartment.SPICES,
-    'imbir': ShoppingDepartment.SPICES,
+    jalowiec: ShoppingDepartment.SPICES,
+    kminek: ShoppingDepartment.SPICES,
+    tymianek: ShoppingDepartment.SPICES,
+    imbir: ShoppingDepartment.SPICES,
     'sok z cytryny': ShoppingDepartment.FRUITS,
     'skorka z cytryny': ShoppingDepartment.FRUITS,
-    'riesling': ShoppingDepartment.ALCOHOLS,
+    riesling: ShoppingDepartment.ALCOHOLS,
     'tluszcz kaczy': ShoppingDepartment.OILS,
-    'olej': ShoppingDepartment.OILS,
+    olej: ShoppingDepartment.OILS,
     'oliwa z oliwek': ShoppingDepartment.OILS,
   };
 
   private parseWeekStart(weekStart: string): Date {
     const parsed = new Date(weekStart);
     if (Number.isNaN(parsed.getTime())) {
-      throw new AppException('VALIDATION_ERROR', 'Invalid weekStart date format', HttpStatus.BAD_REQUEST);
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Invalid weekStart date format',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     return parsed;
   }
@@ -175,8 +425,12 @@ export class WeeklyPlansService {
 
   private sortShoppingItems(items: ShoppingListItem[]): ShoppingListItem[] {
     return [...items].sort((a, b) => {
-      const rankA = WeeklyPlansService.DEPARTMENT_ORDER[a.department] ?? WeeklyPlansService.DEPARTMENT_ORDER.Inne;
-      const rankB = WeeklyPlansService.DEPARTMENT_ORDER[b.department] ?? WeeklyPlansService.DEPARTMENT_ORDER.Inne;
+      const rankA =
+        WeeklyPlansService.DEPARTMENT_ORDER[a.department] ??
+        WeeklyPlansService.DEPARTMENT_ORDER.Inne;
+      const rankB =
+        WeeklyPlansService.DEPARTMENT_ORDER[b.department] ??
+        WeeklyPlansService.DEPARTMENT_ORDER.Inne;
       if (rankA !== rankB) return rankA - rankB;
       if (a.department === b.department) {
         return a.name.localeCompare(b.name);
@@ -304,7 +558,10 @@ export class WeeklyPlansService {
     ];
 
     for (const [from, to] of phraseReplacements) {
-      output = output.replace(new RegExp(`\\b${this.escapeForRegex(from)}\\b`, 'g'), to);
+      output = output.replace(
+        new RegExp(`\\b${this.escapeForRegex(from)}\\b`, 'g'),
+        to,
+      );
     }
 
     const tokenReplacements: Array<[string, string]> = [
@@ -339,7 +596,10 @@ export class WeeklyPlansService {
     ];
 
     for (const [from, to] of tokenReplacements) {
-      output = output.replace(new RegExp(`\\b${this.escapeForRegex(from)}\\b`, 'g'), to);
+      output = output.replace(
+        new RegExp(`\\b${this.escapeForRegex(from)}\\b`, 'g'),
+        to,
+      );
     }
 
     return output.replace(/\s+/g, ' ').trim();
@@ -374,7 +634,10 @@ export class WeeklyPlansService {
     // Strip parenthetical hints and common qualifiers.
     raw = raw.replace(/\([^)]*\)/g, ' ');
     raw = raw
-      .replace(/\b(swieza|swiezy|swieze|suszona|suszony|suszone|mielony|mielona|mielone|surowa|surowy|niesolone|wytrawny|neutralny|koszerna|koszerny|morska|morski|wędzona|wedzona|cierpkie|cala|cały|calkowita|calkowity)\b/g, ' ')
+      .replace(
+        /\b(swieza|swiezy|swieze|suszona|suszony|suszone|mielony|mielona|mielone|surowa|surowy|niesolone|wytrawny|neutralny|koszerna|koszerny|morska|morski|wędzona|wedzona|cierpkie|cala|cały|calkowita|calkowity)\b/g,
+        ' ',
+      )
       .replace(/\b(filety|filet|zabki|zabek|lodygi)\b/g, ' ')
       .replace(/\b(w|we)\b/g, ' ')
       .replace(/\s+/g, ' ')
@@ -456,7 +719,8 @@ export class WeeklyPlansService {
     if (/soczewic/.test(raw)) return 'Soczewica brązowa';
     if (/ocet jablk/.test(raw)) return 'Ocet jabłkowy';
     if (/sok jablk/.test(raw)) return 'Sok jabłkowy';
-    if (/jablk/.test(raw)) return normalizedUnit === 'ml' ? 'Sok jabłkowy' : 'Jabłko';
+    if (/jablk/.test(raw))
+      return normalizedUnit === 'ml' ? 'Sok jabłkowy' : 'Jabłko';
     if (/cebul/.test(raw)) return 'Cebula';
     if (/ziemniak/.test(raw)) return 'Ziemniak';
     if (/czosn/.test(raw)) return 'Czosnek';
@@ -490,15 +754,22 @@ export class WeeklyPlansService {
     return detected ?? WeeklyPlansService.DEPARTMENT_OTHER;
   }
 
-  private resolveDepartment(rawDepartment: string, ingredientName: string): string {
-    const override = WeeklyPlansService.CANONICAL_DEPARTMENT_OVERRIDES[
-      this.normalizeText(ingredientName)
-    ];
+  private resolveDepartment(
+    rawDepartment: string,
+    ingredientName: string,
+  ): string {
+    const override =
+      WeeklyPlansService.CANONICAL_DEPARTMENT_OVERRIDES[
+        this.normalizeText(ingredientName)
+      ];
     if (override) return override;
 
     const normalizedName = this.normalizeText(ingredientName);
-    if (/\bkielbas[a-z]*\b/.test(normalizedName)) return ShoppingDepartment.MEAT;
-    if (/\b(imbir|tymianek|liscie laurowe|jalowiec|kminek)\b/.test(normalizedName)) {
+    if (/\bkielbas[a-z]*\b/.test(normalizedName))
+      return ShoppingDepartment.MEAT;
+    if (
+      /\b(imbir|tymianek|liscie laurowe|jalowiec|kminek)\b/.test(normalizedName)
+    ) {
       return ShoppingDepartment.SPICES;
     }
 
@@ -507,7 +778,10 @@ export class WeeklyPlansService {
     return this.inferDepartmentFromName(ingredientName);
   }
 
-  private async ensureRecipeForHousehold(recipeId: string, householdId: string) {
+  private async ensureRecipeForHousehold(
+    recipeId: string,
+    householdId: string,
+  ) {
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: recipeId },
       select: { id: true },
@@ -542,10 +816,9 @@ export class WeeklyPlansService {
     let attempts = 0;
     while (true) {
       try {
-        return await this.prisma.$transaction(
-          async (tx) => operation(tx),
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-        );
+        return await this.prisma.$transaction(async (tx) => operation(tx), {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        });
       } catch (error) {
         if (this.isSerializableConflict(error) && attempts < maxRetries) {
           attempts += 1;
@@ -592,10 +865,16 @@ export class WeeklyPlansService {
     });
   }
 
-  async getByHouseholdAndWeek(userId: string, householdId: string, weekStart: string) {
+  async getByHouseholdAndWeek(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+  ) {
     await this.ensureMembership(userId, householdId);
     const plan = await this.prisma.weeklyPlan.findUnique({
-      where: { householdId_weekStart: { householdId, weekStart: new Date(weekStart) } },
+      where: {
+        householdId_weekStart: { householdId, weekStart: new Date(weekStart) },
+      },
       include: {
         items: {
           include: {
@@ -653,27 +932,30 @@ export class WeeklyPlansService {
     await this.ensureRecipeForHousehold(dto.recipeId, plan.householdId);
 
     return this.prisma.$transaction(async (tx) => {
-      const [existingForMealType, existingTotal, existingSlot] = await Promise.all([
-        tx.planItem.count({
-          where: {
-            weeklyPlanId,
-            mealType: dto.mealType,
-          },
-        }),
-        tx.planItem.count({
-          where: { weeklyPlanId },
-        }),
-        tx.planItem.findFirst({
-          where: {
-            weeklyPlanId,
-            dayOfWeek: dto.dayOfWeek,
-            mealType: dto.mealType,
-          },
-        }),
-      ]);
+      const [existingForMealType, existingTotal, existingSlot] =
+        await Promise.all([
+          tx.planItem.count({
+            where: {
+              weeklyPlanId,
+              mealType: dto.mealType,
+            },
+          }),
+          tx.planItem.count({
+            where: { weeklyPlanId },
+          }),
+          tx.planItem.findFirst({
+            where: {
+              weeklyPlanId,
+              dayOfWeek: dto.dayOfWeek,
+              mealType: dto.mealType,
+            },
+          }),
+        ]);
 
       if (existingSlot) {
-        throw new ConflictException('This day and meal slot is already assigned in weekly plan');
+        throw new ConflictException(
+          'This day and meal slot is already assigned in weekly plan',
+        );
       }
 
       if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
@@ -703,8 +985,13 @@ export class WeeklyPlansService {
           },
         });
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-          throw new ConflictException('This day and meal slot is already assigned in weekly plan');
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw new ConflictException(
+            'This day and meal slot is already assigned in weekly plan',
+          );
         }
         throw error;
       }
@@ -734,7 +1021,10 @@ export class WeeklyPlansService {
         );
         return deletedItem;
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
           throw new NotFoundException('Plan item not found');
         }
         throw error;
@@ -835,7 +1125,10 @@ export class WeeklyPlansService {
       for (const ingredient of source.recipe.ingredients) {
         const baseAmount = ingredient.normalizedAmount ?? ingredient.amount;
         const baseUnit = ingredient.normalizedUnit ?? ingredient.unit;
-        const canonicalName = this.canonicalizeIngredientName(ingredient.name, baseUnit);
+        const canonicalName = this.canonicalizeIngredientName(
+          ingredient.name,
+          baseUnit,
+        );
         const productKey = this.normalizeProductKey(canonicalName, baseUnit);
         const current = aggregated.get(productKey);
         const amountToAdd = baseAmount * source.quantity;
@@ -847,7 +1140,10 @@ export class WeeklyPlansService {
           productKey,
           name: canonicalName,
           unit: baseUnit,
-          department: this.resolveDepartment(ingredient.department, canonicalName),
+          department: this.resolveDepartment(
+            ingredient.department,
+            canonicalName,
+          ),
           totalAmount: amountToAdd,
         });
       }
@@ -865,7 +1161,11 @@ export class WeeklyPlansService {
     weekStartDate: Date,
     tx: Prisma.TransactionClient,
   ): Promise<ShoppingListItem[]> {
-    const aggregatedItems = await this.buildShoppingListBase(householdId, weekStartDate, tx);
+    const aggregatedItems = await this.buildShoppingListBase(
+      householdId,
+      weekStartDate,
+      tx,
+    );
 
     const shoppingList = await tx.shoppingList.upsert({
       where: {
@@ -915,21 +1215,22 @@ export class WeeklyPlansService {
     });
 
     const productKeys = aggregatedItems.map((item) => item.productKey);
-    const legacyChecks = productKeys.length > 0
-      ? await tx.shoppingItemCheck.findMany({
-          where: {
-            householdId,
-            weekStart: weekStartDate,
-            productKey: {
-              in: productKeys,
+    const legacyChecks =
+      productKeys.length > 0
+        ? await tx.shoppingItemCheck.findMany({
+            where: {
+              householdId,
+              weekStart: weekStartDate,
+              productKey: {
+                in: productKeys,
+              },
             },
-          },
-          select: {
-            productKey: true,
-            isChecked: true,
-          },
-        })
-      : [];
+            select: {
+              productKey: true,
+              isChecked: true,
+            },
+          })
+        : [];
 
     const existingCheckedMap = new Map(
       shoppingList.items.map((item) => [item.productKey, item.isChecked]),
@@ -947,19 +1248,24 @@ export class WeeklyPlansService {
     for (const item of aggregatedItems) {
       const previousAmount = baselineAmounts.get(item.productKey) ?? 0;
       const hasNewUncheckedDelta = Boolean(
-        currentArchiveState?.currentArchiveId
-          && item.totalAmount > previousAmount + 0.000_001,
+        currentArchiveState?.currentArchiveId &&
+        item.totalAmount > previousAmount + 0.000_001,
       );
 
       checkedMap.set(
         item.productKey,
         hasNewUncheckedDelta
           ? false
-          : existingCheckedMap.get(item.productKey) ?? legacyCheckedMap.get(item.productKey) ?? false,
+          : (existingCheckedMap.get(item.productKey) ??
+              legacyCheckedMap.get(item.productKey) ??
+              false),
       );
     }
 
-    const nextItems = this.buildDisplayShoppingItems(aggregatedItems, checkedMap);
+    const nextItems = this.buildDisplayShoppingItems(
+      aggregatedItems,
+      checkedMap,
+    );
 
     if (nextItems.length === 0) {
       await tx.shoppingListItem.deleteMany({
@@ -1059,7 +1365,9 @@ export class WeeklyPlansService {
       }),
     ]);
 
-    return (sharedPlan?.items.length ?? 0) > 0 || (weeklyPlan?.items.length ?? 0) > 0;
+    return (
+      (sharedPlan?.items.length ?? 0) > 0 || (weeklyPlan?.items.length ?? 0) > 0
+    );
   }
 
   private async rebuildShoppingListSnapshotWithClient(
@@ -1068,7 +1376,9 @@ export class WeeklyPlansService {
     client: PrismaReadClient = this.prisma,
   ): Promise<ShoppingListItem[]> {
     if (client === this.prisma) {
-      return this.prisma.$transaction((tx) => this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx));
+      return this.prisma.$transaction((tx) =>
+        this.rebuildShoppingListSnapshot(householdId, weekStartDate, tx),
+      );
     }
 
     return this.rebuildShoppingListSnapshot(
@@ -1122,22 +1432,46 @@ export class WeeklyPlansService {
 
     if (snapshot) {
       if (snapshot.isStale) {
-        return this.rebuildShoppingListSnapshotWithClient(householdId, weekStartDate, client);
+        return this.rebuildShoppingListSnapshotWithClient(
+          householdId,
+          weekStartDate,
+          client,
+        );
       }
-      const hasSourceData = await this.hasShoppingSourceData(householdId, weekStartDate, client);
+      const hasSourceData = await this.hasShoppingSourceData(
+        householdId,
+        weekStartDate,
+        client,
+      );
       if (snapshot.items.length === 0 && hasSourceData) {
-        return this.rebuildShoppingListSnapshotWithClient(householdId, weekStartDate, client);
+        return this.rebuildShoppingListSnapshotWithClient(
+          householdId,
+          weekStartDate,
+          client,
+        );
       }
       if (snapshot.items.length > 0 && !hasSourceData) {
-        return this.rebuildShoppingListSnapshotWithClient(householdId, weekStartDate, client);
+        return this.rebuildShoppingListSnapshotWithClient(
+          householdId,
+          weekStartDate,
+          client,
+        );
       }
       return this.mapSnapshotItems(snapshot.items);
     }
 
-    return this.rebuildShoppingListSnapshotWithClient(householdId, weekStartDate, client);
+    return this.rebuildShoppingListSnapshotWithClient(
+      householdId,
+      weekStartDate,
+      client,
+    );
   }
 
-  async getShoppingList(userId: string, householdId: string, weekStart: string) {
+  async getShoppingList(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+  ) {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
     return this.getShoppingListSnapshot(householdId, weekStartDate);
@@ -1151,49 +1485,53 @@ export class WeeklyPlansService {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
 
-    const [items, archives, currentArchiveStates, currentWeekArchiveState] = await Promise.all([
-      this.getShoppingListSnapshot(householdId, weekStartDate),
-      this.prisma.shoppingListArchive.findMany({
-        where: { householdId },
-        orderBy: [{ archivedAt: 'desc' }, { revision: 'desc' }],
-        include: {
-          items: {
-            orderBy: [{ department: 'asc' }, { name: 'asc' }],
+    const [items, archives, currentArchiveStates, currentWeekArchiveState] =
+      await Promise.all([
+        this.getShoppingListSnapshot(householdId, weekStartDate),
+        this.prisma.shoppingListArchive.findMany({
+          where: { householdId },
+          orderBy: [{ archivedAt: 'desc' }, { revision: 'desc' }],
+          include: {
+            items: {
+              orderBy: [{ department: 'asc' }, { name: 'asc' }],
+            },
           },
-        },
-      }),
-      this.prisma.shoppingListArchiveState.findMany({
-        where: {
-          householdId,
-          currentArchiveId: { not: null },
-        },
-        select: {
-          currentArchiveId: true,
-        },
-      }),
-      this.prisma.shoppingListArchiveState.findUnique({
-        where: {
-          householdId_weekStart: {
+        }),
+        this.prisma.shoppingListArchiveState.findMany({
+          where: {
             householdId,
-            weekStart: weekStartDate,
+            currentArchiveId: { not: null },
           },
-        },
-        select: {
-          currentArchiveId: true,
-        },
-      }),
-    ]);
+          select: {
+            currentArchiveId: true,
+          },
+        }),
+        this.prisma.shoppingListArchiveState.findUnique({
+          where: {
+            householdId_weekStart: {
+              householdId,
+              weekStart: weekStartDate,
+            },
+          },
+          select: {
+            currentArchiveId: true,
+          },
+        }),
+      ]);
 
     const currentArchiveIds = new Set(
       currentArchiveStates
         .map((state) => state.currentArchiveId)
         .filter((value): value is string => Boolean(value)),
     );
-    const shouldHideCurrentWeekList = currentWeekArchiveState?.currentArchiveId === null;
+    const shouldHideCurrentWeekList =
+      currentWeekArchiveState?.currentArchiveId === null;
 
     return {
       items: shouldHideCurrentWeekList ? [] : items,
-      archives: archives.map((archive) => this.toArchiveSnapshot(archive, currentArchiveIds)),
+      archives: archives.map((archive) =>
+        this.toArchiveSnapshot(archive, currentArchiveIds),
+      ),
     };
   }
 
@@ -1207,7 +1545,11 @@ export class WeeklyPlansService {
     const weekStartDate = this.parseWeekStart(weekStart);
 
     return this.runSerializable(async (tx) => {
-      const items = await this.getShoppingListSnapshot(householdId, weekStartDate, tx);
+      const items = await this.getShoppingListSnapshot(
+        householdId,
+        weekStartDate,
+        tx,
+      );
 
       if (items.length === 0) {
         throw new AppException(
@@ -1489,7 +1831,9 @@ export class WeeklyPlansService {
       });
 
       if (!snapshot || snapshot.items.length === 0) {
-        throw new NotFoundException('Shopping item not found for this household and week');
+        throw new NotFoundException(
+          'Shopping item not found for this household and week',
+        );
       }
 
       await tx.shoppingListItem.update({
@@ -1679,7 +2023,10 @@ export class WeeklyPlansService {
         await this.markShoppingListStale(householdId, weekStartDate, tx);
         return deletedItem;
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
           return null;
         }
         throw error;
@@ -1767,7 +2114,11 @@ export class WeeklyPlansService {
     return user?.displayName ?? null;
   }
 
-  async getSharedMealPlan(userId: string, householdId: string, weekStart: string) {
+  async getSharedMealPlan(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+  ) {
     await this.ensureMembership(userId, householdId);
     const weekStartDate = this.parseWeekStart(weekStart);
 
@@ -1874,7 +2225,9 @@ export class WeeklyPlansService {
         });
 
         if (recipes.length !== uniqueIds.length) {
-          throw new NotFoundException('One or more recipes from shared plan do not exist');
+          throw new NotFoundException(
+            'One or more recipes from shared plan do not exist',
+          );
         }
       }
 
@@ -1894,12 +2247,14 @@ export class WeeklyPlansService {
       });
 
       const rows = [
-        ...Array.from(breakfastCounts.entries()).map(([recipeId, quantity]) => ({
-          sharedMealPlanId: sharedPlan.id,
-          recipeId,
-          mealType: 'BREAKFAST' as const,
-          quantity,
-        })),
+        ...Array.from(breakfastCounts.entries()).map(
+          ([recipeId, quantity]) => ({
+            sharedMealPlanId: sharedPlan.id,
+            recipeId,
+            mealType: 'BREAKFAST' as const,
+            quantity,
+          }),
+        ),
         ...Array.from(lunchCounts.entries()).map(([recipeId, quantity]) => ({
           sharedMealPlanId: sharedPlan.id,
           recipeId,

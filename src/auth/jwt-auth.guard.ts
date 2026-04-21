@@ -21,7 +21,9 @@ export class JwtAuthGuard implements CanActivate {
       : header.split(' ');
 
     if (type !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Missing or invalid Authorization header');
+      throw new UnauthorizedException(
+        'Missing or invalid Authorization header',
+      );
     }
 
     try {

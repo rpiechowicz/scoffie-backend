@@ -24,7 +24,7 @@ describe('Smoke E2E', () => {
   const makeNextMonday = (): string => {
     const now = new Date();
     const day = now.getDay(); // 0=Sun ... 6=Sat
-    const daysUntilMonday = ((8 - day) % 7) || 7;
+    const daysUntilMonday = (8 - day) % 7 || 7;
     const nextMonday = new Date(now);
     nextMonday.setHours(0, 0, 0, 0);
     nextMonday.setDate(now.getDate() + daysUntilMonday);
@@ -46,15 +46,20 @@ describe('Smoke E2E', () => {
     });
   };
 
-  const emitWithAck = async <T>(event: string, payload: unknown): Promise<WsEnvelope<T>> => {
+  const emitWithAck = async <T>(
+    event: string,
+    payload: unknown,
+  ): Promise<WsEnvelope<T>> => {
     return await new Promise<WsEnvelope<T>>((resolve, reject) => {
-      socket.timeout(7000).emit(event, payload, (err: Error | null, ack: WsEnvelope<T>) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(ack);
-      });
+      socket
+        .timeout(7000)
+        .emit(event, payload, (err: Error | null, ack: WsEnvelope<T>) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(ack);
+        });
     });
   };
 
@@ -78,11 +83,15 @@ describe('Smoke E2E', () => {
   });
 
   it('GET /ops/health and /ops/metrics should return observability payload', async () => {
-    const health = await request(app.getHttpServer()).get('/ops/health').expect(200);
+    const health = await request(app.getHttpServer())
+      .get('/ops/health')
+      .expect(200);
     expect(health.body.status).toBe('ok');
     expect(typeof health.body.timestamp).toBe('string');
 
-    const metrics = await request(app.getHttpServer()).get('/ops/metrics').expect(200);
+    const metrics = await request(app.getHttpServer())
+      .get('/ops/metrics')
+      .expect(200);
     expect(metrics.body).toEqual(
       expect.objectContaining({
         http: expect.any(Object),
@@ -193,16 +202,19 @@ describe('Smoke E2E', () => {
       });
     });
 
-    const ack = await emitWithAck<{ id: string }>('weeklyPlans:upsertWeekSlot', {
-      userId,
-      householdId,
-      weekStart,
-      data: {
-        dayOfWeek: 'MON',
-        mealType: 'BREAKFAST',
-        recipeId: recipe.id,
+    const ack = await emitWithAck<{ id: string }>(
+      'weeklyPlans:upsertWeekSlot',
+      {
+        userId,
+        householdId,
+        weekStart,
+        data: {
+          dayOfWeek: 'MON',
+          mealType: 'BREAKFAST',
+          recipeId: recipe.id,
+        },
       },
-    });
+    );
 
     expect(ack.ok).toBe(true);
 
@@ -211,7 +223,9 @@ describe('Smoke E2E', () => {
     expect(changed.weekStart).toBe(weekStart);
     expect(typeof changed.changeVersion).toBe('number');
 
-    const metrics = await request(app.getHttpServer()).get('/ops/metrics').expect(200);
+    const metrics = await request(app.getHttpServer())
+      .get('/ops/metrics')
+      .expect(200);
     expect(metrics.body.ws?.totals?.totalConnections).toBeGreaterThanOrEqual(1);
   });
 });

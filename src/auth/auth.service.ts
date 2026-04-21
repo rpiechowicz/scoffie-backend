@@ -102,9 +102,7 @@ export class AuthService {
     // Email: prefer the one from the verified JWT (signed by Apple);
     // fall back to DTO only if JWT didn't carry it for some reason.
     const email =
-      verified.email ??
-      (dto.email?.trim().toLowerCase() || null) ??
-      null;
+      verified.email ?? (dto.email?.trim().toLowerCase() || null) ?? null;
 
     // Look up existing user first so we can decide what to update.
     const existing = await this.prisma.user.findUnique({
@@ -120,7 +118,10 @@ export class AuthService {
 
       // Only overwrite displayName if we got a real one from Apple AND
       // the user currently has the Apple-sub placeholder we assigned on first login.
-      if (displayNameFromApple && this.isPlaceholderDisplayName(existing.displayName)) {
+      if (
+        displayNameFromApple &&
+        this.isPlaceholderDisplayName(existing.displayName)
+      ) {
         updateData.displayName = displayNameFromApple;
       }
 

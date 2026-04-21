@@ -3,7 +3,12 @@ import { PushPlatform } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApnsSendError, ApnsService } from './apns.service';
 
-type PlanChangeAction = 'UPSERT_SLOT' | 'REMOVE_SLOT' | 'SAVE_PLAN' | 'CLEAR_PLAN' | string;
+type PlanChangeAction =
+  | 'UPSERT_SLOT'
+  | 'REMOVE_SLOT'
+  | 'SAVE_PLAN'
+  | 'CLEAR_PLAN'
+  | string;
 
 type PlanChangeContext = {
   dayOfWeek?: string | null;
@@ -40,14 +45,16 @@ export class NotificationsService {
         userId: params.userId,
         deviceToken: normalizedToken,
         platform: params.platform ?? PushPlatform.IOS,
-        appBundleId: params.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
+        appBundleId:
+          params.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
         isActive: true,
         lastSeenAt: new Date(),
       },
       update: {
         userId: params.userId,
         platform: params.platform ?? PushPlatform.IOS,
-        appBundleId: params.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
+        appBundleId:
+          params.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
         isActive: true,
         lastSeenAt: new Date(),
       },
@@ -98,7 +105,11 @@ export class NotificationsService {
     }
 
     const actor = params.changedByDisplayName?.trim() || 'Ktoś';
-    const body = this.buildPlanChangeMessage(actor, params.action, params.context);
+    const body = this.buildPlanChangeMessage(
+      actor,
+      params.action,
+      params.context,
+    );
     const data = {
       householdId: params.householdId,
       action: (params.action ?? 'UPDATE').toString(),
@@ -110,11 +121,15 @@ export class NotificationsService {
     await Promise.all(
       devices.map(async (device) => {
         try {
-          await this.apnsService.sendToDevice(device.deviceToken, {
-            title: 'Plan posiłków',
-            body,
-            data,
-          }, device.appBundleId);
+          await this.apnsService.sendToDevice(
+            device.deviceToken,
+            {
+              title: 'Plan posiłków',
+              body,
+              data,
+            },
+            device.appBundleId,
+          );
         } catch (error) {
           if (this.shouldDeactivateToken(error)) {
             await this.prisma.pushDevice.update({

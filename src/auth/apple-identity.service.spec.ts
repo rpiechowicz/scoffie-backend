@@ -39,9 +39,11 @@ describe('AppleIdentityService', () => {
       const { importJWK } = await import('jose');
       return importJWK(publicJwk, 'RS256');
     };
-    service._overrideJwks(localJwks as unknown as ReturnType<
-      typeof import('jose').createRemoteJWKSet
-    >);
+    service._overrideJwks(
+      localJwks as unknown as ReturnType<
+        typeof import('jose').createRemoteJWKSet
+      >,
+    );
   });
 
   async function signAppleLikeToken(
@@ -104,9 +106,7 @@ describe('AppleIdentityService', () => {
     const rawNonce = 'one-nonce';
     const token = await signAppleLikeToken({ nonce: hashNonce('other-nonce') });
 
-    await expect(service.verify(token, rawNonce)).rejects.toThrow(
-      /nonce/i,
-    );
+    await expect(service.verify(token, rawNonce)).rejects.toThrow(/nonce/i);
   });
 
   it('powinno odrzucić token z niepoprawnym issuer', async () => {

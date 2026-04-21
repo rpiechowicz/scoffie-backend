@@ -22,7 +22,9 @@ class NotificationsRegisterDevicePayload {
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
-export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class NotificationsGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   constructor(
     private readonly notificationsService: NotificationsService,
     private readonly wsTelemetry: WsTelemetryService,

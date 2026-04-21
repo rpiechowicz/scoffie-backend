@@ -71,7 +71,9 @@ export class AppleIdentityService {
 
   private getJwks() {
     if (!this.jwks) {
-      this.jwks = createRemoteJWKSet(new URL(AppleIdentityService.APPLE_JWKS_URL));
+      this.jwks = createRemoteJWKSet(
+        new URL(AppleIdentityService.APPLE_JWKS_URL),
+      );
     }
     return this.jwks;
   }
@@ -129,7 +131,9 @@ export class AppleIdentityService {
     // --- mandatory claims ---
     const sub = typeof payload.sub === 'string' ? payload.sub : '';
     if (!sub) {
-      throw new UnauthorizedException('Apple identity token missing sub claim.');
+      throw new UnauthorizedException(
+        'Apple identity token missing sub claim.',
+      );
     }
 
     const email =
@@ -146,7 +150,7 @@ export class AppleIdentityService {
       rawVerified === '1';
 
     const audience = Array.isArray(payload.aud)
-      ? payload.aud[0] ?? ''
+      ? (payload.aud[0] ?? '')
       : typeof payload.aud === 'string'
         ? payload.aud
         : '';

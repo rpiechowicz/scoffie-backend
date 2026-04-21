@@ -121,13 +121,17 @@ const makePrismaMock = () => {
     shoppingListItem: {
       findFirst: jest.fn().mockResolvedValue(mockShoppingItem),
       findMany: jest.fn().mockResolvedValue([mockShoppingItem]),
-      update: jest.fn().mockResolvedValue({ ...mockShoppingItem, isChecked: true }),
+      update: jest
+        .fn()
+        .mockResolvedValue({ ...mockShoppingItem, isChecked: true }),
       upsert: jest.fn().mockResolvedValue(mockShoppingItem),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     shoppingItemCheck: {
       findMany: jest.fn().mockResolvedValue([]),
-      upsert: jest.fn().mockResolvedValue({ ...mockShoppingItem, isChecked: true }),
+      upsert: jest
+        .fn()
+        .mockResolvedValue({ ...mockShoppingItem, isChecked: true }),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     shoppingListArchiveState: {
@@ -178,12 +182,11 @@ describe('WeeklyPlansService', () => {
 
   describe('upsertWeekSlot', () => {
     it('powinno przypisać przepis do slotu (dzień + typ posiłku)', async () => {
-      await service.upsertWeekSlot(
-        mockUserId,
-        mockHouseholdId,
-        mockWeekStart,
-        { dayOfWeek: 1, mealType: 'BREAKFAST', recipeId: mockRecipeId },
-      );
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        dayOfWeek: 1,
+        mealType: 'BREAKFAST',
+        recipeId: mockRecipeId,
+      });
 
       expect(prisma.membership.findUnique).toHaveBeenCalled();
       expect(prisma.weeklyPlan.upsert).toHaveBeenCalled();
@@ -193,12 +196,11 @@ describe('WeeklyPlansService', () => {
       prisma.membership.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.upsertWeekSlot(
-          'outsider',
-          mockHouseholdId,
-          mockWeekStart,
-          { dayOfWeek: 1, mealType: 'BREAKFAST', recipeId: mockRecipeId },
-        ),
+        service.upsertWeekSlot('outsider', mockHouseholdId, mockWeekStart, {
+          dayOfWeek: 1,
+          mealType: 'BREAKFAST',
+          recipeId: mockRecipeId,
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -210,12 +212,10 @@ describe('WeeklyPlansService', () => {
       // Mock existing slot for removal
       prisma.planItem.findFirst.mockResolvedValue(mockPlanItem);
 
-      await service.removeWeekSlot(
-        mockUserId,
-        mockHouseholdId,
-        mockWeekStart,
-        { dayOfWeek: 1, mealType: 'BREAKFAST' },
-      );
+      await service.removeWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        dayOfWeek: 1,
+        mealType: 'BREAKFAST',
+      });
 
       expect(prisma.membership.findUnique).toHaveBeenCalled();
     });
@@ -224,12 +224,10 @@ describe('WeeklyPlansService', () => {
       prisma.membership.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.removeWeekSlot(
-          'outsider',
-          mockHouseholdId,
-          mockWeekStart,
-          { dayOfWeek: 1, mealType: 'BREAKFAST' },
-        ),
+        service.removeWeekSlot('outsider', mockHouseholdId, mockWeekStart, {
+          dayOfWeek: 1,
+          mealType: 'BREAKFAST',
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -298,7 +296,11 @@ describe('WeeklyPlansService', () => {
       prisma.membership.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.getByHouseholdAndWeek('outsider', mockHouseholdId, mockWeekStart),
+        service.getByHouseholdAndWeek(
+          'outsider',
+          mockHouseholdId,
+          mockWeekStart,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });

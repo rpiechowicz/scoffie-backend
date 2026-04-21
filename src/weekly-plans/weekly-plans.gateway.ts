@@ -125,7 +125,9 @@ class WeeklyPlansClearWeekPlanPayload {
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
-export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class WeeklyPlansGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   private server: Server;
 
@@ -148,7 +150,11 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
     changedByUserId: string,
     changedByDisplayName: string | null | undefined,
     action: string,
-    context?: { dayOfWeek?: string | null; mealType?: string | null; weekStart?: string | null },
+    context?: {
+      dayOfWeek?: string | null;
+      mealType?: string | null;
+      weekStart?: string | null;
+    },
   ): void {
     void this.notificationsService
       .notifyWeeklyPlanChanged({
@@ -187,7 +193,18 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
     return Date.now();
   }
 
-  private buildSavedPlanFingerprint(plan: { items?: Array<{ mealType: string; quantity: number; recipe: { id: string } }> } | null | undefined): string {
+  private buildSavedPlanFingerprint(
+    plan:
+      | {
+          items?: Array<{
+            mealType: string;
+            quantity: number;
+            recipe: { id: string };
+          }>;
+        }
+      | null
+      | undefined,
+  ): string {
     const items = plan?.items ?? [];
     return items
       .map((item) => `${item.mealType}:${item.recipe.id}:${item.quantity}`)
@@ -197,40 +214,69 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
 
   @SubscribeMessage('weeklyPlans:listByHousehold')
   listByHousehold(@MessageBody() payload: WeeklyPlansListPayload) {
-    return wsRespond(() => this.weeklyPlansService.listByHousehold(payload.userId, payload.householdId));
+    return wsRespond(() =>
+      this.weeklyPlansService.listByHousehold(
+        payload.userId,
+        payload.householdId,
+      ),
+    );
   }
 
   @SubscribeMessage('weeklyPlans:getByWeek')
   getByWeek(@MessageBody() payload: WeeklyPlansGetByWeekPayload) {
     return wsRespond(() =>
-      this.weeklyPlansService.getByHouseholdAndWeek(payload.userId, payload.householdId, payload.weekStart),
+      this.weeklyPlansService.getByHouseholdAndWeek(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+      ),
     );
   }
 
   @SubscribeMessage('weeklyPlans:create')
   create(@MessageBody() payload: WeeklyPlansCreatePayload) {
-    return wsRespond(() => this.weeklyPlansService.create(payload.userId, payload.householdId, payload.data));
+    return wsRespond(() =>
+      this.weeklyPlansService.create(
+        payload.userId,
+        payload.householdId,
+        payload.data,
+      ),
+    );
   }
 
   @SubscribeMessage('weeklyPlans:addItem')
   addItem(@MessageBody() payload: WeeklyPlansAddItemPayload) {
-    return wsRespond(() => this.weeklyPlansService.addItem(payload.userId, payload.weeklyPlanId, payload.data));
+    return wsRespond(() =>
+      this.weeklyPlansService.addItem(
+        payload.userId,
+        payload.weeklyPlanId,
+        payload.data,
+      ),
+    );
   }
 
   @SubscribeMessage('weeklyPlans:removeItem')
   removeItem(@MessageBody() payload: WeeklyPlansRemoveItemPayload) {
-    return wsRespond(() => this.weeklyPlansService.removeItem(payload.userId, payload.itemId));
+    return wsRespond(() =>
+      this.weeklyPlansService.removeItem(payload.userId, payload.itemId),
+    );
   }
 
   @SubscribeMessage('weeklyPlans:getShoppingList')
   getShoppingList(@MessageBody() payload: WeeklyPlansGetShoppingListPayload) {
     return wsRespond(() =>
-      this.weeklyPlansService.getShoppingList(payload.userId, payload.householdId, payload.weekStart),
+      this.weeklyPlansService.getShoppingList(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+      ),
     );
   }
 
   @SubscribeMessage('weeklyPlans:getShoppingListState')
-  getShoppingListState(@MessageBody() payload: WeeklyPlansGetShoppingListStatePayload) {
+  getShoppingListState(
+    @MessageBody() payload: WeeklyPlansGetShoppingListStatePayload,
+  ) {
     return wsRespond(() =>
       this.weeklyPlansService.getShoppingListState(
         payload.userId,
@@ -241,9 +287,12 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
   }
 
   @SubscribeMessage('weeklyPlans:archiveShoppingList')
-  archiveShoppingList(@MessageBody() payload: WeeklyPlansArchiveShoppingListPayload) {
+  archiveShoppingList(
+    @MessageBody() payload: WeeklyPlansArchiveShoppingListPayload,
+  ) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result = await this.weeklyPlansService.archiveShoppingList(
         payload.userId,
         payload.householdId,
@@ -264,9 +313,12 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
   }
 
   @SubscribeMessage('weeklyPlans:selectShoppingListArchive')
-  selectShoppingListArchive(@MessageBody() payload: WeeklyPlansSelectShoppingListArchivePayload) {
+  selectShoppingListArchive(
+    @MessageBody() payload: WeeklyPlansSelectShoppingListArchivePayload,
+  ) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result = await this.weeklyPlansService.selectShoppingListArchive(
         payload.userId,
         payload.householdId,
@@ -286,9 +338,12 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
   }
 
   @SubscribeMessage('weeklyPlans:deleteShoppingListArchive')
-  deleteShoppingListArchive(@MessageBody() payload: WeeklyPlansDeleteShoppingListArchivePayload) {
+  deleteShoppingListArchive(
+    @MessageBody() payload: WeeklyPlansDeleteShoppingListArchivePayload,
+  ) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result = await this.weeklyPlansService.deleteShoppingListArchive(
         payload.userId,
         payload.householdId,
@@ -308,14 +363,18 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
   }
 
   @SubscribeMessage('weeklyPlans:deleteAllShoppingListArchives')
-  deleteAllShoppingListArchives(@MessageBody() payload: WeeklyPlansDeleteAllShoppingListArchivesPayload) {
+  deleteAllShoppingListArchives(
+    @MessageBody() payload: WeeklyPlansDeleteAllShoppingListArchivesPayload,
+  ) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
-      const result = await this.weeklyPlansService.deleteAllShoppingListArchives(
-        payload.userId,
-        payload.householdId,
-        payload.weekStart,
-      );
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(payload.userId);
+      const result =
+        await this.weeklyPlansService.deleteAllShoppingListArchives(
+          payload.userId,
+          payload.householdId,
+          payload.weekStart,
+        );
 
       this.emitShoppingListChanged({
         householdId: payload.householdId,
@@ -330,9 +389,12 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
   }
 
   @SubscribeMessage('weeklyPlans:setShoppingItemChecked')
-  setShoppingItemChecked(@MessageBody() payload: WeeklyPlansSetShoppingItemCheckedPayload) {
+  setShoppingItemChecked(
+    @MessageBody() payload: WeeklyPlansSetShoppingItemCheckedPayload,
+  ) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result = await this.weeklyPlansService.setShoppingItemChecked(
         payload.userId,
         payload.householdId,
@@ -357,7 +419,8 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
   @SubscribeMessage('weeklyPlans:upsertWeekSlot')
   upsertWeekSlot(@MessageBody() payload: WeeklyPlansUpsertWeekSlotPayload) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result = await this.weeklyPlansService.upsertWeekSlot(
         payload.userId,
         payload.householdId,
@@ -365,7 +428,7 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         payload.data,
       );
 
-      const changeVersion = this.nextChangeVersion()
+      const changeVersion = this.nextChangeVersion();
       this.server.emit('weeklyPlans:weekChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
@@ -383,11 +446,17 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         changedByUserId: payload.userId,
         changedByDisplayName,
       });
-      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'UPSERT_SLOT', {
-        dayOfWeek: payload.data?.dayOfWeek,
-        mealType: payload.data?.mealType,
-        weekStart: payload.weekStart,
-      });
+      this.notifyPlanChanged(
+        payload.householdId,
+        payload.userId,
+        changedByDisplayName,
+        'UPSERT_SLOT',
+        {
+          dayOfWeek: payload.data?.dayOfWeek,
+          mealType: payload.data?.mealType,
+          weekStart: payload.weekStart,
+        },
+      );
 
       return result;
     });
@@ -396,7 +465,8 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
   @SubscribeMessage('weeklyPlans:removeWeekSlot')
   removeWeekSlot(@MessageBody() payload: WeeklyPlansRemoveWeekSlotPayload) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result = await this.weeklyPlansService.removeWeekSlot(
         payload.userId,
         payload.householdId,
@@ -408,7 +478,7 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         return result;
       }
 
-      const changeVersion = this.nextChangeVersion()
+      const changeVersion = this.nextChangeVersion();
       this.server.emit('weeklyPlans:weekChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
@@ -426,11 +496,17 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         changedByUserId: payload.userId,
         changedByDisplayName,
       });
-      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'REMOVE_SLOT', {
-        dayOfWeek: payload.data?.dayOfWeek,
-        mealType: payload.data?.mealType,
-        weekStart: payload.weekStart,
-      });
+      this.notifyPlanChanged(
+        payload.householdId,
+        payload.userId,
+        changedByDisplayName,
+        'REMOVE_SLOT',
+        {
+          dayOfWeek: payload.data?.dayOfWeek,
+          mealType: payload.data?.mealType,
+          weekStart: payload.weekStart,
+        },
+      );
 
       return result;
     });
@@ -439,14 +515,19 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
   @SubscribeMessage('weeklyPlans:getSavedPlan')
   getSavedPlan(@MessageBody() payload: WeeklyPlansGetSavedPlanPayload) {
     return wsRespond(() =>
-      this.weeklyPlansService.getSharedMealPlan(payload.userId, payload.householdId, payload.weekStart),
+      this.weeklyPlansService.getSharedMealPlan(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+      ),
     );
   }
 
   @SubscribeMessage('weeklyPlans:saveSavedPlan')
   saveSavedPlan(@MessageBody() payload: WeeklyPlansSaveSavedPlanPayload) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(payload.userId);
 
       const before = await this.weeklyPlansService.getSharedMealPlan(
         payload.userId,
@@ -468,7 +549,7 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         return result;
       }
 
-      const changeVersion = this.nextChangeVersion()
+      const changeVersion = this.nextChangeVersion();
       this.server.emit('weeklyPlans:savedPlanChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
@@ -492,9 +573,15 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         changedByUserId: payload.userId,
         changedByDisplayName,
       });
-      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'SAVE_PLAN', {
-        weekStart: payload.weekStart,
-      });
+      this.notifyPlanChanged(
+        payload.householdId,
+        payload.userId,
+        changedByDisplayName,
+        'SAVE_PLAN',
+        {
+          weekStart: payload.weekStart,
+        },
+      );
 
       return result;
     });
@@ -503,14 +590,15 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
   @SubscribeMessage('weeklyPlans:clearWeekPlan')
   clearWeekPlan(@MessageBody() payload: WeeklyPlansClearWeekPlanPayload) {
     return wsRespond(async () => {
-      const changedByDisplayName = await this.weeklyPlansService.getUserDisplayName(payload.userId);
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result = await this.weeklyPlansService.clearWeekPlan(
         payload.userId,
         payload.householdId,
         payload.weekStart,
       );
 
-      const changeVersion = this.nextChangeVersion()
+      const changeVersion = this.nextChangeVersion();
       this.server.emit('weeklyPlans:weekChanged', {
         householdId: payload.householdId,
         weekStart: payload.weekStart,
@@ -534,9 +622,15 @@ export class WeeklyPlansGateway implements OnGatewayConnection, OnGatewayDisconn
         changedByUserId: payload.userId,
         changedByDisplayName,
       });
-      this.notifyPlanChanged(payload.householdId, payload.userId, changedByDisplayName, 'CLEAR_PLAN', {
-        weekStart: payload.weekStart,
-      });
+      this.notifyPlanChanged(
+        payload.householdId,
+        payload.userId,
+        changedByDisplayName,
+        'CLEAR_PLAN',
+        {
+          weekStart: payload.weekStart,
+        },
+      );
 
       return result;
     });

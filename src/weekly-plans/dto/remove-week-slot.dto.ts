@@ -13,4 +13,3 @@ export class RemoveWeekSlotDto {
   @IsIn(mealType)
   mealType: (typeof mealType)[number];
 }
-

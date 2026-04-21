@@ -51,7 +51,9 @@ export class CreateRecipeDto {
   @MaxLength(120)
   title: string;
 
-  @ApiPropertyOptional({ example: 'Prosty makaron z sosem pomidorowym i bazylią.' })
+  @ApiPropertyOptional({
+    example: 'Prosty makaron z sosem pomidorowym i bazylią.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -77,7 +79,10 @@ export class CreateRecipeDto {
   @Min(1)
   servings: number;
 
-  @ApiPropertyOptional({ example: 'https://images.unsplash.com/photo-1510693206972-df098062cb71?w=800&q=80' })
+  @ApiPropertyOptional({
+    example:
+      'https://images.unsplash.com/photo-1510693206972-df098062cb71?w=800&q=80',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(2000)

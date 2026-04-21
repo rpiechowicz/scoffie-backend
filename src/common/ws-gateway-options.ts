@@ -11,7 +11,7 @@ function resolveAllowedOrigins(): string | string[] {
     .map((value) => value.trim())
     .filter(Boolean);
 
-  return values.length <= 1 ? values[0] ?? '*' : values;
+  return values.length <= 1 ? (values[0] ?? '*') : values;
 }
 
 export const WS_GATEWAY_OPTIONS: GatewayMetadata = {
