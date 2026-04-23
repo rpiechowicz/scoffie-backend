@@ -97,7 +97,7 @@ export class NotificationsService {
       return;
     }
 
-    const actor = params.changedByDisplayName?.trim() || 'Ktoś';
+    const actor = this.extractFirstName(params.changedByDisplayName);
     const body = this.buildPlanChangeMessage(actor, params.action, params.context);
     const data = {
       householdId: params.householdId,
@@ -183,6 +183,26 @@ export class NotificationsService {
     return Boolean(previous && now - previous < dedupeWindowMs);
   }
 
+  private extractFirstName(raw?: string | null): string {
+    const trimmed = (raw ?? '').trim();
+    if (!trimmed) return 'Ktoś';
+
+    let candidate = trimmed;
+    const atIndex = candidate.indexOf('@');
+    if (atIndex >= 0) {
+      candidate = candidate.slice(0, atIndex);
+    }
+
+    const token = candidate
+      .split(/[\s._\-+]+/)
+      .find((part) => part.length > 0) ?? '';
+
+    const cleaned = token.trim();
+    if (!cleaned) return 'Ktoś';
+
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+
   private buildPlanChangeMessage(
     actor: string,
     action?: PlanChangeAction,
@@ -195,21 +215,21 @@ export class NotificationsService {
 
     switch ((action ?? '').toUpperCase()) {
       case 'SAVE_PLAN':
-        return `${actor} ustawił plan posiłków na ten tydzień.`;
+        return `${actor} ustawił/a plan posiłków na ten tydzień.`;
       case 'CLEAR_PLAN':
-        return `${actor} usunął plan posiłków na ten tydzień.`;
+        return `${actor} usunął/ęła plan posiłków na ten tydzień.`;
       case 'REMOVE_SLOT':
         if (context?.mealType && context?.dayOfWeek) {
-          return `${actor} usunął ${mealForMessage} z planu na ${dayForMessage}.`;
+          return `${actor} usunął/ęła ${mealForMessage} z planu na ${dayForMessage}.`;
         }
-        return `${actor} usunął pozycję z planu posiłków.`;
+        return `${actor} usunął/ęła pozycję z planu posiłków.`;
       case 'UPSERT_SLOT':
         if (context?.mealType && context?.dayOfWeek) {
-          return `${actor} edytował plan ${mealForMessage} na ${dayForMessage}.`;
+          return `${actor} edytował/a plan ${mealForMessage} na ${dayForMessage}.`;
         }
-        return `${actor} zaktualizował plan posiłków.`;
+        return `${actor} zaktualizował/a plan posiłków.`;
       default:
-        return `${actor} zmienił plan posiłków.`;
+        return `${actor} zmienił/a plan posiłków.`;
     }
   }
 
