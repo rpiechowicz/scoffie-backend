@@ -208,9 +208,8 @@ export class NotificationsService {
       candidate = candidate.slice(0, atIndex);
     }
 
-    const token = candidate
-      .split(/[\s._\-+]+/)
-      .find((part) => part.length > 0) ?? '';
+    const token =
+      candidate.split(/[\s._\-+]+/).find((part) => part.length > 0) ?? '';
 
     const cleaned = token.trim();
     if (!cleaned) return 'Ktoś';
