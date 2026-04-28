@@ -27,6 +27,18 @@ model User {
   acceptedInvites Invitation[] @relation("InvitationRedeemer")
   refreshTokens RefreshToken[]
   pushDevices   PushDevice[]
+  preferences  UserPreference?
+}
+
+model UserPreference {
+  userId         String              @id @db.Uuid
+  dietPreference DietPreferenceValue @default(NONE)
+  calorieGoal    Int                 @default(2000)
+  allergens      String[]            @default([])
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model RefreshToken {
@@ -403,4 +415,13 @@ enum AuthProvider {
   GOOGLE
   APPLE
   DEV
+}
+
+enum DietPreferenceValue {
+  NONE
+  VEGETARIAN
+  VEGAN
+  PESCATARIAN
+  KETO
+  PALEO
 }
