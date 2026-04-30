@@ -14,35 +14,13 @@ import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
 import { Prisma } from '@prisma/client';
-
-type ShoppingAccumulator = {
-  productKey: string;
-  name: string;
-  unit: string;
-  department: string;
-  totalAmount: number;
-};
-
-type ShoppingListItem = ShoppingAccumulator & {
-  isChecked: boolean;
-};
-
-type ShoppingListArchiveSnapshot = {
-  archiveId: string;
-  weekStart: string;
-  weekLabel: string;
-  revision: number;
-  archivedAt: number;
-  isCurrentClosed: boolean;
-  items: ShoppingListItem[];
-};
-
-type ShoppingListStateDto = {
-  items: ShoppingListItem[];
-  archives: ShoppingListArchiveSnapshot[];
-};
-
-type PrismaReadClient = Prisma.TransactionClient | PrismaService;
+import type {
+  ShoppingAccumulator,
+  ShoppingListItem,
+  ShoppingListArchiveSnapshot,
+  ShoppingListStateDto,
+  PrismaReadClient,
+} from './types/shopping-types';
 
 enum ShoppingDepartment {
   VEGETABLES = 'Warzywa',
