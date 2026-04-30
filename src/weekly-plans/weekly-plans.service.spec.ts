@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
 import { WeeklyPlansService } from './weekly-plans.service';
+import { ShoppingListService } from './services/shopping-list.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
@@ -161,6 +162,7 @@ const makePrismaMock = () => {
 
 describe('WeeklyPlansService', () => {
   let service: WeeklyPlansService;
+  let shoppingListService: ShoppingListService;
   let prisma: ReturnType<typeof makePrismaMock>;
 
   beforeEach(async () => {
@@ -169,11 +171,13 @@ describe('WeeklyPlansService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WeeklyPlansService,
+        ShoppingListService,
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
 
     service = module.get<WeeklyPlansService>(WeeklyPlansService);
+    shoppingListService = module.get<ShoppingListService>(ShoppingListService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -254,7 +258,7 @@ describe('WeeklyPlansService', () => {
 
   describe('setShoppingItemChecked', () => {
     it('powinno sprawdzić członkostwo przed zaznaczeniem produktu', async () => {
-      await service.setShoppingItemChecked(
+      await shoppingListService.setShoppingItemChecked(
         mockUserId,
         mockHouseholdId,
         mockWeekStart,
@@ -268,7 +272,7 @@ describe('WeeklyPlansService', () => {
       prisma.membership.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.setShoppingItemChecked(
+        shoppingListService.setShoppingItemChecked(
           'outsider',
           mockHouseholdId,
           mockWeekStart,
