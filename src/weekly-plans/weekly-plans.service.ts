@@ -17,434 +17,30 @@ import { Prisma } from '@prisma/client';
 import type {
   ShoppingAccumulator,
   ShoppingListItem,
-  ShoppingListArchiveSnapshot,
   ShoppingListStateDto,
   PrismaReadClient,
 } from './types/shopping-types';
 import {
-  ShoppingDepartment,
-  DEPARTMENT_ORDER,
-} from './types/shopping-department.enum';
+  parseWeekStart,
+  formatWeekStart,
+} from './utils/week-formatting.util';
+import { normalizeProductKey } from './utils/text-normalization.util';
 import {
-  DEPARTMENT_KEYWORD_RULES,
-  CANONICAL_DEPARTMENT_OVERRIDES,
-} from './utils/shopping-classification.constants';
+  canonicalizeIngredientName,
+  resolveDepartment,
+} from './utils/department-classifier.util';
+import {
+  itemSignature,
+  buildDisplayShoppingItems,
+  mapSnapshotItems,
+  toArchiveSnapshot,
+} from './utils/shopping-items.util';
 
 @Injectable()
 export class WeeklyPlansService {
   constructor(private readonly prisma: PrismaService) {}
   private static readonly MAX_ITEMS_PER_MEAL_TYPE = 7;
   private static readonly MAX_ITEMS_TOTAL = 21;
-
-  private parseWeekStart(weekStart: string): Date {
-    const parsed = new Date(weekStart);
-    if (Number.isNaN(parsed.getTime())) {
-      throw new AppException(
-        'VALIDATION_ERROR',
-        'Invalid weekStart date format',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return parsed;
-  }
-
-  private formatWeekStart(value: Date): string {
-    return value.toISOString().slice(0, 10);
-  }
-
-  private normalizeProductKey(name: string, unit: string): string {
-    return `${name.trim().toLowerCase()}::${unit.trim().toLowerCase()}`;
-  }
-
-  private normalizeText(value: string): string {
-    const normalized = value
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[ł]/g, 'l')
-      .replace(/[ą]/g, 'a')
-      .replace(/[ć]/g, 'c')
-      .replace(/[ę]/g, 'e')
-      .replace(/[ń]/g, 'n')
-      .replace(/[ó]/g, 'o')
-      .replace(/[ś]/g, 's')
-      .replace(/[ź]/g, 'z')
-      .replace(/[ż]/g, 'z')
-      .trim();
-    return normalized;
-  }
-
-  private itemSignature(items: ShoppingListItem[]): string {
-    return items
-      .map((item) =>
-        [
-          item.productKey,
-          item.totalAmount.toFixed(6),
-          item.unit,
-          item.department,
-          item.name,
-        ].join('|'),
-      )
-      .sort()
-      .join('||');
-  }
-
-  private sortShoppingItems(items: ShoppingListItem[]): ShoppingListItem[] {
-    return [...items].sort((a, b) => {
-      const rankA =
-        DEPARTMENT_ORDER[a.department] ??
-        DEPARTMENT_ORDER.Inne;
-      const rankB =
-        DEPARTMENT_ORDER[b.department] ??
-        DEPARTMENT_ORDER.Inne;
-      if (rankA !== rankB) return rankA - rankB;
-      if (a.department === b.department) {
-        return a.name.localeCompare(b.name);
-      }
-      return a.department.localeCompare(b.department);
-    });
-  }
-
-  private buildDisplayShoppingItems(
-    aggregatedItems: ShoppingAccumulator[],
-    checkedMap: Map<string, boolean>,
-  ): ShoppingListItem[] {
-    if (aggregatedItems.length === 0) {
-      return [];
-    }
-
-    const normalized = aggregatedItems.map((item) => ({
-      ...item,
-      totalAmount: Number(item.totalAmount.toFixed(2)),
-      isChecked: checkedMap.get(item.productKey) ?? false,
-    }));
-
-    const unitsByName = new Map<string, Set<string>>();
-    for (const item of normalized) {
-      const set = unitsByName.get(item.name) ?? new Set<string>();
-      set.add(this.normalizeText(item.unit));
-      unitsByName.set(item.name, set);
-    }
-
-    return this.sortShoppingItems(
-      normalized.map((item) => {
-        const units = unitsByName.get(item.name);
-        if (units && units.size > 1) {
-          return {
-            ...item,
-            // Avoid visually duplicated product rows when same canonical name has different units.
-            name: `${item.name} (${item.unit})`,
-          };
-        }
-        return item;
-      }),
-    );
-  }
-
-  private mapSnapshotItems(
-    items: Array<{
-      productKey: string;
-      name: string;
-      unit: string;
-      department: string;
-      totalAmount: number;
-      isChecked: boolean;
-    }>,
-  ): ShoppingListItem[] {
-    return this.sortShoppingItems(
-      items.map((item) => ({
-        productKey: item.productKey,
-        name: item.name,
-        unit: item.unit,
-        department: item.department,
-        totalAmount: Number(item.totalAmount.toFixed(2)),
-        isChecked: item.isChecked,
-      })),
-    );
-  }
-
-  private toArchiveSnapshot(
-    archive: {
-      id: string;
-      weekStart: Date;
-      weekLabel: string;
-      revision: number;
-      archivedAt: Date;
-      items: Array<{
-        productKey: string;
-        name: string;
-        unit: string;
-        department: string;
-        totalAmount: number;
-        isChecked: boolean;
-      }>;
-    },
-    currentArchiveIds: Set<string>,
-  ): ShoppingListArchiveSnapshot {
-    return {
-      archiveId: archive.id,
-      weekStart: this.formatWeekStart(archive.weekStart),
-      weekLabel: archive.weekLabel,
-      revision: archive.revision,
-      archivedAt: archive.archivedAt.getTime(),
-      isCurrentClosed: currentArchiveIds.has(archive.id),
-      items: this.sortShoppingItems(
-        archive.items.map((item) => ({
-          productKey: item.productKey,
-          name: item.name,
-          unit: item.unit,
-          department: item.department,
-          totalAmount: Number(item.totalAmount.toFixed(2)),
-          isChecked: item.isChecked,
-        })),
-      ),
-    };
-  }
-
-  private toTitleCase(value: string): string {
-    const trimmed = value.trim();
-    if (!trimmed) return trimmed;
-    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-  }
-
-  private toPolishDisplayText(value: string): string {
-    let output = value.trim().toLowerCase();
-    if (!output) return output;
-
-    const phraseReplacements: Array<[string, string]> = [
-      ['papryka slodka', 'papryka słodka'],
-      ['papryka ostra', 'papryka ostra'],
-      ['papryka zolta', 'papryka żółta'],
-      ['fasola biala', 'fasola biała'],
-      ['wino biale', 'wino białe'],
-      ['wino czerwone polslodkie', 'wino czerwone półsłodkie'],
-      ['wino czerwone polwytrawne', 'wino czerwone półwytrawne'],
-      ['wino biale polslodkie', 'wino białe półsłodkie'],
-      ['wino biale polwytrawne', 'wino białe półwytrawne'],
-    ];
-
-    for (const [from, to] of phraseReplacements) {
-      output = output.replace(
-        new RegExp(`\\b${this.escapeForRegex(from)}\\b`, 'g'),
-        to,
-      );
-    }
-
-    const tokenReplacements: Array<[string, string]> = [
-      ['ogorek', 'ogórek'],
-      ['maslo', 'masło'],
-      ['salata', 'sałata'],
-      ['platki', 'płatki'],
-      ['losos', 'łosoś'],
-      ['brokul', 'brokuł'],
-      ['ryz', 'ryż'],
-      ['smietana', 'śmietana'],
-      ['smietanka', 'śmietanka'],
-      ['sol', 'sól'],
-      ['zolta', 'żółta'],
-      ['zolty', 'żółty'],
-      ['biala', 'biała'],
-      ['biale', 'białe'],
-      ['bialy', 'biały'],
-      ['brazowy', 'brązowy'],
-      ['jasminowy', 'jaśminowy'],
-      ['zytni', 'żytni'],
-      ['zytnie', 'żytnie'],
-      ['wloski', 'włoski'],
-      ['twarozek', 'twarożek'],
-      ['kielbasa', 'kiełbasa'],
-      ['lopatka', 'łopatka'],
-      ['wolowina', 'wołowina'],
-      ['jablko', 'jabłko'],
-      ['jablka', 'jabłka'],
-      ['polslodkie', 'półsłodkie'],
-      ['polwytrawne', 'półwytrawne'],
-    ];
-
-    for (const [from, to] of tokenReplacements) {
-      output = output.replace(
-        new RegExp(`\\b${this.escapeForRegex(from)}\\b`, 'g'),
-        to,
-      );
-    }
-
-    return output.replace(/\s+/g, ' ').trim();
-  }
-
-  private escapeForRegex(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  private keywordMatches(text: string, keyword: string): boolean {
-    const escaped = this.escapeForRegex(keyword);
-    // treat keywords as stems, e.g. "ser" catches "ser", "sery", "sera", etc.
-    const pattern = new RegExp(`\\b${escaped}[a-z]*\\b`, 'i');
-    return pattern.test(text);
-  }
-
-  private detectDepartmentByKeywords(text: string): ShoppingDepartment | null {
-    if (!text) return null;
-    for (const rule of DEPARTMENT_KEYWORD_RULES) {
-      if (rule.keywords.some((keyword) => this.keywordMatches(text, keyword))) {
-        return rule.department;
-      }
-    }
-    return null;
-  }
-
-  private canonicalizeIngredientName(name: string, unit?: string): string {
-    let raw = this.normalizeText(name);
-    const normalizedUnit = this.normalizeText(unit ?? '');
-    if (!raw) return name.trim();
-
-    // Strip parenthetical hints and common qualifiers.
-    raw = raw.replace(/\([^)]*\)/g, ' ');
-    raw = raw
-      .replace(
-        /\b(swieza|swiezy|swieze|suszona|suszony|suszone|mielony|mielona|mielone|surowa|surowy|niesolone|wytrawny|neutralny|koszerna|koszerny|morska|morski|wędzona|wedzona|cierpkie|cala|cały|calkowita|calkowity)\b/g,
-        ' ',
-      )
-      .replace(/\b(filety|filet|zabki|zabek|lodygi)\b/g, ' ')
-      .replace(/\b(w|we)\b/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    const exactMap: Record<string, string> = {
-      'swieza pietruszka': 'pietruszka',
-      'suszone liscie laurowe': 'liście laurowe',
-      'liscie laurowe': 'liście laurowe',
-      'świeży imbir': 'imbir',
-      'swiezy imbir': 'imbir',
-      'mielony imbir': 'imbir',
-      'swiezy tymianek': 'tymianek',
-      'suszony tymianek': 'tymianek',
-      'cala kaczka': 'kaczka',
-      'stek bavette': 'wołowina bavette',
-      'wedzona kielbasa kielbasa lub podobna': 'kiełbasa wędzona',
-      'wedzona kielbasa': 'kiełbasa wędzona',
-      'tluszcz kaczy': 'tłuszcz kaczy',
-      'suszona brazowa soczewica': 'soczewica brązowa',
-      'surowa kapusta kiszona': 'kapusta kiszona',
-      'jabłka granny smith': 'jabłka',
-      'jablka granny smith': 'jabłka',
-      'cierpkie jablka granny smith': 'jabłka',
-      'ocet jablkowy': 'ocet jabłkowy',
-      'ocet jabłkowy': 'ocet jabłkowy',
-      'sok jablkowy': 'sok jabłkowy',
-      'sok jabłkowy': 'sok jabłkowy',
-      'ziemniaki yukon gold': 'ziemniaki',
-      'zolta cebula': 'cebula',
-      'czarny pieprz': 'pieprz',
-      'sól koszerna': 'sól',
-      'sol koszerna': 'sól',
-      'sól morska': 'sól',
-      'sol morska': 'sól',
-      'sól morska w platkach': 'sól',
-      'sol morska w platkach': 'sól',
-      'proszek do pieczenia': 'proszek do pieczenia',
-      'soda oczyszczona': 'soda oczyszczona',
-      'jagody jalowca': 'jałowiec',
-      'nasiona kminku': 'kminek',
-      'koncentrat tamaryndowca': 'pasta tamaryndowa',
-      'wytrawny riesling': 'riesling',
-      'wywar z kurczaka': 'bulion drobiowy',
-      'filety dorsza': 'dorsz',
-      'filety z dorsza': 'dorsz',
-      'sok z cytryny': 'sok z cytryny',
-      'sok cytryny': 'sok z cytryny',
-      'skorka z cytryny': 'skórka z cytryny',
-      'kwaśna śmietana': 'śmietana kwaśna',
-      'kwasna smietana': 'śmietana kwaśna',
-      'neutralny olej': 'olej',
-      'oliwa z oliwek': 'oliwa z oliwek',
-      'cała kaczka': 'kaczka',
-      'łodygi selera': 'seler naciowy',
-      'łodyga selera': 'seler naciowy',
-    };
-
-    const mapped = exactMap[raw];
-    if (mapped) return this.toTitleCase(mapped);
-
-    if (/\b(kurczak|kurczak[aiemou]{0,2}|kurcz)\b/.test(raw)) return 'Kurczak';
-    if (/\b(indyk|indyk[aiemou]{0,2}|indycz)\b/.test(raw)) return 'Indyk';
-    if (/kaczk/.test(raw)) return 'Kaczka';
-    if (/dorsz/.test(raw)) return 'Dorsz';
-    if (/bavette|wołowin|wolowin/.test(raw)) return 'Wołowina bavette';
-    if (/kielbas/.test(raw)) return 'Kiełbasa';
-    if (/imbir/.test(raw)) {
-      if (normalizedUnit === 'szt') return 'Imbir';
-      if (normalizedUnit === 'g') return 'Imbir';
-      return 'Imbir';
-    }
-    if (/tymianek/.test(raw)) {
-      if (normalizedUnit === 'g') return 'Tymianek';
-      return 'Tymianek';
-    }
-    if (/liscie laurowe/.test(raw)) return 'Liście laurowe';
-    if (/kapusta kiszona/.test(raw)) return 'Kapusta kiszona';
-    if (/soczewic/.test(raw)) return 'Soczewica brązowa';
-    if (/ocet jablk/.test(raw)) return 'Ocet jabłkowy';
-    if (/sok jablk/.test(raw)) return 'Sok jabłkowy';
-    if (/jablk/.test(raw))
-      return normalizedUnit === 'ml' ? 'Sok jabłkowy' : 'Jabłko';
-    if (/cebul/.test(raw)) return 'Cebula';
-    if (/ziemniak/.test(raw)) return 'Ziemniak';
-    if (/czosn/.test(raw)) return 'Czosnek';
-    if (/marchew/.test(raw)) return 'Marchew';
-    if (/seler/.test(raw)) return 'Seler naciowy';
-    if (/jajk/.test(raw)) return 'Jajko';
-    if (/miod/.test(raw)) return 'Miód';
-    if (/cukier puder/.test(raw)) return 'Cukier puder';
-    if (/cukier/.test(raw)) return 'Cukier';
-    if (/sok z cytryny|sok cytryny/.test(raw)) return 'Sok z cytryny';
-    if (/cytryn/.test(raw)) return 'Cytryna';
-    if (/kmink/.test(raw)) return 'Kminek';
-    if (/jalow/.test(raw)) return 'Jałowiec';
-    if (/sol/.test(raw)) return 'Sól';
-    if (/pieprz/.test(raw)) return 'Pieprz';
-
-    return this.toTitleCase(this.toPolishDisplayText(raw));
-  }
-
-  private mapDepartmentLabel(
-    rawDepartment?: string | null,
-  ): ShoppingDepartment {
-    const value = this.normalizeText(rawDepartment ?? '');
-    if (!value) return ShoppingDepartment.OTHER;
-    const detected = this.detectDepartmentByKeywords(value);
-    return detected ?? ShoppingDepartment.OTHER;
-  }
-
-  private inferDepartmentFromName(name: string): ShoppingDepartment {
-    const value = this.normalizeText(name);
-    if (!value) return ShoppingDepartment.OTHER;
-    const detected = this.detectDepartmentByKeywords(value);
-    return detected ?? ShoppingDepartment.OTHER;
-  }
-
-  private resolveDepartment(
-    rawDepartment: string,
-    ingredientName: string,
-  ): string {
-    const override =
-      CANONICAL_DEPARTMENT_OVERRIDES[
-        this.normalizeText(ingredientName)
-      ];
-    if (override) return override;
-
-    const normalizedName = this.normalizeText(ingredientName);
-    if (/\bkielbas[a-z]*\b/.test(normalizedName))
-      return ShoppingDepartment.MEAT;
-    if (
-      /\b(imbir|tymianek|liscie laurowe|jalowiec|kminek)\b/.test(normalizedName)
-    ) {
-      return ShoppingDepartment.SPICES;
-    }
-
-    const mapped = this.mapDepartmentLabel(rawDepartment);
-    if (mapped !== ShoppingDepartment.OTHER) return mapped;
-    return this.inferDepartmentFromName(ingredientName);
-  }
 
   private async ensureRecipeForHousehold(
     recipeId: string,
@@ -793,11 +389,11 @@ export class WeeklyPlansService {
       for (const ingredient of source.recipe.ingredients) {
         const baseAmount = ingredient.normalizedAmount ?? ingredient.amount;
         const baseUnit = ingredient.normalizedUnit ?? ingredient.unit;
-        const canonicalName = this.canonicalizeIngredientName(
+        const canonicalName = canonicalizeIngredientName(
           ingredient.name,
           baseUnit,
         );
-        const productKey = this.normalizeProductKey(canonicalName, baseUnit);
+        const productKey = normalizeProductKey(canonicalName, baseUnit);
         const current = aggregated.get(productKey);
         const amountToAdd = baseAmount * source.quantity;
         if (current) {
@@ -808,7 +404,7 @@ export class WeeklyPlansService {
           productKey,
           name: canonicalName,
           unit: baseUnit,
-          department: this.resolveDepartment(
+          department: resolveDepartment(
             ingredient.department,
             canonicalName,
           ),
@@ -930,7 +526,7 @@ export class WeeklyPlansService {
       );
     }
 
-    const nextItems = this.buildDisplayShoppingItems(
+    const nextItems = buildDisplayShoppingItems(
       aggregatedItems,
       checkedMap,
     );
@@ -1125,7 +721,7 @@ export class WeeklyPlansService {
           client,
         );
       }
-      return this.mapSnapshotItems(snapshot.items);
+      return mapSnapshotItems(snapshot.items);
     }
 
     return this.rebuildShoppingListSnapshotWithClient(
@@ -1141,7 +737,7 @@ export class WeeklyPlansService {
     weekStart: string,
   ) {
     await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
+    const weekStartDate = parseWeekStart(weekStart);
     return this.getShoppingListSnapshot(householdId, weekStartDate);
   }
 
@@ -1151,7 +747,7 @@ export class WeeklyPlansService {
     weekStart: string,
   ): Promise<ShoppingListStateDto> {
     await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
+    const weekStartDate = parseWeekStart(weekStart);
 
     const [items, archives, currentArchiveStates, currentWeekArchiveState] =
       await Promise.all([
@@ -1198,7 +794,7 @@ export class WeeklyPlansService {
     return {
       items: shouldHideCurrentWeekList ? [] : items,
       archives: archives.map((archive) =>
-        this.toArchiveSnapshot(archive, currentArchiveIds),
+        toArchiveSnapshot(archive, currentArchiveIds),
       ),
     };
   }
@@ -1210,7 +806,7 @@ export class WeeklyPlansService {
     weekLabel: string,
   ) {
     await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
+    const weekStartDate = parseWeekStart(weekStart);
 
     return this.runSerializable(async (tx) => {
       const items = await this.getShoppingListSnapshot(
@@ -1235,7 +831,7 @@ export class WeeklyPlansService {
         );
       }
 
-      const signature = this.itemSignature(items);
+      const signature = itemSignature(items);
       const now = new Date();
       const existingArchive = await tx.shoppingListArchive.findUnique({
         where: {
@@ -1355,7 +951,7 @@ export class WeeklyPlansService {
 
       return {
         archiveId: archive.id,
-        weekStart: this.formatWeekStart(archive.weekStart),
+        weekStart: formatWeekStart(archive.weekStart),
       };
     });
   }
@@ -1434,7 +1030,7 @@ export class WeeklyPlansService {
 
       return {
         archiveId,
-        weekStart: this.formatWeekStart(weekStart),
+        weekStart: formatWeekStart(weekStart),
       };
     });
   }
@@ -1445,7 +1041,7 @@ export class WeeklyPlansService {
     weekStart: string,
   ) {
     await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
+    const weekStartDate = parseWeekStart(weekStart);
 
     return this.runSerializable(async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
@@ -1473,7 +1069,7 @@ export class WeeklyPlansService {
     dto: UpdateShoppingItemCheckDto,
   ) {
     await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
+    const weekStartDate = parseWeekStart(weekStart);
 
     return this.prisma.$transaction(async (tx) => {
       await this.getShoppingListSnapshot(householdId, weekStartDate, tx);
@@ -1544,7 +1140,7 @@ export class WeeklyPlansService {
     dto: UpsertWeekSlotDto,
   ) {
     await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
+    const weekStartDate = parseWeekStart(weekStart);
     await this.ensureRecipeForHousehold(dto.recipeId, householdId);
 
     return this.prisma.$transaction(async (tx) => {
@@ -1646,7 +1242,7 @@ export class WeeklyPlansService {
     dto: RemoveWeekSlotDto,
   ) {
     await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
+    const weekStartDate = parseWeekStart(weekStart);
 
     return this.prisma.$transaction(async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
@@ -1704,7 +1300,7 @@ export class WeeklyPlansService {
 
   async clearWeekPlan(userId: string, householdId: string, weekStart: string) {
     await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
+    const weekStartDate = parseWeekStart(weekStart);
 
     await this.runSerializable(async (tx) => {
       const weeklyPlan = await tx.weeklyPlan.findUnique({
@@ -1788,7 +1384,7 @@ export class WeeklyPlansService {
     weekStart: string,
   ) {
     await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
+    const weekStartDate = parseWeekStart(weekStart);
 
     const plan = await this.prisma.sharedMealPlan.findUnique({
       where: {
@@ -1853,7 +1449,7 @@ export class WeeklyPlansService {
     dto: SaveSharedMealPlanDto,
   ) {
     await this.ensureMembership(userId, householdId);
-    const weekStartDate = this.parseWeekStart(weekStart);
+    const weekStartDate = parseWeekStart(weekStart);
 
     const breakfast = dto.breakfastRecipeIds ?? [];
     const lunch = dto.lunchRecipeIds ?? [];
