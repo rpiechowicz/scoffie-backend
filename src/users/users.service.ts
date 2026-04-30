@@ -104,7 +104,9 @@ export class UsersService {
 
     if (data.allergens !== undefined) {
       const normalised = Array.from(
-        new Set(data.allergens.map((a) => a.trim().toLowerCase()).filter(Boolean)),
+        new Set(
+          data.allergens.map((a) => a.trim().toLowerCase()).filter(Boolean),
+        ),
       ).sort();
       update.allergens = normalised;
       create.allergens = normalised;

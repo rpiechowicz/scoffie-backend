@@ -9,6 +9,7 @@ import {
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { WeeklyPlansService } from './weekly-plans.service';
+import { ShoppingListService } from './services/shopping-list.service';
 import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
@@ -133,6 +134,7 @@ export class WeeklyPlansGateway
 
   constructor(
     private readonly weeklyPlansService: WeeklyPlansService,
+    private readonly shoppingListService: ShoppingListService,
     private readonly notificationsService: NotificationsService,
     private readonly wsTelemetry: WsTelemetryService,
   ) {}
@@ -265,7 +267,7 @@ export class WeeklyPlansGateway
   @SubscribeMessage('weeklyPlans:getShoppingList')
   getShoppingList(@MessageBody() payload: WeeklyPlansGetShoppingListPayload) {
     return wsRespond(() =>
-      this.weeklyPlansService.getShoppingList(
+      this.shoppingListService.getShoppingList(
         payload.userId,
         payload.householdId,
         payload.weekStart,
@@ -278,7 +280,7 @@ export class WeeklyPlansGateway
     @MessageBody() payload: WeeklyPlansGetShoppingListStatePayload,
   ) {
     return wsRespond(() =>
-      this.weeklyPlansService.getShoppingListState(
+      this.shoppingListService.getShoppingListState(
         payload.userId,
         payload.householdId,
         payload.weekStart,
@@ -293,7 +295,7 @@ export class WeeklyPlansGateway
     return wsRespond(async () => {
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(payload.userId);
-      const result = await this.weeklyPlansService.archiveShoppingList(
+      const result = await this.shoppingListService.archiveShoppingList(
         payload.userId,
         payload.householdId,
         payload.weekStart,
@@ -319,7 +321,7 @@ export class WeeklyPlansGateway
     return wsRespond(async () => {
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(payload.userId);
-      const result = await this.weeklyPlansService.selectShoppingListArchive(
+      const result = await this.shoppingListService.selectShoppingListArchive(
         payload.userId,
         payload.householdId,
         payload.archiveId,
@@ -344,7 +346,7 @@ export class WeeklyPlansGateway
     return wsRespond(async () => {
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(payload.userId);
-      const result = await this.weeklyPlansService.deleteShoppingListArchive(
+      const result = await this.shoppingListService.deleteShoppingListArchive(
         payload.userId,
         payload.householdId,
         payload.archiveId,
@@ -370,7 +372,7 @@ export class WeeklyPlansGateway
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(payload.userId);
       const result =
-        await this.weeklyPlansService.deleteAllShoppingListArchives(
+        await this.shoppingListService.deleteAllShoppingListArchives(
           payload.userId,
           payload.householdId,
           payload.weekStart,
@@ -395,7 +397,7 @@ export class WeeklyPlansGateway
     return wsRespond(async () => {
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(payload.userId);
-      const result = await this.weeklyPlansService.setShoppingItemChecked(
+      const result = await this.shoppingListService.setShoppingItemChecked(
         payload.userId,
         payload.householdId,
         payload.weekStart,
