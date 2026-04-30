@@ -28,7 +28,10 @@ export function detectDepartmentByKeywords(
 /// adjectives, or the wrong case) to a canonical Polish display name.
 /// First tries an exact-match table; then a series of regex stems for
 /// common cases; finally falls back to `toTitleCase(toPolishDisplayText(...))`.
-export function canonicalizeIngredientName(name: string, unit?: string): string {
+export function canonicalizeIngredientName(
+  name: string,
+  unit?: string,
+): string {
   let raw = normalizeText(name);
   const normalizedUnit = normalizeText(unit ?? '');
   if (!raw) return name.trim();

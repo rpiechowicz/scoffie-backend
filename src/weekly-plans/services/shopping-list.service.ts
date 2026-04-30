@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  HttpStatus,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -14,10 +9,7 @@ import type {
   ShoppingListStateDto,
   PrismaReadClient,
 } from '../types/shopping-types';
-import {
-  parseWeekStart,
-  formatWeekStart,
-} from '../utils/week-formatting.util';
+import { parseWeekStart, formatWeekStart } from '../utils/week-formatting.util';
 import { normalizeProductKey } from '../utils/text-normalization.util';
 import {
   canonicalizeIngredientName,
@@ -152,10 +144,7 @@ export class ShoppingListService {
           productKey,
           name: canonicalName,
           unit: baseUnit,
-          department: resolveDepartment(
-            ingredient.department,
-            canonicalName,
-          ),
+          department: resolveDepartment(ingredient.department, canonicalName),
           totalAmount: amountToAdd,
         });
       }
@@ -274,10 +263,7 @@ export class ShoppingListService {
       );
     }
 
-    const nextItems = buildDisplayShoppingItems(
-      aggregatedItems,
-      checkedMap,
-    );
+    const nextItems = buildDisplayShoppingItems(aggregatedItems, checkedMap);
 
     if (nextItems.length === 0) {
       await tx.shoppingListItem.deleteMany({

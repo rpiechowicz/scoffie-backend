@@ -196,7 +196,11 @@ export class WeeklyPlansService {
         throw error;
       }
 
-      await this.shoppingListService.markShoppingListStale(plan.householdId, plan.weekStart, tx);
+      await this.shoppingListService.markShoppingListStale(
+        plan.householdId,
+        plan.weekStart,
+        tx,
+      );
 
       return createdItem;
     });
@@ -279,7 +283,11 @@ export class WeeklyPlansService {
           where: { id: existingSlot.id },
           data: { recipeId: dto.recipeId },
         });
-        await this.shoppingListService.markShoppingListStale(householdId, weekStartDate, tx);
+        await this.shoppingListService.markShoppingListStale(
+          householdId,
+          weekStartDate,
+          tx,
+        );
         return updatedItem;
       }
 
@@ -328,7 +336,11 @@ export class WeeklyPlansService {
         },
       });
 
-      await this.shoppingListService.markShoppingListStale(householdId, weekStartDate, tx);
+      await this.shoppingListService.markShoppingListStale(
+        householdId,
+        weekStartDate,
+        tx,
+      );
 
       return createdItem;
     });
@@ -383,7 +395,11 @@ export class WeeklyPlansService {
         const deletedItem = await tx.planItem.delete({
           where: { id: existingSlot.id },
         });
-        await this.shoppingListService.markShoppingListStale(householdId, weekStartDate, tx);
+        await this.shoppingListService.markShoppingListStale(
+          householdId,
+          weekStartDate,
+          tx,
+        );
         return deletedItem;
       } catch (error) {
         if (
@@ -655,7 +671,11 @@ export class WeeklyPlansService {
       });
 
       if (!weeklyPlan) {
-        await this.shoppingListService.markShoppingListStale(householdId, weekStartDate, tx);
+        await this.shoppingListService.markShoppingListStale(
+          householdId,
+          weekStartDate,
+          tx,
+        );
         return;
       }
 
@@ -688,7 +708,11 @@ export class WeeklyPlansService {
         pruneByMealType('DINNER', dinnerAllowed),
       ]);
 
-      await this.shoppingListService.markShoppingListStale(householdId, weekStartDate, tx);
+      await this.shoppingListService.markShoppingListStale(
+        householdId,
+        weekStartDate,
+        tx,
+      );
     });
 
     return this.getSharedMealPlan(userId, householdId, weekStart);
