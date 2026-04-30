@@ -21,332 +21,20 @@ import type {
   ShoppingListStateDto,
   PrismaReadClient,
 } from './types/shopping-types';
-
-enum ShoppingDepartment {
-  VEGETABLES = 'Warzywa',
-  FRUITS = 'Owoce',
-  MEAT = 'Mięso',
-  FISH = 'Ryby',
-  DAIRY = 'Nabiał',
-  BAKERY = 'Piekarnia',
-  GRAINS = 'Zboża i makarony',
-  CANNED = 'Konserwy',
-  SPICES = 'Przyprawy i sosy',
-  OILS = 'Olej i tłuszcze',
-  ALCOHOLS = 'Alkohole',
-  BEVERAGES = 'Napoje',
-  SNACKS = 'Przekąski i słodycze',
-  FROZEN = 'Mrożonki',
-  CONFECTIONERY = 'Cukiernia',
-  HOUSEHOLD = 'Chemia i gospodarstwo',
-  OTHER = 'Inne',
-}
+import {
+  ShoppingDepartment,
+  DEPARTMENT_ORDER,
+} from './types/shopping-department.enum';
+import {
+  DEPARTMENT_KEYWORD_RULES,
+  CANONICAL_DEPARTMENT_OVERRIDES,
+} from './utils/shopping-classification.constants';
 
 @Injectable()
 export class WeeklyPlansService {
   constructor(private readonly prisma: PrismaService) {}
   private static readonly MAX_ITEMS_PER_MEAL_TYPE = 7;
   private static readonly MAX_ITEMS_TOTAL = 21;
-  private static readonly DEPARTMENT_OTHER = ShoppingDepartment.OTHER;
-  private static readonly DEPARTMENT_ORDER: Record<string, number> = {
-    [ShoppingDepartment.VEGETABLES]: 1,
-    [ShoppingDepartment.FRUITS]: 2,
-    [ShoppingDepartment.MEAT]: 3,
-    [ShoppingDepartment.FISH]: 4,
-    [ShoppingDepartment.DAIRY]: 5,
-    [ShoppingDepartment.BAKERY]: 6,
-    [ShoppingDepartment.GRAINS]: 7,
-    [ShoppingDepartment.CANNED]: 8,
-    [ShoppingDepartment.SPICES]: 9,
-    [ShoppingDepartment.OILS]: 10,
-    [ShoppingDepartment.ALCOHOLS]: 11,
-    [ShoppingDepartment.BEVERAGES]: 12,
-    [ShoppingDepartment.SNACKS]: 13,
-    [ShoppingDepartment.FROZEN]: 14,
-    [ShoppingDepartment.CONFECTIONERY]: 15,
-    [ShoppingDepartment.HOUSEHOLD]: 16,
-    [ShoppingDepartment.OTHER]: 99,
-  };
-  private static readonly DEPARTMENT_KEYWORD_RULES: Array<{
-    department: ShoppingDepartment;
-    keywords: string[];
-  }> = [
-    {
-      department: ShoppingDepartment.VEGETABLES,
-      keywords: [
-        'warzyw',
-        'veget',
-        'produce',
-        'ziemniak',
-        'cebula',
-        'czosn',
-        'marchew',
-        'seler',
-        'pomidor',
-        'papryk',
-        'ogorek',
-        'szpinak',
-        'salata',
-        'kalafior',
-        'brokul',
-        'cukini',
-        'baklazan',
-        'burak',
-        'por',
-        'jarmuz',
-        'pietruszk',
-      ],
-    },
-    {
-      department: ShoppingDepartment.FRUITS,
-      keywords: [
-        'owoc',
-        'fruit',
-        'jablk',
-        'banan',
-        'cytryn',
-        'limonk',
-        'pomarancz',
-        'gruszk',
-        'truskawk',
-        'borowk',
-        'malin',
-        'winogron',
-        'ananas',
-        'awokado',
-      ],
-    },
-    {
-      department: ShoppingDepartment.MEAT,
-      keywords: [
-        'mies',
-        'meat',
-        'drob',
-        'poultry',
-        'kaczk',
-        'kurczak',
-        'wolowin',
-        'wieprz',
-        'indyk',
-        'kielbas',
-        'boczek',
-        'schab',
-      ],
-    },
-    {
-      department: ShoppingDepartment.FISH,
-      keywords: [
-        'ryb',
-        'fish',
-        'seafood',
-        'dorsz',
-        'losos',
-        'tunczyk',
-        'krewetk',
-        'mintaj',
-        'halibut',
-        'makrela',
-      ],
-    },
-    {
-      department: ShoppingDepartment.DAIRY,
-      keywords: [
-        'nabial',
-        'dairy',
-        'milk',
-        'mleko',
-        'jogurt',
-        'kefir',
-        'skyr',
-        'maslo',
-        'smietan',
-        'twarog',
-        'jajk',
-        'ser',
-        'sery',
-        'sera',
-        'serek',
-        'gouda',
-        'mozzarella',
-        'mozarella',
-        'feta',
-        'parmezan',
-        'cheddar',
-        'ricotta',
-        'brie',
-        'camembert',
-      ],
-    },
-    {
-      department: ShoppingDepartment.BAKERY,
-      keywords: [
-        'piekarn',
-        'bakery',
-        'bread',
-        'chleb',
-        'bulk',
-        'pieczyw',
-        'tortill',
-        'pita',
-        'bagietk',
-      ],
-    },
-    {
-      department: ShoppingDepartment.GRAINS,
-      keywords: [
-        'zboz',
-        'grain',
-        'pasta',
-        'rice',
-        'makaron',
-        'ryz',
-        'kasz',
-        'platki',
-        'maka',
-        'owsian',
-        'soczewic',
-        'ciecierzyc',
-        'quinoa',
-        'komosa',
-        'fasol',
-      ],
-    },
-    {
-      department: ShoppingDepartment.CANNED,
-      keywords: [
-        'konserw',
-        'canned',
-        'jar',
-        'sloik',
-        'puszka',
-        'oliwk',
-        'passata',
-        'bulion',
-        'mleko kokosowe',
-      ],
-    },
-    {
-      department: ShoppingDepartment.SPICES,
-      keywords: [
-        'przypraw',
-        'spice',
-        'herb',
-        'sauce',
-        'sos',
-        'sol',
-        'pieprz',
-        'papryk',
-        'curry',
-        'oregano',
-        'bazyl',
-        'cynamon',
-        'musztard',
-        'majonez',
-        'ocet',
-        'ziola',
-        'kmink',
-        'jalowiec',
-        'proszek do pieczenia',
-        'soda',
-      ],
-    },
-    {
-      department: ShoppingDepartment.OILS,
-      keywords: ['olej', 'tluszcz', 'oil', 'fat', 'oliwa', 'smalec'],
-    },
-    {
-      department: ShoppingDepartment.ALCOHOLS,
-      keywords: [
-        'alkohol',
-        'wino',
-        'piwo',
-        'whisky',
-        'whiskey',
-        'wodka',
-        'rum',
-        'gin',
-        'tequila',
-        'brandy',
-        'likier',
-        'prosecco',
-        'szampan',
-        'cydr',
-        'riesling',
-        'merlot',
-        'cabernet',
-      ],
-    },
-    {
-      department: ShoppingDepartment.BEVERAGES,
-      keywords: ['napoj', 'beverage', 'drink', 'woda', 'kawa', 'herbat', 'sok'],
-    },
-    {
-      department: ShoppingDepartment.SNACKS,
-      keywords: [
-        'slodycz',
-        'przekask',
-        'snack',
-        'sweet',
-        'czekolad',
-        'ciastk',
-        'chips',
-        'orzech',
-        'miod',
-        'baton',
-      ],
-    },
-    {
-      department: ShoppingDepartment.FROZEN,
-      keywords: ['mrozon', 'frozen', 'lody'],
-    },
-    {
-      department: ShoppingDepartment.CONFECTIONERY,
-      keywords: [
-        'cukiern',
-        'pastry',
-        'dessert',
-        'cake',
-        'cukier',
-        'drozdzowk',
-        'biszkopt',
-      ],
-    },
-    {
-      department: ShoppingDepartment.HOUSEHOLD,
-      keywords: [
-        'chemia',
-        'household',
-        'clean',
-        'papier',
-        'plyn',
-        'proszek do prania',
-        'worki na smieci',
-        'reczniki papierowe',
-      ],
-    },
-  ];
-  private static readonly CANONICAL_DEPARTMENT_OVERRIDES: Record<
-    string,
-    ShoppingDepartment
-  > = {
-    kielbasa: ShoppingDepartment.MEAT,
-    'kielbasa wedzona': ShoppingDepartment.MEAT,
-    maslo: ShoppingDepartment.DAIRY,
-    'smietana kwasna': ShoppingDepartment.DAIRY,
-    jajka: ShoppingDepartment.DAIRY,
-    'kapusta kiszona': ShoppingDepartment.VEGETABLES,
-    'liscie laurowe': ShoppingDepartment.SPICES,
-    jalowiec: ShoppingDepartment.SPICES,
-    kminek: ShoppingDepartment.SPICES,
-    tymianek: ShoppingDepartment.SPICES,
-    imbir: ShoppingDepartment.SPICES,
-    'sok z cytryny': ShoppingDepartment.FRUITS,
-    'skorka z cytryny': ShoppingDepartment.FRUITS,
-    riesling: ShoppingDepartment.ALCOHOLS,
-    'tluszcz kaczy': ShoppingDepartment.OILS,
-    olej: ShoppingDepartment.OILS,
-    'oliwa z oliwek': ShoppingDepartment.OILS,
-  };
 
   private parseWeekStart(weekStart: string): Date {
     const parsed = new Date(weekStart);
@@ -404,11 +92,11 @@ export class WeeklyPlansService {
   private sortShoppingItems(items: ShoppingListItem[]): ShoppingListItem[] {
     return [...items].sort((a, b) => {
       const rankA =
-        WeeklyPlansService.DEPARTMENT_ORDER[a.department] ??
-        WeeklyPlansService.DEPARTMENT_ORDER.Inne;
+        DEPARTMENT_ORDER[a.department] ??
+        DEPARTMENT_ORDER.Inne;
       const rankB =
-        WeeklyPlansService.DEPARTMENT_ORDER[b.department] ??
-        WeeklyPlansService.DEPARTMENT_ORDER.Inne;
+        DEPARTMENT_ORDER[b.department] ??
+        DEPARTMENT_ORDER.Inne;
       if (rankA !== rankB) return rankA - rankB;
       if (a.department === b.department) {
         return a.name.localeCompare(b.name);
@@ -596,7 +284,7 @@ export class WeeklyPlansService {
 
   private detectDepartmentByKeywords(text: string): ShoppingDepartment | null {
     if (!text) return null;
-    for (const rule of WeeklyPlansService.DEPARTMENT_KEYWORD_RULES) {
+    for (const rule of DEPARTMENT_KEYWORD_RULES) {
       if (rule.keywords.some((keyword) => this.keywordMatches(text, keyword))) {
         return rule.department;
       }
@@ -722,16 +410,16 @@ export class WeeklyPlansService {
     rawDepartment?: string | null,
   ): ShoppingDepartment {
     const value = this.normalizeText(rawDepartment ?? '');
-    if (!value) return WeeklyPlansService.DEPARTMENT_OTHER;
+    if (!value) return ShoppingDepartment.OTHER;
     const detected = this.detectDepartmentByKeywords(value);
-    return detected ?? WeeklyPlansService.DEPARTMENT_OTHER;
+    return detected ?? ShoppingDepartment.OTHER;
   }
 
   private inferDepartmentFromName(name: string): ShoppingDepartment {
     const value = this.normalizeText(name);
-    if (!value) return WeeklyPlansService.DEPARTMENT_OTHER;
+    if (!value) return ShoppingDepartment.OTHER;
     const detected = this.detectDepartmentByKeywords(value);
-    return detected ?? WeeklyPlansService.DEPARTMENT_OTHER;
+    return detected ?? ShoppingDepartment.OTHER;
   }
 
   private resolveDepartment(
@@ -739,7 +427,7 @@ export class WeeklyPlansService {
     ingredientName: string,
   ): string {
     const override =
-      WeeklyPlansService.CANONICAL_DEPARTMENT_OVERRIDES[
+      CANONICAL_DEPARTMENT_OVERRIDES[
         this.normalizeText(ingredientName)
       ];
     if (override) return override;
@@ -754,7 +442,7 @@ export class WeeklyPlansService {
     }
 
     const mapped = this.mapDepartmentLabel(rawDepartment);
-    if (mapped !== WeeklyPlansService.DEPARTMENT_OTHER) return mapped;
+    if (mapped !== ShoppingDepartment.OTHER) return mapped;
     return this.inferDepartmentFromName(ingredientName);
   }
 
