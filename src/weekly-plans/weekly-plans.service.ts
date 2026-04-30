@@ -1,6 +1,5 @@
 import {
   ConflictException,
-  ForbiddenException,
   HttpStatus,
   Injectable,
   NotFoundException,
@@ -35,6 +34,11 @@ import {
   mapSnapshotItems,
   toArchiveSnapshot,
 } from './utils/shopping-items.util';
+import {
+  ensureMembership,
+  ensureRecipeForHousehold,
+} from './utils/auth-checks.util';
+import { runSerializable } from './utils/transaction-runner.util';
 
 @Injectable()
 export class WeeklyPlansService {
@@ -42,59 +46,8 @@ export class WeeklyPlansService {
   private static readonly MAX_ITEMS_PER_MEAL_TYPE = 7;
   private static readonly MAX_ITEMS_TOTAL = 21;
 
-  private async ensureRecipeForHousehold(
-    recipeId: string,
-    _householdId: string,
-  ) {
-    const recipe = await this.prisma.recipe.findUnique({
-      where: { id: recipeId },
-      select: { id: true },
-    });
-    if (!recipe) {
-      throw new NotFoundException('Recipe not found');
-    }
-    return recipe;
-  }
-
-  private async ensureMembership(userId: string, householdId: string) {
-    const membership = await this.prisma.membership.findUnique({
-      where: { userId_householdId: { userId, householdId } },
-    });
-    if (!membership) {
-      throw new ForbiddenException('User is not a member of this household');
-    }
-    return membership;
-  }
-
-  private isSerializableConflict(error: unknown): boolean {
-    return (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2034'
-    );
-  }
-
-  private async runSerializable<T>(
-    operation: (tx: Prisma.TransactionClient) => Promise<T>,
-    maxRetries = 2,
-  ): Promise<T> {
-    let attempts = 0;
-    while (true) {
-      try {
-        return await this.prisma.$transaction(async (tx) => operation(tx), {
-          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-        });
-      } catch (error) {
-        if (this.isSerializableConflict(error) && attempts < maxRetries) {
-          attempts += 1;
-          continue;
-        }
-        throw error;
-      }
-    }
-  }
-
   async listByHousehold(userId: string, householdId: string) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     return this.prisma.weeklyPlan.findMany({
       where: { householdId },
       orderBy: { weekStart: 'desc' },
@@ -134,7 +87,7 @@ export class WeeklyPlansService {
     householdId: string,
     weekStart: string,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const plan = await this.prisma.weeklyPlan.findUnique({
       where: {
         householdId_weekStart: { householdId, weekStart: new Date(weekStart) },
@@ -175,7 +128,7 @@ export class WeeklyPlansService {
   }
 
   async create(userId: string, householdId: string, dto: CreateWeeklyPlanDto) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     return this.prisma.weeklyPlan.create({
       data: {
         householdId,
@@ -191,9 +144,9 @@ export class WeeklyPlansService {
     if (!plan) {
       throw new NotFoundException('Weekly plan not found');
     }
-    await this.ensureMembership(userId, plan.householdId);
+    await ensureMembership(this.prisma, userId, plan.householdId);
 
-    await this.ensureRecipeForHousehold(dto.recipeId, plan.householdId);
+    await ensureRecipeForHousehold(this.prisma, dto.recipeId, plan.householdId);
 
     return this.prisma.$transaction(async (tx) => {
       const [existingForMealType, existingTotal, existingSlot] =
@@ -274,7 +227,7 @@ export class WeeklyPlansService {
     if (!item) {
       throw new NotFoundException('Plan item not found');
     }
-    await this.ensureMembership(userId, item.weeklyPlan.householdId);
+    await ensureMembership(this.prisma, userId, item.weeklyPlan.householdId);
     return this.prisma.$transaction(async (tx) => {
       try {
         const deletedItem = await tx.planItem.delete({ where: { id: itemId } });
@@ -736,7 +689,7 @@ export class WeeklyPlansService {
     householdId: string,
     weekStart: string,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
     return this.getShoppingListSnapshot(householdId, weekStartDate);
   }
@@ -746,7 +699,7 @@ export class WeeklyPlansService {
     householdId: string,
     weekStart: string,
   ): Promise<ShoppingListStateDto> {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
     const [items, archives, currentArchiveStates, currentWeekArchiveState] =
@@ -805,10 +758,10 @@ export class WeeklyPlansService {
     weekStart: string,
     weekLabel: string,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
-    return this.runSerializable(async (tx) => {
+    return runSerializable(this.prisma, async (tx) => {
       const items = await this.getShoppingListSnapshot(
         householdId,
         weekStartDate,
@@ -916,9 +869,9 @@ export class WeeklyPlansService {
     householdId: string,
     archiveId: string,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
 
-    return this.runSerializable(async (tx) => {
+    return runSerializable(this.prisma, async (tx) => {
       const archive = await tx.shoppingListArchive.findUnique({
         where: { id: archiveId },
         select: {
@@ -961,9 +914,9 @@ export class WeeklyPlansService {
     householdId: string,
     archiveId: string,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
 
-    return this.runSerializable(async (tx) => {
+    return runSerializable(this.prisma, async (tx) => {
       const archive = await tx.shoppingListArchive.findUnique({
         where: { id: archiveId },
         select: {
@@ -1040,10 +993,10 @@ export class WeeklyPlansService {
     householdId: string,
     weekStart: string,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
-    return this.runSerializable(async (tx) => {
+    return runSerializable(this.prisma, async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
         where: { householdId },
       });
@@ -1068,7 +1021,7 @@ export class WeeklyPlansService {
     weekStart: string,
     dto: UpdateShoppingItemCheckDto,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
     return this.prisma.$transaction(async (tx) => {
@@ -1139,9 +1092,9 @@ export class WeeklyPlansService {
     weekStart: string,
     dto: UpsertWeekSlotDto,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
-    await this.ensureRecipeForHousehold(dto.recipeId, householdId);
+    await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
 
     return this.prisma.$transaction(async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
@@ -1241,7 +1194,7 @@ export class WeeklyPlansService {
     weekStart: string,
     dto: RemoveWeekSlotDto,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
     return this.prisma.$transaction(async (tx) => {
@@ -1299,10 +1252,10 @@ export class WeeklyPlansService {
   }
 
   async clearWeekPlan(userId: string, householdId: string, weekStart: string) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
-    await this.runSerializable(async (tx) => {
+    await runSerializable(this.prisma, async (tx) => {
       const weeklyPlan = await tx.weeklyPlan.findUnique({
         where: {
           householdId_weekStart: {
@@ -1383,7 +1336,7 @@ export class WeeklyPlansService {
     householdId: string,
     weekStart: string,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
     const plan = await this.prisma.sharedMealPlan.findUnique({
@@ -1448,7 +1401,7 @@ export class WeeklyPlansService {
     weekStart: string,
     dto: SaveSharedMealPlanDto,
   ) {
-    await this.ensureMembership(userId, householdId);
+    await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
     const breakfast = dto.breakfastRecipeIds ?? [];
@@ -1471,7 +1424,7 @@ export class WeeklyPlansService {
     const lunchAllowed = Array.from(lunchCounts.keys());
     const dinnerAllowed = Array.from(dinnerCounts.keys());
 
-    await this.runSerializable(async (tx) => {
+    await runSerializable(this.prisma, async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
         where: {
           householdId,
