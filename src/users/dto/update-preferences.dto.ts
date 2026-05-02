@@ -11,7 +11,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { DietPreferenceValue } from '@prisma/client';
+import { DietPreferenceValue, UserGoal } from '@prisma/client';
 
 /**
  * Partial-update payload for `users:preferences:update`. Every field is
@@ -21,6 +21,7 @@ import { DietPreferenceValue } from '@prisma/client';
  *
  * Validation matches the iOS UI bounds:
  *   - calorieGoal: 1200…3500, clamped server-side as a defence in depth
+ *   - activityLevel: 1…4 (sedentary → very active), clamped server-side
  *   - allergens: at most 32 unique short strings
  */
 export class UpdatePreferencesDto {
@@ -47,4 +48,16 @@ export class UpdatePreferencesDto {
   @IsString({ each: true })
   @MaxLength(64, { each: true })
   allergens?: string[];
+
+  @ApiPropertyOptional({ enum: UserGoal, example: 'HEALTHY' })
+  @IsOptional()
+  @IsEnum(UserGoal)
+  goal?: UserGoal;
+
+  @ApiPropertyOptional({ example: 3, minimum: 1, maximum: 4 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(4)
+  activityLevel?: number;
 }

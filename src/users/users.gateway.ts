@@ -10,6 +10,7 @@ import { wsRespond } from '../common/ws-response';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
@@ -28,6 +29,15 @@ class UsersPreferencesGetPayload {
 class UsersPreferencesUpdatePayload {
   userId: string;
   data: UpdatePreferencesDto;
+}
+
+class UsersProfileUpdatePayload {
+  userId: string;
+  data: UpdateProfileDto;
+}
+
+class UsersOnboardingCompletePayload {
+  userId: string;
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
@@ -74,6 +84,20 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   updatePreferences(@MessageBody() payload: UsersPreferencesUpdatePayload) {
     return wsRespond(() =>
       this.usersService.updatePreferences(payload.userId, payload.data),
+    );
+  }
+
+  @SubscribeMessage('users:profile:update')
+  updateProfile(@MessageBody() payload: UsersProfileUpdatePayload) {
+    return wsRespond(() =>
+      this.usersService.updateProfile(payload.userId, payload.data),
+    );
+  }
+
+  @SubscribeMessage('users:onboarding:complete')
+  completeOnboarding(@MessageBody() payload: UsersOnboardingCompletePayload) {
+    return wsRespond(() =>
+      this.usersService.completeOnboarding(payload.userId),
     );
   }
 }

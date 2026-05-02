@@ -8,26 +8,30 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(uuid()) @db.Uuid
-  googleId    String?  @unique
-  appleSub    String?  @unique
-  authProvider AuthProvider @default(GOOGLE)
-  displayName String
-  email       String?
-  emailVerified Boolean  @default(false)
-  avatarUrl   String?
-  lastLoginAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                    String       @id @default(uuid()) @db.Uuid
+  googleId              String?      @unique
+  appleSub              String?      @unique
+  authProvider          AuthProvider @default(GOOGLE)
+  displayName           String
+  email                 String?
+  emailVerified         Boolean      @default(false)
+  avatarUrl             String?
+  yearOfBirth           Int?
+  heightCm              Int?
+  weightKg              Int?
+  onboardingCompletedAt DateTime?
+  lastLoginAt           DateTime?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
-  recipes      Recipe[]
-  memberships  Membership[]
-  createdHomes Household[] @relation("HouseholdCreator")
-  invitations  Invitation[] @relation("InvitationCreator")
-  acceptedInvites Invitation[] @relation("InvitationRedeemer")
-  refreshTokens RefreshToken[]
-  pushDevices   PushDevice[]
-  preferences  UserPreference?
+  recipes         Recipe[]
+  memberships     Membership[]
+  createdHomes    Household[]     @relation("HouseholdCreator")
+  invitations     Invitation[]    @relation("InvitationCreator")
+  acceptedInvites Invitation[]    @relation("InvitationRedeemer")
+  refreshTokens   RefreshToken[]
+  pushDevices     PushDevice[]
+  preferences     UserPreference?
 }
 
 model UserPreference {
@@ -35,6 +39,8 @@ model UserPreference {
   dietPreference DietPreferenceValue @default(NONE)
   calorieGoal    Int                 @default(2000)
   allergens      String[]            @default([])
+  goal           UserGoal            @default(HEALTHY)
+  activityLevel  Int                 @default(2)
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -42,11 +48,11 @@ model UserPreference {
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid()) @db.Uuid
-  tokenHash String   @unique
-  userId    String   @db.Uuid
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique
+  userId    String    @db.Uuid
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   revokedAt DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -56,70 +62,70 @@ model RefreshToken {
 }
 
 model Recipe {
-  id          String   @id @default(uuid()) @db.Uuid
-  title       String
-  description String?
-  sourceProvider String?
-  sourceRecipeId String?
-  sourceCategory String?
-  sourceCuisine String?
-  sourceTags     String[] @default([])
-  sourceMeta     Json?
-  sourceDietary  Json?
-  sourceStorage  Json?
-  sourceEquipment Json?
-  sourceInstructions Json?
+  id                    String     @id @default(uuid()) @db.Uuid
+  title                 String
+  description           String?
+  sourceProvider        String?
+  sourceRecipeId        String?
+  sourceCategory        String?
+  sourceCuisine         String?
+  sourceTags            String[]   @default([])
+  sourceMeta            Json?
+  sourceDietary         Json?
+  sourceStorage         Json?
+  sourceEquipment       Json?
+  sourceInstructions    Json?
   sourceTroubleshooting Json?
-  sourceChefNotes Json?
+  sourceChefNotes       Json?
   sourceCulturalContext String?
-  sourceNutrition Json?
-  sourceRaw      Json?
-  mealType    MealType
-  difficulty  Difficulty @default(EASY)
-  prepTimeMinutes Int @default(0)
-  servings    Int @default(1)
-  imageUrl    String?
-  nutritionKcal    Float @default(0)
-  nutritionProtein Float @default(0)
-  nutritionFat     Float @default(0)
-  nutritionCarbs   Float @default(0)
-  nutritionFiber   Float @default(0)
-  nutritionSalt    Float @default(0)
-  isActive    Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  sourceNutrition       Json?
+  sourceRaw             Json?
+  mealType              MealType
+  difficulty            Difficulty @default(EASY)
+  prepTimeMinutes       Int        @default(0)
+  servings              Int        @default(1)
+  imageUrl              String?
+  nutritionKcal         Float      @default(0)
+  nutritionProtein      Float      @default(0)
+  nutritionFat          Float      @default(0)
+  nutritionCarbs        Float      @default(0)
+  nutritionFiber        Float      @default(0)
+  nutritionSalt         Float      @default(0)
+  isActive              Boolean    @default(true)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
 
-  authorId    String   @db.Uuid
-  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  householdId String   @db.Uuid
+  authorId    String    @db.Uuid
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  householdId String    @db.Uuid
   household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
-  planItems    PlanItem[]
-  ingredients  RecipeIngredient[]
-  favorites    RecipeFavorite[]
+  planItems           PlanItem[]
+  ingredients         RecipeIngredient[]
+  favorites           RecipeFavorite[]
   sharedMealPlanItems SharedMealPlanItem[]
 }
 
 model Ingredient {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @unique
-  normalizedName String @unique
-  category  String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String   @unique
+  normalizedName String   @unique
+  category       String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   aliases           IngredientAlias[]
   recipeIngredients RecipeIngredient[]
 }
 
 model IngredientAlias {
-  id           String   @id @default(uuid()) @db.Uuid
-  ingredientId String   @db.Uuid
-  alias        String   @unique
-  normalizedAlias String @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid()) @db.Uuid
+  ingredientId    String   @db.Uuid
+  alias           String   @unique
+  normalizedAlias String   @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
 
@@ -134,16 +140,16 @@ model Household {
   createdById String?  @db.Uuid
   createdBy   User?    @relation("HouseholdCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  memberships Membership[]
-  recipes     Recipe[]
-  invitations Invitation[]
-  weeklyPlans WeeklyPlan[]
-  shoppingLists ShoppingList[]
-  shoppingItemChecks ShoppingItemCheck[]
-  shoppingListArchives ShoppingListArchive[]
+  memberships               Membership[]
+  recipes                   Recipe[]
+  invitations               Invitation[]
+  weeklyPlans               WeeklyPlan[]
+  shoppingLists             ShoppingList[]
+  shoppingItemChecks        ShoppingItemCheck[]
+  shoppingListArchives      ShoppingListArchive[]
   shoppingListArchiveStates ShoppingListArchiveState[]
-  recipeFavorites RecipeFavorite[]
-  sharedMealPlans SharedMealPlan[]
+  recipeFavorites           RecipeFavorite[]
+  sharedMealPlans           SharedMealPlan[]
 }
 
 model RecipeFavorite {
@@ -160,11 +166,11 @@ model RecipeFavorite {
 }
 
 model Membership {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @db.Uuid
-  householdId String   @db.Uuid
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @db.Uuid
+  householdId String         @db.Uuid
   role        MembershipRole @default(MEMBER)
-  createdAt   DateTime @default(now())
+  createdAt   DateTime       @default(now())
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
@@ -173,14 +179,14 @@ model Membership {
 }
 
 model Invitation {
-  id           String   @id @default(uuid()) @db.Uuid
-  token        String   @unique
-  householdId  String   @db.Uuid
-  createdById  String?  @db.Uuid
-  redeemedById String?  @db.Uuid
+  id           String    @id @default(uuid()) @db.Uuid
+  token        String    @unique
+  householdId  String    @db.Uuid
+  createdById  String?   @db.Uuid
+  redeemedById String?   @db.Uuid
   expiresAt    DateTime
   redeemedAt   DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   household  Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   createdBy  User?     @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: SetNull)
@@ -194,19 +200,19 @@ model WeeklyPlan {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
   items     PlanItem[]
 
   @@unique([householdId, weekStart])
 }
 
 model PlanItem {
-  id           String   @id @default(uuid()) @db.Uuid
-  weeklyPlanId String   @db.Uuid
-  recipeId     String   @db.Uuid
+  id           String    @id @default(uuid()) @db.Uuid
+  weeklyPlanId String    @db.Uuid
+  recipeId     String    @db.Uuid
   dayOfWeek    DayOfWeek
   mealType     MealType
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   weeklyPlan WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
   recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
@@ -215,33 +221,33 @@ model PlanItem {
 }
 
 model RecipeIngredient {
-  id         String   @id @default(uuid()) @db.Uuid
-  recipeId   String   @db.Uuid
-  ingredientId String @db.Uuid
-  name       String
-  amount     Float
-  unit       String
+  id               String   @id @default(uuid()) @db.Uuid
+  recipeId         String   @db.Uuid
+  ingredientId     String   @db.Uuid
+  name             String
+  amount           Float
+  unit             String
   normalizedAmount Float
   normalizedUnit   String
-  department String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  department       String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  recipe      Recipe      @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  ingredient  Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
 
   @@index([recipeId])
   @@index([ingredientId])
 }
 
 model ShoppingItemCheck {
-  id         String   @id @default(uuid()) @db.Uuid
-  householdId String  @db.Uuid
-  weekStart  DateTime
-  productKey String
-  isChecked  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  weekStart   DateTime
+  productKey  String
+  isChecked   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
@@ -257,7 +263,7 @@ model ShoppingList {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   items     ShoppingListItem[]
 
   @@unique([householdId, weekStart])
@@ -292,8 +298,8 @@ model ShoppingListArchive {
   archivedAt  DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  items     ShoppingListArchiveItem[]
+  household     Household                  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items         ShoppingListArchiveItem[]
   currentStates ShoppingListArchiveState[] @relation("CurrentShoppingListArchive")
 
   @@unique([householdId, weekStart, revision])
@@ -328,7 +334,7 @@ model ShoppingListArchiveState {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household      Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
   currentArchive ShoppingListArchive? @relation("CurrentShoppingListArchive", fields: [currentArchiveId], references: [id], onDelete: SetNull)
 
   @@unique([householdId, weekStart])
@@ -342,7 +348,7 @@ model SharedMealPlan {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
   items     SharedMealPlanItem[]
 
   @@unique([householdId, weekStart])
@@ -365,15 +371,15 @@ model SharedMealPlanItem {
 }
 
 model PushDevice {
-  id          String        @id @default(uuid()) @db.Uuid
-  userId      String        @db.Uuid
-  deviceToken String        @unique
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @db.Uuid
+  deviceToken String       @unique
   platform    PushPlatform
   appBundleId String
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  lastSeenAt  DateTime      @default(now())
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  lastSeenAt  DateTime     @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -424,4 +430,12 @@ enum DietPreferenceValue {
   PESCATARIAN
   KETO
   PALEO
+}
+
+enum UserGoal {
+  HEALTHY
+  LOSE
+  GAIN
+  MAINTAIN
+  PLAN
 }

@@ -24,6 +24,10 @@ const mockUser = {
   email: 'test@example.com',
   emailVerified: false,
   avatarUrl: null,
+  yearOfBirth: null,
+  heightCm: null,
+  weightKg: null,
+  onboardingCompletedAt: null,
   lastLoginAt: new Date(),
 };
 
@@ -36,6 +40,10 @@ const mockAppleUser = {
   email: 'rafal@example.com',
   emailVerified: true,
   avatarUrl: null,
+  yearOfBirth: null,
+  heightCm: null,
+  weightKg: null,
+  onboardingCompletedAt: null,
   lastLoginAt: new Date(),
 };
 
