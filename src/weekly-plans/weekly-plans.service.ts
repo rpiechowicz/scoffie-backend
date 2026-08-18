@@ -20,49 +20,79 @@ import {
 import { runSerializable } from './utils/transaction-runner.util';
 import { ShoppingListService } from './services/shopping-list.service';
 
+/**
+ * Everything a PlanItem read needs: the recipe payload the app renders, plus
+ * the participant ids that say who the meal is for (empty = everyone).
+ */
+const PLAN_ITEM_INCLUDE = {
+  recipe: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      mealType: true,
+      difficulty: true,
+      prepTimeMinutes: true,
+      servings: true,
+      imageUrl: true,
+      nutritionKcal: true,
+      nutritionProtein: true,
+      nutritionFat: true,
+      nutritionCarbs: true,
+      nutritionFiber: true,
+      nutritionSalt: true,
+      isActive: true,
+      authorId: true,
+      householdId: true,
+      ingredients: true,
+    },
+  },
+  participants: { select: { userId: true } },
+} satisfies Prisma.PlanItemInclude;
+
+/**
+ * Flattens the participant join rows into the flat `participantIds` array the
+ * clients read (see `PlanItemDto`). Without this the wire shape would leak the
+ * junction table as `participants: [{ userId }]`.
+ */
+function withParticipantIds<T extends { participants?: { userId: string }[] }>(
+  item: T,
+): Omit<T, 'participants'> & { participantIds: string[] } {
+  const { participants, ...rest } = item;
+  return {
+    ...rest,
+    participantIds: (participants ?? []).map((p) => p.userId),
+  };
+}
+
 @Injectable()
 export class WeeklyPlansService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly shoppingListService: ShoppingListService,
   ) {}
-  private static readonly MAX_ITEMS_PER_MEAL_TYPE = 7;
-  private static readonly MAX_ITEMS_TOTAL = 21;
+  /**
+   * A single (day, mealType) slot may now hold several recipes — one per
+   * household split. The caps scale accordingly: at most 6 variants in one
+   * slot, so 7 days × 6 per meal type, and 3 meal types in total.
+   */
+  private static readonly MAX_VARIANTS_PER_SLOT = 6;
+  private static readonly MAX_ITEMS_PER_MEAL_TYPE = 7 * 6;
+  private static readonly MAX_ITEMS_TOTAL = 7 * 6 * 3;
 
   async listByHousehold(userId: string, householdId: string) {
     await ensureMembership(this.prisma, userId, householdId);
-    return this.prisma.weeklyPlan.findMany({
+    const plans = await this.prisma.weeklyPlan.findMany({
       where: { householdId },
       orderBy: { weekStart: 'desc' },
       include: {
-        items: {
-          include: {
-            recipe: {
-              select: {
-                id: true,
-                title: true,
-                description: true,
-                mealType: true,
-                difficulty: true,
-                prepTimeMinutes: true,
-                servings: true,
-                imageUrl: true,
-                nutritionKcal: true,
-                nutritionProtein: true,
-                nutritionFat: true,
-                nutritionCarbs: true,
-                nutritionFiber: true,
-                nutritionSalt: true,
-                isActive: true,
-                authorId: true,
-                householdId: true,
-                ingredients: true,
-              },
-            },
-          },
-        },
+        items: { include: PLAN_ITEM_INCLUDE },
       },
     });
+    return plans.map((plan) => ({
+      ...plan,
+      items: plan.items.map(withParticipantIds),
+    }));
   }
 
   async getByHouseholdAndWeek(
@@ -77,37 +107,15 @@ export class WeeklyPlansService {
       },
       include: {
         items: {
-          include: {
-            recipe: {
-              select: {
-                id: true,
-                title: true,
-                description: true,
-                mealType: true,
-                difficulty: true,
-                prepTimeMinutes: true,
-                servings: true,
-                imageUrl: true,
-                nutritionKcal: true,
-                nutritionProtein: true,
-                nutritionFat: true,
-                nutritionCarbs: true,
-                nutritionFiber: true,
-                nutritionSalt: true,
-                isActive: true,
-                authorId: true,
-                householdId: true,
-                ingredients: true,
-              },
-            },
-          },
+          include: PLAN_ITEM_INCLUDE,
+          orderBy: [{ mealType: 'asc' }, { createdAt: 'asc' }],
         },
       },
     });
     if (!plan) {
       throw new NotFoundException('Weekly plan not found');
     }
-    return plan;
+    return { ...plan, items: plan.items.map(withParticipantIds) };
   }
 
   async create(userId: string, householdId: string, dto: CreateWeeklyPlanDto) {
@@ -132,7 +140,7 @@ export class WeeklyPlansService {
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, plan.householdId);
 
     return this.prisma.$transaction(async (tx) => {
-      const [existingForMealType, existingTotal, existingSlot] =
+      const [existingForMealType, existingTotal, variantsInSlot, sameRecipe] =
         await Promise.all([
           tx.planItem.count({
             where: {
@@ -143,25 +151,43 @@ export class WeeklyPlansService {
           tx.planItem.count({
             where: { weeklyPlanId },
           }),
-          tx.planItem.findFirst({
+          tx.planItem.count({
             where: {
               weeklyPlanId,
               dayOfWeek: dto.dayOfWeek,
               mealType: dto.mealType,
             },
           }),
+          // A slot may hold several recipes (one per household split), so the
+          // conflict is now "this exact recipe is already in this slot".
+          tx.planItem.findFirst({
+            where: {
+              weeklyPlanId,
+              dayOfWeek: dto.dayOfWeek,
+              mealType: dto.mealType,
+              recipeId: dto.recipeId,
+            },
+          }),
         ]);
 
-      if (existingSlot) {
+      if (sameRecipe) {
         throw new ConflictException(
-          'This day and meal slot is already assigned in weekly plan',
+          'This recipe is already assigned to that day and meal slot',
+        );
+      }
+
+      if (variantsInSlot >= WeeklyPlansService.MAX_VARIANTS_PER_SLOT) {
+        throw new AppException(
+          'PLAN_SLOT_VARIANT_LIMIT_REACHED',
+          `Slot variant limit reached (max ${WeeklyPlansService.MAX_VARIANTS_PER_SLOT} per meal)`,
+          HttpStatus.BAD_REQUEST,
         );
       }
 
       if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
         throw new AppException(
           'PLAN_SLOT_LIMIT_REACHED',
-          'Meal type limit reached (max 7 per week)',
+          `Meal type limit reached (max ${WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE} per week)`,
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -169,7 +195,7 @@ export class WeeklyPlansService {
       if (existingTotal >= WeeklyPlansService.MAX_ITEMS_TOTAL) {
         throw new AppException(
           'PLAN_TOTAL_LIMIT_REACHED',
-          'Weekly plan total limit reached (max 21 items)',
+          `Weekly plan total limit reached (max ${WeeklyPlansService.MAX_ITEMS_TOTAL} items)`,
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -190,7 +216,7 @@ export class WeeklyPlansService {
           error.code === 'P2002'
         ) {
           throw new ConflictException(
-            'This day and meal slot is already assigned in weekly plan',
+            'This recipe is already assigned to that day and meal slot',
           );
         }
         throw error;
@@ -245,6 +271,10 @@ export class WeeklyPlansService {
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
+    const participantIds = await this.resolveParticipants(
+      householdId,
+      dto.participantIds,
+    );
 
     return this.prisma.$transaction(async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
@@ -270,43 +300,72 @@ export class WeeklyPlansService {
         select: { id: true },
       });
 
-      const existingSlot = await tx.planItem.findFirst({
+      // The item is identified by its recipe, not just by the slot: a slot can
+      // hold one variant per household split. Re-upserting the same recipe
+      // only rewrites who it is for.
+      const existingItem = await tx.planItem.findFirst({
         where: {
           weeklyPlanId: weeklyPlan.id,
           dayOfWeek: dto.dayOfWeek,
           mealType: dto.mealType,
+          recipeId: dto.recipeId,
         },
+        select: { id: true },
       });
 
-      if (existingSlot) {
+      if (existingItem) {
+        await tx.planItemParticipant.deleteMany({
+          where: { planItemId: existingItem.id },
+        });
         const updatedItem = await tx.planItem.update({
-          where: { id: existingSlot.id },
-          data: { recipeId: dto.recipeId },
+          where: { id: existingItem.id },
+          data: {
+            participants: {
+              create: participantIds.map((id) => ({ userId: id })),
+            },
+          },
+          include: PLAN_ITEM_INCLUDE,
         });
         await this.shoppingListService.markShoppingListStale(
           householdId,
           weekStartDate,
           tx,
         );
-        return updatedItem;
+        return withParticipantIds(updatedItem);
       }
 
-      const [existingForMealType, existingTotal] = await Promise.all([
-        tx.planItem.count({
-          where: {
-            weeklyPlanId: weeklyPlan.id,
-            mealType: dto.mealType,
-          },
-        }),
-        tx.planItem.count({
-          where: { weeklyPlanId: weeklyPlan.id },
-        }),
-      ]);
+      const [existingForMealType, existingTotal, variantsInSlot] =
+        await Promise.all([
+          tx.planItem.count({
+            where: {
+              weeklyPlanId: weeklyPlan.id,
+              mealType: dto.mealType,
+            },
+          }),
+          tx.planItem.count({
+            where: { weeklyPlanId: weeklyPlan.id },
+          }),
+          tx.planItem.count({
+            where: {
+              weeklyPlanId: weeklyPlan.id,
+              dayOfWeek: dto.dayOfWeek,
+              mealType: dto.mealType,
+            },
+          }),
+        ]);
+
+      if (variantsInSlot >= WeeklyPlansService.MAX_VARIANTS_PER_SLOT) {
+        throw new AppException(
+          'PLAN_SLOT_VARIANT_LIMIT_REACHED',
+          `Slot variant limit reached (max ${WeeklyPlansService.MAX_VARIANTS_PER_SLOT} per meal)`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
       if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
         throw new AppException(
           'PLAN_SLOT_LIMIT_REACHED',
-          'Meal type limit reached (max 7 per week)',
+          `Meal type limit reached (max ${WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE} per week)`,
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -314,26 +373,22 @@ export class WeeklyPlansService {
       if (existingTotal >= WeeklyPlansService.MAX_ITEMS_TOTAL) {
         throw new AppException(
           'PLAN_TOTAL_LIMIT_REACHED',
-          'Weekly plan total limit reached (max 21 items)',
+          `Weekly plan total limit reached (max ${WeeklyPlansService.MAX_ITEMS_TOTAL} items)`,
           HttpStatus.BAD_REQUEST,
         );
       }
 
-      const createdItem = await tx.planItem.upsert({
-        where: {
-          weeklyPlanId_dayOfWeek_mealType: {
-            weeklyPlanId: weeklyPlan.id,
-            dayOfWeek: dto.dayOfWeek,
-            mealType: dto.mealType,
-          },
-        },
-        update: { recipeId: dto.recipeId },
-        create: {
+      const createdItem = await tx.planItem.create({
+        data: {
           weeklyPlanId: weeklyPlan.id,
           dayOfWeek: dto.dayOfWeek,
           mealType: dto.mealType,
           recipeId: dto.recipeId,
+          participants: {
+            create: participantIds.map((id) => ({ userId: id })),
+          },
         },
+        include: PLAN_ITEM_INCLUDE,
       });
 
       await this.shoppingListService.markShoppingListStale(
@@ -342,7 +397,7 @@ export class WeeklyPlansService {
         tx,
       );
 
-      return createdItem;
+      return withParticipantIds(createdItem);
     });
   }
 
@@ -378,39 +433,73 @@ export class WeeklyPlansService {
         return null;
       }
 
-      const existingSlot = await tx.planItem.findFirst({
+      // With splits a slot can hold several variants. `recipeId` targets one
+      // of them; omitting it clears the whole slot, which is what every
+      // pre-split caller means by this message.
+      const doomed = await tx.planItem.findMany({
         where: {
           weeklyPlanId: weeklyPlan.id,
           dayOfWeek: dto.dayOfWeek,
           mealType: dto.mealType,
+          ...(dto.recipeId ? { recipeId: dto.recipeId } : {}),
         },
         select: { id: true },
       });
 
-      if (!existingSlot) {
+      if (doomed.length === 0) {
         return null;
       }
 
-      try {
-        const deletedItem = await tx.planItem.delete({
-          where: { id: existingSlot.id },
-        });
-        await this.shoppingListService.markShoppingListStale(
-          householdId,
-          weekStartDate,
-          tx,
-        );
-        return deletedItem;
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2025'
-        ) {
-          return null;
-        }
-        throw error;
+      const { count } = await tx.planItem.deleteMany({
+        where: { id: { in: doomed.map((item) => item.id) } },
+      });
+
+      if (count === 0) {
+        return null;
       }
+
+      await this.shoppingListService.markShoppingListStale(
+        householdId,
+        weekStartDate,
+        tx,
+      );
+
+      return { removedItemIds: doomed.map((item) => item.id), count };
     });
+  }
+
+  /**
+   * Narrows a requested audience down to real household members.
+   *
+   * An empty result means „Wspólne" — the meal is for the whole household.
+   * Naming every member says exactly the same thing, so it collapses to empty
+   * and the app keeps showing a single house badge instead of N avatars.
+   */
+  private async resolveParticipants(
+    householdId: string,
+    requested?: string[],
+  ): Promise<string[]> {
+    const unique = Array.from(new Set(requested ?? []));
+    if (unique.length === 0) {
+      return [];
+    }
+
+    const memberships = await this.prisma.membership.findMany({
+      where: { householdId },
+      select: { userId: true },
+    });
+    const memberIds = new Set(memberships.map((m) => m.userId));
+
+    const unknown = unique.filter((id) => !memberIds.has(id));
+    if (unknown.length > 0) {
+      throw new AppException(
+        'PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD',
+        `Not a household member: ${unknown.join(', ')}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return unique.length === memberIds.size ? [] : unique;
   }
 
   async clearWeekPlan(userId: string, householdId: string, weekStart: string) {

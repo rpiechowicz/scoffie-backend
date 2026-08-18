@@ -32,6 +32,8 @@ model User {
   refreshTokens   RefreshToken[]
   pushDevices     PushDevice[]
   preferences     UserPreference?
+
+  planParticipations PlanItemParticipant[]
 }
 
 model UserPreference {
@@ -214,10 +216,32 @@ model PlanItem {
   mealType     MealType
   createdAt    DateTime  @default(now())
 
-  weeklyPlan WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
-  recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  weeklyPlan   WeeklyPlan            @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
+  recipe       Recipe                @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  participants PlanItemParticipant[]
 
-  @@unique([weeklyPlanId, dayOfWeek, mealType])
+  // A (day, mealType) slot can hold several items — one per recipe — so the
+  // household can split a meal ("Ania eats a salad, Marek a schnitzel").
+  // Uniqueness is recipe-aware to keep the same recipe from being added twice
+  // to one slot.
+  @@unique([weeklyPlanId, dayOfWeek, mealType, recipeId])
+  @@index([weeklyPlanId, dayOfWeek, mealType])
+}
+
+/// Which household members a given plan item is for.
+/// An empty participant set means "everyone" — that keeps every pre-split row
+/// valid without a backfill, and is what the app renders as „Wspólne".
+model PlanItemParticipant {
+  planItemId String   @db.Uuid
+  userId     String   @db.Uuid
+  createdAt  DateTime @default(now())
+
+  planItem PlanItem @relation(fields: [planItemId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([planItemId, userId])
+  @@index([planItemId])
+  @@index([userId])
 }
 
 model RecipeIngredient {
