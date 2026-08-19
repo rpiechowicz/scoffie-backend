@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { WeeklyPlansService } from './weekly-plans.service';
 import { ShoppingListService } from './services/shopping-list.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -101,6 +101,14 @@ const makePrismaMock = () => {
       update: jest.fn().mockResolvedValue(mockPlanItem),
       delete: jest.fn().mockResolvedValue(mockPlanItem),
       deleteMany: jest.fn().mockResolvedValue({ count: 7 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue(mockPlanItem),
+    },
+    planItemConsumption: {
+      upsert: jest.fn().mockResolvedValue({
+        planItemId: mockPlanItem.id,
+        userId: mockUserId,
+      }),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     shoppingList: {
       findUnique: jest.fn().mockImplementation((args?: any) => {
@@ -233,6 +241,75 @@ describe('WeeklyPlansService', () => {
           mealType: 'BREAKFAST',
         }),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─── setMealEaten ─────────────────────────────────────────────────────────
+
+  describe('setMealEaten', () => {
+    beforeEach(() => {
+      prisma.planItem.findFirst.mockResolvedValue(mockPlanItem);
+    });
+
+    it('powinno zapisać znacznik zjedzenia dla użytkownika', async () => {
+      await service.setMealEaten(mockUserId, mockHouseholdId, mockWeekStart, {
+        dayOfWeek: 'MON',
+        mealType: 'BREAKFAST',
+        recipeId: mockRecipeId,
+        isEaten: true,
+      });
+
+      expect(prisma.planItemConsumption.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            planItemId_userId: {
+              planItemId: mockPlanItem.id,
+              userId: mockUserId,
+            },
+          },
+        }),
+      );
+      expect(prisma.planItemConsumption.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('powinno zdjąć znacznik gdy isEaten=false', async () => {
+      await service.setMealEaten(mockUserId, mockHouseholdId, mockWeekStart, {
+        dayOfWeek: 'MON',
+        mealType: 'BREAKFAST',
+        recipeId: mockRecipeId,
+        isEaten: false,
+      });
+
+      expect(prisma.planItemConsumption.deleteMany).toHaveBeenCalledWith({
+        where: { planItemId: mockPlanItem.id, userId: mockUserId },
+      });
+      expect(prisma.planItemConsumption.upsert).not.toHaveBeenCalled();
+    });
+
+    it('powinno odrzucić gdy użytkownik nie jest członkiem', async () => {
+      prisma.membership.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.setMealEaten('outsider', mockHouseholdId, mockWeekStart, {
+          dayOfWeek: 'MON',
+          mealType: 'BREAKFAST',
+          recipeId: mockRecipeId,
+          isEaten: true,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('powinno odrzucić gdy posiłku nie ma w slocie', async () => {
+      prisma.planItem.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.setMealEaten(mockUserId, mockHouseholdId, mockWeekStart, {
+          dayOfWeek: 'MON',
+          mealType: 'BREAKFAST',
+          recipeId: mockRecipeId,
+          isEaten: true,
+        }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

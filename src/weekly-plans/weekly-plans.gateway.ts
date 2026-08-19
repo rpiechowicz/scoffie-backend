@@ -15,6 +15,7 @@ import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
+import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
 import { Server, Socket } from 'socket.io';
 import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -104,6 +105,13 @@ class WeeklyPlansRemoveWeekSlotPayload {
   householdId: string;
   weekStart: string;
   data: RemoveWeekSlotDto;
+}
+
+class WeeklyPlansSetMealEatenPayload {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+  data: SetMealEatenDto;
 }
 
 class WeeklyPlansGetSavedPlanPayload {
@@ -509,6 +517,36 @@ export class WeeklyPlansGateway
           weekStart: payload.weekStart,
         },
       );
+
+      return result;
+    });
+  }
+
+  @SubscribeMessage('weeklyPlans:setMealEaten')
+  setMealEaten(@MessageBody() payload: WeeklyPlansSetMealEatenPayload) {
+    return wsRespond(async () => {
+      const result = await this.weeklyPlansService.setMealEaten(
+        payload.userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      );
+
+      // Broadcast so a second device of the same user redraws, but no push
+      // notification and no shopping-list invalidation: logging what you ate
+      // changes neither the plan nor the list, and nagging the household
+      // about someone's breakfast would be noise.
+      const changeVersion = this.nextChangeVersion();
+      this.server.emit('weeklyPlans:weekChanged', {
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'SET_MEAL_EATEN',
+        changedByUserId: payload.userId,
+        changedByDisplayName: null,
+        dayOfWeek: payload.data?.dayOfWeek,
+        mealType: payload.data?.mealType,
+        changeVersion,
+      });
 
       return result;
     });
