@@ -10,6 +10,7 @@ import { CreatePlanItemDto } from './dto/create-plan-item.dto';
 import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
+import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
 import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
 import { Prisma } from '@prisma/client';
 import { parseWeekStart } from './utils/week-formatting.util';
@@ -48,20 +49,30 @@ const PLAN_ITEM_INCLUDE = {
     },
   },
   participants: { select: { userId: true } },
+  consumptions: { select: { userId: true } },
 } satisfies Prisma.PlanItemInclude;
 
 /**
- * Flattens the participant join rows into the flat `participantIds` array the
- * clients read (see `PlanItemDto`). Without this the wire shape would leak the
- * junction table as `participants: [{ userId }]`.
+ * Flattens the join rows into the flat id arrays the clients read (see
+ * `PlanItemDto`). Without this the wire shape would leak the junction tables
+ * as `participants: [{ userId }]` / `consumptions: [{ userId }]`.
  */
-function withParticipantIds<T extends { participants?: { userId: string }[] }>(
+function withPlanItemRelationIds<
+  T extends {
+    participants?: { userId: string }[];
+    consumptions?: { userId: string }[];
+  },
+>(
   item: T,
-): Omit<T, 'participants'> & { participantIds: string[] } {
-  const { participants, ...rest } = item;
+): Omit<T, 'participants' | 'consumptions'> & {
+  participantIds: string[];
+  eatenByUserIds: string[];
+} {
+  const { participants, consumptions, ...rest } = item;
   return {
     ...rest,
     participantIds: (participants ?? []).map((p) => p.userId),
+    eatenByUserIds: (consumptions ?? []).map((c) => c.userId),
   };
 }
 
@@ -91,7 +102,7 @@ export class WeeklyPlansService {
     });
     return plans.map((plan) => ({
       ...plan,
-      items: plan.items.map(withParticipantIds),
+      items: plan.items.map(withPlanItemRelationIds),
     }));
   }
 
@@ -115,7 +126,7 @@ export class WeeklyPlansService {
     if (!plan) {
       throw new NotFoundException('Weekly plan not found');
     }
-    return { ...plan, items: plan.items.map(withParticipantIds) };
+    return { ...plan, items: plan.items.map(withPlanItemRelationIds) };
   }
 
   async create(userId: string, householdId: string, dto: CreateWeeklyPlanDto) {
@@ -331,7 +342,7 @@ export class WeeklyPlansService {
           weekStartDate,
           tx,
         );
-        return withParticipantIds(updatedItem);
+        return withPlanItemRelationIds(updatedItem);
       }
 
       const [existingForMealType, existingTotal, variantsInSlot] =
@@ -397,7 +408,7 @@ export class WeeklyPlansService {
         tx,
       );
 
-      return withParticipantIds(createdItem);
+      return withPlanItemRelationIds(createdItem);
     });
   }
 
@@ -466,6 +477,71 @@ export class WeeklyPlansService {
 
       return { removedItemIds: doomed.map((item) => item.id), count };
     });
+  }
+
+  /**
+   * Marks one planned meal as eaten by the caller, or clears that mark.
+   *
+   * The mark is per-user (`PlanItemConsumption`), so two members sharing a
+   * dinner each log it for themselves. Idempotent in both directions: marking
+   * an already-eaten meal is a no-op, and unmarking one that was never marked
+   * quietly returns the item unchanged — a double-tap from a flaky connection
+   * must not become an error the app has to explain.
+   */
+  async setMealEaten(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    dto: SetMealEatenDto,
+  ) {
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+
+    const weeklyPlan = await this.prisma.weeklyPlan.findUnique({
+      where: {
+        householdId_weekStart: { householdId, weekStart: weekStartDate },
+      },
+      select: { id: true },
+    });
+
+    if (!weeklyPlan) {
+      throw new NotFoundException('Weekly plan not found for this week');
+    }
+
+    const planItem = await this.prisma.planItem.findFirst({
+      where: {
+        weeklyPlanId: weeklyPlan.id,
+        dayOfWeek: dto.dayOfWeek,
+        mealType: dto.mealType,
+        recipeId: dto.recipeId,
+      },
+      select: { id: true },
+    });
+
+    if (!planItem) {
+      throw new NotFoundException('Planned meal not found in this slot');
+    }
+
+    if (dto.isEaten) {
+      await this.prisma.planItemConsumption.upsert({
+        where: {
+          planItemId_userId: { planItemId: planItem.id, userId },
+        },
+        update: {},
+        create: { planItemId: planItem.id, userId },
+      });
+    } else {
+      await this.prisma.planItemConsumption.deleteMany({
+        where: { planItemId: planItem.id, userId },
+      });
+    }
+
+    const updated = await this.prisma.planItem.findUniqueOrThrow({
+      where: { id: planItem.id },
+      include: PLAN_ITEM_INCLUDE,
+    });
+
+    return withPlanItemRelationIds(updated);
   }
 
   /**

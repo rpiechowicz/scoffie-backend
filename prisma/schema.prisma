@@ -34,6 +34,7 @@ model User {
   preferences     UserPreference?
 
   planParticipations PlanItemParticipant[]
+  mealConsumptions   PlanItemConsumption[]
 }
 
 model UserPreference {
@@ -219,6 +220,7 @@ model PlanItem {
   weeklyPlan   WeeklyPlan            @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
   recipe       Recipe                @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   participants PlanItemParticipant[]
+  consumptions PlanItemConsumption[]
 
   // A (day, mealType) slot can hold several items — one per recipe — so the
   // household can split a meal ("Ania eats a salad, Marek a schnitzel").
@@ -235,6 +237,24 @@ model PlanItemParticipant {
   planItemId String   @db.Uuid
   userId     String   @db.Uuid
   createdAt  DateTime @default(now())
+
+  planItem PlanItem @relation(fields: [planItemId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([planItemId, userId])
+  @@index([planItemId])
+  @@index([userId])
+}
+
+/// Who actually ate a planned meal, and when.
+///
+/// Per-user rather than a flag on PlanItem: a shared item („Wspólne", no
+/// participant rows) is eaten by each member on their own schedule, so one
+/// boolean could not answer „did *I* eat this?". Row present = eaten.
+model PlanItemConsumption {
+  planItemId String   @db.Uuid
+  userId     String   @db.Uuid
+  eatenAt    DateTime @default(now())
 
   planItem PlanItem @relation(fields: [planItemId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)

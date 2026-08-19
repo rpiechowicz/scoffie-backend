@@ -24,6 +24,14 @@ export class PlanItemDto {
   @ApiProperty({ type: [String] })
   participantIds: string[];
 
+  /**
+   * Household members who marked this meal as eaten. Per-user rather than a
+   * flag, because a shared item is eaten by each member on their own
+   * schedule — see `PlanItemConsumption`.
+   */
+  @ApiProperty({ type: [String] })
+  eatenByUserIds: string[];
+
   @ApiProperty()
   createdAt: Date;
 }
