@@ -41,7 +41,11 @@ export class ShoppingListService {
     weekStartDate: Date,
     client: PrismaReadClient = this.prisma,
   ): Promise<ShoppingAccumulator[]> {
-    const sharedPlan = await client.sharedMealPlan.findUnique({
+    // Day slots are the source of truth: Plan v2 assigns a recipe straight to a
+    // (day, slot), and a slot can hold one dish per household member. The
+    // week-long shared pool it replaced is only consulted for weeks planned
+    // before that — those have no day items at all — so no backfill is needed.
+    const weeklyPlan = await client.weeklyPlan.findUnique({
       where: {
         householdId_weekStart: {
           householdId,
@@ -83,14 +87,15 @@ export class ShoppingListService {
       };
       quantity: number;
     }> = [];
-    if (sharedPlan && sharedPlan.items.length > 0) {
-      ingredientSources = sharedPlan.items.map((item) => ({
+    if (weeklyPlan && weeklyPlan.items.length > 0) {
+      // One item per dish, so a split slot contributes both people's meals.
+      ingredientSources = weeklyPlan.items.map((item) => ({
         recipe: item.recipe,
-        quantity: Math.max(1, item.quantity),
+        quantity: 1,
       }));
     } else {
-      // Backward compatibility fallback: if shared plan is not yet saved, derive list from calendar slots.
-      const weeklyPlan = await client.weeklyPlan.findUnique({
+      // Legacy weeks: planned as a pool, never assigned to days.
+      const sharedPlan = await client.sharedMealPlan.findUnique({
         where: {
           householdId_weekStart: {
             householdId,
@@ -118,9 +123,9 @@ export class ShoppingListService {
           },
         },
       });
-      ingredientSources = (weeklyPlan?.items ?? []).map((item) => ({
+      ingredientSources = (sharedPlan?.items ?? []).map((item) => ({
         recipe: item.recipe,
-        quantity: 1,
+        quantity: Math.max(1, item.quantity),
       }));
     }
 

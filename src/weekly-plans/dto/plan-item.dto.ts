@@ -20,6 +20,10 @@ export class PlanItemDto {
   @ApiProperty({ enum: ['BREAKFAST', 'LUNCH', 'DINNER'] })
   mealType: string;
 
+  /** Household member ids this item is for. Empty = everyone („Wspólne"). */
+  @ApiProperty({ type: [String] })
+  participantIds: string[];
+
   @ApiProperty()
   createdAt: Date;
 }
