@@ -249,6 +249,11 @@ export class HouseholdsService {
             displayName: true,
             email: true,
             avatarUrl: true,
+            // Kolor awatara jedzie razem z domownikiem, zeby ta sama osoba
+            // wygladala tak samo w Ustawieniach i w Planie. Bez tego klient
+            // kolorowal awatary domownikow po pozycji na liscie i jeden
+            // uzytkownik mial dwa rozne kolory na dwoch ekranach.
+            avatarColor: true,
             createdAt: true,
             updatedAt: true,
           },
