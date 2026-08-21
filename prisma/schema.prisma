@@ -18,7 +18,19 @@ model User {
   avatarUrl             String?
   yearOfBirth           Int?
   heightCm              Int?
-  weightKg              Int?
+  // Waga jako Float, nie Int — wagi ciała podaje się z dokładnością do
+  // 0,1 kg i zaokrąglanie 83,5 do 84 psuło zarówno BMI, jak i policzone
+  // zapotrzebowanie.
+  weightKg              Float?
+  // Płeć wchodzi wyłącznie do wzoru Mifflina-St Jeora, który różnicuje BMR
+  // stałą (+5 / −161). Nullable, bo konta założone wcześniej jej nie mają
+  // i wtedy klient liczy ze średniej.
+  sex                   Sex?
+  // Indeks gradientu awatara, przydzielany raz przy kończeniu onboardingu.
+  // Trzymany na serwerze, a nie liczony z hasza na kliencie, bo przydział
+  // musi widzieć, jakie kolory zajęli już pozostali domownicy — inaczej
+  // dwie osoby w jednym gospodarstwie potrafiłyby wylosować to samo.
+  avatarColor           Int?
   onboardingCompletedAt DateTime?
   lastLoginAt           DateTime?
   createdAt             DateTime     @default(now())
@@ -44,6 +56,13 @@ model UserPreference {
   allergens      String[]            @default([])
   goal           UserGoal            @default(HEALTHY)
   activityLevel  Int                 @default(2)
+  // Makra w gramach. Nullable, bo dopóki uzytkownik ich nie tknie, klient
+  // liczy je z celu, sylwetki i liczby treningow — a policzona wartosc ma
+  // podazac za zmianami tamtych, nie zamrazac sie w bazie. Zapisujemy je
+  // dopiero, gdy ktos je nadpisze recznie.
+  proteinG       Int?
+  fatG           Int?
+  carbsG         Int?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -483,6 +502,11 @@ enum AuthProvider {
   DEV
 }
 
+enum Sex {
+  MALE
+  FEMALE
+}
+
 enum DietPreferenceValue {
   NONE
   VEGETARIAN
@@ -490,6 +514,7 @@ enum DietPreferenceValue {
   PESCATARIAN
   KETO
   PALEO
+  HIGH_PROTEIN
 }
 
 enum UserGoal {

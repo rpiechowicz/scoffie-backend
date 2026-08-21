@@ -10,6 +10,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { DietPreferenceValue, UserGoal } from '@prisma/client';
 
@@ -60,4 +61,31 @@ export class UpdatePreferencesDto {
   @Min(1)
   @Max(4)
   activityLevel?: number;
+
+  // Makra przyjmują `null` — to znaczy „przestań trzymać moją wartość
+  // i licz za mnie". Bez tego nie dałoby się wrócić do automatu inaczej
+  // niż zgadując, którą liczbę uznać za „pustą".
+  @ApiPropertyOptional({ example: 160, minimum: 0, maximum: 400, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsInt()
+  @Min(0)
+  @Max(400)
+  proteinG?: number | null;
+
+  @ApiPropertyOptional({ example: 61, minimum: 0, maximum: 300, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsInt()
+  @Min(0)
+  @Max(300)
+  fatG?: number | null;
+
+  @ApiPropertyOptional({ example: 254, minimum: 0, maximum: 800, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsInt()
+  @Min(0)
+  @Max(800)
+  carbsG?: number | null;
 }

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DietPreferenceValue, Prisma, UserGoal } from '@prisma/client';
+import { DietPreferenceValue, Prisma, Sex, UserGoal } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
@@ -11,6 +11,8 @@ const CALORIE_GOAL_DEFAULT = 2000;
 const ACTIVITY_LEVEL_MIN = 1;
 const ACTIVITY_LEVEL_MAX = 4;
 const ACTIVITY_LEVEL_DEFAULT = 2;
+/** Liczba gradientow awatara — musi zgadzac sie z paleta w `ProfileAvatar`. */
+const AVATAR_COLOR_COUNT = 12;
 
 export interface UserPreferencesPayload {
   dietPreference: DietPreferenceValue;
@@ -18,6 +20,10 @@ export interface UserPreferencesPayload {
   allergens: string[];
   goal: UserGoal;
   activityLevel: number;
+  // `null` = uzytkownik nie nadpisal makra i klient ma je policzyc sam.
+  proteinG: number | null;
+  fatG: number | null;
+  carbsG: number | null;
 }
 
 export interface UserProfilePayload {
@@ -28,6 +34,8 @@ export interface UserProfilePayload {
   yearOfBirth: number | null;
   heightCm: number | null;
   weightKg: number | null;
+  sex: Sex | null;
+  avatarColor: number | null;
   onboardingCompletedAt: Date | null;
 }
 
@@ -86,6 +94,9 @@ export class UsersService {
     if (data.weightKg !== undefined) {
       update.weightKg = data.weightKg;
     }
+    if (data.sex !== undefined) {
+      update.sex = data.sex;
+    }
 
     const user = await this.prisma.user.update({
       where: { id: userId },
@@ -119,10 +130,69 @@ export class UsersService {
 
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: { onboardingCompletedAt: new Date() },
+      data: {
+        onboardingCompletedAt: new Date(),
+        avatarColor: await this.pickAvatarColor(userId),
+      },
     });
 
     return this.toProfilePayload(user);
+  }
+
+  /**
+   * Przydziela indeks gradientu awatara raz, przy kończeniu onboardingu.
+   *
+   * Kolor mozna by policzyc z hasza adresu e-mail na kliencie i przez chwile
+   * tak dzialalo — ale taki przydzial nie widzi reszty gospodarstwa i dwoje
+   * domownikow potrafi wylosowac ten sam odcien. A awatary domownikow ogląda
+   * sie obok siebie, wiec akurat tam kolizja boli najbardziej.
+   *
+   * Bierzemy wiec pierwszy kolor nieuzywany przez pozostalych czlonkow
+   * gospodarstwa. Gdy wszystkie sa zajete (gospodarstwo wieksze niz paleta),
+   * schodzimy do reszty z id — powtorka jest wtedy nieunikniona, ale nadal
+   * deterministyczna.
+   */
+  private async pickAvatarColor(userId: string): Promise<number> {
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId },
+      select: { householdId: true },
+    });
+
+    const householdIds = memberships.map((m) => m.householdId);
+
+    const housemates = householdIds.length
+      ? await this.prisma.user.findMany({
+          where: {
+            id: { not: userId },
+            memberships: { some: { householdId: { in: householdIds } } },
+          },
+          select: { avatarColor: true },
+        })
+      : [];
+
+    const taken = new Set(
+      housemates
+        .map((u) => u.avatarColor)
+        .filter((c): c is number => c !== null),
+    );
+
+    for (let index = 0; index < AVATAR_COLOR_COUNT; index += 1) {
+      if (!taken.has(index)) {
+        return index;
+      }
+    }
+
+    return this.fallbackAvatarColor(userId);
+  }
+
+  /** Stabilny FNV-1a na id — ta sama funkcja co po stronie iOS. */
+  private fallbackAvatarColor(userId: string): number {
+    let hash = 0x811c9dc5;
+    for (const byte of Buffer.from(userId.toLowerCase(), 'utf8')) {
+      hash ^= byte;
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash % AVATAR_COLOR_COUNT;
   }
 
   private toProfilePayload(user: {
@@ -133,6 +203,8 @@ export class UsersService {
     yearOfBirth: number | null;
     heightCm: number | null;
     weightKg: number | null;
+    sex: Sex | null;
+    avatarColor: number | null;
     onboardingCompletedAt: Date | null;
   }): UserProfilePayload {
     return {
@@ -143,6 +215,8 @@ export class UsersService {
       yearOfBirth: user.yearOfBirth,
       heightCm: user.heightCm,
       weightKg: user.weightKg,
+      sex: user.sex,
+      avatarColor: user.avatarColor,
       onboardingCompletedAt: user.onboardingCompletedAt,
     };
   }
@@ -222,6 +296,21 @@ export class UsersService {
       create.activityLevel = clamped;
     }
 
+    // Makra przechodza jak sa, lacznie z `null` — to jest sygnal „wroc do
+    // liczenia automatem", a nie brak wartosci.
+    if (data.proteinG !== undefined) {
+      update.proteinG = data.proteinG;
+      create.proteinG = data.proteinG;
+    }
+    if (data.fatG !== undefined) {
+      update.fatG = data.fatG;
+      create.fatG = data.fatG;
+    }
+    if (data.carbsG !== undefined) {
+      update.carbsG = data.carbsG;
+      create.carbsG = data.carbsG;
+    }
+
     const result = await this.prisma.userPreference.upsert({
       where: { userId },
       update,
@@ -237,6 +326,9 @@ export class UsersService {
     allergens: string[] | null;
     goal: UserGoal;
     activityLevel: number;
+    proteinG: number | null;
+    fatG: number | null;
+    carbsG: number | null;
   }): UserPreferencesPayload {
     return {
       dietPreference: row.dietPreference,
@@ -244,7 +336,76 @@ export class UsersService {
       allergens: row.allergens ?? [],
       goal: row.goal,
       activityLevel: row.activityLevel,
+      proteinG: row.proteinG,
+      fatG: row.fatG,
+      carbsG: row.carbsG,
     };
+  }
+
+  /**
+   * Trwale usun konto uzytkownika.
+   *
+   * Kolejnosc ma znaczenie i jest podyktowana tym, co dzieje sie ze
+   * wspoldzielonym gospodarstwem:
+   *
+   * 1. Gospodarstwo, w ktorym uzytkownik jest OSTATNIM czlonkiem, ginie
+   *    razem z nim — nie ma komu zostawic planow ani listy zakupow, a
+   *    osierocony rekord i tak bylby nieosiagalny.
+   * 2. Gospodarstwo z innymi czlonkami zostaje. Jesli odchodzacy jest w nim
+   *    jedynym OWNEREM, awansujemy najstarszego stazem czlonka — inaczej
+   *    reszta domownikow zostalaby z gospodarstwem, ktorego nikt nie moze
+   *    juz administrowac.
+   * 3. Dopiero potem kasujemy uzytkownika. Reszta (preferencje, tokeny,
+   *    urzadzenia push, uczestnictwa w planach, odhaczone posilki) leci
+   *    kaskada z bazy.
+   *
+   * Calosc w jednej transakcji, zeby nieudany krok nie zostawil konta
+   * w polowicznie rozebranym stanie.
+   */
+  async deleteAccount(userId: string): Promise<{ id: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const memberships = await tx.membership.findMany({
+        where: { userId },
+        select: { householdId: true, role: true },
+      });
+
+      for (const membership of memberships) {
+        const others = await tx.membership.findMany({
+          where: {
+            householdId: membership.householdId,
+            userId: { not: userId },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, role: true },
+        });
+
+        if (others.length === 0) {
+          await tx.household.delete({ where: { id: membership.householdId } });
+          continue;
+        }
+
+        const hasAnotherOwner = others.some((m) => m.role === 'OWNER');
+        if (membership.role === 'OWNER' && !hasAnotherOwner) {
+          await tx.membership.update({
+            where: { id: others[0].id },
+            data: { role: 'OWNER' },
+          });
+        }
+      }
+
+      await tx.user.delete({ where: { id: userId } });
+    });
+
+    return { id: userId };
   }
 
   /**

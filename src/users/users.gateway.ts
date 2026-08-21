@@ -40,6 +40,10 @@ class UsersOnboardingCompletePayload {
   userId: string;
 }
 
+class UsersDeletePayload {
+  userId: string;
+}
+
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
 export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
@@ -92,6 +96,11 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return wsRespond(() =>
       this.usersService.updateProfile(payload.userId, payload.data),
     );
+  }
+
+  @SubscribeMessage('users:delete')
+  deleteAccount(@MessageBody() payload: UsersDeletePayload) {
+    return wsRespond(() => this.usersService.deleteAccount(payload.userId));
   }
 
   @SubscribeMessage('users:onboarding:complete')

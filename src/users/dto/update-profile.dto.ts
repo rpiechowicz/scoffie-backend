@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -8,6 +10,11 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+
+export enum SexDto {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+}
 
 /**
  * Partial-update payload for `users:profile:update`. Sent during the
@@ -19,7 +26,8 @@ import {
  *   - displayName: 1…64 chars (matches the existing column)
  *   - yearOfBirth: 1900…current year (server clamps)
  *   - heightCm: 80…260
- *   - weightKg: 30…300
+ *   - weightKg: 30…300, z dokładnością do 0,1 kg
+ *   - sex: MALE | FEMALE (opcjonalna, wchodzi tylko do wzoru na BMR)
  */
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Rafał' })
@@ -43,10 +51,16 @@ export class UpdateProfileDto {
   @Max(260)
   heightCm?: number;
 
-  @ApiPropertyOptional({ example: 74, minimum: 30, maximum: 300 })
+  @ApiPropertyOptional({ example: 83.5, minimum: 30, maximum: 300 })
   @IsOptional()
-  @IsInt()
+  // Jedno miejsce po przecinku — tyle, ile pokazuje każda domowa waga.
+  @IsNumber({ maxDecimalPlaces: 1 })
   @Min(30)
   @Max(300)
   weightKg?: number;
+
+  @ApiPropertyOptional({ enum: SexDto, example: SexDto.MALE })
+  @IsOptional()
+  @IsEnum(SexDto)
+  sex?: SexDto;
 }
