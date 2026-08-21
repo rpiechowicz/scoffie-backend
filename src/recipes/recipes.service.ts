@@ -28,6 +28,22 @@ const recipeListSelect = {
   nutritionFiber: true,
   nutritionSalt: true,
   isActive: true,
+  // Skladniki jada z lista, nie tylko ze szczegolami: klient filtruje
+  // katalog po diecie i alergenach uzytkownika, a bez nazw i dzialow nie
+  // ma z czego tego policzyc. Projekcja jest wezsza niz w `detailSelect`
+  // (bez `normalizedAmount` / `ingredientId`), zeby strona listy nie
+  // urosla bardziej niz to konieczne.
+  ingredients: {
+    orderBy: { createdAt: 'asc' as const },
+    select: {
+      id: true,
+      recipeId: true,
+      name: true,
+      amount: true,
+      unit: true,
+      department: true,
+    },
+  },
 } as const;
 
 type RecipeListRow = Prisma.RecipeGetPayload<{
