@@ -1,6 +1,11 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { PrismaClient } from '@prisma/client';
+import {
+  ALLOWED_UNITS,
+  normalizeIngredientAmount,
+  normalizeText,
+} from '../src/recipes/ingredient-amount.util';
 
 const prisma = new PrismaClient();
 
@@ -37,72 +42,55 @@ type RecipeBatchInput = {
   recipes: RecipeInput[];
 };
 
-type NormalizedIngredient = {
-  normalizedAmount: number;
-  normalizedUnit: 'g' | 'ml' | 'szt';
-};
-
-const RECIPE_IMPORT_FILE = process.env.RECIPE_IMPORT_FILE ?? 'prisma/catalog/recipes-batch-test-v1.json';
-const RECIPE_IMPORT_CLEAR_EXISTING = process.env.RECIPE_IMPORT_CLEAR_EXISTING === 'true';
+const RECIPE_IMPORT_FILE =
+  process.env.RECIPE_IMPORT_FILE ?? 'prisma/catalog/recipes-batch-test-v1.json';
+const RECIPE_IMPORT_CLEAR_EXISTING =
+  process.env.RECIPE_IMPORT_CLEAR_EXISTING === 'true';
 const RECIPE_IMPORT_OWNER_USER_ID =
-  process.env.RECIPE_IMPORT_OWNER_USER_ID ?? '11111111-1111-4111-8111-111111111111';
+  process.env.RECIPE_IMPORT_OWNER_USER_ID ??
+  '11111111-1111-4111-8111-111111111111';
 const RECIPE_IMPORT_OWNER_LEGACY_SUB =
-  process.env.RECIPE_IMPORT_OWNER_LEGACY_SUB ?? `legacy-${RECIPE_IMPORT_OWNER_USER_ID}`;
-const RECIPE_IMPORT_OWNER_DISPLAY_NAME = process.env.RECIPE_IMPORT_OWNER_DISPLAY_NAME ?? 'Recipe Import Bot';
-const RECIPE_IMPORT_OWNER_EMAIL = process.env.RECIPE_IMPORT_OWNER_EMAIL ?? 'import-bot@example.com';
-const RECIPE_IMPORT_HOUSEHOLD_NAME = process.env.RECIPE_IMPORT_HOUSEHOLD_NAME ?? 'Home';
+  process.env.RECIPE_IMPORT_OWNER_LEGACY_SUB ??
+  `legacy-${RECIPE_IMPORT_OWNER_USER_ID}`;
+const RECIPE_IMPORT_OWNER_DISPLAY_NAME =
+  process.env.RECIPE_IMPORT_OWNER_DISPLAY_NAME ?? 'Recipe Import Bot';
+const RECIPE_IMPORT_OWNER_EMAIL =
+  process.env.RECIPE_IMPORT_OWNER_EMAIL ?? 'import-bot@example.com';
+const RECIPE_IMPORT_HOUSEHOLD_NAME =
+  process.env.RECIPE_IMPORT_HOUSEHOLD_NAME ?? 'Home';
 const RECIPE_IMPORT_ID_POOL = process.env.RECIPE_IMPORT_ID_POOL ?? '';
 const RECIPE_IMPORT_ID_POOL_FILE =
-  process.env.RECIPE_IMPORT_ID_POOL_FILE ?? 'prisma/catalog/recipes-approved-30-image-ids.txt';
-const RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS = process.env.RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS !== 'false';
-const RECIPE_IMPORT_BUILD_R2_IMAGE_URLS = process.env.RECIPE_IMPORT_BUILD_R2_IMAGE_URLS !== 'false';
-const RECIPE_IMPORT_IMAGE_EXTENSION = (process.env.RECIPE_IMPORT_IMAGE_EXTENSION ?? 'png')
+  process.env.RECIPE_IMPORT_ID_POOL_FILE ??
+  'prisma/catalog/recipes-approved-30-image-ids.txt';
+const RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS =
+  process.env.RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS !== 'false';
+const RECIPE_IMPORT_BUILD_R2_IMAGE_URLS =
+  process.env.RECIPE_IMPORT_BUILD_R2_IMAGE_URLS !== 'false';
+const RECIPE_IMPORT_IMAGE_EXTENSION = (
+  process.env.RECIPE_IMPORT_IMAGE_EXTENSION ?? 'png'
+)
   .trim()
   .replace(/^\./, '')
   .toLowerCase();
-const IMAGE_GENERATOR_PROVIDER = (process.env.IMAGE_GENERATOR_PROVIDER ?? 'pollinations').toLowerCase();
+const IMAGE_GENERATOR_PROVIDER = (
+  process.env.IMAGE_GENERATOR_PROVIDER ?? 'pollinations'
+).toLowerCase();
 const IMAGE_GENERATOR_BASE_URL =
-  process.env.IMAGE_GENERATOR_BASE_URL ?? 'https://image.pollinations.ai/prompt';
-const IMAGE_GENERATOR_QUERY = process.env.IMAGE_GENERATOR_QUERY ?? 'width=1200&height=800&nologo=true';
+  process.env.IMAGE_GENERATOR_BASE_URL ??
+  'https://image.pollinations.ai/prompt';
+const IMAGE_GENERATOR_QUERY =
+  process.env.IMAGE_GENERATOR_QUERY ?? 'width=1200&height=800&nologo=true';
 const IMAGE_GENERATOR_STYLE =
-  process.env.IMAGE_GENERATOR_STYLE
-  ?? 'ultra realistic food photography, natural light, 50mm lens, shallow depth of field';
-const IMAGE_GENERATOR_SEED_PREFIX = process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'weekly-meals';
-const R2_PUBLIC_BASE_URL = (process.env.R2_PUBLIC_BASE_URL ?? '').trim().replace(/\/+$/g, '');
-const R2_KEY_PREFIX = (process.env.R2_KEY_PREFIX ?? 'recipe-images').trim().replace(/^\/+|\/+$/g, '');
-
-const ALLOWED_UNITS = new Set(['g', 'kg', 'ml', 'l', 'szt', 'szczypta', 'łyżeczka', 'łyżka', 'lyzeczka', 'lyzka']);
-const LIQUID_SPOON_UNITS_IN_ML: Record<'lyzeczka' | 'lyzka' | 'szczypta', number> = {
-  lyzeczka: 5,
-  lyzka: 15,
-  szczypta: 0.5,
-};
-const SPICE_GRAMS_PER_TEASPOON_BY_NAME: Record<string, number> = {
-  sol: 6,
-  'pieprz czarny': 2.3,
-  pieprz: 2.3,
-  'papryka slodka mielona': 2.3,
-  'papryka ostra mielona': 2.3,
-  cynamon: 2.6,
-  kurkuma: 2.2,
-  kminek: 2.1,
-  oregano: 1,
-  'tymianek suszony': 1,
-  'bazylia suszona': 0.8,
-  'imbir mielony': 2.2,
-  'czosnek granulowany': 2.8,
-  cukier: 4,
-  'cukier brazowy': 4,
-};
-const LIQUID_CONDIMENTS = new Set([
-  'ketchup',
-  'musztarda',
-  'majonez',
-  'ocet jablkowy',
-  'ocet winny',
-  'sos pomidorowy',
-  'sos sojowy',
-]);
+  process.env.IMAGE_GENERATOR_STYLE ??
+  'ultra realistic food photography, natural light, 50mm lens, shallow depth of field';
+const IMAGE_GENERATOR_SEED_PREFIX =
+  process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'weekly-meals';
+const R2_PUBLIC_BASE_URL = (process.env.R2_PUBLIC_BASE_URL ?? '')
+  .trim()
+  .replace(/\/+$/g, '');
+const R2_KEY_PREFIX = (process.env.R2_KEY_PREFIX ?? 'recipe-images')
+  .trim()
+  .replace(/^\/+|\/+$/g, '');
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -114,8 +102,7 @@ function isUuid(value: string): boolean {
 function parseRecipeIdPoolFromEnv(): string[] {
   if (!RECIPE_IMPORT_ID_POOL.trim()) return [];
 
-  const parsed = RECIPE_IMPORT_ID_POOL
-    .split(/[\s,;]+/g)
+  const parsed = RECIPE_IMPORT_ID_POOL.split(/[\s,;]+/g)
     .map((value) => value.trim())
     .filter(Boolean);
 
@@ -243,8 +230,9 @@ function buildGeneratedImageUrl(
 ): string | null {
   if (IMAGE_GENERATOR_PROVIDER !== 'pollinations') return null;
 
-  const prompt = recipe.image?.prompt?.trim()
-    || [
+  const prompt =
+    recipe.image?.prompt?.trim() ||
+    [
       'professional food photo',
       recipe.title,
       recipe.description,
@@ -262,67 +250,6 @@ function buildGeneratedImageUrl(
   return `${IMAGE_GENERATOR_BASE_URL}/${encodedPrompt}?seed=${encodeURIComponent(seed)}${query}`;
 }
 
-function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[ł]/g, 'l')
-    .replace(/[ą]/g, 'a')
-    .replace(/[ć]/g, 'c')
-    .replace(/[ę]/g, 'e')
-    .replace(/[ń]/g, 'n')
-    .replace(/[ó]/g, 'o')
-    .replace(/[ś]/g, 's')
-    .replace(/[ź]/g, 'z')
-    .replace(/[ż]/g, 'z')
-    .trim();
-}
-
-function normalizeIngredientAmount(
-  ingredientName: string,
-  category: string,
-  amount: number,
-  unit: string,
-): NormalizedIngredient {
-  const normalizedUnit = normalizeText(unit) as
-    | 'g'
-    | 'kg'
-    | 'ml'
-    | 'l'
-    | 'szt'
-    | 'szczypta'
-    | 'lyzeczka'
-    | 'lyzka';
-
-  if (normalizedUnit === 'g') return { normalizedAmount: amount, normalizedUnit: 'g' };
-  if (normalizedUnit === 'kg') return { normalizedAmount: amount * 1000, normalizedUnit: 'g' };
-  if (normalizedUnit === 'ml') return { normalizedAmount: amount, normalizedUnit: 'ml' };
-  if (normalizedUnit === 'l') return { normalizedAmount: amount * 1000, normalizedUnit: 'ml' };
-  if (normalizedUnit === 'szt') return { normalizedAmount: amount, normalizedUnit: 'szt' };
-
-  const normalizedCategory = normalizeText(category);
-  if (normalizedCategory !== 'przyprawy i sosy') {
-    throw new Error(
-      `Unit "${unit}" is allowed only for category "Przyprawy i sosy" (ingredient: ${ingredientName})`,
-    );
-  }
-
-  const spoonFactor = normalizedUnit === 'lyzka' ? 3 : normalizedUnit === 'szczypta' ? 1 / 16 : 1;
-  const normalizedName = normalizeText(ingredientName);
-
-  if (LIQUID_CONDIMENTS.has(normalizedName)) {
-    const mlPerUnit = LIQUID_SPOON_UNITS_IN_ML[normalizedUnit];
-    return { normalizedAmount: amount * mlPerUnit, normalizedUnit: 'ml' };
-  }
-
-  const gramsPerTeaspoon = SPICE_GRAMS_PER_TEASPOON_BY_NAME[normalizedName] ?? 2.5;
-  return {
-    normalizedAmount: amount * gramsPerTeaspoon * spoonFactor,
-    normalizedUnit: 'g',
-  };
-}
-
 function validateBatch(input: RecipeBatchInput): void {
   if (!Array.isArray(input.recipes) || input.recipes.length === 0) {
     throw new Error('Invalid input: "recipes" must be a non-empty array.');
@@ -330,7 +257,9 @@ function validateBatch(input: RecipeBatchInput): void {
 
   for (const recipe of input.recipes) {
     if (recipe.id?.trim() && !isUuid(recipe.id.trim())) {
-      throw new Error(`Recipe "${recipe.title}" has invalid id "${recipe.id}". Expected UUID.`);
+      throw new Error(
+        `Recipe "${recipe.title}" has invalid id "${recipe.id}". Expected UUID.`,
+      );
     }
     if (!recipe.title?.trim()) throw new Error('Recipe title is required.');
     if (!['BREAKFAST', 'LUNCH', 'DINNER'].includes(recipe.mealType)) {
@@ -350,10 +279,14 @@ function validateBatch(input: RecipeBatchInput): void {
     }
     for (const ingredient of recipe.ingredients) {
       if (!ingredient.ingredientName?.trim()) {
-        throw new Error(`Recipe "${recipe.title}" has ingredient with empty name.`);
+        throw new Error(
+          `Recipe "${recipe.title}" has ingredient with empty name.`,
+        );
       }
       if (!(ingredient.amount > 0)) {
-        throw new Error(`Recipe "${recipe.title}" has invalid amount for "${ingredient.ingredientName}".`);
+        throw new Error(
+          `Recipe "${recipe.title}" has invalid amount for "${ingredient.ingredientName}".`,
+        );
       }
       if (!ALLOWED_UNITS.has(ingredient.unit)) {
         throw new Error(
@@ -411,7 +344,11 @@ async function ensureImportContext() {
     },
   });
 
-  return { userId: user.id, householdId: household.id, householdName: household.name };
+  return {
+    userId: user.id,
+    householdId: household.id,
+    householdName: household.name,
+  };
 }
 
 async function resolveIngredientMap() {
@@ -424,12 +361,21 @@ async function resolveIngredientMap() {
       select: {
         normalizedAlias: true,
         ingredient: {
-          select: { id: true, name: true, category: true, isActive: true, normalizedName: true },
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            isActive: true,
+            normalizedName: true,
+          },
         },
       },
     }),
   ]);
-  const byName = new Map<string, { id: string; name: string; category: string }>();
+  const byName = new Map<
+    string,
+    { id: string; name: string; category: string }
+  >();
   for (const ingredient of ingredients) {
     byName.set(ingredient.normalizedName, ingredient);
   }
@@ -514,9 +460,11 @@ async function main(): Promise<void> {
 
     const resolvedRecipeId = incomingRecipeId ?? existing?.id ?? null;
     const incomingImageUrl =
-      recipe.image?.imageUrl?.trim()
-      || (resolvedRecipeId ? buildGeneratedImageUrl(resolvedRecipeId, recipe) : null)
-      || (resolvedRecipeId ? buildR2ImageUrl(resolvedRecipeId) : null);
+      recipe.image?.imageUrl?.trim() ||
+      (resolvedRecipeId
+        ? buildGeneratedImageUrl(resolvedRecipeId, recipe)
+        : null) ||
+      (resolvedRecipeId ? buildR2ImageUrl(resolvedRecipeId) : null);
 
     const commonData = {
       title: recipe.title,

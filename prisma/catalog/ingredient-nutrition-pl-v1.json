@@ -1,0 +1,612 @@
+{
+  "version": "ingredient-nutrition-pl-v1",
+  "convention": {
+    "basis": "100 g dla skladnikow w gramach, 100 ml dla skladnikow w mililitrach",
+    "state": "surowy / nieprzetworzony (makaron i ryz = sucha masa)",
+    "carbs": "weglowodany przyswajalne, BEZ blonnika (konwencja IZZ)",
+    "fiber": "blonnik liczony osobno",
+    "gramsPerPiece": "masa jadalnej czesci 1 sztuki, tylko dla skladnikow w jednostce szt"
+  },
+  "ingredients": [
+    {
+      "normalizedName": "bulion warzywny",
+      "unit": "ml",
+      "kcal": 6,
+      "protein": 0.3,
+      "carbs": 0.8,
+      "fat": 0.1,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "mleko kokosowe z puszki",
+      "unit": "ml",
+      "kcal": 197,
+      "protein": 2.0,
+      "carbs": 2.8,
+      "fat": 21.3,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "passata pomidorowa",
+      "unit": "ml",
+      "kcal": 32,
+      "protein": 1.4,
+      "carbs": 4.5,
+      "fat": 0.2,
+      "fiber": 1.5
+    },
+    {
+      "normalizedName": "tunczyk w puszce",
+      "unit": "g",
+      "kcal": 116,
+      "protein": 26.0,
+      "carbs": 0,
+      "fat": 1.0,
+      "fiber": 0
+    },
+
+    {
+      "normalizedName": "filet z indyka",
+      "unit": "g",
+      "kcal": 111,
+      "protein": 24.0,
+      "carbs": 0,
+      "fat": 1.5,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "filet z kurczaka",
+      "unit": "g",
+      "kcal": 110,
+      "protein": 23.0,
+      "carbs": 0,
+      "fat": 1.8,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "szynka",
+      "unit": "g",
+      "kcal": 145,
+      "protein": 18.0,
+      "carbs": 1.5,
+      "fat": 7.5,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "wieprzowina i wolowina mielona",
+      "unit": "g",
+      "kcal": 250,
+      "protein": 17.0,
+      "carbs": 0,
+      "fat": 20.0,
+      "fiber": 0
+    },
+
+    {
+      "normalizedName": "jajko",
+      "unit": "szt",
+      "gramsPerPiece": 50,
+      "kcal": 143,
+      "protein": 12.6,
+      "carbs": 0.7,
+      "fat": 9.5,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "jogurt naturalny",
+      "unit": "g",
+      "kcal": 61,
+      "protein": 3.5,
+      "carbs": 4.7,
+      "fat": 3.3,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "maslo",
+      "unit": "g",
+      "kcal": 735,
+      "protein": 0.7,
+      "carbs": 0.6,
+      "fat": 82.5,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "mleko",
+      "unit": "ml",
+      "kcal": 61,
+      "protein": 3.3,
+      "carbs": 4.7,
+      "fat": 3.3,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "mozzarella",
+      "unit": "g",
+      "kcal": 280,
+      "protein": 22.0,
+      "carbs": 2.2,
+      "fat": 20.0,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "ser feta",
+      "unit": "g",
+      "kcal": 264,
+      "protein": 14.2,
+      "carbs": 4.1,
+      "fat": 21.3,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "ser gouda",
+      "unit": "g",
+      "kcal": 356,
+      "protein": 25.0,
+      "carbs": 2.2,
+      "fat": 27.4,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "ser parmezan",
+      "unit": "g",
+      "kcal": 392,
+      "protein": 35.8,
+      "carbs": 3.2,
+      "fat": 25.8,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "smietana 18",
+      "unit": "g",
+      "kcal": 184,
+      "protein": 2.6,
+      "carbs": 3.6,
+      "fat": 18.0,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "smietanka 30",
+      "unit": "ml",
+      "kcal": 292,
+      "protein": 2.3,
+      "carbs": 3.1,
+      "fat": 30.0,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "twarozek",
+      "unit": "g",
+      "kcal": 133,
+      "protein": 18.7,
+      "carbs": 3.7,
+      "fat": 4.7,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "jogurt grecki",
+      "unit": "g",
+      "kcal": 97,
+      "protein": 9.0,
+      "carbs": 4.0,
+      "fat": 5.0,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "serek wiejski",
+      "unit": "g",
+      "kcal": 98,
+      "protein": 11.0,
+      "carbs": 3.4,
+      "fat": 4.3,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "serek kremowy",
+      "unit": "g",
+      "kcal": 253,
+      "protein": 6.0,
+      "carbs": 4.0,
+      "fat": 24.0,
+      "fiber": 0
+    },
+
+    {
+      "normalizedName": "olej rzepakowy",
+      "unit": "ml",
+      "kcal": 810,
+      "protein": 0,
+      "carbs": 0,
+      "fat": 92.0,
+      "fiber": 0
+    },
+    {
+      "normalizedName": "oliwa z oliwek",
+      "unit": "ml",
+      "kcal": 810,
+      "protein": 0,
+      "carbs": 0,
+      "fat": 92.0,
+      "fiber": 0
+    },
+
+    {
+      "normalizedName": "awokado",
+      "unit": "szt",
+      "gramsPerPiece": 150,
+      "kcal": 160,
+      "protein": 2.0,
+      "carbs": 1.8,
+      "fat": 14.7,
+      "fiber": 6.7
+    },
+    {
+      "normalizedName": "banan",
+      "unit": "szt",
+      "gramsPerPiece": 120,
+      "kcal": 89,
+      "protein": 1.1,
+      "carbs": 20.2,
+      "fat": 0.3,
+      "fiber": 2.6
+    },
+    {
+      "normalizedName": "borowka",
+      "unit": "g",
+      "kcal": 57,
+      "protein": 0.7,
+      "carbs": 12.1,
+      "fat": 0.3,
+      "fiber": 2.4
+    },
+    {
+      "normalizedName": "jablko",
+      "unit": "g",
+      "kcal": 52,
+      "protein": 0.3,
+      "carbs": 11.4,
+      "fat": 0.2,
+      "fiber": 2.4
+    },
+    {
+      "normalizedName": "truskawka",
+      "unit": "g",
+      "kcal": 32,
+      "protein": 0.7,
+      "carbs": 5.7,
+      "fat": 0.3,
+      "fiber": 2.0
+    },
+
+    {
+      "normalizedName": "bulka",
+      "unit": "g",
+      "kcal": 280,
+      "protein": 9.0,
+      "carbs": 52.5,
+      "fat": 2.5,
+      "fiber": 2.5
+    },
+    {
+      "normalizedName": "chleb",
+      "unit": "g",
+      "kcal": 250,
+      "protein": 8.0,
+      "carbs": 43.5,
+      "fat": 2.5,
+      "fiber": 4.5
+    },
+    {
+      "normalizedName": "chleb tostowy",
+      "unit": "g",
+      "kcal": 265,
+      "protein": 8.5,
+      "carbs": 46.5,
+      "fat": 3.5,
+      "fiber": 2.5
+    },
+    {
+      "normalizedName": "tortilla pszenna",
+      "unit": "szt",
+      "gramsPerPiece": 60,
+      "kcal": 310,
+      "protein": 8.5,
+      "carbs": 48.5,
+      "fat": 7.5,
+      "fiber": 2.5
+    },
+
+    {
+      "normalizedName": "baton musli",
+      "unit": "g",
+      "kcal": 420,
+      "protein": 6.0,
+      "carbs": 61.0,
+      "fat": 14.0,
+      "fiber": 4.0
+    },
+    {
+      "normalizedName": "orzech wloski",
+      "unit": "g",
+      "kcal": 654,
+      "protein": 15.2,
+      "carbs": 7.0,
+      "fat": 65.2,
+      "fiber": 6.7
+    },
+
+    {
+      "normalizedName": "curry",
+      "unit": "g",
+      "kcal": 325,
+      "protein": 14.0,
+      "carbs": 23.0,
+      "fat": 14.0,
+      "fiber": 33.0
+    },
+    {
+      "normalizedName": "oregano",
+      "unit": "g",
+      "kcal": 265,
+      "protein": 9.0,
+      "carbs": 27.0,
+      "fat": 4.3,
+      "fiber": 42.0
+    },
+    {
+      "normalizedName": "papryka slodka mielona",
+      "unit": "g",
+      "kcal": 282,
+      "protein": 14.0,
+      "carbs": 19.0,
+      "fat": 13.0,
+      "fiber": 35.0
+    },
+    {
+      "normalizedName": "pieprz czarny",
+      "unit": "g",
+      "kcal": 251,
+      "protein": 10.0,
+      "carbs": 39.0,
+      "fat": 3.3,
+      "fiber": 25.0
+    },
+    {
+      "normalizedName": "sol",
+      "unit": "g",
+      "kcal": 0,
+      "protein": 0,
+      "carbs": 0,
+      "fat": 0,
+      "fiber": 0
+    },
+
+    {
+      "normalizedName": "losos",
+      "unit": "g",
+      "kcal": 208,
+      "protein": 20.0,
+      "carbs": 0,
+      "fat": 13.0,
+      "fiber": 0
+    },
+
+    {
+      "normalizedName": "batat",
+      "unit": "g",
+      "kcal": 86,
+      "protein": 1.6,
+      "carbs": 17.0,
+      "fat": 0.1,
+      "fiber": 3.0
+    },
+    {
+      "normalizedName": "brokul",
+      "unit": "g",
+      "kcal": 34,
+      "protein": 2.8,
+      "carbs": 4.4,
+      "fat": 0.4,
+      "fiber": 2.6
+    },
+    {
+      "normalizedName": "cebula",
+      "unit": "g",
+      "kcal": 40,
+      "protein": 1.1,
+      "carbs": 7.6,
+      "fat": 0.1,
+      "fiber": 1.7
+    },
+    {
+      "normalizedName": "cukinia",
+      "unit": "g",
+      "kcal": 17,
+      "protein": 1.2,
+      "carbs": 2.1,
+      "fat": 0.3,
+      "fiber": 1.0
+    },
+    {
+      "normalizedName": "czosnek",
+      "unit": "szt",
+      "gramsPerPiece": 3,
+      "kcal": 149,
+      "protein": 6.4,
+      "carbs": 30.9,
+      "fat": 0.5,
+      "fiber": 2.1
+    },
+    {
+      "normalizedName": "marchew",
+      "unit": "g",
+      "kcal": 41,
+      "protein": 0.9,
+      "carbs": 6.8,
+      "fat": 0.2,
+      "fiber": 2.8
+    },
+    {
+      "normalizedName": "ogorek",
+      "unit": "g",
+      "kcal": 15,
+      "protein": 0.7,
+      "carbs": 3.1,
+      "fat": 0.1,
+      "fiber": 0.5
+    },
+    {
+      "normalizedName": "papryka czerwona",
+      "unit": "g",
+      "kcal": 31,
+      "protein": 1.0,
+      "carbs": 3.9,
+      "fat": 0.3,
+      "fiber": 2.1
+    },
+    {
+      "normalizedName": "pieczarka",
+      "unit": "g",
+      "kcal": 22,
+      "protein": 3.1,
+      "carbs": 2.3,
+      "fat": 0.3,
+      "fiber": 1.0
+    },
+    {
+      "normalizedName": "pomidor",
+      "unit": "g",
+      "kcal": 18,
+      "protein": 0.9,
+      "carbs": 2.7,
+      "fat": 0.2,
+      "fiber": 1.2
+    },
+    {
+      "normalizedName": "pomidor koktajlowy",
+      "unit": "g",
+      "kcal": 18,
+      "protein": 0.9,
+      "carbs": 2.7,
+      "fat": 0.2,
+      "fiber": 1.2
+    },
+    {
+      "normalizedName": "salata lodowa",
+      "unit": "g",
+      "kcal": 14,
+      "protein": 0.9,
+      "carbs": 1.8,
+      "fat": 0.1,
+      "fiber": 1.2
+    },
+    {
+      "normalizedName": "szczypiorek",
+      "unit": "g",
+      "kcal": 30,
+      "protein": 3.3,
+      "carbs": 1.9,
+      "fat": 0.7,
+      "fiber": 2.5
+    },
+    {
+      "normalizedName": "szpinak",
+      "unit": "g",
+      "kcal": 23,
+      "protein": 2.9,
+      "carbs": 1.4,
+      "fat": 0.4,
+      "fiber": 2.2
+    },
+    {
+      "normalizedName": "ziemniak",
+      "unit": "g",
+      "kcal": 77,
+      "protein": 2.0,
+      "carbs": 14.8,
+      "fat": 0.1,
+      "fiber": 2.2
+    },
+
+    {
+      "normalizedName": "maka pszenna",
+      "unit": "g",
+      "kcal": 364,
+      "protein": 10.3,
+      "carbs": 73.3,
+      "fat": 1.0,
+      "fiber": 2.7
+    },
+    {
+      "normalizedName": "makaron penne",
+      "unit": "g",
+      "kcal": 371,
+      "protein": 13.0,
+      "carbs": 71.5,
+      "fat": 1.5,
+      "fiber": 3.2
+    },
+    {
+      "normalizedName": "makaron spaghetti",
+      "unit": "g",
+      "kcal": 371,
+      "protein": 13.0,
+      "carbs": 71.5,
+      "fat": 1.5,
+      "fiber": 3.2
+    },
+    {
+      "normalizedName": "makaron swider",
+      "unit": "g",
+      "kcal": 371,
+      "protein": 13.0,
+      "carbs": 71.5,
+      "fat": 1.5,
+      "fiber": 3.2
+    },
+    {
+      "normalizedName": "platki owsiane",
+      "unit": "g",
+      "kcal": 379,
+      "protein": 13.2,
+      "carbs": 57.6,
+      "fat": 6.9,
+      "fiber": 10.1
+    },
+    {
+      "normalizedName": "platki kukurydziane",
+      "unit": "g",
+      "kcal": 378,
+      "protein": 7.5,
+      "carbs": 80.0,
+      "fat": 0.9,
+      "fiber": 3.3
+    },
+    {
+      "normalizedName": "ryz bialy",
+      "unit": "g",
+      "kcal": 360,
+      "protein": 7.0,
+      "carbs": 78.5,
+      "fat": 0.6,
+      "fiber": 1.3
+    },
+    {
+      "normalizedName": "ryz basmati",
+      "unit": "g",
+      "kcal": 360,
+      "protein": 7.5,
+      "carbs": 77.7,
+      "fat": 0.9,
+      "fiber": 1.3
+    },
+    {
+      "normalizedName": "ryz jasminowy",
+      "unit": "g",
+      "kcal": 360,
+      "protein": 7.5,
+      "carbs": 77.7,
+      "fat": 0.9,
+      "fiber": 1.3
+    }
+  ]
+}
