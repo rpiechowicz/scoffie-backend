@@ -10,11 +10,11 @@
       "prepTimeMinutes": 12,
       "servings": 2,
       "nutrition": {
-        "kcal": 690,
-        "protein": 23,
-        "carbs": 108,
-        "fat": 18,
-        "fiber": 12,
+        "kcal": 894,
+        "protein": 30,
+        "carbs": 137,
+        "fat": 21,
+        "fiber": 19,
         "salt": 0.6
       },
       "steps": [
@@ -70,11 +70,11 @@
       "prepTimeMinutes": 10,
       "servings": 2,
       "nutrition": {
-        "kcal": 520,
-        "protein": 30,
+        "kcal": 579,
+        "protein": 40,
         "carbs": 8,
-        "fat": 40,
-        "fiber": 2,
+        "fat": 41,
+        "fiber": 3,
         "salt": 1.8
       },
       "steps": [
@@ -140,11 +140,11 @@
       "prepTimeMinutes": 8,
       "servings": 2,
       "nutrition": {
-        "kcal": 560,
-        "protein": 31,
-        "carbs": 58,
-        "fat": 22,
-        "fiber": 6,
+        "kcal": 619,
+        "protein": 46,
+        "carbs": 73,
+        "fat": 12,
+        "fiber": 7,
         "salt": 1.5
       },
       "steps": [
@@ -210,10 +210,10 @@
       "prepTimeMinutes": 12,
       "servings": 2,
       "nutrition": {
-        "kcal": 610,
-        "protein": 36,
-        "carbs": 10,
-        "fat": 46,
+        "kcal": 786,
+        "protein": 56,
+        "carbs": 8,
+        "fat": 58,
         "fiber": 3,
         "salt": 2.2
       },
@@ -280,11 +280,11 @@
       "prepTimeMinutes": 14,
       "servings": 2,
       "nutrition": {
-        "kcal": 640,
-        "protein": 26,
-        "carbs": 48,
-        "fat": 40,
-        "fiber": 11,
+        "kcal": 931,
+        "protein": 40,
+        "carbs": 63,
+        "fat": 53,
+        "fiber": 15,
         "salt": 1.4
       },
       "steps": [
