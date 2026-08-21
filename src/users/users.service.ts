@@ -11,6 +11,8 @@ const CALORIE_GOAL_DEFAULT = 2000;
 const ACTIVITY_LEVEL_MIN = 1;
 const ACTIVITY_LEVEL_MAX = 4;
 const ACTIVITY_LEVEL_DEFAULT = 2;
+/** Liczba gradientow awatara — musi zgadzac sie z paleta w `ProfileAvatar`. */
+const AVATAR_COLOR_COUNT = 12;
 
 export interface UserPreferencesPayload {
   dietPreference: DietPreferenceValue;
@@ -33,6 +35,7 @@ export interface UserProfilePayload {
   heightCm: number | null;
   weightKg: number | null;
   sex: Sex | null;
+  avatarColor: number | null;
   onboardingCompletedAt: Date | null;
 }
 
@@ -127,10 +130,69 @@ export class UsersService {
 
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: { onboardingCompletedAt: new Date() },
+      data: {
+        onboardingCompletedAt: new Date(),
+        avatarColor: await this.pickAvatarColor(userId),
+      },
     });
 
     return this.toProfilePayload(user);
+  }
+
+  /**
+   * Przydziela indeks gradientu awatara raz, przy kończeniu onboardingu.
+   *
+   * Kolor mozna by policzyc z hasza adresu e-mail na kliencie i przez chwile
+   * tak dzialalo — ale taki przydzial nie widzi reszty gospodarstwa i dwoje
+   * domownikow potrafi wylosowac ten sam odcien. A awatary domownikow ogląda
+   * sie obok siebie, wiec akurat tam kolizja boli najbardziej.
+   *
+   * Bierzemy wiec pierwszy kolor nieuzywany przez pozostalych czlonkow
+   * gospodarstwa. Gdy wszystkie sa zajete (gospodarstwo wieksze niz paleta),
+   * schodzimy do reszty z id — powtorka jest wtedy nieunikniona, ale nadal
+   * deterministyczna.
+   */
+  private async pickAvatarColor(userId: string): Promise<number> {
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId },
+      select: { householdId: true },
+    });
+
+    const householdIds = memberships.map((m) => m.householdId);
+
+    const housemates = householdIds.length
+      ? await this.prisma.user.findMany({
+          where: {
+            id: { not: userId },
+            memberships: { some: { householdId: { in: householdIds } } },
+          },
+          select: { avatarColor: true },
+        })
+      : [];
+
+    const taken = new Set(
+      housemates
+        .map((u) => u.avatarColor)
+        .filter((c): c is number => c !== null),
+    );
+
+    for (let index = 0; index < AVATAR_COLOR_COUNT; index += 1) {
+      if (!taken.has(index)) {
+        return index;
+      }
+    }
+
+    return this.fallbackAvatarColor(userId);
+  }
+
+  /** Stabilny FNV-1a na id — ta sama funkcja co po stronie iOS. */
+  private fallbackAvatarColor(userId: string): number {
+    let hash = 0x811c9dc5;
+    for (const byte of Buffer.from(userId.toLowerCase(), 'utf8')) {
+      hash ^= byte;
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash % AVATAR_COLOR_COUNT;
   }
 
   private toProfilePayload(user: {
@@ -142,6 +204,7 @@ export class UsersService {
     heightCm: number | null;
     weightKg: number | null;
     sex: Sex | null;
+    avatarColor: number | null;
     onboardingCompletedAt: Date | null;
   }): UserProfilePayload {
     return {
@@ -153,6 +216,7 @@ export class UsersService {
       heightCm: user.heightCm,
       weightKg: user.weightKg,
       sex: user.sex,
+      avatarColor: user.avatarColor,
       onboardingCompletedAt: user.onboardingCompletedAt,
     };
   }

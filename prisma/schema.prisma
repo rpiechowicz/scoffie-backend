@@ -26,6 +26,11 @@ model User {
   // stałą (+5 / −161). Nullable, bo konta założone wcześniej jej nie mają
   // i wtedy klient liczy ze średniej.
   sex                   Sex?
+  // Indeks gradientu awatara, przydzielany raz przy kończeniu onboardingu.
+  // Trzymany na serwerze, a nie liczony z hasza na kliencie, bo przydział
+  // musi widzieć, jakie kolory zajęli już pozostali domownicy — inaczej
+  // dwie osoby w jednym gospodarstwie potrafiłyby wylosować to samo.
+  avatarColor           Int?
   onboardingCompletedAt DateTime?
   lastLoginAt           DateTime?
   createdAt             DateTime     @default(now())
@@ -509,6 +514,7 @@ enum DietPreferenceValue {
   PESCATARIAN
   KETO
   PALEO
+  HIGH_PROTEIN
 }
 
 enum UserGoal {
