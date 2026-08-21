@@ -18,6 +18,10 @@ export interface UserPreferencesPayload {
   allergens: string[];
   goal: UserGoal;
   activityLevel: number;
+  // `null` = uzytkownik nie nadpisal makra i klient ma je policzyc sam.
+  proteinG: number | null;
+  fatG: number | null;
+  carbsG: number | null;
 }
 
 export interface UserProfilePayload {
@@ -228,6 +232,21 @@ export class UsersService {
       create.activityLevel = clamped;
     }
 
+    // Makra przechodza jak sa, lacznie z `null` — to jest sygnal „wroc do
+    // liczenia automatem", a nie brak wartosci.
+    if (data.proteinG !== undefined) {
+      update.proteinG = data.proteinG;
+      create.proteinG = data.proteinG;
+    }
+    if (data.fatG !== undefined) {
+      update.fatG = data.fatG;
+      create.fatG = data.fatG;
+    }
+    if (data.carbsG !== undefined) {
+      update.carbsG = data.carbsG;
+      create.carbsG = data.carbsG;
+    }
+
     const result = await this.prisma.userPreference.upsert({
       where: { userId },
       update,
@@ -243,6 +262,9 @@ export class UsersService {
     allergens: string[] | null;
     goal: UserGoal;
     activityLevel: number;
+    proteinG: number | null;
+    fatG: number | null;
+    carbsG: number | null;
   }): UserPreferencesPayload {
     return {
       dietPreference: row.dietPreference,
@@ -250,7 +272,76 @@ export class UsersService {
       allergens: row.allergens ?? [],
       goal: row.goal,
       activityLevel: row.activityLevel,
+      proteinG: row.proteinG,
+      fatG: row.fatG,
+      carbsG: row.carbsG,
     };
+  }
+
+  /**
+   * Trwale usun konto uzytkownika.
+   *
+   * Kolejnosc ma znaczenie i jest podyktowana tym, co dzieje sie ze
+   * wspoldzielonym gospodarstwem:
+   *
+   * 1. Gospodarstwo, w ktorym uzytkownik jest OSTATNIM czlonkiem, ginie
+   *    razem z nim — nie ma komu zostawic planow ani listy zakupow, a
+   *    osierocony rekord i tak bylby nieosiagalny.
+   * 2. Gospodarstwo z innymi czlonkami zostaje. Jesli odchodzacy jest w nim
+   *    jedynym OWNEREM, awansujemy najstarszego stazem czlonka — inaczej
+   *    reszta domownikow zostalaby z gospodarstwem, ktorego nikt nie moze
+   *    juz administrowac.
+   * 3. Dopiero potem kasujemy uzytkownika. Reszta (preferencje, tokeny,
+   *    urzadzenia push, uczestnictwa w planach, odhaczone posilki) leci
+   *    kaskada z bazy.
+   *
+   * Calosc w jednej transakcji, zeby nieudany krok nie zostawil konta
+   * w polowicznie rozebranym stanie.
+   */
+  async deleteAccount(userId: string): Promise<{ id: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const memberships = await tx.membership.findMany({
+        where: { userId },
+        select: { householdId: true, role: true },
+      });
+
+      for (const membership of memberships) {
+        const others = await tx.membership.findMany({
+          where: {
+            householdId: membership.householdId,
+            userId: { not: userId },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, role: true },
+        });
+
+        if (others.length === 0) {
+          await tx.household.delete({ where: { id: membership.householdId } });
+          continue;
+        }
+
+        const hasAnotherOwner = others.some((m) => m.role === 'OWNER');
+        if (membership.role === 'OWNER' && !hasAnotherOwner) {
+          await tx.membership.update({
+            where: { id: others[0].id },
+            data: { role: 'OWNER' },
+          });
+        }
+      }
+
+      await tx.user.delete({ where: { id: userId } });
+    });
+
+    return { id: userId };
   }
 
   /**

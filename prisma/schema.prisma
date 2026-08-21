@@ -51,6 +51,13 @@ model UserPreference {
   allergens      String[]            @default([])
   goal           UserGoal            @default(HEALTHY)
   activityLevel  Int                 @default(2)
+  // Makra w gramach. Nullable, bo dopóki uzytkownik ich nie tknie, klient
+  // liczy je z celu, sylwetki i liczby treningow — a policzona wartosc ma
+  // podazac za zmianami tamtych, nie zamrazac sie w bazie. Zapisujemy je
+  // dopiero, gdy ktos je nadpisze recznie.
+  proteinG       Int?
+  fatG           Int?
+  carbsG         Int?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
