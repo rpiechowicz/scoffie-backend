@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DietPreferenceValue, Prisma, UserGoal } from '@prisma/client';
+import { DietPreferenceValue, Prisma, Sex, UserGoal } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
@@ -28,6 +28,7 @@ export interface UserProfilePayload {
   yearOfBirth: number | null;
   heightCm: number | null;
   weightKg: number | null;
+  sex: Sex | null;
   onboardingCompletedAt: Date | null;
 }
 
@@ -86,6 +87,9 @@ export class UsersService {
     if (data.weightKg !== undefined) {
       update.weightKg = data.weightKg;
     }
+    if (data.sex !== undefined) {
+      update.sex = data.sex;
+    }
 
     const user = await this.prisma.user.update({
       where: { id: userId },
@@ -133,6 +137,7 @@ export class UsersService {
     yearOfBirth: number | null;
     heightCm: number | null;
     weightKg: number | null;
+    sex: Sex | null;
     onboardingCompletedAt: Date | null;
   }): UserProfilePayload {
     return {
@@ -143,6 +148,7 @@ export class UsersService {
       yearOfBirth: user.yearOfBirth,
       heightCm: user.heightCm,
       weightKg: user.weightKg,
+      sex: user.sex,
       onboardingCompletedAt: user.onboardingCompletedAt,
     };
   }

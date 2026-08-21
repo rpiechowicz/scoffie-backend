@@ -18,7 +18,14 @@ model User {
   avatarUrl             String?
   yearOfBirth           Int?
   heightCm              Int?
-  weightKg              Int?
+  // Waga jako Float, nie Int — wagi ciała podaje się z dokładnością do
+  // 0,1 kg i zaokrąglanie 83,5 do 84 psuło zarówno BMI, jak i policzone
+  // zapotrzebowanie.
+  weightKg              Float?
+  // Płeć wchodzi wyłącznie do wzoru Mifflina-St Jeora, który różnicuje BMR
+  // stałą (+5 / −161). Nullable, bo konta założone wcześniej jej nie mają
+  // i wtedy klient liczy ze średniej.
+  sex                   Sex?
   onboardingCompletedAt DateTime?
   lastLoginAt           DateTime?
   createdAt             DateTime     @default(now())
@@ -481,6 +488,11 @@ enum AuthProvider {
   GOOGLE
   APPLE
   DEV
+}
+
+enum Sex {
+  MALE
+  FEMALE
 }
 
 enum DietPreferenceValue {
