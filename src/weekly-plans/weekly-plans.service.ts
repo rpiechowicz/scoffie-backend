@@ -11,8 +11,13 @@ import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
-import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
-import { Prisma } from '@prisma/client';
+import {
+  SaveSharedMealPlanDto,
+  mergeSharedPlanRecipeIds,
+  sharedPlanAddressedMealTypes,
+} from './dto/save-shared-meal-plan.dto';
+import { MealType, Prisma } from '@prisma/client';
+import { MEAL_TYPES_IN_DAY_ORDER } from '../common/meal-types';
 import { parseWeekStart } from './utils/week-formatting.util';
 import {
   ensureMembership,
@@ -85,11 +90,16 @@ export class WeeklyPlansService {
   /**
    * A single (day, mealType) slot may now hold several recipes — one per
    * household split. The caps scale accordingly: at most 6 variants in one
-   * slot, so 7 days × 6 per meal type, and 3 meal types in total.
+   * slot, so 7 days × 6 per meal type, times however many meal types exist.
+   *
+   * Limit całkowity liczy się z długości enuma, a nie ze stałej „3" — po
+   * dołożeniu II śniadania i podwieczorka twardy sufit ucinałby plan
+   * w połowie tygodnia u kogoś, kto po prostu włączył więcej posiłków.
    */
   private static readonly MAX_VARIANTS_PER_SLOT = 6;
   private static readonly MAX_ITEMS_PER_MEAL_TYPE = 7 * 6;
-  private static readonly MAX_ITEMS_TOTAL = 7 * 6 * 3;
+  private static readonly MAX_ITEMS_TOTAL =
+    7 * 6 * MEAL_TYPES_IN_DAY_ORDER.length;
 
   async listByHousehold(userId: string, householdId: string) {
     await ensureMembership(this.prisma, userId, householdId);
@@ -731,11 +741,15 @@ export class WeeklyPlansService {
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
-    const breakfast = dto.breakfastRecipeIds ?? [];
-    const lunch = dto.lunchRecipeIds ?? [];
-    const dinner = dto.dinnerRecipeIds ?? [];
+    // Jedna mapa slot → id, niezależnie od tego, czy klient przysłał nową
+    // formę (`recipeIdsByMealType`), czy jeszcze trzy stare pola.
+    const recipeIdsByMealType = mergeSharedPlanRecipeIds(dto);
 
-    const allIds = [...breakfast, ...lunch, ...dinner];
+    // Zakres zapisu. Starszy klient nie zna dodatkowych slotów i nie ma jak
+    // się o nich wypowiedzieć — jego zapis nie może ich skasować.
+    const addressedMealTypes = sharedPlanAddressedMealTypes(dto);
+
+    const allIds = Object.values(recipeIdsByMealType).flat();
     const uniqueIds = Array.from(new Set(allIds));
 
     const countByRecipe = (ids: string[]) =>
@@ -744,12 +758,14 @@ export class WeeklyPlansService {
         return map;
       }, new Map<string, number>());
 
-    const breakfastCounts = countByRecipe(breakfast);
-    const lunchCounts = countByRecipe(lunch);
-    const dinnerCounts = countByRecipe(dinner);
-    const breakfastAllowed = Array.from(breakfastCounts.keys());
-    const lunchAllowed = Array.from(lunchCounts.keys());
-    const dinnerAllowed = Array.from(dinnerCounts.keys());
+    const countsByMealType = new Map<MealType, Map<string, number>>(
+      MEAL_TYPES_IN_DAY_ORDER.map(
+        (mealType): [MealType, Map<string, number>] => [
+          mealType,
+          countByRecipe(recipeIdsByMealType[mealType]),
+        ],
+      ),
+    );
 
     await runSerializable(this.prisma, async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
@@ -790,32 +806,21 @@ export class WeeklyPlansService {
         select: { id: true },
       });
 
-      const rows = [
-        ...Array.from(breakfastCounts.entries()).map(
-          ([recipeId, quantity]) => ({
+      const rows = Array.from(countsByMealType.entries())
+        .flatMap(([mealType, counts]) =>
+          Array.from(counts.entries()).map(([recipeId, quantity]) => ({
             sharedMealPlanId: sharedPlan.id,
             recipeId,
-            mealType: 'BREAKFAST' as const,
+            mealType,
             quantity,
-          }),
-        ),
-        ...Array.from(lunchCounts.entries()).map(([recipeId, quantity]) => ({
-          sharedMealPlanId: sharedPlan.id,
-          recipeId,
-          mealType: 'LUNCH' as const,
-          quantity,
-        })),
-        ...Array.from(dinnerCounts.entries()).map(([recipeId, quantity]) => ({
-          sharedMealPlanId: sharedPlan.id,
-          recipeId,
-          mealType: 'DINNER' as const,
-          quantity,
-        })),
-      ].filter((row) => row.quantity > 0);
+          })),
+        )
+        .filter((row) => row.quantity > 0);
 
       await tx.sharedMealPlanItem.deleteMany({
         where: {
           sharedMealPlanId: sharedPlan.id,
+          mealType: { in: addressedMealTypes },
         },
       });
 
@@ -845,7 +850,7 @@ export class WeeklyPlansService {
       }
 
       const pruneByMealType = async (
-        mealType: 'BREAKFAST' | 'LUNCH' | 'DINNER',
+        mealType: MealType,
         allowedRecipeIds: string[],
       ) => {
         if (allowedRecipeIds.length === 0) {
@@ -867,11 +872,15 @@ export class WeeklyPlansService {
         });
       };
 
-      await Promise.all([
-        pruneByMealType('BREAKFAST', breakfastAllowed),
-        pruneByMealType('LUNCH', lunchAllowed),
-        pruneByMealType('DINNER', dinnerAllowed),
-      ]);
+      // Przycinamy **każdy** slot, także wyłączony w gospodarstwie: pula na
+      // tydzień jest zapisem pełnym, a slot nieobecny w ładunku znaczy „nic
+      // tu nie planujemy". Gdyby pominąć wyłączone, po ich ponownym
+      // włączeniu wracałyby dania sprzed kilku tygodni.
+      await Promise.all(
+        Array.from(countsByMealType.entries()).map(([mealType, counts]) =>
+          pruneByMealType(mealType, Array.from(counts.keys())),
+        ),
+      );
 
       await this.shoppingListService.markShoppingListStale(
         householdId,

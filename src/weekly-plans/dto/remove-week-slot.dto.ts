@@ -1,8 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsOptional, IsString } from 'class-validator';
+import { MealType } from '@prisma/client';
+import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 
 const dayOfWeek = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
-const mealType = ['BREAKFAST', 'LUNCH', 'DINNER'] as const;
+const mealType = MEAL_TYPE_VALUES;
 
 export class RemoveWeekSlotDto {
   @ApiProperty({ enum: dayOfWeek })
@@ -11,7 +13,7 @@ export class RemoveWeekSlotDto {
 
   @ApiProperty({ enum: mealType })
   @IsIn(mealType)
-  mealType: (typeof mealType)[number];
+  mealType: MealType;
 
   /**
    * Which variant to drop when the slot holds several. Omitted clears the

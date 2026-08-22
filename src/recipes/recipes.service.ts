@@ -4,8 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { MealType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  MEAL_TYPES_IN_DAY_ORDER,
+  effectiveSuitableMealTypes,
+  isMealType,
+} from '../common/meal-types';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
 import { FindRecipesDto } from './dto/find-recipes.dto';
@@ -16,6 +21,7 @@ const recipeListSelect = {
   title: true,
   description: true,
   mealType: true,
+  suitableMealTypes: true,
   difficulty: true,
   prepTimeMinutes: true,
   servings: true,
@@ -279,6 +285,7 @@ export class RecipesService {
     title: true,
     description: true,
     mealType: true,
+    suitableMealTypes: true,
     difficulty: true,
     prepTimeMinutes: true,
     servings: true,
@@ -381,13 +388,33 @@ export class RecipesService {
     const page = Math.max(1, filters?.page ?? 1);
     const limit = Math.min(100, Math.max(1, filters?.limit ?? 24));
     const skip = (page - 1) * limit;
+    // Filtr slotu celowo **nie** porównuje `mealType`. Danie należy do
+    // jednego slotu bazowego, ale nadaje się do kilku (`suitableMealTypes`) —
+    // i to ta lista decyduje, co widać przy dodawaniu posiłku. Wiersze sprzed
+    // backfillu mają pustą tablicę, więc alternatywa `OR` łapie je po slocie
+    // bazowym; bez tego stary przepis zniknąłby z katalogu.
+    const requestedMealType = filters?.mealType;
+    const mealTypeFilter: MealType | undefined = isMealType(requestedMealType)
+      ? requestedMealType
+      : undefined;
+
     const whereBase: {
       isActive: boolean;
-      mealType?: FindRecipesDto['mealType'];
+      OR?: Prisma.RecipeWhereInput[];
       id?: { in?: string[]; notIn?: string[] };
     } = {
       isActive: true,
-      ...(filters?.mealType ? { mealType: filters.mealType } : {}),
+      ...(mealTypeFilter
+        ? {
+            OR: [
+              { suitableMealTypes: { has: mealTypeFilter } },
+              {
+                mealType: mealTypeFilter,
+                suitableMealTypes: { isEmpty: true },
+              },
+            ],
+          }
+        : {}),
     };
 
     let favoriteRecipeIds = new Set<string>();
@@ -450,6 +477,10 @@ export class RecipesService {
       const { sourceMeta, ...base } = recipe;
       return {
         ...base,
+        // Nigdy nie wypuszczamy pustej listy slotów — klient nie musi znać
+        // reguły „puste znaczy tyle, co slot bazowy". Normalizacja jest tu,
+        // a nie w zapytaniu, bo dotyczy też wierszy z cache'u.
+        suitableMealTypes: effectiveSuitableMealTypes(recipe),
         imageUrl: this.resolveRecipeImageUrl(recipe),
         isFavorite: favoriteRecipeIds.has(recipe.id),
       };
@@ -484,6 +515,7 @@ export class RecipesService {
     const { sourceMeta, ...base } = recipe;
     return {
       ...base,
+      suitableMealTypes: effectiveSuitableMealTypes(recipe),
       imageUrl: this.resolveRecipeImageUrl(recipe),
       isFavorite,
     };
@@ -527,6 +559,15 @@ export class RecipesService {
         title: data.title,
         description: data.description,
         mealType: data.mealType,
+        // Slot bazowy zawsze wchodzi do listy, nawet gdy klient go nie
+        // przysłał — inaczej dałoby się utworzyć przepis, którego nie widać
+        // w jego własnej sekcji.
+        suitableMealTypes: MEAL_TYPES_IN_DAY_ORDER.filter((type) =>
+          new Set<MealType>([
+            data.mealType,
+            ...(data.suitableMealTypes ?? []),
+          ]).has(type),
+        ),
         difficulty: data.difficulty,
         prepTimeMinutes: data.prepTimeMinutes,
         servings: data.servings,

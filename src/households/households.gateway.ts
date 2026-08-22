@@ -13,6 +13,8 @@ import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { CreateHouseholdDto } from './dto/create-household.dto';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { UpdateHouseholdDto } from './dto/update-household.dto';
+import { UpdateHouseholdMealTypesDto } from './dto/update-meal-types.dto';
+import { UpdateHouseholdMealTimesDto } from './dto/update-meal-times.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
@@ -51,6 +53,18 @@ class HouseholdsUpdateNamePayload {
   userId: string;
   householdId: string;
   data: UpdateHouseholdDto;
+}
+
+class HouseholdsUpdateMealTypesPayload {
+  userId: string;
+  householdId: string;
+  data: UpdateHouseholdMealTypesDto;
+}
+
+class HouseholdsUpdateMealTimesPayload {
+  userId: string;
+  householdId: string;
+  data: UpdateHouseholdMealTimesDto;
 }
 
 class HouseholdsListMembersPayload {
@@ -179,6 +193,54 @@ export class HouseholdsGateway
       this.server.emit('households:membersChanged', {
         householdId: payload.householdId,
         action: 'UPDATE_NAME',
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+      });
+      return result;
+    });
+  }
+
+  /**
+   * Zmiana zestawu posiłków planowanych przez gospodarstwo.
+   *
+   * Rozgłaszane osobnym zdarzeniem (`households:mealTypesChanged`), a nie
+   * przez `membersChanged`: tamto klient traktuje jak „odśwież listę
+   * domowników", a tu chodzi o przebudowę planu tygodnia u wszystkich naraz.
+   * W ładunku jedzie już nowa lista, więc odbiorcy nie muszą po nią wracać.
+   */
+  @SubscribeMessage('households:updateMealTypes')
+  updateMealTypes(@MessageBody() payload: HouseholdsUpdateMealTypesPayload) {
+    return wsRespond(async () => {
+      const changedByDisplayName =
+        await this.householdsService.getUserDisplayName(payload.userId);
+      const result = await this.householdsService.updateMealTypes(
+        payload.userId,
+        payload.householdId,
+        payload.data,
+      );
+      this.server.emit('households:mealTypesChanged', {
+        householdId: payload.householdId,
+        mealTypes: result.enabledMealTypes,
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+      });
+      return result;
+    });
+  }
+
+  @SubscribeMessage('households:updateMealTimes')
+  updateMealTimes(@MessageBody() payload: HouseholdsUpdateMealTimesPayload) {
+    return wsRespond(async () => {
+      const changedByDisplayName =
+        await this.householdsService.getUserDisplayName(payload.userId);
+      const result = await this.householdsService.updateMealTimes(
+        payload.userId,
+        payload.householdId,
+        payload.data,
+      );
+      this.server.emit('households:mealTimesChanged', {
+        householdId: payload.householdId,
+        mealSlotTimes: result.mealSlotTimes,
         changedByUserId: payload.userId,
         changedByDisplayName,
       });

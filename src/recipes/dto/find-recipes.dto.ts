@@ -9,8 +9,10 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { MealType } from '@prisma/client';
+import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 
-const mealTypes = ['BREAKFAST', 'LUNCH', 'DINNER'] as const;
+const mealTypes = MEAL_TYPE_VALUES;
 
 export class FindRecipesDto {
   @ApiPropertyOptional({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
@@ -18,10 +20,15 @@ export class FindRecipesDto {
   @IsString()
   householdId?: string;
 
+  /**
+   * Filtr slotu. Dopasowanie idzie po `suitableMealTypes` (a nie po slocie
+   * bazowym), więc `mealType=SECOND_BREAKFAST` zwróci m.in. owsiankę, której
+   * `mealType` to `BREAKFAST` — o to w tej funkcji chodzi.
+   */
   @ApiPropertyOptional({ enum: mealTypes, example: 'DINNER' })
   @IsOptional()
   @IsIn(mealTypes)
-  mealType?: (typeof mealTypes)[number];
+  mealType?: MealType;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

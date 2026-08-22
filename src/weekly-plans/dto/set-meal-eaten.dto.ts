@@ -1,8 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsIn, IsString } from 'class-validator';
+import { MealType } from '@prisma/client';
+import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 
 const dayOfWeek = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
-const mealType = ['BREAKFAST', 'LUNCH', 'DINNER'] as const;
+const mealType = MEAL_TYPE_VALUES;
 
 /**
  * Marks one planned meal as eaten (or un-eaten) by the calling user.
@@ -19,7 +21,7 @@ export class SetMealEatenDto {
 
   @ApiProperty({ enum: mealType })
   @IsIn(mealType)
-  mealType: (typeof mealType)[number];
+  mealType: MealType;
 
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   @IsString()
