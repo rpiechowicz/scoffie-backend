@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 
 export class RecipeIngredientDto {
   @ApiProperty()
@@ -90,8 +91,15 @@ export class RecipeDto {
   @ApiProperty({ required: false, nullable: true })
   sourceRaw?: Record<string, unknown> | null;
 
-  @ApiProperty({ enum: ['BREAKFAST', 'LUNCH', 'DINNER'] })
+  @ApiProperty({ enum: MEAL_TYPE_VALUES })
   mealType: string;
+
+  /**
+   * Wszystkie sloty, w których danie da się zaplanować — zawiera `mealType`.
+   * Klient filtruje po tym polu przy dodawaniu posiłku do slotu.
+   */
+  @ApiProperty({ enum: MEAL_TYPE_VALUES, isArray: true })
+  suitableMealTypes: string[];
 
   @ApiProperty({ enum: ['EASY', 'MEDIUM', 'HARD'] })
   difficulty: string;

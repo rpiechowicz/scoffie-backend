@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 import { RecipeDto } from '../../recipes/dto/recipe.dto';
 
 export class PlanItemDto {
@@ -17,7 +18,7 @@ export class PlanItemDto {
   @ApiProperty({ enum: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] })
   dayOfWeek: string;
 
-  @ApiProperty({ enum: ['BREAKFAST', 'LUNCH', 'DINNER'] })
+  @ApiProperty({ enum: MEAL_TYPE_VALUES })
   mealType: string;
 
   /** Household member ids this item is for. Empty = everyone („Wspólne"). */

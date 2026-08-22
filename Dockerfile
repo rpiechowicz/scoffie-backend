@@ -42,4 +42,14 @@ COPY tsconfig.json ./tsconfig.json
 COPY tsconfig.build.json ./tsconfig.build.json
 COPY package.json ./
 EXPOSE 3000
-CMD ["node", "dist/main"]
+# Migracje przed startem, a nie „pamiętaj puścić je ręcznie".
+#
+# Obraz startował dotąd samym `node dist/main`, przez co przebudowa API
+# potrafiła podnieść kod, który pyta o kolumnę nieistniejącą jeszcze w bazie.
+# `prisma-migrate-deploy-safe.js` jest idempotentny, więc restart kontenera
+# bez nowych migracji nic nie kosztuje.
+#
+# `exec` na końcu jest istotny: bez niego `node` zostaje dzieckiem `sh`
+# i nie dostaje SIGTERM przy zatrzymywaniu kontenera, czyli nie ma jak
+# zamknąć się czysto.
+CMD ["sh", "-c", "node scripts/prisma-migrate-deploy-safe.js && exec node dist/main"]

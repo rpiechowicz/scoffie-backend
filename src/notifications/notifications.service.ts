@@ -247,14 +247,24 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Nazwa slotu w bierniku — wchodzi w zdania typu „Marek dodał Śniadanie
+   * na Poniedziałek". Stąd „Kolację", a nie „Kolacja".
+   */
   private mapMealType(value?: string | null): string {
     switch ((value ?? '').toUpperCase()) {
       case 'BREAKFAST':
         return 'Śniadanie';
+      case 'SECOND_BREAKFAST':
+        return 'II śniadanie';
       case 'LUNCH':
         return 'Obiad';
+      case 'AFTERNOON_SNACK':
+        return 'Podwieczorek';
       case 'DINNER':
         return 'Kolację';
+      case 'SNACK':
+        return 'Przekąskę';
       default:
         return 'Posiłek';
     }
