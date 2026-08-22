@@ -14,6 +14,7 @@ import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
 import {
   SaveSharedMealPlanDto,
   mergeSharedPlanRecipeIds,
+  sharedPlanAddressedMealTypes,
 } from './dto/save-shared-meal-plan.dto';
 import { MealType, Prisma } from '@prisma/client';
 import { MEAL_TYPES_IN_DAY_ORDER } from '../common/meal-types';
@@ -744,6 +745,10 @@ export class WeeklyPlansService {
     // formę (`recipeIdsByMealType`), czy jeszcze trzy stare pola.
     const recipeIdsByMealType = mergeSharedPlanRecipeIds(dto);
 
+    // Zakres zapisu. Starszy klient nie zna dodatkowych slotów i nie ma jak
+    // się o nich wypowiedzieć — jego zapis nie może ich skasować.
+    const addressedMealTypes = sharedPlanAddressedMealTypes(dto);
+
     const allIds = Object.values(recipeIdsByMealType).flat();
     const uniqueIds = Array.from(new Set(allIds));
 
@@ -815,6 +820,7 @@ export class WeeklyPlansService {
       await tx.sharedMealPlanItem.deleteMany({
         where: {
           sharedMealPlanId: sharedPlan.id,
+          mealType: { in: addressedMealTypes },
         },
       });
 

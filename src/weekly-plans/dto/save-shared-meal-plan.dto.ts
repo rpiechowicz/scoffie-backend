@@ -10,7 +10,11 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 import { MealType } from '@prisma/client';
-import { MEAL_TYPE_VALUES, isMealType } from '../../common/meal-types';
+import {
+  MEAL_TYPES_IN_DAY_ORDER,
+  MEAL_TYPE_VALUES,
+  isMealType,
+} from '../../common/meal-types';
 
 /**
  * Waliduje `recipeIdsByMealType`: klucze muszą być slotami posiłków,
@@ -101,9 +105,10 @@ export class SaveSharedMealPlanDto {
  * wysłał stare pola. Inaczej klient w trakcie migracji potrafiłby nadpisać
  * własny, nowszy zapis starszym.
  *
- * Sloty nieobecne w żadnej z form wracają jako pusta tablica, bo zapis puli
- * jest **pełny**: brak slotu znaczy „nic w nim nie planujemy", nie „zostaw,
- * jak było".
+ * Sloty nieobecne w żadnej z form wracają jako pusta tablica. To nie znaczy
+ * jednak, że wolno je skasować w bazie — o tym, których slotów żądanie
+ * w ogóle dotyczy, mówi `sharedPlanAddressedMealTypes`. Patrz komentarz przy
+ * tej funkcji.
  */
 export function mergeSharedPlanRecipeIds(
   dto: SaveSharedMealPlanDto,
@@ -124,4 +129,29 @@ export function mergeSharedPlanRecipeIds(
     },
     {} as Record<MealType, string[]>,
   );
+}
+
+
+/**
+ * Sloty, o których to żądanie faktycznie się wypowiada.
+ *
+ * Zapis puli jest pełny — ale tylko w zakresie slotów, które klient zna.
+ * Klient sprzed dodatkowych posiłków wysyła wyłącznie trzy stare pola
+ * i nie ma żadnego sposobu, żeby powiedzieć cokolwiek o II śniadaniu,
+ * podwieczorku czy przekąsce. Potraktowanie jego zapisu jako pełnego kasowało
+ * te sloty z bazy: wystarczyło, że jeden domownik z nowszą aplikacją
+ * zaplanował podwieczorek, a drugi ze starszą poprawił pulę tygodnia —
+ * i podwieczorek znikał bez śladu i bez błędu.
+ *
+ * Dlatego: obecność `recipeIdsByMealType` (choćby pustej) znaczy „mówię
+ * o wszystkich slotach". Jej brak znaczy „mówię wyłącznie o śniadaniu,
+ * obiedzie i kolacji" — reszta zostaje nietknięta.
+ */
+export function sharedPlanAddressedMealTypes(
+  dto: SaveSharedMealPlanDto,
+): MealType[] {
+  if (dto.recipeIdsByMealType !== undefined) {
+    return [...MEAL_TYPES_IN_DAY_ORDER];
+  }
+  return [MealType.BREAKFAST, MealType.LUNCH, MealType.DINNER];
 }

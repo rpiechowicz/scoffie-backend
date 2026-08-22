@@ -14,6 +14,7 @@ import { CreateHouseholdDto } from './dto/create-household.dto';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { UpdateHouseholdDto } from './dto/update-household.dto';
 import { UpdateHouseholdMealTypesDto } from './dto/update-meal-types.dto';
+import { UpdateHouseholdMealTimesDto } from './dto/update-meal-times.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
@@ -58,6 +59,12 @@ class HouseholdsUpdateMealTypesPayload {
   userId: string;
   householdId: string;
   data: UpdateHouseholdMealTypesDto;
+}
+
+class HouseholdsUpdateMealTimesPayload {
+  userId: string;
+  householdId: string;
+  data: UpdateHouseholdMealTimesDto;
 }
 
 class HouseholdsListMembersPayload {
@@ -214,6 +221,26 @@ export class HouseholdsGateway
       this.server.emit('households:mealTypesChanged', {
         householdId: payload.householdId,
         mealTypes: result.enabledMealTypes,
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+      });
+      return result;
+    });
+  }
+
+  @SubscribeMessage('households:updateMealTimes')
+  updateMealTimes(@MessageBody() payload: HouseholdsUpdateMealTimesPayload) {
+    return wsRespond(async () => {
+      const changedByDisplayName =
+        await this.householdsService.getUserDisplayName(payload.userId);
+      const result = await this.householdsService.updateMealTimes(
+        payload.userId,
+        payload.householdId,
+        payload.data,
+      );
+      this.server.emit('households:mealTimesChanged', {
+        householdId: payload.householdId,
+        mealSlotTimes: result.mealSlotTimes,
         changedByUserId: payload.userId,
         changedByDisplayName,
       });

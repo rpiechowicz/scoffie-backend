@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 
 export class HouseholdDto {
@@ -18,6 +18,19 @@ export class HouseholdDto {
     example: ['BREAKFAST', 'LUNCH', 'DINNER'],
   })
   enabledMealTypes: string[];
+
+  /**
+   * Pory posiłków: mapa slot → minuty od północy. `null` znaczy „gospodarstwo
+   * nie ruszało godzin" i klient bierze wtedy swoje domyślne; brak klucza
+   * znaczy „ten posiłek nie ma stałej pory".
+   */
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { type: 'integer' },
+    nullable: true,
+    example: { BREAKFAST: 480, LUNCH: 840, DINNER: 1200 },
+  })
+  mealSlotTimes?: Record<string, number> | null;
 
   @ApiProperty({ required: false, nullable: true })
   createdById?: string | null;

@@ -192,6 +192,13 @@ model Household {
   /// plan z dziurą i listę zakupów, która się z nim nie zgadza.
   /// Trójka BREAKFAST/LUNCH/DINNER jest obowiązkowa i walidowana w serwisie.
   enabledMealTypes MealType[] @default([BREAKFAST, LUNCH, DINNER])
+  /// Pory posiłków: mapa slot → minuty od północy, np. `{"BREAKFAST": 480}`.
+  /// Minuty, nie `DateTime`, bo pora posiłku to punkt w dobie — `DateTime`
+  /// wciągnąłby tu datę i strefę czasową, których ta wartość nie ma.
+  /// `null` = gospodarstwo nie ruszało godzin (klient bierze swoje domyślne).
+  /// Brak klucza = ten posiłek nie ma stałej pory (tak działa przekąska),
+  /// więc pusta mapa i `null` znaczą co innego.
+  mealSlotTimes Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?  @db.Uuid

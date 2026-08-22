@@ -13,6 +13,7 @@ import { CreateHouseholdDto } from './dto/create-household.dto';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { UpdateHouseholdDto } from './dto/update-household.dto';
 import { UpdateHouseholdMealTypesDto } from './dto/update-meal-types.dto';
+import { UpdateHouseholdMealTimesDto } from './dto/update-meal-times.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { normalizeEnabledMealTypes } from '../common/meal-types';
 
@@ -264,6 +265,28 @@ export class HouseholdsService {
     return this.prisma.household.update({
       where: { id: householdId },
       data: { enabledMealTypes },
+    });
+  }
+
+  /**
+   * Zapisuje pory posiłków gospodarstwa.
+   *
+   * Mapa idzie do bazy taka, jaka przyszła — walidacja kluczy i zakresu
+   * siedzi w DTO. Świadomie **nie** dokładamy tu domyślnych godzin dla
+   * slotów, których klient nie wymienił: brak klucza to informacja („ten
+   * posiłek nie ma stałej pory"), a nie luka do wypełnienia.
+   */
+  async updateMealTimes(
+    userId: string,
+    householdId: string,
+    dto: UpdateHouseholdMealTimesDto,
+  ) {
+    await this.getHouseholdOrThrow(householdId);
+    await this.ensureMembership(userId, householdId);
+
+    return this.prisma.household.update({
+      where: { id: householdId },
+      data: { mealSlotTimes: dto.mealSlotTimes },
     });
   }
 
