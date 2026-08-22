@@ -18,6 +18,7 @@
     "catalog:ingredients:nutrition": "tsx scripts/load-ingredient-nutrition.ts",
     "audit:recipes:nutrition": "tsx scripts/audit-recipe-nutrition.ts",
     "recipes:recompute:nutrition": "tsx scripts/recompute-recipe-nutrition.ts",
+    "recipes:backfill:slots": "tsx scripts/backfill-suitable-meal-types.ts",
     "recipes:import:json": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/import-recipes-from-json.ts",
     "generate:recipe:images": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/generate-recipe-images.ts",
     "upload:recipe:images:r2": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/upload-recipe-images-to-r2.ts",

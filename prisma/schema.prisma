@@ -102,7 +102,16 @@ model Recipe {
   sourceCulturalContext String?
   sourceNutrition       Json?
   sourceRaw             Json?
+  /// Slot, do którego przepis należy „z natury" — steruje sekcją na
+  /// Przepisach, okładką i akcentem. Zawsze dokładnie jeden.
   mealType              MealType
+  /// Wszystkie sloty, w których danie ma sens. Zawiera `mealType` plus te
+  /// dołożone ręcznie albo przez klasyfikator (`suitable-meal-types.util`).
+  /// To ono, a nie `mealType`, decyduje o tym, co widać przy dodawaniu
+  /// posiłku do slotu — dzięki temu jedna owsianka wpada i na śniadanie,
+  /// i na II śniadanie, bez duplikowania przepisu.
+  /// Puste = brak backfillu; czytający traktują to jak `[mealType]`.
+  suitableMealTypes     MealType[] @default([])
   difficulty            Difficulty @default(EASY)
   prepTimeMinutes       Int        @default(0)
   servings              Int        @default(1)
@@ -126,6 +135,10 @@ model Recipe {
   ingredients         RecipeIngredient[]
   favorites           RecipeFavorite[]
   sharedMealPlanItems SharedMealPlanItem[]
+
+  // GIN — zapytania po slocie idą teraz przez `suitableMealTypes has X`,
+  // a B-tree nie obsłuży zawierania w tablicy.
+  @@index([suitableMealTypes], type: Gin)
 }
 
 model Ingredient {
@@ -173,6 +186,12 @@ model IngredientAlias {
 model Household {
   id          String   @id @default(uuid()) @db.Uuid
   name        String
+  /// Sloty posiłków, które gospodarstwo planuje. Trzymane per gospodarstwo,
+  /// a nie per użytkownik, bo plan tygodnia i lista zakupów są wspólne —
+  /// gdyby Ania miała podwieczorek, a Marek nie, jedno z nich widziałoby
+  /// plan z dziurą i listę zakupów, która się z nim nie zgadza.
+  /// Trójka BREAKFAST/LUNCH/DINNER jest obowiązkowa i walidowana w serwisie.
+  enabledMealTypes MealType[] @default([BREAKFAST, LUNCH, DINNER])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String?  @db.Uuid
@@ -480,10 +499,18 @@ enum DayOfWeek {
   SUN
 }
 
+/// Sloty posiłków w ciągu dnia. Kolejność definicji jest istotna: Postgres
+/// sortuje enum po niej, a `orderBy: { mealType: 'asc' }` w planach tygodnia
+/// ma dawać porządek dnia (śniadanie → II śniadanie → obiad → …), nie
+/// alfabetyczny. Migracja dokłada nowe wartości `BEFORE`/`AFTER` istniejących,
+/// żeby ten porządek utrzymać bez przepisywania typu.
 enum MealType {
   BREAKFAST
+  SECOND_BREAKFAST
   LUNCH
+  AFTERNOON_SNACK
   DINNER
+  SNACK
 }
 
 enum Difficulty {

@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
   IsArray,
   IsIn,
   IsNumber,
@@ -11,8 +13,10 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { MealType } from '@prisma/client';
+import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 
-const mealTypes = ['BREAKFAST', 'LUNCH', 'DINNER'] as const;
+const mealTypes = MEAL_TYPE_VALUES;
 const difficulties = ['EASY', 'MEDIUM', 'HARD'] as const;
 const ingredientUnits = [
   'g',
@@ -59,9 +63,27 @@ export class CreateRecipeDto {
   @MaxLength(2000)
   description?: string;
 
+  /** Slot bazowy — jeden, steruje sekcją i okładką na liście przepisów. */
   @ApiProperty({ enum: mealTypes })
   @IsIn(mealTypes)
-  mealType: (typeof mealTypes)[number];
+  mealType: MealType;
+
+  /**
+   * Pozostałe sloty, w których danie ma sens („ta owsianka jest też na
+   * II śniadanie"). Slot bazowy dokłada serwis, więc klient nie musi go tu
+   * powtarzać. Pominięcie pola = tylko slot bazowy.
+   */
+  @ApiPropertyOptional({
+    enum: mealTypes,
+    isArray: true,
+    example: ['SECOND_BREAKFAST'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(6)
+  @IsIn(mealTypes, { each: true })
+  suitableMealTypes?: MealType[];
 
   @ApiProperty({ enum: difficulties, example: 'EASY' })
   @IsIn(difficulties)

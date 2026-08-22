@@ -1,6 +1,8 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { extname, join } from 'node:path';
-import { PrismaClient } from '@prisma/client';
+import { MealType, PrismaClient } from '@prisma/client';
+import { MEAL_TYPE_VALUES } from '../src/common/meal-types';
+import { resolveSuitableMealTypes } from '../src/recipes/suitable-meal-types.util';
 import {
   ALLOWED_UNITS,
   normalizeIngredientAmount,
@@ -13,7 +15,12 @@ type RecipeInput = {
   id?: string;
   title: string;
   description: string;
-  mealType: 'BREAKFAST' | 'LUNCH' | 'DINNER';
+  mealType: MealType;
+  /**
+   * Opcjonalne, ręczne rozszerzenie slotów. Pominięte = import policzy je
+   * klasyfikatorem (`resolveSuitableMealTypes`).
+   */
+  suitableMealTypes?: MealType[];
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   prepTimeMinutes: number;
   servings: number;
@@ -262,8 +269,17 @@ function validateBatch(input: RecipeBatchInput): void {
       );
     }
     if (!recipe.title?.trim()) throw new Error('Recipe title is required.');
-    if (!['BREAKFAST', 'LUNCH', 'DINNER'].includes(recipe.mealType)) {
+    if (!MEAL_TYPE_VALUES.includes(recipe.mealType)) {
       throw new Error(`Invalid mealType for recipe "${recipe.title}".`);
+    }
+    if (
+      recipe.suitableMealTypes?.some(
+        (mealType) => !MEAL_TYPE_VALUES.includes(mealType),
+      )
+    ) {
+      throw new Error(
+        `Invalid suitableMealTypes for recipe "${recipe.title}".`,
+      );
     }
     if (!['EASY', 'MEDIUM', 'HARD'].includes(recipe.difficulty)) {
       throw new Error(`Invalid difficulty for recipe "${recipe.title}".`);
@@ -470,6 +486,18 @@ async function main(): Promise<void> {
       title: recipe.title,
       description: recipe.description,
       mealType: recipe.mealType,
+      // Sloty, w których danie ma sens. JSON może je podać wprost; jeśli nie,
+      // liczy je klasyfikator — inaczej każdy import wracałby z katalogiem,
+      // w którym II śniadanie i podwieczorek są puste.
+      suitableMealTypes: resolveSuitableMealTypes({
+        title: recipe.title,
+        description: recipe.description,
+        mealType: recipe.mealType,
+        prepTimeMinutes: recipe.prepTimeMinutes,
+        servings: recipe.servings,
+        nutritionKcal: recipe.nutrition.kcal,
+        suitableMealTypes: recipe.suitableMealTypes,
+      }),
       difficulty: recipe.difficulty,
       prepTimeMinutes: recipe.prepTimeMinutes,
       servings: recipe.servings,
