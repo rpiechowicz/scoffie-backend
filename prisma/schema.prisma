@@ -278,6 +278,19 @@ model PlanItem {
   mealType     MealType
   createdAt    DateTime  @default(now())
 
+  /// Ile porcji przepisu faktycznie gotujemy w tym slocie. To liczba łączna,
+  /// nie „na osobę". Lista zakupów skaluje składniki przez
+  /// `plannedServings / recipe.servings`.
+  ///
+  /// Domyślnie tyle, ile osób je danie (pusty `participants` = całe
+  /// gospodarstwo), ale użytkownik może to nadpisać stepperem w szczegółach
+  /// posiłku. `@default(1)` jest tylko po to, żeby ALTER TABLE przeszedł na
+  /// istniejących wierszach — prawdziwe wartości wylicza z audytorium ta sama
+  /// migracja, tuż po dodaniu kolumny. Skrypt
+  /// `scripts/backfill-plan-item-servings.ts` został jako narzędzie naprawcze
+  /// dla baz, które przeszły migrację bez tego kroku.
+  plannedServings Int @default(1)
+
   weeklyPlan   WeeklyPlan            @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
   recipe       Recipe                @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   participants PlanItemParticipant[]
