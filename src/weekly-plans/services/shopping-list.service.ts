@@ -54,9 +54,14 @@ export class ShoppingListService {
       },
       include: {
         items: {
-          include: {
+          // Jawny `select` zamiast `include`, bo skalowanie potrzebuje dwóch
+          // zwykłych pól — `plannedServings` z pozycji planu i `servings`
+          // z przepisu — a `include` przyjmuje wyłącznie relacje.
+          select: {
+            plannedServings: true,
             recipe: {
-              include: {
+              select: {
+                servings: true,
                 ingredients: {
                   select: {
                     name: true,
@@ -85,13 +90,18 @@ export class ShoppingListService {
           department: string;
         }>;
       };
-      quantity: number;
+      portionFactor: number;
     }> = [];
     if (weeklyPlan && weeklyPlan.items.length > 0) {
-      // One item per dish, so a split slot contributes both people's meals.
+      // Jedna pozycja to jedno danie, więc podzielony slot wnosi posiłki obu
+      // domowników. Waga pozycji jest ułamkiem, a nie krotnością: gotujemy
+      // `plannedServings` porcji przepisu napisanego na `recipe.servings`,
+      // więc posiłek solo z przepisu na dwie porcje kupuje połowę
+      // składników.
       ingredientSources = weeklyPlan.items.map((item) => ({
         recipe: item.recipe,
-        quantity: 1,
+        portionFactor:
+          Math.max(1, item.plannedServings) / Math.max(1, item.recipe.servings),
       }));
     } else {
       // Legacy weeks: planned as a pool, never assigned to days.
@@ -125,7 +135,10 @@ export class ShoppingListService {
       });
       ingredientSources = (sharedPlan?.items ?? []).map((item) => ({
         recipe: item.recipe,
-        quantity: Math.max(1, item.quantity),
+        // Tamte tygodnie nie mają ani dni, ani porcji — `quantity` mówi
+        // tylko, ile razy gotujemy przepis, więc jedna pozycja to nadal CAŁY
+        // przepis i mnożnik zostaje całkowity.
+        portionFactor: Math.max(1, item.quantity),
       }));
     }
 
@@ -140,7 +153,7 @@ export class ShoppingListService {
         );
         const productKey = normalizeProductKey(canonicalName, baseUnit);
         const current = aggregated.get(productKey);
-        const amountToAdd = baseAmount * source.quantity;
+        const amountToAdd = baseAmount * source.portionFactor;
         if (current) {
           current.totalAmount += amountToAdd;
           continue;

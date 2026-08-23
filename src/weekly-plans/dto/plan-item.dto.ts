@@ -33,6 +33,13 @@ export class PlanItemDto {
   @ApiProperty({ type: [String] })
   eatenByUserIds: string[];
 
+  /**
+   * Ile porcji przepisu gotujemy w tym slocie — łącznie, nie na osobę.
+   * Lista zakupów skaluje składniki przez `plannedServings / recipe.servings`.
+   */
+  @ApiProperty({ example: 2, minimum: 1, maximum: 12 })
+  plannedServings: number;
+
   @ApiProperty()
   createdAt: Date;
 }
