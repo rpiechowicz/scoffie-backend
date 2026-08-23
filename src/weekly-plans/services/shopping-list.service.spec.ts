@@ -34,29 +34,38 @@ const ingredient = (
 
 type Ingredient = ReturnType<typeof ingredient>;
 
-/// A Plan v2 day item: one dish pinned to a (day, slot). `participants` are
-/// irrelevant to the shopping list — every dish is cooked once — but they are
-/// what makes two items share a slot, so the fixtures carry them.
+/// A Plan v2 day item: one dish pinned to a (day, slot). `participants` do
+/// not reach the shopping list — the scaling runs off `plannedServings`,
+/// which the server already derived from them — but they are what makes two
+/// items share a slot, so the fixtures carry them.
+///
+/// Domyślnie pozycja gotuje dokładnie tyle porcji, na ile napisany jest
+/// przepis (mnożnik 1), żeby testy agregacji nie mieszały się ze skalowaniem;
+/// testy reguły porcji podają obie liczby jawnie.
 const dayItem = (
   id: string,
   dayOfWeek: number,
   mealType: string,
   ingredients: Ingredient[],
   participantIds: string[] = [],
+  plannedServings = 2,
+  recipeServings = 2,
 ) => ({
   id,
   weeklyPlanId: 'plan-1',
   dayOfWeek,
   mealType,
-  recipe: { ingredients },
+  plannedServings,
+  recipe: { ingredients, servings: recipeServings },
   participants: participantIds.map((userId) => ({ userId })),
 });
 
-/// A legacy pool item: no day, but an explicit `quantity` for how many times
-/// the household planned to cook it that week.
+/// A legacy pool item: no day, no portions, but an explicit `quantity` for how
+/// many times the household planned to cook it that week. `recipe.servings` is
+/// here only to prove the legacy branch ignores it.
 const poolItem = (id: string, ingredients: Ingredient[], quantity: number) => ({
   id,
-  recipe: { ingredients },
+  recipe: { ingredients, servings: 2 },
   quantity,
 });
 
@@ -181,13 +190,38 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
     expect(findItem(items, 'ryz').totalAmount).toBe(250);
   });
 
-  // ─── Reguła „jedno danie = jedna porcja przepisu" ───────────────────────────
+  // ─── Reguła „pozycja waży plannedServings / recipe.servings" ────────────────
+  //
+  // Ilości składników opisują CAŁY przepis, czyli `recipe.servings` porcji, a
+  // slot gotuje `plannedServings` porcji. Waga pozycji to więc ułamek, nie
+  // krotność — dopóki obie liczby są równe, lista wygląda jak dawniej.
 
-  it('powinno policzyć wspólne danie raz, niezależnie od liczby domowników', async () => {
-    // Pusta lista uczestników znaczy „wszyscy" — i tak gotuje się raz.
+  it('powinno kupić połowę składników na posiłek solo z przepisu na dwie porcje', async () => {
     prisma.weeklyPlan.findUnique.mockResolvedValue(
       weekPlanWith([
-        dayItem('i-1', 1, 'DINNER', [ingredient('Mleko', 1, 'l')]),
+        dayItem(
+          'i-1',
+          1,
+          'DINNER',
+          [ingredient('Kurczak', 300)],
+          ['user-1'],
+          1,
+          2,
+        ),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(findItem(items, 'kurczak').totalAmount).toBe(150);
+  });
+
+  it('powinno kupić cały przepis na wspólne danie na dwie porcje', async () => {
+    // Pusta lista uczestników znaczy „wszyscy", a serwer przełożył to na
+    // dwie porcje — dokładnie tyle, na ile napisany jest przepis.
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'DINNER', [ingredient('Mleko', 1, 'l')], [], 2, 2),
       ]),
     );
 
@@ -196,9 +230,39 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
     expect(findItem(items, 'mleko').totalAmount).toBe(1);
   });
 
+  it('powinno kupić podwójnie, gdy slot podbito do czterech porcji', async () => {
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'DINNER', [ingredient('Kurczak', 300)], [], 4, 2),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(findItem(items, 'kurczak').totalAmount).toBe(600);
+  });
+
+  it('powinno złożyć dwa posiłki solo z tego samego przepisu w jeden komplet składników', async () => {
+    // Dwa razy pół przepisu ma dać dokładnie jeden przepis, bez pyłu po
+    // dzieleniu — inaczej lista rozjeżdżałaby się o gramy przy każdym
+    // slocie dzielonym.
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'DINNER', [ingredient('Ryż', 200)], ['user-1'], 1, 2),
+        dayItem('i-2', 1, 'DINNER', [ingredient('Ryż', 200)], ['user-2'], 1, 2),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(items).toHaveLength(1);
+    expect(findItem(items, 'ryz').totalAmount).toBe(200);
+  });
+
   it('powinno policzyć ten sam przepis dwa razy, gdy stoi w dwóch dniach', async () => {
     // Powtórzenia w tygodniu niesie sam kalendarz — to zastąpiło pole
-    // `quantity` ze starej puli.
+    // `quantity` ze starej puli. Skalowanie porcji działa niezależnie: każdy
+    // z dni gotuje pełny przepis (2 z 2 porcji).
     prisma.weeklyPlan.findUnique.mockResolvedValue(
       weekPlanWith([
         dayItem('i-1', 1, 'BREAKFAST', [ingredient('Owies', 50)]),
@@ -221,7 +285,9 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
 
     const items = await getList();
 
-    // Stara pula niosła krotność w `quantity` — 3 × 200 g.
+    // Stara pula niosła krotność w `quantity` — 3 × 200 g. Reguła porcji
+    // jej nie dotyczy: tamte tygodnie nie mają dni ani porcji, więc
+    // `servings` przepisu nie dzieli tu niczego.
     expect(findItem(items, 'makaron').totalAmount).toBe(600);
   });
 

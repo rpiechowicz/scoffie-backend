@@ -3,9 +3,12 @@ import {
   ArrayMaxSize,
   IsArray,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
+  Min,
 } from 'class-validator';
 import { MealType } from '@prisma/client';
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
@@ -41,4 +44,17 @@ export class UpsertWeekSlotDto {
   @ArrayMaxSize(32)
   @IsUUID(undefined, { each: true })
   participantIds?: string[];
+
+  /**
+   * Ile porcji gotujemy. Pominięte = policz z audytorium
+   * (`participantIds.length`, a dla „Wspólne" liczba domowników).
+   * Starszy klient nie zna tego pola i dzięki temu dostaje policzoną wartość
+   * zamiast twardej jedynki.
+   */
+  @ApiPropertyOptional({ example: 2, minimum: 1, maximum: 12 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  plannedServings?: number;
 }

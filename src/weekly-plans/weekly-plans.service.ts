@@ -160,6 +160,15 @@ export class WeeklyPlansService {
 
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, plan.householdId);
 
+    // Ścieżka zaszła: `addItem` w ogóle nie zna audytorium — nie zakłada
+    // `PlanItemParticipant` — a klient iOS jej nie woła, bo chodzi wyłącznie
+    // przez `upsertWeekSlot`. Zostaje więc REST i starsze integracje, dla
+    // których „bez uczestników" znaczy „Wspólne", czyli tyle porcji, ilu
+    // domowników. Bez tego item wylądowałby na `@default(1)` ze schematu
+    // i lista zakupów kupiłaby jedzenie dla jednej osoby.
+    const { memberCount } = await this.resolveParticipants(plan.householdId);
+    const plannedServings = this.resolvePlannedServings([], memberCount);
+
     return this.prisma.$transaction(async (tx) => {
       const [existingForMealType, existingTotal, variantsInSlot, sameRecipe] =
         await Promise.all([
@@ -229,6 +238,7 @@ export class WeeklyPlansService {
             recipeId: dto.recipeId,
             dayOfWeek: dto.dayOfWeek,
             mealType: dto.mealType,
+            plannedServings,
           },
         });
       } catch (error) {
@@ -292,9 +302,19 @@ export class WeeklyPlansService {
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
-    const participantIds = await this.resolveParticipants(
+    const { participantIds, memberCount } = await this.resolveParticipants(
       householdId,
       dto.participantIds,
+    );
+    // Reguła auto dla NOWEGO itemu. Liczymy z już rozwiązanego audytorium, nie
+    // z surowego `dto`: lista nazywająca wszystkich domowników zwija się do
+    // pustej („Wspólne"), więc obie formy tego samego wyboru muszą dać tyle
+    // samo porcji. Istniejący item ma własną regułę — patrz
+    // `resolveUpdatedPlannedServings` niżej.
+    const plannedServingsForCreate = this.resolvePlannedServings(
+      participantIds,
+      memberCount,
+      dto.plannedServings,
     );
 
     return this.prisma.$transaction(async (tx) => {
@@ -324,6 +344,11 @@ export class WeeklyPlansService {
       // The item is identified by its recipe, not just by the slot: a slot can
       // hold one variant per household split. Re-upserting the same recipe
       // only rewrites who it is for.
+      //
+      // Dociągamy tu porcje i STARE audytorium, mimo że za chwilę je kasujemy:
+      // bez nich nie da się orzec, czy zapisana liczba porcji to wynik reguły
+      // auto, czy świadomy wybór użytkownika (patrz
+      // `resolveUpdatedPlannedServings`).
       const existingItem = await tx.planItem.findFirst({
         where: {
           weeklyPlanId: weeklyPlan.id,
@@ -331,16 +356,29 @@ export class WeeklyPlansService {
           mealType: dto.mealType,
           recipeId: dto.recipeId,
         },
-        select: { id: true },
+        select: {
+          id: true,
+          plannedServings: true,
+          participants: { select: { userId: true } },
+        },
       });
 
       if (existingItem) {
+        const plannedServingsForUpdate = this.resolveUpdatedPlannedServings({
+          currentPlannedServings: existingItem.plannedServings,
+          currentParticipantIds: existingItem.participants.map((p) => p.userId),
+          nextParticipantIds: participantIds,
+          memberCount,
+          requested: dto.plannedServings,
+        });
+
         await tx.planItemParticipant.deleteMany({
           where: { planItemId: existingItem.id },
         });
         const updatedItem = await tx.planItem.update({
           where: { id: existingItem.id },
           data: {
+            plannedServings: plannedServingsForUpdate,
             participants: {
               create: participantIds.map((id) => ({ userId: id })),
             },
@@ -405,6 +443,7 @@ export class WeeklyPlansService {
           dayOfWeek: dto.dayOfWeek,
           mealType: dto.mealType,
           recipeId: dto.recipeId,
+          plannedServings: plannedServingsForCreate,
           participants: {
             create: participantIds.map((id) => ({ userId: id })),
           },
@@ -560,14 +599,25 @@ export class WeeklyPlansService {
    * An empty result means „Wspólne" — the meal is for the whole household.
    * Naming every member says exactly the same thing, so it collapses to empty
    * and the app keeps showing a single house badge instead of N avatars.
+   *
+   * Zwraca też liczbę domowników, bo dokładnie tego potrzebuje
+   * `resolvePlannedServings` dla „Wspólnego" — a stan członkostwa i tak jest
+   * tu odpytany, więc oddanie go wołającemu oszczędza drugi round-trip.
    */
   private async resolveParticipants(
     householdId: string,
     requested?: string[],
-  ): Promise<string[]> {
+  ): Promise<{ participantIds: string[]; memberCount: number }> {
     const unique = Array.from(new Set(requested ?? []));
     if (unique.length === 0) {
-      return [];
+      // Sama lista uczestników nie jest tu potrzebna — nie ma czego walidować
+      // — ale „Wspólne" znaczy „tyle porcji, ilu domowników", więc bez tego
+      // licznika auto-reguła nie miałaby z czego liczyć. `count` zamiast
+      // `findMany`, bo identyfikatory na tej gałęzi i tak by przepadły.
+      const memberCount = await this.prisma.membership.count({
+        where: { householdId },
+      });
+      return { participantIds: [], memberCount };
     }
 
     const memberships = await this.prisma.membership.findMany({
@@ -585,7 +635,97 @@ export class WeeklyPlansService {
       );
     }
 
-    return unique.length === memberIds.size ? [] : unique;
+    return {
+      participantIds: unique.length === memberIds.size ? [] : unique,
+      memberCount: memberIds.size,
+    };
+  }
+
+  /**
+   * Ile porcji przepisu ugotować w slocie. Liczba łączna, nie „na osobę".
+   *
+   * Pominięte pole znaczy „policz sam", i to właśnie dzięki temu starszy
+   * klient — który o porcjach nie wie nic — dostaje sensowną wartość zamiast
+   * twardej jedynki z `@default` w schemacie.
+   */
+  private resolvePlannedServings(
+    participantIds: string[],
+    memberCount: number,
+    requested?: number | null,
+  ): number {
+    // Klamra, a nie walidacja. `ValidationPipe` owszem jest globalny
+    // (`main.ts`, `useGlobalPipes`), ale na ścieżce WebSocketu nie ma czego
+    // zwalidować: klasy-koperty payloadów w `weekly-plans.gateway.ts` — tu
+    // `WeeklyPlansUpsertWeekSlotPayload` — nie mają ani jednego dekoratora, a
+    // pole `data` nie jest opisane przez `@ValidateNested()` + `@Type(() =>
+    // UpsertWeekSlotDto)`. class-validator nie zagląda więc do środka i
+    // `@Min/@Max` na DTO nigdy się nie uruchamiają. Skoro klient iOS chodzi
+    // wyłącznie po WS, przycięcie w kodzie jest jedyną realną obroną przed
+    // `plannedServings: 0` albo `999`.
+    if (requested != null && Number.isFinite(requested)) {
+      return Math.min(12, Math.max(1, Math.trunc(requested)));
+    }
+    const eaters =
+      participantIds.length > 0 ? participantIds.length : memberCount;
+    return Math.min(12, Math.max(1, eaters));
+  }
+
+  /**
+   * Ile porcji zostawić na ISTNIEJĄCYM itemie, gdy przychodzi kolejny upsert.
+   *
+   * Samo „pominięte = przelicz z audytorium" nie wystarcza, bo chipy audytorium
+   * i stepper porcji siedzą w tym samym arkuszu, a klient wysyła
+   * `plannedServings` tylko wtedy, gdy użytkownik ruszył stepper. Przy takiej
+   * regule każde tapnięcie w chip cofałoby świadome „gotuję 4 porcje" do
+   * wartości auto — a `PlanSlotPickerSheet` robi upsert przy każdej zmianie
+   * audytorium, więc kasowanie byłoby codzienne, nie teoretyczne.
+   *
+   * Samo „pominięte = zostaw, co było" też nie wystarcza: przełączenie
+   * „Wspólne → tylko ja" zostawiłoby porcje dla dwojga, choć nikt ich nie
+   * wybierał i lista zakupów kupowałaby podwójnie.
+   *
+   * Rozstrzyga więc porównanie ze STARYM auto — policzonym z audytorium, które
+   * item ma w tej chwili w bazie. Zapisana wartość równa staremu auto znaczy
+   * „nikt tego nie nadpisywał", więc przeliczamy na nowe auto. Różna znaczy
+   * „to wybór użytkownika" i zostaje nietknięta.
+   *
+   * Granicę tego rozpoznania znamy i akceptujemy: ręcznie wybrana liczba, która
+   * przypadkiem równa się starej regule auto, przy zmianie audytorium przeliczy
+   * się razem z nią. Alternatywą byłaby osobna kolumna „ruszane ręcznie", a tej
+   * nie chcemy dokładać do modelu dla jednego przypadku brzegowego.
+   */
+  private resolveUpdatedPlannedServings(params: {
+    currentPlannedServings: number;
+    currentParticipantIds: string[];
+    nextParticipantIds: string[];
+    memberCount: number;
+    requested?: number | null;
+  }): number {
+    const {
+      currentPlannedServings,
+      currentParticipantIds,
+      nextParticipantIds,
+      memberCount,
+      requested,
+    } = params;
+
+    if (requested != null && Number.isFinite(requested)) {
+      return this.resolvePlannedServings(
+        nextParticipantIds,
+        memberCount,
+        requested,
+      );
+    }
+
+    const previousAuto = this.resolvePlannedServings(
+      currentParticipantIds,
+      memberCount,
+    );
+    if (currentPlannedServings !== previousAuto) {
+      return currentPlannedServings;
+    }
+
+    return this.resolvePlannedServings(nextParticipantIds, memberCount);
   }
 
   async clearWeekPlan(userId: string, householdId: string, weekStart: string) {

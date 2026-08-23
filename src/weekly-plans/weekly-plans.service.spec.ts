@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const mockHouseholdId = 'hh-1';
 const mockUserId = 'user-1';
+const mockOtherUserId = 'user-2';
 const mockRecipeId = 'recipe-uuid-1';
 const mockWeekStart = '2026-04-13'; // Monday
 
@@ -18,12 +19,20 @@ const mockMembership = {
   role: 'OWNER',
 };
 
+// Gospodarstwo dwuosobowe, bo dopiero przy dwóch domownikach widać różnicę
+// między regułą auto („Wspólne" = wszyscy) a twardą jedynką z `@default`.
+const mockHouseholdMembers = [
+  { userId: mockUserId },
+  { userId: mockOtherUserId },
+];
+
 const mockPlanItem = {
   id: 'plan-item-1',
   weeklyPlanId: 'plan-1',
   dayOfWeek: 1,
   mealType: 'BREAKFAST',
   recipeId: mockRecipeId,
+  plannedServings: 2,
 };
 
 const mockRecipe = {
@@ -84,6 +93,8 @@ const makePrismaMock = () => {
   const mock: any = {
     membership: {
       findUnique: jest.fn().mockResolvedValue(mockMembership),
+      findMany: jest.fn().mockResolvedValue(mockHouseholdMembers),
+      count: jest.fn().mockResolvedValue(mockHouseholdMembers.length),
     },
     recipe: {
       findUnique: jest.fn().mockResolvedValue(mockRecipe),
@@ -102,6 +113,10 @@ const makePrismaMock = () => {
       delete: jest.fn().mockResolvedValue(mockPlanItem),
       deleteMany: jest.fn().mockResolvedValue({ count: 7 }),
       findUniqueOrThrow: jest.fn().mockResolvedValue(mockPlanItem),
+    },
+    planItemParticipant: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     planItemConsumption: {
       upsert: jest.fn().mockResolvedValue({
@@ -214,6 +229,217 @@ describe('WeeklyPlansService', () => {
           recipeId: mockRecipeId,
         }),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─── upsertWeekSlot: porcje ───────────────────────────────────────────────
+
+  // Reguła auto-porcji siedzi w prywatnym `resolvePlannedServings`, więc
+  // sprawdzamy ją tak, jak widzi ją klient: po tym, co trafia do zapisu.
+  describe('upsertWeekSlot — plannedServings', () => {
+    const baseSlot = {
+      dayOfWeek: 'MON',
+      mealType: 'BREAKFAST',
+      recipeId: mockRecipeId,
+    } as const;
+
+    const expectCreatedWithServings = (plannedServings: number) =>
+      expect(prisma.planItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ plannedServings }),
+        }),
+      );
+
+    it('„Wspólne" w gospodarstwie 2-osobowym daje 2 porcje', async () => {
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expectCreatedWithServings(2);
+    });
+
+    it('jawna lista jednej osoby daje 1 porcję', async () => {
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        participantIds: [mockUserId],
+      });
+
+      expectCreatedWithServings(1);
+    });
+
+    it('wymienienie wszystkich domowników liczy się jak „Wspólne"', async () => {
+      // Lista nazywająca cały dom zwija się do pustej, więc obie formy tego
+      // samego wyboru muszą dać tyle samo porcji — inaczej stepper skakałby
+      // po samej zmianie sposobu zaznaczenia audytorium.
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        participantIds: [mockUserId, mockOtherUserId],
+      });
+
+      expectCreatedWithServings(2);
+    });
+
+    it('jawnie podane porcje wygrywają z regułą', async () => {
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        plannedServings: 4,
+      });
+
+      expectCreatedWithServings(4);
+    });
+
+    it('wartość powyżej zakresu jest przycięta do 12', async () => {
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        plannedServings: 99,
+      });
+
+      expectCreatedWithServings(12);
+    });
+
+    it('wartość poniżej zakresu jest podciągnięta do 1', async () => {
+      // Koperty payloadów WS w gatewayu nie mają `@ValidateNested()` na polu
+      // `data`, więc dekoratory DTO nigdy się nie uruchamiają i zero naprawdę
+      // dochodzi do serwisu — klamra w kodzie jest jedyną obroną.
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        plannedServings: 0,
+      });
+
+      expectCreatedWithServings(1);
+    });
+  });
+
+  // ─── upsertWeekSlot: porcje na istniejącym itemie ─────────────────────────
+
+  // Gałąź UPDATE ma własną regułę, bo „pominięte" znaczy tu co innego niż przy
+  // tworzeniu: nie „policz od zera", tylko „nie ruszaj tego, co użytkownik
+  // wybrał ręcznie". Chipy audytorium i stepper porcji siedzą w jednym arkuszu,
+  // a klient wysyła porcje wyłącznie po ruszeniu steppera — bez tego
+  // rozróżnienia każde tapnięcie w chip kasowałoby „gotuję 4 porcje".
+  describe('upsertWeekSlot — porcje na istniejącym itemie', () => {
+    const baseSlot = {
+      dayOfWeek: 'MON',
+      mealType: 'BREAKFAST',
+      recipeId: mockRecipeId,
+    } as const;
+
+    const expectUpdatedWithServings = (plannedServings: number) => {
+      expect(prisma.planItem.create).not.toHaveBeenCalled();
+      expect(prisma.planItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: mockPlanItem.id },
+          data: expect.objectContaining({ plannedServings }),
+        }),
+      );
+    };
+
+    /**
+     * Item, który już leży w slocie. Gałąź UPDATE potrzebuje jego STAREGO
+     * audytorium, żeby odróżnić „porcje z reguły auto" od „porcje wybrane
+     * ręcznie", więc mock musi oddać `participants` — sam `id` już nie
+     * wystarczy.
+     */
+    const mockExistingItem = (
+      plannedServings: number,
+      participantIds: string[] = [],
+    ) =>
+      prisma.planItem.findFirst.mockResolvedValue({
+        id: mockPlanItem.id,
+        plannedServings,
+        participants: participantIds.map((userId) => ({ userId })),
+      });
+
+    it('nadpisuje porcje na istniejącym itemie zamiast tworzyć nowy', async () => {
+      mockExistingItem(2);
+
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        plannedServings: 3,
+      });
+
+      expectUpdatedWithServings(3);
+    });
+
+    it('pominięte porcje nie kasują ręcznego wyboru przy zmianie audytorium', async () => {
+      // 4 porcje przy „Wspólnym" w domu dwuosobowym — stare auto dałoby 2, więc
+      // czwórka jest świadomym wyborem. Przełączenie na „tylko ja" nie ma prawa
+      // jej ruszyć.
+      mockExistingItem(4, []);
+
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        participantIds: [mockUserId],
+      });
+
+      expectUpdatedWithServings(4);
+    });
+
+    it('pominięte porcje nie kasują ręcznego wyboru przy niezmienionym audytorium', async () => {
+      mockExistingItem(4, []);
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expectUpdatedWithServings(4);
+    });
+
+    it('pominięte porcje przeliczają się, gdy poprzednia wartość była z reguły auto', async () => {
+      // 2 porcje przy „Wspólnym" w domu dwuosobowym to dokładnie stare auto,
+      // więc nikt tego nie nadpisywał. Zejście do „tylko ja" musi zejść do 1 —
+      // inaczej lista zakupów kupowałaby dla dwojga.
+      mockExistingItem(2, []);
+
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        participantIds: [mockUserId],
+      });
+
+      expectUpdatedWithServings(1);
+    });
+
+    it('pominięte porcje rosną z audytorium, gdy poprzednia wartość była z reguły auto', async () => {
+      // Odwrotny kierunek: „tylko ja" (1 uczestnik, auto = 1) → „Wspólne".
+      mockExistingItem(1, [mockUserId]);
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expectUpdatedWithServings(2);
+    });
+
+    it('jawnie podane porcje wygrywają nawet z zapisanym ręcznym wyborem', async () => {
+      mockExistingItem(4, []);
+
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        participantIds: [mockUserId],
+        plannedServings: 3,
+      });
+
+      expectUpdatedWithServings(3);
+    });
+
+    it('jawnie podane porcje są klamrowane także na gałęzi UPDATE', async () => {
+      mockExistingItem(2, []);
+
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        plannedServings: 99,
+      });
+
+      expectUpdatedWithServings(12);
     });
   });
 
