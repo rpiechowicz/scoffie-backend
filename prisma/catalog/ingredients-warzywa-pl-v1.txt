@@ -1,7 +1,7 @@
-baklazan
+bakłażan
 batat
-bob
-brokul
+bób
+brokuł
 brukselka
 burak
 cebula
@@ -13,33 +13,35 @@ dynia
 fasolka szparagowa
 groszek
 imbir
-jarmuz
+jarmuż
 kalafior
 kalarepa
-kapusta biala
+kapusta biała
 kapusta czerwona
-kapusta pekienska
-kapusta wloska
+kapusta pekińska
+kapusta włoska
 kukurydza
 marchew
 natka pietruszki
-ogorek
+ogórek
 papryka
 papryka czerwona
 papryka zielona
-papryka zolta
+papryka żółta
 pieczarka
-pietruszka korzen
+pietruszka korzeń
 pomidor
 pomidor koktajlowy
 por
 roszponka
 rukola
 rzodkiewka
-salata lodowa
+sałata lodowa
 seler naciowy
 szalotka
 szczypiorek
 szpinak
 ziemniak
-ziemniak mlody
+ziemniak młody
+koperek
+seler korzeniowy

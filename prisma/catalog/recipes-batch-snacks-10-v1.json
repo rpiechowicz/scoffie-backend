@@ -1,0 +1,732 @@
+{
+  "version": "v1-snacks-10",
+  "recipes": [
+    {
+      "id": "463a10d3-b7cf-441c-b4fa-362ff04132c7",
+      "title": "Koktajl bananowo-truskawkowy z jogurtem",
+      "description": "Szybki koktajl na drugie śniadanie do zabrania ze sobą. Słodycz banana i miodu łączy się z truskawkami i kremowym jogurtem.",
+      "mealType": "SECOND_BREAKFAST",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 5,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 509,
+        "protein": 15,
+        "carbs": 86,
+        "fat": 11,
+        "fiber": 10,
+        "salt": 0.3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Obierz banany i pokrój na kawałki, truskawki umyj i usuń szypułki."
+        },
+        {
+          "step": 2,
+          "instruction": "Włóż banany, truskawki, jogurt i miód do blendera i zmiksuj na gładki koktajl."
+        },
+        {
+          "step": 3,
+          "instruction": "Przelej do dwóch butelek lub kubków na wynos i schłodź do momentu wyjścia."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "banan",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "truskawka",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 15,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Koktajl bananowo-truskawkowy z jogurtem, A creamy pink banana-strawberry yogurt smoothie served in a to-go bottle and a glass, with a few fresh strawberries and banana slices beside it, served in two tall glasses standing close together, perfectly centered in the middle of the frame, fully visible with even space on all sides, elevated camera angle at about 30 degrees so the layers and toppings are clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the glasses in the exact center of the image, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/463a10d3-b7cf-441c-b4fa-362ff04132c7.png"
+      }
+    },
+    {
+      "id": "fd807639-8223-4016-86de-da869877f608",
+      "title": "Koktajl ze skyrem, bananem i masłem orzechowym",
+      "description": "Gęsty, kremowy koktajl na bazie skyru z bananem i masłem orzechowym. Szybkie drugie śniadanie z solidną porcją białka.",
+      "mealType": "SECOND_BREAKFAST",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 5,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 740,
+        "protein": 51,
+        "carbs": 80,
+        "fat": 23,
+        "fiber": 8,
+        "salt": 0.4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Obierz banany i połam je na mniejsze kawałki."
+        },
+        {
+          "step": 2,
+          "instruction": "Włóż do blendera skyr, banany, masło orzechowe i miód, wlej mleko."
+        },
+        {
+          "step": 3,
+          "instruction": "Blenduj około minuty, aż koktajl będzie gładki i kremowy, po czym rozlej do dwóch szklanek."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "skyr naturalny",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "masło orzechowe",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Koktajl ze skyrem, bananem i masłem orzechowym, A thick creamy banana and peanut butter skyr smoothie served in two tall glasses, served in two tall glasses standing close together, perfectly centered in the middle of the frame, fully visible with even space on all sides, elevated camera angle at about 30 degrees so the layers and toppings are clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the glasses in the exact center of the image, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/fd807639-8223-4016-86de-da869877f608.png"
+      }
+    },
+    {
+      "id": "76954d2c-7eb0-4c20-9c2a-d24befe049e7",
+      "title": "Pudding chia na mleku z malinami",
+      "description": "Kremowy pudding chia na mleku z miodem, przygotowany wieczorem, żeby rano był gotowy. Świeże maliny na wierzchu dodają kwaskowatej świeżości.",
+      "mealType": "SECOND_BREAKFAST",
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "AFTERNOON_SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 569,
+        "protein": 20,
+        "carbs": 42,
+        "fat": 26,
+        "fiber": 27,
+        "salt": 0.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Wlej mleko do słoika, dodaj miód i wymieszaj, aż się rozpuści."
+        },
+        {
+          "step": 2,
+          "instruction": "Wsyp nasiona chia, dokładnie wymieszaj i odstaw na 10 minut, po czym zamieszaj jeszcze raz, żeby nasiona się nie zbryliły."
+        },
+        {
+          "step": 3,
+          "instruction": "Zakręć słoik i wstaw do lodówki na całą noc."
+        },
+        {
+          "step": 4,
+          "instruction": "Rano wyłóż maliny na wierzch puddingu i podawaj."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "nasiona chia",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 300,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "malina",
+          "amount": 150,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pudding chia na mleku z malinami, A glass jar of creamy white chia pudding topped with fresh raspberries, served in a glass jar, perfectly centered in the middle of the frame, fully visible with even space on all sides, elevated camera angle at about 30 degrees so the layers and toppings are clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the glass jar in the exact center of the image, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/76954d2c-7eb0-4c20-9c2a-d24befe049e7.png"
+      }
+    },
+    {
+      "id": "01079d45-9f67-45e9-868e-cad31988389c",
+      "title": "Pudding ryżowy z musem malinowym",
+      "description": "Kremowy pudding ryżowy na mleku z nutą cynamonu, podany z prostym musem ze świeżych malin. Domowy podwieczorek, który smakuje na ciepło i na zimno.",
+      "mealType": "AFTERNOON_SNACK",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 875,
+        "protein": 26,
+        "carbs": 138,
+        "fat": 19,
+        "fiber": 16,
+        "salt": 0.3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Przepłucz ryż na sitku pod zimną wodą, aż woda będzie klarowna."
+        },
+        {
+          "step": 2,
+          "instruction": "Wlej mleko do garnka, wsyp ryż i większość cukru, zagotuj i gotuj na małym ogniu około 25-30 minut, często mieszając, aż ryż będzie miękki, a całość kremowa."
+        },
+        {
+          "step": 3,
+          "instruction": "W misce rozgnieć widelcem maliny z resztą cukru na gęsty mus."
+        },
+        {
+          "step": 4,
+          "instruction": "Przełóż pudding do miseczek, oprósz cynamonem i nałóż na wierzch mus malinowy."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ryż biały",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 500,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 25,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "malina",
+          "amount": 200,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pudding ryżowy z musem malinowym, Creamy rice pudding in two small bowls topped with crushed raspberry sauce and a dusting of cinnamon, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/01079d45-9f67-45e9-868e-cad31988389c.png"
+      }
+    },
+    {
+      "id": "7faa8914-6768-420a-9000-cbcb8ecba6fe",
+      "title": "Deser twarogowy z kakao i bananem",
+      "description": "Szybki kremowy deser z twarogu, kakao i miodu z plasterkami banana. Dobry zamiennik słodyczy na podwieczorek, z solidną porcją białka.",
+      "mealType": "AFTERNOON_SNACK",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 720,
+        "protein": 56,
+        "carbs": 86,
+        "fat": 18,
+        "fiber": 12,
+        "salt": 0.3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Przełóż twaróg do wysokiego naczynia, dodaj jogurt naturalny, kakao i miód."
+        },
+        {
+          "step": 2,
+          "instruction": "Zblenduj całość na gładki, puszysty krem — jeśli jest za gęsty, dolej łyżkę wody."
+        },
+        {
+          "step": 3,
+          "instruction": "Obierz banany i pokrój je w plasterki."
+        },
+        {
+          "step": 4,
+          "instruction": "Przełóż krem do dwóch pucharków, ułóż na wierzchu plasterki bananów i podawaj od razu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ser twaróg półtłusty",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 25,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 2,
+          "unit": "szt"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Deser twarogowy z kakao i bananem, Two glass cups of smooth chocolate quark cream topped with banana slices, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/7faa8914-6768-420a-9000-cbcb8ecba6fe.png"
+      }
+    },
+    {
+      "id": "77921fc5-3630-4a07-ba86-8c547679139e",
+      "title": "Muffiny owsiane z jabłkiem i cynamonem",
+      "description": "Wilgotne muffiny owsiane na jogurcie, ze startym jabłkiem i cynamonem, słodzone tylko miodem. Dobre na podwieczorek do lunchboxa, trzymają się kilka dni w lodówce.",
+      "mealType": "AFTERNOON_SNACK",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1315,
+        "protein": 39,
+        "carbs": 156,
+        "fat": 53,
+        "fiber": 23,
+        "salt": 0.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Rozgrzej piekarnik do 180°C. Zmiksuj blenderem połowę płatków owsianych na mąkę, wymieszaj ją z resztą płatków, proszkiem do pieczenia i cynamonem."
+        },
+        {
+          "step": 2,
+          "instruction": "Zetrzyj jabłko na tarce o grubych oczkach, razem ze skórką."
+        },
+        {
+          "step": 3,
+          "instruction": "W drugiej misce roztrzep jajka z jogurtem, miodem i olejem, aż składniki się połączą."
+        },
+        {
+          "step": 4,
+          "instruction": "Połącz mokre składniki z suchymi, dodaj starte jabłko i krótko wymieszaj łyżką. Odstaw masę na 10 minut, żeby płatki napęczniały."
+        },
+        {
+          "step": 5,
+          "instruction": "Nałóż masę do formy na muffiny, wypełniając 6-8 wgłębień prawie do pełna, i piecz około 25 minut, aż wierzchy się zarumienią, a patyczek wyjdzie suchy."
+        },
+        {
+          "step": 6,
+          "instruction": "Wystudź muffiny w formie kilka minut, potem wyjmij je na kratkę do całkowitego przestygnięcia."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "płatki owsiane",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jabłko",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 30,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "łyżeczka"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Muffiny owsiane z jabłkiem i cynamonem, Golden-brown oat muffins with visible apple shreds and a dusting of cinnamon, a few cooling on a wire rack with one broken open to show a moist crumb, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/77921fc5-3630-4a07-ba86-8c547679139e.png"
+      }
+    },
+    {
+      "id": "671cd8e4-acdc-4842-b34f-02ec33be5f8f",
+      "title": "Hummus z warzywami do maczania",
+      "description": "Kremowy domowy hummus z nutą kminu i cytryny, podany z chrupiącymi warzywami pokrojonymi w słupki. Szybka i sycąca przekąska do maczania.",
+      "mealType": "SNACK",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 842,
+        "protein": 25,
+        "carbs": 70,
+        "fat": 43,
+        "fiber": 27,
+        "salt": 1
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Odsącz ciecierzycę, zachowując kilka łyżek zalewy z puszki (aquafaby)."
+        },
+        {
+          "step": 2,
+          "instruction": "Zblenduj ciecierzycę z sezamem, sokiem z cytryny, ząbkami czosnku, kminem rzymskim, oliwą i szczyptą soli na gładką masę."
+        },
+        {
+          "step": 3,
+          "instruction": "Dolewaj stopniowo aquafabę lub wodę, blendując dalej, aż hummus będzie kremowy; dopraw solą do smaku."
+        },
+        {
+          "step": 4,
+          "instruction": "Obierz marchew i pokrój ją razem z papryką i ogórkiem w podłużne słupki."
+        },
+        {
+          "step": 5,
+          "instruction": "Przełóż hummus do miseczki, skrop oliwą i podawaj z warzywami do maczania."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ciecierzyca z puszki",
+          "amount": 240,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 30,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "sezam",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Hummus z warzywami do maczania, A bowl of creamy hummus drizzled with olive oil, surrounded by carrot, red bell pepper, and cucumber sticks arranged for dipping, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/671cd8e4-acdc-4842-b34f-02ec33be5f8f.png"
+      }
+    },
+    {
+      "id": "fb9b74ae-ba40-4376-a19a-70f1bf68fc1d",
+      "title": "Pasta z tuńczyka z ogórkiem kiszonym",
+      "description": "Szybka pasta z tuńczyka z chrupiącym ogórkiem kiszonym i szczypiorkiem. Idealna na kanapki do pracy albo lekką kolację.",
+      "mealType": "SECOND_BREAKFAST",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 759,
+        "protein": 57,
+        "carbs": 59,
+        "fat": 29,
+        "fiber": 7,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Odsącz tuńczyka z zalewy, przełóż do miski i rozgnieć dokładnie widelcem."
+        },
+        {
+          "step": 2,
+          "instruction": "Pokrój ogórki kiszone i cebulę w drobną kostkę, posiekaj szczypiorek."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj do tuńczyka majonez, jogurt, ogórki i cebulę, wymieszaj na jednolitą pastę."
+        },
+        {
+          "step": 4,
+          "instruction": "Dopraw pieprzem, wymieszaj z częścią szczypiorku i odstaw na chwilę do lodówki."
+        },
+        {
+          "step": 5,
+          "instruction": "Nałóż pastę na kromki chleba i posyp resztą szczypiorku."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tuńczyk w puszce",
+          "amount": 170,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek kiszony",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "majonez",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "chleb",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pasta z tuńczyka z ogórkiem kiszonym, Creamy tuna spread with flecks of pickled cucumber and chives, served on slices of bread, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/fb9b74ae-ba40-4376-a19a-70f1bf68fc1d.png"
+      }
+    },
+    {
+      "id": "b083624b-6777-4630-aad2-d76b8b736327",
+      "title": "Wrap z indykiem, hummusem i warzywami",
+      "description": "Szybki wrap na wynos bez gotowania. Tortilla z hummusem, wędliną drobiową i chrupiącymi warzywami, ciasno zwinięta i przekrojona na pół.",
+      "mealType": "SECOND_BREAKFAST",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 916,
+        "protein": 42,
+        "carbs": 94,
+        "fat": 37,
+        "fiber": 11,
+        "salt": 2.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Umyj warzywa, pokrój paprykę i ogórka w cienkie paski, a sałatę porwij na mniejsze kawałki."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozłóż tortille na desce i posmaruj każdą równą warstwą hummusu, zostawiając wolny brzeg."
+        },
+        {
+          "step": 3,
+          "instruction": "Ułóż na hummusie plastry wędliny drobiowej, sałatę, paprykę i ogórka wzdłuż środka tortilli."
+        },
+        {
+          "step": 4,
+          "instruction": "Zwiń tortille ciasno w rulon, podwijając boki, i przekrój każdą na pół; na wynos owiń folią lub papierem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tortilla pszenna",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "wędlina drobiowa",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "hummus",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sałata lodowa",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 100,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Wrap z indykiem, hummusem i warzywami, Two tightly rolled wheat tortilla wraps cut in half, showing spirals of hummus, sliced poultry cold cuts, iceberg lettuce, red pepper and cucumber strips inside, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/b083624b-6777-4630-aad2-d76b8b736327.png"
+      }
+    },
+    {
+      "id": "35de5380-8988-4f2a-81d3-d3a070a3a4e7",
+      "title": "Budyń waniliowy z bananem",
+      "description": "Klasyczny budyń waniliowy gotowany na mleku, podany w pucharkach z plasterkami banana na dnie i na wierzchu. Prosty, domowy podwieczorek, który zawsze smakuje.",
+      "mealType": "AFTERNOON_SNACK",
+      "suitableMealTypes": ["AFTERNOON_SNACK", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 751,
+        "protein": 19,
+        "carbs": 129,
+        "fat": 17,
+        "fiber": 6,
+        "salt": 0.4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Odlej pół szklanki zimnego mleka i rozmieszaj w nim dokładnie proszek budyniowy z cukrem, aż nie będzie grudek."
+        },
+        {
+          "step": 2,
+          "instruction": "Zagotuj resztę mleka w garnku na średnim ogniu."
+        },
+        {
+          "step": 3,
+          "instruction": "Wlej rozmieszany budyń do gotującego się mleka, cały czas mieszając, i gotuj około minuty, aż masa wyraźnie zgęstnieje."
+        },
+        {
+          "step": 4,
+          "instruction": "Obierz banany i pokrój w plasterki, część ułóż na dnie dwóch pucharków."
+        },
+        {
+          "step": 5,
+          "instruction": "Wlej gorący budyń do pucharków, ułóż na wierzchu pozostałe plasterki banana i odstaw do lekkiego przestygnięcia."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "budyń",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 500,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 2,
+          "unit": "szt"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Budyń waniliowy z bananem, Two glass dessert cups filled with creamy pale-yellow vanilla pudding topped with fresh banana slices, more banana slices visible at the bottom of the cups, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/35de5380-8988-4f2a-81d3-d3a070a3a4e7.png"
+      }
+    }
+  ]
+}

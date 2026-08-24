@@ -1,5 +1,5 @@
 herbata czarna
-herbata mietowa
+herbata miętowa
 herbata owocowa
 herbata rumiankowa
 herbata zielona
@@ -7,13 +7,13 @@ kawa bezkofeinowa
 kawa mielona
 kawa rozpuszczalna
 kawa ziarnista
-napoj energetyczny
-napoj izotoniczny
-napoj tonic
+napój energetyczny
+napój izotoniczny
+napój tonic
 pepsi
 sprite
-sok jablkowy
+sok jabłkowy
 sok marchwiowy
-sok pomaranczowy
+sok pomarańczowy
 woda gazowana
 woda niegazowana

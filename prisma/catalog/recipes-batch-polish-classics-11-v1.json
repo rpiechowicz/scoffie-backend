@@ -1,0 +1,633 @@
+{
+  "version": "v1-polish-classics-11",
+  "recipes": [
+    {
+      "id": "669d9bd0-6ded-4006-b281-5299d0f3dff9",
+      "title": "Kotlet schabowy z ziemniakami i mizerią",
+      "description": "Klasyka niedzielnego obiadu: chrupiący panierowany schabowy z gotowanymi ziemniakami i mizerią na śmietanie.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1903,
+        "protein": 113,
+        "carbs": 149,
+        "fat": 88,
+        "fiber": 16,
+        "salt": 2.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Obierz ziemniaki i nastaw do gotowania w osolonej wodzie. Pokrój schab na dwa plastry, rozbij tłuczkiem na cienkie kotlety, dopraw solą i pieprzem."
+        },
+        {
+          "step": 2,
+          "instruction": "Panieruj kotlety kolejno: w mące, roztrzepanych jajkach i bułce tartej."
+        },
+        {
+          "step": 3,
+          "instruction": "Smaż na dobrze rozgrzanym oleju 3-4 minuty z każdej strony, aż panierka będzie złota. Odsącz na papierowym ręczniku."
+        },
+        {
+          "step": 4,
+          "instruction": "Na mizerię pokrój ogórka w cienkie plasterki, wymieszaj ze śmietaną i koperkiem, dopraw solą i pieprzem."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj schabowe z ziemniakami posypanymi koperkiem i mizerią."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "schab wieprzowy", "amount": 360, "unit": "g" },
+        { "ingredientName": "mąka pszenna", "amount": 30, "unit": "g" },
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "bułka tarta", "amount": 60, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 30, "unit": "ml" },
+        { "ingredientName": "ziemniak", "amount": 500, "unit": "g" },
+        { "ingredientName": "ogórek", "amount": 300, "unit": "g" },
+        { "ingredientName": "śmietana 18", "amount": 60, "unit": "g" },
+        { "ingredientName": "koperek", "amount": 8, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kotlet schabowy z ziemniakami i mizerią, golden breaded pork cutlet on a ceramic plate with boiled potatoes sprinkled with dill and creamy cucumber salad, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/669d9bd0-6ded-4006-b281-5299d0f3dff9.png"
+      }
+    },
+    {
+      "id": "8d486c7d-370d-45bd-b540-f54f9e913d0e",
+      "title": "Kotlety mielone z ziemniakami i buraczkami",
+      "description": "Domowe kotlety mielone z cebulą i majerankiem, podane z ziemniakami i ciepłymi buraczkami z masłem.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 50,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 2258,
+        "protein": 104,
+        "carbs": 138,
+        "fat": 133,
+        "fiber": 26,
+        "salt": 2.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj buraki do miękkości (albo użyj gotowych ugotowanych). Zetrzyj na tarce o dużych oczkach, wymieszaj z masłem na ciepło, dopraw solą i pieprzem."
+        },
+        {
+          "step": 2,
+          "instruction": "Nastaw ziemniaki w osolonej wodzie. Cebulę zetrzyj lub drobno posiekaj."
+        },
+        {
+          "step": 3,
+          "instruction": "Wymieszaj mięso z cebulą, jajkami, bułką tartą i majerankiem, dopraw. Uformuj 4 kotlety."
+        },
+        {
+          "step": 4,
+          "instruction": "Smaż kotlety na oleju 4-5 minut z każdej strony, aż będą zrumienione i wysmażone w środku."
+        },
+        { "step": 5, "instruction": "Podawaj z ziemniakami i buraczkami." }
+      ],
+      "ingredients": [
+        { "ingredientName": "wieprzowina mielona", "amount": 400, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 100, "unit": "g" },
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "bułka tarta", "amount": 40, "unit": "g" },
+        { "ingredientName": "majeranek", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "olej rzepakowy", "amount": 25, "unit": "ml" },
+        { "ingredientName": "ziemniak", "amount": 500, "unit": "g" },
+        { "ingredientName": "burak", "amount": 400, "unit": "g" },
+        { "ingredientName": "masło", "amount": 15, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kotlety mielone z ziemniakami i buraczkami, two juicy pan-fried minced pork patties on a ceramic plate with boiled potatoes and warm grated beetroot salad, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/8d486c7d-370d-45bd-b540-f54f9e913d0e.png"
+      }
+    },
+    {
+      "id": "d5885b80-59b5-4063-a63f-06b8493410bc",
+      "title": "Gulasz wieprzowy z kaszą gryczaną i ogórkiem kiszonym",
+      "description": "Wolno duszony gulasz z łopatki z papryką i majerankiem, podany z kaszą gryczaną i ogórkiem kiszonym.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 80,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 2074,
+        "protein": 115,
+        "carbs": 132,
+        "fat": 115,
+        "fiber": 20,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój łopatkę w kostkę, oprósz mąką. Zrumień partiami na rozgrzanym oleju i przełóż do garnka."
+        },
+        {
+          "step": 2,
+          "instruction": "Na tej samej patelni zeszklij cebulę, dodaj paprykę pokrojoną w paski i przełóż do mięsa."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj koncentrat, paprykę mieloną i majeranek. Zalej wodą tak, aby przykryła mięso, i duś pod przykryciem około 60 minut, aż mięso będzie miękkie."
+        },
+        {
+          "step": 4,
+          "instruction": "Ugotuj kaszę gryczaną według instrukcji z opakowania. Dopraw gulasz solą i pieprzem."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj gulasz na kaszy, z ogórkiem kiszonym pokrojonym w plasterki."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "łopatka wieprzowa", "amount": 500, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 150, "unit": "g" },
+        { "ingredientName": "papryka czerwona", "amount": 150, "unit": "g" },
+        { "ingredientName": "mąka pszenna", "amount": 15, "unit": "g" },
+        {
+          "ingredientName": "koncentrat pomidorowy",
+          "amount": 30,
+          "unit": "g"
+        },
+        { "ingredientName": "olej rzepakowy", "amount": 20, "unit": "ml" },
+        { "ingredientName": "kasza gryczana", "amount": 150, "unit": "g" },
+        { "ingredientName": "ogórek kiszony", "amount": 200, "unit": "g" },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "łyżeczka"
+        },
+        { "ingredientName": "majeranek", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Gulasz wieprzowy z kaszą gryczaną i ogórkiem kiszonym, hearty pork goulash in paprika sauce served over buckwheat groats on a ceramic plate, sliced pickled cucumbers aside, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/d5885b80-59b5-4063-a63f-06b8493410bc.png"
+      }
+    },
+    {
+      "id": "34b6e886-ea56-40f7-8dac-1caab719c8a0",
+      "title": "Schab duszony w sosie pieczarkowym z ziemniakami",
+      "description": "Plastry schabu duszone do miękkości w kremowym sosie pieczarkowym ze śmietaną, podane z ziemniakami.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 50,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1595,
+        "protein": 108,
+        "carbs": 106,
+        "fat": 78,
+        "fiber": 16,
+        "salt": 2.4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój schab na plastry, lekko rozbij, dopraw solą i pieprzem i oprósz mąką. Obsmaż na oleju z obu stron na złoto."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj cebulę w piórkach i pieczarki w plasterkach, smaż kilka minut."
+        },
+        {
+          "step": 3,
+          "instruction": "Podlej wodą do połowy wysokości mięsa i duś pod przykryciem 25-30 minut. W tym czasie ugotuj ziemniaki."
+        },
+        {
+          "step": 4,
+          "instruction": "Zabiel sos śmietaną, chwilę podgrzej i dopraw. Podawaj schab z ziemniakami polany sosem."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "schab wieprzowy", "amount": 400, "unit": "g" },
+        { "ingredientName": "pieczarka", "amount": 250, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 100, "unit": "g" },
+        { "ingredientName": "mąka pszenna", "amount": 20, "unit": "g" },
+        { "ingredientName": "śmietana 18", "amount": 100, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 20, "unit": "ml" },
+        { "ingredientName": "ziemniak", "amount": 500, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Schab duszony w sosie pieczarkowym z ziemniakami, braised pork loin slices in creamy mushroom sauce on a ceramic plate with boiled potatoes, sliced mushrooms visible in the sauce, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/34b6e886-ea56-40f7-8dac-1caab719c8a0.png"
+      }
+    },
+    {
+      "id": "6e0e7983-fec7-4ab8-9823-0208f427b6b4",
+      "title": "Bitki wołowe w sosie własnym z ziemniakami",
+      "description": "Rozbijane plastry wołowiny duszone długo z cebulą, aż sos zrobi się sam. Tradycyjny obiad z ziemniakami i ogórkiem kiszonym.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 90,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1392,
+        "protein": 123,
+        "carbs": 102,
+        "fat": 49,
+        "fiber": 15,
+        "salt": 2.4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój wołowinę w plastry w poprzek włókien i rozbij tłuczkiem na bitki. Dopraw solą i pieprzem, oprósz mąką."
+        },
+        {
+          "step": 2,
+          "instruction": "Obsmaż bitki na rozgrzanym oleju z obu stron i przełóż do garnka. Na patelni zeszklij cebulę i dodaj do mięsa."
+        },
+        {
+          "step": 3,
+          "instruction": "Podlej wodą, aby przykryła mięso, i duś pod przykryciem 60-75 minut, aż wołowina będzie miękka."
+        },
+        {
+          "step": 4,
+          "instruction": "Ugotuj ziemniaki. Dopraw sos solą i pieprzem — powinien lekko zgęstnieć od mąki."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj bitki z ziemniakami i ogórkiem kiszonym."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "wołowina", "amount": 500, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 150, "unit": "g" },
+        { "ingredientName": "mąka pszenna", "amount": 20, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 25, "unit": "ml" },
+        { "ingredientName": "ziemniak", "amount": 500, "unit": "g" },
+        { "ingredientName": "ogórek kiszony", "amount": 150, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Bitki wołowe w sosie własnym z ziemniakami, slow-braised beef medallions in rich brown gravy on a ceramic plate with boiled potatoes and pickled cucumber, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/6e0e7983-fec7-4ab8-9823-0208f427b6b4.png"
+      }
+    },
+    {
+      "id": "68213b62-50b7-413b-9b6a-c31d2150b726",
+      "title": "Gołąbki w sosie pomidorowym",
+      "description": "Liście kapusty nadziewane mięsem z ryżem, duszone w sosie pomidorowym. Klasyka, która smakuje jeszcze lepiej odgrzana następnego dnia.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "HARD",
+      "prepTimeMinutes": 100,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1913,
+        "protein": 93,
+        "carbs": 135,
+        "fat": 101,
+        "fiber": 31,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Wytnij głąb z kapusty i sparz główkę we wrzątku, zdejmując kolejno 8 liści. Zetnij nożem zgrubiałe nerwy liści."
+        },
+        {
+          "step": 2,
+          "instruction": "Ugotuj ryż na półtwardo. Zeszklij cebulę na oleju. Wymieszaj mięso z ryżem, cebulą, papryką mieloną, solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Nakładaj farsz na liście, zawijaj boki i zroluj ciasne gołąbki. Ułóż złączeniem do dołu w garnku lub naczyniu żaroodpornym."
+        },
+        {
+          "step": 4,
+          "instruction": "Wymieszaj passatę z koncentratem i szklanką wody, zalej gołąbki. Duś pod przykryciem na małym ogniu (lub piecz pod przykryciem w 180°C) około 60 minut."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj gołąbki polane sosem pomidorowym."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "kapusta biała", "amount": 800, "unit": "g" },
+        { "ingredientName": "wieprzowina mielona", "amount": 400, "unit": "g" },
+        { "ingredientName": "ryż biały", "amount": 100, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 100, "unit": "g" },
+        { "ingredientName": "passata pomidorowa", "amount": 400, "unit": "ml" },
+        {
+          "ingredientName": "koncentrat pomidorowy",
+          "amount": 20,
+          "unit": "g"
+        },
+        { "ingredientName": "olej rzepakowy", "amount": 15, "unit": "ml" },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Gołąbki w sosie pomidorowym, two polish cabbage rolls stuffed with meat and rice covered in tomato sauce in a ceramic baking dish, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/68213b62-50b7-413b-9b6a-c31d2150b726.png"
+      }
+    },
+    {
+      "id": "2b63c5bd-e52b-4fe1-af0f-7883ef6b9066",
+      "title": "Pierogi ruskie z okrasą cebulową",
+      "description": "Domowe pierogi z farszem ziemniaczano-twarogowym, podane z cebulką zrumienioną na maśle. Porcja pracy, która się opłaca.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "HARD",
+      "prepTimeMinutes": 90,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 2348,
+        "protein": 101,
+        "carbs": 308,
+        "fat": 67,
+        "fiber": 21,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj ziemniaki w osolonej wodzie, odcedź i dokładnie odparuj. Przeciśnij przez praskę i wystudź."
+        },
+        {
+          "step": 2,
+          "instruction": "Połowę cebuli posiekaj i zeszklij na oleju. Wymieszaj ziemniaki z twarogiem i cebulą, dopraw mocno solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Zagnieć gładkie ciasto z mąki, jajek i około 100 ml ciepłej wody. Rozwałkuj cienko i wykrawaj krążki szklanką."
+        },
+        {
+          "step": 4,
+          "instruction": "Nakładaj farsz na krążki i dokładnie sklejaj brzegi. Gotuj partiami w osolonym wrzątku 2-3 minuty od wypłynięcia."
+        },
+        {
+          "step": 5,
+          "instruction": "Resztę cebuli pokrój w kostkę i zrumień na maśle. Podawaj pierogi polane okrasą."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "mąka pszenna", "amount": 300, "unit": "g" },
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "ziemniak", "amount": 400, "unit": "g" },
+        {
+          "ingredientName": "ser twaróg półtłusty",
+          "amount": 250,
+          "unit": "g"
+        },
+        { "ingredientName": "cebula", "amount": 250, "unit": "g" },
+        { "ingredientName": "masło", "amount": 40, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pierogi ruskie z okrasą cebulową, plate of polish pierogi dumplings topped with golden fried onions and melted butter, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/2b63c5bd-e52b-4fe1-af0f-7883ef6b9066.png"
+      }
+    },
+    {
+      "id": "3d9e3532-c4e0-4362-9d63-fba136606f51",
+      "title": "Placki ziemniaczane ze śmietaną",
+      "description": "Chrupiące placki z tartych ziemniaków z cebulą, smażone na złoto i podane z kleksem śmietany.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1607,
+        "protein": 36,
+        "carbs": 158,
+        "fat": 84,
+        "fiber": 20,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Zetrzyj ziemniaki i cebulę na tarce o drobnych oczkach. Odciśnij dokładnie nadmiar płynu przez sitko lub ściereczkę."
+        },
+        {
+          "step": 2,
+          "instruction": "Wymieszaj masę z jajkami i mąką, dopraw solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Nakładaj porcje łyżką na rozgrzany olej i rozpłaszczaj. Smaż 3-4 minuty z każdej strony na złoto i chrupko."
+        },
+        {
+          "step": 4,
+          "instruction": "Odsącz placki na papierowym ręczniku i podawaj od razu ze śmietaną."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "ziemniak", "amount": 800, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 80, "unit": "g" },
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "mąka pszenna", "amount": 40, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 60, "unit": "ml" },
+        { "ingredientName": "śmietana 18", "amount": 100, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Placki ziemniaczane ze śmietaną, stack of golden crispy potato pancakes on a ceramic plate with a dollop of sour cream and chives, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/3d9e3532-c4e0-4362-9d63-fba136606f51.png"
+      }
+    },
+    {
+      "id": "a9c470e6-624e-4d54-be54-905481790cee",
+      "title": "Leczo z kiełbasą, cukinią i papryką",
+      "description": "Jednogarnkowe leczo na kiełbasie z letnimi warzywami w pomidorach. Sycące, szybkie i dobre też na drugi dzień.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1339,
+        "protein": 52,
+        "carbs": 49,
+        "fat": 100,
+        "fiber": 18,
+        "salt": 3.8
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój kiełbasę w plasterki i zrumień na oleju w szerokim garnku. Dodaj cebulę w piórkach i chwilę smaż."
+        },
+        {
+          "step": 2,
+          "instruction": "Dorzuć paprykę w paskach i cukinię w półplasterkach. Smaż 5 minut, mieszając."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj pomidory z puszki i paprykę mieloną. Duś bez przykrycia około 20 minut, aż sos zgęstnieje."
+        },
+        {
+          "step": 4,
+          "instruction": "Dopraw solą i pieprzem. Podawaj samo lub z pieczywem."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "kiełbasa śląska", "amount": 300, "unit": "g" },
+        { "ingredientName": "cukinia", "amount": 400, "unit": "g" },
+        { "ingredientName": "papryka czerwona", "amount": 300, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 150, "unit": "g" },
+        {
+          "ingredientName": "pomidor krojony z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        { "ingredientName": "olej rzepakowy", "amount": 15, "unit": "ml" },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "łyżeczka"
+        },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Leczo z kiełbasą, cukinią i papryką, rustic pot of leczo stew with sausage slices, zucchini and red pepper in tomato sauce, slice of bread aside, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/a9c470e6-624e-4d54-be54-905481790cee.png"
+      }
+    },
+    {
+      "id": "11b90cde-d310-4058-ad38-ce39e8610864",
+      "title": "Fasolka po bretońsku z kiełbasą",
+      "description": "Biała fasola duszona z kiełbasą, boczkiem i majerankiem w sosie pomidorowym. Klasyka baru mlecznego w domowym wydaniu.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1962,
+        "protein": 77,
+        "carbs": 83,
+        "fat": 135,
+        "fiber": 39,
+        "salt": 4.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój boczek w kostkę, a kiełbasę w plasterki. Wytop boczek na oleju i zrumień razem z kiełbasą."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj cebulę w kostce i zeszklij. Wlej passatę, dodaj koncentrat i majeranek, gotuj 5 minut."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj odsączoną fasolę i duś na małym ogniu 15 minut, aż sos zgęstnieje."
+        },
+        {
+          "step": 4,
+          "instruction": "Dopraw solą i pieprzem. Podawaj z pieczywem lub solo."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "fasola biała z puszki",
+          "amount": 480,
+          "unit": "g"
+        },
+        { "ingredientName": "kiełbasa śląska", "amount": 250, "unit": "g" },
+        { "ingredientName": "boczek", "amount": 100, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 150, "unit": "g" },
+        { "ingredientName": "passata pomidorowa", "amount": 300, "unit": "ml" },
+        {
+          "ingredientName": "koncentrat pomidorowy",
+          "amount": 20,
+          "unit": "g"
+        },
+        { "ingredientName": "majeranek", "amount": 2, "unit": "łyżeczka" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Fasolka po bretońsku z kiełbasą, bowl of polish white bean stew with sausage slices and bacon in tomato sauce sprinkled with marjoram, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/11b90cde-d310-4058-ad38-ce39e8610864.png"
+      }
+    },
+    {
+      "id": "8c0f0ba7-e1a1-4b5c-bbc0-e3a9d4c47ad8",
+      "title": "Polędwiczki wieprzowe z kuskusem i groszkiem",
+      "description": "Medaliony z polędwiczki smażone na maśle z czosnkiem, podane z puszystym kuskusem i zielonym groszkiem. Obiad w pół godziny.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1476,
+        "protein": 114,
+        "carbs": 129,
+        "fat": 46,
+        "fiber": 17,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój polędwiczkę na medaliony grubości 2-3 cm, dopraw solą i pieprzem."
+        },
+        {
+          "step": 2,
+          "instruction": "Smaż medaliony na oleju 3-4 minuty z każdej strony. Pod koniec dodaj masło i rozgnieciony czosnek, polewaj mięso powstałym tłuszczem."
+        },
+        {
+          "step": 3,
+          "instruction": "Zalej kuskus wrzątkiem (1,5 szklanki na szklankę kaszy), przykryj i odstaw na 5 minut, po czym wzrusz widelcem."
+        },
+        {
+          "step": 4,
+          "instruction": "Podgrzej groszek na patelni 2-3 minuty i wymieszaj z kuskusem. Podawaj z medalionami i sokiem z patelni."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "polędwiczka wieprzowa",
+          "amount": 400,
+          "unit": "g"
+        },
+        { "ingredientName": "kasza kuskus", "amount": 150, "unit": "g" },
+        { "ingredientName": "groszek mrożony", "amount": 200, "unit": "g" },
+        { "ingredientName": "masło", "amount": 20, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 15, "unit": "ml" },
+        { "ingredientName": "czosnek", "amount": 2, "unit": "szt" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Polędwiczki wieprzowe z kuskusem i groszkiem, seared pork tenderloin medallions on a ceramic plate over fluffy couscous with green peas and butter glaze, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/8c0f0ba7-e1a1-4b5c-bbc0-e3a9d4c47ad8.png"
+      }
+    }
+  ]
+}

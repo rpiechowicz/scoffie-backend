@@ -2,39 +2,40 @@ baleron
 boczek
 filet z indyka
 filet z kurczaka
-gulasz wolowy
+gulasz wołowy
 kabanos
-karkowka
+karkówka
 kaszanka
-kielbasa
-kielbasa biala
-kielbasa chorizo
-kielbasa drobiowa
-kielbasa krakowska
-kielbasa slaska
-kielbasa wedzona
-lopatka wieprzowa
-lopatka wieprzowa mielona
+kiełbasa
+kiełbasa biała
+kiełbasa chorizo
+kiełbasa drobiowa
+kiełbasa krakowska
+kiełbasa śląska
+kiełbasa wędzona
+łopatka wieprzowa
+łopatka wieprzowa mielona
 mortadela
 noga z kurczaka
 noga z indyka
-parowka
+parówka
 pasztetowa
 podudzie z kurczaka
-poledwica wolowa
-poledwiczka wieprzowa
+polędwica wołowa
+polędwiczka wieprzowa
 salami
 schab mielony
 schab wieprzowy
-skrzydelko z kurczaka
+skrzydełko z kurczaka
 szynka
 udziec z indyka
-wedlina drobiowa
-wedlina wieprzowa
-wolowina
-wolowina mielona
+wędlina drobiowa
+wędlina wieprzowa
+wołowina
+wołowina mielona
 wieprzowina
-wieprzowina i wolowina mielona
+wieprzowina i wołowina mielona
 wieprzowina mielona
 wieprzowina mielona chuda
 kurczak mielony
+indyk mielony

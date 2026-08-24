@@ -1,0 +1,378 @@
+{
+  "version": "v1-breakfast-8",
+  "recipes": [
+    {
+      "id": "f50f6d7e-bf1e-4e06-afad-949974d7c2fa",
+      "title": "Owsianka nocna z masłem orzechowym i malinami",
+      "description": "Owsianka przygotowywana wieczorem w słoiku, rano gotowa do zjedzenia. Kremowa, sycąca i bez żadnego gotowania.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 911,
+        "protein": 36,
+        "carbs": 97,
+        "fat": 36,
+        "fiber": 21,
+        "salt": 0.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Wymieszaj w misce płatki owsiane z mlekiem, jogurtem i miodem."
+        },
+        {
+          "step": 2,
+          "instruction": "Przełóż masę do dwóch słoików lub misek, przykryj i wstaw na noc do lodówki."
+        },
+        {
+          "step": 3,
+          "instruction": "Rano zamieszaj — jeśli owsianka jest za gęsta, dolej odrobinę mleka."
+        },
+        {
+          "step": 4,
+          "instruction": "Tuż przed podaniem udekoruj masłem orzechowym i malinami."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "płatki owsiane", "amount": 90, "unit": "g" },
+        { "ingredientName": "mleko", "amount": 250, "unit": "ml" },
+        { "ingredientName": "jogurt naturalny", "amount": 150, "unit": "g" },
+        { "ingredientName": "miód", "amount": 20, "unit": "g" },
+        { "ingredientName": "masło orzechowe", "amount": 30, "unit": "g" },
+        { "ingredientName": "malina", "amount": 150, "unit": "g" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Owsianka nocna z masłem orzechowym i malinami, overnight oats in two glass jars topped with a swirl of peanut butter and fresh raspberries, scattered oats and raspberries around, the two jars standing close together and perfectly centered in the middle of the frame, both jars fully visible with even space on all sides, elevated camera angle looking down at the jars at about 45 degrees so the toppings are clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the jars in the exact center of the image, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/f50f6d7e-bf1e-4e06-afad-949974d7c2fa.png"
+      }
+    },
+    {
+      "id": "386586d2-b4f8-41f0-9641-cce2b7c20dd7",
+      "title": "Skyr z granolą i malinami",
+      "description": "Gęsty skyr z chrupiącą granolą, malinami i odrobiną miodu. Białkowe śniadanie gotowe w pięć minut.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "AFTERNOON_SNACK",
+        "SNACK"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 5,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 672,
+        "protein": 42,
+        "carbs": 82,
+        "fat": 14,
+        "fiber": 15,
+        "salt": 0.3
+      },
+      "steps": [
+        { "step": 1, "instruction": "Przełóż skyr do dwóch miseczek." },
+        {
+          "step": 2,
+          "instruction": "Posyp granolą i ułóż na wierzchu maliny."
+        },
+        {
+          "step": 3,
+          "instruction": "Polej miodem i podawaj od razu, aby granola pozostała chrupiąca."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "skyr naturalny", "amount": 300, "unit": "g" },
+        { "ingredientName": "granola", "amount": 80, "unit": "g" },
+        { "ingredientName": "malina", "amount": 150, "unit": "g" },
+        { "ingredientName": "miód", "amount": 15, "unit": "g" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Skyr z granolą i malinami, thick white skyr yogurt topped with crunchy granola clusters, fresh raspberries and a honey drizzle, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/386586d2-b4f8-41f0-9641-cce2b7c20dd7.png"
+      }
+    },
+    {
+      "id": "7b3ef680-7a54-460b-a3d5-39c205631318",
+      "title": "Twarożek na słodko z brzoskwinią i granolą",
+      "description": "Kremowy twarożek z jogurtem i miodem, podany z cząstkami brzoskwini i chrupiącą granolą. Lekkie śniadanie na słodko bez smażenia.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "AFTERNOON_SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 824,
+        "protein": 58,
+        "carbs": 87,
+        "fat": 26,
+        "fiber": 9,
+        "salt": 0.8
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Rozgnieć twaróg widelcem z jogurtem i miodem na gładki krem."
+        },
+        { "step": 2, "instruction": "Umyj brzoskwinie i pokrój je w cząstki." },
+        {
+          "step": 3,
+          "instruction": "Przełóż twarożek do miseczek, ułóż brzoskwinie i posyp granolą."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ser twaróg półtłusty",
+          "amount": 250,
+          "unit": "g"
+        },
+        { "ingredientName": "jogurt naturalny", "amount": 100, "unit": "g" },
+        { "ingredientName": "miód", "amount": 15, "unit": "g" },
+        { "ingredientName": "brzoskwinia", "amount": 300, "unit": "g" },
+        { "ingredientName": "granola", "amount": 60, "unit": "g" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Twarożek na słodko z brzoskwinią i granolą, creamy sweet cottage cheese with fresh peach wedges, granola sprinkle and a honey drizzle, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/7b3ef680-7a54-460b-a3d5-39c205631318.png"
+      }
+    },
+    {
+      "id": "0a1dd45f-1e37-4b35-8315-5fb61441e87d",
+      "title": "Serniczki fit z twarogiem i borówkami",
+      "description": "Smażone na patelni placuszki twarogowe z borówkami, słodzone miodem. Więcej białka niż w klasycznych placuszkach i naturalna słodycz owoców.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "AFTERNOON_SNACK"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 955,
+        "protein": 70,
+        "carbs": 87,
+        "fat": 35,
+        "fiber": 4,
+        "salt": 0.6
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Rozgnieć twaróg widelcem, dodaj jajka, mąkę i miód. Wymieszaj na jednolitą masę."
+        },
+        {
+          "step": 2,
+          "instruction": "Delikatnie wmieszaj połowę borówek do ciasta."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozgrzej olej na patelni. Nakładaj łyżką porcje masy i smaż serniczki 2-3 minuty z każdej strony na złoto."
+        },
+        { "step": 4, "instruction": "Podawaj z jogurtem i resztą borówek." }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ser twaróg półtłusty",
+          "amount": 250,
+          "unit": "g"
+        },
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "mąka pszenna", "amount": 60, "unit": "g" },
+        { "ingredientName": "miód", "amount": 20, "unit": "g" },
+        { "ingredientName": "borówka", "amount": 100, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 10, "unit": "ml" },
+        { "ingredientName": "jogurt naturalny", "amount": 100, "unit": "g" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Serniczki fit z twarogiem i borówkami, stack of golden-brown pan-fried cottage cheese pancakes with caramelized crispy edges, fresh blueberries and a dollop of yogurt, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/0a1dd45f-1e37-4b35-8315-5fb61441e87d.png"
+      }
+    },
+    {
+      "id": "f83eed93-fb23-4171-91aa-c786aa330928",
+      "title": "Bułeczki z pastą jajeczną i rzodkiewką",
+      "description": "Klasyczna pasta jajeczna z majonezem, jogurtem i szczypiorkiem, podana na bułkach z plasterkami rzodkiewki. Domowy standard w kwadrans.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 872,
+        "protein": 38,
+        "carbs": 68,
+        "fat": 47,
+        "fiber": 5,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj jajka na twardo (około 9 minut), ostudź w zimnej wodzie i obierz."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgnieć jajka widelcem z majonezem i jogurtem. Dodaj posiekany szczypiorek, dopraw solą i pieprzem."
+        },
+        { "step": 3, "instruction": "Pokrój rzodkiewki w cienkie plasterki." },
+        {
+          "step": 4,
+          "instruction": "Przekrój bułki, nałóż pastę jajeczną i ułóż plasterki rzodkiewki."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "jajko", "amount": 4, "unit": "szt" },
+        { "ingredientName": "majonez", "amount": 30, "unit": "g" },
+        { "ingredientName": "jogurt naturalny", "amount": 30, "unit": "g" },
+        { "ingredientName": "szczypiorek", "amount": 15, "unit": "g" },
+        { "ingredientName": "rzodkiewka", "amount": 80, "unit": "g" },
+        { "ingredientName": "bułka", "amount": 120, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Bułeczki z pastą jajeczną i rzodkiewką, halved crusty bread rolls topped with creamy egg salad, thin radish slices and chopped chives on a ceramic plate, fresh radishes behind, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/f83eed93-fb23-4171-91aa-c786aa330928.png"
+      }
+    },
+    {
+      "id": "734a0932-01b8-4f5d-9789-d1c886796068",
+      "title": "Tosty francuskie z owocami",
+      "description": "Kromki chleba tostowego smażone w jajku z cynamonem, podane z truskawkami, borówkami i miodem. Śniadanie na słodko, które robi wrażenie.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": ["BREAKFAST", "AFTERNOON_SNACK"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 900,
+        "protein": 31,
+        "carbs": 114,
+        "fat": 31,
+        "fiber": 10,
+        "salt": 1.3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Roztrzep jajka z mlekiem i cynamonem w płaskim naczyniu."
+        },
+        {
+          "step": 2,
+          "instruction": "Zanurzaj kromki chleba tostowego w masie jajecznej z obu stron."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozgrzej masło na patelni i smaż tosty 2-3 minuty z każdej strony na złoto."
+        },
+        {
+          "step": 4,
+          "instruction": "Pokrój truskawki. Podawaj tosty z owocami i polej miodem."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "mleko", "amount": 100, "unit": "ml" },
+        { "ingredientName": "cynamon", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "chleb tostowy", "amount": 160, "unit": "g" },
+        { "ingredientName": "masło", "amount": 15, "unit": "g" },
+        { "ingredientName": "truskawka", "amount": 150, "unit": "g" },
+        { "ingredientName": "borówka", "amount": 75, "unit": "g" },
+        { "ingredientName": "miód", "amount": 20, "unit": "g" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Tosty francuskie z owocami, golden-brown french toast slices with fresh strawberries, blueberries and a honey drizzle, light dusting of cinnamon, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/734a0932-01b8-4f5d-9789-d1c886796068.png"
+      }
+    },
+    {
+      "id": "3087759e-713c-4a44-b87d-2bfca0d36171",
+      "title": "Omlet z szynką i pomidorami",
+      "description": "Puszysty omlet z paskami szynki i kawałkami pomidora, posypany szczypiorkiem. Proste, białkowe śniadanie z patelni.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 12,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 581,
+        "protein": 45,
+        "carbs": 9,
+        "fat": 39,
+        "fiber": 3,
+        "salt": 2.4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Roztrzep jajka ze szczyptą soli i pieprzem. Pokrój szynkę w paski, a pomidory w kostkę."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej masło na patelni, wlej jajka i smaż na średnim ogniu, aż masa zacznie się ścinać."
+        },
+        {
+          "step": 3,
+          "instruction": "Na połowie omletu rozłóż szynkę i pomidory, po czym złóż go na pół."
+        },
+        {
+          "step": 4,
+          "instruction": "Smaż jeszcze minutę, posyp szczypiorkiem i podziel na dwie porcje."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "jajko", "amount": 4, "unit": "szt" },
+        { "ingredientName": "szynka", "amount": 100, "unit": "g" },
+        { "ingredientName": "pomidor", "amount": 200, "unit": "g" },
+        { "ingredientName": "szczypiorek", "amount": 10, "unit": "g" },
+        { "ingredientName": "masło", "amount": 15, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Omlet z szynką i pomidorami, fluffy golden folded omelette filled with ham strips and diced tomatoes, sprinkled with chopped chives, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/3087759e-713c-4a44-b87d-2bfca0d36171.png"
+      }
+    },
+    {
+      "id": "4b5c9b22-d219-4719-82be-dc25b22fef52",
+      "title": "Kanapki z szynką, serem i pomidorem",
+      "description": "Klasyczne kanapki na chlebie z masłem, szynką, serem gouda, pomidorem i sałatą. Szybkie śniadanie, które zawsze działa.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "DINNER", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 8,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 937,
+        "protein": 48,
+        "carbs": 77,
+        "fat": 45,
+        "fiber": 9,
+        "salt": 2.8
+      },
+      "steps": [
+        { "step": 1, "instruction": "Posmaruj kromki chleba masłem." },
+        {
+          "step": 2,
+          "instruction": "Ułóż liście sałaty, plastry szynki i sera."
+        },
+        {
+          "step": 3,
+          "instruction": "Pokrój pomidora w plastry, ułóż na kanapkach i podawaj od razu."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "chleb", "amount": 160, "unit": "g" },
+        { "ingredientName": "masło", "amount": 20, "unit": "g" },
+        { "ingredientName": "szynka", "amount": 100, "unit": "g" },
+        { "ingredientName": "ser gouda", "amount": 60, "unit": "g" },
+        { "ingredientName": "pomidor", "amount": 150, "unit": "g" },
+        { "ingredientName": "sałata lodowa", "amount": 30, "unit": "g" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kanapki z szynką, serem i pomidorem, open-faced sandwiches on rustic bread with ham, gouda cheese slices, tomato and lettuce on a ceramic plate, whole tomatoes and lettuce behind, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/4b5c9b22-d219-4719-82be-dc25b22fef52.png"
+      }
+    }
+  ]
+}

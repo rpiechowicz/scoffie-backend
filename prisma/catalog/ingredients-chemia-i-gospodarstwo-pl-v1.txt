@@ -1,30 +1,29 @@
 folia aluminiowa
-gabka do naczyn
+gąbka do naczyń
 odkamieniacz do czajnika
 papier do pieczenia
 papier toaletowy
-plyn do czyszczenia lazienki
-plyn do czyszczenia wc
-plyn do mycia naczyn
-plyn do podlogi
-plyn do szyb
-plyn do szyb lazienkowych
-plyn do dezynfekcji
-plyn do plukania
+płyn do czyszczenia łazienki
+płyn do czyszczenia wc
+płyn do mycia naczyń
+płyn do podłogi
+płyn do szyb
+płyn do szyb łazienkowych
+płyn do dezynfekcji
+płyn do płukania
 preparat do kamienia
 proszek do prania
-scierka z mikrofibry
-recznik papierowy
-scierka kuchenna
+ścierka z mikrofibry
+ręcznik papierowy
+ścierka kuchenna
 tabletka do zmywarki
-zel do wc
-zel pod prysznic
+żel do wc
+żel pod prysznic
 szampon
-mydlo w plynie
-mydlo w kostce
-chusteczka nawilzana
+mydło w płynie
+mydło w kostce
+chusteczka nawilżana
 patyczek higieniczny
-papierowy recznik kuchenny
-wklad do mopa
-worek na smieci
-worki sniadaniowe
+wkład do mopa
+worek na śmieci
+worek śniadaniowy

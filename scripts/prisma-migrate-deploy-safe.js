@@ -56,7 +56,10 @@ function runSoft(command, args, extraEnv = {}) {
   });
 
   if (result.error) {
-    console.warn('[safe-migrate] Optional command failed to start:', result.error.message);
+    console.warn(
+      '[safe-migrate] Optional command failed to start:',
+      result.error.message,
+    );
     return 1;
   }
 
@@ -89,8 +92,9 @@ async function getFailedMigrations(prisma) {
 }
 
 async function isIngredientCatalogAlreadyPresent(prisma) {
-  const [ingredientTable, aliasTable, recipeIngredientColumn] = await Promise.all([
-    prisma.$queryRaw`
+  const [ingredientTable, aliasTable, recipeIngredientColumn] =
+    await Promise.all([
+      prisma.$queryRaw`
       SELECT EXISTS (
         SELECT 1
         FROM information_schema.tables
@@ -98,7 +102,7 @@ async function isIngredientCatalogAlreadyPresent(prisma) {
           AND table_name = 'Ingredient'
       ) AS value
     `,
-    prisma.$queryRaw`
+      prisma.$queryRaw`
       SELECT EXISTS (
         SELECT 1
         FROM information_schema.tables
@@ -106,7 +110,7 @@ async function isIngredientCatalogAlreadyPresent(prisma) {
           AND table_name = 'IngredientAlias'
       ) AS value
     `,
-    prisma.$queryRaw`
+      prisma.$queryRaw`
       SELECT EXISTS (
         SELECT 1
         FROM information_schema.columns
@@ -115,9 +119,11 @@ async function isIngredientCatalogAlreadyPresent(prisma) {
           AND column_name = 'ingredientId'
       ) AS value
     `,
-  ]);
+    ]);
 
-  const ingredientOk = Boolean(Array.isArray(ingredientTable) && ingredientTable[0]?.value);
+  const ingredientOk = Boolean(
+    Array.isArray(ingredientTable) && ingredientTable[0]?.value,
+  );
   const aliasOk = Boolean(Array.isArray(aliasTable) && aliasTable[0]?.value);
   const recipeIngredientColumnOk = Boolean(
     Array.isArray(recipeIngredientColumn) && recipeIngredientColumn[0]?.value,
@@ -127,8 +133,9 @@ async function isIngredientCatalogAlreadyPresent(prisma) {
     return false;
   }
 
-  const [recipeIngredientColumnNotNull, recipeIngredientNullCount] = await Promise.all([
-    prisma.$queryRaw`
+  const [recipeIngredientColumnNotNull, recipeIngredientNullCount] =
+    await Promise.all([
+      prisma.$queryRaw`
       SELECT CASE WHEN is_nullable = 'NO' THEN true ELSE false END AS value
       FROM information_schema.columns
       WHERE table_schema = 'public'
@@ -136,15 +143,16 @@ async function isIngredientCatalogAlreadyPresent(prisma) {
         AND column_name = 'ingredientId'
       LIMIT 1
     `,
-    prisma.$queryRaw`
+      prisma.$queryRaw`
       SELECT COUNT(*)::bigint AS value
       FROM "RecipeIngredient"
       WHERE "ingredientId" IS NULL
     `,
-  ]);
+    ]);
 
   const notNullOk = Boolean(
-    Array.isArray(recipeIngredientColumnNotNull) && recipeIngredientColumnNotNull[0]?.value,
+    Array.isArray(recipeIngredientColumnNotNull) &&
+    recipeIngredientColumnNotNull[0]?.value,
   );
   const nullCount = Array.isArray(recipeIngredientNullCount)
     ? Number(recipeIngredientNullCount[0]?.value ?? 0)
@@ -355,11 +363,15 @@ async function repairIncompleteIngredientCatalogMigration(prisma) {
     $$;
   `);
 
-  console.log(`[safe-migrate] Automatic repair for ${TARGET_FAILED_MIGRATION} completed.`);
+  console.log(
+    `[safe-migrate] Automatic repair for ${TARGET_FAILED_MIGRATION} completed.`,
+  );
 }
 
 async function rebuildDatabaseFromScratch(prisma) {
-  console.log('[safe-migrate] Rebuild mode enabled. Dropping and recreating public schema...');
+  console.log(
+    '[safe-migrate] Rebuild mode enabled. Dropping and recreating public schema...',
+  );
   await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS public CASCADE;`);
   await prisma.$executeRawUnsafe(`CREATE SCHEMA public;`);
   await prisma.$executeRawUnsafe(`GRANT ALL ON SCHEMA public TO CURRENT_USER;`);
@@ -367,14 +379,18 @@ async function rebuildDatabaseFromScratch(prisma) {
 }
 
 function runOptionalBootstrap() {
-  const shouldBootstrap = process.env.SAFE_MIGRATE_BOOTSTRAP_RECIPES !== 'false';
+  const shouldBootstrap =
+    process.env.SAFE_MIGRATE_BOOTSTRAP_RECIPES !== 'false';
   if (!shouldBootstrap) {
-    console.log('[safe-migrate] Bootstrap disabled (SAFE_MIGRATE_BOOTSTRAP_RECIPES=false).');
+    console.log(
+      '[safe-migrate] Bootstrap disabled (SAFE_MIGRATE_BOOTSTRAP_RECIPES=false).',
+    );
     return;
   }
 
   const recipeImportFile =
-    process.env.RECIPE_IMPORT_FILE ?? 'prisma/catalog/recipes-approved-30-v1.json';
+    process.env.RECIPE_IMPORT_FILE ??
+    'prisma/catalog/recipes-catalog-full-v2.json';
 
   console.log('[safe-migrate] Bootstrapping ingredient catalog...');
   run(PNPM_BIN, ['exec', 'tsx', 'scripts/load-ingredient-catalog.ts']);
@@ -382,15 +398,18 @@ function runOptionalBootstrap() {
   console.log('[safe-migrate] Normalizing ingredient aliases...');
   run(PNPM_BIN, ['exec', 'tsx', 'scripts/normalize-ingredients-polish.ts']);
 
+  // Bez wartości odżywczych składników import przepisów wchodzi z zerowym
+  // makro i dopiero ręczny recompute by je naprawił — bootstrap ma zostawiać
+  // bazę kompletną od razu.
+  console.log('[safe-migrate] Loading ingredient nutrition table...');
+  run(PNPM_BIN, ['exec', 'tsx', 'scripts/load-ingredient-nutrition.ts']);
+
   console.log(`[safe-migrate] Importing recipes from ${recipeImportFile}...`);
-  runWithEnv(
-    PNPM_BIN,
-    ['exec', 'tsx', 'scripts/import-recipes-from-json.ts'],
-    {
-      RECIPE_IMPORT_CLEAR_EXISTING: process.env.RECIPE_IMPORT_CLEAR_EXISTING ?? 'true',
-      RECIPE_IMPORT_FILE: recipeImportFile,
-    },
-  );
+  runWithEnv(PNPM_BIN, ['exec', 'tsx', 'scripts/import-recipes-from-json.ts'], {
+    RECIPE_IMPORT_CLEAR_EXISTING:
+      process.env.RECIPE_IMPORT_CLEAR_EXISTING ?? 'true',
+    RECIPE_IMPORT_FILE: recipeImportFile,
+  });
 }
 
 function runOptionalR2ImageBackfill() {
@@ -402,7 +421,9 @@ function runOptionalR2ImageBackfill() {
     return;
   }
 
-  console.log('[safe-migrate] Syncing recipe image URLs from existing R2 objects...');
+  console.log(
+    '[safe-migrate] Syncing recipe image URLs from existing R2 objects...',
+  );
 
   const status = runSoft(PNPM_BIN, [
     'exec',
@@ -442,11 +463,13 @@ async function main() {
     }
 
     if (failedMigrations.includes(TARGET_FAILED_MIGRATION)) {
-      let ingredientCatalogApplied = await isIngredientCatalogAlreadyPresent(prisma);
+      let ingredientCatalogApplied =
+        await isIngredientCatalogAlreadyPresent(prisma);
 
       if (!ingredientCatalogApplied) {
         await repairIncompleteIngredientCatalogMigration(prisma);
-        ingredientCatalogApplied = await isIngredientCatalogAlreadyPresent(prisma);
+        ingredientCatalogApplied =
+          await isIngredientCatalogAlreadyPresent(prisma);
       }
 
       if (!ingredientCatalogApplied) {
@@ -470,17 +493,27 @@ async function main() {
       console.log(
         `[safe-migrate] Marking failed migration as applied: ${TARGET_FAILED_MIGRATION}`,
       );
-      run(PNPM_BIN, ['prisma', 'migrate', 'resolve', '--applied', TARGET_FAILED_MIGRATION]);
+      run(PNPM_BIN, [
+        'prisma',
+        'migrate',
+        'resolve',
+        '--applied',
+        TARGET_FAILED_MIGRATION,
+      ]);
     } else {
       if (!process.env.DATABASE_URL) {
-        console.error('[safe-migrate] DATABASE_URL is required to validate schema drift.');
+        console.error(
+          '[safe-migrate] DATABASE_URL is required to validate schema drift.',
+        );
         process.exit(1);
       }
 
       console.log(
         `[safe-migrate] Unknown failed migrations detected: ${unknownFailedMigrations.join(', ')}`,
       );
-      console.log('[safe-migrate] Verifying database schema against current Prisma schema...');
+      console.log(
+        '[safe-migrate] Verifying database schema against current Prisma schema...',
+      );
 
       const diffStatus = run(
         PNPM_BIN,
@@ -505,8 +538,16 @@ async function main() {
       }
 
       for (const migrationName of failedMigrations) {
-        console.log(`[safe-migrate] Marking failed migration as applied: ${migrationName}`);
-        run(PNPM_BIN, ['prisma', 'migrate', 'resolve', '--applied', migrationName]);
+        console.log(
+          `[safe-migrate] Marking failed migration as applied: ${migrationName}`,
+        );
+        run(PNPM_BIN, [
+          'prisma',
+          'migrate',
+          'resolve',
+          '--applied',
+          migrationName,
+        ]);
       }
     }
   }
