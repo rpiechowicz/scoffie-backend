@@ -3,10 +3,55 @@ import { createPrivateKey } from 'crypto';
 import { connect } from 'http2';
 import { SignJWT } from 'jose';
 
-interface PushPayload {
+/**
+ * Jedno powiadomienie APNs.
+ *
+ * Pola poza `title`/`body`/`data` istnieją po to, żeby push dało się wyciszyć
+ * i pogrupować — bez nich każdy alert ląduje osobno na ekranie blokady, z
+ * dźwiękiem i pełnym priorytetem. Domyślne wartości odtwarzają zachowanie
+ * sprzed tej zmiany, więc wywołania, które nic nie ustawiają, wyglądają tak
+ * jak dotąd.
+ */
+export interface PushPayload {
   title: string;
   body: string;
   data?: Record<string, string>;
+  /**
+   * `apns-collapse-id`. Dwa pushe z tym samym identyfikatorem NIE stają obok
+   * siebie — nowszy podmienia starszy. To jest cała mechanika „jedno
+   * powiadomienie na gospodarstwo i tydzień" na ekranie blokady: kolejne
+   * podsumowanie planu wchodzi na miejsce poprzedniego zamiast dokładać
+   * kolejny wiersz. APNs przycina to pole do 64 bajtów.
+   */
+  collapseId?: string;
+  /**
+   * `aps.thread-id`. Grupowanie w Centrum powiadomień — pushe z tym samym
+   * wątkiem system zwija w jeden stos zamiast rozsypywać po liście.
+   */
+  threadId?: string;
+  /**
+   * `aps.interruption-level`. `passive` = trafia do Centrum powiadomień, ale
+   * nie zapala ekranu i nie przerywa. To jest domyślny tryb dla rzeczy
+   * rutynowych (zmiany planu). `active` zostawiamy dla zdarzeń, na które ktoś
+   * naprawdę czeka — jak dołączenie domownika.
+   */
+  interruptionLevel?: 'passive' | 'active' | 'time-sensitive';
+  /**
+   * `apns-priority`. 5 = APNs może dostarczyć zbiorczo i oszczędzać baterię,
+   * 10 = natychmiast. Podsumowania jadą piątką.
+   */
+  priority?: 5 | 10;
+  /**
+   * Sekundy życia powiadomienia. Podsumowanie planu sprzed doby jest już
+   * nieaktualne — lepiej, żeby APNs je porzuciło, niż dowiozło rano.
+   */
+  expirationSeconds?: number;
+  /**
+   * `null` (domyślnie) = cisza. Historycznie każdy push grał `default`, i to
+   * była połowa odczucia „spamu"; dźwięk zostaje tylko tam, gdzie sami go
+   * poprosimy.
+   */
+  sound?: string | null;
 }
 
 export class ApnsSendError extends Error {
@@ -100,14 +145,30 @@ export class ApnsService implements OnModuleInit {
 
     try {
       await new Promise<void>((resolve, reject) => {
-        const req = client.request({
+        const headers: Record<string, string | number> = {
           ':method': 'POST',
           ':path': `/3/device/${deviceToken}`,
           authorization: `bearer ${jwt}`,
           'apns-topic': topic,
           'apns-push-type': 'alert',
+          'apns-priority': payload.priority ?? 10,
           'content-type': 'application/json',
-        });
+        };
+
+        // APNs odrzuca collapse-id dłuższe niż 64 bajty całym żądaniem, a nasze
+        // klucze zawierają uuid gospodarstwa i datę tygodnia — przycinamy więc
+        // tutaj, a nie licząc znaki w każdym miejscu, które klucz składa.
+        const collapseId = payload.collapseId?.slice(0, 64);
+        if (collapseId) {
+          headers['apns-collapse-id'] = collapseId;
+        }
+        if (payload.expirationSeconds != null) {
+          headers['apns-expiration'] = Math.floor(
+            Date.now() / 1000 + payload.expirationSeconds,
+          );
+        }
+
+        const req = client.request(headers);
 
         let responseStatus = 0;
         let responseBody = '';
@@ -145,7 +206,13 @@ export class ApnsService implements OnModuleInit {
                 title: payload.title,
                 body: payload.body,
               },
-              sound: 'default',
+              // Bez `sound` iOS pokazuje powiadomienie bezgłośnie. Dźwięk jest
+              // teraz decyzją wywołującego, nie domyślną cechą każdego pusha.
+              ...(payload.sound ? { sound: payload.sound } : {}),
+              ...(payload.threadId ? { 'thread-id': payload.threadId } : {}),
+              ...(payload.interruptionLevel
+                ? { 'interruption-level': payload.interruptionLevel }
+                : {}),
             },
             ...(payload.data ? { data: payload.data } : {}),
           }),

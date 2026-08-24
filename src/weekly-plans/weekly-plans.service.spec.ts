@@ -441,6 +441,58 @@ describe('WeeklyPlansService', () => {
 
       expectUpdatedWithServings(12);
     });
+
+    // ─── changeKind ─────────────────────────────────────────────────────────
+    //
+    // Rozróżnienie istnieje wyłącznie po to, żeby gateway wiedział, KIEDY
+    // zawracać głowę drugiemu domownikowi. Bez niego przesunięcie steppera
+    // porcji wyglądało dla powiadomień identycznie jak wstawienie nowego dania
+    // — i dlatego każdy zapis porcji wysyłał komuś push.
+
+    it('nowe danie w slocie zgłasza się jako CREATED', async () => {
+      prisma.planItem.findFirst.mockResolvedValue(null);
+
+      const result = await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({ changeKind: 'CREATED' }),
+      );
+    });
+
+    it('sama zmiana porcji zgłasza się jako DETAILS_CHANGED, nie CREATED', async () => {
+      mockExistingItem(2, []);
+
+      const result = await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        { ...baseSlot, plannedServings: 3 },
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({ changeKind: 'DETAILS_CHANGED' }),
+      );
+    });
+
+    it('powtórzony zapis bez żadnej zmiany zgłasza się jako NOOP', async () => {
+      // Tak wygląda ponowienie po nieodebranym ACK-u: ten sam upsert leci
+      // drugi raz. Nie jest zdarzeniem i nie ma prawa niczego wysłać.
+      mockExistingItem(2, []);
+
+      const result = await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        { ...baseSlot, plannedServings: 2 },
+      );
+
+      expect(result).toEqual(expect.objectContaining({ changeKind: 'NOOP' }));
+    });
   });
 
   // ─── removeWeekSlot ───────────────────────────────────────────────────────

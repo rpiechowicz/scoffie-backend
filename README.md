@@ -13,7 +13,9 @@ Backend API for the Weekly Meals iOS app. It serves recipes, households, weekly 
 ## What lives here
 
 - Auth and refresh-token rotation
-- Household creation, membership, and invitations
+- Household creation, membership, and invitations (one household per account —
+  accepting an invitation while already in one is an explicit move, see
+  `src/households/invitation-status.util.ts`)
 - Recipes catalog and favorites
 - Weekly plan and shared saved-plan flows
 - Shopping list generation, archive history, and realtime updates
