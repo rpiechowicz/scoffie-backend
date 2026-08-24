@@ -41,6 +41,9 @@ model User {
   createdHomes    Household[]     @relation("HouseholdCreator")
   invitations     Invitation[]    @relation("InvitationCreator")
   acceptedInvites Invitation[]    @relation("InvitationRedeemer")
+  /// Zaproszenia leżące w skrzynce tego użytkownika — patrz
+  /// `Invitation.invitedUserId`.
+  receivedInvites Invitation[]    @relation("InvitationRecipient")
   refreshTokens   RefreshToken[]
   pushDevices     PushDevice[]
   preferences     UserPreference?
@@ -63,6 +66,26 @@ model UserPreference {
   proteinG       Int?
   fatG           Int?
   carbsG         Int?
+
+  /// Kanały powiadomień push. Do tej pory przełączniki z Ustawień żyły
+  /// wyłącznie w `UserDefaults` na telefonie, więc wyciszenie powiadomień
+  /// uciszało tylko lokalne bannery, a pushe z serwera leciały dalej —
+  /// z perspektywy użytkownika główny przełącznik był popsuty. Serwer musi
+  /// znać te wartości, bo to on decyduje, czy w ogóle wysłać.
+  pushPlanChanges   Boolean @default(true)
+  pushShoppingList  Boolean @default(true)
+  pushHousehold     Boolean @default(true)
+
+  /// Cisza nocna. Zbiorcze podsumowania (plan, lista zakupów) nie wychodzą
+  /// między 22:00 a 7:00 czasu użytkownika — czekają na koniec okna. Dołączenie
+  /// domownika jej nie podlega: to zdarzenie jednorazowe, na które ktoś czeka.
+  pushQuietHours    Boolean @default(true)
+
+  /// Strefa czasowa IANA z telefonu (`TimeZone.current.identifier`). Bez niej
+  /// cisza nocna liczyłaby się w strefie kontenera, czyli zwykle w UTC —
+  /// a to przesuwa okno o dwie godziny w polskim lecie.
+  timeZone          String?
+
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -252,9 +275,33 @@ model Invitation {
   redeemedAt   DateTime?
   createdAt    DateTime  @default(now())
 
+  /// Komu to zaproszenie leży w skrzynce.
+  ///
+  /// Zaproszenie powstaje jako anonimowy link — właściciel wysyła go dowolnym
+  /// komunikatorem i w chwili tworzenia NIE WIADOMO, kto go otworzy. Adresat
+  /// zapisuje się dopiero wtedy, gdy ktoś link podejrzy
+  /// (`households:previewInvitation`), i to jest jedyny moment, w którym
+  /// aplikacja poznaje odbiorcę. Zapraszanie po e-mailu nie zastąpiłoby tego:
+  /// przy Sign in with Apple adres bywa przekierowaniem `@privaterelay`,
+  /// którego zapraszający nie zna.
+  ///
+  /// To pole NIE zawęża, kto może zaproszenie przyjąć — link zostaje
+  /// wielorazowy do czasu wykorzystania. Służy wyłącznie do tego, żeby
+  /// zaproszenie dało się później odnaleźć w aplikacji zamiast szukać
+  /// w historii czatu.
+  invitedUserId String?  @db.Uuid
+  invitedUser   User?    @relation("InvitationRecipient", fields: [invitedUserId], references: [id], onDelete: SetNull)
+
+  /// Kiedy adresat świadomie odmówił. Odrzucone znika ze skrzynki, ale zostaje
+  /// w bazie — inaczej ten sam link odłożyłby się tam z powrotem przy
+  /// pierwszym podejrzeniu.
+  declinedAt DateTime?
+
   household  Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   createdBy  User?     @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: SetNull)
   redeemedBy User?     @relation("InvitationRedeemer", fields: [redeemedById], references: [id], onDelete: SetNull)
+
+  @@index([invitedUserId])
 }
 
 model WeeklyPlan {

@@ -155,6 +155,12 @@ export class WeeklyPlansGateway
     this.wsTelemetry.onDisconnect(WeeklyPlansGateway.name);
   }
 
+  /**
+   * Dokłada zmianę do paczki powiadomień. Nazwa mówi „notify", ale nic nie
+   * wychodzi natychmiast — `NotificationsService` zbiera zdarzenia i wysyła
+   * jedno podsumowanie po tym, jak autor przestanie klikać. To jest miejsce, w
+   * którym „jeden push na kratkę planu" zamienia się w „jeden push na sesję".
+   */
   private notifyPlanChanged(
     householdId: string,
     changedByUserId: string,
@@ -166,15 +172,39 @@ export class WeeklyPlansGateway
       weekStart?: string | null;
     },
   ): void {
-    void this.notificationsService
-      .notifyWeeklyPlanChanged({
-        householdId,
-        changedByUserId,
-        changedByDisplayName,
-        action,
-        context,
-      })
-      .catch(() => undefined);
+    this.notificationsService.enqueueWeeklyPlanChange({
+      householdId,
+      changedByUserId,
+      changedByDisplayName,
+      action,
+      context,
+    });
+  }
+
+  /**
+   * To samo dla listy zakupów. Dotąd lista nie wysyłała pushy w ogóle —
+   * powiadomienie o odhaczonym produkcie składał sobie sam klient iOS, więc
+   * docierało wyłącznie do telefonu z uruchomioną aplikacją i mijało się z
+   * celem. Zbiorczo („odhaczył 12 produktów") niesie realną informację:
+   * zakupy są zrobione.
+   */
+  private notifyShoppingListChanged(input: {
+    householdId: string;
+    changedByUserId?: string | null;
+    changedByDisplayName?: string | null;
+    action: string;
+    isChecked?: boolean | null;
+  }): void {
+    if (!input.changedByUserId) {
+      return;
+    }
+    this.notificationsService.enqueueShoppingListChange({
+      householdId: input.householdId,
+      changedByUserId: input.changedByUserId,
+      changedByDisplayName: input.changedByDisplayName,
+      action: input.action,
+      isChecked: input.isChecked,
+    });
   }
 
   private emitShoppingListChanged(input: {
@@ -317,6 +347,12 @@ export class WeeklyPlansGateway
         changedByUserId: payload.userId,
         changedByDisplayName,
       });
+      this.notifyShoppingListChanged({
+        householdId: payload.householdId,
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+        action: 'ARCHIVE_LIST',
+      });
 
       return result;
     });
@@ -421,6 +457,15 @@ export class WeeklyPlansGateway
         productKey: payload.data.productKey,
         isChecked: payload.data.isChecked,
       });
+      // Pojedynczy checkbox nigdy nie zamienia się w powiadomienie — bufor
+      // czeka, aż ktoś skończy zakupy, i wysyła jedno „odhaczył 12 produktów".
+      this.notifyShoppingListChanged({
+        householdId: payload.householdId,
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+        action: 'SET_ITEM_CHECKED',
+        isChecked: payload.data.isChecked,
+      });
 
       return result;
     });
@@ -456,17 +501,24 @@ export class WeeklyPlansGateway
         changedByUserId: payload.userId,
         changedByDisplayName,
       });
-      this.notifyPlanChanged(
-        payload.householdId,
-        payload.userId,
-        changedByDisplayName,
-        'UPSERT_SLOT',
-        {
-          dayOfWeek: payload.data?.dayOfWeek,
-          mealType: payload.data?.mealType,
-          weekStart: payload.weekStart,
-        },
-      );
+      // Powiadamiamy tylko o NOWYM daniu w slocie. Trafienie w istniejący item
+      // znaczy, że przepis się nie zmienił — ruszył stepper porcji albo chipy
+      // audytorium, a to są ustawienia własne, nie wiadomość dla domownika.
+      // („Zmień przepis" idzie jako REMOVE_SLOT + CREATED i dalej powiadamia,
+      // bo bufor sklei te dwa zdarzenia w jedno zdanie.)
+      if (result?.changeKind === 'CREATED') {
+        this.notifyPlanChanged(
+          payload.householdId,
+          payload.userId,
+          changedByDisplayName,
+          'UPSERT_SLOT',
+          {
+            dayOfWeek: payload.data?.dayOfWeek,
+            mealType: payload.data?.mealType,
+            weekStart: payload.weekStart,
+          },
+        );
+      }
 
       return result;
     });

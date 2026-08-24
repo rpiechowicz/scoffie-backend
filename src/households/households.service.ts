@@ -16,19 +16,15 @@ import { UpdateHouseholdMealTypesDto } from './dto/update-meal-types.dto';
 import { UpdateHouseholdMealTimesDto } from './dto/update-meal-times.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { normalizeEnabledMealTypes } from '../common/meal-types';
+import { settleHouseholdAfterMemberLeft } from './household-cleanup.util';
+import {
+  resolveInvitationStatus,
+  shouldAddToInbox,
+} from './invitation-status.util';
 
 @Injectable()
 export class HouseholdsService {
   constructor(private readonly prisma: PrismaService) {}
-
-  private invitationStatusFrom(invitation: {
-    expiresAt: Date;
-    redeemedAt: Date | null;
-  }) {
-    if (invitation.redeemedAt) return 'REDEEMED' as const;
-    if (invitation.expiresAt.getTime() < Date.now()) return 'EXPIRED' as const;
-    return 'PENDING' as const;
-  }
 
   private async getHouseholdOrThrow(householdId: string) {
     const household = await this.prisma.household.findUnique({
@@ -151,32 +147,95 @@ export class HouseholdsService {
       );
     }
 
-    const membership = await this.prisma.membership.upsert({
+    if (invitation.declinedAt) {
+      throw new AppException(
+        'INVITATION_DECLINED',
+        'Invitation was declined',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Konto obsługuje jedno gospodarstwo naraz. Schemat dopuszcza kilka
+    // członkostw, ale reszta aplikacji z tego nie korzysta: `buildAuthResult`
+    // wybiera NAJSTARSZE członkostwo, a klient trzyma jedno
+    // `currentHouseholdId`. Ciche dopisanie drugiego wyglądało więc tak, że
+    // zaproszenie „nie działa": użytkownik po przyjęciu wracał przy następnym
+    // logowaniu do starego domu, bo to on był starszy.
+    const otherMemberships = await this.prisma.membership.findMany({
       where: {
-        userId_householdId: {
+        userId,
+        householdId: { not: invitation.householdId },
+      },
+      select: { householdId: true },
+    });
+
+    if (otherMemberships.length > 0 && !dto.leaveOtherHouseholds) {
+      throw new AppException(
+        'INVITATION_REQUIRES_LEAVE',
+        'User already belongs to another household',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    // Jedna transakcja, bo to są zapisy opisujące JEDNO zdarzenie. Osobno
+    // awaria między nimi zostawiała użytkownika bez starego gospodarstwa i bez
+    // nowego, albo w gospodarstwie z zaproszeniem wciąż oznaczonym jako
+    // niewykorzystane — czyli linkiem, którym mógł dołączyć ktoś kolejny.
+    return this.prisma.$transaction(async (tx) => {
+      for (const previous of otherMemberships) {
+        await tx.membership.delete({
+          where: {
+            userId_householdId: { userId, householdId: previous.householdId },
+          },
+        });
+        // Dom, z którego właśnie wyszedł ostatni domownik, znika razem
+        // z planami i listami — patrz `settleHouseholdAfterMemberLeft`.
+        await settleHouseholdAfterMemberLeft(tx, previous.householdId);
+      }
+
+      const membership = await tx.membership.upsert({
+        where: {
+          userId_householdId: {
+            userId,
+            householdId: invitation.householdId,
+          },
+        },
+        update: {},
+        create: {
           userId,
           householdId: invitation.householdId,
+          role: 'MEMBER',
         },
-      },
-      update: {},
-      create: {
-        userId,
-        householdId: invitation.householdId,
-        role: 'MEMBER',
-      },
-    });
+      });
 
-    await this.prisma.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        redeemedAt: new Date(),
-        redeemedById: userId,
-      },
-    });
+      await tx.invitation.update({
+        where: { id: invitation.id },
+        data: {
+          redeemedAt: new Date(),
+          redeemedById: userId,
+          // Adresat jest już znany na pewno — nawet jeśli link podejrzał kto
+          // inny, przyjął go ten użytkownik.
+          invitedUserId: userId,
+        },
+      });
 
-    return membership;
+      return {
+        ...membership,
+        leftHouseholdIds: otherMemberships.map((m) => m.householdId),
+      };
+    });
   }
 
+  /**
+   * Co zaproszenie oznacza dla TEGO użytkownika — i odłożenie go do jego
+   * skrzynki.
+   *
+   * Podgląd nie jest już czystym odczytem: przy okazji przypisuje zaproszenie
+   * adresatowi (`invitedUserId`). To jedyny moment, w którym aplikacja poznaje
+   * odbiorcę anonimowego linku, a bez tego przypisania zaproszenie otwarte
+   * w złym momencie przepadało — nie było ekranu, na którym można by je
+   * odnaleźć później.
+   */
   async previewInvitation(userId: string, dto: AcceptInvitationDto) {
     const invitation = await this.prisma.invitation.findUnique({
       where: { token: dto.token },
@@ -202,20 +261,56 @@ export class HouseholdsService {
         household: null,
         invitedByDisplayName: null,
         expiresAt: null,
+        currentHousehold: null,
+        willDeleteCurrentHousehold: false,
       };
     }
 
-    const existingMembership = await this.prisma.membership.findUnique({
-      where: {
-        userId_householdId: {
-          userId,
-          householdId: invitation.householdId,
+    const [existingMembership, otherMemberships] = await Promise.all([
+      this.prisma.membership.findUnique({
+        where: {
+          userId_householdId: {
+            userId,
+            householdId: invitation.householdId,
+          },
         },
-      },
+      }),
+      this.prisma.membership.findMany({
+        where: { userId, householdId: { not: invitation.householdId } },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          household: {
+            select: {
+              id: true,
+              name: true,
+              _count: { select: { memberships: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const status = resolveInvitationStatus({
+      redeemedAt: invitation.redeemedAt,
+      declinedAt: invitation.declinedAt,
+      expiresAt: invitation.expiresAt,
+      isAlreadyMember: Boolean(existingMembership),
+      belongsToAnotherHousehold: otherMemberships.length > 0,
     });
 
-    const baseStatus = this.invitationStatusFrom(invitation);
-    const status = existingMembership ? 'ALREADY_MEMBER' : baseStatus;
+    // Do skrzynki trafia tylko zaproszenie, które adresat MOŻE jeszcze
+    // przyjąć, i tylko takie, które nie ma jeszcze adresata — kolejne
+    // podejrzenia tego samego linku nie przepisują go z rąk do rąk.
+    const addedToInbox = !invitation.invitedUserId && shouldAddToInbox(status);
+
+    if (addedToInbox) {
+      await this.prisma.invitation.update({
+        where: { id: invitation.id },
+        data: { invitedUserId: userId },
+      });
+    }
+
+    const current = otherMemberships[0]?.household ?? null;
 
     return {
       token: invitation.token,
@@ -223,7 +318,93 @@ export class HouseholdsService {
       household: invitation.household,
       invitedByDisplayName: invitation.createdBy?.displayName ?? null,
       expiresAt: invitation.expiresAt,
+      /// Dom, który użytkownik straci, przyjmując zaproszenie.
+      currentHousehold: current ? { id: current.id, name: current.name } : null,
+      /// Czy ten dom zniknie razem z nim, bo nikt w nim nie zostanie. Klient
+      /// musi to powiedzieć wprost — usunięcie planów i list zakupów nie może
+      /// być niespodzianką po fakcie.
+      willDeleteCurrentHousehold: current?._count.memberships === 1,
+      /// Czy TO wywołanie odłożyło zaproszenie do skrzynki adresata. Gateway
+      /// wysyła na tej podstawie jedno powiadomienie — kolejne podglądy tego
+      /// samego linku nie mają już czego zgłaszać.
+      addedToInbox,
     };
+  }
+
+  /**
+   * Zaproszenia czekające na tego użytkownika.
+   *
+   * To jest ekran „przyszło do mnie zaproszenie", którego wcześniej nie było:
+   * zaproszenie żyło wyłącznie jako link w komunikatorze i po zamknięciu
+   * alertu nie zostawało po nim w aplikacji nic.
+   */
+  async listPendingInvitations(userId: string) {
+    const invitations = await this.prisma.invitation.findMany({
+      where: {
+        invitedUserId: userId,
+        redeemedAt: null,
+        declinedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        household: { select: { id: true, name: true } },
+        createdBy: { select: { displayName: true } },
+      },
+    });
+
+    // Zaproszenie do domu, w którym już się jest, nie jest zaproszeniem —
+    // filtrujemy je tutaj, a nie zapytaniem, bo Prisma nie umie w jednym
+    // `where` odnieść się do członkostw tego samego użytkownika.
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId },
+      select: { householdId: true },
+    });
+    const joined = new Set(memberships.map((m) => m.householdId));
+
+    return invitations
+      .filter((invitation) => !joined.has(invitation.householdId))
+      .map((invitation) => ({
+        token: invitation.token,
+        household: invitation.household,
+        invitedByDisplayName: invitation.createdBy?.displayName ?? null,
+        expiresAt: invitation.expiresAt,
+        createdAt: invitation.createdAt,
+      }));
+  }
+
+  /**
+   * Świadoma odmowa. Zaproszenie znika ze skrzynki, ale zostaje w bazie —
+   * bez tego pierwsze ponowne otwarcie linku odłożyłoby je tam z powrotem.
+   */
+  async declineInvitation(userId: string, dto: AcceptInvitationDto) {
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { token: dto.token },
+      select: { id: true, redeemedAt: true, invitedUserId: true },
+    });
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
+    if (invitation.redeemedAt) {
+      throw new AppException(
+        'INVITATION_ALREADY_REDEEMED',
+        'Invitation already redeemed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.prisma.invitation.update({
+      where: { id: invitation.id },
+      data: {
+        declinedAt: new Date(),
+        // Adresata dopisujemy tylko wtedy, gdy jeszcze go nie było. Ten sam
+        // link może krążyć między kilkoma osobami i odmowa jednej z nich nie
+        // ma prawa przepisać zaproszenia z czyjejś skrzynki na nią.
+        ...(invitation.invitedUserId ? {} : { invitedUserId: userId }),
+      },
+    });
+
+    return { success: true };
   }
 
   async updateName(
@@ -373,20 +554,43 @@ export class HouseholdsService {
       }
     }
 
-    return this.prisma.membership.delete({
-      where: { userId_householdId: { userId: memberUserId, householdId } },
+    return this.prisma.$transaction(async (tx) => {
+      const removed = await tx.membership.delete({
+        where: { userId_householdId: { userId: memberUserId, householdId } },
+      });
+      // Ta sama reguła co przy wyjściu — kontrola wyżej nie pozwala usunąć
+      // ostatniego właściciela, ale porządkowanie ma być jedno dla wszystkich
+      // ścieżek, żeby nie zależeć od tego, czy tamta kontrola przetrwa.
+      await settleHouseholdAfterMemberLeft(tx, householdId);
+      return removed;
     });
   }
 
+  /**
+   * Wyjście z gospodarstwa.
+   *
+   * Świadomie BEZ blokady dla ostatniego właściciela — inaczej jedyny
+   * właściciel byłby uwięziony we własnym domu. Zamiast tego po wyjściu
+   * porządkuje dom `settleHouseholdAfterMemberLeft`: pusty znika, a taki, który
+   * został bez właściciela, dostaje nowego. Poprzednio nie działo się ani
+   * jedno, ani drugie — wyjście zostawiało albo pusty rekord na zawsze, albo
+   * dom, którym nikt nie mógł administrować.
+   */
   async leave(userId: string, householdId: string) {
     await this.getHouseholdOrThrow(householdId);
     await this.ensureMembership(userId, householdId);
 
-    await this.prisma.membership.delete({
-      where: { userId_householdId: { userId, householdId } },
+    const settlement = await this.prisma.$transaction(async (tx) => {
+      await tx.membership.delete({
+        where: { userId_householdId: { userId, householdId } },
+      });
+      return settleHouseholdAfterMemberLeft(tx, householdId);
     });
 
-    return { success: true };
+    return {
+      success: true,
+      householdDeleted: settlement.outcome === 'DELETED',
+    };
   }
 
   async getUserDisplayName(userId: string): Promise<string> {

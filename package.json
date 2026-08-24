@@ -20,6 +20,7 @@
     "recipes:recompute:nutrition": "tsx scripts/recompute-recipe-nutrition.ts",
     "recipes:backfill:slots": "tsx scripts/backfill-suitable-meal-types.ts",
     "plans:backfill:servings": "tsx scripts/backfill-plan-item-servings.ts",
+    "households:cleanup:empty": "tsx scripts/cleanup-empty-households.ts",
     "recipes:import:json": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/import-recipes-from-json.ts",
     "generate:recipe:images": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/generate-recipe-images.ts",
     "upload:recipe:images:r2": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/upload-recipe-images-to-r2.ts",
