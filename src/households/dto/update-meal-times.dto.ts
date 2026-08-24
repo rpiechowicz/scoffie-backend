@@ -51,7 +51,12 @@ export class UpdateHouseholdMealTimesDto {
   @ApiProperty({
     type: 'object',
     additionalProperties: { type: 'integer' },
-    example: { BREAKFAST: 480, SECOND_BREAKFAST: 630, LUNCH: 840, DINNER: 1200 },
+    example: {
+      BREAKFAST: 480,
+      SECOND_BREAKFAST: 630,
+      LUNCH: 840,
+      DINNER: 1200,
+    },
   })
   @Validate(MealSlotTimesConstraint)
   mealSlotTimes: Partial<Record<MealType, number>>;
