@@ -12,7 +12,11 @@ function dto(partial: Partial<SaveSharedMealPlanDto>): SaveSharedMealPlanDto {
 describe('mergeSharedPlanRecipeIds', () => {
   it('czyta stare pola, gdy nie ma nowej mapy', () => {
     const merged = mergeSharedPlanRecipeIds(
-      dto({ breakfastRecipeIds: ['a'], lunchRecipeIds: ['b'], dinnerRecipeIds: ['c'] }),
+      dto({
+        breakfastRecipeIds: ['a'],
+        lunchRecipeIds: ['b'],
+        dinnerRecipeIds: ['c'],
+      }),
     );
 
     expect(merged[MealType.BREAKFAST]).toEqual(['a']);
@@ -51,10 +55,18 @@ describe('sharedPlanAddressedMealTypes', () => {
   // aplikację, a drugi nie — i podwieczorek znikał bez błędu.
   it('żądanie bez nowej mapy dotyczy wyłącznie trójki obowiązkowej', () => {
     const addressed = sharedPlanAddressedMealTypes(
-      dto({ breakfastRecipeIds: ['a'], lunchRecipeIds: [], dinnerRecipeIds: [] }),
+      dto({
+        breakfastRecipeIds: ['a'],
+        lunchRecipeIds: [],
+        dinnerRecipeIds: [],
+      }),
     );
 
-    expect(addressed).toEqual([MealType.BREAKFAST, MealType.LUNCH, MealType.DINNER]);
+    expect(addressed).toEqual([
+      MealType.BREAKFAST,
+      MealType.LUNCH,
+      MealType.DINNER,
+    ]);
     expect(addressed).not.toContain(MealType.SECOND_BREAKFAST);
     expect(addressed).not.toContain(MealType.AFTERNOON_SNACK);
     expect(addressed).not.toContain(MealType.SNACK);
@@ -63,7 +75,9 @@ describe('sharedPlanAddressedMealTypes', () => {
   it('pusta mapa to nadal deklaracja „mówię o wszystkich slotach"', () => {
     // Nowy klient, który wyczyścił całą pulę, wysyła `{}` — i musi mieć
     // możliwość skasowania wszystkiego, łącznie z dodatkowymi posiłkami.
-    expect(sharedPlanAddressedMealTypes(dto({ recipeIdsByMealType: {} }))).toHaveLength(6);
+    expect(
+      sharedPlanAddressedMealTypes(dto({ recipeIdsByMealType: {} })),
+    ).toHaveLength(6);
   });
 
   it('mapa razem ze starymi polami też dotyczy wszystkich slotów', () => {
@@ -78,7 +92,9 @@ describe('sharedPlanAddressedMealTypes', () => {
   });
 
   it('zwraca sloty w kolejności dnia', () => {
-    expect(sharedPlanAddressedMealTypes(dto({ recipeIdsByMealType: {} }))).toEqual([
+    expect(
+      sharedPlanAddressedMealTypes(dto({ recipeIdsByMealType: {} })),
+    ).toEqual([
       MealType.BREAKFAST,
       MealType.SECOND_BREAKFAST,
       MealType.LUNCH,
