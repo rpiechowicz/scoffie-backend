@@ -4,17 +4,17 @@ piwo pszeniczne
 piwo lager
 piwo smakowe
 wino czerwone wytrawne
-wino czerwone polwytrawne
-wino czerwone polslodkie
-wino czerwone slodkie
-wino biale wytrawne
-wino biale polwytrawne
-wino biale polslodkie
-wino biale slodkie
+wino czerwone półwytrawne
+wino czerwone półsłodkie
+wino czerwone słodkie
+wino białe wytrawne
+wino białe półwytrawne
+wino białe półsłodkie
+wino białe słodkie
 prosecco
 szampan
 cydr
-wodka
+wódka
 whisky
 rum
 gin

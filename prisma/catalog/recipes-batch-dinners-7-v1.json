@@ -1,0 +1,691 @@
+{
+  "version": "v1-dinners-7",
+  "recipes": [
+    {
+      "id": "3372daf0-cdae-45b7-a559-5804e2f92db1",
+      "title": "Zapiekanki z pieczarkami i serem",
+      "description": "Klasyczne domowe zapiekanki na chrupiącej bagietce z pieczarkami smażonymi z cebulą i roztopioną goudą. Na koniec obowiązkowo ketchup i posypka ze szczypiorku.",
+      "mealType": "DINNER",
+      "suitableMealTypes": ["DINNER", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1325,
+        "protein": 57,
+        "carbs": 132,
+        "fat": 63,
+        "fiber": 9,
+        "salt": 2.6
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Rozgrzej piekarnik do 200 stopni. Pokrój cebulę w kostkę, a pieczarki w plasterki."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej olej z masłem na patelni, zeszklij cebulę, dodaj pieczarki i smaż na dużym ogniu, aż odparuje woda i zaczną się rumienić. Dopraw solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Przekrój bagietkę wzdłuż na pół, ułóż połówki na blasze przekrojem do góry i rozłóż na nich pieczarki z cebulą."
+        },
+        {
+          "step": 4,
+          "instruction": "Zetrzyj goudę na tarce, posyp zapiekanki i piecz około 10 minut, aż ser się roztopi i lekko zrumieni."
+        },
+        {
+          "step": 5,
+          "instruction": "Polej zapiekanki ketchupem i posyp posiekanym szczypiorkiem. Podawaj od razu, na gorąco."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "bagietka",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieczarka",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser gouda",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ketchup",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Zapiekanki z pieczarkami i serem, Two halved baguette zapiekanki topped with sautéed mushrooms and onions, melted golden gouda, zigzags of ketchup and chopped chives, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/3372daf0-cdae-45b7-a559-5804e2f92db1.png"
+      }
+    },
+    {
+      "id": "1f988f7d-6bf9-4d46-a6f1-ee5ad5e21cce",
+      "title": "Zapiekanka makaronowa z mięsem mielonym i serem",
+      "description": "Domowa zapiekanka z penne, mięsem mielonym w sosie pomidorowym i roztopioną goudą. Sycący obiad, który dobrze smakuje też odgrzany następnego dnia.",
+      "mealType": "DINNER",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 50,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 2399,
+        "protein": 126,
+        "carbs": 173,
+        "fat": 125,
+        "fiber": 15,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj makaron penne w osolonej wodzie o minutę krócej niż podano na opakowaniu, odcedź."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej olej na patelni, zeszklij posiekaną cebulę, dodaj przeciśnięty czosnek i smaż chwilę, aż zapachnie."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj mięso mielone i smaż na średnim ogniu, rozdrabniając łopatką, aż całkiem się zrumieni."
+        },
+        {
+          "step": 4,
+          "instruction": "Wlej passatę, dopraw oregano, solą i pieprzem, i duś sos pod przykryciem około 10 minut."
+        },
+        {
+          "step": 5,
+          "instruction": "Wymieszaj makaron z sosem, przełóż do naczynia żaroodpornego i posyp startą goudą."
+        },
+        {
+          "step": 6,
+          "instruction": "Zapiekaj w piekarniku nagrzanym do 200°C przez około 15 minut, aż ser się roztopi i zrumieni."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "makaron penne",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "wieprzowina i wołowina mielona",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "passata pomidorowa",
+          "amount": 400,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "ser gouda",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oregano",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Zapiekanka makaronowa z mięsem mielonym i serem, A pasta bake of penne in meaty tomato sauce topped with golden melted gouda with one portion scooped onto a plate, served in a rustic ceramic baking dish, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the baking dish at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the baking dish in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/1f988f7d-6bf9-4d46-a6f1-ee5ad5e21cce.png"
+      }
+    },
+    {
+      "id": "af34c689-8cc5-4c4b-b5f0-50b1b987e07e",
+      "title": "Sałatka z tuńczykiem, jajkiem i kukurydzą",
+      "description": "Szybka, sycąca sałatka na kolację z tuńczykiem, jajkami na twardo i kukurydzą, z lekkim dressingiem majonezowo-jogurtowym. Gotowa w kwadrans, bez gotowania poza jajkami.",
+      "mealType": "DINNER",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 908,
+        "protein": 79,
+        "carbs": 35,
+        "fat": 48,
+        "fiber": 7,
+        "salt": 2.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj jajka na twardo (ok. 9 minut od zagotowania wody), przestudź w zimnej wodzie, obierz i pokrój w ćwiartki."
+        },
+        {
+          "step": 2,
+          "instruction": "Porwij sałatę lodową na kawałki, pomidorki przekrój na połówki, ogórek pokrój w plasterki, a kukurydzę i tuńczyka odsącz z zalewy."
+        },
+        {
+          "step": 3,
+          "instruction": "Wymieszaj majonez z jogurtem, dopraw solą i pieprzem, dodaj posiekany szczypiorek."
+        },
+        {
+          "step": 4,
+          "instruction": "Ułóż w misce sałatę, warzywa, kukurydzę i rozdrobnionego tuńczyka, na wierzchu rozłóż ćwiartki jajek."
+        },
+        {
+          "step": 5,
+          "instruction": "Polej sałatkę dressingiem, delikatnie wymieszaj lub podaj z dressingiem na wierzchu i posyp resztą szczypiorku."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tuńczyk w puszce",
+          "amount": 170,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "kukurydza z puszki",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sałata lodowa",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "majonez",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sałatka z tuńczykiem, jajkiem i kukurydzą, A fresh salad bowl with flaked tuna, quartered hard-boiled eggs, sweet corn, cherry tomato halves, cucumber slices and iceberg lettuce, drizzled with a creamy white dressing and sprinkled with chopped chives, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/af34c689-8cc5-4c4b-b5f0-50b1b987e07e.png"
+      }
+    },
+    {
+      "id": "4f82670a-8459-4c6a-913f-4643af3b2481",
+      "title": "Sałatka z wędzonym łososiem, jajkiem i awokado",
+      "description": "Lekka sałatka na kolację z wędzonym łososiem, jajkiem na twardo i awokado, skropiona dressingiem z oliwy i cytryny. Nie wymaga gotowania poza jajkami, więc jest gotowa w kilkanaście minut.",
+      "mealType": "DINNER",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 841,
+        "protein": 53,
+        "carbs": 15,
+        "fat": 59,
+        "fiber": 14,
+        "salt": 2.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Włóż jajka do garnka z zimną wodą, zagotuj i gotuj 8-9 minut na twardo, potem przelej zimną wodą, obierz i pokrój na ćwiartki."
+        },
+        {
+          "step": 2,
+          "instruction": "Porwij sałatę lodową na mniejsze kawałki, pokrój ogórek w plasterki, pomidorki koktajlowe na połówki, a awokado w plastry i rozłóż wszystko na talerzach."
+        },
+        {
+          "step": 3,
+          "instruction": "Porwij wędzonego łososia na kawałki i ułóż na warzywach razem z ćwiartkami jajek."
+        },
+        {
+          "step": 4,
+          "instruction": "Wymieszaj oliwę z sokiem wyciśniętym z cytryny, dopraw solą i pieprzem, po czym polej sałatkę dressingiem."
+        },
+        {
+          "step": 5,
+          "instruction": "Posyp całość posiekanym koperkiem i podawaj od razu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "łosoś wędzony",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "awokado",
+          "amount": 140,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sałata lodowa",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sałatka z wędzonym łososiem, jajkiem i awokado, A fresh salad of torn smoked salmon, quartered hard-boiled eggs, avocado slices, iceberg lettuce, cucumber and halved cherry tomatoes, drizzled with lemon-olive oil dressing and sprinkled with dill, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/4f82670a-8459-4c6a-913f-4643af3b2481.png"
+      }
+    },
+    {
+      "id": "fa523dda-0b67-41d5-abd5-c0aa663be305",
+      "title": "Naleśniki ze szpinakiem i serem",
+      "description": "Wytrawne naleśniki z farszem ze szpinaku podsmażonego z czosnkiem i pokruszoną fetą. Sycące danie na obiad lub kolację, zwijane w rulony.",
+      "mealType": "DINNER",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1559,
+        "protein": 66,
+        "carbs": 136,
+        "fat": 80,
+        "fiber": 9,
+        "salt": 2.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Zmiksuj mąkę, mleko, jajka i szczyptę soli na gładkie ciasto naleśnikowe, odstaw na 10 minut."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej odrobinę oleju na patelni i usmaż z ciasta cienkie naleśniki z obu stron na złoto."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozgrzej masło na patelni, wrzuć posiekany czosnek i szpinak, smaż aż szpinak zwiędnie, a płyn odparuje, dopraw solą i pieprzem."
+        },
+        {
+          "step": 4,
+          "instruction": "Wymieszaj szpinak z pokruszoną fetą, nałóż farsz na naleśniki i zwiń je w rulony."
+        },
+        {
+          "step": 5,
+          "instruction": "Podsmaż zwinięte naleśniki krótko na patelni na resztce oleju, aż będą lekko chrupiące i ciepłe w środku."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 300,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "szpinak",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser feta",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Naleśniki ze szpinakiem i serem, Golden thin crepes rolled around a sautéed spinach and crumbled feta filling with visible green filling at the cut ends, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/fa523dda-0b67-41d5-abd5-c0aa663be305.png"
+      }
+    },
+    {
+      "id": "a1d0a64d-c899-42f9-a2d7-95a8614ff77c",
+      "title": "Wrapy z tuńczykiem, kukurydzą i jogurtem",
+      "description": "Szybkie zimne wrapy z pastą z tuńczyka na jogurcie, z kukurydzą, chrupiącą sałatą i ogórkiem. Idealne na lekką kolację bez gotowania.",
+      "mealType": "DINNER",
+      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 848,
+        "protein": 65,
+        "carbs": 100,
+        "fat": 18,
+        "fiber": 7,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Odsącz tuńczyka i kukurydzę, tuńczyka rozdrobnij widelcem w misce."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj jogurt naturalny, kukurydzę i posiekany szczypiorek, dopraw solą i pieprzem, wymieszaj na gęstą pastę."
+        },
+        {
+          "step": 3,
+          "instruction": "Umyj i osusz sałatę oraz ogórka, ogórka pokrój w cienkie słupki, a sałatę porwij na mniejsze kawałki."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozłóż tortille, na środku każdej ułóż sałatę, pastę tuńczykową i słupki ogórka."
+        },
+        {
+          "step": 5,
+          "instruction": "Podwiń boki tortilli, zwiń ciasno w rulon i przekrój na pół przed podaniem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tortilla pszenna",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "tuńczyk w puszce",
+          "amount": 170,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kukurydza z puszki",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sałata lodowa",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Wrapy z tuńczykiem, kukurydzą i jogurtem, Two cold tortilla wraps filled with creamy tuna-corn salad, iceberg lettuce and cucumber sticks, cut in half and arranged with chives on top, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/a1d0a64d-c899-42f9-a2d7-95a8614ff77c.png"
+      }
+    },
+    {
+      "id": "136432dd-0504-4955-87d6-4d7b7d3a9cfb",
+      "title": "Quesadilla z serem i fasolą",
+      "description": "Chrupiąca quesadilla z rozpuszczoną goudą, czerwoną fasolą i warzywami, podawana z jogurtowym dipem. Szybka i sycąca kolacja z patelni.",
+      "mealType": "DINNER",
+      "suitableMealTypes": ["LUNCH", "DINNER", "SNACK"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1370,
+        "protein": 64,
+        "carbs": 126,
+        "fat": 59,
+        "fiber": 22,
+        "salt": 2.4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój cebulę i paprykę w drobną kostkę, a fasolę i kukurydzę odsącz i opłucz."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej olej na patelni, wrzuć cebulę i paprykę i smaż 3-4 minuty, aż zmiękną, po czym dodaj fasolę, kukurydzę i paprykę mieloną, dopraw solą i pieprzem i smaż jeszcze 2 minuty, rozgniatając część fasoli widelcem."
+        },
+        {
+          "step": 3,
+          "instruction": "Zetrzyj goudę na tarce, rozłóż połowę sera na jednej połowie każdej tortilli, nałóż farsz, przykryj resztą sera i złóż tortille na pół."
+        },
+        {
+          "step": 4,
+          "instruction": "Smaż quesadille na suchej, czystej patelni na średnim ogniu po 2-3 minuty z każdej strony, aż ser się rozpuści, a tortilla zrumieni."
+        },
+        {
+          "step": 5,
+          "instruction": "Pokrój quesadille w trójkąty i podawaj z jogurtem naturalnym jako dipem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tortilla pszenna",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser gouda",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "fasola czerwona z puszki",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kukurydza z puszki",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Quesadilla z serem i fasolą, Golden-brown folded quesadillas cut into triangles with melted cheese and red bean filling visible, served with a small bowl of yogurt dip, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/136432dd-0504-4955-87d6-4d7b7d3a9cfb.png"
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-baton bialkowy
+baton białkowy
 baton czekoladowy
 baton musli
 biszkopt
@@ -10,18 +10,19 @@ czekolada mleczna
 czekolada nadziewana
 chips ziemniaczany
 chips kukurydziany
-draze czekoladowe
+draże czekoladowe
 krakers
 orzeszek ziemny
 orzech laskowy
-orzech wloski
-paluszek slony
+orzech włoski
+paluszek słony
 popcorn
 precel
 ptasie mleczko
 rodzynka
 sezam
-slonecznik luszczony
+słonecznik łuszczony
 wafel czekoladowy
-wafel ryzowy
-zelka
+wafel ryżowy
+żelka
+pestki dyni
