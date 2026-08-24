@@ -1,0 +1,820 @@
+{
+  "version": "v1-soups-8",
+  "recipes": [
+    {
+      "id": "b62e8c28-e796-46b9-b2d6-a43cbe51afde",
+      "title": "Rosół z makaronem",
+      "description": "Klasyczny złoty rosół gotowany powoli na nodze z kurczaka i włoszczyźnie, z opaloną cebulą dla głębi smaku. Podawany z makaronem nitki i świeżą natką pietruszki.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 120,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1957,
+        "protein": 128,
+        "carbs": 127,
+        "fat": 96,
+        "fiber": 19,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Włóż nogę z kurczaka do dużego garnka, zalej 2 litrami zimnej wody i doprowadź powoli do wrzenia, zbierając łyżką szumowiny z powierzchni."
+        },
+        {
+          "step": 2,
+          "instruction": "Obierz marchew, pietruszkę i seler, por przekrój wzdłuż i opłucz, a cebulę opal nad ogniem palnika do zczernienia skórki."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj warzywa do garnka, dopraw solą i pieprzem, zmniejsz ogień do minimum i gotuj bez przykrycia około 2 godziny, aż wywar będzie złoty i klarowny."
+        },
+        {
+          "step": 4,
+          "instruction": "W osobnym garnku ugotuj makaron nitki w osolonej wodzie według czasu z opakowania, odcedź i przepłucz."
+        },
+        {
+          "step": 5,
+          "instruction": "Wyjmij mięso i warzywa z rosołu, obierz kurczaka z kości, a marchew pokrój w plasterki; wywar dopraw do smaku solą i pieprzem."
+        },
+        {
+          "step": 6,
+          "instruction": "Rozłóż makaron, mięso i marchew do misek, zalej gorącym rosołem i posyp posiekaną natką pietruszki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "noga z kurczaka",
+          "amount": 600,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pietruszka korzeń",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "seler korzeniowy",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "por",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "makaron nitki",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Rosół z makaronem, Golden clear chicken broth in a deep bowl with thin noodles, sliced carrot, shredded chicken and chopped fresh parsley on top, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/b62e8c28-e796-46b9-b2d6-a43cbe51afde.png"
+      }
+    },
+    {
+      "id": "e6542205-04d4-4a6e-9793-9ed04704be42",
+      "title": "Zupa ogórkowa z ziemniakami",
+      "description": "Kwaśna, sycąca zupa ogórkowa na bulionie drobiowym, z ziemniakami i śmietaną. Klasyk domowego obiadu, który smakuje jeszcze lepiej następnego dnia.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 781,
+        "protein": 19,
+        "carbs": 79,
+        "fat": 38,
+        "fiber": 14,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Obierz ziemniaki i marchew, pokrój ziemniaki w kostkę, a marchew i ogórki kiszone zetrzyj na tarce o grubych oczkach."
+        },
+        {
+          "step": 2,
+          "instruction": "Zagotuj bulion drobiowy w garnku, dodaj ziemniaki i marchew i gotuj na średnim ogniu około 15 minut, aż ziemniaki będą miękkie."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozgrzej masło na patelni, dodaj starte ogórki kiszone i duś na małym ogniu 5-7 minut, co jakiś czas mieszając."
+        },
+        {
+          "step": 4,
+          "instruction": "Przełóż poduszone ogórki do garnka z zupą i gotuj wszystko razem jeszcze 5 minut."
+        },
+        {
+          "step": 5,
+          "instruction": "Zahartuj śmietanę, mieszając ją w miseczce z kilkoma łyżkami gorącej zupy, po czym wlej ją do garnka i podgrzej, nie doprowadzając do wrzenia."
+        },
+        {
+          "step": 6,
+          "instruction": "Dopraw zupę solą i pieprzem do smaku, posyp posiekanym koperkiem i podawaj."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "bulion drobiowy",
+          "amount": 800,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ogórek kiszony",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ziemniak",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "śmietana 18",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Zupa ogórkowa z ziemniakami, A bowl of Polish dill pickle soup with potato cubes and grated carrot in a creamy broth, topped with fresh chopped dill, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/e6542205-04d4-4a6e-9793-9ed04704be42.png"
+      }
+    },
+    {
+      "id": "b9b691e4-d276-44ea-92c7-58bee0f9390c",
+      "title": "Żurek z białą kiełbasą i jajkiem",
+      "description": "Tradycyjny żurek na zakwasie z białą kiełbasą gotowaną w bulionie, ziemniakami i połówkami jajka na twardo. Zabielany śmietaną, doprawiony majerankiem i czosnkiem.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 50,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1524,
+        "protein": 66,
+        "carbs": 77,
+        "fat": 102,
+        "fiber": 11,
+        "salt": 4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj jajka na twardo (około 9 minut) i odstaw. Obierz ziemniaki i pokrój w kostkę, cebulę posiekaj drobno, a czosnek przeciśnij przez praskę."
+        },
+        {
+          "step": 2,
+          "instruction": "Zagotuj bulion drobiowy w dużym garnku, włóż białą kiełbasę i gotuj na małym ogniu 15 minut, po czym wyjmij ją i pokrój w plastry."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj do bulionu ziemniaki, cebulę i czosnek, gotuj 15 minut, aż ziemniaki będą miękkie."
+        },
+        {
+          "step": 4,
+          "instruction": "Wymieszaj zakwas w butelce, wlej do garnka razem z majerankiem i gotuj 5 minut, mieszając od czasu do czasu."
+        },
+        {
+          "step": 5,
+          "instruction": "Zahartuj śmietanę kilkoma łyżkami gorącej zupy, wlej do garnka, dodaj plastry kiełbasy i podgrzej, nie doprowadzając już do wrzenia; dopraw solą i pieprzem."
+        },
+        {
+          "step": 6,
+          "instruction": "Obierz jajka i przekrój na połówki. Rozlej żurek do misek i ułóż na nim jajka."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "bulion drobiowy",
+          "amount": 600,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "zakwas na żurek",
+          "amount": 250,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "kiełbasa biała",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "ziemniak",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "majeranek",
+          "amount": 2,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "śmietana 18",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Żurek z białą kiełbasą i jajkiem, thick creamy soup with a milky pale beige-grey color like a light rye broth (absolutely not red, not brown, not tomato), topped with slices of white sausage, two halves of a hard-boiled egg with orange yolk, small diced potatoes, a swirl of sour cream and a pinch of dried marjoram, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no tomato soup, no red or brown broth, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/b9b691e4-d276-44ea-92c7-58bee0f9390c.png"
+      }
+    },
+    {
+      "id": "ac211d05-6040-48ef-9740-50c9a3ede09f",
+      "title": "Krupnik z kaszą jęczmienną",
+      "description": "Tradycyjny krupnik na wywarze z nogi kurczaka, z kaszą jęczmienną gotowaną razem z zupą. Sycąca, domowa zupa z warzywami korzeniowymi i ziemniakami.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 60,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1678,
+        "protein": 89,
+        "carbs": 139,
+        "fat": 78,
+        "fiber": 24,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Zalej nogę z kurczaka 1,8 litra zimnej wody, dodaj szczyptę soli i gotuj na małym ogniu około 40 minut, zbierając szumowiny."
+        },
+        {
+          "step": 2,
+          "instruction": "Obierz marchew, pietruszkę, seler, cebulę i ziemniaki; warzywa korzeniowe pokrój w drobną kostkę, cebulę posiekaj, ziemniaki pokrój w większą kostkę."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozgrzej masło w garnku lub na patelni, wrzuć cebulę, marchew, pietruszkę i seler i podsmażaj kilka minut, aż warzywa lekko zmiękną."
+        },
+        {
+          "step": 4,
+          "instruction": "Przełóż podsmażone warzywa do wywaru, wsyp przepłukaną kaszę jęczmienną i gotuj 15 minut na średnim ogniu."
+        },
+        {
+          "step": 5,
+          "instruction": "Dodaj ziemniaki i gotuj kolejne 15-20 minut, aż kasza i ziemniaki będą miękkie; w tym czasie wyjmij nogę, obierz mięso z kości i wrzuć je z powrotem do zupy."
+        },
+        {
+          "step": 6,
+          "instruction": "Dopraw zupę solą i pieprzem, rozlej do misek i posyp posiekaną natką pietruszki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "noga z kurczaka",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kasza jęczmienna",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pietruszka korzeń",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "seler korzeniowy",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ziemniak",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Krupnik z kaszą jęczmienną, A bowl of Polish barley soup with pearl barley, diced root vegetables, potatoes and shredded chicken, garnished with chopped fresh parsley, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/ac211d05-6040-48ef-9740-50c9a3ede09f.png"
+      }
+    },
+    {
+      "id": "b3be931b-d1fe-4736-b5dc-cbb4b92d6388",
+      "title": "Zupa gulaszowa z papryką i ziemniakami",
+      "description": "Gęsta zupa gulaszowa na wieprzowej łopatce, z papryką, ziemniakami i pomidorami. Rozgrzewa jak węgierski gulasz, a robi się w jednym garnku.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 75,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1633,
+        "protein": 87,
+        "carbs": 91,
+        "fat": 93,
+        "fiber": 22,
+        "salt": 3.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Rozgrzej olej rzepakowy w dużym garnku, wrzuć pokrojoną w kostkę łopatkę i obsmażaj na dość dużym ogniu, aż mięso się zrumieni ze wszystkich stron."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj posiekaną cebulę i smaż 3-4 minuty, aż się zeszkli, po czym dorzuć przeciśnięty czosnek i smaż jeszcze minutę."
+        },
+        {
+          "step": 3,
+          "instruction": "Zdejmij garnek na chwilę z ognia, wsyp paprykę słodką mieloną i szybko wymieszaj, żeby się nie przypaliła, po czym wlej pomidory z puszki i ok. 800 ml wody."
+        },
+        {
+          "step": 4,
+          "instruction": "Dopraw solą i pieprzem, przykryj i duś na małym ogniu ok. 45 minut, aż mięso zacznie mięknąć."
+        },
+        {
+          "step": 5,
+          "instruction": "Dodaj ziemniaki pokrojone w kostkę i paprykę czerwoną pokrojoną w paski, gotuj kolejne 20-25 minut, aż warzywa będą miękkie."
+        },
+        {
+          "step": 6,
+          "instruction": "Wsyp majeranek rozcierając go w dłoniach, wymieszaj, dopraw do smaku solą i pieprzem i gotuj jeszcze 2-3 minuty."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "łopatka wieprzowa",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ziemniak",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor krojony z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "majeranek",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Zupa gulaszowa z papryką i ziemniakami, A rustic bowl of thick Hungarian-style goulash soup with chunks of pork, potatoes and red pepper in a paprika-red tomato broth, sprinkled with dried marjoram, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/b3be931b-d1fe-4736-b5dc-cbb4b92d6388.png"
+      }
+    },
+    {
+      "id": "4bec001d-9911-40a4-914c-c2d471a8b8f7",
+      "title": "Krem z brokułów z grzankami",
+      "description": "Aksamitny krem z brokułów na warzywnym bulionie, zabielony śmietanką i podany z chrupiącymi grzankami z masłem. Prosta, rozgrzewająca zupa z podstawowych składników.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1004,
+        "protein": 32,
+        "carbs": 114,
+        "fat": 42,
+        "fiber": 22,
+        "salt": 2.8
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Obierz i pokrój cebulę w kostkę, ziemniaka w mniejsze kawałki, a brokuł podziel na różyczki."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej olej w garnku, wrzuć cebulę i szklij ją na średnim ogniu 3-4 minuty, pod koniec dodaj przeciśnięty czosnek."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj ziemniaka, wlej bulion i gotuj pod przykryciem 10 minut, następnie dorzuć brokuł i gotuj kolejne 8 minut, aż warzywa będą miękkie."
+        },
+        {
+          "step": 4,
+          "instruction": "W międzyczasie pokrój chleb tostowy w kostkę, rozgrzej masło na patelni i rumień grzanki z każdej strony, aż będą złociste i chrupiące."
+        },
+        {
+          "step": 5,
+          "instruction": "Zblenduj zupę na gładki krem, wmieszaj śmietanę i dopraw solą oraz pieprzem; w razie potrzeby rozrzedź odrobiną wody."
+        },
+        {
+          "step": 6,
+          "instruction": "Rozlej krem do misek i podawaj posypany grzankami."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "brokuł",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ziemniak",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bulion warzywny",
+          "amount": 700,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "śmietana 18",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "chleb tostowy",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Krem z brokułów z grzankami, Smooth green broccoli cream soup in a bowl topped with golden butter-fried croutons and a swirl of cream, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/4bec001d-9911-40a4-914c-c2d471a8b8f7.png"
+      }
+    },
+    {
+      "id": "4114372b-e408-457d-856a-ac3a20525d21",
+      "title": "Krem z dyni z prażonymi pestkami",
+      "description": "Aksamitny krem z dyni z nutą czosnku, podany ze śmietaną i chrupiącymi prażonymi pestkami. Rozgrzewająca zupa idealna na jesienny obiad.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 797,
+        "protein": 24,
+        "carbs": 78,
+        "fat": 45,
+        "fiber": 12,
+        "salt": 2.6
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Rozgrzej olej rzepakowy w dużym garnku, wrzuć pokrojoną w kostkę cebulę i szkl na średnim ogniu, aż się zeszkli."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj przeciśnięty przez praskę czosnek, obraną i pokrojoną w kostkę dynię oraz pokrojoną w plasterki marchew, smaż całość 2-3 minuty, co chwilę mieszając."
+        },
+        {
+          "step": 3,
+          "instruction": "Wlej bulion warzywny, dopraw solą i pieprzem, przykryj garnek i gotuj około 20 minut, aż warzywa będą miękkie."
+        },
+        {
+          "step": 4,
+          "instruction": "Upraż pestki dyni na suchej patelni na średnim ogniu, aż zaczną lekko strzelać i się rumienić, po czym przesyp je na talerzyk."
+        },
+        {
+          "step": 5,
+          "instruction": "Zblenduj zupę na gładki krem, dodaj śmietanę, wymieszaj i podgrzej jeszcze chwilę, nie doprowadzając do wrzenia."
+        },
+        {
+          "step": 6,
+          "instruction": "Rozlej krem do misek, udekoruj prażonymi pestkami dyni i ewentualnie kleksem śmietany, dopraw pieprzem do smaku."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "dynia",
+          "amount": 800,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bulion warzywny",
+          "amount": 700,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "śmietana 18",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pestki dyni",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Krem z dyni z prażonymi pestkami, Creamy orange pumpkin soup in a bowl, topped with a swirl of cream and toasted pumpkin seeds, spoon beside the bowl, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/4114372b-e408-457d-856a-ac3a20525d21.png"
+      }
+    },
+    {
+      "id": "d0b4e5af-96cf-4dfc-bd16-7b7eab32e01e",
+      "title": "Krem z pora i ziemniaków",
+      "description": "Aksamitny krem z pora i ziemniaków na maśle, zblendowany na gładko ze śmietaną. Podawany z chrupiącymi grzankami z chleba tostowego i szczypiorkiem.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1188,
+        "protein": 27,
+        "carbs": 163,
+        "fat": 40,
+        "fiber": 20,
+        "salt": 2.8
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój por (białą i jasnozieloną część) w półplasterki, cebulę w kostkę, a ziemniaki obierz i pokrój w drobną kostkę."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej masło w garnku, wrzuć por i cebulę i zeszklij na średnim ogniu przez 5-6 minut, aż zmiękną, ale się nie zrumienią."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj ziemniaki, wlej bulion warzywny i gotuj pod przykryciem około 20 minut, aż ziemniaki będą zupełnie miękkie."
+        },
+        {
+          "step": 4,
+          "instruction": "W międzyczasie pokrój chleb tostowy w kostkę i zrumień na suchej patelni na złote grzanki, mieszając co chwilę."
+        },
+        {
+          "step": 5,
+          "instruction": "Zblenduj zupę na gładki krem, wmieszaj śmietanę i dopraw solą oraz pieprzem; jeśli krem jest za gęsty, dolej odrobinę wody."
+        },
+        {
+          "step": 6,
+          "instruction": "Rozlej krem do misek, posyp posiekanym szczypiorkiem i podawaj z grzankami."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "por",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ziemniak",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 25,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "bulion warzywny",
+          "amount": 700,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "śmietana 18",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "chleb tostowy",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Krem z pora i ziemniaków, Creamy leek and potato soup in a bowl, topped with golden bread croutons, a swirl of cream and chopped chives, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/d0b4e5af-96cf-4dfc-bd16-7b7eab32e01e.png"
+      }
+    }
+  ]
+}

@@ -1,0 +1,1290 @@
+{
+  "version": "v1-world-12",
+  "recipes": [
+    {
+      "id": "7fbebfae-12e7-4590-8d91-f9a0c62848a3",
+      "title": "Potrawka z indyka z marchewką i ryżem",
+      "description": "Delikatna potrawka z kawałków indyka i marchewki duszonych w bulionie, z sosem zagęszczonym masłem i mąką. Podawana na białym ryżu, posypana natką pietruszki.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1351,
+        "protein": 114,
+        "carbs": 154,
+        "fat": 26,
+        "fiber": 10,
+        "salt": 2.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój filet z indyka w kostkę, marchew w plasterki, a cebulę w drobną kostkę."
+        },
+        {
+          "step": 2,
+          "instruction": "Ugotuj ryż w osolonej wodzie według czasu z opakowania i odcedź."
+        },
+        {
+          "step": 3,
+          "instruction": "Zagotuj bulion w garnku, wrzuć indyka, marchew i cebulę, po czym gotuj pod przykryciem na małym ogniu około 20 minut, aż mięso i warzywa będą miękkie."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozpuść masło na małej patelni, dodaj mąkę i mieszaj przez minutę, aż powstanie gładka zasmażka."
+        },
+        {
+          "step": 5,
+          "instruction": "Dodaj zasmażkę do potrawki, energicznie mieszając, i gotuj jeszcze 2-3 minuty, aż sos zgęstnieje, a następnie dopraw solą i pieprzem."
+        },
+        {
+          "step": 6,
+          "instruction": "Nałóż ryż na talerze, polej potrawką i posyp posiekaną natką pietruszki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "filet z indyka",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ryż biały",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "bulion drobiowy",
+          "amount": 500,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Potrawka z indyka z marchewką i ryżem, Creamy turkey and carrot stew ladled over white rice on a plate, sprinkled with chopped fresh parsley, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/7fbebfae-12e7-4590-8d91-f9a0c62848a3.png"
+      }
+    },
+    {
+      "id": "a4e6c328-4877-4956-99b6-e898e1a76b3c",
+      "title": "Pierś z indyka pieczona z ziemniakami i brokułem",
+      "description": "Soczysta pierś z indyka pieczona w piekarniku razem z ziemniakami i brokułem, wszystko na jednej blasze. Prosty obiad bez pilnowania garnków.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 60,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1208,
+        "protein": 127,
+        "carbs": 90,
+        "fat": 32,
+        "fiber": 20,
+        "salt": 2.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Rozgrzej piekarnik do 200 stopni. Wymieszaj olej z przeciśniętym czosnkiem, tymiankiem, papryką, solą i pieprzem."
+        },
+        {
+          "step": 2,
+          "instruction": "Natrzyj filet z indyka połową marynaty i odstaw na chwilę, aż przygotujesz ziemniaki."
+        },
+        {
+          "step": 3,
+          "instruction": "Obierz ziemniaki, pokrój w ćwiartki, wymieszaj z resztą marynaty i rozłóż na blasze wyłożonej papierem do pieczenia."
+        },
+        {
+          "step": 4,
+          "instruction": "Ułóż indyka między ziemniakami i piecz całość 25 minut."
+        },
+        {
+          "step": 5,
+          "instruction": "Podziel brokuł na różyczki, dorzuć na blachę, dopraw solą i piecz jeszcze 12-15 minut, aż indyk będzie miękki, a ziemniaki zrumienione."
+        },
+        {
+          "step": 6,
+          "instruction": "Wyjmij blachę z piekarnika, pokrój indyka w plastry i podawaj z ziemniakami i brokułem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "filet z indyka",
+          "amount": 450,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ziemniak",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "brokuł",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "tymianek suszony",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pierś z indyka pieczona z ziemniakami i brokułem, Sliced roasted turkey breast with paprika-herb crust on a plate alongside golden roasted potato wedges and green broccoli florets, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/a4e6c328-4877-4956-99b6-e898e1a76b3c.png"
+      }
+    },
+    {
+      "id": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+      "title": "Chili con carne z indykiem i ryżem",
+      "description": "Sycące chili con carne w lżejszej wersji z mielonym indykiem, duszone w jednym garnku z fasolą, kukurydzą i papryką. Podawane z białym ryżem, idealne na szybki obiad w tygodniu.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 50,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1780,
+        "protein": 113,
+        "carbs": 196,
+        "fat": 50,
+        "fiber": 31,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj ryż w osolonej wodzie według instrukcji na opakowaniu i odstaw pod przykryciem."
+        },
+        {
+          "step": 2,
+          "instruction": "Pokrój cebulę i paprykę w kostkę, a czosnek posiekaj drobno."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozgrzej olej w dużym garnku, wrzuć cebulę i paprykę i smaż 3-4 minuty, aż zmiękną, po czym dodaj czosnek i smaż jeszcze minutę."
+        },
+        {
+          "step": 4,
+          "instruction": "Dodaj mielonego indyka i smaż na średnim ogniu, rozdrabniając łyżką, aż mięso się zetnie i lekko zrumieni."
+        },
+        {
+          "step": 5,
+          "instruction": "Wsyp paprykę słodką, kmin rzymski, oregano i szczyptę ostrej papryki, wymieszaj, po czym wlej pomidory z puszki i odrobinę wody, i duś pod przykryciem 15 minut."
+        },
+        {
+          "step": 6,
+          "instruction": "Dodaj odsączoną fasolę i kukurydzę, dopraw solą i pieprzem, podgrzewaj jeszcze 5 minut i podawaj z ryżem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "indyk mielony",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "fasola czerwona z puszki",
+          "amount": 240,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kukurydza z puszki",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor krojony z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ryż biały",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "papryka ostra mielona",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "oregano",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Chili con carne z indykiem i ryżem, A bowl of turkey chili with red beans, corn and diced red pepper in a thick tomato sauce, served alongside white rice, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/095ebe70-4cc1-4502-840e-cec6cec4f3ea.png"
+      }
+    },
+    {
+      "id": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+      "title": "Burgery z mielonego indyka z bułką i warzywami",
+      "description": "Domowe burgery z mielonego indyka, z chrupiącą sałatą, pomidorem i sosem jogurtowo-musztardowym. Szybki obiad, który wygląda jak z burgerowni, a powstaje z prostych składników.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1719,
+        "protein": 122,
+        "carbs": 137,
+        "fat": 73,
+        "fiber": 10,
+        "salt": 2.8
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Posiekaj drobno połowę cebuli, a resztę pokrój w cienkie krążki; pomidora pokrój w plastry, a sałatę porwij na kawałki."
+        },
+        {
+          "step": 2,
+          "instruction": "Wymieszaj mielonego indyka z jajkami, bułką tartą i posiekaną cebulą, dopraw solą i pieprzem, po czym uformuj dwa płaskie kotlety."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozgrzej olej na patelni i smaż kotlety po 4-5 minut z każdej strony na średnim ogniu, aż będą zrumienione i wysmażone w środku."
+        },
+        {
+          "step": 4,
+          "instruction": "Pod koniec smażenia połóż na każdym kotlecie plaster goudy i przykryj patelnię na chwilę, aż ser się rozpuści."
+        },
+        {
+          "step": 5,
+          "instruction": "Wymieszaj jogurt z musztardą i szczyptą soli na gładki sos, a bułki przekrój na pół i podpiecz przekrojoną stroną na suchej patelni."
+        },
+        {
+          "step": 6,
+          "instruction": "Posmaruj dolne połówki bułek sosem jogurtowym, ułóż sałatę, kotlet z serem, plastry pomidora i krążki cebuli, dodaj ketchup i przykryj górną połówką."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "indyk mielony",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "bułka",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bułka tarta",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sałata lodowa",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser gouda",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ketchup",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "musztarda",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Burgery z mielonego indyka z bułką i warzywami, Two homemade turkey burgers in toasted buns with melted gouda, lettuce, tomato slices and onion rings, a bit of yogurt-mustard sauce visible at the edges, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/f84842de-6bd5-4d47-adb7-ebbdab0126c0.png"
+      }
+    },
+    {
+      "id": "0f921aec-4f63-4beb-ac00-fd8f9b9893c4",
+      "title": "Dorsz pieczony z ziemniakami i surówką z marchewki",
+      "description": "Delikatny dorsz zapiekany z masłem, cytryną i koperkiem, podany z gotowanymi ziemniakami i słodką surówką z marchewki i jabłka. Prosty, lekki obiad na co dzień.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1166,
+        "protein": 85,
+        "carbs": 117,
+        "fat": 30,
+        "fiber": 23,
+        "salt": 2.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Obierz ziemniaki, zalej osoloną wodą i gotuj około 20 minut, aż będą miękkie."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej piekarnik do 190 stopni, ułóż dorsza w naczyniu żaroodpornym, oprósz solą i pieprzem, skrop sokiem z połowy cytryny i rozłóż na wierzchu kawałki masła."
+        },
+        {
+          "step": 3,
+          "instruction": "Piecz rybę 15-18 minut, aż mięso stanie się białe i zacznie się łatwo rozdzielać widelcem."
+        },
+        {
+          "step": 4,
+          "instruction": "Zetrzyj marchew i jabłko na tarce o grubych oczkach, dodaj cukier, szczyptę soli, olej rzepakowy i sok z drugiej połowy cytryny, po czym dokładnie wymieszaj."
+        },
+        {
+          "step": 5,
+          "instruction": "Odcedź ziemniaki i posyp je częścią posiekanego koperku."
+        },
+        {
+          "step": 6,
+          "instruction": "Ułóż na talerzach dorsza, ziemniaki i surówkę, a rybę posyp resztą koperku."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "dorsz",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ziemniak",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jabłko",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Dorsz pieczony z ziemniakami i surówką z marchewki, Baked cod fillet topped with melted butter and fresh dill on a plate, alongside boiled potatoes sprinkled with dill and a mound of grated carrot and apple salad, with a lemon wedge, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/0f921aec-4f63-4beb-ac00-fd8f9b9893c4.png"
+      }
+    },
+    {
+      "id": "743db996-f0fd-4089-a293-97dd02734809",
+      "title": "Mintaj smażony z ziemniakami i surówką z kapusty",
+      "description": "Klasyka piątkowego obiadu: mintaj w mące i jajku smażony na złoto, podany z gotowanymi ziemniakami i chrupiącą surówką z białej kapusty z marchewką.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1532,
+        "protein": 98,
+        "carbs": 130,
+        "fat": 60,
+        "fiber": 23,
+        "salt": 2.6
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Obierz ziemniaki, zalej osoloną wodą i gotuj 20-25 minut, aż będą miękkie."
+        },
+        {
+          "step": 2,
+          "instruction": "Poszatkuj cienko kapustę, zetrzyj marchew na tarce, drobno posiekaj cebulę, a całość wymieszaj z octem jabłkowym, cukrem, solą i pieprzem, lekko ugniatając dłonią."
+        },
+        {
+          "step": 3,
+          "instruction": "Osusz filety mintaja, dopraw solą i pieprzem, obtocz w mące, a następnie w rozmąconych jajkach."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozgrzej olej na patelni i smaż rybę na średnim ogniu po 3-4 minuty z każdej strony, aż panierka będzie złota, a mięso się zetnie."
+        },
+        {
+          "step": 5,
+          "instruction": "Odcedź ziemniaki i posyp posiekanym koperkiem."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj smażonego mintaja z ziemniakami i surówką z kapusty."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mintaj",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 50,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ziemniak",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kapusta biała",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ocet jabłkowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Mintaj smażony z ziemniakami i surówką z kapusty, Golden pan-fried pollock fillets on a plate with boiled potatoes sprinkled with dill and a mound of white cabbage and carrot slaw, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/743db996-f0fd-4089-a293-97dd02734809.png"
+      }
+    },
+    {
+      "id": "8c6f5576-9551-413f-9f4b-e60dafa5ad79",
+      "title": "Kurczak teriyaki z makaronem i warzywami",
+      "description": "Szybki stir-fry z kurczakiem w domowym sosie teriyaki z sosu sojowego i miodu, z makaronem i chrupiącymi warzywami. Wszystko robi się na jednej głębokiej patelni, gotowe w około pół godziny.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1549,
+        "protein": 129,
+        "carbs": 165,
+        "fat": 35,
+        "fiber": 19,
+        "salt": 3.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj makaron spaghetti w osolonej wodzie al dente, odcedź i zachowaj pół szklanki wody z gotowania."
+        },
+        {
+          "step": 2,
+          "instruction": "Wymieszaj w miseczce sos sojowy, miód, przeciśnięty czosnek i imbir mielony, aż miód się rozpuści."
+        },
+        {
+          "step": 3,
+          "instruction": "Pokrój filet z kurczaka w paski, brokuł podziel na małe różyczki, paprykę pokrój w paski, a marchew w cienkie półplasterki."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozgrzej olej rzepakowy na dużej głębokiej patelni, wrzuć kurczaka i smaż na dużym ogniu, aż się zarumieni ze wszystkich stron."
+        },
+        {
+          "step": 5,
+          "instruction": "Dodaj marchew, brokuł i paprykę, smaż 4-5 minut, mieszając, aż warzywa lekko zmiękną, ale pozostaną chrupiące."
+        },
+        {
+          "step": 6,
+          "instruction": "Wlej sos teriyaki, dodaj makaron z odrobiną wody z gotowania, wymieszaj i podgrzewaj 2 minuty, aż sos oblepi całość, a na koniec posyp sezamem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "filet z kurczaka",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "makaron spaghetti",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "brokuł",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sos sojowy",
+          "amount": 50,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 25,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "imbir mielony",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sezam",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kurczak teriyaki z makaronem i warzywami, A deep bowl of spaghetti tossed with glazed teriyaki chicken strips, broccoli florets, red pepper and carrot slices, sprinkled with sesame seeds, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/8c6f5576-9551-413f-9f4b-e60dafa5ad79.png"
+      }
+    },
+    {
+      "id": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+      "title": "Bowl z kurczakiem, kaszą gryczaną i jajkiem",
+      "description": "Pożywna miska z kaszą gryczaną, grillowanym kurczakiem, jajkiem na półmiękko i świeżymi warzywami, podana z sosem jogurtowo-czosnkowym. Prosty, domowy obiad, który sprawdzi się też na drugi dzień.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1175,
+        "protein": 115,
+        "carbs": 92,
+        "fat": 37,
+        "fiber": 10,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj kaszę gryczaną w osolonej wodzie według czasu z opakowania, następnie odcedź i odstaw pod przykryciem."
+        },
+        {
+          "step": 2,
+          "instruction": "Ugotuj jajka na półmiękko, wkładając je do wrzącej wody na 6 minut, potem przelej zimną wodą i obierz."
+        },
+        {
+          "step": 3,
+          "instruction": "Pokrój filet z kurczaka w paski, opróż solą i pieprzem, po czym smaż na rozgrzanym oleju rzepakowym na średnim ogniu, aż paski się zarumienią i będą w środku ścięte."
+        },
+        {
+          "step": 4,
+          "instruction": "Wymieszaj jogurt naturalny z przeciśniętym przez praskę czosnkiem, posiekanym koperkiem oraz szczyptą soli i pieprzu."
+        },
+        {
+          "step": 5,
+          "instruction": "Pokrój ogórek i pomidor w kostkę lub półplasterki."
+        },
+        {
+          "step": 6,
+          "instruction": "Rozłóż kaszę do dwóch misek, ułóż na niej kurczaka, warzywa i przekrojone na pół jajka, a na koniec polej sosem jogurtowym i posyp koperkiem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "filet z kurczaka",
+          "amount": 350,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kasza gryczana",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Bowl z kurczakiem, kaszą gryczaną i jajkiem, A bowl of buckwheat groats topped with grilled chicken strips, a halved soft-boiled egg with a slightly runny yolk, diced cucumber and tomato, drizzled with garlic yogurt sauce and sprinkled with fresh dill, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7.png"
+      }
+    },
+    {
+      "id": "6510782c-faf9-4c42-bc9a-7717453541f2",
+      "title": "Kaszotto z kurczakiem i szpinakiem",
+      "description": "Kremowe kaszotto z kaszy jęczmiennej gotowanej w bulionie, z kawałkami kurczaka, szpinakiem i parmezanem. Sycący obiad w jednym garnku, po polsku i bez wymyślnych składników.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1363,
+        "protein": 111,
+        "carbs": 120,
+        "fat": 46,
+        "fiber": 14,
+        "salt": 2.6
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój filet z kurczaka w kostkę, dopraw solą i pieprzem, a cebulę i czosnek drobno posiekaj."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej olej w szerokim garnku, obsmaż kurczaka na złoto ze wszystkich stron i odłóż na talerz."
+        },
+        {
+          "step": 3,
+          "instruction": "Na ten sam garnek wrzuć cebulę i szklij ją 3-4 minuty, pod koniec dodaj czosnek i przepłukaną kaszę, mieszaj przez minutę."
+        },
+        {
+          "step": 4,
+          "instruction": "Wlewaj gorący bulion partiami po chochli, mieszając i gotując na małym ogniu, aż kasza wchłonie płyn i zmięknie, około 25 minut."
+        },
+        {
+          "step": 5,
+          "instruction": "Dodaj z powrotem kurczaka i szpinak, mieszaj, aż liście zwiędną, w razie potrzeby podlej odrobiną wody."
+        },
+        {
+          "step": 6,
+          "instruction": "Zdejmij z ognia, wmieszaj masło i starty parmezan, dopraw solą i pieprzem, podawaj od razu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "filet z kurczaka",
+          "amount": 350,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kasza jęczmienna",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szpinak",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bulion drobiowy",
+          "amount": 600,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ser parmezan",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kaszotto z kurczakiem i szpinakiem, Creamy pearl barley risotto with golden chicken pieces and wilted spinach in a shallow bowl, topped with grated parmesan, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/6510782c-faf9-4c42-bc9a-7717453541f2.png"
+      }
+    },
+    {
+      "id": "c3859fc1-0d1e-4f92-888f-9fdc99a6c014",
+      "title": "Risotto z pieczarkami i parmezanem",
+      "description": "Kremowe risotto z podsmażonymi pieczarkami, masłem i parmezanem. Klasyk włoskiej kuchni w domowym wydaniu, idealny na sycący obiad.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1290,
+        "protein": 40,
+        "carbs": 164,
+        "fat": 52,
+        "fiber": 7,
+        "salt": 2.6
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Podgrzej bulion w garnku i trzymaj go na małym ogniu. Pokrój pieczarki w plastry, cebulę i czosnek posiekaj drobno."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej połowę oliwy na patelni, wrzuć pieczarki i smaż na dużym ogniu, aż się zrumienią i odparuje z nich woda. Dopraw solą i pieprzem, odłóż na talerz."
+        },
+        {
+          "step": 3,
+          "instruction": "Na tej samej patelni rozgrzej resztę oliwy z połową masła, wrzuć cebulę i smaż na średnim ogniu, aż się zeszkli, potem dodaj czosnek i smaż jeszcze minutę."
+        },
+        {
+          "step": 4,
+          "instruction": "Wsyp ryż i mieszaj przez 2 minuty, aż ziarna staną się szkliste. Wlej chochlę gorącego bulionu i mieszaj, aż ryż go wchłonie."
+        },
+        {
+          "step": 5,
+          "instruction": "Dolewaj bulion po chochli, mieszając i czekając za każdym razem na wchłonięcie, aż ryż będzie kremowy i miękki, ale lekko sprężysty w środku, około 18-20 minut."
+        },
+        {
+          "step": 6,
+          "instruction": "Zdejmij patelnię z ognia, wmieszaj pieczarki, resztę masła i starty parmezan. Dopraw solą i pieprzem, przykryj na 2 minuty i podawaj."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ryż arborio",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieczarka",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bulion warzywny",
+          "amount": 800,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ser parmezan",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Risotto z pieczarkami i parmezanem, Creamy mushroom risotto in a shallow bowl, topped with browned mushroom slices and grated parmesan, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/c3859fc1-0d1e-4f92-888f-9fdc99a6c014.png"
+      }
+    },
+    {
+      "id": "a02d4167-bd7c-40ea-a7c9-4dfbc69157c6",
+      "title": "Makaron z cukinią i serkiem śmietankowym",
+      "description": "Szybki makaron z podsmażaną cukinią w kremowym sosie z serka śmietankowego. Prosty obiad na co dzień, gotowy w około 25 minut.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1166,
+        "protein": 40,
+        "carbs": 129,
+        "fat": 51,
+        "fiber": 9,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Wstaw osoloną wodę na makaron, a w międzyczasie umyj cukinię, pokrój ją w półplasterki i posiekaj drobno czosnek."
+        },
+        {
+          "step": 2,
+          "instruction": "Ugotuj penne al dente według wskazań na opakowaniu, a przed odcedzeniem odlej szklankę wody z gotowania."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozgrzej oliwę na dużej patelni, wrzuć cukinię i smaż na średnim ogniu 6-8 minut, aż się zrumieni, pod koniec dodaj czosnek i smaż jeszcze minutę."
+        },
+        {
+          "step": 4,
+          "instruction": "Zmniejsz ogień, dodaj serek śmietankowy i pół szklanki wody z gotowania makaronu, mieszaj, aż powstanie gładki sos."
+        },
+        {
+          "step": 5,
+          "instruction": "Dodaj odcedzony makaron na patelnię, wymieszaj z sosem i w razie potrzeby dolej jeszcze trochę wody, aby sos oblepiał penne."
+        },
+        {
+          "step": 6,
+          "instruction": "Dopraw solą i pieprzem, rozłóż na talerze i posyp startym parmezanem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "makaron penne",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukinia",
+          "amount": 350,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "serek kremowy",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ser parmezan",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Makaron z cukinią i serkiem śmietankowym, Penne pasta coated in a creamy white sauce with browned zucchini half-moons, topped with grated parmesan and black pepper on a plate, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/a02d4167-bd7c-40ea-a7c9-4dfbc69157c6.png"
+      }
+    },
+    {
+      "id": "50b6c4f8-059b-438d-b408-223d8fe6b032",
+      "title": "Kotlety z ciecierzycy z sosem jogurtowym",
+      "description": "Chrupiące z wierzchu, miękkie w środku kotlety z ciecierzycy z kminem rzymskim, podane z kaszą jaglaną i orzeźwiającym sosem jogurtowo-koperkowym z cytryną. Prosty, sycący obiad bez mięsa na każdy dzień tygodnia.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1824,
+        "protein": 73,
+        "carbs": 217,
+        "fat": 62,
+        "fiber": 39,
+        "salt": 2.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj kaszę jaglaną w osolonej wodzie według wskazań na opakowaniu, odcedź i trzymaj pod przykryciem."
+        },
+        {
+          "step": 2,
+          "instruction": "Odsącz ciecierzycę i rozgnieć ją widelcem w misce, zostawiając drobne kawałki."
+        },
+        {
+          "step": 3,
+          "instruction": "Posiekaj drobno cebulę, jeden ząbek czosnku i natkę pietruszki, dodaj do ciecierzycy razem z jajkami, bułką tartą i kminem rzymskim, dopraw solą i pieprzem i wyrób zwartą masę."
+        },
+        {
+          "step": 4,
+          "instruction": "Uformuj z masy 6 kotletów, rozgrzej olej rzepakowy na patelni i smaż je po 3-4 minuty z każdej strony na średnim ogniu, aż będą złociste."
+        },
+        {
+          "step": 5,
+          "instruction": "Wymieszaj jogurt naturalny z posiekanym koperkiem, przeciśniętym drugim ząbkiem czosnku, sokiem z cytryny oraz szczyptą soli i pieprzu."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj kotlety z kaszą jaglaną, polane sosem jogurtowym i posypane resztą natki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ciecierzyca z puszki",
+          "amount": 480,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bułka tarta",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 30,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kasza jaglana",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kotlety z ciecierzycy z sosem jogurtowym, Golden-brown chickpea patties on a plate with fluffy millet groats, drizzled with white yogurt-dill sauce and sprinkled with fresh parsley, a lemon wedge on the side, served on a rustic opaque ceramic plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at the plate at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/50b6c4f8-059b-438d-b408-223d8fe6b032.png"
+      }
+    }
+  ]
+}

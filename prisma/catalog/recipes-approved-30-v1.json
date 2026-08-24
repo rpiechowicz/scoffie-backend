@@ -28,11 +28,11 @@
         },
         {
           "step": 3,
-          "instruction": "Pokrój banana i dorzuć połowę do garnka. Delikatnie wymieszaj dla naturalnej słodyczy."
+          "instruction": "Pokrój banany i dorzuć jednego do garnka. Delikatnie wymieszaj dla naturalnej słodyczy."
         },
         {
           "step": 4,
-          "instruction": "Przełóż owsiankę do misek i dodaj borówkę oraz resztę banana. Podawaj od razu na ciepło."
+          "instruction": "Przełóż owsiankę do misek i dodaj borówkę oraz drugiego banana. Podawaj od razu na ciepło."
         }
       ],
       "ingredients": [
@@ -64,11 +64,11 @@
       "steps": [
         {
           "step": 1,
-          "instruction": "Roztrzep jajko w misce z solą i pieprzem. Posiekaj szczypiorek i pokrój pomidor."
+          "instruction": "Roztrzep jajka w misce z solą i pieprzem. Posiekaj szczypiorek i pokrój pomidor."
         },
         {
           "step": 2,
-          "instruction": "Rozpuść masło na patelni na małym ogniu. Wlej jajko i mieszaj powoli."
+          "instruction": "Rozpuść masło na patelni na małym ogniu. Wlej jajka i mieszaj powoli."
         },
         {
           "step": 3,
@@ -110,7 +110,7 @@
       "steps": [
         {
           "step": 1,
-          "instruction": "Roztrzep jajko z odrobiną soli i pieprzu. Rozgrzej patelnię z małą ilością oleju."
+          "instruction": "Roztrzep jajka z odrobiną soli i pieprzu. Rozgrzej patelnię z małą ilością oleju."
         },
         {
           "step": 2,
@@ -146,11 +146,11 @@
       "prepTimeMinutes": 14,
       "servings": 2,
       "nutrition": {
-        "kcal": 931,
-        "protein": 40,
+        "kcal": 915,
+        "protein": 39,
         "carbs": 63,
-        "fat": 53,
-        "fiber": 15,
+        "fat": 51,
+        "fiber": 14,
         "salt": 1.4
       },
       "steps": [
@@ -160,11 +160,11 @@
         },
         {
           "step": 2,
-          "instruction": "Usmaż jajko sadzone na niewielkiej ilości oleju. Smaż krótko, aby żółtko zostało lekko płynne."
+          "instruction": "Usmaż jajka sadzone na niewielkiej ilości oleju. Smaż krótko, aby żółtka zostały lekko płynne."
         },
         {
           "step": 3,
-          "instruction": "Posmaruj tosty pastą z awokado. Ułóż na nich jajko i dopraw pieprzem."
+          "instruction": "Posmaruj tosty pastą z awokado. Ułóż na nich jajka i dopraw pieprzem."
         },
         {
           "step": 4,
@@ -173,7 +173,7 @@
       ],
       "ingredients": [
         { "ingredientName": "chleb tostowy", "amount": 120, "unit": "g" },
-        { "ingredientName": "awokado", "amount": 1, "unit": "szt" },
+        { "ingredientName": "awokado", "amount": 140, "unit": "g" },
         { "ingredientName": "jajko", "amount": 4, "unit": "szt" },
         { "ingredientName": "olej rzepakowy", "amount": 8, "unit": "ml" },
         { "ingredientName": "pomidor koktajlowy", "amount": 120, "unit": "g" },
@@ -386,7 +386,7 @@
         },
         {
           "step": 2,
-          "instruction": "Pokrusz baton musli na mniejsze kawałki. Dodaj wszystko na wierzch jogurtu."
+          "instruction": "Pokrusz baton musli na mniejsze kawałki. Dodaj musli, jabłko i borówki na wierzch jogurtu."
         },
         {
           "step": 3,
@@ -1097,10 +1097,10 @@
       "prepTimeMinutes": 22,
       "servings": 2,
       "nutrition": {
-        "kcal": 1043,
-        "protein": 35,
-        "carbs": 152,
-        "fat": 28,
+        "kcal": 1114,
+        "protein": 41,
+        "carbs": 153,
+        "fat": 32,
         "fiber": 10,
         "salt": 1.7
       },
@@ -1120,7 +1120,7 @@
       ],
       "ingredients": [
         { "ingredientName": "ryż jaśminowy", "amount": 170, "unit": "g" },
-        { "ingredientName": "jajko", "amount": 3, "unit": "szt" },
+        { "ingredientName": "jajko", "amount": 4, "unit": "szt" },
         { "ingredientName": "marchew", "amount": 120, "unit": "g" },
         { "ingredientName": "papryka czerwona", "amount": 120, "unit": "g" },
         { "ingredientName": "cebula", "amount": 80, "unit": "g" },
@@ -1227,9 +1227,9 @@
       "prepTimeMinutes": 26,
       "servings": 2,
       "nutrition": {
-        "kcal": 704,
+        "kcal": 709,
         "protein": 20,
-        "carbs": 80,
+        "carbs": 81,
         "fat": 28,
         "fiber": 12,
         "salt": 1.8
@@ -1252,7 +1252,7 @@
         { "ingredientName": "passata pomidorowa", "amount": 450, "unit": "ml" },
         { "ingredientName": "bulion warzywny", "amount": 450, "unit": "ml" },
         { "ingredientName": "śmietana 18", "amount": 80, "unit": "g" },
-        { "ingredientName": "czosnek", "amount": 1, "unit": "szt" },
+        { "ingredientName": "czosnek", "amount": 2, "unit": "szt" },
         { "ingredientName": "chleb", "amount": 120, "unit": "g" },
         { "ingredientName": "oliwa z oliwek", "amount": 10, "unit": "ml" },
         { "ingredientName": "sól", "amount": 0.5, "unit": "łyżeczka" },

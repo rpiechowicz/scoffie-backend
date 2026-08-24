@@ -1,0 +1,183 @@
+{
+  "version": "v1-pierogi-3",
+  "recipes": [
+    {
+      "id": "34efc155-b21c-47a9-8bb2-af34187e7f78",
+      "title": "Pierogi z mięsem z okrasą cebulową",
+      "description": "Klasyczne pierogi z mięsnym farszem na cieście domowej roboty, podane z rumianą okrasą z cebuli smażonej na maśle. Sycące danie, które smakuje jak u babci.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "HARD",
+      "prepTimeMinutes": 100,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 2574,
+        "protein": 106,
+        "carbs": 237,
+        "fat": 125,
+        "fiber": 13,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Zagnieć gładkie ciasto z mąki, jajek i około 100 ml ciepłej wody. Przykryj miską i odstaw na 20 minut."
+        },
+        {
+          "step": 2,
+          "instruction": "Połowę cebuli posiekaj drobno i zeszklij na oleju rzepakowym. Dodaj mielone i smaż, rozdrabniając, aż się zrumieni."
+        },
+        {
+          "step": 3,
+          "instruction": "Dopraw farsz majerankiem, solą i pieprzem. Przestudź, a potem dokładnie wymieszaj."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozwałkuj ciasto cienko i wykrawaj krążki szklanką. Nakładaj po łyżeczce farszu i dokładnie zlepiaj brzegi."
+        },
+        {
+          "step": 5,
+          "instruction": "Gotuj pierogi partiami w osolonym wrzątku 2-3 minuty od wypłynięcia. Wyjmuj łyżką cedzakową."
+        },
+        {
+          "step": 6,
+          "instruction": "Pozostałą cebulę pokrój w piórka i zrumień na maśle na okrasę. Polej nią pierogi przed podaniem."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "mąka pszenna", "amount": 300, "unit": "g" },
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "wieprzowina mielona", "amount": 350, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 200, "unit": "g" },
+        { "ingredientName": "majeranek", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "olej rzepakowy", "amount": 15, "unit": "ml" },
+        { "ingredientName": "masło", "amount": 30, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pierogi z mięsem z okrasą cebulową, homemade polish pierogi filled with minced pork on a ceramic plate, topped with golden butter-fried onions, slightly glossy from the butter, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/34efc155-b21c-47a9-8bb2-af34187e7f78.png"
+      }
+    },
+    {
+      "id": "e467a224-f393-41cd-82a2-b197cab26543",
+      "title": "Pierogi z kapustą i grzybami",
+      "description": "Pierogi z farszem z kiszonej kapusty i pieczarek, lepione ręcznie z prostego ciasta i podane z cebulką zeszkloną na maśle. Wigilijny smak dostępny przez cały rok.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "difficulty": "HARD",
+      "prepTimeMinutes": 100,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1757,
+        "protein": 56,
+        "carbs": 243,
+        "fat": 53,
+        "fiber": 23,
+        "salt": 3.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Zagnieć gładkie ciasto z mąki, jajek, szczypty soli i około 100 ml ciepłej wody. Przykryj miską i odstaw na 20 minut."
+        },
+        {
+          "step": 2,
+          "instruction": "Kapustę kiszoną odciśnij, zalej wodą i gotuj około 30 minut do miękkości. Odcedź dokładnie i drobno posiekaj."
+        },
+        {
+          "step": 3,
+          "instruction": "Pieczarki i połowę cebuli pokrój w drobną kostkę, podsmaż na oleju i wymieszaj z kapustą. Dopraw solą i pieprzem, przestudź farsz."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozwałkuj ciasto cienko i wykrawaj krążki szklanką. Nakładaj po łyżeczce farszu i sklejaj dokładnie brzegi."
+        },
+        {
+          "step": 5,
+          "instruction": "Gotuj pierogi partiami w osolonym wrzątku 2-3 minuty od wypłynięcia, wyjmuj łyżką cedzakową."
+        },
+        {
+          "step": 6,
+          "instruction": "Pozostałą cebulę pokrój w piórka i zeszklij na maśle. Polej pierogi okrasą przed podaniem."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "mąka pszenna", "amount": 300, "unit": "g" },
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "kapusta kiszona", "amount": 400, "unit": "g" },
+        { "ingredientName": "pieczarka", "amount": 200, "unit": "g" },
+        { "ingredientName": "cebula", "amount": 150, "unit": "g" },
+        { "ingredientName": "olej rzepakowy", "amount": 15, "unit": "ml" },
+        { "ingredientName": "masło", "amount": 30, "unit": "g" },
+        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
+        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pierogi z kapustą i grzybami, homemade polish pierogi filled with sauerkraut and mushrooms on a ceramic plate, topped with golden butter-fried onions and a sprinkle of black pepper, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/e467a224-f393-41cd-82a2-b197cab26543.png"
+      }
+    },
+    {
+      "id": "1d3ef7ce-98d7-4b73-8664-966f6b74e0bf",
+      "title": "Pierogi z truskawkami",
+      "description": "Letnia klasyka: delikatne pierogi z całymi truskawkami w środku, podane z lekko słodzoną śmietaną. Smakują najlepiej prosto z garnka, gdy owoce są jeszcze ciepłe i soczyste.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": ["LUNCH", "AFTERNOON_SNACK", "DINNER"],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 70,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1799,
+        "protein": 50,
+        "carbs": 289,
+        "fat": 41,
+        "fiber": 16,
+        "salt": 0.8
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Zagnieć gładkie ciasto z mąki, jajek i około 100 ml ciepłej wody. Przykryj i odstaw na 15 minut."
+        },
+        {
+          "step": 2,
+          "instruction": "Umyj truskawki, usuń szypułki. Duże owoce przekrój na połówki, mniejsze zostaw w całości i oprósz połową cukru."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozwałkuj ciasto cienko i wykrawaj krążki szklanką."
+        },
+        {
+          "step": 4,
+          "instruction": "Na środek każdego krążka nakładaj truskawkę lub dwie połówki, składaj na pół i dokładnie zlepiaj brzegi."
+        },
+        {
+          "step": 5,
+          "instruction": "Gotuj pierogi partiami w osolonym wrzątku 2-3 minuty od wypłynięcia, wyjmuj łyżką cedzakową."
+        },
+        {
+          "step": 6,
+          "instruction": "Wymieszaj śmietanę z resztą cukru i podawaj z gorącymi pierogami."
+        }
+      ],
+      "ingredients": [
+        { "ingredientName": "mąka pszenna", "amount": 300, "unit": "g" },
+        { "ingredientName": "jajko", "amount": 2, "unit": "szt" },
+        { "ingredientName": "truskawka", "amount": 400, "unit": "g" },
+        { "ingredientName": "cukier", "amount": 40, "unit": "g" },
+        { "ingredientName": "śmietana 18", "amount": 150, "unit": "g" },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pierogi z truskawkami, homemade polish strawberry pierogi on a ceramic plate drizzled with sweetened cream, one dumpling halved showing juicy red strawberry filling, fresh strawberries beside, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",
+        "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/1d3ef7ce-98d7-4b73-8664-966f6b74e0bf.png"
+      }
+    }
+  ]
+}

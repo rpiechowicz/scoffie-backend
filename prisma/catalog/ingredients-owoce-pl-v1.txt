@@ -2,14 +2,14 @@ ananas
 arbuz
 awokado
 banan
-borowka
+borówka
 brzoskwinia
 cytryna
-czeresnia
+czereśnia
 grejpfrut
 gruszka
-jablko
-jezyna
+jabłko
+jeżyna
 kiwi
 klementynka
 limonka
@@ -19,13 +19,13 @@ mango
 melon
 morela
 nektarynka
-pomarancza
-pomarancza czerwona
+pomarańcza
+pomarańcza czerwona
 porzeczka czerwona
 porzeczka czarna
-sliwka
+śliwka
 truskawka
-winogrono biale
+winogrono białe
 winogrono czerwone
-wisnia
-zurawina
+wiśnia
+żurawina

@@ -3,19 +3,16 @@ jogurt naturalny
 jogurt grecki
 jogurt owocowy
 jogurt pitny
-jogurt typu skyr
 kefir
-maslo
+masło
 mleko skondensowane
 margaryna
-margaryna roslinna
 margaryna do smarowania
-maslanka
+maślanka
 mleko
 mleko bez laktozy
-mleko kokosowe
 mleko owsiane
-mleko migdalowe
+mleko migdałowe
 mozzarella
 ser camembert
 ser cheddar
@@ -25,23 +22,23 @@ ser gouda
 ser grillowy
 ser halloumi
 ser mascarpone
-ser mozzarella tarty
+mozzarella tarta
 ser parmezan
-ser plesniowy
+ser pleśniowy
 ser ricotta
-ser twarog chudy
-ser twarog poltlusty
-ser twarog tlusty
-ser zolty
+ser twaróg chudy
+ser twaróg półtłusty
+ser twaróg tłusty
+ser żółty
 skyr naturalny
 skyr owocowy
-smietana 12
-smietana 18
-smietanka 12
-smietanka 18
-smietanka 30
+śmietana 12
+śmietana 18
+śmietanka 12
+śmietanka 18
+śmietanka 30
 serek homogenizowany
 serek kremowy
 serek kanapkowy
 serek wiejski
-twarozek
+twarożek
