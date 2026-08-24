@@ -412,7 +412,16 @@ async function main(): Promise<void> {
   const raw = await readFile(filePath, 'utf8');
   const input = JSON.parse(raw) as RecipeBatchInput;
   validateBatch(input);
-  const recipeIdPool = await resolveRecipeIdPool(input.recipes.length);
+  // Pula ID jest potrzebna tylko przepisom bez własnego `id` — katalog
+  // zbiorczy (recipes-catalog-full-v2) ma jawne UUID-y dla wszystkich 89
+  // pozycji i bez tego warunku import wywracał się na walidacji puli 30.
+  const recipesNeedingPoolId = input.recipes.filter(
+    (recipe) => !recipe.id?.trim(),
+  ).length;
+  const recipeIdPool =
+    recipesNeedingPoolId > 0
+      ? await resolveRecipeIdPool(input.recipes.length)
+      : [];
 
   if (RECIPE_IMPORT_CLEAR_EXISTING) {
     await prisma.planItem.deleteMany();
