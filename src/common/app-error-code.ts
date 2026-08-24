@@ -11,5 +11,10 @@ export type AppErrorCode =
   | 'SHOPPING_LIST_NOT_COMPLETED'
   | 'INVITATION_EXPIRED'
   | 'INVITATION_ALREADY_REDEEMED'
+  | 'INVITATION_DECLINED'
+  // Zaproszony należy już do innego gospodarstwa. To nie jest błąd końcowy,
+  // tylko pytanie do użytkownika: przyjęcie zaproszenia znaczy wyjście
+  // z obecnego domu, a takiej decyzji nie wolno podjąć za niego.
+  | 'INVITATION_REQUIRES_LEAVE'
   | 'CONFLICT'
   | 'INTERNAL_ERROR';

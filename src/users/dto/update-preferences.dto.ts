@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -65,7 +66,12 @@ export class UpdatePreferencesDto {
   // Makra przyjmują `null` — to znaczy „przestań trzymać moją wartość
   // i licz za mnie". Bez tego nie dałoby się wrócić do automatu inaczej
   // niż zgadując, którą liczbę uznać za „pustą".
-  @ApiPropertyOptional({ example: 160, minimum: 0, maximum: 400, nullable: true })
+  @ApiPropertyOptional({
+    example: 160,
+    minimum: 0,
+    maximum: 400,
+    nullable: true,
+  })
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsInt()
@@ -73,7 +79,12 @@ export class UpdatePreferencesDto {
   @Max(400)
   proteinG?: number | null;
 
-  @ApiPropertyOptional({ example: 61, minimum: 0, maximum: 300, nullable: true })
+  @ApiPropertyOptional({
+    example: 61,
+    minimum: 0,
+    maximum: 300,
+    nullable: true,
+  })
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsInt()
@@ -81,11 +92,51 @@ export class UpdatePreferencesDto {
   @Max(300)
   fatG?: number | null;
 
-  @ApiPropertyOptional({ example: 254, minimum: 0, maximum: 800, nullable: true })
+  @ApiPropertyOptional({
+    example: 254,
+    minimum: 0,
+    maximum: 800,
+    nullable: true,
+  })
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsInt()
   @Min(0)
   @Max(800)
   carbsG?: number | null;
+
+  // Kanały powiadomień push. Do tej pory te przełączniki żyły wyłącznie w
+  // `UserDefaults` telefonu i wyciszały tylko lokalne bannery — pushe składa
+  // serwer, więc bez tych pól „wyłącz powiadomienia" nie wyłączało niczego,
+  // co przychodziło z zewnątrz.
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  pushPlanChanges?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  pushShoppingList?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  pushHousehold?: boolean;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Cisza nocna 22:00–07:00.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  pushQuietHours?: boolean;
+
+  // Strefa IANA z telefonu (`TimeZone.current.identifier`). Bez niej cisza
+  // nocna liczyłaby się w strefie kontenera, czyli zwykle w UTC.
+  @ApiPropertyOptional({ example: 'Europe/Warsaw' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  timeZone?: string;
 }

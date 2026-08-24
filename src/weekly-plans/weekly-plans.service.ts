@@ -62,6 +62,16 @@ const PLAN_ITEM_INCLUDE = {
  * `PlanItemDto`). Without this the wire shape would leak the junction tables
  * as `participants: [{ userId }]` / `consumptions: [{ userId }]`.
  */
+/**
+ * Czy dwa audytoria opisują ten sam zbiór osób. Kolejność i duplikaty nie
+ * znaczą nic — `participantIds` przychodzi z klienta w kolejności klikania.
+ */
+function sameMemberSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const left = new Set(a);
+  return b.every((id) => left.has(id));
+}
+
 function withPlanItemRelationIds<
   T extends {
     participants?: { userId: string }[];
@@ -364,9 +374,12 @@ export class WeeklyPlansService {
       });
 
       if (existingItem) {
+        const currentParticipantIds = existingItem.participants.map(
+          (p) => p.userId,
+        );
         const plannedServingsForUpdate = this.resolveUpdatedPlannedServings({
           currentPlannedServings: existingItem.plannedServings,
-          currentParticipantIds: existingItem.participants.map((p) => p.userId),
+          currentParticipantIds,
           nextParticipantIds: participantIds,
           memberCount,
           requested: dto.plannedServings,
@@ -390,7 +403,23 @@ export class WeeklyPlansService {
           weekStartDate,
           tx,
         );
-        return withPlanItemRelationIds(updatedItem);
+
+        // Przepis jest częścią klucza wyszukania, więc trafienie w istniejący
+        // item ZNACZY, że danie się nie zmieniło — ruszyły najwyżej porcje albo
+        // audytorium. Bramka jest tu, a nie w gatewayu, bo tylko ta strona zna
+        // stan sprzed zapisu; gateway dostaje gotową odpowiedź i po niej
+        // decyduje, czy zawracać głowę drugiemu domownikowi (patrz
+        // `weekly-plans.gateway.ts`, `weeklyPlans:upsertWeekSlot`).
+        const detailsChanged =
+          plannedServingsForUpdate !== existingItem.plannedServings ||
+          !sameMemberSet(currentParticipantIds, participantIds);
+
+        return {
+          ...withPlanItemRelationIds(updatedItem),
+          changeKind: detailsChanged
+            ? ('DETAILS_CHANGED' as const)
+            : ('NOOP' as const),
+        };
       }
 
       const [existingForMealType, existingTotal, variantsInSlot] =
@@ -457,7 +486,10 @@ export class WeeklyPlansService {
         tx,
       );
 
-      return withPlanItemRelationIds(createdItem);
+      return {
+        ...withPlanItemRelationIds(createdItem),
+        changeKind: 'CREATED' as const,
+      };
     });
   }
 
@@ -715,6 +747,17 @@ export class WeeklyPlansService {
         memberCount,
         requested,
       );
+    }
+
+    // Audytorium bez zmian = nie ma z czego przeliczać. Ta gałąź jest po to,
+    // żeby upsert niosący wyłącznie inne pole (albo powtórzony przez retry
+    // ACK-a) nie ruszał liczby porcji: bez niej zapisana wartość równa starej
+    // regule auto przechodziła przez porównanie niżej i była „przeliczana"
+    // na samą siebie tylko dopóty, dopóki reguła dawała ten sam wynik —
+    // wystarczyło, że w gospodarstwie przybył domownik, i świadome „gotuję
+    // dwie porcje" cicho stawało się trzema.
+    if (sameMemberSet(currentParticipantIds, nextParticipantIds)) {
+      return currentPlannedServings;
     }
 
     const previousAuto = this.resolvePlannedServings(

@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { settleHouseholdAfterMemberLeft } from '../households/household-cleanup.util';
 
 const CALORIE_GOAL_MIN = 1200;
 const CALORIE_GOAL_MAX = 3500;
@@ -24,6 +25,14 @@ export interface UserPreferencesPayload {
   proteinG: number | null;
   fatG: number | null;
   carbsG: number | null;
+  // Kanaly powiadomien push. Zyja tutaj, a nie w osobnym module, bo klient
+  // synchronizuje je tym samym `users:preferences:update`, ktorym wysyla
+  // diete i cel kaloryczny — jeden round-trip zamiast dwoch.
+  pushPlanChanges: boolean;
+  pushShoppingList: boolean;
+  pushHousehold: boolean;
+  pushQuietHours: boolean;
+  timeZone: string | null;
 }
 
 export interface UserProfilePayload {
@@ -311,6 +320,35 @@ export class UsersService {
       create.carbsG = data.carbsG;
     }
 
+    if (data.pushPlanChanges !== undefined) {
+      update.pushPlanChanges = data.pushPlanChanges;
+      create.pushPlanChanges = data.pushPlanChanges;
+    }
+    if (data.pushShoppingList !== undefined) {
+      update.pushShoppingList = data.pushShoppingList;
+      create.pushShoppingList = data.pushShoppingList;
+    }
+    if (data.pushHousehold !== undefined) {
+      update.pushHousehold = data.pushHousehold;
+      create.pushHousehold = data.pushHousehold;
+    }
+    if (data.pushQuietHours !== undefined) {
+      update.pushQuietHours = data.pushQuietHours;
+      create.pushQuietHours = data.pushQuietHours;
+    }
+    if (data.timeZone !== undefined) {
+      // Pusty string traktujemy jak `null` — klient bez ustawionej strefy nie
+      // ma nadpisywac tej, ktora juz w bazie jest, wartoscia bez znaczenia.
+      //
+      // Przyciecie dlugosci jest tu, a nie tylko w `@MaxLength` na DTO, bo
+      // preferencje jada takze WebSocketem, a tamta sciezka nie uruchamia
+      // walidacji zagniezdzonego `data` (patrz `weekly-plans.gateway.ts`).
+      // Najdluzszy realny identyfikator IANA ma ~32 znaki.
+      const normalised = data.timeZone?.trim().slice(0, 64) || null;
+      update.timeZone = normalised;
+      create.timeZone = normalised;
+    }
+
     const result = await this.prisma.userPreference.upsert({
       where: { userId },
       update,
@@ -329,6 +367,11 @@ export class UsersService {
     proteinG: number | null;
     fatG: number | null;
     carbsG: number | null;
+    pushPlanChanges: boolean;
+    pushShoppingList: boolean;
+    pushHousehold: boolean;
+    pushQuietHours: boolean;
+    timeZone: string | null;
   }): UserPreferencesPayload {
     return {
       dietPreference: row.dietPreference,
@@ -339,6 +382,11 @@ export class UsersService {
       proteinG: row.proteinG,
       fatG: row.fatG,
       carbsG: row.carbsG,
+      pushPlanChanges: row.pushPlanChanges,
+      pushShoppingList: row.pushShoppingList,
+      pushHousehold: row.pushHousehold,
+      pushQuietHours: row.pushQuietHours,
+      timeZone: row.timeZone,
     };
   }
 
@@ -378,28 +426,19 @@ export class UsersService {
         select: { householdId: true, role: true },
       });
 
+      // Kasujemy czlonkostwa jawnie, zanim `settleHouseholdAfterMemberLeft`
+      // policzy, kto zostal. Kaskada z usuniecia uzytkownika zrobilaby to
+      // dopiero po, wiec kazdy dom wygladalby na wciaz zamieszkany.
       for (const membership of memberships) {
-        const others = await tx.membership.findMany({
+        await tx.membership.delete({
           where: {
-            householdId: membership.householdId,
-            userId: { not: userId },
+            userId_householdId: { userId, householdId: membership.householdId },
           },
-          orderBy: { createdAt: 'asc' },
-          select: { id: true, role: true },
         });
-
-        if (others.length === 0) {
-          await tx.household.delete({ where: { id: membership.householdId } });
-          continue;
-        }
-
-        const hasAnotherOwner = others.some((m) => m.role === 'OWNER');
-        if (membership.role === 'OWNER' && !hasAnotherOwner) {
-          await tx.membership.update({
-            where: { id: others[0].id },
-            data: { role: 'OWNER' },
-          });
-        }
+        // Ta sama regula co przy wyjsciu z gospodarstwa — jedna definicja
+        // zamiast dwoch kopii, ktore juz raz sie rozjechaly (wyjscie nie
+        // kasowalo pustych domow, kasowanie konta kasowalo).
+        await settleHouseholdAfterMemberLeft(tx, membership.householdId);
       }
 
       await tx.user.delete({ where: { id: userId } });

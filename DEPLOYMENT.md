@@ -93,7 +93,12 @@ docker run --rm -p 3000:3000 --env-file .env weekly-meals-backend
 
 Check these after every deploy:
 
-1. `GET /ops/health` returns `status: ok`
+1. `GET /ops/health` returns `status: ok` — and `commit` matching the image you
+   just shipped. Read it before debugging any "works locally, breaks on
+   production" report: an old image silently ignores fields it does not know
+   (that is how saved plan servings came back as `1`). `GET /ops/metrics`
+   reports `migrations.applied` / `migrations.latest` so you can tell a stale
+   image apart from a stale database.
 2. `GET /ops/metrics` returns JSON
 3. dev login or target auth flow works for the current release
 4. recipes list loads
