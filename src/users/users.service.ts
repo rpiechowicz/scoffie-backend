@@ -5,6 +5,10 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { settleHouseholdAfterMemberLeft } from '../households/household-cleanup.util';
+import {
+  effectiveAvatarColor,
+  pickFreeAvatarColor,
+} from '../common/avatar-color.util';
 
 const CALORIE_GOAL_MIN = 1200;
 const CALORIE_GOAL_MAX = 3500;
@@ -12,8 +16,6 @@ const CALORIE_GOAL_DEFAULT = 2000;
 const ACTIVITY_LEVEL_MIN = 1;
 const ACTIVITY_LEVEL_MAX = 4;
 const ACTIVITY_LEVEL_DEFAULT = 2;
-/** Liczba gradientow awatara — musi zgadzac sie z paleta w `ProfileAvatar`. */
-const AVATAR_COLOR_COUNT = 12;
 
 export interface UserPreferencesPayload {
   dietPreference: DietPreferenceValue;
@@ -123,7 +125,7 @@ export class UsersService {
   async completeOnboarding(userId: string): Promise<UserProfilePayload> {
     const existing = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { onboardingCompletedAt: true },
+      select: { onboardingCompletedAt: true, avatarColor: true },
     });
 
     if (!existing) {
@@ -131,6 +133,16 @@ export class UsersService {
     }
 
     if (existing.onboardingCompletedAt) {
+      // Konta sprzed wprowadzenia `avatarColor` skończyły onboarding, zanim
+      // kolory istniały — uzupełniamy przydział przy pierwszej okazji,
+      // inaczej taki użytkownik na zawsze zostaje na fallbacku z hasza.
+      if (existing.avatarColor === null) {
+        const user = await this.prisma.user.update({
+          where: { id: userId },
+          data: { avatarColor: await this.pickAvatarColor(userId) },
+        });
+        return this.toProfilePayload(user);
+      }
       const user = await this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
       });
@@ -157,9 +169,11 @@ export class UsersService {
    * sie obok siebie, wiec akurat tam kolizja boli najbardziej.
    *
    * Bierzemy wiec pierwszy kolor nieuzywany przez pozostalych czlonkow
-   * gospodarstwa. Gdy wszystkie sa zajete (gospodarstwo wieksze niz paleta),
-   * schodzimy do reszty z id — powtorka jest wtedy nieunikniona, ale nadal
-   * deterministyczna.
+   * gospodarstwa. Konta bez przydzialu liczymy po kolorze, ktorym FAKTYCZNIE
+   * swieca na ekranie (fallback z hasza id) — inaczej nowy domownik potrafil
+   * dostac indeks identyczny z odcieniem starego konta. Gdy wszystkie sa
+   * zajete (gospodarstwo wieksze niz paleta), schodzimy do hasza z id —
+   * powtorka jest wtedy nieunikniona, ale nadal deterministyczna.
    */
   private async pickAvatarColor(userId: string): Promise<number> {
     const memberships = await this.prisma.membership.findMany({
@@ -175,33 +189,13 @@ export class UsersService {
             id: { not: userId },
             memberships: { some: { householdId: { in: householdIds } } },
           },
-          select: { avatarColor: true },
+          select: { id: true, avatarColor: true },
         })
       : [];
 
-    const taken = new Set(
-      housemates
-        .map((u) => u.avatarColor)
-        .filter((c): c is number => c !== null),
-    );
+    const taken = new Set(housemates.map(effectiveAvatarColor));
 
-    for (let index = 0; index < AVATAR_COLOR_COUNT; index += 1) {
-      if (!taken.has(index)) {
-        return index;
-      }
-    }
-
-    return this.fallbackAvatarColor(userId);
-  }
-
-  /** Stabilny FNV-1a na id — ta sama funkcja co po stronie iOS. */
-  private fallbackAvatarColor(userId: string): number {
-    let hash = 0x811c9dc5;
-    for (const byte of Buffer.from(userId.toLowerCase(), 'utf8')) {
-      hash ^= byte;
-      hash = Math.imul(hash, 0x01000193) >>> 0;
-    }
-    return hash % AVATAR_COLOR_COUNT;
+    return pickFreeAvatarColor(taken, userId);
   }
 
   private toProfilePayload(user: {

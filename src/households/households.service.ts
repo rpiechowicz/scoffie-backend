@@ -16,6 +16,10 @@ import { UpdateHouseholdMealTypesDto } from './dto/update-meal-types.dto';
 import { UpdateHouseholdMealTimesDto } from './dto/update-meal-times.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { normalizeEnabledMealTypes } from '../common/meal-types';
+import {
+  effectiveAvatarColor,
+  pickFreeAvatarColor,
+} from '../common/avatar-color.util';
 import { settleHouseholdAfterMemberLeft } from './household-cleanup.util';
 import {
   resolveInvitationStatus,
@@ -218,6 +222,33 @@ export class HouseholdsService {
           invitedUserId: userId,
         },
       });
+
+      // Kolor awatara był przydzielany w składzie STAREGO domu (albo bez
+      // żadnego — onboarding kończy się przed przyjęciem zaproszenia), więc
+      // po przeprowadzce potrafił kolidować z kimś na miejscu: każdy
+      // „pierwszy" użytkownik dostaje indeks 0 i dwóch takich w jednym domu
+      // wyglądało identycznie. Jeśli kolor koliduje albo nigdy nie został
+      // przydzielony, bierzemy pierwszy wolny w NOWYM gospodarstwie.
+      const [self, housemates] = await Promise.all([
+        tx.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: { id: true, avatarColor: true },
+        }),
+        tx.user.findMany({
+          where: {
+            id: { not: userId },
+            memberships: { some: { householdId: invitation.householdId } },
+          },
+          select: { id: true, avatarColor: true },
+        }),
+      ]);
+      const taken = new Set(housemates.map(effectiveAvatarColor));
+      if (self.avatarColor === null || taken.has(self.avatarColor)) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { avatarColor: pickFreeAvatarColor(taken, userId) },
+        });
+      }
 
       return {
         ...membership,
