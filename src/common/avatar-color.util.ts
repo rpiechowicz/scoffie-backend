@@ -9,18 +9,23 @@
 export const AVATAR_COLOR_COUNT = 12;
 
 /**
- * Stabilny FNV-1a na id — ta sama funkcja, którą iOS liczy kolor dla kont
- * bez przydzielonego `avatarColor`. Dzięki temu serwer wie, jak takie konto
- * FAKTYCZNIE wygląda na ekranie, i może unikać jego odcienia przy
- * przydzielaniu kolorów pozostałym.
+ * Stabilny FNV-1a na id — DOKŁADNIE ta funkcja, którą iOS
+ * (`ProfileAvatar.stableIndex`) liczy kolor dla kont bez przydzielonego
+ * `avatarColor`. Dzięki temu serwer wie, jak takie konto FAKTYCZNIE wygląda
+ * na ekranie, i może unikać jego odcienia przy przydzielaniu kolorów
+ * pozostałym.
+ *
+ * Wariant 64-bitowy (BigInt), bo iOS haszuje na UInt64. Wcześniejsza wersja
+ * 32-bitowa dawała inne indeksy niż klient (np. `d4999c6e…` → 8 tutaj,
+ * 4 na iOS), więc serwer omijał nie ten odcień, którym konto świeci.
  */
 export function fallbackAvatarColor(userId: string): number {
-  let hash = 0x811c9dc5;
+  let hash = 0xcbf29ce484222325n;
   for (const byte of Buffer.from(userId.toLowerCase(), 'utf8')) {
-    hash ^= byte;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
+    hash ^= BigInt(byte);
+    hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
   }
-  return hash % AVATAR_COLOR_COUNT;
+  return Number(hash % BigInt(AVATAR_COLOR_COUNT));
 }
 
 /**
