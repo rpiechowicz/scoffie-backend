@@ -52,6 +52,8 @@ model User {
   mealConsumptions   PlanItemConsumption[]
 
   cookidooIntegrations CookidooIntegration[] @relation("CookidooIntegrationConnector")
+
+  dailySteps DailyStepCount[]
 }
 
 model UserPreference {
@@ -410,6 +412,32 @@ model PlanItemConsumption {
   @@id([planItemId, userId])
   @@index([planItemId])
   @@index([userId])
+}
+
+/// Dzienna suma kroków użytkownika, synchronizowana z Apple Health (HealthKit)
+/// przez telefon — także dla Garmina, bo Garmin Connect dopisuje kroki do
+/// Zdrowia, a my czytamy je stamtąd. Wiersz na (użytkownik, dzień); telefon
+/// nadpisuje kroczące okno ostatnich ~7 dni, bo źródła potrafią dopisywać
+/// próbki z opóźnieniem. `date` to czysta data liczona w strefie telefonu —
+/// serwer (UTC) nie wolno mu jej reinterpretować, jak przy `send-to-week`.
+model DailyStepCount {
+  userId String   @db.Uuid
+  date   DateTime @db.Date
+  steps  Int
+  /// Zrzut celu kroków obowiązującego danego dnia — przyszłe statystyki muszą
+  /// wiedzieć, do czego użytkownik wtedy dążył, a bieżący cel trzyma telefon
+  /// i może go zmienić w każdej chwili.
+  stepsGoal Int
+  /// APPLE_HEALTH | GARMIN — wybrane w aplikacji źródło odczytu. Tekst, nie
+  /// enum — defensywna migracja enuma wymaga bloków DO $$, a wartości i tak
+  /// waliduje DTO (patrz `CookidooIntegration.status`).
+  source    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, date])
 }
 
 model RecipeIngredient {
