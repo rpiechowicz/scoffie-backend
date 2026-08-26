@@ -23,6 +23,14 @@ export interface AuthResult {
     displayName: string;
     email: string | null;
     avatarUrl: string | null;
+    /**
+     * Indeks gradientu awatara przydzielony przy kończeniu onboardingu.
+     * Jedzie już w odpowiedzi logowania, bo bez niego klient do czasu
+     * pierwszego `users:me` kolorował własny awatar fallbackiem z hasza —
+     * innym odcieniem niż ten, którym ta sama osoba świeci na listach
+     * domowników.
+     */
+    avatarColor: number | null;
     provider: AuthProvider;
     onboardingCompletedAt: string | null;
   };
@@ -231,6 +239,7 @@ export class AuthService {
     displayName: string;
     email: string | null;
     avatarUrl: string | null;
+    avatarColor: number | null;
     authProvider: AuthProvider;
     onboardingCompletedAt: Date | null;
   }): Promise<AuthResult> {
@@ -252,6 +261,7 @@ export class AuthService {
         displayName: user.displayName,
         email: user.email,
         avatarUrl: user.avatarUrl ?? null,
+        avatarColor: user.avatarColor ?? null,
         provider: user.authProvider,
         onboardingCompletedAt:
           user.onboardingCompletedAt?.toISOString() ?? null,

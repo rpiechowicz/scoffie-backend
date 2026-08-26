@@ -8,12 +8,12 @@ services:
       POSTGRES_PASSWORD: weeklymeals
       POSTGRES_DB: weeklymeals
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U weeklymeals -d weeklymeals"]
+      test: ['CMD-SHELL', 'pg_isready -U weeklymeals -d weeklymeals']
       interval: 5s
       timeout: 3s
       retries: 10
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -23,13 +23,27 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      cookidoo:
+        condition: service_healthy
     env_file:
       - .env
     environment:
       DATABASE_URL: postgresql://weeklymeals:weeklymeals@db:5432/weeklymeals?schema=public
+      # Inline jak DATABASE_URL: w composie hostname to nazwa usługi, a .env
+      # trzyma localhost:8000 dla api odpalanego z hosta.
+      COOKIDOO_SERVICE_URL: http://cookidoo:8000
     ports:
-      - "3000:3000"
-      - "5555:5555"
+      - '3000:3000'
+      - '5555:5555'
+
+  # Mikroserwis Cookidoo (Thermomix) — repo weekly-meals-cookidoo sklonowane
+  # obok tego repa (kontekst builda ../weekly-meals-cookidoo).
+  cookidoo:
+    build: ../weekly-meals-cookidoo
+    container_name: weeklymeals-cookidoo
+    restart: unless-stopped
+    environment:
+      INTERNAL_TOKEN: ${COOKIDOO_SERVICE_TOKEN}
 
 volumes:
   pgdata:

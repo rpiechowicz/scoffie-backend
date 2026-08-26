@@ -8,6 +8,7 @@ import { WeeklyPlansModule } from './weekly-plans/weekly-plans.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { CommonModule } from './common/common.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CommonModule } from './common/common.module';
     WeeklyPlansModule,
     NotificationsModule,
     ObservabilityModule,
+    IntegrationsModule,
   ],
 })
 export class AppModule {}

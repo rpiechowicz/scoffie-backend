@@ -47,6 +47,8 @@ const SPICE_GRAMS_PER_TEASPOON_BY_NAME: Record<string, number> = {
   'czosnek granulowany': 2.8,
   cukier: 4,
   'cukier brazowy': 4,
+  // Mieszanka typu Vegeta — granulacja jak cukier, nie jak pylista papryka.
+  'przyprawa uniwersalna': 4,
 };
 const LIQUID_CONDIMENTS = new Set([
   'ketchup',

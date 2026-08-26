@@ -17,4 +17,13 @@ export type AppErrorCode =
   // z obecnego domu, a takiej decyzji nie wolno podjąć za niego.
   | 'INVITATION_REQUIRES_LEAVE'
   | 'CONFLICT'
+  // Integracja Cookidoo (Thermomix). AUTH_FAILED leci jako 409, nie 401 —
+  // 401 z API znaczy dla iOS „odśwież sesję aplikacji", a tu wygasło hasło
+  // do Cookidoo, nie token użytkownika.
+  | 'COOKIDOO_NOT_CONNECTED'
+  | 'COOKIDOO_AUTH_FAILED'
+  | 'COOKIDOO_RECIPE_NOT_LINKED'
+  | 'COOKIDOO_RECIPE_NOT_FOUND'
+  | 'COOKIDOO_SERVICE_UNAVAILABLE'
+  | 'COOKIDOO_SUBSCRIPTION_INACTIVE'
   | 'INTERNAL_ERROR';

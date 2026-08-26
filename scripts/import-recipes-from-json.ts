@@ -33,6 +33,14 @@ type RecipeInput = {
     salt: number;
   };
   steps: Array<{ step: number; instruction: string }>;
+  /**
+   * Zewnętrzne źródło przepisu. Podane w JSON-ie (np. "cookidoo" +
+   * "r56899" z URL-a przepisu) przeżywa każdy re-import — bez tego pola
+   * import nadpisywałby linkowanie do Cookidoo swoim "manual-json-v1"
+   * i przycisk „Gotuj w Thermomixie" znikał po każdym odświeżeniu katalogu.
+   */
+  sourceProvider?: string;
+  sourceRecipeId?: string;
   ingredients: Array<{
     ingredientName: string;
     amount: number;
@@ -516,7 +524,8 @@ async function main(): Promise<void> {
       nutritionCarbs: recipe.nutrition.carbs,
       nutritionFiber: recipe.nutrition.fiber,
       nutritionSalt: recipe.nutrition.salt,
-      sourceProvider: 'manual-json-v1',
+      sourceProvider: recipe.sourceProvider ?? 'manual-json-v1',
+      sourceRecipeId: recipe.sourceRecipeId ?? null,
       sourceInstructions: recipe.steps.map((step) => ({
         step: step.step,
         text: step.instruction,

@@ -329,9 +329,6 @@ export class NotificationsService implements OnModuleDestroy {
     const first = events[0];
     const copy = buildPlanSummary(first.changedByDisplayName, events);
     const weekStart = events.find((e) => e.weekStart)?.weekStart ?? '';
-    const isDestructive = events.some(
-      (e) => (e.action ?? '').toUpperCase() === 'CLEAR_PLAN',
-    );
 
     await this.sendToHousehold({
       householdId: first.householdId,
@@ -350,11 +347,14 @@ export class NotificationsService implements OnModuleDestroy {
         // planu układałyby się w kolumnę powiadomień o tej samej treści.
         collapseId: `plan-${first.householdId}-${weekStart}`,
         threadId: this.threadId(first.householdId),
-        // Wyczyszczenie całego tygodnia to jedyna zmiana planu, której nie
-        // wolno przegapić — reszta jest informacyjna i ma nie przerywać.
-        interruptionLevel: isDestructive ? 'active' : 'passive',
-        priority: isDestructive ? 10 : 5,
-        sound: null,
+        // Podsumowanie planu ma być widoczne: baner i dźwięk. Przed spamem
+        // chroni już bufor (jedno zdanie na całą sesję planowania) plus
+        // collapse-id — `passive` z priorytetem 5 chował pusha bezgłośnie
+        // w Centrum powiadomień i domownicy mieli wrażenie, że powiadomienia
+        // w ogóle nie przychodzą.
+        interruptionLevel: 'active',
+        priority: 10,
+        sound: 'default',
         expirationSeconds: SUMMARY_EXPIRATION_SECONDS,
       },
     });
@@ -596,6 +596,13 @@ export class NotificationsService implements OnModuleDestroy {
           );
         } catch (error) {
           if (this.shouldDeactivateToken(error)) {
+            // Głośno, nie po cichu: BadDeviceToken/DeviceTokenNotForTopic
+            // potrafi dotyczyć KAŻDEGO urządzenia naraz (zły APNS_USE_SANDBOX
+            // albo topic z klienta) i bez tego logu wygląda jak „nikt nic
+            // nie planował", a nie jak masowa dezaktywacja.
+            this.logger.warn(
+              `APNs token deactivated (${channel}) tail=${device.deviceToken.slice(-8)}: ${(error as Error).message}`,
+            );
             await this.prisma.pushDevice.update({
               where: { id: device.id },
               data: { isActive: false },
