@@ -50,6 +50,8 @@ model User {
 
   planParticipations PlanItemParticipant[]
   mealConsumptions   PlanItemConsumption[]
+
+  cookidooIntegrations CookidooIntegration[] @relation("CookidooIntegrationConnector")
 }
 
 model UserPreference {
@@ -237,6 +239,31 @@ model Household {
   shoppingListArchiveStates ShoppingListArchiveState[]
   recipeFavorites           RecipeFavorite[]
   sharedMealPlans           SharedMealPlan[]
+  cookidooIntegration       CookidooIntegration?
+}
+
+/// Integracja Cookidoo (Thermomix) — jedna na gospodarstwo, jak reszta
+/// współdzielonej konfiguracji (plan i lista zakupów są wspólne, więc
+/// „wyślij na Thermomixa" też). Poświadczenia zaszyfrowane AES-256-GCM
+/// (format `v1:<iv>:<tag>:<ct>`, klucz w env COOKIDOO_ENCRYPTION_KEY) —
+/// są write-only: żaden endpoint nigdy nie zwraca hasła, a odszyfrowany
+/// komplet widzi wyłącznie mikroserwis Pythona przy wysyłce.
+model CookidooIntegration {
+  id                String    @id @default(uuid()) @db.Uuid
+  householdId       String    @unique @db.Uuid
+  emailEncrypted    String
+  passwordEncrypted String
+  /// CONNECTED | AUTH_FAILED. Tekst, nie enum — defensywna migracja enuma
+  /// w Postgresie wymaga bloków DO $$, a wartości i tak waliduje serwis.
+  status            String    @default("CONNECTED")
+  connectedById     String?   @db.Uuid
+  lastVerifiedAt    DateTime?
+  lastErrorCode     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  connectedBy User?     @relation("CookidooIntegrationConnector", fields: [connectedById], references: [id], onDelete: SetNull)
 }
 
 model RecipeFavorite {

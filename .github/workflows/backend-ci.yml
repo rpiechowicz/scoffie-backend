@@ -31,9 +31,12 @@ jobs:
       DATABASE_URL: postgresql://weeklymeals:weeklymeals@localhost:5432/weeklymeals?schema=public
       JWT_SECRET: ci-secret
       REFRESH_TOKEN_PEPPER: ci-pepper
-      AUTH_DEV_LOGIN_ENABLED: "true"
-      APNS_ENABLED: "false"
+      AUTH_DEV_LOGIN_ENABLED: 'true'
+      APNS_ENABLED: 'false'
       CORS_ORIGIN: http://localhost:5173
+      # Sztuczny klucz 32 B (base64) — CookidooIntegrationService robi fail-fast
+      # przy starcie appki, a smoke e2e bootuje cały AppModule.
+      COOKIDOO_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 
     steps:
       - name: Checkout

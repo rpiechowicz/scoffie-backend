@@ -20,6 +20,11 @@ const recipeListSelect = {
   id: true,
   title: true,
   description: true,
+  // Para source identyfikuje przepis u zewnętrznego dostawcy (np. Cookidoo:
+  // provider "cookidoo" + id "r907015") — klient po niej pokazuje badge
+  // Thermomixa i włącza „Gotuj w Thermomixie".
+  sourceProvider: true,
+  sourceRecipeId: true,
   mealType: true,
   suitableMealTypes: true,
   difficulty: true,
@@ -284,6 +289,8 @@ export class RecipesService {
     id: true,
     title: true,
     description: true,
+    sourceProvider: true,
+    sourceRecipeId: true,
     mealType: true,
     suitableMealTypes: true,
     difficulty: true,
