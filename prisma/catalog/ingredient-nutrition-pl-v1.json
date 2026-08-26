@@ -798,6 +798,15 @@
       "fiber": 1
     },
     {
+      "normalizedName": "przyprawa uniwersalna",
+      "unit": "g",
+      "kcal": 160,
+      "protein": 9,
+      "carbs": 25,
+      "fat": 0.8,
+      "fiber": 4
+    },
+    {
       "normalizedName": "groszek mrozony",
       "unit": "g",
       "kcal": 77,

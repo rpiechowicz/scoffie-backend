@@ -466,25 +466,27 @@
       "prepTimeMinutes": 40,
       "servings": 2,
       "nutrition": {
-        "kcal": 1339,
-        "protein": 52,
-        "carbs": 49,
-        "fat": 100,
-        "fiber": 18,
+        "kcal": 1288,
+        "protein": 46,
+        "carbs": 59,
+        "fat": 90,
+        "fiber": 20,
         "salt": 3.8
       },
+      "sourceProvider": "cookidoo",
+      "sourceRecipeId": "r56899",
       "steps": [
         {
           "step": 1,
-          "instruction": "Pokrój kiełbasę w plasterki i zrumień na oleju w szerokim garnku. Dodaj cebulę w piórkach i chwilę smaż."
+          "instruction": "Pokrój kiełbasę w półplasterki i zrumień na oliwie w szerokim garnku. Dodaj cebulę w piórkach i chwilę smaż."
         },
         {
           "step": 2,
-          "instruction": "Dorzuć paprykę w paskach i cukinię w półplasterkach. Smaż 5 minut, mieszając."
+          "instruction": "Dorzuć paprykę w paskach i kawałkach oraz cukinię w kawałkach. Smaż 5 minut, mieszając."
         },
         {
           "step": 3,
-          "instruction": "Dodaj pomidory z puszki i paprykę mieloną. Duś bez przykrycia około 20 minut, aż sos zgęstnieje."
+          "instruction": "Dodaj pomidory z puszki, przyprawę uniwersalną i cukier. Duś bez przykrycia około 20 minut, aż sos zgęstnieje."
         },
         {
           "step": 4,
@@ -492,23 +494,24 @@
         }
       ],
       "ingredients": [
-        { "ingredientName": "kiełbasa śląska", "amount": 300, "unit": "g" },
-        { "ingredientName": "cukinia", "amount": 400, "unit": "g" },
-        { "ingredientName": "papryka czerwona", "amount": 300, "unit": "g" },
+        { "ingredientName": "kiełbasa śląska", "amount": 250, "unit": "g" },
+        { "ingredientName": "cukinia", "amount": 300, "unit": "g" },
+        { "ingredientName": "papryka czerwona", "amount": 450, "unit": "g" },
         { "ingredientName": "cebula", "amount": 150, "unit": "g" },
         {
           "ingredientName": "pomidor krojony z puszki",
-          "amount": 400,
+          "amount": 500,
           "unit": "g"
         },
-        { "ingredientName": "olej rzepakowy", "amount": 15, "unit": "ml" },
+        { "ingredientName": "oliwa z oliwek", "amount": 20, "unit": "ml" },
         {
-          "ingredientName": "papryka słodka mielona",
-          "amount": 2,
+          "ingredientName": "przyprawa uniwersalna",
+          "amount": 1,
           "unit": "łyżeczka"
         },
-        { "ingredientName": "sól", "amount": 1, "unit": "szczypta" },
-        { "ingredientName": "pieprz czarny", "amount": 1, "unit": "szczypta" }
+        { "ingredientName": "cukier", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "sól", "amount": 1, "unit": "łyżeczka" },
+        { "ingredientName": "pieprz czarny", "amount": 3, "unit": "szczypta" }
       ],
       "image": {
         "prompt": "professional food photo, Leczo z kiełbasą, cukinią i papryką, rustic pot of leczo stew with sausage slices, zucchini and red pepper in tomato sauce, slice of bread aside, whole dish fully in frame with space around it, elevated 45-degree camera angle, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition, no text, no watermark, appetizing",

@@ -280,11 +280,11 @@
       "prepTimeMinutes": 14,
       "servings": 2,
       "nutrition": {
-        "kcal": 931,
-        "protein": 40,
+        "kcal": 915,
+        "protein": 39,
         "carbs": 63,
-        "fat": 53,
-        "fiber": 15,
+        "fat": 51,
+        "fiber": 14,
         "salt": 1.4
       },
       "steps": [
