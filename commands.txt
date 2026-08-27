@@ -62,5 +62,11 @@ https://www.recraft.ai
 
 railway run --service weakly-meals-backend pnpm exec tsx scripts/load-ingredient-catalog.ts
 railway run --service weakly-meals-backend pnpm exec tsx scripts/normalize-ingredients-polish.ts
-railway run --service weakly-meals-backend bash -c "RECIPE_IMPORT_FILE=prisma/catalog/recipes-approved-30-v1.json RECIPE_IMPORT_CLEAR_EXISTING=false pnpm exec tsx scripts/import-recipes-from-json.ts"
+// Katalog importujemy z pliku, w ktorym KAZDY przepis ma jawne id
+// (recipes-catalog-full-v2.json). recipes-approved-30-v1.json id nie ma i
+// dostaje je z puli po indeksie - a pula jest posortowana po UUID, wiec
+// parowanie wychodzi inne niz w bazie i import PODMIENIA dania pod istniejacymi
+// id. Od teraz taki import wywala sie z bledem zamiast po cichu przestawic
+// katalog (RECIPE_IMPORT_ALLOW_RETITLE).
+railway run --service weakly-meals-backend bash -c "RECIPE_IMPORT_FILE=prisma/catalog/recipes-catalog-full-v2.json RECIPE_IMPORT_CLEAR_EXISTING=false pnpm exec tsx scripts/import-recipes-from-json.ts"
 railway run --service weakly-meals-backend pnpm exec tsx scripts/fix-recipe-image-urls.ts

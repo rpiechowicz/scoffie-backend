@@ -469,7 +469,13 @@ export class RecipesService {
     if (!recipes) {
       recipes = await this.prisma.recipe.findMany({
         where: whereBase,
-        orderBy: { createdAt: 'desc' },
+        // `id` jako drugi klucz, bo samo `createdAt` nie porządkuje wierszy
+        // jednoznacznie: import wrzuca dziesiątki przepisów w tej samej
+        // milisekundzie, a przy remisie Postgres może zwrócić je w innej
+        // kolejności przy każdym zapytaniu. Przy stronicowaniu po `skip`
+        // znaczy to, że ta sama pozycja potrafi wyjść na dwóch stronach,
+        // a inna nie wyjść wcale — czyli katalog z duplikatami i dziurami.
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         select: this.listSelect,
         skip,
         take: limit,
