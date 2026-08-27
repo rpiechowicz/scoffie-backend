@@ -591,20 +591,25 @@ model SharedMealPlanItem {
 }
 
 model PushDevice {
-  id          String       @id @default(uuid()) @db.Uuid
-  userId      String       @db.Uuid
-  deviceToken String       @unique
-  platform    PushPlatform
-  appBundleId String
-  isActive    Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  lastSeenAt  DateTime     @default(now())
+  id              String       @id @default(uuid()) @db.Uuid
+  userId          String       @db.Uuid
+  deviceToken     String       @unique
+  platform        PushPlatform
+  appBundleId     String
+  // SANDBOX | PRODUCTION — środowisko APNs, w którym token jest ważny.
+  // Tekst, nie enum: obowiązuje tu ta sama defensywna konwencja migracji co
+  // przy DailyStepCount.source, a wartości waliduje warstwa DTO.
+  apnsEnvironment String?
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  lastSeenAt      DateTime     @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isActive])
 }
+
 
 enum MembershipRole {
   OWNER

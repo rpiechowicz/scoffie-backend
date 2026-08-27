@@ -54,6 +54,38 @@ export interface PushPayload {
   sound?: string | null;
 }
 
+/**
+ * Środowisko APNs, do którego należy token urządzenia.
+ *
+ * Token wydany buildowi z `aps-environment: development` działa WYŁĄCZNIE na
+ * `api.sandbox.push.apple.com`, a produkcyjny wyłącznie na `api.push.apple.com`
+ * — wysłanie pod zły host kończy się `BadDeviceToken`. Jeden globalny
+ * `APNS_USE_SANDBOX` nie wystarcza, bo do tego samego serwera pisze i telefon
+ * z Xcode (sandbox), i build z TestFlight (produkcja).
+ */
+export type ApnsEnvironment = 'SANDBOX' | 'PRODUCTION';
+
+export function otherApnsEnvironment(
+  environment: ApnsEnvironment,
+): ApnsEnvironment {
+  return environment === 'SANDBOX' ? 'PRODUCTION' : 'SANDBOX';
+}
+
+export function parseApnsEnvironment(
+  value: unknown,
+): ApnsEnvironment | undefined {
+  const normalized = String(value ?? '')
+    .trim()
+    .toUpperCase();
+  if (normalized === 'SANDBOX' || normalized === 'DEVELOPMENT') {
+    return 'SANDBOX';
+  }
+  if (normalized === 'PRODUCTION') {
+    return 'PRODUCTION';
+  }
+  return undefined;
+}
+
 export class ApnsSendError extends Error {
   constructor(
     message: string,
@@ -80,8 +112,13 @@ export class ApnsService implements OnModuleInit {
 
   private cachedJwt: { token: string; expiresAtMs: number } | null = null;
 
-  private get host(): string {
-    return this.useSandbox
+  /** Środowisko dla urządzeń, które nie powiedziały, z jakiego buildu są. */
+  get defaultEnvironment(): ApnsEnvironment {
+    return this.useSandbox ? 'SANDBOX' : 'PRODUCTION';
+  }
+
+  private hostFor(environment?: ApnsEnvironment | null): string {
+    return (environment ?? this.defaultEnvironment) === 'SANDBOX'
       ? 'api.sandbox.push.apple.com'
       : 'api.push.apple.com';
   }
@@ -133,6 +170,7 @@ export class ApnsService implements OnModuleInit {
     deviceToken: string,
     payload: PushPayload,
     appBundleId?: string,
+    environment?: ApnsEnvironment | null,
   ): Promise<void> {
     if (!this.isConfigured()) {
       return;
@@ -141,7 +179,11 @@ export class ApnsService implements OnModuleInit {
     const topic = appBundleId?.trim() || this.bundleId;
 
     const jwt = await this.getJwt();
-    const client = connect(`https://${this.host}`);
+    const client = connect(`https://${this.hostFor(environment)}`);
+
+    // Błąd na poziomie sesji HTTP/2 bez słuchacza wywraca proces Node —
+    // a sesja do APNs potrafi paść na zwykłym mignięciu sieci.
+    client.on('error', () => {});
 
     try {
       await new Promise<void>((resolve, reject) => {
