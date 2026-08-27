@@ -365,28 +365,28 @@
       }
     },
     {
-      "title": "Jogurt naturalny z musli i jabłkiem",
-      "description": "Szybkie śniadanie na zimno z jogurtem naturalnym, chrupiącym dodatkiem i jabłkiem. Lekkie, ale dobrze sycące na poranek.",
+      "title": "Jogurt naturalny z musli, truskawkami i borówkami",
+      "description": "Szybkie śniadanie na zimno z jogurtem naturalnym, chrupiącym musli, truskawkami i borówkami. Lekkie, ale dobrze sycące na poranek.",
       "mealType": "BREAKFAST",
       "difficulty": "EASY",
       "prepTimeMinutes": 6,
       "servings": 2,
       "nutrition": {
-        "kcal": 677,
-        "protein": 18,
-        "carbs": 93,
+        "kcal": 632,
+        "protein": 19,
+        "carbs": 81,
         "fat": 23,
-        "fiber": 9,
+        "fiber": 8,
         "salt": 0.5
       },
       "steps": [
         {
           "step": 1,
-          "instruction": "Przełóż jogurt naturalny do misek. Jabłko pokrój w drobną kostkę."
+          "instruction": "Przełóż jogurt naturalny do misek. Truskawki umyj, usuń szypułki i pokrój na połówki."
         },
         {
           "step": 2,
-          "instruction": "Pokrusz baton musli na mniejsze kawałki. Dodaj musli, jabłko i borówki na wierzch jogurtu."
+          "instruction": "Pokrusz baton musli na mniejsze kawałki. Dodaj musli, truskawki i borówki na wierzch jogurtu."
         },
         {
           "step": 3,
@@ -395,12 +395,12 @@
       ],
       "ingredients": [
         { "ingredientName": "jogurt naturalny", "amount": 350, "unit": "g" },
-        { "ingredientName": "jabłko", "amount": 180, "unit": "g" },
+        { "ingredientName": "truskawka", "amount": 150, "unit": "g" },
         { "ingredientName": "baton musli", "amount": 80, "unit": "g" },
         { "ingredientName": "borówka", "amount": 60, "unit": "g" }
       ],
       "image": {
-        "prompt": "professional food photo, Jogurt naturalny z musli i jabłkiem, yogurt bowl with apple pieces and crunchy granola topping, simple fresh breakfast styling, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing",
+        "prompt": "professional food photo, Jogurt naturalny z musli, truskawkami i borówkami, yogurt bowl topped with fresh strawberries, blueberries and crunchy muesli flakes, simple fresh breakfast styling, ultra realistic food photography, natural light, 50mm lens, shallow depth of field, no text, no watermark, plated dish, appetizing",
         "imageUrl": null
       }
     },
