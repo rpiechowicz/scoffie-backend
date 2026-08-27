@@ -1,6 +1,7 @@
 import { MealType } from '@prisma/client';
 import {
   MEAL_TYPES_IN_DAY_ORDER,
+  OPTIONAL_MEAL_TYPES,
   effectiveSuitableMealTypes,
 } from '../common/meal-types';
 
@@ -192,6 +193,26 @@ type Rule = {
 };
 
 /**
+ * Sloty bazowe, z których wolno awansować danie do slotu przekąskowego.
+ *
+ * Śniadanie i kolacja — bo tam w katalogu siedzą dania lekkie i przenośne.
+ * Obiadu tu nie ma i nie będzie: obiad to obiad, a próg kcal sam go nie
+ * zatrzyma (sałatka z kurczakiem ma 368 kcal/porcja).
+ *
+ * Trzy sloty opcjonalne są tu z osobnego powodu. Danie opisane wprost „na
+ * podwieczorek" — a takie będą przepisy z Thermomixa: desery, ciasta,
+ * koktajle — bez tego zostaje przypięte do jednego slotu, który spora część
+ * gospodarstw ma wyłączony, więc widać je w katalogu, ale nie da się ich
+ * zaplanować. Te trzy sloty to i tak ten sam rodzaj dania o innej porze, a
+ * markery i progi każdej reguły nadal decydują, czy danie faktycznie pasuje.
+ */
+const SNACKABLE_SOURCE_MEAL_TYPES: readonly MealType[] = [
+  MealType.BREAKFAST,
+  MealType.DINNER,
+  ...OPTIONAL_MEAL_TYPES,
+];
+
+/**
  * Progi wzięte z realnego rozkładu katalogu (patrz
  * `scripts/backfill-suitable-meal-types.ts --dry-run`), nie z sufitu:
  * śniadania mają 278–588 kcal/porcję, obiady 368–824, kolacje 352–832.
@@ -203,7 +224,7 @@ const RULES: readonly Rule[] = [
     mealType: MealType.SECOND_BREAKFAST,
     maxKcalPerServing: 480,
     maxPrepMinutes: 20,
-    fromMealTypes: [MealType.BREAKFAST, MealType.DINNER],
+    fromMealTypes: SNACKABLE_SOURCE_MEAL_TYPES,
     markers: PORTABLE_MARKERS,
     label: 'lekkie i przenośne',
   },
@@ -211,7 +232,7 @@ const RULES: readonly Rule[] = [
     mealType: MealType.AFTERNOON_SNACK,
     maxKcalPerServing: 420,
     maxPrepMinutes: 25,
-    fromMealTypes: [MealType.BREAKFAST, MealType.DINNER],
+    fromMealTypes: SNACKABLE_SOURCE_MEAL_TYPES,
     markers: SWEET_MARKERS,
     blockers: SAVORY_MARKERS,
     label: 'lekkie / słodkie',
@@ -220,7 +241,7 @@ const RULES: readonly Rule[] = [
     mealType: MealType.SNACK,
     maxKcalPerServing: 350,
     maxPrepMinutes: 15,
-    fromMealTypes: [MealType.BREAKFAST, MealType.DINNER],
+    fromMealTypes: SNACKABLE_SOURCE_MEAL_TYPES,
     markers: [...PORTABLE_MARKERS, ...SWEET_MARKERS],
     label: 'mała i szybka',
   },

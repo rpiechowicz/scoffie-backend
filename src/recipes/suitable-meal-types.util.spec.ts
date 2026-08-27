@@ -466,6 +466,87 @@ describe('niezmienniki', () => {
   });
 });
 
+describe('dania opisane wprost jako przekąska / deser', () => {
+  // Sekcja „Przekąski i desery" w aplikacji zbiera trzy sloty opcjonalne, a
+  // import z Thermomixa będzie dowoził dania z bazowym slotem `AFTERNOON_SNACK`
+  // albo `SNACK`. Bez awansu między tymi slotami taki deser widać w katalogu,
+  // ale da się go zaplanować tylko w jednym slocie — a ten bywa wyłączony.
+
+  it('deser z podwieczorku schodzi też na przekąskę', () => {
+    const slots = resolveSuitableMealTypes(
+      recipe({
+        title: 'Mus czekoladowy z bananem',
+        description: 'Kremowy mus na bazie banana, gotowy w kilka minut.',
+        mealType: AS,
+        suitableMealTypes: [AS],
+        prepTimeMinutes: 10,
+        nutritionKcal: 600,
+      }),
+    );
+
+    expect(slots).toEqual([AS, S]);
+  });
+
+  it('lekki deser z przekąski wchodzi na podwieczorek i II śniadanie', () => {
+    const slots = resolveSuitableMealTypes(
+      recipe({
+        title: 'Deser jogurtowy z truskawkami',
+        description: 'Jogurt z musem truskawkowym.',
+        mealType: S,
+        suitableMealTypes: [S],
+        prepTimeMinutes: 10,
+        nutritionKcal: 700,
+      }),
+    );
+
+    expect(slots).toEqual([SB, AS, S]);
+  });
+
+  it('progi obowiązują tak samo — dłuższe wypieki nigdzie nie schodzą', () => {
+    const input = recipe({
+      title: 'Sernik na zimno z owocami',
+      description: 'Sernik bez pieczenia, z galaretką owocową.',
+      mealType: AS,
+      suitableMealTypes: [AS],
+      prepTimeMinutes: 40,
+      nutritionKcal: 700,
+    });
+
+    expect(suggestExtraMealTypes(input)).toEqual([]);
+  });
+
+  it('blokery działają też przy bazie przekąskowej — wytrawne nie jest deserem', () => {
+    const slots = resolveSuitableMealTypes(
+      recipe({
+        title: 'Pasta jajeczna ze szczypiorkiem',
+        description: 'Pasta kanapkowa z jajek ze szczypiorkiem.',
+        mealType: S,
+        suitableMealTypes: [S],
+        prepTimeMinutes: 10,
+        nutritionKcal: 700,
+      }),
+    );
+
+    expect(slots).not.toContain(AS);
+    expect(slots).toEqual([SB, S]);
+  });
+
+  it('jest idempotentna także dla bazy przekąskowej', () => {
+    const input = recipe({
+      title: 'Koktajl bananowo-truskawkowy z jogurtem',
+      mealType: S,
+      suitableMealTypes: [S],
+      prepTimeMinutes: 5,
+      nutritionKcal: 508,
+    });
+    const once = resolveSuitableMealTypes(input);
+
+    expect(
+      resolveSuitableMealTypes({ ...input, suitableMealTypes: once }),
+    ).toEqual(once);
+  });
+});
+
 describe('progi liczą się na porcję', () => {
   it('to samo danie na więcej porcji schodzi niżej w slotach', () => {
     const base = {
