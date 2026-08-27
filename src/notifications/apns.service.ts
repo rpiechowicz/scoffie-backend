@@ -74,9 +74,15 @@ export function otherApnsEnvironment(
 export function parseApnsEnvironment(
   value: unknown,
 ): ApnsEnvironment | undefined {
-  const normalized = String(value ?? '')
-    .trim()
-    .toUpperCase();
+  // Tylko string, bez `String(value)`: wartość przychodzi z payloadu socketu,
+  // więc może być czymkolwiek — a `String({})` daje „[object Object]", czyli
+  // napis, który cicho przelatuje przez porównania niżej zamiast odpaść jako
+  // nieznane środowisko. Obiekt i liczba i tak nie są nazwą środowiska APNs,
+  // więc odcięcie ich tutaj niczego nie zabiera.
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const normalized = value.trim().toUpperCase();
   if (normalized === 'SANDBOX' || normalized === 'DEVELOPMENT') {
     return 'SANDBOX';
   }
