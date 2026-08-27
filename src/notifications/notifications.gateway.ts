@@ -6,6 +6,7 @@ import {
   WebSocketGateway,
 } from '@nestjs/websockets';
 import { PushPlatform } from '@prisma/client';
+import { parseApnsEnvironment } from './apns.service';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { NotificationsService } from './notifications.service';
@@ -18,6 +19,8 @@ class NotificationsRegisterDevicePayload {
     deviceToken: string;
     platform?: PushPlatform;
     appBundleId?: string;
+    /** `SANDBOX` (build z Xcode) albo `PRODUCTION` (TestFlight/App Store). */
+    apnsEnvironment?: string;
   };
 }
 
@@ -46,6 +49,7 @@ export class NotificationsGateway
         deviceToken: payload.data?.deviceToken ?? '',
         platform: payload.data?.platform,
         appBundleId: payload.data?.appBundleId,
+        apnsEnvironment: parseApnsEnvironment(payload.data?.apnsEnvironment),
       }),
     );
   }

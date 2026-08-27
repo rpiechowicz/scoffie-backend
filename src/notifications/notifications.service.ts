@@ -1,7 +1,13 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { PushPlatform } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ApnsSendError, ApnsService, PushPayload } from './apns.service';
+import {
+  ApnsEnvironment,
+  ApnsSendError,
+  ApnsService,
+  otherApnsEnvironment,
+  PushPayload,
+} from './apns.service';
 import { NotificationBatcher } from './notification-batcher';
 import { quietHoursDeferralMs } from './quiet-hours.util';
 import {
@@ -127,6 +133,7 @@ export class NotificationsService implements OnModuleDestroy {
     deviceToken: string;
     platform?: PushPlatform;
     appBundleId?: string;
+    apnsEnvironment?: ApnsEnvironment;
   }): Promise<{ success: boolean; pushEnabled: boolean }> {
     const normalizedToken = this.normalizeDeviceToken(params.deviceToken);
     if (!normalizedToken) {
@@ -141,6 +148,12 @@ export class NotificationsService implements OnModuleDestroy {
         platform: params.platform ?? PushPlatform.IOS,
         appBundleId:
           params.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
+        // Token z buildu debugowego działa tylko na hoście sandbox, a z
+        // TestFlight tylko na produkcyjnym. Bez tego pola serwer wysyłał
+        // wszystko pod jeden host z `APNS_USE_SANDBOX` i telefony z drugiego
+        // środowiska dostawały `BadDeviceToken`, po czym ich wpis szedł w
+        // `isActive: false` — czyli cisza aż do końca świata.
+        apnsEnvironment: params.apnsEnvironment ?? null,
         isActive: true,
         lastSeenAt: new Date(),
       },
@@ -149,6 +162,9 @@ export class NotificationsService implements OnModuleDestroy {
         platform: params.platform ?? PushPlatform.IOS,
         appBundleId:
           params.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
+        ...(params.apnsEnvironment
+          ? { apnsEnvironment: params.apnsEnvironment }
+          : {}),
         isActive: true,
         lastSeenAt: new Date(),
       },
@@ -579,7 +595,12 @@ export class NotificationsService implements OnModuleDestroy {
         isActive: true,
         platform: PushPlatform.IOS,
       },
-      select: { id: true, deviceToken: true, appBundleId: true },
+      select: {
+        id: true,
+        deviceToken: true,
+        appBundleId: true,
+        apnsEnvironment: true,
+      },
     });
 
     if (!devices.length) {
@@ -587,34 +608,101 @@ export class NotificationsService implements OnModuleDestroy {
     }
 
     await Promise.all(
-      devices.map(async (device) => {
-        try {
-          await this.apnsService.sendToDevice(
-            device.deviceToken,
-            payload,
-            device.appBundleId,
-          );
-        } catch (error) {
-          if (this.shouldDeactivateToken(error)) {
-            // Głośno, nie po cichu: BadDeviceToken/DeviceTokenNotForTopic
-            // potrafi dotyczyć KAŻDEGO urządzenia naraz (zły APNS_USE_SANDBOX
-            // albo topic z klienta) i bez tego logu wygląda jak „nikt nic
-            // nie planował", a nie jak masowa dezaktywacja.
-            this.logger.warn(
-              `APNs token deactivated (${channel}) tail=${device.deviceToken.slice(-8)}: ${(error as Error).message}`,
-            );
-            await this.prisma.pushDevice.update({
-              where: { id: device.id },
-              data: { isActive: false },
-            });
-            return;
-          }
-          this.logger.warn(
-            `APNs send failed (${channel}) for token tail=${device.deviceToken.slice(-8)}: ${(error as Error).message}`,
-          );
-        }
-      }),
+      devices.map((device) =>
+        this.sendToDevice(
+          {
+            id: device.id,
+            deviceToken: device.deviceToken,
+            appBundleId: device.appBundleId,
+            apnsEnvironment: this.readEnvironment(device.apnsEnvironment),
+          },
+          channel,
+          payload,
+        ),
+      ),
     );
+  }
+
+  /**
+   * Jedno urządzenie, z próbą w drugim środowisku APNs.
+   *
+   * `BadDeviceToken` prawie zawsze znaczy „dobry token, zły host", a nie
+   * „token do wyrzucenia": tak wygląda telefon podpięty do Xcode (sandbox),
+   * który melduje się produkcyjnemu backendowi. Dlatego zanim wpis pójdzie w
+   * `isActive: false`, próbujemy jeszcze raz pod drugim hostem — i jeśli tam
+   * przechodzi, zapisujemy to środowisko, żeby kolejne pushe leciały od razu
+   * dobrze.
+   */
+  private async sendToDevice(
+    device: {
+      id: string;
+      deviceToken: string;
+      appBundleId: string;
+      apnsEnvironment: ApnsEnvironment;
+    },
+    channel: NotificationChannel,
+    payload: PushPayload,
+  ): Promise<void> {
+    const tail = device.deviceToken.slice(-8);
+
+    try {
+      await this.apnsService.sendToDevice(
+        device.deviceToken,
+        payload,
+        device.appBundleId,
+        device.apnsEnvironment,
+      );
+      return;
+    } catch (error) {
+      if (!this.shouldDeactivateToken(error)) {
+        this.logger.warn(
+          `APNs send failed (${channel}) for token tail=${tail}: ${(error as Error).message}`,
+        );
+        return;
+      }
+
+      const fallback = otherApnsEnvironment(device.apnsEnvironment);
+      try {
+        await this.apnsService.sendToDevice(
+          device.deviceToken,
+          payload,
+          device.appBundleId,
+          fallback,
+        );
+        this.logger.log(
+          `APNs token tail=${tail} answers on ${fallback}, not ${device.apnsEnvironment} — saving.`,
+        );
+        await this.prisma.pushDevice.update({
+          where: { id: device.id },
+          data: { apnsEnvironment: fallback },
+        });
+        return;
+      } catch (fallbackError) {
+        if (!this.shouldDeactivateToken(fallbackError)) {
+          this.logger.warn(
+            `APNs send failed (${channel}) for token tail=${tail} on ${fallback}: ${(fallbackError as Error).message}`,
+          );
+          return;
+        }
+      }
+
+      // Głośno, nie po cichu: BadDeviceToken/DeviceTokenNotForTopic potrafi
+      // dotyczyć KAŻDEGO urządzenia naraz (topic z klienta) i bez tego logu
+      // wygląda jak „nikt nic nie planował", a nie jak masowa dezaktywacja.
+      this.logger.warn(
+        `APNs token deactivated (${channel}) tail=${tail}: ${(error as Error).message}`,
+      );
+      await this.prisma.pushDevice.update({
+        where: { id: device.id },
+        data: { isActive: false },
+      });
+    }
+  }
+
+  private readEnvironment(value: string | null): ApnsEnvironment {
+    return value === 'SANDBOX' || value === 'PRODUCTION'
+      ? value
+      : this.apnsService.defaultEnvironment;
   }
 
   private normalizeDeviceToken(token: string): string {

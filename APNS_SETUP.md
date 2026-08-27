@@ -27,8 +27,15 @@ APNS_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----
 
 Notes:
 
-- `APNS_USE_SANDBOX=true` for debug/TestFlight dev flow.
-- `APNS_USE_SANDBOX=false` for production environment.
+- `APNS_USE_SANDBOX` is only a **fallback** for devices registered before the
+  `20260827120000_apns_environment_per_device` migration. Every current build
+  reports its own environment (`data.apnsEnvironment`: `SANDBOX` for Debug,
+  `PRODUCTION` for Release/TestFlight) and the server picks the APNs host per
+  device, so one deployment serves both fleets at once.
+- Set `APNS_USE_SANDBOX=false` in production, `true` locally.
+- A token that answers `BadDeviceToken` is retried once against the other host
+  before its row is deactivated; the working environment is then persisted, so
+  a mismatch heals itself instead of silencing the device forever.
 
 ## 3. iOS app (Xcode)
 
@@ -79,8 +86,9 @@ doesn't.
 
 ### Delivery style
 
-- routine summaries: `interruption-level: passive`, **no sound**,
-  `apns-priority: 5`, 2 h expiration,
+- plan summaries: `interruption-level: active`, sound, `apns-priority: 10`,
+  2 h expiration — and the client shows them as a banner in the foreground too,
+- shopping summaries: quiet, Notification Center only while the app is open,
 - `apns-collapse-id` per household+week — a newer summary replaces the older one
   instead of stacking,
 - `aps.thread-id = household-<id>` groups everything from one household,
