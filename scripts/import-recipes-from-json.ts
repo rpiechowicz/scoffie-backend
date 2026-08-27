@@ -77,6 +77,16 @@ const RECIPE_IMPORT_ID_POOL = process.env.RECIPE_IMPORT_ID_POOL ?? '';
 const RECIPE_IMPORT_ID_POOL_FILE =
   process.env.RECIPE_IMPORT_ID_POOL_FILE ??
   'prisma/catalog/recipes-approved-30-image-ids.txt';
+// Import trafia w istniejący wiersz PO ID, więc plik z id sparowanym z innym
+// daniem nie dodaje przepisu — on go PODMIENIA. Wszystko, co trzyma samo id
+// (pozycje planu, ulubione, cache katalogu w aplikacji, obrazek w R2 nazwany
+// id-em), zostaje wtedy przy starym daniu, a wiersz pod spodem jest już inny:
+// użytkownik stuka kafelek A, a do planu wchodzi B. Dokładnie to zrobił
+// `recipes-catalog-full-v2.json` z posortowaną pulą id nałożoną po indeksie na
+// listę w kolejności tytułów. Zmiana tytułu istniejącego id musi więc być
+// świadoma i głośna, a nie skutkiem ubocznym re-importu.
+const RECIPE_IMPORT_ALLOW_RETITLE =
+  process.env.RECIPE_IMPORT_ALLOW_RETITLE === 'true';
 const RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS =
   process.env.RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS !== 'false';
 const RECIPE_IMPORT_BUILD_R2_IMAGE_URLS =
@@ -481,15 +491,33 @@ async function main(): Promise<void> {
     const existing = incomingRecipeId
       ? await prisma.recipe.findUnique({
           where: { id: incomingRecipeId },
-          select: { id: true, imageUrl: true },
+          select: { id: true, title: true, imageUrl: true },
         })
       : await prisma.recipe.findFirst({
           where: {
             householdId,
             title: recipe.title,
           },
-          select: { id: true, imageUrl: true },
+          select: { id: true, title: true, imageUrl: true },
         });
+
+    // Bramka na podmianę dania pod istniejącym id — patrz komentarz przy
+    // `RECIPE_IMPORT_ALLOW_RETITLE`. Przerywamy CAŁY import, nie pomijamy
+    // wiersza: plik z rozjechaną pulą id psuje zwykle kilkadziesiąt pozycji
+    // naraz, a import w połowie zostawiłby katalog w stanie gorszym niż przed.
+    if (
+      incomingRecipeId &&
+      existing &&
+      existing.title !== recipe.title &&
+      !RECIPE_IMPORT_ALLOW_RETITLE
+    ) {
+      throw new Error(
+        `Recipe id "${incomingRecipeId}" already belongs to "${existing.title}", ` +
+          `import wants to overwrite it with "${recipe.title}". ` +
+          `Popraw id w pliku importu albo ustaw RECIPE_IMPORT_ALLOW_RETITLE=true, ` +
+          `jeśli podmiana dania pod tym id jest zamierzona.`,
+      );
+    }
 
     const resolvedRecipeId = incomingRecipeId ?? existing?.id ?? null;
     const incomingImageUrl =
