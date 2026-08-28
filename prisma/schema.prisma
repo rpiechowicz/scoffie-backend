@@ -150,6 +150,14 @@ model Recipe {
   nutritionFiber        Float      @default(0)
   nutritionSalt         Float      @default(0)
   isActive              Boolean    @default(true)
+  /// Unia alergenów składników (id jak w `UserPreference.allergens`,
+  /// `src/common/allergens.ts`) — liczona przy imporcie, `recipes:create`
+  /// i przez `scripts/load-ingredient-tags.ts`. Puste ≠ „brak danych":
+  /// przepis bez składników rozpoznaje się po `ingredients`, nie po tagach.
+  allergens             String[]   @default([])
+  /// Unia tagów dietetycznych składników (`src/common/diet-tags.ts`:
+  /// MEAT, FISH, DAIRY, EGG, GLUTEN_GRAIN, GRAIN, LEGUME, PROCESSED…).
+  dietTags              String[]   @default([])
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
@@ -166,6 +174,9 @@ model Recipe {
   // GIN — zapytania po slocie idą teraz przez `suitableMealTypes has X`,
   // a B-tree nie obsłuży zawierania w tablicy.
   @@index([suitableMealTypes], type: Gin)
+  // „Bez alergenu X" / „bez tagu Y" to też zawieranie w tablicy.
+  @@index([allergens], type: Gin)
+  @@index([dietTags], type: Gin)
 }
 
 model Ingredient {
@@ -192,6 +203,13 @@ model Ingredient {
 
   /// Skad pochodza powyzsze wartosci, np. "ingredient-nutrition-pl-v1".
   nutritionSource String?
+
+  /// Alergeny składnika — id z `src/common/allergens.ts` (te same, których
+  /// używa `UserPreference.allergens`). Źródło: kuratorowany plik
+  /// prisma/catalog/ingredient-tags-pl-v1.json (`pnpm catalog:ingredients:tags`).
+  allergens String[] @default([])
+  /// Tagi dietetyczne składnika — `src/common/diet-tags.ts`.
+  dietTags  String[] @default([])
 
   aliases           IngredientAlias[]
   recipeIngredients RecipeIngredient[]

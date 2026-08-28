@@ -29,6 +29,8 @@ const oats = {
   category: 'Zboża i makarony',
   ...macros(379, 13.2, 57.6, 6.9, 10.1),
   gramsPerPiece: null,
+  allergens: ['gluten'],
+  dietTags: ['GLUTEN_GRAIN', 'GRAIN'],
 };
 const milk = {
   id: 'ing-milk',
@@ -36,6 +38,8 @@ const milk = {
   category: 'Nabiał',
   ...macros(61, 3.3, 4.7, 3.3, 0),
   gramsPerPiece: null,
+  allergens: ['lactose'],
+  dietTags: ['DAIRY'],
 };
 const banana = {
   id: 'ing-banana',
@@ -43,6 +47,8 @@ const banana = {
   category: 'Owoce',
   ...macros(89, 1.1, 20, 0.3, 2.6),
   gramsPerPiece: 120,
+  allergens: [] as string[],
+  dietTags: [] as string[],
 };
 const bananaNoPiece = { ...banana, id: 'ing-banana-np', gramsPerPiece: null };
 const spice = {
@@ -51,6 +57,8 @@ const spice = {
   category: 'Przyprawy i sosy',
   ...macros(0, 0, 0, 0, 0),
   gramsPerPiece: null,
+  allergens: ['celery'],
+  dietTags: ['PROCESSED'],
 };
 const noMacros = {
   id: 'ing-x',
@@ -58,6 +66,8 @@ const noMacros = {
   category: 'Inne',
   ...macros(null, null, null, null, null),
   gramsPerPiece: null,
+  allergens: [] as string[],
+  dietTags: [] as string[],
 };
 
 const ALL_INGREDIENTS = [oats, milk, banana, bananaNoPiece, spice, noMacros];
@@ -80,13 +90,17 @@ const makePrismaMock = () => {
       }),
     },
     recipe: {
-      create: jest.fn().mockImplementation((args: any) =>
-        Promise.resolve({ id: 'recipe-1', ...args.data, ingredients: [] }),
-      ),
+      create: jest
+        .fn()
+        .mockImplementation((args: any) =>
+          Promise.resolve({ id: 'recipe-1', ...args.data, ingredients: [] }),
+        ),
     },
-    $transaction: jest.fn().mockImplementation((cbOrOps: any) =>
-      typeof cbOrOps === 'function' ? cbOrOps(mock) : Promise.all(cbOrOps),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation((cbOrOps: any) =>
+        typeof cbOrOps === 'function' ? cbOrOps(mock) : Promise.all(cbOrOps),
+      ),
   };
   return mock;
 };
@@ -131,6 +145,18 @@ describe('RecipesService.create', () => {
   });
 
   const createdData = () => prisma.recipe.create.mock.calls[0][0].data;
+
+  it('tagi przepisu to unia tagów składników; do wierszy składników nie trafiają', async () => {
+    await service.create(mockUserId, baseDto({ ingredients: oatsAndMilk }));
+    const data = createdData();
+    expect(data.allergens).toEqual(['gluten', 'lactose']);
+    expect(data.dietTags).toEqual(['DAIRY', 'GLUTEN_GRAIN', 'GRAIN']);
+    for (const row of data.ingredients.create) {
+      expect(row).not.toHaveProperty('allergens');
+      expect(row).not.toHaveProperty('dietTags');
+      expect(row).not.toHaveProperty('nutrition');
+    }
+  });
 
   it('liczy makra ze składników i ignoruje wartości z DTO', async () => {
     await service.create(
@@ -297,7 +323,9 @@ describe('RecipesService.create', () => {
       service.create(
         mockUserId,
         baseDto({
-          ingredients: [{ ingredientId: 'ing-spice', amount: 1, unit: 'garść' }],
+          ingredients: [
+            { ingredientId: 'ing-spice', amount: 1, unit: 'garść' },
+          ],
         }),
       ),
     ).rejects.toMatchObject({
@@ -325,7 +353,9 @@ describe('RecipesService.create', () => {
     const attempt = service.create(
       mockUserId,
       baseDto({
-        ingredients: [{ ingredientId: 'ing-milk', amount: 1, unit: 'łyżeczka' }],
+        ingredients: [
+          { ingredientId: 'ing-milk', amount: 1, unit: 'łyżeczka' },
+        ],
       }),
     );
 
@@ -366,7 +396,10 @@ describe('RecipesService.create', () => {
 
     await expect(
       service.create(mockUserId, baseDto({ ingredients: oatsAndMilk })),
-    ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+    ).rejects.toMatchObject({
+      status: 403,
+      response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+    });
     expect(prisma.ingredient.findMany).not.toHaveBeenCalled();
     expect(prisma.recipe.create).not.toHaveBeenCalled();
   });

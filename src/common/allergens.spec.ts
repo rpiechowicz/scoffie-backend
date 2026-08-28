@@ -40,12 +40,10 @@ describe('normalizeAllergenIds', () => {
     expect(normalizeAllergenIds([])).toEqual([]);
   });
 
-  it.each(['shellfish', 'celery', 'anything', 'GLUTEN_FREE'])(
+  it.each(['shellfish', 'sulphites', 'anything', 'GLUTEN_FREE'])(
     'powinno odrzucić nieznane id %s jako VALIDATION_ERROR',
     (bad) => {
-      expect(() => normalizeAllergenIds(['gluten', bad])).toThrow(
-        AppException,
-      );
+      expect(() => normalizeAllergenIds(['gluten', bad])).toThrow(AppException);
       const error = errorOf(() => normalizeAllergenIds(['gluten', bad]));
       expect(error.getStatus()).toBe(400);
       expect(error.getResponse()).toMatchObject({
@@ -76,7 +74,7 @@ describe('isAllergenId', () => {
     }
   });
 
-  it.each(['Gluten', 'celery', '', null, 42])(
+  it.each(['Gluten', 'shellfish', '', null, 42])(
     'powinno odrzucić %p',
     (value) => {
       expect(isAllergenId(value)).toBe(false);
@@ -92,6 +90,9 @@ describe('isAllergenId', () => {
       'peanuts',
       'fish',
       'soy',
+      'celery',
+      'mustard',
+      'sesame',
     ]);
   });
 });

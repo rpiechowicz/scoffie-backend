@@ -1,0 +1,3966 @@
+{
+  "version": "ingredient-tags-pl-v1",
+  "convention": {
+    "klucz": "normalizedName = normalizeText(nazwa z ingredients-*-pl-v1.txt) — jak w ingredient-nutrition-pl-v1.json",
+    "allergens": "id z src/common/allergens.ts (kontrakt z iOS enum Allergen); oznaczane NADMIAROWO — produkt zwykle zawierający alergen dostaje go; lactose = nabiał zawierający laktozę (bez laktozy/ghee: DAIRY bez lactose); fish obejmuje owoce morza",
+    "dietTags": "id z src/common/diet-tags.ts; gluten⇒GLUTEN_GRAIN⇒GRAIN, lactose⇒DAIRY, eggs⇒EGG, fish⇒FISH, CRUSTACEAN⇒FISH, soy/peanuts⇒LEGUME, NON_FOOD sam; PROCESSED = wysoko przetworzone (paleo)",
+    "edycja": "po zmianie: pnpm catalog:ingredients:tags (idempotentne, przelicza tagi przepisów)"
+  },
+  "ingredients": [
+    {
+      "name": "bakłażan",
+      "normalizedName": "baklazan",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "batat",
+      "normalizedName": "batat",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Batat to bulwa, nie zboże – bez GRAIN."
+    },
+    {
+      "name": "bób",
+      "normalizedName": "bob",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Bób to roślina strączkowa, mimo że kupowany jako świeże warzywo."
+    },
+    {
+      "name": "brokuł",
+      "normalizedName": "brokul",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "brukselka",
+      "normalizedName": "brukselka",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "burak",
+      "normalizedName": "burak",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "cebula",
+      "normalizedName": "cebula",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "cebula czerwona",
+      "normalizedName": "cebula czerwona",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "cebula dymka",
+      "normalizedName": "cebula dymka",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "cukinia",
+      "normalizedName": "cukinia",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "czosnek",
+      "normalizedName": "czosnek",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "dynia",
+      "normalizedName": "dynia",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "fasolka szparagowa",
+      "normalizedName": "fasolka szparagowa",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Fasolka szparagowa to niedojrzały strąk fasoli – zgodnie z konwencją LEGUME."
+    },
+    {
+      "name": "groszek",
+      "normalizedName": "groszek",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Groszek zielony (świeży/mrożony) to strączek – LEGUME, bez PROCESSED."
+    },
+    {
+      "name": "imbir",
+      "normalizedName": "imbir",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "jarmuż",
+      "normalizedName": "jarmuz",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kalafior",
+      "normalizedName": "kalafior",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kalarepa",
+      "normalizedName": "kalarepa",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kapusta biała",
+      "normalizedName": "kapusta biala",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kapusta czerwona",
+      "normalizedName": "kapusta czerwona",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kapusta pekińska",
+      "normalizedName": "kapusta pekinska",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kapusta włoska",
+      "normalizedName": "kapusta wloska",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kukurydza",
+      "normalizedName": "kukurydza",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ],
+      "note": "Kukurydza jest zbożem (GRAIN) także jako świeże/konserwowe ziarno; bezglutenowa, więc bez GLUTEN_GRAIN."
+    },
+    {
+      "name": "marchew",
+      "normalizedName": "marchew",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "natka pietruszki",
+      "normalizedName": "natka pietruszki",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "ogórek",
+      "normalizedName": "ogorek",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "papryka",
+      "normalizedName": "papryka",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "papryka czerwona",
+      "normalizedName": "papryka czerwona",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "papryka zielona",
+      "normalizedName": "papryka zielona",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "papryka żółta",
+      "normalizedName": "papryka zolta",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "pieczarka",
+      "normalizedName": "pieczarka",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "pietruszka korzeń",
+      "normalizedName": "pietruszka korzen",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "pomidor",
+      "normalizedName": "pomidor",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "pomidor koktajlowy",
+      "normalizedName": "pomidor koktajlowy",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "por",
+      "normalizedName": "por",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "roszponka",
+      "normalizedName": "roszponka",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "rukola",
+      "normalizedName": "rukola",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "rzodkiewka",
+      "normalizedName": "rzodkiewka",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "sałata lodowa",
+      "normalizedName": "salata lodowa",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "seler naciowy",
+      "normalizedName": "seler naciowy",
+      "category": "warzywa",
+      "allergens": [
+        "celery"
+      ],
+      "dietTags": [],
+      "note": "Seler naciowy to alergen celery w każdej postaci."
+    },
+    {
+      "name": "szalotka",
+      "normalizedName": "szalotka",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "szczypiorek",
+      "normalizedName": "szczypiorek",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "szpinak",
+      "normalizedName": "szpinak",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "ziemniak",
+      "normalizedName": "ziemniak",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Ziemniak to bulwa, nie zboże – bez GRAIN."
+    },
+    {
+      "name": "ziemniak młody",
+      "normalizedName": "ziemniak mlody",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "koperek",
+      "normalizedName": "koperek",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "seler korzeniowy",
+      "normalizedName": "seler korzeniowy",
+      "category": "warzywa",
+      "allergens": [
+        "celery"
+      ],
+      "dietTags": [],
+      "note": "Seler korzeniowy to alergen celery."
+    },
+    {
+      "name": "ananas",
+      "normalizedName": "ananas",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "arbuz",
+      "normalizedName": "arbuz",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "awokado",
+      "normalizedName": "awokado",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Awokado to owoc bez alergenów z listy; nie jest orzechem."
+    },
+    {
+      "name": "banan",
+      "normalizedName": "banan",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "borówka",
+      "normalizedName": "borowka",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "brzoskwinia",
+      "normalizedName": "brzoskwinia",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "cytryna",
+      "normalizedName": "cytryna",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "czereśnia",
+      "normalizedName": "czeresnia",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "grejpfrut",
+      "normalizedName": "grejpfrut",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "gruszka",
+      "normalizedName": "gruszka",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "jabłko",
+      "normalizedName": "jablko",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "jeżyna",
+      "normalizedName": "jezyna",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kiwi",
+      "normalizedName": "kiwi",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "klementynka",
+      "normalizedName": "klementynka",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "limonka",
+      "normalizedName": "limonka",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "malina",
+      "normalizedName": "malina",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "mandarynka",
+      "normalizedName": "mandarynka",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "mango",
+      "normalizedName": "mango",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "melon",
+      "normalizedName": "melon",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "morela",
+      "normalizedName": "morela",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "nektarynka",
+      "normalizedName": "nektarynka",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "pomarańcza",
+      "normalizedName": "pomarancza",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "pomarańcza czerwona",
+      "normalizedName": "pomarancza czerwona",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "porzeczka czerwona",
+      "normalizedName": "porzeczka czerwona",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "porzeczka czarna",
+      "normalizedName": "porzeczka czarna",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "śliwka",
+      "normalizedName": "sliwka",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "truskawka",
+      "normalizedName": "truskawka",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "winogrono białe",
+      "normalizedName": "winogrono biale",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "winogrono czerwone",
+      "normalizedName": "winogrono czerwone",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "wiśnia",
+      "normalizedName": "wisnia",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "żurawina",
+      "normalizedName": "zurawina",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Traktowana jako świeża/mrożona żurawina; suszona słodzona byłaby PROCESSED, ale nazwa tego nie precyzuje."
+    },
+    {
+      "name": "baleron",
+      "normalizedName": "baleron",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ],
+      "note": "Wędlina peklowana/wędzona — PROCESSED; typowy skład bez alergenów, ale etykieta może wskazywać ślady gorczycy/selera."
+    },
+    {
+      "name": "boczek",
+      "normalizedName": "boczek",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "filet z indyka",
+      "normalizedName": "filet z indyka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "filet z kurczaka",
+      "normalizedName": "filet z kurczaka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "gulasz wołowy",
+      "normalizedName": "gulasz wolowy",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ],
+      "note": "Traktowane jako surowe mięso gulaszowe (kostka wołowa), nie gotowe danie."
+    },
+    {
+      "name": "kabanos",
+      "normalizedName": "kabanos",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "karkówka",
+      "normalizedName": "karkowka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "kaszanka",
+      "normalizedName": "kaszanka",
+      "category": "mieso",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "MEAT",
+        "PROCESSED"
+      ],
+      "note": "Często na kaszy jęczmiennej/pęczaku — gluten oznaczony nadmiarowo (wersje na gryce są bezglutenowe); zawiera krew i podroby."
+    },
+    {
+      "name": "kiełbasa",
+      "normalizedName": "kielbasa",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "kiełbasa biała",
+      "normalizedName": "kielbasa biala",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "kiełbasa chorizo",
+      "normalizedName": "kielbasa chorizo",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "kiełbasa drobiowa",
+      "normalizedName": "kielbasa drobiowa",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "kiełbasa krakowska",
+      "normalizedName": "kielbasa krakowska",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "kiełbasa śląska",
+      "normalizedName": "kielbasa slaska",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "kiełbasa wędzona",
+      "normalizedName": "kielbasa wedzona",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "łopatka wieprzowa",
+      "normalizedName": "lopatka wieprzowa",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "łopatka wieprzowa mielona",
+      "normalizedName": "lopatka wieprzowa mielona",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "mortadela",
+      "normalizedName": "mortadela",
+      "category": "mieso",
+      "allergens": [
+        "soy"
+      ],
+      "dietTags": [
+        "LEGUME",
+        "MEAT",
+        "PROCESSED"
+      ],
+      "note": "Polska mortadela zwykle bez pistacji; włoska mortadella bywa z pistacjami (nuts) — sprawdzić etykietę. | Polska mortadela (Krakus, Sokołów, Morliny) to tania wędlina homogenizowana, w której standardowo występuje białko sojowe — zasada asymetrii nakazuje oznaczyć soy, a soy ⇒ LEGUME."
+    },
+    {
+      "name": "noga z kurczaka",
+      "normalizedName": "noga z kurczaka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "noga z indyka",
+      "normalizedName": "noga z indyka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "parówka",
+      "normalizedName": "parowka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ],
+      "note": "Skład bardzo zmienny — tańsze parówki bywają z białkiem sojowym lub mlecznym, warto sprawdzić etykietę."
+    },
+    {
+      "name": "pasztetowa",
+      "normalizedName": "pasztetowa",
+      "category": "mieso",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "MEAT",
+        "PROCESSED"
+      ],
+      "note": "Wątrobianka zwykle z dodatkiem bułki/mąki pszennej jako spoiwa — gluten nadmiarowo."
+    },
+    {
+      "name": "podudzie z kurczaka",
+      "normalizedName": "podudzie z kurczaka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "polędwica wołowa",
+      "normalizedName": "poledwica wolowa",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "polędwiczka wieprzowa",
+      "normalizedName": "poledwiczka wieprzowa",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "salami",
+      "normalizedName": "salami",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "schab mielony",
+      "normalizedName": "schab mielony",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "schab wieprzowy",
+      "normalizedName": "schab wieprzowy",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "skrzydełko z kurczaka",
+      "normalizedName": "skrzydelko z kurczaka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "szynka",
+      "normalizedName": "szynka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ],
+      "note": "Traktowane jako wędlina (szynka gotowana/wędzona), nie surowy kawałek mięsa."
+    },
+    {
+      "name": "udziec z indyka",
+      "normalizedName": "udziec z indyka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "wędlina drobiowa",
+      "normalizedName": "wedlina drobiowa",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "wędlina wieprzowa",
+      "normalizedName": "wedlina wieprzowa",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "wołowina",
+      "normalizedName": "wolowina",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "wołowina mielona",
+      "normalizedName": "wolowina mielona",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "wieprzowina",
+      "normalizedName": "wieprzowina",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "wieprzowina i wołowina mielona",
+      "normalizedName": "wieprzowina i wolowina mielona",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "wieprzowina mielona",
+      "normalizedName": "wieprzowina mielona",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "wieprzowina mielona chuda",
+      "normalizedName": "wieprzowina mielona chuda",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "kurczak mielony",
+      "normalizedName": "kurczak mielony",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "indyk mielony",
+      "normalizedName": "indyk mielony",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "dorsz",
+      "normalizedName": "dorsz",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ]
+    },
+    {
+      "name": "karp",
+      "normalizedName": "karp",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ]
+    },
+    {
+      "name": "krewetka",
+      "normalizedName": "krewetka",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "CRUSTACEAN",
+        "FISH"
+      ],
+      "note": "Skorupiak — dostaje fish (brak osobnego id alergenu) oraz CRUSTACEAN razem z FISH."
+    },
+    {
+      "name": "łosoś",
+      "normalizedName": "losos",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ]
+    },
+    {
+      "name": "pstrąg",
+      "normalizedName": "pstrag",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ]
+    },
+    {
+      "name": "sandacz",
+      "normalizedName": "sandacz",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ]
+    },
+    {
+      "name": "śledź",
+      "normalizedName": "sledz",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ],
+      "note": "Śledź solony/marynowany bez PROCESSED — tylko wersje panierowane lub gotowe sałatki byłyby przetworzone."
+    },
+    {
+      "name": "tuńczyk",
+      "normalizedName": "tunczyk",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ],
+      "note": "Obejmuje tuńczyka z puszki — bez PROCESSED zgodnie z konwencją."
+    },
+    {
+      "name": "mintaj",
+      "normalizedName": "mintaj",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ]
+    },
+    {
+      "name": "łosoś wędzony",
+      "normalizedName": "losos wedzony",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ],
+      "note": "Wędzenie i solenie bez PROCESSED (konwencja: PROCESSED tylko dla panierowanych/gotowych dań rybnych), choć dla ścisłego paleo to produkt przetworzony."
+    },
+    {
+      "name": "jajko",
+      "normalizedName": "jajko",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "eggs"
+      ],
+      "dietTags": [
+        "EGG"
+      ]
+    },
+    {
+      "name": "jogurt naturalny",
+      "normalizedName": "jogurt naturalny",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "jogurt grecki",
+      "normalizedName": "jogurt grecki",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "jogurt owocowy",
+      "normalizedName": "jogurt owocowy",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Jogurt owocowy to zwykle produkt słodzony cukrem/syropem z dodatkami, dlatego PROCESSED (w odróżnieniu od naturalnego)."
+    },
+    {
+      "name": "jogurt pitny",
+      "normalizedName": "jogurt pitny",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Jogurty pitne w Polsce są niemal zawsze smakowe i słodzone, stąd PROCESSED."
+    },
+    {
+      "name": "kefir",
+      "normalizedName": "kefir",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "masło",
+      "normalizedName": "maslo",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "mleko skondensowane",
+      "normalizedName": "mleko skondensowane",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Domyślnie wersja słodzona (dużo cukru), więc PROCESSED."
+    },
+    {
+      "name": "margaryna",
+      "normalizedName": "margaryna",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Margaryny w kostce (do pieczenia) są zwykle czysto roślinne; jeśli marka zawiera maślankę/serwatkę, sprawdzić etykietę. | Zasada asymetrii: duża część popularnych polskich margaryn do smarowania (Rama, Smakowita, Delma, Bona) deklaruje 'maślankę w proszku (z mleka)' — alergen mleczny powinien być oznaczony nadmiarowo, a lactose ⇒ DAIRY; nota 'sprawdzić etykietę' nie zastępuje tagu w aplikacji."
+    },
+    {
+      "name": "margaryna do smarowania",
+      "normalizedName": "margaryna do smarowania",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Wiele popularnych margaryn kubkowych (miksy z masłem, z maślanką w proszku) zawiera mleko — oznaczone nadmiarowo."
+    },
+    {
+      "name": "maślanka",
+      "normalizedName": "maslanka",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "mleko",
+      "normalizedName": "mleko",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "mleko bez laktozy",
+      "normalizedName": "mleko bez laktozy",
+      "category": "nabial-i-jajko",
+      "allergens": [],
+      "dietTags": [
+        "DAIRY"
+      ],
+      "note": "Produkt bezlaktozowy, ale nadal nabiał zwierzęcy."
+    },
+    {
+      "name": "mleko owsiane",
+      "normalizedName": "mleko owsiane",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Napój z owsa — owies zwykle zanieczyszczony glutenem (o ile nie certyfikowany), stąd gluten nadmiarowo; bez laktozy i bez DAIRY."
+    },
+    {
+      "name": "mleko migdałowe",
+      "normalizedName": "mleko migdalowe",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "nuts"
+      ],
+      "dietTags": [],
+      "note": "Napój roślinny z migdałów — nuts, bez DAIRY i bez GRAIN."
+    },
+    {
+      "name": "mozzarella",
+      "normalizedName": "mozzarella",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser camembert",
+      "normalizedName": "ser camembert",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser cheddar",
+      "normalizedName": "ser cheddar",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser edamski",
+      "normalizedName": "ser edamski",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser feta",
+      "normalizedName": "ser feta",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser gouda",
+      "normalizedName": "ser gouda",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser grillowy",
+      "normalizedName": "ser grillowy",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser halloumi",
+      "normalizedName": "ser halloumi",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser mascarpone",
+      "normalizedName": "ser mascarpone",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "mozzarella tarta",
+      "normalizedName": "mozzarella tarta",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ],
+      "note": "Dodatek przeciwzbrylający to zwykle skrobia ziemniaczana/kukurydziana — bez glutenu."
+    },
+    {
+      "name": "ser parmezan",
+      "normalizedName": "ser parmezan",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ],
+      "note": "Sery długo dojrzewające mają śladową laktozę, ale zgodnie z konwencją wszystkie sery dostają lactose."
+    },
+    {
+      "name": "ser pleśniowy",
+      "normalizedName": "ser plesniowy",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser ricotta",
+      "normalizedName": "ser ricotta",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser twaróg chudy",
+      "normalizedName": "ser twarog chudy",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser twaróg półtłusty",
+      "normalizedName": "ser twarog poltlusty",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser twaróg tłusty",
+      "normalizedName": "ser twarog tlusty",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser żółty",
+      "normalizedName": "ser zolty",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "skyr naturalny",
+      "normalizedName": "skyr naturalny",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "skyr owocowy",
+      "normalizedName": "skyr owocowy",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Wersja owocowa jest słodzona, stąd PROCESSED."
+    },
+    {
+      "name": "śmietana 12",
+      "normalizedName": "smietana 12",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "śmietana 18",
+      "normalizedName": "smietana 18",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "śmietanka 12",
+      "normalizedName": "smietanka 12",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "śmietanka 18",
+      "normalizedName": "smietanka 18",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "śmietanka 30",
+      "normalizedName": "smietanka 30",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "serek homogenizowany",
+      "normalizedName": "serek homogenizowany",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Serki homogenizowane (waniliowe, smakowe) to deser słodzony cukrem, dlatego PROCESSED."
+    },
+    {
+      "name": "serek kremowy",
+      "normalizedName": "serek kremowy",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "serek kanapkowy",
+      "normalizedName": "serek kanapkowy",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "serek wiejski",
+      "normalizedName": "serek wiejski",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "twarożek",
+      "normalizedName": "twarozek",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "bagietka",
+      "normalizedName": "bagietka",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "bułka",
+      "normalizedName": "bulka",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Zwykła bułka pszenna traktowana jako pieczywo białe."
+    },
+    {
+      "name": "bułka grahamka",
+      "normalizedName": "bulka grahamka",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Graham to pieczywo z mąki razowej, nie białe, więc bez PROCESSED."
+    },
+    {
+      "name": "bułka kajzerka",
+      "normalizedName": "bulka kajzerka",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "bułka pełnoziarnista",
+      "normalizedName": "bulka pelnoziarnista",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "chleb",
+      "normalizedName": "chleb",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Ogólny chleb to w Polsce zwykle pszenno-żytni z mąki jasnej; wersje pełnoziarniste są osobnymi pozycjami."
+    },
+    {
+      "name": "chleb tostowy",
+      "normalizedName": "chleb tostowy",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "chleb pełnoziarnisty",
+      "normalizedName": "chleb pelnoziarnisty",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "chleb żytni",
+      "normalizedName": "chleb zytni",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Żyto zawiera gluten (sekalinę), chleb żytni nie jest bezglutenowy."
+    },
+    {
+      "name": "chleb orkiszowy",
+      "normalizedName": "chleb orkiszowy",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Orkisz to odmiana pszenicy i zawiera gluten mimo marketingu 'zdrowej' alternatywy."
+    },
+    {
+      "name": "maca",
+      "normalizedName": "maca",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Maca to tylko mąka pszenna i woda, bez dodatków, więc bez PROCESSED. | Maca to pieczywo z białej mąki pszennej; reguła klasyfikuje pieczywo białe jako PROCESSED (bułka w tej samej partii dostała PROCESSED, maca powinna być spójna)."
+    },
+    {
+      "name": "pita",
+      "normalizedName": "pita",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "rogalik",
+      "normalizedName": "rogalik",
+      "category": "piekarnia",
+      "allergens": [
+        "eggs",
+        "gluten",
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Rogalik piekarniczy (maślany/półfrancuski) zwykle zawiera mleko lub masło i jest smarowany jajkiem, stąd nadmiarowe lactose i eggs."
+    },
+    {
+      "name": "tortilla pszenna",
+      "normalizedName": "tortilla pszenna",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "tortilla pełnoziarnista",
+      "normalizedName": "tortilla pelnoziarnista",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Tortille pakowane to zawsze produkt przemysłowy z emulgatorami i konserwantami, więc PROCESSED mimo mąki pełnoziarnistej."
+    },
+    {
+      "name": "bułka tarta",
+      "normalizedName": "bulka tarta",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "bulgur",
+      "normalizedName": "bulgur",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "ciecierzyca sucha",
+      "normalizedName": "ciecierzyca sucha",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "fasola sucha",
+      "normalizedName": "fasola sucha",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "kasza gryczana",
+      "normalizedName": "kasza gryczana",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ],
+      "note": "Gryka to pseudozboże naturalnie bezglutenowe."
+    },
+    {
+      "name": "kasza jaglana",
+      "normalizedName": "kasza jaglana",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "kasza jęczmienna",
+      "normalizedName": "kasza jeczmienna",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "kasza kuskus",
+      "normalizedName": "kasza kuskus",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "kasza manna",
+      "normalizedName": "kasza manna",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "komosa ryżowa",
+      "normalizedName": "komosa ryzowa",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ],
+      "note": "Quinoa to pseudozboże bezglutenowe."
+    },
+    {
+      "name": "makaron penne",
+      "normalizedName": "makaron penne",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Makaron z semoliny durum, bez jajek w typowej wersji."
+    },
+    {
+      "name": "makaron spaghetti",
+      "normalizedName": "makaron spaghetti",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "makaron świder",
+      "normalizedName": "makaron swider",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Świderki bywają w wersji jajecznej (np. 4-jajeczne), ale standardowe są bez jajek; wersję jajeczną trzeba oznaczać osobno."
+    },
+    {
+      "name": "makaron razowy",
+      "normalizedName": "makaron razowy",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "mąka pszenna",
+      "normalizedName": "maka pszenna",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "mąka pełnoziarnista",
+      "normalizedName": "maka pelnoziarnista",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Przyjęto, że to mąka pszenna razowa (typ 2000), a nie bezglutenowa."
+    },
+    {
+      "name": "mąka ziemniaczana",
+      "normalizedName": "maka ziemniaczana",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Skrobia ziemniaczana nie jest zbożem ani alergenem z listy."
+    },
+    {
+      "name": "płatki kukurydziane",
+      "normalizedName": "platki kukurydziane",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Klasyczne corn flakes w Polsce zawierają ekstrakt słodowy jęczmienny i cukier, stąd gluten i PROCESSED mimo kukurydzianej bazy."
+    },
+    {
+      "name": "płatki owsiane",
+      "normalizedName": "platki owsiane",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Owies zwykły jest zanieczyszczony glutenem; tylko oznaczony owies bezglutenowy byłby bez alergenu."
+    },
+    {
+      "name": "płatki żytnie",
+      "normalizedName": "platki zytnie",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "ryż biały",
+      "normalizedName": "ryz bialy",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "ryż basmati",
+      "normalizedName": "ryz basmati",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "ryż jaśminowy",
+      "normalizedName": "ryz jasminowy",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "ryż brązowy",
+      "normalizedName": "ryz brazowy",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "soczewica czerwona",
+      "normalizedName": "soczewica czerwona",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "soczewica zielona",
+      "normalizedName": "soczewica zielona",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "granola",
+      "normalizedName": "granola",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten",
+        "nuts"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Granola to prażone płatki owsiane z cukrem/syropem i zwykle orzechami lub migdałami, stąd nadmiarowe nuts; wiele wersji zawiera też miód."
+    },
+    {
+      "name": "makaron nitki",
+      "normalizedName": "makaron nitki",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "eggs",
+        "gluten"
+      ],
+      "dietTags": [
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Nitki do rosołu są w Polsce zwykle makaronem jajecznym (2- lub 4-jajeczne), więc nadmiarowo eggs."
+    },
+    {
+      "name": "ryż arborio",
+      "normalizedName": "ryz arborio",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "ananas z puszki",
+      "normalizedName": "ananas z puszki",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Zwykle w syropie cukrowym — dla paleo przetworzony; wersja w soku własnym byłaby bez PROCESSED."
+    },
+    {
+      "name": "brzoskwinia z puszki",
+      "normalizedName": "brzoskwinia z puszki",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Zwykle w syropie cukrowym — dla paleo przetworzony; wersja w soku własnym byłaby bez PROCESSED."
+    },
+    {
+      "name": "bulion drobiowy",
+      "normalizedName": "bulion drobiowy",
+      "category": "konserwy-i-sloiki",
+      "allergens": [
+        "celery"
+      ],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ],
+      "note": "Gotowy bulion/kostka: seler i wzmacniacze smaku; domowy rosół byłby tylko MEAT z celery (włoszczyzna)."
+    },
+    {
+      "name": "bulion warzywny",
+      "normalizedName": "bulion warzywny",
+      "category": "konserwy-i-sloiki",
+      "allergens": [
+        "celery"
+      ],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Gotowy bulion/kostka — seler w składzie i wzmacniacze smaku."
+    },
+    {
+      "name": "ciecierzyca z puszki",
+      "normalizedName": "ciecierzyca z puszki",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "fasola biała z puszki",
+      "normalizedName": "fasola biala z puszki",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "fasola czerwona z puszki",
+      "normalizedName": "fasola czerwona z puszki",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "groszek konserwowy",
+      "normalizedName": "groszek konserwowy",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "kukurydza z puszki",
+      "normalizedName": "kukurydza z puszki",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "koncentrat pomidorowy",
+      "normalizedName": "koncentrat pomidorowy",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "mleko kokosowe z puszki",
+      "normalizedName": "mleko kokosowe z puszki",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Kokos nie jest orzechem ani nabiałem — bez nuts, lactose i DAIRY."
+    },
+    {
+      "name": "ogórek konserwowy",
+      "normalizedName": "ogorek konserwowy",
+      "category": "konserwy-i-sloiki",
+      "allergens": [
+        "mustard"
+      ],
+      "dietTags": [],
+      "note": "Zalewa octowa standardowo z ziarnami gorczycy (alergen deklarowany na etykiecie)."
+    },
+    {
+      "name": "ogórek kiszony",
+      "normalizedName": "ogorek kiszony",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Kiszony w solance z koprem, czosnkiem i chrzanem — bez gorczycy, w odróżnieniu od konserwowego."
+    },
+    {
+      "name": "oliwka czarna",
+      "normalizedName": "oliwka czarna",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "oliwka zielona",
+      "normalizedName": "oliwka zielona",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "passata pomidorowa",
+      "normalizedName": "passata pomidorowa",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "pomidor krojony z puszki",
+      "normalizedName": "pomidor krojony z puszki",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "tuńczyk w puszce",
+      "normalizedName": "tunczyk w puszce",
+      "category": "konserwy-i-sloiki",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ]
+    },
+    {
+      "name": "kapusta kiszona",
+      "normalizedName": "kapusta kiszona",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "zakwas na żurek",
+      "normalizedName": "zakwas na zurek",
+      "category": "konserwy-i-sloiki",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Mąka żytnia — gluten; fermentowany, nie liczymy jako wysoko przetworzony."
+    },
+    {
+      "name": "bazylia suszona",
+      "normalizedName": "bazylia suszona",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "curry",
+      "normalizedName": "curry",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "mustard"
+      ],
+      "dietTags": [],
+      "note": "Polskie mieszanki curry (Kamis, Prymat) zawierają gorczycę."
+    },
+    {
+      "name": "cukier",
+      "normalizedName": "cukier",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "cukier brązowy",
+      "normalizedName": "cukier brazowy",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "cukier puder",
+      "normalizedName": "cukier puder",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "cynamon",
+      "normalizedName": "cynamon",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "czosnek granulowany",
+      "normalizedName": "czosnek granulowany",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "imbir mielony",
+      "normalizedName": "imbir mielony",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "ketchup",
+      "normalizedName": "ketchup",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "kminek",
+      "normalizedName": "kminek",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "koperek suszony",
+      "normalizedName": "koperek suszony",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kurkuma",
+      "normalizedName": "kurkuma",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "liść laurowy",
+      "normalizedName": "lisc laurowy",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "majonez",
+      "normalizedName": "majonez",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "eggs",
+        "mustard"
+      ],
+      "dietTags": [
+        "EGG",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "musztarda",
+      "normalizedName": "musztarda",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "mustard"
+      ],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "ocet jabłkowy",
+      "normalizedName": "ocet jablkowy",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "ocet winny",
+      "normalizedName": "ocet winny",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Alkohol z wina przefermentowany do kwasu octowego — bez ALCOHOL."
+    },
+    {
+      "name": "oregano",
+      "normalizedName": "oregano",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "papryka ostra mielona",
+      "normalizedName": "papryka ostra mielona",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "papryka słodka mielona",
+      "normalizedName": "papryka slodka mielona",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "pieprz czarny",
+      "normalizedName": "pieprz czarny",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "przyprawa uniwersalna",
+      "normalizedName": "przyprawa uniwersalna",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "celery"
+      ],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "rozmaryn suszony",
+      "normalizedName": "rozmaryn suszony",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "sól",
+      "normalizedName": "sol",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "sos pomidorowy",
+      "normalizedName": "sos pomidorowy",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Gotowy sos ze słoika (cukier, olej, skrobia); domowa passata byłaby bez PROCESSED — część gotowych sosów deklaruje seler, sprawdź etykietę."
+    },
+    {
+      "name": "sos sojowy",
+      "normalizedName": "sos sojowy",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "gluten",
+        "soy"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "LEGUME",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "tymianek suszony",
+      "normalizedName": "tymianek suszony",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "zioło angielskie",
+      "normalizedName": "ziolo angielskie",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "majeranek",
+      "normalizedName": "majeranek",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kmin rzymski",
+      "normalizedName": "kmin rzymski",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "masło klarowane",
+      "normalizedName": "maslo klarowane",
+      "category": "olej-i-tluszcz",
+      "allergens": [],
+      "dietTags": [
+        "DAIRY"
+      ],
+      "note": "Ghee jest praktycznie bez laktozy, ale pozostaje produktem mlecznym (DAIRY)."
+    },
+    {
+      "name": "olej kokosowy",
+      "normalizedName": "olej kokosowy",
+      "category": "olej-i-tluszcz",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Kokos nie jest orzechem — bez nuts."
+    },
+    {
+      "name": "olej rzepakowy",
+      "normalizedName": "olej rzepakowy",
+      "category": "olej-i-tluszcz",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "olej słonecznikowy",
+      "normalizedName": "olej slonecznikowy",
+      "category": "olej-i-tluszcz",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "oliwa z oliwek",
+      "normalizedName": "oliwa z oliwek",
+      "category": "olej-i-tluszcz",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "smalec",
+      "normalizedName": "smalec",
+      "category": "olej-i-tluszcz",
+      "allergens": [],
+      "dietTags": [
+        "ANIMAL_OTHER"
+      ],
+      "note": "Wytopiony tłuszcz wieprzowy — zgodnie z konwencją ANIMAL_OTHER, nie MEAT."
+    },
+    {
+      "name": "piwo",
+      "normalizedName": "piwo",
+      "category": "alkohole",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "ALCOHOL",
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Piwo ze słodu jęczmiennego – gluten oznaczamy nadmiarowo, zgodnie z konwencją także GLUTEN_GRAIN i GRAIN."
+    },
+    {
+      "name": "piwo bezalkoholowe",
+      "normalizedName": "piwo bezalkoholowe",
+      "category": "alkohole",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Bez ALCOHOL (wersja bezalkoholowa), ale słód jęczmienny zostaje – gluten."
+    },
+    {
+      "name": "piwo pszeniczne",
+      "normalizedName": "piwo pszeniczne",
+      "category": "alkohole",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "ALCOHOL",
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "piwo lager",
+      "normalizedName": "piwo lager",
+      "category": "alkohole",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "ALCOHOL",
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "piwo smakowe",
+      "normalizedName": "piwo smakowe",
+      "category": "alkohole",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "ALCOHOL",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Radlery i piwa smakowe są zwykle dosładzane cukrem/syropem – dodatkowo PROCESSED."
+    },
+    {
+      "name": "wino czerwone wytrawne",
+      "normalizedName": "wino czerwone wytrawne",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ],
+      "note": "Siarczyny nie są na naszej liście alergenów; klarowanie białkiem jaja/mlekiem nie zostawia zwykle znaczących śladów – bez eggs/lactose."
+    },
+    {
+      "name": "wino czerwone półwytrawne",
+      "normalizedName": "wino czerwone polwytrawne",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "wino czerwone półsłodkie",
+      "normalizedName": "wino czerwone polslodkie",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "wino czerwone słodkie",
+      "normalizedName": "wino czerwone slodkie",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "wino białe wytrawne",
+      "normalizedName": "wino biale wytrawne",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "wino białe półwytrawne",
+      "normalizedName": "wino biale polwytrawne",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "wino białe półsłodkie",
+      "normalizedName": "wino biale polslodkie",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "wino białe słodkie",
+      "normalizedName": "wino biale slodkie",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "prosecco",
+      "normalizedName": "prosecco",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "szampan",
+      "normalizedName": "szampan",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "cydr",
+      "normalizedName": "cydr",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "wódka",
+      "normalizedName": "wodka",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ],
+      "note": "Destylat – nawet ze zboża nie zawiera glutenu, więc bez gluten i bez GRAIN."
+    },
+    {
+      "name": "whisky",
+      "normalizedName": "whisky",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ],
+      "note": "Destylat zbożowy uznawany za bezglutenowy (przepisy UE zwalniają destylaty z oznaczania zbóż) – bez gluten i GRAIN."
+    },
+    {
+      "name": "rum",
+      "normalizedName": "rum",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "gin",
+      "normalizedName": "gin",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "tequila",
+      "normalizedName": "tequila",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "likier",
+      "normalizedName": "likier",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL",
+        "PROCESSED"
+      ],
+      "note": "Ogólny likier to cukier + alkohol (PROCESSED); warianty śmietankowe, orzechowe i jajeczne wymagałyby osobnych wpisów z lactose/nuts/eggs."
+    },
+    {
+      "name": "nalewka",
+      "normalizedName": "nalewka",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ],
+      "note": "Zwykle domowa, owocowa – bez PROCESSED; orzechówka wymagałaby osobnego wpisu z nuts."
+    },
+    {
+      "name": "brandy",
+      "normalizedName": "brandy",
+      "category": "alkohole",
+      "allergens": [],
+      "dietTags": [
+        "ALCOHOL"
+      ]
+    },
+    {
+      "name": "herbata czarna",
+      "normalizedName": "herbata czarna",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "herbata miętowa",
+      "normalizedName": "herbata mietowa",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "herbata owocowa",
+      "normalizedName": "herbata owocowa",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "herbata rumiankowa",
+      "normalizedName": "herbata rumiankowa",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "herbata zielona",
+      "normalizedName": "herbata zielona",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kawa bezkofeinowa",
+      "normalizedName": "kawa bezkofeinowa",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kawa mielona",
+      "normalizedName": "kawa mielona",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kawa rozpuszczalna",
+      "normalizedName": "kawa rozpuszczalna",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Suszony ekstrakt kawy bez dodatków – nie traktujemy jak 'produkt instant' w sensie PROCESSED; kawy 3w1 z mlekiem/cukrem byłyby osobnym wpisem. | Reguła wprost wymienia produkty instant jako PROCESSED; kawa rozpuszczalna to suszony rozpyłowo/liofilizowany ekstrakt, czyli produkt instant — w diecie paleo wykluczany."
+    },
+    {
+      "name": "kawa ziarnista",
+      "normalizedName": "kawa ziarnista",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "napój energetyczny",
+      "normalizedName": "napoj energetyczny",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "napój izotoniczny",
+      "normalizedName": "napoj izotoniczny",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "napój tonic",
+      "normalizedName": "napoj tonic",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Napój słodzony z chininą – PROCESSED."
+    },
+    {
+      "name": "pepsi",
+      "normalizedName": "pepsi",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "sprite",
+      "normalizedName": "sprite",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "sok jabłkowy",
+      "normalizedName": "sok jablkowy",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Sok 100% bez dodatku cukru – nie liczymy jako PROCESSED."
+    },
+    {
+      "name": "sok marchwiowy",
+      "normalizedName": "sok marchwiowy",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Czysty sok z marchwi – bez celery; mieszanki marchwiowo-selerowe wymagałyby osobnego wpisu."
+    },
+    {
+      "name": "sok pomarańczowy",
+      "normalizedName": "sok pomaranczowy",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "woda gazowana",
+      "normalizedName": "woda gazowana",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "woda niegazowana",
+      "normalizedName": "woda niegazowana",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "baton białkowy",
+      "normalizedName": "baton bialkowy",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "gluten",
+        "lactose",
+        "nuts",
+        "peanuts",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Skład bardzo zmienny (białka mleka, soja, orzechy/orzeszki ziemne, często owies lub pszenica) — oznaczone nadmiarowo."
+    },
+    {
+      "name": "baton czekoladowy",
+      "normalizedName": "baton czekoladowy",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "eggs",
+        "gluten",
+        "lactose",
+        "nuts",
+        "peanuts",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Typowe batony (Mars, Snickers, Lion) zawierają mleko, lecytynę sojową, słód/wafel pszenny, orzechy i białko jaja — nadmiarowo."
+    },
+    {
+      "name": "baton musli",
+      "normalizedName": "baton musli",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "gluten",
+        "lactose",
+        "nuts",
+        "peanuts",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Owies daje gluten; polewa mleczna, orzechy i orzeszki ziemne częste — nadmiarowo."
+    },
+    {
+      "name": "biszkopt",
+      "normalizedName": "biszkopt",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "eggs",
+        "gluten"
+      ],
+      "dietTags": [
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "chrupka kukurydziana",
+      "normalizedName": "chrupka kukurydziana",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Klasyczna wersja bez alergenów; chrupki orzechowe typu Flips zawierają orzeszki ziemne."
+    },
+    {
+      "name": "ciastko",
+      "normalizedName": "ciastko",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "eggs",
+        "gluten",
+        "lactose",
+        "nuts",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Ciastko generyczne: mąka pszenna, jajko, masło/mleko, lecytyna sojowa, często orzechy — nadmiarowo."
+    },
+    {
+      "name": "ciastko owsiane",
+      "normalizedName": "ciastko owsiane",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "eggs",
+        "gluten",
+        "lactose",
+        "nuts",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Owies i zwykle mąka pszenna dają gluten; jajko, masło, orzechy i lecytyna sojowa częste — nadmiarowo."
+    },
+    {
+      "name": "czekolada gorzka",
+      "normalizedName": "czekolada gorzka",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "soy"
+      ],
+      "dietTags": [
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Lecytyna sojowa; typowa gorzka bez mleka w składzie (tylko 'może zawierać')."
+    },
+    {
+      "name": "czekolada mleczna",
+      "normalizedName": "czekolada mleczna",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "lactose",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "LEGUME",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "czekolada nadziewana",
+      "normalizedName": "czekolada nadziewana",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "gluten",
+        "lactose",
+        "nuts",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Nadzienia często orzechowe lub z wafelkiem pszennym, część z alkoholem — nadmiarowo."
+    },
+    {
+      "name": "chips ziemniaczany",
+      "normalizedName": "chips ziemniaczany",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Najpopularniejsze wersje smakowe (paprykowe, serowe, cebulowe) zawierają serwatkę/mleko w proszku; solone są bez nabiału."
+    },
+    {
+      "name": "chips kukurydziany",
+      "normalizedName": "chips kukurydziany",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Klasyczne nachos to kukurydza, olej i sól; wersje smakowe typu Doritos mogą zawierać mleko."
+    },
+    {
+      "name": "draże czekoladowe",
+      "normalizedName": "draze czekoladowe",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "lactose",
+        "nuts",
+        "peanuts",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Rdzeń często z orzechów lub orzeszków ziemnych — nadmiarowo."
+    },
+    {
+      "name": "krakers",
+      "normalizedName": "krakers",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Wersje sezamowe lub serowe dodają sezam lub mleko — sprawdź etykietę."
+    },
+    {
+      "name": "orzeszek ziemny",
+      "normalizedName": "orzeszek ziemny",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "peanuts"
+      ],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "orzech laskowy",
+      "normalizedName": "orzech laskowy",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "nuts"
+      ],
+      "dietTags": []
+    },
+    {
+      "name": "orzech włoski",
+      "normalizedName": "orzech wloski",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "nuts"
+      ],
+      "dietTags": []
+    },
+    {
+      "name": "paluszek słony",
+      "normalizedName": "paluszek slony",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "popcorn",
+      "normalizedName": "popcorn",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Jako gotowa przekąska (mikrofalowa/solona) traktowany jako przetworzony; wersje maślane mogą zawierać mleko."
+    },
+    {
+      "name": "precel",
+      "normalizedName": "precel",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "ptasie mleczko",
+      "normalizedName": "ptasie mleczko",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "lactose",
+        "soy"
+      ],
+      "dietTags": [
+        "ANIMAL_OTHER",
+        "DAIRY",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Pianka na żelatynie wieprzowej (nie wegetariańskie); jajo w produkcie Wedla tylko jako 'może zawierać'."
+    },
+    {
+      "name": "rodzynka",
+      "normalizedName": "rodzynka",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "sezam",
+      "normalizedName": "sezam",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "sesame"
+      ],
+      "dietTags": []
+    },
+    {
+      "name": "słonecznik łuszczony",
+      "normalizedName": "slonecznik luszczony",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "wafel czekoladowy",
+      "normalizedName": "wafel czekoladowy",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "gluten",
+        "lactose",
+        "nuts",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Wafel pszenny, mleko w polewie, lecytyna sojowa; orzechy częste w nadzieniu — nadmiarowo."
+    },
+    {
+      "name": "wafel ryżowy",
+      "normalizedName": "wafel ryzowy",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ],
+      "note": "Dmuchany ryż z solą — nie liczymy jako wysoko przetworzony; wersje w czekoladzie miałyby mleko."
+    },
+    {
+      "name": "żelka",
+      "normalizedName": "zelka",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": [
+        "ANIMAL_OTHER",
+        "PROCESSED"
+      ],
+      "note": "Żelatyna wieprzowa/wołowa (istnieją też wersje na pektynie)."
+    },
+    {
+      "name": "pestki dyni",
+      "normalizedName": "pestki dyni",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "brokuł mrożony",
+      "normalizedName": "brokul mrozony",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "fasolka szparagowa mrożona",
+      "normalizedName": "fasolka szparagowa mrozona",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "frytka mrożona",
+      "normalizedName": "frytka mrozona",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Typowe frytki to ziemniak + olej (bez glutenu); część marek ma powłokę z mąki pszennej — wtedy etykieta wskaże gluten."
+    },
+    {
+      "name": "groszek mrożony",
+      "normalizedName": "groszek mrozony",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ]
+    },
+    {
+      "name": "jagoda mrożona",
+      "normalizedName": "jagoda mrozona",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "kalafior mrożony",
+      "normalizedName": "kalafior mrozony",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "mieszanka chińska mrożona",
+      "normalizedName": "mieszanka chinska mrozona",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Zawiera fasolkę szparagową i kiełki fasoli mung — LEGUME; mini-kukurydza traktowana jak warzywo, bez GRAIN."
+    },
+    {
+      "name": "mieszanka warzywna mrożona",
+      "normalizedName": "mieszanka warzywna mrozona",
+      "category": "mrozonka",
+      "allergens": [
+        "celery"
+      ],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Klasyczna mieszanka 7-składnikowa zawiera seler korzeniowy (celery) i groszek (LEGUME)."
+    },
+    {
+      "name": "szpinak mrożony",
+      "normalizedName": "szpinak mrozony",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "truskawka mrożona",
+      "normalizedName": "truskawka mrozona",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "warzywo na patelnię mrożone",
+      "normalizedName": "warzywo na patelnie mrozone",
+      "category": "mrozonka",
+      "allergens": [
+        "celery"
+      ],
+      "dietTags": [
+        "GRAIN",
+        "LEGUME"
+      ],
+      "note": "Mieszanki z olejem i przyprawami — seler nadmiarowo (mieszanki przyprawowe), kukurydza w ziarnach → GRAIN, fasolka/groszek → LEGUME; wersje 'po chińsku' z sosem mogą dodatkowo zawierać soję i gluten."
+    },
+    {
+      "name": "budyń",
+      "normalizedName": "budyn",
+      "category": "cukiernia",
+      "allergens": [
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Budyń gotowy jest na mleku, a część proszków zawiera mleko w proszku; nadmiarowo lactose."
+    },
+    {
+      "name": "ciasto kruche",
+      "normalizedName": "ciasto kruche",
+      "category": "cukiernia",
+      "allergens": [
+        "eggs",
+        "gluten",
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Klasyczne ciasto kruche to mąka pszenna, masło i żółtka; wersja gotowa ze sklepu jest produktem przetworzonym."
+    },
+    {
+      "name": "drożdże",
+      "normalizedName": "drozdze",
+      "category": "cukiernia",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Drożdże to grzyby, nie zboże i nie alergen z listy."
+    },
+    {
+      "name": "drożdżówka",
+      "normalizedName": "drozdzowka",
+      "category": "cukiernia",
+      "allergens": [
+        "eggs",
+        "gluten",
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "galaretka",
+      "normalizedName": "galaretka",
+      "category": "cukiernia",
+      "allergens": [],
+      "dietTags": [
+        "ANIMAL_OTHER",
+        "PROCESSED"
+      ],
+      "note": "Galaretka w proszku jest na żelatynie wieprzowej, stąd ANIMAL_OTHER; wersje na agarze są wyjątkiem."
+    },
+    {
+      "name": "kisiel",
+      "normalizedName": "kisiel",
+      "category": "cukiernia",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Kisiel to skrobia ziemniaczana z cukrem i aromatem, bez zboża i bez nabiału."
+    },
+    {
+      "name": "muffin",
+      "normalizedName": "muffin",
+      "category": "cukiernia",
+      "allergens": [
+        "eggs",
+        "gluten",
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "pączek",
+      "normalizedName": "paczek",
+      "category": "cukiernia",
+      "allergens": [
+        "eggs",
+        "gluten",
+        "lactose"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Ciasto drożdżowe na mleku, maśle i żółtkach; tradycyjnie smażony na smalcu, ale tego nie tagujemy jako pewnik."
+    },
+    {
+      "name": "proszek do pieczenia",
+      "normalizedName": "proszek do pieczenia",
+      "category": "cukiernia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Dominujący w Polsce proszek do pieczenia (Dr. Oetker) ma jako nośnik mąkę pszenną, stąd nadmiarowo gluten; wersje na skrobi kukurydzianej są bezglutenowe."
+    },
+    {
+      "name": "kakao",
+      "normalizedName": "kakao",
+      "category": "cukiernia",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Naturalne kakao w proszku traktowane jak przyprawa, bez PROCESSED; kakao słodzone typu instant byłoby PROCESSED z lactose."
+    },
+    {
+      "name": "folia aluminiowa",
+      "normalizedName": "folia aluminiowa",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "gąbka do naczyń",
+      "normalizedName": "gabka do naczyn",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "odkamieniacz do czajnika",
+      "normalizedName": "odkamieniacz do czajnika",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "papier do pieczenia",
+      "normalizedName": "papier do pieczenia",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "papier toaletowy",
+      "normalizedName": "papier toaletowy",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "płyn do czyszczenia łazienki",
+      "normalizedName": "plyn do czyszczenia lazienki",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "płyn do czyszczenia wc",
+      "normalizedName": "plyn do czyszczenia wc",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "płyn do mycia naczyń",
+      "normalizedName": "plyn do mycia naczyn",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "płyn do podłogi",
+      "normalizedName": "plyn do podlogi",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "płyn do szyb",
+      "normalizedName": "plyn do szyb",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "płyn do szyb łazienkowych",
+      "normalizedName": "plyn do szyb lazienkowych",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "płyn do dezynfekcji",
+      "normalizedName": "plyn do dezynfekcji",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "płyn do płukania",
+      "normalizedName": "plyn do plukania",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "preparat do kamienia",
+      "normalizedName": "preparat do kamienia",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "proszek do prania",
+      "normalizedName": "proszek do prania",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "ścierka z mikrofibry",
+      "normalizedName": "scierka z mikrofibry",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "ręcznik papierowy",
+      "normalizedName": "recznik papierowy",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "ścierka kuchenna",
+      "normalizedName": "scierka kuchenna",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "tabletka do zmywarki",
+      "normalizedName": "tabletka do zmywarki",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "żel do wc",
+      "normalizedName": "zel do wc",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "żel pod prysznic",
+      "normalizedName": "zel pod prysznic",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "szampon",
+      "normalizedName": "szampon",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "mydło w płynie",
+      "normalizedName": "mydlo w plynie",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "mydło w kostce",
+      "normalizedName": "mydlo w kostce",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "chusteczka nawilżana",
+      "normalizedName": "chusteczka nawilzana",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "patyczek higieniczny",
+      "normalizedName": "patyczek higieniczny",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "wkład do mopa",
+      "normalizedName": "wklad do mopa",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "worek na śmieci",
+      "normalizedName": "worek na smieci",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ]
+    },
+    {
+      "name": "worek śniadaniowy",
+      "normalizedName": "worek sniadaniowy",
+      "category": "chemia-i-gospodarstwo",
+      "allergens": [],
+      "dietTags": [
+        "NON_FOOD"
+      ],
+      "note": "Torebka foliowa na kanapki, nie produkt spożywczy – NON_FOOD."
+    },
+    {
+      "name": "białko w proszku",
+      "normalizedName": "bialko w proszku",
+      "category": "inne",
+      "allergens": [
+        "lactose",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Domyślnie odżywka serwatkowa (WPC) z laktozą i lecytyną sojową — oznaczone nadmiarowo; izolaty i białka roślinne wymagałyby osobnego wpisu. | Reguła spójności soy ⇒ LEGUME: wiersz ma alergen soy (lecytyna sojowa), ale brakuje tagu LEGUME — inne wiersze z soy (baton białkowy, ciastko owsiane, wafel czekoladowy, draże) mają LEGUME, więc to niespójność."
+    },
+    {
+      "name": "drożdże instant",
+      "normalizedName": "drozdze instant",
+      "category": "inne",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Drożdże suszone same w sobie nie zawierają glutenu ani innych alergenów z listy."
+    },
+    {
+      "name": "kolagen spożywczy",
+      "normalizedName": "kolagen spozywczy",
+      "category": "inne",
+      "allergens": [],
+      "dietTags": [
+        "ANIMAL_OTHER"
+      ],
+      "note": "Zwykle kolagen wołowy lub wieprzowy; wersje rybie wymagają dodania fish przy konkretnym produkcie."
+    },
+    {
+      "name": "syrop klonowy",
+      "normalizedName": "syrop klonowy",
+      "category": "inne",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Produkt naturalny, ale zgodnie z konwencją syropy/cukry trafiają do PROCESSED."
+    },
+    {
+      "name": "żelatyna",
+      "normalizedName": "zelatyna",
+      "category": "inne",
+      "allergens": [],
+      "dietTags": [
+        "ANIMAL_OTHER"
+      ]
+    },
+    {
+      "name": "masło orzechowe",
+      "normalizedName": "maslo orzechowe",
+      "category": "inne",
+      "allergens": [
+        "peanuts"
+      ],
+      "dietTags": [
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Klasyczne masło z orzeszków ziemnych z cukrem, solą i olejem palmowym — peanuts + LEGUME; PROCESSED, bo wersja 100% orzechów to wyjątek."
+    },
+    {
+      "name": "miód",
+      "normalizedName": "miod",
+      "category": "inne",
+      "allergens": [],
+      "dietTags": [
+        "ANIMAL_OTHER"
+      ]
+    },
+    {
+      "name": "nasiona chia",
+      "normalizedName": "nasiona chia",
+      "category": "inne",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Nasiona szałwii hiszpańskiej — nie są orzechem ani zbożem, bez nuts i bez GRAIN."
+    },
+    {
+      "name": "hummus",
+      "normalizedName": "hummus",
+      "category": "inne",
+      "allergens": [
+        "sesame"
+      ],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Ciecierzyca (LEGUME) z tahini (sesame); skład to produkty nieprzetworzone, więc bez PROCESSED."
+    }
+  ]
+}

@@ -44,6 +44,8 @@ docker compose exec api pnpm exec tsx scripts/backfill-recipe-image-urls-from-r2
 
 // LOAD INGREDIENT CATALOG (from prisma/catalog/*.txt)
 docker compose exec api pnpm run catalog:ingredients:load
+// tagi składników (alergeny + dietTags) z prisma/catalog/ingredient-tags-pl-v1.json + przeliczenie tagów przepisów (idempotentne; po każdej korekcie pliku)
+docker compose exec api pnpm run catalog:ingredients:tags
 
 // IMPORT RECIPES FROM JSON (uses RECIPE_IMPORT_* env vars)
 docker compose exec api pnpm run recipes:import:json
