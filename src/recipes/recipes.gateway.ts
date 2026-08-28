@@ -1,4 +1,5 @@
 import {
+  ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -8,6 +9,9 @@ import {
 } from '@nestjs/websockets';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
+import { actorId } from '../common/ws-socket';
+import type { AppSocket } from '../common/ws-socket';
+import { broadcastToHousehold } from '../common/ws-rooms';
 import { RecipesService } from './recipes.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
@@ -16,24 +20,28 @@ import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
 class RecipesFindAllPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   householdId?: string;
   filters?: FindRecipesDto;
 }
 
 class RecipesFindByIdPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   id: string;
   householdId?: string;
 }
 
 class RecipesCreatePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   data: CreateRecipeDto;
 }
 
 class RecipesSetFavoritePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   data: UpdateRecipeFavoriteDto;
 }
 
@@ -58,17 +66,23 @@ export class RecipesGateway
   }
 
   @SubscribeMessage('recipes:findAll')
-  findAll(@MessageBody() payload: RecipesFindAllPayload) {
+  findAll(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesFindAllPayload,
+  ) {
     return wsRespond(() =>
-      this.recipesService.findAll(payload.userId, payload.filters),
+      this.recipesService.findAll(actorId(client, payload), payload.filters),
     );
   }
 
   @SubscribeMessage('recipes:findById')
-  findById(@MessageBody() payload: RecipesFindByIdPayload) {
+  findById(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesFindByIdPayload,
+  ) {
     return wsRespond(() =>
       this.recipesService.findById(
-        payload.userId,
+        actorId(client, payload),
         payload.id,
         payload.householdId,
       ),
@@ -76,25 +90,37 @@ export class RecipesGateway
   }
 
   @SubscribeMessage('recipes:create')
-  create(@MessageBody() payload: RecipesCreatePayload) {
+  create(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesCreatePayload,
+  ) {
     return wsRespond(() =>
-      this.recipesService.create(payload.userId, payload.data),
+      this.recipesService.create(actorId(client, payload), payload.data),
     );
   }
 
   @SubscribeMessage('recipes:setFavorite')
-  setFavorite(@MessageBody() payload: RecipesSetFavoritePayload) {
+  setFavorite(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesSetFavoritePayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
       const result = await this.recipesService.setFavorite(
-        payload.userId,
+        userId,
         payload.data,
       );
-      this.server.emit('recipes:favoritesChanged', {
-        householdId: payload.data.householdId,
-        recipeId: payload.data.recipeId,
-        isFavorite: payload.data.isFavorite,
-        changedByUserId: payload.userId,
-      });
+      broadcastToHousehold(
+        this.server,
+        payload.data.householdId,
+        'recipes:favoritesChanged',
+        {
+          householdId: payload.data.householdId,
+          recipeId: payload.data.recipeId,
+          isFavorite: payload.data.isFavorite,
+          changedByUserId: userId,
+        },
+      );
       return result;
     });
   }

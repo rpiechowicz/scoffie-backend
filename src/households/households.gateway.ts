@@ -1,4 +1,5 @@
 import {
+  ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -8,6 +9,13 @@ import {
 } from '@nestjs/websockets';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
+import type { AppSocket } from '../common/ws-socket';
+import { actorId } from '../common/ws-socket';
+import {
+  broadcastToHousehold,
+  joinHousehold,
+  leaveHousehold,
+} from '../common/ws-rooms';
 import { HouseholdsService } from './households.service';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { CreateHouseholdDto } from './dto/create-household.dto';
@@ -21,78 +29,92 @@ import { WsTelemetryService } from '../common/ws-telemetry.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 class HouseholdsUserPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
 }
 
 class HouseholdsFindByIdPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   id: string;
 }
 
 class HouseholdsCreatePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   data: CreateHouseholdDto;
 }
 
 class HouseholdsCreateInvitationPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   householdId: string;
   data: CreateInvitationDto;
 }
 
 class HouseholdsAcceptInvitationPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   data: AcceptInvitationDto;
 }
 
 class HouseholdsPreviewInvitationPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   data: AcceptInvitationDto;
 }
 
 class HouseholdsDeclineInvitationPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   data: AcceptInvitationDto;
 }
 
 class HouseholdsUpdateNamePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   householdId: string;
   data: UpdateHouseholdDto;
 }
 
 class HouseholdsUpdateMealTypesPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   householdId: string;
   data: UpdateHouseholdMealTypesDto;
 }
 
 class HouseholdsUpdateMealTimesPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   householdId: string;
   data: UpdateHouseholdMealTimesDto;
 }
 
 class HouseholdsListMembersPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   householdId: string;
 }
 
 class HouseholdsUpdateMemberRolePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   householdId: string;
   memberUserId: string;
   data: UpdateMemberRoleDto;
 }
 
 class HouseholdsRemoveMemberPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   householdId: string;
   memberUserId: string;
 }
 
 class HouseholdsLeavePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   householdId: string;
 }
 
@@ -140,13 +162,18 @@ export class HouseholdsGateway
       members = undefined;
     }
 
-    this.server.emit('households:membersChanged', {
-      householdId: input.householdId,
-      action: input.action,
-      changedByUserId: input.changedByUserId,
-      changedByDisplayName: input.changedByDisplayName ?? null,
-      ...(members ? { members } : {}),
-    });
+    broadcastToHousehold(
+      this.server,
+      input.householdId,
+      'households:membersChanged',
+      {
+        householdId: input.householdId,
+        action: input.action,
+        changedByUserId: input.changedByUserId,
+        changedByDisplayName: input.changedByDisplayName ?? null,
+        ...(members ? { members } : {}),
+      },
+    );
   }
 
   /**
@@ -167,24 +194,34 @@ export class HouseholdsGateway
   }): void {
     for (const { householdId, weekStart } of input.weeks) {
       const changeVersion = Date.now();
-      this.server.emit('weeklyPlans:weekChanged', {
+      broadcastToHousehold(
+        this.server,
         householdId,
-        weekStart,
-        action: 'MEMBERSHIP_CHANGED',
-        changedByUserId: input.changedByUserId,
-        changedByDisplayName: input.changedByDisplayName ?? null,
-        changeVersion,
-      });
-      this.server.emit('weeklyPlans:shoppingListChanged', {
+        'weeklyPlans:weekChanged',
+        {
+          householdId,
+          weekStart,
+          action: 'MEMBERSHIP_CHANGED',
+          changedByUserId: input.changedByUserId,
+          changedByDisplayName: input.changedByDisplayName ?? null,
+          changeVersion,
+        },
+      );
+      broadcastToHousehold(
+        this.server,
         householdId,
-        weekStart,
-        action: 'MEMBERSHIP_CHANGED',
-        changedByUserId: input.changedByUserId,
-        changedByDisplayName: input.changedByDisplayName ?? null,
-        productKey: null,
-        isChecked: null,
-        changeVersion,
-      });
+        'weeklyPlans:shoppingListChanged',
+        {
+          householdId,
+          weekStart,
+          action: 'MEMBERSHIP_CHANGED',
+          changedByUserId: input.changedByUserId,
+          changedByDisplayName: input.changedByDisplayName ?? null,
+          productKey: null,
+          isChecked: null,
+          changeVersion,
+        },
+      );
     }
   }
 
@@ -197,30 +234,42 @@ export class HouseholdsGateway
   }
 
   @SubscribeMessage('households:findAll')
-  findAll(@MessageBody() payload: HouseholdsUserPayload) {
-    return wsRespond(() => this.householdsService.findAll(payload.userId));
+  findAll(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsUserPayload,
+  ) {
+    return wsRespond(() =>
+      this.householdsService.findAll(actorId(client, payload)),
+    );
   }
 
   @SubscribeMessage('households:findById')
-  findById(@MessageBody() payload: HouseholdsFindByIdPayload) {
+  findById(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsFindByIdPayload,
+  ) {
     return wsRespond(() =>
-      this.householdsService.findById(payload.userId, payload.id),
+      this.householdsService.findById(actorId(client, payload), payload.id),
     );
   }
 
   @SubscribeMessage('households:create')
-  create(@MessageBody() payload: HouseholdsCreatePayload) {
+  create(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsCreatePayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
       const changedByDisplayName =
-        await this.householdsService.getUserDisplayName(payload.userId);
-      const result = await this.householdsService.create(
-        payload.userId,
-        payload.data,
-      );
+        await this.householdsService.getUserDisplayName(userId);
+      const result = await this.householdsService.create(userId, payload.data);
+      // Założyciel wchodzi do pokoju domu PRZED rozgłoszeniem — inaczej jego
+      // własne sockety (a iOS trzyma ich kilka) nie dostałyby `membersChanged`.
+      joinHousehold(this.server, userId, result.id);
       await this.emitMembersChanged({
         householdId: result.id,
         action: 'CREATE_HOUSEHOLD',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
       return result;
@@ -228,10 +277,13 @@ export class HouseholdsGateway
   }
 
   @SubscribeMessage('households:createInvitation')
-  createInvitation(@MessageBody() payload: HouseholdsCreateInvitationPayload) {
+  createInvitation(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsCreateInvitationPayload,
+  ) {
     return wsRespond(() =>
       this.householdsService.createInvitation(
-        payload.userId,
+        actorId(client, payload),
         payload.householdId,
         payload.data,
       ),
@@ -239,23 +291,30 @@ export class HouseholdsGateway
   }
 
   @SubscribeMessage('households:acceptInvitation')
-  acceptInvitation(@MessageBody() payload: HouseholdsAcceptInvitationPayload) {
+  acceptInvitation(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsAcceptInvitationPayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
       const changedByDisplayName =
-        await this.householdsService.getUserDisplayName(payload.userId);
+        await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.acceptInvitation(
-        payload.userId,
+        userId,
         payload.data,
       );
+      // JOIN przed emitem: nowy domownik ma dostać `membersChanged` nowego
+      // domu na wszystkich swoich socketach.
+      joinHousehold(this.server, userId, result.householdId);
       await this.emitMembersChanged({
         householdId: result.householdId,
         action: 'ACCEPT_INVITATION',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
       this.emitPlanTouched({
         weeks: result.touchedWeeks,
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
 
@@ -267,17 +326,23 @@ export class HouseholdsGateway
         await this.emitMembersChanged({
           householdId: leftHouseholdId,
           action: 'LEAVE',
-          changedByUserId: payload.userId,
+          changedByUserId: userId,
           changedByDisplayName,
         });
         void this.notificationsService
           .notifyHouseholdMembershipChanged({
             householdId: leftHouseholdId,
-            actorUserId: payload.userId,
+            actorUserId: userId,
             actorDisplayName: changedByDisplayName,
             action: 'LEFT',
           })
           .catch(() => undefined);
+      }
+
+      // LEAVE dopiero po emitach: iOS rozpoznaje „wyszedłem" po braku
+      // własnego id w `members` z `membersChanged`, więc musi je jeszcze dostać.
+      for (const leftHouseholdId of result.leftHouseholdIds) {
+        leaveHousehold(this.server, userId, leftHouseholdId);
       }
 
       // Push do pozostałych domowników. Dotąd nie było go w ogóle: właściciel
@@ -289,13 +354,13 @@ export class HouseholdsGateway
       // Bez `await` na całości: nazwa gospodarstwa jest tylko ozdobą treści,
       // a odpowiedź na `households:acceptInvitation` nie ma na nią czekać.
       void this.householdsService
-        .findById(payload.userId, result.householdId)
+        .findById(userId, result.householdId)
         .then((household) => household?.name ?? null)
         .catch(() => null)
         .then((householdName) =>
           this.notificationsService.notifyHouseholdMembershipChanged({
             householdId: result.householdId,
-            actorUserId: payload.userId,
+            actorUserId: userId,
             actorDisplayName: changedByDisplayName,
             householdName,
             action: 'JOINED',
@@ -309,11 +374,13 @@ export class HouseholdsGateway
 
   @SubscribeMessage('households:previewInvitation')
   previewInvitation(
+    @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: HouseholdsPreviewInvitationPayload,
   ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
       const preview = await this.householdsService.previewInvitation(
-        payload.userId,
+        userId,
         payload.data,
       );
 
@@ -323,7 +390,7 @@ export class HouseholdsGateway
       if (preview.addedToInbox && preview.household) {
         void this.notificationsService
           .notifyHouseholdInvitation({
-            invitedUserId: payload.userId,
+            invitedUserId: userId,
             householdId: preview.household.id,
             householdName: preview.household.name,
             invitedByDisplayName: preview.invitedByDisplayName,
@@ -340,35 +407,46 @@ export class HouseholdsGateway
    * „Zaproszenia" w Ustawieniach → Gospodarstwo.
    */
   @SubscribeMessage('households:listPendingInvitations')
-  listPendingInvitations(@MessageBody() payload: HouseholdsUserPayload) {
+  listPendingInvitations(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsUserPayload,
+  ) {
     return wsRespond(() =>
-      this.householdsService.listPendingInvitations(payload.userId),
+      this.householdsService.listPendingInvitations(actorId(client, payload)),
     );
   }
 
   @SubscribeMessage('households:declineInvitation')
   declineInvitation(
+    @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: HouseholdsDeclineInvitationPayload,
   ) {
     return wsRespond(() =>
-      this.householdsService.declineInvitation(payload.userId, payload.data),
+      this.householdsService.declineInvitation(
+        actorId(client, payload),
+        payload.data,
+      ),
     );
   }
 
   @SubscribeMessage('households:updateName')
-  updateName(@MessageBody() payload: HouseholdsUpdateNamePayload) {
+  updateName(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsUpdateNamePayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
       const changedByDisplayName =
-        await this.householdsService.getUserDisplayName(payload.userId);
+        await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.updateName(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.data,
       );
       await this.emitMembersChanged({
         householdId: payload.householdId,
         action: 'UPDATE_NAME',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
       return result;
@@ -384,59 +462,87 @@ export class HouseholdsGateway
    * W ładunku jedzie już nowa lista, więc odbiorcy nie muszą po nią wracać.
    */
   @SubscribeMessage('households:updateMealTypes')
-  updateMealTypes(@MessageBody() payload: HouseholdsUpdateMealTypesPayload) {
+  updateMealTypes(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsUpdateMealTypesPayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
       const changedByDisplayName =
-        await this.householdsService.getUserDisplayName(payload.userId);
+        await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.updateMealTypes(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.data,
       );
-      this.server.emit('households:mealTypesChanged', {
-        householdId: payload.householdId,
-        mealTypes: result.enabledMealTypes,
-        changedByUserId: payload.userId,
-        changedByDisplayName,
-      });
+      broadcastToHousehold(
+        this.server,
+        payload.householdId,
+        'households:mealTypesChanged',
+        {
+          householdId: payload.householdId,
+          mealTypes: result.enabledMealTypes,
+          changedByUserId: userId,
+          changedByDisplayName,
+        },
+      );
       return result;
     });
   }
 
   @SubscribeMessage('households:updateMealTimes')
-  updateMealTimes(@MessageBody() payload: HouseholdsUpdateMealTimesPayload) {
+  updateMealTimes(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsUpdateMealTimesPayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
       const changedByDisplayName =
-        await this.householdsService.getUserDisplayName(payload.userId);
+        await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.updateMealTimes(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.data,
       );
-      this.server.emit('households:mealTimesChanged', {
-        householdId: payload.householdId,
-        mealSlotTimes: result.mealSlotTimes,
-        changedByUserId: payload.userId,
-        changedByDisplayName,
-      });
+      broadcastToHousehold(
+        this.server,
+        payload.householdId,
+        'households:mealTimesChanged',
+        {
+          householdId: payload.householdId,
+          mealSlotTimes: result.mealSlotTimes,
+          changedByUserId: userId,
+          changedByDisplayName,
+        },
+      );
       return result;
     });
   }
 
   @SubscribeMessage('households:listMembers')
-  listMembers(@MessageBody() payload: HouseholdsListMembersPayload) {
+  listMembers(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsListMembersPayload,
+  ) {
     return wsRespond(() =>
-      this.householdsService.listMembers(payload.userId, payload.householdId),
+      this.householdsService.listMembers(
+        actorId(client, payload),
+        payload.householdId,
+      ),
     );
   }
 
   @SubscribeMessage('households:updateMemberRole')
-  updateMemberRole(@MessageBody() payload: HouseholdsUpdateMemberRolePayload) {
+  updateMemberRole(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsUpdateMemberRolePayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
       const changedByDisplayName =
-        await this.householdsService.getUserDisplayName(payload.userId);
+        await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.updateMemberRole(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.memberUserId,
         payload.data,
@@ -444,7 +550,7 @@ export class HouseholdsGateway
       await this.emitMembersChanged({
         householdId: payload.householdId,
         action: 'UPDATE_MEMBER_ROLE',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
       return result;
@@ -452,19 +558,23 @@ export class HouseholdsGateway
   }
 
   @SubscribeMessage('households:removeMember')
-  removeMember(@MessageBody() payload: HouseholdsRemoveMemberPayload) {
+  removeMember(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsRemoveMemberPayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
       const changedByDisplayName =
-        await this.householdsService.getUserDisplayName(payload.userId);
+        await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.removeMember(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.memberUserId,
       );
       await this.emitMembersChanged({
         householdId: payload.householdId,
         action: 'REMOVE_MEMBER',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
       this.emitPlanTouched({
@@ -472,26 +582,33 @@ export class HouseholdsGateway
           householdId: payload.householdId,
           weekStart,
         })),
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
+      // Usuwany wychodzi z pokoju dopiero PO emitach — z `membersChanged` bez
+      // swojego id iOS wnioskuje „usunięto mnie".
+      leaveHousehold(this.server, payload.memberUserId, payload.householdId);
       return result;
     });
   }
 
   @SubscribeMessage('households:leave')
-  leave(@MessageBody() payload: HouseholdsLeavePayload) {
+  leave(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsLeavePayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
       const changedByDisplayName =
-        await this.householdsService.getUserDisplayName(payload.userId);
+        await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.leave(
-        payload.userId,
+        userId,
         payload.householdId,
       );
       await this.emitMembersChanged({
         householdId: payload.householdId,
         action: 'LEAVE',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
       this.emitPlanTouched({
@@ -499,9 +616,11 @@ export class HouseholdsGateway
           householdId: payload.householdId,
           weekStart,
         })),
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
+      // Odchodzący opuszcza pokój PO emitach (patrz `ws-rooms.ts`).
+      leaveHousehold(this.server, userId, payload.householdId);
 
       // Odejście domownika zmienia liczbę porcji, listę zakupów i to, kto ma
       // dostęp do planu — reszta domu powinna o tym wiedzieć od razu, a nie
@@ -509,7 +628,7 @@ export class HouseholdsGateway
       void this.notificationsService
         .notifyHouseholdMembershipChanged({
           householdId: payload.householdId,
-          actorUserId: payload.userId,
+          actorUserId: userId,
           actorDisplayName: changedByDisplayName,
           action: 'LEFT',
         })

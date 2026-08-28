@@ -125,6 +125,25 @@ If the deploy is unhealthy:
 
 Avoid emergency database mutations unless the issue is confirmed to be migration-related.
 
+## WebSocket auth rollout (`WS_AUTH_MODE`)
+
+Since Phase 0 the Socket.IO handshake carries the access token (`auth: { token }`
+or `Authorization: Bearer`). Identity comes from the token, broadcasts go to
+`household:<id>` rooms. Rollout order, because old iOS builds send no token:
+
+1. Deploy backend with `WS_AUTH_MODE` unset (= `soft`): sockets with a token are
+   verified, sockets without one keep working as `legacy` (identity from the
+   payload, as before). No Railway variable is required for this step.
+2. Ship the iOS build that sends the token in the handshake and refreshes it.
+3. Watch `GET /ops/metrics` → `http.wsAuth.handshakes.legacy` and `legacyActs`.
+   When they stop growing (both phones updated), set `WS_AUTH_MODE=strict` on
+   the `Backend` service — no token = `connect_error` with
+   `{code: 'UNAUTHORIZED', reason: 'missing'}`.
+
+`WS_AUTH_MODE` is read per handshake; a typo is a boot violation in production.
+Refresh tokens now default to 60 days (`REFRESH_TOKEN_DAYS`), reuse of a rotated
+refresh token revokes the whole family, and `POST /auth/logout` revokes one.
+
 ## Railway — healthcheck wdrożenia
 
 `railway.json` ustawia `deploy.healthcheckPath: /ops/health` (timeout 120 s). Bez tego Railway

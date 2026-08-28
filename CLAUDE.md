@@ -58,8 +58,13 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   `servings` 1..8 (nie „zawsze 2”). Składnik: `name` po polsku, `normalizedName` ASCII = klucz.
 - Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
-- WebSocket: gatewaye biorą `userId` z payloadu (BEZ auth — do zrobienia w Fazie 0); DTO
-  decoratory nie działają na WS, walidacja jest w serwisach.
+- WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje
+  `AuthIoAdapter` (`src/common/ws-auth.adapter.ts`, jeden dla 5 gatewayów); tożsamość w handlerze
+  WYŁĄCZNIE przez `actorId(client, payload)` (`src/common/ws-socket.ts`), broadcasty przez
+  `broadcastToHousehold` do pokoju `household:<id>` (`src/common/ws-rooms.ts`). `WS_AUTH_MODE=soft`
+  (domyślnie) wpuszcza stare buildy bez tokenu jako `legacy` z `payload.userId`; `strict` po adopcji
+  buildu iOS (metryki `/ops/metrics.wsAuth`). DTO decoratory nie działają na WS, walidacja jest
+  w serwisach.
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
   Puste tagi są dla reguł diet faktem („czysto”), nie brakiem danych.

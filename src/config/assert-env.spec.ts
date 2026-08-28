@@ -130,3 +130,29 @@ describe('assertRuntimeEnv', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+describe('WS_AUTH_MODE w assert-env', () => {
+  it('poprawne wartości i brak zmiennej nie są naruszeniem', () => {
+    expect(inspectRuntimeEnv(productionEnv()).violations).toEqual([]);
+    expect(
+      inspectRuntimeEnv(productionEnv({ WS_AUTH_MODE: 'strict' })).violations,
+    ).toEqual([]);
+    expect(
+      inspectRuntimeEnv(productionEnv({ WS_AUTH_MODE: 'soft' })).violations,
+    ).toEqual([]);
+  });
+
+  it('literówka to naruszenie na produkcji i ostrzeżenie poza nią', () => {
+    expect(
+      inspectRuntimeEnv(productionEnv({ WS_AUTH_MODE: 'required' })).violations,
+    ).toEqual([expect.stringContaining('WS_AUTH_MODE=required')]);
+    expect(
+      inspectRuntimeEnv({
+        NODE_ENV: 'development',
+        JWT_SECRET: STRONG,
+        REFRESH_TOKEN_PEPPER: OTHER_STRONG,
+        WS_AUTH_MODE: 'off',
+      }).warnings,
+    ).toEqual([expect.stringContaining('WS_AUTH_MODE=off')]);
+  });
+});

@@ -34,6 +34,8 @@ jobs:
       REFRESH_TOKEN_PEPPER: ci-pepper
       AUTH_DEV_LOGIN_ENABLED: 'true'
       OPS_TOKEN: ci-ops-token
+      # E2E biegnie w trybie docelowym; przypadki legacy przełączają tryb same.
+      WS_AUTH_MODE: strict
       APNS_ENABLED: 'false'
       CORS_ORIGIN: http://localhost:5173
       # Sztuczny klucz 32 B (base64) — CookidooIntegrationService robi fail-fast

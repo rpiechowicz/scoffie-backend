@@ -1,4 +1,5 @@
 import { parseEncryptionKey } from '../common/crypto.util';
+import { wsAuthModeProblem } from './ws-auth-mode';
 
 /**
  * Wartości, które leżą w repo (`.env.example`, CI, fallbacki w kodzie).
@@ -67,6 +68,11 @@ export function inspectRuntimeEnv(
     // Pepper istnieje po to, żeby wyciek jednego sekretu nie oddawał obu.
     problems.push('REFRESH_TOKEN_PEPPER jest równy JWT_SECRET');
   }
+
+  // Literówka w trybie auth WS po cichu dawałaby `soft` — na produkcji to ma
+  // być świadoma decyzja, nie przypadek.
+  const wsAuthProblem = wsAuthModeProblem(env);
+  if (wsAuthProblem) problems.push(wsAuthProblem);
 
   // Poniższe mają sens tylko na produkcji — dev bez Cookidoo ma prawo żyć.
   const productionOnly: string[] = [];

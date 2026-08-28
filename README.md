@@ -88,6 +88,7 @@ Use [`.env.example`](./.env.example) as the source of truth.
 - `CORS_ORIGIN`
 - `WS_CORS_ORIGIN`
 - `AUTH_DEV_LOGIN_ENABLED`
+- `WS_AUTH_MODE` (`soft` while old iOS builds are around, then `strict`)
 - `RECIPES_LIST_CACHE_ENABLED`
 - `RECIPES_LIST_CACHE_TTL_SECONDS`
 

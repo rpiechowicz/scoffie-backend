@@ -1,46 +1,60 @@
 import {
+  ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
+import type { AppSocket } from '../common/ws-socket';
+import { actorId } from '../common/ws-socket';
+import { disconnectUser } from '../common/ws-rooms';
 import { UsersService } from './users.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { Socket } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
 class UsersMePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
 }
 
 class UsersPreferencesGetPayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
 }
 
 class UsersPreferencesUpdatePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   data: UpdatePreferencesDto;
 }
 
 class UsersProfileUpdatePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
   data: UpdateProfileDto;
 }
 
 class UsersOnboardingCompletePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
 }
 
 class UsersDeletePayload {
-  userId: string;
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  userId?: string;
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
 export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  server: Server;
+
   constructor(
     private readonly usersService: UsersService,
     private readonly wsTelemetry: WsTelemetryService,
@@ -55,38 +69,77 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('users:me')
-  me(@MessageBody() payload: UsersMePayload) {
-    return wsRespond(() => this.usersService.getMe(payload.userId));
+  me(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersMePayload,
+  ) {
+    return wsRespond(() => this.usersService.getMe(actorId(client, payload)));
   }
 
   @SubscribeMessage('users:preferences:get')
-  getPreferences(@MessageBody() payload: UsersPreferencesGetPayload) {
-    return wsRespond(() => this.usersService.getPreferences(payload.userId));
+  getPreferences(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersPreferencesGetPayload,
+  ) {
+    return wsRespond(() =>
+      this.usersService.getPreferences(actorId(client, payload)),
+    );
   }
 
   @SubscribeMessage('users:preferences:update')
-  updatePreferences(@MessageBody() payload: UsersPreferencesUpdatePayload) {
+  updatePreferences(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersPreferencesUpdatePayload,
+  ) {
     return wsRespond(() =>
-      this.usersService.updatePreferences(payload.userId, payload.data),
+      this.usersService.updatePreferences(
+        actorId(client, payload),
+        payload.data,
+      ),
     );
   }
 
   @SubscribeMessage('users:profile:update')
-  updateProfile(@MessageBody() payload: UsersProfileUpdatePayload) {
+  updateProfile(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersProfileUpdatePayload,
+  ) {
     return wsRespond(() =>
-      this.usersService.updateProfile(payload.userId, payload.data),
+      this.usersService.updateProfile(actorId(client, payload), payload.data),
     );
   }
 
+  /**
+   * Po skasowaniu konta rozłączamy wszystkie sockety użytkownika: jego JWT
+   * jest jeszcze ważny do `exp`, a nie może dalej pracować na nieistniejącym
+   * koncie. Rozłączenie idzie po pokoju `user:<id>`, więc łapie też sockety
+   * inne niż ten, z którego przyszło `users:delete`.
+   *
+   * Rozłączenie jest odroczone (`setImmediate`): Nest pisze ack dopiero po
+   * rozwiązaniu promise handlera, a socket.io porzuca pakiety do zamkniętego
+   * połączenia — synchroniczne `disconnectSockets(true)` wewnątrz handlera
+   * zjadłoby ack i iOS czekałby 3×6 s na odpowiedź, której nie dostanie.
+   */
   @SubscribeMessage('users:delete')
-  deleteAccount(@MessageBody() payload: UsersDeletePayload) {
-    return wsRespond(() => this.usersService.deleteAccount(payload.userId));
+  deleteAccount(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersDeletePayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      const result = await this.usersService.deleteAccount(userId);
+      setImmediate(() => disconnectUser(this.server, userId));
+      return result;
+    });
   }
 
   @SubscribeMessage('users:onboarding:complete')
-  completeOnboarding(@MessageBody() payload: UsersOnboardingCompletePayload) {
+  completeOnboarding(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersOnboardingCompletePayload,
+  ) {
     return wsRespond(() =>
-      this.usersService.completeOnboarding(payload.userId),
+      this.usersService.completeOnboarding(actorId(client, payload)),
     );
   }
 }

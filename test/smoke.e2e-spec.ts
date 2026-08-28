@@ -19,6 +19,7 @@ type WsEnvelope<T> =
     };
 
 type DevLoginResponse = {
+  accessToken: string;
   user: { id: string; displayName: string };
   household: { id: string; name: string } | null;
 };
@@ -256,10 +257,12 @@ describe('Smoke E2E', () => {
     });
     createdRecipeIds.push(recipe.id);
 
+    // Tożsamość z tokenu w handshake'u — payloady niżej nie niosą userId.
     socket = io(baseUrl, {
       transports: ['websocket'],
       forceNew: true,
       reconnection: false,
+      auth: { token: loginBody.accessToken },
     });
     await waitForSocketConnect(socket);
 
@@ -281,7 +284,6 @@ describe('Smoke E2E', () => {
     const ack = await emitWithAck<{ id: string }>(
       'weeklyPlans:upsertWeekSlot',
       {
-        userId,
         householdId,
         weekStart,
         data: {
@@ -302,7 +304,6 @@ describe('Smoke E2E', () => {
     // Ack błędu po sockecie ma ten sam kontrakt: kod, message == error,
     // status, requestId — tu: obce gospodarstwo.
     const foreign = await emitWithAck<unknown>('weeklyPlans:getByWeek', {
-      userId,
       householdId: '00000000-0000-4000-8000-000000000000',
       weekStart,
     });
