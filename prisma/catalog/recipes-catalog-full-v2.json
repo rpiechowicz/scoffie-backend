@@ -2905,7 +2905,7 @@
       "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 50,
-      "servings": 2,
+      "servings": 4,
       "nutrition": {
         "kcal": 2258,
         "protein": 104,
@@ -3006,7 +3006,7 @@
       "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 80,
-      "servings": 2,
+      "servings": 4,
       "nutrition": {
         "kcal": 2074,
         "protein": 115,
@@ -3285,7 +3285,7 @@
       "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "HARD",
       "prepTimeMinutes": 100,
-      "servings": 2,
+      "servings": 4,
       "nutrition": {
         "kcal": 1913,
         "protein": 93,
@@ -3381,7 +3381,7 @@
       "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "HARD",
       "prepTimeMinutes": 90,
-      "servings": 2,
+      "servings": 4,
       "nutrition": {
         "kcal": 2348,
         "protein": 101,
@@ -3648,7 +3648,7 @@
       "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 45,
-      "servings": 2,
+      "servings": 4,
       "nutrition": {
         "kcal": 1962,
         "protein": 77,
@@ -3822,7 +3822,7 @@
       "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "HARD",
       "prepTimeMinutes": 100,
-      "servings": 2,
+      "servings": 4,
       "nutrition": {
         "kcal": 2574,
         "protein": 106,
@@ -6288,7 +6288,7 @@
       "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 50,
-      "servings": 2,
+      "servings": 4,
       "nutrition": {
         "kcal": 2399,
         "protein": 126,
