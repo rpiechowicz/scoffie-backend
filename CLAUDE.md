@@ -36,7 +36,7 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 - Windows (od 28.08.2026, Git Bash): `pnpm install` + `pnpm prisma:generate` na hoście, potem
   `pnpm test` (~1 min, `cross-env` ustawia `NODE_OPTIONS`), `pnpm typecheck`, `pnpm lint:check`
   (~1 min) działają bez kontenera. SQL do dev: `docker compose exec -T db psql -U weeklymeals
--d weeklymeals -At -c "…"`. Repo ma `core.autocrlf=false`, pliki są LF. Brak `gh` i `railway`
+-d weeklymeals -At -c "…"`. LF wymusza `.gitattributes` (`* text=auto eol=lf`); ta maszyna ma dodatkowo lokalnie `core.autocrlf=false`. Brak `gh` i `railway`
   CLI na tej maszynie — PR-y i prod robi Rafał (telefon/Mac).
 - Po zmianie `prisma/schema.prisma`: `pnpm prisma:generate` (lokalny klient bywa przestarzały).
 - Alternatywa (używana na Macu z wyczerpanymi zasobami): kopiować `src test scripts prisma`

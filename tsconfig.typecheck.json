@@ -9,6 +9,7 @@
     "src/**/*.ts",
     "test/**/*.ts",
     "scripts/**/*.ts",
-    "prisma/seed.ts"
+    "prisma/seed.ts",
+    "prisma.config.ts"
   ]
 }

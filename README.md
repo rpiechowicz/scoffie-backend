@@ -106,6 +106,7 @@ These are powerful and should be reviewed before production deploys:
 - `SAFE_MIGRATE_BACKFILL_R2_IMAGE_URLS`
 - `SAFE_MIGRATE_REBUILD_DB`
 - `SAFE_MIGRATE_REBUILD_CONFIRM`
+- `SAFE_MIGRATE_ALLOW_PROD_REBUILD`
 
 ## CI
 

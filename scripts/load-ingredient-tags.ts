@@ -15,12 +15,19 @@
  * przepisów — import liczy unię z wierszy `Ingredient`, więc bez tagów
  * składników wszedłby z pustymi tagami przepisów.
  *
+ * Cały zapis (składniki + przeliczenie przepisów) idzie w JEDNEJ transakcji.
+ * Safe-migrate uruchamia ten skrypt przy starcie kontenera i decyduje
+ * „czy wgrywać” po tym, czy jakikolwiek składnik ma już tagi
+ * (`scripts/lib/bootstrap-decision.js`). Bez transakcji przerwany przebieg
+ * (OOM, zerwane połączenie) zostawiałby część składników otagowaną i przepisy
+ * puste — a następny start uznałby, że tagi są wgrane.
+ *
  * Uruchomienie:
  *   pnpm catalog:ingredients:tags
  */
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { ALLERGEN_ID_VALUES } from '../src/common/allergens';
 import {
   deriveRecipeTags,
@@ -41,7 +48,12 @@ type TagCatalog = {
   ingredients: IngredientTagEntry[];
 };
 
-async function loadIngredientTags(catalog: TagCatalog): Promise<{
+type Db = Prisma.TransactionClient;
+
+async function loadIngredientTags(
+  db: Db,
+  catalog: TagCatalog,
+): Promise<{
   updated: number;
   missing: string[];
 }> {
@@ -49,7 +61,7 @@ async function loadIngredientTags(catalog: TagCatalog): Promise<{
   const missing: string[] = [];
 
   for (const entry of catalog.ingredients) {
-    const count = await prisma.$executeRaw`
+    const count = await db.$executeRaw`
       UPDATE "Ingredient"
       SET "allergens" = ${entry.allergens}::text[],
           "dietTags"  = ${entry.dietTags}::text[],
@@ -67,15 +79,15 @@ async function loadIngredientTags(catalog: TagCatalog): Promise<{
  * składników dostają puste listy. Zapis tylko przy realnej zmianie, żeby
  * `updatedAt` przepisów nie skakało przy każdym przebiegu.
  */
-async function recomputeRecipeTags(): Promise<{
+async function recomputeRecipeTags(db: Db): Promise<{
   checked: number;
   changed: number;
 }> {
-  const recipes = await prisma.$queryRaw<
+  const recipes = await db.$queryRaw<
     Array<{ id: string; allergens: string[]; dietTags: string[] }>
   >`SELECT id, "allergens", "dietTags" FROM "Recipe"`;
 
-  const rows = await prisma.$queryRaw<
+  const rows = await db.$queryRaw<
     Array<{ recipeId: string; allergens: string[]; dietTags: string[] }>
   >`
     SELECT ri."recipeId" AS "recipeId", i."allergens", i."dietTags"
@@ -102,7 +114,7 @@ async function recomputeRecipeTags(): Promise<{
     ) {
       continue;
     }
-    await prisma.$executeRaw`
+    await db.$executeRaw`
       UPDATE "Recipe"
       SET "allergens" = ${derived.allergens}::text[],
           "dietTags"  = ${derived.dietTags}::text[],
@@ -138,26 +150,36 @@ async function main(): Promise<void> {
     );
   }
 
-  const { updated, missing } = await loadIngredientTags(catalog);
+  // Jedna transakcja na składniki i przepisy: albo baza ma komplet tagów,
+  // albo nie ma żadnego (patrz nagłówek pliku). 403 UPDATE-ów + przeliczenie
+  // 89 przepisów to sekundy; limit czasu jest hojny na wolniejszą bazę prod.
+  const { updated, missing, uncovered, recipes } = await prisma.$transaction(
+    async (tx) => {
+      const { updated, missing } = await loadIngredientTags(tx, catalog);
+
+      // Składniki realnie używane w przepisach, których plik nie zna — to one
+      // dałyby przepisowi fałszywie „czyste” tagi, więc raportujemy je głośno.
+      const used = await tx.$queryRaw<Array<{ normalizedName: string }>>`
+        SELECT DISTINCT i."normalizedName"
+        FROM "Ingredient" i
+        JOIN "RecipeIngredient" ri ON ri."ingredientId" = i.id
+        ORDER BY i."normalizedName"
+      `;
+      const uncovered = used
+        .map((row) => row.normalizedName)
+        .filter((name) => !seen.has(name));
+
+      const recipes = await recomputeRecipeTags(tx);
+      return { updated, missing, uncovered, recipes };
+    },
+    { maxWait: 10_000, timeout: 120_000 },
+  );
+
   if (missing.length > 0) {
     console.warn(
       `[tags] brak w bazie (${missing.length}): ${missing.join(', ')}`,
     );
   }
-
-  // Składniki realnie używane w przepisach, których plik nie zna — to one
-  // dałyby przepisowi fałszywie „czyste” tagi, więc raportujemy je głośno.
-  const used = await prisma.$queryRaw<Array<{ normalizedName: string }>>`
-    SELECT DISTINCT i."normalizedName"
-    FROM "Ingredient" i
-    JOIN "RecipeIngredient" ri ON ri."ingredientId" = i.id
-    ORDER BY i."normalizedName"
-  `;
-  const uncovered = used
-    .map((row) => row.normalizedName)
-    .filter((name) => !seen.has(name));
-
-  const recipes = await recomputeRecipeTags();
 
   console.log(
     `[tags] done. version=${catalog.version}, wpisow=${catalog.ingredients.length}, skladnikow zaktualizowanych=${updated}, przepisow sprawdzonych=${recipes.checked}, zmienionych=${recipes.changed}`,

@@ -23,7 +23,9 @@ function run(command, args, allowedStatuses = [0]) {
 
   const status = typeof result.status === 'number' ? result.status : 1;
   if (!allowedStatuses.includes(status)) {
-    process.exit(result.status);
+    // Dziecko zabite sygnałem ma status null — bez `?? 1` start kończyłby
+    // się kodem 0 mimo przerwanego kroku.
+    process.exit(result.status ?? 1);
   }
 
   return status;
@@ -44,7 +46,9 @@ function runWithEnv(command, args, extraEnv = {}, allowedStatuses = [0]) {
 
   const status = typeof result.status === 'number' ? result.status : 1;
   if (!allowedStatuses.includes(status)) {
-    process.exit(result.status);
+    // Dziecko zabite sygnałem ma status null — bez `?? 1` start kończyłby
+    // się kodem 0 mimo przerwanego kroku.
+    process.exit(result.status ?? 1);
   }
 
   return status;
