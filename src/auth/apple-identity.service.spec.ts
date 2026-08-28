@@ -1,4 +1,3 @@
-import { UnauthorizedException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import {
   SignJWT,
@@ -97,9 +96,10 @@ describe('AppleIdentityService', () => {
     const rawNonce = 'some-nonce';
     const token = await signAppleLikeToken({ nonce: undefined });
 
-    await expect(service.verify(token, rawNonce)).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(service.verify(token, rawNonce)).rejects.toMatchObject({
+      status: 401,
+      response: { code: 'APPLE_IDENTITY_INVALID' },
+    });
   });
 
   it('powinno odrzucić token z niezgodnym nonce', async () => {
@@ -116,9 +116,10 @@ describe('AppleIdentityService', () => {
       iss: 'https://example.com',
     });
 
-    await expect(service.verify(token, rawNonce)).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(service.verify(token, rawNonce)).rejects.toMatchObject({
+      status: 401,
+      response: { code: 'APPLE_IDENTITY_INVALID' },
+    });
   });
 
   it('powinno odrzucić token z niepoprawnym audience', async () => {
@@ -128,18 +129,21 @@ describe('AppleIdentityService', () => {
       aud: 'someone.elses.bundle',
     });
 
-    await expect(service.verify(token, rawNonce)).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(service.verify(token, rawNonce)).rejects.toMatchObject({
+      status: 401,
+      response: { code: 'APPLE_IDENTITY_INVALID' },
+    });
   });
 
   it('powinno odrzucić pusty identityToken lub rawNonce', async () => {
-    await expect(service.verify('', 'nonce')).rejects.toThrow(
-      UnauthorizedException,
-    );
-    await expect(service.verify('token', '')).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(service.verify('', 'nonce')).rejects.toMatchObject({
+      status: 401,
+      response: { code: 'APPLE_IDENTITY_INVALID' },
+    });
+    await expect(service.verify('token', '')).rejects.toMatchObject({
+      status: 401,
+      response: { code: 'APPLE_IDENTITY_INVALID' },
+    });
   });
 
   it('powinno obsłużyć email_verified jako boolean', async () => {

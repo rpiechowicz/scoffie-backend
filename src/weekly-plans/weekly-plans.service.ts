@@ -429,7 +429,7 @@ export class WeeklyPlansService {
             error.code === 'P2002'
           ) {
             throw new AppException(
-              'CONFLICT',
+              'PLAN_SLOT_DUPLICATE',
               'This recipe is already assigned to that day and meal slot',
               HttpStatus.CONFLICT,
             );
@@ -558,7 +558,11 @@ export class WeeklyPlansService {
     });
 
     if (!planItem) {
-      throw new NotFoundException('Planned meal not found in this slot');
+      throw new AppException(
+        'PLAN_ITEM_NOT_FOUND',
+        'Planned meal not found in this slot',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     if (dto.isEaten) {

@@ -20,6 +20,10 @@ export class RequestMetricsService {
     other: 0,
   };
   private readonly routeStats = new Map<string, RouteStats>();
+  // Błędy z acków WebSocketu, per kod — HTTP-owe liczniki wyżej ich nie
+  // widzą, a to po sockecie idzie prawie cały ruch aplikacji.
+  private wsErrorsTotal = 0;
+  private readonly wsErrorsByCode = new Map<string, number>();
 
   record(routeKey: string, statusCode: number, durationMs: number): void {
     this.totalRequests += 1;
@@ -46,6 +50,11 @@ export class RequestMetricsService {
     this.routeStats.set(routeKey, existing);
   }
 
+  recordWsError(code: string, _status: number): void {
+    this.wsErrorsTotal += 1;
+    this.wsErrorsByCode.set(code, (this.wsErrorsByCode.get(code) ?? 0) + 1);
+  }
+
   snapshot() {
     const routes = Array.from(this.routeStats.entries())
       .map(([route, stats]) => ({
@@ -68,6 +77,10 @@ export class RequestMetricsService {
       },
       statuses: { ...this.statusClassCounts },
       routes,
+      wsErrors: {
+        total: this.wsErrorsTotal,
+        byCode: Object.fromEntries(this.wsErrorsByCode.entries()),
+      },
     };
   }
 

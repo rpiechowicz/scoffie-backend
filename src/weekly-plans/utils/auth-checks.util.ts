@@ -1,4 +1,5 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { HttpStatus } from '@nestjs/common';
+import { AppException } from '../../common/app-exception';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /// Confirms a recipe exists. The `_householdId` is reserved for future
@@ -13,7 +14,11 @@ export async function ensureRecipeForHousehold(
     select: { id: true },
   });
   if (!recipe) {
-    throw new NotFoundException('Recipe not found');
+    throw new AppException(
+      'RECIPE_NOT_FOUND',
+      'Recipe not found',
+      HttpStatus.NOT_FOUND,
+    );
   }
   return recipe;
 }
@@ -30,7 +35,11 @@ export async function ensureMembership(
     where: { userId_householdId: { userId, householdId } },
   });
   if (!membership) {
-    throw new ForbiddenException('User is not a member of this household');
+    throw new AppException(
+      'NOT_HOUSEHOLD_MEMBER',
+      'User is not a member of this household',
+      HttpStatus.FORBIDDEN,
+    );
   }
   return membership;
 }

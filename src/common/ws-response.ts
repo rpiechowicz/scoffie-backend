@@ -1,73 +1,70 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
-import { AppErrorCode } from './app-error-code';
+import { Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { mapError } from './error-contract';
 
 export type WsSuccess<T> = { ok: true; data: T };
 export type WsError = {
   ok: false;
+  /** To samo co `message` — pole historyczne, czyta je 28 miejsc w iOS. */
   error: string;
+  message: string;
   code: string;
-  status?: number;
+  status: number;
+  details?: string[];
+  requestId: string;
 };
 
-const STATUS_CODE_MAP: Record<number, string> = {
-  [HttpStatus.BAD_REQUEST]: 'BAD_REQUEST',
-  [HttpStatus.UNAUTHORIZED]: 'UNAUTHORIZED',
-  [HttpStatus.FORBIDDEN]: 'FORBIDDEN',
-  [HttpStatus.NOT_FOUND]: 'NOT_FOUND',
-  [HttpStatus.CONFLICT]: 'CONFLICT',
-  [HttpStatus.UNPROCESSABLE_ENTITY]: 'UNPROCESSABLE_ENTITY',
-  [HttpStatus.TOO_MANY_REQUESTS]: 'TOO_MANY_REQUESTS',
-};
+type WsErrorObserver = (code: string, status: number) => void;
 
-function extractMessage(response: unknown): string {
-  if (typeof response === 'string') {
-    return response;
-  }
-  if (response && typeof response === 'object' && 'message' in response) {
-    const message = (response as { message?: unknown }).message;
-    if (Array.isArray(message)) {
-      return message.join(', ');
-    }
-    if (typeof message === 'string') {
-      return message;
-    }
-  }
-  return 'Unexpected error';
+let errorObserver: WsErrorObserver | null = null;
+
+/**
+ * Hak dla metryk (`RequestMetricsService`). `wsRespond` jest wolną funkcją bez
+ * DI, więc obserwator wpina się przy starcie modułu observability.
+ */
+export function setWsErrorObserver(observer: WsErrorObserver | null): void {
+  errorObserver = observer;
 }
 
-function extractCode(response: unknown): AppErrorCode | null {
-  if (!response || typeof response !== 'object') {
-    return null;
-  }
+const logger = new Logger('WsRespond');
 
-  if (
-    'code' in response &&
-    typeof (response as { code?: unknown }).code === 'string'
-  ) {
-    return (response as { code: AppErrorCode }).code;
-  }
-
-  return null;
-}
-
+/**
+ * Opakowuje handler WebSocketu w kopertę ack.
+ *
+ * Błąd przechodzi przez ten sam `mapError`, co filtr HTTP: klient dostaje
+ * `code` (po nim decyduje), `message`/`error` do pokazania, `status`,
+ * opcjonalne `details` i `requestId`, którym da się odnaleźć wpis w logu.
+ * Surowy komunikat Prismy albo `Error` nigdy nie wychodzi na drut — trafia
+ * do logu razem z `requestId`.
+ */
 export async function wsRespond<T>(
   action: () => Promise<T>,
+  meta?: { event?: string },
 ): Promise<WsSuccess<T> | WsError> {
   try {
     return { ok: true, data: await action() };
   } catch (error: unknown) {
-    if (error instanceof HttpException) {
-      const status = error.getStatus();
-      const response = error.getResponse();
-      return {
-        ok: false,
-        error: extractMessage(response),
-        code: extractCode(response) ?? STATUS_CODE_MAP[status] ?? 'HTTP_ERROR',
-        status,
-      };
-    }
+    const requestId = randomUUID();
+    const { contract, log } = mapError(error);
 
-    const message = error instanceof Error ? error.message : 'Unexpected error';
-    return { ok: false, error: message, code: 'INTERNAL_ERROR', status: 500 };
+    if (log) {
+      const line = `${meta?.event ?? 'ws'} ${contract.status} ${contract.code} requestId=${requestId}: ${log.message}`;
+      if (log.level === 'error') {
+        logger.error(line, log.stack);
+      } else {
+        logger.warn(line);
+      }
+    }
+    errorObserver?.(contract.code, contract.status);
+
+    return {
+      ok: false,
+      error: contract.message,
+      message: contract.message,
+      code: contract.code,
+      status: contract.status,
+      ...(contract.details ? { details: contract.details } : {}),
+      requestId,
+    };
   }
 }

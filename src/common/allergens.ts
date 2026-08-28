@@ -49,7 +49,7 @@ export function normalizeAllergenIds(
       'VALIDATION_ERROR',
       'allergens musi być listą identyfikatorów',
       HttpStatus.BAD_REQUEST,
-      { field: 'allergens', allowed: ALLERGEN_ID_VALUES },
+      [`allergens: dozwolone ${ALLERGEN_ID_VALUES.join(', ')}`],
     );
   }
 
@@ -69,7 +69,10 @@ export function normalizeAllergenIds(
       'VALIDATION_ERROR',
       `Nieznane alergeny: ${unknown.join(', ')}`,
       HttpStatus.BAD_REQUEST,
-      { field: 'allergens', unknown, allowed: ALLERGEN_ID_VALUES },
+      [
+        ...unknown.map((value) => `nieznany alergen: ${value}`),
+        `dozwolone: ${ALLERGEN_ID_VALUES.join(', ')}`,
+      ],
     );
   }
 

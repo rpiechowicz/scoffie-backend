@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { ShoppingListService } from './shopping-list.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -410,7 +410,7 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
   it('powinno odrzucić gdy użytkownik nie jest członkiem household', async () => {
     prisma.membership.findUnique.mockResolvedValue(null);
 
-    await expect(getList()).rejects.toThrow(ForbiddenException);
+    await expect(getList()).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
   });
 });
 

@@ -45,7 +45,7 @@ function clampMacro(
       'VALIDATION_ERROR',
       `${field} musi byc liczba calkowita 0..${max} albo null`,
       HttpStatus.BAD_REQUEST,
-      { field },
+      [field],
     );
   }
   return Math.min(Math.max(Math.round(value), 0), max);

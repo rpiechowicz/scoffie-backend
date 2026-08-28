@@ -102,6 +102,18 @@ export class CookidooServiceClient {
           'Usługa Cookidoo jest błędnie skonfigurowana.',
           HttpStatus.SERVICE_UNAVAILABLE,
         );
+      case 'COOKIDOO_UPSTREAM_ERROR':
+        // Vorwerk odpowiedział błędem — mikroserwis żyje, to po drugiej
+        // stronie coś nie gra. Zlewanie tego z „usługa niedostępna" chowało
+        // w metrykach i na telefonie, gdzie naprawdę leży problem.
+        this.logger.warn(
+          `Cookidoo (Vorwerk) zwróciło błąd dla ${path}: ${errorBody.detail?.message ?? 'brak szczegółów'}`,
+        );
+        throw new AppException(
+          'COOKIDOO_UPSTREAM_ERROR',
+          'Cookidoo odpowiedziało błędem. Spróbuj ponownie za chwilę.',
+          HttpStatus.BAD_GATEWAY,
+        );
       default:
         this.logger.error(
           `Mikroserwis Cookidoo zwrócił ${response.status} (${path}), code=${code ?? 'brak'}`,

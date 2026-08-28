@@ -1,6 +1,6 @@
 import {
   BadRequestException,
-  ForbiddenException,
+  HttpStatus,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -8,6 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { AuthProvider, Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
+import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppleIdentityService } from './apple-identity.service';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
@@ -147,7 +148,11 @@ export class AuthService {
     // zostawić na produkcji otwartej furtki, która wybija tokeny każdemu,
     // kto poda `displayName`. Dev i CI ustawiają `true` jawnie.
     if (process.env.AUTH_DEV_LOGIN_ENABLED !== 'true') {
-      throw new ForbiddenException('Dev login is disabled');
+      throw new AppException(
+        'DEV_LOGIN_DISABLED',
+        'Dev login is disabled',
+        HttpStatus.FORBIDDEN,
+      );
     }
 
     if (!dto.displayName?.trim()) {

@@ -1,9 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
 import { HouseholdsService } from './households.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppException } from '../common/app-exception';
@@ -217,7 +212,7 @@ describe('HouseholdsService', () => {
     it('nie-członek dostaje 403', async () => {
       await expect(
         service.createInvitation(STRANGER, HH, {}),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
       expect(prisma.invitation.create).not.toHaveBeenCalled();
     });
 
@@ -266,9 +261,7 @@ describe('HouseholdsService', () => {
     });
 
     it('nieznany token → NotFound', async () => {
-      await expect(service.acceptInvitation(STRANGER, dto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.acceptInvitation(STRANGER, dto)).rejects.toMatchObject({ response: { code: 'INVITATION_NOT_FOUND' } });
     });
 
     it.each([
@@ -481,7 +474,7 @@ describe('HouseholdsService', () => {
     it('tylko właściciel', async () => {
       await expect(
         service.updateName(MEMBER, HH, { name: 'Nowa nazwa' }),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toMatchObject({ response: { code: 'OWNER_REQUIRED' } });
       await service.updateName(OWNER, HH, { name: 'Nowa nazwa' });
       expect(prisma.household.update).toHaveBeenCalledWith({
         where: { id: HH },
@@ -493,7 +486,7 @@ describe('HouseholdsService', () => {
       prisma.household.findUnique.mockResolvedValue(null);
       await expect(
         service.updateName(OWNER, 'hh-ghost', { name: 'X' }),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toMatchObject({ response: { code: 'HOUSEHOLD_NOT_FOUND' } });
     });
   });
 
@@ -513,7 +506,7 @@ describe('HouseholdsService', () => {
     it('nie-członek dostaje 403', async () => {
       await expect(
         service.updateMealTypes(STRANGER, HH, { mealTypes: [] as any }),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
   });
 
@@ -535,9 +528,7 @@ describe('HouseholdsService', () => {
     });
 
     it('nie-członek dostaje 403', async () => {
-      await expect(service.listMembers(STRANGER, HH)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(service.listMembers(STRANGER, HH)).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
   });
 
@@ -554,7 +545,7 @@ describe('HouseholdsService', () => {
       state.ownerCount = 1;
       await expect(
         service.updateMemberRole(OWNER, HH, OWNER, { role: 'MEMBER' }),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toMatchObject({ response: { code: 'LAST_OWNER' } });
     });
 
     it('ta sama rola = brak zapisu', async () => {
@@ -567,9 +558,7 @@ describe('HouseholdsService', () => {
 
   describe('removeMember', () => {
     it('nie-właściciel nie usuwa nikogo', async () => {
-      await expect(service.removeMember(MEMBER, HH, OWNER)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(service.removeMember(MEMBER, HH, OWNER)).rejects.toMatchObject({ response: { code: 'OWNER_REQUIRED' } });
     });
 
     it('ostatniego właściciela nie da się usunąć', async () => {
@@ -650,9 +639,7 @@ describe('HouseholdsService', () => {
     });
 
     it('nie-członek nie może wyjść z cudzego domu', async () => {
-      await expect(service.leave(STRANGER, HH)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(service.leave(STRANGER, HH)).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
   });
 

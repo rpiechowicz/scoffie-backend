@@ -206,7 +206,11 @@ export class RecipesService {
       where: { userId_householdId: { userId, householdId } },
     });
     if (!membership) {
-      throw new ForbiddenException('User is not a member of this household');
+      throw new AppException(
+        'NOT_HOUSEHOLD_MEMBER',
+        'User is not a member of this household',
+        HttpStatus.FORBIDDEN,
+      );
     }
   }
 
@@ -378,7 +382,12 @@ export class RecipesService {
         'VALIDATION_ERROR',
         'Cannot compute recipe nutrition from ingredients.',
         HttpStatus.BAD_REQUEST,
-        { missingNutrition, missingPieceWeight },
+        [
+          ...missingNutrition.map((name) => `brak makro na 100 g: ${name}`),
+          ...missingPieceWeight.map(
+            (name) => `brak masy sztuki (gramsPerPiece): ${name}`,
+          ),
+        ],
       );
     }
 
@@ -618,7 +627,11 @@ export class RecipesService {
       select: this.detailSelect,
     });
     if (!recipe) {
-      throw new NotFoundException('Recipe not found');
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        'Recipe not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     let isFavorite = false;
@@ -707,7 +720,11 @@ export class RecipesService {
       },
     });
     if (!recipe) {
-      throw new NotFoundException('Recipe not found');
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        'Recipe not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
     await this.ensureMembership(userIdentifier, data.householdId);
 

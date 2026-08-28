@@ -9,7 +9,14 @@ import { PrismaService } from '../src/prisma/prisma.service';
 
 type WsEnvelope<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string; code: string; status?: number };
+  | {
+      ok: false;
+      error: string;
+      message?: string;
+      code: string;
+      status?: number;
+      requestId?: string;
+    };
 
 type DevLoginResponse = {
   user: { id: string; displayName: string };
@@ -171,10 +178,29 @@ describe('Smoke E2E', () => {
     expect(typeof refreshResponse.body.refreshToken).toBe('string');
     expect(refreshResponse.body.refreshToken).not.toBe(originalRefreshToken);
 
-    await request(app.getHttpServer())
+    const reused = await request(app.getHttpServer())
       .post('/auth/refresh')
       .send({ refreshToken: originalRefreshToken })
       .expect(401);
+    // Jeden kształt błędu HTTP: {code, message, requestId}, bez statusCode.
+    expect(reused.body).toEqual({
+      code: 'UNAUTHORIZED',
+      message: 'Invalid or expired refresh token',
+      requestId: expect.any(String),
+    });
+    expect(reused.headers['x-request-id']).toBe(reused.body.requestId);
+  });
+
+  it('POST /auth/dev with an empty body returns VALIDATION_ERROR with details', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/auth/dev')
+      .send({})
+      .expect(400);
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: expect.arrayContaining([expect.stringContaining('displayName')]),
+      requestId: expect.any(String),
+    });
   });
 
   it('weeklyPlans:upsertWeekSlot should emit weekChanged with changeVersion', async () => {
@@ -271,10 +297,30 @@ describe('Smoke E2E', () => {
     expect(changed.weekStart).toBe(weekStart);
     expect(typeof changed.changeVersion).toBe('number');
 
+    // Ack błędu po sockecie ma ten sam kontrakt: kod, message == error,
+    // status, requestId — tu: obce gospodarstwo.
+    const foreign = await emitWithAck<unknown>('weeklyPlans:getByWeek', {
+      userId,
+      householdId: '00000000-0000-4000-8000-000000000000',
+      weekStart,
+    });
+    expect(foreign.ok).toBe(false);
+    if (!foreign.ok) {
+      expect(foreign).toMatchObject({
+        code: 'NOT_HOUSEHOLD_MEMBER',
+        status: 403,
+        requestId: expect.any(String),
+      });
+      expect(foreign.message).toBe(foreign.error);
+    }
+
     const metrics = await request(app.getHttpServer())
       .get('/ops/metrics')
       .set(opsHeaders())
       .expect(200);
     expect(metrics.body.ws?.totals?.totalConnections).toBeGreaterThanOrEqual(1);
+    expect(metrics.body.http?.wsErrors?.byCode?.NOT_HOUSEHOLD_MEMBER).toBeGreaterThanOrEqual(1);
+    // 401 z reużytego refresh tokenu wyżej ma się policzyć jako 4xx, nie 200.
+    expect(metrics.body.http?.statuses?.['4xx']).toBeGreaterThanOrEqual(1);
   });
 });

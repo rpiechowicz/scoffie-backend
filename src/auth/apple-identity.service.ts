@@ -1,4 +1,5 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { AppException } from '../common/app-exception';
 import { createHash } from 'crypto';
 import {
   createRemoteJWKSet,
@@ -98,10 +99,18 @@ export class AppleIdentityService {
     rawNonce: string,
   ): Promise<VerifiedAppleIdentity> {
     if (!identityToken || typeof identityToken !== 'string') {
-      throw new UnauthorizedException('Missing Apple identity token.');
+      throw new AppException(
+        'APPLE_IDENTITY_INVALID',
+        'Missing Apple identity token.',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
     if (!rawNonce || typeof rawNonce !== 'string') {
-      throw new UnauthorizedException('Missing Apple nonce.');
+      throw new AppException(
+        'APPLE_IDENTITY_INVALID',
+        'Missing Apple nonce.',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     let result: JWTVerifyResult<JWTPayload>;
@@ -115,7 +124,11 @@ export class AppleIdentityService {
       this.logger.warn(
         `Apple identity token signature/claims rejected: ${(error as Error).message}`,
       );
-      throw new UnauthorizedException('Invalid Apple identity token.');
+      throw new AppException(
+        'APPLE_IDENTITY_INVALID',
+        'Invalid Apple identity token.',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     const payload = result.payload;
@@ -125,14 +138,20 @@ export class AppleIdentityService {
     const jwtNonce = typeof payload.nonce === 'string' ? payload.nonce : '';
     if (!jwtNonce || jwtNonce !== expectedNonce) {
       this.logger.warn('Apple identity token nonce mismatch.');
-      throw new UnauthorizedException('Apple nonce does not match.');
+      throw new AppException(
+        'APPLE_IDENTITY_INVALID',
+        'Apple nonce does not match.',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     // --- mandatory claims ---
     const sub = typeof payload.sub === 'string' ? payload.sub : '';
     if (!sub) {
-      throw new UnauthorizedException(
+      throw new AppException(
+        'APPLE_IDENTITY_INVALID',
         'Apple identity token missing sub claim.',
+        HttpStatus.UNAUTHORIZED,
       );
     }
 

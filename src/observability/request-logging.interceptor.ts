@@ -7,9 +7,10 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Observable } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { finalize, tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
 import { RequestMetricsService } from './request-metrics.service';
+import { mapError } from '../common/error-contract';
 
 type RequestWithUser = Request & {
   user?: { id?: string };
@@ -49,11 +50,21 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     const userId = req.user?.id ?? null;
     const startedAt = process.hrtime.bigint();
 
+    // `finalize` biegnie ZANIM filtr wyjątków ustawi status odpowiedzi, więc
+    // rzucone błędy HTTP liczyły się w metrykach jako 200. Status błędu
+    // bierzemy z tego samego mapera, którego użyje filtr.
+    let errorStatus: number | null = null;
+
     return next.handle().pipe(
+      tap({
+        error: (error: unknown) => {
+          errorStatus = mapError(error).contract.status;
+        },
+      }),
       finalize(() => {
         const durationMs =
           Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-        const statusCode = res.statusCode || 500;
+        const statusCode = errorStatus ?? (res.statusCode || 500);
 
         this.metrics.record(routeKey, statusCode, durationMs);
 

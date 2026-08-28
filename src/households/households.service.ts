@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  HttpStatus,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
@@ -39,7 +33,11 @@ export class HouseholdsService {
       where: { id: householdId },
     });
     if (!household) {
-      throw new NotFoundException('Household not found');
+      throw new AppException(
+        'HOUSEHOLD_NOT_FOUND',
+        'Household not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
     return household;
   }
@@ -49,7 +47,11 @@ export class HouseholdsService {
       where: { userId_householdId: { userId, householdId } },
     });
     if (!membership) {
-      throw new ForbiddenException('User is not a member of this household');
+      throw new AppException(
+        'NOT_HOUSEHOLD_MEMBER',
+        'User is not a member of this household',
+        HttpStatus.FORBIDDEN,
+      );
     }
     return membership;
   }
@@ -57,7 +59,11 @@ export class HouseholdsService {
   private async ensureOwner(userId: string, householdId: string) {
     const membership = await this.ensureMembership(userId, householdId);
     if (membership.role !== 'OWNER') {
-      throw new ForbiddenException('Only owners can manage household members');
+      throw new AppException(
+        'OWNER_REQUIRED',
+        'Only owners can manage household members',
+        HttpStatus.FORBIDDEN,
+      );
     }
     return membership;
   }
@@ -142,7 +148,11 @@ export class HouseholdsService {
   ) {
     const membership = await this.ensureMembership(userId, householdId);
     if (membership.role !== 'OWNER') {
-      throw new ForbiddenException('Only owners can create invitations');
+      throw new AppException(
+        'OWNER_REQUIRED',
+        'Only owners can create invitations',
+        HttpStatus.FORBIDDEN,
+      );
     }
 
     const token = randomBytes(16).toString('hex');
@@ -165,7 +175,11 @@ export class HouseholdsService {
       where: { token: dto.token },
     });
     if (!invitation) {
-      throw new NotFoundException('Invitation not found');
+      throw new AppException(
+        'INVITATION_NOT_FOUND',
+        'Invitation not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
     if (invitation.redeemedAt) {
       throw new AppException(
@@ -490,7 +504,11 @@ export class HouseholdsService {
       select: { id: true, redeemedAt: true, invitedUserId: true },
     });
     if (!invitation) {
-      throw new NotFoundException('Invitation not found');
+      throw new AppException(
+        'INVITATION_NOT_FOUND',
+        'Invitation not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
     if (invitation.redeemedAt) {
       throw new AppException(
@@ -617,7 +635,11 @@ export class HouseholdsService {
       where: { userId_householdId: { userId: memberUserId, householdId } },
     });
     if (!targetMembership) {
-      throw new NotFoundException('Member not found in this household');
+      throw new AppException(
+        'MEMBER_NOT_FOUND',
+        'Member not found in this household',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     if (targetMembership.role === dto.role) {
@@ -627,7 +649,11 @@ export class HouseholdsService {
     if (targetMembership.role === 'OWNER' && dto.role !== 'OWNER') {
       const ownerCount = await this.countOwners(householdId);
       if (ownerCount <= 1) {
-        throw new BadRequestException('Household must have at least one owner');
+        throw new AppException(
+          'LAST_OWNER',
+          'Household must have at least one owner',
+          HttpStatus.BAD_REQUEST,
+        );
       }
     }
 
@@ -649,14 +675,20 @@ export class HouseholdsService {
       where: { userId_householdId: { userId: memberUserId, householdId } },
     });
     if (!targetMembership) {
-      throw new NotFoundException('Member not found in this household');
+      throw new AppException(
+        'MEMBER_NOT_FOUND',
+        'Member not found in this household',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     if (targetMembership.role === 'OWNER') {
       const ownerCount = await this.countOwners(householdId);
       if (ownerCount <= 1) {
-        throw new BadRequestException(
+        throw new AppException(
+          'LAST_OWNER',
           'Cannot remove the last owner from household',
+          HttpStatus.BAD_REQUEST,
         );
       }
     }
