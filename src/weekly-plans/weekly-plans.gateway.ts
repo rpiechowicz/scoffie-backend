@@ -504,9 +504,15 @@ export class WeeklyPlansGateway
       // Powiadamiamy tylko o NOWYM daniu w slocie. Trafienie w istniejący item
       // znaczy, że przepis się nie zmienił — ruszył stepper porcji albo chipy
       // audytorium, a to są ustawienia własne, nie wiadomość dla domownika.
-      // („Zmień przepis" idzie jako REMOVE_SLOT + CREATED i dalej powiadamia,
-      // bo bufor sklei te dwa zdarzenia w jedno zdanie.)
-      if (result?.changeKind === 'CREATED') {
+      // Podmiana (`replaceRecipeId`) to też nowe danie: stary wariant zniknął w
+      // tej samej transakcji, więc idzie JEDEN broadcast i JEDEN push, nie
+      // para REMOVE_SLOT + UPSERT_SLOT jak przy dawnym dwukrokowym zapisie.
+      // Akcja zostaje `UPSERT_SLOT` — iOS zna tylko te nazwy, a nieznana
+      // zgasiłaby powiadomienie zamiast je opisać.
+      if (
+        result?.changeKind === 'CREATED' ||
+        result?.changeKind === 'REPLACED'
+      ) {
         this.notifyPlanChanged(
           payload.householdId,
           payload.userId,

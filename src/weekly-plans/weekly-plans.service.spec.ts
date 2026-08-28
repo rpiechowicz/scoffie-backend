@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { WeeklyPlansService } from './weekly-plans.service';
 import { ShoppingListService } from './services/shopping-list.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -492,6 +493,355 @@ describe('WeeklyPlansService', () => {
       );
 
       expect(result).toEqual(expect.objectContaining({ changeKind: 'NOOP' }));
+    });
+  });
+
+  // ─── upsertWeekSlot — replaceRecipeId ─────────────────────────────────────
+  //
+  // „Zmień danie" w jednej transakcji. Do tej pory klient robił to jako
+  // REMOVE_SLOT + UPSERT_SLOT: slot stał chwilę pusty, drugi domownik dostawał
+  // dwa zdarzenia, a przerwany zapis zostawiał pustkę. Tu stary wariant znika
+  // i nowy wchodzi w tym samym `$transaction`.
+
+  describe('upsertWeekSlot — replaceRecipeId', () => {
+    const oldRecipeId = '11111111-1111-4111-8111-111111111111';
+    const newRecipeId = '22222222-2222-4222-8222-222222222222';
+    const replacedItemId = 'plan-item-old';
+
+    const baseSlot = {
+      dayOfWeek: 'MON',
+      mealType: 'BREAKFAST',
+      recipeId: newRecipeId,
+      replaceRecipeId: oldRecipeId,
+    } as const;
+
+    /**
+     * `findFirst` jest wołany dwa razy: raz o stary wariant (po
+     * `replaceRecipeId`), raz o ewentualny istniejący item nowego przepisu.
+     * Mock rozróżnia je po `where.recipeId`, żeby test nie zależał od
+     * kolejności wywołań.
+     */
+    const mockSlot = (params: {
+      replaced?: { plannedServings: number; participantIds: string[] } | null;
+      existing?: { plannedServings: number; participantIds: string[] } | null;
+    }) =>
+      prisma.planItem.findFirst.mockImplementation(({ where }: any) => {
+        if (where.recipeId === oldRecipeId) {
+          return Promise.resolve(
+            params.replaced
+              ? {
+                  id: replacedItemId,
+                  plannedServings: params.replaced.plannedServings,
+                  participants: params.replaced.participantIds.map(
+                    (userId) => ({ userId }),
+                  ),
+                }
+              : null,
+          );
+        }
+        if (where.recipeId === newRecipeId) {
+          return Promise.resolve(
+            params.existing
+              ? {
+                  id: mockPlanItem.id,
+                  plannedServings: params.existing.plannedServings,
+                  participants: params.existing.participantIds.map(
+                    (userId) => ({ userId }),
+                  ),
+                }
+              : null,
+          );
+        }
+        return Promise.resolve(null);
+      });
+
+    const expectCreatedWith = (
+      participantIds: string[],
+      plannedServings: number,
+    ) =>
+      expect(prisma.planItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            recipeId: newRecipeId,
+            plannedServings,
+            participants: {
+              create: participantIds.map((userId) => ({ userId })),
+            },
+          }),
+        }),
+      );
+
+    beforeEach(() => {
+      prisma.recipe.findUnique.mockResolvedValue({
+        ...mockRecipe,
+        id: newRecipeId,
+      });
+    });
+
+    it('kasuje stary wariant i tworzy nowy w tej samej transakcji', async () => {
+      mockSlot({ replaced: { plannedServings: 2, participantIds: [] } });
+
+      const result = await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.planItem.delete).toHaveBeenCalledWith({
+        where: { id: replacedItemId },
+      });
+      expect(prisma.planItem.create).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(
+        expect.objectContaining({
+          changeKind: 'REPLACED',
+          replacedItemIds: [replacedItemId],
+        }),
+      );
+    });
+
+    it('kasuje stary wariant PRZED liczeniem limitów slotu', async () => {
+      mockSlot({ replaced: { plannedServings: 2, participantIds: [] } });
+      const order: string[] = [];
+      prisma.planItem.delete.mockImplementation(() => {
+        order.push('delete');
+        return Promise.resolve(mockPlanItem);
+      });
+      prisma.planItem.count.mockImplementation(() => {
+        order.push('count');
+        return Promise.resolve(0);
+      });
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expect(order[0]).toBe('delete');
+      expect(order.filter((step) => step === 'count')).toHaveLength(3);
+    });
+
+    it('bez participantIds przejmuje audytorium starego dania', async () => {
+      mockSlot({
+        replaced: { plannedServings: 1, participantIds: [mockOtherUserId] },
+      });
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expectCreatedWith([mockOtherUserId], 1);
+    });
+
+    it('jawne participantIds wygrywa z przejętym audytorium', async () => {
+      mockSlot({
+        replaced: { plannedServings: 1, participantIds: [mockOtherUserId] },
+      });
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        { ...baseSlot, participantIds: [mockUserId] },
+      );
+
+      expectCreatedWith([mockUserId], 1);
+    });
+
+    it('jawna pusta lista znaczy „Wspólne", nie „przejmij"', async () => {
+      mockSlot({
+        replaced: { plannedServings: 1, participantIds: [mockOtherUserId] },
+      });
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        { ...baseSlot, participantIds: [] },
+      );
+
+      expectCreatedWith([], 2);
+    });
+
+    it('ręcznie wybrane porcje przeżywają podmianę dania', async () => {
+      // 4 porcje w domu 2-osobowym przy „Wspólne" — nie ma jak wyjść z reguły
+      // auto, więc to świadomy wybór.
+      mockSlot({ replaced: { plannedServings: 4, participantIds: [] } });
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expectCreatedWith([], 4);
+    });
+
+    it('porcje z reguły auto przeliczają się z nowego audytorium', async () => {
+      // 2 porcje przy „Wspólne" w domu 2-osobowym = auto. Zawężenie do jednej
+      // osoby ma dać 1, nie zostawić dwóch.
+      mockSlot({ replaced: { plannedServings: 2, participantIds: [] } });
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        { ...baseSlot, participantIds: [mockUserId] },
+      );
+
+      expectCreatedWith([mockUserId], 1);
+    });
+
+    it('jawne porcje wygrywają także przy podmianie', async () => {
+      mockSlot({ replaced: { plannedServings: 4, participantIds: [] } });
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        { ...baseSlot, plannedServings: 3 },
+      );
+
+      expectCreatedWith([], 3);
+    });
+
+    it('replaceRecipeId równe recipeId niczego nie kasuje', async () => {
+      // Tak wygląda edycja audytorium w arkuszu: klient wysyła edytowany
+      // przepis również jako „stary". To zwykły upsert, nie podmiana.
+      prisma.planItem.findFirst.mockResolvedValue({
+        id: mockPlanItem.id,
+        plannedServings: 2,
+        participants: [],
+      });
+
+      const result = await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        { ...baseSlot, replaceRecipeId: newRecipeId, plannedServings: 3 },
+      );
+
+      expect(prisma.planItem.delete).not.toHaveBeenCalled();
+      expect(prisma.planItem.create).not.toHaveBeenCalled();
+      expect(prisma.membership.findMany).not.toHaveBeenCalled();
+      expect(result).toEqual(
+        expect.objectContaining({
+          changeKind: 'DETAILS_CHANGED',
+          replacedItemIds: [],
+        }),
+      );
+    });
+
+    it('podmiana na przepis, który już leży w slocie, aktualizuje go zamiast tworzyć', async () => {
+      mockSlot({
+        replaced: { plannedServings: 2, participantIds: [] },
+        existing: { plannedServings: 2, participantIds: [] },
+      });
+
+      const result = await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expect(prisma.planItem.delete).toHaveBeenCalledWith({
+        where: { id: replacedItemId },
+      });
+      expect(prisma.planItem.create).not.toHaveBeenCalled();
+      expect(prisma.planItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: mockPlanItem.id } }),
+      );
+      expect(result).toEqual(
+        expect.objectContaining({
+          changeKind: 'REPLACED',
+          replacedItemIds: [replacedItemId],
+        }),
+      );
+    });
+
+    it('brak starego wariantu degraduje się do zwykłego wstawienia', async () => {
+      // Drugi telefon zdążył usunąć stare danie. Nie ma czego kasować, ale
+      // nowe danie ma wejść.
+      mockSlot({ replaced: null });
+
+      const result = await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expect(prisma.planItem.delete).not.toHaveBeenCalled();
+      expect(prisma.planItem.create).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(
+        expect.objectContaining({ changeKind: 'CREATED', replacedItemIds: [] }),
+      );
+    });
+
+    it('naruszenie unikalności przy tworzeniu to CONFLICT, nie 500', async () => {
+      mockSlot({ replaced: { plannedServings: 2, participantIds: [] } });
+      prisma.planItem.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('duplicate', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        service.upsertWeekSlot(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          baseSlot,
+        ),
+      ).rejects.toMatchObject({
+        response: { code: 'CONFLICT' },
+        status: 409,
+      });
+    });
+
+    it('nie-UUID w replaceRecipeId to VALIDATION_ERROR, zanim ruszy transakcja', async () => {
+      await expect(
+        service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+          ...baseSlot,
+          replaceRecipeId: 'abc',
+        }),
+      ).rejects.toMatchObject({
+        response: { code: 'VALIDATION_ERROR' },
+        status: 400,
+      });
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('duch po byłym domowniku nie blokuje podmiany i nie przechodzi dalej', async () => {
+      // Stare danie było „dla nas dwojga" imiennie, ale drugi domownik odszedł.
+      // Po odsianiu ducha zostaje pełny skład domu, czyli „Wspólne"; porcje z
+      // reguły auto przeliczają się na jedną osobę.
+      prisma.membership.findMany.mockResolvedValue([{ userId: mockUserId }]);
+      mockSlot({
+        replaced: {
+          plannedServings: 2,
+          participantIds: [mockUserId, 'ghost-user'],
+        },
+      });
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expectCreatedWith([], 1);
     });
   });
 
