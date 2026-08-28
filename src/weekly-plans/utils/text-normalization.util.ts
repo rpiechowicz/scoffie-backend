@@ -6,22 +6,8 @@ export function normalizeProductKey(name: string, unit: string): string {
 
 /// Lowercases, strips diacritics, and folds Polish accents so keyword
 /// matching can use plain ASCII stems (e.g. "ł" -> "l", "ś" -> "s").
-export function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[ł]/g, 'l')
-    .replace(/[ą]/g, 'a')
-    .replace(/[ć]/g, 'c')
-    .replace(/[ę]/g, 'e')
-    .replace(/[ń]/g, 'n')
-    .replace(/[ó]/g, 'o')
-    .replace(/[ś]/g, 's')
-    .replace(/[ź]/g, 'z')
-    .replace(/[ż]/g, 'z')
-    .trim();
-}
+/// Jedna definicja dla całego repo — patrz `src/common/normalize-text.util.ts`.
+export { normalizeText } from '../../common/normalize-text.util';
 
 /// Escapes a literal string so it can be safely embedded inside a `RegExp(...)`.
 export function escapeForRegex(value: string): string {

@@ -1,20 +1,33 @@
 import {
-  BadRequestException,
   ForbiddenException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { MealType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  MEAL_TYPES_IN_DAY_ORDER,
   effectiveSuitableMealTypes,
   isMealType,
 } from '../common/meal-types';
-import { CreateRecipeDto } from './dto/create-recipe.dto';
+import {
+  CreateRecipeDto,
+  CreateRecipeIngredientDto,
+} from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
 import { FindRecipesDto } from './dto/find-recipes.dto';
 import { RecipesCacheService } from './recipes-cache.service';
+import { AppException } from '../common/app-exception';
+import {
+  ALLOWED_UNITS,
+  normalizeIngredientAmount,
+} from './ingredient-amount.util';
+import {
+  computeRecipeNutrition,
+  roundTotalsForStorage,
+  type IngredientNutritionPer100,
+} from './recipe-nutrition.util';
+import { resolveSuitableMealTypes } from './suitable-meal-types.util';
 
 const recipeListSelect = {
   id: true,
@@ -61,9 +74,29 @@ type RecipeListRow = Prisma.RecipeGetPayload<{
   select: typeof recipeListSelect;
 }>;
 
-type NormalizedIngredient = {
+/**
+ * Wiersz `RecipeIngredient` gotowy do zapisu plus makra źródła (na 100 g/ml),
+ * z których liczy się suma przepisu. `nutrition` nie trafia do bazy —
+ * `create` je odcina.
+ */
+type RecipeIngredientRow = {
+  ingredientId: string;
+  name: string;
+  amount: number;
+  unit: string;
   normalizedAmount: number;
   normalizedUnit: 'g' | 'ml' | 'szt';
+  department: string;
+  nutrition: IngredientNutritionPer100 | null;
+};
+
+type ResolvedRecipeNutrition = {
+  nutritionKcal: number;
+  nutritionProtein: number;
+  nutritionFat: number;
+  nutritionCarbs: number;
+  nutritionFiber: number;
+  nutritionSalt: number;
 };
 
 type RecipeImageSource = {
@@ -102,44 +135,6 @@ export class RecipesService {
   private readonly r2PublicBaseUrl = (process.env.R2_PUBLIC_BASE_URL ?? '')
     .trim()
     .replace(/\/+$/g, '');
-  private static readonly LIQUID_SPOON_UNITS_IN_ML: Record<
-    'lyzeczka' | 'lyzka' | 'szczypta',
-    number
-  > = {
-    lyzeczka: 5,
-    lyzka: 15,
-    szczypta: 0.5,
-  };
-  private static readonly SPICE_GRAMS_PER_TEASPOON_BY_NAME: Record<
-    string,
-    number
-  > = {
-    sol: 6,
-    'pieprz czarny': 2.3,
-    pieprz: 2.3,
-    'papryka slodka mielona': 2.3,
-    'papryka ostra mielona': 2.3,
-    cynamon: 2.6,
-    kurkuma: 2.2,
-    kminek: 2.1,
-    oregano: 1,
-    'tymianek suszony': 1,
-    'bazylia suszona': 0.8,
-    'imbir mielony': 2.2,
-    'czosnek granulowany': 2.8,
-    cukier: 4,
-    'cukier brazowy': 4,
-  };
-  private static readonly LIQUID_CONDIMENTS = new Set<string>([
-    'ketchup',
-    'musztarda',
-    'majonez',
-    'ocet jablkowy',
-    'ocet winny',
-    'sos pomidorowy',
-    'sos sojowy',
-  ]);
-
   private isUuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       value,
@@ -215,74 +210,186 @@ export class RecipesService {
     }
   }
 
-  private normalizeText(value: string): string {
-    return value
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[ł]/g, 'l')
-      .replace(/[ą]/g, 'a')
-      .replace(/[ć]/g, 'c')
-      .replace(/[ę]/g, 'e')
-      .replace(/[ń]/g, 'n')
-      .replace(/[ó]/g, 'o')
-      .replace(/[ś]/g, 's')
-      .replace(/[ź]/g, 'z')
-      .replace(/[ż]/g, 'z')
-      .trim();
-  }
+  /**
+   * Składniki przepisu po bramkach, z jednostką bazową i makrami źródła.
+   *
+   * Normalizator jest TEN SAM, którym pisze importer katalogu
+   * (`ingredient-amount.util.ts`). Serwis miał własną kopię tabel łyżeczek,
+   * która rozjechała się o jedną pozycję (`przyprawa uniwersalna`: 4 g
+   * w utilu, domyślne 2,5 g w kopii) — ten sam składnik ważył inaczej
+   * w zależności od tego, którędy wszedł do bazy.
+   *
+   * Bramki na jednostkę, ilość i duplikaty są tu, a nie tylko w dekoratorach
+   * DTO, bo na ścieżce WS `ValidationPipe` nie ma czego zwalidować
+   * (koperta payloadu nie ma `@ValidateNested`). Bez nich `unit: 'garść'`
+   * na przyprawie przechodziło przez drabinkę g/kg/ml/l/szt, łapało
+   * `spoonFactor = 1` i dawało ciche śmieci w gramach, a zduplikowany
+   * `ingredientId` kończył się P2002 → INTERNAL_ERROR.
+   */
+  private async resolveRecipeIngredients(
+    items: CreateRecipeIngredientDto[] | undefined,
+  ): Promise<RecipeIngredientRow[]> {
+    if (!items?.length) return [];
 
-  private normalizeIngredientAmount(
-    ingredientName: string,
-    category: string,
-    amount: number,
-    unit: string,
-  ): NormalizedIngredient {
-    const normalizedUnit = this.normalizeText(unit) as
-      | 'g'
-      | 'kg'
-      | 'ml'
-      | 'l'
-      | 'szt'
-      | 'szczypta'
-      | 'lyzeczka'
-      | 'lyzka';
-    if (normalizedUnit === 'g')
-      return { normalizedAmount: amount, normalizedUnit: 'g' };
-    if (normalizedUnit === 'kg')
-      return { normalizedAmount: amount * 1000, normalizedUnit: 'g' };
-    if (normalizedUnit === 'ml')
-      return { normalizedAmount: amount, normalizedUnit: 'ml' };
-    if (normalizedUnit === 'l')
-      return { normalizedAmount: amount * 1000, normalizedUnit: 'ml' };
-    if (normalizedUnit === 'szt')
-      return { normalizedAmount: amount, normalizedUnit: 'szt' };
+    items.forEach((item, index) => {
+      if (typeof item.unit !== 'string' || !ALLOWED_UNITS.has(item.unit)) {
+        throw new AppException(
+          'VALIDATION_ERROR',
+          `Unit "${String(item.unit)}" is not supported (ingredient index ${index}).`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (
+        typeof item.amount !== 'number' ||
+        !Number.isFinite(item.amount) ||
+        item.amount <= 0
+      ) {
+        throw new AppException(
+          'VALIDATION_ERROR',
+          `Ingredient amount must be a positive number (ingredient index ${index}).`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    });
 
-    const normalizedCategory = this.normalizeText(category);
-    if (normalizedCategory !== 'przyprawy i sosy') {
-      throw new BadRequestException(
-        `Unit "${unit}" is allowed only for category "Przyprawy i sosy".`,
+    const ids = items.map((item) => item.ingredientId);
+    const duplicates = Array.from(
+      new Set(ids.filter((id, index) => ids.indexOf(id) !== index)),
+    );
+    if (duplicates.length > 0) {
+      // `@@unique([recipeId, ingredientId])` — ten sam składnik dwa razy to
+      // błąd wejścia, nie dwa wiersze.
+      throw new AppException(
+        'VALIDATION_ERROR',
+        `Duplicate ingredientId in recipe payload: ${duplicates.join(', ')}`,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
-    const spoonFactor =
-      normalizedUnit === 'lyzka'
-        ? 3
-        : normalizedUnit === 'szczypta'
-          ? 1 / 16
-          : 1;
-    const normalizedName = this.normalizeText(ingredientName);
-
-    if (RecipesService.LIQUID_CONDIMENTS.has(normalizedName)) {
-      const mlPerUnit = RecipesService.LIQUID_SPOON_UNITS_IN_ML[normalizedUnit];
-      return { normalizedAmount: amount * mlPerUnit, normalizedUnit: 'ml' };
+    const ingredientRows = await this.prisma.ingredient.findMany({
+      where: {
+        id: { in: ids },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        nutritionKcalPer100: true,
+        nutritionProteinPer100: true,
+        nutritionCarbsPer100: true,
+        nutritionFatPer100: true,
+        nutritionFiberPer100: true,
+        gramsPerPiece: true,
+      },
+    });
+    const ingredientById = new Map(
+      ingredientRows.map((ingredient) => [ingredient.id, ingredient]),
+    );
+    if (ingredientById.size !== ids.length) {
+      throw new NotFoundException(
+        'One or more ingredients were not found or are inactive',
+      );
     }
 
-    const gramsPerTeaspoon =
-      RecipesService.SPICE_GRAMS_PER_TEASPOON_BY_NAME[normalizedName] ?? 2.5;
+    return items.map((item) => {
+      const ingredient = ingredientById.get(item.ingredientId)!;
+      let normalized: ReturnType<typeof normalizeIngredientAmount>;
+      try {
+        normalized = normalizeIngredientAmount(
+          ingredient.name,
+          ingredient.category,
+          item.amount,
+          item.unit,
+        );
+      } catch (error) {
+        // Util rzuca zwykłym `Error` (skrypty polegają na tym, że przerywa
+        // import); dla klienta to błąd wejścia, nie 500.
+        throw new AppException(
+          'VALIDATION_ERROR',
+          error instanceof Error
+            ? error.message
+            : 'Cannot normalize ingredient amount',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      return {
+        ingredientId: ingredient.id,
+        name: ingredient.name,
+        amount: item.amount,
+        unit: item.unit,
+        normalizedAmount: Number(normalized.normalizedAmount.toFixed(4)),
+        normalizedUnit: normalized.normalizedUnit,
+        department: ingredient.category,
+        // Ta sama reguła co w `scripts/recompute-recipe-nutrition.ts`: brak
+        // kcal na 100 g znaczy „brak danych", reszta luk liczy się jako 0.
+        nutrition:
+          ingredient.nutritionKcalPer100 === null
+            ? null
+            : {
+                kcal: ingredient.nutritionKcalPer100,
+                protein: ingredient.nutritionProteinPer100 ?? 0,
+                carbs: ingredient.nutritionCarbsPer100 ?? 0,
+                fat: ingredient.nutritionFatPer100 ?? 0,
+                fiber: ingredient.nutritionFiberPer100 ?? 0,
+                gramsPerPiece: ingredient.gramsPerPiece,
+              },
+      };
+    });
+  }
+
+  /**
+   * Makra liczy serwer, nie klient.
+   *
+   * Wartości przysłane w DTO są ignorowane, gdy przepis ma składniki: jedyny
+   * przyszły wołający tej metody to asystent, a jego liczby są dokładnie tym,
+   * czego walidator nie może brać na wiarę. Składnik bez makr albo sztuka
+   * bez `gramsPerPiece` to odmowa, nie zaniżona suma zapisana jako prawda.
+   * `nutritionSalt` zostaje z DTO — `Ingredient` nie ma sodu na 100 g, więc
+   * nie ma z czego go policzyć (tak samo omija go skrypt przeliczania).
+   *
+   * Bez składników zostają wartości z DTO (albo zera) — to jedyny przypadek,
+   * w którym nie ma z czego liczyć.
+   *
+   * TODO(update): `recipes:update` ma użyć tej samej pary
+   * `resolveRecipeIngredients` + `resolveRecipeNutrition`, inaczej rozjazd
+   * wróci od kuchni.
+   */
+  private resolveRecipeNutrition(
+    data: CreateRecipeDto,
+    rows: RecipeIngredientRow[],
+  ): ResolvedRecipeNutrition {
+    const nutritionSalt = data.nutritionSalt ?? 0;
+    if (rows.length === 0) {
+      return {
+        nutritionKcal: data.nutritionKcal ?? 0,
+        nutritionProtein: data.nutritionProtein ?? 0,
+        nutritionFat: data.nutritionFat ?? 0,
+        nutritionCarbs: data.nutritionCarbs ?? 0,
+        nutritionFiber: data.nutritionFiber ?? 0,
+        nutritionSalt,
+      };
+    }
+
+    const { totals, missingNutrition, missingPieceWeight } =
+      computeRecipeNutrition(rows);
+    if (missingNutrition.length > 0 || missingPieceWeight.length > 0) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Cannot compute recipe nutrition from ingredients.',
+        HttpStatus.BAD_REQUEST,
+        { missingNutrition, missingPieceWeight },
+      );
+    }
+
+    const stored = roundTotalsForStorage(totals);
     return {
-      normalizedAmount: amount * gramsPerTeaspoon * spoonFactor,
-      normalizedUnit: 'g',
+      nutritionKcal: stored.kcal,
+      nutritionProtein: stored.protein,
+      nutritionFat: stored.fat,
+      nutritionCarbs: stored.carbs,
+      nutritionFiber: stored.fiber,
+      nutritionSalt,
     };
   }
 
@@ -541,83 +648,43 @@ export class RecipesService {
     const userId = await this.resolveUserId(userIdentifier);
     await this.ensureMembership(userIdentifier, data.householdId);
 
-    let ingredientById = new Map<
-      string,
-      { id: string; name: string; category: string }
-    >();
-    if (data.ingredients?.length) {
-      const uniqueIds = Array.from(
-        new Set(data.ingredients.map((ingredient) => ingredient.ingredientId)),
-      );
-      const ingredientRows = await this.prisma.ingredient.findMany({
-        where: {
-          id: { in: uniqueIds },
-          isActive: true,
-        },
-        select: {
-          id: true,
-          name: true,
-          category: true,
-        },
-      });
-      ingredientById = new Map(
-        ingredientRows.map((ingredient) => [ingredient.id, ingredient]),
-      );
-      if (ingredientById.size !== uniqueIds.length) {
-        throw new NotFoundException(
-          'One or more ingredients were not found or are inactive',
-        );
-      }
-    }
+    // Cała walidacja PRZED `recipe.create`: składniki, jednostki, makra.
+    const ingredientRows = await this.resolveRecipeIngredients(
+      data.ingredients,
+    );
+    const nutrition = this.resolveRecipeNutrition(data, ingredientRows);
 
     const created = await this.prisma.recipe.create({
       data: {
         title: data.title,
         description: data.description,
         mealType: data.mealType,
-        // Slot bazowy zawsze wchodzi do listy, nawet gdy klient go nie
-        // przysłał — inaczej dałoby się utworzyć przepis, którego nie widać
+        // Ta sama reguła co w imporcie: klient może podać sloty wprost, resztę
+        // dokłada klasyfikator (progi liczy z POLICZONYCH kcal, więc musi iść
+        // po makrach). Slot bazowy wchodzi zawsze — `effectiveSuitableMealTypes`
+        // go dopisuje — inaczej dałoby się utworzyć przepis, którego nie widać
         // w jego własnej sekcji.
-        suitableMealTypes: MEAL_TYPES_IN_DAY_ORDER.filter((type) =>
-          new Set<MealType>([
-            data.mealType,
-            ...(data.suitableMealTypes ?? []),
-          ]).has(type),
-        ),
+        suitableMealTypes: resolveSuitableMealTypes({
+          title: data.title,
+          description: data.description,
+          mealType: data.mealType,
+          prepTimeMinutes: data.prepTimeMinutes,
+          servings: data.servings,
+          nutritionKcal: nutrition.nutritionKcal,
+          suitableMealTypes: data.suitableMealTypes,
+        }),
         difficulty: data.difficulty,
         prepTimeMinutes: data.prepTimeMinutes,
         servings: data.servings,
         imageUrl: data.imageUrl,
-        nutritionKcal: data.nutritionKcal ?? 0,
-        nutritionProtein: data.nutritionProtein ?? 0,
-        nutritionFat: data.nutritionFat ?? 0,
-        nutritionCarbs: data.nutritionCarbs ?? 0,
-        nutritionFiber: data.nutritionFiber ?? 0,
-        nutritionSalt: data.nutritionSalt ?? 0,
+        ...nutrition,
         householdId: data.householdId,
         authorId: userId,
-        ingredients: data.ingredients?.length
+        ingredients: ingredientRows.length
           ? {
-              create: data.ingredients.map((item) => {
-                const ingredient = ingredientById.get(item.ingredientId)!;
-                const normalized = this.normalizeIngredientAmount(
-                  ingredient.name,
-                  ingredient.category,
-                  item.amount,
-                  item.unit,
-                );
-                return {
-                  ingredientId: ingredient.id,
-                  name: ingredient.name,
-                  amount: item.amount,
-                  unit: item.unit,
-                  normalizedAmount: Number(
-                    normalized.normalizedAmount.toFixed(4),
-                  ),
-                  normalizedUnit: normalized.normalizedUnit,
-                  department: ingredient.category,
-                };
-              }),
+              create: ingredientRows.map(
+                ({ nutrition: _nutrition, ...row }) => row,
+              ),
             }
           : undefined,
       },

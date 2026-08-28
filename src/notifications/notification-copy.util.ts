@@ -10,7 +10,6 @@ import { DEFAULT_TIME_ZONE } from './quiet-hours.util';
 export type PlanChangeAction =
   | 'UPSERT_SLOT'
   | 'REMOVE_SLOT'
-  | 'SAVE_PLAN'
   | 'CLEAR_PLAN'
   | (string & {});
 
@@ -205,9 +204,6 @@ export function buildPlanSummary(
 
   if (actions.has('CLEAR_PLAN')) {
     return { title, body: `${actor} usunął/ęła plan na ${week}.` };
-  }
-  if (actions.has('SAVE_PLAN')) {
-    return { title, body: `${actor} ustawił/a plan na ${week}.` };
   }
 
   const slotEvents = events.filter((e) => e.dayOfWeek && e.mealType);

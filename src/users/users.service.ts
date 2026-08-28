@@ -1,10 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { DietPreferenceValue, Prisma, Sex, UserGoal } from '@prisma/client';
+import { AppException } from '../common/app-exception';
+import { normalizeAllergenIds } from '../common/allergens';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { settleHouseholdAfterMemberLeft } from '../households/household-cleanup.util';
+import { onMemberLeft } from '../weekly-plans/utils/plan-roster.util';
 import {
   effectiveAvatarColor,
   pickFreeAvatarColor,
@@ -16,6 +19,38 @@ const CALORIE_GOAL_DEFAULT = 2000;
 const ACTIVITY_LEVEL_MIN = 1;
 const ACTIVITY_LEVEL_MAX = 4;
 const ACTIVITY_LEVEL_DEFAULT = 2;
+// Gorne granice makr. Te same liczby stoja w `@Min/@Max` DTO
+// (`update-preferences.dto.ts`), ale DTO nie ma jak zadzialac na
+// WebSockecie, wiec twarde przyciecie musi byc tutaj.
+const PROTEIN_G_MAX = 400;
+const FAT_G_MAX = 300;
+const CARBS_G_MAX = 800;
+
+/**
+ * `null` zostaje `null` — to sygnal „wroc do liczenia automatem". Liczba jest
+ * zaokraglana i przycinana do 0..max, jak `calorieGoal` (suwak nie jest w
+ * stanie dac wartosci spoza zakresu, wiec taka liczba to blad, nie intencja).
+ * Cokolwiek innego (string, NaN, Infinity — WebSocket przepusci wszystko)
+ * jest bledem klienta, nie wartoscia do zapisania.
+ */
+function clampMacro(
+  value: number | null,
+  max: number,
+  field: 'proteinG' | 'fatG' | 'carbsG',
+): number | null {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      `${field} musi byc liczba calkowita 0..${max} albo null`,
+      HttpStatus.BAD_REQUEST,
+      { field },
+    );
+  }
+  return Math.min(Math.max(Math.round(value), 0), max);
+}
 
 export interface UserPreferencesPayload {
   dietPreference: DietPreferenceValue;
@@ -276,11 +311,10 @@ export class UsersService {
     }
 
     if (data.allergens !== undefined) {
-      const normalised = Array.from(
-        new Set(
-          data.allergens.map((a) => a.trim().toLowerCase()).filter(Boolean),
-        ),
-      ).sort();
+      // Biala lista z `common/allergens.ts`; nieznane id to VALIDATION_ERROR
+      // calego zapisu, nie ciche wyrzucenie — po cichu wyrzucony alergen to
+      // uzytkownik, ktory mysli, ze jest chroniony.
+      const normalised = normalizeAllergenIds(data.allergens);
       update.allergens = normalised;
       create.allergens = normalised;
     }
@@ -299,19 +333,23 @@ export class UsersService {
       create.activityLevel = clamped;
     }
 
-    // Makra przechodza jak sa, lacznie z `null` — to jest sygnal „wroc do
-    // liczenia automatem", a nie brak wartosci.
+    // `null` przechodzi nietkniete — to jest sygnal „wroc do liczenia
+    // automatem", a nie brak wartosci. Liczby przycinamy jak `calorieGoal`,
+    // bo na WebSockecie `@Min/@Max` z DTO nigdy sie nie uruchamiaja.
     if (data.proteinG !== undefined) {
-      update.proteinG = data.proteinG;
-      create.proteinG = data.proteinG;
+      const value = clampMacro(data.proteinG, PROTEIN_G_MAX, 'proteinG');
+      update.proteinG = value;
+      create.proteinG = value;
     }
     if (data.fatG !== undefined) {
-      update.fatG = data.fatG;
-      create.fatG = data.fatG;
+      const value = clampMacro(data.fatG, FAT_G_MAX, 'fatG');
+      update.fatG = value;
+      create.fatG = value;
     }
     if (data.carbsG !== undefined) {
-      update.carbsG = data.carbsG;
-      create.carbsG = data.carbsG;
+      const value = clampMacro(data.carbsG, CARBS_G_MAX, 'carbsG');
+      update.carbsG = value;
+      create.carbsG = value;
     }
 
     if (data.pushPlanChanges !== undefined) {
@@ -414,6 +452,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       const memberships = await tx.membership.findMany({
         where: { userId },
@@ -432,7 +471,18 @@ export class UsersService {
         // Ta sama regula co przy wyjsciu z gospodarstwa — jedna definicja
         // zamiast dwoch kopii, ktore juz raz sie rozjechaly (wyjscie nie
         // kasowalo pustych domow, kasowanie konta kasowalo).
-        await settleHouseholdAfterMemberLeft(tx, membership.householdId);
+        const settlement = await settleHouseholdAfterMemberLeft(
+          tx,
+          membership.householdId,
+        );
+        // Kaskada z `tx.user.delete` niżej zabiera wiersze uczestnictwa, ale
+        // ROBI TO PÓŹNIEJ i po cichu: item, na którym ta osoba była jedynym
+        // uczestnikiem, awansowałby na „Wspólny", a auto-porcje „Wspólnych"
+        // zostałyby policzone dla starego składu. Hook musi pójść PRZED
+        // usunięciem użytkownika, dopóki wiersze jeszcze istnieją.
+        if (settlement.outcome !== 'DELETED') {
+          await onMemberLeft(tx, membership.householdId, userId, now);
+        }
       }
 
       await tx.user.delete({ where: { id: userId } });

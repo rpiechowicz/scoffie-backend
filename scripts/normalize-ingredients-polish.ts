@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { normalizeText } from '../src/common/normalize-text.util';
 
 const prisma = new PrismaClient();
 
@@ -130,24 +131,6 @@ function applyPolishName(name: string): string {
   }
 
   return value.replace(/\s+/g, ' ').trim();
-}
-
-function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[ł]/g, 'l')
-    .replace(/[ą]/g, 'a')
-    .replace(/[ć]/g, 'c')
-    .replace(/[ę]/g, 'e')
-    .replace(/[ń]/g, 'n')
-    .replace(/[ó]/g, 'o')
-    .replace(/[ś]/g, 's')
-    .replace(/[ź]/g, 'z')
-    .replace(/[ż]/g, 'z')
-    .trim()
-    .replace(/\s+/g, ' ');
 }
 
 async function main() {

@@ -57,4 +57,24 @@ export class UpsertWeekSlotDto {
   @Min(1)
   @Max(12)
   plannedServings?: number;
+
+  /**
+   * Przepis, który ma zniknąć ze slotu w TEJ SAMEJ transakcji, w której wchodzi
+   * `recipeId`. Tak wygląda „zmień danie": klient nie woła już
+   * `removeWeekSlot` + `upsertWeekSlot`, między którymi slot stał pusty, a
+   * drugi domownik dostawał dwa powiadomienia zamiast jednego.
+   *
+   * Równe `recipeId` znaczy „bez podmiany" — arkusz edycji wysyła edytowany
+   * przepis także wtedy, gdy użytkownik ruszył tylko audytorium albo porcje.
+   * Pominięte `participantIds` przy podmianie przejmuje audytorium starego
+   * dania (po odsianiu byłych domowników); pominięte `plannedServings`
+   * zachowuje ręcznie wybraną liczbę porcji, a auto przelicza na nowo.
+   *
+   * Dekoratory nie odpalają się na ścieżce WS (patrz `plannedServings`),
+   * więc formatu pilnuje `parseReplaceRecipeId` w serwisie.
+   */
+  @ApiPropertyOptional({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
+  @IsOptional()
+  @IsUUID()
+  replaceRecipeId?: string;
 }

@@ -25,7 +25,13 @@ docker compose exec api pnpm prisma studio -- --hostname 0.0.0.0 --port 5555
 docker compose exec api pnpm ws:smoke users:findAll '{}'
 docker compose exec api pnpm ws:smoke households:findAll '{"userId":"<USER_ID>"}'
 docker compose exec api pnpm ws:smoke recipes:findAll '{"userId":"<USER_ID>"}'
-docker compose exec api pnpm ws:smoke weeklyPlans:listByHousehold '{"userId":"<USER_ID>","householdId":"<HOUSEHOLD_ID>"}'
+docker compose exec api pnpm ws:smoke weeklyPlans:getByWeek '{"userId":"<USER_ID>","householdId":"<HOUSEHOLD_ID>","weekStart":"<YYYY-MM-DD poniedziałek>"}'
+// podmiana dania w slocie w jednej transakcji (replaceRecipeId = stary przepis; równe recipeId = zwykła edycja)
+docker compose exec api pnpm ws:smoke weeklyPlans:upsertWeekSlot '{"userId":"<USER_ID>","householdId":"<HOUSEHOLD_ID>","weekStart":"<YYYY-MM-DD poniedziałek>","data":{"dayOfWeek":"MON","mealType":"DINNER","recipeId":"<NEW_RECIPE_ID>","replaceRecipeId":"<OLD_RECIPE_ID>"}}'
+// preferencje: alergeny tylko z białej listy (src/common/allergens.ts), makra przycinane do 0..400/300/800
+docker compose exec api pnpm ws:smoke users:preferences:update '{"userId":"<USER_ID>","data":{"allergens":["gluten","soy"],"proteinG":160}}'
+// tworzenie przepisu: makro liczy serwer ze składników (wartości z DTO poza nutritionSalt są ignorowane)
+docker compose exec api pnpm ws:smoke recipes:create '{"userId":"<USER_ID>","data":{"householdId":"<HOUSEHOLD_ID>","title":"Testowa owsianka","mealType":"BREAKFAST","difficulty":"EASY","prepTimeMinutes":10,"servings":2,"ingredients":[{"ingredientId":"<INGREDIENT_ID>","amount":100,"unit":"g"}]}}'
 
 // GENERATE RECIPE IMAGES (fills imageUrl)
 docker compose exec api pnpm run generate:recipe:images
@@ -60,8 +66,8 @@ https://www.recraft.ai
 
 ----------
 
-railway run --service weakly-meals-backend pnpm exec tsx scripts/load-ingredient-catalog.ts
-railway run --service weakly-meals-backend pnpm exec tsx scripts/normalize-ingredients-polish.ts
+railway run --service Backend pnpm exec tsx scripts/load-ingredient-catalog.ts
+railway run --service Backend pnpm exec tsx scripts/normalize-ingredients-polish.ts
 // Katalog importujemy z pliku, w ktorym KAZDY przepis ma jawne id
 // (recipes-catalog-full-v2.json). recipes-approved-30-v1.json id nie ma i
 // dostaje je z puli po indeksie - a pula jest posortowana po UUID, wiec
@@ -70,6 +76,6 @@ railway run --service weakly-meals-backend pnpm exec tsx scripts/normalize-ingre
 // katalog (RECIPE_IMPORT_ALLOW_RETITLE).
 // RECIPE_IMPORT_HOUSEHOLD_ID = ID gospodarstwa, ktore juz trzyma katalog na tej bazie
 // (SELECT "householdId", count(*) FROM "Recipe" WHERE "authorId" = '11111111-1111-4111-8111-111111111111' GROUP BY 1;)
-// Na Railway ustaw je raz w Variables, wtedy w komendzie mozna pominac.
-railway run --service weakly-meals-backend bash -c "RECIPE_IMPORT_FILE=prisma/catalog/recipes-catalog-full-v2.json RECIPE_IMPORT_CLEAR_EXISTING=false RECIPE_IMPORT_HOUSEHOLD_ID=<id> pnpm exec tsx scripts/import-recipes-from-json.ts"
-railway run --service weakly-meals-backend pnpm exec tsx scripts/fix-recipe-image-urls.ts
+// Na Railway (serwis "Backend") ustaw je raz w Variables, wtedy w komendzie mozna pominac.
+railway run --service Backend bash -c "RECIPE_IMPORT_FILE=prisma/catalog/recipes-catalog-full-v2.json RECIPE_IMPORT_CLEAR_EXISTING=false RECIPE_IMPORT_HOUSEHOLD_ID=<id> pnpm exec tsx scripts/import-recipes-from-json.ts"
+railway run --service Backend pnpm exec tsx scripts/fix-recipe-image-urls.ts

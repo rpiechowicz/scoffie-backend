@@ -1,24 +1,16 @@
-import {
-  ConflictException,
-  HttpStatus,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePlanItemDto } from './dto/create-plan-item.dto';
-import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
-import {
-  SaveSharedMealPlanDto,
-  mergeSharedPlanRecipeIds,
-  sharedPlanAddressedMealTypes,
-} from './dto/save-shared-meal-plan.dto';
-import { MealType, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { MEAL_TYPES_IN_DAY_ORDER } from '../common/meal-types';
 import { parseWeekStart } from './utils/week-formatting.util';
+import {
+  autoPlannedServings,
+  clampPlannedServings,
+} from './utils/planned-servings.util';
 import {
   ensureMembership,
   ensureRecipeForHousehold,
@@ -72,6 +64,41 @@ function sameMemberSet(a: string[], b: string[]): boolean {
   return b.every((id) => left.has(id));
 }
 
+/**
+ * Luźny wzorzec UUID: dowolna wersja, wielkość liter bez znaczenia. Nie pilnuje
+ * bitów wersji ani wariantu, bo identyfikatory katalogu są pisane ręcznie w
+ * JSON-ie — wystarczy, że nie przepuści śmieci, na których Postgres wywaliłby
+ * się z 500 zamiast czytelnego 400.
+ */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * `replaceRecipeId` z DTO: `null`, gdy nie ma czego podmieniać.
+ *
+ * Równe `recipeId` też znaczy „bez podmiany" — `PlanSlotPickerSheet` wysyła
+ * edytowany przepis zawsze, także gdy użytkownik ruszył tylko audytorium; bez
+ * tej reguły każda taka edycja kasowałaby item, żeby zaraz założyć go na nowo
+ * (i po drodze gubiła znaczniki zjedzenia).
+ *
+ * Walidacja siedzi tu, a nie w dekoratorach DTO, bo na ścieżce WS te nie
+ * działają (patrz `resolvePlannedServings`).
+ */
+function parseReplaceRecipeId(
+  value: unknown,
+  recipeId: string,
+): string | null {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      'replaceRecipeId musi być identyfikatorem UUID',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+  return value === recipeId ? null : value;
+}
+
 function withPlanItemRelationIds<
   T extends {
     participants?: { userId: string }[];
@@ -111,21 +138,6 @@ export class WeeklyPlansService {
   private static readonly MAX_ITEMS_TOTAL =
     7 * 6 * MEAL_TYPES_IN_DAY_ORDER.length;
 
-  async listByHousehold(userId: string, householdId: string) {
-    await ensureMembership(this.prisma, userId, householdId);
-    const plans = await this.prisma.weeklyPlan.findMany({
-      where: { householdId },
-      orderBy: { weekStart: 'desc' },
-      include: {
-        items: { include: PLAN_ITEM_INCLUDE },
-      },
-    });
-    return plans.map((plan) => ({
-      ...plan,
-      items: plan.items.map(withPlanItemRelationIds),
-    }));
-  }
-
   async getByHouseholdAndWeek(
     userId: string,
     householdId: string,
@@ -152,160 +164,6 @@ export class WeeklyPlansService {
     return { ...plan, items: plan.items.map(withPlanItemRelationIds) };
   }
 
-  async create(userId: string, householdId: string, dto: CreateWeeklyPlanDto) {
-    await ensureMembership(this.prisma, userId, householdId);
-    return this.prisma.weeklyPlan.create({
-      data: {
-        householdId,
-        weekStart: parseWeekStart(dto.weekStart),
-      },
-    });
-  }
-
-  async addItem(userId: string, weeklyPlanId: string, dto: CreatePlanItemDto) {
-    const plan = await this.prisma.weeklyPlan.findUnique({
-      where: { id: weeklyPlanId },
-    });
-    if (!plan) {
-      throw new NotFoundException('Weekly plan not found');
-    }
-    await ensureMembership(this.prisma, userId, plan.householdId);
-
-    await ensureRecipeForHousehold(this.prisma, dto.recipeId, plan.householdId);
-
-    // Ścieżka zaszła: `addItem` w ogóle nie zna audytorium — nie zakłada
-    // `PlanItemParticipant` — a klient iOS jej nie woła, bo chodzi wyłącznie
-    // przez `upsertWeekSlot`. Zostaje więc REST i starsze integracje, dla
-    // których „bez uczestników" znaczy „Wspólne", czyli tyle porcji, ilu
-    // domowników. Bez tego item wylądowałby na `@default(1)` ze schematu
-    // i lista zakupów kupiłaby jedzenie dla jednej osoby.
-    const { memberCount } = await this.resolveParticipants(plan.householdId);
-    const plannedServings = this.resolvePlannedServings([], memberCount);
-
-    return this.prisma.$transaction(async (tx) => {
-      const [existingForMealType, existingTotal, variantsInSlot, sameRecipe] =
-        await Promise.all([
-          tx.planItem.count({
-            where: {
-              weeklyPlanId,
-              mealType: dto.mealType,
-            },
-          }),
-          tx.planItem.count({
-            where: { weeklyPlanId },
-          }),
-          tx.planItem.count({
-            where: {
-              weeklyPlanId,
-              dayOfWeek: dto.dayOfWeek,
-              mealType: dto.mealType,
-            },
-          }),
-          // A slot may hold several recipes (one per household split), so the
-          // conflict is now "this exact recipe is already in this slot".
-          tx.planItem.findFirst({
-            where: {
-              weeklyPlanId,
-              dayOfWeek: dto.dayOfWeek,
-              mealType: dto.mealType,
-              recipeId: dto.recipeId,
-            },
-          }),
-        ]);
-
-      if (sameRecipe) {
-        throw new ConflictException(
-          'This recipe is already assigned to that day and meal slot',
-        );
-      }
-
-      if (variantsInSlot >= WeeklyPlansService.MAX_VARIANTS_PER_SLOT) {
-        throw new AppException(
-          'PLAN_SLOT_VARIANT_LIMIT_REACHED',
-          `Slot variant limit reached (max ${WeeklyPlansService.MAX_VARIANTS_PER_SLOT} per meal)`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      if (existingForMealType >= WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
-        throw new AppException(
-          'PLAN_SLOT_LIMIT_REACHED',
-          `Meal type limit reached (max ${WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE} per week)`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      if (existingTotal >= WeeklyPlansService.MAX_ITEMS_TOTAL) {
-        throw new AppException(
-          'PLAN_TOTAL_LIMIT_REACHED',
-          `Weekly plan total limit reached (max ${WeeklyPlansService.MAX_ITEMS_TOTAL} items)`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      let createdItem;
-      try {
-        createdItem = await tx.planItem.create({
-          data: {
-            weeklyPlanId,
-            recipeId: dto.recipeId,
-            dayOfWeek: dto.dayOfWeek,
-            mealType: dto.mealType,
-            plannedServings,
-          },
-        });
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2002'
-        ) {
-          throw new ConflictException(
-            'This recipe is already assigned to that day and meal slot',
-          );
-        }
-        throw error;
-      }
-
-      await this.shoppingListService.markShoppingListStale(
-        plan.householdId,
-        plan.weekStart,
-        tx,
-      );
-
-      return createdItem;
-    });
-  }
-
-  async removeItem(userId: string, itemId: string) {
-    const item = await this.prisma.planItem.findUnique({
-      where: { id: itemId },
-      include: { weeklyPlan: true },
-    });
-    if (!item) {
-      throw new NotFoundException('Plan item not found');
-    }
-    await ensureMembership(this.prisma, userId, item.weeklyPlan.householdId);
-    return this.prisma.$transaction(async (tx) => {
-      try {
-        const deletedItem = await tx.planItem.delete({ where: { id: itemId } });
-        await this.shoppingListService.markShoppingListStale(
-          item.weeklyPlan.householdId,
-          item.weeklyPlan.weekStart,
-          tx,
-        );
-        return deletedItem;
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2025'
-        ) {
-          throw new NotFoundException('Plan item not found');
-        }
-        throw error;
-      }
-    });
-  }
-
   async upsertWeekSlot(
     userId: string,
     householdId: string,
@@ -314,11 +172,25 @@ export class WeeklyPlansService {
   ) {
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
+    const replaceRecipeId = parseReplaceRecipeId(
+      dto.replaceRecipeId,
+      dto.recipeId,
+    );
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
-    const { participantIds, memberCount } = await this.resolveParticipants(
+    const resolved = await this.resolveParticipants(
       householdId,
       dto.participantIds,
     );
+    const participantIds = resolved.participantIds;
+    // Podmiana potrzebuje IDENTYFIKATORÓW domowników, nie tylko ich liczby:
+    // przejęte audytorium starego dania trzeba przeciąć z żywym składem domu,
+    // bo item mógł zapamiętać byłego domownika (duch po `leave`), a taki wpis
+    // nie ma prawa wejść do nowego itemu. Liczba domowników pochodzi wtedy z
+    // tej samej listy, żeby obie reguły liczyły z jednego stanu.
+    const memberIds = replaceRecipeId
+      ? await this.loadMemberIds(householdId)
+      : null;
+    const memberCount = memberIds ? memberIds.size : resolved.memberCount;
     // Reguła auto dla NOWEGO itemu. Liczymy z już rozwiązanego audytorium, nie
     // z surowego `dto`: lista nazywająca wszystkich domowników zwija się do
     // pustej („Wspólne"), więc obie formy tego samego wyboru muszą dać tyle
@@ -354,6 +226,50 @@ export class WeeklyPlansService {
         select: { id: true },
       });
 
+      // „Zmień danie": stary wariant znika w tej samej transakcji, w której
+      // wchodzi nowy. Dwa skutki, oba celowe: slot nigdy nie stoi pusty
+      // (klient nie woła już `removeWeekSlot` + `upsertWeekSlot`), a limity
+      // niżej liczą się PO usunięciu — podmiana w pełnym slocie nie odbija się
+      // o cap, który sama zwalnia. Kaskada zabiera uczestników i znaczniki
+      // zjedzenia, dokładnie tak, jak robiło to dotychczasowe `removeWeekSlot`.
+      // Brak starego itemu (drugi telefon zdążył go usunąć) nie jest błędem:
+      // zapis degraduje się do zwykłego wstawienia.
+      const replaced = replaceRecipeId
+        ? await tx.planItem.findFirst({
+            where: {
+              weeklyPlanId: weeklyPlan.id,
+              dayOfWeek: dto.dayOfWeek,
+              mealType: dto.mealType,
+              recipeId: replaceRecipeId,
+            },
+            select: {
+              id: true,
+              plannedServings: true,
+              participants: { select: { userId: true } },
+            },
+          })
+        : null;
+      if (replaced) {
+        await tx.planItem.delete({ where: { id: replaced.id } });
+      }
+      const replacedItemIds = replaced ? [replaced.id] : [];
+
+      // Audytorium nowego itemu. Jawne `participantIds` wygrywa zawsze;
+      // pominięte przy podmianie przejmuje audytorium starego dania, bo „zmień
+      // danie" nie jest pytaniem o to, KTO je — tylko CO. Imienny zbiór, z
+      // którego po odsianiu duchów zostali wszyscy domownicy (albo nikt),
+      // zwija się do „Wspólne", tak samo jak w `resolveParticipants`.
+      let effectiveParticipantIds = participantIds;
+      if (replaced && memberIds && dto.participantIds === undefined) {
+        const carried = replaced.participants
+          .map((p) => p.userId)
+          .filter((id) => memberIds.has(id));
+        effectiveParticipantIds =
+          carried.length === 0 || carried.length === memberIds.size
+            ? []
+            : carried;
+      }
+
       // The item is identified by its recipe, not just by the slot: a slot can
       // hold one variant per household split. Re-upserting the same recipe
       // only rewrites who it is for.
@@ -383,7 +299,7 @@ export class WeeklyPlansService {
         const plannedServingsForUpdate = this.resolveUpdatedPlannedServings({
           currentPlannedServings: existingItem.plannedServings,
           currentParticipantIds,
-          nextParticipantIds: participantIds,
+          nextParticipantIds: effectiveParticipantIds,
           memberCount,
           requested: dto.plannedServings,
         });
@@ -396,7 +312,7 @@ export class WeeklyPlansService {
           data: {
             plannedServings: plannedServingsForUpdate,
             participants: {
-              create: participantIds.map((id) => ({ userId: id })),
+              create: effectiveParticipantIds.map((id) => ({ userId: id })),
             },
           },
           include: PLAN_ITEM_INCLUDE,
@@ -413,15 +329,20 @@ export class WeeklyPlansService {
         // stan sprzed zapisu; gateway dostaje gotową odpowiedź i po niej
         // decyduje, czy zawracać głowę drugiemu domownikowi (patrz
         // `weekly-plans.gateway.ts`, `weeklyPlans:upsertWeekSlot`).
+        // Podmiana na przepis, który już leżał w slocie obok, też jest
+        // zdarzeniem dla domownika: jedno danie zniknęło.
         const detailsChanged =
           plannedServingsForUpdate !== existingItem.plannedServings ||
-          !sameMemberSet(currentParticipantIds, participantIds);
+          !sameMemberSet(currentParticipantIds, effectiveParticipantIds);
 
         return {
           ...withPlanItemRelationIds(updatedItem),
-          changeKind: detailsChanged
-            ? ('DETAILS_CHANGED' as const)
-            : ('NOOP' as const),
+          replacedItemIds,
+          changeKind: replaced
+            ? ('REPLACED' as const)
+            : detailsChanged
+              ? ('DETAILS_CHANGED' as const)
+              : ('NOOP' as const),
         };
       }
 
@@ -469,19 +390,52 @@ export class WeeklyPlansService {
         );
       }
 
-      const createdItem = await tx.planItem.create({
-        data: {
-          weeklyPlanId: weeklyPlan.id,
-          dayOfWeek: dto.dayOfWeek,
-          mealType: dto.mealType,
-          recipeId: dto.recipeId,
-          plannedServings: plannedServingsForCreate,
-          participants: {
-            create: participantIds.map((id) => ({ userId: id })),
+      // Porcje po podmianie liczą się jak przy edycji istniejącego itemu:
+      // ręcznie wybrana liczba przeżywa zmianę dania, wartość z reguły auto
+      // przelicza się z nowego audytorium. Bez tego „zmień danie" cofałoby
+      // świadome „gotuję 4 porcje" do auto — dokładnie to, przed czym
+      // `resolveUpdatedPlannedServings` broni stepper.
+      const plannedServings = replaced
+        ? this.resolveUpdatedPlannedServings({
+            currentPlannedServings: replaced.plannedServings,
+            currentParticipantIds: replaced.participants.map((p) => p.userId),
+            nextParticipantIds: effectiveParticipantIds,
+            memberCount,
+            requested: dto.plannedServings,
+          })
+        : plannedServingsForCreate;
+
+      const createdItem = await tx.planItem
+        .create({
+          data: {
+            weeklyPlanId: weeklyPlan.id,
+            dayOfWeek: dto.dayOfWeek,
+            mealType: dto.mealType,
+            recipeId: dto.recipeId,
+            plannedServings,
+            participants: {
+              create: effectiveParticipantIds.map((id) => ({ userId: id })),
+            },
           },
-        },
-        include: PLAN_ITEM_INCLUDE,
-      });
+          include: PLAN_ITEM_INCLUDE,
+        })
+        .catch((error: unknown) => {
+          // Wyścig dwóch telefonów o ten sam przepis w tym samym slocie:
+          // `findFirst` wyżej nie widział itemu, który druga transakcja
+          // właśnie zapisała, i dopiero unikalny indeks go ujawnia. Do klienta
+          // ma trafić czytelny konflikt, nie INTERNAL_ERROR.
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            throw new AppException(
+              'CONFLICT',
+              'This recipe is already assigned to that day and meal slot',
+              HttpStatus.CONFLICT,
+            );
+          }
+          throw error;
+        });
 
       await this.shoppingListService.markShoppingListStale(
         householdId,
@@ -491,7 +445,8 @@ export class WeeklyPlansService {
 
       return {
         ...withPlanItemRelationIds(createdItem),
-        changeKind: 'CREATED' as const,
+        replacedItemIds,
+        changeKind: replaced ? ('REPLACED' as const) : ('CREATED' as const),
       };
     });
   }
@@ -639,6 +594,20 @@ export class WeeklyPlansService {
    * `resolvePlannedServings` dla „Wspólnego" — a stan członkostwa i tak jest
    * tu odpytany, więc oddanie go wołającemu oszczędza drugi round-trip.
    */
+  /**
+   * Żywy skład domu jako zbiór identyfikatorów. Osobno od
+   * `resolveParticipants`, bo ta na gałęzi „Wspólne" celowo woła tylko `count`
+   * — a podmiana dania potrzebuje samych identyfikatorów, żeby odsiać duchy z
+   * przejmowanego audytorium.
+   */
+  private async loadMemberIds(householdId: string): Promise<Set<string>> {
+    const memberships = await this.prisma.membership.findMany({
+      where: { householdId },
+      select: { userId: true },
+    });
+    return new Set(memberships.map((m) => m.userId));
+  }
+
   private async resolveParticipants(
     householdId: string,
     requested?: string[],
@@ -698,11 +667,9 @@ export class WeeklyPlansService {
     // wyłącznie po WS, przycięcie w kodzie jest jedyną realną obroną przed
     // `plannedServings: 0` albo `999`.
     if (requested != null && Number.isFinite(requested)) {
-      return Math.min(12, Math.max(1, Math.trunc(requested)));
+      return clampPlannedServings(requested);
     }
-    const eaters =
-      participantIds.length > 0 ? participantIds.length : memberCount;
-    return Math.min(12, Math.max(1, eaters));
+    return autoPlannedServings(participantIds.length, memberCount);
   }
 
   /**
@@ -789,28 +756,9 @@ export class WeeklyPlansService {
         select: { id: true },
       });
 
-      const sharedPlan = await tx.sharedMealPlan.findUnique({
-        where: {
-          householdId_weekStart: {
-            householdId,
-            weekStart: weekStartDate,
-          },
-        },
-        select: { id: true },
-      });
-
       if (weeklyPlan) {
         await tx.planItem.deleteMany({
           where: { weeklyPlanId: weeklyPlan.id },
-        });
-      }
-
-      if (sharedPlan) {
-        await tx.sharedMealPlanItem.deleteMany({
-          where: { sharedMealPlanId: sharedPlan.id },
-        });
-        await tx.sharedMealPlan.delete({
-          where: { id: sharedPlan.id },
         });
       }
 
@@ -852,229 +800,5 @@ export class WeeklyPlansService {
       select: { displayName: true },
     });
     return user?.displayName ?? null;
-  }
-
-  async getSharedMealPlan(
-    userId: string,
-    householdId: string,
-    weekStart: string,
-  ) {
-    await ensureMembership(this.prisma, userId, householdId);
-    const weekStartDate = parseWeekStart(weekStart);
-
-    const plan = await this.prisma.sharedMealPlan.findUnique({
-      where: {
-        householdId_weekStart: {
-          householdId,
-          weekStart: weekStartDate,
-        },
-      },
-      include: {
-        items: {
-          include: {
-            recipe: {
-              select: {
-                id: true,
-                title: true,
-                description: true,
-                mealType: true,
-                difficulty: true,
-                prepTimeMinutes: true,
-                servings: true,
-                imageUrl: true,
-                nutritionKcal: true,
-                nutritionProtein: true,
-                nutritionFat: true,
-                nutritionCarbs: true,
-                nutritionFiber: true,
-                nutritionSalt: true,
-                isActive: true,
-                authorId: true,
-                householdId: true,
-                ingredients: true,
-                sourceInstructions: true,
-              },
-            },
-          },
-          orderBy: [{ mealType: 'asc' }, { createdAt: 'asc' }],
-        },
-      },
-    });
-
-    if (!plan) {
-      return {
-        weekStart,
-        items: [],
-      };
-    }
-
-    return {
-      weekStart,
-      items: plan.items.map((item) => ({
-        mealType: item.mealType,
-        quantity: item.quantity,
-        recipe: item.recipe,
-      })),
-    };
-  }
-
-  async saveSharedMealPlan(
-    userId: string,
-    householdId: string,
-    weekStart: string,
-    dto: SaveSharedMealPlanDto,
-  ) {
-    await ensureMembership(this.prisma, userId, householdId);
-    const weekStartDate = parseWeekStart(weekStart);
-
-    // Jedna mapa slot → id, niezależnie od tego, czy klient przysłał nową
-    // formę (`recipeIdsByMealType`), czy jeszcze trzy stare pola.
-    const recipeIdsByMealType = mergeSharedPlanRecipeIds(dto);
-
-    // Zakres zapisu. Starszy klient nie zna dodatkowych slotów i nie ma jak
-    // się o nich wypowiedzieć — jego zapis nie może ich skasować.
-    const addressedMealTypes = sharedPlanAddressedMealTypes(dto);
-
-    const allIds = Object.values(recipeIdsByMealType).flat();
-    const uniqueIds = Array.from(new Set(allIds));
-
-    const countByRecipe = (ids: string[]) =>
-      ids.reduce<Map<string, number>>((map, id) => {
-        map.set(id, (map.get(id) ?? 0) + 1);
-        return map;
-      }, new Map<string, number>());
-
-    const countsByMealType = new Map<MealType, Map<string, number>>(
-      MEAL_TYPES_IN_DAY_ORDER.map(
-        (mealType): [MealType, Map<string, number>] => [
-          mealType,
-          countByRecipe(recipeIdsByMealType[mealType]),
-        ],
-      ),
-    );
-
-    await runSerializable(this.prisma, async (tx) => {
-      await tx.shoppingListArchiveState.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-          currentArchiveId: null,
-        },
-      });
-
-      if (uniqueIds.length > 0) {
-        const recipes = await tx.recipe.findMany({
-          where: {
-            id: { in: uniqueIds },
-          },
-          select: { id: true },
-        });
-
-        if (recipes.length !== uniqueIds.length) {
-          throw new NotFoundException(
-            'One or more recipes from shared plan do not exist',
-          );
-        }
-      }
-
-      const sharedPlan = await tx.sharedMealPlan.upsert({
-        where: {
-          householdId_weekStart: {
-            householdId,
-            weekStart: weekStartDate,
-          },
-        },
-        update: {},
-        create: {
-          householdId,
-          weekStart: weekStartDate,
-        },
-        select: { id: true },
-      });
-
-      const rows = Array.from(countsByMealType.entries())
-        .flatMap(([mealType, counts]) =>
-          Array.from(counts.entries()).map(([recipeId, quantity]) => ({
-            sharedMealPlanId: sharedPlan.id,
-            recipeId,
-            mealType,
-            quantity,
-          })),
-        )
-        .filter((row) => row.quantity > 0);
-
-      await tx.sharedMealPlanItem.deleteMany({
-        where: {
-          sharedMealPlanId: sharedPlan.id,
-          mealType: { in: addressedMealTypes },
-        },
-      });
-
-      if (rows.length > 0) {
-        await tx.sharedMealPlanItem.createMany({
-          data: rows,
-        });
-      }
-
-      const weeklyPlan = await tx.weeklyPlan.findUnique({
-        where: {
-          householdId_weekStart: {
-            householdId,
-            weekStart: weekStartDate,
-          },
-        },
-        select: { id: true },
-      });
-
-      if (!weeklyPlan) {
-        await this.shoppingListService.markShoppingListStale(
-          householdId,
-          weekStartDate,
-          tx,
-        );
-        return;
-      }
-
-      const pruneByMealType = async (
-        mealType: MealType,
-        allowedRecipeIds: string[],
-      ) => {
-        if (allowedRecipeIds.length === 0) {
-          await tx.planItem.deleteMany({
-            where: {
-              weeklyPlanId: weeklyPlan.id,
-              mealType,
-            },
-          });
-          return;
-        }
-
-        await tx.planItem.deleteMany({
-          where: {
-            weeklyPlanId: weeklyPlan.id,
-            mealType,
-            recipeId: { notIn: allowedRecipeIds },
-          },
-        });
-      };
-
-      // Przycinamy **każdy** slot, także wyłączony w gospodarstwie: pula na
-      // tydzień jest zapisem pełnym, a slot nieobecny w ładunku znaczy „nic
-      // tu nie planujemy". Gdyby pominąć wyłączone, po ich ponownym
-      // włączeniu wracałyby dania sprzed kilku tygodni.
-      await Promise.all(
-        Array.from(countsByMealType.entries()).map(([mealType, counts]) =>
-          pruneByMealType(mealType, Array.from(counts.keys())),
-        ),
-      );
-
-      await this.shoppingListService.markShoppingListStale(
-        householdId,
-        weekStartDate,
-        tx,
-      );
-    });
-
-    return this.getSharedMealPlan(userId, householdId, weekStart);
   }
 }

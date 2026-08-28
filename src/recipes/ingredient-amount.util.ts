@@ -5,6 +5,7 @@
  * gdyby kazde miejsce mialo wlasna kopie tabel lyzeczek, baza i katalog JSON
  * rozjechalyby sie po pierwszej korekcie.
  */
+import { normalizeText } from '../common/normalize-text.util';
 
 export type NormalizedIngredient = {
   normalizedAmount: number;
@@ -60,22 +61,10 @@ const LIQUID_CONDIMENTS = new Set([
   'sos sojowy',
 ]);
 
-export function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[ł]/g, 'l')
-    .replace(/[ą]/g, 'a')
-    .replace(/[ć]/g, 'c')
-    .replace(/[ę]/g, 'e')
-    .replace(/[ń]/g, 'n')
-    .replace(/[ó]/g, 'o')
-    .replace(/[ś]/g, 's')
-    .replace(/[ź]/g, 'z')
-    .replace(/[ż]/g, 'z')
-    .trim();
-}
+// Re-eksport, bo skrypty (`scripts/import-recipes-from-json.ts`,
+// `scripts/recompute-recipe-nutrition.ts`) importują `normalizeText` stąd,
+// a leżą poza `tsconfig.include` — zerwany import wyszedłby dopiero w runtime.
+export { normalizeText };
 
 export function normalizeIngredientAmount(
   ingredientName: string,

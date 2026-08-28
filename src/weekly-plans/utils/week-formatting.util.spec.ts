@@ -1,5 +1,9 @@
 import { AppException } from '../../common/app-exception';
-import { formatWeekStart, parseWeekStart } from './week-formatting.util';
+import {
+  currentWeekStart,
+  formatWeekStart,
+  parseWeekStart,
+} from './week-formatting.util';
 
 describe('parseWeekStart', () => {
   it('powinno przyjąć poniedziałek w formacie YYYY-MM-DD jako północ UTC', () => {
@@ -32,5 +36,29 @@ describe('parseWeekStart', () => {
     for (const key of ['2026-08-31', '2026-01-05', '2026-12-28']) {
       expect(formatWeekStart(parseWeekStart(key))).toBe(key);
     }
+  });
+});
+
+describe('currentWeekStart', () => {
+  it.each([
+    ['poniedziałek północ', '2026-08-24T00:00:00.000Z', '2026-08-24'],
+    ['czwartek popołudnie', '2026-08-27T15:30:00.000Z', '2026-08-24'],
+    ['niedziela 23:59', '2026-08-30T23:59:59.999Z', '2026-08-24'],
+    [
+      'poniedziałek 00:00 następnego tygodnia',
+      '2026-08-31T00:00:00.000Z',
+      '2026-08-31',
+    ],
+    ['przełom roku', '2027-01-01T12:00:00.000Z', '2026-12-28'],
+  ])('%s -> %s', (_label, iso, expected) => {
+    expect(formatWeekStart(currentWeekStart(new Date(iso)))).toBe(expected);
+  });
+
+  it('zwraca datę, którą parseWeekStart uzna za poprawną', () => {
+    const monday = currentWeekStart(new Date('2026-08-27T10:00:00.000Z'));
+    expect(monday.getUTCDay()).toBe(1);
+    expect(parseWeekStart(formatWeekStart(monday)).getTime()).toBe(
+      monday.getTime(),
+    );
   });
 });

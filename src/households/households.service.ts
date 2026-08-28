@@ -25,6 +25,10 @@ import {
   resolveInvitationStatus,
   shouldAddToInbox,
 } from './invitation-status.util';
+import {
+  onMemberLeft,
+  onRosterChanged,
+} from '../weekly-plans/utils/plan-roster.util';
 
 @Injectable()
 export class HouseholdsService {
@@ -185,7 +189,13 @@ export class HouseholdsService {
     // awaria między nimi zostawiała użytkownika bez starego gospodarstwa i bez
     // nowego, albo w gospodarstwie z zaproszeniem wciąż oznaczonym jako
     // niewykorzystane — czyli linkiem, którym mógł dołączyć ktoś kolejny.
+    const now = new Date();
     return this.prisma.$transaction(async (tx) => {
+      // Tygodnie, których plan i lista mogły się zmienić — po jednym wpisie na
+      // (dom, tydzień), bo przeprowadzka dotyka i domu opuszczanego, i nowego.
+      const touchedWeeks: Array<{ householdId: string; weekStart: string }> =
+        [];
+
       for (const previous of otherMemberships) {
         await tx.membership.delete({
           where: {
@@ -194,8 +204,32 @@ export class HouseholdsService {
         });
         // Dom, z którego właśnie wyszedł ostatni domownik, znika razem
         // z planami i listami — patrz `settleHouseholdAfterMemberLeft`.
-        await settleHouseholdAfterMemberLeft(tx, previous.householdId);
+        const settlement = await settleHouseholdAfterMemberLeft(
+          tx,
+          previous.householdId,
+        );
+        // Dom skasowany = plan poleciał kaskadą, nie ma czego sprzątać.
+        // W pozostałych posiłki solo tej osoby znikają, a auto-porcje
+        // „Wspólnych" liczą się dla mniejszego składu.
+        if (settlement.outcome !== 'DELETED') {
+          const roster = await onMemberLeft(
+            tx,
+            previous.householdId,
+            userId,
+            now,
+          );
+          for (const weekStart of roster.touchedWeekStarts) {
+            touchedWeeks.push({ householdId: previous.householdId, weekStart });
+          }
+        }
       }
+
+      // Liczniki dookoła `upsert`, bo `upsert` nie mówi, czy coś stworzył —
+      // przy `update: {}` na istniejącym członkostwie skład się NIE zmienia
+      // i przeliczanie porcji byłoby błędem.
+      const memberCountBefore = await tx.membership.count({
+        where: { householdId: invitation.householdId },
+      });
 
       const membership = await tx.membership.upsert({
         where: {
@@ -211,6 +245,20 @@ export class HouseholdsService {
           role: 'MEMBER',
         },
       });
+
+      const memberCountAfter = await tx.membership.count({
+        where: { householdId: invitation.householdId },
+      });
+      const joined = await onRosterChanged(
+        tx,
+        invitation.householdId,
+        memberCountBefore,
+        memberCountAfter,
+        now,
+      );
+      for (const weekStart of joined.touchedWeekStarts) {
+        touchedWeeks.push({ householdId: invitation.householdId, weekStart });
+      }
 
       await tx.invitation.update({
         where: { id: invitation.id },
@@ -253,6 +301,7 @@ export class HouseholdsService {
       return {
         ...membership,
         leftHouseholdIds: otherMemberships.map((m) => m.householdId),
+        touchedWeeks,
       };
     });
   }
@@ -585,6 +634,7 @@ export class HouseholdsService {
       }
     }
 
+    const now = new Date();
     return this.prisma.$transaction(async (tx) => {
       const removed = await tx.membership.delete({
         where: { userId_householdId: { userId: memberUserId, householdId } },
@@ -592,8 +642,14 @@ export class HouseholdsService {
       // Ta sama reguła co przy wyjściu — kontrola wyżej nie pozwala usunąć
       // ostatniego właściciela, ale porządkowanie ma być jedno dla wszystkich
       // ścieżek, żeby nie zależeć od tego, czy tamta kontrola przetrwa.
-      await settleHouseholdAfterMemberLeft(tx, householdId);
-      return removed;
+      const settlement = await settleHouseholdAfterMemberLeft(tx, householdId);
+      // Odchodzi `memberUserId`, nie `userId` — ten drugi to właściciel,
+      // który wykonuje usunięcie. Pomyłka tutaj kasowałaby JEGO posiłki.
+      const roster =
+        settlement.outcome === 'DELETED'
+          ? { touchedWeekStarts: [] as string[] }
+          : await onMemberLeft(tx, householdId, memberUserId, now);
+      return { ...removed, touchedWeekStarts: roster.touchedWeekStarts };
     });
   }
 
@@ -611,16 +667,28 @@ export class HouseholdsService {
     await this.getHouseholdOrThrow(householdId);
     await this.ensureMembership(userId, householdId);
 
-    const settlement = await this.prisma.$transaction(async (tx) => {
-      await tx.membership.delete({
-        where: { userId_householdId: { userId, householdId } },
-      });
-      return settleHouseholdAfterMemberLeft(tx, householdId);
-    });
+    const now = new Date();
+    const { settlement, touchedWeekStarts } = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.membership.delete({
+          where: { userId_householdId: { userId, householdId } },
+        });
+        const settled = await settleHouseholdAfterMemberLeft(tx, householdId);
+        if (settled.outcome === 'DELETED') {
+          return { settlement: settled, touchedWeekStarts: [] as string[] };
+        }
+        const roster = await onMemberLeft(tx, householdId, userId, now);
+        return {
+          settlement: settled,
+          touchedWeekStarts: roster.touchedWeekStarts,
+        };
+      },
+    );
 
     return {
       success: true,
       householdDeleted: settlement.outcome === 'DELETED',
+      touchedWeekStarts,
     };
   }
 
