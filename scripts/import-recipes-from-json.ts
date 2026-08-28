@@ -1,5 +1,5 @@
-import { readFile, readdir } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { MealType, PrismaClient } from '@prisma/client';
 import { MEAL_TYPE_VALUES } from '../src/common/meal-types';
 import { resolveSuitableMealTypes } from '../src/recipes/suitable-meal-types.util';
@@ -57,8 +57,10 @@ type RecipeBatchInput = {
   recipes: RecipeInput[];
 };
 
-const RECIPE_IMPORT_FILE =
-  process.env.RECIPE_IMPORT_FILE ?? 'prisma/catalog/recipes-batch-test-v1.json';
+// Plik importu jest WYMAGANY: domyślna partia testowa wgrana przez pomyłkę
+// podmieniała katalog (id sparowane po indeksie z pulą). Każdy przepis w
+// pliku musi mieć jawne `id`.
+const RECIPE_IMPORT_FILE = (process.env.RECIPE_IMPORT_FILE ?? '').trim();
 const RECIPE_IMPORT_CLEAR_EXISTING =
   process.env.RECIPE_IMPORT_CLEAR_EXISTING === 'true';
 const RECIPE_IMPORT_OWNER_USER_ID =
@@ -71,12 +73,16 @@ const RECIPE_IMPORT_OWNER_DISPLAY_NAME =
   process.env.RECIPE_IMPORT_OWNER_DISPLAY_NAME ?? 'Recipe Import Bot';
 const RECIPE_IMPORT_OWNER_EMAIL =
   process.env.RECIPE_IMPORT_OWNER_EMAIL ?? 'import-bot@example.com';
+// Gospodarstwo katalogu wskazywane po ID, nie po nazwie: „Home” to domyślna
+// nazwa domu każdego użytkownika, więc na świeżej bazie katalog mógł wylądować
+// w cudzym gospodarstwie (z botem importu jako OWNER). Na istniejącej bazie
+// ustaw ID gospodarstwa, które już trzyma katalog; na świeżej importer
+// utworzy gospodarstwo o tym ID.
+const RECIPE_IMPORT_HOUSEHOLD_ID =
+  process.env.RECIPE_IMPORT_HOUSEHOLD_ID ??
+  '22222222-2222-4222-8222-222222222222';
 const RECIPE_IMPORT_HOUSEHOLD_NAME =
-  process.env.RECIPE_IMPORT_HOUSEHOLD_NAME ?? 'Home';
-const RECIPE_IMPORT_ID_POOL = process.env.RECIPE_IMPORT_ID_POOL ?? '';
-const RECIPE_IMPORT_ID_POOL_FILE =
-  process.env.RECIPE_IMPORT_ID_POOL_FILE ??
-  'prisma/catalog/recipes-approved-30-image-ids.txt';
+  process.env.RECIPE_IMPORT_HOUSEHOLD_NAME ?? 'Katalog Weekly Meals';
 // Import trafia w istniejący wiersz PO ID, więc plik z id sparowanym z innym
 // daniem nie dodaje przepisu — on go PODMIENIA. Wszystko, co trzyma samo id
 // (pozycje planu, ulubione, cache katalogu w aplikacji, obrazek w R2 nazwany
@@ -87,8 +93,6 @@ const RECIPE_IMPORT_ID_POOL_FILE =
 // świadoma i głośna, a nie skutkiem ubocznym re-importu.
 const RECIPE_IMPORT_ALLOW_RETITLE =
   process.env.RECIPE_IMPORT_ALLOW_RETITLE === 'true';
-const RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS =
-  process.env.RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS !== 'false';
 const RECIPE_IMPORT_BUILD_R2_IMAGE_URLS =
   process.env.RECIPE_IMPORT_BUILD_R2_IMAGE_URLS !== 'false';
 const RECIPE_IMPORT_IMAGE_EXTENSION = (
@@ -122,125 +126,6 @@ const UUID_PATTERN =
 
 function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value);
-}
-
-function parseRecipeIdPoolFromEnv(): string[] {
-  if (!RECIPE_IMPORT_ID_POOL.trim()) return [];
-
-  const parsed = RECIPE_IMPORT_ID_POOL.split(/[\s,;]+/g)
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  const unique = Array.from(new Set(parsed));
-  const invalid = unique.filter((value) => !isUuid(value));
-  if (invalid.length > 0) {
-    throw new Error(
-      `Invalid RECIPE_IMPORT_ID_POOL entries (must be UUID): ${invalid.join(', ')}`,
-    );
-  }
-  return unique;
-}
-
-async function parseRecipeIdPoolFromFile(): Promise<string[]> {
-  if (!RECIPE_IMPORT_ID_POOL_FILE.trim()) return [];
-
-  const filePath = join(process.cwd(), RECIPE_IMPORT_ID_POOL_FILE);
-  let raw = '';
-  try {
-    raw = await readFile(filePath, 'utf8');
-  } catch {
-    return [];
-  }
-
-  const parsed = raw
-    .split(/[\s,;]+/g)
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  const unique = Array.from(new Set(parsed));
-  const invalid = unique.filter((value) => !isUuid(value));
-  if (invalid.length > 0) {
-    throw new Error(
-      `Invalid UUID entries in ${RECIPE_IMPORT_ID_POOL_FILE}: ${invalid.join(', ')}`,
-    );
-  }
-  return unique;
-}
-
-async function parseRecipeIdPoolFromPublicImages(): Promise<string[]> {
-  if (!RECIPE_IMPORT_USE_PUBLIC_IMAGE_IDS) return [];
-
-  const directoryPath = join(process.cwd(), 'public', 'recipe-images');
-  let entries: string[] = [];
-  try {
-    entries = await readdir(directoryPath);
-  } catch {
-    return [];
-  }
-
-  const ids = entries
-    .map((fileName) => {
-      const extension = extname(fileName);
-      if (!extension) return '';
-      return fileName.slice(0, -extension.length);
-    })
-    .filter((name) => isUuid(name));
-
-  return Array.from(new Set(ids)).sort((a, b) => a.localeCompare(b));
-}
-
-async function resolveRecipeIdPool(totalRecipes: number): Promise<string[]> {
-  const fromEnv = parseRecipeIdPoolFromEnv();
-  if (fromEnv.length > 0) {
-    if (fromEnv.length < totalRecipes) {
-      throw new Error(
-        `RECIPE_IMPORT_ID_POOL contains ${fromEnv.length} UUIDs but ${totalRecipes} recipes are being imported.`,
-      );
-    }
-    if (fromEnv.length > totalRecipes) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[recipes-import] RECIPE_IMPORT_ID_POOL has more UUIDs (${fromEnv.length}) than recipes (${totalRecipes}); extra values will be ignored.`,
-      );
-    }
-    return fromEnv;
-  }
-
-  const fromFile = await parseRecipeIdPoolFromFile();
-  if (fromFile.length > 0) {
-    if (fromFile.length < totalRecipes) {
-      throw new Error(
-        `RECIPE_IMPORT_ID_POOL_FILE (${RECIPE_IMPORT_ID_POOL_FILE}) contains ${fromFile.length} UUIDs but ${totalRecipes} recipes are being imported.`,
-      );
-    }
-
-    if (fromFile.length > totalRecipes) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[recipes-import] ${RECIPE_IMPORT_ID_POOL_FILE} has more UUIDs (${fromFile.length}) than recipes (${totalRecipes}); extra values will be ignored.`,
-      );
-    }
-
-    return fromFile;
-  }
-
-  const fromPublicImages = await parseRecipeIdPoolFromPublicImages();
-  if (fromPublicImages.length === 0) return [];
-
-  if (fromPublicImages.length < totalRecipes) {
-    throw new Error(
-      `Found ${fromPublicImages.length} UUID-named image files in public/recipe-images but ${totalRecipes} recipes are being imported.`,
-    );
-  }
-
-  if (fromPublicImages.length > totalRecipes) {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[recipes-import] Found ${fromPublicImages.length} UUID image files for ${totalRecipes} recipes; extra files will be ignored.`,
-    );
-  }
-
-  return fromPublicImages;
 }
 
 function buildR2ImageUrl(recipeId: string): string | null {
@@ -281,7 +166,12 @@ function validateBatch(input: RecipeBatchInput): void {
   }
 
   for (const recipe of input.recipes) {
-    if (recipe.id?.trim() && !isUuid(recipe.id.trim())) {
+    if (!recipe.id?.trim()) {
+      throw new Error(
+        `Recipe "${recipe.title}" must have an explicit id (UUID) — importer no longer assigns ids from a pool.`,
+      );
+    }
+    if (!isUuid(recipe.id.trim())) {
       throw new Error(
         `Recipe "${recipe.title}" has invalid id "${recipe.id}". Expected UUID.`,
       );
@@ -302,8 +192,17 @@ function validateBatch(input: RecipeBatchInput): void {
     if (!['EASY', 'MEDIUM', 'HARD'].includes(recipe.difficulty)) {
       throw new Error(`Invalid difficulty for recipe "${recipe.title}".`);
     }
-    if (recipe.servings !== 2) {
-      throw new Error(`Recipe "${recipe.title}" must have servings=2.`);
+    // Porcje = na ile osób NAPISANY jest przepis. Katalog długo wymuszał 2,
+    // przez co partie na 4 (pierogi, gołąbki) pokazywały 950–1290 kcal „na
+    // porcję”. Zakres 1–8 zostawia miejsce na realne wydajności.
+    if (
+      !Number.isInteger(recipe.servings) ||
+      recipe.servings < 1 ||
+      recipe.servings > 8
+    ) {
+      throw new Error(
+        `Recipe "${recipe.title}" must have integer servings in range 1..8 (got ${String(recipe.servings)}).`,
+      );
     }
     if (!Array.isArray(recipe.steps) || recipe.steps.length === 0) {
       throw new Error(`Recipe "${recipe.title}" must contain steps.`);
@@ -347,21 +246,16 @@ async function ensureImportContext() {
     select: { id: true },
   });
 
-  const existingHousehold = await prisma.household.findFirst({
-    where: { name: RECIPE_IMPORT_HOUSEHOLD_NAME },
-    orderBy: { createdAt: 'asc' },
+  const household = await prisma.household.upsert({
+    where: { id: RECIPE_IMPORT_HOUSEHOLD_ID },
+    update: {},
+    create: {
+      id: RECIPE_IMPORT_HOUSEHOLD_ID,
+      name: RECIPE_IMPORT_HOUSEHOLD_NAME,
+      createdById: user.id,
+    },
     select: { id: true, name: true },
   });
-
-  const household = existingHousehold
-    ? existingHousehold
-    : await prisma.household.create({
-        data: {
-          name: RECIPE_IMPORT_HOUSEHOLD_NAME,
-          createdById: user.id,
-        },
-        select: { id: true, name: true },
-      });
 
   await prisma.membership.upsert({
     where: {
@@ -425,26 +319,26 @@ async function resolveIngredientMap() {
 }
 
 async function main(): Promise<void> {
+  if (!RECIPE_IMPORT_FILE) {
+    throw new Error(
+      'RECIPE_IMPORT_FILE is required (e.g. prisma/catalog/recipes-catalog-full-v2.json).',
+    );
+  }
   const { userId, householdId, householdName } = await ensureImportContext();
   const filePath = join(process.cwd(), RECIPE_IMPORT_FILE);
   const raw = await readFile(filePath, 'utf8');
   const input = JSON.parse(raw) as RecipeBatchInput;
   validateBatch(input);
-  // Pula ID jest potrzebna tylko przepisom bez własnego `id` — katalog
-  // zbiorczy (recipes-catalog-full-v2) ma jawne UUID-y dla wszystkich 89
-  // pozycji i bez tego warunku import wywracał się na walidacji puli 30.
-  const recipesNeedingPoolId = input.recipes.filter(
-    (recipe) => !recipe.id?.trim(),
-  ).length;
-  const recipeIdPool =
-    recipesNeedingPoolId > 0
-      ? await resolveRecipeIdPool(input.recipes.length)
-      : [];
-
   if (RECIPE_IMPORT_CLEAR_EXISTING) {
-    await prisma.planItem.deleteMany();
-    await prisma.weeklyPlan.deleteMany();
-    await prisma.recipeIngredient.deleteMany();
+    // Tylko katalog: dawniej `deleteMany()` bez `where` kasował pozycje planu
+    // i składniki WSZYSTKICH gospodarstw. Pozycje planu wskazujące na
+    // przepisy katalogu i tak by spadły kaskadą przy usunięciu przepisu.
+    await prisma.planItem.deleteMany({
+      where: { recipe: { householdId } },
+    });
+    await prisma.recipeIngredient.deleteMany({
+      where: { recipe: { householdId } },
+    });
     await prisma.recipe.deleteMany({ where: { householdId } });
   }
 
@@ -453,7 +347,7 @@ async function main(): Promise<void> {
 
   let created = 0;
   let updated = 0;
-  for (const [index, recipe] of input.recipes.entries()) {
+  for (const recipe of input.recipes) {
     const mappedIngredients = recipe.ingredients.map((ingredient) => {
       const found = ingredientMap.get(normalizeText(ingredient.ingredientName));
       if (!found) {
@@ -479,27 +373,18 @@ async function main(): Promise<void> {
       };
     });
 
-    const incomingRecipeId = recipe.id?.trim() || recipeIdPool[index] || null;
-    if (incomingRecipeId) {
-      if (assignedRecipeIds.has(incomingRecipeId)) {
-        throw new Error(
-          `Duplicate recipe id "${incomingRecipeId}" detected in import input/pool.`,
-        );
-      }
-      assignedRecipeIds.add(incomingRecipeId);
+    // `validateBatch` gwarantuje, że każdy przepis ma jawne UUID.
+    const incomingRecipeId = (recipe.id ?? '').trim();
+    if (assignedRecipeIds.has(incomingRecipeId)) {
+      throw new Error(
+        `Duplicate recipe id "${incomingRecipeId}" detected in import input.`,
+      );
     }
-    const existing = incomingRecipeId
-      ? await prisma.recipe.findUnique({
-          where: { id: incomingRecipeId },
-          select: { id: true, title: true, imageUrl: true },
-        })
-      : await prisma.recipe.findFirst({
-          where: {
-            householdId,
-            title: recipe.title,
-          },
-          select: { id: true, title: true, imageUrl: true },
-        });
+    assignedRecipeIds.add(incomingRecipeId);
+    const existing = await prisma.recipe.findUnique({
+      where: { id: incomingRecipeId },
+      select: { id: true, title: true, imageUrl: true },
+    });
 
     // Bramka na podmianę dania pod istniejącym id — patrz komentarz przy
     // `RECIPE_IMPORT_ALLOW_RETITLE`. Przerywamy CAŁY import, nie pomijamy

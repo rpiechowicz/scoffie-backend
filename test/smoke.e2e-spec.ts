@@ -21,13 +21,20 @@ describe('Smoke E2E', () => {
   let socket: Socket;
   let baseUrl: string;
 
+  // Klucz tygodnia liczony w UTC — wersja na czasie lokalnym dawała na Macu
+  // w CEST niedzielę (północ lokalna to 22:00 UTC dnia poprzedniego), a od
+  // teraz backend odrzuca wszystko, co nie jest poniedziałkiem.
   const makeNextMonday = (): string => {
     const now = new Date();
-    const day = now.getDay(); // 0=Sun ... 6=Sat
+    const day = now.getUTCDay(); // 0=Sun ... 6=Sat
     const daysUntilMonday = (8 - day) % 7 || 7;
-    const nextMonday = new Date(now);
-    nextMonday.setHours(0, 0, 0, 0);
-    nextMonday.setDate(now.getDate() + daysUntilMonday);
+    const nextMonday = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + daysUntilMonday,
+      ),
+    );
     return nextMonday.toISOString().slice(0, 10);
   };
 

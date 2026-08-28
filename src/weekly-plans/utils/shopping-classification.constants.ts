@@ -262,28 +262,3 @@ export const DEPARTMENT_KEYWORD_RULES: Array<{
     ],
   },
 ];
-
-/// Hand-curated overrides that bypass keyword heuristics. Keys are the
-/// canonicalized ingredient name (see canonicalizeIngredientName).
-export const CANONICAL_DEPARTMENT_OVERRIDES: Record<
-  string,
-  ShoppingDepartment
-> = {
-  kielbasa: ShoppingDepartment.MEAT,
-  'kielbasa wedzona': ShoppingDepartment.MEAT,
-  maslo: ShoppingDepartment.DAIRY,
-  'smietana kwasna': ShoppingDepartment.DAIRY,
-  jajka: ShoppingDepartment.DAIRY,
-  'kapusta kiszona': ShoppingDepartment.VEGETABLES,
-  'liscie laurowe': ShoppingDepartment.SPICES,
-  jalowiec: ShoppingDepartment.SPICES,
-  kminek: ShoppingDepartment.SPICES,
-  tymianek: ShoppingDepartment.SPICES,
-  imbir: ShoppingDepartment.SPICES,
-  'sok z cytryny': ShoppingDepartment.FRUITS,
-  'skorka z cytryny': ShoppingDepartment.FRUITS,
-  riesling: ShoppingDepartment.ALCOHOLS,
-  'tluszcz kaczy': ShoppingDepartment.OILS,
-  olej: ShoppingDepartment.OILS,
-  'oliwa z oliwek': ShoppingDepartment.OILS,
-};

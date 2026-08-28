@@ -83,8 +83,12 @@ export class RecipesService {
 
   private readonly autoRecoverMissingUser =
     process.env.AUTO_RECOVER_MISSING_USER === 'true';
-  private readonly recoveryHouseholdName =
-    process.env.AUTO_RECOVER_HOUSEHOLD_NAME ?? 'Home';
+  // Gospodarstwo katalogu wskazywane po ID, nie po nazwie — „Home” to
+  // domyślna nazwa, którą może nosić dom każdego użytkownika.
+  private readonly recoveryHouseholdId =
+    process.env.AUTO_RECOVER_HOUSEHOLD_ID ??
+    process.env.RECIPE_IMPORT_HOUSEHOLD_ID ??
+    '22222222-2222-4222-8222-222222222222';
   private readonly imageGeneratorBaseUrl =
     process.env.IMAGE_GENERATOR_BASE_URL ??
     'https://image.pollinations.ai/prompt';
@@ -157,9 +161,8 @@ export class RecipesService {
       select: { id: true },
     });
 
-    const household = await this.prisma.household.findFirst({
-      where: { name: this.recoveryHouseholdName },
-      orderBy: { createdAt: 'asc' },
+    const household = await this.prisma.household.findUnique({
+      where: { id: this.recoveryHouseholdId },
       select: { id: true },
     });
 

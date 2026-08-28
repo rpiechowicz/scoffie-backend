@@ -456,6 +456,7 @@ model RecipeIngredient {
   recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
 
+  @@unique([recipeId, ingredientId])
   @@index([recipeId])
   @@index([ingredientId])
 }
