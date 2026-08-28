@@ -134,7 +134,10 @@ export class WeeklyPlansService {
     await ensureMembership(this.prisma, userId, householdId);
     const plan = await this.prisma.weeklyPlan.findUnique({
       where: {
-        householdId_weekStart: { householdId, weekStart: new Date(weekStart) },
+        householdId_weekStart: {
+          householdId,
+          weekStart: parseWeekStart(weekStart),
+        },
       },
       include: {
         items: {
@@ -154,7 +157,7 @@ export class WeeklyPlansService {
     return this.prisma.weeklyPlan.create({
       data: {
         householdId,
-        weekStart: new Date(dto.weekStart),
+        weekStart: parseWeekStart(dto.weekStart),
       },
     });
   }
