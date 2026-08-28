@@ -134,6 +134,14 @@ export class RecipeDto {
   @ApiProperty()
   isActive: boolean;
 
+  /** Unia alergenów składników — id jak w `UserPreference.allergens`. */
+  @ApiProperty({ type: [String], default: [] })
+  allergens: string[];
+
+  /** Unia tagów dietetycznych składników (`src/common/diet-tags.ts`). */
+  @ApiProperty({ type: [String], default: [] })
+  dietTags: string[];
+
   @ApiProperty({ default: false })
   isFavorite: boolean;
 

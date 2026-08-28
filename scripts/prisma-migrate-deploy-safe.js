@@ -416,6 +416,11 @@ function runOptionalBootstrap() {
   console.log('[safe-migrate] Loading ingredient nutrition table...');
   run(PNPM_BIN, ['exec', 'tsx', 'scripts/load-ingredient-nutrition.ts']);
 
+  // Tagi (alergeny/diety) PRZED importem: import liczy unię tagów składników
+  // z wierszy Ingredient, więc bez tego przepisy weszłyby „czyste".
+  console.log('[safe-migrate] Loading ingredient tags table...');
+  run(PNPM_BIN, ['exec', 'tsx', 'scripts/load-ingredient-tags.ts']);
+
   console.log(`[safe-migrate] Importing recipes from ${recipeImportFile}...`);
   runWithEnv(PNPM_BIN, ['exec', 'tsx', 'scripts/import-recipes-from-json.ts'], {
     RECIPE_IMPORT_CLEAR_EXISTING:

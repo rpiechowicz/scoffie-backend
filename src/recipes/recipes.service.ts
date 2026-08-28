@@ -6,10 +6,7 @@ import {
 } from '@nestjs/common';
 import { MealType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  effectiveSuitableMealTypes,
-  isMealType,
-} from '../common/meal-types';
+import { effectiveSuitableMealTypes, isMealType } from '../common/meal-types';
 import {
   CreateRecipeDto,
   CreateRecipeIngredientDto,
@@ -18,6 +15,7 @@ import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
 import { FindRecipesDto } from './dto/find-recipes.dto';
 import { RecipesCacheService } from './recipes-cache.service';
 import { AppException } from '../common/app-exception';
+import { deriveRecipeTags } from '../common/diet-tags';
 import {
   ALLOWED_UNITS,
   normalizeIngredientAmount,
@@ -52,6 +50,11 @@ const recipeListSelect = {
   nutritionFiber: true,
   nutritionSalt: true,
   isActive: true,
+  // Tagi liczone na serwerze (unia tagów składników): klient filtruje po
+  // nich dietę i alergeny zamiast zgadywać z nazw. Składniki nadal jadą z
+  // listą — stary build iOS bez tych pól dalej klasyfikuje po nazwach.
+  allergens: true,
+  dietTags: true,
   // Skladniki jada z lista, nie tylko ze szczegolami: klient filtruje
   // katalog po diecie i alergenach uzytkownika, a bez nazw i dzialow nie
   // ma z czego tego policzyc. Projekcja jest wezsza niz w `detailSelect`
@@ -88,6 +91,9 @@ type RecipeIngredientRow = {
   normalizedUnit: 'g' | 'ml' | 'szt';
   department: string;
   nutrition: IngredientNutritionPer100 | null;
+  /** Tagi źródła — do unii na przepisie; `create` je odcina jak `nutrition`. */
+  allergens: string[];
+  dietTags: string[];
 };
 
 type ResolvedRecipeNutrition = {
@@ -285,6 +291,8 @@ export class RecipesService {
         nutritionFatPer100: true,
         nutritionFiberPer100: true,
         gramsPerPiece: true,
+        allergens: true,
+        dietTags: true,
       },
     });
     const ingredientById = new Map(
@@ -327,6 +335,8 @@ export class RecipesService {
         department: ingredient.category,
         // Ta sama reguła co w `scripts/recompute-recipe-nutrition.ts`: brak
         // kcal na 100 g znaczy „brak danych", reszta luk liczy się jako 0.
+        allergens: ingredient.allergens,
+        dietTags: ingredient.dietTags,
         nutrition:
           ingredient.nutritionKcalPer100 === null
             ? null
@@ -424,6 +434,8 @@ export class RecipesService {
     nutritionFiber: true,
     nutritionSalt: true,
     isActive: true,
+    allergens: true,
+    dietTags: true,
     householdId: true,
     sourceInstructions: true,
     ingredients: {
@@ -691,12 +703,19 @@ export class RecipesService {
         servings: data.servings,
         imageUrl: data.imageUrl,
         ...nutrition,
+        // Ta sama unia co w imporcie i w loaderze tagów (`deriveRecipeTags`).
+        ...deriveRecipeTags(ingredientRows),
         householdId: data.householdId,
         authorId: userId,
         ingredients: ingredientRows.length
           ? {
               create: ingredientRows.map(
-                ({ nutrition: _nutrition, ...row }) => row,
+                ({
+                  nutrition: _nutrition,
+                  allergens: _allergens,
+                  dietTags: _dietTags,
+                  ...row
+                }) => row,
               ),
             }
           : undefined,

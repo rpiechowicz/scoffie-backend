@@ -35,6 +35,7 @@ const makePrismaMock = () => {
     },
     userPreference: {
       findUnique: jest.fn().mockResolvedValue(mockPreferenceRow),
+      findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue(mockPreferenceRow),
       upsert: jest.fn().mockResolvedValue(mockPreferenceRow),
     },
@@ -101,7 +102,7 @@ describe('UsersService.updatePreferences', () => {
       await expectValidationError(
         service.updatePreferences(mockUserId, {
           calorieGoal: 2200,
-          allergens: ['celery'],
+          allergens: ['shellfish'],
         }),
       );
       expect(prisma.userPreference.upsert).not.toHaveBeenCalled();
@@ -190,11 +191,14 @@ describe('UsersService.updatePreferences', () => {
     it.each([
       [99, 1200],
       [9999, 3500],
-    ])('powinno nadal przycinać calorieGoal %i -> %i', async (input, expected) => {
-      await service.updatePreferences(mockUserId, { calorieGoal: input });
+    ])(
+      'powinno nadal przycinać calorieGoal %i -> %i',
+      async (input, expected) => {
+        await service.updatePreferences(mockUserId, { calorieGoal: input });
 
-      expect(upsertArg().update.calorieGoal).toBe(expected);
-    });
+        expect(upsertArg().update.calorieGoal).toBe(expected);
+      },
+    );
 
     it('powinno nadal przycinać activityLevel do 1..4', async () => {
       await service.updatePreferences(mockUserId, { activityLevel: 9 });
@@ -225,5 +229,37 @@ describe('UsersService.updatePreferences', () => {
         ).toBeUndefined();
       },
     );
+  });
+});
+
+describe('UsersService.getPreferencesForUsers', () => {
+  let service: UsersService;
+  let prisma: ReturnType<typeof makePrismaMock>;
+
+  beforeEach(async () => {
+    prisma = makePrismaMock();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [UsersService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get<UsersService>(UsersService);
+  });
+
+  it('pusta lista nie pyta bazy', async () => {
+    const result = await service.getPreferencesForUsers([]);
+    expect(result.size).toBe(0);
+    expect(prisma.userPreference.findMany).not.toHaveBeenCalled();
+  });
+
+  it('deduplikuje id, mapuje po userId i pomija użytkowników bez wiersza (nie tworzy ich)', async () => {
+    prisma.userPreference.findMany.mockResolvedValue([
+      { ...mockPreferenceRow, userId: 'u1', allergens: ['gluten'] },
+    ]);
+    const result = await service.getPreferencesForUsers(['u1', 'u2', 'u1', '']);
+    expect(prisma.userPreference.findMany).toHaveBeenCalledWith({
+      where: { userId: { in: ['u1', 'u2'] } },
+    });
+    expect(Array.from(result.keys())).toEqual(['u1']);
+    expect(result.get('u1')?.allergens).toEqual(['gluten']);
+    expect(prisma.userPreference.create).not.toHaveBeenCalled();
   });
 });

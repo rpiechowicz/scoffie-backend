@@ -17,6 +17,7 @@
     "catalog:ingredients:load": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/load-ingredient-catalog.ts",
     "catalog:ingredients:normalize:pl": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/normalize-ingredients-polish.ts",
     "catalog:ingredients:nutrition": "tsx scripts/load-ingredient-nutrition.ts",
+    "catalog:ingredients:tags": "tsx scripts/load-ingredient-tags.ts",
     "audit:recipes:nutrition": "tsx scripts/audit-recipe-nutrition.ts",
     "recipes:recompute:nutrition": "tsx scripts/recompute-recipe-nutrition.ts",
     "recipes:backfill:slots": "tsx scripts/backfill-suitable-meal-types.ts",
