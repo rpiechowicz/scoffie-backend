@@ -22,6 +22,7 @@ import {
 } from '../src/recipes/ingredient-amount.util';
 import {
   computeRecipeNutrition,
+  roundTotalsForStorage,
   type IngredientNutritionPer100,
   type NutritionInputItem,
 } from '../src/recipes/recipe-nutrition.util';
@@ -66,11 +67,6 @@ function parseArgs(argv: string[]): Options {
     dbOnly: argv.includes('--db-only'),
     jsonOnly: argv.includes('--json-only'),
   };
-}
-
-/** Zaokrąglenie do zapisu: gramy do liczby całkowitej — dokładniej niż źródło i tak nie jest. */
-function forStorage(value: number): number {
-  return Math.round(value);
 }
 
 async function loadNutritionTable(): Promise<Map<string, CatalogEntry>> {
@@ -209,11 +205,7 @@ async function recomputeCatalogFiles(
 
       const { totals } = computeRecipeNutrition(items);
       const next = {
-        kcal: forStorage(totals.kcal),
-        protein: forStorage(totals.protein),
-        carbs: forStorage(totals.carbs),
-        fat: forStorage(totals.fat),
-        fiber: forStorage(totals.fiber),
+        ...roundTotalsForStorage(totals),
         salt: recipe.nutrition.salt, // poza zakresem audytu — zostaje bez zmian
       };
 
@@ -313,13 +305,16 @@ async function recomputeDatabase(options: Options): Promise<void> {
     if (options.write) {
       await prisma.recipe.update({
         where: { id: recipeId },
-        data: {
-          nutritionKcal: forStorage(totals.kcal),
-          nutritionProtein: forStorage(totals.protein),
-          nutritionCarbs: forStorage(totals.carbs),
-          nutritionFat: forStorage(totals.fat),
-          nutritionFiber: forStorage(totals.fiber),
-        },
+        data: (() => {
+          const stored = roundTotalsForStorage(totals);
+          return {
+            nutritionKcal: stored.kcal,
+            nutritionProtein: stored.protein,
+            nutritionCarbs: stored.carbs,
+            nutritionFat: stored.fat,
+            nutritionFiber: stored.fiber,
+          };
+        })(),
       });
     }
 

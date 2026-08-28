@@ -135,3 +135,21 @@ export function roundTotals(
     fiber: Math.round(totals.fiber * 10) / 10,
   };
 }
+
+/**
+ * Zaokrąglenie do zapisu w bazie i w plikach katalogu: gramy do liczby
+ * całkowitej — dokładniej niż źródło i tak nie jest. Jedna definicja dla
+ * serwisu (`RecipesService.create`) i dla `scripts/recompute-recipe-nutrition.ts`,
+ * żeby przeliczenie po utworzeniu przepisu nie ruszało żadnej wartości.
+ */
+export function roundTotalsForStorage(
+  totals: RecipeNutritionTotals,
+): RecipeNutritionTotals {
+  return {
+    kcal: Math.round(totals.kcal),
+    protein: Math.round(totals.protein),
+    carbs: Math.round(totals.carbs),
+    fat: Math.round(totals.fat),
+    fiber: Math.round(totals.fiber),
+  };
+}

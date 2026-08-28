@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { PrismaClient } from '@prisma/client';
+import { normalizeText } from '../src/common/normalize-text.util';
 
 const prisma = new PrismaClient();
 
@@ -23,24 +24,6 @@ const CATEGORY_BY_FILE: Record<string, string> = {
   'ingredients-chemia-i-gospodarstwo-pl-v1.txt': 'Chemia i gospodarstwo',
   'ingredients-inne-pl-v1.txt': 'Inne',
 };
-
-function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[ł]/g, 'l')
-    .replace(/[ą]/g, 'a')
-    .replace(/[ć]/g, 'c')
-    .replace(/[ę]/g, 'e')
-    .replace(/[ń]/g, 'n')
-    .replace(/[ó]/g, 'o')
-    .replace(/[ś]/g, 's')
-    .replace(/[ź]/g, 'z')
-    .replace(/[ż]/g, 'z')
-    .trim()
-    .replace(/\s+/g, ' ');
-}
 
 function parseLines(content: string): string[] {
   return content
