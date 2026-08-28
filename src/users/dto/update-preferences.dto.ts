@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -14,6 +15,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { DietPreferenceValue, UserGoal } from '@prisma/client';
+import { ALLERGEN_IDS, ALLERGEN_ID_VALUES } from '../../common/allergens';
 
 /**
  * Partial-update payload for `users:preferences:update`. Every field is
@@ -24,7 +26,11 @@ import { DietPreferenceValue, UserGoal } from '@prisma/client';
  * Validation matches the iOS UI bounds:
  *   - calorieGoal: 1200…3500, clamped server-side as a defence in depth
  *   - activityLevel: 1…4 (sedentary → very active), clamped server-side
- *   - allergens: at most 32 unique short strings
+ *   - allergens: at most 32 ids from ALLERGEN_IDS; enforced server-side in
+ *     the service (`normalizeAllergenIds`) because the WS path skips these
+ *     decorators entirely
+ *   - proteinG/fatG/carbsG: 0..400/300/800 or null; clamped server-side
+ *     (`clampMacro`) for the same reason
  */
 export class UpdatePreferencesDto {
   @ApiPropertyOptional({ enum: DietPreferenceValue, example: 'VEGETARIAN' })
@@ -41,7 +47,13 @@ export class UpdatePreferencesDto {
 
   @ApiPropertyOptional({
     example: ['gluten', 'nuts'],
-    description: 'Lowercase allergen IDs matching the iOS Allergen enum.',
+    enum: ALLERGEN_ID_VALUES,
+    isArray: true,
+    description:
+      'Lowercase allergen IDs matching the iOS Allergen enum. ' +
+      'Uwaga: te dekoratory NIE dzialaja na sciezce WebSocketu ' +
+      '(payload gatewaya nie ma @ValidateNested) — twarda walidacja siedzi ' +
+      'w UsersService.updatePreferences przez normalizeAllergenIds().',
   })
   @IsOptional()
   @IsArray()
@@ -49,6 +61,7 @@ export class UpdatePreferencesDto {
   @ArrayMaxSize(32)
   @IsString({ each: true })
   @MaxLength(64, { each: true })
+  @IsIn(ALLERGEN_IDS, { each: true })
   allergens?: string[];
 
   @ApiPropertyOptional({ enum: UserGoal, example: 'HEALTHY' })
