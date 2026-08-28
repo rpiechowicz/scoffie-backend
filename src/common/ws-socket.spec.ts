@@ -48,9 +48,11 @@ describe('actorId', () => {
   });
 
   it('socket legacy → userId z payloadu, policzone jako legacy', () => {
-    expect(actorId(client({ mode: 'legacy' }), { userId: ' old ' })).toBe(
-      'old',
-    );
+    expect(
+      actorId(client({ mode: 'legacy' }), {
+        userId: ' 3fa85f64-5717-4562-b3fc-2c963f66afa6 ',
+      }),
+    ).toBe('3fa85f64-5717-4562-b3fc-2c963f66afa6');
     expect(observer.onLegacyAct).toHaveBeenCalledTimes(1);
   });
 
@@ -59,6 +61,8 @@ describe('actorId', () => {
     ['socket legacy bez userId', { mode: 'legacy' }, {}],
     ['socket legacy z pustym userId', { mode: 'legacy' }, { userId: '  ' }],
     ['socket legacy z nie-stringiem', { mode: 'legacy' }, { userId: 42 }],
+    // Nie-UUID szedłby do `findUnique` po `@db.Uuid` → P2023 → 500.
+    ['socket legacy z userId nie-UUID', { mode: 'legacy' }, { userId: 'old' }],
     ['brak socketu', undefined, { userId: 'attacker' }],
   ])('%s → UNAUTHORIZED 401', (_label, data, payload) => {
     let thrown: unknown;

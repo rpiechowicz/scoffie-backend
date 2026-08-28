@@ -129,6 +129,7 @@ describe('mapError', () => {
     ['P2002', 'CONFLICT', 409],
     ['P2025', 'NOT_FOUND', 404],
     ['P2003', 'VALIDATION_ERROR', 400],
+    ['P2023', 'VALIDATION_ERROR', 400],
   ])(
     'Prisma %s → %s %i, tekst Prismy tylko w logu',
     (prismaCode, code, status) => {

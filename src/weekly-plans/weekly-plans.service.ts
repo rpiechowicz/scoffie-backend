@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
+import { isUuid } from '../common/uuid';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
@@ -65,15 +66,6 @@ function sameMemberSet(a: string[], b: string[]): boolean {
 }
 
 /**
- * Luźny wzorzec UUID: dowolna wersja, wielkość liter bez znaczenia. Nie pilnuje
- * bitów wersji ani wariantu, bo identyfikatory katalogu są pisane ręcznie w
- * JSON-ie — wystarczy, że nie przepuści śmieci, na których Postgres wywaliłby
- * się z 500 zamiast czytelnego 400.
- */
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
  * `replaceRecipeId` z DTO: `null`, gdy nie ma czego podmieniać.
  *
  * Równe `recipeId` też znaczy „bez podmiany" — `PlanSlotPickerSheet` wysyła
@@ -86,7 +78,7 @@ const UUID_PATTERN =
  */
 function parseReplaceRecipeId(value: unknown, recipeId: string): string | null {
   if (value == null || value === '') return null;
-  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
+  if (!isUuid(value)) {
     throw new AppException(
       'VALIDATION_ERROR',
       'replaceRecipeId musi być identyfikatorem UUID',

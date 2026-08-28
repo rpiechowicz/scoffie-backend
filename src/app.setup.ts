@@ -16,9 +16,12 @@ import { RequestMetricsService } from './observability/request-metrics.service';
  * `onModuleDestroy` (Prisma, bufory powiadomień) nigdy nie biegły na SIGTERM,
  * mimo starannego `exec` w CMD obrazu.
  *
- * `ValidationPipe` celowo przez `useGlobalPipes`, nie `APP_PIPE`: `APP_PIPE`
- * objąłby też gatewaye, a `forbidNonWhitelisted` zacząłby odrzucać payloady
- * WS, których klasy-koperty nie mają dekoratorów.
+ * `ValidationPipe` obejmuje TYLKO HTTP — ani `useGlobalPipes`, ani `APP_PIPE`
+ * nie docierają do gatewayów (moduł socketów buduje własny kontekst pipe'ów),
+ * a pipe na WS i tak rzucałby przed handlerem, omijając ack. Walidacja WS i
+ * wywołań in-process idzie jawnie przez `validateDto` (`src/common/validate-dto.ts`)
+ * w serwisach i `validateWsPayload` w handlerach — ten sam pipe, ten sam
+ * format `details`.
  */
 export function configureApp(app: NestExpressApplication): void {
   const extraOrigins = (process.env.CORS_ORIGIN ?? '')

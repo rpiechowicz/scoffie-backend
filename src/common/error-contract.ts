@@ -77,6 +77,15 @@ const PRISMA_CODE_MAP: Readonly<
     message: 'Nieprawidłowe odwołanie do powiązanego rekordu.',
     status: HttpStatus.BAD_REQUEST,
   },
+  // „Inconsistent column data": nie-UUID w kolumnie `@db.Uuid`, zła data —
+  // wejście klienta, nie awaria. Właściwa bramka to `assertUuid`/`@IsUUID()`
+  // na wejściu serwisu (te niosą nazwę pola); to jest ostatnia deska, żeby
+  // przeoczony identyfikator nie wychodził jako 500.
+  P2023: {
+    code: 'VALIDATION_ERROR',
+    message: 'Nieprawidłowy format danych.',
+    status: HttpStatus.BAD_REQUEST,
+  },
 };
 
 function readHttpMessage(

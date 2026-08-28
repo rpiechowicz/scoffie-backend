@@ -1,6 +1,7 @@
 import { HttpStatus, Logger } from '@nestjs/common';
 import type { Socket } from 'socket.io';
 import { AppException } from './app-exception';
+import { isUuid } from './uuid';
 
 // Kopia `DefaultEventsMap` z socket.io (`dist/typed-events`), której pakiet nie
 // eksportuje przez `exports` — typowanie strukturalne, więc zgodna 1:1.
@@ -81,6 +82,15 @@ export function actorId(
   }
 
   if (data?.mode === 'legacy' && declared) {
+    // Nie-UUID trafiałby do `findUnique` po kolumnie `@db.Uuid` → P2023 → 500.
+    if (!isUuid(declared)) {
+      throw new AppException(
+        'UNAUTHORIZED',
+        'payload.userId is not a valid user id',
+        HttpStatus.UNAUTHORIZED,
+        ['invalid'],
+      );
+    }
     observer?.onLegacyAct();
     return declared;
   }

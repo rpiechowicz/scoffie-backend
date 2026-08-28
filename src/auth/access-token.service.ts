@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService, TokenExpiredError } from '@nestjs/jwt';
+import { isUuid } from '../common/uuid';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type AccessTokenFailureReason =
@@ -15,8 +16,6 @@ export type VerifiedAccessToken = {
   exp: number | null;
 };
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AccessTokenFailure = {
   ok: false;
@@ -74,7 +73,7 @@ export class AccessTokenService {
     const userId = typeof payload.sub === 'string' ? payload.sub.trim() : '';
     // `User.id` to @db.Uuid — nie-UUID w `sub` (token podpisany naszym
     // sekretem, ale spreparowany) dałby P2023 z Prismy, czyli 500 zamiast 401.
-    if (!userId || !UUID_RE.test(userId))
+    if (!userId || !isUuid(userId))
       return { ok: false, reason: 'invalid' };
 
     const user = await this.prisma.user.findUnique({
