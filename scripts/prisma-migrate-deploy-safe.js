@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 const { spawnSync } = require('node:child_process');
 const { PrismaClient } = require('@prisma/client');
+const { decideRebuild } = require('./lib/rebuild-guard');
 
 const TARGET_FAILED_MIGRATION = '20260216094429_ingredient_catalog_v1';
 const PNPM_BIN = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
@@ -413,10 +414,13 @@ function runOptionalBootstrap() {
 }
 
 function runOptionalR2ImageBackfill() {
-  const enabled = process.env.SAFE_MIGRATE_BACKFILL_R2_IMAGE_URLS !== 'false';
+  // Opt-in. Dawniej domyślnie włączony: każdy start kontenera robił jeden
+  // HEAD do R2 na przepis i rozszerzenie, zanim /ops/health w ogóle odpowiedział.
+  // Jednorazowo: `pnpm exec tsx scripts/backfill-recipe-image-urls-from-r2.ts`.
+  const enabled = process.env.SAFE_MIGRATE_BACKFILL_R2_IMAGE_URLS === 'true';
   if (!enabled) {
     console.log(
-      '[safe-migrate] R2 image URL backfill disabled (SAFE_MIGRATE_BACKFILL_R2_IMAGE_URLS=false).',
+      '[safe-migrate] R2 image URL backfill skipped (set SAFE_MIGRATE_BACKFILL_R2_IMAGE_URLS=true to run it at startup).',
     );
     return;
   }
@@ -441,16 +445,20 @@ async function main() {
   const prisma = new PrismaClient();
   let failedMigrations = [];
 
+  // Strażnik rebuildu — patrz `scripts/lib/rebuild-guard.js`. Odmowa jest
+  // głośna i kończy start: zapomniana flaga nie może po cichu przejść do
+  // zwykłego `migrate deploy` ani, tym bardziej, do `DROP SCHEMA`.
+  const rebuild = decideRebuild({ env: process.env, now: new Date() });
+  if (rebuild.requested && !rebuild.allowed) {
+    console.error(`[safe-migrate] Rebuild REFUSED: ${rebuild.reason}`);
+    process.exit(1);
+  }
+
   try {
-    const rebuildEnabled = process.env.SAFE_MIGRATE_REBUILD_DB === 'true';
-    if (rebuildEnabled) {
-      const confirm = process.env.SAFE_MIGRATE_REBUILD_CONFIRM;
-      if (confirm !== 'YES_I_UNDERSTAND') {
-        console.error(
-          '[safe-migrate] SAFE_MIGRATE_REBUILD_DB=true requires SAFE_MIGRATE_REBUILD_CONFIRM=YES_I_UNDERSTAND',
-        );
-        process.exit(1);
-      }
+    if (rebuild.allowed) {
+      console.warn(
+        `[safe-migrate] Rebuild CONFIRMED for database host "${rebuild.host ?? 'unknown'}" — dropping public schema.`,
+      );
       await rebuildDatabaseFromScratch(prisma);
     }
 
@@ -555,7 +563,7 @@ async function main() {
   console.log('[safe-migrate] Running prisma migrate deploy');
   run(PNPM_BIN, ['prisma', 'migrate', 'deploy']);
 
-  if (process.env.SAFE_MIGRATE_REBUILD_DB === 'true') {
+  if (rebuild.allowed) {
     runOptionalBootstrap();
   }
 

@@ -11,7 +11,9 @@ module.exports = {
   rootDir: rootDir,
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': [tsJestPath, {
+    // Tylko TS: CommonJS ze `scripts/lib` (np. rebuild-guard.js) ma iść do
+    // Node bez ts-jest, bo `allowJs` jest wyłączone.
+    '^.+\\.ts$': [tsJestPath, {
       tsconfig: path.resolve(__dirname, 'tsconfig.json'),
     }],
   },
