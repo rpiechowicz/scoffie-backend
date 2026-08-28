@@ -5,6 +5,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { settleHouseholdAfterMemberLeft } from '../households/household-cleanup.util';
+import { onMemberLeft } from '../weekly-plans/utils/plan-roster.util';
 import {
   effectiveAvatarColor,
   pickFreeAvatarColor,
@@ -414,6 +415,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       const memberships = await tx.membership.findMany({
         where: { userId },
@@ -432,7 +434,18 @@ export class UsersService {
         // Ta sama regula co przy wyjsciu z gospodarstwa — jedna definicja
         // zamiast dwoch kopii, ktore juz raz sie rozjechaly (wyjscie nie
         // kasowalo pustych domow, kasowanie konta kasowalo).
-        await settleHouseholdAfterMemberLeft(tx, membership.householdId);
+        const settlement = await settleHouseholdAfterMemberLeft(
+          tx,
+          membership.householdId,
+        );
+        // Kaskada z `tx.user.delete` niżej zabiera wiersze uczestnictwa, ale
+        // ROBI TO PÓŹNIEJ i po cichu: item, na którym ta osoba była jedynym
+        // uczestnikiem, awansowałby na „Wspólny", a auto-porcje „Wspólnych"
+        // zostałyby policzone dla starego składu. Hook musi pójść PRZED
+        // usunięciem użytkownika, dopóki wiersze jeszcze istnieją.
+        if (settlement.outcome !== 'DELETED') {
+          await onMemberLeft(tx, membership.householdId, userId, now);
+        }
       }
 
       await tx.user.delete({ where: { id: userId } });

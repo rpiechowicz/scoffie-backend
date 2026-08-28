@@ -8,6 +8,10 @@ import { Prisma } from '@prisma/client';
 import { MEAL_TYPES_IN_DAY_ORDER } from '../common/meal-types';
 import { parseWeekStart } from './utils/week-formatting.util';
 import {
+  autoPlannedServings,
+  clampPlannedServings,
+} from './utils/planned-servings.util';
+import {
   ensureMembership,
   ensureRecipeForHousehold,
 } from './utils/auth-checks.util';
@@ -663,11 +667,9 @@ export class WeeklyPlansService {
     // wyłącznie po WS, przycięcie w kodzie jest jedyną realną obroną przed
     // `plannedServings: 0` albo `999`.
     if (requested != null && Number.isFinite(requested)) {
-      return Math.min(12, Math.max(1, Math.trunc(requested)));
+      return clampPlannedServings(requested);
     }
-    const eaters =
-      participantIds.length > 0 ? participantIds.length : memberCount;
-    return Math.min(12, Math.max(1, eaters));
+    return autoPlannedServings(participantIds.length, memberCount);
   }
 
   /**

@@ -149,6 +149,45 @@ export class HouseholdsGateway
     });
   }
 
+  /**
+   * Zmiana składu domu zmienia też plan: posiłki solo odchodzącego znikają,
+   * auto-porcje „Wspólnych" liczą się od nowa, a za nimi lista zakupów
+   * (`plan-roster.util.ts`). Klient iOS na `households:membersChanged`
+   * odświeża wyłącznie listę domowników, więc każdy dotknięty tydzień dostaje
+   * zwykłe `weeklyPlans:weekChanged` + `shoppingListChanged` — oba gatewaye
+   * dzielą jeden serwer Socket.IO (te same `WS_GATEWAY_OPTIONS`, bez
+   * namespace'u). Akcja `MEMBERSHIP_CHANGED` jest klientowi nieznana, a
+   * `singleChangeText` oddaje dla niej `nil`: telefon przeładowuje tydzień
+   * bez fałszywego bannera „X zmienił plan".
+   */
+  private emitPlanTouched(input: {
+    weeks: Array<{ householdId: string; weekStart: string }>;
+    changedByUserId: string;
+    changedByDisplayName?: string | null;
+  }): void {
+    for (const { householdId, weekStart } of input.weeks) {
+      const changeVersion = Date.now();
+      this.server.emit('weeklyPlans:weekChanged', {
+        householdId,
+        weekStart,
+        action: 'MEMBERSHIP_CHANGED',
+        changedByUserId: input.changedByUserId,
+        changedByDisplayName: input.changedByDisplayName ?? null,
+        changeVersion,
+      });
+      this.server.emit('weeklyPlans:shoppingListChanged', {
+        householdId,
+        weekStart,
+        action: 'MEMBERSHIP_CHANGED',
+        changedByUserId: input.changedByUserId,
+        changedByDisplayName: input.changedByDisplayName ?? null,
+        productKey: null,
+        isChecked: null,
+        changeVersion,
+      });
+    }
+  }
+
   handleConnection(_client: Socket) {
     this.wsTelemetry.onConnect(HouseholdsGateway.name);
   }
@@ -211,6 +250,11 @@ export class HouseholdsGateway
       await this.emitMembersChanged({
         householdId: result.householdId,
         action: 'ACCEPT_INVITATION',
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+      });
+      this.emitPlanTouched({
+        weeks: result.touchedWeeks,
         changedByUserId: payload.userId,
         changedByDisplayName,
       });
@@ -423,6 +467,14 @@ export class HouseholdsGateway
         changedByUserId: payload.userId,
         changedByDisplayName,
       });
+      this.emitPlanTouched({
+        weeks: result.touchedWeekStarts.map((weekStart) => ({
+          householdId: payload.householdId,
+          weekStart,
+        })),
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+      });
       return result;
     });
   }
@@ -439,6 +491,14 @@ export class HouseholdsGateway
       await this.emitMembersChanged({
         householdId: payload.householdId,
         action: 'LEAVE',
+        changedByUserId: payload.userId,
+        changedByDisplayName,
+      });
+      this.emitPlanTouched({
+        weeks: result.touchedWeekStarts.map((weekStart) => ({
+          householdId: payload.householdId,
+          weekStart,
+        })),
         changedByUserId: payload.userId,
         changedByDisplayName,
       });
