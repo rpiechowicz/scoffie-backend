@@ -168,23 +168,6 @@ describe('notification-copy', () => {
       );
       expect(copy.body).toBe('Marek usunął/ęła plan na ten tydzień.');
     });
-
-    it('zapis puli wygrywa z pojedynczymi slotami', () => {
-      const copy = buildPlanSummary(
-        'Marek',
-        [
-          {
-            action: 'UPSERT_SLOT',
-            weekStart: '2026-08-24',
-            dayOfWeek: 'MON',
-            mealType: 'BREAKFAST',
-          },
-          { action: 'SAVE_PLAN', weekStart: '2026-08-24' },
-        ],
-        MONDAY,
-      );
-      expect(copy.body).toBe('Marek ustawił/a plan na ten tydzień.');
-    });
   });
 
   describe('buildShoppingSummary', () => {

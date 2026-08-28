@@ -43,9 +43,7 @@ class MealSlotTimesConstraint implements ValidatorConstraintInterface {
  * Mapa jest **pełna**, nie różnicowa: klient przysyła stan, jaki ma
  * obowiązywać. Slot nieobecny w mapie to slot bez stałej pory — tak działa
  * przekąska — więc pominięcia nie wolno czytać jako „zostaw, jak było".
- * To odwrotna reguła niż przy zapisie puli przepisów
- * (`SaveSharedMealPlanDto`), bo tam starszy klient nie zna nowych slotów;
- * tutaj mapę wysyła wyłącznie klient, który zna wszystkie.
+ * Mapę wysyła wyłącznie klient, który zna wszystkie sloty.
  */
 export class UpdateHouseholdMealTimesDto {
   @ApiProperty({

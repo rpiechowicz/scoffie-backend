@@ -166,6 +166,8 @@ const makePrismaMock = () => {
     shoppingListArchive: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    // Wycofana pula tygodniowa (WP-03). Delegaty zostają wyłącznie jako
+    // czujniki: test `clearWeekPlan` dowodzi, że nikt ich już nie woła.
     sharedMealPlan: {
       findUnique: jest.fn().mockResolvedValue(null),
     },
@@ -950,12 +952,41 @@ describe('WeeklyPlansService', () => {
       expect(prisma.membership.findUnique).toHaveBeenCalled();
     });
 
+    it('nie dotyka już wycofanej puli tygodniowej', async () => {
+      await service.clearWeekPlan(mockUserId, mockHouseholdId, mockWeekStart);
+
+      expect(prisma.planItem.deleteMany).toHaveBeenCalled();
+      expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
+      expect(prisma.sharedMealPlanItem.deleteMany).not.toHaveBeenCalled();
+    });
+
     it('powinno odrzucić gdy użytkownik nie jest członkiem', async () => {
       prisma.membership.findUnique.mockResolvedValue(null);
 
       await expect(
         service.clearWeekPlan('outsider', mockHouseholdId, mockWeekStart),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─── Wycofane API (WP-03) ─────────────────────────────────────────────────
+  //
+  // Pula tygodniowa i handlery „plan po id" nie mają żadnego klienta. Strażnik
+  // przed ich cichym powrotem: metoda ma NIE istnieć, nie tylko nie być
+  // wołana.
+
+  describe('wycofane metody puli tygodniowej', () => {
+    it.each([
+      'listByHousehold',
+      'create',
+      'addItem',
+      'removeItem',
+      'getSharedMealPlan',
+      'saveSharedMealPlan',
+    ])('%s nie istnieje już w serwisie', (method) => {
+      expect(
+        (service as unknown as Record<string, unknown>)[method],
+      ).toBeUndefined();
     });
   });
 

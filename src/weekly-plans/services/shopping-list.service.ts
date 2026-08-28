@@ -41,10 +41,10 @@ export class ShoppingListService {
     weekStartDate: Date,
     client: PrismaReadClient = this.prisma,
   ): Promise<ShoppingAccumulator[]> {
-    // Day slots are the source of truth: Plan v2 assigns a recipe straight to a
+    // Day slots are the ONLY source: Plan v2 assigns a recipe straight to a
     // (day, slot), and a slot can hold one dish per household member. The
-    // week-long shared pool it replaced is only consulted for weeks planned
-    // before that — those have no day items at all — so no backfill is needed.
+    // week-long shared pool (`SharedMealPlan`) that preceded it is retired
+    // (WP-03) and is never consulted, not even as a fallback.
     const weeklyPlan = await client.weeklyPlan.findUnique({
       where: {
         householdId_weekStart: {
@@ -79,68 +79,20 @@ export class ShoppingListService {
       },
     });
 
-    let ingredientSources: Array<{
-      recipe: {
-        ingredients: Array<{
-          name: string;
-          amount: number;
-          unit: string;
-          normalizedAmount: number;
-          normalizedUnit: string;
-          department: string;
-        }>;
-      };
-      portionFactor: number;
-    }> = [];
-    if (weeklyPlan && weeklyPlan.items.length > 0) {
-      // Jedna pozycja to jedno danie, więc podzielony slot wnosi posiłki obu
-      // domowników. Waga pozycji jest ułamkiem, a nie krotnością: gotujemy
-      // `plannedServings` porcji przepisu napisanego na `recipe.servings`,
-      // więc posiłek solo z przepisu na dwie porcje kupuje połowę
-      // składników.
-      ingredientSources = weeklyPlan.items.map((item) => ({
-        recipe: item.recipe,
-        portionFactor:
-          Math.max(1, item.plannedServings) / Math.max(1, item.recipe.servings),
-      }));
-    } else {
-      // Legacy weeks: planned as a pool, never assigned to days.
-      const sharedPlan = await client.sharedMealPlan.findUnique({
-        where: {
-          householdId_weekStart: {
-            householdId,
-            weekStart: weekStartDate,
-          },
-        },
-        include: {
-          items: {
-            include: {
-              recipe: {
-                include: {
-                  ingredients: {
-                    select: {
-                      name: true,
-                      amount: true,
-                      unit: true,
-                      normalizedAmount: true,
-                      normalizedUnit: true,
-                      department: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-      ingredientSources = (sharedPlan?.items ?? []).map((item) => ({
-        recipe: item.recipe,
-        // Tamte tygodnie nie mają ani dni, ani porcji — `quantity` mówi
-        // tylko, ile razy gotujemy przepis, więc jedna pozycja to nadal CAŁY
-        // przepis i mnożnik zostaje całkowity.
-        portionFactor: Math.max(1, item.quantity),
-      }));
-    }
+    // `PlanItem` jest JEDYNYM źródłem listy. Wycofana pula tygodniowa
+    // (`SharedMealPlan`) podstawiała tu widmową listę tygodniowi, z którego
+    // usunięto wszystkie posiłki po jednym — a asystentowi kazałaby liczyć
+    // bilans z danych, których nie widać w aplikacji (WP-03).
+    //
+    // Jedna pozycja to jedno danie, więc podzielony slot wnosi posiłki obu
+    // domowników. Waga pozycji jest ułamkiem, a nie krotnością: gotujemy
+    // `plannedServings` porcji przepisu napisanego na `recipe.servings`,
+    // więc posiłek solo z przepisu na dwie porcje kupuje połowę składników.
+    const ingredientSources = (weeklyPlan?.items ?? []).map((item) => ({
+      recipe: item.recipe,
+      portionFactor:
+        Math.max(1, item.plannedServings) / Math.max(1, item.recipe.servings),
+    }));
 
     const aggregated = new Map<string, ShoppingAccumulator>();
     for (const source of ingredientSources) {
@@ -351,40 +303,26 @@ export class ShoppingListService {
     weekStartDate: Date,
     client: PrismaReadClient = this.prisma,
   ): Promise<boolean> {
-    const [sharedPlan, weeklyPlan] = await Promise.all([
-      client.sharedMealPlan.findUnique({
-        where: {
-          householdId_weekStart: {
-            householdId,
-            weekStart: weekStartDate,
-          },
+    // Tylko `PlanItem`. Dzięki temu widmowa lista — snapshot zbudowany kiedyś
+    // z wycofanej puli, dziś bez pokrycia w planie dnia — sama zeruje się przy
+    // pierwszym odczycie: „ma pozycje, nie ma źródła" wymusza przebudowę do
+    // pustej listy, bez ręcznego SQL-a.
+    const weeklyPlan = await client.weeklyPlan.findUnique({
+      where: {
+        householdId_weekStart: {
+          householdId,
+          weekStart: weekStartDate,
         },
-        select: {
-          items: {
-            select: { id: true },
-            take: 1,
-          },
+      },
+      select: {
+        items: {
+          select: { id: true },
+          take: 1,
         },
-      }),
-      client.weeklyPlan.findUnique({
-        where: {
-          householdId_weekStart: {
-            householdId,
-            weekStart: weekStartDate,
-          },
-        },
-        select: {
-          items: {
-            select: { id: true },
-            take: 1,
-          },
-        },
-      }),
-    ]);
+      },
+    });
 
-    return (
-      (sharedPlan?.items.length ?? 0) > 0 || (weeklyPlan?.items.length ?? 0) > 0
-    );
+    return (weeklyPlan?.items.length ?? 0) > 0;
   }
 
   private async rebuildShoppingListSnapshotWithClient(

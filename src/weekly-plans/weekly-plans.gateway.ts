@@ -10,43 +10,18 @@ import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { WeeklyPlansService } from './weekly-plans.service';
 import { ShoppingListService } from './services/shopping-list.service';
-import { CreatePlanItemDto } from './dto/create-plan-item.dto';
-import { CreateWeeklyPlanDto } from './dto/create-weekly-plan.dto';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
 import { Server, Socket } from 'socket.io';
-import { SaveSharedMealPlanDto } from './dto/save-shared-meal-plan.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
-
-class WeeklyPlansListPayload {
-  userId: string;
-  householdId: string;
-}
 
 class WeeklyPlansGetByWeekPayload {
   userId: string;
   householdId: string;
   weekStart: string;
-}
-
-class WeeklyPlansCreatePayload {
-  userId: string;
-  householdId: string;
-  data: CreateWeeklyPlanDto;
-}
-
-class WeeklyPlansAddItemPayload {
-  userId: string;
-  weeklyPlanId: string;
-  data: CreatePlanItemDto;
-}
-
-class WeeklyPlansRemoveItemPayload {
-  userId: string;
-  itemId: string;
 }
 
 class WeeklyPlansGetShoppingListPayload {
@@ -114,17 +89,13 @@ class WeeklyPlansSetMealEatenPayload {
   data: SetMealEatenDto;
 }
 
+/**
+ * DEPRECATED — patrz `getSavedPlan`. Do usunięcia razem z handlerem.
+ */
 class WeeklyPlansGetSavedPlanPayload {
   userId: string;
   householdId: string;
   weekStart: string;
-}
-
-class WeeklyPlansSaveSavedPlanPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-  data: SaveSharedMealPlanDto;
 }
 
 class WeeklyPlansClearWeekPlanPayload {
@@ -233,35 +204,6 @@ export class WeeklyPlansGateway
     return Date.now();
   }
 
-  private buildSavedPlanFingerprint(
-    plan:
-      | {
-          items?: Array<{
-            mealType: string;
-            quantity: number;
-            recipe: { id: string };
-          }>;
-        }
-      | null
-      | undefined,
-  ): string {
-    const items = plan?.items ?? [];
-    return items
-      .map((item) => `${item.mealType}:${item.recipe.id}:${item.quantity}`)
-      .sort()
-      .join('|');
-  }
-
-  @SubscribeMessage('weeklyPlans:listByHousehold')
-  listByHousehold(@MessageBody() payload: WeeklyPlansListPayload) {
-    return wsRespond(() =>
-      this.weeklyPlansService.listByHousehold(
-        payload.userId,
-        payload.householdId,
-      ),
-    );
-  }
-
   @SubscribeMessage('weeklyPlans:getByWeek')
   getByWeek(@MessageBody() payload: WeeklyPlansGetByWeekPayload) {
     return wsRespond(() =>
@@ -270,35 +212,6 @@ export class WeeklyPlansGateway
         payload.householdId,
         payload.weekStart,
       ),
-    );
-  }
-
-  @SubscribeMessage('weeklyPlans:create')
-  create(@MessageBody() payload: WeeklyPlansCreatePayload) {
-    return wsRespond(() =>
-      this.weeklyPlansService.create(
-        payload.userId,
-        payload.householdId,
-        payload.data,
-      ),
-    );
-  }
-
-  @SubscribeMessage('weeklyPlans:addItem')
-  addItem(@MessageBody() payload: WeeklyPlansAddItemPayload) {
-    return wsRespond(() =>
-      this.weeklyPlansService.addItem(
-        payload.userId,
-        payload.weeklyPlanId,
-        payload.data,
-      ),
-    );
-  }
-
-  @SubscribeMessage('weeklyPlans:removeItem')
-  removeItem(@MessageBody() payload: WeeklyPlansRemoveItemPayload) {
-    return wsRespond(() =>
-      this.weeklyPlansService.removeItem(payload.userId, payload.itemId),
     );
   }
 
@@ -610,79 +523,28 @@ export class WeeklyPlansGateway
     });
   }
 
+  /**
+   * DEPRECATED — pula tygodniowa (`SharedMealPlan`) została wycofana; źródłem
+   * prawdy jest wyłącznie `PlanItem` (Plan v2). Handler zostaje na JEDNO
+   * wydanie i odpowiada pustą pulą, bo aplikacja ze sklepu woła go w
+   * `CalendarView.task` PRZED wczytaniem tygodnia: brak handlera to trzy
+   * nieudane próby ACK × 6 s, czyli ~18 s pustego kalendarza na każdym
+   * nieaktualizowanym telefonie przy każdej zmianie tygodnia. Nie dotyka bazy.
+   *
+   * Kształt odpowiedzi odpowiada `BackendSharedMealPlanDTO` w iOS
+   * (`weekStart`, `items`), więc stary klient dekoduje ją bez błędu i renderuje
+   * pustą pulę — czyli dokładnie to, co renderował zawsze, bo żaden widok jej
+   * nie czyta.
+   *
+   * TODO(WP-03): usunąć razem z `WeeklyPlansGetSavedPlanPayload`, gdy nowa
+   * aplikacja będzie na (prawie) wszystkich telefonach.
+   */
   @SubscribeMessage('weeklyPlans:getSavedPlan')
   getSavedPlan(@MessageBody() payload: WeeklyPlansGetSavedPlanPayload) {
-    return wsRespond(() =>
-      this.weeklyPlansService.getSharedMealPlan(
-        payload.userId,
-        payload.householdId,
-        payload.weekStart,
-      ),
-    );
-  }
-
-  @SubscribeMessage('weeklyPlans:saveSavedPlan')
-  saveSavedPlan(@MessageBody() payload: WeeklyPlansSaveSavedPlanPayload) {
-    return wsRespond(async () => {
-      const changedByDisplayName =
-        await this.weeklyPlansService.getUserDisplayName(payload.userId);
-
-      const before = await this.weeklyPlansService.getSharedMealPlan(
-        payload.userId,
-        payload.householdId,
-        payload.weekStart,
-      );
-      const beforeFingerprint = this.buildSavedPlanFingerprint(before);
-
-      const result = await this.weeklyPlansService.saveSharedMealPlan(
-        payload.userId,
-        payload.householdId,
-        payload.weekStart,
-        payload.data,
-      );
-      const afterFingerprint = this.buildSavedPlanFingerprint(result);
-      const changed = beforeFingerprint !== afterFingerprint;
-
-      if (!changed) {
-        return result;
-      }
-
-      const changeVersion = this.nextChangeVersion();
-      this.server.emit('weeklyPlans:savedPlanChanged', {
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        changedByUserId: payload.userId,
-        changedByDisplayName,
-        action: 'SAVE_PLAN',
-        changeVersion,
-      });
-      this.server.emit('weeklyPlans:weekChanged', {
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        action: 'SAVE_PLAN_SYNC',
-        changedByUserId: payload.userId,
-        changedByDisplayName,
-        changeVersion,
-      });
-      this.emitShoppingListChanged({
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        action: 'SAVE_PLAN',
-        changedByUserId: payload.userId,
-        changedByDisplayName,
-      });
-      this.notifyPlanChanged(
-        payload.householdId,
-        payload.userId,
-        changedByDisplayName,
-        'SAVE_PLAN',
-        {
-          weekStart: payload.weekStart,
-        },
-      );
-
-      return result;
-    });
+    return wsRespond(async () => ({
+      weekStart: payload.weekStart,
+      items: [] as never[],
+    }));
   }
 
   @SubscribeMessage('weeklyPlans:clearWeekPlan')
@@ -703,14 +565,6 @@ export class WeeklyPlansGateway
         action: 'CLEAR_PLAN',
         changedByUserId: payload.userId,
         changedByDisplayName,
-        changeVersion,
-      });
-      this.server.emit('weeklyPlans:savedPlanChanged', {
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        changedByUserId: payload.userId,
-        changedByDisplayName,
-        action: 'CLEAR_PLAN',
         changeVersion,
       });
       this.emitShoppingListChanged({

@@ -60,24 +60,8 @@ const dayItem = (
   participants: participantIds.map((userId) => ({ userId })),
 });
 
-/// A legacy pool item: no day, no portions, but an explicit `quantity` for how
-/// many times the household planned to cook it that week. `recipe.servings` is
-/// here only to prove the legacy branch ignores it.
-const poolItem = (id: string, ingredients: Ingredient[], quantity: number) => ({
-  id,
-  recipe: { ingredients, servings: 2 },
-  quantity,
-});
-
 const weekPlanWith = (items: ReturnType<typeof dayItem>[]) => ({
   id: 'plan-1',
-  householdId: mockHouseholdId,
-  weekStart: new Date(mockWeekStart),
-  items,
-});
-
-const poolWith = (items: ReturnType<typeof poolItem>[]) => ({
-  id: 'shared-1',
   householdId: mockHouseholdId,
   weekStart: new Date(mockWeekStart),
   items,
@@ -88,10 +72,12 @@ const makePrismaMock = () => {
     membership: {
       findUnique: jest.fn().mockResolvedValue(mockMembership),
     },
-    // No day plan and no legacy pool unless a test sets one.
+    // No day plan unless a test sets one.
     weeklyPlan: {
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    // Wycofana pula tygodniowa (WP-03). Delegat zostaje wyłącznie po to, żeby
+    // test mógł udowodnić, że NIKT go już nie woła.
     sharedMealPlan: {
       findUnique: jest.fn().mockResolvedValue(null),
     },
@@ -344,36 +330,67 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
     expect(findItem(items, 'owies').totalAmount).toBe(100);
   });
 
-  // ─── Współistnienie ze starą pulą ───────────────────────────────────────────
+  // ─── Wycofana pula tygodniowa (WP-03) ──────────────────────────────────────
+  //
+  // Pula potrafiła podstawić widmową listę tygodniowi, z którego usunięto
+  // wszystkie posiłki po jednym. Od teraz `PlanItem` jest jedynym źródłem, a
+  // delegat `sharedMealPlan` w mocku służy tylko jako czujnik regresji.
 
-  it('powinno oprzeć listę na starej puli, gdy tydzień nie ma dni w Planie v2', async () => {
+  it('nie powinno budować listy ze starej puli, gdy tydzień nie ma dni w Planie v2', async () => {
     prisma.weeklyPlan.findUnique.mockResolvedValue(null);
-    prisma.sharedMealPlan.findUnique.mockResolvedValue(
-      poolWith([poolItem('p-1', [ingredient('Makaron', 200)], 3)]),
-    );
+    prisma.sharedMealPlan.findUnique.mockResolvedValue({
+      id: 'shared-1',
+      householdId: mockHouseholdId,
+      weekStart: new Date(mockWeekStart),
+      items: [
+        {
+          id: 'p-1',
+          recipe: { ingredients: [ingredient('Makaron', 200)], servings: 2 },
+          quantity: 3,
+        },
+      ],
+    });
 
-    const items = await getList();
-
-    // Stara pula niosła krotność w `quantity` — 3 × 200 g. Reguła porcji
-    // jej nie dotyczy: tamte tygodnie nie mają dni ani porcji, więc
-    // `servings` przepisu nie dzieli tu niczego.
-    expect(findItem(items, 'makaron').totalAmount).toBe(600);
+    await expect(getList()).resolves.toEqual([]);
+    expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
   });
 
-  it('powinno przedkładać dni Planu v2 nad starą pulę dla tego samego tygodnia', async () => {
+  it('nie powinno pytać o starą pulę, gdy tydzień ma dni w Planie v2', async () => {
     prisma.weeklyPlan.findUnique.mockResolvedValue(
       weekPlanWith([
         dayItem('i-1', 2, 'LUNCH', [ingredient('Ziemniaki', 500)]),
       ]),
-    );
-    prisma.sharedMealPlan.findUnique.mockResolvedValue(
-      poolWith([poolItem('p-1', [ingredient('Makaron', 200)], 3)]),
     );
 
     const items = await getList();
 
     expect(items).toHaveLength(1);
     expect(findItem(items, 'ziemniak').totalAmount).toBe(500);
+    expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('powinno przebudować listę do pustej, gdy snapshot ma pozycje, a tydzień nie ma już źródła', async () => {
+    // Widmowa lista: snapshot zbudowany kiedyś z puli, dziś bez pokrycia w
+    // PlanItem. `hasShoppingSourceData` musi odpowiedzieć „nie ma źródła" i
+    // wymusić przebudowę, a nie oddać stary snapshot.
+    prisma.shoppingList.findUnique.mockResolvedValue({
+      id: 'sl-1',
+      isStale: false,
+      items: [
+        {
+          id: 'sli-1',
+          productKey: 'makaron::g',
+          name: 'Makaron',
+          unit: 'g',
+          department: 'OTHER',
+          totalAmount: 600,
+          isChecked: false,
+        },
+      ],
+    });
+    prisma.weeklyPlan.findUnique.mockResolvedValue(null);
+
+    await expect(getList()).resolves.toEqual([]);
     expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
   });
 
