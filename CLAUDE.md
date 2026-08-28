@@ -6,6 +6,7 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 **Zacznij od `docs/handover/2026-08-28-stan.md`.** Rozmawiamy po polsku, na „ty”.
 
 ## Repozytoria i środowisko
+
 - Backend: to repo. iOS (SwiftUI): `rpiechowicz/Weekly-Meals` — buduje się TYLKO na Macu
   (`xcodebuild`). Mikroserwis Cookidoo (Python): `rpiechowicz/weekly-meals-cookidoo`,
   sklonowany OBOK tego repo (`docker-compose.yml` buduje `../weekly-meals-cookidoo`).
@@ -16,6 +17,7 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   `main` deployuje się automatycznie. `https://weakly-meals-backend-production.up.railway.app`.
 
 ## Git
+
 - Gałęzie z `develop` po `git fetch --prune`; PR → `develop` → `main` (= prod).
 - **Nową gałąź od razu `git push -u origin <gałąź>`** — gałąź utworzona z `origin/develop`
   dziedziczy upstream=develop i „Sync” w VS Code wypycha commity prosto na develop.
@@ -25,11 +27,17 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   bo CI i tak robi lint/typecheck/test.
 
 ## Weryfikacja (co robi CI: `pnpm lint:check`, `pnpm typecheck`, `pnpm build`, `pnpm test`, e2e)
+
 - `pnpm test` (jest z `NODE_OPTIONS=--experimental-vm-modules` — bez tej flagi
   `apple-identity` pada na dynamicznym `import('jose')`).
 - `pnpm typecheck` = `tsc -p tsconfig.typecheck.json` (obejmuje src, test, scripts, seed).
 - e2e: `pnpm test:e2e:ci` z działającą bazą, `AUTH_DEV_LOGIN_ENABLED=true OPS_TOKEN=ci-ops-token`.
 - Nie odpalaj lintera po każdej zmianie — tylko na koniec albo na życzenie.
+- Windows (od 28.08.2026, Git Bash): `pnpm install` + `pnpm prisma:generate` na hoście, potem
+  `pnpm test` (~1 min, `cross-env` ustawia `NODE_OPTIONS`), `pnpm typecheck`, `pnpm lint:check`
+  (~1 min) działają bez kontenera. SQL do dev: `docker compose exec -T db psql -U weeklymeals
+-d weeklymeals -At -c "…"`. Repo ma `core.autocrlf=false`, pliki są LF. Brak `gh` i `railway`
+  CLI na tej maszynie — PR-y i prod robi Rafał (telefon/Mac).
 - Po zmianie `prisma/schema.prisma`: `pnpm prisma:generate` (lokalny klient bywa przestarzały).
 - Alternatywa (używana na Macu z wyczerpanymi zasobami): kopiować `src test scripts prisma`
   do kontenera `weeklymeals-api` (`rm -rf` celu przed `docker cp`, potem
@@ -37,6 +45,7 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   `eslint.config.mjs` (obraz ich nie ma) i uruchamiać `npx jest` / `npx tsc` w środku.
 
 ## Konwencje domenowe (szczegóły w docs/handover/memory)
+
 - Błędy: `AppException(code, message, status, details?)`, kody w `src/common/app-error-code.ts`;
   HTTP i WS oddają `{code, message, details?, requestId}` — iOS mapuje po `code`
   (`UserFacingErrorMapper`), więc nowy kod = nowa kopia po stronie klienta.
@@ -51,10 +60,14 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
 - WebSocket: gatewaye biorą `userId` z payloadu (BEZ auth — do zrobienia w Fazie 0); DTO
   decoratory nie działają na WS, walidacja jest w serwisach.
+- Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
+  tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
+  Puste tagi są dla reguł diet faktem („czysto”), nie brakiem danych.
 
 ## Operacje na prod (tylko z jawnym „tak” użytkownika przy zapisie)
+
 - Zmienne: `railway variables --service Backend [--skip-deploys --set K=V]`; `railway variable
-  delete K --service Backend` NIE wyzwala redeployu. Zmienne wymagane przez nowy kod ustawiać
+delete K --service Backend` NIE wyzwala redeployu. Zmienne wymagane przez nowy kod ustawiać
   PRZED merge (asercja sekretów przy starcie; 28.08 kosztowało to ~10 min przestoju).
 - Skrypty jednorazowe: `railway ssh --service Backend -- sh -c 'cd /app && pnpm exec tsx scripts/<x>.ts'`.
 - Logi: `railway logs --service Backend -d -n 200`; zdrowie `/ops/health`; metryki `/ops/metrics`
