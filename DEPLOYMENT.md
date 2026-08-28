@@ -72,6 +72,11 @@ That means deploy startup can:
 - run pending Prisma migrations
 - repair a known broken migration path
 - optionally bootstrap recipes
+- load ingredient allergen/diet tags once, when the catalog has rows but none
+  of them carries a tag (a database that received the tag columns from a
+  migration without ever running the loader); empty tags read as "no allergen,
+  every diet satisfied", so this must not wait for a manual
+  `pnpm catalog:ingredients:tags`
 - optionally backfill missing R2 image URLs
 
 ## Important safety rule

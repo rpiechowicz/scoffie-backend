@@ -1,8 +1,10 @@
-/* eslint-disable no-console */
 const { spawnSync } = require('node:child_process');
 const { PrismaClient } = require('@prisma/client');
 const { decideRebuild } = require('./lib/rebuild-guard');
-const { decideBootstrap } = require('./lib/bootstrap-decision');
+const {
+  decideBootstrap,
+  decideIngredientTagsLoad,
+} = require('./lib/bootstrap-decision');
 
 const TARGET_FAILED_MIGRATION = '20260216094429_ingredient_catalog_v1';
 const PNPM_BIN = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
@@ -87,7 +89,7 @@ async function getFailedMigrations(prisma) {
       .filter((name) => typeof name === 'string' && name.length > 0);
 
     return Array.from(new Set(names));
-  } catch (error) {
+  } catch {
     // On fresh databases the table may not exist yet.
     return [];
   }
@@ -399,6 +401,57 @@ async function isDatabaseEmpty() {
   }
 }
 
+/**
+ * Ile składników jest w katalogu i ile z nich niesie jakikolwiek tag.
+ * Surowy SQL, nie `prisma.ingredient.count({ where })`: kolumny
+ * `allergens`/`dietTags` istnieją dopiero po migracji z 28.08, a wygenerowany
+ * klient Prismy w obrazie bywa starszy niż schemat (patrz
+ * `docs/handover/memory/project_stale_local_prisma_client.md`). Wołane PO
+ * `migrate deploy`.
+ */
+async function countIngredientTags() {
+  const prisma = new PrismaClient();
+  try {
+    const [row] = await prisma.$queryRaw`
+      SELECT
+        count(*)::int AS "ingredientCount",
+        count(*) FILTER (
+          WHERE cardinality("allergens") > 0 OR cardinality("dietTags") > 0
+        )::int AS "taggedIngredientCount"
+      FROM "Ingredient"
+    `;
+    return {
+      ingredientCount: row?.ingredientCount ?? 0,
+      taggedIngredientCount: row?.taggedIngredientCount ?? 0,
+    };
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+/**
+ * Jednorazowe wgranie tagów składników na bazie, która dostała kolumny
+ * z migracji, ale nigdy nie przeszła przez loader (decyzja:
+ * `decideIngredientTagsLoad`). Błąd loadera kończy start kodem 1 — plik tagów
+ * jest wersjonowany i sprawdzany w CI (`ingredient-tags.golden.spec.ts`), więc
+ * porażka tutaj oznacza problem z bazą, nie z danymi; Railway trzyma stary
+ * deployment, dopóki `/ops/health` nowego nie odpowie.
+ */
+async function runOptionalIngredientTagsLoad({ bootstrapRan }) {
+  const counts = await countIngredientTags();
+  const decision = decideIngredientTagsLoad({
+    env: process.env,
+    bootstrapRan,
+    ...counts,
+  });
+  console.log(
+    `[safe-migrate] Ingredient tags load ${decision.run ? 'enabled' : 'skipped'}: ${decision.reason}.`,
+  );
+  if (!decision.run) return;
+
+  run(PNPM_BIN, ['exec', 'tsx', 'scripts/load-ingredient-tags.ts']);
+}
+
 function runOptionalBootstrap() {
   const recipeImportFile =
     process.env.RECIPE_IMPORT_FILE ??
@@ -591,6 +644,10 @@ async function main() {
   if (bootstrap.run) {
     runOptionalBootstrap();
   }
+
+  // Baza z danymi, która właśnie dostała kolumny tagów z migracji, bez tego
+  // kroku zostawałaby „czysta” dla walidatora diet do ręcznego loadera.
+  await runOptionalIngredientTagsLoad({ bootstrapRan: bootstrap.run });
 
   runOptionalR2ImageBackfill();
 }

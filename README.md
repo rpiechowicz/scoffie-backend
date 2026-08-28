@@ -102,6 +102,7 @@ Use [`.env.example`](./.env.example) as the source of truth.
 These are powerful and should be reviewed before production deploys:
 
 - `SAFE_MIGRATE_BOOTSTRAP_RECIPES`
+- `SAFE_MIGRATE_LOAD_INGREDIENT_TAGS`
 - `SAFE_MIGRATE_BACKFILL_R2_IMAGE_URLS`
 - `SAFE_MIGRATE_REBUILD_DB`
 - `SAFE_MIGRATE_REBUILD_CONFIRM`
