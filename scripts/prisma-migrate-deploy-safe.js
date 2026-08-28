@@ -2,6 +2,7 @@
 const { spawnSync } = require('node:child_process');
 const { PrismaClient } = require('@prisma/client');
 const { decideRebuild } = require('./lib/rebuild-guard');
+const { decideBootstrap } = require('./lib/bootstrap-decision');
 
 const TARGET_FAILED_MIGRATION = '20260216094429_ingredient_catalog_v1';
 const PNPM_BIN = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
@@ -379,16 +380,26 @@ async function rebuildDatabaseFromScratch(prisma) {
   console.log('[safe-migrate] Public schema recreated.');
 }
 
-function runOptionalBootstrap() {
-  const shouldBootstrap =
-    process.env.SAFE_MIGRATE_BOOTSTRAP_RECIPES !== 'false';
-  if (!shouldBootstrap) {
-    console.log(
-      '[safe-migrate] Bootstrap disabled (SAFE_MIGRATE_BOOTSTRAP_RECIPES=false).',
-    );
-    return;
+/**
+ * Pusta baza = brak przepisów I brak składników. Oba naraz, bo sam katalog
+ * składników bez przepisów to stan przejściowy przerwanego bootstrapu, a nie
+ * baza, którą wolno zasiać od nowa. Wołane PO `migrate deploy`, inaczej tabel
+ * jeszcze nie ma.
+ */
+async function isDatabaseEmpty() {
+  const prisma = new PrismaClient();
+  try {
+    const [recipes, ingredients] = await Promise.all([
+      prisma.recipe.count(),
+      prisma.ingredient.count(),
+    ]);
+    return recipes === 0 && ingredients === 0;
+  } finally {
+    await prisma.$disconnect();
   }
+}
 
+function runOptionalBootstrap() {
   const recipeImportFile =
     process.env.RECIPE_IMPORT_FILE ??
     'prisma/catalog/recipes-catalog-full-v2.json';
@@ -563,7 +574,16 @@ async function main() {
   console.log('[safe-migrate] Running prisma migrate deploy');
   run(PNPM_BIN, ['prisma', 'migrate', 'deploy']);
 
-  if (rebuild.allowed) {
+  // Po rebuildzie baza jest z definicji pusta — nie ma po co jej odpytywać.
+  const bootstrap = decideBootstrap({
+    env: process.env,
+    rebuilt: rebuild.allowed,
+    databaseEmpty: rebuild.allowed || (await isDatabaseEmpty()),
+  });
+  console.log(
+    `[safe-migrate] Bootstrap ${bootstrap.run ? 'enabled' : 'skipped'}: ${bootstrap.reason}.`,
+  );
+  if (bootstrap.run) {
     runOptionalBootstrap();
   }
 
