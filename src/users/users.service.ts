@@ -269,6 +269,25 @@ export class UsersService {
   }
 
   /**
+   * Preferencje wielu użytkowników naraz (unia alergenów domowników przy
+   * ocenie przepisu / propozycji planu). Użytkownik bez wiersza NIE jest
+   * w mapie — wołający traktuje go jak domyślne preferencje; nie tworzymy
+   * wierszy „przy okazji", żeby odczyt nie pisał do bazy.
+   */
+  async getPreferencesForUsers(
+    userIds: readonly string[],
+  ): Promise<Map<string, UserPreferencesPayload>> {
+    const unique = Array.from(new Set(userIds.filter(Boolean)));
+    if (unique.length === 0) return new Map();
+    const rows = await this.prisma.userPreference.findMany({
+      where: { userId: { in: unique } },
+    });
+    return new Map(
+      rows.map((row) => [row.userId, this.toPreferencesPayload(row)]),
+    );
+  }
+
+  /**
    * Upsert the preferences row with whatever fields the client sent.
    * Allergens are de-duplicated and lowercased server-side so the storage
    * format matches the iOS enum's raw values regardless of how the client

@@ -28,6 +28,11 @@ services:
     env_file:
       - .env
     environment:
+      # Obraz ma NODE_ENV=production (Dockerfile), a `assert-env.ts` odmawia
+      # wtedy startu przy AUTH_DEV_LOGIN_ENABLED=true i pustym OPS_TOKEN —
+      # czyli przy domyślnych wartościach z `.env.example`. Compose to stack
+      # deweloperski, więc prostuje to jawnie.
+      NODE_ENV: development
       DATABASE_URL: postgresql://weeklymeals:weeklymeals@db:5432/weeklymeals?schema=public
       # Inline jak DATABASE_URL: w composie hostname to nazwa usługi, a .env
       # trzyma localhost:8000 dla api odpalanego z hosta.

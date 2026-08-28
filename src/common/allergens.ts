@@ -9,10 +9,19 @@ import { AppException } from './app-exception';
  * dekoratorów z DTO — patrz `weekly-plans.service.ts`,
  * `resolvePlannedServings`).
  *
- * Dodanie wartości (seler / gorczyca / sezam) MUSI wyjść na produkcję ZANIM
- * klient iOS zacznie ją wysyłać — inaczej serwer odrzuci cały zapis
- * preferencji tego użytkownika. Stara aplikacja nie skasuje nowej wartości
- * z konta dopiero od buildu z unią „znane ∪ nieznane" (`SettingsView`).
+ * Nowa wartość MUSI wyjść na produkcję ZANIM klient iOS zacznie ją wysyłać —
+ * inaczej serwer odrzuci cały zapis preferencji tego użytkownika. Stara
+ * aplikacja nie kasuje nieznanych wartości od buildu z unią
+ * „znane ∪ nieznane" (`SettingsView`, plaster B).
+ *
+ * Semantyka (ta sama w pliku tagów składników i w iOS):
+ * - `lactose` = nabiał ZAWIERAJĄCY laktozę (nietolerancja), nie alergia na
+ *   białko mleka: produkty „bez laktozy" i ghee tej wartości nie mają.
+ * - `fish` obejmuje ryby i owoce morza (skorupiaki dostają dodatkowo tag
+ *   dietetyczny CRUSTACEAN — osobny alergen będzie tani do wydzielenia).
+ * - `celery`, `mustard`, `sesame` (od plastra D): seler także w bulionach
+ *   i przyprawie uniwersalnej, gorczyca także w majonezie, sezam także w
+ *   hummusie i tahini — alergen oznaczamy nadmiarowo.
  */
 export const ALLERGEN_IDS = [
   'gluten',
@@ -22,6 +31,9 @@ export const ALLERGEN_IDS = [
   'peanuts',
   'fish',
   'soy',
+  'celery',
+  'mustard',
+  'sesame',
 ] as const;
 
 export type AllergenId = (typeof ALLERGEN_IDS)[number];
@@ -41,9 +53,7 @@ export function isAllergenId(value: unknown): value is AllergenId {
  * `wsRespond` przekazuje klientowi tylko `code`/`message`/`status`, nie
  * `details` — dlatego komunikat wymienia nieznane wartości wprost.
  */
-export function normalizeAllergenIds(
-  values: readonly unknown[],
-): AllergenId[] {
+export function normalizeAllergenIds(values: readonly unknown[]): AllergenId[] {
   if (!Array.isArray(values)) {
     throw new AppException(
       'VALIDATION_ERROR',

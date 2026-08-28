@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { MealType, PrismaClient } from '@prisma/client';
 import { MEAL_TYPE_VALUES } from '../src/common/meal-types';
+import { deriveRecipeTags } from '../src/common/diet-tags';
 import { resolveSuitableMealTypes } from '../src/recipes/suitable-meal-types.util';
 import {
   ALLOWED_UNITS,
@@ -283,7 +284,14 @@ async function resolveIngredientMap() {
   const [ingredients, aliases] = await Promise.all([
     prisma.ingredient.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, category: true, normalizedName: true },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        normalizedName: true,
+        allergens: true,
+        dietTags: true,
+      },
     }),
     prisma.ingredientAlias.findMany({
       select: {
@@ -295,6 +303,8 @@ async function resolveIngredientMap() {
             category: true,
             isActive: true,
             normalizedName: true,
+            allergens: true,
+            dietTags: true,
           },
         },
       },
@@ -302,7 +312,13 @@ async function resolveIngredientMap() {
   ]);
   const byName = new Map<
     string,
-    { id: string; name: string; category: string }
+    {
+      id: string;
+      name: string;
+      category: string;
+      allergens: string[];
+      dietTags: string[];
+    }
   >();
   for (const ingredient of ingredients) {
     byName.set(ingredient.normalizedName, ingredient);
@@ -313,6 +329,8 @@ async function resolveIngredientMap() {
       id: alias.ingredient.id,
       name: alias.ingredient.name,
       category: alias.ingredient.category,
+      allergens: alias.ingredient.allergens,
+      dietTags: alias.ingredient.dietTags,
     });
   }
   return byName;
@@ -372,6 +390,14 @@ async function main(): Promise<void> {
         department: found.category,
       };
     });
+    // Tagi przepisu = unia tagów składników z bazy (JSON ich nie ma). Wymaga
+    // wgranych tagów składników PRZED importem — patrz bootstrap.
+    const recipeTags = deriveRecipeTags(
+      recipe.ingredients.map(
+        (ingredient) =>
+          ingredientMap.get(normalizeText(ingredient.ingredientName))!,
+      ),
+    );
 
     // `validateBatch` gwarantuje, że każdy przepis ma jawne UUID.
     const incomingRecipeId = (recipe.id ?? '').trim();
@@ -437,6 +463,8 @@ async function main(): Promise<void> {
       nutritionCarbs: recipe.nutrition.carbs,
       nutritionFiber: recipe.nutrition.fiber,
       nutritionSalt: recipe.nutrition.salt,
+      allergens: recipeTags.allergens,
+      dietTags: recipeTags.dietTags,
       sourceProvider: recipe.sourceProvider ?? 'manual-json-v1',
       sourceRecipeId: recipe.sourceRecipeId ?? null,
       sourceInstructions: recipe.steps.map((step) => ({
