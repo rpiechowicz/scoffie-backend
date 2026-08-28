@@ -119,3 +119,11 @@ If the deploy is unhealthy:
 3. Leave database state intact unless the rollback plan explicitly includes schema rollback
 
 Avoid emergency database mutations unless the issue is confirmed to be migration-related.
+
+## Railway — healthcheck wdrożenia
+
+`railway.json` ustawia `deploy.healthcheckPath: /ops/health` (timeout 120 s). Bez tego Railway
+przełączał ruch na nowy kontener od razu po starcie procesu — kontener padający na starcie
+(np. asercja sekretów z `src/config/assert-env.ts`) oznaczał przestój, a nie nieudany deploy
+(28.08.2026: ~10 min bez odpowiedzi po merge'u przed ustawieniem zmiennych). Teraz nowy
+deployment dostaje ruch dopiero, gdy `/ops/health` odpowie 200; stary zostaje do tego czasu.
