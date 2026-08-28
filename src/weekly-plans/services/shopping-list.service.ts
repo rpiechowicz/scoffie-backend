@@ -10,11 +10,11 @@ import type {
   PrismaReadClient,
 } from '../types/shopping-types';
 import { parseWeekStart, formatWeekStart } from '../utils/week-formatting.util';
-import { normalizeProductKey } from '../utils/text-normalization.util';
 import {
-  canonicalizeIngredientName,
-  resolveDepartment,
-} from '../utils/department-classifier.util';
+  normalizeProductKey,
+  toTitleCase,
+} from '../utils/text-normalization.util';
+import { toShoppingDepartment } from '../utils/department-classifier.util';
 import {
   itemSignature,
   buildDisplayShoppingItems,
@@ -147,11 +147,12 @@ export class ShoppingListService {
       for (const ingredient of source.recipe.ingredients) {
         const baseAmount = ingredient.normalizedAmount ?? ingredient.amount;
         const baseUnit = ingredient.normalizedUnit ?? ingredient.unit;
-        const canonicalName = canonicalizeIngredientName(
-          ingredient.name,
-          baseUnit,
-        );
-        const productKey = normalizeProductKey(canonicalName, baseUnit);
+        // Nazwa z katalogu jest kanoniczna — na listę idzie dosłownie (tylko
+        // z wielką literą), a klucz scala wyłącznie ten sam produkt w tej
+        // samej jednostce. Bez regexowego „canonicalizera”, który zamieniał
+        // „fasola biała z puszki” w „Sól” i zlewał kawałki kurczaka.
+        const displayName = toTitleCase(ingredient.name);
+        const productKey = normalizeProductKey(ingredient.name, baseUnit);
         const current = aggregated.get(productKey);
         const amountToAdd = baseAmount * source.portionFactor;
         if (current) {
@@ -160,9 +161,9 @@ export class ShoppingListService {
         }
         aggregated.set(productKey, {
           productKey,
-          name: canonicalName,
+          name: displayName,
           unit: baseUnit,
-          department: resolveDepartment(ingredient.department, canonicalName),
+          department: toShoppingDepartment(ingredient.department),
           totalAmount: amountToAdd,
         });
       }

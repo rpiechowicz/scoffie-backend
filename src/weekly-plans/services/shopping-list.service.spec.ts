@@ -124,9 +124,9 @@ const makePrismaMock = () => {
   return mock;
 };
 
-/// Finds an aggregated row by ingredient name. The classifier canonicalizes
-/// names on the way in (plurals to singular: „Ziemniaki" to „Ziemniak"), so
-/// match on a diacritic-insensitive stem rather than pinning its exact output.
+/// Finds an aggregated row by ingredient name. Nazwa idzie na listę dosłownie
+/// z katalogu (tylko z wielką literą), więc dopasowanie po rdzeniu bez
+/// diakrytyków to wygoda testów, nie obejście kanonizacji.
 const fold = (value: string) =>
   value
     .toLowerCase()
@@ -188,6 +188,75 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
 
     expect(items).toHaveLength(1);
     expect(findItem(items, 'ryz').totalAmount).toBe(250);
+  });
+
+  // ─── Nazwy i działy idą z katalogu dosłownie ────────────────────────────────
+  //
+  // Lista używa `RecipeIngredient.name` bez regexowego „canonicalizera”, który
+  // zamieniał „fasola biała z puszki” w „Sól” (dopasowanie `/sol/` bez granicy
+  // słowa, sumowane z prawdziwą solą) i zlewał kawałki kurczaka w jeden wiersz.
+
+  it('nie powinno przemianować fasoli na sól ani scalić jej z solą', async () => {
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'DINNER', [
+          ingredient('fasola biała z puszki', 480, 'g', 'Konserwy'),
+          ingredient('sól', 2, 'g', 'Przyprawy i sosy'),
+        ]),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(items).toHaveLength(2);
+    const beans = items.find((item) => item.name === 'Fasola biała z puszki');
+    const salt = items.find((item) => item.name === 'Sól');
+    expect(beans).toMatchObject({
+      productKey: 'fasola biała z puszki::g',
+      department: 'Konserwy',
+      totalAmount: 480,
+    });
+    expect(salt).toMatchObject({
+      productKey: 'sól::g',
+      department: 'Przyprawy i sosy',
+      totalAmount: 2,
+    });
+  });
+
+  it('powinno zostawić różne kawałki kurczaka jako osobne wiersze', async () => {
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'DINNER', [
+          ingredient('filet z kurczaka', 320, 'g', 'Mięso'),
+        ]),
+        dayItem('i-2', 2, 'DINNER', [
+          ingredient('noga z kurczaka', 600, 'g', 'Mięso'),
+        ]),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(items.map((item) => item.name).sort()).toEqual([
+      'Filet z kurczaka',
+      'Noga z kurczaka',
+    ]);
+  });
+
+  it('powinno wziąć dział z katalogu dosłownie, a nieznaną etykietę zamienić na „Inne”', async () => {
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'DINNER', [
+          ingredient('seler korzeniowy', 100, 'g', 'Warzywa'),
+          ingredient('tajemniczy produkt', 1, 'szt', 'Zupełnie obca etykieta'),
+        ]),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(findItem(items, 'seler korzeniowy').department).toBe('Warzywa');
+    expect(findItem(items, 'tajemniczy').department).toBe('Inne');
   });
 
   // ─── Reguła „pozycja waży plannedServings / recipe.servings" ────────────────
