@@ -41,8 +41,11 @@ export interface AuthResult {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  // Refresh dłuższy niż access (domyślnie 30 d): równe TTL oznaczały, że
+  // odświeżenie po wygaśnięciu access tokenu trafiało w równie martwy
+  // refresh token.
   private readonly refreshTokenDays =
-    Number(process.env.REFRESH_TOKEN_DAYS ?? '30') || 30;
+    Number(process.env.REFRESH_TOKEN_DAYS ?? '60') || 60;
   private readonly refreshTokenPepper =
     process.env.REFRESH_TOKEN_PEPPER ?? process.env.JWT_SECRET ?? 'dev-pepper';
 
@@ -184,29 +187,64 @@ export class AuthService {
     return this.buildAuthResult(user);
   }
 
+  /**
+   * Rotacja refresh tokenu z wykrywaniem ponownego użycia.
+   *
+   * Refresh token jest jednorazowy. Jeśli przychodzi token JUŻ unieważniony
+   * (przez wcześniejszą rotację albo logout), to albo klient zgubił nową parę,
+   * albo ktoś ma kopię starej — w obu wypadkach cała rodzina tokenów usera
+   * idzie do kosza i klient loguje się od nowa. Dawniej replay dostawał
+   * zwykłe 401, a reszta rodziny żyła dalej. Wygasłe wiersze usera sprzątamy
+   * przy okazji (każdy login/refresh dokładał wiersz, nic nie usuwało).
+   */
   async refreshAccessToken(refreshToken: string) {
     const tokenHash = this.hashRefreshToken(refreshToken);
     const storedToken = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
     });
+    const now = new Date();
 
-    if (
-      !storedToken ||
-      storedToken.revokedAt ||
-      storedToken.expiresAt <= new Date()
-    ) {
+    if (storedToken?.revokedAt) {
+      const revoked = await this.prisma.refreshToken.updateMany({
+        where: { userId: storedToken.userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      this.logger.warn(
+        `refresh token reuse detected for user ${storedToken.userId} — revoked ${revoked.count} active token(s)`,
+      );
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    if (!storedToken || storedToken.expiresAt <= now) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
     await this.prisma.refreshToken.update({
       where: { tokenHash },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: now },
+    });
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId: storedToken.userId, expiresAt: { lt: now } },
     });
 
     const accessToken = await this.issueAccessToken(storedToken.userId);
     const newRefreshToken = await this.issueRefreshToken(storedToken.userId);
 
     return { accessToken, refreshToken: newRefreshToken };
+  }
+
+  /**
+   * Wylogowanie: unieważnia podany refresh token. Idempotentne i bez
+   * zdradzania, czy token istniał — klient woła to best-effort przy logout
+   * (dotąd logout był tylko lokalny, a refresh token żył jeszcze 30 dni).
+   */
+  async logout(refreshToken: string): Promise<{ revoked: boolean }> {
+    const tokenHash = this.hashRefreshToken(refreshToken);
+    const result = await this.prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return { revoked: result.count > 0 };
   }
 
   async issueAccessToken(userId: string) {

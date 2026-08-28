@@ -65,6 +65,8 @@ const makePrismaMock = () => ({
     update: jest
       .fn()
       .mockResolvedValue({ ...mockRefreshToken, revokedAt: new Date() }),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
   membership: {
     findFirst: jest.fn().mockResolvedValue(null),
@@ -394,7 +396,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('powinno odrzucić unieważniony token', async () => {
+    it('powinno odrzucić unieważniony token i unieważnić całą rodzinę usera (reuse-detection)', async () => {
       prisma.refreshToken.findUnique.mockResolvedValue({
         ...mockRefreshToken,
         revokedAt: new Date(Date.now() - 1000),
@@ -403,6 +405,23 @@ describe('AuthService', () => {
       await expect(service.refreshAccessToken('revoked-token')).rejects.toThrow(
         UnauthorizedException,
       );
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: mockRefreshToken.userId, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('udana rotacja sprząta wygasłe tokeny usera', async () => {
+      await service.refreshAccessToken('valid-refresh-token');
+
+      expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({
+        where: {
+          userId: mockRefreshToken.userId,
+          expiresAt: { lt: expect.any(Date) },
+        },
+      });
     });
 
     it('powinno odrzucić wygasły token', async () => {
@@ -415,6 +434,28 @@ describe('AuthService', () => {
       await expect(service.refreshAccessToken('expired-token')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+  });
+
+  // ─── logout ──────────────────────────────────────────────────────────────
+
+  describe('logout', () => {
+    it('unieważnia podany refresh token i mówi, czy coś unieważnił', async () => {
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
+      await expect(service.logout('raw-refresh')).resolves.toEqual({
+        revoked: true,
+      });
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { tokenHash: expect.any(String), revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+
+    it('jest idempotentny — drugi logout tym samym tokenem to revoked=false, bez błędu', async () => {
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      await expect(service.logout('raw-refresh')).resolves.toEqual({
+        revoked: false,
+      });
     });
   });
 

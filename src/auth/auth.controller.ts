@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
@@ -76,5 +76,16 @@ export class AuthController {
   })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshAccessToken(dto.refreshToken);
+  }
+
+  /**
+   * Unieważnia refresh token przy wylogowaniu. Zawsze 200 — klient nie musi
+   * wiedzieć, czy token był jeszcze ważny.
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ schema: { example: { revoked: true } } })
+  logout(@Body() dto: RefreshTokenDto) {
+    return this.authService.logout(dto.refreshToken);
   }
 }
