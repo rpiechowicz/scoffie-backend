@@ -1,7 +1,11 @@
 dist
 node_modules
 .git
+.github
+.husky
 .idea
 coverage
 *.log
+*.md
 .env
+.DS_Store
