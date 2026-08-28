@@ -1,0 +1,64 @@
+# Weekly Meals — backend (NestJS 11 + Prisma 6 + Postgres + Socket.IO)
+
+Ten plik czyta Claude Code na każdej maszynie. Pełny kontekst projektu, decyzje
+i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
+`docs/plans/weekly-meals-ai-agent/` (analiza asystenta AI, audyt, plastry A–D).
+**Zacznij od `docs/handover/2026-08-28-stan.md`.** Rozmawiamy po polsku, na „ty”.
+
+## Repozytoria i środowisko
+- Backend: to repo. iOS (SwiftUI): `rpiechowicz/Weekly-Meals` — buduje się TYLKO na Macu
+  (`xcodebuild`). Mikroserwis Cookidoo (Python): `rpiechowicz/weekly-meals-cookidoo`,
+  sklonowany OBOK tego repo (`docker-compose.yml` buduje `../weekly-meals-cookidoo`).
+- Dev: `docker compose up -d --build api` (Postgres `db`, `cookidoo`, `api` na :3000).
+  `.env` jest w gitignore — klucze wg `.env.example`; od plastra C sekrety w dev muszą mieć
+  ≥ 32 znaki, gdy `NODE_ENV=production` (compose ustawia `development`, więc lokalnie luz).
+- Prod: Railway, projekt `soothing-celebration`, serwisy `Backend`, `Postgres`, `Cookidoo`;
+  `main` deployuje się automatycznie. `https://weakly-meals-backend-production.up.railway.app`.
+
+## Git
+- Gałęzie z `develop` po `git fetch --prune`; PR → `develop` → `main` (= prod).
+- **Nową gałąź od razu `git push -u origin <gałąź>`** — gałąź utworzona z `origin/develop`
+  dziedziczy upstream=develop i „Sync” w VS Code wypycha commity prosto na develop.
+- Commity po polsku, prefiks conventional (`feat(zakres):`, `fix(…)`, `chore(…)`, `docs(…)`),
+  treść wyjaśnia DLACZEGO; `Co-Authored-By: Claude <noreply@anthropic.com>`.
+- Hooki husky bywają wolne — `git -c core.hooksPath=/dev/null commit --no-verify` jest OK,
+  bo CI i tak robi lint/typecheck/test.
+
+## Weryfikacja (co robi CI: `pnpm lint:check`, `pnpm typecheck`, `pnpm build`, `pnpm test`, e2e)
+- `pnpm test` (jest z `NODE_OPTIONS=--experimental-vm-modules` — bez tej flagi
+  `apple-identity` pada na dynamicznym `import('jose')`).
+- `pnpm typecheck` = `tsc -p tsconfig.typecheck.json` (obejmuje src, test, scripts, seed).
+- e2e: `pnpm test:e2e:ci` z działającą bazą, `AUTH_DEV_LOGIN_ENABLED=true OPS_TOKEN=ci-ops-token`.
+- Nie odpalaj lintera po każdej zmianie — tylko na koniec albo na życzenie.
+- Po zmianie `prisma/schema.prisma`: `pnpm prisma:generate` (lokalny klient bywa przestarzały).
+- Alternatywa (używana na Macu z wyczerpanymi zasobami): kopiować `src test scripts prisma`
+  do kontenera `weeklymeals-api` (`rm -rf` celu przed `docker cp`, potem
+  `docker exec -u root … chown -R node:node`), dołożyć `jest.config.js`, `.prettierrc`,
+  `eslint.config.mjs` (obraz ich nie ma) i uruchamiać `npx jest` / `npx tsc` w środku.
+
+## Konwencje domenowe (szczegóły w docs/handover/memory)
+- Błędy: `AppException(code, message, status, details?)`, kody w `src/common/app-error-code.ts`;
+  HTTP i WS oddają `{code, message, details?, requestId}` — iOS mapuje po `code`
+  (`UserFacingErrorMapper`), więc nowy kod = nowa kopia po stronie klienta.
+- Alergeny: id w `src/common/allergens.ts` = `enum Allergen` w iOS; nowa wartość NAJPIERW na prod.
+  Tagi składników: `prisma/catalog/ingredient-tags-pl-v1.json` → `pnpm catalog:ingredients:tags`
+  (idempotentny, przelicza `Recipe.allergens/dietTags`); reguły diet w
+  `src/recipes/diet-rules.util.ts` mają parytet 1:1 z iOS — walidator asystenta czyta JE.
+- Katalog przepisów: `prisma/catalog/recipes-catalog-full-v2.json` = źródło prawdy; zmiana
+  w JSON = import na prod. Makro = cały przepis, węgle bez błonnika, liczone ze składników.
+  `servings` 1..8 (nie „zawsze 2”). Składnik: `name` po polsku, `normalizedName` ASCII = klucz.
+- Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
+  Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
+- WebSocket: gatewaye biorą `userId` z payloadu (BEZ auth — do zrobienia w Fazie 0); DTO
+  decoratory nie działają na WS, walidacja jest w serwisach.
+
+## Operacje na prod (tylko z jawnym „tak” użytkownika przy zapisie)
+- Zmienne: `railway variables --service Backend [--skip-deploys --set K=V]`; `railway variable
+  delete K --service Backend` NIE wyzwala redeployu. Zmienne wymagane przez nowy kod ustawiać
+  PRZED merge (asercja sekretów przy starcie; 28.08 kosztowało to ~10 min przestoju).
+- Skrypty jednorazowe: `railway ssh --service Backend -- sh -c 'cd /app && pnpm exec tsx scripts/<x>.ts'`.
+- Logi: `railway logs --service Backend -d -n 200`; zdrowie `/ops/health`; metryki `/ops/metrics`
+  z nagłówkiem `x-ops-token: $OPS_TOKEN`.
+- SQL: `psql "$PROD_DB"` gdzie `PROD_DB` = `DATABASE_PUBLIC_URL` serwisu Postgres trzymany
+  TYLKO w `export` w terminalu — nigdy w plikach, notatkach ani commitach.
+- Runbooki plastrów: `docs/plans/weekly-meals-ai-agent/plaster-*/PROD-RUNBOOK.md`.
