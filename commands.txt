@@ -31,7 +31,7 @@ docker compose exec api pnpm ws:smoke weeklyPlans:upsertWeekSlot '{"userId":"<US
 // preferencje: alergeny tylko z białej listy (src/common/allergens.ts), makra przycinane do 0..400/300/800
 docker compose exec api pnpm ws:smoke users:preferences:update '{"userId":"<USER_ID>","data":{"allergens":["gluten","soy"],"proteinG":160}}'
 // tworzenie przepisu: makro liczy serwer ze składników (wartości z DTO poza nutritionSalt są ignorowane)
-docker compose exec api pnpm ws:smoke recipes:create '{"userId":"<USER_ID>","householdId":"<HOUSEHOLD_ID>","title":"Testowa owsianka","mealType":"BREAKFAST","difficulty":"EASY","prepTimeMinutes":10,"servings":2,"ingredients":[{"ingredientId":"<INGREDIENT_ID>","amount":100,"unit":"g"}]}'
+docker compose exec api pnpm ws:smoke recipes:create '{"userId":"<USER_ID>","data":{"householdId":"<HOUSEHOLD_ID>","title":"Testowa owsianka","mealType":"BREAKFAST","difficulty":"EASY","prepTimeMinutes":10,"servings":2,"ingredients":[{"ingredientId":"<INGREDIENT_ID>","amount":100,"unit":"g"}]}}'
 
 // GENERATE RECIPE IMAGES (fills imageUrl)
 docker compose exec api pnpm run generate:recipe:images
