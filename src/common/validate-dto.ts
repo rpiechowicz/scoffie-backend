@@ -81,8 +81,8 @@ function assertBoundedShape(plain: unknown): void {
         [detail],
       );
     }
-    const children = Array.isArray(value)
-      ? value
+    const children: unknown[] = Array.isArray(value)
+      ? (value as unknown[])
       : Object.values(value as Record<string, unknown>);
     for (const child of children) {
       if (child !== null && typeof child === 'object') {
