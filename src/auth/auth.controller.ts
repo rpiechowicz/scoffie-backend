@@ -3,26 +3,12 @@ import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
 import { DevLoginDto } from './dto/dev-login.dto';
-import { GoogleOauthDto } from './dto/google-oauth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  @Post('google')
-  @ApiOkResponse({
-    schema: {
-      example: {
-        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-        refreshToken: 'd3b07384d113edec49eaa6238ad5ff00...',
-      },
-    },
-  })
-  loginWithGoogle(@Body() dto: GoogleOauthDto) {
-    return this.authService.loginWithGoogle(dto);
-  }
 
   /**
    * Sign in with Apple. iOS is expected to send:

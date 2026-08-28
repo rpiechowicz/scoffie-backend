@@ -175,6 +175,25 @@ describe('AuthService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it.each([
+      ['nieustawione', undefined],
+      ['pusty string', ''],
+      ['TRUE wielkimi literami', 'TRUE'],
+      ['1', '1'],
+    ])(
+      'powinno odrzucić, gdy AUTH_DEV_LOGIN_ENABLED to %s (opt-in, nie opt-out)',
+      async (_label, value) => {
+        if (value === undefined) {
+          delete process.env.AUTH_DEV_LOGIN_ENABLED;
+        } else {
+          process.env.AUTH_DEV_LOGIN_ENABLED = value;
+        }
+        await expect(
+          service.loginDev({ displayName: 'Test', email: null }),
+        ).rejects.toThrow(ForbiddenException);
+      },
+    );
+
     it('powinno zwrócić household jeśli użytkownik należy do jednego', async () => {
       const mockHousehold = { id: 'hh-1', name: 'Dom' };
       prisma.membership.findFirst.mockResolvedValue({
@@ -201,62 +220,15 @@ describe('AuthService', () => {
     });
   });
 
-  // ─── loginWithGoogle ───────────────────────────────────────────────────────
+  // ─── wycofane logowanie Google ────────────────────────────────────────────
+  //
+  // `POST /auth/google` wybijał pełną sesję każdemu, kto podał dowolny
+  // `googleId` — bez weryfikacji tokenu. iOS nigdy z niego nie korzystał.
 
-  describe('loginWithGoogle', () => {
-    it('powinno zalogować użytkownika Google i zwrócić tokeny', async () => {
-      const result = await service.loginWithGoogle({
-        googleId: 'google-123',
-        displayName: 'Google User',
-        email: 'google@example.com',
-        avatarUrl: 'https://example.com/avatar.jpg',
-      });
-
-      expect(result).toHaveProperty('accessToken', 'mock-access-token');
-      expect(result).toHaveProperty('refreshToken');
-      expect(result.user.provider).toBe(AuthProvider.DEV); // mockUser returns DEV; just assert we pass through
-    });
-
-    it('powinno odrzucić gdy brak googleId', async () => {
-      await expect(
-        service.loginWithGoogle({
-          googleId: '',
-          displayName: 'Test',
-          email: null,
-          avatarUrl: null,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('powinno odrzucić gdy brak displayName', async () => {
-      await expect(
-        service.loginWithGoogle({
-          googleId: 'g-123',
-          displayName: '',
-          email: null,
-          avatarUrl: null,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('powinno upsertować użytkownika po googleId', async () => {
-      await service.loginWithGoogle({
-        googleId: 'g-abc',
-        displayName: 'New Name',
-        email: 'new@example.com',
-        avatarUrl: null,
-      });
-
-      expect(prisma.user.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { googleId: 'g-abc' },
-          update: expect.objectContaining({
-            displayName: 'New Name',
-            authProvider: AuthProvider.GOOGLE,
-          }),
-        }),
-      );
-    });
+  it('loginWithGoogle nie istnieje już w serwisie', () => {
+    expect(
+      (service as unknown as Record<string, unknown>).loginWithGoogle,
+    ).toBeUndefined();
   });
 
   // ─── loginWithApple ───────────────────────────────────────────────────────
