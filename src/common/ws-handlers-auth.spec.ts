@@ -256,17 +256,17 @@ async function buildGateway(gateway: GatewayClass): Promise<Harness> {
     .mockReturnValue({ socketsJoin, socketsLeave, disconnectSockets });
 
   // `module.get` zwraca klasę gatewaya; tabela woła handlery po nazwie,
-  // więc instancja idzie dalej jako mapa metod (podwójne rzutowanie — eslint
-  // uznaje pojedyncze za zbędne i je usuwa).
-  const instance = module.get(gateway);
-  (instance as unknown as { server: unknown }).server = {
+  // więc instancja idzie dalej jako mapa metod. Przez `unknown`, bo
+  // rzutowanie z konkretnej klasy eslint --fix uznaje za zbędne i usuwa.
+  const instance: unknown = module.get(gateway);
+  (instance as { server: unknown }).server = {
     emit,
     to,
     in: inRoom,
   };
 
   return {
-    instance,
+    instance: instance as Harness['instance'],
     calls,
     server: {
       emit,
