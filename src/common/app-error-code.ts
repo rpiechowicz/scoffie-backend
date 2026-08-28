@@ -16,6 +16,10 @@ export type AppErrorCode =
   // tylko pytanie do użytkownika: przyjęcie zaproszenia znaczy wyjście
   // z obecnego domu, a takiej decyzji nie wolno podjąć za niego.
   | 'INVITATION_REQUIRES_LEAVE'
+  // `households:create` przy istniejącym członkostwie. Konto ma jedno
+  // gospodarstwo naraz (patrz `acceptInvitation`); drugie po cichu
+  // zostawało niewidoczne, bo logowanie wybiera najstarsze.
+  | 'HOUSEHOLD_ALREADY_MEMBER'
   | 'CONFLICT'
   // Integracja Cookidoo (Thermomix). AUTH_FAILED leci jako 409, nie 401 —
   // 401 z API znaczy dla iOS „odśwież sesję aplikacji", a tu wygasło hasło

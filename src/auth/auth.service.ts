@@ -218,6 +218,13 @@ export class AuthService {
     authProvider: AuthProvider;
     onboardingCompletedAt: Date | null;
   }): Promise<AuthResult> {
+    // „Które gospodarstwo": NAJSTARSZE członkostwo. To jest jedyne miejsce,
+    // które to rozstrzyga dla klienta (`currentHouseholdId`); to samo robi
+    // `cookidoo-integration.service.ts` po JWT. Gatewaye WS biorą
+    // `householdId` z payloadu i sprawdzają tylko członkostwo — dopóki socket
+    // nie ma auth (Faza 0), nie da się tego ujednolicić po stronie serwera.
+    // `households.create` i `acceptInvitation` pilnują, żeby członkostwo było
+    // jedno, więc „najstarsze" znaczy w praktyce „jedyne".
     const [accessToken, refreshToken, membership] = await Promise.all([
       this.issueAccessToken(user.id),
       this.issueRefreshToken(user.id),

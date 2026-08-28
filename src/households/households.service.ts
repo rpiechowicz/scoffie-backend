@@ -89,23 +89,50 @@ export class HouseholdsService {
     return household;
   }
 
+  /**
+   * Nowe gospodarstwo z wołającym jako właścicielem.
+   *
+   * Ta sama reguła co w `acceptInvitation`: konto ma JEDNO gospodarstwo naraz.
+   * Bez tej bramki użytkownik z domem A tworzył dom B, dostawał drugie
+   * członkostwo — a przy następnym logowaniu i tak lądował w A, bo
+   * `buildAuthResult` wybiera najstarsze. Dom B zostawał sierotą, której nikt
+   * nie widział. iOS pokazuje kreator tylko bez gospodarstwa, więc 409 to
+   * dla niego stan niemożliwy, nie regresja.
+   *
+   * Jedna transakcja: dom bez właściciela (awaria między dwoma zapisami) był
+   * dokładnie tym, co `settleHouseholdAfterMemberLeft` musi potem sprzątać.
+   */
   async create(userId: string, dto: CreateHouseholdDto) {
-    const household = await this.prisma.household.create({
-      data: {
-        name: dto.name,
-        createdById: userId,
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.membership.findFirst({
+        where: { userId },
+        select: { householdId: true },
+      });
+      if (existing) {
+        throw new AppException(
+          'HOUSEHOLD_ALREADY_MEMBER',
+          'User already belongs to a household',
+          HttpStatus.CONFLICT,
+        );
+      }
 
-    await this.prisma.membership.create({
-      data: {
-        userId,
-        householdId: household.id,
-        role: 'OWNER',
-      },
-    });
+      const household = await tx.household.create({
+        data: {
+          name: dto.name,
+          createdById: userId,
+        },
+      });
 
-    return household;
+      await tx.membership.create({
+        data: {
+          userId,
+          householdId: household.id,
+          role: 'OWNER',
+        },
+      });
+
+      return household;
+    });
   }
 
   async createInvitation(

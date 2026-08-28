@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { OpsTokenGuard } from './ops-token.guard';
 import { RequestMetricsService } from './request-metrics.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 import { RecipesCacheService } from '../recipes/recipes-cache.service';
@@ -13,7 +14,9 @@ export class OpsController {
     private readonly prisma: PrismaService,
   ) {}
 
+  // Nagłówek `x-ops-token` = `OPS_TOKEN` — patrz `OpsTokenGuard`.
   @Get('metrics')
+  @UseGuards(OpsTokenGuard)
   async getMetrics() {
     return {
       http: this.metrics.snapshot(),
