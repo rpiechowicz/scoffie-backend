@@ -1,13 +1,17 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
 import { isUuid } from '../common/uuid';
+import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
 import { Prisma } from '@prisma/client';
-import { MEAL_TYPES_IN_DAY_ORDER } from '../common/meal-types';
-import { parseWeekStart } from './utils/week-formatting.util';
+import {
+  MEAL_TYPES_IN_DAY_ORDER,
+  effectiveSuitableMealTypes,
+} from '../common/meal-types';
+import { formatWeekStart, parseWeekStart } from './utils/week-formatting.util';
 import {
   autoPlannedServings,
   clampPlannedServings,
@@ -44,17 +48,27 @@ const PLAN_ITEM_INCLUDE = {
       authorId: true,
       householdId: true,
       ingredients: true,
+      // Te trzy pola tak samo jak w `recipes:findAll`: klient (i asystent)
+      // filtrują po alergenach i dietach także w planie, a slot bazowy +
+      // `suitableMealTypes` mówi, gdzie danie wolno przenieść (bez nich iOS
+      // wracał do heurystyki po nazwach). Reszta kształtu NIE jest jeszcze
+      // tożsama z listą: `imageUrl` jedzie surowo (bez `resolveRecipeImageUrl`),
+      // brak `sourceProvider`/`sourceRecipeId`/`isFavorite`, `ingredients` to
+      // pełne wiersze — szczegół i tak otwiera się przez `recipes:findById`.
+      allergens: true,
+      dietTags: true,
+      suitableMealTypes: true,
     },
   },
   participants: { select: { userId: true } },
   consumptions: { select: { userId: true } },
 } satisfies Prisma.PlanItemInclude;
 
-/**
- * Flattens the join rows into the flat id arrays the clients read (see
- * `PlanItemDto`). Without this the wire shape would leak the junction tables
- * as `participants: [{ userId }]` / `consumptions: [{ userId }]`.
- */
+/** Wiersz `PlanItem` dokładnie w kształcie `PLAN_ITEM_INCLUDE`. */
+type PlanItemRow = Prisma.PlanItemGetPayload<{
+  include: typeof PLAN_ITEM_INCLUDE;
+}>;
+
 /**
  * Czy dwa audytoria opisują ten sam zbiór osób. Kolejność i duplikaty nie
  * znaczą nic — `participantIds` przychodzi z klienta w kolejności klikania.
@@ -73,8 +87,9 @@ function sameMemberSet(a: string[], b: string[]): boolean {
  * tej reguły każda taka edycja kasowałaby item, żeby zaraz założyć go na nowo
  * (i po drodze gubiła znaczniki zjedzenia).
  *
- * Walidacja siedzi tu, a nie w dekoratorach DTO, bo na ścieżce WS te nie
- * działają (patrz `resolvePlannedServings`).
+ * Format pilnuje już `@IsUUID()` w DTO (od Fazy 0 `validateDto` odpala go
+ * także na WS); sprawdzenie niżej zostaje jako druga linia dla wywołań, które
+ * ominęłyby DTO.
  */
 function parseReplaceRecipeId(value: unknown, recipeId: string): string | null {
   if (value == null || value === '') return null;
@@ -88,22 +103,25 @@ function parseReplaceRecipeId(value: unknown, recipeId: string): string | null {
   return value === recipeId ? null : value;
 }
 
-function withPlanItemRelationIds<
-  T extends {
-    participants?: { userId: string }[];
-    consumptions?: { userId: string }[];
-  },
->(
-  item: T,
-): Omit<T, 'participants' | 'consumptions'> & {
-  participantIds: string[];
-  eatenByUserIds: string[];
-} {
-  const { participants, consumptions, ...rest } = item;
+/**
+ * Flattens the join rows into the flat id arrays the clients read (see
+ * `PlanItemDto`). Without this the wire shape would leak the junction tables
+ * as `participants: [{ userId }]` / `consumptions: [{ userId }]`.
+ *
+ * `suitableMealTypes` przechodzi przez `effectiveSuitableMealTypes` tak samo,
+ * jak w `recipes.service.ts`: pusta lista z bazy (wiersze sprzed backfillu)
+ * znaczy „tylko slot bazowy", a klient nie musi znać tej reguły.
+ */
+function withPlanItemRelationIds(item: PlanItemRow) {
+  const { participants, consumptions, recipe, ...rest } = item;
   return {
     ...rest,
-    participantIds: (participants ?? []).map((p) => p.userId),
-    eatenByUserIds: (consumptions ?? []).map((c) => c.userId),
+    recipe: {
+      ...recipe,
+      suitableMealTypes: effectiveSuitableMealTypes(recipe),
+    },
+    participantIds: participants.map((p) => p.userId),
+    eatenByUserIds: consumptions.map((c) => c.userId),
   };
 }
 
@@ -127,38 +145,71 @@ export class WeeklyPlansService {
   private static readonly MAX_ITEMS_TOTAL =
     7 * 6 * MEAL_TYPES_IN_DAY_ORDER.length;
 
+  /**
+   * Plan tygodnia — zawsze w pełnym kształcie, także dla tygodnia, w którym
+   * nikt jeszcze niczego nie zaplanował.
+   *
+   * Pusty tydzień NIE jest 404: iOS dekoduje `id` i `weekStart` jako pola
+   * wymagane, a asystent (Faza 1) woła tę metodę in-process i „jeszcze nic
+   * nie zaplanowano" jest dla niego zwykłym stanem, nie błędem. Dlatego brak
+   * wiersza zakładamy przy odczycie — precedens już jest: `clearWeekPlan`
+   * zostawia pusty wiersz, a `upsertWeekSlot` i tak by go założył przy
+   * pierwszym posiłku. Dwa telefony otwierające ten sam tydzień naraz
+   * ścigają się o `@@unique([householdId, weekStart])`: przegrany dostaje
+   * P2002 i po prostu czyta wiersz, który założył wygrany.
+   *
+   * `weekStart` wychodzi jako `YYYY-MM-DD` — ten sam format, co w kopercie
+   * i w broadcastach `weekChanged`; dotąd szedł tu pełny ISO datetime.
+   */
   async getByHouseholdAndWeek(
     userId: string,
     householdId: string,
     weekStart: string,
   ) {
     await ensureMembership(this.prisma, userId, householdId);
-    const plan = await this.prisma.weeklyPlan.findUnique({
-      where: {
-        householdId_weekStart: {
-          householdId,
-          weekStart: parseWeekStart(weekStart),
-        },
+    const weekStartDate = parseWeekStart(weekStart);
+    const where = {
+      householdId_weekStart: { householdId, weekStart: weekStartDate },
+    };
+    const include = {
+      items: {
+        include: PLAN_ITEM_INCLUDE,
+        orderBy: [{ mealType: 'asc' }, { createdAt: 'asc' }],
       },
-      include: {
-        items: {
-          include: PLAN_ITEM_INCLUDE,
-          orderBy: [{ mealType: 'asc' }, { createdAt: 'asc' }],
-        },
-      },
-    });
+    } satisfies Prisma.WeeklyPlanInclude;
+
+    let plan = await this.prisma.weeklyPlan.findUnique({ where, include });
     if (!plan) {
-      throw new NotFoundException('Weekly plan not found');
+      plan = await this.prisma.weeklyPlan
+        .create({ data: { householdId, weekStart: weekStartDate }, include })
+        .catch(async (error: unknown) => {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            return this.prisma.weeklyPlan.findUniqueOrThrow({ where, include });
+          }
+          throw error;
+        });
     }
-    return { ...plan, items: plan.items.map(withPlanItemRelationIds) };
+
+    return {
+      ...plan,
+      weekStart: formatWeekStart(plan.weekStart),
+      items: plan.items.map(withPlanItemRelationIds),
+    };
   }
 
   async upsertWeekSlot(
     userId: string,
     householdId: string,
     weekStart: string,
-    dto: UpsertWeekSlotDto,
+    input: UpsertWeekSlotDto,
   ) {
+    // Walidacja na wejściu, PRZED pierwszym zapytaniem: dekoratory DTO nie
+    // działają na WS, a asystent woła tę metodę in-process. Dalej używamy
+    // ZWALIDOWANEJ instancji — ma wycięte nieznane pola.
+    const dto = await validateDto(UpsertWeekSlotDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
     const replaceRecipeId = parseReplaceRecipeId(
@@ -444,8 +495,9 @@ export class WeeklyPlansService {
     userId: string,
     householdId: string,
     weekStart: string,
-    dto: RemoveWeekSlotDto,
+    input: RemoveWeekSlotDto,
   ) {
+    const dto = await validateDto(RemoveWeekSlotDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
@@ -520,8 +572,9 @@ export class WeeklyPlansService {
     userId: string,
     householdId: string,
     weekStart: string,
-    dto: SetMealEatenDto,
+    input: SetMealEatenDto,
   ) {
+    const dto = await validateDto(SetMealEatenDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
@@ -532,8 +585,15 @@ export class WeeklyPlansService {
       select: { id: true },
     });
 
+    // Brak wiersza tygodnia to z punktu widzenia klienta to samo, co brak
+    // posiłku w slocie — jeden kod, żeby iOS i asystent nie musiały
+    // rozróżniać dwóch odmian „nie ma czego odhaczyć".
     if (!weeklyPlan) {
-      throw new NotFoundException('Weekly plan not found for this week');
+      throw new AppException(
+        'PLAN_ITEM_NOT_FOUND',
+        'Tego posiłku nie ma w planie tego tygodnia',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     const planItem = await this.prisma.planItem.findFirst({
@@ -549,12 +609,12 @@ export class WeeklyPlansService {
     if (!planItem) {
       throw new AppException(
         'PLAN_ITEM_NOT_FOUND',
-        'Planned meal not found in this slot',
+        'Tego posiłku nie ma w tym slocie',
         HttpStatus.NOT_FOUND,
       );
     }
 
-    if (dto.isEaten) {
+    if (dto.isEaten === true) {
       await this.prisma.planItemConsumption.upsert({
         where: {
           planItemId_userId: { planItemId: planItem.id, userId },
@@ -650,15 +710,11 @@ export class WeeklyPlansService {
     memberCount: number,
     requested?: number | null,
   ): number {
-    // Klamra, a nie walidacja. `ValidationPipe` owszem jest globalny
-    // (`main.ts`, `useGlobalPipes`), ale na ścieżce WebSocketu nie ma czego
-    // zwalidować: klasy-koperty payloadów w `weekly-plans.gateway.ts` — tu
-    // `WeeklyPlansUpsertWeekSlotPayload` — nie mają ani jednego dekoratora, a
-    // pole `data` nie jest opisane przez `@ValidateNested()` + `@Type(() =>
-    // UpsertWeekSlotDto)`. class-validator nie zagląda więc do środka i
-    // `@Min/@Max` na DTO nigdy się nie uruchamiają. Skoro klient iOS chodzi
-    // wyłącznie po WS, przycięcie w kodzie jest jedyną realną obroną przed
-    // `plannedServings: 0` albo `999`.
+    // Klamra jako druga linia obrony. Od Fazy 0 `@Min(1)`/`@Max(12)` z DTO
+    // odpalają się także na WS (`validateDto` na wejściu `upsertWeekSlot`),
+    // więc 0 albo 999 kończy się VALIDATION_ERROR zanim tu dotrze. Przycięcie
+    // zostaje dla ścieżek, które ominęłyby DTO — bez niego jedna luka w
+    // walidacji zamieniałaby się w listę zakupów na 999 porcji.
     if (requested != null && Number.isFinite(requested)) {
       return clampPlannedServings(requested);
     }

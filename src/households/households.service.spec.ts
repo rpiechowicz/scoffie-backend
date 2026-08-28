@@ -12,11 +12,16 @@ import { AppException } from '../common/app-exception';
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
-const OWNER = 'user-owner';
-const MEMBER = 'user-member';
-const STRANGER = 'user-stranger';
-const HH = 'hh-1';
-const OTHER_HH = 'hh-old';
+const OWNER = '11111111-1111-4111-8111-111111111111';
+const MEMBER = '22222222-2222-4222-8222-222222222222';
+const STRANGER = '33333333-3333-4333-8333-333333333333';
+const HH = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+const OTHER_HH = '44444444-4444-4444-8444-444444444444';
+/** Id nowego domu oddawane przez mock `household.create`. */
+const NEW_HH = '55555555-5555-4555-8555-555555555555';
+/** Dom, którego nie ma w bazie (mock oddaje null). */
+const GHOST_HH = '66666666-6666-4666-8666-666666666666';
+const USER_X = '77777777-7777-4777-8777-777777777777';
 
 const household = { id: HH, name: 'Dom', createdById: OWNER };
 const ownerMembership = {
@@ -68,7 +73,7 @@ const makePrismaMock = (state: MockState) => {
       create: jest
         .fn()
         .mockImplementation(({ data }: any) =>
-          Promise.resolve({ id: 'hh-new', ...data }),
+          Promise.resolve({ id: NEW_HH, ...data }),
         ),
       update: jest
         .fn()
@@ -191,6 +196,24 @@ const expectCode = async (attempt: Promise<unknown>, code: string) => {
   await expect(attempt).rejects.toMatchObject({ response: { code } });
 };
 
+/**
+ * Złe wejście = `VALIDATION_ERROR` 400 z `details` (lista komunikatów w
+ * formacie class-validator), rzucony ZANIM cokolwiek poszło do Prismy.
+ */
+const expectValidationError = async (
+  attempt: Promise<unknown>,
+  detail: RegExp,
+) => {
+  await expect(attempt).rejects.toThrow(AppException);
+  await expect(attempt).rejects.toMatchObject({
+    status: 400,
+    response: {
+      code: 'VALIDATION_ERROR',
+      details: expect.arrayContaining([expect.stringMatching(detail)]),
+    },
+  });
+};
+
 // ─── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('HouseholdsService', () => {
@@ -225,9 +248,9 @@ describe('HouseholdsService', () => {
         data: { name: 'Nowy dom', createdById: STRANGER },
       });
       expect(prisma.membership.create).toHaveBeenCalledWith({
-        data: { userId: STRANGER, householdId: 'hh-new', role: 'OWNER' },
+        data: { userId: STRANGER, householdId: NEW_HH, role: 'OWNER' },
       });
-      expect(result).toMatchObject({ id: 'hh-new', name: 'Nowy dom' });
+      expect(result).toMatchObject({ id: NEW_HH, name: 'Nowy dom' });
     });
 
     it('odrzuca drugie gospodarstwo jako HOUSEHOLD_ALREADY_MEMBER 409', async () => {
@@ -236,6 +259,49 @@ describe('HouseholdsService', () => {
       await expectCode(attempt, 'HOUSEHOLD_ALREADY_MEMBER');
       await expect(attempt).rejects.toMatchObject({ status: 409 });
       expect(prisma.household.create).not.toHaveBeenCalled();
+    });
+
+    it('nazwa 10 000 znaków → VALIDATION_ERROR, transakcja nietknięta', async () => {
+      state.membershipsOfUser[STRANGER] = [];
+
+      const attempt = service.create(STRANGER, { name: 'x'.repeat(10_000) });
+
+      await expectValidationError(attempt, /name must be shorter/);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('brak `data` (undefined) → VALIDATION_ERROR z brakującym polem, nie TypeError', async () => {
+      state.membershipsOfUser[STRANGER] = [];
+
+      await expectValidationError(
+        service.create(STRANGER, undefined as any),
+        /name must be a string/,
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── findById ─────────────────────────────────────────────────────────────
+
+  describe('findById', () => {
+    it('id nie-UUID → VALIDATION_ERROR przed zapytaniem (dawniej P2023 → 500)', async () => {
+      await expectValidationError(
+        service.findById(OWNER, 'hh-1'),
+        /householdId must be a UUID/,
+      );
+      expect(prisma.household.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('UUID wielkimi literami (iOS `uuidString`) przechodzi bramkę', async () => {
+      // Mock członkostw jest kluczowany małymi literami, więc dalej odbija się
+      // o `ensureMembership` — istotne jest, że to NIE jest VALIDATION_ERROR
+      // i że zapytanie o dom w ogóle poszło.
+      await expect(
+        service.findById(OWNER, HH.toUpperCase()),
+      ).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+      expect(prisma.household.findUnique).toHaveBeenCalledWith({
+        where: { id: HH.toUpperCase() },
+      });
     });
   });
 
@@ -277,6 +343,45 @@ describe('HouseholdsService', () => {
         prisma.invitation.create.mock.calls[0][0].data.expiresAt.toISOString(),
       ).toBe('2026-12-31T23:59:59.000Z');
     });
+
+    it.each([
+      ['tygodniowa', '2026-W10'],
+      ['porządkowa', '2026-060'],
+    ])(
+      'expiresAt w formie ISO %s (przechodzi @IsDateString, Invalid Date w new Date) → VALIDATION_ERROR',
+      async (_label, expiresAt) => {
+        await expect(
+          service.createInvitation(OWNER, HH, { expiresAt }),
+        ).rejects.toMatchObject({
+          response: {
+            code: 'VALIDATION_ERROR',
+            details: [expect.stringContaining('expiresAt')],
+          },
+        });
+        expect(prisma.invitation.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it('brak `data` (stare buildy iOS) = domyślny termin, nie błąd', async () => {
+      const result = await service.createInvitation(OWNER, HH, undefined);
+      expect(result.token).toMatch(/^[0-9a-f]{32}$/);
+    });
+
+    it('expiresAt „jutro" → VALIDATION_ERROR (dawniej Invalid Date → 500)', async () => {
+      await expectValidationError(
+        service.createInvitation(OWNER, HH, { expiresAt: 'jutro' }),
+        /expiresAt must be a valid ISO 8601 date string/,
+      );
+      expect(prisma.invitation.create).not.toHaveBeenCalled();
+    });
+
+    it('householdId nie-UUID → VALIDATION_ERROR bez zapytania o członkostwo', async () => {
+      await expectValidationError(
+        service.createInvitation(OWNER, 'hh-1', {}),
+        /householdId must be a UUID/,
+      );
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+    });
   });
 
   // ─── acceptInvitation ─────────────────────────────────────────────────────
@@ -297,6 +402,40 @@ describe('HouseholdsService', () => {
       await expect(
         service.acceptInvitation(STRANGER, dto),
       ).rejects.toMatchObject({ response: { code: 'INVITATION_NOT_FOUND' } });
+    });
+
+    it("leaveOtherHouseholds: 'false' (napis) → VALIDATION_ERROR, nie zgoda na opuszczenie domu", async () => {
+      prisma.invitation.findUnique.mockResolvedValue(futureInvitation());
+      state.membershipsOfUser[STRANGER] = [{ householdId: OTHER_HH }];
+
+      await expectValidationError(
+        service.acceptInvitation(STRANGER, {
+          ...dto,
+          leaveOtherHouseholds: 'false' as any,
+        }),
+        /leaveOtherHouseholds must be a boolean value/,
+      );
+      expect(prisma.invitation.findUnique).not.toHaveBeenCalled();
+      expect(prisma.membership.delete).not.toHaveBeenCalled();
+    });
+
+    it('token krótszy niż 8 znaków → VALIDATION_ERROR przed zapytaniem', async () => {
+      await expectValidationError(
+        service.acceptInvitation(STRANGER, { token: 'abc' }),
+        /token must be longer than or equal to 8 characters/,
+      );
+      expect(prisma.invitation.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('nieznane pole w DTO (halucynacja asystenta) → VALIDATION_ERROR', async () => {
+      await expectValidationError(
+        service.acceptInvitation(STRANGER, {
+          ...dto,
+          householdId: HH,
+        } as any),
+        /property householdId should not exist/,
+      );
+      expect(prisma.invitation.findUnique).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -387,7 +526,7 @@ describe('HouseholdsService', () => {
         {
           ...ownerMembership,
           id: 'm-x',
-          userId: 'user-x',
+          userId: USER_X,
           householdId: OTHER_HH,
         },
       ];
@@ -461,6 +600,14 @@ describe('HouseholdsService', () => {
   // ─── previewInvitation / declineInvitation ────────────────────────────────
 
   describe('previewInvitation', () => {
+    it('brak tokenu → VALIDATION_ERROR bez zapytania', async () => {
+      await expectValidationError(
+        service.previewInvitation(STRANGER, {} as any),
+        /token must be a string/,
+      );
+      expect(prisma.invitation.findUnique).not.toHaveBeenCalled();
+    });
+
     it('nieznany token zwraca NOT_FOUND bez rzucania', async () => {
       const result = await service.previewInvitation(STRANGER, {
         token: 'tok-12345678',
@@ -490,6 +637,14 @@ describe('HouseholdsService', () => {
   });
 
   describe('declineInvitation', () => {
+    it('token liczbą → VALIDATION_ERROR bez zapytania', async () => {
+      await expectValidationError(
+        service.declineInvitation(STRANGER, { token: 12345678 } as any),
+        /token must be a string/,
+      );
+      expect(prisma.invitation.findUnique).not.toHaveBeenCalled();
+    });
+
     it('oznacza declinedAt i dopisuje adresata tylko, gdy go nie było', async () => {
       prisma.invitation.findUnique.mockResolvedValue({
         id: 'inv-1',
@@ -535,12 +690,47 @@ describe('HouseholdsService', () => {
     it('nieznany dom → NotFound', async () => {
       prisma.household.findUnique.mockResolvedValue(null);
       await expect(
-        service.updateName(OWNER, 'hh-ghost', { name: 'X' }),
+        service.updateName(OWNER, GHOST_HH, { name: 'Nowa' }),
       ).rejects.toMatchObject({ response: { code: 'HOUSEHOLD_NOT_FOUND' } });
+    });
+
+    it.each([
+      ['pusta nazwa', { name: '' }, /name must be longer than or equal to 2/],
+      ['jeden znak', { name: 'X' }, /name must be longer than or equal to 2/],
+      [
+        'nazwa 10 000 znaków',
+        { name: 'x'.repeat(10_000) },
+        /name must be shorter/,
+      ],
+      ['nazwa liczbą', { name: 42 }, /name must be a string/],
+      ['brak data', undefined, /name must be a string/],
+    ])('%s → VALIDATION_ERROR, bez zapisu', async (_label, dto, detail) => {
+      await expectValidationError(
+        service.updateName(OWNER, HH, dto as any),
+        detail,
+      );
+      expect(prisma.household.findUnique).not.toHaveBeenCalled();
+      expect(prisma.household.update).not.toHaveBeenCalled();
     });
   });
 
   describe('updateMealTypes', () => {
+    it('nieznany slot → VALIDATION_ERROR z listą dozwolonych (nie ciche wycięcie)', async () => {
+      await expectValidationError(
+        service.updateMealTypes(MEMBER, HH, { mealTypes: ['SNACKS'] as any }),
+        /each value in mealTypes must be one of the following values: BREAKFAST, SECOND_BREAKFAST, LUNCH, AFTERNOON_SNACK, DINNER, SNACK/,
+      );
+      expect(prisma.household.update).not.toHaveBeenCalled();
+    });
+
+    it('mealTypes napisem zamiast tablicy → VALIDATION_ERROR', async () => {
+      await expectValidationError(
+        service.updateMealTypes(MEMBER, HH, { mealTypes: 'SNACK' as any }),
+        /mealTypes must be an array/,
+      );
+      expect(prisma.household.update).not.toHaveBeenCalled();
+    });
+
     it('każdy członek może zmienić sloty, ale sloty bazowe zawsze zostają', async () => {
       await service.updateMealTypes(MEMBER, HH, {
         mealTypes: ['SNACK'] as any,
@@ -558,6 +748,39 @@ describe('HouseholdsService', () => {
         service.updateMealTypes(STRANGER, HH, { mealTypes: [] as any }),
       ).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
+  });
+
+  describe('updateMealTimes', () => {
+    it('zapisuje pełną mapę slot → minuty 1:1', async () => {
+      await service.updateMealTimes(MEMBER, HH, {
+        mealSlotTimes: { BREAKFAST: 480, DINNER: 1200 },
+      });
+      expect(prisma.household.update).toHaveBeenCalledWith({
+        where: { id: HH },
+        data: { mealSlotTimes: { BREAKFAST: 480, DINNER: 1200 } },
+      });
+    });
+
+    it.each([
+      [
+        "BREAKFAST: '8:00' (napis zamiast minut)",
+        { BREAKFAST: '8:00' },
+        /invalid entries: BREAKFAST: "8:00"/,
+      ],
+      ['nieznany slot', { BRUNCH: 600 }, /invalid entries: BRUNCH: 600/],
+      ['minuty poza dobą', { LUNCH: 1440 }, /LUNCH: 1440/],
+      ['mapa tablicą', [480], /got an array/],
+      ['brak mapy', undefined, /mealSlotTimes must map meal types/],
+    ])(
+      '%s → VALIDATION_ERROR z czytelnym komunikatem, bez zapisu',
+      async (_label, mealSlotTimes, detail) => {
+        await expectValidationError(
+          service.updateMealTimes(MEMBER, HH, { mealSlotTimes } as any),
+          detail,
+        );
+        expect(prisma.household.update).not.toHaveBeenCalled();
+      },
+    );
   });
 
   // ─── listMembers / updateMemberRole ───────────────────────────────────────
@@ -604,11 +827,38 @@ describe('HouseholdsService', () => {
       await service.updateMemberRole(OWNER, HH, MEMBER, { role: 'MEMBER' });
       expect(prisma.membership.update).not.toHaveBeenCalled();
     });
+
+    it("rola 'ADMIN' → VALIDATION_ERROR z listą OWNER, MEMBER", async () => {
+      await expectValidationError(
+        service.updateMemberRole(OWNER, HH, MEMBER, { role: 'ADMIN' as any }),
+        /role must be one of the following values: OWNER, MEMBER/,
+      );
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+      expect(prisma.membership.update).not.toHaveBeenCalled();
+    });
+
+    it("memberUserId 'member-1' → VALIDATION_ERROR bez zapytania", async () => {
+      await expectValidationError(
+        service.updateMemberRole(OWNER, HH, 'member-1', { role: 'OWNER' }),
+        /memberUserId must be a UUID/,
+      );
+      expect(prisma.household.findUnique).not.toHaveBeenCalled();
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+    });
   });
 
   // ─── removeMember / leave ─────────────────────────────────────────────────
 
   describe('removeMember', () => {
+    it("memberUserId 'member-1' → VALIDATION_ERROR bez zapytania", async () => {
+      await expectValidationError(
+        service.removeMember(OWNER, HH, 'member-1'),
+        /memberUserId must be a UUID/,
+      );
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+      expect(prisma.membership.delete).not.toHaveBeenCalled();
+    });
+
     it('nie-właściciel nie usuwa nikogo', async () => {
       await expect(
         service.removeMember(MEMBER, HH, OWNER),
@@ -696,6 +946,14 @@ describe('HouseholdsService', () => {
       await expect(service.leave(STRANGER, HH)).rejects.toMatchObject({
         response: { code: 'NOT_HOUSEHOLD_MEMBER' },
       });
+    });
+
+    it('householdId nie-UUID → VALIDATION_ERROR bez transakcji', async () => {
+      await expectValidationError(
+        service.leave(OWNER, 'hh-1'),
+        /householdId must be a UUID/,
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

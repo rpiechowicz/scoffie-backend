@@ -1,13 +1,22 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import {
+  HttpStatus,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { PushPlatform } from '@prisma/client';
+import { AppException } from '../common/app-exception';
+import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ApnsEnvironment,
   ApnsSendError,
   ApnsService,
   otherApnsEnvironment,
+  parseApnsEnvironment,
   PushPayload,
 } from './apns.service';
+import { RegisterDeviceDto } from './dto/register-device.dto';
 import { NotificationBatcher } from './notification-batcher';
 import { quietHoursDeferralMs } from './quiet-hours.util';
 import {
@@ -128,43 +137,60 @@ export class NotificationsService implements OnModuleDestroy {
     this.shoppingBatcher.dispose();
   }
 
-  async registerDevice(params: {
-    userId: string;
-    deviceToken: string;
-    platform?: PushPlatform;
-    appBundleId?: string;
-    apnsEnvironment?: ApnsEnvironment;
-  }): Promise<{ success: boolean; pushEnabled: boolean }> {
-    const normalizedToken = this.normalizeDeviceToken(params.deviceToken);
+  /**
+   * `userId` z socketu (albo z kontekstu narzędzia asystenta) — nie z DTO,
+   * żeby nikt nie podpiął telefonu pod cudze konto. `dto` przychodzi surowe
+   * z payloadu i jest tu walidowane; dalej używamy WYŁĄCZNIE instancji po
+   * walidacji (ma zaaplikowany `@Transform` i wycięte nieznane pola).
+   */
+  async registerDevice(
+    userId: string,
+    dto: RegisterDeviceDto,
+  ): Promise<{ success: boolean; pushEnabled: boolean }> {
+    dto = await validateDto(RegisterDeviceDto, dto);
+
+    const normalizedToken = this.normalizeDeviceToken(dto.deviceToken);
     if (!normalizedToken) {
-      return { success: false, pushEnabled: this.apnsService.isConfigured() };
+      // `@IsNotEmpty` odrzuca pusty string, ale `'<>'` albo same spacje
+      // przechodzą i dopiero normalizacja zostawia z nich nic. Kiedyś wracało
+      // `{ success: false }` z `ok: true` — klient nie wiedział, że wysłał
+      // śmieci. Teraz to ten sam kontrakt, co każde inne złe wejście.
+      const detail = 'deviceToken should not be empty';
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Token urządzenia jest pusty',
+        HttpStatus.BAD_REQUEST,
+        [detail],
+      );
     }
+
+    // `DEVELOPMENT` (nazwa z entitlementu) → `SANDBOX`; po walidacji inne
+    // wartości nie dochodzą, więc `undefined` znaczy tylko „nie podano".
+    const apnsEnvironment = parseApnsEnvironment(dto.apnsEnvironment);
 
     await this.prisma.pushDevice.upsert({
       where: { deviceToken: normalizedToken },
       create: {
-        userId: params.userId,
+        userId,
         deviceToken: normalizedToken,
-        platform: params.platform ?? PushPlatform.IOS,
+        platform: dto.platform ?? PushPlatform.IOS,
         appBundleId:
-          params.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
+          dto.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
         // Token z buildu debugowego działa tylko na hoście sandbox, a z
         // TestFlight tylko na produkcyjnym. Bez tego pola serwer wysyłał
         // wszystko pod jeden host z `APNS_USE_SANDBOX` i telefony z drugiego
         // środowiska dostawały `BadDeviceToken`, po czym ich wpis szedł w
         // `isActive: false` — czyli cisza aż do końca świata.
-        apnsEnvironment: params.apnsEnvironment ?? null,
+        apnsEnvironment: apnsEnvironment ?? null,
         isActive: true,
         lastSeenAt: new Date(),
       },
       update: {
-        userId: params.userId,
-        platform: params.platform ?? PushPlatform.IOS,
+        userId,
+        platform: dto.platform ?? PushPlatform.IOS,
         appBundleId:
-          params.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
-        ...(params.apnsEnvironment
-          ? { apnsEnvironment: params.apnsEnvironment }
-          : {}),
+          dto.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
+        ...(apnsEnvironment ? { apnsEnvironment } : {}),
         isActive: true,
         lastSeenAt: new Date(),
       },

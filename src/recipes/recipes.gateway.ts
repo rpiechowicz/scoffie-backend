@@ -7,11 +7,13 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
+import { IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { actorId } from '../common/ws-socket';
 import type { AppSocket } from '../common/ws-socket';
 import { broadcastToHousehold } from '../common/ws-rooms';
+import { validateWsPayload } from '../common/validate-dto';
 import { RecipesService } from './recipes.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
@@ -19,29 +21,56 @@ import { FindRecipesDto } from './dto/find-recipes.dto';
 import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
+// Koperty zdarzeń: KAŻDE pole ma dekorator, bo `validateWsPayload` działa
+// z whitelistą i wycina pola bez dekoratora. `data`/`filters` tylko
+// `@IsObject()` — zawartość waliduje serwis (każde pole dokładnie raz).
+
 class RecipesFindAllPayload {
   /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
   userId?: string;
+
+  @IsOptional()
+  @IsUUID()
   householdId?: string;
+
+  @IsOptional()
+  @IsObject()
   filters?: FindRecipesDto;
 }
 
 class RecipesFindByIdPayload {
   /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
   userId?: string;
+
+  @IsUUID()
   id: string;
+
+  @IsOptional()
+  @IsUUID()
   householdId?: string;
 }
 
 class RecipesCreatePayload {
   /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
   userId?: string;
+
+  @IsObject()
   data: CreateRecipeDto;
 }
 
 class RecipesSetFavoritePayload {
   /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
   userId?: string;
+
+  @IsObject()
   data: UpdateRecipeFavoriteDto;
 }
 
@@ -65,14 +94,21 @@ export class RecipesGateway
     this.wsTelemetry.onDisconnect(RecipesGateway.name);
   }
 
+  // Kolejność w każdym handlerze: NAJPIERW tożsamość, POTEM koperta —
+  // anonimowy socket ma dostać UNAUTHORIZED, nie VALIDATION_ERROR.
+
   @SubscribeMessage('recipes:findAll')
   findAll(
     @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: RecipesFindAllPayload,
   ) {
-    return wsRespond(() =>
-      this.recipesService.findAll(actorId(client, payload), payload.filters),
-    );
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesFindAllPayload, payload);
+      // Koperta ma same pola opcjonalne, więc `payload === undefined` przechodzi
+      // walidację — `?.` zamiast TypeError → INTERNAL_ERROR.
+      return this.recipesService.findAll(userId, payload?.filters);
+    });
   }
 
   @SubscribeMessage('recipes:findById')
@@ -80,13 +116,15 @@ export class RecipesGateway
     @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: RecipesFindByIdPayload,
   ) {
-    return wsRespond(() =>
-      this.recipesService.findById(
-        actorId(client, payload),
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesFindByIdPayload, payload);
+      return this.recipesService.findById(
+        userId,
         payload.id,
         payload.householdId,
-      ),
-    );
+      );
+    });
   }
 
   @SubscribeMessage('recipes:create')
@@ -94,9 +132,11 @@ export class RecipesGateway
     @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: RecipesCreatePayload,
   ) {
-    return wsRespond(() =>
-      this.recipesService.create(actorId(client, payload), payload.data),
-    );
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesCreatePayload, payload);
+      return this.recipesService.create(userId, payload.data);
+    });
   }
 
   @SubscribeMessage('recipes:setFavorite')
@@ -106,22 +146,26 @@ export class RecipesGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
-      const result = await this.recipesService.setFavorite(
+      await validateWsPayload(RecipesSetFavoritePayload, payload);
+      const { recipe, change } = await this.recipesService.setFavorite(
         userId,
         payload.data,
       );
+      // Broadcast ze ZWALIDOWANEJ zmiany (serwis ją oddaje), nie z surowego
+      // `payload.data` — do pokoju leci to, co faktycznie zapisano.
       broadcastToHousehold(
         this.server,
-        payload.data.householdId,
+        change.householdId,
         'recipes:favoritesChanged',
         {
-          householdId: payload.data.householdId,
-          recipeId: payload.data.recipeId,
-          isFavorite: payload.data.isFavorite,
+          householdId: change.householdId,
+          recipeId: change.recipeId,
+          isFavorite: change.isFavorite,
           changedByUserId: userId,
         },
       );
-      return result;
+      // Ack bez zmian dla iOS: szczegóły przepisu, jak przed Fazą 0.
+      return recipe;
     });
   }
 }

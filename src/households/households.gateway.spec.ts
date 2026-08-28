@@ -10,8 +10,16 @@ import { WsTelemetryService } from '../common/ws-telemetry.service';
 // pokoje `household:<id>` (join PRZED emitem, leave PO emicie). Reszta to
 // przekazanie wywołania do serwisu.
 
-const HH = 'hh-1';
-const USER = 'user-1';
+const HH = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+const USER = '11111111-1111-4111-8111-111111111111';
+/** Inny domownik (cel removeMember / updateMemberRole). */
+const MEMBER = '22222222-2222-4222-8222-222222222222';
+/** Dom opuszczany przy acceptInvitation. */
+const OTHER_HH = '44444444-4444-4444-8444-444444444444';
+const NEW_HH = '55555555-5555-4555-8555-555555555555';
+/** Tożsamość socketu legacy — musi być UUID, inaczej `actorId` odrzuca. */
+const LEGACY_USER = '88888888-8888-4888-8888-888888888888';
+const VICTIM = '99999999-9999-4999-8999-999999999999';
 const LEGACY = ['household:' + HH, 'legacy'];
 
 const tokenClient = (userId: string) =>
@@ -73,7 +81,7 @@ describe('HouseholdsGateway', () => {
         .mockResolvedValue({ enabledMealTypes: ['BREAKFAST', 'DINNER'] }),
       updateMealTimes: jest
         .fn()
-        .mockResolvedValue({ mealSlotTimes: { BREAKFAST: '08:00' } }),
+        .mockResolvedValue({ mealSlotTimes: { BREAKFAST: 480 } }),
       updateMemberRole: jest.fn().mockResolvedValue({ id: 'm-1' }),
       removeMember: jest
         .fn()
@@ -136,7 +144,7 @@ describe('HouseholdsGateway', () => {
       {
         event: 'households:createInvitation',
         invoke: (c, p) => gateway.createInvitation(c, p),
-        payload: { householdId: HH, data: { email: 'x@y.z' } },
+        payload: { householdId: HH, data: {} },
         service: 'createInvitation',
       },
       {
@@ -172,7 +180,7 @@ describe('HouseholdsGateway', () => {
       {
         event: 'households:updateMealTypes',
         invoke: (c, p) => gateway.updateMealTypes(c, p),
-        payload: { householdId: HH, data: { enabledMealTypes: ['DINNER'] } },
+        payload: { householdId: HH, data: { mealTypes: ['DINNER'] } },
         service: 'updateMealTypes',
       },
       {
@@ -192,7 +200,7 @@ describe('HouseholdsGateway', () => {
         invoke: (c, p) => gateway.updateMemberRole(c, p),
         payload: {
           householdId: HH,
-          memberUserId: 'user-2',
+          memberUserId: MEMBER,
           data: { role: 'OWNER' },
         },
         service: 'updateMemberRole',
@@ -200,7 +208,7 @@ describe('HouseholdsGateway', () => {
       {
         event: 'households:removeMember',
         invoke: (c, p) => gateway.removeMember(c, p),
-        payload: { householdId: HH, memberUserId: 'user-2' },
+        payload: { householdId: HH, memberUserId: MEMBER },
         service: 'removeMember',
       },
       {
@@ -245,19 +253,19 @@ describe('HouseholdsGateway', () => {
     it.each(cases)(
       '$event: socket z tokenem ignoruje payload.userId',
       async ({ invoke, payload, service }) => {
-        const response = await invoke(tokenClient('victim'), {
+        const response = await invoke(tokenClient(VICTIM), {
           ...payload,
           userId: 'attacker',
         });
 
         expect(response).toEqual(expect.objectContaining({ ok: true }));
         expect(householdsService[service]).toHaveBeenCalledTimes(1);
-        expect(householdsService[service].mock.calls[0][0]).toBe('victim');
+        expect(householdsService[service].mock.calls[0][0]).toBe(VICTIM);
         for (const call of householdsService.getUserDisplayName.mock.calls) {
-          expect(call[0]).toBe('victim');
+          expect(call[0]).toBe(VICTIM);
         }
         for (const body of emit.mock.calls.map(([, b]) => b)) {
-          expect(body.changedByUserId).toBe('victim');
+          expect(body.changedByUserId).toBe(VICTIM);
         }
       },
     );
@@ -267,12 +275,12 @@ describe('HouseholdsGateway', () => {
       async ({ invoke, payload, service }) => {
         const response = await invoke(legacyClient(), {
           ...payload,
-          userId: 'legacy-user',
+          userId: LEGACY_USER,
         });
 
         expect(response).toEqual(expect.objectContaining({ ok: true }));
         expect(householdsService[service]).toHaveBeenCalledTimes(1);
-        expect(householdsService[service].mock.calls[0][0]).toBe('legacy-user');
+        expect(householdsService[service].mock.calls[0][0]).toBe(LEGACY_USER);
       },
     );
 
@@ -285,9 +293,185 @@ describe('HouseholdsGateway', () => {
     });
   });
 
+  describe('walidacja koperty (validateWsPayload) — każdy handler czytający payload', () => {
+    type InvalidCase = {
+      event: string;
+      label: string;
+      invoke: (client: any, payload: any) => Promise<unknown>;
+      payload: Record<string, unknown>;
+      /** Fragment oczekiwanego wpisu w `details`. */
+      detail: RegExp;
+    };
+
+    const noData = /data must be an object/;
+    const badHousehold = /householdId must be a UUID/;
+    const badMember = /memberUserId must be a UUID/;
+
+    const cases: InvalidCase[] = [
+      {
+        event: 'households:findById',
+        label: 'id nie-UUID',
+        invoke: (c, p) => gateway.findById(c, p),
+        payload: { id: 'hh-1' },
+        detail: /id must be a UUID/,
+      },
+      {
+        event: 'households:create',
+        label: 'brak data',
+        invoke: (c, p) => gateway.create(c, p),
+        payload: {},
+        detail: noData,
+      },
+      {
+        event: 'households:createInvitation',
+        label: 'householdId nie-UUID (data opcjonalne)',
+        invoke: (c, p) => gateway.createInvitation(c, p),
+        payload: { householdId: 'hh-1' },
+        detail: badHousehold,
+      },
+      {
+        event: 'households:acceptInvitation',
+        label: 'brak data',
+        invoke: (c, p) => gateway.acceptInvitation(c, p),
+        payload: {},
+        detail: noData,
+      },
+      {
+        event: 'households:previewInvitation',
+        label: 'data napisem',
+        invoke: (c, p) => gateway.previewInvitation(c, p),
+        payload: { data: 'tok-12345678' },
+        detail: noData,
+      },
+      {
+        event: 'households:declineInvitation',
+        label: 'brak data',
+        invoke: (c, p) => gateway.declineInvitation(c, p),
+        payload: {},
+        detail: noData,
+      },
+      {
+        event: 'households:updateName',
+        label: 'brak data',
+        invoke: (c, p) => gateway.updateName(c, p),
+        payload: { householdId: HH },
+        detail: noData,
+      },
+      {
+        event: 'households:updateMealTypes',
+        label: 'householdId nie-UUID',
+        invoke: (c, p) => gateway.updateMealTypes(c, p),
+        payload: { householdId: 'hh-1', data: { mealTypes: ['DINNER'] } },
+        detail: badHousehold,
+      },
+      {
+        event: 'households:updateMealTimes',
+        label: 'brak data',
+        invoke: (c, p) => gateway.updateMealTimes(c, p),
+        payload: { householdId: HH },
+        detail: noData,
+      },
+      {
+        event: 'households:listMembers',
+        label: 'brak householdId',
+        invoke: (c, p) => gateway.listMembers(c, p),
+        payload: {},
+        detail: badHousehold,
+      },
+      {
+        event: 'households:updateMemberRole',
+        label: 'memberUserId nie-UUID',
+        invoke: (c, p) => gateway.updateMemberRole(c, p),
+        payload: {
+          householdId: HH,
+          memberUserId: 'user-2',
+          data: { role: 'OWNER' },
+        },
+        detail: badMember,
+      },
+      {
+        event: 'households:removeMember',
+        label: 'brak memberUserId',
+        invoke: (c, p) => gateway.removeMember(c, p),
+        payload: { householdId: HH },
+        detail: badMember,
+      },
+      {
+        event: 'households:leave',
+        label: 'householdId nie-UUID',
+        invoke: (c, p) => gateway.leave(c, p),
+        payload: { householdId: 'hh-1' },
+        detail: badHousehold,
+      },
+    ];
+
+    it('tabela obejmuje 13 handlerów z kopertą (findAll i listPendingInvitations nie czytają payloadu)', () => {
+      expect(new Set(cases.map((c) => c.event)).size).toBe(13);
+    });
+
+    it.each(cases)(
+      '$event: $label → ack VALIDATION_ERROR 400 z details, serwis nietknięty',
+      async ({ invoke, payload, detail }) => {
+        const response = await invoke(tokenClient(USER), payload);
+
+        expect(response).toEqual(
+          expect.objectContaining({
+            ok: false,
+            code: 'VALIDATION_ERROR',
+            status: 400,
+            details: expect.arrayContaining([expect.stringMatching(detail)]),
+          }),
+        );
+        for (const fn of Object.values(householdsService)) {
+          expect(fn).not.toHaveBeenCalled();
+        }
+        expect(emit).not.toHaveBeenCalled();
+        expect(inRoom).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(cases)(
+      '$event: anonimowy socket ze złą kopertą → nadal UNAUTHORIZED (tożsamość przed kopertą)',
+      async ({ invoke, payload }) => {
+        const response = await invoke(anonClient(), payload);
+        expect(response).toEqual(
+          expect.objectContaining({ ok: false, code: 'UNAUTHORIZED' }),
+        );
+      },
+    );
+
+    it('UUID wielkimi literami (iOS `uuidString`) przechodzi przez kopertę', async () => {
+      const response = await gateway.listMembers(tokenClient(USER), {
+        householdId: HH.toUpperCase(),
+      } as any);
+      expect(response).toEqual(expect.objectContaining({ ok: true }));
+      expect(householdsService.listMembers).toHaveBeenCalledWith(
+        USER,
+        HH.toUpperCase(),
+      );
+    });
+
+    it('nieznane pole na kopercie (stare buildy) nie jest błędem', async () => {
+      const response = await gateway.leave(tokenClient(USER), {
+        householdId: HH,
+        clientVersion: '1.2.3',
+      } as any);
+      expect(response).toEqual(expect.objectContaining({ ok: true }));
+    });
+
+    it('handlery bez koperty przeżywają payload === undefined', async () => {
+      const response = await gateway.findAll(
+        tokenClient(USER),
+        undefined as any,
+      );
+      expect(response).toEqual(expect.objectContaining({ ok: true }));
+      expect(householdsService.findAll).toHaveBeenCalledWith(USER);
+    });
+  });
+
   describe('households:create', () => {
     it('dołącza założyciela do pokoju domu PRZED rozgłoszeniem składu', async () => {
-      householdsService.create.mockResolvedValue({ id: 'hh-new', name: 'Dom' });
+      householdsService.create.mockResolvedValue({ id: NEW_HH, name: 'Dom' });
 
       const response = await gateway.create(tokenClient(USER), {
         data: { name: 'Dom' },
@@ -295,11 +479,11 @@ describe('HouseholdsGateway', () => {
 
       expect(response).toEqual(expect.objectContaining({ ok: true }));
       expect(inRoom).toHaveBeenCalledWith('user:' + USER);
-      expect(socketsJoin).toHaveBeenCalledWith('household:hh-new');
-      expect(to).toHaveBeenCalledWith(['household:hh-new', 'legacy']);
+      expect(socketsJoin).toHaveBeenCalledWith('household:' + NEW_HH);
+      expect(to).toHaveBeenCalledWith(['household:' + NEW_HH, 'legacy']);
       expect(emitted('households:membersChanged')).toEqual([
         expect.objectContaining({
-          householdId: 'hh-new',
+          householdId: NEW_HH,
           action: 'CREATE_HOUSEHOLD',
           changedByUserId: USER,
           changedByDisplayName: 'Ania',
@@ -335,14 +519,14 @@ describe('HouseholdsGateway', () => {
         // Tożsamość ma iść z socketu, nie stąd.
         userId: 'attacker',
         householdId: HH,
-        memberUserId: 'user-2',
+        memberUserId: MEMBER,
       } as any);
 
       expect(response).toEqual(expect.objectContaining({ ok: true }));
       expect(householdsService.removeMember).toHaveBeenCalledWith(
         USER,
         HH,
-        'user-2',
+        MEMBER,
       );
       expect(emitted('households:membersChanged')).toEqual([
         expect.objectContaining({
@@ -381,11 +565,11 @@ describe('HouseholdsGateway', () => {
 
       await gateway.removeMember(tokenClient(USER), {
         householdId: HH,
-        memberUserId: 'user-2',
+        memberUserId: MEMBER,
       } as any);
 
       expect(inRoom).toHaveBeenCalledTimes(1);
-      expect(inRoom).toHaveBeenCalledWith('user:user-2');
+      expect(inRoom).toHaveBeenCalledWith('user:' + MEMBER);
       expect(socketsLeave).toHaveBeenCalledWith('household:' + HH);
       expect(socketsJoin).not.toHaveBeenCalled();
       expect(lastCall(emit)).toBeLessThan(firstCall(socketsLeave));
@@ -399,7 +583,7 @@ describe('HouseholdsGateway', () => {
 
       await gateway.removeMember(tokenClient(USER), {
         householdId: HH,
-        memberUserId: 'user-2',
+        memberUserId: MEMBER,
       } as any);
 
       expect(emitted('weeklyPlans:weekChanged')).toEqual([]);
@@ -411,7 +595,7 @@ describe('HouseholdsGateway', () => {
 
       const response = await gateway.removeMember(tokenClient(USER), {
         householdId: HH,
-        memberUserId: 'user-2',
+        memberUserId: MEMBER,
       } as any);
 
       expect(response).toEqual(expect.objectContaining({ ok: false }));
@@ -478,9 +662,9 @@ describe('HouseholdsGateway', () => {
     const accepted = {
       id: 'm-joined',
       householdId: HH,
-      leftHouseholdIds: ['hh-old'],
+      leftHouseholdIds: [OTHER_HH],
       touchedWeeks: [
-        { householdId: 'hh-old', weekStart: '2026-08-24' },
+        { householdId: OTHER_HH, weekStart: '2026-08-24' },
         { householdId: HH, weekStart: '2026-08-24' },
       ],
     };
@@ -505,20 +689,20 @@ describe('HouseholdsGateway', () => {
         ]),
       ).toEqual([
         [HH, 'ACCEPT_INVITATION', USER],
-        ['hh-old', 'LEAVE', USER],
+        [OTHER_HH, 'LEAVE', USER],
       ]);
       expect(
         emitted('weeklyPlans:weekChanged').map((e) => e.householdId),
-      ).toEqual(['hh-old', HH]);
+      ).toEqual([OTHER_HH, HH]);
       // Każdy dom dostaje tylko swoje zdarzenia.
       expect(to).toHaveBeenCalledWith(LEGACY);
-      expect(to).toHaveBeenCalledWith(['household:hh-old', 'legacy']);
+      expect(to).toHaveBeenCalledWith(['household:' + OTHER_HH, 'legacy']);
       expectAllEmitsRoomScoped();
       expect(
         notificationsService.notifyHouseholdMembershipChanged,
       ).toHaveBeenCalledWith(
         expect.objectContaining({
-          householdId: 'hh-old',
+          householdId: OTHER_HH,
           actorUserId: USER,
           action: 'LEFT',
         }),
@@ -538,7 +722,7 @@ describe('HouseholdsGateway', () => {
       expect(socketsJoin).toHaveBeenCalledTimes(1);
       expect(socketsJoin).toHaveBeenCalledWith('household:' + HH);
       expect(socketsLeave).toHaveBeenCalledTimes(1);
-      expect(socketsLeave).toHaveBeenCalledWith('household:hh-old');
+      expect(socketsLeave).toHaveBeenCalledWith('household:' + OTHER_HH);
       expect(firstCall(socketsJoin)).toBeLessThan(firstCall(emit));
       expect(lastCall(emit)).toBeLessThan(firstCall(socketsLeave));
     });
@@ -576,14 +760,14 @@ describe('HouseholdsGateway', () => {
     it('updateMemberRole rozgłasza skład do pokoju domu', async () => {
       await gateway.updateMemberRole(tokenClient(USER), {
         householdId: HH,
-        memberUserId: 'user-2',
+        memberUserId: MEMBER,
         data: { role: 'OWNER' },
       } as any);
 
       expect(householdsService.updateMemberRole).toHaveBeenCalledWith(
         USER,
         HH,
-        'user-2',
+        MEMBER,
         { role: 'OWNER' },
       );
       expect(to).toHaveBeenCalledWith(LEGACY);
@@ -603,7 +787,7 @@ describe('HouseholdsGateway', () => {
     it('mealTypesChanged idzie do pokoju domu z nową listą', async () => {
       await gateway.updateMealTypes(tokenClient(USER), {
         householdId: HH,
-        data: { enabledMealTypes: ['BREAKFAST', 'DINNER'] },
+        data: { mealTypes: ['BREAKFAST', 'DINNER'] },
       } as any);
 
       expect(to).toHaveBeenCalledWith(LEGACY);
@@ -621,14 +805,14 @@ describe('HouseholdsGateway', () => {
     it('mealTimesChanged idzie do pokoju domu z nowymi godzinami', async () => {
       await gateway.updateMealTimes(tokenClient(USER), {
         householdId: HH,
-        data: { mealSlotTimes: { BREAKFAST: '08:00' } },
+        data: { mealSlotTimes: { BREAKFAST: 480 } },
       } as any);
 
       expect(to).toHaveBeenCalledWith(LEGACY);
       expect(emitted('households:mealTimesChanged')).toEqual([
         {
           householdId: HH,
-          mealSlotTimes: { BREAKFAST: '08:00' },
+          mealSlotTimes: { BREAKFAST: 480 },
           changedByUserId: USER,
           changedByDisplayName: 'Ania',
         },

@@ -12,8 +12,13 @@ import { WsTelemetryService } from '../common/ws-telemetry.service';
 // druga rzecz na własność: tożsamość bierze się z socketu (`actorId`), a
 // broadcast idzie do pokoju gospodarstwa, nie do wszystkich.
 
-const USER = 'user-1';
-const HH = 'hh-1';
+// Prawdziwe UUID v4: koperty mają od Fazy 0 `@IsUUID()` na `householdId`
+// i `archiveId`, a `actorId` w trybie legacy wymaga UUID w `payload.userId`.
+const USER = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const LEGACY_USER = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const HH = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+const ARCHIVE = '44444444-4444-4444-8444-444444444444';
+const RECIPE = '22222222-2222-4222-8222-222222222222';
 const WEEK = '2026-04-13';
 
 const payload = {
@@ -23,7 +28,7 @@ const payload = {
   data: {
     dayOfWeek: 'MON',
     mealType: 'DINNER',
-    recipeId: '22222222-2222-4222-8222-222222222222',
+    recipeId: RECIPE,
   },
 } as any;
 
@@ -245,15 +250,31 @@ describe('WeeklyPlansGateway', () => {
     // argument; `null` dla stubu `getSavedPlan`, który nie woła serwisu.
     // `broadcasts` to zdarzenia, które muszą wyjść do pokoju gospodarstwa
     // (z `changedByUserId` z socketu, nie z payloadu).
+    // `invalid`: złe koperty, które handler ma odbić ackiem VALIDATION_ERROR
+    // ZANIM zawoła serwis (walidacja koperty w gatewayu; `data` waliduje
+    // serwis, więc tu tylko brak/typ `data`, nie jego zawartość).
     type Case = {
       event: string;
       call: (client: any, body: any) => Promise<any>;
       body: Record<string, unknown>;
       svc: () => jest.Mock | null;
       broadcasts: string[];
+      invalid: Array<[label: string, body: unknown]>;
     };
 
     const base = { householdId: HH, weekStart: WEEK };
+    const invalidWeekEnvelope: Case['invalid'] = [
+      ['payload undefined', undefined],
+      ['householdId nie-UUID', { householdId: 'hh-1', weekStart: WEEK }],
+      ['brak householdId', { weekStart: WEEK }],
+      ['weekStart liczbą', { householdId: HH, weekStart: 20260413 }],
+    ];
+    const invalidDataEnvelope = (data: unknown): Case['invalid'] => [
+      ...invalidWeekEnvelope,
+      ['brak data', base],
+      ['data napisem', { ...base, data: 'MON' }],
+      ['data tablicą', { ...base, data: [data] }],
+    ];
     const cases: Case[] = [
       {
         event: 'weeklyPlans:getByWeek',
@@ -261,6 +282,7 @@ describe('WeeklyPlansGateway', () => {
         body: base,
         svc: () => weeklyPlansService.getByHouseholdAndWeek,
         broadcasts: [],
+        invalid: invalidWeekEnvelope,
       },
       {
         event: 'weeklyPlans:getShoppingList',
@@ -268,6 +290,7 @@ describe('WeeklyPlansGateway', () => {
         body: base,
         svc: () => shoppingListService.getShoppingList,
         broadcasts: [],
+        invalid: invalidWeekEnvelope,
       },
       {
         event: 'weeklyPlans:getShoppingListState',
@@ -275,6 +298,7 @@ describe('WeeklyPlansGateway', () => {
         body: base,
         svc: () => shoppingListService.getShoppingListState,
         broadcasts: [],
+        invalid: invalidWeekEnvelope,
       },
       {
         event: 'weeklyPlans:archiveShoppingList',
@@ -282,20 +306,37 @@ describe('WeeklyPlansGateway', () => {
         body: { ...base, weekLabel: 'Tydzień 16' },
         svc: () => shoppingListService.archiveShoppingList,
         broadcasts: ['weeklyPlans:shoppingListChanged'],
+        invalid: [
+          ...invalidWeekEnvelope,
+          ['brak weekLabel', base],
+          ['weekLabel liczbą', { ...base, weekLabel: 16 }],
+          ['weekLabel za długi', { ...base, weekLabel: 'x'.repeat(65) }],
+        ],
       },
       {
         event: 'weeklyPlans:selectShoppingListArchive',
         call: (c, b) => gateway.selectShoppingListArchive(c, b),
-        body: { householdId: HH, archiveId: 'arch-1' },
+        body: { householdId: HH, archiveId: ARCHIVE },
         svc: () => shoppingListService.selectShoppingListArchive,
         broadcasts: ['weeklyPlans:shoppingListChanged'],
+        invalid: [
+          ['payload undefined', undefined],
+          ['archiveId nie-UUID', { householdId: HH, archiveId: 'arch-1' }],
+          ['brak archiveId', { householdId: HH }],
+          ['householdId nie-UUID', { householdId: 'hh-1', archiveId: ARCHIVE }],
+        ],
       },
       {
         event: 'weeklyPlans:deleteShoppingListArchive',
         call: (c, b) => gateway.deleteShoppingListArchive(c, b),
-        body: { householdId: HH, archiveId: 'arch-1' },
+        body: { householdId: HH, archiveId: ARCHIVE },
         svc: () => shoppingListService.deleteShoppingListArchive,
         broadcasts: ['weeklyPlans:shoppingListChanged'],
+        invalid: [
+          ['payload undefined', undefined],
+          ['archiveId nie-UUID', { householdId: HH, archiveId: 'arch-1' }],
+          ['brak archiveId', { householdId: HH }],
+        ],
       },
       {
         event: 'weeklyPlans:deleteAllShoppingListArchives',
@@ -303,6 +344,7 @@ describe('WeeklyPlansGateway', () => {
         body: base,
         svc: () => shoppingListService.deleteAllShoppingListArchives,
         broadcasts: ['weeklyPlans:shoppingListChanged'],
+        invalid: invalidWeekEnvelope,
       },
       {
         event: 'weeklyPlans:setShoppingItemChecked',
@@ -310,6 +352,7 @@ describe('WeeklyPlansGateway', () => {
         body: { ...base, data: { productKey: 'mleko', isChecked: true } },
         svc: () => shoppingListService.setShoppingItemChecked,
         broadcasts: ['weeklyPlans:shoppingListChanged'],
+        invalid: invalidDataEnvelope({ productKey: 'mleko', isChecked: true }),
       },
       {
         event: 'weeklyPlans:upsertWeekSlot',
@@ -320,6 +363,7 @@ describe('WeeklyPlansGateway', () => {
           'weeklyPlans:weekChanged',
           'weeklyPlans:shoppingListChanged',
         ],
+        invalid: invalidDataEnvelope(payload.data),
       },
       {
         event: 'weeklyPlans:removeWeekSlot',
@@ -330,16 +374,28 @@ describe('WeeklyPlansGateway', () => {
           'weeklyPlans:weekChanged',
           'weeklyPlans:shoppingListChanged',
         ],
+        invalid: invalidDataEnvelope({ dayOfWeek: 'MON', mealType: 'DINNER' }),
       },
       {
         event: 'weeklyPlans:setMealEaten',
         call: (c, b) => gateway.setMealEaten(c, b),
         body: {
           ...base,
-          data: { dayOfWeek: 'MON', mealType: 'DINNER', isEaten: true },
+          data: {
+            dayOfWeek: 'MON',
+            mealType: 'DINNER',
+            recipeId: RECIPE,
+            isEaten: true,
+          },
         },
         svc: () => weeklyPlansService.setMealEaten,
         broadcasts: ['weeklyPlans:weekChanged'],
+        invalid: invalidDataEnvelope({
+          dayOfWeek: 'MON',
+          mealType: 'DINNER',
+          recipeId: RECIPE,
+          isEaten: true,
+        }),
       },
       {
         event: 'weeklyPlans:getSavedPlan',
@@ -347,6 +403,7 @@ describe('WeeklyPlansGateway', () => {
         body: base,
         svc: () => null,
         broadcasts: [],
+        invalid: invalidWeekEnvelope,
       },
       {
         event: 'weeklyPlans:clearWeekPlan',
@@ -357,6 +414,7 @@ describe('WeeklyPlansGateway', () => {
           'weeklyPlans:weekChanged',
           'weeklyPlans:shoppingListChanged',
         ],
+        invalid: invalidWeekEnvelope,
       },
     ];
 
@@ -365,108 +423,193 @@ describe('WeeklyPlansGateway', () => {
       expect(new Set(cases.map((c) => c.event)).size).toBe(13);
     });
 
-    describe.each(cases)('$event', ({ call, body, svc, broadcasts }) => {
-      it('anonimowy socket dostaje UNAUTHORIZED, serwis nietknięty', async () => {
-        const response = await call(anonClient(), { ...body, userId: USER });
+    describe.each(cases)(
+      '$event',
+      ({ call, body, svc, broadcasts, invalid }) => {
+        // ─── Walidacja koperty (Faza 0, krok 2) ───────────────────────────
+        //
+        // Zła koperta = ack VALIDATION_ERROR z `details`, serwis nie
+        // wywołany, nic nie rozgłoszone. Kolejność z `actorId`: anonimowy
+        // socket dostaje UNAUTHORIZED także ze złą kopertą.
 
-        expect(response).toEqual(
-          expect.objectContaining({
-            ok: false,
-            code: 'UNAUTHORIZED',
-            status: 401,
-          }),
-        );
-        for (const mock of allServiceMocks()) {
-          expect(mock).not.toHaveBeenCalled();
-        }
-        expect(to).not.toHaveBeenCalled();
-        expect(emit).not.toHaveBeenCalled();
-      });
+        it.each(invalid)(
+          'zła koperta (%s) → ack VALIDATION_ERROR 400, serwis nietknięty',
+          async (_label, invalidBody) => {
+            const response = await call(tokenClient(USER), invalidBody);
 
-      it('socket z tokenem: payload.userId ignorowane, liczy się sub tokenu', async () => {
-        const response = await call(tokenClient('victim'), {
-          ...body,
-          userId: 'attacker',
-        });
-
-        expect(response).toEqual(expect.objectContaining({ ok: true }));
-        const mock = svc();
-        if (mock) {
-          expect(mock).toHaveBeenCalledTimes(1);
-          expect(mock.mock.calls[0][0]).toBe('victim');
-        }
-        if (weeklyPlansService.getUserDisplayName.mock.calls.length > 0) {
-          expect(weeklyPlansService.getUserDisplayName).toHaveBeenCalledWith(
-            'victim',
-          );
-        }
-        for (const enqueue of Object.values(notificationsService)) {
-          for (const [input] of enqueue.mock.calls) {
-            expect(input.changedByUserId).toBe('victim');
-          }
-        }
-      });
-
-      it('socket legacy: tożsamość z payload.userId jak dawniej', async () => {
-        const response = await call(legacyClient(), {
-          ...body,
-          userId: 'legacy-user',
-        });
-
-        expect(response).toEqual(expect.objectContaining({ ok: true }));
-        const mock = svc();
-        if (mock) {
-          expect(mock).toHaveBeenCalledTimes(1);
-          expect(mock.mock.calls[0][0]).toBe('legacy-user');
-        }
-      });
-
-      it('socket legacy bez userId w payloadzie dostaje UNAUTHORIZED', async () => {
-        const response = await call(legacyClient(), body);
-
-        expect(response).toEqual(
-          expect.objectContaining({ ok: false, code: 'UNAUTHORIZED' }),
-        );
-        for (const mock of allServiceMocks()) {
-          expect(mock).not.toHaveBeenCalled();
-        }
-      });
-
-      if (broadcasts.length > 0) {
-        it('rozgłasza do pokoju gospodarstwa i legacy z tożsamością z socketu', async () => {
-          if (svc() === weeklyPlansService.upsertWeekSlot) {
-            weeklyPlansService.upsertWeekSlot.mockResolvedValue({
-              changeKind: 'CREATED',
-              replacedItemIds: [],
-            });
-          }
-
-          await call(tokenClient('victim'), { ...body, userId: 'attacker' });
-
-          expect(to).toHaveBeenCalledTimes(broadcasts.length);
-          for (const [rooms] of to.mock.calls) {
-            expect(rooms).toEqual([`household:${HH}`, 'legacy']);
-          }
-          expect(emit.mock.calls.map(([name]) => name)).toEqual(broadcasts);
-          for (const [, eventBody] of emit.mock.calls) {
-            expect(eventBody).toEqual(
+            expect(response).toEqual(
               expect.objectContaining({
-                householdId: HH,
-                changedByUserId: 'victim',
-                changeVersion: expect.any(Number),
+                ok: false,
+                code: 'VALIDATION_ERROR',
+                status: 400,
+                details: expect.arrayContaining([expect.any(String)]),
               }),
             );
-          }
-          expect(inRoom).not.toHaveBeenCalled();
-        });
-      } else {
-        it('niczego nie rozgłasza', async () => {
-          await call(tokenClient('victim'), { ...body, userId: 'attacker' });
+            for (const mock of allServiceMocks()) {
+              expect(mock).not.toHaveBeenCalled();
+            }
+            expect(to).not.toHaveBeenCalled();
+            expect(emit).not.toHaveBeenCalled();
+          },
+        );
 
+        it('anonimowy socket ze złą kopertą dostaje UNAUTHORIZED, nie VALIDATION_ERROR', async () => {
+          const response = await call(anonClient(), invalid[0][1]);
+
+          expect(response).toEqual(
+            expect.objectContaining({ ok: false, code: 'UNAUTHORIZED' }),
+          );
+        });
+
+        it('nieznane pole na kopercie (stary build iOS) nie jest błędem', async () => {
+          const response = await call(tokenClient(USER), {
+            ...body,
+            userId: USER,
+            legacyFlag: true,
+          });
+
+          expect(response).toEqual(expect.objectContaining({ ok: true }));
+        });
+
+        it('anonimowy socket dostaje UNAUTHORIZED, serwis nietknięty', async () => {
+          const response = await call(anonClient(), { ...body, userId: USER });
+
+          expect(response).toEqual(
+            expect.objectContaining({
+              ok: false,
+              code: 'UNAUTHORIZED',
+              status: 401,
+            }),
+          );
+          for (const mock of allServiceMocks()) {
+            expect(mock).not.toHaveBeenCalled();
+          }
           expect(to).not.toHaveBeenCalled();
           expect(emit).not.toHaveBeenCalled();
         });
-      }
+
+        it('socket z tokenem: payload.userId ignorowane, liczy się sub tokenu', async () => {
+          const response = await call(tokenClient('victim'), {
+            ...body,
+            userId: 'attacker',
+          });
+
+          expect(response).toEqual(expect.objectContaining({ ok: true }));
+          const mock = svc();
+          if (mock) {
+            expect(mock).toHaveBeenCalledTimes(1);
+            expect(mock.mock.calls[0][0]).toBe('victim');
+          }
+          if (weeklyPlansService.getUserDisplayName.mock.calls.length > 0) {
+            expect(weeklyPlansService.getUserDisplayName).toHaveBeenCalledWith(
+              'victim',
+            );
+          }
+          for (const enqueue of Object.values(notificationsService)) {
+            for (const [input] of enqueue.mock.calls) {
+              expect(input.changedByUserId).toBe('victim');
+            }
+          }
+        });
+
+        it('socket legacy: tożsamość z payload.userId jak dawniej', async () => {
+          const response = await call(legacyClient(), {
+            ...body,
+            userId: LEGACY_USER,
+          });
+
+          expect(response).toEqual(expect.objectContaining({ ok: true }));
+          const mock = svc();
+          if (mock) {
+            expect(mock).toHaveBeenCalledTimes(1);
+            expect(mock.mock.calls[0][0]).toBe(LEGACY_USER);
+          }
+        });
+
+        it('socket legacy bez userId w payloadzie dostaje UNAUTHORIZED', async () => {
+          const response = await call(legacyClient(), body);
+
+          expect(response).toEqual(
+            expect.objectContaining({ ok: false, code: 'UNAUTHORIZED' }),
+          );
+          for (const mock of allServiceMocks()) {
+            expect(mock).not.toHaveBeenCalled();
+          }
+        });
+
+        if (broadcasts.length > 0) {
+          it('rozgłasza do pokoju gospodarstwa i legacy z tożsamością z socketu', async () => {
+            if (svc() === weeklyPlansService.upsertWeekSlot) {
+              weeklyPlansService.upsertWeekSlot.mockResolvedValue({
+                changeKind: 'CREATED',
+                replacedItemIds: [],
+              });
+            }
+
+            await call(tokenClient('victim'), { ...body, userId: 'attacker' });
+
+            expect(to).toHaveBeenCalledTimes(broadcasts.length);
+            for (const [rooms] of to.mock.calls) {
+              expect(rooms).toEqual([`household:${HH}`, 'legacy']);
+            }
+            expect(emit.mock.calls.map(([name]) => name)).toEqual(broadcasts);
+            for (const [, eventBody] of emit.mock.calls) {
+              expect(eventBody).toEqual(
+                expect.objectContaining({
+                  householdId: HH,
+                  changedByUserId: 'victim',
+                  changeVersion: expect.any(Number),
+                }),
+              );
+            }
+            expect(inRoom).not.toHaveBeenCalled();
+          });
+        } else {
+          it('niczego nie rozgłasza', async () => {
+            await call(tokenClient('victim'), { ...body, userId: 'attacker' });
+
+            expect(to).not.toHaveBeenCalled();
+            expect(emit).not.toHaveBeenCalled();
+          });
+        }
+      },
+    );
+
+    it('zawartość `data` NIE jest walidowana w gatewayu — to robi serwis, dokładnie raz', async () => {
+      // Koperta ma tylko `@IsObject()` na `data`; zły enum w środku dociera
+      // do (zamockowanego) serwisu. W produkcji `validateDto` w serwisie
+      // odbija go z listą wartości — bez duplikatu `details` z gatewaya.
+      weeklyPlansService.upsertWeekSlot.mockResolvedValue({
+        changeKind: 'CREATED',
+        replacedItemIds: [],
+      });
+
+      const response = await gateway.upsertWeekSlot(tokenClient(USER), {
+        ...base,
+        data: { ...payload.data, dayOfWeek: 'MONDAY' },
+      } as any);
+
+      expect(response).toEqual(expect.objectContaining({ ok: true }));
+      expect(weeklyPlansService.upsertWeekSlot).toHaveBeenCalledWith(
+        USER,
+        HH,
+        WEEK,
+        expect.objectContaining({ dayOfWeek: 'MONDAY' }),
+      );
+    });
+
+    it('UUID wielkimi literami w kopercie (iOS `uuidString`) przechodzi', async () => {
+      const response = await gateway.getByWeek(tokenClient(USER), {
+        householdId: HH.toUpperCase(),
+        weekStart: WEEK,
+      } as any);
+
+      expect(response).toEqual(expect.objectContaining({ ok: true }));
+      expect(weeklyPlansService.getByHouseholdAndWeek).toHaveBeenCalledWith(
+        USER,
+        HH.toUpperCase(),
+        WEEK,
+      );
     });
 
     it('getSavedPlan odpowiada pustą pulą, ale wciąż wymaga tożsamości', async () => {

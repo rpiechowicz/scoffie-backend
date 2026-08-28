@@ -23,12 +23,9 @@ export function isUuid(value: unknown): value is string {
 export function assertUuid(value: unknown, field: string): string {
   if (!isUuid(value)) {
     const detail = `${field} must be a UUID`;
-    throw new AppException(
-      'VALIDATION_ERROR',
+    throw new AppException('VALIDATION_ERROR', detail, HttpStatus.BAD_REQUEST, [
       detail,
-      HttpStatus.BAD_REQUEST,
-      [detail],
-    );
+    ]);
   }
   return value;
 }

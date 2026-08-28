@@ -7,6 +7,8 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
+import { IsObject, IsOptional, IsString } from 'class-validator';
+import { validateWsPayload } from '../common/validate-dto';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import type { AppSocket } from '../common/ws-socket';
@@ -18,36 +20,33 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
-class UsersMePayload {
+/**
+ * Koperta zdarzeń bez wejścia (`users:me`, `users:preferences:get`,
+ * `users:delete`, `users:onboarding:complete`): jedyne pole to legacy
+ * `userId`, więc nie ma czego walidować — handler bierze tożsamość z
+ * `actorId`, który znosi także `payload === undefined`.
+ */
+class UsersActorPayload {
   /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
   userId?: string;
 }
 
-class UsersPreferencesGetPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-}
-
-class UsersPreferencesUpdatePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
+/**
+ * Koperty z `data`: `validateWsPayload` sprawdza tylko, że `data` jest
+ * obiektem (brak `data` = VALIDATION_ERROR zamiast `TypeError` → 500).
+ * Zawartość waliduje serwis przez `validateDto(UpdatePreferencesDto/…)` —
+ * każde pole dokładnie raz, dlatego bez `@ValidateNested` tutaj.
+ */
+class UsersPreferencesUpdatePayload extends UsersActorPayload {
+  @IsObject()
   data: UpdatePreferencesDto;
 }
 
-class UsersProfileUpdatePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
+class UsersProfileUpdatePayload extends UsersActorPayload {
+  @IsObject()
   data: UpdateProfileDto;
-}
-
-class UsersOnboardingCompletePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-}
-
-class UsersDeletePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
@@ -71,7 +70,7 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('users:me')
   me(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: UsersMePayload,
+    @MessageBody() payload: UsersActorPayload,
   ) {
     return wsRespond(() => this.usersService.getMe(actorId(client, payload)));
   }
@@ -79,7 +78,7 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('users:preferences:get')
   getPreferences(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: UsersPreferencesGetPayload,
+    @MessageBody() payload: UsersActorPayload,
   ) {
     return wsRespond(() =>
       this.usersService.getPreferences(actorId(client, payload)),
@@ -91,12 +90,13 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: UsersPreferencesUpdatePayload,
   ) {
-    return wsRespond(() =>
-      this.usersService.updatePreferences(
-        actorId(client, payload),
-        payload.data,
-      ),
-    );
+    return wsRespond(async () => {
+      // Najpierw tożsamość, potem koperta: anonimowy socket ma dostać
+      // UNAUTHORIZED, nie VALIDATION_ERROR (pilnuje tego ws-handlers-auth.spec).
+      const userId = actorId(client, payload);
+      await validateWsPayload(UsersPreferencesUpdatePayload, payload);
+      return this.usersService.updatePreferences(userId, payload.data);
+    });
   }
 
   @SubscribeMessage('users:profile:update')
@@ -104,9 +104,11 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: UsersProfileUpdatePayload,
   ) {
-    return wsRespond(() =>
-      this.usersService.updateProfile(actorId(client, payload), payload.data),
-    );
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(UsersProfileUpdatePayload, payload);
+      return this.usersService.updateProfile(userId, payload.data);
+    });
   }
 
   /**
@@ -123,7 +125,7 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('users:delete')
   deleteAccount(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: UsersDeletePayload,
+    @MessageBody() payload: UsersActorPayload,
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
@@ -136,7 +138,7 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('users:onboarding:complete')
   completeOnboarding(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: UsersOnboardingCompletePayload,
+    @MessageBody() payload: UsersActorPayload,
   ) {
     return wsRespond(() =>
       this.usersService.completeOnboarding(actorId(client, payload)),

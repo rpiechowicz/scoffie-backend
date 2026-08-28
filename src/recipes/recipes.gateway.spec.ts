@@ -3,13 +3,17 @@ import { RecipesGateway } from './recipes.gateway';
 import { RecipesService } from './recipes.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
-// Gateway ma na własność dwie rzeczy: skąd bierze tożsamość (socket z tokenem
+// Gateway ma na własność trzy rzeczy: skąd bierze tożsamość (socket z tokenem
 // ignoruje payload.userId, socket legacy ufa mu jak dawniej, anonim dostaje
-// UNAUTHORIZED w acku) i dokąd idzie `recipes:favoritesChanged` (pokój domu
-// + legacy, nigdy do całego serwera). Reszta to przekazanie do serwisu.
+// UNAUTHORIZED w acku), kopertę zdarzenia (brak `data`, nie-UUID → ack
+// VALIDATION_ERROR, serwis nietknięty) i dokąd idzie `recipes:favoritesChanged`
+// (pokój domu + legacy, nigdy do całego serwera). Reszta to przekazanie do serwisu.
 
-const HH = 'hh-1';
-const RECIPE = 'recipe-1';
+const HH = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+const RECIPE = '7adf5ec0-e3e5-4b28-8bb4-5515c780948c';
+const ING = '9b2f1c7e-4d3a-4b8e-9c1d-2e3f4a5b6c7d';
+// `actorId` w trybie legacy wymaga UUID w payload.userId (inaczej UNAUTHORIZED).
+const LEGACY_USER = '11111111-1111-4111-8111-111111111111';
 
 const tokenClient = (userId: string) =>
   ({ data: { userId, mode: 'token' } }) as any;
@@ -36,9 +40,17 @@ describe('RecipesGateway', () => {
       findAll: jest.fn().mockResolvedValue({ items: [], total: 0 }),
       findById: jest.fn().mockResolvedValue({ id: RECIPE }),
       create: jest.fn().mockResolvedValue({ id: RECIPE }),
-      setFavorite: jest
-        .fn()
-        .mockResolvedValue({ id: RECIPE, isFavorite: true }),
+      // Serwis oddaje ack (`recipe`) i zwalidowaną zmianę do broadcastu.
+      setFavorite: jest.fn().mockImplementation((_userId, data) =>
+        Promise.resolve({
+          recipe: { id: RECIPE, isFavorite: data.isFavorite },
+          change: {
+            recipeId: data.recipeId,
+            householdId: data.householdId,
+            isFavorite: data.isFavorite,
+          },
+        }),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -58,7 +70,25 @@ describe('RecipesGateway', () => {
 
   const filters = { householdId: HH, page: 1, limit: 24 };
   const favoriteData = { recipeId: RECIPE, householdId: HH, isFavorite: true };
-  const createData = { householdId: HH, name: 'Owsianka' };
+  // Pełne, poprawne DTO — koperta go nie waliduje (robi to serwis), ale test
+  // nie ma utrwalać payloadu, którego serwis by odrzucił.
+  const createData = {
+    householdId: HH,
+    title: 'Owsianka z bananem',
+    mealType: 'BREAKFAST',
+    difficulty: 'EASY',
+    prepTimeMinutes: 10,
+    servings: 2,
+    ingredients: [{ ingredientId: ING, amount: 100, unit: 'g' }],
+  };
+
+  const expectNoServiceCalls = () => {
+    for (const fn of Object.values(recipesService)) {
+      expect(fn).not.toHaveBeenCalled();
+    }
+    expect(emit).not.toHaveBeenCalled();
+    expect(to).not.toHaveBeenCalled();
+  };
 
   // Tabela: event, wywołanie handlera z (client, userId w payloadzie),
   // metoda serwisu i argumenty, których serwis ma się spodziewać dla userId.
@@ -115,11 +145,7 @@ describe('RecipesGateway', () => {
             status: 401,
           }),
         );
-        for (const fn of Object.values(recipesService)) {
-          expect(fn).not.toHaveBeenCalled();
-        }
-        expect(emit).not.toHaveBeenCalled();
-        expect(to).not.toHaveBeenCalled();
+        expectNoServiceCalls();
       });
 
       it('socket z tokenem: payload.userId jest ignorowane, serwis dostaje sub tokenu', async () => {
@@ -133,15 +159,115 @@ describe('RecipesGateway', () => {
       });
 
       it('socket legacy: serwis dostaje userId z payloadu', async () => {
-        const response = await call(legacyClient(), 'legacy-user');
+        const response = await call(legacyClient(), LEGACY_USER);
 
         expect(response).toEqual(expect.objectContaining({ ok: true }));
         expect(recipesService[method]).toHaveBeenCalledWith(
-          ...serviceArgs('legacy-user'),
+          ...serviceArgs(LEGACY_USER),
         );
       });
     },
   );
+
+  // Koperta: zła koperta z ważną tożsamością → VALIDATION_ERROR z `details`,
+  // serwis nietknięty. Anonim ze złą kopertą → nadal UNAUTHORIZED (kolejność:
+  // tożsamość przed kopertą).
+  const invalidEnvelopes: Array<{
+    name: string;
+    call: (client: any) => Promise<any>;
+    detail: RegExp;
+  }> = [
+    {
+      name: 'recipes:findAll z householdId nie-UUID',
+      call: (client) =>
+        gateway.findAll(client, { householdId: 'hh-1', filters } as any),
+      detail: /householdId must be a UUID/,
+    },
+    {
+      name: 'recipes:findAll z filters nie-obiektem',
+      call: (client) => gateway.findAll(client, { filters: 'DINNER' } as any),
+      detail: /filters must be an object/,
+    },
+    {
+      name: 'recipes:findById bez id',
+      call: (client) => gateway.findById(client, { householdId: HH } as any),
+      detail: /id must be a UUID/,
+    },
+    {
+      name: 'recipes:findById z id nie-UUID',
+      call: (client) => gateway.findById(client, { id: 'recipe-1' } as any),
+      detail: /id must be a UUID/,
+    },
+    {
+      name: 'recipes:create bez data',
+      call: (client) => gateway.create(client, {} as any),
+      detail: /data must be an object/,
+    },
+    {
+      name: 'recipes:create z data jako string',
+      call: (client) => gateway.create(client, { data: 'Owsianka' } as any),
+      detail: /data must be an object/,
+    },
+    {
+      name: 'recipes:setFavorite bez data',
+      call: (client) => gateway.setFavorite(client, {} as any),
+      detail: /data must be an object/,
+    },
+    {
+      name: 'recipes:setFavorite z payloadem undefined',
+      call: (client) => gateway.setFavorite(client, undefined as any),
+      detail: /data must be an object/,
+    },
+  ];
+
+  describe.each(invalidEnvelopes)('koperta: $name', ({ call, detail }) => {
+    it('socket z tokenem dostaje VALIDATION_ERROR 400 z details, serwis nietknięty', async () => {
+      const response = await call(tokenClient('user-1'));
+
+      expect(response).toEqual(
+        expect.objectContaining({
+          ok: false,
+          code: 'VALIDATION_ERROR',
+          status: 400,
+          details: expect.arrayContaining([expect.stringMatching(detail)]),
+        }),
+      );
+      expectNoServiceCalls();
+    });
+
+    it('anonimowy socket dostaje UNAUTHORIZED, nie VALIDATION_ERROR', async () => {
+      const response = await call(anonClient());
+
+      expect(response).toEqual(
+        expect.objectContaining({ ok: false, code: 'UNAUTHORIZED' }),
+      );
+      expectNoServiceCalls();
+    });
+  });
+
+  it('koperta: householdId UUID wielkimi literami przechodzi (iOS wysyła uuidString)', async () => {
+    const response = await gateway.findById(tokenClient('user-1'), {
+      id: RECIPE.toUpperCase(),
+      householdId: HH.toUpperCase(),
+    } as any);
+
+    expect(response).toEqual(expect.objectContaining({ ok: true }));
+    expect(recipesService.findById).toHaveBeenCalledWith(
+      'user-1',
+      RECIPE.toUpperCase(),
+      HH.toUpperCase(),
+    );
+  });
+
+  it('koperta: nieznane pola nie są błędem (stare buildy iOS je dokładają)', async () => {
+    const response = await gateway.findAll(tokenClient('user-1'), {
+      filters,
+      clientVersion: '1.2.3',
+    } as any);
+
+    expect(response).toEqual(expect.objectContaining({ ok: true }));
+    expect(recipesService.findAll).toHaveBeenCalledWith('user-1', filters);
+  });
 
   describe('recipes:findAll', () => {
     it('zwraca wynik serwisu w kopercie ack', async () => {
@@ -162,10 +288,21 @@ describe('RecipesGateway', () => {
 
       expect(recipesService.findAll).toHaveBeenCalledWith('user-1', undefined);
     });
+
+    it('zawartości filters koperta nie waliduje — to robi serwis (jedna warstwa)', async () => {
+      const badFilters = { mealType: 'BRUNCH' };
+
+      const response = await gateway.findAll(tokenClient('user-1'), {
+        filters: badFilters,
+      } as any);
+
+      expect(response).toEqual(expect.objectContaining({ ok: true }));
+      expect(recipesService.findAll).toHaveBeenCalledWith('user-1', badFilters);
+    });
   });
 
   describe('recipes:setFavorite', () => {
-    it('rozgłasza favoritesChanged do pokoju domu i legacy z tożsamością z socketu', async () => {
+    it('ack to szczegóły przepisu; broadcast idzie do pokoju domu i legacy ze zwalidowanej zmiany', async () => {
       const response = await gateway.setFavorite(tokenClient('user-1'), {
         userId: 'attacker',
         data: favoriteData,
@@ -186,9 +323,29 @@ describe('RecipesGateway', () => {
       });
     });
 
+    it('broadcast używa zmiany oddanej przez serwis, nie surowego payload.data', async () => {
+      const OTHER_HH = '22222222-2222-4222-8222-222222222222';
+      recipesService.setFavorite.mockResolvedValue({
+        recipe: { id: RECIPE, isFavorite: false },
+        change: { recipeId: RECIPE, householdId: OTHER_HH, isFavorite: false },
+      });
+
+      await gateway.setFavorite(tokenClient('user-1'), {
+        data: favoriteData,
+      } as any);
+
+      expect(to).toHaveBeenCalledWith([`household:${OTHER_HH}`, 'legacy']);
+      expect(emit).toHaveBeenCalledWith('recipes:favoritesChanged', {
+        householdId: OTHER_HH,
+        recipeId: RECIPE,
+        isFavorite: false,
+        changedByUserId: 'user-1',
+      });
+    });
+
     it('socket legacy: changedByUserId pochodzi z payloadu', async () => {
       await gateway.setFavorite(legacyClient(), {
-        userId: 'legacy-user',
+        userId: LEGACY_USER,
         data: { ...favoriteData, isFavorite: false },
       } as any);
 
@@ -197,7 +354,7 @@ describe('RecipesGateway', () => {
         householdId: HH,
         recipeId: RECIPE,
         isFavorite: false,
-        changedByUserId: 'legacy-user',
+        changedByUserId: LEGACY_USER,
       });
     });
 

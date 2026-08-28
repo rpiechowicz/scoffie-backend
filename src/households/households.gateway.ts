@@ -7,6 +7,8 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
+import { IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import { validateWsPayload } from '../common/validate-dto';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import type { AppSocket } from '../common/ws-socket';
@@ -28,94 +30,76 @@ import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
+/*
+ * Koperty zdarzeń. Każde pole MUSI mieć dekorator — `validateWsPayload`
+ * działa z whitelistą i pole bez dekoratora zostałoby wycięte. Koperta
+ * sprawdza tylko kształt i identyfikatory (`@IsUUID` zatrzymuje `hh-1` przed
+ * P2023 → 500); zawartość `data` waliduje serwis (`validateDto`), żeby każde
+ * pole miało dokładnie jeden komunikat w `details` — stąd `@IsObject` bez
+ * `@ValidateNested`. Wspólne kształty są spłaszczone przez dziedziczenie
+ * (class-validator zbiera metadane z całego łańcucha prototypów).
+ */
+
 class HouseholdsUserPayload {
   /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
   userId?: string;
 }
 
-class HouseholdsFindByIdPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
+class HouseholdsFindByIdPayload extends HouseholdsUserPayload {
+  @IsUUID()
   id: string;
 }
 
-class HouseholdsCreatePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
+class HouseholdsCreatePayload extends HouseholdsUserPayload {
+  @IsObject()
   data: CreateHouseholdDto;
 }
 
-class HouseholdsCreateInvitationPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
+/** `leave`, `listMembers` — sam dom. */
+class HouseholdsHouseholdPayload extends HouseholdsUserPayload {
+  @IsUUID()
   householdId: string;
-  data: CreateInvitationDto;
 }
 
-class HouseholdsAcceptInvitationPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
+class HouseholdsCreateInvitationPayload extends HouseholdsHouseholdPayload {
+  /** iOS wysyła `{}`, starsze buildy — nic; serwis przyjmuje `dto ?? {}`. */
+  @IsOptional()
+  @IsObject()
+  data?: CreateInvitationDto;
+}
+
+/** `acceptInvitation`, `previewInvitation`, `declineInvitation` — ten sam DTO z tokenem. */
+class HouseholdsInvitationPayload extends HouseholdsUserPayload {
+  @IsObject()
   data: AcceptInvitationDto;
 }
 
-class HouseholdsPreviewInvitationPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  data: AcceptInvitationDto;
-}
-
-class HouseholdsDeclineInvitationPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  data: AcceptInvitationDto;
-}
-
-class HouseholdsUpdateNamePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
+class HouseholdsUpdateNamePayload extends HouseholdsHouseholdPayload {
+  @IsObject()
   data: UpdateHouseholdDto;
 }
 
-class HouseholdsUpdateMealTypesPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
+class HouseholdsUpdateMealTypesPayload extends HouseholdsHouseholdPayload {
+  @IsObject()
   data: UpdateHouseholdMealTypesDto;
 }
 
-class HouseholdsUpdateMealTimesPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
+class HouseholdsUpdateMealTimesPayload extends HouseholdsHouseholdPayload {
+  @IsObject()
   data: UpdateHouseholdMealTimesDto;
 }
 
-class HouseholdsListMembersPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
+/** `removeMember` — dom + domownik. */
+class HouseholdsMemberPayload extends HouseholdsHouseholdPayload {
+  @IsUUID()
+  memberUserId: string;
 }
 
-class HouseholdsUpdateMemberRolePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  memberUserId: string;
+class HouseholdsUpdateMemberRolePayload extends HouseholdsMemberPayload {
+  @IsObject()
   data: UpdateMemberRoleDto;
-}
-
-class HouseholdsRemoveMemberPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  memberUserId: string;
-}
-
-class HouseholdsLeavePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
@@ -248,9 +232,13 @@ export class HouseholdsGateway
     @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: HouseholdsFindByIdPayload,
   ) {
-    return wsRespond(() =>
-      this.householdsService.findById(actorId(client, payload), payload.id),
-    );
+    return wsRespond(async () => {
+      // Najpierw tożsamość, potem koperta: anonimowy socket ma dostać
+      // UNAUTHORIZED, nie VALIDATION_ERROR (pilnuje tego ws-handlers-auth.spec).
+      const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsFindByIdPayload, payload);
+      return this.householdsService.findById(userId, payload.id);
+    });
   }
 
   @SubscribeMessage('households:create')
@@ -260,6 +248,7 @@ export class HouseholdsGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsCreatePayload, payload);
       const changedByDisplayName =
         await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.create(userId, payload.data);
@@ -281,22 +270,25 @@ export class HouseholdsGateway
     @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: HouseholdsCreateInvitationPayload,
   ) {
-    return wsRespond(() =>
-      this.householdsService.createInvitation(
-        actorId(client, payload),
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsCreateInvitationPayload, payload);
+      return this.householdsService.createInvitation(
+        userId,
         payload.householdId,
         payload.data,
-      ),
-    );
+      );
+    });
   }
 
   @SubscribeMessage('households:acceptInvitation')
   acceptInvitation(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: HouseholdsAcceptInvitationPayload,
+    @MessageBody() payload: HouseholdsInvitationPayload,
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsInvitationPayload, payload);
       const changedByDisplayName =
         await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.acceptInvitation(
@@ -375,10 +367,11 @@ export class HouseholdsGateway
   @SubscribeMessage('households:previewInvitation')
   previewInvitation(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: HouseholdsPreviewInvitationPayload,
+    @MessageBody() payload: HouseholdsInvitationPayload,
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsInvitationPayload, payload);
       const preview = await this.householdsService.previewInvitation(
         userId,
         payload.data,
@@ -419,14 +412,13 @@ export class HouseholdsGateway
   @SubscribeMessage('households:declineInvitation')
   declineInvitation(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: HouseholdsDeclineInvitationPayload,
+    @MessageBody() payload: HouseholdsInvitationPayload,
   ) {
-    return wsRespond(() =>
-      this.householdsService.declineInvitation(
-        actorId(client, payload),
-        payload.data,
-      ),
-    );
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsInvitationPayload, payload);
+      return this.householdsService.declineInvitation(userId, payload.data);
+    });
   }
 
   @SubscribeMessage('households:updateName')
@@ -436,6 +428,7 @@ export class HouseholdsGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsUpdateNamePayload, payload);
       const changedByDisplayName =
         await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.updateName(
@@ -468,6 +461,7 @@ export class HouseholdsGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsUpdateMealTypesPayload, payload);
       const changedByDisplayName =
         await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.updateMealTypes(
@@ -497,6 +491,7 @@ export class HouseholdsGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsUpdateMealTimesPayload, payload);
       const changedByDisplayName =
         await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.updateMealTimes(
@@ -522,14 +517,13 @@ export class HouseholdsGateway
   @SubscribeMessage('households:listMembers')
   listMembers(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: HouseholdsListMembersPayload,
+    @MessageBody() payload: HouseholdsHouseholdPayload,
   ) {
-    return wsRespond(() =>
-      this.householdsService.listMembers(
-        actorId(client, payload),
-        payload.householdId,
-      ),
-    );
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsHouseholdPayload, payload);
+      return this.householdsService.listMembers(userId, payload.householdId);
+    });
   }
 
   @SubscribeMessage('households:updateMemberRole')
@@ -539,6 +533,7 @@ export class HouseholdsGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsUpdateMemberRolePayload, payload);
       const changedByDisplayName =
         await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.updateMemberRole(
@@ -560,10 +555,11 @@ export class HouseholdsGateway
   @SubscribeMessage('households:removeMember')
   removeMember(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: HouseholdsRemoveMemberPayload,
+    @MessageBody() payload: HouseholdsMemberPayload,
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsMemberPayload, payload);
       const changedByDisplayName =
         await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.removeMember(
@@ -595,10 +591,11 @@ export class HouseholdsGateway
   @SubscribeMessage('households:leave')
   leave(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: HouseholdsLeavePayload,
+    @MessageBody() payload: HouseholdsHouseholdPayload,
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsHouseholdPayload, payload);
       const changedByDisplayName =
         await this.householdsService.getUserDisplayName(userId);
       const result = await this.householdsService.leave(

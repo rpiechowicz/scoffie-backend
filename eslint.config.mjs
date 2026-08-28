@@ -60,7 +60,13 @@ export default tseslint.config(
   },
   {
     // Testy, stuby, e2e — mocki i stuby są z natury „any-heavy"; nie blokujemy CI
-    files: ['**/*.spec.ts', '**/*.e2e-spec.ts', '**/*.stub.ts', 'test/**/*.ts'],
+    files: [
+      '**/*.spec.ts',
+      '**/*.spec-helper.ts',
+      '**/*.e2e-spec.ts',
+      '**/*.stub.ts',
+      'test/**/*.ts',
+    ],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',

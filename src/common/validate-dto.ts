@@ -50,6 +50,48 @@ class DtoValidationPipe extends ValidationPipe {
   }
 }
 
+/**
+ * Granice kształtu payloadu, sprawdzane iteracyjnie PRZED pipe'em:
+ * `stripProtoKeys` i `plainToInstance` schodzą rekurencyjnie po całym drzewie,
+ * więc ~40 000 poziomów zagnieżdżenia (240 KB, poniżej `maxHttpBufferSize`)
+ * kończyło się RangeError → INTERNAL_ERROR z pełnym stackiem w logu na każde
+ * wywołanie. Żaden legalny payload nie zbliża się do tych liczb (przepis:
+ * ~3 poziomy, ≤ 60 składników).
+ */
+const MAX_PAYLOAD_DEPTH = 32;
+const MAX_PAYLOAD_NODES = 10_000;
+
+function assertBoundedShape(plain: unknown): void {
+  if (plain === null || typeof plain !== 'object') return;
+  let nodes = 0;
+  const stack: Array<{ value: object; depth: number }> = [
+    { value: plain, depth: 0 },
+  ];
+  while (stack.length > 0) {
+    const next = stack.pop();
+    if (!next) break;
+    const { value, depth } = next;
+    nodes += 1;
+    if (nodes > MAX_PAYLOAD_NODES || depth > MAX_PAYLOAD_DEPTH) {
+      const detail = 'payload is too large or too deeply nested';
+      throw new AppException(
+        'VALIDATION_ERROR',
+        detail,
+        HttpStatus.BAD_REQUEST,
+        [detail],
+      );
+    }
+    const children = Array.isArray(value)
+      ? value
+      : Object.values(value as Record<string, unknown>);
+    for (const child of children) {
+      if (child !== null && typeof child === 'object') {
+        stack.push({ value: child, depth: depth + 1 });
+      }
+    }
+  }
+}
+
 const strictPipe = new DtoValidationPipe({
   whitelist: true,
   forbidNonWhitelisted: true,
@@ -75,7 +117,9 @@ export async function validateDto<T extends object>(
   plain: unknown,
   options: ValidateDtoOptions = {},
 ): Promise<T> {
-  const pipe = options.forbidNonWhitelisted === false ? lenientPipe : strictPipe;
+  assertBoundedShape(plain);
+  const pipe =
+    options.forbidNonWhitelisted === false ? lenientPipe : strictPipe;
   return (await pipe.transform(plain, { type: 'body', metatype: cls })) as T;
 }
 

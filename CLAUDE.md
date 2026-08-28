@@ -63,8 +63,15 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   WYŁĄCZNIE przez `actorId(client, payload)` (`src/common/ws-socket.ts`), broadcasty przez
   `broadcastToHousehold` do pokoju `household:<id>` (`src/common/ws-rooms.ts`). `WS_AUTH_MODE=soft`
   (domyślnie) wpuszcza stare buildy bez tokenu jako `legacy` z `payload.userId`; `strict` po adopcji
-  buildu iOS (metryki `/ops/metrics.wsAuth`). DTO decoratory nie działają na WS, walidacja jest
-  w serwisach.
+  buildu iOS (metryki `/ops/metrics.wsAuth`).
+- Walidacja wejścia (od Fazy 0, krok 2): globalny `ValidationPipe` obejmuje TYLKO HTTP, a pipe na
+  WS omijałby ack — dlatego JAWNIE: serwis waliduje DTO na wejściu (`dto = await validateDto(XDto, dto)`,
+  `src/common/validate-dto.ts`; ten sam pipe i format `details`, co HTTP; chroni też narzędzia
+  asystenta wołające serwisy in-process), handler WS waliduje kopertę (`await validateWsPayload(XPayload,
+payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w bramkach
+  (`ensureMembership`, `getHouseholdOrThrow`, …). Każde pole koperty MUSI mieć dekorator (whitelist
+  wycina resztę). Nowy handler bez wpisu w `src/common/ws-payload-fixtures.spec-helper.ts`
+  (VALID_PAYLOADS/INVALID_PAYLOADS per zdarzenie) = czerwony `ws-handlers-validation.spec.ts`.
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
   Puste tagi są dla reguł diet faktem („czysto”), nie brakiem danych.

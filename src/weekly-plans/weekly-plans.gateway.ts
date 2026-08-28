@@ -7,7 +7,15 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
+import {
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
+import { validateWsPayload } from '../common/validate-dto';
 import { wsRespond } from '../common/ws-response';
 import type { AppSocket } from '../common/ws-socket';
 import { actorId } from '../common/ws-socket';
@@ -22,103 +30,65 @@ import { Server, Socket } from 'socket.io';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
-class WeeklyPlansGetByWeekPayload {
+/**
+ * Koperty zdarzeń WS. Dekoratory są tu od Fazy 0 (krok 2) egzekwowane przez
+ * `validateWsPayload` w każdym handlerze — whitelist WYCINA pola bez
+ * dekoratora, więc każde pole, które handler czyta, musi mieć swój.
+ * `data` dostaje tylko `@IsObject()` (bez `@ValidateNested`): zawartość
+ * waliduje serwis przez `validateDto`, każde pole dokładnie raz, bez
+ * zdublowanych `details`. `weekStart` to `@IsString()` — format i „czy to
+ * poniedziałek" sprawdza `parseWeekStart` w serwisie.
+ */
+class WeeklyPlansHouseholdPayload {
   /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
   userId?: string;
-  householdId: string;
-  weekStart: string;
-}
 
-class WeeklyPlansGetShoppingListPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
+  @IsUUID()
   householdId: string;
-  weekStart: string;
-}
-
-class WeeklyPlansGetShoppingListStatePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  weekStart: string;
-}
-
-class WeeklyPlansArchiveShoppingListPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  weekStart: string;
-  weekLabel: string;
-}
-
-class WeeklyPlansSelectShoppingListArchivePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  archiveId: string;
-}
-
-class WeeklyPlansDeleteShoppingListArchivePayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  archiveId: string;
-}
-
-class WeeklyPlansDeleteAllShoppingListArchivesPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  weekStart: string;
-}
-
-class WeeklyPlansSetShoppingItemCheckedPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  weekStart: string;
-  data: UpdateShoppingItemCheckDto;
-}
-
-class WeeklyPlansUpsertWeekSlotPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  weekStart: string;
-  data: UpsertWeekSlotDto;
-}
-
-class WeeklyPlansRemoveWeekSlotPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  weekStart: string;
-  data: RemoveWeekSlotDto;
-}
-
-class WeeklyPlansSetMealEatenPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  weekStart: string;
-  data: SetMealEatenDto;
 }
 
 /**
- * DEPRECATED — patrz `getSavedPlan`. Do usunięcia razem z handlerem.
+ * Koperta większości zdarzeń (getByWeek, getShoppingList,
+ * getShoppingListState, deleteAllShoppingListArchives, getSavedPlan,
+ * clearWeekPlan): gospodarstwo + tydzień.
  */
-class WeeklyPlansGetSavedPlanPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
+class WeeklyPlansHouseholdWeekPayload extends WeeklyPlansHouseholdPayload {
+  @IsString()
   weekStart: string;
 }
 
-class WeeklyPlansClearWeekPlanPayload {
-  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
-  userId?: string;
-  householdId: string;
-  weekStart: string;
+class WeeklyPlansArchiveShoppingListPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsString()
+  @MaxLength(64)
+  weekLabel: string;
+}
+
+/** `selectShoppingListArchive` i `deleteShoppingListArchive`. */
+class WeeklyPlansShoppingListArchivePayload extends WeeklyPlansHouseholdPayload {
+  @IsUUID()
+  archiveId: string;
+}
+
+class WeeklyPlansSetShoppingItemCheckedPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: UpdateShoppingItemCheckDto;
+}
+
+class WeeklyPlansUpsertWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: UpsertWeekSlotDto;
+}
+
+class WeeklyPlansRemoveWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: RemoveWeekSlotDto;
+}
+
+class WeeklyPlansSetMealEatenPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: SetMealEatenDto;
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
@@ -229,43 +199,52 @@ export class WeeklyPlansGateway
   @SubscribeMessage('weeklyPlans:getByWeek')
   getByWeek(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: WeeklyPlansGetByWeekPayload,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
   ) {
-    return wsRespond(() =>
-      this.weeklyPlansService.getByHouseholdAndWeek(
-        actorId(client, payload),
+    return wsRespond(async () => {
+      // Kolejność jest ważna: najpierw tożsamość, potem koperta — anonimowy
+      // socket ma dostać UNAUTHORIZED, nie VALIDATION_ERROR (pilnuje tego
+      // `ws-handlers-auth.spec.ts`). Tak samo w każdym handlerze niżej.
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
+      return this.weeklyPlansService.getByHouseholdAndWeek(
+        userId,
         payload.householdId,
         payload.weekStart,
-      ),
-    );
+      );
+    });
   }
 
   @SubscribeMessage('weeklyPlans:getShoppingList')
   getShoppingList(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: WeeklyPlansGetShoppingListPayload,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
   ) {
-    return wsRespond(() =>
-      this.shoppingListService.getShoppingList(
-        actorId(client, payload),
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
+      return this.shoppingListService.getShoppingList(
+        userId,
         payload.householdId,
         payload.weekStart,
-      ),
-    );
+      );
+    });
   }
 
   @SubscribeMessage('weeklyPlans:getShoppingListState')
   getShoppingListState(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: WeeklyPlansGetShoppingListStatePayload,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
   ) {
-    return wsRespond(() =>
-      this.shoppingListService.getShoppingListState(
-        actorId(client, payload),
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
+      return this.shoppingListService.getShoppingListState(
+        userId,
         payload.householdId,
         payload.weekStart,
-      ),
-    );
+      );
+    });
   }
 
   @SubscribeMessage('weeklyPlans:archiveShoppingList')
@@ -275,6 +254,7 @@ export class WeeklyPlansGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansArchiveShoppingListPayload, payload);
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.shoppingListService.archiveShoppingList(
@@ -305,10 +285,11 @@ export class WeeklyPlansGateway
   @SubscribeMessage('weeklyPlans:selectShoppingListArchive')
   selectShoppingListArchive(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: WeeklyPlansSelectShoppingListArchivePayload,
+    @MessageBody() payload: WeeklyPlansShoppingListArchivePayload,
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansShoppingListArchivePayload, payload);
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.shoppingListService.selectShoppingListArchive(
@@ -332,10 +313,11 @@ export class WeeklyPlansGateway
   @SubscribeMessage('weeklyPlans:deleteShoppingListArchive')
   deleteShoppingListArchive(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: WeeklyPlansDeleteShoppingListArchivePayload,
+    @MessageBody() payload: WeeklyPlansShoppingListArchivePayload,
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansShoppingListArchivePayload, payload);
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.shoppingListService.deleteShoppingListArchive(
@@ -359,10 +341,11 @@ export class WeeklyPlansGateway
   @SubscribeMessage('weeklyPlans:deleteAllShoppingListArchives')
   deleteAllShoppingListArchives(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: WeeklyPlansDeleteAllShoppingListArchivesPayload,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(userId);
       const result =
@@ -391,6 +374,10 @@ export class WeeklyPlansGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(
+        WeeklyPlansSetShoppingItemCheckedPayload,
+        payload,
+      );
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.shoppingListService.setShoppingItemChecked(
@@ -430,6 +417,7 @@ export class WeeklyPlansGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansUpsertWeekSlotPayload, payload);
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.weeklyPlansService.upsertWeekSlot(
@@ -498,6 +486,7 @@ export class WeeklyPlansGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansRemoveWeekSlotPayload, payload);
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.weeklyPlansService.removeWeekSlot(
@@ -557,6 +546,7 @@ export class WeeklyPlansGateway
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansSetMealEatenPayload, payload);
       const result = await this.weeklyPlansService.setMealEaten(
         userId,
         payload.householdId,
@@ -605,30 +595,34 @@ export class WeeklyPlansGateway
    * Tożsamość nadal jest wymagana (`actorId`) — anonimowy socket dostaje
    * `UNAUTHORIZED` jak z każdego innego handlera, mimo że odpowiedź jest stała.
    *
-   * TODO(WP-03): usunąć razem z `WeeklyPlansGetSavedPlanPayload`, gdy nowa
-   * aplikacja będzie na (prawie) wszystkich telefonach.
+   * TODO(WP-03): usunąć, gdy nowa aplikacja będzie na (prawie) wszystkich
+   * telefonach.
    */
   @SubscribeMessage('weeklyPlans:getSavedPlan')
   getSavedPlan(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: WeeklyPlansGetSavedPlanPayload,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
   ) {
-    return wsRespond(() => {
+    return wsRespond(async () => {
       actorId(client, payload);
-      return Promise.resolve({
+      // Koperta walidowana mimo stałej odpowiedzi: `payload.weekStart` wraca
+      // do klienta, a bez bramki `payload === undefined` dawał TypeError.
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
+      return {
         weekStart: payload.weekStart,
         items: [] as never[],
-      });
+      };
     });
   }
 
   @SubscribeMessage('weeklyPlans:clearWeekPlan')
   clearWeekPlan(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: WeeklyPlansClearWeekPlanPayload,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
       const changedByDisplayName =
         await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.weeklyPlansService.clearWeekPlan(

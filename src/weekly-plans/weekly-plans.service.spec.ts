@@ -6,10 +6,13 @@ import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
-const mockHouseholdId = 'hh-1';
-const mockUserId = 'user-1';
-const mockOtherUserId = 'user-2';
-const mockRecipeId = 'recipe-uuid-1';
+// Prawdziwe UUID v4: od Fazy 0 `ensureMembership` i DTO bramkują format
+// (`assertUuid`/`@IsUUID()`), więc `hh-1` zatrzymałoby się na VALIDATION_ERROR
+// zanim test dotarłby do logiki, którą sprawdza.
+const mockHouseholdId = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+const mockUserId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const mockOtherUserId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const mockRecipeId = '33333333-3333-4333-8333-333333333333';
 const mockWeekStart = '2026-04-13'; // Monday
 
 const mockMembership = {
@@ -25,15 +28,6 @@ const mockHouseholdMembers = [
   { userId: mockUserId },
   { userId: mockOtherUserId },
 ];
-
-const mockPlanItem = {
-  id: 'plan-item-1',
-  weeklyPlanId: 'plan-1',
-  dayOfWeek: 'MON',
-  mealType: 'BREAKFAST',
-  recipeId: mockRecipeId,
-  plannedServings: 2,
-};
 
 const mockRecipe = {
   id: mockRecipeId,
@@ -63,18 +57,32 @@ const mockRecipe = {
       department: 'DAIRY',
     },
   ],
+  allergens: ['milk'],
+  dietTags: ['vegetarian'],
+  // Pusta lista jak w wierszach sprzed backfillu — mapowanie ma ją
+  // znormalizować do slotu bazowego, nie przepuścić pustą.
+  suitableMealTypes: [] as string[],
+};
+
+// Wiersz w kształcie `PLAN_ITEM_INCLUDE` — tak wracają `create`/`update`/
+// `findUniqueOrThrow`, a `withPlanItemRelationIds` czyta relacje bez `?.`.
+const mockPlanItem = {
+  id: 'plan-item-1',
+  weeklyPlanId: 'plan-1',
+  dayOfWeek: 'MON',
+  mealType: 'BREAKFAST',
+  recipeId: mockRecipeId,
+  plannedServings: 2,
+  recipe: mockRecipe,
+  participants: [] as { userId: string }[],
+  consumptions: [] as { userId: string }[],
 };
 
 const mockWeeklyPlan = {
   id: 'plan-1',
   householdId: mockHouseholdId,
   weekStart: new Date(mockWeekStart),
-  items: [
-    {
-      ...mockPlanItem,
-      recipe: mockRecipe,
-    },
-  ],
+  items: [mockPlanItem],
 };
 
 const mockShoppingItem = {
@@ -101,6 +109,8 @@ const makePrismaMock = () => {
     },
     weeklyPlan: {
       findUnique: jest.fn().mockResolvedValue(mockWeeklyPlan),
+      findUniqueOrThrow: jest.fn().mockResolvedValue(mockWeeklyPlan),
+      create: jest.fn().mockResolvedValue({ ...mockWeeklyPlan, items: [] }),
       upsert: jest.fn().mockResolvedValue({ id: 'plan-1' }),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
@@ -237,6 +247,104 @@ describe('WeeklyPlansService', () => {
     });
   });
 
+  // ─── upsertWeekSlot: walidacja DTO na wejściu ─────────────────────────────
+  //
+  // Dekoratory DTO nie działają na WS, więc serwis woła `validateDto` sam —
+  // PRZED pierwszym zapytaniem. Złe wejście = VALIDATION_ERROR z listą
+  // dozwolonych wartości, a Prisma nie jest tknięta (ani membership, ani
+  // transakcja).
+
+  describe('upsertWeekSlot — walidacja', () => {
+    const valid = {
+      dayOfWeek: 'MON',
+      mealType: 'BREAKFAST',
+      recipeId: mockRecipeId,
+    } as const;
+
+    const expectValidationError = async (
+      dto: unknown,
+      detail: string | RegExp,
+    ) => {
+      await expect(
+        service.upsertWeekSlot(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          dto as never,
+        ),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: 'VALIDATION_ERROR',
+          details: expect.arrayContaining([expect.stringMatching(detail)]),
+        },
+      });
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    };
+
+    it("dayOfWeek 'MONDAY' → VALIDATION_ERROR z listą MON..SUN, bez transakcji", async () => {
+      await expectValidationError(
+        { ...valid, dayOfWeek: 'MONDAY' },
+        /dayOfWeek must be one of the following values: MON, TUE, WED, THU, FRI, SAT, SUN/,
+      );
+    });
+
+    it("mealType 'SUPPER' → VALIDATION_ERROR z listą slotów", async () => {
+      await expectValidationError(
+        { ...valid, mealType: 'SUPPER' },
+        /mealType must be one of the following values: BREAKFAST, SECOND_BREAKFAST, LUNCH, AFTERNOON_SNACK, DINNER, SNACK/,
+      );
+    });
+
+    it("recipeId 'abc' → VALIDATION_ERROR", async () => {
+      await expectValidationError(
+        { ...valid, recipeId: 'abc' },
+        /recipeId must be a UUID/,
+      );
+    });
+
+    it('brak data (undefined) → VALIDATION_ERROR z listą brakujących pól, nie TypeError', async () => {
+      await expectValidationError(undefined, /dayOfWeek must be one of/);
+    });
+
+    it('nieznane pole (halucynacja asystenta) → VALIDATION_ERROR', async () => {
+      await expectValidationError(
+        { ...valid, portionSize: 3 },
+        /property portionSize should not exist/,
+      );
+    });
+
+    it('participantIds z nie-UUID → VALIDATION_ERROR', async () => {
+      await expectValidationError(
+        { ...valid, participantIds: ['ania'] },
+        /each value in participantIds must be a UUID/,
+      );
+    });
+
+    it('nie-UUID householdId → VALIDATION_ERROR z `ensureMembership`, zanim Prisma cokolwiek dostanie', async () => {
+      await expect(
+        service.upsertWeekSlot(mockUserId, 'hh-1', mockWeekStart, valid),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: 'VALIDATION_ERROR',
+          details: ['householdId must be a UUID'],
+        },
+      });
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('UUID wielkimi literami (iOS `uuidString`) przechodzi', async () => {
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...valid,
+        recipeId: mockRecipeId.toUpperCase(),
+      });
+
+      expect(prisma.planItem.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
   // ─── upsertWeekSlot: porcje ───────────────────────────────────────────────
 
   // Reguła auto-porcji siedzi w prywatnym `resolvePlannedServings`, więc
@@ -296,26 +404,39 @@ describe('WeeklyPlansService', () => {
       expectCreatedWithServings(4);
     });
 
-    it('wartość powyżej zakresu jest przycięta do 12', async () => {
+    it('górna granica 12 przechodzi dosłownie', async () => {
       await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
         ...baseSlot,
-        plannedServings: 99,
+        plannedServings: 12,
       });
 
       expectCreatedWithServings(12);
     });
 
-    it('wartość poniżej zakresu jest podciągnięta do 1', async () => {
-      // Koperty payloadów WS w gatewayu nie mają `@ValidateNested()` na polu
-      // `data`, więc dekoratory DTO nigdy się nie uruchamiają i zero naprawdę
-      // dochodzi do serwisu — klamra w kodzie jest jedyną obroną.
-      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
-        ...baseSlot,
-        plannedServings: 0,
-      });
-
-      expectCreatedWithServings(1);
-    });
+    it.each([0, 99, 2.5, '2'])(
+      'plannedServings %p → VALIDATION_ERROR zamiast cichego przycięcia',
+      async (plannedServings) => {
+        // Dawniej klamra w serwisie była jedyną obroną (dekoratory DTO nie
+        // działały na WS) i 99 cicho stawało się 12. Od Fazy 0 `@Min/@Max`
+        // odpalają się przez `validateDto`, więc klient i asystent dostają
+        // jasny błąd z zakresem, a klamra została jako druga linia.
+        await expect(
+          service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+            ...baseSlot,
+            plannedServings: plannedServings as number,
+          }),
+        ).rejects.toMatchObject({
+          status: 400,
+          response: {
+            code: 'VALIDATION_ERROR',
+            details: expect.arrayContaining([
+              expect.stringMatching(/plannedServings must/),
+            ]),
+          },
+        });
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      },
+    );
   });
 
   // ─── upsertWeekSlot: porcje na istniejącym itemie ─────────────────────────
@@ -436,15 +557,17 @@ describe('WeeklyPlansService', () => {
       expectUpdatedWithServings(3);
     });
 
-    it('jawnie podane porcje są klamrowane także na gałęzi UPDATE', async () => {
+    it('porcje poza zakresem nie dochodzą do gałęzi UPDATE (VALIDATION_ERROR)', async () => {
       mockExistingItem(2, []);
 
-      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
-        ...baseSlot,
-        plannedServings: 99,
-      });
+      await expect(
+        service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+          ...baseSlot,
+          plannedServings: 99,
+        }),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
 
-      expectUpdatedWithServings(12);
+      expect(prisma.planItem.update).not.toHaveBeenCalled();
     });
 
     // ─── changeKind ─────────────────────────────────────────────────────────
@@ -811,11 +934,15 @@ describe('WeeklyPlansService', () => {
           replaceRecipeId: 'abc',
         }),
       ).rejects.toMatchObject({
-        response: { code: 'VALIDATION_ERROR' },
+        response: {
+          code: 'VALIDATION_ERROR',
+          details: ['replaceRecipeId must be a UUID'],
+        },
         status: 400,
       });
 
       expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
     });
 
     it('duch po byłym domowniku nie blokuje podmiany i nie przechodzi dalej', async () => {
@@ -868,6 +995,52 @@ describe('WeeklyPlansService', () => {
         status: 403,
         response: { code: 'NOT_HOUSEHOLD_MEMBER' },
       });
+    });
+
+    it("dayOfWeek 'Monday' → VALIDATION_ERROR z listą dni, Prisma nietknięta", async () => {
+      await expect(
+        service.removeWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+          dayOfWeek: 'Monday' as never,
+          mealType: 'BREAKFAST',
+        }),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: 'VALIDATION_ERROR',
+          details: [
+            'dayOfWeek must be one of the following values: MON, TUE, WED, THU, FRI, SAT, SUN',
+          ],
+        },
+      });
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('recipeId nie-UUID → VALIDATION_ERROR (zamiast P2023 z Postgresa)', async () => {
+      await expect(
+        service.removeWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+          dayOfWeek: 'MON',
+          mealType: 'BREAKFAST',
+          recipeId: 'recipe-uuid-1',
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'VALIDATION_ERROR',
+          details: ['recipeId must be a UUID'],
+        },
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('brak data → VALIDATION_ERROR, nie TypeError', async () => {
+      await expect(
+        service.removeWeekSlot(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          undefined as never,
+        ),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
     });
   });
 
@@ -939,7 +1112,93 @@ describe('WeeklyPlansService', () => {
           recipeId: mockRecipeId,
           isEaten: true,
         }),
-      ).rejects.toMatchObject({ status: 404 });
+      ).rejects.toMatchObject({
+        status: 404,
+        response: { code: 'PLAN_ITEM_NOT_FOUND' },
+      });
+    });
+
+    it('brak wiersza tygodnia → PLAN_ITEM_NOT_FOUND 404, nie goły NotFoundException', async () => {
+      prisma.weeklyPlan.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.setMealEaten(mockUserId, mockHouseholdId, mockWeekStart, {
+          dayOfWeek: 'MON',
+          mealType: 'BREAKFAST',
+          recipeId: mockRecipeId,
+          isEaten: true,
+        }),
+      ).rejects.toMatchObject({
+        status: 404,
+        response: { code: 'PLAN_ITEM_NOT_FOUND' },
+      });
+      expect(prisma.planItem.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("isEaten 'yes' → VALIDATION_ERROR, nic nie zapisane", async () => {
+      // Truthy napis dawniej odhaczał posiłek — teraz `@IsBoolean()` działa
+      // także na WS, a serwis porównuje `=== true`.
+      await expect(
+        service.setMealEaten(mockUserId, mockHouseholdId, mockWeekStart, {
+          dayOfWeek: 'MON',
+          mealType: 'BREAKFAST',
+          recipeId: mockRecipeId,
+          isEaten: 'yes' as never,
+        }),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: 'VALIDATION_ERROR',
+          details: ['isEaten must be a boolean value'],
+        },
+      });
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+      expect(prisma.planItemConsumption.upsert).not.toHaveBeenCalled();
+      expect(prisma.planItemConsumption.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('brak recipeId → VALIDATION_ERROR', async () => {
+      await expect(
+        service.setMealEaten(mockUserId, mockHouseholdId, mockWeekStart, {
+          dayOfWeek: 'MON',
+          mealType: 'BREAKFAST',
+          isEaten: true,
+        } as never),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'VALIDATION_ERROR',
+          details: ['recipeId must be a UUID'],
+        },
+      });
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('oddaje item w kształcie z listy przepisów (suitableMealTypes znormalizowane)', async () => {
+      const result = await service.setMealEaten(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        {
+          dayOfWeek: 'MON',
+          mealType: 'BREAKFAST',
+          recipeId: mockRecipeId,
+          isEaten: true,
+        },
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          participantIds: [],
+          eatenByUserIds: [],
+          recipe: expect.objectContaining({
+            allergens: ['milk'],
+            dietTags: ['vegetarian'],
+            suitableMealTypes: ['BREAKFAST'],
+          }),
+        }),
+      );
+      expect(result).not.toHaveProperty('participants');
+      expect(result).not.toHaveProperty('consumptions');
     });
   });
 
@@ -1022,12 +1281,31 @@ describe('WeeklyPlansService', () => {
         response: { code: 'NOT_HOUSEHOLD_MEMBER' },
       });
     });
+
+    it("isChecked 'tak' → VALIDATION_ERROR, membership nie sprawdzane", async () => {
+      await expect(
+        shoppingListService.setShoppingItemChecked(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          { productKey: 'mleko', isChecked: 'tak' as never },
+        ),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: 'VALIDATION_ERROR',
+          details: ['isChecked must be a boolean value'],
+        },
+      });
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
   });
 
   // ─── getByHouseholdAndWeek ────────────────────────────────────────────────
 
   describe('getByHouseholdAndWeek', () => {
-    it('powinno zwrócić plan tygodniowy', async () => {
+    it('powinno zwrócić plan tygodniowy z weekStart jako YYYY-MM-DD', async () => {
       const result = await service.getByHouseholdAndWeek(
         mockUserId,
         mockHouseholdId,
@@ -1035,7 +1313,149 @@ describe('WeeklyPlansService', () => {
       );
 
       expect(prisma.membership.findUnique).toHaveBeenCalled();
-      expect(result).toBeDefined();
+      expect(prisma.weeklyPlan.create).not.toHaveBeenCalled();
+      // Jeden format tygodnia na drucie — ten sam, co w kopercie i w
+      // broadcastach; dotąd szedł tu ISO datetime z Prismy.
+      expect(result.weekStart).toBe(mockWeekStart);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toEqual(
+        expect.objectContaining({
+          id: 'plan-item-1',
+          participantIds: [],
+          eatenByUserIds: [],
+        }),
+      );
+    });
+
+    it('przepis w itemie ma allergens, dietTags i znormalizowane suitableMealTypes', async () => {
+      const result = await service.getByHouseholdAndWeek(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+      );
+
+      const select =
+        prisma.weeklyPlan.findUnique.mock.calls[0][0].include.items.include
+          .recipe.select;
+      expect(select).toEqual(
+        expect.objectContaining({
+          allergens: true,
+          dietTags: true,
+          suitableMealTypes: true,
+        }),
+      );
+      expect(result.items[0].recipe).toEqual(
+        expect.objectContaining({
+          allergens: ['milk'],
+          dietTags: ['vegetarian'],
+          // Pusta lista z bazy = „tylko slot bazowy", jak w `recipes:findAll`.
+          suitableMealTypes: ['BREAKFAST'],
+        }),
+      );
+    });
+
+    it('pusty tydzień → pusty plan w pełnym kształcie, nie 404', async () => {
+      // iOS dekoduje `id` i `weekStart` jako wymagane, a asystent nie może
+      // dostawać 404 za „jeszcze nic nie zaplanowano" — wiersz zakładamy
+      // przy odczycie (precedens: `clearWeekPlan` zostawia pusty wiersz).
+      prisma.weeklyPlan.findUnique.mockResolvedValue(null);
+      prisma.weeklyPlan.create.mockResolvedValue({
+        id: 'plan-new',
+        householdId: mockHouseholdId,
+        weekStart: new Date(mockWeekStart),
+        items: [],
+      });
+
+      const result = await service.getByHouseholdAndWeek(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+      );
+
+      expect(prisma.weeklyPlan.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            householdId: mockHouseholdId,
+            weekStart: new Date(`${mockWeekStart}T00:00:00.000Z`),
+          },
+        }),
+      );
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'plan-new',
+          householdId: mockHouseholdId,
+          weekStart: mockWeekStart,
+          items: [],
+        }),
+      );
+    });
+
+    it('wyścig dwóch telefonów o pusty tydzień (P2002) → ponowny odczyt, nie CONFLICT', async () => {
+      prisma.weeklyPlan.findUnique.mockResolvedValue(null);
+      prisma.weeklyPlan.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('duplicate', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+      prisma.weeklyPlan.findUniqueOrThrow.mockResolvedValue({
+        ...mockWeeklyPlan,
+        id: 'plan-from-other-phone',
+      });
+
+      const result = await service.getByHouseholdAndWeek(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+      );
+
+      expect(prisma.weeklyPlan.findUniqueOrThrow).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'plan-from-other-phone',
+          weekStart: mockWeekStart,
+        }),
+      );
+      expect(result.items).toHaveLength(1);
+    });
+
+    it('inny błąd Prismy przy zakładaniu wiersza leci dalej', async () => {
+      prisma.weeklyPlan.findUnique.mockResolvedValue(null);
+      prisma.weeklyPlan.create.mockRejectedValue(new Error('db down'));
+
+      await expect(
+        service.getByHouseholdAndWeek(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+        ),
+      ).rejects.toThrow('db down');
+      expect(prisma.weeklyPlan.findUniqueOrThrow).not.toHaveBeenCalled();
+    });
+
+    it('nie-UUID householdId → VALIDATION_ERROR przed jakimkolwiek zapytaniem', async () => {
+      await expect(
+        service.getByHouseholdAndWeek(mockUserId, 'hh-1', mockWeekStart),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: 'VALIDATION_ERROR',
+          details: ['householdId must be a UUID'],
+        },
+      });
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+      expect(prisma.weeklyPlan.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('weekStart, który nie jest poniedziałkiem → VALIDATION_ERROR, wiersz nie powstaje', async () => {
+      await expect(
+        service.getByHouseholdAndWeek(
+          mockUserId,
+          mockHouseholdId,
+          '2026-04-14',
+        ),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
+      expect(prisma.weeklyPlan.create).not.toHaveBeenCalled();
     });
 
     it('powinno odrzucić gdy użytkownik nie jest członkiem', async () => {

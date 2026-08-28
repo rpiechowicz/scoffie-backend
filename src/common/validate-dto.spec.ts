@@ -123,16 +123,19 @@ describe('validateDto', () => {
     ['null', null],
     ['string', 'x'],
     ['number', 42],
-  ])('brak data (%s) → lista brakujących pól, nie TypeError', async (_, raw) => {
-    const error = await failure(validateDto(SlotDto, raw));
-    expect(error.code).toBe('VALIDATION_ERROR');
-    expect(error.details).toEqual(
-      expect.arrayContaining([
-        'dayOfWeek must be one of the following values: MON, TUE, WED',
-        'recipeId must be a UUID',
-      ]),
-    );
-  });
+  ])(
+    'brak data (%s) → lista brakujących pól, nie TypeError',
+    async (_, raw) => {
+      const error = await failure(validateDto(SlotDto, raw));
+      expect(error.code).toBe('VALIDATION_ERROR');
+      expect(error.details).toEqual(
+        expect.arrayContaining([
+          'dayOfWeek must be one of the following values: MON, TUE, WED',
+          'recipeId must be a UUID',
+        ]),
+      );
+    },
+  );
 
   it('liczba jako string bez @Type → błąd; z @Transform → skonwertowana', async () => {
     const error = await failure(
@@ -152,7 +155,11 @@ describe('validateDto', () => {
 
   it('boolean jako string → błąd (bez niejawnej konwersji: "false" byłoby true)', async () => {
     const error = await failure(
-      validateDto(SlotDto, { dayOfWeek: 'MON', recipeId: UUID, isEaten: 'false' }),
+      validateDto(SlotDto, {
+        dayOfWeek: 'MON',
+        recipeId: UUID,
+        isEaten: 'false',
+      }),
     );
     expect(error.details).toEqual(['isEaten must be a boolean value']);
   });
@@ -179,6 +186,43 @@ describe('validateDto', () => {
     );
     expect(error.details).toEqual(['data.recipeId must be a UUID']);
   });
+
+  it.each([
+    [
+      'głębokość 40 000',
+      () => {
+        let node: Record<string, unknown> = {};
+        const root = node;
+        for (let i = 0; i < 40_000; i += 1) {
+          const next: Record<string, unknown> = {};
+          node.a = next;
+          node = next;
+        }
+        return root;
+      },
+    ],
+    [
+      '20 000 węzłów',
+      () => ({
+        list: Array.from({ length: 20_000 }, () => ({})),
+      }),
+    ],
+  ])(
+    '%s → VALIDATION_ERROR zamiast RangeError (rekurencyjny pipe)',
+    async (_label, build) => {
+      const error = await failure(
+        validateDto(SlotDto, {
+          dayOfWeek: 'MON',
+          recipeId: UUID,
+          extra: build(),
+        }),
+      );
+      expect(error.code).toBe('VALIDATION_ERROR');
+      expect(error.details).toEqual([
+        'payload is too large or too deeply nested',
+      ]);
+    },
+  );
 
   it('klucze prototypu są wycinane, zanim trafią do instancji', async () => {
     const dto = await validateDto(
@@ -234,9 +278,21 @@ describe('validateWsPayload', () => {
   });
 
   it.each([
-    ['brak payloadu', undefined, ['householdId must be a UUID', 'data must be an object']],
-    ['householdId nie-UUID', { householdId: 'hh-1', data: {} }, ['householdId must be a UUID']],
-    ['data nie-obiekt', { householdId: UUID, data: 'x' }, ['data must be an object']],
+    [
+      'brak payloadu',
+      undefined,
+      ['householdId must be a UUID', 'data must be an object'],
+    ],
+    [
+      'householdId nie-UUID',
+      { householdId: 'hh-1', data: {} },
+      ['householdId must be a UUID'],
+    ],
+    [
+      'data nie-obiekt',
+      { householdId: UUID, data: 'x' },
+      ['data must be an object'],
+    ],
     ['brak data', { householdId: UUID }, ['data must be an object']],
   ])('%s → VALIDATION_ERROR', async (_, raw, details) => {
     const error = await failure(validateWsPayload(Envelope, raw));
