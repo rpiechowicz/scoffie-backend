@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, Logger } from '@nestjs/common';
 import { ShoppingListService } from './shopping-list.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -99,6 +99,13 @@ const makePrismaMock = () => {
     },
     shoppingListArchiveState: {
       findUnique: jest.fn().mockResolvedValue(null),
+      upsert: jest.fn().mockResolvedValue({}),
+    },
+    shoppingListArchive: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      aggregate: jest.fn().mockResolvedValue({ _max: { revision: null } }),
+      create: jest.fn().mockResolvedValue({ id: 'arch-new' }),
+      update: jest.fn().mockResolvedValue({}),
     },
     $transaction: jest.fn().mockImplementation((cbOrOps: any) => {
       if (typeof cbOrOps === 'function') {
@@ -404,5 +411,206 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
     prisma.membership.findUnique.mockResolvedValue(null);
 
     await expect(getList()).rejects.toThrow(ForbiddenException);
+  });
+});
+
+// ─── Zaznaczenia przy przebudowie i archiwum ──────────────────────────────────
+//
+// Przebudowa listy nie może gubić tego, co użytkownik odhaczył, ani udawać,
+// że nic się nie zmieniło, gdy do zamkniętego tygodnia doszły zakupy.
+// Kolejność źródeł: delta względem bieżącego archiwum wymusza „nie" →
+// bieżący snapshot → stare `ShoppingItemCheck` → „nie".
+
+describe('ShoppingListService — zaznaczenia i archiwum', () => {
+  let service: ShoppingListService;
+  let prisma: ReturnType<typeof makePrismaMock>;
+
+  const ziemniaki = (amount = 500) =>
+    weekPlanWith([
+      dayItem('i-1', 1, 'LUNCH', [ingredient('ziemniak', amount)]),
+    ]);
+
+  beforeEach(async () => {
+    prisma = makePrismaMock();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ShoppingListService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+    service = module.get<ShoppingListService>(ShoppingListService);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  const getList = () =>
+    service.getShoppingList(mockUserId, mockHouseholdId, mockWeekStart);
+
+  it('przenosi zaznaczenie z bieżącego snapshotu', async () => {
+    prisma.weeklyPlan.findUnique.mockResolvedValue(ziemniaki());
+    prisma.shoppingList.upsert.mockResolvedValue({
+      id: 'sl-1',
+      items: [{ productKey: 'ziemniak::g', isChecked: true }],
+    });
+
+    const items = await getList();
+
+    expect(findItem(items, 'ziemniak').isChecked).toBe(true);
+  });
+
+  it('bez snapshotu bierze zaznaczenie ze starego ShoppingItemCheck', async () => {
+    prisma.weeklyPlan.findUnique.mockResolvedValue(ziemniaki());
+    prisma.shoppingItemCheck.findMany.mockResolvedValue([
+      { productKey: 'ziemniak::g', isChecked: true },
+    ]);
+
+    const items = await getList();
+
+    expect(findItem(items, 'ziemniak').isChecked).toBe(true);
+  });
+
+  it('wzrost ilości względem bieżącego archiwum odznacza pozycję', async () => {
+    prisma.weeklyPlan.findUnique.mockResolvedValue(ziemniaki(750));
+    prisma.shoppingList.upsert.mockResolvedValue({
+      id: 'sl-1',
+      items: [{ productKey: 'ziemniak::g', isChecked: true }],
+    });
+    prisma.shoppingListArchiveState.findUnique.mockResolvedValue({
+      currentArchiveId: 'arch-1',
+      currentArchive: {
+        items: [{ productKey: 'ziemniak::g', totalAmount: 500 }],
+      },
+    });
+
+    const items = await getList();
+
+    expect(findItem(items, 'ziemniak').isChecked).toBe(false);
+  });
+
+  it('ta sama ilość po zaokrągleniu nie odznacza (baseline z archiwum ma 2 miejsca)', async () => {
+    // 0.375 g szczypty w sumie vs 0.38 g zapisane w archiwum — bez
+    // zaokrąglenia przed porównaniem każde odświeżenie zdejmowało ptaszek.
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'LUNCH', [ingredient('sól', 0.375)]),
+      ]),
+    );
+    prisma.shoppingList.upsert.mockResolvedValue({
+      id: 'sl-1',
+      items: [{ productKey: 'sól::g', isChecked: true }],
+    });
+    prisma.shoppingListArchiveState.findUnique.mockResolvedValue({
+      currentArchiveId: 'arch-1',
+      currentArchive: { items: [{ productKey: 'sól::g', totalAmount: 0.38 }] },
+    });
+
+    const items = await getList();
+
+    expect(findItem(items, 'sol').isChecked).toBe(true);
+  });
+
+  it('składnik bez normalizedAmount wchodzi w surowej ilości i zostawia ostrzeżenie', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'LUNCH', [
+          {
+            name: 'tajemniczy proszek',
+            amount: 3,
+            unit: 'łyżeczka',
+            normalizedAmount: null as unknown as number,
+            normalizedUnit: null as unknown as string,
+            department: 'Inne',
+          },
+        ]),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(findItem(items, 'tajemniczy')).toMatchObject({
+      totalAmount: 3,
+      unit: 'łyżeczka',
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('tajemniczy proszek'),
+    );
+  });
+
+  describe('archiveShoppingList', () => {
+    const archive = () =>
+      service.archiveShoppingList(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        'Tydzień 16',
+      );
+
+    it('pusta lista → SHOPPING_LIST_EMPTY', async () => {
+      await expect(archive()).rejects.toMatchObject({
+        response: { code: 'SHOPPING_LIST_EMPTY' },
+      });
+    });
+
+    it('nieodhaczone pozycje → SHOPPING_LIST_NOT_COMPLETED', async () => {
+      prisma.weeklyPlan.findUnique.mockResolvedValue(ziemniaki());
+
+      await expect(archive()).rejects.toMatchObject({
+        response: { code: 'SHOPPING_LIST_NOT_COMPLETED' },
+      });
+      expect(prisma.shoppingListArchive.create).not.toHaveBeenCalled();
+    });
+
+    it('nowy zestaw dostaje revision max+1 i staje się bieżącym archiwum', async () => {
+      prisma.weeklyPlan.findUnique.mockResolvedValue(ziemniaki());
+      prisma.shoppingList.upsert.mockResolvedValue({
+        id: 'sl-1',
+        items: [{ productKey: 'ziemniak::g', isChecked: true }],
+      });
+      prisma.shoppingListArchive.aggregate.mockResolvedValue({
+        _max: { revision: 2 },
+      });
+
+      const result = await archive();
+
+      expect(prisma.shoppingListArchive.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            revision: 3,
+            weekLabel: 'Tydzień 16',
+            signature: expect.stringContaining('ziemniak::g|500.000000'),
+          }),
+        }),
+      );
+      expect(prisma.shoppingListArchiveState.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: { currentArchiveId: 'arch-new' },
+        }),
+      );
+      expect(result).toEqual({ archiveId: 'arch-new' });
+    });
+
+    it('ten sam zestaw → to samo archiwum, bez podbijania revision', async () => {
+      prisma.weeklyPlan.findUnique.mockResolvedValue(ziemniaki());
+      prisma.shoppingList.upsert.mockResolvedValue({
+        id: 'sl-1',
+        items: [{ productKey: 'ziemniak::g', isChecked: true }],
+      });
+      prisma.shoppingListArchive.findUnique.mockResolvedValue({
+        id: 'arch-9',
+        revision: 2,
+      });
+
+      const result = await archive();
+
+      expect(prisma.shoppingListArchive.create).not.toHaveBeenCalled();
+      expect(prisma.shoppingListArchive.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'arch-9' },
+          data: expect.objectContaining({ weekLabel: 'Tydzień 16' }),
+        }),
+      );
+      expect(result).toEqual({ archiveId: 'arch-9' });
+    });
   });
 });

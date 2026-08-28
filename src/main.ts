@@ -1,8 +1,7 @@
-import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
 import { AppModule } from './app.module';
+import { configureApp } from './app.setup';
 import { assertRuntimeEnv } from './config/assert-env';
 
 async function bootstrap() {
@@ -10,27 +9,13 @@ async function bootstrap() {
   // a nie wyjść dopiero jako podrabialny token przy pierwszym logowaniu.
   assertRuntimeEnv();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  const extraOrigins = (process.env.CORS_ORIGIN ?? '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter((origin) => origin.length > 0);
-  const allowedOrigins = ['http://localhost:5173', ...extraOrigins];
-
-  app.enableCors({
-    origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
-    exposedHeaders: ['x-access-token', 'x-request-id'],
-  });
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-  app.useStaticAssets(join(process.cwd(), 'public'), { prefix: '/static/' });
-
+  configureApp(app);
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+
+bootstrap().catch((error: unknown) => {
+  // Nieobsłużona obietnica kończyła się ostrzeżeniem Node i procesem,
+  // który „żyje", ale nie słucha — platforma widziała kontener jako zdrowy.
+  console.error('[bootstrap] start failed:', error);
+  process.exit(1);
+});
