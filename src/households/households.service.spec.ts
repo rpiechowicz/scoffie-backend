@@ -19,8 +19,20 @@ const HH = 'hh-1';
 const OTHER_HH = 'hh-old';
 
 const household = { id: HH, name: 'Dom', createdById: OWNER };
-const ownerMembership = { id: 'm-owner', userId: OWNER, householdId: HH, role: 'OWNER' as const, createdAt: new Date('2026-01-01') };
-const memberMembership = { id: 'm-member', userId: MEMBER, householdId: HH, role: 'MEMBER' as const, createdAt: new Date('2026-02-01') };
+const ownerMembership = {
+  id: 'm-owner',
+  userId: OWNER,
+  householdId: HH,
+  role: 'OWNER' as const,
+  createdAt: new Date('2026-01-01'),
+};
+const memberMembership = {
+  id: 'm-member',
+  userId: MEMBER,
+  householdId: HH,
+  role: 'MEMBER' as const,
+  createdAt: new Date('2026-02-01'),
+};
 
 const futureInvitation = () => ({
   id: 'inv-1',
@@ -37,7 +49,10 @@ const futureInvitation = () => ({
 
 type MockState = {
   /** Członkostwa w domu HH (dla `settleHouseholdAfterMemberLeft`, listMembers). */
-  membersOfHousehold: Record<string, Array<typeof ownerMembership | typeof memberMembership>>;
+  membersOfHousehold: Record<
+    string,
+    Array<typeof ownerMembership | typeof memberMembership>
+  >;
   /** Członkostwa użytkownika (dla `acceptInvitation`, `create`). */
   membershipsOfUser: Record<string, Array<{ householdId: string }>>;
   /** Kolejka odpowiedzi `membership.count({ householdId })` per dom. */
@@ -50,12 +65,16 @@ const makePrismaMock = (state: MockState) => {
     household: {
       findUnique: jest.fn().mockResolvedValue(household),
       findMany: jest.fn().mockResolvedValue([household]),
-      create: jest.fn().mockImplementation(({ data }: any) =>
-        Promise.resolve({ id: 'hh-new', ...data }),
-      ),
-      update: jest.fn().mockImplementation(({ data }: any) =>
-        Promise.resolve({ ...household, ...data }),
-      ),
+      create: jest
+        .fn()
+        .mockImplementation(({ data }: any) =>
+          Promise.resolve({ id: 'hh-new', ...data }),
+        ),
+      update: jest
+        .fn()
+        .mockImplementation(({ data }: any) =>
+          Promise.resolve({ ...household, ...data }),
+        ),
       delete: jest.fn().mockResolvedValue(household),
     },
     membership: {
@@ -66,9 +85,11 @@ const makePrismaMock = (state: MockState) => {
         );
         return Promise.resolve(found ?? null);
       }),
-      findFirst: jest.fn().mockImplementation(({ where }: any) =>
-        Promise.resolve(state.membershipsOfUser[where.userId]?.[0] ?? null),
-      ),
+      findFirst: jest
+        .fn()
+        .mockImplementation(({ where }: any) =>
+          Promise.resolve(state.membershipsOfUser[where.userId]?.[0] ?? null),
+        ),
       findMany: jest.fn().mockImplementation(({ where }: any) => {
         if (where?.userId) {
           const all = state.membershipsOfUser[where.userId] ?? [];
@@ -77,7 +98,9 @@ const makePrismaMock = (state: MockState) => {
             not ? all.filter((m) => m.householdId !== not) : all,
           );
         }
-        return Promise.resolve(state.membersOfHousehold[where.householdId] ?? []);
+        return Promise.resolve(
+          state.membersOfHousehold[where.householdId] ?? [],
+        );
       }),
       count: jest.fn().mockImplementation(({ where }: any) => {
         if (where?.role === 'OWNER') return Promise.resolve(state.ownerCount);
@@ -89,25 +112,35 @@ const makePrismaMock = (state: MockState) => {
           (state.membersOfHousehold[where.householdId] ?? []).length,
         );
       }),
-      create: jest.fn().mockImplementation(({ data }: any) =>
-        Promise.resolve({ id: 'm-new', ...data }),
-      ),
-      upsert: jest.fn().mockImplementation(({ create }: any) =>
-        Promise.resolve({ id: 'm-joined', ...create }),
-      ),
-      update: jest.fn().mockImplementation(({ where, data }: any) =>
-        Promise.resolve({ ...where, ...data }),
-      ),
-      delete: jest.fn().mockImplementation(({ where }: any) =>
-        Promise.resolve({ id: 'm-deleted', ...where.userId_householdId }),
-      ),
+      create: jest
+        .fn()
+        .mockImplementation(({ data }: any) =>
+          Promise.resolve({ id: 'm-new', ...data }),
+        ),
+      upsert: jest
+        .fn()
+        .mockImplementation(({ create }: any) =>
+          Promise.resolve({ id: 'm-joined', ...create }),
+        ),
+      update: jest
+        .fn()
+        .mockImplementation(({ where, data }: any) =>
+          Promise.resolve({ ...where, ...data }),
+        ),
+      delete: jest
+        .fn()
+        .mockImplementation(({ where }: any) =>
+          Promise.resolve({ id: 'm-deleted', ...where.userId_householdId }),
+        ),
     },
     invitation: {
       findUnique: jest.fn().mockResolvedValue(null),
       findMany: jest.fn().mockResolvedValue([]),
-      create: jest.fn().mockImplementation(({ data }: any) =>
-        Promise.resolve({ id: 'inv-new', ...data }),
-      ),
+      create: jest
+        .fn()
+        .mockImplementation(({ data }: any) =>
+          Promise.resolve({ id: 'inv-new', ...data }),
+        ),
       update: jest.fn().mockResolvedValue({}),
     },
     user: {
@@ -261,12 +294,22 @@ describe('HouseholdsService', () => {
     });
 
     it('nieznany token → NotFound', async () => {
-      await expect(service.acceptInvitation(STRANGER, dto)).rejects.toMatchObject({ response: { code: 'INVITATION_NOT_FOUND' } });
+      await expect(
+        service.acceptInvitation(STRANGER, dto),
+      ).rejects.toMatchObject({ response: { code: 'INVITATION_NOT_FOUND' } });
     });
 
     it.each([
-      ['wykorzystane', { redeemedAt: new Date() }, 'INVITATION_ALREADY_REDEEMED'],
-      ['po terminie', { expiresAt: new Date(Date.now() - 1000) }, 'INVITATION_EXPIRED'],
+      [
+        'wykorzystane',
+        { redeemedAt: new Date() },
+        'INVITATION_ALREADY_REDEEMED',
+      ],
+      [
+        'po terminie',
+        { expiresAt: new Date(Date.now() - 1000) },
+        'INVITATION_EXPIRED',
+      ],
       ['odrzucone', { declinedAt: new Date() }, 'INVITATION_DECLINED'],
     ])('%s → %s', async (_label, patch, code) => {
       prisma.invitation.findUnique.mockResolvedValue({
@@ -341,7 +384,12 @@ describe('HouseholdsService', () => {
       prisma.invitation.findUnique.mockResolvedValue(futureInvitation());
       state.membershipsOfUser[STRANGER] = [{ householdId: OTHER_HH }];
       state.membersOfHousehold[OTHER_HH] = [
-        { ...ownerMembership, id: 'm-x', userId: 'user-x', householdId: OTHER_HH },
+        {
+          ...ownerMembership,
+          id: 'm-x',
+          userId: 'user-x',
+          householdId: OTHER_HH,
+        },
       ];
       state.memberCounts[OTHER_HH] = [1];
       state.memberCounts[HH] = [1, 2];
@@ -352,7 +400,9 @@ describe('HouseholdsService', () => {
       });
 
       expect(prisma.membership.delete).toHaveBeenCalledWith({
-        where: { userId_householdId: { userId: STRANGER, householdId: OTHER_HH } },
+        where: {
+          userId_householdId: { userId: STRANGER, householdId: OTHER_HH },
+        },
       });
       // Stary dom ma właściciela → zostaje; hook zdejmuje duchy odchodzącego.
       expect(prisma.household.delete).not.toHaveBeenCalled();
@@ -528,7 +578,9 @@ describe('HouseholdsService', () => {
     });
 
     it('nie-członek dostaje 403', async () => {
-      await expect(service.listMembers(STRANGER, HH)).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+      await expect(service.listMembers(STRANGER, HH)).rejects.toMatchObject({
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
     });
   });
 
@@ -558,7 +610,9 @@ describe('HouseholdsService', () => {
 
   describe('removeMember', () => {
     it('nie-właściciel nie usuwa nikogo', async () => {
-      await expect(service.removeMember(MEMBER, HH, OWNER)).rejects.toMatchObject({ response: { code: 'OWNER_REQUIRED' } });
+      await expect(
+        service.removeMember(MEMBER, HH, OWNER),
+      ).rejects.toMatchObject({ response: { code: 'OWNER_REQUIRED' } });
     });
 
     it('ostatniego właściciela nie da się usunąć', async () => {
@@ -639,7 +693,9 @@ describe('HouseholdsService', () => {
     });
 
     it('nie-członek nie może wyjść z cudzego domu', async () => {
-      await expect(service.leave(STRANGER, HH)).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+      await expect(service.leave(STRANGER, HH)).rejects.toMatchObject({
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
     });
   });
 

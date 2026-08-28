@@ -410,7 +410,10 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
   it('powinno odrzucić gdy użytkownik nie jest członkiem household', async () => {
     prisma.membership.findUnique.mockResolvedValue(null);
 
-    await expect(getList()).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+    await expect(getList()).rejects.toMatchObject({
+      status: 403,
+      response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+    });
   });
 });
 
@@ -491,9 +494,7 @@ describe('ShoppingListService — zaznaczenia i archiwum', () => {
     // 0.375 g szczypty w sumie vs 0.38 g zapisane w archiwum — bez
     // zaokrąglenia przed porównaniem każde odświeżenie zdejmowało ptaszek.
     prisma.weeklyPlan.findUnique.mockResolvedValue(
-      weekPlanWith([
-        dayItem('i-1', 1, 'LUNCH', [ingredient('sól', 0.375)]),
-      ]),
+      weekPlanWith([dayItem('i-1', 1, 'LUNCH', [ingredient('sól', 0.375)])]),
     );
     prisma.shoppingList.upsert.mockResolvedValue({
       id: 'sl-1',
@@ -510,7 +511,9 @@ describe('ShoppingListService — zaznaczenia i archiwum', () => {
   });
 
   it('składnik bez normalizedAmount wchodzi w surowej ilości i zostawia ostrzeżenie', async () => {
-    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
     prisma.weeklyPlan.findUnique.mockResolvedValue(
       weekPlanWith([
         dayItem('i-1', 1, 'LUNCH', [

@@ -37,9 +37,7 @@ describe('OpsTokenGuard', () => {
   it('z OPS_TOKEN wymaga zgodnego nagłówka', () => {
     process.env.OPS_TOKEN = 'sekret-ops-123';
     expect(guard.canActivate(contextWithHeader('sekret-ops-123'))).toBe(true);
-    expect(guard.canActivate(contextWithHeader(' sekret-ops-123 '))).toBe(
-      true,
-    );
+    expect(guard.canActivate(contextWithHeader(' sekret-ops-123 '))).toBe(true);
     expect(() => guard.canActivate(contextWithHeader('zly'))).toThrow(
       ForbiddenException,
     );

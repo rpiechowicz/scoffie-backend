@@ -68,14 +68,11 @@ describe('inspectRuntimeEnv', () => {
       { AUTH_DEV_LOGIN_ENABLED: 'true' },
       /AUTH_DEV_LOGIN_ENABLED=true/,
     ],
-  ])(
-    'produkcja: %s → naruszenie',
-    (_label, overrides, pattern) => {
-      const report = inspectRuntimeEnv(productionEnv(overrides));
-      expect(report.violations.some((v) => pattern.test(v))).toBe(true);
-      expect(report.warnings).toEqual([]);
-    },
-  );
+  ])('produkcja: %s → naruszenie', (_label, overrides, pattern) => {
+    const report = inspectRuntimeEnv(productionEnv(overrides));
+    expect(report.violations.some((v) => pattern.test(v))).toBe(true);
+    expect(report.warnings).toEqual([]);
+  });
 
   it('produkcja wymienia wszystkie naruszenia naraz, bez wartości sekretów', () => {
     const report = inspectRuntimeEnv(

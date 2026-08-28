@@ -105,12 +105,16 @@ function isHttpErrorLike(
 ): error is { statusCode: number; message?: string } {
   if (!error || typeof error !== 'object') return false;
   const statusCode = (error as { statusCode?: unknown }).statusCode;
-  return typeof statusCode === 'number' && statusCode >= 400 && statusCode < 600;
+  return (
+    typeof statusCode === 'number' && statusCode >= 400 && statusCode < 600
+  );
 }
 
 function internalError(error: unknown): MappedError {
   const message =
-    error instanceof Error ? error.message : `Non-error thrown: ${String(error)}`;
+    error instanceof Error
+      ? error.message
+      : `Non-error thrown: ${String(error)}`;
   return {
     contract: {
       code: 'INTERNAL_ERROR',
@@ -146,12 +150,14 @@ export function mapError(error: unknown): MappedError {
 
   // 2. Goły wyjątek Nesta (także z ValidationPipe): kod ze statusu.
   if (error instanceof HttpException) {
+    // `getStatus()` oddaje goły number; porównania z enumem `HttpStatus` są
+    // celowe, stąd rzutowanie (bez niego linter widzi enum kontra number).
     const status = error.getStatus();
     const { message, details } = readHttpMessage(
       error.getResponse(),
       error.message,
     );
-    if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (status === (HttpStatus.INTERNAL_SERVER_ERROR as number)) {
       return internalError(error);
     }
     if (status >= 500) {
@@ -165,7 +171,7 @@ export function mapError(error: unknown): MappedError {
       };
     }
     const code =
-      details && status === HttpStatus.BAD_REQUEST
+      details && status === (HttpStatus.BAD_REQUEST as number)
         ? 'VALIDATION_ERROR'
         : (STATUS_CODE_MAP[status] ?? 'HTTP_ERROR');
     return {

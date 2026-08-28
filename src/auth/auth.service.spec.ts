@@ -1,9 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
-import {
-  BadRequestException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { AuthProvider } from '@prisma/client';
 import { AuthService } from './auth.service';
 import {
@@ -171,7 +168,10 @@ describe('AuthService', () => {
       process.env.AUTH_DEV_LOGIN_ENABLED = 'false';
       await expect(
         service.loginDev({ displayName: 'Test', email: undefined }),
-      ).rejects.toMatchObject({ status: 403, response: { code: 'DEV_LOGIN_DISABLED' } });
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'DEV_LOGIN_DISABLED' },
+      });
     });
 
     it.each([
@@ -189,7 +189,10 @@ describe('AuthService', () => {
         }
         await expect(
           service.loginDev({ displayName: 'Test', email: undefined }),
-        ).rejects.toMatchObject({ status: 403, response: { code: 'DEV_LOGIN_DISABLED' } });
+        ).rejects.toMatchObject({
+          status: 403,
+          response: { code: 'DEV_LOGIN_DISABLED' },
+        });
       },
     );
 

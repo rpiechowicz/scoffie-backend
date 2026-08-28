@@ -84,10 +84,7 @@ const UUID_PATTERN =
  * Walidacja siedzi tu, a nie w dekoratorach DTO, bo na ścieżce WS te nie
  * działają (patrz `resolvePlannedServings`).
  */
-function parseReplaceRecipeId(
-  value: unknown,
-  recipeId: string,
-): string | null {
+function parseReplaceRecipeId(value: unknown, recipeId: string): string | null {
   if (value == null || value === '') return null;
   if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
     throw new AppException(

@@ -1,0 +1,3 @@
+# Lockfile należy do pnpm — lint-staged przepuszczał go przez prettiera i zapisywał
+# w „ładnym" YAML-u, a pnpm przy każdym install przepisywał go z powrotem.
+pnpm-lock.yaml

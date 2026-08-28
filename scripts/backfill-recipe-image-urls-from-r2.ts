@@ -18,9 +18,13 @@ const R2_SECRET_ACCESS_KEY = env('R2_SECRET_ACCESS_KEY');
 const R2_ACCOUNT_ID = env('R2_ACCOUNT_ID');
 const R2_ENDPOINT = env('R2_ENDPOINT');
 const R2_PUBLIC_BASE_URL = env('R2_PUBLIC_BASE_URL');
-const R2_KEY_PREFIX = (env('R2_KEY_PREFIX') || 'recipe-images').replace(/^\/+|\/+$/g, '');
+const R2_KEY_PREFIX = (env('R2_KEY_PREFIX') || 'recipe-images').replace(
+  /^\/+|\/+$/g,
+  '',
+);
 
-const R2_SYNC_OVERWRITE_EXISTING = env('R2_SYNC_OVERWRITE_EXISTING').toLowerCase() === 'true';
+const R2_SYNC_OVERWRITE_EXISTING =
+  env('R2_SYNC_OVERWRITE_EXISTING').toLowerCase() === 'true';
 const R2_SYNC_EXTENSIONS = (env('R2_SYNC_EXTENSIONS') || 'png,jpg,jpeg,webp')
   .split(',')
   .map((part) => part.trim().toLowerCase())
@@ -71,7 +75,10 @@ async function objectExists(r2: S3Client, key: string): Promise<boolean> {
     );
     return true;
   } catch (error) {
-    const maybe = error as { $metadata?: { httpStatusCode?: number }; name?: string };
+    const maybe = error as {
+      $metadata?: { httpStatusCode?: number };
+      name?: string;
+    };
     const statusCode = maybe.$metadata?.httpStatusCode;
     if (statusCode === 404 || maybe.name === 'NotFound') return false;
     throw error;
@@ -116,7 +123,9 @@ async function main() {
   const recipes = await prisma.recipe.findMany({
     where: {
       householdId: { in: householdIds },
-      ...(R2_SYNC_OVERWRITE_EXISTING ? {} : { OR: [{ imageUrl: null }, { imageUrl: '' }] }),
+      ...(R2_SYNC_OVERWRITE_EXISTING
+        ? {}
+        : { OR: [{ imageUrl: null }, { imageUrl: '' }] }),
     },
     orderBy: { createdAt: 'asc' },
     select: { id: true },
@@ -129,7 +138,7 @@ async function main() {
     let foundKey: string | null = null;
     for (const ext of R2_SYNC_EXTENSIONS) {
       const key = `${R2_KEY_PREFIX}/${recipe.id}.${ext}`;
-      // eslint-disable-next-line no-await-in-loop
+
       const exists = await objectExists(r2, key);
       if (exists) {
         foundKey = key;

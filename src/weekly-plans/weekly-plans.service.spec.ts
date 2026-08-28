@@ -230,7 +230,10 @@ describe('WeeklyPlansService', () => {
           mealType: 'BREAKFAST',
           recipeId: mockRecipeId,
         }),
-      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
     });
   });
 
@@ -645,12 +648,10 @@ describe('WeeklyPlansService', () => {
         replaced: { plannedServings: 1, participantIds: [mockOtherUserId] },
       });
 
-      await service.upsertWeekSlot(
-        mockUserId,
-        mockHouseholdId,
-        mockWeekStart,
-        { ...baseSlot, participantIds: [mockUserId] },
-      );
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        participantIds: [mockUserId],
+      });
 
       expectCreatedWith([mockUserId], 1);
     });
@@ -660,12 +661,10 @@ describe('WeeklyPlansService', () => {
         replaced: { plannedServings: 1, participantIds: [mockOtherUserId] },
       });
 
-      await service.upsertWeekSlot(
-        mockUserId,
-        mockHouseholdId,
-        mockWeekStart,
-        { ...baseSlot, participantIds: [] },
-      );
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        participantIds: [],
+      });
 
       expectCreatedWith([], 2);
     });
@@ -690,12 +689,10 @@ describe('WeeklyPlansService', () => {
       // osoby ma dać 1, nie zostawić dwóch.
       mockSlot({ replaced: { plannedServings: 2, participantIds: [] } });
 
-      await service.upsertWeekSlot(
-        mockUserId,
-        mockHouseholdId,
-        mockWeekStart,
-        { ...baseSlot, participantIds: [mockUserId] },
-      );
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        participantIds: [mockUserId],
+      });
 
       expectCreatedWith([mockUserId], 1);
     });
@@ -703,12 +700,10 @@ describe('WeeklyPlansService', () => {
     it('jawne porcje wygrywają także przy podmianie', async () => {
       mockSlot({ replaced: { plannedServings: 4, participantIds: [] } });
 
-      await service.upsertWeekSlot(
-        mockUserId,
-        mockHouseholdId,
-        mockWeekStart,
-        { ...baseSlot, plannedServings: 3 },
-      );
+      await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
+        ...baseSlot,
+        plannedServings: 3,
+      });
 
       expectCreatedWith([], 3);
     });
@@ -869,7 +864,10 @@ describe('WeeklyPlansService', () => {
           dayOfWeek: 'MON',
           mealType: 'BREAKFAST',
         }),
-      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
     });
   });
 
@@ -925,7 +923,10 @@ describe('WeeklyPlansService', () => {
           recipeId: mockRecipeId,
           isEaten: true,
         }),
-      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
     });
 
     it('powinno odrzucić gdy posiłku nie ma w slocie', async () => {
@@ -964,7 +965,10 @@ describe('WeeklyPlansService', () => {
 
       await expect(
         service.clearWeekPlan('outsider', mockHouseholdId, mockWeekStart),
-      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
     });
   });
 
@@ -1013,7 +1017,10 @@ describe('WeeklyPlansService', () => {
           mockWeekStart,
           { productKey: 'mleko', isChecked: true },
         ),
-      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
     });
   });
 
@@ -1040,7 +1047,10 @@ describe('WeeklyPlansService', () => {
           mockHouseholdId,
           mockWeekStart,
         ),
-      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
     });
   });
 });

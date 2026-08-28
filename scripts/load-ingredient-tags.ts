@@ -140,7 +140,6 @@ async function main(): Promise<void> {
 
   const { updated, missing } = await loadIngredientTags(catalog);
   if (missing.length > 0) {
-    // eslint-disable-next-line no-console
     console.warn(
       `[tags] brak w bazie (${missing.length}): ${missing.join(', ')}`,
     );
@@ -160,13 +159,11 @@ async function main(): Promise<void> {
 
   const recipes = await recomputeRecipeTags();
 
-  // eslint-disable-next-line no-console
   console.log(
     `[tags] done. version=${catalog.version}, wpisow=${catalog.ingredients.length}, skladnikow zaktualizowanych=${updated}, przepisow sprawdzonych=${recipes.checked}, zmienionych=${recipes.changed}`,
   );
 
   if (uncovered.length > 0) {
-    // eslint-disable-next-line no-console
     console.warn(
       `[tags] UWAGA: ${uncovered.length} skladnikow uzywanych w przepisach bez wpisu w pliku tagow: ${uncovered.join(', ')}`,
     );
@@ -175,7 +172,6 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Ingredient tags load failed:', error);
     process.exit(1);
   })

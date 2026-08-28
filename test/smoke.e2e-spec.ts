@@ -104,7 +104,9 @@ describe('Smoke E2E', () => {
   afterAll(async () => {
     socket?.disconnect();
     if (createdRecipeIds.length) {
-      await prisma.recipe.deleteMany({ where: { id: { in: createdRecipeIds } } });
+      await prisma.recipe.deleteMany({
+        where: { id: { in: createdRecipeIds } },
+      });
     }
     if (createdHouseholdIds.length) {
       await prisma.household.deleteMany({
@@ -319,7 +321,9 @@ describe('Smoke E2E', () => {
       .set(opsHeaders())
       .expect(200);
     expect(metrics.body.ws?.totals?.totalConnections).toBeGreaterThanOrEqual(1);
-    expect(metrics.body.http?.wsErrors?.byCode?.NOT_HOUSEHOLD_MEMBER).toBeGreaterThanOrEqual(1);
+    expect(
+      metrics.body.http?.wsErrors?.byCode?.NOT_HOUSEHOLD_MEMBER,
+    ).toBeGreaterThanOrEqual(1);
     // 401 z reużytego refresh tokenu wyżej ma się policzyć jako 4xx, nie 200.
     expect(metrics.body.http?.statuses?.['4xx']).toBeGreaterThanOrEqual(1);
   });

@@ -176,24 +176,22 @@ async function main(): Promise<void> {
   const offenders = report.filter((item) => worstDeviation(item) > tolerance);
 
   if (json) {
-    // eslint-disable-next-line no-console
     console.log(
       JSON.stringify({ tolerance, total: report.length, report }, null, 2),
     );
   } else {
-    // eslint-disable-next-line no-console
     console.log(
       `\nAudyt makro — ${report.length} przepisow, prog ${Math.round(tolerance * 100)}%\n` +
         `(kcal w bazie = caly przepis; kolumna "porcja" dzieli przez servings)\n`,
     );
-    // eslint-disable-next-line no-console
+
     console.log(
       `${'przepis'.padEnd(46)}${'baza'.padStart(7)}${'wylicz'.padStart(8)}${'kcal'.padStart(7)}${'B'.padStart(6)}${'W'.padStart(6)}${'T'.padStart(6)}${'porcja'.padStart(14)}`,
     );
 
     for (const item of report) {
       const flag = worstDeviation(item) > tolerance ? ' !' : '  ';
-      // eslint-disable-next-line no-console
+
       console.log(
         item.title.slice(0, 44).padEnd(46) +
           String(Math.round(item.stored.kcal)).padStart(7) +
@@ -215,14 +213,12 @@ async function main(): Promise<void> {
     );
 
     for (const item of gaps) {
-      // eslint-disable-next-line no-console
       console.warn(
         `\n[luka] ${item.title}: bez makro = ${item.missingNutrition.join(', ') || '—'}; ` +
           `bez masy sztuki = ${item.missingPieceWeight.join(', ') || '—'}`,
       );
     }
 
-    // eslint-disable-next-line no-console
     console.log(
       `\nPoza progiem: ${offenders.length}/${report.length}. ` +
         `Srednia porcja: ${Math.round(
@@ -242,7 +238,6 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Recipe nutrition audit failed:', error);
     process.exit(1);
   })

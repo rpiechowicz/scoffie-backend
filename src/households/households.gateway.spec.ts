@@ -76,8 +76,16 @@ describe('HouseholdsGateway', () => {
         }),
       ]);
       expect(emitted('weeklyPlans:weekChanged')).toEqual([
-        expect.objectContaining({ householdId: HH, weekStart: '2026-08-24', action: 'MEMBERSHIP_CHANGED' }),
-        expect.objectContaining({ householdId: HH, weekStart: '2026-08-31', action: 'MEMBERSHIP_CHANGED' }),
+        expect.objectContaining({
+          householdId: HH,
+          weekStart: '2026-08-24',
+          action: 'MEMBERSHIP_CHANGED',
+        }),
+        expect.objectContaining({
+          householdId: HH,
+          weekStart: '2026-08-31',
+          action: 'MEMBERSHIP_CHANGED',
+        }),
       ]);
       expect(emitted('weeklyPlans:shoppingListChanged')).toHaveLength(2);
     });

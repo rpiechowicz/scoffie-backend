@@ -101,9 +101,9 @@ describe('WeeklyPlansGateway', () => {
 
       await gateway.upsertWeekSlot(payload);
 
-      expect(notificationsService.enqueueWeeklyPlanChange).toHaveBeenCalledTimes(
-        1,
-      );
+      expect(
+        notificationsService.enqueueWeeklyPlanChange,
+      ).toHaveBeenCalledTimes(1);
       expect(notificationsService.enqueueWeeklyPlanChange).toHaveBeenCalledWith(
         expect.objectContaining({
           householdId: 'hh-1',
@@ -127,9 +127,9 @@ describe('WeeklyPlansGateway', () => {
 
       await gateway.upsertWeekSlot(payload);
 
-      expect(notificationsService.enqueueWeeklyPlanChange).toHaveBeenCalledTimes(
-        1,
-      );
+      expect(
+        notificationsService.enqueueWeeklyPlanChange,
+      ).toHaveBeenCalledTimes(1);
     });
 
     it.each(['DETAILS_CHANGED', 'NOOP'])(
@@ -152,15 +152,15 @@ describe('WeeklyPlansGateway', () => {
     );
 
     it('błąd serwisu wraca jako ok:false i niczego nie rozgłasza', async () => {
-      weeklyPlansService.upsertWeekSlot.mockRejectedValue(
-        new Error('boom'),
-      );
+      weeklyPlansService.upsertWeekSlot.mockRejectedValue(new Error('boom'));
 
       const response = await gateway.upsertWeekSlot(payload);
 
       expect(response).toEqual(expect.objectContaining({ ok: false }));
       expect(emit).not.toHaveBeenCalled();
-      expect(notificationsService.enqueueWeeklyPlanChange).not.toHaveBeenCalled();
+      expect(
+        notificationsService.enqueueWeeklyPlanChange,
+      ).not.toHaveBeenCalled();
     });
   });
 });

@@ -19,7 +19,7 @@ export default tseslint.config(
       },
       sourceType: 'commonjs',
       parserOptions: {
-        projectService: true,
+        project: './tsconfig.typecheck.json',
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -45,6 +45,17 @@ export default tseslint.config(
         },
       ],
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
+    },
+  },
+  {
+    // Skrypty CommonJS (`scripts/*.js`, `scripts/lib/*.js`, `jest.config.js`):
+    // nie ma ich w żadnym tsconfigu (allowJs wyłączone), więc bez reguł
+    // typowanych, a `require` to ich natura. Hook lint-staged linuje *.js.
+    files: ['**/*.js'],
+    ...tseslint.configs.disableTypeChecked,
+    rules: {
+      ...tseslint.configs.disableTypeChecked.rules,
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {

@@ -24,7 +24,8 @@ const R2_KEY_PREFIX = (env('R2_KEY_PREFIX') || 'recipe-images').replace(
   /^\/+|\/+$/g,
   '',
 );
-const R2_OVERWRITE_EXISTING = env('R2_OVERWRITE_EXISTING').toLowerCase() === 'true';
+const R2_OVERWRITE_EXISTING =
+  env('R2_OVERWRITE_EXISTING').toLowerCase() === 'true';
 
 function resolvedEndpoint(): string {
   if (R2_ENDPOINT) return R2_ENDPOINT;
@@ -39,7 +40,9 @@ function ensureEnv() {
   if (!R2_ACCESS_KEY_ID) throw new Error('Missing R2_ACCESS_KEY_ID');
   if (!R2_SECRET_ACCESS_KEY) throw new Error('Missing R2_SECRET_ACCESS_KEY');
   if (!R2_PUBLIC_BASE_URL) {
-    throw new Error('Missing R2_PUBLIC_BASE_URL (public bucket/custom domain URL)');
+    throw new Error(
+      'Missing R2_PUBLIC_BASE_URL (public bucket/custom domain URL)',
+    );
   }
 }
 
@@ -73,7 +76,10 @@ function inferContentType(fileName: string): string {
   return 'application/octet-stream';
 }
 
-function extractImageFileName(recipeId: string, imageUrl: string | null): string | null {
+function extractImageFileName(
+  recipeId: string,
+  imageUrl: string | null,
+): string | null {
   if (!imageUrl || !imageUrl.trim()) return `${recipeId}.png`;
 
   const noQuery = imageUrl.split('?')[0];
@@ -105,7 +111,8 @@ async function main() {
     select: { id: true, name: true },
   });
 
-  if (!household) throw new Error(`Household "${IMAGE_HOUSEHOLD_NAME}" not found.`);
+  if (!household)
+    throw new Error(`Household "${IMAGE_HOUSEHOLD_NAME}" not found.`);
 
   const recipes = await prisma.recipe.findMany({
     where: { householdId: household.id },
@@ -154,7 +161,6 @@ async function main() {
     uploaded += 1;
   }
 
-  // eslint-disable-next-line no-console
   console.log(
     `Uploaded ${uploaded} recipe images to Cloudflare R2 for household "${household.name}" (${household.id}). Skipped: ${skipped}.`,
   );
@@ -162,7 +168,6 @@ async function main() {
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Cloudflare R2 upload failed:', error);
     process.exit(1);
   })

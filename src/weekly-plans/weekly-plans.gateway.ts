@@ -541,10 +541,12 @@ export class WeeklyPlansGateway
    */
   @SubscribeMessage('weeklyPlans:getSavedPlan')
   getSavedPlan(@MessageBody() payload: WeeklyPlansGetSavedPlanPayload) {
-    return wsRespond(async () => ({
-      weekStart: payload.weekStart,
-      items: [] as never[],
-    }));
+    return wsRespond(() =>
+      Promise.resolve({
+        weekStart: payload.weekStart,
+        items: [] as never[],
+      }),
+    );
   }
 
   @SubscribeMessage('weeklyPlans:clearWeekPlan')

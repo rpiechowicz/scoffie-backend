@@ -32,14 +32,9 @@ describe('normalizeIngredientAmount', () => {
   ])(
     '%s (%s): %s %s -> %s %s',
     (name, category, amount, unit, expectedAmount, expectedUnit) => {
-      const result = normalizeIngredientAmount(
-        name,
-        category,
-        amount as number,
-        unit,
-      );
+      const result = normalizeIngredientAmount(name, category, amount, unit);
       expect(result.normalizedUnit).toBe(expectedUnit);
-      expect(result.normalizedAmount).toBeCloseTo(expectedAmount as number, 4);
+      expect(result.normalizedAmount).toBeCloseTo(expectedAmount, 4);
     },
   );
 

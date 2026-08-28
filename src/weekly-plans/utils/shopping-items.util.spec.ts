@@ -77,20 +77,37 @@ describe('buildDisplayShoppingItems', () => {
   });
 
   it('brak wpisu w mapie znaczy „nieodhaczone"', () => {
-    const [row] = buildDisplayShoppingItems([acc({ name: 'Cebula' })], new Map());
+    const [row] = buildDisplayShoppingItems(
+      [acc({ name: 'Cebula' })],
+      new Map(),
+    );
     expect(row.isChecked).toBe(false);
   });
 
   it('ta sama nazwa w dwóch jednostkach dostaje dopisek z jednostką', () => {
     const items = buildDisplayShoppingItems(
       [
-        acc({ name: 'Sól', productKey: 'sól::g', unit: 'g', department: ShoppingDepartment.SPICES }),
-        acc({ name: 'Sól', productKey: 'sól::ml', unit: 'ml', department: ShoppingDepartment.SPICES }),
+        acc({
+          name: 'Sól',
+          productKey: 'sól::g',
+          unit: 'g',
+          department: ShoppingDepartment.SPICES,
+        }),
+        acc({
+          name: 'Sól',
+          productKey: 'sól::ml',
+          unit: 'ml',
+          department: ShoppingDepartment.SPICES,
+        }),
         acc({ name: 'Cebula' }),
       ],
       new Map(),
     );
-    expect(items.map((row) => row.name)).toEqual(['Cebula', 'Sól (g)', 'Sól (ml)']);
+    expect(items.map((row) => row.name)).toEqual([
+      'Cebula',
+      'Sól (g)',
+      'Sól (ml)',
+    ]);
   });
 
   it('pusta agregacja daje pustą listę', () => {
@@ -104,7 +121,10 @@ describe('sortShoppingItems', () => {
       item({ name: 'Ziemniak' }),
       item({ name: 'Sól', department: ShoppingDepartment.SPICES }),
       item({ name: 'Cebula' }),
-      item({ name: 'Płyn do naczyń', department: ShoppingDepartment.HOUSEHOLD }),
+      item({
+        name: 'Płyn do naczyń',
+        department: ShoppingDepartment.HOUSEHOLD,
+      }),
       item({ name: 'Marchew' }),
       item({ name: 'Łosoś', department: ShoppingDepartment.FISH }),
     ]);
