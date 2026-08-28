@@ -16,17 +16,21 @@ Minimum backend startup set:
 ```env
 DATABASE_URL=postgresql://...
 PORT=3000
-JWT_SECRET=replace-me
-REFRESH_TOKEN_PEPPER=replace-me
+JWT_SECRET=<openssl rand -base64 32>
+REFRESH_TOKEN_PEPPER=<openssl rand -base64 32, inny niż JWT_SECRET>
+OPS_TOKEN=<openssl rand -base64 24>
+COOKIDOO_ENCRYPTION_KEY=<openssl rand -base64 32>
+COOKIDOO_SERVICE_TOKEN=<ten sam sekret co INTERNAL_TOKEN mikroserwisu Cookidoo>
 CORS_ORIGIN=https://your-web-or-preview-host
 WS_CORS_ORIGIN=https://your-web-or-preview-host
-AUTH_DEV_LOGIN_ENABLED=true
+AUTH_DEV_LOGIN_ENABLED=false
 ```
 
 Notes:
 
-- Keep `AUTH_DEV_LOGIN_ENABLED=true` only as long as the shipped client still depends on `/auth/dev`.
-- For public release after real auth lands, set `AUTH_DEV_LOGIN_ENABLED=false`.
+- The image sets `NODE_ENV=production`; at boot `src/config/assert-env.ts` refuses to start when `JWT_SECRET`/`REFRESH_TOKEN_PEPPER` are shorter than 32 characters, equal to a value from this repo, or equal to each other, when `OPS_TOKEN`/`COOKIDOO_SERVICE_TOKEN`/`DATABASE_URL` are empty, when `COOKIDOO_ENCRYPTION_KEY` is not 32 bytes of base64, or when `AUTH_DEV_LOGIN_ENABLED=true`. Set the variables **before** deploying a new build.
+- Dev login is opt-in (`AUTH_DEV_LOGIN_ENABLED=true` only in local dev and CI). The production client signs in with Apple only.
+- Rotating `REFRESH_TOKEN_PEPPER` invalidates stored refresh tokens (users sign in again when their access token expires).
 - Do not reuse local development secrets in production.
 
 ## Optional production integrations
@@ -72,7 +76,7 @@ That means deploy startup can:
 
 ## Important safety rule
 
-Never enable `SAFE_MIGRATE_REBUILD_DB=true` in production unless you intentionally want a destructive rebuild and have a verified backup plus explicit approval.
+Never enable `SAFE_MIGRATE_REBUILD_DB=true` in production unless you intentionally want a destructive rebuild and have a verified backup plus explicit approval. The guard (`scripts/lib/rebuild-guard.js`) requires `SAFE_MIGRATE_REBUILD_CONFIRM` to equal today's UTC date (`YYYY-MM-DD`) and, under `NODE_ENV=production`, `SAFE_MIGRATE_ALLOW_PROD_REBUILD` to equal the `DATABASE_URL` host; the host is logged before `DROP SCHEMA`. Remove all three variables right after the rebuild.
 
 ## Generic container deploy flow
 

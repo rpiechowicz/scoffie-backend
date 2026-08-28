@@ -3,8 +3,12 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { assertRuntimeEnv } from './config/assert-env';
 
 async function bootstrap() {
+  // Przed `NestFactory.create`: na produkcji brak sekretów ma zatrzymać start,
+  // a nie wyjść dopiero jako podrabialny token przy pierwszym logowaniu.
+  assertRuntimeEnv();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const extraOrigins = (process.env.CORS_ORIGIN ?? '')
     .split(',')
