@@ -1,6 +1,7 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { OpsTokenGuard } from './ops-token.guard';
 import { RequestMetricsService } from './request-metrics.service';
+import { AgentMetricsService } from './agent-metrics.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 import { RecipesCacheService } from '../recipes/recipes-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -9,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class OpsController {
   constructor(
     private readonly metrics: RequestMetricsService,
+    private readonly agentMetrics: AgentMetricsService,
     private readonly wsTelemetry: WsTelemetryService,
     private readonly recipesCache: RecipesCacheService,
     private readonly prisma: PrismaService,
@@ -21,6 +23,7 @@ export class OpsController {
     return {
       http: this.metrics.snapshot(),
       ws: this.wsTelemetry.snapshot(),
+      agent: this.agentMetrics.snapshot(),
       caches: {
         recipesList: this.recipesCache.stats(),
       },

@@ -32,6 +32,10 @@ export class RequestMetricsService {
   private readonly wsAuthRejectedByReason = new Map<string, number>();
   private wsAuthLegacyActs = 0;
   private wsAuthPayloadMismatch = 0;
+  // 429 z throttlera: guard biegnie PRZED interceptorem logującym, więc
+  // `record()` tych odpowiedzi nie widzi — liczone osobno, per trasa.
+  private throttledTotal = 0;
+  private readonly throttledByRoute = new Map<string, number>();
 
   record(routeKey: string, statusCode: number, durationMs: number): void {
     this.totalRequests += 1;
@@ -85,6 +89,14 @@ export class RequestMetricsService {
     this.wsAuthPayloadMismatch += 1;
   }
 
+  recordThrottled(routeKey: string): void {
+    this.throttledTotal += 1;
+    this.throttledByRoute.set(
+      routeKey,
+      (this.throttledByRoute.get(routeKey) ?? 0) + 1,
+    );
+  }
+
   snapshot() {
     const routes = Array.from(this.routeStats.entries())
       .map(([route, stats]) => ({
@@ -118,6 +130,10 @@ export class RequestMetricsService {
         ),
         legacyActs: this.wsAuthLegacyActs,
         payloadMismatch: this.wsAuthPayloadMismatch,
+      },
+      throttled: {
+        total: this.throttledTotal,
+        byRoute: Object.fromEntries(this.throttledByRoute.entries()),
       },
     };
   }

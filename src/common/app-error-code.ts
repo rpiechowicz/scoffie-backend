@@ -66,6 +66,21 @@ export const APP_ERROR_CODES = [
   'SHOPPING_LIST_NOT_COMPLETED',
   'SHOPPING_LIST_ARCHIVE_NOT_FOUND',
   'SHOPPING_ITEM_NOT_FOUND',
+  // ─── asystent AI (src/agent) ───
+  // Nazwy z analizy asystenta (docs/plans/weekly-meals-ai-agent). Klient
+  // decyduje po kodzie: DISABLED/BUDGET_PAUSED/UPSTREAM_PAUSED = „spróbuj
+  // później", QUOTA_EXCEEDED = karta limitu, TURN_IN_PROGRESS = czekaj na
+  // bieżącą turę.
+  'AI_DISABLED',
+  'AI_QUOTA_EXCEEDED',
+  'AI_BUDGET_PAUSED',
+  'AI_UPSTREAM_PAUSED',
+  'AI_TURN_IN_PROGRESS',
+  'AI_CONVERSATION_NOT_FOUND',
+  'AI_TURN_NOT_FOUND',
+  // Powody porażki tury (`AgentTurn.errorCode`), zwracane w GET /agent/turns/:id.
+  'AI_TIMEOUT',
+  'AI_PROVIDER_ERROR',
   // ─── integracja Cookidoo (Thermomix) ───
   // AUTH_FAILED leci jako 409, nie 401 — 401 z API znaczy dla iOS „odśwież
   // sesję aplikacji", a tu wygasło hasło do Cookidoo, nie token użytkownika.

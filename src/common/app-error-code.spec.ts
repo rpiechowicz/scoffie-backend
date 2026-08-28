@@ -18,6 +18,9 @@ describe('APP_ERROR_CODES', () => {
         'PLAN_ITEM_NOT_FOUND',
         'SHOPPING_LIST_ARCHIVE_NOT_FOUND',
         'SHOPPING_ITEM_NOT_FOUND',
+        'AI_DISABLED',
+        'AI_QUOTA_EXCEEDED',
+        'AI_TURN_IN_PROGRESS',
       ]),
     );
   });

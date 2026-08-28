@@ -1,4 +1,5 @@
 import { parseEncryptionKey } from '../common/crypto.util';
+import { agentEnvProblems } from './agent-env';
 import { wsAuthModeProblem } from './ws-auth-mode';
 
 /**
@@ -73,6 +74,10 @@ export function inspectRuntimeEnv(
   // być świadoma decyzja, nie przypadek.
   const wsAuthProblem = wsAuthModeProblem(env);
   if (wsAuthProblem) problems.push(wsAuthProblem);
+
+  // Asystent AI: przy AI_ENABLED pustym/false nic nie jest wymagane (merge bez
+  // zmiennych na Railway); `true` z dostawcą anthropic wymaga klucza.
+  problems.push(...agentEnvProblems(env));
 
   // Poniższe mają sens tylko na produkcji — dev bez Cookidoo ma prawo żyć.
   const productionOnly: string[] = [];
