@@ -30,7 +30,7 @@ const mockHouseholdMembers = [
 const mockPlanItem = {
   id: 'plan-item-1',
   weeklyPlanId: 'plan-1',
-  dayOfWeek: 1,
+  dayOfWeek: 'MON',
   mealType: 'BREAKFAST',
   recipeId: mockRecipeId,
   plannedServings: 2,
@@ -213,7 +213,7 @@ describe('WeeklyPlansService', () => {
   describe('upsertWeekSlot', () => {
     it('powinno przypisać przepis do slotu (dzień + typ posiłku)', async () => {
       await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
-        dayOfWeek: 1,
+        dayOfWeek: 'MON',
         mealType: 'BREAKFAST',
         recipeId: mockRecipeId,
       });
@@ -227,7 +227,7 @@ describe('WeeklyPlansService', () => {
 
       await expect(
         service.upsertWeekSlot('outsider', mockHouseholdId, mockWeekStart, {
-          dayOfWeek: 1,
+          dayOfWeek: 'MON',
           mealType: 'BREAKFAST',
           recipeId: mockRecipeId,
         }),
@@ -855,7 +855,7 @@ describe('WeeklyPlansService', () => {
       prisma.planItem.findFirst.mockResolvedValue(mockPlanItem);
 
       await service.removeWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
-        dayOfWeek: 1,
+        dayOfWeek: 'MON',
         mealType: 'BREAKFAST',
       });
 
@@ -867,7 +867,7 @@ describe('WeeklyPlansService', () => {
 
       await expect(
         service.removeWeekSlot('outsider', mockHouseholdId, mockWeekStart, {
-          dayOfWeek: 1,
+          dayOfWeek: 'MON',
           mealType: 'BREAKFAST',
         }),
       ).rejects.toThrow(ForbiddenException);

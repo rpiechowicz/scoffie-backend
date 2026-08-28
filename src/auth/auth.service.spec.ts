@@ -161,17 +161,17 @@ describe('AuthService', () => {
 
     it('powinno odrzucić gdy brak displayName', async () => {
       await expect(
-        service.loginDev({ displayName: '', email: null }),
+        service.loginDev({ displayName: '', email: undefined }),
       ).rejects.toThrow(BadRequestException);
       await expect(
-        service.loginDev({ displayName: '   ', email: null }),
+        service.loginDev({ displayName: '   ', email: undefined }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('powinno odrzucić gdy AUTH_DEV_LOGIN_ENABLED=false', async () => {
       process.env.AUTH_DEV_LOGIN_ENABLED = 'false';
       await expect(
-        service.loginDev({ displayName: 'Test', email: null }),
+        service.loginDev({ displayName: 'Test', email: undefined }),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -189,7 +189,7 @@ describe('AuthService', () => {
           process.env.AUTH_DEV_LOGIN_ENABLED = value;
         }
         await expect(
-          service.loginDev({ displayName: 'Test', email: null }),
+          service.loginDev({ displayName: 'Test', email: undefined }),
         ).rejects.toThrow(ForbiddenException);
       },
     );
@@ -204,13 +204,13 @@ describe('AuthService', () => {
 
       const result = await service.loginDev({
         displayName: 'Test User',
-        email: null,
+        email: undefined,
       });
       expect(result.household).toEqual({ id: 'hh-1', name: 'Dom' });
     });
 
     it('powinno trimować displayName', async () => {
-      await service.loginDev({ displayName: '  Jan  ', email: null });
+      await service.loginDev({ displayName: '  Jan  ', email: undefined });
 
       expect(prisma.user.upsert).toHaveBeenCalledWith(
         expect.objectContaining({

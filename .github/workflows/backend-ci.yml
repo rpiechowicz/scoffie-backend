@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+      - develop
 
 jobs:
   build-and-test:
@@ -64,6 +65,12 @@ jobs:
 
       - name: Lint
         run: pnpm lint:check
+
+      # Spec-i nie wchodzą do `pnpm build` (tsconfig.build.json je wyklucza),
+      # a ts-jest z `isolatedModules` nie sprawdza typów — bez tego kroku spec
+      # z sygnaturą sprzed refaktoru dalej świeci na zielono.
+      - name: Typecheck (src + test + scripts, incl. specs)
+        run: pnpm typecheck
 
       - name: Build
         run: pnpm build
