@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
 import { RecipesService } from './recipes.service';
 import { RecipesCacheService } from './recipes-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -189,7 +188,7 @@ describe('RecipesService.create', () => {
     ).rejects.toMatchObject({
       response: {
         code: 'VALIDATION_ERROR',
-        details: { missingNutrition: ['tajemniczy proszek'] },
+        details: [expect.stringContaining('tajemniczy proszek')],
       },
     });
     expect(prisma.recipe.create).not.toHaveBeenCalled();
@@ -209,7 +208,7 @@ describe('RecipesService.create', () => {
     ).rejects.toMatchObject({
       response: {
         code: 'VALIDATION_ERROR',
-        details: { missingPieceWeight: ['banan'] },
+        details: [expect.stringMatching(/gramsPerPiece.*banan/)],
       },
     });
     expect(prisma.recipe.create).not.toHaveBeenCalled();
@@ -367,7 +366,7 @@ describe('RecipesService.create', () => {
 
     await expect(
       service.create(mockUserId, baseDto({ ingredients: oatsAndMilk })),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     expect(prisma.ingredient.findMany).not.toHaveBeenCalled();
     expect(prisma.recipe.create).not.toHaveBeenCalled();
   });

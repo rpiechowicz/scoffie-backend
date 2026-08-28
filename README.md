@@ -72,8 +72,15 @@ Use [`.env.example`](./.env.example) as the source of truth.
 ### Always required
 
 - `DATABASE_URL`
-- `JWT_SECRET`
-- `REFRESH_TOKEN_PEPPER`
+- `JWT_SECRET` (≥32 characters in production)
+- `REFRESH_TOKEN_PEPPER` (≥32 characters in production, different from `JWT_SECRET`)
+- `COOKIDOO_ENCRYPTION_KEY` (32 bytes base64 — the API refuses to boot without it)
+
+### Required in production only (`NODE_ENV=production`, checked at boot)
+
+- `OPS_TOKEN` (guards `GET /ops/metrics`)
+- `COOKIDOO_SERVICE_TOKEN`
+- `AUTH_DEV_LOGIN_ENABLED` must not be `true`
 
 ### Usually set for every environment
 

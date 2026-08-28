@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+      - develop
 
 jobs:
   build-and-test:
@@ -32,6 +33,7 @@ jobs:
       JWT_SECRET: ci-secret
       REFRESH_TOKEN_PEPPER: ci-pepper
       AUTH_DEV_LOGIN_ENABLED: 'true'
+      OPS_TOKEN: ci-ops-token
       APNS_ENABLED: 'false'
       CORS_ORIGIN: http://localhost:5173
       # Sztuczny klucz 32 B (base64) — CookidooIntegrationService robi fail-fast
@@ -64,6 +66,12 @@ jobs:
 
       - name: Lint
         run: pnpm lint:check
+
+      # Spec-i nie wchodzą do `pnpm build` (tsconfig.build.json je wyklucza),
+      # a ts-jest z `isolatedModules` nie sprawdza typów — bez tego kroku spec
+      # z sygnaturą sprzed refaktoru dalej świeci na zielono.
+      - name: Typecheck (src + test + scripts, incl. specs)
+        run: pnpm typecheck
 
       - name: Build
         run: pnpm build

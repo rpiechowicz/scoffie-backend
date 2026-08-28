@@ -1,4 +1,9 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  HttpStatus,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -34,6 +39,8 @@ import { runSerializable } from '../utils/transaction-runner.util';
 /// so we don't do work for weeks the UI isn't looking at.
 @Injectable()
 export class ShoppingListService {
+  private readonly logger = new Logger(ShoppingListService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   private async buildShoppingListBase(
@@ -95,8 +102,19 @@ export class ShoppingListService {
     }));
 
     const aggregated = new Map<string, ShoppingAccumulator>();
+    // Składnik bez znormalizowanej ilości to błąd danych (importer i
+    // `recipes:create` zawsze ją piszą). Liczymy z surowej ilości, żeby lista
+    // nie zgubiła produktu, ale mówimy o tym w logu — cichy fallback dawał
+    // „1 łyżeczka" zsumowaną z gramami pod jednym kluczem.
+    const missingNormalization = new Set<string>();
     for (const source of ingredientSources) {
       for (const ingredient of source.recipe.ingredients) {
+        if (
+          ingredient.normalizedAmount == null ||
+          ingredient.normalizedUnit == null
+        ) {
+          missingNormalization.add(ingredient.name);
+        }
         const baseAmount = ingredient.normalizedAmount ?? ingredient.amount;
         const baseUnit = ingredient.normalizedUnit ?? ingredient.unit;
         // Nazwa z katalogu jest kanoniczna — na listę idzie dosłownie (tylko
@@ -119,6 +137,12 @@ export class ShoppingListService {
           totalAmount: amountToAdd,
         });
       }
+    }
+
+    if (missingNormalization.size > 0) {
+      this.logger.warn(
+        `Składniki bez znormalizowanej ilości, lista liczy z surowej: ${Array.from(missingNormalization).join(', ')} (householdId=${householdId}, weekStart=${formatWeekStart(weekStartDate)})`,
+      );
     }
 
     if (aggregated.size === 0) {
@@ -219,9 +243,14 @@ export class ShoppingListService {
     const checkedMap = new Map<string, boolean>();
     for (const item of aggregatedItems) {
       const previousAmount = baselineAmounts.get(item.productKey) ?? 0;
+      // Baseline z archiwum jest zapisany po zaokrągleniu do 2 miejsc
+      // (`buildDisplayShoppingItems`), a `item.totalAmount` jeszcze nie —
+      // porównanie surowej sumy z zaokrąglonym baseline'em odznaczało
+      // pozycję po samym odświeżeniu (0.375 vs 0.38).
+      const nextAmount = Number(item.totalAmount.toFixed(2));
       const hasNewUncheckedDelta = Boolean(
         currentArchiveState?.currentArchiveId &&
-        item.totalAmount > previousAmount + 0.000_001,
+        nextAmount > previousAmount + 0.000_001,
       );
 
       checkedMap.set(

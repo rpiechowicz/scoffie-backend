@@ -11,7 +11,9 @@ module.exports = {
   rootDir: rootDir,
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': [tsJestPath, {
+    // Tylko TS: CommonJS ze `scripts/lib` (np. rebuild-guard.js) ma iść do
+    // Node bez ts-jest, bo `allowJs` jest wyłączone.
+    '^.+\\.ts$': [tsJestPath, {
       tsconfig: path.resolve(__dirname, 'tsconfig.json'),
     }],
   },
@@ -19,8 +21,9 @@ module.exports = {
   coverageDirectory: path.resolve(__dirname, 'coverage'),
   testEnvironment: 'node',
   modulePaths: [path.resolve(__dirname, 'node_modules')],
-  moduleNameMapper: {
-    // Redirect APFS-blocked households.service to an accessible stub file
-    '^(\\./|.*/)households\\.service$': '<rootDir>/households/households.service.stub',
-  },
+  // Bez `moduleNameMapper`. Dawniej `households.service` był podmieniany na
+  // stub o innym API (plik bywał wypchnięty do iCloud jako „dataless" i
+  // czytał się jako EIO) — 15 zielonych testów nie dotykało produkcyjnego
+  // kodu. Folder repa ma teraz „Keep Downloaded"; gdy `docker cp`/jest trafi
+  // na EIO, materializować pliki (`cat > /dev/null`), nie wracać do stubu.
 };

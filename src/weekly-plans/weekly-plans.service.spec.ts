@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { WeeklyPlansService } from './weekly-plans.service';
 import { ShoppingListService } from './services/shopping-list.service';
@@ -30,7 +29,7 @@ const mockHouseholdMembers = [
 const mockPlanItem = {
   id: 'plan-item-1',
   weeklyPlanId: 'plan-1',
-  dayOfWeek: 1,
+  dayOfWeek: 'MON',
   mealType: 'BREAKFAST',
   recipeId: mockRecipeId,
   plannedServings: 2,
@@ -213,7 +212,7 @@ describe('WeeklyPlansService', () => {
   describe('upsertWeekSlot', () => {
     it('powinno przypisać przepis do slotu (dzień + typ posiłku)', async () => {
       await service.upsertWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
-        dayOfWeek: 1,
+        dayOfWeek: 'MON',
         mealType: 'BREAKFAST',
         recipeId: mockRecipeId,
       });
@@ -227,11 +226,11 @@ describe('WeeklyPlansService', () => {
 
       await expect(
         service.upsertWeekSlot('outsider', mockHouseholdId, mockWeekStart, {
-          dayOfWeek: 1,
+          dayOfWeek: 'MON',
           mealType: 'BREAKFAST',
           recipeId: mockRecipeId,
         }),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
   });
 
@@ -805,7 +804,7 @@ describe('WeeklyPlansService', () => {
           baseSlot,
         ),
       ).rejects.toMatchObject({
-        response: { code: 'CONFLICT' },
+        response: { code: 'PLAN_SLOT_DUPLICATE' },
         status: 409,
       });
     });
@@ -855,7 +854,7 @@ describe('WeeklyPlansService', () => {
       prisma.planItem.findFirst.mockResolvedValue(mockPlanItem);
 
       await service.removeWeekSlot(mockUserId, mockHouseholdId, mockWeekStart, {
-        dayOfWeek: 1,
+        dayOfWeek: 'MON',
         mealType: 'BREAKFAST',
       });
 
@@ -867,10 +866,10 @@ describe('WeeklyPlansService', () => {
 
       await expect(
         service.removeWeekSlot('outsider', mockHouseholdId, mockWeekStart, {
-          dayOfWeek: 1,
+          dayOfWeek: 'MON',
           mealType: 'BREAKFAST',
         }),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
   });
 
@@ -926,7 +925,7 @@ describe('WeeklyPlansService', () => {
           recipeId: mockRecipeId,
           isEaten: true,
         }),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
 
     it('powinno odrzucić gdy posiłku nie ma w slocie', async () => {
@@ -939,7 +938,7 @@ describe('WeeklyPlansService', () => {
           recipeId: mockRecipeId,
           isEaten: true,
         }),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toMatchObject({ status: 404 });
     });
   });
 
@@ -965,7 +964,7 @@ describe('WeeklyPlansService', () => {
 
       await expect(
         service.clearWeekPlan('outsider', mockHouseholdId, mockWeekStart),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
   });
 
@@ -1014,7 +1013,7 @@ describe('WeeklyPlansService', () => {
           mockWeekStart,
           { productKey: 'mleko', isChecked: true },
         ),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
   });
 
@@ -1041,7 +1040,7 @@ describe('WeeklyPlansService', () => {
           mockHouseholdId,
           mockWeekStart,
         ),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
   });
 });

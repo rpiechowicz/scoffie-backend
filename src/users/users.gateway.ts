@@ -8,7 +8,6 @@ import {
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Socket } from 'socket.io';
@@ -16,10 +15,6 @@ import { WsTelemetryService } from '../common/ws-telemetry.service';
 
 class UsersMePayload {
   userId: string;
-}
-
-class UsersFindByIdPayload {
-  id: string;
 }
 
 class UsersPreferencesGetPayload {
@@ -62,21 +57,6 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('users:me')
   me(@MessageBody() payload: UsersMePayload) {
     return wsRespond(() => this.usersService.getMe(payload.userId));
-  }
-
-  @SubscribeMessage('users:findAll')
-  findAll() {
-    return wsRespond(() => this.usersService.findAll());
-  }
-
-  @SubscribeMessage('users:findById')
-  findById(@MessageBody() payload: UsersFindByIdPayload) {
-    return wsRespond(() => this.usersService.findById(payload.id));
-  }
-
-  @SubscribeMessage('users:create')
-  create(@MessageBody() payload: CreateUserDto) {
-    return wsRespond(() => this.usersService.create(payload));
   }
 
   @SubscribeMessage('users:preferences:get')

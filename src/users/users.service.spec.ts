@@ -208,4 +208,22 @@ describe('UsersService.updatePreferences', () => {
       expect(upsertArg().update.timeZone).toBeNull();
     });
   });
+
+  // ─── Wycofane API ─────────────────────────────────────────────────────────
+  //
+  // `users:findAll` zrzucał całą tabelę User (e-mail, googleId, appleSub,
+  // waga, płeć) po nieuwierzytelnionym sockecie; `users:create` zakładał konto
+  // z dowolnym googleId. Żaden klient ich nie używał. Strażnik przed cichym
+  // powrotem: metoda ma NIE istnieć.
+
+  describe('wycofane metody', () => {
+    it.each(['findAll', 'findById', 'create'])(
+      '%s nie istnieje już w serwisie',
+      (method) => {
+        expect(
+          (service as unknown as Record<string, unknown>)[method],
+        ).toBeUndefined();
+      },
+    );
+  });
 });

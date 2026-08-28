@@ -1,14 +1,22 @@
-import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { io, Socket } from 'socket.io-client';
 import request from 'supertest';
 import { AddressInfo } from 'net';
 import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 type WsEnvelope<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string; code: string; status?: number };
+  | {
+      ok: false;
+      error: string;
+      message?: string;
+      code: string;
+      status?: number;
+      requestId?: string;
+    };
 
 type DevLoginResponse = {
   user: { id: string; displayName: string };
@@ -16,7 +24,13 @@ type DevLoginResponse = {
 };
 
 describe('Smoke E2E', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
+  // Sprzątanie po testach — jedno gospodarstwo + przepis; kaskady zabiorą
+  // członkostwa, plan, listę. Użytkownicy z dev-loginu też (refresh tokeny
+  // idą kaskadą po User).
+  const createdUserIds: string[] = [];
+  const createdHouseholdIds: string[] = [];
+  const createdRecipeIds: string[] = [];
   let prisma: PrismaService;
   let socket: Socket;
   let baseUrl: string;
@@ -75,7 +89,10 @@ describe('Smoke E2E', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleFixture.createNestApplication<NestExpressApplication>();
+    // Te same rury co na produkcji (`main.ts`): bez tego e2e nie sprawdzał
+    // walidacji DTO ani nagłówków, którymi żyje klient.
+    configureApp(app);
     await app.init();
     await app.listen(0);
 
@@ -86,8 +103,22 @@ describe('Smoke E2E', () => {
 
   afterAll(async () => {
     socket?.disconnect();
+    if (createdRecipeIds.length) {
+      await prisma.recipe.deleteMany({ where: { id: { in: createdRecipeIds } } });
+    }
+    if (createdHouseholdIds.length) {
+      await prisma.household.deleteMany({
+        where: { id: { in: createdHouseholdIds } },
+      });
+    }
+    if (createdUserIds.length) {
+      await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+    }
     await app.close();
   });
+
+  const opsHeaders = (): Record<string, string> =>
+    process.env.OPS_TOKEN ? { 'x-ops-token': process.env.OPS_TOKEN } : {};
 
   it('GET /ops/health and /ops/metrics should return observability payload', async () => {
     const health = await request(app.getHttpServer())
@@ -96,8 +127,14 @@ describe('Smoke E2E', () => {
     expect(health.body.status).toBe('ok');
     expect(typeof health.body.timestamp).toBe('string');
 
+    if (process.env.OPS_TOKEN) {
+      // Bez nagłówka metryki są zamknięte — to mapa serwera, nie sonda.
+      await request(app.getHttpServer()).get('/ops/metrics').expect(403);
+    }
+
     const metrics = await request(app.getHttpServer())
       .get('/ops/metrics')
+      .set(opsHeaders())
       .expect(200);
     expect(metrics.body).toEqual(
       expect.objectContaining({
@@ -108,6 +145,13 @@ describe('Smoke E2E', () => {
         }),
       }),
     );
+  });
+
+  it('POST /auth/dev rejects unknown fields (global ValidationPipe is wired)', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/dev')
+      .send({ displayName: 'Whitelist Probe', unexpectedField: 1 })
+      .expect(400);
   });
 
   it('POST /auth/refresh should rotate refresh tokens and reject reused tokens', async () => {
@@ -121,6 +165,7 @@ describe('Smoke E2E', () => {
 
     expect(typeof devLogin.body.accessToken).toBe('string');
     expect(typeof devLogin.body.refreshToken).toBe('string');
+    createdUserIds.push(devLogin.body.user.id as string);
 
     const originalRefreshToken = devLogin.body.refreshToken as string;
 
@@ -133,10 +178,29 @@ describe('Smoke E2E', () => {
     expect(typeof refreshResponse.body.refreshToken).toBe('string');
     expect(refreshResponse.body.refreshToken).not.toBe(originalRefreshToken);
 
-    await request(app.getHttpServer())
+    const reused = await request(app.getHttpServer())
       .post('/auth/refresh')
       .send({ refreshToken: originalRefreshToken })
       .expect(401);
+    // Jeden kształt błędu HTTP: {code, message, requestId}, bez statusCode.
+    expect(reused.body).toEqual({
+      code: 'UNAUTHORIZED',
+      message: 'Invalid or expired refresh token',
+      requestId: expect.any(String),
+    });
+    expect(reused.headers['x-request-id']).toBe(reused.body.requestId);
+  });
+
+  it('POST /auth/dev with an empty body returns VALIDATION_ERROR with details', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/auth/dev')
+      .send({})
+      .expect(400);
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: expect.arrayContaining([expect.stringContaining('displayName')]),
+      requestId: expect.any(String),
+    });
   });
 
   it('weeklyPlans:upsertWeekSlot should emit weekChanged with changeVersion', async () => {
@@ -154,6 +218,7 @@ describe('Smoke E2E', () => {
     expect(loginBody.user?.id).toBeTruthy();
 
     const userId = loginBody.user.id;
+    createdUserIds.push(userId);
     const householdId =
       loginBody.household?.id ??
       (
@@ -171,6 +236,7 @@ describe('Smoke E2E', () => {
           select: { id: true },
         })
       ).id;
+    createdHouseholdIds.push(householdId);
 
     const recipe = await prisma.recipe.create({
       data: {
@@ -186,6 +252,7 @@ describe('Smoke E2E', () => {
       },
       select: { id: true },
     });
+    createdRecipeIds.push(recipe.id);
 
     socket = io(baseUrl, {
       transports: ['websocket'],
@@ -230,9 +297,30 @@ describe('Smoke E2E', () => {
     expect(changed.weekStart).toBe(weekStart);
     expect(typeof changed.changeVersion).toBe('number');
 
+    // Ack błędu po sockecie ma ten sam kontrakt: kod, message == error,
+    // status, requestId — tu: obce gospodarstwo.
+    const foreign = await emitWithAck<unknown>('weeklyPlans:getByWeek', {
+      userId,
+      householdId: '00000000-0000-4000-8000-000000000000',
+      weekStart,
+    });
+    expect(foreign.ok).toBe(false);
+    if (!foreign.ok) {
+      expect(foreign).toMatchObject({
+        code: 'NOT_HOUSEHOLD_MEMBER',
+        status: 403,
+        requestId: expect.any(String),
+      });
+      expect(foreign.message).toBe(foreign.error);
+    }
+
     const metrics = await request(app.getHttpServer())
       .get('/ops/metrics')
+      .set(opsHeaders())
       .expect(200);
     expect(metrics.body.ws?.totals?.totalConnections).toBeGreaterThanOrEqual(1);
+    expect(metrics.body.http?.wsErrors?.byCode?.NOT_HOUSEHOLD_MEMBER).toBeGreaterThanOrEqual(1);
+    // 401 z reużytego refresh tokenu wyżej ma się policzyć jako 4xx, nie 200.
+    expect(metrics.body.http?.statuses?.['4xx']).toBeGreaterThanOrEqual(1);
   });
 });

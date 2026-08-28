@@ -22,7 +22,7 @@ docker compose exec api pnpm prisma:seed
 docker compose exec api pnpm prisma studio -- --hostname 0.0.0.0 --port 5555
 
 // WEBSOCKET SMOKE TESTS (Socket.IO)
-docker compose exec api pnpm ws:smoke users:findAll '{}'
+docker compose exec api pnpm ws:smoke users:me '{"userId":"<USER_ID>"}'
 docker compose exec api pnpm ws:smoke households:findAll '{"userId":"<USER_ID>"}'
 docker compose exec api pnpm ws:smoke recipes:findAll '{"userId":"<USER_ID>"}'
 docker compose exec api pnpm ws:smoke weeklyPlans:getByWeek '{"userId":"<USER_ID>","householdId":"<HOUSEHOLD_ID>","weekStart":"<YYYY-MM-DD poniedziałek>"}'
@@ -38,6 +38,9 @@ docker compose exec api pnpm run generate:recipe:images
 
 // UPLOAD LOCAL RECIPE IMAGES TO CLOUDFLARE R2 + UPDATE imageUrl
 docker compose exec api pnpm run upload:recipe:images:r2
+
+// R2 IMAGE URL BACKFILL (one-off; no longer runs at container start)
+docker compose exec api pnpm exec tsx scripts/backfill-recipe-image-urls-from-r2.ts
 
 // LOAD INGREDIENT CATALOG (from prisma/catalog/*.txt)
 docker compose exec api pnpm run catalog:ingredients:load

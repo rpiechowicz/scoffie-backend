@@ -1,6 +1,6 @@
 import {
   BadRequestException,
-  ForbiddenException,
+  HttpStatus,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -8,11 +8,11 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { AuthProvider, Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
+import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppleIdentityService } from './apple-identity.service';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
 import { DevLoginDto } from './dto/dev-login.dto';
-import { GoogleOauthDto } from './dto/google-oauth.dto';
 import { resolveJwtExpiresIn } from './jwt-expiration.util';
 
 export interface AuthResult {
@@ -51,33 +51,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly appleIdentity: AppleIdentityService,
   ) {}
-
-  async loginWithGoogle(dto: GoogleOauthDto): Promise<AuthResult> {
-    if (!dto.googleId || !dto.displayName) {
-      throw new BadRequestException('Missing googleId or displayName');
-    }
-
-    const user = await this.prisma.user.upsert({
-      where: { googleId: dto.googleId },
-      update: {
-        email: dto.email ?? null,
-        displayName: dto.displayName,
-        avatarUrl: dto.avatarUrl ?? null,
-        authProvider: AuthProvider.GOOGLE,
-        lastLoginAt: new Date(),
-      },
-      create: {
-        googleId: dto.googleId,
-        email: dto.email ?? null,
-        displayName: dto.displayName,
-        avatarUrl: dto.avatarUrl ?? null,
-        authProvider: AuthProvider.GOOGLE,
-        lastLoginAt: new Date(),
-      },
-    });
-
-    return this.buildAuthResult(user);
-  }
 
   /**
    * Sign in with Apple.
@@ -171,8 +144,15 @@ export class AuthService {
   }
 
   async loginDev(dto: DevLoginDto): Promise<AuthResult> {
-    if (process.env.AUTH_DEV_LOGIN_ENABLED === 'false') {
-      throw new ForbiddenException('Dev login is disabled');
+    // Opt-in, nie opt-out: brak zmiennej, literówka albo `FALSE` nie mogą
+    // zostawić na produkcji otwartej furtki, która wybija tokeny każdemu,
+    // kto poda `displayName`. Dev i CI ustawiają `true` jawnie.
+    if (process.env.AUTH_DEV_LOGIN_ENABLED !== 'true') {
+      throw new AppException(
+        'DEV_LOGIN_DISABLED',
+        'Dev login is disabled',
+        HttpStatus.FORBIDDEN,
+      );
     }
 
     if (!dto.displayName?.trim()) {
@@ -243,6 +223,13 @@ export class AuthService {
     authProvider: AuthProvider;
     onboardingCompletedAt: Date | null;
   }): Promise<AuthResult> {
+    // „Które gospodarstwo": NAJSTARSZE członkostwo. To jest jedyne miejsce,
+    // które to rozstrzyga dla klienta (`currentHouseholdId`); to samo robi
+    // `cookidoo-integration.service.ts` po JWT. Gatewaye WS biorą
+    // `householdId` z payloadu i sprawdzają tylko członkostwo — dopóki socket
+    // nie ma auth (Faza 0), nie da się tego ujednolicić po stronie serwera.
+    // `households.create` i `acceptInvitation` pilnują, żeby członkostwo było
+    // jedno, więc „najstarsze" znaczy w praktyce „jedyne".
     const [accessToken, refreshToken, membership] = await Promise.all([
       this.issueAccessToken(user.id),
       this.issueRefreshToken(user.id),

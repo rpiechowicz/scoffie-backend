@@ -3,7 +3,6 @@ import { DietPreferenceValue, Prisma, Sex, UserGoal } from '@prisma/client';
 import { AppException } from '../common/app-exception';
 import { normalizeAllergenIds } from '../common/allergens';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { settleHouseholdAfterMemberLeft } from '../households/household-cleanup.util';
@@ -46,7 +45,7 @@ function clampMacro(
       'VALIDATION_ERROR',
       `${field} musi byc liczba calkowita 0..${max} albo null`,
       HttpStatus.BAD_REQUEST,
-      { field },
+      [field],
     );
   }
   return Math.min(Math.max(Math.round(value), 0), max);
@@ -88,18 +87,6 @@ export interface UserProfilePayload {
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
-
-  findAll() {
-    return this.prisma.user.findMany({ orderBy: { createdAt: 'desc' } });
-  }
-
-  findById(id: string) {
-    return this.prisma.user.findUnique({ where: { id } });
-  }
-
-  create(data: CreateUserDto) {
-    return this.prisma.user.create({ data });
-  }
 
   getMe(userId: string) {
     return this.prisma.user.findUnique({
