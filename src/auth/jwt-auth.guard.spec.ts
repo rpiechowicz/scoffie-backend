@@ -26,7 +26,6 @@ describe('JwtAuthGuard', () => {
       ok: true,
       userId: 'user-1',
       exp: null,
-      householdIds: [],
     });
     const { context, request } = contextWithHeader('Bearer good');
 

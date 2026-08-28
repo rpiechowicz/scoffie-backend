@@ -133,7 +133,10 @@ or `Authorization: Bearer`). Identity comes from the token, broadcasts go to
 
 1. Deploy backend with `WS_AUTH_MODE` unset (= `soft`): sockets with a token are
    verified, sockets without one keep working as `legacy` (identity from the
-   payload, as before). No Railway variable is required for this step.
+   payload, as before). No Railway variable is required for this step — but
+   check with `railway variables --service Backend` that `REFRESH_TOKEN_DAYS`
+   is unset or ≥ 60 and `JWT_EXPIRES_IN` is unset or shorter than that; the
+   refresh token must outlive the access token for the iOS refresh to work.
 2. Ship the iOS build that sends the token in the handshake and refreshes it.
 3. Watch `GET /ops/metrics` → `http.wsAuth.handshakes.legacy` and `legacyActs`.
    When they stop growing (both phones updated), set `WS_AUTH_MODE=strict` on
@@ -142,7 +145,13 @@ or `Authorization: Bearer`). Identity comes from the token, broadcasts go to
 
 `WS_AUTH_MODE` is read per handshake; a typo is a boot violation in production.
 Refresh tokens now default to 60 days (`REFRESH_TOKEN_DAYS`), reuse of a rotated
-refresh token revokes the whole family, and `POST /auth/logout` revokes one.
+refresh token revokes the whole family (deliberate: a lost refresh response
+means re-login on every device of that user), and `POST /auth/logout` revokes
+one refresh token — the access token stays valid until its `exp` (30 days by
+default), which is why the next step after iOS adoption is a shorter
+`JWT_EXPIRES_IN`. A verification outage (database) during the handshake is
+reported as `SERVICE_UNAVAILABLE`, not `UNAUTHORIZED`, so clients keep their
+auto-reconnect instead of refreshing tokens.
 
 ## Railway — healthcheck wdrożenia
 

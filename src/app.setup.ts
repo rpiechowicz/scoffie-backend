@@ -60,8 +60,12 @@ export function configureApp(app: NestExpressApplication): void {
       accessTokens: app.get(AccessTokenService, { strict: false }),
       onHandshake: (result) =>
         metrics.recordWsHandshake(
-          result.outcome,
-          result.outcome === 'rejected' ? result.reason : undefined,
+          result.outcome === 'unavailable' ? 'rejected' : result.outcome,
+          result.outcome === 'rejected'
+            ? result.reason
+            : result.outcome === 'unavailable'
+              ? 'unavailable'
+              : undefined,
         ),
     }),
   );

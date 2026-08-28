@@ -13,7 +13,9 @@ import { AppSocket, LEGACY_ROOM, householdRoom, userRoom } from './ws-socket';
 export type WsHandshakeOutcome =
   | { outcome: 'token' }
   | { outcome: 'legacy' }
-  | { outcome: 'rejected'; reason: AccessTokenFailureReason };
+  | { outcome: 'rejected'; reason: AccessTokenFailureReason }
+  /** Awaria weryfikacji (baza) — nie odmowa; klient ma próbować dalej. */
+  | { outcome: 'unavailable' };
 
 export type WsHandshakeObserver = (outcome: WsHandshakeOutcome) => void;
 
@@ -34,12 +36,17 @@ const REJECTION_MESSAGES: Record<AccessTokenFailureReason, string> = {
 
 /** `setTimeout` powyżej 2^31−1 ms (24,86 dnia) odpala natychmiast. */
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+/**
+ * Po `auth:expired` handler w toku ma jeszcze chwilę na ack — rozłączenie
+ * w połowie mutacji zostawiałoby zapis bez odpowiedzi (iOS czekałby 3×6 s).
+ */
+export const WS_AUTH_EXPIRY_GRACE_MS = 1000;
 
 /** Zdarzenie do klienta tuż przed rozłączeniem po wygaśnięciu tokenu. */
 export const WS_AUTH_EXPIRED_EVENT = 'auth:expired';
 
 type Dependencies = {
-  accessTokens: Pick<AccessTokenService, 'verify'>;
+  accessTokens: Pick<AccessTokenService, 'verify' | 'householdIds'>;
   onHandshake?: WsHandshakeObserver;
   /** Czytany per handshake — e2e przełącza tryb w jednym procesie. */
   readMode?: () => WsAuthMode;
@@ -61,7 +68,13 @@ type Dependencies = {
  * wygaśnięcia rozłącza socket, gdy minie `exp` tokenu (`disconnect(false)`:
  * pakiet DISCONNECT bez zamykania engine — klient socket.io-client-swift nie
  * wpada wtedy w auto-reconnect ze starym payloadem, tylko woła
- * `connect(withPayload:)` z odświeżonym tokenem).
+ * `connect(withPayload:)` z odświeżonym tokenem). Timer uzbraja się dopiero
+ * na `connection`, nie w middleware: socket zamknięty w trakcie weryfikacji
+ * nigdy nie dostaje `disconnect`, więc timer z middleware wisiałby do `exp`.
+ *
+ * Awaria samej weryfikacji (baza) NIE jest odmową: klient dostaje
+ * `SERVICE_UNAVAILABLE` i zostawia sobie auto-reconnect — `UNAUTHORIZED`
+ * kazałby nowemu buildowi iOS zatrzymać reconnect i odświeżać token na darmo.
  */
 export class AuthIoAdapter extends IoAdapter {
   private readonly logger = new Logger(AuthIoAdapter.name);
@@ -83,9 +96,13 @@ export class AuthIoAdapter extends IoAdapter {
     server.use((socket, next) => {
       this.authenticate(socket as AppSocket).then(
         () => next(),
-        (error: unknown) => next(toExtendedError(error)),
+        (error: unknown) => next(this.toExtendedError(error)),
       );
     });
+    // Nasz listener jest zarejestrowany PRZED listenerami gatewayów Nesta
+    // (`bindClientConnect` biegnie później), więc timer jest uzbrojony,
+    // zanim jakikolwiek handler dostanie socket.
+    server.on('connection', (socket) => this.armExpiry(socket as AppSocket));
     return server;
   }
 
@@ -110,15 +127,28 @@ export class AuthIoAdapter extends IoAdapter {
     if (!verdict.ok) {
       throw this.reject(verdict.reason);
     }
+    // jsonwebtoken liczy `exp` w pełnych sekundach, więc token przechodzi
+    // weryfikację do ~1 s po czasie; po dłuższym `findUnique` `exp` może już
+    // minąć — w middleware `disconnect(false)` jest no-opem, więc odmawiamy
+    // od razu (klient odświeży token i połączy się ponownie).
+    if (verdict.exp !== null && verdict.exp * 1000 <= this.deps.now()) {
+      throw this.reject('expired');
+    }
 
     socket.data.mode = 'token';
     socket.data.userId = verdict.userId;
     socket.data.exp = verdict.exp;
-    await socket.join([
-      userRoom(verdict.userId),
-      ...verdict.householdIds.map(householdRoom),
-    ]);
-    this.armExpiry(socket);
+    // Najpierw `user:<id>`, potem odczyt członkostw: `joinHousehold` z
+    // równoległego `households:create`/`acceptInvitation` adresuje sockety
+    // przez `user:<id>`, więc albo odczyt widzi nowe członkostwo, albo join
+    // już trafia w ten socket — bez okna, w którym ginie oba.
+    await socket.join(userRoom(verdict.userId));
+    const householdIds = await this.deps.accessTokens.householdIds(
+      verdict.userId,
+    );
+    if (householdIds.length > 0) {
+      await socket.join(householdIds.map(householdRoom));
+    }
     this.deps.onHandshake({ outcome: 'token' });
   }
 
@@ -127,9 +157,16 @@ export class AuthIoAdapter extends IoAdapter {
     return new WsHandshakeError(reason);
   }
 
-  private armExpiry(socket: AppSocket): void {
+  /** Publiczne dla testów; w runtime wołane z `connection`. */
+  armExpiry(socket: AppSocket): void {
     const exp = socket.data.exp;
-    if (!exp) return;
+    if (!exp || socket.data.mode !== 'token') return;
+
+    const arm = (delay: number, next: () => void): void => {
+      const timer = setTimeout(next, delay);
+      timer.unref?.();
+      this.expiryTimers.set(socket, timer);
+    };
 
     const schedule = (): void => {
       const remaining = exp * 1000 - this.deps.now();
@@ -141,12 +178,10 @@ export class AuthIoAdapter extends IoAdapter {
           code: 'UNAUTHORIZED',
           reason: 'expired',
         });
-        socket.disconnect(false);
+        arm(WS_AUTH_EXPIRY_GRACE_MS, () => socket.disconnect(false));
         return;
       }
-      const timer = setTimeout(schedule, Math.min(remaining, MAX_TIMEOUT_MS));
-      timer.unref?.();
-      this.expiryTimers.set(socket, timer);
+      arm(Math.min(remaining, MAX_TIMEOUT_MS), schedule);
     };
 
     schedule();
@@ -155,6 +190,21 @@ export class AuthIoAdapter extends IoAdapter {
       if (timer) clearTimeout(timer);
       this.expiryTimers.delete(socket);
     });
+  }
+
+  private toExtendedError(error: unknown): Error & { data?: unknown } {
+    if (error instanceof WsHandshakeError) return error;
+    // Awaria weryfikacji (np. baza) — to nie odmowa: klient zostaje przy
+    // auto-reconnect z backoffem i wraca sam, gdy baza wróci.
+    const unavailable = new WsHandshakeUnavailableError();
+    this.deps.onHandshake({ outcome: 'unavailable' });
+    this.logger.error(
+      `handshake failed requestId=${unavailable.data.requestId}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      error instanceof Error ? error.stack : undefined,
+    );
+    return unavailable;
   }
 }
 
@@ -182,16 +232,21 @@ export class WsHandshakeError extends Error {
   }
 }
 
-function toExtendedError(error: unknown): Error & { data?: unknown } {
-  if (error instanceof WsHandshakeError) return error;
-  // Awaria weryfikacji (np. baza) — odmowa bez zdradzania szczegółów; log
-  // z requestId, żeby dało się to odnaleźć.
-  const rejection = new WsHandshakeError('invalid');
-  new Logger(AuthIoAdapter.name).error(
-    `handshake failed requestId=${rejection.data.requestId}: ${
-      error instanceof Error ? error.message : String(error)
-    }`,
-    error instanceof Error ? error.stack : undefined,
-  );
-  return rejection;
+/** Awaria po naszej stronie w trakcie handshake'u — klient ma spróbować później. */
+export class WsHandshakeUnavailableError extends Error {
+  readonly data: {
+    code: 'SERVICE_UNAVAILABLE';
+    message: string;
+    requestId: string;
+  };
+
+  constructor() {
+    super('Authentication temporarily unavailable');
+    this.name = 'WsHandshakeUnavailableError';
+    this.data = {
+      code: 'SERVICE_UNAVAILABLE',
+      message: 'Authentication temporarily unavailable',
+      requestId: randomUUID(),
+    };
+  }
 }

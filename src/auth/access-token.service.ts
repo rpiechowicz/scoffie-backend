@@ -13,9 +13,10 @@ export type VerifiedAccessToken = {
   userId: string;
   /** `exp` z tokenu (sekundy od epoki) — do timera wygaśnięcia na sockecie. */
   exp: number | null;
-  /** Gospodarstwa usera w chwili weryfikacji — pokoje WS. */
-  householdIds: string[];
 };
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AccessTokenFailure = {
   ok: false;
@@ -71,11 +72,14 @@ export class AccessTokenService {
     }
 
     const userId = typeof payload.sub === 'string' ? payload.sub.trim() : '';
-    if (!userId) return { ok: false, reason: 'invalid' };
+    // `User.id` to @db.Uuid — nie-UUID w `sub` (token podpisany naszym
+    // sekretem, ale spreparowany) dałby P2023 z Prismy, czyli 500 zamiast 401.
+    if (!userId || !UUID_RE.test(userId))
+      return { ok: false, reason: 'invalid' };
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, memberships: { select: { householdId: true } } },
+      select: { id: true },
     });
     if (!user) return { ok: false, reason: 'user_gone' };
 
@@ -83,7 +87,20 @@ export class AccessTokenService {
       ok: true,
       userId,
       exp: typeof payload.exp === 'number' ? payload.exp : null,
-      householdIds: user.memberships.map((m) => m.householdId),
     };
+  }
+
+  /**
+   * Gospodarstwa usera — pokoje WS. Osobno od `verify`, bo adapter najpierw
+   * dołącza socket do `user:<id>` (żeby `joinHousehold` z równoległego
+   * `households:create`/`acceptInvitation` go widział), a dopiero potem czyta
+   * członkostwa.
+   */
+  async householdIds(userId: string): Promise<string[]> {
+    const memberships = await this.prisma.membership.findMany({
+      where: { userId },
+      select: { householdId: true },
+    });
+    return memberships.map((m) => m.householdId);
   }
 }

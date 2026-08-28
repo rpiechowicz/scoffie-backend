@@ -258,6 +258,13 @@ describe('WS auth E2E', () => {
 
   describe('tożsamość z socketu', () => {
     it('payload.userId innego usera jest ignorowany — działa tożsamość z tokenu', async () => {
+      const before = (
+        await request(app.getHttpServer())
+          .get('/ops/metrics')
+          .set(opsHeaders())
+          .expect(200)
+      ).body.http.wsAuth;
+
       const victim = await devLogin('Victim');
       const attacker = await devLogin('Attacker');
       const socket = connect({ token: attacker.accessToken });
@@ -268,19 +275,20 @@ describe('WS auth E2E', () => {
       });
       expect(me.ok && me.data.id).toBe(attacker.user.id);
 
-      const metrics = await request(app.getHttpServer())
-        .get('/ops/metrics')
-        .set(opsHeaders())
-        .expect(200);
-      expect(metrics.body.http.wsAuth.payloadMismatch).toBeGreaterThanOrEqual(
-        1,
-      );
-      expect(metrics.body.http.wsAuth.handshakes.token).toBeGreaterThanOrEqual(
-        1,
-      );
-      expect(
-        metrics.body.http.wsAuth.handshakes.rejected,
-      ).toBeGreaterThanOrEqual(1);
+      await expectHandshakeRejected(connect({ token: 'garbage' }));
+
+      const after = (
+        await request(app.getHttpServer())
+          .get('/ops/metrics')
+          .set(opsHeaders())
+          .expect(200)
+      ).body.http.wsAuth;
+      // Delty, nie wartości bezwzględne — inne testy w tym procesie też
+      // liczą handshake'i.
+      expect(after.payloadMismatch - before.payloadMismatch).toBe(1);
+      expect(after.handshakes.token - before.handshakes.token).toBe(1);
+      expect(after.handshakes.rejected - before.handshakes.rejected).toBe(1);
+      expect(after.rejectedByReason.invalid ?? 0).toBeGreaterThanOrEqual(1);
     });
   });
 

@@ -6,7 +6,7 @@
  *   ma dostać prawdziwe zachowanie), socket BEZ tokenu wchodzi jako `legacy`
  *   i bierze tożsamość z `payload.userId` jak dawniej. To okno przejściowe
  *   dla buildów iOS sprzed tokenu w handshake — mierzone w
- *   `/ops/metrics.wsAuth`, żeby było widać, kiedy legacy spadło do zera.
+ *   `/ops/metrics` → `http.wsAuth`, żeby było widać, kiedy legacy spadło do zera.
  * - `strict`: brak tokenu = odmowa handshake'u (`connect_error` z kodem
  *   `UNAUTHORIZED`). Docelowy tryb po adopcji buildu iOS z tokenem.
  *

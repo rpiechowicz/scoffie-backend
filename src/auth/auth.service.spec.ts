@@ -381,11 +381,27 @@ describe('AuthService', () => {
 
       expect(result).toHaveProperty('accessToken', 'mock-access-token');
       expect(result).toHaveProperty('refreshToken');
-      expect(prisma.refreshToken.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ revokedAt: expect.any(Date) }),
-        }),
+      // Rotacja jest warunkowa (revokedAt: null) — patrz test wyścigu niżej.
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { tokenHash: expect.any(String), revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+
+    it('przegrany wyścig o rotację (updateMany → 0) to replay: rodzina unieważniona, 401', async () => {
+      prisma.refreshToken.updateMany
+        .mockResolvedValueOnce({ count: 0 })
+        .mockResolvedValueOnce({ count: 2 });
+
+      await expect(service.refreshAccessToken('raced-token')).rejects.toThrow(
+        UnauthorizedException,
       );
+      expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { userId: mockRefreshToken.userId, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
     });
 
     it('powinno odrzucić nieistniejący token', async () => {
@@ -409,7 +425,7 @@ describe('AuthService', () => {
         where: { userId: mockRefreshToken.userId, revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       });
-      expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
       expect(jwt.signAsync).not.toHaveBeenCalled();
     });
 

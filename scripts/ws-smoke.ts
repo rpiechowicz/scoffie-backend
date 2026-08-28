@@ -4,14 +4,16 @@ import { io } from 'socket.io-client';
  * Ręczny smoke WebSocketu z uwierzytelnieniem.
  *
  *   WS_TOKEN=<jwt> pnpm ws:smoke <event> '<json>'
- *   pnpm ws:smoke --dev-login "Rafał" <event> '<json>'   (token z POST /auth/dev)
+ *   pnpm ws:smoke --dev-login "Rafał" [--dev-email r@x.pl] <event> '<json>'
+ *     (token z POST /auth/dev; tożsamość dev-loginu = e-mail, gdy podany,
+ *      inaczej nazwa — tak samo liczy ją backend)
  *   pnpm ws:smoke <event> '<json>'                         (bez tokenu = legacy,
  *                                                           działa tylko w WS_AUTH_MODE=soft)
  *
  * Tożsamość bierze się z tokenu; `userId` w payloadzie jest ignorowane dla
  * socketu z tokenem (a rozjazd liczony w /ops/metrics.wsAuth.payloadMismatch).
  * Odmowa handshake'u wypisuje `{message, data:{code, reason, requestId}}`
- * i kończy kodem 2.
+ * i kończy kodem 2; brak odpowiedzi serwera — kodem 1.
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -24,6 +26,12 @@ async function main(): Promise<void> {
       process.exit(1);
     }
     args.splice(devLoginIndex, 2);
+  }
+  let devLoginEmail: string | null = null;
+  const devEmailIndex = args.indexOf('--dev-email');
+  if (devEmailIndex >= 0) {
+    devLoginEmail = args[devEmailIndex + 1] ?? null;
+    args.splice(devEmailIndex, 2);
   }
 
   const event = args[0];
@@ -48,7 +56,7 @@ async function main(): Promise<void> {
 
   let token = process.env.WS_TOKEN?.trim() || null;
   if (devLoginName) {
-    token = await devLogin(url, devLoginName);
+    token = await devLogin(url, devLoginName, devLoginEmail);
   }
 
   const socket = io(url, {
@@ -65,7 +73,8 @@ async function main(): Promise<void> {
         JSON.stringify({ message: error.message, data: error.data }, null, 2),
       );
       socket.close();
-      process.exit(2);
+      // Odmowa serwera niesie `data` (kod, powód); błąd transportu nie.
+      process.exit(error.data ? 2 : 1);
     });
     setTimeout(
       () => reject(new Error(`No connection within ${timeoutMs} ms`)),
@@ -93,11 +102,15 @@ async function main(): Promise<void> {
   socket.close();
 }
 
-async function devLogin(baseUrl: string, displayName: string): Promise<string> {
+async function devLogin(
+  baseUrl: string,
+  displayName: string,
+  email: string | null,
+): Promise<string> {
   const response = await fetch(`${baseUrl}/auth/dev`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ displayName }),
+    body: JSON.stringify(email ? { displayName, email } : { displayName }),
   });
   const body = (await response.json()) as {
     accessToken?: string;

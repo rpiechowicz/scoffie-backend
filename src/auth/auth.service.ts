@@ -219,10 +219,23 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    await this.prisma.refreshToken.update({
-      where: { tokenHash },
+    // Unieważnienie warunkowe: dwa równoległe żądania tym samym tokenem
+    // oba widziały `revokedAt: null` w `findUnique`; tylko jedno może wygrać
+    // rotację, drugie jest replayem i idzie tą samą ścieżką co wyżej.
+    const rotated = await this.prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
       data: { revokedAt: now },
     });
+    if (rotated.count === 0) {
+      const revoked = await this.prisma.refreshToken.updateMany({
+        where: { userId: storedToken.userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      this.logger.warn(
+        `refresh token concurrent reuse for user ${storedToken.userId} — revoked ${revoked.count} active token(s)`,
+      );
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
     await this.prisma.refreshToken.deleteMany({
       where: { userId: storedToken.userId, expiresAt: { lt: now } },
     });
