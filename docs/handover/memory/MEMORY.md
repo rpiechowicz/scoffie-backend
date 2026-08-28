@@ -1,0 +1,19 @@
+- [Weekly Meals stack](project_weekly_meals_stack.md) — iOS + NestJS (port 3000, Docker); iPhone fizyczny łączy się po LAN IP Maca, nie localhost.
+- [Agent AI — stan i plan](project_ai_agent_decision.md) — plastry A–D WSZYSTKIE na prod 28.08 (backend `090d10d`, iOS `bbc220e`, tagi wgrane przez `railway ssh`); dalej Faza 0 (auth) + 3 decyzje Rafała.
+- [Konwencja makro przepisów](project_recipe_macro_convention.md) — makro = cały przepis, węgle bez błonnika, liczone ze składników przez skrypt, nie z ręki.
+- [Wyczerpane zasoby Maca](project_mac_resources_exhausted.md) — tsc/jest/prisma wieszają się przez pełny swap i 511 MB wolnego dysku, nie przez wersje paczek.
+- [Docker API bez auto-migracji](project_docker_no_auto_migrate.md) — NIEAKTUALNE: CMD obrazu odpala teraz migracje przy starcie; ręczny deploy to tylko idempotentna asekuracja.
+- [Bez lintera po każdej zmianie](feedback_no_lint_after_every_change.md) — prettier/eslint/tsc trwają wieki; buduj przez xcodebuild, lint tylko na życzenie.
+- [Gałąź develop w obu repach](project_branching_develop.md) — nowe branche z `develop`; lokalne refy bywają stare, najpierw `git fetch --prune`.
+- [Architektura dodatkowych posiłków](project_meal_slots_architecture.md) — sloty per gospodarstwo + `suitableMealTypes` per przepis; kolejność enuma MealType jest znacząca.
+- [Sprawdź źródło zanim zapytasz](feedback_check_remote_before_asking.md) — na pytanie o stan gałęzi odpowiada `git fetch`, nie użytkownik.
+- [Przestarzały lokalny klient Prismy](project_stale_local_prisma_client.md) — MealType ma lokalnie 3 warianty; lokalne testy dają fałszywe wyniki, świeży klient jest tylko w Dockerze.
+- [Semantyka plannedServings](project_planned_servings_semantics.md) — porcje łączne, nie na osobę; brak wartości = policz z audytorium, nigdy 1; katalog: servings 1..8 (7 przepisów na 4).
+- [Weryfikacja backendu w kontenerze](project_backend_verify_in_scratch_container.md) — docker cp do jednorazowego kontenera z obrazu API; bind-mount wywala EIO.
+- [Preferencje do przepisów](project_recipe_content_preferences.md) — wieprzowina/wołowina tak, krewetki i śledź nie, więcej indyka, proste domowe dania na 2 porcje.
+- [Backlog rozbudowy przepisów](project_recipe_expansion_backlog.md) — zatwierdzona lista 55 nowych przepisów w 6 partiach; partia 1 (śniadania) w trakcie.
+- [Konwencja nazw składników](project_ingredient_naming.md) — name z polskimi znakami, normalizedName ASCII jako klucz; scalanie duplikatów przez alias + isActive=false + usunięcie z txt.
+- [Plan integracji Cookidoo](project_cookidoo_integration_plan.md) — 4 fazy (repo Python, moduł integrations po HTTP+JWT, ustawienia iOS, przepisy TM); wysyłka zawsze na dziś.
+- [Integracja kroków (Zdrowie/Garmin)](project_health_steps_integration.md) — feature/health-steps w obu repach, jedno źródło naraz przez HealthKit; Garmin do sprawdzenia na fizycznym iPhonie.
+- [Id przepisów vs zdjęcia w R2](project_recipe_ids_vs_r2_images.md) — obiekty w R2 są źródłem prawdy o parowaniu id↔danie; złe id prostuje się w katalogu, nie przestawianiem obiektów.
+- [Operacje na prod Railway](project_railway_prod_ops.md) — serwisy Backend/Postgres/Cookidoo; skrypty jednorazowe przez `railway ssh --service Backend -- sh -c …` (bez hasła), SQL przez lokalny kontener z $PROD_DB; zmiana w JSON katalogu/tagów = loader/import na prod.
