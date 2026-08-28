@@ -31,7 +31,16 @@ ENV npm_config_registry=$NPM_REGISTRY
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-RUN corepack enable && corepack prepare pnpm@10.15.1 --activate
+# Cache corepacka poza HOME roota: `corepack prepare` biegnie jako root, a
+# proces chodzi jako `node`. Bez wspólnego COREPACK_HOME użytkownik `node`
+# widział pusty cache i corepack ŚCIĄGAŁ najnowszego pnpm przy każdym
+# starcie kontenera (pnpm 11 próbował wtedy przeinstalować node_modules
+# i padał bez TTY). Po przygotowaniu sieć dla corepacka wyłączona: brak
+# pinu ma się skończyć głośnym błędem, nie cichym pobraniem.
+ENV COREPACK_HOME=/opt/corepack
+RUN corepack enable && corepack prepare pnpm@10.15.1 --activate \
+  && chown -R node:node /opt/corepack
+ENV COREPACK_ENABLE_NETWORK=0
 # Pełne `node_modules` (z devDependencies) świadomie: CMD odpala `prisma
 # migrate deploy` i skrypty `tsx`, a oba pakiety są w devDependencies.
 COPY --from=deps /app/node_modules ./node_modules
