@@ -145,8 +145,22 @@ export class AgentTurnsService {
         // telefony tej samej osoby potrafią wysłać równocześnie; przy jednej
         // instancji i krótkiej transakcji to wystarcza (kolejny wyścig i tak
         // zatrzyma unikat na `clientMessageId`).
+        //
+        // Tury starsze niż limit czasu + margines NIE liczą się do lease.
+        // To są tury po padzie procesu (deploy, OOM), których nikt już nie
+        // domknie: bez tego warunku rozmowa z taką turą-zombie oddawałaby
+        // 409 NA ZAWSZE, a jedynym ratunkiem byłby odczyt `GET /agent/turns/:id`
+        // z identyfikatorem, który klient dawno zgubił. Ten sam próg co
+        // w `expireIfStale` — to ta sama definicja „tura już nie żyje".
+        const staleBefore = new Date(
+          Date.now() - env.turnTimeoutMs - TURN_TIMEOUT_GRACE_MS,
+        );
         const running = await tx.agentTurn.count({
-          where: { conversationId, status: 'RUNNING' },
+          where: {
+            conversationId,
+            status: 'RUNNING',
+            startedAt: { gt: staleBefore },
+          },
         });
         if (running > 0) {
           this.metrics.recordRejected('inProgress');

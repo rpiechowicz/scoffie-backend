@@ -21,7 +21,28 @@ export type ConversationView = {
   title: string | null;
   lastMessageAt: string | null;
   createdAt: string;
+  /**
+   * Początek ostatniej wiadomości — lista rozmów bez tego to lista dat.
+   * Przycięty na serwerze, bo klient i tak pokaże jedną linijkę, a odpowiedź
+   * asystenta potrafi mieć dwa tysiące znaków.
+   */
+  preview?: string | null;
+  /** Ile wiadomości ma rozmowa — pusta rozmowa wygląda inaczej niż zaczęta. */
+  messageCount?: number;
+  /**
+   * Tura, która JESZCZE BIEGNIE w tej rozmowie.
+   *
+   * Bez tego pola identyfikator biegnącej tury żyje wyłącznie w pamięci
+   * telefonu: wystarczy zamknąć aplikację albo przełączyć rozmowę, żeby
+   * użytkownik został z własnym pytaniem bez odpowiedzi i bez sposobu, by do
+   * niej wrócić. Klient, który dostaje `activeTurnId`, wraca do odpytywania —
+   * a to samo w sobie domyka turę-zombie przez `expireIfStale`.
+   */
+  activeTurnId?: string | null;
 };
+
+/** Ile znaków ostatniej wiadomości trafia na listę rozmów. */
+export const CONVERSATION_PREVIEW_MAX = 120;
 
 export type MessageView = {
   id: string;
@@ -35,6 +56,14 @@ export type MessageView = {
 
 /** Ile wiadomości oddaje jeden odczyt historii (klient dobiera kursorem `after`). */
 export const MESSAGES_PAGE_SIZE = 100;
+
+/**
+ * Ile rozmów wraca na liście historii.
+ *
+ * `findMany` bez limitu po pół roku oddawałoby setki rozmów z podglądem
+ * każdej — a użytkownik i tak sięga do kilku ostatnich.
+ */
+export const CONVERSATIONS_PAGE_SIZE = 50;
 
 /** Ile znaków pierwszej wiadomości trafia do tytułu rozmowy. */
 export const CONVERSATION_TITLE_MAX = 60;
@@ -92,13 +121,48 @@ export class AgentConversationsService {
     return this.toConversationView(conversation);
   }
 
+  /**
+   * Lista rozmów użytkownika, od najświeższej.
+   *
+   * Podgląd ostatniej wiadomości bierze się zagnieżdżonym `take: 1`, a nie
+   * pętlą po rozmowach: to jedno zapytanie na całą listę zamiast N+1, a lista
+   * rozmów jest widokiem, który otwiera się często i ma być natychmiastowy.
+   */
   async list(userId: string): Promise<ConversationView[]> {
     this.config.assertEnabled();
     const conversations = await this.prisma.agentConversation.findMany({
       where: { userId },
       orderBy: [{ lastMessageAt: 'desc' }, { createdAt: 'desc' }],
+      take: CONVERSATIONS_PAGE_SIZE,
+      include: {
+        messages: {
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 1,
+          select: { text: true },
+        },
+        // Tura w biegu — jedna na rozmowę, bo lease na to nie pozwala więcej.
+        turns: {
+          where: { status: 'RUNNING' },
+          orderBy: { startedAt: 'desc' },
+          take: 1,
+          select: { id: true },
+        },
+        _count: { select: { messages: true } },
+      },
     });
-    return conversations.map((c) => this.toConversationView(c));
+    return conversations.map((conversation) => ({
+      ...this.toConversationView(conversation),
+      preview: this.preview(conversation.messages[0]?.text),
+      messageCount: conversation._count.messages,
+      activeTurnId: conversation.turns[0]?.id ?? null,
+    }));
+  }
+
+  private preview(text: string | undefined): string | null {
+    if (!text) return null;
+    const flat = text.replace(/\s+/g, ' ').trim();
+    if (flat.length <= CONVERSATION_PREVIEW_MAX) return flat;
+    return `${flat.slice(0, CONVERSATION_PREVIEW_MAX).trimEnd()}…`;
   }
 
   async messages(
@@ -170,6 +234,24 @@ export class AgentConversationsService {
   async deleteAll(userId: string): Promise<{ deleted: number }> {
     const result = await this.prisma.agentConversation.deleteMany({
       where: { userId },
+    });
+    return { deleted: result.count };
+  }
+
+  /**
+   * Kasuje JEDNĄ rozmowę — porządki, nie RODO.
+   *
+   * Bez `assertEnabled` z tego samego powodu co `deleteAll`: sprzątanie
+   * własnych danych nie może zależeć od tego, czy funkcja jest włączona.
+   * Cudza rozmowa daje 404 (`loadOwned`), a nie 403.
+   */
+  async deleteOne(
+    userId: string,
+    conversationId: string,
+  ): Promise<{ deleted: number }> {
+    await this.loadOwned(userId, conversationId);
+    const result = await this.prisma.agentConversation.deleteMany({
+      where: { id: conversationId, userId },
     });
     return { deleted: result.count };
   }

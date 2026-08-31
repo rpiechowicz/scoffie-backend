@@ -8,6 +8,11 @@ import {
 } from '../src/agent/tools/agent-tool-executor';
 import { AGENT_TOOL_NAMES } from '../src/agent/tools/agent-tools';
 import {
+  AgentMemoryService,
+  MEMORY_LIMIT,
+} from '../src/agent/agent-memory.service';
+import { AgentPromptService } from '../src/agent/agent-prompt.service';
+import {
   buildCatalogDigest,
   loadDigestRecipes,
 } from '../src/agent/catalog-digest';
@@ -28,6 +33,8 @@ describe('Narzędzia asystenta E2E', () => {
   let moduleRef: TestingModule;
   let prisma: PrismaService;
   let executor: AgentToolExecutor;
+  let memory: AgentMemoryService;
+  let prompts: AgentPromptService;
   let context: AgentToolContext;
 
   const createdUserIds: string[] = [];
@@ -52,6 +59,8 @@ describe('Narzędzia asystenta E2E', () => {
     await moduleRef.init();
     prisma = moduleRef.get(PrismaService);
     executor = moduleRef.get(AgentToolExecutor);
+    memory = moduleRef.get(AgentMemoryService);
+    prompts = moduleRef.get(AgentPromptService);
 
     const stamp = `${Date.now()}`;
     const user = await prisma.user.create({
@@ -317,6 +326,81 @@ describe('Narzędzia asystenta E2E', () => {
         ok: false,
         error: { code: 'RECIPE_NOT_EDITABLE' },
       });
+    });
+  });
+
+  /**
+   * Pamięć między rozmowami (`remember_note` + `AgentMemory`).
+   *
+   * Model widzi historię tylko w obrębie JEDNEJ rozmowy, więc bez tej tabeli
+   * każda nowa rozmowa zaczynała od zera. Te przypadki pilnują trzech rzeczy:
+   * że notatka naprawdę wraca do promptu, że nie da się jej zdublować i że
+   * pamięć ma sufit.
+   */
+  describe('pamięć asystenta', () => {
+    beforeEach(async () => {
+      await prisma.agentMemory.deleteMany({
+        where: { householdId: context.householdId },
+      });
+    });
+
+    it('remember_note zapisuje notatkę i oddaje ją jako dane', async () => {
+      const note = data<{ id: string; text: string }>(
+        await run('remember_note', { text: '  W środy jedzą u teściów.  ' }),
+      );
+      expect(note.text).toBe('W środy jedzą u teściów.');
+
+      const stored = await memory.list(context.householdId);
+      expect(stored.map((item) => item.text)).toEqual([
+        'W środy jedzą u teściów.',
+      ]);
+    });
+
+    it('notatka wraca do PROMPTU tury — inaczej pamięć jest tylko tabelą', async () => {
+      await run('remember_note', { text: 'Kuba nie je ryb' });
+
+      const prompt = await prompts.build(context.userId, context.householdId, {
+        weekStart: WEEK_START,
+        clientToday: WEEK_START,
+        timeZone: 'Europe/Warsaw',
+      });
+
+      // Blok gospodarstwa jest ostatni — pamięć siedzi w nim, poza punktem cache.
+      const householdBlock = prompt.system[prompt.system.length - 1].text;
+      expect(householdBlock).toContain('Kuba nie je ryb');
+    });
+
+    it('ta sama treść drugi raz nie tworzy duplikatu', async () => {
+      await run('remember_note', { text: 'Mają Thermomixa' });
+      await run('remember_note', { text: 'mają thermomixa' });
+
+      expect(await memory.list(context.householdId)).toHaveLength(1);
+    });
+
+    it('pusta notatka wraca jako błąd walidacji, nie jako wyjątek', async () => {
+      const result = await run('remember_note', { text: '   ' });
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR' },
+      });
+    });
+
+    it('po przekroczeniu limitu wypada NAJSTARSZA notatka', async () => {
+      for (let i = 0; i < MEMORY_LIMIT + 2; i += 1) {
+        await memory.remember(
+          context.householdId,
+          context.userId,
+          `Notatka numer ${i}`,
+        );
+      }
+
+      const stored = await memory.list(context.householdId);
+      expect(stored).toHaveLength(MEMORY_LIMIT);
+      // Świeższa prawda wypiera starszą: przeprowadzka i zmiana diety mają
+      // przebić to, co ktoś powiedział pół roku temu.
+      const texts = stored.map((item) => item.text);
+      expect(texts).toContain(`Notatka numer ${MEMORY_LIMIT + 1}`);
+      expect(texts).not.toContain('Notatka numer 0');
     });
   });
 

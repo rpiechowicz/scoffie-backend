@@ -25,6 +25,8 @@ export type SystemBlock = {
 };
 
 export type HouseholdPromptContext = {
+  /** Notatki z poprzednich rozmów; pusty string = pamięć jest pusta. */
+  memory: string;
   householdName: string;
   /** `YYYY-MM-DD` z telefonu — serwer żyje w UTC i nie ma prawa liczyć „dziś". */
   clientToday: string;
@@ -58,6 +60,13 @@ export const AGENT_INSTRUCTIONS = [
   '- Gdy czegoś nie da się zrobić, mówisz to wprost razem z powodem — nie obiecujesz na przyszłość.',
   '- Nie pytasz o zgodę na każdy krok. Pytasz, gdy naprawdę brakuje informacji, której nie ma w narzędziach.',
   '',
+  'PAMIĘĆ:',
+  '- To, co pamiętasz o tym domu, masz w kontekście niżej. Jeśli czegoś tam nie ma, to znaczy,',
+  '  że tego nie wiesz — nie udawaj, że pamiętasz rozmowę, której nie widzisz.',
+  '- Gdy użytkownik powie coś TRWAŁEGO o swoim domu (stały zwyczaj, niechęć, sprzęt w kuchni),',
+  '  zapisz to przez remember_note — jednym zdaniem i tylko raz.',
+  '- Nie zapamiętujesz dzisiejszego planu, liczb ani niczego o wadze, zdrowiu i celach.',
+  '',
   'JAK PISZESZ ODPOWIEDŹ (użytkownik czyta ją na telefonie):',
   '- Krótko: 2–5 zdań. Plan tygodnia jest widoczny w aplikacji na osobnej zakładce, więc',
   '  po zapisaniu NIE przepisujesz go dzień po dniu. Potwierdzasz jednym zdaniem i mówisz to,',
@@ -89,6 +98,9 @@ export function buildSystemPrompt(
     '',
     'DOMOWNICY (dieta, alergeny, cele) — z get_household_context:',
     JSON.stringify(context.members),
+    // Pamięć na KOŃCU bloku gospodarstwa: to najbardziej zmienna jego część
+    // (rośnie z każdą zapamiętaną notatką), a blok i tak jest poza punktem cache.
+    ...(context.memory ? ['', context.memory] : []),
   ].join('\n');
 
   return [

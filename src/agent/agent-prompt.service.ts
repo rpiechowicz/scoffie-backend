@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { HouseholdsService } from '../households/households.service';
+import { AgentMemoryService } from './agent-memory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   buildCatalogDigest,
@@ -44,6 +45,7 @@ export class AgentPromptService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly households: HouseholdsService,
+    private readonly memory: AgentMemoryService,
   ) {}
 
   async build(
@@ -51,16 +53,18 @@ export class AgentPromptService {
     householdId: string,
     dates: TurnDates,
   ): Promise<AgentPrompt> {
-    const [digest, household, members] = await Promise.all([
+    const [digest, household, members, memory] = await Promise.all([
       this.loadDigest(),
       this.prisma.household.findUnique({
         where: { id: householdId },
         select: { name: true, enabledMealTypes: true },
       }),
       this.households.memberPreferences(userId, householdId),
+      this.memory.promptBlock(householdId),
     ]);
 
     const system = buildSystemPrompt(digest, {
+      memory,
       householdName: household?.name ?? 'Dom',
       clientToday: dates.clientToday,
       weekStart: dates.weekStart,
