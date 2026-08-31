@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { HouseholdsModule } from '../households/households.module';
+import { RecipesModule } from '../recipes/recipes.module';
+import { WeeklyPlansModule } from '../weekly-plans/weekly-plans.module';
+import { AgentToolExecutor } from './tools/agent-tool-executor';
 import { ObservabilityModule } from '../observability/observability.module';
 import { AgentConfigService } from './agent-config.service';
 import { AgentConversationsService } from './agent-conversations.service';
@@ -25,7 +29,15 @@ import { UpstreamBreaker } from './upstream-breaker';
  * `AuthModule` daje `JwtAuthGuard`, `PrismaModule` jest globalny.
  */
 @Module({
-  imports: [AuthModule, ObservabilityModule],
+  imports: [
+    AuthModule,
+    ObservabilityModule,
+    // Domena, którą wołają narzędzia asystenta. Granica pozostaje
+    // jednokierunkowa: to agent importuje domenę, nigdy odwrotnie.
+    HouseholdsModule,
+    WeeklyPlansModule,
+    RecipesModule,
+  ],
   controllers: [AgentController],
   providers: [
     AgentConfigService,
@@ -34,6 +46,7 @@ import { UpstreamBreaker } from './upstream-breaker';
     AgentTurnsService,
     AgentTurnRunner,
     AgentProviderResolver,
+    AgentToolExecutor,
     StubAgentProvider,
     AnthropicAgentProvider,
     // Jeden bezpiecznik na proces — stan współdzielą wszystkie rozmowy,

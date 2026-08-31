@@ -7,5 +7,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 @Module({
   imports: [NotificationsModule],
   providers: [ShoppingListService, WeeklyPlansService, WeeklyPlansGateway],
+  // Dla narzędzi asystenta (`src/agent/tools`).
+  exports: [WeeklyPlansService],
 })
 export class WeeklyPlansModule {}

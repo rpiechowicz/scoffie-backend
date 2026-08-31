@@ -11,6 +11,8 @@ import { IngredientsService } from './ingredients.service';
     RecipesCacheService,
     IngredientsService,
   ],
-  exports: [RecipesCacheService],
+  // Serwisy wystawione dla `src/agent/`: narzędzia asystenta wołają domenę
+  // in-process, przez te same metody, co handlery WS.
+  exports: [RecipesCacheService, RecipesService, IngredientsService],
 })
 export class RecipesModule {}
