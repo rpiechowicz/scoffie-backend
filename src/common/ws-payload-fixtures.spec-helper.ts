@@ -165,6 +165,21 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
       plannedServings: 2,
     },
   },
+  'weeklyPlans:applyWeekPlan': {
+    ...hhWeek,
+    data: {
+      slots: [
+        {
+          dayOfWeek: 'MON',
+          mealType: 'DINNER',
+          recipeId: RECIPE_2,
+          participantIds: [],
+          plannedServings: 2,
+        },
+      ],
+      dryRun: true,
+    },
+  },
   'weeklyPlans:removeWeekSlot': {
     ...hhWeek,
     data: { dayOfWeek: 'MON', mealType: 'DINNER', recipeId: RECIPE_2 },
@@ -337,6 +352,11 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
   'weeklyPlans:setShoppingItemChecked': [
     missingData(hhWeek),
     dataNotObject(hhWeek, 'mleko::l'),
+  ],
+  'weeklyPlans:applyWeekPlan': [
+    missingData(hhWeek),
+    dataNotObject(hhWeek, 'wszystko'),
+    badHouseholdId({ weekStart: WEEK_START, data: { slots: [] } }),
   ],
   'weeklyPlans:upsertWeekSlot': [
     missingData(hhWeek),

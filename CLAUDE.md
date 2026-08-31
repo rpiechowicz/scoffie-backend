@@ -63,6 +63,12 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   `findById` (cudzy przepis = 404, nie 403) i `ensureRecipeForHousehold` (bramka wstawiania do
   planu). Klucz cache listy niesie `householdId`, bo wynik zależy od pytającego. Dowód na żywej
   bazie: `test/catalog-visibility.e2e-spec.ts`.
+- Operacja wsadowa na tydzień (od Fazy 1): `weeklyPlans:applyWeekPlan` przyjmuje STAN DOCELOWY
+  (`slots[]`, czego nie ma na liście — tego nie ma w planie) i liczy różnicę wobec bazy w jednej
+  transakcji `runSerializable`, z JEDNYM broadcastem. Nie `clearWeekPlan` + zapis od nowa, bo clear
+  kasuje archiwa list zakupów. Naruszenia wracają LISTĄ (`violations[]` z `index` w `slots`), a nie
+  wyjątkiem, i przy jakimkolwiek naruszeniu NIC się nie zapisuje — także bez `dryRun`. Limity liczą
+  się od stanu docelowego. `dryRun: true` = policz i sprawdź, nie zapisuj (właściwy tryb dla asystenta).
 - Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
 - WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje

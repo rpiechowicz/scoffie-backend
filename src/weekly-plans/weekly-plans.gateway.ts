@@ -23,6 +23,7 @@ import { broadcastToHousehold } from '../common/ws-rooms';
 import { WeeklyPlansService } from './weekly-plans.service';
 import { ShoppingListService } from './services/shopping-list.service';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
+import { ApplyWeekPlanDto } from './dto/apply-week-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
@@ -79,6 +80,11 @@ class WeeklyPlansSetShoppingItemCheckedPayload extends WeeklyPlansHouseholdWeekP
 class WeeklyPlansUpsertWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
   @IsObject()
   data: UpsertWeekSlotDto;
+}
+
+class WeeklyPlansApplyWeekPlanPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: ApplyWeekPlanDto;
 }
 
 class WeeklyPlansRemoveWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
@@ -475,6 +481,55 @@ export class WeeklyPlansGateway
         );
       }
 
+      return result;
+    });
+  }
+
+  /**
+   * Cały tydzień naraz. JEDEN broadcast, nie 21 — i żadnego, gdy nic nie
+   * weszło (`dryRun` albo naruszenia): klient nie ma powodu odświeżać planu,
+   * który się nie zmienił.
+   */
+  @SubscribeMessage('weeklyPlans:applyWeekPlan')
+  applyWeekPlan(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansApplyWeekPlanPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansApplyWeekPlanPayload, payload);
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(userId);
+      const result = await this.weeklyPlansService.applyWeekPlan(
+        userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      );
+
+      if (!result.applied) return result;
+
+      const changeVersion = this.nextChangeVersion();
+      broadcastToHousehold(
+        this.server,
+        payload.householdId,
+        'weeklyPlans:weekChanged',
+        {
+          householdId: payload.householdId,
+          weekStart: payload.weekStart,
+          action: 'APPLY_WEEK',
+          changedByUserId: userId,
+          changedByDisplayName,
+          changeVersion,
+        },
+      );
+      this.emitShoppingListChanged({
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'APPLY_WEEK',
+        changedByUserId: userId,
+        changedByDisplayName,
+      });
       return result;
     });
   }
