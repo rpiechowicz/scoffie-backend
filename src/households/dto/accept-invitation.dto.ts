@@ -1,10 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class AcceptInvitationDto {
-  @ApiProperty({ example: 'invite-home-demo' })
+  /** Token z linku (32 hex z `randomBytes(16)`); `MaxLength` odcina śmieci, nie prawdziwe tokeny. */
+  @ApiProperty({ example: 'invite-home-demo', minLength: 8, maxLength: 128 })
   @IsString()
   @MinLength(8)
+  @MaxLength(128)
   token: string;
 
   /**
@@ -17,6 +25,9 @@ export class AcceptInvitationDto {
    * użytkownikowi członkostwo, którego nigdzie nie widział. Wyjście z domu to
    * utrata dostępu do wspólnego planu i listy zakupów, więc musi być
    * potwierdzone jawnie, a nie wywnioskowane.
+   *
+   * Wyłącznie prawdziwy boolean: napis `'false'` był na WS truthy i liczył się
+   * jako zgoda na opuszczenie domu.
    */
   @ApiPropertyOptional({ example: true })
   @IsOptional()

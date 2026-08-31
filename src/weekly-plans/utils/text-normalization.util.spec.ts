@@ -81,31 +81,126 @@ type GoldenRow = {
 };
 
 const GOLDEN: GoldenRow[] = [
-  { name: 'sól', unit: 'g', category: 'Przyprawy i sosy', productKey: 'sól::g', display: 'Sól', department: ShoppingDepartment.SPICES },
-  { name: 'pieprz czarny', unit: 'g', category: 'Przyprawy i sosy', productKey: 'pieprz czarny::g', display: 'Pieprz czarny', department: ShoppingDepartment.SPICES },
-  { name: 'olej rzepakowy', unit: 'ml', category: 'Olej i tłuszcze', productKey: 'olej rzepakowy::ml', display: 'Olej rzepakowy', department: ShoppingDepartment.OILS },
-  { name: 'cebula', unit: 'g', category: 'Warzywa', productKey: 'cebula::g', display: 'Cebula', department: ShoppingDepartment.VEGETABLES },
-  { name: 'jajko', unit: 'szt', category: 'Nabiał', productKey: 'jajko::szt', display: 'Jajko', department: ShoppingDepartment.DAIRY },
-  { name: 'czosnek', unit: 'szt', category: 'Warzywa', productKey: 'czosnek::szt', display: 'Czosnek', department: ShoppingDepartment.VEGETABLES },
-  { name: 'masło', unit: 'g', category: 'Nabiał', productKey: 'masło::g', display: 'Masło', department: ShoppingDepartment.DAIRY },
-  { name: 'ziemniak', unit: 'g', category: 'Warzywa', productKey: 'ziemniak::g', display: 'Ziemniak', department: ShoppingDepartment.VEGETABLES },
-  { name: 'jogurt naturalny', unit: 'g', category: 'Nabiał', productKey: 'jogurt naturalny::g', display: 'Jogurt naturalny', department: ShoppingDepartment.DAIRY },
-  { name: 'mąka pszenna', unit: 'g', category: 'Zboża i makarony', productKey: 'mąka pszenna::g', display: 'Mąka pszenna', department: ShoppingDepartment.GRAINS },
-  { name: 'filet z kurczaka', unit: 'g', category: 'Mięso', productKey: 'filet z kurczaka::g', display: 'Filet z kurczaka', department: ShoppingDepartment.MEAT },
-  { name: 'łosoś', unit: 'g', category: 'Ryby', productKey: 'łosoś::g', display: 'Łosoś', department: ShoppingDepartment.FISH },
-  { name: 'banan', unit: 'szt', category: 'Owoce', productKey: 'banan::szt', display: 'Banan', department: ShoppingDepartment.FRUITS },
-  { name: 'oliwa z oliwek', unit: 'ml', category: 'Olej i tłuszcze', productKey: 'oliwa z oliwek::ml', display: 'Oliwa z oliwek', department: ShoppingDepartment.OILS },
+  {
+    name: 'sól',
+    unit: 'g',
+    category: 'Przyprawy i sosy',
+    productKey: 'sól::g',
+    display: 'Sól',
+    department: ShoppingDepartment.SPICES,
+  },
+  {
+    name: 'pieprz czarny',
+    unit: 'g',
+    category: 'Przyprawy i sosy',
+    productKey: 'pieprz czarny::g',
+    display: 'Pieprz czarny',
+    department: ShoppingDepartment.SPICES,
+  },
+  {
+    name: 'olej rzepakowy',
+    unit: 'ml',
+    category: 'Olej i tłuszcze',
+    productKey: 'olej rzepakowy::ml',
+    display: 'Olej rzepakowy',
+    department: ShoppingDepartment.OILS,
+  },
+  {
+    name: 'cebula',
+    unit: 'g',
+    category: 'Warzywa',
+    productKey: 'cebula::g',
+    display: 'Cebula',
+    department: ShoppingDepartment.VEGETABLES,
+  },
+  {
+    name: 'jajko',
+    unit: 'szt',
+    category: 'Nabiał',
+    productKey: 'jajko::szt',
+    display: 'Jajko',
+    department: ShoppingDepartment.DAIRY,
+  },
+  {
+    name: 'czosnek',
+    unit: 'szt',
+    category: 'Warzywa',
+    productKey: 'czosnek::szt',
+    display: 'Czosnek',
+    department: ShoppingDepartment.VEGETABLES,
+  },
+  {
+    name: 'masło',
+    unit: 'g',
+    category: 'Nabiał',
+    productKey: 'masło::g',
+    display: 'Masło',
+    department: ShoppingDepartment.DAIRY,
+  },
+  {
+    name: 'ziemniak',
+    unit: 'g',
+    category: 'Warzywa',
+    productKey: 'ziemniak::g',
+    display: 'Ziemniak',
+    department: ShoppingDepartment.VEGETABLES,
+  },
+  {
+    name: 'jogurt naturalny',
+    unit: 'g',
+    category: 'Nabiał',
+    productKey: 'jogurt naturalny::g',
+    display: 'Jogurt naturalny',
+    department: ShoppingDepartment.DAIRY,
+  },
+  {
+    name: 'mąka pszenna',
+    unit: 'g',
+    category: 'Zboża i makarony',
+    productKey: 'mąka pszenna::g',
+    display: 'Mąka pszenna',
+    department: ShoppingDepartment.GRAINS,
+  },
+  {
+    name: 'filet z kurczaka',
+    unit: 'g',
+    category: 'Mięso',
+    productKey: 'filet z kurczaka::g',
+    display: 'Filet z kurczaka',
+    department: ShoppingDepartment.MEAT,
+  },
+  {
+    name: 'łosoś',
+    unit: 'g',
+    category: 'Ryby',
+    productKey: 'łosoś::g',
+    display: 'Łosoś',
+    department: ShoppingDepartment.FISH,
+  },
+  {
+    name: 'banan',
+    unit: 'szt',
+    category: 'Owoce',
+    productKey: 'banan::szt',
+    display: 'Banan',
+    department: ShoppingDepartment.FRUITS,
+  },
+  {
+    name: 'oliwa z oliwek',
+    unit: 'ml',
+    category: 'Olej i tłuszcze',
+    productKey: 'oliwa z oliwek::ml',
+    display: 'Oliwa z oliwek',
+    department: ShoppingDepartment.OILS,
+  },
 ];
 
 describe('tożsamość produktu — złota tabela katalogu', () => {
-  it.each(GOLDEN.map((row) => [row.name, row] as const))(
-    '%s',
-    (_name, row) => {
-      expect(normalizeProductKey(row.name, row.unit)).toBe(row.productKey);
-      expect(toTitleCase(row.name)).toBe(row.display);
-      expect(toShoppingDepartment(row.category)).toBe(row.department);
-    },
-  );
+  it.each(GOLDEN.map((row) => [row.name, row] as const))('%s', (_name, row) => {
+    expect(normalizeProductKey(row.name, row.unit)).toBe(row.productKey);
+    expect(toTitleCase(row.name)).toBe(row.display);
+    expect(toShoppingDepartment(row.category)).toBe(row.department);
+  });
 
   it('żadne dwa wiersze nie zlewają się w jeden klucz', () => {
     const keys = GOLDEN.map((row) => normalizeProductKey(row.name, row.unit));

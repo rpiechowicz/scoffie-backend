@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Sex } from '@prisma/client';
 import {
   IsEnum,
   IsInt,
@@ -11,23 +12,25 @@ import {
   MinLength,
 } from 'class-validator';
 
-export enum SexDto {
-  MALE = 'MALE',
-  FEMALE = 'FEMALE',
-}
-
 /**
  * Partial-update payload for `users:profile:update`. Sent during the
  * first-login welcome flow (step 1 — Profile) and any later edits from
  * Settings. Every field is optional; the service merges into the user
  * row, leaving omitted fields untouched.
  *
+ * Od Fazy 0 te dekoratory FAKTYCZNIE działają także na WebSockecie —
+ * `UsersService.updateProfile` woła `validateDto(UpdateProfileDto)` na
+ * wejściu, więc 835 kg albo `sex: 'X'` kończą się VALIDATION_ERROR z listą
+ * dozwolonych, a nie `PrismaClientValidationError` → 500.
+ *
  * Validation bounds match the iOS UI:
- *   - displayName: 1…64 chars (matches the existing column)
- *   - yearOfBirth: 1900…current year (server clamps)
+ *   - displayName: 1…64 chars (kolumna nie ma limitu; 64 to kontrakt WS od
+ *     Fazy 0 — do kroku 2 dłuższe nazwy zapisywały się bez błędu)
+ *   - yearOfBirth: 1900…2100
  *   - heightCm: 80…260
  *   - weightKg: 30…300, z dokładnością do 0,1 kg
- *   - sex: MALE | FEMALE (opcjonalna, wchodzi tylko do wzoru na BMR)
+ *   - sex: enum Prismy `Sex` (MALE | FEMALE) — jedno źródło prawdy zamiast
+ *     lokalnej kopii; opcjonalna, wchodzi tylko do wzoru na BMR
  */
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Rafał' })
@@ -59,8 +62,8 @@ export class UpdateProfileDto {
   @Max(300)
   weightKg?: number;
 
-  @ApiPropertyOptional({ enum: SexDto, example: SexDto.MALE })
+  @ApiPropertyOptional({ enum: Sex, example: Sex.MALE })
   @IsOptional()
-  @IsEnum(SexDto)
-  sex?: SexDto;
+  @IsEnum(Sex)
+  sex?: Sex;
 }

@@ -214,11 +214,9 @@ async function recomputeCatalogFiles(
     }
 
     for (const entry of skipped) {
-      // eslint-disable-next-line no-console
       console.warn(`[recompute] pominiete w ${file}: ${entry}`);
     }
 
-    // eslint-disable-next-line no-console
     console.log(
       `[recompute] ${file}: przeliczonych ${recipes.length - skipped.length}/${recipes.length}, zmienionych kcal ${changed}`,
     );
@@ -295,7 +293,6 @@ async function recomputeDatabase(options: Options): Promise<void> {
       computeRecipeNutrition(entry.items);
 
     if (missingNutrition.length > 0 || missingPieceWeight.length > 0) {
-      // eslint-disable-next-line no-console
       console.warn(
         `[recompute] pomijam "${entry.title}" — brak danych dla: ${[...missingNutrition, ...missingPieceWeight].join(', ')}`,
       );
@@ -321,7 +318,6 @@ async function recomputeDatabase(options: Options): Promise<void> {
     updated += 1;
   }
 
-  // eslint-disable-next-line no-console
   console.log(
     `[recompute] baza: ${options.write ? 'zaktualizowanych' : 'do aktualizacji'} ${updated}/${byRecipe.size} przepisow`,
   );
@@ -347,7 +343,6 @@ async function main(): Promise<void> {
   }
 
   if (!options.write) {
-    // eslint-disable-next-line no-console
     console.log(
       '\n[recompute] DRY-RUN — nic nie zapisano. Dodaj --write, zeby zapisac.',
     );
@@ -356,7 +351,6 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Recipe nutrition recompute failed:', error);
     process.exit(1);
   })

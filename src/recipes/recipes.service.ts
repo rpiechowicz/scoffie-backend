@@ -1,20 +1,21 @@
-import {
-  ForbiddenException,
-  HttpStatus,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { MealType, Prisma } from '@prisma/client';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { effectiveSuitableMealTypes, isMealType } from '../common/meal-types';
+import { effectiveSuitableMealTypes } from '../common/meal-types';
 import {
   CreateRecipeDto,
   CreateRecipeIngredientDto,
 } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
-import { FindRecipesDto } from './dto/find-recipes.dto';
+import {
+  FindRecipesDto,
+  RECIPES_DEFAULT_PAGE_LIMIT,
+  RECIPES_MAX_PAGE_LIMIT,
+} from './dto/find-recipes.dto';
 import { RecipesCacheService } from './recipes-cache.service';
 import { AppException } from '../common/app-exception';
+import { validateDto } from '../common/validate-dto';
+import { assertUuid, isUuid } from '../common/uuid';
 import { deriveRecipeTags } from '../common/diet-tags';
 import {
   ALLOWED_UNITS,
@@ -26,6 +27,8 @@ import {
   type IngredientNutritionPer100,
 } from './recipe-nutrition.util';
 import { resolveSuitableMealTypes } from './suitable-meal-types.util';
+import { normalizeRecipeSteps } from './recipe-steps.util';
+import { UpdateRecipeDto } from './dto/update-recipe.dto';
 
 const recipeListSelect = {
   id: true,
@@ -141,14 +144,12 @@ export class RecipesService {
   private readonly r2PublicBaseUrl = (process.env.R2_PUBLIC_BASE_URL ?? '')
     .trim()
     .replace(/\/+$/g, '');
-  private isUuid(value: string): boolean {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    );
-  }
 
   private async recoverMissingUserById(userId: string): Promise<string | null> {
-    if (!this.autoRecoverMissingUser || !this.isUuid(userId)) return null;
+    // Ta sama definicja UUID, co w bramkach (`src/common/uuid`) — serwis miał
+    // własny, ściślejszy wzorzec (tylko wersje 1–5) tylko po to, żeby `upsert`
+    // po kolumnie `@db.Uuid` nie kończył się P2023 dla googleId.
+    if (!this.autoRecoverMissingUser || !isUuid(userId)) return null;
 
     const recovered = await this.prisma.user.upsert({
       where: { id: userId },
@@ -203,10 +204,20 @@ export class RecipesService {
     const recovered = await this.recoverMissingUserById(userIdentifier);
     if (recovered) return recovered;
 
-    throw new ForbiddenException('User not found');
+    throw new AppException(
+      'FORBIDDEN',
+      'Nie znaleziono użytkownika.',
+      HttpStatus.FORBIDDEN,
+    );
   }
 
+  /**
+   * Centralna bramka członkostwa — tu też siedzi `assertUuid`, żeby jedna
+   * linia chroniła każdą ścieżkę, która dostaje `householdId` z koperty
+   * albo z argumentu narzędzia asystenta (bez tego `hh-1` kończył się P2023).
+   */
   private async ensureMembership(userIdentifier: string, householdId: string) {
+    assertUuid(householdId, 'householdId');
     const userId = await this.resolveUserId(userIdentifier);
     const membership = await this.prisma.membership.findUnique({
       where: { userId_householdId: { userId, householdId } },
@@ -214,7 +225,7 @@ export class RecipesService {
     if (!membership) {
       throw new AppException(
         'NOT_HOUSEHOLD_MEMBER',
-        'User is not a member of this household',
+        'Nie należysz do tego gospodarstwa.',
         HttpStatus.FORBIDDEN,
       );
     }
@@ -229,12 +240,13 @@ export class RecipesService {
    * w utilu, domyślne 2,5 g w kopii) — ten sam składnik ważył inaczej
    * w zależności od tego, którędy wszedł do bazy.
    *
-   * Bramki na jednostkę, ilość i duplikaty są tu, a nie tylko w dekoratorach
-   * DTO, bo na ścieżce WS `ValidationPipe` nie ma czego zwalidować
-   * (koperta payloadu nie ma `@ValidateNested`). Bez nich `unit: 'garść'`
-   * na przyprawie przechodziło przez drabinkę g/kg/ml/l/szt, łapało
+   * Jednostkę i ilość odrzuca już `validateDto(CreateRecipeDto)` na wejściu
+   * `create` (od Fazy 0, krok 2); bramki niżej zostają jako druga linia dla
+   * wołań, które ominęłyby DTO. Historia: bez nich `unit: 'garść'` na
+   * przyprawie przechodziło przez drabinkę g/kg/ml/l/szt, łapało
    * `spoonFactor = 1` i dawało ciche śmieci w gramach, a zduplikowany
-   * `ingredientId` kończył się P2002 → INTERNAL_ERROR.
+   * `ingredientId` kończył się P2002 → INTERNAL_ERROR (duplikaty nadal
+   * sprawdza tylko serwis — DTO nie zna relacji między elementami tablicy).
    */
   private async resolveRecipeIngredients(
     items: CreateRecipeIngredientDto[] | undefined,
@@ -262,7 +274,11 @@ export class RecipesService {
       }
     });
 
-    const ids = items.map((item) => item.ingredientId);
+    // Małe litery: iOS wysyła `uuidString` WIELKIMI, a Postgres oddaje uuid
+    // małymi — bez normalizacji `ingredientById.get(...)` chybiało dla
+    // poprawnego składnika (TypeError → 500), a duplikat różniący się tylko
+    // wielkością liter przechodził do P2002.
+    const ids = items.map((item) => item.ingredientId.toLowerCase());
     const duplicates = Array.from(
       new Set(ids.filter((id, index) => ids.indexOf(id) !== index)),
     );
@@ -298,14 +314,20 @@ export class RecipesService {
     const ingredientById = new Map(
       ingredientRows.map((ingredient) => [ingredient.id, ingredient]),
     );
-    if (ingredientById.size !== ids.length) {
-      throw new NotFoundException(
-        'One or more ingredients were not found or are inactive',
+    const missingIds = ids.filter((id) => !ingredientById.has(id));
+    if (missingIds.length > 0) {
+      // `details` niesie brakujące id: asystent (i użytkownik w logu) widzi,
+      // KTÓRY składnik jest wymyślony albo nieaktywny, zamiast gołego 404.
+      throw new AppException(
+        'INGREDIENT_NOT_FOUND',
+        'Nie znaleziono składników w katalogu (lub są nieaktywne).',
+        HttpStatus.NOT_FOUND,
+        missingIds,
       );
     }
 
-    return items.map((item) => {
-      const ingredient = ingredientById.get(item.ingredientId)!;
+    return items.map((item, index) => {
+      const ingredient = ingredientById.get(ids[index])!;
       let normalized: ReturnType<typeof normalizeIngredientAmount>;
       try {
         normalized = normalizeIngredientAmount(
@@ -370,7 +392,17 @@ export class RecipesService {
    * wróci od kuchni.
    */
   private resolveRecipeNutrition(
-    data: CreateRecipeDto,
+    data: Partial<
+      Pick<
+        CreateRecipeDto,
+        | 'nutritionKcal'
+        | 'nutritionProtein'
+        | 'nutritionFat'
+        | 'nutritionCarbs'
+        | 'nutritionFiber'
+        | 'nutritionSalt'
+      >
+    >,
     rows: RecipeIngredientRow[],
   ): ResolvedRecipeNutrition {
     const nutritionSalt = data.nutritionSalt ?? 0;
@@ -434,6 +466,7 @@ export class RecipesService {
     nutritionFiber: true,
     nutritionSalt: true,
     isActive: true,
+    isCatalog: true,
     allergens: true,
     dietTags: true,
     householdId: true,
@@ -521,29 +554,41 @@ export class RecipesService {
   }
 
   async findAll(userIdentifier: string, filters?: FindRecipesDto) {
+    // Walidacja PRZED pierwszym zapytaniem: nieznany `mealType` był po cichu
+    // ignorowany (cały katalog + osobny klucz cache z surową wartością),
+    // `page: 'abc'` dawało NaN w `skip` → 500. Po walidacji `mealType` jest
+    // `MealType | undefined`, a page/limit liczbami w zakresie.
+    const f = await validateDto(FindRecipesDto, filters ?? {});
     const userId = await this.resolveUserId(userIdentifier);
-    const householdId = filters?.householdId;
-    const page = Math.max(1, filters?.page ?? 1);
-    const limit = Math.min(100, Math.max(1, filters?.limit ?? 24));
+    const householdId = f.householdId;
+    // Klamry zostają jako druga linia obrony dla wołań in-process.
+    const page = Math.max(1, f.page ?? 1);
+    const limit = Math.min(
+      RECIPES_MAX_PAGE_LIMIT,
+      Math.max(1, f.limit ?? RECIPES_DEFAULT_PAGE_LIMIT),
+    );
     const skip = (page - 1) * limit;
     // Filtr slotu celowo **nie** porównuje `mealType`. Danie należy do
     // jednego slotu bazowego, ale nadaje się do kilku (`suitableMealTypes`) —
     // i to ta lista decyduje, co widać przy dodawaniu posiłku. Wiersze sprzed
     // backfillu mają pustą tablicę, więc alternatywa `OR` łapie je po slocie
     // bazowym; bez tego stary przepis zniknąłby z katalogu.
-    const requestedMealType = filters?.mealType;
-    const mealTypeFilter: MealType | undefined = isMealType(requestedMealType)
-      ? requestedMealType
-      : undefined;
+    const mealTypeFilter = f.mealType;
 
-    const whereBase: {
-      isActive: boolean;
-      OR?: Prisma.RecipeWhereInput[];
-      id?: { in?: string[]; notIn?: string[] };
-    } = {
-      isActive: true,
-      ...(mealTypeFilter
-        ? {
+    // Widoczność: katalog jest wspólny, przepis gospodarstwa należy do niego
+    // jednego. Bez kontekstu domu widać WYŁĄCZNIE katalog — lista wołana bez
+    // `householdId` nie ma prawa pokazać cudzych przepisów.
+    //
+    // Osobna gałąź `AND`, a nie dopisanie do `OR` wyżej: tamto `OR` filtruje
+    // slot, a dwa niepowiązane warunki w jednym `OR` znaczyłyby „katalog ALBO
+    // właściwy slot", czyli cały katalog przy każdym filtrze.
+    const visibilityScope: Prisma.RecipeWhereInput = householdId
+      ? { OR: [{ isCatalog: true }, { householdId }] }
+      : { isCatalog: true };
+
+    const slotScope: Prisma.RecipeWhereInput[] = mealTypeFilter
+      ? [
+          {
             OR: [
               { suitableMealTypes: { has: mealTypeFilter } },
               {
@@ -551,8 +596,15 @@ export class RecipesService {
                 suitableMealTypes: { isEmpty: true },
               },
             ],
-          }
-        : {}),
+          },
+        ]
+      : [];
+
+    const whereBase: Prisma.RecipeWhereInput & {
+      id?: { in?: string[]; notIn?: string[] };
+    } = {
+      isActive: true,
+      AND: [visibilityScope, ...slotScope],
     };
 
     let favoriteRecipeIds = new Set<string>();
@@ -564,28 +616,33 @@ export class RecipesService {
         select: { recipeId: true },
       });
       favoriteRecipeIds = new Set(favorites.map((f) => f.recipeId));
-      if (filters?.isFavorite === true) {
+      if (f.isFavorite === true) {
         whereBase.id = { in: Array.from(favoriteRecipeIds) };
-      } else if (filters?.isFavorite === false) {
+      } else if (f.isFavorite === false) {
         whereBase.id = { notIn: Array.from(favoriteRecipeIds) };
       } else {
-        // For mixed view (all recipes + isFavorite flag), share cache across users/households.
+        // Widok mieszany (wszystkie przepisy + flaga isFavorite). Klucz
+        // niesie `householdId`, bo od wprowadzenia `isCatalog` wynik ZALEŻY
+        // od gospodarstwa — wspólny wpis wyciekłby prywatne przepisy jednego
+        // domu do drugiego. Klucz z wartości PO walidacji: surowy
+        // `mealType: 'brunch'` zakładał osobny wpis.
         sharedListCacheKey = this.recipesCache.buildRecipesListKey({
           userId: 'global',
-          mealType: filters?.mealType,
+          householdId,
+          mealType: mealTypeFilter,
           isFavorite: undefined,
           page,
           limit,
         });
       }
-    } else if (filters?.isFavorite === true) {
+    } else if (f.isFavorite === true) {
       return [];
     } else {
-      // No household context -> recipe list is global and can be shared by all users.
+      // Bez kontekstu gospodarstwa lista jest globalna — jeden cache dla wszystkich.
       sharedListCacheKey = this.recipesCache.buildRecipesListKey({
         userId: 'global',
-        mealType: filters?.mealType,
-        isFavorite: filters?.isFavorite,
+        mealType: mealTypeFilter,
+        isFavorite: f.isFavorite,
         page,
         limit,
       });
@@ -634,21 +691,41 @@ export class RecipesService {
   }
 
   async findById(userIdentifier: string, id: string, householdId?: string) {
-    const recipe = await this.prisma.recipe.findUnique({
-      where: { id },
+    // Oba id z koperty (nie z DTO) — bramka tutaj, zanim Prisma dostanie
+    // `recipe-1` do kolumny `@db.Uuid` (P2023 → dawniej 500).
+    assertUuid(id, 'id');
+    if (householdId) assertUuid(householdId, 'householdId');
+    const recipe = await this.prisma.recipe.findFirst({
+      // `isActive` w warunku, nie po odczycie: od `recipes:delete` wycofany
+      // przepis realnie istnieje w bazie i nie ma prawa wracać z odczytu.
+      where: { id, isActive: true },
       select: this.detailSelect,
     });
     if (!recipe) {
       throw new AppException(
         'RECIPE_NOT_FOUND',
-        'Recipe not found',
+        'Nie znaleziono przepisu.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Członkostwo PRZED bramką widoczności: bez tego wystarczyłoby podać
+    // cudze `householdId`, żeby obejrzeć prywatny przepis tamtego domu.
+    if (householdId) {
+      await this.ensureMembership(userIdentifier, householdId);
+    }
+    // Katalog widzą wszyscy; przepis gospodarstwa — tylko ono. 404, nie 403:
+    // cudzy przepis nie ma prawa nawet potwierdzić, że istnieje.
+    if (!recipe.isCatalog && recipe.householdId !== householdId) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        'Nie znaleziono przepisu.',
         HttpStatus.NOT_FOUND,
       );
     }
 
     let isFavorite = false;
     if (householdId) {
-      await this.ensureMembership(userIdentifier, householdId);
       const favorite = await this.prisma.recipeFavorite.findUnique({
         where: {
           recipeId_householdId: {
@@ -669,7 +746,12 @@ export class RecipesService {
     };
   }
 
-  async create(userIdentifier: string, data: CreateRecipeDto) {
+  async create(userIdentifier: string, input: CreateRecipeDto) {
+    // Zwalidowana instancja (z `@Type` na liczbach i wyciętymi nieznanymi
+    // polami) idzie dalej zamiast surowego wejścia: zły enum albo `servings:
+    // 'dwa'` zatrzymują się tu jako VALIDATION_ERROR z listą dozwolonych,
+    // a nie jako `PrismaClientValidationError` → 500.
+    const data = await validateDto(CreateRecipeDto, input);
     const userId = await this.resolveUserId(userIdentifier);
     await this.ensureMembership(userIdentifier, data.householdId);
 
@@ -678,6 +760,7 @@ export class RecipesService {
       data.ingredients,
     );
     const nutrition = this.resolveRecipeNutrition(data, ingredientRows);
+    const steps = normalizeRecipeSteps(data.steps);
 
     const created = await this.prisma.recipe.create({
       data: {
@@ -702,10 +785,15 @@ export class RecipesService {
         prepTimeMinutes: data.prepTimeMinutes,
         servings: data.servings,
         imageUrl: data.imageUrl,
+        ...(steps ? { sourceInstructions: steps } : {}),
         ...nutrition,
         // Ta sama unia co w imporcie i w loaderze tagów (`deriveRecipeTags`).
         ...deriveRecipeTags(ingredientRows),
         householdId: data.householdId,
+        // Jawnie, mimo że taki jest domyślny: to, że przepis użytkownika
+        // (i asystenta) NIE trafia do wspólnego katalogu, jest decyzją, nie
+        // przypadkiem. Do katalogu wgrywa się importem.
+        isCatalog: false,
         authorId: userId,
         ingredients: ingredientRows.length
           ? {
@@ -730,7 +818,183 @@ export class RecipesService {
     return created;
   }
 
-  async setFavorite(userIdentifier: string, data: UpdateRecipeFavoriteDto) {
+  /**
+   * Oddaje szczegóły przepisu (`recipe` — ack dla klienta, kształt bez zmian)
+   * oraz zwalidowaną zmianę (`change`) do broadcastu: gateway nie może
+   * rozgłaszać surowego `payload.data`, a `recipe.householdId` to dom
+   * autora przepisu, nie dom, który go polubił.
+   */
+  /**
+   * Poprawka przepisu gospodarstwa — druga połowa pętli „zaproponuj → popraw
+   * → zapisz", której do Fazy 1 po prostu nie było (w serwisie stało TODO).
+   *
+   * Ruszamy tylko pola, które przyszły; listy (składniki, kroki) przysłane —
+   * zastępują poprzednie w całości. Zmiana składników POCIĄGA przeliczenie
+   * makr, alergenów, tagów diet i slotów, bo wszystkie liczą się z nich, a nie
+   * z tego, co poda wołający. Bez tego dałoby się podmienić kurczaka na tofu
+   * i zostawić przepis oznaczony jako mięsny.
+   */
+  async update(
+    userIdentifier: string,
+    recipeId: string,
+    input: UpdateRecipeDto,
+  ) {
+    const data = await validateDto(UpdateRecipeDto, input);
+    assertUuid(recipeId, 'recipeId');
+    await this.ensureMembership(userIdentifier, data.householdId);
+    const existing = await this.loadEditableRecipe(recipeId, data.householdId);
+
+    const ingredientRows = data.ingredients
+      ? await this.resolveRecipeIngredients(data.ingredients)
+      : null;
+    const steps = normalizeRecipeSteps(data.steps);
+
+    // Stan PO zmianie — z niego liczy się klasyfikator slotów, nie ze starego
+    // wiersza ani z samej łatki.
+    const next = {
+      title: data.title ?? existing.title,
+      description: data.description ?? existing.description,
+      mealType: data.mealType ?? existing.mealType,
+      prepTimeMinutes: data.prepTimeMinutes ?? existing.prepTimeMinutes,
+      servings: data.servings ?? existing.servings,
+    };
+    const nutrition = ingredientRows
+      ? this.resolveRecipeNutrition({}, ingredientRows)
+      : null;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (ingredientRows) {
+        await tx.recipeIngredient.deleteMany({ where: { recipeId } });
+      }
+      await tx.recipe.update({
+        where: { id: recipeId },
+        data: {
+          ...next,
+          ...(data.difficulty !== undefined
+            ? { difficulty: data.difficulty }
+            : {}),
+          ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl } : {}),
+          ...(steps ? { sourceInstructions: steps } : {}),
+          ...(nutrition ?? {}),
+          ...(ingredientRows ? deriveRecipeTags(ingredientRows) : {}),
+          suitableMealTypes: resolveSuitableMealTypes({
+            ...next,
+            nutritionKcal: nutrition?.nutritionKcal ?? existing.nutritionKcal,
+            suitableMealTypes:
+              data.suitableMealTypes ?? existing.suitableMealTypes,
+          }),
+          ...(ingredientRows?.length
+            ? {
+                ingredients: {
+                  create: ingredientRows.map(
+                    ({
+                      nutrition: _nutrition,
+                      allergens: _allergens,
+                      dietTags: _dietTags,
+                      ...row
+                    }) => row,
+                  ),
+                },
+              }
+            : {}),
+        },
+      });
+    });
+
+    this.recipesCache.invalidateRecipesList();
+    return this.findById(userIdentifier, recipeId, data.householdId);
+  }
+
+  /**
+   * Wycofanie przepisu — `isActive = false`, nie `DELETE`.
+   *
+   * Twarde kasowanie zabrałoby kaskadą pozycje planu i znaczniki zjedzenia,
+   * czyli historię, której nikt nie prosił o usunięcie. Przepis stojący
+   * w JAKIMKOLWIEK planie odmawia wycofania (`RECIPE_IN_USE`): dziura w planie
+   * i w liście zakupów jest gorsza niż jeden przepis za dużo na liście.
+   */
+  async remove(
+    userIdentifier: string,
+    recipeId: string,
+    householdId: string,
+  ): Promise<{ id: string; isActive: false }> {
+    assertUuid(recipeId, 'recipeId');
+    assertUuid(householdId, 'householdId');
+    await this.ensureMembership(userIdentifier, householdId);
+    await this.loadEditableRecipe(recipeId, householdId);
+
+    const usedInPlans = await this.prisma.planItem.count({
+      where: { recipeId },
+    });
+    if (usedInPlans > 0) {
+      throw new AppException(
+        'RECIPE_IN_USE',
+        'Ten przepis jest w planie tygodnia — najpierw usuń go z planu.',
+        HttpStatus.CONFLICT,
+        [`planItems:${usedInPlans}`],
+      );
+    }
+
+    await this.prisma.recipe.update({
+      where: { id: recipeId },
+      data: { isActive: false },
+    });
+    this.recipesCache.invalidateRecipesList();
+    return { id: recipeId, isActive: false };
+  }
+
+  /**
+   * Przepis, który WOLNO zmienić: aktywny, własny, spoza katalogu.
+   *
+   * Kolejność odmów jest celowa. Katalog sprawdzamy PRZED gospodarstwem, bo
+   * przepis katalogowy należy do innego domu i „nie znaleziono" byłoby mylące —
+   * użytkownik go widzi. `RECIPE_NOT_EDITABLE` mówi asystentowi, co zrobić
+   * zamiast ponawiać: zrobić własną kopię. Cudzy przepis prywatny zostaje przy
+   * 404, bo nie ma prawa potwierdzić, że istnieje.
+   */
+  private async loadEditableRecipe(recipeId: string, householdId: string) {
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        mealType: true,
+        suitableMealTypes: true,
+        prepTimeMinutes: true,
+        servings: true,
+        nutritionKcal: true,
+        isActive: true,
+        isCatalog: true,
+        householdId: true,
+      },
+    });
+    if (!recipe || !recipe.isActive) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        'Nie znaleziono przepisu.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (recipe.isCatalog) {
+      throw new AppException(
+        'RECIPE_NOT_EDITABLE',
+        'Przepis ze wspólnego katalogu nie podlega edycji — zrób własną kopię.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    if (recipe.householdId !== householdId) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        'Nie znaleziono przepisu.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return recipe;
+  }
+
+  async setFavorite(userIdentifier: string, input: UpdateRecipeFavoriteDto) {
+    const data = await validateDto(UpdateRecipeFavoriteDto, input);
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: data.recipeId },
       select: {
@@ -741,13 +1005,13 @@ export class RecipesService {
     if (!recipe) {
       throw new AppException(
         'RECIPE_NOT_FOUND',
-        'Recipe not found',
+        'Nie znaleziono przepisu.',
         HttpStatus.NOT_FOUND,
       );
     }
     await this.ensureMembership(userIdentifier, data.householdId);
 
-    if (data.isFavorite) {
+    if (data.isFavorite === true) {
       await this.prisma.recipeFavorite.upsert({
         where: {
           recipeId_householdId: {
@@ -771,6 +1035,18 @@ export class RecipesService {
     }
 
     this.recipesCache.invalidateRecipesList();
-    return this.findById(userIdentifier, data.recipeId, data.householdId);
+    const detail = await this.findById(
+      userIdentifier,
+      data.recipeId,
+      data.householdId,
+    );
+    return {
+      recipe: detail,
+      change: {
+        recipeId: data.recipeId,
+        householdId: data.householdId,
+        isFavorite: data.isFavorite,
+      },
+    };
   }
 }

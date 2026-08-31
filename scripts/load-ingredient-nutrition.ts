@@ -73,7 +73,7 @@ async function main(): Promise<void> {
       const fromAtwater = Math.round(
         4 * entry.protein + 4 * entry.carbs + 9 * entry.fat + 2 * entry.fiber,
       );
-      // eslint-disable-next-line no-console
+
       console.warn(
         `[nutrition] podejrzana pozycja ${entry.normalizedName}: kcal=${entry.kcal}, z Atwatera=${fromAtwater} (${Math.round(deviation * 100)}%)`,
       );
@@ -100,7 +100,6 @@ async function main(): Promise<void> {
   }
 
   if (missing.length > 0) {
-    // eslint-disable-next-line no-console
     console.warn(
       `[nutrition] brak w bazie (${missing.length}): ${missing.join(', ')}`,
     );
@@ -116,13 +115,11 @@ async function main(): Promise<void> {
     ORDER BY i."normalizedName"
   `;
 
-  // eslint-disable-next-line no-console
   console.log(
     `[nutrition] done. version=${catalog.version}, wpisow=${catalog.ingredients.length}, zaktualizowanych=${updated}`,
   );
 
   if (uncovered.length > 0) {
-    // eslint-disable-next-line no-console
     console.warn(
       `[nutrition] UWAGA: ${uncovered.length} skladnikow uzywanych w przepisach nadal bez makro: ${uncovered
         .map((row) => row.normalizedName)
@@ -133,7 +130,6 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Ingredient nutrition load failed:', error);
     process.exit(1);
   })

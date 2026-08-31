@@ -3,10 +3,7 @@
 // Spec leży w `src/`, bo tylko tu jest jest.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const guard = require('../../scripts/lib/rebuild-guard.js') as {
-  decideRebuild: (input: {
-    env: NodeJS.ProcessEnv;
-    now?: Date;
-  }) => {
+  decideRebuild: (input: { env: NodeJS.ProcessEnv; now?: Date }) => {
     requested: boolean;
     allowed: boolean;
     host: string | null;
@@ -18,7 +15,8 @@ const guard = require('../../scripts/lib/rebuild-guard.js') as {
 
 const NOW = new Date('2026-08-28T10:00:00.000Z');
 const TODAY = '2026-08-28';
-const PROD_URL = 'postgresql://postgres:sekret@caboose.proxy.rlwy.net:59892/railway';
+const PROD_URL =
+  'postgresql://postgres:sekret@caboose.proxy.rlwy.net:59892/railway';
 
 describe('decideRebuild', () => {
   it('bez flagi niczego nie żąda', () => {
@@ -54,7 +52,8 @@ describe('decideRebuild', () => {
       env: {
         SAFE_MIGRATE_REBUILD_DB: 'true',
         SAFE_MIGRATE_REBUILD_CONFIRM: TODAY,
-        DATABASE_URL: 'postgresql://weeklymeals:weeklymeals@db:5432/weeklymeals',
+        DATABASE_URL:
+          'postgresql://weeklymeals:weeklymeals@db:5432/weeklymeals',
       },
       now: NOW,
     });

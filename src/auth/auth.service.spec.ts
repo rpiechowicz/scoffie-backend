@@ -1,9 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
-import {
-  BadRequestException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { AuthProvider } from '@prisma/client';
 import { AuthService } from './auth.service';
 import {
@@ -68,6 +65,8 @@ const makePrismaMock = () => ({
     update: jest
       .fn()
       .mockResolvedValue({ ...mockRefreshToken, revokedAt: new Date() }),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
   membership: {
     findFirst: jest.fn().mockResolvedValue(null),
@@ -171,7 +170,10 @@ describe('AuthService', () => {
       process.env.AUTH_DEV_LOGIN_ENABLED = 'false';
       await expect(
         service.loginDev({ displayName: 'Test', email: undefined }),
-      ).rejects.toMatchObject({ status: 403, response: { code: 'DEV_LOGIN_DISABLED' } });
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'DEV_LOGIN_DISABLED' },
+      });
     });
 
     it.each([
@@ -189,7 +191,10 @@ describe('AuthService', () => {
         }
         await expect(
           service.loginDev({ displayName: 'Test', email: undefined }),
-        ).rejects.toMatchObject({ status: 403, response: { code: 'DEV_LOGIN_DISABLED' } });
+        ).rejects.toMatchObject({
+          status: 403,
+          response: { code: 'DEV_LOGIN_DISABLED' },
+        });
       },
     );
 
@@ -376,11 +381,27 @@ describe('AuthService', () => {
 
       expect(result).toHaveProperty('accessToken', 'mock-access-token');
       expect(result).toHaveProperty('refreshToken');
-      expect(prisma.refreshToken.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ revokedAt: expect.any(Date) }),
-        }),
+      // Rotacja jest warunkowa (revokedAt: null) — patrz test wyścigu niżej.
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { tokenHash: expect.any(String), revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+
+    it('przegrany wyścig o rotację (updateMany → 0) to replay: rodzina unieważniona, 401', async () => {
+      prisma.refreshToken.updateMany
+        .mockResolvedValueOnce({ count: 0 })
+        .mockResolvedValueOnce({ count: 2 });
+
+      await expect(service.refreshAccessToken('raced-token')).rejects.toThrow(
+        UnauthorizedException,
       );
+      expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { userId: mockRefreshToken.userId, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
     });
 
     it('powinno odrzucić nieistniejący token', async () => {
@@ -391,7 +412,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('powinno odrzucić unieważniony token', async () => {
+    it('powinno odrzucić unieważniony token i unieważnić całą rodzinę usera (reuse-detection)', async () => {
       prisma.refreshToken.findUnique.mockResolvedValue({
         ...mockRefreshToken,
         revokedAt: new Date(Date.now() - 1000),
@@ -400,6 +421,23 @@ describe('AuthService', () => {
       await expect(service.refreshAccessToken('revoked-token')).rejects.toThrow(
         UnauthorizedException,
       );
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: mockRefreshToken.userId, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('udana rotacja sprząta wygasłe tokeny usera', async () => {
+      await service.refreshAccessToken('valid-refresh-token');
+
+      expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({
+        where: {
+          userId: mockRefreshToken.userId,
+          expiresAt: { lt: expect.any(Date) },
+        },
+      });
     });
 
     it('powinno odrzucić wygasły token', async () => {
@@ -412,6 +450,28 @@ describe('AuthService', () => {
       await expect(service.refreshAccessToken('expired-token')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+  });
+
+  // ─── logout ──────────────────────────────────────────────────────────────
+
+  describe('logout', () => {
+    it('unieważnia podany refresh token i mówi, czy coś unieważnił', async () => {
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
+      await expect(service.logout('raw-refresh')).resolves.toEqual({
+        revoked: true,
+      });
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { tokenHash: expect.any(String), revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+
+    it('jest idempotentny — drugi logout tym samym tokenem to revoked=false, bez błędu', async () => {
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      await expect(service.logout('raw-refresh')).resolves.toEqual({
+        revoked: false,
+      });
     });
   });
 

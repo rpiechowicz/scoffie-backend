@@ -90,17 +90,14 @@ async function main() {
     updated += 1;
   }
 
-  // eslint-disable-next-line no-console
   console.log(`[normalize-recipe-texts] done. updated=${updated}`);
 }
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Recipe text normalization failed:', error);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
   });
-

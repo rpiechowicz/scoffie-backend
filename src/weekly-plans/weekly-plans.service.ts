@@ -1,12 +1,19 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
+import { assertUuid, isUuid } from '../common/uuid';
+import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { ApplyWeekPlanDto, ApplyWeekSlotDto } from './dto/apply-week-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
-import { Prisma } from '@prisma/client';
-import { MEAL_TYPES_IN_DAY_ORDER } from '../common/meal-types';
-import { parseWeekStart } from './utils/week-formatting.util';
+import { DayOfWeek, MealType, Prisma } from '@prisma/client';
+import { AppErrorCode } from '../common/app-error-code';
+import {
+  MEAL_TYPES_IN_DAY_ORDER,
+  effectiveSuitableMealTypes,
+} from '../common/meal-types';
+import { formatWeekStart, parseWeekStart } from './utils/week-formatting.util';
 import {
   autoPlannedServings,
   clampPlannedServings,
@@ -16,6 +23,7 @@ import {
   ensureRecipeForHousehold,
 } from './utils/auth-checks.util';
 import { runSerializable } from './utils/transaction-runner.util';
+import { weeklyBalanceForMember } from './utils/daily-balance.util';
 import { ShoppingListService } from './services/shopping-list.service';
 
 /**
@@ -43,17 +51,27 @@ const PLAN_ITEM_INCLUDE = {
       authorId: true,
       householdId: true,
       ingredients: true,
+      // Te trzy pola tak samo jak w `recipes:findAll`: klient (i asystent)
+      // filtrują po alergenach i dietach także w planie, a slot bazowy +
+      // `suitableMealTypes` mówi, gdzie danie wolno przenieść (bez nich iOS
+      // wracał do heurystyki po nazwach). Reszta kształtu NIE jest jeszcze
+      // tożsama z listą: `imageUrl` jedzie surowo (bez `resolveRecipeImageUrl`),
+      // brak `sourceProvider`/`sourceRecipeId`/`isFavorite`, `ingredients` to
+      // pełne wiersze — szczegół i tak otwiera się przez `recipes:findById`.
+      allergens: true,
+      dietTags: true,
+      suitableMealTypes: true,
     },
   },
   participants: { select: { userId: true } },
   consumptions: { select: { userId: true } },
 } satisfies Prisma.PlanItemInclude;
 
-/**
- * Flattens the join rows into the flat id arrays the clients read (see
- * `PlanItemDto`). Without this the wire shape would leak the junction tables
- * as `participants: [{ userId }]` / `consumptions: [{ userId }]`.
- */
+/** Wiersz `PlanItem` dokładnie w kształcie `PLAN_ITEM_INCLUDE`. */
+type PlanItemRow = Prisma.PlanItemGetPayload<{
+  include: typeof PLAN_ITEM_INCLUDE;
+}>;
+
 /**
  * Czy dwa audytoria opisują ten sam zbiór osób. Kolejność i duplikaty nie
  * znaczą nic — `participantIds` przychodzi z klienta w kolejności klikania.
@@ -65,15 +83,6 @@ function sameMemberSet(a: string[], b: string[]): boolean {
 }
 
 /**
- * Luźny wzorzec UUID: dowolna wersja, wielkość liter bez znaczenia. Nie pilnuje
- * bitów wersji ani wariantu, bo identyfikatory katalogu są pisane ręcznie w
- * JSON-ie — wystarczy, że nie przepuści śmieci, na których Postgres wywaliłby
- * się z 500 zamiast czytelnego 400.
- */
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
  * `replaceRecipeId` z DTO: `null`, gdy nie ma czego podmieniać.
  *
  * Równe `recipeId` też znaczy „bez podmiany" — `PlanSlotPickerSheet` wysyła
@@ -81,15 +90,13 @@ const UUID_PATTERN =
  * tej reguły każda taka edycja kasowałaby item, żeby zaraz założyć go na nowo
  * (i po drodze gubiła znaczniki zjedzenia).
  *
- * Walidacja siedzi tu, a nie w dekoratorach DTO, bo na ścieżce WS te nie
- * działają (patrz `resolvePlannedServings`).
+ * Format pilnuje już `@IsUUID()` w DTO (od Fazy 0 `validateDto` odpala go
+ * także na WS); sprawdzenie niżej zostaje jako druga linia dla wywołań, które
+ * ominęłyby DTO.
  */
-function parseReplaceRecipeId(
-  value: unknown,
-  recipeId: string,
-): string | null {
+function parseReplaceRecipeId(value: unknown, recipeId: string): string | null {
   if (value == null || value === '') return null;
-  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
+  if (!isUuid(value)) {
     throw new AppException(
       'VALIDATION_ERROR',
       'replaceRecipeId musi być identyfikatorem UUID',
@@ -99,24 +106,79 @@ function parseReplaceRecipeId(
   return value === recipeId ? null : value;
 }
 
-function withPlanItemRelationIds<
-  T extends {
-    participants?: { userId: string }[];
-    consumptions?: { userId: string }[];
-  },
->(
-  item: T,
-): Omit<T, 'participants' | 'consumptions'> & {
-  participantIds: string[];
-  eatenByUserIds: string[];
-} {
-  const { participants, consumptions, ...rest } = item;
+/**
+ * Flattens the join rows into the flat id arrays the clients read (see
+ * `PlanItemDto`). Without this the wire shape would leak the junction tables
+ * as `participants: [{ userId }]` / `consumptions: [{ userId }]`.
+ *
+ * `suitableMealTypes` przechodzi przez `effectiveSuitableMealTypes` tak samo,
+ * jak w `recipes.service.ts`: pusta lista z bazy (wiersze sprzed backfillu)
+ * znaczy „tylko slot bazowy", a klient nie musi znać tej reguły.
+ */
+function withPlanItemRelationIds(item: PlanItemRow) {
+  const { participants, consumptions, recipe, ...rest } = item;
   return {
     ...rest,
-    participantIds: (participants ?? []).map((p) => p.userId),
-    eatenByUserIds: (consumptions ?? []).map((c) => c.userId),
+    recipe: {
+      ...recipe,
+      suitableMealTypes: effectiveSuitableMealTypes(recipe),
+    },
+    participantIds: participants.map((p) => p.userId),
+    eatenByUserIds: consumptions.map((c) => c.userId),
   };
 }
+
+/** Kolejność dni w odpowiedzi bilansu — ta sama, co w enumie schematu. */
+const DAYS_IN_WEEK_ORDER: readonly DayOfWeek[] = [
+  'MON',
+  'TUE',
+  'WED',
+  'THU',
+  'FRI',
+  'SAT',
+  'SUN',
+];
+
+/** Klucz tożsamości pozycji planu: dzień + posiłek + przepis. */
+function planSlotKey(slot: {
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  recipeId: string;
+}): string {
+  return `${slot.dayOfWeek}|${slot.mealType}|${slot.recipeId}`;
+}
+
+function sameIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const left = new Set(a);
+  return b.every((id) => left.has(id));
+}
+
+type PlannableRecipe = {
+  id: string;
+  mealType: MealType;
+  suitableMealTypes: MealType[];
+  allergens: string[];
+};
+
+/** Jeden powód, dla którego pozycja tygodnia nie może wejść. */
+export type PlanViolation = {
+  /** Pozycja w przysłanej liście `slots` — wołający wie, co poprawić. */
+  index: number;
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  recipeId: string;
+  code: AppErrorCode;
+  message: string;
+};
+
+export type ApplyWeekPlanResult = {
+  applied: boolean;
+  dryRun: boolean;
+  violations: PlanViolation[];
+  changes: { created: number; updated: number; deleted: number };
+  plan: Awaited<ReturnType<WeeklyPlansService['getByHouseholdAndWeek']>> | null;
+};
 
 @Injectable()
 export class WeeklyPlansService {
@@ -138,38 +200,156 @@ export class WeeklyPlansService {
   private static readonly MAX_ITEMS_TOTAL =
     7 * 6 * MEAL_TYPES_IN_DAY_ORDER.length;
 
+  /**
+   * Plan tygodnia — zawsze w pełnym kształcie, także dla tygodnia, w którym
+   * nikt jeszcze niczego nie zaplanował.
+   *
+   * Pusty tydzień NIE jest 404: iOS dekoduje `id` i `weekStart` jako pola
+   * wymagane, a asystent (Faza 1) woła tę metodę in-process i „jeszcze nic
+   * nie zaplanowano" jest dla niego zwykłym stanem, nie błędem. Dlatego brak
+   * wiersza zakładamy przy odczycie — precedens już jest: `clearWeekPlan`
+   * zostawia pusty wiersz, a `upsertWeekSlot` i tak by go założył przy
+   * pierwszym posiłku. Dwa telefony otwierające ten sam tydzień naraz
+   * ścigają się o `@@unique([householdId, weekStart])`: przegrany dostaje
+   * P2002 i po prostu czyta wiersz, który założył wygrany.
+   *
+   * `weekStart` wychodzi jako `YYYY-MM-DD` — ten sam format, co w kopercie
+   * i w broadcastach `weekChanged`; dotąd szedł tu pełny ISO datetime.
+   */
   async getByHouseholdAndWeek(
     userId: string,
     householdId: string,
     weekStart: string,
   ) {
     await ensureMembership(this.prisma, userId, householdId);
-    const plan = await this.prisma.weeklyPlan.findUnique({
-      where: {
-        householdId_weekStart: {
-          householdId,
-          weekStart: parseWeekStart(weekStart),
-        },
+    const weekStartDate = parseWeekStart(weekStart);
+    const where = {
+      householdId_weekStart: { householdId, weekStart: weekStartDate },
+    };
+    const include = {
+      items: {
+        include: PLAN_ITEM_INCLUDE,
+        orderBy: [{ mealType: 'asc' }, { createdAt: 'asc' }],
       },
-      include: {
-        items: {
-          include: PLAN_ITEM_INCLUDE,
-          orderBy: [{ mealType: 'asc' }, { createdAt: 'asc' }],
+    } satisfies Prisma.WeeklyPlanInclude;
+
+    let plan = await this.prisma.weeklyPlan.findUnique({ where, include });
+    if (!plan) {
+      plan = await this.prisma.weeklyPlan
+        .create({ data: { householdId, weekStart: weekStartDate }, include })
+        .catch(async (error: unknown) => {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            return this.prisma.weeklyPlan.findUniqueOrThrow({ where, include });
+          }
+          throw error;
+        });
+    }
+
+    return {
+      ...plan,
+      weekStart: formatWeekStart(plan.weekStart),
+      items: plan.items.map(withPlanItemRelationIds),
+    };
+  }
+
+  /**
+   * Bilans tygodnia dla JEDNEGO domownika — ile z zaplanowanego przypada na
+   * niego i ile z tego odhaczył jako zjedzone.
+   *
+   * Do Fazy 1 ta arytmetyka istniała wyłącznie w iOS: serwer trzymał surowe
+   * `plannedServings` i „zjedzone", ale nie umiał odpowiedzieć na pytanie, od
+   * którego zaczyna się każde planowanie — „czy ten dzień mieści się w celach
+   * tej osoby". Asystent musi znać odpowiedź ZANIM pokaże propozycję.
+   *
+   * Reguły są portem 1:1 (`daily-balance.util.ts`), bo użytkownik widzi
+   * dzienny licznik w aplikacji i porówna go z tym, co powie asystent.
+   *
+   * Zwracamy komplet siedmiu dni, także pustych, i sam bilans — bez celów
+   * makro. Cele są w `households:memberPreferences` i to jest właściwe
+   * miejsce: bilans nie ma powodu zaglądać do preferencji ani odwrotnie.
+   */
+  async weeklyBalance(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    memberUserId?: string,
+  ) {
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+
+    const memberIds = await this.loadMemberIds(householdId);
+    const target = memberUserId ?? userId;
+    if (memberUserId !== undefined) {
+      assertUuid(memberUserId, 'memberUserId');
+      if (!memberIds.has(memberUserId)) {
+        throw new AppException(
+          'PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD',
+          'Ta osoba nie należy do gospodarstwa.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const items = await this.prisma.planItem.findMany({
+      where: {
+        weeklyPlan: { householdId, weekStart: weekStartDate },
+      },
+      select: {
+        dayOfWeek: true,
+        mealType: true,
+        plannedServings: true,
+        participants: { select: { userId: true } },
+        consumptions: { select: { userId: true } },
+        recipe: {
+          select: {
+            servings: true,
+            nutritionKcal: true,
+            nutritionProtein: true,
+            nutritionFat: true,
+            nutritionCarbs: true,
+            nutritionFiber: true,
+          },
         },
       },
     });
-    if (!plan) {
-      throw new NotFoundException('Weekly plan not found');
-    }
-    return { ...plan, items: plan.items.map(withPlanItemRelationIds) };
+
+    const days = weeklyBalanceForMember(
+      items.map((item) => ({
+        dayOfWeek: item.dayOfWeek,
+        mealType: item.mealType,
+        participantIds: item.participants.map((p) => p.userId),
+        eatenByUserIds: item.consumptions.map((c) => c.userId),
+        plannedServings: item.plannedServings,
+        recipe: item.recipe,
+      })),
+      {
+        memberId: target,
+        householdMemberCount: memberIds.size,
+        days: DAYS_IN_WEEK_ORDER,
+      },
+    );
+
+    return {
+      weekStart: formatWeekStart(weekStartDate),
+      userId: target,
+      householdMemberCount: memberIds.size,
+      days,
+    };
   }
 
   async upsertWeekSlot(
     userId: string,
     householdId: string,
     weekStart: string,
-    dto: UpsertWeekSlotDto,
+    input: UpsertWeekSlotDto,
   ) {
+    // Walidacja na wejściu, PRZED pierwszym zapytaniem: dekoratory DTO nie
+    // działają na WS, a asystent woła tę metodę in-process. Dalej używamy
+    // ZWALIDOWANEJ instancji — ma wycięte nieznane pola.
+    const dto = await validateDto(UpsertWeekSlotDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
     const replaceRecipeId = parseReplaceRecipeId(
@@ -451,12 +631,451 @@ export class WeeklyPlansService {
     });
   }
 
+  /**
+   * Cały tydzień w JEDNEJ transakcji — stan docelowy, nie lista poprawek.
+   *
+   * Dotąd plan dało się zmieniać wyłącznie per slot: 21 posiłków to 21–42
+   * wywołania, każde z własną transakcją i własnym broadcastem, a błąd przy
+   * szesnastym zostawiał pół tygodnia i klienta bez informacji, które połowa
+   * weszła. Dla asystenta, który układa tydzień naraz, to nie jest stan, z
+   * którego da się wyjść.
+   *
+   * Trzy decyzje, które warto znać:
+   *
+   * 1. **Stan docelowy, nie diff od klienta.** Wołający przysyła tydzień taki,
+   *    jaki ma być; my liczymy różnicę wobec bazy. Inaczej trzeba by zgadywać,
+   *    czy pominięty slot znaczy „usuń", czy „nie ruszaj".
+   * 2. **Różnica, a nie `clearWeekPlan` + zapis od nowa.** Kasowanie tygodnia
+   *    zabiera ze sobą archiwa list zakupów (`clearWeekPlan` czyści
+   *    `shoppingListArchive*`), więc „przeplanuj" niszczyłoby historię
+   *    zakupów za każdym razem. Ruszamy wyłącznie te itemy, które naprawdę
+   *    się zmieniły — niezmieniony slot nie jest nawet zapisywany.
+   * 3. **Naruszenia wracają LISTĄ, nie wyjątkiem — i nic się nie zapisuje.**
+   *    Wyjątek mówi o pierwszym problemie; asystent poprawiłby jeden slot,
+   *    wysłał ponownie i dowiedział się o kolejnym. Zwracamy wszystkie naraz,
+   *    a plan zostaje nietknięty także wtedy, gdy `dryRun` jest `false`:
+   *    połowa tygodnia to gorszy wynik niż brak zmian.
+   *
+   * Limity liczą się od stanu DOCELOWEGO, nie od sumy „obecne + nowe" —
+   * po zastosowaniu w tygodniu jest dokładnie to, co przyszło w `slots`.
+   */
+  async applyWeekPlan(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    input: ApplyWeekPlanDto,
+  ): Promise<ApplyWeekPlanResult> {
+    const dto = await validateDto(ApplyWeekPlanDto, input);
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+    const dryRun = dto.dryRun === true;
+
+    const memberIds = await this.loadMemberIds(householdId);
+    const allergensByMember = await this.loadMemberAllergens(householdId);
+    const recipes = await this.loadPlannableRecipes(
+      householdId,
+      dto.slots.map((slot) => slot.recipeId),
+    );
+
+    const violations = this.collectPlanViolations(
+      dto.slots,
+      recipes,
+      memberIds,
+      allergensByMember,
+    );
+    if (violations.length > 0) {
+      return {
+        applied: false,
+        dryRun,
+        violations,
+        changes: { created: 0, updated: 0, deleted: 0 },
+        plan: null,
+      };
+    }
+
+    const desired = dto.slots.map((slot) => ({
+      ...slot,
+      key: planSlotKey(slot),
+      ...this.normalizeParticipants(slot.participantIds, memberIds),
+    }));
+
+    if (dryRun) {
+      const changes = await this.previewWeekPlanChanges(
+        householdId,
+        weekStartDate,
+        desired,
+      );
+      return { applied: false, dryRun, violations: [], changes, plan: null };
+    }
+
+    const changes = await runSerializable(this.prisma, async (tx) => {
+      // Ten sam porządek, co w `upsertWeekSlot`: stan archiwum listy zakupów
+      // dla tygodnia bez archiwum jest nieaktualny z chwilą zmiany planu.
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
+      });
+
+      const weeklyPlan = await tx.weeklyPlan.upsert({
+        where: {
+          householdId_weekStart: { householdId, weekStart: weekStartDate },
+        },
+        update: {},
+        create: { householdId, weekStart: weekStartDate },
+        select: { id: true },
+      });
+
+      const current = await tx.planItem.findMany({
+        where: { weeklyPlanId: weeklyPlan.id },
+        select: {
+          id: true,
+          dayOfWeek: true,
+          mealType: true,
+          recipeId: true,
+          plannedServings: true,
+          participants: { select: { userId: true } },
+        },
+      });
+      const currentByKey = new Map(
+        current.map((item) => [planSlotKey(item), item]),
+      );
+      const desiredKeys = new Set(desired.map((slot) => slot.key));
+
+      const removedIds = current
+        .filter((item) => !desiredKeys.has(planSlotKey(item)))
+        .map((item) => item.id);
+      if (removedIds.length > 0) {
+        // Kaskada zabiera uczestników i znaczniki zjedzenia — dokładnie tak,
+        // jak przy `removeWeekSlot`. Archiwa list zakupów zostają.
+        await tx.planItem.deleteMany({ where: { id: { in: removedIds } } });
+      }
+
+      let created = 0;
+      let updated = 0;
+      for (const slot of desired) {
+        const existing = currentByKey.get(slot.key);
+        if (!existing) {
+          await tx.planItem.create({
+            data: {
+              weeklyPlanId: weeklyPlan.id,
+              dayOfWeek: slot.dayOfWeek,
+              mealType: slot.mealType,
+              recipeId: slot.recipeId,
+              plannedServings: this.resolvePlannedServings(
+                slot.participantIds,
+                memberIds.size,
+                slot.plannedServings,
+              ),
+              participants: {
+                create: slot.participantIds.map((id) => ({ userId: id })),
+              },
+            },
+          });
+          created += 1;
+          continue;
+        }
+
+        const currentParticipantIds = existing.participants.map(
+          (p) => p.userId,
+        );
+        const plannedServings = this.resolveUpdatedPlannedServings({
+          currentPlannedServings: existing.plannedServings,
+          currentParticipantIds,
+          nextParticipantIds: slot.participantIds,
+          memberCount: memberIds.size,
+          requested: slot.plannedServings,
+        });
+        const participantsChanged = !sameIdSet(
+          currentParticipantIds,
+          slot.participantIds,
+        );
+        if (
+          !participantsChanged &&
+          plannedServings === existing.plannedServings
+        ) {
+          // Slot bez zmian nie jest zapisywany — inaczej „przeplanuj tydzień"
+          // odświeżałoby `updatedAt` na wszystkim i psuło ewentualny audyt.
+          continue;
+        }
+
+        await tx.planItem.update({
+          where: { id: existing.id },
+          data: {
+            plannedServings,
+            ...(participantsChanged
+              ? {
+                  participants: {
+                    deleteMany: {},
+                    create: slot.participantIds.map((id) => ({ userId: id })),
+                  },
+                }
+              : {}),
+          },
+        });
+        updated += 1;
+      }
+
+      await this.shoppingListService.markShoppingListStale(
+        householdId,
+        weekStartDate,
+        tx,
+      );
+
+      return { created, updated, deleted: removedIds.length };
+    });
+
+    // Odczyt po transakcji, tym samym kształtem, co `getByWeek` — klient i
+    // broadcast dostają plan w formacie, który już znają.
+    const plan = await this.getByHouseholdAndWeek(
+      userId,
+      householdId,
+      weekStart,
+    );
+    return { applied: true, dryRun: false, violations: [], changes, plan };
+  }
+
+  /** Przepisy, które WOLNO wstawić do planu tego domu: katalog albo własne, aktywne. */
+  private async loadPlannableRecipes(
+    householdId: string,
+    recipeIds: string[],
+  ): Promise<Map<string, PlannableRecipe>> {
+    const unique = Array.from(new Set(recipeIds));
+    if (unique.length === 0) return new Map();
+    const rows = await this.prisma.recipe.findMany({
+      where: {
+        id: { in: unique },
+        isActive: true,
+        OR: [{ isCatalog: true }, { householdId }],
+      },
+      select: {
+        id: true,
+        mealType: true,
+        suitableMealTypes: true,
+        allergens: true,
+      },
+    });
+    return new Map(rows.map((row) => [row.id, row]));
+  }
+
+  /**
+   * Wszystkie powody, dla których tydzień NIE może wejść — naraz.
+   *
+   * Kolejność sprawdzeń w obrębie slotu jest od najbardziej podstawowego:
+   * nie ma sensu mówić „danie nie pasuje do slotu" o przepisie, którego w
+   * ogóle nie widać.
+   */
+  /** Alergeny per domownik — brak wiersza preferencji znaczy „brak alergenów". */
+  private async loadMemberAllergens(
+    householdId: string,
+  ): Promise<Map<string, string[]>> {
+    const rows = await this.prisma.membership.findMany({
+      where: { householdId },
+      select: {
+        userId: true,
+        user: { select: { preferences: { select: { allergens: true } } } },
+      },
+    });
+    return new Map(
+      rows.map((row) => [row.userId, row.user.preferences?.allergens ?? []]),
+    );
+  }
+
+  private collectPlanViolations(
+    slots: ApplyWeekSlotDto[],
+    recipes: Map<string, PlannableRecipe>,
+    memberIds: Set<string>,
+    allergensByMember: Map<string, string[]>,
+  ): PlanViolation[] {
+    const violations: PlanViolation[] = [];
+    const seen = new Set<string>();
+    const perSlot = new Map<string, number>();
+    const perMealType = new Map<string, number>();
+
+    slots.forEach((slot, index) => {
+      const at = (code: PlanViolation['code'], message: string) =>
+        violations.push({
+          index,
+          dayOfWeek: slot.dayOfWeek,
+          mealType: slot.mealType,
+          recipeId: slot.recipeId,
+          code,
+          message,
+        });
+
+      const key = planSlotKey(slot);
+      if (seen.has(key)) {
+        at('PLAN_SLOT_DUPLICATE', 'Ten przepis jest już w tym slocie.');
+        return;
+      }
+      seen.add(key);
+
+      const recipe = recipes.get(slot.recipeId);
+      if (!recipe) {
+        // Nieznany, wycofany albo należący do innego gospodarstwa — z punktu
+        // widzenia wołającego to jedno i to samo: nie ma czego wstawić.
+        at('RECIPE_NOT_FOUND', 'Nie znaleziono przepisu.');
+        return;
+      }
+      if (!effectiveSuitableMealTypes(recipe).includes(slot.mealType)) {
+        at(
+          'RECIPE_NOT_SUITABLE_FOR_SLOT',
+          'Ten przepis nie nadaje się do tego posiłku.',
+        );
+      }
+
+      // Alergeny są TWARDE i sprawdza je SERWER, nie model.
+      //
+      // Do Fazy 1 pilnowała ich wyłącznie instrukcja w promptcie, a model
+      // wnioskował o składzie z listy składników — która w digeście jest
+      // przycięta do pięciu najcięższych. Na katalogu dev 15 z 65 przepisów
+      // z laktozą nie pokazuje w niej nabiału, więc „dorsz z masłem" wygląda
+      // na czysty. Audytorium liczymy tak samo jak wszędzie: puste
+      // `participantIds` znaczy cały dom.
+      const audience =
+        (slot.participantIds ?? []).length > 0
+          ? (slot.participantIds ?? [])
+          : Array.from(memberIds);
+      const conflicting = Array.from(
+        new Set(
+          audience.flatMap((memberId) =>
+            (allergensByMember.get(memberId) ?? []).filter((allergen) =>
+              recipe?.allergens.includes(allergen),
+            ),
+          ),
+        ),
+      );
+      if (conflicting.length > 0) {
+        at(
+          'RECIPE_ALLERGEN_CONFLICT',
+          `Danie zawiera alergeny domownika: ${conflicting.join(', ')}.`,
+        );
+      }
+
+      const unknownParticipants = Array.from(
+        new Set(slot.participantIds ?? []),
+      ).filter((id) => !memberIds.has(id));
+      if (unknownParticipants.length > 0) {
+        at(
+          'PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD',
+          `Nie należą do gospodarstwa: ${unknownParticipants.join(', ')}`,
+        );
+      }
+
+      const slotKey = `${slot.dayOfWeek}|${slot.mealType}`;
+      const inSlot = (perSlot.get(slotKey) ?? 0) + 1;
+      perSlot.set(slotKey, inSlot);
+      if (inSlot > WeeklyPlansService.MAX_VARIANTS_PER_SLOT) {
+        at(
+          'PLAN_SLOT_VARIANT_LIMIT_REACHED',
+          `Za dużo dań w jednym posiłku (maks. ${WeeklyPlansService.MAX_VARIANTS_PER_SLOT}).`,
+        );
+      }
+
+      const inMealType = (perMealType.get(slot.mealType) ?? 0) + 1;
+      perMealType.set(slot.mealType, inMealType);
+      if (inMealType > WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE) {
+        at(
+          'PLAN_SLOT_LIMIT_REACHED',
+          `Za dużo dań w tym posiłku w tygodniu (maks. ${WeeklyPlansService.MAX_ITEMS_PER_MEAL_TYPE}).`,
+        );
+      }
+
+      if (index + 1 > WeeklyPlansService.MAX_ITEMS_TOTAL) {
+        at(
+          'PLAN_TOTAL_LIMIT_REACHED',
+          `Za dużo pozycji w tygodniu (maks. ${WeeklyPlansService.MAX_ITEMS_TOTAL}).`,
+        );
+      }
+    });
+
+    return violations;
+  }
+
+  /**
+   * Ta sama reguła co `resolveParticipants`, ale bez zapytania do bazy —
+   * lista domowników jest już wczytana raz na cały tydzień. Audytorium
+   * obejmujące WSZYSTKICH zwija się do pustej listy („Wspólne"), więc obie
+   * formy tego samego wyboru dają tyle samo porcji.
+   */
+  private normalizeParticipants(
+    requested: string[] | undefined,
+    memberIds: Set<string>,
+  ): { participantIds: string[] } {
+    const unique = Array.from(new Set(requested ?? []));
+    const everyone = unique.length === 0 || unique.length === memberIds.size;
+    return { participantIds: everyone ? [] : unique };
+  }
+
+  /** Ile by się zmieniło, gdyby zapisać — bez zapisywania (`dryRun`). */
+  private async previewWeekPlanChanges(
+    householdId: string,
+    weekStartDate: Date,
+    desired: {
+      key: string;
+      participantIds: string[];
+      plannedServings?: number;
+    }[],
+  ): Promise<{ created: number; updated: number; deleted: number }> {
+    const plan = await this.prisma.weeklyPlan.findUnique({
+      where: {
+        householdId_weekStart: { householdId, weekStart: weekStartDate },
+      },
+      select: { id: true },
+    });
+    if (!plan) {
+      return { created: desired.length, updated: 0, deleted: 0 };
+    }
+    const current = await this.prisma.planItem.findMany({
+      where: { weeklyPlanId: plan.id },
+      select: {
+        dayOfWeek: true,
+        mealType: true,
+        recipeId: true,
+        plannedServings: true,
+        participants: { select: { userId: true } },
+      },
+    });
+    const currentByKey = new Map(
+      current.map((item) => [planSlotKey(item), item]),
+    );
+    const desiredKeys = new Set(desired.map((slot) => slot.key));
+
+    let created = 0;
+    let updated = 0;
+    for (const slot of desired) {
+      const existing = currentByKey.get(slot.key);
+      if (!existing) {
+        created += 1;
+        continue;
+      }
+      const participantsChanged = !sameIdSet(
+        existing.participants.map((p) => p.userId),
+        slot.participantIds,
+      );
+      const servingsChanged =
+        slot.plannedServings != null &&
+        slot.plannedServings !== existing.plannedServings;
+      if (participantsChanged || servingsChanged) updated += 1;
+    }
+
+    return {
+      created,
+      updated,
+      deleted: current.filter((item) => !desiredKeys.has(planSlotKey(item)))
+        .length,
+    };
+  }
+
   async removeWeekSlot(
     userId: string,
     householdId: string,
     weekStart: string,
-    dto: RemoveWeekSlotDto,
+    input: RemoveWeekSlotDto,
   ) {
+    const dto = await validateDto(RemoveWeekSlotDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
@@ -531,8 +1150,9 @@ export class WeeklyPlansService {
     userId: string,
     householdId: string,
     weekStart: string,
-    dto: SetMealEatenDto,
+    input: SetMealEatenDto,
   ) {
+    const dto = await validateDto(SetMealEatenDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
@@ -543,8 +1163,15 @@ export class WeeklyPlansService {
       select: { id: true },
     });
 
+    // Brak wiersza tygodnia to z punktu widzenia klienta to samo, co brak
+    // posiłku w slocie — jeden kod, żeby iOS i asystent nie musiały
+    // rozróżniać dwóch odmian „nie ma czego odhaczyć".
     if (!weeklyPlan) {
-      throw new NotFoundException('Weekly plan not found for this week');
+      throw new AppException(
+        'PLAN_ITEM_NOT_FOUND',
+        'Tego posiłku nie ma w planie tego tygodnia',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     const planItem = await this.prisma.planItem.findFirst({
@@ -560,12 +1187,12 @@ export class WeeklyPlansService {
     if (!planItem) {
       throw new AppException(
         'PLAN_ITEM_NOT_FOUND',
-        'Planned meal not found in this slot',
+        'Tego posiłku nie ma w tym slocie',
         HttpStatus.NOT_FOUND,
       );
     }
 
-    if (dto.isEaten) {
+    if (dto.isEaten === true) {
       await this.prisma.planItemConsumption.upsert({
         where: {
           planItemId_userId: { planItemId: planItem.id, userId },
@@ -661,15 +1288,11 @@ export class WeeklyPlansService {
     memberCount: number,
     requested?: number | null,
   ): number {
-    // Klamra, a nie walidacja. `ValidationPipe` owszem jest globalny
-    // (`main.ts`, `useGlobalPipes`), ale na ścieżce WebSocketu nie ma czego
-    // zwalidować: klasy-koperty payloadów w `weekly-plans.gateway.ts` — tu
-    // `WeeklyPlansUpsertWeekSlotPayload` — nie mają ani jednego dekoratora, a
-    // pole `data` nie jest opisane przez `@ValidateNested()` + `@Type(() =>
-    // UpsertWeekSlotDto)`. class-validator nie zagląda więc do środka i
-    // `@Min/@Max` na DTO nigdy się nie uruchamiają. Skoro klient iOS chodzi
-    // wyłącznie po WS, przycięcie w kodzie jest jedyną realną obroną przed
-    // `plannedServings: 0` albo `999`.
+    // Klamra jako druga linia obrony. Od Fazy 0 `@Min(1)`/`@Max(12)` z DTO
+    // odpalają się także na WS (`validateDto` na wejściu `upsertWeekSlot`),
+    // więc 0 albo 999 kończy się VALIDATION_ERROR zanim tu dotrze. Przycięcie
+    // zostaje dla ścieżek, które ominęłyby DTO — bez niego jedna luka w
+    // walidacji zamieniałaby się w listę zakupów na 999 porcji.
     if (requested != null && Number.isFinite(requested)) {
       return clampPlannedServings(requested);
     }

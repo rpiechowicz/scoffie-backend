@@ -1,10 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn } from 'class-validator';
+import { MembershipRole } from '@prisma/client';
+import { IsEnum } from 'class-validator';
 
-const membershipRoles = ['OWNER', 'MEMBER'] as const;
-
+/**
+ * Rola z enumu Prismy, nie z lokalnej kopii — jedno źródło prawdy, a komunikat
+ * błędu niesie listę dozwolonych (`role must be one of the following values:
+ * OWNER, MEMBER`), z której korzysta i klient, i asystent.
+ */
 export class UpdateMemberRoleDto {
-  @ApiProperty({ enum: membershipRoles })
-  @IsIn(membershipRoles)
-  role: (typeof membershipRoles)[number];
+  @ApiProperty({ enum: MembershipRole, enumName: 'MembershipRole' })
+  @IsEnum(MembershipRole)
+  role: MembershipRole;
 }

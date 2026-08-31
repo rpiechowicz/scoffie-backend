@@ -24,6 +24,18 @@ export class RequestMetricsService {
   // widzą, a to po sockecie idzie prawie cały ruch aplikacji.
   private wsErrorsTotal = 0;
   private readonly wsErrorsByCode = new Map<string, number>();
+  // Auth WebSocketu (Faza 0): ile handshake'ów z tokenem, ile legacy (bez
+  // tokenu, tryb soft), ile odrzuconych i dlaczego; ile akcji poszło po
+  // tożsamości z payloadu. `legacy` = 0 przez dłuższy czas to sygnał, że
+  // stare buildy iOS zniknęły i można przełączyć WS_AUTH_MODE=strict.
+  private readonly wsAuthHandshakes = { token: 0, legacy: 0, rejected: 0 };
+  private readonly wsAuthRejectedByReason = new Map<string, number>();
+  private wsAuthLegacyActs = 0;
+  private wsAuthPayloadMismatch = 0;
+  // 429 z throttlera: guard biegnie PRZED interceptorem logującym, więc
+  // `record()` tych odpowiedzi nie widzi — liczone osobno, per trasa.
+  private throttledTotal = 0;
+  private readonly throttledByRoute = new Map<string, number>();
 
   record(routeKey: string, statusCode: number, durationMs: number): void {
     this.totalRequests += 1;
@@ -55,6 +67,36 @@ export class RequestMetricsService {
     this.wsErrorsByCode.set(code, (this.wsErrorsByCode.get(code) ?? 0) + 1);
   }
 
+  recordWsHandshake(
+    outcome: 'token' | 'legacy' | 'rejected',
+    reason?: string,
+  ): void {
+    this.wsAuthHandshakes[outcome] += 1;
+    if (outcome === 'rejected') {
+      const key = reason ?? 'unknown';
+      this.wsAuthRejectedByReason.set(
+        key,
+        (this.wsAuthRejectedByReason.get(key) ?? 0) + 1,
+      );
+    }
+  }
+
+  recordWsLegacyAct(): void {
+    this.wsAuthLegacyActs += 1;
+  }
+
+  recordWsPayloadMismatch(): void {
+    this.wsAuthPayloadMismatch += 1;
+  }
+
+  recordThrottled(routeKey: string): void {
+    this.throttledTotal += 1;
+    this.throttledByRoute.set(
+      routeKey,
+      (this.throttledByRoute.get(routeKey) ?? 0) + 1,
+    );
+  }
+
   snapshot() {
     const routes = Array.from(this.routeStats.entries())
       .map(([route, stats]) => ({
@@ -80,6 +122,18 @@ export class RequestMetricsService {
       wsErrors: {
         total: this.wsErrorsTotal,
         byCode: Object.fromEntries(this.wsErrorsByCode.entries()),
+      },
+      wsAuth: {
+        handshakes: { ...this.wsAuthHandshakes },
+        rejectedByReason: Object.fromEntries(
+          this.wsAuthRejectedByReason.entries(),
+        ),
+        legacyActs: this.wsAuthLegacyActs,
+        payloadMismatch: this.wsAuthPayloadMismatch,
+      },
+      throttled: {
+        total: this.throttledTotal,
+        byRoute: Object.fromEntries(this.throttledByRoute.entries()),
       },
     };
   }

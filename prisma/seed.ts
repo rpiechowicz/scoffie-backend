@@ -64,7 +64,12 @@ async function main(): Promise<void> {
       nutritionFiber: 8,
       nutritionSalt: 2.1,
       ingredients: [
-        { name: 'Pasta', amount: 220, unit: 'g', department: 'Zboża i makarony' },
+        {
+          name: 'Pasta',
+          amount: 220,
+          unit: 'g',
+          department: 'Zboża i makarony',
+        },
         { name: 'Tomatoes', amount: 300, unit: 'g', department: 'Warzywa' },
         { name: 'Basil', amount: 10, unit: 'g', department: 'Warzywa' },
       ],
@@ -83,7 +88,12 @@ async function main(): Promise<void> {
       nutritionFiber: 9,
       nutritionSalt: 0.6,
       ingredients: [
-        { name: 'Oats', amount: 100, unit: 'g', department: 'Zboża i makarony' },
+        {
+          name: 'Oats',
+          amount: 100,
+          unit: 'g',
+          department: 'Zboża i makarony',
+        },
         { name: 'Milk', amount: 300, unit: 'ml', department: 'Nabiał' },
         { name: 'Banana', amount: 1, unit: 'szt', department: 'Owoce' },
       ],
@@ -103,7 +113,12 @@ async function main(): Promise<void> {
       nutritionSalt: 1.8,
       ingredients: [
         { name: 'Chicken breast', amount: 300, unit: 'g', department: 'Mięso' },
-        { name: 'Rice', amount: 180, unit: 'g', department: 'Zboża i makarony' },
+        {
+          name: 'Rice',
+          amount: 180,
+          unit: 'g',
+          department: 'Zboża i makarony',
+        },
         { name: 'Broccoli', amount: 200, unit: 'g', department: 'Warzywa' },
       ],
     },
@@ -141,7 +156,12 @@ async function main(): Promise<void> {
       nutritionSalt: 2.2,
       ingredients: [
         { name: 'Pumpkin', amount: 900, unit: 'g', department: 'Warzywa' },
-        { name: 'Vegetable stock', amount: 1200, unit: 'ml', department: 'Konserwy' },
+        {
+          name: 'Vegetable stock',
+          amount: 1200,
+          unit: 'ml',
+          department: 'Konserwy',
+        },
         { name: 'Cream', amount: 120, unit: 'ml', department: 'Nabiał' },
       ],
     },
@@ -172,7 +192,9 @@ async function main(): Promise<void> {
       ),
     );
 
-    const ingredientMap = new Map(ingredientRows.map((ingredient) => [ingredient.name, ingredient]));
+    const ingredientMap = new Map(
+      ingredientRows.map((ingredient) => [ingredient.name, ingredient]),
+    );
 
     await prisma.recipe.create({
       data: {
@@ -243,7 +265,6 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Seed failed:', error);
     process.exit(1);
   })

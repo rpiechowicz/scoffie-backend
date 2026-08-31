@@ -1,6 +1,8 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { AppException } from '../common/app-exception';
+import { assertUuid } from '../common/uuid';
+import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { CreateHouseholdDto } from './dto/create-household.dto';
@@ -23,12 +25,26 @@ import {
   onMemberLeft,
   onRosterChanged,
 } from '../weekly-plans/utils/plan-roster.util';
+import { MemberContext, toMemberContext } from './member-context.util';
 
 @Injectable()
 export class HouseholdsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /*
+   * Walidacja wejścia (Faza 0, krok 2): każda metoda przyjmująca DTO woła
+   * `validateDto` i dalej pracuje na ZWALIDOWANEJ instancji (wycięte nieznane
+   * pola, zaaplikowane transformacje), a skalarne identyfikatory przechodzą
+   * przez `assertUuid` w bramkach niżej. Dekoratory na DTO nie działają na
+   * WebSockecie, a te same metody woła in-process asystent — więc to jest
+   * jedyna warstwa, która stoi między złym wejściem a Prismą (P2023 albo
+   * `PrismaClientValidationError` = 500 bez wskazania pola).
+   */
+
   private async getHouseholdOrThrow(householdId: string) {
+    // Nie-UUID w `findUnique` po kolumnie `@db.Uuid` to P2023 → 500; jedna
+    // linia tutaj chroni wszystkie ścieżki, które zaczynają od domu.
+    assertUuid(householdId, 'householdId');
     const household = await this.prisma.household.findUnique({
       where: { id: householdId },
     });
@@ -43,6 +59,9 @@ export class HouseholdsService {
   }
 
   private async ensureMembership(userId: string, householdId: string) {
+    // `createInvitation` nie przechodzi przez `getHouseholdOrThrow`, więc
+    // bramka jest też tutaj. `userId` nie sprawdzamy — token/`actorId` już to zrobiły.
+    assertUuid(householdId, 'householdId');
     const membership = await this.prisma.membership.findUnique({
       where: { userId_householdId: { userId, householdId } },
     });
@@ -109,6 +128,7 @@ export class HouseholdsService {
    * dokładnie tym, co `settleHouseholdAfterMemberLeft` musi potem sprzątać.
    */
   async create(userId: string, dto: CreateHouseholdDto) {
+    dto = await validateDto(CreateHouseholdDto, dto);
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.membership.findFirst({
         where: { userId },
@@ -144,8 +164,11 @@ export class HouseholdsService {
   async createInvitation(
     userId: string,
     householdId: string,
-    dto: CreateInvitationDto,
+    dto?: CreateInvitationDto,
   ) {
+    // iOS wysyła `data: {}`, starsze buildy nie wysyłają `data` wcale — brak
+    // to nie błąd, tylko „bez własnego terminu".
+    dto = await validateDto(CreateInvitationDto, dto ?? {});
     const membership = await this.ensureMembership(userId, householdId);
     if (membership.role !== 'OWNER') {
       throw new AppException(
@@ -159,6 +182,18 @@ export class HouseholdsService {
     const expiresAt = dto.expiresAt
       ? new Date(dto.expiresAt)
       : new Date(Date.now() + 7 * 86400000);
+    // `@IsDateString` przepuszcza każdą formę ISO 8601 (także tygodniową
+    // `2026-W10` i porządkową `2026-060`), a `new Date` części z nich nie
+    // parsuje — Invalid Date w Prismie kończyłby się 500.
+    if (Number.isNaN(expiresAt.getTime())) {
+      const detail = 'expiresAt must be a date parsable as ISO 8601 datetime';
+      throw new AppException(
+        'VALIDATION_ERROR',
+        detail,
+        HttpStatus.BAD_REQUEST,
+        [detail],
+      );
+    }
 
     return this.prisma.invitation.create({
       data: {
@@ -171,6 +206,7 @@ export class HouseholdsService {
   }
 
   async acceptInvitation(userId: string, dto: AcceptInvitationDto) {
+    dto = await validateDto(AcceptInvitationDto, dto);
     const invitation = await this.prisma.invitation.findUnique({
       where: { token: dto.token },
     });
@@ -218,7 +254,9 @@ export class HouseholdsService {
       select: { householdId: true },
     });
 
-    if (otherMemberships.length > 0 && !dto.leaveOtherHouseholds) {
+    // Jawne `=== true`: zgoda na utratę domu ma być booleanem, nie czymś
+    // truthy (napis `'false'` liczył się kiedyś jako zgoda).
+    if (otherMemberships.length > 0 && dto.leaveOtherHouseholds !== true) {
       throw new AppException(
         'INVITATION_REQUIRES_LEAVE',
         'User already belongs to another household',
@@ -358,6 +396,7 @@ export class HouseholdsService {
    * odnaleźć później.
    */
   async previewInvitation(userId: string, dto: AcceptInvitationDto) {
+    dto = await validateDto(AcceptInvitationDto, dto);
     const invitation = await this.prisma.invitation.findUnique({
       where: { token: dto.token },
       include: {
@@ -499,6 +538,7 @@ export class HouseholdsService {
    * bez tego pierwsze ponowne otwarcie linku odłożyłoby je tam z powrotem.
    */
   async declineInvitation(userId: string, dto: AcceptInvitationDto) {
+    dto = await validateDto(AcceptInvitationDto, dto);
     const invitation = await this.prisma.invitation.findUnique({
       where: { token: dto.token },
       select: { id: true, redeemedAt: true, invitedUserId: true },
@@ -537,6 +577,7 @@ export class HouseholdsService {
     householdId: string,
     dto: UpdateHouseholdDto,
   ) {
+    dto = await validateDto(UpdateHouseholdDto, dto);
     await this.getHouseholdOrThrow(householdId);
     await this.ensureOwner(userId, householdId);
     return this.prisma.household.update({
@@ -563,9 +604,12 @@ export class HouseholdsService {
     householdId: string,
     dto: UpdateHouseholdMealTypesDto,
   ) {
+    dto = await validateDto(UpdateHouseholdMealTypesDto, dto);
     await this.getHouseholdOrThrow(householdId);
     await this.ensureMembership(userId, householdId);
 
+    // Po walidacji nieznany slot już tu nie dotrze; normalizacja zostaje jako
+    // druga linia obrony i jedyne miejsce, które dokłada obowiązkową trójkę.
     const enabledMealTypes = normalizeEnabledMealTypes(dto.mealTypes);
 
     return this.prisma.household.update({
@@ -577,16 +621,19 @@ export class HouseholdsService {
   /**
    * Zapisuje pory posiłków gospodarstwa.
    *
-   * Mapa idzie do bazy taka, jaka przyszła — walidacja kluczy i zakresu
-   * siedzi w DTO. Świadomie **nie** dokładamy tu domyślnych godzin dla
-   * slotów, których klient nie wymienił: brak klucza to informacja („ten
-   * posiłek nie ma stałej pory"), a nie luka do wypełnienia.
+   * Mapa idzie do bazy taka, jaka przyszła — klucze i zakres sprawdza
+   * `MealSlotTimesConstraint` z DTO, uruchamiany TUTAJ przez `validateDto`
+   * (na WebSockecie dekorator sam z siebie nie działa; do kroku 2 Fazy 0
+   * dowolny obiekt lądował w kolumnie Json). Świadomie **nie** dokładamy tu
+   * domyślnych godzin dla slotów, których klient nie wymienił: brak klucza to
+   * informacja („ten posiłek nie ma stałej pory"), a nie luka do wypełnienia.
    */
   async updateMealTimes(
     userId: string,
     householdId: string,
     dto: UpdateHouseholdMealTimesDto,
   ) {
+    dto = await validateDto(UpdateHouseholdMealTimesDto, dto);
     await this.getHouseholdOrThrow(householdId);
     await this.ensureMembership(userId, householdId);
 
@@ -622,12 +669,71 @@ export class HouseholdsService {
     });
   }
 
+  /**
+   * Preferencje, sylwetka i cele WSZYSTKICH domowników — jedno wywołanie.
+   *
+   * Asystent nie ma jak zebrać tego sam: preferencje siedzą w
+   * `UserPreference`, sylwetka w `User`, a `users:preferences:get` czyta
+   * tylko własne konto. `listMembers` niesie samą tożsamość, więc „zaplanuj
+   * tydzień dla domu" znaczyłoby N wywołań — i tak bez celów makro, bo te
+   * do niedawna liczyły się wyłącznie na telefonie
+   * (`src/users/body-metrics.util.ts` to port z iOS).
+   *
+   * Ten sam odczyt zamyka lukę po stronie iOS: po włączeniu auth klient
+   * stracił dostęp do cudzych preferencji, więc ekran planu nie wie, kto
+   * czego nie je.
+   *
+   * `ensureMembership`, nie `ensureOwner`: skład domu i tak jest jawny dla
+   * domowników, a plan tygodnia jest wspólny. Odczyt jest CZYSTY — nie
+   * tworzy brakujących wierszy preferencji (robi to `users:preferences:get`
+   * i to jest osobny problem).
+   */
+  async memberPreferences(
+    userId: string,
+    householdId: string,
+  ): Promise<MemberContext[]> {
+    await this.ensureMembership(userId, householdId);
+    const rows = await this.prisma.membership.findMany({
+      where: { householdId },
+      orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        role: true,
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            sex: true,
+            heightCm: true,
+            weightKg: true,
+            yearOfBirth: true,
+            preferences: {
+              select: {
+                dietPreference: true,
+                calorieGoal: true,
+                allergens: true,
+                goal: true,
+                activityLevel: true,
+                proteinG: true,
+                fatG: true,
+                carbsG: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    return rows.map((row) => toMemberContext(row));
+  }
+
   async updateMemberRole(
     userId: string,
     householdId: string,
     memberUserId: string,
     dto: UpdateMemberRoleDto,
   ) {
+    dto = await validateDto(UpdateMemberRoleDto, dto);
+    // `memberUserId` idzie do `findUnique` po kluczu z kolumną `@db.Uuid`.
+    assertUuid(memberUserId, 'memberUserId');
     await this.getHouseholdOrThrow(householdId);
     await this.ensureOwner(userId, householdId);
 
@@ -668,6 +774,7 @@ export class HouseholdsService {
     householdId: string,
     memberUserId: string,
   ) {
+    assertUuid(memberUserId, 'memberUserId');
     await this.getHouseholdOrThrow(householdId);
     await this.ensureOwner(userId, householdId);
 

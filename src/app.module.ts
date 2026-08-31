@@ -9,11 +9,16 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { CommonModule } from './common/common.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { AgentModule } from './agent/agent.module';
+import { AppThrottleModule } from './common/throttle/throttle.module';
 
 @Module({
   imports: [
     PrismaModule,
     CommonModule,
+    // Globalny throttler HTTP — rejestruje APP_GUARD, więc musi być w drzewie
+    // przed kontrolerami, które ogranicza.
+    AppThrottleModule,
     UsersModule,
     AuthModule,
     RecipesModule,
@@ -22,6 +27,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
     NotificationsModule,
     ObservabilityModule,
     IntegrationsModule,
+    AgentModule,
   ],
 })
 export class AppModule {}

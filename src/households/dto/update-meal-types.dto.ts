@@ -9,6 +9,11 @@ import { MEAL_TYPE_VALUES } from '../../common/meal-types';
  * Lista jest **pełna**, nie różnicowa — klient przysyła stan, jaki ma
  * obowiązywać. Obowiązkową trójkę (śniadanie / obiad / kolacja) serwis
  * dokłada sam, więc jej pominięcie nie jest błędem, tylko brakiem efektu.
+ *
+ * `MEAL_TYPE_VALUES` pochodzi z enumu Prismy (`common/meal-types.ts`), więc
+ * komunikat o złym slocie niesie aktualną listę dozwolonych; nieznany slot
+ * kończy się `VALIDATION_ERROR`, a nie cichym wycięciem przez
+ * `normalizeEnabledMealTypes` (ta zostaje jako druga linia obrony).
  */
 export class UpdateHouseholdMealTypesDto {
   @ApiProperty({

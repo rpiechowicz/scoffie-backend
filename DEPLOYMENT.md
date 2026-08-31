@@ -72,6 +72,11 @@ That means deploy startup can:
 - run pending Prisma migrations
 - repair a known broken migration path
 - optionally bootstrap recipes
+- load ingredient allergen/diet tags once, when the catalog has rows but none
+  of them carries a tag (a database that received the tag columns from a
+  migration without ever running the loader); empty tags read as "no allergen,
+  every diet satisfied", so this must not wait for a manual
+  `pnpm catalog:ingredients:tags`
 - optionally backfill missing R2 image URLs
 
 ## Important safety rule
@@ -119,6 +124,189 @@ If the deploy is unhealthy:
 3. Leave database state intact unless the rollback plan explicitly includes schema rollback
 
 Avoid emergency database mutations unless the issue is confirmed to be migration-related.
+
+## WebSocket auth rollout (`WS_AUTH_MODE`)
+
+Since Phase 0 the Socket.IO handshake carries the access token (`auth: { token }`
+or `Authorization: Bearer`). Identity comes from the token, broadcasts go to
+`household:<id>` rooms. Rollout order, because old iOS builds send no token:
+
+1. Deploy backend with `WS_AUTH_MODE` unset (= `soft`): sockets with a token are
+   verified, sockets without one keep working as `legacy` (identity from the
+   payload, as before). No Railway variable is required for this step — but
+   check with `railway variables --service Backend` that `REFRESH_TOKEN_DAYS`
+   is unset or ≥ 60 and `JWT_EXPIRES_IN` is unset or shorter than that; the
+   refresh token must outlive the access token for the iOS refresh to work.
+2. Ship the iOS build that sends the token in the handshake and refreshes it.
+3. Watch `GET /ops/metrics` → `http.wsAuth.handshakes.legacy` and `legacyActs`.
+   When they stop growing (both phones updated), set `WS_AUTH_MODE=strict` on
+   the `Backend` service — no token = `connect_error` with
+   `{code: 'UNAUTHORIZED', reason: 'missing'}`.
+
+`WS_AUTH_MODE` is read per handshake; a typo is a boot violation in production.
+Refresh tokens now default to 60 days (`REFRESH_TOKEN_DAYS`), reuse of a rotated
+refresh token revokes the whole family (deliberate: a lost refresh response
+means re-login on every device of that user), and `POST /auth/logout` revokes
+one refresh token — the access token stays valid until its `exp` (30 days by
+default), which is why the next step after iOS adoption is a shorter
+`JWT_EXPIRES_IN`. A verification outage (database) during the handshake is
+reported as `SERVICE_UNAVAILABLE`, not `UNAUTHORIZED`, so clients keep their
+auto-reconnect instead of refreshing tokens.
+
+## Wydanie „Fazy 0 + 1" na produkcję — lista kontrolna
+
+To pierwsze wejście na prod całego dorobku asystenta: 33 commity, dwie migracje
+(`20260828200000_asystent_rozmowy_tury_i_ledger`, `20260831120000_katalog_a_przepisy_gospodarstwa`),
+uwierzytelniony WebSocket, jawna walidacja DTO, limity żądań i cały moduł `src/agent/`.
+**Asystent w tym wydaniu jest WYŁĄCZONY** — właczenie to osobny krok niżej.
+
+Sprawdzone przed wydaniem (31.08.2026, nie trzeba powtarzać):
+
+- **Żadna nowa zmienna nie jest wymagana.** Wszystkie `AI_*`, `THROTTLE_*` i
+  `WS_*` mają domyślne, a `assert-env` przy `AI_ENABLED` pustym nie żąda niczego.
+  Deploy nie powtórzy incydentu z 28.08.
+- **Stary build iOS (App Store) przeżyje.** Koperty zdarzeń walidują się łagodnie
+  (`validateWsPayload`), więc `userId` i inne pola sprzed Fazy 0 nie są błędem.
+  Pola w `data` porównane 1:1 z payloadami z gałęzi `main` iOS — zero rozjazdu.
+  `WS_AUTH_MODE` zostaje `soft`, bo wydany build nie wysyła jeszcze tokenu.
+- **Limity nie zabolą telefonu.** 120 żądań/min na użytkownika po HTTP i tyle samo
+  po WebSockecie; iOS ma 42 miejsca wysyłające i żadnej pętli.
+
+Do sprawdzenia NA PRODUKCJI przed merge'em (`psql "$PROD_DB"`):
+
+1. **Przepisy gospodarstw** — decyduje o `isCatalog`, szczegóły w sekcji niżej.
+2. **Pokrycie alergenów i tagów diet** — od hartowania asystenta bramka
+   `RECIPE_ALLERGEN_CONFLICT` czyta `Recipe.allergens`. Puste tablice na prodzie
+   znaczyłyby, że bramka przepuszcza wszystko, a model widzi `A:` bez treści:
+
+   ```sql
+   SELECT count(*) FILTER (WHERE array_length("dietTags", 1) IS NULL) AS bez_tagow_diet,
+          count(*) AS wszystkie
+   FROM "Recipe";
+   ```
+
+   `bez_tagow_diet` większe od zera = uruchomić `pnpm catalog:ingredients:tags`
+   (idempotentny, przelicza `allergens`/`dietTags` ze składników) zanim asystent
+   dostanie prawo zapisu. Przepisy BEZ alergenów to normalne (na dev 8 z 89) —
+   alarmujące są dopiero puste tagi diet, bo każdy przepis jakiś ma.
+
+Po deployu: `/ops/health` 200, `/ops/metrics` → `http.wsAuth.handshakes.legacy`
+rośnie (stary build), `agent.turns` zeruje się i takie zostaje (asystent wyłączony).
+
+## Assistant rollout (`AI_ENABLED`)
+
+Asystent wchodzi na prod **wyłączony**. Każda zmienna `AI_*` i `THROTTLE_*` ma
+wartość domyślną, więc merge do `main` nie wymaga żadnej zmiennej na Railway —
+świadomie, po incydencie z 28.08.2026 (nowy build asertujący brakującą zmienną
+kosztował ~10 minut przestoju).
+
+### Zanim włączysz — co asystent może ZMIENIĆ w bazie
+
+Od Fazy 1 asystent nie tylko czyta. Ma osiem narzędzi, z czego cztery piszą:
+`apply_week_plan` (cały tydzień naraz), `create_recipe`, `update_recipe`,
+`delete_recipe` (miękkie, `isActive=false`). Pozostałe cztery
+(`get_household_context`, `get_week_plan`, `get_week_balance`,
+`search_ingredients`) tylko czytają.
+
+Bariery są po stronie serwera, nie w prompcie: przepisu z alergenem domownika
+nie da się wstawić do posiłku, który ta osoba je (`RECIPE_ALLERGEN_CONFLICT`),
+przepisu katalogowego nie da się edytować ani skasować (`RECIPE_NOT_EDITABLE`),
+a przepisu użytego w planie nie da się usunąć (`RECIPE_IN_USE`). Przy JAKIMKOLWIEK
+naruszeniu `applyWeekPlan` nie zapisuje NICZEGO — nie ma stanu „pół tygodnia".
+
+Cofnięcie tego, co asystent narobił, nie ma dziś przycisku: plan wraca ręcznie
+w aplikacji, przepis — `UPDATE "Recipe" SET "isActive" = true WHERE id = …`.
+
+### Włączanie, w tej kolejności
+
+1. **Klucz PIERWSZY**:
+   `railway variables --service Backend --skip-deploys --set ANTHROPIC_API_KEY=...`.
+   Przy `AI_ENABLED=true` bez klucza asystent zachowuje się jak wyłączony (503),
+   więc zła kolejność kosztuje błąd, nie awarię — ale i tak sprawdź
+   `railway logs --service Backend` pod kątem ostrzeżenia `[env]`.
+2. **Budżet — sprawdź, czy domyślny Ci pasuje.** Trzy hamulce, wszystkie
+   z wartością domyślną:
+
+   | Zmienna                       | Domyślnie                      | Zakres                         | Co robi po przekroczeniu                           |
+   | ----------------------------- | ------------------------------ | ------------------------------ | -------------------------------------------------- |
+   | `AI_GLOBAL_DAILY_BUDGET_USD`  | `5` (na dobę, cała instalacja) | liczba ≥ 0, `off` = bez limitu | `503 AI_BUDGET_PAUSED`                             |
+   | `AI_LIMIT_MESSAGES_PER_MONTH` | `200` (na gospodarstwo)        | liczba całkowita               | `429 AI_QUOTA_EXCEEDED`                            |
+   | `AI_LIMIT_PLANS_PER_MONTH`    | `30` (na gospodarstwo)         | liczba całkowita               | narzędzie oddaje modelowi `AI_PLAN_QUOTA_EXCEEDED` |
+
+   Zmierzone tury (Sonnet 5, `medium`): układanie tygodnia $0,30, trzy dni
+   z alergią $0,14, poprawka dwóch kolacji $0,12, żądanie niewykonalne $1,00.
+   Czyli domyślne 200 wiadomości to **$25–60 miesięcznie na jedno gospodarstwo**
+   — przy koncie z $20 kredytu rozsądny start to:
+
+   ```
+   AI_GLOBAL_DAILY_BUDGET_USD=2
+   AI_LIMIT_MESSAGES_PER_MONTH=60
+   ```
+
+   Budżet dobowy jest globalny (licznik `AiUsageCounter`, kind `costMicroUsd`)
+   i sprawdzany PRZED turą, więc jego przekroczenie kosztuje jeszcze jedną turę
+   — ustawiaj go o tę jedną turę niżej, niż wynosi ból. Limit planów liczy się
+   przy ZAPISIE tygodnia: dry-run, zapis odrzucony przez naruszenia i zapis,
+   który niczego nie zmienił, nie kosztują nic. Wyczerpany limit planów nie
+   przerywa tury — asystent nadal potrafi zaproponować plan w odpowiedzi,
+   tylko go nie zapisze.
+
+3. `AI_ENABLED=true` i restart usługi.
+4. Weryfikacja: `GET /ops/metrics` → `agent.turns` (started/done/failed),
+   `agent.rejected` (disabled/quota/budget/upstream/inProgress),
+   `agent.usage.costMicroUsd`. Rachunek u dostawcy sprawdzaj niezależnie —
+   licznik zna tylko tury, które przeszły przez ten kontener.
+
+### Czego brakuje, żeby włączenie miało sens
+
+Ekran asystenta w iOS jest napisany (gałąź `feat/asystent-ekran`: rozmowa po
+REST z odpytywaniem tury, kroki postępu, kopie brakujących kodów błędów i
+nasłuch `recipes:changed`), ale **jeszcze nie zbudowany** — powstał na Windowsie,
+a Xcode jest tylko na Macu. Kolejność jest więc taka: build i klik po ekranie na
+Macu → wydanie klienta → dopiero wtedy `AI_ENABLED=true`. Włączenie flagi przed
+buildem nie udostępnia użytkownikom niczego, bo wydany build o `/agent/*` nie wie.
+
+### Wyłączanie i zawory bezpieczeństwa
+
+Wyłączenie to jedna zmienna (`AI_ENABLED=false`) i działa po restarcie — flaga
+czyta się per żądanie, a żaden inny moduł nie importuje `src/agent/` (pilnuje
+ESLint). Zapisane rozmowy zostają nietknięte; użytkownik kasuje swoje przez
+`DELETE /agent/conversations`, co działa niezależnie od flagi.
+
+Zawory, które nie wymagają operatora: tura jest przerywana po `AI_TURN_TIMEOUT_MS`
+(`FAILED` / `AI_TIMEOUT`), pięć błędów 429/5xx dostawcy w pięć minut otwiera
+60-sekundowy bezpiecznik (`503 AI_UPSTREAM_PAUSED`), a nieudana tura zwraca
+kwotę wiadomości pobraną na starcie. Od hartowania koszt nieudanej tury i tak
+trafia do księgi — bezpiecznik chroni przed pętlą, nie przed rachunkiem.
+
+## Catalog vs household recipes (`isCatalog`) — before deploying
+
+Migration `20260831120000_katalog_a_przepisy_gospodarstwa` adds `Recipe.isCatalog`
+and, by design, marks **every recipe that exists at deploy time** as catalog. That
+is the no-regression choice: those recipes are visible to everyone _today_, so
+nothing disappears from anyone's list. New recipes default to `false`.
+
+The consequence to check first: if production already holds recipes created by a
+household (not by the import bot), they stay globally visible instead of becoming
+private. Verify before deploying:
+
+```sql
+SELECT "householdId", "authorId", count(*)
+FROM "Recipe"
+GROUP BY 1, 2
+ORDER BY 3 DESC;
+```
+
+One row (the catalog household, author = import bot) means nothing to do. Extra
+rows are household recipes — after the deploy, flip them by hand:
+
+```sql
+UPDATE "Recipe" SET "isCatalog" = false WHERE "householdId" <> '<catalog household>';
+```
+
+The migration itself is idempotent and safe to re-run: the backfill rides on the
+column's `DEFAULT` at `ADD COLUMN` time (then the default flips to `false`), so a
+second run cannot re-mark recipes created after it.
 
 ## Railway — healthcheck wdrożenia
 

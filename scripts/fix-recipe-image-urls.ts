@@ -5,7 +5,8 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const SOURCE_FILE =
-  process.env.IMAGE_URL_SOURCE_FILE ?? 'prisma/catalog/recipes-db-v1-import.json';
+  process.env.IMAGE_URL_SOURCE_FILE ??
+  'prisma/catalog/recipes-db-v1-import.json';
 
 type SourceRecipe = {
   title: string;
@@ -36,14 +37,13 @@ async function main(): Promise<void> {
 
     if (result.count === 0) {
       missing += 1;
-      // eslint-disable-next-line no-console
+
       console.log(`[fix-images] NOT FOUND: "${source.title}"`);
     } else {
       updated += result.count;
     }
   }
 
-  // eslint-disable-next-line no-console
   console.log(
     `[fix-images] done. updated=${updated} missing=${missing} skippedNoUrl=${skipped} totalInput=${input.recipes.length}`,
   );
@@ -51,7 +51,6 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Fix recipe image URLs failed:', error);
     process.exit(1);
   })

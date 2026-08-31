@@ -22,6 +22,11 @@ docker compose exec api pnpm prisma:seed
 docker compose exec api pnpm prisma studio -- --hostname 0.0.0.0 --port 5555
 
 // WEBSOCKET SMOKE TESTS (Socket.IO)
+// Od Fazy 0 socket wymaga tokenu: WS_TOKEN=<jwt> albo --dev-login <nazwa> (token z POST /auth/dev,
+// tylko przy AUTH_DEV_LOGIN_ENABLED=true). "userId" w payloadzie jest ignorowane dla socketu z tokenem
+// (zostaje w przykładach dla starych buildów w trybie WS_AUTH_MODE=soft).
+// docker compose exec api pnpm ws:smoke --dev-login "Rafał" users:me '{}'
+// docker compose exec -e WS_TOKEN=<jwt> api pnpm ws:smoke households:findAll '{}'
 docker compose exec api pnpm ws:smoke users:me '{"userId":"<USER_ID>"}'
 docker compose exec api pnpm ws:smoke households:findAll '{"userId":"<USER_ID>"}'
 docker compose exec api pnpm ws:smoke recipes:findAll '{"userId":"<USER_ID>"}'

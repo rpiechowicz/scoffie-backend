@@ -28,7 +28,11 @@ class ProbeDto {
 class ProbeController {
   @Get('app')
   app() {
-    throw new AppException('NOT_HOUSEHOLD_MEMBER', 'nie należysz', HttpStatus.FORBIDDEN);
+    throw new AppException(
+      'NOT_HOUSEHOLD_MEMBER',
+      'nie należysz',
+      HttpStatus.FORBIDDEN,
+    );
   }
 
   @Get('bare')
@@ -67,7 +71,11 @@ describe('AppExceptionFilter (HTTP)', () => {
     }).compile();
     app = moduleRef.createNestApplication<NestExpressApplication>();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
   });

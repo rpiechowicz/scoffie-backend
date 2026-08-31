@@ -5,7 +5,7 @@ import {
   IsIn,
   IsInt,
   IsOptional,
-  IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
@@ -14,10 +14,22 @@ import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 
 const mealTypes = MEAL_TYPE_VALUES;
 
+export const RECIPES_DEFAULT_PAGE_LIMIT = 24;
+/**
+ * Górna granica strony — ta sama dla dekoratora i klamry w serwisie, żeby
+ * `limit` nie przechodził walidacji tylko po to, by serwis po cichu przyciął
+ * go do innej liczby. iOS prosi o PEŁNĄ stronę `limit: 100`
+ * (`RecipeCatalogStore.pageSize`) — obniżenie tej granicy poniżej 100 to
+ * zmiana klienta. Domyślne 24 dotyczy tylko wywołań bez `limit` (asystent
+ * in-process).
+ */
+export const RECIPES_MAX_PAGE_LIMIT = 100;
+export const RECIPES_MAX_PAGE = 10_000;
+
 export class FindRecipesDto {
   @ApiPropertyOptional({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   householdId?: string;
 
   /**
@@ -50,9 +62,15 @@ export class FindRecipesDto {
   })
   @IsInt()
   @Min(1)
+  @Max(RECIPES_MAX_PAGE)
   page?: number;
 
-  @ApiPropertyOptional({ example: 24, minimum: 1, maximum: 100, default: 24 })
+  @ApiPropertyOptional({
+    example: RECIPES_DEFAULT_PAGE_LIMIT,
+    minimum: 1,
+    maximum: RECIPES_MAX_PAGE_LIMIT,
+    default: RECIPES_DEFAULT_PAGE_LIMIT,
+  })
   @IsOptional()
   @Transform(({ value }) => {
     if (typeof value === 'string') return Number.parseInt(value, 10);
@@ -60,6 +78,6 @@ export class FindRecipesDto {
   })
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(RECIPES_MAX_PAGE_LIMIT)
   limit?: number;
 }
