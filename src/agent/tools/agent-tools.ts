@@ -1,0 +1,269 @@
+/**
+ * Narzędzia, które asystent może wywołać — kontrakt dla modelu.
+ *
+ * To jest ta część promptu, która decyduje o zachowaniu bardziej niż
+ * jakakolwiek instrukcja: model wybiera narzędzie po nazwie i opisie, a pola
+ * wypełnia po schemacie. Dlatego opisy mówią, KIEDY sięgnąć po narzędzie i
+ * czego NIE robić, a nie tylko co ono robi.
+ *
+ * Każde narzędzie odpowiada operacji, która już istnieje w domenie i ma własną
+ * walidację — schemat jest pierwszą bramką, nie jedyną. `strict: true` z
+ * `additionalProperties: false` gwarantuje, że wejście zgadza się ze
+ * schematem, więc halucynowane pole zatrzymuje się przed naszym kodem.
+ *
+ * Identyfikatory przepisów z katalogu model podaje jako KRÓTKI INDEKS z digestu
+ * (`R01`), nigdy jako UUID — patrz `src/agent/catalog-digest.ts`. UUID kosztuje
+ * 20–25 tokenów i model i tak by go przekręcił.
+ */
+export type AgentToolDefinition = {
+  name: string;
+  description: string;
+  input_schema: {
+    type: 'object';
+    properties: Record<string, unknown>;
+    required: string[];
+    additionalProperties: false;
+  };
+  /** Wejście MUSI zgadzać się ze schematem — halucynowane pole to błąd, nie dane. */
+  strict: true;
+};
+
+const object = (
+  properties: Record<string, unknown>,
+  required: string[] = [],
+): AgentToolDefinition['input_schema'] => ({
+  type: 'object',
+  properties,
+  required,
+  additionalProperties: false,
+});
+
+const WEEK_START = {
+  type: 'string',
+  description:
+    'Poniedziałek tygodnia w formacie YYYY-MM-DD. Zawsze bierz go z kontekstu rozmowy, nie licz sam.',
+};
+
+const RECIPE_REF = {
+  type: 'string',
+  description:
+    'Indeks przepisu z katalogu (np. R07) albo identyfikator przepisu gospodarstwa zwrócony przez create_recipe.',
+};
+
+const DAY = {
+  type: 'string',
+  enum: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+};
+
+const MEAL = {
+  type: 'string',
+  enum: [
+    'BREAKFAST',
+    'SECOND_BREAKFAST',
+    'LUNCH',
+    'AFTERNOON_SNACK',
+    'DINNER',
+    'SNACK',
+  ],
+};
+
+export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
+  {
+    name: 'get_household_context',
+    description:
+      'Kto mieszka w gospodarstwie: dieta, alergeny, cel kaloryczny i cele makro każdej osoby. ' +
+      'Wywołaj to ZANIM zaproponujesz cokolwiek do jedzenia — bez tego nie wiesz, czego ktoś nie je. ' +
+      'Gdy makra mają źródło UNAVAILABLE, trzymaj się samych kalorii i nie zgaduj gramów.',
+    input_schema: object({}),
+    strict: true,
+  },
+  {
+    name: 'get_week_plan',
+    description:
+      'Co już stoi w planie danego tygodnia. Wywołaj przed zmianą planu, żeby nie zaproponować ' +
+      'czegoś, co już tam jest, i żeby wiedzieć, co zniknie po zastosowaniu nowego tygodnia.',
+    input_schema: object({ week_start: WEEK_START }, ['week_start']),
+    strict: true,
+  },
+  {
+    name: 'get_week_balance',
+    description:
+      'Bilans dnia po dniu dla jednej osoby: ile kalorii i makr przypada na nią z zaplanowanych ' +
+      'posiłków (planned) i ile z tego odhaczyła jako zjedzone (eaten). Porównaj to z celami ' +
+      'z get_household_context, zanim powiesz, że plan jest dobry.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        member_user_id: {
+          type: 'string',
+          description: 'Czyj bilans; pominięte = osoby, z którą rozmawiasz.',
+        },
+      },
+      ['week_start'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'search_ingredients',
+    description:
+      'Znajdź składnik po nazwie i pobierz jego identyfikator, alergeny i dozwolone jednostki. ' +
+      'MUSISZ tego użyć przed create_recipe albo update_recipe — identyfikatorów składników nie ' +
+      'wolno wymyślać. Odmiana nie przeszkadza („jajka" znajdzie „jajko"). ' +
+      'Ustaw only_with_nutrition, gdy budujesz przepis: składnik bez wartości odżywczych zostanie ' +
+      'odrzucony przy zapisie.',
+    input_schema: object(
+      {
+        query: { type: 'string', description: 'Nazwa albo jej fragment.' },
+        only_with_nutrition: {
+          type: 'boolean',
+          description: 'Tylko składniki, którymi da się zbudować przepis.',
+        },
+        limit: {
+          type: 'integer',
+          description: 'Ile wyników; 1–50, domyślnie 20.',
+        },
+      },
+      ['query'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'apply_week_plan',
+    description:
+      'Zapisz CAŁY tydzień naraz. Lista slots to stan docelowy: czego na niej nie ma, tego nie ' +
+      'będzie w planie. ZAWSZE wywołaj najpierw z dry_run=true — dostaniesz listę naruszeń ' +
+      '(nieznany przepis, danie nie do tego posiłku, obcy domownik) i poprawisz wszystko naraz. ' +
+      'Przy jakimkolwiek naruszeniu nic się nie zapisuje, więc ponowny zapis bez poprawki nic nie da.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        dry_run: {
+          type: 'boolean',
+          description: 'true = sprawdź i policz, nie zapisuj.',
+        },
+        slots: {
+          type: 'array',
+          description: 'Najwyżej 42 pozycje na tydzień.',
+          items: object(
+            {
+              day_of_week: DAY,
+              meal_type: MEAL,
+              recipe: RECIPE_REF,
+              participant_user_ids: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Kto to je. Pomiń albo zostaw puste, gdy danie jest dla całego domu.',
+              },
+              planned_servings: {
+                type: 'integer',
+                description:
+                  'Porcje ŁĄCZNE, 1–12. Pomiń, żeby policzyły się z audytorium — tak jest prawie zawsze dobrze.',
+              },
+            },
+            ['day_of_week', 'meal_type', 'recipe'],
+          ),
+        },
+      },
+      ['week_start', 'slots'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'create_recipe',
+    description:
+      'Utwórz nowy przepis gospodarstwa. Sięgaj po to dopiero, gdy w katalogu naprawdę nie ma nic ' +
+      'odpowiedniego — katalog jest sprawdzony, twój przepis nie. Wartości odżywcze liczy serwer ' +
+      'ze składników, więc ich nie podawaj. Identyfikatory składników bierz z search_ingredients.',
+    input_schema: object(
+      {
+        title: { type: 'string' },
+        description: { type: 'string' },
+        meal_type: MEAL,
+        prep_time_minutes: { type: 'integer' },
+        servings: {
+          type: 'integer',
+          description: 'Na ile porcji jest ten przepis; 1–20.',
+        },
+        ingredients: {
+          type: 'array',
+          description: 'Co najmniej jeden składnik, najwyżej 60.',
+          items: object(
+            {
+              ingredient_id: {
+                type: 'string',
+                description: 'Wyłącznie z search_ingredients.',
+              },
+              amount: { type: 'number', description: 'Większa od zera.' },
+              unit: {
+                type: 'string',
+                description:
+                  'Jedna z allowed_units zwróconych przez search_ingredients dla tego składnika.',
+              },
+            },
+            ['ingredient_id', 'amount', 'unit'],
+          ),
+        },
+        steps: {
+          type: 'array',
+          description: 'Kroki po kolei; najwyżej 40.',
+          items: object({ text: { type: 'string' } }, ['text']),
+        },
+      },
+      ['title', 'meal_type', 'servings', 'ingredients'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'update_recipe',
+    description:
+      'Popraw przepis gospodarstwa. Podaj tylko to, co ma się zmienić. Uwaga: przysłane składniki ' +
+      'albo kroki ZASTĘPUJĄ poprzednie w całości, więc wysyłaj pełną listę, nie różnicę. ' +
+      'Przepisów z katalogu nie da się zmienić — zrób własną kopię przez create_recipe.',
+    input_schema: object(
+      {
+        recipe_id: {
+          type: 'string',
+          description:
+            'Identyfikator przepisu gospodarstwa (nie indeks katalogu).',
+        },
+        title: { type: 'string' },
+        description: { type: 'string' },
+        prep_time_minutes: { type: 'integer' },
+        servings: {
+          type: 'integer',
+          description: 'Na ile porcji jest ten przepis; 1–20.',
+        },
+        ingredients: {
+          type: 'array',
+          description: 'Pełna lista, nie różnica; najwyżej 60 pozycji.',
+          items: object(
+            {
+              ingredient_id: { type: 'string' },
+              amount: { type: 'number', description: 'Większa od zera.' },
+              unit: { type: 'string' },
+            },
+            ['ingredient_id', 'amount', 'unit'],
+          ),
+        },
+        steps: {
+          type: 'array',
+          description: 'Kroki po kolei; najwyżej 40.',
+          items: object({ text: { type: 'string' } }, ['text']),
+        },
+      },
+      ['recipe_id'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'delete_recipe',
+    description:
+      'Wycofaj przepis gospodarstwa z użycia. Nie zadziała, gdy przepis stoi w jakimkolwiek planie — ' +
+      'najpierw usuń go z planu przez apply_week_plan.',
+    input_schema: object({ recipe_id: { type: 'string' } }, ['recipe_id']),
+    strict: true,
+  },
+] as const;
+
+export const AGENT_TOOL_NAMES = AGENT_TOOLS.map((tool) => tool.name);

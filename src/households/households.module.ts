@@ -8,5 +8,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
   // tym injektorze — i dlatego dołączenie domownika nigdy nie wysyłało pusha.
   imports: [NotificationsModule],
   providers: [HouseholdsService, HouseholdsGateway],
+  // Dla narzędzi asystenta (`src/agent/tools`).
+  exports: [HouseholdsService],
 })
 export class HouseholdsModule {}

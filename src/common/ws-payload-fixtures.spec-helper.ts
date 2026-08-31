@@ -47,6 +47,19 @@ export const HANDLERS_WITHOUT_SERVICE: ReadonlySet<string> = new Set([
   'weeklyPlans:getSavedPlan',
 ]);
 
+/**
+ * Handlery, które WOŁAJĄ serwis, ale nie przekazują mu tożsamości — bo zasób
+ * jest wspólny dla całej instalacji i nie zależy od tego, kto pyta.
+ *
+ * Kontrola dodatnia „tożsamość z socketu faktycznie została użyta" ich nie
+ * dotyczy; wciąż obowiązuje je jednak wymóg, żeby `payload.userId` atakującego
+ * nie dotarł nigdzie, i żeby anonimowy socket dostał UNAUTHORIZED.
+ */
+export const HANDLERS_WITHOUT_IDENTITY_ARG: ReadonlySet<string> = new Set([
+  // Katalog składników jest jeden dla wszystkich gospodarstw.
+  'ingredients:search',
+]);
+
 export type InvalidCase = {
   /** Krótki opis do nazwy testu. */
   name: string;
@@ -106,6 +119,7 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
     },
   },
   'recipes:findById': { id: RECIPE, householdId: HH },
+  'ingredients:search': { filters: { query: 'kurczak', limit: 5 } },
   'recipes:create': {
     data: {
       householdId: HH,
@@ -124,6 +138,11 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
       nutritionSalt: 1.2,
     },
   },
+  'recipes:update': {
+    id: RECIPE,
+    data: { householdId: HH, title: 'Makaron z pomidorami i bazylią' },
+  },
+  'recipes:delete': { id: RECIPE, householdId: HH },
   'recipes:setFavorite': {
     data: { recipeId: RECIPE, householdId: HH, isFavorite: true },
   },
@@ -163,6 +182,22 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
       recipeId: RECIPE_2,
       participantIds: [],
       plannedServings: 2,
+    },
+  },
+  'weeklyPlans:balance': { ...hhWeek, memberUserId: MEMBER },
+  'weeklyPlans:applyWeekPlan': {
+    ...hhWeek,
+    data: {
+      slots: [
+        {
+          dayOfWeek: 'MON',
+          mealType: 'DINNER',
+          recipeId: RECIPE_2,
+          participantIds: [],
+          plannedServings: 2,
+        },
+      ],
+      dryRun: true,
     },
   },
   'weeklyPlans:removeWeekSlot': {
@@ -262,7 +297,31 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
       detail: 'householdId must be a UUID',
     },
   ],
+  'ingredients:search': [
+    {
+      name: 'filters nie jest obiektem',
+      payload: { filters: 'kurczak' },
+      detail: 'filters must be an object',
+    },
+  ],
   'recipes:create': [missingData({}), dataNotObject({}, 'Makaron')],
+  'recipes:update': [
+    missingData({ id: RECIPE }),
+    dataNotObject({ id: RECIPE }, 'nowy tytuł'),
+    {
+      name: 'id nie-UUID',
+      payload: { id: NOT_UUID, data: { householdId: HH } },
+      detail: `id ${UUID_DETAIL}`,
+    },
+  ],
+  'recipes:delete': [
+    {
+      name: 'id nie-UUID',
+      payload: { id: NOT_UUID, householdId: HH },
+      detail: `id ${UUID_DETAIL}`,
+    },
+    badHouseholdId({ id: RECIPE }),
+  ],
   'recipes:setFavorite': [missingData({}), dataNotObject({}, 42)],
   // NotificationsGateway
   'notifications:registerDevice': [
@@ -337,6 +396,19 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
   'weeklyPlans:setShoppingItemChecked': [
     missingData(hhWeek),
     dataNotObject(hhWeek, 'mleko::l'),
+  ],
+  'weeklyPlans:balance': [
+    badHouseholdId({ weekStart: WEEK_START }),
+    {
+      name: 'memberUserId nie-UUID',
+      payload: { ...hhWeek, memberUserId: NOT_UUID },
+      detail: `memberUserId ${UUID_DETAIL}`,
+    },
+  ],
+  'weeklyPlans:applyWeekPlan': [
+    missingData(hhWeek),
+    dataNotObject(hhWeek, 'wszystko'),
+    badHouseholdId({ weekStart: WEEK_START, data: { slots: [] } }),
   ],
   'weeklyPlans:upsertWeekSlot': [
     missingData(hhWeek),

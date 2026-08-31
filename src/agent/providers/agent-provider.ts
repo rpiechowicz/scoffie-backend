@@ -1,4 +1,7 @@
-import { AiProvider } from '../../config/agent-env';
+import { AiProvider, AiEffort } from '../../config/agent-env';
+import { SystemBlock } from '../agent-system-prompt';
+import { AgentToolResult } from '../tools/agent-tool-executor';
+import { AgentToolDefinition } from '../tools/agent-tools';
 
 export type AgentProviderMessage = {
   role: 'USER' | 'ASSISTANT';
@@ -7,7 +10,20 @@ export type AgentProviderMessage = {
 
 export type AgentProviderRequest = {
   model: string;
+  effort: AiEffort;
+  /** Bloki systemowe w kolejności podyktowanej przez cache — patrz `agent-system-prompt.ts`. */
+  system: SystemBlock[];
   messages: AgentProviderMessage[];
+  tools: readonly AgentToolDefinition[];
+  /**
+   * Wykonanie narzędzia. Dostawca NIE zna domeny ani tożsamości użytkownika —
+   * dostaje domknięcie przygotowane przez runnera tury. Dzięki temu warstwa
+   * transportowa nie ma jak sięgnąć do bazy z pominięciem bramek.
+   */
+  executeTool: (
+    name: string,
+    input: Record<string, unknown>,
+  ) => Promise<AgentToolResult>;
   /** Przerwanie tury po `AI_TURN_TIMEOUT_MS` — dostawca MUSI go respektować. */
   signal: AbortSignal;
 };
@@ -25,6 +41,8 @@ export type AgentProviderResult = {
   text: string;
   stopReason: string | null;
   usage: AgentProviderUsage;
+  /** Ile razy model odpytał API w tej turze (1 + liczba rund narzędziowych). */
+  apiCalls: number;
 };
 
 export interface AgentProvider {

@@ -61,6 +61,17 @@ export const APP_ERROR_CODES = [
   'PLAN_TOTAL_LIMIT_REACHED',
   // Ten sam przepis już stoi w tym slocie (wyścig dwóch telefonów).
   'PLAN_SLOT_DUPLICATE',
+  // Danie wstawiane do slotu, do którego się nie nadaje (`suitableMealTypes`).
+  // Do Fazy 1 zapis slotu tego nie sprawdzał — asystent mógł wstawić zupę na
+  // śniadanie i nikt go nie poprawiał.
+  'RECIPE_NOT_SUITABLE_FOR_SLOT',
+  // Próba edycji albo kasowania przepisu ze WSPÓLNEGO katalogu. Dla asystenta
+  // to instrukcja, nie ślepa uliczka: ma zrobić własną kopię w gospodarstwie,
+  // a nie ponawiać zapis.
+  'RECIPE_NOT_EDITABLE',
+  // Przepis stoi w planie tygodnia — kasowanie zostawiłoby dziurę w planie
+  // i w liście zakupów.
+  'RECIPE_IN_USE',
   // ─── lista zakupów ───
   'SHOPPING_LIST_EMPTY',
   'SHOPPING_LIST_NOT_COMPLETED',

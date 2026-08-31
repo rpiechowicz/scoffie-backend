@@ -13,10 +13,22 @@ export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 export const AI_MODEL_DEFAULT = 'claude-sonnet-5';
 
+/**
+ * Poziom wysiłku modelu (`output_config.effort`).
+ *
+ * Domyślnie `medium`, a nie `high` z API: model kosztowy liczy tury właśnie
+ * dla `medium`, więc `high` po cichu podniósłby rachunek ponad to, co
+ * policzone. Podniesienie to świadoma decyzja, nie ustawienie domyślne.
+ */
+export const AI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type AiEffort = (typeof AI_EFFORTS)[number];
+export const AI_EFFORT_DEFAULT: AiEffort = 'medium';
+
 export type AgentEnv = {
   enabled: boolean;
   provider: AiProvider;
   model: string;
+  effort: AiEffort;
   apiKeyPresent: boolean;
   /** Twardy limit jednej tury (AbortSignal); po nim tura = FAILED `AI_TIMEOUT`. */
   turnTimeoutMs: number;
@@ -62,6 +74,13 @@ function readNumber(
   return parsed;
 }
 
+function readEffort(env: NodeJS.ProcessEnv): AiEffort {
+  const raw = (env.AI_EFFORT ?? '').trim().toLowerCase();
+  return (AI_EFFORTS as readonly string[]).includes(raw)
+    ? (raw as AiEffort)
+    : AI_EFFORT_DEFAULT;
+}
+
 function readProvider(env: NodeJS.ProcessEnv): AiProvider {
   const raw = (env.AI_PROVIDER ?? '').trim().toLowerCase();
   return raw === 'stub' ? 'stub' : 'anthropic';
@@ -79,6 +98,7 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
     enabled: (env.AI_ENABLED ?? '').trim().toLowerCase() === 'true',
     provider: readProvider(env),
     model: (env.AI_MODEL ?? '').trim() || AI_MODEL_DEFAULT,
+    effort: readEffort(env),
     apiKeyPresent: (env.ANTHROPIC_API_KEY ?? '').trim().length > 0,
     turnTimeoutMs: readNumber(
       env,
@@ -117,6 +137,12 @@ export function agentEnvProblems(
   if (enabledRaw && enabledRaw !== 'true' && enabledRaw !== 'false') {
     problems.push(
       `AI_ENABLED=${enabledRaw} — dozwolone: true, false (przy złej wartości asystent jest wyłączony)`,
+    );
+  }
+  const effortRaw = (env.AI_EFFORT ?? '').trim().toLowerCase();
+  if (effortRaw && !(AI_EFFORTS as readonly string[]).includes(effortRaw)) {
+    problems.push(
+      `AI_EFFORT=${effortRaw} — dozwolone: ${AI_EFFORTS.join(', ')} (przy złej wartości działa ${AI_EFFORT_DEFAULT})`,
     );
   }
   const providerRaw = (env.AI_PROVIDER ?? '').trim().toLowerCase();

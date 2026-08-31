@@ -12,6 +12,10 @@ describe('StubAgentProvider', () => {
   const run = (text: string, signal = new AbortController().signal) =>
     provider.run({
       model: 'claude-sonnet-5',
+      effort: 'medium',
+      system: [],
+      tools: [],
+      executeTool: jest.fn(),
       messages: [
         { role: 'ASSISTANT', text: 'stara odpowiedź' },
         { role: 'USER', text },

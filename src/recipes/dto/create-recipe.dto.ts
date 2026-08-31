@@ -42,6 +42,9 @@ export const RECIPE_SERVINGS_MAX = 20;
 /** Tydzień w minutach — marynaty i fermentacje trwają dniami, nie miesiącami. */
 export const RECIPE_PREP_TIME_MAX = 7 * 24 * 60;
 export const INGREDIENT_AMOUNT_MAX = 100_000;
+/** Kroki przygotowania: sufit na długość listy i pojedynczy krok. */
+export const RECIPE_STEPS_MAX = 40;
+export const RECIPE_STEP_TEXT_MAX = 1000;
 export const NUTRITION_VALUE_MAX = 100_000;
 
 export class CreateRecipeIngredientDto {
@@ -58,6 +61,28 @@ export class CreateRecipeIngredientDto {
   @ApiProperty({ enum: ingredientUnits, example: 'g' })
   @IsIn(ingredientUnits)
   unit: string;
+}
+
+/**
+ * Jeden krok przygotowania.
+ *
+ * `stepNumber` jest opcjonalny i służy WYŁĄCZNIE do ustalenia kolejności —
+ * numery i tak nadajemy od nowa (`normalizeRecipeSteps`), żeby „1, 2, 2, 5"
+ * od modelu nie zapisało się jako przepis z duplikatem i dziurą.
+ */
+export class RecipeStepDto {
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(RECIPE_STEPS_MAX)
+  stepNumber?: number;
+
+  @ApiProperty({ example: 'Podsmaż cebulę na oliwie.' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(RECIPE_STEP_TEXT_MAX)
+  text: string;
 }
 
 export class CreateRecipeDto {
@@ -173,6 +198,19 @@ export class CreateRecipeDto {
   @ValidateNested({ each: true })
   @Type(() => CreateRecipeIngredientDto)
   ingredients?: CreateRecipeIngredientDto[];
+
+  /**
+   * Kroki przygotowania. Do Fazy 1 dało się je wgrać wyłącznie importem
+   * katalogu, więc asystent potrafił zaproponować danie, ale nie umiał
+   * zapisać, jak je ugotować.
+   */
+  @ApiPropertyOptional({ type: [RecipeStepDto] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(RECIPE_STEPS_MAX)
+  @ValidateNested({ each: true })
+  @Type(() => RecipeStepDto)
+  steps?: RecipeStepDto[];
 
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   @IsUUID()

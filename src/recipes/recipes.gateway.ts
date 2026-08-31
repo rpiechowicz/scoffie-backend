@@ -18,6 +18,9 @@ import { RecipesService } from './recipes.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
 import { FindRecipesDto } from './dto/find-recipes.dto';
+import { UpdateRecipeDto } from './dto/update-recipe.dto';
+import { SearchIngredientsDto } from './dto/search-ingredients.dto';
+import { IngredientsService } from './ingredients.service';
 import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
@@ -38,6 +41,17 @@ class RecipesFindAllPayload {
   @IsOptional()
   @IsObject()
   filters?: FindRecipesDto;
+}
+
+class IngredientsSearchPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsOptional()
+  @IsObject()
+  filters?: SearchIngredientsDto;
 }
 
 class RecipesFindByIdPayload {
@@ -64,6 +78,32 @@ class RecipesCreatePayload {
   data: CreateRecipeDto;
 }
 
+class RecipesUpdatePayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsUUID()
+  id: string;
+
+  @IsObject()
+  data: UpdateRecipeDto;
+}
+
+class RecipesDeletePayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsUUID()
+  id: string;
+
+  @IsUUID()
+  householdId: string;
+}
+
 class RecipesSetFavoritePayload {
   /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
   @IsOptional()
@@ -83,6 +123,7 @@ export class RecipesGateway
 
   constructor(
     private readonly recipesService: RecipesService,
+    private readonly ingredientsService: IngredientsService,
     private readonly wsTelemetry: WsTelemetryService,
   ) {}
 
@@ -111,6 +152,29 @@ export class RecipesGateway
     });
   }
 
+  /**
+   * Składnik po NAZWIE — jedyna droga od „pierś z kurczaka" do identyfikatora,
+   * którego wymaga `recipes:create`. Katalog składników jest wspólny, więc
+   * wynik nie zależy od gospodarstwa; wystarczy być zalogowanym.
+   */
+  @SubscribeMessage('ingredients:search')
+  searchIngredients(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: IngredientsSearchPayload,
+  ) {
+    return wsRespond(async () => {
+      actorId(client, payload);
+      // Zwalidowana koperta, nie surowa: `payload` bywa `undefined` (stare
+      // buildy wołają bez argumentu), a `validateWsPayload` sprowadza to do
+      // pustego obiektu i przy okazji obcina pola spoza whitelisty.
+      const envelope = await validateWsPayload(
+        IngredientsSearchPayload,
+        payload,
+      );
+      return this.ingredientsService.search(envelope.filters ?? {});
+    });
+  }
+
   @SubscribeMessage('recipes:findById')
   findById(
     @ConnectedSocket() client: AppSocket,
@@ -136,6 +200,79 @@ export class RecipesGateway
       const userId = actorId(client, payload);
       await validateWsPayload(RecipesCreatePayload, payload);
       return this.recipesService.create(userId, payload.data);
+    });
+  }
+
+  /**
+   * Poprawka przepisu gospodarstwa. Domyka pętlę „zaproponuj → popraw →
+   * zapisz", której do Fazy 1 nie było — asystent umiał tylko utworzyć.
+   */
+  @SubscribeMessage('recipes:update')
+  update(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesUpdatePayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesUpdatePayload, payload);
+      const recipe = await this.recipesService.update(
+        userId,
+        payload.id,
+        payload.data,
+      );
+      this.broadcastRecipeChange(
+        payload.data.householdId,
+        payload.id,
+        'UPDATED',
+        userId,
+      );
+      return recipe;
+    });
+  }
+
+  /** Wycofanie przepisu (`isActive = false`), nie twarde kasowanie. */
+  @SubscribeMessage('recipes:delete')
+  remove(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesDeletePayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesDeletePayload, payload);
+      const result = await this.recipesService.remove(
+        userId,
+        payload.id,
+        payload.householdId,
+      );
+      this.broadcastRecipeChange(
+        payload.householdId,
+        payload.id,
+        'DELETED',
+        userId,
+      );
+      return result;
+    });
+  }
+
+  /**
+   * Sygnał „katalog gospodarstwa się zmienił".
+   *
+   * Zdarzenie jest nowe i obecny build iOS go nie zna — nieznane zdarzenie
+   * Socket.IO jest po prostu ignorowane, więc nic się nie psuje, a klient
+   * odświeży listę jak dotąd (foreground / 12 h). Nadajemy je już teraz, żeby
+   * po stronie iOS został do zrobienia sam nasłuch, a nie kontrakt.
+   */
+  private broadcastRecipeChange(
+    householdId: string,
+    recipeId: string,
+    action: 'UPDATED' | 'DELETED',
+    changedByUserId: string,
+  ): void {
+    broadcastToHousehold(this.server, householdId, 'recipes:changed', {
+      householdId,
+      recipeId,
+      action,
+      changedByUserId,
     });
   }
 

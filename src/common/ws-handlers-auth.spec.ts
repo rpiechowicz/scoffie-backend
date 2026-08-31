@@ -11,6 +11,7 @@ import {
   tokenClient,
 } from './ws-handlers.spec-helper';
 import {
+  HANDLERS_WITHOUT_IDENTITY_ARG,
   HANDLERS_WITHOUT_SERVICE,
   VALID_PAYLOADS,
 } from './ws-payload-fixtures.spec-helper';
@@ -44,7 +45,10 @@ const EXPECTED_EVENTS: readonly string[] = [
   // RecipesGateway
   'recipes:findAll',
   'recipes:findById',
+  'ingredients:search',
   'recipes:create',
+  'recipes:update',
+  'recipes:delete',
   'recipes:setFavorite',
   // NotificationsGateway
   'notifications:registerDevice',
@@ -57,6 +61,8 @@ const EXPECTED_EVENTS: readonly string[] = [
   'weeklyPlans:deleteShoppingListArchive',
   'weeklyPlans:deleteAllShoppingListArchives',
   'weeklyPlans:setShoppingItemChecked',
+  'weeklyPlans:balance',
+  'weeklyPlans:applyWeekPlan',
   'weeklyPlans:upsertWeekSlot',
   'weeklyPlans:removeWeekSlot',
   'weeklyPlans:setMealEaten',
@@ -80,7 +86,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'households:removeMember',
   'households:leave',
 ];
-const EXPECTED_HANDLER_COUNT = 40;
+const EXPECTED_HANDLER_COUNT = 45;
 
 // ---------------------------------------------------------------------------
 // Sockety i payload
@@ -213,7 +219,10 @@ describe('WS handlers — tożsamość z socketu (strażnik regresji)', () => {
           serverCalls(harness.server).some((args) =>
             containsString(args, VICTIM),
           );
-        if (!HANDLERS_WITHOUT_SERVICE.has(event)) {
+        if (
+          !HANDLERS_WITHOUT_SERVICE.has(event) &&
+          !HANDLERS_WITHOUT_IDENTITY_ARG.has(event)
+        ) {
           expect(usedVictim).toBe(true);
         }
       });

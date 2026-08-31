@@ -13,6 +13,9 @@ import {
   AgentProviderResult,
 } from './providers/agent-provider';
 import { AgentProviderResolver } from './providers/agent-provider.resolver';
+import { AgentPromptService, TurnDates } from './agent-prompt.service';
+import { AgentToolExecutor } from './tools/agent-tool-executor';
+import { AGENT_TOOLS } from './tools/agent-tools';
 import { UpstreamBreaker } from './upstream-breaker';
 
 export type RunTurnInput = {
@@ -24,6 +27,11 @@ export type RunTurnInput = {
   periodKey: string;
   env: AgentEnv;
   requestId: string;
+  /**
+   * Daty z TELEFONU. Serwer żyje w UTC i nie ma prawa liczyć „dziś" ani
+   * początku tygodnia — patrz `dto/agent-date.validators.ts`.
+   */
+  dates: TurnDates;
 };
 
 /** Ile ostatnich wiadomości rozmowy idzie do modelu jako kontekst. */
@@ -62,6 +70,8 @@ export class AgentTurnRunner {
   constructor(
     private readonly prisma: PrismaService,
     private readonly providers: AgentProviderResolver,
+    private readonly prompts: AgentPromptService,
+    private readonly tools: AgentToolExecutor,
     private readonly counters: AiUsageCountersService,
     private readonly breaker: UpstreamBreaker,
     private readonly metrics: AgentMetricsService,
@@ -77,10 +87,26 @@ export class AgentTurnRunner {
 
     try {
       const messages = await this.loadHistory(input.conversationId);
+      const prompt = await this.prompts.build(
+        input.userId,
+        input.householdId,
+        input.dates,
+      );
       const provider = this.providers.resolve(input.env);
       const result = await provider.run({
         model: input.env.model,
+        effort: input.env.effort,
+        system: prompt.system,
         messages,
+        tools: AGENT_TOOLS,
+        // Domknięcie z tożsamością tury: dostawca nie zna ani użytkownika, ani
+        // gospodarstwa, więc nie ma jak sięgnąć do bazy z pominięciem bramek.
+        executeTool: (name, toolInput) =>
+          this.tools.execute(name, toolInput, {
+            userId: input.userId,
+            householdId: input.householdId,
+            catalogIndex: prompt.catalogIndex,
+          }),
         signal: controller.signal,
       });
       await this.finishDone(input, result, Date.now() - startedAt);

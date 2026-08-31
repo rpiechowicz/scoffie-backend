@@ -234,6 +234,11 @@ export class AgentTurnsService {
       periodKey,
       env,
       requestId,
+      dates: {
+        weekStart: data.weekStart,
+        clientToday: data.clientToday,
+        timeZone: data.timeZone,
+      },
     });
 
     return accepted;

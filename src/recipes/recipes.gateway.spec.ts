@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RecipesGateway } from './recipes.gateway';
 import { RecipesService } from './recipes.service';
+import { IngredientsService } from './ingredients.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
 // Gateway ma na własność trzy rzeczy: skąd bierze tożsamość (socket z tokenem
@@ -57,6 +58,10 @@ describe('RecipesGateway', () => {
       providers: [
         RecipesGateway,
         { provide: RecipesService, useValue: recipesService },
+        {
+          provide: IngredientsService,
+          useValue: { search: jest.fn().mockResolvedValue([]) },
+        },
         {
           provide: WsTelemetryService,
           useValue: { onConnect: jest.fn(), onDisconnect: jest.fn() },
