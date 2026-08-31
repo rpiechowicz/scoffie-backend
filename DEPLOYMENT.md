@@ -153,37 +153,131 @@ default), which is why the next step after iOS adoption is a shorter
 reported as `SERVICE_UNAVAILABLE`, not `UNAUTHORIZED`, so clients keep their
 auto-reconnect instead of refreshing tokens.
 
+## Wydanie „Fazy 0 + 1" na produkcję — lista kontrolna
+
+To pierwsze wejście na prod całego dorobku asystenta: 33 commity, dwie migracje
+(`20260828200000_asystent_rozmowy_tury_i_ledger`, `20260831120000_katalog_a_przepisy_gospodarstwa`),
+uwierzytelniony WebSocket, jawna walidacja DTO, limity żądań i cały moduł `src/agent/`.
+**Asystent w tym wydaniu jest WYŁĄCZONY** — właczenie to osobny krok niżej.
+
+Sprawdzone przed wydaniem (31.08.2026, nie trzeba powtarzać):
+
+- **Żadna nowa zmienna nie jest wymagana.** Wszystkie `AI_*`, `THROTTLE_*` i
+  `WS_*` mają domyślne, a `assert-env` przy `AI_ENABLED` pustym nie żąda niczego.
+  Deploy nie powtórzy incydentu z 28.08.
+- **Stary build iOS (App Store) przeżyje.** Koperty zdarzeń walidują się łagodnie
+  (`validateWsPayload`), więc `userId` i inne pola sprzed Fazy 0 nie są błędem.
+  Pola w `data` porównane 1:1 z payloadami z gałęzi `main` iOS — zero rozjazdu.
+  `WS_AUTH_MODE` zostaje `soft`, bo wydany build nie wysyła jeszcze tokenu.
+- **Limity nie zabolą telefonu.** 120 żądań/min na użytkownika po HTTP i tyle samo
+  po WebSockecie; iOS ma 42 miejsca wysyłające i żadnej pętli.
+
+Do sprawdzenia NA PRODUKCJI przed merge'em (`psql "$PROD_DB"`):
+
+1. **Przepisy gospodarstw** — decyduje o `isCatalog`, szczegóły w sekcji niżej.
+2. **Pokrycie alergenów i tagów diet** — od hartowania asystenta bramka
+   `RECIPE_ALLERGEN_CONFLICT` czyta `Recipe.allergens`. Puste tablice na prodzie
+   znaczyłyby, że bramka przepuszcza wszystko, a model widzi `A:` bez treści:
+
+   ```sql
+   SELECT count(*) FILTER (WHERE array_length("dietTags", 1) IS NULL) AS bez_tagow_diet,
+          count(*) AS wszystkie
+   FROM "Recipe";
+   ```
+
+   `bez_tagow_diet` większe od zera = uruchomić `pnpm catalog:ingredients:tags`
+   (idempotentny, przelicza `allergens`/`dietTags` ze składników) zanim asystent
+   dostanie prawo zapisu. Przepisy BEZ alergenów to normalne (na dev 8 z 89) —
+   alarmujące są dopiero puste tagi diet, bo każdy przepis jakiś ma.
+
+Po deployu: `/ops/health` 200, `/ops/metrics` → `http.wsAuth.handshakes.legacy`
+rośnie (stary build), `agent.turns` zeruje się i takie zostaje (asystent wyłączony).
+
 ## Assistant rollout (`AI_ENABLED`)
 
-The assistant ships **off**. Every `AI_*` and `THROTTLE_*` variable has a
-default, so merging Phase 0 to `main` needs no new Railway variable — this is
-deliberate after the 28.08.2026 incident (a new build asserting a missing
-variable cost ~10 minutes of downtime).
+Asystent wchodzi na prod **wyłączony**. Każda zmienna `AI_*` i `THROTTLE_*` ma
+wartość domyślną, więc merge do `main` nie wymaga żadnej zmiennej na Railway —
+świadomie, po incydencie z 28.08.2026 (nowy build asertujący brakującą zmienną
+kosztował ~10 minut przestoju).
 
-Turning it on, in this order:
+### Zanim włączysz — co asystent może ZMIENIĆ w bazie
 
-1. Set `ANTHROPIC_API_KEY` on the `Backend` service **first**
-   (`railway variables --service Backend --skip-deploys --set ANTHROPIC_API_KEY=...`).
-   With `AI_ENABLED=true` and no key the assistant behaves as disabled, so a
-   wrong order costs a `503`, not a crash — but check
-   `railway logs --service Backend` for the `[env]` warning either way.
-2. Optionally cap the spend: `AI_GLOBAL_DAILY_BUDGET_USD` (daily, whole
-   installation) and `AI_LIMIT_MESSAGES_PER_MONTH` (per household).
-3. Set `AI_ENABLED=true` and let the service restart.
-4. Verify: `GET /ops/metrics` → `agent.turns` (started/done/failed),
+Od Fazy 1 asystent nie tylko czyta. Ma osiem narzędzi, z czego cztery piszą:
+`apply_week_plan` (cały tydzień naraz), `create_recipe`, `update_recipe`,
+`delete_recipe` (miękkie, `isActive=false`). Pozostałe cztery
+(`get_household_context`, `get_week_plan`, `get_week_balance`,
+`search_ingredients`) tylko czytają.
+
+Bariery są po stronie serwera, nie w prompcie: przepisu z alergenem domownika
+nie da się wstawić do posiłku, który ta osoba je (`RECIPE_ALLERGEN_CONFLICT`),
+przepisu katalogowego nie da się edytować ani skasować (`RECIPE_NOT_EDITABLE`),
+a przepisu użytego w planie nie da się usunąć (`RECIPE_IN_USE`). Przy JAKIMKOLWIEK
+naruszeniu `applyWeekPlan` nie zapisuje NICZEGO — nie ma stanu „pół tygodnia".
+
+Cofnięcie tego, co asystent narobił, nie ma dziś przycisku: plan wraca ręcznie
+w aplikacji, przepis — `UPDATE "Recipe" SET "isActive" = true WHERE id = …`.
+
+### Włączanie, w tej kolejności
+
+1. **Klucz PIERWSZY**:
+   `railway variables --service Backend --skip-deploys --set ANTHROPIC_API_KEY=...`.
+   Przy `AI_ENABLED=true` bez klucza asystent zachowuje się jak wyłączony (503),
+   więc zła kolejność kosztuje błąd, nie awarię — ale i tak sprawdź
+   `railway logs --service Backend` pod kątem ostrzeżenia `[env]`.
+2. **Budżet — USTAW GO ŚWIADOMIE.** `AI_GLOBAL_DAILY_BUDGET_USD` domyślnie
+   **nie istnieje, czyli BEZ LIMITU**; `AI_LIMIT_MESSAGES_PER_MONTH` to 200 na
+   gospodarstwo. Zmierzone tury (Sonnet 5, `medium`): układanie tygodnia $0,30,
+   trzy dni z alergią $0,14, poprawka dwóch kolacji $0,12, żądanie niewykonalne
+   $1,00. Czyli domyślne 200 wiadomości to **$25–60 miesięcznie na jedno
+   gospodarstwo**. Przy koncie z $20 kredytu rozsądny start:
+
+   ```
+   AI_GLOBAL_DAILY_BUDGET_USD=2
+   AI_LIMIT_MESSAGES_PER_MONTH=60
+   ```
+
+   Budżet dobowy jest globalny (licznik `AiUsageCounter`, kind `costMicroUsd`)
+   i sprawdzany PRZED turą, więc jego przekroczenie kosztuje jeszcze jedną turę
+   — ustawiaj go o tę jedną turę niżej, niż wynosi ból. Po przekroczeniu tury
+   wracają `503 AI_BUDGET_PAUSED` i nic nie idzie do API; wyczerpana kwota
+   miesięczna to `429 AI_QUOTA_EXCEEDED`.
+
+   **`AI_LIMIT_PLANS_PER_MONTH` jest dziś martwy** — wartość czyta się z env,
+   ale nic jej nie egzekwuje (asystent zapisuje plany bez własnego licznika).
+   Do domknięcia razem z decyzjami o subskrypcji i freemium; do tego czasu
+   jedynym hamulcem planów jest limit wiadomości.
+
+3. `AI_ENABLED=true` i restart usługi.
+4. Weryfikacja: `GET /ops/metrics` → `agent.turns` (started/done/failed),
    `agent.rejected` (disabled/quota/budget/upstream/inProgress),
-   `agent.usage.costMicroUsd`.
+   `agent.usage.costMicroUsd`. Rachunek u dostawcy sprawdzaj niezależnie —
+   licznik zna tylko tury, które przeszły przez ten kontener.
 
-Turning it off is one variable (`AI_ENABLED=false`) and takes effect on the next
-restart — the flag is read per request, and no other module imports
-`src/agent/` (enforced by ESLint). Conversations already stored are untouched;
-users can delete their own with `DELETE /agent/conversations`, which works
-regardless of the flag.
+### Czego brakuje, żeby włączenie miało sens
 
-Safety valves that need no operator action: a turn is aborted after
-`AI_TURN_TIMEOUT_MS` (`FAILED` / `AI_TIMEOUT`), five provider 429/5xx inside
-five minutes open a 60-second circuit breaker (`503 AI_UPSTREAM_PAUSED`), and a
-failed turn refunds the message quota it consumed at start.
+**Aplikacja iOS nie ma dziś ekranu asystenta** — w kodzie nie ma ani jednego
+odwołania do `/agent/*`. Kontrakt jest gotowy po stronie serwera
+(`POST /agent/conversations/:id/messages` → `202` + `Location`, klient odpytuje
+`GET /agent/turns/:id`), ale dopóki nie powstanie klient, `AI_ENABLED=true`
+niczego nie udostępnia użytkownikom — włączać dopiero razem z buildem iOS.
+
+Zaległość klienta niezależna od asystenta: `UserFacingErrorMapper` nie ma kopii
+dla `RECIPE_NOT_SUITABLE_FOR_SLOT`, `RECIPE_NOT_EDITABLE`, `RECIPE_IN_USE`
+i `RECIPE_ALLERGEN_CONFLICT`, a aplikacja nie nasłuchuje `recipes:changed`.
+Do buildu użytkownik zobaczy polski komunikat prosto z serwera.
+
+### Wyłączanie i zawory bezpieczeństwa
+
+Wyłączenie to jedna zmienna (`AI_ENABLED=false`) i działa po restarcie — flaga
+czyta się per żądanie, a żaden inny moduł nie importuje `src/agent/` (pilnuje
+ESLint). Zapisane rozmowy zostają nietknięte; użytkownik kasuje swoje przez
+`DELETE /agent/conversations`, co działa niezależnie od flagi.
+
+Zawory, które nie wymagają operatora: tura jest przerywana po `AI_TURN_TIMEOUT_MS`
+(`FAILED` / `AI_TIMEOUT`), pięć błędów 429/5xx dostawcy w pięć minut otwiera
+60-sekundowy bezpiecznik (`503 AI_UPSTREAM_PAUSED`), a nieudana tura zwraca
+kwotę wiadomości pobraną na starcie. Od hartowania koszt nieudanej tury i tak
+trafia do księgi — bezpiecznik chroni przed pętlą, nie przed rachunkiem.
 
 ## Catalog vs household recipes (`isCatalog`) — before deploying
 
