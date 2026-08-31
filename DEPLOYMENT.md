@@ -259,16 +259,12 @@ w aplikacji, przepis — `UPDATE "Recipe" SET "isActive" = true WHERE id = …`.
 
 ### Czego brakuje, żeby włączenie miało sens
 
-**Aplikacja iOS nie ma dziś ekranu asystenta** — w kodzie nie ma ani jednego
-odwołania do `/agent/*`. Kontrakt jest gotowy po stronie serwera
-(`POST /agent/conversations/:id/messages` → `202` + `Location`, klient odpytuje
-`GET /agent/turns/:id`), ale dopóki nie powstanie klient, `AI_ENABLED=true`
-niczego nie udostępnia użytkownikom — włączać dopiero razem z buildem iOS.
-
-Zaległość klienta niezależna od asystenta: `UserFacingErrorMapper` nie ma kopii
-dla `RECIPE_NOT_SUITABLE_FOR_SLOT`, `RECIPE_NOT_EDITABLE`, `RECIPE_IN_USE`
-i `RECIPE_ALLERGEN_CONFLICT`, a aplikacja nie nasłuchuje `recipes:changed`.
-Do buildu użytkownik zobaczy polski komunikat prosto z serwera.
+Ekran asystenta w iOS jest napisany (gałąź `feat/asystent-ekran`: rozmowa po
+REST z odpytywaniem tury, kroki postępu, kopie brakujących kodów błędów i
+nasłuch `recipes:changed`), ale **jeszcze nie zbudowany** — powstał na Windowsie,
+a Xcode jest tylko na Macu. Kolejność jest więc taka: build i klik po ekranie na
+Macu → wydanie klienta → dopiero wtedy `AI_ENABLED=true`. Włączenie flagi przed
+buildem nie udostępnia użytkownikom niczego, bo wydany build o `/agent/*` nie wie.
 
 ### Wyłączanie i zawory bezpieczeństwa
 
