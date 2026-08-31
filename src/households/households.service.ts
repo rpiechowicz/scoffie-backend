@@ -25,6 +25,7 @@ import {
   onMemberLeft,
   onRosterChanged,
 } from '../weekly-plans/utils/plan-roster.util';
+import { MemberContext, toMemberContext } from './member-context.util';
 
 @Injectable()
 export class HouseholdsService {
@@ -666,6 +667,62 @@ export class HouseholdsService {
         },
       },
     });
+  }
+
+  /**
+   * Preferencje, sylwetka i cele WSZYSTKICH domowników — jedno wywołanie.
+   *
+   * Asystent nie ma jak zebrać tego sam: preferencje siedzą w
+   * `UserPreference`, sylwetka w `User`, a `users:preferences:get` czyta
+   * tylko własne konto. `listMembers` niesie samą tożsamość, więc „zaplanuj
+   * tydzień dla domu" znaczyłoby N wywołań — i tak bez celów makro, bo te
+   * do niedawna liczyły się wyłącznie na telefonie
+   * (`src/users/body-metrics.util.ts` to port z iOS).
+   *
+   * Ten sam odczyt zamyka lukę po stronie iOS: po włączeniu auth klient
+   * stracił dostęp do cudzych preferencji, więc ekran planu nie wie, kto
+   * czego nie je.
+   *
+   * `ensureMembership`, nie `ensureOwner`: skład domu i tak jest jawny dla
+   * domowników, a plan tygodnia jest wspólny. Odczyt jest CZYSTY — nie
+   * tworzy brakujących wierszy preferencji (robi to `users:preferences:get`
+   * i to jest osobny problem).
+   */
+  async memberPreferences(
+    userId: string,
+    householdId: string,
+  ): Promise<MemberContext[]> {
+    await this.ensureMembership(userId, householdId);
+    const rows = await this.prisma.membership.findMany({
+      where: { householdId },
+      orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        role: true,
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            sex: true,
+            heightCm: true,
+            weightKg: true,
+            yearOfBirth: true,
+            preferences: {
+              select: {
+                dietPreference: true,
+                calorieGoal: true,
+                allergens: true,
+                goal: true,
+                activityLevel: true,
+                proteinG: true,
+                fatG: true,
+                carbsG: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    return rows.map((row) => toMemberContext(row));
   }
 
   async updateMemberRole(

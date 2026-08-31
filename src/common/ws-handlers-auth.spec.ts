@@ -75,11 +75,12 @@ const EXPECTED_EVENTS: readonly string[] = [
   'households:updateMealTypes',
   'households:updateMealTimes',
   'households:listMembers',
+  'households:memberPreferences',
   'households:updateMemberRole',
   'households:removeMember',
   'households:leave',
 ];
-const EXPECTED_HANDLER_COUNT = 39;
+const EXPECTED_HANDLER_COUNT = 40;
 
 // ---------------------------------------------------------------------------
 // Sockety i payload

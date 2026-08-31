@@ -201,6 +201,7 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
     data: { mealSlotTimes: { BREAKFAST: 480, LUNCH: 840, DINNER: 1200 } },
   },
   'households:listMembers': { householdId: HH },
+  'households:memberPreferences': { householdId: HH },
   'households:updateMemberRole': {
     householdId: HH,
     memberUserId: MEMBER,
@@ -417,6 +418,14 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
     },
   ],
   'households:listMembers': [
+    {
+      name: 'pusta koperta',
+      payload: {},
+      detail: 'householdId must be a UUID',
+    },
+    badHouseholdId({}),
+  ],
+  'households:memberPreferences': [
     {
       name: 'pusta koperta',
       payload: {},

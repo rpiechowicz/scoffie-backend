@@ -526,6 +526,25 @@ export class HouseholdsGateway
     });
   }
 
+  /**
+   * Kontekst planowania: kto tu mieszka, czego nie je i jakie ma cele.
+   * Ta sama koperta co `listMembers` — sam `householdId`.
+   */
+  @SubscribeMessage('households:memberPreferences')
+  memberPreferences(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: HouseholdsHouseholdPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(HouseholdsHouseholdPayload, payload);
+      return this.householdsService.memberPreferences(
+        userId,
+        payload.householdId,
+      );
+    });
+  }
+
   @SubscribeMessage('households:updateMemberRole')
   updateMemberRole(
     @ConnectedSocket() client: AppSocket,
