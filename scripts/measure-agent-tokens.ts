@@ -29,6 +29,7 @@ import {
   loadDigestRecipes,
 } from '../src/agent/catalog-digest';
 import { AGENT_TOOLS } from '../src/agent/tools/agent-tools';
+import { AGENT_INSTRUCTIONS } from '../src/agent/agent-system-prompt';
 
 const prisma = new PrismaClient();
 
@@ -39,6 +40,9 @@ const DEFAULT_MODELS = ['claude-sonnet-5', 'claude-opus-5', 'claude-haiku-4-5'];
 
 /** Z cost-model.md §1: schematy ~8 narzędzi, 2 500 bazy × 1,3 tokenizer. */
 const ASSUMED_TOOLS_TOKENS = 3_250;
+
+/** Z cost-model.md §1: instrukcje systemowe, 1 500 bazy × 1,3 tokenizer. */
+const ASSUMED_INSTRUCTIONS_TOKENS = 1_950;
 
 /** Z cost-model.md §1: 75 bazy × 1,3 tokenizer × 1,3 polski. */
 const ASSUMED_TOKENS_PER_LINE = 75 * 1.3 * 1.3;
@@ -150,26 +154,29 @@ async function main(): Promise<void> {
     total: number;
     perRecipe: number;
     tools: number;
+    instructions: number;
   }[] = [];
 
   for (const model of models) {
     const header = await countContent(client, model, DIGEST_HEADER);
     const total = await countContent(client, model, digest.text);
     const tools = await countTools(client, model);
+    const instructions = await countContent(client, model, AGENT_INSTRUCTIONS);
     rows.push({
       model,
       header,
       total,
       tools,
+      instructions,
       perRecipe: (total - header) / digest.recipeCount,
     });
   }
 
   console.log(
-    'model                | nagłówek | CAŁY digest | tok/przepis | narzędzia | vs. szacunek linii',
+    'model                | nagłówek | CAŁY digest | tok/przepis | narzędzia | instrukcje | vs. szacunek',
   );
   console.log(
-    '---------------------|----------|-------------|-------------|-----------|-------------------',
+    '---------------------|----------|-------------|-------------|-----------|------------|-------------',
   );
   for (const row of rows) {
     const share = (100 * row.perRecipe) / ASSUMED_TOKENS_PER_LINE;
@@ -177,6 +184,7 @@ async function main(): Promise<void> {
       `${row.model.padEnd(20)} | ${String(row.header).padStart(8)} | ` +
         `${String(row.total).padStart(11)} | ${row.perRecipe.toFixed(1).padStart(11)} | ` +
         `${String(row.tools).padStart(9)} | ` +
+        `${String(row.instructions).padStart(10)} | ` +
         `${share.toFixed(0).padStart(4)}% z ${ASSUMED_TOKENS_PER_LINE.toFixed(0)}`,
     );
   }
@@ -184,6 +192,20 @@ async function main(): Promise<void> {
   console.log(
     `\nSchematy ${AGENT_TOOLS.length} narzędzi: szacunek mówił ${ASSUMED_TOOLS_TOKENS}.`,
   );
+  console.log(
+    `Instrukcje systemowe: szacunek mówił ${ASSUMED_INSTRUCTIONS_TOKENS}.`,
+  );
+
+  console.log('\nSTAŁY PREFIKS (bez zmiennego bloku gospodarstwa):');
+  for (const row of rows) {
+    const prefix = row.total + row.tools + row.instructions;
+    const share = (100 * prefix) / ASSUMED_PREFIX_TOKENS;
+    console.log(
+      `  ${row.model.padEnd(20)} ${String(prefix).padStart(6)} tok = ` +
+        `digest ${row.total} + narzędzia ${row.tools} + instrukcje ${row.instructions} ` +
+        `(${share.toFixed(0)}% szacunku ${ASSUMED_PREFIX_TOKENS})`,
+    );
+  }
 
   console.log(
     `\nSzacunek z cost-model.md: ${ASSUMED_TOKENS_PER_LINE.toFixed(0)} tok/linię, ` +
@@ -198,11 +220,12 @@ async function main(): Promise<void> {
     console.log(`  ${row.model.padEnd(20)} $${usd.toFixed(6)} / wywołanie`);
   }
 
+  console.log('');
   console.log(
-    '\nUWAGA: instrukcje systemowe (~1 950 z szacunku) jeszcze nie istnieją —',
+    'UWAGA: blok gospodarstwa (domownicy, daty) jest zmienny per dom, więc',
   );
   console.log(
-    'powstaną razem z providerem Anthropic i wtedy domierzymy ostatni składnik.',
+    'nie wchodzi do wspólnego prefiksu — model kosztowy liczy go osobno.',
   );
 }
 

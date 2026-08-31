@@ -1,5 +1,6 @@
 import {
   AGENT_ENV_DEFAULTS,
+  AI_EFFORT_DEFAULT,
   AI_MODEL_DEFAULT,
   agentEnvProblems,
   readAgentEnv,
@@ -11,6 +12,7 @@ describe('readAgentEnv', () => {
       enabled: false,
       provider: 'anthropic',
       model: AI_MODEL_DEFAULT,
+      effort: AI_EFFORT_DEFAULT,
       apiKeyPresent: false,
       turnTimeoutMs: AGENT_ENV_DEFAULTS.turnTimeoutMs,
       messagesPerMonth: AGENT_ENV_DEFAULTS.messagesPerMonth,

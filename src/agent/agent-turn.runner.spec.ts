@@ -10,6 +10,8 @@ import {
   AgentProviderResult,
 } from './providers/agent-provider';
 import { AgentProviderResolver } from './providers/agent-provider.resolver';
+import { AgentPromptService } from './agent-prompt.service';
+import { AgentToolExecutor } from './tools/agent-tool-executor';
 import { UpstreamBreaker } from './upstream-breaker';
 
 const HOUSEHOLD = 'a00f55ec-8500-4b44-85e6-561bfba4dbad';
@@ -22,6 +24,7 @@ const ENV: AgentEnv = {
   provider: 'stub',
   model: 'claude-sonnet-5',
   apiKeyPresent: false,
+  effort: 'medium',
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,
@@ -32,6 +35,7 @@ const ENV: AgentEnv = {
 const RESULT: AgentProviderResult = {
   text: 'gotowe',
   stopReason: 'end_turn',
+  apiCalls: 1,
   usage: {
     inputTokens: 100,
     cacheReadTokens: 5,
@@ -57,6 +61,14 @@ describe('AgentTurnRunner', () => {
   const run = jest.fn();
   const provider: AgentProvider = { name: 'stub', run };
   const resolver = { resolve: () => provider };
+  const prompts = {
+    build: jest.fn().mockResolvedValue({
+      system: [{ type: 'text', text: 'instrukcje' }],
+      catalogIndex: {},
+      catalogVersion: 'abc',
+    }),
+  };
+  const toolExecutor = { execute: jest.fn() };
 
   let breaker: UpstreamBreaker;
   let metrics: AgentMetricsService;
@@ -70,6 +82,11 @@ describe('AgentTurnRunner', () => {
     periodKey: '2026-08',
     env: ENV,
     requestId: 'req-1',
+    dates: {
+      weekStart: '2026-08-31',
+      clientToday: '2026-09-02',
+      timeZone: 'Europe/Warsaw',
+    },
     ...overrides,
   });
 
@@ -96,6 +113,8 @@ describe('AgentTurnRunner', () => {
     runner = new AgentTurnRunner(
       prisma as unknown as PrismaService,
       resolver as unknown as AgentProviderResolver,
+      prompts as unknown as AgentPromptService,
+      toolExecutor as unknown as AgentToolExecutor,
       counters as unknown as AiUsageCountersService,
       breaker,
       metrics,

@@ -63,6 +63,10 @@ docker compose up -d --build
   the shared catalog: rows land with `isCatalog: true`)
 - `pnpm generate:recipe:images` - generate recipe images
 - `pnpm upload:recipe:images:r2` - upload generated assets to Cloudflare R2
+- `pnpm agent:smoke` - one REAL assistant turn against the Anthropic API
+  (needs `ANTHROPIC_API_KEY`; costs money, never run in CI). Runs on `ts-node`,
+  not `tsx`: esbuild does not emit decorator metadata, so Nest DI silently
+  injects `undefined` under `tsx`.
 - `pnpm agent:measure:tokens` - measure the catalog digest with `count_tokens`
   (needs `ANTHROPIC_API_KEY`; counts tokens only, never runs the model)
 - `pnpm lint:check` - CI lint check

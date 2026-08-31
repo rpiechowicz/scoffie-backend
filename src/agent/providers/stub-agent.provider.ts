@@ -45,6 +45,7 @@ export class StubAgentProvider implements AgentProvider {
     return {
       text,
       stopReason: 'end_turn',
+      apiCalls: 1,
       usage: {
         // Prymitywne, ale niezerowe: e2e sprawdza, że księga użycia i licznik
         // kosztu dostają realne liczby, a nie same zera.
