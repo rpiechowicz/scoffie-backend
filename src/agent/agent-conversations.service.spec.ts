@@ -1,7 +1,11 @@
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgentConfigService } from './agent-config.service';
-import { AgentConversationsService } from './agent-conversations.service';
+import {
+  AgentConversationsService,
+  CONVERSATION_TITLE_MAX,
+  conversationTitleFrom,
+} from './agent-conversations.service';
 
 const HOUSEHOLD = 'a00f55ec-8500-4b44-85e6-561bfba4dbad';
 const CONVERSATION = '11111111-1111-4111-8111-111111111111';
@@ -152,5 +156,34 @@ describe('AgentConversationsService', () => {
       await expect(service.deleteAll(USER)).resolves.toEqual({ deleted: 3 });
       config.assertEnabled.mockReset();
     });
+  });
+});
+
+describe('conversationTitleFrom', () => {
+  it('bierze pierwszą wiadomość i skleja białe znaki', () => {
+    expect(conversationTitleFrom('  Co   na\n obiad?  ')).toBe('Co na obiad?');
+  });
+
+  it('pusta wiadomość nie robi tytułu ze spacji', () => {
+    expect(conversationTitleFrom('   \n  ')).toBeNull();
+  });
+
+  it('krótka wiadomość zostaje bez wielokropka', () => {
+    expect(conversationTitleFrom('Co na obiad?')).toBe('Co na obiad?');
+  });
+
+  it('długą prośbę ucina na granicy słowa, nie w połowie wyrazu', () => {
+    // Ucięte słowo w liście rozmów wygląda jak błąd aplikacji, nie jak skrót.
+    expect(
+      conversationTitleFrom(
+        'Zaplanuj mi cały tydzień bezglutenowy dla dwóch osób z alergią na laktozę',
+      ),
+    ).toBe('Zaplanuj mi cały tydzień bezglutenowy dla dwóch osób z…');
+  });
+
+  it('jedno bardzo długie słowo tnie się twardo — nie ma gdzie indziej', () => {
+    const title = conversationTitleFrom('a'.repeat(200));
+    expect(title).toHaveLength(CONVERSATION_TITLE_MAX + 1);
+    expect(title?.endsWith('…')).toBe(true);
   });
 });

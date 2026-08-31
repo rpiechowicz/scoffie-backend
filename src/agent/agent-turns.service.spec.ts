@@ -47,7 +47,7 @@ describe('AgentTurnsService', () => {
   const tx = {
     agentTurn: { count: jest.fn(), create: jest.fn() },
     agentMessage: { create: jest.fn(), update: jest.fn() },
-    agentConversation: { update: jest.fn() },
+    agentConversation: { update: jest.fn(), updateMany: jest.fn() },
   };
   const prisma = {
     agentMessage: { findUnique: jest.fn(), findMany: jest.fn() },

@@ -11,6 +11,7 @@ describe('AgentMetricsService', () => {
         budget: 0,
         upstream: 0,
         inProgress: 0,
+        planQuota: 0,
       },
       usage: {
         providerCalls: 0,
@@ -27,6 +28,7 @@ describe('AgentMetricsService', () => {
     metrics.recordTurnFinished('timeout');
     metrics.recordRejected('quota');
     metrics.recordRejected('disabled');
+    metrics.recordRejected('planQuota');
     metrics.recordProviderUsage({
       inputTokens: 1200,
       outputTokens: 300,
@@ -48,6 +50,7 @@ describe('AgentMetricsService', () => {
         budget: 0,
         upstream: 0,
         inProgress: 0,
+        planQuota: 1,
       },
       usage: {
         providerCalls: 2,

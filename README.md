@@ -133,9 +133,15 @@ status, requestId}` plus a `Location` header, and the client polls `GET
 - `ANTHROPIC_API_KEY` — required only with `AI_ENABLED=true` and `anthropic`
 - `AI_MODEL` (`claude-sonnet-5`), `AI_TURN_TIMEOUT_MS` (90000)
 - `AI_LIMIT_MESSAGES_PER_MONTH` (200) / `AI_LIMIT_PLANS_PER_MONTH` (30) —
-  per household, counted in `AiUsageCounter` on UTC months
-- `AI_GLOBAL_DAILY_BUDGET_USD` — daily cost cap for the whole installation
-  (empty = no cap); over it, `/agent` answers `503 AI_BUDGET_PAUSED`
+  per household, counted in `AiUsageCounter` on UTC months. A message is
+  charged when the turn starts and refunded when it fails; a plan is charged
+  when the week is actually **written** — a dry run, a rejected write and a
+  write that changed nothing all cost nothing. Out of plans, the tool answers
+  the model with `AI_PLAN_QUOTA_EXCEEDED` instead of killing the turn.
+- `AI_GLOBAL_DAILY_BUDGET_USD` (`5`) — daily cost cap for the whole
+  installation; over it, `/agent` answers `503 AI_BUDGET_PAUSED`. `off` means
+  no cap at all — an empty variable takes the default, because "unset" must not
+  silently mean "unlimited"; `0` stops every turn.
 
 Usage is written to `AiUsage` per turn and summarised in `GET /ops/metrics` →
 `agent`. `DELETE /agent/conversations` wipes a user's conversations and works

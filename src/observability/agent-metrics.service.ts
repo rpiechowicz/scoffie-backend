@@ -6,7 +6,9 @@ export type AgentRejection =
   | 'quota'
   | 'budget'
   | 'upstream'
-  | 'inProgress';
+  | 'inProgress'
+  /** Wyczerpany miesięczny limit planów — odmowa NARZĘDZIA, nie całej tury. */
+  | 'planQuota';
 
 /**
  * Liczniki asystenta od startu procesu — sekcja `agent` w `/ops/metrics`.
@@ -33,6 +35,7 @@ export class AgentMetricsService {
     budget: 0,
     upstream: 0,
     inProgress: 0,
+    planQuota: 0,
   };
   private readonly usage = {
     providerCalls: 0,

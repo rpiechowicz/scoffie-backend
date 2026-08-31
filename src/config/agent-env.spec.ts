@@ -1,5 +1,6 @@
 import {
   AGENT_ENV_DEFAULTS,
+  AI_BUDGET_OFF,
   AI_EFFORT_DEFAULT,
   AI_MODEL_DEFAULT,
   agentEnvProblems,
@@ -7,7 +8,7 @@ import {
 } from './agent-env';
 
 describe('readAgentEnv', () => {
-  it('bez zmiennych: wyłączony, anthropic, domyślne limity, bez budżetu', () => {
+  it('bez zmiennych: wyłączony, anthropic, domyślne limity I DOMYŚLNY BUDŻET', () => {
     expect(readAgentEnv({})).toEqual({
       enabled: false,
       provider: 'anthropic',
@@ -17,9 +18,37 @@ describe('readAgentEnv', () => {
       turnTimeoutMs: AGENT_ENV_DEFAULTS.turnTimeoutMs,
       messagesPerMonth: AGENT_ENV_DEFAULTS.messagesPerMonth,
       plansPerMonth: AGENT_ENV_DEFAULTS.plansPerMonth,
-      globalDailyBudgetUsd: null,
+      // NIE `null`: brak zmiennej znaczył kiedyś „bez limitu", więc instalacja
+      // bez żadnego hamulca wydatków wyglądała jak skonfigurowana.
+      globalDailyBudgetUsd: AGENT_ENV_DEFAULTS.globalDailyBudgetUsd,
       stubDelayMs: 0,
     });
+  });
+
+  describe('budżet dobowy', () => {
+    const budget = (value: string): number | null =>
+      readAgentEnv({ AI_GLOBAL_DAILY_BUDGET_USD: value }).globalDailyBudgetUsd;
+
+    it('brak limitu wymaga jawnego `off`', () => {
+      expect(budget(AI_BUDGET_OFF)).toBeNull();
+      expect(budget(' OFF ')).toBeNull();
+    });
+
+    it('zero jest legalne i znaczy „zatrzymaj wszystko"', () => {
+      // Inaczej niż w limitach żądań, gdzie zero blokowałoby całą aplikację.
+      expect(budget('0')).toBe(0);
+    });
+
+    it('ułamki przechodzą — budżet to pieniądze, nie sztuki', () => {
+      expect(budget('2.5')).toBe(2.5);
+    });
+
+    it.each(['abc', '-3', ''])(
+      'śmieci (%s) = domyślny, nie brak limitu',
+      (raw) => {
+        expect(budget(raw)).toBe(AGENT_ENV_DEFAULTS.globalDailyBudgetUsd);
+      },
+    );
   });
 
   it('czyta flagi i liczby; śmieci w liczbach = domyślne', () => {
@@ -86,6 +115,12 @@ describe('agentEnvProblems', () => {
   it('AI_ENABLED=true ze stubem nie wymaga klucza', () => {
     expect(
       agentEnvProblems({ AI_ENABLED: 'true', AI_PROVIDER: 'stub' }),
+    ).toEqual([]);
+  });
+
+  it('`off` w budżecie nie jest problemem — to świadoma decyzja', () => {
+    expect(
+      agentEnvProblems({ AI_GLOBAL_DAILY_BUDGET_USD: AI_BUDGET_OFF }),
     ).toEqual([]);
   });
 

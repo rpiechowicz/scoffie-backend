@@ -35,7 +35,14 @@ export type AgentEnv = {
   /** Kwoty per gospodarstwo i miesiąc — liczniki w `AiUsageCounter`. */
   messagesPerMonth: number;
   plansPerMonth: number;
-  /** Globalny bezpiecznik kosztu na dobę (USD); `null` = bez limitu. */
+  /**
+   * Globalny bezpiecznik kosztu na dobę (USD); `null` = bez limitu.
+   *
+   * `null` można dziś dostać WYŁĄCZNIE przez jawne `AI_GLOBAL_DAILY_BUDGET_USD=off`.
+   * Wcześniej brak zmiennej znaczył „bez limitu" — czyli instalacja bez
+   * żadnego hamulca wydatków wyglądała dokładnie tak samo jak instalacja
+   * skonfigurowana. Domyślna jest teraz liczba, a nieskończoność wymaga decyzji.
+   */
   globalDailyBudgetUsd: number | null;
   /** Opóźnienie odpowiedzi providera `stub` (testy lease/timeoutu). */
   stubDelayMs: number;
@@ -45,14 +52,23 @@ export const AGENT_ENV_DEFAULTS = {
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,
+  /**
+   * Siatka, nie polityka: zmierzone tury kosztują $0,12–$1,00, więc $5 na dobę
+   * to około trzydziestu tur — więcej, niż zrobi normalne gospodarstwo, i o rząd
+   * wielkości mniej, niż potrafi spalić pętla. Kto chce inaczej, ustawia liczbę
+   * albo `off`; brak zmiennej nie może znaczyć „bez limitu".
+   */
+  globalDailyBudgetUsd: 5,
   stubDelayMs: 0,
 } as const;
+
+/** Jedyna droga do braku budżetu — jawna i widoczna w `railway variables`. */
+export const AI_BUDGET_OFF = 'off';
 
 type NumericKey =
   | 'AI_TURN_TIMEOUT_MS'
   | 'AI_LIMIT_MESSAGES_PER_MONTH'
   | 'AI_LIMIT_PLANS_PER_MONTH'
-  | 'AI_GLOBAL_DAILY_BUDGET_USD'
   | 'AI_STUB_DELAY_MS';
 
 function readNumber(
@@ -86,14 +102,25 @@ function readProvider(env: NodeJS.ProcessEnv): AiProvider {
   return raw === 'stub' ? 'stub' : 'anthropic';
 }
 
+/**
+ * Budżet dobowy: liczba ≥ 0, `off` (bez limitu) albo domyślna.
+ *
+ * `0` jest legalne i znaczy „zatrzymaj wszystko" — inaczej niż przy limitach
+ * żądań, gdzie zero blokowałoby aplikację przez pomyłkę w env. Tutaj jedynym
+ * skutkiem jest wyłączony asystent, a to bywa dokładnie tym, o co chodzi.
+ */
+function readDailyBudgetUsd(env: NodeJS.ProcessEnv): number | null {
+  const raw = (env.AI_GLOBAL_DAILY_BUDGET_USD ?? '').trim().toLowerCase();
+  if (!raw) return AGENT_ENV_DEFAULTS.globalDailyBudgetUsd;
+  if (raw === AI_BUDGET_OFF) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return AGENT_ENV_DEFAULTS.globalDailyBudgetUsd;
+  }
+  return parsed;
+}
+
 export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
-  const budgetRaw = (env.AI_GLOBAL_DAILY_BUDGET_USD ?? '').trim();
-  const budget = budgetRaw
-    ? readNumber(env, 'AI_GLOBAL_DAILY_BUDGET_USD', -1, {
-        min: 0,
-        integer: false,
-      })
-    : -1;
   return {
     enabled: (env.AI_ENABLED ?? '').trim().toLowerCase() === 'true',
     provider: readProvider(env),
@@ -116,7 +143,7 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       'AI_LIMIT_PLANS_PER_MONTH',
       AGENT_ENV_DEFAULTS.plansPerMonth,
     ),
-    globalDailyBudgetUsd: budget < 0 ? null : budget,
+    globalDailyBudgetUsd: readDailyBudgetUsd(env),
     stubDelayMs: readNumber(
       env,
       'AI_STUB_DELAY_MS',
@@ -160,11 +187,20 @@ export function agentEnvProblems(
       'ANTHROPIC_API_KEY jest pusty (AI_ENABLED=true, AI_PROVIDER=anthropic)',
     );
   }
+  const budgetRaw = (env.AI_GLOBAL_DAILY_BUDGET_USD ?? '').trim();
+  if (budgetRaw && budgetRaw.toLowerCase() !== AI_BUDGET_OFF) {
+    const parsed = Number(budgetRaw);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      problems.push(
+        `AI_GLOBAL_DAILY_BUDGET_USD=${budgetRaw} — oczekiwana liczba ≥ 0 albo ${AI_BUDGET_OFF} ` +
+          `(przy złej wartości działa domyślne $${AGENT_ENV_DEFAULTS.globalDailyBudgetUsd}/dobę)`,
+      );
+    }
+  }
   const numeric: Array<[NumericKey, { min: number; integer: boolean }]> = [
     ['AI_TURN_TIMEOUT_MS', { min: 1, integer: true }],
     ['AI_LIMIT_MESSAGES_PER_MONTH', { min: 0, integer: true }],
     ['AI_LIMIT_PLANS_PER_MONTH', { min: 0, integer: true }],
-    ['AI_GLOBAL_DAILY_BUDGET_USD', { min: 0, integer: false }],
     ['AI_STUB_DELAY_MS', { min: 0, integer: true }],
   ];
   for (const [key, opts] of numeric) {

@@ -36,6 +36,32 @@ export type MessageView = {
 /** Ile wiadomości oddaje jeden odczyt historii (klient dobiera kursorem `after`). */
 export const MESSAGES_PAGE_SIZE = 100;
 
+/** Ile znaków pierwszej wiadomości trafia do tytułu rozmowy. */
+export const CONVERSATION_TITLE_MAX = 60;
+
+/**
+ * Tytuł rozmowy z PIERWSZEJ wiadomości użytkownika.
+ *
+ * Bez tego lista rozmów w telefonie to same daty — pole `title` istniało od
+ * Fazy 0 i zawsze wracało puste. Tytuł liczy się TUTAJ, a nie modelem: druga
+ * tura tylko po to, żeby nazwać rozmowę, kosztowałaby tyle, co ułożenie
+ * dwóch kolacji, i musiałaby czekać na odpowiedź, zanim lista się odświeży.
+ *
+ * Ucinamy na granicy słowa — „Zaplanuj mi tydzień bezglutenowy dla dwóch…"
+ * czyta się, a „…dla dwó…" nie.
+ */
+export function conversationTitleFrom(text: string): string | null {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (!clean) return null;
+  if (clean.length <= CONVERSATION_TITLE_MAX) return clean;
+  const cut = clean.slice(0, CONVERSATION_TITLE_MAX);
+  const lastSpace = cut.lastIndexOf(' ');
+  // Jedno bardzo długie słowo (wklejony link) nie ma granicy — tnij twardo.
+  const base =
+    lastSpace > CONVERSATION_TITLE_MAX / 2 ? cut.slice(0, lastSpace) : cut;
+  return `${base.trimEnd()}…`;
+}
+
 /**
  * Rozmowy asystenta: zakładanie, lista, historia wiadomości, kasowanie.
  *
