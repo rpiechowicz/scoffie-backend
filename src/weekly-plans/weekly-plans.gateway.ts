@@ -82,6 +82,13 @@ class WeeklyPlansUpsertWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
   data: UpsertWeekSlotDto;
 }
 
+class WeeklyPlansBalancePayload extends WeeklyPlansHouseholdWeekPayload {
+  /** Czyj bilans; pominięte = własny. */
+  @IsOptional()
+  @IsUUID()
+  memberUserId?: string;
+}
+
 class WeeklyPlansApplyWeekPlanPayload extends WeeklyPlansHouseholdWeekPayload {
   @IsObject()
   data: ApplyWeekPlanDto;
@@ -490,6 +497,30 @@ export class WeeklyPlansGateway
    * weszło (`dryRun` albo naruszenia): klient nie ma powodu odświeżać planu,
    * który się nie zmienił.
    */
+  /**
+   * Bilans tygodnia dla domownika. Czysty odczyt — bez broadcastu i bez
+   * zapisu; asystent woła go przed pokazaniem propozycji planu.
+   */
+  @SubscribeMessage('weeklyPlans:balance')
+  balance(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansBalancePayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      const envelope = await validateWsPayload(
+        WeeklyPlansBalancePayload,
+        payload,
+      );
+      return this.weeklyPlansService.weeklyBalance(
+        userId,
+        envelope.householdId,
+        envelope.weekStart,
+        envelope.memberUserId,
+      );
+    });
+  }
+
   @SubscribeMessage('weeklyPlans:applyWeekPlan')
   applyWeekPlan(
     @ConnectedSocket() client: AppSocket,

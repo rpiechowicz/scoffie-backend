@@ -184,6 +184,7 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
       plannedServings: 2,
     },
   },
+  'weeklyPlans:balance': { ...hhWeek, memberUserId: MEMBER },
   'weeklyPlans:applyWeekPlan': {
     ...hhWeek,
     data: {
@@ -395,6 +396,14 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
   'weeklyPlans:setShoppingItemChecked': [
     missingData(hhWeek),
     dataNotObject(hhWeek, 'mleko::l'),
+  ],
+  'weeklyPlans:balance': [
+    badHouseholdId({ weekStart: WEEK_START }),
+    {
+      name: 'memberUserId nie-UUID',
+      payload: { ...hhWeek, memberUserId: NOT_UUID },
+      detail: `memberUserId ${UUID_DETAIL}`,
+    },
   ],
   'weeklyPlans:applyWeekPlan': [
     missingData(hhWeek),

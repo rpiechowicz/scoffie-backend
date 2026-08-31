@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
-import { isUuid } from '../common/uuid';
+import { assertUuid, isUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplyWeekPlanDto, ApplyWeekSlotDto } from './dto/apply-week-plan.dto';
@@ -23,6 +23,7 @@ import {
   ensureRecipeForHousehold,
 } from './utils/auth-checks.util';
 import { runSerializable } from './utils/transaction-runner.util';
+import { weeklyBalanceForMember } from './utils/daily-balance.util';
 import { ShoppingListService } from './services/shopping-list.service';
 
 /**
@@ -126,6 +127,17 @@ function withPlanItemRelationIds(item: PlanItemRow) {
     eatenByUserIds: consumptions.map((c) => c.userId),
   };
 }
+
+/** Kolejność dni w odpowiedzi bilansu — ta sama, co w enumie schematu. */
+const DAYS_IN_WEEK_ORDER: readonly DayOfWeek[] = [
+  'MON',
+  'TUE',
+  'WED',
+  'THU',
+  'FRI',
+  'SAT',
+  'SUN',
+];
 
 /** Klucz tożsamości pozycji planu: dzień + posiłek + przepis. */
 function planSlotKey(slot: {
@@ -239,6 +251,91 @@ export class WeeklyPlansService {
       ...plan,
       weekStart: formatWeekStart(plan.weekStart),
       items: plan.items.map(withPlanItemRelationIds),
+    };
+  }
+
+  /**
+   * Bilans tygodnia dla JEDNEGO domownika — ile z zaplanowanego przypada na
+   * niego i ile z tego odhaczył jako zjedzone.
+   *
+   * Do Fazy 1 ta arytmetyka istniała wyłącznie w iOS: serwer trzymał surowe
+   * `plannedServings` i „zjedzone", ale nie umiał odpowiedzieć na pytanie, od
+   * którego zaczyna się każde planowanie — „czy ten dzień mieści się w celach
+   * tej osoby". Asystent musi znać odpowiedź ZANIM pokaże propozycję.
+   *
+   * Reguły są portem 1:1 (`daily-balance.util.ts`), bo użytkownik widzi
+   * dzienny licznik w aplikacji i porówna go z tym, co powie asystent.
+   *
+   * Zwracamy komplet siedmiu dni, także pustych, i sam bilans — bez celów
+   * makro. Cele są w `households:memberPreferences` i to jest właściwe
+   * miejsce: bilans nie ma powodu zaglądać do preferencji ani odwrotnie.
+   */
+  async weeklyBalance(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    memberUserId?: string,
+  ) {
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+
+    const memberIds = await this.loadMemberIds(householdId);
+    const target = memberUserId ?? userId;
+    if (memberUserId !== undefined) {
+      assertUuid(memberUserId, 'memberUserId');
+      if (!memberIds.has(memberUserId)) {
+        throw new AppException(
+          'PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD',
+          'Ta osoba nie należy do gospodarstwa.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const items = await this.prisma.planItem.findMany({
+      where: {
+        weeklyPlan: { householdId, weekStart: weekStartDate },
+      },
+      select: {
+        dayOfWeek: true,
+        mealType: true,
+        plannedServings: true,
+        participants: { select: { userId: true } },
+        consumptions: { select: { userId: true } },
+        recipe: {
+          select: {
+            servings: true,
+            nutritionKcal: true,
+            nutritionProtein: true,
+            nutritionFat: true,
+            nutritionCarbs: true,
+            nutritionFiber: true,
+          },
+        },
+      },
+    });
+
+    const days = weeklyBalanceForMember(
+      items.map((item) => ({
+        dayOfWeek: item.dayOfWeek,
+        mealType: item.mealType,
+        participantIds: item.participants.map((p) => p.userId),
+        eatenByUserIds: item.consumptions.map((c) => c.userId),
+        plannedServings: item.plannedServings,
+        recipe: item.recipe,
+      })),
+      {
+        memberId: target,
+        householdMemberCount: memberIds.size,
+        days: DAYS_IN_WEEK_ORDER,
+      },
+    );
+
+    return {
+      weekStart: formatWeekStart(weekStartDate),
+      userId: target,
+      householdMemberCount: memberIds.size,
+      days,
     };
   }
 
