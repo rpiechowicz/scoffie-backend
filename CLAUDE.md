@@ -56,6 +56,13 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 - Katalog przepisów: `prisma/catalog/recipes-catalog-full-v2.json` = źródło prawdy; zmiana
   w JSON = import na prod. Makro = cały przepis, węgle bez błonnika, liczone ze składników.
   `servings` 1..8 (nie „zawsze 2”). Składnik: `name` po polsku, `normalizedName` ASCII = klucz.
+- Widoczność przepisów (od Fazy 0, krok 3): `Recipe.isCatalog` rozdziela WSPÓLNY katalog od
+  przepisów gospodarstwa. Katalog tworzy WYŁĄCZNIE import (`recipes:import:json`); `recipes:create`
+  zawsze daje `isCatalog: false`. Każdy odczyt przepisów MUSI filtrować przez
+  `OR: [{ isCatalog: true }, { householdId }]` — `findAll` (bez `householdId` widać sam katalog),
+  `findById` (cudzy przepis = 404, nie 403) i `ensureRecipeForHousehold` (bramka wstawiania do
+  planu). Klucz cache listy niesie `householdId`, bo wynik zależy od pytającego. Dowód na żywej
+  bazie: `test/catalog-visibility.e2e-spec.ts`.
 - Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
 - WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje

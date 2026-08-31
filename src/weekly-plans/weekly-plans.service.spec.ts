@@ -106,6 +106,9 @@ const makePrismaMock = () => {
     },
     recipe: {
       findUnique: jest.fn().mockResolvedValue(mockRecipe),
+      // `ensureRecipeForHousehold` filtruje po widocznosci (katalog albo wlasny
+      // przepis domu), wiec pyta `findFirst`, nie `findUnique` po samym id.
+      findFirst: jest.fn().mockResolvedValue(mockRecipe),
     },
     weeklyPlan: {
       findUnique: jest.fn().mockResolvedValue(mockWeeklyPlan),

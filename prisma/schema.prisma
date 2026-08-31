@@ -152,6 +152,15 @@ model Recipe {
   nutritionFiber        Float      @default(0)
   nutritionSalt         Float      @default(0)
   isActive              Boolean    @default(true)
+  /// Czy przepis należy do WSPÓLNEGO katalogu (widoczny dla wszystkich
+  /// gospodarstw), czy jest prywatnym przepisem swojego gospodarstwa.
+  ///
+  /// Do tej pory widoczności nie było wcale — `findAll` czytał bez
+  /// `householdId`, a katalog rozpoznawało się po magicznym id gospodarstwa.
+  /// Dopóki pisał tylko bot importu, nikt tego nie zauważył; z chwilą, gdy
+  /// pisać zacznie asystent, przepis utworzony dla jednego domu trafiłby na
+  /// listę wszystkich pozostałych.
+  isCatalog             Boolean    @default(false)
   /// Unia alergenów składników (id jak w `UserPreference.allergens`,
   /// `src/common/allergens.ts`) — liczona przy imporcie, `recipes:create`
   /// i przez `scripts/load-ingredient-tags.ts`. Puste ≠ „brak danych":
@@ -173,6 +182,9 @@ model Recipe {
   favorites           RecipeFavorite[]
   sharedMealPlanItems SharedMealPlanItem[]
 
+  // Druga gałąź filtru widoczności (`isCatalog = true OR householdId = …`).
+  // Sam `isCatalog` indeksu nie dostaje — jest niskoselektywny.
+  @@index([householdId])
   // GIN — zapytania po slocie idą teraz przez `suitableMealTypes has X`,
   // a B-tree nie obsłuży zawierania w tablicy.
   @@index([suitableMealTypes], type: Gin)

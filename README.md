@@ -59,7 +59,8 @@ docker compose up -d --build
 - `pnpm start:dev` - local development server
 - `pnpm start:prod` - production start with safe Prisma migration bootstrap
 - `pnpm prisma:migrate:deploy` - safe migration entrypoint used in production
-- `pnpm recipes:import:json` - import recipes from JSON
+- `pnpm recipes:import:json` - import recipes from JSON (the **only** writer of
+  the shared catalog: rows land with `isCatalog: true`)
 - `pnpm generate:recipe:images` - generate recipe images
 - `pnpm upload:recipe:images:r2` - upload generated assets to Cloudflare R2
 - `pnpm agent:measure:tokens` - measure the catalog digest with `count_tokens`

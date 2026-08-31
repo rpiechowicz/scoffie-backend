@@ -454,6 +454,7 @@ export class RecipesService {
     nutritionFiber: true,
     nutritionSalt: true,
     isActive: true,
+    isCatalog: true,
     allergens: true,
     dietTags: true,
     householdId: true,
@@ -562,14 +563,20 @@ export class RecipesService {
     // bazowym; bez tego stary przepis zniknąłby z katalogu.
     const mealTypeFilter = f.mealType;
 
-    const whereBase: {
-      isActive: boolean;
-      OR?: Prisma.RecipeWhereInput[];
-      id?: { in?: string[]; notIn?: string[] };
-    } = {
-      isActive: true,
-      ...(mealTypeFilter
-        ? {
+    // Widoczność: katalog jest wspólny, przepis gospodarstwa należy do niego
+    // jednego. Bez kontekstu domu widać WYŁĄCZNIE katalog — lista wołana bez
+    // `householdId` nie ma prawa pokazać cudzych przepisów.
+    //
+    // Osobna gałąź `AND`, a nie dopisanie do `OR` wyżej: tamto `OR` filtruje
+    // slot, a dwa niepowiązane warunki w jednym `OR` znaczyłyby „katalog ALBO
+    // właściwy slot", czyli cały katalog przy każdym filtrze.
+    const visibilityScope: Prisma.RecipeWhereInput = householdId
+      ? { OR: [{ isCatalog: true }, { householdId }] }
+      : { isCatalog: true };
+
+    const slotScope: Prisma.RecipeWhereInput[] = mealTypeFilter
+      ? [
+          {
             OR: [
               { suitableMealTypes: { has: mealTypeFilter } },
               {
@@ -577,8 +584,15 @@ export class RecipesService {
                 suitableMealTypes: { isEmpty: true },
               },
             ],
-          }
-        : {}),
+          },
+        ]
+      : [];
+
+    const whereBase: Prisma.RecipeWhereInput & {
+      id?: { in?: string[]; notIn?: string[] };
+    } = {
+      isActive: true,
+      AND: [visibilityScope, ...slotScope],
     };
 
     let favoriteRecipeIds = new Set<string>();
@@ -595,11 +609,14 @@ export class RecipesService {
       } else if (f.isFavorite === false) {
         whereBase.id = { notIn: Array.from(favoriteRecipeIds) };
       } else {
-        // Widok mieszany (wszystkie przepisy + flaga isFavorite): cache
-        // wspólny dla użytkowników i gospodarstw. Klucz z wartości PO
-        // walidacji — surowy `mealType: 'brunch'` zakładał osobny wpis.
+        // Widok mieszany (wszystkie przepisy + flaga isFavorite). Klucz
+        // niesie `householdId`, bo od wprowadzenia `isCatalog` wynik ZALEŻY
+        // od gospodarstwa — wspólny wpis wyciekłby prywatne przepisy jednego
+        // domu do drugiego. Klucz z wartości PO walidacji: surowy
+        // `mealType: 'brunch'` zakładał osobny wpis.
         sharedListCacheKey = this.recipesCache.buildRecipesListKey({
           userId: 'global',
+          householdId,
           mealType: mealTypeFilter,
           isFavorite: undefined,
           page,
@@ -678,9 +695,23 @@ export class RecipesService {
       );
     }
 
-    let isFavorite = false;
+    // Członkostwo PRZED bramką widoczności: bez tego wystarczyłoby podać
+    // cudze `householdId`, żeby obejrzeć prywatny przepis tamtego domu.
     if (householdId) {
       await this.ensureMembership(userIdentifier, householdId);
+    }
+    // Katalog widzą wszyscy; przepis gospodarstwa — tylko ono. 404, nie 403:
+    // cudzy przepis nie ma prawa nawet potwierdzić, że istnieje.
+    if (!recipe.isCatalog && recipe.householdId !== householdId) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        'Nie znaleziono przepisu.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    let isFavorite = false;
+    if (householdId) {
       const favorite = await this.prisma.recipeFavorite.findUnique({
         where: {
           recipeId_householdId: {
@@ -743,6 +774,10 @@ export class RecipesService {
         // Ta sama unia co w imporcie i w loaderze tagów (`deriveRecipeTags`).
         ...deriveRecipeTags(ingredientRows),
         householdId: data.householdId,
+        // Jawnie, mimo że taki jest domyślny: to, że przepis użytkownika
+        // (i asystenta) NIE trafia do wspólnego katalogu, jest decyzją, nie
+        // przypadkiem. Do katalogu wgrywa się importem.
+        isCatalog: false,
         authorId: userId,
         ingredients: ingredientRows.length
           ? {

@@ -476,6 +476,8 @@ async function main(): Promise<void> {
       },
       sourceRaw: recipe as unknown as object,
       householdId,
+      // Import zasila WSPÓLNY katalog — to jedyne miejsce, które go tworzy.
+      isCatalog: true,
       authorId: userId,
     };
 

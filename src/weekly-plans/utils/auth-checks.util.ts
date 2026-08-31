@@ -3,8 +3,11 @@ import { AppException } from '../../common/app-exception';
 import { assertUuid } from '../../common/uuid';
 import { PrismaService } from '../../prisma/prisma.service';
 
-/// Confirms a recipe exists. The `_householdId` is reserved for future
-/// authorisation but isn't used yet (recipes are currently global).
+/// Sprawdza, że przepis istnieje I WOLNO go wstawić do planu tego
+/// gospodarstwa: musi być z katalogu albo należeć do tego domu.
+///
+/// Do Fazy 0 ten argument nazywał się `_householdId` i był nieużywany, bo
+/// wszystkie przepisy w bazie były wspólne. Od `isCatalog` już nie są.
 ///
 /// Bramka UUID siedzi tu, a nie w każdym wołającym: jedna linia chroni każdą
 /// ścieżkę, która trafia w kolumnę `@db.Uuid` — inaczej `recipe-uuid-1` z
@@ -12,11 +15,19 @@ import { PrismaService } from '../../prisma/prisma.service';
 export async function ensureRecipeForHousehold(
   prisma: PrismaService,
   recipeId: string,
-  _householdId: string,
+  householdId: string,
 ) {
   assertUuid(recipeId, 'recipeId');
-  const recipe = await prisma.recipe.findUnique({
-    where: { id: recipeId },
+  assertUuid(householdId, 'householdId');
+  // Do slotu wolno wstawić przepis z katalogu albo własny przepis
+  // gospodarstwa. Wcześniej ten argument był nieużywany (`_householdId`) i
+  // każdy przepis w bazie nadawał się do każdego planu — nieszkodliwe, dopóki
+  // wszystkie przepisy były wspólne.
+  const recipe = await prisma.recipe.findFirst({
+    where: {
+      id: recipeId,
+      OR: [{ isCatalog: true }, { householdId }],
+    },
     select: { id: true },
   });
   if (!recipe) {

@@ -693,11 +693,55 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
       expect(prisma.recipe.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            OR: expect.arrayContaining([
-              { suitableMealTypes: { has: 'DINNER' } },
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { suitableMealTypes: { has: 'DINNER' } },
+                ]),
+              }),
             ]),
           }),
         }),
+      );
+    });
+
+    it('bez householdId widac WYLACZNIE katalog', async () => {
+      await service.findAll(mockUserId, { limit: 5 } as any);
+
+      // Lista wolana bez kontekstu domu nie ma prawa pokazac cudzych
+      // przepisow — po wprowadzeniu `isCatalog` to jest bramka, nie filtr.
+      expect(prisma.recipe.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isActive: true, AND: [{ isCatalog: true }] },
+        }),
+      );
+    });
+
+    it('z householdId widac katalog PLUS wlasne przepisy domu', async () => {
+      await service.findAll(mockUserId, {
+        householdId: mockHouseholdId,
+        limit: 5,
+      } as any);
+
+      expect(prisma.recipe.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              { OR: [{ isCatalog: true }, { householdId: mockHouseholdId }] },
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it('klucz cache niesie householdId — inaczej dom A dostalby liste domu B', async () => {
+      await service.findAll(mockUserId, {
+        householdId: mockHouseholdId,
+        limit: 5,
+      } as any);
+
+      expect(cache.buildRecipesListKey).toHaveBeenCalledWith(
+        expect.objectContaining({ householdId: mockHouseholdId }),
       );
     });
 
@@ -718,7 +762,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
 
       expect(prisma.recipe.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { isActive: true },
+          where: { isActive: true, AND: [{ isCatalog: true }] },
           skip: 0,
           take: 24,
         }),
@@ -760,6 +804,47 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
 
     it('nieznany przepis → RECIPE_NOT_FOUND 404', async () => {
       prisma.recipe.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.findById(mockUserId, RECIPE_ID),
+      ).rejects.toMatchObject({
+        status: 404,
+        response: { code: 'RECIPE_NOT_FOUND' },
+      });
+    });
+
+    it('przepis z katalogu widac bez kontekstu domu', async () => {
+      prisma.recipe.findUnique.mockResolvedValue({
+        id: RECIPE_ID,
+        title: 'Owsianka',
+        description: null,
+        imageUrl: null,
+        mealType: 'BREAKFAST',
+        suitableMealTypes: [],
+        isCatalog: true,
+        householdId: 'inny-dom',
+        sourceMeta: null,
+        ingredients: [],
+      });
+
+      await expect(
+        service.findById(mockUserId, RECIPE_ID),
+      ).resolves.toMatchObject({ id: RECIPE_ID });
+    });
+
+    it('cudzy przepis gospodarstwa to 404, nie 403 — nie potwierdzamy, ze istnieje', async () => {
+      prisma.recipe.findUnique.mockResolvedValue({
+        id: RECIPE_ID,
+        title: 'Sekretna zapiekanka',
+        description: null,
+        imageUrl: null,
+        mealType: 'DINNER',
+        suitableMealTypes: [],
+        isCatalog: false,
+        householdId: 'cudzy-dom',
+        sourceMeta: null,
+        ingredients: [],
+      });
 
       await expect(
         service.findById(mockUserId, RECIPE_ID),

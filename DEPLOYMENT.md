@@ -185,6 +185,35 @@ Safety valves that need no operator action: a turn is aborted after
 five minutes open a 60-second circuit breaker (`503 AI_UPSTREAM_PAUSED`), and a
 failed turn refunds the message quota it consumed at start.
 
+## Catalog vs household recipes (`isCatalog`) — before deploying
+
+Migration `20260831120000_katalog_a_przepisy_gospodarstwa` adds `Recipe.isCatalog`
+and, by design, marks **every recipe that exists at deploy time** as catalog. That
+is the no-regression choice: those recipes are visible to everyone _today_, so
+nothing disappears from anyone's list. New recipes default to `false`.
+
+The consequence to check first: if production already holds recipes created by a
+household (not by the import bot), they stay globally visible instead of becoming
+private. Verify before deploying:
+
+```sql
+SELECT "householdId", "authorId", count(*)
+FROM "Recipe"
+GROUP BY 1, 2
+ORDER BY 3 DESC;
+```
+
+One row (the catalog household, author = import bot) means nothing to do. Extra
+rows are household recipes — after the deploy, flip them by hand:
+
+```sql
+UPDATE "Recipe" SET "isCatalog" = false WHERE "householdId" <> '<catalog household>';
+```
+
+The migration itself is idempotent and safe to re-run: the backfill rides on the
+column's `DEFAULT` at `ADD COLUMN` time (then the default flips to `false`), so a
+second run cannot re-mark recipes created after it.
+
 ## Railway — healthcheck wdrożenia
 
 `railway.json` ustawia `deploy.healthcheckPath: /ops/health` (timeout 120 s). Bez tego Railway
