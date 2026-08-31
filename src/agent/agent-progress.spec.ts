@@ -24,6 +24,36 @@ describe('progressStep', () => {
 
   it('nowe narzędzie bez etykiety nie zostawia pustki', () => {
     expect(progressStep('zupelnie_nowe').label).toBe(PROGRESS_FALLBACK);
+    // Nieznane narzędzie nie może udawać, że coś zapisało.
+    expect(progressStep('zupelnie_nowe').writes).toBe(false);
+  });
+
+  describe('flaga `writes` — czy po turze jest co oglądać', () => {
+    it('próba planu NIE zapisuje, zapis planu zapisuje', () => {
+      // To jest cały powód istnienia tej flagi: `apply_week_plan` biegnie
+      // w każdej turze najpierw jako `dry_run`, więc sama nazwa narzędzia
+      // niczego nie dowodzi.
+      expect(progressStep('apply_week_plan', { dry_run: true }).writes).toBe(
+        false,
+      );
+      expect(progressStep('apply_week_plan', {}).writes).toBe(true);
+    });
+
+    it.each(['create_recipe', 'update_recipe', 'delete_recipe'])(
+      '%s zapisuje',
+      (tool) => {
+        expect(progressStep(tool).writes).toBe(true);
+      },
+    );
+
+    it.each([
+      'get_household_context',
+      'get_week_plan',
+      'get_week_balance',
+      'search_ingredients',
+    ])('%s tylko czyta', (tool) => {
+      expect(progressStep(tool).writes).toBe(false);
+    });
   });
 });
 

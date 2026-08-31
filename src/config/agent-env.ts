@@ -8,6 +8,16 @@
  * z dostawcą `anthropic` wymaga klucza; wartość klucza nigdy nie trafia do
  * komunikatów ani logów.
  */
+/**
+ * Margines nad `AI_TURN_TIMEOUT_MS`, po którym turę uznaje się za martwą.
+ *
+ * Mieszka w konfiguracji, a nie przy turach, bo tę samą granicę muszą znać
+ * TRZY miejsca: leniwe domknięcie tury, lease przy wysyłce i lista rozmów
+ * (żeby nie pokazywała martwej tury jako biegnącej). Dwie definicje tego
+ * progu znaczyłyby, że lista mówi co innego niż wysyłka.
+ */
+export const TURN_TIMEOUT_GRACE_MS = 5_000;
+
 export const AI_PROVIDERS = ['anthropic', 'stub'] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 

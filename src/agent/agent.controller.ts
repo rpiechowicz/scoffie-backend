@@ -19,6 +19,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RequestId } from '../common/request-id.decorator';
 import { readThrottleLimit } from '../common/throttle/throttle-env';
 import { AgentConversationsService } from './agent-conversations.service';
+import { AgentMemoryService } from './agent-memory.service';
+import { MemoryQueryDto } from './dto/memory-query.dto';
 import { AgentTurnsService } from './agent-turns.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
@@ -42,6 +44,7 @@ export class AgentController {
   constructor(
     private readonly conversations: AgentConversationsService,
     private readonly turns: AgentTurnsService,
+    private readonly memory: AgentMemoryService,
   ) {}
 
   @Post('conversations')
@@ -108,5 +111,31 @@ export class AgentController {
   @Delete('conversations')
   deleteConversations(@CurrentUserId() userId: string) {
     return this.conversations.deleteAll(userId);
+  }
+
+  /**
+   * Co asystent pamięta o tym domu — do pokazania i skasowania w aplikacji.
+   *
+   * Pamięć jest wspólna dla gospodarstwa, więc widzi ją każdy domownik. Bez
+   * tego ekranu byłaby to pamięć, o której użytkownik wie tylko stąd, że
+   * asystent nagle coś „wie" — a tego się nie da ani sprawdzić, ani cofnąć.
+   */
+  @Get('memory')
+  listMemory(@CurrentUserId() userId: string, @Query() query: MemoryQueryDto) {
+    return this.memory.listForUser(userId, query.householdId);
+  }
+
+  @Delete('memory/:id')
+  forgetMemory(@CurrentUserId() userId: string, @Param('id') noteId: string) {
+    return this.memory.forget(userId, noteId);
+  }
+
+  /** Porządki na liście rozmów — jedna pozycja, nie całość. */
+  @Delete('conversations/:id')
+  deleteConversation(
+    @CurrentUserId() userId: string,
+    @Param('id') conversationId: string,
+  ) {
+    return this.conversations.deleteOne(userId, conversationId);
   }
 }

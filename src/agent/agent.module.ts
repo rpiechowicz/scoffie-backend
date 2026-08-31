@@ -8,6 +8,7 @@ import { AgentPromptService } from './agent-prompt.service';
 import { ObservabilityModule } from '../observability/observability.module';
 import { AgentConfigService } from './agent-config.service';
 import { AgentConversationsService } from './agent-conversations.service';
+import { AgentMemoryService } from './agent-memory.service';
 import { AgentController } from './agent.controller';
 import { AgentTurnRunner } from './agent-turn.runner';
 import { AgentTurnsService } from './agent-turns.service';
@@ -43,6 +44,7 @@ import { UpstreamBreaker } from './upstream-breaker';
   providers: [
     AgentConfigService,
     AiUsageCountersService,
+    AgentMemoryService,
     AgentConversationsService,
     AgentTurnsService,
     AgentTurnRunner,

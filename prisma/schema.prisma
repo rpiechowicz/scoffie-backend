@@ -275,6 +275,43 @@ model Household {
   sharedMealPlans           SharedMealPlan[]
   cookidooIntegration       CookidooIntegration?
   agentConversations        AgentConversation[]
+  agentMemories             AgentMemory[]
+}
+
+/// Pamięć asystenta: krótkie notatki, które przeżywają koniec rozmowy.
+///
+/// Historia idzie do modelu w obrębie JEDNEJ rozmowy (`HISTORY_WINDOW`), więc
+/// bez tego nowa rozmowa zaczynała od zera i użytkownik musiał co tydzień
+/// powtarzać to samo („w środy jemy u teściów"). Notatki są krótkie i wchodzą
+/// do promptu w bloku gospodarstwa.
+///
+/// Zakres to GOSPODARSTWO, nie użytkownik: plan tygodnia, lista zakupów i
+/// kwota też są wspólne, a notatka „Kuba nie je ryb" jest przydatna każdemu,
+/// kto układa plan. Kto ją dodał, zostaje w `createdByUserId` — do pokazania
+/// na liście i do porządków. Rzeczy wrażliwych (waga, zdrowie, cele) NIE
+/// zapisujemy tutaj: te dane mają swoje miejsce w preferencjach domownika
+/// i nie mają prawa wyciec do wspólnej pamięci.
+model AgentMemory {
+  id              String   @id @default(uuid()) @db.Uuid
+  householdId     String   @db.Uuid
+  /// Jedno zdanie, tak jak powiedziałby to człowiek.
+  text            String
+  /// `text` sprowadzony do małych liter ze sklejonymi białymi znakami.
+  ///
+  /// Osobna kolumna z UNIKATEM, a nie porównanie „bez rozróżniania wielkości
+  /// liter" w zapytaniu: Prisma kompiluje `equals` + `mode: 'insensitive'` do
+  /// `ILIKE`, więc `%` i `_` w treści notatki stawały się wieloznacznikami —
+  /// „Kuba je 100% mięsa" pasowało do „Kuba je 100 dag mięsa" i nowa notatka
+  /// po cichu nie powstawała. Unikat w bazie zamyka przy okazji wyścig
+  /// check-then-act.
+  textNormalized  String
+  createdByUserId String?  @db.Uuid
+  createdAt       DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, textNormalized])
+  @@index([householdId, createdAt])
 }
 
 /// Integracja Cookidoo (Thermomix) — jedna na gospodarstwo, jak reszta

@@ -12,6 +12,7 @@ import {
 import { AgentMetricsService } from '../../observability/agent-metrics.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { readAgentEnv } from '../../config/agent-env';
+import { AgentMemoryService } from '../agent-memory.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../../recipes/dto/update-recipe.dto';
@@ -67,6 +68,7 @@ export class AgentToolExecutor {
     private readonly prisma: PrismaService,
     private readonly counters: AiUsageCountersService,
     private readonly metrics: AgentMetricsService,
+    private readonly memory: AgentMemoryService,
   ) {}
 
   async execute(
@@ -190,6 +192,9 @@ export class AgentToolExecutor {
           payload as UpdateRecipeDto,
         );
       }
+
+      case 'remember_note':
+        return this.memory.remember(householdId, userId, str('text'));
 
       case 'delete_recipe':
         return this.recipes.remove(userId, str('recipe_id'), householdId);

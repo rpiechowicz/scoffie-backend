@@ -43,7 +43,7 @@ type TurnView = {
   id: string;
   conversationId: string;
   status: string;
-  progress: { tool: string; label: string; at: string }[];
+  progress: { tool: string; label: string; at: string; writes: boolean }[];
   errorCode: string | null;
   messages?: { role: string; text: string }[];
   usage?: { inputTokens: number; outputTokens: number; costMicroUsd: number };
@@ -343,6 +343,8 @@ describe('Agent E2E', () => {
           tool: 'get_household_context',
           label: expect.any(String),
           at: expect.any(String),
+          // Odczyt — klient nie ma po tej turze czego otwierać.
+          writes: false,
         },
       ]);
       // Etykieta jest gotowym zdaniem po polsku, nie kodem do tłumaczenia.
@@ -400,6 +402,40 @@ describe('Agent E2E', () => {
       }
     });
 
+    it('tura-zombie po padzie procesu NIE blokuje rozmowy na zawsze', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const message = await prisma.agentMessage.create({
+        data: {
+          conversationId: conversation.id,
+          role: 'USER',
+          kind: 'TEXT',
+          text: 'Wiadomość sprzed padu',
+        },
+        select: { id: true },
+      });
+      // Tura, której nikt nie domknie: proces padł w jej trakcie (deploy, OOM).
+      // Bez okna czasu w lease ta rozmowa oddawałaby 409 do końca świata,
+      // a jedynym ratunkiem byłby odczyt tury po id, którego klient nie ma.
+      await prisma.agentTurn.create({
+        data: {
+          conversationId: conversation.id,
+          userId: session.user.id,
+          userMessageId: message.id,
+          requestId: 'zombie',
+          status: 'RUNNING',
+          startedAt: new Date(Date.now() - 10 * 60 * 1000),
+        },
+      });
+
+      await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'Nowa wiadomość mimo zombie',
+      }).expect(202);
+    });
+
     it('cudza tura: 404 AI_TURN_NOT_FOUND', async () => {
       const conversation = await createConversation(
         session.accessToken,
@@ -440,6 +476,126 @@ describe('Agent E2E', () => {
       expect(failed.messages).toBeUndefined();
       // Użytkownik nie płaci za awarię dostawcy.
       expect(await readQuota(householdId)).toBe(before);
+    });
+  });
+
+  describe('lista rozmów', () => {
+    it('lista rozmów niesie podgląd ostatniej wiadomości', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'Co na kolację?',
+      }).expect(202);
+      await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
+
+      const list = await request(app.getHttpServer())
+        .get('/agent/conversations')
+        .set(auth(session.accessToken))
+        .expect(200);
+      const listed = (
+        list.body as { id: string; preview: string | null }[]
+      ).find((item) => item.id === conversation.id);
+
+      // Bez podglądu lista rozmów jest listą dat — nie da się rozpoznać,
+      // do której wracasz.
+      expect(listed?.preview).toBe('[stub] Co na kolację?');
+    });
+
+    it('kasowanie JEDNEJ rozmowy zostawia pozostałe', async () => {
+      const keep = await createConversation(session.accessToken, householdId);
+      const remove = await createConversation(session.accessToken, householdId);
+
+      await request(app.getHttpServer())
+        .delete(`/agent/conversations/${remove.id}`)
+        .set(auth(session.accessToken))
+        .expect(200);
+
+      const list = await request(app.getHttpServer())
+        .get('/agent/conversations')
+        .set(auth(session.accessToken))
+        .expect(200);
+      const ids = (list.body as { id: string }[]).map((item) => item.id);
+      expect(ids).toContain(keep.id);
+      expect(ids).not.toContain(remove.id);
+    });
+
+    it('cudza rozmowa: 404, nie 403 — inaczej da się zgadywać identyfikatory', async () => {
+      const stranger = await devLogin('Nieproszony');
+      const mine = await createConversation(session.accessToken, householdId);
+
+      const res = await request(app.getHttpServer())
+        .delete(`/agent/conversations/${mine.id}`)
+        .set(auth(stranger.accessToken))
+        .expect(404);
+      expect(res.body).toMatchObject({ code: 'AI_CONVERSATION_NOT_FOUND' });
+    });
+  });
+
+  describe('pamięć asystenta', () => {
+    it('lista i kasowanie notatki — użytkownik widzi, co asystent o nim wie', async () => {
+      const note = await prisma.agentMemory.create({
+        data: {
+          householdId,
+          text: 'W piątki zamawiają pizzę',
+          textNormalized: 'w piątki zamawiają pizzę',
+          createdByUserId: session.user.id,
+        },
+        select: { id: true },
+      });
+
+      const listed = await request(app.getHttpServer())
+        .get('/agent/memory')
+        .query({ householdId })
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(
+        (listed.body as { id: string; text: string }[]).map((n) => n.text),
+      ).toContain('W piątki zamawiają pizzę');
+
+      await request(app.getHttpServer())
+        .delete(`/agent/memory/${note.id}`)
+        .set(auth(session.accessToken))
+        .expect(200);
+
+      const after = await prisma.agentMemory.findUnique({
+        where: { id: note.id },
+        select: { id: true },
+      });
+      expect(after).toBeNull();
+    });
+
+    it('cudza notatka: 404, nie 403 — inaczej da się zgadywać identyfikatory', async () => {
+      const note = await prisma.agentMemory.create({
+        data: {
+          householdId,
+          text: 'Notatka do podejrzenia',
+          textNormalized: 'notatka do podejrzenia',
+        },
+        select: { id: true },
+      });
+      const stranger = await devLogin('Wscibski');
+
+      const res = await request(app.getHttpServer())
+        .delete(`/agent/memory/${note.id}`)
+        .set(auth(stranger.accessToken))
+        .expect(404);
+      expect(res.body).toMatchObject({ code: 'NOT_FOUND' });
+    });
+
+    it('cudze gospodarstwo: 403 NOT_HOUSEHOLD_MEMBER', async () => {
+      const stranger = await devLogin('Ciekawski');
+      const res = await request(app.getHttpServer())
+        .get('/agent/memory')
+        .query({ householdId })
+        .set(auth(stranger.accessToken))
+        .expect(403);
+      expect(res.body).toMatchObject({ code: 'NOT_HOUSEHOLD_MEMBER' });
     });
   });
 

@@ -18,6 +18,16 @@ export type AgentProgressStep = {
   label: string;
   /** Kiedy krok się zaczął (ISO 8601, UTC). */
   at: string;
+  /**
+   * Czy ten krok ZMIENIA dane gospodarstwa.
+   *
+   * Klient po tym poznaje, że po turze jest co oglądać — plan tygodnia albo
+   * przepis — i może pokazać skrót „otwórz plan" zamiast kazać użytkownikowi
+   * czytać w odpowiedzi, co się właśnie stało. Sama nazwa narzędzia nie
+   * wystarczy: `apply_week_plan` biegnie w każdej turze najpierw jako próba
+   * (`dry_run`), która niczego nie zapisuje.
+   */
+  writes: boolean;
 };
 
 /**
@@ -38,6 +48,14 @@ const LABELS: Record<string, string> = {
 /** Narzędzie spoza listy (nowe, jeszcze bez etykiety) nie może zostawić pustki. */
 export const PROGRESS_FALLBACK = 'Pracuję nad tym';
 
+/** Narzędzia, które zapisują — `apply_week_plan` tylko bez `dry_run`. */
+const WRITING_TOOLS = new Set([
+  'apply_week_plan',
+  'create_recipe',
+  'update_recipe',
+  'delete_recipe',
+]);
+
 /**
  * Krok postępu dla wywołania narzędzia.
  *
@@ -50,11 +68,16 @@ export function progressStep(
   input: Record<string, unknown> = {},
   now: Date = new Date(),
 ): AgentProgressStep {
-  const label =
-    tool === 'apply_week_plan' && input.dry_run === true
-      ? 'Sprawdzam, czy plan się spina'
-      : (LABELS[tool] ?? PROGRESS_FALLBACK);
-  return { tool, label, at: now.toISOString() };
+  const dryRun = tool === 'apply_week_plan' && input.dry_run === true;
+  const label = dryRun
+    ? 'Sprawdzam, czy plan się spina'
+    : (LABELS[tool] ?? PROGRESS_FALLBACK);
+  return {
+    tool,
+    label,
+    at: now.toISOString(),
+    writes: WRITING_TOOLS.has(tool) && !dryRun,
+  };
 }
 
 /**

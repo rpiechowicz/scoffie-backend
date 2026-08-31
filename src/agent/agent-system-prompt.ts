@@ -25,6 +25,8 @@ export type SystemBlock = {
 };
 
 export type HouseholdPromptContext = {
+  /** Notatki z poprzednich rozmów; pusty string = pamięć jest pusta. */
+  memory: string;
   householdName: string;
   /** `YYYY-MM-DD` z telefonu — serwer żyje w UTC i nie ma prawa liczyć „dziś". */
   clientToday: string;
@@ -57,15 +59,34 @@ export const AGENT_INSTRUCTIONS = [
   '- Gdy narzędzie zwróci błąd, czytasz kod i poprawiasz się sam. Nie powtarzasz tego samego wywołania.',
   '- Gdy czegoś nie da się zrobić, mówisz to wprost razem z powodem — nie obiecujesz na przyszłość.',
   '- Nie pytasz o zgodę na każdy krok. Pytasz, gdy naprawdę brakuje informacji, której nie ma w narzędziach.',
+  '',
+  'PAMIĘĆ:',
+  '- To, co pamiętasz o tym domu, masz w kontekście niżej. Jeśli czegoś tam nie ma, to znaczy,',
+  '  że tego nie wiesz — nie udawaj, że pamiętasz rozmowę, której nie widzisz.',
+  '- Gdy użytkownik powie coś TRWAŁEGO o swoim domu (stały zwyczaj, niechęć, sprzęt w kuchni),',
+  '  zapisz to przez remember_note — jednym zdaniem i tylko raz.',
+  '- Nie zapamiętujesz dzisiejszego planu, liczb ani niczego o wadze, zdrowiu i celach.',
+  '',
+  'JAK PISZESZ ODPOWIEDŹ (użytkownik czyta ją na telefonie):',
+  '- Krótko: 2–5 zdań. Plan tygodnia jest widoczny w aplikacji na osobnej zakładce, więc',
+  '  po zapisaniu NIE przepisujesz go dzień po dniu. Potwierdzasz jednym zdaniem i mówisz to,',
+  '  czego z samego planu nie widać: co było na styk, czego zabrakło, co warto sprawdzić.',
+  '- Bez markdownu: żadnych gwiazdek, nagłówków ani pogrubień. Bez emoji.',
+  '- Gdy naprawdę musisz coś wyliczyć, każdą pozycję zaczynasz od „- ", a dzień piszesz pełną',
+  '  polską nazwą: „- Poniedziałek: Kurczak pieczony z batatem".',
+  '- Nie pokazujesz nazw technicznych: ani kodów posiłków (LUNCH, DINNER), ani indeksów',
+  '  katalogu (R07), ani identyfikatorów. Piszesz „obiad", „kolacja" i nazwę dania.',
 ].join('\n');
 
 /**
  * Buduje bloki systemowe tury.
  *
- * Punkty cache: instrukcje razem z digestem (jeden wspólny prefiks dla całej
- * instalacji, TTL godzina — katalog zmienia się rzadko, a przy kilkudziesięciu
- * użytkownikach trafienie jest niemal pewne), kontekst domu bez punktu — jest
- * krótki i zmienny, więc jego zapis kosztowałby więcej, niż oszczędza.
+ * Dwa punkty cache. Pierwszy po digeście: instrukcje razem z katalogiem to
+ * jeden wspólny prefiks dla CAŁEJ instalacji (TTL godzina — katalog zmienia się
+ * rzadko, a przy kilkudziesięciu użytkownikach trafienie jest niemal pewne).
+ * Drugi na bloku gospodarstwa (TTL 5 minut): ten blok jest inny dla każdego
+ * domu, ale ta sama tura wysyła go do czternastu razy — raz na każdą rundę
+ * narzędzi — więc zapis za 1,25× zwraca się już przy trzeciej rundzie.
  */
 export function buildSystemPrompt(
   digest: CatalogDigest,
@@ -79,6 +100,9 @@ export function buildSystemPrompt(
     '',
     'DOMOWNICY (dieta, alergeny, cele) — z get_household_context:',
     JSON.stringify(context.members),
+    // Pamięć na KOŃCU bloku gospodarstwa: to najbardziej zmienna jego część
+    // (rośnie z każdą zapamiętaną notatką), a blok i tak jest poza punktem cache.
+    ...(context.memory ? ['', context.memory] : []),
   ].join('\n');
 
   return [
@@ -90,6 +114,15 @@ export function buildSystemPrompt(
       // instalacji, więc jeden zapis obsługuje wszystkie gospodarstwa.
       cache_control: { type: 'ephemeral', ttl: '1h' },
     },
-    { type: 'text', text: householdBlock },
+    {
+      type: 'text',
+      text: householdBlock,
+      // DRUGI punkt cache. Blok gospodarstwa jest zmienny, ale system leci do
+      // API przy KAŻDEJ rundzie narzędziowej (do czternastu razy na turę), więc
+      // bez tego breakpointu kontekst domu i pamięć płacą pełną stawkę
+      // czternaście razy. Zapis kosztuje 1,25× raz, odczyty 0,1× — przy trzech
+      // rundach to już oszczędność. TTL 5 minut, bo blok żyje tylko przez turę.
+      cache_control: { type: 'ephemeral', ttl: '5m' },
+    },
   ];
 }
