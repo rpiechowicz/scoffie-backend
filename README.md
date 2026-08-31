@@ -62,6 +62,8 @@ docker compose up -d --build
 - `pnpm recipes:import:json` - import recipes from JSON
 - `pnpm generate:recipe:images` - generate recipe images
 - `pnpm upload:recipe:images:r2` - upload generated assets to Cloudflare R2
+- `pnpm agent:measure:tokens` - measure the catalog digest with `count_tokens`
+  (needs `ANTHROPIC_API_KEY`; counts tokens only, never runs the model)
 - `pnpm lint:check` - CI lint check
 - `pnpm test:e2e:ci` - CI-friendly E2E run
 

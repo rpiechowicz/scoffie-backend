@@ -23,6 +23,7 @@
     "recipes:backfill:slots": "tsx scripts/backfill-suitable-meal-types.ts",
     "plans:backfill:servings": "tsx scripts/backfill-plan-item-servings.ts",
     "households:cleanup:empty": "tsx scripts/cleanup-empty-households.ts",
+    "agent:measure:tokens": "tsx scripts/measure-agent-tokens.ts",
     "recipes:import:json": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/import-recipes-from-json.ts",
     "generate:recipe:images": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/generate-recipe-images.ts",
     "upload:recipe:images:r2": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/upload-recipe-images-to-r2.ts",
@@ -42,6 +43,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
     "@aws-sdk/client-s3": "^3.896.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
