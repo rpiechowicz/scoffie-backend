@@ -241,6 +241,11 @@ export class AgentTurnRunner {
     const verdict = this.classify(error, aborted);
 
     try {
+      // Zużycie sprzed błędu: tura, która padła po pięciu rundach narzędzi,
+      // kosztowała tyle samo co udana. Bez tego księga i budżet dobowy
+      // pokazywałyby zero wydanych pieniędzy.
+      const spent =
+        error instanceof AgentProviderError ? error.usage : undefined;
       const closed = await this.prisma.agentTurn.updateMany({
         where: { id: input.turnId, status: 'RUNNING' },
         data: {
@@ -248,6 +253,13 @@ export class AgentTurnRunner {
           errorCode: verdict.errorCode,
           finishedAt: new Date(),
           durationMs,
+          ...(spent
+            ? {
+                inputTokens: spent.inputTokens,
+                outputTokens: spent.outputTokens,
+                costMicroUsd: spent.costMicroUsd,
+              }
+            : {}),
         },
       });
       if (closed.count === 0) {
@@ -255,6 +267,16 @@ export class AgentTurnRunner {
           `turn ${input.turnId} requestId=${input.requestId}: tura była już domknięta (${verdict.errorCode})`,
         );
         return;
+      }
+
+      if (spent && spent.costMicroUsd > 0) {
+        await this.counters.add(
+          this.prisma,
+          GLOBAL_SCOPE,
+          this.counters.dayKey(),
+          'costMicroUsd',
+          spent.costMicroUsd,
+        );
       }
 
       if (verdict.refund) {

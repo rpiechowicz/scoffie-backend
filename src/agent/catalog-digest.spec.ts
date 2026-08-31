@@ -30,6 +30,8 @@ const recipe = (overrides: Partial<DigestRecipe> = {}): DigestRecipe => ({
   nutritionProtein: 76,
   nutritionFat: 38,
   nutritionCarbs: 84,
+  allergens: [],
+  dietTags: ['MEAT'],
   ingredients: [
     ingredient('pomidor krojony z puszki', 500),
     ingredient('przyprawa uniwersalna', 5),
@@ -59,7 +61,7 @@ describe('buildDigestLine', () => {
 
   it('wybiera 5 NAJCIĘŻSZYCH składników, nie pierwsze z brzegu', () => {
     const line = buildDigestLine(recipe(), 'R07');
-    const składniki = line.split('|')[6];
+    const składniki = line.split('|')[8];
     expect(składniki).toBe(
       'pomidor krojony z puszki, papryka czerwona, cukinia, kiełbasa śląska, cebula',
     );
@@ -79,7 +81,7 @@ describe('buildDigestLine', () => {
       }),
       'R01',
     );
-    expect(line.split('|')[6]).toBe('jajko, mąka');
+    expect(line.split('|')[8]).toBe('jajko, mąka');
   });
 
   it('sztuki bez gramatury dostają wagę zastępczą', () => {
@@ -92,7 +94,7 @@ describe('buildDigestLine', () => {
       }),
       'R01',
     );
-    expect(line.split('|')[6]).toBe('bułka, mąka');
+    expect(line.split('|')[8]).toBe('bułka, mąka');
   });
 
   it('remis rozstrzyga nazwa — ten sam katalog daje ten sam bajt', () => {
@@ -103,7 +105,7 @@ describe('buildDigestLine', () => {
         ingredient('burak', 300),
       ],
     });
-    expect(buildDigestLine(równe, 'R01').split('|')[6]).toBe(
+    expect(buildDigestLine(równe, 'R01').split('|')[8]).toBe(
       'burak, marchew, ziemniaki',
     );
   });
@@ -116,8 +118,23 @@ describe('buildDigestLine', () => {
     expect(line.split('|')[2]).toBe('BREAKFAST');
   });
 
-  it('linia ma dokładnie 7 pól — inaczej model nie rozczyta formatu', () => {
-    expect(buildDigestLine(recipe(), 'R07').split('|')).toHaveLength(7);
+  it('alergeny i tagi diet są JAWNE, nie do wywnioskowania ze składników', () => {
+    // Na katalogu dev 15 z 65 przepisów z laktozą nie pokazuje nabiału wśród
+    // pięciu najcięższych składników — „dorsz z masłem" wyglądał na czysty.
+    const line = buildDigestLine(
+      recipe({ allergens: ['lactose', 'gluten'], dietTags: ['DAIRY'] }),
+      'R07',
+    );
+    expect(line).toContain('|A:lactose,gluten|');
+    expect(line).toContain('|D:DAIRY|');
+  });
+
+  it('brak alergenów to puste pole, nie brak pola', () => {
+    expect(buildDigestLine(recipe({ allergens: [] }), 'R07')).toContain('|A:|');
+  });
+
+  it('linia ma dokładnie 9 pól — inaczej model nie rozczyta formatu', () => {
+    expect(buildDigestLine(recipe(), 'R07').split('|')).toHaveLength(9);
   });
 });
 

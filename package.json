@@ -23,6 +23,7 @@
     "recipes:backfill:slots": "tsx scripts/backfill-suitable-meal-types.ts",
     "plans:backfill:servings": "tsx scripts/backfill-plan-item-servings.ts",
     "households:cleanup:empty": "tsx scripts/cleanup-empty-households.ts",
+    "agent:scenarios": "ts-node -r tsconfig-paths/register scripts/agent-scenarios.ts",
     "agent:smoke": "ts-node -r tsconfig-paths/register scripts/agent-smoke.ts",
     "agent:measure:tokens": "tsx scripts/measure-agent-tokens.ts",
     "recipes:import:json": "node scripts/prisma-migrate-deploy-safe.js && tsx scripts/import-recipes-from-json.ts",

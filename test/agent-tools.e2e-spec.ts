@@ -267,6 +267,29 @@ describe('Narzędzia asystenta E2E', () => {
       expect(recipe.nutritionKcal).toBeGreaterThan(0);
     });
 
+    it('pominięty czas przygotowania nie wywraca zapisu', async () => {
+      // Schemat narzędzia miał to pole jako opcjonalne, a DTO wymaga >= 1 —
+      // model dostawał „prepTimeMinutes must not be less than 1" o polu,
+      // którego wedle schematu nie musiał podawać, i nie miał jak się poprawić.
+      const hits = data<{ id: string }[]>(
+        await run('search_ingredients', {
+          query: 'ziemniak',
+          only_with_nutrition: true,
+          limit: 1,
+        }),
+      );
+      const recipe = data<{ id: string; prepTimeMinutes: number }>(
+        await run('create_recipe', {
+          title: 'Danie bez podanego czasu',
+          meal_type: 'DINNER',
+          servings: 2,
+          ingredients: [{ ingredient_id: hits[0].id, amount: 300, unit: 'g' }],
+        }),
+      );
+      expect(recipe.prepTimeMinutes).toBeGreaterThanOrEqual(1);
+      await prisma.recipe.deleteMany({ where: { id: recipe.id } });
+    });
+
     it('update_recipe poprawia tytuł', async () => {
       const updated = data<{ title: string }>(
         await run('update_recipe', {

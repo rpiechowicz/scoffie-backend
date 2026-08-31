@@ -63,6 +63,14 @@ export class AgentProviderError extends Error {
     message: string,
     readonly retryable: boolean,
     readonly status?: number,
+    /**
+     * Zużycie, które zdążyło narosnąć PRZED błędem.
+     *
+     * Nieudana tura po sześciu rundach narzędzi kosztowała tyle samo, co
+     * udana — bez tego pola księga `AiUsage` pokazywałaby zero i budżet
+     * dobowy nie widziałby wydanych pieniędzy.
+     */
+    readonly usage?: AgentProviderUsage,
   ) {
     super(message);
     this.name = 'AgentProviderError';

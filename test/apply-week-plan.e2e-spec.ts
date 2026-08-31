@@ -382,6 +382,93 @@ describe('applyWeekPlan E2E', () => {
     });
   });
 
+  describe('bramka alergenowa', () => {
+    let alergenRecipe: string;
+    let alergenName: string;
+    let ownerId: string;
+
+    beforeAll(async () => {
+      const withAllergen = await prisma.recipe.findFirst({
+        where: {
+          isCatalog: true,
+          isActive: true,
+          allergens: { has: 'lactose' },
+          OR: [
+            { suitableMealTypes: { has: 'DINNER' } },
+            { mealType: 'DINNER', suitableMealTypes: { isEmpty: true } },
+          ],
+        },
+        select: { id: true, title: true },
+      });
+      if (!withAllergen)
+        throw new Error('katalog dev nie ma kolacji z laktozą');
+      alergenRecipe = withAllergen.id;
+      alergenName = withAllergen.title;
+
+      const membership = await prisma.membership.findFirst({
+        where: { householdId },
+        select: { userId: true },
+      });
+      ownerId = membership!.userId;
+      await prisma.userPreference.upsert({
+        where: { userId: ownerId },
+        create: { userId: ownerId, allergens: ['lactose'] },
+        update: { allergens: ['lactose'] },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.userPreference.updateMany({
+        where: { userId: ownerId },
+        data: { allergens: [] },
+      });
+    });
+
+    it('danie z alergenem domownika nie wchodzi do wspólnego posiłku', async () => {
+      const result = await apply([slot('MON', 'DINNER', alergenRecipe)], {
+        dryRun: true,
+      });
+
+      // To jest twarda bramka SERWERA, nie instrukcja dla modelu: lista
+      // składników w digeście jest przycięta do pięciu najcięższych, więc
+      // 20 g masła w daniu rybnym jest dla modelu niewidoczne.
+      expect(result.applied).toBe(false);
+      expect(result.violations[0]).toMatchObject({
+        code: 'RECIPE_ALLERGEN_CONFLICT',
+      });
+      expect(result.violations[0].recipeId).toBe(alergenRecipe);
+    });
+
+    it('to samo danie przechodzi, gdy je ktoś bez tej alergii', async () => {
+      const other = await prisma.user.create({
+        data: {
+          displayName: `Bez alergii ${Date.now()}`,
+          email: `noallergy-${Date.now()}@apply.local`,
+          authProvider: 'DEV',
+        },
+        select: { id: true },
+      });
+      createdUserIds.push(other.id);
+      await prisma.membership.create({
+        data: { userId: other.id, householdId, role: 'MEMBER' },
+      });
+
+      const result = await apply(
+        [slot('MON', 'DINNER', alergenRecipe, { participantIds: [other.id] })],
+        { dryRun: true },
+      );
+
+      // Bramka liczy AUDYTORIUM, nie sam skład domu — inaczej jedna alergia
+      // wykreślałaby danie wszystkim, także tym, którzy je jedzą bez problemu.
+      expect(result.violations).toEqual([]);
+      expect(alergenName.length).toBeGreaterThan(0);
+
+      await prisma.membership.deleteMany({
+        where: { userId: other.id, householdId },
+      });
+    });
+  });
+
   describe('broadcast', () => {
     it('cały tydzień to JEDEN weekChanged, nie jeden na slot', async () => {
       // `broadcastToHousehold` nadaje do pokoju gospodarstwa, a socket
