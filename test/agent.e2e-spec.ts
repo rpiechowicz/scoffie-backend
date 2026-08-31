@@ -43,7 +43,7 @@ type TurnView = {
   id: string;
   conversationId: string;
   status: string;
-  progress: { tool: string; label: string; at: string }[];
+  progress: { tool: string; label: string; at: string; writes: boolean }[];
   errorCode: string | null;
   messages?: { role: string; text: string }[];
   usage?: { inputTokens: number; outputTokens: number; costMicroUsd: number };
@@ -343,6 +343,8 @@ describe('Agent E2E', () => {
           tool: 'get_household_context',
           label: expect.any(String),
           at: expect.any(String),
+          // Odczyt — klient nie ma po tej turze czego otwierać.
+          writes: false,
         },
       ]);
       // Etykieta jest gotowym zdaniem po polsku, nie kodem do tłumaczenia.
