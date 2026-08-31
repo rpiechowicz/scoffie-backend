@@ -172,6 +172,45 @@ export type PlanViolation = {
   message: string;
 };
 
+/** Jedna pozycja proponowanego tygodnia, gotowa do pokazania człowiekowi. */
+export type WeekPlanPreviewSlot = {
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  recipeId: string;
+  title: string;
+  /** Kalorie na porcję — kartę interesuje ta liczba, nie suma przepisu. */
+  kcalPerServing: number;
+  prepTimeMinutes: number;
+  /** Puste = całe gospodarstwo (ta sama konwencja co w `PlanItem`). */
+  participantIds: string[];
+  /** Czy ta pozycja jest w tygodniu nowa, czy stała tam już wcześniej. */
+  change: 'NEW' | 'KEPT';
+};
+
+/** Pozycja, która ZNIKNIE po zastosowaniu stanu docelowego. */
+export type WeekPlanPreviewRemoval = {
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  recipeId: string;
+  title: string;
+};
+
+/**
+ * Tydzień policzony, ale NIEZAPISANY.
+ *
+ * `applyWeekPlan(dryRun)` oddaje wyłącznie liczniki — dość, żeby model
+ * wiedział, czy plan się spina, za mało, żeby cokolwiek pokazać człowiekowi.
+ * Kartę propozycji składa serwer z bazy: model wskazuje przepisy, a nazwy,
+ * kalorie i czasy pochodzą stąd, nie z jego pamięci.
+ */
+export type WeekPlanPreview = {
+  violations: PlanViolation[];
+  changes: { created: number; updated: number; deleted: number };
+  /** `null`, gdy są naruszenia — nie ma czego pokazywać. */
+  slots: WeekPlanPreviewSlot[] | null;
+  removed: WeekPlanPreviewRemoval[] | null;
+};
+
 export type ApplyWeekPlanResult = {
   applied: boolean;
   dryRun: boolean;
@@ -1007,6 +1046,151 @@ export class WeeklyPlansService {
     const unique = Array.from(new Set(requested ?? []));
     const everyone = unique.length === 0 || unique.length === memberIds.size;
     return { participantIds: everyone ? [] : unique };
+  }
+
+  /**
+   * Policz tydzień i opisz go, ale NIE zapisuj.
+   *
+   * Ta sama ścieżka walidacji co zapis (`collectPlanViolations`): alergeny,
+   * dopasowanie dania do posiłku i limity liczy serwer, nie model. Różnica
+   * jest jedna — zamiast liczników wracają nazwy, kalorie i czasy, czyli to,
+   * z czego da się złożyć kartę propozycji.
+   *
+   * Świadomie osobna metoda, a nie rozszerzenie `ApplyWeekPlanResult`: ten typ
+   * jedzie w acku `weeklyPlans:applyWeekPlan` do każdego klienta i utuczenie go
+   * o podgląd obciążyłoby wszystkich wołających.
+   */
+  async previewWeekPlan(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    input: ApplyWeekPlanDto,
+  ): Promise<WeekPlanPreview> {
+    const dto = await validateDto(ApplyWeekPlanDto, input);
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+
+    const memberIds = await this.loadMemberIds(householdId);
+    const allergensByMember = await this.loadMemberAllergens(householdId);
+    const recipeIds = dto.slots.map((slot) => slot.recipeId);
+    const plannable = await this.loadPlannableRecipes(householdId, recipeIds);
+
+    const violations = this.collectPlanViolations(
+      dto.slots,
+      plannable,
+      memberIds,
+      allergensByMember,
+    );
+    if (violations.length > 0) {
+      return {
+        violations,
+        changes: { created: 0, updated: 0, deleted: 0 },
+        slots: null,
+        removed: null,
+      };
+    }
+
+    const desired = dto.slots.map((slot) => ({
+      ...slot,
+      key: planSlotKey(slot),
+      ...this.normalizeParticipants(slot.participantIds, memberIds),
+    }));
+    const changes = await this.previewWeekPlanChanges(
+      householdId,
+      weekStartDate,
+      desired,
+    );
+
+    // Opis pozycji bierzemy osobnym odczytem: `loadPlannableRecipes` celowo
+    // ciągnie minimum potrzebne do walidacji, a karta potrzebuje tytułu,
+    // kalorii i czasu.
+    const details = await this.prisma.recipe.findMany({
+      where: { id: { in: Array.from(new Set(recipeIds)) } },
+      select: {
+        id: true,
+        title: true,
+        servings: true,
+        prepTimeMinutes: true,
+        nutritionKcal: true,
+      },
+    });
+    const detailsById = new Map(details.map((row) => [row.id, row]));
+
+    const current = await this.prisma.planItem.findMany({
+      where: {
+        weeklyPlan: { householdId, weekStart: weekStartDate },
+      },
+      select: {
+        dayOfWeek: true,
+        mealType: true,
+        recipeId: true,
+        recipe: { select: { title: true } },
+      },
+    });
+    const currentKeys = new Set(current.map((item) => planSlotKey(item)));
+    const desiredKeys = new Set(desired.map((slot) => slot.key));
+
+    const slots: WeekPlanPreviewSlot[] = desired.map((slot) => {
+      const detail = detailsById.get(slot.recipeId);
+      const servings = Math.max(1, detail?.servings ?? 1);
+      return {
+        dayOfWeek: slot.dayOfWeek,
+        mealType: slot.mealType,
+        recipeId: slot.recipeId,
+        title: detail?.title ?? '',
+        kcalPerServing: Math.round((detail?.nutritionKcal ?? 0) / servings),
+        prepTimeMinutes: detail?.prepTimeMinutes ?? 0,
+        participantIds: slot.participantIds,
+        change: currentKeys.has(slot.key) ? 'KEPT' : 'NEW',
+      };
+    });
+
+    const removed: WeekPlanPreviewRemoval[] = current
+      .filter((item) => !desiredKeys.has(planSlotKey(item)))
+      .map((item) => ({
+        dayOfWeek: item.dayOfWeek,
+        mealType: item.mealType,
+        recipeId: item.recipeId,
+        title: item.recipe.title,
+      }));
+
+    return { violations: [], changes, slots, removed };
+  }
+
+  /**
+   * Tydzień z bazy w kształcie WEJŚCIA `applyWeekPlan`.
+   *
+   * To jest materiał na „Cofnij”: operacja stanu docelowego jest swoją własną
+   * odwrotnością, więc cofnięcie zapisu to ponowne zastosowanie tego, co było
+   * przed nim — bez liczenia odwrotnego diffa i bez drugiej ścieżki zapisu.
+   */
+  async snapshotWeekAsSlots(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+  ): Promise<ApplyWeekSlotDto[]> {
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+
+    const items = await this.prisma.planItem.findMany({
+      where: { weeklyPlan: { householdId, weekStart: weekStartDate } },
+      select: {
+        dayOfWeek: true,
+        mealType: true,
+        recipeId: true,
+        plannedServings: true,
+        participants: { select: { userId: true } },
+      },
+      orderBy: [{ mealType: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    return items.map((item) => ({
+      dayOfWeek: item.dayOfWeek,
+      mealType: item.mealType,
+      recipeId: item.recipeId,
+      participantIds: item.participants.map((participant) => participant.userId),
+      plannedServings: item.plannedServings,
+    }));
   }
 
   /** Ile by się zmieniło, gdyby zapisać — bez zapisywania (`dryRun`). */
