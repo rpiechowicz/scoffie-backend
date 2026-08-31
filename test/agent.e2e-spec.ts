@@ -480,7 +480,7 @@ describe('Agent E2E', () => {
   });
 
   describe('lista rozmów', () => {
-    it('lista rozmów niesie podgląd ostatniej wiadomości i licznik', async () => {
+    it('lista rozmów niesie podgląd ostatniej wiadomości', async () => {
       const conversation = await createConversation(
         session.accessToken,
         householdId,
@@ -499,17 +499,12 @@ describe('Agent E2E', () => {
         .set(auth(session.accessToken))
         .expect(200);
       const listed = (
-        list.body as {
-          id: string;
-          preview: string | null;
-          messageCount: number;
-        }[]
+        list.body as { id: string; preview: string | null }[]
       ).find((item) => item.id === conversation.id);
 
       // Bez podglądu lista rozmów jest listą dat — nie da się rozpoznać,
       // do której wracasz.
       expect(listed?.preview).toBe('[stub] Co na kolację?');
-      expect(listed?.messageCount).toBe(2);
     });
 
     it('kasowanie JEDNEJ rozmowy zostawia pozostałe', async () => {
@@ -548,6 +543,7 @@ describe('Agent E2E', () => {
         data: {
           householdId,
           text: 'W piątki zamawiają pizzę',
+          textNormalized: 'w piątki zamawiają pizzę',
           createdByUserId: session.user.id,
         },
         select: { id: true },
@@ -572,6 +568,24 @@ describe('Agent E2E', () => {
         select: { id: true },
       });
       expect(after).toBeNull();
+    });
+
+    it('cudza notatka: 404, nie 403 — inaczej da się zgadywać identyfikatory', async () => {
+      const note = await prisma.agentMemory.create({
+        data: {
+          householdId,
+          text: 'Notatka do podejrzenia',
+          textNormalized: 'notatka do podejrzenia',
+        },
+        select: { id: true },
+      });
+      const stranger = await devLogin('Wscibski');
+
+      const res = await request(app.getHttpServer())
+        .delete(`/agent/memory/${note.id}`)
+        .set(auth(stranger.accessToken))
+        .expect(404);
+      expect(res.body).toMatchObject({ code: 'NOT_FOUND' });
     });
 
     it('cudze gospodarstwo: 403 NOT_HOUSEHOLD_MEMBER', async () => {

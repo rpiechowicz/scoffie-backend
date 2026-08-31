@@ -3,9 +3,11 @@
 --
 -- Historia rozmowy idzie do modelu tylko w obrębie JEDNEJ rozmowy, więc bez
 -- tej tabeli każda nowa rozmowa zaczynała od zera. Zakres to gospodarstwo, nie
--- użytkownik: plan i lista zakupów też są wspólne. `createdByUserId` bez klucza
--- obcego z kaskadą na użytkownika — notatka ma przeżyć odejście autora
--- z gospodarstwa, a `ON DELETE SET NULL` załatwia to bez utraty treści.
+-- użytkownik: plan i lista zakupów też są wspólne. `createdByUserId` celowo BEZ
+-- klucza obcego: notatka ma przeżyć odejście autora z gospodarstwa i skasowanie
+-- jego konta, a treść należy do domu, nie do osoby. Konsekwencja jest świadoma
+-- — po usunięciu konta zostaje w kolumnie identyfikator, który do niczego nie
+-- prowadzi; służy tylko do pokazania „kto dodał", gdy autor jeszcze istnieje.
 --
 -- Idempotentny SQL (IF NOT EXISTS), bo safe-migrate może powtórzyć plik po
 -- nieudanym deployu.

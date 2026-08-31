@@ -81,10 +81,12 @@ export const AGENT_INSTRUCTIONS = [
 /**
  * Buduje bloki systemowe tury.
  *
- * Punkty cache: instrukcje razem z digestem (jeden wspólny prefiks dla całej
- * instalacji, TTL godzina — katalog zmienia się rzadko, a przy kilkudziesięciu
- * użytkownikach trafienie jest niemal pewne), kontekst domu bez punktu — jest
- * krótki i zmienny, więc jego zapis kosztowałby więcej, niż oszczędza.
+ * Dwa punkty cache. Pierwszy po digeście: instrukcje razem z katalogiem to
+ * jeden wspólny prefiks dla CAŁEJ instalacji (TTL godzina — katalog zmienia się
+ * rzadko, a przy kilkudziesięciu użytkownikach trafienie jest niemal pewne).
+ * Drugi na bloku gospodarstwa (TTL 5 minut): ten blok jest inny dla każdego
+ * domu, ale ta sama tura wysyła go do czternastu razy — raz na każdą rundę
+ * narzędzi — więc zapis za 1,25× zwraca się już przy trzeciej rundzie.
  */
 export function buildSystemPrompt(
   digest: CatalogDigest,
@@ -112,6 +114,15 @@ export function buildSystemPrompt(
       // instalacji, więc jeden zapis obsługuje wszystkie gospodarstwa.
       cache_control: { type: 'ephemeral', ttl: '1h' },
     },
-    { type: 'text', text: householdBlock },
+    {
+      type: 'text',
+      text: householdBlock,
+      // DRUGI punkt cache. Blok gospodarstwa jest zmienny, ale system leci do
+      // API przy KAŻDEJ rundzie narzędziowej (do czternastu razy na turę), więc
+      // bez tego breakpointu kontekst domu i pamięć płacą pełną stawkę
+      // czternaście razy. Zapis kosztuje 1,25× raz, odczyty 0,1× — przy trzech
+      // rundach to już oszczędność. TTL 5 minut, bo blok żyje tylko przez turę.
+      cache_control: { type: 'ephemeral', ttl: '5m' },
+    },
   ];
 }

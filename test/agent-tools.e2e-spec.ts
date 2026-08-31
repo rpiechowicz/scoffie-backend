@@ -385,6 +385,27 @@ describe('Narzędzia asystenta E2E', () => {
       });
     });
 
+    it('znak % w treści nie działa jak wieloznacznik', async () => {
+      // Porównanie „bez rozróżniania wielkości liter" Prisma kompiluje do
+      // ILIKE, więc treść notatki bywała WZORCEM: „100% mięsa" pasowało do
+      // „100 dag mięsa" i druga notatka po cichu nie powstawała.
+      await run('remember_note', { text: 'Kuba je 100 dag mięsa tygodniowo' });
+      await run('remember_note', { text: 'Kuba je 100% mięsa tygodniowo' });
+
+      expect(await memory.list(context.householdId)).toHaveLength(2);
+    });
+
+    it('za długa notatka wraca jako błąd, nie jako ogryzek zdania', async () => {
+      // Ciche ucięcie znaczyłoby, że model dostaje `ok` i uważa, że zapamiętał
+      // całość, a w bazie leży pół zdania.
+      const result = await run('remember_note', { text: 'a'.repeat(300) });
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR' },
+      });
+      expect(await memory.list(context.householdId)).toHaveLength(0);
+    });
+
     it('po przekroczeniu limitu wypada NAJSTARSZA notatka', async () => {
       for (let i = 0; i < MEMORY_LIMIT + 2; i += 1) {
         await memory.remember(

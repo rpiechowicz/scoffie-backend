@@ -3,6 +3,7 @@ import { AppException } from '../common/app-exception';
 import { assertUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
@@ -27,8 +28,6 @@ export type ConversationView = {
    * asystenta potrafi mieć dwa tysiące znaków.
    */
   preview?: string | null;
-  /** Ile wiadomości ma rozmowa — pusta rozmowa wygląda inaczej niż zaczęta. */
-  messageCount?: number;
   /**
    * Tura, która JESZCZE BIEGNIE w tej rozmowie.
    *
@@ -124,9 +123,13 @@ export class AgentConversationsService {
   /**
    * Lista rozmów użytkownika, od najświeższej.
    *
-   * Podgląd ostatniej wiadomości bierze się zagnieżdżonym `take: 1`, a nie
-   * pętlą po rozmowach: to jedno zapytanie na całą listę zamiast N+1, a lista
-   * rozmów jest widokiem, który otwiera się często i ma być natychmiastowy.
+   * Podgląd ostatniej wiadomości leci OSOBNYM zapytaniem z `DISTINCT ON`, a nie
+   * zagnieżdżonym `include`. Powód jest zmierzony, nie estetyczny: Prisma przy
+   * zagnieżdżonym `take: 1` dla WIĘCEJ NIŻ JEDNEGO rodzica usuwa `LIMIT`
+   * z zapytania i przycina wynik dopiero w pamięci Node — czyli po drucie
+   * leciałaby PEŁNA treść wszystkich wiadomości wszystkich rozmów, a odpowiedź
+   * asystenta ma po dwa tysiące znaków. `DISTINCT ON` bierze dokładnie jeden
+   * wiersz na rozmowę, po stronie bazy.
    */
   async list(userId: string): Promise<ConversationView[]> {
     this.config.assertEnabled();
@@ -135,27 +138,56 @@ export class AgentConversationsService {
       orderBy: [{ lastMessageAt: 'desc' }, { createdAt: 'desc' }],
       take: CONVERSATIONS_PAGE_SIZE,
       include: {
-        messages: {
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          take: 1,
-          select: { text: true },
-        },
-        // Tura w biegu — jedna na rozmowę, bo lease na to nie pozwala więcej.
+        // Tura w biegu, ale TYLKO żywa: martwa (po padzie procesu) pokazywałaby
+        // się klientowi jako biegnąca, a on odpytywałby ją bez końca.
         turns: {
-          where: { status: 'RUNNING' },
+          where: {
+            status: 'RUNNING',
+            startedAt: { gt: this.staleTurnThreshold() },
+          },
           orderBy: { startedAt: 'desc' },
           take: 1,
           select: { id: true },
         },
-        _count: { select: { messages: true } },
       },
     });
+    if (conversations.length === 0) return [];
+
+    const previews = await this.previews(conversations.map((c) => c.id));
     return conversations.map((conversation) => ({
       ...this.toConversationView(conversation),
-      preview: this.preview(conversation.messages[0]?.text),
-      messageCount: conversation._count.messages,
+      preview: previews.get(conversation.id) ?? null,
       activeTurnId: conversation.turns[0]?.id ?? null,
     }));
+  }
+
+  /** Ostatnia wiadomość każdej rozmowy — jeden wiersz na rozmowę, z bazy. */
+  private async previews(ids: string[]): Promise<Map<string, string>> {
+    const rows = await this.prisma.$queryRaw<
+      { conversationId: string; text: string }[]
+    >`
+      SELECT DISTINCT ON ("conversationId") "conversationId", "text"
+      FROM "AgentMessage"
+      WHERE "conversationId" = ANY(${ids}::uuid[])
+      ORDER BY "conversationId", "createdAt" DESC, "id" DESC
+    `;
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      const preview = this.preview(row.text);
+      if (preview) map.set(row.conversationId, preview);
+    }
+    return map;
+  }
+
+  /**
+   * Granica „tura już nie żyje" — ta sama, co przy leniwym domknięciu tury
+   * i przy lease. Trzy miejsca muszą mieć jedną definicję, inaczej lista
+   * pokazuje jako biegnące coś, czego wysyłka już nie liczy.
+   */
+  private staleTurnThreshold(): Date {
+    return new Date(
+      Date.now() - this.config.read().turnTimeoutMs - TURN_TIMEOUT_GRACE_MS,
+    );
   }
 
   private preview(text: string | undefined): string | null {

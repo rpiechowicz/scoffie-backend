@@ -5,6 +5,7 @@ import { assertUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
 import {
   conversationTitleFrom,
@@ -51,7 +52,7 @@ export type TurnView = {
  * własny `AbortController` i sam ustawia FAILED, więc odczyt wchodzi dopiero
  * wtedy, gdy proces padł w połowie tury (deploy, OOM) i nikt już tego nie zrobi.
  */
-export const TURN_TIMEOUT_GRACE_MS = 5_000;
+export { TURN_TIMEOUT_GRACE_MS };
 
 /**
  * Tury asystenta: przyjęcie wiadomości (202) i odczyt stanu (polling).
@@ -146,21 +147,50 @@ export class AgentTurnsService {
         // instancji i krótkiej transakcji to wystarcza (kolejny wyścig i tak
         // zatrzyma unikat na `clientMessageId`).
         //
-        // Tury starsze niż limit czasu + margines NIE liczą się do lease.
-        // To są tury po padzie procesu (deploy, OOM), których nikt już nie
-        // domknie: bez tego warunku rozmowa z taką turą-zombie oddawałaby
-        // 409 NA ZAWSZE, a jedynym ratunkiem byłby odczyt `GET /agent/turns/:id`
-        // z identyfikatorem, który klient dawno zgubił. Ten sam próg co
-        // w `expireIfStale` — to ta sama definicja „tura już nie żyje".
+        // Tury po padzie procesu (deploy, OOM) ZAMYKAMY tutaj, zamiast je
+        // pomijać przy liczeniu.
+        //
+        // Samo pominięcie wystarczyłoby, żeby odblokować rozmowę, ale
+        // zostawiałoby w bazie wiersz RUNNING, którego nikt już nie odpyta —
+        // a to właśnie odpytanie (`expireIfStale`) jest jedynym mechanizmem
+        // zwrotu kwoty. Zombie obok żywej tury znaczyłby więc trwale spaloną
+        // wiadomość z miesięcznego limitu. Ten sam próg co w `expireIfStale`,
+        // bo to ta sama definicja „tura już nie żyje".
         const staleBefore = new Date(
           Date.now() - env.turnTimeoutMs - TURN_TIMEOUT_GRACE_MS,
         );
-        const running = await tx.agentTurn.count({
+        const stale = await tx.agentTurn.findMany({
           where: {
             conversationId,
             status: 'RUNNING',
-            startedAt: { gt: staleBefore },
+            startedAt: { lte: staleBefore },
           },
+          select: { id: true, startedAt: true },
+        });
+        for (const dead of stale) {
+          const closed = await tx.agentTurn.updateMany({
+            where: { id: dead.id, status: 'RUNNING' },
+            data: {
+              status: 'FAILED',
+              errorCode: 'AI_TIMEOUT',
+              finishedAt: new Date(),
+            },
+          });
+          if (closed.count === 0) continue;
+          this.metrics.recordTurnFinished('timeout');
+          // Kwota wraca do okresu, z którego zeszła — tura zaczęta 31. o 23:59
+          // oddaje ją tam, a nie do nowego miesiąca.
+          await this.counters.add(
+            tx,
+            conversation.householdId,
+            this.counters.monthKey(dead.startedAt),
+            'messages',
+            -1,
+          );
+        }
+
+        const running = await tx.agentTurn.count({
+          where: { conversationId, status: 'RUNNING' },
         });
         if (running > 0) {
           this.metrics.recordRejected('inProgress');
