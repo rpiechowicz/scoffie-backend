@@ -47,6 +47,19 @@ export const HANDLERS_WITHOUT_SERVICE: ReadonlySet<string> = new Set([
   'weeklyPlans:getSavedPlan',
 ]);
 
+/**
+ * Handlery, które WOŁAJĄ serwis, ale nie przekazują mu tożsamości — bo zasób
+ * jest wspólny dla całej instalacji i nie zależy od tego, kto pyta.
+ *
+ * Kontrola dodatnia „tożsamość z socketu faktycznie została użyta" ich nie
+ * dotyczy; wciąż obowiązuje je jednak wymóg, żeby `payload.userId` atakującego
+ * nie dotarł nigdzie, i żeby anonimowy socket dostał UNAUTHORIZED.
+ */
+export const HANDLERS_WITHOUT_IDENTITY_ARG: ReadonlySet<string> = new Set([
+  // Katalog składników jest jeden dla wszystkich gospodarstw.
+  'ingredients:search',
+]);
+
 export type InvalidCase = {
   /** Krótki opis do nazwy testu. */
   name: string;
@@ -106,6 +119,7 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
     },
   },
   'recipes:findById': { id: RECIPE, householdId: HH },
+  'ingredients:search': { filters: { query: 'kurczak', limit: 5 } },
   'recipes:create': {
     data: {
       householdId: HH,
@@ -275,6 +289,13 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
       name: 'householdId nie-UUID',
       payload: { id: RECIPE, householdId: NOT_UUID },
       detail: 'householdId must be a UUID',
+    },
+  ],
+  'ingredients:search': [
+    {
+      name: 'filters nie jest obiektem',
+      payload: { filters: 'kurczak' },
+      detail: 'filters must be an object',
     },
   ],
   'recipes:create': [missingData({}), dataNotObject({}, 'Makaron')],

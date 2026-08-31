@@ -18,6 +18,8 @@ import { RecipesService } from './recipes.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
 import { FindRecipesDto } from './dto/find-recipes.dto';
+import { SearchIngredientsDto } from './dto/search-ingredients.dto';
+import { IngredientsService } from './ingredients.service';
 import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
@@ -38,6 +40,17 @@ class RecipesFindAllPayload {
   @IsOptional()
   @IsObject()
   filters?: FindRecipesDto;
+}
+
+class IngredientsSearchPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsOptional()
+  @IsObject()
+  filters?: SearchIngredientsDto;
 }
 
 class RecipesFindByIdPayload {
@@ -83,6 +96,7 @@ export class RecipesGateway
 
   constructor(
     private readonly recipesService: RecipesService,
+    private readonly ingredientsService: IngredientsService,
     private readonly wsTelemetry: WsTelemetryService,
   ) {}
 
@@ -108,6 +122,29 @@ export class RecipesGateway
       // Koperta ma same pola opcjonalne, więc `payload === undefined` przechodzi
       // walidację — `?.` zamiast TypeError → INTERNAL_ERROR.
       return this.recipesService.findAll(userId, payload?.filters);
+    });
+  }
+
+  /**
+   * Składnik po NAZWIE — jedyna droga od „pierś z kurczaka" do identyfikatora,
+   * którego wymaga `recipes:create`. Katalog składników jest wspólny, więc
+   * wynik nie zależy od gospodarstwa; wystarczy być zalogowanym.
+   */
+  @SubscribeMessage('ingredients:search')
+  searchIngredients(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: IngredientsSearchPayload,
+  ) {
+    return wsRespond(async () => {
+      actorId(client, payload);
+      // Zwalidowana koperta, nie surowa: `payload` bywa `undefined` (stare
+      // buildy wołają bez argumentu), a `validateWsPayload` sprowadza to do
+      // pustego obiektu i przy okazji obcina pola spoza whitelisty.
+      const envelope = await validateWsPayload(
+        IngredientsSearchPayload,
+        payload,
+      );
+      return this.ingredientsService.search(envelope.filters ?? {});
     });
   }
 
