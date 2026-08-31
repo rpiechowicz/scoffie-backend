@@ -36,7 +36,9 @@ function parseLines(content: string): string[] {
 async function main(): Promise<void> {
   const catalogDir = join(process.cwd(), 'prisma', 'catalog');
   const files = await readdir(catalogDir);
-  const catalogFiles = files.filter((file) => file.endsWith('.txt') && CATEGORY_BY_FILE[file]);
+  const catalogFiles = files.filter(
+    (file) => file.endsWith('.txt') && CATEGORY_BY_FILE[file],
+  );
 
   let processed = 0;
   let upserted = 0;
@@ -88,17 +90,17 @@ async function main(): Promise<void> {
     }
 
     processed += 1;
-    // eslint-disable-next-line no-console
-    console.log(`[catalog] loaded ${names.length} ingredients from ${basename(fileName)} -> ${category}`);
+
+    console.log(
+      `[catalog] loaded ${names.length} ingredients from ${basename(fileName)} -> ${category}`,
+    );
   }
 
-  // eslint-disable-next-line no-console
   console.log(`[catalog] done. files=${processed}, upserts=${upserted}`);
 }
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Ingredient catalog load failed:', error);
     process.exit(1);
   })

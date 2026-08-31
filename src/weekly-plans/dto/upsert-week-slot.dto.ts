@@ -2,31 +2,35 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   IsArray,
+  IsEnum,
   IsIn,
   IsInt,
   IsOptional,
-  IsString,
   IsUUID,
   Max,
   Min,
 } from 'class-validator';
-import { MealType } from '@prisma/client';
+import { DayOfWeek, MealType } from '@prisma/client';
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 
-const dayOfWeek = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
-const mealType = MEAL_TYPE_VALUES;
-
+/**
+ * Dekoratory niżej są od Fazy 0 (krok 2) egzekwowane także na WebSockecie —
+ * serwis woła `validateDto(UpsertWeekSlotDto, dto)` na wejściu, więc zły enum
+ * albo nie-UUID wraca jako `VALIDATION_ERROR` z listą dozwolonych wartości,
+ * a nie jako `PrismaClientValidationError` → 500. Enumy pochodzą wprost z
+ * Prismy (jedno źródło prawdy z bazą i z iOS), nie z lokalnych kopii list.
+ */
 export class UpsertWeekSlotDto {
-  @ApiProperty({ enum: dayOfWeek })
-  @IsIn(dayOfWeek)
-  dayOfWeek: (typeof dayOfWeek)[number];
+  @ApiProperty({ enum: DayOfWeek })
+  @IsEnum(DayOfWeek)
+  dayOfWeek: DayOfWeek;
 
-  @ApiProperty({ enum: mealType })
-  @IsIn(mealType)
+  @ApiProperty({ enum: MEAL_TYPE_VALUES })
+  @IsIn(MEAL_TYPE_VALUES)
   mealType: MealType;
 
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
-  @IsString()
+  @IsUUID()
   recipeId: string;
 
   /**
@@ -70,8 +74,9 @@ export class UpsertWeekSlotDto {
    * dania (po odsianiu byłych domowników); pominięte `plannedServings`
    * zachowuje ręcznie wybraną liczbę porcji, a auto przelicza na nowo.
    *
-   * Dekoratory nie odpalają się na ścieżce WS (patrz `plannedServings`),
-   * więc formatu pilnuje `parseReplaceRecipeId` w serwisie.
+   * iOS wysyła to pole wyłącznie wtedy, gdy ma co podmienić (nigdy `""` ani
+   * `null`), więc `@IsOptional()` + `@IsUUID()` opisuje dokładnie to, co
+   * przychodzi.
    */
   @ApiPropertyOptional({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   @IsOptional()

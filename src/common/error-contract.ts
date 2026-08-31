@@ -43,6 +43,18 @@ export type HttpErrorBody = {
   requestId: string;
 };
 
+/**
+ * Kody 503, które są ŚWIADOMĄ odmową, a nie awarią: asystent wyłączony flagą,
+ * wstrzymany budżetem albo bezpiecznikiem dostawcy. Bez tej listy każde takie
+ * 503 szło do logu jako ERROR ze stackiem — a `AI_ENABLED=false` to normalny
+ * stan produkcji przez całą Fazę 0.
+ */
+const EXPECTED_UNAVAILABLE_CODES = new Set<AppErrorCode>([
+  'AI_DISABLED',
+  'AI_BUDGET_PAUSED',
+  'AI_UPSTREAM_PAUSED',
+]);
+
 export const INTERNAL_ERROR_MESSAGE =
   'Wystąpił błąd serwera. Spróbuj ponownie za chwilę.';
 
@@ -77,6 +89,15 @@ const PRISMA_CODE_MAP: Readonly<
     message: 'Nieprawidłowe odwołanie do powiązanego rekordu.',
     status: HttpStatus.BAD_REQUEST,
   },
+  // „Inconsistent column data": nie-UUID w kolumnie `@db.Uuid`, zła data —
+  // wejście klienta, nie awaria. Właściwa bramka to `assertUuid`/`@IsUUID()`
+  // na wejściu serwisu (te niosą nazwę pola); to jest ostatnia deska, żeby
+  // przeoczony identyfikator nie wychodził jako 500.
+  P2023: {
+    code: 'VALIDATION_ERROR',
+    message: 'Nieprawidłowy format danych.',
+    status: HttpStatus.BAD_REQUEST,
+  },
 };
 
 function readHttpMessage(
@@ -105,12 +126,16 @@ function isHttpErrorLike(
 ): error is { statusCode: number; message?: string } {
   if (!error || typeof error !== 'object') return false;
   const statusCode = (error as { statusCode?: unknown }).statusCode;
-  return typeof statusCode === 'number' && statusCode >= 400 && statusCode < 600;
+  return (
+    typeof statusCode === 'number' && statusCode >= 400 && statusCode < 600
+  );
 }
 
 function internalError(error: unknown): MappedError {
   const message =
-    error instanceof Error ? error.message : `Non-error thrown: ${String(error)}`;
+    error instanceof Error
+      ? error.message
+      : `Non-error thrown: ${String(error)}`;
   return {
     contract: {
       code: 'INTERNAL_ERROR',
@@ -139,19 +164,23 @@ export function mapError(error: unknown): MappedError {
       },
       log:
         status >= 500
-          ? { level: 'error', message: response.message, stack: error.stack }
+          ? EXPECTED_UNAVAILABLE_CODES.has(response.code)
+            ? { level: 'warn', message: response.message }
+            : { level: 'error', message: response.message, stack: error.stack }
           : null,
     };
   }
 
   // 2. Goły wyjątek Nesta (także z ValidationPipe): kod ze statusu.
   if (error instanceof HttpException) {
+    // `getStatus()` oddaje goły number; porównania z enumem `HttpStatus` są
+    // celowe, stąd rzutowanie (bez niego linter widzi enum kontra number).
     const status = error.getStatus();
     const { message, details } = readHttpMessage(
       error.getResponse(),
       error.message,
     );
-    if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (status === (HttpStatus.INTERNAL_SERVER_ERROR as number)) {
       return internalError(error);
     }
     if (status >= 500) {
@@ -165,7 +194,7 @@ export function mapError(error: unknown): MappedError {
       };
     }
     const code =
-      details && status === HttpStatus.BAD_REQUEST
+      details && status === (HttpStatus.BAD_REQUEST as number)
         ? 'VALIDATION_ERROR'
         : (STATUS_CODE_MAP[status] ?? 'HTTP_ERROR');
     return {

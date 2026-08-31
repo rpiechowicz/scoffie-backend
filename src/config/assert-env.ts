@@ -1,4 +1,7 @@
 import { parseEncryptionKey } from '../common/crypto.util';
+import { throttleEnvProblems } from '../common/throttle/throttle-env';
+import { agentEnvProblems } from './agent-env';
+import { wsAuthModeProblem } from './ws-auth-mode';
 
 /**
  * Wartości, które leżą w repo (`.env.example`, CI, fallbacki w kodzie).
@@ -67,6 +70,19 @@ export function inspectRuntimeEnv(
     // Pepper istnieje po to, żeby wyciek jednego sekretu nie oddawał obu.
     problems.push('REFRESH_TOKEN_PEPPER jest równy JWT_SECRET');
   }
+
+  // Literówka w trybie auth WS po cichu dawałaby `soft` — na produkcji to ma
+  // być świadoma decyzja, nie przypadek.
+  const wsAuthProblem = wsAuthModeProblem(env);
+  if (wsAuthProblem) problems.push(wsAuthProblem);
+
+  // Asystent AI: przy AI_ENABLED pustym/false nic nie jest wymagane (merge bez
+  // zmiennych na Railway); `true` z dostawcą anthropic wymaga klucza.
+  problems.push(...agentEnvProblems(env));
+
+  // Limity throttlera: zła wartość po cichu wracałaby do domyślnej, a na
+  // produkcji ma to być widoczne.
+  problems.push(...throttleEnvProblems(env));
 
   // Poniższe mają sens tylko na produkcji — dev bez Cookidoo ma prawo żyć.
   const productionOnly: string[] = [];

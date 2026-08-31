@@ -45,9 +45,7 @@ export function mapDepartmentLabel(
 /// „canonicalizer” (`/sol/` → „Sól”), który przemianowywał fasolę na sól
 /// i scalał kawałki kurczaka w jeden wiersz. Nazwa z katalogu jest już
 /// kanoniczna, więc lista używa jej dosłownie.
-export function toShoppingDepartment(
-  rawDepartment?: string | null,
-): string {
+export function toShoppingDepartment(rawDepartment?: string | null): string {
   const trimmed = (rawDepartment ?? '').trim();
   if (!trimmed) return ShoppingDepartment.OTHER;
   if (SHOPPING_DEPARTMENT_VALUES.has(trimmed)) return trimmed;

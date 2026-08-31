@@ -5,8 +5,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
-const mockHouseholdId = 'hh-1';
-const mockUserId = 'user-1';
+// Prawdziwe UUID v4 — `ensureMembership` bramkuje format przez `assertUuid`,
+// więc `hh-1` zatrzymałoby się na VALIDATION_ERROR przed logiką pod testem.
+const mockHouseholdId = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+const mockUserId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const mockArchiveId = '44444444-4444-4444-8444-444444444444';
 const mockWeekStart = '2026-04-13'; // Monday
 
 const mockMembership = {
@@ -100,12 +103,17 @@ const makePrismaMock = () => {
     shoppingListArchiveState: {
       findUnique: jest.fn().mockResolvedValue(null),
       upsert: jest.fn().mockResolvedValue({}),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      create: jest.fn().mockResolvedValue({}),
     },
     shoppingListArchive: {
       findUnique: jest.fn().mockResolvedValue(null),
+      findFirst: jest.fn().mockResolvedValue(null),
       aggregate: jest.fn().mockResolvedValue({ _max: { revision: null } }),
       create: jest.fn().mockResolvedValue({ id: 'arch-new' }),
       update: jest.fn().mockResolvedValue({}),
+      delete: jest.fn().mockResolvedValue({}),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     $transaction: jest.fn().mockImplementation((cbOrOps: any) => {
       if (typeof cbOrOps === 'function') {
@@ -410,7 +418,10 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
   it('powinno odrzucić gdy użytkownik nie jest członkiem household', async () => {
     prisma.membership.findUnique.mockResolvedValue(null);
 
-    await expect(getList()).rejects.toMatchObject({ status: 403, response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
+    await expect(getList()).rejects.toMatchObject({
+      status: 403,
+      response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+    });
   });
 });
 
@@ -491,9 +502,7 @@ describe('ShoppingListService — zaznaczenia i archiwum', () => {
     // 0.375 g szczypty w sumie vs 0.38 g zapisane w archiwum — bez
     // zaokrąglenia przed porównaniem każde odświeżenie zdejmowało ptaszek.
     prisma.weeklyPlan.findUnique.mockResolvedValue(
-      weekPlanWith([
-        dayItem('i-1', 1, 'LUNCH', [ingredient('sól', 0.375)]),
-      ]),
+      weekPlanWith([dayItem('i-1', 1, 'LUNCH', [ingredient('sól', 0.375)])]),
     );
     prisma.shoppingList.upsert.mockResolvedValue({
       id: 'sl-1',
@@ -510,7 +519,9 @@ describe('ShoppingListService — zaznaczenia i archiwum', () => {
   });
 
   it('składnik bez normalizedAmount wchodzi w surowej ilości i zostawia ostrzeżenie', async () => {
-    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
     prisma.weeklyPlan.findUnique.mockResolvedValue(
       weekPlanWith([
         dayItem('i-1', 1, 'LUNCH', [
@@ -611,6 +622,226 @@ describe('ShoppingListService — zaznaczenia i archiwum', () => {
         }),
       );
       expect(result).toEqual({ archiveId: 'arch-9' });
+    });
+
+    // `weekLabel` to skalar z koperty (nie DTO), więc bramka jest ręczna —
+    // ale ma zatrzymać się PRZED membership i transakcją, jak `validateDto`.
+    it.each([
+      ['pusty napis', ''],
+      ['same spacje', '   '],
+      ['65 znaków', 'x'.repeat(65)],
+      ['liczba', 42],
+      ['brak', undefined],
+    ])(
+      'weekLabel: %s → VALIDATION_ERROR, Prisma nietknięta',
+      async (_, label) => {
+        await expect(
+          service.archiveShoppingList(
+            mockUserId,
+            mockHouseholdId,
+            mockWeekStart,
+            label as never,
+          ),
+        ).rejects.toMatchObject({
+          status: 400,
+          response: {
+            code: 'VALIDATION_ERROR',
+            details: [
+              'weekLabel must be a non-empty string up to 64 characters',
+            ],
+          },
+        });
+        expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      },
+    );
+
+    it('weekLabel o długości 64 przechodzi bramkę', async () => {
+      await expect(
+        service.archiveShoppingList(
+          mockUserId,
+          mockHouseholdId,
+          mockWeekStart,
+          'x'.repeat(64),
+        ),
+      ).rejects.toMatchObject({ response: { code: 'SHOPPING_LIST_EMPTY' } });
+      expect(prisma.membership.findUnique).toHaveBeenCalled();
+    });
+  });
+});
+
+// ─── Walidacja wejścia i kody błędów (Faza 0, krok 2) ────────────────────────
+//
+// Nie-UUID w `archiveId`/`householdId` kończył się P2023 z Postgresa → 500;
+// brak archiwum albo pozycji leciał jako goły `NotFoundException` bez kodu,
+// po którym iOS mógłby zdecydować. Teraz: VALIDATION_ERROR przed pierwszym
+// zapytaniem, a „nie ma" ma własny kod z listy `APP_ERROR_CODES`.
+
+describe('ShoppingListService — walidacja i kody', () => {
+  let service: ShoppingListService;
+  let prisma: ReturnType<typeof makePrismaMock>;
+
+  beforeEach(async () => {
+    prisma = makePrismaMock();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ShoppingListService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+    service = module.get<ShoppingListService>(ShoppingListService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  const validationError = (details: string[]) => ({
+    status: 400,
+    response: { code: 'VALIDATION_ERROR', details },
+  });
+
+  it('getShoppingList: nie-UUID householdId → VALIDATION_ERROR przed membership', async () => {
+    await expect(
+      service.getShoppingList(mockUserId, 'hh-1', mockWeekStart),
+    ).rejects.toMatchObject(validationError(['householdId must be a UUID']));
+    expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+  });
+
+  describe.each([
+    ['selectShoppingListArchive', 'select'],
+    ['deleteShoppingListArchive', 'delete'],
+  ] as const)('%s', (_, kind) => {
+    const call = (archiveId: string) =>
+      kind === 'select'
+        ? service.selectShoppingListArchive(
+            mockUserId,
+            mockHouseholdId,
+            archiveId,
+          )
+        : service.deleteShoppingListArchive(
+            mockUserId,
+            mockHouseholdId,
+            archiveId,
+          );
+
+    it("archiveId 'arch-1' → VALIDATION_ERROR, bez membership i transakcji", async () => {
+      await expect(call('arch-1')).rejects.toMatchObject(
+        validationError(['archiveId must be a UUID']),
+      );
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('brak archiwum → SHOPPING_LIST_ARCHIVE_NOT_FOUND 404', async () => {
+      prisma.shoppingListArchive.findUnique.mockResolvedValue(null);
+
+      await expect(call(mockArchiveId)).rejects.toMatchObject({
+        status: 404,
+        response: { code: 'SHOPPING_LIST_ARCHIVE_NOT_FOUND' },
+      });
+      expect(prisma.shoppingListArchiveState.upsert).not.toHaveBeenCalled();
+      expect(prisma.shoppingListArchive.delete).not.toHaveBeenCalled();
+    });
+
+    it('archiwum innego gospodarstwa → ten sam 404 (nie zdradzamy, że istnieje)', async () => {
+      prisma.shoppingListArchive.findUnique.mockResolvedValue({
+        id: mockArchiveId,
+        householdId: '55555555-5555-4555-8555-555555555555',
+        weekStart: new Date(mockWeekStart),
+      });
+
+      await expect(call(mockArchiveId)).rejects.toMatchObject({
+        status: 404,
+        response: { code: 'SHOPPING_LIST_ARCHIVE_NOT_FOUND' },
+      });
+      expect(prisma.shoppingListArchive.delete).not.toHaveBeenCalled();
+    });
+
+    it('trafione archiwum → weekStart jako YYYY-MM-DD', async () => {
+      prisma.shoppingListArchive.findUnique.mockResolvedValue({
+        id: mockArchiveId,
+        householdId: mockHouseholdId,
+        weekStart: new Date(mockWeekStart),
+      });
+
+      await expect(call(mockArchiveId)).resolves.toEqual({
+        archiveId: mockArchiveId,
+        weekStart: mockWeekStart,
+      });
+      expect(prisma.shoppingListArchiveState.upsert).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('setShoppingItemChecked', () => {
+    const check = (dto: unknown) =>
+      service.setShoppingItemChecked(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        dto as never,
+      );
+
+    it.each([
+      [
+        'isChecked jako napis',
+        { productKey: 'mleko::l', isChecked: 'tak' },
+        ['isChecked must be a boolean value'],
+      ],
+      [
+        'pusty productKey',
+        { productKey: '', isChecked: true },
+        ['productKey must be longer than or equal to 1 characters'],
+      ],
+      [
+        'productKey ponad 200 znaków',
+        { productKey: 'x'.repeat(201), isChecked: true },
+        ['productKey must be shorter than or equal to 200 characters'],
+      ],
+      [
+        'brak data',
+        undefined,
+        [
+          'productKey must be shorter than or equal to 200 characters',
+          'productKey must be longer than or equal to 1 characters',
+          'productKey must be a string',
+          'isChecked must be a boolean value',
+        ],
+      ],
+    ])('%s → VALIDATION_ERROR, Prisma nietknięta', async (_, dto, details) => {
+      await expect(check(dto)).rejects.toMatchObject(validationError(details));
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('brak pozycji na liście → SHOPPING_ITEM_NOT_FOUND 404', async () => {
+      // Snapshot bez pozycji o tym kluczu: mock `shoppingList.findUnique`
+      // oddaje `items: []` niezależnie od `where`.
+      await expect(
+        check({ productKey: 'mleko::l', isChecked: true }),
+      ).rejects.toMatchObject({
+        status: 404,
+        response: { code: 'SHOPPING_ITEM_NOT_FOUND' },
+      });
+    });
+
+    it('trafiona pozycja → zapis w snapshocie i w ShoppingItemCheck', async () => {
+      prisma.shoppingList.findUnique.mockImplementation((args: any) =>
+        Promise.resolve(
+          args?.select?.id
+            ? { id: 'sl-1', items: [{ productKey: 'mleko::l' }] }
+            : { id: 'sl-1', isStale: false, items: [] },
+        ),
+      );
+      prisma.shoppingListItem.update = jest.fn().mockResolvedValue({});
+      prisma.shoppingItemCheck.upsert = jest
+        .fn()
+        .mockResolvedValue({ productKey: 'mleko::l', isChecked: true });
+
+      await expect(
+        check({ productKey: 'mleko::l', isChecked: true }),
+      ).resolves.toEqual({ productKey: 'mleko::l', isChecked: true });
+      expect(prisma.shoppingListItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { isChecked: true } }),
+      );
     });
   });
 });

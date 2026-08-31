@@ -1,7 +1,8 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { DietPreferenceValue, Prisma, Sex, UserGoal } from '@prisma/client';
 import { AppException } from '../common/app-exception';
 import { normalizeAllergenIds } from '../common/allergens';
+import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -19,8 +20,9 @@ const ACTIVITY_LEVEL_MIN = 1;
 const ACTIVITY_LEVEL_MAX = 4;
 const ACTIVITY_LEVEL_DEFAULT = 2;
 // Gorne granice makr. Te same liczby stoja w `@Min/@Max` DTO
-// (`update-preferences.dto.ts`), ale DTO nie ma jak zadzialac na
-// WebSockecie, wiec twarde przyciecie musi byc tutaj.
+// (`update-preferences.dto.ts`) i od Fazy 0 to DTO odrzuca wartosci spoza
+// zakresu (`validateDto` na wejsciu). Przyciecie zostaje jako druga linia —
+// wywolania in-process (narzedzia asystenta) moga kiedys ominac DTO.
 const PROTEIN_G_MAX = 400;
 const FAT_G_MAX = 300;
 const CARBS_G_MAX = 800;
@@ -105,11 +107,16 @@ export class UsersService {
    * Update the supplied profile fields (displayName, yearOfBirth, height,
    * weight). Used by the welcome flow's Profile step and Settings. Omitted
    * fields are left intact.
+   *
+   * `validateDto` na wejściu: WebSocket nie uruchamia dekoratorów DTO, a
+   * narzędzia asystenta wołają tę metodę bezpośrednio — bez tej linii 835 kg
+   * albo `sex: 'X'` szłyby do Prismy i wracały jako 500.
    */
   async updateProfile(
     userId: string,
-    data: UpdateProfileDto,
+    input: UpdateProfileDto,
   ): Promise<UserProfilePayload> {
+    const data = await validateDto(UpdateProfileDto, input);
     const update: Prisma.UserUpdateInput = {};
 
     if (data.displayName !== undefined) {
@@ -151,7 +158,11 @@ export class UsersService {
     });
 
     if (!existing) {
-      throw new NotFoundException('User not found');
+      throw new AppException(
+        'NOT_FOUND',
+        'Nie znaleziono użytkownika.',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     if (existing.onboardingCompletedAt) {
@@ -292,11 +303,18 @@ export class UsersService {
    * Allergens are de-duplicated and lowercased server-side so the storage
    * format matches the iOS enum's raw values regardless of how the client
    * normalises them.
+   *
+   * `validateDto` na wejściu jest JEDYNYM miejscem, w którym dekoratory DTO
+   * faktycznie się uruchamiają dla WebSocketu i wywołań in-process: zły enum
+   * (`dietPreference: 'vegan'`), `pushPlanChanges: 'true'`, `calorieGoal:
+   * 'abc'` kończą się VALIDATION_ERROR z listą dozwolonych ZANIM cokolwiek
+   * dotknie Prismy. Klamry niżej zostają jako druga linia obrony.
    */
   async updatePreferences(
     userId: string,
-    data: UpdatePreferencesDto,
+    input: UpdatePreferencesDto,
   ): Promise<UserPreferencesPayload> {
+    const data = await validateDto(UpdatePreferencesDto, input);
     const update: Prisma.UserPreferenceUpdateInput = {};
     const create: Prisma.UserPreferenceCreateInput = {
       user: { connect: { id: userId } },
@@ -340,8 +358,8 @@ export class UsersService {
     }
 
     // `null` przechodzi nietkniete — to jest sygnal „wroc do liczenia
-    // automatem", a nie brak wartosci. Liczby przycinamy jak `calorieGoal`,
-    // bo na WebSockecie `@Min/@Max` z DTO nigdy sie nie uruchamiaja.
+    // automatem", a nie brak wartosci. Liczby przycinamy jak `calorieGoal`
+    // (druga linia za `@Min/@Max` w DTO, patrz `validateDto` wyzej).
     if (data.proteinG !== undefined) {
       const value = clampMacro(data.proteinG, PROTEIN_G_MAX, 'proteinG');
       update.proteinG = value;
@@ -378,10 +396,9 @@ export class UsersService {
       // Pusty string traktujemy jak `null` — klient bez ustawionej strefy nie
       // ma nadpisywac tej, ktora juz w bazie jest, wartoscia bez znaczenia.
       //
-      // Przyciecie dlugosci jest tu, a nie tylko w `@MaxLength` na DTO, bo
-      // preferencje jada takze WebSocketem, a tamta sciezka nie uruchamia
-      // walidacji zagniezdzonego `data` (patrz `weekly-plans.gateway.ts`).
-      // Najdluzszy realny identyfikator IANA ma ~32 znaki.
+      // Przyciecie dlugosci zostaje obok `@MaxLength(64)` z DTO jako druga
+      // linia (wywolania in-process). Najdluzszy realny identyfikator IANA
+      // ma ~32 znaki.
       const normalised = data.timeZone?.trim().slice(0, 64) || null;
       update.timeZone = normalised;
       create.timeZone = normalised;
@@ -455,7 +472,11 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new AppException(
+        'NOT_FOUND',
+        'Nie znaleziono użytkownika.',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     const now = new Date();

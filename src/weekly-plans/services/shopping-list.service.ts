@@ -1,11 +1,8 @@
-import {
-  HttpStatus,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
+import { assertUuid } from '../../common/uuid';
+import { validateDto } from '../../common/validate-dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateShoppingItemCheckDto } from '../dto/update-shopping-item-check.dto';
 import type {
@@ -28,6 +25,37 @@ import {
 } from '../utils/shopping-items.util';
 import { ensureMembership } from '../utils/auth-checks.util';
 import { runSerializable } from '../utils/transaction-runner.util';
+
+/** Etykieta archiwum jest wpisywana ręcznie — górna granica jak dla nazwy gospodarstwa. */
+const WEEK_LABEL_MAX_LENGTH = 64;
+
+/**
+ * `weekLabel` to skalar z koperty, nie DTO — bramka ręczna, w stylu
+ * `assertUuid`, żeby `details` wyglądały jak z class-validator. Bez niej
+ * `weekLabel: 42` szedł prosto do kolumny `String` → PrismaClientValidationError
+ * → 500, a pusty napis zakładał archiwum bez nazwy.
+ */
+function assertWeekLabel(weekLabel: unknown): string {
+  if (
+    typeof weekLabel !== 'string' ||
+    weekLabel.trim().length === 0 ||
+    weekLabel.length > WEEK_LABEL_MAX_LENGTH
+  ) {
+    const detail = `weekLabel must be a non-empty string up to ${WEEK_LABEL_MAX_LENGTH} characters`;
+    throw new AppException('VALIDATION_ERROR', detail, HttpStatus.BAD_REQUEST, [
+      detail,
+    ]);
+  }
+  return weekLabel;
+}
+
+function archiveNotFound(): AppException {
+  return new AppException(
+    'SHOPPING_LIST_ARCHIVE_NOT_FOUND',
+    'Nie znaleziono archiwum listy zakupów',
+    HttpStatus.NOT_FOUND,
+  );
+}
 
 /// Owns the per-household shopping list aggregation, snapshotting,
 /// archival, and item-check operations. Split out of WeeklyPlansService
@@ -523,8 +551,9 @@ export class ShoppingListService {
     userId: string,
     householdId: string,
     weekStart: string,
-    weekLabel: string,
+    weekLabelInput: string,
   ) {
+    const weekLabel = assertWeekLabel(weekLabelInput);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
@@ -636,6 +665,9 @@ export class ShoppingListService {
     householdId: string,
     archiveId: string,
   ) {
+    // `archiveId` idzie w `findUnique` po kolumnie `@db.Uuid` — bez bramki
+    // śmieć z koperty kończył się P2023 → 500.
+    assertUuid(archiveId, 'archiveId');
     await ensureMembership(this.prisma, userId, householdId);
 
     return runSerializable(this.prisma, async (tx) => {
@@ -648,8 +680,9 @@ export class ShoppingListService {
         },
       });
 
+      // Cudze archiwum = „nie ma takiego": nie zdradzamy, że id istnieje.
       if (!archive || archive.householdId !== householdId) {
-        throw new NotFoundException('Shopping list archive not found');
+        throw archiveNotFound();
       }
 
       await tx.shoppingListArchiveState.upsert({
@@ -681,6 +714,7 @@ export class ShoppingListService {
     householdId: string,
     archiveId: string,
   ) {
+    assertUuid(archiveId, 'archiveId');
     await ensureMembership(this.prisma, userId, householdId);
 
     return runSerializable(this.prisma, async (tx) => {
@@ -694,7 +728,7 @@ export class ShoppingListService {
       });
 
       if (!archive || archive.householdId !== householdId) {
-        throw new NotFoundException('Shopping list archive not found');
+        throw archiveNotFound();
       }
 
       const weekStart = archive.weekStart;
@@ -786,8 +820,11 @@ export class ShoppingListService {
     userId: string,
     householdId: string,
     weekStart: string,
-    dto: UpdateShoppingItemCheckDto,
+    input: UpdateShoppingItemCheckDto,
   ) {
+    // Walidacja na wejściu, PRZED pierwszym zapytaniem — dekoratory DTO nie
+    // działają na WS, a `isChecked: "tak"` szło dotąd prosto do Prismy.
+    const dto = await validateDto(UpdateShoppingItemCheckDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
@@ -815,8 +852,10 @@ export class ShoppingListService {
       });
 
       if (!snapshot || snapshot.items.length === 0) {
-        throw new NotFoundException(
-          'Shopping item not found for this household and week',
+        throw new AppException(
+          'SHOPPING_ITEM_NOT_FOUND',
+          'Nie znaleziono pozycji listy zakupów',
+          HttpStatus.NOT_FOUND,
         );
       }
 

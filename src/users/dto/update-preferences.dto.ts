@@ -23,14 +23,20 @@ import { ALLERGEN_IDS, ALLERGEN_ID_VALUES } from '../../common/allergens';
  * `calorieGoal` after the user moves the slider) without re-sending the
  * full preferences object. The service merges into the existing row.
  *
+ * Od Fazy 0 dekoratory działają także na WebSockecie: `UsersService.
+ * updatePreferences` woła `validateDto(UpdatePreferencesDto)` na wejściu,
+ * więc zły enum (`dietPreference: 'vegan'`), string zamiast booleana
+ * (`pushPlanChanges: 'true'`) albo liczba spoza zakresu kończą się
+ * VALIDATION_ERROR z listą dozwolonych, a nie 500 z Prismy.
+ *
  * Validation matches the iOS UI bounds:
+ *   - dietPreference / goal: enumy Prismy (jedno źródło prawdy z bazą)
  *   - calorieGoal: 1200…3500, clamped server-side as a defence in depth
  *   - activityLevel: 1…4 (sedentary → very active), clamped server-side
- *   - allergens: at most 32 ids from ALLERGEN_IDS; enforced server-side in
- *     the service (`normalizeAllergenIds`) because the WS path skips these
- *     decorators entirely
- *   - proteinG/fatG/carbsG: 0..400/300/800 or null; clamped server-side
- *     (`clampMacro`) for the same reason
+ *   - allergens: at most 32 ids from ALLERGEN_IDS; the service additionally
+ *     runs `normalizeAllergenIds` (sort + dedup, defence in depth)
+ *   - proteinG/fatG/carbsG: 0..400/300/800 or null; `clampMacro` in the
+ *     service stays as defence in depth
  */
 export class UpdatePreferencesDto {
   @ApiPropertyOptional({ enum: DietPreferenceValue, example: 'VEGETARIAN' })
@@ -51,9 +57,8 @@ export class UpdatePreferencesDto {
     isArray: true,
     description:
       'Lowercase allergen IDs matching the iOS Allergen enum. ' +
-      'Uwaga: te dekoratory NIE dzialaja na sciezce WebSocketu ' +
-      '(payload gatewaya nie ma @ValidateNested) — twarda walidacja siedzi ' +
-      'w UsersService.updatePreferences przez normalizeAllergenIds().',
+      'Nieznane id to VALIDATION_ERROR calego zapisu (lista dozwolonych w ' +
+      'details); serwis dodatkowo sortuje i deduplikuje (normalizeAllergenIds).',
   })
   @IsOptional()
   @IsArray()

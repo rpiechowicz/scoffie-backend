@@ -72,6 +72,11 @@ That means deploy startup can:
 - run pending Prisma migrations
 - repair a known broken migration path
 - optionally bootstrap recipes
+- load ingredient allergen/diet tags once, when the catalog has rows but none
+  of them carries a tag (a database that received the tag columns from a
+  migration without ever running the loader); empty tags read as "no allergen,
+  every diet satisfied", so this must not wait for a manual
+  `pnpm catalog:ingredients:tags`
 - optionally backfill missing R2 image URLs
 
 ## Important safety rule
@@ -119,6 +124,95 @@ If the deploy is unhealthy:
 3. Leave database state intact unless the rollback plan explicitly includes schema rollback
 
 Avoid emergency database mutations unless the issue is confirmed to be migration-related.
+
+## WebSocket auth rollout (`WS_AUTH_MODE`)
+
+Since Phase 0 the Socket.IO handshake carries the access token (`auth: { token }`
+or `Authorization: Bearer`). Identity comes from the token, broadcasts go to
+`household:<id>` rooms. Rollout order, because old iOS builds send no token:
+
+1. Deploy backend with `WS_AUTH_MODE` unset (= `soft`): sockets with a token are
+   verified, sockets without one keep working as `legacy` (identity from the
+   payload, as before). No Railway variable is required for this step — but
+   check with `railway variables --service Backend` that `REFRESH_TOKEN_DAYS`
+   is unset or ≥ 60 and `JWT_EXPIRES_IN` is unset or shorter than that; the
+   refresh token must outlive the access token for the iOS refresh to work.
+2. Ship the iOS build that sends the token in the handshake and refreshes it.
+3. Watch `GET /ops/metrics` → `http.wsAuth.handshakes.legacy` and `legacyActs`.
+   When they stop growing (both phones updated), set `WS_AUTH_MODE=strict` on
+   the `Backend` service — no token = `connect_error` with
+   `{code: 'UNAUTHORIZED', reason: 'missing'}`.
+
+`WS_AUTH_MODE` is read per handshake; a typo is a boot violation in production.
+Refresh tokens now default to 60 days (`REFRESH_TOKEN_DAYS`), reuse of a rotated
+refresh token revokes the whole family (deliberate: a lost refresh response
+means re-login on every device of that user), and `POST /auth/logout` revokes
+one refresh token — the access token stays valid until its `exp` (30 days by
+default), which is why the next step after iOS adoption is a shorter
+`JWT_EXPIRES_IN`. A verification outage (database) during the handshake is
+reported as `SERVICE_UNAVAILABLE`, not `UNAUTHORIZED`, so clients keep their
+auto-reconnect instead of refreshing tokens.
+
+## Assistant rollout (`AI_ENABLED`)
+
+The assistant ships **off**. Every `AI_*` and `THROTTLE_*` variable has a
+default, so merging Phase 0 to `main` needs no new Railway variable — this is
+deliberate after the 28.08.2026 incident (a new build asserting a missing
+variable cost ~10 minutes of downtime).
+
+Turning it on, in this order:
+
+1. Set `ANTHROPIC_API_KEY` on the `Backend` service **first**
+   (`railway variables --service Backend --skip-deploys --set ANTHROPIC_API_KEY=...`).
+   With `AI_ENABLED=true` and no key the assistant behaves as disabled, so a
+   wrong order costs a `503`, not a crash — but check
+   `railway logs --service Backend` for the `[env]` warning either way.
+2. Optionally cap the spend: `AI_GLOBAL_DAILY_BUDGET_USD` (daily, whole
+   installation) and `AI_LIMIT_MESSAGES_PER_MONTH` (per household).
+3. Set `AI_ENABLED=true` and let the service restart.
+4. Verify: `GET /ops/metrics` → `agent.turns` (started/done/failed),
+   `agent.rejected` (disabled/quota/budget/upstream/inProgress),
+   `agent.usage.costMicroUsd`.
+
+Turning it off is one variable (`AI_ENABLED=false`) and takes effect on the next
+restart — the flag is read per request, and no other module imports
+`src/agent/` (enforced by ESLint). Conversations already stored are untouched;
+users can delete their own with `DELETE /agent/conversations`, which works
+regardless of the flag.
+
+Safety valves that need no operator action: a turn is aborted after
+`AI_TURN_TIMEOUT_MS` (`FAILED` / `AI_TIMEOUT`), five provider 429/5xx inside
+five minutes open a 60-second circuit breaker (`503 AI_UPSTREAM_PAUSED`), and a
+failed turn refunds the message quota it consumed at start.
+
+## Catalog vs household recipes (`isCatalog`) — before deploying
+
+Migration `20260831120000_katalog_a_przepisy_gospodarstwa` adds `Recipe.isCatalog`
+and, by design, marks **every recipe that exists at deploy time** as catalog. That
+is the no-regression choice: those recipes are visible to everyone _today_, so
+nothing disappears from anyone's list. New recipes default to `false`.
+
+The consequence to check first: if production already holds recipes created by a
+household (not by the import bot), they stay globally visible instead of becoming
+private. Verify before deploying:
+
+```sql
+SELECT "householdId", "authorId", count(*)
+FROM "Recipe"
+GROUP BY 1, 2
+ORDER BY 3 DESC;
+```
+
+One row (the catalog household, author = import bot) means nothing to do. Extra
+rows are household recipes — after the deploy, flip them by hand:
+
+```sql
+UPDATE "Recipe" SET "isCatalog" = false WHERE "householdId" <> '<catalog household>';
+```
+
+The migration itself is idempotent and safe to re-run: the backfill rides on the
+column's `DEFAULT` at `ADD COLUMN` time (then the default flips to `false`), so a
+second run cannot re-mark recipes created after it.
 
 ## Railway — healthcheck wdrożenia
 

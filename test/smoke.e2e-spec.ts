@@ -19,6 +19,7 @@ type WsEnvelope<T> =
     };
 
 type DevLoginResponse = {
+  accessToken: string;
   user: { id: string; displayName: string };
   household: { id: string; name: string } | null;
 };
@@ -104,7 +105,9 @@ describe('Smoke E2E', () => {
   afterAll(async () => {
     socket?.disconnect();
     if (createdRecipeIds.length) {
-      await prisma.recipe.deleteMany({ where: { id: { in: createdRecipeIds } } });
+      await prisma.recipe.deleteMany({
+        where: { id: { in: createdRecipeIds } },
+      });
     }
     if (createdHouseholdIds.length) {
       await prisma.household.deleteMany({
@@ -254,10 +257,12 @@ describe('Smoke E2E', () => {
     });
     createdRecipeIds.push(recipe.id);
 
+    // Tożsamość z tokenu w handshake'u — payloady niżej nie niosą userId.
     socket = io(baseUrl, {
       transports: ['websocket'],
       forceNew: true,
       reconnection: false,
+      auth: { token: loginBody.accessToken },
     });
     await waitForSocketConnect(socket);
 
@@ -279,7 +284,6 @@ describe('Smoke E2E', () => {
     const ack = await emitWithAck<{ id: string }>(
       'weeklyPlans:upsertWeekSlot',
       {
-        userId,
         householdId,
         weekStart,
         data: {
@@ -300,7 +304,6 @@ describe('Smoke E2E', () => {
     // Ack błędu po sockecie ma ten sam kontrakt: kod, message == error,
     // status, requestId — tu: obce gospodarstwo.
     const foreign = await emitWithAck<unknown>('weeklyPlans:getByWeek', {
-      userId,
       householdId: '00000000-0000-4000-8000-000000000000',
       weekStart,
     });
@@ -319,7 +322,9 @@ describe('Smoke E2E', () => {
       .set(opsHeaders())
       .expect(200);
     expect(metrics.body.ws?.totals?.totalConnections).toBeGreaterThanOrEqual(1);
-    expect(metrics.body.http?.wsErrors?.byCode?.NOT_HOUSEHOLD_MEMBER).toBeGreaterThanOrEqual(1);
+    expect(
+      metrics.body.http?.wsErrors?.byCode?.NOT_HOUSEHOLD_MEMBER,
+    ).toBeGreaterThanOrEqual(1);
     // 401 z reużytego refresh tokenu wyżej ma się policzyć jako 4xx, nie 200.
     expect(metrics.body.http?.statuses?.['4xx']).toBeGreaterThanOrEqual(1);
   });

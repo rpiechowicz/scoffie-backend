@@ -476,6 +476,8 @@ async function main(): Promise<void> {
       },
       sourceRaw: recipe as unknown as object,
       householdId,
+      // Import zasila WSPÓLNY katalog — to jedyne miejsce, które go tworzy.
+      isCatalog: true,
       authorId: userId,
     };
 
@@ -507,7 +509,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // eslint-disable-next-line no-console
   console.log(
     `[recipes-import] done. household="${householdName}" created=${created} updated=${updated} totalInput=${input.recipes.length}`,
   );
@@ -515,7 +516,6 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Recipes JSON import failed:', error);
     process.exit(1);
   })

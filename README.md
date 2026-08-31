@@ -59,9 +59,12 @@ docker compose up -d --build
 - `pnpm start:dev` - local development server
 - `pnpm start:prod` - production start with safe Prisma migration bootstrap
 - `pnpm prisma:migrate:deploy` - safe migration entrypoint used in production
-- `pnpm recipes:import:json` - import recipes from JSON
+- `pnpm recipes:import:json` - import recipes from JSON (the **only** writer of
+  the shared catalog: rows land with `isCatalog: true`)
 - `pnpm generate:recipe:images` - generate recipe images
 - `pnpm upload:recipe:images:r2` - upload generated assets to Cloudflare R2
+- `pnpm agent:measure:tokens` - measure the catalog digest with `count_tokens`
+  (needs `ANTHROPIC_API_KEY`; counts tokens only, never runs the model)
 - `pnpm lint:check` - CI lint check
 - `pnpm test:e2e:ci` - CI-friendly E2E run
 
@@ -88,8 +91,51 @@ Use [`.env.example`](./.env.example) as the source of truth.
 - `CORS_ORIGIN`
 - `WS_CORS_ORIGIN`
 - `AUTH_DEV_LOGIN_ENABLED`
+- `WS_AUTH_MODE` (`soft` while old iOS builds are around, then `strict`)
 - `RECIPES_LIST_CACHE_ENABLED`
 - `RECIPES_LIST_CACHE_TTL_SECONDS`
+
+### Rate limiting
+
+Every HTTP request passes a global throttler (`src/common/throttle/`). Two
+counters run per request: `default` (per authenticated user, or per IP when the
+request carries no token) and `ip` (a hard net on the address that per-route
+overrides cannot loosen). Limits are read from the environment **per request**,
+so changing one on Railway needs a restart, not a rebuild, and every limit has a
+default — no variable is required to deploy.
+
+- `THROTTLE_DEFAULT_LIMIT` (120/min), `THROTTLE_IP_LIMIT` (300/min)
+- `THROTTLE_AUTH_LIMIT` (20/min) — `/auth/*`, always per IP
+- `THROTTLE_AGENT_MESSAGE_LIMIT` (20/min), `THROTTLE_AGENT_POLL_LIMIT` (120/min)
+- `WS_RATE_LIMIT_PER_MIN` (120; `0` disables) — WebSocket events per user
+
+Rejections come back in the application error contract
+(`{code: 'TOO_MANY_REQUESTS', details: ['retryAfterSeconds:n'], requestId}`) over
+both HTTP and the socket, and are counted in `GET /ops/metrics` →
+`http.throttled`. `GET /ops/health` is never throttled — a 429 there would look
+like a dead service to the Railway healthcheck.
+
+### Assistant (opt-in)
+
+The AI assistant (`src/agent/`) is off unless `AI_ENABLED=true`; every `/agent`
+endpoint answers `503 AI_DISABLED` otherwise. Contract: `POST
+/agent/conversations/:id/messages` returns `202` with `{turnId, messageId,
+status, requestId}` plus a `Location` header, and the client polls `GET
+/agent/turns/:id` until the status leaves `RUNNING`. Sending the same
+`clientMessageId` twice returns the same turn instead of paying twice.
+
+- `AI_PROVIDER` — `anthropic` (default) or `stub` (canned replies, used by
+  `test/agent.e2e-spec.ts`; no model call, no API key)
+- `ANTHROPIC_API_KEY` — required only with `AI_ENABLED=true` and `anthropic`
+- `AI_MODEL` (`claude-sonnet-5`), `AI_TURN_TIMEOUT_MS` (90000)
+- `AI_LIMIT_MESSAGES_PER_MONTH` (200) / `AI_LIMIT_PLANS_PER_MONTH` (30) —
+  per household, counted in `AiUsageCounter` on UTC months
+- `AI_GLOBAL_DAILY_BUDGET_USD` — daily cost cap for the whole installation
+  (empty = no cap); over it, `/agent` answers `503 AI_BUDGET_PAUSED`
+
+Usage is written to `AiUsage` per turn and summarised in `GET /ops/metrics` →
+`agent`. `DELETE /agent/conversations` wipes a user's conversations and works
+even with the assistant disabled.
 
 ### Optional integrations
 
@@ -102,9 +148,11 @@ Use [`.env.example`](./.env.example) as the source of truth.
 These are powerful and should be reviewed before production deploys:
 
 - `SAFE_MIGRATE_BOOTSTRAP_RECIPES`
+- `SAFE_MIGRATE_LOAD_INGREDIENT_TAGS`
 - `SAFE_MIGRATE_BACKFILL_R2_IMAGE_URLS`
 - `SAFE_MIGRATE_REBUILD_DB`
 - `SAFE_MIGRATE_REBUILD_CONFIRM`
+- `SAFE_MIGRATE_ALLOW_PROD_REBUILD`
 
 ## CI
 
@@ -117,7 +165,8 @@ The workflow runs:
 - Prisma migrate deploy
 - lint check
 - backend build
-- E2E smoke tests
+- E2E smoke tests (`test/*.e2e-spec.ts`, including WebSocket auth and
+  validation, the throttler and the assistant on the `stub` provider)
 
 ## Current product note
 

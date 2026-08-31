@@ -1,46 +1,59 @@
 import {
+  ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
+import { IsObject, IsOptional, IsString } from 'class-validator';
+import { validateWsPayload } from '../common/validate-dto';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
+import type { AppSocket } from '../common/ws-socket';
+import { actorId } from '../common/ws-socket';
+import { disconnectUser } from '../common/ws-rooms';
 import { UsersService } from './users.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { Socket } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
-class UsersMePayload {
-  userId: string;
+/**
+ * Koperta zdarzeń bez wejścia (`users:me`, `users:preferences:get`,
+ * `users:delete`, `users:onboarding:complete`): jedyne pole to legacy
+ * `userId`, więc nie ma czego walidować — handler bierze tożsamość z
+ * `actorId`, który znosi także `payload === undefined`.
+ */
+class UsersActorPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
 }
 
-class UsersPreferencesGetPayload {
-  userId: string;
-}
-
-class UsersPreferencesUpdatePayload {
-  userId: string;
+/**
+ * Koperty z `data`: `validateWsPayload` sprawdza tylko, że `data` jest
+ * obiektem (brak `data` = VALIDATION_ERROR zamiast `TypeError` → 500).
+ * Zawartość waliduje serwis przez `validateDto(UpdatePreferencesDto/…)` —
+ * każde pole dokładnie raz, dlatego bez `@ValidateNested` tutaj.
+ */
+class UsersPreferencesUpdatePayload extends UsersActorPayload {
+  @IsObject()
   data: UpdatePreferencesDto;
 }
 
-class UsersProfileUpdatePayload {
-  userId: string;
+class UsersProfileUpdatePayload extends UsersActorPayload {
+  @IsObject()
   data: UpdateProfileDto;
-}
-
-class UsersOnboardingCompletePayload {
-  userId: string;
-}
-
-class UsersDeletePayload {
-  userId: string;
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
 export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  server: Server;
+
   constructor(
     private readonly usersService: UsersService,
     private readonly wsTelemetry: WsTelemetryService,
@@ -55,38 +68,80 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('users:me')
-  me(@MessageBody() payload: UsersMePayload) {
-    return wsRespond(() => this.usersService.getMe(payload.userId));
+  me(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersActorPayload,
+  ) {
+    return wsRespond(() => this.usersService.getMe(actorId(client, payload)));
   }
 
   @SubscribeMessage('users:preferences:get')
-  getPreferences(@MessageBody() payload: UsersPreferencesGetPayload) {
-    return wsRespond(() => this.usersService.getPreferences(payload.userId));
+  getPreferences(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersActorPayload,
+  ) {
+    return wsRespond(() =>
+      this.usersService.getPreferences(actorId(client, payload)),
+    );
   }
 
   @SubscribeMessage('users:preferences:update')
-  updatePreferences(@MessageBody() payload: UsersPreferencesUpdatePayload) {
-    return wsRespond(() =>
-      this.usersService.updatePreferences(payload.userId, payload.data),
-    );
+  updatePreferences(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersPreferencesUpdatePayload,
+  ) {
+    return wsRespond(async () => {
+      // Najpierw tożsamość, potem koperta: anonimowy socket ma dostać
+      // UNAUTHORIZED, nie VALIDATION_ERROR (pilnuje tego ws-handlers-auth.spec).
+      const userId = actorId(client, payload);
+      await validateWsPayload(UsersPreferencesUpdatePayload, payload);
+      return this.usersService.updatePreferences(userId, payload.data);
+    });
   }
 
   @SubscribeMessage('users:profile:update')
-  updateProfile(@MessageBody() payload: UsersProfileUpdatePayload) {
-    return wsRespond(() =>
-      this.usersService.updateProfile(payload.userId, payload.data),
-    );
+  updateProfile(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersProfileUpdatePayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(UsersProfileUpdatePayload, payload);
+      return this.usersService.updateProfile(userId, payload.data);
+    });
   }
 
+  /**
+   * Po skasowaniu konta rozłączamy wszystkie sockety użytkownika: jego JWT
+   * jest jeszcze ważny do `exp`, a nie może dalej pracować na nieistniejącym
+   * koncie. Rozłączenie idzie po pokoju `user:<id>`, więc łapie też sockety
+   * inne niż ten, z którego przyszło `users:delete`.
+   *
+   * Rozłączenie jest odroczone (`setImmediate`): Nest pisze ack dopiero po
+   * rozwiązaniu promise handlera, a socket.io porzuca pakiety do zamkniętego
+   * połączenia — synchroniczne `disconnectSockets(true)` wewnątrz handlera
+   * zjadłoby ack i iOS czekałby 3×6 s na odpowiedź, której nie dostanie.
+   */
   @SubscribeMessage('users:delete')
-  deleteAccount(@MessageBody() payload: UsersDeletePayload) {
-    return wsRespond(() => this.usersService.deleteAccount(payload.userId));
+  deleteAccount(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersActorPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      const result = await this.usersService.deleteAccount(userId);
+      setImmediate(() => disconnectUser(this.server, userId));
+      return result;
+    });
   }
 
   @SubscribeMessage('users:onboarding:complete')
-  completeOnboarding(@MessageBody() payload: UsersOnboardingCompletePayload) {
+  completeOnboarding(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: UsersActorPayload,
+  ) {
     return wsRespond(() =>
-      this.usersService.completeOnboarding(payload.userId),
+      this.usersService.completeOnboarding(actorId(client, payload)),
     );
   }
 }

@@ -68,14 +68,11 @@ describe('inspectRuntimeEnv', () => {
       { AUTH_DEV_LOGIN_ENABLED: 'true' },
       /AUTH_DEV_LOGIN_ENABLED=true/,
     ],
-  ])(
-    'produkcja: %s → naruszenie',
-    (_label, overrides, pattern) => {
-      const report = inspectRuntimeEnv(productionEnv(overrides));
-      expect(report.violations.some((v) => pattern.test(v))).toBe(true);
-      expect(report.warnings).toEqual([]);
-    },
-  );
+  ])('produkcja: %s → naruszenie', (_label, overrides, pattern) => {
+    const report = inspectRuntimeEnv(productionEnv(overrides));
+    expect(report.violations.some((v) => pattern.test(v))).toBe(true);
+    expect(report.warnings).toEqual([]);
+  });
 
   it('produkcja wymienia wszystkie naruszenia naraz, bez wartości sekretów', () => {
     const report = inspectRuntimeEnv(
@@ -131,5 +128,31 @@ describe('assertRuntimeEnv', () => {
     const warn = jest.fn();
     expect(() => assertRuntimeEnv(productionEnv(), { warn })).not.toThrow();
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('WS_AUTH_MODE w assert-env', () => {
+  it('poprawne wartości i brak zmiennej nie są naruszeniem', () => {
+    expect(inspectRuntimeEnv(productionEnv()).violations).toEqual([]);
+    expect(
+      inspectRuntimeEnv(productionEnv({ WS_AUTH_MODE: 'strict' })).violations,
+    ).toEqual([]);
+    expect(
+      inspectRuntimeEnv(productionEnv({ WS_AUTH_MODE: 'soft' })).violations,
+    ).toEqual([]);
+  });
+
+  it('literówka to naruszenie na produkcji i ostrzeżenie poza nią', () => {
+    expect(
+      inspectRuntimeEnv(productionEnv({ WS_AUTH_MODE: 'required' })).violations,
+    ).toEqual([expect.stringContaining('WS_AUTH_MODE=required')]);
+    expect(
+      inspectRuntimeEnv({
+        NODE_ENV: 'development',
+        JWT_SECRET: STRONG,
+        REFRESH_TOKEN_PEPPER: OTHER_STRONG,
+        WS_AUTH_MODE: 'off',
+      }).warnings,
+    ).toEqual([expect.stringContaining('WS_AUTH_MODE=off')]);
   });
 });

@@ -1,46 +1,58 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+// Bez `@Type(() => Number)` na polach liczbowych: class-transformer robiłby
+// `Number(value)` PRZED walidacją, więc `true` → 1, `[30]` → 30, `'520'` → 520
+// przechodziły `@IsInt` po cichu. JSON niesie liczby natywnie (iOS, HTTP);
+// wejście asystenta ma być odrzucane, nie „naprawiane".
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayUnique,
   IsArray,
+  IsEnum,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
+  IsUUID,
+  Max,
   MaxLength,
   MinLength,
   Min,
   ValidateNested,
 } from 'class-validator';
-import { MealType } from '@prisma/client';
+import { Difficulty, MealType } from '@prisma/client';
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
+import { ALLOWED_UNITS } from '../ingredient-amount.util';
 
 const mealTypes = MEAL_TYPE_VALUES;
-const difficulties = ['EASY', 'MEDIUM', 'HARD'] as const;
-const ingredientUnits = [
-  'g',
-  'kg',
-  'ml',
-  'l',
-  'szt',
-  'szczypta',
-  'łyżeczka',
-  'łyżka',
-  // backward compatibility for existing clients
-  'lyzeczka',
-  'lyzka',
-] as const;
+// Jedno źródło prawdy dla jednostek: ta sama lista, którą sprawdza
+// normalizator ilości i importer katalogu. DTO miało własną kopię — po
+// pierwszej korekcie w utilu walidator i normalizator rozjechałyby się.
+const ingredientUnits = [...ALLOWED_UNITS];
+
+/** Górne granice: chronią bazę i asystenta przed absurdem, nie przed kuchnią. */
+export const RECIPE_TITLE_MAX = 200;
+export const RECIPE_DESCRIPTION_MAX = 4000;
+export const RECIPE_IMAGE_URL_MAX = 2048;
+export const RECIPE_INGREDIENTS_MAX = 60;
+/** Przepisy użytkownika bywają na więcej porcji niż katalogowe 1..8. */
+export const RECIPE_SERVINGS_MAX = 20;
+/** Tydzień w minutach — marynaty i fermentacje trwają dniami, nie miesiącami. */
+export const RECIPE_PREP_TIME_MAX = 7 * 24 * 60;
+export const INGREDIENT_AMOUNT_MAX = 100_000;
+export const NUTRITION_VALUE_MAX = 100_000;
 
 export class CreateRecipeIngredientDto {
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
-  @IsString()
+  @IsUUID()
   ingredientId: string;
 
   @ApiProperty({ example: 250 })
-  @Type(() => Number)
   @IsNumber()
-  @Min(0)
+  @IsPositive()
+  @Max(INGREDIENT_AMOUNT_MAX)
   amount: number;
 
   @ApiProperty({ enum: ingredientUnits, example: 'g' })
@@ -52,7 +64,7 @@ export class CreateRecipeDto {
   @ApiProperty({ example: 'Makaron z pomidorami' })
   @IsString()
   @MinLength(3)
-  @MaxLength(120)
+  @MaxLength(RECIPE_TITLE_MAX)
   title: string;
 
   @ApiPropertyOptional({
@@ -60,7 +72,7 @@ export class CreateRecipeDto {
   })
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(RECIPE_DESCRIPTION_MAX)
   description?: string;
 
   /** Slot bazowy — jeden, steruje sekcją i okładką na liście przepisów. */
@@ -85,20 +97,22 @@ export class CreateRecipeDto {
   @IsIn(mealTypes, { each: true })
   suitableMealTypes?: MealType[];
 
-  @ApiProperty({ enum: difficulties, example: 'EASY' })
-  @IsIn(difficulties)
-  difficulty: (typeof difficulties)[number];
+  // Enum Prismy zamiast lokalnej listy: komunikat błędu wymienia dozwolone
+  // wartości, a nowa trudność w schemacie nie wymaga drugiej kopii tutaj.
+  @ApiProperty({ enum: Object.values(Difficulty), example: 'EASY' })
+  @IsEnum(Difficulty)
+  difficulty: Difficulty;
 
   @ApiProperty({ example: 20 })
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
+  @IsInt()
+  @Min(1)
+  @Max(RECIPE_PREP_TIME_MAX)
   prepTimeMinutes: number;
 
   @ApiProperty({ example: 2 })
-  @Type(() => Number)
-  @IsNumber()
+  @IsInt()
   @Min(1)
+  @Max(RECIPE_SERVINGS_MAX)
   servings: number;
 
   @ApiPropertyOptional({
@@ -107,59 +121,60 @@ export class CreateRecipeDto {
   })
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(RECIPE_IMAGE_URL_MAX)
   imageUrl?: string;
 
   @ApiPropertyOptional({ example: 520 })
-  @Type(() => Number)
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(NUTRITION_VALUE_MAX)
   nutritionKcal?: number;
 
   @ApiPropertyOptional({ example: 32 })
-  @Type(() => Number)
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(NUTRITION_VALUE_MAX)
   nutritionProtein?: number;
 
   @ApiPropertyOptional({ example: 38 })
-  @Type(() => Number)
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(NUTRITION_VALUE_MAX)
   nutritionFat?: number;
 
   @ApiPropertyOptional({ example: 8 })
-  @Type(() => Number)
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(NUTRITION_VALUE_MAX)
   nutritionCarbs?: number;
 
   @ApiPropertyOptional({ example: 2 })
-  @Type(() => Number)
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(NUTRITION_VALUE_MAX)
   nutritionFiber?: number;
 
   @ApiPropertyOptional({ example: 2 })
-  @Type(() => Number)
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(NUTRITION_VALUE_MAX)
   nutritionSalt?: number;
 
   @ApiPropertyOptional({ type: [CreateRecipeIngredientDto] })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(RECIPE_INGREDIENTS_MAX)
   @ValidateNested({ each: true })
   @Type(() => CreateRecipeIngredientDto)
   ingredients?: CreateRecipeIngredientDto[];
 
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
-  @IsString()
+  @IsUUID()
   householdId: string;
 }

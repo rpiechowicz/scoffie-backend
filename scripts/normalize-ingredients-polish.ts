@@ -144,7 +144,12 @@ async function main() {
   for (const ingredient of ingredients) {
     const nextName = applyPolishName(ingredient.name);
     const nextNormalized = normalizeText(nextName);
-    if (!nextName || (nextName === ingredient.name && nextNormalized === ingredient.normalizedName)) continue;
+    if (
+      !nextName ||
+      (nextName === ingredient.name &&
+        nextNormalized === ingredient.normalizedName)
+    )
+      continue;
 
     const existing = await prisma.ingredient.findUnique({
       where: { normalizedName: nextNormalized },
@@ -152,8 +157,10 @@ async function main() {
     });
     if (existing && existing.id !== ingredient.id) {
       conflicts += 1;
-      // eslint-disable-next-line no-console
-      console.warn(`[normalize] conflict skipped: "${ingredient.name}" -> "${nextName}"`);
+
+      console.warn(
+        `[normalize] conflict skipped: "${ingredient.name}" -> "${nextName}"`,
+      );
       continue;
     }
 
@@ -182,13 +189,11 @@ async function main() {
     WHERE ri."ingredientId" = i."id";
   `);
 
-  // eslint-disable-next-line no-console
   console.log(`[normalize] done. updated=${updated}, conflicts=${conflicts}`);
 }
 
 main()
   .catch((error) => {
-    // eslint-disable-next-line no-console
     console.error('Normalize ingredients failed:', error);
     process.exit(1);
   })

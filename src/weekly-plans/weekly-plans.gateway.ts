@@ -1,4 +1,5 @@
 import {
+  ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -6,8 +7,19 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
+import {
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
+import { validateWsPayload } from '../common/validate-dto';
 import { wsRespond } from '../common/ws-response';
+import type { AppSocket } from '../common/ws-socket';
+import { actorId } from '../common/ws-socket';
+import { broadcastToHousehold } from '../common/ws-rooms';
 import { WeeklyPlansService } from './weekly-plans.service';
 import { ShoppingListService } from './services/shopping-list.service';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
@@ -18,90 +30,65 @@ import { Server, Socket } from 'socket.io';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
 
-class WeeklyPlansGetByWeekPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-}
+/**
+ * Koperty zdarzeń WS. Dekoratory są tu od Fazy 0 (krok 2) egzekwowane przez
+ * `validateWsPayload` w każdym handlerze — whitelist WYCINA pola bez
+ * dekoratora, więc każde pole, które handler czyta, musi mieć swój.
+ * `data` dostaje tylko `@IsObject()` (bez `@ValidateNested`): zawartość
+ * waliduje serwis przez `validateDto`, każde pole dokładnie raz, bez
+ * zdublowanych `details`. `weekStart` to `@IsString()` — format i „czy to
+ * poniedziałek" sprawdza `parseWeekStart` w serwisie.
+ */
+class WeeklyPlansHouseholdPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
 
-class WeeklyPlansGetShoppingListPayload {
-  userId: string;
+  @IsUUID()
   householdId: string;
-  weekStart: string;
-}
-
-class WeeklyPlansGetShoppingListStatePayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-}
-
-class WeeklyPlansArchiveShoppingListPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-  weekLabel: string;
-}
-
-class WeeklyPlansSelectShoppingListArchivePayload {
-  userId: string;
-  householdId: string;
-  archiveId: string;
-}
-
-class WeeklyPlansDeleteShoppingListArchivePayload {
-  userId: string;
-  householdId: string;
-  archiveId: string;
-}
-
-class WeeklyPlansDeleteAllShoppingListArchivesPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-}
-
-class WeeklyPlansSetShoppingItemCheckedPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-  data: UpdateShoppingItemCheckDto;
-}
-
-class WeeklyPlansUpsertWeekSlotPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-  data: UpsertWeekSlotDto;
-}
-
-class WeeklyPlansRemoveWeekSlotPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-  data: RemoveWeekSlotDto;
-}
-
-class WeeklyPlansSetMealEatenPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
-  data: SetMealEatenDto;
 }
 
 /**
- * DEPRECATED — patrz `getSavedPlan`. Do usunięcia razem z handlerem.
+ * Koperta większości zdarzeń (getByWeek, getShoppingList,
+ * getShoppingListState, deleteAllShoppingListArchives, getSavedPlan,
+ * clearWeekPlan): gospodarstwo + tydzień.
  */
-class WeeklyPlansGetSavedPlanPayload {
-  userId: string;
-  householdId: string;
+class WeeklyPlansHouseholdWeekPayload extends WeeklyPlansHouseholdPayload {
+  @IsString()
   weekStart: string;
 }
 
-class WeeklyPlansClearWeekPlanPayload {
-  userId: string;
-  householdId: string;
-  weekStart: string;
+class WeeklyPlansArchiveShoppingListPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsString()
+  @MaxLength(64)
+  weekLabel: string;
+}
+
+/** `selectShoppingListArchive` i `deleteShoppingListArchive`. */
+class WeeklyPlansShoppingListArchivePayload extends WeeklyPlansHouseholdPayload {
+  @IsUUID()
+  archiveId: string;
+}
+
+class WeeklyPlansSetShoppingItemCheckedPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: UpdateShoppingItemCheckDto;
+}
+
+class WeeklyPlansUpsertWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: UpsertWeekSlotDto;
+}
+
+class WeeklyPlansRemoveWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: RemoveWeekSlotDto;
+}
+
+class WeeklyPlansSetMealEatenPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: SetMealEatenDto;
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
@@ -188,16 +175,21 @@ export class WeeklyPlansGateway
     isChecked?: boolean | null;
   }): void {
     const changeVersion = this.nextChangeVersion();
-    this.server.emit('weeklyPlans:shoppingListChanged', {
-      householdId: input.householdId,
-      weekStart: input.weekStart,
-      action: input.action,
-      changedByUserId: input.changedByUserId ?? null,
-      changedByDisplayName: input.changedByDisplayName ?? null,
-      productKey: input.productKey ?? null,
-      isChecked: input.isChecked ?? null,
-      changeVersion,
-    });
+    broadcastToHousehold(
+      this.server,
+      input.householdId,
+      'weeklyPlans:shoppingListChanged',
+      {
+        householdId: input.householdId,
+        weekStart: input.weekStart,
+        action: input.action,
+        changedByUserId: input.changedByUserId ?? null,
+        changedByDisplayName: input.changedByDisplayName ?? null,
+        productKey: input.productKey ?? null,
+        isChecked: input.isChecked ?? null,
+        changeVersion,
+      },
+    );
   }
 
   private nextChangeVersion(): number {
@@ -205,49 +197,68 @@ export class WeeklyPlansGateway
   }
 
   @SubscribeMessage('weeklyPlans:getByWeek')
-  getByWeek(@MessageBody() payload: WeeklyPlansGetByWeekPayload) {
-    return wsRespond(() =>
-      this.weeklyPlansService.getByHouseholdAndWeek(
-        payload.userId,
+  getByWeek(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
+  ) {
+    return wsRespond(async () => {
+      // Kolejność jest ważna: najpierw tożsamość, potem koperta — anonimowy
+      // socket ma dostać UNAUTHORIZED, nie VALIDATION_ERROR (pilnuje tego
+      // `ws-handlers-auth.spec.ts`). Tak samo w każdym handlerze niżej.
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
+      return this.weeklyPlansService.getByHouseholdAndWeek(
+        userId,
         payload.householdId,
         payload.weekStart,
-      ),
-    );
+      );
+    });
   }
 
   @SubscribeMessage('weeklyPlans:getShoppingList')
-  getShoppingList(@MessageBody() payload: WeeklyPlansGetShoppingListPayload) {
-    return wsRespond(() =>
-      this.shoppingListService.getShoppingList(
-        payload.userId,
+  getShoppingList(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
+      return this.shoppingListService.getShoppingList(
+        userId,
         payload.householdId,
         payload.weekStart,
-      ),
-    );
+      );
+    });
   }
 
   @SubscribeMessage('weeklyPlans:getShoppingListState')
   getShoppingListState(
-    @MessageBody() payload: WeeklyPlansGetShoppingListStatePayload,
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
   ) {
-    return wsRespond(() =>
-      this.shoppingListService.getShoppingListState(
-        payload.userId,
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
+      return this.shoppingListService.getShoppingListState(
+        userId,
         payload.householdId,
         payload.weekStart,
-      ),
-    );
+      );
+    });
   }
 
   @SubscribeMessage('weeklyPlans:archiveShoppingList')
   archiveShoppingList(
+    @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: WeeklyPlansArchiveShoppingListPayload,
   ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansArchiveShoppingListPayload, payload);
       const changedByDisplayName =
-        await this.weeklyPlansService.getUserDisplayName(payload.userId);
+        await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.shoppingListService.archiveShoppingList(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.weekStart,
         payload.weekLabel,
@@ -257,12 +268,12 @@ export class WeeklyPlansGateway
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         action: 'ARCHIVE_LIST',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
       this.notifyShoppingListChanged({
         householdId: payload.householdId,
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
         action: 'ARCHIVE_LIST',
       });
@@ -273,13 +284,16 @@ export class WeeklyPlansGateway
 
   @SubscribeMessage('weeklyPlans:selectShoppingListArchive')
   selectShoppingListArchive(
-    @MessageBody() payload: WeeklyPlansSelectShoppingListArchivePayload,
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansShoppingListArchivePayload,
   ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansShoppingListArchivePayload, payload);
       const changedByDisplayName =
-        await this.weeklyPlansService.getUserDisplayName(payload.userId);
+        await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.shoppingListService.selectShoppingListArchive(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.archiveId,
       );
@@ -288,7 +302,7 @@ export class WeeklyPlansGateway
         householdId: payload.householdId,
         weekStart: result.weekStart,
         action: 'SELECT_ARCHIVE',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
 
@@ -298,13 +312,16 @@ export class WeeklyPlansGateway
 
   @SubscribeMessage('weeklyPlans:deleteShoppingListArchive')
   deleteShoppingListArchive(
-    @MessageBody() payload: WeeklyPlansDeleteShoppingListArchivePayload,
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansShoppingListArchivePayload,
   ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansShoppingListArchivePayload, payload);
       const changedByDisplayName =
-        await this.weeklyPlansService.getUserDisplayName(payload.userId);
+        await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.shoppingListService.deleteShoppingListArchive(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.archiveId,
       );
@@ -313,7 +330,7 @@ export class WeeklyPlansGateway
         householdId: payload.householdId,
         weekStart: result.weekStart,
         action: 'DELETE_ARCHIVE',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
 
@@ -323,14 +340,17 @@ export class WeeklyPlansGateway
 
   @SubscribeMessage('weeklyPlans:deleteAllShoppingListArchives')
   deleteAllShoppingListArchives(
-    @MessageBody() payload: WeeklyPlansDeleteAllShoppingListArchivesPayload,
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
   ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
       const changedByDisplayName =
-        await this.weeklyPlansService.getUserDisplayName(payload.userId);
+        await this.weeklyPlansService.getUserDisplayName(userId);
       const result =
         await this.shoppingListService.deleteAllShoppingListArchives(
-          payload.userId,
+          userId,
           payload.householdId,
           payload.weekStart,
         );
@@ -339,7 +359,7 @@ export class WeeklyPlansGateway
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         action: 'DELETE_ALL_ARCHIVES',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
 
@@ -349,13 +369,19 @@ export class WeeklyPlansGateway
 
   @SubscribeMessage('weeklyPlans:setShoppingItemChecked')
   setShoppingItemChecked(
+    @ConnectedSocket() client: AppSocket,
     @MessageBody() payload: WeeklyPlansSetShoppingItemCheckedPayload,
   ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(
+        WeeklyPlansSetShoppingItemCheckedPayload,
+        payload,
+      );
       const changedByDisplayName =
-        await this.weeklyPlansService.getUserDisplayName(payload.userId);
+        await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.shoppingListService.setShoppingItemChecked(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.weekStart,
         payload.data,
@@ -365,7 +391,7 @@ export class WeeklyPlansGateway
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         action: 'SET_ITEM_CHECKED',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
         productKey: payload.data.productKey,
         isChecked: payload.data.isChecked,
@@ -374,7 +400,7 @@ export class WeeklyPlansGateway
       // czeka, aż ktoś skończy zakupy, i wysyła jedno „odhaczył 12 produktów".
       this.notifyShoppingListChanged({
         householdId: payload.householdId,
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
         action: 'SET_ITEM_CHECKED',
         isChecked: payload.data.isChecked,
@@ -385,33 +411,43 @@ export class WeeklyPlansGateway
   }
 
   @SubscribeMessage('weeklyPlans:upsertWeekSlot')
-  upsertWeekSlot(@MessageBody() payload: WeeklyPlansUpsertWeekSlotPayload) {
+  upsertWeekSlot(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansUpsertWeekSlotPayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansUpsertWeekSlotPayload, payload);
       const changedByDisplayName =
-        await this.weeklyPlansService.getUserDisplayName(payload.userId);
+        await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.weeklyPlansService.upsertWeekSlot(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.weekStart,
         payload.data,
       );
 
       const changeVersion = this.nextChangeVersion();
-      this.server.emit('weeklyPlans:weekChanged', {
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        action: 'UPSERT_SLOT',
-        changedByUserId: payload.userId,
-        changedByDisplayName,
-        dayOfWeek: payload.data?.dayOfWeek,
-        mealType: payload.data?.mealType,
-        changeVersion,
-      });
+      broadcastToHousehold(
+        this.server,
+        payload.householdId,
+        'weeklyPlans:weekChanged',
+        {
+          householdId: payload.householdId,
+          weekStart: payload.weekStart,
+          action: 'UPSERT_SLOT',
+          changedByUserId: userId,
+          changedByDisplayName,
+          dayOfWeek: payload.data?.dayOfWeek,
+          mealType: payload.data?.mealType,
+          changeVersion,
+        },
+      );
       this.emitShoppingListChanged({
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         action: 'UPSERT_SLOT',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
       // Powiadamiamy tylko o NOWYM daniu w slocie. Trafienie w istniejący item
@@ -428,7 +464,7 @@ export class WeeklyPlansGateway
       ) {
         this.notifyPlanChanged(
           payload.householdId,
-          payload.userId,
+          userId,
           changedByDisplayName,
           'UPSERT_SLOT',
           {
@@ -444,12 +480,17 @@ export class WeeklyPlansGateway
   }
 
   @SubscribeMessage('weeklyPlans:removeWeekSlot')
-  removeWeekSlot(@MessageBody() payload: WeeklyPlansRemoveWeekSlotPayload) {
+  removeWeekSlot(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansRemoveWeekSlotPayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansRemoveWeekSlotPayload, payload);
       const changedByDisplayName =
-        await this.weeklyPlansService.getUserDisplayName(payload.userId);
+        await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.weeklyPlansService.removeWeekSlot(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.weekStart,
         payload.data,
@@ -460,26 +501,31 @@ export class WeeklyPlansGateway
       }
 
       const changeVersion = this.nextChangeVersion();
-      this.server.emit('weeklyPlans:weekChanged', {
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        action: 'REMOVE_SLOT',
-        changedByUserId: payload.userId,
-        changedByDisplayName,
-        dayOfWeek: payload.data?.dayOfWeek,
-        mealType: payload.data?.mealType,
-        changeVersion,
-      });
+      broadcastToHousehold(
+        this.server,
+        payload.householdId,
+        'weeklyPlans:weekChanged',
+        {
+          householdId: payload.householdId,
+          weekStart: payload.weekStart,
+          action: 'REMOVE_SLOT',
+          changedByUserId: userId,
+          changedByDisplayName,
+          dayOfWeek: payload.data?.dayOfWeek,
+          mealType: payload.data?.mealType,
+          changeVersion,
+        },
+      );
       this.emitShoppingListChanged({
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         action: 'REMOVE_SLOT',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
       this.notifyPlanChanged(
         payload.householdId,
-        payload.userId,
+        userId,
         changedByDisplayName,
         'REMOVE_SLOT',
         {
@@ -494,10 +540,15 @@ export class WeeklyPlansGateway
   }
 
   @SubscribeMessage('weeklyPlans:setMealEaten')
-  setMealEaten(@MessageBody() payload: WeeklyPlansSetMealEatenPayload) {
+  setMealEaten(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansSetMealEatenPayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansSetMealEatenPayload, payload);
       const result = await this.weeklyPlansService.setMealEaten(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.weekStart,
         payload.data,
@@ -508,16 +559,21 @@ export class WeeklyPlansGateway
       // changes neither the plan nor the list, and nagging the household
       // about someone's breakfast would be noise.
       const changeVersion = this.nextChangeVersion();
-      this.server.emit('weeklyPlans:weekChanged', {
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        action: 'SET_MEAL_EATEN',
-        changedByUserId: payload.userId,
-        changedByDisplayName: null,
-        dayOfWeek: payload.data?.dayOfWeek,
-        mealType: payload.data?.mealType,
-        changeVersion,
-      });
+      broadcastToHousehold(
+        this.server,
+        payload.householdId,
+        'weeklyPlans:weekChanged',
+        {
+          householdId: payload.householdId,
+          weekStart: payload.weekStart,
+          action: 'SET_MEAL_EATEN',
+          changedByUserId: userId,
+          changedByDisplayName: null,
+          dayOfWeek: payload.data?.dayOfWeek,
+          mealType: payload.data?.mealType,
+          changeVersion,
+        },
+      );
 
       return result;
     });
@@ -536,47 +592,69 @@ export class WeeklyPlansGateway
    * pustą pulę — czyli dokładnie to, co renderował zawsze, bo żaden widok jej
    * nie czyta.
    *
-   * TODO(WP-03): usunąć razem z `WeeklyPlansGetSavedPlanPayload`, gdy nowa
-   * aplikacja będzie na (prawie) wszystkich telefonach.
+   * Tożsamość nadal jest wymagana (`actorId`) — anonimowy socket dostaje
+   * `UNAUTHORIZED` jak z każdego innego handlera, mimo że odpowiedź jest stała.
+   *
+   * TODO(WP-03): usunąć, gdy nowa aplikacja będzie na (prawie) wszystkich
+   * telefonach.
    */
   @SubscribeMessage('weeklyPlans:getSavedPlan')
-  getSavedPlan(@MessageBody() payload: WeeklyPlansGetSavedPlanPayload) {
-    return wsRespond(async () => ({
-      weekStart: payload.weekStart,
-      items: [] as never[],
-    }));
+  getSavedPlan(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
+  ) {
+    return wsRespond(async () => {
+      actorId(client, payload);
+      // Koperta walidowana mimo stałej odpowiedzi: `payload.weekStart` wraca
+      // do klienta, a bez bramki `payload === undefined` dawał TypeError.
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
+      return {
+        weekStart: payload.weekStart,
+        items: [] as never[],
+      };
+    });
   }
 
   @SubscribeMessage('weeklyPlans:clearWeekPlan')
-  clearWeekPlan(@MessageBody() payload: WeeklyPlansClearWeekPlanPayload) {
+  clearWeekPlan(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansHouseholdWeekPayload,
+  ) {
     return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansHouseholdWeekPayload, payload);
       const changedByDisplayName =
-        await this.weeklyPlansService.getUserDisplayName(payload.userId);
+        await this.weeklyPlansService.getUserDisplayName(userId);
       const result = await this.weeklyPlansService.clearWeekPlan(
-        payload.userId,
+        userId,
         payload.householdId,
         payload.weekStart,
       );
 
       const changeVersion = this.nextChangeVersion();
-      this.server.emit('weeklyPlans:weekChanged', {
-        householdId: payload.householdId,
-        weekStart: payload.weekStart,
-        action: 'CLEAR_PLAN',
-        changedByUserId: payload.userId,
-        changedByDisplayName,
-        changeVersion,
-      });
+      broadcastToHousehold(
+        this.server,
+        payload.householdId,
+        'weeklyPlans:weekChanged',
+        {
+          householdId: payload.householdId,
+          weekStart: payload.weekStart,
+          action: 'CLEAR_PLAN',
+          changedByUserId: userId,
+          changedByDisplayName,
+          changeVersion,
+        },
+      );
       this.emitShoppingListChanged({
         householdId: payload.householdId,
         weekStart: payload.weekStart,
         action: 'CLEAR_PLAN',
-        changedByUserId: payload.userId,
+        changedByUserId: userId,
         changedByDisplayName,
       });
       this.notifyPlanChanged(
         payload.householdId,
-        payload.userId,
+        userId,
         changedByDisplayName,
         'CLEAR_PLAN',
         {

@@ -1,0 +1,2 @@
+# Repo trzyma LF niezależnie od core.autocrlf maszyny (Mac i Windows pracują na tym samym kodzie).
+* text=auto eol=lf

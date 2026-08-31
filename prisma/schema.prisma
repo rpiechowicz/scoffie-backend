@@ -54,6 +54,8 @@ model User {
   cookidooIntegrations CookidooIntegration[] @relation("CookidooIntegrationConnector")
 
   dailySteps DailyStepCount[]
+
+  agentConversations AgentConversation[]
 }
 
 model UserPreference {
@@ -76,22 +78,22 @@ model UserPreference {
   /// uciszało tylko lokalne bannery, a pushe z serwera leciały dalej —
   /// z perspektywy użytkownika główny przełącznik był popsuty. Serwer musi
   /// znać te wartości, bo to on decyduje, czy w ogóle wysłać.
-  pushPlanChanges   Boolean @default(true)
-  pushShoppingList  Boolean @default(true)
-  pushHousehold     Boolean @default(true)
+  pushPlanChanges  Boolean @default(true)
+  pushShoppingList Boolean @default(true)
+  pushHousehold    Boolean @default(true)
 
   /// Cisza nocna. Zbiorcze podsumowania (plan, lista zakupów) nie wychodzą
   /// między 22:00 a 7:00 czasu użytkownika — czekają na koniec okna. Dołączenie
   /// domownika jej nie podlega: to zdarzenie jednorazowe, na które ktoś czeka.
-  pushQuietHours    Boolean @default(true)
+  pushQuietHours Boolean @default(true)
 
   /// Strefa czasowa IANA z telefonu (`TimeZone.current.identifier`). Bez niej
   /// cisza nocna liczyłaby się w strefie kontenera, czyli zwykle w UTC —
   /// a to przesuwa okno o dwie godziny w polskim lecie.
-  timeZone          String?
+  timeZone String?
 
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -150,6 +152,15 @@ model Recipe {
   nutritionFiber        Float      @default(0)
   nutritionSalt         Float      @default(0)
   isActive              Boolean    @default(true)
+  /// Czy przepis należy do WSPÓLNEGO katalogu (widoczny dla wszystkich
+  /// gospodarstw), czy jest prywatnym przepisem swojego gospodarstwa.
+  ///
+  /// Do tej pory widoczności nie było wcale — `findAll` czytał bez
+  /// `householdId`, a katalog rozpoznawało się po magicznym id gospodarstwa.
+  /// Dopóki pisał tylko bot importu, nikt tego nie zauważył; z chwilą, gdy
+  /// pisać zacznie asystent, przepis utworzony dla jednego domu trafiłby na
+  /// listę wszystkich pozostałych.
+  isCatalog             Boolean    @default(false)
   /// Unia alergenów składników (id jak w `UserPreference.allergens`,
   /// `src/common/allergens.ts`) — liczona przy imporcie, `recipes:create`
   /// i przez `scripts/load-ingredient-tags.ts`. Puste ≠ „brak danych":
@@ -171,6 +182,9 @@ model Recipe {
   favorites           RecipeFavorite[]
   sharedMealPlanItems SharedMealPlanItem[]
 
+  // Druga gałąź filtru widoczności (`isCatalog = true OR householdId = …`).
+  // Sam `isCatalog` indeksu nie dostaje — jest niskoselektywny.
+  @@index([householdId])
   // GIN — zapytania po slocie idą teraz przez `suitableMealTypes has X`,
   // a B-tree nie obsłuży zawierania w tablicy.
   @@index([suitableMealTypes], type: Gin)
@@ -229,8 +243,8 @@ model IngredientAlias {
 }
 
 model Household {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String
+  id               String     @id @default(uuid()) @db.Uuid
+  name             String
   /// Sloty posiłków, które gospodarstwo planuje. Trzymane per gospodarstwo,
   /// a nie per użytkownik, bo plan tygodnia i lista zakupów są wspólne —
   /// gdyby Ania miała podwieczorek, a Marek nie, jedno z nich widziałoby
@@ -243,11 +257,11 @@ model Household {
   /// `null` = gospodarstwo nie ruszało godzin (klient bierze swoje domyślne).
   /// Brak klucza = ten posiłek nie ma stałej pory (tak działa przekąska),
   /// więc pusta mapa i `null` znaczą co innego.
-  mealSlotTimes Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdById String?  @db.Uuid
-  createdBy   User?    @relation("HouseholdCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  mealSlotTimes    Json?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  createdById      String?    @db.Uuid
+  createdBy        User?      @relation("HouseholdCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   memberships               Membership[]
   recipes                   Recipe[]
@@ -260,6 +274,7 @@ model Household {
   recipeFavorites           RecipeFavorite[]
   sharedMealPlans           SharedMealPlan[]
   cookidooIntegration       CookidooIntegration?
+  agentConversations        AgentConversation[]
 }
 
 /// Integracja Cookidoo (Thermomix) — jedna na gospodarstwo, jak reszta
@@ -336,8 +351,8 @@ model Invitation {
   /// wielorazowy do czasu wykorzystania. Służy wyłącznie do tego, żeby
   /// zaproszenie dało się później odnaleźć w aplikacji zamiast szukać
   /// w historii czatu.
-  invitedUserId String?  @db.Uuid
-  invitedUser   User?    @relation("InvitationRecipient", fields: [invitedUserId], references: [id], onDelete: SetNull)
+  invitedUserId String? @db.Uuid
+  invitedUser   User?   @relation("InvitationRecipient", fields: [invitedUserId], references: [id], onDelete: SetNull)
 
   /// Kiedy adresat świadomie odmówił. Odrzucone znika ze skrzynki, ale zostaje
   /// w bazie — inaczej ten sam link odłożyłby się tam z powrotem przy
@@ -439,9 +454,9 @@ model PlanItemConsumption {
 /// próbki z opóźnieniem. `date` to czysta data liczona w strefie telefonu —
 /// serwer (UTC) nie wolno mu jej reinterpretować, jak przy `send-to-week`.
 model DailyStepCount {
-  userId String   @db.Uuid
-  date   DateTime @db.Date
-  steps  Int
+  userId    String   @db.Uuid
+  date      DateTime @db.Date
+  steps     Int
   /// Zrzut celu kroków obowiązującego danego dnia — przyszłe statystyki muszą
   /// wiedzieć, do czego użytkownik wtedy dążył, a bieżący cel trzyma telefon
   /// i może go zmienić w każdej chwili.
@@ -456,6 +471,123 @@ model DailyStepCount {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, date])
+}
+
+/// Rozmowa z asystentem AI — per użytkownik, w zakresie gospodarstwa
+/// (limity liczą się per dom, ale historia jest osobista). Kasowana z kontem
+/// (RODO) i z gospodarstwem. Status OPEN | CLOSED — tekst, nie enum (patrz
+/// `CookidooIntegration.status`).
+model AgentConversation {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  householdId   String    @db.Uuid
+  status        String    @default("OPEN")
+  title         String?
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  messages  AgentMessage[]
+  turns     AgentTurn[]
+
+  @@index([userId, lastMessageAt])
+  @@index([householdId])
+}
+
+/// Wiadomość w rozmowie. `role` USER | ASSISTANT; `kind` TEXT | PROPOSAL |
+/// QUESTION | RECEIPT | LIMIT. `clientMessageId` (UUID z telefonu) jest
+/// kluczem idempotencji: retry po timeoucie acka oddaje tę samą turę zamiast
+/// drugiego wywołania modelu. `apiContent` = dokładne bloki API do
+/// odtworzenia prefiksu (cache) — puste dla providera stub.
+model AgentMessage {
+  id              String   @id @default(uuid()) @db.Uuid
+  conversationId  String   @db.Uuid
+  role            String
+  kind            String   @default("TEXT")
+  text            String
+  apiContent      Json?
+  clientMessageId String?  @db.Uuid
+  turnId          String?  @db.Uuid
+  createdAt       DateTime @default(now())
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, clientMessageId])
+  @@index([conversationId, createdAt])
+}
+
+/// Jedno przetworzenie wiadomości użytkownika: RUNNING | DONE | FAILED |
+/// LIMITED (globalny budżet zatrzymał turę w trakcie). Lease „jedna tura naraz
+/// w rozmowie" liczy się po statusie w transakcji; `progress` to lista
+/// kroków dla ekranu postępu; koszt w mikrodolarach (Int, bez floatów).
+model AgentTurn {
+  id             String    @id @default(uuid()) @db.Uuid
+  conversationId String    @db.Uuid
+  /// Kopia z rozmowy — sprawdzenie właściciela i indeks bez joina.
+  userId         String    @db.Uuid
+  userMessageId  String    @db.Uuid
+  status         String    @default("RUNNING")
+  progress       Json      @default("[]")
+  errorCode      String?
+  requestId      String
+  provider       String?
+  model          String?
+  inputTokens    Int       @default(0)
+  outputTokens   Int       @default(0)
+  costMicroUsd   Int       @default(0)
+  durationMs     Int?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  usage        AiUsage[]
+
+  @@unique([userMessageId])
+  @@index([conversationId, status])
+  @@index([userId, createdAt])
+}
+
+/// Jeden wiersz na żądanie do API dostawcy — surowiec do kalibracji modelu
+/// kosztów (tokeny z cache osobno, latencja, powód zatrzymania).
+model AiUsage {
+  id               String   @id @default(uuid()) @db.Uuid
+  turnId           String   @db.Uuid
+  userId           String   @db.Uuid
+  householdId      String?  @db.Uuid
+  provider         String
+  model            String
+  effort           String?
+  stopReason       String?
+  inputTokens      Int      @default(0)
+  cacheReadTokens  Int      @default(0)
+  cacheWriteTokens Int      @default(0)
+  outputTokens     Int      @default(0)
+  costMicroUsd     Int      @default(0)
+  latencyMs        Int?
+  createdAt        DateTime @default(now())
+
+  turn AgentTurn @relation(fields: [turnId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+/// Liczniki atomowe na Postgresie (bez Redis): `scopeId` = id gospodarstwa
+/// albo `global`, `periodKey` = `YYYY-MM` (kwoty) albo `YYYY-MM-DD` (budżet
+/// dzienny), `kind` = messages | plans | costMicroUsd. Kwota sprawdzana i
+/// naliczana jednym warunkowym UPDATE — dwa telefony nie przeskoczą limitu.
+model AiUsageCounter {
+  scopeId   String
+  periodKey String
+  kind      String
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@id([scopeId, periodKey, kind])
 }
 
 model RecipeIngredient {
@@ -628,7 +760,6 @@ model PushDevice {
 
   @@index([userId, isActive])
 }
-
 
 enum MembershipRole {
   OWNER
