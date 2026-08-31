@@ -158,6 +158,7 @@ type PlannableRecipe = {
   id: string;
   mealType: MealType;
   suitableMealTypes: MealType[];
+  allergens: string[];
 };
 
 /** Jeden powód, dla którego pozycja tygodnia nie może wejść. */
@@ -670,6 +671,7 @@ export class WeeklyPlansService {
     const dryRun = dto.dryRun === true;
 
     const memberIds = await this.loadMemberIds(householdId);
+    const allergensByMember = await this.loadMemberAllergens(householdId);
     const recipes = await this.loadPlannableRecipes(
       householdId,
       dto.slots.map((slot) => slot.recipeId),
@@ -679,6 +681,7 @@ export class WeeklyPlansService {
       dto.slots,
       recipes,
       memberIds,
+      allergensByMember,
     );
     if (violations.length > 0) {
       return {
@@ -847,7 +850,12 @@ export class WeeklyPlansService {
         isActive: true,
         OR: [{ isCatalog: true }, { householdId }],
       },
-      select: { id: true, mealType: true, suitableMealTypes: true },
+      select: {
+        id: true,
+        mealType: true,
+        suitableMealTypes: true,
+        allergens: true,
+      },
     });
     return new Map(rows.map((row) => [row.id, row]));
   }
@@ -859,10 +867,27 @@ export class WeeklyPlansService {
    * nie ma sensu mówić „danie nie pasuje do slotu" o przepisie, którego w
    * ogóle nie widać.
    */
+  /** Alergeny per domownik — brak wiersza preferencji znaczy „brak alergenów". */
+  private async loadMemberAllergens(
+    householdId: string,
+  ): Promise<Map<string, string[]>> {
+    const rows = await this.prisma.membership.findMany({
+      where: { householdId },
+      select: {
+        userId: true,
+        user: { select: { preferences: { select: { allergens: true } } } },
+      },
+    });
+    return new Map(
+      rows.map((row) => [row.userId, row.user.preferences?.allergens ?? []]),
+    );
+  }
+
   private collectPlanViolations(
     slots: ApplyWeekSlotDto[],
     recipes: Map<string, PlannableRecipe>,
     memberIds: Set<string>,
+    allergensByMember: Map<string, string[]>,
   ): PlanViolation[] {
     const violations: PlanViolation[] = [];
     const seen = new Set<string>();
@@ -898,6 +923,34 @@ export class WeeklyPlansService {
         at(
           'RECIPE_NOT_SUITABLE_FOR_SLOT',
           'Ten przepis nie nadaje się do tego posiłku.',
+        );
+      }
+
+      // Alergeny są TWARDE i sprawdza je SERWER, nie model.
+      //
+      // Do Fazy 1 pilnowała ich wyłącznie instrukcja w promptcie, a model
+      // wnioskował o składzie z listy składników — która w digeście jest
+      // przycięta do pięciu najcięższych. Na katalogu dev 15 z 65 przepisów
+      // z laktozą nie pokazuje w niej nabiału, więc „dorsz z masłem" wygląda
+      // na czysty. Audytorium liczymy tak samo jak wszędzie: puste
+      // `participantIds` znaczy cały dom.
+      const audience =
+        (slot.participantIds ?? []).length > 0
+          ? (slot.participantIds ?? [])
+          : Array.from(memberIds);
+      const conflicting = Array.from(
+        new Set(
+          audience.flatMap((memberId) =>
+            (allergensByMember.get(memberId) ?? []).filter((allergen) =>
+              recipe?.allergens.includes(allergen),
+            ),
+          ),
+        ),
+      );
+      if (conflicting.length > 0) {
+        at(
+          'RECIPE_ALLERGEN_CONFLICT',
+          `Danie zawiera alergeny domownika: ${conflicting.join(', ')}.`,
         );
       }
 

@@ -132,7 +132,8 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     description:
       'Zapisz CAŁY tydzień naraz. Lista slots to stan docelowy: czego na niej nie ma, tego nie ' +
       'będzie w planie. ZAWSZE wywołaj najpierw z dry_run=true — dostaniesz listę naruszeń ' +
-      '(nieznany przepis, danie nie do tego posiłku, obcy domownik) i poprawisz wszystko naraz. ' +
+      '(nieznany przepis, danie nie do tego posiłku, ALERGEN domownika, obcy domownik) ' +
+      'i poprawisz wszystko naraz. ' +
       'Przy jakimkolwiek naruszeniu nic się nie zapisuje, więc ponowny zapis bez poprawki nic nie da.',
     input_schema: object(
       {
@@ -180,7 +181,10 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         title: { type: 'string' },
         description: { type: 'string' },
         meal_type: MEAL,
-        prep_time_minutes: { type: 'integer' },
+        prep_time_minutes: {
+          type: 'integer',
+          description: 'Ile minut zajmuje przygotowanie; co najmniej 1.',
+        },
         servings: {
           type: 'integer',
           description: 'Na ile porcji jest ten przepis; 1–20.',
@@ -210,7 +214,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           items: object({ text: { type: 'string' } }, ['text']),
         },
       },
-      ['title', 'meal_type', 'servings', 'ingredients'],
+      ['title', 'meal_type', 'prep_time_minutes', 'servings', 'ingredients'],
     ),
     strict: true,
   },

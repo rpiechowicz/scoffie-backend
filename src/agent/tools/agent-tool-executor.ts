@@ -167,7 +167,16 @@ export class AgentToolExecutor {
           ...(input.description ? { description: str('description') } : {}),
           mealType: str('meal_type'),
           difficulty: 'EASY',
-          prepTimeMinutes: Number(input.prep_time_minutes ?? 0),
+          // NIE zero: `CreateRecipeDto` wymaga >= 1, więc brak wartości
+          // kończył się „prepTimeMinutes must not be less than 1" — komunikatem
+          // o polu, które w schemacie narzędzia było opcjonalne, więc model
+          // nie miał jak się poprawić. Teraz pole jest wymagane w schemacie,
+          // a to jest ostatnia siatka.
+          prepTimeMinutes:
+            typeof input.prep_time_minutes === 'number' &&
+            input.prep_time_minutes >= 1
+              ? input.prep_time_minutes
+              : 30,
           servings: Number(input.servings ?? 1),
           ingredients: this.toIngredients(input.ingredients),
           ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),

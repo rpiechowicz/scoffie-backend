@@ -72,7 +72,14 @@ export class AnthropicAgentProvider implements AgentProvider {
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
       this.assertNotAborted(request.signal);
 
-      const response = await this.call(client, request, messages);
+      let response: Anthropic.Message;
+      try {
+        response = await this.call(client, request, messages);
+      } catch (error) {
+        // Zużycie z poprzednich rund musi przeżyć błąd — inaczej tura, która
+        // padła w piątej rundzie, zapisze zero wydanych pieniędzy.
+        throw this.withUsage(error, usage);
+      }
       this.accumulate(usage, request.model, response.usage);
 
       // `stop_reason` PRZED czytaniem treści: przy odmowie `content` bywa puste,
@@ -81,6 +88,8 @@ export class AnthropicAgentProvider implements AgentProvider {
         throw new AgentProviderError(
           'Model odmówił odpowiedzi na to zapytanie.',
           false,
+          undefined,
+          usage,
         );
       }
 
@@ -106,12 +115,63 @@ export class AnthropicAgentProvider implements AgentProvider {
       });
     }
 
-    // Sufit rund: model kręci się w kółko. To nie jest awaria dostawcy, więc
-    // nie zwracamy kwoty i nie ruszamy bezpiecznika — to nasz limit zadziałał.
-    throw new AgentProviderError(
-      `Model nie domknął zadania w ${MAX_TOOL_ROUNDS} rundach narzędzi.`,
-      false,
-    );
+    // Sufit rund osiągnięty. Zamiast wywracać turę, prosimy o odpowiedź BEZ
+    // narzędzi: „nie mam wegańskich przepisów na cały tydzień" to dla
+    // użytkownika sensowna odpowiedź, a „tura nie powiodła się" nie jest —
+    // zwłaszcza że pieniądze na te rundy i tak zostały wydane.
+    return this.finalAnswerWithoutTools(client, request, messages, usage);
+  }
+
+  /**
+   * Ostatnie słowo modelu, bez narzędzi.
+   *
+   * `tool_choice: none` odcina pętlę: model musi odpowiedzieć tekstem. Używamy
+   * tego, gdy zadanie okazało się niewykonalne z danymi, które mamy — najczęściej
+   * dlatego, że w katalogu po prostu nie ma czego szukać.
+   */
+  private async finalAnswerWithoutTools(
+    client: Anthropic,
+    request: AgentProviderRequest,
+    messages: Anthropic.MessageParam[],
+    usage: AgentProviderUsage,
+  ): Promise<AgentProviderResult> {
+    messages.push({
+      role: 'user',
+      content:
+        'Nie udało się domknąć zadania narzędziami. Odpowiedz teraz bez ich ' +
+        'używania: napisz, co udało się ustalić, czego zabrakło i co proponujesz dalej.',
+    });
+
+    try {
+      const response = await client.messages.create(
+        {
+          model: request.model,
+          max_tokens: MAX_TOKENS,
+          system: request.system,
+          messages,
+          tools: request.tools as unknown as Anthropic.ToolUnion[],
+          tool_choice: { type: 'none' },
+          thinking: { type: 'adaptive' },
+          output_config: { effort: request.effort },
+        },
+        { signal: request.signal },
+      );
+      this.accumulate(usage, request.model, response.usage);
+      return {
+        text: this.joinText(response.content),
+        stopReason: 'tool_rounds_exhausted',
+        usage,
+        apiCalls: MAX_TOOL_ROUNDS + 2,
+      };
+    } catch (error) {
+      const providerError = this.toProviderError(error);
+      throw new AgentProviderError(
+        providerError.message,
+        providerError.retryable,
+        providerError.status,
+        usage,
+      );
+    }
   }
 
   private getClient(): Anthropic {
@@ -120,6 +180,19 @@ export class AnthropicAgentProvider implements AgentProvider {
     // podmienia ją w locie).
     this.client ??= new Anthropic();
     return this.client;
+  }
+
+  private withUsage(
+    error: unknown,
+    usage: AgentProviderUsage,
+  ): AgentProviderError {
+    const providerError = this.toProviderError(error);
+    return new AgentProviderError(
+      providerError.message,
+      providerError.retryable,
+      providerError.status,
+      usage,
+    );
   }
 
   private assertNotAborted(signal: AbortSignal): void {
@@ -161,6 +234,12 @@ export class AnthropicAgentProvider implements AgentProvider {
    */
   private toProviderError(error: unknown): AgentProviderError {
     if (error instanceof AgentProviderError) return error;
+    // PRZED `APIError`: przerwanie jest jego podklasą, ale nie ma statusu, więc
+    // wpadałoby w gałąź „status 0 = zły request" i lądowało w logu jako nasz
+    // błąd — a to jest limit czasu tury, po którym kwota MA wrócić.
+    if (error instanceof Anthropic.APIUserAbortError) {
+      return new AgentProviderError('Tura przerwana.', true);
+    }
     if (error instanceof Anthropic.APIError) {
       // `status` w typach SDK jest `any` — przez `unknown` i sprawdzenie typu,
       // żeby porównanie liczbowe nie odbywało się na czymkolwiek.

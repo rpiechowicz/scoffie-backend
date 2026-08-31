@@ -57,6 +57,10 @@ export type DigestRecipe = {
   nutritionProtein: number;
   nutritionFat: number;
   nutritionCarbs: number;
+  /** Id jak w `src/common/allergens.ts` — te same, których używa profil. */
+  allergens: string[];
+  /** Tagi z `src/common/diet-tags.ts` (MEAT, DAIRY, GLUTEN_GRAIN…). */
+  dietTags: string[];
   ingredients: DigestIngredient[];
 };
 
@@ -75,9 +79,10 @@ export type CatalogDigest = {
 
 export const DIGEST_HEADER = [
   'KATALOG PRZEPISÓW (jedna linia = jeden przepis).',
-  'Format: indeks|tytuł|sloty|kcal P(białko) F(tłuszcz) C(węgle) na porcję|czas|porcje|główne składniki',
+  'Format: indeks|tytuł|sloty|kcal P(białko) F(tłuszcz) C(węgle) na porcję|czas|porcje|A:alergeny|D:tagi diet|główne składniki',
   'Sloty: BREAKFAST, SECOND_BREAKFAST, LUNCH, AFTERNOON_SNACK, DINNER, SNACK.',
-  'Makro dotyczy JEDNEJ porcji. Składniki to 5 najcięższych, nie cała lista.',
+  'Makro dotyczy JEDNEJ porcji. Składniki to 5 najcięższych, NIE CAŁA LISTA —',
+  'nie wnioskuj o alergenach z nazw składników, tylko z pola A. Puste A = brak alergenów.',
   'W narzędziach używaj indeksu (R01), nigdy tytułu.',
 ].join('\n');
 
@@ -125,6 +130,12 @@ export function buildDigestLine(recipe: DigestRecipe, index: string): string {
       `C${perServing(recipe.nutritionCarbs, servings)}`,
     `${recipe.prepTimeMinutes}min`,
     `${servings}p`,
+    // Alergeny i diety JAWNIE, a nie do wywnioskowania ze składników: lista
+    // składników jest przycięta do pięciu najcięższych, więc 20 g masła
+    // w daniu rybnym jest dla modelu niewidoczne. Na katalogu dev 15 z 65
+    // przepisów z laktozą nie pokazuje nabiału w tej piątce.
+    `A:${recipe.allergens.join(',')}`,
+    `D:${recipe.dietTags.join(',')}`,
     mainIngredients(recipe).join(', '),
   ].join('|');
 }
@@ -184,6 +195,8 @@ export async function loadDigestRecipes(
       nutritionProtein: true,
       nutritionFat: true,
       nutritionCarbs: true,
+      allergens: true,
+      dietTags: true,
       ingredients: {
         select: {
           name: true,

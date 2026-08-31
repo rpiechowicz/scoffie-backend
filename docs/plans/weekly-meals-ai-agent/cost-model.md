@@ -327,6 +327,28 @@ porcję i odniósł się do celu domownika. Dwa wywołania API, 41,8 s, **$0,059
 to ZAPIS cache (12 448 tokenów × 2×), bo to była pierwsza tura. Kolejne tury w tej samej godzinie
 czytają ten sam prefiks po 0,1×, czyli ~$0,0025 zamiast $0,0498 na prefiks.
 
+**Digest urósł o alergeny i tagi diet (31.08.2026) — i to SIĘ OPŁACIŁO.**
+Doszły pola `A:` i `D:`, więc digest ma teraz **11 601** tokenów zamiast 8 112 (127,3 na przepis,
+czyli dokładnie tyle, ile mówił pierwotny szacunek), a stały prefiks **16 015** zamiast 12 516.
+
+Mimo to koszt SPADŁ, bo model przestał zgadywać i ponawiać. Ten sam scenariusz (plan na trzy dni
+dla osoby z alergią na laktozę), przed i po:
+
+|             | przed   | po          |
+| ----------- | ------- | ----------- |
+| wywołań API | 7       | **3**       |
+| czas        | 61 s    | **26 s**    |
+| koszt tury  | $0,4006 | **$0,1351** |
+
+Wniosek do zapamiętania przy każdej kolejnej decyzji o wielkości prefiksu: prefiks czyta się
+z cache po 0,1× stawki, a każda zbędna runda narzędzi kosztuje pełną cenę wejścia i wyjścia.
+Dokładanie do prefiksu informacji, która oszczędza choćby JEDNĄ rundę, zwraca się wielokrotnie.
+
+**Koszt zmierzonych scenariuszy** (Sonnet 5, effort medium, cache zimny):
+plan na cały tydzień (21 posiłków) **$0,2993**; trzy dni z alergią **$0,1351**; dwie kolacje
+z limitem czasu **$0,1179**; nierozwiązywalne żądanie wegańskie **$0,9958** (12 rund + odpowiedź
+końcowa — pusta pula kosztuje najwięcej).
+
 **Czego pomiar NADAL nie obejmuje.** Blok gospodarstwa (domownicy, daty) jest zmienny per dom i nie
 wchodzi do wspólnego prefiksu — model liczy go osobno (`U` = 676 z szacunku). Druga połowa
 walidacji (thinking, historia rozmowy, realne `usage` z wielu tur) wymaga ruchu produkcyjnego;
