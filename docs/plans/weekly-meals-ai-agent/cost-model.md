@@ -286,10 +286,33 @@ digestu z cache: Sonnet 5 **$0,00162**, Opus 5 **$0,00406**, Haiku 4.5
 i bez różni się o 3 % (90 vs 87 tokenów). Pomysł „zaoszczędzimy, usuwając
 diakrytyki z digestu" jest nieopłacalny i psułby nazwy przepisów — zamknięte.
 
-**Czego pomiar NIE obejmuje.** Schematy ~8 narzędzi i instrukcje systemowe
-nie istnieją jeszcze w kodzie, więc zostają szacunkami; ten sam skrypt zmierzy
-je, gdy powstaną. Druga połowa walidacji — thinking, historia rozmowy i realne
-`usage` — wymaga ruchu produkcyjnego; ledger `AiUsage` już go zapisuje per turę.
+**Schematy narzędzi — zmierzone 31.08.2026** (8 narzędzi, `src/agent/tools/agent-tools.ts`):
+
+| Model            | schematy narzędzi | wobec szacunku 3 250 |
+| ---------------- | ----------------- | -------------------- |
+| Claude Sonnet 5  | **3 586**         | 110 %                |
+| Claude Opus 5    | **3 518**         | 108 %                |
+| Claude Haiku 4.5 | **3 395**         | 104 %                |
+
+Tu szacunek okazał się ZANIŻONY, odwrotnie niż przy digeście — narzędzia kosztują ~10 % więcej,
+niż zakładano. Ciekawostka wbrew wcześniejszemu ustaleniu: przy digeście Sonnet 5 i Opus 5 dały
+identyczną liczbę co do tokena, a przy narzędziach różnią się o 68. Tokenizer tekstu jest ten sam
+(digest to potwierdza), więc różnica siedzi w tym, jak API renderuje schematy narzędzi per model —
+przy szacowaniu prefiksu nie wolno więc przenosić liczby narzędzi między modelami.
+
+**Poprawiony stały prefiks** (Sonnet 5; jeden składnik nadal szacowany):
+
+| Składnik             | §1 (szacunek) | po pomiarze                     |
+| -------------------- | ------------- | ------------------------------- |
+| Schematy narzędzi    | 3 250         | **3 586 (zmierzone)**           |
+| Instrukcje systemowe | 1 950         | 1 950 (szacunek — nie istnieją) |
+| Digest katalogu      | 11 534        | **8 112 (zmierzone)**           |
+| **Shared prefix S**  | **16 734**    | **13 648**                      |
+
+**Czego pomiar NADAL nie obejmuje.** Instrukcje systemowe asystenta nie istnieją jeszcze w kodzie —
+powstaną razem z `AnthropicAgentProvider` i wtedy `pnpm agent:measure:tokens` domierzy ostatni
+składnik. Druga połowa walidacji (thinking, historia rozmowy, realne `usage`) wymaga ruchu
+produkcyjnego; ledger `AiUsage` już go zapisuje.
 
 **Po rozbudowie katalogu pomiar trzeba powtórzyć.** Digest rośnie liniowo:
 planowane +60 przepisów (gałąź `feat/katalog-nowe-przepisy-tm-i-kurczak`)
