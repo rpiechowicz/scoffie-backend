@@ -5,7 +5,14 @@ import { HouseholdsService } from '../../households/households.service';
 import { IngredientsService } from '../../recipes/ingredients.service';
 import { RecipesService } from '../../recipes/recipes.service';
 import { ApplyWeekPlanDto } from '../../weekly-plans/dto/apply-week-plan.dto';
-import { WeeklyPlansService } from '../../weekly-plans/weekly-plans.service';
+import {
+  ApplyWeekPlanResult,
+  WeeklyPlansService,
+} from '../../weekly-plans/weekly-plans.service';
+import { AgentMetricsService } from '../../observability/agent-metrics.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { readAgentEnv } from '../../config/agent-env';
+import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../../recipes/dto/update-recipe.dto';
 import { AGENT_TOOL_NAMES } from './agent-tools';
@@ -57,6 +64,9 @@ export class AgentToolExecutor {
     private readonly weeklyPlans: WeeklyPlansService,
     private readonly recipes: RecipesService,
     private readonly ingredients: IngredientsService,
+    private readonly prisma: PrismaService,
+    private readonly counters: AiUsageCountersService,
+    private readonly metrics: AgentMetricsService,
   ) {}
 
   async execute(
@@ -131,34 +141,8 @@ export class AgentToolExecutor {
           ...(typeof input.limit === 'number' ? { limit: input.limit } : {}),
         });
 
-      case 'apply_week_plan': {
-        // Zmyślony indeks katalogu zatrzymujemy TUTAJ, a nie w walidacji DTO.
-        // Przepuszczony dalej wróciłby jako „recipeId must be a UUID" — model
-        // mówi indeksami (`R07`), więc taki komunikat nic mu nie mówi i pętla
-        // kręciłaby się w kółko. Tu dostaje wprost, którego indeksu nie ma.
-        const unknownRefs = this.unknownCatalogRefs(input.slots, context);
-        if (unknownRefs.length > 0) {
-          throw new AppException(
-            'RECIPE_NOT_FOUND',
-            `Nie ma takich przepisów w katalogu: ${unknownRefs.join(', ')}. Użyj indeksów z listy katalogu.`,
-            HttpStatus.NOT_FOUND,
-            unknownRefs,
-          );
-        }
-        // Rzutowanie przez `unknown`: to jest wejście MODELU, a nie nasze DTO.
-        // Kształt sprawdza `validateDto` w serwisie — tu tylko tłumaczymy
-        // nazwy pól z konwencji narzędzi (snake_case) na naszą.
-        const payload: unknown = {
-          dryRun: input.dry_run === true,
-          slots: this.toSlots(input.slots, context),
-        };
-        return this.weeklyPlans.applyWeekPlan(
-          userId,
-          householdId,
-          str('week_start'),
-          payload as ApplyWeekPlanDto,
-        );
-      }
+      case 'apply_week_plan':
+        return this.applyWeekPlan(input, context, str('week_start'));
 
       case 'create_recipe': {
         const payload: unknown = {
@@ -212,6 +196,111 @@ export class AgentToolExecutor {
 
       default:
         return Promise.resolve(null);
+    }
+  }
+
+  /**
+   * Zapis tygodnia z miesięczną kwotą planów (`AI_LIMIT_PLANS_PER_MONTH`).
+   *
+   * Kwota schodzi PRZED zapisem i wraca, gdy zapisu nie było — tak samo jak
+   * kwota wiadomości w `AgentTurnRunner`. Kolejność ma znaczenie: policzenie
+   * po zapisie znaczyłoby, że przy wyczerpanym limicie plan i tak wylądował
+   * w bazie, a odmowa byłaby kłamstwem.
+   *
+   * Co NIE liczy się do kwoty: `dry_run` (nic nie pisze), zapis odrzucony
+   * przez naruszenia (`applied: false` — serwis nie zapisuje nic przy
+   * jakimkolwiek naruszeniu) i zapis, który nie zmienił ani jednej pozycji.
+   * Ten ostatni przypadek jest ważny: model, który powtarza ten sam stan
+   * docelowy, nie ma prawa spalić komuś limitu na tydzień.
+   */
+  private async applyWeekPlan(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<ApplyWeekPlanResult> {
+    // Zmyślony indeks katalogu zatrzymujemy TUTAJ, a nie w walidacji DTO.
+    // Przepuszczony dalej wróciłby jako „recipeId must be a UUID" — model
+    // mówi indeksami (`R07`), więc taki komunikat nic mu nie mówi i pętla
+    // kręciłaby się w kółko. Tu dostaje wprost, którego indeksu nie ma.
+    const unknownRefs = this.unknownCatalogRefs(input.slots, context);
+    if (unknownRefs.length > 0) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takich przepisów w katalogu: ${unknownRefs.join(', ')}. Użyj indeksów z listy katalogu.`,
+        HttpStatus.NOT_FOUND,
+        unknownRefs,
+      );
+    }
+    // Rzutowanie przez `unknown`: to jest wejście MODELU, a nie nasze DTO.
+    // Kształt sprawdza `validateDto` w serwisie — tu tylko tłumaczymy
+    // nazwy pól z konwencji narzędzi (snake_case) na naszą.
+    const dryRun = input.dry_run === true;
+    const payload: unknown = {
+      dryRun,
+      slots: this.toSlots(input.slots, context),
+    };
+    const run = (): Promise<ApplyWeekPlanResult> =>
+      this.weeklyPlans.applyWeekPlan(
+        context.userId,
+        context.householdId,
+        weekStart,
+        payload as ApplyWeekPlanDto,
+      );
+
+    if (dryRun) return run();
+
+    const periodKey = this.counters.monthKey();
+    const limit = readAgentEnv().plansPerMonth;
+    const consumed = await this.counters.tryConsume(
+      this.prisma,
+      context.householdId,
+      periodKey,
+      'plans',
+      limit,
+    );
+    if (!consumed) {
+      this.metrics.recordRejected('planQuota');
+      throw new AppException(
+        'AI_PLAN_QUOTA_EXCEEDED',
+        `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany. ` +
+          'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go do końca miesiąca.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    try {
+      const result = await run();
+      const changed =
+        result.changes.created +
+        result.changes.updated +
+        result.changes.deleted;
+      if (!result.applied || changed === 0)
+        await this.refundPlan(context, periodKey);
+      return result;
+    } catch (error) {
+      await this.refundPlan(context, periodKey);
+      throw error;
+    }
+  }
+
+  /** Zwrot kwoty planu — nigdy nie wywraca narzędzia, bo to tylko księgowość. */
+  private async refundPlan(
+    context: AgentToolContext,
+    periodKey: string,
+  ): Promise<void> {
+    try {
+      await this.counters.add(
+        this.prisma,
+        context.householdId,
+        periodKey,
+        'plans',
+        -1,
+      );
+    } catch (error) {
+      this.logger.error(
+        'nie udało się zwrócić kwoty planu',
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 

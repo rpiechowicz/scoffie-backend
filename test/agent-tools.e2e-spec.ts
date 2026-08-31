@@ -319,4 +319,138 @@ describe('Narzędzia asystenta E2E', () => {
       });
     });
   });
+
+  /**
+   * Miesięczna kwota planów (`AI_LIMIT_PLANS_PER_MONTH`).
+   *
+   * Do tej pory zmienna była czytana z env i nieegzekwowana przez nic — limit
+   * istniał w dokumentacji i w `.env.example`, a asystent zapisywał plany bez
+   * ograniczeń. Te przypadki pilnują nie tylko odmowy, ale przede wszystkim
+   * tego, CO kwoty NIE zjada: próba bez zapisu i zapis, który nic nie zmienił.
+   */
+  describe('miesięczna kwota planów', () => {
+    const QUOTA_WEEK = '2026-10-05';
+    const periodKey = new Date().toISOString().slice(0, 7);
+    let previousLimit: string | undefined;
+
+    const plansUsed = async (): Promise<number> => {
+      const row = await prisma.aiUsageCounter.findUnique({
+        where: {
+          scopeId_periodKey_kind: {
+            scopeId: context.householdId,
+            periodKey,
+            kind: 'plans',
+          },
+        },
+        select: { value: true },
+      });
+      return row?.value ?? 0;
+    };
+
+    const resetQuota = async (limit: number): Promise<void> => {
+      process.env.AI_LIMIT_PLANS_PER_MONTH = String(limit);
+      await prisma.aiUsageCounter.deleteMany({
+        where: { scopeId: context.householdId, periodKey, kind: 'plans' },
+      });
+    };
+
+    const slot = (dayOfWeek: string) => ({
+      day_of_week: dayOfWeek,
+      meal_type: 'DINNER',
+      recipe: firstCatalogIndex,
+    });
+
+    beforeAll(() => {
+      previousLimit = process.env.AI_LIMIT_PLANS_PER_MONTH;
+    });
+
+    afterAll(async () => {
+      if (previousLimit === undefined) {
+        delete process.env.AI_LIMIT_PLANS_PER_MONTH;
+      } else {
+        process.env.AI_LIMIT_PLANS_PER_MONTH = previousLimit;
+      }
+      await prisma.aiUsageCounter.deleteMany({
+        where: { scopeId: context.householdId, periodKey },
+      });
+    });
+
+    it('po wyczerpaniu limitu zapis jest ODMAWIANY, a nie cofany', async () => {
+      await resetQuota(1);
+      const first = data<{ applied: boolean }>(
+        await run('apply_week_plan', {
+          week_start: QUOTA_WEEK,
+          slots: [slot('MON')],
+        }),
+      );
+      expect(first.applied).toBe(true);
+
+      const second = await run('apply_week_plan', {
+        week_start: QUOTA_WEEK,
+        slots: [slot('MON'), slot('TUE')],
+      });
+      expect(second).toMatchObject({
+        ok: false,
+        error: { code: 'AI_PLAN_QUOTA_EXCEEDED' },
+      });
+
+      // Sedno: kwota schodzi PRZED zapisem, więc odmowa znaczy, że w bazie
+      // nic się nie zmieniło. Gdyby liczyła się po zapisie, wtorek już by tu był.
+      const plan = data<{ items: { dayOfWeek: string }[] }>(
+        await run('get_week_plan', { week_start: QUOTA_WEEK }),
+      );
+      expect(plan.items.map((item) => item.dayOfWeek)).toEqual(['MON']);
+    });
+
+    it('dry_run nie zjada kwoty — to tylko rachunek próbny', async () => {
+      await resetQuota(1);
+      const preview = data<{ applied: boolean }>(
+        await run('apply_week_plan', {
+          week_start: QUOTA_WEEK,
+          dry_run: true,
+          slots: [slot('WED')],
+        }),
+      );
+      expect(preview.applied).toBe(false);
+      expect(await plansUsed()).toBe(0);
+    });
+
+    it('naruszenie zwraca kwotę — nieudany zapis nie kosztuje planu', async () => {
+      await resetQuota(1);
+      const rejected = data<{ applied: boolean; violations: unknown[] }>(
+        await run('apply_week_plan', {
+          week_start: QUOTA_WEEK,
+          slots: [{ ...slot('THU'), meal_type: 'BREAKFAST' }],
+        }),
+      );
+      expect(rejected.applied).toBe(false);
+      expect(rejected.violations).not.toHaveLength(0);
+      expect(await plansUsed()).toBe(0);
+
+      // Skoro kwota wróciła, jedyny dostępny plan musi jeszcze przejść.
+      const accepted = data<{ applied: boolean }>(
+        await run('apply_week_plan', {
+          week_start: QUOTA_WEEK,
+          slots: [slot('FRI')],
+        }),
+      );
+      expect(accepted.applied).toBe(true);
+    });
+
+    it('powtórzenie tego samego stanu nie kosztuje drugiego planu', async () => {
+      await resetQuota(10);
+      const slots = [slot('MON'), slot('TUE')];
+      data(await run('apply_week_plan', { week_start: QUOTA_WEEK, slots }));
+      expect(await plansUsed()).toBe(1);
+
+      // Model, który upewnia się, że zapisał, nie ma prawa spalić komuś
+      // limitu na kolejny tydzień.
+      const again = data<{ applied: boolean; changes: { created: number } }>(
+        await run('apply_week_plan', { week_start: QUOTA_WEEK, slots }),
+      );
+      expect(again.applied).toBe(true);
+      expect(again.changes.created).toBe(0);
+      expect(await plansUsed()).toBe(1);
+    });
+  });
 });

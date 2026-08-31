@@ -90,6 +90,10 @@ export const APP_ERROR_CODES = [
   'AI_BUDGET_PAUSED',
   'AI_UPSTREAM_PAUSED',
   'AI_TURN_IN_PROGRESS',
+  // Wyczerpany miesięczny limit ZAPISANYCH planów. Jedyny kod z tej rodziny,
+  // który wraca do MODELU (jako wynik narzędzia), a nie do klienta — asystent
+  // ma o tym powiedzieć zdaniem, zamiast kręcić się w kółko po odmowie zapisu.
+  'AI_PLAN_QUOTA_EXCEEDED',
   'AI_CONVERSATION_NOT_FOUND',
   'AI_TURN_NOT_FOUND',
   // Powody porażki tury (`AgentTurn.errorCode`), zwracane w GET /agent/turns/:id.

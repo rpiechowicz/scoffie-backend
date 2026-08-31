@@ -224,12 +224,19 @@ w aplikacji, przepis — `UPDATE "Recipe" SET "isActive" = true WHERE id = …`.
    Przy `AI_ENABLED=true` bez klucza asystent zachowuje się jak wyłączony (503),
    więc zła kolejność kosztuje błąd, nie awarię — ale i tak sprawdź
    `railway logs --service Backend` pod kątem ostrzeżenia `[env]`.
-2. **Budżet — USTAW GO ŚWIADOMIE.** `AI_GLOBAL_DAILY_BUDGET_USD` domyślnie
-   **nie istnieje, czyli BEZ LIMITU**; `AI_LIMIT_MESSAGES_PER_MONTH` to 200 na
-   gospodarstwo. Zmierzone tury (Sonnet 5, `medium`): układanie tygodnia $0,30,
-   trzy dni z alergią $0,14, poprawka dwóch kolacji $0,12, żądanie niewykonalne
-   $1,00. Czyli domyślne 200 wiadomości to **$25–60 miesięcznie na jedno
-   gospodarstwo**. Przy koncie z $20 kredytu rozsądny start:
+2. **Budżet — sprawdź, czy domyślny Ci pasuje.** Trzy hamulce, wszystkie
+   z wartością domyślną:
+
+   | Zmienna                       | Domyślnie                      | Zakres                         | Co robi po przekroczeniu                           |
+   | ----------------------------- | ------------------------------ | ------------------------------ | -------------------------------------------------- |
+   | `AI_GLOBAL_DAILY_BUDGET_USD`  | `5` (na dobę, cała instalacja) | liczba ≥ 0, `off` = bez limitu | `503 AI_BUDGET_PAUSED`                             |
+   | `AI_LIMIT_MESSAGES_PER_MONTH` | `200` (na gospodarstwo)        | liczba całkowita               | `429 AI_QUOTA_EXCEEDED`                            |
+   | `AI_LIMIT_PLANS_PER_MONTH`    | `30` (na gospodarstwo)         | liczba całkowita               | narzędzie oddaje modelowi `AI_PLAN_QUOTA_EXCEEDED` |
+
+   Zmierzone tury (Sonnet 5, `medium`): układanie tygodnia $0,30, trzy dni
+   z alergią $0,14, poprawka dwóch kolacji $0,12, żądanie niewykonalne $1,00.
+   Czyli domyślne 200 wiadomości to **$25–60 miesięcznie na jedno gospodarstwo**
+   — przy koncie z $20 kredytu rozsądny start to:
 
    ```
    AI_GLOBAL_DAILY_BUDGET_USD=2
@@ -238,14 +245,11 @@ w aplikacji, przepis — `UPDATE "Recipe" SET "isActive" = true WHERE id = …`.
 
    Budżet dobowy jest globalny (licznik `AiUsageCounter`, kind `costMicroUsd`)
    i sprawdzany PRZED turą, więc jego przekroczenie kosztuje jeszcze jedną turę
-   — ustawiaj go o tę jedną turę niżej, niż wynosi ból. Po przekroczeniu tury
-   wracają `503 AI_BUDGET_PAUSED` i nic nie idzie do API; wyczerpana kwota
-   miesięczna to `429 AI_QUOTA_EXCEEDED`.
-
-   **`AI_LIMIT_PLANS_PER_MONTH` jest dziś martwy** — wartość czyta się z env,
-   ale nic jej nie egzekwuje (asystent zapisuje plany bez własnego licznika).
-   Do domknięcia razem z decyzjami o subskrypcji i freemium; do tego czasu
-   jedynym hamulcem planów jest limit wiadomości.
+   — ustawiaj go o tę jedną turę niżej, niż wynosi ból. Limit planów liczy się
+   przy ZAPISIE tygodnia: dry-run, zapis odrzucony przez naruszenia i zapis,
+   który niczego nie zmienił, nie kosztują nic. Wyczerpany limit planów nie
+   przerywa tury — asystent nadal potrafi zaproponować plan w odpowiedzi,
+   tylko go nie zapisze.
 
 3. `AI_ENABLED=true` i restart usługi.
 4. Weryfikacja: `GET /ops/metrics` → `agent.turns` (started/done/failed),
