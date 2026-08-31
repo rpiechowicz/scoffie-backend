@@ -1,4 +1,5 @@
 import { parseEncryptionKey } from '../common/crypto.util';
+import { throttleEnvProblems } from '../common/throttle/throttle-env';
 import { agentEnvProblems } from './agent-env';
 import { wsAuthModeProblem } from './ws-auth-mode';
 
@@ -78,6 +79,10 @@ export function inspectRuntimeEnv(
   // Asystent AI: przy AI_ENABLED pustym/false nic nie jest wymagane (merge bez
   // zmiennych na Railway); `true` z dostawcą anthropic wymaga klucza.
   problems.push(...agentEnvProblems(env));
+
+  // Limity throttlera: zła wartość po cichu wracałaby do domyślnej, a na
+  // produkcji ma to być widoczne.
+  problems.push(...throttleEnvProblems(env));
 
   // Poniższe mają sens tylko na produkcji — dev bez Cookidoo ma prawo żyć.
   const productionOnly: string[] = [];

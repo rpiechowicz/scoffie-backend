@@ -11,6 +11,7 @@ import { RecipesGateway } from '../recipes/recipes.gateway';
 import { UsersGateway } from '../users/users.gateway';
 import { WeeklyPlansGateway } from '../weekly-plans/weekly-plans.gateway';
 import { WsTelemetryService } from './ws-telemetry.service';
+import { resetWsRateLimits } from './ws-rate-limit';
 
 /**
  * Wspólny harness testów refleksyjnych po WSZYSTKICH handlerach
@@ -188,6 +189,9 @@ function constructorDeps(
 }
 
 export async function buildGateway(gateway: GatewayClass): Promise<Harness> {
+  // Tabele złych payloadów robią setki wywołań jednym userem — bez resetu
+  // limiter WS zatrzymałby własne testy.
+  resetWsRateLimits();
   const calls: CallRecord[] = [];
   const providers = constructorDeps(gateway).map((dep) =>
     dep === WsTelemetryService

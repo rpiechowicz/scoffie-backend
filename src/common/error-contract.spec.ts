@@ -67,6 +67,19 @@ describe('mapError', () => {
     expect(mapped.log?.level).toBe('error');
   });
 
+  it.each(['AI_DISABLED', 'AI_BUDGET_PAUSED', 'AI_UPSTREAM_PAUSED'] as const)(
+    '%s to świadoma odmowa: 503, ale log jako warn i bez stacku',
+    (code) => {
+      const mapped = mapError(
+        new AppException(code, 'niedostępny', HttpStatus.SERVICE_UNAVAILABLE),
+      );
+      expect(mapped.contract).toMatchObject({ code, status: 503 });
+      // `AI_ENABLED=false` to normalny stan prod przez całą Fazę 0 — gdyby
+      // szedł jako ERROR ze stackiem, zalałby logi Railway.
+      expect(mapped.log).toEqual({ level: 'warn', message: 'niedostępny' });
+    },
+  );
+
   it.each([
     [new UnauthorizedException('x'), 'UNAUTHORIZED', 401, 'x'],
     [new ForbiddenException(), 'FORBIDDEN', 403, 'Forbidden'],

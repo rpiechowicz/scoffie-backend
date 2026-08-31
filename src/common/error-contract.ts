@@ -43,6 +43,18 @@ export type HttpErrorBody = {
   requestId: string;
 };
 
+/**
+ * Kody 503, które są ŚWIADOMĄ odmową, a nie awarią: asystent wyłączony flagą,
+ * wstrzymany budżetem albo bezpiecznikiem dostawcy. Bez tej listy każde takie
+ * 503 szło do logu jako ERROR ze stackiem — a `AI_ENABLED=false` to normalny
+ * stan produkcji przez całą Fazę 0.
+ */
+const EXPECTED_UNAVAILABLE_CODES = new Set<AppErrorCode>([
+  'AI_DISABLED',
+  'AI_BUDGET_PAUSED',
+  'AI_UPSTREAM_PAUSED',
+]);
+
 export const INTERNAL_ERROR_MESSAGE =
   'Wystąpił błąd serwera. Spróbuj ponownie za chwilę.';
 
@@ -152,7 +164,9 @@ export function mapError(error: unknown): MappedError {
       },
       log:
         status >= 500
-          ? { level: 'error', message: response.message, stack: error.stack }
+          ? EXPECTED_UNAVAILABLE_CODES.has(response.code)
+            ? { level: 'warn', message: response.message }
+            : { level: 'error', message: response.message, stack: error.stack }
           : null,
     };
   }

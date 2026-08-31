@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { OpsTokenGuard } from './ops-token.guard';
 import { RequestMetricsService } from './request-metrics.service';
 import { AgentMetricsService } from './agent-metrics.service';
@@ -33,7 +34,10 @@ export class OpsController {
     };
   }
 
+  // Sonda żywotności Railway odpytuje często i z jednego adresu — 429 na
+  // healthchecku wyglądałby jak padnięty serwis i wywróciłby deploy.
   @Get('health')
+  @SkipThrottle({ default: true, ip: true })
   getHealth() {
     return {
       status: 'ok',

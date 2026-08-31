@@ -2,6 +2,7 @@ import { HttpStatus, Logger } from '@nestjs/common';
 import type { Socket } from 'socket.io';
 import { AppException } from './app-exception';
 import { isUuid } from './uuid';
+import { checkWsRateLimit } from './ws-rate-limit';
 
 // Kopia `DefaultEventsMap` z socket.io (`dist/typed-events`), której pakiet nie
 // eksportuje przez `exports` — typowanie strukturalne, więc zgodna 1:1.
@@ -78,6 +79,9 @@ export function actorId(
         `payload.userId ${declared} ignored — socket authenticated as ${authed}`,
       );
     }
+    // Limit ruchu liczony PO ustaleniu tożsamości i w środku `wsRespond`:
+    // guard Nesta omijałby ack (patrz `src/common/ws-rate-limit.ts`).
+    checkWsRateLimit(authed);
     return authed;
   }
 
@@ -92,6 +96,7 @@ export function actorId(
       );
     }
     observer?.onLegacyAct();
+    checkWsRateLimit(declared);
     return declared;
   }
 

@@ -52,13 +52,18 @@ export class RequestLoggingInterceptor implements NestInterceptor {
 
     // `finalize` biegnie ZANIM filtr wyjątków ustawi status odpowiedzi, więc
     // rzucone błędy HTTP liczyły się w metrykach jako 200. Status błędu
-    // bierzemy z tego samego mapera, którego użyje filtr.
+    // bierzemy z tego samego mapera, którego użyje filtr — razem z poziomem
+    // logu, bo nie każde 5xx jest awarią: `AI_DISABLED` przy wyłączonym
+    // asystencie to normalny stan produkcji, a nie incydent do zbadania.
     let errorStatus: number | null = null;
+    let errorLevel: 'warn' | 'error' | null = null;
 
     return next.handle().pipe(
       tap({
         error: (error: unknown) => {
-          errorStatus = mapError(error).contract.status;
+          const mapped = mapError(error);
+          errorStatus = mapped.contract.status;
+          errorLevel = mapped.log?.level ?? null;
         },
       }),
       finalize(() => {
@@ -71,13 +76,10 @@ export class RequestLoggingInterceptor implements NestInterceptor {
         const message = `${method} ${req.originalUrl || routePath} ${statusCode} ${durationMs.toFixed(1)}ms`;
         const contextData = `requestId=${requestId} userId=${userId ?? '-'} ip=${req.ip ?? '-'} ua=${req.headers['user-agent'] ?? '-'}`;
 
-        if (statusCode >= 500) {
-          this.logger.error(`${message} ${contextData}`);
-        } else if (statusCode >= 400) {
-          this.logger.warn(`${message} ${contextData}`);
-        } else {
-          this.logger.log(`${message} ${contextData}`);
-        }
+        const level: 'error' | 'warn' | 'log' =
+          errorLevel ??
+          (statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'log');
+        this.logger[level](`${message} ${contextData}`);
       }),
     );
   }

@@ -76,4 +76,43 @@ export default tseslint.config(
       '@typescript-eslint/unbound-method': 'off',
     },
   },
+  {
+    // Asystent rozmawia z modelem: każda odpowiedź dostawcy i każdy argument
+    // narzędzia to dane z zewnątrz o kształcie, którego TypeScript nie zna.
+    // W reszcie repo `no-unsafe-*` są ostrzeżeniem (dług historyczny); tutaj
+    // od pierwszego commita są błędem, żeby `any` nie wsiąkł w warstwę, która
+    // woła serwisy domenowe i wydaje pieniądze.
+    files: ['src/agent/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.spec-helper.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+    },
+  },
+  {
+    // Granica modułu, jednokierunkowa: asystent woła domenę, domena nigdy nie
+    // woła asystenta. Bez tej reguły pierwszy `import { AgentTurnsService }`
+    // w serwisie planu zamieniłby flagę AI_ENABLED z przełącznika funkcji w
+    // zależność całego backendu. Wyjątek ma tylko `AppModule` (rejestracja).
+    files: ['src/**/*.ts'],
+    ignores: ['src/agent/**', 'src/app.module.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/agent/*', '**/agent/**'],
+              message:
+                'src/agent/ jest modułem jednokierunkowym — domena nie może importować asystenta (rejestracja tylko w AppModule).',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

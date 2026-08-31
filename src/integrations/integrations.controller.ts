@@ -1,5 +1,10 @@
 import { Body, Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import {
+  COOKIDOO_CONNECT_LIMIT,
+  COOKIDOO_CONNECT_WINDOW_MS,
+} from '../common/throttle/throttle-env';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CookidooIntegrationService } from './cookidoo-integration.service';
 import { CurrentUserId } from './current-user-id.decorator';
@@ -17,7 +22,13 @@ export class IntegrationsController {
     private readonly cookidooIntegration: CookidooIntegrationService,
   ) {}
 
+  // Logowanie do Cookidoo idzie do Vorwerka z hasłem użytkownika: 5 prób na
+  // 10 minut. Chroni i nas (mikroserwis), i konto klienta przed blokadą po
+  // stronie Vorwerka.
   @Post('connect')
+  @Throttle({
+    default: { limit: COOKIDOO_CONNECT_LIMIT, ttl: COOKIDOO_CONNECT_WINDOW_MS },
+  })
   connect(@CurrentUserId() userId: string, @Body() dto: ConnectCookidooDto) {
     return this.cookidooIntegration.connect(userId, dto.email, dto.password);
   }

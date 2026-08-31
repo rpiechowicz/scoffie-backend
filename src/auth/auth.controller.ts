@@ -1,11 +1,20 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { readThrottleLimit } from '../common/throttle/throttle-env';
 import { AuthService } from './auth.service';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
 import { DevLoginDto } from './dto/dev-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('auth')
+// Logowanie i odświeżanie tokenu limitujemy ostrzej niż resztę i zawsze po
+// IP: żądanie jest z natury bez tokenu, więc tracker throttlera i tak nie ma
+// tożsamości. To bariera na zgadywanie (`/auth/apple`, `/auth/refresh`), nie
+// na pętlę w kliencie.
+@Throttle({
+  default: { limit: () => readThrottleLimit('THROTTLE_AUTH_LIMIT') },
+})
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
