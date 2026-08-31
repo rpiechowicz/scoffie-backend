@@ -528,15 +528,24 @@ model AgentConversation {
   household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
   messages  AgentMessage[]
   turns     AgentTurn[]
+  proposals AgentProposal[]
 
   @@index([userId, lastMessageAt])
   @@index([householdId])
 }
 
-/// Wiadomość w rozmowie. `role` USER | ASSISTANT. `kind` ma dziś JEDNĄ
-/// produkowaną wartość: TEXT. PROPOSAL | QUESTION | RECEIPT | LIMIT to miejsce
-/// na karty w kliencie (propozycja do zatwierdzenia, potwierdzenie zapisu) —
-/// zarezerwowane, nie zapisywane, dopóki nie ma ekranu, który by je pokazał.
+/// Wiadomość w rozmowie. `role` USER | ASSISTANT.
+///
+/// `kind` mówi, CZYM jest ta wiadomość, a `card` niesie jej treść
+/// strukturalną: TEXT (sam `text`, `card` puste), PLAN_WEEK (propozycja
+/// tygodnia do zatwierdzenia), APPLIED (potwierdzenie zapisu). Kolejne
+/// rodzaje z makiety — PLAN_DAY, OPTIONS, SWAP, MACRO_GAP, SHOPPING_DELTA,
+/// HOUSEHOLD_SPLIT, CLARIFY — dochodzą po tej samej szynie. Lista wartości
+/// żyje w `src/agent/cards/agent-cards.ts`; kolumna jest zwykłym stringiem,
+/// więc to spec pilnuje, żeby `kind` zgadzał się z `card.kind`.
+///
+/// `text` MUSI bronić się sam także wtedy, gdy jest karta: stary klient jej
+/// nie zrenderuje, a wiadomość ma nadal nieść sensowne zdanie.
 /// `clientMessageId` (UUID z telefonu) jest
 /// kluczem idempotencji: retry po timeoucie acka oddaje tę samą turę zamiast
 /// drugiego wywołania modelu. `apiContent` to miejsce na dokładne bloki API;
@@ -550,6 +559,10 @@ model AgentMessage {
   role            String
   kind            String   @default("TEXT")
   text            String
+  /// Treść strukturalna dla klienta — kształt zależny od `kind`, wersjonowany
+  /// polem `v`. Świadomie osobno od `apiContent`: tamto jest kontraktem
+  /// z DOSTAWCĄ, to jest kontraktem z TELEFONEM.
+  card            Json?
   apiContent      Json?
   clientMessageId String?  @db.Uuid
   turnId          String?  @db.Uuid
@@ -559,6 +572,53 @@ model AgentMessage {
 
   @@unique([conversationId, clientMessageId])
   @@index([conversationId, createdAt])
+}
+
+/// Propozycja asystenta czekająca na klik użytkownika.
+///
+/// Nic nie zapisuje się samo: model PROPONUJE (stan docelowy ląduje w
+/// `action`), a zapis dzieje się dopiero na `POST /agent/proposals/:id/apply`.
+/// Podział jest istotny — `card` to WIDOK (nazwy, kalorie; kopia tego, co
+/// widać w wiadomości), `action` to INTENCJA (identyfikatory), która NIGDY nie
+/// idzie na drut. Klient przysyła sam `proposalId`, więc nie ma jak podmienić
+/// tego, co się zapisze.
+///
+/// `baselineHash` to odcisk tygodnia z chwili propozycji, `appliedHash` — po
+/// zapisie. Pierwszy wykrywa zmianę spod ręki (propozycja robi się `STALE`),
+/// drugi broni „Cofnij" przed skasowaniem cudzej pracy.
+///
+/// `messageId` puste = tura nie domknęła się i propozycja jest nieosiągalna;
+/// to celowe, bo karty nikt nigdy nie zobaczył.
+model AgentProposal {
+  id             String    @id @default(uuid()) @db.Uuid
+  conversationId String    @db.Uuid
+  turnId         String    @db.Uuid
+  /// Kopia z rozmowy — sprawdzenie właściciela bez joina.
+  userId         String    @db.Uuid
+  householdId    String    @db.Uuid
+  /// PLAN_WEEK; kolejne rodzaje dochodzą razem z kartami.
+  kind           String
+  weekStart      DateTime  @db.Date
+  action         Json
+  card           Json
+  baselineHash   String
+  appliedHash    String?
+  /// PENDING | APPLIED | UNDONE | STALE | EXPIRED | FAILED
+  status         String    @default("PENDING")
+  messageId      String?   @unique @db.Uuid
+  undoSnapshot   Json?
+  appliedAt      DateTime?
+  appliedByUserId String?  @db.Uuid
+  undoneAt       DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([householdId, status])
+  @@index([turnId])
 }
 
 /// Jedno przetworzenie wiadomości użytkownika: RUNNING | DONE | FAILED |
