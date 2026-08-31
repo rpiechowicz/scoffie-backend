@@ -11,6 +11,7 @@ import {
   AgentProviderError,
   AgentProviderMessage,
   AgentProviderResult,
+  AgentProviderUsage,
 } from './providers/agent-provider';
 import { AgentProviderResolver } from './providers/agent-provider.resolver';
 import {
@@ -161,6 +162,47 @@ export class AgentTurnRunner {
     }
   }
 
+  /**
+   * Księga użycia dla nieudanej tury.
+   *
+   * Osobno od `updateMany`, które domyka turę, i po nim: wiersz księgi ma
+   * powstać tylko wtedy, gdy to MY domknęliśmy turę (inaczej leniwy timeout
+   * i runner dopisaliby dwa wiersze za to samo). Błąd zapisu nie może
+   * przesłonić błędu, który tu nas przywiódł — stąd log, nie rzut.
+   */
+  private async recordFailedUsage(
+    input: RunTurnInput,
+    spent: AgentProviderUsage,
+    verdict: FailureVerdict,
+    durationMs: number,
+  ): Promise<void> {
+    try {
+      await this.prisma.aiUsage.create({
+        data: {
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          provider: input.env.provider,
+          model: input.env.model,
+          effort: input.env.effort,
+          stopReason: verdict.errorCode,
+          inputTokens: spent.inputTokens,
+          cacheReadTokens: spent.cacheReadTokens,
+          cacheWriteTokens: spent.cacheWriteTokens,
+          outputTokens: spent.outputTokens,
+          costMicroUsd: spent.costMicroUsd,
+          latencyMs: durationMs,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `turn ${input.turnId}: nie udało się dopisać księgi nieudanej tury: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
+    }
+  }
+
   private async loadHistory(
     conversationId: string,
   ): Promise<AgentProviderMessage[]> {
@@ -219,6 +261,9 @@ export class AgentTurnRunner {
             householdId: input.householdId,
             provider: input.env.provider,
             model: input.env.model,
+            // Bez `effort` księga nie da się skalibrować: ta sama tura na
+            // `medium` i na `high` to dwa różne rachunki.
+            effort: input.env.effort,
             stopReason: result.stopReason,
             inputTokens: usage.inputTokens,
             cacheReadTokens: usage.cacheReadTokens,
@@ -308,6 +353,12 @@ export class AgentTurnRunner {
       }
 
       if (spent && spent.costMicroUsd > 0) {
+        // Wiersz w księdze także dla PORAŻKI. `AiUsage` to surowiec do
+        // kalibracji modelu kosztów („jeden wiersz na żądanie do dostawcy"),
+        // a tura, która padła w piątej rundzie, wysłała ich pięć. Bez tego
+        // księga pokazywałaby wyłącznie tury udane — czyli rachunek niższy
+        // od prawdziwego, i to systematycznie.
+        await this.recordFailedUsage(input, spent, verdict, durationMs);
         await this.counters.add(
           this.prisma,
           GLOBAL_SCOPE,

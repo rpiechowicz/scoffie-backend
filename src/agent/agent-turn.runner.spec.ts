@@ -55,6 +55,7 @@ describe('AgentTurnRunner', () => {
   const prisma = {
     agentMessage: { findMany: jest.fn() },
     agentTurn: { updateMany: jest.fn() },
+    aiUsage: { create: jest.fn() },
     $transaction: jest.fn(),
   };
   const counters = { add: jest.fn(), dayKey: jest.fn() };
@@ -208,6 +209,49 @@ describe('AgentTurnRunner', () => {
       );
       expect(metrics.snapshot().upstream.total).toBe(1);
       expect(metrics.snapshot().turns.failed).toBe(1);
+    });
+
+    it('tura spalona po kilku rundach trafia do KSIĘGI, nie tylko na turę', async () => {
+      // `AiUsage` to surowiec do kalibracji kosztów („jeden wiersz na żądanie
+      // do dostawcy"). Bez wiersza dla porażki księga pokazywałaby wyłącznie
+      // tury udane — czyli rachunek systematycznie niższy od prawdziwego.
+      run.mockRejectedValue(
+        new AgentProviderError('503 po czterech rundach', true, 503, {
+          inputTokens: 18_000,
+          cacheReadTokens: 16_000,
+          cacheWriteTokens: 0,
+          outputTokens: 900,
+          costMicroUsd: 41_000,
+        }),
+      );
+      await runner.run(input());
+
+      expect(prisma.aiUsage.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          turnId: TURN,
+          stopReason: 'AI_PROVIDER_ERROR',
+          inputTokens: 18_000,
+          cacheReadTokens: 16_000,
+          outputTokens: 900,
+          costMicroUsd: 41_000,
+        }),
+      });
+      // …i ten sam koszt musi obciążyć budżet dobowy.
+      expect(counters.add).toHaveBeenCalledWith(
+        prisma,
+        'global',
+        expect.any(String),
+        'costMicroUsd',
+        41_000,
+      );
+    });
+
+    it('błąd bez zużycia nie dopisuje pustego wiersza do księgi', async () => {
+      run.mockRejectedValue(
+        new AgentProviderError('padło przed pierwszym wywołaniem', true),
+      );
+      await runner.run(input());
+      expect(prisma.aiUsage.create).not.toHaveBeenCalled();
     });
 
     it('błąd nie-retryable: bez zwrotu kwoty i bez bezpiecznika', async () => {
