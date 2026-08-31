@@ -153,6 +153,38 @@ default), which is why the next step after iOS adoption is a shorter
 reported as `SERVICE_UNAVAILABLE`, not `UNAUTHORIZED`, so clients keep their
 auto-reconnect instead of refreshing tokens.
 
+## Assistant rollout (`AI_ENABLED`)
+
+The assistant ships **off**. Every `AI_*` and `THROTTLE_*` variable has a
+default, so merging Phase 0 to `main` needs no new Railway variable — this is
+deliberate after the 28.08.2026 incident (a new build asserting a missing
+variable cost ~10 minutes of downtime).
+
+Turning it on, in this order:
+
+1. Set `ANTHROPIC_API_KEY` on the `Backend` service **first**
+   (`railway variables --service Backend --skip-deploys --set ANTHROPIC_API_KEY=...`).
+   With `AI_ENABLED=true` and no key the assistant behaves as disabled, so a
+   wrong order costs a `503`, not a crash — but check
+   `railway logs --service Backend` for the `[env]` warning either way.
+2. Optionally cap the spend: `AI_GLOBAL_DAILY_BUDGET_USD` (daily, whole
+   installation) and `AI_LIMIT_MESSAGES_PER_MONTH` (per household).
+3. Set `AI_ENABLED=true` and let the service restart.
+4. Verify: `GET /ops/metrics` → `agent.turns` (started/done/failed),
+   `agent.rejected` (disabled/quota/budget/upstream/inProgress),
+   `agent.usage.costMicroUsd`.
+
+Turning it off is one variable (`AI_ENABLED=false`) and takes effect on the next
+restart — the flag is read per request, and no other module imports
+`src/agent/` (enforced by ESLint). Conversations already stored are untouched;
+users can delete their own with `DELETE /agent/conversations`, which works
+regardless of the flag.
+
+Safety valves that need no operator action: a turn is aborted after
+`AI_TURN_TIMEOUT_MS` (`FAILED` / `AI_TIMEOUT`), five provider 429/5xx inside
+five minutes open a 60-second circuit breaker (`503 AI_UPSTREAM_PAUSED`), and a
+failed turn refunds the message quota it consumed at start.
+
 ## Railway — healthcheck wdrożenia
 
 `railway.json` ustawia `deploy.healthcheckPath: /ops/health` (timeout 120 s). Bez tego Railway

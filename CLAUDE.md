@@ -72,6 +72,22 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   (`ensureMembership`, `getHouseholdOrThrow`, …). Każde pole koperty MUSI mieć dekorator (whitelist
   wycina resztę). Nowy handler bez wpisu w `src/common/ws-payload-fixtures.spec-helper.ts`
   (VALID_PAYLOADS/INVALID_PAYLOADS per zdarzenie) = czerwony `ws-handlers-validation.spec.ts`.
+- Limity żądań (od Fazy 0, krok 3): HTTP przez globalny `AppThrottlerGuard`
+  (`src/common/throttle/`) — tracker `user:<sub>` z ZWERYFIKOWANEGO tokenu, inaczej `ip:<adres>`;
+  limity to funkcje czytające `THROTTLE_*` z env PER ŻĄDANIE (`readThrottleLimit`), więc nowy
+  limit nie wymaga builda. Nowy kontroler ostrzejszy niż domyślny = `@Throttle({ default: { limit:
+() => readThrottleLimit('…') } })`; sondy = `@SkipThrottle({ default: true, ip: true })`.
+  WebSocket ma własny limiter (`checkWsRateLimit` w `actorId`), bo guard omija ack.
+- Asystent AI (`src/agent/`, od Fazy 0, krok 3): moduł JEDNOKIERUNKOWY — wolno mu wołać domenę
+  i obserwowalność, nic w aplikacji nie importuje `src/agent/` (pilnuje `no-restricted-imports`;
+  wyjątek: `AppModule`). W `src/agent/**` reguły `no-unsafe-*` są BŁĘDEM, nie ostrzeżeniem.
+  Konfiguracja przez `AgentConfigService.assertEnabled()` (czyta env per wywołanie; `AI_ENABLED=false`
+  = 503 `AI_DISABLED`). Kontrakt: `POST /agent/conversations/:id/messages` → 202 `{turnId,…}` +
+  `Location`, klient odpytuje `GET /agent/turns/:id`. Kolejność odmów jest częścią kontraktu
+  (disabled → 404 → walidacja → idempotencja po `clientMessageId` → bezpiecznik → budżet →
+  [tx: lease 409 → kwota 429 → zapis]); kwota schodzi NA STARCIE tury i wraca przy porażce.
+  `AgentTurnRunner.run` nie rzuca nigdy i domyka turę warunkowo (`updateMany` po `status: 'RUNNING'`).
+  W logach asystenta nie ma treści wiadomości — tylko `turnId`, `requestId` i kod.
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
   Puste tagi są dla reguł diet faktem („czysto”), nie brakiem danych.
