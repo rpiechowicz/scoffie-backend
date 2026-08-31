@@ -23,6 +23,7 @@ describe('ensureRecipeForHousehold', () => {
     expect(findFirst).toHaveBeenCalledWith({
       where: {
         id: RECIPE,
+        isActive: true,
         OR: [{ isCatalog: true }, { householdId: HOUSEHOLD }],
       },
       select: { id: true },

@@ -27,6 +27,8 @@ import {
   type IngredientNutritionPer100,
 } from './recipe-nutrition.util';
 import { resolveSuitableMealTypes } from './suitable-meal-types.util';
+import { normalizeRecipeSteps } from './recipe-steps.util';
+import { UpdateRecipeDto } from './dto/update-recipe.dto';
 
 const recipeListSelect = {
   id: true,
@@ -390,7 +392,17 @@ export class RecipesService {
    * wróci od kuchni.
    */
   private resolveRecipeNutrition(
-    data: CreateRecipeDto,
+    data: Partial<
+      Pick<
+        CreateRecipeDto,
+        | 'nutritionKcal'
+        | 'nutritionProtein'
+        | 'nutritionFat'
+        | 'nutritionCarbs'
+        | 'nutritionFiber'
+        | 'nutritionSalt'
+      >
+    >,
     rows: RecipeIngredientRow[],
   ): ResolvedRecipeNutrition {
     const nutritionSalt = data.nutritionSalt ?? 0;
@@ -683,8 +695,10 @@ export class RecipesService {
     // `recipe-1` do kolumny `@db.Uuid` (P2023 → dawniej 500).
     assertUuid(id, 'id');
     if (householdId) assertUuid(householdId, 'householdId');
-    const recipe = await this.prisma.recipe.findUnique({
-      where: { id },
+    const recipe = await this.prisma.recipe.findFirst({
+      // `isActive` w warunku, nie po odczycie: od `recipes:delete` wycofany
+      // przepis realnie istnieje w bazie i nie ma prawa wracać z odczytu.
+      where: { id, isActive: true },
       select: this.detailSelect,
     });
     if (!recipe) {
@@ -746,6 +760,7 @@ export class RecipesService {
       data.ingredients,
     );
     const nutrition = this.resolveRecipeNutrition(data, ingredientRows);
+    const steps = normalizeRecipeSteps(data.steps);
 
     const created = await this.prisma.recipe.create({
       data: {
@@ -770,6 +785,7 @@ export class RecipesService {
         prepTimeMinutes: data.prepTimeMinutes,
         servings: data.servings,
         imageUrl: data.imageUrl,
+        ...(steps ? { sourceInstructions: steps } : {}),
         ...nutrition,
         // Ta sama unia co w imporcie i w loaderze tagów (`deriveRecipeTags`).
         ...deriveRecipeTags(ingredientRows),
@@ -808,6 +824,175 @@ export class RecipesService {
    * rozgłaszać surowego `payload.data`, a `recipe.householdId` to dom
    * autora przepisu, nie dom, który go polubił.
    */
+  /**
+   * Poprawka przepisu gospodarstwa — druga połowa pętli „zaproponuj → popraw
+   * → zapisz", której do Fazy 1 po prostu nie było (w serwisie stało TODO).
+   *
+   * Ruszamy tylko pola, które przyszły; listy (składniki, kroki) przysłane —
+   * zastępują poprzednie w całości. Zmiana składników POCIĄGA przeliczenie
+   * makr, alergenów, tagów diet i slotów, bo wszystkie liczą się z nich, a nie
+   * z tego, co poda wołający. Bez tego dałoby się podmienić kurczaka na tofu
+   * i zostawić przepis oznaczony jako mięsny.
+   */
+  async update(
+    userIdentifier: string,
+    recipeId: string,
+    input: UpdateRecipeDto,
+  ) {
+    const data = await validateDto(UpdateRecipeDto, input);
+    assertUuid(recipeId, 'recipeId');
+    await this.ensureMembership(userIdentifier, data.householdId);
+    const existing = await this.loadEditableRecipe(recipeId, data.householdId);
+
+    const ingredientRows = data.ingredients
+      ? await this.resolveRecipeIngredients(data.ingredients)
+      : null;
+    const steps = normalizeRecipeSteps(data.steps);
+
+    // Stan PO zmianie — z niego liczy się klasyfikator slotów, nie ze starego
+    // wiersza ani z samej łatki.
+    const next = {
+      title: data.title ?? existing.title,
+      description: data.description ?? existing.description,
+      mealType: data.mealType ?? existing.mealType,
+      prepTimeMinutes: data.prepTimeMinutes ?? existing.prepTimeMinutes,
+      servings: data.servings ?? existing.servings,
+    };
+    const nutrition = ingredientRows
+      ? this.resolveRecipeNutrition({}, ingredientRows)
+      : null;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (ingredientRows) {
+        await tx.recipeIngredient.deleteMany({ where: { recipeId } });
+      }
+      await tx.recipe.update({
+        where: { id: recipeId },
+        data: {
+          ...next,
+          ...(data.difficulty !== undefined
+            ? { difficulty: data.difficulty }
+            : {}),
+          ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl } : {}),
+          ...(steps ? { sourceInstructions: steps } : {}),
+          ...(nutrition ?? {}),
+          ...(ingredientRows ? deriveRecipeTags(ingredientRows) : {}),
+          suitableMealTypes: resolveSuitableMealTypes({
+            ...next,
+            nutritionKcal: nutrition?.nutritionKcal ?? existing.nutritionKcal,
+            suitableMealTypes:
+              data.suitableMealTypes ?? existing.suitableMealTypes,
+          }),
+          ...(ingredientRows?.length
+            ? {
+                ingredients: {
+                  create: ingredientRows.map(
+                    ({
+                      nutrition: _nutrition,
+                      allergens: _allergens,
+                      dietTags: _dietTags,
+                      ...row
+                    }) => row,
+                  ),
+                },
+              }
+            : {}),
+        },
+      });
+    });
+
+    this.recipesCache.invalidateRecipesList();
+    return this.findById(userIdentifier, recipeId, data.householdId);
+  }
+
+  /**
+   * Wycofanie przepisu — `isActive = false`, nie `DELETE`.
+   *
+   * Twarde kasowanie zabrałoby kaskadą pozycje planu i znaczniki zjedzenia,
+   * czyli historię, której nikt nie prosił o usunięcie. Przepis stojący
+   * w JAKIMKOLWIEK planie odmawia wycofania (`RECIPE_IN_USE`): dziura w planie
+   * i w liście zakupów jest gorsza niż jeden przepis za dużo na liście.
+   */
+  async remove(
+    userIdentifier: string,
+    recipeId: string,
+    householdId: string,
+  ): Promise<{ id: string; isActive: false }> {
+    assertUuid(recipeId, 'recipeId');
+    assertUuid(householdId, 'householdId');
+    await this.ensureMembership(userIdentifier, householdId);
+    await this.loadEditableRecipe(recipeId, householdId);
+
+    const usedInPlans = await this.prisma.planItem.count({
+      where: { recipeId },
+    });
+    if (usedInPlans > 0) {
+      throw new AppException(
+        'RECIPE_IN_USE',
+        'Ten przepis jest w planie tygodnia — najpierw usuń go z planu.',
+        HttpStatus.CONFLICT,
+        [`planItems:${usedInPlans}`],
+      );
+    }
+
+    await this.prisma.recipe.update({
+      where: { id: recipeId },
+      data: { isActive: false },
+    });
+    this.recipesCache.invalidateRecipesList();
+    return { id: recipeId, isActive: false };
+  }
+
+  /**
+   * Przepis, który WOLNO zmienić: aktywny, własny, spoza katalogu.
+   *
+   * Kolejność odmów jest celowa. Katalog sprawdzamy PRZED gospodarstwem, bo
+   * przepis katalogowy należy do innego domu i „nie znaleziono" byłoby mylące —
+   * użytkownik go widzi. `RECIPE_NOT_EDITABLE` mówi asystentowi, co zrobić
+   * zamiast ponawiać: zrobić własną kopię. Cudzy przepis prywatny zostaje przy
+   * 404, bo nie ma prawa potwierdzić, że istnieje.
+   */
+  private async loadEditableRecipe(recipeId: string, householdId: string) {
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        mealType: true,
+        suitableMealTypes: true,
+        prepTimeMinutes: true,
+        servings: true,
+        nutritionKcal: true,
+        isActive: true,
+        isCatalog: true,
+        householdId: true,
+      },
+    });
+    if (!recipe || !recipe.isActive) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        'Nie znaleziono przepisu.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (recipe.isCatalog) {
+      throw new AppException(
+        'RECIPE_NOT_EDITABLE',
+        'Przepis ze wspólnego katalogu nie podlega edycji — zrób własną kopię.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    if (recipe.householdId !== householdId) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        'Nie znaleziono przepisu.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return recipe;
+  }
+
   async setFavorite(userIdentifier: string, input: UpdateRecipeFavoriteDto) {
     const data = await validateDto(UpdateRecipeFavoriteDto, input);
     const recipe = await this.prisma.recipe.findUnique({

@@ -26,6 +26,9 @@ export async function ensureRecipeForHousehold(
   const recipe = await prisma.recipe.findFirst({
     where: {
       id: recipeId,
+      // Wycofany przepis (`recipes:delete` ustawia `isActive = false`) nie ma
+      // prawa wejść do planu, choć wiersz nadal istnieje.
+      isActive: true,
       OR: [{ isCatalog: true }, { householdId }],
     },
     select: { id: true },

@@ -108,6 +108,20 @@ const makePrismaMock = () => {
           Promise.resolve({ id: RECIPE_ID, ...args.data, ingredients: [] }),
         ),
       findMany: jest.fn().mockResolvedValue([]),
+      // `findById` filtruje po `isActive`, wiec pyta `findFirst`; `findUnique`
+      // zostaje dla bramki edycji (`loadEditableRecipe`).
+      findFirst: jest.fn().mockResolvedValue({
+        id: RECIPE_ID,
+        title: 'Owsianka',
+        description: null,
+        imageUrl: 'https://cdn.example/owsianka.jpg',
+        mealType: 'BREAKFAST',
+        suitableMealTypes: [],
+        householdId: mockHouseholdId,
+        sourceMeta: null,
+        ingredients: [],
+      }),
+      update: jest.fn().mockResolvedValue({ id: RECIPE_ID }),
       findUnique: jest.fn().mockResolvedValue({
         id: RECIPE_ID,
         title: 'Owsianka',
@@ -776,7 +790,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
         service.findById(mockUserId, 'not-a-uuid'),
         /^id must be a UUID$/,
       );
-      expect(prisma.recipe.findUnique).not.toHaveBeenCalled();
+      expect(prisma.recipe.findFirst).not.toHaveBeenCalled();
     });
 
     it('householdId nie-UUID → VALIDATION_ERROR przed jakimkolwiek zapytaniem', async () => {
@@ -784,7 +798,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
         service.findById(mockUserId, RECIPE_ID, 'hh-1'),
         /householdId must be a UUID/,
       );
-      expect(prisma.recipe.findUnique).not.toHaveBeenCalled();
+      expect(prisma.recipe.findFirst).not.toHaveBeenCalled();
     });
 
     it('poprawne id: oddaje przepis z flagą isFavorite dla domu', async () => {
@@ -803,7 +817,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
     });
 
     it('nieznany przepis → RECIPE_NOT_FOUND 404', async () => {
-      prisma.recipe.findUnique.mockResolvedValue(null);
+      prisma.recipe.findFirst.mockResolvedValue(null);
 
       await expect(
         service.findById(mockUserId, RECIPE_ID),
@@ -814,7 +828,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
     });
 
     it('przepis z katalogu widac bez kontekstu domu', async () => {
-      prisma.recipe.findUnique.mockResolvedValue({
+      prisma.recipe.findFirst.mockResolvedValue({
         id: RECIPE_ID,
         title: 'Owsianka',
         description: null,
@@ -833,7 +847,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
     });
 
     it('cudzy przepis gospodarstwa to 404, nie 403 — nie potwierdzamy, ze istnieje', async () => {
-      prisma.recipe.findUnique.mockResolvedValue({
+      prisma.recipe.findFirst.mockResolvedValue({
         id: RECIPE_ID,
         title: 'Sekretna zapiekanka',
         description: null,

@@ -138,6 +138,11 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
       nutritionSalt: 1.2,
     },
   },
+  'recipes:update': {
+    id: RECIPE,
+    data: { householdId: HH, title: 'Makaron z pomidorami i bazylią' },
+  },
+  'recipes:delete': { id: RECIPE, householdId: HH },
   'recipes:setFavorite': {
     data: { recipeId: RECIPE, householdId: HH, isFavorite: true },
   },
@@ -299,6 +304,23 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
     },
   ],
   'recipes:create': [missingData({}), dataNotObject({}, 'Makaron')],
+  'recipes:update': [
+    missingData({ id: RECIPE }),
+    dataNotObject({ id: RECIPE }, 'nowy tytuł'),
+    {
+      name: 'id nie-UUID',
+      payload: { id: NOT_UUID, data: { householdId: HH } },
+      detail: `id ${UUID_DETAIL}`,
+    },
+  ],
+  'recipes:delete': [
+    {
+      name: 'id nie-UUID',
+      payload: { id: NOT_UUID, householdId: HH },
+      detail: `id ${UUID_DETAIL}`,
+    },
+    badHouseholdId({ id: RECIPE }),
+  ],
   'recipes:setFavorite': [missingData({}), dataNotObject({}, 42)],
   // NotificationsGateway
   'notifications:registerDevice': [
