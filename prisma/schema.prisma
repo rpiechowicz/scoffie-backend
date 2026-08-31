@@ -496,11 +496,17 @@ model AgentConversation {
   @@index([householdId])
 }
 
-/// Wiadomość w rozmowie. `role` USER | ASSISTANT; `kind` TEXT | PROPOSAL |
-/// QUESTION | RECEIPT | LIMIT. `clientMessageId` (UUID z telefonu) jest
+/// Wiadomość w rozmowie. `role` USER | ASSISTANT. `kind` ma dziś JEDNĄ
+/// produkowaną wartość: TEXT. PROPOSAL | QUESTION | RECEIPT | LIMIT to miejsce
+/// na karty w kliencie (propozycja do zatwierdzenia, potwierdzenie zapisu) —
+/// zarezerwowane, nie zapisywane, dopóki nie ma ekranu, który by je pokazał.
+/// `clientMessageId` (UUID z telefonu) jest
 /// kluczem idempotencji: retry po timeoucie acka oddaje tę samą turę zamiast
-/// drugiego wywołania modelu. `apiContent` = dokładne bloki API do
-/// odtworzenia prefiksu (cache) — puste dla providera stub.
+/// drugiego wywołania modelu. `apiContent` to miejsce na dokładne bloki API;
+/// DZIŚ NIEUŻYWANE i świadomie: historia rozmowy wraca do modelu jako sam
+/// `text`, bo odgrywanie pełnych wyników narzędzi z poprzednich tur kosztowałoby
+/// w każdej turze więcej, niż jest warte — model, który potrzebuje szczegółu,
+/// woła narzędzie jeszcze raz (patrz docs/plans/weekly-meals-ai-agent/cost-model.md).
 model AgentMessage {
   id              String   @id @default(uuid()) @db.Uuid
   conversationId  String   @db.Uuid

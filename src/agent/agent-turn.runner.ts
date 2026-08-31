@@ -13,6 +13,11 @@ import {
   AgentProviderResult,
 } from './providers/agent-provider';
 import { AgentProviderResolver } from './providers/agent-provider.resolver';
+import {
+  AgentProgressStep,
+  appendProgress,
+  progressStep,
+} from './agent-progress';
 import { AgentPromptService, TurnDates } from './agent-prompt.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
 import { AGENT_TOOLS } from './tools/agent-tools';
@@ -85,6 +90,8 @@ export class AgentTurnRunner {
       input.env.turnTimeoutMs,
     );
 
+    const progress: AgentProgressStep[] = [];
+
     try {
       const messages = await this.loadHistory(input.conversationId);
       const prompt = await this.prompts.build(
@@ -101,12 +108,14 @@ export class AgentTurnRunner {
         tools: AGENT_TOOLS,
         // Domknięcie z tożsamością tury: dostawca nie zna ani użytkownika, ani
         // gospodarstwa, więc nie ma jak sięgnąć do bazy z pominięciem bramek.
-        executeTool: (name, toolInput) =>
-          this.tools.execute(name, toolInput, {
+        executeTool: async (name, toolInput) => {
+          await this.publishProgress(input.turnId, progress, name, toolInput);
+          return this.tools.execute(name, toolInput, {
             userId: input.userId,
             householdId: input.householdId,
             catalogIndex: prompt.catalogIndex,
-          }),
+          });
+        },
         signal: controller.signal,
       });
       await this.finishDone(input, result, Date.now() - startedAt);
@@ -120,6 +129,35 @@ export class AgentTurnRunner {
       );
     } finally {
       clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * Dopisuje krok postępu do tury, żeby telefon miał co pokazać w trakcie.
+   *
+   * Zapis jest warunkowy (`status: 'RUNNING'`) — turę mógł już domknąć leniwy
+   * timeout z odczytu i nie wolno jej wskrzeszać dopiskiem. Błąd zapisu jest
+   * połykany: postęp to udogodnienie, a nie powód, żeby wywrócić turę, za
+   * którą użytkownik już zapłacił kwotą.
+   */
+  private async publishProgress(
+    turnId: string,
+    steps: AgentProgressStep[],
+    tool: string,
+    input: Record<string, unknown>,
+  ): Promise<void> {
+    if (!appendProgress(steps, progressStep(tool, input))) return;
+    try {
+      await this.prisma.agentTurn.updateMany({
+        where: { id: turnId, status: 'RUNNING' },
+        data: { progress: steps as unknown as Prisma.InputJsonValue },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `nie udało się zapisać postępu tury ${turnId}: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
     }
   }
 

@@ -10,6 +10,15 @@ import {
 /** Markery w treści wiadomości — wymuszają błąd w testach, bez mockowania DI. */
 export const STUB_UPSTREAM_ERROR_MARKER = '[[upstream-error]]';
 export const STUB_ERROR_MARKER = '[[error]]';
+/**
+ * Wymusza JEDNO wywołanie narzędzia, zanim stub odpowie.
+ *
+ * Bez tego cała ścieżka postępu tury (`AgentTurn.progress`) była w e2e martwa:
+ * stub odpowiadał od razu, więc nikt nigdy nie sprawdził, czy klient dostaje
+ * kroki, których obiecuje mu kontrakt. `get_household_context` nie bierze
+ * żadnych argumentów i niczego nie zapisuje.
+ */
+export const STUB_TOOL_MARKER = '[[tool]]';
 
 /**
  * Dostawca `stub` (`AI_PROVIDER=stub`) — cały tor tury bez ani jednego
@@ -39,6 +48,10 @@ export class StubAgentProvider implements AgentProvider {
     }
     if (lastUserText.includes(STUB_ERROR_MARKER)) {
       throw new AgentProviderError('stub: symulowany błąd tury', false);
+    }
+
+    if (lastUserText.includes(STUB_TOOL_MARKER)) {
+      await request.executeTool('get_household_context', {});
     }
 
     const text = `[stub] ${lastUserText}`.slice(0, 4000);

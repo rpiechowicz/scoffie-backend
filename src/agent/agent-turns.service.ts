@@ -7,9 +7,11 @@ import { AgentMetricsService } from '../observability/agent-metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgentConfigService } from './agent-config.service';
 import {
+  conversationTitleFrom,
   AgentConversationsService,
   MessageView,
 } from './agent-conversations.service';
+import { AgentProgressStep } from './agent-progress';
 import { AgentTurnRunner } from './agent-turn.runner';
 import {
   AiUsageCountersService,
@@ -32,7 +34,7 @@ export type TurnView = {
   id: string;
   conversationId: string;
   status: TurnStatus;
-  progress: unknown[];
+  progress: AgentProgressStep[];
   errorCode: string | null;
   messages?: MessageView[];
   usage?: {
@@ -198,6 +200,12 @@ export class AgentTurnsService {
           where: { id: conversationId },
           data: { lastMessageAt: message.createdAt },
         });
+        // Tytuł nadaje WYŁĄCZNIE pierwsza wiadomość — `title: null` w warunku
+        // załatwia to bez dodatkowego odczytu i bez wyścigu.
+        await tx.agentConversation.updateMany({
+          where: { id: conversationId, title: null },
+          data: { title: conversationTitleFrom(data.text) },
+        });
 
         return {
           turnId: turn.id,
@@ -256,7 +264,7 @@ export class AgentTurnsService {
       conversationId: turn.conversationId,
       status: this.toTurnStatus(turn.status),
       progress: Array.isArray(turn.progress)
-        ? (turn.progress as unknown[])
+        ? (turn.progress as unknown as AgentProgressStep[])
         : [],
       errorCode: turn.errorCode,
       startedAt: turn.startedAt.toISOString(),

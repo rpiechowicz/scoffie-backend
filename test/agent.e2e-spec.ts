@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { STUB_TOOL_MARKER } from '../src/agent/providers/stub-agent.provider';
 
 /**
  * Asystent AI (Faza 0, krok 3) na żywym serwerze, z dostawcą `stub`.
@@ -42,6 +43,7 @@ type TurnView = {
   id: string;
   conversationId: string;
   status: string;
+  progress: { tool: string; label: string; at: string }[];
   errorCode: string | null;
   messages?: { role: string; text: string }[];
   usage?: { inputTokens: number; outputTokens: number; costMicroUsd: number };
@@ -289,6 +291,62 @@ describe('Agent E2E', () => {
         .expect(200);
       expect(history.body.messages).toHaveLength(2);
       expect(history.body.messages[0].role).toBe('USER');
+
+      // Tytuł rozmowy bierze się z PIERWSZEJ wiadomości — bez tego lista
+      // rozmów w telefonie to same daty.
+      const list = await request(app.getHttpServer())
+        .get('/agent/conversations')
+        .set(auth(session.accessToken))
+        .expect(200);
+      const listed = (list.body as { id: string; title: string | null }[]).find(
+        (item) => item.id === conversation.id,
+      );
+      expect(listed?.title).toBe('Co na obiad?');
+
+      // Druga wiadomość NIE przemianowuje rozmowy — lista, która zmienia
+      // nazwy pod palcami, jest nie do przeszukania.
+      const second = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'A może jednak ryba?',
+      }).expect(202);
+      await pollTurn(session.accessToken, (second.body as AcceptedTurn).turnId);
+      const listAgain = await request(app.getHttpServer())
+        .get('/agent/conversations')
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(
+        (listAgain.body as { id: string; title: string | null }[]).find(
+          (item) => item.id === conversation.id,
+        )?.title,
+      ).toBe('Co na obiad?');
+    });
+
+    it('wywołanie narzędzia zostawia ślad w `progress`, a nie pustą tablicę', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: `Sprawdź, kto je ${STUB_TOOL_MARKER}`,
+      }).expect(202);
+
+      const done = await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
+      expect(done.status).toBe('DONE');
+      // Kolumna `progress` istniała od Fazy 0 i zawsze wracała pusta — klient
+      // mógł pokazać wyłącznie kręciołek przez pół minuty.
+      expect(done.progress).toEqual([
+        {
+          tool: 'get_household_context',
+          label: expect.any(String),
+          at: expect.any(String),
+        },
+      ]);
+      // Etykieta jest gotowym zdaniem po polsku, nie kodem do tłumaczenia.
+      expect(done.progress[0].label).not.toContain('_');
     });
 
     it('ten sam clientMessageId oddaje TĘ SAMĄ turę i nie zdejmuje kwoty drugi raz', async () => {
