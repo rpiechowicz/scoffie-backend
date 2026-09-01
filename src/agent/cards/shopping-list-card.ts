@@ -66,7 +66,12 @@ export function buildShoppingListCard(input: {
     summary: { remaining: remaining.length, checked },
     checkedNote:
       checked > 0
-        ? `${checked} ${plural(checked, 'pozycja', 'pozycje', 'pozycji')} już odhaczone`
+        ? `${checked} ${plural(
+            checked,
+            'pozycja już odhaczona',
+            'pozycje już odhaczone',
+            'pozycji już odhaczonych',
+          )}`
         : null,
     actions: [
       {

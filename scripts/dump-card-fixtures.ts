@@ -16,6 +16,10 @@ import { buildPlanDayCard } from '../src/agent/cards/plan-day-card';
 import { buildClarifyCard } from '../src/agent/cards/clarify-card';
 import { buildSwapCard } from '../src/agent/cards/swap-card';
 import { buildOptionsCard, optionPrompt } from '../src/agent/cards/options-card';
+import { buildHouseholdSplitCard } from '../src/agent/cards/household-split-card';
+import { buildMacroGapCard } from '../src/agent/cards/macro-gap-card';
+import { buildShoppingListCard } from '../src/agent/cards/shopping-list-card';
+import { ShoppingDepartment } from '../src/weekly-plans/types/shopping-department.enum';
 
 const card = buildPlanWeekCard({
   proposalId: '55555555-5555-4555-8555-555555555555',
@@ -92,9 +96,59 @@ const options = buildOptionsCard({
   ],
 });
 
+const householdSplit = buildHouseholdSplitCard({
+  proposalId: '88888888-8888-4888-8888-888888888888',
+  weekStart: '2026-08-31',
+  date: '2026-09-02',
+  dayOfWeek: 'WED',
+  mealType: 'DINNER',
+  title: 'Gulasz wołowy z kaszą gryczaną',
+  prepTimeMinutes: 55,
+  portions: [
+    { userId: 'u-1', displayName: 'Rafał', goalLabel: '2100 kcal', note: 'Duża porcja + kasza 100 g', kcal: 740 },
+    { userId: 'u-2', displayName: 'Ania', goalLabel: '1750 kcal · wegetariańska', note: 'Bez mięsa, więcej kaszy', kcal: 590 },
+    { userId: 'u-3', displayName: 'Zosia', goalLabel: '1400 kcal · bez laktozy', note: 'Śmietana osobno', kcal: 420 },
+  ],
+  expiresAt: new Date('2026-09-03T10:00:00.000Z'),
+});
+
+const macroGap = buildMacroGapCard({
+  macro: 'PROTEIN',
+  current: 96,
+  target: 140,
+  scopeLabel: 'ten tydzień',
+  boosters: [
+    { text: 'Twarożek zamiast musli (śr.)', amount: 24 },
+    { text: 'Jogurt grecki do owsianki (pon., czw.)', amount: 18 },
+    { text: 'Kurczak zamiast makaronu na kolację (pt.)', amount: 22 },
+  ],
+});
+
+const shoppingList = buildShoppingListCard({
+  weekStart: '2026-08-31',
+  departmentOrder: Object.values(ShoppingDepartment),
+  items: [
+    { name: 'Cukinia', unit: 'szt.', department: ShoppingDepartment.VEGETABLES, totalAmount: 2, isChecked: false },
+    { name: 'Dynia', unit: 'kg', department: ShoppingDepartment.VEGETABLES, totalAmount: 1, isChecked: false },
+    { name: 'Feta', unit: 'op.', department: ShoppingDepartment.DAIRY, totalAmount: 2, isChecked: false },
+    { name: 'Dorsz', unit: 'g', department: ShoppingDepartment.FISH, totalAmount: 600, isChecked: false },
+    { name: 'Kasza gryczana', unit: 'g', department: ShoppingDepartment.GRAINS, totalAmount: 500, isChecked: true },
+  ],
+});
+
 console.log(
   JSON.stringify(
-    { planWeek: card, planDay, options, swap, clarify, applied },
+    {
+      planWeek: card,
+      planDay,
+      options,
+      swap,
+      householdSplit,
+      macroGap,
+      shoppingList,
+      clarify,
+      applied,
+    },
     null,
     2,
   ),

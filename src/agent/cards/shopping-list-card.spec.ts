@@ -45,8 +45,27 @@ describe('buildShoppingListCard', () => {
     });
 
     expect(card.summary).toEqual({ remaining: 1, checked: 1 });
-    expect(card.checkedNote).toBe('1 pozycja już odhaczone');
+    expect(card.checkedNote).toBe('1 pozycja już odhaczona');
     expect(card.groups.flatMap((group) => group.items)).toEqual(['Feta 2 op.']);
+  });
+
+  it('odmiana idzie za liczbą, a nie tylko rzeczownik', () => {
+    const note = (checked: number) =>
+      buildShoppingListCard({
+        weekStart: '2026-08-31',
+        departmentOrder: order,
+        items: [
+          item(),
+          ...Array.from({ length: checked }, (_, index) =>
+            item({ name: `X${index}`, isChecked: true }),
+          ),
+        ],
+      }).checkedNote;
+
+    expect(note(1)).toBe('1 pozycja już odhaczona');
+    expect(note(3)).toBe('3 pozycje już odhaczone');
+    expect(note(5)).toBe('5 pozycji już odhaczonych');
+    expect(note(12)).toBe('12 pozycji już odhaczonych');
   });
 
   it('nic do kupienia to nie jest pusta karta', () => {
