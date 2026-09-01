@@ -111,6 +111,11 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
   akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
   jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie.
+- Limit schematów narzędzi asystenta: przy `strict: true` Anthropic odmawia (400), gdy pól
+  NIEOBOWIĄZKOWYCH w sumie wszystkich `AGENT_TOOLS` jest więcej niż 24 — cała tura pada, zanim
+  model cokolwiek zobaczy. Dostawca `stub` schematów nie waliduje, więc testy są wtedy zielone,
+  a błąd wychodzi dopiero u użytkownika; pilnuje tego spec w `agent-tools.spec.ts`. Nowe
+  narzędzie = policz zapas albo zrób pole wymaganym.
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
   Puste tagi są dla reguł diet faktem („czysto”), nie brakiem danych.

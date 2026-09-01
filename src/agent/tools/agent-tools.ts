@@ -118,10 +118,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           type: 'boolean',
           description: 'Tylko składniki, którymi da się zbudować przepis.',
         },
-        limit: {
-          type: 'integer',
-          description: 'Ile wyników; 1–50, domyślnie 20.',
-        },
       },
       ['query'],
     ),
@@ -235,7 +231,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           ),
         },
       },
-      ['title', 'options'],
+      ['title', 'slot_label', 'options'],
     ),
     strict: true,
   },
@@ -467,7 +463,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           ),
         },
       },
-      ['week_start', 'slots'],
+      ['week_start', 'slots', 'dry_run'],
     ),
     strict: true,
   },
@@ -480,7 +476,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     input_schema: object(
       {
         title: { type: 'string' },
-        description: { type: 'string' },
         meal_type: MEAL,
         prep_time_minutes: {
           type: 'integer',
@@ -533,7 +528,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
             'Identyfikator przepisu gospodarstwa (nie indeks katalogu).',
         },
         title: { type: 'string' },
-        description: { type: 'string' },
         prep_time_minutes: { type: 'integer' },
         servings: {
           type: 'integer',

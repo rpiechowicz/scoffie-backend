@@ -106,4 +106,39 @@ describe('AGENT_TOOLS', () => {
     const create = AGENT_TOOLS.find((tool) => tool.name === 'create_recipe');
     expect(create?.input_schema.required).toContain('ingredients');
   });
+
+  // Limit API, na który nie ma obejścia: przy `strict: true` Anthropic
+  // kompiluje ze schematów gramatykę i odmawia, gdy pól nieobowiązkowych
+  // jest więcej niż 24 — CAŁA odpowiedź to wtedy 400, jeszcze zanim model
+  // cokolwiek zobaczy. Dwa razy niebezpieczne, bo żaden test tego nie łapie:
+  // dostawca `stub` schematów nie waliduje, więc suita jest zielona, a tura
+  // pada dopiero u użytkownika. Trzymamy zapas, żeby kolejna karta nie
+  // zatrzymała się na tej ścianie.
+  it('pól nieobowiązkowych mieści się w limicie schematów (24)', () => {
+    type Schema = {
+      properties?: Record<string, Schema>;
+      required?: string[];
+      items?: Schema;
+    };
+
+    const countOptional = (schema: Schema | undefined): number => {
+      if (!schema) return 0;
+      let total = 0;
+      if (schema.properties) {
+        const required = new Set(schema.required ?? []);
+        for (const [name, child] of Object.entries(schema.properties)) {
+          if (!required.has(name)) total += 1;
+          total += countOptional(child);
+        }
+      }
+      if (schema.items) total += countOptional(schema.items);
+      return total;
+    };
+
+    const total = AGENT_TOOLS.reduce(
+      (sum, tool) => sum + countOptional(tool.input_schema as Schema),
+      0,
+    );
+    expect(total).toBeLessThanOrEqual(24);
+  });
 });
