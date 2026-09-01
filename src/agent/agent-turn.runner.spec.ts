@@ -94,6 +94,7 @@ describe('AgentTurnRunner', () => {
       clientToday: '2026-09-02',
       timeZone: 'Europe/Warsaw',
     },
+    proposalMode: false,
     ...overrides,
   });
 

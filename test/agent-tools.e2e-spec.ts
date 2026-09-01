@@ -12,6 +12,7 @@ import {
   MEMORY_LIMIT,
 } from '../src/agent/agent-memory.service';
 import { AgentPromptService } from '../src/agent/agent-prompt.service';
+import { AgentProposalsService } from '../src/agent/proposals/agent-proposals.service';
 import {
   buildCatalogDigest,
   loadDigestRecipes,
@@ -95,14 +96,22 @@ describe('Narzędzia asystenta E2E', () => {
     if (dinnerPosition < 0) throw new Error('katalog dev nie ma kolacji');
     firstCatalogIndex = Object.keys(digest.index)[dinnerPosition];
 
+    // Rozmowa musi istnieć NAPRAWDĘ: propozycja wisi na niej kluczem obcym
+    // (kaskada z rozmowy to RODO), a zatwierdzenie dopisuje do niej wiadomość.
+    const conversation = await prisma.agentConversation.create({
+      data: { userId: user.id, householdId: household.id },
+    });
+
     context = {
       userId: user.id,
       householdId: household.id,
       catalogIndex: digest.index,
       // Kontekst tury — od propozycji planu narzędzia muszą wiedzieć,
       // do której rozmowy i tury przypiąć wynik.
-      conversationId: '00000000-0000-4000-8000-00000000c0a1',
+      conversationId: conversation.id,
       turnId: '00000000-0000-4000-8000-00000000c0a2',
+      // Domyślnie stary tor: reszta tej suity sprawdza zapis wprost.
+      proposalMode: false,
     };
   });
 
@@ -363,11 +372,12 @@ describe('Narzędzia asystenta E2E', () => {
     it('notatka wraca do PROMPTU tury — inaczej pamięć jest tylko tabelą', async () => {
       await run('remember_note', { text: 'Kuba nie je ryb' });
 
-      const prompt = await prompts.build(context.userId, context.householdId, {
-        weekStart: WEEK_START,
-        clientToday: WEEK_START,
-        timeZone: 'Europe/Warsaw',
-      });
+      const prompt = await prompts.build(
+        context.userId,
+        context.householdId,
+        { weekStart: WEEK_START, clientToday: WEEK_START, timeZone: 'Europe/Warsaw' },
+        false,
+      );
 
       // Blok gospodarstwa jest ostatni — pamięć siedzi w nim, poza punktem cache.
       const householdBlock = prompt.system[prompt.system.length - 1].text;
@@ -560,6 +570,157 @@ describe('Narzędzia asystenta E2E', () => {
       expect(again.applied).toBe(true);
       expect(again.changes.created).toBe(0);
       expect(await plansUsed()).toBe(1);
+    });
+  });
+
+  // Tryb propozycji na żywej bazie: cała obietnica „agent proponuje, człowiek
+  // zatwierdza" sprowadza się do jednego faktu — po turze plan jest TAKI SAM.
+  describe('tryb propozycji', () => {
+    const PROPOSAL_WEEK = '2026-10-26';
+    let proposals: AgentProposalsService;
+
+    /** Ile pozycji ma NAPRAWDĘ ten tydzień w bazie — jedyny uczciwy dowód. */
+    const weekSlots = (weekStart: string): Promise<number> =>
+      prisma.planItem.count({
+        where: {
+          weeklyPlan: {
+            householdId: context.householdId,
+            weekStart: new Date(`${weekStart}T00:00:00.000Z`),
+          },
+        },
+      });
+
+    const plansUsed = async (): Promise<number> => {
+      const row = await prisma.aiUsageCounter.findUnique({
+        where: {
+          scopeId_periodKey_kind: {
+            scopeId: context.householdId,
+            periodKey: new Date().toISOString().slice(0, 7),
+            kind: 'plans',
+          },
+        },
+        select: { value: true },
+      });
+      return row?.value ?? 0;
+    };
+
+    beforeAll(() => {
+      proposals = moduleRef.get(AgentProposalsService);
+      context.proposalMode = true;
+    });
+
+    afterAll(async () => {
+      context.proposalMode = false;
+      await prisma.agentProposal.deleteMany({
+        where: { conversationId: context.conversationId },
+      });
+    });
+
+    it('apply_week_plan odmawia i mówi, czego użyć zamiast', async () => {
+      const result = await run('apply_week_plan', {
+        week_start: PROPOSAL_WEEK,
+        slots: [
+          {
+            day_of_week: 'MON',
+            meal_type: 'DINNER',
+            recipe: firstCatalogIndex,
+          },
+        ],
+      });
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'AI_TOOL_NOT_IN_MODE' },
+      });
+      if (result.ok) throw new Error('nieosiągalne');
+      expect(result.error.message).toContain('propose_week_plan');
+    });
+
+    it('propozycja niczego nie zapisuje ani nie zjada kwoty planów', async () => {
+      const before = await plansUsed();
+
+      const proposed = data<{ proposed: boolean; proposalId: string }>(
+        await run('propose_week_plan', {
+          week_start: PROPOSAL_WEEK,
+          slots: [
+            {
+              day_of_week: 'MON',
+              meal_type: 'DINNER',
+              recipe: firstCatalogIndex,
+            },
+          ],
+        }),
+      );
+
+      expect(proposed.proposed).toBe(true);
+      expect(await weekSlots(PROPOSAL_WEEK)).toBe(0);
+      expect(await plansUsed()).toBe(before);
+
+      const row = await prisma.agentProposal.findUnique({
+        where: { id: proposed.proposalId },
+      });
+      expect(row).toMatchObject({ status: 'PENDING', kind: 'PLAN_WEEK' });
+    });
+
+    it('zatwierdzenie zapisuje tydzień, a cofnięcie przywraca poprzedni stan', async () => {
+      const proposed = data<{ proposalId: string }>(
+        await run('propose_week_plan', {
+          week_start: PROPOSAL_WEEK,
+          slots: [
+            {
+              day_of_week: 'TUE',
+              meal_type: 'DINNER',
+              recipe: firstCatalogIndex,
+            },
+          ],
+        }),
+      );
+      // Propozycja bez `messageId` jest nieosiągalna z zewnątrz — w prawdziwej
+      // turze przypina ją runner przy domykaniu.
+      await prisma.agentProposal.update({
+        where: { id: proposed.proposalId },
+        data: { messageId: null },
+      });
+
+      const applied = await proposals.apply(context.userId, proposed.proposalId);
+      expect(applied.status).toBe('APPLIED');
+      expect(await weekSlots(PROPOSAL_WEEK)).toBe(1);
+
+      // Drugie kliknięcie to ten sam wynik, nie drugi zapis.
+      const again = await proposals.apply(context.userId, proposed.proposalId);
+      expect(again.status).toBe('APPLIED');
+      expect(await weekSlots(PROPOSAL_WEEK)).toBe(1);
+
+      const undone = await proposals.undo(context.userId, proposed.proposalId);
+      expect(undone.status).toBe('UNDONE');
+      expect(await weekSlots(PROPOSAL_WEEK)).toBe(0);
+    });
+
+    it('naruszenie nie tworzy propozycji — nie ma czego zatwierdzać', async () => {
+      const before = await prisma.agentProposal.count({
+        where: { conversationId: context.conversationId },
+      });
+
+      const result = data<{ proposed: boolean; violations: unknown[] }>(
+        await run('propose_week_plan', {
+          week_start: PROPOSAL_WEEK,
+          slots: [
+            {
+              day_of_week: 'WED',
+              meal_type: 'BREAKFAST',
+              recipe: firstCatalogIndex,
+            },
+          ],
+        }),
+      );
+
+      expect(result.proposed).toBe(false);
+      expect(result.violations.length).toBeGreaterThan(0);
+      expect(
+        await prisma.agentProposal.count({
+          where: { conversationId: context.conversationId },
+        }),
+      ).toBe(before);
     });
   });
 });

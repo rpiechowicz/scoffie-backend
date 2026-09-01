@@ -19,6 +19,16 @@ export const STUB_ERROR_MARKER = '[[error]]';
  * żadnych argumentów i niczego nie zapisuje.
  */
 export const STUB_TOOL_MARKER = '[[tool]]';
+/**
+ * Wymusza PROPOZYCJĘ tygodnia: `[[propose:<recipeId>:<YYYY-MM-DD>]]`.
+ *
+ * Identyfikator i tydzień są w markerze, a nie zgadywane z promptu, bo stub
+ * ma sprawdzać tor tury, a nie umieć czytać katalogu. Dzięki temu e2e
+ * przechodzi całą ścieżkę propozycji — narzędzie, kartę, wiadomość z `kind`
+ * i przypięcie `messageId` — bez ani jednego wywołania modelu.
+ */
+export const STUB_PROPOSE_PATTERN =
+  /\[\[propose:([0-9a-fA-F-]{36}):(\d{4}-\d{2}-\d{2})\]\]/;
 
 /**
  * Dostawca `stub` (`AI_PROVIDER=stub`) — cały tor tury bez ani jednego
@@ -52,6 +62,16 @@ export class StubAgentProvider implements AgentProvider {
 
     if (lastUserText.includes(STUB_TOOL_MARKER)) {
       await request.executeTool('get_household_context', {});
+    }
+
+    const propose = STUB_PROPOSE_PATTERN.exec(lastUserText);
+    if (propose) {
+      await request.executeTool('propose_week_plan', {
+        week_start: propose[2],
+        slots: [
+          { day_of_week: 'MON', meal_type: 'DINNER', recipe: propose[1] },
+        ],
+      });
     }
 
     const text = `[stub] ${lastUserText}`.slice(0, 4000);

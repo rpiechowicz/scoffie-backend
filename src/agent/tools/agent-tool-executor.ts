@@ -47,6 +47,12 @@ export type AgentToolContext = {
    */
   conversationId: string;
   turnId: string;
+  /**
+   * Tryb tury. Bramka na narzędzia jest tu, a nie na liście narzędzi, bo
+   * lista liczy się do prefiksu cache i musi być identyczna w obu trybach
+   * (patrz `modeBlock` w `agent-system-prompt.ts`).
+   */
+  proposalMode: boolean;
 };
 
 /**
@@ -99,6 +105,9 @@ export class AgentToolExecutor {
       return this.failure('BAD_REQUEST', `Nie ma narzędzia o nazwie ${name}.`);
     }
 
+    const refusal = this.refuseOutOfMode(name, context);
+    if (refusal) return refusal;
+
     try {
       return { ok: true, data: await this.dispatch(name, input, context) };
     } catch (error) {
@@ -124,6 +133,40 @@ export class AgentToolExecutor {
 
   private failure(code: string, message: string): AgentToolResult {
     return { ok: false, error: { code, message } };
+  }
+
+  /**
+   * Druga bramka trybu — po prompcie, przed domeną.
+   *
+   * Prompt mówi modelowi, co ma robić; ta bramka pilnuje, żeby pomyłka nie
+   * kosztowała użytkownika tygodnia. Bez niej model w trybie propozycji mógłby
+   * po prostu zapisać plan (narzędzie jest na liście, bo lista musi być
+   * identyczna w obu trybach ze względu na cache) i cały model „proponuję,
+   * ty zatwierdzasz” byłby wyłącznie sugestią.
+   *
+   * Odmowa wraca jako DANE, nie wyjątek: model czyta ją, sięga po właściwe
+   * narzędzie i kończy turę normalnie. Wyjątek zabiłby całą turę za coś,
+   * z czego model potrafi się poprawić w jednej rundzie.
+   */
+  private refuseOutOfMode(
+    name: string,
+    context: AgentToolContext,
+  ): AgentToolResult | null {
+    if (name === 'apply_week_plan' && context.proposalMode) {
+      return this.failure(
+        'AI_TOOL_NOT_IN_MODE',
+        'W tym trybie nie zapisujesz planu sam. Podaj ten sam stan docelowy przez ' +
+          'propose_week_plan — użytkownik zatwierdzi go jednym kliknięciem w aplikacji.',
+      );
+    }
+    if (name === 'propose_week_plan' && !context.proposalMode) {
+      return this.failure(
+        'AI_TOOL_NOT_IN_MODE',
+        'W tym trybie propozycje są wyłączone. Zapisz plan sam przez apply_week_plan — ' +
+          'najpierw z dry_run=true, żeby sprawdzić naruszenia.',
+      );
+    }
+    return null;
   }
 
   private dispatch(

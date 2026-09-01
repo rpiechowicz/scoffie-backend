@@ -1,5 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import {
   IsCalendarDate,
   IsIanaTimeZone,
@@ -37,4 +45,20 @@ export class PostMessageDto {
   @ApiProperty({ example: 'Europe/Warsaw' })
   @IsIanaTimeZone()
   timeZone: string;
+
+  /**
+   * Co ten build potrafi narysować — dziś wyłącznie `cards.v1`.
+   *
+   * Serwer pyta o UMIEJĘTNOŚĆ, a nie o numer wersji, bo z numeru i tak
+   * musiałby ją wywnioskować, a lista rośnie razem z klientem. Brak pola
+   * znaczy „nic ponad tekst": stary build dostaje dotychczasowe zachowanie
+   * i nie zobaczy tury, która kończy się przyciskiem, którego nie ma.
+   */
+  @ApiPropertyOptional({ example: ['cards.v1'], type: [String] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  @MaxLength(32, { each: true })
+  clientCapabilities?: string[];
 }

@@ -38,6 +38,14 @@ export type RunTurnInput = {
    * początku tygodnia — patrz `dto/agent-date.validators.ts`.
    */
   dates: TurnDates;
+  /**
+   * Czy model proponuje, czy zapisuje sam — wyliczone RAZ przy przyjęciu
+   * wiadomości (`AI_CARDS_MODE` + deklaracja klienta) i niesione przez całą
+   * turę. Ponowne czytanie env w środku tury groziłoby turą, która zaczyna
+   * w jednym trybie, a kończy w drugim: prompt kazałby proponować, a executor
+   * przyjmowałby zapisy.
+   */
+  proposalMode: boolean;
 };
 
 /** Ile ostatnich wiadomości rozmowy idzie do modelu jako kontekst. */
@@ -99,6 +107,7 @@ export class AgentTurnRunner {
         input.userId,
         input.householdId,
         input.dates,
+        input.proposalMode,
       );
       const provider = this.providers.resolve(input.env);
       const result = await provider.run({
@@ -117,6 +126,7 @@ export class AgentTurnRunner {
             catalogIndex: prompt.catalogIndex,
             conversationId: input.conversationId,
             turnId: input.turnId,
+            proposalMode: input.proposalMode,
           });
         },
         signal: controller.signal,

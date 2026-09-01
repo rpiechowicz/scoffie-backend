@@ -24,6 +24,10 @@ import { AgentToolExecutor } from '../src/agent/tools/agent-tool-executor';
 import { AGENT_TOOLS } from '../src/agent/tools/agent-tools';
 import { AnthropicAgentProvider } from '../src/agent/providers/anthropic-agent.provider';
 import { readAgentEnv } from '../src/config/agent-env';
+import {
+  CARDS_CAPABILITY_V1,
+  resolveProposalMode,
+} from '../src/agent/cards/agent-cards';
 
 const WEEK_START = '2026-10-05';
 /** Scenariusze bywają dłuższe niż zwykła tura — to diagnostyka, nie produkcja. */
@@ -207,12 +211,24 @@ async function main(): Promise<void> {
       data: { userId: user.id, householdId: household.id, role: 'OWNER' },
     });
 
+    const proposalMode = resolveProposalMode(env.cardsMode, [
+      CARDS_CAPABILITY_V1,
+    ]);
+    const conversation = await prisma.agentConversation.create({
+      data: { userId: user.id, householdId: household.id },
+    });
+
     try {
-      const prompt = await prompts.build(user.id, household.id, {
-        weekStart: WEEK_START,
-        clientToday: WEEK_START,
-        timeZone: 'Europe/Warsaw',
-      });
+      const prompt = await prompts.build(
+        user.id,
+        household.id,
+        {
+          weekStart: WEEK_START,
+          clientToday: WEEK_START,
+          timeZone: 'Europe/Warsaw',
+        },
+        proposalMode,
+      );
 
       const started = Date.now();
       const used: string[] = [];
@@ -230,8 +246,9 @@ async function main(): Promise<void> {
             catalogIndex: prompt.catalogIndex,
             // Kontekst tury — od propozycji planu narzędzia muszą wiedzieć,
             // do której rozmowy i tury przypiąć wynik.
-            conversationId: '00000000-0000-4000-8000-00000000c0a1',
+            conversationId: conversation.id,
             turnId: '00000000-0000-4000-8000-00000000c0a2',
+            proposalMode,
           });
         },
         signal: AbortSignal.timeout(SCENARIO_TIMEOUT_MS),

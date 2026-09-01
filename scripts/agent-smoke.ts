@@ -23,6 +23,10 @@ import { AgentToolExecutor } from '../src/agent/tools/agent-tool-executor';
 import { AGENT_TOOLS } from '../src/agent/tools/agent-tools';
 import { AnthropicAgentProvider } from '../src/agent/providers/anthropic-agent.provider';
 import { readAgentEnv } from '../src/config/agent-env';
+import {
+  CARDS_CAPABILITY_V1,
+  resolveProposalMode,
+} from '../src/agent/cards/agent-cards';
 
 const DEFAULT_PROMPT =
   'Zaproponuj jedną kolację na poniedziałek dla tego domu. Krótko uzasadnij wybór. Nie zapisuj planu.';
@@ -71,13 +75,25 @@ async function main(): Promise<void> {
     data: { userId: user.id, householdId: household.id, role: 'OWNER' },
   });
 
+  // Skrypt gada z PRAWDZIWYM modelem, więc musi mieć prawdziwą rozmowę:
+  // propozycja wisi na niej kluczem obcym. `AI_CARDS_MODE=strict` przełącza
+  // ten przebieg na tor „proponuję, użytkownik zatwierdza".
+  const proposalMode = resolveProposalMode(env.cardsMode, [
+    CARDS_CAPABILITY_V1,
+  ]);
+  const conversation = await prisma.agentConversation.create({
+    data: { userId: user.id, householdId: household.id },
+  });
+
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const prompt = await prompts.build(user.id, household.id, {
-      weekStart: '2026-08-31',
-      clientToday: today,
-      timeZone: 'Europe/Warsaw',
-    });
+    const prompt = await prompts.build(
+      user.id,
+      household.id,
+      { weekStart: '2026-08-31', clientToday: today, timeZone: 'Europe/Warsaw' },
+      proposalMode,
+    );
+    console.log(`tryb: ${proposalMode ? 'propozycja' : 'zapis bezpośredni'}`);
 
     console.log(`model: ${model}, effort: ${env.effort}`);
     console.log(`pytanie: ${question}\n`);
@@ -97,8 +113,9 @@ async function main(): Promise<void> {
           catalogIndex: prompt.catalogIndex,
           // Kontekst tury — od propozycji planu narzędzia muszą wiedzieć,
           // do której rozmowy i tury przypiąć wynik.
-          conversationId: '00000000-0000-4000-8000-00000000c0a1',
+          conversationId: conversation.id,
           turnId: '00000000-0000-4000-8000-00000000c0a2',
+          proposalMode,
         });
       },
       signal: AbortSignal.timeout(env.turnTimeoutMs),

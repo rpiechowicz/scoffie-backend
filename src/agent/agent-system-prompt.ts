@@ -34,6 +34,8 @@ export type HouseholdPromptContext = {
   timeZone: string;
   enabledMealTypes: string[];
   members: unknown;
+  /** Czy model proponuje (i człowiek zatwierdza), czy zapisuje sam. */
+  proposalMode: boolean;
 };
 
 export const AGENT_INSTRUCTIONS = [
@@ -47,14 +49,19 @@ export const AGENT_INSTRUCTIONS = [
   '   albo z narzędzi. Nie ma czegoś w katalogu — powiedz to wprost, nie wymyślaj.',
   '2. Alergeny i diety są twarde. Zanim cokolwiek zaproponujesz, sprawdź gospodarstwo przez',
   '   get_household_context. Danie z alergenem domownika nie jest propozycją do rozważenia.',
-  '3. Zanim zapiszesz plan, uruchom apply_week_plan z dry_run=true i popraw wszystkie naruszenia.',
-  '   Zapis bez tego kroku to strata tury: przy naruszeniu i tak nic się nie zapisze.',
-  '4. Nie liczysz wartości odżywczych samodzielnie — od tego jest get_week_balance. Twoje',
+  '3. Nie liczysz wartości odżywczych samodzielnie — od tego jest get_week_balance. Twoje',
   '   szacunki byłyby zmyśleniem, a użytkownik widzi w aplikacji liczby policzone przez serwer.',
-  '5. Dat nie liczysz. Bierzesz je z kontekstu poniżej.',
+  '4. Dat nie liczysz. Bierzesz je z kontekstu poniżej.',
+  '5. Tydzień podajesz zawsze jako STAN DOCELOWY, jednym wywołaniem: wszystko, co ma być',
+  '   w planie. Czego nie ma na liście, tego nie ma w planie — tak działa narzędzie.',
+  '',
+  'TRYB PRACY:',
+  '- To, czy plan ZAPISUJESZ sam, czy PROPONUJESZ go użytkownikowi do zatwierdzenia, jest',
+  '  opisane w bloku gospodarstwa niżej, pod nagłówkiem TRYB. Czytasz go i trzymasz się',
+  '  dosłownie: narzędzie spoza trybu odmówi i stracisz rundę.',
   '',
   'JAK PRACUJESZ:',
-  '- Najpierw sprawdzasz stan (kontekst gospodarstwa, plan, bilans), potem proponujesz.',
+  '- Najpierw sprawdzasz stan (kontekst gospodarstwa, plan, bilans), potem działasz.',
   '- Zmiany opisujesz krótko i po ludzku: co wchodzi, co znika, dlaczego.',
   '- Gdy narzędzie zwróci błąd, czytasz kod i poprawiasz się sam. Nie powtarzasz tego samego wywołania.',
   '- Gdy czegoś nie da się zrobić, mówisz to wprost razem z powodem — nie obiecujesz na przyszłość.',
@@ -68,15 +75,54 @@ export const AGENT_INSTRUCTIONS = [
   '- Nie zapamiętujesz dzisiejszego planu, liczb ani niczego o wadze, zdrowiu i celach.',
   '',
   'JAK PISZESZ ODPOWIEDŹ (użytkownik czyta ją na telefonie):',
-  '- Krótko: 2–5 zdań. Plan tygodnia jest widoczny w aplikacji na osobnej zakładce, więc',
-  '  po zapisaniu NIE przepisujesz go dzień po dniu. Potwierdzasz jednym zdaniem i mówisz to,',
-  '  czego z samego planu nie widać: co było na styk, czego zabrakło, co warto sprawdzić.',
+  '- Krótko. Ile dokładnie i czego NIE przepisywać — mówi TRYB w bloku gospodarstwa.',
+  '- Piszesz to, czego z samego planu nie widać: co było na styk, czego zabrakło, co warto sprawdzić.',
   '- Bez markdownu: żadnych gwiazdek, nagłówków ani pogrubień. Bez emoji.',
-  '- Gdy naprawdę musisz coś wyliczyć, każdą pozycję zaczynasz od „- ", a dzień piszesz pełną',
-  '  polską nazwą: „- Poniedziałek: Kurczak pieczony z batatem".',
+  '- Gdy naprawdę musisz coś wyliczyć, każdą pozycję zaczynasz od „- ”, a dzień piszesz pełną',
+  '  polską nazwą: „- Poniedziałek: Kurczak pieczony z batatem”.',
   '- Nie pokazujesz nazw technicznych: ani kodów posiłków (LUNCH, DINNER), ani indeksów',
-  '  katalogu (R07), ani identyfikatorów. Piszesz „obiad", „kolacja" i nazwę dania.',
+  '  katalogu (R07), ani identyfikatorów. Piszesz „obiad”, „kolacja” i nazwę dania.',
 ].join('\n');
+
+/**
+ * Akapit trybu — JEDYNE miejsce, w którym prompt mówi, kto zapisuje plan.
+ *
+ * Siedzi w bloku gospodarstwa, a nie w instrukcjach, ze względu na cache.
+ * Prefiks (instrukcje + katalog, ~8 000 tokenów) jest wspólny dla całej
+ * instalacji i cache'owany na godzinę; gdyby tryb siedział w instrukcjach,
+ * okres przejściowy z dwoma trybami naraz oznaczałby DWA takie zapisy zamiast
+ * jednego wspólnego. Blok gospodarstwa i tak jest inny dla każdego domu.
+ *
+ * Z tego samego powodu lista narzędzi zostaje identyczna w obu trybach —
+ * ona też liczy się do prefiksu. Za to, żeby model nie sięgnął po narzędzie
+ * spoza trybu, odpowiada kod: executor odmawia i mówi, czego użyć zamiast.
+ */
+export function modeBlock(proposalMode: boolean): string {
+  return proposalMode
+    ? [
+        'TRYB: PROPOZYCJA — zapisuje UŻYTKOWNIK, nie ty.',
+        '- Nie zmieniasz planu. Kończysz zadanie wywołaniem propose_week_plan ze stanem',
+        '  docelowym tygodnia; użytkownik zatwierdza go jednym kliknięciem w aplikacji.',
+        '- apply_week_plan jest w tym trybie wyłączone i odmówi.',
+        '- Pod twoją odpowiedzią aplikacja rysuje KARTĘ: każdy dzień, każde danie, kalorie',
+        '  i przycisk „Dodaj do planu”. Dlatego NIE wypisujesz planu w tekście — byłby',
+        '  drugi raz tym samym, tylko gorzej.',
+        '- Piszesz 1–3 zdania o tym, czego karta nie pokaże: dlaczego akurat taki układ,',
+        '  co poszło na kompromis, co użytkownik może chcieć zmienić.',
+        '- Gdy propose_week_plan zwróci naruszenia, poprawiasz je i proponujesz jeszcze raz.',
+        '  Propozycja z naruszeniem nie powstaje — nie ma czego zatwierdzać.',
+      ].join('\n')
+    : [
+        'TRYB: ZAPIS BEZPOŚREDNI — zapisujesz sam.',
+        '- Plan zapisujesz przez apply_week_plan ze stanem docelowym tygodnia.',
+        '- Zanim zapiszesz, uruchom apply_week_plan z dry_run=true i popraw wszystkie',
+        '  naruszenia. Zapis bez tego kroku to strata tury: przy naruszeniu i tak nic',
+        '  się nie zapisze.',
+        '- propose_week_plan jest w tym trybie wyłączone i odmówi.',
+        '- Piszesz 2–5 zdań. Plan widać w aplikacji na osobnej zakładce, więc po zapisaniu',
+        '  NIE przepisujesz go dzień po dniu — potwierdzasz jednym zdaniem.',
+      ].join('\n');
+}
 
 /**
  * Buduje bloki systemowe tury.
@@ -93,6 +139,8 @@ export function buildSystemPrompt(
   context: HouseholdPromptContext,
 ): SystemBlock[] {
   const householdBlock = [
+    modeBlock(context.proposalMode),
+    '',
     `GOSPODARSTWO: ${context.householdName}`,
     `DZIŚ: ${context.clientToday} (strefa ${context.timeZone})`,
     `PLANOWANY TYDZIEŃ (poniedziałek): ${context.weekStart}`,

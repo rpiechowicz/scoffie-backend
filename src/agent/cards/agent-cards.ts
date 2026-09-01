@@ -1,4 +1,5 @@
 import { DayOfWeek, MealType } from '@prisma/client';
+import { AiCardsMode } from '../../config/agent-env';
 
 /**
  * Karty asystenta — kontrakt z TELEFONEM.
@@ -41,6 +42,36 @@ export function isAgentMessageKind(value: unknown): value is AgentMessageKind {
  * buildu — tak samo jak przy `WS_AUTH_MODE`.
  */
 export const AGENT_CARD_VERSION = 1;
+
+/**
+ * Deklaracja klienta: „umiem narysować kartę".
+ *
+ * Idzie w `PostMessageDto.clientCapabilities`, a nie w nagłówku ani w wersji
+ * builda, bo pyta o UMIEJĘTNOŚĆ, nie o wersję. Build, który dostał karty,
+ * i build, który je dopiero dostanie, różnią się dokładnie tym jednym.
+ */
+export const CARDS_CAPABILITY_V1 = 'cards.v1';
+
+/**
+ * Czy ta tura pracuje w trybie propozycji.
+ *
+ * Jedno miejsce na pytanie „kto zapisuje plan: model czy człowiek", bo
+ * odpowiedź musi być IDENTYCZNA w trzech miejscach naraz — w prompcie
+ * (co model ma robić), w executorze (czego mu nie wolno) i w kliencie
+ * (co zobaczy). Rozjazd któregokolwiek z nich kończy się turą, w której model
+ * obiecuje zapisany plan, a plan się nie zapisał.
+ *
+ * `soft` pyta klienta, bo tryb propozycji bez karty to ślepy zaułek: stary
+ * build pokazałby zdanie „zaproponowałem" i ani jednego przycisku.
+ */
+export function resolveProposalMode(
+  mode: AiCardsMode,
+  clientCapabilities: readonly string[] | undefined,
+): boolean {
+  if (mode === 'off') return false;
+  if (mode === 'strict') return true;
+  return (clientCapabilities ?? []).includes(CARDS_CAPABILITY_V1);
+}
 
 /** Przycisk w karcie. Napis przychodzi z serwera, klient go nie wymyśla. */
 export type AgentCardAction = {

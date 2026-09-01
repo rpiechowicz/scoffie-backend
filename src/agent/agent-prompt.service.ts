@@ -52,6 +52,7 @@ export class AgentPromptService {
     userId: string,
     householdId: string,
     dates: TurnDates,
+    proposalMode: boolean,
   ): Promise<AgentPrompt> {
     const [digest, household, members, memory] = await Promise.all([
       this.loadDigest(),
@@ -71,6 +72,7 @@ export class AgentPromptService {
       timeZone: dates.timeZone,
       enabledMealTypes: household?.enabledMealTypes ?? [],
       members,
+      proposalMode,
     });
 
     return {

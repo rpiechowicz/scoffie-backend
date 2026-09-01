@@ -20,6 +20,7 @@ import {
   GLOBAL_SCOPE,
 } from './ai-usage-counters.service';
 import { PostMessageDto } from './dto/post-message.dto';
+import { resolveProposalMode } from './cards/agent-cards';
 import { UpstreamBreaker } from './upstream-breaker';
 
 export const TURN_STATUSES = ['RUNNING', 'DONE', 'FAILED', 'LIMITED'] as const;
@@ -293,6 +294,10 @@ export class AgentTurnsService {
         clientToday: data.clientToday,
         timeZone: data.timeZone,
       },
+      // Tryb rozstrzyga się TU, raz na turę: env mówi, co jest włączone,
+      // klient — czy w ogóle umie pokazać kartę. Runner dostaje gotową
+      // odpowiedź, żeby prompt i bramka narzędzi nie mogły się rozjechać.
+      proposalMode: resolveProposalMode(env.cardsMode, data.clientCapabilities),
     });
 
     return accepted;
