@@ -89,3 +89,31 @@ railway run --service Backend pnpm exec tsx scripts/normalize-ingredients-polish
 // Na Railway (serwis "Backend") ustaw je raz w Variables, wtedy w komendzie mozna pominac.
 railway run --service Backend bash -c "RECIPE_IMPORT_FILE=prisma/catalog/recipes-catalog-full-v2.json RECIPE_IMPORT_CLEAR_EXISTING=false RECIPE_IMPORT_HOUSEHOLD_ID=<id> pnpm exec tsx scripts/import-recipes-from-json.ts"
 railway run --service Backend pnpm exec tsx scripts/fix-recipe-image-urls.ts
+
+// -----------------------------
+// RESET KONT NA PRODUKCJI (wylogowuje wszystkich, katalog przepisów zostaje)
+// -----------------------------
+// Kasuje wszystkich uzytkownikow i wszystkie gospodarstwa. Katalog przepisow
+// PRZEZYWA: skrypt najpierw przenosi przepisy z `isCatalog = true` na konto
+// bota importu i do gospodarstwa katalogu, dopiero potem kasuje reszte.
+// Bez tego `Recipe.household`/`Recipe.author` (oba onDelete: Cascade)
+// zabralyby katalog razem z kontami.
+//
+// 1. Raport, nic nie kasuje — ZAWSZE najpierw to:
+railway run --service Backend pnpm accounts:reset
+//
+// 2. Wykonanie:
+railway run --service Backend RESET_ACCOUNTS_WRITE=true pnpm accounts:reset
+//
+// 3. Natychmiastowe wylogowanie WSZYSTKICH telefonow.
+//    Sam punkt 2 tego NIE robi: access token jest podpisany na 30 dni
+//    (JWT_EXPIRES_IN) i pozostaje wazny mimo skasowanego konta. Podmiana
+//    sekretu uniewaznia kazdy wydany token — iOS dostaje UNAUTHORIZED,
+//    probuje refresh (ktorego juz nie ma) i schodzi na ekran logowania.
+//    Nowa wartosc: min. 32 znaki, INNA niz REFRESH_TOKEN_PEPPER
+//    (assert-env odmawia startu, gdy sa rowne).
+railway variables --service Backend --set "JWT_SECRET=$(openssl rand -hex 32)"
+//
+// 4. Kontrola po wszystkim:
+railway logs --service Backend -d -n 50
+railway run --service Backend pnpm accounts:reset   // ma pokazac 1 uzytkownika i 1 gospodarstwo
