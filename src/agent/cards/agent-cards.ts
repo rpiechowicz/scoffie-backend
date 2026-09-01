@@ -21,6 +21,8 @@ import { AiCardsMode } from '../../config/agent-env';
  */
 export const AGENT_MESSAGE_KINDS = [
   'TEXT',
+  /** Pytanie użytkownika ze zdjęciem, którego NIE zapisujemy. */
+  'PHOTO',
   'PLAN_WEEK',
   'PLAN_DAY',
   'OPTIONS',

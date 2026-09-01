@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  AgentProviderMessage,
   AgentProvider,
   AgentProviderError,
   AgentProviderRequest,
@@ -65,7 +66,7 @@ export class AnthropicAgentProvider implements AgentProvider {
     const messages: Anthropic.MessageParam[] = request.messages.map(
       (message) => ({
         role: message.role === 'ASSISTANT' ? 'assistant' : 'user',
-        content: message.text,
+        content: this.contentFor(message),
       }),
     );
 
@@ -283,6 +284,32 @@ export class AnthropicAgentProvider implements AgentProvider {
         };
       }),
     );
+  }
+
+  /**
+   * Treść wiadomości: sam tekst albo obraz razem z nim.
+   *
+   * Obraz idzie PRZED tekstem — tak radzi Anthropic i tak też czyta się to
+   * naturalnie: najpierw zdjęcie lodówki, potem pytanie „co z tego ugotuję".
+   * Odwrotna kolejność potrafi dać odpowiedź na pytanie zadane w oderwaniu
+   * od zdjęcia.
+   */
+  private contentFor(
+    message: AgentProviderMessage,
+  ): string | Anthropic.ContentBlockParam[] {
+    if (!message.image) return message.text;
+    return [
+      {
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: message.image
+            .mediaType as Anthropic.Base64ImageSource['media_type'],
+          data: message.image.data,
+        },
+      },
+      { type: 'text', text: message.text },
+    ];
   }
 
   private joinText(content: Anthropic.ContentBlock[]): string {

@@ -47,6 +47,12 @@ export function configureApp(app: NestExpressApplication): void {
   // Za proxy Railway `req.ip` to adres proxy; `trust proxy` przywraca
   // prawdziwy adres w logach (i pod przyszły throttling).
   app.set('trust proxy', 1);
+  // Domyślne 100 kB Expressa odrzucało zdjęcie do asystenta z 413 ZANIM
+  // cokolwiek zdążyło je zwalidować — czyli komunikatem bez kodu, którego
+  // klient nie umie zamienić w zdanie. Sufit jest tu, a prawdziwy limit
+  // (~2 MB po zdekodowaniu) pilnuje `PostMessageImageDto`, więc za duże
+  // zdjęcie wraca jako VALIDATION_ERROR z powodem.
+  app.useBodyParser('json', { limit: '4mb' });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

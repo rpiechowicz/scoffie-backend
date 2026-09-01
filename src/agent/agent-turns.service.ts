@@ -224,7 +224,10 @@ export class AgentTurnsService {
           data: {
             conversationId,
             role: 'USER',
-            kind: 'TEXT',
+            // `PHOTO` zostaje w historii, choć samo zdjęcie nie — inaczej po
+            // powrocie do rozmowy pytanie „co z tego ugotuję?" wisiałoby
+            // w próżni, bez śladu, że coś do niego dołączono.
+            kind: data.image ? 'PHOTO' : 'TEXT',
             text: data.text,
             clientMessageId: data.clientMessageId,
           },
@@ -298,6 +301,17 @@ export class AgentTurnsService {
       // klient — czy w ogóle umie pokazać kartę. Runner dostaje gotową
       // odpowiedź, żeby prompt i bramka narzędzi nie mogły się rozjechać.
       proposalMode: resolveProposalMode(env.cardsMode, data.clientCapabilities),
+      // Zdjęcie nie idzie do bazy — jedzie w pamięci prosto do modelu i znika
+      // razem z turą. Runner biegnie in-process, więc nie ma tu żadnej
+      // kolejki, przez którą musiałoby przejść.
+      ...(data.image
+        ? {
+            image: {
+              mediaType: data.image.mediaType,
+              data: data.image.data,
+            },
+          }
+        : {}),
     });
 
     return accepted;

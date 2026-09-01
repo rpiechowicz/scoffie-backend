@@ -9,6 +9,7 @@ import {
 } from './ai-usage-counters.service';
 import {
   AgentProviderError,
+  AgentProviderImage,
   AgentProviderMessage,
   AgentProviderResult,
   AgentProviderUsage,
@@ -47,6 +48,13 @@ export type RunTurnInput = {
    * przyjmowałby zapisy.
    */
   proposalMode: boolean;
+  /**
+   * Zdjęcie z TEJ wiadomości — w pamięci, nigdy w bazie.
+   *
+   * Dlatego jest wejściem tury, a nie czymś, co runner mógłby sobie
+   * doczytać: po wyjściu z tej funkcji nie ma go już nigdzie.
+   */
+  image?: AgentProviderImage;
 };
 
 /** Ile ostatnich wiadomości rozmowy idzie do modelu jako kontekst. */
@@ -107,7 +115,10 @@ export class AgentTurnRunner {
     let pendingCard: AgentCard | null = null;
 
     try {
-      const messages = await this.loadHistory(input.conversationId);
+      const messages = this.withImage(
+        await this.loadHistory(input.conversationId),
+        input.image,
+      );
       const prompt = await this.prompts.build(
         input.userId,
         input.householdId,
@@ -240,6 +251,25 @@ export class AgentTurnRunner {
           row.role === 'ASSISTANT' ? ('ASSISTANT' as const) : ('USER' as const),
         text: row.text,
       }));
+  }
+
+  /**
+   * Dokleja zdjęcie do OSTATNIEJ wiadomości użytkownika.
+   *
+   * Historia wraca z bazy, gdzie zdjęcia nie ma i nigdy nie będzie — więc
+   * doklejamy je tutaj, do tej jednej wiadomości, której dotyczy. Gdy
+   * ostatnia wiadomość nie jest od użytkownika (wyścig w zapisie), zdjęcie
+   * przepada cicho: model zobaczy samo pytanie i o nie dopyta, a to jest
+   * lepsze niż obraz podpięty pod cudzą wypowiedź.
+   */
+  private withImage(
+    messages: AgentProviderMessage[],
+    image: AgentProviderImage | undefined,
+  ): AgentProviderMessage[] {
+    if (!image || messages.length === 0) return messages;
+    const last = messages[messages.length - 1];
+    if (last.role !== 'USER') return messages;
+    return [...messages.slice(0, -1), { ...last, image }];
   }
 
   private async finishDone(

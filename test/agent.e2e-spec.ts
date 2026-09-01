@@ -795,6 +795,73 @@ describe('Agent E2E', () => {
     });
   });
 
+  // Zdjęcie ma dojść do modelu i NIE zostać nigdzie zapisane. To jest cała
+  // umowa: jedna tura widzenia w zamian za brak zdjęć czyjejś kuchni w bazie.
+  describe('zdjęcie w wiadomości', () => {
+    // Najmniejszy poprawny JPEG — treść nie ma znaczenia, liczy się droga.
+    const TINY_JPEG =
+      '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a' +
+      'HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAA' +
+      'AAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
+
+    it('dociera do modelu, ale nie zostaje w rozmowie', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'Co z tego ugotuję?',
+        image: { mediaType: 'image/jpeg', data: TINY_JPEG },
+      }).expect(202);
+
+      const done = await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
+      expect(done.status).toBe('DONE');
+      // Stub potwierdza, że obraz przeszedł przez granicę tury.
+      expect(done.messages?.[0].text).toContain('[obraz image/jpeg]');
+
+      const res = await request(app.getHttpServer())
+        .get(`/agent/conversations/${conversation.id}/messages`)
+        .set(auth(session.accessToken))
+        .expect(200);
+      const messages = (res.body as { messages: { kind: string }[] }).messages;
+      // W historii zostaje ŚLAD po załączniku, ale nie sam załącznik.
+      expect(messages[0].kind).toBe('PHOTO');
+      expect(JSON.stringify(res.body)).not.toContain(TINY_JPEG.slice(0, 40));
+    });
+
+    it('nieobsługiwany format wraca jako błąd walidacji, nie jako 500', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const res = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'A to?',
+        image: { mediaType: 'image/gif', data: TINY_JPEG },
+      }).expect(400);
+      expect((res.body as { code: string }).code).toBe('VALIDATION_ERROR');
+    });
+
+    it('za duże zdjęcie odmawia z powodem, a nie samym 413', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const res = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'Wielkie',
+        // Ponad limit DTO, ale poniżej sufitu parsera — inaczej Express
+        // odciąłby żądanie, zanim ktokolwiek zdążył je zwalidować.
+        image: { mediaType: 'image/jpeg', data: 'A'.repeat(2_900_000) },
+      }).expect(400);
+      expect((res.body as { code: string }).code).toBe('VALIDATION_ERROR');
+    });
+  });
+
   describe('metryki', () => {
     it('/ops/metrics ma sekcję `agent` z policzonymi turami', async () => {
       const res = await request(app.getHttpServer())
