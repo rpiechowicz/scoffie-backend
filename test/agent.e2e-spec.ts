@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { STUB_TOOL_MARKER } from '../src/agent/providers/stub-agent.provider';
+import { CARDS_CAPABILITY_V1 } from '../src/agent/cards/agent-cards';
 
 /**
  * Asystent AI (Faza 0, krok 3) na żywym serwerze, z dostawcą `stub`.
@@ -43,9 +44,9 @@ type TurnView = {
   id: string;
   conversationId: string;
   status: string;
-  progress: { tool: string; label: string; at: string }[];
+  progress: { tool: string; label: string; at: string; writes: boolean }[];
   errorCode: string | null;
-  messages?: { role: string; text: string }[];
+  messages?: { role: string; text: string; kind?: string; card?: unknown }[];
   usage?: { inputTokens: number; outputTokens: number; costMicroUsd: number };
 };
 
@@ -67,6 +68,7 @@ describe('Agent E2E', () => {
     'AI_PROVIDER',
     'AI_STUB_DELAY_MS',
     'AI_LIMIT_MESSAGES_PER_MONTH',
+    'AI_CARDS_MODE',
     'THROTTLE_DEFAULT_LIMIT',
     'THROTTLE_IP_LIMIT',
     'THROTTLE_AGENT_MESSAGE_LIMIT',
@@ -343,6 +345,8 @@ describe('Agent E2E', () => {
           tool: 'get_household_context',
           label: expect.any(String),
           at: expect.any(String),
+          // Odczyt — klient nie ma po tej turze czego otwierać.
+          writes: false,
         },
       ]);
       // Etykieta jest gotowym zdaniem po polsku, nie kodem do tłumaczenia.
@@ -400,6 +404,40 @@ describe('Agent E2E', () => {
       }
     });
 
+    it('tura-zombie po padzie procesu NIE blokuje rozmowy na zawsze', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const message = await prisma.agentMessage.create({
+        data: {
+          conversationId: conversation.id,
+          role: 'USER',
+          kind: 'TEXT',
+          text: 'Wiadomość sprzed padu',
+        },
+        select: { id: true },
+      });
+      // Tura, której nikt nie domknie: proces padł w jej trakcie (deploy, OOM).
+      // Bez okna czasu w lease ta rozmowa oddawałaby 409 do końca świata,
+      // a jedynym ratunkiem byłby odczyt tury po id, którego klient nie ma.
+      await prisma.agentTurn.create({
+        data: {
+          conversationId: conversation.id,
+          userId: session.user.id,
+          userMessageId: message.id,
+          requestId: 'zombie',
+          status: 'RUNNING',
+          startedAt: new Date(Date.now() - 10 * 60 * 1000),
+        },
+      });
+
+      await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'Nowa wiadomość mimo zombie',
+      }).expect(202);
+    });
+
     it('cudza tura: 404 AI_TURN_NOT_FOUND', async () => {
       const conversation = await createConversation(
         session.accessToken,
@@ -440,6 +478,126 @@ describe('Agent E2E', () => {
       expect(failed.messages).toBeUndefined();
       // Użytkownik nie płaci za awarię dostawcy.
       expect(await readQuota(householdId)).toBe(before);
+    });
+  });
+
+  describe('lista rozmów', () => {
+    it('lista rozmów niesie podgląd ostatniej wiadomości', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'Co na kolację?',
+      }).expect(202);
+      await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
+
+      const list = await request(app.getHttpServer())
+        .get('/agent/conversations')
+        .set(auth(session.accessToken))
+        .expect(200);
+      const listed = (
+        list.body as { id: string; preview: string | null }[]
+      ).find((item) => item.id === conversation.id);
+
+      // Bez podglądu lista rozmów jest listą dat — nie da się rozpoznać,
+      // do której wracasz.
+      expect(listed?.preview).toBe('[stub] Co na kolację?');
+    });
+
+    it('kasowanie JEDNEJ rozmowy zostawia pozostałe', async () => {
+      const keep = await createConversation(session.accessToken, householdId);
+      const remove = await createConversation(session.accessToken, householdId);
+
+      await request(app.getHttpServer())
+        .delete(`/agent/conversations/${remove.id}`)
+        .set(auth(session.accessToken))
+        .expect(200);
+
+      const list = await request(app.getHttpServer())
+        .get('/agent/conversations')
+        .set(auth(session.accessToken))
+        .expect(200);
+      const ids = (list.body as { id: string }[]).map((item) => item.id);
+      expect(ids).toContain(keep.id);
+      expect(ids).not.toContain(remove.id);
+    });
+
+    it('cudza rozmowa: 404, nie 403 — inaczej da się zgadywać identyfikatory', async () => {
+      const stranger = await devLogin('Nieproszony');
+      const mine = await createConversation(session.accessToken, householdId);
+
+      const res = await request(app.getHttpServer())
+        .delete(`/agent/conversations/${mine.id}`)
+        .set(auth(stranger.accessToken))
+        .expect(404);
+      expect(res.body).toMatchObject({ code: 'AI_CONVERSATION_NOT_FOUND' });
+    });
+  });
+
+  describe('pamięć asystenta', () => {
+    it('lista i kasowanie notatki — użytkownik widzi, co asystent o nim wie', async () => {
+      const note = await prisma.agentMemory.create({
+        data: {
+          householdId,
+          text: 'W piątki zamawiają pizzę',
+          textNormalized: 'w piątki zamawiają pizzę',
+          createdByUserId: session.user.id,
+        },
+        select: { id: true },
+      });
+
+      const listed = await request(app.getHttpServer())
+        .get('/agent/memory')
+        .query({ householdId })
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(
+        (listed.body as { id: string; text: string }[]).map((n) => n.text),
+      ).toContain('W piątki zamawiają pizzę');
+
+      await request(app.getHttpServer())
+        .delete(`/agent/memory/${note.id}`)
+        .set(auth(session.accessToken))
+        .expect(200);
+
+      const after = await prisma.agentMemory.findUnique({
+        where: { id: note.id },
+        select: { id: true },
+      });
+      expect(after).toBeNull();
+    });
+
+    it('cudza notatka: 404, nie 403 — inaczej da się zgadywać identyfikatory', async () => {
+      const note = await prisma.agentMemory.create({
+        data: {
+          householdId,
+          text: 'Notatka do podejrzenia',
+          textNormalized: 'notatka do podejrzenia',
+        },
+        select: { id: true },
+      });
+      const stranger = await devLogin('Wscibski');
+
+      const res = await request(app.getHttpServer())
+        .delete(`/agent/memory/${note.id}`)
+        .set(auth(stranger.accessToken))
+        .expect(404);
+      expect(res.body).toMatchObject({ code: 'NOT_FOUND' });
+    });
+
+    it('cudze gospodarstwo: 403 NOT_HOUSEHOLD_MEMBER', async () => {
+      const stranger = await devLogin('Ciekawski');
+      const res = await request(app.getHttpServer())
+        .get('/agent/memory')
+        .query({ householdId })
+        .set(auth(stranger.accessToken))
+        .expect(403);
+      expect(res.body).toMatchObject({ code: 'NOT_HOUSEHOLD_MEMBER' });
     });
   });
 
@@ -505,6 +663,236 @@ describe('Agent E2E', () => {
         .set(auth(session.accessToken))
         .expect(200);
       expect(res.body).toEqual([]);
+    });
+  });
+
+  // Cały tor propozycji przez PRAWDZIWY serwer: tura kończy się kartą,
+  // plan zostaje nietknięty, a zmienia go dopiero kliknięcie użytkownika.
+  describe('propozycje i karty', () => {
+    let recipeId: string;
+
+    type CardMessage = {
+      role: string;
+      kind?: string;
+      card?: {
+        kind: string;
+        proposalId: string;
+        actions: { type: string; proposalId: string | null }[];
+        state: { status: string; canApply: boolean; canUndo: boolean };
+      };
+    };
+
+    const weekItems = () =>
+      prisma.planItem.count({
+        where: {
+          weeklyPlan: {
+            householdId,
+            weekStart: new Date(`${WEEK_START}T00:00:00.000Z`),
+          },
+        },
+      });
+
+    const history = async (conversationId: string): Promise<CardMessage[]> => {
+      const res = await request(app.getHttpServer())
+        .get(`/agent/conversations/${conversationId}/messages`)
+        .set(auth(session.accessToken))
+        .expect(200);
+      return (res.body as { messages: CardMessage[] }).messages;
+    };
+
+    beforeAll(async () => {
+      process.env.AI_CARDS_MODE = 'soft';
+      const dinner = await prisma.recipe.findFirst({
+        where: { isCatalog: true, suitableMealTypes: { has: 'DINNER' } },
+        select: { id: true },
+      });
+      if (!dinner) throw new Error('katalog nie ma kolacji');
+      recipeId = dinner.id;
+    });
+
+    afterAll(() => {
+      process.env.AI_CARDS_MODE = original.AI_CARDS_MODE;
+    });
+
+    it('tura kończy się kartą, a plan zostaje nietknięty', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: `Ułóż tydzień [[propose:${recipeId}:${WEEK_START}]]`,
+        clientCapabilities: [CARDS_CAPABILITY_V1],
+      }).expect(202);
+
+      const done = await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
+      expect(done.status).toBe('DONE');
+      // Plan się NIE zmienił — na tym polega cała obietnica.
+      expect(await weekItems()).toBe(0);
+
+      const messages = await history(conversation.id);
+      const assistant = messages[messages.length - 1];
+      expect(assistant.kind).toBe('PLAN_WEEK');
+      expect(assistant.card).toMatchObject({
+        kind: 'PLAN_WEEK',
+        state: { status: 'PENDING', canApply: true, canUndo: false },
+      });
+      const apply = assistant.card?.actions.find((a) => a.type === 'APPLY');
+      expect(apply?.proposalId).toBe(assistant.card?.proposalId);
+
+      // Zatwierdzenie: bez modelu, więc bez kosztu — i dopiero teraz plan.
+      const proposalId = assistant.card!.proposalId;
+      await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposalId}/apply`)
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(await weekItems()).toBe(1);
+
+      const afterApply = await history(conversation.id);
+      const applied = afterApply[afterApply.length - 1];
+      expect(applied.kind).toBe('APPLIED');
+      expect(applied.card?.actions.map((a) => a.type)).toContain('UNDO');
+      // Karta propozycji w HISTORII sama przestaje zapraszać do kliknięcia.
+      const stale = afterApply.find((m) => m.card?.kind === 'PLAN_WEEK');
+      expect(stale?.card?.state).toMatchObject({
+        status: 'APPLIED',
+        canApply: false,
+      });
+
+      await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposalId}/undo`)
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(await weekItems()).toBe(0);
+    });
+
+    it('klient bez `cards.v1` nie dostaje propozycji, której nie umie pokazać', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: `Ułóż tydzień [[propose:${recipeId}:${WEEK_START}]]`,
+      }).expect(202);
+
+      const done = await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
+      // Tura kończy się NORMALNIE: narzędzie spoza trybu odmawia jako dane,
+      // więc stary build dostaje zdanie zamiast błędu.
+      expect(done.status).toBe('DONE');
+
+      const messages = await history(conversation.id);
+      const assistant = messages[messages.length - 1];
+      expect(assistant.kind).toBe('TEXT');
+      expect(assistant.card).toBeNull();
+      expect(await weekItems()).toBe(0);
+    });
+  });
+
+  // Poprawka to nowa tura, a nie zmiana tekstu w miejscu. Sedno: to, co było
+  // po poprawianym pytaniu, znika — i z ekranu, i z historii dla modelu.
+  describe('poprawianie pytania', () => {
+    const editMessage = (
+      token: string,
+      conversationId: string,
+      body: Record<string, unknown>,
+    ) =>
+      request(app.getHttpServer())
+        .post(`/agent/conversations/${conversationId}/messages/edit`)
+        .set(auth(token))
+        .send({
+          weekStart: WEEK_START,
+          clientToday: CLIENT_TODAY,
+          timeZone: TIME_ZONE,
+          ...body,
+        });
+
+    const history = async (conversationId: string) => {
+      const res = await request(app.getHttpServer())
+        .get(`/agent/conversations/${conversationId}/messages`)
+        .set(auth(session.accessToken))
+        .expect(200);
+      return (res.body as { messages: { id: string; text: string }[] }).messages;
+    };
+
+    it('wycofuje pytanie i odpowiedź na nie, a potem pyta od nowa', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const first = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'Co na obiad w piątek?',
+      }).expect(202);
+      await pollTurn(session.accessToken, (first.body as AcceptedTurn).turnId);
+
+      const before = await history(conversation.id);
+      expect(before).toHaveLength(2);
+      const original = before[0];
+
+      const edited = await editMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        messageId: original.id,
+        text: 'Co na kolację w piątek?',
+      }).expect(202);
+      await pollTurn(session.accessToken, (edited.body as AcceptedTurn).turnId);
+
+      const after = await history(conversation.id);
+      // Rozmowa ma dwie wiadomości: poprawione pytanie i nowa odpowiedź.
+      expect(after).toHaveLength(2);
+      expect(after[0].text).toBe('Co na kolację w piątek?');
+      expect(after.some((message) => message.id === original.id)).toBe(false);
+      // Odpowiedź jest na NOWE pytanie, nie na wycofane.
+      expect(after[1].text).toContain('Co na kolację w piątek?');
+    });
+
+    it('cudza wiadomość: 404, nie cicha poprawka', async () => {
+      const other = await devLogin('Obcy');
+      const otherHousehold = await createHousehold(other.user.id, 'Obcy dom');
+      const mine = await createConversation(session.accessToken, householdId);
+      const sent = await postMessage(session.accessToken, mine.id, {
+        clientMessageId: randomUUID(),
+        text: 'Moje pytanie',
+      }).expect(202);
+      await pollTurn(session.accessToken, (sent.body as AcceptedTurn).turnId);
+      const messages = await history(mine.id);
+
+      const theirs = await createConversation(other.accessToken, otherHousehold);
+      await editMessage(other.accessToken, theirs.id, {
+        clientMessageId: randomUUID(),
+        messageId: messages[0].id,
+        text: 'Podmieniam cudze',
+      }).expect(404);
+    });
+
+    it('odpowiedź asystenta nie jest „własnym pytaniem”', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const sent = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'Pytanie',
+      }).expect(202);
+      await pollTurn(session.accessToken, (sent.body as AcceptedTurn).turnId);
+      const messages = await history(conversation.id);
+      const assistantMessage = messages[1];
+
+      const res = await editMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        messageId: assistantMessage.id,
+        text: 'Nie tak miałeś powiedzieć',
+      }).expect(404);
+      expect((res.body as { code: string }).code).toBe('AI_MESSAGE_NOT_FOUND');
+
+      // Nic nie zniknęło: nieudana poprawka nie rusza rozmowy.
+      expect(await history(conversation.id)).toHaveLength(2);
     });
   });
 

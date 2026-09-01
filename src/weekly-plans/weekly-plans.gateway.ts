@@ -209,6 +209,45 @@ export class WeeklyPlansGateway
     return Date.now();
   }
 
+  /**
+   * Rozgłasza zapis całego tygodnia.
+   *
+   * Publiczne, bo od trybu propozycji tydzień zapisuje się także POZA
+   * handlerem WS — na kliknięcie „Dodaj do planu", czyli z endpointu REST
+   * asystenta. Bez tego drugi telefon w domu nie dowiadywał się o zmianie,
+   * dopóki ktoś nie pociągnął listy w dół (dziś zapisy asystenta nie
+   * rozgłaszają się wcale — to jest ta dziura).
+   *
+   * `nextChangeVersion` zostaje tutaj, żeby wersje szły z jednego licznika.
+   */
+  broadcastWeekApplied(input: {
+    householdId: string;
+    weekStart: string;
+    changedByUserId: string;
+    changedByDisplayName?: string | null;
+  }): void {
+    broadcastToHousehold(
+      this.server,
+      input.householdId,
+      'weeklyPlans:weekChanged',
+      {
+        householdId: input.householdId,
+        weekStart: input.weekStart,
+        action: 'APPLY_WEEK',
+        changedByUserId: input.changedByUserId,
+        changedByDisplayName: input.changedByDisplayName ?? null,
+        changeVersion: this.nextChangeVersion(),
+      },
+    );
+    this.emitShoppingListChanged({
+      householdId: input.householdId,
+      weekStart: input.weekStart,
+      action: 'APPLY_WEEK',
+      changedByUserId: input.changedByUserId,
+      changedByDisplayName: input.changedByDisplayName ?? null,
+    });
+  }
+
   @SubscribeMessage('weeklyPlans:getByWeek')
   getByWeek(
     @ConnectedSocket() client: AppSocket,
@@ -540,24 +579,9 @@ export class WeeklyPlansGateway
 
       if (!result.applied) return result;
 
-      const changeVersion = this.nextChangeVersion();
-      broadcastToHousehold(
-        this.server,
-        payload.householdId,
-        'weeklyPlans:weekChanged',
-        {
-          householdId: payload.householdId,
-          weekStart: payload.weekStart,
-          action: 'APPLY_WEEK',
-          changedByUserId: userId,
-          changedByDisplayName,
-          changeVersion,
-        },
-      );
-      this.emitShoppingListChanged({
+      this.broadcastWeekApplied({
         householdId: payload.householdId,
         weekStart: payload.weekStart,
-        action: 'APPLY_WEEK',
         changedByUserId: userId,
         changedByDisplayName,
       });

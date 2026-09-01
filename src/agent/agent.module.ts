@@ -3,11 +3,13 @@ import { AuthModule } from '../auth/auth.module';
 import { HouseholdsModule } from '../households/households.module';
 import { RecipesModule } from '../recipes/recipes.module';
 import { WeeklyPlansModule } from '../weekly-plans/weekly-plans.module';
+import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
 import { AgentPromptService } from './agent-prompt.service';
 import { ObservabilityModule } from '../observability/observability.module';
 import { AgentConfigService } from './agent-config.service';
 import { AgentConversationsService } from './agent-conversations.service';
+import { AgentMemoryService } from './agent-memory.service';
 import { AgentController } from './agent.controller';
 import { AgentTurnRunner } from './agent-turn.runner';
 import { AgentTurnsService } from './agent-turns.service';
@@ -43,11 +45,13 @@ import { UpstreamBreaker } from './upstream-breaker';
   providers: [
     AgentConfigService,
     AiUsageCountersService,
+    AgentMemoryService,
     AgentConversationsService,
     AgentTurnsService,
     AgentTurnRunner,
     AgentProviderResolver,
     AgentToolExecutor,
+    AgentProposalsService,
     AgentPromptService,
     StubAgentProvider,
     AnthropicAgentProvider,

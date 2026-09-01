@@ -33,6 +33,9 @@ const ENV: AgentEnv = {
   plansPerMonth: 30,
   globalDailyBudgetUsd: null,
   stubDelayMs: 0,
+  cardsMode: 'off',
+  proposalTtlMs: 72 * 60 * 60 * 1000,
+  proposalUndoWindowMs: 60 * 60 * 1000,
 };
 
 const validDto = (): PostMessageDto => ({
@@ -45,7 +48,13 @@ const validDto = (): PostMessageDto => ({
 
 describe('AgentTurnsService', () => {
   const tx = {
-    agentTurn: { count: jest.fn(), create: jest.fn() },
+    agentTurn: {
+      count: jest.fn(),
+      create: jest.fn(),
+      // Lease ZAMYKA martwe tury, zanim policzy żywe — stąd findMany/updateMany.
+      findMany: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     agentMessage: { create: jest.fn(), update: jest.fn() },
     agentConversation: { update: jest.fn(), updateMany: jest.fn() },
   };
@@ -83,6 +92,7 @@ describe('AgentTurnsService', () => {
       breaker,
       metrics,
       runner as unknown as AgentTurnRunner,
+      { withCardState: (messages: unknown) => messages } as never,
     );
   };
 
@@ -222,6 +232,34 @@ describe('AgentTurnsService', () => {
       expect(await codeOf(post())).toBe('AI_TURN_IN_PROGRESS');
       expect(counters.tryConsume).not.toHaveBeenCalled();
       expect(metrics.snapshot().rejected.inProgress).toBe(1);
+    });
+
+    it('martwa tura jest ZAMYKANA i oddaje kwotę, a nie tylko pomijana', async () => {
+      // Sedno: samo pominięcie odblokowałoby rozmowę, ale zostawiłoby wiersz
+      // RUNNING, którego nikt nie odpyta — a to odpytanie jest jedynym
+      // mechanizmem zwrotu kwoty. Zombie znaczyłby trwale spaloną wiadomość.
+      const startedAt = new Date(Date.now() - 10 * 60 * 1000);
+      tx.agentTurn.findMany.mockResolvedValue([{ id: 'zombie-1', startedAt }]);
+      tx.agentTurn.updateMany.mockResolvedValue({ count: 1 });
+      tx.agentTurn.count.mockResolvedValue(0);
+
+      await post();
+
+      expect(tx.agentTurn.updateMany).toHaveBeenCalledWith({
+        where: { id: 'zombie-1', status: 'RUNNING' },
+        data: expect.objectContaining({
+          status: 'FAILED',
+          errorCode: 'AI_TIMEOUT',
+        }),
+      });
+      expect(counters.add).toHaveBeenCalledWith(
+        tx,
+        HOUSEHOLD,
+        expect.any(String),
+        'messages',
+        -1,
+      );
+      expect(metrics.snapshot().turns.timeout).toBe(1);
     });
 
     it('6. wyczerpana kwota: AI_QUOTA_EXCEEDED (429), tura nie powstaje', async () => {

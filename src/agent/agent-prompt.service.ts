@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { HouseholdsService } from '../households/households.service';
+import { AgentMemoryService } from './agent-memory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   buildCatalogDigest,
@@ -44,29 +45,41 @@ export class AgentPromptService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly households: HouseholdsService,
+    private readonly memory: AgentMemoryService,
   ) {}
 
   async build(
     userId: string,
     householdId: string,
     dates: TurnDates,
+    proposalMode: boolean,
+    scopeUserIds: readonly string[] = [],
   ): Promise<AgentPrompt> {
-    const [digest, household, members] = await Promise.all([
+    const [digest, household, members, memory] = await Promise.all([
       this.loadDigest(),
       this.prisma.household.findUnique({
         where: { id: householdId },
         select: { name: true, enabledMealTypes: true },
       }),
       this.households.memberPreferences(userId, householdId),
+      this.memory.promptBlock(householdId),
     ]);
 
     const system = buildSystemPrompt(digest, {
+      memory,
       householdName: household?.name ?? 'Dom',
       clientToday: dates.clientToday,
       weekStart: dates.weekStart,
       timeZone: dates.timeZone,
       enabledMealTypes: household?.enabledMealTypes ?? [],
       members,
+      proposalMode,
+      // Imiona, nie identyfikatory: prompt czyta człowiek i model, a oba
+      // rozumieją „Ania" lepiej niż UUID. Identyfikatory model i tak ma
+      // w bloku domowników obok.
+      scopeNames: members
+        .filter((member) => scopeUserIds.includes(member.userId))
+        .map((member) => member.displayName),
     });
 
     return {
