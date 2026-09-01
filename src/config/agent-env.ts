@@ -30,6 +30,20 @@ export const AI_MODEL_DEFAULT = 'claude-sonnet-5';
  * dla `medium`, więc `high` po cichu podniósłby rachunek ponad to, co
  * policzone. Podniesienie to świadoma decyzja, nie ustawienie domyślne.
  */
+/**
+ * Tryb kart i propozycji.
+ *
+ * `off` — jak dotąd: model sam zapisuje plan w trakcie tury. Dźwignia
+ * awaryjna, gdy coś w nowej ścieżce zawiedzie na produkcji.
+ * `soft` — tryb propozycji dostają wyłącznie klienci, którzy zadeklarowali,
+ * że umieją narysować kartę (`clientCapabilities`); starsze buildy dostają
+ * dotychczasowe zachowanie, bo karty i tak by nie pokazały.
+ * `strict` — tryb propozycji dla wszystkich; `apply_week_plan` znika z listy
+ * narzędzi modelu. Włączane po adopcji buildu iOS.
+ */
+export const AI_CARDS_MODES = ['off', 'soft', 'strict'] as const;
+export type AiCardsMode = (typeof AI_CARDS_MODES)[number];
+
 export const AI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type AiEffort = (typeof AI_EFFORTS)[number];
 export const AI_EFFORT_DEFAULT: AiEffort = 'medium';
@@ -56,6 +70,17 @@ export type AgentEnv = {
   globalDailyBudgetUsd: number | null;
   /** Opóźnienie odpowiedzi providera `stub` (testy lease/timeoutu). */
   stubDelayMs: number;
+  /** Tryb kart i propozycji — patrz `AI_CARDS_MODES`. */
+  cardsMode: AiCardsMode;
+  /**
+   * Jak długo propozycja daje się zatwierdzić.
+   *
+   * Po tym czasie karta w historii mówi wprost, że jest nieaktualna, zamiast
+   * pokazywać przycisk, który zapisze tydzień policzony trzy tygodnie temu.
+   */
+  proposalTtlMs: number;
+  /** Ile czasu na „Cofnij" po zapisaniu propozycji. */
+  proposalUndoWindowMs: number;
 };
 
 export const AGENT_ENV_DEFAULTS = {
@@ -70,6 +95,10 @@ export const AGENT_ENV_DEFAULTS = {
    */
   globalDailyBudgetUsd: 5,
   stubDelayMs: 0,
+  /** Trzy doby: tyle żyje sensowna propozycja tygodnia. */
+  proposalTtlMs: 72 * 60 * 60 * 1000,
+  /** Godzina na „Cofnij" — tyle, ile trwa zorientowanie się, że to nie to. */
+  proposalUndoWindowMs: 60 * 60 * 1000,
 } as const;
 
 /** Jedyna droga do braku budżetu — jawna i widoczna w `railway variables`. */
@@ -79,7 +108,9 @@ type NumericKey =
   | 'AI_TURN_TIMEOUT_MS'
   | 'AI_LIMIT_MESSAGES_PER_MONTH'
   | 'AI_LIMIT_PLANS_PER_MONTH'
-  | 'AI_STUB_DELAY_MS';
+  | 'AI_STUB_DELAY_MS'
+  | 'AI_PROPOSAL_TTL_MS'
+  | 'AI_PROPOSAL_UNDO_WINDOW_MS';
 
 function readNumber(
   env: NodeJS.ProcessEnv,
@@ -105,6 +136,13 @@ function readEffort(env: NodeJS.ProcessEnv): AiEffort {
   return (AI_EFFORTS as readonly string[]).includes(raw)
     ? (raw as AiEffort)
     : AI_EFFORT_DEFAULT;
+}
+
+function readCardsMode(env: NodeJS.ProcessEnv): AiCardsMode {
+  const raw = (env.AI_CARDS_MODE ?? '').trim().toLowerCase();
+  return (AI_CARDS_MODES as readonly string[]).includes(raw)
+    ? (raw as AiCardsMode)
+    : 'off';
 }
 
 function readProvider(env: NodeJS.ProcessEnv): AiProvider {
@@ -159,6 +197,19 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       'AI_STUB_DELAY_MS',
       AGENT_ENV_DEFAULTS.stubDelayMs,
     ),
+    cardsMode: readCardsMode(env),
+    proposalTtlMs: readNumber(
+      env,
+      'AI_PROPOSAL_TTL_MS',
+      AGENT_ENV_DEFAULTS.proposalTtlMs,
+      { min: 1 },
+    ),
+    proposalUndoWindowMs: readNumber(
+      env,
+      'AI_PROPOSAL_UNDO_WINDOW_MS',
+      AGENT_ENV_DEFAULTS.proposalUndoWindowMs,
+      { min: 0 },
+    ),
   };
 }
 
@@ -207,11 +258,19 @@ export function agentEnvProblems(
       );
     }
   }
+  const cardsRaw = (env.AI_CARDS_MODE ?? '').trim().toLowerCase();
+  if (cardsRaw && !(AI_CARDS_MODES as readonly string[]).includes(cardsRaw)) {
+    problems.push(
+      `AI_CARDS_MODE=${cardsRaw} — dozwolone: ${AI_CARDS_MODES.join(', ')} (przy złej wartości działa off)`,
+    );
+  }
   const numeric: Array<[NumericKey, { min: number; integer: boolean }]> = [
     ['AI_TURN_TIMEOUT_MS', { min: 1, integer: true }],
     ['AI_LIMIT_MESSAGES_PER_MONTH', { min: 0, integer: true }],
     ['AI_LIMIT_PLANS_PER_MONTH', { min: 0, integer: true }],
     ['AI_STUB_DELAY_MS', { min: 0, integer: true }],
+    ['AI_PROPOSAL_TTL_MS', { min: 1, integer: true }],
+    ['AI_PROPOSAL_UNDO_WINDOW_MS', { min: 0, integer: true }],
   ];
   for (const [key, opts] of numeric) {
     const raw = (env[key] ?? '').trim();

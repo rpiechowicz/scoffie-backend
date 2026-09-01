@@ -39,6 +39,7 @@ const LABELS: Record<string, string> = {
   get_week_plan: 'Czytam plan tygodnia',
   get_week_balance: 'Liczę bilans dnia',
   search_ingredients: 'Szukam składników',
+  propose_week_plan: 'Układam propozycję planu',
   apply_week_plan: 'Zapisuję plan tygodnia',
   create_recipe: 'Dodaję przepis',
   update_recipe: 'Poprawiam przepis',

@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { HouseholdsModule } from '../households/households.module';
 import { RecipesModule } from '../recipes/recipes.module';
 import { WeeklyPlansModule } from '../weekly-plans/weekly-plans.module';
+import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
 import { AgentPromptService } from './agent-prompt.service';
 import { ObservabilityModule } from '../observability/observability.module';
@@ -50,6 +51,7 @@ import { UpstreamBreaker } from './upstream-breaker';
     AgentTurnRunner,
     AgentProviderResolver,
     AgentToolExecutor,
+    AgentProposalsService,
     AgentPromptService,
     StubAgentProvider,
     AnthropicAgentProvider,

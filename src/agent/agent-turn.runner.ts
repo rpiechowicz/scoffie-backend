@@ -115,6 +115,8 @@ export class AgentTurnRunner {
             userId: input.userId,
             householdId: input.householdId,
             catalogIndex: prompt.catalogIndex,
+            conversationId: input.conversationId,
+            turnId: input.turnId,
           });
         },
         signal: controller.signal,
@@ -245,15 +247,37 @@ export class AgentTurnRunner {
         });
         if (update.count === 0) return false;
 
+        // Propozycja z tej tury, jeśli model jakąś ułożył. Nośnikiem jest
+        // BAZA, nie pamięć procesu: gdyby proces padł między narzędziem
+        // a domknięciem tury, propozycja zostaje bez `messageId`, czyli
+        // nieosiągalna — a nie „w połowie żywa".
+        const proposal = await tx.agentProposal.findFirst({
+          where: { turnId: input.turnId, messageId: null },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, kind: true, card: true },
+        });
+
         const message = await tx.agentMessage.create({
           data: {
             conversationId: input.conversationId,
             role: 'ASSISTANT',
-            kind: 'TEXT',
+            // Karta jest DODATKIEM do tekstu, nigdy zamiennikiem: klient,
+            // który jej nie zna, ma dalej pokazać sensowne zdanie.
+            kind: proposal?.kind ?? 'TEXT',
             text: result.text,
+            ...(proposal
+              ? { card: proposal.card as Prisma.InputJsonValue }
+              : {}),
             turnId: input.turnId,
           },
         });
+
+        if (proposal) {
+          await tx.agentProposal.update({
+            where: { id: proposal.id },
+            data: { messageId: message.id },
+          });
+        }
         await tx.aiUsage.create({
           data: {
             turnId: input.turnId,

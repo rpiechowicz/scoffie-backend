@@ -33,6 +33,9 @@ const ENV: AgentEnv = {
   plansPerMonth: 30,
   globalDailyBudgetUsd: null,
   stubDelayMs: 0,
+  cardsMode: 'off',
+  proposalTtlMs: 72 * 60 * 60 * 1000,
+  proposalUndoWindowMs: 60 * 60 * 1000,
 };
 
 const validDto = (): PostMessageDto => ({

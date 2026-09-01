@@ -95,6 +95,10 @@ async function main(): Promise<void> {
           userId: user.id,
           householdId: household.id,
           catalogIndex: prompt.catalogIndex,
+          // Kontekst tury — od propozycji planu narzędzia muszą wiedzieć,
+          // do której rozmowy i tury przypiąć wynik.
+          conversationId: '00000000-0000-4000-8000-00000000c0a1',
+          turnId: '00000000-0000-4000-8000-00000000c0a2',
         });
       },
       signal: AbortSignal.timeout(env.turnTimeoutMs),

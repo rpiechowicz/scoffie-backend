@@ -128,6 +128,51 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'propose_week_plan',
+    description:
+      'Pokaż użytkownikowi PROPOZYCJĘ tygodnia. Lista slots to stan docelowy: czego na niej nie ma, ' +
+      'tego w planie nie będzie. TY NIE ZAPISUJESZ PLANU — zapisze go użytkownik jednym kliknięciem ' +
+      'w karcie, którą to narzędzie dla niego przygotuje. ' +
+      'Narzędzie samo sprawdza plan po stronie serwera i zwraca naruszenia (nieznany przepis, danie ' +
+      'nie do tego posiłku, ALERGEN domownika, obcy domownik) — popraw je i zawołaj ponownie. ' +
+      'W odpowiedzi NIE przepisuj planu dzień po dniu: użytkownik widzi go w karcie.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        note: {
+          type: 'string',
+          description:
+            'Jedno zdanie, dlaczego akurat tak. Bez liczb i bez nazw dań — te są w karcie.',
+        },
+        slots: {
+          type: 'array',
+          description: 'Najwyżej 42 pozycje na tydzień.',
+          items: object(
+            {
+              day_of_week: DAY,
+              meal_type: MEAL,
+              recipe: RECIPE_REF,
+              participant_user_ids: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Kto to je. Pomiń albo zostaw puste, gdy danie jest dla całego domu.',
+              },
+              planned_servings: {
+                type: 'integer',
+                description:
+                  'Porcje ŁĄCZNE, 1–12. Pomiń, żeby policzyły się z audytorium — tak jest prawie zawsze dobrze.',
+              },
+            },
+            ['day_of_week', 'meal_type', 'recipe'],
+          ),
+        },
+      },
+      ['week_start', 'slots'],
+    ),
+    strict: true,
+  },
+  {
     name: 'apply_week_plan',
     description:
       'Zapisz CAŁY tydzień naraz. Lista slots to stan docelowy: czego na niej nie ma, tego nie ' +

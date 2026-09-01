@@ -4,7 +4,10 @@ import { mapError } from '../../common/error-contract';
 import { HouseholdsService } from '../../households/households.service';
 import { IngredientsService } from '../../recipes/ingredients.service';
 import { RecipesService } from '../../recipes/recipes.service';
-import { ApplyWeekPlanDto } from '../../weekly-plans/dto/apply-week-plan.dto';
+import {
+  ApplyWeekPlanDto,
+  ApplyWeekSlotDto,
+} from '../../weekly-plans/dto/apply-week-plan.dto';
 import {
   ApplyWeekPlanResult,
   WeeklyPlansService,
@@ -17,6 +20,10 @@ import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../../recipes/dto/update-recipe.dto';
 import { AGENT_TOOL_NAMES } from './agent-tools';
+import {
+  AgentProposalsService,
+  CreateWeekProposalResult,
+} from '../proposals/agent-proposals.service';
 
 /**
  * Kontekst tury: kto pyta i o które gospodarstwo.
@@ -31,6 +38,15 @@ export type AgentToolContext = {
   householdId: string;
   /** `R07` → `recipeId`; z digestu katalogu tej tury. */
   catalogIndex: Record<string, string>;
+  /**
+   * Rozmowa i tura, w których to się dzieje.
+   *
+   * Propozycja musi wiedzieć, do której wiadomości się przypnie — a że model
+   * nie ma jak tego podać (i nie powinien), idzie to tą samą drogą co
+   * tożsamość: z tury, nie z wejścia narzędzia.
+   */
+  conversationId: string;
+  turnId: string;
 };
 
 /**
@@ -69,6 +85,7 @@ export class AgentToolExecutor {
     private readonly counters: AiUsageCountersService,
     private readonly metrics: AgentMetricsService,
     private readonly memory: AgentMemoryService,
+    private readonly proposals: AgentProposalsService,
   ) {}
 
   async execute(
@@ -142,6 +159,9 @@ export class AgentToolExecutor {
           onlyWithNutrition: input.only_with_nutrition === true,
           ...(typeof input.limit === 'number' ? { limit: input.limit } : {}),
         });
+
+      case 'propose_week_plan':
+        return this.proposeWeekPlan(input, context, str('week_start'));
 
       case 'apply_week_plan':
         return this.applyWeekPlan(input, context, str('week_start'));
@@ -218,6 +238,40 @@ export class AgentToolExecutor {
    * Ten ostatni przypadek jest ważny: model, który powtarza ten sam stan
    * docelowy, nie ma prawa spalić komuś limitu na tydzień.
    */
+  /**
+   * Propozycja tygodnia — policz i pokaż, nie zapisuj.
+   *
+   * Nie schodzi tu kwota planów: propozycja nic nie zmienia w bazie
+   * gospodarstwa, więc nie ma za co jej liczyć. Limit obciąża dopiero
+   * zatwierdzenie, czyli moment, w którym tydzień naprawdę się zmienia.
+   */
+  private async proposeWeekPlan(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<CreateWeekProposalResult> {
+    const unknownRefs = this.unknownCatalogRefs(input.slots, context);
+    if (unknownRefs.length > 0) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takich przepisów w katalogu: ${unknownRefs.join(', ')}. Użyj indeksów z listy katalogu.`,
+        HttpStatus.NOT_FOUND,
+        unknownRefs,
+      );
+    }
+
+    const note = asString(input.note).trim();
+    return this.proposals.createWeekPlanProposal({
+      userId: context.userId,
+      householdId: context.householdId,
+      conversationId: context.conversationId,
+      turnId: context.turnId,
+      weekStart,
+      slots: this.toSlots(input.slots, context) as unknown as ApplyWeekSlotDto[],
+      ...(note ? { note } : {}),
+    });
+  }
+
   private async applyWeekPlan(
     input: Record<string, unknown>,
     context: AgentToolContext,
