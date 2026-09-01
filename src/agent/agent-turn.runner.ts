@@ -20,6 +20,7 @@ import {
   progressStep,
 } from './agent-progress';
 import { AgentPromptService, TurnDates } from './agent-prompt.service';
+import { AgentCard } from './cards/agent-cards';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
 import { AGENT_TOOLS } from './tools/agent-tools';
 import { UpstreamBreaker } from './upstream-breaker';
@@ -38,6 +39,16 @@ export type RunTurnInput = {
    * początku tygodnia — patrz `dto/agent-date.validators.ts`.
    */
   dates: TurnDates;
+  /**
+   * Czy model proponuje, czy zapisuje sam — wyliczone RAZ przy przyjęciu
+   * wiadomości (`AI_CARDS_MODE` + deklaracja klienta) i niesione przez całą
+   * turę. Ponowne czytanie env w środku tury groziłoby turą, która zaczyna
+   * w jednym trybie, a kończy w drugim: prompt kazałby proponować, a executor
+   * przyjmowałby zapisy.
+   */
+  proposalMode: boolean;
+  /** Kogo dotyczy pytanie; puste = całe gospodarstwo. */
+  scopeUserIds?: string[];
 };
 
 /** Ile ostatnich wiadomości rozmowy idzie do modelu jako kontekst. */
@@ -92,6 +103,10 @@ export class AgentTurnRunner {
     );
 
     const progress: AgentProgressStep[] = [];
+    // Karta bez skutków ubocznych (pytanie, zestawienie) żyje w pamięci tury.
+    // Propozycje idą przez bazę, bo muszą przeżyć pad procesu — ta nie ma
+    // czego przeżywać: bez domkniętej tury nie powstaje żadna wiadomość.
+    let pendingCard: AgentCard | null = null;
 
     try {
       const messages = await this.loadHistory(input.conversationId);
@@ -99,6 +114,8 @@ export class AgentTurnRunner {
         input.userId,
         input.householdId,
         input.dates,
+        input.proposalMode,
+        input.scopeUserIds ?? [],
       );
       const provider = this.providers.resolve(input.env);
       const result = await provider.run({
@@ -115,11 +132,18 @@ export class AgentTurnRunner {
             userId: input.userId,
             householdId: input.householdId,
             catalogIndex: prompt.catalogIndex,
+            conversationId: input.conversationId,
+            turnId: input.turnId,
+            proposalMode: input.proposalMode,
+            scopeUserIds: input.scopeUserIds ?? [],
+            collectCard: (card) => {
+              pendingCard = card;
+            },
           });
         },
         signal: controller.signal,
       });
-      await this.finishDone(input, result, Date.now() - startedAt);
+      await this.finishDone(input, result, Date.now() - startedAt, pendingCard);
       this.breaker.recordSuccess();
     } catch (error) {
       await this.finishFailed(
@@ -147,7 +171,11 @@ export class AgentTurnRunner {
     tool: string,
     input: Record<string, unknown>,
   ): Promise<void> {
-    if (!appendProgress(steps, progressStep(tool, input))) return;
+    // Ziarno z tury: dwie tury opisują tę samą pracę innymi słowami, a jedna
+    // tura nigdy nie podmienia tekstu pod ręką użytkownika.
+    if (!appendProgress(steps, progressStep(tool, input, new Date(), turnId))) {
+      return;
+    }
     try {
       await this.prisma.agentTurn.updateMany({
         where: { id: turnId, status: 'RUNNING' },
@@ -207,7 +235,11 @@ export class AgentTurnRunner {
     conversationId: string,
   ): Promise<AgentProviderMessage[]> {
     const rows = await this.prisma.agentMessage.findMany({
-      where: { conversationId },
+      // Poprawione pytanie i wszystko, co po nim, znika także z historii dla
+      // MODELU. Inaczej model widziałby pytanie, które użytkownik wycofał,
+      // i własną odpowiedź na nie — czyli dokładnie to, co poprawka miała
+      // usunąć z rozmowy.
+      where: { conversationId, hiddenAt: null },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: HISTORY_WINDOW,
       select: { role: true, text: true },
@@ -226,6 +258,7 @@ export class AgentTurnRunner {
     input: RunTurnInput,
     result: AgentProviderResult,
     durationMs: number,
+    pendingCard: AgentCard | null,
   ): Promise<void> {
     const { usage } = result;
     let closed = false;
@@ -245,15 +278,45 @@ export class AgentTurnRunner {
         });
         if (update.count === 0) return false;
 
+        // Propozycja z tej tury, jeśli model jakąś ułożył. Nośnikiem jest
+        // BAZA, nie pamięć procesu: gdyby proces padł między narzędziem
+        // a domknięciem tury, propozycja zostaje bez `messageId`, czyli
+        // nieosiągalna — a nie „w połowie żywa".
+        const proposal = await tx.agentProposal.findFirst({
+          where: { turnId: input.turnId, messageId: null },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, kind: true, card: true },
+        });
+
+        // Propozycja ma pierwszeństwo przed kartą bez skutków: gdy model
+        // zrobił oba, użytkownik ma zobaczyć to, co da się kliknąć.
+        const card = proposal
+          ? { kind: proposal.kind, payload: proposal.card }
+          : pendingCard
+            ? { kind: pendingCard.kind, payload: pendingCard }
+            : null;
+
         const message = await tx.agentMessage.create({
           data: {
             conversationId: input.conversationId,
             role: 'ASSISTANT',
-            kind: 'TEXT',
+            // Karta jest DODATKIEM do tekstu, nigdy zamiennikiem: klient,
+            // który jej nie zna, ma dalej pokazać sensowne zdanie.
+            kind: card?.kind ?? 'TEXT',
             text: result.text,
+            ...(card
+              ? { card: card.payload as Prisma.InputJsonValue }
+              : {}),
             turnId: input.turnId,
           },
         });
+
+        if (proposal) {
+          await tx.agentProposal.update({
+            where: { id: proposal.id },
+            data: { messageId: message.id },
+          });
+        }
         await tx.aiUsage.create({
           data: {
             turnId: input.turnId,

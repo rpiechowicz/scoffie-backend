@@ -22,6 +22,28 @@ describe('readAgentEnv', () => {
       // bez żadnego hamulca wydatków wyglądała jak skonfigurowana.
       globalDailyBudgetUsd: AGENT_ENV_DEFAULTS.globalDailyBudgetUsd,
       stubDelayMs: 0,
+      // Karty domyślnie WYŁĄCZONE: wprowadzenie trybu propozycji nie może
+      // zmienić zachowania instalacji, która o nic nie prosiła.
+      cardsMode: 'off',
+      proposalTtlMs: AGENT_ENV_DEFAULTS.proposalTtlMs,
+      proposalUndoWindowMs: AGENT_ENV_DEFAULTS.proposalUndoWindowMs,
+    });
+  });
+
+  describe('tryb kart', () => {
+    const mode = (value: string) => readAgentEnv({ AI_CARDS_MODE: value }).cardsMode;
+
+    it.each(['off', 'soft', 'strict'])('przyjmuje %s', (value) => {
+      expect(mode(value)).toBe(value);
+    });
+
+    it('nieznana wartość i brak zmiennej znaczą to samo: off', () => {
+      expect(mode('propozycje')).toBe('off');
+      expect(readAgentEnv({}).cardsMode).toBe('off');
+    });
+
+    it('wielkość liter nie ma znaczenia', () => {
+      expect(mode('SOFT')).toBe('soft');
     });
   });
 

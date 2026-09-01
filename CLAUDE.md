@@ -101,6 +101,25 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   [tx: lease 409 → kwota 429 → zapis]); kwota schodzi NA STARCIE tury i wraca przy porażce.
   `AgentTurnRunner.run` nie rzuca nigdy i domyka turę warunkowo (`updateMany` po `status: 'RUNNING'`).
   W logach asystenta nie ma treści wiadomości — tylko `turnId`, `requestId` i kod.
+- Karty i propozycje (E2): `AgentMessage.kind` + `card Json` to KONTRAKT z telefonem — karta
+  jest DODATKIEM do `text` (nieznany `kind` = klient rysuje sam tekst). Encja `AgentProposal`
+  rozdziela INTENCJĘ (`action`, nigdy nie idzie na drut) od WIDOKU (`card`); klient przysyła
+  sam `proposalId`. Stan karty (`canApply`/`canUndo`) liczy się PRZY ODCZYCIE, nigdy nie jest
+  zapisywany. Zapis planu przenosi się z tury do `POST /agent/proposals/:id/apply` (i `/undo`) —
+  bez modelu, czyli za darmo; tam też schodzi kwota `plans`. Tryb: `AI_CARDS_MODE=off|soft|strict`
+  + `clientCapabilities: ["cards.v1"]` w `PostMessageDto` → `resolveProposalMode`. **Lista narzędzi
+  jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
+  akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
+  jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie.
+- Schematy narzędzi asystenta mają DWA limity po stronie API i oba wywracają CAŁĄ turę (400),
+  zanim model cokolwiek zobaczy: (1) pól nieobowiązkowych w sumie wszystkich `AGENT_TOOLS`
+  najwyżej 24, (2) łączny rozmiar gramatyki skompilowanej z narzędzi ze `strict` („compiled
+  grammar is too large”). Dlatego `strict` jest WYBIÓRCZY: zostaje na narzędziach o płaskim
+  wejściu, schodzi z tych z zagnieżdżonymi listami obiektów (tam waży najwięcej, a walidacja
+  DTO i tak sprawdza to samo). Oba limity pilnują spec-i w `agent-tools.spec.ts`, ale jedyny
+  pewny sprawdzian to `pnpm exec tsx scripts/agent-tools-smoke.ts` — jedno żądanie do API za
+  grosze. Dostawca `stub` schematów NIE OGLĄDA, więc pełna suita bywa zielona przy schematach,
+  które padają u każdego użytkownika.
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
   Puste tagi są dla reguł diet faktem („czysto”), nie brakiem danych.

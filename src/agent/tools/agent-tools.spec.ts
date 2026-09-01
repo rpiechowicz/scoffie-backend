@@ -39,7 +39,6 @@ describe('AGENT_TOOLS', () => {
     '%s: kontrakt schematu',
     (_name, tool) => {
       expect(tool.name).toMatch(/^[a-z][a-z0-9_]*$/);
-      expect(tool.strict).toBe(true);
 
       // Opis steruje wyborem narzędzia — pusty albo jednozdaniowy placeholder
       // znaczy, że model będzie zgadywał, kiedy po nie sięgnąć.
@@ -105,5 +104,64 @@ describe('AGENT_TOOLS', () => {
   it('narzędzia tworzące przepis wymagają składników', () => {
     const create = AGENT_TOOLS.find((tool) => tool.name === 'create_recipe');
     expect(create?.input_schema.required).toContain('ingredients');
+  });
+
+  // Limit API, na który nie ma obejścia: przy `strict: true` Anthropic
+  // kompiluje ze schematów gramatykę i odmawia, gdy pól nieobowiązkowych
+  // jest więcej niż 24 — CAŁA odpowiedź to wtedy 400, jeszcze zanim model
+  // cokolwiek zobaczy. Dwa razy niebezpieczne, bo żaden test tego nie łapie:
+  // dostawca `stub` schematów nie waliduje, więc suita jest zielona, a tura
+  // pada dopiero u użytkownika. Trzymamy zapas, żeby kolejna karta nie
+  // zatrzymała się na tej ścianie.
+  // Gramatyki wszystkich narzędzi ze `strict` kompilują się RAZEM i API
+  // odmawia całej odpowiedzi, gdy wyjdzie za duża („compiled grammar is too
+  // large"). Najdroższe są zagnieżdżone listy obiektów — jedna taka lista
+  // waży więcej niż kilka płaskich narzędzi. Test pilnuje, żeby nikt nie
+  // dopisał tam `strict` z rozpędu: skutkiem jest 400 na KAŻDEJ turze,
+  // niewidoczny w testach, bo dostawca `stub` schematów nie ogląda.
+  it('narzędzia z zagnieżdżonymi listami obiektów nie są strict', () => {
+    const hasObjectArray = (schema: JsonObject): boolean =>
+      Object.values((schema.properties ?? {}) as JsonObject).some((property) => {
+        const value = property as JsonObject;
+        const items = value.items as JsonObject | undefined;
+        return (
+          (value.type === 'array' && items?.type === 'object') ||
+          (value.type === 'object' && hasObjectArray(value))
+        );
+      });
+
+    const heavyButStrict = AGENT_TOOLS.filter(
+      (tool) => tool.strict && hasObjectArray(tool.input_schema as JsonObject),
+    ).map((tool) => tool.name);
+
+    expect(heavyButStrict).toEqual([]);
+  });
+
+  it('pól nieobowiązkowych mieści się w limicie schematów (24)', () => {
+    type Schema = {
+      properties?: Record<string, Schema>;
+      required?: string[];
+      items?: Schema;
+    };
+
+    const countOptional = (schema: Schema | undefined): number => {
+      if (!schema) return 0;
+      let total = 0;
+      if (schema.properties) {
+        const required = new Set(schema.required ?? []);
+        for (const [name, child] of Object.entries(schema.properties)) {
+          if (!required.has(name)) total += 1;
+          total += countOptional(child);
+        }
+      }
+      if (schema.items) total += countOptional(schema.items);
+      return total;
+    };
+
+    const total = AGENT_TOOLS.reduce(
+      (sum, tool) => sum + countOptional(tool.input_schema as Schema),
+      0,
+    );
+    expect(total).toBeLessThanOrEqual(24);
   });
 });

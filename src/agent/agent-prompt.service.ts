@@ -52,6 +52,8 @@ export class AgentPromptService {
     userId: string,
     householdId: string,
     dates: TurnDates,
+    proposalMode: boolean,
+    scopeUserIds: readonly string[] = [],
   ): Promise<AgentPrompt> {
     const [digest, household, members, memory] = await Promise.all([
       this.loadDigest(),
@@ -71,6 +73,13 @@ export class AgentPromptService {
       timeZone: dates.timeZone,
       enabledMealTypes: household?.enabledMealTypes ?? [],
       members,
+      proposalMode,
+      // Imiona, nie identyfikatory: prompt czyta człowiek i model, a oba
+      // rozumieją „Ania" lepiej niż UUID. Identyfikatory model i tak ma
+      // w bloku domowników obok.
+      scopeNames: members
+        .filter((member) => scopeUserIds.includes(member.userId))
+        .map((member) => member.displayName),
     });
 
     return {

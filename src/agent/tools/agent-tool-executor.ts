@@ -4,7 +4,10 @@ import { mapError } from '../../common/error-contract';
 import { HouseholdsService } from '../../households/households.service';
 import { IngredientsService } from '../../recipes/ingredients.service';
 import { RecipesService } from '../../recipes/recipes.service';
-import { ApplyWeekPlanDto } from '../../weekly-plans/dto/apply-week-plan.dto';
+import {
+  ApplyWeekPlanDto,
+  ApplyWeekSlotDto,
+} from '../../weekly-plans/dto/apply-week-plan.dto';
 import {
   ApplyWeekPlanResult,
   WeeklyPlansService,
@@ -17,6 +20,28 @@ import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../../recipes/dto/update-recipe.dto';
 import { AGENT_TOOL_NAMES } from './agent-tools';
+import {
+  AgentProposalsService,
+  CreateWeekProposalResult,
+} from '../proposals/agent-proposals.service';
+import { AgentCard } from '../cards/agent-cards';
+import { buildClarifyCard, MAX_CLARIFY_OPTIONS } from '../cards/clarify-card';
+import {
+  buildOptionsCard,
+  MAX_OPTIONS,
+  optionPrompt,
+} from '../cards/options-card';
+import {
+  MacroGapBooster,
+  MacroKey,
+  OptionsCardItem,
+  SwapCardSide,
+} from '../cards/agent-cards';
+import { buildMacroGapCard, MAX_BOOSTERS } from '../cards/macro-gap-card';
+import { buildShoppingListCard } from '../cards/shopping-list-card';
+import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
+import { ShoppingDepartment } from '../../weekly-plans/types/shopping-department.enum';
+import { DayOfWeek, MealType } from '@prisma/client';
 
 /**
  * Kontekst tury: kto pyta i o które gospodarstwo.
@@ -31,6 +56,40 @@ export type AgentToolContext = {
   householdId: string;
   /** `R07` → `recipeId`; z digestu katalogu tej tury. */
   catalogIndex: Record<string, string>;
+  /**
+   * Rozmowa i tura, w których to się dzieje.
+   *
+   * Propozycja musi wiedzieć, do której wiadomości się przypnie — a że model
+   * nie ma jak tego podać (i nie powinien), idzie to tą samą drogą co
+   * tożsamość: z tury, nie z wejścia narzędzia.
+   */
+  conversationId: string;
+  turnId: string;
+  /**
+   * Tryb tury. Bramka na narzędzia jest tu, a nie na liście narzędzi, bo
+   * lista liczy się do prefiksu cache i musi być identyczna w obu trybach
+   * (patrz `modeBlock` w `agent-system-prompt.ts`).
+   */
+  proposalMode: boolean;
+  /**
+   * Kogo dotyczy pytanie — wybór użytkownika zrobiony PRZED wysłaniem.
+   *
+   * Puste = całe gospodarstwo. To NIE jest podpowiedź dla modelu, tylko
+   * wartość domyślna audytorium: gdy model nie poda uczestników, posiłek
+   * dostają wybrane osoby, a nie cały dom. Odwrotna kolejność (model
+   * decyduje, zakres doradza) kończyła się tym, że „chcę inne śniadanie niż
+   * Gaba" zmieniało śniadanie CAŁEMU domowi.
+   */
+  scopeUserIds: string[];
+  /**
+   * Karta, która NIE zapisuje niczego (pytanie, zestawienie, wybór).
+   *
+   * Propozycje idą przez bazę, bo muszą przeżyć pad procesu i dać się
+   * zatwierdzić kwadrans później. Karta bez skutków ubocznych nie ma czego
+   * przeżywać: gdy tura padnie, nie powstaje żadna wiadomość, więc nie ma
+   * jej gdzie pokazać. Wiersz w bazie byłby tu wyłącznie kosztem.
+   */
+  collectCard: (card: AgentCard) => void;
 };
 
 /**
@@ -69,6 +128,8 @@ export class AgentToolExecutor {
     private readonly counters: AiUsageCountersService,
     private readonly metrics: AgentMetricsService,
     private readonly memory: AgentMemoryService,
+    private readonly proposals: AgentProposalsService,
+    private readonly shoppingList: ShoppingListService,
   ) {}
 
   async execute(
@@ -81,6 +142,9 @@ export class AgentToolExecutor {
       // ale odpowiedź musi być danymi — inaczej tura pada przez literówkę.
       return this.failure('BAD_REQUEST', `Nie ma narzędzia o nazwie ${name}.`);
     }
+
+    const refusal = this.refuseOutOfMode(name, context);
+    if (refusal) return refusal;
 
     try {
       return { ok: true, data: await this.dispatch(name, input, context) };
@@ -107,6 +171,46 @@ export class AgentToolExecutor {
 
   private failure(code: string, message: string): AgentToolResult {
     return { ok: false, error: { code, message } };
+  }
+
+  /**
+   * Druga bramka trybu — po prompcie, przed domeną.
+   *
+   * Prompt mówi modelowi, co ma robić; ta bramka pilnuje, żeby pomyłka nie
+   * kosztowała użytkownika tygodnia. Bez niej model w trybie propozycji mógłby
+   * po prostu zapisać plan (narzędzie jest na liście, bo lista musi być
+   * identyczna w obu trybach ze względu na cache) i cały model „proponuję,
+   * ty zatwierdzasz” byłby wyłącznie sugestią.
+   *
+   * Odmowa wraca jako DANE, nie wyjątek: model czyta ją, sięga po właściwe
+   * narzędzie i kończy turę normalnie. Wyjątek zabiłby całą turę za coś,
+   * z czego model potrafi się poprawić w jednej rundzie.
+   */
+  private refuseOutOfMode(
+    name: string,
+    context: AgentToolContext,
+  ): AgentToolResult | null {
+    if (name === 'apply_week_plan' && context.proposalMode) {
+      return this.failure(
+        'AI_TOOL_NOT_IN_MODE',
+        'W tym trybie nie zapisujesz planu sam. Podaj ten sam stan docelowy przez ' +
+          'propose_week_plan — użytkownik zatwierdzi go jednym kliknięciem w aplikacji.',
+      );
+    }
+    if (
+      (name === 'propose_week_plan' ||
+        name === 'propose_day_plan' ||
+        name === 'propose_swap' ||
+        name === 'propose_household_split') &&
+      !context.proposalMode
+    ) {
+      return this.failure(
+        'AI_TOOL_NOT_IN_MODE',
+        'W tym trybie propozycje są wyłączone. Zapisz plan sam przez apply_week_plan — ' +
+          'najpierw z dry_run=true, żeby sprawdzić naruszenia.',
+      );
+    }
+    return null;
   }
 
   private dispatch(
@@ -142,6 +246,31 @@ export class AgentToolExecutor {
           onlyWithNutrition: input.only_with_nutrition === true,
           ...(typeof input.limit === 'number' ? { limit: input.limit } : {}),
         });
+
+      case 'ask_clarifying_question':
+        return Promise.resolve(this.askClarifyingQuestion(input, context));
+
+      case 'offer_options':
+        return this.offerOptions(input, context);
+
+      case 'propose_swap':
+        return this.proposeSwap(input, context, str('week_start'));
+
+      case 'propose_household_split':
+        return this.proposeHouseholdSplit(input, context, str('week_start'));
+
+      case 'show_macro_gap':
+        return this.showMacroGap(input, context, str('week_start'));
+
+      case 'show_shopping_list':
+        return this.showShoppingList(context, str('week_start'));
+
+
+      case 'propose_day_plan':
+        return this.proposeDayPlan(input, context, str('week_start'));
+
+      case 'propose_week_plan':
+        return this.proposeWeekPlan(input, context, str('week_start'));
 
       case 'apply_week_plan':
         return this.applyWeekPlan(input, context, str('week_start'));
@@ -218,6 +347,450 @@ export class AgentToolExecutor {
    * Ten ostatni przypadek jest ważny: model, który powtarza ten sam stan
    * docelowy, nie ma prawa spalić komuś limitu na tydzień.
    */
+  /**
+   * Propozycja tygodnia — policz i pokaż, nie zapisuj.
+   *
+   * Nie schodzi tu kwota planów: propozycja nic nie zmienia w bazie
+   * gospodarstwa, więc nie ma za co jej liczyć. Limit obciąża dopiero
+   * zatwierdzenie, czyli moment, w którym tydzień naprawdę się zmienia.
+   */
+  /**
+   * Pytanie z gotowymi odpowiedziami — jedyne narzędzie, które nic nie liczy.
+   *
+   * Modelowi oddajemy potwierdzenie, a nie kartę: gdyby dostał kartę, dopisałby
+   * jeszcze pytanie w tekście i użytkownik przeczytałby to samo dwa razy.
+   */
+  private askClarifyingQuestion(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): { asked: true; options: number } {
+    const question = asString(input.question).trim();
+    if (question.length === 0) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Pytanie nie może być puste.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const options = (Array.isArray(input.options) ? input.options : [])
+      .map((option) => asString(option).trim())
+      .filter((option) => option.length > 0);
+    if (options.length < 2) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Podaj co najmniej dwie gotowe odpowiedzi — pytanie bez nich wymaga pisania na klawiaturze.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const hint = asString(input.hint).trim();
+    context.collectCard(
+      buildClarifyCard({ question, options, ...(hint ? { hint } : {}) }),
+    );
+    return {
+      asked: true,
+      options: Math.min(options.length, MAX_CLARIFY_OPTIONS),
+    };
+  }
+
+  /**
+   * Dania do wyboru — karta bez propozycji.
+   *
+   * Nazwy, kalorie, czas i zdjęcie bierzemy Z BAZY, po identyfikatorach
+   * podanych przez model. Gdyby wypisywał je sam, kafelek pokazywałby liczby
+   * z jego pamięci — wyglądające dokładnie tak samo jak prawdziwe.
+   */
+  private async offerOptions(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<{ offered: number }> {
+    const raw = Array.isArray(input.options) ? input.options : [];
+    if (raw.length < 2) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Podaj co najmniej dwa dania do wyboru — jedno to nie wybór.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const unknownRefs = raw
+      .map((option) => asString((option as Record<string, unknown>)?.recipe))
+      .filter(
+        (ref) => /^R\d+$/.test(ref) && context.catalogIndex[ref] === undefined,
+      );
+    if (unknownRefs.length > 0) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takich przepisów w katalogu: ${unknownRefs.join(', ')}.`,
+        HttpStatus.NOT_FOUND,
+        unknownRefs,
+      );
+    }
+
+    const options: OptionsCardItem[] = [];
+    for (const option of raw.slice(0, MAX_OPTIONS)) {
+      const entry = (option ?? {}) as Record<string, unknown>;
+      const recipeId = this.resolveRecipeRef(asString(entry.recipe), context);
+      const detail = await this.recipeSide(recipeId, context);
+      const tag = asString(entry.tag).trim();
+      options.push({
+        recipeId,
+        title: detail.title,
+        kcalPerServing: detail.kcalPerServing,
+        prepTimeMinutes: detail.prepTimeMinutes,
+        imageUrl: detail.imageUrl,
+        tag: tag ? tag : null,
+        prompt: optionPrompt(detail.title),
+      });
+    }
+
+    const slotLabel = asString(input.slot_label).trim();
+    context.collectCard(
+      buildOptionsCard({
+        title: asString(input.title),
+        options,
+        ...(slotLabel ? { slotLabel } : {}),
+      }),
+    );
+    return { offered: options.length };
+  }
+
+  /**
+   * Podmiana jednego dania.
+   *
+   * „Przed” czytamy z planu, a nie od modelu: to jedyna strona tej karty,
+   * której model nie ma prawa znać z pamięci — a zarazem ta, po której
+   * użytkownik ocenia, czy podmiana ma sens.
+   */
+  private async proposeSwap(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<CreateWeekProposalResult> {
+    const dayOfWeek = asString(input.day_of_week) as DayOfWeek;
+    const mealType = asString(input.meal_type) as MealType;
+    const ref = asString(input.recipe);
+    if (/^R\d+$/.test(ref) && context.catalogIndex[ref] === undefined) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takiego przepisu w katalogu: ${ref}.`,
+        HttpStatus.NOT_FOUND,
+        [ref],
+      );
+    }
+    const recipeId = this.resolveRecipeRef(ref, context);
+
+    const current = await this.weeklyPlans.snapshotWeekAsSlots(
+      context.userId,
+      context.householdId,
+      weekStart,
+    );
+    const standing = current.find(
+      (slot) => slot.dayOfWeek === dayOfWeek && slot.mealType === mealType,
+    );
+
+    const reason = asString(input.reason).trim();
+    const participantIds = Array.isArray(input.participant_user_ids)
+      ? (input.participant_user_ids as string[])
+      : context.scopeUserIds;
+
+    return this.proposals.createSwapProposal({
+      userId: context.userId,
+      householdId: context.householdId,
+      conversationId: context.conversationId,
+      turnId: context.turnId,
+      weekStart,
+      dayOfWeek,
+      mealType,
+      recipeId,
+      to: await this.recipeSide(recipeId, context),
+      from: standing ? await this.recipeSide(standing.recipeId, context) : null,
+      participantIds,
+      ...(reason ? { reason } : {}),
+    });
+  }
+
+  /**
+   * Jedno danie, kilka talerzy.
+   */
+  private async proposeHouseholdSplit(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<CreateWeekProposalResult> {
+    const ref = asString(input.recipe);
+    if (/^R\d+$/.test(ref) && context.catalogIndex[ref] === undefined) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takiego przepisu w katalogu: ${ref}.`,
+        HttpStatus.NOT_FOUND,
+        [ref],
+      );
+    }
+
+    const raw = Array.isArray(input.portions) ? input.portions : [];
+    const portions = raw
+      .map((entry) => (entry ?? {}) as Record<string, unknown>)
+      .map((entry) => ({
+        userId: asString(entry.user_id),
+        note: asString(entry.note).trim() || null,
+      }))
+      .filter((portion) => portion.userId.length > 0);
+    const withScope =
+      portions.length > 0
+        ? portions
+        : context.scopeUserIds.map((userId) => ({ userId, note: null }));
+    if (withScope.length === 0) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Podaj, kto je to danie — bez tego karta nie ma o czym mówić.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const recipeId = this.resolveRecipeRef(ref, context);
+    return this.proposals.createHouseholdSplitProposal({
+      userId: context.userId,
+      householdId: context.householdId,
+      conversationId: context.conversationId,
+      turnId: context.turnId,
+      weekStart,
+      dayOfWeek: asString(input.day_of_week) as DayOfWeek,
+      mealType: asString(input.meal_type) as MealType,
+      recipeId,
+      dish: await this.recipeSide(recipeId, context),
+      portions: withScope,
+    });
+  }
+
+  /**
+   * Lista zakupów tygodnia — policzona, nie przepisana.
+   *
+   * Modelowi oddajemy same liczniki. Gdyby dostał pozycje, wypisałby je
+   * w odpowiedzi obok karty — i użytkownik przeczytałby tę samą listę dwa
+   * razy, drugi raz gorzej sformatowaną.
+   */
+  private async showShoppingList(
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<{ remaining: number; checked: number; departments: number }> {
+    const items = await this.shoppingList.getShoppingList(
+      context.userId,
+      context.householdId,
+      weekStart,
+    );
+
+    const card = buildShoppingListCard({
+      weekStart,
+      items,
+      departmentOrder: Object.values(ShoppingDepartment),
+    });
+    context.collectCard(card);
+
+    return {
+      remaining: card.summary.remaining,
+      checked: card.summary.checked,
+      departments: card.groups.length,
+    };
+  }
+
+  /**
+   * Luka do celu — liczona TUTAJ, nie przepisana od modelu.
+   *
+   * Model dostaje z powrotem obie liczby, żeby mógł napisać zdanie zgodne
+   * z kartą. Gdyby liczył je sam, karta i tekst pod nią mówiłyby dwie różne
+   * rzeczy o tym samym tygodniu — i to tekst byłby tym błędnym.
+   */
+  private async showMacroGap(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<{ macro: MacroKey; current: number; target: number }> {
+    const macro = asString(input.macro).toUpperCase() as MacroKey;
+    const boosters: MacroGapBooster[] = (
+      Array.isArray(input.boosters) ? input.boosters : []
+    )
+      .map((entry) => (entry ?? {}) as Record<string, unknown>)
+      .map((entry) => ({
+        text: asString(entry.text).trim(),
+        amount:
+          typeof entry.amount === 'number' ? Math.round(entry.amount) : 0,
+      }))
+      .filter((booster) => booster.text.length > 0)
+      .slice(0, MAX_BOOSTERS);
+
+    const memberUserId = asString(input.member_user_id).trim();
+    const targetUserId = memberUserId || context.userId;
+
+    const [balance, members] = await Promise.all([
+      this.weeklyPlans.weeklyBalance(
+        context.userId,
+        context.householdId,
+        weekStart,
+        memberUserId || undefined,
+      ),
+      this.households.memberPreferences(context.userId, context.householdId),
+    ]);
+    const member = members.find((entry) => entry.userId === targetUserId);
+    if (!member) {
+      throw new AppException(
+        'PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD',
+        'Ta osoba nie należy do gospodarstwa.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const target = this.macroTarget(macro, member);
+    if (target === null) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Ta osoba nie ma policzonego celu dla tego makro — nie ma czego z czym porównać. ' +
+          'Powiedz to wprost zamiast pokazywać kartę.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Średnia z DNI, w których cokolwiek zaplanowano: dzieląc przez siedem,
+    // pusty piątek zaniżałby wynik i karta pokazywałaby brak tam, gdzie
+    // jest po prostu nieuzupełniony plan.
+    const planned = balance.days
+      .filter((day) => day.meals > 0)
+      .map((day) => this.macroValue(macro, day.planned));
+    const current = planned.length
+      ? Math.round(planned.reduce((sum, value) => sum + value, 0) / planned.length)
+      : 0;
+
+    context.collectCard(
+      buildMacroGapCard({
+        macro,
+        current,
+        target,
+        boosters,
+        scopeLabel:
+          targetUserId === context.userId ? 'ten tydzień' : member.displayName,
+      }),
+    );
+    return { macro, current, target };
+  }
+
+  private macroTarget(
+    macro: MacroKey,
+    member: { targets: { calorieGoal: number; macros: unknown } },
+  ): number | null {
+    if (macro === 'KCAL') return member.targets.calorieGoal;
+    const macros = member.targets.macros as Record<string, number> | null;
+    if (!macros) return null;
+    const key = { PROTEIN: 'proteinG', FAT: 'fatG', CARBS: 'carbsG' }[macro];
+    const value = key ? macros[key] : undefined;
+    return typeof value === 'number' ? Math.round(value) : null;
+  }
+
+  private macroValue(
+    macro: MacroKey,
+    planned: Record<string, number>,
+  ): number {
+    const key = {
+      PROTEIN: 'protein',
+      FAT: 'fat',
+      CARBS: 'carbs',
+      KCAL: 'kcal',
+    }[macro];
+    return Math.round(planned[key] ?? 0);
+  }
+
+  /**
+   * Dane dania na kartę — z bazy, przez bramkę widoczności przepisów.
+   *
+   * `findById` z `householdId` odmawia cudzych przepisów tak samo, jak
+   * odmówiłby ich użytkownikowi. Asystent nie ma tu żadnych względów.
+   */
+  private async recipeSide(
+    recipeId: string,
+    context: AgentToolContext,
+  ): Promise<SwapCardSide & { imageUrl: string | null }> {
+    const recipe = await this.recipes.findById(
+      context.userId,
+      recipeId,
+      context.householdId,
+    );
+    const servings = Math.max(1, recipe.servings ?? 1);
+    return {
+      recipeId,
+      title: recipe.title,
+      kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
+      prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
+      imageUrl: recipe.imageUrl ?? null,
+    };
+  }
+
+  /**
+   * Propozycja jednego dnia — ta sama ścieżka co tydzień, węższe wejście.
+   */
+  private async proposeDayPlan(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<CreateWeekProposalResult> {
+    const dayOfWeek = asString(input.day_of_week) as DayOfWeek;
+    // Sloty dnia nie niosą dnia — dokłada go serwis. Przepuszczamy je przez
+    // `toSlots` z doklejonym dniem, żeby rozwiązywanie indeksów katalogu
+    // (`R07` → id) i tłumaczenie nazw pól działo się w JEDNYM miejscu.
+    const raw = Array.isArray(input.slots) ? input.slots : [];
+    const withDay = raw.map((slot) => ({
+      ...(slot as Record<string, unknown>),
+      day_of_week: dayOfWeek,
+    }));
+
+    const unknownRefs = this.unknownCatalogRefs(withDay, context);
+    if (unknownRefs.length > 0) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takich przepisów w katalogu: ${unknownRefs.join(', ')}. Użyj indeksów z listy katalogu.`,
+        HttpStatus.NOT_FOUND,
+        unknownRefs,
+      );
+    }
+
+    const note = asString(input.note).trim();
+    return this.proposals.createDayPlanProposal({
+      userId: context.userId,
+      householdId: context.householdId,
+      conversationId: context.conversationId,
+      turnId: context.turnId,
+      weekStart,
+      dayOfWeek,
+      slots: this.toSlots(withDay, context) as unknown as ApplyWeekSlotDto[],
+      ...(note ? { note } : {}),
+    });
+  }
+
+  private async proposeWeekPlan(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<CreateWeekProposalResult> {
+    const unknownRefs = this.unknownCatalogRefs(input.slots, context);
+    if (unknownRefs.length > 0) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takich przepisów w katalogu: ${unknownRefs.join(', ')}. Użyj indeksów z listy katalogu.`,
+        HttpStatus.NOT_FOUND,
+        unknownRefs,
+      );
+    }
+
+    const note = asString(input.note).trim();
+    return this.proposals.createWeekPlanProposal({
+      userId: context.userId,
+      householdId: context.householdId,
+      conversationId: context.conversationId,
+      turnId: context.turnId,
+      weekStart,
+      slots: this.toSlots(input.slots, context) as unknown as ApplyWeekSlotDto[],
+      ...(note ? { note } : {}),
+    });
+  }
+
   private async applyWeekPlan(
     input: Record<string, unknown>,
     context: AgentToolContext,
@@ -348,13 +921,17 @@ export class AgentToolExecutor {
     if (!Array.isArray(slots)) return [];
     return slots.map((raw) => {
       const slot = (raw ?? {}) as Record<string, unknown>;
+      // Uczestnicy od modelu, a gdy ich nie podał — z zakresu pytania.
+      // Pusta tablica z obu stron znaczy „całe gospodarstwo" i tak zostaje.
+      const participantIds = Array.isArray(slot.participant_user_ids)
+        ? (slot.participant_user_ids as string[])
+        : context.scopeUserIds;
+
       return {
         dayOfWeek: slot.day_of_week,
         mealType: slot.meal_type,
         recipeId: this.resolveRecipeRef(asString(slot.recipe), context),
-        ...(Array.isArray(slot.participant_user_ids)
-          ? { participantIds: slot.participant_user_ids }
-          : {}),
+        ...(participantIds.length > 0 ? { participantIds } : {}),
         ...(typeof slot.planned_servings === 'number'
           ? { plannedServings: slot.planned_servings }
           : {}),

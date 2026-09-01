@@ -7,7 +7,9 @@ import { NotificationsModule } from '../notifications/notifications.module';
 @Module({
   imports: [NotificationsModule],
   providers: [ShoppingListService, WeeklyPlansService, WeeklyPlansGateway],
-  // Dla narzędzi asystenta (`src/agent/tools`).
-  exports: [WeeklyPlansService],
+  // Dla narzędzi asystenta (`src/agent/tools`). Gateway wychodzi tylko po to,
+  // żeby zapis wywołany kliknięciem w karcie rozgłaszał się tak samo jak zapis
+  // z aplikacji — inaczej drugi telefon w domu nie wie o zmianie.
+  exports: [WeeklyPlansService, WeeklyPlansGateway, ShoppingListService],
 })
 export class WeeklyPlansModule {}

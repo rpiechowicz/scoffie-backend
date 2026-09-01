@@ -1,5 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import {
   IsCalendarDate,
   IsIanaTimeZone,
@@ -37,4 +45,42 @@ export class PostMessageDto {
   @ApiProperty({ example: 'Europe/Warsaw' })
   @IsIanaTimeZone()
   timeZone: string;
+
+  /**
+   * Co ten build potrafi narysować — dziś wyłącznie `cards.v1`.
+   *
+   * Serwer pyta o UMIEJĘTNOŚĆ, a nie o numer wersji, bo z numeru i tak
+   * musiałby ją wywnioskować, a lista rośnie razem z klientem. Brak pola
+   * znaczy „nic ponad tekst": stary build dostaje dotychczasowe zachowanie
+   * i nie zobaczy tury, która kończy się przyciskiem, którego nie ma.
+   */
+  @ApiPropertyOptional({ type: [String], format: 'uuid' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsUUID('4', { each: true })
+  scopeUserIds?: string[];
+
+  @ApiPropertyOptional({ example: ['cards.v1'], type: [String] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  @MaxLength(32, { each: true })
+  clientCapabilities?: string[];
+}
+
+/**
+ * Poprawienie własnego pytania.
+ *
+ * To NIE jest edycja tekstu w miejscu: poprawka uruchamia nową turę, a to,
+ * co było po poprawianej wiadomości, znika z rozmowy. Inaczej użytkownik
+ * zostawałby z odpowiedzią na pytanie, którego już nie zadał — a model
+ * w kolejnej turze widziałby je dalej.
+ */
+export class EditMessageDto extends PostMessageDto {
+  /** Wiadomość do poprawienia — musi być WŁASNA i z tej rozmowy. */
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  messageId: string;
 }

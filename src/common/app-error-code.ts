@@ -95,7 +95,15 @@ export const APP_ERROR_CODES = [
   // ma o tym powiedzieć zdaniem, zamiast kręcić się w kółko po odmowie zapisu.
   'AI_PLAN_QUOTA_EXCEEDED',
   'AI_CONVERSATION_NOT_FOUND',
+  // Propozycja: nie ma jej, jest cudza albo osierocona (tura nie domknęła się).
+  'AI_PROPOSAL_NOT_FOUND',
+  // Plan zmienił się między propozycją a kliknięciem — zapis byłby cichym
+  // nadpisaniem cudzej zmiany, więc go odmawiamy.
+  'AI_PROPOSAL_STALE',
+  // Minął termin ważności propozycji.
+  'AI_PROPOSAL_EXPIRED',
   'AI_TURN_NOT_FOUND',
+  'AI_MESSAGE_NOT_FOUND',
   // Powody porażki tury (`AgentTurn.errorCode`), zwracane w GET /agent/turns/:id.
   'AI_TIMEOUT',
   'AI_PROVIDER_ERROR',

@@ -1,6 +1,7 @@
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgentConfigService } from './agent-config.service';
+import { AgentProposalsService } from './proposals/agent-proposals.service';
 import {
   AgentConversationsService,
   CONVERSATION_TITLE_MAX,
@@ -24,9 +25,13 @@ describe('AgentConversationsService', () => {
     membership: { findUnique: jest.fn() },
   };
   const config = { assertEnabled: jest.fn(), read: jest.fn() };
+  // Stan kart dokłada serwis propozycji; tutaj przepuszczamy wiadomości bez
+  // zmian, bo te testy sprawdzają historię, nie karty.
+  const proposals = { withCardState: jest.fn((messages: unknown) => messages) };
   const service = new AgentConversationsService(
     prisma as unknown as PrismaService,
     config as unknown as AgentConfigService,
+    proposals as unknown as AgentProposalsService,
   );
 
   const conversationRow = {
@@ -137,6 +142,7 @@ describe('AgentConversationsService', () => {
         expect.objectContaining({
           where: {
             conversationId: CONVERSATION,
+            hiddenAt: null,
             OR: [
               { createdAt: { gt: createdAt } },
               { createdAt, id: { gt: MESSAGE } },

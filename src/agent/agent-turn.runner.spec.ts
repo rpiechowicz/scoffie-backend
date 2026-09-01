@@ -30,6 +30,9 @@ const ENV: AgentEnv = {
   plansPerMonth: 30,
   globalDailyBudgetUsd: null,
   stubDelayMs: 0,
+  cardsMode: 'off',
+  proposalTtlMs: 72 * 60 * 60 * 1000,
+  proposalUndoWindowMs: 60 * 60 * 1000,
 };
 
 const RESULT: AgentProviderResult = {
@@ -51,6 +54,9 @@ describe('AgentTurnRunner', () => {
     agentMessage: { create: jest.fn() },
     aiUsage: { create: jest.fn() },
     agentConversation: { update: jest.fn() },
+    // Propozycja z tej tury; `null` = model niczego nie zaproponował,
+    // czyli zwykła odpowiedź tekstowa.
+    agentProposal: { findFirst: jest.fn(), update: jest.fn() },
   };
   const prisma = {
     agentMessage: { findMany: jest.fn() },
@@ -88,6 +94,7 @@ describe('AgentTurnRunner', () => {
       clientToday: '2026-09-02',
       timeZone: 'Europe/Warsaw',
     },
+    proposalMode: false,
     ...overrides,
   });
 
@@ -101,6 +108,7 @@ describe('AgentTurnRunner', () => {
       async (cb: (client: typeof tx) => Promise<unknown>) => cb(tx),
     );
     prisma.agentTurn.updateMany.mockResolvedValue({ count: 1 });
+    tx.agentProposal.findFirst.mockResolvedValue(null);
     tx.agentTurn.updateMany.mockResolvedValue({ count: 1 });
     tx.agentMessage.create.mockResolvedValue({
       id: 'msg',
