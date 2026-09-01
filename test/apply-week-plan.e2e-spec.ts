@@ -382,6 +382,96 @@ describe('applyWeekPlan E2E', () => {
     });
   });
 
+  // Wykluczenie to nie alergia: „nie jem pieczarek" nie ma nic wspólnego ze
+  // zdrowiem, ale skutek dla planu jest ten sam — takiego dania nie wolno
+  // wstawić. Do Fazy 2 ta informacja żyła wyłącznie w rozmowie z asystentem
+  // i ginęła razem z turą.
+  describe('bramka wykluczonych składników', () => {
+    let danie: string;
+    let skladnik: string;
+    let ownerId: string;
+    let inny: string;
+
+    beforeAll(async () => {
+      const zPieczarka = await prisma.recipe.findFirst({
+        where: {
+          isCatalog: true,
+          isActive: true,
+          OR: [
+            { suitableMealTypes: { has: 'DINNER' } },
+            { mealType: 'DINNER', suitableMealTypes: { isEmpty: true } },
+          ],
+          ingredients: { some: {} },
+        },
+        select: { id: true, ingredients: { select: { ingredientId: true } } },
+      });
+      if (!zPieczarka) throw new Error('katalog dev nie ma kolacji ze składnikami');
+      danie = zPieczarka.id;
+      skladnik = zPieczarka.ingredients[0].ingredientId;
+
+      const membership = await prisma.membership.findFirst({
+        where: { householdId },
+        select: { userId: true },
+      });
+      ownerId = membership!.userId;
+      await prisma.userPreference.upsert({
+        where: { userId: ownerId },
+        create: { userId: ownerId, excludedIngredientIds: [skladnik] },
+        update: { excludedIngredientIds: [skladnik] },
+      });
+
+      const other = await prisma.user.create({
+        data: {
+          displayName: `Bez wykluczeń ${Date.now()}`,
+          email: `noexcl-${Date.now()}@apply.local`,
+          authProvider: 'DEV',
+        },
+        select: { id: true },
+      });
+      inny = other.id;
+      createdUserIds.push(inny);
+      await prisma.membership.create({
+        data: { userId: inny, householdId, role: 'MEMBER' },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.userPreference.updateMany({
+        where: { userId: ownerId },
+        data: { excludedIngredientIds: [] },
+      });
+      await prisma.membership.deleteMany({
+        where: { userId: inny, householdId },
+      });
+    });
+
+    it('danie z wykluczonym składnikiem nie wchodzi do wspólnego posiłku', async () => {
+      const result = await apply([slot('TUE', 'DINNER', danie)], {
+        dryRun: true,
+      });
+
+      expect(result.applied).toBe(false);
+      expect(result.violations[0]).toMatchObject({
+        code: 'RECIPE_EXCLUDED_INGREDIENT',
+        recipeId: danie,
+      });
+      // Osobny kod, nie RECIPE_ALLERGEN_CONFLICT: komunikat o „alergenach"
+      // przy zwykłej niechęci byłby po prostu nieprawdą, a użytkownik go czyta.
+      expect(result.violations[0].code).not.toBe('RECIPE_ALLERGEN_CONFLICT');
+    });
+
+    it('to samo danie przechodzi, gdy je ktoś bez tego wykluczenia', async () => {
+      const result = await apply(
+        [slot('TUE', 'DINNER', danie, { participantIds: [inny] })],
+        { dryRun: true },
+      );
+
+      // Tak samo jak przy alergenach: liczy się AUDYTORIUM posiłku, nie skład
+      // całego domu — jedno „nie jem pieczarek" nie wykreśla dania wszystkim.
+      expect(result.violations).toEqual([]);
+    });
+  });
+
   describe('bramka alergenowa', () => {
     let alergenRecipe: string;
     let alergenName: string;

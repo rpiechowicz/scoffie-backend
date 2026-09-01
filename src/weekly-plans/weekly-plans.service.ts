@@ -159,6 +159,8 @@ type PlannableRecipe = {
   mealType: MealType;
   suitableMealTypes: MealType[];
   allergens: string[];
+  /** Identyfikatory składników — po nich sprawdzamy wykluczenia domowników. */
+  ingredientIds: string[];
 };
 
 /** Jeden powód, dla którego pozycja tygodnia nie może wejść. */
@@ -719,6 +721,7 @@ export class WeeklyPlansService {
 
     const memberIds = await this.loadMemberIds(householdId);
     const allergensByMember = await this.loadMemberAllergens(householdId);
+    const exclusionsByMember = await this.loadMemberExclusions(householdId);
     const recipes = await this.loadPlannableRecipes(
       householdId,
       dto.slots.map((slot) => slot.recipeId),
@@ -729,6 +732,7 @@ export class WeeklyPlansService {
       recipes,
       memberIds,
       allergensByMember,
+      exclusionsByMember,
     );
     if (violations.length > 0) {
       return {
@@ -902,9 +906,27 @@ export class WeeklyPlansService {
         mealType: true,
         suitableMealTypes: true,
         allergens: true,
+        ingredients: { select: { ingredientId: true } },
       },
     });
-    return new Map(rows.map((row) => [row.id, row]));
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        {
+          id: row.id,
+          mealType: row.mealType,
+          suitableMealTypes: row.suitableMealTypes,
+          allergens: row.allergens,
+          // `?? []` nie jest tu kosmetyką: mock w spec-u zwraca wiersz bez
+          // relacji, a prawdziwy przepis bez składników istnieje w bazie
+          // (import katalogu dopuszcza taki stan). Brak składników znaczy
+          // „nic do wykluczenia", nie „wywróć zapis całego tygodnia".
+          ingredientIds: (row.ingredients ?? []).map(
+            (item) => item.ingredientId,
+          ),
+        },
+      ]),
+    );
   }
 
   /**
@@ -915,6 +937,35 @@ export class WeeklyPlansService {
    * ogóle nie widać.
    */
   /** Alergeny per domownik — brak wiersza preferencji znaczy „brak alergenów". */
+  /**
+   * Czego domownicy nie jedzą, choć nie jest to alergia.
+   *
+   * Osobno od alergenów, bo to inna rzecz i inny komunikat: alergen jest
+   * o zdrowiu, wykluczenie o gustach. Wspólny worek dawałby zdanie
+   * „danie zawiera alergeny domownika: pieczarka", które jest nieprawdą.
+   */
+  private async loadMemberExclusions(
+    householdId: string,
+  ): Promise<Map<string, string[]>> {
+    const rows = await this.prisma.membership.findMany({
+      where: { householdId },
+      select: {
+        userId: true,
+        user: {
+          select: {
+            preferences: { select: { excludedIngredientIds: true } },
+          },
+        },
+      },
+    });
+    return new Map(
+      rows.map((row) => [
+        row.userId,
+        row.user.preferences?.excludedIngredientIds ?? [],
+      ]),
+    );
+  }
+
   private async loadMemberAllergens(
     householdId: string,
   ): Promise<Map<string, string[]>> {
@@ -935,6 +986,7 @@ export class WeeklyPlansService {
     recipes: Map<string, PlannableRecipe>,
     memberIds: Set<string>,
     allergensByMember: Map<string, string[]>,
+    exclusionsByMember: Map<string, string[]> = new Map(),
   ): PlanViolation[] {
     const violations: PlanViolation[] = [];
     const seen = new Set<string>();
@@ -999,6 +1051,23 @@ export class WeeklyPlansService {
           'RECIPE_ALLERGEN_CONFLICT',
           `Danie zawiera alergeny domownika: ${conflicting.join(', ')}.`,
         );
+      }
+
+      // Wykluczenia są równie twarde co alergeny, ale to inna rzecz i inny
+      // komunikat: alergen jest o zdrowiu, wykluczenie o gustach. Wspólny
+      // kod dawałby zdanie „danie zawiera alergeny: pieczarka", które po
+      // prostu nie jest prawdą — a użytkownik czyta te komunikaty.
+      const excluded = new Set(
+        audience.flatMap((memberId) => exclusionsByMember.get(memberId) ?? []),
+      );
+      if (excluded.size > 0) {
+        const hit = recipe.ingredientIds.filter((id) => excluded.has(id));
+        if (hit.length > 0) {
+          at(
+            'RECIPE_EXCLUDED_INGREDIENT',
+            'Danie zawiera składnik, którego ktoś z jedzących nie je.',
+          );
+        }
       }
 
       const unknownParticipants = Array.from(
@@ -1080,6 +1149,7 @@ export class WeeklyPlansService {
 
     const memberIds = await this.loadMemberIds(householdId);
     const allergensByMember = await this.loadMemberAllergens(householdId);
+    const exclusionsByMember = await this.loadMemberExclusions(householdId);
     const recipeIds = dto.slots.map((slot) => slot.recipeId);
     const plannable = await this.loadPlannableRecipes(householdId, recipeIds);
 

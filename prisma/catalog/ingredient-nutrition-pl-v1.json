@@ -44,7 +44,6 @@
       "fat": 1.0,
       "fiber": 0
     },
-
     {
       "normalizedName": "filet z indyka",
       "unit": "g",
@@ -81,7 +80,6 @@
       "fat": 20.0,
       "fiber": 0
     },
-
     {
       "normalizedName": "jajko",
       "unit": "szt",
@@ -209,7 +207,6 @@
       "fat": 24.0,
       "fiber": 0
     },
-
     {
       "normalizedName": "olej rzepakowy",
       "unit": "ml",
@@ -228,7 +225,6 @@
       "fat": 92.0,
       "fiber": 0
     },
-
     {
       "normalizedName": "awokado",
       "unit": "szt",
@@ -265,7 +261,8 @@
       "protein": 0.3,
       "carbs": 11.4,
       "fat": 0.2,
-      "fiber": 2.4
+      "fiber": 2.4,
+      "gramsPerPiece": 150
     },
     {
       "normalizedName": "truskawka",
@@ -276,7 +273,6 @@
       "fat": 0.3,
       "fiber": 2.0
     },
-
     {
       "normalizedName": "bulka",
       "unit": "g",
@@ -314,7 +310,6 @@
       "fat": 7.5,
       "fiber": 2.5
     },
-
     {
       "normalizedName": "baton musli",
       "unit": "g",
@@ -333,7 +328,6 @@
       "fat": 65.2,
       "fiber": 6.7
     },
-
     {
       "normalizedName": "curry",
       "unit": "g",
@@ -379,7 +373,6 @@
       "fat": 0,
       "fiber": 0
     },
-
     {
       "normalizedName": "losos",
       "unit": "g",
@@ -389,7 +382,6 @@
       "fat": 13.0,
       "fiber": 0
     },
-
     {
       "normalizedName": "batat",
       "unit": "g",
@@ -415,7 +407,8 @@
       "protein": 1.1,
       "carbs": 7.6,
       "fat": 0.1,
-      "fiber": 1.7
+      "fiber": 1.7,
+      "gramsPerPiece": 110
     },
     {
       "normalizedName": "cukinia",
@@ -443,7 +436,8 @@
       "protein": 0.9,
       "carbs": 6.8,
       "fat": 0.2,
-      "fiber": 2.8
+      "fiber": 2.8,
+      "gramsPerPiece": 75
     },
     {
       "normalizedName": "ogorek",
@@ -452,7 +446,8 @@
       "protein": 0.7,
       "carbs": 3.1,
       "fat": 0.1,
-      "fiber": 0.5
+      "fiber": 0.5,
+      "gramsPerPiece": 250
     },
     {
       "normalizedName": "papryka czerwona",
@@ -461,7 +456,8 @@
       "protein": 1.0,
       "carbs": 3.9,
       "fat": 0.3,
-      "fiber": 2.1
+      "fiber": 2.1,
+      "gramsPerPiece": 160
     },
     {
       "normalizedName": "pieczarka",
@@ -479,7 +475,8 @@
       "protein": 0.9,
       "carbs": 2.7,
       "fat": 0.2,
-      "fiber": 1.2
+      "fiber": 1.2,
+      "gramsPerPiece": 120
     },
     {
       "normalizedName": "pomidor koktajlowy",
@@ -524,9 +521,9 @@
       "protein": 2.0,
       "carbs": 14.8,
       "fat": 0.1,
-      "fiber": 2.2
+      "fiber": 2.2,
+      "gramsPerPiece": 100
     },
-
     {
       "normalizedName": "maka pszenna",
       "unit": "g",
@@ -1083,7 +1080,8 @@
       "protein": 1.1,
       "carbs": 6.2,
       "fat": 0.3,
-      "fiber": 2.8
+      "fiber": 2.8,
+      "gramsPerPiece": 100
     },
     {
       "normalizedName": "sezam",
@@ -1237,6 +1235,33 @@
       "carbs": 54,
       "fat": 1.8,
       "fiber": 2.4
+    },
+    {
+      "normalizedName": "tofu",
+      "unit": "g",
+      "kcal": 127,
+      "protein": 13.0,
+      "carbs": 1.5,
+      "fat": 7.5,
+      "fiber": 1.0
+    },
+    {
+      "normalizedName": "mleko owsiane",
+      "unit": "ml",
+      "kcal": 46,
+      "protein": 0.8,
+      "carbs": 6.6,
+      "fat": 1.5,
+      "fiber": 0.8
+    },
+    {
+      "normalizedName": "soczewica czerwona",
+      "unit": "g",
+      "kcal": 352,
+      "protein": 24.0,
+      "carbs": 52.0,
+      "fat": 1.5,
+      "fiber": 11.0
     }
   ]
 }

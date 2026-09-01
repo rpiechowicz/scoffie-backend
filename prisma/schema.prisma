@@ -73,6 +73,23 @@ model UserPreference {
   fatG           Int?
   carbsG         Int?
 
+  /// Czego ten domownik NIE JE, choć nie jest to alergia.
+  ///
+  /// Alergeny są twarde i wynikają ze składu; to jest zwykła niechęć
+  /// („bez pieczarek"). Do Fazy 1 taka informacja żyła wyłącznie w rozmowie
+  /// z asystentem i ginęła razem z nią — model pamiętał ją do końca tury,
+  /// a przy następnym pytaniu proponował pieczarki od nowa. Trzymamy
+  /// identyfikatory, nie nazwy: model rozwiązuje nazwę przez
+  /// `search_ingredients`, a walidator planu porównuje id ze składem przepisu.
+  excludedIngredientIds String[] @default([])
+
+  /// Ile minut najwyżej ma zajmować gotowanie w dzień powszedni.
+  ///
+  /// To PODPOWIEDŹ, nie bramka: niedzielna pieczeń ma prawo trwać dłużej,
+  /// a twarde odrzucanie wszystkiego powyżej progu zamieniłoby preferencję
+  /// w karę. Trafia do kontekstu modelu, nie do `collectPlanViolations`.
+  maxPrepTimeMinutes Int?
+
   /// Kanały powiadomień push. Do tej pory przełączniki z Ustawień żyły
   /// wyłącznie w `UserDefaults` na telefonie, więc wyciszenie powiadomień
   /// uciszało tylko lokalne bannery, a pushe z serwera leciały dalej —

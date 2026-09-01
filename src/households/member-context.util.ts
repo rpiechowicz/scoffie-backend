@@ -31,6 +31,8 @@ export const PREFERENCE_DEFAULTS = {
   allergens: [] as string[],
   goal: 'HEALTHY' as UserGoal,
   activityLevel: 2,
+  excludedIngredientIds: [] as string[],
+  maxPrepTimeMinutes: null as number | null,
 } as const;
 
 /**
@@ -62,6 +64,18 @@ export type MemberContext = {
     macros: MacroTargets | null;
     macrosSource: MacrosSource;
   };
+  /**
+   * Ograniczenia, których nie da się wyrazić alergenem.
+   *
+   * `excludedIngredients` idzie z NAZWAMI, nie samymi identyfikatorami:
+   * ten obiekt trafia wprost do promptu, a „nie je 3fa85f64…" nie znaczy
+   * dla modelu nic. Identyfikator zostaje obok, bo po nim walidator planu
+   * porównuje skład przepisu.
+   */
+  restrictions: {
+    excludedIngredients: { id: string; name: string }[];
+    maxPrepTimeMinutes: number | null;
+  };
 };
 
 export type MemberContextRow = {
@@ -82,6 +96,8 @@ export type MemberContextRow = {
       proteinG: number | null;
       fatG: number | null;
       carbsG: number | null;
+      excludedIngredientIds?: string[];
+      maxPrepTimeMinutes?: number | null;
     } | null;
   };
 };
@@ -89,6 +105,8 @@ export type MemberContextRow = {
 export function toMemberContext(
   row: MemberContextRow,
   now: Date = new Date(),
+  /** `id → nazwa` dla wykluczonych składników; bez tego prompt dostaje uuid. */
+  ingredientNames?: ReadonlyMap<string, string>,
 ): MemberContext {
   const { user } = row;
   // Brak wiersza preferencji to normalny stan konta, które nie przeszło
@@ -153,6 +171,12 @@ export function toMemberContext(
       calorieGoal: preferences.calorieGoal,
       macros,
       macrosSource,
+    },
+    restrictions: {
+      excludedIngredients: (preferences.excludedIngredientIds ?? []).map(
+        (id) => ({ id, name: ingredientNames?.get(id) ?? id }),
+      ),
+      maxPrepTimeMinutes: preferences.maxPrepTimeMinutes ?? null,
     },
   };
 }
