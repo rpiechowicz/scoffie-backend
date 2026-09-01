@@ -24,6 +24,9 @@ import {
   AgentProposalsService,
   CreateWeekProposalResult,
 } from '../proposals/agent-proposals.service';
+import { AgentCard } from '../cards/agent-cards';
+import { buildClarifyCard, MAX_CLARIFY_OPTIONS } from '../cards/clarify-card';
+import { DayOfWeek } from '@prisma/client';
 
 /**
  * Kontekst tury: kto pyta i o które gospodarstwo.
@@ -53,6 +56,15 @@ export type AgentToolContext = {
    * (patrz `modeBlock` w `agent-system-prompt.ts`).
    */
   proposalMode: boolean;
+  /**
+   * Karta, która NIE zapisuje niczego (pytanie, zestawienie, wybór).
+   *
+   * Propozycje idą przez bazę, bo muszą przeżyć pad procesu i dać się
+   * zatwierdzić kwadrans później. Karta bez skutków ubocznych nie ma czego
+   * przeżywać: gdy tura padnie, nie powstaje żadna wiadomość, więc nie ma
+   * jej gdzie pokazać. Wiersz w bazie byłby tu wyłącznie kosztem.
+   */
+  collectCard: (card: AgentCard) => void;
 };
 
 /**
@@ -159,7 +171,10 @@ export class AgentToolExecutor {
           'propose_week_plan — użytkownik zatwierdzi go jednym kliknięciem w aplikacji.',
       );
     }
-    if (name === 'propose_week_plan' && !context.proposalMode) {
+    if (
+      (name === 'propose_week_plan' || name === 'propose_day_plan') &&
+      !context.proposalMode
+    ) {
       return this.failure(
         'AI_TOOL_NOT_IN_MODE',
         'W tym trybie propozycje są wyłączone. Zapisz plan sam przez apply_week_plan — ' +
@@ -202,6 +217,12 @@ export class AgentToolExecutor {
           onlyWithNutrition: input.only_with_nutrition === true,
           ...(typeof input.limit === 'number' ? { limit: input.limit } : {}),
         });
+
+      case 'ask_clarifying_question':
+        return Promise.resolve(this.askClarifyingQuestion(input, context));
+
+      case 'propose_day_plan':
+        return this.proposeDayPlan(input, context, str('week_start'));
 
       case 'propose_week_plan':
         return this.proposeWeekPlan(input, context, str('week_start'));
@@ -288,6 +309,86 @@ export class AgentToolExecutor {
    * gospodarstwa, więc nie ma za co jej liczyć. Limit obciąża dopiero
    * zatwierdzenie, czyli moment, w którym tydzień naprawdę się zmienia.
    */
+  /**
+   * Pytanie z gotowymi odpowiedziami — jedyne narzędzie, które nic nie liczy.
+   *
+   * Modelowi oddajemy potwierdzenie, a nie kartę: gdyby dostał kartę, dopisałby
+   * jeszcze pytanie w tekście i użytkownik przeczytałby to samo dwa razy.
+   */
+  private askClarifyingQuestion(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): { asked: true; options: number } {
+    const question = asString(input.question).trim();
+    if (question.length === 0) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Pytanie nie może być puste.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const options = (Array.isArray(input.options) ? input.options : [])
+      .map((option) => asString(option).trim())
+      .filter((option) => option.length > 0);
+    if (options.length < 2) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Podaj co najmniej dwie gotowe odpowiedzi — pytanie bez nich wymaga pisania na klawiaturze.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const hint = asString(input.hint).trim();
+    context.collectCard(
+      buildClarifyCard({ question, options, ...(hint ? { hint } : {}) }),
+    );
+    return {
+      asked: true,
+      options: Math.min(options.length, MAX_CLARIFY_OPTIONS),
+    };
+  }
+
+  /**
+   * Propozycja jednego dnia — ta sama ścieżka co tydzień, węższe wejście.
+   */
+  private async proposeDayPlan(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<CreateWeekProposalResult> {
+    const dayOfWeek = asString(input.day_of_week) as DayOfWeek;
+    // Sloty dnia nie niosą dnia — dokłada go serwis. Przepuszczamy je przez
+    // `toSlots` z doklejonym dniem, żeby rozwiązywanie indeksów katalogu
+    // (`R07` → id) i tłumaczenie nazw pól działo się w JEDNYM miejscu.
+    const raw = Array.isArray(input.slots) ? input.slots : [];
+    const withDay = raw.map((slot) => ({
+      ...(slot as Record<string, unknown>),
+      day_of_week: dayOfWeek,
+    }));
+
+    const unknownRefs = this.unknownCatalogRefs(withDay, context);
+    if (unknownRefs.length > 0) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takich przepisów w katalogu: ${unknownRefs.join(', ')}. Użyj indeksów z listy katalogu.`,
+        HttpStatus.NOT_FOUND,
+        unknownRefs,
+      );
+    }
+
+    const note = asString(input.note).trim();
+    return this.proposals.createDayPlanProposal({
+      userId: context.userId,
+      householdId: context.householdId,
+      conversationId: context.conversationId,
+      turnId: context.turnId,
+      weekStart,
+      dayOfWeek,
+      slots: this.toSlots(withDay, context) as unknown as ApplyWeekSlotDto[],
+      ...(note ? { note } : {}),
+    });
+  }
+
   private async proposeWeekPlan(
     input: Record<string, unknown>,
     context: AgentToolContext,

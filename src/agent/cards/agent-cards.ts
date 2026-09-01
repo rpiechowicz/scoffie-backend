@@ -22,6 +22,8 @@ import { AiCardsMode } from '../../config/agent-env';
 export const AGENT_MESSAGE_KINDS = [
   'TEXT',
   'PLAN_WEEK',
+  'PLAN_DAY',
+  'CLARIFY',
   'APPLIED',
 ] as const;
 
@@ -73,12 +75,22 @@ export function resolveProposalMode(
   return (clientCapabilities ?? []).includes(CARDS_CAPABILITY_V1);
 }
 
-/** Przycisk w karcie. Napis przychodzi z serwera, klient go nie wymyśla. */
+/**
+ * Przycisk w karcie. Napis przychodzi z serwera, klient go nie wymyśla.
+ *
+ * `ASK` jest osobnym rodzajem od reszty, bo NIE ZMIENIA NICZEGO: wysyła
+ * w rozmowę gotowe zdanie z `prompt`, tak jakby użytkownik je napisał.
+ * To jest cała mechanika „gotowych odpowiedzi” pod pytaniem asystenta i
+ * wyboru z karuzeli — kliknięcie kosztuje turę, ale nie dotyka planu, więc
+ * nie potrzebuje ani propozycji, ani kwoty planów.
+ */
 export type AgentCardAction = {
-  type: 'APPLY' | 'UNDO' | 'OPEN_PLAN';
+  type: 'APPLY' | 'UNDO' | 'OPEN_PLAN' | 'ASK';
   proposalId: string | null;
   label: string;
   style: 'PRIMARY' | 'SECONDARY';
+  /** Wyłącznie dla `ASK`: treść, którą klient wyśle jako wiadomość. */
+  prompt?: string;
 };
 
 /**
@@ -114,8 +126,12 @@ export type PlanWeekCardDay = {
   dayOfWeek: DayOfWeek;
   /** „Poniedziałek”. */
   dayLabel: string;
+  /** „Pon” — siedem dni musi zmieścić się w karcie bez przewijania. */
+  dayShort: string;
   /** `YYYY-MM-DD` — policzone z `weekStart`, nie przez model. */
   date: string;
+  /** „1.09” — data po ludzku, obok skrótu dnia. */
+  dateLabel: string;
   slots: PlanWeekCardSlot[];
   /** Suma kalorii dnia na osobę — po tym widać, czy plan dowozi cel. */
   kcalTotal: number;
@@ -132,6 +148,8 @@ export type PlanWeekCard = {
   v: number;
   proposalId: string;
   weekStart: string;
+  /** „Propozycja planu · 1–7 września” — nadtytuł karty, gotowy do pokazania. */
+  eyebrow: string;
   title: string;
   /** Jedno zdanie modelu „dlaczego tak”; `null`, gdy nic nie dopisał. */
   subtitle: string | null;
@@ -147,9 +165,63 @@ export type PlanWeekCard = {
     averageKcalPerDay: number;
     /** Cel pytającego; `null`, gdy nie ma go w preferencjach. */
     targetKcalPerDay: number | null;
+    /**
+     * „−40 kcal od celu” — sam pasek mówi „ile”, ale nie „ile brakuje”.
+     * `null`, gdy nie ma celu, wobec którego można by to policzyć.
+     */
+    goalNote: string | null;
   };
   actions: AgentCardAction[];
   state: AgentCardState;
+};
+
+/**
+ * Propozycja JEDNEGO dnia.
+ *
+ * Osobny rodzaj, a nie PLAN_WEEK z jednym dniem: dzień czyta się inaczej —
+ * po kolei od śniadania, z sumą wobec celu na dole. Tydzień pokazuje układ,
+ * dzień pokazuje talerz.
+ */
+export type PlanDayCard = {
+  kind: 'PLAN_DAY';
+  v: number;
+  proposalId: string;
+  weekStart: string;
+  /** Dzień, którego dotyczy — `YYYY-MM-DD`. */
+  date: string;
+  eyebrow: string;
+  title: string;
+  subtitle: string | null;
+  slots: PlanWeekCardSlot[];
+  removed: PlanWeekCardRemoval[];
+  summary: {
+    meals: number;
+    /** Suma kalorii dnia na osobę. */
+    kcalTotal: number;
+    targetKcalPerDay: number | null;
+    /** „zostaje 228” albo „ponad cel o 120”; `null` bez celu. */
+    goalNote: string | null;
+  };
+  actions: AgentCardAction[];
+  state: AgentCardState;
+};
+
+/**
+ * Pytanie asystenta z gotowymi odpowiedziami.
+ *
+ * Nie ma tu ani propozycji, ani stanu do kliknięcia — to jest wiadomość,
+ * która ZATRZYMUJE zgadywanie. Model, który nie wie, czy gotujemy dla
+ * czterech osób czy dla dwóch, ma zapytać raz i dostać odpowiedź jednym
+ * dotknięciem, zamiast układać tydzień na chybił trafił.
+ */
+export type ClarifyCard = {
+  kind: 'CLARIFY';
+  v: number;
+  question: string;
+  /** Jedno zdanie, dlaczego pyta; `null`, gdy powód jest oczywisty. */
+  hint: string | null;
+  /** Gotowe odpowiedzi — każda wysyła się jak zwykła wiadomość. */
+  actions: AgentCardAction[];
 };
 
 export type AppliedCard = {
@@ -158,6 +230,8 @@ export type AppliedCard = {
   proposalId: string;
   weekStart: string;
   title: string;
+  /** „2 nowe pozycje, 1 usunięta · 1–7 września”. */
+  subtitle: string;
   summary: { created: number; updated: number; removed: number };
   /**
    * Czego „Cofnij” NIE przywróci. Kaskada przy usuwaniu pozycji zabiera
@@ -168,7 +242,11 @@ export type AppliedCard = {
   state: AgentCardState;
 };
 
-export type AgentCard = PlanWeekCard | AppliedCard;
+export type AgentCard =
+  | PlanWeekCard
+  | PlanDayCard
+  | ClarifyCard
+  | AppliedCard;
 
 /** Nazwa posiłku w mianowniku — do etykiety wiersza w karcie. */
 export const MEAL_LABELS: Record<MealType, string> = {
@@ -189,6 +267,17 @@ export const DAY_LABELS: Record<DayOfWeek, string> = {
   FRI: 'Piątek',
   SAT: 'Sobota',
   SUN: 'Niedziela',
+};
+
+/** Skrót dnia — „Pon”. Siedem wierszy musi zmieścić się w karcie. */
+export const DAY_SHORT_LABELS: Record<DayOfWeek, string> = {
+  MON: 'Pon',
+  TUE: 'Wt',
+  WED: 'Śr',
+  THU: 'Czw',
+  FRI: 'Pt',
+  SAT: 'Sob',
+  SUN: 'Ndz',
 };
 
 /** Kolejność dni tygodnia — ta sama co w enumie Prismy. */
@@ -213,4 +302,60 @@ export function dateForDay(weekStart: string, day: DayOfWeek): string {
   const base = new Date(`${weekStart}T00:00:00.000Z`);
   base.setUTCDate(base.getUTCDate() + Math.max(0, index));
   return base.toISOString().slice(0, 10);
+}
+
+/** „1.09” — dzień i miesiąc, bez roku i bez zer wiodących. */
+export function shortDateLabel(date: string): string {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return `${parsed.getUTCDate()}.${String(parsed.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/** „2 września” — data po ludzku, w UTC jak cały plan tygodnia. */
+export function longDateLabel(date: string): string {
+  return new Intl.DateTimeFormat('pl-PL', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00.000Z`));
+}
+
+/**
+ * „1–7 września” albo „31 sierpnia – 6 września”.
+ *
+ * Zakres w jednym miesiącu nie powtarza nazwy miesiąca — to jest różnica
+ * między nadtytułem, który się czyta, a takim, który się omija wzrokiem.
+ *
+ * Nazwa miesiąca MUSI wyjść z formatowania razem z dniem: `month: 'long'`
+ * samo w sobie daje mianownik („sierpień”), a data po polsku wymaga
+ * dopełniacza („31 sierpnia”). Odmiany nie da się dokleić regułą.
+ */
+export function weekRangeLabel(weekStart: string): string {
+  const start = new Date(`${weekStart}T00:00:00.000Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 6);
+  const endLabel = longDateLabel(end.toISOString().slice(0, 10));
+
+  return start.getUTCMonth() === end.getUTCMonth()
+    ? `${start.getUTCDate()}–${endLabel}`
+    : `${longDateLabel(weekStart)} – ${endLabel}`;
+}
+
+/**
+ * Zdanie o tym, jak plan wypada wobec celu.
+ *
+ * Bez celu nie ma zdania — wymyślona norma byłaby gorsza niż jej brak.
+ * Różnice poniżej progu przemilczamy: „−12 kcal od celu” to szum, który
+ * każe użytkownikowi szukać problemu tam, gdzie go nie ma.
+ */
+export function goalNote(
+  value: number,
+  target: number | null,
+  { tolerance = 50 }: { tolerance?: number } = {},
+): string | null {
+  if (target === null || target <= 0) return null;
+  const delta = value - target;
+  if (Math.abs(delta) <= tolerance) return 'w celu';
+  return delta < 0
+    ? `${Math.abs(delta)} kcal poniżej celu`
+    : `${delta} kcal ponad cel`;
 }

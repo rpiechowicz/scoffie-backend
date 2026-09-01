@@ -6,10 +6,14 @@ import {
   AGENT_CARD_VERSION,
   DAYS_IN_WEEK_ORDER,
   DAY_LABELS,
+  DAY_SHORT_LABELS,
   MEAL_LABELS,
   PlanWeekCard,
   PlanWeekCardDay,
   dateForDay,
+  goalNote,
+  shortDateLabel,
+  weekRangeLabel,
 } from './agent-cards';
 import { MEAL_TYPES_IN_DAY_ORDER } from '../../common/meal-types';
 
@@ -48,10 +52,13 @@ export function buildPlanWeekCard(input: {
         MEAL_TYPES_IN_DAY_ORDER.indexOf(a.mealType) -
         MEAL_TYPES_IN_DAY_ORDER.indexOf(b.mealType),
     );
+    const date = dateForDay(input.weekStart, day);
     return {
       dayOfWeek: day,
       dayLabel: DAY_LABELS[day],
-      date: dateForDay(input.weekStart, day),
+      dayShort: DAY_SHORT_LABELS[day],
+      date,
+      dateLabel: shortDateLabel(date),
       slots: daySlots.map((slot) => ({
         mealType: slot.mealType,
         mealLabel: MEAL_LABELS[slot.mealType],
@@ -77,6 +84,7 @@ export function buildPlanWeekCard(input: {
     v: AGENT_CARD_VERSION,
     proposalId: input.proposalId,
     weekStart: input.weekStart,
+    eyebrow: `Propozycja planu · ${weekRangeLabel(input.weekStart)}`,
     title: cardTitle(slots),
     subtitle: input.note?.trim() ? input.note.trim() : null,
     days,
@@ -92,6 +100,7 @@ export function buildPlanWeekCard(input: {
       removed: input.preview.changes.deleted,
       averageKcalPerDay,
       targetKcalPerDay: input.targetKcalPerDay,
+      goalNote: goalNote(averageKcalPerDay, input.targetKcalPerDay),
     },
     actions: [
       {

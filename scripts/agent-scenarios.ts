@@ -232,6 +232,7 @@ async function main(): Promise<void> {
 
       const started = Date.now();
       const used: string[] = [];
+      const cards: string[] = [];
       const result = await provider.run({
         model,
         effort: env.effort,
@@ -249,6 +250,7 @@ async function main(): Promise<void> {
             conversationId: conversation.id,
             turnId: '00000000-0000-4000-8000-00000000c0a2',
             proposalMode,
+            collectCard: (card) => cards.push(card.kind),
           });
         },
         signal: AbortSignal.timeout(SCENARIO_TIMEOUT_MS),

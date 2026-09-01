@@ -16,6 +16,9 @@ import { readAgentEnv } from '../../config/agent-env';
 import { AgentCardState } from '../cards/agent-cards';
 import { appliedMessageText, buildAppliedCard, weekStartLabel } from '../cards/applied-card';
 import { buildPlanWeekCard } from '../cards/plan-week-card';
+import { buildPlanDayCard } from '../cards/plan-day-card';
+import { DayOfWeek } from '@prisma/client';
+import { dateForDay } from '../cards/agent-cards';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { weekBaselineHash } from './proposal-baseline';
 import type { MessageView } from '../agent-conversations.service';
@@ -29,6 +32,15 @@ export type CreateWeekProposalInput = {
   slots: ApplyWeekSlotDto[];
   /** Jedno zdanie modelu „dlaczego tak” — trafia w podtytuł karty. */
   note?: string;
+};
+
+export type CreateDayProposalInput = Omit<
+  CreateWeekProposalInput,
+  'slots'
+> & {
+  dayOfWeek: DayOfWeek;
+  /** Stan docelowy WYŁĄCZNIE tego dnia; `dayOfWeek` dokłada serwis. */
+  slots: Omit<ApplyWeekSlotDto, 'dayOfWeek'>[];
 };
 
 /**
@@ -139,6 +151,90 @@ export class AgentProposalsService {
       proposed: true,
       proposalId,
       summary: card.summary,
+    };
+  }
+
+  /**
+   * Propozycja jednego dnia.
+   *
+   * Model podaje sam dzień, ale zapis i tak przyjmuje CAŁY tydzień jako stan
+   * docelowy — więc dzień doklejamy do migawki reszty tygodnia i liczymy to
+   * jedną, znaną ścieżką. Dzięki temu propozycja dnia dziedziczy wszystko, co
+   * mamy: walidację alergenów, odcisk stanu, zatwierdzanie i cofanie. Gdyby
+   * dzień szedł osobnym zapisem, każda z tych rzeczy istniałaby w dwóch
+   * wersjach — i to ta rzadziej używana rozjeżdżałaby się po cichu.
+   */
+  async createDayPlanProposal(
+    input: CreateDayProposalInput,
+  ): Promise<CreateWeekProposalResult> {
+    const baseline = await this.weeklyPlans.snapshotWeekAsSlots(
+      input.userId,
+      input.householdId,
+      input.weekStart,
+    );
+    // Reszta tygodnia zostaje dokładnie taka, jaka była. To jest różnica
+    // między „zaplanuj wtorek" a „zaplanuj tydzień, w którym jest wtorek".
+    const merged: ApplyWeekSlotDto[] = [
+      ...baseline.filter((slot) => slot.dayOfWeek !== input.dayOfWeek),
+      ...input.slots.map((slot) => ({ ...slot, dayOfWeek: input.dayOfWeek })),
+    ];
+
+    const preview = await this.weeklyPlans.previewWeekPlan(
+      input.userId,
+      input.householdId,
+      input.weekStart,
+      { slots: merged },
+    );
+    if (preview.violations.length > 0 || preview.slots === null) {
+      return { proposed: false, violations: preview.violations };
+    }
+
+    const env = readAgentEnv();
+    const proposalId = randomUUID();
+    const expiresAt = new Date(Date.now() + env.proposalTtlMs);
+    const date = dateForDay(input.weekStart, input.dayOfWeek);
+
+    const card = buildPlanDayCard({
+      proposalId,
+      weekStart: input.weekStart,
+      dayOfWeek: input.dayOfWeek,
+      date,
+      preview,
+      note: input.note,
+      targetKcalPerDay: await this.targetKcalFor(
+        input.userId,
+        input.householdId,
+      ),
+      expiresAt,
+    });
+
+    await this.prisma.agentProposal.create({
+      data: {
+        id: proposalId,
+        conversationId: input.conversationId,
+        turnId: input.turnId,
+        userId: input.userId,
+        householdId: input.householdId,
+        kind: 'PLAN_DAY',
+        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+        action: { slots: merged } as unknown as Prisma.InputJsonValue,
+        card: card as unknown as Prisma.InputJsonValue,
+        baselineHash: weekBaselineHash(baseline),
+        expiresAt,
+      },
+    });
+
+    return {
+      proposed: true,
+      proposalId,
+      summary: {
+        meals: card.summary.meals,
+        created: preview.changes.created,
+        updated: preview.changes.updated,
+        removed: preview.changes.deleted,
+        averageKcalPerDay: card.summary.kcalTotal,
+        targetKcalPerDay: card.summary.targetKcalPerDay,
+      },
     };
   }
 

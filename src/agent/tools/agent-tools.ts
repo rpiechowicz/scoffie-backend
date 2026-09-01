@@ -128,6 +128,80 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'ask_clarifying_question',
+    description:
+      'Zadaj JEDNO pytanie, gdy brakuje ci informacji, bez której plan byłby zgadywaniem ' +
+      '(dla ilu osób, na który tydzień, co z alergią, której nie ma w profilu). ' +
+      'Podaj 2–4 gotowe odpowiedzi — użytkownik wybiera jedną dotknięciem, więc pytaj o rzeczy ' +
+      'rozstrzygalne jednym słowem. NIE używaj tego zamiast sprawdzenia narzędziem: jeśli ' +
+      'odpowiedź jest w get_household_context albo w get_week_plan, po prostu ją sprawdź. ' +
+      'Po tym narzędziu KOŃCZYSZ turę — nie proponujesz planu w tej samej odpowiedzi.',
+    input_schema: object(
+      {
+        question: {
+          type: 'string',
+          description: 'Jedno zdanie, konkretne pytanie.',
+        },
+        hint: {
+          type: 'string',
+          description: 'Jedno zdanie, dlaczego pytasz. Pomiń, gdy to oczywiste.',
+        },
+        options: {
+          type: 'array',
+          description:
+            'Gotowe odpowiedzi, od najbardziej prawdopodobnej. 2–4 pozycje, ' +
+            'każda krótka jak przycisk („Dla czterech osób").',
+          items: { type: 'string' },
+        },
+      },
+      ['question', 'options'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'propose_day_plan',
+    description:
+      'Pokaż PROPOZYCJĘ jednego dnia. Tak jak propose_week_plan, ale lista slots opisuje stan ' +
+      'docelowy WYŁĄCZNIE tego dnia — reszta tygodnia zostaje nietknięta. Używaj, gdy rozmowa ' +
+      'dotyczy jednego dnia („co na jutro?"): karta dnia pokazuje posiłek po posiłku i sumę ' +
+      'wobec celu, czego karta tygodnia nie robi. TY NIE ZAPISUJESZ — zapisze użytkownik.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        day_of_week: DAY,
+        note: {
+          type: 'string',
+          description:
+            'Jedno zdanie, dlaczego akurat tak. Bez liczb i bez nazw dań — te są w karcie.',
+        },
+        slots: {
+          type: 'array',
+          description: 'Posiłki tego dnia; najwyżej 6 pozycji.',
+          items: object(
+            {
+              meal_type: MEAL,
+              recipe: RECIPE_REF,
+              participant_user_ids: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Kto to je. Pomiń albo zostaw puste, gdy danie jest dla całego domu.',
+              },
+              planned_servings: {
+                type: 'integer',
+                description:
+                  'Porcje ŁĄCZNE, 1–12. Pomiń, żeby policzyły się z audytorium.',
+              },
+            },
+            ['meal_type', 'recipe'],
+          ),
+        },
+      },
+      ['week_start', 'day_of_week', 'slots'],
+    ),
+    strict: true,
+  },
+  {
     name: 'propose_week_plan',
     description:
       'Pokaż użytkownikowi PROPOZYCJĘ tygodnia. Lista slots to stan docelowy: czego na niej nie ma, ' +

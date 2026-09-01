@@ -1,4 +1,8 @@
-import { AGENT_CARD_VERSION, AppliedCard } from './agent-cards';
+import {
+  AGENT_CARD_VERSION,
+  AppliedCard,
+  weekRangeLabel,
+} from './agent-cards';
 
 /** „13 kwietnia” — data zapisu po ludzku, w UTC jak reszta planu tygodnia. */
 export function weekStartLabel(weekStart: string): string {
@@ -38,7 +42,8 @@ export function buildAppliedCard(input: {
     v: AGENT_CARD_VERSION,
     proposalId: input.proposalId,
     weekStart: input.weekStart,
-    title: `Zapisano plan na tydzień od ${weekStartLabel(input.weekStart)}`,
+    title: 'Zapisano w planie',
+    subtitle: `${changesLabel(input.changes)} · ${weekRangeLabel(input.weekStart)}`,
     summary: {
       created: input.changes.created,
       updated: input.changes.updated,
@@ -70,6 +75,39 @@ export function buildAppliedCard(input: {
       until: input.undoUntil.toISOString(),
     },
   };
+}
+
+/**
+ * „2 nowe pozycje, 1 usunięta” — co się właściwie stało.
+ *
+ * Sama liczba pozycji nie mówi nic: zapis, który wymienił cały tydzień,
+ * i zapis, który dodał jedno danie, wyglądałyby tak samo.
+ */
+function changesLabel(changes: {
+  created: number;
+  updated: number;
+  deleted: number;
+}): string {
+  const parts: string[] = [];
+  if (changes.created > 0) {
+    parts.push(`${changes.created} ${plural(changes.created, 'nowa pozycja', 'nowe pozycje', 'nowych pozycji')}`);
+  }
+  if (changes.updated > 0) {
+    parts.push(`${changes.updated} ${plural(changes.updated, 'zmieniona', 'zmienione', 'zmienionych')}`);
+  }
+  if (changes.deleted > 0) {
+    parts.push(`${changes.deleted} ${plural(changes.deleted, 'usunięta', 'usunięte', 'usuniętych')}`);
+  }
+  return parts.length > 0 ? parts.join(', ') : 'Bez zmian w planie';
+}
+
+/** Polska odmiana po liczbie — „1 nowa pozycja”, „3 nowe”, „5 nowych”. */
+function plural(count: number, one: string, few: string, many: string): string {
+  if (count === 1) return one;
+  const mod100 = count % 100;
+  if (mod100 >= 12 && mod100 <= 14) return many;
+  const mod10 = count % 10;
+  return mod10 >= 2 && mod10 <= 4 ? few : many;
 }
 
 /** Zdanie, które broni się bez karty — dla klienta, który jej nie zna. */

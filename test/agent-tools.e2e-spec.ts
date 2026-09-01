@@ -12,6 +12,7 @@ import {
   MEMORY_LIMIT,
 } from '../src/agent/agent-memory.service';
 import { AgentPromptService } from '../src/agent/agent-prompt.service';
+import { AgentCard } from '../src/agent/cards/agent-cards';
 import { AgentProposalsService } from '../src/agent/proposals/agent-proposals.service';
 import {
   buildCatalogDigest,
@@ -43,6 +44,9 @@ describe('Narzędzia asystenta E2E', () => {
   let memory: AgentMemoryService;
   let prompts: AgentPromptService;
   let context: AgentToolContext;
+  /// Karty bez skutków ubocznych (pytanie, zestawienie) — w turze zbiera je
+  /// runner; tutaj zbieramy je sami, żeby dało się je sprawdzić.
+  const collectedCards: AgentCard[] = [];
 
   const createdUserIds: string[] = [];
   const createdHouseholdIds: string[] = [];
@@ -118,6 +122,7 @@ describe('Narzędzia asystenta E2E', () => {
       turnId: '00000000-0000-4000-8000-00000000c0a2',
       // Domyślnie stary tor: reszta tej suity sprawdza zapis wprost.
       proposalMode: false,
+      collectCard: (card) => collectedCards.push(card),
     };
   });
 
@@ -610,6 +615,26 @@ describe('Narzędzia asystenta E2E', () => {
       return row?.value ?? 0;
     };
 
+    /**
+     * Propozycja bez `messageId` jest z definicji nieosiągalna (tura padła
+     * w połowie). W prawdziwej turze przypina ją runner przy domykaniu.
+     */
+    const attachAndApply = async (proposalId: string) => {
+      const message = await prisma.agentMessage.create({
+        data: {
+          conversationId: context.conversationId,
+          role: 'ASSISTANT',
+          kind: 'PLAN_DAY',
+          text: 'Proponuję ten dzień.',
+        },
+      });
+      await prisma.agentProposal.update({
+        where: { id: proposalId },
+        data: { messageId: message.id },
+      });
+      return proposals.apply(context.userId, proposalId);
+    };
+
     beforeAll(() => {
       proposals = moduleRef.get(AgentProposalsService);
       context.proposalMode = true;
@@ -709,6 +734,72 @@ describe('Narzędzia asystenta E2E', () => {
       const undone = await proposals.undo(context.userId, proposed.proposalId);
       expect(undone.status).toBe('UNDONE');
       expect(await weekSlots(PROPOSAL_WEEK)).toBe(0);
+    });
+
+    it('propozycja dnia NIE rusza reszty tygodnia', async () => {
+      // Wtorek stoi w planie od wcześniejszego zapisu; propozycja dotyczy środy.
+      const beforeTuesday = data<{ proposalId: string }>(
+        await run('propose_day_plan', {
+          week_start: PROPOSAL_WEEK,
+          day_of_week: 'TUE',
+          slots: [{ meal_type: 'DINNER', recipe: firstCatalogIndex }],
+        }),
+      );
+      await attachAndApply(beforeTuesday.proposalId);
+      expect(await weekSlots(PROPOSAL_WEEK)).toBe(1);
+
+      const wednesday = data<{ proposalId: string; summary: { meals: number } }>(
+        await run('propose_day_plan', {
+          week_start: PROPOSAL_WEEK,
+          day_of_week: 'WED',
+          slots: [{ meal_type: 'DINNER', recipe: firstCatalogIndex }],
+        }),
+      );
+      // Karta mówi o JEDNYM dniu, choć zapis obejmuje stan całego tygodnia.
+      expect(wednesday.summary.meals).toBe(1);
+
+      const row = await prisma.agentProposal.findUnique({
+        where: { id: wednesday.proposalId },
+        select: { kind: true, action: true, card: true },
+      });
+      expect(row?.kind).toBe('PLAN_DAY');
+      // Stan docelowy niesie CAŁY tydzień — inaczej zapis skasowałby wtorek.
+      const slots = (row?.action as { slots: { dayOfWeek: string }[] }).slots;
+      expect(slots.map((slot) => slot.dayOfWeek).sort()).toEqual(['TUE', 'WED']);
+
+      await attachAndApply(wednesday.proposalId);
+      expect(await weekSlots(PROPOSAL_WEEK)).toBe(2);
+    });
+
+    it('pytanie z gotowymi odpowiedziami nie tworzy propozycji', async () => {
+      const before = collectedCards.length;
+
+      const result = data<{ asked: boolean; options: number }>(
+        await run('ask_clarifying_question', {
+          question: 'Dla ilu osób mam planować?',
+          hint: 'W profilu są cztery osoby.',
+          options: ['Dla czterech', 'Dla dwóch'],
+        }),
+      );
+
+      expect(result).toMatchObject({ asked: true, options: 2 });
+      // Karta bez skutków ubocznych idzie kanałem tury, nie przez bazę.
+      expect(collectedCards.length).toBe(before + 1);
+      const card = collectedCards[collectedCards.length - 1];
+      expect(card.kind).toBe('CLARIFY');
+      if (card.kind !== 'CLARIFY') throw new Error('nieosiągalne');
+      expect(card.actions.map((a) => a.type)).toEqual(['ASK', 'ASK']);
+    });
+
+    it('pytanie bez gotowych odpowiedzi wraca jako błąd, nie jako pusta karta', async () => {
+      const result = await run('ask_clarifying_question', {
+        question: 'A co Ty na to?',
+        options: ['Nie wiem'],
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR' },
+      });
     });
 
     it('naruszenie nie tworzy propozycji — nie ma czego zatwierdzać', async () => {

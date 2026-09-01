@@ -27,6 +27,7 @@ describe('AgentToolExecutor — bramka trybu', () => {
     conversationId: 'c-1',
     turnId: 't-1',
     proposalMode,
+    collectCard: () => {},
   });
 
   const slots = [

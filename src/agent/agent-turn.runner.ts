@@ -20,6 +20,7 @@ import {
   progressStep,
 } from './agent-progress';
 import { AgentPromptService, TurnDates } from './agent-prompt.service';
+import { AgentCard } from './cards/agent-cards';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
 import { AGENT_TOOLS } from './tools/agent-tools';
 import { UpstreamBreaker } from './upstream-breaker';
@@ -100,6 +101,10 @@ export class AgentTurnRunner {
     );
 
     const progress: AgentProgressStep[] = [];
+    // Karta bez skutków ubocznych (pytanie, zestawienie) żyje w pamięci tury.
+    // Propozycje idą przez bazę, bo muszą przeżyć pad procesu — ta nie ma
+    // czego przeżywać: bez domkniętej tury nie powstaje żadna wiadomość.
+    let pendingCard: AgentCard | null = null;
 
     try {
       const messages = await this.loadHistory(input.conversationId);
@@ -127,11 +132,14 @@ export class AgentTurnRunner {
             conversationId: input.conversationId,
             turnId: input.turnId,
             proposalMode: input.proposalMode,
+            collectCard: (card) => {
+              pendingCard = card;
+            },
           });
         },
         signal: controller.signal,
       });
-      await this.finishDone(input, result, Date.now() - startedAt);
+      await this.finishDone(input, result, Date.now() - startedAt, pendingCard);
       this.breaker.recordSuccess();
     } catch (error) {
       await this.finishFailed(
@@ -238,6 +246,7 @@ export class AgentTurnRunner {
     input: RunTurnInput,
     result: AgentProviderResult,
     durationMs: number,
+    pendingCard: AgentCard | null,
   ): Promise<void> {
     const { usage } = result;
     let closed = false;
@@ -267,16 +276,24 @@ export class AgentTurnRunner {
           select: { id: true, kind: true, card: true },
         });
 
+        // Propozycja ma pierwszeństwo przed kartą bez skutków: gdy model
+        // zrobił oba, użytkownik ma zobaczyć to, co da się kliknąć.
+        const card = proposal
+          ? { kind: proposal.kind, payload: proposal.card }
+          : pendingCard
+            ? { kind: pendingCard.kind, payload: pendingCard }
+            : null;
+
         const message = await tx.agentMessage.create({
           data: {
             conversationId: input.conversationId,
             role: 'ASSISTANT',
             // Karta jest DODATKIEM do tekstu, nigdy zamiennikiem: klient,
             // który jej nie zna, ma dalej pokazać sensowne zdanie.
-            kind: proposal?.kind ?? 'TEXT',
+            kind: card?.kind ?? 'TEXT',
             text: result.text,
-            ...(proposal
-              ? { card: proposal.card as Prisma.InputJsonValue }
+            ...(card
+              ? { card: card.payload as Prisma.InputJsonValue }
               : {}),
             turnId: input.turnId,
           },
