@@ -917,7 +917,13 @@ export class WeeklyPlansService {
           mealType: row.mealType,
           suitableMealTypes: row.suitableMealTypes,
           allergens: row.allergens,
-          ingredientIds: row.ingredients.map((item) => item.ingredientId),
+          // `?? []` nie jest tu kosmetyką: mock w spec-u zwraca wiersz bez
+          // relacji, a prawdziwy przepis bez składników istnieje w bazie
+          // (import katalogu dopuszcza taki stan). Brak składników znaczy
+          // „nic do wykluczenia", nie „wywróć zapis całego tygodnia".
+          ingredientIds: (row.ingredients ?? []).map(
+            (item) => item.ingredientId,
+          ),
         },
       ]),
     );
