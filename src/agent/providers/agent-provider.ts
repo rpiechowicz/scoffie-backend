@@ -3,18 +3,9 @@ import { SystemBlock } from '../agent-system-prompt';
 import { AgentToolResult } from '../tools/agent-tool-executor';
 import { AgentToolDefinition } from '../tools/agent-tools';
 
-/** Zdjęcie dołączone do wiadomości — trafia do modelu, nie do bazy. */
-export type AgentProviderImage = {
-  mediaType: string;
-  /** base64 bez prefiksu `data:`. */
-  data: string;
-};
-
 export type AgentProviderMessage = {
   role: 'USER' | 'ASSISTANT';
   text: string;
-  /** Wyłącznie na wiadomości użytkownika z bieżącej tury. */
-  image?: AgentProviderImage;
 };
 
 export type AgentProviderRequest = {

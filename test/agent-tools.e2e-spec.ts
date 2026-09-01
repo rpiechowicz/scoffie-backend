@@ -985,31 +985,23 @@ describe('Narzędzia asystenta E2E', () => {
       );
     });
 
-    it('rozpoznane produkty odróżniają pewne od zgadniętych', async () => {
+    it('lista zakupów bierze się z PLANU i nie zmyśla spiżarni', async () => {
       const before = collectedCards.length;
 
-      const result = data<{ detected: number; unsure: number }>(
-        await run('show_detected_items', {
-          items: [
-            { name: 'Jajka', sure: true },
-            { name: 'Coś w folii', sure: false },
-          ],
-        }),
+      const result = data<{ remaining: number; checked: number }>(
+        await run('show_shopping_list', { week_start: PROPOSAL_WEEK }),
       );
 
-      expect(result).toEqual({ detected: 2, unsure: 1 });
-      const card = collectedCards[collectedCards.length - 1];
+      expect(result.remaining).toBeGreaterThan(0);
       expect(collectedCards.length).toBe(before + 1);
-      if (card.kind !== 'DETECTED_ITEMS') throw new Error('oczekiwano listy');
-      expect(card.items[0]).toEqual({ name: 'Jajka', sure: true });
-    });
-
-    it('pusta lista rozpoznanych nie jest odpowiedzią', async () => {
-      const result = await run('show_detected_items', { items: [] });
-      expect(result).toMatchObject({
-        ok: false,
-        error: { code: 'VALIDATION_ERROR' },
-      });
+      const card = collectedCards[collectedCards.length - 1];
+      if (card.kind !== 'SHOPPING_LIST') throw new Error('oczekiwano listy');
+      expect(card.groups.length).toBeGreaterThan(0);
+      expect(card.summary.remaining).toBe(result.remaining);
+      // Żadna akcja nie zapisuje: lista bierze się z planu, nie z kliknięcia.
+      expect(card.actions.every((action) => action.type === 'OPEN_SHOPPING')).toBe(
+        true,
+      );
     });
 
     it('naruszenie nie tworzy propozycji — nie ma czego zatwierdzać', async () => {

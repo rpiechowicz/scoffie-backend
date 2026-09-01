@@ -74,16 +74,7 @@ export class StubAgentProvider implements AgentProvider {
       });
     }
 
-    // Ślad po obrazie w odpowiedzi: bez niego e2e nie ma jak sprawdzić, czy
-    // zdjęcie w ogóle dotarło do dostawcy — a to jedyne miejsce, w którym
-    // przechodzi przez granicę tury.
-    const withImage = [...request.messages]
-      .reverse()
-      .find((message) => message.role === 'USER')?.image;
-    const text = `[stub]${withImage ? ` [obraz ${withImage.mediaType}]` : ''} ${lastUserText}`.slice(
-      0,
-      4000,
-    );
+    const text = `[stub] ${lastUserText}`.slice(0, 4000);
     return {
       text,
       stopReason: 'end_turn',

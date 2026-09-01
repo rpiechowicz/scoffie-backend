@@ -39,10 +39,6 @@ import {
 } from '../cards/agent-cards';
 import { buildMacroGapCard, MAX_BOOSTERS } from '../cards/macro-gap-card';
 import { buildShoppingListCard } from '../cards/shopping-list-card';
-import {
-  buildDetectedItemsCard,
-  MAX_DETECTED_ITEMS,
-} from '../cards/detected-items-card';
 import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
 import { ShoppingDepartment } from '../../weekly-plans/types/shopping-department.enum';
 import { DayOfWeek, MealType } from '@prisma/client';
@@ -259,8 +255,6 @@ export class AgentToolExecutor {
       case 'show_shopping_list':
         return this.showShoppingList(context, str('week_start'));
 
-      case 'show_detected_items':
-        return Promise.resolve(this.showDetectedItems(input, context));
 
       case 'propose_day_plan':
         return this.proposeDayPlan(input, context, str('week_start'));
@@ -548,41 +542,6 @@ export class AgentToolExecutor {
       dish: await this.recipeSide(recipeId, context),
       portions,
     });
-  }
-
-  /**
-   * Co model zobaczył na zdjęciu.
-   *
-   * Jedyne narzędzie, którego treść pochodzi w całości od modelu — bo tylko
-   * on widział obraz. Naszą rolą jest wymusić rozdział na pewne i niepewne:
-   * bez niego zgadywanie wtapia się w rozpoznane i nie ma jak go odróżnić.
-   */
-  private showDetectedItems(
-    input: Record<string, unknown>,
-    context: AgentToolContext,
-  ): { detected: number; unsure: number } {
-    const items = (Array.isArray(input.items) ? input.items : [])
-      .map((entry) => (entry ?? {}) as Record<string, unknown>)
-      .map((entry) => ({
-        name: asString(entry.name).trim(),
-        sure: entry.sure === true,
-      }))
-      .filter((item) => item.name.length > 0)
-      .slice(0, MAX_DETECTED_ITEMS);
-
-    if (items.length === 0) {
-      throw new AppException(
-        'VALIDATION_ERROR',
-        'Pusta lista nie jest odpowiedzią. Napisz wprost, że nic nie rozpoznajesz.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    context.collectCard(buildDetectedItemsCard({ items }));
-    return {
-      detected: items.length,
-      unsure: items.filter((item) => !item.sure).length,
-    };
   }
 
   /**
