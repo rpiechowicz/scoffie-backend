@@ -1,0 +1,694 @@
+{
+  "version": "recipes-batch-vegan-8-v1",
+  "recipes": [
+    {
+      "id": "bc27ded2-ca00-4797-8f26-767f7959b9e7",
+      "title": "Owsianka na mleku owsianym z masłem orzechowym",
+      "description": "Kremowa owsianka gotowana na mleku owsianym, z masłem orzechowym, bananem i cynamonem. Sycące śniadanie bez nabiału, gotowe w kwadrans.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 12,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 943,
+        "protein": 31,
+        "carbs": 112,
+        "fat": 36,
+        "fiber": 21,
+        "salt": 0.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Wsyp płatki owsiane do garnka, zalej mlekiem owsianym i zagotuj na średnim ogniu, mieszając."
+        },
+        {
+          "step": 2,
+          "instruction": "Zmniejsz ogień i gotuj około 5 minut, aż płatki napęcznieją, a owsianka zgęstnieje."
+        },
+        {
+          "step": 3,
+          "instruction": "Zdejmij z ognia, wmieszaj masło orzechowe i cynamon."
+        },
+        {
+          "step": 4,
+          "instruction": "Przełóż do miseczek, ułóż na wierzchu banana pokrojonego w plasterki i posyp pestkami dyni."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "płatki owsiane",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko owsiane",
+          "amount": 400,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "masło orzechowe",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pestki dyni",
+          "amount": 15,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "id": "4c6a69e0-f070-479e-bef1-c85971a92421",
+      "title": "Tosty z awokado i pomidorkami",
+      "description": "Chrupiące tosty z rozgniecionym awokado, pomidorkami koktajlowymi i szczypiorkiem, skropione oliwą i cytryną. Śniadanie na pięć minut.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "SNACK"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 8,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 753,
+        "protein": 17,
+        "carbs": 77,
+        "fat": 36,
+        "fiber": 20,
+        "salt": 2.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Podpiecz kromki chleba w tosterze albo na suchej patelni, aż się zarumienią."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgnieć miąższ awokado widelcem, skrop sokiem z cytryny, dopraw solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozsmaruj pastę na tostach, ułóż na wierzchu przekrojone pomidorki koktajlowe."
+        },
+        {
+          "step": 4,
+          "instruction": "Skrop oliwą i posyp posiekanym szczypiorkiem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "chleb",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "awokado",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ]
+    },
+    {
+      "id": "0d8c58a9-63fc-485e-b12a-a204022bcfc4",
+      "title": "Kasza jaglana z jabłkiem i cynamonem",
+      "description": "Ciepła kasza jaglana gotowana na mleku owsianym, z duszonym jabłkiem, cynamonem i orzechami włoskimi. Śniadanie w klimacie szarlotki.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 745,
+        "protein": 17,
+        "carbs": 117,
+        "fat": 22,
+        "fiber": 13,
+        "salt": 0.4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Przepłucz kaszę jaglaną na sicie pod zimną wodą, żeby pozbyć się goryczki."
+        },
+        {
+          "step": 2,
+          "instruction": "Zalej kaszę mlekiem owsianym i gotuj pod przykryciem na małym ogniu około 12 minut, aż wchłonie płyn."
+        },
+        {
+          "step": 3,
+          "instruction": "W tym czasie pokrój jabłko w kostkę i poduś na patelni z cynamonem, aż zmięknie."
+        },
+        {
+          "step": 4,
+          "instruction": "Wymieszaj kaszę z jabłkiem, przełóż do miseczek i posyp posiekanymi orzechami włoskimi."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "kasza jaglana",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko owsiane",
+          "amount": 400,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jabłko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 20,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "id": "015af7eb-ca21-43ff-bbc2-512d46d11346",
+      "title": "Kanapki z hummusem i warzywami",
+      "description": "Kromki chleba z grubą warstwą hummusu, chrupiącym ogórkiem, papryką i rzodkiewką. Szybkie śniadanie albo lunch do pracy.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "SNACK",
+        "AFTERNOON_SNACK"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 813,
+        "protein": 23,
+        "carbs": 87,
+        "fat": 34,
+        "fiber": 15,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Rozsmaruj hummus na kromkach chleba."
+        },
+        {
+          "step": 2,
+          "instruction": "Pokrój ogórek i rzodkiewkę w plasterki, a paprykę w cienkie paski."
+        },
+        {
+          "step": 3,
+          "instruction": "Ułóż warzywa na kanapkach, dopraw pieprzem i posyp szczypiorkiem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "chleb",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "hummus",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "rzodkiewka",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ]
+    },
+    {
+      "id": "a4ad7797-dfee-4f5f-9b3d-ca82a2975a1e",
+      "title": "Curry z ciecierzycą i szpinakiem",
+      "description": "Ciecierzyca duszona w mleku kokosowym z curry, imbirem i szpinakiem, podana z ryżem basmati. Jednogarnkowe danie z zapasów ze spiżarni.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1497,
+        "protein": 47,
+        "carbs": 170,
+        "fat": 59,
+        "fiber": 35,
+        "salt": 2.6
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj ryż basmati zgodnie z opisem na opakowaniu."
+        },
+        {
+          "step": 2,
+          "instruction": "Pokrój cebulę w kostkę i zeszklij na oleju. Dodaj przeciśnięty czosnek, imbir i curry, smaż minutę, mieszając."
+        },
+        {
+          "step": 3,
+          "instruction": "Wlej passatę i mleko kokosowe, dodaj odsączoną ciecierzycę. Gotuj na małym ogniu około 12 minut."
+        },
+        {
+          "step": 4,
+          "instruction": "Wrzuć szpinak i mieszaj, aż zwiędnie. Dopraw solą i pieprzem."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj z ryżem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ciecierzyca z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 150,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "passata pomidorowa",
+          "amount": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "szpinak",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "imbir mielony",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "curry",
+          "amount": 2,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ryż basmati",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ]
+    },
+    {
+      "id": "fa7dd774-5e56-42f7-b2f7-efa22c5f702d",
+      "title": "Chili sin carne z fasolą i kukurydzą",
+      "description": "Ostre chili z czerwoną fasolą, kukurydzą i papryką, z kminem rzymskim i papryką ostrą. Syci jak wersja z mięsem, a gotuje się w pół godziny.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1251,
+        "protein": 47,
+        "carbs": 189,
+        "fat": 20,
+        "fiber": 39,
+        "salt": 2.8
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój cebulę i paprykę w kostkę. Zeszklij cebulę na oleju, dodaj paprykę i smaż 3 minuty."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj przeciśnięty czosnek, kmin rzymski i paprykę ostrą, smaż chwilę, aż zapachną."
+        },
+        {
+          "step": 3,
+          "instruction": "Wlej pomidory z puszki, dodaj odsączoną fasolę i kukurydzę. Gotuj na małym ogniu około 15 minut."
+        },
+        {
+          "step": 4,
+          "instruction": "Dopraw solą i pieprzem. Podawaj z ugotowanym ryżem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "fasola czerwona z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kukurydza z puszki",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor krojony z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "papryka ostra mielona",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ryż biały",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "łyżeczka"
+        }
+      ]
+    },
+    {
+      "id": "88c14619-0a60-4993-abc4-11eded26695d",
+      "title": "Tofu smażone z warzywami i kaszą gryczaną",
+      "description": "Tofu przysmażone na złoto z brokułem, marchewką i papryką w sosie sojowym z imbirem, podane z kaszą gryczaną i sezamem.",
+      "mealType": "DINNER",
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1112,
+        "protein": 60,
+        "carbs": 105,
+        "fat": 47,
+        "fiber": 21,
+        "salt": 3.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj kaszę gryczaną w osolonej wodzie zgodnie z opisem na opakowaniu."
+        },
+        {
+          "step": 2,
+          "instruction": "Odciśnij tofu z wody, pokrój w kostkę i smaż na rozgrzanym oleju, aż się zarumieni ze wszystkich stron. Zdejmij z patelni."
+        },
+        {
+          "step": 3,
+          "instruction": "Na tej samej patelni podsmaż różyczki brokuła, marchew w plasterkach i paprykę w paskach — 5 minut, żeby zostały jędrne."
+        },
+        {
+          "step": 4,
+          "instruction": "Dodaj przeciśnięty czosnek i imbir, wlej sos sojowy, wróć tofu na patelnię i wymieszaj."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj na kaszy, posypane sezamem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tofu",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kasza gryczana",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "brokuł",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "imbir mielony",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "sos sojowy",
+          "amount": 2,
+          "unit": "łyżka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sezam",
+          "amount": 10,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "id": "be1c9e29-6084-4109-9f17-6d47a955f90d",
+      "title": "Krem z czerwonej soczewicy z marchewką",
+      "description": "Gęsty krem z czerwonej soczewicy i marchewki, doprawiony kminem rzymskim. Gotuje się sam, a talerz syci jak pełny obiad.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 862,
+        "protein": 43,
+        "carbs": 112,
+        "fat": 18,
+        "fiber": 26,
+        "salt": 2.4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój cebulę i marchew w kostkę. Zeszklij cebulę na oliwie, dodaj marchew i smaż 3 minuty."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj przeciśnięty czosnek, kmin rzymski i koncentrat pomidorowy, smaż minutę."
+        },
+        {
+          "step": 3,
+          "instruction": "Wsyp przepłukaną soczewicę, zalej bulionem warzywnym i gotuj pod przykryciem około 20 minut, aż soczewica się rozpadnie."
+        },
+        {
+          "step": 4,
+          "instruction": "Zblenduj zupę na gładki krem, dopraw solą i pieprzem."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj z natką pietruszki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "soczewica czerwona",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bulion warzywny",
+          "amount": 800,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "koncentrat pomidorowy",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ]
+    }
+  ]
+}

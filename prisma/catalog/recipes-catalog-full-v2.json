@@ -2217,7 +2217,10 @@
       "title": "Owsianka nocna z masłem orzechowym i malinami",
       "description": "Owsianka przygotowywana wieczorem w słoiku, rano gotowa do zjedzenia. Kremowa, sycąca i bez żadnego gotowania.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST"],
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -2352,7 +2355,11 @@
       "title": "Twarożek na słodko z brzoskwinią i granolą",
       "description": "Kremowy twarożek z jogurtem i miodem, podany z cząstkami brzoskwini i chrupiącą granolą. Lekkie śniadanie na słodko bez smażenia.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "AFTERNOON_SNACK"],
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "AFTERNOON_SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -2415,7 +2422,11 @@
       "title": "Serniczki fit z twarogiem i borówkami",
       "description": "Smażone na patelni placuszki twarogowe z borówkami, słodzone miodem. Więcej białka niż w klasycznych placuszkach i naturalna słodycz owoców.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "AFTERNOON_SNACK"],
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "AFTERNOON_SNACK"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 25,
       "servings": 2,
@@ -2492,7 +2503,11 @@
       "title": "Bułeczki z pastą jajeczną i rzodkiewką",
       "description": "Klasyczna pasta jajeczna z majonezem, jogurtem i szczypiorkiem, podana na bułkach z plasterkami rzodkiewki. Domowy standard w kwadrans.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "DINNER"],
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 15,
       "servings": 2,
@@ -2574,7 +2589,10 @@
       "title": "Tosty francuskie z owocami",
       "description": "Kromki chleba tostowego smażone w jajku z cynamonem, podane z truskawkami, borówkami i miodem. Śniadanie na słodko, które robi wrażenie.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": ["BREAKFAST", "AFTERNOON_SNACK"],
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "AFTERNOON_SNACK"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -2656,7 +2674,11 @@
       "title": "Omlet z szynką i pomidorami",
       "description": "Puszysty omlet z paskami szynki i kawałkami pomidora, posypany szczypiorkiem. Proste, białkowe śniadanie z patelni.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "DINNER"],
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 12,
       "servings": 2,
@@ -2733,7 +2755,12 @@
       "title": "Kanapki z szynką, serem i pomidorem",
       "description": "Klasyczne kanapki na chlebie z masłem, szynką, serem gouda, pomidorem i sałatą. Szybkie śniadanie, które zawsze działa.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "DINNER", "SNACK"],
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "DINNER",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 8,
       "servings": 2,
@@ -2801,7 +2828,9 @@
       "title": "Kotlet schabowy z ziemniakami i mizerią",
       "description": "Klasyka niedzielnego obiadu: chrupiący panierowany schabowy z gotowanymi ziemniakami i mizerią na śmietanie.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH"],
+      "suitableMealTypes": [
+        "LUNCH"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -2902,7 +2931,10 @@
       "title": "Kotlety mielone z ziemniakami i buraczkami",
       "description": "Domowe kotlety mielone z cebulą i majerankiem, podane z ziemniakami i ciepłymi buraczkami z masłem.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 50,
       "servings": 4,
@@ -3003,7 +3035,10 @@
       "title": "Gulasz wieprzowy z kaszą gryczaną i ogórkiem kiszonym",
       "description": "Wolno duszony gulasz z łopatki z papryką i majerankiem, podany z kaszą gryczaną i ogórkiem kiszonym.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 80,
       "servings": 4,
@@ -3109,7 +3144,9 @@
       "title": "Schab duszony w sosie pieczarkowym z ziemniakami",
       "description": "Plastry schabu duszone do miękkości w kremowym sosie pieczarkowym ze śmietaną, podane z ziemniakami.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH"],
+      "suitableMealTypes": [
+        "LUNCH"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 50,
       "servings": 2,
@@ -3196,7 +3233,9 @@
       "title": "Bitki wołowe w sosie własnym z ziemniakami",
       "description": "Rozbijane plastry wołowiny duszone długo z cebulą, aż sos zrobi się sam. Tradycyjny obiad z ziemniakami i ogórkiem kiszonym.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH"],
+      "suitableMealTypes": [
+        "LUNCH"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 90,
       "servings": 2,
@@ -3282,7 +3321,10 @@
       "title": "Gołąbki w sosie pomidorowym",
       "description": "Liście kapusty nadziewane mięsem z ryżem, duszone w sosie pomidorowym. Klasyka, która smakuje jeszcze lepiej odgrzana następnego dnia.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "HARD",
       "prepTimeMinutes": 100,
       "servings": 4,
@@ -3378,7 +3420,10 @@
       "title": "Pierogi ruskie z okrasą cebulową",
       "description": "Domowe pierogi z farszem ziemniaczano-twarogowym, podane z cebulką zrumienioną na maśle. Porcja pracy, która się opłaca.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "HARD",
       "prepTimeMinutes": 90,
       "servings": 4,
@@ -3469,7 +3514,10 @@
       "title": "Placki ziemniaczane ze śmietaną",
       "description": "Chrupiące placki z tartych ziemniaków z cebulą, smażone na złoto i podane z kleksem śmietany.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -3551,7 +3599,10 @@
       "title": "Leczo z kiełbasą, cukinią i papryką",
       "description": "Jednogarnkowe leczo na kiełbasie z letnimi warzywami w pomidorach. Sycące, szybkie i dobre też na drugi dzień.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -3645,7 +3696,10 @@
       "title": "Fasolka po bretońsku z kiełbasą",
       "description": "Biała fasola duszona z kiełbasą, boczkiem i majerankiem w sosie pomidorowym. Klasyka baru mlecznego w domowym wydaniu.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 45,
       "servings": 4,
@@ -3737,7 +3791,10 @@
       "title": "Polędwiczki wieprzowe z kuskusem i groszkiem",
       "description": "Medaliony z polędwiczki smażone na maśle z czosnkiem, podane z puszystym kuskusem i zielonym groszkiem. Obiad w pół godziny.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 30,
       "servings": 2,
@@ -3819,7 +3876,10 @@
       "title": "Pierogi z mięsem z okrasą cebulową",
       "description": "Klasyczne pierogi z mięsnym farszem na cieście domowej roboty, podane z rumianą okrasą z cebuli smażonej na maśle. Sycące danie, które smakuje jak u babci.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "HARD",
       "prepTimeMinutes": 100,
       "servings": 4,
@@ -3914,7 +3974,10 @@
       "title": "Pierogi z kapustą i grzybami",
       "description": "Pierogi z farszem z kiszonej kapusty i pieczarek, lepione ręcznie z prostego ciasta i podane z cebulką zeszkloną na maśle. Wigilijny smak dostępny przez cały rok.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "HARD",
       "prepTimeMinutes": 100,
       "servings": 2,
@@ -4009,7 +4072,11 @@
       "title": "Pierogi z truskawkami",
       "description": "Letnia klasyka: delikatne pierogi z całymi truskawkami w środku, podane z lekko słodzoną śmietaną. Smakują najlepiej prosto z garnka, gdy owoce są jeszcze ciepłe i soczyste.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "AFTERNOON_SNACK", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "AFTERNOON_SNACK",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 70,
       "servings": 2,
@@ -4089,7 +4156,9 @@
       "title": "Rosół z makaronem",
       "description": "Klasyczny złoty rosół gotowany powoli na nodze z kurczaka i włoszczyźnie, z opaloną cebulą dla głębi smaku. Podawany z makaronem nitki i świeżą natką pietruszki.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH"],
+      "suitableMealTypes": [
+        "LUNCH"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 120,
       "servings": 2,
@@ -4189,7 +4258,10 @@
       "title": "Zupa ogórkowa z ziemniakami",
       "description": "Kwaśna, sycąca zupa ogórkowa na bulionie drobiowym, z ziemniakami i śmietaną. Klasyk domowego obiadu, który smakuje jeszcze lepiej następnego dnia.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -4284,7 +4356,10 @@
       "title": "Żurek z białą kiełbasą i jajkiem",
       "description": "Tradycyjny żurek na zakwasie z białą kiełbasą gotowaną w bulionie, ziemniakami i połówkami jajka na twardo. Zabielany śmietaną, doprawiony majerankiem i czosnkiem.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 50,
       "servings": 2,
@@ -4389,7 +4464,10 @@
       "title": "Krupnik z kaszą jęczmienną",
       "description": "Tradycyjny krupnik na wywarze z nogi kurczaka, z kaszą jęczmienną gotowaną razem z zupą. Sycąca, domowa zupa z warzywami korzeniowymi i ziemniakami.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 60,
       "servings": 2,
@@ -4494,7 +4572,10 @@
       "title": "Zupa gulaszowa z papryką i ziemniakami",
       "description": "Gęsta zupa gulaszowa na wieprzowej łopatce, z papryką, ziemniakami i pomidorami. Rozgrzewa jak węgierski gulasz, a robi się w jednym garnku.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 75,
       "servings": 2,
@@ -4599,7 +4680,10 @@
       "title": "Krem z brokułów z grzankami",
       "description": "Aksamitny krem z brokułów na warzywnym bulionie, zabielony śmietanką i podany z chrupiącymi grzankami z masłem. Prosta, rozgrzewająca zupa z podstawowych składników.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 35,
       "servings": 2,
@@ -4704,7 +4788,10 @@
       "title": "Krem z dyni z prażonymi pestkami",
       "description": "Aksamitny krem z dyni z nutą czosnku, podany ze śmietaną i chrupiącymi prażonymi pestkami. Rozgrzewająca zupa idealna na jesienny obiad.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -4804,7 +4891,10 @@
       "title": "Krem z pora i ziemniaków",
       "description": "Aksamitny krem z pora i ziemniaków na maśle, zblendowany na gładko ze śmietaną. Podawany z chrupiącymi grzankami z chleba tostowego i szczypiorkiem.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -4904,7 +4994,10 @@
       "title": "Potrawka z indyka z marchewką i ryżem",
       "description": "Delikatna potrawka z kawałków indyka i marchewki duszonych w bulionie, z sosem zagęszczonym masłem i mąką. Podawana na białym ryżu, posypana natką pietruszki.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -5004,7 +5097,10 @@
       "title": "Pierś z indyka pieczona z ziemniakami i brokułem",
       "description": "Soczysta pierś z indyka pieczona w piekarniku razem z ziemniakami i brokułem, wszystko na jednej blasze. Prosty obiad bez pilnowania garnków.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 60,
       "servings": 2,
@@ -5099,7 +5195,10 @@
       "title": "Chili con carne z indykiem i ryżem",
       "description": "Sycące chili con carne w lżejszej wersji z mielonym indykiem, duszone w jednym garnku z fasolą, kukurydzą i papryką. Podawane z białym ryżem, idealne na szybki obiad w tygodniu.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 50,
       "servings": 2,
@@ -5224,7 +5323,10 @@
       "title": "Burgery z mielonego indyka z bułką i warzywami",
       "description": "Domowe burgery z mielonego indyka, z chrupiącą sałatą, pomidorem i sosem jogurtowo-musztardowym. Szybki obiad, który wygląda jak z burgerowni, a powstaje z prostych składników.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 35,
       "servings": 2,
@@ -5344,7 +5446,10 @@
       "title": "Dorsz pieczony z ziemniakami i surówką z marchewki",
       "description": "Delikatny dorsz zapiekany z masłem, cytryną i koperkiem, podany z gotowanymi ziemniakami i słodką surówką z marchewki i jabłka. Prosty, lekki obiad na co dzień.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -5449,7 +5554,10 @@
       "title": "Mintaj smażony z ziemniakami i surówką z kapusty",
       "description": "Klasyka piątkowego obiadu: mintaj w mące i jajku smażony na złoto, podany z gotowanymi ziemniakami i chrupiącą surówką z białej kapusty z marchewką.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -5564,7 +5672,10 @@
       "title": "Kurczak teriyaki z makaronem i warzywami",
       "description": "Szybki stir-fry z kurczakiem w domowym sosie teriyaki z sosu sojowego i miodu, z makaronem i chrupiącymi warzywami. Wszystko robi się na jednej głębokiej patelni, gotowe w około pół godziny.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 30,
       "servings": 2,
@@ -5669,7 +5780,10 @@
       "title": "Bowl z kurczakiem, kaszą gryczaną i jajkiem",
       "description": "Pożywna miska z kaszą gryczaną, grillowanym kurczakiem, jajkiem na półmiękko i świeżymi warzywami, podana z sosem jogurtowo-czosnkowym. Prosty, domowy obiad, który sprawdzi się też na drugi dzień.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 35,
       "servings": 2,
@@ -5774,7 +5888,10 @@
       "title": "Kaszotto z kurczakiem i szpinakiem",
       "description": "Kremowe kaszotto z kaszy jęczmiennej gotowanej w bulionie, z kawałkami kurczaka, szpinakiem i parmezanem. Sycący obiad w jednym garnku, po polsku i bez wymyślnych składników.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -5879,7 +5996,10 @@
       "title": "Risotto z pieczarkami i parmezanem",
       "description": "Kremowe risotto z podsmażonymi pieczarkami, masłem i parmezanem. Klasyk włoskiej kuchni w domowym wydaniu, idealny na sycący obiad.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -5979,7 +6099,10 @@
       "title": "Makaron z cukinią i serkiem śmietankowym",
       "description": "Szybki makaron z podsmażaną cukinią w kremowym sosie z serka śmietankowego. Prosty obiad na co dzień, gotowy w około 25 minut.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 25,
       "servings": 2,
@@ -6069,7 +6192,10 @@
       "title": "Kotlety z ciecierzycy z sosem jogurtowym",
       "description": "Chrupiące z wierzchu, miękkie w środku kotlety z ciecierzycy z kminem rzymskim, podane z kaszą jaglaną i orzeźwiającym sosem jogurtowo-koperkowym z cytryną. Prosty, sycący obiad bez mięsa na każdy dzień tygodnia.",
       "mealType": "LUNCH",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -6189,7 +6315,10 @@
       "title": "Zapiekanki z pieczarkami i serem",
       "description": "Klasyczne domowe zapiekanki na chrupiącej bagietce z pieczarkami smażonymi z cebulą i roztopioną goudą. Na koniec obowiązkowo ketchup i posypka ze szczypiorku.",
       "mealType": "DINNER",
-      "suitableMealTypes": ["DINNER", "SNACK"],
+      "suitableMealTypes": [
+        "DINNER",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -6285,7 +6414,10 @@
       "title": "Zapiekanka makaronowa z mięsem mielonym i serem",
       "description": "Domowa zapiekanka z penne, mięsem mielonym w sosie pomidorowym i roztopioną goudą. Sycący obiad, który dobrze smakuje też odgrzany następnego dnia.",
       "mealType": "DINNER",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 50,
       "servings": 4,
@@ -6385,7 +6517,11 @@
       "title": "Sałatka z tuńczykiem, jajkiem i kukurydzą",
       "description": "Szybka, sycąca sałatka na kolację z tuńczykiem, jajkami na twardo i kukurydzą, z lekkim dressingiem majonezowo-jogurtowym. Gotowa w kwadrans, bez gotowania poza jajkami.",
       "mealType": "DINNER",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -6486,7 +6622,10 @@
       "title": "Sałatka z wędzonym łososiem, jajkiem i awokado",
       "description": "Lekka sałatka na kolację z wędzonym łososiem, jajkiem na twardo i awokado, skropiona dressingiem z oliwy i cytryny. Nie wymaga gotowania poza jajkami, więc jest gotowa w kilkanaście minut.",
       "mealType": "DINNER",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "DINNER"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -6587,7 +6726,10 @@
       "title": "Naleśniki ze szpinakiem i serem",
       "description": "Wytrawne naleśniki z farszem ze szpinaku podsmażonego z czosnkiem i pokruszoną fetą. Sycące danie na obiad lub kolację, zwijane w rulony.",
       "mealType": "DINNER",
-      "suitableMealTypes": ["LUNCH", "DINNER"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -6683,7 +6825,11 @@
       "title": "Wrapy z tuńczykiem, kukurydzą i jogurtem",
       "description": "Szybkie zimne wrapy z pastą z tuńczyka na jogurcie, z kukurydzą, chrupiącą sałatą i ogórkiem. Idealne na lekką kolację bez gotowania.",
       "mealType": "DINNER",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER", "SNACK"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "DINNER",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 15,
       "servings": 2,
@@ -6774,7 +6920,11 @@
       "title": "Quesadilla z serem i fasolą",
       "description": "Chrupiąca quesadilla z rozpuszczoną goudą, czerwoną fasolą i warzywami, podawana z jogurtowym dipem. Szybka i sycąca kolacja z patelni.",
       "mealType": "DINNER",
-      "suitableMealTypes": ["LUNCH", "DINNER", "SNACK"],
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -6875,7 +7025,11 @@
       "title": "Koktajl bananowo-truskawkowy z jogurtem",
       "description": "Szybki koktajl na drugie śniadanie do zabrania ze sobą. Słodycz banana i miodu łączy się z truskawkami i kremowym jogurtem.",
       "mealType": "SECOND_BREAKFAST",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "AFTERNOON_SNACK",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 5,
       "servings": 2,
@@ -6933,7 +7087,11 @@
       "title": "Koktajl ze skyrem, bananem i masłem orzechowym",
       "description": "Gęsty, kremowy koktajl na bazie skyru z bananem i masłem orzechowym. Szybkie drugie śniadanie z solidną porcją białka.",
       "mealType": "SECOND_BREAKFAST",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "AFTERNOON_SNACK",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 5,
       "servings": 2,
@@ -6996,7 +7154,11 @@
       "title": "Pudding chia na mleku z malinami",
       "description": "Kremowy pudding chia na mleku z miodem, przygotowany wieczorem, żeby rano był gotowy. Świeże maliny na wierzchu dodają kwaskowatej świeżości.",
       "mealType": "SECOND_BREAKFAST",
-      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "AFTERNOON_SNACK"],
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "AFTERNOON_SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -7058,7 +7220,11 @@
       "title": "Pudding ryżowy z musem malinowym",
       "description": "Kremowy pudding ryżowy na mleku z nutą cynamonu, podany z prostym musem ze świeżych malin. Domowy podwieczorek, który smakuje na ciepło i na zimno.",
       "mealType": "AFTERNOON_SNACK",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "AFTERNOON_SNACK",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 30,
       "servings": 2,
@@ -7125,7 +7291,11 @@
       "title": "Deser twarogowy z kakao i bananem",
       "description": "Szybki kremowy deser z twarogu, kakao i miodu z plasterkami banana. Dobry zamiennik słodyczy na podwieczorek, z solidną porcją białka.",
       "mealType": "AFTERNOON_SNACK",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "AFTERNOON_SNACK",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -7192,7 +7362,11 @@
       "title": "Muffiny owsiane z jabłkiem i cynamonem",
       "description": "Wilgotne muffiny owsiane na jogurcie, ze startym jabłkiem i cynamonem, słodzone tylko miodem. Dobre na podwieczorek do lunchboxa, trzymają się kilka dni w lodówce.",
       "mealType": "AFTERNOON_SNACK",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "AFTERNOON_SNACK",
+        "SNACK"
+      ],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -7282,7 +7456,11 @@
       "title": "Hummus z warzywami do maczania",
       "description": "Kremowy domowy hummus z nutą kminu i cytryny, podany z chrupiącymi warzywami pokrojonymi w słupki. Szybka i sycąca przekąska do maczania.",
       "mealType": "SNACK",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "AFTERNOON_SNACK",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 15,
       "servings": 2,
@@ -7378,7 +7556,11 @@
       "title": "Pasta z tuńczyka z ogórkiem kiszonym",
       "description": "Szybka pasta z tuńczyka z chrupiącym ogórkiem kiszonym i szczypiorkiem. Idealna na kanapki do pracy albo lekką kolację.",
       "mealType": "SECOND_BREAKFAST",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER", "SNACK"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "DINNER",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -7464,7 +7646,11 @@
       "title": "Wrap z indykiem, hummusem i warzywami",
       "description": "Szybki wrap na wynos bez gotowania. Tortilla z hummusem, wędliną drobiową i chrupiącymi warzywami, ciasno zwinięta i przekrojona na pół.",
       "mealType": "SECOND_BREAKFAST",
-      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER", "SNACK"],
+      "suitableMealTypes": [
+        "SECOND_BREAKFAST",
+        "DINNER",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -7536,7 +7722,10 @@
       "title": "Budyń waniliowy z bananem",
       "description": "Klasyczny budyń waniliowy gotowany na mleku, podany w pucharkach z plasterkami banana na dnie i na wierzchu. Prosty, domowy podwieczorek, który zawsze smakuje.",
       "mealType": "AFTERNOON_SNACK",
-      "suitableMealTypes": ["AFTERNOON_SNACK", "SNACK"],
+      "suitableMealTypes": [
+        "AFTERNOON_SNACK",
+        "SNACK"
+      ],
       "difficulty": "EASY",
       "prepTimeMinutes": 15,
       "servings": 2,
@@ -7596,6 +7785,695 @@
         "prompt": "professional food photo, Budyń waniliowy z bananem, Two glass dessert cups filled with creamy pale-yellow vanilla pudding topped with fresh banana slices, more banana slices visible at the bottom of the cups, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/35de5380-8988-4f2a-81d3-d3a070a3a4e7.png"
       }
+    },
+    {
+      "id": "bc27ded2-ca00-4797-8f26-767f7959b9e7",
+      "title": "Owsianka na mleku owsianym z masłem orzechowym",
+      "description": "Kremowa owsianka gotowana na mleku owsianym, z masłem orzechowym, bananem i cynamonem. Sycące śniadanie bez nabiału, gotowe w kwadrans.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 12,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 943,
+        "protein": 31,
+        "carbs": 112,
+        "fat": 36,
+        "fiber": 21,
+        "salt": 0.5
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Wsyp płatki owsiane do garnka, zalej mlekiem owsianym i zagotuj na średnim ogniu, mieszając."
+        },
+        {
+          "step": 2,
+          "instruction": "Zmniejsz ogień i gotuj około 5 minut, aż płatki napęcznieją, a owsianka zgęstnieje."
+        },
+        {
+          "step": 3,
+          "instruction": "Zdejmij z ognia, wmieszaj masło orzechowe i cynamon."
+        },
+        {
+          "step": 4,
+          "instruction": "Przełóż do miseczek, ułóż na wierzchu banana pokrojonego w plasterki i posyp pestkami dyni."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "płatki owsiane",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko owsiane",
+          "amount": 400,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "masło orzechowe",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pestki dyni",
+          "amount": 15,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "id": "4c6a69e0-f070-479e-bef1-c85971a92421",
+      "title": "Tosty z awokado i pomidorkami",
+      "description": "Chrupiące tosty z rozgniecionym awokado, pomidorkami koktajlowymi i szczypiorkiem, skropione oliwą i cytryną. Śniadanie na pięć minut.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "SNACK"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 8,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 753,
+        "protein": 17,
+        "carbs": 77,
+        "fat": 36,
+        "fiber": 20,
+        "salt": 2.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Podpiecz kromki chleba w tosterze albo na suchej patelni, aż się zarumienią."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgnieć miąższ awokado widelcem, skrop sokiem z cytryny, dopraw solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozsmaruj pastę na tostach, ułóż na wierzchu przekrojone pomidorki koktajlowe."
+        },
+        {
+          "step": 4,
+          "instruction": "Skrop oliwą i posyp posiekanym szczypiorkiem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "chleb",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "awokado",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "szczypta"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ]
+    },
+    {
+      "id": "0d8c58a9-63fc-485e-b12a-a204022bcfc4",
+      "title": "Kasza jaglana z jabłkiem i cynamonem",
+      "description": "Ciepła kasza jaglana gotowana na mleku owsianym, z duszonym jabłkiem, cynamonem i orzechami włoskimi. Śniadanie w klimacie szarlotki.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 745,
+        "protein": 17,
+        "carbs": 117,
+        "fat": 22,
+        "fiber": 13,
+        "salt": 0.4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Przepłucz kaszę jaglaną na sicie pod zimną wodą, żeby pozbyć się goryczki."
+        },
+        {
+          "step": 2,
+          "instruction": "Zalej kaszę mlekiem owsianym i gotuj pod przykryciem na małym ogniu około 12 minut, aż wchłonie płyn."
+        },
+        {
+          "step": 3,
+          "instruction": "W tym czasie pokrój jabłko w kostkę i poduś na patelni z cynamonem, aż zmięknie."
+        },
+        {
+          "step": 4,
+          "instruction": "Wymieszaj kaszę z jabłkiem, przełóż do miseczek i posyp posiekanymi orzechami włoskimi."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "kasza jaglana",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko owsiane",
+          "amount": 400,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jabłko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 20,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "id": "015af7eb-ca21-43ff-bbc2-512d46d11346",
+      "title": "Kanapki z hummusem i warzywami",
+      "description": "Kromki chleba z grubą warstwą hummusu, chrupiącym ogórkiem, papryką i rzodkiewką. Szybkie śniadanie albo lunch do pracy.",
+      "mealType": "BREAKFAST",
+      "suitableMealTypes": [
+        "BREAKFAST",
+        "SECOND_BREAKFAST",
+        "SNACK",
+        "AFTERNOON_SNACK"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 813,
+        "protein": 23,
+        "carbs": 87,
+        "fat": 34,
+        "fiber": 15,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Rozsmaruj hummus na kromkach chleba."
+        },
+        {
+          "step": 2,
+          "instruction": "Pokrój ogórek i rzodkiewkę w plasterki, a paprykę w cienkie paski."
+        },
+        {
+          "step": 3,
+          "instruction": "Ułóż warzywa na kanapkach, dopraw pieprzem i posyp szczypiorkiem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "chleb",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "hummus",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "rzodkiewka",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ]
+    },
+    {
+      "id": "a4ad7797-dfee-4f5f-9b3d-ca82a2975a1e",
+      "title": "Curry z ciecierzycą i szpinakiem",
+      "description": "Ciecierzyca duszona w mleku kokosowym z curry, imbirem i szpinakiem, podana z ryżem basmati. Jednogarnkowe danie z zapasów ze spiżarni.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1497,
+        "protein": 47,
+        "carbs": 170,
+        "fat": 59,
+        "fiber": 35,
+        "salt": 2.6
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj ryż basmati zgodnie z opisem na opakowaniu."
+        },
+        {
+          "step": 2,
+          "instruction": "Pokrój cebulę w kostkę i zeszklij na oleju. Dodaj przeciśnięty czosnek, imbir i curry, smaż minutę, mieszając."
+        },
+        {
+          "step": 3,
+          "instruction": "Wlej passatę i mleko kokosowe, dodaj odsączoną ciecierzycę. Gotuj na małym ogniu około 12 minut."
+        },
+        {
+          "step": 4,
+          "instruction": "Wrzuć szpinak i mieszaj, aż zwiędnie. Dopraw solą i pieprzem."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj z ryżem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ciecierzyca z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 150,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "passata pomidorowa",
+          "amount": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "szpinak",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "imbir mielony",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "curry",
+          "amount": 2,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ryż basmati",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ]
+    },
+    {
+      "id": "fa7dd774-5e56-42f7-b2f7-efa22c5f702d",
+      "title": "Chili sin carne z fasolą i kukurydzą",
+      "description": "Ostre chili z czerwoną fasolą, kukurydzą i papryką, z kminem rzymskim i papryką ostrą. Syci jak wersja z mięsem, a gotuje się w pół godziny.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1251,
+        "protein": 47,
+        "carbs": 189,
+        "fat": 20,
+        "fiber": 39,
+        "salt": 2.8
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój cebulę i paprykę w kostkę. Zeszklij cebulę na oleju, dodaj paprykę i smaż 3 minuty."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj przeciśnięty czosnek, kmin rzymski i paprykę ostrą, smaż chwilę, aż zapachną."
+        },
+        {
+          "step": 3,
+          "instruction": "Wlej pomidory z puszki, dodaj odsączoną fasolę i kukurydzę. Gotuj na małym ogniu około 15 minut."
+        },
+        {
+          "step": 4,
+          "instruction": "Dopraw solą i pieprzem. Podawaj z ugotowanym ryżem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "fasola czerwona z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kukurydza z puszki",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor krojony z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "papryka ostra mielona",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ryż biały",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "łyżeczka"
+        }
+      ]
+    },
+    {
+      "id": "88c14619-0a60-4993-abc4-11eded26695d",
+      "title": "Tofu smażone z warzywami i kaszą gryczaną",
+      "description": "Tofu przysmażone na złoto z brokułem, marchewką i papryką w sosie sojowym z imbirem, podane z kaszą gryczaną i sezamem.",
+      "mealType": "DINNER",
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1112,
+        "protein": 60,
+        "carbs": 105,
+        "fat": 47,
+        "fiber": 21,
+        "salt": 3.2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj kaszę gryczaną w osolonej wodzie zgodnie z opisem na opakowaniu."
+        },
+        {
+          "step": 2,
+          "instruction": "Odciśnij tofu z wody, pokrój w kostkę i smaż na rozgrzanym oleju, aż się zarumieni ze wszystkich stron. Zdejmij z patelni."
+        },
+        {
+          "step": 3,
+          "instruction": "Na tej samej patelni podsmaż różyczki brokuła, marchew w plasterkach i paprykę w paskach — 5 minut, żeby zostały jędrne."
+        },
+        {
+          "step": 4,
+          "instruction": "Dodaj przeciśnięty czosnek i imbir, wlej sos sojowy, wróć tofu na patelnię i wymieszaj."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj na kaszy, posypane sezamem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tofu",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kasza gryczana",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "brokuł",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "imbir mielony",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "sos sojowy",
+          "amount": 2,
+          "unit": "łyżka"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sezam",
+          "amount": 10,
+          "unit": "g"
+        }
+      ]
+    },
+    {
+      "id": "be1c9e29-6084-4109-9f17-6d47a955f90d",
+      "title": "Krem z czerwonej soczewicy z marchewką",
+      "description": "Gęsty krem z czerwonej soczewicy i marchewki, doprawiony kminem rzymskim. Gotuje się sam, a talerz syci jak pełny obiad.",
+      "mealType": "LUNCH",
+      "suitableMealTypes": [
+        "LUNCH",
+        "DINNER"
+      ],
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 862,
+        "protein": 43,
+        "carbs": 112,
+        "fat": 18,
+        "fiber": 26,
+        "salt": 2.4
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pokrój cebulę i marchew w kostkę. Zeszklij cebulę na oliwie, dodaj marchew i smaż 3 minuty."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj przeciśnięty czosnek, kmin rzymski i koncentrat pomidorowy, smaż minutę."
+        },
+        {
+          "step": 3,
+          "instruction": "Wsyp przepłukaną soczewicę, zalej bulionem warzywnym i gotuj pod przykryciem około 20 minut, aż soczewica się rozpadnie."
+        },
+        {
+          "step": 4,
+          "instruction": "Zblenduj zupę na gładki krem, dopraw solą i pieprzem."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj z natką pietruszki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "soczewica czerwona",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bulion warzywny",
+          "amount": 800,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "koncentrat pomidorowy",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "łyżeczka"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "szczypta"
+        }
+      ]
     }
   ]
 }
