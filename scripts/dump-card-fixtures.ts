@@ -12,6 +12,8 @@
  */
 import { buildPlanWeekCard } from '../src/agent/cards/plan-week-card';
 import { buildAppliedCard } from '../src/agent/cards/applied-card';
+import { buildPlanDayCard } from '../src/agent/cards/plan-day-card';
+import { buildClarifyCard } from '../src/agent/cards/clarify-card';
 
 const card = buildPlanWeekCard({
   proposalId: '55555555-5555-4555-8555-555555555555',
@@ -39,4 +41,33 @@ const applied = buildAppliedCard({
   canUndo: true,
 });
 
-console.log(JSON.stringify({ planWeek: card, applied }, null, 2));
+const planDay = buildPlanDayCard({
+  proposalId: '66666666-6666-4666-8666-666666666666',
+  weekStart: '2026-08-31',
+  dayOfWeek: 'TUE',
+  date: '2026-09-01',
+  note: 'Lekki wieczór po ciężkim obiedzie.',
+  preview: {
+    violations: [],
+    changes: { created: 2, updated: 0, deleted: 1 },
+    slots: [
+      { dayOfWeek: 'TUE', mealType: 'BREAKFAST', recipeId: 'r-4', title: 'Owsianka z bananem', kcalPerServing: 447, prepTimeMinutes: 12, participantIds: [], change: 'NEW' },
+      { dayOfWeek: 'TUE', mealType: 'LUNCH', recipeId: 'r-1', title: 'Kurczak w sosie curry z ryżem', kcalPerServing: 620, prepTimeMinutes: 35, participantIds: [], change: 'KEPT' },
+      { dayOfWeek: 'TUE', mealType: 'DINNER', recipeId: 'r-5', title: 'Omlet ze szpinakiem i fetą', kcalPerServing: 393, prepTimeMinutes: 12, participantIds: [], change: 'NEW' },
+      { dayOfWeek: 'WED', mealType: 'DINNER', recipeId: 'r-6', title: 'Gulasz wołowy', kcalPerServing: 700, prepTimeMinutes: 55, participantIds: [], change: 'KEPT' },
+    ],
+    removed: [{ dayOfWeek: 'TUE', mealType: 'DINNER', title: 'Pizza mrożona' }],
+  } as never,
+  targetKcalPerDay: 2100,
+  expiresAt: new Date('2026-09-03T10:00:00.000Z'),
+});
+
+const clarify = buildClarifyCard({
+  question: 'Dla ilu osób mam planować ten tydzień?',
+  hint: 'W profilu są cztery osoby, ale wspominałeś o weekendzie we dwoje.',
+  options: ['Dla czterech', 'Dla dwóch', 'Inaczej w weekend'],
+});
+
+console.log(
+  JSON.stringify({ planWeek: card, planDay, clarify, applied }, null, 2),
+);

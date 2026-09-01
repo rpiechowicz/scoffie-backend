@@ -26,7 +26,13 @@ import {
 } from '../proposals/agent-proposals.service';
 import { AgentCard } from '../cards/agent-cards';
 import { buildClarifyCard, MAX_CLARIFY_OPTIONS } from '../cards/clarify-card';
-import { DayOfWeek } from '@prisma/client';
+import {
+  buildOptionsCard,
+  MAX_OPTIONS,
+  optionPrompt,
+} from '../cards/options-card';
+import { OptionsCardItem, SwapCardSide } from '../cards/agent-cards';
+import { DayOfWeek, MealType } from '@prisma/client';
 
 /**
  * Kontekst tury: kto pyta i o które gospodarstwo.
@@ -172,7 +178,9 @@ export class AgentToolExecutor {
       );
     }
     if (
-      (name === 'propose_week_plan' || name === 'propose_day_plan') &&
+      (name === 'propose_week_plan' ||
+        name === 'propose_day_plan' ||
+        name === 'propose_swap') &&
       !context.proposalMode
     ) {
       return this.failure(
@@ -220,6 +228,12 @@ export class AgentToolExecutor {
 
       case 'ask_clarifying_question':
         return Promise.resolve(this.askClarifyingQuestion(input, context));
+
+      case 'offer_options':
+        return this.offerOptions(input, context);
+
+      case 'propose_swap':
+        return this.proposeSwap(input, context, str('week_start'));
 
       case 'propose_day_plan':
         return this.proposeDayPlan(input, context, str('week_start'));
@@ -345,6 +359,143 @@ export class AgentToolExecutor {
     return {
       asked: true,
       options: Math.min(options.length, MAX_CLARIFY_OPTIONS),
+    };
+  }
+
+  /**
+   * Dania do wyboru — karta bez propozycji.
+   *
+   * Nazwy, kalorie, czas i zdjęcie bierzemy Z BAZY, po identyfikatorach
+   * podanych przez model. Gdyby wypisywał je sam, kafelek pokazywałby liczby
+   * z jego pamięci — wyglądające dokładnie tak samo jak prawdziwe.
+   */
+  private async offerOptions(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<{ offered: number }> {
+    const raw = Array.isArray(input.options) ? input.options : [];
+    if (raw.length < 2) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Podaj co najmniej dwa dania do wyboru — jedno to nie wybór.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const unknownRefs = raw
+      .map((option) => asString((option as Record<string, unknown>)?.recipe))
+      .filter(
+        (ref) => /^R\d+$/.test(ref) && context.catalogIndex[ref] === undefined,
+      );
+    if (unknownRefs.length > 0) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takich przepisów w katalogu: ${unknownRefs.join(', ')}.`,
+        HttpStatus.NOT_FOUND,
+        unknownRefs,
+      );
+    }
+
+    const options: OptionsCardItem[] = [];
+    for (const option of raw.slice(0, MAX_OPTIONS)) {
+      const entry = (option ?? {}) as Record<string, unknown>;
+      const recipeId = this.resolveRecipeRef(asString(entry.recipe), context);
+      const detail = await this.recipeSide(recipeId, context);
+      const tag = asString(entry.tag).trim();
+      options.push({
+        recipeId,
+        title: detail.title,
+        kcalPerServing: detail.kcalPerServing,
+        prepTimeMinutes: detail.prepTimeMinutes,
+        imageUrl: detail.imageUrl,
+        tag: tag ? tag : null,
+        prompt: optionPrompt(detail.title),
+      });
+    }
+
+    const slotLabel = asString(input.slot_label).trim();
+    context.collectCard(
+      buildOptionsCard({
+        title: asString(input.title),
+        options,
+        ...(slotLabel ? { slotLabel } : {}),
+      }),
+    );
+    return { offered: options.length };
+  }
+
+  /**
+   * Podmiana jednego dania.
+   *
+   * „Przed” czytamy z planu, a nie od modelu: to jedyna strona tej karty,
+   * której model nie ma prawa znać z pamięci — a zarazem ta, po której
+   * użytkownik ocenia, czy podmiana ma sens.
+   */
+  private async proposeSwap(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<CreateWeekProposalResult> {
+    const dayOfWeek = asString(input.day_of_week) as DayOfWeek;
+    const mealType = asString(input.meal_type) as MealType;
+    const ref = asString(input.recipe);
+    if (/^R\d+$/.test(ref) && context.catalogIndex[ref] === undefined) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takiego przepisu w katalogu: ${ref}.`,
+        HttpStatus.NOT_FOUND,
+        [ref],
+      );
+    }
+    const recipeId = this.resolveRecipeRef(ref, context);
+
+    const current = await this.weeklyPlans.snapshotWeekAsSlots(
+      context.userId,
+      context.householdId,
+      weekStart,
+    );
+    const standing = current.find(
+      (slot) => slot.dayOfWeek === dayOfWeek && slot.mealType === mealType,
+    );
+
+    const reason = asString(input.reason).trim();
+    return this.proposals.createSwapProposal({
+      userId: context.userId,
+      householdId: context.householdId,
+      conversationId: context.conversationId,
+      turnId: context.turnId,
+      weekStart,
+      dayOfWeek,
+      mealType,
+      recipeId,
+      to: await this.recipeSide(recipeId, context),
+      from: standing ? await this.recipeSide(standing.recipeId, context) : null,
+      ...(reason ? { reason } : {}),
+    });
+  }
+
+  /**
+   * Dane dania na kartę — z bazy, przez bramkę widoczności przepisów.
+   *
+   * `findById` z `householdId` odmawia cudzych przepisów tak samo, jak
+   * odmówiłby ich użytkownikowi. Asystent nie ma tu żadnych względów.
+   */
+  private async recipeSide(
+    recipeId: string,
+    context: AgentToolContext,
+  ): Promise<SwapCardSide & { imageUrl: string | null }> {
+    const recipe = await this.recipes.findById(
+      context.userId,
+      recipeId,
+      context.householdId,
+    );
+    const servings = Math.max(1, recipe.servings ?? 1);
+    return {
+      recipeId,
+      title: recipe.title,
+      kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
+      prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
+      imageUrl: recipe.imageUrl ?? null,
     };
   }
 

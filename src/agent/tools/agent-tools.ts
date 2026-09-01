@@ -202,6 +202,67 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'offer_options',
+    description:
+      'Pokaż 2–4 DANIA DO WYBORU jako kafelki ze zdjęciem, kaloriami i czasem. ' +
+      'Używaj, gdy pytanie brzmi „co na kolację?" i sensownych odpowiedzi jest kilka — ' +
+      'wybór obrazkami jest szybszy niż lista w tekście. Dotknięcie kafelka wysyła zwykłą ' +
+      'wiadomość „Wybieram: …", więc po tym narzędziu KOŃCZYSZ turę i czekasz na wybór. ' +
+      'Nie używaj do pokazania planu — od tego są propose_week_plan i propose_day_plan.',
+    input_schema: object(
+      {
+        title: {
+          type: 'string',
+          description: 'Nagłówek karty, np. „Trzy szybkie kolacje".',
+        },
+        slot_label: {
+          type: 'string',
+          description: 'Czego dotyczy wybór, np. „Kolacja · wtorek".',
+        },
+        options: {
+          type: 'array',
+          description: '2–4 pozycje z katalogu.',
+          items: object(
+            {
+              recipe: RECIPE_REF,
+              tag: {
+                type: 'string',
+                description:
+                  'Jedno słowo, czym to danie się wyróżnia: „Najszybsze", „Najwięcej białka".',
+              },
+            },
+            ['recipe'],
+          ),
+        },
+      },
+      ['title', 'options'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'propose_swap',
+    description:
+      'Zaproponuj PODMIANĘ jednego dania w planie. Karta pokaże, co znika i co wchodzi, ' +
+      'razem z różnicą w czasie i kaloriach — to jest odpowiedź na „co się zmieni". ' +
+      'Podmiana wymienia CAŁY slot (dzień + posiłek) na jedno danie. ' +
+      'TY NIE ZAPISUJESZ — zapisze użytkownik jednym kliknięciem.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        day_of_week: DAY,
+        meal_type: MEAL,
+        recipe: RECIPE_REF,
+        reason: {
+          type: 'string',
+          description:
+            'Czego chciał użytkownik („żeby było szybciej"). Trafia w tytuł, gdy różnice są drobne.',
+        },
+      },
+      ['week_start', 'day_of_week', 'meal_type', 'recipe'],
+    ),
+    strict: true,
+  },
+  {
     name: 'propose_week_plan',
     description:
       'Pokaż użytkownikowi PROPOZYCJĘ tygodnia. Lista slots to stan docelowy: czego na niej nie ma, ' +

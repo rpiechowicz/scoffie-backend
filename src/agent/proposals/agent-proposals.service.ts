@@ -17,8 +17,9 @@ import { AgentCardState } from '../cards/agent-cards';
 import { appliedMessageText, buildAppliedCard, weekStartLabel } from '../cards/applied-card';
 import { buildPlanWeekCard } from '../cards/plan-week-card';
 import { buildPlanDayCard } from '../cards/plan-day-card';
-import { DayOfWeek } from '@prisma/client';
-import { dateForDay } from '../cards/agent-cards';
+import { buildSwapCard } from '../cards/swap-card';
+import { DayOfWeek, MealType } from '@prisma/client';
+import { dateForDay, SwapCardSide } from '../cards/agent-cards';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { weekBaselineHash } from './proposal-baseline';
 import type { MessageView } from '../agent-conversations.service';
@@ -41,6 +42,21 @@ export type CreateDayProposalInput = Omit<
   dayOfWeek: DayOfWeek;
   /** Stan docelowy WYŁĄCZNIE tego dnia; `dayOfWeek` dokłada serwis. */
   slots: Omit<ApplyWeekSlotDto, 'dayOfWeek'>[];
+};
+
+export type CreateSwapProposalInput = Omit<
+  CreateWeekProposalInput,
+  'slots' | 'note'
+> & {
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  recipeId: string;
+  /** Czego chciał użytkownik — trafia w tytuł, gdy nie ma czym się pochwalić. */
+  reason?: string;
+  /** Dane nowego dania; rozwiązuje je executor, bo to on zna katalog. */
+  to: SwapCardSide;
+  /** Dane dania, które stoi tam teraz; `null`, gdy slot jest pusty. */
+  from: SwapCardSide | null;
 };
 
 /**
@@ -234,6 +250,91 @@ export class AgentProposalsService {
         removed: preview.changes.deleted,
         averageKcalPerDay: card.summary.kcalTotal,
         targetKcalPerDay: card.summary.targetKcalPerDay,
+      },
+    };
+  }
+
+  /**
+   * Podmiana jednego dania.
+   *
+   * Slot potrafi mieć kilka pozycji naraz (dom, w którym każdy je co innego).
+   * Podmiana wymienia CAŁY slot na jedno danie — inaczej „podmień kolację”
+   * znaczyłoby raz jedno, raz drugie, w zależności od tego, czy ktoś w tym
+   * tygodniu rozdzielił porcje. Rozdzielaniem zajmuje się osobna karta.
+   */
+  async createSwapProposal(
+    input: CreateSwapProposalInput,
+  ): Promise<CreateWeekProposalResult> {
+    const baseline = await this.weeklyPlans.snapshotWeekAsSlots(
+      input.userId,
+      input.householdId,
+      input.weekStart,
+    );
+    const merged: ApplyWeekSlotDto[] = [
+      ...baseline.filter(
+        (slot) =>
+          slot.dayOfWeek !== input.dayOfWeek ||
+          slot.mealType !== input.mealType,
+      ),
+      {
+        dayOfWeek: input.dayOfWeek,
+        mealType: input.mealType,
+        recipeId: input.recipeId,
+      } as ApplyWeekSlotDto,
+    ];
+
+    const preview = await this.weeklyPlans.previewWeekPlan(
+      input.userId,
+      input.householdId,
+      input.weekStart,
+      { slots: merged },
+    );
+    if (preview.violations.length > 0 || preview.slots === null) {
+      return { proposed: false, violations: preview.violations };
+    }
+
+    const env = readAgentEnv();
+    const proposalId = randomUUID();
+    const expiresAt = new Date(Date.now() + env.proposalTtlMs);
+
+    const card = buildSwapCard({
+      proposalId,
+      weekStart: input.weekStart,
+      date: dateForDay(input.weekStart, input.dayOfWeek),
+      dayOfWeek: input.dayOfWeek,
+      mealType: input.mealType,
+      from: input.from,
+      to: input.to,
+      ...(input.reason ? { reason: input.reason } : {}),
+      expiresAt,
+    });
+
+    await this.prisma.agentProposal.create({
+      data: {
+        id: proposalId,
+        conversationId: input.conversationId,
+        turnId: input.turnId,
+        userId: input.userId,
+        householdId: input.householdId,
+        kind: 'SWAP',
+        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+        action: { slots: merged } as unknown as Prisma.InputJsonValue,
+        card: card as unknown as Prisma.InputJsonValue,
+        baselineHash: weekBaselineHash(baseline),
+        expiresAt,
+      },
+    });
+
+    return {
+      proposed: true,
+      proposalId,
+      summary: {
+        meals: 1,
+        created: preview.changes.created,
+        updated: preview.changes.updated,
+        removed: preview.changes.deleted,
+        averageKcalPerDay: input.to.kcalPerServing,
+        targetKcalPerDay: null,
       },
     };
   }

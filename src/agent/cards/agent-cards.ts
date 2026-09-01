@@ -23,6 +23,8 @@ export const AGENT_MESSAGE_KINDS = [
   'TEXT',
   'PLAN_WEEK',
   'PLAN_DAY',
+  'OPTIONS',
+  'SWAP',
   'CLARIFY',
   'APPLIED',
 ] as const;
@@ -206,6 +208,77 @@ export type PlanDayCard = {
   state: AgentCardState;
 };
 
+/** Jedna pozycja w karuzeli wyboru. */
+export type OptionsCardItem = {
+  recipeId: string;
+  title: string;
+  kcalPerServing: number;
+  prepTimeMinutes: number;
+  /** Zdjęcie z katalogu; `null`, gdy przepis go nie ma. */
+  imageUrl: string | null;
+  /** „Najszybsze”, „Najwięcej białka” — jedno słowo od modelu. */
+  tag: string | null;
+  /** Gotowe zdanie, które wyśle się po dotknięciu. */
+  prompt: string;
+};
+
+/**
+ * Kilka dań do wyboru.
+ *
+ * Karta bez propozycji i bez stanu: to jest PYTANIE zadane obrazkami.
+ * Dotknięcie wysyła zwykłą wiadomość („Wybieram: …”), a dopiero odpowiedź
+ * modelu kończy się propozycją, którą da się zatwierdzić. Wersja, w której
+ * kliknięcie od razu zapisuje, wymagałaby policzenia N pełnych podglądów
+ * tygodnia z góry — czyli zapłacenia za cztery propozycje, żeby użyć jednej.
+ */
+export type OptionsCard = {
+  kind: 'OPTIONS';
+  v: number;
+  eyebrow: string;
+  title: string;
+  options: OptionsCardItem[];
+  actions: AgentCardAction[];
+};
+
+/** Danie po jednej stronie podmiany. */
+export type SwapCardSide = {
+  recipeId: string;
+  title: string;
+  kcalPerServing: number;
+  prepTimeMinutes: number;
+};
+
+/** Różnica, którą warto pokazać: „−18 min”, „−230 kcal”. */
+export type SwapCardDelta = {
+  value: string;
+  label: string;
+  /** Czy ta zmiana idzie w stronę, o którą prosił użytkownik. */
+  good: boolean;
+};
+
+/**
+ * Podmiana jednego dania.
+ *
+ * Karta pokazuje PRZED i PO, bo pytanie brzmi „co się zmieni”, a nie „co
+ * będzie”. Sama nowa pozycja nie daje odpowiedzi, dla której użytkownik
+ * o podmianę poprosił.
+ */
+export type SwapCard = {
+  kind: 'SWAP';
+  v: number;
+  proposalId: string;
+  weekStart: string;
+  date: string;
+  eyebrow: string;
+  title: string;
+  /** `null`, gdy slot był pusty — wtedy to nie podmiana, tylko dołożenie. */
+  from: SwapCardSide | null;
+  to: SwapCardSide;
+  deltas: SwapCardDelta[];
+  actions: AgentCardAction[];
+  state: AgentCardState;
+};
+
 /**
  * Pytanie asystenta z gotowymi odpowiedziami.
  *
@@ -245,6 +318,8 @@ export type AppliedCard = {
 export type AgentCard =
   | PlanWeekCard
   | PlanDayCard
+  | OptionsCard
+  | SwapCard
   | ClarifyCard
   | AppliedCard;
 

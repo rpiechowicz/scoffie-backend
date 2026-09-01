@@ -52,6 +52,8 @@ describe('Narzędzia asystenta E2E', () => {
   const createdHouseholdIds: string[] = [];
 
   let firstCatalogIndex: string;
+  /// Drugi przepis na kolację — podmiana bez dwóch dań nie jest podmianą.
+  let secondCatalogIndex: string;
 
   const run = (name: string, input: Record<string, unknown> = {}) =>
     executor.execute(name, input, context);
@@ -105,6 +107,16 @@ describe('Narzędzia asystenta E2E', () => {
     );
     if (dinnerPosition < 0) throw new Error('katalog dev nie ma kolacji');
     firstCatalogIndex = Object.keys(digest.index)[dinnerPosition];
+    const secondDinner = recipes.findIndex(
+      (recipe, position) =>
+        position !== dinnerPosition &&
+        (recipe.suitableMealTypes.length > 0
+          ? recipe.suitableMealTypes
+          : [recipe.mealType]
+        ).includes('DINNER'),
+    );
+    if (secondDinner < 0) throw new Error('katalog ma tylko jedną kolację');
+    secondCatalogIndex = Object.keys(digest.index)[secondDinner];
 
     // Rozmowa musi istnieć NAPRAWDĘ: propozycja wisi na niej kluczem obcym
     // (kaskada z rozmowy to RODO), a zatwierdzenie dopisuje do niej wiadomość.
@@ -795,6 +807,72 @@ describe('Narzędzia asystenta E2E', () => {
       const result = await run('ask_clarifying_question', {
         question: 'A co Ty na to?',
         options: ['Nie wiem'],
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR' },
+      });
+    });
+
+    it('podmiana czyta „przed” z PLANU, nie od modelu', async () => {
+      // Wtorek ma już kolację z poprzedniego testu — to jest strona „przed”.
+      const swap = data<{ proposalId: string }>(
+        await run('propose_swap', {
+          week_start: PROPOSAL_WEEK,
+          day_of_week: 'TUE',
+          meal_type: 'DINNER',
+          recipe: secondCatalogIndex,
+          reason: 'Żeby było szybciej',
+        }),
+      );
+
+      const row = await prisma.agentProposal.findUnique({
+        where: { id: swap.proposalId },
+        select: { kind: true, card: true },
+      });
+      expect(row?.kind).toBe('SWAP');
+      const card = row?.card as {
+        from: { title: string } | null;
+        to: { title: string };
+        eyebrow: string;
+      };
+      expect(card.eyebrow).toBe('Podmiana · wtorek, kolacja');
+      // Obie strony pochodzą z bazy: model podał wyłącznie identyfikator.
+      expect(card.from?.title).toBeTruthy();
+      expect(card.to.title).toBeTruthy();
+      expect(card.from?.title).not.toBe(card.to.title);
+    });
+
+    it('dania do wyboru dostają nazwy i liczby z bazy, nie z pamięci modelu', async () => {
+      const before = collectedCards.length;
+
+      const result = data<{ offered: number }>(
+        await run('offer_options', {
+          title: 'Trzy szybkie kolacje',
+          slot_label: 'Kolacja · wtorek',
+          options: [
+            { recipe: firstCatalogIndex, tag: 'Najszybsze' },
+            { recipe: secondCatalogIndex },
+          ],
+        }),
+      );
+
+      expect(result.offered).toBe(2);
+      expect(collectedCards.length).toBe(before + 1);
+      const card = collectedCards[collectedCards.length - 1];
+      if (card.kind !== 'OPTIONS') throw new Error('oczekiwano karty wyboru');
+      expect(card.options).toHaveLength(2);
+      expect(card.options[0].title).toBeTruthy();
+      expect(card.options[0].prompt).toBe(`Wybieram: ${card.options[0].title}`);
+      expect(card.options[0].tag).toBe('Najszybsze');
+      // Wybór bez propozycji: dotknięcie wysyła wiadomość, nie zapisuje planu.
+      expect(card.actions.every((action) => action.type === 'ASK')).toBe(true);
+    });
+
+    it('jedno danie to nie wybór', async () => {
+      const result = await run('offer_options', {
+        title: 'Jedno',
+        options: [{ recipe: firstCatalogIndex }],
       });
       expect(result).toMatchObject({
         ok: false,
