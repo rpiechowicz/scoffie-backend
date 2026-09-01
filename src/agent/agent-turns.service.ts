@@ -394,6 +394,9 @@ export class AgentTurnsService {
       // klient — czy w ogóle umie pokazać kartę. Runner dostaje gotową
       // odpowiedź, żeby prompt i bramka narzędzi nie mogły się rozjechać.
       proposalMode: resolveProposalMode(env.cardsMode, data.clientCapabilities),
+      ...(data.scopeUserIds?.length
+        ? { scopeUserIds: data.scopeUserIds }
+        : {}),
       // Zdjęcie nie idzie do bazy — jedzie w pamięci prosto do modelu i znika
       // razem z turą. Runner biegnie in-process, więc nie ma tu żadnej
       // kolejki, przez którą musiałoby przejść.

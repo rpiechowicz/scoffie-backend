@@ -55,6 +55,8 @@ export type RunTurnInput = {
    * doczytać: po wyjściu z tej funkcji nie ma go już nigdzie.
    */
   image?: AgentProviderImage;
+  /** Kogo dotyczy pytanie; puste = całe gospodarstwo. */
+  scopeUserIds?: string[];
 };
 
 /** Ile ostatnich wiadomości rozmowy idzie do modelu jako kontekst. */
@@ -124,6 +126,7 @@ export class AgentTurnRunner {
         input.householdId,
         input.dates,
         input.proposalMode,
+        input.scopeUserIds ?? [],
       );
       const provider = this.providers.resolve(input.env);
       const result = await provider.run({

@@ -36,6 +36,13 @@ export type HouseholdPromptContext = {
   members: unknown;
   /** Czy model proponuje (i człowiek zatwierdza), czy zapisuje sam. */
   proposalMode: boolean;
+  /**
+   * Kogo dotyczy TO pytanie — imiona wybrane w aplikacji.
+   *
+   * Puste = całe gospodarstwo. Zakres jest wyborem użytkownika zrobionym
+   * PRZED wysłaniem, więc model nie ma go negocjować ani zgadywać z treści.
+   */
+  scopeNames: string[];
 };
 
 export const AGENT_INSTRUCTIONS = [
@@ -178,6 +185,16 @@ export function buildSystemPrompt(
     '',
     'DOMOWNICY (dieta, alergeny, cele) — z get_household_context:',
     JSON.stringify(context.members),
+    // Zakres na KOŃCU listy domowników, bo dotyczy właśnie ich — i tuż przed
+    // pamięcią, czyli najbliżej pytania.
+    ...(context.scopeNames.length > 0
+      ? [
+          '',
+          `TO PYTANIE DOTYCZY WYŁĄCZNIE: ${context.scopeNames.join(', ')}.`,
+          'Użytkownik wybrał te osoby w aplikacji przed wysłaniem. Planujesz dla nich',
+          'i wpisujesz je jako uczestników posiłków; reszty domu nie ruszasz.',
+        ]
+      : []),
     // Pamięć na KOŃCU bloku gospodarstwa: to najbardziej zmienna jego część
     // (rośnie z każdą zapamiętaną notatką), a blok i tak jest poza punktem cache.
     ...(context.memory ? ['', context.memory] : []),

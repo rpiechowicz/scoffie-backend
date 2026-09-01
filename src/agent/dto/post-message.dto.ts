@@ -107,6 +107,21 @@ export class PostMessageDto {
   @Type(() => PostMessageImageDto)
   image?: PostMessageImageDto;
 
+  /**
+   * Kogo dotyczy pytanie — identyfikatory domowników.
+   *
+   * Pusta lista i brak pola znaczą to samo: całe gospodarstwo. Wysyłamy
+   * IDENTYFIKATORY, a nie imiona, bo to jedyna postać, w której nie trzeba
+   * ich potem zgadywać: model dostaje je gotowe do wpisania w propozycję,
+   * zamiast dopasowywać „Ania" do wiersza w bazie.
+   */
+  @ApiPropertyOptional({ type: [String], format: 'uuid' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsUUID('4', { each: true })
+  scopeUserIds?: string[];
+
   @ApiPropertyOptional({ example: ['cards.v1'], type: [String] })
   @IsOptional()
   @IsArray()

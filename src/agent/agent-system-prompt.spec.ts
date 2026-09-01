@@ -19,7 +19,7 @@ const digest: CatalogDigest = {
   recipeCount: 1,
 };
 
-const context = (proposalMode: boolean) => ({
+const context = (proposalMode: boolean, scopeNames: string[] = []) => ({
   memory: 'PAMIĘĆ: Kuba nie je ryb',
   householdName: 'Dom',
   clientToday: '2026-09-02',
@@ -28,6 +28,7 @@ const context = (proposalMode: boolean) => ({
   enabledMealTypes: ['LUNCH', 'DINNER'],
   members: [],
   proposalMode,
+  scopeNames,
 });
 
 describe('resolveProposalMode', () => {
@@ -83,6 +84,33 @@ describe('buildSystemPrompt — tryb a cache', () => {
     expect(household.indexOf('Kuba nie je ryb')).toBeGreaterThan(
       household.indexOf('GOSPODARSTWO'),
     );
+  });
+});
+
+describe('zakres pytania', () => {
+  it('bez zakresu blok gospodarstwa o nim milczy', () => {
+    const household = buildSystemPrompt(digest, context(true))[2].text;
+    expect(household).not.toContain('TO PYTANIE DOTYCZY');
+  });
+
+  it('wybrane osoby wchodzą do promptu imionami, nie identyfikatorami', () => {
+    const household = buildSystemPrompt(
+      digest,
+      context(true, ['Ania', 'Zosia']),
+    )[2].text;
+    expect(household).toContain('TO PYTANIE DOTYCZY WYŁĄCZNIE: Ania, Zosia.');
+    // Zakres stoi PO domownikach: dotyczy właśnie ich, a model czyta to
+    // razem z ich celami i alergenami.
+    expect(household.indexOf('TO PYTANIE DOTYCZY')).toBeGreaterThan(
+      household.indexOf('DOMOWNICY'),
+    );
+  });
+
+  it('zakres nie rusza wspólnego prefiksu cache', () => {
+    const withScope = buildSystemPrompt(digest, context(true, ['Ania']));
+    const without = buildSystemPrompt(digest, context(true));
+    expect(withScope[0]).toEqual(without[0]);
+    expect(withScope[1]).toEqual(without[1]);
   });
 });
 
