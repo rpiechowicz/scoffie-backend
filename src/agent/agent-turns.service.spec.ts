@@ -92,6 +92,7 @@ describe('AgentTurnsService', () => {
       breaker,
       metrics,
       runner as unknown as AgentTurnRunner,
+      { withCardState: (messages: unknown) => messages } as never,
     );
   };
 

@@ -22,6 +22,7 @@ import { AgentConversationsService } from './agent-conversations.service';
 import { AgentMemoryService } from './agent-memory.service';
 import { MemoryQueryDto } from './dto/memory-query.dto';
 import { AgentTurnsService } from './agent-turns.service';
+import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
 import { PostMessageDto } from './dto/post-message.dto';
@@ -45,6 +46,7 @@ export class AgentController {
     private readonly conversations: AgentConversationsService,
     private readonly turns: AgentTurnsService,
     private readonly memory: AgentMemoryService,
+    private readonly proposals: AgentProposalsService,
   ) {}
 
   @Post('conversations')
@@ -105,6 +107,40 @@ export class AgentController {
   })
   getTurn(@CurrentUserId() userId: string, @Param('id') turnId: string) {
     return this.turns.getTurn(userId, turnId);
+  }
+
+  /**
+   * Zatwierdzenie propozycji — moment, w którym plan naprawdę się zmienia.
+   *
+   * Bez ciała: jednostką idempotencji jest sama propozycja, więc drugie
+   * kliknięcie dostaje ten sam wynik (200), a nie konflikt. Nie ma tu udziału
+   * modelu, więc operacja nie kosztuje ani jednego tokenu — i dlatego celowo
+   * NIE sprawdzamy `AI_ENABLED`: karta jest już na ekranie, a wyłączenie
+   * asystenta w międzyczasie nie może zostawić martwego przycisku.
+   */
+  @Post('proposals/:id/apply')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({
+    default: { limit: () => readThrottleLimit('THROTTLE_AGENT_MESSAGE_LIMIT') },
+  })
+  applyProposal(
+    @CurrentUserId() userId: string,
+    @Param('id') proposalId: string,
+  ) {
+    return this.proposals.apply(userId, proposalId);
+  }
+
+  /** Cofnięcie zapisu — okno czasowe i bramka na cudze zmiany w serwisie. */
+  @Post('proposals/:id/undo')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({
+    default: { limit: () => readThrottleLimit('THROTTLE_AGENT_MESSAGE_LIMIT') },
+  })
+  undoProposal(
+    @CurrentUserId() userId: string,
+    @Param('id') proposalId: string,
+  ) {
+    return this.proposals.undo(userId, proposalId);
   }
 
   /** RODO: „usuń moje rozmowy z asystentem". Działa też przy `AI_ENABLED=false`. */

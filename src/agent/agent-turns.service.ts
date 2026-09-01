@@ -13,6 +13,7 @@ import {
   MessageView,
 } from './agent-conversations.service';
 import { AgentProgressStep } from './agent-progress';
+import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { AgentTurnRunner } from './agent-turn.runner';
 import {
   AiUsageCountersService,
@@ -91,6 +92,7 @@ export class AgentTurnsService {
     private readonly breaker: UpstreamBreaker,
     private readonly metrics: AgentMetricsService,
     private readonly runner: AgentTurnRunner,
+    private readonly proposals: AgentProposalsService,
   ) {}
 
   async postMessage(
@@ -320,15 +322,18 @@ export class AgentTurnsService {
         where: { turnId: turn.id, role: 'ASSISTANT' },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       });
-      view.messages = messages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        kind: m.kind,
-        text: m.text,
-        clientMessageId: m.clientMessageId,
-        turnId: m.turnId,
-        createdAt: m.createdAt.toISOString(),
-      }));
+      view.messages = await this.proposals.withCardState(
+        messages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          kind: m.kind,
+          text: m.text,
+          clientMessageId: m.clientMessageId,
+          turnId: m.turnId,
+          createdAt: m.createdAt.toISOString(),
+          card: (m.card ?? null) as MessageView['card'],
+        })),
+      );
       view.usage = {
         inputTokens: turn.inputTokens,
         outputTokens: turn.outputTokens,

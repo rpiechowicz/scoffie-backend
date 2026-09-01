@@ -3,6 +3,8 @@ import { AgentProposalsService } from './agent-proposals.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { HouseholdsService } from '../../households/households.service';
 import { WeeklyPlansService } from '../../weekly-plans/weekly-plans.service';
+import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
+import { AiUsageCountersService } from '../ai-usage-counters.service';
 
 // Sedno modelu „agent proponuje, człowiek zatwierdza": tura NIC nie zapisuje
 // w planie. Te testy pilnują, że propozycja z naruszeniem nie powstaje wcale,
@@ -45,7 +47,13 @@ const makeDeps = (over: { preview?: unknown; members?: unknown } = {}) => {
       over.members ?? [{ userId, targets: { calorieGoal: 2100 } }],
     ),
   };
-  return { prisma, weeklyPlans, households };
+  const counters = {
+    monthKey: jest.fn().mockReturnValue('2026-04'),
+    tryConsume: jest.fn().mockResolvedValue(true),
+    add: jest.fn().mockResolvedValue(undefined),
+  };
+  const plansGateway = { broadcastWeekApplied: jest.fn() };
+  return { prisma, weeklyPlans, households, counters, plansGateway };
 };
 
 const buildService = async (deps: ReturnType<typeof makeDeps>) => {
@@ -55,6 +63,8 @@ const buildService = async (deps: ReturnType<typeof makeDeps>) => {
       { provide: PrismaService, useValue: deps.prisma },
       { provide: WeeklyPlansService, useValue: deps.weeklyPlans },
       { provide: HouseholdsService, useValue: deps.households },
+      { provide: AiUsageCountersService, useValue: deps.counters },
+      { provide: WeeklyPlansGateway, useValue: deps.plansGateway },
     ],
   }).compile();
   return module.get(AgentProposalsService);

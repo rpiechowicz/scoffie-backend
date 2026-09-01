@@ -5,6 +5,8 @@ import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
+import { AgentCard } from './cards/agent-cards';
+import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
 
@@ -51,6 +53,13 @@ export type MessageView = {
   clientMessageId: string | null;
   turnId: string | null;
   createdAt: string;
+  /**
+   * Treść strukturalna — `null` dla zwykłego `TEXT`.
+   *
+   * `text` broni się sam także wtedy, gdy karta jest: klient, który jej nie
+   * zna, ma pokazać zdanie i niczego nie stracić.
+   */
+  card?: AgentCard | null;
 };
 
 /** Ile wiadomości oddaje jeden odczyt historii (klient dobiera kursorem `after`). */
@@ -107,6 +116,9 @@ export class AgentConversationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: AgentConfigService,
+    // Stan kart liczy się przy odczycie, więc historia musi umieć o niego
+    // zapytać — inaczej przycisk „Dodaj do planu" żyłby wiecznie.
+    private readonly proposals: AgentProposalsService,
   ) {}
 
   async create(userId: string, dto: CreateConversationDto) {
@@ -242,17 +254,18 @@ export class AgentConversationsService {
       take: MESSAGES_PAGE_SIZE,
     });
 
-    return {
-      messages: messages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        kind: m.kind,
-        text: m.text,
-        clientMessageId: m.clientMessageId,
-        turnId: m.turnId,
-        createdAt: m.createdAt.toISOString(),
-      })),
-    };
+    const views: MessageView[] = messages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      kind: m.kind,
+      text: m.text,
+      clientMessageId: m.clientMessageId,
+      turnId: m.turnId,
+      createdAt: m.createdAt.toISOString(),
+      card: (m.card ?? null) as AgentCard | null,
+    }));
+
+    return { messages: await this.proposals.withCardState(views) };
   }
 
   /**
