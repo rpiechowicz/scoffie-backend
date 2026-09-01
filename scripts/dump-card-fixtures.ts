@@ -14,6 +14,8 @@ import { buildPlanWeekCard } from '../src/agent/cards/plan-week-card';
 import { buildAppliedCard } from '../src/agent/cards/applied-card';
 import { buildPlanDayCard } from '../src/agent/cards/plan-day-card';
 import { buildClarifyCard } from '../src/agent/cards/clarify-card';
+import { buildSwapCard } from '../src/agent/cards/swap-card';
+import { buildOptionsCard, optionPrompt } from '../src/agent/cards/options-card';
 
 const card = buildPlanWeekCard({
   proposalId: '55555555-5555-4555-8555-555555555555',
@@ -68,6 +70,32 @@ const clarify = buildClarifyCard({
   options: ['Dla czterech', 'Dla dwóch', 'Inaczej w weekend'],
 });
 
+const swap = buildSwapCard({
+  proposalId: '77777777-7777-4777-8777-777777777777',
+  weekStart: '2026-08-31',
+  date: '2026-09-01',
+  dayOfWeek: 'TUE',
+  mealType: 'DINNER',
+  from: { recipeId: 'r-1', title: 'Gulasz wołowy z kaszą', kcalPerServing: 720, prepTimeMinutes: 55 },
+  to: { recipeId: 'r-5', title: 'Omlet ze szpinakiem i fetą', kcalPerServing: 393, prepTimeMinutes: 12 },
+  reason: 'Żeby było szybciej',
+  expiresAt: new Date('2026-09-03T10:00:00.000Z'),
+});
+
+const options = buildOptionsCard({
+  title: 'Trzy szybkie kolacje',
+  slotLabel: 'Kolacja · wtorek',
+  options: [
+    { recipeId: 'r-5', title: 'Omlet ze szpinakiem i fetą', kcalPerServing: 393, prepTimeMinutes: 12, imageUrl: 'https://example.invalid/omlet.jpg', tag: 'Najszybsze', prompt: optionPrompt('Omlet ze szpinakiem i fetą') },
+    { recipeId: 'r-7', title: 'Sałatka z tuńczykiem', kcalPerServing: 340, prepTimeMinutes: 15, imageUrl: null, tag: null, prompt: optionPrompt('Sałatka z tuńczykiem') },
+    { recipeId: 'r-8', title: 'Tost z awokado i jajkiem', kcalPerServing: 420, prepTimeMinutes: 10, imageUrl: null, tag: 'Najwięcej białka', prompt: optionPrompt('Tost z awokado i jajkiem') },
+  ],
+});
+
 console.log(
-  JSON.stringify({ planWeek: card, planDay, clarify, applied }, null, 2),
+  JSON.stringify(
+    { planWeek: card, planDay, options, swap, clarify, applied },
+    null,
+    2,
+  ),
 );
