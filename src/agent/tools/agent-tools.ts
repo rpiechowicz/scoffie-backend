@@ -25,7 +25,17 @@ export type AgentToolDefinition = {
     additionalProperties: false;
   };
   /** Wejście MUSI zgadzać się ze schematem — halucynowane pole to błąd, nie dane. */
-  strict: true;
+  /**
+   * Wymuszenie schematu gramatyką po stronie API.
+   *
+   * Nie dla wszystkich: gramatyki WSZYSTKICH narzędzi ze `strict` kompilują
+   * się razem i API odmawia, gdy wyjdzie za duża („compiled grammar is too
+   * large"). Trzymamy je więc na narzędziach o płaskim wejściu, gdzie są
+   * tanie, a zdejmujemy z tych z zagnieżdżonymi listami obiektów — tam
+   * kosztują najwięcej, a nasza walidacja i tak sprawdza to samo i oddaje
+   * modelowi błąd jako dane.
+   */
+  strict?: boolean;
 };
 
 const object = (
@@ -195,7 +205,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['week_start', 'day_of_week', 'slots'],
     ),
-    strict: true,
   },
   {
     name: 'offer_options',
@@ -233,7 +242,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['title', 'slot_label', 'options'],
     ),
-    strict: true,
   },
   {
     name: 'propose_swap',
@@ -293,7 +301,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['week_start', 'day_of_week', 'meal_type', 'recipe', 'portions'],
     ),
-    strict: true,
   },
   {
     name: 'show_macro_gap',
@@ -335,7 +342,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['week_start', 'macro', 'boosters'],
     ),
-    strict: true,
   },
   {
     name: 'show_detected_items',
@@ -367,7 +373,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['items'],
     ),
-    strict: true,
   },
   {
     name: 'show_shopping_list',
@@ -422,7 +427,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['week_start', 'slots'],
     ),
-    strict: true,
   },
   {
     name: 'apply_week_plan',
@@ -465,7 +469,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['week_start', 'slots', 'dry_run'],
     ),
-    strict: true,
   },
   {
     name: 'create_recipe',
@@ -512,7 +515,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['title', 'meal_type', 'prep_time_minutes', 'servings', 'ingredients'],
     ),
-    strict: true,
   },
   {
     name: 'update_recipe',
@@ -553,7 +555,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['recipe_id'],
     ),
-    strict: true,
   },
   {
     name: 'remember_note',

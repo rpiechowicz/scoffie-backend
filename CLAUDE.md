@@ -111,11 +111,15 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
   akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
   jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie.
-- Limit schematów narzędzi asystenta: przy `strict: true` Anthropic odmawia (400), gdy pól
-  NIEOBOWIĄZKOWYCH w sumie wszystkich `AGENT_TOOLS` jest więcej niż 24 — cała tura pada, zanim
-  model cokolwiek zobaczy. Dostawca `stub` schematów nie waliduje, więc testy są wtedy zielone,
-  a błąd wychodzi dopiero u użytkownika; pilnuje tego spec w `agent-tools.spec.ts`. Nowe
-  narzędzie = policz zapas albo zrób pole wymaganym.
+- Schematy narzędzi asystenta mają DWA limity po stronie API i oba wywracają CAŁĄ turę (400),
+  zanim model cokolwiek zobaczy: (1) pól nieobowiązkowych w sumie wszystkich `AGENT_TOOLS`
+  najwyżej 24, (2) łączny rozmiar gramatyki skompilowanej z narzędzi ze `strict` („compiled
+  grammar is too large”). Dlatego `strict` jest WYBIÓRCZY: zostaje na narzędziach o płaskim
+  wejściu, schodzi z tych z zagnieżdżonymi listami obiektów (tam waży najwięcej, a walidacja
+  DTO i tak sprawdza to samo). Oba limity pilnują spec-i w `agent-tools.spec.ts`, ale jedyny
+  pewny sprawdzian to `pnpm exec tsx scripts/agent-tools-smoke.ts` — jedno żądanie do API za
+  grosze. Dostawca `stub` schematów NIE OGLĄDA, więc pełna suita bywa zielona przy schematach,
+  które padają u każdego użytkownika.
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
   Puste tagi są dla reguł diet faktem („czysto”), nie brakiem danych.
