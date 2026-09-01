@@ -181,6 +181,14 @@ export type WeekPlanPreviewSlot = {
   /** Kalorie na porcję — kartę interesuje ta liczba, nie suma przepisu. */
   kcalPerServing: number;
   prepTimeMinutes: number;
+  /**
+   * Zdjęcie dania; `null`, gdy przepis go nie ma.
+   *
+   * Idzie surowo z bazy, bez generatora obrazów z `RecipesService`: karta
+   * pokazuje miniaturę 40 px, a wygenerowany obrazek zastępczy kosztowałby
+   * tam więcej niż daje. Brak zdjęcia klient rysuje sam.
+   */
+  imageUrl: string | null;
   /** Puste = całe gospodarstwo (ta sama konwencja co w `PlanItem`). */
   participantIds: string[];
   /** Czy ta pozycja jest w tygodniu nowa, czy stała tam już wcześniej. */
@@ -1112,6 +1120,7 @@ export class WeeklyPlansService {
         servings: true,
         prepTimeMinutes: true,
         nutritionKcal: true,
+        imageUrl: true,
       },
     });
     const detailsById = new Map(details.map((row) => [row.id, row]));
@@ -1140,6 +1149,7 @@ export class WeeklyPlansService {
         title: detail?.title ?? '',
         kcalPerServing: Math.round((detail?.nutritionKcal ?? 0) / servings),
         prepTimeMinutes: detail?.prepTimeMinutes ?? 0,
+        imageUrl: detail?.imageUrl?.trim() ? detail.imageUrl : null,
         participantIds: slot.participantIds,
         change: currentKeys.has(slot.key) ? 'KEPT' : 'NEW',
       };

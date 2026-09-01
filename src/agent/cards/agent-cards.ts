@@ -125,6 +125,8 @@ export type PlanWeekCardSlot = {
   /** Kalorie NA PORCJĘ — karta mówi o talerzu, nie o garnku. */
   kcalPerServing: number;
   prepTimeMinutes: number;
+  /** Miniatura dania; `null`, gdy przepis nie ma zdjęcia. */
+  imageUrl: string | null;
   /** Puste = całe gospodarstwo. */
   participantIds: string[];
   change: 'NEW' | 'KEPT';
@@ -156,8 +158,15 @@ export type PlanWeekCard = {
   v: number;
   proposalId: string;
   weekStart: string;
-  /** „Propozycja planu · 1–7 września” — nadtytuł karty, gotowy do pokazania. */
+  /**
+   * „Propozycja planu” — nadtytuł karty.
+   *
+   * Zakres dat idzie OSOBNO (`eyebrowDetail`), a nie doklejony kropką: razem
+   * nie mieszczą się w jednym wierszu i łamią się w środku nazwy miesiąca.
+   */
   eyebrow: string;
+  /** „31 sierpnia – 6 września” — wiersz pod nadtytułem; `null`, gdy zbędny. */
+  eyebrowDetail: string | null;
   title: string;
   /** Jedno zdanie modelu „dlaczego tak”; `null`, gdy nic nie dopisał. */
   subtitle: string | null;
@@ -198,6 +207,7 @@ export type PlanDayCard = {
   /** Dzień, którego dotyczy — `YYYY-MM-DD`. */
   date: string;
   eyebrow: string;
+  eyebrowDetail: string | null;
   title: string;
   subtitle: string | null;
   slots: PlanWeekCardSlot[];

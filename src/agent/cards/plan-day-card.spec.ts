@@ -86,7 +86,10 @@ describe('buildPlanDayCard', () => {
         style: 'PRIMARY',
       },
     ]);
-    expect(card.eyebrow).toBe('Propozycja · wtorek 1 września');
+    // Nadtytuł i data osobno: razem nie mieszczą się w wierszu karty
+    // i łamią się w środku nazwy miesiąca.
+    expect(card.eyebrow).toBe('Propozycja dnia');
+    expect(card.eyebrowDetail).toBe('wtorek, 1 września');
     expect(card.state).toMatchObject({ status: 'PENDING', canApply: true });
   });
 });

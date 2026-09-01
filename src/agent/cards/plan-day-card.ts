@@ -48,7 +48,8 @@ export function buildPlanDayCard(input: {
     proposalId: input.proposalId,
     weekStart: input.weekStart,
     date: input.date,
-    eyebrow: `Propozycja · ${DAY_LABELS[input.dayOfWeek].toLowerCase()} ${longDateLabel(input.date)}`,
+    eyebrow: 'Propozycja dnia',
+    eyebrowDetail: `${DAY_LABELS[input.dayOfWeek].toLowerCase()}, ${longDateLabel(input.date)}`,
     title: dayTitle(kcalTotal, input.targetKcalPerDay),
     subtitle: input.note?.trim() ? input.note.trim() : null,
     slots: slots.map((slot) => cardSlot(slot)),
@@ -92,6 +93,7 @@ function cardSlot(slot: WeekPlanPreviewSlot) {
     title: slot.title,
     kcalPerServing: slot.kcalPerServing,
     prepTimeMinutes: slot.prepTimeMinutes,
+    imageUrl: slot.imageUrl,
     participantIds: slot.participantIds,
     change: slot.change,
   };
