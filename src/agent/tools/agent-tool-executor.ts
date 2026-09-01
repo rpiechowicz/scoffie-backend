@@ -31,7 +31,16 @@ import {
   MAX_OPTIONS,
   optionPrompt,
 } from '../cards/options-card';
-import { OptionsCardItem, SwapCardSide } from '../cards/agent-cards';
+import {
+  MacroGapBooster,
+  MacroKey,
+  OptionsCardItem,
+  SwapCardSide,
+} from '../cards/agent-cards';
+import { buildMacroGapCard, MAX_BOOSTERS } from '../cards/macro-gap-card';
+import { buildShoppingListCard } from '../cards/shopping-list-card';
+import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
+import { ShoppingDepartment } from '../../weekly-plans/types/shopping-department.enum';
 import { DayOfWeek, MealType } from '@prisma/client';
 
 /**
@@ -110,6 +119,7 @@ export class AgentToolExecutor {
     private readonly metrics: AgentMetricsService,
     private readonly memory: AgentMemoryService,
     private readonly proposals: AgentProposalsService,
+    private readonly shoppingList: ShoppingListService,
   ) {}
 
   async execute(
@@ -180,7 +190,8 @@ export class AgentToolExecutor {
     if (
       (name === 'propose_week_plan' ||
         name === 'propose_day_plan' ||
-        name === 'propose_swap') &&
+        name === 'propose_swap' ||
+        name === 'propose_household_split') &&
       !context.proposalMode
     ) {
       return this.failure(
@@ -234,6 +245,15 @@ export class AgentToolExecutor {
 
       case 'propose_swap':
         return this.proposeSwap(input, context, str('week_start'));
+
+      case 'propose_household_split':
+        return this.proposeHouseholdSplit(input, context, str('week_start'));
+
+      case 'show_macro_gap':
+        return this.showMacroGap(input, context, str('week_start'));
+
+      case 'show_shopping_list':
+        return this.showShoppingList(context, str('week_start'));
 
       case 'propose_day_plan':
         return this.proposeDayPlan(input, context, str('week_start'));
@@ -472,6 +492,190 @@ export class AgentToolExecutor {
       from: standing ? await this.recipeSide(standing.recipeId, context) : null,
       ...(reason ? { reason } : {}),
     });
+  }
+
+  /**
+   * Jedno danie, kilka talerzy.
+   */
+  private async proposeHouseholdSplit(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<CreateWeekProposalResult> {
+    const ref = asString(input.recipe);
+    if (/^R\d+$/.test(ref) && context.catalogIndex[ref] === undefined) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takiego przepisu w katalogu: ${ref}.`,
+        HttpStatus.NOT_FOUND,
+        [ref],
+      );
+    }
+
+    const raw = Array.isArray(input.portions) ? input.portions : [];
+    const portions = raw
+      .map((entry) => (entry ?? {}) as Record<string, unknown>)
+      .map((entry) => ({
+        userId: asString(entry.user_id),
+        note: asString(entry.note).trim() || null,
+      }))
+      .filter((portion) => portion.userId.length > 0);
+    if (portions.length === 0) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Podaj, kto je to danie — bez tego karta nie ma o czym mówić.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const recipeId = this.resolveRecipeRef(ref, context);
+    return this.proposals.createHouseholdSplitProposal({
+      userId: context.userId,
+      householdId: context.householdId,
+      conversationId: context.conversationId,
+      turnId: context.turnId,
+      weekStart,
+      dayOfWeek: asString(input.day_of_week) as DayOfWeek,
+      mealType: asString(input.meal_type) as MealType,
+      recipeId,
+      dish: await this.recipeSide(recipeId, context),
+      portions,
+    });
+  }
+
+  /**
+   * Lista zakupów tygodnia — policzona, nie przepisana.
+   *
+   * Modelowi oddajemy same liczniki. Gdyby dostał pozycje, wypisałby je
+   * w odpowiedzi obok karty — i użytkownik przeczytałby tę samą listę dwa
+   * razy, drugi raz gorzej sformatowaną.
+   */
+  private async showShoppingList(
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<{ remaining: number; checked: number; departments: number }> {
+    const items = await this.shoppingList.getShoppingList(
+      context.userId,
+      context.householdId,
+      weekStart,
+    );
+
+    const card = buildShoppingListCard({
+      weekStart,
+      items,
+      departmentOrder: Object.values(ShoppingDepartment),
+    });
+    context.collectCard(card);
+
+    return {
+      remaining: card.summary.remaining,
+      checked: card.summary.checked,
+      departments: card.groups.length,
+    };
+  }
+
+  /**
+   * Luka do celu — liczona TUTAJ, nie przepisana od modelu.
+   *
+   * Model dostaje z powrotem obie liczby, żeby mógł napisać zdanie zgodne
+   * z kartą. Gdyby liczył je sam, karta i tekst pod nią mówiłyby dwie różne
+   * rzeczy o tym samym tygodniu — i to tekst byłby tym błędnym.
+   */
+  private async showMacroGap(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<{ macro: MacroKey; current: number; target: number }> {
+    const macro = asString(input.macro).toUpperCase() as MacroKey;
+    const boosters: MacroGapBooster[] = (
+      Array.isArray(input.boosters) ? input.boosters : []
+    )
+      .map((entry) => (entry ?? {}) as Record<string, unknown>)
+      .map((entry) => ({
+        text: asString(entry.text).trim(),
+        amount:
+          typeof entry.amount === 'number' ? Math.round(entry.amount) : 0,
+      }))
+      .filter((booster) => booster.text.length > 0)
+      .slice(0, MAX_BOOSTERS);
+
+    const memberUserId = asString(input.member_user_id).trim();
+    const targetUserId = memberUserId || context.userId;
+
+    const [balance, members] = await Promise.all([
+      this.weeklyPlans.weeklyBalance(
+        context.userId,
+        context.householdId,
+        weekStart,
+        memberUserId || undefined,
+      ),
+      this.households.memberPreferences(context.userId, context.householdId),
+    ]);
+    const member = members.find((entry) => entry.userId === targetUserId);
+    if (!member) {
+      throw new AppException(
+        'PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD',
+        'Ta osoba nie należy do gospodarstwa.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const target = this.macroTarget(macro, member);
+    if (target === null) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Ta osoba nie ma policzonego celu dla tego makro — nie ma czego z czym porównać. ' +
+          'Powiedz to wprost zamiast pokazywać kartę.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Średnia z DNI, w których cokolwiek zaplanowano: dzieląc przez siedem,
+    // pusty piątek zaniżałby wynik i karta pokazywałaby brak tam, gdzie
+    // jest po prostu nieuzupełniony plan.
+    const planned = balance.days
+      .filter((day) => day.meals > 0)
+      .map((day) => this.macroValue(macro, day.planned));
+    const current = planned.length
+      ? Math.round(planned.reduce((sum, value) => sum + value, 0) / planned.length)
+      : 0;
+
+    context.collectCard(
+      buildMacroGapCard({
+        macro,
+        current,
+        target,
+        boosters,
+        scopeLabel:
+          targetUserId === context.userId ? 'ten tydzień' : member.displayName,
+      }),
+    );
+    return { macro, current, target };
+  }
+
+  private macroTarget(
+    macro: MacroKey,
+    member: { targets: { calorieGoal: number; macros: unknown } },
+  ): number | null {
+    if (macro === 'KCAL') return member.targets.calorieGoal;
+    const macros = member.targets.macros as Record<string, number> | null;
+    if (!macros) return null;
+    const key = { PROTEIN: 'proteinG', FAT: 'fatG', CARBS: 'carbsG' }[macro];
+    const value = key ? macros[key] : undefined;
+    return typeof value === 'number' ? Math.round(value) : null;
+  }
+
+  private macroValue(
+    macro: MacroKey,
+    planned: Record<string, number>,
+  ): number {
+    const key = {
+      PROTEIN: 'protein',
+      FAT: 'fat',
+      CARBS: 'carbs',
+      KCAL: 'kcal',
+    }[macro];
+    return Math.round(planned[key] ?? 0);
   }
 
   /**

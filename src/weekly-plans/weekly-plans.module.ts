@@ -10,6 +10,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
   // Dla narzędzi asystenta (`src/agent/tools`). Gateway wychodzi tylko po to,
   // żeby zapis wywołany kliknięciem w karcie rozgłaszał się tak samo jak zapis
   // z aplikacji — inaczej drugi telefon w domu nie wie o zmianie.
-  exports: [WeeklyPlansService, WeeklyPlansGateway],
+  exports: [WeeklyPlansService, WeeklyPlansGateway, ShoppingListService],
 })
 export class WeeklyPlansModule {}

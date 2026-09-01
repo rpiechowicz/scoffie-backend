@@ -18,8 +18,16 @@ import { appliedMessageText, buildAppliedCard, weekStartLabel } from '../cards/a
 import { buildPlanWeekCard } from '../cards/plan-week-card';
 import { buildPlanDayCard } from '../cards/plan-day-card';
 import { buildSwapCard } from '../cards/swap-card';
+import {
+  buildHouseholdSplitCard,
+  goalLabel,
+} from '../cards/household-split-card';
 import { DayOfWeek, MealType } from '@prisma/client';
-import { dateForDay, SwapCardSide } from '../cards/agent-cards';
+import {
+  dateForDay,
+  HouseholdSplitPortion,
+  SwapCardSide,
+} from '../cards/agent-cards';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { weekBaselineHash } from './proposal-baseline';
 import type { MessageView } from '../agent-conversations.service';
@@ -57,6 +65,19 @@ export type CreateSwapProposalInput = Omit<
   to: SwapCardSide;
   /** Dane dania, które stoi tam teraz; `null`, gdy slot jest pusty. */
   from: SwapCardSide | null;
+};
+
+export type CreateSplitProposalInput = Omit<
+  CreateWeekProposalInput,
+  'slots' | 'note'
+> & {
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  recipeId: string;
+  /** Danie: nazwa, czas i kalorie na porcję — rozwiązuje je executor. */
+  dish: SwapCardSide;
+  /** Kto je i jak podać; `note` jest jedyną częścią od modelu. */
+  portions: { userId: string; note: string | null }[];
 };
 
 /**
@@ -334,6 +355,125 @@ export class AgentProposalsService {
         updated: preview.changes.updated,
         removed: preview.changes.deleted,
         averageKcalPerDay: input.to.kcalPerServing,
+        targetKcalPerDay: null,
+      },
+    };
+  }
+
+  /**
+   * Jedno danie, kilka talerzy.
+   *
+   * Zapis jest zwyczajny — jedna pozycja w slocie z listą uczestników. Cała
+   * wartość karty siedzi w tym, czego plan nie pokaże: obok każdego imienia
+   * stoi JEGO cel i JEGO ograniczenia, wzięte z profilu. Model dokłada
+   * wyłącznie sposób podania, bo to jedyna rzecz, której w profilu nie ma.
+   */
+  async createHouseholdSplitProposal(
+    input: CreateSplitProposalInput,
+  ): Promise<CreateWeekProposalResult> {
+    const members = await this.households.memberPreferences(
+      input.userId,
+      input.householdId,
+    );
+    const known = new Map(members.map((member) => [member.userId, member]));
+    const unknown = input.portions
+      .map((portion) => portion.userId)
+      .filter((userId) => !known.has(userId));
+    if (unknown.length > 0) {
+      throw new AppException(
+        'PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD',
+        'Któraś z tych osób nie należy do gospodarstwa.',
+        HttpStatus.BAD_REQUEST,
+        unknown,
+      );
+    }
+
+    const participantIds = input.portions.map((portion) => portion.userId);
+    const baseline = await this.weeklyPlans.snapshotWeekAsSlots(
+      input.userId,
+      input.householdId,
+      input.weekStart,
+    );
+    const merged: ApplyWeekSlotDto[] = [
+      ...baseline.filter(
+        (slot) =>
+          slot.dayOfWeek !== input.dayOfWeek ||
+          slot.mealType !== input.mealType,
+      ),
+      {
+        dayOfWeek: input.dayOfWeek,
+        mealType: input.mealType,
+        recipeId: input.recipeId,
+        participantIds,
+      } as ApplyWeekSlotDto,
+    ];
+
+    const preview = await this.weeklyPlans.previewWeekPlan(
+      input.userId,
+      input.householdId,
+      input.weekStart,
+      { slots: merged },
+    );
+    if (preview.violations.length > 0 || preview.slots === null) {
+      return { proposed: false, violations: preview.violations };
+    }
+
+    const env = readAgentEnv();
+    const proposalId = randomUUID();
+    const expiresAt = new Date(Date.now() + env.proposalTtlMs);
+
+    const portions: HouseholdSplitPortion[] = input.portions.map((portion) => {
+      const member = known.get(portion.userId)!;
+      return {
+        userId: member.userId,
+        displayName: member.displayName,
+        goalLabel: goalLabel({
+          calorieGoal: member.targets.calorieGoal,
+          dietPreference: member.dietPreference,
+          allergens: member.allergens,
+        }),
+        note: portion.note,
+        kcal: input.dish.kcalPerServing,
+      };
+    });
+
+    const card = buildHouseholdSplitCard({
+      proposalId,
+      weekStart: input.weekStart,
+      date: dateForDay(input.weekStart, input.dayOfWeek),
+      dayOfWeek: input.dayOfWeek,
+      mealType: input.mealType,
+      title: input.dish.title,
+      prepTimeMinutes: input.dish.prepTimeMinutes,
+      portions,
+      expiresAt,
+    });
+
+    await this.prisma.agentProposal.create({
+      data: {
+        id: proposalId,
+        conversationId: input.conversationId,
+        turnId: input.turnId,
+        userId: input.userId,
+        householdId: input.householdId,
+        kind: 'HOUSEHOLD_SPLIT',
+        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+        action: { slots: merged } as unknown as Prisma.InputJsonValue,
+        card: card as unknown as Prisma.InputJsonValue,
+        baselineHash: weekBaselineHash(baseline),
+        expiresAt,
+      },
+    });
+
+    return {
+      proposed: true,
+      proposalId,
+      summary: {
+        meals: 1,
+        created: preview.changes.created,
+        updated: preview.changes.updated,
+        removed: preview.changes.deleted,
+        averageKcalPerDay: input.dish.kcalPerServing,
         targetKcalPerDay: null,
       },
     };

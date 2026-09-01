@@ -263,6 +263,95 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'propose_household_split',
+    description:
+      'Zaproponuj JEDNO danie dla kilku osób naraz i powiedz, jak podać je każdej z nich. ' +
+      'Używaj, gdy w domu są różne cele albo ograniczenia, a gotuje się jedno („co ugotować, ' +
+      'żeby każdy zjadł swoje"). Cele i alergeny karta bierze z profili — ty dokładasz sam ' +
+      'sposób podania (wielkość porcji, co odłożyć osobno, czego nie dosypywać). ' +
+      'TY NIE ZAPISUJESZ — zapisze użytkownik.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        day_of_week: DAY,
+        meal_type: MEAL,
+        recipe: RECIPE_REF,
+        portions: {
+          type: 'array',
+          description: 'Po jednej pozycji na osobę, która to je.',
+          items: object(
+            {
+              user_id: {
+                type: 'string',
+                description: 'Identyfikator domownika z get_household_context.',
+              },
+              note: {
+                type: 'string',
+                description:
+                  'Jak podać tej osobie: „Duża porcja + kasza 100 g", „Śmietana osobno".',
+              },
+            },
+            ['user_id'],
+          ),
+        },
+      },
+      ['week_start', 'day_of_week', 'meal_type', 'recipe', 'portions'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'show_macro_gap',
+    description:
+      'Pokaż, ile brakuje do celu makro w tym tygodniu, i zaproponuj 1–3 zmiany, które to ' +
+      'domkną. LICZBY LICZY SERWER z bilansu tygodnia i celów z profilu — ty podajesz wyłącznie ' +
+      'pomysły na zmianę wraz z szacunkiem, ile każda dodaje. Karta niczego nie zapisuje: ' +
+      'przycisk „zastosuj" wyśle wiadomość, po której ułożysz normalną propozycję.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        macro: {
+          type: 'string',
+          description: 'O co chodzi.',
+          enum: ['PROTEIN', 'FAT', 'CARBS', 'KCAL'],
+        },
+        member_user_id: {
+          type: 'string',
+          description: 'Czyj bilans; pominięte = osoby, z którą rozmawiasz.',
+        },
+        boosters: {
+          type: 'array',
+          description: '1–3 zmiany, każda jednym zdaniem.',
+          items: object(
+            {
+              text: {
+                type: 'string',
+                description:
+                  'Zmiana po ludzku: „Twarożek zamiast musli (śr.)".',
+              },
+              amount: {
+                type: 'integer',
+                description: 'Ile ta zmiana dodaje — w gramach albo kaloriach.',
+              },
+            },
+            ['text', 'amount'],
+          ),
+        },
+      },
+      ['week_start', 'macro', 'boosters'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'show_shopping_list',
+    description:
+      'Pokaż, co trzeba kupić na dany tydzień — po działach sklepu, z ilościami. ' +
+      'Listę liczy serwer z zaplanowanych posiłków, więc TY NIE WYPISUJESZ produktów ' +
+      'ani ilości w odpowiedzi; napisz jedno zdanie, a resztę pokaże karta. ' +
+      'Aplikacja nie wie, co użytkownik ma w domu — nie mów, czego mu „nie brakuje".',
+    input_schema: object({ week_start: WEEK_START }, ['week_start']),
+    strict: true,
+  },
+  {
     name: 'propose_week_plan',
     description:
       'Pokaż użytkownikowi PROPOZYCJĘ tygodnia. Lista slots to stan docelowy: czego na niej nie ma, ' +

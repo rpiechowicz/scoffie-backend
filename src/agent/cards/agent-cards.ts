@@ -25,6 +25,9 @@ export const AGENT_MESSAGE_KINDS = [
   'PLAN_DAY',
   'OPTIONS',
   'SWAP',
+  'HOUSEHOLD_SPLIT',
+  'MACRO_GAP',
+  'SHOPPING_LIST',
   'CLARIFY',
   'APPLIED',
 ] as const;
@@ -87,7 +90,7 @@ export function resolveProposalMode(
  * nie potrzebuje ani propozycji, ani kwoty planów.
  */
 export type AgentCardAction = {
-  type: 'APPLY' | 'UNDO' | 'OPEN_PLAN' | 'ASK';
+  type: 'APPLY' | 'UNDO' | 'OPEN_PLAN' | 'OPEN_SHOPPING' | 'ASK';
   proposalId: string | null;
   label: string;
   style: 'PRIMARY' | 'SECONDARY';
@@ -279,6 +282,103 @@ export type SwapCard = {
   state: AgentCardState;
 };
 
+/** Jedna osoba przy wspólnym daniu. */
+export type HouseholdSplitPortion = {
+  userId: string;
+  displayName: string;
+  /** „2 100 kcal · bez laktozy” — cel i ograniczenia prosto z profilu. */
+  goalLabel: string;
+  /** Jak podać TEJ osobie; jedno zdanie od modelu. */
+  note: string | null;
+  /** Ile z tego dania przypada na nią. */
+  kcal: number;
+};
+
+/**
+ * Jedno danie, kilka talerzy.
+ *
+ * Karta odpowiada na pytanie, którego nie da się zadać planowi tygodnia:
+ * „ugotuję jedno, ale jak to podać czterem osobom z czterema różnymi celami”.
+ * Cele i ograniczenia idą z PROFILÓW — model dokłada wyłącznie sposób podania.
+ */
+export type HouseholdSplitCard = {
+  kind: 'HOUSEHOLD_SPLIT';
+  v: number;
+  proposalId: string;
+  weekStart: string;
+  date: string;
+  eyebrow: string;
+  title: string;
+  prepTimeMinutes: number;
+  portions: HouseholdSplitPortion[];
+  actions: AgentCardAction[];
+  state: AgentCardState;
+};
+
+/** Zmiana, która domyka brak: „Twarożek zamiast musli (śr.)” +24 g. */
+export type MacroGapBooster = {
+  text: string;
+  amount: number;
+};
+
+/** Makro, o którym mówi karta. */
+export const MACRO_KEYS = ['PROTEIN', 'FAT', 'CARBS', 'KCAL'] as const;
+export type MacroKey = (typeof MACRO_KEYS)[number];
+
+/**
+ * Luka między planem a celem — i trzy rzeczy, które ją domykają.
+ *
+ * Liczby liczy SERWER z bilansu tygodnia i celów z profilu; model dokłada
+ * wyłącznie pomysły na zmianę. To jest rozdział, na którym stoi wiarygodność
+ * tej karty: „brakuje 44 g białka” z pamięci modelu wyglądałoby identycznie
+ * jak policzone, a nie znaczyłoby nic.
+ */
+export type MacroGapCard = {
+  kind: 'MACRO_GAP';
+  v: number;
+  eyebrow: string;
+  title: string;
+  macro: MacroKey;
+  /** „g” albo „kcal” — klient nie zgaduje jednostki. */
+  unit: string;
+  /** Średnia dzienna z planu. */
+  current: number;
+  /** Cel dzienny z profilu. */
+  target: number;
+  boosters: MacroGapBooster[];
+  actions: AgentCardAction[];
+};
+
+/** Dział sklepu z pozycjami — lista zakupów czyta się po alejkach. */
+export type ShoppingListCardGroup = {
+  department: string;
+  /** „Feta 2 op.” — nazwa z ilością, gotowa do pokazania. */
+  items: string[];
+};
+
+/**
+ * Czego brakuje na ten tydzień.
+ *
+ * UWAGA na nazwę: to NIE jest różnica wobec spiżarni. Aplikacja nie ma
+ * spiżarni i nie wie, co użytkownik ma w domu — jedyne, co wie, to które
+ * pozycje ktoś odhaczył. Karta mówi więc dokładnie tyle, ile serwer wie:
+ * co plan wymaga i ile z tego jest już odhaczone. Udawanie różnicy wobec
+ * zapasów byłoby liczbą wziętą znikąd.
+ */
+export type ShoppingListCard = {
+  kind: 'SHOPPING_LIST';
+  v: number;
+  weekStart: string;
+  eyebrow: string;
+  title: string;
+  groups: ShoppingListCardGroup[];
+  /** Ile pozycji zostało do kupienia i ile już odhaczono. */
+  summary: { remaining: number; checked: number };
+  /** `null`, gdy nic nie odhaczono — pusta linia mówiłaby o niczym. */
+  checkedNote: string | null;
+  actions: AgentCardAction[];
+};
+
 /**
  * Pytanie asystenta z gotowymi odpowiedziami.
  *
@@ -320,6 +420,9 @@ export type AgentCard =
   | PlanDayCard
   | OptionsCard
   | SwapCard
+  | HouseholdSplitCard
+  | MacroGapCard
+  | ShoppingListCard
   | ClarifyCard
   | AppliedCard;
 

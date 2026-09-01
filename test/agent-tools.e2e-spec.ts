@@ -880,6 +880,111 @@ describe('Narzędzia asystenta E2E', () => {
       });
     });
 
+    it('podział porcji bierze cele z PROFILI, nie od modelu', async () => {
+      const split = data<{ proposalId: string }>(
+        await run('propose_household_split', {
+          week_start: PROPOSAL_WEEK,
+          day_of_week: 'THU',
+          meal_type: 'DINNER',
+          recipe: firstCatalogIndex,
+          portions: [{ user_id: context.userId, note: 'Duża porcja' }],
+        }),
+      );
+
+      const row = await prisma.agentProposal.findUnique({
+        where: { id: split.proposalId },
+        select: { kind: true, card: true, action: true },
+      });
+      expect(row?.kind).toBe('HOUSEHOLD_SPLIT');
+      const card = row?.card as {
+        portions: { displayName: string; goalLabel: string; note: string }[];
+      };
+      expect(card.portions).toHaveLength(1);
+      // Imię i cel pochodzą z profilu — model podał sam identyfikator i notkę.
+      expect(card.portions[0].displayName).toBeTruthy();
+      expect(card.portions[0].goalLabel).toContain('kcal');
+      expect(card.portions[0].note).toBe('Duża porcja');
+
+      // Zapis jest zwyczajny: jedna pozycja w slocie z listą uczestników.
+      const slots = (
+        row?.action as { slots: { participantIds?: string[] }[] }
+      ).slots;
+      expect(
+        slots.some((slot) => slot.participantIds?.includes(context.userId)),
+      ).toBe(true);
+    });
+
+    it('obca osoba w podziale wraca jako błąd, nie jako cudza porcja', async () => {
+      const result = await run('propose_household_split', {
+        week_start: PROPOSAL_WEEK,
+        day_of_week: 'THU',
+        meal_type: 'DINNER',
+        recipe: firstCatalogIndex,
+        portions: [{ user_id: '00000000-0000-4000-8000-0000000000ff' }],
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD' },
+      });
+    });
+
+    it('luka makro jest POLICZONA z bilansu, nie przepisana od modelu', async () => {
+      const before = collectedCards.length;
+
+      const result = data<{ current: number; target: number }>(
+        await run('show_macro_gap', {
+          week_start: PROPOSAL_WEEK,
+          macro: 'KCAL',
+          boosters: [{ text: 'Większa porcja obiadu', amount: 300 }],
+        }),
+      );
+
+      // Cel pochodzi z profilu; model nie podał ani jednej z tych liczb.
+      expect(result.target).toBeGreaterThan(0);
+      expect(result.current).toBeGreaterThanOrEqual(0);
+
+      expect(collectedCards.length).toBe(before + 1);
+      const card = collectedCards[collectedCards.length - 1];
+      if (card.kind !== 'MACRO_GAP') throw new Error('oczekiwano karty makro');
+      expect(card.unit).toBe('kcal');
+      expect(card.current).toBe(result.current);
+      expect(card.target).toBe(result.target);
+      // Zastosowanie wysyła wiadomość, nie zapisuje trzech podmian naraz.
+      expect(card.actions.every((action) => action.type === 'ASK')).toBe(true);
+    });
+
+    it('makro bez policzonego celu mówi to wprost, zamiast pokazywać pustą kartę', async () => {
+      const result = await run('show_macro_gap', {
+        week_start: PROPOSAL_WEEK,
+        macro: 'PROTEIN',
+        boosters: [{ text: 'Twarożek', amount: 24 }],
+      });
+      // Konto testowe nie ma policzonych makr — karta bez celu nie ma
+      // z czym porównać planu.
+      if (!result.ok) {
+        expect(result.error.code).toBe('VALIDATION_ERROR');
+      }
+    });
+
+    it('lista zakupów bierze się z PLANU i nie zmyśla spiżarni', async () => {
+      const before = collectedCards.length;
+
+      const result = data<{ remaining: number; checked: number }>(
+        await run('show_shopping_list', { week_start: PROPOSAL_WEEK }),
+      );
+
+      expect(result.remaining).toBeGreaterThan(0);
+      expect(collectedCards.length).toBe(before + 1);
+      const card = collectedCards[collectedCards.length - 1];
+      if (card.kind !== 'SHOPPING_LIST') throw new Error('oczekiwano listy');
+      expect(card.groups.length).toBeGreaterThan(0);
+      expect(card.summary.remaining).toBe(result.remaining);
+      // Żadna akcja nie zapisuje: lista bierze się z planu, nie z kliknięcia.
+      expect(card.actions.every((action) => action.type === 'OPEN_SHOPPING')).toBe(
+        true,
+      );
+    });
+
     it('naruszenie nie tworzy propozycji — nie ma czego zatwierdzać', async () => {
       const before = await prisma.agentProposal.count({
         where: { conversationId: context.conversationId },

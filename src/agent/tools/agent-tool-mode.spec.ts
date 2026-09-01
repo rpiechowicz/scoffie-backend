@@ -8,6 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AgentMemoryService } from '../agent-memory.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { AgentProposalsService } from '../proposals/agent-proposals.service';
+import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
 import { AgentToolContext, AgentToolExecutor } from './agent-tool-executor';
 
 // Bramka trybu jest DRUGA po prompcie i jedyna, która nie zależy od tego, czy
@@ -48,6 +49,7 @@ describe('AgentToolExecutor — bramka trybu', () => {
         { provide: AgentMetricsService, useValue: {} },
         { provide: AgentMemoryService, useValue: {} },
         { provide: AgentProposalsService, useValue: { createWeekPlanProposal } },
+        { provide: ShoppingListService, useValue: {} },
       ],
     }).compile();
     executor = module.get(AgentToolExecutor);
