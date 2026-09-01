@@ -30,6 +30,7 @@ export const AGENT_MESSAGE_KINDS = [
   'HOUSEHOLD_SPLIT',
   'MACRO_GAP',
   'SHOPPING_LIST',
+  'DETECTED_ITEMS',
   'CLARIFY',
   'APPLIED',
 ] as const;
@@ -381,6 +382,31 @@ export type ShoppingListCard = {
   actions: AgentCardAction[];
 };
 
+/** Produkt rozpoznany na zdjęciu. */
+export type DetectedItem = {
+  name: string;
+  /** `false` = model nie jest pewien; karta stawia przy tym znak zapytania. */
+  sure: boolean;
+};
+
+/**
+ * Co asystent zobaczył na zdjęciu.
+ *
+ * Karta istnieje po to, żeby dało się go POPRAWIĆ. Model, który wymienia
+ * rozpoznane produkty w akapicie, zmusza do czytania listy w zdaniu i nie
+ * daje żadnego sygnału, czego jest pewien. Tutaj niepewne stoi obok pewnego
+ * ze znakiem zapytania — a użytkownik widzi jednym rzutem oka, czy warto
+ * sprostować, zanim asystent zacznie z tego gotować.
+ */
+export type DetectedItemsCard = {
+  kind: 'DETECTED_ITEMS';
+  v: number;
+  eyebrow: string;
+  title: string;
+  items: DetectedItem[];
+  actions: AgentCardAction[];
+};
+
 /**
  * Pytanie asystenta z gotowymi odpowiedziami.
  *
@@ -425,6 +451,7 @@ export type AgentCard =
   | HouseholdSplitCard
   | MacroGapCard
   | ShoppingListCard
+  | DetectedItemsCard
   | ClarifyCard
   | AppliedCard;
 

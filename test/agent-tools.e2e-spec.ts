@@ -985,6 +985,33 @@ describe('Narzędzia asystenta E2E', () => {
       );
     });
 
+    it('rozpoznane produkty odróżniają pewne od zgadniętych', async () => {
+      const before = collectedCards.length;
+
+      const result = data<{ detected: number; unsure: number }>(
+        await run('show_detected_items', {
+          items: [
+            { name: 'Jajka', sure: true },
+            { name: 'Coś w folii', sure: false },
+          ],
+        }),
+      );
+
+      expect(result).toEqual({ detected: 2, unsure: 1 });
+      const card = collectedCards[collectedCards.length - 1];
+      expect(collectedCards.length).toBe(before + 1);
+      if (card.kind !== 'DETECTED_ITEMS') throw new Error('oczekiwano listy');
+      expect(card.items[0]).toEqual({ name: 'Jajka', sure: true });
+    });
+
+    it('pusta lista rozpoznanych nie jest odpowiedzią', async () => {
+      const result = await run('show_detected_items', { items: [] });
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR' },
+      });
+    });
+
     it('naruszenie nie tworzy propozycji — nie ma czego zatwierdzać', async () => {
       const before = await prisma.agentProposal.count({
         where: { conversationId: context.conversationId },

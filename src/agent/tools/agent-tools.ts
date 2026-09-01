@@ -342,6 +342,38 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'show_detected_items',
+    description:
+      'Po zdjęciu: wypisz, CO NA NIM WIDZISZ, jako listę produktów. Przy każdym powiedz, ' +
+      'czy jesteś pewien (sure). Karta pokaże niepewne ze znakiem zapytania, żeby użytkownik ' +
+      'mógł je sprostować, zanim zaczniesz z nich planować. Nie wymieniaj tych samych ' +
+      'produktów jeszcze raz w odpowiedzi — są w karcie.',
+    input_schema: object(
+      {
+        items: {
+          type: 'array',
+          description: 'Produkty ze zdjęcia, najwyżej 12.',
+          items: object(
+            {
+              name: {
+                type: 'string',
+                description: 'Nazwa po polsku, w mianowniku: „Jajka", „Ser żółty".',
+              },
+              sure: {
+                type: 'boolean',
+                description:
+                  'true = rozpoznajesz na pewno. false = domyślasz się z kształtu albo opakowania.',
+              },
+            },
+            ['name', 'sure'],
+          ),
+        },
+      },
+      ['items'],
+    ),
+    strict: true,
+  },
+  {
     name: 'show_shopping_list',
     description:
       'Pokaż, co trzeba kupić na dany tydzień — po działach sklepu, z ilościami. ' +
