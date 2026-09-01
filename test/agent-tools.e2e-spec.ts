@@ -28,7 +28,13 @@ import {
  * wywrócić turę.
  */
 const WEEK_START = '2026-09-28';
-const CATALOG_HOUSEHOLD = '22222222-2222-4222-8222-222222222222';
+// Ta sama reguła co w `AgentPromptService.loadDigest()`: gospodarstwo
+// katalogowe ma inne id na dev, w CI i na produkcji. Wpisane na sztywno
+// znaczyło, że na maszynie z prawdziwym katalogiem cała suita padała na
+// „katalog dev nie ma kolacji" — czyli mówiła o katalogu, którego nie czytała.
+const CATALOG_HOUSEHOLD =
+  (process.env.RECIPE_IMPORT_HOUSEHOLD_ID ?? '').trim() ||
+  '22222222-2222-4222-8222-222222222222';
 
 describe('Narzędzia asystenta E2E', () => {
   let moduleRef: TestingModule;
@@ -675,11 +681,20 @@ describe('Narzędzia asystenta E2E', () => {
           ],
         }),
       );
-      // Propozycja bez `messageId` jest nieosiągalna z zewnątrz — w prawdziwej
-      // turze przypina ją runner przy domykaniu.
+      // Propozycja bez `messageId` jest z definicji nieosiągalna (tura padła
+      // w połowie). W prawdziwej turze przypina ją runner przy domykaniu —
+      // tu robimy to samo ręcznie, bo inaczej nie ma czego zatwierdzać.
+      const message = await prisma.agentMessage.create({
+        data: {
+          conversationId: context.conversationId,
+          role: 'ASSISTANT',
+          kind: 'PLAN_WEEK',
+          text: 'Proponuję taki tydzień.',
+        },
+      });
       await prisma.agentProposal.update({
         where: { id: proposed.proposalId },
-        data: { messageId: null },
+        data: { messageId: message.id },
       });
 
       const applied = await proposals.apply(context.userId, proposed.proposalId);

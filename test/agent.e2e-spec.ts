@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { STUB_TOOL_MARKER } from '../src/agent/providers/stub-agent.provider';
+import { CARDS_CAPABILITY_V1 } from '../src/agent/cards/agent-cards';
 
 /**
  * Asystent AI (Faza 0, krok 3) na żywym serwerze, z dostawcą `stub`.
@@ -45,7 +46,7 @@ type TurnView = {
   status: string;
   progress: { tool: string; label: string; at: string; writes: boolean }[];
   errorCode: string | null;
-  messages?: { role: string; text: string }[];
+  messages?: { role: string; text: string; kind?: string; card?: unknown }[];
   usage?: { inputTokens: number; outputTokens: number; costMicroUsd: number };
 };
 
@@ -67,6 +68,7 @@ describe('Agent E2E', () => {
     'AI_PROVIDER',
     'AI_STUB_DELAY_MS',
     'AI_LIMIT_MESSAGES_PER_MONTH',
+    'AI_CARDS_MODE',
     'THROTTLE_DEFAULT_LIMIT',
     'THROTTLE_IP_LIMIT',
     'THROTTLE_AGENT_MESSAGE_LIMIT',
@@ -661,6 +663,135 @@ describe('Agent E2E', () => {
         .set(auth(session.accessToken))
         .expect(200);
       expect(res.body).toEqual([]);
+    });
+  });
+
+  // Cały tor propozycji przez PRAWDZIWY serwer: tura kończy się kartą,
+  // plan zostaje nietknięty, a zmienia go dopiero kliknięcie użytkownika.
+  describe('propozycje i karty', () => {
+    let recipeId: string;
+
+    type CardMessage = {
+      role: string;
+      kind?: string;
+      card?: {
+        kind: string;
+        proposalId: string;
+        actions: { type: string; proposalId: string | null }[];
+        state: { status: string; canApply: boolean; canUndo: boolean };
+      };
+    };
+
+    const weekItems = () =>
+      prisma.planItem.count({
+        where: {
+          weeklyPlan: {
+            householdId,
+            weekStart: new Date(`${WEEK_START}T00:00:00.000Z`),
+          },
+        },
+      });
+
+    const history = async (conversationId: string): Promise<CardMessage[]> => {
+      const res = await request(app.getHttpServer())
+        .get(`/agent/conversations/${conversationId}/messages`)
+        .set(auth(session.accessToken))
+        .expect(200);
+      return (res.body as { messages: CardMessage[] }).messages;
+    };
+
+    beforeAll(async () => {
+      process.env.AI_CARDS_MODE = 'soft';
+      const dinner = await prisma.recipe.findFirst({
+        where: { isCatalog: true, suitableMealTypes: { has: 'DINNER' } },
+        select: { id: true },
+      });
+      if (!dinner) throw new Error('katalog nie ma kolacji');
+      recipeId = dinner.id;
+    });
+
+    afterAll(() => {
+      process.env.AI_CARDS_MODE = original.AI_CARDS_MODE;
+    });
+
+    it('tura kończy się kartą, a plan zostaje nietknięty', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: `Ułóż tydzień [[propose:${recipeId}:${WEEK_START}]]`,
+        clientCapabilities: [CARDS_CAPABILITY_V1],
+      }).expect(202);
+
+      const done = await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
+      expect(done.status).toBe('DONE');
+      // Plan się NIE zmienił — na tym polega cała obietnica.
+      expect(await weekItems()).toBe(0);
+
+      const messages = await history(conversation.id);
+      const assistant = messages[messages.length - 1];
+      expect(assistant.kind).toBe('PLAN_WEEK');
+      expect(assistant.card).toMatchObject({
+        kind: 'PLAN_WEEK',
+        state: { status: 'PENDING', canApply: true, canUndo: false },
+      });
+      const apply = assistant.card?.actions.find((a) => a.type === 'APPLY');
+      expect(apply?.proposalId).toBe(assistant.card?.proposalId);
+
+      // Zatwierdzenie: bez modelu, więc bez kosztu — i dopiero teraz plan.
+      const proposalId = assistant.card!.proposalId;
+      await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposalId}/apply`)
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(await weekItems()).toBe(1);
+
+      const afterApply = await history(conversation.id);
+      const applied = afterApply[afterApply.length - 1];
+      expect(applied.kind).toBe('APPLIED');
+      expect(applied.card?.actions.map((a) => a.type)).toContain('UNDO');
+      // Karta propozycji w HISTORII sama przestaje zapraszać do kliknięcia.
+      const stale = afterApply.find((m) => m.card?.kind === 'PLAN_WEEK');
+      expect(stale?.card?.state).toMatchObject({
+        status: 'APPLIED',
+        canApply: false,
+      });
+
+      await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposalId}/undo`)
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(await weekItems()).toBe(0);
+    });
+
+    it('klient bez `cards.v1` nie dostaje propozycji, której nie umie pokazać', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: `Ułóż tydzień [[propose:${recipeId}:${WEEK_START}]]`,
+      }).expect(202);
+
+      const done = await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
+      // Tura kończy się NORMALNIE: narzędzie spoza trybu odmawia jako dane,
+      // więc stary build dostaje zdanie zamiast błędu.
+      expect(done.status).toBe('DONE');
+
+      const messages = await history(conversation.id);
+      const assistant = messages[messages.length - 1];
+      expect(assistant.kind).toBe('TEXT');
+      expect(assistant.card).toBeNull();
+      expect(await weekItems()).toBe(0);
     });
   });
 
