@@ -19,6 +19,7 @@ import { buildOptionsCard, optionPrompt } from '../src/agent/cards/options-card'
 import { buildHouseholdSplitCard } from '../src/agent/cards/household-split-card';
 import { buildMacroGapCard } from '../src/agent/cards/macro-gap-card';
 import { buildShoppingListCard } from '../src/agent/cards/shopping-list-card';
+import { buildDetectedItemsCard } from '../src/agent/cards/detected-items-card';
 import { ShoppingDepartment } from '../src/weekly-plans/types/shopping-department.enum';
 
 const card = buildPlanWeekCard({
@@ -136,10 +137,19 @@ const shoppingList = buildShoppingListCard({
   ],
 });
 
+const detectedItems = buildDetectedItemsCard({
+  items: [
+    { name: 'Jajka', sure: true },
+    { name: 'Ser żółty', sure: true },
+    { name: 'Coś w folii na dolnej półce', sure: false },
+  ],
+});
+
 console.log(
   JSON.stringify(
     {
       planWeek: card,
+      detectedItems,
       planDay,
       options,
       swap,
