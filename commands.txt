@@ -99,10 +99,24 @@ railway run --service Backend pnpm exec tsx scripts/fix-recipe-image-urls.ts
 // Bez tego `Recipe.household`/`Recipe.author` (oba onDelete: Cascade)
 // zabralyby katalog razem z kontami.
 //
+// A) BEZPOSREDNIO NA RAILWAY (skrypt musi byc juz na main i wdrozony —
+//    `railway ssh` wchodzi do DZIALAJACEGO kontenera, a ten ma kod z ostatniego
+//    deployu; obraz wozi `scripts/`, `src/` i pelne node_modules z `tsx`).
+//    Leci po wewnetrznej sieci Railway, wiec nie potrzeba publicznego URL bazy.
+//
 // 1. Raport, nic nie kasuje — ZAWSZE najpierw to:
-railway run --service Backend pnpm accounts:reset
+railway ssh --service Backend -- sh -c 'cd /app && pnpm accounts:reset'
 //
 // 2. Wykonanie:
+railway ssh --service Backend -- sh -c 'cd /app && RESET_ACCOUNTS_WRITE=true pnpm accounts:reset'
+//
+// Gdyby corepack/pnpm w kontenerze marudzil — ta sama rzecz z pominieciem pnpm:
+railway ssh --service Backend -- sh -c 'cd /app && RESET_ACCOUNTS_WRITE=true node_modules/.bin/tsx scripts/reset-accounts.ts'
+//
+// B) Z LOKALNEGO CHECKOUTU (dziala PRZED merge — `railway run` odpala skrypt
+//    u ciebie na dysku, tylko ze zmiennymi produkcji; wymaga wiec galezi
+//    z tym plikiem i `pnpm install` na miejscu):
+railway run --service Backend pnpm accounts:reset
 railway run --service Backend RESET_ACCOUNTS_WRITE=true pnpm accounts:reset
 //
 // 3. Natychmiastowe wylogowanie WSZYSTKICH telefonow.
@@ -116,4 +130,4 @@ railway variables --service Backend --set "JWT_SECRET=$(openssl rand -hex 32)"
 //
 // 4. Kontrola po wszystkim:
 railway logs --service Backend -d -n 50
-railway run --service Backend pnpm accounts:reset   // ma pokazac 1 uzytkownika i 1 gospodarstwo
+railway ssh --service Backend -- sh -c 'cd /app && pnpm accounts:reset'   // ma pokazac 1 uzytkownika i 1 gospodarstwo
