@@ -134,6 +134,7 @@ describe('Narzędzia asystenta E2E', () => {
       turnId: '00000000-0000-4000-8000-00000000c0a2',
       // Domyślnie stary tor: reszta tej suity sprawdza zapis wprost.
       proposalMode: false,
+      scopeUserIds: [],
       collectCard: (card) => collectedCards.push(card),
     };
   });

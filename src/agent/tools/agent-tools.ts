@@ -261,6 +261,14 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           description:
             'Czego chciał użytkownik („żeby było szybciej"). Trafia w tytuł, gdy różnice są drobne.',
         },
+        participant_user_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Dla KOGO jest ta podmiana. Podane = tylko te osoby dostają nowe danie, ' +
+            'a reszta domu zostaje przy dotychczasowym. Pominięte = podmiana dla wszystkich, ' +
+            'czyli stare danie znika z planu.',
+        },
       },
       ['week_start', 'day_of_week', 'meal_type', 'recipe'],
     ),

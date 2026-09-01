@@ -21,13 +21,17 @@ describe('AgentToolExecutor — bramka trybu', () => {
   const applyWeekPlan = jest.fn();
   const createWeekPlanProposal = jest.fn();
 
-  const context = (proposalMode: boolean): AgentToolContext => ({
+  const context = (
+    proposalMode: boolean,
+    scopeUserIds: string[] = [],
+  ): AgentToolContext => ({
     userId: 'u-1',
     householdId: 'h-1',
     catalogIndex: { R01: 'r-1' },
     conversationId: 'c-1',
     turnId: 't-1',
     proposalMode,
+    scopeUserIds,
     collectCard: () => {},
   });
 
@@ -110,6 +114,52 @@ describe('AgentToolExecutor — bramka trybu', () => {
       error: { code: 'AI_TOOL_NOT_IN_MODE' },
     });
     expect(createWeekPlanProposal).not.toHaveBeenCalled();
+  });
+
+  // Druga połowa błędu „inne śniadanie niż Gaba": zakres pytania nie docierał
+  // do narzędzi wcale, więc posiłek szedł bez uczestników — czyli dla całego
+  // domu. Model nie ma obowiązku podawać uczestników; wartością domyślną musi
+  // być wybór użytkownika, a nie „wszyscy".
+  it('bez uczestników od modelu posiłek dostają osoby z ZAKRESU pytania', async () => {
+    await executor.execute(
+      'propose_week_plan',
+      { week_start: '2026-08-31', slots },
+      context(true, ['u-rafal']),
+    );
+
+    const passed = createWeekPlanProposal.mock.calls[0][0] as {
+      slots: { participantIds?: string[] }[];
+    };
+    expect(passed.slots[0].participantIds).toEqual(['u-rafal']);
+  });
+
+  it('uczestnicy podani przez model biją zakres', async () => {
+    await executor.execute(
+      'propose_week_plan',
+      {
+        week_start: '2026-08-31',
+        slots: [{ ...slots[0], participant_user_ids: ['u-gaba'] }],
+      },
+      context(true, ['u-rafal']),
+    );
+
+    const passed = createWeekPlanProposal.mock.calls[0][0] as {
+      slots: { participantIds?: string[] }[];
+    };
+    expect(passed.slots[0].participantIds).toEqual(['u-gaba']);
+  });
+
+  it('bez zakresu posiłek zostaje wspólny', async () => {
+    await executor.execute(
+      'propose_week_plan',
+      { week_start: '2026-08-31', slots },
+      context(true),
+    );
+
+    const passed = createWeekPlanProposal.mock.calls[0][0] as {
+      slots: { participantIds?: string[] }[];
+    };
+    expect(passed.slots[0].participantIds).toBeUndefined();
   });
 
   it('bramka dotyczy WYŁĄCZNIE tych dwóch narzędzi', async () => {

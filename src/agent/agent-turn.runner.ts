@@ -135,6 +135,7 @@ export class AgentTurnRunner {
             conversationId: input.conversationId,
             turnId: input.turnId,
             proposalMode: input.proposalMode,
+            scopeUserIds: input.scopeUserIds ?? [],
             collectCard: (card) => {
               pendingCard = card;
             },

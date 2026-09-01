@@ -65,6 +65,13 @@ export type CreateSwapProposalInput = Omit<
   to: SwapCardSide;
   /** Dane dania, które stoi tam teraz; `null`, gdy slot jest pusty. */
   from: SwapCardSide | null;
+  /**
+   * Dla kogo jest podmiana. Puste = dla całego domu.
+   *
+   * To rozróżnienie decyduje o tym, czy podmiana WYMIENIA slot, czy tylko
+   * wydziela z niego jedną porcję — patrz `createSwapProposal`.
+   */
+  participantIds: string[];
 };
 
 export type CreateSplitProposalInput = Omit<
@@ -291,18 +298,58 @@ export class AgentProposalsService {
       input.householdId,
       input.weekStart,
     );
-    const merged: ApplyWeekSlotDto[] = [
-      ...baseline.filter(
-        (slot) =>
-          slot.dayOfWeek !== input.dayOfWeek ||
-          slot.mealType !== input.mealType,
-      ),
-      {
-        dayOfWeek: input.dayOfWeek,
-        mealType: input.mealType,
-        recipeId: input.recipeId,
-      } as ApplyWeekSlotDto,
-    ];
+    const isSlot = (slot: { dayOfWeek: string; mealType: string }) =>
+      slot.dayOfWeek === input.dayOfWeek && slot.mealType === input.mealType;
+    const untouched = baseline.filter((slot) => !isSlot(slot));
+    const standing = baseline.filter(isSlot);
+
+    let merged: ApplyWeekSlotDto[];
+    if (input.participantIds.length === 0) {
+      // Podmiana dla całego domu WYMIENIA slot — inaczej „podmień kolację"
+      // znaczyłoby raz jedno, raz drugie, zależnie od tego, czy ktoś w tym
+      // tygodniu rozdzielił porcje.
+      merged = [
+        ...untouched,
+        {
+          dayOfWeek: input.dayOfWeek,
+          mealType: input.mealType,
+          recipeId: input.recipeId,
+        } as ApplyWeekSlotDto,
+      ];
+    } else {
+      // Podmiana DLA KOGOŚ nie ma prawa zabrać jedzenia reszcie domu.
+      // Z dotychczasowych pozycji wypisujemy wyłącznie te osoby, a pozycję
+      // kasujemy dopiero wtedy, gdy nie zostaje przy niej nikt. Pusta lista
+      // uczestników znaczy „wszyscy", więc najpierw trzeba ją rozwinąć —
+      // bez tego wypisanie jednej osoby nie miałoby z czego odjąć.
+      const everyone = await this.householdMemberIds(
+        input.userId,
+        input.householdId,
+      );
+      const leaving = new Set(input.participantIds);
+      const narrowed = standing
+        .map((slot) => {
+          const current = slot.participantIds?.length
+            ? slot.participantIds
+            : everyone;
+          const remaining = current.filter((userId) => !leaving.has(userId));
+          return remaining.length > 0
+            ? ({ ...slot, participantIds: remaining } as ApplyWeekSlotDto)
+            : null;
+        })
+        .filter((slot): slot is ApplyWeekSlotDto => slot !== null);
+
+      merged = [
+        ...untouched,
+        ...narrowed,
+        {
+          dayOfWeek: input.dayOfWeek,
+          mealType: input.mealType,
+          recipeId: input.recipeId,
+          participantIds: input.participantIds,
+        } as ApplyWeekSlotDto,
+      ];
+    }
 
     const preview = await this.weeklyPlans.previewWeekPlan(
       input.userId,
@@ -319,6 +366,11 @@ export class AgentProposalsService {
     const expiresAt = new Date(Date.now() + env.proposalTtlMs);
 
     const card = buildSwapCard({
+      forNames: await this.displayNames(
+        input.userId,
+        input.householdId,
+        input.participantIds,
+      ),
       proposalId,
       weekStart: input.weekStart,
       date: dateForDay(input.weekStart, input.dayOfWeek),
@@ -477,6 +529,43 @@ export class AgentProposalsService {
         targetKcalPerDay: null,
       },
     };
+  }
+
+  /**
+   * Identyfikatory wszystkich domowników.
+   *
+   * Potrzebne, żeby rozwinąć „pusta lista = wszyscy" na konkretne osoby —
+   * inaczej nie da się z takiej pozycji nikogo wypisać.
+   */
+  private async householdMemberIds(
+    userId: string,
+    householdId: string,
+  ): Promise<string[]> {
+    const members = await this.households.memberPreferences(
+      userId,
+      householdId,
+    );
+    return members.map((member) => member.userId);
+  }
+
+  /** Imiona do karty — „dla Rafała" czyta się, „dla 3fa85f64…" nie. */
+  private async displayNames(
+    userId: string,
+    householdId: string,
+    ids: readonly string[],
+  ): Promise<string[]> {
+    if (ids.length === 0) return [];
+    try {
+      const members = await this.households.memberPreferences(
+        userId,
+        householdId,
+      );
+      return members
+        .filter((member) => ids.includes(member.userId))
+        .map((member) => member.displayName);
+    } catch {
+      return [];
+    }
   }
 
   /**

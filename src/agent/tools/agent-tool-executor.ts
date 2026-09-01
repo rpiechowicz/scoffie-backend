@@ -72,6 +72,16 @@ export type AgentToolContext = {
    */
   proposalMode: boolean;
   /**
+   * Kogo dotyczy pytanie — wybór użytkownika zrobiony PRZED wysłaniem.
+   *
+   * Puste = całe gospodarstwo. To NIE jest podpowiedź dla modelu, tylko
+   * wartość domyślna audytorium: gdy model nie poda uczestników, posiłek
+   * dostają wybrane osoby, a nie cały dom. Odwrotna kolejność (model
+   * decyduje, zakres doradza) kończyła się tym, że „chcę inne śniadanie niż
+   * Gaba" zmieniało śniadanie CAŁEMU domowi.
+   */
+  scopeUserIds: string[];
+  /**
    * Karta, która NIE zapisuje niczego (pytanie, zestawienie, wybór).
    *
    * Propozycje idą przez bazę, bo muszą przeżyć pad procesu i dać się
@@ -480,6 +490,10 @@ export class AgentToolExecutor {
     );
 
     const reason = asString(input.reason).trim();
+    const participantIds = Array.isArray(input.participant_user_ids)
+      ? (input.participant_user_ids as string[])
+      : context.scopeUserIds;
+
     return this.proposals.createSwapProposal({
       userId: context.userId,
       householdId: context.householdId,
@@ -491,6 +505,7 @@ export class AgentToolExecutor {
       recipeId,
       to: await this.recipeSide(recipeId, context),
       from: standing ? await this.recipeSide(standing.recipeId, context) : null,
+      participantIds,
       ...(reason ? { reason } : {}),
     });
   }
@@ -521,7 +536,11 @@ export class AgentToolExecutor {
         note: asString(entry.note).trim() || null,
       }))
       .filter((portion) => portion.userId.length > 0);
-    if (portions.length === 0) {
+    const withScope =
+      portions.length > 0
+        ? portions
+        : context.scopeUserIds.map((userId) => ({ userId, note: null }));
+    if (withScope.length === 0) {
       throw new AppException(
         'VALIDATION_ERROR',
         'Podaj, kto je to danie — bez tego karta nie ma o czym mówić.',
@@ -540,7 +559,7 @@ export class AgentToolExecutor {
       mealType: asString(input.meal_type) as MealType,
       recipeId,
       dish: await this.recipeSide(recipeId, context),
-      portions,
+      portions: withScope,
     });
   }
 
@@ -902,13 +921,17 @@ export class AgentToolExecutor {
     if (!Array.isArray(slots)) return [];
     return slots.map((raw) => {
       const slot = (raw ?? {}) as Record<string, unknown>;
+      // Uczestnicy od modelu, a gdy ich nie podał — z zakresu pytania.
+      // Pusta tablica z obu stron znaczy „całe gospodarstwo" i tak zostaje.
+      const participantIds = Array.isArray(slot.participant_user_ids)
+        ? (slot.participant_user_ids as string[])
+        : context.scopeUserIds;
+
       return {
         dayOfWeek: slot.day_of_week,
         mealType: slot.meal_type,
         recipeId: this.resolveRecipeRef(asString(slot.recipe), context),
-        ...(Array.isArray(slot.participant_user_ids)
-          ? { participantIds: slot.participant_user_ids }
-          : {}),
+        ...(participantIds.length > 0 ? { participantIds } : {}),
         ...(typeof slot.planned_servings === 'number'
           ? { plannedServings: slot.planned_servings }
           : {}),

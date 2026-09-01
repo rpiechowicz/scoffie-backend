@@ -25,6 +25,8 @@ export function buildSwapCard(input: {
   to: SwapCardSide;
   /** Czego chciał użytkownik: po tym poznajemy, która zmiana jest „dobra”. */
   reason?: string | null;
+  /** Imiona osób, których dotyczy podmiana; puste = cały dom. */
+  forNames?: readonly string[];
   expiresAt: Date;
 }): SwapCard {
   const deltas = buildDeltas(input.from, input.to);
@@ -35,9 +37,7 @@ export function buildSwapCard(input: {
     proposalId: input.proposalId,
     weekStart: input.weekStart,
     date: input.date,
-    eyebrow: `Podmiana · ${DAY_LABELS[input.dayOfWeek].toLowerCase()}, ${MEAL_LABELS[
-      input.mealType
-    ].toLowerCase()}`,
+    eyebrow: eyebrow(input.dayOfWeek, input.mealType, input.forNames ?? []),
     title: swapTitle(deltas, input.reason, input.from !== null),
     from: input.from,
     to: input.to,
@@ -57,6 +57,31 @@ export function buildSwapCard(input: {
       until: input.expiresAt.toISOString(),
     },
   };
+}
+
+/**
+ * Nadtytuł mówi, KOGO dotyczy podmiana.
+ *
+ * Bez imienia karta „Podmiana · środa, śniadanie" wygląda identycznie dla
+ * zmiany całemu domowi i dla wydzielenia jednej porcji — a to są dwie zupełnie
+ * różne rzeczy i tylko jedna z nich zabiera jedzenie reszcie.
+ */
+function eyebrow(
+  day: DayOfWeek,
+  meal: MealType,
+  forNames: readonly string[],
+): string {
+  const slot = `${DAY_LABELS[day].toLowerCase()}, ${MEAL_LABELS[meal].toLowerCase()}`;
+  if (forNames.length === 0) return `Podmiana · ${slot}`;
+  // „tylko Rafał", a nie „dla Rafała": polskiej odmiany imion nie da się
+  // zrobić regułą — „Rafał → Rafała" działa, „Kinga → Kingi" już nie, a imion
+  // nie znamy z góry. Mianownik po „tylko" czyta się naturalnie i nigdy nie
+  // wychodzi z niego potworek.
+  const who =
+    forNames.length === 1
+      ? forNames[0]
+      : `${forNames.slice(0, -1).join(', ')} i ${forNames[forNames.length - 1]}`;
+  return `Podmiana · ${slot} · tylko ${who}`;
 }
 
 /**
