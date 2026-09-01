@@ -181,6 +181,7 @@ export class AgentConversationsService {
       SELECT DISTINCT ON ("conversationId") "conversationId", "text"
       FROM "AgentMessage"
       WHERE "conversationId" = ANY(${ids}::uuid[])
+        AND "hiddenAt" IS NULL
       ORDER BY "conversationId", "createdAt" DESC, "id" DESC
     `;
     const map = new Map<string, string>();
@@ -241,6 +242,10 @@ export class AgentConversationsService {
     const messages = await this.prisma.agentMessage.findMany({
       where: {
         conversationId,
+        // Wiadomości wycofane przez poprawienie pytania znikają z rozmowy.
+        // Zostają w bazie, bo wiszą na nich tury i propozycje — ale ekran
+        // ma pokazywać to, co użytkownik naprawdę powiedział na końcu.
+        hiddenAt: null,
         ...(after
           ? {
               OR: [

@@ -103,6 +103,7 @@ export const APP_ERROR_CODES = [
   // Minął termin ważności propozycji.
   'AI_PROPOSAL_EXPIRED',
   'AI_TURN_NOT_FOUND',
+  'AI_MESSAGE_NOT_FOUND',
   // Powody porażki tury (`AgentTurn.errorCode`), zwracane w GET /agent/turns/:id.
   'AI_TIMEOUT',
   'AI_PROVIDER_ERROR',

@@ -25,7 +25,7 @@ import { AgentTurnsService } from './agent-turns.service';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
-import { PostMessageDto } from './dto/post-message.dto';
+import { EditMessageDto, PostMessageDto } from './dto/post-message.dto';
 
 /**
  * Asystent po REST z JWT — nie po Socket.IO.
@@ -92,6 +92,34 @@ export class AgentController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const accepted = await this.turns.postMessage(
+      userId,
+      conversationId,
+      dto,
+      requestId,
+    );
+    res.setHeader('Location', `/agent/turns/${accepted.turnId}`);
+    return accepted;
+  }
+
+  /**
+   * Poprawienie własnego pytania — nowa tura zamiast edycji w miejscu.
+   *
+   * Ta sama trasa co wysyłka (202 + `Location`), bo z punktu widzenia klienta
+   * to jest wysłanie wiadomości; różnica jest w tym, co znika z rozmowy.
+   */
+  @Post('conversations/:id/messages/edit')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle({
+    default: { limit: () => readThrottleLimit('THROTTLE_AGENT_MESSAGE_LIMIT') },
+  })
+  async editMessage(
+    @CurrentUserId() userId: string,
+    @Param('id') conversationId: string,
+    @Body() dto: EditMessageDto,
+    @RequestId() requestId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const accepted = await this.turns.editMessage(
       userId,
       conversationId,
       dto,

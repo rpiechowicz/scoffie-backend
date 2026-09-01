@@ -115,3 +115,18 @@ export class PostMessageDto {
   @MaxLength(32, { each: true })
   clientCapabilities?: string[];
 }
+
+/**
+ * Poprawienie własnego pytania.
+ *
+ * To NIE jest edycja tekstu w miejscu: poprawka uruchamia nową turę, a to,
+ * co było po poprawianej wiadomości, znika z rozmowy. Inaczej użytkownik
+ * zostawałby z odpowiedzią na pytanie, którego już nie zadał — a model
+ * w kolejnej turze widziałby je dalej.
+ */
+export class EditMessageDto extends PostMessageDto {
+  /** Wiadomość do poprawienia — musi być WŁASNA i z tej rozmowy. */
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  messageId: string;
+}

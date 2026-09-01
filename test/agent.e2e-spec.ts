@@ -862,6 +862,107 @@ describe('Agent E2E', () => {
     });
   });
 
+  // Poprawka to nowa tura, a nie zmiana tekstu w miejscu. Sedno: to, co było
+  // po poprawianym pytaniu, znika — i z ekranu, i z historii dla modelu.
+  describe('poprawianie pytania', () => {
+    const editMessage = (
+      token: string,
+      conversationId: string,
+      body: Record<string, unknown>,
+    ) =>
+      request(app.getHttpServer())
+        .post(`/agent/conversations/${conversationId}/messages/edit`)
+        .set(auth(token))
+        .send({
+          weekStart: WEEK_START,
+          clientToday: CLIENT_TODAY,
+          timeZone: TIME_ZONE,
+          ...body,
+        });
+
+    const history = async (conversationId: string) => {
+      const res = await request(app.getHttpServer())
+        .get(`/agent/conversations/${conversationId}/messages`)
+        .set(auth(session.accessToken))
+        .expect(200);
+      return (res.body as { messages: { id: string; text: string }[] }).messages;
+    };
+
+    it('wycofuje pytanie i odpowiedź na nie, a potem pyta od nowa', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const first = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'Co na obiad w piątek?',
+      }).expect(202);
+      await pollTurn(session.accessToken, (first.body as AcceptedTurn).turnId);
+
+      const before = await history(conversation.id);
+      expect(before).toHaveLength(2);
+      const original = before[0];
+
+      const edited = await editMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        messageId: original.id,
+        text: 'Co na kolację w piątek?',
+      }).expect(202);
+      await pollTurn(session.accessToken, (edited.body as AcceptedTurn).turnId);
+
+      const after = await history(conversation.id);
+      // Rozmowa ma dwie wiadomości: poprawione pytanie i nowa odpowiedź.
+      expect(after).toHaveLength(2);
+      expect(after[0].text).toBe('Co na kolację w piątek?');
+      expect(after.some((message) => message.id === original.id)).toBe(false);
+      // Odpowiedź jest na NOWE pytanie, nie na wycofane.
+      expect(after[1].text).toContain('Co na kolację w piątek?');
+    });
+
+    it('cudza wiadomość: 404, nie cicha poprawka', async () => {
+      const other = await devLogin('Obcy');
+      const otherHousehold = await createHousehold(other.user.id, 'Obcy dom');
+      const mine = await createConversation(session.accessToken, householdId);
+      const sent = await postMessage(session.accessToken, mine.id, {
+        clientMessageId: randomUUID(),
+        text: 'Moje pytanie',
+      }).expect(202);
+      await pollTurn(session.accessToken, (sent.body as AcceptedTurn).turnId);
+      const messages = await history(mine.id);
+
+      const theirs = await createConversation(other.accessToken, otherHousehold);
+      await editMessage(other.accessToken, theirs.id, {
+        clientMessageId: randomUUID(),
+        messageId: messages[0].id,
+        text: 'Podmieniam cudze',
+      }).expect(404);
+    });
+
+    it('odpowiedź asystenta nie jest „własnym pytaniem”', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const sent = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: 'Pytanie',
+      }).expect(202);
+      await pollTurn(session.accessToken, (sent.body as AcceptedTurn).turnId);
+      const messages = await history(conversation.id);
+      const assistantMessage = messages[1];
+
+      const res = await editMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        messageId: assistantMessage.id,
+        text: 'Nie tak miałeś powiedzieć',
+      }).expect(404);
+      expect((res.body as { code: string }).code).toBe('AI_MESSAGE_NOT_FOUND');
+
+      // Nic nie zniknęło: nieudana poprawka nie rusza rozmowy.
+      expect(await history(conversation.id)).toHaveLength(2);
+    });
+  });
+
   describe('metryki', () => {
     it('/ops/metrics ma sekcję `agent` z policzonymi turami', async () => {
       const res = await request(app.getHttpServer())

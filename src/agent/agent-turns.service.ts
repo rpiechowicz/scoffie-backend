@@ -19,7 +19,7 @@ import {
   AiUsageCountersService,
   GLOBAL_SCOPE,
 } from './ai-usage-counters.service';
-import { PostMessageDto } from './dto/post-message.dto';
+import { EditMessageDto, PostMessageDto } from './dto/post-message.dto';
 import { resolveProposalMode } from './cards/agent-cards';
 import { UpstreamBreaker } from './upstream-breaker';
 
@@ -95,6 +95,99 @@ export class AgentTurnsService {
     private readonly runner: AgentTurnRunner,
     private readonly proposals: AgentProposalsService,
   ) {}
+
+  /**
+   * Poprawienie własnego pytania.
+   *
+   * Nie jest to edycja tekstu w miejscu. Poprawka WYCOFUJE poprawianą
+   * wiadomość i wszystko, co po niej — łącznie z odpowiedziami asystenta —
+   * i uruchamia nową turę. Inaczej użytkownik zostawałby z odpowiedzią na
+   * pytanie, którego już nie zadał, a model widziałby oba w kolejnej turze.
+   *
+   * Kolejność jest tu jedyną rzeczą, która naprawdę ma znaczenie: ukrywamy
+   * PRZED wysłaniem, bo tura startuje natychmiast i czyta historię — gdyby
+   * ukrycie przyszło po niej, model zobaczyłby dokładnie to, co poprawka
+   * miała usunąć. Gdy wysyłka odmówi (kwota, bezpiecznik, zajęta rozmowa),
+   * cofamy ukrycie: rozmowa ma wtedy wyglądać tak, jakby nikt niczego nie
+   * próbował.
+   */
+  async editMessage(
+    userId: string,
+    conversationId: string,
+    dto: EditMessageDto,
+    requestId: string,
+  ): Promise<AcceptedTurn> {
+    this.config.assertEnabled();
+    await this.conversations.loadOwned(userId, conversationId);
+    const data = await validateDto(EditMessageDto, dto);
+
+    const target = await this.prisma.agentMessage.findFirst({
+      where: {
+        id: data.messageId,
+        conversationId,
+        role: 'USER',
+        hiddenAt: null,
+      },
+      select: { id: true, createdAt: true },
+    });
+    if (!target) {
+      throw new AppException(
+        'AI_MESSAGE_NOT_FOUND',
+        'Nie znaleziono wiadomości do poprawienia.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Zbiór do wycofania liczymy PRZED czymkolwiek innym i po identyfikatorach,
+    // a nie po znaczniku czasu: nowa wiadomość powstanie za chwilę z tym samym
+    // `createdAt` co do milisekundy, a filtr po czasie zabrałby ją razem
+    // z resztą.
+    const doomed = await this.prisma.agentMessage.findMany({
+      where: {
+        conversationId,
+        hiddenAt: null,
+        OR: [
+          { createdAt: { gt: target.createdAt } },
+          { createdAt: target.createdAt, id: { gte: target.id } },
+        ],
+      },
+      select: { id: true },
+    });
+    const ids = doomed.map((message) => message.id);
+    const hiddenAt = new Date();
+    await this.prisma.agentMessage.updateMany({
+      where: { id: { in: ids } },
+      data: { hiddenAt },
+    });
+
+    try {
+      // `messageId` zostaje TUTAJ: wysyłka waliduje swoje DTO z whitelistą,
+      // więc nieznane pole zatrzymałoby poprawkę na 400 — i to po tym, jak
+      // wiadomości zostały już ukryte.
+      const { messageId: _edited, ...forwarded } = data;
+      const accepted = await this.postMessage(
+        userId,
+        conversationId,
+        forwarded as PostMessageDto,
+        requestId,
+      );
+      // Propozycje wiszące na wycofanych wiadomościach przestają być
+      // klikalne. Karta mogła zostać na drugim telefonie — a zatwierdzenie
+      // planu z pytania, które użytkownik właśnie wycofał, byłoby zapisem
+      // czegoś, czego nikt już nie chce.
+      await this.prisma.agentProposal.updateMany({
+        where: { messageId: { in: ids }, status: 'PENDING' },
+        data: { status: 'STALE' },
+      });
+      return accepted;
+    } catch (error) {
+      await this.prisma.agentMessage.updateMany({
+        where: { id: { in: ids }, hiddenAt },
+        data: { hiddenAt: null },
+      });
+      throw error;
+    }
+  }
 
   async postMessage(
     userId: string,

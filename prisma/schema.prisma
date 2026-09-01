@@ -567,6 +567,10 @@ model AgentMessage {
   clientMessageId String?  @db.Uuid
   turnId          String?  @db.Uuid
   createdAt       DateTime @default(now())
+  /// Wiadomość wycofana przez POPRAWIENIE pytania — znika z odczytu, ale
+  /// zostaje w bazie. Kasowanie zamieniłoby `AgentTurn` i `AgentProposal`
+  /// wskazujące na te wiersze w dziury, a księgę użycia w niepełną.
+  hiddenAt        DateTime?
 
   conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 

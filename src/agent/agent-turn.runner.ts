@@ -238,7 +238,11 @@ export class AgentTurnRunner {
     conversationId: string,
   ): Promise<AgentProviderMessage[]> {
     const rows = await this.prisma.agentMessage.findMany({
-      where: { conversationId },
+      // Poprawione pytanie i wszystko, co po nim, znika także z historii dla
+      // MODELU. Inaczej model widziałby pytanie, które użytkownik wycofał,
+      // i własną odpowiedź na nie — czyli dokładnie to, co poprawka miała
+      // usunąć z rozmowy.
+      where: { conversationId, hiddenAt: null },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: HISTORY_WINDOW,
       select: { role: true, text: true },

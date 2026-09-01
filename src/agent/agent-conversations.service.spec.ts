@@ -142,6 +142,7 @@ describe('AgentConversationsService', () => {
         expect.objectContaining({
           where: {
             conversationId: CONVERSATION,
+            hiddenAt: null,
             OR: [
               { createdAt: { gt: createdAt } },
               { createdAt, id: { gt: MESSAGE } },
