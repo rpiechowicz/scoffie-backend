@@ -68,6 +68,7 @@ export const APP_ERROR_CODES = [
   // Danie zawiera alergen kogoś, kto ma je zjeść. Twarda odmowa: do Fazy 1
   // pilnował tego wyłącznie prompt, a model nie widzi pełnej listy składników.
   'RECIPE_ALLERGEN_CONFLICT',
+  'RECIPE_EXCLUDED_INGREDIENT',
   // Próba edycji albo kasowania przepisu ze WSPÓLNEGO katalogu. Dla asystenta
   // to instrukcja, nie ślepa uliczka: ma zrobić własną kopię w gospodarstwie,
   // a nie ponawiać zapis.

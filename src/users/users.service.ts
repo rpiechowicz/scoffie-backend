@@ -343,6 +343,20 @@ export class UsersService {
       create.allergens = normalised;
     }
 
+    if (data.excludedIngredientIds !== undefined) {
+      // Bez deduplikacji ta sama pieczarka wpisana dwa razy przez asystenta
+      // i przez ustawienia dawałaby dwa wiersze w kontekście modelu.
+      update.excludedIngredientIds = Array.from(
+        new Set(data.excludedIngredientIds),
+      );
+      create.excludedIngredientIds = update.excludedIngredientIds;
+    }
+
+    if (data.maxPrepTimeMinutes !== undefined) {
+      update.maxPrepTimeMinutes = data.maxPrepTimeMinutes;
+      create.maxPrepTimeMinutes = data.maxPrepTimeMinutes ?? undefined;
+    }
+
     if (data.goal !== undefined) {
       update.goal = data.goal;
       create.goal = data.goal;

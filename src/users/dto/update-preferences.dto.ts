@@ -9,6 +9,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -68,6 +69,35 @@ export class UpdatePreferencesDto {
   @MaxLength(64, { each: true })
   @IsIn(ALLERGEN_IDS, { each: true })
   allergens?: string[];
+
+  /**
+   * Czego ten domownik nie je, choć nie jest to alergia.
+   *
+   * Identyfikatory składników, nie nazwy: „pieczarki" i „pieczarka" to dla
+   * bazy dwie różne rzeczy, a lista po nazwach rozjechałaby się przy
+   * pierwszej korekcie katalogu. Pusta tablica kasuje wykluczenia.
+   */
+  @ApiPropertyOptional({ type: [String], format: 'uuid' })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(40)
+  @IsUUID('4', { each: true })
+  excludedIngredientIds?: string[];
+
+  /**
+   * Ile minut najwyżej ma zajmować gotowanie; `null` kasuje ograniczenie.
+   *
+   * To podpowiedź dla asystenta, nie bramka w walidatorze planu — niedzielna
+   * pieczeń ma prawo trwać dłużej.
+   */
+  @ApiPropertyOptional({ example: 30, minimum: 5, maximum: 240, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsInt()
+  @Min(5)
+  @Max(240)
+  maxPrepTimeMinutes?: number | null;
 
   @ApiPropertyOptional({ enum: UserGoal, example: 'HEALTHY' })
   @IsOptional()
