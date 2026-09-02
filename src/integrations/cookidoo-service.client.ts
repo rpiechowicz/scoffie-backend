@@ -1,5 +1,6 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
+import { OpsAlertService } from '../observability/ops-alert.service';
 
 export type CookidooSubscriptionInfo = {
   active: boolean;
@@ -17,6 +18,9 @@ type ServiceErrorBody = {
 @Injectable()
 export class CookidooServiceClient {
   private readonly logger = new Logger(CookidooServiceClient.name);
+
+  constructor(@Optional() private readonly alerts?: OpsAlertService) {}
+
   private readonly baseUrl = (
     process.env.COOKIDOO_SERVICE_URL ?? 'http://localhost:8000'
   ).replace(/\/+$/, '');
@@ -62,6 +66,13 @@ export class CookidooServiceClient {
       this.logger.error(
         `Mikroserwis Cookidoo nieosiągalny (${path}): ${String(error)}`,
       );
+      // Nikt poza budżetem AI nie alarmował o awarii — użytkownicy widzieli
+      // „usługa niedostępna", a operator dowiadywał się z FAQ. Deduplikacja
+      // w `OpsAlertService` (jeden alert na klucz i okno).
+      void this.alerts?.notify(
+        'cookidoo-unavailable',
+        `Usługa Cookidoo nieosiągalna (${path}): ${String(error).slice(0, 200)}`,
+      );
       throw new AppException(
         'COOKIDOO_SERVICE_UNAVAILABLE',
         'Usługa Cookidoo jest chwilowo niedostępna.',
@@ -102,6 +113,7 @@ export class CookidooServiceClient {
           'Usługa Cookidoo jest błędnie skonfigurowana.',
           HttpStatus.SERVICE_UNAVAILABLE,
         );
+      case 'COOKIDOO_UPSTREAM_TIMEOUT':
       case 'COOKIDOO_UPSTREAM_ERROR':
         // Vorwerk odpowiedział błędem — mikroserwis żyje, to po drugiej
         // stronie coś nie gra. Zlewanie tego z „usługa niedostępna" chowało

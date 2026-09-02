@@ -1,9 +1,31 @@
 import { PrismaClient } from '@prisma/client';
+import { isLocalDatabaseUrl } from '../src/config/assert-env';
 import { normalizeText } from '../src/common/normalize-text.util';
 
 const prisma = new PrismaClient();
 
+/**
+ * Seed KASUJE wszystkie tabele. Był podpięty jako seed Prismy bez żadnego
+ * strażnika — jedno `prisma db seed` z produkcyjnym DATABASE_URL w env
+ * zdejmowało wszystkie konta. Ten sam wzorzec, co `reset-accounts`:
+ * dzisiejsza data w `SEED_CONFIRM`, a poza lokalną bazą odmowa zawsze.
+ */
+function assertSeedAllowed(): void {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!isLocalDatabaseUrl(process.env.DATABASE_URL)) {
+    throw new Error(
+      'Seed kasuje całą bazę i działa wyłącznie na lokalnym DATABASE_URL (localhost / docker). Nic nie zmieniono.',
+    );
+  }
+  if ((process.env.SEED_CONFIRM ?? '').trim() !== today) {
+    throw new Error(
+      `Seed kasuje całą bazę. Potwierdź: SEED_CONFIRM=${today} pnpm prisma:seed. Nic nie zmieniono.`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
+  assertSeedAllowed();
   await prisma.$transaction([
     prisma.planItem.deleteMany(),
     prisma.weeklyPlan.deleteMany(),

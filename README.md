@@ -94,7 +94,8 @@ Use [`.env.example`](./.env.example) as the source of truth.
 
 - `PORT`
 - `CORS_ORIGIN`
-- `WS_CORS_ORIGIN`
+- `WS_CORS_ORIGIN` — allowed socket origins; unset = same list as `CORS_ORIGIN` (never `*` in production)
+- `WS_HANDSHAKE_RATE_LIMIT` (300; `0` disables) — socket handshakes per IP per minute, checked before the token
 - `AUTH_DEV_LOGIN_ENABLED`
 - `WS_AUTH_MODE` (`soft` while old iOS builds are around, then `strict`)
 - `RECIPES_LIST_CACHE_ENABLED`

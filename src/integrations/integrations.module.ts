@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ObservabilityModule } from '../observability/observability.module';
 import { AuthModule } from '../auth/auth.module';
 import { ConsentsModule } from '../consents/consents.module';
 import { CookidooIntegrationService } from './cookidoo-integration.service';
@@ -9,7 +10,7 @@ import { IntegrationsController } from './integrations.controller';
 
 @Module({
   // AuthModule eksportuje JwtModule (dla JwtAuthGuard); PrismaModule jest @Global.
-  imports: [AuthModule, ConsentsModule],
+  imports: [AuthModule, ConsentsModule, ObservabilityModule],
   controllers: [IntegrationsController, HealthStepsController],
   providers: [
     CookidooIntegrationService,
