@@ -791,6 +791,35 @@ describe('Agent E2E', () => {
           { clientMessageId: randomUUID(), text: 'Trzecia' },
         ).expect(429);
         expect(blocked.body).toMatchObject({ code: 'AI_QUOTA_EXCEEDED' });
+        // 429 mówi, KIEDY limit wraca — telefon może pokazać datę zamiast
+        // gołego „wyczerpany".
+        expect(blocked.body.details).toEqual([
+          'kind:messages',
+          'limit:2',
+          'remaining:0',
+          expect.stringMatching(/^resetsAt:\d{4}-\d{2}-01T00:00:00\.000Z$/),
+        ]);
+
+        // Te same liczby z GET /agent/usage — bez turnięcia zużycia.
+        const usage = await request(app.getHttpServer())
+          .get('/agent/usage')
+          .query({ householdId: quotaHousehold })
+          .set(auth(quotaUser.accessToken))
+          .expect(200);
+        expect(usage.body).toMatchObject({
+          householdId: quotaHousehold,
+          tier: 'FREE',
+          messages: { used: 2, limit: 2, remaining: 0 },
+          plans: { used: 0, remaining: expect.any(Number) },
+        });
+        expect(usage.body.resetsAt).toMatch(/-01T00:00:00\.000Z$/);
+
+        // Cudze gospodarstwo: członkostwo PRZED liczbami.
+        await request(app.getHttpServer())
+          .get('/agent/usage')
+          .query({ householdId: quotaHousehold })
+          .set(auth(session.accessToken))
+          .expect(403);
       } finally {
         delete process.env.AI_LIMIT_MESSAGES_PER_MONTH;
       }

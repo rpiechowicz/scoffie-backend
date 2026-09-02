@@ -21,7 +21,9 @@ import { readThrottleLimit } from '../common/throttle/throttle-env';
 import { AgentConversationsService } from './agent-conversations.service';
 import { AgentMemoryService } from './agent-memory.service';
 import { AgentReportsService } from './agent-reports.service';
+import { AgentUsageService } from './agent-usage.service';
 import { MemoryQueryDto } from './dto/memory-query.dto';
+import { UsageQueryDto } from './dto/usage-query.dto';
 import { ReportMessageDto } from './dto/report-message.dto';
 import { AgentTurnsService } from './agent-turns.service';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
@@ -50,7 +52,22 @@ export class AgentController {
     private readonly memory: AgentMemoryService,
     private readonly proposals: AgentProposalsService,
     private readonly reports: AgentReportsService,
+    private readonly usageService: AgentUsageService,
   ) {}
+
+  /**
+   * „Ile mi zostało" — zużycie i limity miesiąca dla gospodarstwa oraz data
+   * odnowienia. Bez `assertEnabled`: liczby są prawdziwe także przy
+   * wyłączonym asystencie. Limit pollingu: telefon odświeża to przy każdym
+   * otwarciu zakładki.
+   */
+  @Get('usage')
+  @Throttle({
+    default: { limit: () => readThrottleLimit('THROTTLE_AGENT_POLL_LIMIT') },
+  })
+  usage(@CurrentUserId() userId: string, @Query() query: UsageQueryDto) {
+    return this.usageService.usage(userId, query.householdId);
+  }
 
   /**
    * „Zgłoś odpowiedź" — bez `assertEnabled`: zgłosić można to, co się już

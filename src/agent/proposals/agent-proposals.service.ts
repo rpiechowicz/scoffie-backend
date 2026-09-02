@@ -682,6 +682,7 @@ export class AgentProposalsService {
         'AI_PLAN_QUOTA_EXCEEDED',
         `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany.`,
         HttpStatus.TOO_MANY_REQUESTS,
+        this.counters.quotaDetails('plans', limit),
       );
     }
 

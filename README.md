@@ -162,7 +162,10 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   silently mean "unlimited"; `0` stops every turn.
 
 Usage is written to `AiUsage` per turn and summarised in `GET /ops/metrics` →
-`agent`. `DELETE /agent/conversations` wipes a user's conversations and works
+`agent`. `GET /agent/usage?householdId=` returns the month's `messages` and
+`plans` as `{used, limit, remaining}` with `resetsAt` (first day of next
+month, UTC) and `tier` (always `FREE` today); a 429 for either quota carries
+the same numbers in `details` (`kind`, `limit`, `remaining`, `resetsAt`). `DELETE /agent/conversations` wipes a user's conversations and works
 even with the assistant disabled.
 
 ### Operations

@@ -92,6 +92,7 @@ const makeDeps = (
     monthKey: jest.fn().mockReturnValue('2026-04'),
     tryConsume: jest.fn().mockResolvedValue(true),
     add: jest.fn().mockResolvedValue(undefined),
+    quotaDetails: jest.fn().mockReturnValue(['kind:plans']),
   };
   const plansGateway = { broadcastWeekApplied: jest.fn() };
   const households = { memberPreferences: jest.fn().mockResolvedValue([]) };

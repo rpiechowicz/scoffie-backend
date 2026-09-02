@@ -7,6 +7,7 @@ import { WeeklyPlansModule } from '../weekly-plans/weekly-plans.module';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { AgentRetentionService } from './agent-retention.service';
 import { AgentReportsService } from './agent-reports.service';
+import { AgentUsageService } from './agent-usage.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
 import { AgentPromptService } from './agent-prompt.service';
 import { ObservabilityModule } from '../observability/observability.module';
@@ -60,6 +61,7 @@ import { UpstreamBreaker } from './upstream-breaker';
     AgentPromptService,
     AgentRetentionService,
     AgentReportsService,
+    AgentUsageService,
     StubAgentProvider,
     AnthropicAgentProvider,
     // Jeden bezpiecznik na proces — stan współdzielą wszystkie rozmowy,

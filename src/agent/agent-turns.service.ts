@@ -318,6 +318,7 @@ export class AgentTurnsService {
             'AI_QUOTA_EXCEEDED',
             'Limit wiadomości asystenta na ten miesiąc został wyczerpany.',
             HttpStatus.TOO_MANY_REQUESTS,
+            this.counters.quotaDetails('messages', env.messagesPerMonth),
           );
         }
 

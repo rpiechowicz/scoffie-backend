@@ -82,6 +82,7 @@ describe('AgentTurnsService', () => {
     read: jest.fn(),
     tryConsume: jest.fn(),
     add: jest.fn(),
+    quotaDetails: jest.fn().mockReturnValue(['kind:messages']),
   };
   const runner = { run: jest.fn() };
   let breaker: UpstreamBreaker;

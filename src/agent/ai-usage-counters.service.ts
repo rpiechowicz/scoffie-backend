@@ -46,6 +46,31 @@ export class AiUsageCountersService {
   }
 
   /**
+   * Kiedy odnawia się kwota miesięczna: północ UTC pierwszego dnia
+   * następnego miesiąca. Do odpowiedzi `GET /agent/usage` i do `details`
+   * przy 429 — użytkownik ma wiedzieć, KIEDY limit wraca, nie tylko że go nie ma.
+   */
+  monthResetsAt(now: Date = new Date()): Date {
+    return new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0),
+    );
+  }
+
+  /** `details` dla 429 — te same pola, co w `GET /agent/usage`. */
+  quotaDetails(
+    kind: UsageKind,
+    limit: number,
+    now: Date = new Date(),
+  ): string[] {
+    return [
+      `kind:${kind}`,
+      `limit:${limit}`,
+      'remaining:0',
+      `resetsAt:${this.monthResetsAt(now).toISOString()}`,
+    ];
+  }
+
+  /**
    * Zdejmuje 1 z kwoty, jeśli jest z czego. `false` = limit wyczerpany
    * (wołający oddaje 429 `AI_QUOTA_EXCEEDED`). Limit 0 nigdy nie przechodzi.
    */

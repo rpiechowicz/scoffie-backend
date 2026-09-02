@@ -856,6 +856,7 @@ export class AgentToolExecutor {
         `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany. ` +
           'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go do końca miesiąca.',
         HttpStatus.TOO_MANY_REQUESTS,
+        this.counters.quotaDetails('plans', limit),
       );
     }
 
