@@ -194,7 +194,8 @@ describe('UsersService.updatePreferences', () => {
       );
       expect(error.details).toEqual([
         'each value in allergens must be one of the following values: ' +
-          'gluten, lactose, eggs, nuts, peanuts, fish, soy, celery, mustard, sesame',
+          'gluten, lactose, eggs, nuts, peanuts, fish, soy, celery, mustard, sesame, ' +
+          'milk, crustaceans, molluscs, lupin, sulphites',
       ]);
     });
 

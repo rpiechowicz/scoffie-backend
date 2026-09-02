@@ -21,9 +21,9 @@ export const DIET_TAG_IDS = [
   'MEAT',
   /** Ryby i przetwory rybne. */
   'FISH',
-  /** Skorupiaki (zawsze razem z FISH — alergen `fish` je obejmuje). */
+  /** Skorupiaki (zawsze razem z FISH i alergenami `fish` + `crustaceans`). */
   'CRUSTACEAN',
-  /** Wszystko z mleka zwierzęcego, także bez laktozy, masło, ghee, serwatka. */
+  /** Wszystko z mleka zwierzęcego, także bez laktozy, masło, ghee, serwatka — zawsze z alergenem `milk`. */
   'DAIRY',
   /** Jajko i produkty z jajkiem (majonez). */
   'EGG',
@@ -120,12 +120,28 @@ export function validateIngredientTagEntry(
   implies(a.has('gluten'), d.has('GLUTEN_GRAIN'), 'gluten ⇒ GLUTEN_GRAIN');
   implies(d.has('GLUTEN_GRAIN'), d.has('GRAIN'), 'GLUTEN_GRAIN ⇒ GRAIN');
   implies(a.has('lactose'), d.has('DAIRY'), 'lactose ⇒ DAIRY');
+  // Alergia na białko mleka to CAŁY nabiał, także bez laktozy i ghee —
+  // dlatego w obie strony: każdy DAIRY niesie `milk`, a `milk` bez DAIRY
+  // byłby literówką w pliku.
+  implies(a.has('milk'), d.has('DAIRY'), 'milk ⇒ DAIRY');
+  implies(d.has('DAIRY'), a.has('milk'), 'DAIRY ⇒ milk');
+  implies(a.has('lactose'), a.has('milk'), 'lactose ⇒ milk');
   implies(a.has('eggs'), d.has('EGG'), 'eggs ⇒ EGG');
   implies(a.has('fish'), d.has('FISH'), 'fish ⇒ FISH');
   implies(
     d.has('CRUSTACEAN'),
+    d.has('FISH') && a.has('fish') && a.has('crustaceans'),
+    'CRUSTACEAN ⇒ FISH + fish + crustaceans',
+  );
+  implies(
+    a.has('crustaceans'),
+    d.has('CRUSTACEAN'),
+    'crustaceans ⇒ CRUSTACEAN',
+  );
+  implies(
+    a.has('molluscs'),
     d.has('FISH') && a.has('fish'),
-    'CRUSTACEAN ⇒ FISH + fish',
+    'molluscs ⇒ FISH + fish',
   );
   implies(a.has('soy'), d.has('LEGUME'), 'soy ⇒ LEGUME');
   implies(a.has('peanuts'), d.has('LEGUME'), 'peanuts ⇒ LEGUME');
