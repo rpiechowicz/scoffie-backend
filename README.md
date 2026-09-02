@@ -178,6 +178,42 @@ month, UTC) and `tier` (always `FREE` today); a 429 for either quota carries
 the same numbers in `details` (`kind`, `limit`, `remaining`, `resetsAt`). `DELETE /agent/conversations` wipes a user's conversations and works
 even with the assistant disabled.
 
+Assistant v2 contract (3.09.2026), all under `/agent` with JWT:
+
+- `GET /conversations/:id` — one conversation with `activeTurnId` (the turn to
+  keep polling after returning to the app) and `preview`.
+- `POST /turns/:id/cancel` — "Stop": the running turn closes as
+  `AI_CANCELLED`, the message quota is refunded; idempotent.
+- `GET /turns/:id` adds `suggestions` after `AI_TIMEOUT`/`AI_CANCELLED`
+  (smaller-scope quick replies) and `progress[].phase = PLANNING` when the
+  cheaper model hands the turn over (`AI_MODEL_TOOLS`).
+- Assistant messages carry `usedContext` ("Uwzględniłem: …": week, who,
+  kcal goal, members withheld for lack of consent).
+- `POST /proposals/:id/apply` accepts `{ "force": true }` for a STALE
+  proposal ("Zapisz mimo to"); UNDONE and FAILED proposals can be applied
+  again with a plain call. Card `state.canApply` reflects this until the
+  proposal expires.
+- Cards: `PLAN_WEEK.removed[]` carries `dayOfWeek`, `mealType`,
+  `recipeId` and a one-word `reason` from the model; `MACRO_GAP.boosters[]`
+  each have a `prompt`; `SHOPPING_LIST.groups[]` have `entries` (with
+  `isChecked`), `departmentKey`, `hidden`, and the card has
+  `emptyDepartments`; `HOUSEHOLD_SPLIT` portions scale kcal by each
+  member's calorie goal.
+- `GET /context?householdId=&weekStart=` — members with goal label and
+  consent flag, the asker's kcal goal, usage and whether handoff is on:
+  one source for the context chips and the "Dla kogo liczyć" sheet.
+- `GET /memory` notes carry `kind` (PREFERENCE | CONSTRAINT | HABIT);
+  `DELETE /memory?householdId=` wipes the household's notes.
+- `GET /usage` adds `byUser` (messages per member this month).
+- A push "Asystent odpowiedział" / "nie zdążył" is sent to the asking user's
+  devices when a turn finishes (plan channel; not after their own Stop).
+
+Error-code names the v2 mock-up uses map to these server codes:
+`AI_PROVIDER_UNAVAILABLE` → `AI_UPSTREAM_PAUSED`/`AI_PROVIDER_ERROR`,
+`AI_DAILY_BUDGET_EXCEEDED` → `AI_BUDGET_PAUSED`,
+`AI_MESSAGE_QUOTA_EXCEEDED` → `AI_QUOTA_EXCEEDED`. Trial/PRO pools from
+the mock-up are part of the subscription work, not implemented here.
+
 ### Operations
 
 - `OPS_ALERT_WEBHOOK_URL` (empty = off) — webhook that gets a one-line alert
