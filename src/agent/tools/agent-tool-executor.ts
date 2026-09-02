@@ -24,7 +24,7 @@ import {
   AgentProposalsService,
   CreateWeekProposalResult,
 } from '../proposals/agent-proposals.service';
-import { AgentCard } from '../cards/agent-cards';
+import { AgentCard, PlanRemovalReason } from '../cards/agent-cards';
 import { AgentPromptService } from '../agent-prompt.service';
 import { buildClarifyCard, MAX_CLARIFY_OPTIONS } from '../cards/clarify-card';
 import {
@@ -330,7 +330,12 @@ export class AgentToolExecutor {
       }
 
       case 'remember_note':
-        return this.memory.remember(householdId, userId, str('text'));
+        return this.memory.remember(
+          householdId,
+          userId,
+          str('text'),
+          asString(input.kind) || undefined,
+        );
 
       case 'start_planning':
         // Sama zmiana modelu dzieje się w dostawcy (patrz AgentProviderHandoff);
@@ -602,6 +607,9 @@ export class AgentToolExecutor {
       weekStart,
       items,
       departmentOrder: Object.values(ShoppingDepartment),
+      departmentKeys: Object.fromEntries(
+        Object.entries(ShoppingDepartment).map(([key, label]) => [label, key]),
+      ),
     });
     context.collectCard(card);
 
@@ -801,6 +809,7 @@ export class AgentToolExecutor {
     }
 
     const note = asString(input.note).trim();
+    const removalReasons = this.toRemovalReasons(input.removals);
     return this.proposals.createWeekPlanProposal({
       userId: context.userId,
       householdId: context.householdId,
@@ -812,7 +821,23 @@ export class AgentToolExecutor {
         context,
       ) as unknown as ApplyWeekSlotDto[],
       ...(note ? { note } : {}),
+      ...(removalReasons.length > 0 ? { removalReasons } : {}),
     });
+  }
+
+  /** Powody usunięć od modelu — bez walidacji slotów, dopasowanie robi karta. */
+  private toRemovalReasons(raw: unknown): PlanRemovalReason[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((entry) => (entry ?? {}) as Record<string, unknown>)
+      .map((entry) => ({
+        dayOfWeek: asString(
+          entry.day_of_week,
+        ) as PlanRemovalReason['dayOfWeek'],
+        mealType: asString(entry.meal_type) as PlanRemovalReason['mealType'],
+        reason: asString(entry.reason).trim().slice(0, 40),
+      }))
+      .filter((entry) => entry.dayOfWeek && entry.mealType && entry.reason);
   }
 
   private async applyWeekPlan(

@@ -45,6 +45,17 @@ describe('AgentUsageService.usage', () => {
       ensureMembership: jest.fn().mockResolvedValue(undefined),
     };
     const prisma = {
+      agentTurn: {
+        groupBy: jest.fn().mockResolvedValue([
+          { userId: 'u-1', _count: { _all: 9 } },
+          { userId: 'u-2', _count: { _all: 3 } },
+        ]),
+      },
+      user: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'u-1', displayName: 'Ania' }]),
+      },
       aiUsageCounter: {
         findUnique: jest.fn().mockImplementation(({ where }: any) => {
           const kind = where.scopeId_periodKey_kind.kind as string;
@@ -60,6 +71,7 @@ describe('AgentUsageService.usage', () => {
     };
     counters = new AiUsageCountersService(prisma as unknown as PrismaService);
     service = new AgentUsageService(
+      prisma as unknown as PrismaService,
       conversations as unknown as AgentConversationsService,
       counters,
     );
@@ -86,6 +98,11 @@ describe('AgentUsageService.usage', () => {
       resetsAt: '2026-10-01T00:00:00.000Z',
       tier: 'FREE',
       messages: { used: 12, limit: 30, remaining: 18 },
+      // Rozkład na domowników z domkniętych tur; były domownik bez imienia.
+      byUser: [
+        { userId: 'u-1', displayName: 'Ania', messages: 9 },
+        { userId: 'u-2', displayName: 'Były domownik', messages: 3 },
+      ],
       // Zużycie ponad limit (np. po obniżeniu limitu w env) nie daje ujemnej reszty.
       plans: { used: 9, limit: 6, remaining: 0 },
     });

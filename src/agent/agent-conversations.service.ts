@@ -60,7 +60,22 @@ export type MessageView = {
    * zna, ma pokazać zdanie i niczego nie stracić.
    */
   card?: AgentCard | null;
+  /**
+   * „Uwzględniłem: …" — z czym asystent policzył tę odpowiedź (tydzień,
+   * dla kogo, cel). Tylko przy odpowiedziach asystenta; brak = nie zapisano.
+   */
+  usedContext?: string[];
 };
+
+/** `AgentMessage.context` → napisy; cokolwiek innego niż lista = brak. */
+export function usedContextFrom(context: unknown): string[] | undefined {
+  const used = (context as { used?: unknown } | null)?.used;
+  if (!Array.isArray(used)) return undefined;
+  const strings = used.filter(
+    (item): item is string => typeof item === 'string',
+  );
+  return strings.length === used.length ? strings : undefined;
+}
 
 /** Ile wiadomości oddaje jeden odczyt historii (klient dobiera kursorem `after`). */
 export const MESSAGES_PAGE_SIZE = 100;
@@ -298,6 +313,9 @@ export class AgentConversationsService {
       role: m.role,
       kind: m.kind,
       text: m.text,
+      ...(usedContextFrom(m.context)
+        ? { usedContext: usedContextFrom(m.context) }
+        : {}),
       clientMessageId: m.clientMessageId,
       turnId: m.turnId,
       createdAt: m.createdAt.toISOString(),

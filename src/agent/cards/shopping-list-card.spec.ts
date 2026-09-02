@@ -85,7 +85,16 @@ describe('buildShoppingListCard', () => {
       items: [item({ isChecked: true })],
     });
     expect(card.title).toBe('Wszystko odhaczone');
-    expect(card.groups).toEqual([]);
+    // Od v2 dział z samymi odhaczonymi ZOSTAJE: odhaczone rysują się
+    // przekreślone (`entries`), a `items` (do kupienia) jest puste.
+    expect(card.groups).toEqual([
+      {
+        department: 'Nabiał',
+        items: [],
+        entries: [{ label: 'Feta 2 op.', isChecked: true }],
+        hidden: 0,
+      },
+    ]);
   });
 
   it('nieznany dział ląduje na końcu, a nie wypada z listy', () => {
@@ -133,5 +142,29 @@ describe('buildShoppingListCard', () => {
       },
     ]);
     expect(card).not.toHaveProperty('state');
+  });
+  it('v2: entries niosą odhaczone (na końcu), dział ma klucz, a karta liczy puste działy', () => {
+    const card = buildShoppingListCard({
+      weekStart: '2026-08-31',
+      items: [
+        item({ name: 'Twaróg', isChecked: true }),
+        item({ name: 'Feta' }),
+      ],
+      departmentOrder: ['Nabiał', 'Mięso', 'Ryby'],
+      departmentKeys: { Nabiał: 'DAIRY' },
+    });
+    expect(card.groups).toEqual([
+      expect.objectContaining({
+        department: 'Nabiał',
+        departmentKey: 'DAIRY',
+        items: ['Feta 2 op.'],
+        entries: [
+          { label: 'Feta 2 op.', isChecked: false },
+          { label: 'Twaróg 2 op.', isChecked: true },
+        ],
+        hidden: 0,
+      }),
+    ]);
+    expect(card.emptyDepartments).toBe(2);
   });
 });

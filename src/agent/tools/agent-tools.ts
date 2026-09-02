@@ -379,6 +379,20 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           description:
             'Jedno zdanie, dlaczego akurat tak. Bez liczb i bez nazw dań — te są w karcie.',
         },
+        removals: {
+          type: 'array',
+          description:
+            'Dla każdego dania z OBECNEGO planu, którego nie ma w slots: jedno-dwa słowa dlaczego ' +
+            '(„powtórka", „ponad cel", „bez ryb"). Karta pokaże to obok przekreślonego dania. Pomiń, gdy nic nie znika.',
+          items: object(
+            {
+              day_of_week: DAY,
+              meal_type: MEAL,
+              reason: { type: 'string', description: 'Najwyżej 3 słowa.' },
+            },
+            ['day_of_week', 'meal_type', 'reason'],
+          ),
+        },
         slots: {
           type: 'array',
           description: 'Najwyżej 42 pozycje na tydzień.',
@@ -544,7 +558,19 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       'i tak policzą narzędzia, ani niczego o wadze, zdrowiu i celach — to jest w preferencjach ' +
       'domownika i nie ma prawa trafić do wspólnej pamięci domu. Jedno zdanie, po polsku, bez ' +
       'imion, których użytkownik sam nie użył.',
-    input_schema: object({ text: { type: 'string' } }, ['text']),
+    input_schema: object(
+      {
+        text: { type: 'string' },
+        kind: {
+          type: 'string',
+          enum: ['PREFERENCE', 'CONSTRAINT', 'HABIT'],
+          description:
+            'PREFERENCE = co lubią / wolą; CONSTRAINT = czego nie jedzą albo nie mogą; ' +
+            'HABIT = stałe zwyczaje i rytm tygodnia. Pomiń = PREFERENCE.',
+        },
+      },
+      ['text'],
+    ),
     strict: true,
   },
   {

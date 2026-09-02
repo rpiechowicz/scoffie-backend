@@ -192,7 +192,13 @@ export class AgentTurnRunner {
         signal: controller.signal,
         maxTurnCostUsd: input.env.maxTurnCostUsd,
       });
-      await this.finishDone(input, result, Date.now() - startedAt, pendingCard);
+      await this.finishDone(
+        input,
+        result,
+        Date.now() - startedAt,
+        pendingCard,
+        prompt.usedContext,
+      );
       this.breaker.recordSuccess();
     } catch (error) {
       await this.finishFailed(
@@ -339,6 +345,7 @@ export class AgentTurnRunner {
     result: AgentProviderResult,
     durationMs: number,
     pendingCard: AgentCard | null,
+    usedContext: string[] = [],
   ): Promise<void> {
     const { usage } = result;
     let closed = false;
@@ -385,6 +392,9 @@ export class AgentTurnRunner {
             kind: card?.kind ?? 'TEXT',
             text: result.text,
             ...(card ? { card: card.payload as Prisma.InputJsonValue } : {}),
+            ...(usedContext.length > 0
+              ? { context: { used: usedContext } as Prisma.InputJsonValue }
+              : {}),
             turnId: input.turnId,
           },
         });

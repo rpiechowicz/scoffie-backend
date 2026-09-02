@@ -133,4 +133,20 @@ describe('goalLabel', () => {
     });
     expect(label).toBe('2000 kcal · bez glutenu, laktozy, jajek');
   });
+  it('każdy booster ma własne pytanie (strzałka wysyła wiadomość, nic nie zapisuje)', () => {
+    const card = buildMacroGapCard({
+      macro: 'FAT',
+      current: 88,
+      target: 70,
+      scopeLabel: 'ten tydzień',
+      boosters: [
+        { text: 'Twaróg zamiast fety (pon., sob.)', amount: -11 },
+        { text: 'Jogurt zamiast śmietany (śr.)', amount: -6, prompt: 'Własne' },
+      ],
+    });
+    expect(card.boosters.map((b) => b.prompt)).toEqual([
+      'Zastosuj w planie tę zmianę: Twaróg zamiast fety (pon., sob.). Pokaż mi ją jako propozycję.',
+      'Własne',
+    ]);
+  });
 });

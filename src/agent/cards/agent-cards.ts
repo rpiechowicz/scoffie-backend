@@ -148,7 +148,34 @@ export type PlanWeekCardRemoval = {
   dayLabel: string;
   mealLabel: string;
   title: string;
+  /** Identyfikatory od v2 — klient może podświetlić slot w planie. */
+  dayOfWeek?: DayOfWeek;
+  mealType?: MealType;
+  recipeId?: string;
+  /** Jedno słowo od modelu („powtórka”, „ponad cel”); `null`, gdy nie podał. */
+  reason?: string | null;
 };
+
+/** Powód usunięcia podany przez model przy propozycji — dopasowywany do slotu. */
+export type PlanRemovalReason = {
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  reason: string;
+};
+
+/** Znajduje powód dla usuwanego slotu; `null`, gdy model go nie podał. */
+export function removalReasonFor(
+  reasons: readonly PlanRemovalReason[] | undefined,
+  removal: { dayOfWeek: DayOfWeek; mealType: MealType },
+): string | null {
+  const hit = (reasons ?? []).find(
+    (entry) =>
+      entry.dayOfWeek === removal.dayOfWeek &&
+      entry.mealType === removal.mealType,
+  );
+  const reason = hit?.reason.trim() ?? '';
+  return reason ? reason : null;
+}
 
 export type PlanWeekCard = {
   kind: 'PLAN_WEEK';
@@ -329,6 +356,12 @@ export type HouseholdSplitCard = {
 export type MacroGapBooster = {
   text: string;
   amount: number;
+  /**
+   * Gotowa wiadomość, którą wysyła strzałka przy TEJ zmianie (projekt v2:
+   * „booster to strzałka, nie plus — kliknięcie wysyła pytanie, nic nie
+   * zapisuje"). Wypełnia builder; model jej nie pisze.
+   */
+  prompt?: string;
 };
 
 /** Makro, o którym mówi karta. */
@@ -362,8 +395,23 @@ export type MacroGapCard = {
 /** Dział sklepu z pozycjami — lista zakupów czyta się po alejkach. */
 export type ShoppingListCardGroup = {
   department: string;
-  /** „Feta 2 op.” — nazwa z ilością, gotowa do pokazania. */
+  /** Klucz działu (`DAIRY`) — dla klienta z własnymi ikonami; brak = nieznany dział. */
+  departmentKey?: string;
+  /** „Feta 2 op.” — nazwa z ilością, gotowa do pokazania. TYLKO do kupienia. */
   items: string[];
+  /**
+   * Od v2: wszystkie pozycje działu z flagą odhaczenia — najpierw do kupienia,
+   * potem odhaczone (klient rysuje je przekreślone). Odhaczone = to, co ktoś
+   * sam zaznaczył w Liście; nigdy „masz w domu".
+   */
+  entries?: ShoppingListCardEntry[];
+  /** Ile pozycji działu NIE zmieściło się w karcie (`items`/`entries` są ucięte). */
+  hidden?: number;
+};
+
+export type ShoppingListCardEntry = {
+  label: string;
+  isChecked: boolean;
 };
 
 /**
@@ -386,6 +434,8 @@ export type ShoppingListCard = {
   summary: { remaining: number; checked: number };
   /** `null`, gdy nic nie odhaczono — pusta linia mówiłaby o niczym. */
   checkedNote: string | null;
+  /** Ile z 17 działów nie ma żadnej pozycji („+ 12 działów bez pozycji”). */
+  emptyDepartments?: number;
   actions: AgentCardAction[];
 };
 

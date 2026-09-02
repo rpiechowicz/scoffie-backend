@@ -14,6 +14,8 @@ import {
   goalNote,
   shortDateLabel,
   weekRangeLabel,
+  PlanRemovalReason,
+  removalReasonFor,
 } from './agent-cards';
 import { MEAL_TYPES_IN_DAY_ORDER } from '../../common/meal-types';
 
@@ -35,6 +37,8 @@ export function buildPlanWeekCard(input: {
   targetKcalPerDay: number | null;
   expiresAt: Date;
   applyLabel?: string;
+  /** Powody usunięć od modelu — jedno słowo przy każdym zniknięciu. */
+  removalReasons?: readonly PlanRemovalReason[];
 }): PlanWeekCard {
   const slots = input.preview.slots ?? [];
   const byDay = new Map<string, WeekPlanPreviewSlot[]>();
@@ -94,6 +98,10 @@ export function buildPlanWeekCard(input: {
       dayLabel: DAY_LABELS[removal.dayOfWeek],
       mealLabel: MEAL_LABELS[removal.mealType],
       title: removal.title,
+      dayOfWeek: removal.dayOfWeek,
+      mealType: removal.mealType,
+      recipeId: removal.recipeId,
+      reason: removalReasonFor(input.removalReasons, removal),
     })),
     summary: {
       meals: slots.length,

@@ -13,7 +13,7 @@ import { ensureMembership } from '../../weekly-plans/utils/auth-checks.util';
 import { AppException } from '../../common/app-exception';
 import { assertUuid } from '../../common/uuid';
 import { readAgentEnv } from '../../config/agent-env';
-import { AgentCardState } from '../cards/agent-cards';
+import { AgentCardState, PlanRemovalReason } from '../cards/agent-cards';
 import {
   appliedMessageText,
   buildAppliedCard,
@@ -45,6 +45,8 @@ export type CreateWeekProposalInput = {
   slots: ApplyWeekSlotDto[];
   /** Jedno zdanie modelu „dlaczego tak” — trafia w podtytuł karty. */
   note?: string;
+  /** Powody usunięć (jedno słowo) — dopasowywane do policzonych zniknięć. */
+  removalReasons?: PlanRemovalReason[];
 };
 
 export type CreateDayProposalInput = Omit<CreateWeekProposalInput, 'slots'> & {
@@ -166,6 +168,7 @@ export class AgentProposalsService {
       weekStart: input.weekStart,
       preview,
       note: input.note,
+      removalReasons: input.removalReasons,
       targetKcalPerDay: await this.targetKcalFor(
         input.userId,
         input.householdId,
@@ -246,6 +249,7 @@ export class AgentProposalsService {
       date,
       preview,
       note: input.note,
+      removalReasons: input.removalReasons,
       targetKcalPerDay: await this.targetKcalFor(
         input.userId,
         input.householdId,
@@ -475,8 +479,30 @@ export class AgentProposalsService {
     const proposalId = randomUUID();
     const expiresAt = new Date(Date.now() + env.proposalTtlMs);
 
+    // Porcja skalowana CELEM: przy 2 100 i 1 200 kcal ten sam gulasz to nie
+    // te same talerze. Średnia celów = jedna porcja z przepisu; kto ma cel
+    // wyżej, dostaje proporcjonalnie więcej. Zaokrąglenie do 10 kcal, bo
+    // dokładniej i tak nikt nie nakłada.
+    const goals = input.portions.map(
+      (portion) => known.get(portion.userId)!.targets.calorieGoal,
+    );
+    const meanGoal =
+      goals.length > 0 && goals.every((goal) => goal > 0)
+        ? goals.reduce((sum, goal) => sum + goal, 0) / goals.length
+        : 0;
     const portions: HouseholdSplitPortion[] = input.portions.map((portion) => {
       const member = known.get(portion.userId)!;
+      const kcal =
+        meanGoal > 0
+          ? Math.max(
+              10,
+              Math.round(
+                (input.dish.kcalPerServing * member.targets.calorieGoal) /
+                  meanGoal /
+                  10,
+              ) * 10,
+            )
+          : input.dish.kcalPerServing;
       return {
         userId: member.userId,
         displayName: member.displayName,
@@ -486,7 +512,7 @@ export class AgentProposalsService {
           allergens: member.allergens,
         }),
         note: portion.note,
-        kcal: input.dish.kcalPerServing,
+        kcal,
       };
     });
 
@@ -605,6 +631,7 @@ export class AgentProposalsService {
   async apply(
     userId: string,
     proposalId: string,
+    options: { force?: boolean } = {},
   ): Promise<ProposalActionResult> {
     const proposal = await this.loadOwned(userId, proposalId);
     // Członkostwo mogło się zmienić między propozycją a kliknięciem.
@@ -615,7 +642,10 @@ export class AgentProposalsService {
     if (proposal.status === 'APPLIED') {
       return this.resultForApplied(proposal);
     }
-    if (proposal.status !== 'PENDING') {
+    // Projekt v2: karta jest sterownikiem. UNDONE ma „Zastosuj ponownie",
+    // FAILED „Spróbuj ponownie", STALE „Zapisz mimo to" (z `force`).
+    // EXPIRED nie ma przycisku zapisu wcale — po 72 h asystent liczy od nowa.
+    if (!REAPPLICABLE_STATUSES.has(proposal.status)) {
       throw new AppException(
         'AI_PROPOSAL_STALE',
         'Ta propozycja jest już nieaktualna. Poproś asystenta o nową.',
@@ -623,6 +653,7 @@ export class AgentProposalsService {
         [`reason:${proposal.status}`],
       );
     }
+    const statusBefore = proposal.status;
     if (proposal.expiresAt.getTime() <= Date.now()) {
       await this.markStatus(proposal.id, 'EXPIRED');
       throw new AppException(
@@ -638,7 +669,10 @@ export class AgentProposalsService {
       proposal.householdId,
       weekStart,
     );
-    if (weekBaselineHash(before) !== proposal.baselineHash) {
+    // `force` pomija TYLKO to porównanie: użytkownik widział na karcie, że
+    // plan się zmienił, i świadomie zapisuje. Walidacja domeny (alergeny,
+    // wykluczenia) biegnie niżej w `applyWeekPlan` tak samo jak zawsze.
+    if (!options.force && weekBaselineHash(before) !== proposal.baselineHash) {
       await this.markStatus(proposal.id, 'STALE');
       throw new AppException(
         'AI_PROPOSAL_STALE',
@@ -653,12 +687,13 @@ export class AgentProposalsService {
     // o `undoSnapshot`: drugi przebieg zapisałby jako „stan sprzed" tydzień
     // JUŻ ZMIENIONY i zabiłby „Cofnij".
     const locked = await this.prisma.agentProposal.updateMany({
-      where: { id: proposal.id, status: 'PENDING' },
+      where: { id: proposal.id, status: statusBefore },
       data: {
         status: 'APPLIED',
         undoSnapshot: before as unknown as Prisma.InputJsonValue,
         appliedAt: new Date(),
         appliedByUserId: userId,
+        undoneAt: null,
       },
     });
     if (locked.count === 0) {
@@ -677,7 +712,7 @@ export class AgentProposalsService {
     if (!consumed) {
       // Kwota wraca do stanu sprzed kliknięcia: użytkownik może zatwierdzić
       // tę samą propozycję pierwszego dnia miesiąca.
-      await this.markStatus(proposal.id, 'PENDING');
+      await this.markStatus(proposal.id, statusBefore);
       throw new AppException(
         'AI_PLAN_QUOTA_EXCEEDED',
         `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany.`,
@@ -1086,6 +1121,17 @@ function readSlots(
     : [];
 }
 
+/**
+ * Stany, z których da się (ponownie) zapisać. STALE wymaga `force`
+ * („Zapisz mimo to"); UNDONE i FAILED — zwykłego kliknięcia.
+ */
+export const REAPPLICABLE_STATUSES: ReadonlySet<string> = new Set([
+  'PENDING',
+  'UNDONE',
+  'FAILED',
+  'STALE',
+]);
+
 /** Reguły stanu karty — jedno miejsce, bo czyta je i lista, i pojedyncza tura. */
 export function cardState(
   proposal: {
@@ -1119,14 +1165,28 @@ export function cardState(
     };
   }
 
+  const status = (['UNDONE', 'STALE', 'EXPIRED', 'FAILED'] as const).includes(
+    proposal.status as 'UNDONE',
+  )
+    ? (proposal.status as AgentCardState['status'])
+    : 'STALE';
+  // Ponowny zapis (UNDONE/FAILED) i „Zapisz mimo to" (STALE) żyją tak długo,
+  // jak sama propozycja — po 72 h karta mówi EXPIRED bez przycisku.
+  const expired = proposal.expiresAt.getTime() <= now;
+  const reapplicable =
+    status !== 'EXPIRED' && REAPPLICABLE_STATUSES.has(status) && !expired;
   return {
-    status: (['UNDONE', 'STALE', 'EXPIRED', 'FAILED'] as const).includes(
-      proposal.status as 'UNDONE',
-    )
-      ? (proposal.status as AgentCardState['status'])
-      : 'STALE',
-    canApply: false,
+    status:
+      expired &&
+      status !== 'EXPIRED' &&
+      reapplicable === false &&
+      status !== 'UNDONE' &&
+      status !== 'FAILED' &&
+      status !== 'STALE'
+        ? 'EXPIRED'
+        : status,
+    canApply: reapplicable,
     canUndo: false,
-    until: null,
+    until: reapplicable ? proposal.expiresAt.toISOString() : null,
   };
 }

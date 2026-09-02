@@ -11,6 +11,8 @@ import {
   PlanDayCard,
   goalNote,
   longDateLabel,
+  PlanRemovalReason,
+  removalReasonFor,
 } from './agent-cards';
 
 /**
@@ -31,6 +33,7 @@ export function buildPlanDayCard(input: {
   note?: string | null;
   targetKcalPerDay: number | null;
   expiresAt: Date;
+  removalReasons?: readonly PlanRemovalReason[];
 }): PlanDayCard {
   const slots = (input.preview.slots ?? [])
     .filter((slot) => slot.dayOfWeek === input.dayOfWeek)
@@ -61,6 +64,10 @@ export function buildPlanDayCard(input: {
         dayLabel: DAY_LABELS[removal.dayOfWeek],
         mealLabel: MEAL_LABELS[removal.mealType],
         title: removal.title,
+        dayOfWeek: removal.dayOfWeek,
+        mealType: removal.mealType,
+        recipeId: removal.recipeId,
+        reason: removalReasonFor(input.removalReasons, removal),
       })),
     summary: {
       meals: slots.length,

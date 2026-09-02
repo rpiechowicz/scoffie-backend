@@ -10,6 +10,7 @@ import {
   loadDigestRecipes,
 } from './catalog-digest';
 import { buildSystemPrompt, SystemBlock } from './agent-system-prompt';
+import { weekRangeLabel } from './cards/agent-cards';
 
 /**
  * Gospodarstwo katalogowe — to samo, co `RECIPE_IMPORT_HOUSEHOLD_ID`.
@@ -25,6 +26,12 @@ export type TurnDates = {
 
 export type AgentPrompt = {
   system: SystemBlock[];
+  /**
+   * „Uwzględniłem: …" — z czym model liczy tę turę, gotowe napisy dla
+   * telefonu. To jest to samo, co chipy nad polem, tylko po fakcie: tydzień,
+   * dla kogo, cel pytającego, ilu domowników zostało poza (bez zgody).
+   */
+  usedContext: string[];
   /** `R07` → `recipeId`; narzędzia rozwiązują po nim odpowiedzi modelu. */
   catalogIndex: Record<string, string>;
   catalogVersion: string;
@@ -95,8 +102,25 @@ export class AgentPromptService {
         .map((member) => member.displayName),
     });
 
+    const asking = allMembers.find((member) => member.userId === userId);
+    const usedContext = [
+      `Tydzień ${weekRangeLabel(dates.weekStart)}`,
+      scopeUserIds.length > 0
+        ? `Dla: ${members
+            .filter((member) => scopeUserIds.includes(member.userId))
+            .map((member) => member.displayName)
+            .join(', ')}`
+        : `Cały dom · ${allMembers.length}`,
+      ...(asking?.targets.calorieGoal
+        ? [`Cel ${asking.targets.calorieGoal} kcal`]
+        : []),
+      ...(withheld > 0 ? [`${withheld} bez zgody na asystenta`] : []),
+      ...(memory ? ['notatki z poprzednich rozmów'] : []),
+    ];
+
     return {
       system,
+      usedContext,
       catalogIndex: digest.index,
       catalogVersion: digest.catalogVersion,
     };

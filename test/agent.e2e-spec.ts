@@ -799,6 +799,88 @@ describe('Agent E2E', () => {
       expect(after).toBeNull();
     });
 
+    it('„Usuń wszystkie notatki" kasuje notatki domu; rodzaj notatki wraca w liście', async () => {
+      await prisma.agentMemory.createMany({
+        data: [
+          {
+            householdId,
+            text: 'Franek nie je ostrego',
+            textNormalized: 'franek nie je ostrego',
+            kind: 'CONSTRAINT',
+          },
+          {
+            householdId,
+            text: 'Niedzielny obiad gotuje Ania',
+            textNormalized: 'niedzielny obiad gotuje ania',
+            kind: 'HABIT',
+          },
+        ],
+      });
+      const listed = await request(app.getHttpServer())
+        .get('/agent/memory')
+        .query({ householdId })
+        .set(auth(session.accessToken))
+        .expect(200);
+      const kinds = new Map(
+        (listed.body as { text: string; kind: string }[]).map((n) => [
+          n.text,
+          n.kind,
+        ]),
+      );
+      expect(kinds.get('Franek nie je ostrego')).toBe('CONSTRAINT');
+      expect(kinds.get('Niedzielny obiad gotuje Ania')).toBe('HABIT');
+
+      const wiped = await request(app.getHttpServer())
+        .delete('/agent/memory')
+        .query({ householdId })
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(
+        (wiped.body as { deleted: number }).deleted,
+      ).toBeGreaterThanOrEqual(2);
+      expect(await prisma.agentMemory.count({ where: { householdId } })).toBe(
+        0,
+      );
+
+      const stranger = await devLogin('Cudzy');
+      await request(app.getHttpServer())
+        .delete('/agent/memory')
+        .query({ householdId })
+        .set(auth(stranger.accessToken))
+        .expect(403);
+    });
+
+    it('kontekst chipów: domownicy z etykietą celu, cel pytającego, zużycie', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/agent/context')
+        .query({ householdId, weekStart: WEEK_START })
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(res.body).toMatchObject({
+        householdId,
+        weekStart: WEEK_START,
+        memberCount: 1,
+        handoff: false,
+        members: [
+          expect.objectContaining({
+            userId: session.user.id,
+            isSelf: true,
+            consented: true,
+            goalLabel: expect.stringMatching(/kcal/),
+          }),
+        ],
+        usage: { householdId, tier: 'FREE', byUser: expect.any(Array) },
+      });
+      expect(typeof res.body.weekLabel).toBe('string');
+
+      const stranger = await devLogin('Postronny');
+      await request(app.getHttpServer())
+        .get('/agent/context')
+        .query({ householdId })
+        .set(auth(stranger.accessToken))
+        .expect(403);
+    });
+
     it('cudza notatka: 404, nie 403 — inaczej da się zgadywać identyfikatory', async () => {
       const note = await prisma.agentMemory.create({
         data: {
@@ -936,6 +1018,7 @@ describe('Agent E2E', () => {
         actions: { type: string; proposalId: string | null }[];
         state: { status: string; canApply: boolean; canUndo: boolean };
       };
+      usedContext?: string[];
     };
 
     const weekItems = () =>
@@ -996,6 +1079,13 @@ describe('Agent E2E', () => {
         kind: 'PLAN_WEEK',
         state: { status: 'PENDING', canApply: true, canUndo: false },
       });
+      // „Uwzględniłem: …" — z czym serwer policzył tę odpowiedź.
+      expect(assistant.usedContext).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^Tydzień /),
+          'Cały dom · 1',
+        ]),
+      );
       const apply = assistant.card?.actions.find((a) => a.type === 'APPLY');
       expect(apply?.proposalId).toBe(assistant.card?.proposalId);
 
@@ -1023,6 +1113,90 @@ describe('Agent E2E', () => {
         .set(auth(session.accessToken))
         .expect(200);
       expect(await weekItems()).toBe(0);
+    });
+
+    it('karta jest sterownikiem: ponowny zapis po cofnięciu, „Zapisz mimo to" po zmianie planu', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: `Ułóż tydzień [[propose:${recipeId}:${WEEK_START}]]`,
+        clientCapabilities: [CARDS_CAPABILITY_V1],
+      }).expect(202);
+      await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
+      const messages = await history(conversation.id);
+      const proposalId = messages[messages.length - 1].card!.proposalId;
+      const apply = (body: Record<string, unknown> = {}) =>
+        request(app.getHttpServer())
+          .post(`/agent/proposals/${proposalId}/apply`)
+          .set(auth(session.accessToken))
+          .send(body);
+      const undo = () =>
+        request(app.getHttpServer())
+          .post(`/agent/proposals/${proposalId}/undo`)
+          .set(auth(session.accessToken));
+
+      // UNDONE → „Zastosuj ponownie" zwykłym kliknięciem.
+      await apply().expect(200);
+      await undo().expect(200);
+      expect(await weekItems()).toBe(0);
+      const undone = (await history(conversation.id)).find(
+        (m) => m.card?.kind === 'PLAN_WEEK',
+      );
+      expect(undone?.card?.state).toMatchObject({
+        status: 'UNDONE',
+        canApply: true,
+      });
+      await apply().expect(200);
+      expect(await weekItems()).toBe(1);
+      await undo().expect(200);
+
+      // Ręczna zmiana planu spod ręki → STALE; bez `force` odmowa, z `force` zapis.
+      // Po cofnięciu wiersz tygodnia zostaje (pusty) — stąd upsert.
+      await prisma.weeklyPlan.upsert({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: new Date(`${WEEK_START}T00:00:00.000Z`),
+          },
+        },
+        create: {
+          householdId,
+          weekStart: new Date(`${WEEK_START}T00:00:00.000Z`),
+          items: {
+            create: [{ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId }],
+          },
+        },
+        update: {
+          items: {
+            create: [{ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId }],
+          },
+        },
+      });
+      const refused = await apply().expect(409);
+      expect(refused.body).toMatchObject({ code: 'AI_PROPOSAL_STALE' });
+      const stale = (await history(conversation.id)).find(
+        (m) => m.card?.kind === 'PLAN_WEEK',
+      );
+      expect(stale?.card?.state).toMatchObject({
+        status: 'STALE',
+        canApply: true,
+      });
+      await apply({ force: true }).expect(200);
+      // Stan docelowy propozycji: poniedziałek; ręczny wtorek znika.
+      expect(await weekItems()).toBe(1);
+      await undo().expect(200);
+      await prisma.weeklyPlan.deleteMany({
+        where: {
+          householdId,
+          weekStart: new Date(`${WEEK_START}T00:00:00.000Z`),
+        },
+      });
     });
 
     it('klient bez `cards.v1` nie dostaje propozycji, której nie umie pokazać', async () => {

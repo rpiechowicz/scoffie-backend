@@ -10,6 +10,7 @@ import { TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
 import {
   conversationTitleFrom,
+  usedContextFrom,
   AgentConversationsService,
   MessageView,
 } from './agent-conversations.service';
@@ -455,6 +456,9 @@ export class AgentTurnsService {
           role: m.role,
           kind: m.kind,
           text: m.text,
+          ...(usedContextFrom(m.context)
+            ? { usedContext: usedContextFrom(m.context) }
+            : {}),
           clientMessageId: m.clientMessageId,
           turnId: m.turnId,
           createdAt: m.createdAt.toISOString(),
