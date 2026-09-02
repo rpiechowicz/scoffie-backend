@@ -220,3 +220,4 @@ The shipped iOS client signs in with Apple only. Dev login (`POST /auth/dev`) is
 - [`APNS_SETUP.md`](./APNS_SETUP.md)
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md)
 - [`RELEASE_CHECKLIST.md`](./RELEASE_CHECKLIST.md)
+- [`docs/rodo-wnioski.md`](./docs/rodo-wnioski.md) — wnioski RODO: eksport (`pnpm rodo:export`), usunięcie (`pnpm accounts:delete`), terminy

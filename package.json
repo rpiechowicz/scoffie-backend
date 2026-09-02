@@ -23,6 +23,8 @@
     "recipes:backfill:slots": "tsx scripts/backfill-suitable-meal-types.ts",
     "plans:backfill:servings": "tsx scripts/backfill-plan-item-servings.ts",
     "households:cleanup:empty": "tsx scripts/cleanup-empty-households.ts",
+    "rodo:export": "tsx scripts/export-user-data.ts",
+    "accounts:delete": "tsx scripts/delete-user-account.ts",
     "accounts:reset": "tsx scripts/reset-accounts.ts",
     "agent:scenarios": "ts-node -r tsconfig-paths/register scripts/agent-scenarios.ts",
     "agent:smoke": "ts-node -r tsconfig-paths/register scripts/agent-smoke.ts",
