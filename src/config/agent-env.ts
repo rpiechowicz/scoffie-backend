@@ -52,6 +52,17 @@ export type AgentEnv = {
   enabled: boolean;
   provider: AiProvider;
   model: string;
+  /**
+   * Tańszy model na rozmowę i zbieranie kontekstu (`AI_MODEL_TOOLS`);
+   * `null` = cała tura na `model`, jak dotąd.
+   *
+   * Projekt asystenta v2 (3.09.2026): „handoff Haiku → Sonnet jako osobny
+   * moment". Tura zaczyna na tańszym modelu z narzędziami TYLKO do czytania
+   * plus `start_planning`; gdy model je wywoła, resztę tury (propozycje,
+   * zapisy) prowadzi `model`. Pytanie „co jest we wtorek" nie płaci wtedy
+   * stawki planisty, a plan tygodnia nadal układa mocniejszy model.
+   */
+  toolsModel: string | null;
   effort: AiEffort;
   apiKeyPresent: boolean;
   /** Twardy limit jednej tury (AbortSignal); po nim tura = FAILED `AI_TIMEOUT`. */
@@ -223,6 +234,7 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
     enabled: (env.AI_ENABLED ?? '').trim().toLowerCase() === 'true',
     provider: readProvider(env),
     model: (env.AI_MODEL ?? '').trim() || AI_MODEL_DEFAULT,
+    toolsModel: (env.AI_MODEL_TOOLS ?? '').trim() || null,
     effort: readEffort(env),
     apiKeyPresent: (env.ANTHROPIC_API_KEY ?? '').trim().length > 0,
     turnTimeoutMs: readNumber(

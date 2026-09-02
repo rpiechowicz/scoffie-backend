@@ -194,6 +194,72 @@ describe('AnthropicAgentProvider', () => {
     });
   });
 
+  describe('przekazanie tury (AI_MODEL_TOOLS)', () => {
+    it('po start_planning kolejne rundy idą do planisty z pełną listą, a koszt liczy się po stawce każdego modelu', async () => {
+      const readTool = {
+        name: 'get_week_plan',
+        description: '',
+        input_schema: {
+          type: 'object' as const,
+          properties: {},
+          required: [],
+          additionalProperties: false as const,
+        },
+      };
+      const startTool = { ...readTool, name: 'start_planning' };
+      const proposeTool = { ...readTool, name: 'propose_week_plan' };
+      create
+        .mockResolvedValueOnce(toolMessage('get_week_plan', 'a'))
+        .mockResolvedValueOnce(toolMessage('start_planning', 'b'))
+        .mockResolvedValueOnce(toolMessage('propose_week_plan', 'c'))
+        .mockResolvedValueOnce(textMessage('gotowe'));
+
+      const result = await provider.run(
+        request({
+          model: 'claude-haiku-4-5',
+          tools: [readTool, startTool],
+          handoff: {
+            tool: 'start_planning',
+            model: 'claude-sonnet-5',
+            tools: [readTool, proposeTool],
+          },
+        }),
+      );
+
+      const models = create.mock.calls.map(
+        (c) => (c[0] as { model: string }).model,
+      );
+      // Dwie rundy na tańszym (pytanie + start_planning), dwie na planiście.
+      expect(models).toEqual([
+        'claude-haiku-4-5',
+        'claude-haiku-4-5',
+        'claude-sonnet-5',
+        'claude-sonnet-5',
+      ]);
+      const toolNames = create.mock.calls.map((c) =>
+        (c[0] as { tools: { name: string }[] }).tools.map((t) => t.name),
+      );
+      expect(toolNames[1]).toEqual(['get_week_plan', 'start_planning']);
+      expect(toolNames[2]).toEqual(['get_week_plan', 'propose_week_plan']);
+      expect(result.model).toBe('claude-sonnet-5');
+      // Haiku 4.5: 1000·1 + 100·5 = 1 500 µ$ na rundę; Sonnet 5: 1000·2 + 100·10 = 3 000.
+      expect(result.usage.costMicroUsd).toBe(2 * 1_500 + 2 * 3_000);
+      expect(result.apiCalls).toBe(4);
+    });
+
+    it('bez handoff model i lista narzędzi nie zmieniają się mimo wywołania start_planning', async () => {
+      create
+        .mockResolvedValueOnce(toolMessage('start_planning', 'a'))
+        .mockResolvedValueOnce(textMessage('ok'));
+      const result = await provider.run(request({ model: 'claude-haiku-4-5' }));
+      const models = create.mock.calls.map(
+        (c) => (c[0] as { model: string }).model,
+      );
+      expect(models).toEqual(['claude-haiku-4-5', 'claude-haiku-4-5']);
+      expect(result.model).toBe('claude-haiku-4-5');
+    });
+  });
+
   describe('mapowanie błędów SDK', () => {
     it('429 i 5xx są retryable, 4xx nie; zużycie z poprzednich rund przeżywa błąd', async () => {
       create

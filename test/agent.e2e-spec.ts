@@ -563,6 +563,74 @@ describe('Agent E2E', () => {
       }
     });
 
+    it('„Stop" przerywa turę: AI_CANCELLED, kwota wraca, podpowiedzi, activeTurnId znika', async () => {
+      process.env.AI_STUB_DELAY_MS = '1500';
+      try {
+        const conversation = await createConversation(
+          session.accessToken,
+          householdId,
+        );
+        const before = await readQuota(householdId);
+        const accepted = await postMessage(
+          session.accessToken,
+          conversation.id,
+          {
+            clientMessageId: randomUUID(),
+            text: 'Długa tura do przerwania',
+          },
+        ).expect(202);
+        const turnId = (accepted.body as AcceptedTurn).turnId;
+
+        // Powrót do rozmowy w trakcie: jedna rozmowa niesie biegnącą turę.
+        const during = await request(app.getHttpServer())
+          .get(`/agent/conversations/${conversation.id}`)
+          .set(auth(session.accessToken))
+          .expect(200);
+        expect(during.body).toMatchObject({
+          id: conversation.id,
+          activeTurnId: turnId,
+        });
+
+        const cancelled = await request(app.getHttpServer())
+          .post(`/agent/turns/${turnId}/cancel`)
+          .set(auth(session.accessToken))
+          .expect(200);
+        expect(cancelled.body).toMatchObject({
+          status: 'FAILED',
+          errorCode: 'AI_CANCELLED',
+          suggestions: ['Zaplanuj tylko obiady', 'Zaplanuj 3 dni'],
+        });
+        expect(await readQuota(householdId)).toBe(before);
+
+        // Drugie kliknięcie nie jest błędem i niczego nie zmienia.
+        await request(app.getHttpServer())
+          .post(`/agent/turns/${turnId}/cancel`)
+          .set(auth(session.accessToken))
+          .expect(200);
+        expect(await readQuota(householdId)).toBe(before);
+
+        const after = await request(app.getHttpServer())
+          .get(`/agent/conversations/${conversation.id}`)
+          .set(auth(session.accessToken))
+          .expect(200);
+        expect(after.body).toMatchObject({ activeTurnId: null });
+      } finally {
+        process.env.AI_STUB_DELAY_MS = '0';
+      }
+    });
+
+    it('cudza rozmowa po id: 404, nie 403', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const outsider = await devLogin('Obcy2');
+      await request(app.getHttpServer())
+        .get(`/agent/conversations/${conversation.id}`)
+        .set(auth(outsider.accessToken))
+        .expect(404);
+    });
+
     it('tura-zombie po padzie procesu NIE blokuje rozmowy na zawsze', async () => {
       const conversation = await createConversation(
         session.accessToken,

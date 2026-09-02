@@ -28,6 +28,13 @@ export type AgentProgressStep = {
    * (`dry_run`), która niczego nie zapisuje.
    */
   writes: boolean;
+  /**
+   * `PLANNING` = od tego kroku turę prowadzi dokładniejszy model
+   * (`start_planning`, patrz `AI_MODEL_TOOLS`). Klient rysuje ten krok jako
+   * osobny moment z licznikiem sekund, nie jako kolejną linijkę — projekt v2.
+   * Brak pola = zwykły krok.
+   */
+  phase?: 'PLANNING';
 };
 
 /**
@@ -80,6 +87,9 @@ const LABELS: Record<string, readonly string[]> = {
     'Sprawdzam, czego trzeba dokupić',
   ],
   remember_note: ['Zapamiętuję to sobie', 'Notuję na przyszłość'],
+  // Jedno sformułowanie, celowo: to jest MOMENT, nie kolejny krok, i ma
+  // wyglądać tak samo w każdej turze.
+  start_planning: ['Biorę się za plan'],
   apply_week_plan: ['Zapisuję plan tygodnia', 'Wpisuję dania do planu'],
   create_recipe: ['Dodaję przepis', 'Zapisuję nowy przepis'],
   update_recipe: ['Poprawiam przepis'],
@@ -143,6 +153,7 @@ export function progressStep(
     label,
     at: now.toISOString(),
     writes: WRITING_TOOLS.has(tool) && !dryRun,
+    ...(tool === 'start_planning' ? { phase: 'PLANNING' as const } : {}),
   };
 }
 

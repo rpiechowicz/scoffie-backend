@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { ConsentsModule } from '../consents/consents.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { HouseholdsModule } from '../households/households.module';
 import { RecipesModule } from '../recipes/recipes.module';
 import { WeeklyPlansModule } from '../weekly-plans/weekly-plans.module';
@@ -46,6 +47,8 @@ import { UpstreamBreaker } from './upstream-breaker';
     RecipesModule,
     // Zgody: bramka przed turą i filtr domowników w prompcie.
     ConsentsModule,
+    // Push „asystent odpowiedział" po domknięciu tury.
+    NotificationsModule,
   ],
   controllers: [AgentController],
   providers: [

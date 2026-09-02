@@ -160,6 +160,12 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   the tool loop has spent that much, the model is asked for a final answer
   without tools. Unknown `AI_MODEL` names are priced at the most expensive
   known rate (and logged once) instead of costing zero.
+- `AI_MODEL_TOOLS` (empty = off) — cheaper model for the conversational part
+  of a turn (e.g. `claude-haiku-4-5`). The turn starts on it with read-only
+  tools plus `start_planning`; when the model calls that tool, the rest of
+  the turn (proposals, writes) runs on `AI_MODEL` with the full tool list.
+  The client sees the switch as a progress step with `phase: PLANNING`.
+  Each round is priced at the rate of the model that ran it.
 - `AI_GLOBAL_DAILY_BUDGET_USD` (`5`) — daily cost cap for the whole
   installation; over it, `/agent` answers `503 AI_BUDGET_PAUSED`. `off` means
   no cap at all — an empty variable takes the default, because "unset" must not

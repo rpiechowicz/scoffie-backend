@@ -14,6 +14,7 @@ describe('readAgentEnv', () => {
       enabled: false,
       provider: 'anthropic',
       model: AI_MODEL_DEFAULT,
+      toolsModel: null,
       effort: AI_EFFORT_DEFAULT,
       apiKeyPresent: false,
       turnTimeoutMs: AGENT_ENV_DEFAULTS.turnTimeoutMs,
@@ -216,5 +217,11 @@ describe('agentEnvProblems', () => {
     const problems = agentEnvProblems({ [key]: value });
     expect(problems).toHaveLength(1);
     expect(problems[0]).toMatch(pattern);
+  });
+  it('AI_MODEL_TOOLS: tańszy model na rozmowę; puste = jeden model na całą turę', () => {
+    expect(
+      readAgentEnv({ AI_MODEL_TOOLS: ' claude-haiku-4-5 ' }).toolsModel,
+    ).toBe('claude-haiku-4-5');
+    expect(readAgentEnv({ AI_MODEL_TOOLS: '  ' }).toolsModel).toBeNull();
   });
 });

@@ -57,6 +57,7 @@ export class AgentPromptService {
     dates: TurnDates,
     proposalMode: boolean,
     scopeUserIds: readonly string[] = [],
+    handoff = false,
   ): Promise<AgentPrompt> {
     const [digest, household, allMembers, memory] = await Promise.all([
       this.loadDigest(),
@@ -85,6 +86,7 @@ export class AgentPromptService {
       members,
       membersWithheld: withheld,
       proposalMode,
+      handoff,
       // Imiona, nie identyfikatory: prompt czyta człowiek i model, a oba
       // rozumieją „Ania" lepiej niż UUID. Identyfikatory model i tak ma
       // w bloku domowników obok.

@@ -50,7 +50,30 @@ export type HouseholdPromptContext = {
    * PRZED wysłaniem, więc model nie ma go negocjować ani zgadywać z treści.
    */
   scopeNames: string[];
+  /**
+   * Czy tura zaczyna na tańszym modelu z `start_planning` (AI_MODEL_TOOLS).
+   * Blok mówi tańszemu modelowi, na co odpowiada sam, a kiedy oddaje pałeczkę.
+   */
+  handoff?: boolean;
 };
+
+/**
+ * Akapit podziału pracy — tylko przy włączonym przekazaniu. W bloku
+ * gospodarstwa (nie w instrukcjach) z tego samego powodu co tryb: prefiks
+ * ma zostać wspólny dla całej instalacji.
+ */
+export function handoffBlock(): string {
+  return [
+    'PODZIAŁ PRACY: rozmowę prowadzi szybki model, plan układa dokładniejszy.',
+    '- Na pytania o to, co JEST w planie, o składniki, bilans, listę zakupów i na',
+    '  dopytania odpowiadasz sam — bez start_planning. To większość rozmów.',
+    '- Gdy trzeba coś UŁOŻYĆ albo ZMIENIĆ (tydzień, dzień, podmiana, porcje dla domu,',
+    '  przepis), NAJPIERW zbierasz kontekst (plan tygodnia, domownicy), a potem wołasz',
+    '  start_planning. Dopiero po nim są narzędzia propose_* i apply_*.',
+    '- Po start_planning kontynuujesz jako planista: nie witasz się od nowa i nie',
+    '  powtarzasz wywołań, których wyniki już są w historii tej tury.',
+  ].join('\n');
+}
 
 export const AGENT_INSTRUCTIONS = [
   'Jesteś asystentem planowania posiłków w aplikacji Weekly Meals. Mówisz po polsku, zwięźle i konkretnie.',
@@ -190,6 +213,7 @@ export function buildSystemPrompt(
 ): SystemBlock[] {
   const householdBlock = [
     modeBlock(context.proposalMode),
+    ...(context.handoff ? ['', handoffBlock()] : []),
     '',
     `GOSPODARSTWO: ${context.householdName}`,
     `DZIŚ: ${context.clientToday} (strefa ${context.timeZone})`,

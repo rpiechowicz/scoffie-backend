@@ -90,6 +90,10 @@ describe('AgentConversationsService', () => {
         title: null,
         lastMessageAt: null,
         createdAt: '2026-08-31T10:00:00.000Z',
+        // Ten sam kształt co na liście: świeża rozmowa nie ma ani podglądu,
+        // ani biegnącej tury, ale klient nie musi tego zgadywać po braku pola.
+        preview: null,
+        activeTurnId: null,
       });
     });
 

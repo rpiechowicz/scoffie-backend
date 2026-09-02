@@ -40,6 +40,7 @@ const ENV: AgentEnv = {
   consentRequired: false,
   conversationRetentionDays: 90,
   maxTurnCostUsd: 1,
+  toolsModel: null,
 };
 
 const validDto = (): PostMessageDto => ({

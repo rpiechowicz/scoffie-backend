@@ -130,7 +130,40 @@ export class AgentConversationsService {
     const conversation = await this.prisma.agentConversation.create({
       data: { userId, householdId: data.householdId },
     });
-    return this.toConversationView(conversation);
+    return {
+      ...this.toConversationView(conversation),
+      preview: null,
+      activeTurnId: null,
+    };
+  }
+
+  /** Jedna rozmowa z podglądem i żywą turą — patrz `list`. */
+  async getOne(
+    userId: string,
+    conversationId: string,
+  ): Promise<ConversationView> {
+    this.config.assertEnabled();
+    const owned = await this.loadOwned(userId, conversationId);
+    const conversation = await this.prisma.agentConversation.findUniqueOrThrow({
+      where: { id: owned.id },
+    });
+    const [previews, active] = await Promise.all([
+      this.previews([conversation.id]),
+      this.prisma.agentTurn.findFirst({
+        where: {
+          conversationId: conversation.id,
+          status: 'RUNNING',
+          startedAt: { gt: this.staleTurnThreshold() },
+        },
+        orderBy: { startedAt: 'desc' },
+        select: { id: true },
+      }),
+    ]);
+    return {
+      ...this.toConversationView(conversation),
+      preview: previews.get(conversation.id) ?? null,
+      activeTurnId: active?.id ?? null,
+    };
   }
 
   /**

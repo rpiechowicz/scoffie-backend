@@ -557,4 +557,53 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
   },
 ] as const;
 
-export const AGENT_TOOL_NAMES = AGENT_TOOLS.map((tool) => tool.name);
+/**
+ * Przekazanie tury mocniejszemu modelowi (`AI_MODEL_TOOLS`).
+ *
+ * Tańszy model dostaje TYLKO narzędzia do czytania i to jedno. Nie ma jak
+ * ułożyć planu sam — `propose_*`/`apply_*` pojawiają się dopiero po wywołaniu
+ * `start_planning`, kiedy pałeczkę przejmuje `AI_MODEL`. Dzięki temu podział
+ * pracy jest wymuszony przez listę narzędzi, a nie przez prośbę w prompcie.
+ * `reason` idzie do postępu tury jako „biorę się za plan" — użytkownik widzi,
+ * że zaczyna się droższa część i że to normalne.
+ */
+export const START_PLANNING_TOOL: AgentToolDefinition = {
+  name: 'start_planning',
+  description:
+    'Przekazanie pałeczki dokładniejszemu modelowi, który ułoży albo zmieni plan. ' +
+    'Wywołaj, gdy pytanie wymaga UŁOŻENIA lub ZMIANY planu (tydzień, dzień, podmiana ' +
+    'dania, porcje dla domu, nowy albo poprawiony przepis). Dopiero po tym wywołaniu ' +
+    'dostaniesz narzędzia propose_* i apply_*. NIE wywołuj przy pytaniach o to, co jest ' +
+    'w planie, o składniki, bilans czy listę zakupów — na nie odpowiadasz sam. ' +
+    'Zanim je wywołasz, zbierz kontekst (plan tygodnia, domownicy), żeby planista nie ' +
+    'powtarzał tych kroków.',
+  input_schema: object({
+    reason: {
+      type: 'string',
+      description: 'Jedno krótkie zdanie po polsku: co zamierzasz ułożyć.',
+    },
+  }),
+  strict: true,
+};
+
+/** Narzędzia, których tańszy model NIE dostaje przed `start_planning`. */
+export const PLANNING_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'propose_week_plan',
+  'propose_day_plan',
+  'propose_swap',
+  'propose_household_split',
+  'apply_week_plan',
+  'create_recipe',
+  'update_recipe',
+  'delete_recipe',
+]);
+
+/** Lista narzędzi PRZED przekazaniem: czytanie + `start_planning`. */
+export const TRIAGE_TOOLS: readonly AgentToolDefinition[] = [
+  ...AGENT_TOOLS.filter((tool) => !PLANNING_TOOL_NAMES.has(tool.name)),
+  START_PLANNING_TOOL,
+];
+
+export const AGENT_TOOL_NAMES = [...AGENT_TOOLS, START_PLANNING_TOOL].map(
+  (tool) => tool.name,
+);

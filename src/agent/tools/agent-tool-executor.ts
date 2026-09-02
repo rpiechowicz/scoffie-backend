@@ -332,6 +332,17 @@ export class AgentToolExecutor {
       case 'remember_note':
         return this.memory.remember(householdId, userId, str('text'));
 
+      case 'start_planning':
+        // Sama zmiana modelu dzieje się w dostawcy (patrz AgentProviderHandoff);
+        // tu wystarczy potwierdzenie, które planista przeczyta jako pierwsze.
+        return Promise.resolve({
+          handoff: true,
+          note:
+            'Od tej rundy prowadzisz turę jako planista i masz pełny zestaw narzędzi ' +
+            '(propose_*, apply_*). Kontekst zebrany wcześniej jest w historii — nie ' +
+            'powtarzaj tych wywołań.',
+        });
+
       case 'delete_recipe':
         return this.recipes.remove(userId, str('recipe_id'), householdId);
 

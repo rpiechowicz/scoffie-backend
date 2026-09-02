@@ -172,6 +172,33 @@ export class AgentController {
   }
 
   /**
+   * „Stop" — przerwanie biegnącej tury. Bez `assertEnabled`: przycisk jest
+   * już na ekranie, a wyłączenie asystenta nie może zostawić tury, której
+   * nie da się przerwać. Idempotentne: tura domknięta wraca bez zmian.
+   */
+  @Post('turns/:id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({
+    default: { limit: () => readThrottleLimit('THROTTLE_AGENT_MESSAGE_LIMIT') },
+  })
+  cancelTurn(@CurrentUserId() userId: string, @Param('id') turnId: string) {
+    return this.turns.cancelTurn(userId, turnId);
+  }
+
+  /**
+   * Jedna rozmowa z `activeTurnId` — dla telefonu, który wraca do rozmowy
+   * w trakcie tury (głęboki link, powrót z tła) i musi wiedzieć, którą turę
+   * dalej odpytywać, bez pobierania całej listy.
+   */
+  @Get('conversations/:id')
+  getConversation(
+    @CurrentUserId() userId: string,
+    @Param('id') conversationId: string,
+  ) {
+    return this.conversations.getOne(userId, conversationId);
+  }
+
+  /**
    * Zatwierdzenie propozycji — moment, w którym plan naprawdę się zmienia.
    *
    * Bez ciała: jednostką idempotencji jest sama propozycja, więc drugie

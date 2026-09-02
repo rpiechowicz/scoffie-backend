@@ -111,6 +111,8 @@ export const APP_ERROR_CODES = [
   'AI_MESSAGE_NOT_FOUND',
   // Powody porażki tury (`AgentTurn.errorCode`), zwracane w GET /agent/turns/:id.
   'AI_TIMEOUT',
+  // Tura przerwana przez użytkownika („Stop" w aplikacji). Kwota wraca.
+  'AI_CANCELLED',
   'AI_PROVIDER_ERROR',
   // ─── integracja Cookidoo (Thermomix) ───
   // AUTH_FAILED leci jako 409, nie 401 — 401 z API znaczy dla iOS „odśwież
