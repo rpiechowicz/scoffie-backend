@@ -144,6 +144,7 @@ export class AgentTurnRunner {
           });
         },
         signal: controller.signal,
+        maxTurnCostUsd: input.env.maxTurnCostUsd,
       });
       await this.finishDone(input, result, Date.now() - startedAt, pendingCard);
       this.breaker.recordSuccess();

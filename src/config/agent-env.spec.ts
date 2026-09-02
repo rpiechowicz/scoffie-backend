@@ -34,7 +34,20 @@ describe('readAgentEnv', () => {
       // Bramka zgód wyłączona, dopóki wydany iOS nie ma ekranu zgody.
       consentRequired: false,
       conversationRetentionDays: AGENT_ENV_DEFAULTS.conversationRetentionDays,
+      maxTurnCostUsd: AGENT_ENV_DEFAULTS.maxTurnCostUsd,
     });
+  });
+
+  it('sufit kosztu tury: off = null, ułamki ok, śmieci = domyślny $1', () => {
+    expect(readAgentEnv({ AI_MAX_TURN_COST_USD: 'off' }).maxTurnCostUsd).toBe(
+      null,
+    );
+    expect(readAgentEnv({ AI_MAX_TURN_COST_USD: '0.5' }).maxTurnCostUsd).toBe(
+      0.5,
+    );
+    expect(readAgentEnv({ AI_MAX_TURN_COST_USD: 'dużo' }).maxTurnCostUsd).toBe(
+      1,
+    );
   });
 
   it('retencja: 0 wyłącza, ułamek/ujemna = domyślne 90', () => {

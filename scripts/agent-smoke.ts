@@ -125,6 +125,7 @@ async function main(): Promise<void> {
         });
       },
       signal: AbortSignal.timeout(env.turnTimeoutMs),
+      maxTurnCostUsd: env.maxTurnCostUsd,
     });
 
     console.log(`\n--- odpowiedź (${Date.now() - started} ms) ---`);

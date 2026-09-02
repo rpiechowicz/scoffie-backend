@@ -106,6 +106,12 @@ export type AgentEnv = {
    * brak obietnicy. Księga kosztów zostaje (turnId → NULL).
    */
   conversationRetentionDays: number;
+  /**
+   * Sufit kosztu JEDNEJ tury w USD; `null` = bez sufitu (jawne `off`).
+   * Żądanie niewykonalne kręciło się 14 wywołań za $1,00 — po przekroczeniu
+   * dostawca kończy pętlę narzędzi odpowiedzią tekstową.
+   */
+  maxTurnCostUsd: number | null;
 };
 
 /**
@@ -137,6 +143,11 @@ export const AGENT_ENV_DEFAULTS = {
   proposalUndoWindowMs: 60 * 60 * 1000,
   /** 90 dni: tyle obiecuje polityka prywatności (decyzja 2.09.2026). */
   conversationRetentionDays: 90,
+  /**
+   * $1: zmierzona tura niewykonalna. Zwykłe tury kosztują $0,12–0,30, więc
+   * sufit ich nie dotyka; łapie wyłącznie pętlę.
+   */
+  maxTurnCostUsd: 1,
 } as const;
 
 /** Jedyna droga do braku budżetu — jawna i widoczna w `railway variables`. */
@@ -258,7 +269,20 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       AGENT_ENV_DEFAULTS.conversationRetentionDays,
       { min: 0 },
     ),
+    maxTurnCostUsd: readMaxTurnCostUsd(env),
   };
+}
+
+/** Jak budżet dobowy: liczba ≥ 0, `off` = bez sufitu, śmieci = domyślne. */
+function readMaxTurnCostUsd(env: NodeJS.ProcessEnv): number | null {
+  const raw = (env.AI_MAX_TURN_COST_USD ?? '').trim().toLowerCase();
+  if (!raw) return AGENT_ENV_DEFAULTS.maxTurnCostUsd;
+  if (raw === AI_BUDGET_OFF) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return AGENT_ENV_DEFAULTS.maxTurnCostUsd;
+  }
+  return parsed;
 }
 
 /**

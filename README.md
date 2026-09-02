@@ -156,6 +156,10 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   are deleted by an in-process sweep every six hours; conversations with a
   running turn are skipped. The `AiUsage` ledger survives (`turnId` becomes
   `NULL`), so billing data never shrinks with clean-ups.
+- `AI_MAX_TURN_COST_USD` (`1`, `off` disables) — cap on a single turn; once
+  the tool loop has spent that much, the model is asked for a final answer
+  without tools. Unknown `AI_MODEL` names are priced at the most expensive
+  known rate (and logged once) instead of costing zero.
 - `AI_GLOBAL_DAILY_BUDGET_USD` (`5`) — daily cost cap for the whole
   installation; over it, `/agent` answers `503 AI_BUDGET_PAUSED`. `off` means
   no cap at all — an empty variable takes the default, because "unset" must not

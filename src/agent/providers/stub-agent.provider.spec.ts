@@ -21,6 +21,7 @@ describe('StubAgentProvider', () => {
         { role: 'USER', text },
       ],
       signal,
+      maxTurnCostUsd: null,
     });
 
   afterEach(() => {

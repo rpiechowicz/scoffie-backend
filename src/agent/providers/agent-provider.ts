@@ -26,6 +26,12 @@ export type AgentProviderRequest = {
   ) => Promise<AgentToolResult>;
   /** Przerwanie tury po `AI_TURN_TIMEOUT_MS` — dostawca MUSI go respektować. */
   signal: AbortSignal;
+  /**
+   * Sufit kosztu jednej tury w USD (`AI_MAX_TURN_COST_USD`); `null` = bez
+   * sufitu. Po przekroczeniu dostawca kończy pętlę narzędzi odpowiedzią bez
+   * narzędzi zamiast kręcić się do limitu rund.
+   */
+  maxTurnCostUsd: number | null;
 };
 
 export type AgentProviderUsage = {

@@ -36,6 +36,7 @@ const ENV: AgentEnv = {
   allowedUsers: [],
   consentRequired: false,
   conversationRetentionDays: 90,
+  maxTurnCostUsd: 1,
 };
 
 const RESULT: AgentProviderResult = {
