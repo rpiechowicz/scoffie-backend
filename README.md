@@ -138,6 +138,11 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   when the week is actually **written** — a dry run, a rejected write and a
   write that changed nothing all cost nothing. Out of plans, the tool answers
   the model with `AI_PLAN_QUOTA_EXCEEDED` instead of killing the turn.
+- `AI_ALLOWED_USERS` (empty = everyone) — comma-separated user ids or
+  e-mails allowed to start a conversation or send a message; anyone else
+  gets `503 AI_DISABLED` with `details: ['not_allowed']`, which the shipped
+  iOS build renders as "assistant unavailable". The gate for the period
+  between "family is testing" and consents + paywall.
 - `AI_GLOBAL_DAILY_BUDGET_USD` (`5`) — daily cost cap for the whole
   installation; over it, `/agent` answers `503 AI_BUDGET_PAUSED`. `off` means
   no cap at all — an empty variable takes the default, because "unset" must not

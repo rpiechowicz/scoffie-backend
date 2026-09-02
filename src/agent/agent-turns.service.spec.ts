@@ -36,6 +36,7 @@ const ENV: AgentEnv = {
   cardsMode: 'off',
   proposalTtlMs: 72 * 60 * 60 * 1000,
   proposalUndoWindowMs: 60 * 60 * 1000,
+  allowedUsers: [],
 };
 
 const validDto = (): PostMessageDto => ({
@@ -67,7 +68,11 @@ describe('AgentTurnsService', () => {
     },
     $transaction: jest.fn(),
   };
-  const config = { assertEnabled: jest.fn(), read: jest.fn() };
+  const config = {
+    assertEnabled: jest.fn(),
+    assertUserAllowed: jest.fn().mockResolvedValue(undefined),
+    read: jest.fn(),
+  };
   const conversations = { loadOwned: jest.fn() };
   const counters = {
     monthKey: jest.fn(),

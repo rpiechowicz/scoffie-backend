@@ -1,17 +1,36 @@
 import { AppException } from '../common/app-exception';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { AgentConfigService } from './agent-config.service';
 
 describe('AgentConfigService', () => {
-  const KEYS = ['AI_ENABLED', 'AI_PROVIDER', 'ANTHROPIC_API_KEY'] as const;
+  const KEYS = [
+    'AI_ENABLED',
+    'AI_PROVIDER',
+    'ANTHROPIC_API_KEY',
+    'AI_ALLOWED_USERS',
+  ] as const;
   const original: Record<string, string | undefined> = {};
+  const USER_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
   let metrics: AgentMetricsService;
+  let prisma: { user: { findUnique: jest.Mock } };
   let service: AgentConfigService;
 
   beforeEach(() => {
     for (const key of KEYS) original[key] = process.env[key];
+    delete process.env.AI_ALLOWED_USERS;
     metrics = new AgentMetricsService();
-    service = new AgentConfigService(metrics);
+    prisma = {
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: USER_ID, email: 'Rafal@Example.com' }),
+      },
+    };
+    service = new AgentConfigService(
+      metrics,
+      prisma as unknown as PrismaService,
+    );
   });
 
   afterEach(() => {
@@ -63,5 +82,41 @@ describe('AgentConfigService', () => {
     expect(service.read().enabled).toBe(false);
     process.env.AI_ENABLED = 'true';
     expect(service.read().enabled).toBe(true);
+  });
+
+  describe('lista dozwolonych kont', () => {
+    it('pusta lista = wszyscy, bez pytania bazy', async () => {
+      await expect(service.assertUserAllowed(USER_ID)).resolves.toBeUndefined();
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('przepuszcza po identyfikatorze', async () => {
+      process.env.AI_ALLOWED_USERS = `ktos@inny.pl, ${USER_ID.toUpperCase()}`;
+      await expect(service.assertUserAllowed(USER_ID)).resolves.toBeUndefined();
+    });
+
+    it('przepuszcza po e-mailu bez względu na wielkość liter', async () => {
+      process.env.AI_ALLOWED_USERS = 'RAFAL@example.COM';
+      await expect(service.assertUserAllowed(USER_ID)).resolves.toBeUndefined();
+    });
+
+    it('konto spoza listy dostaje to samo 503 AI_DISABLED, co wyłączony asystent', async () => {
+      // Celowo ten sam kod: wydany build iOS ma dla niego kopię i blokadę
+      // pola; nowy kod czekałby na wizytę na Macu. Powód jest w `details`.
+      process.env.AI_ALLOWED_USERS = 'ktos@inny.pl';
+      await expect(service.assertUserAllowed(USER_ID)).rejects.toMatchObject({
+        code: 'AI_DISABLED',
+        details: ['not_allowed'],
+      });
+      expect(metrics.snapshot().rejected.disabled).toBe(1);
+    });
+
+    it('konto bez e-maila, którego nie ma na liście po id, też odpada', async () => {
+      process.env.AI_ALLOWED_USERS = 'ktos@inny.pl';
+      prisma.user.findUnique.mockResolvedValue({ id: USER_ID, email: null });
+      await expect(service.assertUserAllowed(USER_ID)).rejects.toMatchObject({
+        details: ['not_allowed'],
+      });
+    });
   });
 });
