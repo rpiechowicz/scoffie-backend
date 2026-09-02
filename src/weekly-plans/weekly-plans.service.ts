@@ -431,6 +431,19 @@ export class WeeklyPlansService {
       dto.plannedServings,
     );
 
+    // Te same twarde bramki, co w `applyWeekPlan` (alergeny i wykluczenia
+    // domowników). Do 3.09.2026 miał je tylko zapis tygodnia — asystent nie
+    // mógł wstawić dania z alergenem, a ręka z telefonu mogła. Ładowane
+    // PRZED transakcją, sprawdzane w niej, gdy znane jest już audytorium.
+    const [plannableForGate, allergensByMember, exclusionsByMember] =
+      await Promise.all([
+        this.loadPlannableRecipes(householdId, [dto.recipeId]),
+        this.loadMemberAllergens(householdId),
+        this.loadMemberExclusions(householdId),
+      ]);
+    const memberIdsForGate =
+      memberIds ?? (await this.loadMemberIds(householdId));
+
     return this.prisma.$transaction(async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
         where: {
@@ -497,6 +510,36 @@ export class WeeklyPlansService {
           carried.length === 0 || carried.length === memberIds.size
             ? []
             : carried;
+      }
+
+      // Bramka po ustaleniu audytorium: jedno „nie jem" nie wykreśla dania
+      // tym, którzy jedzą je bez problemu. Slot (śniadanie/kolacja) tu NIE
+      // jest sprawdzany — telefon nie filtruje przepisów po slocie, więc
+      // odmowa zaskoczyłaby użytkownika; to decyzja produktowa, nie zdrowie.
+      const violation = this.collectPlanViolations(
+        [
+          {
+            dayOfWeek: dto.dayOfWeek,
+            mealType: dto.mealType,
+            recipeId: dto.recipeId,
+            participantIds: effectiveParticipantIds,
+          } as ApplyWeekSlotDto,
+        ],
+        plannableForGate,
+        memberIdsForGate,
+        allergensByMember,
+        exclusionsByMember,
+      ).find(
+        (entry) =>
+          entry.code === 'RECIPE_ALLERGEN_CONFLICT' ||
+          entry.code === 'RECIPE_EXCLUDED_INGREDIENT',
+      );
+      if (violation) {
+        throw new AppException(
+          violation.code,
+          violation.message,
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       // The item is identified by its recipe, not just by the slot: a slot can
