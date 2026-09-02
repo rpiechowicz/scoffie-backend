@@ -33,6 +33,10 @@ model User {
   avatarColor           Int?
   onboardingCompletedAt DateTime?
   lastLoginAt           DateTime?
+  /// Wersja tokenów dostępu. Podbicie unieważnia WSZYSTKIE wydane JWT tej
+  /// osoby (wykrycie ponownego użycia refresh tokenu, wylogowanie zewsząd) —
+  /// bez tego skradziony token dostępu żył do końca swojego TTL.
+  tokenVersion          Int          @default(0)
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
 
@@ -435,6 +439,10 @@ model Membership {
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@unique([userId, householdId])
+  /// Najgorętsze zapytanie w aplikacji: „kto jest w tym domu" (pokoje WS,
+  /// odbiorcy powiadomień, składy). Unikat (userId, householdId) nie
+  /// pomaga, bo householdId stoi w nim drugi.
+  @@index([householdId])
 }
 
 model Invitation {
@@ -521,6 +529,9 @@ model PlanItem {
   // to one slot.
   @@unique([weeklyPlanId, dayOfWeek, mealType, recipeId])
   @@index([weeklyPlanId, dayOfWeek, mealType])
+  /// Wycofanie przepisu, import katalogu i „gdzie ten przepis jest w planie"
+  /// szukają po przepisie — bez indeksu to pełny skan pozycji.
+  @@index([recipeId])
 }
 
 /// Which household members a given plan item is for.

@@ -15,7 +15,7 @@ import {
 import { RecipesCacheService } from './recipes-cache.service';
 import { AppException } from '../common/app-exception';
 import { validateDto } from '../common/validate-dto';
-import { assertUuid, isUuid } from '../common/uuid';
+import { assertUuid } from '../common/uuid';
 import { deriveRecipeTags } from '../common/diet-tags';
 import {
   ALLOWED_UNITS,
@@ -123,14 +123,6 @@ export class RecipesService {
     private readonly recipesCache: RecipesCacheService,
   ) {}
 
-  private readonly autoRecoverMissingUser =
-    process.env.AUTO_RECOVER_MISSING_USER === 'true';
-  // Gospodarstwo katalogu wskazywane po ID, nie po nazwie — „Home” to
-  // domyślna nazwa, którą może nosić dom każdego użytkownika.
-  private readonly recoveryHouseholdId =
-    process.env.AUTO_RECOVER_HOUSEHOLD_ID ??
-    process.env.RECIPE_IMPORT_HOUSEHOLD_ID ??
-    '22222222-2222-4222-8222-222222222222';
   private readonly imageGeneratorBaseUrl =
     process.env.IMAGE_GENERATOR_BASE_URL ??
     'https://image.pollinations.ai/prompt';
@@ -145,49 +137,6 @@ export class RecipesService {
     .trim()
     .replace(/\/+$/g, '');
 
-  private async recoverMissingUserById(userId: string): Promise<string | null> {
-    // Ta sama definicja UUID, co w bramkach (`src/common/uuid`) — serwis miał
-    // własny, ściślejszy wzorzec (tylko wersje 1–5) tylko po to, żeby `upsert`
-    // po kolumnie `@db.Uuid` nie kończył się P2023 dla googleId.
-    if (!this.autoRecoverMissingUser || !isUuid(userId)) return null;
-
-    const recovered = await this.prisma.user.upsert({
-      where: { id: userId },
-      update: {},
-      create: {
-        id: userId,
-        googleId: `legacy-${userId}`,
-        displayName: 'Recovered User',
-        email: null,
-      },
-      select: { id: true },
-    });
-
-    const household = await this.prisma.household.findUnique({
-      where: { id: this.recoveryHouseholdId },
-      select: { id: true },
-    });
-
-    if (household) {
-      await this.prisma.membership.upsert({
-        where: {
-          userId_householdId: {
-            userId: recovered.id,
-            householdId: household.id,
-          },
-        },
-        update: {},
-        create: {
-          userId: recovered.id,
-          householdId: household.id,
-          role: 'MEMBER',
-        },
-      });
-    }
-
-    return recovered.id;
-  }
-
   private async resolveUserId(userIdentifier: string): Promise<string> {
     const byId = await this.prisma.user.findUnique({
       where: { id: userIdentifier },
@@ -201,9 +150,9 @@ export class RecipesService {
     });
     if (byGoogleId) return byGoogleId.id;
 
-    const recovered = await this.recoverMissingUserById(userIdentifier);
-    if (recovered) return recovered;
-
+    // Dawna flaga `AUTO_RECOVER_MISSING_USER` zakładała tu konto dla
+    // DOWOLNEGO UUID i wpisywała je do stałego domu — ścieżka usunięta
+    // (audyt 2): brak konta to brak konta.
     throw new AppException(
       'FORBIDDEN',
       'Nie znaleziono użytkownika.',
@@ -853,13 +802,23 @@ export class RecipesService {
     // wiersza ani z samej łatki.
     const next = {
       title: data.title ?? existing.title,
-      description: data.description ?? existing.description,
+      // `null` = wyczyść opis; `undefined` = nie ruszaj. `??` zlewało oba.
+      description:
+        data.description === undefined
+          ? existing.description
+          : data.description,
       mealType: data.mealType ?? existing.mealType,
       prepTimeMinutes: data.prepTimeMinutes ?? existing.prepTimeMinutes,
       servings: data.servings ?? existing.servings,
     };
+    // Sól nie wynika ze składników (patrz `resolveRecipeNutrition`), więc
+    // przy zmianie składników zostaje ta z wiersza — pusty obiekt zerował ją
+    // przy każdej edycji.
     const nutrition = ingredientRows
-      ? this.resolveRecipeNutrition({}, ingredientRows)
+      ? this.resolveRecipeNutrition(
+          { nutritionSalt: existing.nutritionSalt },
+          ingredientRows,
+        )
       : null;
 
     await this.prisma.$transaction(async (tx) => {
@@ -964,6 +923,7 @@ export class RecipesService {
         prepTimeMinutes: true,
         servings: true,
         nutritionKcal: true,
+        nutritionSalt: true,
         isActive: true,
         isCatalog: true,
         householdId: true,
@@ -1000,9 +960,11 @@ export class RecipesService {
       select: {
         id: true,
         householdId: true,
+        isCatalog: true,
+        isActive: true,
       },
     });
-    if (!recipe) {
+    if (!recipe || !recipe.isActive) {
       throw new AppException(
         'RECIPE_NOT_FOUND',
         'Nie znaleziono przepisu.',
@@ -1010,6 +972,16 @@ export class RecipesService {
       );
     }
     await this.ensureMembership(userIdentifier, data.householdId);
+    // Ta sama bramka, co w `findById`: ulubiony może być przepis katalogu
+    // albo własny tego domu. Zapis dla cudzego przepisu przechodził, a potem
+    // odczyt padał na wierszu, którego dom nie widzi.
+    if (!recipe.isCatalog && recipe.householdId !== data.householdId) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        'Nie znaleziono przepisu.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
     if (data.isFavorite === true) {
       await this.prisma.recipeFavorite.upsert({

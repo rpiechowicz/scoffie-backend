@@ -25,6 +25,26 @@ export type RuntimeEnvReport = {
   warnings: string[];
 };
 
+/** Baza na tej samej maszynie (dev, CI, docker-compose) — tylko tam wolno żyć sekretom z repo. */
+export function isLocalDatabaseUrl(raw: string | undefined): boolean {
+  const value = (raw ?? '').trim();
+  if (!value) return true;
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host === 'postgres' ||
+      host === 'db' ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal')
+    );
+  } catch {
+    return false;
+  }
+}
+
 function secretProblem(name: string, value: string | undefined): string | null {
   const trimmed = (value ?? '').trim();
   if (!trimmed) return `${name} jest pusty`;
@@ -110,9 +130,28 @@ export function inspectRuntimeEnv(
     );
   }
 
-  return production
-    ? { production, violations: [...problems, ...productionOnly], warnings: [] }
-    : { production, violations: [], warnings: problems };
+  if (production) {
+    return {
+      production,
+      violations: [...problems, ...productionOnly],
+      warnings: [],
+    };
+  }
+  // Poza produkcją sekrety z repo są dopuszczalne TYLKO przy lokalnej bazie.
+  // Staging z `NODE_ENV` innym niż production i bazą w chmurze startował
+  // dotąd z `dev-secret-change-me` — każdy mógł podpisać sobie token.
+  const remoteDatabase = !isLocalDatabaseUrl(env.DATABASE_URL);
+  const secretViolations = remoteDatabase
+    ? [jwtProblem, pepperProblem].filter((p): p is string => Boolean(p))
+    : [];
+  return {
+    production,
+    violations: secretViolations.map(
+      (problem) =>
+        `${problem} (baza nielokalna — sekret z repo nie wchodzi w grę)`,
+    ),
+    warnings: problems.filter((problem) => !secretViolations.includes(problem)),
+  };
 }
 
 /**

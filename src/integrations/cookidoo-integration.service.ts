@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable, Optional } from '@nestjs/common';
+import { ensureRecipeForHousehold } from '../weekly-plans/utils/auth-checks.util';
 import { AppException } from '../common/app-exception';
 import {
   decryptSecret,
@@ -185,6 +186,9 @@ export class CookidooIntegrationService {
       );
     }
 
+    // Przepis musi być widoczny dla TEGO domu (katalog albo własny) — bez
+    // bramki trasa była wyrocznią istnienia cudzych przepisów.
+    await ensureRecipeForHousehold(this.prisma, recipeId, householdId);
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: recipeId },
       select: { sourceProvider: true, sourceRecipeId: true, isActive: true },

@@ -1,4 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { AccessTokenService } from './auth/access-token.service';
@@ -24,6 +25,16 @@ import { RequestMetricsService } from './observability/request-metrics.service';
  * format `details`.
  */
 export function configureApp(app: NestExpressApplication): void {
+  // Nagłówki bezpieczeństwa bez CSP (API + kilka plików statycznych, nie
+  // strona); `hidePoweredBy` w zestawie. `crossOriginResourcePolicy` na
+  // `cross-origin`, bo obrazki z `/static/` czyta aplikacja spoza tej domeny.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+  app.disable('x-powered-by');
   const extraOrigins = (process.env.CORS_ORIGIN ?? '')
     .split(',')
     .map((origin) => origin.trim())

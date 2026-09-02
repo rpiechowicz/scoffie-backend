@@ -19,6 +19,10 @@ import {
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { NotificationBatcher } from './notification-batcher';
 import { quietHoursDeferralMs } from './quiet-hours.util';
+import { mapWithConcurrency } from '../common/concurrency.util';
+
+/** Ile pushy naraz idzie do APNs z jednej wysyłki. */
+const PUSH_SEND_CONCURRENCY = 8;
 import {
   PlanChangeAction,
   PlanChangeEvent,
@@ -629,13 +633,28 @@ export class NotificationsService implements OnModuleDestroy {
       params.excludeUserId,
       params.channel,
     );
-    // Bez ponownego filtrowania kanału — `resolveRecipients` już to zrobiło
-    // i po drodze policzyło ciszę nocną.
-    await this.sendToDevices(
-      recipients.map((recipient) => recipient.userId),
-      params.channel,
-      params.payload,
-    );
+    // Bez ponownego filtrowania kanału — `resolveRecipients` już to zrobiło.
+    // Cisza nocna liczy się PER ODBIORCA: paczka idzie od razu, gdy ktoś nie
+    // śpi (`resolveDeferralMs`), ale ten, kto śpi, dostaje ją bez dźwięku
+    // i bez zapalania ekranu — dom w dwóch strefach nie budzi się o trzeciej.
+    const now = new Date();
+    const asleep = recipients
+      .filter(
+        (recipient) =>
+          recipient.quietHours &&
+          quietHoursDeferralMs(now, recipient.timeZone) > 0,
+      )
+      .map((recipient) => recipient.userId);
+    const awake = recipients
+      .map((recipient) => recipient.userId)
+      .filter((userId) => !asleep.includes(userId));
+    await this.sendToDevices(awake, params.channel, params.payload);
+    await this.sendToDevices(asleep, params.channel, {
+      ...params.payload,
+      interruptionLevel: 'passive',
+      priority: 5,
+      sound: undefined,
+    });
   }
 
   /**
@@ -682,18 +701,18 @@ export class NotificationsService implements OnModuleDestroy {
       return;
     }
 
-    await Promise.all(
-      devices.map((device) =>
-        this.sendToDevice(
-          {
-            id: device.id,
-            deviceToken: device.deviceToken,
-            appBundleId: device.appBundleId,
-            apnsEnvironment: this.readEnvironment(device.apnsEnvironment),
-          },
-          channel,
-          payload,
-        ),
+    // Partiami, nie wszystko naraz: dom z dwudziestoma urządzeniami to
+    // dwadzieścia równoległych połączeń HTTP/2 do APNs z jednego procesu.
+    await mapWithConcurrency(devices, PUSH_SEND_CONCURRENCY, (device) =>
+      this.sendToDevice(
+        {
+          id: device.id,
+          deviceToken: device.deviceToken,
+          appBundleId: device.appBundleId,
+          apnsEnvironment: this.readEnvironment(device.apnsEnvironment),
+        },
+        channel,
+        payload,
       ),
     );
   }

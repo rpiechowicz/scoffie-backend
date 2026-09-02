@@ -30,6 +30,9 @@ import {
 } from '../weekly-plans/utils/plan-roster.util';
 import { MemberContext, toMemberContext } from './member-context.util';
 
+/** Najdłuższa ważność linku zaproszenia. */
+const INVITATION_MAX_DAYS = 30;
+
 @Injectable()
 export class HouseholdsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -182,12 +185,21 @@ export class HouseholdsService {
     }
 
     const token = randomBytes(16).toString('hex');
-    const expiresAt = dto.expiresAt
+    let expiresAt = dto.expiresAt
       ? new Date(dto.expiresAt)
       : new Date(Date.now() + 7 * 86400000);
     // `@IsDateString` przepuszcza każdą formę ISO 8601 (także tygodniową
     // `2026-W10` i porządkową `2026-060`), a `new Date` części z nich nie
     // parsuje — Invalid Date w Prismie kończyłby się 500.
+    // Link „na sto lat" to stały tylny wejściowy do domu — górna granica
+    // 30 dni, cicho przycięta (klient i tak pokazuje datę z odpowiedzi).
+    const maxExpiresAt = Date.now() + INVITATION_MAX_DAYS * 86400000;
+    if (
+      !Number.isNaN(expiresAt.getTime()) &&
+      expiresAt.getTime() > maxExpiresAt
+    ) {
+      expiresAt = new Date(maxExpiresAt);
+    }
     if (Number.isNaN(expiresAt.getTime())) {
       const detail = 'expiresAt must be a date parsable as ISO 8601 datetime';
       throw new AppException(
@@ -343,8 +355,12 @@ export class HouseholdsService {
         touchedWeeks.push({ householdId: invitation.householdId, weekStart });
       }
 
-      await tx.invitation.update({
-        where: { id: invitation.id },
+      // Zamek na poziomie bazy: sprawdzenie `redeemedAt` na górze biegło
+      // POZA transakcją, więc dwa równoległe kliknięcia w ten sam link
+      // wchodziły oba. Zero zmienionych wierszy = ktoś był pierwszy, a cała
+      // transakcja (członkostwo, porcje, kolor) się wycofuje.
+      const redeemed = await tx.invitation.updateMany({
+        where: { id: invitation.id, redeemedAt: null },
         data: {
           redeemedAt: new Date(),
           redeemedById: userId,
@@ -353,6 +369,13 @@ export class HouseholdsService {
           invitedUserId: userId,
         },
       });
+      if (redeemed.count === 0) {
+        throw new AppException(
+          'INVITATION_ALREADY_REDEEMED',
+          'Invitation already redeemed',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
       // Kolor awatara był przydzielany w składzie STAREGO domu (albo bez
       // żadnego — onboarding kończy się przed przyjęciem zaproszenia), więc
@@ -559,6 +582,15 @@ export class HouseholdsService {
         'INVITATION_ALREADY_REDEEMED',
         'Invitation already redeemed',
         HttpStatus.BAD_REQUEST,
+      );
+    }
+    // Zaproszenie z adresatem odrzuca TYLKO adresat. Dla kogoś innego link
+    // wygląda jak nieistniejący — nie zdradzamy, że w ogóle jest.
+    if (invitation.invitedUserId && invitation.invitedUserId !== userId) {
+      throw new AppException(
+        'INVITATION_NOT_FOUND',
+        'Invitation not found',
+        HttpStatus.NOT_FOUND,
       );
     }
 

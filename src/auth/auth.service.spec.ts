@@ -56,6 +56,7 @@ const makePrismaMock = () => ({
   user: {
     upsert: jest.fn().mockResolvedValue(mockUser),
     findUnique: jest.fn().mockResolvedValue(null),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     create: jest.fn().mockResolvedValue(mockAppleUser),
     update: jest.fn().mockResolvedValue(mockAppleUser),
   },
@@ -425,6 +426,11 @@ describe('AuthService', () => {
         where: { userId: mockRefreshToken.userId, revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       });
+      // Rodzina refresh tokenów pada RAZEM z tokenami dostępu — podbicie wersji.
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: mockRefreshToken.userId },
+        data: { tokenVersion: { increment: 1 } },
+      });
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
       expect(jwt.signAsync).not.toHaveBeenCalled();
     });
@@ -482,7 +488,7 @@ describe('AuthService', () => {
       const token = await service.issueAccessToken('user-xyz');
 
       expect(jwt.signAsync).toHaveBeenCalledWith(
-        { sub: 'user-xyz' },
+        { sub: 'user-xyz', tv: 0 },
         expect.objectContaining({ expiresIn: expect.anything() }),
       );
       expect(token).toBe('mock-access-token');

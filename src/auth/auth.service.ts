@@ -209,6 +209,12 @@ export class AuthService {
         where: { userId: storedToken.userId, revokedAt: null },
         data: { revokedAt: now },
       });
+      // Rodzina refresh tokenów pada, ale tokeny DOSTĘPU żyły dalej do
+      // końca TTL — podbicie wersji unieważnia je natychmiast.
+      await this.prisma.user.updateMany({
+        where: { id: storedToken.userId },
+        data: { tokenVersion: { increment: 1 } },
+      });
       this.logger.warn(
         `refresh token reuse detected for user ${storedToken.userId} — revoked ${revoked.count} active token(s)`,
       );
@@ -262,7 +268,29 @@ export class AuthService {
 
   async issueAccessToken(userId: string) {
     const expiresIn = resolveJwtExpiresIn(process.env.JWT_EXPIRES_IN);
-    return this.jwtService.signAsync({ sub: userId }, { expiresIn });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { tokenVersion: true },
+    });
+    return this.jwtService.signAsync(
+      { sub: userId, tv: user?.tokenVersion ?? 0 },
+      { expiresIn },
+    );
+  }
+
+  /**
+   * Wylogowanie ZEWSZĄD: wszystkie refresh tokeny i wszystkie tokeny dostępu
+   * tej osoby przestają działać. Zwykłe `logout` gasi jedno urządzenie.
+   */
+  async logoutEverywhere(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    await this.prisma.user.updateMany({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+    });
   }
 
   private async buildAuthResult(user: {

@@ -74,6 +74,7 @@ const makePrismaMock = ({
 
   return {
     membership: {
+      count: jest.fn().mockResolvedValue(2),
       findUnique: jest
         .fn()
         .mockResolvedValue({ id: 'mem-1', userId, householdId }),

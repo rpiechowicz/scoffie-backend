@@ -25,8 +25,14 @@ const prisma = new PrismaClient();
 async function main() {
   const shouldWrite = process.argv.includes('--write');
 
+  // Ten sam pas bezpieczeństwa, co w `settleHouseholdAfterMemberLeft`:
+  // dom bez domowników, który trzyma katalog, NIE jest śmieciem — jego
+  // skasowanie zabrałoby przepisy i plany wszystkich gospodarstw.
   const empty = await prisma.household.findMany({
-    where: { memberships: { none: {} } },
+    where: {
+      memberships: { none: {} },
+      recipes: { none: { isCatalog: true } },
+    },
     orderBy: { createdAt: 'asc' },
     select: {
       id: true,
@@ -71,7 +77,12 @@ async function main() {
   }
 
   const { count } = await prisma.household.deleteMany({
-    where: { id: { in: empty.map((household) => household.id) } },
+    where: {
+      id: { in: empty.map((household) => household.id) },
+      // Drugi raz, w tym samym zapytaniu: między listą a kasowaniem ktoś
+      // mógł przenieść katalog.
+      recipes: { none: { isCatalog: true } },
+    },
   });
   console.log(`\nUsunięto gospodarstw: ${count}.`);
 }

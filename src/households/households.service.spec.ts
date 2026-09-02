@@ -150,6 +150,7 @@ const makePrismaMock = (state: MockState) => {
           Promise.resolve({ id: 'inv-new', ...data }),
         ),
       update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     user: {
       findUnique: jest.fn().mockResolvedValue({ displayName: 'Ania' }),
@@ -343,12 +344,43 @@ describe('HouseholdsService', () => {
     });
 
     it('jawny expiresAt wygrywa z domyślnym', async () => {
-      await service.createInvitation(OWNER, HH, {
-        expiresAt: '2026-12-31T23:59:59.000Z',
-      });
+      const explicit = new Date(Date.now() + 10 * 86_400_000).toISOString();
+      await service.createInvitation(OWNER, HH, { expiresAt: explicit });
       expect(
         prisma.invitation.create.mock.calls[0][0].data.expiresAt.toISOString(),
-      ).toBe('2026-12-31T23:59:59.000Z');
+      ).toBe(explicit);
+    });
+
+    it('ważność powyżej 30 dni jest przycinana — link nie może być stałym wejściem', async () => {
+      const before = Date.now();
+      await service.createInvitation(OWNER, HH, {
+        expiresAt: '2099-12-31T23:59:59.000Z',
+      });
+      const stored: Date =
+        prisma.invitation.create.mock.calls[0][0].data.expiresAt;
+      expect(stored.getTime()).toBeLessThanOrEqual(
+        Date.now() + 30 * 86_400_000,
+      );
+      expect(stored.getTime()).toBeGreaterThanOrEqual(
+        before + 30 * 86_400_000 - 1000,
+      );
+    });
+
+    it('drugi wyścig o ten sam link: zero zmienionych wierszy = ALREADY_REDEEMED, transakcja wycofana', async () => {
+      prisma.invitation.findUnique.mockResolvedValue({
+        id: 'inv-1',
+        householdId: HH,
+        redeemedAt: null,
+        declinedAt: null,
+        expiresAt: new Date(Date.now() + 86_400_000),
+        invitedUserId: null,
+      });
+      prisma.invitation.updateMany.mockResolvedValue({ count: 0 });
+      await expect(
+        service.acceptInvitation(MEMBER, { token: 'a'.repeat(32) }),
+      ).rejects.toMatchObject({
+        response: { code: 'INVITATION_ALREADY_REDEEMED' },
+      });
     });
 
     it.each([
@@ -493,9 +525,10 @@ describe('HouseholdsService', () => {
           create: { userId: STRANGER, householdId: HH, role: 'MEMBER' },
         }),
       );
-      expect(prisma.invitation.update).toHaveBeenCalledWith(
+      // `updateMany` z warunkiem `redeemedAt: null` — zamek na drugi wyścig.
+      expect(prisma.invitation.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'inv-1' },
+          where: { id: 'inv-1', redeemedAt: null },
           data: expect.objectContaining({
             redeemedById: STRANGER,
             invitedUserId: STRANGER,

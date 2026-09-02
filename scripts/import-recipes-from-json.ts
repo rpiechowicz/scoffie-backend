@@ -348,6 +348,22 @@ async function main(): Promise<void> {
   const input = JSON.parse(raw) as RecipeBatchInput;
   validateBatch(input);
   if (RECIPE_IMPORT_CLEAR_EXISTING) {
+    // Kasowanie katalogu zabiera z planów WSZYSTKICH domów pozycje wskazujące
+    // na jego przepisy. Dlatego: najpierw liczby, a zapis tylko z dzisiejszą
+    // datą w `RECIPE_IMPORT_CLEAR_CONFIRM` (ten sam wzorzec, co reset kont).
+    const [planItems, recipes] = await Promise.all([
+      prisma.planItem.count({ where: { recipe: { householdId } } }),
+      prisma.recipe.count({ where: { householdId } }),
+    ]);
+    const today = new Date().toISOString().slice(0, 10);
+    console.log(
+      `Czyszczenie katalogu: przepisów ${recipes}, pozycji planów do skasowania ${planItems}.`,
+    );
+    if ((process.env.RECIPE_IMPORT_CLEAR_CONFIRM ?? '').trim() !== today) {
+      throw new Error(
+        `RECIPE_IMPORT_CLEAR_EXISTING=true wymaga RECIPE_IMPORT_CLEAR_CONFIRM=${today} (dzisiejsza data). Nic nie skasowano.`,
+      );
+    }
     // Tylko katalog: dawniej `deleteMany()` bez `where` kasował pozycje planu
     // i składniki WSZYSTKICH gospodarstw. Pozycje planu wskazujące na
     // przepisy katalogu i tak by spadły kaskadą przy usunięciu przepisu.

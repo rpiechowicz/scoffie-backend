@@ -1,4 +1,8 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import {
+  createParamDecorator,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 /**
  * Id użytkownika wpisane do requestu przez `JwtAuthGuard` — jedyne źródło
@@ -15,6 +19,13 @@ export const CurrentUserId = createParamDecorator(
     const request = context
       .switchToHttp()
       .getRequest<{ user?: { id: string } }>();
-    return request.user?.id ?? '';
+    const userId = request.user?.id;
+    // Pusty napis szedł dalej do serwisów jako „tożsamość" — kontroler bez
+    // strażnika kończył się 404/500 zamiast 401. Brak strażnika to błąd
+    // konfiguracji i ma być głośny.
+    if (!userId) {
+      throw new UnauthorizedException('Brak tożsamości w żądaniu.');
+    }
+    return userId;
   },
 );

@@ -89,4 +89,52 @@ export function checkWsRateLimit(
  */
 export function resetWsRateLimits(): void {
   hits.clear();
+  handshakes.clear();
+}
+
+export const WS_HANDSHAKE_LIMIT_DEFAULT = 300;
+
+/** `WS_HANDSHAKE_RATE_LIMIT` — uściski dłoni na adres IP i minutę; 0 wyłącza. */
+export function readWsHandshakeLimit(
+  env: NodeJS.ProcessEnv = process.env,
+): number {
+  const raw = (env.WS_HANDSHAKE_RATE_LIMIT ?? '').trim();
+  if (!raw) return WS_HANDSHAKE_LIMIT_DEFAULT;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0
+    ? parsed
+    : WS_HANDSHAKE_LIMIT_DEFAULT;
+}
+
+const handshakes = new Map<string, number[]>();
+
+/**
+ * Limit uścisków dłoni PER ADRES IP, sprawdzany PRZED weryfikacją tokenu.
+ * Każdy uścisk kosztuje dwa zapytania do bazy (użytkownik, członkostwa);
+ * bez limitu jeden adres mógł zalać bazę samym łączeniem się. Zwraca
+ * `true`, gdy wolno wpuścić.
+ */
+export function allowWsHandshake(
+  ip: string,
+  now: number = Date.now(),
+): boolean {
+  const limit = readWsHandshakeLimit();
+  if (limit <= 0) return true;
+  if (handshakes.size > MAX_TRACKED_ACTORS) {
+    for (const [key, at] of handshakes) {
+      const fresh = at.filter((t) => now - t < WS_RATE_LIMIT_WINDOW_MS);
+      if (fresh.length === 0) handshakes.delete(key);
+      else handshakes.set(key, fresh);
+    }
+  }
+  const fresh = (handshakes.get(ip) ?? []).filter(
+    (at) => now - at < WS_RATE_LIMIT_WINDOW_MS,
+  );
+  if (fresh.length >= limit) {
+    handshakes.set(ip, fresh);
+    return false;
+  }
+  fresh.push(now);
+  handshakes.set(ip, fresh);
+  return true;
 }
