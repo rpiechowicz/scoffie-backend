@@ -51,15 +51,15 @@ Reference: [`APNS_SETUP.md`](./APNS_SETUP.md)
 ### Sign in with Apple — unieważnianie tokenów przy kasowaniu konta
 
 Wytyczne App Store 5.1.1(v): usunięcie konta ma unieważnić tokeny Apple.
-Serwer robi to w , gdy telefon przyśle świeży
-, i gdy są ustawione:
+Serwer robi to w `users:delete`, gdy telefon przyśle świeży
+`appleAuthorizationCode`, i gdy są ustawione:
 
-- , ,  (klucz  „Sign in
+- `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` (klucz `.p8` „Sign in
   with Apple” z portalu deweloperskiego; PEM, znaki nowej linii mogą być
-  zapisane jako ), opcjonalnie  (domyślnie bundle id).
+  zapisane jako `\n`), opcjonalnie `APPLE_CLIENT_ID` (domyślnie bundle id).
 
 Brak zmiennych = kasowanie działa jak dotąd, w logu ostrzeżenie
-.
+`kasowanie konta Apple bez unieważnienia tokenów`.
 
 ### Cloudflare R2
 
