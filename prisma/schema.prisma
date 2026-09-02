@@ -57,6 +57,29 @@ model User {
 
   agentConversations AgentConversation[]
   consentEvents      ConsentEvent[]
+  agentReports       AgentReport[]
+}
+
+/// Zgłoszenie niewłaściwej odpowiedzi asystenta („Zgłoś odpowiedź").
+///
+/// App Store 1.2 / 4.7: treści generowane muszą mieć mechanizm zgłaszania.
+/// Bez kluczy obcych do wiadomości i rozmowy — retencja 90 dni kasuje
+/// rozmowy, a zgłoszenie ma przeżyć razem z MIGAWKĄ treści (`messageText`),
+/// bo bez niej nie da się go rozpatrzyć. Kaskada tylko z kontem.
+model AgentReport {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  conversationId String?  @db.Uuid
+  messageId      String?  @db.Uuid
+  turnId         String?  @db.Uuid
+  reason         String
+  comment        String?
+  messageText    String
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
 }
 
 /// Zdarzenia zgód — TYLKO dopisywanie, nigdy nadpisywanie.

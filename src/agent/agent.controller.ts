@@ -20,7 +20,9 @@ import { RequestId } from '../common/request-id.decorator';
 import { readThrottleLimit } from '../common/throttle/throttle-env';
 import { AgentConversationsService } from './agent-conversations.service';
 import { AgentMemoryService } from './agent-memory.service';
+import { AgentReportsService } from './agent-reports.service';
 import { MemoryQueryDto } from './dto/memory-query.dto';
+import { ReportMessageDto } from './dto/report-message.dto';
 import { AgentTurnsService } from './agent-turns.service';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -47,7 +49,22 @@ export class AgentController {
     private readonly turns: AgentTurnsService,
     private readonly memory: AgentMemoryService,
     private readonly proposals: AgentProposalsService,
+    private readonly reports: AgentReportsService,
   ) {}
+
+  /**
+   * „Zgłoś odpowiedź" — bez `assertEnabled`: zgłosić można to, co się już
+   * dostało, także gdy asystent jest akurat wyłączony.
+   */
+  @Post('messages/:id/report')
+  @HttpCode(HttpStatus.CREATED)
+  reportMessage(
+    @CurrentUserId() userId: string,
+    @Param('id') messageId: string,
+    @Body() dto: ReportMessageDto,
+  ) {
+    return this.reports.report(userId, messageId, dto);
+  }
 
   @Post('conversations')
   createConversation(

@@ -347,6 +347,59 @@ describe('Agent E2E', () => {
       }
     });
 
+    it('„Zgłoś odpowiedź": własna odpowiedź asystenta 201, cudza/nieistniejąca 404', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = (
+        await postMessage(session.accessToken, conversation.id, {
+          clientMessageId: randomUUID(),
+          text: 'Co na kolację?',
+        }).expect(202)
+      ).body as AcceptedTurn;
+      const turn = await pollTurn(session.accessToken, accepted.turnId);
+      const answer = turn.messages?.find((m) => m.role === 'ASSISTANT') as
+        | { id?: string }
+        | undefined;
+      const messages = (
+        await request(app.getHttpServer())
+          .get(`/agent/conversations/${conversation.id}/messages`)
+          .set(auth(session.accessToken))
+          .expect(200)
+      ).body.messages as { id: string; role: string }[];
+      const assistantId =
+        answer?.id ?? messages.find((m) => m.role === 'ASSISTANT')?.id;
+      expect(assistantId).toBeDefined();
+
+      const created = await request(app.getHttpServer())
+        .post(`/agent/messages/${assistantId}/report`)
+        .set(auth(session.accessToken))
+        .send({ reason: 'WRONG', comment: 'To nie jest kolacja.' })
+        .expect(201);
+      expect(created.body).toMatchObject({ id: expect.any(String) });
+      const stored = await prisma.agentReport.findUnique({
+        where: { id: created.body.id as string },
+      });
+      expect(stored?.messageText.length).toBeGreaterThan(0);
+      await prisma.agentReport.deleteMany({
+        where: { userId: session.user.id },
+      });
+
+      // Własne pytanie nie jest odpowiedzią — 404, tak jak cudza wiadomość.
+      const own = messages.find((m) => m.role === 'USER')?.id;
+      await request(app.getHttpServer())
+        .post(`/agent/messages/${own}/report`)
+        .set(auth(session.accessToken))
+        .send({ reason: 'OTHER' })
+        .expect(404);
+      await request(app.getHttpServer())
+        .post(`/agent/messages/${randomUUID()}/report`)
+        .set(auth(session.accessToken))
+        .send({ reason: 'OTHER' })
+        .expect(404);
+    });
+
     it('householdId nie-UUID: 400 VALIDATION_ERROR (nie 500 z P2023)', async () => {
       const res = await request(app.getHttpServer())
         .post('/agent/conversations')
