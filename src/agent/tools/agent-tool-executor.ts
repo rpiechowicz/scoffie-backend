@@ -25,6 +25,7 @@ import {
   CreateWeekProposalResult,
 } from '../proposals/agent-proposals.service';
 import { AgentCard } from '../cards/agent-cards';
+import { AgentPromptService } from '../agent-prompt.service';
 import { buildClarifyCard, MAX_CLARIFY_OPTIONS } from '../cards/clarify-card';
 import {
   buildOptionsCard,
@@ -130,6 +131,8 @@ export class AgentToolExecutor {
     private readonly memory: AgentMemoryService,
     private readonly proposals: AgentProposalsService,
     private readonly shoppingList: ShoppingListService,
+    // Filtr zgód domowników — ta sama reguła, co przy budowie promptu.
+    private readonly prompts: AgentPromptService,
   ) {}
 
   async execute(
@@ -223,7 +226,12 @@ export class AgentToolExecutor {
 
     switch (name) {
       case 'get_household_context':
-        return this.households.memberPreferences(userId, householdId);
+        // Ten sam filtr zgód, co w prompcie: model widzi tylko domowników,
+        // którzy sami zgodzili się na asystenta.
+        return this.households
+          .memberPreferences(userId, householdId)
+          .then((all) => this.prompts.membersForModel(all))
+          .then((result) => result.members);
 
       case 'get_week_plan':
         return this.weeklyPlans.getByHouseholdAndWeek(
@@ -627,13 +635,18 @@ export class AgentToolExecutor {
         weekStart,
         memberUserId || undefined,
       ),
-      this.households.memberPreferences(context.userId, context.householdId),
+      this.households
+        .memberPreferences(context.userId, context.householdId)
+        .then((all) => this.prompts.membersForModel(all))
+        .then((result) => result.members),
     ]);
     const member = members.find((entry) => entry.userId === targetUserId);
     if (!member) {
+      // Także osoba bez zgody na asystenta: jej cele makro to dane o zdrowiu
+      // i nie idą do modelu.
       throw new AppException(
         'PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD',
-        'Ta osoba nie należy do gospodarstwa.',
+        'Ta osoba nie należy do gospodarstwa albo nie wyraziła zgody na asystenta.',
         HttpStatus.BAD_REQUEST,
       );
     }

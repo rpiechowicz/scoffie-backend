@@ -1,4 +1,5 @@
 import { AppException } from '../common/app-exception';
+import { ConsentsService } from '../consents/consents.service';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgentConfigService } from './agent-config.service';
@@ -9,16 +10,19 @@ describe('AgentConfigService', () => {
     'AI_PROVIDER',
     'ANTHROPIC_API_KEY',
     'AI_ALLOWED_USERS',
+    'AI_CONSENT_REQUIRED',
   ] as const;
   const original: Record<string, string | undefined> = {};
   const USER_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
   let metrics: AgentMetricsService;
   let prisma: { user: { findUnique: jest.Mock } };
+  let consents: { hasValid: jest.Mock };
   let service: AgentConfigService;
 
   beforeEach(() => {
     for (const key of KEYS) original[key] = process.env[key];
     delete process.env.AI_ALLOWED_USERS;
+    delete process.env.AI_CONSENT_REQUIRED;
     metrics = new AgentMetricsService();
     prisma = {
       user: {
@@ -27,9 +31,11 @@ describe('AgentConfigService', () => {
           .mockResolvedValue({ id: USER_ID, email: 'Rafal@Example.com' }),
       },
     };
+    consents = { hasValid: jest.fn().mockResolvedValue(false) };
     service = new AgentConfigService(
       metrics,
       prisma as unknown as PrismaService,
+      consents as unknown as ConsentsService,
     );
   });
 
@@ -109,6 +115,36 @@ describe('AgentConfigService', () => {
         details: ['not_allowed'],
       });
       expect(metrics.snapshot().rejected.disabled).toBe(1);
+    });
+
+    it('bez AI_CONSENT_REQUIRED zgody nikt nie sprawdza', async () => {
+      await expect(service.assertUserAllowed(USER_ID)).resolves.toBeUndefined();
+      expect(consents.hasValid).not.toHaveBeenCalled();
+    });
+
+    it('AI_CONSENT_REQUIRED=true bez ważnej zgody = 403 AI_CONSENT_REQUIRED z wersją dokumentu', async () => {
+      process.env.AI_CONSENT_REQUIRED = 'true';
+      await expect(service.assertUserAllowed(USER_ID)).rejects.toMatchObject({
+        code: 'AI_CONSENT_REQUIRED',
+        details: ['documentVersion:2026-09-02'],
+      });
+      expect(consents.hasValid).toHaveBeenCalledWith(USER_ID, 'AI_ASSISTANT');
+      expect(metrics.snapshot().rejected.disabled).toBe(1);
+    });
+
+    it('AI_CONSENT_REQUIRED=true z ważną zgodą przepuszcza', async () => {
+      process.env.AI_CONSENT_REQUIRED = 'true';
+      consents.hasValid.mockResolvedValue(true);
+      await expect(service.assertUserAllowed(USER_ID)).resolves.toBeUndefined();
+    });
+
+    it('lista dozwolonych kont jest sprawdzana PRZED zgodą', async () => {
+      process.env.AI_ALLOWED_USERS = 'ktos@inny.pl';
+      process.env.AI_CONSENT_REQUIRED = 'true';
+      await expect(service.assertUserAllowed(USER_ID)).rejects.toMatchObject({
+        code: 'AI_DISABLED',
+      });
+      expect(consents.hasValid).not.toHaveBeenCalled();
     });
 
     it('konto bez e-maila, którego nie ma na liście po id, też odpada', async () => {

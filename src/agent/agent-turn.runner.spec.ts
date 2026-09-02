@@ -34,6 +34,7 @@ const ENV: AgentEnv = {
   proposalTtlMs: 72 * 60 * 60 * 1000,
   proposalUndoWindowMs: 60 * 60 * 1000,
   allowedUsers: [],
+  consentRequired: false,
 };
 
 const RESULT: AgentProviderResult = {

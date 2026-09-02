@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { HouseholdsService } from '../households/households.service';
+import { ConsentsService } from '../consents/consents.service';
+import { readAgentEnv } from '../config/agent-env';
 import { AgentMemoryService } from './agent-memory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -46,6 +48,7 @@ export class AgentPromptService {
     private readonly prisma: PrismaService,
     private readonly households: HouseholdsService,
     private readonly memory: AgentMemoryService,
+    private readonly consents: ConsentsService,
   ) {}
 
   async build(
@@ -55,7 +58,7 @@ export class AgentPromptService {
     proposalMode: boolean,
     scopeUserIds: readonly string[] = [],
   ): Promise<AgentPrompt> {
-    const [digest, household, members, memory] = await Promise.all([
+    const [digest, household, allMembers, memory] = await Promise.all([
       this.loadDigest(),
       this.prisma.household.findUnique({
         where: { id: householdId },
@@ -65,6 +68,13 @@ export class AgentPromptService {
       this.memory.promptBlock(householdId),
     ]);
 
+    // Do modelu (czyli do USA) idą dane TYLKO tych domowników, którzy sami
+    // wyrazili zgodę — alergie i dieta to dane o zdrowiu (art. 9 RODO), a
+    // zgoda jednej osoby nie obejmuje partnera. Ograniczenia pozostałych
+    // pilnuje kod przy zapisie (`applyWeekPlan`), więc plan nadal ich nie
+    // skrzywdzi; model po prostu o nich nie wie.
+    const { members, withheld } = await this.membersForModel(allMembers);
+
     const system = buildSystemPrompt(digest, {
       memory,
       householdName: household?.name ?? 'Dom',
@@ -73,6 +83,7 @@ export class AgentPromptService {
       timeZone: dates.timeZone,
       enabledMealTypes: household?.enabledMealTypes ?? [],
       members,
+      membersWithheld: withheld,
       proposalMode,
       // Imiona, nie identyfikatory: prompt czyta człowiek i model, a oba
       // rozumieją „Ania" lepiej niż UUID. Identyfikatory model i tak ma
@@ -87,6 +98,24 @@ export class AgentPromptService {
       catalogIndex: digest.index,
       catalogVersion: digest.catalogVersion,
     };
+  }
+
+  /**
+   * Filtr zgód dla listy domowników idącej do modelu. Przy wyłączonej
+   * bramce (`AI_CONSENT_REQUIRED` puste) — jak dotąd, wszyscy.
+   */
+  async membersForModel<T extends { userId: string }>(
+    members: readonly T[],
+  ): Promise<{ members: T[]; withheld: number }> {
+    if (!readAgentEnv().consentRequired) {
+      return { members: [...members], withheld: 0 };
+    }
+    const consented = await this.consents.usersWithValid(
+      members.map((member) => member.userId),
+      'AI_ASSISTANT',
+    );
+    const kept = members.filter((member) => consented.has(member.userId));
+    return { members: kept, withheld: members.length - kept.length };
   }
 
   private async loadDigest(): Promise<CatalogDigest> {

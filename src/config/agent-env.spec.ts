@@ -31,7 +31,18 @@ describe('readAgentEnv', () => {
       // Pusta lista = wszyscy, jak dotąd: bramka nie może zmienić
       // zachowania instalacji, która o nią nie prosiła.
       allowedUsers: [],
+      // Bramka zgód wyłączona, dopóki wydany iOS nie ma ekranu zgody.
+      consentRequired: false,
     });
+  });
+
+  it('AI_CONSENT_REQUIRED tylko literalne true', () => {
+    expect(readAgentEnv({ AI_CONSENT_REQUIRED: 'true' }).consentRequired).toBe(
+      true,
+    );
+    expect(readAgentEnv({ AI_CONSENT_REQUIRED: 'yes' }).consentRequired).toBe(
+      false,
+    );
   });
 
   describe('lista dozwolonych kont', () => {

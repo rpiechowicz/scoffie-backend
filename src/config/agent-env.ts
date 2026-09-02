@@ -92,6 +92,13 @@ export type AgentEnv = {
    * kopii po stronie iOS.
    */
   allowedUsers: string[];
+  /**
+   * Czy tura wymaga ważnej zgody AI_ASSISTANT (tabela `ConsentEvent`) i czy
+   * do promptu trafiają tylko domownicy z własną zgodą. Domyślnie `false`:
+   * bramka ma sens dopiero, gdy wydany iOS ma ekran zgody — włączona
+   * wcześniej odcięłaby rodzinę od asystenta bez możliwości kliknięcia.
+   */
+  consentRequired: boolean;
 };
 
 /**
@@ -233,6 +240,8 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       { min: 0 },
     ),
     allowedUsers: parseAllowedUsers(env.AI_ALLOWED_USERS),
+    consentRequired:
+      (env.AI_CONSENT_REQUIRED ?? '').trim().toLowerCase() === 'true',
   };
 }
 

@@ -87,6 +87,10 @@ export const APP_ERROR_CODES = [
   // później", QUOTA_EXCEEDED = karta limitu, TURN_IN_PROGRESS = czekaj na
   // bieżącą turę.
   'AI_DISABLED',
+  // Brak ważnej zgody na wysyłanie danych o diecie i alergiach do modelu
+  // (art. 9 RODO). 403 — konto jest w porządku, brakuje kliknięcia; klient
+  // pokazuje ekran zgody. Egzekwowane tylko przy AI_CONSENT_REQUIRED=true.
+  'AI_CONSENT_REQUIRED',
   'AI_QUOTA_EXCEEDED',
   'AI_BUDGET_PAUSED',
   'AI_UPSTREAM_PAUSED',

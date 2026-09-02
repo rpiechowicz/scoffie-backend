@@ -70,6 +70,7 @@ describe('Agent E2E', () => {
     'AI_LIMIT_MESSAGES_PER_MONTH',
     'AI_CARDS_MODE',
     'AI_ALLOWED_USERS',
+    'AI_CONSENT_REQUIRED',
     'THROTTLE_DEFAULT_LIMIT',
     'THROTTLE_IP_LIMIT',
     'THROTTLE_AGENT_MESSAGE_LIMIT',
@@ -265,6 +266,84 @@ describe('Agent E2E', () => {
           .expect(201);
       } finally {
         delete process.env.AI_ALLOWED_USERS;
+      }
+    });
+
+    it('AI_CONSENT_REQUIRED: bez zgody 403, po POST /me/consents rozmowa rusza, po cofnięciu znów 403', async () => {
+      process.env.AI_CONSENT_REQUIRED = 'true';
+      try {
+        const refused = await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(403);
+        expect(refused.body).toMatchObject({
+          code: 'AI_CONSENT_REQUIRED',
+          details: ['documentVersion:2026-09-02'],
+        });
+
+        // Stan zgód jest czytelny niezależnie od asystenta.
+        const before = await request(app.getHttpServer())
+          .get('/me/consents')
+          .set(auth(session.accessToken))
+          .expect(200);
+        const aiBefore = (
+          before.body as { kind: string; granted: boolean }[]
+        ).find((entry) => entry.kind === 'AI_ASSISTANT');
+        expect(aiBefore?.granted).toBe(false);
+
+        const granted = await request(app.getHttpServer())
+          .post('/me/consents')
+          .set(auth(session.accessToken))
+          .send({
+            kind: 'AI_ASSISTANT',
+            action: 'GRANTED',
+            documentVersion: '2026-09-02',
+            source: 'E2E',
+          })
+          .expect(201);
+        expect(
+          (granted.body as { kind: string; granted: boolean }[]).find(
+            (entry) => entry.kind === 'AI_ASSISTANT',
+          )?.granted,
+        ).toBe(true);
+
+        await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(201);
+
+        await request(app.getHttpServer())
+          .post('/me/consents')
+          .set(auth(session.accessToken))
+          .send({
+            kind: 'AI_ASSISTANT',
+            action: 'REVOKED',
+            documentVersion: '2026-09-02',
+          })
+          .expect(201);
+        await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(403);
+
+        // Nieznany rodzaj zgody nie ląduje w dzienniku.
+        await request(app.getHttpServer())
+          .post('/me/consents')
+          .set(auth(session.accessToken))
+          .send({
+            kind: 'NEWSLETTER',
+            action: 'GRANTED',
+            documentVersion: '2026-09-02',
+          })
+          .expect(400);
+      } finally {
+        delete process.env.AI_CONSENT_REQUIRED;
+        await prisma.consentEvent.deleteMany({
+          where: { userId: session.user.id },
+        });
       }
     });
 

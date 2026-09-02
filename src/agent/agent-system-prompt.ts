@@ -34,6 +34,13 @@ export type HouseholdPromptContext = {
   timeZone: string;
   enabledMealTypes: string[];
   members: unknown;
+  /**
+   * Ilu domowników NIE ma na liście, bo nie wyrazili zgody na asystenta.
+   * Model ma wiedzieć, że dom jest większy niż lista — inaczej „dla całego
+   * domu" znaczyłoby dla niego „dla tych trzech", a serwer i tak policzy
+   * porcje i alergeny dla wszystkich.
+   */
+  membersWithheld?: number;
   /** Czy model proponuje (i człowiek zatwierdza), czy zapisuje sam. */
   proposalMode: boolean;
   /**
@@ -199,6 +206,13 @@ export function buildSystemPrompt(
     '<domownicy>',
     JSON.stringify(context.members),
     '</domownicy>',
+    ...(context.membersWithheld && context.membersWithheld > 0
+      ? [
+          `Poza listą jest jeszcze ${context.membersWithheld} domowników bez zgody na asystenta:`,
+          'nie znasz ich preferencji, ale serwer pilnuje ich alergenów i wykluczeń przy',
+          'zapisie — odmowę z tego powodu przyjmij i zaproponuj inne danie.',
+        ]
+      : []),
     // Zakres na KOŃCU listy domowników, bo dotyczy właśnie ich — i tuż przed
     // pamięcią, czyli najbliżej pytania.
     ...(context.scopeNames.length > 0

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ConsentsModule } from '../consents/consents.module';
 import { HouseholdsModule } from '../households/households.module';
 import { RecipesModule } from '../recipes/recipes.module';
 import { WeeklyPlansModule } from '../weekly-plans/weekly-plans.module';
@@ -40,6 +41,8 @@ import { UpstreamBreaker } from './upstream-breaker';
     HouseholdsModule,
     WeeklyPlansModule,
     RecipesModule,
+    // Zgody: bramka przed turą i filtr domowników w prompcie.
+    ConsentsModule,
   ],
   controllers: [AgentController],
   providers: [

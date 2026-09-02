@@ -144,6 +144,13 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   gets `503 AI_DISABLED` with `details: ['not_allowed']`, which the shipped
   iOS build renders as "assistant unavailable". The gate for the period
   between "family is testing" and consents + paywall.
+- `AI_CONSENT_REQUIRED` (`false`) — when `true`, a turn needs a valid
+  `AI_ASSISTANT` consent of the caller (`GET`/`POST /me/consents`, append-only
+  `ConsentEvent`, document versions in `src/common/legal-documents.ts`) and
+  only household members with their own consent reach the model; the others'
+  allergens and exclusions are still enforced by the write gate. Missing
+  consent answers `403 AI_CONSENT_REQUIRED`. Turn it on only once the shipped
+  iOS build has the consent screen.
 - `AI_GLOBAL_DAILY_BUDGET_USD` (`5`) — daily cost cap for the whole
   installation; over it, `/agent` answers `503 AI_BUDGET_PAUSED`. `off` means
   no cap at all — an empty variable takes the default, because "unset" must not

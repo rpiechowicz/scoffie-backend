@@ -56,6 +56,38 @@ model User {
   dailySteps DailyStepCount[]
 
   agentConversations AgentConversation[]
+  consentEvents      ConsentEvent[]
+}
+
+/// Zdarzenia zgód — TYLKO dopisywanie, nigdy nadpisywanie.
+///
+/// Art. 7 ust. 1 RODO: administrator musi umieć wykazać, że zgoda była, kiedy
+/// i na jaką treść. Jeden wiersz per kliknięcie: `kind` (TERMS | PRIVACY |
+/// AI_ASSISTANT | COOKIDOO | AGE_16), `action` (GRANTED | REVOKED),
+/// `documentVersion` = data wersji dokumentu z `src/common/legal-documents.ts`
+/// (stała w kodzie, nie zmienna na Railway — literówka w env unieważniałaby
+/// zgody wszystkim naraz). „Zgoda ważna" = ostatnie zdarzenie dla pary
+/// (użytkownik, rodzaj) to GRANTED i jego wersja nie jest starsza niż
+/// minimalna wymagana.
+///
+/// Zgoda na asystenta jest PER OSOBA i globalna dla konta (nie per dom): to
+/// zgoda na wysyłanie danych TEJ osoby do modelu, a te są te same w każdym
+/// gospodarstwie. `householdId` jest wyłącznie kontekstem dowodowym.
+/// Kaskada z kontem: po usunięciu konta nie ma już komu przypisać dowodu.
+model ConsentEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  kind            String
+  action          String
+  documentVersion String
+  source          String?
+  appVersion      String?
+  householdId     String?  @db.Uuid
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
 }
 
 model UserPreference {
