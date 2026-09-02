@@ -304,9 +304,7 @@ export class AgentTurnRunner {
             // który jej nie zna, ma dalej pokazać sensowne zdanie.
             kind: card?.kind ?? 'TEXT',
             text: result.text,
-            ...(card
-              ? { card: card.payload as Prisma.InputJsonValue }
-              : {}),
+            ...(card ? { card: card.payload as Prisma.InputJsonValue } : {}),
             turnId: input.turnId,
           },
         });

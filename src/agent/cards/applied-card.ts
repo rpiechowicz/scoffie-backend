@@ -1,8 +1,4 @@
-import {
-  AGENT_CARD_VERSION,
-  AppliedCard,
-  weekRangeLabel,
-} from './agent-cards';
+import { AGENT_CARD_VERSION, AppliedCard, weekRangeLabel } from './agent-cards';
 
 /** „13 kwietnia” — data zapisu po ludzku, w UTC jak reszta planu tygodnia. */
 export function weekStartLabel(weekStart: string): string {
@@ -90,13 +86,19 @@ function changesLabel(changes: {
 }): string {
   const parts: string[] = [];
   if (changes.created > 0) {
-    parts.push(`${changes.created} ${plural(changes.created, 'nowa pozycja', 'nowe pozycje', 'nowych pozycji')}`);
+    parts.push(
+      `${changes.created} ${plural(changes.created, 'nowa pozycja', 'nowe pozycje', 'nowych pozycji')}`,
+    );
   }
   if (changes.updated > 0) {
-    parts.push(`${changes.updated} ${plural(changes.updated, 'zmieniona', 'zmienione', 'zmienionych')}`);
+    parts.push(
+      `${changes.updated} ${plural(changes.updated, 'zmieniona', 'zmienione', 'zmienionych')}`,
+    );
   }
   if (changes.deleted > 0) {
-    parts.push(`${changes.deleted} ${plural(changes.deleted, 'usunięta', 'usunięte', 'usuniętych')}`);
+    parts.push(
+      `${changes.deleted} ${plural(changes.deleted, 'usunięta', 'usunięte', 'usuniętych')}`,
+    );
   }
   return parts.length > 0 ? parts.join(', ') : 'Bez zmian w planie';
 }

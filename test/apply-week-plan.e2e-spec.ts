@@ -405,7 +405,8 @@ describe('applyWeekPlan E2E', () => {
         },
         select: { id: true, ingredients: { select: { ingredientId: true } } },
       });
-      if (!zPieczarka) throw new Error('katalog dev nie ma kolacji ze składnikami');
+      if (!zPieczarka)
+        throw new Error('katalog dev nie ma kolacji ze składnikami');
       danie = zPieczarka.id;
       skladnik = zPieczarka.ingredients[0].ingredientId;
 

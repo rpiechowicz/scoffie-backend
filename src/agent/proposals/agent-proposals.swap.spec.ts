@@ -110,7 +110,9 @@ describe('createSwapProposal — dla kogo', () => {
     const deps = makeDeps([wspolneSniadanie, obiad]);
     const service = await build(deps);
 
-    await service.createSwapProposal(input({ participantIds: [rafal] }) as never);
+    await service.createSwapProposal(
+      input({ participantIds: [rafal] }) as never,
+    );
 
     const slots = targetSlots(deps);
     const breakfasts = slots.filter((slot) => slot.mealType === 'BREAKFAST');
@@ -151,7 +153,9 @@ describe('createSwapProposal — dla kogo', () => {
     ]);
     const service = await build(deps);
 
-    await service.createSwapProposal(input({ participantIds: [rafal] }) as never);
+    await service.createSwapProposal(
+      input({ participantIds: [rafal] }) as never,
+    );
 
     const breakfasts = targetSlots(deps).filter(
       (slot) => slot.mealType === 'BREAKFAST',
@@ -164,9 +168,12 @@ describe('createSwapProposal — dla kogo', () => {
     const deps = makeDeps([wspolneSniadanie]);
     const service = await build(deps);
 
-    await service.createSwapProposal(input({ participantIds: [rafal] }) as never);
+    await service.createSwapProposal(
+      input({ participantIds: [rafal] }) as never,
+    );
 
-    const card = deps.prisma.agentProposal.create.mock.calls[0][0].data.card as {
+    const card = deps.prisma.agentProposal.create.mock.calls[0][0].data
+      .card as {
       eyebrow: string;
     };
     // Bez imienia karta wygląda identycznie dla zmiany całemu domowi

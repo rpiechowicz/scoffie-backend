@@ -120,7 +120,10 @@ function dayTitle(kcalTotal: number, target: number | null): string {
  * jednym dniu użytkownik pyta „czy zmieszczę jeszcze podwieczorek?", a nie
  * „czy trzymam normę".
  */
-function remainderNote(kcalTotal: number, target: number | null): string | null {
+function remainderNote(
+  kcalTotal: number,
+  target: number | null,
+): string | null {
   if (target === null || target <= 0) return null;
   const left = target - kcalTotal;
   if (left > 0) return `zostaje ${left}`;

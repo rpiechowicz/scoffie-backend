@@ -22,8 +22,18 @@ describe('buildShoppingListCard', () => {
       weekStart: '2026-08-31',
       departmentOrder: order,
       items: [
-        item({ name: 'Kasza', department: ShoppingDepartment.GRAINS, unit: 'g', totalAmount: 500 }),
-        item({ name: 'Cukinia', department: ShoppingDepartment.VEGETABLES, unit: 'szt.', totalAmount: 2 }),
+        item({
+          name: 'Kasza',
+          department: ShoppingDepartment.GRAINS,
+          unit: 'g',
+          totalAmount: 500,
+        }),
+        item({
+          name: 'Cukinia',
+          department: ShoppingDepartment.VEGETABLES,
+          unit: 'szt.',
+          totalAmount: 2,
+        }),
         item(),
       ],
     });

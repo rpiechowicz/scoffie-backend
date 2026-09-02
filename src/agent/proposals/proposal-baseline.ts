@@ -31,5 +31,8 @@ export function weekBaselineHash(slots: readonly BaselineSlot[]): string {
     })
     .sort();
 
-  return createHash('sha256').update(rows.join('\n')).digest('hex').slice(0, 32);
+  return createHash('sha256')
+    .update(rows.join('\n'))
+    .digest('hex')
+    .slice(0, 32);
 }

@@ -1153,11 +1153,16 @@ export class WeeklyPlansService {
     const recipeIds = dto.slots.map((slot) => slot.recipeId);
     const plannable = await this.loadPlannableRecipes(householdId, recipeIds);
 
+    // Ten sam walidator i TE SAME argumenty co w `applyWeekPlan` — podgląd
+    // buduje kartę propozycji, a zapis kliknięciem idzie przez apply. Gdy
+    // podgląd sprawdza mniej (przez tydzień nie dostawał wykluczeń), karta
+    // pokazuje plan jako czysty, a „Dodaj do planu" kończy się odmową.
     const violations = this.collectPlanViolations(
       dto.slots,
       plannable,
       memberIds,
       allergensByMember,
+      exclusionsByMember,
     );
     if (violations.length > 0) {
       return {
@@ -1268,7 +1273,9 @@ export class WeeklyPlansService {
       dayOfWeek: item.dayOfWeek,
       mealType: item.mealType,
       recipeId: item.recipeId,
-      participantIds: item.participants.map((participant) => participant.userId),
+      participantIds: item.participants.map(
+        (participant) => participant.userId,
+      ),
       plannedServings: item.plannedServings,
     }));
   }

@@ -96,7 +96,9 @@ function itemLabel(item: {
   const amount = Number.isInteger(item.totalAmount)
     ? String(item.totalAmount)
     : item.totalAmount.toFixed(1).replace('.', ',');
-  return item.unit ? `${item.name} ${amount} ${item.unit}` : `${item.name} ${amount}`;
+  return item.unit
+    ? `${item.name} ${amount} ${item.unit}`
+    : `${item.name} ${amount}`;
 }
 
 function title(remaining: number): string {

@@ -14,7 +14,11 @@ import { AppException } from '../../common/app-exception';
 import { assertUuid } from '../../common/uuid';
 import { readAgentEnv } from '../../config/agent-env';
 import { AgentCardState } from '../cards/agent-cards';
-import { appliedMessageText, buildAppliedCard, weekStartLabel } from '../cards/applied-card';
+import {
+  appliedMessageText,
+  buildAppliedCard,
+  weekStartLabel,
+} from '../cards/applied-card';
 import { buildPlanWeekCard } from '../cards/plan-week-card';
 import { buildPlanDayCard } from '../cards/plan-day-card';
 import { buildSwapCard } from '../cards/swap-card';
@@ -43,10 +47,7 @@ export type CreateWeekProposalInput = {
   note?: string;
 };
 
-export type CreateDayProposalInput = Omit<
-  CreateWeekProposalInput,
-  'slots'
-> & {
+export type CreateDayProposalInput = Omit<CreateWeekProposalInput, 'slots'> & {
   dayOfWeek: DayOfWeek;
   /** Stan docelowy WYŁĄCZNIE tego dnia; `dayOfWeek` dokłada serwis. */
   slots: Omit<ApplyWeekSlotDto, 'dayOfWeek'>[];
@@ -601,7 +602,10 @@ export class AgentProposalsService {
    * nią zapłacił kwotą wiadomości — wyłączenie asystenta w międzyczasie nie
    * może zostawić martwego przycisku.
    */
-  async apply(userId: string, proposalId: string): Promise<ProposalActionResult> {
+  async apply(
+    userId: string,
+    proposalId: string,
+  ): Promise<ProposalActionResult> {
     const proposal = await this.loadOwned(userId, proposalId);
     // Członkostwo mogło się zmienić między propozycją a kliknięciem.
     await ensureMembership(this.prisma, userId, proposal.householdId);
@@ -705,7 +709,9 @@ export class AgentProposalsService {
       }
 
       const changed =
-        result.changes.created + result.changes.updated + result.changes.deleted;
+        result.changes.created +
+        result.changes.updated +
+        result.changes.deleted;
       if (changed === 0) await this.refundPlan(proposal.householdId, periodKey);
 
       const after = await this.weeklyPlans.snapshotWeekAsSlots(
@@ -761,7 +767,10 @@ export class AgentProposalsService {
    * więc operacja jest swoją własną odwrotnością. Druga ścieżka zapisu byłaby
    * drugim miejscem, w którym można się pomylić o cudzy tydzień.
    */
-  async undo(userId: string, proposalId: string): Promise<ProposalActionResult> {
+  async undo(
+    userId: string,
+    proposalId: string,
+  ): Promise<ProposalActionResult> {
     const proposal = await this.loadOwned(userId, proposalId);
     await ensureMembership(this.prisma, userId, proposal.householdId);
 
@@ -794,7 +803,10 @@ export class AgentProposalsService {
     );
     // Ktoś w domu poprawił tydzień PO zapisie — cofnięcie skasowałoby jego
     // pracę razem z naszą zmianą.
-    if (proposal.appliedHash && weekBaselineHash(current) !== proposal.appliedHash) {
+    if (
+      proposal.appliedHash &&
+      weekBaselineHash(current) !== proposal.appliedHash
+    ) {
       throw new AppException(
         'AI_PROPOSAL_STALE',
         'Plan zmienił się po zapisaniu, więc cofnięcie skasowałoby także tamte zmiany.',
@@ -924,14 +936,22 @@ export class AgentProposalsService {
 
   private async markStatus(id: string, status: string): Promise<void> {
     try {
-      await this.prisma.agentProposal.update({ where: { id }, data: { status } });
+      await this.prisma.agentProposal.update({
+        where: { id },
+        data: { status },
+      });
     } catch (error) {
-      this.logger.warn(`nie udało się ustawić statusu propozycji: ${String(error)}`);
+      this.logger.warn(
+        `nie udało się ustawić statusu propozycji: ${String(error)}`,
+      );
     }
   }
 
   /** Zwrot kwoty planu — księgowość nie może wywrócić operacji użytkownika. */
-  private async refundPlan(householdId: string, periodKey: string): Promise<void> {
+  private async refundPlan(
+    householdId: string,
+    periodKey: string,
+  ): Promise<void> {
     try {
       await this.counters.add(this.prisma, householdId, periodKey, 'plans', -1);
     } catch (error) {
@@ -953,9 +973,7 @@ export class AgentProposalsService {
         text: input.text,
         // `turnId` celowo puste: to nie jest odpowiedź modelu, więc klient
         // odpytujący starą turę nie ma nagle dostawać drugiej wiadomości.
-        ...(input.card
-          ? { card: input.card as Prisma.InputJsonValue }
-          : {}),
+        ...(input.card ? { card: input.card as Prisma.InputJsonValue } : {}),
       },
     });
     await this.prisma.agentConversation.update({
@@ -988,7 +1006,9 @@ export class AgentProposalsService {
       });
     } catch (error) {
       // Rozgłoszenie jest wygodą, nie warunkiem poprawności zapisu.
-      this.logger.warn(`nie udało się rozgłosić zapisu tygodnia: ${String(error)}`);
+      this.logger.warn(
+        `nie udało się rozgłosić zapisu tygodnia: ${String(error)}`,
+      );
     }
   }
 
@@ -1060,7 +1080,9 @@ function readSlots(
     return Array.isArray(value) ? (value as ApplyWeekSlotDto[]) : [];
   }
   const wrapped = (value ?? {}) as { slots?: unknown };
-  return Array.isArray(wrapped.slots) ? (wrapped.slots as ApplyWeekSlotDto[]) : [];
+  return Array.isArray(wrapped.slots)
+    ? (wrapped.slots as ApplyWeekSlotDto[])
+    : [];
 }
 
 /** Reguły stanu karty — jedno miejsce, bo czyta je i lista, i pojedyncza tura. */

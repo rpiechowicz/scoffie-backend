@@ -53,7 +53,12 @@ describe('buildMacroGapCard', () => {
       current: 96,
       target: 140,
       scopeLabel: 'ten tydzień',
-      boosters: [booster('A', 10), booster('B', 20), booster('C', 30), booster('D', 40)],
+      boosters: [
+        booster('A', 10),
+        booster('B', 20),
+        booster('C', 30),
+        booster('D', 40),
+      ],
     });
     expect(card.boosters).toHaveLength(3);
     expect(card.actions[0]).toMatchObject({
@@ -85,7 +90,12 @@ describe('buildHouseholdSplitCard', () => {
       mealType: 'DINNER',
       title: 'Gulasz wołowy z kaszą',
       prepTimeMinutes: 55,
-      portions: [portion('Ty'), portion('Ania'), portion('Zosia'), portion('Franek')],
+      portions: [
+        portion('Ty'),
+        portion('Ania'),
+        portion('Zosia'),
+        portion('Franek'),
+      ],
       expiresAt: new Date('2026-09-03T10:00:00.000Z'),
     });
 
