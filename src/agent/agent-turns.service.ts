@@ -53,6 +53,8 @@ export type TurnView = {
   errorCode: string | null;
   /** Gotowe podpowiedzi do pokazania pod błędem (chipy); brak = nic nie pokazuj. */
   suggestions?: string[];
+  /** „Stop" przyjęty, tura jeszcze się domyka — klient odpytuje dalej. */
+  stopRequested?: boolean;
   messages?: MessageView[];
   usage?: {
     inputTokens: number;
@@ -291,6 +293,7 @@ export class AgentTurnsService {
               status: 'FAILED',
               errorCode: 'AI_TIMEOUT',
               finishedAt: new Date(),
+              quotaRefunded: true,
             },
           });
           if (closed.count === 0) continue;
@@ -491,7 +494,13 @@ export class AgentTurnsService {
 
     if (this.runner.cancel(turn.id)) {
       await this.waitUntilClosed(turn.id);
-      return this.getTurn(userId, turnId);
+      const view = await this.getTurn(userId, turnId);
+      // Narzędzie potrafi trwać dłużej niż okno czekania — tura jest już
+      // przerywana, ale jeszcze nie domknięta. Klient ma to wiedzieć, zamiast
+      // dostać RUNNING bez słowa.
+      return view.status === 'RUNNING'
+        ? { ...view, stopRequested: true }
+        : view;
     }
 
     const closed = await this.prisma.agentTurn.updateMany({
@@ -500,6 +509,7 @@ export class AgentTurnsService {
         status: 'FAILED',
         errorCode: 'AI_CANCELLED',
         finishedAt: new Date(),
+        quotaRefunded: true,
       },
     });
     if (closed.count > 0) {
@@ -589,6 +599,7 @@ export class AgentTurnsService {
         status: 'FAILED',
         errorCode: 'AI_TIMEOUT',
         finishedAt: new Date(),
+        quotaRefunded: true,
       },
     });
     if (closed.count === 0) {

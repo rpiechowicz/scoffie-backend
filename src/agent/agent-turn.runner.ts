@@ -460,11 +460,14 @@ export class AgentTurnRunner {
     }
 
     this.metrics.recordTurnFinished('done');
-    this.metrics.recordProviderUsage({
-      inputTokens: usage.inputTokens,
-      outputTokens: usage.outputTokens,
-      costMicroUsd: usage.costMicroUsd,
-    });
+    this.metrics.recordProviderUsage(
+      {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        costMicroUsd: usage.costMicroUsd,
+      },
+      result.apiCalls,
+    );
     this.notifyFinished(input, { ok: true, text: result.text });
   }
 
@@ -522,6 +525,21 @@ export class AgentTurnRunner {
         );
       }
 
+      if (spent) {
+        // Metryki widzą koszt także nieudanych tur — inaczej `/ops/metrics`
+        // pokazywał systematycznie mniej niż licznik budżetu.
+        this.metrics.recordProviderUsage(
+          {
+            inputTokens: spent.inputTokens,
+            outputTokens: spent.outputTokens,
+            costMicroUsd: spent.costMicroUsd,
+          },
+          error instanceof AgentProviderError && error.apiCalls
+            ? error.apiCalls
+            : 1,
+        );
+      }
+
       if (verdict.refund) {
         await this.counters.add(
           this.prisma,
@@ -530,6 +548,10 @@ export class AgentTurnRunner {
           'messages',
           -1,
         );
+        await this.prisma.agentTurn.updateMany({
+          where: { id: input.turnId },
+          data: { quotaRefunded: true },
+        });
       }
     } catch (closeError) {
       if (this.isMissingRecord(closeError)) {

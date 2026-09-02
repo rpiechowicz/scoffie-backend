@@ -21,8 +21,8 @@ export type MemoryNoteView = {
  * Ile notatek gospodarstwo trzyma naraz.
  *
  * Limit jest twardy z dwóch powodów naraz: notatki idą do promptu w bloku
- * gospodarstwa, który NIE jest cache'owany (patrz `agent-system-prompt.ts`),
- * więc każda kosztuje przy każdej turze; a pamięć, do której wszystko wpada
+ * gospodarstwa (punkt cache 5 minut, patrz `agent-system-prompt.ts`), więc
+ * każda kosztuje przy pierwszej rundzie tury i przy każdej zmianie bloku; a pamięć, do której wszystko wpada
  * i nic nie wypada, po miesiącu przestaje być pamięcią i staje się śmietnikiem.
  */
 export const MEMORY_LIMIT = 30;

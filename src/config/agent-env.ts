@@ -16,6 +16,8 @@
  * (żeby nie pokazywała martwej tury jako biegnącej). Dwie definicje tego
  * progu znaczyłyby, że lista mówi co innego niż wysyłka.
  */
+import { KNOWN_MODELS } from './model-prices';
+
 export const TURN_TIMEOUT_GRACE_MS = 5_000;
 
 export const AI_PROVIDERS = ['anthropic', 'stub'] as const;
@@ -332,6 +334,16 @@ export function agentEnvProblems(
     );
   }
   const agent = readAgentEnv(env);
+  for (const [key, value] of [
+    ['AI_MODEL', agent.model],
+    ['AI_MODEL_TOOLS', agent.toolsModel],
+  ] as const) {
+    if (value && !KNOWN_MODELS.includes(value)) {
+      problems.push(
+        `${key}=${value} — nieznany model; koszt będzie liczony po najdroższej znanej stawce (znane: ${KNOWN_MODELS.join(', ')})`,
+      );
+    }
+  }
   if (agent.enabled && agent.provider === 'anthropic' && !agent.apiKeyPresent) {
     problems.push(
       'ANTHROPIC_API_KEY jest pusty (AI_ENABLED=true, AI_PROVIDER=anthropic)',

@@ -72,7 +72,13 @@ export function buildShoppingListCard(input: {
           .slice(0, MAX_ITEMS_PER_GROUP)
           .map((entry) => entry.label),
         entries,
-        hidden: all.length - entries.length,
+        // Ucięte z KTÓREJKOLWIEK listy: stary klient czyta `items` (6),
+        // nowy `entries` (10) — obaj mają wiedzieć, że nie widzą wszystkiego.
+        hidden: Math.max(
+          all.length - entries.length,
+          all.filter((entry) => !entry.isChecked).length - MAX_ITEMS_PER_GROUP,
+          0,
+        ),
       };
     },
   );

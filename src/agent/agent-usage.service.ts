@@ -26,8 +26,8 @@ export type AgentUsageView = {
   plans: QuotaView;
   /**
    * Rozkład zużytych wiadomości na domowników w tym okresie — pula jest
-   * wspólna, więc ktoś zawsze pyta „kto to zużył". Liczone z domkniętych tur
-   * (nieudane oddały kwotę, więc się nie liczą).
+   * wspólna, więc ktoś zawsze pyta „kto to zużył". Liczone z tur, które nie
+   * oddały kwoty (`quotaRefunded = false`), więc suma zgadza się z `used`.
    */
   byUser: { userId: string; displayName: string; messages: number }[];
 };
@@ -67,7 +67,11 @@ export class AgentUsageService {
         by: ['userId'],
         where: {
           conversation: { householdId },
-          status: 'DONE',
+          // Liczy się każda tura, która NIE oddała kwoty: udana i nieudana
+          // z winy pytania (4xx, odmowa modelu). Tury po timeoucie, Stop
+          // i awarii dostawcy kwotę zwróciły i w rozkładzie ich nie ma.
+          status: { not: 'RUNNING' },
+          quotaRefunded: false,
           startedAt: { gte: periodStart, lt: this.counters.monthResetsAt(now) },
         },
         _count: { _all: true },

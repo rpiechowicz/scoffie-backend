@@ -16,6 +16,8 @@ import {
   weekRangeLabel,
   PlanRemovalReason,
   removalReasonFor,
+  kcalForPerson,
+  coversWholeDay,
 } from './agent-cards';
 import { MEAL_TYPES_IN_DAY_ORDER } from '../../common/meal-types';
 
@@ -39,6 +41,10 @@ export function buildPlanWeekCard(input: {
   applyLabel?: string;
   /** Powody usunięć od modelu — jedno słowo przy każdym zniknięciu. */
   removalReasons?: readonly PlanRemovalReason[];
+  /** Dla kogo liczyć kalorie dnia (pytający); brak = jak dotąd, wspólne. */
+  forUserId?: string;
+  /** Sloty planowane przez dom — nota celu tylko, gdy dzień jest pełny. */
+  enabledMealTypes?: readonly string[];
 }): PlanWeekCard {
   const slots = input.preview.slots ?? [];
   const byDay = new Map<string, WeekPlanPreviewSlot[]>();
@@ -74,9 +80,19 @@ export function buildPlanWeekCard(input: {
         participantIds: slot.participantIds,
         change: slot.change,
       })),
-      kcalTotal: daySlots.reduce((sum, slot) => sum + slot.kcalPerServing, 0),
+      kcalTotal: kcalForPerson(daySlots, input.forUserId),
     };
   });
+  // Plan „tylko obiady" porównywany z celem CAŁEGO dnia zawsze pokazywałby
+  // ogromny deficyt — nota i cel znikają, gdy jakiś dzień nie jest pełny.
+  const wholeDays =
+    days.length > 0 &&
+    days.every((day) =>
+      coversWholeDay(
+        slots.filter((slot) => slot.dayOfWeek === day.dayOfWeek),
+        input.enabledMealTypes,
+      ),
+    );
 
   const averageKcalPerDay = days.length
     ? Math.round(
@@ -109,8 +125,10 @@ export function buildPlanWeekCard(input: {
       updated: input.preview.changes.updated,
       removed: input.preview.changes.deleted,
       averageKcalPerDay,
-      targetKcalPerDay: input.targetKcalPerDay,
-      goalNote: goalNote(averageKcalPerDay, input.targetKcalPerDay),
+      targetKcalPerDay: wholeDays ? input.targetKcalPerDay : null,
+      goalNote: wholeDays
+        ? goalNote(averageKcalPerDay, input.targetKcalPerDay)
+        : null,
     },
     actions: [
       {

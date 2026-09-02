@@ -63,6 +63,7 @@ const makeDeps = (
       update: jest.fn().mockResolvedValue({}),
     },
     agentMessage: {
+      findUnique: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({
         id: 'msg-1',
         role: 'ASSISTANT',
@@ -212,10 +213,26 @@ describe('AgentProposalsService.apply', () => {
       response: { code: 'AI_PLAN_QUOTA_EXCEEDED' },
     });
     expect(deps.weeklyPlans.applyWeekPlan).not.toHaveBeenCalled();
-    expect(deps.prisma.agentProposal.update).toHaveBeenCalledWith({
-      where: { id: proposalId },
-      data: { status: 'PENDING' },
-    });
+    // Kwota schodzi PRZED zamkiem — odmowa nie dotyka propozycji wcale.
+    expect(deps.prisma.agentProposal.updateMany).not.toHaveBeenCalled();
+    expect(deps.prisma.agentProposal.update).not.toHaveBeenCalled();
+  });
+
+  it('przegrany wyścig o zamek oddaje kwotę, bo zwycięzca już ją zjadł', async () => {
+    const deps = makeDeps();
+    deps.prisma.agentProposal.updateMany.mockResolvedValue({ count: 0 });
+    const service = await buildService(deps);
+
+    await service.apply(userId, proposalId);
+
+    expect(deps.weeklyPlans.applyWeekPlan).not.toHaveBeenCalled();
+    expect(deps.counters.add).toHaveBeenCalledWith(
+      deps.prisma,
+      householdId,
+      '2026-04',
+      'plans',
+      -1,
+    );
   });
 
   it('cudza propozycja wygląda tak samo jak nieistniejąca', async () => {
@@ -259,6 +276,8 @@ describe('AgentProposalsService.undo', () => {
     status: 'APPLIED',
     appliedAt: new Date(),
     undoSnapshot: BEFORE,
+    quotaPeriodKey: '2026-04',
+    changedCount: 2,
     appliedHash: weekBaselineHash(BEFORE),
   };
 
@@ -380,7 +399,7 @@ describe('cardState', () => {
     expect(old.canUndo).toBe(false);
   });
 
-  it('cofnięta i nieudana propozycja nie mają już żadnego przycisku', () => {
+  it('cofnięta, nieaktualna i nieudana propozycja po 72 h mówią EXPIRED bez przycisku', () => {
     for (const status of ['UNDONE', 'STALE', 'FAILED']) {
       expect(
         cardState(
@@ -388,7 +407,34 @@ describe('cardState', () => {
           now,
           hour,
         ),
-      ).toMatchObject({ status, canApply: false, canUndo: false });
+      ).toMatchObject({ status: 'EXPIRED', canApply: false, canUndo: false });
     }
+  });
+
+  it('przed wygaśnięciem cofnięta i nieudana mają „Zapisz ponownie", a nieaktualna „Zapisz mimo to"', () => {
+    for (const status of ['UNDONE', 'STALE', 'FAILED']) {
+      expect(
+        cardState(
+          { status, expiresAt: new Date(now + hour), appliedAt: null },
+          now,
+          hour,
+        ),
+      ).toMatchObject({ status, canApply: true, canUndo: false });
+    }
+  });
+
+  it('zapis bez zmian nie obiecuje „Cofnij"', () => {
+    expect(
+      cardState(
+        {
+          status: 'APPLIED',
+          expiresAt: new Date(now + hour),
+          appliedAt: new Date(now),
+          changedCount: 0,
+        },
+        now,
+        hour,
+      ),
+    ).toMatchObject({ status: 'APPLIED', canUndo: false });
   });
 });

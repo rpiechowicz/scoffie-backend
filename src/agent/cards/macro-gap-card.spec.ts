@@ -44,7 +44,7 @@ describe('buildMacroGapCard', () => {
       boosters: [booster('Większa porcja obiadu', 300)],
     });
     expect(card.unit).toBe('kcal');
-    expect(card.title).toBe('Brakuje średnio 400 kcal dziennie');
+    expect(card.title).toBe('Średnio 400 kcal dziennie poniżej celu');
   });
 
   it('przycisk zastosowania NIE zapisuje — wysyła wiadomość', () => {
@@ -148,5 +148,23 @@ describe('goalLabel', () => {
       'Zastosuj w planie tę zmianę: Twaróg zamiast fety (pon., sob.). Pokaż mi ją jako propozycję.',
       'Własne',
     ]);
+  });
+  it('nadwyżka białka to zapas, nadwyżka kalorii to przekroczenie', () => {
+    const protein = buildMacroGapCard({
+      macro: 'PROTEIN',
+      current: 110,
+      target: 90,
+      scopeLabel: 'ten tydzień',
+      boosters: [],
+    });
+    expect(protein.title).toBe('Cel dowieziony, z zapasem 20 g');
+    const kcal = buildMacroGapCard({
+      macro: 'KCAL',
+      current: 2400,
+      target: 2000,
+      scopeLabel: 'ten tydzień',
+      boosters: [],
+    });
+    expect(kcal.title).toBe('Średnio 400 kcal dziennie ponad cel');
   });
 });
