@@ -79,6 +79,19 @@ That means deploy startup can:
   `pnpm catalog:ingredients:tags`
 - optionally backfill missing R2 image URLs
 
+The tag loader at startup runs **only** on a database whose ingredients carry
+no tags at all. Any later change to `ingredient-tags-pl-v1.json` — including
+the 2.09.2026 extension to the 14 EU allergens (`milk`, `crustaceans`,
+`molluscs`, `lupin`, `sulphites`) — must be applied by hand after the deploy:
+
+```bash
+railway ssh --service Backend -- sh -c 'cd /app && pnpm catalog:ingredients:tags'
+```
+
+It is idempotent and recomputes `Recipe.allergens`/`dietTags` from the
+ingredients. Until it has run, the assistant's allergen gate does not know the
+new ids, so a household allergy to `milk` would not block anything.
+
 ## Important safety rule
 
 Never enable `SAFE_MIGRATE_REBUILD_DB=true` in production unless you intentionally want a destructive rebuild and have a verified backup plus explicit approval. The guard (`scripts/lib/rebuild-guard.js`) requires `SAFE_MIGRATE_REBUILD_CONFIRM` to equal today's UTC date (`YYYY-MM-DD`) and, under `NODE_ENV=production`, `SAFE_MIGRATE_ALLOW_PROD_REBUILD` to equal the `DATABASE_URL` host; the host is logged before `DROP SCHEMA`. Remove all three variables right after the rebuild.

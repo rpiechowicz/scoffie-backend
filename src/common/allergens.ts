@@ -17,11 +17,28 @@ import { AppException } from './app-exception';
  * Semantyka (ta sama w pliku tagów składników i w iOS):
  * - `lactose` = nabiał ZAWIERAJĄCY laktozę (nietolerancja), nie alergia na
  *   białko mleka: produkty „bez laktozy" i ghee tej wartości nie mają.
- * - `fish` obejmuje ryby i owoce morza (skorupiaki dostają dodatkowo tag
- *   dietetyczny CRUSTACEAN — osobny alergen będzie tani do wydzielenia).
+ * - `milk` = alergia na białko mleka: KAŻDY produkt z mleka zwierzęcego,
+ *   także bez laktozy i ghee (czyli cały tag DAIRY). Do audytu z 2.09.2026
+ *   „laktoza" udawała oba znaczenia naraz i osoba z alergią na mleko
+ *   dostawała ghee jako bezpieczne.
+ * - `fish` obejmuje ryby i owoce morza; `crustaceans` (skorupiaki) i
+ *   `molluscs` (mięczaki) są OSOBNO, bo to osobne alergie — krewetki ma
+ *   ktoś, kto rybę je bez problemu. Składnik ze skorupiakiem niesie oba:
+ *   `fish` nadmiarowo i `crustaceans` precyzyjnie.
+ * - `lupin` i `sulphites` (siarczyny: wino, cydr, ocet winny) domykają
+ *   listę 14 alergenów z załącznika II rozporządzenia 1169/2011. Katalog
+ *   może przez długi czas nie mieć ani jednego składnika z łubinem — lista
+ *   jest po to, żeby użytkownik mógł zadeklarować alergię, a twarda bramka
+ *   planu ją egzekwowała, gdy tylko taki składnik się pojawi.
  * - `celery`, `mustard`, `sesame` (od plastra D): seler także w bulionach
  *   i przyprawie uniwersalnej, gorczyca także w majonezie, sezam także w
  *   hummusie i tahini — alergen oznaczamy nadmiarowo.
+ *
+ * Kolejność ma znaczenie tylko dla czytelności list w komunikatach; iOS
+ * (`enum Allergen`) porządkuje chipy po swojemu. Wydany build iOS zna
+ * pierwsze dziesięć: nieznane id z przepisów pomija (`compactMap`), a w
+ * preferencjach zachowuje (unia znane ∪ nieznane) — dlatego serwer może
+ * wyjść z nowymi wartościami PRZED telefonem.
  */
 export const ALLERGEN_IDS = [
   'gluten',
@@ -34,6 +51,11 @@ export const ALLERGEN_IDS = [
   'celery',
   'mustard',
   'sesame',
+  'milk',
+  'crustaceans',
+  'molluscs',
+  'lupin',
+  'sulphites',
 ] as const;
 
 export type AllergenId = (typeof ALLERGEN_IDS)[number];
