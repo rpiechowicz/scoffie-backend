@@ -67,6 +67,9 @@ type MockState = {
 
 const makePrismaMock = (state: MockState) => {
   const mock: any = {
+    // Zwykły dom (bez przepisów katalogowych) — sprzątanie pustego domu ma
+    // go skasować; wyjątek dla domu katalogu testuje household-cleanup.util.
+    recipe: { count: jest.fn().mockResolvedValue(0) },
     household: {
       findUnique: jest.fn().mockResolvedValue(household),
       findMany: jest.fn().mockResolvedValue([household]),

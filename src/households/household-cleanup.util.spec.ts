@@ -14,11 +14,13 @@ describe('settleHouseholdAfterMemberLeft', () => {
 
   const makeTx = (
     memberships: { id: string; userId: string; role: 'OWNER' | 'MEMBER' }[],
+    catalogRecipes = 0,
   ) => {
     const deletedHouseholds: string[] = [];
     const promoted: { id: string; role: string }[] = [];
 
     const tx = {
+      recipe: { count: jest.fn().mockResolvedValue(catalogRecipes) },
       membership: {
         findMany: jest.fn().mockResolvedValue(memberships),
         update: jest.fn().mockImplementation((args: unknown) => {
@@ -76,6 +78,17 @@ describe('settleHouseholdAfterMemberLeft', () => {
 
     expect(result).toEqual({ outcome: 'OWNER_PROMOTED', promotedUserId: 'u2' });
     expect(promoted).toEqual([{ id: 'm2', role: 'OWNER' }]);
+    expect(deletedHouseholds).toEqual([]);
+  });
+
+  it('nie kasuje pustego gospodarstwa, które trzyma wspólny katalog', async () => {
+    // Kaskada z domu zabrałaby przepisy katalogowe, a z nimi pozycje planów
+    // KAŻDEGO gospodarstwa. Pusty dom katalogu zostaje — to jedyny wyjątek.
+    const { tx, deletedHouseholds } = makeTx([], 97);
+
+    const result = await settleHouseholdAfterMemberLeft(tx, HOUSEHOLD);
+
+    expect(result).toEqual({ outcome: 'KEPT_CATALOG' });
     expect(deletedHouseholds).toEqual([]);
   });
 

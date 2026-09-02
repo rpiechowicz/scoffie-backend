@@ -10,7 +10,13 @@ export type PrismaLike = Prisma.TransactionClient;
 export type HouseholdSettlement =
   | { outcome: 'DELETED' }
   | { outcome: 'OWNER_PROMOTED'; promotedUserId: string }
-  | { outcome: 'UNCHANGED' };
+  | { outcome: 'UNCHANGED' }
+  /**
+   * Zero członków, ale dom trzyma wspólny katalog — zostaje. Skasowanie go
+   * zabrałoby kaskadą wszystkie przepisy katalogowe razem z pozycjami
+   * planów KAŻDEGO gospodarstwa, które z nich korzysta.
+   */
+  | { outcome: 'KEPT_CATALOG' };
 
 /**
  * Doprowadza gospodarstwo do porządku po tym, jak ktoś z niego wyszedł.
@@ -42,6 +48,17 @@ export async function settleHouseholdAfterMemberLeft(
   });
 
   if (remaining.length === 0) {
+    // Pas bezpieczeństwa, nie zwykła ścieżka: bot importu jest OWNER-em domu
+    // katalogu i nie powinien z niego wychodzić. Ale gdyby ktoś skasował to
+    // konto (albo katalog leżał w zwykłym domu, jak na produkcji do 31.08),
+    // ta jedna gałąź dzieli „sprzątanie pustego domu" od „utraty katalogu
+    // dla wszystkich".
+    const catalogRecipes = await tx.recipe.count({
+      where: { householdId, isCatalog: true },
+    });
+    if (catalogRecipes > 0) {
+      return { outcome: 'KEPT_CATALOG' };
+    }
     await tx.household.delete({ where: { id: householdId } });
     return { outcome: 'DELETED' };
   }

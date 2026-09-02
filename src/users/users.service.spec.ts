@@ -540,6 +540,64 @@ describe('UsersService.updateProfile', () => {
   });
 });
 
+describe('UsersService.deleteAccount — cudze dane zostają', () => {
+  let service: UsersService;
+  let prisma: ReturnType<typeof makePrismaMock>;
+  const botId = '11111111-1111-4111-8111-111111111111';
+
+  beforeEach(async () => {
+    prisma = makePrismaMock();
+    prisma.user.upsert = jest.fn().mockResolvedValue({ id: botId });
+    prisma.user.delete = jest.fn().mockResolvedValue({ id: mockUserId });
+    prisma.recipe = {
+      count: jest.fn().mockResolvedValue(2),
+      updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+    };
+    // Bez członkostw: rozliczanie domów ma własne testy
+    // (household-cleanup.util.spec, plan-roster.util.spec).
+    prisma.membership = { findMany: jest.fn().mockResolvedValue([]) };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [UsersService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get<UsersService>(UsersService);
+  });
+
+  it('przepisy autora przechodzą na bota importu, zanim konto zniknie', async () => {
+    // `Recipe.author` to kaskada: bez przepięcia z kontem poszłyby przepisy
+    // gospodarstwa razem z pozycjami planu innych domowników.
+    await service.deleteAccount(mockUserId);
+
+    expect(prisma.user.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: botId } }),
+    );
+    expect(prisma.recipe.updateMany).toHaveBeenCalledWith({
+      where: { authorId: mockUserId },
+      data: { authorId: botId },
+    });
+    const order = [
+      prisma.recipe.updateMany.mock.invocationCallOrder[0],
+      prisma.user.delete.mock.invocationCallOrder[0],
+    ];
+    expect(order[0]).toBeLessThan(order[1]);
+  });
+
+  it('konto bez przepisów nie zakłada bota', async () => {
+    prisma.recipe.count.mockResolvedValue(0);
+    await service.deleteAccount(mockUserId);
+    expect(prisma.user.upsert).not.toHaveBeenCalled();
+    expect(prisma.recipe.updateMany).not.toHaveBeenCalled();
+    expect(prisma.user.delete).toHaveBeenCalled();
+  });
+
+  it('konta bota importu nie da się skasować — jest autorem katalogu', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: botId });
+    await expect(service.deleteAccount(botId)).rejects.toMatchObject({
+      response: { code: 'FORBIDDEN' },
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
 describe('UsersService — brak użytkownika', () => {
   let service: UsersService;
   let prisma: ReturnType<typeof makePrismaMock>;
