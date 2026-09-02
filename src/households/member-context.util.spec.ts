@@ -114,12 +114,18 @@ describe('toMemberContext', () => {
     });
   });
 
-  it('surowa sylwetka jedzie obok celów — asystent może pokazać skąd liczby', () => {
-    expect(toMemberContext(row({}), NOW).body).toEqual({
-      sex: 'MALE',
-      heightCm: 180,
-      weightKg: 80,
-      yearOfBirth: 1996,
-    });
+  it('sylwetka jest tylko wejściem do rachunku — na zewnątrz nie wychodzi', () => {
+    // Ten obiekt trafia do promptu (Anthropic, USA), do narzędzia asystenta
+    // i na telefon każdego domownika. Waga i wzrost drugiej osoby nie mają
+    // prawa tam być — cele są już policzone w `targets`.
+    const context = toMemberContext(row({}), NOW);
+    expect(context.targets.macrosSource).toBe('COMPUTED');
+    expect(context).not.toHaveProperty('body');
+    const serialized = JSON.stringify(context);
+    for (const field of ['sex', 'heightCm', 'weightKg', 'yearOfBirth']) {
+      expect(serialized).not.toContain(`"${field}"`);
+    }
+    expect(serialized).not.toContain('MALE');
+    expect(serialized).not.toContain('1996');
   });
 });

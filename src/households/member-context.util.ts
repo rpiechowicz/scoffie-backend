@@ -11,8 +11,9 @@ import {
 } from '../users/body-metrics.util';
 
 /**
- * Kontekst domownika dla planowania — preferencje, sylwetka i policzone cele
- * w jednym kształcie.
+ * Kontekst domownika dla planowania — preferencje i policzone cele w jednym
+ * kształcie. Sylwetka wchodzi tu tylko jako WEJŚCIE do rachunku makr i nie
+ * wychodzi na zewnątrz (patrz komentarz przy `targets`).
  *
  * Powstało, bo asystent nie ma jak zebrać tego sam: preferencje są w
  * `UserPreference`, sylwetka w `User`, a cele makro liczyły się WYŁĄCZNIE na
@@ -53,12 +54,18 @@ export type MemberContext = {
   allergens: string[];
   goal: UserGoal;
   activityLevel: number;
-  body: {
-    sex: Sex | null;
-    heightCm: number | null;
-    weightKg: number | null;
-    yearOfBirth: number | null;
-  };
+  /**
+   * Sylwetki (płeć, wzrost, waga, rok urodzenia) tu ŚWIADOMIE NIE MA.
+   *
+   * Ten obiekt idzie w trzy miejsca naraz: do promptu systemowego (czyli do
+   * Anthropica), do narzędzia `get_household_context` i na telefon każdego
+   * domownika (`households:memberPreferences`). Wzrost i waga drugiej osoby
+   * to dane, których żadne z tych miejsc nie potrzebuje — cele kcal/makro są
+   * już policzone w `targets`, a `macrosSource: 'UNAVAILABLE'` mówi, gdy
+   * sylwetki zabrakło. Zostawienie ich „bo są pod ręką" znaczyłoby wysyłanie
+   * danych o zdrowiu domowników do USA bez ich wiedzy i pokazywanie wagi
+   * partnera na ekranie „Co wiem o Was".
+   */
   targets: {
     calorieGoal: number;
     macros: MacroTargets | null;
@@ -161,12 +168,6 @@ export function toMemberContext(
     allergens: preferences.allergens,
     goal: preferences.goal,
     activityLevel: preferences.activityLevel,
-    body: {
-      sex: user.sex,
-      heightCm: user.heightCm,
-      weightKg: user.weightKg,
-      yearOfBirth: user.yearOfBirth,
-    },
     targets: {
       calorieGoal: preferences.calorieGoal,
       macros,

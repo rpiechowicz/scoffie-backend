@@ -171,6 +171,13 @@ describe('Narzędzia asystenta E2E', () => {
     );
     expect(members).toHaveLength(1);
     expect(members[0]).toHaveProperty('targets');
+    // Sylwetka (płeć, wzrost, waga, rok urodzenia) nie ma prawa wyjść do
+    // modelu — to dane o zdrowiu domowników, a cele są już policzone.
+    expect(members[0]).not.toHaveProperty('body');
+    const serialized = JSON.stringify(members);
+    for (const field of ['sex', 'heightCm', 'weightKg', 'yearOfBirth']) {
+      expect(serialized).not.toContain(`"${field}"`);
+    }
   });
 
   it('search_ingredients znajduje składnik i podaje jednostki', async () => {
