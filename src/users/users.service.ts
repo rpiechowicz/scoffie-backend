@@ -7,6 +7,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { settleHouseholdAfterMemberLeft } from '../households/household-cleanup.util';
+import {
+  catalogOwnerUserId,
+  ensureCatalogOwner,
+} from '../common/catalog-owner';
 import { onMemberLeft } from '../weekly-plans/utils/plan-roster.util';
 import {
   effectiveAvatarColor,
@@ -493,8 +497,35 @@ export class UsersService {
       );
     }
 
+    // Bot importu to autor całego katalogu, a `Recipe.author` kasuje
+    // kaskadą — skasowanie tego konta zabrałoby katalog wszystkim.
+    if (userId === catalogOwnerUserId()) {
+      throw new AppException(
+        'FORBIDDEN',
+        'Tego konta nie można usunąć — jest właścicielem wspólnego katalogu.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
+      // Przepisy autorstwa tej osoby (z aplikacji albo z ręki asystenta w jej
+      // turze) NIE giną z kontem: `Recipe.author` to kaskada, a z przepisem
+      // poszłyby pozycje planu, uczestnicy i odhaczenia POZOSTAŁYCH
+      // domowników. Przepis gospodarstwa jest wspólny — przechodzi na konto
+      // bota importu (nie na innego domownika: nie przypisujemy żywej osobie
+      // autorstwa, którego nie miała). Idzie PRZED rozliczeniem domów: dom,
+      // który zostanie skasowany jako pusty, i tak zabierze swoje przepisy
+      // kaskadą po `householdId`, więc przepięcie niczego nie ratuje na siłę.
+      const authored = await tx.recipe.count({ where: { authorId: userId } });
+      if (authored > 0) {
+        const botId = await ensureCatalogOwner(tx);
+        await tx.recipe.updateMany({
+          where: { authorId: userId },
+          data: { authorId: botId },
+        });
+      }
+
       const memberships = await tx.membership.findMany({
         where: { userId },
         select: { householdId: true, role: true },
