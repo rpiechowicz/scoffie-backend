@@ -17,7 +17,8 @@ Backend API for the Weekly Meals iOS app. It serves recipes, households, weekly 
   accepting an invitation while already in one is an explicit move, see
   `src/households/invitation-status.util.ts`)
 - Recipes catalog and favorites
-- Weekly plan and shared saved-plan flows
+- Weekly plan (target-state writes with hard allergen/exclusion gates) and the
+  AI assistant (`src/agent/`: proposals with apply/undo, household memory)
 - Shopping list generation, archive history, and realtime updates
 - Ops endpoints for health and lightweight metrics
 
@@ -185,7 +186,7 @@ The workflow runs:
 
 ## Current product note
 
-The current iOS client still uses the dev-login flow. For internal and staging environments, `AUTH_DEV_LOGIN_ENABLED=true` may still be required. Public `1.0` should switch to real auth and then disable dev login in production.
+The shipped iOS client signs in with Apple only. Dev login (`POST /auth/dev`) is opt-in for local development, CI and the smoke scripts; on production `AUTH_DEV_LOGIN_ENABLED=true` is a boot violation (`src/config/assert-env.ts`).
 
 ## Related docs
 

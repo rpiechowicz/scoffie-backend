@@ -150,11 +150,20 @@ or `Authorization: Bearer`). Identity comes from the token, broadcasts go to
    check with `railway variables --service Backend` that `REFRESH_TOKEN_DAYS`
    is unset or ≥ 60 and `JWT_EXPIRES_IN` is unset or shorter than that; the
    refresh token must outlive the access token for the iOS refresh to work.
-2. Ship the iOS build that sends the token in the handshake and refreshes it.
+2. Ship the iOS build that sends the token in the handshake and refreshes it
+   — **done**: every iOS build since PR #69 (`main` from 31.08.2026) sends it.
 3. Watch `GET /ops/metrics` → `http.wsAuth.handshakes.legacy` and `legacyActs`.
-   When they stop growing (both phones updated), set `WS_AUTH_MODE=strict` on
-   the `Backend` service — no token = `connect_error` with
-   `{code: 'UNAUTHORIZED', reason: 'missing'}`.
+   The counters live in process memory and reset on every restart, so take
+   two readings at least an hour apart with a growing `http.uptimeSeconds`
+   and the same `commit` in `/ops/health`. When they stop growing, set
+   `WS_AUTH_MODE=strict` on the `Backend` service — no token = `connect_error`
+   with `{code: 'UNAUTHORIZED', reason: 'missing'}`. Rollback is the same
+   variable back to `soft`.
+
+Until `strict` is on, a socket without a token is accepted as `legacy` with the
+identity taken from the payload, and every household broadcast is also sent to
+the shared `legacy` room. That is why this switch is the first item of the
+2.09.2026 remediation plan, not a cosmetic one.
 
 `WS_AUTH_MODE` is read per handshake; a typo is a boot violation in production.
 Refresh tokens now default to 60 days (`REFRESH_TOKEN_DAYS`), reuse of a rotated
@@ -166,118 +175,127 @@ default), which is why the next step after iOS adoption is a shorter
 reported as `SERVICE_UNAVAILABLE`, not `UNAUTHORIZED`, so clients keep their
 auto-reconnect instead of refreshing tokens.
 
-## Wydanie „Fazy 0 + 1" na produkcję — lista kontrolna
+## Stan produkcji asystenta (aktualizacja 2.09.2026)
 
-To pierwsze wejście na prod całego dorobku asystenta: 33 commity, dwie migracje
-(`20260828200000_asystent_rozmowy_tury_i_ledger`, `20260831120000_katalog_a_przepisy_gospodarstwa`),
-uwierzytelniony WebSocket, jawna walidacja DTO, limity żądań i cały moduł `src/agent/`.
-**Asystent w tym wydaniu jest WYŁĄCZONY** — właczenie to osobny krok niżej.
+Fazy 0 i 1, hartowanie, ekran iOS, karty z propozycjami (E1–E5), pamięć
+gospodarstwa, poprawianie pytania i ograniczenia domownika są na `main` obu
+repozytoriów. Wydany build iOS (od PR #74) rozmawia z asystentem po REST,
+wysyła token w handshake WebSocketu i deklaruje obsługę kart
+(`clientCapabilities: ["cards.v1"]`) w każdym żądaniu. Sekcja „Fazy 0 + 1"
+z 31.08 była listą kontrolną pierwszego wejścia i została wykonana; poniżej
+jest to, co obowiązuje TERAZ.
 
-Sprawdzone przed wydaniem (31.08.2026, nie trzeba powtarzać):
+Zasada bez zmian: każda zmienna `AI_*`, `THROTTLE_*` i `WS_*` ma wartość
+domyślną w kodzie, więc merge do `main` nigdy nie wymaga zmiennej na Railway
+(incydent z 28.08.2026: nowy build asertujący brakującą zmienną kosztował
+~10 minut przestoju). Zmienne są czytane per żądanie — zmiana na Railway
+działa po restarcie, bez builda; zła wartość to nieudany deploy (healthcheck),
+nie przestój, bo stary kontener zostaje.
 
-- **Żadna nowa zmienna nie jest wymagana.** Wszystkie `AI_*`, `THROTTLE_*` i
-  `WS_*` mają domyślne, a `assert-env` przy `AI_ENABLED` pustym nie żąda niczego.
-  Deploy nie powtórzy incydentu z 28.08.
-- **Stary build iOS (App Store) przeżyje.** Koperty zdarzeń walidują się łagodnie
-  (`validateWsPayload`), więc `userId` i inne pola sprzed Fazy 0 nie są błędem.
-  Pola w `data` porównane 1:1 z payloadami z gałęzi `main` iOS — zero rozjazdu.
-  `WS_AUTH_MODE` zostaje `soft`, bo wydany build nie wysyła jeszcze tokenu.
-- **Limity nie zabolą telefonu.** 120 żądań/min na użytkownika po HTTP i tyle samo
-  po WebSockecie; iOS ma 42 miejsca wysyłające i żadnej pętli.
+## Assistant rollout (`AI_ENABLED`, `AI_CARDS_MODE`, `AI_ALLOWED_USERS`)
 
-Do sprawdzenia NA PRODUKCJI przed merge'em (`psql "$PROD_DB"`):
+### Co asystent może ZMIENIĆ w bazie
 
-1. **Przepisy gospodarstw** — decyduje o `isCatalog`, szczegóły w sekcji niżej.
-2. **Pokrycie alergenów i tagów diet** — od hartowania asystenta bramka
-   `RECIPE_ALLERGEN_CONFLICT` czyta `Recipe.allergens`. Puste tablice na prodzie
-   znaczyłyby, że bramka przepuszcza wszystko, a model widzi `A:` bez treści:
+Siedemnaście narzędzi, w czterech grupach:
 
-   ```sql
-   SELECT count(*) FILTER (WHERE array_length("dietTags", 1) IS NULL) AS bez_tagow_diet,
-          count(*) AS wszystkie
-   FROM "Recipe";
-   ```
+| Grupa                 | Narzędzia                                                                                                          | Skutek w bazie                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| czyta                 | `get_household_context`, `get_week_plan`, `get_week_balance`, `search_ingredients`                                 | żaden                                                                            |
+| proponuje (tryb kart) | `propose_week_plan`, `propose_day_plan`, `propose_swap`, `propose_household_split`                                 | wiersz `AgentProposal`; plan zmienia się DOPIERO po „Dodaj do planu" w telefonie |
+| karty bez skutków     | `ask_clarifying_question`, `offer_options`, `show_macro_gap`, `show_shopping_list`                                 | żaden — karta w rozmowie                                                         |
+| pisze                 | `apply_week_plan` (tylko tryb `off`), `create_recipe`, `update_recipe`, `delete_recipe` (miękkie), `remember_note` | plan tygodnia / przepisy gospodarstwa / notatka pamięci (30 na dom)              |
 
-   `bez_tagow_diet` większe od zera = uruchomić `pnpm catalog:ingredients:tags`
-   (idempotentny, przelicza `allergens`/`dietTags` ze składników) zanim asystent
-   dostanie prawo zapisu. Przepisy BEZ alergenów to normalne (na dev 8 z 89) —
-   alarmujące są dopiero puste tagi diet, bo każdy przepis jakiś ma.
+Bariery są po stronie serwera, nie w prompcie: przepisu z alergenem albo
+wykluczonym składnikiem domownika nie da się wstawić do posiłku, który ta
+osoba je (`RECIPE_ALLERGEN_CONFLICT`, `RECIPE_EXCLUDED_INGREDIENT`), przepisu
+katalogowego nie da się edytować ani skasować (`RECIPE_NOT_EDITABLE`), przepisu
+użytego w planie nie da się usunąć (`RECIPE_IN_USE`). Przy JAKIMKOLWIEK
+naruszeniu zapis tygodnia nie zapisuje NICZEGO. Do modelu NIE idzie sylwetka
+domowników (płeć, wzrost, waga, rok urodzenia) — tylko dieta, alergeny,
+wykluczenia, cel i policzone zapotrzebowanie.
 
-Po deployu: `/ops/health` 200, `/ops/metrics` → `http.wsAuth.handshakes.legacy`
-rośnie (stary build), `agent.turns` zeruje się i takie zostaje (asystent wyłączony).
+**Cofanie.** W trybie kart zapisana propozycja ma przycisk „Cofnij" przez
+`AI_PROPOSAL_UNDO_WINDOW_MS` (domyślnie godzina) i serwer odmawia cofnięcia,
+jeśli ktoś w międzyczasie zmienił plan ręcznie (`AI_PROPOSAL_STALE`). W trybie
+`off` przycisku nie ma: plan wraca ręcznie w aplikacji, przepis —
+`UPDATE "Recipe" SET "isActive" = true WHERE id = …`. To główny powód, żeby na
+produkcji nie zostawiać trybu `off`.
 
-## Assistant rollout (`AI_ENABLED`)
+### Tryb kart (`AI_CARDS_MODE`)
 
-Asystent wchodzi na prod **wyłączony**. Każda zmienna `AI_*` i `THROTTLE_*` ma
-wartość domyślną, więc merge do `main` nie wymaga żadnej zmiennej na Railway —
-świadomie, po incydencie z 28.08.2026 (nowy build asertujący brakującą zmienną
-kosztował ~10 minut przestoju).
+| Wartość          | Kto zapisuje plan                                | Kiedy                                                                                  |
+| ---------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `off` (domyślna) | MODEL, w trakcie tury, po `dry_run`              | dźwignia awaryjna; bez karty, bez „Cofnij", bez rozgłoszenia zmiany po sockecie        |
+| `soft`           | użytkownik, jeśli klient zadeklarował `cards.v1` | **wartość na produkcję**: wydany iOS deklaruje zawsze, stary build dostaje `off`       |
+| `strict`         | użytkownik, dla wszystkich klientów              | po potwierdzeniu, że nikt nie siedzi na buildzie sprzed kart (dostałby turę bez karty) |
 
-### Zanim włączysz — co asystent może ZMIENIĆ w bazie
+Domyślna w kodzie jest `off`, więc **bez zmiennej na Railway asystent zapisuje
+plan sam**, mimo że telefon pokazuje interfejs kart. Lista narzędzi jest w obu
+trybach identyczna (liczy się do prefiksu cache); tryb przełącza akapit
+w bloku gospodarstwa, a bramką jest kod (`AI_TOOL_NOT_IN_MODE` jako dane dla
+modelu).
 
-Od Fazy 1 asystent nie tylko czyta. Ma osiem narzędzi, z czego cztery piszą:
-`apply_week_plan` (cały tydzień naraz), `create_recipe`, `update_recipe`,
-`delete_recipe` (miękkie, `isActive=false`). Pozostałe cztery
-(`get_household_context`, `get_week_plan`, `get_week_balance`,
-`search_ingredients`) tylko czytają.
+### Kto może rozmawiać (`AI_ALLOWED_USERS`)
 
-Bariery są po stronie serwera, nie w prompcie: przepisu z alergenem domownika
-nie da się wstawić do posiłku, który ta osoba je (`RECIPE_ALLERGEN_CONFLICT`),
-przepisu katalogowego nie da się edytować ani skasować (`RECIPE_NOT_EDITABLE`),
-a przepisu użytego w planie nie da się usunąć (`RECIPE_IN_USE`). Przy JAKIMKOLWIEK
-naruszeniu `applyWeekPlan` nie zapisuje NICZEGO — nie ma stanu „pół tygodnia".
-
-Cofnięcie tego, co asystent narobił, nie ma dziś przycisku: plan wraca ręcznie
-w aplikacji, przepis — `UPDATE "Recipe" SET "isActive" = true WHERE id = …`.
+Aplikacja jest w App Store i każdy może założyć konto. Do czasu zgód, polityki
+i paywalla `AI_ALLOWED_USERS` (identyfikatory użytkowników albo e-maile po
+przecinku; pusta = wszyscy) jest jedyną bramką między „rodzina testuje" a „obcy
+palą klucz". Konto spoza listy dostaje `503 AI_DISABLED` z
+`details: ['not_allowed']` — telefon pokazuje „asystent niedostępny" i blokuje
+pole. Bramka stoi tylko na założeniu rozmowy i wysłaniu wiadomości; odczyt
+historii i kasowanie własnych rozmów zostają otwarte. Identyfikator konta:
+`SELECT id, email, "displayName" FROM "User" ORDER BY "createdAt";`.
 
 ### Włączanie, w tej kolejności
 
 1. **Klucz PIERWSZY**:
    `railway variables --service Backend --skip-deploys --set ANTHROPIC_API_KEY=...`.
    Przy `AI_ENABLED=true` bez klucza asystent zachowuje się jak wyłączony (503),
-   więc zła kolejność kosztuje błąd, nie awarię — ale i tak sprawdź
-   `railway logs --service Backend` pod kątem ostrzeżenia `[env]`.
-2. **Budżet — sprawdź, czy domyślny Ci pasuje.** Trzy hamulce, wszystkie
-   z wartością domyślną:
+   więc zła kolejność kosztuje błąd, nie awarię. Równolegle: limit wydatków
+   i alert w konsoli Anthropic — drugi hamulec poza kontenerem.
+2. **Lista dozwolonych kont** (`AI_ALLOWED_USERS`), dopóki asystent jest dla
+   rodziny.
+3. **Limity.** Trzy hamulce, wszystkie z wartością domyślną:
 
-   | Zmienna                       | Domyślnie                      | Zakres                         | Co robi po przekroczeniu                           |
-   | ----------------------------- | ------------------------------ | ------------------------------ | -------------------------------------------------- |
-   | `AI_GLOBAL_DAILY_BUDGET_USD`  | `5` (na dobę, cała instalacja) | liczba ≥ 0, `off` = bez limitu | `503 AI_BUDGET_PAUSED`                             |
-   | `AI_LIMIT_MESSAGES_PER_MONTH` | `200` (na gospodarstwo)        | liczba całkowita               | `429 AI_QUOTA_EXCEEDED`                            |
-   | `AI_LIMIT_PLANS_PER_MONTH`    | `30` (na gospodarstwo)         | liczba całkowita               | narzędzie oddaje modelowi `AI_PLAN_QUOTA_EXCEEDED` |
+   | Zmienna                       | Domyślnie                      | Zakres                         | Co robi po przekroczeniu                          |
+   | ----------------------------- | ------------------------------ | ------------------------------ | ------------------------------------------------- |
+   | `AI_GLOBAL_DAILY_BUDGET_USD`  | `5` (na dobę, cała instalacja) | liczba ≥ 0, `off` = bez limitu | `503 AI_BUDGET_PAUSED`                            |
+   | `AI_LIMIT_MESSAGES_PER_MONTH` | `200` (na gospodarstwo)        | liczba całkowita               | `429 AI_QUOTA_EXCEEDED`                           |
+   | `AI_LIMIT_PLANS_PER_MONTH`    | `30` (na gospodarstwo)         | liczba całkowita               | narzędzie / apply oddaje `AI_PLAN_QUOTA_EXCEEDED` |
 
    Zmierzone tury (Sonnet 5, `medium`): układanie tygodnia $0,30, trzy dni
    z alergią $0,14, poprawka dwóch kolacji $0,12, żądanie niewykonalne $1,00.
-   Czyli domyślne 200 wiadomości to **$25–60 miesięcznie na jedno gospodarstwo**
-   — przy koncie z $20 kredytu rozsądny start to:
+   Domyślne 200 wiadomości to **$25–60 miesięcznie na jedno gospodarstwo**.
+   Do czasu paywalla, spójnie z planowanym cennikiem (darmowe 6, płatne 40):
 
    ```
-   AI_GLOBAL_DAILY_BUDGET_USD=2
-   AI_LIMIT_MESSAGES_PER_MONTH=60
+   AI_LIMIT_MESSAGES_PER_MONTH=30
+   AI_LIMIT_PLANS_PER_MONTH=6
    ```
 
-   Budżet dobowy jest globalny (licznik `AiUsageCounter`, kind `costMicroUsd`)
-   i sprawdzany PRZED turą, więc jego przekroczenie kosztuje jeszcze jedną turę
-   — ustawiaj go o tę jedną turę niżej, niż wynosi ból. Limit planów liczy się
-   przy ZAPISIE tygodnia: dry-run, zapis odrzucony przez naruszenia i zapis,
-   który niczego nie zmienił, nie kosztują nic. Wyczerpany limit planów nie
-   przerywa tury — asystent nadal potrafi zaproponować plan w odpowiedzi,
-   tylko go nie zapisze.
+   Budżet dobowy zostaje przy domyślnych $5: $2 to 2–16 tur dziennie dla całej
+   instalacji i wyłączyłoby asystenta rodzinie w środku tygodnia — hamulcem ma
+   być alert w konsoli Anthropic, nie bezpiecznik. Budżet jest sprawdzany
+   PRZED turą, więc przekroczenie kosztuje jeszcze jedną turę. Limit planów
+   liczy się przy ZAPISIE (w trybie kart: przy „Dodaj do planu"); dry-run,
+   odmowa i zapis bez zmian nie kosztują nic; cofnięcie oddaje kwotę.
 
-3. `AI_ENABLED=true` i restart usługi.
-4. Weryfikacja: `GET /ops/metrics` → `agent.turns` (started/done/failed),
-   `agent.rejected` (disabled/quota/budget/upstream/inProgress),
-   `agent.usage.costMicroUsd`. Rachunek u dostawcy sprawdzaj niezależnie —
-   licznik zna tylko tury, które przeszły przez ten kontener.
+4. **Tryb kart**: `AI_CARDS_MODE=soft`.
+5. `AI_ENABLED=true` i restart usługi.
+6. **Weryfikacja** (nie tylko `/ops/health`): jedna tura z telefonu kończy się
+   kartą propozycji, plan NIE zmienia się sam, „Dodaj do planu" zapisuje,
+   „Cofnij" przywraca. `GET /ops/metrics` → `agent.turns`
+   (started/done/failed), `agent.rejected` (disabled/quota/budget/upstream/
+   inProgress), `agent.usage.costMicroUsd`. Rachunek u dostawcy sprawdzaj
+   niezależnie — licznik zna tylko tury, które przeszły przez ten kontener.
 
-### Czego brakuje, żeby włączenie miało sens
+### Po zmianie pliku tagów składników
 
-Ekran asystenta w iOS jest napisany (gałąź `feat/asystent-ekran`: rozmowa po
-REST z odpytywaniem tury, kroki postępu, kopie brakujących kodów błędów i
-nasłuch `recipes:changed`), ale **jeszcze nie zbudowany** — powstał na Windowsie,
-a Xcode jest tylko na Macu. Kolejność jest więc taka: build i klik po ekranie na
-Macu → wydanie klienta → dopiero wtedy `AI_ENABLED=true`. Włączenie flagi przed
-buildem nie udostępnia użytkownikom niczego, bo wydany build o `/agent/*` nie wie.
+Loader przy starcie biegnie tylko na bazie bez tagów. Każda zmiana
+`ingredient-tags-pl-v1.json` (np. 14 alergenów UE z 2.09.2026) wymaga po
+deployu ręcznego `railway ssh --service Backend -- sh -c 'cd /app && pnpm
+catalog:ingredients:tags'` — patrz „Safe migration behavior". Do tego czasu
+bramka alergenowa nie zna nowych id.
 
 ### Wyłączanie i zawory bezpieczeństwa
 

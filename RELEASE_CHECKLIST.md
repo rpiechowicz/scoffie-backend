@@ -1,42 +1,59 @@
-# Weekly Meals 1.0 Release Checklist
+# Weekly Meals — lista kontrolna wydań
 
-## P0 blockers
+Stan na 2.09.2026 (po audycie całości i planie naprawczym). Pozycje z dawnej
+listy „1.0" są zamknięte i przeniesione niżej; otwarte punkty są uporządkowane
+tak, jak plan naprawczy: najpierw to, co blokuje wpuszczenie obcych
+użytkowników do asystenta, potem to, co blokuje subskrypcję.
 
-- [ ] Replace dev login with real authentication for the shipped client
-- [ ] Set `AUTH_DEV_LOGIN_ENABLED=false` in production after real auth lands
-- [ ] Verify refresh-token rotation in production-like environment
-- [ ] Confirm APNs works on a physical iPhone
-- [ ] Add crash reporting and error monitoring
-- [ ] Prepare privacy policy and support contact for store submission
-- [ ] Define data deletion / account removal process
-- [ ] Verify backup and rollback path for the production database
+## Zrobione (nie sprawdzać drugi raz)
 
-## P1 release readiness
+- [x] Logowanie tylko przez Sign in with Apple; dev-login opt-in, na prod
+      `AUTH_DEV_LOGIN_ENABLED=false` asertowane przy starcie
+- [x] Rotacja refresh tokenów z wykrywaniem ponownego użycia, `POST /auth/logout`
+- [x] APNs na fizycznym iPhonie (środowisko per urządzenie, fallback sandbox/prod)
+- [x] Polityka prywatności i warunki w aplikacji + strona `docs/` w repo iOS
+- [x] Usunięcie konta z aplikacji (`users:delete`) — od 2.09 bez utraty przepisów
+      i planu innych domowników
+- [x] Asystent: Fazy 0 i 1, hartowanie, karty z propozycjami, pamięć,
+      ograniczenia domownika; ekran iOS wydany
 
-- [x] Backend CI workflow exists
-- [x] iOS CI workflow exists
-- [x] Backend `.env.example` documents deployment variables
-- [x] APNs setup doc exists
-- [ ] Run full regression on two-user household flows
-- [ ] Test offline and reconnect scenarios on device
-- [ ] Validate invitation deep links end-to-end
-- [ ] Confirm recipe catalog cache invalidation behavior after deploy
-- [ ] Confirm R2 image hosting is complete or intentionally disabled
-- [ ] Freeze release versions and changelog
+## Przed wpuszczeniem obcych użytkowników do asystenta
 
-## P2 polish
+- [ ] Railway: `WS_AUTH_MODE=strict` po dwóch odczytach metryk `legacy`
+      w odstępie ≥ 1 h (DEPLOYMENT.md, „WebSocket auth rollout")
+- [ ] Railway: `AI_CARDS_MODE=soft`, `AI_ALLOWED_USERS`, limity 30/6
+      (DEPLOYMENT.md, „Assistant rollout")
+- [ ] Kopia zapasowa Postgresa (Railway Backups) + niezależny zrzut do R2 + jedna próba odtworzenia na dev
+- [ ] Rotacja hasła Postgresa (wyciek do transkryptu 28.08) — najpierw
+      sprawdzić, czy `DATABASE_URL` serwisów to referencja, nie literał
+- [ ] Limit wydatków i alert w konsoli Anthropic
+- [ ] Polityka prywatności v2 (Anthropic, USA, dane o domownikach, Zdrowie,
+      Cookidoo, retencja per kategoria, wiek 16+) — ta sama treść w aplikacji
+      i na www; działający adres w App Store Connect
+- [ ] Zgody: tabela zdarzeń, ekran zgody na asystenta przed pierwszą
+      wiadomością, cofnięcie w Ustawieniach, deklaracja wieku
+- [ ] iOS: „rozmawiasz z AI, może się mylić", „Zgłoś odpowiedź", polityka
+      w Ustawieniach, manifest prywatności, chipy nowych alergenów
+- [ ] Unieważnianie logowania Apple przy kasowaniu konta (zmienne `APPLE_*`
+      PRZED merge)
+- [ ] Sonda na `/ops/health` + Sentry + alert przy `AI_BUDGET_PAUSED`
+- [ ] Po deployu alergenów 14 UE: `pnpm catalog:ingredients:tags` na prod
+- [ ] `JWT_EXPIRES_IN` w godzinach po potwierdzeniu adopcji buildu z refreshem
 
-- [ ] Finalize App Store screenshots and metadata
-- [ ] Add support / help contact in product-facing materials
-- [ ] Prepare internal release notes for support and QA
-- [ ] Add operational ownership for deploys, APNs, and DB incidents
+## Przed subskrypcją (tylko na sygnał Rafała)
 
-## Release-day smoke test
+- [ ] Decyzje: per gospodarstwo, darmowy przydział, cena, Family Sharing
+- [ ] Uprawnienia na serwerze i limity per plan; `GET /agent/usage`
+- [ ] Weryfikacja zakupów (App Store Server Notifications), StoreKit 2, paywall
+- [ ] App Store Connect: umowa Paid Apps, podatki, Small Business Program
+- [ ] Regulamin v2 z zasadami subskrypcji i limitów
 
-1. Open the app and log in.
-2. Verify recipes list loads with images.
-3. Add recipes to the weekly plan.
-4. Confirm shopping list updates on another logged-in device.
-5. Toggle shopping items and confirm realtime sync.
-6. Archive and reopen a shopping list.
-7. Validate push notification delivery if enabled.
+## Każde wydanie
+
+- [ ] PR → `develop` z zielonym CI (lint, typy, build, unit, e2e)
+- [ ] Nowe zmienne mają domyślną w kodzie i są ustawione na Railway PRZED
+      merge do `main`
+- [ ] Po deployu: `/ops/health` → `commit` = HEAD `main`,
+      `/ops/metrics.migrations.latest` = ostatnia migracja w repo
+- [ ] Jedna tura asystenta z telefonu kończy się kartą (tryb kart), plan nie
+      zmienia się sam
