@@ -1,0 +1,72 @@
+# Rejestr czynności przetwarzania (art. 30) i ocena skutków (art. 35)
+
+Stan na 3.09.2026. Administrator: osoba fizyczna prowadząca Weekly Meals
+(dane kontaktowe w polityce prywatności). Brak IOD — obowiązek nie
+powstaje (art. 37): nie ma monitorowania na dużą skalę ani przetwarzania
+danych szczególnych na dużą skalę jako działalności głównej.
+
+Pola oznaczone **[do uzupełnienia]** wymagają sprawdzenia w panelach
+usługodawców — repozytorium tego nie wie.
+
+## 1. Rejestr czynności
+
+| # | Czynność | Dane | Podstawa | Odbiorcy / procesorzy | Retencja |
+|---|---|---|---|---|---|
+| 1 | Konto i logowanie | identyfikator Google/Apple, e-mail, nazwa, awatar, czas logowań, refresh tokeny | art. 6 ust. 1 lit. b (umowa) | Google, Apple (dostawcy logowania — osobni administratorzy); Railway (hosting) | do usunięcia konta; refresh tokeny 30 dni od użycia |
+| 2 | Profil żywieniowy i sylwetka | rok urodzenia, wzrost, waga, płeć, cel, aktywność, kalorie, makra | art. 6 ust. 1 lit. b; sylwetka → art. 9 ust. 2 lit. a (wyraźna zgoda przy podaniu, dane dobrowolne) | Railway | do usunięcia konta lub wyczyszczenia pola |
+| 3 | Alergeny i wykluczenia | lista alergenów (14 UE), składniki „nie jem" | art. 9 ust. 2 lit. a (alergia = dane o zdrowiu; podanie dobrowolne, wyraźne w Ustawieniach) | Railway | do usunięcia konta lub wyczyszczenia |
+| 4 | Gospodarstwo domowe | nazwa domu, skład (kto z kim), role, zaproszenia | art. 6 ust. 1 lit. b | Railway | do rozwiązania domu / usunięcia konta |
+| 5 | Plan tygodnia, posiłki zjedzone, lista zakupów | wybory dań, porcje, kto jadł i kiedy, zakupy | art. 6 ust. 1 lit. b | Railway | do usunięcia konta; archiwa list zakupów do skasowania przez użytkownika |
+| 6 | Kroki (Apple Health / Garmin przez Zdrowie) | dzienna suma kroków, cel, źródło, 7-dniowe okno | art. 9 ust. 2 lit. a (zgoda HealthKit w iOS + włączenie w aplikacji) | Railway | do usunięcia konta lub wyłączenia synchronizacji |
+| 7 | Asystent AI | treść rozmów, kontekst domu (imiona, preferencje, alergeny i wykluczenia osób, które wyraziły zgodę; BEZ sylwetki), plan tygodnia, zgłoszenia odpowiedzi | art. 6 ust. 1 lit. a i art. 9 ust. 2 lit. a (zgoda per osoba, `AI_ASSISTANT`, cofalna); wiek ≥ 16 (`AGE_16`) | Anthropic PBC (procesor, USA — DPF **[do uzupełnienia: potwierdzić certyfikację DPF / SCC i zero-retention w konsoli]**); Railway | rozmowy 90 dni (`AI_CONVERSATION_RETENTION_DAYS`), wcześniej na żądanie; księga kosztów bez treści i bez powiązania z osobą — bezterminowo |
+| 8 | Cookidoo (za flagą, domyślnie wyłączone) | e-mail i hasło Cookidoo (szyfrowane), stan połączenia | art. 6 ust. 1 lit. a (zgoda `COOKIDOO`) | Vorwerk (osobny administrator); usługa pomocnicza Cookidoo (własna, Railway) | do rozłączenia lub usunięcia konta |
+| 9 | Powiadomienia push | token urządzenia, środowisko APNs, przełączniki kanałów, strefa czasowa | art. 6 ust. 1 lit. b (funkcja aplikacji, sterowana przez użytkownika) | Apple APNs | do wylogowania urządzenia / usunięcia konta |
+| 10 | Zgody | zdarzenia zgód (rodzaj, wersja dokumentu, data, wersja aplikacji) | art. 6 ust. 1 lit. c (obowiązek wykazania zgody, art. 7 ust. 1) | Railway | do usunięcia konta |
+| 11 | Bezpieczeństwo i diagnostyka | logi żądań (id użytkownika, adres IP, czas), metryki, alerty operatora | art. 6 ust. 1 lit. f (bezpieczeństwo usługi) | Railway; webhook alertów **[do uzupełnienia: dokąd idą alerty]** | logi Railway wg planu **[do uzupełnienia]**; metryki bez danych osobowych |
+| 12 | Kopie zapasowe | pełny zrzut bazy | art. 6 ust. 1 lit. f (ciągłość działania) | Cloudflare R2 **[do uzupełnienia: region kubełka; UE?]** | 30 dni, potem nadpisywane |
+
+Lokalizacja przetwarzania: Railway **[do uzupełnienia: region projektu — jeśli
+USA, potrzebne SCC/DPF w polityce]**.
+
+Wnioski osób (dostęp, przenoszenie, usunięcie, sprzeciw): `docs/rodo-wnioski.md`.
+
+## 2. Ocena skutków — czy DPIA jest wymagana?
+
+Kryteria z wytycznych EROD (WP248): przetwarzanie spełnia **dwa** —
+dane szczególne (zdrowie: alergie, sylwetka, kroki) oraz innowacyjne użycie
+technologii (model językowy, który dostaje te dane). Zgodnie z wykazem UODO
+(pkt: dane o zdrowiu + nowe technologie) **DPIA należy przeprowadzić**.
+Skala jest mała (aplikacja dla gospodarstw domowych, brak reklam, brak
+profilowania w celach marketingowych), więc ocena może być uproszczona.
+
+### 2.1 Ryzyka i środki
+
+| Ryzyko | Środek | Stan |
+|---|---|---|
+| Sylwetka i dane zdrowotne wszystkich domowników trafiają do modelu, także osób, które się nie zgodziły | sylwetka usunięta z kontekstu modelu; alergeny/wykluczenia tylko osób ze zgodą (`membersForModel`), pozostałe osoby jako „domownik bez zgody" | wdrożone 2.09.2026 |
+| Model zapisuje plan „sam", bez wiedzy użytkownika | tryb kart: propozycja → zatwierdzenie → zapis (`AI_CARDS_MODE=soft`); cofnięcie zapisu | kod gotowy; ustawienie na produkcji — Etap 0 |
+| Danie z alergenem trafia na talerz | twarda bramka alergenów i wykluczeń przy KAŻDYM zapisie (asystent, zapis tygodnia, ręczne wstawienie) | wdrożone 3.09.2026 |
+| Osoba poniżej 16 lat korzysta z asystenta | zgoda `AGE_16` wymagana razem z `AI_ASSISTANT`; brak weryfikacji wieku poza oświadczeniem (proporcjonalne do ryzyka) | backend gotowy; ekran iOS — wizyta na Macu |
+| Nieograniczona retencja rozmów | 90 dni, kasowanie na żądanie, księga kosztów bez treści | wdrożone |
+| Dostawca modelu trenuje na danych | umowa API Anthropic: brak trenowania na danych API; **[do uzupełnienia: potwierdzić ustawienia retencji w konsoli]** | do potwierdzenia |
+| Anonimowy dostęp po sockecie (WS soft) | tryb strict, telefon wysyła token | kod gotowy; przełączenie — Etap 0 |
+| Utrata danych | codzienna kopia do R2 z rotacją 30 dni | workflow gotowy; sekrety — Rafał |
+| Wyciek przez konto domownika (dostęp do cudzych danych w domu) | dane innych osób widoczne tylko w zakresie potrzebnym do planu (imię, alergeny, preferencje) — to istota wspólnego planowania; sylwetka niewidoczna; eksport nie oddaje danych innych osób | wdrożone |
+| Kasowanie konta usuwa dane innych osób (przepisy, plany) | przepisy przechodzą na bota katalogu, wspólne plany zostają | wdrożone |
+| Hasło Cookidoo w bazie | szyfrowanie kluczem z env, integracja domyślnie wyłączona flagą, zgoda osobna | wdrożone |
+
+### 2.2 Wynik
+
+Ryzyko rezydualne: **niskie–średnie**, akceptowalne po domknięciu Etapu 0
+(strict, tryb kart, backup) i ekranu zgody w iOS. Nie ma podstaw do
+konsultacji z UODO (art. 36). Ocenę powtórzyć przy: dodaniu nowego
+odbiorcy danych, zmianie dostawcy modelu, wysyłaniu sylwetki do modelu,
+wprowadzeniu płatności (nowe dane: identyfikator transakcji Apple).
+
+## 3. Co zrobić, żeby domknąć dokument
+
+1. Uzupełnić pola **[do uzupełnienia]** z paneli Railway, Cloudflare i Anthropic.
+2. Wpisać do polityki prywatności odbiorców z tabeli (Anthropic, Railway,
+   Cloudflare, Apple, Google, Vorwerk) i podstawę transferu poza EOG.
+3. Zachować ten plik przy każdej zmianie tabeli — to on jest rejestrem
+   z art. 30, nie osobny arkusz.

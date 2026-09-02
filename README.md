@@ -221,3 +221,4 @@ The shipped iOS client signs in with Apple only. Dev login (`POST /auth/dev`) is
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md)
 - [`RELEASE_CHECKLIST.md`](./RELEASE_CHECKLIST.md)
 - [`docs/rodo-wnioski.md`](./docs/rodo-wnioski.md) — wnioski RODO: eksport (`pnpm rodo:export`), usunięcie (`pnpm accounts:delete`), terminy
+- [`docs/rejestr-czynnosci-i-dpia.md`](./docs/rejestr-czynnosci-i-dpia.md) — rejestr czynności (art. 30) i ocena skutków (art. 35), pola do uzupełnienia z paneli
