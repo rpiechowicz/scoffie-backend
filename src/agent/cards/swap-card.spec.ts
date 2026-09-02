@@ -21,7 +21,12 @@ const build = (over: Record<string, unknown> = {}) =>
     dayOfWeek: 'TUE',
     mealType: 'DINNER',
     from: side(),
-    to: side({ recipeId: 'r-2', title: 'Omlet ze szpinakiem', kcalPerServing: 393, prepTimeMinutes: 12 }),
+    to: side({
+      recipeId: 'r-2',
+      title: 'Omlet ze szpinakiem',
+      kcalPerServing: 393,
+      prepTimeMinutes: 12,
+    }),
     expiresAt: new Date('2026-09-03T10:00:00.000Z'),
     ...over,
   } as never);
@@ -41,7 +46,12 @@ describe('buildSwapCard', () => {
 
   it('drobne różnice przemilcza — „0 min” każe szukać zmiany tam, gdzie jej nie ma', () => {
     const card = build({
-      to: side({ recipeId: 'r-3', title: 'Gulasz z indyka', kcalPerServing: 700, prepTimeMinutes: 52 }),
+      to: side({
+        recipeId: 'r-3',
+        title: 'Gulasz z indyka',
+        kcalPerServing: 700,
+        prepTimeMinutes: 52,
+      }),
       reason: 'Chciałeś coś lżejszego',
     });
     expect(card.deltas).toEqual([]);
@@ -51,7 +61,12 @@ describe('buildSwapCard', () => {
   it('podmiana na cięższe danie nie udaje, że to zysk', () => {
     const card = build({
       from: side({ kcalPerServing: 300, prepTimeMinutes: 10 }),
-      to: side({ recipeId: 'r-4', title: 'Schab pieczony', kcalPerServing: 820, prepTimeMinutes: 90 }),
+      to: side({
+        recipeId: 'r-4',
+        title: 'Schab pieczony',
+        kcalPerServing: 820,
+        prepTimeMinutes: 90,
+      }),
     });
     expect(card.title).toBe('Dłużej o 80 min');
     expect(card.deltas.every((delta) => !delta.good)).toBe(true);
@@ -115,7 +130,13 @@ describe('buildOptionsCard', () => {
   it('przycina do czterech — dalej to już lista, nie wybór', () => {
     const card = buildOptionsCard({
       title: 'Dużo',
-      options: [option('A'), option('B'), option('C'), option('D'), option('E')],
+      options: [
+        option('A'),
+        option('B'),
+        option('C'),
+        option('D'),
+        option('E'),
+      ],
     });
     expect(card.options).toHaveLength(4);
   });

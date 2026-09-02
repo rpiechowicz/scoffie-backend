@@ -150,7 +150,8 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         },
         hint: {
           type: 'string',
-          description: 'Jedno zdanie, dlaczego pytasz. Pomiń, gdy to oczywiste.',
+          description:
+            'Jedno zdanie, dlaczego pytasz. Pomiń, gdy to oczywiste.',
         },
         options: {
           type: 'array',

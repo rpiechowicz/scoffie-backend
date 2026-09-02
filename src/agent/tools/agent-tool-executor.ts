@@ -265,7 +265,6 @@ export class AgentToolExecutor {
       case 'show_shopping_list':
         return this.showShoppingList(context, str('week_start'));
 
-
       case 'propose_day_plan':
         return this.proposeDayPlan(input, context, str('week_start'));
 
@@ -613,8 +612,7 @@ export class AgentToolExecutor {
       .map((entry) => (entry ?? {}) as Record<string, unknown>)
       .map((entry) => ({
         text: asString(entry.text).trim(),
-        amount:
-          typeof entry.amount === 'number' ? Math.round(entry.amount) : 0,
+        amount: typeof entry.amount === 'number' ? Math.round(entry.amount) : 0,
       }))
       .filter((booster) => booster.text.length > 0)
       .slice(0, MAX_BOOSTERS);
@@ -657,7 +655,9 @@ export class AgentToolExecutor {
       .filter((day) => day.meals > 0)
       .map((day) => this.macroValue(macro, day.planned));
     const current = planned.length
-      ? Math.round(planned.reduce((sum, value) => sum + value, 0) / planned.length)
+      ? Math.round(
+          planned.reduce((sum, value) => sum + value, 0) / planned.length,
+        )
       : 0;
 
     context.collectCard(
@@ -685,10 +685,7 @@ export class AgentToolExecutor {
     return typeof value === 'number' ? Math.round(value) : null;
   }
 
-  private macroValue(
-    macro: MacroKey,
-    planned: Record<string, number>,
-  ): number {
+  private macroValue(macro: MacroKey, planned: Record<string, number>): number {
     const key = {
       PROTEIN: 'protein',
       FAT: 'fat',
@@ -786,7 +783,10 @@ export class AgentToolExecutor {
       conversationId: context.conversationId,
       turnId: context.turnId,
       weekStart,
-      slots: this.toSlots(input.slots, context) as unknown as ApplyWeekSlotDto[],
+      slots: this.toSlots(
+        input.slots,
+        context,
+      ) as unknown as ApplyWeekSlotDto[],
       ...(note ? { note } : {}),
     });
   }

@@ -91,7 +91,12 @@ export class UpdatePreferencesDto {
    * To podpowiedź dla asystenta, nie bramka w walidatorze planu — niedzielna
    * pieczeń ma prawo trwać dłużej.
    */
-  @ApiPropertyOptional({ example: 30, minimum: 5, maximum: 240, nullable: true })
+  @ApiPropertyOptional({
+    example: 30,
+    minimum: 5,
+    maximum: 240,
+    nullable: true,
+  })
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsInt()

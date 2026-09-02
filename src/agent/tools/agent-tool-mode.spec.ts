@@ -35,9 +35,7 @@ describe('AgentToolExecutor — bramka trybu', () => {
     collectCard: () => {},
   });
 
-  const slots = [
-    { day_of_week: 'MON', meal_type: 'DINNER', recipe: 'R01' },
-  ];
+  const slots = [{ day_of_week: 'MON', meal_type: 'DINNER', recipe: 'R01' }];
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -52,7 +50,10 @@ describe('AgentToolExecutor — bramka trybu', () => {
         { provide: AiUsageCountersService, useValue: {} },
         { provide: AgentMetricsService, useValue: {} },
         { provide: AgentMemoryService, useValue: {} },
-        { provide: AgentProposalsService, useValue: { createWeekPlanProposal } },
+        {
+          provide: AgentProposalsService,
+          useValue: { createWeekPlanProposal },
+        },
         { provide: ShoppingListService, useValue: {} },
       ],
     }).compile();

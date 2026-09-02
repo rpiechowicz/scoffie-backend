@@ -818,7 +818,8 @@ describe('Agent E2E', () => {
         .get(`/agent/conversations/${conversationId}/messages`)
         .set(auth(session.accessToken))
         .expect(200);
-      return (res.body as { messages: { id: string; text: string }[] }).messages;
+      return (res.body as { messages: { id: string; text: string }[] })
+        .messages;
     };
 
     it('wycofuje pytanie i odpowiedź na nie, a potem pyta od nowa', async () => {
@@ -863,7 +864,10 @@ describe('Agent E2E', () => {
       await pollTurn(session.accessToken, (sent.body as AcceptedTurn).turnId);
       const messages = await history(mine.id);
 
-      const theirs = await createConversation(other.accessToken, otherHousehold);
+      const theirs = await createConversation(
+        other.accessToken,
+        otherHousehold,
+      );
       await editMessage(other.accessToken, theirs.id, {
         clientMessageId: randomUUID(),
         messageId: messages[0].id,

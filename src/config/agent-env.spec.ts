@@ -31,7 +31,8 @@ describe('readAgentEnv', () => {
   });
 
   describe('tryb kart', () => {
-    const mode = (value: string) => readAgentEnv({ AI_CARDS_MODE: value }).cardsMode;
+    const mode = (value: string) =>
+      readAgentEnv({ AI_CARDS_MODE: value }).cardsMode;
 
     it.each(['off', 'soft', 'strict'])('przyjmuje %s', (value) => {
       expect(mode(value)).toBe(value);

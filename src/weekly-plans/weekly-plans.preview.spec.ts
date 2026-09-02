@@ -15,6 +15,7 @@ const userId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const otherUserId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const oatmealId = '33333333-3333-4333-8333-333333333333';
 const soupId = '44444444-4444-4444-8444-444444444444';
+const mushroomId = '55555555-5555-4555-8555-555555555555';
 const weekStart = '2026-04-13'; // poniedziałek
 
 const RECIPES = [
@@ -34,6 +35,8 @@ const RECIPES = [
     mealType: 'DINNER',
     suitableMealTypes: ['DINNER'],
     allergens: [],
+    // Zupa ma pieczarki — po nich walidator sprawdza wykluczenia domowników.
+    ingredients: [{ ingredientId: mushroomId }],
     servings: 4,
     prepTimeMinutes: 35,
     nutritionKcal: 1000,
@@ -43,6 +46,8 @@ const RECIPES = [
 type MockOptions = {
   /** Alergeny drugiego domownika — pusta lista = nikt niczego nie unika. */
   otherAllergens?: string[];
+  /** Składniki, których drugi domownik NIE JE („nie jem pieczarek"). */
+  otherExcluded?: string[];
   /** Pozycje, które JUŻ są w tygodniu. */
   current?: Array<{
     dayOfWeek: string;
@@ -53,7 +58,11 @@ type MockOptions = {
   }>;
 };
 
-const makePrismaMock = ({ otherAllergens = [], current = [] }: MockOptions = {}) => {
+const makePrismaMock = ({
+  otherAllergens = [],
+  otherExcluded = [],
+  current = [],
+}: MockOptions = {}) => {
   const rows = current.map((item) => ({
     dayOfWeek: item.dayOfWeek,
     mealType: item.mealType,
@@ -65,10 +74,25 @@ const makePrismaMock = ({ otherAllergens = [], current = [] }: MockOptions = {})
 
   return {
     membership: {
-      findUnique: jest.fn().mockResolvedValue({ id: 'mem-1', userId, householdId }),
+      findUnique: jest
+        .fn()
+        .mockResolvedValue({ id: 'mem-1', userId, householdId }),
+      // Jeden mock obsługuje odczyt alergenów i wykluczeń — oba czytają te
+      // same wiersze członkostwa, tak jak zrobiłaby baza.
       findMany: jest.fn().mockResolvedValue([
-        { userId, user: { preferences: { allergens: [] } } },
-        { userId: otherUserId, user: { preferences: { allergens: otherAllergens } } },
+        {
+          userId,
+          user: { preferences: { allergens: [], excludedIngredientIds: [] } },
+        },
+        {
+          userId: otherUserId,
+          user: {
+            preferences: {
+              allergens: otherAllergens,
+              excludedIngredientIds: otherExcluded,
+            },
+          },
+        },
       ]),
     },
     // Jeden mock obsługuje oba odczyty przepisów (walidacja i opis pozycji) —
@@ -84,7 +108,10 @@ const buildService = async (prisma: ReturnType<typeof makePrismaMock>) => {
     providers: [
       WeeklyPlansService,
       { provide: PrismaService, useValue: prisma },
-      { provide: ShoppingListService, useValue: { markShoppingListStale: jest.fn() } },
+      {
+        provide: ShoppingListService,
+        useValue: { markShoppingListStale: jest.fn() },
+      },
     ],
   }).compile();
   return module.get<WeeklyPlansService>(WeeklyPlansService);
@@ -103,9 +130,17 @@ describe('WeeklyPlansService.previewWeekPlan', () => {
     const prisma = makePrismaMock();
     const service = await buildService(prisma);
 
-    const preview = await service.previewWeekPlan(userId, householdId, weekStart, {
-      slots: [slot(), slot({ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId: soupId })],
-    });
+    const preview = await service.previewWeekPlan(
+      userId,
+      householdId,
+      weekStart,
+      {
+        slots: [
+          slot(),
+          slot({ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId: soupId }),
+        ],
+      },
+    );
 
     expect(preview.violations).toEqual([]);
     expect(preview.slots).toHaveLength(2);
@@ -127,13 +162,23 @@ describe('WeeklyPlansService.previewWeekPlan', () => {
 
   it('rozróżnia pozycje nowe od tych, które już stoją w tygodniu', async () => {
     const prisma = makePrismaMock({
-      current: [{ dayOfWeek: 'MON', mealType: 'BREAKFAST', recipeId: oatmealId }],
+      current: [
+        { dayOfWeek: 'MON', mealType: 'BREAKFAST', recipeId: oatmealId },
+      ],
     });
     const service = await buildService(prisma);
 
-    const preview = await service.previewWeekPlan(userId, householdId, weekStart, {
-      slots: [slot(), slot({ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId: soupId })],
-    });
+    const preview = await service.previewWeekPlan(
+      userId,
+      householdId,
+      weekStart,
+      {
+        slots: [
+          slot(),
+          slot({ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId: soupId }),
+        ],
+      },
+    );
 
     expect(preview.slots?.map((s) => s.change)).toEqual(['KEPT', 'NEW']);
     expect(preview.removed).toEqual([]);
@@ -145,9 +190,14 @@ describe('WeeklyPlansService.previewWeekPlan', () => {
     });
     const service = await buildService(prisma);
 
-    const preview = await service.previewWeekPlan(userId, householdId, weekStart, {
-      slots: [slot()],
-    });
+    const preview = await service.previewWeekPlan(
+      userId,
+      householdId,
+      weekStart,
+      {
+        slots: [slot()],
+      },
+    );
 
     expect(preview.removed).toEqual([
       {
@@ -165,9 +215,14 @@ describe('WeeklyPlansService.previewWeekPlan', () => {
     const prisma = makePrismaMock({ otherAllergens: ['gluten'] });
     const service = await buildService(prisma);
 
-    const preview = await service.previewWeekPlan(userId, householdId, weekStart, {
-      slots: [slot()],
-    });
+    const preview = await service.previewWeekPlan(
+      userId,
+      householdId,
+      weekStart,
+      {
+        slots: [slot()],
+      },
+    );
 
     expect(preview.slots).toBeNull();
     expect(preview.removed).toBeNull();
@@ -180,11 +235,67 @@ describe('WeeklyPlansService.previewWeekPlan', () => {
     });
   });
 
+  it('wykluczenia domownika („nie jem pieczarek") blokują podgląd tak samo jak zapis', async () => {
+    // Regresja z 1.09: podgląd ładował wykluczenia, ale nie przekazywał ich
+    // do walidatora. Karta pokazywała zupę z pieczarkami jako czystą, a
+    // „Dodaj do planu" (apply) odrzucał ją — użytkownik widział mylący
+    // komunikat o planie, który „zmienił się w międzyczasie".
+    const prisma = makePrismaMock({ otherExcluded: [mushroomId] });
+    const service = await buildService(prisma);
+
+    const preview = await service.previewWeekPlan(
+      userId,
+      householdId,
+      weekStart,
+      {
+        slots: [
+          slot({ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId: soupId }),
+        ],
+      },
+    );
+
+    expect(preview.slots).toBeNull();
+    expect(preview.violations).toHaveLength(1);
+    expect(preview.violations[0]).toMatchObject({
+      index: 0,
+      code: 'RECIPE_EXCLUDED_INGREDIENT',
+      recipeId: soupId,
+    });
+  });
+
+  it('wykluczenie liczy się tylko dla osób, które jedzą dany posiłek', async () => {
+    // Ta sama reguła co w zapisie: jedno „nie jem" nie wykreśla dania tym,
+    // którzy jedzą je bez problemu.
+    const prisma = makePrismaMock({ otherExcluded: [mushroomId] });
+    const service = await buildService(prisma);
+
+    const preview = await service.previewWeekPlan(
+      userId,
+      householdId,
+      weekStart,
+      {
+        slots: [
+          slot({
+            dayOfWeek: 'TUE',
+            mealType: 'DINNER',
+            recipeId: soupId,
+            participantIds: [userId],
+          }),
+        ],
+      },
+    );
+
+    expect(preview.violations).toEqual([]);
+    expect(preview.slots).toHaveLength(1);
+  });
+
   it('nie zapisuje niczego', async () => {
     const prisma = makePrismaMock();
     const service = await buildService(prisma);
 
-    await service.previewWeekPlan(userId, householdId, weekStart, { slots: [slot()] });
+    await service.previewWeekPlan(userId, householdId, weekStart, {
+      slots: [slot()],
+    });
 
     // Mock nie ma metod zapisu — gdyby podgląd ich dotknął, test padłby na
     // `undefined is not a function`. Ta asercja pilnuje, że nikt ich nie doda.
@@ -208,7 +319,11 @@ describe('WeeklyPlansService.snapshotWeekAsSlots', () => {
     });
     const service = await buildService(prisma);
 
-    const snapshot = await service.snapshotWeekAsSlots(userId, householdId, weekStart);
+    const snapshot = await service.snapshotWeekAsSlots(
+      userId,
+      householdId,
+      weekStart,
+    );
 
     expect(snapshot).toEqual([
       {

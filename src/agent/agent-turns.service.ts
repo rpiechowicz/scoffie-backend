@@ -391,12 +391,8 @@ export class AgentTurnsService {
       // klient — czy w ogóle umie pokazać kartę. Runner dostaje gotową
       // odpowiedź, żeby prompt i bramka narzędzi nie mogły się rozjechać.
       proposalMode: resolveProposalMode(env.cardsMode, data.clientCapabilities),
-      ...(data.scopeUserIds?.length
-        ? { scopeUserIds: data.scopeUserIds }
-        : {}),
-      ...(data.scopeUserIds?.length
-        ? { scopeUserIds: data.scopeUserIds }
-        : {}),
+      ...(data.scopeUserIds?.length ? { scopeUserIds: data.scopeUserIds } : {}),
+      ...(data.scopeUserIds?.length ? { scopeUserIds: data.scopeUserIds } : {}),
     });
 
     return accepted;

@@ -144,9 +144,9 @@ describe('buildPlanWeekCard', () => {
   });
 
   it('podtytuł bierze zdanie modelu, ale puste zostaje puste', () => {
-    expect(build({}, '  Nic się nie powtarza dwa dni z rzędu.  ').subtitle).toBe(
-      'Nic się nie powtarza dwa dni z rzędu.',
-    );
+    expect(
+      build({}, '  Nic się nie powtarza dwa dni z rzędu.  ').subtitle,
+    ).toBe('Nic się nie powtarza dwa dni z rzędu.');
     expect(build({}, '   ').subtitle).toBeNull();
   });
 });

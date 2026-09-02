@@ -399,7 +399,11 @@ describe('Narzędzia asystenta E2E', () => {
       const prompt = await prompts.build(
         context.userId,
         context.householdId,
-        { weekStart: WEEK_START, clientToday: WEEK_START, timeZone: 'Europe/Warsaw' },
+        {
+          weekStart: WEEK_START,
+          clientToday: WEEK_START,
+          timeZone: 'Europe/Warsaw',
+        },
         false,
       );
 
@@ -735,7 +739,10 @@ describe('Narzędzia asystenta E2E', () => {
         data: { messageId: message.id },
       });
 
-      const applied = await proposals.apply(context.userId, proposed.proposalId);
+      const applied = await proposals.apply(
+        context.userId,
+        proposed.proposalId,
+      );
       expect(applied.status).toBe('APPLIED');
       expect(await weekSlots(PROPOSAL_WEEK)).toBe(1);
 
@@ -761,7 +768,10 @@ describe('Narzędzia asystenta E2E', () => {
       await attachAndApply(beforeTuesday.proposalId);
       expect(await weekSlots(PROPOSAL_WEEK)).toBe(1);
 
-      const wednesday = data<{ proposalId: string; summary: { meals: number } }>(
+      const wednesday = data<{
+        proposalId: string;
+        summary: { meals: number };
+      }>(
         await run('propose_day_plan', {
           week_start: PROPOSAL_WEEK,
           day_of_week: 'WED',
@@ -778,7 +788,10 @@ describe('Narzędzia asystenta E2E', () => {
       expect(row?.kind).toBe('PLAN_DAY');
       // Stan docelowy niesie CAŁY tydzień — inaczej zapis skasowałby wtorek.
       const slots = (row?.action as { slots: { dayOfWeek: string }[] }).slots;
-      expect(slots.map((slot) => slot.dayOfWeek).sort()).toEqual(['TUE', 'WED']);
+      expect(slots.map((slot) => slot.dayOfWeek).sort()).toEqual([
+        'TUE',
+        'WED',
+      ]);
 
       await attachAndApply(wednesday.proposalId);
       expect(await weekSlots(PROPOSAL_WEEK)).toBe(2);
@@ -907,9 +920,8 @@ describe('Narzędzia asystenta E2E', () => {
       expect(card.portions[0].note).toBe('Duża porcja');
 
       // Zapis jest zwyczajny: jedna pozycja w slocie z listą uczestników.
-      const slots = (
-        row?.action as { slots: { participantIds?: string[] }[] }
-      ).slots;
+      const slots = (row?.action as { slots: { participantIds?: string[] }[] })
+        .slots;
       expect(
         slots.some((slot) => slot.participantIds?.includes(context.userId)),
       ).toBe(true);
@@ -981,9 +993,9 @@ describe('Narzędzia asystenta E2E', () => {
       expect(card.groups.length).toBeGreaterThan(0);
       expect(card.summary.remaining).toBe(result.remaining);
       // Żadna akcja nie zapisuje: lista bierze się z planu, nie z kliknięcia.
-      expect(card.actions.every((action) => action.type === 'OPEN_SHOPPING')).toBe(
-        true,
-      );
+      expect(
+        card.actions.every((action) => action.type === 'OPEN_SHOPPING'),
+      ).toBe(true);
     });
 
     it('lista zakupów bierze się z PLANU i nie zmyśla spiżarni', async () => {
@@ -1000,9 +1012,9 @@ describe('Narzędzia asystenta E2E', () => {
       expect(card.groups.length).toBeGreaterThan(0);
       expect(card.summary.remaining).toBe(result.remaining);
       // Żadna akcja nie zapisuje: lista bierze się z planu, nie z kliknięcia.
-      expect(card.actions.every((action) => action.type === 'OPEN_SHOPPING')).toBe(
-        true,
-      );
+      expect(
+        card.actions.every((action) => action.type === 'OPEN_SHOPPING'),
+      ).toBe(true);
     });
 
     it('naruszenie nie tworzy propozycji — nie ma czego zatwierdzać', async () => {

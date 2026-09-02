@@ -19,7 +19,15 @@ const proposalId = '55555555-5555-4555-8555-555555555555';
 const recipeId = '33333333-3333-4333-8333-333333333333';
 
 const SLOT = { dayOfWeek: 'MON', mealType: 'LUNCH', recipeId };
-const BEFORE = [{ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId, participantIds: [], plannedServings: 2 }];
+const BEFORE = [
+  {
+    dayOfWeek: 'TUE',
+    mealType: 'DINNER',
+    recipeId,
+    participantIds: [],
+    plannedServings: 2,
+  },
+];
 
 const proposalRow = (over: Record<string, unknown> = {}) => ({
   id: proposalId,
@@ -45,7 +53,9 @@ const proposalRow = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const makeDeps = (over: { proposal?: Record<string, unknown>; week?: unknown[] } = {}) => {
+const makeDeps = (
+  over: { proposal?: Record<string, unknown>; week?: unknown[] } = {},
+) => {
   const prisma = {
     agentProposal: {
       findFirst: jest.fn().mockResolvedValue(proposalRow(over.proposal)),
@@ -151,7 +161,9 @@ describe('AgentProposalsService.apply', () => {
   });
 
   it('drugie kliknięcie oddaje ten sam wynik, nie drugi zapis', async () => {
-    const deps = makeDeps({ proposal: { status: 'APPLIED', appliedAt: new Date() } });
+    const deps = makeDeps({
+      proposal: { status: 'APPLIED', appliedAt: new Date() },
+    });
     const service = await buildService(deps);
 
     const result = await service.apply(userId, proposalId);
@@ -271,7 +283,9 @@ describe('AgentProposalsService.undo', () => {
       'plans',
       -1,
     );
-    expect(deps.prisma.agentMessage.create.mock.calls[0][0].data.kind).toBe('TEXT');
+    expect(deps.prisma.agentMessage.create.mock.calls[0][0].data.kind).toBe(
+      'TEXT',
+    );
   });
 
   it('nie kasuje zmian, które ktoś zrobił PO zapisie', async () => {
@@ -289,7 +303,10 @@ describe('AgentProposalsService.undo', () => {
 
   it('po oknie czasowym cofnąć się nie da', async () => {
     const deps = makeDeps({
-      proposal: { ...applied, appliedAt: new Date(Date.now() - 10 * 60 * 60 * 1000) },
+      proposal: {
+        ...applied,
+        appliedAt: new Date(Date.now() - 10 * 60 * 60 * 1000),
+      },
     });
     const service = await buildService(deps);
 
@@ -336,14 +353,26 @@ describe('cardState', () => {
 
   it('zapisana propozycja daje cofnięcie tylko w oknie czasowym', () => {
     const fresh = cardState(
-      { status: 'APPLIED', expiresAt: new Date(now), appliedAt: new Date(now - 60_000) },
+      {
+        status: 'APPLIED',
+        expiresAt: new Date(now),
+        appliedAt: new Date(now - 60_000),
+      },
       now,
       hour,
     );
-    expect(fresh).toMatchObject({ status: 'APPLIED', canApply: false, canUndo: true });
+    expect(fresh).toMatchObject({
+      status: 'APPLIED',
+      canApply: false,
+      canUndo: true,
+    });
 
     const old = cardState(
-      { status: 'APPLIED', expiresAt: new Date(now), appliedAt: new Date(now - 2 * hour) },
+      {
+        status: 'APPLIED',
+        expiresAt: new Date(now),
+        appliedAt: new Date(now - 2 * hour),
+      },
       now,
       hour,
     );
@@ -353,7 +382,11 @@ describe('cardState', () => {
   it('cofnięta i nieudana propozycja nie mają już żadnego przycisku', () => {
     for (const status of ['UNDONE', 'STALE', 'FAILED']) {
       expect(
-        cardState({ status, expiresAt: new Date(now), appliedAt: null }, now, hour),
+        cardState(
+          { status, expiresAt: new Date(now), appliedAt: null },
+          now,
+          hour,
+        ),
       ).toMatchObject({ status, canApply: false, canUndo: false });
     }
   });

@@ -43,9 +43,11 @@ const makeDeps = (over: { preview?: unknown; members?: unknown } = {}) => {
     snapshotWeekAsSlots: jest.fn().mockResolvedValue([]),
   };
   const households = {
-    memberPreferences: jest.fn().mockResolvedValue(
-      over.members ?? [{ userId, targets: { calorieGoal: 2100 } }],
-    ),
+    memberPreferences: jest
+      .fn()
+      .mockResolvedValue(
+        over.members ?? [{ userId, targets: { calorieGoal: 2100 } }],
+      ),
   };
   const counters = {
     monthKey: jest.fn().mockReturnValue('2026-04'),

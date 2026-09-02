@@ -23,7 +23,13 @@ const preview = (over: Record<string, unknown> = {}) =>
     changes: { created: 2, updated: 0, deleted: 1 },
     slots: [
       slot(),
-      slot({ mealType: 'BREAKFAST', recipeId: 'r-2', title: 'Owsianka', kcalPerServing: 447, prepTimeMinutes: 12 }),
+      slot({
+        mealType: 'BREAKFAST',
+        recipeId: 'r-2',
+        title: 'Owsianka',
+        kcalPerServing: 447,
+        prepTimeMinutes: 12,
+      }),
       // Inny dzień — karta dnia nie ma prawa go pokazać.
       slot({ dayOfWeek: 'WED', recipeId: 'r-3', title: 'Gulasz' }),
     ],
@@ -104,8 +110,20 @@ describe('buildClarifyCard', () => {
 
     expect(card.kind).toBe('CLARIFY');
     expect(card.actions).toEqual([
-      { type: 'ASK', proposalId: null, label: 'Dla czterech', style: 'PRIMARY', prompt: 'Dla czterech' },
-      { type: 'ASK', proposalId: null, label: 'Dla dwóch', style: 'SECONDARY', prompt: 'Dla dwóch' },
+      {
+        type: 'ASK',
+        proposalId: null,
+        label: 'Dla czterech',
+        style: 'PRIMARY',
+        prompt: 'Dla czterech',
+      },
+      {
+        type: 'ASK',
+        proposalId: null,
+        label: 'Dla dwóch',
+        style: 'SECONDARY',
+        prompt: 'Dla dwóch',
+      },
     ]);
   });
 
