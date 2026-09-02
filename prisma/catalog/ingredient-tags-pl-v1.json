@@ -421,12 +421,8 @@
       "name": "chips ziemniaczany",
       "normalizedName": "chips ziemniaczany",
       "category": "przekaska-i-slodycz",
-      "allergens": [
-        "lactose",
-        "milk"
-      ],
+      "allergens": [],
       "dietTags": [
-        "DAIRY",
         "PROCESSED"
       ],
       "note": "Najpopularniejsze wersje smakowe (paprykowe, serowe, cebulowe) zawierają serwatkę/mleko w proszku; solone są bez nabiału."
@@ -955,7 +951,8 @@
       "category": "konserwy-i-sloiki",
       "allergens": [],
       "dietTags": [
-        "LEGUME"
+        "LEGUME",
+        "PROCESSED"
       ]
     },
     {
@@ -1554,7 +1551,8 @@
       "category": "konserwy-i-sloiki",
       "allergens": [],
       "dietTags": [
-        "GRAIN"
+        "GRAIN",
+        "PROCESSED"
       ]
     },
     {
@@ -2213,7 +2211,9 @@
       "allergens": [
         "mustard"
       ],
-      "dietTags": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
       "note": "Zalewa octowa standardowo z ziarnami gorczycy (alergen deklarowany na etykiecie)."
     },
     {
@@ -2229,14 +2229,18 @@
       "normalizedName": "olej rzepakowy",
       "category": "olej-i-tluszcz",
       "allergens": [],
-      "dietTags": []
+      "dietTags": [
+        "PROCESSED"
+      ]
     },
     {
       "name": "olej słonecznikowy",
       "normalizedName": "olej slonecznikowy",
       "category": "olej-i-tluszcz",
       "allergens": [],
-      "dietTags": []
+      "dietTags": [
+        "PROCESSED"
+      ]
     },
     {
       "name": "oliwa z oliwek",
@@ -2787,13 +2791,8 @@
       "name": "proszek do pieczenia",
       "normalizedName": "proszek do pieczenia",
       "category": "cukiernia",
-      "allergens": [
-        "gluten"
-      ],
-      "dietTags": [
-        "GLUTEN_GRAIN",
-        "GRAIN"
-      ],
+      "allergens": [],
+      "dietTags": [],
       "note": "Dominujący w Polsce proszek do pieczenia (Dr. Oetker) ma jako nośnik mąkę pszenną, stąd nadmiarowo gluten; wersje na skrobi kukurydzianej są bezglutenowe."
     },
     {
@@ -3656,7 +3655,8 @@
         "fish"
       ],
       "dietTags": [
-        "FISH"
+        "FISH",
+        "PROCESSED"
       ]
     },
     {

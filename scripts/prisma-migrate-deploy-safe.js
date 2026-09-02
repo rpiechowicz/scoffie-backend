@@ -13,6 +13,9 @@ const UNKNOWN_INGREDIENT_NAME = '__unknown_ingredient__';
 
 function run(command, args, allowedStatuses = [0]) {
   const result = spawnSync(command, args, {
+    // Node ≥ 20.12 odmawia uruchamiania `pnpm.cmd` bez powłoki (EINVAL) —
+    // na Windows wrapper padał przed migracją.
+    shell: process.platform === 'win32',
     stdio: 'inherit',
     env: process.env,
   });
@@ -33,6 +36,9 @@ function run(command, args, allowedStatuses = [0]) {
 
 function runWithEnv(command, args, extraEnv = {}, allowedStatuses = [0]) {
   const result = spawnSync(command, args, {
+    // Node ≥ 20.12 odmawia uruchamiania `pnpm.cmd` bez powłoki (EINVAL) —
+    // na Windows wrapper padał przed migracją.
+    shell: process.platform === 'win32',
     stdio: 'inherit',
     env: {
       ...process.env,
@@ -56,6 +62,9 @@ function runWithEnv(command, args, extraEnv = {}, allowedStatuses = [0]) {
 
 function runSoft(command, args, extraEnv = {}) {
   const result = spawnSync(command, args, {
+    // Node ≥ 20.12 odmawia uruchamiania `pnpm.cmd` bez powłoki (EINVAL) —
+    // na Windows wrapper padał przed migracją.
+    shell: process.platform === 'win32',
     stdio: 'inherit',
     env: {
       ...process.env,

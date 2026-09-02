@@ -274,7 +274,7 @@ function hasAny(text: string, markers: readonly string[]): boolean {
   return markers.some((marker) => matcher(marker).test(text));
 }
 
-function kcalPerServing(input: SuitabilityInput): number {
+export function kcalPerServing(input: SuitabilityInput): number {
   const servings = Math.max(1, input.servings);
   return input.nutritionKcal / servings;
 }
@@ -327,4 +327,18 @@ export function resolveSuitableMealTypes(input: SuitabilityInput): MealType[] {
     set.add(suggestion.mealType);
   }
   return MEAL_TYPES_IN_DAY_ORDER.filter((type) => set.has(type));
+}
+
+/**
+ * Górny limit kcal na porcję dla slotu przekąskowego (najłagodniejsza
+ * z reguł); `null` = slot bez reguły (posiłki główne). Import katalogu
+ * używa go, żeby ręczne sloty z JSON-a nie obchodziły klasyfikatora:
+ * zapiekanka 663 kcal jako przekąska i pierogi 900 kcal jako podwieczorek
+ * to nie „wyjątek od reguły", tylko błąd w danych.
+ */
+export function snackKcalLimit(mealType: MealType): number | null {
+  const limits = RULES.filter((rule) => rule.mealType === mealType).map(
+    (rule) => rule.maxKcalPerServing,
+  );
+  return limits.length > 0 ? Math.max(...limits) : null;
 }
