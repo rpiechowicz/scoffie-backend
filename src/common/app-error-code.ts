@@ -115,6 +115,9 @@ export const APP_ERROR_CODES = [
   // ─── integracja Cookidoo (Thermomix) ───
   // AUTH_FAILED leci jako 409, nie 401 — 401 z API znaczy dla iOS „odśwież
   // sesję aplikacji", a tu wygasło hasło do Cookidoo, nie token użytkownika.
+  // Integracja schowana za flagą (COOKIDOO_INTEGRATION_ENABLED=false):
+  // 503, bo to stan instalacji, nie konta; `disconnect` działa mimo to.
+  'COOKIDOO_DISABLED',
   'COOKIDOO_NOT_CONNECTED',
   'COOKIDOO_AUTH_FAILED',
   'COOKIDOO_RECIPE_NOT_LINKED',
