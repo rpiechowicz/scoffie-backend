@@ -165,6 +165,14 @@ Usage is written to `AiUsage` per turn and summarised in `GET /ops/metrics` →
 `agent`. `DELETE /agent/conversations` wipes a user's conversations and works
 even with the assistant disabled.
 
+### Operations
+
+- `OPS_ALERT_WEBHOOK_URL` (empty = off) — webhook that gets a one-line alert
+  when the assistant's daily budget is exhausted or the provider breaker
+  opens; see `DEPLOYMENT.md` → "Operator alerts".
+- Nightly off-platform database dump to R2: `.github/workflows/db-backup.yml`
+  (`DEPLOYMENT.md` → "Backups").
+
 ### Optional integrations
 
 - `APNS_*` for iOS push notifications

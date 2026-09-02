@@ -130,6 +130,7 @@ describe('AgentTurnRunner', () => {
       counters as unknown as AiUsageCountersService,
       breaker,
       metrics,
+      { notify: jest.fn().mockResolvedValue(false) } as never,
     );
   });
 

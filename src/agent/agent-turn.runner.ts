@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AgentEnv } from '../config/agent-env';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
+import { OpsAlertService } from '../observability/ops-alert.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AiUsageCountersService,
@@ -92,6 +93,7 @@ export class AgentTurnRunner {
     private readonly counters: AiUsageCountersService,
     private readonly breaker: UpstreamBreaker,
     private readonly metrics: AgentMetricsService,
+    private readonly alerts: OpsAlertService,
   ) {}
 
   async run(input: RunTurnInput): Promise<void> {
@@ -461,6 +463,10 @@ export class AgentTurnRunner {
         this.metrics.recordBreakerOpened();
         this.logger.warn(
           'bezpiecznik dostawcy otwarty — kolejne tury odmawiane jako AI_UPSTREAM_PAUSED',
+        );
+        void this.alerts.notify(
+          'ai-upstream-paused',
+          'bezpiecznik dostawcy modelu otwarty (5 błędów 429/5xx w 5 min) — tury odmawiane jako AI_UPSTREAM_PAUSED',
         );
       }
     }

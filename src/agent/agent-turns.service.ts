@@ -4,6 +4,7 @@ import { AppException } from '../common/app-exception';
 import { assertUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
+import { OpsAlertService } from '../observability/ops-alert.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
@@ -94,6 +95,7 @@ export class AgentTurnsService {
     private readonly metrics: AgentMetricsService,
     private readonly runner: AgentTurnRunner,
     private readonly proposals: AgentProposalsService,
+    private readonly alerts: OpsAlertService,
   ) {}
 
   /**
@@ -227,6 +229,11 @@ export class AgentTurnsService {
       );
       if (spentMicroUsd >= env.globalDailyBudgetUsd * 1_000_000) {
         this.metrics.recordRejected('budget');
+        // Operator ma się dowiedzieć PRZED użytkownikami — raz na dobę.
+        void this.alerts.notify(
+          `ai-budget-paused:${this.counters.dayKey()}`,
+          `budżet dobowy asystenta ($${env.globalDailyBudgetUsd}) wyczerpany — /agent odpowiada 503 AI_BUDGET_PAUSED do północy UTC`,
+        );
         throw new AppException(
           'AI_BUDGET_PAUSED',
           'Asystent jest dziś niedostępny. Spróbuj jutro.',

@@ -100,6 +100,7 @@ describe('AgentTurnsService', () => {
       metrics,
       runner as unknown as AgentTurnRunner,
       { withCardState: (messages: unknown) => messages } as never,
+      { notify: jest.fn().mockResolvedValue(false) } as never,
     );
   };
 

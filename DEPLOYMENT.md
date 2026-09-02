@@ -92,6 +92,38 @@ It is idempotent and recomputes `Recipe.allergens`/`dietTags` from the
 ingredients. Until it has run, the assistant's allergen gate does not know the
 new ids, so a household allergy to `milk` would not block anything.
 
+## Backups
+
+Two independent copies, because a Railway-side backup dies with the Railway
+project:
+
+1. **Railway volume backups** on the `Postgres` service (panel → Backups) —
+   enable and note the retention.
+2. **Off-platform dump to Cloudflare R2**: `.github/workflows/db-backup.yml`
+   runs `pg_dump` (client 17, custom format) every night at 03:15 UTC and
+   uploads it to a dedicated private bucket, pruning copies older than 30
+   days. Repository secrets: `DATABASE_PUBLIC_URL`, `R2_BACKUP_ENDPOINT`,
+   `R2_BACKUP_BUCKET`, `R2_BACKUP_ACCESS_KEY_ID`, `R2_BACKUP_SECRET_ACCESS_KEY`
+   (an R2 token scoped to that bucket only). Run it once by hand from the
+   Actions tab after adding the secrets — a dump under 20 KB fails the job.
+
+A copy that was never restored is a hope, not a backup. Once a quarter, on the
+dev stack:
+
+```bash
+aws s3 cp s3://<bucket>/weekly-meals/<file>.dump . --endpoint-url <endpoint>
+pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <file>.dump
+```
+
+## Operator alerts (`OPS_ALERT_WEBHOOK_URL`)
+
+Optional webhook (Discord, Slack, ntfy — anything that accepts a JSON POST)
+that receives one Polish sentence when the assistant's daily budget is
+exhausted (once per day) or the provider breaker opens (once per 6 h). Empty
+variable = no alerts. Messages carry no conversation content and no personal
+data. Pair it with an external HTTP probe on `/ops/health` (e.g. a free
+uptime monitor) — the process cannot report its own death.
+
 ## Important safety rule
 
 Never enable `SAFE_MIGRATE_REBUILD_DB=true` in production unless you intentionally want a destructive rebuild and have a verified backup plus explicit approval. The guard (`scripts/lib/rebuild-guard.js`) requires `SAFE_MIGRATE_REBUILD_CONFIRM` to equal today's UTC date (`YYYY-MM-DD`) and, under `NODE_ENV=production`, `SAFE_MIGRATE_ALLOW_PROD_REBUILD` to equal the `DATABASE_URL` host; the host is logged before `DROP SCHEMA`. Remove all three variables right after the rebuild.
