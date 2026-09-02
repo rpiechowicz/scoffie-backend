@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AgentEnv } from '../config/agent-env';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
+import { OpsAlertService } from '../observability/ops-alert.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AiUsageCountersService,
@@ -21,8 +22,13 @@ import {
 } from './agent-progress';
 import { AgentPromptService, TurnDates } from './agent-prompt.service';
 import { AgentCard } from './cards/agent-cards';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
-import { AGENT_TOOLS } from './tools/agent-tools';
+import {
+  AGENT_TOOLS,
+  START_PLANNING_TOOL,
+  TRIAGE_TOOLS,
+} from './tools/agent-tools';
 import { UpstreamBreaker } from './upstream-breaker';
 
 export type RunTurnInput = {
@@ -54,8 +60,15 @@ export type RunTurnInput = {
 /** Ile ostatnich wiadomości rozmowy idzie do modelu jako kontekst. */
 export const HISTORY_WINDOW = 40;
 
+/** Powód przerwania podany do `AbortController.abort()` przy „Stop" z telefonu. */
+export const ABORT_REASON_CANCELLED = 'cancelled';
+
 type FailureVerdict = {
-  errorCode: 'AI_TIMEOUT' | 'AI_PROVIDER_ERROR' | 'INTERNAL_ERROR';
+  errorCode:
+    | 'AI_TIMEOUT'
+    | 'AI_CANCELLED'
+    | 'AI_PROVIDER_ERROR'
+    | 'INTERNAL_ERROR';
   outcome: 'timeout' | 'failed';
   /** Czy oddać kwotę — użytkownik nie płaci za to, że coś padło po naszej stronie. */
   refund: boolean;
@@ -83,6 +96,13 @@ type FailureVerdict = {
 @Injectable()
 export class AgentTurnRunner {
   private readonly logger = new Logger(AgentTurnRunner.name);
+  /**
+   * Tury biegnące W TYM procesie — po to, żeby „Stop" z telefonu miał co
+   * przerwać. Jedna instancja na Railway, więc mapa w pamięci wystarcza;
+   * tura z innego procesu (po deployu) nie jest tu i wtedy zamyka ją
+   * bezpośrednio `AgentTurnsService.cancelTurn`.
+   */
+  private readonly running = new Map<string, AbortController>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -92,11 +112,28 @@ export class AgentTurnRunner {
     private readonly counters: AiUsageCountersService,
     private readonly breaker: UpstreamBreaker,
     private readonly metrics: AgentMetricsService,
+    private readonly alerts: OpsAlertService,
+    // Opcjonalnie: testy jednostkowe runnera nie stawiają modułu powiadomień,
+    // a push po turze jest udogodnieniem, nie częścią kontraktu tury.
+    @Optional() private readonly notifications?: NotificationsService,
   ) {}
+
+  /**
+   * Przerwanie biegnącej tury na życzenie użytkownika. `true` = tura była
+   * w tym procesie i dostała sygnał; domknie ją `finishFailed` jako
+   * `AI_CANCELLED` z pełną księgą zużycia i zwrotem kwoty.
+   */
+  cancel(turnId: string): boolean {
+    const controller = this.running.get(turnId);
+    if (!controller) return false;
+    controller.abort(ABORT_REASON_CANCELLED);
+    return true;
+  }
 
   async run(input: RunTurnInput): Promise<void> {
     const startedAt = Date.now();
     const controller = new AbortController();
+    this.running.set(input.turnId, controller);
     const timeout = setTimeout(
       () => controller.abort(),
       input.env.turnTimeoutMs,
@@ -116,14 +153,25 @@ export class AgentTurnRunner {
         input.dates,
         input.proposalMode,
         input.scopeUserIds ?? [],
+        input.env.toolsModel !== null,
       );
       const provider = this.providers.resolve(input.env);
+      // Przekazanie (AI_MODEL_TOOLS): start na tańszym modelu z narzędziami
+      // do czytania; `start_planning` oddaje resztę tury planiście.
+      const handoff = input.env.toolsModel
+        ? {
+            tool: START_PLANNING_TOOL.name,
+            model: input.env.model,
+            tools: AGENT_TOOLS,
+          }
+        : null;
       const result = await provider.run({
-        model: input.env.model,
+        model: input.env.toolsModel ?? input.env.model,
         effort: input.env.effort,
+        handoff,
         system: prompt.system,
         messages,
-        tools: AGENT_TOOLS,
+        tools: handoff ? TRIAGE_TOOLS : AGENT_TOOLS,
         // Domknięcie z tożsamością tury: dostawca nie zna ani użytkownika, ani
         // gospodarstwa, więc nie ma jak sięgnąć do bazy z pominięciem bramek.
         executeTool: async (name, toolInput) => {
@@ -142,8 +190,15 @@ export class AgentTurnRunner {
           });
         },
         signal: controller.signal,
+        maxTurnCostUsd: input.env.maxTurnCostUsd,
       });
-      await this.finishDone(input, result, Date.now() - startedAt, pendingCard);
+      await this.finishDone(
+        input,
+        result,
+        Date.now() - startedAt,
+        pendingCard,
+        prompt.usedContext,
+      );
       this.breaker.recordSuccess();
     } catch (error) {
       await this.finishFailed(
@@ -151,10 +206,41 @@ export class AgentTurnRunner {
         error,
         Date.now() - startedAt,
         controller.signal.aborted,
+        controller.signal.reason === ABORT_REASON_CANCELLED,
       );
     } finally {
       clearTimeout(timeout);
+      this.running.delete(input.turnId);
     }
+  }
+
+  /**
+   * Push po domknięciu tury — „możesz wyjść, wrócę z odpowiedzią
+   * i powiadomieniem". Kanał `plan`: to odpowiedź o planie, więc słucha tego
+   * samego przełącznika co zmiany planu. Wysyłka zawsze, bo telefon w tle
+   * nie ma innego sposobu, żeby się dowiedzieć; na pierwszym planie iOS
+   * i tak nie pokazuje bannera. Błąd wysyłki nie dotyka tury.
+   */
+  private notifyFinished(
+    input: RunTurnInput,
+    outcome: { ok: true; text: string } | { ok: false },
+  ): void {
+    if (!this.notifications) return;
+    void this.notifications
+      .notifyAssistantTurnFinished({
+        userId: input.userId,
+        conversationId: input.conversationId,
+        turnId: input.turnId,
+        ok: outcome.ok,
+        preview: outcome.ok ? outcome.text : null,
+      })
+      .catch((error: unknown) => {
+        this.logger.warn(
+          `turn ${input.turnId}: push po turze nie wyszedł: ${
+            error instanceof Error ? error.message : 'nieznany błąd'
+          }`,
+        );
+      });
   }
 
   /**
@@ -259,6 +345,7 @@ export class AgentTurnRunner {
     result: AgentProviderResult,
     durationMs: number,
     pendingCard: AgentCard | null,
+    usedContext: string[] = [],
   ): Promise<void> {
     const { usage } = result;
     let closed = false;
@@ -304,8 +391,9 @@ export class AgentTurnRunner {
             // który jej nie zna, ma dalej pokazać sensowne zdanie.
             kind: card?.kind ?? 'TEXT',
             text: result.text,
-            ...(card
-              ? { card: card.payload as Prisma.InputJsonValue }
+            ...(card ? { card: card.payload as Prisma.InputJsonValue } : {}),
+            ...(usedContext.length > 0
+              ? { context: { used: usedContext } as Prisma.InputJsonValue }
               : {}),
             turnId: input.turnId,
           },
@@ -323,7 +411,8 @@ export class AgentTurnRunner {
             userId: input.userId,
             householdId: input.householdId,
             provider: input.env.provider,
-            model: input.env.model,
+            // Model, który dał ostatnie słowo — po przekazaniu to planista.
+            model: result.model ?? input.env.model,
             // Bez `effort` księga nie da się skalibrować: ta sama tura na
             // `medium` i na `high` to dwa różne rachunki.
             effort: input.env.effort,
@@ -376,6 +465,7 @@ export class AgentTurnRunner {
       outputTokens: usage.outputTokens,
       costMicroUsd: usage.costMicroUsd,
     });
+    this.notifyFinished(input, { ok: true, text: result.text });
   }
 
   private async finishFailed(
@@ -383,8 +473,9 @@ export class AgentTurnRunner {
     error: unknown,
     durationMs: number,
     aborted: boolean,
+    cancelled = false,
   ): Promise<void> {
-    const verdict = this.classify(error, aborted);
+    const verdict = this.classify(error, aborted, cancelled);
 
     try {
       // Zużycie sprzed błędu: tura, która padła po pięciu rundach narzędzi,
@@ -464,6 +555,10 @@ export class AgentTurnRunner {
         this.logger.warn(
           'bezpiecznik dostawcy otwarty — kolejne tury odmawiane jako AI_UPSTREAM_PAUSED',
         );
+        void this.alerts.notify(
+          'ai-upstream-paused',
+          'bezpiecznik dostawcy modelu otwarty (5 błędów 429/5xx w 5 min) — tury odmawiane jako AI_UPSTREAM_PAUSED',
+        );
       }
     }
 
@@ -471,12 +566,30 @@ export class AgentTurnRunner {
     this.logger.warn(
       `turn ${input.turnId} requestId=${input.requestId} ${verdict.errorCode}: ${reason}`,
     );
+    // Po „Stop" nikt nie czeka na push — użytkownik sam przerwał.
+    if (verdict.errorCode !== 'AI_CANCELLED') {
+      this.notifyFinished(input, { ok: false });
+    }
   }
 
-  private classify(error: unknown, aborted: boolean): FailureVerdict {
+  private classify(
+    error: unknown,
+    aborted: boolean,
+    cancelled: boolean,
+  ): FailureVerdict {
     // Przerwanie sprawdzamy PRZED typem błędu: dostawca dostaje `AbortSignal`
     // i zgłosi to po swojemu (u nas `AgentProviderError`), ale przyczyną jest
-    // nasz timeout, nie awaria po jego stronie — bezpiecznik ma to zignorować.
+    // nasz timeout albo „Stop" użytkownika, nie awaria po jego stronie —
+    // bezpiecznik ma to zignorować. Kwota wraca w obu przypadkach: za
+    // przerwaną turę nikt nie dostał odpowiedzi.
+    if (aborted && cancelled) {
+      return {
+        errorCode: 'AI_CANCELLED',
+        outcome: 'failed',
+        refund: true,
+        countsToBreaker: false,
+      };
+    }
     if (aborted) {
       return {
         errorCode: 'AI_TIMEOUT',

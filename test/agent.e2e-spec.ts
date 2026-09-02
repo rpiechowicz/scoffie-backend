@@ -69,6 +69,8 @@ describe('Agent E2E', () => {
     'AI_STUB_DELAY_MS',
     'AI_LIMIT_MESSAGES_PER_MONTH',
     'AI_CARDS_MODE',
+    'AI_ALLOWED_USERS',
+    'AI_CONSENT_REQUIRED',
     'THROTTLE_DEFAULT_LIMIT',
     'THROTTLE_IP_LIMIT',
     'THROTTLE_AGENT_MESSAGE_LIMIT',
@@ -241,6 +243,163 @@ describe('Agent E2E', () => {
       expect(res.body).toMatchObject({ code: 'NOT_HOUSEHOLD_MEMBER' });
     });
 
+    it('konto spoza AI_ALLOWED_USERS: 503 AI_DISABLED z powodem not_allowed', async () => {
+      // Lista czytana per wywołanie, jak reszta AI_* — bez restartu.
+      process.env.AI_ALLOWED_USERS = 'ktos-inny@example.com';
+      try {
+        const res = await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(503);
+        expect(res.body).toMatchObject({
+          code: 'AI_DISABLED',
+          details: ['not_allowed'],
+        });
+
+        // Ten sam użytkownik na liście po id (wielkość liter i spacje obojętne).
+        process.env.AI_ALLOWED_USERS = ` ${session.user.id.toUpperCase()} `;
+        await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(201);
+      } finally {
+        delete process.env.AI_ALLOWED_USERS;
+      }
+    });
+
+    it('AI_CONSENT_REQUIRED: bez zgody 403, po POST /me/consents rozmowa rusza, po cofnięciu znów 403', async () => {
+      process.env.AI_CONSENT_REQUIRED = 'true';
+      try {
+        const refused = await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(403);
+        expect(refused.body).toMatchObject({
+          code: 'AI_CONSENT_REQUIRED',
+          details: ['documentVersion:2026-09-02'],
+        });
+
+        // Stan zgód jest czytelny niezależnie od asystenta.
+        const before = await request(app.getHttpServer())
+          .get('/me/consents')
+          .set(auth(session.accessToken))
+          .expect(200);
+        const aiBefore = (
+          before.body as { kind: string; granted: boolean }[]
+        ).find((entry) => entry.kind === 'AI_ASSISTANT');
+        expect(aiBefore?.granted).toBe(false);
+
+        const granted = await request(app.getHttpServer())
+          .post('/me/consents')
+          .set(auth(session.accessToken))
+          .send({
+            kind: 'AI_ASSISTANT',
+            action: 'GRANTED',
+            documentVersion: '2026-09-02',
+            source: 'E2E',
+          })
+          .expect(201);
+        expect(
+          (granted.body as { kind: string; granted: boolean }[]).find(
+            (entry) => entry.kind === 'AI_ASSISTANT',
+          )?.granted,
+        ).toBe(true);
+
+        await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(201);
+
+        await request(app.getHttpServer())
+          .post('/me/consents')
+          .set(auth(session.accessToken))
+          .send({
+            kind: 'AI_ASSISTANT',
+            action: 'REVOKED',
+            documentVersion: '2026-09-02',
+          })
+          .expect(201);
+        await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(403);
+
+        // Nieznany rodzaj zgody nie ląduje w dzienniku.
+        await request(app.getHttpServer())
+          .post('/me/consents')
+          .set(auth(session.accessToken))
+          .send({
+            kind: 'NEWSLETTER',
+            action: 'GRANTED',
+            documentVersion: '2026-09-02',
+          })
+          .expect(400);
+      } finally {
+        delete process.env.AI_CONSENT_REQUIRED;
+        await prisma.consentEvent.deleteMany({
+          where: { userId: session.user.id },
+        });
+      }
+    });
+
+    it('„Zgłoś odpowiedź": własna odpowiedź asystenta 201, cudza/nieistniejąca 404', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = (
+        await postMessage(session.accessToken, conversation.id, {
+          clientMessageId: randomUUID(),
+          text: 'Co na kolację?',
+        }).expect(202)
+      ).body as AcceptedTurn;
+      const turn = await pollTurn(session.accessToken, accepted.turnId);
+      const answer = turn.messages?.find((m) => m.role === 'ASSISTANT') as
+        | { id?: string }
+        | undefined;
+      const messages = (
+        await request(app.getHttpServer())
+          .get(`/agent/conversations/${conversation.id}/messages`)
+          .set(auth(session.accessToken))
+          .expect(200)
+      ).body.messages as { id: string; role: string }[];
+      const assistantId =
+        answer?.id ?? messages.find((m) => m.role === 'ASSISTANT')?.id;
+      expect(assistantId).toBeDefined();
+
+      const created = await request(app.getHttpServer())
+        .post(`/agent/messages/${assistantId}/report`)
+        .set(auth(session.accessToken))
+        .send({ reason: 'WRONG', comment: 'To nie jest kolacja.' })
+        .expect(201);
+      expect(created.body).toMatchObject({ id: expect.any(String) });
+      const stored = await prisma.agentReport.findUnique({
+        where: { id: created.body.id as string },
+      });
+      expect(stored?.messageText.length).toBeGreaterThan(0);
+      await prisma.agentReport.deleteMany({
+        where: { userId: session.user.id },
+      });
+
+      // Własne pytanie nie jest odpowiedzią — 404, tak jak cudza wiadomość.
+      const own = messages.find((m) => m.role === 'USER')?.id;
+      await request(app.getHttpServer())
+        .post(`/agent/messages/${own}/report`)
+        .set(auth(session.accessToken))
+        .send({ reason: 'OTHER' })
+        .expect(404);
+      await request(app.getHttpServer())
+        .post(`/agent/messages/${randomUUID()}/report`)
+        .set(auth(session.accessToken))
+        .send({ reason: 'OTHER' })
+        .expect(404);
+    });
+
     it('householdId nie-UUID: 400 VALIDATION_ERROR (nie 500 z P2023)', async () => {
       const res = await request(app.getHttpServer())
         .post('/agent/conversations')
@@ -402,6 +561,74 @@ describe('Agent E2E', () => {
       } finally {
         process.env.AI_STUB_DELAY_MS = '0';
       }
+    });
+
+    it('„Stop" przerywa turę: AI_CANCELLED, kwota wraca, podpowiedzi, activeTurnId znika', async () => {
+      process.env.AI_STUB_DELAY_MS = '1500';
+      try {
+        const conversation = await createConversation(
+          session.accessToken,
+          householdId,
+        );
+        const before = await readQuota(householdId);
+        const accepted = await postMessage(
+          session.accessToken,
+          conversation.id,
+          {
+            clientMessageId: randomUUID(),
+            text: 'Długa tura do przerwania',
+          },
+        ).expect(202);
+        const turnId = (accepted.body as AcceptedTurn).turnId;
+
+        // Powrót do rozmowy w trakcie: jedna rozmowa niesie biegnącą turę.
+        const during = await request(app.getHttpServer())
+          .get(`/agent/conversations/${conversation.id}`)
+          .set(auth(session.accessToken))
+          .expect(200);
+        expect(during.body).toMatchObject({
+          id: conversation.id,
+          activeTurnId: turnId,
+        });
+
+        const cancelled = await request(app.getHttpServer())
+          .post(`/agent/turns/${turnId}/cancel`)
+          .set(auth(session.accessToken))
+          .expect(200);
+        expect(cancelled.body).toMatchObject({
+          status: 'FAILED',
+          errorCode: 'AI_CANCELLED',
+          suggestions: ['Zaplanuj tylko obiady', 'Zaplanuj 3 dni'],
+        });
+        expect(await readQuota(householdId)).toBe(before);
+
+        // Drugie kliknięcie nie jest błędem i niczego nie zmienia.
+        await request(app.getHttpServer())
+          .post(`/agent/turns/${turnId}/cancel`)
+          .set(auth(session.accessToken))
+          .expect(200);
+        expect(await readQuota(householdId)).toBe(before);
+
+        const after = await request(app.getHttpServer())
+          .get(`/agent/conversations/${conversation.id}`)
+          .set(auth(session.accessToken))
+          .expect(200);
+        expect(after.body).toMatchObject({ activeTurnId: null });
+      } finally {
+        process.env.AI_STUB_DELAY_MS = '0';
+      }
+    });
+
+    it('cudza rozmowa po id: 404, nie 403', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const outsider = await devLogin('Obcy2');
+      await request(app.getHttpServer())
+        .get(`/agent/conversations/${conversation.id}`)
+        .set(auth(outsider.accessToken))
+        .expect(404);
     });
 
     it('tura-zombie po padzie procesu NIE blokuje rozmowy na zawsze', async () => {
@@ -572,6 +799,88 @@ describe('Agent E2E', () => {
       expect(after).toBeNull();
     });
 
+    it('„Usuń wszystkie notatki" kasuje notatki domu; rodzaj notatki wraca w liście', async () => {
+      await prisma.agentMemory.createMany({
+        data: [
+          {
+            householdId,
+            text: 'Franek nie je ostrego',
+            textNormalized: 'franek nie je ostrego',
+            kind: 'CONSTRAINT',
+          },
+          {
+            householdId,
+            text: 'Niedzielny obiad gotuje Ania',
+            textNormalized: 'niedzielny obiad gotuje ania',
+            kind: 'HABIT',
+          },
+        ],
+      });
+      const listed = await request(app.getHttpServer())
+        .get('/agent/memory')
+        .query({ householdId })
+        .set(auth(session.accessToken))
+        .expect(200);
+      const kinds = new Map(
+        (listed.body as { text: string; kind: string }[]).map((n) => [
+          n.text,
+          n.kind,
+        ]),
+      );
+      expect(kinds.get('Franek nie je ostrego')).toBe('CONSTRAINT');
+      expect(kinds.get('Niedzielny obiad gotuje Ania')).toBe('HABIT');
+
+      const wiped = await request(app.getHttpServer())
+        .delete('/agent/memory')
+        .query({ householdId })
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(
+        (wiped.body as { deleted: number }).deleted,
+      ).toBeGreaterThanOrEqual(2);
+      expect(await prisma.agentMemory.count({ where: { householdId } })).toBe(
+        0,
+      );
+
+      const stranger = await devLogin('Cudzy');
+      await request(app.getHttpServer())
+        .delete('/agent/memory')
+        .query({ householdId })
+        .set(auth(stranger.accessToken))
+        .expect(403);
+    });
+
+    it('kontekst chipów: domownicy z etykietą celu, cel pytającego, zużycie', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/agent/context')
+        .query({ householdId, weekStart: WEEK_START })
+        .set(auth(session.accessToken))
+        .expect(200);
+      expect(res.body).toMatchObject({
+        householdId,
+        weekStart: WEEK_START,
+        memberCount: 1,
+        handoff: false,
+        members: [
+          expect.objectContaining({
+            userId: session.user.id,
+            isSelf: true,
+            consented: true,
+            goalLabel: expect.stringMatching(/kcal/),
+          }),
+        ],
+        usage: { householdId, tier: 'FREE', byUser: expect.any(Array) },
+      });
+      expect(typeof res.body.weekLabel).toBe('string');
+
+      const stranger = await devLogin('Postronny');
+      await request(app.getHttpServer())
+        .get('/agent/context')
+        .query({ householdId })
+        .set(auth(stranger.accessToken))
+        .expect(403);
+    });
+
     it('cudza notatka: 404, nie 403 — inaczej da się zgadywać identyfikatory', async () => {
       const note = await prisma.agentMemory.create({
         data: {
@@ -632,6 +941,35 @@ describe('Agent E2E', () => {
           { clientMessageId: randomUUID(), text: 'Trzecia' },
         ).expect(429);
         expect(blocked.body).toMatchObject({ code: 'AI_QUOTA_EXCEEDED' });
+        // 429 mówi, KIEDY limit wraca — telefon może pokazać datę zamiast
+        // gołego „wyczerpany".
+        expect(blocked.body.details).toEqual([
+          'kind:messages',
+          'limit:2',
+          'remaining:0',
+          expect.stringMatching(/^resetsAt:\d{4}-\d{2}-01T00:00:00\.000Z$/),
+        ]);
+
+        // Te same liczby z GET /agent/usage — bez turnięcia zużycia.
+        const usage = await request(app.getHttpServer())
+          .get('/agent/usage')
+          .query({ householdId: quotaHousehold })
+          .set(auth(quotaUser.accessToken))
+          .expect(200);
+        expect(usage.body).toMatchObject({
+          householdId: quotaHousehold,
+          tier: 'FREE',
+          messages: { used: 2, limit: 2, remaining: 0 },
+          plans: { used: 0, remaining: expect.any(Number) },
+        });
+        expect(usage.body.resetsAt).toMatch(/-01T00:00:00\.000Z$/);
+
+        // Cudze gospodarstwo: członkostwo PRZED liczbami.
+        await request(app.getHttpServer())
+          .get('/agent/usage')
+          .query({ householdId: quotaHousehold })
+          .set(auth(session.accessToken))
+          .expect(403);
       } finally {
         delete process.env.AI_LIMIT_MESSAGES_PER_MONTH;
       }
@@ -680,6 +1018,7 @@ describe('Agent E2E', () => {
         actions: { type: string; proposalId: string | null }[];
         state: { status: string; canApply: boolean; canUndo: boolean };
       };
+      usedContext?: string[];
     };
 
     const weekItems = () =>
@@ -740,6 +1079,13 @@ describe('Agent E2E', () => {
         kind: 'PLAN_WEEK',
         state: { status: 'PENDING', canApply: true, canUndo: false },
       });
+      // „Uwzględniłem: …" — z czym serwer policzył tę odpowiedź.
+      expect(assistant.usedContext).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^Tydzień /),
+          'Cały dom · 1',
+        ]),
+      );
       const apply = assistant.card?.actions.find((a) => a.type === 'APPLY');
       expect(apply?.proposalId).toBe(assistant.card?.proposalId);
 
@@ -767,6 +1113,90 @@ describe('Agent E2E', () => {
         .set(auth(session.accessToken))
         .expect(200);
       expect(await weekItems()).toBe(0);
+    });
+
+    it('karta jest sterownikiem: ponowny zapis po cofnięciu, „Zapisz mimo to" po zmianie planu', async () => {
+      const conversation = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const accepted = await postMessage(session.accessToken, conversation.id, {
+        clientMessageId: randomUUID(),
+        text: `Ułóż tydzień [[propose:${recipeId}:${WEEK_START}]]`,
+        clientCapabilities: [CARDS_CAPABILITY_V1],
+      }).expect(202);
+      await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
+      const messages = await history(conversation.id);
+      const proposalId = messages[messages.length - 1].card!.proposalId;
+      const apply = (body: Record<string, unknown> = {}) =>
+        request(app.getHttpServer())
+          .post(`/agent/proposals/${proposalId}/apply`)
+          .set(auth(session.accessToken))
+          .send(body);
+      const undo = () =>
+        request(app.getHttpServer())
+          .post(`/agent/proposals/${proposalId}/undo`)
+          .set(auth(session.accessToken));
+
+      // UNDONE → „Zastosuj ponownie" zwykłym kliknięciem.
+      await apply().expect(200);
+      await undo().expect(200);
+      expect(await weekItems()).toBe(0);
+      const undone = (await history(conversation.id)).find(
+        (m) => m.card?.kind === 'PLAN_WEEK',
+      );
+      expect(undone?.card?.state).toMatchObject({
+        status: 'UNDONE',
+        canApply: true,
+      });
+      await apply().expect(200);
+      expect(await weekItems()).toBe(1);
+      await undo().expect(200);
+
+      // Ręczna zmiana planu spod ręki → STALE; bez `force` odmowa, z `force` zapis.
+      // Po cofnięciu wiersz tygodnia zostaje (pusty) — stąd upsert.
+      await prisma.weeklyPlan.upsert({
+        where: {
+          householdId_weekStart: {
+            householdId,
+            weekStart: new Date(`${WEEK_START}T00:00:00.000Z`),
+          },
+        },
+        create: {
+          householdId,
+          weekStart: new Date(`${WEEK_START}T00:00:00.000Z`),
+          items: {
+            create: [{ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId }],
+          },
+        },
+        update: {
+          items: {
+            create: [{ dayOfWeek: 'TUE', mealType: 'DINNER', recipeId }],
+          },
+        },
+      });
+      const refused = await apply().expect(409);
+      expect(refused.body).toMatchObject({ code: 'AI_PROPOSAL_STALE' });
+      const stale = (await history(conversation.id)).find(
+        (m) => m.card?.kind === 'PLAN_WEEK',
+      );
+      expect(stale?.card?.state).toMatchObject({
+        status: 'STALE',
+        canApply: true,
+      });
+      await apply({ force: true }).expect(200);
+      // Stan docelowy propozycji: poniedziałek; ręczny wtorek znika.
+      expect(await weekItems()).toBe(1);
+      await undo().expect(200);
+      await prisma.weeklyPlan.deleteMany({
+        where: {
+          householdId,
+          weekStart: new Date(`${WEEK_START}T00:00:00.000Z`),
+        },
+      });
     });
 
     it('klient bez `cards.v1` nie dostaje propozycji, której nie umie pokazać', async () => {
@@ -818,7 +1248,8 @@ describe('Agent E2E', () => {
         .get(`/agent/conversations/${conversationId}/messages`)
         .set(auth(session.accessToken))
         .expect(200);
-      return (res.body as { messages: { id: string; text: string }[] }).messages;
+      return (res.body as { messages: { id: string; text: string }[] })
+        .messages;
     };
 
     it('wycofuje pytanie i odpowiedź na nie, a potem pyta od nowa', async () => {
@@ -863,7 +1294,10 @@ describe('Agent E2E', () => {
       await pollTurn(session.accessToken, (sent.body as AcceptedTurn).turnId);
       const messages = await history(mine.id);
 
-      const theirs = await createConversation(other.accessToken, otherHousehold);
+      const theirs = await createConversation(
+        other.accessToken,
+        otherHousehold,
+      );
       await editMessage(other.accessToken, theirs.id, {
         clientMessageId: randomUUID(),
         messageId: messages[0].id,

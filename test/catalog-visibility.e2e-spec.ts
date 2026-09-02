@@ -105,16 +105,26 @@ describe('Widoczność katalogu E2E', () => {
     return envelope.data;
   };
 
+  // Wszystkie strony, nie pierwsza: katalog przekroczył 100 pozycji
+  // (partia „diety" 3.09.2026) i przepis z pierwszego `findFirst` potrafi
+  // leżeć na drugiej stronie. Telefon też stronicuje — test ma to odwzorować.
   const listRecipes = async (
     client: Socket,
     householdId: string,
-  ): Promise<RecipeRow[]> =>
-    okData(
-      await ack<RecipeRow[]>(client, 'recipes:findAll', {
-        householdId,
-        filters: { householdId, page: 1, limit: 100 },
-      }),
-    );
+  ): Promise<RecipeRow[]> => {
+    const all: RecipeRow[] = [];
+    for (let page = 1; page <= 10; page += 1) {
+      const rows = okData(
+        await ack<RecipeRow[]>(client, 'recipes:findAll', {
+          householdId,
+          filters: { householdId, page, limit: 100 },
+        }),
+      );
+      all.push(...rows);
+      if (rows.length < 100) break;
+    }
+    return all;
+  };
 
   beforeAll(async () => {
     process.env.WS_AUTH_MODE = 'strict';

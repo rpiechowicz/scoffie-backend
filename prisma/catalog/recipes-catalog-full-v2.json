@@ -8506,6 +8506,2355 @@
         "prompt": "professional food photo, Krem z czerwonej soczewicy z marchewką, Smooth thick red lentil and carrot soup, deep orange, garnished with fresh parsley and a drizzle of olive oil, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": "https://pub-d6de57d50783403ab7f168d38802a1a6.r2.dev/recipe-images/be1c9e29-6084-4109-9f17-6d47a955f90d.png"
       }
+    },
+    {
+      "id": "375c0ced-8c7e-4457-b3d6-34c375745c63",
+      "title": "Tofu w sosie pomidorowym z ryżem basmati",
+      "description": "Kostki tofu podsmażone na złoto i duszone w gęstym sosie z passaty z czosnkiem i oregano, podane z sypkim ryżem basmati. Prosty obiad bez mięsa, gotowy w pół godziny.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1212,
+        "protein": 56,
+        "carbs": 138,
+        "fat": 43,
+        "fiber": 13,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ryż wypłucz i ugotuj według instrukcji na opakowaniu."
+        },
+        {
+          "step": 2,
+          "instruction": "Tofu osusz, pokrój w kostkę i obsmaż na oliwie z każdej strony na złoto. Odłóż na talerz."
+        },
+        {
+          "step": 3,
+          "instruction": "Na tej samej patelni zeszklij posiekaną cebulę, dodaj czosnek, paprykę i oregano, smaż minutę."
+        },
+        {
+          "step": 4,
+          "instruction": "Wlej passatę, dopraw solą i pieprzem, gotuj 8 minut, aż sos zgęstnieje."
+        },
+        {
+          "step": 5,
+          "instruction": "Wrzuć tofu do sosu, wymieszaj i podgrzej 2 minuty. Podawaj z ryżem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tofu",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ryż basmati",
+          "amount": 140,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "passata pomidorowa",
+          "amount": 300,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "oregano",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Tofu w sosie pomidorowym z ryżem basmati, Golden fried tofu cubes in thick tomato sauce over basmati rice, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "d37af86c-e539-4e6f-9a90-01ca3f5100a3",
+      "title": "Gulasz z czerwonej soczewicy z batatem i szpinakiem",
+      "description": "Gęsty, rozgrzewający gulasz z czerwonej soczewicy, batata i pomidorów z puszki, z kminem i imbirem, na koniec ze szpinakiem. Jedno naczynie, dużo białka roślinnego.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1080,
+        "protein": 50,
+        "carbs": 155,
+        "fat": 18,
+        "fiber": 34,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Cebulę i czosnek posiekaj, batata obierz i pokrój w kostkę 2 cm."
+        },
+        {
+          "step": 2,
+          "instruction": "W garnku rozgrzej olej, zeszklij cebulę, dodaj czosnek, kmin i imbir, smaż minutę."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj batata, soczewicę i pomidory, wlej 400 ml wody, dopraw solą i pieprzem."
+        },
+        {
+          "step": 4,
+          "instruction": "Gotuj pod przykryciem 20 minut, aż soczewica się rozpadnie, a batat zmięknie."
+        },
+        {
+          "step": 5,
+          "instruction": "Wmieszaj szpinak i gotuj 2 minuty, aż zwiędnie. Podawaj gorące."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "soczewica czerwona",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "batat",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor krojony z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szpinak",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "imbir mielony",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Gulasz z czerwonej soczewicy z batatem i szpinakiem, Thick red lentil and sweet potato stew with wilted spinach in a bowl, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "2e500ad6-49fc-4d15-bc65-096f072f0c40",
+      "title": "Stir-fry z tofu, brokułem i papryką z ryżem jaśminowym",
+      "description": "Szybkie smażenie na dużym ogniu: tofu, brokuł, papryka i czosnek w sosie sojowym z sezamem, podane z ryżem jaśminowym. Kolacja gotowa w 25 minut.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1224,
+        "protein": 58,
+        "carbs": 138,
+        "fat": 45,
+        "fiber": 17,
+        "salt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ugotuj ryż. Brokuł podziel na różyczki, paprykę pokrój w paski, tofu w kostkę."
+        },
+        {
+          "step": 2,
+          "instruction": "Na rozgrzanym oleju obsmaż tofu na złoto i odłóż."
+        },
+        {
+          "step": 3,
+          "instruction": "Wrzuć brokuł i paprykę, smaż 5 minut na dużym ogniu, mieszając."
+        },
+        {
+          "step": 4,
+          "instruction": "Dodaj czosnek, imbir i tofu, wlej sos sojowy, smaż 2 minuty."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj z ryżem, posypane sezamem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tofu",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "brokuł",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "ryż jaśminowy",
+          "amount": 140,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sos sojowy",
+          "amount": 30,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "imbir mielony",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sezam",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Stir-fry z tofu, brokułem i papryką z ryżem jaśminowym, Wok stir-fry of tofu, broccoli and red pepper with sesame over jasmine rice, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "58330165-f222-4f4c-941e-a0287e7f8bf3",
+      "title": "Kasza gryczana z pieczarkami i cebulą",
+      "description": "Sypka kasza gryczana z pieczarkami smażonymi na złoto z cebulą, czosnkiem i majerankiem. Klasyczna, sycąca kolacja bez mięsa i nabiału.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 862,
+        "protein": 35,
+        "carbs": 124,
+        "fat": 25,
+        "fiber": 18,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Kaszę ugotuj w osolonej wodzie do miękkości, odcedź."
+        },
+        {
+          "step": 2,
+          "instruction": "Pieczarki pokrój w plastry, cebulę w piórka, czosnek posiekaj."
+        },
+        {
+          "step": 3,
+          "instruction": "Na oleju smaż pieczarki na dużym ogniu, aż zbrązowieją, potem dodaj cebulę i smaż 5 minut."
+        },
+        {
+          "step": 4,
+          "instruction": "Dodaj czosnek i majeranek, dopraw solą i pieprzem, smaż minutę."
+        },
+        {
+          "step": 5,
+          "instruction": "Wymieszaj z kaszą i posyp natką."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "kasza gryczana",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieczarka",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "majeranek",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kasza gryczana z pieczarkami i cebulą, Buckwheat groats with golden fried mushrooms and onions, parsley on top, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "bc4b06ec-51a8-4288-a665-56bca0af2a24",
+      "title": "Krem z dyni z mlekiem kokosowym",
+      "description": "Aksamitna zupa krem z pieczonej dyni, cebuli i czosnku, zmiksowana z mlekiem kokosowym, z nutą imbiru. Posypana pestkami dyni dla chrupkości.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 871,
+        "protein": 19,
+        "carbs": 60,
+        "fat": 67,
+        "fiber": 7,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Dynię obierz, pokrój w kostkę, cebulę w ćwiartki. Wymieszaj z oliwą, solą i pieprzem."
+        },
+        {
+          "step": 2,
+          "instruction": "Piecz w 200°C przez 25 minut, aż dynia zmięknie i przyrumieni się na brzegach."
+        },
+        {
+          "step": 3,
+          "instruction": "Przełóż do garnka z czosnkiem i imbirem, wlej 500 ml wody, gotuj 5 minut."
+        },
+        {
+          "step": 4,
+          "instruction": "Zmiksuj na gładko z mlekiem kokosowym, dopraw do smaku."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj posypane pestkami dyni."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "dynia",
+          "amount": 700,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "imbir mielony",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pestki dyni",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Krem z dyni z mlekiem kokosowym, Velvety roasted pumpkin and coconut soup topped with pumpkin seeds, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "359a9cd6-c690-4c91-9ad7-056e27ca4dc6",
+      "title": "Pudding chia z mlekiem kokosowym i malinami",
+      "description": "Nasiona chia namoczone przez noc w mleku kokosowym, rano z malinami i bananem. Śniadanie bez gotowania, które robi się samo w lodówce.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1024,
+        "protein": 17,
+        "carbs": 45,
+        "fat": 81,
+        "fiber": 31,
+        "salt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nasiona chia wymieszaj z mlekiem kokosowym i cynamonem w słoiku."
+        },
+        {
+          "step": 2,
+          "instruction": "Odstaw na 10 minut, wymieszaj jeszcze raz, żeby nie było grudek, i wstaw do lodówki na noc."
+        },
+        {
+          "step": 3,
+          "instruction": "Rano rozłóż do miseczek, ułóż na wierzchu maliny i plasterki banana."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "nasiona chia",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 300,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "malina",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 2,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pudding chia z mlekiem kokosowym i malinami, Coconut chia pudding in a glass jar topped with raspberries and banana slices, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "14f2eaef-68a1-435e-ab1f-a140db70ebcc",
+      "title": "Sałatka z ciecierzycą, ogórkiem i pomidorem",
+      "description": "Chrupiąca sałatka z ciecierzycy, ogórka, pomidora i cebuli z cytrynowo-oliwkowym dressingiem i natką. Lekka kolacja, która syci dzięki strączkom.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 929,
+        "protein": 35,
+        "carbs": 95,
+        "fat": 35,
+        "fiber": 34,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ciecierzycę odsącz i opłucz. Ogórek i pomidory pokrój w kostkę, cebulę drobno."
+        },
+        {
+          "step": 2,
+          "instruction": "Wymieszaj oliwę z sokiem z cytryny, kminem, solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Połącz warzywa z ciecierzycą, polej dressingiem, posyp natką i wymieszaj."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ciecierzyca z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "pomidor",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sałatka z ciecierzycą, ogórkiem i pomidorem, Chickpea salad with cucumber, tomato, red onion and parsley in lemon dressing, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "7e24dc33-0c3e-40cb-9e95-14640fe8d73f",
+      "title": "Owsianka kakaowa z bananem na mleku owsianym",
+      "description": "Czekoladowa owsianka gotowana na mleku owsianym z kakao i cynamonem, z bananem i orzechami włoskimi. Bez nabiału, słodka od banana.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 12,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1012,
+        "protein": 27,
+        "carbs": 138,
+        "fat": 35,
+        "fiber": 28,
+        "salt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Płatki zalej mlekiem owsianym, dodaj kakao i cynamon, zagotuj mieszając."
+        },
+        {
+          "step": 2,
+          "instruction": "Gotuj 5 minut na małym ogniu, aż zgęstnieje. Jednego banana rozgnieć widelcem i wmieszaj."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozłóż do miseczek, na wierzch drugi banan w plasterkach i połamane orzechy."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "płatki owsiane",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko owsiane",
+          "amount": 400,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 2,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Owsianka kakaowa z bananem na mleku owsianym, Chocolate oat porridge with banana slices and walnuts in a bowl, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "7edc1d62-088b-4bc2-9015-5a47c511988a",
+      "title": "Zapiekanka z batata z czerwoną fasolą",
+      "description": "Warstwy pieczonego batata z pikantną fasolą w pomidorach, papryką i kminem. Sycąca zapiekanka bez mięsa i sera, dobra też na drugi dzień.",
+      "mealType": "LUNCH",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 50,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1165,
+        "protein": 42,
+        "carbs": 158,
+        "fat": 23,
+        "fiber": 49,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Batata obierz i pokrój w plastry 1 cm. Ułóż na blasze, skrop oliwą, piecz 15 minut w 200°C."
+        },
+        {
+          "step": 2,
+          "instruction": "Cebulę, czosnek i paprykę podsmaż na reszcie oliwy, dodaj kmin i ostrą paprykę."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj fasolę i pomidory, gotuj 10 minut, dopraw solą."
+        },
+        {
+          "step": 4,
+          "instruction": "W naczyniu żaroodpornym układaj na przemian batata i fasolę, zakończ batatem."
+        },
+        {
+          "step": 5,
+          "instruction": "Zapiekaj 20 minut w 200°C, aż wierzch się przyrumieni."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "batat",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "fasola czerwona z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor krojony z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka ostra mielona",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Zapiekanka z batata z czerwoną fasolą, Baked sweet potato and red bean casserole in a ceramic dish, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "4e7bf9c8-4672-4aca-812c-03f0159ce3aa",
+      "title": "Makaron penne z cukinią, pomidorkami i pestkami dyni",
+      "description": "Penne z cukinią smażoną z czosnkiem, pomidorkami koktajlowymi i oregano, posypane prażonymi pestkami dyni. Lekki obiad w 20 minut.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1012,
+        "protein": 33,
+        "carbs": 130,
+        "fat": 37,
+        "fiber": 13,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Makaron ugotuj al dente, odlej pół szklanki wody z gotowania."
+        },
+        {
+          "step": 2,
+          "instruction": "Cukinię pokrój w półplasterki, smaż na oliwie 6 minut, dodaj czosnek i pomidorki przekrojone na pół."
+        },
+        {
+          "step": 3,
+          "instruction": "Smaż 3 minuty, dopraw oregano, solą i pieprzem."
+        },
+        {
+          "step": 4,
+          "instruction": "Wymieszaj z makaronem, podlewając wodą z gotowania. Posyp uprażonymi na suchej patelni pestkami."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "makaron penne",
+          "amount": 160,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukinia",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "pestki dyni",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oregano",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Makaron penne z cukinią, pomidorkami i pestkami dyni, Penne pasta with sautéed zucchini, cherry tomatoes and toasted pumpkin seeds, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "77aa2d52-4f34-49b1-9700-3da5cb86351e",
+      "title": "Kurczak w śmietanowym sosie ze szpinakiem",
+      "description": "Filet z kurczaka obsmażony i duszony w sosie ze śmietanki, parmezanu i czosnku ze szpinakiem. Kremowy obiad niskowęglowodanowy, bez dodatku skrobi.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1189,
+        "protein": 111,
+        "carbs": 10,
+        "fat": 77,
+        "fiber": 4,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Filety rozbij lekko, dopraw solą i pieprzem, obsmaż na maśle po 4 minuty z każdej strony. Odłóż."
+        },
+        {
+          "step": 2,
+          "instruction": "Na patelnię wrzuć posiekany czosnek, po chwili wlej śmietankę i zagotuj."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj szpinak i starty parmezan, mieszaj, aż szpinak zwiędnie, a sos zgęstnieje."
+        },
+        {
+          "step": 4,
+          "instruction": "Włóż kurczaka z powrotem do sosu i duś 3 minuty."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "filet z kurczaka",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "śmietanka 30",
+          "amount": 150,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "szpinak",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser parmezan",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kurczak w śmietanowym sosie ze szpinakiem, Chicken breast in creamy parmesan spinach sauce in a skillet, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "1fb1bba3-e0be-4f01-b5ff-9b2feb2bd3f7",
+      "title": "Łosoś z masłem czosnkowym i brokułem",
+      "description": "Filet z łososia pieczony z masłem czosnkowym i cytryną, obok brokuł skropiony oliwą. Dużo tłuszczu omega-3, prawie zero węglowodanów.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1118,
+        "protein": 71,
+        "carbs": 22,
+        "fat": 79,
+        "fiber": 11,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Masło wymieszaj z posiekanym czosnkiem, koperkiem i skórką z cytryny."
+        },
+        {
+          "step": 2,
+          "instruction": "Łososia ułóż na blasze, dopraw solą i pieprzem, posmaruj masłem czosnkowym."
+        },
+        {
+          "step": 3,
+          "instruction": "Obok rozłóż różyczki brokułu skropione oliwą i solą."
+        },
+        {
+          "step": 4,
+          "instruction": "Piecz 15 minut w 200°C. Podawaj z ćwiartkami cytryny."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "łosoś",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "brokuł",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Łosoś z masłem czosnkowym i brokułem, Baked salmon fillet with garlic butter and roasted broccoli, lemon wedges, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "dba8974d-714a-4e0e-8dfe-af28d8655413",
+      "title": "Sałatka caprese z awokado",
+      "description": "Mozzarella, pomidorki koktajlowe i awokado z oliwą, sokiem z cytryny i oregano. Kolacja bez gotowania, która syci tłuszczem, nie pieczywem.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1227,
+        "protein": 62,
+        "carbs": 22,
+        "fat": 96,
+        "fiber": 17,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Mozzarellę porwij na kawałki, pomidorki przekrój na pół, awokado pokrój w plastry."
+        },
+        {
+          "step": 2,
+          "instruction": "Ułóż na talerzach, polej oliwą i sokiem z połowy cytryny."
+        },
+        {
+          "step": 3,
+          "instruction": "Dopraw solą, pieprzem i oregano."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mozzarella",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "awokado",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oregano",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sałatka caprese z awokado, Caprese salad with avocado slices, cherry tomatoes and torn mozzarella, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "c35f48e9-c712-4450-a991-3ed0fbe70707",
+      "title": "Omlet z pieczarkami i parmezanem",
+      "description": "Puszysty omlet z trzech jajek z pieczarkami smażonymi na maśle, szczypiorkiem i parmezanem. Śniadanie keto gotowe w kwadrans.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 743,
+        "protein": 55,
+        "carbs": 8,
+        "fat": 53,
+        "fiber": 3,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pieczarki pokrój w plastry i smaż na połowie masła, aż odparują i zbrązowieją."
+        },
+        {
+          "step": 2,
+          "instruction": "Jajka roztrzep z solą i pieprzem. Na reszcie masła wylej połowę masy jajecznej."
+        },
+        {
+          "step": 3,
+          "instruction": "Gdy spód się zetnie, nałóż połowę pieczarek i parmezanu, złóż omlet na pół. Powtórz z drugą porcją."
+        },
+        {
+          "step": 4,
+          "instruction": "Posyp szczypiorkiem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jajko",
+          "amount": 6,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "pieczarka",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser parmezan",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Omlet z pieczarkami i parmezanem, Folded mushroom omelette with parmesan and chives on a plate, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "552ed30e-f33c-4068-af4b-f7ccbfe7eb28",
+      "title": "Cukinia zapiekana z mięsem mielonym i goudą",
+      "description": "Połówki cukinii wypełnione mielonym mięsem duszonym w pomidorach z papryką, zapieczone pod goudą. Obiad keto bez makaronu i ryżu.",
+      "mealType": "LUNCH",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1368,
+        "protein": 82,
+        "carbs": 32,
+        "fat": 98,
+        "fiber": 12,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Cukinie przekrój wzdłuż, wydrąż środek łyżką, miąższ posiekaj."
+        },
+        {
+          "step": 2,
+          "instruction": "Na oliwie zeszklij cebulę i czosnek, dodaj mięso i smaż, aż się zrumieni."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj miąższ cukinii, pomidory, paprykę i oregano, duś 10 minut, dopraw."
+        },
+        {
+          "step": 4,
+          "instruction": "Napełnij łódki mięsem, posyp startą goudą i piecz 20 minut w 190°C."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "cukinia",
+          "amount": 600,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "wieprzowina i wołowina mielona",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser gouda",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor krojony z puszki",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oregano",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Cukinia zapiekana z mięsem mielonym i goudą, Zucchini boats stuffed with minced meat and melted gouda cheese, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "802bf7cb-151d-40d6-9abe-b4de5381336a",
+      "title": "Jajka zapiekane w awokado",
+      "description": "Połówki awokado z wbitym jajkiem, zapieczone i posypane szczypiorkiem i pestkami dyni. Śniadanie keto z dwóch składników, bez patelni.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 861,
+        "protein": 36,
+        "carbs": 8,
+        "fat": 71,
+        "fiber": 22,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Awokado przekrój, usuń pestki i powiększ łyżką wgłębienia."
+        },
+        {
+          "step": 2,
+          "instruction": "Ułóż w foremce, żeby się nie przewracały, wbij do każdej połówki jajko, dopraw solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Piecz 15 minut w 200°C, aż białko się zetnie."
+        },
+        {
+          "step": 4,
+          "instruction": "Posyp szczypiorkiem, papryką i pestkami dyni."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "awokado",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "pestki dyni",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Jajka zapiekane w awokado, Baked eggs in avocado halves with chives and pumpkin seeds, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "3f020f86-3ce8-43b9-8782-1aaa4a51806d",
+      "title": "Dorsz pieczony z cukinią i oliwkową gremolatą",
+      "description": "Filet z dorsza i plastry cukinii pieczone razem, polane oliwą z czosnkiem, natką i cytryną. Lekka kolacja niskowęglowodanowa.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 649,
+        "protein": 69,
+        "carbs": 17,
+        "fat": 32,
+        "fiber": 8,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Cukinię pokrój w plastry, rozłóż na blasze, skrop połową oliwy, dopraw."
+        },
+        {
+          "step": 2,
+          "instruction": "Na cukinii ułóż dorsza, dopraw solą i pieprzem. Piecz 15 minut w 200°C."
+        },
+        {
+          "step": 3,
+          "instruction": "Resztę oliwy wymieszaj z posiekanym czosnkiem, natką i skórką z cytryny."
+        },
+        {
+          "step": 4,
+          "instruction": "Polej rybę gremolatą i skrop sokiem z cytryny."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "dorsz",
+          "amount": 350,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukinia",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 30,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Dorsz pieczony z cukinią i oliwkową gremolatą, Baked cod fillet on zucchini slices with parsley garlic gremolata, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "d31ec7e7-85b3-4c10-9f64-c1bbf59d7a72",
+      "title": "Sałatka z kurczakiem, ogórkiem i orzechami włoskimi",
+      "description": "Grillowany kurczak na sałacie lodowej z ogórkiem, rzodkiewką i orzechami włoskimi, w dressingu z jogurtu greckiego i koperku. Kolacja z dużą porcją białka.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 898,
+        "protein": 89,
+        "carbs": 21,
+        "fat": 51,
+        "fiber": 8,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Kurczaka dopraw, usmaż na oliwie po 5 minut z każdej strony, pokrój w paski."
+        },
+        {
+          "step": 2,
+          "instruction": "Sałatę porwij, ogórek i rzodkiewki pokrój w plasterki."
+        },
+        {
+          "step": 3,
+          "instruction": "Jogurt wymieszaj z posiekanym koperkiem, szczyptą soli i pieprzu."
+        },
+        {
+          "step": 4,
+          "instruction": "Ułóż sałatę z warzywami, na wierzch kurczaka i orzechy, polej dressingiem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "filet z kurczaka",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sałata lodowa",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "rzodkiewka",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt grecki",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sałatka z kurczakiem, ogórkiem i orzechami włoskimi, Chicken salad with iceberg lettuce, cucumber, radish and walnuts, yogurt dill dressing, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "5d30be7d-72f4-44d8-8155-134a6ea335ce",
+      "title": "Polędwiczka wieprzowa z pieczoną dynią i tymiankiem",
+      "description": "Polędwiczka obsmażona i dopieczona w piekarniku obok kostek dyni z czosnkiem i tymiankiem. Obiad paleo z jednej blachy.",
+      "mealType": "LUNCH",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 834,
+        "protein": 90,
+        "carbs": 34,
+        "fat": 38,
+        "fiber": 4,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Dynię pokrój w kostkę, wymieszaj z połową oliwy, czosnkiem, tymiankiem, solą i pieprzem. Piecz 15 minut w 200°C."
+        },
+        {
+          "step": 2,
+          "instruction": "Polędwiczkę dopraw i obsmaż na reszcie oliwy ze wszystkich stron."
+        },
+        {
+          "step": 3,
+          "instruction": "Ułóż mięso na blasze obok dyni i piecz jeszcze 15 minut."
+        },
+        {
+          "step": 4,
+          "instruction": "Odstaw mięso na 5 minut, pokrój w plastry i podawaj z dynią."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "polędwiczka wieprzowa",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "dynia",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "tymianek suszony",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Polędwiczka wieprzowa z pieczoną dynią i tymiankiem, Sliced roast pork tenderloin with roasted pumpkin cubes and thyme on a sheet pan, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "07bbe3de-c13f-4825-bd5b-59753673344c",
+      "title": "Indyk mielony duszony z papryką i cukinią",
+      "description": "Mielony indyk duszony z papryką, cukinią i pomidorami z puszki, z kminem i wędzoną papryką. Jedna patelnia, mało węglowodanów, bez nabiału.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 974,
+        "protein": 86,
+        "carbs": 36,
+        "fat": 51,
+        "fiber": 14,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Na oliwie zeszklij cebulę, dodaj czosnek i indyka, smaż rozdrabniając, aż zbieleje."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj paprykę i cukinię pokrojone w kostkę, smaż 5 minut."
+        },
+        {
+          "step": 3,
+          "instruction": "Wlej pomidory, dodaj przyprawy, duś 15 minut bez przykrycia."
+        },
+        {
+          "step": 4,
+          "instruction": "Dopraw do smaku i podawaj."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "indyk mielony",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cukinia",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor krojony z puszki",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Indyk mielony duszony z papryką i cukinią, Ground turkey skillet with red pepper, zucchini and tomatoes, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "f143df9f-1e38-4575-8b24-270f14f90406",
+      "title": "Placuszki z batata z jajkiem",
+      "description": "Placuszki ze startego batata, jajka i cebuli, smażone na oleju na złoto, podane z pomidorem i szczypiorkiem. Śniadanie paleo bez mąki i bez nabiału.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 788,
+        "protein": 23,
+        "carbs": 85,
+        "fat": 34,
+        "fiber": 18,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Batata obierz i zetrzyj na grubych oczkach, odciśnij z soku. Cebulę zetrzyj drobno."
+        },
+        {
+          "step": 2,
+          "instruction": "Wymieszaj z jajkami, papryką, solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Nakładaj łyżką na rozgrzany olej, spłaszcz i smaż po 4 minuty z każdej strony."
+        },
+        {
+          "step": 4,
+          "instruction": "Podawaj z pomidorem w plastrach i szczypiorkiem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "batat",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "pomidor",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Placuszki z batata z jajkiem, Golden sweet potato fritters with sliced tomato and chives, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "10b0fe6a-af7b-4f15-b853-ce9e833bc3ea",
+      "title": "Wołowina duszona z marchewką i selerem",
+      "description": "Kawałki wołowiny duszone powoli z marchewką, selerem, cebulą i koncentratem pomidorowym, z majerankiem. Gęsty gulasz paleo bez zasmażki.",
+      "mealType": "LUNCH",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 90,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1030,
+        "protein": 114,
+        "carbs": 37,
+        "fat": 45,
+        "fiber": 12,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Wołowinę pokrój w kostkę, dopraw i obsmaż partiami na oleju. Odłóż."
+        },
+        {
+          "step": 2,
+          "instruction": "W tym samym garnku zeszklij cebulę, dodaj czosnek i koncentrat, smaż minutę."
+        },
+        {
+          "step": 3,
+          "instruction": "Włóż mięso, dodaj marchew i seler w kostce, majeranek, wlej 400 ml wody."
+        },
+        {
+          "step": 4,
+          "instruction": "Duś pod przykryciem 70 minut, aż mięso będzie miękkie, a sos gęsty. Dopraw."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "wołowina",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "seler korzeniowy",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "koncentrat pomidorowy",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "majeranek",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Wołowina duszona z marchewką i selerem, Slow-braised beef stew with carrot and celeriac in a rustic pot, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "7561122c-da82-4db5-a45c-4bd479f627ca",
+      "title": "Sałatka z pieczonego buraka, jabłka i orzechów włoskich",
+      "description": "Pieczony burak z jabłkiem, sałatą lodową, orzechami włoskimi i dressingiem z oliwy i octu jabłkowego. Kolacja wegańska i paleo w jednym.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 741,
+        "protein": 14,
+        "carbs": 51,
+        "fat": 50,
+        "fiber": 19,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Buraki zawiń w folię i piecz 40 minut w 200°C, obierz i pokrój w kostkę."
+        },
+        {
+          "step": 2,
+          "instruction": "Jabłko pokrój w cienkie plasterki, sałatę porwij."
+        },
+        {
+          "step": 3,
+          "instruction": "Oliwę wymieszaj z octem, solą i pieprzem."
+        },
+        {
+          "step": 4,
+          "instruction": "Połącz wszystko na talerzach, posyp orzechami i polej dressingiem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "burak",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jabłko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "sałata lodowa",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ocet jabłkowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sałatka z pieczonego buraka, jabłka i orzechów włoskich, Roasted beetroot salad with apple slices, walnuts and lettuce, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "168d56ab-a650-4b99-9738-c4baf5ceee42",
+      "title": "Jajecznica z awokado i pomidorem",
+      "description": "Jajecznica na oliwie z pomidorem i kostkami awokado, ze szczypiorkiem. Śniadanie w 10 minut, bez pieczywa i nabiału.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 746,
+        "protein": 36,
+        "carbs": 8,
+        "fat": 60,
+        "fiber": 12,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pomidora pokrój w kostkę, podsmaż minutę na oliwie."
+        },
+        {
+          "step": 2,
+          "instruction": "Wbij jajka, dopraw i mieszaj na małym ogniu, aż się zetną, ale zostaną kremowe."
+        },
+        {
+          "step": 3,
+          "instruction": "Zdejmij z ognia, dodaj awokado w kostce i szczypiorek."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jajko",
+          "amount": 5,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "awokado",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "pomidor",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Jajecznica z awokado i pomidorem, Soft scrambled eggs with avocado cubes, tomato and chives, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "6d774bd5-2ce5-4acc-a928-76f074302139",
+      "title": "Curry z kurczaka na mleku kokosowym z brokułem",
+      "description": "Kurczak duszony w mleku kokosowym z curry, imbirem i czosnkiem, z brokułem i papryką. Bez ryżu: syci tłuszcz kokosowy, a warzywa dają objętość.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1587,
+        "protein": 113,
+        "carbs": 44,
+        "fat": 109,
+        "fiber": 16,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Kurczaka pokrój w kostkę, obsmaż na oleju, odłóż."
+        },
+        {
+          "step": 2,
+          "instruction": "Zeszklij cebulę z czosnkiem, dodaj curry i imbir, smaż minutę."
+        },
+        {
+          "step": 3,
+          "instruction": "Wlej mleko kokosowe, dodaj kurczaka, brokuł i paprykę, duś 12 minut pod przykryciem."
+        },
+        {
+          "step": 4,
+          "instruction": "Dopraw solą i podawaj."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "filet z kurczaka",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 400,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "brokuł",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "curry",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "imbir mielony",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Curry z kurczaka na mleku kokosowym z brokułem, Coconut chicken curry with broccoli and red pepper in a bowl, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "24c30dd8-f869-4549-a7b7-578304b43e63",
+      "title": "Mintaj pieczony z warzywami korzeniowymi",
+      "description": "Filet z mintaja pieczony na warstwie marchewki, pietruszki i pora z oliwą i tymiankiem. Lekka kolacja paleo z jednej blachy.",
+      "mealType": "DINNER",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 757,
+        "protein": 75,
+        "carbs": 44,
+        "fat": 28,
+        "fiber": 18,
+        "salt": 2
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Marchew i pietruszkę pokrój w słupki, por w plastry. Wymieszaj z połową oliwy, tymiankiem, solą."
+        },
+        {
+          "step": 2,
+          "instruction": "Piecz 15 minut w 200°C."
+        },
+        {
+          "step": 3,
+          "instruction": "Na warzywach ułóż mintaja, skrop resztą oliwy i sokiem z cytryny, dopraw. Piecz 12 minut."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mintaj",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "pietruszka korzeń",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "por",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "tymianek suszony",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Mintaj pieczony z warzywami korzeniowymi, Baked pollock fillet over roasted carrot, parsnip and leek, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "9659d596-db27-4ba7-a920-6200caa602db",
+      "title": "Kotlety z indyka z pieczonymi burakami",
+      "description": "Kotleciki z mielonego indyka z cebulą i jajkiem, bez bułki, smażone na oleju, z pieczonymi burakami i koperkiem. Obiad paleo z polskiej kuchni.",
+      "mealType": "LUNCH",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 50,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 1062,
+        "protein": 89,
+        "carbs": 38,
+        "fat": 59,
+        "fiber": 14,
+        "salt": 3
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Buraki pokrój w ćwiartki, skrop częścią oleju, dopraw i piecz 35 minut w 200°C."
+        },
+        {
+          "step": 2,
+          "instruction": "Indyka wymieszaj z jajkiem, drobno startą cebulą, majerankiem, solą i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Uformuj 6 kotletów i smaż na oleju po 5 minut z każdej strony."
+        },
+        {
+          "step": 4,
+          "instruction": "Podawaj z burakami posypanymi koperkiem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "indyk mielony",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "burak",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "majeranek",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kotlety z indyka z pieczonymi burakami, Turkey patties with roasted beetroot wedges and dill, natural light, no text",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "c1099021-e4a1-4678-b4a6-ca9b64ad4432",
+      "title": "Miska smoothie z borówkami, bananem i chia",
+      "description": "Gęste smoothie z borówek, banana i mleka kokosowego, w misce, z nasionami chia i truskawkami na wierzchu. Śniadanie bez gotowania, wegańskie i paleo.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 851,
+        "protein": 12,
+        "carbs": 86,
+        "fat": 50,
+        "fiber": 20,
+        "salt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Borówki, jednego banana i mleko kokosowe zmiksuj na gęsto."
+        },
+        {
+          "step": 2,
+          "instruction": "Przelej do misek, ułóż na wierzchu plasterki drugiego banana i truskawki."
+        },
+        {
+          "step": 3,
+          "instruction": "Posyp nasionami chia."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "borówka",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "nasiona chia",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "truskawka",
+          "amount": 100,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Miska smoothie z borówkami, bananem i chia, Blueberry smoothie bowl topped with banana, strawberries and chia seeds, natural light, no text",
+        "imageUrl": null
+      }
     }
   ]
 }

@@ -119,7 +119,15 @@ describe('buildPlanWeekCard', () => {
     });
 
     expect(card.removed).toEqual([
-      { dayLabel: 'Piątek', mealLabel: 'Kolacja', title: 'Pierogi' },
+      {
+        dayLabel: 'Piątek',
+        mealLabel: 'Kolacja',
+        title: 'Pierogi',
+        dayOfWeek: 'FRI',
+        mealType: 'DINNER',
+        recipeId: 'r-1',
+        reason: null,
+      },
     ]);
   });
 
@@ -144,9 +152,41 @@ describe('buildPlanWeekCard', () => {
   });
 
   it('podtytuł bierze zdanie modelu, ale puste zostaje puste', () => {
-    expect(build({}, '  Nic się nie powtarza dwa dni z rzędu.  ').subtitle).toBe(
-      'Nic się nie powtarza dwa dni z rzędu.',
-    );
+    expect(
+      build({}, '  Nic się nie powtarza dwa dni z rzędu.  ').subtitle,
+    ).toBe('Nic się nie powtarza dwa dni z rzędu.');
     expect(build({}, '   ').subtitle).toBeNull();
+  });
+  it('powód usunięcia od modelu trafia obok przekreślonego dania; bez dopasowania zostaje null', () => {
+    const card = buildPlanWeekCard({
+      proposalId: 'p-1',
+      weekStart: '2026-08-31',
+      preview: preview({
+        slots: [],
+        removed: [
+          {
+            dayOfWeek: 'FRI',
+            mealType: 'DINNER',
+            recipeId: 'r-1',
+            title: 'Pierogi',
+          },
+          {
+            dayOfWeek: 'MON',
+            mealType: 'LUNCH',
+            recipeId: 'r-2',
+            title: 'Pizza',
+          },
+        ],
+      }),
+      targetKcalPerDay: null,
+      expiresAt: new Date('2026-09-05T12:00:00.000Z'),
+      removalReasons: [
+        { dayOfWeek: 'MON', mealType: 'LUNCH', reason: ' ponad cel ' },
+      ],
+    });
+    expect(card.removed.map((r) => [r.title, r.reason])).toEqual([
+      ['Pierogi', null],
+      ['Pizza', 'ponad cel'],
+    ]);
   });
 });

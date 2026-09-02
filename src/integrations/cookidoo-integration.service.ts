@@ -10,6 +10,7 @@ import {
   CookidooServiceClient,
   CookidooSubscriptionInfo,
 } from './cookidoo-service.client';
+import { isCookidooIntegrationEnabled } from './cookidoo-flag';
 
 const STATUS_CONNECTED = 'CONNECTED';
 const STATUS_AUTH_FAILED = 'AUTH_FAILED';
@@ -22,6 +23,12 @@ const DEBOUNCE_WINDOW_MS = 60_000;
 
 export type CookidooStatusView = {
   connected: boolean;
+  /**
+   * Czy integracja jest w ogóle dostępna (`COOKIDOO_INTEGRATION_ENABLED`).
+   * `false` = klient chowa wiersz w Ustawieniach; poświadczenia zostają,
+   * `disconnect` nadal działa.
+   */
+  enabled: boolean;
   login?: string;
   status?: string;
   connectedById?: string | null;
@@ -48,6 +55,7 @@ export class CookidooIntegrationService {
   ): Promise<
     CookidooStatusView & { subscription: CookidooSubscriptionInfo | null }
   > {
+    this.assertEnabled();
     const householdId = await this.resolveHouseholdId(userId);
 
     // Najpierw walidacja u Vorwerka — błędne dane nie mogą nadpisać
@@ -74,6 +82,7 @@ export class CookidooIntegrationService {
 
     return {
       connected: true,
+      enabled: true,
       login: email,
       status: STATUS_CONNECTED,
       connectedById: userId,
@@ -83,12 +92,17 @@ export class CookidooIntegrationService {
   }
 
   async status(userId: string): Promise<CookidooStatusView> {
+    if (!isCookidooIntegrationEnabled()) {
+      // Bez odczytu bazy: wyłączona integracja nie zdradza nawet tego, czy
+      // ktoś ją kiedyś podłączył; klient ma schować wiersz.
+      return { connected: false, enabled: false };
+    }
     const householdId = await this.resolveHouseholdId(userId);
     const integration = await this.prisma.cookidooIntegration.findUnique({
       where: { householdId },
     });
     if (!integration) {
-      return { connected: false };
+      return { connected: false, enabled: true };
     }
 
     let login: string;
@@ -98,11 +112,12 @@ export class CookidooIntegrationService {
     } catch {
       // Klucz się zmienił (rotacja/utrata) — stare wpisy są nie do odczytania,
       // więc dla klienta integracji po prostu nie ma; trzeba połączyć ponownie.
-      return { connected: false };
+      return { connected: false, enabled: true };
     }
 
     return {
       connected: true,
+      enabled: true,
       login,
       status: integration.status,
       connectedById: integration.connectedById,
@@ -110,12 +125,15 @@ export class CookidooIntegrationService {
     };
   }
 
-  async disconnect(userId: string): Promise<{ connected: false }> {
+  /** Działa także przy wyłączonej integracji — usunięcie hasła to prawo użytkownika. */
+  async disconnect(
+    userId: string,
+  ): Promise<{ connected: false; enabled: boolean }> {
     const householdId = await this.resolveHouseholdId(userId);
     await this.prisma.cookidooIntegration.deleteMany({
       where: { householdId },
     });
-    return { connected: false };
+    return { connected: false, enabled: isCookidooIntegrationEnabled() };
   }
 
   async sendToWeek(
@@ -123,6 +141,7 @@ export class CookidooIntegrationService {
     recipeId: string,
     date: string,
   ): Promise<{ ok: true; date: string; alreadySent: boolean }> {
+    this.assertEnabled();
     const householdId = await this.resolveHouseholdId(userId);
 
     const integration = await this.prisma.cookidooIntegration.findUnique({
@@ -213,6 +232,15 @@ export class CookidooIntegrationService {
     });
 
     return { ok: true, date, alreadySent: false };
+  }
+
+  private assertEnabled(): void {
+    if (isCookidooIntegrationEnabled()) return;
+    throw new AppException(
+      'COOKIDOO_DISABLED',
+      'Integracja z Cookidoo jest tymczasowo wyłączona.',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
   }
 
   private wasRecentlySent(key: string): boolean {

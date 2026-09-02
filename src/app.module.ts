@@ -10,6 +10,8 @@ import { ObservabilityModule } from './observability/observability.module';
 import { CommonModule } from './common/common.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { AgentModule } from './agent/agent.module';
+import { ConsentsModule } from './consents/consents.module';
+import { DataExportModule } from './data-export/data-export.module';
 import { AppThrottleModule } from './common/throttle/throttle.module';
 
 @Module({
@@ -27,6 +29,8 @@ import { AppThrottleModule } from './common/throttle/throttle.module';
     NotificationsModule,
     ObservabilityModule,
     IntegrationsModule,
+    ConsentsModule,
+    DataExportModule,
     AgentModule,
   ],
 })

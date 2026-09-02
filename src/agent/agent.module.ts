@@ -1,9 +1,14 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ConsentsModule } from '../consents/consents.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { HouseholdsModule } from '../households/households.module';
 import { RecipesModule } from '../recipes/recipes.module';
 import { WeeklyPlansModule } from '../weekly-plans/weekly-plans.module';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
+import { AgentRetentionService } from './agent-retention.service';
+import { AgentReportsService } from './agent-reports.service';
+import { AgentUsageService } from './agent-usage.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
 import { AgentPromptService } from './agent-prompt.service';
 import { ObservabilityModule } from '../observability/observability.module';
@@ -11,6 +16,7 @@ import { AgentConfigService } from './agent-config.service';
 import { AgentConversationsService } from './agent-conversations.service';
 import { AgentMemoryService } from './agent-memory.service';
 import { AgentController } from './agent.controller';
+import { AgentContextService } from './agent-context.service';
 import { AgentTurnRunner } from './agent-turn.runner';
 import { AgentTurnsService } from './agent-turns.service';
 import { AiUsageCountersService } from './ai-usage-counters.service';
@@ -40,6 +46,10 @@ import { UpstreamBreaker } from './upstream-breaker';
     HouseholdsModule,
     WeeklyPlansModule,
     RecipesModule,
+    // Zgody: bramka przed turą i filtr domowników w prompcie.
+    ConsentsModule,
+    // Push „asystent odpowiedział" po domknięciu tury.
+    NotificationsModule,
   ],
   controllers: [AgentController],
   providers: [
@@ -52,7 +62,11 @@ import { UpstreamBreaker } from './upstream-breaker';
     AgentProviderResolver,
     AgentToolExecutor,
     AgentProposalsService,
+    AgentContextService,
     AgentPromptService,
+    AgentRetentionService,
+    AgentReportsService,
+    AgentUsageService,
     StubAgentProvider,
     AnthropicAgentProvider,
     // Jeden bezpiecznik na proces — stan współdzielą wszystkie rozmowy,

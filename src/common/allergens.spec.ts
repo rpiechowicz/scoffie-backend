@@ -40,7 +40,7 @@ describe('normalizeAllergenIds', () => {
     expect(normalizeAllergenIds([])).toEqual([]);
   });
 
-  it.each(['shellfish', 'sulphites', 'anything', 'GLUTEN_FREE'])(
+  it.each(['shellfish', 'dairy', 'anything', 'GLUTEN_FREE'])(
     'powinno odrzucić nieznane id %s jako VALIDATION_ERROR',
     (bad) => {
       expect(() => normalizeAllergenIds(['gluten', bad])).toThrow(AppException);
@@ -82,6 +82,9 @@ describe('isAllergenId', () => {
   );
 
   it('powinno pilnować kontraktu z iOS (DietPreference.swift, enum Allergen)', () => {
+    // Pierwsze dziesięć zna wydany build iOS; pięć ostatnich (14 alergenów
+    // UE, 2.09.2026) serwer niesie PRZED telefonem — iOS pomija nieznane id
+    // w przepisach i zachowuje je w preferencjach.
     expect(ALLERGEN_ID_VALUES).toEqual([
       'gluten',
       'lactose',
@@ -93,6 +96,33 @@ describe('isAllergenId', () => {
       'celery',
       'mustard',
       'sesame',
+      'milk',
+      'crustaceans',
+      'molluscs',
+      'lupin',
+      'sulphites',
     ]);
+  });
+
+  it('domyka 14 alergenów z załącznika II rozporządzenia 1169/2011', () => {
+    // laktoza jest PONAD listą UE (nietolerancja, nie alergia).
+    const eu = [
+      'gluten',
+      'crustaceans',
+      'eggs',
+      'fish',
+      'peanuts',
+      'soy',
+      'milk',
+      'nuts',
+      'celery',
+      'mustard',
+      'sesame',
+      'sulphites',
+      'lupin',
+      'molluscs',
+    ];
+    for (const id of eu) expect(isAllergenId(id)).toBe(true);
+    expect(ALLERGEN_ID_VALUES).toHaveLength(eu.length + 1);
   });
 });

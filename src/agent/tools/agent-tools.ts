@@ -150,7 +150,8 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         },
         hint: {
           type: 'string',
-          description: 'Jedno zdanie, dlaczego pytasz. Pomiń, gdy to oczywiste.',
+          description:
+            'Jedno zdanie, dlaczego pytasz. Pomiń, gdy to oczywiste.',
         },
         options: {
           type: 'array',
@@ -378,6 +379,20 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           description:
             'Jedno zdanie, dlaczego akurat tak. Bez liczb i bez nazw dań — te są w karcie.',
         },
+        removals: {
+          type: 'array',
+          description:
+            'Dla każdego dania z OBECNEGO planu, którego nie ma w slots: jedno-dwa słowa dlaczego ' +
+            '(„powtórka", „ponad cel", „bez ryb"). Karta pokaże to obok przekreślonego dania. Pomiń, gdy nic nie znika.',
+          items: object(
+            {
+              day_of_week: DAY,
+              meal_type: MEAL,
+              reason: { type: 'string', description: 'Najwyżej 3 słowa.' },
+            },
+            ['day_of_week', 'meal_type', 'reason'],
+          ),
+        },
         slots: {
           type: 'array',
           description: 'Najwyżej 42 pozycje na tydzień.',
@@ -543,7 +558,19 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       'i tak policzą narzędzia, ani niczego o wadze, zdrowiu i celach — to jest w preferencjach ' +
       'domownika i nie ma prawa trafić do wspólnej pamięci domu. Jedno zdanie, po polsku, bez ' +
       'imion, których użytkownik sam nie użył.',
-    input_schema: object({ text: { type: 'string' } }, ['text']),
+    input_schema: object(
+      {
+        text: { type: 'string' },
+        kind: {
+          type: 'string',
+          enum: ['PREFERENCE', 'CONSTRAINT', 'HABIT'],
+          description:
+            'PREFERENCE = co lubią / wolą; CONSTRAINT = czego nie jedzą albo nie mogą; ' +
+            'HABIT = stałe zwyczaje i rytm tygodnia. Pomiń = PREFERENCE.',
+        },
+      },
+      ['text'],
+    ),
     strict: true,
   },
   {
@@ -556,4 +583,53 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
   },
 ] as const;
 
-export const AGENT_TOOL_NAMES = AGENT_TOOLS.map((tool) => tool.name);
+/**
+ * Przekazanie tury mocniejszemu modelowi (`AI_MODEL_TOOLS`).
+ *
+ * Tańszy model dostaje TYLKO narzędzia do czytania i to jedno. Nie ma jak
+ * ułożyć planu sam — `propose_*`/`apply_*` pojawiają się dopiero po wywołaniu
+ * `start_planning`, kiedy pałeczkę przejmuje `AI_MODEL`. Dzięki temu podział
+ * pracy jest wymuszony przez listę narzędzi, a nie przez prośbę w prompcie.
+ * `reason` idzie do postępu tury jako „biorę się za plan" — użytkownik widzi,
+ * że zaczyna się droższa część i że to normalne.
+ */
+export const START_PLANNING_TOOL: AgentToolDefinition = {
+  name: 'start_planning',
+  description:
+    'Przekazanie pałeczki dokładniejszemu modelowi, który ułoży albo zmieni plan. ' +
+    'Wywołaj, gdy pytanie wymaga UŁOŻENIA lub ZMIANY planu (tydzień, dzień, podmiana ' +
+    'dania, porcje dla domu, nowy albo poprawiony przepis). Dopiero po tym wywołaniu ' +
+    'dostaniesz narzędzia propose_* i apply_*. NIE wywołuj przy pytaniach o to, co jest ' +
+    'w planie, o składniki, bilans czy listę zakupów — na nie odpowiadasz sam. ' +
+    'Zanim je wywołasz, zbierz kontekst (plan tygodnia, domownicy), żeby planista nie ' +
+    'powtarzał tych kroków.',
+  input_schema: object({
+    reason: {
+      type: 'string',
+      description: 'Jedno krótkie zdanie po polsku: co zamierzasz ułożyć.',
+    },
+  }),
+  strict: true,
+};
+
+/** Narzędzia, których tańszy model NIE dostaje przed `start_planning`. */
+export const PLANNING_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'propose_week_plan',
+  'propose_day_plan',
+  'propose_swap',
+  'propose_household_split',
+  'apply_week_plan',
+  'create_recipe',
+  'update_recipe',
+  'delete_recipe',
+]);
+
+/** Lista narzędzi PRZED przekazaniem: czytanie + `start_planning`. */
+export const TRIAGE_TOOLS: readonly AgentToolDefinition[] = [
+  ...AGENT_TOOLS.filter((tool) => !PLANNING_TOOL_NAMES.has(tool.name)),
+  START_PLANNING_TOOL,
+];
+
+export const AGENT_TOOL_NAMES = [...AGENT_TOOLS, START_PLANNING_TOOL].map(
+  (tool) => tool.name,
+);

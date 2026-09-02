@@ -43,7 +43,14 @@ export function buildMacroGapCard(input: {
   /** „ten tydzień” albo imię domownika — czego dotyczy zestawienie. */
   scopeLabel: string;
 }): MacroGapCard {
-  const boosters = input.boosters.slice(0, MAX_BOOSTERS);
+  // Każda zmiana ma własne pytanie: strzałka przy wierszu wysyła je jako
+  // zwykłą wiadomość, a model układa z tego propozycję do zatwierdzenia.
+  const boosters = input.boosters.slice(0, MAX_BOOSTERS).map((booster) => ({
+    ...booster,
+    prompt:
+      booster.prompt ??
+      `Zastosuj w planie tę zmianę: ${booster.text}. Pokaż mi ją jako propozycję.`,
+  }));
   const gap = input.target - input.current;
   const unit = MACRO_UNITS[input.macro];
 

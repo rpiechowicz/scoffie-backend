@@ -1,3 +1,4 @@
+import { Optional } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -7,7 +8,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { IsObject, IsOptional, IsString } from 'class-validator';
+import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 import { validateWsPayload } from '../common/validate-dto';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
@@ -15,6 +16,7 @@ import type { AppSocket } from '../common/ws-socket';
 import { actorId } from '../common/ws-socket';
 import { disconnectUser } from '../common/ws-rooms';
 import { UsersService } from './users.service';
+import { AppleRevocationService } from './apple-revocation.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Server, Socket } from 'socket.io';
@@ -39,6 +41,19 @@ class UsersActorPayload {
  * Zawartość waliduje serwis przez `validateDto(UpdatePreferencesDto/…)` —
  * każde pole dokładnie raz, dlatego bez `@ValidateNested` tutaj.
  */
+/**
+ * Kasowanie konta: opcjonalny świeży kod autoryzacji Sign in with Apple.
+ * Telefon zdobywa go ponownym `ASAuthorizationAppleIDRequest` tuż przed
+ * kasowaniem; serwer unieważnia nim tokeny u Apple (wytyczne 5.1.1(v)).
+ * Brak kodu (konto Google/dev, stary build) = kasowanie jak dotąd.
+ */
+class UsersDeletePayload extends UsersActorPayload {
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  appleAuthorizationCode?: string;
+}
+
 class UsersPreferencesUpdatePayload extends UsersActorPayload {
   @IsObject()
   data: UpdatePreferencesDto;
@@ -57,6 +72,8 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly usersService: UsersService,
     private readonly wsTelemetry: WsTelemetryService,
+    // Opcjonalnie: testy jednostkowe bramki nie stawiają tego serwisu.
+    @Optional() private readonly appleRevocation?: AppleRevocationService,
   ) {}
 
   handleConnection(_client: Socket) {
@@ -125,10 +142,16 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('users:delete')
   deleteAccount(
     @ConnectedSocket() client: AppSocket,
-    @MessageBody() payload: UsersActorPayload,
+    @MessageBody() payload: UsersDeletePayload,
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      // Najpierw Apple, potem baza: kod jest jednorazowy i żyje 5 minut,
+      // a porażka u Apple nie blokuje kasowania (prawo z art. 17 RODO).
+      const code = payload?.appleAuthorizationCode?.trim();
+      if (code && this.appleRevocation) {
+        await this.appleRevocation.revoke(code);
+      }
       const result = await this.usersService.deleteAccount(userId);
       setImmediate(() => disconnectUser(this.server, userId));
       return result;

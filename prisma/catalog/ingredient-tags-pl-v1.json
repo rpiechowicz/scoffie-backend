@@ -2,8 +2,8 @@
   "version": "ingredient-tags-pl-v1",
   "convention": {
     "klucz": "normalizedName = normalizeText(nazwa z ingredients-*-pl-v1.txt) — jak w ingredient-nutrition-pl-v1.json",
-    "allergens": "id z src/common/allergens.ts (kontrakt z iOS enum Allergen); oznaczane NADMIAROWO — produkt zwykle zawierający alergen dostaje go; lactose = nabiał zawierający laktozę (bez laktozy/ghee: DAIRY bez lactose); fish obejmuje owoce morza",
-    "dietTags": "id z src/common/diet-tags.ts; gluten⇒GLUTEN_GRAIN⇒GRAIN, lactose⇒DAIRY, eggs⇒EGG, fish⇒FISH, CRUSTACEAN⇒FISH, soy/peanuts⇒LEGUME, NON_FOOD sam; PROCESSED = wysoko przetworzone (paleo)",
+    "allergens": "id z src/common/allergens.ts (kontrakt z iOS enum Allergen; 14 alergenów UE + lactose); oznaczane NADMIAROWO — produkt zwykle zawierający alergen dostaje go; lactose = nabiał zawierający laktozę (nietolerancja), milk = KAŻDY nabiał, także bez laktozy i ghee (alergia na białko mleka); fish obejmuje owoce morza, skorupiaki dodatkowo crustaceans, mięczaki dodatkowo molluscs; sulphites = wino, cydr, ocet winny; lupin dziś bez składnika",
+    "dietTags": "id z src/common/diet-tags.ts; gluten⇒GLUTEN_GRAIN⇒GRAIN, lactose⇒milk⇒DAIRY, DAIRY⇒milk, eggs⇒EGG, fish⇒FISH, CRUSTACEAN⇒FISH+fish+crustaceans, molluscs⇒FISH+fish, soy/peanuts⇒LEGUME, NON_FOOD sam; PROCESSED = wysoko przetworzone (paleo)",
     "edycja": "po zmianie: pnpm catalog:ingredients:tags (idempotentne, przelicza tagi przepisów)"
   },
   "ingredients": [
@@ -92,6 +92,7 @@
       "allergens": [
         "gluten",
         "lactose",
+        "milk",
         "nuts",
         "peanuts",
         "soy"
@@ -113,6 +114,7 @@
         "eggs",
         "gluten",
         "lactose",
+        "milk",
         "nuts",
         "peanuts",
         "soy"
@@ -134,6 +136,7 @@
       "allergens": [
         "gluten",
         "lactose",
+        "milk",
         "nuts",
         "peanuts",
         "soy"
@@ -160,6 +163,7 @@
       "category": "inne",
       "allergens": [
         "lactose",
+        "milk",
         "soy"
       ],
       "dietTags": [
@@ -263,7 +267,8 @@
       "normalizedName": "budyn",
       "category": "cukiernia",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -417,7 +422,8 @@
       "normalizedName": "chips ziemniaczany",
       "category": "przekaska-i-slodycz",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -518,6 +524,7 @@
         "eggs",
         "gluten",
         "lactose",
+        "milk",
         "nuts",
         "soy"
       ],
@@ -539,6 +546,7 @@
         "eggs",
         "gluten",
         "lactose",
+        "milk",
         "nuts",
         "soy"
       ],
@@ -559,7 +567,8 @@
       "allergens": [
         "eggs",
         "gluten",
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -636,7 +645,9 @@
       "name": "cydr",
       "normalizedName": "cydr",
       "category": "alkohole",
-      "allergens": [],
+      "allergens": [
+        "sulphites"
+      ],
       "dietTags": [
         "ALCOHOL"
       ]
@@ -674,6 +685,7 @@
       "category": "przekaska-i-slodycz",
       "allergens": [
         "lactose",
+        "milk",
         "soy"
       ],
       "dietTags": [
@@ -689,6 +701,7 @@
       "allergens": [
         "gluten",
         "lactose",
+        "milk",
         "nuts",
         "soy"
       ],
@@ -739,6 +752,7 @@
       "category": "przekaska-i-slodycz",
       "allergens": [
         "lactose",
+        "milk",
         "nuts",
         "peanuts",
         "soy"
@@ -773,7 +787,8 @@
       "allergens": [
         "eggs",
         "gluten",
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -1083,7 +1098,8 @@
       "normalizedName": "jogurt grecki",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -1094,7 +1110,8 @@
       "normalizedName": "jogurt naturalny",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -1105,7 +1122,8 @@
       "normalizedName": "jogurt owocowy",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -1118,7 +1136,8 @@
       "normalizedName": "jogurt pitny",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -1326,7 +1345,8 @@
       "normalizedName": "kefir",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -1509,6 +1529,7 @@
       "normalizedName": "krewetka",
       "category": "ryby-owoce-morza",
       "allergens": [
+        "crustaceans",
         "fish"
       ],
       "dietTags": [
@@ -1783,7 +1804,8 @@
       "normalizedName": "margaryna",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -1796,7 +1818,8 @@
       "normalizedName": "margaryna do smarowania",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -1809,7 +1832,8 @@
       "normalizedName": "maslanka",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -1820,7 +1844,8 @@
       "normalizedName": "maslo",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -1830,7 +1855,9 @@
       "name": "masło klarowane",
       "normalizedName": "maslo klarowane",
       "category": "olej-i-tluszcz",
-      "allergens": [],
+      "allergens": [
+        "milk"
+      ],
       "dietTags": [
         "DAIRY"
       ],
@@ -1903,7 +1930,8 @@
       "normalizedName": "mleko",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -1913,7 +1941,9 @@
       "name": "mleko bez laktozy",
       "normalizedName": "mleko bez laktozy",
       "category": "nabial-i-jajko",
-      "allergens": [],
+      "allergens": [
+        "milk"
+      ],
       "dietTags": [
         "DAIRY"
       ],
@@ -1955,7 +1985,8 @@
       "normalizedName": "mleko skondensowane",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -1989,7 +2020,8 @@
       "normalizedName": "mozzarella",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -2000,7 +2032,8 @@
       "normalizedName": "mozzarella tarta",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -2014,7 +2047,8 @@
       "allergens": [
         "eggs",
         "gluten",
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -2142,7 +2176,9 @@
       "name": "ocet winny",
       "normalizedName": "ocet winny",
       "category": "przyprawy-i-sosy",
-      "allergens": [],
+      "allergens": [
+        "sulphites"
+      ],
       "dietTags": [],
       "note": "Alkohol z wina przefermentowany do kwasu octowego — bez ALCOHOL."
     },
@@ -2266,7 +2302,8 @@
       "allergens": [
         "eggs",
         "gluten",
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -2796,6 +2833,7 @@
       "category": "przekaska-i-slodycz",
       "allergens": [
         "lactose",
+        "milk",
         "soy"
       ],
       "dietTags": [
@@ -2829,7 +2867,8 @@
       "allergens": [
         "eggs",
         "gluten",
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -3011,7 +3050,8 @@
       "normalizedName": "ser camembert",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3022,7 +3062,8 @@
       "normalizedName": "ser cheddar",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3033,7 +3074,8 @@
       "normalizedName": "ser edamski",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3044,7 +3086,8 @@
       "normalizedName": "ser feta",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3055,7 +3098,8 @@
       "normalizedName": "ser gouda",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3066,7 +3110,8 @@
       "normalizedName": "ser grillowy",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3077,7 +3122,8 @@
       "normalizedName": "ser halloumi",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3088,7 +3134,8 @@
       "normalizedName": "ser mascarpone",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3099,7 +3146,8 @@
       "normalizedName": "ser parmezan",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3111,7 +3159,8 @@
       "normalizedName": "ser plesniowy",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3122,7 +3171,8 @@
       "normalizedName": "ser ricotta",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3133,7 +3183,8 @@
       "normalizedName": "ser twarog chudy",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3144,7 +3195,8 @@
       "normalizedName": "ser twarog poltlusty",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3155,7 +3207,8 @@
       "normalizedName": "ser twarog tlusty",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3166,7 +3219,8 @@
       "normalizedName": "ser zolty",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3177,7 +3231,8 @@
       "normalizedName": "serek homogenizowany",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -3190,7 +3245,8 @@
       "normalizedName": "serek kanapkowy",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3201,7 +3257,8 @@
       "normalizedName": "serek kremowy",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3212,7 +3269,8 @@
       "normalizedName": "serek wiejski",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3241,7 +3299,8 @@
       "normalizedName": "skyr naturalny",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3252,7 +3311,8 @@
       "normalizedName": "skyr owocowy",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY",
@@ -3301,7 +3361,8 @@
       "normalizedName": "smietana 12",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3312,7 +3373,8 @@
       "normalizedName": "smietana 18",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3323,7 +3385,8 @@
       "normalizedName": "smietanka 12",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3334,7 +3397,8 @@
       "normalizedName": "smietanka 18",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3345,7 +3409,8 @@
       "normalizedName": "smietanka 30",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3599,7 +3664,8 @@
       "normalizedName": "twarozek",
       "category": "nabial-i-jajko",
       "allergens": [
-        "lactose"
+        "lactose",
+        "milk"
       ],
       "dietTags": [
         "DAIRY"
@@ -3628,6 +3694,7 @@
       "allergens": [
         "gluten",
         "lactose",
+        "milk",
         "nuts",
         "soy"
       ],
@@ -3733,7 +3800,9 @@
       "name": "wino białe półsłodkie",
       "normalizedName": "wino biale polslodkie",
       "category": "alkohole",
-      "allergens": [],
+      "allergens": [
+        "sulphites"
+      ],
       "dietTags": [
         "ALCOHOL"
       ]
@@ -3742,7 +3811,9 @@
       "name": "wino białe półwytrawne",
       "normalizedName": "wino biale polwytrawne",
       "category": "alkohole",
-      "allergens": [],
+      "allergens": [
+        "sulphites"
+      ],
       "dietTags": [
         "ALCOHOL"
       ]
@@ -3751,7 +3822,9 @@
       "name": "wino białe słodkie",
       "normalizedName": "wino biale slodkie",
       "category": "alkohole",
-      "allergens": [],
+      "allergens": [
+        "sulphites"
+      ],
       "dietTags": [
         "ALCOHOL"
       ]
@@ -3760,7 +3833,9 @@
       "name": "wino białe wytrawne",
       "normalizedName": "wino biale wytrawne",
       "category": "alkohole",
-      "allergens": [],
+      "allergens": [
+        "sulphites"
+      ],
       "dietTags": [
         "ALCOHOL"
       ]
@@ -3769,7 +3844,9 @@
       "name": "wino czerwone półsłodkie",
       "normalizedName": "wino czerwone polslodkie",
       "category": "alkohole",
-      "allergens": [],
+      "allergens": [
+        "sulphites"
+      ],
       "dietTags": [
         "ALCOHOL"
       ]
@@ -3778,7 +3855,9 @@
       "name": "wino czerwone półwytrawne",
       "normalizedName": "wino czerwone polwytrawne",
       "category": "alkohole",
-      "allergens": [],
+      "allergens": [
+        "sulphites"
+      ],
       "dietTags": [
         "ALCOHOL"
       ]
@@ -3787,7 +3866,9 @@
       "name": "wino czerwone słodkie",
       "normalizedName": "wino czerwone slodkie",
       "category": "alkohole",
-      "allergens": [],
+      "allergens": [
+        "sulphites"
+      ],
       "dietTags": [
         "ALCOHOL"
       ]
@@ -3796,7 +3877,9 @@
       "name": "wino czerwone wytrawne",
       "normalizedName": "wino czerwone wytrawne",
       "category": "alkohole",
-      "allergens": [],
+      "allergens": [
+        "sulphites"
+      ],
       "dietTags": [
         "ALCOHOL"
       ],

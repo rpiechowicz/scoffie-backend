@@ -4,11 +4,13 @@ import { AppException } from '../common/app-exception';
 import { assertUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
+import { OpsAlertService } from '../observability/ops-alert.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
 import {
   conversationTitleFrom,
+  usedContextFrom,
   AgentConversationsService,
   MessageView,
 } from './agent-conversations.service';
@@ -33,12 +35,24 @@ export type AcceptedTurn = {
   requestId: string;
 };
 
+/**
+ * Szybkie odpowiedzi po przekroczeniu czasu albo „Stop": najczęstszą
+ * przyczyną 90 s jest zbyt szeroki zakres, więc proponujemy mniejszy.
+ * Serwer, nie klient — ta sama lista ma się pokazać na każdym telefonie.
+ */
+export const TIMEOUT_SUGGESTIONS: readonly string[] = [
+  'Zaplanuj tylko obiady',
+  'Zaplanuj 3 dni',
+];
+
 export type TurnView = {
   id: string;
   conversationId: string;
   status: TurnStatus;
   progress: AgentProgressStep[];
   errorCode: string | null;
+  /** Gotowe podpowiedzi do pokazania pod błędem (chipy); brak = nic nie pokazuj. */
+  suggestions?: string[];
   messages?: MessageView[];
   usage?: {
     inputTokens: number;
@@ -94,6 +108,7 @@ export class AgentTurnsService {
     private readonly metrics: AgentMetricsService,
     private readonly runner: AgentTurnRunner,
     private readonly proposals: AgentProposalsService,
+    private readonly alerts: OpsAlertService,
   ) {}
 
   /**
@@ -196,6 +211,7 @@ export class AgentTurnsService {
     requestId: string,
   ): Promise<AcceptedTurn> {
     const env = this.config.assertEnabled();
+    await this.config.assertUserAllowed(userId, env);
     const conversation = await this.conversations.loadOwned(
       userId,
       conversationId,
@@ -226,6 +242,11 @@ export class AgentTurnsService {
       );
       if (spentMicroUsd >= env.globalDailyBudgetUsd * 1_000_000) {
         this.metrics.recordRejected('budget');
+        // Operator ma się dowiedzieć PRZED użytkownikami — raz na dobę.
+        void this.alerts.notify(
+          `ai-budget-paused:${this.counters.dayKey()}`,
+          `budżet dobowy asystenta ($${env.globalDailyBudgetUsd}) wyczerpany — /agent odpowiada 503 AI_BUDGET_PAUSED do północy UTC`,
+        );
         throw new AppException(
           'AI_BUDGET_PAUSED',
           'Asystent jest dziś niedostępny. Spróbuj jutro.',
@@ -310,6 +331,7 @@ export class AgentTurnsService {
             'AI_QUOTA_EXCEEDED',
             'Limit wiadomości asystenta na ten miesiąc został wyczerpany.',
             HttpStatus.TOO_MANY_REQUESTS,
+            this.counters.quotaDetails('messages', env.messagesPerMonth),
           );
         }
 
@@ -391,12 +413,7 @@ export class AgentTurnsService {
       // klient — czy w ogóle umie pokazać kartę. Runner dostaje gotową
       // odpowiedź, żeby prompt i bramka narzędzi nie mogły się rozjechać.
       proposalMode: resolveProposalMode(env.cardsMode, data.clientCapabilities),
-      ...(data.scopeUserIds?.length
-        ? { scopeUserIds: data.scopeUserIds }
-        : {}),
-      ...(data.scopeUserIds?.length
-        ? { scopeUserIds: data.scopeUserIds }
-        : {}),
+      ...(data.scopeUserIds?.length ? { scopeUserIds: data.scopeUserIds } : {}),
     });
 
     return accepted;
@@ -421,6 +438,13 @@ export class AgentTurnsService {
       finishedAt: turn.finishedAt?.toISOString() ?? null,
     };
 
+    if (
+      turn.status === 'FAILED' &&
+      (turn.errorCode === 'AI_TIMEOUT' || turn.errorCode === 'AI_CANCELLED')
+    ) {
+      view.suggestions = [...TIMEOUT_SUGGESTIONS];
+    }
+
     if (turn.status === 'DONE') {
       const messages = await this.prisma.agentMessage.findMany({
         where: { turnId: turn.id, role: 'ASSISTANT' },
@@ -432,6 +456,9 @@ export class AgentTurnsService {
           role: m.role,
           kind: m.kind,
           text: m.text,
+          ...(usedContextFrom(m.context)
+            ? { usedContext: usedContextFrom(m.context) }
+            : {}),
           clientMessageId: m.clientMessageId,
           turnId: m.turnId,
           createdAt: m.createdAt.toISOString(),
@@ -446,6 +473,53 @@ export class AgentTurnsService {
     }
 
     return view;
+  }
+
+  /**
+   * „Stop" z telefonu.
+   *
+   * Tura w tym procesie dostaje sygnał i domyka się sama (`AI_CANCELLED`,
+   * księga zużycia, zwrot kwoty) — czekamy na to chwilę, żeby odpowiedź już
+   * niosła stan końcowy. Tura z innego procesu (po deployu) nie ma kto jej
+   * przerwać, więc zamykamy ją tu bezpośrednio, tak jak leniwy timeout.
+   * Tura już domknięta wraca bez zmian: drugie kliknięcie nie jest błędem.
+   */
+  async cancelTurn(userId: string, turnId: string): Promise<TurnView> {
+    assertUuid(turnId, 'turnId');
+    const turn = await this.loadOwnedTurn(userId, turnId);
+    if (turn.status !== 'RUNNING') return this.getTurn(userId, turnId);
+
+    if (this.runner.cancel(turn.id)) {
+      await this.waitUntilClosed(turn.id);
+      return this.getTurn(userId, turnId);
+    }
+
+    const closed = await this.prisma.agentTurn.updateMany({
+      where: { id: turn.id, status: 'RUNNING' },
+      data: {
+        status: 'FAILED',
+        errorCode: 'AI_CANCELLED',
+        finishedAt: new Date(),
+      },
+    });
+    if (closed.count > 0) {
+      this.metrics.recordTurnFinished('failed');
+      await this.refundQuota(turn.conversation.householdId, turn.startedAt);
+    }
+    return this.getTurn(userId, turnId);
+  }
+
+  /** Krótkie oczekiwanie na domknięcie tury przez runner po sygnale. */
+  private async waitUntilClosed(turnId: string, timeoutMs = 3000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const row = await this.prisma.agentTurn.findUnique({
+        where: { id: turnId },
+        select: { status: true },
+      });
+      if (!row || row.status !== 'RUNNING') return;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   }
 
   private async findByClientMessageId(

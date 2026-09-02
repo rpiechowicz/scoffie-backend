@@ -5,9 +5,14 @@ import { assertUuid } from '../common/uuid';
 import { PrismaService } from '../prisma/prisma.service';
 import { ensureMembership } from '../weekly-plans/utils/auth-checks.util';
 
+export const MEMORY_KINDS = ['PREFERENCE', 'CONSTRAINT', 'HABIT'] as const;
+export type MemoryKind = (typeof MEMORY_KINDS)[number];
+
 export type MemoryNoteView = {
   id: string;
   text: string;
+  /** Grupa na ekranie „Co o Was pamięta": preferencje / ograniczenia / zwyczaje. */
+  kind: MemoryKind;
   createdByUserId: string | null;
   createdAt: string;
 };
@@ -23,6 +28,14 @@ export type MemoryNoteView = {
 export const MEMORY_LIMIT = 30;
 /** Jedno zdanie, nie akapit — długie „wspomnienia" to zwykle streszczenie rozmowy. */
 export const MEMORY_TEXT_MAX = 200;
+
+/** Nieznany albo pusty rodzaj = PREFERENCE, żeby stare wiersze i literówki modelu nie psuły ekranu. */
+export function toMemoryKind(raw: string | undefined | null): MemoryKind {
+  const upper = (raw ?? '').trim().toUpperCase();
+  return (MEMORY_KINDS as readonly string[]).includes(upper)
+    ? (upper as MemoryKind)
+    : 'PREFERENCE';
+}
 
 /**
  * Pamięć asystenta między rozmowami.
@@ -46,12 +59,7 @@ export class AgentMemoryService {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: MEMORY_LIMIT,
     });
-    return notes.map((note) => ({
-      id: note.id,
-      text: note.text,
-      createdByUserId: note.createdByUserId,
-      createdAt: note.createdAt.toISOString(),
-    }));
+    return notes.map((note) => this.toView(note));
   }
 
   /**
@@ -69,7 +77,9 @@ export class AgentMemoryService {
     householdId: string,
     userId: string,
     rawText: string,
+    rawKind?: string,
   ): Promise<MemoryNoteView> {
+    const kind = toMemoryKind(rawKind);
     await ensureMembership(this.prisma, userId, householdId);
     const text = rawText.replace(/\s+/g, ' ').trim();
     if (!text) {
@@ -94,7 +104,13 @@ export class AgentMemoryService {
     const textNormalized = text.toLowerCase();
     try {
       const note = await this.prisma.agentMemory.create({
-        data: { householdId, text, textNormalized, createdByUserId: userId },
+        data: {
+          householdId,
+          text,
+          textNormalized,
+          kind,
+          createdByUserId: userId,
+        },
       });
       await this.trim(householdId);
       return this.toView(note);
@@ -117,15 +133,35 @@ export class AgentMemoryService {
   private toView(note: {
     id: string;
     text: string;
+    kind: string;
     createdByUserId: string | null;
     createdAt: Date;
   }): MemoryNoteView {
     return {
       id: note.id,
       text: note.text,
+      kind: toMemoryKind(note.kind),
       createdByUserId: note.createdByUserId,
       createdAt: note.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * „Usuń wszystkie notatki" — RODO z ekranu pamięci. Każdy domownik może,
+   * tak jak może skasować każdą pojedynczo; cudze gospodarstwo daje 403 jak
+   * przy odczycie. Rozmowy kasuje osobno `DELETE /agent/conversations`,
+   * bo są prywatne (per osoba), a notatki wspólne (per dom).
+   */
+  async forgetAll(
+    userId: string,
+    householdId: string,
+  ): Promise<{ deleted: number }> {
+    assertUuid(householdId, 'householdId');
+    await ensureMembership(this.prisma, userId, householdId);
+    const result = await this.prisma.agentMemory.deleteMany({
+      where: { householdId },
+    });
+    return { deleted: result.count };
   }
 
   /**

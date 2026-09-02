@@ -11,6 +11,8 @@ import {
   PlanDayCard,
   goalNote,
   longDateLabel,
+  PlanRemovalReason,
+  removalReasonFor,
 } from './agent-cards';
 
 /**
@@ -31,6 +33,7 @@ export function buildPlanDayCard(input: {
   note?: string | null;
   targetKcalPerDay: number | null;
   expiresAt: Date;
+  removalReasons?: readonly PlanRemovalReason[];
 }): PlanDayCard {
   const slots = (input.preview.slots ?? [])
     .filter((slot) => slot.dayOfWeek === input.dayOfWeek)
@@ -61,6 +64,10 @@ export function buildPlanDayCard(input: {
         dayLabel: DAY_LABELS[removal.dayOfWeek],
         mealLabel: MEAL_LABELS[removal.mealType],
         title: removal.title,
+        dayOfWeek: removal.dayOfWeek,
+        mealType: removal.mealType,
+        recipeId: removal.recipeId,
+        reason: removalReasonFor(input.removalReasons, removal),
       })),
     summary: {
       meals: slots.length,
@@ -120,7 +127,10 @@ function dayTitle(kcalTotal: number, target: number | null): string {
  * jednym dniu użytkownik pyta „czy zmieszczę jeszcze podwieczorek?", a nie
  * „czy trzymam normę".
  */
-function remainderNote(kcalTotal: number, target: number | null): string | null {
+function remainderNote(
+  kcalTotal: number,
+  target: number | null,
+): string | null {
   if (target === null || target <= 0) return null;
   const left = target - kcalTotal;
   if (left > 0) return `zostaje ${left}`;

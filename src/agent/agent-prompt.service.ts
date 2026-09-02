@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { HouseholdsService } from '../households/households.service';
+import { ConsentsService } from '../consents/consents.service';
+import { readAgentEnv } from '../config/agent-env';
 import { AgentMemoryService } from './agent-memory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -8,6 +10,7 @@ import {
   loadDigestRecipes,
 } from './catalog-digest';
 import { buildSystemPrompt, SystemBlock } from './agent-system-prompt';
+import { weekRangeLabel } from './cards/agent-cards';
 
 /**
  * Gospodarstwo katalogowe — to samo, co `RECIPE_IMPORT_HOUSEHOLD_ID`.
@@ -23,6 +26,12 @@ export type TurnDates = {
 
 export type AgentPrompt = {
   system: SystemBlock[];
+  /**
+   * „Uwzględniłem: …" — z czym model liczy tę turę, gotowe napisy dla
+   * telefonu. To jest to samo, co chipy nad polem, tylko po fakcie: tydzień,
+   * dla kogo, cel pytającego, ilu domowników zostało poza (bez zgody).
+   */
+  usedContext: string[];
   /** `R07` → `recipeId`; narzędzia rozwiązują po nim odpowiedzi modelu. */
   catalogIndex: Record<string, string>;
   catalogVersion: string;
@@ -46,6 +55,7 @@ export class AgentPromptService {
     private readonly prisma: PrismaService,
     private readonly households: HouseholdsService,
     private readonly memory: AgentMemoryService,
+    private readonly consents: ConsentsService,
   ) {}
 
   async build(
@@ -54,8 +64,9 @@ export class AgentPromptService {
     dates: TurnDates,
     proposalMode: boolean,
     scopeUserIds: readonly string[] = [],
+    handoff = false,
   ): Promise<AgentPrompt> {
-    const [digest, household, members, memory] = await Promise.all([
+    const [digest, household, allMembers, memory] = await Promise.all([
       this.loadDigest(),
       this.prisma.household.findUnique({
         where: { id: householdId },
@@ -65,6 +76,13 @@ export class AgentPromptService {
       this.memory.promptBlock(householdId),
     ]);
 
+    // Do modelu (czyli do USA) idą dane TYLKO tych domowników, którzy sami
+    // wyrazili zgodę — alergie i dieta to dane o zdrowiu (art. 9 RODO), a
+    // zgoda jednej osoby nie obejmuje partnera. Ograniczenia pozostałych
+    // pilnuje kod przy zapisie (`applyWeekPlan`), więc plan nadal ich nie
+    // skrzywdzi; model po prostu o nich nie wie.
+    const { members, withheld } = await this.membersForModel(allMembers);
+
     const system = buildSystemPrompt(digest, {
       memory,
       householdName: household?.name ?? 'Dom',
@@ -73,7 +91,9 @@ export class AgentPromptService {
       timeZone: dates.timeZone,
       enabledMealTypes: household?.enabledMealTypes ?? [],
       members,
+      membersWithheld: withheld,
       proposalMode,
+      handoff,
       // Imiona, nie identyfikatory: prompt czyta człowiek i model, a oba
       // rozumieją „Ania" lepiej niż UUID. Identyfikatory model i tak ma
       // w bloku domowników obok.
@@ -82,11 +102,46 @@ export class AgentPromptService {
         .map((member) => member.displayName),
     });
 
+    const asking = allMembers.find((member) => member.userId === userId);
+    const usedContext = [
+      `Tydzień ${weekRangeLabel(dates.weekStart)}`,
+      scopeUserIds.length > 0
+        ? `Dla: ${members
+            .filter((member) => scopeUserIds.includes(member.userId))
+            .map((member) => member.displayName)
+            .join(', ')}`
+        : `Cały dom · ${allMembers.length}`,
+      ...(asking?.targets.calorieGoal
+        ? [`Cel ${asking.targets.calorieGoal} kcal`]
+        : []),
+      ...(withheld > 0 ? [`${withheld} bez zgody na asystenta`] : []),
+      ...(memory ? ['notatki z poprzednich rozmów'] : []),
+    ];
+
     return {
       system,
+      usedContext,
       catalogIndex: digest.index,
       catalogVersion: digest.catalogVersion,
     };
+  }
+
+  /**
+   * Filtr zgód dla listy domowników idącej do modelu. Przy wyłączonej
+   * bramce (`AI_CONSENT_REQUIRED` puste) — jak dotąd, wszyscy.
+   */
+  async membersForModel<T extends { userId: string }>(
+    members: readonly T[],
+  ): Promise<{ members: T[]; withheld: number }> {
+    if (!readAgentEnv().consentRequired) {
+      return { members: [...members], withheld: 0 };
+    }
+    const consented = await this.consents.usersWithValid(
+      members.map((member) => member.userId),
+      'AI_ASSISTANT',
+    );
+    const kept = members.filter((member) => consented.has(member.userId));
+    return { members: kept, withheld: members.length - kept.length };
   }
 
   private async loadDigest(): Promise<CatalogDigest> {

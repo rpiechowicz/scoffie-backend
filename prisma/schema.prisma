@@ -56,6 +56,61 @@ model User {
   dailySteps DailyStepCount[]
 
   agentConversations AgentConversation[]
+  consentEvents      ConsentEvent[]
+  agentReports       AgentReport[]
+}
+
+/// Zgłoszenie niewłaściwej odpowiedzi asystenta („Zgłoś odpowiedź").
+///
+/// App Store 1.2 / 4.7: treści generowane muszą mieć mechanizm zgłaszania.
+/// Bez kluczy obcych do wiadomości i rozmowy — retencja 90 dni kasuje
+/// rozmowy, a zgłoszenie ma przeżyć razem z MIGAWKĄ treści (`messageText`),
+/// bo bez niej nie da się go rozpatrzyć. Kaskada tylko z kontem.
+model AgentReport {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  conversationId String?  @db.Uuid
+  messageId      String?  @db.Uuid
+  turnId         String?  @db.Uuid
+  reason         String
+  comment        String?
+  messageText    String
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+/// Zdarzenia zgód — TYLKO dopisywanie, nigdy nadpisywanie.
+///
+/// Art. 7 ust. 1 RODO: administrator musi umieć wykazać, że zgoda była, kiedy
+/// i na jaką treść. Jeden wiersz per kliknięcie: `kind` (TERMS | PRIVACY |
+/// AI_ASSISTANT | COOKIDOO | AGE_16), `action` (GRANTED | REVOKED),
+/// `documentVersion` = data wersji dokumentu z `src/common/legal-documents.ts`
+/// (stała w kodzie, nie zmienna na Railway — literówka w env unieważniałaby
+/// zgody wszystkim naraz). „Zgoda ważna" = ostatnie zdarzenie dla pary
+/// (użytkownik, rodzaj) to GRANTED i jego wersja nie jest starsza niż
+/// minimalna wymagana.
+///
+/// Zgoda na asystenta jest PER OSOBA i globalna dla konta (nie per dom): to
+/// zgoda na wysyłanie danych TEJ osoby do modelu, a te są te same w każdym
+/// gospodarstwie. `householdId` jest wyłącznie kontekstem dowodowym.
+/// Kaskada z kontem: po usunięciu konta nie ma już komu przypisać dowodu.
+model ConsentEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  kind            String
+  action          String
+  documentVersion String
+  source          String?
+  appVersion      String?
+  householdId     String?  @db.Uuid
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
 }
 
 model UserPreference {
@@ -194,10 +249,9 @@ model Recipe {
   householdId String    @db.Uuid
   household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
-  planItems           PlanItem[]
-  ingredients         RecipeIngredient[]
-  favorites           RecipeFavorite[]
-  sharedMealPlanItems SharedMealPlanItem[]
+  planItems   PlanItem[]
+  ingredients RecipeIngredient[]
+  favorites   RecipeFavorite[]
 
   // Druga gałąź filtru widoczności (`isCatalog = true OR householdId = …`).
   // Sam `isCatalog` indeksu nie dostaje — jest niskoselektywny.
@@ -289,7 +343,6 @@ model Household {
   shoppingListArchives      ShoppingListArchive[]
   shoppingListArchiveStates ShoppingListArchiveState[]
   recipeFavorites           RecipeFavorite[]
-  sharedMealPlans           SharedMealPlan[]
   cookidooIntegration       CookidooIntegration?
   agentConversations        AgentConversation[]
   agentMemories             AgentMemory[]
@@ -323,6 +376,9 @@ model AgentMemory {
   /// check-then-act.
   textNormalized  String
   createdByUserId String?  @db.Uuid
+  /// PREFERENCE | CONSTRAINT | HABIT — grupa na ekranie „Co o Was pamięta".
+  /// Tekst, nie enum (patrz `CookidooIntegration.status`); podaje model.
+  kind            String   @default("PREFERENCE")
   createdAt       DateTime @default(now())
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
@@ -541,8 +597,8 @@ model AgentConversation {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
   messages  AgentMessage[]
   turns     AgentTurn[]
   proposals AgentProposal[]
@@ -571,19 +627,25 @@ model AgentConversation {
 /// w każdej turze więcej, niż jest warte — model, który potrzebuje szczegółu,
 /// woła narzędzie jeszcze raz (patrz docs/plans/weekly-meals-ai-agent/cost-model.md).
 model AgentMessage {
-  id              String   @id @default(uuid()) @db.Uuid
-  conversationId  String   @db.Uuid
+  id              String    @id @default(uuid()) @db.Uuid
+  conversationId  String    @db.Uuid
   role            String
-  kind            String   @default("TEXT")
+  kind            String    @default("TEXT")
   text            String
   /// Treść strukturalna dla klienta — kształt zależny od `kind`, wersjonowany
   /// polem `v`. Świadomie osobno od `apiContent`: tamto jest kontraktem
   /// z DOSTAWCĄ, to jest kontraktem z TELEFONEM.
   card            Json?
   apiContent      Json?
-  clientMessageId String?  @db.Uuid
-  turnId          String?  @db.Uuid
-  createdAt       DateTime @default(now())
+  clientMessageId String?   @db.Uuid
+  turnId          String?   @db.Uuid
+  createdAt       DateTime  @default(now())
+  /// Z czym asystent policzył TĘ odpowiedź: `{ used: string[] }`, np.
+  /// „Tydzień 1–7 września", „Dla: Ania, Zosia", „Cel 2 100 kcal". Zapisane
+  /// przy odpowiedzi, bo kontekst tury nie wraca — a użytkownik ma złapać, że
+  /// asystent wziął złego domownika, patrząc na wiadomość, nie na chipy sprzed
+  /// minuty. Tylko dla ASSISTANT; `null` dla pytań i kart zapisu.
+  context         Json?
   /// Wiadomość wycofana przez POPRAWIENIE pytania — znika z odczytu, ale
   /// zostaje w bazie. Kasowanie zamieniłoby `AgentTurn` i `AgentProposal`
   /// wskazujące na te wiersze w dziury, a księgę użycia w niepełną.
@@ -611,29 +673,29 @@ model AgentMessage {
 /// `messageId` puste = tura nie domknęła się i propozycja jest nieosiągalna;
 /// to celowe, bo karty nikt nigdy nie zobaczył.
 model AgentProposal {
-  id             String    @id @default(uuid()) @db.Uuid
-  conversationId String    @db.Uuid
-  turnId         String    @db.Uuid
+  id              String    @id @default(uuid()) @db.Uuid
+  conversationId  String    @db.Uuid
+  turnId          String    @db.Uuid
   /// Kopia z rozmowy — sprawdzenie właściciela bez joina.
-  userId         String    @db.Uuid
-  householdId    String    @db.Uuid
+  userId          String    @db.Uuid
+  householdId     String    @db.Uuid
   /// PLAN_WEEK; kolejne rodzaje dochodzą razem z kartami.
-  kind           String
-  weekStart      DateTime  @db.Date
-  action         Json
-  card           Json
-  baselineHash   String
-  appliedHash    String?
+  kind            String
+  weekStart       DateTime  @db.Date
+  action          Json
+  card            Json
+  baselineHash    String
+  appliedHash     String?
   /// PENDING | APPLIED | UNDONE | STALE | EXPIRED | FAILED
-  status         String    @default("PENDING")
-  messageId      String?   @unique @db.Uuid
-  undoSnapshot   Json?
-  appliedAt      DateTime?
-  appliedByUserId String?  @db.Uuid
-  undoneAt       DateTime?
-  expiresAt      DateTime
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  status          String    @default("PENDING")
+  messageId       String?   @unique @db.Uuid
+  undoSnapshot    Json?
+  appliedAt       DateTime?
+  appliedByUserId String?   @db.Uuid
+  undoneAt        DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
@@ -679,7 +741,12 @@ model AgentTurn {
 /// kosztów (tokeny z cache osobno, latencja, powód zatrzymania).
 model AiUsage {
   id               String   @id @default(uuid()) @db.Uuid
-  turnId           String   @db.Uuid
+  /// Nullable od 2.09.2026: księga kosztów to dane ROZLICZENIOWE i musi
+  /// przeżyć kasowanie rozmów (porządki użytkownika, retencja 90 dni) —
+  /// wcześniej kaskada z tury zabierała ją razem z rozmową, więc rachunek
+  /// systematycznie „malał". Wiersz bez tury nadal niesie userId, householdId,
+  /// tokeny i koszt.
+  turnId           String?  @db.Uuid
   userId           String   @db.Uuid
   householdId      String?  @db.Uuid
   provider         String
@@ -694,7 +761,7 @@ model AiUsage {
   latencyMs        Int?
   createdAt        DateTime @default(now())
 
-  turn AgentTurn @relation(fields: [turnId], references: [id], onDelete: Cascade)
+  turn AgentTurn? @relation(fields: [turnId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([createdAt])
@@ -834,35 +901,6 @@ model ShoppingListArchiveState {
 
   @@unique([householdId, weekStart])
   @@index([householdId, currentArchiveId])
-}
-
-model SharedMealPlan {
-  id          String   @id @default(uuid()) @db.Uuid
-  householdId String   @db.Uuid
-  weekStart   DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  household Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  items     SharedMealPlanItem[]
-
-  @@unique([householdId, weekStart])
-}
-
-model SharedMealPlanItem {
-  id               String   @id @default(uuid()) @db.Uuid
-  sharedMealPlanId String   @db.Uuid
-  recipeId         String   @db.Uuid
-  mealType         MealType
-  quantity         Int      @default(1)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  sharedMealPlan SharedMealPlan @relation(fields: [sharedMealPlanId], references: [id], onDelete: Cascade)
-  recipe         Recipe         @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  @@unique([sharedMealPlanId, mealType, recipeId])
-  @@index([sharedMealPlanId, mealType])
 }
 
 model PushDevice {

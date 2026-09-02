@@ -53,7 +53,12 @@ describe('buildMacroGapCard', () => {
       current: 96,
       target: 140,
       scopeLabel: 'ten tydzień',
-      boosters: [booster('A', 10), booster('B', 20), booster('C', 30), booster('D', 40)],
+      boosters: [
+        booster('A', 10),
+        booster('B', 20),
+        booster('C', 30),
+        booster('D', 40),
+      ],
     });
     expect(card.boosters).toHaveLength(3);
     expect(card.actions[0]).toMatchObject({
@@ -85,7 +90,12 @@ describe('buildHouseholdSplitCard', () => {
       mealType: 'DINNER',
       title: 'Gulasz wołowy z kaszą',
       prepTimeMinutes: 55,
-      portions: [portion('Ty'), portion('Ania'), portion('Zosia'), portion('Franek')],
+      portions: [
+        portion('Ty'),
+        portion('Ania'),
+        portion('Zosia'),
+        portion('Franek'),
+      ],
       expiresAt: new Date('2026-09-03T10:00:00.000Z'),
     });
 
@@ -122,5 +132,21 @@ describe('goalLabel', () => {
       allergens: ['gluten', 'lactose', 'eggs', 'nuts', 'soy'],
     });
     expect(label).toBe('2000 kcal · bez glutenu, laktozy, jajek');
+  });
+  it('każdy booster ma własne pytanie (strzałka wysyła wiadomość, nic nie zapisuje)', () => {
+    const card = buildMacroGapCard({
+      macro: 'FAT',
+      current: 88,
+      target: 70,
+      scopeLabel: 'ten tydzień',
+      boosters: [
+        { text: 'Twaróg zamiast fety (pon., sob.)', amount: -11 },
+        { text: 'Jogurt zamiast śmietany (śr.)', amount: -6, prompt: 'Własne' },
+      ],
+    });
+    expect(card.boosters.map((b) => b.prompt)).toEqual([
+      'Zastosuj w planie tę zmianę: Twaróg zamiast fety (pon., sob.). Pokaż mi ją jako propozycję.',
+      'Własne',
+    ]);
   });
 });

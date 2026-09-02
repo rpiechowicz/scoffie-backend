@@ -4,6 +4,7 @@ import { OpsController } from './ops.controller';
 import { RequestLoggingInterceptor } from './request-logging.interceptor';
 import { RequestMetricsService } from './request-metrics.service';
 import { AgentMetricsService } from './agent-metrics.service';
+import { OpsAlertService } from './ops-alert.service';
 import { RecipesModule } from '../recipes/recipes.module';
 import { setWsErrorObserver } from '../common/ws-response';
 import { setWsAuthObserver } from '../common/ws-socket';
@@ -14,12 +15,15 @@ import { setWsAuthObserver } from '../common/ws-socket';
   providers: [
     RequestMetricsService,
     AgentMetricsService,
+    // Przez fabrykę: konstruktor ma domyślne argumenty (fetch, zegar) dla
+    // testów, a DI próbowałoby je wstrzyknąć.
+    { provide: OpsAlertService, useFactory: () => new OpsAlertService() },
     {
       provide: APP_INTERCEPTOR,
       useClass: RequestLoggingInterceptor,
     },
   ],
-  exports: [RequestMetricsService, AgentMetricsService],
+  exports: [RequestMetricsService, AgentMetricsService, OpsAlertService],
 })
 export class ObservabilityModule implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly metrics: RequestMetricsService) {}

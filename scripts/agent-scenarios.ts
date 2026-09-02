@@ -255,6 +255,9 @@ async function main(): Promise<void> {
           });
         },
         signal: AbortSignal.timeout(SCENARIO_TIMEOUT_MS),
+        // Scenariusze mierzą pełny koszt tury — bez sufitu, żeby liczby
+        // w cost-model.md nie były przycięte.
+        maxTurnCostUsd: null,
       });
       totalCost += result.usage.costMicroUsd;
 

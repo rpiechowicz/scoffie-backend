@@ -71,6 +71,11 @@ const ALLERGEN_LABELS: Readonly<Record<string, string>> = {
   celery: 'selera',
   mustard: 'gorczycy',
   sesame: 'sezamu',
+  milk: 'mleka',
+  crustaceans: 'skorupiaków',
+  molluscs: 'mięczaków',
+  lupin: 'łubinu',
+  sulphites: 'siarczynów',
 };
 
 const DIET_LABELS: Readonly<Record<string, string>> = {

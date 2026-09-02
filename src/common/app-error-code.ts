@@ -87,6 +87,10 @@ export const APP_ERROR_CODES = [
   // później", QUOTA_EXCEEDED = karta limitu, TURN_IN_PROGRESS = czekaj na
   // bieżącą turę.
   'AI_DISABLED',
+  // Brak ważnej zgody na wysyłanie danych o diecie i alergiach do modelu
+  // (art. 9 RODO). 403 — konto jest w porządku, brakuje kliknięcia; klient
+  // pokazuje ekran zgody. Egzekwowane tylko przy AI_CONSENT_REQUIRED=true.
+  'AI_CONSENT_REQUIRED',
   'AI_QUOTA_EXCEEDED',
   'AI_BUDGET_PAUSED',
   'AI_UPSTREAM_PAUSED',
@@ -107,10 +111,15 @@ export const APP_ERROR_CODES = [
   'AI_MESSAGE_NOT_FOUND',
   // Powody porażki tury (`AgentTurn.errorCode`), zwracane w GET /agent/turns/:id.
   'AI_TIMEOUT',
+  // Tura przerwana przez użytkownika („Stop" w aplikacji). Kwota wraca.
+  'AI_CANCELLED',
   'AI_PROVIDER_ERROR',
   // ─── integracja Cookidoo (Thermomix) ───
   // AUTH_FAILED leci jako 409, nie 401 — 401 z API znaczy dla iOS „odśwież
   // sesję aplikacji", a tu wygasło hasło do Cookidoo, nie token użytkownika.
+  // Integracja schowana za flagą (COOKIDOO_INTEGRATION_ENABLED=false):
+  // 503, bo to stan instalacji, nie konta; `disconnect` działa mimo to.
+  'COOKIDOO_DISABLED',
   'COOKIDOO_NOT_CONNECTED',
   'COOKIDOO_AUTH_FAILED',
   'COOKIDOO_RECIPE_NOT_LINKED',

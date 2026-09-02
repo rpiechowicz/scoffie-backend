@@ -20,9 +20,16 @@ import { RequestId } from '../common/request-id.decorator';
 import { readThrottleLimit } from '../common/throttle/throttle-env';
 import { AgentConversationsService } from './agent-conversations.service';
 import { AgentMemoryService } from './agent-memory.service';
+import { AgentReportsService } from './agent-reports.service';
+import { AgentUsageService } from './agent-usage.service';
 import { MemoryQueryDto } from './dto/memory-query.dto';
+import { UsageQueryDto } from './dto/usage-query.dto';
+import { ReportMessageDto } from './dto/report-message.dto';
 import { AgentTurnsService } from './agent-turns.service';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
+import { ApplyProposalDto } from './dto/apply-proposal.dto';
+import { ContextQueryDto } from './dto/context-query.dto';
+import { AgentContextService } from './agent-context.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
 import { EditMessageDto, PostMessageDto } from './dto/post-message.dto';
@@ -47,7 +54,38 @@ export class AgentController {
     private readonly turns: AgentTurnsService,
     private readonly memory: AgentMemoryService,
     private readonly proposals: AgentProposalsService,
+    private readonly reports: AgentReportsService,
+    private readonly usageService: AgentUsageService,
+    private readonly context: AgentContextService,
   ) {}
+
+  /**
+   * „Ile mi zostało" — zużycie i limity miesiąca dla gospodarstwa oraz data
+   * odnowienia. Bez `assertEnabled`: liczby są prawdziwe także przy
+   * wyłączonym asystencie. Limit pollingu: telefon odświeża to przy każdym
+   * otwarciu zakładki.
+   */
+  @Get('usage')
+  @Throttle({
+    default: { limit: () => readThrottleLimit('THROTTLE_AGENT_POLL_LIMIT') },
+  })
+  usage(@CurrentUserId() userId: string, @Query() query: UsageQueryDto) {
+    return this.usageService.usage(userId, query.householdId);
+  }
+
+  /**
+   * „Zgłoś odpowiedź" — bez `assertEnabled`: zgłosić można to, co się już
+   * dostało, także gdy asystent jest akurat wyłączony.
+   */
+  @Post('messages/:id/report')
+  @HttpCode(HttpStatus.CREATED)
+  reportMessage(
+    @CurrentUserId() userId: string,
+    @Param('id') messageId: string,
+    @Body() dto: ReportMessageDto,
+  ) {
+    return this.reports.report(userId, messageId, dto);
+  }
 
   @Post('conversations')
   createConversation(
@@ -138,6 +176,33 @@ export class AgentController {
   }
 
   /**
+   * „Stop" — przerwanie biegnącej tury. Bez `assertEnabled`: przycisk jest
+   * już na ekranie, a wyłączenie asystenta nie może zostawić tury, której
+   * nie da się przerwać. Idempotentne: tura domknięta wraca bez zmian.
+   */
+  @Post('turns/:id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({
+    default: { limit: () => readThrottleLimit('THROTTLE_AGENT_MESSAGE_LIMIT') },
+  })
+  cancelTurn(@CurrentUserId() userId: string, @Param('id') turnId: string) {
+    return this.turns.cancelTurn(userId, turnId);
+  }
+
+  /**
+   * Jedna rozmowa z `activeTurnId` — dla telefonu, który wraca do rozmowy
+   * w trakcie tury (głęboki link, powrót z tła) i musi wiedzieć, którą turę
+   * dalej odpytywać, bez pobierania całej listy.
+   */
+  @Get('conversations/:id')
+  getConversation(
+    @CurrentUserId() userId: string,
+    @Param('id') conversationId: string,
+  ) {
+    return this.conversations.getOne(userId, conversationId);
+  }
+
+  /**
    * Zatwierdzenie propozycji — moment, w którym plan naprawdę się zmienia.
    *
    * Bez ciała: jednostką idempotencji jest sama propozycja, więc drugie
@@ -154,8 +219,11 @@ export class AgentController {
   applyProposal(
     @CurrentUserId() userId: string,
     @Param('id') proposalId: string,
+    @Body() body: ApplyProposalDto,
   ) {
-    return this.proposals.apply(userId, proposalId);
+    return this.proposals.apply(userId, proposalId, {
+      force: body?.force === true,
+    });
   }
 
   /** Cofnięcie zapisu — okno czasowe i bramka na cudze zmiany w serwisie. */
@@ -192,6 +260,26 @@ export class AgentController {
   @Delete('memory/:id')
   forgetMemory(@CurrentUserId() userId: string, @Param('id') noteId: string) {
     return this.memory.forget(userId, noteId);
+  }
+
+  /** „Usuń wszystkie notatki" z ekranu pamięci — RODO, działa też przy `AI_ENABLED=false`. */
+  @Delete('memory')
+  forgetAllMemory(
+    @CurrentUserId() userId: string,
+    @Query() query: MemoryQueryDto,
+  ) {
+    return this.memory.forgetAll(userId, query.householdId);
+  }
+
+  /**
+   * Kontekst do chipów nad polem („Ten tydzień", „Cały dom · 4", „Cel 2 100")
+   * i do arkusza „Dla kogo liczyć": domownicy z etykietą celu i zgodą.
+   * Bez tego telefon zgadywałby z własnych cache'ów, a chip pokazywałby
+   * innego domownika niż ten, którego weźmie serwer.
+   */
+  @Get('context')
+  getContext(@CurrentUserId() userId: string, @Query() query: ContextQueryDto) {
+    return this.context.context(userId, query);
   }
 
   /** Porządki na liście rozmów — jedna pozycja, nie całość. */

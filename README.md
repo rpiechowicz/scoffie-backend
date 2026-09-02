@@ -17,7 +17,8 @@ Backend API for the Weekly Meals iOS app. It serves recipes, households, weekly 
   accepting an invitation while already in one is an explicit move, see
   `src/households/invitation-status.util.ts`)
 - Recipes catalog and favorites
-- Weekly plan and shared saved-plan flows
+- Weekly plan (target-state writes with hard allergen/exclusion gates) and the
+  AI assistant (`src/agent/`: proposals with apply/undo, household memory)
 - Shopping list generation, archive history, and realtime updates
 - Ops endpoints for health and lightweight metrics
 
@@ -138,14 +139,88 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   when the week is actually **written** — a dry run, a rejected write and a
   write that changed nothing all cost nothing. Out of plans, the tool answers
   the model with `AI_PLAN_QUOTA_EXCEEDED` instead of killing the turn.
+- `AI_ALLOWED_USERS` (empty = everyone) — comma-separated user ids or
+  e-mails allowed to start a conversation or send a message; anyone else
+  gets `503 AI_DISABLED` with `details: ['not_allowed']`, which the shipped
+  iOS build renders as "assistant unavailable". The gate for the period
+  between "family is testing" and consents + paywall.
+- `AI_CONSENT_REQUIRED` (`false`) — when `true`, a turn needs a valid
+  `AI_ASSISTANT` consent of the caller (`GET`/`POST /me/consents`, append-only
+  `ConsentEvent`, document versions in `src/common/legal-documents.ts`) and
+  only household members with their own consent reach the model; the others'
+  allergens and exclusions are still enforced by the write gate. Missing
+  consent answers `403 AI_CONSENT_REQUIRED`. Turn it on only once the shipped
+  iOS build has the consent screen.
+- `AI_CONVERSATION_RETENTION_DAYS` (`90`, `0` disables) — conversations
+  (with turns, cards and proposals) older than this since their last message
+  are deleted by an in-process sweep every six hours; conversations with a
+  running turn are skipped. The `AiUsage` ledger survives (`turnId` becomes
+  `NULL`), so billing data never shrinks with clean-ups.
+- `AI_MAX_TURN_COST_USD` (`1`, `off` disables) — cap on a single turn; once
+  the tool loop has spent that much, the model is asked for a final answer
+  without tools. Unknown `AI_MODEL` names are priced at the most expensive
+  known rate (and logged once) instead of costing zero.
+- `AI_MODEL_TOOLS` (empty = off) — cheaper model for the conversational part
+  of a turn (e.g. `claude-haiku-4-5`). The turn starts on it with read-only
+  tools plus `start_planning`; when the model calls that tool, the rest of
+  the turn (proposals, writes) runs on `AI_MODEL` with the full tool list.
+  The client sees the switch as a progress step with `phase: PLANNING`.
+  Each round is priced at the rate of the model that ran it.
 - `AI_GLOBAL_DAILY_BUDGET_USD` (`5`) — daily cost cap for the whole
   installation; over it, `/agent` answers `503 AI_BUDGET_PAUSED`. `off` means
   no cap at all — an empty variable takes the default, because "unset" must not
   silently mean "unlimited"; `0` stops every turn.
 
 Usage is written to `AiUsage` per turn and summarised in `GET /ops/metrics` →
-`agent`. `DELETE /agent/conversations` wipes a user's conversations and works
+`agent`. `GET /agent/usage?householdId=` returns the month's `messages` and
+`plans` as `{used, limit, remaining}` with `resetsAt` (first day of next
+month, UTC) and `tier` (always `FREE` today); a 429 for either quota carries
+the same numbers in `details` (`kind`, `limit`, `remaining`, `resetsAt`). `DELETE /agent/conversations` wipes a user's conversations and works
 even with the assistant disabled.
+
+Assistant v2 contract (3.09.2026), all under `/agent` with JWT:
+
+- `GET /conversations/:id` — one conversation with `activeTurnId` (the turn to
+  keep polling after returning to the app) and `preview`.
+- `POST /turns/:id/cancel` — "Stop": the running turn closes as
+  `AI_CANCELLED`, the message quota is refunded; idempotent.
+- `GET /turns/:id` adds `suggestions` after `AI_TIMEOUT`/`AI_CANCELLED`
+  (smaller-scope quick replies) and `progress[].phase = PLANNING` when the
+  cheaper model hands the turn over (`AI_MODEL_TOOLS`).
+- Assistant messages carry `usedContext` ("Uwzględniłem: …": week, who,
+  kcal goal, members withheld for lack of consent).
+- `POST /proposals/:id/apply` accepts `{ "force": true }` for a STALE
+  proposal ("Zapisz mimo to"); UNDONE and FAILED proposals can be applied
+  again with a plain call. Card `state.canApply` reflects this until the
+  proposal expires.
+- Cards: `PLAN_WEEK.removed[]` carries `dayOfWeek`, `mealType`,
+  `recipeId` and a one-word `reason` from the model; `MACRO_GAP.boosters[]`
+  each have a `prompt`; `SHOPPING_LIST.groups[]` have `entries` (with
+  `isChecked`), `departmentKey`, `hidden`, and the card has
+  `emptyDepartments`; `HOUSEHOLD_SPLIT` portions scale kcal by each
+  member's calorie goal.
+- `GET /context?householdId=&weekStart=` — members with goal label and
+  consent flag, the asker's kcal goal, usage and whether handoff is on:
+  one source for the context chips and the "Dla kogo liczyć" sheet.
+- `GET /memory` notes carry `kind` (PREFERENCE | CONSTRAINT | HABIT);
+  `DELETE /memory?householdId=` wipes the household's notes.
+- `GET /usage` adds `byUser` (messages per member this month).
+- A push "Asystent odpowiedział" / "nie zdążył" is sent to the asking user's
+  devices when a turn finishes (plan channel; not after their own Stop).
+
+Error-code names the v2 mock-up uses map to these server codes:
+`AI_PROVIDER_UNAVAILABLE` → `AI_UPSTREAM_PAUSED`/`AI_PROVIDER_ERROR`,
+`AI_DAILY_BUDGET_EXCEEDED` → `AI_BUDGET_PAUSED`,
+`AI_MESSAGE_QUOTA_EXCEEDED` → `AI_QUOTA_EXCEEDED`. Trial/PRO pools from
+the mock-up are part of the subscription work, not implemented here.
+
+### Operations
+
+- `OPS_ALERT_WEBHOOK_URL` (empty = off) — webhook that gets a one-line alert
+  when the assistant's daily budget is exhausted or the provider breaker
+  opens; see `DEPLOYMENT.md` → "Operator alerts".
+- Nightly off-platform database dump to R2: `.github/workflows/db-backup.yml`
+  (`DEPLOYMENT.md` → "Backups").
 
 ### Optional integrations
 
@@ -180,10 +255,12 @@ The workflow runs:
 
 ## Current product note
 
-The current iOS client still uses the dev-login flow. For internal and staging environments, `AUTH_DEV_LOGIN_ENABLED=true` may still be required. Public `1.0` should switch to real auth and then disable dev login in production.
+The shipped iOS client signs in with Apple only. Dev login (`POST /auth/dev`) is opt-in for local development, CI and the smoke scripts; on production `AUTH_DEV_LOGIN_ENABLED=true` is a boot violation (`src/config/assert-env.ts`).
 
 ## Related docs
 
 - [`APNS_SETUP.md`](./APNS_SETUP.md)
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md)
 - [`RELEASE_CHECKLIST.md`](./RELEASE_CHECKLIST.md)
+- [`docs/rodo-wnioski.md`](./docs/rodo-wnioski.md) — wnioski RODO: eksport (`pnpm rodo:export`), usunięcie (`pnpm accounts:delete`), terminy
+- [`docs/rejestr-czynnosci-i-dpia.md`](./docs/rejestr-czynnosci-i-dpia.md) — rejestr czynności (art. 30) i ocena skutków (art. 35), pola do uzupełnienia z paneli

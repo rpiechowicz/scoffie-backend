@@ -13,8 +13,12 @@ import { ensureMembership } from '../../weekly-plans/utils/auth-checks.util';
 import { AppException } from '../../common/app-exception';
 import { assertUuid } from '../../common/uuid';
 import { readAgentEnv } from '../../config/agent-env';
-import { AgentCardState } from '../cards/agent-cards';
-import { appliedMessageText, buildAppliedCard, weekStartLabel } from '../cards/applied-card';
+import { AgentCardState, PlanRemovalReason } from '../cards/agent-cards';
+import {
+  appliedMessageText,
+  buildAppliedCard,
+  weekStartLabel,
+} from '../cards/applied-card';
 import { buildPlanWeekCard } from '../cards/plan-week-card';
 import { buildPlanDayCard } from '../cards/plan-day-card';
 import { buildSwapCard } from '../cards/swap-card';
@@ -41,12 +45,11 @@ export type CreateWeekProposalInput = {
   slots: ApplyWeekSlotDto[];
   /** Jedno zdanie modelu „dlaczego tak” — trafia w podtytuł karty. */
   note?: string;
+  /** Powody usunięć (jedno słowo) — dopasowywane do policzonych zniknięć. */
+  removalReasons?: PlanRemovalReason[];
 };
 
-export type CreateDayProposalInput = Omit<
-  CreateWeekProposalInput,
-  'slots'
-> & {
+export type CreateDayProposalInput = Omit<CreateWeekProposalInput, 'slots'> & {
   dayOfWeek: DayOfWeek;
   /** Stan docelowy WYŁĄCZNIE tego dnia; `dayOfWeek` dokłada serwis. */
   slots: Omit<ApplyWeekSlotDto, 'dayOfWeek'>[];
@@ -165,6 +168,7 @@ export class AgentProposalsService {
       weekStart: input.weekStart,
       preview,
       note: input.note,
+      removalReasons: input.removalReasons,
       targetKcalPerDay: await this.targetKcalFor(
         input.userId,
         input.householdId,
@@ -245,6 +249,7 @@ export class AgentProposalsService {
       date,
       preview,
       note: input.note,
+      removalReasons: input.removalReasons,
       targetKcalPerDay: await this.targetKcalFor(
         input.userId,
         input.householdId,
@@ -474,8 +479,30 @@ export class AgentProposalsService {
     const proposalId = randomUUID();
     const expiresAt = new Date(Date.now() + env.proposalTtlMs);
 
+    // Porcja skalowana CELEM: przy 2 100 i 1 200 kcal ten sam gulasz to nie
+    // te same talerze. Średnia celów = jedna porcja z przepisu; kto ma cel
+    // wyżej, dostaje proporcjonalnie więcej. Zaokrąglenie do 10 kcal, bo
+    // dokładniej i tak nikt nie nakłada.
+    const goals = input.portions.map(
+      (portion) => known.get(portion.userId)!.targets.calorieGoal,
+    );
+    const meanGoal =
+      goals.length > 0 && goals.every((goal) => goal > 0)
+        ? goals.reduce((sum, goal) => sum + goal, 0) / goals.length
+        : 0;
     const portions: HouseholdSplitPortion[] = input.portions.map((portion) => {
       const member = known.get(portion.userId)!;
+      const kcal =
+        meanGoal > 0
+          ? Math.max(
+              10,
+              Math.round(
+                (input.dish.kcalPerServing * member.targets.calorieGoal) /
+                  meanGoal /
+                  10,
+              ) * 10,
+            )
+          : input.dish.kcalPerServing;
       return {
         userId: member.userId,
         displayName: member.displayName,
@@ -485,7 +512,7 @@ export class AgentProposalsService {
           allergens: member.allergens,
         }),
         note: portion.note,
-        kcal: input.dish.kcalPerServing,
+        kcal,
       };
     });
 
@@ -601,7 +628,11 @@ export class AgentProposalsService {
    * nią zapłacił kwotą wiadomości — wyłączenie asystenta w międzyczasie nie
    * może zostawić martwego przycisku.
    */
-  async apply(userId: string, proposalId: string): Promise<ProposalActionResult> {
+  async apply(
+    userId: string,
+    proposalId: string,
+    options: { force?: boolean } = {},
+  ): Promise<ProposalActionResult> {
     const proposal = await this.loadOwned(userId, proposalId);
     // Członkostwo mogło się zmienić między propozycją a kliknięciem.
     await ensureMembership(this.prisma, userId, proposal.householdId);
@@ -611,7 +642,10 @@ export class AgentProposalsService {
     if (proposal.status === 'APPLIED') {
       return this.resultForApplied(proposal);
     }
-    if (proposal.status !== 'PENDING') {
+    // Projekt v2: karta jest sterownikiem. UNDONE ma „Zastosuj ponownie",
+    // FAILED „Spróbuj ponownie", STALE „Zapisz mimo to" (z `force`).
+    // EXPIRED nie ma przycisku zapisu wcale — po 72 h asystent liczy od nowa.
+    if (!REAPPLICABLE_STATUSES.has(proposal.status)) {
       throw new AppException(
         'AI_PROPOSAL_STALE',
         'Ta propozycja jest już nieaktualna. Poproś asystenta o nową.',
@@ -619,6 +653,7 @@ export class AgentProposalsService {
         [`reason:${proposal.status}`],
       );
     }
+    const statusBefore = proposal.status;
     if (proposal.expiresAt.getTime() <= Date.now()) {
       await this.markStatus(proposal.id, 'EXPIRED');
       throw new AppException(
@@ -634,7 +669,10 @@ export class AgentProposalsService {
       proposal.householdId,
       weekStart,
     );
-    if (weekBaselineHash(before) !== proposal.baselineHash) {
+    // `force` pomija TYLKO to porównanie: użytkownik widział na karcie, że
+    // plan się zmienił, i świadomie zapisuje. Walidacja domeny (alergeny,
+    // wykluczenia) biegnie niżej w `applyWeekPlan` tak samo jak zawsze.
+    if (!options.force && weekBaselineHash(before) !== proposal.baselineHash) {
       await this.markStatus(proposal.id, 'STALE');
       throw new AppException(
         'AI_PROPOSAL_STALE',
@@ -649,12 +687,13 @@ export class AgentProposalsService {
     // o `undoSnapshot`: drugi przebieg zapisałby jako „stan sprzed" tydzień
     // JUŻ ZMIENIONY i zabiłby „Cofnij".
     const locked = await this.prisma.agentProposal.updateMany({
-      where: { id: proposal.id, status: 'PENDING' },
+      where: { id: proposal.id, status: statusBefore },
       data: {
         status: 'APPLIED',
         undoSnapshot: before as unknown as Prisma.InputJsonValue,
         appliedAt: new Date(),
         appliedByUserId: userId,
+        undoneAt: null,
       },
     });
     if (locked.count === 0) {
@@ -673,11 +712,12 @@ export class AgentProposalsService {
     if (!consumed) {
       // Kwota wraca do stanu sprzed kliknięcia: użytkownik może zatwierdzić
       // tę samą propozycję pierwszego dnia miesiąca.
-      await this.markStatus(proposal.id, 'PENDING');
+      await this.markStatus(proposal.id, statusBefore);
       throw new AppException(
         'AI_PLAN_QUOTA_EXCEEDED',
         `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany.`,
         HttpStatus.TOO_MANY_REQUESTS,
+        this.counters.quotaDetails('plans', limit),
       );
     }
 
@@ -705,7 +745,9 @@ export class AgentProposalsService {
       }
 
       const changed =
-        result.changes.created + result.changes.updated + result.changes.deleted;
+        result.changes.created +
+        result.changes.updated +
+        result.changes.deleted;
       if (changed === 0) await this.refundPlan(proposal.householdId, periodKey);
 
       const after = await this.weeklyPlans.snapshotWeekAsSlots(
@@ -761,7 +803,10 @@ export class AgentProposalsService {
    * więc operacja jest swoją własną odwrotnością. Druga ścieżka zapisu byłaby
    * drugim miejscem, w którym można się pomylić o cudzy tydzień.
    */
-  async undo(userId: string, proposalId: string): Promise<ProposalActionResult> {
+  async undo(
+    userId: string,
+    proposalId: string,
+  ): Promise<ProposalActionResult> {
     const proposal = await this.loadOwned(userId, proposalId);
     await ensureMembership(this.prisma, userId, proposal.householdId);
 
@@ -794,7 +839,10 @@ export class AgentProposalsService {
     );
     // Ktoś w domu poprawił tydzień PO zapisie — cofnięcie skasowałoby jego
     // pracę razem z naszą zmianą.
-    if (proposal.appliedHash && weekBaselineHash(current) !== proposal.appliedHash) {
+    if (
+      proposal.appliedHash &&
+      weekBaselineHash(current) !== proposal.appliedHash
+    ) {
       throw new AppException(
         'AI_PROPOSAL_STALE',
         'Plan zmienił się po zapisaniu, więc cofnięcie skasowałoby także tamte zmiany.',
@@ -924,14 +972,22 @@ export class AgentProposalsService {
 
   private async markStatus(id: string, status: string): Promise<void> {
     try {
-      await this.prisma.agentProposal.update({ where: { id }, data: { status } });
+      await this.prisma.agentProposal.update({
+        where: { id },
+        data: { status },
+      });
     } catch (error) {
-      this.logger.warn(`nie udało się ustawić statusu propozycji: ${String(error)}`);
+      this.logger.warn(
+        `nie udało się ustawić statusu propozycji: ${String(error)}`,
+      );
     }
   }
 
   /** Zwrot kwoty planu — księgowość nie może wywrócić operacji użytkownika. */
-  private async refundPlan(householdId: string, periodKey: string): Promise<void> {
+  private async refundPlan(
+    householdId: string,
+    periodKey: string,
+  ): Promise<void> {
     try {
       await this.counters.add(this.prisma, householdId, periodKey, 'plans', -1);
     } catch (error) {
@@ -953,9 +1009,7 @@ export class AgentProposalsService {
         text: input.text,
         // `turnId` celowo puste: to nie jest odpowiedź modelu, więc klient
         // odpytujący starą turę nie ma nagle dostawać drugiej wiadomości.
-        ...(input.card
-          ? { card: input.card as Prisma.InputJsonValue }
-          : {}),
+        ...(input.card ? { card: input.card as Prisma.InputJsonValue } : {}),
       },
     });
     await this.prisma.agentConversation.update({
@@ -988,7 +1042,9 @@ export class AgentProposalsService {
       });
     } catch (error) {
       // Rozgłoszenie jest wygodą, nie warunkiem poprawności zapisu.
-      this.logger.warn(`nie udało się rozgłosić zapisu tygodnia: ${String(error)}`);
+      this.logger.warn(
+        `nie udało się rozgłosić zapisu tygodnia: ${String(error)}`,
+      );
     }
   }
 
@@ -1060,8 +1116,21 @@ function readSlots(
     return Array.isArray(value) ? (value as ApplyWeekSlotDto[]) : [];
   }
   const wrapped = (value ?? {}) as { slots?: unknown };
-  return Array.isArray(wrapped.slots) ? (wrapped.slots as ApplyWeekSlotDto[]) : [];
+  return Array.isArray(wrapped.slots)
+    ? (wrapped.slots as ApplyWeekSlotDto[])
+    : [];
 }
+
+/**
+ * Stany, z których da się (ponownie) zapisać. STALE wymaga `force`
+ * („Zapisz mimo to"); UNDONE i FAILED — zwykłego kliknięcia.
+ */
+export const REAPPLICABLE_STATUSES: ReadonlySet<string> = new Set([
+  'PENDING',
+  'UNDONE',
+  'FAILED',
+  'STALE',
+]);
 
 /** Reguły stanu karty — jedno miejsce, bo czyta je i lista, i pojedyncza tura. */
 export function cardState(
@@ -1096,14 +1165,28 @@ export function cardState(
     };
   }
 
+  const status = (['UNDONE', 'STALE', 'EXPIRED', 'FAILED'] as const).includes(
+    proposal.status as 'UNDONE',
+  )
+    ? (proposal.status as AgentCardState['status'])
+    : 'STALE';
+  // Ponowny zapis (UNDONE/FAILED) i „Zapisz mimo to" (STALE) żyją tak długo,
+  // jak sama propozycja — po 72 h karta mówi EXPIRED bez przycisku.
+  const expired = proposal.expiresAt.getTime() <= now;
+  const reapplicable =
+    status !== 'EXPIRED' && REAPPLICABLE_STATUSES.has(status) && !expired;
   return {
-    status: (['UNDONE', 'STALE', 'EXPIRED', 'FAILED'] as const).includes(
-      proposal.status as 'UNDONE',
-    )
-      ? (proposal.status as AgentCardState['status'])
-      : 'STALE',
-    canApply: false,
+    status:
+      expired &&
+      status !== 'EXPIRED' &&
+      reapplicable === false &&
+      status !== 'UNDONE' &&
+      status !== 'FAILED' &&
+      status !== 'STALE'
+        ? 'EXPIRED'
+        : status,
+    canApply: reapplicable,
     canUndo: false,
-    until: null,
+    until: reapplicable ? proposal.expiresAt.toISOString() : null,
   };
 }

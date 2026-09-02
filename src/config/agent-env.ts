@@ -52,6 +52,17 @@ export type AgentEnv = {
   enabled: boolean;
   provider: AiProvider;
   model: string;
+  /**
+   * Tańszy model na rozmowę i zbieranie kontekstu (`AI_MODEL_TOOLS`);
+   * `null` = cała tura na `model`, jak dotąd.
+   *
+   * Projekt asystenta v2 (3.09.2026): „handoff Haiku → Sonnet jako osobny
+   * moment". Tura zaczyna na tańszym modelu z narzędziami TYLKO do czytania
+   * plus `start_planning`; gdy model je wywoła, resztę tury (propozycje,
+   * zapisy) prowadzi `model`. Pytanie „co jest we wtorek" nie płaci wtedy
+   * stawki planisty, a plan tygodnia nadal układa mocniejszy model.
+   */
+  toolsModel: string | null;
   effort: AiEffort;
   apiKeyPresent: boolean;
   /** Twardy limit jednej tury (AbortSignal); po nim tura = FAILED `AI_TIMEOUT`. */
@@ -81,7 +92,49 @@ export type AgentEnv = {
   proposalTtlMs: number;
   /** Ile czasu na „Cofnij" po zapisaniu propozycji. */
   proposalUndoWindowMs: number;
+  /**
+   * Kto może rozmawiać z asystentem: identyfikatory użytkowników albo
+   * e-maile (małymi literami). PUSTA lista = wszyscy zalogowani, jak dotąd.
+   *
+   * Aplikacja jest w App Store i każdy może założyć konto — do czasu zgód,
+   * polityki i paywalla to jedyna bramka między „rodzina testuje" a „obcy
+   * palą klucz". Konto spoza listy dostaje 503 AI_DISABLED (jak wyłączony
+   * asystent): telefon pokazuje „niedostępny" i blokuje pole, bez nowej
+   * kopii po stronie iOS.
+   */
+  allowedUsers: string[];
+  /**
+   * Czy tura wymaga ważnej zgody AI_ASSISTANT (tabela `ConsentEvent`) i czy
+   * do promptu trafiają tylko domownicy z własną zgodą. Domyślnie `false`:
+   * bramka ma sens dopiero, gdy wydany iOS ma ekran zgody — włączona
+   * wcześniej odcięłaby rodzinę od asystenta bez możliwości kliknięcia.
+   */
+  consentRequired: boolean;
+  /**
+   * Po ilu dniach od ostatniej wiadomości rozmowa (z turami, kartami i
+   * propozycjami) jest kasowana automatycznie; `0` = bez retencji. Polityka
+   * prywatności obiecuje 90 dni — obietnica bez automatu jest gorsza niż
+   * brak obietnicy. Księga kosztów zostaje (turnId → NULL).
+   */
+  conversationRetentionDays: number;
+  /**
+   * Sufit kosztu JEDNEJ tury w USD; `null` = bez sufitu (jawne `off`).
+   * Żądanie niewykonalne kręciło się 14 wywołań za $1,00 — po przekroczeniu
+   * dostawca kończy pętlę narzędzi odpowiedzią tekstową.
+   */
+  maxTurnCostUsd: number | null;
 };
+
+/**
+ * `AI_ALLOWED_USERS` — lista rozdzielona przecinkami; puste wpisy i
+ * wielkość liter nie mają znaczenia (e-maile Apple bywają wpisywane różnie).
+ */
+export function parseAllowedUsers(raw: string | undefined): string[] {
+  return (raw ?? '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+}
 
 export const AGENT_ENV_DEFAULTS = {
   turnTimeoutMs: 90_000,
@@ -99,6 +152,13 @@ export const AGENT_ENV_DEFAULTS = {
   proposalTtlMs: 72 * 60 * 60 * 1000,
   /** Godzina na „Cofnij" — tyle, ile trwa zorientowanie się, że to nie to. */
   proposalUndoWindowMs: 60 * 60 * 1000,
+  /** 90 dni: tyle obiecuje polityka prywatności (decyzja 2.09.2026). */
+  conversationRetentionDays: 90,
+  /**
+   * $1: zmierzona tura niewykonalna. Zwykłe tury kosztują $0,12–0,30, więc
+   * sufit ich nie dotyka; łapie wyłącznie pętlę.
+   */
+  maxTurnCostUsd: 1,
 } as const;
 
 /** Jedyna droga do braku budżetu — jawna i widoczna w `railway variables`. */
@@ -110,7 +170,8 @@ type NumericKey =
   | 'AI_LIMIT_PLANS_PER_MONTH'
   | 'AI_STUB_DELAY_MS'
   | 'AI_PROPOSAL_TTL_MS'
-  | 'AI_PROPOSAL_UNDO_WINDOW_MS';
+  | 'AI_PROPOSAL_UNDO_WINDOW_MS'
+  | 'AI_CONVERSATION_RETENTION_DAYS';
 
 function readNumber(
   env: NodeJS.ProcessEnv,
@@ -173,6 +234,7 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
     enabled: (env.AI_ENABLED ?? '').trim().toLowerCase() === 'true',
     provider: readProvider(env),
     model: (env.AI_MODEL ?? '').trim() || AI_MODEL_DEFAULT,
+    toolsModel: (env.AI_MODEL_TOOLS ?? '').trim() || null,
     effort: readEffort(env),
     apiKeyPresent: (env.ANTHROPIC_API_KEY ?? '').trim().length > 0,
     turnTimeoutMs: readNumber(
@@ -210,7 +272,29 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       AGENT_ENV_DEFAULTS.proposalUndoWindowMs,
       { min: 0 },
     ),
+    allowedUsers: parseAllowedUsers(env.AI_ALLOWED_USERS),
+    consentRequired:
+      (env.AI_CONSENT_REQUIRED ?? '').trim().toLowerCase() === 'true',
+    conversationRetentionDays: readNumber(
+      env,
+      'AI_CONVERSATION_RETENTION_DAYS',
+      AGENT_ENV_DEFAULTS.conversationRetentionDays,
+      { min: 0 },
+    ),
+    maxTurnCostUsd: readMaxTurnCostUsd(env),
   };
+}
+
+/** Jak budżet dobowy: liczba ≥ 0, `off` = bez sufitu, śmieci = domyślne. */
+function readMaxTurnCostUsd(env: NodeJS.ProcessEnv): number | null {
+  const raw = (env.AI_MAX_TURN_COST_USD ?? '').trim().toLowerCase();
+  if (!raw) return AGENT_ENV_DEFAULTS.maxTurnCostUsd;
+  if (raw === AI_BUDGET_OFF) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return AGENT_ENV_DEFAULTS.maxTurnCostUsd;
+  }
+  return parsed;
 }
 
 /**
@@ -271,6 +355,7 @@ export function agentEnvProblems(
     ['AI_STUB_DELAY_MS', { min: 0, integer: true }],
     ['AI_PROPOSAL_TTL_MS', { min: 1, integer: true }],
     ['AI_PROPOSAL_UNDO_WINDOW_MS', { min: 0, integer: true }],
+    ['AI_CONVERSATION_RETENTION_DAYS', { min: 0, integer: true }],
   ];
   for (const [key, opts] of numeric) {
     const raw = (env[key] ?? '').trim();

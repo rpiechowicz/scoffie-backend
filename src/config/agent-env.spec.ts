@@ -4,6 +4,7 @@ import {
   AI_EFFORT_DEFAULT,
   AI_MODEL_DEFAULT,
   agentEnvProblems,
+  parseAllowedUsers,
   readAgentEnv,
 } from './agent-env';
 
@@ -13,6 +14,7 @@ describe('readAgentEnv', () => {
       enabled: false,
       provider: 'anthropic',
       model: AI_MODEL_DEFAULT,
+      toolsModel: null,
       effort: AI_EFFORT_DEFAULT,
       apiKeyPresent: false,
       turnTimeoutMs: AGENT_ENV_DEFAULTS.turnTimeoutMs,
@@ -27,11 +29,69 @@ describe('readAgentEnv', () => {
       cardsMode: 'off',
       proposalTtlMs: AGENT_ENV_DEFAULTS.proposalTtlMs,
       proposalUndoWindowMs: AGENT_ENV_DEFAULTS.proposalUndoWindowMs,
+      // Pusta lista = wszyscy, jak dotąd: bramka nie może zmienić
+      // zachowania instalacji, która o nią nie prosiła.
+      allowedUsers: [],
+      // Bramka zgód wyłączona, dopóki wydany iOS nie ma ekranu zgody.
+      consentRequired: false,
+      conversationRetentionDays: AGENT_ENV_DEFAULTS.conversationRetentionDays,
+      maxTurnCostUsd: AGENT_ENV_DEFAULTS.maxTurnCostUsd,
+    });
+  });
+
+  it('sufit kosztu tury: off = null, ułamki ok, śmieci = domyślny $1', () => {
+    expect(readAgentEnv({ AI_MAX_TURN_COST_USD: 'off' }).maxTurnCostUsd).toBe(
+      null,
+    );
+    expect(readAgentEnv({ AI_MAX_TURN_COST_USD: '0.5' }).maxTurnCostUsd).toBe(
+      0.5,
+    );
+    expect(readAgentEnv({ AI_MAX_TURN_COST_USD: 'dużo' }).maxTurnCostUsd).toBe(
+      1,
+    );
+  });
+
+  it('retencja: 0 wyłącza, ułamek/ujemna = domyślne 90', () => {
+    expect(
+      readAgentEnv({ AI_CONVERSATION_RETENTION_DAYS: '0' })
+        .conversationRetentionDays,
+    ).toBe(0);
+    expect(
+      readAgentEnv({ AI_CONVERSATION_RETENTION_DAYS: '-5' })
+        .conversationRetentionDays,
+    ).toBe(90);
+  });
+
+  it('AI_CONSENT_REQUIRED tylko literalne true', () => {
+    expect(readAgentEnv({ AI_CONSENT_REQUIRED: 'true' }).consentRequired).toBe(
+      true,
+    );
+    expect(readAgentEnv({ AI_CONSENT_REQUIRED: 'yes' }).consentRequired).toBe(
+      false,
+    );
+  });
+
+  describe('lista dozwolonych kont', () => {
+    it('rozdziela po przecinku, przycina i zmniejsza litery; puste wpisy wypadają', () => {
+      expect(
+        parseAllowedUsers(
+          ' Rafal@Example.com, ,3FA85F64-5717-4562-B3FC-2C963F66AFA6,,',
+        ),
+      ).toEqual(['rafal@example.com', '3fa85f64-5717-4562-b3fc-2c963f66afa6']);
+      expect(parseAllowedUsers(undefined)).toEqual([]);
+      expect(parseAllowedUsers('  ')).toEqual([]);
+    });
+
+    it('trafia do AgentEnv', () => {
+      expect(readAgentEnv({ AI_ALLOWED_USERS: 'a@b.pl' }).allowedUsers).toEqual(
+        ['a@b.pl'],
+      );
     });
   });
 
   describe('tryb kart', () => {
-    const mode = (value: string) => readAgentEnv({ AI_CARDS_MODE: value }).cardsMode;
+    const mode = (value: string) =>
+      readAgentEnv({ AI_CARDS_MODE: value }).cardsMode;
 
     it.each(['off', 'soft', 'strict'])('przyjmuje %s', (value) => {
       expect(mode(value)).toBe(value);
@@ -157,5 +217,11 @@ describe('agentEnvProblems', () => {
     const problems = agentEnvProblems({ [key]: value });
     expect(problems).toHaveLength(1);
     expect(problems[0]).toMatch(pattern);
+  });
+  it('AI_MODEL_TOOLS: tańszy model na rozmowę; puste = jeden model na całą turę', () => {
+    expect(
+      readAgentEnv({ AI_MODEL_TOOLS: ' claude-haiku-4-5 ' }).toolsModel,
+    ).toBe('claude-haiku-4-5');
+    expect(readAgentEnv({ AI_MODEL_TOOLS: '  ' }).toolsModel).toBeNull();
   });
 });

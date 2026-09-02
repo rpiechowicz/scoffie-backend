@@ -10,6 +10,7 @@ import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { AgentProposalsService } from '../proposals/agent-proposals.service';
 import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
 import { AgentToolContext, AgentToolExecutor } from './agent-tool-executor';
+import { AgentPromptService } from '../agent-prompt.service';
 
 // Bramka trybu jest DRUGA po prompcie i jedyna, która nie zależy od tego, czy
 // model przeczytał instrukcję. Bez niej „agent tylko proponuje" byłoby
@@ -35,9 +36,7 @@ describe('AgentToolExecutor — bramka trybu', () => {
     collectCard: () => {},
   });
 
-  const slots = [
-    { day_of_week: 'MON', meal_type: 'DINNER', recipe: 'R01' },
-  ];
+  const slots = [{ day_of_week: 'MON', meal_type: 'DINNER', recipe: 'R01' }];
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -52,8 +51,18 @@ describe('AgentToolExecutor — bramka trybu', () => {
         { provide: AiUsageCountersService, useValue: {} },
         { provide: AgentMetricsService, useValue: {} },
         { provide: AgentMemoryService, useValue: {} },
-        { provide: AgentProposalsService, useValue: { createWeekPlanProposal } },
+        {
+          provide: AgentProposalsService,
+          useValue: { createWeekPlanProposal },
+        },
         { provide: ShoppingListService, useValue: {} },
+        {
+          provide: AgentPromptService,
+          useValue: {
+            membersForModel: (members: unknown[]) =>
+              Promise.resolve({ members, withheld: 0 }),
+          },
+        },
       ],
     }).compile();
     executor = module.get(AgentToolExecutor);

@@ -8,9 +8,25 @@ export type AgentProviderMessage = {
   text: string;
 };
 
+/**
+ * Przekazanie tury innemu modelowi w połowie pętli narzędzi.
+ *
+ * Gdy model wywoła narzędzie `tool`, od NASTĘPNEJ rundy żądania idą do
+ * `model` z listą `tools`. Historia rund zostaje — nowy model widzi, co
+ * poprzedni już sprawdził. Koszt każdej rundy liczy się po stawce modelu,
+ * który ją wykonał.
+ */
+export type AgentProviderHandoff = {
+  tool: string;
+  model: string;
+  tools: readonly AgentToolDefinition[];
+};
+
 export type AgentProviderRequest = {
   model: string;
   effort: AiEffort;
+  /** Podział na tańszy i mocniejszy model; brak = jeden model na całą turę. */
+  handoff?: AgentProviderHandoff | null;
   /** Bloki systemowe w kolejności podyktowanej przez cache — patrz `agent-system-prompt.ts`. */
   system: SystemBlock[];
   messages: AgentProviderMessage[];
@@ -26,6 +42,12 @@ export type AgentProviderRequest = {
   ) => Promise<AgentToolResult>;
   /** Przerwanie tury po `AI_TURN_TIMEOUT_MS` — dostawca MUSI go respektować. */
   signal: AbortSignal;
+  /**
+   * Sufit kosztu jednej tury w USD (`AI_MAX_TURN_COST_USD`); `null` = bez
+   * sufitu. Po przekroczeniu dostawca kończy pętlę narzędzi odpowiedzią bez
+   * narzędzi zamiast kręcić się do limitu rund.
+   */
+  maxTurnCostUsd: number | null;
 };
 
 export type AgentProviderUsage = {
@@ -41,6 +63,11 @@ export type AgentProviderResult = {
   text: string;
   stopReason: string | null;
   usage: AgentProviderUsage;
+  /**
+   * Model, który dał ostatnie słowo. Przy przekazaniu to `handoff.model`;
+   * bez przekazania — `request.model`. Brak pola = jak `request.model`.
+   */
+  model?: string;
   /** Ile razy model odpytał API w tej turze (1 + liczba rund narzędziowych). */
   apiCalls: number;
 };

@@ -24,7 +24,11 @@ describe('AgentConversationsService', () => {
     agentMessage: { findMany: jest.fn(), findFirst: jest.fn() },
     membership: { findUnique: jest.fn() },
   };
-  const config = { assertEnabled: jest.fn(), read: jest.fn() };
+  const config = {
+    assertEnabled: jest.fn(),
+    assertUserAllowed: jest.fn().mockResolvedValue(undefined),
+    read: jest.fn(),
+  };
   // Stan kart dokłada serwis propozycji; tutaj przepuszczamy wiadomości bez
   // zmian, bo te testy sprawdzają historię, nie karty.
   const proposals = { withCardState: jest.fn((messages: unknown) => messages) };
@@ -86,6 +90,10 @@ describe('AgentConversationsService', () => {
         title: null,
         lastMessageAt: null,
         createdAt: '2026-08-31T10:00:00.000Z',
+        // Ten sam kształt co na liście: świeża rozmowa nie ma ani podglądu,
+        // ani biegnącej tury, ale klient nie musi tego zgadywać po braku pola.
+        preview: null,
+        activeTurnId: null,
       });
     });
 

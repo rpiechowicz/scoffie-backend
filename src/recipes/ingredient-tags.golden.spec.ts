@@ -115,11 +115,32 @@ describe('ingredient-tags-pl-v1.json — struktura', () => {
     expect(byName.get('majonez')?.allergens).toEqual(['eggs', 'mustard']);
     expect(byName.get('hummus')?.allergens).toEqual(['sesame']);
     expect(byName.get('sezam')?.allergens).toEqual(['sesame']);
-    expect(byName.get('mleko bez laktozy')?.allergens).toEqual([]);
+    // Bez laktozy ≠ bez mleka: nietolerancja przepuszcza, alergia na białko
+    // mleka (`milk`, od 2.09.2026) nie.
+    expect(byName.get('mleko bez laktozy')?.allergens).toEqual(['milk']);
     expect(byName.get('mleko bez laktozy')?.dietTags).toEqual(['DAIRY']);
+    expect(byName.get('maslo klarowane')?.allergens).toEqual(['milk']);
     expect(byName.get('mleko kokosowe z puszki')?.allergens).toEqual([]);
     expect(byName.get('krewetka')?.dietTags).toEqual(['CRUSTACEAN', 'FISH']);
+    expect(byName.get('krewetka')?.allergens).toEqual(['crustaceans', 'fish']);
     expect(byName.get('pestki dyni')?.dietTags).toEqual([]);
+  });
+
+  it('14 alergenów UE: każdy DAIRY niesie milk, wina i ocet winny siarczyny', () => {
+    const dairy = tagsFile.ingredients.filter((e) =>
+      e.dietTags.includes('DAIRY'),
+    );
+    expect(dairy.length).toBeGreaterThan(0);
+    for (const entry of dairy) expect(entry.allergens).toContain('milk');
+    for (const name of ['wino biale wytrawne', 'ocet winny', 'cydr']) {
+      expect(byName.get(name)?.allergens).toContain('sulphites');
+    }
+    // Łubinu i mięczaków w katalogu dziś nie ma — id istnieją, żeby
+    // użytkownik mógł zadeklarować alergię, a bramka zadziałała od
+    // pierwszego takiego składnika.
+    expect(
+      tagsFile.ingredients.some((e) => e.allergens.includes('lupin')),
+    ).toBe(false);
   });
 });
 
@@ -127,12 +148,12 @@ describe('unia tagów na prawdziwych przepisach (kuracja 28.08.2026)', () => {
   const GOLDEN: Array<[string, string[], string[]]> = [
     [
       'Żurek z białą kiełbasą i jajkiem',
-      ['celery', 'eggs', 'gluten', 'lactose'],
+      ['celery', 'eggs', 'gluten', 'lactose', 'milk'],
       ['DAIRY', 'EGG', 'GLUTEN_GRAIN', 'GRAIN', 'MEAT', 'PROCESSED'],
     ],
     [
       'Skyr z granolą i malinami',
-      ['gluten', 'lactose', 'nuts'],
+      ['gluten', 'lactose', 'milk', 'nuts'],
       ['ANIMAL_OTHER', 'DAIRY', 'GLUTEN_GRAIN', 'GRAIN', 'PROCESSED'],
     ],
     ['Hummus z warzywami do maczania', ['sesame'], ['LEGUME']],
@@ -148,7 +169,7 @@ describe('unia tagów na prawdziwych przepisach (kuracja 28.08.2026)', () => {
     ],
     [
       'Owsianka z bananem i borówką',
-      ['gluten', 'lactose'],
+      ['gluten', 'lactose', 'milk'],
       ['DAIRY', 'GLUTEN_GRAIN', 'GRAIN'],
     ],
   ];

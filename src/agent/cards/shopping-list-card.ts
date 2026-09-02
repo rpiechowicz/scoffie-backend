@@ -1,12 +1,15 @@
 import {
   AGENT_CARD_VERSION,
   ShoppingListCard,
+  ShoppingListCardEntry,
   ShoppingListCardGroup,
   weekRangeLabel,
 } from './agent-cards';
 
 /** Ile pozycji pokazujemy w dziale, zanim karta zamieni się w listę. */
 export const MAX_ITEMS_PER_GROUP = 6;
+/** Wpisy z odhaczonymi — więcej, bo odhaczone są tłem, nie treścią. */
+export const MAX_ENTRIES_PER_GROUP = 10;
 
 /**
  * Lista zakupów tygodnia, po działach.
@@ -31,14 +34,21 @@ export function buildShoppingListCard(input: {
   }[];
   /** Kolejność działów — ta sama co na liście zakupów w aplikacji. */
   departmentOrder: readonly string[];
+  /** Etykieta działu → klucz (`Nabiał` → `DAIRY`); brak = bez kluczy. */
+  departmentKeys?: Readonly<Record<string, string>>;
 }): ShoppingListCard {
   const remaining = input.items.filter((item) => !item.isChecked);
   const checked = input.items.length - remaining.length;
 
-  const byDepartment = new Map<string, string[]>();
-  for (const item of remaining) {
+  // Do kupienia najpierw, odhaczone na końcu — w tej kolejności czyta się
+  // dział w sklepie: co jeszcze wziąć, a co już jest w koszyku.
+  const byDepartment = new Map<string, ShoppingListCardEntry[]>();
+  for (const item of [
+    ...remaining,
+    ...input.items.filter((i) => i.isChecked),
+  ]) {
     const bucket = byDepartment.get(item.department) ?? [];
-    bucket.push(itemLabel(item));
+    bucket.push({ label: itemLabel(item), isChecked: item.isChecked });
     byDepartment.set(item.department, bucket);
   }
 
@@ -50,11 +60,25 @@ export function buildShoppingListCard(input: {
     .sort((a, b) => a.localeCompare(b, 'pl'));
 
   const groups: ShoppingListCardGroup[] = [...known, ...rest].map(
-    (department) => ({
-      department,
-      items: (byDepartment.get(department) ?? []).slice(0, MAX_ITEMS_PER_GROUP),
-    }),
+    (department) => {
+      const all = byDepartment.get(department) ?? [];
+      const entries = all.slice(0, MAX_ENTRIES_PER_GROUP);
+      const key = input.departmentKeys?.[department];
+      return {
+        department,
+        ...(key ? { departmentKey: key } : {}),
+        items: all
+          .filter((entry) => !entry.isChecked)
+          .slice(0, MAX_ITEMS_PER_GROUP)
+          .map((entry) => entry.label),
+        entries,
+        hidden: all.length - entries.length,
+      };
+    },
   );
+  const emptyDepartments = input.departmentOrder.filter(
+    (department) => !byDepartment.has(department),
+  ).length;
 
   return {
     kind: 'SHOPPING_LIST',
@@ -64,6 +88,7 @@ export function buildShoppingListCard(input: {
     title: title(remaining.length),
     groups,
     summary: { remaining: remaining.length, checked },
+    emptyDepartments,
     checkedNote:
       checked > 0
         ? `${checked} ${plural(
@@ -96,7 +121,9 @@ function itemLabel(item: {
   const amount = Number.isInteger(item.totalAmount)
     ? String(item.totalAmount)
     : item.totalAmount.toFixed(1).replace('.', ',');
-  return item.unit ? `${item.name} ${amount} ${item.unit}` : `${item.name} ${amount}`;
+  return item.unit
+    ? `${item.name} ${amount} ${item.unit}`
+    : `${item.name} ${amount}`;
 }
 
 function title(remaining: number): string {

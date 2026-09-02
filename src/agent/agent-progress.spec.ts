@@ -15,7 +15,9 @@ describe('progressStep', () => {
   });
 
   it('odróżnia próbę od zapisu — użytkownik musi wiedzieć, co się dzieje z jego tygodniem', () => {
-    expect(progressStep('apply_week_plan', {}).label).toMatch(/Zapisuję|Wpisuję/);
+    expect(progressStep('apply_week_plan', {}).label).toMatch(
+      /Zapisuję|Wpisuję/,
+    );
     expect(progressStep('apply_week_plan', { dry_run: true }).label).toMatch(
       /Sprawdzam|Upewniam/,
     );
@@ -41,11 +43,22 @@ describe('progressStep', () => {
 
   it('każde znane narzędzie ma zdanie, żadne nie wpada w wartość zapasową', () => {
     const tools = [
-      'get_household_context', 'get_week_plan', 'get_week_balance',
-      'search_ingredients', 'ask_clarifying_question', 'propose_week_plan',
-      'propose_day_plan', 'propose_swap', 'propose_household_split',
-      'offer_options', 'show_macro_gap', 'show_shopping_list',
-      'remember_note', 'apply_week_plan', 'create_recipe', 'update_recipe',
+      'get_household_context',
+      'get_week_plan',
+      'get_week_balance',
+      'search_ingredients',
+      'ask_clarifying_question',
+      'propose_week_plan',
+      'propose_day_plan',
+      'propose_swap',
+      'propose_household_split',
+      'offer_options',
+      'show_macro_gap',
+      'show_shopping_list',
+      'remember_note',
+      'apply_week_plan',
+      'create_recipe',
+      'update_recipe',
       'delete_recipe',
     ];
     for (const tool of tools) {

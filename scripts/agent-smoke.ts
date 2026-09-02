@@ -90,7 +90,11 @@ async function main(): Promise<void> {
     const prompt = await prompts.build(
       user.id,
       household.id,
-      { weekStart: '2026-08-31', clientToday: today, timeZone: 'Europe/Warsaw' },
+      {
+        weekStart: '2026-08-31',
+        clientToday: today,
+        timeZone: 'Europe/Warsaw',
+      },
       proposalMode,
     );
     console.log(`tryb: ${proposalMode ? 'propozycja' : 'zapis bezpośredni'}`);
@@ -117,11 +121,11 @@ async function main(): Promise<void> {
           turnId: '00000000-0000-4000-8000-00000000c0a2',
           proposalMode,
           scopeUserIds: [],
-          collectCard: (card) =>
-            console.log(`  → karta: ${card.kind}`),
+          collectCard: (card) => console.log(`  → karta: ${card.kind}`),
         });
       },
       signal: AbortSignal.timeout(env.turnTimeoutMs),
+      maxTurnCostUsd: env.maxTurnCostUsd,
     });
 
     console.log(`\n--- odpowiedź (${Date.now() - started} ms) ---`);

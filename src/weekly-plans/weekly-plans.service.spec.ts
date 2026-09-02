@@ -25,8 +25,8 @@ const mockMembership = {
 // Gospodarstwo dwuosobowe, bo dopiero przy dwóch domownikach widać różnicę
 // między regułą auto („Wspólne" = wszyscy) a twardą jedynką z `@default`.
 const mockHouseholdMembers = [
-  { userId: mockUserId },
-  { userId: mockOtherUserId },
+  { userId: mockUserId, user: { preferences: null } },
+  { userId: mockOtherUserId, user: { preferences: null } },
 ];
 
 const mockRecipe = {
@@ -109,6 +109,8 @@ const makePrismaMock = () => {
       // `ensureRecipeForHousehold` filtruje po widocznosci (katalog albo wlasny
       // przepis domu), wiec pyta `findFirst`, nie `findUnique` po samym id.
       findFirst: jest.fn().mockResolvedValue(mockRecipe),
+      // Bramka alergenów/wykluczeń przy ręcznym wstawianiu (`loadPlannableRecipes`).
+      findMany: jest.fn().mockResolvedValue([]),
     },
     weeklyPlan: {
       findUnique: jest.fn().mockResolvedValue(mockWeeklyPlan),
@@ -176,14 +178,6 @@ const makePrismaMock = () => {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     shoppingListArchive: {
-      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-    },
-    // Wycofana pula tygodniowa (WP-03). Delegaty zostają wyłącznie jako
-    // czujniki: test `clearWeekPlan` dowodzi, że nikt ich już nie woła.
-    sharedMealPlan: {
-      findUnique: jest.fn().mockResolvedValue(null),
-    },
-    sharedMealPlanItem: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     $transaction: jest.fn().mockImplementation((cbOrOps: any, _opts?: any) => {
@@ -852,7 +846,8 @@ describe('WeeklyPlansService', () => {
 
       expect(prisma.planItem.delete).not.toHaveBeenCalled();
       expect(prisma.planItem.create).not.toHaveBeenCalled();
-      expect(prisma.membership.findMany).not.toHaveBeenCalled();
+      // Domownicy są czytani, ale tylko dla bramki alergenów/wykluczeń —
+      // audytorium nie jest przeliczane (zapis zostaje DETAILS_CHANGED).
       expect(result).toEqual(
         expect.objectContaining({
           changeKind: 'DETAILS_CHANGED',
@@ -952,7 +947,9 @@ describe('WeeklyPlansService', () => {
       // Stare danie było „dla nas dwojga" imiennie, ale drugi domownik odszedł.
       // Po odsianiu ducha zostaje pełny skład domu, czyli „Wspólne"; porcje z
       // reguły auto przeliczają się na jedną osobę.
-      prisma.membership.findMany.mockResolvedValue([{ userId: mockUserId }]);
+      prisma.membership.findMany.mockResolvedValue([
+        { userId: mockUserId, user: { preferences: null } },
+      ]);
       mockSlot({
         replaced: {
           plannedServings: 2,
@@ -1214,12 +1211,10 @@ describe('WeeklyPlansService', () => {
       expect(prisma.membership.findUnique).toHaveBeenCalled();
     });
 
-    it('nie dotyka już wycofanej puli tygodniowej', async () => {
+    it('kasuje sloty przez PlanItem — jedyne źródło prawdy po WP-03', async () => {
       await service.clearWeekPlan(mockUserId, mockHouseholdId, mockWeekStart);
 
       expect(prisma.planItem.deleteMany).toHaveBeenCalled();
-      expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
-      expect(prisma.sharedMealPlanItem.deleteMany).not.toHaveBeenCalled();
     });
 
     it('powinno odrzucić gdy użytkownik nie jest członkiem', async () => {

@@ -28,6 +28,13 @@ export type AgentProgressStep = {
    * (`dry_run`), która niczego nie zapisuje.
    */
   writes: boolean;
+  /**
+   * `PLANNING` = od tego kroku turę prowadzi dokładniejszy model
+   * (`start_planning`, patrz `AI_MODEL_TOOLS`). Klient rysuje ten krok jako
+   * osobny moment z licznikiem sekund, nie jako kolejną linijkę — projekt v2.
+   * Brak pola = zwykły krok.
+   */
+  phase?: 'PLANNING';
 };
 
 /**
@@ -61,47 +68,29 @@ const LABELS: Record<string, readonly string[]> = {
     'Przeglądam listę produktów',
     'Sprawdzam, co wchodzi w skład',
   ],
-  ask_clarifying_question: [
-    'Formułuję pytanie',
-    'Wolę dopytać, niż zgadywać',
-  ],
+  ask_clarifying_question: ['Formułuję pytanie', 'Wolę dopytać, niż zgadywać'],
   propose_week_plan: [
     'Układam propozycję planu',
     'Dobieram dania na cały tydzień',
     'Składam tydzień tak, żeby nic się nie powtarzało',
   ],
-  propose_day_plan: [
-    'Układam ten dzień',
-    'Dobieram posiłki na jeden dzień',
-  ],
-  propose_swap: [
-    'Szukam czegoś w zamian',
-    'Dobieram danie na podmianę',
-  ],
+  propose_day_plan: ['Układam ten dzień', 'Dobieram posiłki na jeden dzień'],
+  propose_swap: ['Szukam czegoś w zamian', 'Dobieram danie na podmianę'],
   propose_household_split: [
     'Rozdzielam porcje',
     'Dopasowuję wielkość porcji do każdego',
   ],
-  offer_options: [
-    'Wybieram kilka propozycji',
-    'Zbieram dania do wyboru',
-  ],
-  show_macro_gap: [
-    'Sprawdzam, czego brakuje',
-    'Porównuję plan z celami',
-  ],
+  offer_options: ['Wybieram kilka propozycji', 'Zbieram dania do wyboru'],
+  show_macro_gap: ['Sprawdzam, czego brakuje', 'Porównuję plan z celami'],
   show_shopping_list: [
     'Składam listę zakupów',
     'Sprawdzam, czego trzeba dokupić',
   ],
-  remember_note: [
-    'Zapamiętuję to sobie',
-    'Notuję na przyszłość',
-  ],
-  apply_week_plan: [
-    'Zapisuję plan tygodnia',
-    'Wpisuję dania do planu',
-  ],
+  remember_note: ['Zapamiętuję to sobie', 'Notuję na przyszłość'],
+  // Jedno sformułowanie, celowo: to jest MOMENT, nie kolejny krok, i ma
+  // wyglądać tak samo w każdej turze.
+  start_planning: ['Biorę się za plan'],
+  apply_week_plan: ['Zapisuję plan tygodnia', 'Wpisuję dania do planu'],
   create_recipe: ['Dodaję przepis', 'Zapisuję nowy przepis'],
   update_recipe: ['Poprawiam przepis'],
   delete_recipe: ['Wycofuję przepis'],
@@ -164,6 +153,7 @@ export function progressStep(
     label,
     at: now.toISOString(),
     writes: WRITING_TOOLS.has(tool) && !dryRun,
+    ...(tool === 'start_planning' ? { phase: 'PLANNING' as const } : {}),
   };
 }
 

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Injectable, Logger } from '@nestjs/common';
+import { priceFor } from '../../config/model-prices';
 import {
   AgentProvider,
   AgentProviderError,
@@ -7,6 +8,7 @@ import {
   AgentProviderResult,
   AgentProviderUsage,
 } from './agent-provider';
+import { AgentToolDefinition } from '../tools/agent-tools';
 
 /**
  * Ile razy model może w jednej turze poprosić o narzędzia.
@@ -22,12 +24,6 @@ export const MAX_TOOL_ROUNDS = 12;
 /** Nie streamujemy — klient i tak odpytuje turę pollingiem. */
 const MAX_TOKENS = 16_000;
 
-/** $/MTok wejścia i wyjścia. Odczyt z cache 0,1×, zapis 1-godzinny 2×. */
-const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
-  'claude-opus-5': { input: 5, output: 25 },
-  'claude-sonnet-5': { input: 2, output: 10 },
-  'claude-haiku-4-5': { input: 1, output: 5 },
-};
 const CACHE_READ_MULTIPLIER = 0.1;
 const CACHE_WRITE_MULTIPLIER = 2;
 
@@ -58,6 +54,17 @@ export class AnthropicAgentProvider implements AgentProvider {
   readonly name = 'anthropic' as const;
   private readonly logger = new Logger(AnthropicAgentProvider.name);
   private client: Anthropic | null = null;
+  /** Ostrzeżenie o nieznanym modelu raz na proces, nie raz na rundę. */
+  private readonly warnedModels = new Set<string>();
+
+  /**
+   * Testy podstawiają klienta bez sięgania do sieci ani do env. Metoda, nie
+   * parametr konstruktora: DI Nesta próbowałoby wstrzyknąć klasę `Anthropic`
+   * i wywracało start całej aplikacji.
+   */
+  useClient(client: Anthropic): void {
+    this.client = client;
+  }
 
   async run(request: AgentProviderRequest): Promise<AgentProviderResult> {
     const client = this.getClient();
@@ -68,19 +75,24 @@ export class AnthropicAgentProvider implements AgentProvider {
         content: message.text,
       }),
     );
+    // Model i lista narzędzi są ZMIENNE w obrębie tury: po `handoff.tool`
+    // pałeczkę przejmuje mocniejszy model z pełną listą (patrz AI_MODEL_TOOLS).
+    let model = request.model;
+    let tools = request.tools;
+    let handedOff = false;
 
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
       this.assertNotAborted(request.signal);
 
       let response: Anthropic.Message;
       try {
-        response = await this.call(client, request, messages);
+        response = await this.call(client, request, messages, model, tools);
       } catch (error) {
         // Zużycie z poprzednich rund musi przeżyć błąd — inaczej tura, która
         // padła w piątej rundzie, zapisze zero wydanych pieniędzy.
         throw this.withUsage(error, usage);
       }
-      this.accumulate(usage, request.model, response.usage);
+      this.accumulate(usage, model, response.usage);
 
       // `stop_reason` PRZED czytaniem treści: przy odmowie `content` bywa puste,
       // a ślepe sięganie po tekst dałoby pustą odpowiedź zamiast wyjaśnienia.
@@ -105,6 +117,7 @@ export class AnthropicAgentProvider implements AgentProvider {
           text: this.joinText(response.content),
           stopReason: response.stop_reason,
           usage,
+          model,
           apiCalls: round + 1,
         };
       }
@@ -113,13 +126,53 @@ export class AnthropicAgentProvider implements AgentProvider {
         role: 'user',
         content: await this.runTools(request, toolUses),
       });
+
+      // Przekazanie PO wykonaniu narzędzi tej rundy: wynik `start_planning`
+      // wraca jeszcze do tańszego modelu jako zwykły tool_result, a od
+      // następnego żądania historię czyta już planista.
+      if (
+        request.handoff &&
+        !handedOff &&
+        toolUses.some((toolUse) => toolUse.name === request.handoff?.tool)
+      ) {
+        handedOff = true;
+        model = request.handoff.model;
+        tools = request.handoff.tools;
+      }
+
+      // Sufit kosztu jednej tury: żądanie niewykonalne potrafiło kręcić się
+      // 14 wywołań za $1,00. Po przekroczeniu prosimy o ostatnie słowo bez
+      // narzędzi — dokładnie jak przy wyczerpanych rundach.
+      if (
+        request.maxTurnCostUsd !== null &&
+        usage.costMicroUsd >= request.maxTurnCostUsd * 1_000_000
+      ) {
+        this.logger.warn(
+          `sufit kosztu tury ($${request.maxTurnCostUsd}) osiągnięty po ${round + 1} wywołaniach — ostatnie słowo bez narzędzi`,
+        );
+        return this.finalAnswerWithoutTools(
+          client,
+          request,
+          messages,
+          usage,
+          model,
+          tools,
+        );
+      }
     }
 
     // Sufit rund osiągnięty. Zamiast wywracać turę, prosimy o odpowiedź BEZ
     // narzędzi: „nie mam wegańskich przepisów na cały tydzień" to dla
     // użytkownika sensowna odpowiedź, a „tura nie powiodła się" nie jest —
     // zwłaszcza że pieniądze na te rundy i tak zostały wydane.
-    return this.finalAnswerWithoutTools(client, request, messages, usage);
+    return this.finalAnswerWithoutTools(
+      client,
+      request,
+      messages,
+      usage,
+      model,
+      tools,
+    );
   }
 
   /**
@@ -134,6 +187,8 @@ export class AnthropicAgentProvider implements AgentProvider {
     request: AgentProviderRequest,
     messages: Anthropic.MessageParam[],
     usage: AgentProviderUsage,
+    model: string,
+    tools: readonly AgentToolDefinition[],
   ): Promise<AgentProviderResult> {
     messages.push({
       role: 'user',
@@ -145,23 +200,26 @@ export class AnthropicAgentProvider implements AgentProvider {
     try {
       const response = await client.messages.create(
         {
-          model: request.model,
+          model,
           max_tokens: MAX_TOKENS,
           system: request.system,
           messages,
-          tools: request.tools as unknown as Anthropic.ToolUnion[],
+          tools: tools as unknown as Anthropic.ToolUnion[],
           tool_choice: { type: 'none' },
           thinking: { type: 'adaptive' },
           output_config: { effort: request.effort },
         },
         { signal: request.signal },
       );
-      this.accumulate(usage, request.model, response.usage);
+      this.accumulate(usage, model, response.usage);
       return {
         text: this.joinText(response.content),
         stopReason: 'tool_rounds_exhausted',
         usage,
-        apiCalls: MAX_TOOL_ROUNDS + 2,
+        model,
+        // Dokładna liczba, nie stała: to samo „ostatnie słowo" woła sufit
+        // kosztu po dwóch rundach i sufit rund po trzynastu.
+        apiCalls: messages.filter((m) => m.role === 'assistant').length + 1,
       };
     } catch (error) {
       const providerError = this.toProviderError(error);
@@ -205,15 +263,17 @@ export class AnthropicAgentProvider implements AgentProvider {
     client: Anthropic,
     request: AgentProviderRequest,
     messages: Anthropic.MessageParam[],
+    model: string,
+    tools: readonly AgentToolDefinition[],
   ): Promise<Anthropic.Message> {
     try {
       return await client.messages.create(
         {
-          model: request.model,
+          model,
           max_tokens: MAX_TOKENS,
           system: request.system,
           messages,
-          tools: request.tools as unknown as Anthropic.ToolUnion[],
+          tools: tools as unknown as Anthropic.ToolUnion[],
           // Adaptacyjne myślenie: na modelach 5 `budget_tokens` jest odrzucane,
           // a głębokość steruje się poziomem wysiłku.
           thinking: { type: 'adaptive' },
@@ -308,8 +368,14 @@ export class AnthropicAgentProvider implements AgentProvider {
     total.cacheReadTokens += cacheRead;
     total.cacheWriteTokens += cacheWrite;
 
-    const price = PRICE_PER_MTOK[model];
-    if (!price) return;
+    const price = priceFor(model);
+    if (!price.known && !this.warnedModels.has(model)) {
+      this.warnedModels.add(model);
+      // Nie `return`: brak ceny znaczył kiedyś koszt zero i ślepy budżet.
+      this.logger.warn(
+        `nieznany model ${model} — koszt liczony po najdroższej znanej stawce`,
+      );
+    }
     total.costMicroUsd += Math.round(
       input * price.input +
         cacheRead * price.input * CACHE_READ_MULTIPLIER +

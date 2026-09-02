@@ -315,6 +315,55 @@ export class NotificationsService implements OnModuleDestroy {
   }
 
   /**
+   * Asystent skończył turę, a użytkownik mógł już wyjść z ekranu.
+   *
+   * Projekt v2: „możesz wyjść — wrócę z odpowiedzią i powiadomieniem". Jedna
+   * osoba, nie gospodarstwo (rozmowa jest prywatna). Kanał `plan`, bo to
+   * odpowiedź o planie i ma słuchać tego samego przełącznika. Bez ciszy
+   * nocnej: na tę odpowiedź ktoś czeka, tak jak na dołączenie domownika.
+   * `collapseId` = tura: ponowna wysyłka podmienia, nie dokłada.
+   */
+  async notifyAssistantTurnFinished(params: {
+    userId: string;
+    conversationId: string;
+    turnId: string;
+    ok: boolean;
+    /** Początek odpowiedzi do treści powiadomienia; `null` przy porażce. */
+    preview: string | null;
+  }): Promise<void> {
+    if (!this.apnsService.isConfigured()) {
+      return;
+    }
+
+    const flat = (params.preview ?? '').replace(/\s+/g, ' ').trim();
+    const body = params.ok
+      ? flat.length > 120
+        ? `${flat.slice(0, 120).trimEnd()}…`
+        : flat || 'Odpowiedź czeka w rozmowie.'
+      : 'Nie udało się dokończyć odpowiedzi. Plan bez zmian — spróbuj ponownie.';
+
+    await this.sendToUsers({
+      userIds: [params.userId],
+      channel: 'plan',
+      payload: {
+        title: params.ok ? 'Asystent odpowiedział' : 'Asystent nie zdążył',
+        body,
+        data: {
+          type: 'ASSISTANT_TURN_FINISHED',
+          conversationId: params.conversationId,
+          turnId: params.turnId,
+          ok: params.ok ? 'true' : 'false',
+        },
+        collapseId: `asst-${params.turnId}`.slice(0, 64),
+        threadId: `asst-${params.conversationId}`,
+        interruptionLevel: 'active',
+        priority: 10,
+        sound: 'default',
+      },
+    });
+  }
+
+  /**
    * Zaproszenie do gospodarstwa czeka w skrzynce adresata.
    *
    * Wysyłane w chwili, gdy zaproszenie zostaje do niego przypisane — czyli

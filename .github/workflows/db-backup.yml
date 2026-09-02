@@ -1,0 +1,122 @@
+# Niezależna kopia bazy produkcyjnej do Cloudflare R2.
+#
+# Railway ma własne backupy wolumenu (o ile plan je obejmuje), ale ta kopia
+# leży POZA Railwayem: skasowany serwis, błędna migracja albo pomyłkowy
+# `accounts:reset` nie zabierają jej razem z bazą. Codziennie 03:15 UTC
+# i ręcznie z zakładki Actions („Run workflow").
+#
+# Sekrety repozytorium (Settings → Secrets and variables → Actions):
+#   DATABASE_PUBLIC_URL  — DATABASE_PUBLIC_URL serwisu Postgres na Railway
+#                          (publiczny proxy; NIE wewnętrzny railway.internal)
+#   R2_BACKUP_ENDPOINT   — https://<account-id>.r2.cloudflarestorage.com
+#   R2_BACKUP_BUCKET     — osobny bucket (nie ten od zdjęć), bez publicznego dostępu
+#   R2_BACKUP_ACCESS_KEY_ID / R2_BACKUP_SECRET_ACCESS_KEY — token R2 tylko do tego bucketa
+#
+# Klient pg_dump musi być w wersji ≥ serwera: Railway ma Postgresa 17, a
+# ubuntu-latest wozi 16 — stąd instalacja z repozytorium PGDG.
+#
+# Odtworzenie (na dev, raz na kwartał — inaczej kopia jest tylko nadzieją):
+#   aws s3 cp s3://<bucket>/weekly-meals/<plik>.dump . --endpoint-url <endpoint>
+#   pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <plik>.dump
+name: DB backup
+
+on:
+  schedule:
+    - cron: '15 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RETENTION_DAYS: '30'
+      PREFIX: weekly-meals
+    steps:
+      - name: Install PostgreSQL 17 client
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
+            https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          pg_dump --version
+
+      - name: Guard secrets
+        env:
+          DATABASE_PUBLIC_URL: ${{ secrets.DATABASE_PUBLIC_URL }}
+          R2_BACKUP_ENDPOINT: ${{ secrets.R2_BACKUP_ENDPOINT }}
+          R2_BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          for v in DATABASE_PUBLIC_URL R2_BACKUP_ENDPOINT R2_BACKUP_BUCKET AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            if [ -z "${!v:-}" ]; then echo "::error::brak sekretu $v"; exit 1; fi
+          done
+
+      - name: pg_dump
+        env:
+          DATABASE_PUBLIC_URL: ${{ secrets.DATABASE_PUBLIC_URL }}
+        run: |
+          set -euo pipefail
+          stamp="$(date -u +%Y-%m-%dT%H%M%SZ)"
+          file="weekly-meals-${stamp}.dump"
+          # Format custom: skompresowany, odtwarzalny wybiórczo przez pg_restore.
+          pg_dump --format=custom --no-owner --no-privileges \
+            --file "$file" "$DATABASE_PUBLIC_URL"
+          size=$(stat -c %s "$file")
+          # Pusta albo śladowa kopia to porażka, nie sukces — lepiej czerwony
+          # workflow niż cichy „backup", którego nie da się odtworzyć.
+          if [ "$size" -lt 20000 ]; then echo "::error::zrzut ma tylko $size B"; exit 1; fi
+          echo "FILE=$file" >> "$GITHUB_ENV"
+          echo "zrzut: $file ($size B)"
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_EC2_METADATA_DISABLED: 'true'
+          R2_BACKUP_ENDPOINT: ${{ secrets.R2_BACKUP_ENDPOINT }}
+          R2_BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET }}
+        run: |
+          set -euo pipefail
+          aws s3 cp "$FILE" "s3://$R2_BACKUP_BUCKET/$PREFIX/$FILE" \
+            --endpoint-url "$R2_BACKUP_ENDPOINT" --only-show-errors
+          aws s3 ls "s3://$R2_BACKUP_BUCKET/$PREFIX/$FILE" --endpoint-url "$R2_BACKUP_ENDPOINT"
+
+      - name: Prune copies older than retention
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_EC2_METADATA_DISABLED: 'true'
+          R2_BACKUP_ENDPOINT: ${{ secrets.R2_BACKUP_ENDPOINT }}
+          R2_BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET }}
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d "-${RETENTION_DAYS} days" +%Y-%m-%dT%H%M%SZ)
+          aws s3 ls "s3://$R2_BACKUP_BUCKET/$PREFIX/" --endpoint-url "$R2_BACKUP_ENDPOINT" \
+            | awk '{print $4}' | grep -E '^weekly-meals-.*\.dump$' | while read -r name; do
+              stamp="${name#weekly-meals-}"; stamp="${stamp%.dump}"
+              if [[ "$stamp" < "$cutoff" ]]; then
+                echo "usuwam $name"
+                aws s3 rm "s3://$R2_BACKUP_BUCKET/$PREFIX/$name" --endpoint-url "$R2_BACKUP_ENDPOINT" --only-show-errors
+              fi
+            done
+
+      - name: Shred local dump
+        if: always()
+        run: rm -f weekly-meals-*.dump

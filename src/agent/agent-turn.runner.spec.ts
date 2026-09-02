@@ -33,6 +33,11 @@ const ENV: AgentEnv = {
   cardsMode: 'off',
   proposalTtlMs: 72 * 60 * 60 * 1000,
   proposalUndoWindowMs: 60 * 60 * 1000,
+  allowedUsers: [],
+  consentRequired: false,
+  conversationRetentionDays: 90,
+  maxTurnCostUsd: 1,
+  toolsModel: null,
 };
 
 const RESULT: AgentProviderResult = {
@@ -127,6 +132,7 @@ describe('AgentTurnRunner', () => {
       counters as unknown as AiUsageCountersService,
       breaker,
       metrics,
+      { notify: jest.fn().mockResolvedValue(false) } as never,
     );
   });
 

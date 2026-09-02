@@ -36,6 +36,11 @@ const ENV: AgentEnv = {
   cardsMode: 'off',
   proposalTtlMs: 72 * 60 * 60 * 1000,
   proposalUndoWindowMs: 60 * 60 * 1000,
+  allowedUsers: [],
+  consentRequired: false,
+  conversationRetentionDays: 90,
+  maxTurnCostUsd: 1,
+  toolsModel: null,
 };
 
 const validDto = (): PostMessageDto => ({
@@ -67,7 +72,11 @@ describe('AgentTurnsService', () => {
     },
     $transaction: jest.fn(),
   };
-  const config = { assertEnabled: jest.fn(), read: jest.fn() };
+  const config = {
+    assertEnabled: jest.fn(),
+    assertUserAllowed: jest.fn().mockResolvedValue(undefined),
+    read: jest.fn(),
+  };
   const conversations = { loadOwned: jest.fn() };
   const counters = {
     monthKey: jest.fn(),
@@ -75,6 +84,7 @@ describe('AgentTurnsService', () => {
     read: jest.fn(),
     tryConsume: jest.fn(),
     add: jest.fn(),
+    quotaDetails: jest.fn().mockReturnValue(['kind:messages']),
   };
   const runner = { run: jest.fn() };
   let breaker: UpstreamBreaker;
@@ -93,6 +103,7 @@ describe('AgentTurnsService', () => {
       metrics,
       runner as unknown as AgentTurnRunner,
       { withCardState: (messages: unknown) => messages } as never,
+      { notify: jest.fn().mockResolvedValue(false) } as never,
     );
   };
 

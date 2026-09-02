@@ -405,7 +405,8 @@ describe('applyWeekPlan E2E', () => {
         },
         select: { id: true, ingredients: { select: { ingredientId: true } } },
       });
-      if (!zPieczarka) throw new Error('katalog dev nie ma kolacji ze składnikami');
+      if (!zPieczarka)
+        throw new Error('katalog dev nie ma kolacji ze składnikami');
       danie = zPieczarka.id;
       skladnik = zPieczarka.ingredients[0].ingredientId;
 
@@ -442,6 +443,42 @@ describe('applyWeekPlan E2E', () => {
       });
       await prisma.membership.deleteMany({
         where: { userId: inny, householdId },
+      });
+    });
+
+    it('ręczne wstawienie z telefonu ma tę samą bramkę wykluczeń co zapis tygodnia', async () => {
+      // Do 3.09 tylko `applyWeekPlan` sprawdzał wykluczenia — asystent nie
+      // mógł wstawić dania z pieczarkami, a ręka z telefonu mogła.
+      const refused = await ack<{ id: string }>(
+        socket,
+        'weeklyPlans:upsertWeekSlot',
+        {
+          householdId,
+          weekStart: '2026-11-02',
+          data: { dayOfWeek: 'WED', mealType: 'DINNER', recipeId: danie },
+        },
+      );
+      expect(refused.ok).toBe(false);
+      if (!refused.ok) expect(refused.code).toBe('RECIPE_EXCLUDED_INGREDIENT');
+
+      // Ta sama reguła audytorium: dla domownika bez wykluczenia wchodzi.
+      const accepted = await ack<{ id: string }>(
+        socket,
+        'weeklyPlans:upsertWeekSlot',
+        {
+          householdId,
+          weekStart: '2026-11-02',
+          data: {
+            dayOfWeek: 'WED',
+            mealType: 'DINNER',
+            recipeId: danie,
+            participantIds: [inny],
+          },
+        },
+      );
+      expect(accepted.ok).toBe(true);
+      await prisma.weeklyPlan.deleteMany({
+        where: { householdId, weekStart: new Date('2026-11-02T00:00:00.000Z') },
       });
     });
 

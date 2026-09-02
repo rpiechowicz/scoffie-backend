@@ -1,4 +1,8 @@
-import { AGENT_CARD_VERSION, AgentCardAction, ClarifyCard } from './agent-cards';
+import {
+  AGENT_CARD_VERSION,
+  AgentCardAction,
+  ClarifyCard,
+} from './agent-cards';
 
 /** Ile gotowych odpowiedzi ma sens pod pytaniem — dalej to już menu. */
 export const MAX_CLARIFY_OPTIONS = 4;

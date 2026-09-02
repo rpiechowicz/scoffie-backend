@@ -60,7 +60,22 @@ export type MessageView = {
    * zna, ma pokazać zdanie i niczego nie stracić.
    */
   card?: AgentCard | null;
+  /**
+   * „Uwzględniłem: …" — z czym asystent policzył tę odpowiedź (tydzień,
+   * dla kogo, cel). Tylko przy odpowiedziach asystenta; brak = nie zapisano.
+   */
+  usedContext?: string[];
 };
+
+/** `AgentMessage.context` → napisy; cokolwiek innego niż lista = brak. */
+export function usedContextFrom(context: unknown): string[] | undefined {
+  const used = (context as { used?: unknown } | null)?.used;
+  if (!Array.isArray(used)) return undefined;
+  const strings = used.filter(
+    (item): item is string => typeof item === 'string',
+  );
+  return strings.length === used.length ? strings : undefined;
+}
 
 /** Ile wiadomości oddaje jeden odczyt historii (klient dobiera kursorem `after`). */
 export const MESSAGES_PAGE_SIZE = 100;
@@ -122,14 +137,48 @@ export class AgentConversationsService {
   ) {}
 
   async create(userId: string, dto: CreateConversationDto) {
-    this.config.assertEnabled();
+    const env = this.config.assertEnabled();
+    await this.config.assertUserAllowed(userId, env);
     const data = await validateDto(CreateConversationDto, dto);
     await this.ensureMembership(userId, data.householdId);
 
     const conversation = await this.prisma.agentConversation.create({
       data: { userId, householdId: data.householdId },
     });
-    return this.toConversationView(conversation);
+    return {
+      ...this.toConversationView(conversation),
+      preview: null,
+      activeTurnId: null,
+    };
+  }
+
+  /** Jedna rozmowa z podglądem i żywą turą — patrz `list`. */
+  async getOne(
+    userId: string,
+    conversationId: string,
+  ): Promise<ConversationView> {
+    this.config.assertEnabled();
+    const owned = await this.loadOwned(userId, conversationId);
+    const conversation = await this.prisma.agentConversation.findUniqueOrThrow({
+      where: { id: owned.id },
+    });
+    const [previews, active] = await Promise.all([
+      this.previews([conversation.id]),
+      this.prisma.agentTurn.findFirst({
+        where: {
+          conversationId: conversation.id,
+          status: 'RUNNING',
+          startedAt: { gt: this.staleTurnThreshold() },
+        },
+        orderBy: { startedAt: 'desc' },
+        select: { id: true },
+      }),
+    ]);
+    return {
+      ...this.toConversationView(conversation),
+      preview: previews.get(conversation.id) ?? null,
+      activeTurnId: active?.id ?? null,
+    };
   }
 
   /**
@@ -264,6 +313,9 @@ export class AgentConversationsService {
       role: m.role,
       kind: m.kind,
       text: m.text,
+      ...(usedContextFrom(m.context)
+        ? { usedContext: usedContextFrom(m.context) }
+        : {}),
       clientMessageId: m.clientMessageId,
       turnId: m.turnId,
       createdAt: m.createdAt.toISOString(),
@@ -275,8 +327,9 @@ export class AgentConversationsService {
 
   /**
    * Kasuje WSZYSTKIE rozmowy użytkownika (RODO — „usuń moje rozmowy z
-   * asystentem"). Wiadomości, tury i wpisy `AiUsage` idą kaskadą; liczniki
-   * kwot zostają, bo to dane rozliczeniowe gospodarstwa, nie treść rozmowy.
+   * asystentem"). Wiadomości i tury idą kaskadą; wpisy `AiUsage` ZOSTAJĄ
+   * (turnId → NULL), tak samo liczniki kwot — to dane rozliczeniowe
+   * gospodarstwa, nie treść rozmowy.
    *
    * Bez `assertEnabled`: prawo do usunięcia danych nie może zależeć od tego,
    * czy funkcja jest akurat włączona.
