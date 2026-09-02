@@ -196,6 +196,7 @@ export class AgentTurnsService {
     requestId: string,
   ): Promise<AcceptedTurn> {
     const env = this.config.assertEnabled();
+    await this.config.assertUserAllowed(userId, env);
     const conversation = await this.conversations.loadOwned(
       userId,
       conversationId,

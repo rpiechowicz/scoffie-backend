@@ -4,6 +4,7 @@ import {
   AI_EFFORT_DEFAULT,
   AI_MODEL_DEFAULT,
   agentEnvProblems,
+  parseAllowedUsers,
   readAgentEnv,
 } from './agent-env';
 
@@ -27,6 +28,27 @@ describe('readAgentEnv', () => {
       cardsMode: 'off',
       proposalTtlMs: AGENT_ENV_DEFAULTS.proposalTtlMs,
       proposalUndoWindowMs: AGENT_ENV_DEFAULTS.proposalUndoWindowMs,
+      // Pusta lista = wszyscy, jak dotąd: bramka nie może zmienić
+      // zachowania instalacji, która o nią nie prosiła.
+      allowedUsers: [],
+    });
+  });
+
+  describe('lista dozwolonych kont', () => {
+    it('rozdziela po przecinku, przycina i zmniejsza litery; puste wpisy wypadają', () => {
+      expect(
+        parseAllowedUsers(
+          ' Rafal@Example.com, ,3FA85F64-5717-4562-B3FC-2C963F66AFA6,,',
+        ),
+      ).toEqual(['rafal@example.com', '3fa85f64-5717-4562-b3fc-2c963f66afa6']);
+      expect(parseAllowedUsers(undefined)).toEqual([]);
+      expect(parseAllowedUsers('  ')).toEqual([]);
+    });
+
+    it('trafia do AgentEnv', () => {
+      expect(readAgentEnv({ AI_ALLOWED_USERS: 'a@b.pl' }).allowedUsers).toEqual(
+        ['a@b.pl'],
+      );
     });
   });
 

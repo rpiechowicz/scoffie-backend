@@ -122,7 +122,8 @@ export class AgentConversationsService {
   ) {}
 
   async create(userId: string, dto: CreateConversationDto) {
-    this.config.assertEnabled();
+    const env = this.config.assertEnabled();
+    await this.config.assertUserAllowed(userId, env);
     const data = await validateDto(CreateConversationDto, dto);
     await this.ensureMembership(userId, data.householdId);
 

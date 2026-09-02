@@ -33,6 +33,7 @@ const ENV: AgentEnv = {
   cardsMode: 'off',
   proposalTtlMs: 72 * 60 * 60 * 1000,
   proposalUndoWindowMs: 60 * 60 * 1000,
+  allowedUsers: [],
 };
 
 const RESULT: AgentProviderResult = {

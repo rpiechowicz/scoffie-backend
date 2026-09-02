@@ -81,7 +81,29 @@ export type AgentEnv = {
   proposalTtlMs: number;
   /** Ile czasu na „Cofnij" po zapisaniu propozycji. */
   proposalUndoWindowMs: number;
+  /**
+   * Kto może rozmawiać z asystentem: identyfikatory użytkowników albo
+   * e-maile (małymi literami). PUSTA lista = wszyscy zalogowani, jak dotąd.
+   *
+   * Aplikacja jest w App Store i każdy może założyć konto — do czasu zgód,
+   * polityki i paywalla to jedyna bramka między „rodzina testuje" a „obcy
+   * palą klucz". Konto spoza listy dostaje 503 AI_DISABLED (jak wyłączony
+   * asystent): telefon pokazuje „niedostępny" i blokuje pole, bez nowej
+   * kopii po stronie iOS.
+   */
+  allowedUsers: string[];
 };
+
+/**
+ * `AI_ALLOWED_USERS` — lista rozdzielona przecinkami; puste wpisy i
+ * wielkość liter nie mają znaczenia (e-maile Apple bywają wpisywane różnie).
+ */
+export function parseAllowedUsers(raw: string | undefined): string[] {
+  return (raw ?? '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+}
 
 export const AGENT_ENV_DEFAULTS = {
   turnTimeoutMs: 90_000,
@@ -210,6 +232,7 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       AGENT_ENV_DEFAULTS.proposalUndoWindowMs,
       { min: 0 },
     ),
+    allowedUsers: parseAllowedUsers(env.AI_ALLOWED_USERS),
   };
 }
 

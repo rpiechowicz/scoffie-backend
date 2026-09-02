@@ -24,7 +24,11 @@ describe('AgentConversationsService', () => {
     agentMessage: { findMany: jest.fn(), findFirst: jest.fn() },
     membership: { findUnique: jest.fn() },
   };
-  const config = { assertEnabled: jest.fn(), read: jest.fn() };
+  const config = {
+    assertEnabled: jest.fn(),
+    assertUserAllowed: jest.fn().mockResolvedValue(undefined),
+    read: jest.fn(),
+  };
   // Stan kart dokłada serwis propozycji; tutaj przepuszczamy wiadomości bez
   // zmian, bo te testy sprawdzają historię, nie karty.
   const proposals = { withCardState: jest.fn((messages: unknown) => messages) };

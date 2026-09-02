@@ -69,6 +69,7 @@ describe('Agent E2E', () => {
     'AI_STUB_DELAY_MS',
     'AI_LIMIT_MESSAGES_PER_MONTH',
     'AI_CARDS_MODE',
+    'AI_ALLOWED_USERS',
     'THROTTLE_DEFAULT_LIMIT',
     'THROTTLE_IP_LIMIT',
     'THROTTLE_AGENT_MESSAGE_LIMIT',
@@ -239,6 +240,32 @@ describe('Agent E2E', () => {
         .send({ householdId: otherHousehold })
         .expect(403);
       expect(res.body).toMatchObject({ code: 'NOT_HOUSEHOLD_MEMBER' });
+    });
+
+    it('konto spoza AI_ALLOWED_USERS: 503 AI_DISABLED z powodem not_allowed', async () => {
+      // Lista czytana per wywołanie, jak reszta AI_* — bez restartu.
+      process.env.AI_ALLOWED_USERS = 'ktos-inny@example.com';
+      try {
+        const res = await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(503);
+        expect(res.body).toMatchObject({
+          code: 'AI_DISABLED',
+          details: ['not_allowed'],
+        });
+
+        // Ten sam użytkownik na liście po id (wielkość liter i spacje obojętne).
+        process.env.AI_ALLOWED_USERS = ` ${session.user.id.toUpperCase()} `;
+        await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(201);
+      } finally {
+        delete process.env.AI_ALLOWED_USERS;
+      }
     });
 
     it('householdId nie-UUID: 400 VALIDATION_ERROR (nie 500 z P2023)', async () => {
