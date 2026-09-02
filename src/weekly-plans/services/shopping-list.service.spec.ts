@@ -79,11 +79,6 @@ const makePrismaMock = () => {
     weeklyPlan: {
       findUnique: jest.fn().mockResolvedValue(null),
     },
-    // Wycofana pula tygodniowa (WP-03). Delegat zostaje wyłącznie po to, żeby
-    // test mógł udowodnić, że NIKT go już nie woła.
-    sharedMealPlan: {
-      findUnique: jest.fn().mockResolvedValue(null),
-    },
     // `isStale` forces the read path through a full rebuild, which is where
     // the aggregation under test lives.
     shoppingList: {
@@ -347,27 +342,14 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
 
   // ─── Wycofana pula tygodniowa (WP-03) ──────────────────────────────────────
   //
-  // Pula potrafiła podstawić widmową listę tygodniowi, z którego usunięto
-  // wszystkie posiłki po jednym. Od teraz `PlanItem` jest jedynym źródłem, a
-  // delegat `sharedMealPlan` w mocku służy tylko jako czujnik regresji.
+  // Dawna pula tygodniowa potrafiła podstawić widmową listę tygodniowi, z
+  // którego usunięto wszystkie posiłki po jednym. `PlanItem` jest jedynym
+  // źródłem; tabele puli nie istnieją (migracja 20260903090000).
 
   it('nie powinno budować listy ze starej puli, gdy tydzień nie ma dni w Planie v2', async () => {
     prisma.weeklyPlan.findUnique.mockResolvedValue(null);
-    prisma.sharedMealPlan.findUnique.mockResolvedValue({
-      id: 'shared-1',
-      householdId: mockHouseholdId,
-      weekStart: new Date(mockWeekStart),
-      items: [
-        {
-          id: 'p-1',
-          recipe: { ingredients: [ingredient('Makaron', 200)], servings: 2 },
-          quantity: 3,
-        },
-      ],
-    });
 
     await expect(getList()).resolves.toEqual([]);
-    expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
   });
 
   it('nie powinno pytać o starą pulę, gdy tydzień ma dni w Planie v2', async () => {
@@ -381,7 +363,6 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
 
     expect(items).toHaveLength(1);
     expect(findItem(items, 'ziemniak').totalAmount).toBe(500);
-    expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
   });
 
   it('powinno przebudować listę do pustej, gdy snapshot ma pozycje, a tydzień nie ma już źródła', async () => {
@@ -406,7 +387,6 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
     prisma.weeklyPlan.findUnique.mockResolvedValue(null);
 
     await expect(getList()).resolves.toEqual([]);
-    expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
   });
 
   it('powinno zwrócić pustą listę, gdy tydzień nie ma żadnego źródła', async () => {

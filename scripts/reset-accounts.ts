@@ -267,7 +267,6 @@ async function scrubCatalogHousehold(): Promise<number> {
     prisma.shoppingListArchiveState.deleteMany({ where }),
     prisma.shoppingItemCheck.deleteMany({ where }),
     prisma.recipeFavorite.deleteMany({ where }),
-    prisma.sharedMealPlan.deleteMany({ where }),
     prisma.invitation.deleteMany({ where }),
     prisma.agentConversation.deleteMany({ where }),
     prisma.agentMemory.deleteMany({ where }),

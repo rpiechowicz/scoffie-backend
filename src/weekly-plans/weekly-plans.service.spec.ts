@@ -180,14 +180,6 @@ const makePrismaMock = () => {
     shoppingListArchive: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
-    // Wycofana pula tygodniowa (WP-03). Delegaty zostają wyłącznie jako
-    // czujniki: test `clearWeekPlan` dowodzi, że nikt ich już nie woła.
-    sharedMealPlan: {
-      findUnique: jest.fn().mockResolvedValue(null),
-    },
-    sharedMealPlanItem: {
-      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-    },
     $transaction: jest.fn().mockImplementation((cbOrOps: any, _opts?: any) => {
       if (typeof cbOrOps === 'function') {
         return cbOrOps(mock);
@@ -1219,12 +1211,10 @@ describe('WeeklyPlansService', () => {
       expect(prisma.membership.findUnique).toHaveBeenCalled();
     });
 
-    it('nie dotyka już wycofanej puli tygodniowej', async () => {
+    it('kasuje sloty przez PlanItem — jedyne źródło prawdy po WP-03', async () => {
       await service.clearWeekPlan(mockUserId, mockHouseholdId, mockWeekStart);
 
       expect(prisma.planItem.deleteMany).toHaveBeenCalled();
-      expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
-      expect(prisma.sharedMealPlanItem.deleteMany).not.toHaveBeenCalled();
     });
 
     it('powinno odrzucić gdy użytkownik nie jest członkiem', async () => {

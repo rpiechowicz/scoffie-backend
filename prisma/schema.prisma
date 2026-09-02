@@ -252,7 +252,6 @@ model Recipe {
   planItems           PlanItem[]
   ingredients         RecipeIngredient[]
   favorites           RecipeFavorite[]
-  sharedMealPlanItems SharedMealPlanItem[]
 
   // Druga gałąź filtru widoczności (`isCatalog = true OR householdId = …`).
   // Sam `isCatalog` indeksu nie dostaje — jest niskoselektywny.
@@ -344,7 +343,6 @@ model Household {
   shoppingListArchives      ShoppingListArchive[]
   shoppingListArchiveStates ShoppingListArchiveState[]
   recipeFavorites           RecipeFavorite[]
-  sharedMealPlans           SharedMealPlan[]
   cookidooIntegration       CookidooIntegration?
   agentConversations        AgentConversation[]
   agentMemories             AgentMemory[]
@@ -894,35 +892,6 @@ model ShoppingListArchiveState {
 
   @@unique([householdId, weekStart])
   @@index([householdId, currentArchiveId])
-}
-
-model SharedMealPlan {
-  id          String   @id @default(uuid()) @db.Uuid
-  householdId String   @db.Uuid
-  weekStart   DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  household Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  items     SharedMealPlanItem[]
-
-  @@unique([householdId, weekStart])
-}
-
-model SharedMealPlanItem {
-  id               String   @id @default(uuid()) @db.Uuid
-  sharedMealPlanId String   @db.Uuid
-  recipeId         String   @db.Uuid
-  mealType         MealType
-  quantity         Int      @default(1)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  sharedMealPlan SharedMealPlan @relation(fields: [sharedMealPlanId], references: [id], onDelete: Cascade)
-  recipe         Recipe         @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  @@unique([sharedMealPlanId, mealType, recipeId])
-  @@index([sharedMealPlanId, mealType])
 }
 
 model PushDevice {
