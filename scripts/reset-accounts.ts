@@ -23,13 +23,19 @@
  *
  * Użycie (domyślnie DRY-RUN — raport bez kasowania):
  *   railway run --service Backend pnpm accounts:reset
- *   railway run --service Backend RESET_ACCOUNTS_WRITE=true pnpm accounts:reset
+ *   railway run --service Backend RESET_ACCOUNTS_WRITE=true \
+ *     RESET_ACCOUNTS_CONFIRM=<dzisiejsza data UTC, YYYY-MM-DD> \
+ *     RESET_ACCOUNTS_ALLOW_HOST=<host:port z DATABASE_URL> pnpm accounts:reset
  *
- * Zapis włącza `--write` albo `RESET_ACCOUNTS_WRITE=true`. Zmienna istnieje,
- * bo argument musi przejść przez trzy warstwy (`railway` → `pnpm` → `tsx`)
- * i każda z nich ma własne zdanie na temat `--`; przy operacji, której nie
- * da się cofnąć, „flaga nie doszła" jest lepszym błędem niż „flaga doszła,
- * choć nie miała".
+ * Zapis żąda `--write` albo `RESET_ACCOUNTS_WRITE=true`, ale to nie
+ * wystarcza: strażnik (`scripts/lib/reset-accounts-guard.js`) wymaga
+ * dzisiejszej daty UTC w `RESET_ACCOUNTS_CONFIRM` (potwierdzenie wygasa
+ * o północy) i — dla bazy spoza tej maszyny — hosta z `DATABASE_URL` w
+ * `RESET_ACCOUNTS_ALLOW_HOST`. Host jest wypisywany PRZED kasowaniem.
+ * Zmienna zamiast argumentu, bo argument musi przejść przez trzy warstwy
+ * (`railway` → `pnpm` → `tsx`) i każda z nich ma własne zdanie na temat
+ * `--`; przy operacji, której nie da się cofnąć, „flaga nie doszła" jest
+ * lepszym błędem niż „flaga doszła, choć nie miała".
  *
  * UWAGA — to nie kończy sesji na telefonach. Access token żyje domyślnie
  * 30 dni (`JWT_EXPIRES_IN`) i sam podpis pozostaje ważny, mimo że konta
@@ -37,6 +43,19 @@
  * podmień `JWT_SECRET` na Railway — patrz `commands.txt`.
  */
 import { Prisma, PrismaClient } from '@prisma/client';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { decideResetAccounts } = require('./lib/reset-accounts-guard.js') as {
+  decideResetAccounts: (input: {
+    env: NodeJS.ProcessEnv;
+    argv?: string[];
+    now?: Date;
+  }) => {
+    requested: boolean;
+    allowed: boolean;
+    host: string | null;
+    reason: string;
+  };
+};
 
 const prisma = new PrismaClient();
 
@@ -57,9 +76,21 @@ const CATALOG_HOUSEHOLD_NAME =
   process.env.RECIPE_IMPORT_HOUSEHOLD_NAME ?? 'Katalog Weekly Meals';
 
 async function main() {
-  const shouldWrite =
-    process.argv.includes('--write') ||
-    process.env.RESET_ACCOUNTS_WRITE === 'true';
+  // Ten sam strażnik, co przy przebudowie bazy: zapis wymaga dzisiejszej
+  // daty UTC, a dla bazy spoza tej maszyny — jawnie podanego hosta.
+  // Sama `RESET_ACCOUNTS_WRITE=true` zostawiona w Railway Variables robiła
+  // z każdego kolejnego „pokaż raport" kasowanie produkcji.
+  const decision = decideResetAccounts({
+    env: process.env,
+    argv: process.argv,
+  });
+  const shouldWrite = decision.allowed;
+  console.log(`Baza: ${decision.host ?? '(nieznany host)'}`);
+  if (decision.requested && !decision.allowed) {
+    console.error(`\nSTOP: ${decision.reason}`);
+    process.exitCode = 1;
+    return;
+  }
 
   const [userCount, householdCount, flaggedCatalog, legacyCatalog] =
     await Promise.all([
@@ -116,7 +147,9 @@ async function main() {
     console.log(
       `\nDRY-RUN. Do skasowania: ${userCount} użytkowników, ` +
         `${householdCount} gospodarstw (poza gospodarstwem katalogu).\n` +
-        'Uruchom z RESET_ACCOUNTS_WRITE=true (albo --write), żeby wykonać.',
+        'Żeby wykonać: RESET_ACCOUNTS_WRITE=true (albo --write) ' +
+        '+ RESET_ACCOUNTS_CONFIRM=<dzisiejsza data UTC> ' +
+        '+ RESET_ACCOUNTS_ALLOW_HOST=<host z DATABASE_URL> dla bazy spoza tej maszyny.',
     );
     return;
   }
