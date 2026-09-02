@@ -105,9 +105,10 @@ export type AgentEnv = {
   allowedUsers: string[];
   /**
    * Czy tura wymaga ważnej zgody AI_ASSISTANT (tabela `ConsentEvent`) i czy
-   * do promptu trafiają tylko domownicy z własną zgodą. Domyślnie `false`:
-   * bramka ma sens dopiero, gdy wydany iOS ma ekran zgody — włączona
-   * wcześniej odcięłaby rodzinę od asystenta bez możliwości kliknięcia.
+   * do promptu trafiają tylko domownicy z własną zgodą. Domyślnie `true`
+   * (od audytu 2, 3.09.2026): bramka prywatności ma zamykać się sama.
+   * `AI_CONSENT_REQUIRED=false` tylko na czas, gdy wydany iOS nie ma jeszcze
+   * ekranu zgody — i tylko świadomie.
    */
   consentRequired: boolean;
   /**
@@ -273,8 +274,12 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       { min: 0 },
     ),
     allowedUsers: parseAllowedUsers(env.AI_ALLOWED_USERS),
+    // Domyślnie WYMAGANE: kontrola prywatności ma zamykać się sama. Brak
+    // zmiennej albo literówka nie mogą znaczyć „wyślij dietę wszystkich do
+    // modelu". Wyłącza tylko jawne `false` (okres przejściowy, dopóki
+    // wydany iOS nie ma ekranu zgody).
     consentRequired:
-      (env.AI_CONSENT_REQUIRED ?? '').trim().toLowerCase() === 'true',
+      (env.AI_CONSENT_REQUIRED ?? '').trim().toLowerCase() !== 'false',
     conversationRetentionDays: readNumber(
       env,
       'AI_CONVERSATION_RETENTION_DAYS',

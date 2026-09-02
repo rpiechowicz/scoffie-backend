@@ -33,7 +33,7 @@ describe('readAgentEnv', () => {
       // zachowania instalacji, która o nią nie prosiła.
       allowedUsers: [],
       // Bramka zgód wyłączona, dopóki wydany iOS nie ma ekranu zgody.
-      consentRequired: false,
+      consentRequired: true,
       conversationRetentionDays: AGENT_ENV_DEFAULTS.conversationRetentionDays,
       maxTurnCostUsd: AGENT_ENV_DEFAULTS.maxTurnCostUsd,
     });
@@ -62,12 +62,16 @@ describe('readAgentEnv', () => {
     ).toBe(90);
   });
 
-  it('AI_CONSENT_REQUIRED tylko literalne true', () => {
+  it('AI_CONSENT_REQUIRED: domyślnie wymagane, wyłącza tylko literalne false', () => {
     expect(readAgentEnv({ AI_CONSENT_REQUIRED: 'true' }).consentRequired).toBe(
       true,
     );
-    expect(readAgentEnv({ AI_CONSENT_REQUIRED: 'yes' }).consentRequired).toBe(
+    expect(readAgentEnv({ AI_CONSENT_REQUIRED: 'false' }).consentRequired).toBe(
       false,
+    );
+    // Literówka nie może otworzyć bramki prywatności.
+    expect(readAgentEnv({ AI_CONSENT_REQUIRED: 'no' }).consentRequired).toBe(
+      true,
     );
   });
 

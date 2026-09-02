@@ -66,14 +66,13 @@ export class AgentPromptService {
     scopeUserIds: readonly string[] = [],
     handoff = false,
   ): Promise<AgentPrompt> {
-    const [digest, household, allMembers, memory] = await Promise.all([
+    const [digest, household, allMembers] = await Promise.all([
       this.loadDigest(),
       this.prisma.household.findUnique({
         where: { id: householdId },
         select: { name: true, enabledMealTypes: true },
       }),
       this.households.memberPreferences(userId, householdId),
-      this.memory.promptBlock(householdId),
     ]);
 
     // Do modelu (czyli do USA) idą dane TYLKO tych domowników, którzy sami
@@ -82,6 +81,12 @@ export class AgentPromptService {
     // pilnuje kod przy zapisie (`applyWeekPlan`), więc plan nadal ich nie
     // skrzywdzi; model po prostu o nich nie wie.
     const { members, withheld } = await this.membersForModel(allMembers);
+    // Notatka „Kuba nie je ryb" o Kubie bez zgody to ta sama dana, co jego
+    // profil — nie idzie do modelu, dopóki Kuba nie kliknie.
+    const withheldNames = allMembers
+      .filter((member) => !members.some((m) => m.userId === member.userId))
+      .map((member) => member.displayName);
+    const memory = await this.memory.promptBlock(householdId, withheldNames);
 
     const system = buildSystemPrompt(digest, {
       memory,

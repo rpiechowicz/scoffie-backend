@@ -7,10 +7,11 @@ Verified against source (read-only). Line numbers refer to `weakly-meals-backend
 ## WP-01 · Shopping list renames/merges ingredients via regex canonicalizer ("fasola" → "Sól") — **P0**
 
 **Evidence**
+
 - `weekly-plans/services/shopping-list.service.ts:150-154,163`: `canonicalName = canonicalizeIngredientName(ingredient.name, baseUnit); productKey = normalizeProductKey(canonicalName, baseUnit)` … `name: canonicalName`.
 - `weekly-plans/utils/department-classifier.util.ts:142`: `if (/sol/.test(raw)) return 'Sól';` (no word boundary) — also `:111 /bavette|wołowin|wolowin/ → 'Wołowina bavette'`, `:124 /soczewic/ → 'Soczewica brązowa'`, `:133 /seler/ → 'Seler naciowy'`, `:107/:108/:112` collapse every chicken/turkey/kiełbasa cut.
 - `RecipeIngredient.name` is already the canonical catalog name (`scripts/import-recipes-from-json.ts:473 name: found.name`), so this pass is pure loss.
-- Computed over `prisma/catalog/recipes-catalog-full-v2.json` (131 distinct names): merges → `Sól ← {fasola biała z puszki, fasola czerwona z puszki, sól}`, `Wołowina bavette ← {wołowina, wieprzowina i wołowina mielona}`, `Kurczak ← {filet z kurczaka, noga z kurczaka}`, `Indyk ← {filet z indyka, indyk mielony}`, `Kiełbasa ← {biała, śląska}`; renames `seler korzeniowy → Seler naciowy`. Affected recipes today: *Fasolka po bretońsku* (480 g beans → "Sól 480 g"), *Chili con carne* (240 g), *Quesadilla z serem i fasolą* (200 g), *Bitki wołowe* (500 g → "Wołowina bavette"), *Spaghetti…*, *Zapiekanka…*, *Rosół*, *Krupnik*. Across the 403 txt names 34 more mis-hits (`fasolka szparagowa → Sól`, `soczewica czerwona → brązowa`, …).
+- Computed over `prisma/catalog/recipes-catalog-full-v2.json` (131 distinct names): merges → `Sól ← {fasola biała z puszki, fasola czerwona z puszki, sól}`, `Wołowina bavette ← {wołowina, wieprzowina i wołowina mielona}`, `Kurczak ← {filet z kurczaka, noga z kurczaka}`, `Indyk ← {filet z indyka, indyk mielony}`, `Kiełbasa ← {biała, śląska}`; renames `seler korzeniowy → Seler naciowy`. Affected recipes today: _Fasolka po bretońsku_ (480 g beans → "Sól 480 g"), _Chili con carne_ (240 g), _Quesadilla z serem i fasolą_ (200 g), _Bitki wołowe_ (500 g → "Wołowina bavette"), _Spaghetti…_, _Zapiekanka…_, _Rosół_, _Krupnik_. Across the 403 txt names 34 more mis-hits (`fasolka szparagowa → Sól`, `soczewica czerwona → brązowa`, …).
 - Department labels themselves resolve correctly (verified all 17 `CATEGORY_BY_FILE` values through `DEPARTMENT_KEYWORD_RULES`), but the merged row inherits whichever department came first.
 
 **Why it escalates**: the assistant's catalog digest and ingredient-balance math will use `Ingredient.name/normalizedName`; the list users see uses different names and summed-across-products amounts → "why does it want 480 g of salt?" and every balance answer is wrong. Archives freeze the wrong names.
@@ -22,8 +23,9 @@ Verified against source (read-only). Line numbers refer to `weakly-meals-backend
 ## WP-02 · Week key is unvalidated on the server and locale-dependent on iOS — **P1**
 
 **Evidence**
-- `weekly-plans/utils/week-formatting.util.ts:7-8`: `const parsed = new Date(weekStart); if (Number.isNaN(...))` — accepts `'2026-08-31T00:00:00+02:00'` (= `2026-08-30T22:00Z`, a *different* `WeeklyPlan`/`ShoppingList` row than `'2026-08-31'`), any weekday, any time. `weekly-plans.service.ts:137` and `:157` bypass even that (`weekStart: new Date(weekStart)` → Invalid Date → Prisma error → `INTERNAL_ERROR 500`).
-- `ViewModels/DatesViewModel.swift:15,20,25`: `Calendar.current` … `dateInterval(of: .weekOfYear)` … `value: calendar.firstWeekday == 1 ? 1 : 0`. With region/"First Day of Week" = Sunday: on a Sunday the interval starts *that* Sunday, +1 → **next** Monday → Plan/Calendar/Products show next week and "today" is not in `dates`. With Saturday-first (`firstWeekday == 7`): no correction → `weekStartISO` is a **Saturday** → backend happily stores Saturday-keyed `WeeklyPlan` rows.
+
+- `weekly-plans/utils/week-formatting.util.ts:7-8`: `const parsed = new Date(weekStart); if (Number.isNaN(...))` — accepts `'2026-08-31T00:00:00+02:00'` (= `2026-08-30T22:00Z`, a _different_ `WeeklyPlan`/`ShoppingList` row than `'2026-08-31'`), any weekday, any time. `weekly-plans.service.ts:137` and `:157` bypass even that (`weekStart: new Date(weekStart)` → Invalid Date → Prisma error → `INTERNAL_ERROR 500`).
+- `ViewModels/DatesViewModel.swift:15,20,25`: `Calendar.current` … `dateInterval(of: .weekOfYear)` … `value: calendar.firstWeekday == 1 ? 1 : 0`. With region/"First Day of Week" = Sunday: on a Sunday the interval starts _that_ Sunday, +1 → **next** Monday → Plan/Calendar/Products show next week and "today" is not in `dates`. With Saturday-first (`firstWeekday == 7`): no correction → `weekStartISO` is a **Saturday** → backend happily stores Saturday-keyed `WeeklyPlan` rows.
 - `Views/Dashboard/Recipes/Components/AddToPlanSheet.swift:707-716` computes its own Monday with `firstWeekday = 2` (correct) and `:694` sends it → same household writes two overlapping "weeks"; `WeeklyMealStore.swift:531` then ignores the `weekChanged` for the sheet's week because `observedWeekStart` differs.
 - DB rows at risk: only from devices with non-Monday `firstWeekday` (developer's pl_PL never triggers). Check: `SELECT * FROM "WeeklyPlan" WHERE EXTRACT(DOW FROM "weekStart") <> 1 OR "weekStart"::time <> '00:00'` (same for `ShoppingList`, `SharedMealPlan`, `ShoppingItemCheck`, `ShoppingListArchive`, `ShoppingListArchiveState`).
 
@@ -33,9 +35,10 @@ Verified against source (read-only). Line numbers refer to `weakly-meals-backend
 
 ---
 
-## WP-03 · Dormant pool endpoint still live and prunes PlanItems in *all* slots — **P1**
+## WP-03 · Dormant pool endpoint still live and prunes PlanItems in _all_ slots — **P1**
 
 **Evidence**
+
 - `weekly-plans.service.ts:944-951` builds `countsByMealType` for all `MEAL_TYPES_IN_DAY_ORDER`; `:1062-1066` prunes every one of them; `addressedMealTypes` (`:933`) is only used at `:1006`. So a legacy `{breakfastRecipeIds:[…]}` deletes all `PlanItem`s in SECOND_BREAKFAST/AFTERNOON_SNACK/SNACK, and `{recipeIdsByMealType:{}}` deletes the whole week's day plan — contradicting `dto/save-shared-meal-plan.dto.ts:145-147` ("reszta zostaje nietknięta").
 - iOS reachability: grep shows no View calls `saveMealPlanToBackend`/`clearSavedPlanFromBackend`/`applySavedPlanToWeek`; `MealPlanViewModel(` is never instantiated; the only live use is a read (`Views/Dashboard/Calendar/CalendarView.swift:298 loadSavedPlanFromBackend`). Same for `weeklyPlans:create` (`:152-160`, raw `new Date`), `addItem` (`:162-274`, no participants), `removeItem`, `listByHousehold` (`:114-127`, loads every week with full recipes — unbounded).
 - Shopping list still falls back to `SharedMealPlan` when a week has 0 `PlanItem`s (`shopping-list.service.ts:106-143`, `348-387`): remove all meals individually and a week with an old pool row shows a ghost list (only `clearWeekPlan` deletes the pool, `:805-812`).
@@ -49,6 +52,7 @@ Verified against source (read-only). Line numbers refer to `weakly-meals-backend
 ## WP-04 · Ghost participants/eaten marks after a member leaves — **P1**
 
 **Evidence**
+
 - `prisma/schema.prisma:391-392` (`PlanItemParticipant`) and `:409-410` cascade only on `PlanItem`/`User`; `Membership` (`:291-292`) is unrelated. `households.service.ts:188-198` (accept + leave others), `:588-597` (`removeMember`), `:614-619` (`leave`) and `household-cleanup.util.ts:34-59` delete only the membership.
 - Consequences today: `Views/Dashboard/WeeklyPlan/WeeklyPlanView.swift:467` re-sends `participantIds: target.meal.participantIds` → `weekly-plans.service.ts:661-667` throws `PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD` → "Zapisz porcje" fails on every meal the ex-member was on. An item for `[ghost]` only is visible to nobody (`SavedMealPlan.swift:194-197`) yet still bought (`buildShoppingListBase` ignores participants). `PlanAudienceChips.swift:47-55` silently turns `[ghost]` into `[]` = "Wspólne" on the next audience edit; `resolveUpdatedPlannedServings` (`:763-766`) computes `previousAuto` from the ghost set.
 
@@ -80,7 +84,7 @@ Verified against source (read-only). Line numbers refer to `weakly-meals-backend
 
 ## WP-07 · Auto `plannedServings` never re-derived on membership change → silent halving — **P1**
 
-**Evidence**: `memberCount` is read only at write time (`weekly-plans.service.ts:649-652`); unchanged audience keeps the stored value (`:759-761`); `households.service.ts` has no reference to `plannedServings` (grep). Backfill migration `20260823100000` set shared items to member count *at that moment*.
+**Evidence**: `memberCount` is read only at write time (`weekly-plans.service.ts:649-652`); unchanged audience keeps the stored value (`:759-761`); `households.service.ts` has no reference to `plannedServings` (grep). Backfill migration `20260823100000` set shared items to member count _at that moment_.
 Scenario: 1-person household plans "Wspólne" meals (auto = 1); partner joins → iOS `SavedMealPlan.swift:119-122` `servingsPerPerson = 1/2 = 0.5` → kcal per person halves, `isCustomServings` (`:106-110`) shows a "1 porcja" badge nobody set, shopping list buys for one. Reverse (member leaves) over-buys. Ghost participants (WP-04) compound it.
 
 **Why it escalates**: validator "servings vs eaters" would flag every legacy shared item after any roster change; the assistant may "fix" user-chosen values.
@@ -100,6 +104,7 @@ Scenario: 1-person household plans "Wspólne" meals (auto = 1); partner joins �
 ---
 
 ## What the assistant would inherit (ranked)
+
 1. WP-01 — every ingredient-balance number and list name wrong for beans/beef/celery/lentils.
 2. WP-02 — writes landing on a different week row than the app reads.
 3. WP-04 + WP-07 — validator rejects/mis-scores existing rows; per-person kcal off.
@@ -110,6 +115,7 @@ Scenario: 1-person household plans "Wspólne" meals (auto = 1); partner joins �
 ---
 
 ## Checked and found FINE
+
 - `changeVersion = Date.now()` (`gateway:232-234`) + iOS `changeVersion > previous` (`WeeklyMealStore.swift:533-537`, `ShoppingListStore.swift:84-87`): only same-millisecond duplicates are dropped and the 250 ms debounced refetch covers them; survives restarts (wall clock); only an NTP backward step could drop events.
 - `WeekDateMapper` DST (`WeeklyPlanStore.swift:157-180`): calendar-day arithmetic from local midnight + `startOfDay` diff — correct across CET/CEST.
 - `plannedServings` semantics: server clamp 1..12 (`service:697-702`), `resolveUpdatedPlannedServings` audience-toggle cases covered by spec (`weekly-plans.service.spec.ts:239-497`); iOS never substitutes 1 for unknown (`SavedMealPlan.swift:69`, `WeeklyMealStore.swift:214-215`, `WeeklyPlanStore.swift:491`); `resolveParticipants` collapse/dedupe (`:639-674`) matches `PlanAudienceChips.collapsed`.

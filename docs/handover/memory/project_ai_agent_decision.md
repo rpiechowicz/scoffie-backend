@@ -18,6 +18,7 @@ artefakt https://claude.ai/code/artifact/fe880174-783b-493c-9017-d014063bca77
 weryfikacje (kod, API, arytmetyka, spójność) — poprawki wniesione.
 
 Rekomendacje (do potwierdzenia przez Rafała):
+
 - Koncepcja: „kreślarz planu”, nie chatbot — każda rozmowa kończy się `PlanProposal`;
   edycja lokalna bez tokenów; zapis dopiero po „Zastosuj”. Lista zakupów → arkusz
   z ikony koszyka w nagłówkach Planu/Kalendarza.
@@ -77,7 +78,7 @@ punktów OK, pula na dev skasowana (backup w scratchpadzie sesji). Runbook prod:
 jest nośna. E2E (`npx jest --config ./test/jest-e2e.json --runInBand` w kontenerze) przechodzi 3/3
 tylko z `docker exec -e AUTH_DEV_LOGIN_ENABLED=true …` — obraz ma `false` i dev-login odpowiada 403;
 `docker cp test …:/app/test` na istniejący katalog tworzy `/app/test/test` (najpierw `rm -rf`).
-Follow-up następnego wydania: usunąć stub getSavedPlan, DROP TABLE SharedMealPlan*, gałąź SAVE_PLAN
+Follow-up następnego wydania: usunąć stub getSavedPlan, DROP TABLE SharedMealPlan\*, gałąź SAVE_PLAN
 w iOS, kolumna `servingsMode`. Smoke `households:removeMember` na dev zdjął uczestnictwa
 „Test Domownika” (`00000000-…dead`) z bieżącego tygodnia i przeliczył wspólne 2→1 (wrócono
 SQL-em do 2; członkostwo wstawione z powrotem SQL-em).

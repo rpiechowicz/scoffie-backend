@@ -54,7 +54,7 @@ describe('ConsentsService', () => {
 
   it('bez zdarzeń: nic nie jest przyznane, ale klient wie, jaką wersję pokazać', async () => {
     const status = await service.status(USER);
-    expect(status).toHaveLength(5);
+    expect(status).toHaveLength(6);
     for (const entry of status) {
       expect(entry.granted).toBe(false);
       expect(entry.documentVersion).toBeNull();
@@ -69,15 +69,15 @@ describe('ConsentsService', () => {
         userId: USER,
         kind: 'AI_ASSISTANT',
         action: 'GRANTED',
-        documentVersion: '2026-09-02',
-        createdAt: at('2026-09-02T10:00:00Z'),
+        documentVersion: '2026-09-15',
+        createdAt: at('2026-09-15T10:00:00Z'),
       },
       {
         userId: USER,
         kind: 'AI_ASSISTANT',
         action: 'REVOKED',
-        documentVersion: '2026-09-02',
-        createdAt: at('2026-09-02T11:00:00Z'),
+        documentVersion: '2026-09-15',
+        createdAt: at('2026-09-15T11:00:00Z'),
       },
     );
     expect(await service.hasValid(USER, 'AI_ASSISTANT')).toBe(false);
@@ -86,8 +86,8 @@ describe('ConsentsService', () => {
       userId: USER,
       kind: 'AI_ASSISTANT',
       action: 'GRANTED',
-      documentVersion: '2026-09-02',
-      createdAt: at('2026-09-02T12:00:00Z'),
+      documentVersion: '2026-09-15',
+      createdAt: at('2026-09-15T12:00:00Z'),
     });
     expect(await service.hasValid(USER, 'AI_ASSISTANT')).toBe(true);
   });
@@ -98,7 +98,7 @@ describe('ConsentsService', () => {
       kind: 'AI_ASSISTANT',
       action: 'GRANTED',
       documentVersion: '2026-01-01',
-      createdAt: at('2026-09-02T10:00:00Z'),
+      createdAt: at('2026-09-15T10:00:00Z'),
     });
     expect(await service.hasValid(USER, 'AI_ASSISTANT')).toBe(false);
 
@@ -107,7 +107,7 @@ describe('ConsentsService', () => {
       kind: 'AI_ASSISTANT',
       action: 'GRANTED',
       documentVersion: '2027-01-01',
-      createdAt: at('2026-09-02T11:00:00Z'),
+      createdAt: at('2026-09-15T11:00:00Z'),
     });
     expect(await service.hasValid(USER, 'AI_ASSISTANT')).toBe(true);
   });
@@ -118,15 +118,15 @@ describe('ConsentsService', () => {
         userId: USER,
         kind: 'AI_ASSISTANT',
         action: 'GRANTED',
-        documentVersion: '2026-09-02',
-        createdAt: at('2026-09-02T10:00:00Z'),
+        documentVersion: '2026-09-15',
+        createdAt: at('2026-09-15T10:00:00Z'),
       },
       {
         userId: OTHER,
         kind: 'TERMS',
         action: 'GRANTED',
-        documentVersion: '2026-09-02',
-        createdAt: at('2026-09-02T10:00:00Z'),
+        documentVersion: '2026-09-15',
+        createdAt: at('2026-09-15T10:00:00Z'),
       },
     );
     const valid = await service.usersWithValid(
@@ -147,7 +147,7 @@ describe('ConsentsService', () => {
       service.record(USER, {
         kind: 'NEWSLETTER',
         action: 'GRANTED',
-        documentVersion: '2026-09-02',
+        documentVersion: '2026-09-15',
       } as never),
     ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
     await expect(
@@ -164,7 +164,7 @@ describe('ConsentsService', () => {
     const status = await service.record(USER, {
       kind: 'AI_ASSISTANT',
       action: 'GRANTED',
-      documentVersion: '2026-09-02',
+      documentVersion: '2026-09-15',
       source: 'IOS_APP',
     });
     expect(prisma.consentEvent.create).toHaveBeenCalledWith({
@@ -172,7 +172,7 @@ describe('ConsentsService', () => {
         userId: USER,
         kind: 'AI_ASSISTANT',
         action: 'GRANTED',
-        documentVersion: '2026-09-02',
+        documentVersion: '2026-09-15',
         source: 'IOS_APP',
       }),
     });

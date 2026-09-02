@@ -557,6 +557,14 @@ describe('UsersService.deleteAccount — cudze dane zostają', () => {
     // Bez członkostw: rozliczanie domów ma własne testy
     // (household-cleanup.util.spec, plan-roster.util.spec).
     prisma.membership = { findMany: jest.fn().mockResolvedValue([]) };
+    // Audyt 2: hasło Cookidoo odchodzi z kontem, księga i notatki tracą id.
+    prisma.cookidooIntegration = {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    };
+    prisma.aiUsage = { updateMany: jest.fn().mockResolvedValue({ count: 0 }) };
+    prisma.agentMemory = {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [UsersService, { provide: PrismaService, useValue: prisma }],
     }).compile();

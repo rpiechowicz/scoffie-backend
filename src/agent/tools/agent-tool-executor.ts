@@ -52,6 +52,36 @@ import { DayOfWeek, MealType } from '@prisma/client';
  * Gdyby `household_id` był polem narzędzia, wystarczyłoby, żeby model je
  * zmyślił, i asystent pisałby po cudzym planie.
  */
+/**
+ * Naruszenia planu wracają do MODELU bez listy alergenów i wykluczeń: model
+ * ma wybrać inne danie, a nie poznać, na co uczulony jest domownik bez zgody
+ * (polityka §6). Kod naruszenia zostaje — po nim model wie, co poprawić.
+ */
+const REDACTED_VIOLATION_MESSAGES: Record<string, string> = {
+  RECIPE_ALLERGEN_CONFLICT:
+    'Danie zawiera alergen któregoś z jedzących — wybierz inne danie na ten slot.',
+  RECIPE_EXCLUDED_INGREDIENT:
+    'Danie zawiera składnik, którego ktoś z jedzących nie je — wybierz inne danie.',
+};
+
+export function redactViolationsForModel<T>(result: T): T {
+  if (!result || typeof result !== 'object') return result;
+  const record = result as Record<string, unknown>;
+  if (!Array.isArray(record.violations)) return result;
+  const violations = record.violations as unknown[];
+  return {
+    ...record,
+    violations: violations.map((violation): unknown => {
+      if (!violation || typeof violation !== 'object') return violation;
+      const entry = violation as { code?: string; message?: string };
+      const redacted = entry.code
+        ? REDACTED_VIOLATION_MESSAGES[entry.code]
+        : null;
+      return redacted ? { ...entry, message: redacted } : violation;
+    }),
+  } as T;
+}
+
 export type AgentToolContext = {
   userId: string;
   householdId: string;
@@ -150,7 +180,12 @@ export class AgentToolExecutor {
     if (refusal) return refusal;
 
     try {
-      return { ok: true, data: await this.dispatch(name, input, context) };
+      return {
+        ok: true,
+        data: redactViolationsForModel(
+          await this.dispatch(name, input, context),
+        ),
+      };
     } catch (error) {
       const { contract } = mapError(error);
       if (!(error instanceof AppException)) {
@@ -241,12 +276,7 @@ export class AgentToolExecutor {
         );
 
       case 'get_week_balance':
-        return this.weeklyPlans.weeklyBalance(
-          userId,
-          householdId,
-          str('week_start'),
-          input.member_user_id ? str('member_user_id') : undefined,
-        );
+        return this.weekBalanceForModel(input, context, str('week_start'));
 
       case 'search_ingredients':
         return this.ingredients.search({
@@ -791,6 +821,41 @@ export class AgentToolExecutor {
       slots: this.toSlots(withDay, context) as unknown as ApplyWeekSlotDto[],
       ...(note ? { note } : {}),
     });
+  }
+
+  /**
+   * Bilans cudzej osoby = jej spożycie i makra (dane o zdrowiu). Ten sam
+   * filtr zgód, co w show_macro_gap i get_household_context.
+   */
+  private async weekBalanceForModel(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ) {
+    const memberUserId = input.member_user_id
+      ? asString(input.member_user_id)
+      : undefined;
+    if (memberUserId && memberUserId !== context.userId) {
+      const all = await this.households.memberPreferences(
+        context.userId,
+        context.householdId,
+      );
+      const { members } = await this.prompts.membersForModel(all);
+      if (!members.some((member) => member.userId === memberUserId)) {
+        throw new AppException(
+          'VALIDATION_ERROR',
+          'Ta osoba nie wyraziła zgody na asystenta — jej bilansu nie ma w narzędziach.',
+          HttpStatus.BAD_REQUEST,
+          ['member_user_id'],
+        );
+      }
+    }
+    return this.weeklyPlans.weeklyBalance(
+      context.userId,
+      context.householdId,
+      weekStart,
+      memberUserId,
+    );
   }
 
   private async proposeWeekPlan(

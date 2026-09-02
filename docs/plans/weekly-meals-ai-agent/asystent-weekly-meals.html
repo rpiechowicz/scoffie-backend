@@ -1,482 +1,2538 @@
 <title>Asystent Weekly Meals</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap"
+/>
 <style>
-:root{
-  --bg:#FAF6F0; --ink:#1F1712; --muted:#6B5E55; --faint:#9C8F84;
-  --tile:#F3EDE4; --tile2:#FFFFFF; --stroke:#E4DACD; --rule:#D9CEC0;
-  --accent:#B9573B; --accent-ink:#FFFFFF; --sage:#5F7D5B; --indigo:#4A5789; --butter:#B9891F;
-  --accent-tint:#F5E4DD; --sage-tint:#E4ECE1; --butter-tint:#F6EBCB; --indigo-tint:#E3E6F2;
-  --code-bg:#F1EAE0; --shadow:0 1px 0 rgba(31,23,18,.04);
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#1A1411; --ink:#FBF3E8; --muted:#B3A597; --faint:#7E7166;
-    --tile:#241C18; --tile2:#2B221D; --stroke:#362B25; --rule:#3E322B;
-    --accent:#E07A5A; --accent-ink:#1A1411; --sage:#8FB08A; --indigo:#A3AEDD; --butter:#E6C265;
-    --accent-tint:#3A241C; --sage-tint:#22301F; --butter-tint:#3A2F14; --indigo-tint:#242A45;
-    --code-bg:#120E0C; --shadow:none;
+  :root {
+    --bg: #faf6f0;
+    --ink: #1f1712;
+    --muted: #6b5e55;
+    --faint: #9c8f84;
+    --tile: #f3ede4;
+    --tile2: #ffffff;
+    --stroke: #e4dacd;
+    --rule: #d9cec0;
+    --accent: #b9573b;
+    --accent-ink: #ffffff;
+    --sage: #5f7d5b;
+    --indigo: #4a5789;
+    --butter: #b9891f;
+    --accent-tint: #f5e4dd;
+    --sage-tint: #e4ece1;
+    --butter-tint: #f6ebcb;
+    --indigo-tint: #e3e6f2;
+    --code-bg: #f1eae0;
+    --shadow: 0 1px 0 rgba(31, 23, 18, 0.04);
   }
-}
-:root[data-theme="dark"]{
-  --bg:#1A1411; --ink:#FBF3E8; --muted:#B3A597; --faint:#7E7166;
-  --tile:#241C18; --tile2:#2B221D; --stroke:#362B25; --rule:#3E322B;
-  --accent:#E07A5A; --accent-ink:#1A1411; --sage:#8FB08A; --indigo:#A3AEDD; --butter:#E6C265;
-  --accent-tint:#3A241C; --sage-tint:#22301F; --butter-tint:#3A2F14; --indigo-tint:#242A45;
-  --code-bg:#120E0C; --shadow:none;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.58;-webkit-font-smoothing:antialiased}
-.wrap{max-width:74rem;margin:0 auto;padding:0 1.25rem 5rem}
-h1,h2,h3,h4{font-family:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;text-wrap:balance;line-height:1.12;margin:0}
-h1{font-size:clamp(2.2rem,5vw,3.6rem);font-weight:800;letter-spacing:-.02em}
-h2{font-size:clamp(1.5rem,2.6vw,2rem);font-weight:700;margin-top:3.5rem;padding-top:1.5rem;border-top:2px solid var(--ink);letter-spacing:-.01em}
-h3{font-size:1.2rem;font-weight:700;margin-top:2rem}
-h4{font-size:1rem;font-weight:700;margin-top:1.4rem}
-p{max-width:68ch;margin:.75rem 0}
-li{max-width:68ch}
-ul,ol{padding-left:1.3rem;margin:.6rem 0}
-li{margin:.3rem 0}
-a{color:var(--accent)}
-code,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
-code{font-size:.88em;background:var(--code-bg);padding:.08em .35em;border-radius:4px}
-pre{background:var(--code-bg);border:1px solid var(--stroke);border-radius:8px;padding:.9rem 1rem;overflow-x:auto;font-size:.84rem;line-height:1.5}
-pre code{background:none;padding:0}
-.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-header.hero{padding:3.5rem 0 2rem;border-bottom:1px solid var(--rule)}
-header.hero .lede{font-size:1.15rem;color:var(--muted);max-width:62ch;margin-top:1rem}
-.meta{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin-top:1.2rem;font-size:.85rem;color:var(--muted)}
-.meta b{color:var(--ink);font-weight:600}
-nav.toc{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--rule);margin:0 -1.25rem;padding:.55rem 1.25rem;display:flex;gap:.4rem;overflow-x:auto;scrollbar-width:none}
-nav.toc::-webkit-scrollbar{display:none}
-nav.toc a{white-space:nowrap;text-decoration:none;color:var(--ink);font-size:.82rem;font-weight:500;padding:.3rem .7rem;border:1px solid var(--stroke);border-radius:999px;background:var(--tile)}
-nav.toc a:hover,nav.toc a:focus-visible{border-color:var(--accent);outline:none}
-.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));margin:1.5rem 0}
-.card{background:var(--tile);border:1px solid var(--stroke);border-radius:12px;padding:1.1rem 1.2rem;box-shadow:var(--shadow)}
-.card .q{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
-.card h3{margin:.35rem 0 .5rem;font-size:1.05rem}
-.card p{font-size:.93rem;margin:.35rem 0;color:var(--ink)}
-.card p.sub{color:var(--muted);font-size:.86rem}
-.callout{border-left:4px solid var(--accent);background:var(--accent-tint);padding:.85rem 1.1rem;border-radius:0 10px 10px 0;margin:1.2rem 0;max-width:72ch}
-.callout.sage{border-color:var(--sage);background:var(--sage-tint)}
-.callout.butter{border-color:var(--butter);background:var(--butter-tint)}
-.callout.indigo{border-color:var(--indigo);background:var(--indigo-tint)}
-.callout p{margin:.3rem 0}
-.callout ol,.callout ul{margin:.3rem 0}
-.pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .5rem;border-radius:999px;border:1px solid var(--stroke);color:var(--muted);vertical-align:middle;white-space:nowrap}
-.pill.crit{border-color:var(--accent);color:var(--accent);background:var(--accent-tint)}
-.pill.warn{border-color:var(--butter);color:var(--butter);background:var(--butter-tint)}
-.pill.ok{border-color:var(--sage);color:var(--sage);background:var(--sage-tint)}
-.pill.info{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-tint)}
-.tablewrap{overflow-x:auto;margin:1rem 0;border:1px solid var(--stroke);border-radius:10px;background:var(--tile2)}
-table{border-collapse:collapse;width:100%;font-size:.9rem}
-th,td{padding:.55rem .75rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--stroke)}
-th{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--tile);font-weight:500}
-tr:last-child td{border-bottom:none}
-td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",monospace;font-size:.84rem}
-td.hi{color:var(--accent);font-weight:600}
-td.good{color:var(--sage);font-weight:600}
-.two{display:grid;gap:1.5rem;grid-template-columns:1fr 1fr}
-@media (max-width:52rem){.two{grid-template-columns:1fr}}
-.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(10.5rem,1fr));gap:.6rem;margin:1.2rem 0}
-.flow .node{background:var(--tile);border:1px solid var(--stroke);border-radius:10px;padding:.7rem .8rem;font-size:.86rem;position:relative}
-.flow .node b{display:block;font-family:"Bricolage Grotesque",sans-serif;font-size:.98rem;margin-bottom:.2rem}
-.flow .node small{color:var(--muted);display:block;line-height:1.35}
-.flow .node.model{border-color:var(--indigo)}
-.flow .node.code{border-color:var(--sage)}
-.flow .node.user{border-color:var(--accent)}
-.legend{display:flex;gap:1rem;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:-.4rem 0 1rem}
-.legend span::before{content:"";display:inline-block;width:.8rem;height:.8rem;border-radius:3px;border:2px solid var(--stroke);vertical-align:-2px;margin-right:.35rem}
-.legend .m::before{border-color:var(--indigo)} .legend .c::before{border-color:var(--sage)} .legend .u::before{border-color:var(--accent)}
-.arch{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:.5rem;align-items:stretch;margin:1.2rem 0}
-.arch .col{background:var(--tile);border:1px solid var(--stroke);border-radius:12px;padding:.9rem 1rem;font-size:.86rem}
-.arch .col h4{margin:0 0 .5rem;font-size:1rem}
-.arch .col ul{padding-left:1rem;margin:.3rem 0}
-.arch .col li{font-size:.84rem;margin:.15rem 0}
-.arch .arrow{align-self:center;color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:.72rem;text-align:center;padding:0 .2rem}
-@media (max-width:52rem){.arch{grid-template-columns:1fr}.arch .arrow{transform:rotate(90deg);padding:.3rem 0}}
-.rank{counter-reset:item;list-style:none;padding:0}
-.rank li{counter-increment:item;position:relative;padding:.75rem 0 .75rem 3rem;border-bottom:1px solid var(--stroke);max-width:none}
-.rank li::before{content:counter(item,decimal-leading-zero);position:absolute;left:0;top:.8rem;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.25rem;color:var(--accent);font-variant-numeric:tabular-nums}
-.rank li b{font-weight:600}
-.rank li p{margin:.25rem 0;max-width:72ch;font-size:.93rem}
-.rank li .why{color:var(--muted)}
-.small{font-size:.86rem;color:var(--muted)}
-footer{margin-top:4rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-size:.82rem;color:var(--muted)}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: #1a1411;
+      --ink: #fbf3e8;
+      --muted: #b3a597;
+      --faint: #7e7166;
+      --tile: #241c18;
+      --tile2: #2b221d;
+      --stroke: #362b25;
+      --rule: #3e322b;
+      --accent: #e07a5a;
+      --accent-ink: #1a1411;
+      --sage: #8fb08a;
+      --indigo: #a3aedd;
+      --butter: #e6c265;
+      --accent-tint: #3a241c;
+      --sage-tint: #22301f;
+      --butter-tint: #3a2f14;
+      --indigo-tint: #242a45;
+      --code-bg: #120e0c;
+      --shadow: none;
+    }
+  }
+  :root[data-theme='dark'] {
+    --bg: #1a1411;
+    --ink: #fbf3e8;
+    --muted: #b3a597;
+    --faint: #7e7166;
+    --tile: #241c18;
+    --tile2: #2b221d;
+    --stroke: #362b25;
+    --rule: #3e322b;
+    --accent: #e07a5a;
+    --accent-ink: #1a1411;
+    --sage: #8fb08a;
+    --indigo: #a3aedd;
+    --butter: #e6c265;
+    --accent-tint: #3a241c;
+    --sage-tint: #22301f;
+    --butter-tint: #3a2f14;
+    --indigo-tint: #242a45;
+    --code-bg: #120e0c;
+    --shadow: none;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family:
+      'IBM Plex Sans',
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+    font-size: 16px;
+    line-height: 1.58;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 74rem;
+    margin: 0 auto;
+    padding: 0 1.25rem 5rem;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: 'Bricolage Grotesque', 'IBM Plex Sans', system-ui, sans-serif;
+    text-wrap: balance;
+    line-height: 1.12;
+    margin: 0;
+  }
+  h1 {
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  h2 {
+    font-size: clamp(1.5rem, 2.6vw, 2rem);
+    font-weight: 700;
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--ink);
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-top: 2rem;
+  }
+  h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-top: 1.4rem;
+  }
+  p {
+    max-width: 68ch;
+    margin: 0.75rem 0;
+  }
+  li {
+    max-width: 68ch;
+  }
+  ul,
+  ol {
+    padding-left: 1.3rem;
+    margin: 0.6rem 0;
+  }
+  li {
+    margin: 0.3rem 0;
+  }
+  a {
+    color: var(--accent);
+  }
+  code,
+  pre,
+  .mono {
+    font-family:
+      'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  code {
+    font-size: 0.88em;
+    background: var(--code-bg);
+    padding: 0.08em 0.35em;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--stroke);
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+    overflow-x: auto;
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  header.hero {
+    padding: 3.5rem 0 2rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  header.hero .lede {
+    font-size: 1.15rem;
+    color: var(--muted);
+    max-width: 62ch;
+    margin-top: 1rem;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-top: 1.2rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .meta b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--rule);
+    margin: 0 -1.25rem;
+    padding: 0.55rem 1.25rem;
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav.toc::-webkit-scrollbar {
+    display: none;
+  }
+  nav.toc a {
+    white-space: nowrap;
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid var(--stroke);
+    border-radius: 999px;
+    background: var(--tile);
+  }
+  nav.toc a:hover,
+  nav.toc a:focus-visible {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    margin: 1.5rem 0;
+  }
+  .card {
+    background: var(--tile);
+    border: 1px solid var(--stroke);
+    border-radius: 12px;
+    padding: 1.1rem 1.2rem;
+    box-shadow: var(--shadow);
+  }
+  .card .q {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .card h3 {
+    margin: 0.35rem 0 0.5rem;
+    font-size: 1.05rem;
+  }
+  .card p {
+    font-size: 0.93rem;
+    margin: 0.35rem 0;
+    color: var(--ink);
+  }
+  .card p.sub {
+    color: var(--muted);
+    font-size: 0.86rem;
+  }
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-tint);
+    padding: 0.85rem 1.1rem;
+    border-radius: 0 10px 10px 0;
+    margin: 1.2rem 0;
+    max-width: 72ch;
+  }
+  .callout.sage {
+    border-color: var(--sage);
+    background: var(--sage-tint);
+  }
+  .callout.butter {
+    border-color: var(--butter);
+    background: var(--butter-tint);
+  }
+  .callout.indigo {
+    border-color: var(--indigo);
+    background: var(--indigo-tint);
+  }
+  .callout p {
+    margin: 0.3rem 0;
+  }
+  .callout ol,
+  .callout ul {
+    margin: 0.3rem 0;
+  }
+  .pill {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--stroke);
+    color: var(--muted);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  .pill.crit {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-tint);
+  }
+  .pill.warn {
+    border-color: var(--butter);
+    color: var(--butter);
+    background: var(--butter-tint);
+  }
+  .pill.ok {
+    border-color: var(--sage);
+    color: var(--sage);
+    background: var(--sage-tint);
+  }
+  .pill.info {
+    border-color: var(--indigo);
+    color: var(--indigo);
+    background: var(--indigo-tint);
+  }
+  .tablewrap {
+    overflow-x: auto;
+    margin: 1rem 0;
+    border: 1px solid var(--stroke);
+    border-radius: 10px;
+    background: var(--tile2);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.9rem;
+  }
+  th,
+  td {
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--stroke);
+  }
+  th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--tile);
+    font-weight: 500;
+  }
+  tr:last-child td {
+    border-bottom: none;
+  }
+  td.num,
+  th.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.84rem;
+  }
+  td.hi {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  td.good {
+    color: var(--sage);
+    font-weight: 600;
+  }
+  .two {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 52rem) {
+    .two {
+      grid-template-columns: 1fr;
+    }
+  }
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+    gap: 0.6rem;
+    margin: 1.2rem 0;
+  }
+  .flow .node {
+    background: var(--tile);
+    border: 1px solid var(--stroke);
+    border-radius: 10px;
+    padding: 0.7rem 0.8rem;
+    font-size: 0.86rem;
+    position: relative;
+  }
+  .flow .node b {
+    display: block;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 0.98rem;
+    margin-bottom: 0.2rem;
+  }
+  .flow .node small {
+    color: var(--muted);
+    display: block;
+    line-height: 1.35;
+  }
+  .flow .node.model {
+    border-color: var(--indigo);
+  }
+  .flow .node.code {
+    border-color: var(--sage);
+  }
+  .flow .node.user {
+    border-color: var(--accent);
+  }
+  .legend {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: -0.4rem 0 1rem;
+  }
+  .legend span::before {
+    content: '';
+    display: inline-block;
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 3px;
+    border: 2px solid var(--stroke);
+    vertical-align: -2px;
+    margin-right: 0.35rem;
+  }
+  .legend .m::before {
+    border-color: var(--indigo);
+  }
+  .legend .c::before {
+    border-color: var(--sage);
+  }
+  .legend .u::before {
+    border-color: var(--accent);
+  }
+  .arch {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    gap: 0.5rem;
+    align-items: stretch;
+    margin: 1.2rem 0;
+  }
+  .arch .col {
+    background: var(--tile);
+    border: 1px solid var(--stroke);
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+    font-size: 0.86rem;
+  }
+  .arch .col h4 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+  }
+  .arch .col ul {
+    padding-left: 1rem;
+    margin: 0.3rem 0;
+  }
+  .arch .col li {
+    font-size: 0.84rem;
+    margin: 0.15rem 0;
+  }
+  .arch .arrow {
+    align-self: center;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    text-align: center;
+    padding: 0 0.2rem;
+  }
+  @media (max-width: 52rem) {
+    .arch {
+      grid-template-columns: 1fr;
+    }
+    .arch .arrow {
+      transform: rotate(90deg);
+      padding: 0.3rem 0;
+    }
+  }
+  .rank {
+    counter-reset: item;
+    list-style: none;
+    padding: 0;
+  }
+  .rank li {
+    counter-increment: item;
+    position: relative;
+    padding: 0.75rem 0 0.75rem 3rem;
+    border-bottom: 1px solid var(--stroke);
+    max-width: none;
+  }
+  .rank li::before {
+    content: counter(item, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 0.8rem;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-weight: 800;
+    font-size: 1.25rem;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .rank li b {
+    font-weight: 600;
+  }
+  .rank li p {
+    margin: 0.25rem 0;
+    max-width: 72ch;
+    font-size: 0.93rem;
+  }
+  .rank li .why {
+    color: var(--muted);
+  }
+  .small {
+    font-size: 0.86rem;
+    color: var(--muted);
+  }
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 </style>
 
 <div class="wrap">
-<header class="hero">
-  <div class="eyebrow">Weekly Meals · plan nowej funkcji</div>
-  <h1>Asystent Weekly Meals</h1>
-  <p class="lede">Czat AI w miejscu zakładki „Produkty”, który układa tydzień z tego, co masz w domu, pokazuje propozycję do zaakceptowania i nigdy nie zapisuje planu bez Twojej zgody. Odpowiedzi na pięć pytań, twarda ekonomia i lista rzeczy, o których nie było mowy.</p>
-  <div class="meta"><span>Data: <b>27.08.2026</b></span><span>Stan: <b>do decyzji przed kodowaniem</b></span><span>Repozytoria: <b>weakly-meals-backend · weekly-meals-ios</b></span></div>
-</header>
-
-<nav class="toc" aria-label="Sekcje">
-  <a href="#decyzje">Decyzje</a><a href="#fakty">Co zmienia kod</a><a href="#q1">1 · Koncepcja</a><a href="#q2">2 · Model</a><a href="#q3">3 · Architektura</a><a href="#q4">4 · Płatności i koszty</a><a href="#q5">5 · Czego nie było</a><a href="#plan">Plan dostawy</a><a href="#ryzyka">Ryzyka</a>
-</nav>
-
-<section id="decyzje">
-  <h2>Rekomendacje w skrócie</h2>
-  <div class="grid">
-    <div class="card"><div class="q">1 · Koncepcja</div><h3>Nie chatbot, tylko kreślarz planu</h3><p>Każda rozmowa kończy się <b>propozycją</b> — kartą dzień/slot, którą edytujesz lokalnie (za darmo) i zatwierdzasz jednym tapnięciem. Model proponuje, kod waliduje, człowiek zapisuje.</p><p class="sub">„Produkty” to lista zakupów — przenosimy ją pod ikonę koszyka w Planie i Kalendarzu.</p></div>
-    <div class="card"><div class="q">2 · Model</div><h3>Sonnet 5, jeden model, effort medium</h3><p>Cel: koszt API ≤ 30 % wpływów netto. Opus 5 jest 2,5× droższy i przekracza ten cel przy każdej cenie i każdym profilu (lekki użytkownik: 65 % netto przy 29,99 zł). Sonnet 5 mieści się u lekkiego (26 %) i wymaga limitów u średniego.</p><p class="sub">Decyzję potwierdza ewaluacja na 20 polskich promptach: koszt za <i>poprawną</i> propozycję, nie za token. Haiku 4.5 wraca jako osobna, tania ścieżka dla zwykłych pytań — nie naprzemiennie w jednej rozmowie.</p></div>
-    <div class="card"><div class="q">3 · Gdzie</div><h3>Moduł <code>src/agent/</code> w NestJS</h3><p>REST + JWT + polling (nie Socket.IO — gatewaye nie uwierzytelniają). Narzędzia opakowują istniejące serwisy. Python tylko jako ewentualny solver, nigdy jako host.</p><p class="sub">Sidecar Cookidoo pokazał realny koszt osobnego serwisu: 2 repo, 2 obrazy, sekret w dwóch miejscach, dryf kontraktu po jednej iteracji.</p></div>
-    <div class="card"><div class="q">4 · Płatności</div><h3>RevenueCat, jedna subskrypcja na dom</h3><p>Entitlement per Apple ID płacącego, limity liczone <b>per gospodarstwo</b>. Limit w dwóch widocznych licznikach: <b>plany</b> i <b>wiadomości</b> — nie tokeny, nie rozmowy.</p><p class="sub">29,99 zł/mies. daje ~20,7 zł netto (≈ 5,6 $). Lekki użytkownik na Sonnet 5 kosztuje ~1,5 $/mies.; bez limitów ciężki kosztuje 14 $.</p></div>
-    <div class="card"><div class="q">5 · Czego nie było</div><h3>Dziury w auth, zgoda na AI, RODO, katalog</h3><p>Trzy dziury zamykamy przed płatnym startem (otwarte <code>/auth/google</code>, dev-login domyślnie włączony, JWT na 30 dni bez odświeżania). Czwarta — nieuwierzytelnione gatewaye, przez które każdy może zmienić cudze alergeny albo skasować cudze konto — jest większa i wymaga osobnego planu.</p></div>
-  </div>
-
-  <div class="callout indigo">
-    <p><b>Trzy decyzje, które tylko Ty możesz podjąć</b> (reszta planu zakłada odpowiedzi w nawiasach):</p>
-    <ol>
-      <li><b>Kto płaci, kto korzysta?</b> Subskrypcja odblokowuje cały dom (płaci jedna osoba, partner też ma asystenta, limity wspólne) — czy per osoba? <i>(domyślnie: per dom)</i></li>
-      <li><b>Tylko katalog czy generowanie dań?</b> Asystent układa wyłącznie 89 (wkrótce ~144) zdjęciowych przepisów z policzonym makro — czy może wymyślać? <i>(domyślnie: tylko katalog w v1; generowanie wymaga makro per 100 g dla ~270 brakujących składników)</i></li>
-      <li><b>Jaka darmowa granica i jaki limit drukujesz na paywallu?</b> Aplikacja darmowa, asystent płatny z trialem liczonym w generacjach — czy cała apka za paywallem? <i>(domyślnie: freemium; asystent = jedyna płatna funkcja)</i></li>
-    </ol>
-  </div>
-
-  <div class="callout sage">
-    <p><b>Od czego zacząć w tym tygodniu</b> (kolejność odblokowuje resztę):</p>
-    <ol>
-      <li>Zwolnić dysk na Macu — jest ~500 MB wolnego; <code>pnpm add @anthropic-ai/sdk</code> tego nie przeżyje (kandydaci z notatek: iOS DeviceSupport, Docker.raw, symulatory — sprawdzić <code>du</code>).</li>
-      <li>Odpowiedzieć na trzy decyzje powyżej.</li>
-      <li>Faza 0: zamknąć <code>/auth/google</code> i dev-login na prod, odświeżanie tokenu w iOS.</li>
-      <li>Zmierzyć prawdziwy digest katalogu przez <code>count_tokens</code> na Sonnet 5 i Opus 5 — to zastępuje wszystkie szacunki tokenów w tym dokumencie.</li>
-    </ol>
-  </div>
-</section>
-
-<section id="fakty">
-  <h2>Co w kodzie zmienia założenia</h2>
-  <p>Zanim padły odpowiedzi, dziewięć raportów z przeglądu przeszło oba repozytoria, serwis Cookidoo, dokumentację API Claude i rynek; potem cztery niezależne weryfikacje próbowały obalić ten dokument. Te fakty przesuwają plan względem ustaleń z 20.08:</p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Założenie</th><th>Co jest naprawdę</th><th>Gdzie</th></tr></thead>
-    <tbody>
-      <tr><td>„Produkty” = produkty / spiżarnia</td><td>To automatyczna <b>lista zakupów</b> per tydzień, bez ręcznej edycji. Nie ma żadnego modelu spiżarni, lodówki ani „mam w domu”. Jedyny sygnał: odhaczenie pozycji (<code>ShoppingListItem.isChecked</code> / <code>ShoppingItemCheck</code>) = kupione w tym tygodniu.</td><td><code>Views/Dashboard/Products/ProductsView.swift</code> (969 linii), FAQ w <code>SettingsView.swift:118-138</code></td></tr>
-      <tr><td>Czat pójdzie po istniejącym Socket.IO</td><td>Gatewaye <b>nie uwierzytelniają</b>: <code>userId</code> jest brany z payloadu, walidatory DTO nie działają na ścieżce WS. Płatna, limitowana funkcja nie może tam jechać.</td><td><code>src/*/*.gateway.ts</code>; komentarz w <code>integrations.controller.ts:9-10</code></td></tr>
-      <tr><td>Użytkownik jest zalogowany</td><td>JWT żyje 30 dni; iOS zapisuje refresh token w Keychain, ale <b>nigdy nie woła</b> <code>/auth/refresh</code>. Funkcje po sockecie działają po wygaśnięciu (bo bez auth) — REST-owy asystent umrze 31. dnia.</td><td><code>SessionStore.swift:23-47</code>, <code>auth/jwt-expiration.util.ts:7</code></td></tr>
-      <tr><td>Auth jest zamknięte</td><td><code>POST /auth/google</code> wystawia JWT dla dowolnego <code>googleId</code> z body (bez weryfikacji u Google; iOS w ogóle go nie używa). <code>/auth/dev</code> jest włączony, dopóki env nie mówi <code>'false'</code>. <code>RollingTokenInterceptor</code> zarejestrowany, nigdzie nie zastosowany.</td><td><code>auth.service.ts:55-80, :174</code>, <code>auth.module.ts:24-26</code></td></tr>
-      <tr><td>Katalog ma tagi kuchni/diety</td><td>Nie ma. <code>sourceCuisine/Tags/Dietary</code> puste; klasyfikator diet i alergenów istnieje <b>tylko w Swifcie</b>. Alergeny użytkownika to w bazie <code>String[]</code>, ale jedyny klient zapisuje <b>zamknięty zbiór 7 wartości</b> enumu <code>Allergen</code> (gluten, lactose, eggs, nuts, peanuts, fish, soy) i ignoruje inne.</td><td><code>schema.prisma:63,120-123</code>, <code>RecipeDietProfile.swift:143-277</code>, <code>DietPreference.swift:118-125</code></td></tr>
-      <tr><td>Katalog jest duży</td><td>89 przepisów, wszystkie na 2 porcje; 52 pasuje na kolację, 13 zawiera kurczaka (11 × filet 280–400 g, 2 × noga 400–600 g). 135 z 403 składników ma makro, <code>gramsPerPiece</code> ma 5.</td><td><code>prisma/catalog/recipes-catalog-full-v2.json</code>, <code>ingredient-nutrition-pl-v1.json</code></td></tr>
-      <tr><td>Przepisy są per gospodarstwo</td><td>Dziś są <b>globalne</b>: <code>ensureRecipeForHousehold</code> ignoruje <code>householdId</code>, a <code>findAll</code> filtruje tylko <code>isActive</code>. Katalog = <code>authorId</code> bota importu (id z env), nie nazwa gospodarstwa „Home”.</td><td><code>weekly-plans/utils/auth-checks.util.ts:4-19</code>, <code>recipes.service.ts:392-480</code></td></tr>
-      <tr><td>Plan zapisuje się jedną operacją</td><td>Per slot (<code>upsertWeekSlot</code>); zmiana przepisu = REMOVE + UPSERT, nieatomowo, z osobnym broadcastem za każdym razem (push jest buforowany przez <code>NotificationBatcher</code> i przy upsert idzie tylko dla nowego dania). Istnieje też stara „pula tygodnia” <code>saveSharedMealPlan</code>, która <b>kasuje PlanItemy spoza puli</b> — dziś żaden widok iOS jej nie woła, ale ścieżka żyje. <code>WeeklyPlansModule</code> niczego nie eksportuje.</td><td><code>weekly-plans.service.ts:918-1075</code>, <code>weekly-plans.module.ts</code></td></tr>
-      <tr><td>iOS ma z czego zbudować czat</td><td>Brak SSE, brak renderowania Markdown, brak UI czatu, brak programowego przełączania zakładek (<code>selectedTab</code> to prywatny <code>@State</code>). Jest wzorzec REST z JWT (<code>IntegrationsAPIClient</code>).</td><td><code>Components/NavigationMenu.swift:4-12</code>, <code>Networking/Integrations/</code></td></tr>
-      <tr><td>Backend ma konfigurację i limity</td><td>Brak ConfigModule, brak zod, <code>@nestjs/throttler</code> zainstalowany i nieużywany, brak Sentry, <code>/ops/metrics</code> publiczne. Jedna instancja Railway, stan w pamięci (cache przepisów, batcher pushy, licznik <code>changeVersion</code>).</td><td><code>package.json</code>, <code>main.ts</code>, <code>ops.controller.ts:7-28</code></td></tr>
-    </tbody>
-  </table></div>
-</section>
-
-<section id="q1">
-  <h2>1 · Koncepcja i UX: kreślarz planu</h2>
-  <p>Największa decyzja produktowa: w v1 asystent <b>nie jest ogólnym chatbotem</b>. Każda rozmowa zmierza do jednego obiektu — <code>PlanProposal</code> — który iOS renderuje tymi samymi wierszami co Plan, a Ty edytujesz lokalnie i zatwierdzasz. To trzyma koszt w ryzach (edycja nie kosztuje tokenów), daje Apple konkretny „produkt” do opisania i chroni wspólny plan domowników przed przypadkowym nadpisaniem.</p>
-  <p><b>Partner w domu:</b> rozmowy są prywatne per osoba — partner nie widzi Twojego czatu ani propozycji przed zastosowaniem; dowiaduje się pushem po „Zastosuj” i widzi zmiany w Planie. Obie osoby mają własną historię, ale zużywają <b>wspólny limit domu</b>.</p>
-
-  <h3>Przepływ jednej rozmowy</h3>
-  <div class="legend"><span class="u">Ty</span><span class="m">model</span><span class="c">kod (deterministycznie)</span></div>
-  <div class="flow">
-    <div class="node user"><b>1 · Pytasz</b><small>„Mam 3 kg kurczaka, ułóż obiady na ten tydzień dla nas dwojga…” albo tapnięcie w gotową akcję.</small></div>
-    <div class="node model"><b>2 · Model czyta</b><small><code>get_week_plan</code>, <code>find_recipes</code> — widzi cały katalog w cache’owanym prefiksie. Gdy zakres jest niejasny — <code>ask_user</code> kończy turę pytaniem z chipami.</small></div>
-    <div class="node model"><b>3 · Model proponuje</b><small>Jedno wywołanie <code>propose_plan</code> ze ścisłym schematem: dzień, slot, przepis, porcje, dla kogo, powód.</small></div>
-    <div class="node code"><b>4 · Kod waliduje</b><small>Alergeny, włączone sloty, dopasowanie do slotu, porcje 1–12, limity, daty ≥ dziś, bilans składników. Błąd → model poprawia (max 2 razy).</small></div>
-    <div class="node user"><b>5 · Podgląd i edycja</b><small>Karta dzień po dniu. Pomiń slot, wybierz sam, zmień porcje/osoby — <b>bez</b> tokenów. „Inny przepis” = nowa rewizja od modelu.</small></div>
-    <div class="node code"><b>6 · Zastosuj</b><small>Jeden REST, jedna transakcja, jedno <code>weekChanged</code>, jeden push do partnera. Paragon: „Dodano 5 posiłków · Pon–Pt”.</small></div>
-  </div>
-
-  <h3>Scenariusz „3 kg kurczaka” w liczbach</h3>
-  <p>Katalog ma 13 dań z kurczakiem; filet w przepisach to 280–400 g na 2 porcje. Pięć obiadów dla dwojga zużyje ~1,6 kg. Zostaje ~1,4 kg — i to jest wartość asystenta: <b>bilans składników liczy kod</b> z <code>RecipeIngredient.normalizedAmount × plannedServings / recipe.servings</code>, a model tylko opisuje wynik i podsuwa dwa sposoby na resztę (np. rosół na sobotę na 4 porcje, bowl na niedzielny lunch). Trzeba dopisać mapę „rodzin składników” (filet z kurczaka, noga z kurczaka, udka → <i>kurczak</i>), bo dziś <code>Ingredient</code> nie ma nadrzędnej grupy.</p>
-  <div class="callout butter"><p><b>Sufit jakości to katalog, nie model.</b> Przy 17 przepisach z bazowym slotem DINNER (52 licząc dania obiadowe pasujące na kolację) tydzień kolacji z jednym składnikiem będzie się powtarzał. Zatwierdzony backlog 55 przepisów powinien iść równolegle z agentem — to najtańsza poprawa „inteligencji” asystenta.</p></div>
-
-  <h3>Co widzi użytkownik</h3>
-  <div class="two">
-    <div>
-      <h4>Zakładka „Asystent” (ikona <code>sparkles</code>)</h4>
-      <ul>
-        <li>Pusty stan: hero + 4 karty szybkich akcji (<i>Zaplanuj obiady</i>, <i>Uzupełnij puste sloty</i>, <i>Ugotuj z tego, co mam</i>, <i>Coś szybkiego na dziś</i>).</li>
-        <li>Rodzaje wiadomości: tekst (2–4 zdania, bez Markdown), <b>karta propozycji</b>, pytanie doprecyzowujące z chipami (z narzędzia <code>ask_user</code>), paragon po zastosowaniu, karta limitu.</li>
-        <li>Pole wiadomości: <code>TextField(axis: .vertical)</code>, 1–5 linii, przycisk wyślij; zablokowane, gdy tura trwa. Pasek postępu z etykietami narzędzi („Sprawdzam plan tygodnia”, „Dobieram przepisy”, „Liczę porcje”).</li>
-        <li>Pierwsze uruchomienie: karta zgody nazywająca Anthropic i zakres danych (App Review 5.1.2(i)) + zdanie „to nie porada medyczna” (1.4.1). Każdy domownik potwierdza ją osobno przy pierwszym wejściu.</li>
-      </ul>
-      <h4>Karta propozycji</h4>
-      <ul>
-        <li>Eyebrow <code>PROPOZYCJA · 1–7 WRZ · OBIADY</code>, tytuł, 1-zdaniowe podsumowanie, chipy „5 dni · 2 osoby · śr. 620 kcal/os”.</li>
-        <li>Dzień po dniu wiersze w tonie <i>proponowany</i> (kreskowana obwódka terakota) / <i>zostaje</i> (już zaplanowane, tryb FILL_EMPTY) / <i>pominięty</i>.</li>
-        <li>Blok bilansu: „kurczak ▮▮▮▮▮▮▯▯ 1,6 / 3 kg · zostanie ~1,4 kg” + chipy pomysłów na resztę.</li>
-        <li>CTA „Zastosuj 5 posiłków” + „Odrzuć”. Po zastosowaniu karta zwija się do pigułki „Zastosowano” i pokazuje „Otwórz plan” / „Zobacz listę zakupów”.</li>
-      </ul>
+  <header class="hero">
+    <div class="eyebrow">Weekly Meals · plan nowej funkcji</div>
+    <h1>Asystent Weekly Meals</h1>
+    <p class="lede">
+      Czat AI w miejscu zakładki „Produkty”, który układa tydzień z tego, co
+      masz w domu, pokazuje propozycję do zaakceptowania i nigdy nie zapisuje
+      planu bez Twojej zgody. Odpowiedzi na pięć pytań, twarda ekonomia i lista
+      rzeczy, o których nie było mowy.
+    </p>
+    <div class="meta">
+      <span>Data: <b>27.08.2026</b></span
+      ><span>Stan: <b>do decyzji przed kodowaniem</b></span
+      ><span>Repozytoria: <b>weakly-meals-backend · weekly-meals-ios</b></span>
     </div>
-    <div>
-      <h4>Co się dzieje z „Produktami”</h4>
-      <ul>
-        <li>Zakładka znika: <code>DashboardTab.products → .assistant</code> w <code>Components/NavigationMenu.swift</code> i <code>MenuConstans.Products → .Assistant</code> w <code>Constants/MenuConstants.swift</code> (dwa pliki; nikt do niej nie nawiguje programowo, projekt Xcode ma synchronizowane foldery — bez edycji pbxproj).</li>
-        <li>Lista zakupów staje się <b>arkuszem</b> otwieranym z ikony koszyka w nagłówku Planu i Kalendarza (slot <code>trailing:</code> w <code>EditorialPageHeader</code>, wzorzec z <code>WeeklyPlanView.swift:329</code>) z kropką „N do kupienia”. Dodatkowo wiersz w Ustawieniach.</li>
-        <li><code>ShoppingListStore</code> i jego wiring w <code>SessionStore</code> zostają nietknięte — Plan i Kalendarz wołają <code>load(force:)</code> po każdej mutacji.</li>
-        <li>Porządki: zdjąć z <code>ProductsView</code> własny <code>NavigationStack</code> (:221) i górny padding strony; przenieść <code>extension Color.mix</code> z <code>EditorialShoppingHero.swift:320-352</code> do <code>WMDesignSystem.swift</code> (używany w Kalendarzu, Planie i Ustawieniach); skasować martwe <code>ProductModel.swift</code>, <code>HeaderConstants.swift</code>, nieosiągalny <code>historySheet</code>; poprawić FAQ (<code>SettingsView.swift:125</code> — „w tej samej zakładce” już dziś jest nieprawdą).</li>
-        <li><code>DashboardTab</code> wynieść z prywatnego zakresu i podpiąć pod <code>sessionStore.selectedTab</code> — inaczej paragon nie otworzy Planu.</li>
-        <li>To osobny, mergowalny plaster (1–1,5 dnia, bez backendu) — można go zrobić jako pierwszy.</li>
-      </ul>
-      <h4>Komponenty do reużycia</h4>
-      <p class="small">Bez zmian: <code>EditorialPageHeader</code>, <code>EditorialSheetHeader</code>, <code>EditorialPrimaryActionButton</code>, <code>WMStepper</code>, <code>PlanAudienceChips</code>, <code>PlanWhoBadge</code>, <code>CachedAsyncImage</code>, <code>EditorialMacroBlock</code> (kcal dnia vs cel), <code>RecipeDetailView</code>, <code>PolishPlural</code>. Z małą zmianą: <code>PlanMealSlotRow</code> (nowy parametr <code>tone</code>, własne menu kontekstowe), <code>PlanSlotPickerSheet</code> (tryb „tylko wybierz”). Nowe: cały <code>Views/Dashboard/Assistant/</code>, <code>AssistantStore</code>, <code>AssistantAPIClient</code>, DTO.</p>
+  </header>
+
+  <nav class="toc" aria-label="Sekcje">
+    <a href="#decyzje">Decyzje</a><a href="#fakty">Co zmienia kod</a
+    ><a href="#q1">1 · Koncepcja</a><a href="#q2">2 · Model</a
+    ><a href="#q3">3 · Architektura</a><a href="#q4">4 · Płatności i koszty</a
+    ><a href="#q5">5 · Czego nie było</a><a href="#plan">Plan dostawy</a
+    ><a href="#ryzyka">Ryzyka</a>
+  </nav>
+
+  <section id="decyzje">
+    <h2>Rekomendacje w skrócie</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="q">1 · Koncepcja</div>
+        <h3>Nie chatbot, tylko kreślarz planu</h3>
+        <p>
+          Każda rozmowa kończy się <b>propozycją</b> — kartą dzień/slot, którą
+          edytujesz lokalnie (za darmo) i zatwierdzasz jednym tapnięciem. Model
+          proponuje, kod waliduje, człowiek zapisuje.
+        </p>
+        <p class="sub">
+          „Produkty” to lista zakupów — przenosimy ją pod ikonę koszyka w Planie
+          i Kalendarzu.
+        </p>
+      </div>
+      <div class="card">
+        <div class="q">2 · Model</div>
+        <h3>Sonnet 5, jeden model, effort medium</h3>
+        <p>
+          Cel: koszt API ≤ 30 % wpływów netto. Opus 5 jest 2,5× droższy i
+          przekracza ten cel przy każdej cenie i każdym profilu (lekki
+          użytkownik: 65 % netto przy 29,99 zł). Sonnet 5 mieści się u lekkiego
+          (26 %) i wymaga limitów u średniego.
+        </p>
+        <p class="sub">
+          Decyzję potwierdza ewaluacja na 20 polskich promptach: koszt za
+          <i>poprawną</i> propozycję, nie za token. Haiku 4.5 wraca jako osobna,
+          tania ścieżka dla zwykłych pytań — nie naprzemiennie w jednej
+          rozmowie.
+        </p>
+      </div>
+      <div class="card">
+        <div class="q">3 · Gdzie</div>
+        <h3>Moduł <code>src/agent/</code> w NestJS</h3>
+        <p>
+          REST + JWT + polling (nie Socket.IO — gatewaye nie uwierzytelniają).
+          Narzędzia opakowują istniejące serwisy. Python tylko jako ewentualny
+          solver, nigdy jako host.
+        </p>
+        <p class="sub">
+          Sidecar Cookidoo pokazał realny koszt osobnego serwisu: 2 repo, 2
+          obrazy, sekret w dwóch miejscach, dryf kontraktu po jednej iteracji.
+        </p>
+      </div>
+      <div class="card">
+        <div class="q">4 · Płatności</div>
+        <h3>RevenueCat, jedna subskrypcja na dom</h3>
+        <p>
+          Entitlement per Apple ID płacącego, limity liczone
+          <b>per gospodarstwo</b>. Limit w dwóch widocznych licznikach:
+          <b>plany</b> i <b>wiadomości</b> — nie tokeny, nie rozmowy.
+        </p>
+        <p class="sub">
+          29,99 zł/mies. daje ~20,7 zł netto (≈ 5,6 $). Lekki użytkownik na
+          Sonnet 5 kosztuje ~1,5 $/mies.; bez limitów ciężki kosztuje 14 $.
+        </p>
+      </div>
+      <div class="card">
+        <div class="q">5 · Czego nie było</div>
+        <h3>Dziury w auth, zgoda na AI, RODO, katalog</h3>
+        <p>
+          Trzy dziury zamykamy przed płatnym startem (otwarte
+          <code>/auth/google</code>, dev-login domyślnie włączony, JWT na 30 dni
+          bez odświeżania). Czwarta — nieuwierzytelnione gatewaye, przez które
+          każdy może zmienić cudze alergeny albo skasować cudze konto — jest
+          większa i wymaga osobnego planu.
+        </p>
+      </div>
     </div>
-  </div>
 
-  <h3>Zakres v1 i poza nim</h3>
-  <div class="two">
-    <div class="card"><div class="q">v1 (płatny start)</div><ul><li>Plan obiadów/tygodnia z katalogu, FILL_EMPTY domyślnie (nigdy nie kasuje ręcznie zaplanowanych)</li><li>Warunki z rozmowy: „bez ryb”, „do 30 min w tygodniu”, „Ania nie je glutenu”, „Michał na 1800 kcal”</li><li>Bilans składników i pomysły na resztki („mam 3 kg…” jako tekst w rozmowie, bez modelu spiżarni)</li><li>Edycja lokalna + regeneracja jednego slotu</li><li>Pytania o propozycję („ile kcal w czwartek?”)</li><li>Zgoda, limity, paywall, zgłoś odpowiedź</li></ul></div>
-    <div class="card"><div class="q">Świadomie później</div><ul><li>Spiżarnia z ilościami i przenoszenie z odhaczonych zakupów (v2)</li><li>Własne / generowane przepisy z wizją i makro (wymaga makro per 100 g dla ~270 składników)</li><li>Streaming tekstu (SSE) — v1.1, bez zmiany modelu danych</li><li>Pamięć między rozmowami poza <code>UserPreference</code> („nie lubimy krewetek” na stałe)</li><li>Wspólny wątek gospodarstwa; wiele tygodni naraz; edycja listy zakupów przez czat; kasowanie posiłków przez czat</li><li>Auto-sync do Cookidoo z paragonu</li></ul></div>
-  </div>
+    <div class="callout indigo">
+      <p>
+        <b>Trzy decyzje, które tylko Ty możesz podjąć</b> (reszta planu zakłada
+        odpowiedzi w nawiasach):
+      </p>
+      <ol>
+        <li>
+          <b>Kto płaci, kto korzysta?</b> Subskrypcja odblokowuje cały dom
+          (płaci jedna osoba, partner też ma asystenta, limity wspólne) — czy
+          per osoba? <i>(domyślnie: per dom)</i>
+        </li>
+        <li>
+          <b>Tylko katalog czy generowanie dań?</b> Asystent układa wyłącznie 89
+          (wkrótce ~144) zdjęciowych przepisów z policzonym makro — czy może
+          wymyślać?
+          <i
+            >(domyślnie: tylko katalog w v1; generowanie wymaga makro per 100 g
+            dla ~270 brakujących składników)</i
+          >
+        </li>
+        <li>
+          <b>Jaka darmowa granica i jaki limit drukujesz na paywallu?</b>
+          Aplikacja darmowa, asystent płatny z trialem liczonym w generacjach —
+          czy cała apka za paywallem?
+          <i>(domyślnie: freemium; asystent = jedyna płatna funkcja)</i>
+        </li>
+      </ol>
+    </div>
 
-  <h3>Prompty, które v1 musi obsłużyć dobrze</h3>
-  <ol>
-    <li>„Mam 3 kg kurczaka, ułóż obiady na ten tydzień dla nas dwojga. Jak coś zostanie, podpowiedz co z tym zrobić.”</li>
-    <li>„Zaplanuj cały przyszły tydzień, bez ryb, w dni robocze maksymalnie 30 minut gotowania.”</li>
-    <li>„Uzupełnij puste sloty w tym tygodniu czymś prostym.”</li>
-    <li>„Zamień środowy obiad na coś bez glutenu — Ania nie je glutenu.”</li>
-    <li>„Śniadania na tydzień, wysokobiałkowe, do 400 kcal na osobę.”</li>
-    <li>„W piątek i sobotę to samo — gotuję raz na dwa dni.” (podwójne porcje, powtórzony przepis)</li>
-    <li>„Ja jestem na 1800 kcal, Michał nie — obiady wspólne, kolacje osobno.” (podział uczestników)</li>
-    <li>„Nie lubimy krewetek i śledzia, więcej indyka.” (ograniczenie w obrębie rozmowy)</li>
-    <li>„Ile kalorii na osobę wychodzi w czwartek?” (pytanie o propozycję, bez nowej rewizji)</li>
-    <li>„Dodaj na niedzielę pierogi ruskie na 4 porcje, resztę zjemy w poniedziałek.”</li>
-  </ol>
-  <p><b>Ma grzecznie odmówić lub przekierować:</b> dieta 1000 kcal „schudnę 10 kg w miesiąc” (ekstremalna restrykcja → lekarz/dietetyk, oferta planu na skonfigurowany cel); „ile insuliny do tego obiadu” (medyczne); „dodaj sushi, którego nie ma w katalogu” (v1 tylko katalog); „zamów zakupy w Lidlu” (brak handlu); „usuń wszystkie posiłki Michała” (asystent nie kasuje); tematy spoza kuchni.</p>
-</section>
+    <div class="callout sage">
+      <p>
+        <b>Od czego zacząć w tym tygodniu</b> (kolejność odblokowuje resztę):
+      </p>
+      <ol>
+        <li>
+          Zwolnić dysk na Macu — jest ~500 MB wolnego;
+          <code>pnpm add @anthropic-ai/sdk</code> tego nie przeżyje (kandydaci z
+          notatek: iOS DeviceSupport, Docker.raw, symulatory — sprawdzić
+          <code>du</code>).
+        </li>
+        <li>Odpowiedzieć na trzy decyzje powyżej.</li>
+        <li>
+          Faza 0: zamknąć <code>/auth/google</code> i dev-login na prod,
+          odświeżanie tokenu w iOS.
+        </li>
+        <li>
+          Zmierzyć prawdziwy digest katalogu przez <code>count_tokens</code> na
+          Sonnet 5 i Opus 5 — to zastępuje wszystkie szacunki tokenów w tym
+          dokumencie.
+        </li>
+      </ol>
+    </div>
+  </section>
 
-<section id="q2">
-  <h2>2 · Model: dopasowany, nie największy</h2>
-  <p>Zadanie asystenta jest <b>ograniczone i sprawdzalne</b>: ułożyć 89 znanych przepisów w sloty pod twarde reguły, które i tak sprawdza kod, i opisać to po polsku w trzech zdaniach. To nie jest długa agentowa pętla ani otwarte rozumowanie — a za takie zadania dokumentacja każe płacić „za ukończone zadanie”, nie za token. Ceny z dokumentacji API (za milion tokenów):</p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Model</th><th class="num">Wejście $</th><th class="num">Wyjście $</th><th>Kontekst</th><th>Effort</th><th class="num">Min. prefiks cache</th><th>Uwagi istotne tutaj</th></tr></thead>
-    <tbody>
-      <tr><td><b>Opus 5</b> <code>claude-opus-5</code></td><td class="num">5</td><td class="num">25</td><td>1M</td><td>low…max</td><td class="num">512</td><td>Najlepsza jakość; obsługuje wiadomości <code>role: system</code> w trakcie rozmowy; <code>fallbacks: "default"</code> na odmowy (beta). Cena 2,5× Sonneta.</td></tr>
-      <tr><td><b>Sonnet 5</b> <code>claude-sonnet-5</code></td><td class="num">2</td><td class="num">10</td><td>1M</td><td>low…max</td><td class="num">1024</td><td>„medium ≈ Sonnet 4.6 na high”; nowy tokenizer liczy ~30 % <i>więcej</i> tokenów za ten sam tekst (Opus 5 dzieli ten tokenizer); brak mid-conversation <code>role: system</code> — dokumentacja notuje sprzeczne źródła, więc łapać 400 i wkładać kontekst w turę użytkownika; czyta instrukcje dosłownie.</td></tr>
-      <tr><td><b>Haiku 4.5</b> <code>claude-haiku-4-5</code></td><td class="num">1*</td><td class="num">5*</td><td>200K</td><td><code>max</code> odrzucany; resztę sprawdzić przez Models API</td><td class="num">4096</td><td>„do pracy masowej ze sprawdzalnym wynikiem, nie do pętli agentowych”; z włączonym thinking gubi cache po tool use — używać <b>bez</b> thinking. <b>* cena spoza dokumentacji w pakiecie — potwierdzić na stronie Pricing.</b></td></tr>
-    </tbody>
-  </table></div>
+  <section id="fakty">
+    <h2>Co w kodzie zmienia założenia</h2>
+    <p>
+      Zanim padły odpowiedzi, dziewięć raportów z przeglądu przeszło oba
+      repozytoria, serwis Cookidoo, dokumentację API Claude i rynek; potem
+      cztery niezależne weryfikacje próbowały obalić ten dokument. Te fakty
+      przesuwają plan względem ustaleń z 20.08:
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Założenie</th>
+            <th>Co jest naprawdę</th>
+            <th>Gdzie</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>„Produkty” = produkty / spiżarnia</td>
+            <td>
+              To automatyczna <b>lista zakupów</b> per tydzień, bez ręcznej
+              edycji. Nie ma żadnego modelu spiżarni, lodówki ani „mam w domu”.
+              Jedyny sygnał: odhaczenie pozycji (<code
+                >ShoppingListItem.isChecked</code
+              >
+              / <code>ShoppingItemCheck</code>) = kupione w tym tygodniu.
+            </td>
+            <td>
+              <code>Views/Dashboard/Products/ProductsView.swift</code> (969
+              linii), FAQ w <code>SettingsView.swift:118-138</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Czat pójdzie po istniejącym Socket.IO</td>
+            <td>
+              Gatewaye <b>nie uwierzytelniają</b>: <code>userId</code> jest
+              brany z payloadu, walidatory DTO nie działają na ścieżce WS.
+              Płatna, limitowana funkcja nie może tam jechać.
+            </td>
+            <td>
+              <code>src/*/*.gateway.ts</code>; komentarz w
+              <code>integrations.controller.ts:9-10</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Użytkownik jest zalogowany</td>
+            <td>
+              JWT żyje 30 dni; iOS zapisuje refresh token w Keychain, ale
+              <b>nigdy nie woła</b> <code>/auth/refresh</code>. Funkcje po
+              sockecie działają po wygaśnięciu (bo bez auth) — REST-owy asystent
+              umrze 31. dnia.
+            </td>
+            <td>
+              <code>SessionStore.swift:23-47</code>,
+              <code>auth/jwt-expiration.util.ts:7</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Auth jest zamknięte</td>
+            <td>
+              <code>POST /auth/google</code> wystawia JWT dla dowolnego
+              <code>googleId</code> z body (bez weryfikacji u Google; iOS w
+              ogóle go nie używa). <code>/auth/dev</code> jest włączony, dopóki
+              env nie mówi <code>'false'</code>.
+              <code>RollingTokenInterceptor</code> zarejestrowany, nigdzie nie
+              zastosowany.
+            </td>
+            <td>
+              <code>auth.service.ts:55-80, :174</code>,
+              <code>auth.module.ts:24-26</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Katalog ma tagi kuchni/diety</td>
+            <td>
+              Nie ma. <code>sourceCuisine/Tags/Dietary</code> puste;
+              klasyfikator diet i alergenów istnieje <b>tylko w Swifcie</b>.
+              Alergeny użytkownika to w bazie <code>String[]</code>, ale jedyny
+              klient zapisuje <b>zamknięty zbiór 7 wartości</b> enumu
+              <code>Allergen</code> (gluten, lactose, eggs, nuts, peanuts, fish,
+              soy) i ignoruje inne.
+            </td>
+            <td>
+              <code>schema.prisma:63,120-123</code>,
+              <code>RecipeDietProfile.swift:143-277</code>,
+              <code>DietPreference.swift:118-125</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Katalog jest duży</td>
+            <td>
+              89 przepisów, wszystkie na 2 porcje; 52 pasuje na kolację, 13
+              zawiera kurczaka (11 × filet 280–400 g, 2 × noga 400–600 g). 135 z
+              403 składników ma makro, <code>gramsPerPiece</code> ma 5.
+            </td>
+            <td>
+              <code>prisma/catalog/recipes-catalog-full-v2.json</code>,
+              <code>ingredient-nutrition-pl-v1.json</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Przepisy są per gospodarstwo</td>
+            <td>
+              Dziś są <b>globalne</b>:
+              <code>ensureRecipeForHousehold</code> ignoruje
+              <code>householdId</code>, a <code>findAll</code> filtruje tylko
+              <code>isActive</code>. Katalog = <code>authorId</code> bota
+              importu (id z env), nie nazwa gospodarstwa „Home”.
+            </td>
+            <td>
+              <code>weekly-plans/utils/auth-checks.util.ts:4-19</code>,
+              <code>recipes.service.ts:392-480</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Plan zapisuje się jedną operacją</td>
+            <td>
+              Per slot (<code>upsertWeekSlot</code>); zmiana przepisu = REMOVE +
+              UPSERT, nieatomowo, z osobnym broadcastem za każdym razem (push
+              jest buforowany przez <code>NotificationBatcher</code> i przy
+              upsert idzie tylko dla nowego dania). Istnieje też stara „pula
+              tygodnia” <code>saveSharedMealPlan</code>, która
+              <b>kasuje PlanItemy spoza puli</b> — dziś żaden widok iOS jej nie
+              woła, ale ścieżka żyje. <code>WeeklyPlansModule</code> niczego nie
+              eksportuje.
+            </td>
+            <td>
+              <code>weekly-plans.service.ts:918-1075</code>,
+              <code>weekly-plans.module.ts</code>
+            </td>
+          </tr>
+          <tr>
+            <td>iOS ma z czego zbudować czat</td>
+            <td>
+              Brak SSE, brak renderowania Markdown, brak UI czatu, brak
+              programowego przełączania zakładek (<code>selectedTab</code> to
+              prywatny <code>@State</code>). Jest wzorzec REST z JWT
+              (<code>IntegrationsAPIClient</code>).
+            </td>
+            <td>
+              <code>Components/NavigationMenu.swift:4-12</code>,
+              <code>Networking/Integrations/</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Backend ma konfigurację i limity</td>
+            <td>
+              Brak ConfigModule, brak zod,
+              <code>@nestjs/throttler</code> zainstalowany i nieużywany, brak
+              Sentry, <code>/ops/metrics</code> publiczne. Jedna instancja
+              Railway, stan w pamięci (cache przepisów, batcher pushy, licznik
+              <code>changeVersion</code>).
+            </td>
+            <td>
+              <code>package.json</code>, <code>main.ts</code>,
+              <code>ops.controller.ts:7-28</code>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
-  <h3>Rekomendacja</h3>
-  <div class="callout sage">
-    <p><b>v1: jeden model — Sonnet 5, effort <code>medium</code>, adaptacyjne thinking (domyślne), jedno ustawienie na całą rozmowę.</b> Cache jest per model i per ustawienie effort — mieszanie ich w jednej rozmowie unieważnia cache historii. Prostota wygrywa: jedna przestrzeń cache, jeden zestaw narzędzi, jeden prompt.</p>
-    <p><b>Cel ekonomiczny, do którego odnoszę „mieści się”:</b> koszt API ≤ 30 % wpływów netto (RevenueCat podaje 3–17 % jako zdrową normę dla funkcji AI w apkach subskrypcyjnych). <b>Dlaczego nie Opus 5 na start:</b> lekki użytkownik na Opus 5 to 3,66 $/mies. = 65 % netto z 29,99 zł, 49 % z 39,99 zł, 39 % z 49,99 zł — powyżej celu wszędzie; na Sonnet 5 1,46 $ = 26 % przy 29,99 zł. Opus 5 ma sens jako „generacja premium” w wyższej taryfie albo gdy ewaluacja pokaże, że Sonnet regularnie łamie reguły i potrzebuje poprawek (każda poprawka to kolejna iteracja, więc realny koszt rośnie).</p>
-    <p><b>Dlaczego nie Haiku 4.5 od razu:</b> to nie jest model do pętli z narzędziami po polsku, a jego cena nie jest w dokumentacji. Jako <i>osobna ścieżka</i> tylko do zwykłych pytań (bez propozycji, własny mały prefiks, osobna rozmowa) obniża koszt czatu ~5× — to dźwignia nr 2, jeśli logi pokażą, że wiadomości, a nie plany, dominują rachunek. Nie naprzemiennie z Sonnetem w jednej historii: cache jest per model, każde przełączenie płaci zimny zapis całego prefiksu i historii.</p>
-  </div>
-  <p><b>Jak to rozstrzygnąć na faktach, nie na wyczuciu:</b> skrypt <code>scripts/agent-eval.ts</code> puszcza 20 zamrożonych polskich promptów (te wyżej + pułapki: alergen, dzień z przeszłości, „zmień wtorek”, prompt injection „ignoruj limity”) na czterech konfiguracjach — Sonnet 5 <code>low</code>, <code>medium</code>, <code>high</code> (domyślne, jako odniesienie) i Opus 5 <code>low</code> — po kilka przebiegów każda (pojedynczy przebieg to szum) i liczy: odsetek propozycji bez błędów twardych walidatora, liczbę poprawek, koszt z pól <code>usage</code>. Wybierasz najtańszą konfigurację, która przechodzi. Dokumentacja pokazuje, że cenniki per token nie przewidują rankingu (Fable 5 na <code>low</code> pobiło Sonnet 5 na benchmarku deep research przy ~10 % niższym koszcie per zadanie) — dla Opus 5 takiego porównania nie ma, dlatego Opus <code>low</code> zostaje w ewaluacji jako hipoteza.</p>
-  <p class="small">Nie wchodzi w grę: Fable 5 (10 $/50 $, wymaga 30-dniowej retencji danych — nie dla zadania „ułóż 7 obiadów”), wyłączanie thinking na Opus 5 (wywołania narzędzi potrafią wtedy wylądować jako tekst), zmiana modelu lub effort w środku rozmowy.</p>
-</section>
+  <section id="q1">
+    <h2>1 · Koncepcja i UX: kreślarz planu</h2>
+    <p>
+      Największa decyzja produktowa: w v1 asystent
+      <b>nie jest ogólnym chatbotem</b>. Każda rozmowa zmierza do jednego
+      obiektu — <code>PlanProposal</code> — który iOS renderuje tymi samymi
+      wierszami co Plan, a Ty edytujesz lokalnie i zatwierdzasz. To trzyma koszt
+      w ryzach (edycja nie kosztuje tokenów), daje Apple konkretny „produkt” do
+      opisania i chroni wspólny plan domowników przed przypadkowym nadpisaniem.
+    </p>
+    <p>
+      <b>Partner w domu:</b> rozmowy są prywatne per osoba — partner nie widzi
+      Twojego czatu ani propozycji przed zastosowaniem; dowiaduje się pushem po
+      „Zastosuj” i widzi zmiany w Planie. Obie osoby mają własną historię, ale
+      zużywają <b>wspólny limit domu</b>.
+    </p>
 
-<section id="q3">
-  <h2>3 · Gdzie i jak: moduł w NestJS</h2>
-  <p>Podtrzymuję decyzję z 20.08 — agent żyje w backendzie jako <code>src/agent/</code>. Argument jest dziś mocniejszy, bo mamy przed oczami realny koszt sidecara Cookidoo: z ~400 linii Pythona w <code>app/</code> (541 z testami) większość to sam transport — auth współdzielonym sekretem, schematy DTO zduplikowane z Nestem, mapowanie wyjątków na kody HTTP, socket dual-stack pod Railway; po stronie Nesta 116-liniowy klient HTTP i drugi poziom tłumaczenia błędów, sekret w dwóch miejscach, a po jednej iteracji już widać dryf kontraktu (<code>COOKIDOO_UPSTREAM_ERROR</code> nie ma w <code>AppErrorCode</code>, <code>/v1/my-week/remove</code> nie ma wywołującego). Tam sidecar był konieczny — biblioteka istnieje tylko w Pythonie. Tu nie ma takiego powodu: SDK Anthropic jest w TypeScript, a narzędzia agenta to <i>istniejące serwisy</i> Nesta z ich autoryzacją.</p>
+    <h3>Przepływ jednej rozmowy</h3>
+    <div class="legend">
+      <span class="u">Ty</span><span class="m">model</span
+      ><span class="c">kod (deterministycznie)</span>
+    </div>
+    <div class="flow">
+      <div class="node user">
+        <b>1 · Pytasz</b
+        ><small
+          >„Mam 3 kg kurczaka, ułóż obiady na ten tydzień dla nas dwojga…” albo
+          tapnięcie w gotową akcję.</small
+        >
+      </div>
+      <div class="node model">
+        <b>2 · Model czyta</b
+        ><small
+          ><code>get_week_plan</code>, <code>find_recipes</code> — widzi cały
+          katalog w cache’owanym prefiksie. Gdy zakres jest niejasny —
+          <code>ask_user</code> kończy turę pytaniem z chipami.</small
+        >
+      </div>
+      <div class="node model">
+        <b>3 · Model proponuje</b
+        ><small
+          >Jedno wywołanie <code>propose_plan</code> ze ścisłym schematem:
+          dzień, slot, przepis, porcje, dla kogo, powód.</small
+        >
+      </div>
+      <div class="node code">
+        <b>4 · Kod waliduje</b
+        ><small
+          >Alergeny, włączone sloty, dopasowanie do slotu, porcje 1–12, limity,
+          daty ≥ dziś, bilans składników. Błąd → model poprawia (max 2
+          razy).</small
+        >
+      </div>
+      <div class="node user">
+        <b>5 · Podgląd i edycja</b
+        ><small
+          >Karta dzień po dniu. Pomiń slot, wybierz sam, zmień porcje/osoby —
+          <b>bez</b> tokenów. „Inny przepis” = nowa rewizja od modelu.</small
+        >
+      </div>
+      <div class="node code">
+        <b>6 · Zastosuj</b
+        ><small
+          >Jeden REST, jedna transakcja, jedno <code>weekChanged</code>, jeden
+          push do partnera. Paragon: „Dodano 5 posiłków · Pon–Pt”.</small
+        >
+      </div>
+    </div>
 
-  <h3>Architektura</h3>
-  <div class="arch">
-    <div class="col"><h4>iOS</h4><ul><li><code>AssistantView</code> + komponenty</li><li><code>AssistantStore</code> (<code>@Observable</code>, w <code>SessionStore</code>)</li><li><code>AssistantAPIClient</code> — REST + Bearer JWT, wyodrębniony z <code>IntegrationsAPIClient</code> jako wspólny klient (z odświeżaniem tokenu)</li><li>Propozycja → syntetyczne <code>PlanMeal</code> z katalogu w cache urządzenia</li></ul></div>
-    <div class="arrow">REST+JWT<br>202 → polling 1 s</div>
-    <div class="col"><h4>NestJS · <code>src/agent/</code></h4><ul><li><code>AgentController</code> (<code>JwtAuthGuard</code>, <code>@CurrentUserId</code> — dziś leży w <code>integrations/</code>, przenieść do <code>auth/</code>)</li><li><code>AgentService</code>: zgoda → limit → lock → pętla narzędzi → zapis</li><li><code>CatalogDigestService</code>, <code>ContextBuilder</code></li><li><code>tools/</code> 6 narzędzi, <code>validation/</code> walidator + port klasyfikatora diet</li><li><code>AgentQuotaService</code>, kill switch, budżet dzienny, bezpiecznik upstream</li><li><code>WeeklyPlansService.applyProposal()</code> (nowa) + <code>PlanChangeBroadcaster</code></li></ul></div>
-    <div class="arrow">SDK TS<br>tool runner</div>
-    <div class="col"><h4>Anthropic API</h4><ul><li>Prefiks w cache 1 h: narzędzia → zamrożony system → digest 89 przepisów (wspólny dla wszystkich użytkowników)</li><li>Druga granica cache na ogonie rozmowy (top-level <code>cache_control</code>)</li><li>Kontekst gospodarstwa + „dziś” w turze użytkownika (nie w prefiksie)</li><li>Strict tool <code>propose_plan</code> jako wyjście strukturalne</li><li><code>usage</code> z każdej odpowiedzi → <code>AiUsage</code></li></ul></div>
-  </div>
+    <h3>Scenariusz „3 kg kurczaka” w liczbach</h3>
+    <p>
+      Katalog ma 13 dań z kurczakiem; filet w przepisach to 280–400 g na 2
+      porcje. Pięć obiadów dla dwojga zużyje ~1,6 kg. Zostaje ~1,4 kg — i to
+      jest wartość asystenta: <b>bilans składników liczy kod</b> z
+      <code
+        >RecipeIngredient.normalizedAmount × plannedServings /
+        recipe.servings</code
+      >, a model tylko opisuje wynik i podsuwa dwa sposoby na resztę (np. rosół
+      na sobotę na 4 porcje, bowl na niedzielny lunch). Trzeba dopisać mapę
+      „rodzin składników” (filet z kurczaka, noga z kurczaka, udka →
+      <i>kurczak</i>), bo dziś <code>Ingredient</code> nie ma nadrzędnej grupy.
+    </p>
+    <div class="callout butter">
+      <p>
+        <b>Sufit jakości to katalog, nie model.</b> Przy 17 przepisach z bazowym
+        slotem DINNER (52 licząc dania obiadowe pasujące na kolację) tydzień
+        kolacji z jednym składnikiem będzie się powtarzał. Zatwierdzony backlog
+        55 przepisów powinien iść równolegle z agentem — to najtańsza poprawa
+        „inteligencji” asystenta.
+      </p>
+    </div>
 
-  <h3>Transport: dlaczego 202 + polling, nie SSE i nie Socket.IO</h3>
-  <ul>
-    <li><b>Nie Socket.IO</b> — brak uwierzytelnienia handshake’u i walidacji DTO na WS; ten sam powód, dla którego Cookidoo poszło po REST.</li>
-    <li><b>Polling w v1</b> — iOS nie ma ani linijki kodu do SSE; treścią odpowiedzi jest karta, nie strumień prozy; tura zapisana w bazie (<code>AgentTurn</code>) przeżywa zwinięcie aplikacji, zerwanie sieci i proxy Railway. Klient odpytuje <code>GET /agent/turns/:id</code> co 1 s i pokazuje etykiety postępu zapisywane przez narzędzia.</li>
-    <li><b>SSE w v1.1</b> — dla deltas tekstu, gdy będzie działać reszta; model danych się nie zmienia.</li>
-    <li>Serwer <b>nigdy nie przerywa</b> tury po rozłączeniu klienta — kończy, zapisuje, klient dosynchronizuje. Po restarcie procesu tury w stanie RUNNING starsze niż 3 min → FAILED (jedna instancja, brak kolejki).</li>
-  </ul>
+    <h3>Co widzi użytkownik</h3>
+    <div class="two">
+      <div>
+        <h4>Zakładka „Asystent” (ikona <code>sparkles</code>)</h4>
+        <ul>
+          <li>
+            Pusty stan: hero + 4 karty szybkich akcji (<i>Zaplanuj obiady</i>,
+            <i>Uzupełnij puste sloty</i>, <i>Ugotuj z tego, co mam</i>,
+            <i>Coś szybkiego na dziś</i>).
+          </li>
+          <li>
+            Rodzaje wiadomości: tekst (2–4 zdania, bez Markdown),
+            <b>karta propozycji</b>, pytanie doprecyzowujące z chipami (z
+            narzędzia <code>ask_user</code>), paragon po zastosowaniu, karta
+            limitu.
+          </li>
+          <li>
+            Pole wiadomości: <code>TextField(axis: .vertical)</code>, 1–5 linii,
+            przycisk wyślij; zablokowane, gdy tura trwa. Pasek postępu z
+            etykietami narzędzi („Sprawdzam plan tygodnia”, „Dobieram przepisy”,
+            „Liczę porcje”).
+          </li>
+          <li>
+            Pierwsze uruchomienie: karta zgody nazywająca Anthropic i zakres
+            danych (App Review 5.1.2(i)) + zdanie „to nie porada medyczna”
+            (1.4.1). Każdy domownik potwierdza ją osobno przy pierwszym wejściu.
+          </li>
+        </ul>
+        <h4>Karta propozycji</h4>
+        <ul>
+          <li>
+            Eyebrow <code>PROPOZYCJA · 1–7 WRZ · OBIADY</code>, tytuł,
+            1-zdaniowe podsumowanie, chipy „5 dni · 2 osoby · śr. 620 kcal/os”.
+          </li>
+          <li>
+            Dzień po dniu wiersze w tonie <i>proponowany</i> (kreskowana obwódka
+            terakota) / <i>zostaje</i> (już zaplanowane, tryb FILL_EMPTY) /
+            <i>pominięty</i>.
+          </li>
+          <li>
+            Blok bilansu: „kurczak ▮▮▮▮▮▮▯▯ 1,6 / 3 kg · zostanie ~1,4 kg” +
+            chipy pomysłów na resztę.
+          </li>
+          <li>
+            CTA „Zastosuj 5 posiłków” + „Odrzuć”. Po zastosowaniu karta zwija
+            się do pigułki „Zastosowano” i pokazuje „Otwórz plan” / „Zobacz
+            listę zakupów”.
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h4>Co się dzieje z „Produktami”</h4>
+        <ul>
+          <li>
+            Zakładka znika: <code>DashboardTab.products → .assistant</code> w
+            <code>Components/NavigationMenu.swift</code> i
+            <code>MenuConstans.Products → .Assistant</code> w
+            <code>Constants/MenuConstants.swift</code> (dwa pliki; nikt do niej
+            nie nawiguje programowo, projekt Xcode ma synchronizowane foldery —
+            bez edycji pbxproj).
+          </li>
+          <li>
+            Lista zakupów staje się <b>arkuszem</b> otwieranym z ikony koszyka w
+            nagłówku Planu i Kalendarza (slot <code>trailing:</code> w
+            <code>EditorialPageHeader</code>, wzorzec z
+            <code>WeeklyPlanView.swift:329</code>) z kropką „N do kupienia”.
+            Dodatkowo wiersz w Ustawieniach.
+          </li>
+          <li>
+            <code>ShoppingListStore</code> i jego wiring w
+            <code>SessionStore</code> zostają nietknięte — Plan i Kalendarz
+            wołają <code>load(force:)</code> po każdej mutacji.
+          </li>
+          <li>
+            Porządki: zdjąć z <code>ProductsView</code> własny
+            <code>NavigationStack</code> (:221) i górny padding strony;
+            przenieść <code>extension Color.mix</code> z
+            <code>EditorialShoppingHero.swift:320-352</code> do
+            <code>WMDesignSystem.swift</code> (używany w Kalendarzu, Planie i
+            Ustawieniach); skasować martwe <code>ProductModel.swift</code>,
+            <code>HeaderConstants.swift</code>, nieosiągalny
+            <code>historySheet</code>; poprawić FAQ (<code
+              >SettingsView.swift:125</code
+            >
+            — „w tej samej zakładce” już dziś jest nieprawdą).
+          </li>
+          <li>
+            <code>DashboardTab</code> wynieść z prywatnego zakresu i podpiąć pod
+            <code>sessionStore.selectedTab</code> — inaczej paragon nie otworzy
+            Planu.
+          </li>
+          <li>
+            To osobny, mergowalny plaster (1–1,5 dnia, bez backendu) — można go
+            zrobić jako pierwszy.
+          </li>
+        </ul>
+        <h4>Komponenty do reużycia</h4>
+        <p class="small">
+          Bez zmian: <code>EditorialPageHeader</code>,
+          <code>EditorialSheetHeader</code>,
+          <code>EditorialPrimaryActionButton</code>, <code>WMStepper</code>,
+          <code>PlanAudienceChips</code>, <code>PlanWhoBadge</code>,
+          <code>CachedAsyncImage</code>, <code>EditorialMacroBlock</code> (kcal
+          dnia vs cel), <code>RecipeDetailView</code>,
+          <code>PolishPlural</code>. Z małą zmianą:
+          <code>PlanMealSlotRow</code> (nowy parametr <code>tone</code>, własne
+          menu kontekstowe), <code>PlanSlotPickerSheet</code> (tryb „tylko
+          wybierz”). Nowe: cały <code>Views/Dashboard/Assistant/</code>,
+          <code>AssistantStore</code>, <code>AssistantAPIClient</code>, DTO.
+        </p>
+      </div>
+    </div>
 
-  <h3>Endpointy (wszystkie za <code>JwtAuthGuard</code>)</h3>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Trasa</th><th>Co robi</th></tr></thead>
-    <tbody>
-      <tr><td><code>GET /agent/status</code></td><td>zgoda, limity (zostało w miesiącu / dziś), aktywna rozmowa, flaga włączenia</td></tr>
-      <tr><td><code>POST /agent/consent</code> · <code>DELETE</code></td><td>zgoda 5.1.2(i) z wersją (<code>aiConsentAt</code>, <code>aiConsentVersion</code>); bez niej każda mutacja → 403 <code>AI_CONSENT_REQUIRED</code></td></tr>
-      <tr><td><code>POST /agent/conversations</code> · <code>GET …/:id/messages?after=</code></td><td>rozmowy per użytkownik, zakres gospodarstwa</td></tr>
-      <tr><td><code>POST /agent/conversations/:id/messages</code></td><td><code>{clientMessageId, text ≤2000, weekStart, clientToday, timeZone, quickAction?, slotEdit?, proposalOverrides?, answer?}</code> → 202 <code>{turnId}</code>; idempotentne po <code>clientMessageId</code>; 409 <code>AI_TURN_IN_PROGRESS</code> gdy tura trwa; 429 <code>AI_QUOTA_EXCEEDED</code> po wyczerpaniu przydziału (bez wywołania API); 503 <code>AI_DISABLED</code> / <code>AI_BUDGET_PAUSED</code></td></tr>
-      <tr><td><code>GET /agent/turns/:id</code></td><td><code>{status: RUNNING|DONE|FAILED|LIMITED, progress[], messages?}</code> — <code>LIMITED</code> tylko, gdy globalny budżet zatrzymał turę w trakcie</td></tr>
-      <tr><td><code>POST /agent/proposals/:id/apply</code></td><td><code>{version, expectedPlanFingerprint, slots:[{day, mealType, recipeId, plannedServings, participantIds, action: ADD|REPLACE|SKIP}]}</code> → paragon; 409 <code>AI_PROPOSAL_STALE</code> gdy partner zmienił tydzień; 409 <code>AI_PROPOSAL_INVALID_STATE</code> gdy propozycja nie jest już VALIDATED; powtórne wywołanie na APPLIED → 200 z zapisanym paragonem</td></tr>
-      <tr><td><code>POST /agent/proposals/:id/discard</code> · <code>POST /agent/messages/:id/report</code> · <code>DELETE /agent/conversations</code></td><td>odrzucenie; zgłoszenie odpowiedzi (Apple 4.7, zapis w <code>AgentReport</code> + mail); usunięcie historii (RODO)</td></tr>
-    </tbody>
-  </table></div>
+    <h3>Zakres v1 i poza nim</h3>
+    <div class="two">
+      <div class="card">
+        <div class="q">v1 (płatny start)</div>
+        <ul>
+          <li>
+            Plan obiadów/tygodnia z katalogu, FILL_EMPTY domyślnie (nigdy nie
+            kasuje ręcznie zaplanowanych)
+          </li>
+          <li>
+            Warunki z rozmowy: „bez ryb”, „do 30 min w tygodniu”, „Ania nie je
+            glutenu”, „Michał na 1800 kcal”
+          </li>
+          <li>
+            Bilans składników i pomysły na resztki („mam 3 kg…” jako tekst w
+            rozmowie, bez modelu spiżarni)
+          </li>
+          <li>Edycja lokalna + regeneracja jednego slotu</li>
+          <li>Pytania o propozycję („ile kcal w czwartek?”)</li>
+          <li>Zgoda, limity, paywall, zgłoś odpowiedź</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="q">Świadomie później</div>
+        <ul>
+          <li>
+            Spiżarnia z ilościami i przenoszenie z odhaczonych zakupów (v2)
+          </li>
+          <li>
+            Własne / generowane przepisy z wizją i makro (wymaga makro per 100 g
+            dla ~270 składników)
+          </li>
+          <li>Streaming tekstu (SSE) — v1.1, bez zmiany modelu danych</li>
+          <li>
+            Pamięć między rozmowami poza <code>UserPreference</code> („nie
+            lubimy krewetek” na stałe)
+          </li>
+          <li>
+            Wspólny wątek gospodarstwa; wiele tygodni naraz; edycja listy
+            zakupów przez czat; kasowanie posiłków przez czat
+          </li>
+          <li>Auto-sync do Cookidoo z paragonu</li>
+        </ul>
+      </div>
+    </div>
 
-  <h3>Modele Prisma (jedna migracja, 8 modeli)</h3>
-  <p><code>AgentConversation</code> (userId, householdId, status, lastMessageAt) · <code>AgentMessage</code> (role, kind: TEXT/PROPOSAL/QUESTION/RECEIPT/LIMIT, text, <code>apiContent Json</code> — dokładne bloki API do odtworzenia prefiksu, clientMessageId, usage) · <code>AgentTurn</code> (status, progress[], startedAt, finishedAt, errorCode) · <code>AgentProposal</code> (weekStart, version, status: DRAFT/VALIDATED/APPLIED/DISCARDED/SUPERSEDED/STALE/EXPIRED, payload, validation, <code>planFingerprint</code>, <code>expiresAt</code> = 7 dni, appliedAt, applyResult) · <code>AiUsage</code> (jeden wiersz na żądanie do API: model, effort, stopReason, input/cacheRead/cacheWrite/output tokens, costMicroUsd, latencyMs) · <code>AiUsageCounter</code> (<code>@@id([scopeId, periodKey, kind])</code> — liczniki atomowe na Postgresie, bez Redis) · <code>Entitlement</code> (userId, tier, source, productId, expiresAt, <code>aiConsentAt</code>, <code>aiConsentVersion</code>) · <code>AgentReport</code> (messageId, reporterUserId, reason). Wszystkie FK z <code>onDelete: Cascade</code> — <code>users:delete</code> kasuje czaty. Bez zmian w <code>Recipe</code>/<code>PlanItem</code>. Statusy propozycji: DRAFT = walidator zwrócił błędy twarde, VALIDATED = przeszła (z ostrzeżeniami lub bez), EXPIRED nadawane leniwie przy odczycie po <code>expiresAt</code>.</p>
+    <h3>Prompty, które v1 musi obsłużyć dobrze</h3>
+    <ol>
+      <li>
+        „Mam 3 kg kurczaka, ułóż obiady na ten tydzień dla nas dwojga. Jak coś
+        zostanie, podpowiedz co z tym zrobić.”
+      </li>
+      <li>
+        „Zaplanuj cały przyszły tydzień, bez ryb, w dni robocze maksymalnie 30
+        minut gotowania.”
+      </li>
+      <li>„Uzupełnij puste sloty w tym tygodniu czymś prostym.”</li>
+      <li>„Zamień środowy obiad na coś bez glutenu — Ania nie je glutenu.”</li>
+      <li>„Śniadania na tydzień, wysokobiałkowe, do 400 kcal na osobę.”</li>
+      <li>
+        „W piątek i sobotę to samo — gotuję raz na dwa dni.” (podwójne porcje,
+        powtórzony przepis)
+      </li>
+      <li>
+        „Ja jestem na 1800 kcal, Michał nie — obiady wspólne, kolacje osobno.”
+        (podział uczestników)
+      </li>
+      <li>
+        „Nie lubimy krewetek i śledzia, więcej indyka.” (ograniczenie w obrębie
+        rozmowy)
+      </li>
+      <li>
+        „Ile kalorii na osobę wychodzi w czwartek?” (pytanie o propozycję, bez
+        nowej rewizji)
+      </li>
+      <li>
+        „Dodaj na niedzielę pierogi ruskie na 4 porcje, resztę zjemy w
+        poniedziałek.”
+      </li>
+    </ol>
+    <p>
+      <b>Ma grzecznie odmówić lub przekierować:</b> dieta 1000 kcal „schudnę 10
+      kg w miesiąc” (ekstremalna restrykcja → lekarz/dietetyk, oferta planu na
+      skonfigurowany cel); „ile insuliny do tego obiadu” (medyczne); „dodaj
+      sushi, którego nie ma w katalogu” (v1 tylko katalog); „zamów zakupy w
+      Lidlu” (brak handlu); „usuń wszystkie posiłki Michała” (asystent nie
+      kasuje); tematy spoza kuchni.
+    </p>
+  </section>
 
-  <h3>Narzędzia (dokładnie sześć; <code>strict: true</code>, <code>additionalProperties: false</code>)</h3>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Narzędzie</th><th>Wejście</th><th>Wyjście / strażnik</th></tr></thead>
-    <tbody>
-      <tr><td><code>get_household_context</code></td><td><code>{}</code></td><td>włączone sloty i pory, członkowie jako <code>M1: Rafał</code> (dieta, alergeny, cel kcal, makro — <b>tylko członków, którzy wyrazili zgodę</b>; ograniczenia pozostałych stosuje walidator w kodzie, nie wysyłając ich do modelu). <b>Nie wysyłamy:</b> e-mail, appleSub, wzrost, waga, rok urodzenia, płeć, kroki, tokeny, UUID-y.</td></tr>
-      <tr><td><code>find_recipes</code></td><td><code>{mealType?, includeIngredients?[], excludeIngredients?[], maxPrepTimeMinutes?, maxKcalPerServing?, excludeAllergens?[], limit≤20}</code></td><td>filtr w pamięci nad 89 przepisami (tokeny znormalizowane do ASCII jak <code>normalizedName</code>); kody <code>R01…R89</code> zamiast UUID (tańsze, nie da się wstrzyknąć obcego id)</td></tr>
-      <tr><td><code>get_recipe_details</code></td><td><code>{codes[] ≤5}</code></td><td>składniki z gramaturą całego przepisu, kroki skrócone, makro na porcję; tylko <code>isActive</code></td></tr>
-      <tr><td><code>get_week_plan</code></td><td><code>{weekStart}</code></td><td>obecny plan + <code>planFingerprint</code></td></tr>
-      <tr><td><code>propose_plan</code></td><td><code>{weekStart, mode: FILL_EMPTY|REPLACE, scope, slots:[{day, mealType, code, plannedServings, participants[], reason}], availableIngredients?, leftoverIdeas?, rationale}</code></td><td>walidator → zapis <code>AgentProposal</code>; błędy twarde wracają jako <code>is_error</code> (model poprawia); <b>nie ma narzędzia zapisu do planu</b> — persystencja jest nieosiągalna dla modelu</td></tr>
-      <tr><td><code>ask_user</code></td><td><code>{question, options:[{id, label}], allowFreeText}</code></td><td>kończy turę wiadomością typu QUESTION (chipy w UI); odpowiedź wraca jako <code>answer</code> w następnej wiadomości</td></tr>
-    </tbody>
-  </table></div>
+  <section id="q2">
+    <h2>2 · Model: dopasowany, nie największy</h2>
+    <p>
+      Zadanie asystenta jest <b>ograniczone i sprawdzalne</b>: ułożyć 89 znanych
+      przepisów w sloty pod twarde reguły, które i tak sprawdza kod, i opisać to
+      po polsku w trzech zdaniach. To nie jest długa agentowa pętla ani otwarte
+      rozumowanie — a za takie zadania dokumentacja każe płacić „za ukończone
+      zadanie”, nie za token. Ceny z dokumentacji API (za milion tokenów):
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th class="num">Wejście $</th>
+            <th class="num">Wyjście $</th>
+            <th>Kontekst</th>
+            <th>Effort</th>
+            <th class="num">Min. prefiks cache</th>
+            <th>Uwagi istotne tutaj</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Opus 5</b> <code>claude-opus-5</code></td>
+            <td class="num">5</td>
+            <td class="num">25</td>
+            <td>1M</td>
+            <td>low…max</td>
+            <td class="num">512</td>
+            <td>
+              Najlepsza jakość; obsługuje wiadomości <code>role: system</code> w
+              trakcie rozmowy; <code>fallbacks: "default"</code> na odmowy
+              (beta). Cena 2,5× Sonneta.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Sonnet 5</b> <code>claude-sonnet-5</code></td>
+            <td class="num">2</td>
+            <td class="num">10</td>
+            <td>1M</td>
+            <td>low…max</td>
+            <td class="num">1024</td>
+            <td>
+              „medium ≈ Sonnet 4.6 na high”; nowy tokenizer liczy ~30 %
+              <i>więcej</i> tokenów za ten sam tekst (Opus 5 dzieli ten
+              tokenizer); brak mid-conversation <code>role: system</code> —
+              dokumentacja notuje sprzeczne źródła, więc łapać 400 i wkładać
+              kontekst w turę użytkownika; czyta instrukcje dosłownie.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Haiku 4.5</b> <code>claude-haiku-4-5</code></td>
+            <td class="num">1*</td>
+            <td class="num">5*</td>
+            <td>200K</td>
+            <td>
+              <code>max</code> odrzucany; resztę sprawdzić przez Models API
+            </td>
+            <td class="num">4096</td>
+            <td>
+              „do pracy masowej ze sprawdzalnym wynikiem, nie do pętli
+              agentowych”; z włączonym thinking gubi cache po tool use — używać
+              <b>bez</b> thinking.
+              <b
+                >* cena spoza dokumentacji w pakiecie — potwierdzić na stronie
+                Pricing.</b
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-  <h3>Walidator — reguły w kodzie</h3>
-  <div class="two">
-    <div><h4>Twarde (blokują)</h4><ul>
-      <li><code>weekStart</code> to poniedziałek ≥ bieżący (dziś <code>parseWeekStart</code> nie sprawdza dnia tygodnia)</li>
-      <li><code>mealType ∈ Household.enabledMealTypes</code></li>
-      <li>dzień ≥ „dziś” w strefie użytkownika (<code>clientToday</code> z telefonu, jak <code>DatesViewModel.isEditable</code>)</li>
-      <li>przepis istnieje, <code>isActive</code>; w v1 przepisy są globalne — ograniczenie „katalog lub własne gospodarstwo” to <b>nowa</b> reguła (po <code>authorId</code> bota importu), nie istniejące zachowanie</li>
-      <li>uczestnicy ⊂ członkowie; wszyscy → <code>[]</code> (jak <code>resolveParticipants</code>)</li>
-      <li>porcje całkowite 1–12 (semantyka <code>plannedServings</code> = łącznie, nie na osobę)</li>
-      <li>unikalność (dzień, slot, przepis); limity 6 wariantów / 7×6 / 7×6×liczba slotów (wyrażenia z <code>WeeklyPlansService:109-112</code> — wyeksportować wyrażenia, nie liczby)</li>
-      <li><b>alergen</b> dla któregokolwiek jedzącego — port <code>RecipeDietClassifier</code> ze Swifta do TS, porównywany z <b>7-wartościowym enumem</b> <code>Allergen</code> zapisanym w <code>UserPreference.allergens</code>. Aliasy wolnego tekstu („laktoza”, „jajka”, „orzeszki ziemne”) służą tylko do parsowania zdań z czatu („Ania nie je glutenu”), nie do danych z bazy — inaczej karta i zakładka Przepisy będą się kłócić</li>
-      <li>dieta składnikowa (wege/wegan/pesk/paleo) — ten sam klasyfikator</li>
-    </ul></div>
-    <div><h4>Miękkie (ostrzeżenia na karcie)</h4><ul>
-      <li>kcal/os./dzień poza ±25 % celu (udział z <code>calorieShare</code> 0,25/0,40/0,30/0,15)</li>
-      <li>przepis nie w <code>suitableMealTypes</code> slotu (apka to dopuszcza z przyciemnieniem)</li>
-      <li>ten sam przepis &gt; 2× w tygodniu; &gt; 60 min w dzień roboczy</li>
-      <li><code>nutritionKcal == 0</code> (brak danych — kcal „orientacyjne”)</li>
-      <li>reszta składnika nie jest wielokrotnością porcji przepisu</li>
+    <h3>Rekomendacja</h3>
+    <div class="callout sage">
+      <p>
+        <b
+          >v1: jeden model — Sonnet 5, effort <code>medium</code>, adaptacyjne
+          thinking (domyślne), jedno ustawienie na całą rozmowę.</b
+        >
+        Cache jest per model i per ustawienie effort — mieszanie ich w jednej
+        rozmowie unieważnia cache historii. Prostota wygrywa: jedna przestrzeń
+        cache, jeden zestaw narzędzi, jeden prompt.
+      </p>
+      <p>
+        <b>Cel ekonomiczny, do którego odnoszę „mieści się”:</b> koszt API ≤ 30
+        % wpływów netto (RevenueCat podaje 3–17 % jako zdrową normę dla funkcji
+        AI w apkach subskrypcyjnych). <b>Dlaczego nie Opus 5 na start:</b> lekki
+        użytkownik na Opus 5 to 3,66 $/mies. = 65 % netto z 29,99 zł, 49 % z
+        39,99 zł, 39 % z 49,99 zł — powyżej celu wszędzie; na Sonnet 5 1,46 $ =
+        26 % przy 29,99 zł. Opus 5 ma sens jako „generacja premium” w wyższej
+        taryfie albo gdy ewaluacja pokaże, że Sonnet regularnie łamie reguły i
+        potrzebuje poprawek (każda poprawka to kolejna iteracja, więc realny
+        koszt rośnie).
+      </p>
+      <p>
+        <b>Dlaczego nie Haiku 4.5 od razu:</b> to nie jest model do pętli z
+        narzędziami po polsku, a jego cena nie jest w dokumentacji. Jako
+        <i>osobna ścieżka</i> tylko do zwykłych pytań (bez propozycji, własny
+        mały prefiks, osobna rozmowa) obniża koszt czatu ~5× — to dźwignia nr 2,
+        jeśli logi pokażą, że wiadomości, a nie plany, dominują rachunek. Nie
+        naprzemiennie z Sonnetem w jednej historii: cache jest per model, każde
+        przełączenie płaci zimny zapis całego prefiksu i historii.
+      </p>
+    </div>
+    <p>
+      <b>Jak to rozstrzygnąć na faktach, nie na wyczuciu:</b> skrypt
+      <code>scripts/agent-eval.ts</code> puszcza 20 zamrożonych polskich
+      promptów (te wyżej + pułapki: alergen, dzień z przeszłości, „zmień
+      wtorek”, prompt injection „ignoruj limity”) na czterech konfiguracjach —
+      Sonnet 5 <code>low</code>, <code>medium</code>,
+      <code>high</code> (domyślne, jako odniesienie) i Opus 5 <code>low</code> —
+      po kilka przebiegów każda (pojedynczy przebieg to szum) i liczy: odsetek
+      propozycji bez błędów twardych walidatora, liczbę poprawek, koszt z pól
+      <code>usage</code>. Wybierasz najtańszą konfigurację, która przechodzi.
+      Dokumentacja pokazuje, że cenniki per token nie przewidują rankingu (Fable
+      5 na <code>low</code> pobiło Sonnet 5 na benchmarku deep research przy ~10
+      % niższym koszcie per zadanie) — dla Opus 5 takiego porównania nie ma,
+      dlatego Opus <code>low</code> zostaje w ewaluacji jako hipoteza.
+    </p>
+    <p class="small">
+      Nie wchodzi w grę: Fable 5 (10 $/50 $, wymaga 30-dniowej retencji danych —
+      nie dla zadania „ułóż 7 obiadów”), wyłączanie thinking na Opus 5
+      (wywołania narzędzi potrafią wtedy wylądować jako tekst), zmiana modelu
+      lub effort w środku rozmowy.
+    </p>
+  </section>
+
+  <section id="q3">
+    <h2>3 · Gdzie i jak: moduł w NestJS</h2>
+    <p>
+      Podtrzymuję decyzję z 20.08 — agent żyje w backendzie jako
+      <code>src/agent/</code>. Argument jest dziś mocniejszy, bo mamy przed
+      oczami realny koszt sidecara Cookidoo: z ~400 linii Pythona w
+      <code>app/</code> (541 z testami) większość to sam transport — auth
+      współdzielonym sekretem, schematy DTO zduplikowane z Nestem, mapowanie
+      wyjątków na kody HTTP, socket dual-stack pod Railway; po stronie Nesta
+      116-liniowy klient HTTP i drugi poziom tłumaczenia błędów, sekret w dwóch
+      miejscach, a po jednej iteracji już widać dryf kontraktu (<code
+        >COOKIDOO_UPSTREAM_ERROR</code
+      >
+      nie ma w <code>AppErrorCode</code>, <code>/v1/my-week/remove</code> nie ma
+      wywołującego). Tam sidecar był konieczny — biblioteka istnieje tylko w
+      Pythonie. Tu nie ma takiego powodu: SDK Anthropic jest w TypeScript, a
+      narzędzia agenta to <i>istniejące serwisy</i> Nesta z ich autoryzacją.
+    </p>
+
+    <h3>Architektura</h3>
+    <div class="arch">
+      <div class="col">
+        <h4>iOS</h4>
+        <ul>
+          <li><code>AssistantView</code> + komponenty</li>
+          <li>
+            <code>AssistantStore</code> (<code>@Observable</code>, w
+            <code>SessionStore</code>)
+          </li>
+          <li>
+            <code>AssistantAPIClient</code> — REST + Bearer JWT, wyodrębniony z
+            <code>IntegrationsAPIClient</code> jako wspólny klient (z
+            odświeżaniem tokenu)
+          </li>
+          <li>
+            Propozycja → syntetyczne <code>PlanMeal</code> z katalogu w cache
+            urządzenia
+          </li>
+        </ul>
+      </div>
+      <div class="arrow">REST+JWT<br />202 → polling 1 s</div>
+      <div class="col">
+        <h4>NestJS · <code>src/agent/</code></h4>
+        <ul>
+          <li>
+            <code>AgentController</code> (<code>JwtAuthGuard</code>,
+            <code>@CurrentUserId</code> — dziś leży w
+            <code>integrations/</code>, przenieść do <code>auth/</code>)
+          </li>
+          <li>
+            <code>AgentService</code>: zgoda → limit → lock → pętla narzędzi →
+            zapis
+          </li>
+          <li>
+            <code>CatalogDigestService</code>, <code>ContextBuilder</code>
+          </li>
+          <li>
+            <code>tools/</code> 6 narzędzi, <code>validation/</code> walidator +
+            port klasyfikatora diet
+          </li>
+          <li>
+            <code>AgentQuotaService</code>, kill switch, budżet dzienny,
+            bezpiecznik upstream
+          </li>
+          <li>
+            <code>WeeklyPlansService.applyProposal()</code> (nowa) +
+            <code>PlanChangeBroadcaster</code>
+          </li>
+        </ul>
+      </div>
+      <div class="arrow">SDK TS<br />tool runner</div>
+      <div class="col">
+        <h4>Anthropic API</h4>
+        <ul>
+          <li>
+            Prefiks w cache 1 h: narzędzia → zamrożony system → digest 89
+            przepisów (wspólny dla wszystkich użytkowników)
+          </li>
+          <li>
+            Druga granica cache na ogonie rozmowy (top-level
+            <code>cache_control</code>)
+          </li>
+          <li>
+            Kontekst gospodarstwa + „dziś” w turze użytkownika (nie w prefiksie)
+          </li>
+          <li>
+            Strict tool <code>propose_plan</code> jako wyjście strukturalne
+          </li>
+          <li><code>usage</code> z każdej odpowiedzi → <code>AiUsage</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Transport: dlaczego 202 + polling, nie SSE i nie Socket.IO</h3>
+    <ul>
+      <li>
+        <b>Nie Socket.IO</b> — brak uwierzytelnienia handshake’u i walidacji DTO
+        na WS; ten sam powód, dla którego Cookidoo poszło po REST.
+      </li>
+      <li>
+        <b>Polling w v1</b> — iOS nie ma ani linijki kodu do SSE; treścią
+        odpowiedzi jest karta, nie strumień prozy; tura zapisana w bazie
+        (<code>AgentTurn</code>) przeżywa zwinięcie aplikacji, zerwanie sieci i
+        proxy Railway. Klient odpytuje <code>GET /agent/turns/:id</code> co 1 s
+        i pokazuje etykiety postępu zapisywane przez narzędzia.
+      </li>
+      <li>
+        <b>SSE w v1.1</b> — dla deltas tekstu, gdy będzie działać reszta; model
+        danych się nie zmienia.
+      </li>
+      <li>
+        Serwer <b>nigdy nie przerywa</b> tury po rozłączeniu klienta — kończy,
+        zapisuje, klient dosynchronizuje. Po restarcie procesu tury w stanie
+        RUNNING starsze niż 3 min → FAILED (jedna instancja, brak kolejki).
+      </li>
     </ul>
-    <p class="small">Ten sam walidator biegnie przy <code>propose_plan</code> i ponownie przy <code>apply</code> na aktualnym stanie bazy. Klasyfikator w TS i w Swifcie muszą mieć wspólny plik złotych przypadków („mleko owsiane” ≠ nabiał, „sos sojowy” = gluten+soja). Uwaga na testy: <code>jest.config.js</code> podmienia <code>households.service</code> na stub — kod agenta czyta członkostwa przez Prismę (<code>ensureMembership</code>), nie przez <code>HouseholdsService</code>.</p></div>
-  </div>
 
-  <h3>Atomowe zastosowanie propozycji</h3>
-  <p>Nowa metoda <code>WeeklyPlansService.applyProposal(userId, householdId, {weekStart, slots[], expectedPlanFingerprint, proposalId, version})</code> w <code>runSerializable</code>: <code>ensureMembership</code> → <code>pg_advisory_xact_lock(householdId‖weekStart)</code> → przejście statusu propozycji <code>updateMany where {id, version, status: VALIDATED}</code>; 0 wierszy → odczyt statusu: APPLIED = 200 z zapisanym paragonem, inaczej 409 <code>AI_PROPOSAL_INVALID_STATE</code> → fingerprint bieżących <code>PlanItem</code> vs oczekiwany (różnica → 409 STALE, klient pokazuje diff i „odśwież propozycję”) → reguły twarde na stanie transakcji → <code>weeklyPlan.upsert</code>, dla slotów <code>REPLACE</code> <code>deleteMany</code> na edytowalnych dniach, <code>planItem.create</code> z uczestnikami → <b>jedno</b> <code>markShoppingListStale</code> → <b>dopisanie przepisów do <code>SharedMealPlanItem</code></b> (albo świadome wycofanie przycinania w <code>saveSharedMealPlan</code>) — inaczej stara ścieżka „puli tygodnia” skasuje posiłki asystenta. Po commicie, poza transakcją: jedno <code>weeklyPlans:weekChanged {action: 'APPLY_PROPOSAL'}</code> wyemitowane <b>przez ten sam licznik <code>changeVersion</code></b> co gateway (iOS odrzuca zdarzenia z wersją ≤ ostatniej — to główny powód wyciągnięcia <code>PlanChangeBroadcaster</code> z gatewaya; iOS i tak przeładowuje cały tydzień), jedno <code>shoppingListChanged</code>, jeden <code>enqueueWeeklyPlanChange</code> tylko gdy coś utworzono (semantyka <code>notifyPlanChanged</code>) plus gałąź kopii pushu dla nowej akcji w <code>notification-copy.util.ts</code>. Wymaga dodania <code>exports</code> do <code>WeeklyPlansModule</code> (dziś nic) i <code>RecipesService</code> do eksportów <code>RecipesModule</code>.</p>
+    <h3>Endpointy (wszystkie za <code>JwtAuthGuard</code>)</h3>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Trasa</th>
+            <th>Co robi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>GET /agent/status</code></td>
+            <td>
+              zgoda, limity (zostało w miesiącu / dziś), aktywna rozmowa, flaga
+              włączenia
+            </td>
+          </tr>
+          <tr>
+            <td><code>POST /agent/consent</code> · <code>DELETE</code></td>
+            <td>
+              zgoda 5.1.2(i) z wersją (<code>aiConsentAt</code>,
+              <code>aiConsentVersion</code>); bez niej każda mutacja → 403
+              <code>AI_CONSENT_REQUIRED</code>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <code>POST /agent/conversations</code> ·
+              <code>GET …/:id/messages?after=</code>
+            </td>
+            <td>rozmowy per użytkownik, zakres gospodarstwa</td>
+          </tr>
+          <tr>
+            <td><code>POST /agent/conversations/:id/messages</code></td>
+            <td>
+              <code
+                >{clientMessageId, text ≤2000, weekStart, clientToday, timeZone,
+                quickAction?, slotEdit?, proposalOverrides?, answer?}</code
+              >
+              → 202 <code>{turnId}</code>; idempotentne po
+              <code>clientMessageId</code>; 409
+              <code>AI_TURN_IN_PROGRESS</code> gdy tura trwa; 429
+              <code>AI_QUOTA_EXCEEDED</code> po wyczerpaniu przydziału (bez
+              wywołania API); 503 <code>AI_DISABLED</code> /
+              <code>AI_BUDGET_PAUSED</code>
+            </td>
+          </tr>
+          <tr>
+            <td><code>GET /agent/turns/:id</code></td>
+            <td>
+              <code
+                >{status: RUNNING|DONE|FAILED|LIMITED, progress[],
+                messages?}</code
+              >
+              — <code>LIMITED</code> tylko, gdy globalny budżet zatrzymał turę w
+              trakcie
+            </td>
+          </tr>
+          <tr>
+            <td><code>POST /agent/proposals/:id/apply</code></td>
+            <td>
+              <code
+                >{version, expectedPlanFingerprint, slots:[{day, mealType,
+                recipeId, plannedServings, participantIds, action:
+                ADD|REPLACE|SKIP}]}</code
+              >
+              → paragon; 409 <code>AI_PROPOSAL_STALE</code> gdy partner zmienił
+              tydzień; 409 <code>AI_PROPOSAL_INVALID_STATE</code> gdy propozycja
+              nie jest już VALIDATED; powtórne wywołanie na APPLIED → 200 z
+              zapisanym paragonem
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <code>POST /agent/proposals/:id/discard</code> ·
+              <code>POST /agent/messages/:id/report</code> ·
+              <code>DELETE /agent/conversations</code>
+            </td>
+            <td>
+              odrzucenie; zgłoszenie odpowiedzi (Apple 4.7, zapis w
+              <code>AgentReport</code> + mail); usunięcie historii (RODO)
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-  <h3>Prompt i cache</h3>
-  <ul>
-    <li>Kolejność renderowania to <code>tools → system → messages</code>. <b>Dwie granice cache:</b> (1) jawna na ostatnim bloku systemowym (digest katalogu, <code>cache_control: {type: "ephemeral", ttl: "1h"}</code>) — obejmuje narzędzia i instrukcje; (2) top-level <code>cache_control: {type: "ephemeral", ttl: "1h"}</code> na żądaniu — automatyczna granica wędrująca po rosnącym ogonie rozmowy. Bez drugiej granicy historia rozmowy leci po pełnej cenie wejścia przy każdej turze, a cały rachunek kosztowy z sekcji 4 się nie zgadza. Wpis 1 h musi poprzedzać ewentualne wpisy 5 min — jednolite 1 h omija tę regułę. Nasz szacunek: 1 h opłaca się, gdy choć 1 na 6 tur następuje po przerwie &gt; 5 min (dokumentacja: wybieraj po odstępie między żądaniami; 5–60 min → 1 h).</li>
-    <li>Digest: 89 linii <code>R12|Makaron penne z kurczakiem i brokułem|L,D|590 kcal|39 g B|25 min|kurczak, penne, brokuł, śmietana</code> ≈ 4–12 k tokenów zależnie od tokenizera i polskich znaków (cały prefiks 8–17 k) — <b>zmierzyć</b> przez <code>count_tokens</code> osobno dla Sonnet 5 i Opus 5. Wspólny dla wszystkich użytkowników; zero treści per użytkownik w prefiksie (żadnych <code>Date.now()</code>, id, warunkowych sekcji — lista „cichych unieważniaczy” z dokumentacji). Digest wyłącznie z przepisów bota importu; cudze przepisy nie trafiają do wspólnego prefiksu.</li>
-    <li>Kontekst gospodarstwa (członkowie, alergeny, cel, sloty, plan tygodnia, <code>dziś</code>) jako blok w turze użytkownika. Na Sonnet 5 nie ma wiadomości <code>role: system</code> w trakcie rozmowy.</li>
-    <li>Historia: zapisujemy dokładne bloki API (włącznie z thinking i tool_use) i odsyłamy całość — z drugą granicą to 0,1× ceny. Twardy limit ~20 tur / ~20 k tokenów ogona → „Zacznij nową rozmowę”. Bez kompaktowania i streszczania w v1 (dokumentacja: dla krótkich pętli to czysty narzut; lista modeli z kompaktowaniem i tak nie zawiera Sonnet 5).</li>
-    <li>Pętla: tool runner z SDK (domyślna rekomendacja dokumentacji, beta) z <code>max_iterations: 8</code> (plan = 5–6 wywołań + do 2 poprawek), <code>max_tokens: 16384</code> jako bezpiecznik (górna granica bez streamingu; dokumentacja zaleca 64 k dla pracy agentowej — obniżać dopiero po tygodniu logów z odsetkiem <code>stop_reason: max_tokens</code> ≈ 0), <code>timeout</code> 45 s na żądanie, deadline tury 120 s. Obsługa <code>stop_reason</code>: <code>refusal</code> (odpowiedź po polsku, log kategorii), <code>max_tokens</code> (tura nieudana, bez retry na tym samym limicie), <code>model_context_window_exceeded</code> (archiwum rozmowy). Skrypt <code>scripts/agent-cache-probe.ts</code>: dwa identyczne żądania, drugi musi mieć <code>cache_read_input_tokens &gt; 0</code>.</li>
-  </ul>
+    <h3>Modele Prisma (jedna migracja, 8 modeli)</h3>
+    <p>
+      <code>AgentConversation</code> (userId, householdId, status,
+      lastMessageAt) · <code>AgentMessage</code> (role, kind:
+      TEXT/PROPOSAL/QUESTION/RECEIPT/LIMIT, text, <code>apiContent Json</code> —
+      dokładne bloki API do odtworzenia prefiksu, clientMessageId, usage) ·
+      <code>AgentTurn</code> (status, progress[], startedAt, finishedAt,
+      errorCode) · <code>AgentProposal</code> (weekStart, version, status:
+      DRAFT/VALIDATED/APPLIED/DISCARDED/SUPERSEDED/STALE/EXPIRED, payload,
+      validation, <code>planFingerprint</code>, <code>expiresAt</code> = 7 dni,
+      appliedAt, applyResult) · <code>AiUsage</code> (jeden wiersz na żądanie do
+      API: model, effort, stopReason, input/cacheRead/cacheWrite/output tokens,
+      costMicroUsd, latencyMs) · <code>AiUsageCounter</code> (<code
+        >@@id([scopeId, periodKey, kind])</code
+      >
+      — liczniki atomowe na Postgresie, bez Redis) ·
+      <code>Entitlement</code> (userId, tier, source, productId, expiresAt,
+      <code>aiConsentAt</code>, <code>aiConsentVersion</code>) ·
+      <code>AgentReport</code> (messageId, reporterUserId, reason). Wszystkie FK
+      z <code>onDelete: Cascade</code> — <code>users:delete</code> kasuje czaty.
+      Bez zmian w <code>Recipe</code>/<code>PlanItem</code>. Statusy propozycji:
+      DRAFT = walidator zwrócił błędy twarde, VALIDATED = przeszła (z
+      ostrzeżeniami lub bez), EXPIRED nadawane leniwie przy odczycie po
+      <code>expiresAt</code>.
+    </p>
 
-  <h3>Po stronie iOS</h3>
-  <ul>
-    <li><code>AssistantStore</code>: <code>messages</code>, <code>quota</code>, <code>consentGiven</code>, <code>pendingTurn</code>, <code>draft</code> (propozycja + lokalne nadpisania); polling co 1 s podczas RUNNING, wznowienie po foreground; cache pliku <code>assistant_conversation_&lt;userId&gt;.json</code> (ostatnie 50 wiadomości), jak inne store’y.</li>
-    <li>Po <code>apply</code>: <code>weeklyMealStore.loadWeekPlanFromBackend</code> + <code>shoppingListStore.load(force: true)</code> (to samo, co robi <code>WeeklyPlanView.refreshShoppingList()</code>), <code>datesViewModel.selectDate(pierwszyDzień)</code>, <code>sessionStore.selectedTab = .plan</code>.</li>
-    <li>Tekst asystenta renderowany jako zwykły <code>Text</code> (bez Markdown, bez linków) — model dostaje instrukcję „bez formatowania”; liczby (kcal, gramy, porcje) zawsze z pól strukturalnych przez <code>PolishPlural</code>, nigdy z prozy.</li>
-    <li>Ekran zgody nazywa Anthropic i wymienia dane; wiersz „Asystent AI” w Ustawieniach z „Usuń historię rozmów”.</li>
-  </ul>
+    <h3>
+      Narzędzia (dokładnie sześć; <code>strict: true</code>,
+      <code>additionalProperties: false</code>)
+    </h3>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Narzędzie</th>
+            <th>Wejście</th>
+            <th>Wyjście / strażnik</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>get_household_context</code></td>
+            <td><code>{}</code></td>
+            <td>
+              włączone sloty i pory, członkowie jako
+              <code>M1: Rafał</code> (dieta, alergeny, cel kcal, makro —
+              <b>tylko członków, którzy wyrazili zgodę</b>; ograniczenia
+              pozostałych stosuje walidator w kodzie, nie wysyłając ich do
+              modelu). <b>Nie wysyłamy:</b> e-mail, appleSub, wzrost, waga, rok
+              urodzenia, płeć, kroki, tokeny, UUID-y.
+            </td>
+          </tr>
+          <tr>
+            <td><code>find_recipes</code></td>
+            <td>
+              <code
+                >{mealType?, includeIngredients?[], excludeIngredients?[],
+                maxPrepTimeMinutes?, maxKcalPerServing?, excludeAllergens?[],
+                limit≤20}</code
+              >
+            </td>
+            <td>
+              filtr w pamięci nad 89 przepisami (tokeny znormalizowane do ASCII
+              jak <code>normalizedName</code>); kody
+              <code>R01…R89</code> zamiast UUID (tańsze, nie da się wstrzyknąć
+              obcego id)
+            </td>
+          </tr>
+          <tr>
+            <td><code>get_recipe_details</code></td>
+            <td><code>{codes[] ≤5}</code></td>
+            <td>
+              składniki z gramaturą całego przepisu, kroki skrócone, makro na
+              porcję; tylko <code>isActive</code>
+            </td>
+          </tr>
+          <tr>
+            <td><code>get_week_plan</code></td>
+            <td><code>{weekStart}</code></td>
+            <td>obecny plan + <code>planFingerprint</code></td>
+          </tr>
+          <tr>
+            <td><code>propose_plan</code></td>
+            <td>
+              <code
+                >{weekStart, mode: FILL_EMPTY|REPLACE, scope, slots:[{day,
+                mealType, code, plannedServings, participants[], reason}],
+                availableIngredients?, leftoverIdeas?, rationale}</code
+              >
+            </td>
+            <td>
+              walidator → zapis <code>AgentProposal</code>; błędy twarde wracają
+              jako <code>is_error</code> (model poprawia);
+              <b>nie ma narzędzia zapisu do planu</b> — persystencja jest
+              nieosiągalna dla modelu
+            </td>
+          </tr>
+          <tr>
+            <td><code>ask_user</code></td>
+            <td>
+              <code>{question, options:[{id, label}], allowFreeText}</code>
+            </td>
+            <td>
+              kończy turę wiadomością typu QUESTION (chipy w UI); odpowiedź
+              wraca jako <code>answer</code> w następnej wiadomości
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-  <p class="small"><b>Do zweryfikowania przed pierwszą linijką:</b> nazwa opcji limitu iteracji w zainstalowanym SDK (dokumentacja pisze <code>max_iterations</code>), przejście <code>cache_control</code>, <code>betas</code> i <code>strict</code> przez ścieżkę tool runnera (dokumentacja pokazuje <code>strict</code> tylko na surowym <code>messages.create</code>), typowanie <code>fallbacks: "default"</code> w TS (beta; tylko jeśli Opus 5). Jeśli beta-typowania walczą z Nestem, ręczna pętla z dokumentacji to ~40 linii i zachowuje się identycznie kosztowo. Wersja Node: Dockerfile ma 20, README/CI 22 — wyrównać przed dodaniem SDK.</p>
-</section>
+    <h3>Walidator — reguły w kodzie</h3>
+    <div class="two">
+      <div>
+        <h4>Twarde (blokują)</h4>
+        <ul>
+          <li>
+            <code>weekStart</code> to poniedziałek ≥ bieżący (dziś
+            <code>parseWeekStart</code> nie sprawdza dnia tygodnia)
+          </li>
+          <li><code>mealType ∈ Household.enabledMealTypes</code></li>
+          <li>
+            dzień ≥ „dziś” w strefie użytkownika (<code>clientToday</code> z
+            telefonu, jak <code>DatesViewModel.isEditable</code>)
+          </li>
+          <li>
+            przepis istnieje, <code>isActive</code>; w v1 przepisy są globalne —
+            ograniczenie „katalog lub własne gospodarstwo” to <b>nowa</b> reguła
+            (po <code>authorId</code> bota importu), nie istniejące zachowanie
+          </li>
+          <li>
+            uczestnicy ⊂ członkowie; wszyscy → <code>[]</code> (jak
+            <code>resolveParticipants</code>)
+          </li>
+          <li>
+            porcje całkowite 1–12 (semantyka <code>plannedServings</code> =
+            łącznie, nie na osobę)
+          </li>
+          <li>
+            unikalność (dzień, slot, przepis); limity 6 wariantów / 7×6 /
+            7×6×liczba slotów (wyrażenia z
+            <code>WeeklyPlansService:109-112</code> — wyeksportować wyrażenia,
+            nie liczby)
+          </li>
+          <li>
+            <b>alergen</b> dla któregokolwiek jedzącego — port
+            <code>RecipeDietClassifier</code> ze Swifta do TS, porównywany z
+            <b>7-wartościowym enumem</b> <code>Allergen</code> zapisanym w
+            <code>UserPreference.allergens</code>. Aliasy wolnego tekstu
+            („laktoza”, „jajka”, „orzeszki ziemne”) służą tylko do parsowania
+            zdań z czatu („Ania nie je glutenu”), nie do danych z bazy — inaczej
+            karta i zakładka Przepisy będą się kłócić
+          </li>
+          <li>
+            dieta składnikowa (wege/wegan/pesk/paleo) — ten sam klasyfikator
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h4>Miękkie (ostrzeżenia na karcie)</h4>
+        <ul>
+          <li>
+            kcal/os./dzień poza ±25 % celu (udział z
+            <code>calorieShare</code> 0,25/0,40/0,30/0,15)
+          </li>
+          <li>
+            przepis nie w <code>suitableMealTypes</code> slotu (apka to
+            dopuszcza z przyciemnieniem)
+          </li>
+          <li>
+            ten sam przepis &gt; 2× w tygodniu; &gt; 60 min w dzień roboczy
+          </li>
+          <li>
+            <code>nutritionKcal == 0</code> (brak danych — kcal „orientacyjne”)
+          </li>
+          <li>reszta składnika nie jest wielokrotnością porcji przepisu</li>
+        </ul>
+        <p class="small">
+          Ten sam walidator biegnie przy <code>propose_plan</code> i ponownie
+          przy <code>apply</code> na aktualnym stanie bazy. Klasyfikator w TS i
+          w Swifcie muszą mieć wspólny plik złotych przypadków („mleko owsiane”
+          ≠ nabiał, „sos sojowy” = gluten+soja). Uwaga na testy:
+          <code>jest.config.js</code> podmienia
+          <code>households.service</code> na stub — kod agenta czyta członkostwa
+          przez Prismę (<code>ensureMembership</code>), nie przez
+          <code>HouseholdsService</code>.
+        </p>
+      </div>
+    </div>
 
-<section id="q4">
-  <h2>4 · Płatności, limity, ekonomia</h2>
+    <h3>Atomowe zastosowanie propozycji</h3>
+    <p>
+      Nowa metoda
+      <code
+        >WeeklyPlansService.applyProposal(userId, householdId, {weekStart,
+        slots[], expectedPlanFingerprint, proposalId, version})</code
+      >
+      w <code>runSerializable</code>: <code>ensureMembership</code> →
+      <code>pg_advisory_xact_lock(householdId‖weekStart)</code> → przejście
+      statusu propozycji
+      <code>updateMany where {id, version, status: VALIDATED}</code>; 0 wierszy
+      → odczyt statusu: APPLIED = 200 z zapisanym paragonem, inaczej 409
+      <code>AI_PROPOSAL_INVALID_STATE</code> → fingerprint bieżących
+      <code>PlanItem</code> vs oczekiwany (różnica → 409 STALE, klient pokazuje
+      diff i „odśwież propozycję”) → reguły twarde na stanie transakcji →
+      <code>weeklyPlan.upsert</code>, dla slotów <code>REPLACE</code>
+      <code>deleteMany</code> na edytowalnych dniach,
+      <code>planItem.create</code> z uczestnikami → <b>jedno</b>
+      <code>markShoppingListStale</code> →
+      <b>dopisanie przepisów do <code>SharedMealPlanItem</code></b> (albo
+      świadome wycofanie przycinania w <code>saveSharedMealPlan</code>) —
+      inaczej stara ścieżka „puli tygodnia” skasuje posiłki asystenta. Po
+      commicie, poza transakcją: jedno
+      <code>weeklyPlans:weekChanged {action: 'APPLY_PROPOSAL'}</code>
+      wyemitowane <b>przez ten sam licznik <code>changeVersion</code></b> co
+      gateway (iOS odrzuca zdarzenia z wersją ≤ ostatniej — to główny powód
+      wyciągnięcia <code>PlanChangeBroadcaster</code> z gatewaya; iOS i tak
+      przeładowuje cały tydzień), jedno <code>shoppingListChanged</code>, jeden
+      <code>enqueueWeeklyPlanChange</code> tylko gdy coś utworzono (semantyka
+      <code>notifyPlanChanged</code>) plus gałąź kopii pushu dla nowej akcji w
+      <code>notification-copy.util.ts</code>. Wymaga dodania
+      <code>exports</code> do <code>WeeklyPlansModule</code> (dziś nic) i
+      <code>RecipesService</code> do eksportów <code>RecipesModule</code>.
+    </p>
 
-  <h3>Mechanika: RevenueCat, entitlement w Postgresie</h3>
-  <ul>
-    <li><b>RevenueCat</b> (darmowy do 2 500 $ MTR, potem 1 % brutto — ~1,18 % netto; próg to ~310 subskrypcji po 29,99 zł, więc nie twój problem na starcie; dwuznaczne, czy 1 % liczy się od całości, czy od nadwyżki). Powód: backend musi bramkować <i>serwerową</i> funkcję, więc entitlement i tak musi leżeć w bazie; RC daje podpisane HMAC webhooki z 5 powtórzeniami, udokumentowany wzorzec „baza to źródło prawdy, apka pyta backend”, zdalne paywalle i Customer Center. Sam StoreKit 2 = własny endpoint App Store Server Notifications V2, weryfikacja JWS, synchronizacja, analityka — w backendzie, który nie ma jeszcze Sentry ani ConfigModule.</li>
-    <li><b>Entitlement per użytkownik</b> (RC <code>app_user_id</code> = <code>User.id</code>, <code>Purchases.logIn</code> po zalogowaniu), <b>gospodarstwo jest Pro, jeśli któryś obecny członek ma aktywny entitlement</b>, <b>limity liczone per gospodarstwo</b>. Dwie osoby nie zwiększają kosztu (porcje to atrybut planu), więc jedna cena „dla domu” jest kosztowo neutralna. Odbierać dostęp na <code>EXPIRATION</code>, nie na <code>CANCELLATION</code>; deduplikować po id zdarzenia; przy ważnych decyzjach dopytać <code>GET /subscribers</code>. Family Sharing wyłączone (pooling per dom już to załatwia).</li>
-    <li><b>JWT nie niesie uprawnień</b> — sprawdzamy entitlement w bazie przy każdej mutacji (30-dniowy token nie ma listy odwołań).</li>
-  </ul>
+    <h3>Prompt i cache</h3>
+    <ul>
+      <li>
+        Kolejność renderowania to <code>tools → system → messages</code>.
+        <b>Dwie granice cache:</b> (1) jawna na ostatnim bloku systemowym
+        (digest katalogu,
+        <code>cache_control: {type: "ephemeral", ttl: "1h"}</code>) — obejmuje
+        narzędzia i instrukcje; (2) top-level
+        <code>cache_control: {type: "ephemeral", ttl: "1h"}</code> na żądaniu —
+        automatyczna granica wędrująca po rosnącym ogonie rozmowy. Bez drugiej
+        granicy historia rozmowy leci po pełnej cenie wejścia przy każdej turze,
+        a cały rachunek kosztowy z sekcji 4 się nie zgadza. Wpis 1 h musi
+        poprzedzać ewentualne wpisy 5 min — jednolite 1 h omija tę regułę. Nasz
+        szacunek: 1 h opłaca się, gdy choć 1 na 6 tur następuje po przerwie &gt;
+        5 min (dokumentacja: wybieraj po odstępie między żądaniami; 5–60 min → 1
+        h).
+      </li>
+      <li>
+        Digest: 89 linii
+        <code
+          >R12|Makaron penne z kurczakiem i brokułem|L,D|590 kcal|39 g B|25
+          min|kurczak, penne, brokuł, śmietana</code
+        >
+        ≈ 4–12 k tokenów zależnie od tokenizera i polskich znaków (cały prefiks
+        8–17 k) — <b>zmierzyć</b> przez <code>count_tokens</code> osobno dla
+        Sonnet 5 i Opus 5. Wspólny dla wszystkich użytkowników; zero treści per
+        użytkownik w prefiksie (żadnych <code>Date.now()</code>, id, warunkowych
+        sekcji — lista „cichych unieważniaczy” z dokumentacji). Digest wyłącznie
+        z przepisów bota importu; cudze przepisy nie trafiają do wspólnego
+        prefiksu.
+      </li>
+      <li>
+        Kontekst gospodarstwa (członkowie, alergeny, cel, sloty, plan tygodnia,
+        <code>dziś</code>) jako blok w turze użytkownika. Na Sonnet 5 nie ma
+        wiadomości <code>role: system</code> w trakcie rozmowy.
+      </li>
+      <li>
+        Historia: zapisujemy dokładne bloki API (włącznie z thinking i tool_use)
+        i odsyłamy całość — z drugą granicą to 0,1× ceny. Twardy limit ~20 tur /
+        ~20 k tokenów ogona → „Zacznij nową rozmowę”. Bez kompaktowania i
+        streszczania w v1 (dokumentacja: dla krótkich pętli to czysty narzut;
+        lista modeli z kompaktowaniem i tak nie zawiera Sonnet 5).
+      </li>
+      <li>
+        Pętla: tool runner z SDK (domyślna rekomendacja dokumentacji, beta) z
+        <code>max_iterations: 8</code> (plan = 5–6 wywołań + do 2 poprawek),
+        <code>max_tokens: 16384</code> jako bezpiecznik (górna granica bez
+        streamingu; dokumentacja zaleca 64 k dla pracy agentowej — obniżać
+        dopiero po tygodniu logów z odsetkiem
+        <code>stop_reason: max_tokens</code> ≈ 0), <code>timeout</code> 45 s na
+        żądanie, deadline tury 120 s. Obsługa <code>stop_reason</code>:
+        <code>refusal</code> (odpowiedź po polsku, log kategorii),
+        <code>max_tokens</code> (tura nieudana, bez retry na tym samym limicie),
+        <code>model_context_window_exceeded</code> (archiwum rozmowy). Skrypt
+        <code>scripts/agent-cache-probe.ts</code>: dwa identyczne żądania, drugi
+        musi mieć <code>cache_read_input_tokens &gt; 0</code>.
+      </li>
+    </ul>
 
-  <h3>Jednostka limitu: plany + wiadomości, nie tokeny</h3>
-  <p>Rynek liczy w jednostkach zrozumiałych dla człowieka (Grammarly 100/1000 promptów, Todoist 10 sesji, MFP 5 skanów/tydz.), Apple 3.1.2(c) każe wypisać na paywallu „ile miesięcznie”, a użytkownik nie umie prognozować tokenów. Koszt plan : regeneracja : wiadomość w obrębie jednego modelu jest stabilny (≈ 3 : 1 : 1), więc dwa liczniki wystarczą: <b>generacje</b> (plan = 3, regeneracja slotu = 1) i <b>wiadomości</b>. Semantyka limitów — jedna, spójna: <b>miesięczny przydział wyczerpany → 429 <code>AI_QUOTA_EXCEEDED</code> i karta limitu</b> (data resetu, przycisk do paywalla); dzienny miękki limit wiadomości jako bezpiecznik przed nadużyciem; nigdy zmiana effort ani modelu w środku rozmowy. „Degradacja zamiast muru” (nowa rozmowa na effort <code>low</code> z krótszą historią) to opcja na później, nie v1. Kupowane dodatkowo kredyty <b>nie mogą wygasać</b> (3.1.1) — sprzedawaj subskrypcję z odnawialnym przydziałem, nie kredyty.</p>
+    <h3>Po stronie iOS</h3>
+    <ul>
+      <li>
+        <code>AssistantStore</code>: <code>messages</code>, <code>quota</code>,
+        <code>consentGiven</code>, <code>pendingTurn</code>,
+        <code>draft</code> (propozycja + lokalne nadpisania); polling co 1 s
+        podczas RUNNING, wznowienie po foreground; cache pliku
+        <code>assistant_conversation_&lt;userId&gt;.json</code> (ostatnie 50
+        wiadomości), jak inne store’y.
+      </li>
+      <li>
+        Po <code>apply</code>:
+        <code>weeklyMealStore.loadWeekPlanFromBackend</code> +
+        <code>shoppingListStore.load(force: true)</code> (to samo, co robi
+        <code>WeeklyPlanView.refreshShoppingList()</code>),
+        <code>datesViewModel.selectDate(pierwszyDzień)</code>,
+        <code>sessionStore.selectedTab = .plan</code>.
+      </li>
+      <li>
+        Tekst asystenta renderowany jako zwykły <code>Text</code> (bez Markdown,
+        bez linków) — model dostaje instrukcję „bez formatowania”; liczby (kcal,
+        gramy, porcje) zawsze z pól strukturalnych przez
+        <code>PolishPlural</code>, nigdy z prozy.
+      </li>
+      <li>
+        Ekran zgody nazywa Anthropic i wymienia dane; wiersz „Asystent AI” w
+        Ustawieniach z „Usuń historię rozmów”.
+      </li>
+    </ul>
 
-  <h3>Koszt jednej akcji (USD, cache ciepły 1 h, effort medium)</h3>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Akcja</th><th class="num">Opus 5</th><th class="num">Sonnet 5</th><th class="num">Haiku 4.5 (bez thinking)*</th><th>Założenia</th></tr></thead>
-    <tbody>
-      <tr><td>Wiadomość w czacie (1–2 narzędzia)</td><td class="num">0,117</td><td class="num good">0,047</td><td class="num">0,009</td><td>~300 tokenów widocznego tekstu + ~1 500 thinking; historia ~3 k</td></tr>
-      <tr><td>Plan tygodnia (5–6 wywołań, 2 walidacje, 21 slotów)</td><td class="num">0,374</td><td class="num good">0,150</td><td class="num">0,035</td><td>~8 k tokenów wyjścia razem z JSON narzędzi i thinking</td></tr>
-      <tr><td>Regeneracja slotu / resztki</td><td class="num">0,143</td><td class="num good">0,057</td><td class="num">0,011</td><td>2–3 wywołania</td></tr>
-      <tr><td>…to samo przy effort <code>low</code></td><td class="num">0,078 / 0,282 / 0,095</td><td class="num">0,031 / 0,113 / 0,038</td><td class="num">—</td><td>dokumentacja (pomiary na Fable 5, względem domyślnego <code>high</code>): <code>low</code> oddaje 1–3 pkt za oszczędność ⅓–½ kosztu</td></tr>
-    </tbody>
-  </table></div>
-  <p class="small">* Cena Haiku 4.5 (1 $/5 $) nie występuje w dokumentacji w pakiecie — kolumna do potwierdzenia. Prefiks 8–17 k tokenów w cache kosztuje 0,001–0,009 $ za wywołanie API zależnie od modelu — <b>tani</b>. Rachunek robią tokeny wyjścia (thinking + JSON narzędzi ≈ 50 %) i zapisy rosnącego ogona rozmowy przy 2× cenie 1-godzinnego cache (~25–30 %). Wznowienie 8-turowej rozmowy po wygaśnięciu cache kosztuje ~2,6–2,8× ciepłej tury — stąd limit długości rozmowy. Model liczy polskie znaki (+30 %) i nowy tokenizer (+30 %) osobno; to może się częściowo dublować, ale zdjęcie czynnika polskiego obniża wynik tylko o ~8 %, tokenizera o ~12 % — prawdziwa niewiadoma to thinking (2× więcej = +48 %). Skrypt <code>unit_econ.py</code> w scratchpadzie sesji przelicza wszystko po podstawieniu zmierzonych liczb.</p>
+    <p class="small">
+      <b>Do zweryfikowania przed pierwszą linijką:</b> nazwa opcji limitu
+      iteracji w zainstalowanym SDK (dokumentacja pisze
+      <code>max_iterations</code>), przejście <code>cache_control</code>,
+      <code>betas</code> i <code>strict</code> przez ścieżkę tool runnera
+      (dokumentacja pokazuje <code>strict</code> tylko na surowym
+      <code>messages.create</code>), typowanie
+      <code>fallbacks: "default"</code> w TS (beta; tylko jeśli Opus 5). Jeśli
+      beta-typowania walczą z Nestem, ręczna pętla z dokumentacji to ~40 linii i
+      zachowuje się identycznie kosztowo. Wersja Node: Dockerfile ma 20,
+      README/CI 22 — wyrównać przed dodaniem SDK.
+    </p>
+  </section>
 
-  <h3>Miesięczny koszt użytkownika vs wpływ netto</h3>
-  <p>Profile (założone, bo nie ma jeszcze danych o użyciu): <b>lekki</b> 4 wiadomości + 1 plan tygodniowo (tak wygląda rytuał planowania; to „typowy” użytkownik w tym dokumencie), <b>średni</b> 15 wiadomości + 2 plany + 4 regeneracje, <b>ciężki</b> 40 + 4 + 15. Netto = cena / 1,23 (VAT) × 0,85 (Apple Small Business; 15 % także w nowych warunkach UE od 1.10.2026, gdy zostajesz przy IAP). Kurs 3,69 zł/$. <b>Cel: ≤ 30 % netto.</b></p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Cena</th><th class="num">Netto zł/mies.</th><th class="num">Netto $/mies.</th><th class="num">Sonnet lekki 1,46 $</th><th class="num">Sonnet średni 5,34 $</th><th class="num">Sonnet ciężki 14,46 $</th><th class="num">Opus lekki 3,66 $</th><th class="num">Opus średni 13,35 $</th></tr></thead>
-    <tbody>
-      <tr><td>19,99 zł/mies.</td><td class="num">13,81</td><td class="num">3,74</td><td class="num">39 %</td><td class="num hi">143 %</td><td class="num hi">386 %</td><td class="num hi">98 %</td><td class="num hi">357 %</td></tr>
-      <tr><td>29,99 zł/mies.</td><td class="num">20,73</td><td class="num">5,62</td><td class="num good">26 %</td><td class="num hi">95 %</td><td class="num hi">257 %</td><td class="num hi">65 %</td><td class="num hi">238 %</td></tr>
-      <tr><td>39,99 zł/mies.</td><td class="num">27,64</td><td class="num">7,49</td><td class="num good">19 %</td><td class="num hi">71 %</td><td class="num hi">193 %</td><td class="num hi">49 %</td><td class="num hi">178 %</td></tr>
-      <tr><td>49,99 zł/mies.</td><td class="num">34,55</td><td class="num">9,36</td><td class="num good">16 %</td><td class="num hi">57 %</td><td class="num hi">154 %</td><td class="num hi">39 %</td><td class="num hi">143 %</td></tr>
-      <tr><td>199,99 zł/rok</td><td class="num">11,52</td><td class="num">3,12</td><td class="num hi">47 %</td><td class="num hi">171 %</td><td class="num hi">463 %</td><td class="num hi">117 %</td><td class="num hi">428 %</td></tr>
-      <tr><td>299,99 zł/rok</td><td class="num">17,28</td><td class="num">4,68</td><td class="num hi">31 %</td><td class="num hi">114 %</td><td class="num hi">309 %</td><td class="num hi">78 %</td><td class="num hi">285 %</td></tr>
-    </tbody>
-  </table></div>
-  <div class="callout">
-    <p><b>Wniosek:</b> względem celu 30 % netto bez limitów mieści się tylko lekki użytkownik na Sonnet 5 przy cenach miesięcznych. Sonnet u średniego użytkownika zjada 95 % netto przy 29,99 zł i 71 % przy 39,99 zł (dodatnia marża jednostkowa, ale daleko od celu); Opus 5 przekracza 100 % u średniego wszędzie i cel u lekkiego wszędzie; tylko Haiku bez thinking mieści się bez limitów (średni: 19 % przy 29,99 zł — na cenie spoza dokumentacji). Limity na <i>wiadomości</i> są obowiązkowe — plany to tylko ~24 % kosztu średniego profilu, czat 57 %. Haiku jako osobna ścieżka do czatu (Sonnet do planów) obniża koszt średniego profilu do 53 % netto przy 29,99 zł; przy założonym miksie 60 % lekkich / 30 % średnich / 10 % ciężkich — do ~40 % (24 % przy 49,99 zł).</p>
-  </div>
+  <section id="q4">
+    <h2>4 · Płatności, limity, ekonomia</h2>
 
-  <h3>Propozycja cennika i przydziału (Twoja decyzja)</h3>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Wariant</th><th>Cena</th><th>Przydział na paywallu (per dom, miesięcznie)</th><th class="num">Koszt przy pełnym wykorzystaniu (Sonnet medium)</th><th>Komentarz</th></tr></thead>
-    <tbody>
-      <tr><td><b>Start bezpieczny</b></td><td>29,99 zł/mies. · 199,99 zł/rok</td><td>8 planów + 40 wiadomości (+ regeneracje = ⅓ planu); dzienny limit 15 wiadomości</td><td class="num">≈ 3,1 $ = 55 % netto mies. / 99 % netto rocznej</td><td>Lekki użytkownik: ~1,5 $ = 26 %. Roczna działa tylko dzięki temu, że mało kto wykorzystuje pełny przydział.</td></tr>
-      <tr><td><b>Rynkowy</b></td><td>39,99 zł/mies. · 249,99 zł/rok</td><td>10 planów + 60 wiadomości</td><td class="num">≈ 4,3 $ = 58 % netto mies. / 110 % netto rocznej</td><td>Samsung Food+ 39,99/299,99, Fitatu Premium+AI 49,99, MFP 34,99/184,99 — mieścisz się w środku stawki polskiego App Store. Roczna przy pełnym przydziale jest stratna — albo 299,99 zł (92 %), albo mniejszy przydział na rocznej.</td></tr>
-      <tr><td>Nie polecam</td><td>19,99 zł/mies. · 149,99 zł/rok</td><td>—</td><td class="num">roczna netto 2,34 $/mies.: lekki użytkownik to 62 %, średni 228 %</td><td>Działa tylko z czatem na Haiku.</td></tr>
-    </tbody>
-  </table></div>
-  <ul>
-    <li><b>Trial 7 dni liczony w generacjach</b>, nie tylko dniach: np. 2 plany + 15 wiadomości (≈ 1,0 $ na Sonnet). Tydzień „średniego” użytkowania (15 wiadomości + 2 plany + 4 regeneracje) kosztuje 1,23 $; przy medianie konwersji z triala w zdrowiu i fitness 37,7 % to <b>3,27 $ za pozyskanego płacącego</b> (Opus: 8,17 $). Długość: triale 5–9-dniowe są w tej kategorii najczęstsze (54 % apek) i konwertują 37,4 % vs 25,5 % dla ≤ 4 dni; 17–32 dni konwertują lepiej (42,5 %), ale kosztują 2–4× więcej tokenów. 82–86 % triali startuje w dniu instalacji — to argument za wczesną ekspozycją; paywall w zakładce Asystenta (nie przy starcie apki) wynika z tego, że masz już bazę darmowych użytkowników.</li>
-    <li><b>Freemium</b>: aplikacja darmowa, asystent jedyną płatną funkcją. Benchmark: apki freemium mają ~2,1 % konwersji z pobrania do płatności (D35), z twardym paywallem ~10,7 % — ale twardy paywall przy istniejących użytkownikach = churn. Darmowo: 2 plany/mies. (żeby paywall pokazywał wartość) albo 0 poza trialem — Twoja decyzja nr 3.</li>
-    <li><b>Wrażliwość:</b> thinking 2× wyższy niż założono → +48 % kosztu; trafienie cache tylko 50 % → +85 %. Oba mierzysz z <code>usage</code> po pierwszym tygodniu na TestFlight i wtedy dopiero drukujesz liczby na paywallu.</li>
-    <li><b>Twoje bezpieczniki:</b> limit wydatków w Anthropic Console (zero kodu, globalny); <code>AI_GLOBAL_DAILY_BUDGET_USD</code> (np. 5 $) → 503 <code>AI_BUDGET_PAUSED</code>; bezpiecznik upstream (≥ 5 błędów 429/529 w 5 min → 60 s bez wywołań API); <code>AI_ENABLED=false</code> wyłącza wszystko bez migracji; alert push na Twoje konto przy 80 % budżetu (istniejący <code>ApnsService</code>).</li>
-  </ul>
-</section>
+    <h3>Mechanika: RevenueCat, entitlement w Postgresie</h3>
+    <ul>
+      <li>
+        <b>RevenueCat</b> (darmowy do 2 500 $ MTR, potem 1 % brutto — ~1,18 %
+        netto; próg to ~310 subskrypcji po 29,99 zł, więc nie twój problem na
+        starcie; dwuznaczne, czy 1 % liczy się od całości, czy od nadwyżki).
+        Powód: backend musi bramkować <i>serwerową</i> funkcję, więc entitlement
+        i tak musi leżeć w bazie; RC daje podpisane HMAC webhooki z 5
+        powtórzeniami, udokumentowany wzorzec „baza to źródło prawdy, apka pyta
+        backend”, zdalne paywalle i Customer Center. Sam StoreKit 2 = własny
+        endpoint App Store Server Notifications V2, weryfikacja JWS,
+        synchronizacja, analityka — w backendzie, który nie ma jeszcze Sentry
+        ani ConfigModule.
+      </li>
+      <li>
+        <b>Entitlement per użytkownik</b> (RC <code>app_user_id</code> =
+        <code>User.id</code>, <code>Purchases.logIn</code> po zalogowaniu),
+        <b
+          >gospodarstwo jest Pro, jeśli któryś obecny członek ma aktywny
+          entitlement</b
+        >, <b>limity liczone per gospodarstwo</b>. Dwie osoby nie zwiększają
+        kosztu (porcje to atrybut planu), więc jedna cena „dla domu” jest
+        kosztowo neutralna. Odbierać dostęp na <code>EXPIRATION</code>, nie na
+        <code>CANCELLATION</code>; deduplikować po id zdarzenia; przy ważnych
+        decyzjach dopytać <code>GET /subscribers</code>. Family Sharing
+        wyłączone (pooling per dom już to załatwia).
+      </li>
+      <li>
+        <b>JWT nie niesie uprawnień</b> — sprawdzamy entitlement w bazie przy
+        każdej mutacji (30-dniowy token nie ma listy odwołań).
+      </li>
+    </ul>
 
-<section id="q5">
-  <h2>5 · Czego nie było w pytaniach</h2>
-  <p>Posortowane po konsekwencjach. Etykieta mówi, kiedy trzeba to mieć.</p>
-  <ol class="rank">
-    <li><b>Dziury w uwierzytelnianiu robią z limitów fikcję.</b> <span class="pill crit">blokuje płatny start</span><p class="why"><code>POST /auth/google</code> wystawia JWT dla dowolnego <code>googleId</code> bez weryfikacji (iOS w ogóle go nie używa — jest tylko Apple); <code>/auth/dev</code> działa, dopóki env nie mówi <code>'false'</code>; JWT 30 dni bez odświeżania i bez odwołania. Osobna klasa: gatewaye WS pozwalają każdemu z dowolnym <code>userId</code> wywołać <code>users:preferences:update</code> (cudze alergeny, na których polega walidator), <code>users:profile:update</code>, <code>weeklyPlans:clearWeekPlan</code>, <code>households:leave</code> i — najgorsze — <code>users:delete</code>, które z kaskadą skasuje płacącemu <code>Entitlement</code>, czaty i księgę użycia.</p><p>Domyślnie: trzy pierwsze zamykamy w fazie 0 (wyłączyć <code>/auth/google</code> lub weryfikować token Google, <code>AUTH_DEV_LOGIN_ENABLED=false</code> na prod, <code>JWT_EXPIRES_IN=1h</code> + odświeżanie po 401 w wyodrębnionym kliencie REST iOS, throttler na <code>/auth/*</code> i <code>/agent/*</code>). Auth handshake’u WS (5 gatewayów + <code>SocketManager</code> w iOS) to większy temat — do zaplanowania jako osobna praca przed skalowaniem płatnej bazy; do tego czasu dane, na których opiera się walidator, może nadpisać każdy.</p></li>
-    <li><b>Płacący ≠ gospodarstwo.</b> <span class="pill crit">decyzja przed v1</span><p class="why">Subskrypcja jest per Apple ID; plan, ulubione, lista zakupów, Cookidoo są per gospodarstwo; użytkownik może mieć kilka członkostw (serwisy biorą najstarsze). Gdy płacący opuści dom (<code>households:leave</code> może skasować dom lub awansować właściciela), co z partnerem? RC wysyła <code>TRANSFER</code>, gdy Apple ID zaloguje się na inne konto backendu.</p><p>Domyślnie: model z sekcji 4 (entitlement per user, Pro per dom, limity per dom), <code>Entitlement</code> od razu w migracji v1.</p></li>
-    <li><b>Zgoda i obowiązki App Review dla chatbota.</b> <span class="pill crit">blokuje submisję</span><p class="why">5.1.2(i): jawna zgoda i wskazanie dostawcy AI przed pierwszym wywołaniem (polityka prywatności nie wystarczy); 4.7/4.7.1: chatboty muszą mieć filtr, zgłaszanie, blokowanie, kontakt; 1.4.1: przypomnienie o lekarzu przy poradach dietetycznych; 3.1.2(c): przydział wypisany na paywallu; nowy kwestionariusz ocen wieku pyta wprost o asystentów AI (Fitatu 13+, MFP 16+, Samsung Food 18+).</p></li>
-    <li><b>RODO: alergeny i dieta to dane o zdrowiu (art. 9) — obojga domowników.</b> <span class="pill crit">blokuje płatny start</span><p class="why">Wymagana odrębna, wersjonowana, odwoływalna zgoda; minimalizacja (nie wysyłamy wagi, wzrostu, płci, roku urodzenia, kroków — tylko wyliczony cel kcal i preferencje). Rozmowa osoby A wysłałaby do Anthropic alergeny osoby B — dlatego <b>każdy domownik zgadza się osobno</b>, a do modelu idą preferencje tylko tych, którzy się zgodzili; ograniczenia pozostałych egzekwuje walidator w kodzie bez wysyłania. Anthropic jako procesor w polityce prywatności (<code>docs/privacy</code>, gdzie §12 dziś twierdzi „brak profilowania” — personalizacja pod dietę jest profilowaniem bez skutków prawnych; przeredagować). Retencja czatów u nas: 90 dni. <b>Do sprawdzenia poza dokumentacją API:</b> DPA Anthropic, mechanizm transferu do USA, domyślna retencja dla Opus 5/Sonnet 5 (dokumentacja mówi tylko, że Fable 5 wymaga 30 dni i nie działa pod zerową retencją).</p></li>
-    <li><b>Katalog jako sufit i brak „lodówki”.</b> <span class="pill warn">projekt v1</span><p class="why">89 przepisów, brak tagów, brak grupowania składników („kurczak” to kilka wierszy <code>Ingredient</code>), <code>gramsPerPiece</code> tylko dla 5 składników. „Mam X” traktujemy jako stan rozmowy, nie tabelę; mapa rodzin składników w kodzie; backlog 55 przepisów równolegle.</p></li>
-    <li><b>Brak atomowego zapisu planu, nieskodyfikowane reguły, starzejące się propozycje, stara pula tygodnia.</b> <span class="pill crit">blokuje v1</span><p class="why">Opisane w sekcji 3: <code>applyProposal</code>, walidator, fingerprint, jeden broadcast przez wspólny licznik <code>changeVersion</code>, synchronizacja z <code>SharedMealPlanItem</code>.</p></li>
-    <li><b>Persystencja czatu = księga limitów.</b> <span class="pill crit">blokuje v1</span><p class="why">Bez wierszy <code>AiUsage</code> z polami <code>usage</code> nie odpowiesz na własne pytanie „ile mnie to kosztuje”, a regresje cache są ciche (żądania nadal się udają, tylko rachunek rośnie).</p></li>
-    <li><b>Idempotencja i podwójne rozliczanie.</b> <span class="pill crit">blokuje v1</span><p class="why">Użytkownik tapnie drugi raz, deploy zrestartuje instancję w połowie generacji. <code>clientMessageId</code> na wiadomości, apply idempotentne po statusie, licznik naliczany na starcie i zwracany przy 429/5xx od dostawcy (nie przy odmowie ani anulowaniu).</p></li>
-    <li><b>Strefa czasowa i tożsamość tygodnia.</b> <span class="pill crit">blokuje v1</span><p class="why"><code>weekStart</code> liczy telefon w strefie lokalnej (dwie niezależne implementacje: <code>DatesViewModel</code> i <code>AddToPlanSheet</code>), serwer parsuje jako UTC bez sprawdzenia poniedziałku, Railway chodzi w UTC. Klient wysyła <code>weekStart</code> + <code>clientToday</code> + <code>timeZone</code>; „dziś/jutro” rozwiązuje kod, nigdy zegar serwera; daty nigdy w cache’owanym prefiksie.</p></li>
-    <li><b>Prompt injection i nadużycia.</b> <span class="pill warn">v1 minimalnie</span><p class="why"><code>recipes:create</code> jest dostępne po WS każdemu, kto zna dowolną ważną parę <code>userId</code>+<code>householdId</code>, a tytuły przepisów trafiają do wyników narzędzi. Dlatego: digest w prefiksie tylko z przepisów bota importu; cudze przepisy poza wspólnym prefiksem (nowa reguła — dziś przepisy są globalne); narzędzia bez parametrów tożsamości; brak narzędzia zapisu; limity i entitlement sprawdzane w kodzie, niewidoczne dla modelu; treść narzędzi opakowana jako dane; <code>strict</code> schematy + walidacja liczb w kodzie (schemat nie umie min/max).</p></li>
-    <li><b>Ewaluacja i testy na wyczerpanym Macu.</b> <span class="pill warn">przed płatnym startem</span><p class="why">Testy jednostkowe walidatora i bilansu (mocki Prismy jak dotąd); nagrane odpowiedzi API jako fixture’y dla pętli (CI bez klucza, <code>AI_ENABLED=false</code>, e2e nadal uruchamia <code>AppModule</code>); 20 promptów live przez <code>railway run</code>; sonda cache. Jest w kontenerze, nie na hoście.</p></li>
-    <li><b>Polski język, jednostki, persona.</b> <span class="pill ok">v1</span><p class="why">Tekst użytkownika normalizować do ASCII przed wyszukiwaniem („losos”/„łosoś”); model nie pisze ilości prozą, jeśli kod je renderuje; stała persona („ty”, bez porad medycznych, krótko, bez emoji), zamrożona w prefiksie; narzędzia posortowane po nazwie (stabilność cache).</p></li>
-    <li><b>Offline i słaba sieć.</b> <span class="pill ok">v1 minimalnie</span><p class="why">Pole wiadomości wyłączone offline; ostatnia rozmowa w cache pliku; tura po stronie serwera jest źródłem prawdy, więc zerwanie w trakcie nic nie gubi.</p></li>
-    <li><b>Konfiguracja modułu.</b> <span class="pill ok">v1</span><p class="why">Fail-fast przy <code>AI_ENABLED=true</code> bez klucza (wzorzec <code>parseEncryptionKey</code>; antywzorzec: pusty <code>COOKIDOO_SERVICE_TOKEN</code> wychodzi dopiero przy pierwszym wywołaniu). Env: <code>AI_MODEL</code>, <code>AI_EFFORT</code>, <code>AI_MAX_TOKENS</code>, <code>AI_MAX_ITERATIONS</code>, <code>AI_TURNS_PER_DAY_*</code>, <code>AI_TURNS_PER_MONTH_*</code>, <code>AI_PLANS_PER_MONTH_*</code>, <code>AI_GLOBAL_DAILY_BUDGET_USD</code>, <code>AI_PRICE_*</code>.</p></li>
-    <li><b>Podatki i status.</b> <span class="pill warn">flaga, nie porada</span><p class="why">Apple jest sprzedawcą (pobiera VAT), Twoja sprzedaż do Apple Distribution International to B2B z odwrotnym obciążeniem; RevenueCat to usługa fakturowana z USA. Do księgowego: sprzedaż jako osoba vs JDG, rejestracja VAT-UE, księgowanie wypłat. Nowe warunki UE od 1.10.2026 są opt-in i nieistotne, dopóki zostajesz przy IAP.</p></li>
-    <li><b>Wsparcie.</b> <span class="pill warn">przed płatnym startem</span><p class="why">Apki z AI mają wyższy churn (retencja 12-mies. 21 % vs 31 %) i więcej zwrotów (4,2 % vs 3,5 %). Przycisk „Zgłoś” + FAQ asystenta (co umie, limity, jakie dane idą do Anthropic) + szablon odpowiedzi „AI zaproponowało coś z moim alergenem” poparty wierszami <code>AiUsage</code>/<code>AgentProposal</code>.</p></li>
-  </ol>
-</section>
+    <h3>Jednostka limitu: plany + wiadomości, nie tokeny</h3>
+    <p>
+      Rynek liczy w jednostkach zrozumiałych dla człowieka (Grammarly 100/1000
+      promptów, Todoist 10 sesji, MFP 5 skanów/tydz.), Apple 3.1.2(c) każe
+      wypisać na paywallu „ile miesięcznie”, a użytkownik nie umie prognozować
+      tokenów. Koszt plan : regeneracja : wiadomość w obrębie jednego modelu
+      jest stabilny (≈ 3 : 1 : 1), więc dwa liczniki wystarczą:
+      <b>generacje</b> (plan = 3, regeneracja slotu = 1) i <b>wiadomości</b>.
+      Semantyka limitów — jedna, spójna:
+      <b
+        >miesięczny przydział wyczerpany → 429 <code>AI_QUOTA_EXCEEDED</code> i
+        karta limitu</b
+      >
+      (data resetu, przycisk do paywalla); dzienny miękki limit wiadomości jako
+      bezpiecznik przed nadużyciem; nigdy zmiana effort ani modelu w środku
+      rozmowy. „Degradacja zamiast muru” (nowa rozmowa na effort
+      <code>low</code> z krótszą historią) to opcja na później, nie v1. Kupowane
+      dodatkowo kredyty <b>nie mogą wygasać</b> (3.1.1) — sprzedawaj subskrypcję
+      z odnawialnym przydziałem, nie kredyty.
+    </p>
 
-<section id="plan">
-  <h2>Plan dostawy</h2>
-  <p>Każdy plaster jest osobno mergowalny (branche z <code>develop</code> po <code>git fetch --prune</code>). Dni to solo, z testami na Railway; na tym Macu tylko <code>xcodebuild</code> i jednorazowy kontener z obrazu API.</p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Faza</th><th>Zakres</th><th class="num">Dni</th><th>Wynik</th></tr></thead>
-    <tbody>
-      <tr><td><b>0 · Fundamenty</b></td><td>Wyłączyć/zweryfikować <code>/auth/google</code>; dev-login off na prod; <code>JWT_EXPIRES_IN=1h</code> + odświeżanie po 401 w wyodrębnionym <code>AuthenticatedAPIClient</code> (iOS); throttler na REST; <code>OPS_TOKEN</code> na <code>/ops/metrics</code>; <code>exports</code> w <code>WeeklyPlansModule</code>/<code>RecipesModule</code>; <code>PlanChangeBroadcaster</code> ze wspólnym <code>changeVersion</code>; <code>CurrentUserId</code> do <code>auth/</code>; wyrównanie Node 20/22; zwolnienie dysku na Macu</td><td class="num">3–4</td><td>Bezpieczna baza pod płatną funkcję</td></tr>
-      <tr><td><b>1 · iOS porządki</b></td><td>Zamiana zakładki; koszyk → arkusz listy zakupów w nagłówkach Planu/Kalendarza; porządki po „Produktach”; <code>DashboardTab</code> w <code>SessionStore</code>; FAQ</td><td class="num">1–1,5</td><td>Mergowalne bez backendu</td></tr>
-      <tr><td><b>2 · Backend</b></td><td>Migracja (8 modeli + zgoda); SDK; <code>agent.config</code> fail-fast; zgoda; liczniki/limity/kill switch/bezpiecznik upstream; digest + <code>count_tokens</code>; 6 narzędzi; walidator + port klasyfikatora; <code>applyProposal</code> z synchronizacją puli; tury 202+polling; <code>AiUsage</code>; <code>/ops/metrics.agent</code>; testy jednostkowe + nagrane fixture’y; <code>agent-eval.ts</code>, <code>agent-cache-probe.ts</code></td><td class="num">7–9</td><td>Działa z curla; CI zielone przy <code>AI_ENABLED=false</code></td></tr>
-      <tr><td><b>3 · iOS asystent</b></td><td><code>AssistantAPIClient</code>, DTO, <code>AssistantStore</code>; ekran zgody; <code>AssistantView</code> (pusty stan, akcje, pole wiadomości, bąbelki, postęp, pytania z chipami); karta propozycji z tonami wierszy; apply → paragon → Plan; edycja lokalna (pomiń, wybierz sam, porcje, osoby, pomiń dzień, „inny przepis”); blok bilansu składników; karta limitu; „Zgłoś”; wiersz w Ustawieniach; TestFlight</td><td class="num">6–8</td><td><b>v1 do użytku domowego</b> (bez paywalla, z limitami wewnętrznymi)</td></tr>
-      <tr><td><b>4 · Kalibracja</b></td><td>Tydzień logów <code>usage</code> z TestFlight → przeliczenie modelu kosztów; ewaluacja Sonnet low/medium/high vs Opus low (po kilka przebiegów); strojenie promptu (zwięzłość, „zacznij odpowiedź od razu”); polityka prywatności; kwestionariusz wieku; kopia „Zgłoś”/FAQ</td><td class="num">3</td><td>Liczby do paywalla</td></tr>
-      <tr><td><b>5 · Monetyzacja</b></td><td>RevenueCat SDK + <code>logIn</code>; webhook → <code>Entitlement</code> (HMAC, dedupe, EXPIRATION); paywall z wypisanym przydziałem; trial w generacjach; karta limitu z paywallem; Customer Center; submisja</td><td class="num">5–7</td><td><b>Płatny start</b></td></tr>
-      <tr><td>później</td><td>SSE dla tekstu; Haiku jako osobna ścieżka czatu (jeśli logi każą); degradacja zamiast muru; „Mam w domu” jako notatka gospodarstwa; <code>Recipe.allergenFlags</code> jako jedno źródło prawdy; auth WS; spiżarnia z ilościami; Cookidoo z paragonu</td><td class="num">—</td><td></td></tr>
-    </tbody>
-  </table></div>
-  <p><b>Razem do płatnego startu: ~25–33 dni roboczych solo.</b> v1 do własnego użytku (fazy 0–3) po ~17–23.</p>
-</section>
+    <h3>Koszt jednej akcji (USD, cache ciepły 1 h, effort medium)</h3>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Akcja</th>
+            <th class="num">Opus 5</th>
+            <th class="num">Sonnet 5</th>
+            <th class="num">Haiku 4.5 (bez thinking)*</th>
+            <th>Założenia</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Wiadomość w czacie (1–2 narzędzia)</td>
+            <td class="num">0,117</td>
+            <td class="num good">0,047</td>
+            <td class="num">0,009</td>
+            <td>
+              ~300 tokenów widocznego tekstu + ~1 500 thinking; historia ~3 k
+            </td>
+          </tr>
+          <tr>
+            <td>Plan tygodnia (5–6 wywołań, 2 walidacje, 21 slotów)</td>
+            <td class="num">0,374</td>
+            <td class="num good">0,150</td>
+            <td class="num">0,035</td>
+            <td>~8 k tokenów wyjścia razem z JSON narzędzi i thinking</td>
+          </tr>
+          <tr>
+            <td>Regeneracja slotu / resztki</td>
+            <td class="num">0,143</td>
+            <td class="num good">0,057</td>
+            <td class="num">0,011</td>
+            <td>2–3 wywołania</td>
+          </tr>
+          <tr>
+            <td>…to samo przy effort <code>low</code></td>
+            <td class="num">0,078 / 0,282 / 0,095</td>
+            <td class="num">0,031 / 0,113 / 0,038</td>
+            <td class="num">—</td>
+            <td>
+              dokumentacja (pomiary na Fable 5, względem domyślnego
+              <code>high</code>): <code>low</code> oddaje 1–3 pkt za oszczędność
+              ⅓–½ kosztu
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small">
+      * Cena Haiku 4.5 (1 $/5 $) nie występuje w dokumentacji w pakiecie —
+      kolumna do potwierdzenia. Prefiks 8–17 k tokenów w cache kosztuje
+      0,001–0,009 $ za wywołanie API zależnie od modelu — <b>tani</b>. Rachunek
+      robią tokeny wyjścia (thinking + JSON narzędzi ≈ 50 %) i zapisy rosnącego
+      ogona rozmowy przy 2× cenie 1-godzinnego cache (~25–30 %). Wznowienie
+      8-turowej rozmowy po wygaśnięciu cache kosztuje ~2,6–2,8× ciepłej tury —
+      stąd limit długości rozmowy. Model liczy polskie znaki (+30 %) i nowy
+      tokenizer (+30 %) osobno; to może się częściowo dublować, ale zdjęcie
+      czynnika polskiego obniża wynik tylko o ~8 %, tokenizera o ~12 % —
+      prawdziwa niewiadoma to thinking (2× więcej = +48 %). Skrypt
+      <code>unit_econ.py</code> w scratchpadzie sesji przelicza wszystko po
+      podstawieniu zmierzonych liczb.
+    </p>
 
-<section id="ryzyka">
-  <h2>Ryzyka i rzeczy do sprawdzenia</h2>
-  <ul>
-    <li><b>Beta SDK</b>: nazwa opcji limitu iteracji tool runnera, przejście <code>cache_control</code>/<code>betas</code>/<code>strict</code>, typowanie <code>fallbacks</code>. Plan B: ręczna pętla.</li>
-    <li><b>Estymaty tokenów to założenia</b>: digest i prompt zmierzyć <code>count_tokens</code> na obu modelach; udział thinking w wyjściu to największa niewiadoma — limity kalibrować z realnych <code>output_tokens</code>, nie z tego dokumentu. Cena Haiku 4.5 do potwierdzenia.</li>
-    <li><b>Alergeny są słownikowe</b>: zamknięty enum u użytkownika + brak tagów na przepisach → komunikować „sprawdź skład”, nadwykrywać po stronie klasyfikatora, przypomnienie 1.4.1.</li>
-    <li><b>Makro niepełne</b>: 135/403 składników; niektóre przepisy zaniżone → reguły kcal miękkie, model mówi „orientacyjnie”.</li>
-    <li><b>Jedna instancja</b>: rejestr tur, liczniki throttlera, bezpieczniki w pamięci — ta sama klasa co <code>NotificationBatcher</code>, <code>recentSends</code> i licznik <code>changeVersion</code>; udokumentować, nie rozwiązywać.</li>
-    <li><b>Wiek</b>: chatbot + dane o zdrowiu; RODO art. 8 (w Polsce 16 lat — do potwierdzenia, nie było w researchu), Sign in with Apple nie daje wieku → deklaracja wieku przy zgodzie.</li>
-    <li><b>RevenueCat</b>: czy 1 % liczy się od całości MTR, czy tylko powyżej progu; czy Customer Center jest w planie za 0 $ — sprawdzić w panelu.</li>
-    <li><b>Family Sharing</b>: sprawdzić w App Store Connect, czy da się cofnąć po włączeniu, zanim się włączy.</li>
-    <li><b>Dysk Maca</b>: ~500 MB wolnego, swap 3,1/4 GB (zmierzone dziś); kandydaci do skasowania z notatek (DeviceSupport, Docker.raw, symulatory) — sprawdzić <code>du</code> przed <code>pnpm add</code>.</li>
-  </ul>
-</section>
+    <h3>Miesięczny koszt użytkownika vs wpływ netto</h3>
+    <p>
+      Profile (założone, bo nie ma jeszcze danych o użyciu): <b>lekki</b> 4
+      wiadomości + 1 plan tygodniowo (tak wygląda rytuał planowania; to „typowy”
+      użytkownik w tym dokumencie), <b>średni</b> 15 wiadomości + 2 plany + 4
+      regeneracje, <b>ciężki</b> 40 + 4 + 15. Netto = cena / 1,23 (VAT) × 0,85
+      (Apple Small Business; 15 % także w nowych warunkach UE od 1.10.2026, gdy
+      zostajesz przy IAP). Kurs 3,69 zł/$. <b>Cel: ≤ 30 % netto.</b>
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cena</th>
+            <th class="num">Netto zł/mies.</th>
+            <th class="num">Netto $/mies.</th>
+            <th class="num">Sonnet lekki 1,46 $</th>
+            <th class="num">Sonnet średni 5,34 $</th>
+            <th class="num">Sonnet ciężki 14,46 $</th>
+            <th class="num">Opus lekki 3,66 $</th>
+            <th class="num">Opus średni 13,35 $</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>19,99 zł/mies.</td>
+            <td class="num">13,81</td>
+            <td class="num">3,74</td>
+            <td class="num">39 %</td>
+            <td class="num hi">143 %</td>
+            <td class="num hi">386 %</td>
+            <td class="num hi">98 %</td>
+            <td class="num hi">357 %</td>
+          </tr>
+          <tr>
+            <td>29,99 zł/mies.</td>
+            <td class="num">20,73</td>
+            <td class="num">5,62</td>
+            <td class="num good">26 %</td>
+            <td class="num hi">95 %</td>
+            <td class="num hi">257 %</td>
+            <td class="num hi">65 %</td>
+            <td class="num hi">238 %</td>
+          </tr>
+          <tr>
+            <td>39,99 zł/mies.</td>
+            <td class="num">27,64</td>
+            <td class="num">7,49</td>
+            <td class="num good">19 %</td>
+            <td class="num hi">71 %</td>
+            <td class="num hi">193 %</td>
+            <td class="num hi">49 %</td>
+            <td class="num hi">178 %</td>
+          </tr>
+          <tr>
+            <td>49,99 zł/mies.</td>
+            <td class="num">34,55</td>
+            <td class="num">9,36</td>
+            <td class="num good">16 %</td>
+            <td class="num hi">57 %</td>
+            <td class="num hi">154 %</td>
+            <td class="num hi">39 %</td>
+            <td class="num hi">143 %</td>
+          </tr>
+          <tr>
+            <td>199,99 zł/rok</td>
+            <td class="num">11,52</td>
+            <td class="num">3,12</td>
+            <td class="num hi">47 %</td>
+            <td class="num hi">171 %</td>
+            <td class="num hi">463 %</td>
+            <td class="num hi">117 %</td>
+            <td class="num hi">428 %</td>
+          </tr>
+          <tr>
+            <td>299,99 zł/rok</td>
+            <td class="num">17,28</td>
+            <td class="num">4,68</td>
+            <td class="num hi">31 %</td>
+            <td class="num hi">114 %</td>
+            <td class="num hi">309 %</td>
+            <td class="num hi">78 %</td>
+            <td class="num hi">285 %</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>
+        <b>Wniosek:</b> względem celu 30 % netto bez limitów mieści się tylko
+        lekki użytkownik na Sonnet 5 przy cenach miesięcznych. Sonnet u
+        średniego użytkownika zjada 95 % netto przy 29,99 zł i 71 % przy 39,99
+        zł (dodatnia marża jednostkowa, ale daleko od celu); Opus 5 przekracza
+        100 % u średniego wszędzie i cel u lekkiego wszędzie; tylko Haiku bez
+        thinking mieści się bez limitów (średni: 19 % przy 29,99 zł — na cenie
+        spoza dokumentacji). Limity na <i>wiadomości</i> są obowiązkowe — plany
+        to tylko ~24 % kosztu średniego profilu, czat 57 %. Haiku jako osobna
+        ścieżka do czatu (Sonnet do planów) obniża koszt średniego profilu do 53
+        % netto przy 29,99 zł; przy założonym miksie 60 % lekkich / 30 %
+        średnich / 10 % ciężkich — do ~40 % (24 % przy 49,99 zł).
+      </p>
+    </div>
 
-<footer>Źródła: kod obu repozytoriów i serwisu Cookidoo (stan na 27.08.2026), dokumentacja API Claude (skill claude-api 2.1.247: ceny, cache, effort, tool use, model-migration), research rynkowy z 27.08.2026 (RevenueCat pricing i State of Subscription Apps 2026, Apple Small Business Program, komunikat Apple o warunkach UE z 18.08.2026, App Review Guidelines, polski App Store: Fitatu, Yazio, MFP, Samsung Food, Cookidoo). Model kosztów: <code>unit_econ.py</code> w scratchpadzie sesji. Dokument przeszedł cztery niezależne weryfikacje (kod, API, arytmetyka/rynek, spójność); poprawki wniesione.</footer>
+    <h3>Propozycja cennika i przydziału (Twoja decyzja)</h3>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Wariant</th>
+            <th>Cena</th>
+            <th>Przydział na paywallu (per dom, miesięcznie)</th>
+            <th class="num">Koszt przy pełnym wykorzystaniu (Sonnet medium)</th>
+            <th>Komentarz</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Start bezpieczny</b></td>
+            <td>29,99 zł/mies. · 199,99 zł/rok</td>
+            <td>
+              8 planów + 40 wiadomości (+ regeneracje = ⅓ planu); dzienny limit
+              15 wiadomości
+            </td>
+            <td class="num">≈ 3,1 $ = 55 % netto mies. / 99 % netto rocznej</td>
+            <td>
+              Lekki użytkownik: ~1,5 $ = 26 %. Roczna działa tylko dzięki temu,
+              że mało kto wykorzystuje pełny przydział.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Rynkowy</b></td>
+            <td>39,99 zł/mies. · 249,99 zł/rok</td>
+            <td>10 planów + 60 wiadomości</td>
+            <td class="num">
+              ≈ 4,3 $ = 58 % netto mies. / 110 % netto rocznej
+            </td>
+            <td>
+              Samsung Food+ 39,99/299,99, Fitatu Premium+AI 49,99, MFP
+              34,99/184,99 — mieścisz się w środku stawki polskiego App Store.
+              Roczna przy pełnym przydziale jest stratna — albo 299,99 zł (92
+              %), albo mniejszy przydział na rocznej.
+            </td>
+          </tr>
+          <tr>
+            <td>Nie polecam</td>
+            <td>19,99 zł/mies. · 149,99 zł/rok</td>
+            <td>—</td>
+            <td class="num">
+              roczna netto 2,34 $/mies.: lekki użytkownik to 62 %, średni 228 %
+            </td>
+            <td>Działa tylko z czatem na Haiku.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>
+        <b>Trial 7 dni liczony w generacjach</b>, nie tylko dniach: np. 2 plany
+        + 15 wiadomości (≈ 1,0 $ na Sonnet). Tydzień „średniego” użytkowania (15
+        wiadomości + 2 plany + 4 regeneracje) kosztuje 1,23 $; przy medianie
+        konwersji z triala w zdrowiu i fitness 37,7 % to
+        <b>3,27 $ za pozyskanego płacącego</b> (Opus: 8,17 $). Długość: triale
+        5–9-dniowe są w tej kategorii najczęstsze (54 % apek) i konwertują 37,4
+        % vs 25,5 % dla ≤ 4 dni; 17–32 dni konwertują lepiej (42,5 %), ale
+        kosztują 2–4× więcej tokenów. 82–86 % triali startuje w dniu instalacji
+        — to argument za wczesną ekspozycją; paywall w zakładce Asystenta (nie
+        przy starcie apki) wynika z tego, że masz już bazę darmowych
+        użytkowników.
+      </li>
+      <li>
+        <b>Freemium</b>: aplikacja darmowa, asystent jedyną płatną funkcją.
+        Benchmark: apki freemium mają ~2,1 % konwersji z pobrania do płatności
+        (D35), z twardym paywallem ~10,7 % — ale twardy paywall przy
+        istniejących użytkownikach = churn. Darmowo: 2 plany/mies. (żeby paywall
+        pokazywał wartość) albo 0 poza trialem — Twoja decyzja nr 3.
+      </li>
+      <li>
+        <b>Wrażliwość:</b> thinking 2× wyższy niż założono → +48 % kosztu;
+        trafienie cache tylko 50 % → +85 %. Oba mierzysz z <code>usage</code> po
+        pierwszym tygodniu na TestFlight i wtedy dopiero drukujesz liczby na
+        paywallu.
+      </li>
+      <li>
+        <b>Twoje bezpieczniki:</b> limit wydatków w Anthropic Console (zero
+        kodu, globalny); <code>AI_GLOBAL_DAILY_BUDGET_USD</code> (np. 5 $) → 503
+        <code>AI_BUDGET_PAUSED</code>; bezpiecznik upstream (≥ 5 błędów 429/529
+        w 5 min → 60 s bez wywołań API); <code>AI_ENABLED=false</code> wyłącza
+        wszystko bez migracji; alert push na Twoje konto przy 80 % budżetu
+        (istniejący <code>ApnsService</code>).
+      </li>
+    </ul>
+  </section>
+
+  <section id="q5">
+    <h2>5 · Czego nie było w pytaniach</h2>
+    <p>Posortowane po konsekwencjach. Etykieta mówi, kiedy trzeba to mieć.</p>
+    <ol class="rank">
+      <li>
+        <b>Dziury w uwierzytelnianiu robią z limitów fikcję.</b>
+        <span class="pill crit">blokuje płatny start</span>
+        <p class="why">
+          <code>POST /auth/google</code> wystawia JWT dla dowolnego
+          <code>googleId</code> bez weryfikacji (iOS w ogóle go nie używa — jest
+          tylko Apple); <code>/auth/dev</code> działa, dopóki env nie mówi
+          <code>'false'</code>; JWT 30 dni bez odświeżania i bez odwołania.
+          Osobna klasa: gatewaye WS pozwalają każdemu z dowolnym
+          <code>userId</code> wywołać
+          <code>users:preferences:update</code> (cudze alergeny, na których
+          polega walidator), <code>users:profile:update</code>,
+          <code>weeklyPlans:clearWeekPlan</code>,
+          <code>households:leave</code> i — najgorsze —
+          <code>users:delete</code>, które z kaskadą skasuje płacącemu
+          <code>Entitlement</code>, czaty i księgę użycia.
+        </p>
+        <p>
+          Domyślnie: trzy pierwsze zamykamy w fazie 0 (wyłączyć
+          <code>/auth/google</code> lub weryfikować token Google,
+          <code>AUTH_DEV_LOGIN_ENABLED=false</code> na prod,
+          <code>JWT_EXPIRES_IN=1h</code> + odświeżanie po 401 w wyodrębnionym
+          kliencie REST iOS, throttler na <code>/auth/*</code> i
+          <code>/agent/*</code>). Auth handshake’u WS (5 gatewayów +
+          <code>SocketManager</code> w iOS) to większy temat — do zaplanowania
+          jako osobna praca przed skalowaniem płatnej bazy; do tego czasu dane,
+          na których opiera się walidator, może nadpisać każdy.
+        </p>
+      </li>
+      <li>
+        <b>Płacący ≠ gospodarstwo.</b>
+        <span class="pill crit">decyzja przed v1</span>
+        <p class="why">
+          Subskrypcja jest per Apple ID; plan, ulubione, lista zakupów, Cookidoo
+          są per gospodarstwo; użytkownik może mieć kilka członkostw (serwisy
+          biorą najstarsze). Gdy płacący opuści dom (<code
+            >households:leave</code
+          >
+          może skasować dom lub awansować właściciela), co z partnerem? RC
+          wysyła <code>TRANSFER</code>, gdy Apple ID zaloguje się na inne konto
+          backendu.
+        </p>
+        <p>
+          Domyślnie: model z sekcji 4 (entitlement per user, Pro per dom, limity
+          per dom), <code>Entitlement</code> od razu w migracji v1.
+        </p>
+      </li>
+      <li>
+        <b>Zgoda i obowiązki App Review dla chatbota.</b>
+        <span class="pill crit">blokuje submisję</span>
+        <p class="why">
+          5.1.2(i): jawna zgoda i wskazanie dostawcy AI przed pierwszym
+          wywołaniem (polityka prywatności nie wystarczy); 4.7/4.7.1: chatboty
+          muszą mieć filtr, zgłaszanie, blokowanie, kontakt; 1.4.1:
+          przypomnienie o lekarzu przy poradach dietetycznych; 3.1.2(c):
+          przydział wypisany na paywallu; nowy kwestionariusz ocen wieku pyta
+          wprost o asystentów AI (Fitatu 13+, MFP 16+, Samsung Food 18+).
+        </p>
+      </li>
+      <li>
+        <b
+          >RODO: alergeny i dieta to dane o zdrowiu (art. 9) — obojga
+          domowników.</b
+        >
+        <span class="pill crit">blokuje płatny start</span>
+        <p class="why">
+          Wymagana odrębna, wersjonowana, odwoływalna zgoda; minimalizacja (nie
+          wysyłamy wagi, wzrostu, płci, roku urodzenia, kroków — tylko wyliczony
+          cel kcal i preferencje). Rozmowa osoby A wysłałaby do Anthropic
+          alergeny osoby B — dlatego <b>każdy domownik zgadza się osobno</b>, a
+          do modelu idą preferencje tylko tych, którzy się zgodzili;
+          ograniczenia pozostałych egzekwuje walidator w kodzie bez wysyłania.
+          Anthropic jako procesor w polityce prywatności
+          (<code>docs/privacy</code>, gdzie §12 dziś twierdzi „brak
+          profilowania” — personalizacja pod dietę jest profilowaniem bez
+          skutków prawnych; przeredagować). Retencja czatów u nas: 90 dni.
+          <b>Do sprawdzenia poza dokumentacją API:</b> DPA Anthropic, mechanizm
+          transferu do USA, domyślna retencja dla Opus 5/Sonnet 5 (dokumentacja
+          mówi tylko, że Fable 5 wymaga 30 dni i nie działa pod zerową
+          retencją).
+        </p>
+      </li>
+      <li>
+        <b>Katalog jako sufit i brak „lodówki”.</b>
+        <span class="pill warn">projekt v1</span>
+        <p class="why">
+          89 przepisów, brak tagów, brak grupowania składników („kurczak” to
+          kilka wierszy <code>Ingredient</code>),
+          <code>gramsPerPiece</code> tylko dla 5 składników. „Mam X” traktujemy
+          jako stan rozmowy, nie tabelę; mapa rodzin składników w kodzie;
+          backlog 55 przepisów równolegle.
+        </p>
+      </li>
+      <li>
+        <b
+          >Brak atomowego zapisu planu, nieskodyfikowane reguły, starzejące się
+          propozycje, stara pula tygodnia.</b
+        >
+        <span class="pill crit">blokuje v1</span>
+        <p class="why">
+          Opisane w sekcji 3: <code>applyProposal</code>, walidator,
+          fingerprint, jeden broadcast przez wspólny licznik
+          <code>changeVersion</code>, synchronizacja z
+          <code>SharedMealPlanItem</code>.
+        </p>
+      </li>
+      <li>
+        <b>Persystencja czatu = księga limitów.</b>
+        <span class="pill crit">blokuje v1</span>
+        <p class="why">
+          Bez wierszy <code>AiUsage</code> z polami <code>usage</code> nie
+          odpowiesz na własne pytanie „ile mnie to kosztuje”, a regresje cache
+          są ciche (żądania nadal się udają, tylko rachunek rośnie).
+        </p>
+      </li>
+      <li>
+        <b>Idempotencja i podwójne rozliczanie.</b>
+        <span class="pill crit">blokuje v1</span>
+        <p class="why">
+          Użytkownik tapnie drugi raz, deploy zrestartuje instancję w połowie
+          generacji. <code>clientMessageId</code> na wiadomości, apply
+          idempotentne po statusie, licznik naliczany na starcie i zwracany przy
+          429/5xx od dostawcy (nie przy odmowie ani anulowaniu).
+        </p>
+      </li>
+      <li>
+        <b>Strefa czasowa i tożsamość tygodnia.</b>
+        <span class="pill crit">blokuje v1</span>
+        <p class="why">
+          <code>weekStart</code> liczy telefon w strefie lokalnej (dwie
+          niezależne implementacje: <code>DatesViewModel</code> i
+          <code>AddToPlanSheet</code>), serwer parsuje jako UTC bez sprawdzenia
+          poniedziałku, Railway chodzi w UTC. Klient wysyła
+          <code>weekStart</code> + <code>clientToday</code> +
+          <code>timeZone</code>; „dziś/jutro” rozwiązuje kod, nigdy zegar
+          serwera; daty nigdy w cache’owanym prefiksie.
+        </p>
+      </li>
+      <li>
+        <b>Prompt injection i nadużycia.</b>
+        <span class="pill warn">v1 minimalnie</span>
+        <p class="why">
+          <code>recipes:create</code> jest dostępne po WS każdemu, kto zna
+          dowolną ważną parę <code>userId</code>+<code>householdId</code>, a
+          tytuły przepisów trafiają do wyników narzędzi. Dlatego: digest w
+          prefiksie tylko z przepisów bota importu; cudze przepisy poza wspólnym
+          prefiksem (nowa reguła — dziś przepisy są globalne); narzędzia bez
+          parametrów tożsamości; brak narzędzia zapisu; limity i entitlement
+          sprawdzane w kodzie, niewidoczne dla modelu; treść narzędzi opakowana
+          jako dane; <code>strict</code> schematy + walidacja liczb w kodzie
+          (schemat nie umie min/max).
+        </p>
+      </li>
+      <li>
+        <b>Ewaluacja i testy na wyczerpanym Macu.</b>
+        <span class="pill warn">przed płatnym startem</span>
+        <p class="why">
+          Testy jednostkowe walidatora i bilansu (mocki Prismy jak dotąd);
+          nagrane odpowiedzi API jako fixture’y dla pętli (CI bez klucza,
+          <code>AI_ENABLED=false</code>, e2e nadal uruchamia
+          <code>AppModule</code>); 20 promptów live przez
+          <code>railway run</code>; sonda cache. Jest w kontenerze, nie na
+          hoście.
+        </p>
+      </li>
+      <li>
+        <b>Polski język, jednostki, persona.</b> <span class="pill ok">v1</span>
+        <p class="why">
+          Tekst użytkownika normalizować do ASCII przed wyszukiwaniem
+          („losos”/„łosoś”); model nie pisze ilości prozą, jeśli kod je
+          renderuje; stała persona („ty”, bez porad medycznych, krótko, bez
+          emoji), zamrożona w prefiksie; narzędzia posortowane po nazwie
+          (stabilność cache).
+        </p>
+      </li>
+      <li>
+        <b>Offline i słaba sieć.</b> <span class="pill ok">v1 minimalnie</span>
+        <p class="why">
+          Pole wiadomości wyłączone offline; ostatnia rozmowa w cache pliku;
+          tura po stronie serwera jest źródłem prawdy, więc zerwanie w trakcie
+          nic nie gubi.
+        </p>
+      </li>
+      <li>
+        <b>Konfiguracja modułu.</b> <span class="pill ok">v1</span>
+        <p class="why">
+          Fail-fast przy <code>AI_ENABLED=true</code> bez klucza (wzorzec
+          <code>parseEncryptionKey</code>; antywzorzec: pusty
+          <code>COOKIDOO_SERVICE_TOKEN</code> wychodzi dopiero przy pierwszym
+          wywołaniu). Env: <code>AI_MODEL</code>, <code>AI_EFFORT</code>,
+          <code>AI_MAX_TOKENS</code>, <code>AI_MAX_ITERATIONS</code>,
+          <code>AI_TURNS_PER_DAY_*</code>, <code>AI_TURNS_PER_MONTH_*</code>,
+          <code>AI_PLANS_PER_MONTH_*</code>,
+          <code>AI_GLOBAL_DAILY_BUDGET_USD</code>, <code>AI_PRICE_*</code>.
+        </p>
+      </li>
+      <li>
+        <b>Podatki i status.</b>
+        <span class="pill warn">flaga, nie porada</span>
+        <p class="why">
+          Apple jest sprzedawcą (pobiera VAT), Twoja sprzedaż do Apple
+          Distribution International to B2B z odwrotnym obciążeniem; RevenueCat
+          to usługa fakturowana z USA. Do księgowego: sprzedaż jako osoba vs
+          JDG, rejestracja VAT-UE, księgowanie wypłat. Nowe warunki UE od
+          1.10.2026 są opt-in i nieistotne, dopóki zostajesz przy IAP.
+        </p>
+      </li>
+      <li>
+        <b>Wsparcie.</b> <span class="pill warn">przed płatnym startem</span>
+        <p class="why">
+          Apki z AI mają wyższy churn (retencja 12-mies. 21 % vs 31 %) i więcej
+          zwrotów (4,2 % vs 3,5 %). Przycisk „Zgłoś” + FAQ asystenta (co umie,
+          limity, jakie dane idą do Anthropic) + szablon odpowiedzi „AI
+          zaproponowało coś z moim alergenem” poparty wierszami
+          <code>AiUsage</code>/<code>AgentProposal</code>.
+        </p>
+      </li>
+    </ol>
+  </section>
+
+  <section id="plan">
+    <h2>Plan dostawy</h2>
+    <p>
+      Każdy plaster jest osobno mergowalny (branche z <code>develop</code> po
+      <code>git fetch --prune</code>). Dni to solo, z testami na Railway; na tym
+      Macu tylko <code>xcodebuild</code> i jednorazowy kontener z obrazu API.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Faza</th>
+            <th>Zakres</th>
+            <th class="num">Dni</th>
+            <th>Wynik</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>0 · Fundamenty</b></td>
+            <td>
+              Wyłączyć/zweryfikować <code>/auth/google</code>; dev-login off na
+              prod; <code>JWT_EXPIRES_IN=1h</code> + odświeżanie po 401 w
+              wyodrębnionym <code>AuthenticatedAPIClient</code> (iOS); throttler
+              na REST; <code>OPS_TOKEN</code> na <code>/ops/metrics</code>;
+              <code>exports</code> w
+              <code>WeeklyPlansModule</code>/<code>RecipesModule</code>;
+              <code>PlanChangeBroadcaster</code> ze wspólnym
+              <code>changeVersion</code>; <code>CurrentUserId</code> do
+              <code>auth/</code>; wyrównanie Node 20/22; zwolnienie dysku na
+              Macu
+            </td>
+            <td class="num">3–4</td>
+            <td>Bezpieczna baza pod płatną funkcję</td>
+          </tr>
+          <tr>
+            <td><b>1 · iOS porządki</b></td>
+            <td>
+              Zamiana zakładki; koszyk → arkusz listy zakupów w nagłówkach
+              Planu/Kalendarza; porządki po „Produktach”;
+              <code>DashboardTab</code> w <code>SessionStore</code>; FAQ
+            </td>
+            <td class="num">1–1,5</td>
+            <td>Mergowalne bez backendu</td>
+          </tr>
+          <tr>
+            <td><b>2 · Backend</b></td>
+            <td>
+              Migracja (8 modeli + zgoda); SDK;
+              <code>agent.config</code> fail-fast; zgoda; liczniki/limity/kill
+              switch/bezpiecznik upstream; digest + <code>count_tokens</code>; 6
+              narzędzi; walidator + port klasyfikatora;
+              <code>applyProposal</code> z synchronizacją puli; tury
+              202+polling; <code>AiUsage</code>;
+              <code>/ops/metrics.agent</code>; testy jednostkowe + nagrane
+              fixture’y; <code>agent-eval.ts</code>,
+              <code>agent-cache-probe.ts</code>
+            </td>
+            <td class="num">7–9</td>
+            <td>
+              Działa z curla; CI zielone przy <code>AI_ENABLED=false</code>
+            </td>
+          </tr>
+          <tr>
+            <td><b>3 · iOS asystent</b></td>
+            <td>
+              <code>AssistantAPIClient</code>, DTO, <code>AssistantStore</code>;
+              ekran zgody; <code>AssistantView</code> (pusty stan, akcje, pole
+              wiadomości, bąbelki, postęp, pytania z chipami); karta propozycji
+              z tonami wierszy; apply → paragon → Plan; edycja lokalna (pomiń,
+              wybierz sam, porcje, osoby, pomiń dzień, „inny przepis”); blok
+              bilansu składników; karta limitu; „Zgłoś”; wiersz w Ustawieniach;
+              TestFlight
+            </td>
+            <td class="num">6–8</td>
+            <td>
+              <b>v1 do użytku domowego</b> (bez paywalla, z limitami
+              wewnętrznymi)
+            </td>
+          </tr>
+          <tr>
+            <td><b>4 · Kalibracja</b></td>
+            <td>
+              Tydzień logów <code>usage</code> z TestFlight → przeliczenie
+              modelu kosztów; ewaluacja Sonnet low/medium/high vs Opus low (po
+              kilka przebiegów); strojenie promptu (zwięzłość, „zacznij
+              odpowiedź od razu”); polityka prywatności; kwestionariusz wieku;
+              kopia „Zgłoś”/FAQ
+            </td>
+            <td class="num">3</td>
+            <td>Liczby do paywalla</td>
+          </tr>
+          <tr>
+            <td><b>5 · Monetyzacja</b></td>
+            <td>
+              RevenueCat SDK + <code>logIn</code>; webhook →
+              <code>Entitlement</code> (HMAC, dedupe, EXPIRATION); paywall z
+              wypisanym przydziałem; trial w generacjach; karta limitu z
+              paywallem; Customer Center; submisja
+            </td>
+            <td class="num">5–7</td>
+            <td><b>Płatny start</b></td>
+          </tr>
+          <tr>
+            <td>później</td>
+            <td>
+              SSE dla tekstu; Haiku jako osobna ścieżka czatu (jeśli logi każą);
+              degradacja zamiast muru; „Mam w domu” jako notatka gospodarstwa;
+              <code>Recipe.allergenFlags</code> jako jedno źródło prawdy; auth
+              WS; spiżarnia z ilościami; Cookidoo z paragonu
+            </td>
+            <td class="num">—</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <b>Razem do płatnego startu: ~25–33 dni roboczych solo.</b> v1 do własnego
+      użytku (fazy 0–3) po ~17–23.
+    </p>
+  </section>
+
+  <section id="ryzyka">
+    <h2>Ryzyka i rzeczy do sprawdzenia</h2>
+    <ul>
+      <li>
+        <b>Beta SDK</b>: nazwa opcji limitu iteracji tool runnera, przejście
+        <code>cache_control</code>/<code>betas</code>/<code>strict</code>,
+        typowanie <code>fallbacks</code>. Plan B: ręczna pętla.
+      </li>
+      <li>
+        <b>Estymaty tokenów to założenia</b>: digest i prompt zmierzyć
+        <code>count_tokens</code> na obu modelach; udział thinking w wyjściu to
+        największa niewiadoma — limity kalibrować z realnych
+        <code>output_tokens</code>, nie z tego dokumentu. Cena Haiku 4.5 do
+        potwierdzenia.
+      </li>
+      <li>
+        <b>Alergeny są słownikowe</b>: zamknięty enum u użytkownika + brak tagów
+        na przepisach → komunikować „sprawdź skład”, nadwykrywać po stronie
+        klasyfikatora, przypomnienie 1.4.1.
+      </li>
+      <li>
+        <b>Makro niepełne</b>: 135/403 składników; niektóre przepisy zaniżone →
+        reguły kcal miękkie, model mówi „orientacyjnie”.
+      </li>
+      <li>
+        <b>Jedna instancja</b>: rejestr tur, liczniki throttlera, bezpieczniki w
+        pamięci — ta sama klasa co <code>NotificationBatcher</code>,
+        <code>recentSends</code> i licznik <code>changeVersion</code>;
+        udokumentować, nie rozwiązywać.
+      </li>
+      <li>
+        <b>Wiek</b>: chatbot + dane o zdrowiu; RODO art. 8 (w Polsce 16 lat — do
+        potwierdzenia, nie było w researchu), Sign in with Apple nie daje wieku
+        → deklaracja wieku przy zgodzie.
+      </li>
+      <li>
+        <b>RevenueCat</b>: czy 1 % liczy się od całości MTR, czy tylko powyżej
+        progu; czy Customer Center jest w planie za 0 $ — sprawdzić w panelu.
+      </li>
+      <li>
+        <b>Family Sharing</b>: sprawdzić w App Store Connect, czy da się cofnąć
+        po włączeniu, zanim się włączy.
+      </li>
+      <li>
+        <b>Dysk Maca</b>: ~500 MB wolnego, swap 3,1/4 GB (zmierzone dziś);
+        kandydaci do skasowania z notatek (DeviceSupport, Docker.raw,
+        symulatory) — sprawdzić <code>du</code> przed <code>pnpm add</code>.
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    Źródła: kod obu repozytoriów i serwisu Cookidoo (stan na 27.08.2026),
+    dokumentacja API Claude (skill claude-api 2.1.247: ceny, cache, effort, tool
+    use, model-migration), research rynkowy z 27.08.2026 (RevenueCat pricing i
+    State of Subscription Apps 2026, Apple Small Business Program, komunikat
+    Apple o warunkach UE z 18.08.2026, App Review Guidelines, polski App Store:
+    Fitatu, Yazio, MFP, Samsung Food, Cookidoo). Model kosztów:
+    <code>unit_econ.py</code> w scratchpadzie sesji. Dokument przeszedł cztery
+    niezależne weryfikacje (kod, API, arytmetyka/rynek, spójność); poprawki
+    wniesione.
+  </footer>
 </div>

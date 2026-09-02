@@ -1,7 +1,7 @@
 ---
 name: project-recipe-ids-vs-r2-images
-description: "Zdjęcia w R2 nazwane id przepisu są ŹRÓDŁEM PRAWDY o parowaniu id↔danie; złe id w katalogu naprawia się w katalogu, nigdy przez przestawianie obiektów."
-metadata: 
+description: 'Zdjęcia w R2 nazwane id przepisu są ŹRÓDŁEM PRAWDY o parowaniu id↔danie; złe id w katalogu naprawia się w katalogu, nigdy przez przestawianie obiektów.'
+metadata:
   node_type: memory
   type: project
   originSessionId: 3830a418-7f92-4d32-825a-5fad3cb1049e

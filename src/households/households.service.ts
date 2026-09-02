@@ -16,7 +16,10 @@ import {
   effectiveAvatarColor,
   pickFreeAvatarColor,
 } from '../common/avatar-color.util';
-import { settleHouseholdAfterMemberLeft } from './household-cleanup.util';
+import {
+  settleHouseholdAfterMemberLeft,
+  revokeCookidooCredentialsOf,
+} from './household-cleanup.util';
 import {
   resolveInvitationStatus,
   shouldAddToInbox,
@@ -276,6 +279,7 @@ export class HouseholdsService {
         [];
 
       for (const previous of otherMemberships) {
+        await revokeCookidooCredentialsOf(tx, previous.householdId, userId);
         await tx.membership.delete({
           where: {
             userId_householdId: { userId, householdId: previous.householdId },
@@ -822,6 +826,7 @@ export class HouseholdsService {
 
     const now = new Date();
     return this.prisma.$transaction(async (tx) => {
+      await revokeCookidooCredentialsOf(tx, householdId, memberUserId);
       const removed = await tx.membership.delete({
         where: { userId_householdId: { userId: memberUserId, householdId } },
       });
@@ -856,6 +861,7 @@ export class HouseholdsService {
     const now = new Date();
     const { settlement, touchedWeekStarts } = await this.prisma.$transaction(
       async (tx) => {
+        await revokeCookidooCredentialsOf(tx, householdId, userId);
         await tx.membership.delete({
           where: { userId_householdId: { userId, householdId } },
         });

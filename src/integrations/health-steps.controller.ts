@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUserId } from './current-user-id.decorator';
@@ -26,5 +34,15 @@ export class HealthStepsController {
   @Get('steps')
   list(@CurrentUserId() userId: string, @Query() query: HealthStepsRangeDto) {
     return this.healthSteps.getSteps(userId, query.from, query.to);
+  }
+
+  /**
+   * Wyłączenie synchronizacji w aplikacji kasuje kopię na serwerze —
+   * polityka §10: kroki „przez czas korzystania z integracji". Dotąd jedyną
+   * drogą było usunięcie konta.
+   */
+  @Delete('steps')
+  clear(@CurrentUserId() userId: string) {
+    return this.healthSteps.deleteAll(userId);
   }
 }

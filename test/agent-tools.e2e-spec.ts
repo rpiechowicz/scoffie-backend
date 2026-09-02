@@ -66,6 +66,8 @@ describe('Narzędzia asystenta E2E', () => {
   };
 
   beforeAll(async () => {
+    // Bramka zgód domyślnie włączona; narzędzia testujemy bez klikania zgód.
+    process.env.AI_CONSENT_REQUIRED = 'false';
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

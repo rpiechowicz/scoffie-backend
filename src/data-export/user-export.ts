@@ -60,6 +60,8 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
     reports,
     devices,
     cookidoo,
+    aiUsage,
+    memoryNotes,
   ] = await Promise.all([
     prisma.consentEvent.findMany({
       where: { userId },
@@ -213,6 +215,18 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
         createdAt: true,
       },
     }),
+    prisma.aiUsage.aggregate({
+      where: { userId },
+      _count: { _all: true },
+      _sum: { inputTokens: true, outputTokens: true, costMicroUsd: true },
+      _min: { createdAt: true },
+      _max: { createdAt: true },
+    }),
+    prisma.agentMemory.findMany({
+      where: { createdByUserId: userId },
+      orderBy: { createdAt: 'asc' },
+      select: { householdId: true, text: true, kind: true, createdAt: true },
+    }),
   ]);
 
   const { preferences, ...profile } = user;
@@ -258,8 +272,49 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
       })),
     },
     dailySteps,
-    assistant: { conversations, reports },
+    assistant: {
+      conversations: conversations.map((conversation) => ({
+        ...conversation,
+        messages: conversation.messages.map((message) => ({
+          ...message,
+          card: redactOthersFromCard(message.card, userId),
+        })),
+      })),
+      reports,
+      // Polityka §2: „dane o użyciu" są danymi osobowymi — sumy, nie wiersze
+      // (pojedynczy wiersz nie mówi o osobie nic ponad to).
+      usage: {
+        turns: aiUsage._count._all,
+        inputTokens: aiUsage._sum.inputTokens ?? 0,
+        outputTokens: aiUsage._sum.outputTokens ?? 0,
+        costMicroUsd: aiUsage._sum.costMicroUsd ?? 0,
+        firstAt: aiUsage._min.createdAt,
+        lastAt: aiUsage._max.createdAt,
+      },
+      memoryNotes,
+    },
     devices,
     cookidoo,
+  };
+}
+
+/**
+ * Art. 15 ust. 4: paczka jednej osoby nie oddaje danych innych. Karta
+ * porcji (HOUSEHOLD_SPLIT) niesie cel kaloryczny, dietę i alergeny KAŻDEGO
+ * domownika — zostaje tylko wiersz właściciela paczki.
+ */
+function redactOthersFromCard(card: unknown, userId: string): unknown {
+  if (!card || typeof card !== 'object') return card;
+  const record = card as Record<string, unknown>;
+  if (!Array.isArray(record.portions)) return card;
+  return {
+    ...record,
+    portions: record.portions.filter(
+      (portion) =>
+        portion &&
+        typeof portion === 'object' &&
+        (portion as { userId?: unknown }).userId === userId,
+    ),
+    portionsRedacted: true,
   };
 }

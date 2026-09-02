@@ -1,7 +1,7 @@
 ---
 name: project-planned-servings-semantics
-description: "PlanItem.plannedServings to łączna liczba porcji dania, nie na osobę; brak wartości znaczy „policz z audytorium\", nigdy „jedna porcja\"."
-metadata: 
+description: 'PlanItem.plannedServings to łączna liczba porcji dania, nie na osobę; brak wartości znaczy „policz z audytorium", nigdy „jedna porcja".'
+metadata:
   node_type: memory
   type: project
   originSessionId: b2c1c8be-870b-42da-a493-b2dd70f946b0

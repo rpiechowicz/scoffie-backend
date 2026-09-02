@@ -160,6 +160,11 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   the tool loop has spent that much, the model is asked for a final answer
   without tools. Unknown `AI_MODEL` names are priced at the most expensive
   known rate (and logged once) instead of costing zero.
+- `AI_CONSENT_REQUIRED` (default **true** since 3.09.2026) — every turn requires
+  a valid `AI_ASSISTANT` **and** `AGE_16` consent (`POST /me/consents`), and
+  only consenting members reach the model. Set it to `false` explicitly only
+  while the released iOS build has no consent screen; anything else (unset,
+  typo) keeps the gate closed.
 - `AI_MODEL_TOOLS` (empty = off) — cheaper model for the conversational part
   of a turn (e.g. `claude-haiku-4-5`). The turn starts on it with read-only
   tools plus `start_planning`; when the model calls that tool, the rest of

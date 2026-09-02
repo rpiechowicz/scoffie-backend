@@ -6,6 +6,7 @@ Rafał odłożył je „na później, razem z tagami”), **D6** (tagi na `Ingre
 Plus `railway.json` z healthcheckiem (osobna gałąź `fix/railway-healthcheck`, `3a2d7a0`).
 
 ## Słownik
+
 - **Alergeny** (`src/common/allergens.ts`, kontrakt z iOS `enum Allergen`): gluten, lactose, eggs,
   nuts, peanuts, fish, soy + **celery, mustard, sesame**. `lactose` = nabiał zawierający laktozę
   (bez laktozy/ghee → DAIRY bez lactose); `fish` obejmuje owoce morza. Oznaczane nadmiarowo.
@@ -18,6 +19,7 @@ Plus `railway.json` z healthcheckiem (osobna gałąź `fix/railway-healthcheck`,
   HIGH_PROTEIN ≥20 % energii z białka. Przepis bez składników przepuszcza diety składnikowe.
 
 ## Dane
+
 `prisma/catalog/ingredient-tags-pl-v1.json` — 403 wpisy (= wszystkie `ingredients-*-pl-v1.txt`),
 klucz `normalizedName`, pola `allergens[]`, `dietTags[]`, `note?`. Kuracja: workflow 6 klasyfikatorów
 (po grupach plików) + 3 weryfikatorów adwersaryjnych (5 poprawek) + mój przegląd 131 nazw
@@ -26,11 +28,12 @@ pescetariańska 52, keto 7, paleo 6, wegańska 1, wysokobiałkowa 48) identyczne
 Swift; gluten 54 vs 50 = dokładnie A2. Nowe: celery 13 przepisów, mustard 5, sesame 3.
 
 ## Backend (`fix/fundamenty-d`)
+
 - schema + migracja `20260828150000_tagi_skladnikow_i_przepisow`: `Ingredient.allergens/dietTags`,
   `Recipe.allergens/dietTags` (TEXT[] default {}), GIN `Recipe_allergens_idx`, `Recipe_dietTags_idx`.
 - `deriveRecipeTags` (unia, sort, dedup) w TRZECH miejscach zapisu: import (`import-recipes-from-json.ts`,
   z wierszy Ingredient), `RecipesService.create`, loader (`scripts/load-ingredient-tags.ts` → składniki
-  + recompute przepisów, zapis tylko przy zmianie, raport „uncovered”).
+  - recompute przepisów, zapis tylko przy zmianie, raport „uncovered”).
 - `recipeListSelect` i `detailSelect` + `allergens`, `dietTags`; `RecipeDto` + oba pola.
 - `UsersService.getPreferencesForUsers(ids)` (unia preferencji domowników — pod walidator Fazy 0).
 - Bootstrap (`prisma-migrate-deploy-safe.js`): tagi PO nutrition, PRZED importem (tylko rebuild).
@@ -40,11 +43,13 @@ Swift; gluten 54 vs 50 = dokładnie A2. Nowe: celery 13 przepisów, mustard 5, s
   (unia + brak tagów w wierszach składników), users (getPreferencesForUsers), allergens (10 id).
 
 ## iOS (`fix/fundamenty-d`, `7bd2949`)
+
 `Recipe`/`BackendRecipeDTO` + `allergens: [String]?`, `dietTags: [String]?` (nil = brak z serwera,
 [] = fakt); `RecipeDietProfile.fromServerTags` (parytet z diet-rules), heurystyka tylko fallback;
 `Allergen` + celery/mustard/sesame; `hasIngredientCoverage` liczy tagi; cache katalogu v12.
 
 ## Kolejność wdrożenia (nośna)
+
 1. Backend → `develop` → `main`. Migracja idzie sama przy starcie. **Zaraz po deployu**:
    `pnpm catalog:ingredients:tags` na prod z lokalnego kontenera z `$PROD_DB` (kolumny są puste
    do pierwszego przebiegu → do tego czasu nowy iOS widziałby „brak alergenów” jako fakt!).
@@ -55,6 +60,7 @@ Swift; gluten 54 vs 50 = dokładnie A2. Nowe: celery 13 przepisów, mustard 5, s
    `nil` → heurystyka.
 
 ## Poza zakresem (LATER / Faza 0)
+
 A4 walidacja zagnieżdżona WS, A6 (keto/paleo/vegan niedostępne w UI), A7 udziały kcal per slot,
 A8 cele makro na serwerze, D8 (tortilla/awokado dwie jednostki), D9 aliasy w pliku, D11.
 Follow-upy z B (stub `getSavedPlan`, DROP `SharedMealPlan*`, gałąź `SAVE_PLAN`) — po adopcji

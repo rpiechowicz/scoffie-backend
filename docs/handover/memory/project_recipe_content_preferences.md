@@ -1,7 +1,7 @@
 ---
 name: recipe-content-preferences
-description: "Preferencje żywieniowe do bazy przepisów — wieprzowina/wołowina tak, krewetki i śledź nie, więcej indyka, tylko proste domowe dania."
-metadata: 
+description: 'Preferencje żywieniowe do bazy przepisów — wieprzowina/wołowina tak, krewetki i śledź nie, więcej indyka, tylko proste domowe dania.'
+metadata:
   node_type: memory
   type: project
   originSessionId: a673613e-4da2-4a42-a697-9d485bd8a0df

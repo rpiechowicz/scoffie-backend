@@ -6,13 +6,13 @@ Verified against the **current** files on disk (post-Plaster A: `parseWeekStart`
 
 ## 0. Decisions (read this first)
 
-| Question | Decision | Rationale |
-|---|---|---|
-| Drop `SharedMealPlan` / `SharedMealPlanItem` Prisma models + tables now? | **No.** Keep models and tables in this change. Add a follow-up ticket for a `DROP TABLE` migration ≥ 1 release after prod verification. | `git revert` is a complete rollback only while the schema is untouched. A `DROP TABLE` in the same PR makes rollback require a forward-fix migration, and `prisma-migrate-deploy-safe.js` runs on every container start (`/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/Dockerfile:55`), so a reverted image would boot against a schema that no longer matches the restored code. |
-| Delete the pool **rows**? | **Yes, but in a separate maintenance step, after a `pg_dump -t` backup.** Not required for correctness — once the fallback is gone the rows are simply never read. | The DELETE is the only irreversible part of this work. Decoupling it keeps step 1 a pure `git revert`. |
-| Hard-remove all six handlers? | **Five yes, one shim.** Remove `create`, `addItem`, `removeItem`, `listByHousehold`, `saveSavedPlan` outright. Keep `getSavedPlan` for **one release** as a 4-line stub returning `{ weekStart, items: [] }` with no DB access. | See §3 — a shipped iOS build calls `getSavedPlan` **before** `loadWeekPlanFromBackend` in the same `.task`, and a missing handler costs it 3 × 6 s of ACK retries → **~18 s blank calendar** for every not-yet-updated device. The other five events are called by nobody. |
-| `SAVE_PLAN` notification copy? | **Remove on the backend** (`notification-copy.util.ts`), **keep on iOS** for one release. | Backend: the only producer (`saveSavedPlan`) is gone, so the branch is provably dead. iOS: 2 lines, protects against a mixed-version rollout. |
-| `clearWeekPlan` pool deletion | **Drop it** (not "keep harmless"). | It is the only remaining writer of `sharedMealPlan*`. Leaving it forces the Prisma delegates to stay referenced and makes the "no code touches the pool" invariant untestable. |
+| Question                                                                 | Decision                                                                                                                                                                                                                        | Rationale                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Drop `SharedMealPlan` / `SharedMealPlanItem` Prisma models + tables now? | **No.** Keep models and tables in this change. Add a follow-up ticket for a `DROP TABLE` migration ≥ 1 release after prod verification.                                                                                         | `git revert` is a complete rollback only while the schema is untouched. A `DROP TABLE` in the same PR makes rollback require a forward-fix migration, and `prisma-migrate-deploy-safe.js` runs on every container start (`/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/Dockerfile:55`), so a reverted image would boot against a schema that no longer matches the restored code. |
+| Delete the pool **rows**?                                                | **Yes, but in a separate maintenance step, after a `pg_dump -t` backup.** Not required for correctness — once the fallback is gone the rows are simply never read.                                                              | The DELETE is the only irreversible part of this work. Decoupling it keeps step 1 a pure `git revert`.                                                                                                                                                                                                                                                                                         |
+| Hard-remove all six handlers?                                            | **Five yes, one shim.** Remove `create`, `addItem`, `removeItem`, `listByHousehold`, `saveSavedPlan` outright. Keep `getSavedPlan` for **one release** as a 4-line stub returning `{ weekStart, items: [] }` with no DB access. | See §3 — a shipped iOS build calls `getSavedPlan` **before** `loadWeekPlanFromBackend` in the same `.task`, and a missing handler costs it 3 × 6 s of ACK retries → **~18 s blank calendar** for every not-yet-updated device. The other five events are called by nobody.                                                                                                                     |
+| `SAVE_PLAN` notification copy?                                           | **Remove on the backend** (`notification-copy.util.ts`), **keep on iOS** for one release.                                                                                                                                       | Backend: the only producer (`saveSavedPlan`) is gone, so the branch is provably dead. iOS: 2 lines, protects against a mixed-version rollout.                                                                                                                                                                                                                                                  |
+| `clearWeekPlan` pool deletion                                            | **Drop it** (not "keep harmless").                                                                                                                                                                                              | It is the only remaining writer of `sharedMealPlan*`. Leaving it forces the Prisma delegates to stay referenced and makes the "no code touches the pool" invariant untestable.                                                                                                                                                                                                                 |
 
 **Net effect on the wire protocol:** 5 events deleted, 1 event becomes a no-op stub, 1 broadcast (`weeklyPlans:savedPlanChanged`) deleted, 1 broadcast action (`SAVE_PLAN_SYNC` on `weeklyPlans:weekChanged`) no longer emitted.
 
@@ -41,11 +41,13 @@ Verified against the **current** files on disk (post-Plaster A: `parseWeekStart`
 26	  householdId: string;
 27	}
 ```
+
 ```ts
 35	class WeeklyPlansCreatePayload {
 ...
 50	}
 ```
+
 (covers `WeeklyPlansCreatePayload` 35–39, `WeeklyPlansAddItemPayload` 41–45, `WeeklyPlansRemoveItemPayload` 47–50)
 
 ```ts
@@ -83,11 +85,13 @@ Verified against the **current** files on disk (post-Plaster A: `parseWeekStart`
 262	    );
 263	  }
 ```
+
 ```ts
 276	  @SubscribeMessage('weeklyPlans:create')
 ...
 303	  }
 ```
+
 (covers `create` 276–285, `addItem` 287–296, `removeItem` 298–303). **Keep** `getByWeek` (265–274) — that is the live read path.
 
 **e) `getSavedPlan` — lines 607–616.** Replace the body with the deprecation shim:
@@ -185,6 +189,7 @@ Verified survivors (do **not** touch): `HttpStatus`/`AppException` (223/231/239 
 117	      where: { householdId },
 118	      orderBy: { weekStart: 'desc' },
 ```
+
 Unbounded: loads every week of the household with full recipe + ingredient payloads. No caller after §1.1d.
 
 **c) `create` — delete lines 155–163.**
@@ -195,18 +200,18 @@ Unbounded: loads every week of the household with full recipe + ingredient paylo
 
 ```ts
 790	      });
-791	
+791
 792	      const sharedPlan = await tx.sharedMealPlan.findUnique({
 793	        where: {
 794	          householdId_weekStart: { householdId, weekStart: weekStartDate },
 795	        },
 796	        select: { id: true },
 797	      });
-798	
+798
 799	      if (weeklyPlan) {
 800	        await tx.planItem.deleteMany({ where: { weeklyPlanId: weeklyPlan.id } });
 801	      }
-802	
+802
 803	      if (sharedPlan) {
 804	        await tx.sharedMealPlanItem.deleteMany({ where: { sharedMealPlanId: sharedPlan.id } });
 805	        await tx.sharedMealPlan.delete({ where: { id: sharedPlan.id } });
@@ -245,15 +250,15 @@ After (g)+(h) the file ends after `getUserDisplayName` (849–855) + the private
 New code: drop `else { … }` (105–144) entirely and make the `if` a guard:
 
 ```ts
-    // `PlanItem` jest JEDYNYM źródłem listy. Wycofana pula tygodniowa
-    // (`SharedMealPlan`) potrafiła podstawić widmową listę tygodniowi, z
-    // którego usunięto wszystkie posiłki po jednym — a asystentowi kazała
-    // liczyć bilans z danych, których nie widać w aplikacji (WP-03).
-    const ingredientSources = (weeklyPlan?.items ?? []).map((item) => ({
-      recipe: item.recipe,
-      portionFactor:
-        Math.max(1, item.plannedServings) / Math.max(1, item.recipe.servings),
-    }));
+// `PlanItem` jest JEDYNYM źródłem listy. Wycofana pula tygodniowa
+// (`SharedMealPlan`) potrafiła podstawić widmową listę tygodniowi, z
+// którego usunięto wszystkie posiłki po jednym — a asystentowi kazała
+// liczyć bilans z danych, których nie widać w aplikacji (WP-03).
+const ingredientSources = (weeklyPlan?.items ?? []).map((item) => ({
+  recipe: item.recipe,
+  portionFactor:
+    Math.max(1, item.plannedServings) / Math.max(1, item.recipe.servings),
+}));
 ```
 
 …and delete the `let ingredientSources: Array<{…}> = [];` declaration at lines 81–93 (the explicit type is now inferred from `weeklyPlan.items`). Also fix the stale doc comment at lines 44–47 (`"The week-long shared pool it replaced is only consulted for weeks planned before that"`) — it now describes removed behaviour.
@@ -312,6 +317,7 @@ This is what makes ghost lists self-heal without SQL: for a pool-only week the r
 47	 * (`SaveSharedMealPlanDto`), bo tam starszy klient nie zna nowych slotów;
 48	 * tutaj mapę wysyła wyłącznie klient, który zna wszystkie.
 ```
+
 → replace 46–48 with: `* Mapę wysyła wyłącznie klient, który zna wszystkie sloty.`
 
 ---
@@ -328,6 +334,7 @@ Line 13 — drop `SAVE_PLAN` from the union:
 14	  | 'CLEAR_PLAN'
 15	  | (string & {});
 ```
+
 (the `(string & {})` member keeps every call site type-checking.)
 
 Lines 209–211 — delete the branch in `buildPlanSummary`:
@@ -360,24 +367,25 @@ grep -rn -E "sharedMealPlan|SharedMealPlan|savedPlan|SavedPlan|listByHousehold|a
   --include='*.ts' --include='*.prisma' --include='*.sql' --include='*.json' --include='*.md' . | grep -v node_modules | grep -v '/dist/'
 ```
 
-| File | Lines | Action |
-|---|---|---|
-| `src/weekly-plans/weekly-plans.gateway.ts` | 13, 14, 20, 24–27, 35–50, 123–128, 236–253, 255–263, 276–303, 618–680, 702–709 | delete; 607–616 → shim |
-| `src/weekly-plans/weekly-plans.service.ts` | 2, 9, 10, 14–18, 19, 114–127, 155–163, 165–277, 279–307, 792–797, 803–806, 857–919, 921–1079 | delete / edit |
-| `src/weekly-plans/services/shopping-list.service.ts` | 44–47 (comment), 81–93, 105–144, 354–384 | delete / rewrite |
-| `src/weekly-plans/dto/save-shared-meal-plan.dto.ts` | whole file | delete |
-| `src/weekly-plans/dto/save-shared-meal-plan.dto.spec.ts` | whole file | delete |
-| `src/weekly-plans/dto/create-plan-item.dto.ts` | whole file | delete |
-| `src/weekly-plans/dto/create-weekly-plan.dto.ts` | whole file | delete |
-| `src/weekly-plans/weekly-plans.service.spec.ts` | 168–173 (`sharedMealPlan`/`sharedMealPlanItem` mock delegates) | **keep as spies**, see §6.2 |
-| `src/weekly-plans/services/shopping-list.service.spec.ts` | 66–71 (`poolItem`), 79–84 (`poolWith`), 95–97 (mock), 347–378 (two tests) | see §6.1 |
-| `src/notifications/notification-copy.util.ts` | 13, 209–211 | delete |
-| `src/notifications/notification-copy.util.spec.ts` | 174–189 | delete test |
-| `src/households/dto/update-meal-times.dto.ts` | 46–48 | comment fix |
-| `prisma/schema.prisma` | 164, 243, 565–592 | **keep** (follow-up) |
-| `prisma/migrations/20260216123000_restore_missing_domain_tables/migration.sql` | 18–90 | **never edit** (applied history) |
+| File                                                                           | Lines                                                                                        | Action                           |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- | -------------------------------- |
+| `src/weekly-plans/weekly-plans.gateway.ts`                                     | 13, 14, 20, 24–27, 35–50, 123–128, 236–253, 255–263, 276–303, 618–680, 702–709               | delete; 607–616 → shim           |
+| `src/weekly-plans/weekly-plans.service.ts`                                     | 2, 9, 10, 14–18, 19, 114–127, 155–163, 165–277, 279–307, 792–797, 803–806, 857–919, 921–1079 | delete / edit                    |
+| `src/weekly-plans/services/shopping-list.service.ts`                           | 44–47 (comment), 81–93, 105–144, 354–384                                                     | delete / rewrite                 |
+| `src/weekly-plans/dto/save-shared-meal-plan.dto.ts`                            | whole file                                                                                   | delete                           |
+| `src/weekly-plans/dto/save-shared-meal-plan.dto.spec.ts`                       | whole file                                                                                   | delete                           |
+| `src/weekly-plans/dto/create-plan-item.dto.ts`                                 | whole file                                                                                   | delete                           |
+| `src/weekly-plans/dto/create-weekly-plan.dto.ts`                               | whole file                                                                                   | delete                           |
+| `src/weekly-plans/weekly-plans.service.spec.ts`                                | 168–173 (`sharedMealPlan`/`sharedMealPlanItem` mock delegates)                               | **keep as spies**, see §6.2      |
+| `src/weekly-plans/services/shopping-list.service.spec.ts`                      | 66–71 (`poolItem`), 79–84 (`poolWith`), 95–97 (mock), 347–378 (two tests)                    | see §6.1                         |
+| `src/notifications/notification-copy.util.ts`                                  | 13, 209–211                                                                                  | delete                           |
+| `src/notifications/notification-copy.util.spec.ts`                             | 174–189                                                                                      | delete test                      |
+| `src/households/dto/update-meal-times.dto.ts`                                  | 46–48                                                                                        | comment fix                      |
+| `prisma/schema.prisma`                                                         | 164, 243, 565–592                                                                            | **keep** (follow-up)             |
+| `prisma/migrations/20260216123000_restore_missing_domain_tables/migration.sql` | 18–90                                                                                        | **never edit** (applied history) |
 
 **Confirmed clean — no work needed:**
+
 - `/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/prisma/seed.ts` — zero hits for `sharedMealPlan`; it does not seed pools.
 - `/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/scripts/ws-smoke.ts` — a generic `<event> <json>` CLI (`process.argv[2]`), hardcodes no event names.
 - `/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/test/smoke.e2e-spec.ts` — only touches `weeklyPlans:upsertWeekSlot` / `weeklyPlans:weekChanged` (lines 142, 204–213). **Unaffected.**
@@ -391,6 +399,7 @@ grep -rn -E "sharedMealPlan|SharedMealPlan|savedPlan|SavedPlan|listByHousehold|a
 `wsRespond` never runs — Nest only invokes it from a registered `@SubscribeMessage`. With no handler, **socket.io silently drops the packet and never calls the ack callback**. There is no catch-all handler and no `onAny` in the codebase (grep-verified).
 
 iOS side, `/Users/rafi/Desktop/Weekly Meals App/weekly-meals-ios/weekly meals/Networking/Recipes/SocketIORecipeSocketClient.swift`:
+
 - `ackTimeoutSeconds = 6` (line 10), `maxAckAttempts = 3` (line 11), 250 ms × attempt backoff (line 186).
 - `requestAck` resolves with `"NO ACK"` on timeout → `RecipeDataError.serverError("Brak ACK dla eventu …")` → retried 3×.
 
@@ -453,7 +462,7 @@ ORDER BY s."weekStart" DESC;
 
 Expected on this dataset: **0 rows** (the pool has had no writer since Plan v2 shipped, and `clearWeekPlan` deletes it). Any row here is a household whose shopping list is about to change from "ghost items" to "empty" — if `is_current_or_future = true`, mention it in the release note.
 
-Companion query — pool weeks that *do* have day items (the pool is invisible there, deleting is a pure no-op):
+Companion query — pool weeks that _do_ have day items (the pool is invisible there, deleting is a pure no-op):
 
 ```sql
 SELECT count(*) FROM "SharedMealPlan" s
@@ -506,6 +515,7 @@ COMMIT;
 DROP TABLE "SharedMealPlanItem";
 DROP TABLE "SharedMealPlan";
 ```
+
 plus deleting schema.prisma lines 164, 243, 565–592. Ship only after telemetry shows `weeklyPlans:getSavedPlan` at zero and the shim (§1.1e) is removed.
 
 ---
@@ -537,36 +547,36 @@ Path: `/Users/rafi/Desktop/Weekly Meals App/weekly-meals-ios/weekly meals/Models
 
 Delete, in this order (line numbers from the current file):
 
-| Lines | Symbol |
-|---|---|
-| 4–8 (comment) | fix the header: drop `SavedMealPlan (… PlanEntry / SavedMealPlan …)` from the companion-types list, keep `DayMealPlan`/`PlanMeal` |
-| 17 | `private(set) var savedPlan: SavedMealPlan = SavedMealPlan()` |
-| 22 | `private var observedSavedPlanWeekStart: String?` |
-| 24 | `private var lastSavedPlanChangeVersionByWeek: [String: Int64] = [:]` |
-| 26 | `private var pendingSavedPlanReloadTask: Task<Void, Never>?` |
-| 33 | `var hasSavedPlan: Bool { !savedPlan.isEmpty }` |
-| 55–60 | the `observeSavedPlanChanges { … }` registration in `init` |
-| 68 | `loadSavedPlan()` in `init` → **replace** with `Self.deleteLegacySavedPlanFile()` (see 5.2a) |
-| 161–163 | the two-line comment + `syncSavedPlanSelectionFlagsWithCalendar()` inside `loadWeekPlanFromBackend` |
-| 369–371 | `savedPlan = SavedMealPlan()` + `saveSavedPlan()` inside `clearWeekFromBackend` |
-| 377–436 | doc comment + `applySavedPlanToWeek(weekStart:dates:plan:householdMemberCount:)` |
-| 438–449 | `// MARK: - Saved Plan API`, `saveMealPlan(_:)`, `clearSavedPlan()` |
-| 450–469 | `loadSavedPlanFromBackend(weekStart:)` |
-| 470–496 | `saveMealPlanToBackend(_:weekStart:)` |
-| 497–500 | `clearSavedPlanFromBackend(weekStart:)` |
+| Lines                        | Symbol                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4–8 (comment)                | fix the header: drop `SavedMealPlan (… PlanEntry / SavedMealPlan …)` from the companion-types list, keep `DayMealPlan`/`PlanMeal`                                                                                                                                                                                                                          |
+| 17                           | `private(set) var savedPlan: SavedMealPlan = SavedMealPlan()`                                                                                                                                                                                                                                                                                              |
+| 22                           | `private var observedSavedPlanWeekStart: String?`                                                                                                                                                                                                                                                                                                          |
+| 24                           | `private var lastSavedPlanChangeVersionByWeek: [String: Int64] = [:]`                                                                                                                                                                                                                                                                                      |
+| 26                           | `private var pendingSavedPlanReloadTask: Task<Void, Never>?`                                                                                                                                                                                                                                                                                               |
+| 33                           | `var hasSavedPlan: Bool { !savedPlan.isEmpty }`                                                                                                                                                                                                                                                                                                            |
+| 55–60                        | the `observeSavedPlanChanges { … }` registration in `init`                                                                                                                                                                                                                                                                                                 |
+| 68                           | `loadSavedPlan()` in `init` → **replace** with `Self.deleteLegacySavedPlanFile()` (see 5.2a)                                                                                                                                                                                                                                                               |
+| 161–163                      | the two-line comment + `syncSavedPlanSelectionFlagsWithCalendar()` inside `loadWeekPlanFromBackend`                                                                                                                                                                                                                                                        |
+| 369–371                      | `savedPlan = SavedMealPlan()` + `saveSavedPlan()` inside `clearWeekFromBackend`                                                                                                                                                                                                                                                                            |
+| 377–436                      | doc comment + `applySavedPlanToWeek(weekStart:dates:plan:householdMemberCount:)`                                                                                                                                                                                                                                                                           |
+| 438–449                      | `// MARK: - Saved Plan API`, `saveMealPlan(_:)`, `clearSavedPlan()`                                                                                                                                                                                                                                                                                        |
+| 450–469                      | `loadSavedPlanFromBackend(weekStart:)`                                                                                                                                                                                                                                                                                                                     |
+| 470–496                      | `saveMealPlanToBackend(_:weekStart:)`                                                                                                                                                                                                                                                                                                                      |
+| 497–500                      | `clearSavedPlanFromBackend(weekStart:)`                                                                                                                                                                                                                                                                                                                    |
 | 506, 509, 511, 513, 515, 517 | inside `resetLocalPlanningState()`: the `savedPlan`, `observedSavedPlanWeekStart`, `lastSavedPlanChangeVersionByWeek`, `pendingSavedPlanReloadTask?.cancel()`, `pendingSavedPlanReloadTask = nil`, `saveSavedPlan()` lines. Keep `plans = [:]`, `observedWeekStart`, `observedWeekDates`, `lastWeekChangeVersionByWeek`, `pendingWeekReloadTask`, `save()` |
-| 547–567 | `handleRemoteSavedPlanChanged(event:)` |
-| 579–586 | `scheduleSavedPlanReload(weekStart:)` |
-| 591–594 | the `if let observedSavedPlanWeekStart { scheduleSavedPlanReload(…) }` block in `scheduleRefreshForObservedState()` |
-| 597–611 | `mapSavedPlan(dto:)` (incl. nested `expand(slot:)`) |
-| 613–625 | `calendarUsageCounts()` — only callers are the two functions below |
-| 627–635 | `syncSavedPlanSelectionFlagsWithCalendar()` |
-| 637–678 | `cleanupCalendarAndSync(with:)` |
-| 680–695 | `syncEntries(_:usedCounts:)` |
-| 697–704 | `markAsSelected(_:slot:)` |
-| 706–712 | `markAsAvailable(_:slot:)` |
-| 714–717 | `mutateEntries(for:_:)` |
-| 744–767 | `// MARK: - Saved Plan Persistence`, `savedPlanURL`, `saveSavedPlan()`, `loadSavedPlan()` → **replace** per 5.2a |
+| 547–567                      | `handleRemoteSavedPlanChanged(event:)`                                                                                                                                                                                                                                                                                                                     |
+| 579–586                      | `scheduleSavedPlanReload(weekStart:)`                                                                                                                                                                                                                                                                                                                      |
+| 591–594                      | the `if let observedSavedPlanWeekStart { scheduleSavedPlanReload(…) }` block in `scheduleRefreshForObservedState()`                                                                                                                                                                                                                                        |
+| 597–611                      | `mapSavedPlan(dto:)` (incl. nested `expand(slot:)`)                                                                                                                                                                                                                                                                                                        |
+| 613–625                      | `calendarUsageCounts()` — only callers are the two functions below                                                                                                                                                                                                                                                                                         |
+| 627–635                      | `syncSavedPlanSelectionFlagsWithCalendar()`                                                                                                                                                                                                                                                                                                                |
+| 637–678                      | `cleanupCalendarAndSync(with:)`                                                                                                                                                                                                                                                                                                                            |
+| 680–695                      | `syncEntries(_:usedCounts:)`                                                                                                                                                                                                                                                                                                                               |
+| 697–704                      | `markAsSelected(_:slot:)`                                                                                                                                                                                                                                                                                                                                  |
+| 706–712                      | `markAsAvailable(_:slot:)`                                                                                                                                                                                                                                                                                                                                 |
+| 714–717                      | `mutateEntries(for:_:)`                                                                                                                                                                                                                                                                                                                                    |
+| 744–767                      | `// MARK: - Saved Plan Persistence`, `savedPlanURL`, `saveSavedPlan()`, `loadSavedPlan()` → **replace** per 5.2a                                                                                                                                                                                                                                           |
 
 **Keep untouched:** `plans`, `fileURL`/`save()`/`load()` (`meal_plans.json`), `dateKey`, `plan(for:)`, `meals(for:slot:)`, `allRecipes(for dates:)` (this is the store's own, different from `SavedMealPlan.allRecipes()`), `loadWeekPlanFromBackend`, `upsertWeekSlot`, `removeWeekSlot`, `setMealEaten`, `clearWeekFromBackend`, `resetLocalPlanningState`, `refreshObservedState`, `handleRemoteWeekPlanChanged`, `scheduleWeekReload`, `scheduleRefreshForObservedState`.
 
@@ -593,20 +603,20 @@ and call it from `init` where line 68 was. It is idempotent (`try?` swallows `NS
 
 Path: `/Users/rafi/Desktop/Weekly Meals App/weekly-meals-ios/weekly meals/Models/Stores/WeeklyPlanStore.swift`
 
-| Lines | Symbol |
-|---|---|
-| 41–43 | `fetchSavedPlan`, `saveSavedPlan`, `observeSavedPlanChanges` from `protocol WeeklyPlanRepository` |
-| 55–57 | the same three from `protocol WeeklyPlanTransportClient` |
-| 84–92 | `struct BackendSharedMealPlanDTO` + `struct BackendSharedMealPlanItemDTO` |
-| 128–135 | `struct BackendSavedPlanChangedDTO` |
-| 382–398 | `WebSocketWeeklyPlanTransportClient.fetchSavedPlan` (emits `weeklyPlans:getSavedPlan`) |
-| 400–425 | `.saveSavedPlan` (emits `weeklyPlans:saveSavedPlan`) |
-| 427–452 | `.observeSavedPlanChanges` (subscribes `weeklyPlans:savedPlanChanged`) |
-| 536–549 | `ApiWeeklyPlanRepository.fetchSavedPlan` / `.saveSavedPlan` / `.observeSavedPlanChanges` |
+| Lines   | Symbol                                                                                            |
+| ------- | ------------------------------------------------------------------------------------------------- |
+| 41–43   | `fetchSavedPlan`, `saveSavedPlan`, `observeSavedPlanChanges` from `protocol WeeklyPlanRepository` |
+| 55–57   | the same three from `protocol WeeklyPlanTransportClient`                                          |
+| 84–92   | `struct BackendSharedMealPlanDTO` + `struct BackendSharedMealPlanItemDTO`                         |
+| 128–135 | `struct BackendSavedPlanChangedDTO`                                                               |
+| 382–398 | `WebSocketWeeklyPlanTransportClient.fetchSavedPlan` (emits `weeklyPlans:getSavedPlan`)            |
+| 400–425 | `.saveSavedPlan` (emits `weeklyPlans:saveSavedPlan`)                                              |
+| 427–452 | `.observeSavedPlanChanges` (subscribes `weeklyPlans:savedPlanChanged`)                            |
+| 536–549 | `ApiWeeklyPlanRepository.fetchSavedPlan` / `.saveSavedPlan` / `.observeSavedPlanChanges`          |
 
 `WebSocketWeeklyPlanTransportClient` (187) and `ApiWeeklyPlanRepository` (454) are the **only** conformances in the tree (no test doubles, no preview mocks — grep-verified), so protocol and implementations can be cut in one pass.
 
-**Note:** the shim in §1.1e means an *old* app keeps working against the new backend; the *new* app simply never emits the event.
+**Note:** the shim in §1.1e means an _old_ app keeps working against the new backend; the _new_ app simply never emits the event.
 
 ### 5.4 `Models/Plans/SavedMealPlan.swift`
 
@@ -653,7 +663,7 @@ Repo pattern to follow (both existing specs): `Test.createTestingModule({ provid
 
 **Delete:** the `poolItem` helper (lines 66–71 with its 63–65 comment) and `poolWith` (79–84).
 
-**Keep** the mock delegate (lines 95–97) — it becomes the regression *sensor*, and change its comment:
+**Keep** the mock delegate (lines 95–97) — it becomes the regression _sensor_, and change its comment:
 
 ```ts
     // Wycofana pula tygodniowa (WP-03). Delegat zostaje wyłącznie po to, żeby
@@ -664,6 +674,7 @@ Repo pattern to follow (both existing specs): `Test.createTestingModule({ provid
 ```
 
 **Delete two tests:**
+
 - `it('powinno oprzeć listę na starej puli, gdy tydzień nie ma dni w Planie v2')` (349–361) — asserts the exact behaviour being removed.
 - `it('powinno przedkładać dni Planu v2 nad starą pulę dla tego samego tygodnia')` (363–378) — superseded by the new case below.
 
@@ -672,54 +683,69 @@ Repo pattern to follow (both existing specs): `Test.createTestingModule({ provid
 **Add**, replacing the `// ─── Współistnienie ze starą pulą ───` section header with `// ─── Wycofana pula tygodniowa (WP-03) ───`:
 
 ```ts
-  it('nie powinno budować listy ze starej puli, gdy tydzień nie ma dni w Planie v2', async () => {
-    prisma.weeklyPlan.findUnique.mockResolvedValue(null);
-    prisma.sharedMealPlan.findUnique.mockResolvedValue({
-      id: 'shared-1',
-      householdId: mockHouseholdId,
-      weekStart: new Date(mockWeekStart),
-      items: [{ id: 'p-1', recipe: { ingredients: [ingredient('Makaron', 200)], servings: 2 }, quantity: 3 }],
-    });
-
-    await expect(getList()).resolves.toEqual([]);
-    expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
+it('nie powinno budować listy ze starej puli, gdy tydzień nie ma dni w Planie v2', async () => {
+  prisma.weeklyPlan.findUnique.mockResolvedValue(null);
+  prisma.sharedMealPlan.findUnique.mockResolvedValue({
+    id: 'shared-1',
+    householdId: mockHouseholdId,
+    weekStart: new Date(mockWeekStart),
+    items: [
+      {
+        id: 'p-1',
+        recipe: { ingredients: [ingredient('Makaron', 200)], servings: 2 },
+        quantity: 3,
+      },
+    ],
   });
+
+  await expect(getList()).resolves.toEqual([]);
+  expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
+});
 ```
+
 Input: 0 `PlanItem`s + a pool with 3× 200 g pasta. Expected output: `[]` (previously: one row `Makaron 600 g`), and the pool delegate untouched.
 
 ```ts
-  it('nie powinno pytać o starą pulę, gdy tydzień ma dni w Planie v2', async () => {
-    prisma.weeklyPlan.findUnique.mockResolvedValue(
-      weekPlanWith([dayItem('i-1', 2, 'LUNCH', [ingredient('Ziemniaki', 500)])]),
-    );
+it('nie powinno pytać o starą pulę, gdy tydzień ma dni w Planie v2', async () => {
+  prisma.weeklyPlan.findUnique.mockResolvedValue(
+    weekPlanWith([dayItem('i-1', 2, 'LUNCH', [ingredient('Ziemniaki', 500)])]),
+  );
 
-    const items = await getList();
+  const items = await getList();
 
-    expect(items).toHaveLength(1);
-    expect(findItem(items, 'ziemniak').totalAmount).toBe(500);
-    expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
-  });
+  expect(items).toHaveLength(1);
+  expect(findItem(items, 'ziemniak').totalAmount).toBe(500);
+  expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
+});
 ```
 
 ```ts
-  it('powinno przebudować listę do pustej, gdy snapshot ma pozycje, a tydzień nie ma już źródła', async () => {
-    // Widmowa lista z WP-03: snapshot zbudowany kiedyś z puli, dziś bez
-    // pokrycia w PlanItem. `hasShoppingSourceData` musi odpowiedzieć „nie ma
-    // źródła" i wymusić przebudowę, a nie zwrócić stary snapshot.
-    prisma.shoppingList.findUnique.mockResolvedValue({
-      id: 'sl-1',
-      isStale: false,
-      items: [{
-        id: 'sli-1', productKey: 'makaron|g', name: 'Makaron',
-        unit: 'g', department: 'OTHER', totalAmount: 600, isChecked: false,
-      }],
-    });
-    prisma.weeklyPlan.findUnique.mockResolvedValue(null);
-
-    await expect(getList()).resolves.toEqual([]);
-    expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
+it('powinno przebudować listę do pustej, gdy snapshot ma pozycje, a tydzień nie ma już źródła', async () => {
+  // Widmowa lista z WP-03: snapshot zbudowany kiedyś z puli, dziś bez
+  // pokrycia w PlanItem. `hasShoppingSourceData` musi odpowiedzieć „nie ma
+  // źródła" i wymusić przebudowę, a nie zwrócić stary snapshot.
+  prisma.shoppingList.findUnique.mockResolvedValue({
+    id: 'sl-1',
+    isStale: false,
+    items: [
+      {
+        id: 'sli-1',
+        productKey: 'makaron|g',
+        name: 'Makaron',
+        unit: 'g',
+        department: 'OTHER',
+        totalAmount: 600,
+        isChecked: false,
+      },
+    ],
   });
+  prisma.weeklyPlan.findUnique.mockResolvedValue(null);
+
+  await expect(getList()).resolves.toEqual([]);
+  expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
+});
 ```
+
 Input: non-stale snapshot with 1 item, no day plan. Expected: `[]` after rebuild (before this change it returned the ghost row when a pool existed). This is the direct regression test for §1.3b.
 
 ### 6.2 `/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/src/weekly-plans/weekly-plans.service.spec.ts`
@@ -729,33 +755,36 @@ No existing test covers `listByHousehold`/`create`/`addItem`/`removeItem`/`getSh
 **Keep** the mock delegates at 168–173 as sensors and add, inside `describe('clearWeekPlan')` after the existing `it('powinno usunąć wszystkie sloty danego tygodnia')`:
 
 ```ts
-    it('nie dotyka już wycofanej puli tygodniowej', async () => {
-      await service.clearWeekPlan(mockUserId, mockHouseholdId, mockWeekStart);
+it('nie dotyka już wycofanej puli tygodniowej', async () => {
+  await service.clearWeekPlan(mockUserId, mockHouseholdId, mockWeekStart);
 
-      expect(prisma.planItem.deleteMany).toHaveBeenCalled();
-      expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
-      expect(prisma.sharedMealPlanItem.deleteMany).not.toHaveBeenCalled();
-    });
+  expect(prisma.planItem.deleteMany).toHaveBeenCalled();
+  expect(prisma.sharedMealPlan.findUnique).not.toHaveBeenCalled();
+  expect(prisma.sharedMealPlanItem.deleteMany).not.toHaveBeenCalled();
+});
 ```
+
 Input: member of `hh-1`, week `2026-04-13` (a Monday — required by the strict `parseWeekStart`). Expected: `PlanItem.deleteMany` called, both pool delegates never called.
 
 Add a new top-level `describe` guarding against re-introduction:
 
 ```ts
-  // ─── Wycofane API (WP-03) ─────────────────────────────────────────────────
+// ─── Wycofane API (WP-03) ─────────────────────────────────────────────────
 
-  describe('wycofane metody puli tygodniowej', () => {
-    it.each([
-      'listByHousehold',
-      'create',
-      'addItem',
-      'removeItem',
-      'getSharedMealPlan',
-      'saveSharedMealPlan',
-    ])('%s nie istnieje już w serwisie', (method) => {
-      expect((service as unknown as Record<string, unknown>)[method]).toBeUndefined();
-    });
+describe('wycofane metody puli tygodniowej', () => {
+  it.each([
+    'listByHousehold',
+    'create',
+    'addItem',
+    'removeItem',
+    'getSharedMealPlan',
+    'saveSharedMealPlan',
+  ])('%s nie istnieje już w serwisie', (method) => {
+    expect(
+      (service as unknown as Record<string, unknown>)[method],
+    ).toBeUndefined();
   });
+});
 ```
 
 ### 6.3 `/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/src/weekly-plans/dto/save-shared-meal-plan.dto.spec.ts`
@@ -799,6 +828,7 @@ docker exec weeklymeals-api npx jest src/notifications --ci
 ```bash
 docker exec weeklymeals-api npx tsc --noEmit -p /app/tsconfig.json
 ```
+
 This is the check that catches every unused-import regression from §1.2a (`noUnusedLocals` behaviour depends on `tsconfig.json`; ESLint's `@typescript-eslint/no-unused-vars` will catch the rest — run `docker exec weeklymeals-api npx eslint src/weekly-plans src/notifications`).
 
 **Prisma client:** unchanged (no schema edit), so no `prisma generate` needed. If you later do §4.5, regenerate inside the container: `docker exec weeklymeals-api npx prisma generate`.
@@ -822,6 +852,7 @@ pnpm tsx scripts/ws-smoke.ts weeklyPlans:getByWeek \
 pnpm tsx scripts/ws-smoke.ts weeklyPlans:getShoppingList \
   '{"userId":"<uuid>","householdId":"<uuid>","weekStart":"2026-08-31"}'
 ```
+
 (`scripts/ws-smoke.ts` runs from the host against the published port 3000; it is a thin `socket.io-client` wrapper and needs no repo build.)
 
 ### 7.3 iOS
@@ -831,22 +862,23 @@ cd "/Users/rafi/Desktop/Weekly Meals App/weekly-meals-ios"
 xcodebuild -project "weekly meals.xcodeproj" -scheme "weekly meals" \
   -destination 'platform=iOS Simulator,name=iPhone 16' build | tail -40
 ```
+
 Because the project uses `fileSystemSynchronizedGroups`, the two deleted files (§5.4 partial, §5.5 full) need no project-file surgery. Manual check afterwards: open Calendar, switch weeks back and forth — the week must render on the first frame (no 6 s pause), and `~/Library/Developer/CoreSimulator/.../Documents/saved_plan.json` must be gone after the first launch.
 
 ---
 
 ## 8. Ordered steps
 
-| # | Step | Effort | Blocking |
-|---|---|---|---|
-| 1 | Run §4.1 + §4.2 on **dev and prod**; paste results into the PR. If §4.2 returns rows, list the affected households in the release note. | 20 min | — |
-| 2 | **iOS** §5.1 → 5.9 in one commit; `xcodebuild` per §7.3. | 1.5 h | 1 |
-| 3 | **Backend** §1.1 – 1.5 (code) in one commit. | 1.5 h | — |
-| 4 | **Backend tests** §6.1 – 6.4. | 1 h | 3 |
-| 5 | Verify: §7.1 (`jest` + `tsc --noEmit` + `eslint` in `weeklymeals-api`), then §7.2 smoke. | 30 min | 3, 4 |
-| 6 | Ship iOS **first** (TestFlight/App Store). The new app simply stops calling the pool; the old backend keeps working. | — | 2 |
-| 7 | Deploy the backend (steps 3–5). Old apps still work via the `getSavedPlan` shim. | — | 5, 6 |
-| 8 | **Separate maintenance window, after prod verification:** §4.3 (optional) → §4.4 backup + DELETE. Open the follow-up ticket for §4.5 + shim removal + iOS `SAVE_PLAN` case removal. | 30 min | 7 |
+| #   | Step                                                                                                                                                                                | Effort | Blocking |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------- |
+| 1   | Run §4.1 + §4.2 on **dev and prod**; paste results into the PR. If §4.2 returns rows, list the affected households in the release note.                                             | 20 min | —        |
+| 2   | **iOS** §5.1 → 5.9 in one commit; `xcodebuild` per §7.3.                                                                                                                            | 1.5 h  | 1        |
+| 3   | **Backend** §1.1 – 1.5 (code) in one commit.                                                                                                                                        | 1.5 h  | —        |
+| 4   | **Backend tests** §6.1 – 6.4.                                                                                                                                                       | 1 h    | 3        |
+| 5   | Verify: §7.1 (`jest` + `tsc --noEmit` + `eslint` in `weeklymeals-api`), then §7.2 smoke.                                                                                            | 30 min | 3, 4     |
+| 6   | Ship iOS **first** (TestFlight/App Store). The new app simply stops calling the pool; the old backend keeps working.                                                                | —      | 2        |
+| 7   | Deploy the backend (steps 3–5). Old apps still work via the `getSavedPlan` shim.                                                                                                    | —      | 5, 6     |
+| 8   | **Separate maintenance window, after prod verification:** §4.3 (optional) → §4.4 backup + DELETE. Open the follow-up ticket for §4.5 + shim removal + iOS `SAVE_PLAN` case removal. | 30 min | 7        |
 
 **Total ≈ 5 h** (audit estimated 2 h backend + 1 h iOS; the extra covers tests and the staged data step).
 
@@ -854,11 +886,11 @@ Because the project uses `fileSystemSynchronizedGroups`, the two deleted files (
 
 ## 9. Rollback
 
-| Step | Rollback | Cost |
-|---|---|---|
-| 3–5 (backend code) | `git revert <sha>`, rebuild + restart `weeklymeals-api`. **No schema change**, so the reverted code finds `SharedMealPlan`/`SharedMealPlanItem` exactly as it left them. | ~5 min |
-| 2 / 6 (iOS) | `git revert <sha>` + a new build. Users on the shipped build are unaffected: they only stop calling a dead endpoint. `saved_plan.json` is gone after §5.2a — the reverted code recreates it empty on next save, which is harmless (the pool has no reader anyway). | one release cycle |
-| 8 (data DELETE) | `psql < shared_meal_plan_backup_YYYYMMDD.sql`. **This is the only step that needs a backup** — take it or do not run the DELETE. | ~5 min |
-| §4.5 (future `DROP TABLE`) | Not revertible by `git revert` alone; requires a forward migration recreating both tables + `prisma generate`. **Do not bundle it with this work.** | — |
+| Step                       | Rollback                                                                                                                                                                                                                                                           | Cost              |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
+| 3–5 (backend code)         | `git revert <sha>`, rebuild + restart `weeklymeals-api`. **No schema change**, so the reverted code finds `SharedMealPlan`/`SharedMealPlanItem` exactly as it left them.                                                                                           | ~5 min            |
+| 2 / 6 (iOS)                | `git revert <sha>` + a new build. Users on the shipped build are unaffected: they only stop calling a dead endpoint. `saved_plan.json` is gone after §5.2a — the reverted code recreates it empty on next save, which is harmless (the pool has no reader anyway). | one release cycle |
+| 8 (data DELETE)            | `psql < shared_meal_plan_backup_YYYYMMDD.sql`. **This is the only step that needs a backup** — take it or do not run the DELETE.                                                                                                                                   | ~5 min            |
+| §4.5 (future `DROP TABLE`) | Not revertible by `git revert` alone; requires a forward migration recreating both tables + `prisma generate`. **Do not bundle it with this work.**                                                                                                                | —                 |
 
 **Data migration flags:** none in this PR (no Prisma migration file is added). The only SQL is the optional `UPDATE "ShoppingList" SET "isStale"=true` (§4.3, idempotent, non-destructive) and the deferred `DELETE` (§4.4, backed up). `prisma-migrate-deploy-safe.js` will find no new migration and is a no-op.

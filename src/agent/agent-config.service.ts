@@ -74,14 +74,24 @@ export class AgentConfigService {
     }
 
     if (env.consentRequired) {
-      const consented = await this.consents.hasValid(userId, 'AI_ASSISTANT');
-      if (!consented) {
+      // Dwie zgody naraz: na wysyłanie danych do modelu (art. 9) i na
+      // deklarację 16 lat (art. 8). Druga była dotąd tylko zdefiniowana —
+      // egzekwował ją wyłącznie klient, czyli nikt.
+      const [ai, age] = await Promise.all([
+        this.consents.hasValid(userId, 'AI_ASSISTANT'),
+        this.consents.hasValid(userId, 'AGE_16'),
+      ]);
+      if (!ai || !age) {
         this.metrics.recordRejected('disabled');
         throw new AppException(
           'AI_CONSENT_REQUIRED',
           'Zanim zaczniesz rozmawiać z asystentem, potwierdź zgodę w Ustawieniach.',
           HttpStatus.FORBIDDEN,
-          [`documentVersion:${LEGAL_DOCUMENT_VERSIONS.AI_ASSISTANT}`],
+          [
+            `documentVersion:${LEGAL_DOCUMENT_VERSIONS.AI_ASSISTANT}`,
+            ...(ai ? [] : ['missing:AI_ASSISTANT']),
+            ...(age ? [] : ['missing:AGE_16']),
+          ],
         );
       }
     }

@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
+import { ConsentsService } from '../consents/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DailyStepsEntryDto } from './dto/sync-health-steps.dto';
 
@@ -18,9 +19,41 @@ const toUtcDate = (raw: string): Date => {
 
 @Injectable()
 export class HealthStepsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly consents?: ConsentsService,
+  ) {}
+
+  /** Cofnięcie zgody wynika z czynności: wyłączenie synchronizacji kasuje dane. */
+  async deleteAll(userId: string): Promise<{ deleted: number }> {
+    const result = await this.prisma.dailyStepCount.deleteMany({
+      where: { userId },
+    });
+    if (result.count > 0) {
+      await this.consents?.recordSystem(
+        userId,
+        'HEALTH_DATA',
+        'REVOKED',
+        'HEALTH_STEPS_CLEARED',
+      );
+    }
+    return { deleted: result.count };
+  }
 
   async syncSteps(userId: string, entries: DailyStepsEntryDto[]) {
+    // Pierwsza synchronizacja = wyraźna zgoda na przetwarzanie danych
+    // o zdrowiu (art. 9). Zapis tylko, gdy w dzienniku jeszcze jej nie ma.
+    if (
+      this.consents &&
+      !(await this.consents.hasValid(userId, 'HEALTH_DATA'))
+    ) {
+      await this.consents.recordSystem(
+        userId,
+        'HEALTH_DATA',
+        'GRANTED',
+        'HEALTH_STEPS_SYNC',
+      );
+    }
     // Deduplikacja po dacie (ostatni wygrywa) — zdublowany dzień w batchu
     // wywaliłby transakcję na kluczu głównym, a taki batch potrafi powstać
     // po stronie telefonu przy zmianie strefy czasowej.

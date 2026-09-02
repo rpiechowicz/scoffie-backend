@@ -8,6 +8,7 @@ metadata:
 `Recipe.nutrition*` w bazie to wartości dla CAŁEGO przepisu (wszystkich porcji); iOS dzieli przez `servings` w `Recipe.nutritionPerServing`. Makro liczy się ze składników, nie wpisuje z ręki — źródłem prawdy są wartości per 100 g / 100 ml w `prisma/catalog/ingredient-nutrition-pl-v1.json`, wgrywane do kolumn `Ingredient.nutrition*Per100` + `gramsPerPiece`.
 
 Ustalenia z audytu 2026-08-20, których nie widać z kodu:
+
 - węglowodany są **przyswajalne, bez błonnika** (konwencja IŻŻ), błonnik osobno
 - makaron i ryż liczone jako **sucha masa**
 - olej i oliwa: 810 kcal / 100 **ml** (gęstość 0,92 g/ml), nie 900

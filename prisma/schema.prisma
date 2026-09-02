@@ -747,7 +747,7 @@ model AiUsage {
   /// systematycznie „malał". Wiersz bez tury nadal niesie userId, householdId,
   /// tokeny i koszt.
   turnId           String?  @db.Uuid
-  userId           String   @db.Uuid
+  userId           String?  @db.Uuid
   householdId      String?  @db.Uuid
   provider         String
   model            String

@@ -176,6 +176,10 @@ const makePrismaMock = (state: MockState) => {
     shoppingList: {
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    // Hasło Cookidoo odchodzi z osobą, która je podała (audyt 2).
+    cookidooIntegration: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     $transaction: jest.fn().mockImplementation((cbOrOps: any) => {
       if (typeof cbOrOps === 'function') return cbOrOps(mock);
       return Promise.all(cbOrOps);
