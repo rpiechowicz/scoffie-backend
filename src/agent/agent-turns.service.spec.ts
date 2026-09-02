@@ -38,6 +38,7 @@ const ENV: AgentEnv = {
   proposalUndoWindowMs: 60 * 60 * 1000,
   allowedUsers: [],
   consentRequired: false,
+  conversationRetentionDays: 90,
 };
 
 const validDto = (): PostMessageDto => ({

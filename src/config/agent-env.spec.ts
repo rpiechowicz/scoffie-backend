@@ -33,7 +33,19 @@ describe('readAgentEnv', () => {
       allowedUsers: [],
       // Bramka zgód wyłączona, dopóki wydany iOS nie ma ekranu zgody.
       consentRequired: false,
+      conversationRetentionDays: AGENT_ENV_DEFAULTS.conversationRetentionDays,
     });
+  });
+
+  it('retencja: 0 wyłącza, ułamek/ujemna = domyślne 90', () => {
+    expect(
+      readAgentEnv({ AI_CONVERSATION_RETENTION_DAYS: '0' })
+        .conversationRetentionDays,
+    ).toBe(0);
+    expect(
+      readAgentEnv({ AI_CONVERSATION_RETENTION_DAYS: '-5' })
+        .conversationRetentionDays,
+    ).toBe(90);
   });
 
   it('AI_CONSENT_REQUIRED tylko literalne true', () => {

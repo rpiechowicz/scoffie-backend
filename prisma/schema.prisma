@@ -711,7 +711,12 @@ model AgentTurn {
 /// kosztów (tokeny z cache osobno, latencja, powód zatrzymania).
 model AiUsage {
   id               String   @id @default(uuid()) @db.Uuid
-  turnId           String   @db.Uuid
+  /// Nullable od 2.09.2026: księga kosztów to dane ROZLICZENIOWE i musi
+  /// przeżyć kasowanie rozmów (porządki użytkownika, retencja 90 dni) —
+  /// wcześniej kaskada z tury zabierała ją razem z rozmową, więc rachunek
+  /// systematycznie „malał". Wiersz bez tury nadal niesie userId, householdId,
+  /// tokeny i koszt.
+  turnId           String?  @db.Uuid
   userId           String   @db.Uuid
   householdId      String?  @db.Uuid
   provider         String
@@ -726,7 +731,7 @@ model AiUsage {
   latencyMs        Int?
   createdAt        DateTime @default(now())
 
-  turn AgentTurn @relation(fields: [turnId], references: [id], onDelete: Cascade)
+  turn AgentTurn? @relation(fields: [turnId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([createdAt])

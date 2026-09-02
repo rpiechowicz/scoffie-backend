@@ -276,8 +276,9 @@ export class AgentConversationsService {
 
   /**
    * Kasuje WSZYSTKIE rozmowy użytkownika (RODO — „usuń moje rozmowy z
-   * asystentem"). Wiadomości, tury i wpisy `AiUsage` idą kaskadą; liczniki
-   * kwot zostają, bo to dane rozliczeniowe gospodarstwa, nie treść rozmowy.
+   * asystentem"). Wiadomości i tury idą kaskadą; wpisy `AiUsage` ZOSTAJĄ
+   * (turnId → NULL), tak samo liczniki kwot — to dane rozliczeniowe
+   * gospodarstwa, nie treść rozmowy.
    *
    * Bez `assertEnabled`: prawo do usunięcia danych nie może zależeć od tego,
    * czy funkcja jest akurat włączona.

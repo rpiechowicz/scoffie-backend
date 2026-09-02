@@ -99,6 +99,13 @@ export type AgentEnv = {
    * wcześniej odcięłaby rodzinę od asystenta bez możliwości kliknięcia.
    */
   consentRequired: boolean;
+  /**
+   * Po ilu dniach od ostatniej wiadomości rozmowa (z turami, kartami i
+   * propozycjami) jest kasowana automatycznie; `0` = bez retencji. Polityka
+   * prywatności obiecuje 90 dni — obietnica bez automatu jest gorsza niż
+   * brak obietnicy. Księga kosztów zostaje (turnId → NULL).
+   */
+  conversationRetentionDays: number;
 };
 
 /**
@@ -128,6 +135,8 @@ export const AGENT_ENV_DEFAULTS = {
   proposalTtlMs: 72 * 60 * 60 * 1000,
   /** Godzina na „Cofnij" — tyle, ile trwa zorientowanie się, że to nie to. */
   proposalUndoWindowMs: 60 * 60 * 1000,
+  /** 90 dni: tyle obiecuje polityka prywatności (decyzja 2.09.2026). */
+  conversationRetentionDays: 90,
 } as const;
 
 /** Jedyna droga do braku budżetu — jawna i widoczna w `railway variables`. */
@@ -139,7 +148,8 @@ type NumericKey =
   | 'AI_LIMIT_PLANS_PER_MONTH'
   | 'AI_STUB_DELAY_MS'
   | 'AI_PROPOSAL_TTL_MS'
-  | 'AI_PROPOSAL_UNDO_WINDOW_MS';
+  | 'AI_PROPOSAL_UNDO_WINDOW_MS'
+  | 'AI_CONVERSATION_RETENTION_DAYS';
 
 function readNumber(
   env: NodeJS.ProcessEnv,
@@ -242,6 +252,12 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
     allowedUsers: parseAllowedUsers(env.AI_ALLOWED_USERS),
     consentRequired:
       (env.AI_CONSENT_REQUIRED ?? '').trim().toLowerCase() === 'true',
+    conversationRetentionDays: readNumber(
+      env,
+      'AI_CONVERSATION_RETENTION_DAYS',
+      AGENT_ENV_DEFAULTS.conversationRetentionDays,
+      { min: 0 },
+    ),
   };
 }
 
@@ -303,6 +319,7 @@ export function agentEnvProblems(
     ['AI_STUB_DELAY_MS', { min: 0, integer: true }],
     ['AI_PROPOSAL_TTL_MS', { min: 1, integer: true }],
     ['AI_PROPOSAL_UNDO_WINDOW_MS', { min: 0, integer: true }],
+    ['AI_CONVERSATION_RETENTION_DAYS', { min: 0, integer: true }],
   ];
   for (const [key, opts] of numeric) {
     const raw = (env[key] ?? '').trim();

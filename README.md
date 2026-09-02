@@ -151,6 +151,11 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   allergens and exclusions are still enforced by the write gate. Missing
   consent answers `403 AI_CONSENT_REQUIRED`. Turn it on only once the shipped
   iOS build has the consent screen.
+- `AI_CONVERSATION_RETENTION_DAYS` (`90`, `0` disables) — conversations
+  (with turns, cards and proposals) older than this since their last message
+  are deleted by an in-process sweep every six hours; conversations with a
+  running turn are skipped. The `AiUsage` ledger survives (`turnId` becomes
+  `NULL`), so billing data never shrinks with clean-ups.
 - `AI_GLOBAL_DAILY_BUDGET_USD` (`5`) — daily cost cap for the whole
   installation; over it, `/agent` answers `503 AI_BUDGET_PAUSED`. `off` means
   no cap at all — an empty variable takes the default, because "unset" must not
