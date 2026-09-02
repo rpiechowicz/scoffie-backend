@@ -102,8 +102,13 @@ railway run --service Backend pnpm exec tsx scripts/fix-recipe-image-urls.ts
 // 1. Raport, nic nie kasuje — ZAWSZE najpierw to:
 railway run --service Backend pnpm accounts:reset
 //
-// 2. Wykonanie:
-railway run --service Backend RESET_ACCOUNTS_WRITE=true pnpm accounts:reset
+// 2. Wykonanie. Sama RESET_ACCOUNTS_WRITE juz NIE wystarcza — straznik
+//    (scripts/lib/reset-accounts-guard.js) wymaga dzisiejszej daty UTC
+//    (potwierdzenie wygasa o polnocy) i hosta bazy z DATABASE_URL
+//    (`railway variables --service Postgres` → DATABASE_URL, czesc host:port).
+//    Skrypt wypisuje host PRZED kasowaniem. Zadnej z tych zmiennych NIE
+//    zapisuj w Railway Variables — podaj je w linii polecenia:
+railway run --service Backend RESET_ACCOUNTS_WRITE=true RESET_ACCOUNTS_CONFIRM=$(date -u +%Y-%m-%d) RESET_ACCOUNTS_ALLOW_HOST=<host:port z DATABASE_URL> pnpm accounts:reset
 //
 // 3. Natychmiastowe wylogowanie WSZYSTKICH telefonow.
 //    Sam punkt 2 tego NIE robi: access token jest podpisany na 30 dni
