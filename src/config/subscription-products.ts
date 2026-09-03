@@ -35,7 +35,26 @@ export type SubscriptionProduct = {
 /**
  * Identyfikatory muszą być identyczne z App Store Connect. Zmiana limitu tutaj
  * = jednoczesna zmiana opisu produktu i paywalla; podnosić wolno w każdej
- * chwili, obniżać obecnym subskrybentom — nie.
+ * chwili, obniżać obecnym subskrybentom — NIE (to zmiana warunków umowy
+ * w trakcie jej trwania).
+ *
+ * SKĄD TE LICZBY (decyzja 3.09.2026, rachunek w `cennik-i-limity-2026-09.md`):
+ *
+ * Limity są policzone na STAN DOCELOWY, czyli ciepły cache wspólnego
+ * prefiksu — bo tylko taki limit da się utrzymać na zawsze. Przy pełnym
+ * wykorzystaniu i ciepłym cache zostaje 63 % (Solo), 54 % (We dwoje) i 44 %
+ * (Rodzina) przychodu netto. Zimny cache pierwszych tygodni jest stanem
+ * przejściowym: kosztuje kilkanaście dolarów łącznie, a nie na użytkownika.
+ *
+ * Zapas nad realnym zużyciem jest celowy. Zmierzone scenariusze: jedna osoba
+ * planująca raz w tygodniu ~14 wiadomości, para intensywnie ~40, rodzina
+ * czteroosobowa ~48, rodzina bardzo intensywnie ~70. Każdy plan ma nad tym
+ * zapas, więc nikt nie uderzy w limit w połowie miesiąca.
+ *
+ * Zapisy planu są hojne, bo NIC nie kosztują: zatwierdzenie propozycji to
+ * kliknięcie, bez wywołania modelu (`agent-proposals.service.ts` nie zna
+ * dostawcy). Ten licznik jest dźwignią produktową, nie kosztową, i ma nigdy
+ * nie skończyć się przed wiadomościami.
  */
 export const SUBSCRIPTION_PRODUCTS: Readonly<
   Record<string, SubscriptionProduct>
@@ -44,22 +63,22 @@ export const SUBSCRIPTION_PRODUCTS: Readonly<
     name: 'Solo',
     seatsLabel: '1 osoba',
     pricePln: 29.99,
-    messagesPerMonth: 40,
-    plansPerMonth: 6,
+    messagesPerMonth: 30,
+    plansPerMonth: 8,
   },
   'pl.weeklymeals.pro.duet.monthly': {
-    name: 'Duet',
+    name: 'We dwoje',
     seatsLabel: '2 osoby',
     pricePln: 39.99,
-    messagesPerMonth: 60,
-    plansPerMonth: 8,
+    messagesPerMonth: 50,
+    plansPerMonth: 12,
   },
   'pl.weeklymeals.pro.family.monthly': {
     name: 'Rodzina',
     seatsLabel: '3 osoby i więcej',
-    pricePln: 59.99,
-    messagesPerMonth: 100,
-    plansPerMonth: 14,
+    pricePln: 49.99,
+    messagesPerMonth: 75,
+    plansPerMonth: 18,
   },
 };
 

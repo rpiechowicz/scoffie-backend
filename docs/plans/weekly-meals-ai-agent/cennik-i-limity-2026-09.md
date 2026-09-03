@@ -101,15 +101,14 @@ na gospodarstwo (dziś: usuń konto → nowe → nowa próba).
 
 ## 6. Próg rentowności
 
-Koszty stałe ≈ $45/mies. (Railway ~$25–35, Apple Developer $8, domena, R2) —
-**do potwierdzenia z rachunkiem Railway**.
+Koszty stałe **$29,85/mies. = 111 zł** (potwierdzone 3.09.2026): Railway $20
+z rachunku Rafała, Apple Developer $8,25 (99 $/rok), domena ~$1,60, Cloudflare
+R2 w darmowym progu. Wcześniejsze $45 było moim nieopartym założeniem.
 
 | | koszt AI / subskrypcję | wkład | subskrypcji na pokrycie stałych |
 |---|---|---|---|
-| 39,99 zł, użycie 50 % limitu | $1,72 | $5,71 | **8** |
-| 39,99 zł, użycie 100 % limitu | $3,43 | $3,99 | 11 |
-| 299,99 zł/rok, użycie 50 % | $1,72 | $2,92 | 15 |
-| 299,99 zł/rok, użycie 100 % | $3,43 | $1,21 | 37 |
+| użycie 40 % limitu, koszty stałe $29,85 | ~$1,70 | ~$5,70 | **8** |
+| użycie 100 % limitu, cache ciepły | ~$3,44 | ~$3,98 | 8 |
 
 ## 7. Jak nie zbankrutować w miesiąc — trzy bezpieczniki
 
@@ -368,3 +367,70 @@ z nim między domami, jedna opłacona pula dawałaby świeże 60/8 w każdym
 odwiedzonym domu (przejście między domami to jedno żądanie, bez cooldownu).
 Wtedy `scopeId` MUSI iść za uprawnieniem, nie za domem. Dziś to nie dotyczy
 nas: subskrypcja jest przypięta do gospodarstwa.
+
+
+---
+
+# Część III — limity ustalone na stałe (3.09.2026, decyzja)
+
+## 16. Trzy plany, liczby ostateczne
+
+| plan | dla kogo | cena | wiadomości | zapisy planu | marża przy 100 % i ciepłym cache |
+|---|---|---|---|---|---|
+| **Solo** | 1 osoba | 29,99 zł | 30 | 8 | 63 % |
+| **We dwoje** | 2 osoby | 39,99 zł | 50 | 12 | 54 % |
+| **Rodzina** | 3 osoby i więcej | 49,99 zł | 75 | 18 | 44 % |
+
+Te liczby są **obietnicą, nie parametrem**. Podnosić wolno w każdej chwili,
+obniżać obecnym subskrybentom nie wolno — to zmiana warunków umowy w trakcie
+jej trwania (i wprost sprzeczna z tym, co stoi na paywallu wg App Store
+3.1.2(c)). Dlatego są policzone na stan docelowy, nie na dzisiejszy.
+
+## 17. Skąd te liczby
+
+**Od dołu — ile realnie zużywa gospodarstwo** (scenariusze złożone z tur:
+plan tygodnia + poprawki + pytania):
+
+| kto | wiadomości / mies. | jego plan | zapas |
+|---|---|---|---|
+| 1 osoba, plan raz w tygodniu | ~14 | Solo (30) | 2,1× |
+| 2 osoby, planują i poprawiają | ~26 | We dwoje (50) | 1,9× |
+| 2 osoby, intensywnie | ~40 | We dwoje (50) | 1,25× |
+| rodzina 4-osobowa | ~48 | Rodzina (75) | 1,6× |
+| rodzina bardzo intensywnie | ~70 | Rodzina (75) | 1,07× |
+
+**Od góry — ile wolno, żeby nigdy nie trzeba było obniżać.** Warunek: przy
+pełnym wykorzystaniu limitu i CIEPŁYM cache (stan docelowy) zostaje ≥ 40 %
+netto. Stąd 30 / 50 / 75.
+
+**Dlaczego nie liczyłem tego na zimnym cache.** Limit bezpieczny przy zimnym
+cache to 17 / 22 / 29 wiadomości — czyli MNIEJ, niż realnie zużywa rodzina.
+Taki produkt kończyłby się w połowie miesiąca. Zimny cache to stan przejściowy
+kilku pierwszych tygodni i kosztuje kilkanaście dolarów łącznie, a nie na
+użytkownika; limit ustawia się na to, co będzie za rok, nie na to, co jest
+w pierwszym tygodniu.
+
+**Zapisy planu są hojne, bo nic nie kosztują.** Zatwierdzenie propozycji to
+kliknięcie — `agent-proposals.service.ts` nie zna dostawcy modelu i nigdy go
+nie woła. Ten licznik jest dźwignią produktową, nie kosztową, więc ustawiony
+tak, by nigdy nie skończył się przed wiadomościami (jedna propozycja powstaje
+z ~3–4 wiadomości). Test w `subscription-products.spec.ts` tego pilnuje.
+
+## 18. Sufit kosztu nie może odciąć uczciwego klienta
+
+`AI_HOUSEHOLD_MONTHLY_COST_USD` = 18. Najdroższy możliwy miesiąc W RAMACH
+obiecanych limitów to $14,22 (Rodzina, 100 % limitu, zimny cache). Sufit ma
+więc zapas i zadziała wyłącznie przy awarii albo nadużyciu — nigdy nie
+przerwie miesiąca komuś, kto mieści się w tym, co kupił. **Obniżenie tej
+wartości poniżej $15 złamałoby obietnicę z paywalla.**
+
+## 19. Próg opłacalności
+
+Przy kosztach stałych $29,85 i realnym zużyciu (40 % limitu) wychodzisz na
+plus przy **8 subskrypcjach**. Przy 25 subskrypcjach to około 200 zł
+miesięcznie, przy 100 — około 1 700 zł.
+
+Jeden użytkownik spłaca swoje tokeny od pierwszego dnia (przy ćwierci limitu
+zostaje 17 zł), ale żaden pojedynczy użytkownik nie pokryje kosztów stałych —
+i żadna cena tego nie zmieni. Dźwignią na starcie jest obniżenie tych 111 zł,
+nie podnoszenie ceny.
