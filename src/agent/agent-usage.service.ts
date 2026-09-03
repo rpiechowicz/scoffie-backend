@@ -25,6 +25,8 @@ export type AgentUsageView = {
   tier: HouseholdPlanTier;
   /** Skąd PRO — telefon pokazuje „Zarządzaj subskrypcją" tylko przy SUBSCRIPTION. */
   source: HouseholdPlanSource;
+  /** Nazwa kupionego planu (Solo/Duet/Rodzina); `null` = limity z env. */
+  product: string | null;
   messages: QuotaView;
   plans: QuotaView;
   /**
@@ -106,6 +108,7 @@ export class AgentUsageService {
       renews: plan.renews,
       tier: plan.tier,
       source: plan.source,
+      product: plan.product,
       messages: quota(messagesUsed, plan.messagesLimit),
       plans: quota(plansUsed, plan.plansLimit),
       byUser: perUser

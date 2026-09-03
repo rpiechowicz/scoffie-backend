@@ -109,6 +109,7 @@ describe('AgentUsageService.usage', () => {
       renews: true,
       tier: 'PRO',
       source: 'ENV',
+      product: null,
       messages: { used: 12, limit: 30, remaining: 18 },
       // Rozkład na domowników z domkniętych tur; były domownik bez imienia.
       byUser: [

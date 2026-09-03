@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { readAgentEnv } from '../config/agent-env';
+import { productLimits } from '../config/subscription-products';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type HouseholdPlanTier = 'TRIAL' | 'PRO';
@@ -22,6 +23,8 @@ export type HouseholdPlan = {
   resetsAt: string | null;
   messagesLimit: number;
   plansLimit: number;
+  /** Nazwa planu z App Store (Solo/Duet/Rodzina); `null` = limity z env. */
+  product: string | null;
 };
 
 /** Klucz okresu puli próbnej — jedna na całe życie gospodarstwa. */
@@ -96,7 +99,9 @@ export class AiUsageCountersService {
       where: { id: householdId },
       select: {
         tierOverride: true,
-        subscription: { select: { status: true, expiresAt: true } },
+        subscription: {
+          select: { status: true, expiresAt: true, productId: true },
+        },
       },
     });
     if (household?.tierOverride === 'PRO') {
@@ -107,7 +112,7 @@ export class AiUsageCountersService {
       sub &&
       (sub.status === 'ACTIVE' || sub.status === 'GRACE') &&
       (sub.expiresAt === null || sub.expiresAt.getTime() > now.getTime());
-    if (alive) return this.proPlan('SUBSCRIPTION', now, env);
+    if (alive) return this.proPlan('SUBSCRIPTION', now, env, sub.productId);
     return {
       tier: 'TRIAL',
       source: 'TRIAL',
@@ -116,6 +121,7 @@ export class AiUsageCountersService {
       resetsAt: null,
       messagesLimit: env.trialMessages,
       plansLimit: env.trialPlans,
+      product: null,
     };
   }
 
@@ -123,15 +129,24 @@ export class AiUsageCountersService {
     source: HouseholdPlanSource,
     now: Date,
     env: ReturnType<typeof readAgentEnv>,
+    productId?: string | null,
   ): HouseholdPlan {
+    // Limity biorą się z KUPIONEGO produktu (Solo/Duet/Rodzina); nadanie
+    // operatora i `AI_TIER_OVERRIDE` nie mają produktu, więc dostają limity
+    // z env — tak jak dotąd.
+    const limits = productLimits(productId, {
+      messagesPerMonth: env.messagesPerMonth,
+      plansPerMonth: env.plansPerMonth,
+    });
     return {
       tier: 'PRO',
       source,
       periodKey: this.monthKey(now),
       renews: true,
       resetsAt: this.monthResetsAt(now).toISOString(),
-      messagesLimit: env.messagesPerMonth,
-      plansLimit: env.plansPerMonth,
+      messagesLimit: limits.messagesPerMonth,
+      plansLimit: limits.plansPerMonth,
+      product: limits.product,
     };
   }
 
