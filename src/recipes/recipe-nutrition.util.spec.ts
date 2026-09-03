@@ -3,6 +3,8 @@ import {
   computeRecipeNutrition,
   relativeDeviation,
   roundTotals,
+  saltGramsFromSodium,
+  totalSaltGrams,
   type IngredientNutritionPer100,
   type NutritionInputItem,
 } from './recipe-nutrition.util';
@@ -91,7 +93,14 @@ describe('computeRecipeNutrition', () => {
     const { totals, missingNutrition, missingPieceWeight } =
       computeRecipeNutrition([]);
 
-    expect(totals).toEqual({ kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
+    expect(totals).toEqual({
+      kcal: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      fiber: 0,
+      sodiumMg: 0,
+    });
     expect(missingNutrition).toEqual([]);
     expect(missingPieceWeight).toEqual([]);
   });
@@ -144,6 +153,7 @@ describe('roundTotals', () => {
         carbs: 136.51,
         fat: 21.38,
         fiber: 18.77,
+        sodiumMg: 0,
       }),
     ).toEqual({
       kcal: 894,
@@ -151,6 +161,40 @@ describe('roundTotals', () => {
       carbs: 136.5,
       fat: 21.4,
       fiber: 18.8,
+      sodiumMg: 0,
     });
+  });
+});
+
+describe('sól ze sodu', () => {
+  it('liczy sód składników i przelicza na sól przez 2,5', () => {
+    const feta: IngredientNutritionPer100 = {
+      kcal: 264,
+      protein: 14,
+      carbs: 4,
+      fat: 21,
+      fiber: 0,
+      sodiumMg: 1100,
+      gramsPerPiece: null,
+    };
+    const { totals } = computeRecipeNutrition([
+      {
+        name: 'ser feta',
+        normalizedAmount: 200,
+        normalizedUnit: 'g',
+        nutrition: feta,
+      },
+      {
+        name: 'ogórek',
+        normalizedAmount: 100,
+        normalizedUnit: 'g',
+        nutrition: { ...feta, sodiumMg: undefined },
+      },
+    ]);
+    // 200 g fety = 2200 mg sodu; ogórek bez pola sodu liczy się jako 0.
+    expect(totals.sodiumMg).toBe(2200);
+    expect(saltGramsFromSodium(totals.sodiumMg)).toBeCloseTo(5.5, 5);
+    expect(totalSaltGrams(totals.sodiumMg, 0.4)).toBe(5.9);
+    expect(totalSaltGrams(0, -1)).toBe(0);
   });
 });

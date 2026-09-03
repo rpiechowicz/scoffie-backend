@@ -168,6 +168,16 @@ pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <file>.dump
 Railway side: point-in-time recovery and a nightly volume backup are enabled
 on the `Postgres` service (3.09.2026) — three independent layers in total.
 
+## Error tracking (`SENTRY_DSN`)
+
+Create a Sentry project (platform Node.js / NestJS, **data region EU**) and
+set `SENTRY_DSN` on the `Backend` service. Nothing else is required: without
+the variable the SDK is a no-op. Only unexpected errors are sent (see
+`src/common/app-exception.filter.ts` and `src/common/ws-response.ts`),
+scrubbed of headers, cookies, bodies and user data except the user id.
+Sentry is listed in the privacy policy (§9) as a processor of technical
+error data. Pair it with an external uptime probe on `/ops/health`.
+
 ## Operator alerts (`OPS_ALERT_WEBHOOK_URL`)
 
 Optional webhook (Discord, Slack, ntfy — anything that accepts a JSON POST)

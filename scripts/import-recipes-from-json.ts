@@ -35,7 +35,10 @@ type RecipeInput = {
     carbs: number;
     fat: number;
     fiber: number;
+    /** Sól ŁĄCZNIE (g na przepis) — wynik `recipes:recompute:nutrition`. */
     salt: number;
+    /** Sól DODANA (g na przepis); brak = 0. */
+    addedSalt?: number;
   };
   steps: Array<{ step: number; instruction: string }>;
   /**
@@ -518,6 +521,7 @@ async function main(): Promise<void> {
       nutritionCarbs: recipe.nutrition.carbs,
       nutritionFiber: recipe.nutrition.fiber,
       nutritionSalt: recipe.nutrition.salt,
+      nutritionSaltAdded: recipe.nutrition.addedSalt ?? 0,
       allergens: recipeTags.allergens,
       dietTags: recipeTags.dietTags,
       sourceProvider: recipe.sourceProvider ?? 'manual-json-v1',

@@ -495,6 +495,43 @@ function runOptionalBootstrap() {
   });
 }
 
+/**
+ * Jednorazowe dociągnięcie sodu (3.09.2026): składniki z makro, ale bez
+ * sodu, dostają go z tabeli, a sól przepisów jest przeliczana ze składników
+ * + soli dodanej. Bootstrap świeżej bazy ma to już z importu.
+ */
+async function runOptionalSodiumBackfill({ bootstrapRan }) {
+  if (bootstrapRan) return;
+  const prisma = new PrismaClient();
+  let missing = 0;
+  try {
+    const rows = await prisma.$queryRaw`
+      SELECT COUNT(*)::int AS value FROM "Ingredient"
+      WHERE "nutritionKcalPer100" IS NOT NULL AND "nutritionSodiumMgPer100" IS NULL
+    `;
+    missing = Array.isArray(rows) ? Number(rows[0]?.value ?? 0) : 0;
+  } catch (error) {
+    console.warn(
+      `[safe-migrate] sodium check skipped: ${error?.message ?? error}`,
+    );
+    return;
+  } finally {
+    await prisma.$disconnect();
+  }
+  if (missing === 0) return;
+  console.log(
+    `[safe-migrate] ${missing} ingredients without sodium — loading nutrition table and recomputing salt...`,
+  );
+  run(PNPM_BIN, ['exec', 'tsx', 'scripts/load-ingredient-nutrition.ts']);
+  run(PNPM_BIN, [
+    'exec',
+    'tsx',
+    'scripts/recompute-recipe-nutrition.ts',
+    '--db-only',
+    '--write',
+  ]);
+}
+
 function runOptionalR2ImageBackfill() {
   // Opt-in. Dawniej domyślnie włączony: każdy start kontenera robił jeden
   // HEAD do R2 na przepis i rozszerzenie, zanim /ops/health w ogóle odpowiedział.
@@ -661,6 +698,7 @@ async function main() {
   // Baza z danymi, która właśnie dostała kolumny tagów z migracji, bez tego
   // kroku zostawałaby „czysta” dla walidatora diet do ręcznego loadera.
   await runOptionalIngredientTagsLoad({ bootstrapRan: bootstrap.run });
+  await runOptionalSodiumBackfill({ bootstrapRan: bootstrap.run });
 
   runOptionalR2ImageBackfill();
 }

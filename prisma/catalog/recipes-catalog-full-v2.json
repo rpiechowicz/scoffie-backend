@@ -14,7 +14,8 @@
         "carbs": 137,
         "fat": 21,
         "fiber": 19,
-        "salt": 0.6
+        "salt": 0.6,
+        "addedSalt": 0.1
       },
       "steps": [
         {
@@ -75,7 +76,8 @@
         "carbs": 8,
         "fat": 41,
         "fiber": 3,
-        "salt": 1.8
+        "salt": 4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -146,7 +148,8 @@
         "carbs": 8,
         "fat": 58,
         "fiber": 3,
-        "salt": 2.2
+        "salt": 4.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -217,7 +220,8 @@
         "carbs": 63,
         "fat": 51,
         "fiber": 14,
-        "salt": 1.4
+        "salt": 2.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -293,7 +297,8 @@
         "carbs": 73,
         "fat": 12,
         "fiber": 7,
-        "salt": 1.5
+        "salt": 3.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -364,7 +369,8 @@
         "carbs": 99,
         "fat": 35,
         "fiber": 16,
-        "salt": 1
+        "salt": 1,
+        "addedSalt": 0.3
       },
       "steps": [
         {
@@ -436,7 +442,8 @@
         "carbs": 29,
         "fat": 30,
         "fiber": 10,
-        "salt": 1.9
+        "salt": 3.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -513,7 +520,8 @@
         "carbs": 132,
         "fat": 36,
         "fiber": 7,
-        "salt": 1.2
+        "salt": 2,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -580,7 +588,8 @@
         "carbs": 81,
         "fat": 23,
         "fiber": 8,
-        "salt": 0.5
+        "salt": 0.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -637,7 +646,8 @@
         "carbs": 71,
         "fat": 60,
         "fiber": 6,
-        "salt": 2.1
+        "salt": 4.7,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -714,7 +724,8 @@
         "carbs": 144,
         "fat": 55,
         "fiber": 12,
-        "salt": 2.2
+        "salt": 3.7,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -790,7 +801,8 @@
         "carbs": 153,
         "fat": 17,
         "fiber": 8,
-        "salt": 1.9
+        "salt": 3.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -871,7 +883,8 @@
         "carbs": 152,
         "fat": 71,
         "fiber": 13,
-        "salt": 2.5
+        "salt": 4.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -957,7 +970,8 @@
         "carbs": 65,
         "fat": 53,
         "fiber": 12,
-        "salt": 1.7
+        "salt": 3.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1029,7 +1043,8 @@
         "carbs": 156,
         "fat": 70,
         "fiber": 5,
-        "salt": 2.1
+        "salt": 3.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1115,7 +1130,8 @@
         "carbs": 71,
         "fat": 24,
         "fiber": 8,
-        "salt": 2.2
+        "salt": 2.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1187,7 +1203,8 @@
         "carbs": 60,
         "fat": 18,
         "fiber": 13,
-        "salt": 1.8
+        "salt": 3.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1259,7 +1276,8 @@
         "carbs": 142,
         "fat": 60,
         "fiber": 9,
-        "salt": 1.9
+        "salt": 3.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1336,7 +1354,8 @@
         "carbs": 134,
         "fat": 17,
         "fiber": 8,
-        "salt": 2
+        "salt": 7.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1408,7 +1427,8 @@
         "carbs": 15,
         "fat": 38,
         "fiber": 4,
-        "salt": 2.1
+        "salt": 3.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1485,7 +1505,8 @@
         "carbs": 82,
         "fat": 51,
         "fiber": 6,
-        "salt": 2.4
+        "salt": 6.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1547,7 +1568,8 @@
         "carbs": 87,
         "fat": 38,
         "fiber": 9,
-        "salt": 2
+        "salt": 5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1629,7 +1651,8 @@
         "carbs": 144,
         "fat": 42,
         "fiber": 4,
-        "salt": 2
+        "salt": 3.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1701,7 +1724,8 @@
         "carbs": 105,
         "fat": 80,
         "fiber": 15,
-        "salt": 2.3
+        "salt": 6.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1778,7 +1802,8 @@
         "carbs": 153,
         "fat": 32,
         "fiber": 10,
-        "salt": 1.7
+        "salt": 3.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1855,7 +1880,8 @@
         "carbs": 150,
         "fat": 14,
         "fiber": 12,
-        "salt": 2.2
+        "salt": 4.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1932,7 +1958,8 @@
         "carbs": 86,
         "fat": 38,
         "fiber": 10,
-        "salt": 1.9
+        "salt": 3.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -1999,7 +2026,8 @@
         "carbs": 81,
         "fat": 28,
         "fiber": 12,
-        "salt": 1.8
+        "salt": 8.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2076,7 +2104,8 @@
         "carbs": 88,
         "fat": 31,
         "fiber": 12,
-        "salt": 1.7
+        "salt": 3.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2148,7 +2177,8 @@
         "carbs": 164,
         "fat": 16,
         "fiber": 9,
-        "salt": 2.2
+        "salt": 3.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2230,7 +2260,8 @@
         "carbs": 97,
         "fat": 36,
         "fiber": 21,
-        "salt": 0.5
+        "salt": 0.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2307,7 +2338,8 @@
         "carbs": 82,
         "fat": 14,
         "fiber": 15,
-        "salt": 0.3
+        "salt": 0.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2369,7 +2401,8 @@
         "carbs": 87,
         "fat": 26,
         "fiber": 9,
-        "salt": 0.8
+        "salt": 0.8,
+        "addedSalt": 0.2
       },
       "steps": [
         {
@@ -2436,7 +2469,8 @@
         "carbs": 87,
         "fat": 35,
         "fiber": 4,
-        "salt": 0.6
+        "salt": 0.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2517,7 +2551,8 @@
         "carbs": 68,
         "fat": 47,
         "fiber": 5,
-        "salt": 2
+        "salt": 3.1,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2602,7 +2637,8 @@
         "carbs": 114,
         "fat": 31,
         "fiber": 10,
-        "salt": 1.3
+        "salt": 2.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2688,7 +2724,8 @@
         "carbs": 9,
         "fat": 39,
         "fiber": 3,
-        "salt": 2.4
+        "salt": 3.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2770,7 +2807,8 @@
         "carbs": 77,
         "fat": 45,
         "fiber": 9,
-        "salt": 2.8
+        "salt": 5.7,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2840,7 +2878,8 @@
         "carbs": 149,
         "fat": 88,
         "fiber": 16,
-        "salt": 2.5
+        "salt": 2.5,
+        "addedSalt": 0.3
       },
       "steps": [
         {
@@ -2944,7 +2983,8 @@
         "carbs": 138,
         "fat": 133,
         "fiber": 26,
-        "salt": 2.5
+        "salt": 2.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -3048,7 +3088,8 @@
         "carbs": 132,
         "fat": 115,
         "fiber": 20,
-        "salt": 3
+        "salt": 5.2,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -3156,7 +3197,8 @@
         "carbs": 106,
         "fat": 78,
         "fiber": 16,
-        "salt": 2.4
+        "salt": 2.4,
+        "addedSalt": 1.3
       },
       "steps": [
         {
@@ -3245,7 +3287,8 @@
         "carbs": 102,
         "fat": 49,
         "fiber": 15,
-        "salt": 2.4
+        "salt": 4.2,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -3334,7 +3377,8 @@
         "carbs": 135,
         "fat": 101,
         "fiber": 31,
-        "salt": 3
+        "salt": 3,
+        "addedSalt": 1.4
       },
       "steps": [
         {
@@ -3433,7 +3477,8 @@
         "carbs": 308,
         "fat": 67,
         "fiber": 21,
-        "salt": 3
+        "salt": 3,
+        "addedSalt": 1.9
       },
       "steps": [
         {
@@ -3527,7 +3572,8 @@
         "carbs": 158,
         "fat": 84,
         "fiber": 20,
-        "salt": 2
+        "salt": 2,
+        "addedSalt": 1.1
       },
       "steps": [
         {
@@ -3612,7 +3658,8 @@
         "carbs": 59,
         "fat": 90,
         "fiber": 20,
-        "salt": 3.8
+        "salt": 15.7,
+        "addedSalt": 0
       },
       "sourceProvider": "cookidoo",
       "sourceRecipeId": "r56899",
@@ -3709,7 +3756,8 @@
         "carbs": 83,
         "fat": 135,
         "fiber": 39,
-        "salt": 4.5
+        "salt": 12.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -3804,7 +3852,8 @@
         "carbs": 129,
         "fat": 46,
         "fiber": 17,
-        "salt": 2
+        "salt": 2,
+        "addedSalt": 1
       },
       "steps": [
         {
@@ -3889,7 +3938,8 @@
         "carbs": 237,
         "fat": 125,
         "fiber": 13,
-        "salt": 3
+        "salt": 3,
+        "addedSalt": 1.7
       },
       "steps": [
         {
@@ -3987,7 +4037,8 @@
         "carbs": 243,
         "fat": 53,
         "fiber": 23,
-        "salt": 3.5
+        "salt": 7.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -4086,7 +4137,8 @@
         "carbs": 289,
         "fat": 41,
         "fiber": 16,
-        "salt": 0.8
+        "salt": 0.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -4168,7 +4220,8 @@
         "carbs": 127,
         "fat": 96,
         "fiber": 19,
-        "salt": 3
+        "salt": 3,
+        "addedSalt": 0.9
       },
       "steps": [
         {
@@ -4271,7 +4324,8 @@
         "carbs": 79,
         "fat": 38,
         "fiber": 14,
-        "salt": 3
+        "salt": 13.7,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -4369,7 +4423,8 @@
         "carbs": 77,
         "fat": 102,
         "fiber": 11,
-        "salt": 4
+        "salt": 14.7,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -4477,7 +4532,8 @@
         "carbs": 139,
         "fat": 78,
         "fiber": 24,
-        "salt": 3
+        "salt": 3,
+        "addedSalt": 1.4
       },
       "steps": [
         {
@@ -4585,7 +4641,8 @@
         "carbs": 91,
         "fat": 93,
         "fiber": 22,
-        "salt": 3.2
+        "salt": 3.2,
+        "addedSalt": 0.8
       },
       "steps": [
         {
@@ -4693,7 +4750,8 @@
         "carbs": 114,
         "fat": 42,
         "fiber": 22,
-        "salt": 2.8
+        "salt": 8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -4801,7 +4859,8 @@
         "carbs": 78,
         "fat": 45,
         "fiber": 12,
-        "salt": 2.6
+        "salt": 6.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -4904,7 +4963,8 @@
         "carbs": 163,
         "fat": 40,
         "fiber": 20,
-        "salt": 2.8
+        "salt": 7.7,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -5007,7 +5067,8 @@
         "carbs": 154,
         "fat": 26,
         "fiber": 10,
-        "salt": 2.2
+        "salt": 5.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -5110,7 +5171,8 @@
         "carbs": 90,
         "fat": 32,
         "fiber": 20,
-        "salt": 2.2
+        "salt": 2.2,
+        "addedSalt": 0.9
       },
       "steps": [
         {
@@ -5208,7 +5270,8 @@
         "carbs": 196,
         "fat": 50,
         "fiber": 31,
-        "salt": 3
+        "salt": 5.1,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -5336,7 +5399,8 @@
         "carbs": 137,
         "fat": 73,
         "fiber": 10,
-        "salt": 2.8
+        "salt": 6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -5459,7 +5523,8 @@
         "carbs": 117,
         "fat": 30,
         "fiber": 23,
-        "salt": 2.2
+        "salt": 2.2,
+        "addedSalt": 0.8
       },
       "steps": [
         {
@@ -5562,12 +5627,13 @@
       "prepTimeMinutes": 45,
       "servings": 2,
       "nutrition": {
-        "kcal": 1532,
+        "kcal": 1530,
         "protein": 98,
         "carbs": 130,
         "fat": 60,
         "fiber": 23,
-        "salt": 2.6
+        "salt": 2.6,
+        "addedSalt": 0.6
       },
       "steps": [
         {
@@ -5685,7 +5751,8 @@
         "carbs": 165,
         "fat": 35,
         "fiber": 19,
-        "salt": 3.5
+        "salt": 8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -5793,7 +5860,8 @@
         "carbs": 92,
         "fat": 37,
         "fiber": 10,
-        "salt": 2
+        "salt": 2,
+        "addedSalt": 0.6
       },
       "steps": [
         {
@@ -5901,7 +5969,8 @@
         "carbs": 120,
         "fat": 46,
         "fiber": 14,
-        "salt": 2.6
+        "salt": 7.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -6009,7 +6078,8 @@
         "carbs": 164,
         "fat": 52,
         "fiber": 7,
-        "salt": 2.6
+        "salt": 8.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -6112,7 +6182,8 @@
         "carbs": 129,
         "fat": 51,
         "fiber": 9,
-        "salt": 2
+        "salt": 2.2,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -6205,7 +6276,8 @@
         "carbs": 217,
         "fat": 62,
         "fiber": 39,
-        "salt": 2.2
+        "salt": 4.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -6328,7 +6400,8 @@
         "carbs": 132,
         "fat": 63,
         "fiber": 9,
-        "salt": 2.6
+        "salt": 6.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -6427,7 +6500,8 @@
         "carbs": 173,
         "fat": 125,
         "fiber": 15,
-        "salt": 3
+        "salt": 3.3,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -6531,7 +6605,8 @@
         "carbs": 35,
         "fat": 48,
         "fiber": 7,
-        "salt": 2.2
+        "salt": 3.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -6635,7 +6710,8 @@
         "carbs": 15,
         "fat": 59,
         "fiber": 14,
-        "salt": 2.5
+        "salt": 3.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -6739,7 +6815,8 @@
         "carbs": 136,
         "fat": 80,
         "fiber": 9,
-        "salt": 2.2
+        "salt": 5.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -6839,7 +6916,8 @@
         "carbs": 100,
         "fat": 18,
         "fiber": 7,
-        "salt": 2
+        "salt": 4.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -6934,7 +7012,8 @@
         "carbs": 126,
         "fat": 59,
         "fiber": 22,
-        "salt": 2.4
+        "salt": 7.3,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7039,7 +7118,8 @@
         "carbs": 86,
         "fat": 11,
         "fiber": 10,
-        "salt": 0.3
+        "salt": 0.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7101,7 +7181,8 @@
         "carbs": 80,
         "fat": 23,
         "fiber": 8,
-        "salt": 0.4
+        "salt": 0.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7168,7 +7249,8 @@
         "carbs": 42,
         "fat": 26,
         "fiber": 27,
-        "salt": 0.2
+        "salt": 0.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7234,7 +7316,8 @@
         "carbs": 138,
         "fat": 19,
         "fiber": 16,
-        "salt": 0.3
+        "salt": 0.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7300,12 +7383,13 @@
       "prepTimeMinutes": 10,
       "servings": 2,
       "nutrition": {
-        "kcal": 720,
+        "kcal": 728,
         "protein": 56,
-        "carbs": 86,
+        "carbs": 84,
         "fat": 18,
-        "fiber": 12,
-        "salt": 0.3
+        "fiber": 9,
+        "salt": 0.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7376,7 +7460,8 @@
         "carbs": 156,
         "fat": 53,
         "fiber": 23,
-        "salt": 0.5
+        "salt": 1.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7470,7 +7555,8 @@
         "carbs": 70,
         "fat": 43,
         "fiber": 27,
-        "salt": 1
+        "salt": 2.2,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7570,7 +7656,8 @@
         "carbs": 59,
         "fat": 29,
         "fiber": 7,
-        "salt": 2
+        "salt": 5.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7660,7 +7747,8 @@
         "carbs": 94,
         "fat": 37,
         "fiber": 11,
-        "salt": 2.2
+        "salt": 5.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7735,7 +7823,8 @@
         "carbs": 129,
         "fat": 17,
         "fiber": 6,
-        "salt": 0.4
+        "salt": 0.7,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7804,7 +7893,8 @@
         "carbs": 112,
         "fat": 36,
         "fiber": 21,
-        "salt": 0.5
+        "salt": 0.7,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7880,7 +7970,8 @@
         "carbs": 77,
         "fat": 36,
         "fiber": 20,
-        "salt": 2.2
+        "salt": 2.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -7965,7 +8056,8 @@
         "carbs": 117,
         "fat": 22,
         "fiber": 13,
-        "salt": 0.4
+        "salt": 0.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -8037,7 +8129,8 @@
         "carbs": 87,
         "fat": 34,
         "fiber": 15,
-        "salt": 3
+        "salt": 3.2,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -8113,7 +8206,8 @@
         "carbs": 170,
         "fat": 59,
         "fiber": 35,
-        "salt": 2.6
+        "salt": 8.7,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -8222,7 +8316,8 @@
         "carbs": 189,
         "fat": 20,
         "fiber": 39,
-        "salt": 2.8
+        "salt": 11.1,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -8322,7 +8417,8 @@
         "carbs": 105,
         "fat": 47,
         "fiber": 21,
-        "salt": 3.2
+        "salt": 4.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -8421,7 +8517,8 @@
         "carbs": 112,
         "fat": 18,
         "fiber": 26,
-        "salt": 2.4
+        "salt": 13.2,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -8521,7 +8618,8 @@
         "carbs": 138,
         "fat": 43,
         "fiber": 13,
-        "salt": 2
+        "salt": 4.2,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -8598,7 +8696,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Tofu w sosie pomidorowym z ryżem basmati, Golden fried tofu cubes in thick tomato sauce over basmati rice, natural light, no text",
+        "prompt": "professional food photo, Tofu w sosie pomidorowym z ryżem basmati, Golden fried tofu cubes in thick tomato sauce over basmati rice, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -8616,7 +8714,8 @@
         "carbs": 155,
         "fat": 18,
         "fiber": 34,
-        "salt": 2
+        "salt": 5.9,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -8698,7 +8797,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Gulasz z czerwonej soczewicy z batatem i szpinakiem, Thick red lentil and sweet potato stew with wilted spinach in a bowl, natural light, no text",
+        "prompt": "professional food photo, Gulasz z czerwonej soczewicy z batatem i szpinakiem, Thick red lentil and sweet potato stew with wilted spinach in a bowl, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -8716,7 +8815,8 @@
         "carbs": 138,
         "fat": 45,
         "fiber": 17,
-        "salt": 0
+        "salt": 4.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -8788,7 +8888,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Stir-fry z tofu, brokułem i papryką z ryżem jaśminowym, Wok stir-fry of tofu, broccoli and red pepper with sesame over jasmine rice, natural light, no text",
+        "prompt": "professional food photo, Stir-fry z tofu, brokułem i papryką z ryżem jaśminowym, Wok stir-fry of tofu, broccoli and red pepper with sesame over jasmine rice, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -8806,7 +8906,8 @@
         "carbs": 124,
         "fat": 25,
         "fiber": 18,
-        "salt": 2
+        "salt": 4,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -8878,7 +8979,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Kasza gryczana z pieczarkami i cebulą, Buckwheat groats with golden fried mushrooms and onions, parsley on top, natural light, no text",
+        "prompt": "professional food photo, Kasza gryczana z pieczarkami i cebulą, Buckwheat groats with golden fried mushrooms and onions, parsley on top, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -8896,7 +8997,8 @@
         "carbs": 60,
         "fat": 67,
         "fiber": 7,
-        "salt": 3
+        "salt": 6,
+        "addedSalt": 3
       },
       "steps": [
         {
@@ -8968,7 +9070,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Krem z dyni z mlekiem kokosowym, Velvety roasted pumpkin and coconut soup topped with pumpkin seeds, natural light, no text",
+        "prompt": "professional food photo, Krem z dyni z mlekiem kokosowym, Velvety roasted pumpkin and coconut soup topped with pumpkin seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -8986,7 +9088,8 @@
         "carbs": 45,
         "fat": 81,
         "fiber": 31,
-        "salt": 0
+        "salt": 0.1,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -9030,7 +9133,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Pudding chia z mlekiem kokosowym i malinami, Coconut chia pudding in a glass jar topped with raspberries and banana slices, natural light, no text",
+        "prompt": "professional food photo, Pudding chia z mlekiem kokosowym i malinami, Coconut chia pudding in a glass jar topped with raspberries and banana slices, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9048,7 +9151,8 @@
         "carbs": 95,
         "fat": 35,
         "fiber": 34,
-        "salt": 2
+        "salt": 6.5,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -9117,7 +9221,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Sałatka z ciecierzycą, ogórkiem i pomidorem, Chickpea salad with cucumber, tomato, red onion and parsley in lemon dressing, natural light, no text",
+        "prompt": "professional food photo, Sałatka z ciecierzycą, ogórkiem i pomidorem, Chickpea salad with cucumber, tomato, red onion and parsley in lemon dressing, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9130,12 +9234,13 @@
       "prepTimeMinutes": 12,
       "servings": 2,
       "nutrition": {
-        "kcal": 1012,
+        "kcal": 1020,
         "protein": 27,
-        "carbs": 138,
+        "carbs": 137,
         "fat": 35,
-        "fiber": 28,
-        "salt": 0
+        "fiber": 26,
+        "salt": 0.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -9184,7 +9289,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Owsianka kakaowa z bananem na mleku owsianym, Chocolate oat porridge with banana slices and walnuts in a bowl, natural light, no text",
+        "prompt": "professional food photo, Owsianka kakaowa z bananem na mleku owsianym, Chocolate oat porridge with banana slices and walnuts in a bowl, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9202,7 +9307,8 @@
         "carbs": 158,
         "fat": 23,
         "fiber": 49,
-        "salt": 2
+        "salt": 9,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -9279,7 +9385,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Zapiekanka z batata z czerwoną fasolą, Baked sweet potato and red bean casserole in a ceramic dish, natural light, no text",
+        "prompt": "professional food photo, Zapiekanka z batata z czerwoną fasolą, Baked sweet potato and red bean casserole in a ceramic dish, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9297,7 +9403,8 @@
         "carbs": 130,
         "fat": 37,
         "fiber": 13,
-        "salt": 2
+        "salt": 4.1,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -9365,7 +9472,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Makaron penne z cukinią, pomidorkami i pestkami dyni, Penne pasta with sautéed zucchini, cherry tomatoes and toasted pumpkin seeds, natural light, no text",
+        "prompt": "professional food photo, Makaron penne z cukinią, pomidorkami i pestkami dyni, Penne pasta with sautéed zucchini, cherry tomatoes and toasted pumpkin seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9383,7 +9490,8 @@
         "carbs": 10,
         "fat": 77,
         "fiber": 4,
-        "salt": 2
+        "salt": 6,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -9446,7 +9554,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Kurczak w śmietanowym sosie ze szpinakiem, Chicken breast in creamy parmesan spinach sauce in a skillet, natural light, no text",
+        "prompt": "professional food photo, Kurczak w śmietanowym sosie ze szpinakiem, Chicken breast in creamy parmesan spinach sauce in a skillet, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9464,7 +9572,8 @@
         "carbs": 22,
         "fat": 79,
         "fiber": 11,
-        "salt": 2
+        "salt": 4.5,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -9532,7 +9641,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Łosoś z masłem czosnkowym i brokułem, Baked salmon fillet with garlic butter and roasted broccoli, lemon wedges, natural light, no text",
+        "prompt": "professional food photo, Łosoś z masłem czosnkowym i brokułem, Baked salmon fillet with garlic butter and roasted broccoli, lemon wedges, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9550,7 +9659,8 @@
         "carbs": 22,
         "fat": 96,
         "fiber": 17,
-        "salt": 2
+        "salt": 6.5,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -9609,7 +9719,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Sałatka caprese z awokado, Caprese salad with avocado slices, cherry tomatoes and torn mozzarella, natural light, no text",
+        "prompt": "professional food photo, Sałatka caprese z awokado, Caprese salad with avocado slices, cherry tomatoes and torn mozzarella, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9627,7 +9737,8 @@
         "carbs": 8,
         "fat": 53,
         "fiber": 3,
-        "salt": 2
+        "salt": 6.1,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -9685,7 +9796,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Omlet z pieczarkami i parmezanem, Folded mushroom omelette with parmesan and chives on a plate, natural light, no text",
+        "prompt": "professional food photo, Omlet z pieczarkami i parmezanem, Folded mushroom omelette with parmesan and chives on a plate, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9703,7 +9814,8 @@
         "carbs": 32,
         "fat": 98,
         "fiber": 12,
-        "salt": 2
+        "salt": 6.8,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -9781,7 +9893,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Cukinia zapiekana z mięsem mielonym i goudą, Zucchini boats stuffed with minced meat and melted gouda cheese, natural light, no text",
+        "prompt": "professional food photo, Cukinia zapiekana z mięsem mielonym i goudą, Zucchini boats stuffed with minced meat and melted gouda cheese, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9799,7 +9911,8 @@
         "carbs": 8,
         "fat": 71,
         "fiber": 22,
-        "salt": 2
+        "salt": 4.7,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -9857,7 +9970,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Jajka zapiekane w awokado, Baked eggs in avocado halves with chives and pumpkin seeds, natural light, no text",
+        "prompt": "professional food photo, Jajka zapiekane w awokado, Baked eggs in avocado halves with chives and pumpkin seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9875,7 +9988,8 @@
         "carbs": 17,
         "fat": 32,
         "fiber": 8,
-        "salt": 2
+        "salt": 4.6,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -9938,7 +10052,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Dorsz pieczony z cukinią i oliwkową gremolatą, Baked cod fillet on zucchini slices with parsley garlic gremolata, natural light, no text",
+        "prompt": "professional food photo, Dorsz pieczony z cukinią i oliwkową gremolatą, Baked cod fillet on zucchini slices with parsley garlic gremolata, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -9956,7 +10070,8 @@
         "carbs": 21,
         "fat": 51,
         "fiber": 8,
-        "salt": 2
+        "salt": 4.6,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -10029,7 +10144,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Sałatka z kurczakiem, ogórkiem i orzechami włoskimi, Chicken salad with iceberg lettuce, cucumber, radish and walnuts, yogurt dill dressing, natural light, no text",
+        "prompt": "professional food photo, Sałatka z kurczakiem, ogórkiem i orzechami włoskimi, Chicken salad with iceberg lettuce, cucumber, radish and walnuts, yogurt dill dressing, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -10047,7 +10162,8 @@
         "carbs": 34,
         "fat": 38,
         "fiber": 4,
-        "salt": 3
+        "salt": 6.5,
+        "addedSalt": 3
       },
       "steps": [
         {
@@ -10105,7 +10221,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Polędwiczka wieprzowa z pieczoną dynią i tymiankiem, Sliced roast pork tenderloin with roasted pumpkin cubes and thyme on a sheet pan, natural light, no text",
+        "prompt": "professional food photo, Polędwiczka wieprzowa z pieczoną dynią i tymiankiem, Sliced roast pork tenderloin with roasted pumpkin cubes and thyme on a sheet pan, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -10123,7 +10239,8 @@
         "carbs": 36,
         "fat": 51,
         "fiber": 14,
-        "salt": 2
+        "salt": 6,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -10201,7 +10318,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Indyk mielony duszony z papryką i cukinią, Ground turkey skillet with red pepper, zucchini and tomatoes, natural light, no text",
+        "prompt": "professional food photo, Indyk mielony duszony z papryką i cukinią, Ground turkey skillet with red pepper, zucchini and tomatoes, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -10219,7 +10336,8 @@
         "carbs": 85,
         "fat": 34,
         "fiber": 18,
-        "salt": 2
+        "salt": 4.9,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -10287,7 +10405,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Placuszki z batata z jajkiem, Golden sweet potato fritters with sliced tomato and chives, natural light, no text",
+        "prompt": "professional food photo, Placuszki z batata z jajkiem, Golden sweet potato fritters with sliced tomato and chives, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -10305,7 +10423,8 @@
         "carbs": 37,
         "fat": 45,
         "fiber": 12,
-        "salt": 3
+        "salt": 7.3,
+        "addedSalt": 3
       },
       "steps": [
         {
@@ -10378,7 +10497,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Wołowina duszona z marchewką i selerem, Slow-braised beef stew with carrot and celeriac in a rustic pot, natural light, no text",
+        "prompt": "professional food photo, Wołowina duszona z marchewką i selerem, Slow-braised beef stew with carrot and celeriac in a rustic pot, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -10391,12 +10510,13 @@
       "prepTimeMinutes": 45,
       "servings": 2,
       "nutrition": {
-        "kcal": 741,
+        "kcal": 738,
         "protein": 14,
         "carbs": 51,
         "fat": 50,
         "fiber": 19,
-        "salt": 2
+        "salt": 4.6,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -10459,7 +10579,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Sałatka z pieczonego buraka, jabłka i orzechów włoskich, Roasted beetroot salad with apple slices, walnuts and lettuce, natural light, no text",
+        "prompt": "professional food photo, Sałatka z pieczonego buraka, jabłka i orzechów włoskich, Roasted beetroot salad with apple slices, walnuts and lettuce, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -10477,7 +10597,8 @@
         "carbs": 8,
         "fat": 60,
         "fiber": 12,
-        "salt": 2
+        "salt": 4.9,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -10531,7 +10652,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Jajecznica z awokado i pomidorem, Soft scrambled eggs with avocado cubes, tomato and chives, natural light, no text",
+        "prompt": "professional food photo, Jajecznica z awokado i pomidorem, Soft scrambled eggs with avocado cubes, tomato and chives, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -10549,7 +10670,8 @@
         "carbs": 44,
         "fat": 109,
         "fiber": 16,
-        "salt": 2
+        "salt": 4.9,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -10622,7 +10744,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Curry z kurczaka na mleku kokosowym z brokułem, Coconut chicken curry with broccoli and red pepper in a bowl, natural light, no text",
+        "prompt": "professional food photo, Curry z kurczaka na mleku kokosowym z brokułem, Coconut chicken curry with broccoli and red pepper in a bowl, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -10640,7 +10762,8 @@
         "carbs": 44,
         "fat": 28,
         "fiber": 18,
-        "salt": 2
+        "salt": 5.2,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -10704,7 +10827,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Mintaj pieczony z warzywami korzeniowymi, Baked pollock fillet over roasted carrot, parsnip and leek, natural light, no text",
+        "prompt": "professional food photo, Mintaj pieczony z warzywami korzeniowymi, Baked pollock fillet over roasted carrot, parsnip and leek, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -10722,7 +10845,8 @@
         "carbs": 38,
         "fat": 59,
         "fiber": 14,
-        "salt": 3
+        "salt": 7.4,
+        "addedSalt": 3
       },
       "steps": [
         {
@@ -10790,7 +10914,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Kotlety z indyka z pieczonymi burakami, Turkey patties with roasted beetroot wedges and dill, natural light, no text",
+        "prompt": "professional food photo, Kotlety z indyka z pieczonymi burakami, Turkey patties with roasted beetroot wedges and dill, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -10808,7 +10932,8 @@
         "carbs": 86,
         "fat": 50,
         "fiber": 20,
-        "salt": 0
+        "salt": 0.1,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -10852,7 +10977,1512 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Miska smoothie z borówkami, bananem i chia, Blueberry smoothie bowl topped with banana, strawberries and chia seeds, natural light, no text",
+        "prompt": "professional food photo, Miska smoothie z borówkami, bananem i chia, Blueberry smoothie bowl topped with banana, strawberries and chia seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "ca6947a2-10a8-473f-b604-caf46ce7352d",
+      "title": "Jajka faszerowane pastą z awokado",
+      "description": "Połówki jajek na twardo wypełnione kremową pastą z awokado, cytryny i szczypiorku. Przekąska bez węglowodanów, gotowa w kwadrans, dobra też do pudełka.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 579,
+        "protein": 29,
+        "carbs": 6,
+        "fat": 46,
+        "fiber": 11,
+        "salt": 2.7,
+        "addedSalt": 1
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Jajka ugotuj na twardo (9 minut), ostudź w zimnej wodzie i obierz."
+        },
+        {
+          "step": 2,
+          "instruction": "Przekrój jajka wzdłuż, wyjmij żółtka do miski."
+        },
+        {
+          "step": 3,
+          "instruction": "Do żółtek dodaj miąższ awokado, sok z cytryny, oliwę, sól i pieprz; rozgnieć widelcem na gładką pastę."
+        },
+        {
+          "step": 4,
+          "instruction": "Wmieszaj posiekany szczypiorek, część zostaw do posypania."
+        },
+        {
+          "step": 5,
+          "instruction": "Napełnij białka pastą, posyp szczypiorkiem i pieprzem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jajko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "awokado",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 5,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Jajka faszerowane pastą z awokado, Halved hard-boiled eggs filled with creamy green avocado paste, topped with chopped chives and cracked black pepper, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "7e2abb15-bb79-4225-b77f-8a1c2f1ea6fd",
+      "title": "Roladki z łososia wędzonego z serkiem i ogórkiem",
+      "description": "Plastry wędzonego łososia zwinięte z serkiem kremowym, koperkiem i słupkami ogórka. Dziesięć minut pracy, zero gotowania, przekąska keto na zimno.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 296,
+        "protein": 23,
+        "carbs": 8,
+        "fat": 19,
+        "fiber": 1,
+        "salt": 2.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ogórek pokrój w cienkie słupki, koperek posiekaj."
+        },
+        {
+          "step": 2,
+          "instruction": "Serek wymieszaj z koperkiem, sokiem z cytryny i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Plastry łososia rozłóż na desce, posmaruj serkiem."
+        },
+        {
+          "step": 4,
+          "instruction": "Na brzegu każdego plastra ułóż słupki ogórka i ciasno zwiń."
+        },
+        {
+          "step": 5,
+          "instruction": "Przekrój roladki na pół i ułóż przekrojem do góry."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "łosoś wędzony",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "serek kremowy",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 0.5,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Roladki z łososia wędzonego z serkiem i ogórkiem, Smoked salmon roll-ups filled with white cream cheese, dill and cucumber sticks, cut in halves and arranged upright, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "f8a09539-6d29-45df-a77c-6cda6e876d15",
+      "title": "Chipsy z parmezanu z pestkami dyni",
+      "description": "Kopczyki tartego parmezanu zapieczone na chrupiące krążki, posypane pestkami dyni i papryką. Słona przekąska keto zamiast chipsów, z jednego składnika i piekarnika.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 400,
+        "protein": 33,
+        "carbs": 3,
+        "fat": 28,
+        "fiber": 1,
+        "salt": 2.8,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Piekarnik nagrzej do 200°C, blachę wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Parmezan zetrzyj drobno i układaj kopczyki po łyżce w odstępach."
+        },
+        {
+          "step": 3,
+          "instruction": "Każdy kopczyk lekko spłaszcz, posyp pestkami dyni i papryką."
+        },
+        {
+          "step": 4,
+          "instruction": "Piecz 5–6 minut, aż krążki się roztopią i zezłocą na brzegach."
+        },
+        {
+          "step": 5,
+          "instruction": "Wyjmij i zostaw na blasze 3 minuty — chipsy stwardnieją przy studzeniu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ser parmezan",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pestki dyni",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Chipsy z parmezanu z pestkami dyni, Golden crispy baked parmesan crisps sprinkled with green pumpkin seeds and paprika, stacked loosely, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "d19514bf-8023-47bf-ae10-36b9b8c9cc83",
+      "title": "Mus czekoladowy z awokado i kakao",
+      "description": "Gęsty, ciemny mus z dojrzałego awokado, kakao i mleka kokosowego, bez cukru, z garścią malin na wierzchu. Podwieczorek keto, który smakuje jak deser.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 714,
+        "protein": 11,
+        "carbs": 13,
+        "fat": 64,
+        "fiber": 28,
+        "salt": 0.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Awokado obierz i wyjmij pestki."
+        },
+        {
+          "step": 2,
+          "instruction": "Zmiksuj miąższ z kakao, mlekiem kokosowym i cynamonem na gładki, gęsty mus."
+        },
+        {
+          "step": 3,
+          "instruction": "Spróbuj — jeśli chcesz słodziej, dodaj kilka rozgniecionych malin."
+        },
+        {
+          "step": 4,
+          "instruction": "Przełóż do dwóch miseczek i schłodź 10 minut w lodówce."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj z resztą malin i szczyptą kakao."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "awokado",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 80,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "malina",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Mus czekoladowy z awokado i kakao, Dark glossy chocolate avocado mousse in small bowls topped with fresh raspberries and a dusting of cocoa, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "5f33691f-d5bf-432a-950e-6ef68ede64f4",
+      "title": "Kulki z pestek dyni, kakao i kokosa",
+      "description": "Osiem kulek z mielonych pestek dyni, kakao i mleka kokosowego, lekko dosłodzonych miodem. Bez pieczenia, bez glutenu i nabiału; do pudełka na kilka dni.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 589,
+        "protein": 27,
+        "carbs": 14,
+        "fat": 49,
+        "fiber": 7,
+        "salt": 0,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pestki dyni zmiel w blenderze na grubą mąkę."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj kakao, cynamon, miód i mleko kokosowe; miksuj, aż masa zacznie się kleić."
+        },
+        {
+          "step": 3,
+          "instruction": "Odmierz łyżką osiem porcji i uformuj kulki wilgotnymi dłońmi."
+        },
+        {
+          "step": 4,
+          "instruction": "Obtocz część kulek w kakao."
+        },
+        {
+          "step": 5,
+          "instruction": "Schłodź 30 minut w lodówce, żeby stwardniały."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "pestki dyni",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 40,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kulki z pestek dyni, kakao i kokosa, Eight small dark energy balls made of pumpkin seeds and cocoa, some dusted with cocoa powder, arranged in a shallow bowl, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "b13a95c5-7b85-440e-af70-5b69b5b3a2ec",
+      "title": "Sałatka z tuńczykiem, awokado i ogórkiem",
+      "description": "Tuńczyk z puszki z kostkami awokado i ogórka, oliwą i cytryną. Sycąca przekąska keto bez gotowania, zjesz ją widelcem prosto z pudełka.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 521,
+        "protein": 43,
+        "carbs": 8,
+        "fat": 33,
+        "fiber": 11,
+        "salt": 1.2,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Tuńczyka odsącz i rozdrobnij widelcem."
+        },
+        {
+          "step": 2,
+          "instruction": "Awokado i ogórka pokrój w kostkę, szczypiorek posiekaj."
+        },
+        {
+          "step": 3,
+          "instruction": "Wymieszaj wszystko z oliwą i sokiem z cytryny."
+        },
+        {
+          "step": 4,
+          "instruction": "Dopraw pieprzem; sól zwykle jest zbędna, tuńczyk jest słony."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj od razu albo schłodź w pudełku do 24 godzin."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tuńczyk w puszce",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "awokado",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 0.5,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sałatka z tuńczykiem, awokado i ogórkiem, Chunky tuna salad with avocado cubes, diced cucumber and chives glistening with olive oil, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "8439ca81-455c-4531-a02d-5af08a4f2dc8",
+      "title": "Roladki z szynki z serkiem i papryką",
+      "description": "Plastry szynki zwinięte z serkiem kremowym i paskami czerwonej papryki. Chrupiące, słone, gotowe w dziesięć minut; typowa przekąska keto na wynos.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 326,
+        "protein": 23,
+        "carbs": 8,
+        "fat": 22,
+        "fiber": 2,
+        "salt": 3,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Paprykę pokrój w cienkie paski, szczypiorek posiekaj."
+        },
+        {
+          "step": 2,
+          "instruction": "Serek wymieszaj ze szczypiorkiem i pieprzem."
+        },
+        {
+          "step": 3,
+          "instruction": "Każdy plaster szynki posmaruj serkiem."
+        },
+        {
+          "step": 4,
+          "instruction": "Ułóż paski papryki na brzegu i ciasno zwiń."
+        },
+        {
+          "step": 5,
+          "instruction": "Przekrój na pół i spinaj wykałaczką, jeśli roladki się rozwijają."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "szynka",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "serek kremowy",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 0.5,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Roladki z szynki z serkiem i papryką, Ham roll-ups filled with cream cheese and red pepper strips, cut in halves and stacked on a wooden board, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "90fccc56-bb89-4887-a0e9-5cea507b269a",
+      "title": "Kurczak w plastrach z guacamole",
+      "description": "Cienkie plastry piersi z kurczaka podsmażone na oliwie z papryką, podane z szybkim guacamole z czosnkiem i cytryną. Białko i tłuszcz, bez węglowodanów — keto i paleo.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 559,
+        "protein": 50,
+        "carbs": 5,
+        "fat": 35,
+        "fiber": 11,
+        "salt": 2.3,
+        "addedSalt": 1
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Filet pokrój w plastry grubości palca, natrzyj papryką, solą i pieprzem."
+        },
+        {
+          "step": 2,
+          "instruction": "Smaż na oliwie po 3 minuty z każdej strony, aż będzie złoty."
+        },
+        {
+          "step": 3,
+          "instruction": "Awokado rozgnieć widelcem z przeciśniętym czosnkiem i sokiem z cytryny."
+        },
+        {
+          "step": 4,
+          "instruction": "Dopraw guacamole solą i pieprzem."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj plastry kurczaka z guacamole do maczania."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "filet z kurczaka",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "awokado",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kurczak w plastrach z guacamole, Golden pan-seared chicken breast slices next to a small bowl of chunky green guacamole with lemon wedge, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "7cbc9f87-9d57-4306-b43c-11010b87a9ac",
+      "title": "Marchewki i ogórek z dipem z awokado",
+      "description": "Słupki marchewki i ogórka do maczania w kremowym dipie z awokado, cytryny i natki. Chrupiąca przekąska bez gotowania, keto i paleo.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 398,
+        "protein": 6,
+        "carbs": 23,
+        "fat": 27,
+        "fiber": 18,
+        "salt": 2.3,
+        "addedSalt": 1
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Marchewki obierz i pokrój w słupki, ogórka w grubsze paski."
+        },
+        {
+          "step": 2,
+          "instruction": "Awokado rozgnieć z sokiem z cytryny, oliwą i solą."
+        },
+        {
+          "step": 3,
+          "instruction": "Wmieszaj posiekaną natkę."
+        },
+        {
+          "step": 4,
+          "instruction": "Dip przełóż do miseczki, warzywa ułóż wokół."
+        },
+        {
+          "step": 5,
+          "instruction": "Jeśli dip ma czekać, przykryj go folią przylegającą, żeby nie ściemniał."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "marchew",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 0.5,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "awokado",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 5,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Marchewki i ogórek z dipem z awokado, Bright orange carrot sticks and cucumber batons arranged around a small bowl of creamy avocado dip with parsley, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "5e2c7f21-187e-41eb-9387-3392cdb97c9e",
+      "title": "Muffiny jajeczne ze szpinakiem i pomidorkami",
+      "description": "Sześć muffinów z jajek, szpinaku, pomidorków i cebulki, pieczonych w foremkach. Białkowe drugie śniadanie na trzy dni, keto i paleo, dobre na zimno.",
+      "mealType": "SECOND_BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 3,
+      "nutrition": {
+        "kcal": 566,
+        "protein": 41,
+        "carbs": 10,
+        "fat": 38,
+        "fiber": 4,
+        "salt": 3.2,
+        "addedSalt": 1
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Piekarnik nagrzej do 180°C, sześć foremek na muffiny natłuść oliwą."
+        },
+        {
+          "step": 2,
+          "instruction": "Cebulę posiekaj i zeszklij na reszcie oliwy, dodaj szpinak i smaż, aż zwiędnie."
+        },
+        {
+          "step": 3,
+          "instruction": "Jajka roztrzep z solą i pieprzem."
+        },
+        {
+          "step": 4,
+          "instruction": "Do foremek rozłóż szpinak z cebulą i połówki pomidorków, zalej jajkami."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 18–20 minut, aż muffiny się zetną i lekko wyrosną."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jajko",
+          "amount": 6,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "szpinak",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 0.5,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Muffiny jajeczne ze szpinakiem i pomidorkami, Six golden baked egg muffins studded with spinach and halved cherry tomatoes, one cut open to show the inside, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "541ea46a-01a5-42f2-8614-f765871cfb11",
+      "title": "Chipsy z batata z papryką",
+      "description": "Cienkie plastry batata pieczone z oliwą i słodką papryką na chrupko. Słona przekąska paleo bez smażenia; najlepsze prosto z piekarnika.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 385,
+        "protein": 5,
+        "carbs": 51,
+        "fat": 14,
+        "fiber": 10,
+        "salt": 2.4,
+        "addedSalt": 1
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Piekarnik nagrzej do 200°C z termoobiegiem."
+        },
+        {
+          "step": 2,
+          "instruction": "Batata obierz i pokrój w plastry cienkie jak kartka — najlepiej na mandolinie."
+        },
+        {
+          "step": 3,
+          "instruction": "Wymieszaj z oliwą, papryką i solą, rozłóż w jednej warstwie na papierze."
+        },
+        {
+          "step": 4,
+          "instruction": "Piecz 15–18 minut, obracając w połowie, aż brzegi się zwiną i zezłocą."
+        },
+        {
+          "step": 5,
+          "instruction": "Ostudź 5 minut na blasze — dopiero wtedy chipsy zrobią się chrupiące."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "batat",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Chipsy z batata z papryką, Thin crispy baked sweet potato chips with paprika, golden with curled edges, piled on parchment, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "ced82f95-d057-4255-8767-6b9ba8def929",
+      "title": "Sałatka owocowa z pestkami dyni",
+      "description": "Jabłko, brzoskwinia, borówki i maliny z sokiem z cytryny, posypane prażonymi pestkami dyni. Lekki podwieczorek paleo, gotowy w dziesięć minut.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 361,
+        "protein": 10,
+        "carbs": 48,
+        "fat": 12,
+        "fiber": 16,
+        "salt": 0,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pestki dyni upraż na suchej patelni 2 minuty, aż zaczną strzelać."
+        },
+        {
+          "step": 2,
+          "instruction": "Jabłko i brzoskwinię pokrój w kostkę, skrop sokiem z cytryny."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj borówki i maliny, delikatnie wymieszaj."
+        },
+        {
+          "step": 4,
+          "instruction": "Podziel na dwie miseczki."
+        },
+        {
+          "step": 5,
+          "instruction": "Posyp pestkami tuż przed podaniem, żeby zostały chrupiące."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jabłko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "brzoskwinia",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "borówka",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "malina",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pestki dyni",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sałatka owocowa z pestkami dyni, Colorful fruit salad of apple, peach, blueberries and raspberries topped with toasted green pumpkin seeds, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "8f83aba3-3630-4db8-9af2-70b9da390651",
+      "title": "Kasza jaglana na mleku kokosowym z malinami",
+      "description": "Kremowa jaglanka ugotowana na mleku kokosowym, z bananem, malinami i cynamonem. Śniadanie bez glutenu, nabiału, jajek i orzechów, słodkie bez cukru.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 816,
+        "protein": 16,
+        "carbs": 107,
+        "fat": 36,
+        "fiber": 15,
+        "salt": 0.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Kaszę przepłucz gorącą wodą, żeby pozbyć się goryczki."
+        },
+        {
+          "step": 2,
+          "instruction": "Zalej mlekiem kokosowym i 150 ml wody, gotuj pod przykryciem 15 minut na małym ogniu."
+        },
+        {
+          "step": 3,
+          "instruction": "Pod koniec wmieszaj rozgniecionego banana i cynamon."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozłóż do miseczek."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj z malinami; część rozgnieć, żeby puściły sok."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "kasza jaglana",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 150,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "malina",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 2,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kasza jaglana na mleku kokosowym z malinami, Creamy golden millet porridge with fresh raspberries, banana slices and a sprinkle of cinnamon, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "0ef3a2e0-1619-4295-9b54-1f6ac6d08257",
+      "title": "Pudding chia z bananem i kakao",
+      "description": "Nasiona chia namoczone przez noc w mleku kokosowym z kakao, rano z plastrami banana. Śniadanie do pudełka, bez glutenu, nabiału, jajek i orzechów.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 563,
+        "protein": 12,
+        "carbs": 32,
+        "fat": 39,
+        "fiber": 19,
+        "salt": 0.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Mleko kokosowe rozcieńcz 150 ml wody i wymieszaj z kakao i cynamonem."
+        },
+        {
+          "step": 2,
+          "instruction": "Wsyp chia, dokładnie wymieszaj, po 5 minutach wymieszaj jeszcze raz, żeby nie zbryliły się na dnie."
+        },
+        {
+          "step": 3,
+          "instruction": "Przełóż do dwóch słoiczków i odstaw do lodówki na noc (minimum 3 godziny)."
+        },
+        {
+          "step": 4,
+          "instruction": "Rano sprawdź gęstość; za gęsty rozrzedź łyżką wody."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj z plastrami banana i szczyptą kakao."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "nasiona chia",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 120,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pudding chia z bananem i kakao, Dark chocolate chia pudding in glass-free ceramic cups topped with banana slices and a dusting of cocoa, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "9949e032-3bfa-4319-bf01-13c1bc77702f",
+      "title": "Placuszki jaglano-bananowe",
+      "description": "Placuszki z ugotowanej kaszy jaglanej, rozgniecionego banana i nasion chia zamiast jajka, smażone na oliwie. Miękkie w środku, złote na brzegach; bez glutenu, nabiału, jajek i orzechów.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 649,
+        "protein": 14,
+        "carbs": 107,
+        "fat": 17,
+        "fiber": 15,
+        "salt": 0,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Kaszę przepłucz i ugotuj w 200 ml wody do miękkości (12 minut), ostudź."
+        },
+        {
+          "step": 2,
+          "instruction": "Chia zalej 3 łyżkami wody i odstaw na 5 minut, aż zgęstnieje."
+        },
+        {
+          "step": 3,
+          "instruction": "Banany rozgnieć widelcem, wymieszaj z kaszą, chia i cynamonem na kleistą masę."
+        },
+        {
+          "step": 4,
+          "instruction": "Nakładaj łyżką na rozgrzaną oliwę, spłaszcz i smaż po 3 minuty z każdej strony."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj ciepłe; dobre też na zimno następnego dnia."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "kasza jaglana",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "nasiona chia",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Placuszki jaglano-bananowe, Small golden millet banana pancakes stacked on a plate with banana slices and a cinnamon dusting, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "82b56aba-6dc5-4fb3-8b82-2bf9a601c596",
+      "title": "Tosty z batata z awokado i pomidorkami",
+      "description": "Plastry batata opieczone w tosterze zamiast chleba, z rozgniecionym awokado, pomidorkami i sezamem. Śniadanie bez glutenu, nabiału, jajek i orzechów; paleo i wegańskie.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 591,
+        "protein": 10,
+        "carbs": 58,
+        "fat": 30,
+        "fiber": 21,
+        "salt": 2.4,
+        "addedSalt": 1
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Batata umyj i pokrój wzdłuż w plastry grubości pół centymetra."
+        },
+        {
+          "step": 2,
+          "instruction": "Opiekaj w tosterze 2–3 cykle (albo w piekarniku 200°C przez 12 minut), aż zmiękną i zbrązowieją."
+        },
+        {
+          "step": 3,
+          "instruction": "Awokado rozgnieć z sokiem z cytryny, oliwą, solą i pieprzem."
+        },
+        {
+          "step": 4,
+          "instruction": "Posmaruj tosty pastą, ułóż połówki pomidorków."
+        },
+        {
+          "step": 5,
+          "instruction": "Posyp sezamem i pieprzem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "batat",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "awokado",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sezam",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 5,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Tosty z batata z awokado i pomidorkami, Toasted sweet potato slices topped with smashed avocado, halved cherry tomatoes and sesame seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "fb554931-f9e1-41c5-a94b-73a448464c5c",
+      "title": "Smoothie bowl z borówkami i pestkami dyni",
+      "description": "Gęste smoothie z mrożonych bananów, borówek i mleka kokosowego, jedzone łyżką z malinami i prażonymi pestkami dyni. Bez glutenu, nabiału, jajek i orzechów.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 634,
+        "protein": 12,
+        "carbs": 73,
+        "fat": 33,
+        "fiber": 14,
+        "salt": 0.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Banany pokrój i zamroź dzień wcześniej — to one dają gęstość."
+        },
+        {
+          "step": 2,
+          "instruction": "Pestki dyni upraż na suchej patelni 2 minuty."
+        },
+        {
+          "step": 3,
+          "instruction": "Zmiksuj banany, 100 g borówek i mleko kokosowe na gęstą masę; miksuj krótko, żeby nie rozrzedzić."
+        },
+        {
+          "step": 4,
+          "instruction": "Przełóż do miseczek."
+        },
+        {
+          "step": 5,
+          "instruction": "Ułóż na wierzchu maliny, resztę borówek i pestki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "banan",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "borówka",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 100,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "pestki dyni",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "malina",
+          "amount": 50,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Smoothie bowl z borówkami i pestkami dyni, Thick purple blueberry smoothie bowl topped with rows of raspberries, blueberries and toasted pumpkin seeds, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "b69c555f-550a-4d57-a1dc-a7894426f114",
+      "title": "Tofucznica ze szpinakiem i pomidorkami",
+      "description": "Rozdrobnione tofu podsmażone z cebulą, papryką i kminem, ze szpinakiem i pomidorkami — jak jajecznica, ale bez jajek. Ciepłe śniadanie bez glutenu, nabiału, jajek i orzechów.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 478,
+        "protein": 37,
+        "carbs": 14,
+        "fat": 29,
+        "fiber": 8,
+        "salt": 2.2,
+        "addedSalt": 1
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Tofu osusz i rozgnieć widelcem na grudki wielkości jajecznicy."
+        },
+        {
+          "step": 2,
+          "instruction": "Cebulę posiekaj i zeszklij na oliwie."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj tofu, paprykę, kmin, sól i pieprz; smaż 5 minut, mieszając, aż się zrumieni."
+        },
+        {
+          "step": 4,
+          "instruction": "Wrzuć szpinak i połówki pomidorków, smaż 2 minuty, aż szpinak zwiędnie."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj od razu, z dodatkowym pieprzem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tofu",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szpinak",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 0.5,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Tofucznica ze szpinakiem i pomidorkami, Golden crumbled tofu scramble with wilted spinach and blistered cherry tomatoes in a skillet-style plate, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "bbb5df7d-78c1-4ac4-8160-7f2f18e94dc4",
+      "title": "Kasza gryczana na słodko z jabłkiem i cynamonem",
+      "description": "Niepalona kasza gryczana ugotowana na mleku kokosowym, z duszonym jabłkiem i cynamonem. Sycące śniadanie bez glutenu, nabiału, jajek i orzechów.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 755,
+        "protein": 16,
+        "carbs": 85,
+        "fat": 40,
+        "fiber": 11,
+        "salt": 0.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Kaszę przepłucz, zalej mlekiem kokosowym i 150 ml wody, gotuj pod przykryciem 15 minut."
+        },
+        {
+          "step": 2,
+          "instruction": "Jabłko pokrój w kostkę i poddusz na oliwie z cynamonem 5 minut, aż zmięknie."
+        },
+        {
+          "step": 3,
+          "instruction": "Kaszę wymieszaj, jeśli za gęsta — dolej odrobinę wody."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozłóż do miseczek."
+        },
+        {
+          "step": 5,
+          "instruction": "Na wierzch daj jabłko z sokiem z patelni."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "kasza gryczana",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 150,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jabłko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 5,
+          "unit": "ml"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kasza gryczana na słodko z jabłkiem i cynamonem, Bowl of creamy buckwheat porridge topped with caramelized apple cubes and cinnamon, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": null
+      }
+    },
+    {
+      "id": "785daaad-8ab9-4e30-84a4-a9a36af98f6a",
+      "title": "Ryż na mleku kokosowym z brzoskwinią",
+      "description": "Ryż jaśminowy ugotowany na mleku kokosowym do kremowej konsystencji, z kawałkami brzoskwini, cynamonem i sezamem. Słodkie śniadanie bez glutenu, nabiału, jajek i orzechów.",
+      "mealType": "BREAKFAST",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 794,
+        "protein": 13,
+        "carbs": 85,
+        "fat": 46,
+        "fiber": 6,
+        "salt": 0.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ryż przepłucz, zalej mlekiem kokosowym i 200 ml wody."
+        },
+        {
+          "step": 2,
+          "instruction": "Gotuj na małym ogniu 18 minut, mieszając pod koniec, aż będzie kremowy."
+        },
+        {
+          "step": 3,
+          "instruction": "Brzoskwinię pokrój w cząstki."
+        },
+        {
+          "step": 4,
+          "instruction": "Sezam upraż na suchej patelni minutę."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj ryż z brzoskwinią, cynamonem i sezamem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ryż jaśminowy",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko kokosowe z puszki",
+          "amount": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "brzoskwinia",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sezam",
+          "amount": 5,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Ryż na mleku kokosowym z brzoskwinią, Creamy coconut rice pudding in a bowl topped with fresh peach slices, cinnamon and toasted sesame, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     }

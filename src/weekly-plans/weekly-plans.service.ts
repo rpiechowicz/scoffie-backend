@@ -406,9 +406,14 @@ export class WeeklyPlansService {
       dto.recipeId,
     );
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
+    // Jedno zapytanie o domowników (identyfikatory, alergeny, wykluczenia)
+    // zamiast czterech o ten sam skład — audyt 2: ręczne wstawienie posiłku
+    // robiło ~8 zapytań przed transakcją.
+    const members = await this.loadHouseholdMembersForGate(householdId);
     const resolved = await this.resolveParticipants(
       householdId,
       dto.participantIds,
+      members.memberIds,
     );
     const participantIds = resolved.participantIds;
     // Podmiana potrzebuje IDENTYFIKATORÓW domowników, nie tylko ich liczby:
@@ -416,9 +421,7 @@ export class WeeklyPlansService {
     // bo item mógł zapamiętać byłego domownika (duch po `leave`), a taki wpis
     // nie ma prawa wejść do nowego itemu. Liczba domowników pochodzi wtedy z
     // tej samej listy, żeby obie reguły liczyły z jednego stanu.
-    const memberIds = replaceRecipeId
-      ? await this.loadMemberIds(householdId)
-      : null;
+    const memberIds = replaceRecipeId ? members.memberIds : null;
     const memberCount = memberIds ? memberIds.size : resolved.memberCount;
     // Reguła auto dla NOWEGO itemu. Liczymy z już rozwiązanego audytorium, nie
     // z surowego `dto`: lista nazywająca wszystkich domowników zwija się do
@@ -435,14 +438,11 @@ export class WeeklyPlansService {
     // domowników). Do 3.09.2026 miał je tylko zapis tygodnia — asystent nie
     // mógł wstawić dania z alergenem, a ręka z telefonu mogła. Ładowane
     // PRZED transakcją, sprawdzane w niej, gdy znane jest już audytorium.
-    const [plannableForGate, allergensByMember, exclusionsByMember] =
-      await Promise.all([
-        this.loadPlannableRecipes(householdId, [dto.recipeId]),
-        this.loadMemberAllergens(householdId),
-        this.loadMemberExclusions(householdId),
-      ]);
-    const memberIdsForGate =
-      memberIds ?? (await this.loadMemberIds(householdId));
+    const plannableForGate = await this.loadPlannableRecipes(householdId, [
+      dto.recipeId,
+    ]);
+    const { allergensByMember, exclusionsByMember } = members;
+    const memberIdsForGate = members.memberIds;
 
     return this.prisma.$transaction(async (tx) => {
       await tx.shoppingListArchiveState.deleteMany({
@@ -762,9 +762,8 @@ export class WeeklyPlansService {
     const weekStartDate = parseWeekStart(weekStart);
     const dryRun = dto.dryRun === true;
 
-    const memberIds = await this.loadMemberIds(householdId);
-    const allergensByMember = await this.loadMemberAllergens(householdId);
-    const exclusionsByMember = await this.loadMemberExclusions(householdId);
+    const { memberIds, allergensByMember, exclusionsByMember } =
+      await this.loadHouseholdMembersForGate(householdId);
     const recipes = await this.loadPlannableRecipes(
       householdId,
       dto.slots.map((slot) => slot.recipeId),
@@ -981,47 +980,42 @@ export class WeeklyPlansService {
    */
   /** Alergeny per domownik — brak wiersza preferencji znaczy „brak alergenów". */
   /**
-   * Czego domownicy nie jedzą, choć nie jest to alergia.
-   *
-   * Osobno od alergenów, bo to inna rzecz i inny komunikat: alergen jest
-   * o zdrowiu, wykluczenie o gustach. Wspólny worek dawałby zdanie
-   * „danie zawiera alergeny domownika: pieczarka", które jest nieprawdą.
+   * Skład domu do bramek planu w JEDNYM zapytaniu: identyfikatory,
+   * alergeny i wykluczenia. Alergeny i wykluczenia zostają osobnymi mapami,
+   * bo to inna rzecz i inny komunikat: alergen jest o zdrowiu, wykluczenie
+   * o gustach — wspólny worek dawałby zdanie „danie zawiera alergeny
+   * domownika: pieczarka", które jest nieprawdą.
    */
-  private async loadMemberExclusions(
-    householdId: string,
-  ): Promise<Map<string, string[]>> {
+  private async loadHouseholdMembersForGate(householdId: string): Promise<{
+    memberIds: Set<string>;
+    allergensByMember: Map<string, string[]>;
+    exclusionsByMember: Map<string, string[]>;
+  }> {
     const rows = await this.prisma.membership.findMany({
       where: { householdId },
       select: {
         userId: true,
         user: {
           select: {
-            preferences: { select: { excludedIngredientIds: true } },
+            preferences: {
+              select: { allergens: true, excludedIngredientIds: true },
+            },
           },
         },
       },
     });
-    return new Map(
-      rows.map((row) => [
-        row.userId,
-        row.user.preferences?.excludedIngredientIds ?? [],
-      ]),
-    );
-  }
-
-  private async loadMemberAllergens(
-    householdId: string,
-  ): Promise<Map<string, string[]>> {
-    const rows = await this.prisma.membership.findMany({
-      where: { householdId },
-      select: {
-        userId: true,
-        user: { select: { preferences: { select: { allergens: true } } } },
-      },
-    });
-    return new Map(
-      rows.map((row) => [row.userId, row.user.preferences?.allergens ?? []]),
-    );
+    return {
+      memberIds: new Set(rows.map((row) => row.userId)),
+      allergensByMember: new Map(
+        rows.map((row) => [row.userId, row.user.preferences?.allergens ?? []]),
+      ),
+      exclusionsByMember: new Map(
+        rows.map((row) => [
+          row.userId,
+          row.user.preferences?.excludedIngredientIds ?? [],
+        ]),
+      ),
+    };
   }
 
   private collectPlanViolations(
@@ -1190,9 +1184,8 @@ export class WeeklyPlansService {
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
 
-    const memberIds = await this.loadMemberIds(householdId);
-    const allergensByMember = await this.loadMemberAllergens(householdId);
-    const exclusionsByMember = await this.loadMemberExclusions(householdId);
+    const { memberIds, allergensByMember, exclusionsByMember } =
+      await this.loadHouseholdMembersForGate(householdId);
     const recipeIds = dto.slots.map((slot) => slot.recipeId);
     const plannable = await this.loadPlannableRecipes(householdId, recipeIds);
 
@@ -1567,9 +1560,14 @@ export class WeeklyPlansService {
   private async resolveParticipants(
     householdId: string,
     requested?: string[],
+    /** Skład już wczytany przez wołającego — oszczędza zapytanie. */
+    knownMemberIds?: Set<string>,
   ): Promise<{ participantIds: string[]; memberCount: number }> {
     const unique = Array.from(new Set(requested ?? []));
     if (unique.length === 0) {
+      if (knownMemberIds) {
+        return { participantIds: [], memberCount: knownMemberIds.size };
+      }
       // Sama lista uczestników nie jest tu potrzebna — nie ma czego walidować
       // — ale „Wspólne" znaczy „tyle porcji, ilu domowników", więc bez tego
       // licznika auto-reguła nie miałaby z czego liczyć. `count` zamiast
@@ -1580,11 +1578,16 @@ export class WeeklyPlansService {
       return { participantIds: [], memberCount };
     }
 
-    const memberships = await this.prisma.membership.findMany({
-      where: { householdId },
-      select: { userId: true },
-    });
-    const memberIds = new Set(memberships.map((m) => m.userId));
+    const memberIds =
+      knownMemberIds ??
+      new Set(
+        (
+          await this.prisma.membership.findMany({
+            where: { householdId },
+            select: { userId: true },
+          })
+        ).map((m) => m.userId),
+      );
 
     const unknown = unique.filter((id) => !memberIds.has(id));
     if (unknown.length > 0) {

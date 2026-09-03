@@ -226,7 +226,11 @@ model Recipe {
   nutritionFat          Float      @default(0)
   nutritionCarbs        Float      @default(0)
   nutritionFiber        Float      @default(0)
+  /// Sól ŁĄCZNIE (g na przepis): ze składników (sód × 2,5) + dodana.
   nutritionSalt         Float      @default(0)
+  /// Sól DODANA ręcznie (g na przepis) — jedyna część, której nie da się
+  /// policzyć ze składników; recompute liczy resztę i sumuje.
+  nutritionSaltAdded    Float      @default(0)
   isActive              Boolean    @default(true)
   /// Czy przepis należy do WSPÓLNEGO katalogu (widoczny dla wszystkich
   /// gospodarstw), czy jest prywatnym przepisem swojego gospodarstwa.
@@ -286,6 +290,9 @@ model Ingredient {
   nutritionCarbsPer100   Float?
   nutritionFatPer100     Float?
   nutritionFiberPer100   Float?
+  /// Sód w mg na 100 g/ml (IZZ/USDA). Sól przepisu = sód ze składników × 2,5
+  /// + sól dodana — dotąd „sól" znaczyła dwie różne rzeczy w dwóch partiach.
+  nutritionSodiumMgPer100 Float?
 
   /// Masa jadalnej czesci 1 sztuki — dla skladnikow mierzonych w `szt`.
   gramsPerPiece Float?

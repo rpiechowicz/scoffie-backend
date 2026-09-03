@@ -23,6 +23,8 @@ import {
 import {
   computeRecipeNutrition,
   roundTotalsForStorage,
+  saltGramsFromSodium,
+  totalSaltGrams,
   type IngredientNutritionPer100,
   type NutritionInputItem,
 } from '../src/recipes/recipe-nutrition.util';
@@ -42,6 +44,7 @@ type CatalogEntry = {
   carbs: number;
   fat: number;
   fiber: number;
+  sodiumMg?: number;
   gramsPerPiece?: number;
 };
 
@@ -54,7 +57,10 @@ type RecipeJson = {
     carbs: number;
     fat: number;
     fiber: number;
+    /** Sól ŁĄCZNIE (ze składników + dodana). */
     salt: number;
+    /** Sól DODANA; brak w starym pliku = wyprowadzana z `salt` przy pierwszym przeliczeniu. */
+    addedSalt?: number;
   };
   ingredients: Array<{ ingredientName: string; amount: number; unit: string }>;
 };
@@ -84,8 +90,25 @@ function toPer100(entry: CatalogEntry): IngredientNutritionPer100 {
     carbs: entry.carbs,
     fat: entry.fat,
     fiber: entry.fiber,
+    sodiumMg: entry.sodiumMg ?? 0,
     gramsPerPiece: entry.gramsPerPiece ?? null,
   };
+}
+
+/**
+ * Sól dodana dla wpisu: jawna z pliku, a gdy jej nie ma — wyprowadzona ze
+ * starego pola `salt`, które dotąd mieszało sól ze składników z dodaną.
+ * Jednorazowe: po zapisie plik ma już `addedSalt`.
+ */
+function addedSaltOf(
+  nutrition: RecipeJson['nutrition'],
+  sodiumMg: number,
+): number {
+  if (typeof nutrition.addedSalt === 'number') return nutrition.addedSalt;
+  return Math.max(
+    0,
+    Math.round((nutrition.salt - saltGramsFromSodium(sodiumMg)) * 10) / 10,
+  );
 }
 
 /**
@@ -155,9 +178,15 @@ function patchNutritionInText(
       const next = values[index];
       if (!next) return match;
 
-      const keys = [...body.matchAll(/"([a-zA-Z]+)"\s*:/g)].map(
+      const bodyKeys = [...body.matchAll(/"([a-zA-Z]+)"\s*:/g)].map(
         (entry) => entry[1],
       );
+      // Nowe pola (np. `addedSalt`) dopisują się na końcu — inaczej plik
+      // bez nich nigdy by ich nie dostał.
+      const keys = [
+        ...bodyKeys,
+        ...Object.keys(next).filter((key) => !bodyKeys.includes(key)),
+      ];
       const rendered = keys
         .map((key) => `"${key}": ${next[key as keyof RecipeJson['nutrition']]}`)
         .filter((entry) => !entry.endsWith('undefined'));
@@ -204,10 +233,14 @@ async function recomputeCatalogFiles(
       }
 
       const { totals } = computeRecipeNutrition(items);
+      const { sodiumMg, ...stored } = roundTotalsForStorage(totals);
+      const addedSalt = addedSaltOf(recipe.nutrition, totals.sodiumMg);
       const next = {
-        ...roundTotalsForStorage(totals),
-        salt: recipe.nutrition.salt, // poza zakresem audytu — zostaje bez zmian
+        ...stored,
+        salt: totalSaltGrams(totals.sodiumMg, addedSalt),
+        addedSalt,
       };
+      void sodiumMg;
 
       if (next.kcal !== recipe.nutrition.kcal) changed += 1;
       patched.push(next);
@@ -233,6 +266,8 @@ async function recomputeDatabase(options: Options): Promise<void> {
       recipeId: string;
       title: string;
       storedKcal: number;
+      storedSalt: number;
+      storedSaltAdded: number;
       ingredientName: string;
       normalizedAmount: number;
       normalizedUnit: string;
@@ -241,15 +276,18 @@ async function recomputeDatabase(options: Options): Promise<void> {
       carbsPer100: number | null;
       fatPer100: number | null;
       fiberPer100: number | null;
+      sodiumPer100: number | null;
       gramsPerPiece: number | null;
     }>
   >`
     SELECT r.id AS "recipeId", r.title AS "title", r."nutritionKcal" AS "storedKcal",
+           r."nutritionSalt" AS "storedSalt", r."nutritionSaltAdded" AS "storedSaltAdded",
            ri.name AS "ingredientName", ri."normalizedAmount" AS "normalizedAmount",
            ri."normalizedUnit" AS "normalizedUnit",
            i."nutritionKcalPer100" AS "kcalPer100", i."nutritionProteinPer100" AS "proteinPer100",
            i."nutritionCarbsPer100" AS "carbsPer100", i."nutritionFatPer100" AS "fatPer100",
-           i."nutritionFiberPer100" AS "fiberPer100", i."gramsPerPiece" AS "gramsPerPiece"
+           i."nutritionFiberPer100" AS "fiberPer100", i."nutritionSodiumMgPer100" AS "sodiumPer100",
+           i."gramsPerPiece" AS "gramsPerPiece"
     FROM "Recipe" r
     JOIN "RecipeIngredient" ri ON ri."recipeId" = r.id
     JOIN "Ingredient" i ON i.id = ri."ingredientId"
@@ -258,13 +296,25 @@ async function recomputeDatabase(options: Options): Promise<void> {
 
   const byRecipe = new Map<
     string,
-    { title: string; storedKcal: number; items: NutritionInputItem[] }
+    {
+      title: string;
+      storedKcal: number;
+      storedSalt: number;
+      storedSaltAdded: number;
+      items: NutritionInputItem[];
+    }
   >();
 
   for (const row of rows) {
     let entry = byRecipe.get(row.recipeId);
     if (!entry) {
-      entry = { title: row.title, storedKcal: row.storedKcal, items: [] };
+      entry = {
+        title: row.title,
+        storedKcal: row.storedKcal,
+        storedSalt: row.storedSalt,
+        storedSaltAdded: row.storedSaltAdded,
+        items: [],
+      };
       byRecipe.set(row.recipeId, entry);
     }
 
@@ -281,6 +331,7 @@ async function recomputeDatabase(options: Options): Promise<void> {
               carbs: row.carbsPer100 ?? 0,
               fat: row.fatPer100 ?? 0,
               fiber: row.fiberPer100 ?? 0,
+              sodiumMg: row.sodiumPer100 ?? 0,
               gramsPerPiece: row.gramsPerPiece,
             },
     });
@@ -304,12 +355,24 @@ async function recomputeDatabase(options: Options): Promise<void> {
         where: { id: recipeId },
         data: (() => {
           const stored = roundTotalsForStorage(totals);
+          // Wiersz sprzed kolumny „sól dodana" (0) z solą większą niż ta ze
+          // składników: nadwyżka to sól dodana — jednorazowe wyprowadzenie.
+          const fromSodium = saltGramsFromSodium(totals.sodiumMg);
+          const added =
+            entry.storedSaltAdded > 0
+              ? entry.storedSaltAdded
+              : Math.max(
+                  0,
+                  Math.round((entry.storedSalt - fromSodium) * 10) / 10,
+                );
           return {
             nutritionKcal: stored.kcal,
             nutritionProtein: stored.protein,
             nutritionCarbs: stored.carbs,
             nutritionFat: stored.fat,
             nutritionFiber: stored.fiber,
+            nutritionSalt: totalSaltGrams(totals.sodiumMg, added),
+            nutritionSaltAdded: added,
           };
         })(),
       });

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { SentryModule } from '@sentry/nestjs/setup';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -16,6 +17,10 @@ import { AppThrottleModule } from './common/throttle/throttle.module';
 
 @Module({
   imports: [
+    // Kontekst żądania dla błędów w Sentry; bez DSN nic nie robi. Własny
+    // filtr wyjątków zostaje — to on decyduje, co jest błędem serwera
+    // (`captureUnexpected`), a co zwykłą odpowiedzią 4xx.
+    SentryModule.forRoot(),
     PrismaModule,
     CommonModule,
     // Globalny throttler HTTP — rejestruje APP_GUARD, więc musi być w drzewie

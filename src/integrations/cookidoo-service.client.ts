@@ -114,6 +114,14 @@ export class CookidooServiceClient {
           HttpStatus.SERVICE_UNAVAILABLE,
         );
       case 'COOKIDOO_UPSTREAM_TIMEOUT':
+        this.logger.warn(
+          `Cookidoo (Vorwerk) nie odpowiedziało w czasie dla ${path}`,
+        );
+        throw new AppException(
+          'COOKIDOO_UPSTREAM_TIMEOUT',
+          'Cookidoo nie odpowiedziało w czasie. Spróbuj ponownie za chwilę.',
+          HttpStatus.GATEWAY_TIMEOUT,
+        );
       case 'COOKIDOO_UPSTREAM_ERROR':
         // Vorwerk odpowiedział błędem — mikroserwis żyje, to po drugiej
         // stronie coś nie gra. Zlewanie tego z „usługa niedostępna" chowało

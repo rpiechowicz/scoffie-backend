@@ -15,7 +15,8 @@
         "carbs": 138,
         "fat": 43,
         "fiber": 13,
-        "salt": 2
+        "salt": 4.2,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -92,7 +93,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Tofu w sosie pomidorowym z ryżem basmati, Golden fried tofu cubes in thick tomato sauce over basmati rice, natural light, no text",
+        "prompt": "professional food photo, Tofu w sosie pomidorowym z ryżem basmati, Golden fried tofu cubes in thick tomato sauce over basmati rice, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -110,7 +111,8 @@
         "carbs": 155,
         "fat": 18,
         "fiber": 34,
-        "salt": 2
+        "salt": 5.9,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -192,7 +194,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Gulasz z czerwonej soczewicy z batatem i szpinakiem, Thick red lentil and sweet potato stew with wilted spinach in a bowl, natural light, no text",
+        "prompt": "professional food photo, Gulasz z czerwonej soczewicy z batatem i szpinakiem, Thick red lentil and sweet potato stew with wilted spinach in a bowl, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -210,7 +212,8 @@
         "carbs": 138,
         "fat": 45,
         "fiber": 17,
-        "salt": 0
+        "salt": 4.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -282,7 +285,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Stir-fry z tofu, brokułem i papryką z ryżem jaśminowym, Wok stir-fry of tofu, broccoli and red pepper with sesame over jasmine rice, natural light, no text",
+        "prompt": "professional food photo, Stir-fry z tofu, brokułem i papryką z ryżem jaśminowym, Wok stir-fry of tofu, broccoli and red pepper with sesame over jasmine rice, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -300,7 +303,8 @@
         "carbs": 124,
         "fat": 25,
         "fiber": 18,
-        "salt": 2
+        "salt": 4,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -372,7 +376,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Kasza gryczana z pieczarkami i cebulą, Buckwheat groats with golden fried mushrooms and onions, parsley on top, natural light, no text",
+        "prompt": "professional food photo, Kasza gryczana z pieczarkami i cebulą, Buckwheat groats with golden fried mushrooms and onions, parsley on top, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -390,7 +394,8 @@
         "carbs": 60,
         "fat": 67,
         "fiber": 7,
-        "salt": 3
+        "salt": 6,
+        "addedSalt": 3
       },
       "steps": [
         {
@@ -462,7 +467,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Krem z dyni z mlekiem kokosowym, Velvety roasted pumpkin and coconut soup topped with pumpkin seeds, natural light, no text",
+        "prompt": "professional food photo, Krem z dyni z mlekiem kokosowym, Velvety roasted pumpkin and coconut soup topped with pumpkin seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -480,7 +485,8 @@
         "carbs": 45,
         "fat": 81,
         "fiber": 31,
-        "salt": 0
+        "salt": 0.1,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -524,7 +530,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Pudding chia z mlekiem kokosowym i malinami, Coconut chia pudding in a glass jar topped with raspberries and banana slices, natural light, no text",
+        "prompt": "professional food photo, Pudding chia z mlekiem kokosowym i malinami, Coconut chia pudding in a glass jar topped with raspberries and banana slices, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -542,7 +548,8 @@
         "carbs": 95,
         "fat": 35,
         "fiber": 34,
-        "salt": 2
+        "salt": 6.5,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -611,7 +618,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Sałatka z ciecierzycą, ogórkiem i pomidorem, Chickpea salad with cucumber, tomato, red onion and parsley in lemon dressing, natural light, no text",
+        "prompt": "professional food photo, Sałatka z ciecierzycą, ogórkiem i pomidorem, Chickpea salad with cucumber, tomato, red onion and parsley in lemon dressing, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -624,12 +631,13 @@
       "prepTimeMinutes": 12,
       "servings": 2,
       "nutrition": {
-        "kcal": 1012,
+        "kcal": 1020,
         "protein": 27,
-        "carbs": 138,
+        "carbs": 137,
         "fat": 35,
-        "fiber": 28,
-        "salt": 0
+        "fiber": 26,
+        "salt": 0.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -678,7 +686,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Owsianka kakaowa z bananem na mleku owsianym, Chocolate oat porridge with banana slices and walnuts in a bowl, natural light, no text",
+        "prompt": "professional food photo, Owsianka kakaowa z bananem na mleku owsianym, Chocolate oat porridge with banana slices and walnuts in a bowl, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -696,7 +704,8 @@
         "carbs": 158,
         "fat": 23,
         "fiber": 49,
-        "salt": 2
+        "salt": 9,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -773,7 +782,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Zapiekanka z batata z czerwoną fasolą, Baked sweet potato and red bean casserole in a ceramic dish, natural light, no text",
+        "prompt": "professional food photo, Zapiekanka z batata z czerwoną fasolą, Baked sweet potato and red bean casserole in a ceramic dish, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -791,7 +800,8 @@
         "carbs": 130,
         "fat": 37,
         "fiber": 13,
-        "salt": 2
+        "salt": 4.1,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -859,7 +869,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Makaron penne z cukinią, pomidorkami i pestkami dyni, Penne pasta with sautéed zucchini, cherry tomatoes and toasted pumpkin seeds, natural light, no text",
+        "prompt": "professional food photo, Makaron penne z cukinią, pomidorkami i pestkami dyni, Penne pasta with sautéed zucchini, cherry tomatoes and toasted pumpkin seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -877,7 +887,8 @@
         "carbs": 10,
         "fat": 77,
         "fiber": 4,
-        "salt": 2
+        "salt": 6,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -940,7 +951,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Kurczak w śmietanowym sosie ze szpinakiem, Chicken breast in creamy parmesan spinach sauce in a skillet, natural light, no text",
+        "prompt": "professional food photo, Kurczak w śmietanowym sosie ze szpinakiem, Chicken breast in creamy parmesan spinach sauce in a skillet, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -958,7 +969,8 @@
         "carbs": 22,
         "fat": 79,
         "fiber": 11,
-        "salt": 2
+        "salt": 4.5,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -1026,7 +1038,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Łosoś z masłem czosnkowym i brokułem, Baked salmon fillet with garlic butter and roasted broccoli, lemon wedges, natural light, no text",
+        "prompt": "professional food photo, Łosoś z masłem czosnkowym i brokułem, Baked salmon fillet with garlic butter and roasted broccoli, lemon wedges, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1044,7 +1056,8 @@
         "carbs": 22,
         "fat": 96,
         "fiber": 17,
-        "salt": 2
+        "salt": 6.5,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -1103,7 +1116,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Sałatka caprese z awokado, Caprese salad with avocado slices, cherry tomatoes and torn mozzarella, natural light, no text",
+        "prompt": "professional food photo, Sałatka caprese z awokado, Caprese salad with avocado slices, cherry tomatoes and torn mozzarella, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1121,7 +1134,8 @@
         "carbs": 8,
         "fat": 53,
         "fiber": 3,
-        "salt": 2
+        "salt": 6.1,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -1179,7 +1193,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Omlet z pieczarkami i parmezanem, Folded mushroom omelette with parmesan and chives on a plate, natural light, no text",
+        "prompt": "professional food photo, Omlet z pieczarkami i parmezanem, Folded mushroom omelette with parmesan and chives on a plate, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1197,7 +1211,8 @@
         "carbs": 32,
         "fat": 98,
         "fiber": 12,
-        "salt": 2
+        "salt": 6.8,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -1275,7 +1290,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Cukinia zapiekana z mięsem mielonym i goudą, Zucchini boats stuffed with minced meat and melted gouda cheese, natural light, no text",
+        "prompt": "professional food photo, Cukinia zapiekana z mięsem mielonym i goudą, Zucchini boats stuffed with minced meat and melted gouda cheese, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1293,7 +1308,8 @@
         "carbs": 8,
         "fat": 71,
         "fiber": 22,
-        "salt": 2
+        "salt": 4.7,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -1351,7 +1367,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Jajka zapiekane w awokado, Baked eggs in avocado halves with chives and pumpkin seeds, natural light, no text",
+        "prompt": "professional food photo, Jajka zapiekane w awokado, Baked eggs in avocado halves with chives and pumpkin seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1369,7 +1385,8 @@
         "carbs": 17,
         "fat": 32,
         "fiber": 8,
-        "salt": 2
+        "salt": 4.6,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -1432,7 +1449,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Dorsz pieczony z cukinią i oliwkową gremolatą, Baked cod fillet on zucchini slices with parsley garlic gremolata, natural light, no text",
+        "prompt": "professional food photo, Dorsz pieczony z cukinią i oliwkową gremolatą, Baked cod fillet on zucchini slices with parsley garlic gremolata, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1450,7 +1467,8 @@
         "carbs": 21,
         "fat": 51,
         "fiber": 8,
-        "salt": 2
+        "salt": 4.6,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -1523,7 +1541,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Sałatka z kurczakiem, ogórkiem i orzechami włoskimi, Chicken salad with iceberg lettuce, cucumber, radish and walnuts, yogurt dill dressing, natural light, no text",
+        "prompt": "professional food photo, Sałatka z kurczakiem, ogórkiem i orzechami włoskimi, Chicken salad with iceberg lettuce, cucumber, radish and walnuts, yogurt dill dressing, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1541,7 +1559,8 @@
         "carbs": 34,
         "fat": 38,
         "fiber": 4,
-        "salt": 3
+        "salt": 6.5,
+        "addedSalt": 3
       },
       "steps": [
         {
@@ -1599,7 +1618,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Polędwiczka wieprzowa z pieczoną dynią i tymiankiem, Sliced roast pork tenderloin with roasted pumpkin cubes and thyme on a sheet pan, natural light, no text",
+        "prompt": "professional food photo, Polędwiczka wieprzowa z pieczoną dynią i tymiankiem, Sliced roast pork tenderloin with roasted pumpkin cubes and thyme on a sheet pan, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1617,7 +1636,8 @@
         "carbs": 36,
         "fat": 51,
         "fiber": 14,
-        "salt": 2
+        "salt": 6,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -1695,7 +1715,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Indyk mielony duszony z papryką i cukinią, Ground turkey skillet with red pepper, zucchini and tomatoes, natural light, no text",
+        "prompt": "professional food photo, Indyk mielony duszony z papryką i cukinią, Ground turkey skillet with red pepper, zucchini and tomatoes, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1713,7 +1733,8 @@
         "carbs": 85,
         "fat": 34,
         "fiber": 18,
-        "salt": 2
+        "salt": 4.9,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -1781,7 +1802,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Placuszki z batata z jajkiem, Golden sweet potato fritters with sliced tomato and chives, natural light, no text",
+        "prompt": "professional food photo, Placuszki z batata z jajkiem, Golden sweet potato fritters with sliced tomato and chives, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1799,7 +1820,8 @@
         "carbs": 37,
         "fat": 45,
         "fiber": 12,
-        "salt": 3
+        "salt": 7.3,
+        "addedSalt": 3
       },
       "steps": [
         {
@@ -1872,7 +1894,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Wołowina duszona z marchewką i selerem, Slow-braised beef stew with carrot and celeriac in a rustic pot, natural light, no text",
+        "prompt": "professional food photo, Wołowina duszona z marchewką i selerem, Slow-braised beef stew with carrot and celeriac in a rustic pot, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1885,12 +1907,13 @@
       "prepTimeMinutes": 45,
       "servings": 2,
       "nutrition": {
-        "kcal": 741,
+        "kcal": 738,
         "protein": 14,
         "carbs": 51,
         "fat": 50,
         "fiber": 19,
-        "salt": 2
+        "salt": 4.6,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -1953,7 +1976,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Sałatka z pieczonego buraka, jabłka i orzechów włoskich, Roasted beetroot salad with apple slices, walnuts and lettuce, natural light, no text",
+        "prompt": "professional food photo, Sałatka z pieczonego buraka, jabłka i orzechów włoskich, Roasted beetroot salad with apple slices, walnuts and lettuce, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -1971,7 +1994,8 @@
         "carbs": 8,
         "fat": 60,
         "fiber": 12,
-        "salt": 2
+        "salt": 4.9,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -2025,7 +2049,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Jajecznica z awokado i pomidorem, Soft scrambled eggs with avocado cubes, tomato and chives, natural light, no text",
+        "prompt": "professional food photo, Jajecznica z awokado i pomidorem, Soft scrambled eggs with avocado cubes, tomato and chives, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -2043,7 +2067,8 @@
         "carbs": 44,
         "fat": 109,
         "fiber": 16,
-        "salt": 2
+        "salt": 4.9,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -2116,7 +2141,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Curry z kurczaka na mleku kokosowym z brokułem, Coconut chicken curry with broccoli and red pepper in a bowl, natural light, no text",
+        "prompt": "professional food photo, Curry z kurczaka na mleku kokosowym z brokułem, Coconut chicken curry with broccoli and red pepper in a bowl, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -2134,7 +2159,8 @@
         "carbs": 44,
         "fat": 28,
         "fiber": 18,
-        "salt": 2
+        "salt": 5.2,
+        "addedSalt": 2
       },
       "steps": [
         {
@@ -2198,7 +2224,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Mintaj pieczony z warzywami korzeniowymi, Baked pollock fillet over roasted carrot, parsnip and leek, natural light, no text",
+        "prompt": "professional food photo, Mintaj pieczony z warzywami korzeniowymi, Baked pollock fillet over roasted carrot, parsnip and leek, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -2216,7 +2242,8 @@
         "carbs": 38,
         "fat": 59,
         "fiber": 14,
-        "salt": 3
+        "salt": 7.4,
+        "addedSalt": 3
       },
       "steps": [
         {
@@ -2284,7 +2311,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Kotlety z indyka z pieczonymi burakami, Turkey patties with roasted beetroot wedges and dill, natural light, no text",
+        "prompt": "professional food photo, Kotlety z indyka z pieczonymi burakami, Turkey patties with roasted beetroot wedges and dill, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     },
@@ -2302,7 +2329,8 @@
         "carbs": 86,
         "fat": 50,
         "fiber": 20,
-        "salt": 0
+        "salt": 0.1,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -2346,7 +2374,7 @@
         }
       ],
       "image": {
-        "prompt": "professional food photo, Miska smoothie z borówkami, bananem i chia, Blueberry smoothie bowl topped with banana, strawberries and chia seeds, natural light, no text",
+        "prompt": "professional food photo, Miska smoothie z borówkami, bananem i chia, Blueberry smoothie bowl topped with banana, strawberries and chia seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
         "imageUrl": null
       }
     }

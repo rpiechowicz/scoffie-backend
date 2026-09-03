@@ -16,7 +16,8 @@
         "carbs": 132,
         "fat": 63,
         "fiber": 9,
-        "salt": 2.6
+        "salt": 6.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -112,7 +113,8 @@
         "carbs": 173,
         "fat": 125,
         "fiber": 15,
-        "salt": 3
+        "salt": 3.3,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -212,7 +214,8 @@
         "carbs": 35,
         "fat": 48,
         "fiber": 7,
-        "salt": 2.2
+        "salt": 3.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -313,7 +316,8 @@
         "carbs": 15,
         "fat": 59,
         "fiber": 14,
-        "salt": 2.5
+        "salt": 3.5,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -414,7 +418,8 @@
         "carbs": 136,
         "fat": 80,
         "fiber": 9,
-        "salt": 2.2
+        "salt": 5.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -510,7 +515,8 @@
         "carbs": 100,
         "fat": 18,
         "fiber": 7,
-        "salt": 2
+        "salt": 4.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -601,7 +607,8 @@
         "carbs": 126,
         "fat": 59,
         "fiber": 22,
-        "salt": 2.4
+        "salt": 7.3,
+        "addedSalt": 0
       },
       "steps": [
         {

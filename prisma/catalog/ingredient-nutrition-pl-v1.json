@@ -5,6 +5,7 @@
     "state": "surowy / nieprzetworzony (makaron i ryz = sucha masa)",
     "carbs": "weglowodany przyswajalne, BEZ blonnika (konwencja IZZ)",
     "fiber": "blonnik liczony osobno",
+    "sodiumMg": "sod w mg na 100 g/ml (IZZ/USDA); sol przepisu = sod x 2,5 + sol dodana (addedSalt)",
     "gramsPerPiece": "masa jadalnej czesci 1 sztuki, tylko dla skladnikow w jednostce szt"
   },
   "ingredients": [
@@ -15,7 +16,8 @@
       "protein": 0.3,
       "carbs": 0.8,
       "fat": 0.1,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 350
     },
     {
       "normalizedName": "mleko kokosowe z puszki",
@@ -24,7 +26,8 @@
       "protein": 2.0,
       "carbs": 2.8,
       "fat": 21.3,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 15
     },
     {
       "normalizedName": "passata pomidorowa",
@@ -33,7 +36,8 @@
       "protein": 1.4,
       "carbs": 4.5,
       "fat": 0.2,
-      "fiber": 1.5
+      "fiber": 1.5,
+      "sodiumMg": 20
     },
     {
       "normalizedName": "tunczyk w puszce",
@@ -42,7 +46,8 @@
       "protein": 26.0,
       "carbs": 0,
       "fat": 1.0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 320
     },
     {
       "normalizedName": "filet z indyka",
@@ -51,7 +56,8 @@
       "protein": 24.0,
       "carbs": 0,
       "fat": 1.5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 55
     },
     {
       "normalizedName": "filet z kurczaka",
@@ -60,7 +66,8 @@
       "protein": 23.0,
       "carbs": 0,
       "fat": 1.8,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 60
     },
     {
       "normalizedName": "szynka",
@@ -69,7 +76,8 @@
       "protein": 18.0,
       "carbs": 1.5,
       "fat": 7.5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 1000
     },
     {
       "normalizedName": "wieprzowina i wolowina mielona",
@@ -78,7 +86,8 @@
       "protein": 17.0,
       "carbs": 0,
       "fat": 20.0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 65
     },
     {
       "normalizedName": "jajko",
@@ -88,7 +97,8 @@
       "protein": 12.6,
       "carbs": 0.7,
       "fat": 9.5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 140
     },
     {
       "normalizedName": "jogurt naturalny",
@@ -97,7 +107,8 @@
       "protein": 3.5,
       "carbs": 4.7,
       "fat": 3.3,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 50
     },
     {
       "normalizedName": "maslo",
@@ -106,7 +117,8 @@
       "protein": 0.7,
       "carbs": 0.6,
       "fat": 82.5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 15
     },
     {
       "normalizedName": "mleko",
@@ -115,7 +127,8 @@
       "protein": 3.3,
       "carbs": 4.7,
       "fat": 3.3,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 45
     },
     {
       "normalizedName": "mozzarella",
@@ -124,7 +137,8 @@
       "protein": 22.0,
       "carbs": 2.2,
       "fat": 20.0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 400
     },
     {
       "normalizedName": "ser feta",
@@ -133,7 +147,8 @@
       "protein": 14.2,
       "carbs": 4.1,
       "fat": 21.3,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 1100
     },
     {
       "normalizedName": "ser gouda",
@@ -142,7 +157,8 @@
       "protein": 25.0,
       "carbs": 2.2,
       "fat": 27.4,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 800
     },
     {
       "normalizedName": "ser parmezan",
@@ -151,7 +167,8 @@
       "protein": 35.8,
       "carbs": 3.2,
       "fat": 25.8,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 1400
     },
     {
       "normalizedName": "smietana 18",
@@ -160,7 +177,8 @@
       "protein": 2.6,
       "carbs": 3.6,
       "fat": 18.0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 40
     },
     {
       "normalizedName": "smietanka 30",
@@ -169,7 +187,8 @@
       "protein": 2.3,
       "carbs": 3.1,
       "fat": 30.0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 35
     },
     {
       "normalizedName": "twarozek",
@@ -178,7 +197,8 @@
       "protein": 18.7,
       "carbs": 3.7,
       "fat": 4.7,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 300
     },
     {
       "normalizedName": "jogurt grecki",
@@ -187,7 +207,8 @@
       "protein": 9.0,
       "carbs": 4.0,
       "fat": 5.0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 40
     },
     {
       "normalizedName": "serek wiejski",
@@ -196,7 +217,8 @@
       "protein": 11.0,
       "carbs": 3.4,
       "fat": 4.3,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 350
     },
     {
       "normalizedName": "serek kremowy",
@@ -205,7 +227,8 @@
       "protein": 6.0,
       "carbs": 4.0,
       "fat": 24.0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 350
     },
     {
       "normalizedName": "olej rzepakowy",
@@ -214,7 +237,8 @@
       "protein": 0,
       "carbs": 0,
       "fat": 92.0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 0
     },
     {
       "normalizedName": "oliwa z oliwek",
@@ -223,7 +247,8 @@
       "protein": 0,
       "carbs": 0,
       "fat": 92.0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 0
     },
     {
       "normalizedName": "awokado",
@@ -233,7 +258,8 @@
       "protein": 2.0,
       "carbs": 1.8,
       "fat": 14.7,
-      "fiber": 6.7
+      "fiber": 6.7,
+      "sodiumMg": 7
     },
     {
       "normalizedName": "banan",
@@ -243,7 +269,8 @@
       "protein": 1.1,
       "carbs": 20.2,
       "fat": 0.3,
-      "fiber": 2.6
+      "fiber": 2.6,
+      "sodiumMg": 1
     },
     {
       "normalizedName": "borowka",
@@ -252,7 +279,8 @@
       "protein": 0.7,
       "carbs": 12.1,
       "fat": 0.3,
-      "fiber": 2.4
+      "fiber": 2.4,
+      "sodiumMg": 1
     },
     {
       "normalizedName": "jablko",
@@ -262,6 +290,7 @@
       "carbs": 11.4,
       "fat": 0.2,
       "fiber": 2.4,
+      "sodiumMg": 1,
       "gramsPerPiece": 150
     },
     {
@@ -271,7 +300,8 @@
       "protein": 0.7,
       "carbs": 5.7,
       "fat": 0.3,
-      "fiber": 2.0
+      "fiber": 2.0,
+      "sodiumMg": 1
     },
     {
       "normalizedName": "bulka",
@@ -280,7 +310,8 @@
       "protein": 9.0,
       "carbs": 52.5,
       "fat": 2.5,
-      "fiber": 2.5
+      "fiber": 2.5,
+      "sodiumMg": 500
     },
     {
       "normalizedName": "chleb",
@@ -289,7 +320,8 @@
       "protein": 8.0,
       "carbs": 43.5,
       "fat": 2.5,
-      "fiber": 4.5
+      "fiber": 4.5,
+      "sodiumMg": 500
     },
     {
       "normalizedName": "chleb tostowy",
@@ -298,7 +330,8 @@
       "protein": 8.5,
       "carbs": 46.5,
       "fat": 3.5,
-      "fiber": 2.5
+      "fiber": 2.5,
+      "sodiumMg": 480
     },
     {
       "normalizedName": "tortilla pszenna",
@@ -308,7 +341,8 @@
       "protein": 8.5,
       "carbs": 48.5,
       "fat": 7.5,
-      "fiber": 2.5
+      "fiber": 2.5,
+      "sodiumMg": 600
     },
     {
       "normalizedName": "baton musli",
@@ -317,7 +351,8 @@
       "protein": 6.0,
       "carbs": 61.0,
       "fat": 14.0,
-      "fiber": 4.0
+      "fiber": 4.0,
+      "sodiumMg": 200
     },
     {
       "normalizedName": "orzech wloski",
@@ -326,7 +361,8 @@
       "protein": 15.2,
       "carbs": 7.0,
       "fat": 65.2,
-      "fiber": 6.7
+      "fiber": 6.7,
+      "sodiumMg": 2
     },
     {
       "normalizedName": "curry",
@@ -335,7 +371,8 @@
       "protein": 14.0,
       "carbs": 23.0,
       "fat": 14.0,
-      "fiber": 33.0
+      "fiber": 33.0,
+      "sodiumMg": 50
     },
     {
       "normalizedName": "oregano",
@@ -344,7 +381,8 @@
       "protein": 9.0,
       "carbs": 27.0,
       "fat": 4.3,
-      "fiber": 42.0
+      "fiber": 42.0,
+      "sodiumMg": 25
     },
     {
       "normalizedName": "papryka slodka mielona",
@@ -353,7 +391,8 @@
       "protein": 14.0,
       "carbs": 19.0,
       "fat": 13.0,
-      "fiber": 35.0
+      "fiber": 35.0,
+      "sodiumMg": 30
     },
     {
       "normalizedName": "pieprz czarny",
@@ -362,7 +401,8 @@
       "protein": 10.0,
       "carbs": 39.0,
       "fat": 3.3,
-      "fiber": 25.0
+      "fiber": 25.0,
+      "sodiumMg": 20
     },
     {
       "normalizedName": "sol",
@@ -371,7 +411,8 @@
       "protein": 0,
       "carbs": 0,
       "fat": 0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 38700
     },
     {
       "normalizedName": "losos",
@@ -380,7 +421,8 @@
       "protein": 20.0,
       "carbs": 0,
       "fat": 13.0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 45
     },
     {
       "normalizedName": "batat",
@@ -389,7 +431,8 @@
       "protein": 1.6,
       "carbs": 17.0,
       "fat": 0.1,
-      "fiber": 3.0
+      "fiber": 3.0,
+      "sodiumMg": 55
     },
     {
       "normalizedName": "brokul",
@@ -398,7 +441,8 @@
       "protein": 2.8,
       "carbs": 4.4,
       "fat": 0.4,
-      "fiber": 2.6
+      "fiber": 2.6,
+      "sodiumMg": 30
     },
     {
       "normalizedName": "cebula",
@@ -408,6 +452,7 @@
       "carbs": 7.6,
       "fat": 0.1,
       "fiber": 1.7,
+      "sodiumMg": 4,
       "gramsPerPiece": 110
     },
     {
@@ -417,7 +462,8 @@
       "protein": 1.2,
       "carbs": 2.1,
       "fat": 0.3,
-      "fiber": 1.0
+      "fiber": 1.0,
+      "sodiumMg": 8
     },
     {
       "normalizedName": "czosnek",
@@ -427,7 +473,8 @@
       "protein": 6.4,
       "carbs": 30.9,
       "fat": 0.5,
-      "fiber": 2.1
+      "fiber": 2.1,
+      "sodiumMg": 17
     },
     {
       "normalizedName": "marchew",
@@ -437,6 +484,7 @@
       "carbs": 6.8,
       "fat": 0.2,
       "fiber": 2.8,
+      "sodiumMg": 60,
       "gramsPerPiece": 75
     },
     {
@@ -447,6 +495,7 @@
       "carbs": 3.1,
       "fat": 0.1,
       "fiber": 0.5,
+      "sodiumMg": 2,
       "gramsPerPiece": 250
     },
     {
@@ -457,6 +506,7 @@
       "carbs": 3.9,
       "fat": 0.3,
       "fiber": 2.1,
+      "sodiumMg": 3,
       "gramsPerPiece": 160
     },
     {
@@ -466,7 +516,8 @@
       "protein": 3.1,
       "carbs": 2.3,
       "fat": 0.3,
-      "fiber": 1.0
+      "fiber": 1.0,
+      "sodiumMg": 5
     },
     {
       "normalizedName": "pomidor",
@@ -476,6 +527,7 @@
       "carbs": 2.7,
       "fat": 0.2,
       "fiber": 1.2,
+      "sodiumMg": 5,
       "gramsPerPiece": 120
     },
     {
@@ -485,7 +537,8 @@
       "protein": 0.9,
       "carbs": 2.7,
       "fat": 0.2,
-      "fiber": 1.2
+      "fiber": 1.2,
+      "sodiumMg": 5
     },
     {
       "normalizedName": "salata lodowa",
@@ -494,7 +547,8 @@
       "protein": 0.9,
       "carbs": 1.8,
       "fat": 0.1,
-      "fiber": 1.2
+      "fiber": 1.2,
+      "sodiumMg": 10
     },
     {
       "normalizedName": "szczypiorek",
@@ -503,7 +557,8 @@
       "protein": 3.3,
       "carbs": 1.9,
       "fat": 0.7,
-      "fiber": 2.5
+      "fiber": 2.5,
+      "sodiumMg": 3
     },
     {
       "normalizedName": "szpinak",
@@ -512,7 +567,8 @@
       "protein": 2.9,
       "carbs": 1.4,
       "fat": 0.4,
-      "fiber": 2.2
+      "fiber": 2.2,
+      "sodiumMg": 80
     },
     {
       "normalizedName": "ziemniak",
@@ -522,6 +578,7 @@
       "carbs": 14.8,
       "fat": 0.1,
       "fiber": 2.2,
+      "sodiumMg": 6,
       "gramsPerPiece": 100
     },
     {
@@ -531,7 +588,8 @@
       "protein": 10.3,
       "carbs": 73.3,
       "fat": 1.0,
-      "fiber": 2.7
+      "fiber": 2.7,
+      "sodiumMg": 2
     },
     {
       "normalizedName": "makaron penne",
@@ -540,7 +598,8 @@
       "protein": 13.0,
       "carbs": 71.5,
       "fat": 1.5,
-      "fiber": 3.2
+      "fiber": 3.2,
+      "sodiumMg": 6
     },
     {
       "normalizedName": "makaron spaghetti",
@@ -549,7 +608,8 @@
       "protein": 13.0,
       "carbs": 71.5,
       "fat": 1.5,
-      "fiber": 3.2
+      "fiber": 3.2,
+      "sodiumMg": 6
     },
     {
       "normalizedName": "makaron swider",
@@ -558,7 +618,8 @@
       "protein": 13.0,
       "carbs": 71.5,
       "fat": 1.5,
-      "fiber": 3.2
+      "fiber": 3.2,
+      "sodiumMg": 6
     },
     {
       "normalizedName": "platki owsiane",
@@ -567,7 +628,8 @@
       "protein": 13.2,
       "carbs": 57.6,
       "fat": 6.9,
-      "fiber": 10.1
+      "fiber": 10.1,
+      "sodiumMg": 5
     },
     {
       "normalizedName": "platki kukurydziane",
@@ -576,7 +638,8 @@
       "protein": 7.5,
       "carbs": 80.0,
       "fat": 0.9,
-      "fiber": 3.3
+      "fiber": 3.3,
+      "sodiumMg": 700
     },
     {
       "normalizedName": "ryz bialy",
@@ -585,7 +648,8 @@
       "protein": 7.0,
       "carbs": 78.5,
       "fat": 0.6,
-      "fiber": 1.3
+      "fiber": 1.3,
+      "sodiumMg": 5
     },
     {
       "normalizedName": "ryz basmati",
@@ -594,7 +658,8 @@
       "protein": 7.5,
       "carbs": 77.7,
       "fat": 0.9,
-      "fiber": 1.3
+      "fiber": 1.3,
+      "sodiumMg": 5
     },
     {
       "normalizedName": "ryz jasminowy",
@@ -603,7 +668,8 @@
       "protein": 7.5,
       "carbs": 77.7,
       "fat": 0.9,
-      "fiber": 1.3
+      "fiber": 1.3,
+      "sodiumMg": 5
     },
     {
       "normalizedName": "granola",
@@ -612,7 +678,8 @@
       "protein": 9,
       "carbs": 62,
       "fat": 16,
-      "fiber": 7
+      "fiber": 7,
+      "sodiumMg": 150
     },
     {
       "normalizedName": "maslo orzechowe",
@@ -621,7 +688,8 @@
       "protein": 28,
       "carbs": 7.5,
       "fat": 51,
-      "fiber": 6.5
+      "fiber": 6.5,
+      "sodiumMg": 400
     },
     {
       "normalizedName": "miod",
@@ -630,7 +698,8 @@
       "protein": 0.3,
       "carbs": 80,
       "fat": 0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 4
     },
     {
       "normalizedName": "skyr naturalny",
@@ -639,7 +708,8 @@
       "protein": 11,
       "carbs": 4,
       "fat": 0.2,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 45
     },
     {
       "normalizedName": "malina",
@@ -648,7 +718,8 @@
       "protein": 1.2,
       "carbs": 5.4,
       "fat": 0.7,
-      "fiber": 6.5
+      "fiber": 6.5,
+      "sodiumMg": 1
     },
     {
       "normalizedName": "brzoskwinia",
@@ -657,7 +728,8 @@
       "protein": 0.9,
       "carbs": 8,
       "fat": 0.3,
-      "fiber": 1.5
+      "fiber": 1.5,
+      "sodiumMg": 0
     },
     {
       "normalizedName": "ser twarog poltlusty",
@@ -666,7 +738,8 @@
       "protein": 18.7,
       "carbs": 3.7,
       "fat": 4.7,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 45
     },
     {
       "normalizedName": "rzodkiewka",
@@ -675,7 +748,8 @@
       "protein": 0.7,
       "carbs": 1.9,
       "fat": 0.1,
-      "fiber": 1.6
+      "fiber": 1.6,
+      "sodiumMg": 20
     },
     {
       "normalizedName": "majonez",
@@ -684,7 +758,8 @@
       "protein": 1.1,
       "carbs": 2.4,
       "fat": 78,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 600
     },
     {
       "normalizedName": "cynamon",
@@ -693,7 +768,8 @@
       "protein": 4,
       "carbs": 27.5,
       "fat": 1.2,
-      "fiber": 53
+      "fiber": 53,
+      "sodiumMg": 10
     },
     {
       "normalizedName": "schab wieprzowy",
@@ -702,7 +778,8 @@
       "protein": 21,
       "carbs": 0,
       "fat": 10,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 55
     },
     {
       "normalizedName": "wieprzowina mielona",
@@ -711,7 +788,8 @@
       "protein": 17,
       "carbs": 0,
       "fat": 21,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 65
     },
     {
       "normalizedName": "lopatka wieprzowa",
@@ -720,7 +798,8 @@
       "protein": 17.5,
       "carbs": 0,
       "fat": 18,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 60
     },
     {
       "normalizedName": "poledwiczka wieprzowa",
@@ -729,7 +808,8 @@
       "protein": 21,
       "carbs": 0,
       "fat": 3.5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 55
     },
     {
       "normalizedName": "wolowina",
@@ -738,7 +818,8 @@
       "protein": 21.5,
       "carbs": 0,
       "fat": 5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 60
     },
     {
       "normalizedName": "boczek",
@@ -747,7 +828,8 @@
       "protein": 10,
       "carbs": 0,
       "fat": 53,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 900
     },
     {
       "normalizedName": "kielbasa slaska",
@@ -756,7 +838,8 @@
       "protein": 12.5,
       "carbs": 1.5,
       "fat": 27.5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 950
     },
     {
       "normalizedName": "fasola biala z puszki",
@@ -765,7 +848,8 @@
       "protein": 6,
       "carbs": 10.5,
       "fat": 0.5,
-      "fiber": 6
+      "fiber": 6,
+      "sodiumMg": 300
     },
     {
       "normalizedName": "koncentrat pomidorowy",
@@ -774,7 +858,8 @@
       "protein": 4.3,
       "carbs": 14.8,
       "fat": 0.5,
-      "fiber": 4.1
+      "fiber": 4.1,
+      "sodiumMg": 60
     },
     {
       "normalizedName": "ogorek kiszony",
@@ -783,7 +868,8 @@
       "protein": 1,
       "carbs": 1.2,
       "fat": 0.1,
-      "fiber": 0.8
+      "fiber": 0.8,
+      "sodiumMg": 800
     },
     {
       "normalizedName": "pomidor krojony z puszki",
@@ -792,7 +878,8 @@
       "protein": 1,
       "carbs": 3,
       "fat": 0.1,
-      "fiber": 1
+      "fiber": 1,
+      "sodiumMg": 130
     },
     {
       "normalizedName": "przyprawa uniwersalna",
@@ -801,7 +888,8 @@
       "protein": 9,
       "carbs": 25,
       "fat": 0.8,
-      "fiber": 4
+      "fiber": 4,
+      "sodiumMg": 22000
     },
     {
       "normalizedName": "groszek mrozony",
@@ -810,7 +898,8 @@
       "protein": 5.2,
       "carbs": 9,
       "fat": 0.4,
-      "fiber": 4.6
+      "fiber": 4.6,
+      "sodiumMg": 3
     },
     {
       "normalizedName": "burak",
@@ -819,7 +908,8 @@
       "protein": 1.6,
       "carbs": 7,
       "fat": 0.2,
-      "fiber": 2.6
+      "fiber": 2.6,
+      "sodiumMg": 60
     },
     {
       "normalizedName": "kapusta biala",
@@ -828,7 +918,8 @@
       "protein": 1.3,
       "carbs": 3.4,
       "fat": 0.1,
-      "fiber": 2.5
+      "fiber": 2.5,
+      "sodiumMg": 15
     },
     {
       "normalizedName": "kasza gryczana",
@@ -837,7 +928,8 @@
       "protein": 12.6,
       "carbs": 63.4,
       "fat": 3.1,
-      "fiber": 5.9
+      "fiber": 5.9,
+      "sodiumMg": 3
     },
     {
       "normalizedName": "kasza kuskus",
@@ -846,7 +938,8 @@
       "protein": 12.8,
       "carbs": 72.4,
       "fat": 0.6,
-      "fiber": 5
+      "fiber": 5,
+      "sodiumMg": 10
     },
     {
       "normalizedName": "bulka tarta",
@@ -855,7 +948,8 @@
       "protein": 13.5,
       "carbs": 68,
       "fat": 5.3,
-      "fiber": 4
+      "fiber": 4,
+      "sodiumMg": 550
     },
     {
       "normalizedName": "majeranek",
@@ -864,7 +958,8 @@
       "protein": 12.7,
       "carbs": 20.3,
       "fat": 7,
-      "fiber": 40.3
+      "fiber": 40.3,
+      "sodiumMg": 80
     },
     {
       "normalizedName": "koperek",
@@ -873,7 +968,8 @@
       "protein": 3.5,
       "carbs": 4.9,
       "fat": 1.1,
-      "fiber": 2.1
+      "fiber": 2.1,
+      "sodiumMg": 60
     },
     {
       "normalizedName": "kapusta kiszona",
@@ -882,7 +978,8 @@
       "protein": 1.1,
       "carbs": 1.6,
       "fat": 0.2,
-      "fiber": 2.5
+      "fiber": 2.5,
+      "sodiumMg": 700
     },
     {
       "normalizedName": "cukier",
@@ -891,7 +988,8 @@
       "protein": 0,
       "carbs": 99.8,
       "fat": 0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 0
     },
     {
       "normalizedName": "seler korzeniowy",
@@ -900,7 +998,8 @@
       "protein": 1.5,
       "carbs": 7.4,
       "fat": 0.3,
-      "fiber": 1.8
+      "fiber": 1.8,
+      "sodiumMg": 100
     },
     {
       "normalizedName": "makaron nitki",
@@ -909,7 +1008,8 @@
       "protein": 12.5,
       "carbs": 71.5,
       "fat": 1.5,
-      "fiber": 3.2
+      "fiber": 3.2,
+      "sodiumMg": 6
     },
     {
       "normalizedName": "zakwas na zurek",
@@ -918,7 +1018,8 @@
       "protein": 0.7,
       "carbs": 5,
       "fat": 0.1,
-      "fiber": 0.3
+      "fiber": 0.3,
+      "sodiumMg": 300
     },
     {
       "normalizedName": "pestki dyni",
@@ -927,7 +1028,8 @@
       "protein": 30,
       "carbs": 4.7,
       "fat": 49,
-      "fiber": 6
+      "fiber": 6,
+      "sodiumMg": 7
     },
     {
       "normalizedName": "bulion drobiowy",
@@ -936,7 +1038,8 @@
       "protein": 0.5,
       "carbs": 0.7,
       "fat": 0.3,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 350
     },
     {
       "normalizedName": "kielbasa biala",
@@ -945,7 +1048,8 @@
       "protein": 13,
       "carbs": 1,
       "fat": 25,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 900
     },
     {
       "normalizedName": "noga z kurczaka",
@@ -954,7 +1058,8 @@
       "protein": 17.5,
       "carbs": 0,
       "fat": 15.5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 75
     },
     {
       "normalizedName": "dynia",
@@ -963,7 +1068,8 @@
       "protein": 1,
       "carbs": 6,
       "fat": 0.1,
-      "fiber": 0.5
+      "fiber": 0.5,
+      "sodiumMg": 1
     },
     {
       "normalizedName": "natka pietruszki",
@@ -972,7 +1078,8 @@
       "protein": 3,
       "carbs": 3,
       "fat": 0.8,
-      "fiber": 3.3
+      "fiber": 3.3,
+      "sodiumMg": 30
     },
     {
       "normalizedName": "pietruszka korzen",
@@ -981,7 +1088,8 @@
       "protein": 2.6,
       "carbs": 5.5,
       "fat": 0.5,
-      "fiber": 4.9
+      "fiber": 4.9,
+      "sodiumMg": 20
     },
     {
       "normalizedName": "por",
@@ -990,7 +1098,8 @@
       "protein": 1.5,
       "carbs": 12.4,
       "fat": 0.3,
-      "fiber": 1.8
+      "fiber": 1.8,
+      "sodiumMg": 10
     },
     {
       "normalizedName": "kasza jeczmienna",
@@ -999,7 +1108,8 @@
       "protein": 6.9,
       "carbs": 68.7,
       "fat": 2.2,
-      "fiber": 6.2
+      "fiber": 6.2,
+      "sodiumMg": 5
     },
     {
       "normalizedName": "indyk mielony",
@@ -1008,7 +1118,8 @@
       "protein": 18.5,
       "carbs": 0,
       "fat": 7.5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 65
     },
     {
       "normalizedName": "mintaj",
@@ -1017,7 +1128,8 @@
       "protein": 16.5,
       "carbs": 0,
       "fat": 0.8,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 90
     },
     {
       "normalizedName": "dorsz",
@@ -1026,7 +1138,8 @@
       "protein": 17.9,
       "carbs": 0,
       "fat": 0.7,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 60
     },
     {
       "normalizedName": "ryz arborio",
@@ -1035,7 +1148,8 @@
       "protein": 7,
       "carbs": 77.5,
       "fat": 0.6,
-      "fiber": 1.4
+      "fiber": 1.4,
+      "sodiumMg": 5
     },
     {
       "normalizedName": "kmin rzymski",
@@ -1044,7 +1158,8 @@
       "protein": 17.8,
       "carbs": 33.7,
       "fat": 22.3,
-      "fiber": 10.5
+      "fiber": 10.5,
+      "sodiumMg": 170
     },
     {
       "normalizedName": "ciecierzyca z puszki",
@@ -1053,7 +1168,8 @@
       "protein": 7,
       "carbs": 16.3,
       "fat": 2.6,
-      "fiber": 6.2
+      "fiber": 6.2,
+      "sodiumMg": 250
     },
     {
       "normalizedName": "fasola czerwona z puszki",
@@ -1062,7 +1178,8 @@
       "protein": 6.5,
       "carbs": 11,
       "fat": 0.5,
-      "fiber": 6
+      "fiber": 6,
+      "sodiumMg": 300
     },
     {
       "normalizedName": "kukurydza z puszki",
@@ -1071,7 +1188,8 @@
       "protein": 2.9,
       "carbs": 14,
       "fat": 1.2,
-      "fiber": 2
+      "fiber": 2,
+      "sodiumMg": 250
     },
     {
       "normalizedName": "cytryna",
@@ -1081,6 +1199,7 @@
       "carbs": 6.2,
       "fat": 0.3,
       "fiber": 2.8,
+      "sodiumMg": 2,
       "gramsPerPiece": 100
     },
     {
@@ -1090,7 +1209,8 @@
       "protein": 17.7,
       "carbs": 11.7,
       "fat": 49.7,
-      "fiber": 11.8
+      "fiber": 11.8,
+      "sodiumMg": 10
     },
     {
       "normalizedName": "imbir mielony",
@@ -1099,7 +1219,8 @@
       "protein": 9,
       "carbs": 57.5,
       "fat": 4.2,
-      "fiber": 14.1
+      "fiber": 14.1,
+      "sodiumMg": 30
     },
     {
       "normalizedName": "ketchup",
@@ -1108,7 +1229,8 @@
       "protein": 1.2,
       "carbs": 23.5,
       "fat": 0.2,
-      "fiber": 0.3
+      "fiber": 0.3,
+      "sodiumMg": 900
     },
     {
       "normalizedName": "musztarda",
@@ -1117,7 +1239,8 @@
       "protein": 4.1,
       "carbs": 4.5,
       "fat": 3.7,
-      "fiber": 3
+      "fiber": 3,
+      "sodiumMg": 1100
     },
     {
       "normalizedName": "ocet jablkowy",
@@ -1126,7 +1249,8 @@
       "protein": 0,
       "carbs": 0.9,
       "fat": 0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 5
     },
     {
       "normalizedName": "sos sojowy",
@@ -1135,7 +1259,8 @@
       "protein": 8,
       "carbs": 4.9,
       "fat": 0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 5600
     },
     {
       "normalizedName": "tymianek suszony",
@@ -1144,7 +1269,8 @@
       "protein": 9.1,
       "carbs": 26.9,
       "fat": 7.4,
-      "fiber": 37
+      "fiber": 37,
+      "sodiumMg": 55
     },
     {
       "normalizedName": "papryka ostra mielona",
@@ -1153,7 +1279,8 @@
       "protein": 12,
       "carbs": 29.7,
       "fat": 17.3,
-      "fiber": 27.2
+      "fiber": 27.2,
+      "sodiumMg": 30
     },
     {
       "normalizedName": "kasza jaglana",
@@ -1162,7 +1289,8 @@
       "protein": 10.5,
       "carbs": 71.6,
       "fat": 2.9,
-      "fiber": 3.2
+      "fiber": 3.2,
+      "sodiumMg": 5
     },
     {
       "normalizedName": "losos wedzony",
@@ -1171,7 +1299,8 @@
       "protein": 18.3,
       "carbs": 0,
       "fat": 4.3,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 800
     },
     {
       "normalizedName": "nasiona chia",
@@ -1180,7 +1309,8 @@
       "protein": 16.5,
       "carbs": 7.7,
       "fat": 30.7,
-      "fiber": 34.4
+      "fiber": 34.4,
+      "sodiumMg": 16
     },
     {
       "normalizedName": "kakao",
@@ -1189,7 +1319,8 @@
       "protein": 19.6,
       "carbs": 10.9,
       "fat": 13.7,
-      "fiber": 20
+      "fiber": 20,
+      "sodiumMg": 20
     },
     {
       "normalizedName": "hummus",
@@ -1198,7 +1329,8 @@
       "protein": 7,
       "carbs": 8,
       "fat": 25,
-      "fiber": 4
+      "fiber": 4,
+      "sodiumMg": 400
     },
     {
       "normalizedName": "budyn",
@@ -1207,7 +1339,8 @@
       "protein": 0.5,
       "carbs": 93,
       "fat": 0.5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 100
     },
     {
       "normalizedName": "proszek do pieczenia",
@@ -1216,7 +1349,8 @@
       "protein": 0,
       "carbs": 13,
       "fat": 0,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 10500
     },
     {
       "normalizedName": "wedlina drobiowa",
@@ -1225,7 +1359,8 @@
       "protein": 17,
       "carbs": 1.5,
       "fat": 3.5,
-      "fiber": 0
+      "fiber": 0,
+      "sodiumMg": 900
     },
     {
       "normalizedName": "bagietka",
@@ -1234,7 +1369,8 @@
       "protein": 8.8,
       "carbs": 54,
       "fat": 1.8,
-      "fiber": 2.4
+      "fiber": 2.4,
+      "sodiumMg": 550
     },
     {
       "normalizedName": "tofu",
@@ -1243,7 +1379,8 @@
       "protein": 13.0,
       "carbs": 1.5,
       "fat": 7.5,
-      "fiber": 1.0
+      "fiber": 1.0,
+      "sodiumMg": 10
     },
     {
       "normalizedName": "mleko owsiane",
@@ -1252,7 +1389,8 @@
       "protein": 0.8,
       "carbs": 6.6,
       "fat": 1.5,
-      "fiber": 0.8
+      "fiber": 0.8,
+      "sodiumMg": 40
     },
     {
       "normalizedName": "soczewica czerwona",
@@ -1261,7 +1399,8 @@
       "protein": 24.0,
       "carbs": 52.0,
       "fat": 1.5,
-      "fiber": 11.0
+      "fiber": 11.0,
+      "sodiumMg": 6
     }
   ]
 }

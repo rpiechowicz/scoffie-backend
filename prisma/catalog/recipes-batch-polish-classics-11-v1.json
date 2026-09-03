@@ -16,7 +16,8 @@
         "carbs": 149,
         "fat": 88,
         "fiber": 16,
-        "salt": 2.5
+        "salt": 2.5,
+        "addedSalt": 0.3
       },
       "steps": [
         {
@@ -73,7 +74,8 @@
         "carbs": 138,
         "fat": 133,
         "fiber": 26,
-        "salt": 2.5
+        "salt": 2.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -127,7 +129,8 @@
         "carbs": 132,
         "fat": 115,
         "fiber": 20,
-        "salt": 3
+        "salt": 5.2,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -193,7 +196,8 @@
         "carbs": 106,
         "fat": 78,
         "fiber": 16,
-        "salt": 2.4
+        "salt": 2.4,
+        "addedSalt": 1.3
       },
       "steps": [
         {
@@ -244,7 +248,8 @@
         "carbs": 102,
         "fat": 49,
         "fiber": 15,
-        "salt": 2.4
+        "salt": 4.2,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -298,7 +303,8 @@
         "carbs": 135,
         "fat": 101,
         "fiber": 31,
-        "salt": 3
+        "salt": 3,
+        "addedSalt": 1.4
       },
       "steps": [
         {
@@ -362,7 +368,8 @@
         "carbs": 308,
         "fat": 67,
         "fiber": 21,
-        "salt": 3
+        "salt": 3,
+        "addedSalt": 1.9
       },
       "steps": [
         {
@@ -421,7 +428,8 @@
         "carbs": 158,
         "fat": 84,
         "fiber": 20,
-        "salt": 2
+        "salt": 2,
+        "addedSalt": 1.1
       },
       "steps": [
         {
@@ -471,7 +479,8 @@
         "carbs": 59,
         "fat": 90,
         "fiber": 20,
-        "salt": 3.8
+        "salt": 15.7,
+        "addedSalt": 0
       },
       "sourceProvider": "cookidoo",
       "sourceRecipeId": "r56899",
@@ -533,7 +542,8 @@
         "carbs": 83,
         "fat": 135,
         "fiber": 39,
-        "salt": 4.5
+        "salt": 12.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -593,7 +603,8 @@
         "carbs": 129,
         "fat": 46,
         "fiber": 17,
-        "salt": 2
+        "salt": 2,
+        "addedSalt": 1
       },
       "steps": [
         {
