@@ -142,9 +142,10 @@ bez limitu.
 | zmienna | dziś | ustaw | dlaczego |
 |---|---|---|---|
 | `AI_MODEL_TOOLS` | brak | `claude-haiku-4-5` — **dopiero razem z paywallem** | rozmowa na Haiku, planowanie na Sonnecie; −14 % przy ciepłym cache, ale **+56 % poniżej ~10 domów** (§12) |
-| `AI_MAX_TURN_COST_USD` | 1 | `0.4` | sufit ucieczki; plan tygodnia mieści się z zapasem |
-| `AI_LIMIT_MESSAGES_PER_MONTH` | 200 | `60` | §4 |
-| `AI_LIMIT_PLANS_PER_MONTH` | 30 | `8` | §4 |
+| `AI_MAX_TURN_COST_USD` | 1 | `0.6` na starcie, `0.4` po rozgrzaniu cache | zmierzony plan tygodnia na zimnym cache to $0,30 — 0,4 obcinałoby uczciwe tury przy małym ruchu |
+| `AI_LIMIT_MESSAGES_PER_MONTH` | 200 | `50` | limity nadania operatora = plan „We dwoje"; kupione subskrypcje biorą swoje z `subscription-products.ts` |
+| `AI_LIMIT_PLANS_PER_MONTH` | 30 | `12` | jak wyżej |
+| `AI_HOUSEHOLD_MONTHLY_COST_USD` | 18 | `18` (nie obniżać poniżej 15) | §18 — niżej odcinałby klienta mieszczącego się w limicie |
 | `AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD` | 2 | `1` | burst w wielu rozmowach |
 | `AI_GLOBAL_DAILY_BUDGET_USD` | 5 | 0,8 × przychód dzienny, min. 5 | §7 |
 | `AI_TIER_OVERRIDE` | PRO | puste — **dopiero z paywallem** | włącza próbę dla domów bez subskrypcji |
@@ -253,9 +254,11 @@ ryzyko kosztowe**.
 
 | plan | dla kogo (etykieta) | cena | wiadomości | zapisy planu | koszt przy pełnym użyciu | marża | zł za wiadomość |
 |---|---|---|---|---|---|---|---|
-| **Solo** | 1 osoba | 29,99 zł | 40 | 6 | $2,38 | **57 %** | 0,75 |
-| **Duet** | 2 osoby | 39,99 zł | 60 | 8 | $3,56 | **52 %** | 0,67 |
-| **Rodzina** | 3+ osób | 59,99 zł | 100 | 14 | $5,94 | **47 %** | 0,60 |
+| **Solo** | 1 osoba | 29,99 zł | 30 | 8 | $2,06 | **63 %** | 1,00 |
+| **We dwoje** | 2 osoby | 39,99 zł | 50 | 12 | $3,44 | **54 %** | 0,80 |
+| **Rodzina** | 3 osoby i więcej | 49,99 zł | 75 | 18 | $5,16 | **44 %** | 0,67 |
+
+> Liczby ostateczne, ustalone 3.09.2026 — pełne uzasadnienie w §16–19.
 
 Zasada, która trzyma to w kupie: **limit jest produktem, liczba osób jest
 etykietą.** Backend NIE liczy i NIE pilnuje miejsc. Powody:
