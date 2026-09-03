@@ -141,13 +141,32 @@ project:
    (an R2 token scoped to that bucket only). Run it once by hand from the
    Actions tab after adding the secrets — a dump under 20 KB fails the job.
 
-A copy that was never restored is a hope, not a backup. Once a quarter, on the
-dev stack:
+Every run also restores the fresh dump into a throwaway Postgres 17 on the
+runner and counts tables and accounts — a red workflow means the copy is not
+restorable, not just "not uploaded".
+
+The dump contains personal data, so it is encrypted with an `age` public key
+before upload. One-time setup (on the Mac: `brew install age`; on Windows:
+`winget install FiloSottile.age`):
 
 ```bash
-aws s3 cp s3://<bucket>/weekly-meals/<file>.dump . --endpoint-url <endpoint>
+age-keygen -o weekly-meals-backup-key.txt      # keep this file in the password manager
+grep 'public key' weekly-meals-backup-key.txt  # "age1…" → repository secret BACKUP_AGE_PUBLIC_KEY
+```
+
+Without the secret the workflow still uploads (with a warning) — an unencrypted
+copy beats no copy, but treat that as a transition state.
+
+Restore by hand:
+
+```bash
+aws s3 cp s3://<bucket>/weekly-meals/<file>.dump.age . --endpoint-url <endpoint>
+age -d -i weekly-meals-backup-key.txt -o <file>.dump <file>.dump.age
 pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <file>.dump
 ```
+
+Railway side: point-in-time recovery and a nightly volume backup are enabled
+on the `Postgres` service (3.09.2026) — three independent layers in total.
 
 ## Operator alerts (`OPS_ALERT_WEBHOOK_URL`)
 

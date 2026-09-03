@@ -370,7 +370,14 @@ async function main(): Promise<void> {
     console.log(
       `Czyszczenie katalogu: przepisów ${recipes}, pozycji planów do skasowania ${planItems}.`,
     );
-    if ((process.env.RECIPE_IMPORT_CLEAR_CONFIRM ?? '').trim() !== today) {
+    // Potwierdzenie datą tylko wtedy, gdy NAPRAWDĘ coś zniknie. Bootstrap
+    // pustej bazy (CI, świeże środowisko) czyści zero wierszy i nie ma kogo
+    // pytać — bez tego wyjątku każdy przebieg CI padał na tym strażniku.
+    const hasSomethingToDelete = planItems > 0 || recipes > 0;
+    if (
+      hasSomethingToDelete &&
+      (process.env.RECIPE_IMPORT_CLEAR_CONFIRM ?? '').trim() !== today
+    ) {
       throw new Error(
         `RECIPE_IMPORT_CLEAR_EXISTING=true wymaga RECIPE_IMPORT_CLEAR_CONFIRM=${today} (dzisiejsza data). Nic nie skasowano.`,
       );

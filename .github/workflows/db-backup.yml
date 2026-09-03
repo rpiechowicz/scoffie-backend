@@ -15,8 +15,17 @@
 # Klient pg_dump musi być w wersji ≥ serwera: Railway ma Postgresa 17, a
 # ubuntu-latest wozi 16 — stąd instalacja z repozytorium PGDG.
 #
-# Odtworzenie (na dev, raz na kwartał — inaczej kopia jest tylko nadzieją):
-#   aws s3 cp s3://<bucket>/weekly-meals/<plik>.dump . --endpoint-url <endpoint>
+# Każdy przebieg odtwarza świeży zrzut do tymczasowego Postgresa 17 na
+# runnerze i liczy tabele oraz konta — kopia, której nikt nie odtworzył,
+# jest tylko nadzieją. Zrzut zawiera dane osobowe, więc przed wysyłką jest
+# szyfrowany kluczem publicznym age (sekret BACKUP_AGE_PUBLIC_KEY, „age1…");
+# klucz prywatny leży wyłącznie u Rafała (menedżer haseł). Bez sekretu
+# zrzut idzie jawnie z ostrzeżeniem w logu — kopia jest ważniejsza niż
+# szyfrowanie, ale ma to być stan przejściowy.
+#
+# Odtworzenie:
+#   aws s3 cp s3://<bucket>/weekly-meals/<plik>.dump.age . --endpoint-url <endpoint>
+#   age -d -i <klucz-prywatny.txt> -o <plik>.dump <plik>.dump.age
 #   pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <plik>.dump
 name: DB backup
 
@@ -39,6 +48,21 @@ jobs:
     env:
       RETENTION_DAYS: '30'
       PREFIX: weekly-meals
+    # Tymczasowa baza do próby odtworzenia — żyje tylko w tym przebiegu.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: restorecheck
+          POSTGRES_USER: restore
+          POSTGRES_PASSWORD: restore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U restore -d restorecheck"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - name: Install PostgreSQL 17 client
         run: |
@@ -107,6 +131,40 @@ jobs:
           fi
           rm -f toc.txt
 
+      # Prawdziwa próba: odtworzenie do pustej bazy i policzenie, co weszło.
+      # Format custom + `--no-owner` pozwalają odtworzyć bez ról z Railway.
+      - name: Restore check
+        env:
+          CHECK_URL: postgresql://restore:restore@localhost:5432/restorecheck
+        run: |
+          set -euo pipefail
+          pg_restore --no-owner --no-privileges --exit-on-error -d "$CHECK_URL" "$FILE"
+          TABLES=$(psql "$CHECK_URL" -Atc "select count(*) from information_schema.tables where table_schema='public'")
+          USERS=$(psql "$CHECK_URL" -Atc 'select count(*) from "User"')
+          RECIPES=$(psql "$CHECK_URL" -Atc 'select count(*) from "Recipe"')
+          echo "odtworzono: tabel=$TABLES kont=$USERS przepisów=$RECIPES"
+          if [ "$TABLES" -lt 20 ] || [ "$USERS" -lt 1 ]; then
+            echo "::error::odtworzona baza jest niekompletna (tabel=$TABLES, kont=$USERS)"
+            exit 1
+          fi
+
+      # Zrzut = dane osobowe. Szyfrowanie kluczem publicznym age; deszyfruje
+      # tylko klucz prywatny spoza GitHuba i Cloudflare.
+      - name: Encrypt dump
+        env:
+          BACKUP_AGE_PUBLIC_KEY: ${{ secrets.BACKUP_AGE_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BACKUP_AGE_PUBLIC_KEY:-}" ]; then
+            echo "::warning::brak sekretu BACKUP_AGE_PUBLIC_KEY — zrzut idzie na R2 NIEZASZYFROWANY"
+            exit 0
+          fi
+          sudo apt-get install -y -qq age >/dev/null
+          age -r "$BACKUP_AGE_PUBLIC_KEY" -o "$FILE.age" "$FILE"
+          rm -f "$FILE"
+          echo "FILE=$FILE.age" >> "$GITHUB_ENV"
+          echo "zaszyfrowano: $FILE.age ($(stat -c %s "$FILE.age") B)"
+
       - name: Upload to R2
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
@@ -133,8 +191,36 @@ jobs:
           set -euo pipefail
           cutoff=$(date -u -d "-${RETENTION_DAYS} days" +%Y-%m-%dT%H%M%SZ)
           aws s3 ls "s3://$R2_BACKUP_BUCKET/$PREFIX/" --endpoint-url "$R2_BACKUP_ENDPOINT" \
-            | awk '{print $4}' | grep -E '^weekly-meals-.*\.dump$' | while read -r name; do
-              stamp="${name#weekly-meals-}"; stamp="${stamp%.dump}"
+            | awk '{print $4}' | grep -E '^weekly-meals-.*\.dump(\.age)?
+              if [[ "$stamp" < "$cutoff" ]]; then
+                echo "usuwam $name"
+                aws s3 rm "s3://$R2_BACKUP_BUCKET/$PREFIX/$name" --endpoint-url "$R2_BACKUP_ENDPOINT" --only-show-errors
+              fi
+            done
+
+      - name: Shred local dump
+        if: always()
+        run: rm -f weekly-meals-*.dump weekly-meals-*.dump.age
+
+      # Cicha porażka nocnej kopii to brak kopii, o którym nikt nie wie.
+      # Ten sam webhook, co alerty serwera (`OPS_ALERT_WEBHOOK_URL`) —
+      # sekret opcjonalny: bez niego krok tylko loguje.
+      - name: Alert on failure
+        if: failure()
+        env:
+          OPS_ALERT_WEBHOOK_URL: ${{ secrets.OPS_ALERT_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          MSG="Weekly Meals: nocna kopia bazy NIE powiodła się (${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER}). ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ -z "${OPS_ALERT_WEBHOOK_URL:-}" ]; then
+            echo "::warning::$MSG (brak sekretu OPS_ALERT_WEBHOOK_URL — alert tylko tutaj)"
+            exit 0
+          fi
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+            -d "$(printf '{"content":"%s","text":"%s"}' "$MSG" "$MSG")" \
+            "$OPS_ALERT_WEBHOOK_URL" >/dev/null
+ | while read -r name; do
+              stamp="${name#weekly-meals-}"; stamp="${stamp%.age}"; stamp="${stamp%.dump}"
               if [[ "$stamp" < "$cutoff" ]]; then
                 echo "usuwam $name"
                 aws s3 rm "s3://$R2_BACKUP_BUCKET/$PREFIX/$name" --endpoint-url "$R2_BACKUP_ENDPOINT" --only-show-errors
