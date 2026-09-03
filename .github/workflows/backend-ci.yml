@@ -8,6 +8,15 @@ on:
       - master
       - develop
 
+# Token joba tylko do odczytu: instalacja zależności nie może pisać do repo.
+permissions:
+  contents: read
+
+# Trzy pushe do PR-a = jeden bieg, nie trzy równoległe z Postgresem.
+concurrency:
+  group: backend-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Skaner sekretów (klucze API, tokeny, hasła) w zmianach — zamiennik płatnej
   # ochrony GitHuba dla prywatnych repozytoriów. Czerwony = merge stoi.

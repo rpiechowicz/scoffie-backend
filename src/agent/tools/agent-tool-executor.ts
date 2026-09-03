@@ -14,7 +14,6 @@ import {
 } from '../../weekly-plans/weekly-plans.service';
 import { AgentMetricsService } from '../../observability/agent-metrics.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { readAgentEnv } from '../../config/agent-env';
 import { AgentMemoryService } from '../agent-memory.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
@@ -941,8 +940,9 @@ export class AgentToolExecutor {
 
     if (dryRun) return run();
 
-    const periodKey = this.counters.monthKey();
-    const limit = readAgentEnv().plansPerMonth;
+    const plan = await this.counters.resolvePlan(context.householdId);
+    const periodKey = plan.periodKey;
+    const limit = plan.plansLimit;
     const consumed = await this.counters.tryConsume(
       this.prisma,
       context.householdId,
@@ -954,10 +954,13 @@ export class AgentToolExecutor {
       this.metrics.recordRejected('planQuota');
       throw new AppException(
         'AI_PLAN_QUOTA_EXCEEDED',
-        `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany. ` +
-          'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go do końca miesiąca.',
+        (plan.tier === 'TRIAL'
+          ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. `
+          : `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany. `) +
+          'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go' +
+          (plan.tier === 'TRIAL' ? ' bez PRO.' : ' do końca miesiąca.'),
         HttpStatus.TOO_MANY_REQUESTS,
-        this.counters.quotaDetails('plans', limit),
+        this.counters.quotaDetailsFor('plans', plan),
       );
     }
 

@@ -357,6 +357,52 @@ model Household {
   cookidooIntegration       CookidooIntegration?
   agentConversations        AgentConversation[]
   agentMemories             AgentMemory[]
+  /// Ręczne nadanie planu (operator, `POST /ops/households/:id/tier`):
+  /// rodzina testująca, rekompensata, konto recenzenta App Store. Ma
+  /// pierwszeństwo przed subskrypcją; `null` = liczy się subskrypcja.
+  tierOverride              HouseholdTier?
+  subscription              HouseholdSubscription?
+}
+
+/// Plan gospodarstwa: TRIAL = jednorazowa pula na próbę (bez odnowienia),
+/// PRO = pula miesięczna. Liczony przy każdym żądaniu z nadania operatora,
+/// subskrypcji i `AI_TIER_OVERRIDE` — nie jest nigdzie „zapisany na stałe".
+enum HouseholdTier {
+  TRIAL
+  PRO
+}
+
+enum SubscriptionProvider {
+  APPLE
+  MANUAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  /// Płatność nie przeszła, Apple daje czas na jej poprawienie — PRO zostaje.
+  GRACE
+  EXPIRED
+  REVOKED
+}
+
+/// Subskrypcja PRO gospodarstwa — jedna na dom, bo pula wiadomości i planów
+/// jest wspólna dla domu. Zapisywana z weryfikacji transakcji App Store
+/// i z powiadomień serwera Apple (App Store Server Notifications v2);
+/// `expiresAt` w przeszłości = PRO wygasło niezależnie od `status`.
+model HouseholdSubscription {
+  householdId           String               @id @db.Uuid
+  household             Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  provider              SubscriptionProvider
+  productId             String
+  originalTransactionId String?              @unique
+  status                SubscriptionStatus
+  expiresAt             DateTime?
+  /// `Sandbox` / `Production` z transakcji — żeby test z TestFlight nie
+  /// wyglądał w metrykach jak sprzedaż.
+  environment           String?
+  lastNotificationAt    DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
 }
 
 /// Pamięć asystenta: krótkie notatki, które przeżywają koniec rozmowy.
@@ -751,6 +797,10 @@ model AgentTurn {
   /// Czy kwota wiadomości wróciła po porażce — rozkład zużycia na domowników
   /// liczy tylko tury, które naprawdę zjadły wiadomość.
   quotaRefunded  Boolean   @default(false)
+  /// Klucz okresu licznika, z którego zeszła wiadomość (`YYYY-MM` albo
+  /// `trial`). Zwrot idzie dokładnie tam — nie do „miesiąca startu", bo pula
+  /// próbna nie ma miesiąca. `null` = tura sprzed tej kolumny.
+  quotaPeriodKey String?
   startedAt      DateTime  @default(now())
   finishedAt     DateTime?
   createdAt      DateTime  @default(now())

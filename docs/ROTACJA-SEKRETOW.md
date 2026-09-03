@@ -1,0 +1,38 @@
+# Rotacja sekretów — co, gdzie, w jakiej kolejności, co się przy tym wywali
+
+Zasada: sekret rotuje się **od odbiorcy do nadawcy** (najpierw nowa wartość
+tam, gdzie jest sprawdzana, potem tam, gdzie jest używana), a stary
+unieważnia się dopiero, gdy nowy działa. Po każdej rotacji: `GET /ops/health`
+i jedna ścieżka użytkownika (logowanie, plan, asystent).
+
+| Sekret | Gdzie żyje | Jak zrotować | Co się dzieje po rotacji |
+|---|---|---|---|
+| `JWT_SECRET` | Railway (Backend) | `openssl rand -base64 48` → nowa wartość → restart | Wszystkie access tokeny nieważne od razu; iOS odświeża refresh tokenem — użytkownicy nic nie widzą, chyba że rotujesz też pepper. |
+| `REFRESH_TOKEN_PEPPER` | Railway | jak wyżej (≠ `JWT_SECRET`) | Wszystkie refresh tokeny nieważne → **każdy loguje się ponownie**. Rotować razem z `JWT_SECRET` przy podejrzeniu wycieku. |
+| `OPS_TOKEN` | Railway + (jeśli używany) skrypty/monitoring | nowa wartość → restart → zaktualizuj sondy | `/ops/metrics` odrzuca stary token. |
+| `COOKIDOO_ENCRYPTION_KEY` | Railway | **Nie rotuje się w locie**: zaszyfrowane hasła Cookidoo stałyby się nieczytelne. Procedura: nowy klucz + skrypt przepisujący (do napisania przed pierwszą rotacją) albo świadome wylogowanie wszystkich z Cookidoo (integracja do ponownego podania hasła). | Bez migracji: integracja Cookidoo przestaje działać dla wszystkich. |
+| `COOKIDOO_SERVICE_TOKEN` | Railway: Backend **i** Cookidoo (ta sama wartość) | Najpierw Cookidoo (`INTERNAL_TOKEN`), potem Backend; restart obu | Chwila niezgodności = `COOKIDOO_UNAVAILABLE`, nic trwałego. |
+| `ANTHROPIC_API_KEY` | Railway; osobny klucz dev lokalnie | Konsola Anthropic: nowy klucz → Railway → restart → unieważnij stary | Tury w trakcie mogą paść (`AI_PROVIDER_ERROR`), kwota wraca. |
+| `DATABASE_URL` / hasło Postgresa | Railway (Postgres → Backend przez referencję) | Railway → Postgres → Variables → nowe hasło; Backend czyta przez referencję, restart | Kilka sekund bez bazy; PITR i kopie nie zależą od hasła. **Do zrobienia: hasło z 28.08 wciąż nierotowane.** |
+| `R2_BACKUP_ACCESS_KEY_ID` / `..._SECRET_ACCESS_KEY` | GitHub Secrets (workflow `DB backup`) | Cloudflare → R2 → API Tokens: nowy token tylko do bucketa kopii → GitHub Secrets → unieważnij stary → odpal workflow ręcznie | Brak przerwy; sprawdź zielony bieg. |
+| Token R2 do zdjęć (`R2_*` w Railway) | Railway | Nowy token z zakresem do bucketa zdjęć → Railway → restart → unieważnij stary | Wgrywanie/backfill zdjęć; odczyt publiczny bez zmian. |
+| `BACKUP_AGE_PUBLIC_KEY` + klucz prywatny | GitHub Secret (publiczny), menedżer haseł Rafała (prywatny) | `age-keygen` → nowy publiczny do GitHub → **stare kopie dalej wymagają STAREGO klucza prywatnego** — nie kasować go przez 30 dni retencji | Nic w aplikacji. Rozważ dwóch odbiorców (`age -r A -r B`). |
+| APNs `.p8` | Railway (`APNS_KEY`, `APNS_KEY_ID`) | Apple Developer → Keys → nowy klucz APNs → Railway → restart → unieważnij stary | Powiadomienia: chwilowe `BadDeviceToken` nie występuje, tokeny urządzeń zostają. |
+| Klucz „Sign in with Apple" (`APPLE_PRIVATE_KEY`, `APPLE_KEY_ID`, `APPLE_TEAM_ID`) | Railway | Apple Developer → Keys → nowy klucz z Sign in with Apple → Railway → restart | Logowanie nie zależy od tego klucza (weryfikacja JWKS); zależy unieważnianie tokenów przy kasowaniu konta. |
+| Klucz App Store Connect (TestFlight workflow) | GitHub Secrets (`APP_STORE_CONNECT_*`) | ASC → Users and Access → Keys → nowy → GitHub Secrets → unieważnij stary | Następny build; bieżące bez zmian. |
+| Certyfikat dystrybucyjny `.p12` + hasło | GitHub Secrets | Xcode/ASC: nowy certyfikat → eksport `.p12` → Secrets → unieważnij stary | Następny build. |
+| `OPS_ALERT_WEBHOOK_URL`, `SENTRY_DSN` | Railway (+ GitHub Secret dla webhooka) | Nowy URL/DSN u dostawcy → wymień | Brak alertów/zdarzeń w oknie przełączenia. |
+
+## Po podejrzeniu wycieku — kolejność
+
+1. `ANTHROPIC_API_KEY` (pali pieniądze najszybciej).
+2. `JWT_SECRET` + `REFRESH_TOKEN_PEPPER` (odcina sesje).
+3. Hasło Postgresa, tokeny R2.
+4. `OPS_TOKEN`, `COOKIDOO_SERVICE_TOKEN`.
+5. Klucze Apple/APNs — tylko jeśli wyciekły pliki `.p8`/`.p12`.
+
+## Higiena
+
+- Lokalny `.env` deweloperski ma **osobny** klucz Anthropic z limitem wydatków; nigdy produkcyjny.
+- Rotacja planowa: klucze API co 12 miesięcy, hasło bazy po każdym incydencie, `OPS_TOKEN` przy zmianie osób z dostępem.
+- Data ostatniej rotacji każdego sekretu: zapisywać w `docs/handover/memory/` (nie w repo z wartością).

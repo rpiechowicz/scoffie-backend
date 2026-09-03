@@ -257,7 +257,8 @@ export class AgentTurnsService {
       }
     }
 
-    const periodKey = this.counters.monthKey();
+    const plan = await this.counters.resolvePlan(conversation.householdId);
+    const periodKey = plan.periodKey;
     let accepted: AcceptedTurn;
     try {
       accepted = await this.prisma.$transaction(async (tx) => {
@@ -284,7 +285,7 @@ export class AgentTurnsService {
             status: 'RUNNING',
             startedAt: { lte: staleBefore },
           },
-          select: { id: true, startedAt: true },
+          select: { id: true, startedAt: true, quotaPeriodKey: true },
         });
         for (const dead of stale) {
           const closed = await tx.agentTurn.updateMany({
@@ -303,7 +304,7 @@ export class AgentTurnsService {
           await this.counters.add(
             tx,
             conversation.householdId,
-            this.counters.monthKey(dead.startedAt),
+            dead.quotaPeriodKey ?? this.counters.monthKey(dead.startedAt),
             'messages',
             -1,
           );
@@ -321,20 +322,44 @@ export class AgentTurnsService {
           );
         }
 
+        // Lease per rozmowa nie ogranicza tur w WIELU rozmowach naraz —
+        // budżet dobowy jest sprawdzany przed startem, a koszt dopisywany po
+        // turze, więc burst 30 rozmów potrafił wydać 30× więcej, niż wolno.
+        // Semafor per gospodarstwo domyka tę lukę; próg z env.
+        if (env.maxConcurrentTurnsPerHousehold > 0) {
+          const householdRunning = await tx.agentTurn.count({
+            where: {
+              conversation: { householdId: conversation.householdId },
+              status: 'RUNNING',
+              startedAt: { gt: staleBefore },
+            },
+          });
+          if (householdRunning >= env.maxConcurrentTurnsPerHousehold) {
+            this.metrics.recordRejected('inProgress');
+            throw new AppException(
+              'AI_TURN_IN_PROGRESS',
+              'W Waszym domu trwa już kilka odpowiedzi asystenta — poczekaj chwilę.',
+              HttpStatus.CONFLICT,
+            );
+          }
+        }
+
         const consumed = await this.counters.tryConsume(
           tx,
           conversation.householdId,
           periodKey,
           'messages',
-          env.messagesPerMonth,
+          plan.messagesLimit,
         );
         if (!consumed) {
           this.metrics.recordRejected('quota');
           throw new AppException(
             'AI_QUOTA_EXCEEDED',
-            'Limit wiadomości asystenta na ten miesiąc został wyczerpany.',
+            plan.tier === 'TRIAL'
+              ? `Darmowe wiadomości na próbę (${plan.messagesLimit}) są wykorzystane. PRO odblokowuje pulę miesięczną dla całego domu.`
+              : 'Limit wiadomości asystenta na ten miesiąc został wyczerpany.',
             HttpStatus.TOO_MANY_REQUESTS,
-            this.counters.quotaDetails('messages', env.messagesPerMonth),
+            this.counters.quotaDetailsFor('messages', plan),
           );
         }
 
@@ -355,6 +380,7 @@ export class AgentTurnsService {
             requestId,
             provider: env.provider,
             model: env.model,
+            quotaPeriodKey: periodKey,
           },
         });
         await tx.agentMessage.update({
@@ -514,7 +540,7 @@ export class AgentTurnsService {
     });
     if (closed.count > 0) {
       this.metrics.recordTurnFinished('failed');
-      await this.refundQuota(turn.conversation.householdId, turn.startedAt);
+      await this.refundQuota(turn.conversation.householdId, turn);
     }
     return this.getTurn(userId, turnId);
   }
@@ -607,7 +633,7 @@ export class AgentTurnsService {
     }
 
     this.metrics.recordTurnFinished('timeout');
-    await this.refundQuota(turn.conversation.householdId, turn.startedAt);
+    await this.refundQuota(turn.conversation.householdId, turn);
     this.logger.warn(
       `turn ${turn.id} domknięta leniwie jako AI_TIMEOUT (proces nie dokończył tury)`,
     );
@@ -628,11 +654,14 @@ export class AgentTurnsService {
    * Zwrot kwoty do okresu, w którym tura RUSZYŁA. Tura zaczęta 31. o 23:59
    * i zamknięta 1. o 0:01 musi oddać kwotę tam, skąd ją wzięła.
    */
-  private async refundQuota(householdId: string, startedAt: Date) {
+  private async refundQuota(
+    householdId: string,
+    turn: { startedAt: Date; quotaPeriodKey?: string | null },
+  ) {
     await this.counters.add(
       this.prisma,
       householdId,
-      this.counters.monthKey(startedAt),
+      turn.quotaPeriodKey ?? this.counters.monthKey(turn.startedAt),
       'messages',
       -1,
     );

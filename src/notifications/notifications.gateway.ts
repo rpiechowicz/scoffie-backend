@@ -6,7 +6,9 @@ import {
   SubscribeMessage,
   WebSocketGateway,
 } from '@nestjs/websockets';
+import { HttpStatus } from '@nestjs/common';
 import { IsObject, IsOptional, IsString } from 'class-validator';
+import { AppException } from '../common/app-exception';
 import { validateWsPayload } from '../common/validate-dto';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
@@ -30,6 +32,16 @@ class NotificationsRegisterDevicePayload {
 
   @IsObject()
   data: RegisterDeviceDto;
+}
+
+/** Koperta `notifications:unregisterDevice` — `data.deviceToken` sprawdza handler. */
+class NotificationsUnregisterDevicePayload {
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsObject()
+  data: { deviceToken?: unknown };
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
@@ -62,6 +74,27 @@ export class NotificationsGateway
       const userId = actorId(client, payload);
       await validateWsPayload(NotificationsRegisterDevicePayload, payload);
       return this.notificationsService.registerDevice(userId, payload.data);
+    });
+  }
+
+  @SubscribeMessage('notifications:unregisterDevice')
+  unregisterDevice(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: NotificationsUnregisterDevicePayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(NotificationsUnregisterDevicePayload, payload);
+      const token = payload.data?.deviceToken;
+      if (typeof token !== 'string' || token.trim().length === 0) {
+        throw new AppException(
+          'VALIDATION_ERROR',
+          'Token urządzenia jest pusty',
+          HttpStatus.BAD_REQUEST,
+          ['deviceToken should not be empty'],
+        );
+      }
+      return this.notificationsService.unregisterDevice(userId, token);
     });
   }
 }

@@ -52,6 +52,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'recipes:setFavorite',
   // NotificationsGateway
   'notifications:registerDevice',
+  'notifications:unregisterDevice',
   // WeeklyPlansGateway
   'weeklyPlans:getByWeek',
   'weeklyPlans:getShoppingList',
@@ -86,7 +87,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'households:removeMember',
   'households:leave',
 ];
-const EXPECTED_HANDLER_COUNT = 45;
+const EXPECTED_HANDLER_COUNT = 46;
 
 // ---------------------------------------------------------------------------
 // Sockety i payload

@@ -1,7 +1,8 @@
 /**
  * Tryb uwierzytelniania WebSocketu (`WS_AUTH_MODE`).
  *
- * - `soft` (domyślny, gdy zmiennej brak): socket z tokenem w handshake jest
+ * - `soft` (domyślny POZA produkcją; na produkcji domyślny jest `strict`):
+ *   socket z tokenem w handshake jest
  *   weryfikowany jak w `strict` (zły/wygasły token = odmowa — nowy build iOS
  *   ma dostać prawdziwe zachowanie), socket BEZ tokenu wchodzi jako `legacy`
  *   i bierze tożsamość z `payload.userId` jak dawniej. To okno przejściowe
@@ -23,7 +24,12 @@ export function resolveWsAuthMode(
   env: NodeJS.ProcessEnv = process.env,
 ): WsAuthMode {
   const raw = (env.WS_AUTH_MODE ?? '').trim().toLowerCase();
-  return raw === 'strict' ? 'strict' : 'soft';
+  if (raw === 'strict') return 'strict';
+  if (raw === 'soft') return 'soft';
+  // Brak zmiennej: na produkcji strict (od audytu 3, 3.09.2026 — wszystkie
+  // buildy iOS od PR #69 wysyłają token, a `soft` bez tokenu to tożsamość
+  // z payloadu). Poza produkcją soft, żeby lokalne narzędzia nie wywracały się.
+  return env.NODE_ENV === 'production' ? 'strict' : 'soft';
 }
 
 /** Opis problemu z wartością zmiennej albo `null`, gdy jest poprawna/pusta. */

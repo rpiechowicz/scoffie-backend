@@ -702,8 +702,9 @@ export class AgentProposalsService {
     // Kwota PRZED zamkiem: odmowa kwoty nie zostawia wtedy propozycji
     // APPLIED bez odcisku (dawny „rollback" przez markStatus połykał błędy,
     // a cofnięcie bez odcisku nadpisywało cudze zmiany).
-    const periodKey = this.counters.monthKey();
-    const limit = readAgentEnv().plansPerMonth;
+    const plan = await this.counters.resolvePlan(proposal.householdId);
+    const periodKey = plan.periodKey;
+    const limit = plan.plansLimit;
     const consumed = await this.counters.tryConsume(
       this.prisma,
       proposal.householdId,
@@ -714,9 +715,11 @@ export class AgentProposalsService {
     if (!consumed) {
       throw new AppException(
         'AI_PLAN_QUOTA_EXCEEDED',
-        `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany.`,
+        plan.tier === 'TRIAL'
+          ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. PRO odblokowuje pulę miesięczną dla całego domu.`
+          : `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany.`,
         HttpStatus.TOO_MANY_REQUESTS,
-        this.counters.quotaDetails('plans', limit),
+        this.counters.quotaDetailsFor('plans', plan),
       );
     }
 

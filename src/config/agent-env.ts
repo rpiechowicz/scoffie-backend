@@ -69,9 +69,29 @@ export type AgentEnv = {
   apiKeyPresent: boolean;
   /** Twardy limit jednej tury (AbortSignal); po nim tura = FAILED `AI_TIMEOUT`. */
   turnTimeoutMs: number;
-  /** Kwoty per gospodarstwo i miesiąc — liczniki w `AiUsageCounter`. */
+  /** Kwoty PRO per gospodarstwo i miesiąc — liczniki w `AiUsageCounter`. */
   messagesPerMonth: number;
   plansPerMonth: number;
+  /**
+   * Pula na próbę (plan TRIAL): jednorazowa, bez odnowienia — licznik żyje
+   * pod kluczem okresu `trial`. Projekt „Limity asystenta" (3.09.2026):
+   * 5 wiadomości i 1 zapis planu.
+   */
+  trialMessages: number;
+  trialPlans: number;
+  /**
+   * `AI_TIER_OVERRIDE=PRO` — każde gospodarstwo liczone jak PRO, niezależnie
+   * od subskrypcji. DOMYŚLNIE `PRO`: do czasu wdrożenia subskrypcji w App
+   * Store zachowanie jest takie, jak dotąd (pula miesięczna dla wszystkich).
+   * Włączenie modelu próbnego = jawne `AI_TIER_OVERRIDE=` (puste) albo `off`.
+   */
+  tierOverride: 'PRO' | null;
+  /**
+   * Ile tur naraz może biec w jednym gospodarstwie (wszystkie rozmowy
+   * razem); `0` = bez limitu. Lease per rozmowa nie chronił budżetu
+   * dobowego przed burstem w wielu rozmowach.
+   */
+  maxConcurrentTurnsPerHousehold: number;
   /**
    * Globalny bezpiecznik kosztu na dobę (USD); `null` = bez limitu.
    *
@@ -129,6 +149,19 @@ export type AgentEnv = {
 };
 
 /**
+ * `AI_TIER_OVERRIDE`: brak zmiennej = domyślne `PRO` (jak dotąd);
+ * `PRO` = PRO dla wszystkich; puste / `off` / `none` = plan liczony
+ * z nadania operatora i subskrypcji (model próbny włączony).
+ */
+export function readTierOverride(env: NodeJS.ProcessEnv): 'PRO' | null {
+  const raw = env.AI_TIER_OVERRIDE;
+  if (raw === undefined) return AGENT_ENV_DEFAULTS.tierOverride;
+  const value = raw.trim().toUpperCase();
+  if (value === 'PRO') return 'PRO';
+  return null;
+}
+
+/**
  * `AI_ALLOWED_USERS` — lista rozdzielona przecinkami; puste wpisy i
  * wielkość liter nie mają znaczenia (e-maile Apple bywają wpisywane różnie).
  */
@@ -143,6 +176,10 @@ export const AGENT_ENV_DEFAULTS = {
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,
+  trialMessages: 5,
+  trialPlans: 1,
+  tierOverride: 'PRO' as 'PRO' | null,
+  maxConcurrentTurnsPerHousehold: 2,
   /**
    * Siatka, nie polityka: zmierzone tury kosztują $0,12–$1,00, więc $5 na dobę
    * to około trzydziestu tur — więcej, niż zrobi normalne gospodarstwo, i o rząd
@@ -171,6 +208,9 @@ type NumericKey =
   | 'AI_TURN_TIMEOUT_MS'
   | 'AI_LIMIT_MESSAGES_PER_MONTH'
   | 'AI_LIMIT_PLANS_PER_MONTH'
+  | 'AI_TRIAL_MESSAGES'
+  | 'AI_TRIAL_PLANS'
+  | 'AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD'
   | 'AI_STUB_DELAY_MS'
   | 'AI_PROPOSAL_TTL_MS'
   | 'AI_PROPOSAL_UNDO_WINDOW_MS'
@@ -255,6 +295,23 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       env,
       'AI_LIMIT_PLANS_PER_MONTH',
       AGENT_ENV_DEFAULTS.plansPerMonth,
+    ),
+    trialMessages: readNumber(
+      env,
+      'AI_TRIAL_MESSAGES',
+      AGENT_ENV_DEFAULTS.trialMessages,
+    ),
+    trialPlans: readNumber(
+      env,
+      'AI_TRIAL_PLANS',
+      AGENT_ENV_DEFAULTS.trialPlans,
+    ),
+    tierOverride: readTierOverride(env),
+    maxConcurrentTurnsPerHousehold: readNumber(
+      env,
+      'AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD',
+      AGENT_ENV_DEFAULTS.maxConcurrentTurnsPerHousehold,
+      { min: 0 },
     ),
     globalDailyBudgetUsd: readDailyBudgetUsd(env),
     stubDelayMs: readNumber(

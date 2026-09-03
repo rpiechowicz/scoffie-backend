@@ -1,4 +1,13 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { AppException } from '../common/app-exception';
 import { SkipThrottle } from '@nestjs/throttler';
 import { OpsTokenGuard } from './ops-token.guard';
 import { RequestMetricsService } from './request-metrics.service';
@@ -32,6 +41,59 @@ export class OpsController {
       // żywotności i nie ma prawa zależeć od bazy.
       migrations: await this.migrationsSnapshot(),
     };
+  }
+
+  /**
+   * Ręczne nadanie planu gospodarstwu: `{ "tier": "PRO" }` daje PRO
+   * niezależnie od subskrypcji (rodzina, recenzent App Store,
+   * rekompensata), `{ "tier": null }` zdejmuje nadanie (wraca subskrypcja
+   * albo próba). Zwraca stan po zmianie. Nagłówek `x-ops-token`.
+   */
+  @Post('households/:id/tier')
+  @UseGuards(OpsTokenGuard)
+  async setHouseholdTier(
+    @Param('id') id: string,
+    @Body() body: { tier?: unknown },
+  ) {
+    const tier = body?.tier ?? null;
+    if (tier !== null && tier !== 'PRO' && tier !== 'TRIAL') {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'tier musi być "PRO", "TRIAL" albo null.',
+        HttpStatus.BAD_REQUEST,
+        ['tier'],
+      );
+    }
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'id gospodarstwa musi być UUID.',
+        HttpStatus.BAD_REQUEST,
+        ['id'],
+      );
+    }
+    const household = await this.prisma.household.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!household) {
+      throw new AppException(
+        'HOUSEHOLD_NOT_FOUND',
+        'Nie ma takiego gospodarstwa.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    const updated = await this.prisma.household.update({
+      where: { id },
+      data: { tierOverride: tier },
+      select: {
+        id: true,
+        name: true,
+        tierOverride: true,
+        subscription: { select: { status: true, expiresAt: true } },
+      },
+    });
+    return updated;
   }
 
   // Sonda żywotności Railway odpytuje często i z jednego adresu — 429 na

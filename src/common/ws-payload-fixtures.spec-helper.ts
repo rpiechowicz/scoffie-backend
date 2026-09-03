@@ -156,6 +156,12 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
       apnsEnvironment: 'SANDBOX',
     },
   },
+  'notifications:unregisterDevice': {
+    data: {
+      deviceToken:
+        'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+    },
+  },
   // WeeklyPlansGateway
   'weeklyPlans:getByWeek': { ...hhWeek },
   'weeklyPlans:getShoppingList': { ...hhWeek },
@@ -325,6 +331,10 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
   'recipes:setFavorite': [missingData({}), dataNotObject({}, 42)],
   // NotificationsGateway
   'notifications:registerDevice': [
+    missingData({ userId: HH }),
+    dataNotObject({}, 'abcdef0123456789'),
+  ],
+  'notifications:unregisterDevice': [
     missingData({ userId: HH }),
     dataNotObject({}, 'abcdef0123456789'),
   ],

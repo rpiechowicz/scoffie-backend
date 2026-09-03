@@ -17,6 +17,16 @@ export class RecipesCacheService {
     process.env.RECIPES_LIST_CACHE_TTL_SECONDS ?? '90',
     10,
   );
+  /**
+   * Sufit wpisów: wygasłe znikały dotąd tylko przy odczycie TEGO SAMEGO
+   * klucza, więc bez zmian w katalogu mapa rosła po jednym wpisie na
+   * (dom × posiłek × strona) w nieskończoność.
+   */
+  private readonly maxEntries = Math.max(
+    1,
+    Number.parseInt(process.env.RECIPES_LIST_CACHE_MAX_ENTRIES ?? '500', 10) ||
+      500,
+  );
 
   private now(): number {
     return Date.now();
@@ -41,10 +51,24 @@ export class RecipesCacheService {
   set<T>(key: string, value: T): void {
     if (!this.enabled) return;
     const ttlMs = Math.max(1, this.ttlSeconds) * 1000;
+    if (this.store.size >= this.maxEntries) this.prune();
     this.store.set(key, {
       value,
       expiresAt: this.now() + ttlMs,
     });
+  }
+
+  /** Najpierw wygasłe; gdy to nie wystarcza — najstarsze wpisy (Map trzyma kolejność wstawiania). */
+  private prune(): void {
+    const now = this.now();
+    for (const [key, entry] of this.store) {
+      if (entry.expiresAt <= now) this.store.delete(key);
+    }
+    while (this.store.size >= this.maxEntries) {
+      const oldest = this.store.keys().next().value;
+      if (oldest === undefined) break;
+      this.store.delete(oldest);
+    }
   }
 
   buildRecipesListKey(input: {
@@ -77,6 +101,7 @@ export class RecipesCacheService {
     return {
       enabled: this.enabled,
       ttlSeconds: this.ttlSeconds,
+      maxEntries: this.maxEntries,
       size: this.store.size,
       hits: this.hits,
       misses: this.misses,

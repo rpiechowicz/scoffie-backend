@@ -37,6 +37,10 @@ describe('AgentUsageService.usage', () => {
   let conversations: { ensureMembership: jest.Mock };
   let counters: AiUsageCountersService;
   let service: AgentUsageService;
+  let prisma: { household: { findUnique: jest.Mock } } & Record<
+    string,
+    unknown
+  >;
 
   beforeEach(() => {
     process.env.AI_LIMIT_MESSAGES_PER_MONTH = '30';
@@ -44,7 +48,12 @@ describe('AgentUsageService.usage', () => {
     conversations = {
       ensureMembership: jest.fn().mockResolvedValue(undefined),
     };
-    const prisma = {
+    prisma = {
+      household: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ tierOverride: null, subscription: null }),
+      },
       agentTurn: {
         groupBy: jest.fn().mockResolvedValue([
           { userId: 'u-1', _count: { _all: 9 } },
@@ -78,6 +87,7 @@ describe('AgentUsageService.usage', () => {
   });
 
   afterEach(() => {
+    delete process.env.AI_TIER_OVERRIDE;
     if (original.messages === undefined)
       delete process.env.AI_LIMIT_MESSAGES_PER_MONTH;
     else process.env.AI_LIMIT_MESSAGES_PER_MONTH = original.messages;
@@ -96,7 +106,9 @@ describe('AgentUsageService.usage', () => {
       householdId: HOUSEHOLD,
       period: '2026-09',
       resetsAt: '2026-10-01T00:00:00.000Z',
-      tier: 'FREE',
+      renews: true,
+      tier: 'PRO',
+      source: 'ENV',
       messages: { used: 12, limit: 30, remaining: 18 },
       // Rozkład na domowników z domkniętych tur; były domownik bez imienia.
       byUser: [
@@ -115,5 +127,46 @@ describe('AgentUsageService.usage', () => {
     await expect(service.usage(USER, HOUSEHOLD, NOW)).rejects.toThrow(
       'NOT_HOUSEHOLD_MEMBER',
     );
+  });
+
+  it('bez AI_TIER_OVERRIDE gospodarstwo bez subskrypcji jest na próbie: pula `trial`, bez odnowienia', async () => {
+    process.env.AI_TIER_OVERRIDE = '';
+    const view = await service.usage(USER, HOUSEHOLD, NOW);
+    expect(view).toMatchObject({
+      period: 'trial',
+      resetsAt: null,
+      renews: false,
+      tier: 'TRIAL',
+      source: 'TRIAL',
+      messages: { used: 12, limit: 5, remaining: 0 },
+      plans: { used: 9, limit: 1, remaining: 0 },
+    });
+  });
+
+  it('nadanie operatora i żywa subskrypcja dają PRO; wygasła subskrypcja — próbę', async () => {
+    process.env.AI_TIER_OVERRIDE = 'off';
+    prisma.household.findUnique.mockResolvedValue({
+      tierOverride: 'PRO',
+      subscription: null,
+    });
+    expect((await service.usage(USER, HOUSEHOLD, NOW)).source).toBe('GRANTED');
+    prisma.household.findUnique.mockResolvedValue({
+      tierOverride: null,
+      subscription: {
+        status: 'ACTIVE',
+        expiresAt: new Date('2026-10-15T00:00:00.000Z'),
+      },
+    });
+    expect((await service.usage(USER, HOUSEHOLD, NOW)).source).toBe(
+      'SUBSCRIPTION',
+    );
+    prisma.household.findUnique.mockResolvedValue({
+      tierOverride: null,
+      subscription: {
+        status: 'ACTIVE',
+        expiresAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+    });
+    expect((await service.usage(USER, HOUSEHOLD, NOW)).tier).toBe('TRIAL');
   });
 });

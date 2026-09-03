@@ -703,7 +703,33 @@ async function main() {
   runOptionalR2ImageBackfill();
 }
 
-main().catch((error) => {
+/**
+ * Nieudana migracja produkcyjna była dotąd niema: kontener padał, Railway
+ * próbował 10 razy i zostawał stary deploy — a operator dowiadywał się z
+ * panelu. Ten sam webhook, co przy porażce kopii bazy.
+ */
+async function alertMigrationFailure(error) {
+  const url = (process.env.OPS_ALERT_WEBHOOK_URL ?? '').trim();
+  if (!url || typeof fetch !== 'function') return;
+  const commit =
+    process.env.APP_COMMIT ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown';
+  const content = `[weekly-meals] safe-migrate PADŁ (commit ${commit}): ${String(
+    error && error.message ? error.message : error,
+  ).slice(0, 400)}`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content, text: content }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    // Alert jest best-effort — nie może zasłonić właściwego błędu.
+  }
+}
+
+main().catch(async (error) => {
   console.error('[safe-migrate] Unexpected error:', error);
+  await alertMigrationFailure(error);
   process.exit(1);
 });

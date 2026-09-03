@@ -1,6 +1,31 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { readAgentEnv } from '../config/agent-env';
 import { PrismaService } from '../prisma/prisma.service';
+
+export type HouseholdPlanTier = 'TRIAL' | 'PRO';
+/** Skąd PRO: subskrypcja, nadanie operatora albo `AI_TIER_OVERRIDE`. */
+export type HouseholdPlanSource = 'TRIAL' | 'SUBSCRIPTION' | 'GRANTED' | 'ENV';
+
+/**
+ * Plan gospodarstwa na TERAZ — wszystko, czego potrzebuje kwota: klucz
+ * okresu licznika, limity, czy i kiedy pula wraca. Liczone przy każdym
+ * żądaniu, żeby wygaśnięcie subskrypcji działało bez crona.
+ */
+export type HouseholdPlan = {
+  tier: HouseholdPlanTier;
+  source: HouseholdPlanSource;
+  /** `YYYY-MM` (PRO) albo `trial` (jedna pula bez odnowienia). */
+  periodKey: string;
+  renews: boolean;
+  /** ISO albo `null` (próba się nie odnawia). */
+  resetsAt: string | null;
+  messagesLimit: number;
+  plansLimit: number;
+};
+
+/** Klucz okresu puli próbnej — jedna na całe życie gospodarstwa. */
+export const TRIAL_PERIOD_KEY = 'trial';
 
 /**
  * Klient Prismy albo klient transakcji — liczniki muszą dać się naliczyć
@@ -54,6 +79,75 @@ export class AiUsageCountersService {
     return new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0),
     );
+  }
+
+  /**
+   * Plan gospodarstwa: `AI_TIER_OVERRIDE=PRO` → PRO dla wszystkich;
+   * inaczej nadanie operatora (`tierOverride`), potem żywa subskrypcja
+   * (ACTIVE/GRACE i `expiresAt` w przyszłości albo bez daty), inaczej TRIAL.
+   */
+  async resolvePlan(
+    householdId: string,
+    now: Date = new Date(),
+  ): Promise<HouseholdPlan> {
+    const env = readAgentEnv();
+    if (env.tierOverride === 'PRO') return this.proPlan('ENV', now, env);
+    const household = await this.prisma.household.findUnique({
+      where: { id: householdId },
+      select: {
+        tierOverride: true,
+        subscription: { select: { status: true, expiresAt: true } },
+      },
+    });
+    if (household?.tierOverride === 'PRO') {
+      return this.proPlan('GRANTED', now, env);
+    }
+    const sub = household?.subscription;
+    const alive =
+      sub &&
+      (sub.status === 'ACTIVE' || sub.status === 'GRACE') &&
+      (sub.expiresAt === null || sub.expiresAt.getTime() > now.getTime());
+    if (alive) return this.proPlan('SUBSCRIPTION', now, env);
+    return {
+      tier: 'TRIAL',
+      source: 'TRIAL',
+      periodKey: TRIAL_PERIOD_KEY,
+      renews: false,
+      resetsAt: null,
+      messagesLimit: env.trialMessages,
+      plansLimit: env.trialPlans,
+    };
+  }
+
+  private proPlan(
+    source: HouseholdPlanSource,
+    now: Date,
+    env: ReturnType<typeof readAgentEnv>,
+  ): HouseholdPlan {
+    return {
+      tier: 'PRO',
+      source,
+      periodKey: this.monthKey(now),
+      renews: true,
+      resetsAt: this.monthResetsAt(now).toISOString(),
+      messagesLimit: env.messagesPerMonth,
+      plansLimit: env.plansPerMonth,
+    };
+  }
+
+  /**
+   * `details` dla 429 z planu: te same pola, co w `GET /agent/usage`, plus
+   * `tier` — telefon na próbie pokazuje „Odblokuj PRO", nie datę odnowienia.
+   */
+  quotaDetailsFor(kind: UsageKind, plan: HouseholdPlan): string[] {
+    const limit = kind === 'plans' ? plan.plansLimit : plan.messagesLimit;
+    return [
+      `kind:${kind}`,
+      `limit:${limit}`,
+      'remaining:0',
+      `tier:${plan.tier}`,
+      plan.resetsAt ? `resetsAt:${plan.resetsAt}` : 'renews:false',
+    ];
   }
 
   /** `details` dla 429 — te same pola, co w `GET /agent/usage`. */

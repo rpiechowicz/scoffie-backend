@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { readAgentEnv } from '../config/agent-env';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgentConversationsService } from './agent-conversations.service';
-import { AiUsageCountersService } from './ai-usage-counters.service';
+import {
+  AiUsageCountersService,
+  HouseholdPlanSource,
+  HouseholdPlanTier,
+} from './ai-usage-counters.service';
 
 export type QuotaView = {
   used: number;
@@ -12,16 +15,16 @@ export type QuotaView = {
 
 export type AgentUsageView = {
   householdId: string;
-  /** `YYYY-MM` UTC — okres, którego dotyczą liczby. */
+  /** `YYYY-MM` UTC (PRO) albo `trial` — okres, którego dotyczą liczby. */
   period: string;
-  /** ISO — kiedy kwota wraca (północ UTC pierwszego dnia miesiąca). */
-  resetsAt: string;
-  /**
-   * Dziś zawsze `FREE`: limity to jedna wartość z env dla wszystkich.
-   * Pole istnieje od razu, żeby telefon nie musiał zmieniać kontraktu, gdy
-   * dojdzie plan płatny.
-   */
-  tier: 'FREE';
+  /** ISO — kiedy kwota wraca; `null` na próbie (pula się nie odnawia). */
+  resetsAt: string | null;
+  /** Czy pula wraca co miesiąc. */
+  renews: boolean;
+  /** `TRIAL` = jednorazowa pula na próbę, `PRO` = pula miesięczna. */
+  tier: HouseholdPlanTier;
+  /** Skąd PRO — telefon pokazuje „Zarządzaj subskrypcją" tylko przy SUBSCRIPTION. */
+  source: HouseholdPlanSource;
   messages: QuotaView;
   plans: QuotaView;
   /**
@@ -55,11 +58,15 @@ export class AgentUsageService {
     now: Date = new Date(),
   ): Promise<AgentUsageView> {
     await this.conversations.ensureMembership(userId, householdId);
-    const env = readAgentEnv();
-    const period = this.counters.monthKey(now);
-    const periodStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
-    );
+    const plan = await this.counters.resolvePlan(householdId, now);
+    const period = plan.periodKey;
+    // Rozkład na domowników: w PRO z bieżącego miesiąca, na próbie z całej
+    // puli (jedna na życie gospodarstwa).
+    const periodStart = plan.renews
+      ? new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+        )
+      : undefined;
     const [messagesUsed, plansUsed, perUser] = await Promise.all([
       this.counters.read(householdId, period, 'messages'),
       this.counters.read(householdId, period, 'plans'),
@@ -72,7 +79,14 @@ export class AgentUsageService {
           // i awarii dostawcy kwotę zwróciły i w rozkładzie ich nie ma.
           status: { not: 'RUNNING' },
           quotaRefunded: false,
-          startedAt: { gte: periodStart, lt: this.counters.monthResetsAt(now) },
+          ...(periodStart
+            ? {
+                startedAt: {
+                  gte: periodStart,
+                  lt: this.counters.monthResetsAt(now),
+                },
+              }
+            : {}),
         },
         _count: { _all: true },
       }),
@@ -88,10 +102,12 @@ export class AgentUsageService {
     return {
       householdId,
       period,
-      resetsAt: this.counters.monthResetsAt(now).toISOString(),
-      tier: 'FREE',
-      messages: quota(messagesUsed, env.messagesPerMonth),
-      plans: quota(plansUsed, env.plansPerMonth),
+      resetsAt: plan.resetsAt,
+      renews: plan.renews,
+      tier: plan.tier,
+      source: plan.source,
+      messages: quota(messagesUsed, plan.messagesLimit),
+      plans: quota(plansUsed, plan.plansLimit),
       byUser: perUser
         .map((row) => ({
           userId: row.userId,

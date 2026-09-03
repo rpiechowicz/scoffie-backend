@@ -540,7 +540,18 @@ export class AgentTurnRunner {
         );
       }
 
-      if (verdict.refund) {
+      // „Stop" po tym, jak model już policzył tokeny, nie może być darmowy:
+      // wyślij → poczekaj 80 s → Stop → kwota wraca, a rachunek u dostawcy
+      // zostaje. Przerwanie bez kosztu (zanim dostawca odpowiedział) wraca.
+      const refund =
+        verdict.refund &&
+        !(
+          verdict.errorCode === 'AI_CANCELLED' &&
+          spent !== undefined &&
+          spent !== null &&
+          spent.costMicroUsd > 0
+        );
+      if (refund) {
         await this.counters.add(
           this.prisma,
           input.householdId,

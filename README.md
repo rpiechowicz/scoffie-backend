@@ -134,8 +134,15 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   `test/agent.e2e-spec.ts`; no model call, no API key)
 - `ANTHROPIC_API_KEY` — required only with `AI_ENABLED=true` and `anthropic`
 - `AI_MODEL` (`claude-sonnet-5`), `AI_TURN_TIMEOUT_MS` (90000)
+- `AI_TIER_OVERRIDE` (`PRO`) — household plan. Unset/`PRO` = every household
+  is PRO (monthly pool, as before). Empty/`off` = trial model: without an
+  active `HouseholdSubscription` or an operator grant
+  (`POST /ops/households/:id/tier` with `{ "tier": "PRO" }`) a household gets a
+  one-time pool of `AI_TRIAL_MESSAGES` (5) messages and `AI_TRIAL_PLANS` (1)
+  plan writes under period key `trial`; `GET /agent/usage` returns
+  `tier`, `source`, `renews` and `resetsAt: null` for trials.
 - `AI_LIMIT_MESSAGES_PER_MONTH` (200) / `AI_LIMIT_PLANS_PER_MONTH` (30) —
-  per household, counted in `AiUsageCounter` on UTC months. A message is
+  PRO pool per household, counted in `AiUsageCounter` on UTC months. A message is
   charged when the turn starts and refunded when it fails; a plan is charged
   when the week is actually **written** — a dry run, a rejected write and a
   write that changed nothing all cost nothing. Out of plans, the tool answers
@@ -145,7 +152,7 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   gets `503 AI_DISABLED` with `details: ['not_allowed']`, which the shipped
   iOS build renders as "assistant unavailable". The gate for the period
   between "family is testing" and consents + paywall.
-- `AI_CONSENT_REQUIRED` (`false`) — when `true`, a turn needs a valid
+- `AI_CONSENT_REQUIRED` (`true`) — when `true`, a turn needs a valid
   `AI_ASSISTANT` consent of the caller (`GET`/`POST /me/consents`, append-only
   `ConsentEvent`, document versions in `src/common/legal-documents.ts`) and
   only household members with their own consent reach the model; the others'

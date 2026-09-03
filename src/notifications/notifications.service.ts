@@ -147,6 +147,24 @@ export class NotificationsService implements OnModuleDestroy {
    * z payloadu i jest tu walidowane; dalej używamy WYŁĄCZNIE instancji po
    * walidacji (ma zaaplikowany `@Transform` i wycięte nieznane pola).
    */
+  /**
+   * Wylogowanie z urządzenia: token przestaje należeć do konta. Bez tego
+   * poprzedni użytkownik telefonu dostawał pushe o planie, liście i
+   * odpowiedziach asystenta cudzego domu. Idempotentne — brak wiersza to
+   * też sukces.
+   */
+  async unregisterDevice(
+    userId: string,
+    deviceToken: string,
+  ): Promise<{ success: boolean; removed: number }> {
+    const normalizedToken = this.normalizeDeviceToken(deviceToken);
+    if (!normalizedToken) return { success: true, removed: 0 };
+    const result = await this.prisma.pushDevice.deleteMany({
+      where: { userId, deviceToken: normalizedToken },
+    });
+    return { success: true, removed: result.count };
+  }
+
   async registerDevice(
     userId: string,
     dto: RegisterDeviceDto,
@@ -339,11 +357,12 @@ export class NotificationsService implements OnModuleDestroy {
       return;
     }
 
-    const flat = (params.preview ?? '').replace(/\s+/g, ' ').trim();
+    // Treść odpowiedzi NIE idzie przez APNs: fragment rozmowy o diecie
+    // i alergenach przechodziłby przez serwery Apple, których polityka nie
+    // wymienia jako odbiorcy. Telefon pobiera treść po otwarciu.
+    void params.preview;
     const body = params.ok
-      ? flat.length > 120
-        ? `${flat.slice(0, 120).trimEnd()}…`
-        : flat || 'Odpowiedź czeka w rozmowie.'
+      ? 'Odpowiedź czeka w rozmowie.'
       : 'Nie udało się dokończyć odpowiedzi. Plan bez zmian — spróbuj ponownie.';
 
     await this.sendToUsers({
