@@ -51,7 +51,12 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
-          pg_dump --version
+          # Runner ma preinstalowanego klienta 16 i to on wygrywa na PATH
+          # (`pg_dump` 16.15 odmawia zrzutu z serwera 17.11 — „server version
+          # mismatch"). Katalog wersji 17 idzie na początek ścieżki dla
+          # WSZYSTKICH kolejnych kroków (pg_dump i pg_restore).
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Guard secrets
         env:
