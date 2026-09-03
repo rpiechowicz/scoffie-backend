@@ -343,7 +343,12 @@ w tym trybie żadna tura nie zaczyna na Sonnecie.
 → Stąd kolejność z §14 i mocniejszy wniosek: **pierwszym ruchem oszczędnościowym
 nie jest routing, tylko `AI_EFFORT=low`.** Analiza wrażliwości z `cost-model.md`
 §10 daje na Sonnecie medium→low −31 % (vs −14 % z routingu), przy JEDNEJ puli
-cache, bez drugiego prefiksu i bez ryzyka. Routing ma sens dopiero, gdy raport
+cache i bez drugiego prefiksu. Uczciwa uwaga: to NIE jest darmowe — `medium`
+wybrano świadomie, a niższy wysiłek dotyka dokładnie tego, na czym zależy
+najbardziej, czyli układania planu pod cele i alergeny. Dlatego zmiana wymaga
+porównania jakości na kilkunastu prawdziwych turach (`pnpm agent:smoke`), a nie
+przestawienia zmiennej w ciemno. Ale kolejność jest jasna: najpierw mierzymy
+tę dźwignię, potem sięgamy po routing. Routing ma sens dopiero, gdy raport
 z miesiąca pokaże, że tury bez przekazania to większość ruchu.
 → Druga dźwignia z tej samej analizy, warta więcej niż routing: `get_week_plan`
 oddaje dziś pełne wiersze składników (25–45 tys. tokenów). Projekcja do
