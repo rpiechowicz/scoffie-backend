@@ -60,7 +60,7 @@ export class AgentUsageService {
     now: Date = new Date(),
   ): Promise<AgentUsageView> {
     await this.conversations.ensureMembership(userId, householdId);
-    const plan = await this.counters.resolvePlan(householdId, now);
+    const plan = await this.counters.resolvePlan(householdId, { userId }, now);
     const period = plan.periodKey;
     // Rozkład na domowników: w PRO z bieżącego miesiąca, na próbie z całej
     // puli (jedna na życie gospodarstwa).

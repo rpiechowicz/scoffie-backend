@@ -93,6 +93,7 @@ const makeDeps = (
     resolvePlan: jest.fn().mockResolvedValue({
       tier: 'PRO',
       source: 'ENV',
+      quotaScopeId: householdId,
       periodKey: '2026-04',
       renews: true,
       resetsAt: '2026-10-01T00:00:00.000Z',

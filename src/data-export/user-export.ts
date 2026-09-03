@@ -43,6 +43,8 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
       createdAt: true,
       updatedAt: true,
       preferences: true,
+      // Do wyszukania subskrypcji; NIE trafia do eksportu (patrz niżej).
+      identityHash: true,
     },
   });
   if (!user) return null;
@@ -62,6 +64,7 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
     cookidoo,
     aiUsage,
     memoryNotes,
+    subscriptions,
   ] = await Promise.all([
     prisma.consentEvent.findMany({
       where: { userId },
@@ -227,9 +230,31 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
       orderBy: { createdAt: 'asc' },
       select: { householdId: true, text: true, kind: true, createdAt: true },
     }),
+    // Subskrypcje wiszą na HASZU tożsamości, nie na `userId` — bo mają
+    // przeżywać skasowanie konta. Do eksportu (art. 15) wchodzą wyłącznie
+    // wiersze tej osoby i BEZ hasza: hasz jest naszym kluczem wewnętrznym,
+    // a jego wydanie ułatwiałoby dopasowanie danych po usunięciu konta.
+    user.identityHash
+      ? prisma.subscription.findMany({
+          where: { identityHash: user.identityHash },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            provider: true,
+            productId: true,
+            status: true,
+            expiresAt: true,
+            graceExpiresAt: true,
+            environment: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
-  const { preferences, ...profile } = user;
+  // `identityHash` NIE wychodzi w eksporcie: to nasz klucz wewnętrzny, a jego
+  // wydanie ułatwiałoby powiązanie danych z kontem, którego już nie ma.
+  const { preferences, identityHash: _identityHash, ...profile } = user;
   let preferencesOut: Omit<NonNullable<typeof preferences>, 'userId'> | null =
     null;
   if (preferences) {
@@ -251,6 +276,7 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
       householdCreatedAt: m.household.createdAt,
     })),
     invitations: { sent: invitationsSent, received: invitationsReceived },
+    subscriptions,
     recipes,
     meals: {
       planned: participations.map((p) => ({

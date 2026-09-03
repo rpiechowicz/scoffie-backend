@@ -991,7 +991,9 @@ export class AgentToolExecutor {
 
     if (dryRun) return run();
 
-    const plan = await this.counters.resolvePlan(context.householdId);
+    const plan = await this.counters.resolvePlan(context.householdId, {
+      userId: context.userId,
+    });
     const periodKey = plan.periodKey;
     const limit = plan.plansLimit;
     const consumed = await this.counters.tryConsume(

@@ -702,12 +702,17 @@ export class AgentProposalsService {
     // Kwota PRZED zamkiem: odmowa kwoty nie zostawia wtedy propozycji
     // APPLIED bez odcisku (dawny „rollback" przez markStatus połykał błędy,
     // a cofnięcie bez odcisku nadpisywało cudze zmiany).
-    const plan = await this.counters.resolvePlan(proposal.householdId);
+    const plan = await this.counters.resolvePlan(proposal.householdId, {
+      userId,
+    });
     const periodKey = plan.periodKey;
+    // Zakres kwoty planu — ten sam, co przy wiadomościach: `sub:<id>` przy
+    // subskrypcji, `trial:<hasz>` na próbie, dom przy nadaniu operatora.
+    const scopeId = plan.quotaScopeId;
     const limit = plan.plansLimit;
     const consumed = await this.counters.tryConsume(
       this.prisma,
-      proposal.householdId,
+      scopeId,
       periodKey,
       'plans',
       limit,
@@ -736,13 +741,14 @@ export class AgentProposalsService {
         appliedByUserId: userId,
         undoneAt: null,
         quotaPeriodKey: periodKey,
+        quotaScopeId: scopeId,
         changedCount: null,
         appliedHash: null,
       },
     });
     if (locked.count === 0) {
       // Ktoś zdążył pierwszy — jego zapis już zjadł kwotę, nasza wraca.
-      await this.refundPlan(proposal.householdId, periodKey);
+      await this.refundPlan(scopeId, periodKey);
       return this.resultForApplied(await this.loadOwned(userId, proposalId));
     }
 
@@ -756,8 +762,11 @@ export class AgentProposalsService {
       );
 
       if (!result.applied) {
-        await this.refundPlan(proposal.householdId, periodKey);
-        await this.markStatus(proposal.id, 'STALE', { quotaPeriodKey: null });
+        await this.refundPlan(scopeId, periodKey);
+        await this.markStatus(proposal.id, 'STALE', {
+          quotaPeriodKey: null,
+          quotaScopeId: null,
+        });
         throw new AppException(
           'AI_PROPOSAL_STALE',
           'Tej propozycji nie da się już zapisać — plan albo przepisy zmieniły się w międzyczasie.',
@@ -776,7 +785,7 @@ export class AgentProposalsService {
       if (changed === 0) {
         // Zapis bez zmian nie kosztuje planu — i cofnięcie nie ma już czego
         // zwracać (`quotaPeriodKey` niżej zostaje puste).
-        await this.refundPlan(proposal.householdId, periodKey);
+        await this.refundPlan(scopeId, periodKey);
       }
 
       const after = await this.weeklyPlans.snapshotWeekAsSlots(
@@ -808,6 +817,7 @@ export class AgentProposalsService {
           appliedHash: weekBaselineHash(after),
           changedCount: changed,
           quotaPeriodKey: changed === 0 ? null : periodKey,
+          quotaScopeId: changed === 0 ? null : scopeId,
         },
       });
 
@@ -823,8 +833,11 @@ export class AgentProposalsService {
       if (error instanceof AppException) throw error;
       // Propozycja, która padła przy zapisie, nie wraca do klikania:
       // przycisk działający raz na dwa razy jest gorszy niż jego brak.
-      await this.refundPlan(proposal.householdId, periodKey);
-      await this.markStatus(proposal.id, 'FAILED', { quotaPeriodKey: null });
+      await this.refundPlan(scopeId, periodKey);
+      await this.markStatus(proposal.id, 'FAILED', {
+        quotaPeriodKey: null,
+        quotaScopeId: null,
+      });
       throw error;
     }
   }
@@ -912,8 +925,16 @@ export class AgentProposalsService {
     // która naprawdę zeszła, i do miesiąca, z którego zeszła (zapis 31.,
     // cofnięcie 1.). Zapis bez zmian już ją oddał i nie ma czego zwracać.
     if (proposal.quotaPeriodKey) {
-      await this.refundPlan(proposal.householdId, proposal.quotaPeriodKey);
-      await this.markStatus(proposal.id, 'UNDONE', { quotaPeriodKey: null });
+      await this.refundPlan(
+        // Zakres z chwili ZAPISU. Propozycja zapisana na subskrypcji, cofnięta
+        // po jej wygaśnięciu, musi oddać kwotę tam, skąd ją wzięła.
+        proposal.quotaScopeId ?? proposal.householdId,
+        proposal.quotaPeriodKey,
+      );
+      await this.markStatus(proposal.id, 'UNDONE', {
+        quotaPeriodKey: null,
+        quotaScopeId: null,
+      });
     }
 
     const message = await this.writeMessage({
@@ -1021,7 +1042,10 @@ export class AgentProposalsService {
   private async markStatus(
     id: string,
     status: string,
-    extra: { quotaPeriodKey?: string | null } = {},
+    extra: {
+      quotaPeriodKey?: string | null;
+      quotaScopeId?: string | null;
+    } = {},
   ): Promise<void> {
     try {
       await this.prisma.agentProposal.update({
@@ -1036,12 +1060,9 @@ export class AgentProposalsService {
   }
 
   /** Zwrot kwoty planu — księgowość nie może wywrócić operacji użytkownika. */
-  private async refundPlan(
-    householdId: string,
-    periodKey: string,
-  ): Promise<void> {
+  private async refundPlan(scopeId: string, periodKey: string): Promise<void> {
     try {
-      await this.counters.add(this.prisma, householdId, periodKey, 'plans', -1);
+      await this.counters.add(this.prisma, scopeId, periodKey, 'plans', -1);
     } catch (error) {
       this.logger.warn(`nie udało się zwrócić kwoty planu: ${String(error)}`);
     }

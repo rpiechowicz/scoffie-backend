@@ -258,8 +258,15 @@ export class AgentTurnsService {
       }
     }
 
-    const plan = await this.counters.resolvePlan(conversation.householdId);
+    const plan = await this.counters.resolvePlan(conversation.householdId, {
+      userId,
+    });
     const periodKey = plan.periodKey;
+    // Zakres kwoty: `sub:<id>` przy subskrypcji, `trial:<hasz>` na próbie,
+    // UUID domu przy nadaniu. Zapisujemy go przy turze, bo zwrot ma wrócić
+    // TAM, skąd kwota zeszła — dom, który w międzyczasie stracił PRO, oddawał
+    // do zakresu wyliczonego dopiero w chwili zwrotu, czyli do cudzej puli.
+    const scopeId = plan.quotaScopeId;
 
     // Sufit kosztu domu na miesiąc. Osobno od limitu wiadomości, bo tura
     // przerwana timeoutem oddaje wiadomość, a pieniądze zostają wydane —
@@ -310,7 +317,12 @@ export class AgentTurnsService {
             status: 'RUNNING',
             startedAt: { lte: staleBefore },
           },
-          select: { id: true, startedAt: true, quotaPeriodKey: true },
+          select: {
+            id: true,
+            startedAt: true,
+            quotaPeriodKey: true,
+            quotaScopeId: true,
+          },
         });
         for (const dead of stale) {
           const closed = await tx.agentTurn.updateMany({
@@ -328,7 +340,7 @@ export class AgentTurnsService {
           // oddaje ją tam, a nie do nowego miesiąca.
           await this.counters.add(
             tx,
-            conversation.householdId,
+            dead.quotaScopeId ?? conversation.householdId,
             dead.quotaPeriodKey ?? this.counters.monthKey(dead.startedAt),
             'messages',
             -1,
@@ -371,7 +383,7 @@ export class AgentTurnsService {
 
         const consumed = await this.counters.tryConsume(
           tx,
-          conversation.householdId,
+          scopeId,
           periodKey,
           'messages',
           plan.messagesLimit,
@@ -408,6 +420,7 @@ export class AgentTurnsService {
             // nadpisze go modelem, który dał ostatnie słowo.
             model: resolveRoute(env).model,
             quotaPeriodKey: periodKey,
+            quotaScopeId: scopeId,
           },
         });
         await tx.agentMessage.update({
@@ -683,11 +696,18 @@ export class AgentTurnsService {
    */
   private async refundQuota(
     householdId: string,
-    turn: { startedAt: Date; quotaPeriodKey?: string | null },
+    turn: {
+      startedAt: Date;
+      quotaPeriodKey?: string | null;
+      quotaScopeId?: string | null;
+    },
   ) {
     await this.counters.add(
       this.prisma,
-      householdId,
+      // Zakres z CHWILI POBRANIA, nie z chwili zwrotu. Dom, który w
+      // międzyczasie stracił PRO (albo płatnik się wyprowadził), oddawałby
+      // inaczej kwotę do puli, z której nigdy jej nie wziął.
+      turn.quotaScopeId ?? householdId,
       turn.quotaPeriodKey ?? this.counters.monthKey(turn.startedAt),
       'messages',
       -1,

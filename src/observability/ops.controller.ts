@@ -90,7 +90,6 @@ export class OpsController {
         id: true,
         name: true,
         tierOverride: true,
-        subscription: { select: { status: true, expiresAt: true } },
       },
     });
     return updated;

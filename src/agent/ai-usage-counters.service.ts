@@ -2,6 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { readAgentEnv } from '../config/agent-env';
 import { productLimits } from '../config/subscription-products';
+import { subscriptionScopeId, trialScopeId } from '../config/purchase-identity';
+import {
+  pickBestSubscription,
+  type SubscriptionCandidate,
+} from '../config/subscription-lifetime';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type HouseholdPlanTier = 'TRIAL' | 'PRO';
@@ -16,6 +21,18 @@ export type HouseholdPlanSource = 'TRIAL' | 'SUBSCRIPTION' | 'GRANTED' | 'ENV';
 export type HouseholdPlan = {
   tier: HouseholdPlanTier;
   source: HouseholdPlanSource;
+  /**
+   * Zakres licznika kwoty. NIE zawsze jest to gospodarstwo:
+   *
+   *   • `sub:<id>`     — subskrypcja. Pula wisi na UMOWIE, więc przeprowadzka
+   *                      do innego domu jej nie odnawia (jedna opłata = jedna
+   *                      pula miesięcznie, gdziekolwiek płatnik akurat jest).
+   *   • `trial:<hasz>` — pula próbna osoby, jedna na życie. Nie na domu, bo
+   *                      „wyjdź z domu → załóż nowy" dawało świeżą próbę.
+   *   • `<householdId>`— nadanie operatora i `AI_TIER_OVERRIDE`; te nigdzie
+   *                      nie wędrują, bo `tierOverride` jest kolumną domu.
+   */
+  quotaScopeId: string;
   /** `YYYY-MM` (PRO) albo `trial` (jedna pula bez odnowienia). */
   periodKey: string;
   renews: boolean;
@@ -25,9 +42,18 @@ export type HouseholdPlan = {
   plansLimit: number;
   /** Nazwa planu z App Store (Solo/Duet/Rodzina); `null` = limity z env. */
   product: string | null;
+  /** Id żywej subskrypcji, jeśli to ona daje PRO — do panelu i do ops. */
+  subscriptionId: string | null;
 };
 
-/** Klucz okresu puli próbnej — jedna na całe życie gospodarstwa. */
+/**
+ * Kto pyta o plan. Potrzebne, bo pula PRÓBNA należy do osoby, nie do domu.
+ * `identityHash` jest opcjonalny — dociągamy go z domu, jeśli wołający go nie
+ * ma pod ręką.
+ */
+export type PlanActor = { userId: string; identityHash?: string | null };
+
+/** Klucz okresu puli próbnej — jedna na całe życie OSOBY (patrz `trialScopeId`). */
 export const TRIAL_PERIOD_KEY = 'trial';
 
 /**
@@ -106,43 +132,106 @@ export class AiUsageCountersService {
   }
 
   /**
-   * Plan gospodarstwa: `AI_TIER_OVERRIDE=PRO` → PRO dla wszystkich;
-   * inaczej nadanie operatora (`tierOverride`), potem żywa subskrypcja
-   * (ACTIVE/GRACE i `expiresAt` w przyszłości albo bez daty), inaczej TRIAL.
+   * Plan gospodarstwa NA TERAZ — liczony, nigdy nie odczytywany z przypisania.
+   *
+   * DLACZEGO TAK, A NIE „SUBSKRYPCJA PRZYPIĘTA DO DOMU". Poprzednia wersja
+   * czytała jeden wiersz przypięty do gospodarstwa. Cztery niezależne testy
+   * obalające pokazały tę samą wadę: zdarzeń, które to przypisanie PSUJĄ
+   * (wyjście z domu, usunięcie członka, skasowanie konta, sprzątnięcie pustego
+   * domu, przyjęcie zaproszenia, przegrana w regule „wyższy limit wygrywa"),
+   * jest więcej niż miejsc, które je NAPRAWIAJĄ — a żadne z tych naprawiających
+   * nie leżało na ścieżce, którą naprawdę chodzi człowiek. Skutek: „płacę Apple
+   * i nie mam asystenta, i nie ma przycisku, który by to odkręcił".
+   *
+   * Tutaj nie ma czego przypiąć. Pytanie brzmi „czy któryś z OBECNYCH
+   * domowników ma teraz żywą subskrypcję" i odpowiedź liczy się od zera przy
+   * każdym żądaniu. Kto wyszedł — zabiera swoje PRO ze sobą w tej samej
+   * sekundzie. Kto wszedł — wnosi je bez żadnej akcji administracyjnej.
+   *
+   * ODPOWIEDŹ NA PYTANIE RAFAŁA („user ma Solo i zaprasza domownika"):
+   * domownik MA asystenta od razu, w pełni, bez kupowania czegokolwiek i bez
+   * żadnej akcji ze strony płatnika. Pula (30/8 przy Solo) jest WSPÓLNA dla
+   * całego domu — dokładnie tak, jak wspólny jest plan tygodnia i lista
+   * zakupów, które ten asystent układa. Wielkość planu jest etykietą zużycia,
+   * nie bramką na miejsca: większy dom szybciej zjada pulę, więc wybiera
+   * wyższy plan. Drugiej subskrypcji w tym samym domu nie przyjmujemy —
+   * wygrywa ta o wyższym limicie, druga leży nieużywana u swojego płatnika i
+   * odżyje, gdy ten się wyprowadzi.
+   *
+   * Kolejność: `AI_TIER_OVERRIDE` → nadanie operatora → żywa subskrypcja
+   * domownika → próba.
    */
   async resolvePlan(
     householdId: string,
+    actor: PlanActor,
     now: Date = new Date(),
   ): Promise<HouseholdPlan> {
     const env = readAgentEnv();
-    if (env.tierOverride === 'PRO') return this.proPlan('ENV', now, env);
+    if (env.tierOverride === 'PRO') {
+      return this.proPlan('ENV', now, env, householdId);
+    }
     const household = await this.prisma.household.findUnique({
       where: { id: householdId },
       select: {
         tierOverride: true,
-        subscription: {
-          select: { status: true, expiresAt: true, productId: true },
+        memberships: {
+          select: { userId: true, user: { select: { identityHash: true } } },
         },
       },
     });
     if (household?.tierOverride === 'PRO') {
-      return this.proPlan('GRANTED', now, env);
+      return this.proPlan('GRANTED', now, env, householdId);
     }
-    const sub = household?.subscription;
-    const alive =
-      sub &&
-      (sub.status === 'ACTIVE' || sub.status === 'GRACE') &&
-      (sub.expiresAt === null || sub.expiresAt.getTime() > now.getTime());
-    if (alive) return this.proPlan('SUBSCRIPTION', now, env, sub.productId);
+
+    const members = household?.memberships ?? [];
+    const hashes = members
+      .map((membership) => membership.user.identityHash)
+      .filter((hash): hash is string => Boolean(hash));
+
+    if (hashes.length > 0) {
+      const candidates = await this.prisma.subscription.findMany({
+        where: {
+          identityHash: { in: hashes },
+          status: { in: ['ACTIVE', 'GRACE'] },
+        },
+        select: {
+          id: true,
+          provider: true,
+          productId: true,
+          status: true,
+          expiresAt: true,
+          graceExpiresAt: true,
+          neverExpires: true,
+          revokedAt: true,
+          messagesLimitSnapshot: true,
+          plansLimitSnapshot: true,
+          createdAt: true,
+        },
+      });
+      const winner = pickBestSubscription(candidates, now);
+      if (winner) {
+        return this.proPlan('SUBSCRIPTION', now, env, householdId, winner);
+      }
+    }
+
+    // Pula próbna należy do OSOBY, nie do domu — inaczej „wyjdź z domu →
+    // załóż nowy" rozdawało świeże próby w nieskończoność.
+    const actorHash =
+      actor.identityHash ??
+      members.find((membership) => membership.userId === actor.userId)?.user
+        .identityHash ??
+      null;
     return {
       tier: 'TRIAL',
       source: 'TRIAL',
+      quotaScopeId: trialScopeId(actorHash, actor.userId),
       periodKey: TRIAL_PERIOD_KEY,
       renews: false,
       resetsAt: null,
       messagesLimit: env.trialMessages,
       plansLimit: env.trialPlans,
       product: null,
+      subscriptionId: null,
     };
   }
 
@@ -150,24 +239,41 @@ export class AiUsageCountersService {
     source: HouseholdPlanSource,
     now: Date,
     env: ReturnType<typeof readAgentEnv>,
-    productId?: string | null,
+    householdId: string,
+    sub?: SubscriptionCandidate,
   ): HouseholdPlan {
     // Limity biorą się z KUPIONEGO produktu (Solo/Duet/Rodzina); nadanie
     // operatora i `AI_TIER_OVERRIDE` nie mają produktu, więc dostają limity
     // z env — tak jak dotąd.
-    const limits = productLimits(productId, {
+    const limits = productLimits(sub?.productId, {
       messagesPerMonth: env.messagesPerMonth,
       plansPerMonth: env.plansPerMonth,
     });
+    // MIGAWKA WYGRYWA Z CENNIKIEM. Limit zapisany przy zakupie jest obietnicą
+    // złożoną konkretnej osobie; obniżenie cennika nie ma prawa jej obniżyć
+    // (to zmiana warunków umowy w trakcie i wprost sprzeczność z paywallem,
+    // App Store 3.1.2(c)). Podwyżka limitu działa od razu i dla wszystkich —
+    // stąd `Math.max`, a nie zwykłe pierwszeństwo migawki.
+    const messagesLimit = Math.max(
+      limits.messagesPerMonth,
+      sub?.messagesLimitSnapshot ?? 0,
+    );
+    const plansLimit = Math.max(
+      limits.plansPerMonth,
+      sub?.plansLimitSnapshot ?? 0,
+    );
     return {
       tier: 'PRO',
       source,
+      // Pula subskrypcji wisi na UMOWIE, nadanie operatora — na domu.
+      quotaScopeId: sub ? subscriptionScopeId(sub.id) : householdId,
       periodKey: this.monthKey(now),
       renews: true,
       resetsAt: this.monthResetsAt(now).toISOString(),
-      messagesLimit: limits.messagesPerMonth,
-      plansLimit: limits.plansPerMonth,
+      messagesLimit,
+      plansLimit,
       product: limits.product,
+      subscriptionId: sub?.id ?? null,
     };
   }
 
@@ -266,3 +372,8 @@ export class AiUsageCountersService {
     return row?.value ?? 0;
   }
 }
+
+export {
+  pickBestSubscription,
+  subscriptionAlive,
+} from '../config/subscription-lifetime';

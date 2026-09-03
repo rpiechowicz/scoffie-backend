@@ -11,6 +11,16 @@ model User {
   id                    String       @id @default(uuid()) @db.Uuid
   googleId              String?      @unique
   appleSub              String?      @unique
+  /// Hasz tożsamości zakupowej: HMAC-SHA256 z `authProvider:sub` i pieprzu
+  /// serwera (`PURCHASE_IDENTITY_PEPPER`). Wyliczany przy logowaniu.
+  ///
+  /// PO CO OSOBNA KOLUMNA, SKORO JEST `appleSub`. Ten hasz jest jedynym
+  /// śladem, który MA przeżyć skasowanie konta: pula próbna i subskrypcja
+  /// wiszą na nim, a nie na `User.id`, więc „usuń konto → zarejestruj się
+  /// znowu" nie daje ani nowej próby, ani utraty opłaconego PRO. Hasz, a nie
+  /// czysty `sub`, bo wyciek bazy nie ma prawa wydać identyfikatorów Apple
+  /// osób, które już u nas nie mają konta.
+  identityHash          String?
   authProvider          AuthProvider @default(GOOGLE)
   displayName           String
   email                 String?
@@ -41,6 +51,7 @@ model User {
   updatedAt             DateTime     @updatedAt
 
   recipes         Recipe[]
+  subscriptions   Subscription[]  @relation("SubscriptionPurchaser")
   memberships     Membership[]
   createdHomes    Household[]     @relation("HouseholdCreator")
   invitations     Invitation[]    @relation("InvitationCreator")
@@ -62,6 +73,8 @@ model User {
   agentConversations AgentConversation[]
   consentEvents      ConsentEvent[]
   agentReports       AgentReport[]
+
+  @@index([identityHash])
 }
 
 /// Zgłoszenie niewłaściwej odpowiedzi asystenta („Zgłoś odpowiedź").
@@ -285,11 +298,11 @@ model Ingredient {
   // stan surowy. `nutritionCarbsPer100` to weglowodany przyswajalne, bez
   // blonnika. Nullable: nowy skladnik bez makro ma sie dodac, audyt zglosi
   // go jako luke. Zrodlo: prisma/catalog/ingredient-nutrition-pl-v1.json
-  nutritionKcalPer100    Float?
-  nutritionProteinPer100 Float?
-  nutritionCarbsPer100   Float?
-  nutritionFatPer100     Float?
-  nutritionFiberPer100   Float?
+  nutritionKcalPer100     Float?
+  nutritionProteinPer100  Float?
+  nutritionCarbsPer100    Float?
+  nutritionFatPer100      Float?
+  nutritionFiberPer100    Float?
   /// Sód w mg na 100 g/ml (IZZ/USDA). Sól przepisu = sód ze składników × 2,5
   /// + sól dodana — dotąd „sól" znaczyła dwie różne rzeczy w dwóch partiach.
   nutritionSodiumMgPer100 Float?
@@ -361,7 +374,6 @@ model Household {
   /// rodzina testująca, rekompensata, konto recenzenta App Store. Ma
   /// pierwszeństwo przed subskrypcją; `null` = liczy się subskrypcja.
   tierOverride              HouseholdTier?
-  subscription              HouseholdSubscription?
 }
 
 /// Plan gospodarstwa: TRIAL = jednorazowa pula na próbę (bez odnowienia),
@@ -385,24 +397,106 @@ enum SubscriptionStatus {
   REVOKED
 }
 
-/// Subskrypcja PRO gospodarstwa — jedna na dom, bo pula wiadomości i planów
-/// jest wspólna dla domu. Zapisywana z weryfikacji transakcji App Store
-/// i z powiadomień serwera Apple (App Store Server Notifications v2);
-/// `expiresAt` w przeszłości = PRO wygasło niezależnie od `status`.
-model HouseholdSubscription {
-  householdId           String               @id @db.Uuid
-  household             Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+/// Subskrypcja PRO — należy do OSOBY, która ją kupiła, nigdy do domu.
+///
+/// DLACZEGO NIE `householdId`. Poprzednia wersja trzymała subskrypcję jako
+/// wiersz przypięty do gospodarstwa (`HouseholdSubscription`, klucz główny =
+/// `householdId`, kaskada od domu). Cztery niezależne testy obalające pokazały
+/// tę samą dziurę: przypisanie było ZAPISYWANE, a zdarzeń, które je psują
+/// (wyjście z domu, usunięcie członka, skasowanie konta, sprzątnięcie pustego
+/// domu, przyjęcie zaproszenia), jest więcej niż miejsc, które je naprawiają.
+/// Wynik: człowiek płaci Apple i siedzi bez asystenta, bez żadnego przycisku,
+/// który by to odkręcił. Drugi wynik: „wyjdź z domu → załóż nowy" dawało
+/// świeżą pulę wiadomości przy jednej opłacie.
+///
+/// Teraz przypisania NIE MA. Uprawnienie domu wylicza się przy każdym żądaniu
+/// z faktu „czy któryś z obecnych domowników ma żywą subskrypcję"
+/// (`AiUsageCountersService.resolvePlan`). Nie ma czego przypiąć, więc nie ma
+/// czego zgubić — a pula liczy się w zakresie `sub:<id>`, czyli wędruje razem
+/// z umową i nie odnawia się od przeprowadzki.
+///
+/// `purchaserUserId` jest wyłącznie wskaźnikiem na konto (SetNull): tożsamość
+/// płatnika niesie `identityHash`, który przeżywa skasowanie konta — bo Apple
+/// pobiera pieniądze niezależnie od tego, czy konto u nas istnieje.
+model Subscription {
+  id                    String               @id @default(uuid()) @db.Uuid
+  /// Kto płaci — patrz `User.identityHash`. To jest prawdziwy właściciel.
+  identityHash          String
+  /// Wskaźnik na konto; `SetNull`, bo subskrypcja musi przeżyć jego usunięcie.
+  purchaserUserId       String?              @db.Uuid
+  purchaser             User?                @relation("SubscriptionPurchaser", fields: [purchaserUserId], references: [id], onDelete: SetNull)
   provider              SubscriptionProvider
   productId             String
   originalTransactionId String?              @unique
+  latestTransactionId   String?
   status                SubscriptionStatus
+  /// Koniec opłaconego okresu (z Apple, w UTC).
   expiresAt             DateTime?
-  /// `Sandbox` / `Production` z transakcji — żeby test z TestFlight nie
-  /// wyglądał w metrykach jak sprzedaż.
+  /// Koniec łaski płatniczej. Apple potrafi dać do 16 dni po `expiresAt`;
+  /// bez osobnej kolumny status GRACE nigdy by nie zadziałał, bo warunek
+  /// żywotności i tak odbijał się o `expiresAt` w przeszłości.
+  graceExpiresAt        DateTime?
+  /// Tylko nadania ręczne (MANUAL) mogą nie mieć końca. Dla APPLE brak daty
+  /// znaczy „nie wiemy", czyli MARTWA — nigdy „żywa na zawsze".
+  neverExpires          Boolean              @default(false)
+  autoRenewStatus       Boolean?
+  autoRenewProductId    String?
+  /// `Sandbox` albo `Production`. Transakcja z sandboxa NIE daje PRO na
+  /// produkcji — inaczej każdy z TestFlightem miałby darmowe PRO na zawsze.
   environment           String?
+  /// `PURCHASED` albo `FAMILY_SHARED`. Chowanie tego pod polityką w App Store
+  /// Connect nie wystarcza: jedna opłata rozdana przez Chmurę Rodzinną to do
+  /// pięciu gospodarstw z pełną pulą każde.
+  ownershipType         String?
+  /// Zwrot pieniędzy albo cofnięcie dostępu przez Apple — PRO znika od razu.
+  revokedAt             DateTime?
+  /// Migawka limitów z chwili zakupu. Cennik wolno podnieść w każdej chwili,
+  /// ale obniżka NIE MOŻE zejść komuś, kto już zapłacił (to zmiana warunków
+  /// umowy w trakcie). Puste = limity liczone z bieżącej mapy produktów.
+  messagesLimitSnapshot Int?
+  plansLimitSnapshot    Int?
   lastNotificationAt    DateTime?
+  lastNotificationType  String?
+  /// Ostatnie uzgodnienie z App Store Server API — czym starsze, tym większa
+  /// szansa, że zgubiliśmy powiadomienie.
+  lastVerifiedAt        DateTime?
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
+
+  @@index([identityHash])
+  @@index([purchaserUserId])
+  @@index([status, expiresAt])
+}
+
+/// Powiadomienie App Store Server Notifications v2 — jeden wiersz na
+/// `notificationUUID`, ŻADNEJ kaskady.
+///
+/// Trzy powody, dla których to jest osobna tabela bez kluczy obcych:
+/// 1. Idempotencja. Apple ponawia powiadomienie do pięciu razy przez trzy
+///    doby; drugie przetworzenie tego samego zdarzenia potrafiłoby wyzerować
+///    pulę albo cofnąć nowszy stan.
+/// 2. Odpowiadamy 200 dopiero PO trwałym zapisie. Gdyby zapis szedł w tej
+///    samej transakcji co skutek zdarzenia, deploy w złej sekundzie kasowałby
+///    zdarzenie na zawsze — Apple uznało je za dostarczone.
+/// 3. Zdarzenie może dotyczyć subskrypcji, której u nas jeszcze (albo już)
+///    nie ma. Klucz obcy odrzucałby dokładnie te przypadki, po których
+///    zostaje reklamacja.
+model AppleNotification {
+  notificationUuid      String    @id
+  notificationType      String
+  subtype               String?
+  originalTransactionId String?
+  environment           String?
+  /// Surowy, podpisany ładunek — jedyny sposób na odtworzenie zdarzenia po
+  /// błędzie i jedyny dowód, co Apple naprawdę przysłało.
+  signedPayload         String
+  receivedAt            DateTime  @default(now())
+  processedAt           DateTime?
+  attempts              Int       @default(0)
+  error                 String?
+
+  @@index([processedAt, receivedAt])
+  @@index([originalTransactionId])
 }
 
 /// Pamięć asystenta: krótkie notatki, które przeżywają koniec rozmowy.
@@ -761,6 +855,8 @@ model AgentProposal {
   /// = nic nie zeszło (zapis bez zmian, kwota oddana). Cofnięcie zwraca
   /// kwotę TYLKO wtedy i TAM — nie do bieżącego miesiąca.
   quotaPeriodKey  String?
+  /// Zakres licznika kwoty planu — jak `AgentTurn.quotaScopeId`.
+  quotaScopeId    String?
   /// Ile pozycji zmienił zapis; 0 = „Cofnij" nie ma czego cofać.
   changedCount    Int?
   expiresAt       DateTime
@@ -801,6 +897,12 @@ model AgentTurn {
   /// `trial`). Zwrot idzie dokładnie tam — nie do „miesiąca startu", bo pula
   /// próbna nie ma miesiąca. `null` = tura sprzed tej kolumny.
   quotaPeriodKey String?
+  /// Zakres licznika, z którego zeszła wiadomość: `sub:<id>` (subskrypcja),
+  /// `trial:<hasz>` (pula próbna osoby) albo UUID gospodarstwa (nadanie).
+  /// Bez tego zwrot po nieudanej turze trafiał do zakresu wyliczonego W
+  /// CHWILI ZWROTU — a dom, który w międzyczasie stracił PRO, dostawał zwrot
+  /// do cudzej puli. `null` = tura sprzed tej kolumny (zwrot idzie do domu).
+  quotaScopeId   String?
   startedAt      DateTime  @default(now())
   finishedAt     DateTime?
   createdAt      DateTime  @default(now())

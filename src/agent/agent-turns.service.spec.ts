@@ -88,6 +88,7 @@ describe('AgentTurnsService', () => {
     resolvePlan: jest.fn().mockResolvedValue({
       tier: 'PRO',
       source: 'ENV',
+      quotaScopeId: HOUSEHOLD,
       periodKey: '2026-08',
       renews: true,
       resetsAt: '2026-10-01T00:00:00.000Z',
@@ -137,6 +138,7 @@ describe('AgentTurnsService', () => {
     counters.resolvePlan.mockResolvedValue({
       tier: 'PRO',
       source: 'ENV',
+      quotaScopeId: HOUSEHOLD,
       periodKey: '2026-08',
       renews: true,
       resetsAt: '2026-09-01T00:00:00.000Z',

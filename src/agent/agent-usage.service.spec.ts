@@ -6,6 +6,22 @@ import { AiUsageCountersService } from './ai-usage-counters.service';
 const USER = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 const HOUSEHOLD = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const NOW = new Date('2026-09-02T12:00:00.000Z');
+const IDENTITY = 'b'.repeat(64);
+
+/** Subskrypcja domownika — tyle pól, ile czyta `resolvePlan`. */
+const subscriptionRow = (expiresAt: Date) => ({
+  id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+  provider: 'APPLE',
+  productId: 'pl.weeklymeals.pro.solo.monthly',
+  status: 'ACTIVE',
+  expiresAt,
+  graceExpiresAt: null,
+  neverExpires: false,
+  revokedAt: null,
+  messagesLimitSnapshot: 30,
+  plansLimitSnapshot: 8,
+  createdAt: new Date('2026-08-01T00:00:00.000Z'),
+});
 
 describe('AiUsageCountersService — reset kwoty', () => {
   const counters = new AiUsageCountersService({} as PrismaService);
@@ -37,10 +53,16 @@ describe('AgentUsageService.usage', () => {
   let conversations: { ensureMembership: jest.Mock };
   let counters: AiUsageCountersService;
   let service: AgentUsageService;
-  let prisma: { household: { findUnique: jest.Mock } } & Record<
-    string,
-    unknown
-  >;
+  let prisma: {
+    household: { findUnique: jest.Mock };
+    subscription: { findMany: jest.Mock };
+  } & Record<string, unknown>;
+
+  /** Dom z jednym domownikiem o znanym haszu tożsamości. */
+  const householdWith = (tierOverride: string | null) => ({
+    tierOverride,
+    memberships: [{ userId: USER, user: { identityHash: IDENTITY } }],
+  });
 
   beforeEach(() => {
     process.env.AI_LIMIT_MESSAGES_PER_MONTH = '30';
@@ -50,10 +72,9 @@ describe('AgentUsageService.usage', () => {
     };
     prisma = {
       household: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({ tierOverride: null, subscription: null }),
+        findUnique: jest.fn().mockResolvedValue(householdWith(null)),
       },
+      subscription: { findMany: jest.fn().mockResolvedValue([]) },
       agentTurn: {
         groupBy: jest.fn().mockResolvedValue([
           { userId: 'u-1', _count: { _all: 9 } },
@@ -144,30 +165,41 @@ describe('AgentUsageService.usage', () => {
     });
   });
 
-  it('nadanie operatora i żywa subskrypcja dają PRO; wygasła subskrypcja — próbę', async () => {
+  it('nadanie operatora i żywa subskrypcja domownika dają PRO; wygasła — próbę', async () => {
     process.env.AI_TIER_OVERRIDE = 'off';
-    prisma.household.findUnique.mockResolvedValue({
-      tierOverride: 'PRO',
-      subscription: null,
-    });
+    prisma.household.findUnique.mockResolvedValue(householdWith('PRO'));
     expect((await service.usage(USER, HOUSEHOLD, NOW)).source).toBe('GRANTED');
-    prisma.household.findUnique.mockResolvedValue({
-      tierOverride: null,
-      subscription: {
-        status: 'ACTIVE',
-        expiresAt: new Date('2026-10-15T00:00:00.000Z'),
-      },
-    });
+
+    prisma.household.findUnique.mockResolvedValue(householdWith(null));
+    prisma.subscription.findMany.mockResolvedValue([
+      subscriptionRow(new Date('2026-10-15T00:00:00.000Z')),
+    ]);
     expect((await service.usage(USER, HOUSEHOLD, NOW)).source).toBe(
       'SUBSCRIPTION',
     );
+
+    prisma.subscription.findMany.mockResolvedValue([
+      subscriptionRow(new Date('2026-08-01T00:00:00.000Z')),
+    ]);
+    expect((await service.usage(USER, HOUSEHOLD, NOW)).tier).toBe('TRIAL');
+  });
+
+  it('subskrypcja WSPÓŁDOMOWNIKA odblokowuje asystenta pytającemu', async () => {
+    // Odpowiedź na pytanie „user ma Solo i zaprasza domownika": pyta ktoś
+    // inny niż płatnik, a plan i tak wychodzi PRO ze wspólną pulą.
+    process.env.AI_TIER_OVERRIDE = 'off';
     prisma.household.findUnique.mockResolvedValue({
       tierOverride: null,
-      subscription: {
-        status: 'ACTIVE',
-        expiresAt: new Date('2026-08-01T00:00:00.000Z'),
-      },
+      memberships: [
+        { userId: USER, user: { identityHash: null } },
+        { userId: 'u-platnik', user: { identityHash: IDENTITY } },
+      ],
     });
-    expect((await service.usage(USER, HOUSEHOLD, NOW)).tier).toBe('TRIAL');
+    prisma.subscription.findMany.mockResolvedValue([
+      subscriptionRow(new Date('2026-10-15T00:00:00.000Z')),
+    ]);
+    const view = await service.usage(USER, HOUSEHOLD, NOW);
+    expect(view.source).toBe('SUBSCRIPTION');
+    expect(view.messages.limit).toBe(30);
   });
 });

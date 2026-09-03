@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, Optional } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
 import { DietPreferenceValue, Prisma, Sex, UserGoal } from '@prisma/client';
 import { AppException } from '../common/app-exception';
 import { normalizeAllergenIds } from '../common/allergens';
@@ -93,6 +93,8 @@ export interface UserProfilePayload {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     // Opcjonalnie: dziennik zgód (testy jednostkowe budują serwis bez niego).
@@ -561,6 +563,26 @@ export class UsersService {
       await tx.cookidooIntegration.deleteMany({
         where: { connectedById: userId },
       });
+      // Subskrypcja NIE ginie z kontem. `Subscription.purchaserUserId` jest
+      // `SetNull`, a właścicielem jest `identityHash` — bo Apple pobiera
+      // pieniądze niezależnie od tego, czy konto u nas istnieje. Dzięki temu
+      // ponowne logowanie tym samym Apple ID odzyskuje opłacone PRO samo, a
+      // wypalona pula próbna nie odnawia się przez skasowanie konta.
+      const liveSubscriptions = await tx.subscription.count({
+        where: {
+          purchaserUserId: userId,
+          status: { in: ['ACTIVE', 'GRACE'] },
+        },
+      });
+      if (liveSubscriptions > 0) {
+        // Usunięcia konta NIE blokujemy (App Store 5.1.1(v), RODO art. 17),
+        // ale to musi zostawić ślad: człowiek dalej płaci Apple za coś, z
+        // czego przestał korzystać, i wcześniej czy później napisze.
+        this.logger.warn(
+          `Konto ${userId} usunięte z ${liveSubscriptions} żywą subskrypcją — subskrypcja zostaje przy tożsamości zakupowej.`,
+        );
+      }
+
       // Księga kosztów i notatki domu zostają (rozliczenia, wspólna pamięć),
       // ale bez identyfikatora osoby — po usunięciu konta nie ma kogo do nich
       // przypiąć.
