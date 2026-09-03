@@ -16,6 +16,9 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      # Przy pull requeście akcja czyta listę commitów PR-a przez API —
+      # bez tego uprawnienia kończy się 403 „Resource not accessible".
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
