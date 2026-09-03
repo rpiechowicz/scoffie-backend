@@ -112,8 +112,8 @@
     "overrides": {
       "@isaacs/brace-expansion": ">=5.0.1",
       "qs": ">=6.16.0",
-      "minimatch@<4": ">=3.1.4",
-      "minimatch@9": ">=9.0.7",
+      "minimatch@<4": ">=10.2.3",
+      "minimatch@9": ">=10.2.3",
       "fast-xml-parser": ">=5.7.0",
       "multer": ">=2.2.0",
       "serialize-javascript": ">=7.0.5",
