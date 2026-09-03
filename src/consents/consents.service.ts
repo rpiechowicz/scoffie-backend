@@ -48,6 +48,9 @@ export class ConsentsService {
         ['documentVersion'],
       );
     }
+    if (dto.kind === 'AGE_16' && dto.action === 'GRANTED') {
+      await this.assertProfileAllowsAge16(userId);
+    }
     await this.prisma.consentEvent.create({
       data: {
         userId,
@@ -61,6 +64,32 @@ export class ConsentsService {
     });
     return this.status(userId);
   }
+
+  /**
+   * „Mam ukończone 16 lat" nie może przeczyć rokowi urodzenia z profilu.
+   * Liczymy po roku (bez daty dziennej nie ma jak dokładniej), więc
+   * ktoś urodzony 16 lat temu przechodzi — blokujemy tylko jednoznaczne
+   * przypadki. Brak roku w profilu = wierzymy oświadczeniu.
+   */
+  private async assertProfileAllowsAge16(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { yearOfBirth: true },
+    });
+    const year = user?.yearOfBirth;
+    if (!year) return;
+    const ageByYear = new Date().getUTCFullYear() - year;
+    if (ageByYear < ConsentsService.ASSISTANT_MIN_AGE) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        `Asystent jest dostępny od ${ConsentsService.ASSISTANT_MIN_AGE} lat — według roku urodzenia w profilu (${year}) to jeszcze nie ten wiek.`,
+        HttpStatus.BAD_REQUEST,
+        ['kind'],
+      );
+    }
+  }
+
+  static readonly ASSISTANT_MIN_AGE = 16;
 
   /**
    * Zdarzenie zapisywane przez SERWER, nie przez kliknięcie: podanie hasła
