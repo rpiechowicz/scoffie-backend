@@ -94,8 +94,18 @@ jobs:
         run: |
           set -euo pipefail
           FILE="$(ls weekly-meals-*.dump | head -n 1)"
-          pg_restore --list "$FILE" | head -n 5
-          echo "OK: $(pg_restore --list "$FILE" | wc -l) wpisów w spisie treści"
+          # Listing do pliku, nie przez potok: `head` zamyka potok po pięciu
+          # liniach, pg_restore dostaje „Broken pipe", a `pipefail` uznaje to
+          # za porażkę weryfikacji poprawnego zrzutu.
+          pg_restore --list "$FILE" > toc.txt
+          ENTRIES=$(grep -c -v '^;' toc.txt || true)
+          head -n 6 toc.txt
+          echo "OK: $ENTRIES wpisów w spisie treści"
+          if [ "$ENTRIES" -lt 50 ]; then
+            echo "::error::spis treści zrzutu ma tylko $ENTRIES wpisów — to nie jest pełna baza"
+            exit 1
+          fi
+          rm -f toc.txt
 
       - name: Upload to R2
         env:
