@@ -1,7 +1,7 @@
 # Node 22 we wszystkich etapach — to samo, co CI (`backend-ci.yml`) i README.
 # Node 20 skończył wsparcie 30.04.2026, a prod chodził na nim, choć testy
 # biegły na 22.
-FROM node:22-bookworm-slim AS deps
+FROM node:26-bookworm-slim AS deps
 ARG NPM_REGISTRY=https://registry.npmjs.org
 ENV COREPACK_NPM_REGISTRY=$NPM_REGISTRY
 ENV npm_config_registry=$NPM_REGISTRY
@@ -13,7 +13,7 @@ RUN pnpm install --frozen-lockfile
 COPY prisma ./prisma
 RUN pnpm prisma generate
 
-FROM node:22-bookworm-slim AS builder
+FROM node:26-bookworm-slim AS builder
 ARG NPM_REGISTRY=https://registry.npmjs.org
 ENV COREPACK_NPM_REGISTRY=$NPM_REGISTRY
 ENV npm_config_registry=$NPM_REGISTRY
@@ -24,7 +24,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
 
-FROM node:22-bookworm-slim AS runner
+FROM node:26-bookworm-slim AS runner
 ARG NPM_REGISTRY=https://registry.npmjs.org
 ENV COREPACK_NPM_REGISTRY=$NPM_REGISTRY
 ENV npm_config_registry=$NPM_REGISTRY
