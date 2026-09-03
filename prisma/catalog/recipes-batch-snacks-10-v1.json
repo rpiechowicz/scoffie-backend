@@ -16,7 +16,8 @@
         "carbs": 86,
         "fat": 11,
         "fiber": 10,
-        "salt": 0.3
+        "salt": 0.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -74,7 +75,8 @@
         "carbs": 80,
         "fat": 23,
         "fiber": 8,
-        "salt": 0.4
+        "salt": 0.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -137,7 +139,8 @@
         "carbs": 42,
         "fat": 26,
         "fiber": 27,
-        "salt": 0.2
+        "salt": 0.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -199,7 +202,8 @@
         "carbs": 138,
         "fat": 19,
         "fiber": 16,
-        "salt": 0.3
+        "salt": 0.6,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -261,12 +265,13 @@
       "prepTimeMinutes": 10,
       "servings": 2,
       "nutrition": {
-        "kcal": 720,
+        "kcal": 728,
         "protein": 56,
-        "carbs": 86,
+        "carbs": 84,
         "fat": 18,
-        "fiber": 12,
-        "salt": 0.3
+        "fiber": 9,
+        "salt": 0.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -333,7 +338,8 @@
         "carbs": 156,
         "fat": 53,
         "fiber": 23,
-        "salt": 0.5
+        "salt": 1.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -423,7 +429,8 @@
         "carbs": 70,
         "fat": 43,
         "fiber": 27,
-        "salt": 1
+        "salt": 2.2,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -519,7 +526,8 @@
         "carbs": 59,
         "fat": 29,
         "fiber": 7,
-        "salt": 2
+        "salt": 5.4,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -605,7 +613,8 @@
         "carbs": 94,
         "fat": 37,
         "fiber": 11,
-        "salt": 2.2
+        "salt": 5.9,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -677,7 +686,8 @@
         "carbs": 129,
         "fat": 17,
         "fiber": 6,
-        "salt": 0.4
+        "salt": 0.7,
+        "addedSalt": 0
       },
       "steps": [
         {

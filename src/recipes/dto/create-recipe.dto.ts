@@ -189,6 +189,7 @@ export class CreateRecipeDto {
   @IsNumber()
   @Min(0)
   @Max(NUTRITION_VALUE_MAX)
+  /** Sól DODANA w gramach (szczypta ≈ 0,3 g, łyżeczka ≈ 6 g); sól ze składników liczy serwer z sodu. */
   nutritionSalt?: number;
 
   @ApiPropertyOptional({ type: [CreateRecipeIngredientDto] })

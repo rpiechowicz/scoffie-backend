@@ -967,7 +967,10 @@ function build() {
         carbs: Math.round(result.totals.carbs),
         fat: Math.round(result.totals.fat),
         fiber: Math.round(result.totals.fiber),
+        // Sól z definicji to sól DODANA; łączną (ze sodu składników + dodana)
+        // liczy `recipes:recompute:nutrition` i zapisuje w `salt`.
         salt: Math.round(salt * 10) / 10,
+        addedSalt: Math.round(salt * 10) / 10,
       },
       steps: def.steps.map((instruction, i) => ({ step: i + 1, instruction })),
       ingredients: def.ingredients.map(([ingredientName, amount, unit]) => ({

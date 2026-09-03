@@ -270,3 +270,14 @@ The shipped iOS client signs in with Apple only. Dev login (`POST /auth/dev`) is
 - [`RELEASE_CHECKLIST.md`](./RELEASE_CHECKLIST.md)
 - [`docs/rodo-wnioski.md`](./docs/rodo-wnioski.md) — wnioski RODO: eksport (`pnpm rodo:export`), usunięcie (`pnpm accounts:delete`), terminy
 - [`docs/rejestr-czynnosci-i-dpia.md`](./docs/rejestr-czynnosci-i-dpia.md) — rejestr czynności (art. 30) i ocena skutków (art. 35), pola do uzupełnienia z paneli
+
+### Salt (since 3.09.2026)
+
+`Recipe.nutritionSalt` is the **total** salt per recipe: sodium of the
+ingredients (`Ingredient.nutritionSodiumMgPer100`, column `sodiumMg` in the
+nutrition table) × 2.5, plus `Recipe.nutritionSaltAdded` — the pinch or
+teaspoon the recipe adds by hand. Catalog JSON carries both (`salt`,
+`addedSalt`); `pnpm recipes:recompute:nutrition` keeps `salt` in sync. The
+DTO field `nutritionSalt` on create/update means *added* salt. On the first
+start after this change `prisma-migrate-deploy-safe.js` loads sodium and
+recomputes every recipe by itself.

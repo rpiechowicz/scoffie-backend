@@ -25,6 +25,7 @@ import {
   computeRecipeNutrition,
   roundTotalsForStorage,
   type IngredientNutritionPer100,
+  totalSaltGrams,
 } from './recipe-nutrition.util';
 import { resolveSuitableMealTypes } from './suitable-meal-types.util';
 import { normalizeRecipeSteps } from './recipe-steps.util';
@@ -106,6 +107,7 @@ type ResolvedRecipeNutrition = {
   nutritionCarbs: number;
   nutritionFiber: number;
   nutritionSalt: number;
+  nutritionSaltAdded: number;
 };
 
 type RecipeImageSource = {
@@ -255,6 +257,7 @@ export class RecipesService {
         nutritionCarbsPer100: true,
         nutritionFatPer100: true,
         nutritionFiberPer100: true,
+        nutritionSodiumMgPer100: true,
         gramsPerPiece: true,
         allergens: true,
         dietTags: true,
@@ -317,6 +320,7 @@ export class RecipesService {
                 carbs: ingredient.nutritionCarbsPer100 ?? 0,
                 fat: ingredient.nutritionFatPer100 ?? 0,
                 fiber: ingredient.nutritionFiberPer100 ?? 0,
+                sodiumMg: ingredient.nutritionSodiumMgPer100 ?? 0,
                 gramsPerPiece: ingredient.gramsPerPiece,
               },
       };
@@ -330,15 +334,8 @@ export class RecipesService {
    * przyszły wołający tej metody to asystent, a jego liczby są dokładnie tym,
    * czego walidator nie może brać na wiarę. Składnik bez makr albo sztuka
    * bez `gramsPerPiece` to odmowa, nie zaniżona suma zapisana jako prawda.
-   * `nutritionSalt` zostaje z DTO — `Ingredient` nie ma sodu na 100 g, więc
-   * nie ma z czego go policzyć (tak samo omija go skrypt przeliczania).
-   *
-   * Bez składników zostają wartości z DTO (albo zera) — to jedyny przypadek,
-   * w którym nie ma z czego liczyć.
-   *
-   * TODO(update): `recipes:update` ma użyć tej samej pary
-   * `resolveRecipeIngredients` + `resolveRecipeNutrition`, inaczej rozjazd
-   * wróci od kuchni.
+   * `nutritionSalt` z DTO to sól DODANA; sól ze składników liczy się z sodu
+   * na 100 g (`nutritionSodiumMgPer100`) tak samo jak reszta makro.
    */
   private resolveRecipeNutrition(
     data: Partial<
@@ -354,7 +351,9 @@ export class RecipesService {
     >,
     rows: RecipeIngredientRow[],
   ): ResolvedRecipeNutrition {
-    const nutritionSalt = data.nutritionSalt ?? 0;
+    // `nutritionSalt` z DTO to sól DODANA (szczypta, łyżeczka) — jedyna
+    // część, której nie da się policzyć ze składników. Reszta idzie z sodu.
+    const nutritionSaltAdded = Math.max(0, data.nutritionSalt ?? 0);
     if (rows.length === 0) {
       return {
         nutritionKcal: data.nutritionKcal ?? 0,
@@ -362,7 +361,8 @@ export class RecipesService {
         nutritionFat: data.nutritionFat ?? 0,
         nutritionCarbs: data.nutritionCarbs ?? 0,
         nutritionFiber: data.nutritionFiber ?? 0,
-        nutritionSalt,
+        nutritionSalt: nutritionSaltAdded,
+        nutritionSaltAdded,
       };
     }
 
@@ -389,7 +389,8 @@ export class RecipesService {
       nutritionFat: stored.fat,
       nutritionCarbs: stored.carbs,
       nutritionFiber: stored.fiber,
-      nutritionSalt,
+      nutritionSalt: totalSaltGrams(totals.sodiumMg, nutritionSaltAdded),
+      nutritionSaltAdded,
     };
   }
 
@@ -816,7 +817,7 @@ export class RecipesService {
     // przy każdej edycji.
     const nutrition = ingredientRows
       ? this.resolveRecipeNutrition(
-          { nutritionSalt: existing.nutritionSalt },
+          { nutritionSalt: existing.nutritionSaltAdded },
           ingredientRows,
         )
       : null;
@@ -924,6 +925,7 @@ export class RecipesService {
         servings: true,
         nutritionKcal: true,
         nutritionSalt: true,
+        nutritionSaltAdded: true,
         isActive: true,
         isCatalog: true,
         householdId: true,

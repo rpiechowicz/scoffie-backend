@@ -18,6 +18,8 @@ export type IngredientNutritionPer100 = {
   carbs: number;
   fat: number;
   fiber: number;
+  /** Sód w mg na 100 g/ml; brak = 0 (stare fixture'y i składniki bez danych). */
+  sodiumMg?: number;
   /** Masa jadalnej części 1 sztuki — wymagana dla jednostki `szt`. */
   gramsPerPiece: number | null;
 };
@@ -28,7 +30,24 @@ export type RecipeNutritionTotals = {
   carbs: number;
   fat: number;
   fiber: number;
+  /** Sód w mg na cały przepis — do soli przez `saltGramsFromSodium`. */
+  sodiumMg: number;
 };
+
+/** 1 g soli kuchennej = ~400 mg sodu; EU etykiety liczą sól = sód × 2,5. */
+export const SALT_PER_SODIUM = 2.5 / 1000;
+
+export function saltGramsFromSodium(sodiumMg: number): number {
+  return sodiumMg * SALT_PER_SODIUM;
+}
+
+/** Sól przepisu: ze składników + dodana, do 0,1 g. */
+export function totalSaltGrams(sodiumMg: number, addedSalt: number): number {
+  return (
+    Math.round((saltGramsFromSodium(sodiumMg) + Math.max(0, addedSalt)) * 10) /
+    10
+  );
+}
 
 export type NutritionInputItem = {
   name: string;
@@ -54,6 +73,7 @@ export const ZERO_TOTALS: RecipeNutritionTotals = {
   carbs: 0,
   fat: 0,
   fiber: 0,
+  sodiumMg: 0,
 };
 
 /**
@@ -97,6 +117,7 @@ export function computeRecipeNutrition(
     totals.carbs += item.nutrition.carbs * factor;
     totals.fat += item.nutrition.fat * factor;
     totals.fiber += item.nutrition.fiber * factor;
+    totals.sodiumMg += (item.nutrition.sodiumMg ?? 0) * factor;
   }
 
   return { totals, missingNutrition, missingPieceWeight };
@@ -108,7 +129,7 @@ export function computeRecipeNutrition(
  * danych o składnikach.
  */
 export function atwaterKcal(
-  totals: Omit<RecipeNutritionTotals, 'kcal'>,
+  totals: Pick<RecipeNutritionTotals, 'protein' | 'carbs' | 'fat' | 'fiber'>,
 ): number {
   return (
     4 * totals.protein + 4 * totals.carbs + 9 * totals.fat + 2 * totals.fiber
@@ -133,6 +154,7 @@ export function roundTotals(
     carbs: Math.round(totals.carbs * 10) / 10,
     fat: Math.round(totals.fat * 10) / 10,
     fiber: Math.round(totals.fiber * 10) / 10,
+    sodiumMg: Math.round(totals.sodiumMg),
   };
 }
 
@@ -151,5 +173,6 @@ export function roundTotalsForStorage(
     carbs: Math.round(totals.carbs),
     fat: Math.round(totals.fat),
     fiber: Math.round(totals.fiber),
+    sodiumMg: Math.round(totals.sodiumMg),
   };
 }

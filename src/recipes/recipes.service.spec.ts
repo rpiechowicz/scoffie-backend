@@ -271,7 +271,7 @@ describe('RecipesService.create', () => {
     );
   });
 
-  it('nutritionSalt zostaje z DTO, bo składniki nie mają sodu', async () => {
+  it('nutritionSalt z DTO to sól dodana — przy składnikach bez sodu jest całą solą', async () => {
     await service.create(
       mockUserId,
       baseDto({ ingredients: oatsAndMilk, nutritionSalt: 1.5 }),

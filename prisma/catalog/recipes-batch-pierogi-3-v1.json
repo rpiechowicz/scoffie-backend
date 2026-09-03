@@ -16,7 +16,8 @@
         "carbs": 237,
         "fat": 125,
         "fiber": 13,
-        "salt": 3
+        "salt": 3,
+        "addedSalt": 1.7
       },
       "steps": [
         {
@@ -75,7 +76,8 @@
         "carbs": 243,
         "fat": 53,
         "fiber": 23,
-        "salt": 3.5
+        "salt": 7.8,
+        "addedSalt": 0
       },
       "steps": [
         {
@@ -134,7 +136,8 @@
         "carbs": 289,
         "fat": 41,
         "fiber": 16,
-        "salt": 0.8
+        "salt": 0.9,
+        "addedSalt": 0
       },
       "steps": [
         {

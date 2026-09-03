@@ -33,6 +33,8 @@ type NutritionEntry = {
   carbs: number;
   fat: number;
   fiber: number;
+  /** Sód w mg na 100 g/ml — obowiązkowy, bo z niego liczy się sól przepisu. */
+  sodiumMg: number;
   gramsPerPiece?: number;
 };
 
@@ -68,6 +70,12 @@ async function main(): Promise<void> {
       );
     }
 
+    if (typeof entry.sodiumMg !== 'number' || entry.sodiumMg < 0) {
+      throw new Error(
+        `${entry.normalizedName}: brak sodiumMg (sód w mg na 100 g) — sól przepisów liczy się z tej kolumny`,
+      );
+    }
+
     const deviation = atwaterDeviation(entry);
     if (deviation !== null && Math.abs(deviation) > 0.2) {
       const fromAtwater = Math.round(
@@ -86,6 +94,7 @@ async function main(): Promise<void> {
           "nutritionCarbsPer100"   = ${entry.carbs},
           "nutritionFatPer100"     = ${entry.fat},
           "nutritionFiberPer100"   = ${entry.fiber},
+          "nutritionSodiumMgPer100" = ${entry.sodiumMg},
           "gramsPerPiece"          = ${entry.gramsPerPiece ?? null},
           "nutritionSource"        = ${catalog.version},
           "updatedAt"              = now()
