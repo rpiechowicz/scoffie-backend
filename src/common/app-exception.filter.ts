@@ -3,6 +3,7 @@ import { BaseWsExceptionFilter } from '@nestjs/websockets';
 import { randomUUID } from 'crypto';
 import type { Request, Response } from 'express';
 import { mapError, toHttpBody } from './error-contract';
+import { captureUnexpected } from '../observability/sentry.util';
 
 type RequestWithId = Request & { requestId?: string };
 
@@ -45,6 +46,12 @@ export class AppExceptionFilter implements ExceptionFilter {
       const line = `${req.method} ${req.originalUrl ?? req.url} ${contract.status} ${contract.code} requestId=${requestId}: ${log.message}`;
       if (log.level === 'error') {
         this.logger.error(line, log.stack);
+        captureUnexpected(exception, {
+          requestId,
+          code: contract.code,
+          transport: 'http',
+          route: `${req.method} ${req.originalUrl ?? req.url}`,
+        });
       } else {
         this.logger.warn(line);
       }

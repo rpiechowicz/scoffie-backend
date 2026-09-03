@@ -128,6 +128,8 @@ export const APP_ERROR_CODES = [
   // Vorwerk odpowiedział błędem (502 z mikroserwisu) — inna sytuacja niż
   // „nasz mikroserwis leży", choć dla użytkownika wygląda podobnie.
   'COOKIDOO_UPSTREAM_ERROR',
+  /** Vorwerk nie odpowiedział w czasie (504 z usługi) — inna kopia niż „odpowiedziało błędem”. */
+  'COOKIDOO_UPSTREAM_TIMEOUT',
   'COOKIDOO_SUBSCRIPTION_INACTIVE',
 ] as const;
 

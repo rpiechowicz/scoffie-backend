@@ -68,5 +68,21 @@ export function quietHoursDeferralMs(
       ? QUIET_HOURS_END_MINUTE - minuteOfDay
       : 24 * 60 - minuteOfDay + QUIET_HOURS_END_MINUTE;
 
-  return minutesUntilEnd * 60 * 1000;
+  // Arytmetyka na zegarze ściennym gubi godzinę dwa razy w roku: w noc
+  // zmiany czasu „do 7:00" to 5 albo 7 realnych godzin, nie 6. Sprawdzamy,
+  // która godzina wypada w strefie po odczekaniu, i korygujemy dryf.
+  let deferralMs = minutesUntilEnd * 60 * 1000;
+  try {
+    const landing = minutesOfDayInZone(
+      new Date(now.getTime() + deferralMs),
+      zone,
+    );
+    const drift = landing - QUIET_HOURS_END_MINUTE;
+    if (drift !== 0 && Math.abs(drift) <= 120) {
+      deferralMs -= drift * 60 * 1000;
+    }
+  } catch {
+    // strefa nieznana — zostaje wynik bez korekty (jak dotąd)
+  }
+  return deferralMs;
 }

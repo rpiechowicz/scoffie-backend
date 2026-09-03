@@ -222,6 +222,7 @@ the mock-up are part of the subscription work, not implemented here.
 
 ### Operations
 
+- `SENTRY_DSN` (empty = off) — error tracking; only unexpected errors (5xx) with request id, code and route, never headers, bodies or message contents (`src/instrument.ts`). `SENTRY_TRACES_SAMPLE_RATE` (0) adds performance sampling.
 - `OPS_ALERT_WEBHOOK_URL` (empty = off) — webhook that gets a one-line alert
   when the assistant's daily budget is exhausted or the provider breaker
   opens; see `DEPLOYMENT.md` → "Operator alerts".

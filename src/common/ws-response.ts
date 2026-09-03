@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { captureUnexpected } from '../observability/sentry.util';
 import { randomUUID } from 'crypto';
 import { mapError } from './error-contract';
 
@@ -51,6 +52,11 @@ export async function wsRespond<T>(
       const line = `${meta?.event ?? 'ws'} ${contract.status} ${contract.code} requestId=${requestId}: ${log.message}`;
       if (log.level === 'error') {
         logger.error(line, log.stack);
+        captureUnexpected(error, {
+          code: contract.code,
+          transport: 'ws',
+          requestId,
+        });
       } else {
         logger.warn(line);
       }
