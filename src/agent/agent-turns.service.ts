@@ -260,6 +260,30 @@ export class AgentTurnsService {
 
     const plan = await this.counters.resolvePlan(conversation.householdId);
     const periodKey = plan.periodKey;
+
+    // Sufit kosztu domu na miesiąc. Osobno od limitu wiadomości, bo tura
+    // przerwana timeoutem oddaje wiadomość, a pieniądze zostają wydane —
+    // bez tego jeden dom w pętli błędów wyczerpuje budżet dobowy CAŁEJ
+    // instalacji i wyłącza asystenta wszystkim.
+    if (env.householdMonthlyCostUsd !== null) {
+      const spent = await this.counters.read(
+        conversation.householdId,
+        this.counters.monthKey(),
+        'costMicroUsd',
+      );
+      if (spent >= env.householdMonthlyCostUsd * 1_000_000) {
+        this.metrics.recordRejected('budget');
+        void this.alerts.notify(
+          `ai-household-cost:${conversation.householdId}:${this.counters.monthKey()}`,
+          `gospodarstwo ${conversation.householdId} przekroczyło miesięczny sufit kosztu ($${env.householdMonthlyCostUsd}) — asystent odpowiada 503 do końca miesiąca UTC`,
+        );
+        throw new AppException(
+          'AI_BUDGET_PAUSED',
+          'Asystent jest chwilowo niedostępny dla Waszego domu. Napisz do nas, jeśli to niespodzianka.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+    }
     let accepted: AcceptedTurn;
     try {
       accepted = await this.prisma.$transaction(async (tx) => {

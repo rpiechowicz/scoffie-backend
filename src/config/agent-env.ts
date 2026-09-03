@@ -110,6 +110,20 @@ export type AgentEnv = {
    * skonfigurowana. Domyślna jest teraz liczba, a nieskończoność wymaga decyzji.
    */
   globalDailyBudgetUsd: number | null;
+  /**
+   * Sufit kosztu JEDNEGO gospodarstwa na miesiąc (USD); `off` = bez sufitu.
+   *
+   * Limit wiadomości NIE jest sufitem kosztu: tura przerwana timeoutem albo
+   * awarią dostawcy ODDAJE wiadomość do puli (bo użytkownik nie dostał
+   * odpowiedzi), ale pieniądze u dostawcy już poszły. Dom, któremu tury
+   * padają w pętli, potrafi więc wydać dowolną kwotę bez ruszenia licznika
+   * 60/8 — a budżet dobowy jest wspólny dla całej instalacji, więc jeden taki
+   * dom wyłącza asystenta wszystkim.
+   *
+   * Domyślnie 3× modelowy koszt pełnego miesiąca planu Rodzina — czyli nie
+   * dotyka nikogo, kto po prostu intensywnie korzysta.
+   */
+  householdMonthlyCostUsd: number | null;
   /** Opóźnienie odpowiedzi providera `stub` (testy lease/timeoutu). */
   stubDelayMs: number;
   /** Tryb kart i propozycji — patrz `AI_CARDS_MODES`. */
@@ -196,6 +210,7 @@ export const AGENT_ENV_DEFAULTS = {
    * albo `off`; brak zmiennej nie może znaczyć „bez limitu".
    */
   globalDailyBudgetUsd: 5,
+  householdMonthlyCostUsd: 18,
   stubDelayMs: 0,
   /** Trzy doby: tyle żyje sensowna propozycja tygodnia. */
   proposalTtlMs: 72 * 60 * 60 * 1000,
@@ -209,6 +224,22 @@ export const AGENT_ENV_DEFAULTS = {
    */
   maxTurnCostUsd: 1,
 } as const;
+
+/**
+ * Liczba dolarów albo `off` (jawny brak sufitu). Ta sama konwencja, co przy
+ * budżecie dobowym: brak zmiennej NIE może znaczyć „bez limitu".
+ */
+function readOptionalUsd(
+  env: NodeJS.ProcessEnv,
+  key: string,
+  fallback: number,
+): number | null {
+  const raw = (env[key] ?? '').trim().toLowerCase();
+  if (raw === AI_BUDGET_OFF) return null;
+  if (raw === '') return fallback;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
 
 /** Jedyna droga do braku budżetu — jawna i widoczna w `railway variables`. */
 export const AI_BUDGET_OFF = 'off';
@@ -328,6 +359,11 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       { min: 0 },
     ),
     globalDailyBudgetUsd: readDailyBudgetUsd(env),
+    householdMonthlyCostUsd: readOptionalUsd(
+      env,
+      'AI_HOUSEHOLD_MONTHLY_COST_USD',
+      AGENT_ENV_DEFAULTS.householdMonthlyCostUsd,
+    ),
     stubDelayMs: readNumber(
       env,
       'AI_STUB_DELAY_MS',

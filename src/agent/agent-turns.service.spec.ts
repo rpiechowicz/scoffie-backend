@@ -29,6 +29,7 @@ const ENV: AgentEnv = {
   apiKeyPresent: false,
   effort: 'medium',
   effortTools: 'low',
+  householdMonthlyCostUsd: null,
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,

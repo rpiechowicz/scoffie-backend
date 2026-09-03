@@ -216,6 +216,10 @@ export class AnthropicAgentProvider implements AgentProvider {
           effort,
           tools,
           calls,
+          // Osobny powód: turę uciął NASZ sufit kosztu, nie brak pomysłów
+          // modelu. Runner odda za nią kwotę — użytkownik nie ma płacić
+          // wiadomością za nasz bezpiecznik.
+          'cost_ceiling',
         );
       }
     }
@@ -254,6 +258,7 @@ export class AnthropicAgentProvider implements AgentProvider {
     effort: AiEffort,
     tools: readonly AgentToolDefinition[],
     callsSoFar: number,
+    reason: 'tool_rounds_exhausted' | 'cost_ceiling' = 'tool_rounds_exhausted',
   ): Promise<AgentProviderResult> {
     // Prośba jako blok TEKSTOWY w TEJ SAMEJ wiadomości użytkownika, co
     // wyniki narzędzi — dwie wiadomości `user` pod rząd to niepoprawna
@@ -289,7 +294,7 @@ export class AnthropicAgentProvider implements AgentProvider {
       this.accumulate(usage, phases, model, effort, response.usage);
       return {
         text: this.joinText(response.content),
-        stopReason: 'tool_rounds_exhausted',
+        stopReason: reason,
         usage,
         model,
         apiCalls: callsSoFar + 1,

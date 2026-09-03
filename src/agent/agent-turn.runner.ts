@@ -449,6 +449,24 @@ export class AgentTurnRunner {
             data: { messageId: message.id },
           });
         }
+        // Turę uciął NASZ sufit kosztu (`AI_MAX_TURN_COST_USD`), a nie
+        // wyczerpane rundy — użytkownik dostał skróconą odpowiedź z naszego
+        // powodu, więc wiadomość wraca do puli. Bez tego bezpiecznik kosztu
+        // płaciłby z limitu użytkownika.
+        if (result.stopReason === 'cost_ceiling') {
+          await this.counters.add(
+            tx,
+            input.householdId,
+            input.periodKey,
+            'messages',
+            -1,
+          );
+          await tx.agentTurn.updateMany({
+            where: { id: input.turnId },
+            data: { quotaRefunded: true },
+          });
+        }
+
         // Jeden wiersz NA FAZĘ (model + wysiłek), nie na turę: po
         // przekazaniu pałeczki tura ma dwa rachunki po dwóch różnych
         // stawkach, a jeden wiersz zapisywał je oba pod planistą — czyli
@@ -467,8 +485,14 @@ export class AgentTurnRunner {
           where: { id: input.conversationId },
           data: { lastMessageAt: message.createdAt },
         });
-        // Budżet dobowy liczy się na całą instalację, nie per gospodarstwo —
-        // to bezpiecznik na rachunek, nie kwota użytkownika.
+        // Dwa liczniki kosztu: dobowy na CAŁĄ instalację (bezpiecznik na
+        // rachunek) i miesięczny NA GOSPODARSTWO (żeby jeden dom w pętli
+        // błędów nie wyłączył asystenta wszystkim).
+        await this.counters.addHouseholdCost(
+          tx,
+          input.householdId,
+          usage.costMicroUsd,
+        );
         await this.counters.add(
           tx,
           GLOBAL_SCOPE,
@@ -559,6 +583,11 @@ export class AgentTurnRunner {
           verdict,
           durationMs,
           error instanceof AgentProviderError ? error.phases : undefined,
+        );
+        await this.counters.addHouseholdCost(
+          this.prisma,
+          input.householdId,
+          spent.costMicroUsd,
         );
         await this.counters.add(
           this.prisma,

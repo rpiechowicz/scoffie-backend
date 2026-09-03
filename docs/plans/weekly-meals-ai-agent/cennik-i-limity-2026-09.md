@@ -304,3 +304,62 @@ Rodzina rocznie byłaby stratna przy pełnym użyciu.
    przekazaniem pałeczki, koszt fazy per model, p95 kosztu tury. Dopiero te
    liczby decydują o przeniesieniu `propose_swap` do warstwy `chat` (jedna
    linia) i o podniesieniu limitów.
+
+## 15. Co znaleźli sceptycy (i co z tego wynika)
+
+Trzy projekty routingu przeszły przez panel sędziów i pięciu sceptyków, których
+zadaniem było je OBALIĆ. Cztery zarzuty okazały się prawdziwe i są zamknięte,
+jeden fałszywy.
+
+**1. Pytanie o bezpieczeństwo szło na tani model bez myślenia.** „Czy środowy
+obiad jest ok dla Zosi, która nie je cebuli i ma alergię na mleko?" to pytanie
+o ODCZYT, więc routing nie przełączyłby na planistę — a katalog niesie pięć
+najcięższych składników, nie cały skład (na katalogu dev 15 z 65 przepisów
+z laktozą nie pokazuje nabiału wśród tych pięciu). Model zgadywałby.
+→ Nowe narzędzie `check_plan_conflicts` w warstwie `chat`: konflikty liczy TA
+SAMA bramka, która pilnuje zapisu planu, model wyłącznie cytuje wynik. Ta sama
+zasada, co przy makrach. Dziura istniała także BEZ routingu.
+
+**2. Sufit kosztu tury płacił z limitu użytkownika.** Gdy tura przekroczyła
+`AI_MAX_TURN_COST_USD`, serwer ucinał ją i prosił model o ostatnie słowo — ale
+tura kończyła się jako udana, więc wiadomość znikała z puli. Użytkownik płacił
+za NASZ bezpiecznik. → Prowajder oddaje osobny powód (`cost_ceiling`), a runner
+zwraca wiadomość do puli.
+
+**3. Limit wiadomości nie jest sufitem kosztu.** Tura przerwana timeoutem albo
+awarią dostawcy ODDAJE wiadomość (bo użytkownik nic nie dostał), ale pieniądze
+poszły. Dom, któremu tury padają w pętli, mógł wydać dowolną kwotę bez ruszenia
+licznika 60/8 — a jedynym hamulcem był budżet dobowy WSPÓLNY dla całej
+instalacji, więc jeden taki dom wyłączał asystenta wszystkim.
+→ `AI_HOUSEHOLD_MONTHLY_COST_USD` (domyślnie 18, czyli 3× modelowy koszt
+pełnego miesiąca planu Rodzina): dom po przekroczeniu dostaje 503 i idzie
+alert do operatora. Nie dotyka nikogo, kto po prostu intensywnie korzysta.
+
+**4. Tura z przekazaniem pałeczki nigdy nie jest tańsza od tej samej tury na
+Sonnecie** — dokłada rundę `start_planning` i zimny prefiks drugiego modelu.
+Cała oszczędność siedzi w turach BEZ przekazania, a ich udział jest
+NIEZMIERZONY. Do tego routing zwiększa szansę zimnego prefiksu planisty, bo
+w tym trybie żadna tura nie zaczyna na Sonnecie.
+→ Stąd kolejność z §14 i mocniejszy wniosek: **pierwszym ruchem oszczędnościowym
+nie jest routing, tylko `AI_EFFORT=low`.** Analiza wrażliwości z `cost-model.md`
+§10 daje na Sonnecie medium→low −31 % (vs −14 % z routingu), przy JEDNEJ puli
+cache, bez drugiego prefiksu i bez ryzyka. Routing ma sens dopiero, gdy raport
+z miesiąca pokaże, że tury bez przekazania to większość ruchu.
+→ Druga dźwignia z tej samej analizy, warta więcej niż routing: `get_week_plan`
+oddaje dziś pełne wiersze składników (25–45 tys. tokenów). Projekcja do
+`dzień | posiłek | R## | tytuł | uczestnicy | kcal` (~700 tokenów) obniża KAŻDĄ
+turę, także bez routingu — do zrobienia po tym, jak `check_plan_conflicts`
+przejmie pytania o skład.
+
+**5. Zarzut fałszywy:** „cennik policzono dla innego modelu niż skonfigurowany".
+Sprawdzone: `.env.example`, README i `AI_MODEL_DEFAULT` mówią zgodnie
+`claude-sonnet-5`, czyli model, na którym liczony jest cały rachunek.
+
+### Zasada na przyszłość, gdyby subskrypcja miała należeć do płatnika
+
+Licznik kwoty jest dziś przywiązany do GOSPODARSTWA (`AiUsageCounter.scopeId =
+householdId`). Gdyby subskrypcja stała się własnością płatnika i „wędrowała"
+z nim między domami, jedna opłacona pula dawałaby świeże 60/8 w każdym
+odwiedzonym domu (przejście między domami to jedno żądanie, bez cooldownu).
+Wtedy `scopeId` MUSI iść za uprawnieniem, nie za domem. Dziś to nie dotyczy
+nas: subskrypcja jest przypięta do gospodarstwa.

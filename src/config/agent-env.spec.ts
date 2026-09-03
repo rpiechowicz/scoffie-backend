@@ -31,6 +31,7 @@ describe('readAgentEnv', () => {
       // NIE `null`: brak zmiennej znaczył kiedyś „bez limitu", więc instalacja
       // bez żadnego hamulca wydatków wyglądała jak skonfigurowana.
       globalDailyBudgetUsd: AGENT_ENV_DEFAULTS.globalDailyBudgetUsd,
+      householdMonthlyCostUsd: AGENT_ENV_DEFAULTS.householdMonthlyCostUsd,
       stubDelayMs: 0,
       // Karty domyślnie WYŁĄCZONE: wprowadzenie trybu propozycji nie może
       // zmienić zachowania instalacji, która o nic nie prosiła.

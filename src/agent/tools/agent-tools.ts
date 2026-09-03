@@ -364,6 +364,18 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'check_plan_conflicts',
+    description:
+      'Sprawdź, czy ZAPISANY plan tygodnia łamie czyjeś alergeny albo wykluczenia. ' +
+      'Wywołuj ZAWSZE, gdy ktoś pyta, czy danie albo plan jest bezpieczny dla ' +
+      'konkretnej osoby („czy środowy obiad jest ok dla Zosi?", „co mogę dać Ani?"). ' +
+      'NIE odpowiadaj na takie pytania z pamięci ani ze składników — pełny skład ' +
+      'przepisów zna wyłącznie serwer, a to narzędzie pyta tę samą bramkę, ' +
+      'która pilnuje zapisu planu.',
+    input_schema: object({ week_start: WEEK_START }, ['week_start']),
+    strict: true,
+  },
+  {
     name: 'propose_week_plan',
     description:
       'Pokaż użytkownikowi PROPOZYCJĘ tygodnia. Lista slots to stan docelowy: czego na niej nie ma, ' +
@@ -640,6 +652,8 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   offer_options: 'chat',
   show_macro_gap: 'chat',
   remember_note: 'chat',
+  // Bezpieczeństwo liczy serwer, model cytuje — patrz komentarz przy narzędziu.
+  check_plan_conflicts: 'chat',
   // Układanie i zapisywanie: dobór pod ograniczenia całego domu.
   propose_week_plan: 'planner',
   propose_day_plan: 'planner',

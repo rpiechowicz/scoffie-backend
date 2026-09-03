@@ -85,6 +85,27 @@ export class AiUsageCountersService {
   }
 
   /**
+   * Koszt gospodarstwa w bieżącym miesiącu — surowiec dla sufitu z
+   * `AI_HOUSEHOLD_MONTHLY_COST_USD`. Zawsze `monthKey`, także na próbie:
+   * pula próbna nie ma miesiąca, ale pieniądze wydają się w miesiącach.
+   */
+  async addHouseholdCost(
+    client: UsageCounterClient,
+    householdId: string,
+    costMicroUsd: number,
+    now: Date = new Date(),
+  ): Promise<void> {
+    if (costMicroUsd <= 0) return;
+    await this.add(
+      client,
+      householdId,
+      this.monthKey(now),
+      'costMicroUsd',
+      costMicroUsd,
+    );
+  }
+
+  /**
    * Plan gospodarstwa: `AI_TIER_OVERRIDE=PRO` → PRO dla wszystkich;
    * inaczej nadanie operatora (`tierOverride`), potem żywa subskrypcja
    * (ACTIVE/GRACE i `expiresAt` w przyszłości albo bez daty), inaczej TRIAL.

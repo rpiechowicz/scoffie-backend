@@ -26,6 +26,7 @@ const ENV: AgentEnv = {
   apiKeyPresent: false,
   effort: 'medium',
   effortTools: 'low',
+  householdMonthlyCostUsd: null,
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,
@@ -74,7 +75,11 @@ describe('AgentTurnRunner', () => {
     aiUsage: { create: jest.fn(), createMany: jest.fn() },
     $transaction: jest.fn(),
   };
-  const counters = { add: jest.fn(), dayKey: jest.fn() };
+  const counters = {
+    add: jest.fn(),
+    addHouseholdCost: jest.fn(),
+    dayKey: jest.fn(),
+  };
   const run = jest.fn();
   const provider: AgentProvider = { name: 'stub', run };
   const resolver = { resolve: () => provider };

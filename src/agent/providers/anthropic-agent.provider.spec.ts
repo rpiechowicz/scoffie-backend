@@ -177,7 +177,9 @@ describe('AnthropicAgentProvider', () => {
 
       // 3 rundy = 0,60 $ ≥ 0,50 $ → czwarte wywołanie to ostatnie słowo.
       expect(create).toHaveBeenCalledTimes(4);
-      expect(result.stopReason).toBe('tool_rounds_exhausted');
+      // Osobny powód niż wyczerpane rundy: to MY ucięliśmy turę, więc runner
+      // odda za nią wiadomość z limitu użytkownika.
+      expect(result.stopReason).toBe('cost_ceiling');
       expect(result.apiCalls).toBe(4);
     });
 

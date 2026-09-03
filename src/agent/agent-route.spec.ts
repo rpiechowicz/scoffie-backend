@@ -54,6 +54,16 @@ describe('resolveRoute', () => {
     expect(names).toContain(START_PLANNING_TOOL.name);
   });
 
+  it('pytanie „czy to bezpieczne dla NIEJ" da się obsłużyć BEZ przekazania pałeczki', () => {
+    // Inaczej tani model odpowiadałby z digestu, który niesie pięć
+    // najcięższych składników, a nie cały skład — i mylił się w alergenach.
+    const route = resolveRoute(env({ toolsModel: 'claude-haiku-4-5' }));
+    expect(route.tools.map((tool) => tool.name)).toContain(
+      'check_plan_conflicts',
+    );
+    expect(AGENT_TOOL_TIERS.check_plan_conflicts).toBe('chat');
+  });
+
   it('każde narzędzie ma przypisaną warstwę — nowe narzędzie bez decyzji nie przechodzi', () => {
     for (const tool of AGENT_TOOLS) {
       expect(AGENT_TOOL_TIERS[tool.name]).toMatch(/^(chat|planner)$/);

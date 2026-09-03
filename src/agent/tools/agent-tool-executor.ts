@@ -299,6 +299,9 @@ export class AgentToolExecutor {
       case 'show_macro_gap':
         return this.showMacroGap(input, context, str('week_start'));
 
+      case 'check_plan_conflicts':
+        return this.checkPlanConflicts(context, str('week_start'));
+
       case 'show_shopping_list':
         return this.showShoppingList(context, str('week_start'));
 
@@ -622,6 +625,54 @@ export class AgentToolExecutor {
    * w odpowiedzi obok karty — i użytkownik przeczytałby tę samą listę dwa
    * razy, drugi raz gorzej sformatowaną.
    */
+  /**
+   * Konflikty alergenowe i wykluczenia w ZAPISANYM planie tygodnia.
+   *
+   * Bierze bieżący tydzień jako listę slotów i przepuszcza go przez tę samą
+   * bramkę, co zapis (`previewWeekPlan` → `collectPlanViolations`), więc
+   * odpowiedź asystenta i zachowanie przycisku „Dodaj do planu" nie mogą się
+   * rozjechać. Do modelu wraca sam werdykt (~50 tokenów), bez składów i bez
+   * imion osób, które nie wyraziły zgody na asystenta.
+   */
+  private async checkPlanConflicts(
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<{
+    weekStart: string;
+    checkedSlots: number;
+    conflicts: {
+      dayOfWeek: string;
+      mealType: string;
+      code: string;
+      message: string;
+    }[];
+  }> {
+    const slots = await this.weeklyPlans.snapshotWeekAsSlots(
+      context.userId,
+      context.householdId,
+      weekStart,
+    );
+    if (slots.length === 0) {
+      return { weekStart, checkedSlots: 0, conflicts: [] };
+    }
+    const preview = await this.weeklyPlans.previewWeekPlan(
+      context.userId,
+      context.householdId,
+      weekStart,
+      { slots },
+    );
+    return {
+      weekStart,
+      checkedSlots: slots.length,
+      conflicts: preview.violations.map((violation) => ({
+        dayOfWeek: violation.dayOfWeek,
+        mealType: violation.mealType,
+        code: violation.code,
+        message: violation.message,
+      })),
+    };
+  }
+
   private async showShoppingList(
     context: AgentToolContext,
     weekStart: string,
