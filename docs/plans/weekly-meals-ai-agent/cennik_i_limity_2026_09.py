@@ -139,3 +139,57 @@ for subs in (10, 30, 100, 300):
     rev_day = subs * net_usd(39.99) / 30
     print(f'  {subs:4} subskrypcji × 39,99 zł: przychód ${rev_day:6.2f}/dzień → budżet ${0.8 * rev_day:6.2f}/dzień '
           f'(= ${0.8 * rev_day * 30:.0f}/mies.; najgorszy miesiąc to strata zero, nie bankructwo)')
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DOPISANE 3.09.2026 wieczorem: routing modeli i drabina planów per dom.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Zmierzony prefiks po rozbudowie katalogu do 147 przepisów i 17 narzędzi
+# (pnpm agent:measure:tokens): Sonnet 30 206, Haiku 24 717 — już w PREFIX.
+
+def routed_month(chat, swap, plans, chat_model='haiku'):
+    """Faza CHAT na `chat_model`, faza PLANNER zawsze na Sonnecie.
+
+    Przekazanie pałeczki kosztuje dwie rundy taniego modelu i ZIMNY prefiks
+    Sonneta w tej turze — dopóki domów jest mało, prefiks planisty grzeje
+    tylko inna tura planująca w tej samej godzinie.
+    """
+    handoff_tax = 2 * (PREFIX[chat_model] * PRICE[chat_model]['inp'] * CACHE_READ) / 1e6 + 0.0005
+    return (chat * kind_cost(chat_model, 'pytanie / rozmowa')
+            + swap * (kind_cost('sonnet', 'podmiana / opcje') + handoff_tax)
+            + plans * (kind_cost('sonnet', 'plan tygodnia') + handoff_tax))
+
+print('\n=== 8. Routing: ile realnie oszczędza (miesiąc 60 wiad. = 36 rozmów, 12 podmian, 12 planów)')
+base = month_cost('sonnet', 36, 12, 12)
+routed = routed_month(36, 12, 12)
+print(f'  wszystko Sonnet:            ${base:.2f}')
+print(f'  routing (rozmowa na Haiku): ${routed:.2f}  → oszczędność {100*(base-routed)/base:.0f} %')
+cold_pen = PREFIX['sonnet'] * PRICE['sonnet']['inp'] * CACHE_WRITE_1H / 1e6
+print(f'  gdy prefiks Sonneta jest ZIMNY przy każdej turze planującej (< ~10 domów):')
+print(f'    +${cold_pen:.3f} na turę planującą → ${routed + 24*cold_pen:.2f} (routing przestaje się opłacać)')
+print('  wniosek: routing włączać razem z paywallem, nie wcześniej — przy 30+ domach prefiks jest ciepły.')
+
+print('\n=== 9. Drabina planów: limit jest produktem, liczba osób tylko etykietą')
+LADDER = {
+    'Solo — 1 osoba':        (29.99, 40, 6),
+    'Duet — 2 osoby':        (39.99, 60, 8),
+    'Rodzina — 3+ osób':     (59.99, 100, 14),
+}
+print(f"  {'plan':24} {'cena':>8} {'wiad.':>6} {'plany':>6} {'netto $':>9} {'koszt $':>9} {'marża':>7} {'zł/wiad.':>9}")
+for name, (price, msgs, plans) in LADDER.items():
+    n = net_usd(price)
+    swaps = round(msgs * 0.2)
+    plan_turns = round(msgs * 0.2)
+    chats = msgs - swaps - plan_turns
+    c = routed_month(chats, swaps, plan_turns)
+    print(f'  {name:24} {price:8.2f} {msgs:6} {plans:6} {n:9.2f} {c:9.2f} {100*(n-c)/n:6.0f}% {price/msgs:9.2f}')
+
+print('\n=== 10. Ile kosztuje dodatkowy domownik (blok gospodarstwa + kontekst + porcje)')
+MEMBER_TOKENS = 130          # wpis w bloku <domownicy>, zmierzony rząd wielkości
+for members in (1, 2, 4, 6):
+    extra_reads = (members - 1) * MEMBER_TOKENS * 2   # blok domu + get_household_context
+    per_plan = extra_reads * PRICE['sonnet']['inp'] * CACHE_READ * 6 / 1e6
+    month = 12 * per_plan + 12 * per_plan * 0.7 + 36 * per_plan * 0.3
+    print(f'  {members} os.: +${per_plan:.4f} na turze planu → +${month:.2f}/mies. '
+          f'({100*month/net_usd(39.99):.1f} % netto z 39,99 zł)')
+print('  wniosek: skład domu to 1–3 p.p. marży. Cena za wielkość domu sprzedaje ZUŻYCIE, nie koszt.')

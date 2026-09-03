@@ -25,6 +25,7 @@ const ENV: AgentEnv = {
   model: 'claude-sonnet-5',
   apiKeyPresent: false,
   effort: 'medium',
+  effortTools: 'low',
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,
@@ -61,7 +62,7 @@ describe('AgentTurnRunner', () => {
   const tx = {
     agentTurn: { updateMany: jest.fn() },
     agentMessage: { create: jest.fn() },
-    aiUsage: { create: jest.fn() },
+    aiUsage: { create: jest.fn(), createMany: jest.fn() },
     agentConversation: { update: jest.fn() },
     // Propozycja z tej tury; `null` = model niczego nie zaproponował,
     // czyli zwykła odpowiedź tekstowa.
@@ -70,7 +71,7 @@ describe('AgentTurnRunner', () => {
   const prisma = {
     agentMessage: { findMany: jest.fn() },
     agentTurn: { updateMany: jest.fn() },
-    aiUsage: { create: jest.fn() },
+    aiUsage: { create: jest.fn(), createMany: jest.fn() },
     $transaction: jest.fn(),
   };
   const counters = { add: jest.fn(), dayKey: jest.fn() };
@@ -156,13 +157,16 @@ describe('AgentTurnRunner', () => {
       expect(tx.agentMessage.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ role: 'ASSISTANT', text: 'gotowe' }),
       });
-      expect(tx.aiUsage.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          turnId: TURN,
-          householdId: HOUSEHOLD,
-          cacheReadTokens: 5,
-          stopReason: 'end_turn',
-        }),
+      // Jeden wiersz na fazę; bez przekazania pałeczki faza jest jedna.
+      expect(tx.aiUsage.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            turnId: TURN,
+            householdId: HOUSEHOLD,
+            cacheReadTokens: 5,
+            stopReason: 'end_turn',
+          }),
+        ],
       });
       expect(counters.add).toHaveBeenCalledWith(
         tx,
@@ -244,15 +248,17 @@ describe('AgentTurnRunner', () => {
       );
       await runner.run(input());
 
-      expect(prisma.aiUsage.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          turnId: TURN,
-          stopReason: 'AI_PROVIDER_ERROR',
-          inputTokens: 18_000,
-          cacheReadTokens: 16_000,
-          outputTokens: 900,
-          costMicroUsd: 41_000,
-        }),
+      expect(prisma.aiUsage.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            turnId: TURN,
+            stopReason: 'AI_PROVIDER_ERROR',
+            inputTokens: 18_000,
+            cacheReadTokens: 16_000,
+            outputTokens: 900,
+            costMicroUsd: 41_000,
+          }),
+        ],
       });
       // …i ten sam koszt musi obciążyć budżet dobowy.
       expect(counters.add).toHaveBeenCalledWith(
@@ -269,7 +275,7 @@ describe('AgentTurnRunner', () => {
         new AgentProviderError('padło przed pierwszym wywołaniem', true),
       );
       await runner.run(input());
-      expect(prisma.aiUsage.create).not.toHaveBeenCalled();
+      expect(prisma.aiUsage.createMany).not.toHaveBeenCalled();
     });
 
     it('błąd nie-retryable: bez zwrotu kwoty i bez bezpiecznika', async () => {

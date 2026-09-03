@@ -62,7 +62,9 @@ async function main() {
     },
   });
 
-  console.log(`\nAsystent — zużycie za ${label}: ${rows.length} wywołań API`);
+  console.log(
+    `\nAsystent — zużycie za ${label}: ${rows.length} wierszy księgi (jeden na fazę tury)`,
+  );
   if (rows.length === 0) {
     console.log('Brak wpisów w księdze AiUsage w tym okresie.');
     return;
@@ -130,6 +132,21 @@ async function main() {
     `  na turę: średnia ${usd(total / turnCosts.length)}  p50 ${usd(percentile(turnCosts, 50))}  ` +
       `p90 ${usd(percentile(turnCosts, 90))}  p95 ${usd(percentile(turnCosts, 95))}  max ${usd(turnCosts[turnCosts.length - 1])}`,
   );
+  const modelsPerTurn = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const key = r.turnId ?? `bez-tury:${r.householdId ?? '-'}`;
+    const set = modelsPerTurn.get(key) ?? new Set<string>();
+    set.add(r.model);
+    modelsPerTurn.set(key, set);
+  }
+  const handedOff = [...modelsPerTurn.values()].filter(
+    (set) => set.size > 1,
+  ).length;
+  console.log(
+    `  tur z przekazaniem pałeczki (≥2 modele): ${handedOff} z ${modelsPerTurn.size}` +
+      ` (${modelsPerTurn.size ? Math.round((100 * handedOff) / modelsPerTurn.size) : 0} %)`,
+  );
+
   const callsPerTurn = [...byTurn.values()]
     .map((t) => t.calls)
     .sort((a, b) => a - b);

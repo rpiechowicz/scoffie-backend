@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../common/app-exception';
+import { resolveRoute } from './agent-route';
 import { assertUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
@@ -379,7 +380,9 @@ export class AgentTurnsService {
             userMessageId: message.id,
             requestId,
             provider: env.provider,
-            model: env.model,
+            // Model STARTOWY tury (faza CHAT przy routingu); `finishDone`
+            // nadpisze go modelem, który dał ostatnie słowo.
+            model: resolveRoute(env).model,
             quotaPeriodKey: periodKey,
           },
         });

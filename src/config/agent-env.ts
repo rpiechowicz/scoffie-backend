@@ -49,6 +49,8 @@ export type AiCardsMode = (typeof AI_CARDS_MODES)[number];
 export const AI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type AiEffort = (typeof AI_EFFORTS)[number];
 export const AI_EFFORT_DEFAULT: AiEffort = 'medium';
+/** Faza rozmowy myśli tylko wtedy, gdy ktoś tego jawnie zażąda. */
+export const AI_EFFORT_TOOLS_DEFAULT: AiEffort = 'low';
 
 export type AgentEnv = {
   enabled: boolean;
@@ -66,6 +68,13 @@ export type AgentEnv = {
    */
   toolsModel: string | null;
   effort: AiEffort;
+  /**
+   * Wysiłek fazy CHAT (tani model z `AI_MODEL_TOOLS`); `AI_EFFORT` zostaje
+   * wysiłkiem planisty. Domyślnie `low`, co na modelach „tylko budżet"
+   * (Haiku 4.5) znaczy BEZ myślenia — myślenie jest tam największą pozycją
+   * rachunku, a przepisywanie danych z narzędzi go nie potrzebuje.
+   */
+  effortTools: AiEffort;
   apiKeyPresent: boolean;
   /** Twardy limit jednej tury (AbortSignal); po nim tura = FAILED `AI_TIMEOUT`. */
   turnTimeoutMs: number;
@@ -235,11 +244,15 @@ function readNumber(
   return parsed;
 }
 
-function readEffort(env: NodeJS.ProcessEnv): AiEffort {
-  const raw = (env.AI_EFFORT ?? '').trim().toLowerCase();
+function readEffort(
+  env: NodeJS.ProcessEnv,
+  key: 'AI_EFFORT' | 'AI_EFFORT_TOOLS',
+  fallback: AiEffort,
+): AiEffort {
+  const raw = (env[key] ?? '').trim().toLowerCase();
   return (AI_EFFORTS as readonly string[]).includes(raw)
     ? (raw as AiEffort)
-    : AI_EFFORT_DEFAULT;
+    : fallback;
 }
 
 function readCardsMode(env: NodeJS.ProcessEnv): AiCardsMode {
@@ -278,7 +291,8 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
     provider: readProvider(env),
     model: (env.AI_MODEL ?? '').trim() || AI_MODEL_DEFAULT,
     toolsModel: (env.AI_MODEL_TOOLS ?? '').trim() || null,
-    effort: readEffort(env),
+    effort: readEffort(env, 'AI_EFFORT', AI_EFFORT_DEFAULT),
+    effortTools: readEffort(env, 'AI_EFFORT_TOOLS', AI_EFFORT_TOOLS_DEFAULT),
     apiKeyPresent: (env.ANTHROPIC_API_KEY ?? '').trim().length > 0,
     turnTimeoutMs: readNumber(
       env,

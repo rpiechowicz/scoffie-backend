@@ -28,6 +28,7 @@ const ENV: AgentEnv = {
   model: 'claude-sonnet-5',
   apiKeyPresent: false,
   effort: 'medium',
+  effortTools: 'low',
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,

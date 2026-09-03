@@ -1,5 +1,6 @@
 import {
   AGENT_ENV_DEFAULTS,
+  AI_EFFORT_TOOLS_DEFAULT,
   AI_BUDGET_OFF,
   AI_EFFORT_DEFAULT,
   AI_MODEL_DEFAULT,
@@ -16,6 +17,7 @@ describe('readAgentEnv', () => {
       model: AI_MODEL_DEFAULT,
       toolsModel: null,
       effort: AI_EFFORT_DEFAULT,
+      effortTools: AI_EFFORT_TOOLS_DEFAULT,
       apiKeyPresent: false,
       turnTimeoutMs: AGENT_ENV_DEFAULTS.turnTimeoutMs,
       messagesPerMonth: AGENT_ENV_DEFAULTS.messagesPerMonth,

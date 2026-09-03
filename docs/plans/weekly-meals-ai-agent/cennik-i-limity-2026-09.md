@@ -142,7 +142,7 @@ bez limitu.
 
 | zmienna | dziś | ustaw | dlaczego |
 |---|---|---|---|
-| `AI_MODEL_TOOLS` | brak | `claude-haiku-4-5` | rozmowa i czytanie na Haiku, planowanie zostaje na Sonnecie (handoff `start_planning`); −18 % kosztu miesiąca, −50 % na turze rozmowy |
+| `AI_MODEL_TOOLS` | brak | `claude-haiku-4-5` — **dopiero razem z paywallem** | rozmowa na Haiku, planowanie na Sonnecie; −14 % przy ciepłym cache, ale **+56 % poniżej ~10 domów** (§12) |
 | `AI_MAX_TURN_COST_USD` | 1 | `0.4` | sufit ucieczki; plan tygodnia mieści się z zapasem |
 | `AI_LIMIT_MESSAGES_PER_MONTH` | 200 | `60` | §4 |
 | `AI_LIMIT_PLANS_PER_MONTH` | 30 | `8` | §4 |
@@ -171,3 +171,136 @@ limit do 90 wiadomości bez ruszania ceny.
 - Rachunku Railway (przyjęto $25–35).
 - Zwrotów Apple (Health & Fitness: ~4,7 %) i podatku dochodowego — poza
   rachunkiem marży AI.
+
+---
+
+# Część II — routing modeli i drabina planów (3.09.2026, wieczór)
+
+## 10. Routing: co robi tani model, co robi mocny
+
+**Jednostką decyzji jest FAZA tury, nie tura i nie runda.** Tura ma najwyżej
+dwie fazy i przechodzi między nimi dokładnie raz, w jedną stronę:
+
+| faza | model | wysiłek | narzędzia | co tu trafia |
+|---|---|---|---|---|
+| **CHAT** | `AI_MODEL_TOOLS` (Haiku 4.5) | `AI_EFFORT_TOOLS` = `low`, czyli bez myślenia | czytanie + `start_planning` | rozmowa, „co jest we wtorek", bilans, lista zakupów, pamięć domu, dopytanie, kilka opcji, luka makro |
+| **PLANNER** | `AI_MODEL` (Sonnet 5) | `AI_EFFORT` = `medium` | pełna lista | plan tygodnia, plan dnia, podmiana, porcje dla domu, tworzenie i edycja przepisu |
+
+Wyzwalaczem przejścia jest **wywołanie narzędzia `start_planning`**, nic
+więcej. Żadnego klasyfikatora, żadnego zgadywania po treści pytania: narzędzia
+warstwy `planner` fizycznie nie istnieją na liście modelu fazy CHAT, więc tani
+model nie ma jak ułożyć planu — jedyną drogą jest oddanie pałeczki.
+
+„Który mechanizm na jakim modelu" mówi **jedna tabela**:
+`AGENT_TOOL_TIERS` w `src/agent/tools/agent-tools.ts`. Przeniesienie narzędzia
+między modelami to jedna linia widoczna w git; test pilnuje, żeby nowe
+narzędzie nie weszło bez decyzji.
+
+### Dlaczego nie klasyfikator ani eskalacja
+
+Sędziowie ocenili trzy projekty (statyczny, eskalacja po sygnałach złożoności,
+klasyfikator na wstępie). Statyczny wygrał 3:0 przy tej samej oszczędności:
+klasyfikator dokłada wywołanie i myli się na parach „co jest we wtorek" vs
+„wymień wtorek", eskalacja dokłada maszynę stanów i heurystykę ograniczeń.
+Oba kosztują tyle samo co mechanizm, który już istnieje.
+
+## 11. Krytyczna poprawka, bez której routingu NIE WOLNO włączyć
+
+Do 3.09.2026 prowajder wysyłał `thinking: {type:'adaptive'}` i
+`output_config.effort` do **każdego** modelu. Haiku 4.5 obu tych pól nie
+przyjmuje i odpowiada **400**, a 400 jest w naszym kodzie nieponawialny i
+**nie zwraca kwoty** — czyli ustawienie `AI_MODEL_TOOLS=claude-haiku-4-5`
+na Railway zabiłoby każdą turę i przy okazji spaliło użytkownikom limit
+miesięczny.
+
+Naprawione: `src/config/model-capabilities.ts` trzyma, czym da się sterować
+w którym modelu (`adaptive` + `effort` vs `budget_tokens`), a
+`reasoningParams(model, effort)` w prowajderze buduje żądanie pod model.
+Trzy testy pilnują tego na stałe.
+
+## 12. Kiedy routing się opłaca (i kiedy NIE)
+
+Miesiąc 60 wiadomości (36 rozmów, 12 podmian, 12 planów):
+
+| wariant | koszt |
+|---|---|
+| wszystko na Sonnecie | $4,13 |
+| routing, prefiks Sonneta ciepły (30+ domów) | **$3,56 (−14 %)** |
+| routing, prefiks Sonneta ZIMNY przy każdym planie (< ~10 domów) | **$6,46 (+56 %)** |
+
+Cache jest **per model**. Dopóki domów jest mało, żadna tura nie zaczyna na
+Sonnecie, więc jego prefiks (30 206 tokenów) trzeba zapisywać od nowa przy
+prawie każdym planie: +$0,121 za turę. **Routing włączamy razem z paywallem,
+nie wcześniej.** Do tego czasu `AI_MODEL_TOOLS` zostaje puste i wszystko
+chodzi na Sonnecie — dokładnie jak dziś.
+
+## 13. Plany per wielkość gospodarstwa — odpowiedź na pytanie „1+1 vs rodzina"
+
+**Intuicja jest słuszna co do ZUŻYCIA i błędna co do KOSZTU.**
+
+Dodatkowy domownik kosztuje: +$0,0016 na turze planu przy 6 osobach, czyli
+**+$0,05 miesięcznie — 0,7 % przychodu netto z 39,99 zł**. Blok
+`<domownicy>` czyta się z cache po 0,1× stawki, a wszystko inne (porcje,
+karty podziału) to te same tokeny niezależnie od tego, ile osób je zje.
+Model kosztowy zapisał to już 31.08: „a family tier is a pricing, not a cost,
+decision".
+
+Co naprawdę rośnie, to **tempo zużycia puli**: 5 osób wyczerpie 60 wiadomości
+w dwa tygodnie. Ale pula jest SUFITEM — rodzina nie może kosztować więcej niż
+singiel przy tym samym limicie. Czyli duży dom to **szansa sprzedażowa, nie
+ryzyko kosztowe**.
+
+### Rekomendacja: drabina nazwana po domu, sprzedawana po limicie
+
+| plan | dla kogo (etykieta) | cena | wiadomości | zapisy planu | koszt przy pełnym użyciu | marża | zł za wiadomość |
+|---|---|---|---|---|---|---|---|
+| **Solo** | 1 osoba | 29,99 zł | 40 | 6 | $2,38 | **57 %** | 0,75 |
+| **Duet** | 2 osoby | 39,99 zł | 60 | 8 | $3,56 | **52 %** | 0,67 |
+| **Rodzina** | 3+ osób | 59,99 zł | 100 | 14 | $5,94 | **47 %** | 0,60 |
+
+Zasada, która trzyma to w kupie: **limit jest produktem, liczba osób jest
+etykietą.** Backend NIE liczy i NIE pilnuje miejsc. Powody:
+
+1. **Nie ma czego pilnować sprawiedliwie.** „Osoba" ma dwie definicje
+   (członkostwo vs zgoda na asystenta), a czteroletnie dziecko liczy się tak
+   samo jak dorosły.
+2. **Bramka na miejscach jest niebezpieczna.** Jeśli domownik kosztuje, ludzie
+   nie dodadzą alergicznego dziecka jako osoby — i twarda bramka alergenowa
+   przestanie je widzieć. To ryzyko zdrowotne kupione za 20 zł różnicy.
+3. **Egzekwowanie kosztuje 2–3 tygodnie** ponad StoreKit, którego jeszcze nie
+   ma: limit członków, `HOUSEHOLD_SEATS_FULL`, subskrypcja własnością płatnika,
+   prorata przy zmianie planu, 6. osoba na Duecie, nadanie operatora bez
+   miejsc, trzy razy więcej stanów do pokazania recenzentowi Apple.
+4. **Egzekwowanie jest zbędne.** Wyczerpana pula egzekwuje się sama: dom
+   5-osobowy na Solo skończy wiadomości w tydzień i zobaczy ekran
+   „Zwiększ limit" — dokładnie ten sam, który już zbudowaliśmy dla próby.
+   To lepszy moment na sprzedaż niż komunikat „nie możesz zaprosić żony".
+
+Rozmowa z klientem jest wtedy uczciwa: *większy dom zużywa więcej, więc
+wybierz większy plan* — a nie *policzyliśmy wam głowy*.
+
+### Co z tego wynika technicznie
+
+Trzy produkty w jednej grupie subskrypcji (rangi: Rodzina > Duet > Solo, żeby
+Apple robił upgrade natychmiast, a downgrade przy odnowieniu). Limity biorą
+się z `productId` przez mapę w `src/config/subscription-products.ts` (jeszcze
+nie istnieje) i wchodzą do `resolvePlan()` — reszta łańcucha kwot jest już
+gotowa. Na paywallu każdego planu musi stać zdanie z ILOŚCIAMI (App Store
+3.1.2(c)), identyczne z `GET /agent/usage` i z komunikatem 429.
+
+Rocznej nie sprzedawać na start: przy 299,99 zł netto wychodzi $4,64, więc
+Rodzina rocznie byłaby stratna przy pełnym użyciu.
+
+## 14. Kolejność wdrożenia
+
+1. **Teraz (zrobione):** kształt myślenia per model, trasa faz, księga per
+   faza, tabela warstw narzędzi, testy. Domyślne env = zero zmian w działaniu.
+2. **Przed paywallem:** weryfikacja transakcji StoreKit na serwerze, mapa
+   produktów → limity, próba raz na Apple ID.
+3. **Razem z paywallem:** `AI_MODEL_TOOLS=claude-haiku-4-5`,
+   `AI_MAX_TURN_COST_USD=0.4`, `AI_EFFORT_TOOLS` domyślne (`low`).
+   Wcześniej routing traci pieniądze (§12).
+4. **Po pierwszym miesiącu:** `pnpm agent:report:usage` → odsetek tur z
+   przekazaniem pałeczki, koszt fazy per model, p95 kosztu tury. Dopiero te
+   liczby decydują o przeniesieniu `propose_swap` do warstwy `chat` (jedna
+   linia) i o podniesieniu limitów.

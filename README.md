@@ -134,6 +134,17 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   `test/agent.e2e-spec.ts`; no model call, no API key)
 - `ANTHROPIC_API_KEY` — required only with `AI_ENABLED=true` and `anthropic`
 - `AI_MODEL` (`claude-sonnet-5`), `AI_TURN_TIMEOUT_MS` (90000)
+- `AI_MODEL_TOOLS` (unset) — model routing. When set (e.g. `claude-haiku-4-5`)
+  a turn starts in the CHAT phase on that model with read-only tools plus
+  `start_planning`, and hands over to `AI_MODEL` with the full tool list the
+  moment the model calls `start_planning`. Which tool belongs to which phase is
+  one table: `AGENT_TOOL_TIERS` in `src/agent/tools/agent-tools.ts`.
+  Request shape (adaptive thinking + effort vs `budget_tokens`) is chosen per
+  model in `src/config/model-capabilities.ts` — Haiku 4.5 rejects both
+  `thinking: adaptive` and `output_config.effort` with a **400**, which is
+  non-retryable and does not refund the user's quota.
+- `AI_EFFORT_TOOLS` (`low`) — effort of the CHAT phase; `low` means no thinking
+  on budget-thinking models. `AI_EFFORT` stays the planner's effort.
 - `AI_TIER_OVERRIDE` (`PRO`) — household plan. Unset/`PRO` = every household
   is PRO (monthly pool, as before). Empty/`off` = trial model: without an
   active `HouseholdSubscription` or an operator grant

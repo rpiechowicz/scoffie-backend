@@ -68,8 +68,10 @@ export function handoffBlock(): string {
     '- Na pytania o to, co JEST w planie, o składniki, bilans, listę zakupów i na',
     '  dopytania odpowiadasz sam — bez start_planning. To większość rozmów.',
     '- Gdy trzeba coś UŁOŻYĆ albo ZMIENIĆ (tydzień, dzień, podmiana, porcje dla domu,',
-    '  przepis), NAJPIERW zbierasz kontekst (plan tygodnia, domownicy), a potem wołasz',
-    '  start_planning. Dopiero po nim są narzędzia propose_* i apply_*.',
+    '  przepis), wołasz start_planning OD RAZU — bez pobierania planu i domowników.',
+    '  Planista sprawdzi sam, co mu potrzebne; to, co pobierzesz wcześniej, i tak',
+    '  przeczyta drugi raz, więc kosztuje dwa razy. Dopiero po start_planning są',
+    '  narzędzia propose_* i apply_*.',
     '- Po start_planning kontynuujesz jako planista: nie witasz się od nowa i nie',
     '  powtarzasz wywołań, których wyniki już są w historii tej tury.',
   ].join('\n');

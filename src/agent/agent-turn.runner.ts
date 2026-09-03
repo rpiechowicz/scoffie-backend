@@ -9,11 +9,13 @@ import {
   GLOBAL_SCOPE,
 } from './ai-usage-counters.service';
 import {
+  AgentPhaseUsage,
   AgentProviderError,
   AgentProviderMessage,
   AgentProviderResult,
   AgentProviderUsage,
 } from './providers/agent-provider';
+import { resolveRoute } from './agent-route';
 import { AgentProviderResolver } from './providers/agent-provider.resolver';
 import {
   AgentProgressStep,
@@ -24,11 +26,6 @@ import { AgentPromptService, TurnDates } from './agent-prompt.service';
 import { AgentCard } from './cards/agent-cards';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
-import {
-  AGENT_TOOLS,
-  START_PLANNING_TOOL,
-  TRIAGE_TOOLS,
-} from './tools/agent-tools';
 import { UpstreamBreaker } from './upstream-breaker';
 
 export type RunTurnInput = {
@@ -147,31 +144,25 @@ export class AgentTurnRunner {
 
     try {
       const messages = await this.loadHistory(input.conversationId);
+      // Trasa tury (faza CHAT → faza PLANNER) — czysta funkcja konfiguracji,
+      // liczona raz, przed pierwszym wywołaniem modelu.
+      const route = resolveRoute(input.env);
       const prompt = await this.prompts.build(
         input.userId,
         input.householdId,
         input.dates,
         input.proposalMode,
         input.scopeUserIds ?? [],
-        input.env.toolsModel !== null,
+        route.promptHandoff,
       );
       const provider = this.providers.resolve(input.env);
-      // Przekazanie (AI_MODEL_TOOLS): start na tańszym modelu z narzędziami
-      // do czytania; `start_planning` oddaje resztę tury planiście.
-      const handoff = input.env.toolsModel
-        ? {
-            tool: START_PLANNING_TOOL.name,
-            model: input.env.model,
-            tools: AGENT_TOOLS,
-          }
-        : null;
       const result = await provider.run({
-        model: input.env.toolsModel ?? input.env.model,
-        effort: input.env.effort,
-        handoff,
+        model: route.model,
+        effort: route.effort,
+        handoff: route.handoff,
         system: prompt.system,
         messages,
-        tools: handoff ? TRIAGE_TOOLS : AGENT_TOOLS,
+        tools: route.tools,
         // Domknięcie z tożsamością tury: dostawca nie zna ani użytkownika, ani
         // gospodarstwa, więc nie ma jak sięgnąć do bazy z pominięciem bramek.
         executeTool: async (name, toolInput) => {
@@ -284,29 +275,82 @@ export class AgentTurnRunner {
    * i runner dopisaliby dwa wiersze za to samo). Błąd zapisu nie może
    * przesłonić błędu, który tu nas przywiódł — stąd log, nie rzut.
    */
+  /**
+   * Wiersze księgi `AiUsage` dla tury: jeden na FAZĘ, a gdy dostawca nie
+   * rozróżnia faz (stary stub, błąd bez rozbicia) — jeden zbiorczy.
+   *
+   * Suma kosztu wierszy jest zawsze równa kosztowi tury, bo fazy powstają
+   * z tych samych wywołań, które składają się na `usage` — budżet dobowy i
+   * metryki liczą dalej z sumy, nie stąd.
+   */
+  private usageRows(
+    input: RunTurnInput,
+    params: {
+      phases?: AgentPhaseUsage[];
+      fallbackModel: string;
+      fallbackEffort: string;
+      usage: AgentProviderUsage;
+      stopReason: string | null;
+      durationMs: number;
+    },
+  ): Prisma.AiUsageCreateManyInput[] {
+    const base = {
+      turnId: input.turnId,
+      userId: input.userId,
+      householdId: input.householdId,
+      provider: input.env.provider,
+      stopReason: params.stopReason,
+      latencyMs: params.durationMs,
+    };
+    const phases = params.phases ?? [];
+    if (phases.length === 0) {
+      return [
+        {
+          ...base,
+          model: params.fallbackModel,
+          // Bez `effort` księga nie da się skalibrować: ta sama tura na
+          // `medium` i na `high` to dwa różne rachunki.
+          effort: params.fallbackEffort,
+          inputTokens: params.usage.inputTokens,
+          cacheReadTokens: params.usage.cacheReadTokens,
+          cacheWriteTokens: params.usage.cacheWriteTokens,
+          outputTokens: params.usage.outputTokens,
+          costMicroUsd: params.usage.costMicroUsd,
+        },
+      ];
+    }
+    return phases.map((phase) => ({
+      ...base,
+      model: phase.model,
+      effort: phase.effort,
+      inputTokens: phase.usage.inputTokens,
+      cacheReadTokens: phase.usage.cacheReadTokens,
+      cacheWriteTokens: phase.usage.cacheWriteTokens,
+      outputTokens: phase.usage.outputTokens,
+      costMicroUsd: phase.usage.costMicroUsd,
+    }));
+  }
+
   private async recordFailedUsage(
     input: RunTurnInput,
     spent: AgentProviderUsage,
     verdict: FailureVerdict,
     durationMs: number,
+    phases?: AgentPhaseUsage[],
   ): Promise<void> {
     try {
-      await this.prisma.aiUsage.create({
-        data: {
-          turnId: input.turnId,
-          userId: input.userId,
-          householdId: input.householdId,
-          provider: input.env.provider,
-          model: input.env.model,
-          effort: input.env.effort,
+      await this.prisma.aiUsage.createMany({
+        data: this.usageRows(input, {
+          phases,
+          // Bez rozbicia z dostawcy: model STARTOWY tury, nie `AI_MODEL` —
+          // tura, która padła jeszcze na tanim modelu, księgowała się dotąd
+          // pod planistą, który nigdy jej nie dotknął.
+          fallbackModel: resolveRoute(input.env).model,
+          fallbackEffort: resolveRoute(input.env).effort,
+          usage: spent,
           stopReason: verdict.errorCode,
-          inputTokens: spent.inputTokens,
-          cacheReadTokens: spent.cacheReadTokens,
-          cacheWriteTokens: spent.cacheWriteTokens,
-          outputTokens: spent.outputTokens,
-          costMicroUsd: spent.costMicroUsd,
-          latencyMs: durationMs,
-        },
+          durationMs,
+        }),
       });
     } catch (error) {
       this.logger.warn(
@@ -405,25 +449,19 @@ export class AgentTurnRunner {
             data: { messageId: message.id },
           });
         }
-        await tx.aiUsage.create({
-          data: {
-            turnId: input.turnId,
-            userId: input.userId,
-            householdId: input.householdId,
-            provider: input.env.provider,
-            // Model, który dał ostatnie słowo — po przekazaniu to planista.
-            model: result.model ?? input.env.model,
-            // Bez `effort` księga nie da się skalibrować: ta sama tura na
-            // `medium` i na `high` to dwa różne rachunki.
-            effort: input.env.effort,
+        // Jeden wiersz NA FAZĘ (model + wysiłek), nie na turę: po
+        // przekazaniu pałeczki tura ma dwa rachunki po dwóch różnych
+        // stawkach, a jeden wiersz zapisywał je oba pod planistą — czyli
+        // raport pokazywałby, że tani model niczego nie oszczędza.
+        await tx.aiUsage.createMany({
+          data: this.usageRows(input, {
+            phases: result.phases,
+            fallbackModel: result.model ?? input.env.model,
+            fallbackEffort: input.env.effort,
+            usage,
             stopReason: result.stopReason,
-            inputTokens: usage.inputTokens,
-            cacheReadTokens: usage.cacheReadTokens,
-            cacheWriteTokens: usage.cacheWriteTokens,
-            outputTokens: usage.outputTokens,
-            costMicroUsd: usage.costMicroUsd,
-            latencyMs: durationMs,
-          },
+            durationMs,
+          }),
         });
         await tx.agentConversation.update({
           where: { id: input.conversationId },
@@ -515,7 +553,13 @@ export class AgentTurnRunner {
         // a tura, która padła w piątej rundzie, wysłała ich pięć. Bez tego
         // księga pokazywałaby wyłącznie tury udane — czyli rachunek niższy
         // od prawdziwego, i to systematycznie.
-        await this.recordFailedUsage(input, spent, verdict, durationMs);
+        await this.recordFailedUsage(
+          input,
+          spent,
+          verdict,
+          durationMs,
+          error instanceof AgentProviderError ? error.phases : undefined,
+        );
         await this.counters.add(
           this.prisma,
           GLOBAL_SCOPE,
