@@ -1,7 +1,7 @@
 ---
 name: ingredient-naming
-description: "Konwencja nazw składników po sprzątaniu 2026-08-24 — name z polskimi znakami, normalizedName ASCII jako klucz; jak scalać duplikaty."
-metadata: 
+description: 'Konwencja nazw składników po sprzątaniu 2026-08-24 — name z polskimi znakami, normalizedName ASCII jako klucz; jak scalać duplikaty.'
+metadata:
   node_type: memory
   type: project
   originSessionId: a673613e-4da2-4a42-a697-9d485bd8a0df

@@ -174,6 +174,8 @@ export class AgentProposalsService {
         input.householdId,
       ),
       expiresAt,
+      forUserId: input.userId,
+      enabledMealTypes: await this.enabledMealTypesFor(input.householdId),
     });
 
     await this.prisma.agentProposal.create({
@@ -255,6 +257,8 @@ export class AgentProposalsService {
         input.householdId,
       ),
       expiresAt,
+      forUserId: input.userId,
+      enabledMealTypes: await this.enabledMealTypesFor(input.householdId),
     });
 
     await this.prisma.agentProposal.create({
@@ -595,6 +599,19 @@ export class AgentProposalsService {
     }
   }
 
+  /** Sloty, które ten dom planuje — nota celu ma sens tylko dla pełnego dnia. */
+  private async enabledMealTypesFor(householdId: string): Promise<string[]> {
+    try {
+      const household = await this.prisma.household.findUnique({
+        where: { id: householdId },
+        select: { enabledMealTypes: true },
+      });
+      return household?.enabledMealTypes ?? [];
+    } catch {
+      return [];
+    }
+  }
+
   /**
    * Cel kaloryczny PYTAJĄCEGO — karta pokazuje jego pasek celu, nie średnią domu.
    *
@@ -682,6 +699,27 @@ export class AgentProposalsService {
       );
     }
 
+    // Kwota PRZED zamkiem: odmowa kwoty nie zostawia wtedy propozycji
+    // APPLIED bez odcisku (dawny „rollback" przez markStatus połykał błędy,
+    // a cofnięcie bez odcisku nadpisywało cudze zmiany).
+    const periodKey = this.counters.monthKey();
+    const limit = readAgentEnv().plansPerMonth;
+    const consumed = await this.counters.tryConsume(
+      this.prisma,
+      proposal.householdId,
+      periodKey,
+      'plans',
+      limit,
+    );
+    if (!consumed) {
+      throw new AppException(
+        'AI_PLAN_QUOTA_EXCEEDED',
+        `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+        this.counters.quotaDetails('plans', limit),
+      );
+    }
+
     // Zamek na poziomie bazy. Chodzi nie tylko o podwójny zapis (ten i tak
     // byłby bezstratny — `applyWeekPlan` to operacja stanu docelowego), ale
     // o `undoSnapshot`: drugi przebieg zapisałby jako „stan sprzed" tydzień
@@ -694,31 +732,15 @@ export class AgentProposalsService {
         appliedAt: new Date(),
         appliedByUserId: userId,
         undoneAt: null,
+        quotaPeriodKey: periodKey,
+        changedCount: null,
+        appliedHash: null,
       },
     });
     if (locked.count === 0) {
+      // Ktoś zdążył pierwszy — jego zapis już zjadł kwotę, nasza wraca.
+      await this.refundPlan(proposal.householdId, periodKey);
       return this.resultForApplied(await this.loadOwned(userId, proposalId));
-    }
-
-    const periodKey = this.counters.monthKey();
-    const limit = readAgentEnv().plansPerMonth;
-    const consumed = await this.counters.tryConsume(
-      this.prisma,
-      proposal.householdId,
-      periodKey,
-      'plans',
-      limit,
-    );
-    if (!consumed) {
-      // Kwota wraca do stanu sprzed kliknięcia: użytkownik może zatwierdzić
-      // tę samą propozycję pierwszego dnia miesiąca.
-      await this.markStatus(proposal.id, statusBefore);
-      throw new AppException(
-        'AI_PLAN_QUOTA_EXCEEDED',
-        `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany.`,
-        HttpStatus.TOO_MANY_REQUESTS,
-        this.counters.quotaDetails('plans', limit),
-      );
     }
 
     const slots = readSlots(proposal.action);
@@ -732,7 +754,7 @@ export class AgentProposalsService {
 
       if (!result.applied) {
         await this.refundPlan(proposal.householdId, periodKey);
-        await this.markStatus(proposal.id, 'STALE');
+        await this.markStatus(proposal.id, 'STALE', { quotaPeriodKey: null });
         throw new AppException(
           'AI_PROPOSAL_STALE',
           'Tej propozycji nie da się już zapisać — plan albo przepisy zmieniły się w międzyczasie.',
@@ -748,7 +770,11 @@ export class AgentProposalsService {
         result.changes.created +
         result.changes.updated +
         result.changes.deleted;
-      if (changed === 0) await this.refundPlan(proposal.householdId, periodKey);
+      if (changed === 0) {
+        // Zapis bez zmian nie kosztuje planu — i cofnięcie nie ma już czego
+        // zwracać (`quotaPeriodKey` niżej zostaje puste).
+        await this.refundPlan(proposal.householdId, periodKey);
+      }
 
       const after = await this.weeklyPlans.snapshotWeekAsSlots(
         userId,
@@ -775,7 +801,11 @@ export class AgentProposalsService {
 
       await this.prisma.agentProposal.update({
         where: { id: proposal.id },
-        data: { appliedHash: weekBaselineHash(after) },
+        data: {
+          appliedHash: weekBaselineHash(after),
+          changedCount: changed,
+          quotaPeriodKey: changed === 0 ? null : periodKey,
+        },
       });
 
       this.broadcast(userId, proposal.householdId, weekStart);
@@ -791,7 +821,7 @@ export class AgentProposalsService {
       // Propozycja, która padła przy zapisie, nie wraca do klikania:
       // przycisk działający raz na dwa razy jest gorszy niż jego brak.
       await this.refundPlan(proposal.householdId, periodKey);
-      await this.markStatus(proposal.id, 'FAILED');
+      await this.markStatus(proposal.id, 'FAILED', { quotaPeriodKey: null });
       throw error;
     }
   }
@@ -831,6 +861,18 @@ export class AgentProposalsService {
       );
     }
 
+    // Zapis, który nie doszedł do odcisku (proces padł między zamkiem a
+    // `appliedHash`), nie ma wiarygodnej migawki „po" — cofanie go
+    // nadpisałoby tydzień stanem sprzed nieznanej liczby zmian.
+    if (!proposal.appliedHash) {
+      throw new AppException(
+        'AI_PROPOSAL_STALE',
+        'Ten zapis nie został domknięty, więc nie da się go bezpiecznie cofnąć. Popraw plan ręcznie.',
+        HttpStatus.CONFLICT,
+        ['reason:NOT_FINALISED'],
+      );
+    }
+
     const weekStart = toWeekStartString(proposal.weekStart);
     const current = await this.weeklyPlans.snapshotWeekAsSlots(
       userId,
@@ -839,10 +881,7 @@ export class AgentProposalsService {
     );
     // Ktoś w domu poprawił tydzień PO zapisie — cofnięcie skasowałoby jego
     // pracę razem z naszą zmianą.
-    if (
-      proposal.appliedHash &&
-      weekBaselineHash(current) !== proposal.appliedHash
-    ) {
+    if (weekBaselineHash(current) !== proposal.appliedHash) {
       throw new AppException(
         'AI_PROPOSAL_STALE',
         'Plan zmienił się po zapisaniu, więc cofnięcie skasowałoby także tamte zmiany.',
@@ -866,8 +905,13 @@ export class AgentProposalsService {
       { slots: readSlots(proposal.undoSnapshot, 'slots-array') },
     );
 
-    // Cofnięcie to korekta, nie nowy plan — kwota wraca.
-    await this.refundPlan(proposal.householdId, this.counters.monthKey());
+    // Cofnięcie to korekta, nie nowy plan — kwota wraca, ale TYLKO ta,
+    // która naprawdę zeszła, i do miesiąca, z którego zeszła (zapis 31.,
+    // cofnięcie 1.). Zapis bez zmian już ją oddał i nie ma czego zwracać.
+    if (proposal.quotaPeriodKey) {
+      await this.refundPlan(proposal.householdId, proposal.quotaPeriodKey);
+      await this.markStatus(proposal.id, 'UNDONE', { quotaPeriodKey: null });
+    }
 
     const message = await this.writeMessage({
       conversationId: proposal.conversationId,
@@ -906,6 +950,7 @@ export class AgentProposalsService {
         status: true,
         expiresAt: true,
         appliedAt: true,
+        changedCount: true,
       },
     });
 
@@ -970,11 +1015,15 @@ export class AgentProposalsService {
     return proposal;
   }
 
-  private async markStatus(id: string, status: string): Promise<void> {
+  private async markStatus(
+    id: string,
+    status: string,
+    extra: { quotaPeriodKey?: string | null } = {},
+  ): Promise<void> {
     try {
       await this.prisma.agentProposal.update({
         where: { id },
-        data: { status },
+        data: { status, ...extra },
       });
     } catch (error) {
       this.logger.warn(
@@ -1070,12 +1119,27 @@ export class AgentProposalsService {
     };
   }
 
-  /** Ostatnia wiadomość rozmowy — to ona niesie kartę po tej operacji. */
+  /**
+   * Wiadomość TEJ propozycji: potwierdzenie zapisu (karta APPLIED z jej
+   * identyfikatorem), a gdy go nie ma — wiadomość z propozycją. Nie „ostatnia
+   * odpowiedź rozmowy": po tygodniu rozmowy to byłaby karta z innej tury.
+   */
   private async messageOf(proposal: AgentProposal): Promise<MessageView> {
-    const message = await this.prisma.agentMessage.findFirst({
-      where: { conversationId: proposal.conversationId, role: 'ASSISTANT' },
+    const applied = await this.prisma.agentMessage.findFirst({
+      where: {
+        conversationId: proposal.conversationId,
+        kind: 'APPLIED',
+        card: { path: ['proposalId'], equals: proposal.id },
+      },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
+    const message =
+      applied ??
+      (proposal.messageId
+        ? await this.prisma.agentMessage.findUnique({
+            where: { id: proposal.messageId },
+          })
+        : null);
     return {
       id: message?.id ?? '',
       role: 'ASSISTANT',
@@ -1138,6 +1202,8 @@ export function cardState(
     status: string;
     expiresAt: Date;
     appliedAt: Date | null;
+    /** `null` = zapis sprzed tej kolumny (traktowany jak „coś zmienił"). */
+    changedCount?: number | null;
   },
   now: number,
   undoWindowMs: number,
@@ -1146,7 +1212,10 @@ export function cardState(
     const until = proposal.appliedAt
       ? new Date(proposal.appliedAt.getTime() + undoWindowMs)
       : null;
-    const canUndo = until ? until.getTime() > now : false;
+    // Zapis bez zmian nie ma czego cofać — karta nie może obiecywać „Cofnij",
+    // którego przycisk zapisu nie dostał.
+    const hadChanges = (proposal.changedCount ?? 1) > 0;
+    const canUndo = until ? until.getTime() > now && hadChanges : false;
     return {
       status: 'APPLIED',
       canApply: false,
@@ -1176,15 +1245,8 @@ export function cardState(
   const reapplicable =
     status !== 'EXPIRED' && REAPPLICABLE_STATUSES.has(status) && !expired;
   return {
-    status:
-      expired &&
-      status !== 'EXPIRED' &&
-      reapplicable === false &&
-      status !== 'UNDONE' &&
-      status !== 'FAILED' &&
-      status !== 'STALE'
-        ? 'EXPIRED'
-        : status,
+    // Po 72 h każda z tych kart mówi EXPIRED — bez przycisku.
+    status: expired ? 'EXPIRED' : status,
     canApply: reapplicable,
     canUndo: false,
     until: reapplicable ? proposal.expiresAt.toISOString() : null,

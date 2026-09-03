@@ -62,13 +62,30 @@ describe('CookidooIntegrationService — flaga COOKIDOO_INTEGRATION_ENABLED', ()
     });
   });
 
-  it('wyłączona: status bez odczytu bazy, klient ma schować wiersz', async () => {
+  it('wyłączona bez zapisanego hasła: klient ma schować wiersz', async () => {
     process.env.COOKIDOO_INTEGRATION_ENABLED = 'false';
     await expect(service.status(USER)).resolves.toEqual({
       connected: false,
       enabled: false,
     });
-    expect(prisma.cookidooIntegration.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('wyłączona z zapisanym hasłem: connected zostaje, żeby dało się rozłączyć', async () => {
+    process.env.COOKIDOO_INTEGRATION_ENABLED = 'false';
+    prisma.cookidooIntegration.findUnique.mockResolvedValueOnce({
+      householdId: HOUSEHOLD,
+      emailEncrypted: 'zepsute',
+      passwordEncrypted: 'zepsute',
+      status: 'CONNECTED',
+      connectedById: USER,
+      lastVerifiedAt: null,
+    });
+    // E-mail nie do odszyfrowania (obcy klucz) → jak brak wpisu, ale z flagą.
+    await expect(service.status(USER)).resolves.toEqual({
+      connected: false,
+      enabled: false,
+    });
+    expect(prisma.cookidooIntegration.findUnique).toHaveBeenCalled();
   });
 
   it('wyłączona: connect i sendToWeek odmawiają PRZED wysłaniem hasła do Vorwerka', async () => {

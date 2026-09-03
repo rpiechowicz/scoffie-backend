@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { AppException } from '../common/app-exception';
 import {
   CONSENT_KINDS,
   ConsentAction,
@@ -6,6 +7,7 @@ import {
   LEGAL_DOCUMENT_VERSIONS,
   MINIMUM_CONSENT_VERSIONS,
   isVersionCurrent,
+  isVersionKnown,
 } from '../common/legal-documents';
 import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,6 +40,14 @@ export class ConsentsService {
     input: RecordConsentDto,
   ): Promise<ConsentStatus[]> {
     const dto = await validateDto(RecordConsentDto, input);
+    if (!isVersionKnown(dto.kind as ConsentKind, dto.documentVersion)) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        `Nie ma jeszcze wersji dokumentu ${dto.documentVersion} — bieżąca to ${LEGAL_DOCUMENT_VERSIONS[dto.kind as ConsentKind]}.`,
+        HttpStatus.BAD_REQUEST,
+        ['documentVersion'],
+      );
+    }
     await this.prisma.consentEvent.create({
       data: {
         userId,
@@ -52,6 +62,37 @@ export class ConsentsService {
     return this.status(userId);
   }
 
+  /**
+   * Zdarzenie zapisywane przez SERWER, nie przez kliknięcie: podanie hasła
+   * Cookidoo, pierwsze alergeny, pierwsza synchronizacja kroków. Dowód
+   * zgody wynika z czynności, a nie z osobnego ekranu — ale dziennik ma go
+   * mieć (art. 7 ust. 1). Nigdy nie rzuca: brak wpisu w dzienniku nie może
+   * zatrzymać zapisu, na który użytkownik właśnie się zdecydował.
+   */
+  async recordSystem(
+    userId: string,
+    kind: ConsentKind,
+    action: ConsentAction,
+    source: string,
+    householdId?: string | null,
+  ): Promise<void> {
+    try {
+      await this.prisma.consentEvent.create({
+        data: {
+          userId,
+          kind,
+          action,
+          documentVersion: LEGAL_DOCUMENT_VERSIONS[kind],
+          source,
+          householdId: householdId ?? null,
+        },
+      });
+    } catch {
+      // Świadomie cicho — patrz opis wyżej.
+    }
+  }
+
+  /** Czy dziennik ma już ważną zgodę; do „zapisz tylko raz". */
   async status(userId: string): Promise<ConsentStatus[]> {
     const latest = await this.latestByKind([userId]);
     return CONSENT_KINDS.map((kind) => {

@@ -123,6 +123,8 @@ const makePrismaMock = () => {
       }),
       update: jest.fn().mockResolvedValue({ id: RECIPE_ID }),
       findUnique: jest.fn().mockResolvedValue({
+        isActive: true,
+        isCatalog: false,
         id: RECIPE_ID,
         title: 'Owsianka',
         description: null,

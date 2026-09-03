@@ -31,8 +31,8 @@ describe('AgentPromptService.membersForModel', () => {
     else process.env.AI_CONSENT_REQUIRED = original;
   });
 
-  it('bez bramki zgód: wszyscy domownicy, bez pytania o zgody', async () => {
-    delete process.env.AI_CONSENT_REQUIRED;
+  it('bez bramki zgód (jawne false): wszyscy domownicy, bez pytania o zgody', async () => {
+    process.env.AI_CONSENT_REQUIRED = 'false';
     const result = await service.membersForModel(members);
     expect(result).toEqual({ members, withheld: 0 });
     expect(consents.usersWithValid).not.toHaveBeenCalled();

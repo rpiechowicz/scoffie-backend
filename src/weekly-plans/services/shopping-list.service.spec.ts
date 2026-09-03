@@ -89,6 +89,9 @@ const makePrismaMock = () => {
     },
     shoppingListItem: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      update: jest.fn().mockResolvedValue({}),
       upsert: jest.fn().mockImplementation((args: any) => args.create),
     },
     shoppingItemCheck: {

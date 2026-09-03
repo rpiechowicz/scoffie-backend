@@ -1,7 +1,7 @@
 ---
 name: project-mac-resources-exhausted
-description: "Na Macu Rafała narzędzia wieszają się z dwóch przyczyn — wyczerpany swap/dysk (2026-08-20) oraz iCloud Desktop sync zrzucający pliki repo do chmury (dataless, potwierdzone 2026-08-24)."
-metadata: 
+description: 'Na Macu Rafała narzędzia wieszają się z dwóch przyczyn — wyczerpany swap/dysk (2026-08-20) oraz iCloud Desktop sync zrzucający pliki repo do chmury (dataless, potwierdzone 2026-08-24).'
+metadata:
   node_type: memory
   type: project
   originSessionId: a673613e-4da2-4a42-a697-9d485bd8a0df
@@ -13,6 +13,7 @@ Objaw: `npx tsc --noEmit`, `jest` (ts-jest) i `prisma migrate deploy` / `generat
 Przyczyna (zmierzona 2026-08-20): 16 GB RAM, swap 3249 MB użyte z 3584 MB, na dysku **511 MB wolnego** z 228 GB. macOS nie ma jak rozrosnąć pliku swapu, więc procesy potrzebujące kilkuset MB stają i czekają na pamięć, która nie przyjdzie. Pageins: 10,9 mln.
 
 Co to **nie** jest — sprawdzone i wykluczone:
+
 - nie wersja Node ani paczek: `tsc` wiesza się na trywialnym pliku **poza** projektem
 - nie EDR/antywirus: spawn procesu 0,03 s, ciepły odczyt pliku 0,002 s (zimny 1,5 s to walka o I/O pod pagingiem)
 - nie iCloud ani zablokowane pliki: brak plików `.icloud`, `Desktop` nie był wtedy synchronizowany — ALE patrz aktualizacja niżej

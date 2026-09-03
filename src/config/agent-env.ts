@@ -16,6 +16,8 @@
  * (żeby nie pokazywała martwej tury jako biegnącej). Dwie definicje tego
  * progu znaczyłyby, że lista mówi co innego niż wysyłka.
  */
+import { KNOWN_MODELS } from './model-prices';
+
 export const TURN_TIMEOUT_GRACE_MS = 5_000;
 
 export const AI_PROVIDERS = ['anthropic', 'stub'] as const;
@@ -105,9 +107,10 @@ export type AgentEnv = {
   allowedUsers: string[];
   /**
    * Czy tura wymaga ważnej zgody AI_ASSISTANT (tabela `ConsentEvent`) i czy
-   * do promptu trafiają tylko domownicy z własną zgodą. Domyślnie `false`:
-   * bramka ma sens dopiero, gdy wydany iOS ma ekran zgody — włączona
-   * wcześniej odcięłaby rodzinę od asystenta bez możliwości kliknięcia.
+   * do promptu trafiają tylko domownicy z własną zgodą. Domyślnie `true`
+   * (od audytu 2, 3.09.2026): bramka prywatności ma zamykać się sama.
+   * `AI_CONSENT_REQUIRED=false` tylko na czas, gdy wydany iOS nie ma jeszcze
+   * ekranu zgody — i tylko świadomie.
    */
   consentRequired: boolean;
   /**
@@ -273,8 +276,12 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       { min: 0 },
     ),
     allowedUsers: parseAllowedUsers(env.AI_ALLOWED_USERS),
+    // Domyślnie WYMAGANE: kontrola prywatności ma zamykać się sama. Brak
+    // zmiennej albo literówka nie mogą znaczyć „wyślij dietę wszystkich do
+    // modelu". Wyłącza tylko jawne `false` (okres przejściowy, dopóki
+    // wydany iOS nie ma ekranu zgody).
     consentRequired:
-      (env.AI_CONSENT_REQUIRED ?? '').trim().toLowerCase() === 'true',
+      (env.AI_CONSENT_REQUIRED ?? '').trim().toLowerCase() !== 'false',
     conversationRetentionDays: readNumber(
       env,
       'AI_CONVERSATION_RETENTION_DAYS',
@@ -327,6 +334,16 @@ export function agentEnvProblems(
     );
   }
   const agent = readAgentEnv(env);
+  for (const [key, value] of [
+    ['AI_MODEL', agent.model],
+    ['AI_MODEL_TOOLS', agent.toolsModel],
+  ] as const) {
+    if (value && !KNOWN_MODELS.includes(value)) {
+      problems.push(
+        `${key}=${value} — nieznany model; koszt będzie liczony po najdroższej znanej stawce (znane: ${KNOWN_MODELS.join(', ')})`,
+      );
+    }
+  }
   if (agent.enabled && agent.provider === 'anthropic' && !agent.apiKeyPresent) {
     problems.push(
       'ANTHROPIC_API_KEY jest pusty (AI_ENABLED=true, AI_PROVIDER=anthropic)',

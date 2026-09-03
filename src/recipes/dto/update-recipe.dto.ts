@@ -10,6 +10,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  ValidateIf,
   IsUUID,
   Max,
   MaxLength,
@@ -64,11 +65,13 @@ export class UpdateRecipeDto {
   @MaxLength(RECIPE_TITLE_MAX)
   title?: string;
 
-  @ApiPropertyOptional()
+  /** `null` czyści opis; brak pola go nie rusza. */
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsString()
   @MaxLength(RECIPE_DESCRIPTION_MAX)
-  description?: string;
+  description?: string | null;
 
   @ApiPropertyOptional({ enum: mealTypes })
   @IsOptional()

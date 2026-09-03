@@ -57,12 +57,16 @@ export class AgentMetricsService {
     this.rejected[reason] += 1;
   }
 
-  recordProviderUsage(usage: {
-    inputTokens: number;
-    outputTokens: number;
-    costMicroUsd: number;
-  }): void {
-    this.usage.providerCalls += 1;
+  recordProviderUsage(
+    usage: {
+      inputTokens: number;
+      outputTokens: number;
+      costMicroUsd: number;
+    },
+    /** Ile żądań do dostawcy stoi za tym zużyciem (tura = 1 + rundy narzędzi). */
+    calls = 1,
+  ): void {
+    this.usage.providerCalls += Math.max(1, calls);
     this.usage.inputTokens += usage.inputTokens;
     this.usage.outputTokens += usage.outputTokens;
     this.usage.costMicroUsd += usage.costMicroUsd;

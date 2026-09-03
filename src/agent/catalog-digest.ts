@@ -86,6 +86,12 @@ export const DIGEST_HEADER = [
   'W narzędziach używaj indeksu (R01), nigdy tytułu.',
 ].join('\n');
 
+/** Nagłówek z przykładem indeksu w SZEROKOŚCI tego katalogu (R01 vs R001). */
+function digestHeaderFor(width: number): string {
+  const example = `R${'1'.padStart(width, '0')}`;
+  return DIGEST_HEADER.replace('(R01)', `(${example})`);
+}
+
 /** Masa porównawcza wyłącznie do sortowania — `ml` liczone jak gramy. */
 function comparableGrams(ingredient: DigestIngredient): number {
   const { normalizedAmount, normalizedUnit, gramsPerPiece } = ingredient;
@@ -155,7 +161,9 @@ export function buildCatalogDigest(recipes: DigestRecipe[]): CatalogDigest {
     return buildDigestLine(recipe, key);
   });
 
-  const text = [DIGEST_HEADER, ...lines].join('\n');
+  // Przykład w nagłówku MUSI zgadzać się z danymi: przy 125 przepisach
+  // klucze to R001…R125, a model, który poszedł za „R01", tracił rundę.
+  const text = [digestHeaderFor(width), ...lines].join('\n');
   return {
     text,
     index,

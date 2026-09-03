@@ -94,7 +94,8 @@ Use [`.env.example`](./.env.example) as the source of truth.
 
 - `PORT`
 - `CORS_ORIGIN`
-- `WS_CORS_ORIGIN`
+- `WS_CORS_ORIGIN` — allowed socket origins; unset = same list as `CORS_ORIGIN` (never `*` in production)
+- `WS_HANDSHAKE_RATE_LIMIT` (300; `0` disables) — socket handshakes per IP per minute, checked before the token
 - `AUTH_DEV_LOGIN_ENABLED`
 - `WS_AUTH_MODE` (`soft` while old iOS builds are around, then `strict`)
 - `RECIPES_LIST_CACHE_ENABLED`
@@ -160,6 +161,11 @@ status, requestId}` plus a `Location` header, and the client polls `GET
   the tool loop has spent that much, the model is asked for a final answer
   without tools. Unknown `AI_MODEL` names are priced at the most expensive
   known rate (and logged once) instead of costing zero.
+- `AI_CONSENT_REQUIRED` (default **true** since 3.09.2026) — every turn requires
+  a valid `AI_ASSISTANT` **and** `AGE_16` consent (`POST /me/consents`), and
+  only consenting members reach the model. Set it to `false` explicitly only
+  while the released iOS build has no consent screen; anything else (unset,
+  typo) keeps the gate closed.
 - `AI_MODEL_TOOLS` (empty = off) — cheaper model for the conversational part
   of a turn (e.g. `claude-haiku-4-5`). The turn starts on it with read-only
   tools plus `start_planning`; when the model calls that tool, the rest of

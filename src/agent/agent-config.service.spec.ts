@@ -22,7 +22,9 @@ describe('AgentConfigService', () => {
   beforeEach(() => {
     for (const key of KEYS) original[key] = process.env[key];
     delete process.env.AI_ALLOWED_USERS;
-    delete process.env.AI_CONSENT_REQUIRED;
+    // Bramka zgód jest domyślnie WŁĄCZONA (audyt 2); te testy dotyczą listy
+    // dozwolonych kont, więc wyłączają ją jawnie.
+    process.env.AI_CONSENT_REQUIRED = 'false';
     metrics = new AgentMetricsService();
     prisma = {
       user: {
@@ -126,9 +128,14 @@ describe('AgentConfigService', () => {
       process.env.AI_CONSENT_REQUIRED = 'true';
       await expect(service.assertUserAllowed(USER_ID)).rejects.toMatchObject({
         code: 'AI_CONSENT_REQUIRED',
-        details: ['documentVersion:2026-09-02'],
+        details: [
+          'documentVersion:2026-09-15',
+          'missing:AI_ASSISTANT',
+          'missing:AGE_16',
+        ],
       });
       expect(consents.hasValid).toHaveBeenCalledWith(USER_ID, 'AI_ASSISTANT');
+      expect(consents.hasValid).toHaveBeenCalledWith(USER_ID, 'AGE_16');
       expect(metrics.snapshot().rejected.disabled).toBe(1);
     });
 

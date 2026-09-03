@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { mapWithConcurrency } from '../common/concurrency.util';
 import { createPrivateKey } from 'crypto';
 import { connect } from 'http2';
 import { SignJWT } from 'jose';
@@ -273,16 +274,14 @@ export class ApnsService implements OnModuleInit {
 
   async sendMany(deviceTokens: string[], payload: PushPayload): Promise<void> {
     if (!deviceTokens.length) return;
-    await Promise.all(
-      deviceTokens.map(async (token) => {
-        try {
-          await this.sendToDevice(token, payload);
-        } catch (error) {
-          this.logger.warn(
-            `Failed APNs send for token tail=${token.slice(-8)}: ${(error as Error).message}`,
-          );
-        }
-      }),
-    );
+    await mapWithConcurrency(deviceTokens, 8, async (token) => {
+      try {
+        await this.sendToDevice(token, payload);
+      } catch (error) {
+        this.logger.warn(
+          `Failed APNs send for token tail=${token.slice(-8)}: ${(error as Error).message}`,
+        );
+      }
+    });
   }
 }

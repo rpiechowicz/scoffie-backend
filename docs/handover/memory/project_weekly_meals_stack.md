@@ -4,6 +4,7 @@ description: Project layout and dev networking setup for Weekly Meals App (iOS +
 type: project
 originSessionId: bba7eca5-2413-4008-8809-0b93340894e6
 ---
+
 Fakt: Repo ma dwa projekty – `weekly-meals-ios` (SwiftUI, Xcode) oraz `weakly-meals-backend` (NestJS, port 3000, uruchamiany przez Docker Compose).
 
 **Why:** Developerski backend nasłuchuje na localhost:3000 (Docker), a appka iOS działa na fizycznym iPhonie, więc `localhost` nie zadziała – iPhone musi łączyć się po LAN IP Maca.

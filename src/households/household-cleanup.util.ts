@@ -37,6 +37,22 @@ export type HouseholdSettlement =
  * deleteAccount` — czyli działała tylko przy kasowaniu konta, a nie przy
  * zwykłym wyjściu z gospodarstwa. Tutaj jest raz, dla wszystkich ścieżek.
  */
+/**
+ * Poświadczenia Cookidoo należą do osoby, która je podała: gdy ta osoba
+ * opuszcza dom (sama, usunięta, albo z kontem), jej hasło nie może zostać
+ * w domu do dyspozycji pozostałych. Dom łączy się na nowo własnym hasłem.
+ */
+export async function revokeCookidooCredentialsOf(
+  tx: PrismaLike,
+  householdId: string,
+  userId: string,
+): Promise<number> {
+  const result = await tx.cookidooIntegration.deleteMany({
+    where: { householdId, connectedById: userId },
+  });
+  return result.count;
+}
+
 export async function settleHouseholdAfterMemberLeft(
   tx: PrismaLike,
   householdId: string,

@@ -30,3 +30,12 @@ updates:
       interval: monthly
     commit-message:
       prefix: 'chore(ci)'
+
+  - package-ecosystem: docker
+    directory: '/'
+    target-branch: develop
+    schedule:
+      interval: monthly
+    labels: ['dependencies']
+    commit-message:
+      prefix: 'chore(docker)'

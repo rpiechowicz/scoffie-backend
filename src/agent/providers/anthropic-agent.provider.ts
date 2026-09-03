@@ -80,18 +80,24 @@ export class AnthropicAgentProvider implements AgentProvider {
     let model = request.model;
     let tools = request.tools;
     let handedOff = false;
+    // Liczba wywołań API liczona jawnie — `round` nie widzi ostatniego słowa,
+    // a historia rozmowy w `messages` zawyżałaby każdą inną metodę.
+    let calls = 0;
 
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
-      this.assertNotAborted(request.signal);
-
       let response: Anthropic.Message;
       try {
+        // Sprawdzanie przerwania WEWNĄTRZ try: przerwanie wykryte między
+        // rundami też niesie zużycie dotychczasowych rund. Poza try tura
+        // przerwana po ośmiu rundach za 0,40 $ znikała z księgi i budżetu.
+        this.assertNotAborted(request.signal);
         response = await this.call(client, request, messages, model, tools);
       } catch (error) {
         // Zużycie z poprzednich rund musi przeżyć błąd — inaczej tura, która
         // padła w piątej rundzie, zapisze zero wydanych pieniędzy.
         throw this.withUsage(error, usage);
       }
+      calls += 1;
       this.accumulate(usage, model, response.usage);
 
       // `stop_reason` PRZED czytaniem treści: przy odmowie `content` bywa puste,
@@ -118,14 +124,18 @@ export class AnthropicAgentProvider implements AgentProvider {
           stopReason: response.stop_reason,
           usage,
           model,
-          apiCalls: round + 1,
+          apiCalls: calls,
         };
       }
 
-      messages.push({
-        role: 'user',
-        content: await this.runTools(request, toolUses),
-      });
+      let toolResults: Anthropic.ToolResultBlockParam[];
+      try {
+        toolResults = await this.runTools(request, toolUses);
+      } catch (error) {
+        // Narzędzie przerwane sygnałem (timeout, Stop) — zużycie zostaje.
+        throw this.withUsage(error, usage);
+      }
+      messages.push({ role: 'user', content: toolResults });
 
       // Przekazanie PO wykonaniu narzędzi tej rundy: wynik `start_planning`
       // wraca jeszcze do tańszego modelu jako zwykły tool_result, a od
@@ -157,6 +167,7 @@ export class AnthropicAgentProvider implements AgentProvider {
           usage,
           model,
           tools,
+          calls,
         );
       }
     }
@@ -172,6 +183,7 @@ export class AnthropicAgentProvider implements AgentProvider {
       usage,
       model,
       tools,
+      calls,
     );
   }
 
@@ -189,13 +201,25 @@ export class AnthropicAgentProvider implements AgentProvider {
     usage: AgentProviderUsage,
     model: string,
     tools: readonly AgentToolDefinition[],
+    callsSoFar: number,
   ): Promise<AgentProviderResult> {
-    messages.push({
-      role: 'user',
-      content:
-        'Nie udało się domknąć zadania narzędziami. Odpowiedz teraz bez ich ' +
-        'używania: napisz, co udało się ustalić, czego zabrakło i co proponujesz dalej.',
-    });
+    // Prośba jako blok TEKSTOWY w TEJ SAMEJ wiadomości użytkownika, co
+    // wyniki narzędzi — dwie wiadomości `user` pod rząd to niepoprawna
+    // sekwencja dla API, a to jest jedyna ścieżka wyjścia z sufitów.
+    const ask =
+      'Nie udało się domknąć zadania narzędziami. Odpowiedz teraz bez ich ' +
+      'używania: napisz, co udało się ustalić, czego zabrakło i co proponujesz dalej.';
+    const last = messages[messages.length - 1];
+    if (last && last.role === 'user') {
+      const blocks: Anthropic.ContentBlockParam[] =
+        typeof last.content === 'string'
+          ? [{ type: 'text', text: last.content }]
+          : [...last.content];
+      blocks.push({ type: 'text', text: ask });
+      messages[messages.length - 1] = { role: 'user', content: blocks };
+    } else {
+      messages.push({ role: 'user', content: ask });
+    }
 
     try {
       const response = await client.messages.create(
@@ -203,7 +227,7 @@ export class AnthropicAgentProvider implements AgentProvider {
           model,
           max_tokens: MAX_TOKENS,
           system: request.system,
-          messages,
+          messages: withCacheBreakpoint(messages),
           tools: tools as unknown as Anthropic.ToolUnion[],
           tool_choice: { type: 'none' },
           thinking: { type: 'adaptive' },
@@ -217,9 +241,7 @@ export class AnthropicAgentProvider implements AgentProvider {
         stopReason: 'tool_rounds_exhausted',
         usage,
         model,
-        // Dokładna liczba, nie stała: to samo „ostatnie słowo" woła sufit
-        // kosztu po dwóch rundach i sufit rund po trzynastu.
-        apiCalls: messages.filter((m) => m.role === 'assistant').length + 1,
+        apiCalls: callsSoFar + 1,
       };
     } catch (error) {
       const providerError = this.toProviderError(error);
@@ -272,7 +294,10 @@ export class AnthropicAgentProvider implements AgentProvider {
           model,
           max_tokens: MAX_TOKENS,
           system: request.system,
-          messages,
+          // Trzeci punkt cache na końcu historii rund: bez niego rosnąca
+          // tablica wiadomości (myślenie + wyniki narzędzi) szła do 14 razy
+          // na turę po pełnej stawce. Największa dźwignia kosztu w tym pliku.
+          messages: withCacheBreakpoint(messages),
           tools: tools as unknown as Anthropic.ToolUnion[],
           // Adaptacyjne myślenie: na modelach 5 `budget_tokens` jest odrzucane,
           // a głębokość steruje się poziomem wysiłku.
@@ -383,4 +408,34 @@ export class AnthropicAgentProvider implements AgentProvider {
         output * price.output,
     );
   }
+}
+
+/**
+ * Punkt cache na OSTATNIM bloku ostatniej wiadomości użytkownika.
+ *
+ * Prefiks (system + katalog + dom) ma swoje dwa punkty; ten trzeci obejmuje
+ * całą dotychczasową pętlę narzędzi, więc kolejna runda płaci 0,1× za to,
+ * co już raz przeczytała. Kopia płytka: tablica z dostawcy zostaje nietknięta
+ * (testy porównują ją po referencji, a runner nie ma jej widzieć).
+ */
+function withCacheBreakpoint(
+  messages: Anthropic.MessageParam[],
+): Anthropic.MessageParam[] {
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== 'user') return messages;
+  const cache = { type: 'ephemeral' as const };
+  let content: Anthropic.MessageParam['content'];
+  if (typeof last.content === 'string') {
+    content = [{ type: 'text', text: last.content, cache_control: cache }];
+  } else {
+    const blocks = [...last.content];
+    const tail = blocks[blocks.length - 1];
+    if (!tail) return messages;
+    blocks[blocks.length - 1] = {
+      ...tail,
+      cache_control: cache,
+    } as Anthropic.ContentBlockParam;
+    content = blocks;
+  }
+  return [...messages.slice(0, -1), { role: 'user', content }];
 }

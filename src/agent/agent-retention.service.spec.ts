@@ -7,6 +7,11 @@ describe('AgentRetentionService.sweep', () => {
   let prisma: {
     agentConversation: { deleteMany: jest.Mock };
     invitation: { deleteMany: jest.Mock };
+    aiUsage: { deleteMany: jest.Mock };
+    agentReport: { deleteMany: jest.Mock };
+    refreshToken: { deleteMany: jest.Mock };
+    pushDevice: { deleteMany: jest.Mock };
+    agentTurn: { updateMany: jest.Mock };
   };
   let service: AgentRetentionService;
 
@@ -17,6 +22,11 @@ describe('AgentRetentionService.sweep', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 3 }),
       },
       invitation: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      aiUsage: { deleteMany: jest.fn().mockResolvedValue({ count: 4 }) },
+      agentReport: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      refreshToken: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      pushDevice: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      agentTurn: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
     service = new AgentRetentionService(prisma as unknown as PrismaService);
   });
@@ -35,6 +45,14 @@ describe('AgentRetentionService.sweep', () => {
       cutoff: cutoff.toISOString(),
       conversations: 3,
       invitations: 1,
+      aiUsage: 4,
+      reports: 0,
+      refreshTokens: 2,
+      pushDevices: 0,
+    });
+    // Polityka §10: księga kosztów do 12 miesięcy.
+    expect(prisma.aiUsage.deleteMany).toHaveBeenCalledWith({
+      where: { createdAt: { lt: new Date('2025-09-02T12:00:00.000Z') } },
     });
     expect(prisma.agentConversation.deleteMany).toHaveBeenCalledWith({
       where: {

@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 const SOURCE_FILE =
   process.env.IMAGE_URL_SOURCE_FILE ??
-  'prisma/catalog/recipes-db-v1-import.json';
+  'prisma/catalog/recipes-catalog-full-v2.json';
 
 type SourceRecipe = {
   title: string;

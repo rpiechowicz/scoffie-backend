@@ -1342,16 +1342,19 @@ export class WeeklyPlansService {
     if (!plan) {
       return { created: desired.length, updated: 0, deleted: 0 };
     }
-    const current = await this.prisma.planItem.findMany({
-      where: { weeklyPlanId: plan.id },
-      select: {
-        dayOfWeek: true,
-        mealType: true,
-        recipeId: true,
-        plannedServings: true,
-        participants: { select: { userId: true } },
-      },
-    });
+    const [current, memberCount] = await Promise.all([
+      this.prisma.planItem.findMany({
+        where: { weeklyPlanId: plan.id },
+        select: {
+          dayOfWeek: true,
+          mealType: true,
+          recipeId: true,
+          plannedServings: true,
+          participants: { select: { userId: true } },
+        },
+      }),
+      this.prisma.membership.count({ where: { householdId } }),
+    ]);
     const currentByKey = new Map(
       current.map((item) => [planSlotKey(item), item]),
     );
@@ -1365,13 +1368,21 @@ export class WeeklyPlansService {
         created += 1;
         continue;
       }
+      const currentParticipantIds = existing.participants.map((p) => p.userId);
       const participantsChanged = !sameIdSet(
-        existing.participants.map((p) => p.userId),
+        currentParticipantIds,
         slot.participantIds,
       );
-      const servingsChanged =
-        slot.plannedServings != null &&
-        slot.plannedServings !== existing.plannedServings;
+      // Ta sama reguła porcji, co przy zapisie — inaczej karta propozycji
+      // obiecywała inną liczbę zmian niż potem wykonał zapis.
+      const plannedServings = this.resolveUpdatedPlannedServings({
+        currentPlannedServings: existing.plannedServings,
+        currentParticipantIds,
+        nextParticipantIds: slot.participantIds,
+        memberCount,
+        requested: slot.plannedServings,
+      });
+      const servingsChanged = plannedServings !== existing.plannedServings;
       if (participantsChanged || servingsChanged) updated += 1;
     }
 

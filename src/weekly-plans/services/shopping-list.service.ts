@@ -65,6 +65,9 @@ function archiveNotFound(): AppException {
 /// row per week, plus zero or more archived snapshots. Recompute fans
 /// out from `rebuildShoppingListSnapshot`, gated by `markShoppingListStale`
 /// so we don't do work for weeks the UI isn't looking at.
+/** Ile ostatnich archiwów wraca ze stanem listy — starsze tylko w bazie. */
+const MAX_ARCHIVES_IN_STATE = 52;
+
 @Injectable()
 export class ShoppingListService {
   private readonly logger = new Logger(ShoppingListService.name);
@@ -325,24 +328,59 @@ export class ShoppingListService {
       },
     });
 
+    // Jedno zapytanie o stan, jedno `createMany` na nowe pozycje i update
+    // tylko tam, gdzie coś się zmieniło — zamiast upsertu na KAŻDĄ pozycję
+    // w transakcji (lista na 60 produktów = 60 rund do bazy).
+    const existingItems = await tx.shoppingListItem.findMany({
+      where: { shoppingListId: shoppingList.id },
+      select: {
+        productKey: true,
+        name: true,
+        unit: true,
+        department: true,
+        totalAmount: true,
+        isChecked: true,
+      },
+    });
+    const existingByKey = new Map(
+      existingItems.map((item) => [item.productKey, item]),
+    );
+    const toCreate = nextItems.filter(
+      (item) => !existingByKey.has(item.productKey),
+    );
+    if (toCreate.length > 0) {
+      await tx.shoppingListItem.createMany({
+        data: toCreate.map((item) => ({
+          shoppingListId: shoppingList.id,
+          productKey: item.productKey,
+          name: item.name,
+          unit: item.unit,
+          department: item.department,
+          totalAmount: item.totalAmount,
+          isChecked: item.isChecked,
+        })),
+      });
+    }
     for (const item of nextItems) {
-      await tx.shoppingListItem.upsert({
+      const current = existingByKey.get(item.productKey);
+      if (!current) continue;
+      if (
+        current.name === item.name &&
+        current.unit === item.unit &&
+        current.department === item.department &&
+        current.totalAmount === item.totalAmount &&
+        current.isChecked === item.isChecked
+      ) {
+        continue;
+      }
+      await tx.shoppingListItem.update({
         where: {
           shoppingListId_productKey: {
             shoppingListId: shoppingList.id,
             productKey: item.productKey,
           },
         },
-        update: {
-          name: item.name,
-          unit: item.unit,
-          department: item.department,
-          totalAmount: item.totalAmount,
-          isChecked: item.isChecked,
-        },
-        create: {
-          shoppingListId: shoppingList.id,
-          productKey: item.productKey,
+        data: {
           name: item.name,
           unit: item.unit,
           department: item.department,
@@ -503,6 +541,9 @@ export class ShoppingListService {
         this.prisma.shoppingListArchive.findMany({
           where: { householdId },
           orderBy: [{ archivedAt: 'desc' }, { revision: 'desc' }],
+          // Ekran pokazuje ostatnie tygodnie; dom z dwuletnią historią
+          // ładował setki archiwów z tysiącami pozycji przy każdym wejściu.
+          take: MAX_ARCHIVES_IN_STATE,
           include: {
             items: {
               orderBy: [{ department: 'asc' }, { name: 'asc' }],
@@ -798,11 +839,14 @@ export class ShoppingListService {
     const weekStartDate = parseWeekStart(weekStart);
 
     return runSerializable(this.prisma, async (tx) => {
+      // Zawężone do TEGO tygodnia: żądanie niesie `weekStart`, klient
+      // rozgłasza zmianę dla tego tygodnia, a kasowanie wszystkich tygodni
+      // zabierało archiwa, o których nikt na ekranie nie wiedział.
       await tx.shoppingListArchiveState.deleteMany({
-        where: { householdId },
+        where: { householdId, weekStart: weekStartDate },
       });
       await tx.shoppingListArchive.deleteMany({
-        where: { householdId },
+        where: { householdId, weekStart: weekStartDate },
       });
       await tx.shoppingListArchiveState.create({
         data: {

@@ -7,7 +7,9 @@ export type AccessTokenFailureReason =
   | 'missing'
   | 'invalid'
   | 'expired'
-  | 'user_gone';
+  | 'user_gone'
+  /** Odrzucone limitem uścisków dłoni per IP, zanim doszło do tokenu. */
+  | 'rate_limited';
 
 export type VerifiedAccessToken = {
   ok: true;
@@ -56,11 +58,12 @@ export class AccessTokenService {
     const trimmed = (token ?? '').trim();
     if (!trimmed) return { ok: false, reason: 'missing' };
 
-    let payload: { sub?: unknown; exp?: unknown };
+    let payload: { sub?: unknown; exp?: unknown; tv?: unknown };
     try {
       payload = await this.jwtService.verifyAsync<{
         sub?: unknown;
         exp?: unknown;
+        tv?: unknown;
       }>(trimmed);
     } catch (error) {
       return {
@@ -76,9 +79,16 @@ export class AccessTokenService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true },
+      select: { id: true, tokenVersion: true },
     });
     if (!user) return { ok: false, reason: 'user_gone' };
+    // Token sprzed podbicia wersji (wykryte ponowne użycie refresh tokenu,
+    // wylogowanie zewsząd) jest nieważny, choć podpis i TTL się zgadzają.
+    // Tokeny bez `tv` (wydane przed tą kolumną) liczą się jak wersja 0.
+    const tokenVersion = typeof payload.tv === 'number' ? payload.tv : 0;
+    if (tokenVersion !== (user.tokenVersion ?? 0)) {
+      return { ok: false, reason: 'invalid' };
+    }
 
     return {
       ok: true,

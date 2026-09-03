@@ -1,7 +1,7 @@
 ---
 name: project-health-steps-integration
 description: Integracja kroków (Apple Health/Garmin przez HealthKit) — gałąź feature/health-steps w obu repach; co zostało do zweryfikowania ręcznie.
-metadata: 
+metadata:
   node_type: memory
   type: project
   originSessionId: 07d4f263-e5aa-4641-8925-5354fa37ecd4

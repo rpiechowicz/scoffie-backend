@@ -33,6 +33,10 @@ model User {
   avatarColor           Int?
   onboardingCompletedAt DateTime?
   lastLoginAt           DateTime?
+  /// Wersja tokenów dostępu. Podbicie unieważnia WSZYSTKIE wydane JWT tej
+  /// osoby (wykrycie ponownego użycia refresh tokenu, wylogowanie zewsząd) —
+  /// bez tego skradziony token dostępu żył do końca swojego TTL.
+  tokenVersion          Int          @default(0)
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
 
@@ -435,6 +439,10 @@ model Membership {
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@unique([userId, householdId])
+  /// Najgorętsze zapytanie w aplikacji: „kto jest w tym domu" (pokoje WS,
+  /// odbiorcy powiadomień, składy). Unikat (userId, householdId) nie
+  /// pomaga, bo householdId stoi w nim drugi.
+  @@index([householdId])
 }
 
 model Invitation {
@@ -521,6 +529,9 @@ model PlanItem {
   // to one slot.
   @@unique([weeklyPlanId, dayOfWeek, mealType, recipeId])
   @@index([weeklyPlanId, dayOfWeek, mealType])
+  /// Wycofanie przepisu, import katalogu i „gdzie ten przepis jest w planie"
+  /// szukają po przepisie — bez indeksu to pełny skan pozycji.
+  @@index([recipeId])
 }
 
 /// Which household members a given plan item is for.
@@ -693,6 +704,12 @@ model AgentProposal {
   appliedAt       DateTime?
   appliedByUserId String?   @db.Uuid
   undoneAt        DateTime?
+  /// Okres (`YYYY-MM`), z którego zeszła kwota planu przy zapisie; `null`
+  /// = nic nie zeszło (zapis bez zmian, kwota oddana). Cofnięcie zwraca
+  /// kwotę TYLKO wtedy i TAM — nie do bieżącego miesiąca.
+  quotaPeriodKey  String?
+  /// Ile pozycji zmienił zapis; 0 = „Cofnij" nie ma czego cofać.
+  changedCount    Int?
   expiresAt       DateTime
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -724,6 +741,9 @@ model AgentTurn {
   outputTokens   Int       @default(0)
   costMicroUsd   Int       @default(0)
   durationMs     Int?
+  /// Czy kwota wiadomości wróciła po porażce — rozkład zużycia na domowników
+  /// liczy tylko tury, które naprawdę zjadły wiadomość.
+  quotaRefunded  Boolean   @default(false)
   startedAt      DateTime  @default(now())
   finishedAt     DateTime?
   createdAt      DateTime  @default(now())
@@ -747,7 +767,7 @@ model AiUsage {
   /// systematycznie „malał". Wiersz bez tury nadal niesie userId, householdId,
   /// tokeny i koszt.
   turnId           String?  @db.Uuid
-  userId           String   @db.Uuid
+  userId           String?  @db.Uuid
   householdId      String?  @db.Uuid
   provider         String
   model            String

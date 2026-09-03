@@ -1174,7 +1174,7 @@
       "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
-      "servings": 2,
+      "servings": 4,
       "nutrition": {
         "kcal": 1824,
         "protein": 73,

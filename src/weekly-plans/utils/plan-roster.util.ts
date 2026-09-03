@@ -161,11 +161,27 @@ export async function onMemberLeft(
       weeklyPlan: weekScope,
       participants: { some: { userId } },
     },
-    select: { id: true, participants: { select: { userId: true } } },
+    select: {
+      id: true,
+      plannedServings: true,
+      participants: { select: { userId: true } },
+    },
   });
   const deletedItemIds = affected
     .filter((item) => item.participants.length === 1)
     .map((item) => item.id);
+  // Item imienny dzielony z kimś, kto został: porcje liczone z długości
+  // listy uczestników (nie z liczby domowników) też muszą zmaleć — inaczej
+  // lista kupuje dla dwóch, a bilans dubluje kalorie. Ręcznie ustawioną
+  // liczbę porcji (inną niż auto) zostawiamy.
+  for (const item of affected) {
+    if (item.participants.length < 2) continue;
+    if (item.plannedServings !== item.participants.length) continue;
+    await tx.planItem.update({
+      where: { id: item.id },
+      data: { plannedServings: item.participants.length - 1 },
+    });
+  }
 
   if (deletedItemIds.length > 0) {
     // Kaskada z `PlanItem` zabiera uczestników i „zjedzone", więc osobne

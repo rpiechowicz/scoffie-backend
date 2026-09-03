@@ -4,7 +4,10 @@ import {
   OnApplicationBootstrap,
   OnModuleDestroy,
 } from '@nestjs/common';
-import { readAgentEnv } from '../config/agent-env';
+import { readAgentEnv, TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
+
+const daysAgo = (now: Date, days: number): Date =>
+  new Date(now.getTime() - days * 86_400_000);
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Sześć godzin: retencja liczona w dniach nie potrzebuje częściej. */
@@ -13,11 +16,21 @@ const SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const FIRST_SWEEP_DELAY_MS = 60 * 1000;
 /** Wygasłe, nieprzyjęte zaproszenia znikają po 30 dniach od wygaśnięcia. */
 const INVITATION_GRACE_DAYS = 30;
+/** Polityka §10: dane o użyciu asystenta „do 12 miesięcy". */
+const AI_USAGE_DAYS = 365;
+/** Zgłoszenia odpowiedzi — rok, tyle trzeba na rozpatrzenie i statystykę. */
+const AGENT_REPORT_DAYS = 365;
+/** Urządzenie push, które od 90 dni nie odpowiada, nie wróci. */
+const DEAD_PUSH_DEVICE_DAYS = 90;
 
 export type RetentionSweep = {
   cutoff: string | null;
   conversations: number;
   invitations: number;
+  aiUsage: number;
+  reports: number;
+  refreshTokens: number;
+  pushDevices: number;
 };
 
 /**
@@ -68,10 +81,53 @@ export class AgentRetentionService
         },
       },
     });
+    // Niezależnie od retencji rozmów — obietnice z polityki §10 i porządki,
+    // które nie mają własnej zmiennej.
+    const aiUsage = await this.prisma.aiUsage.deleteMany({
+      where: { createdAt: { lt: daysAgo(now, AI_USAGE_DAYS) } },
+    });
+    const reports = await this.prisma.agentReport.deleteMany({
+      where: { createdAt: { lt: daysAgo(now, AGENT_REPORT_DAYS) } },
+    });
+    const refreshTokens = await this.prisma.refreshToken.deleteMany({
+      where: { OR: [{ expiresAt: { lt: now } }, { revokedAt: { not: null } }] },
+    });
+    const pushDevices = await this.prisma.pushDevice.deleteMany({
+      where: {
+        isActive: false,
+        updatedAt: { lt: daysAgo(now, DEAD_PUSH_DEVICE_DAYS) },
+      },
+    });
+    const extras = {
+      aiUsage: aiUsage.count,
+      reports: reports.count,
+      refreshTokens: refreshTokens.count,
+      pushDevices: pushDevices.count,
+    };
     if (days <= 0) {
-      return { cutoff: null, conversations: 0, invitations: invitations.count };
+      return {
+        cutoff: null,
+        conversations: 0,
+        invitations: invitations.count,
+        ...extras,
+      };
     }
     const cutoff = new Date(now.getTime() - days * 86_400_000);
+    // Tura-zombie (proces padł w połowie, nikt jej nie odpytał) nie może
+    // trzymać rozmowy poza retencją na zawsze — domykamy ją tu tak samo
+    // jak leniwy timeout w odczycie.
+    const env = readAgentEnv();
+    await this.prisma.agentTurn.updateMany({
+      where: {
+        status: 'RUNNING',
+        startedAt: {
+          lt: new Date(
+            now.getTime() - env.turnTimeoutMs - TURN_TIMEOUT_GRACE_MS,
+          ),
+        },
+      },
+      data: { status: 'FAILED', errorCode: 'AI_TIMEOUT', finishedAt: now },
+    });
     const conversations = await this.prisma.agentConversation.deleteMany({
       where: {
         // Ostatnia wiadomość, a gdy rozmowa nigdy jej nie dostała — założenie.
@@ -86,6 +142,7 @@ export class AgentRetentionService
       cutoff: cutoff.toISOString(),
       conversations: conversations.count,
       invitations: invitations.count,
+      ...extras,
     };
   }
 

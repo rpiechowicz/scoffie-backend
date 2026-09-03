@@ -6,22 +6,22 @@
 
 ## 0. Facts verified in the current source (post–Plaster A)
 
-| Fact | Evidence |
-|---|---|
-| `parseWeekStart` is already strict: `/^\d{4}-\d{2}-\d{2}$/` + `getUTCDay() === 1` + UTC midnight | `src/weekly-plans/utils/week-formatting.util.ts:13-28` |
-| No "current Monday" helper exists anywhere in the backend | `grep -rn "getUTCDay\|startOfWeek\|setUTCDate" src/` → only `week-formatting.util.ts:24` and `notifications/notification-copy.util.ts:132-134` |
-| `WeeklyPlansModule` exports nothing → `HouseholdsModule` cannot inject `WeeklyPlansService`/`ShoppingListService` | `src/weekly-plans/weekly-plans.module.ts:7-10` (`providers` only, no `exports`) |
-| `markShoppingListStale` is an **instance method**, not static; body uses only `tx`, no `this` | `src/weekly-plans/services/shopping-list.service.ts:408-431` |
-| A missing `ShoppingList` row is **not** an error on read — `getShoppingListSnapshot` falls through to `rebuildShoppingListSnapshotWithClient` | `shopping-list.service.ts:438-484` (`if (snapshot) {…}` then `480: return this.rebuild…`) |
-| `PlanItemParticipant` / `PlanItemConsumption` cascade on `PlanItem` and `User` only — `Membership` is unrelated | `prisma/schema.prisma:391-392`, `:409-410`, `:284-295` |
-| `PlanItemParticipant` PK is `@@id([planItemId, userId])` → a user appears at most once per item | `schema.prisma:394` |
-| `ShoppingList.updatedAt` is `@updatedAt` → `updateMany` bumps it automatically | `schema.prisma:485` |
-| jest maps **any** import ending in `households.service` to the stub → hook tests cannot live in `households.service.spec.ts` | `jest.config.js:22-25` |
-| Both gateways use the same `WS_GATEWAY_OPTIONS`, no namespace → `this.server` is the **same** Socket.IO server | `households.gateway.ts:99`, `weekly-plans.gateway.ts:136` |
-| iOS ignores an unknown `weekChanged.action`: `singleChangeText` `default: return nil` → no local notification, but `scheduleWeekReload` already ran | `PlanChangeNotificationService.swift:361-378`, `WeeklyMealStore.swift:527-544` |
-| iOS `households:membersChanged` handler updates the member list **only** — it never refetches the week or the list | `SessionStore.swift:577-631` |
-| Prisma 6.2 — relation filters (`some`/`none`, to-one) are supported inside `updateMany`/`deleteMany` `where` | `package.json` → `"@prisma/client": "^6.2.1"` |
-| The container has devDeps (jest/ts-jest/tsc) and `/app/src`, `/app/tsconfig.json`, but **not** `jest.config.js` | `Dockerfile:32-43` (`COPY --from=deps /app/node_modules`), `container_name: weeklymeals-api` |
+| Fact                                                                                                                                                | Evidence                                                                                                                                       |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parseWeekStart` is already strict: `/^\d{4}-\d{2}-\d{2}$/` + `getUTCDay() === 1` + UTC midnight                                                    | `src/weekly-plans/utils/week-formatting.util.ts:13-28`                                                                                         |
+| No "current Monday" helper exists anywhere in the backend                                                                                           | `grep -rn "getUTCDay\|startOfWeek\|setUTCDate" src/` → only `week-formatting.util.ts:24` and `notifications/notification-copy.util.ts:132-134` |
+| `WeeklyPlansModule` exports nothing → `HouseholdsModule` cannot inject `WeeklyPlansService`/`ShoppingListService`                                   | `src/weekly-plans/weekly-plans.module.ts:7-10` (`providers` only, no `exports`)                                                                |
+| `markShoppingListStale` is an **instance method**, not static; body uses only `tx`, no `this`                                                       | `src/weekly-plans/services/shopping-list.service.ts:408-431`                                                                                   |
+| A missing `ShoppingList` row is **not** an error on read — `getShoppingListSnapshot` falls through to `rebuildShoppingListSnapshotWithClient`       | `shopping-list.service.ts:438-484` (`if (snapshot) {…}` then `480: return this.rebuild…`)                                                      |
+| `PlanItemParticipant` / `PlanItemConsumption` cascade on `PlanItem` and `User` only — `Membership` is unrelated                                     | `prisma/schema.prisma:391-392`, `:409-410`, `:284-295`                                                                                         |
+| `PlanItemParticipant` PK is `@@id([planItemId, userId])` → a user appears at most once per item                                                     | `schema.prisma:394`                                                                                                                            |
+| `ShoppingList.updatedAt` is `@updatedAt` → `updateMany` bumps it automatically                                                                      | `schema.prisma:485`                                                                                                                            |
+| jest maps **any** import ending in `households.service` to the stub → hook tests cannot live in `households.service.spec.ts`                        | `jest.config.js:22-25`                                                                                                                         |
+| Both gateways use the same `WS_GATEWAY_OPTIONS`, no namespace → `this.server` is the **same** Socket.IO server                                      | `households.gateway.ts:99`, `weekly-plans.gateway.ts:136`                                                                                      |
+| iOS ignores an unknown `weekChanged.action`: `singleChangeText` `default: return nil` → no local notification, but `scheduleWeekReload` already ran | `PlanChangeNotificationService.swift:361-378`, `WeeklyMealStore.swift:527-544`                                                                 |
+| iOS `households:membersChanged` handler updates the member list **only** — it never refetches the week or the list                                  | `SessionStore.swift:577-631`                                                                                                                   |
+| Prisma 6.2 — relation filters (`some`/`none`, to-one) are supported inside `updateMany`/`deleteMany` `where`                                        | `package.json` → `"@prisma/client": "^6.2.1"`                                                                                                  |
+| The container has devDeps (jest/ts-jest/tsc) and `/app/src`, `/app/tsconfig.json`, but **not** `jest.config.js`                                     | `Dockerfile:32-43` (`COPY --from=deps /app/node_modules`), `container_name: weeklymeals-api`                                                   |
 
 **New finding not in the audit:** `UsersService.deleteAccount` is a **4th membership-removal path** (`src/users/users.service.ts:417-439`). `tx.user.delete` at `:438` cascades the ghost rows away, so WP-04 does not bite there — but the items whose participant set becomes empty are **silently promoted to "Wspólne"**, and auto servings are **not** re-derived (WP-07 in full). It must call the same hook.
 
@@ -32,13 +32,14 @@
 ### D1 — Where the code lives: `src/weekly-plans/utils/plan-roster.util.ts`, pure functions taking `tx`
 
 Same shape as `settleHouseholdAfterMemberLeft` (`src/households/household-cleanup.util.ts:34-37`): `export async function f(tx: PrismaLike, …)`. Rationale:
+
 - `HouseholdsModule` (`households.module.ts:6-11`) would otherwise need `WeeklyPlansModule` to `exports: [WeeklyPlansService]`, and `WeeklyPlansService` would need `HouseholdsService` for member counts → module cycle.
 - The work **must** run inside the caller's existing `$transaction` (`households.service.ts:188`, `:588`, `:614`; `users.service.ts:417`). A DI'd service would still have to accept `tx`, so DI buys nothing.
 - Import direction `households → weekly-plans/utils` already exists conceptually (`weekly-plans/utils/auth-checks.util.ts` reads `Membership`); there is no import cycle: `plan-roster.util` imports only `@prisma/client` and `./week-formatting.util`.
 
 ### D2 — Stale marking: `tx.shoppingList.updateMany`, **not** `ShoppingListService.markShoppingListStale`
 
-`markShoppingListStale` (`shopping-list.service.ts:408-431`) is an instance method → unusable without DI. Do **not** duplicate its `upsert`: an upsert would *create* `ShoppingList` rows for weeks that never had a list, and a missing row already means "rebuild from scratch" on read (`shopping-list.service.ts:480-484`). One statement covers all touched weeks:
+`markShoppingListStale` (`shopping-list.service.ts:408-431`) is an instance method → unusable without DI. Do **not** duplicate its `upsert`: an upsert would _create_ `ShoppingList` rows for weeks that never had a list, and a missing row already means "rebuild from scratch" on read (`shopping-list.service.ts:480-484`). One statement covers all touched weeks:
 
 ```ts
 await tx.shoppingList.updateMany({
@@ -51,24 +52,24 @@ await tx.shoppingList.updateMany({
 
 Recommended, for weeks `>= current Monday` only.
 
-- The row exists *because* that person eats it. Promoting it to `[]` makes it a household-wide meal nobody chose: it shows on every member's dashboard (`SavedMealPlan.swift:194-197` `visibleTo` falls back to `filter(\.isShared)`), it counts against everyone's kcal (`nutritionPerPerson`), and `PlanAudienceChips.collapsed` (`PlanAudienceChips.swift:47-51`) would then treat it as a deliberate "Wspólne".
-- **Nothing user-visible is lost:** an item whose only participant is the ghost is *already* invisible to every remaining member (`visibleTo` returns `own = []` → falls back to shared → this item is not shared → not rendered). Deleting it removes a row nobody can see but which `buildShoppingListBase` still buys food for (participants are ignored by the shopping list).
+- The row exists _because_ that person eats it. Promoting it to `[]` makes it a household-wide meal nobody chose: it shows on every member's dashboard (`SavedMealPlan.swift:194-197` `visibleTo` falls back to `filter(\.isShared)`), it counts against everyone's kcal (`nutritionPerPerson`), and `PlanAudienceChips.collapsed` (`PlanAudienceChips.swift:47-51`) would then treat it as a deliberate "Wspólne".
+- **Nothing user-visible is lost:** an item whose only participant is the ghost is _already_ invisible to every remaining member (`visibleTo` returns `own = []` → falls back to shared → this item is not shared → not rendered). Deleting it removes a row nobody can see but which `buildShoppingListBase` still buys food for (participants are ignored by the shopping list).
 - Deleting also unblocks WP-04's user-facing symptom: `WeeklyPlanView.swift:467` re-sends `participantIds` → `weekly-plans.service.ts:664-671` throws `PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD`.
 - **Multi-participant items are kept**, minus the ghost row — "Ania + Marek's lunch" is still Ania's lunch.
 
 ### D4 — Past weeks (`weekStart < current Monday`): do nothing
 
-Past weeks are a record of what happened; `PlanItemConsumption` rows for a departed member are *accurate*. They never feed the current shopping list or the servings math, and the read path renders them harmlessly. Deleting them would rewrite history.
+Past weeks are a record of what happened; `PlanItemConsumption` rows for a departed member are _accurate_. They never feed the current shopping list or the servings math, and the read path renders them harmlessly. Deleting them would rewrite history.
 
 ### D5 — Servings heuristic: mirror `resolveUpdatedPlannedServings`, with the same documented blind spot
 
 `weekly-plans.service.ts:766-774` decides "was this value auto?" by comparing the stored value to the auto rule (`resolvePlannedServings`, `:686-706` → `min(12, max(1, participants.length || memberCount))`). The hook reuses exactly that: a shared item (`participants: none`) whose `plannedServings === clamp(oldMemberCount)` was auto → set to `clamp(newMemberCount)`.
 
-**Limitation (must be in the doc comment):** a *manual* value that happens to equal the old member count is indistinguishable from an auto value and will be re-derived. This is the same limitation the service already accepts and documents at `weekly-plans.service.ts:727-730`. The real fix is a `servingsMode AUTO|MANUAL` column (WP-07 "LATER", 4 h + iOS) — out of scope here.
+**Limitation (must be in the doc comment):** a _manual_ value that happens to equal the old member count is indistinguishable from an auto value and will be re-derived. This is the same limitation the service already accepts and documents at `weekly-plans.service.ts:727-730`. The real fix is a `servingsMode AUTO|MANUAL` column (WP-07 "LATER", 4 h + iOS) — out of scope here.
 
 ### D6 — Counts are derived inside the hook, not passed by the caller
 
-Every call site deletes **exactly one** membership per household before calling, so `oldMemberCount = newMemberCount + 1` is exact. `onRosterChanged` stays exported with explicit counts because `acceptInvitation`'s *join* branch uses `upsert` (`households.service.ts:200-213`) and cannot know whether a row was created.
+Every call site deletes **exactly one** membership per household before calling, so `oldMemberCount = newMemberCount + 1` is exact. `onRosterChanged` stays exported with explicit counts because `acceptInvitation`'s _join_ branch uses `upsert` (`households.service.ts:200-213`) and cannot know whether a row was created.
 
 ### D7 — Skip everything when the household was deleted
 
@@ -310,14 +311,17 @@ export async function onMemberLeft(
 ## 4. Change 3 — call sites (complete enumeration)
 
 `grep -rn "membership.delete\|membership.deleteMany\|settleHouseholdAfterMemberLeft" src/` →
-`users.service.ts:427,435` · `households.service.ts:190,197,589,595,615,618`. Plus the *join* path `households.service.ts:200-213`. That is **5** sites; `create` (`:88-105`) needs nothing (a brand-new 1-member household has no plans).
+`users.service.ts:427,435` · `households.service.ts:190,197,589,595,615,618`. Plus the _join_ path `households.service.ts:200-213`. That is **5** sites; `create` (`:88-105`) needs nothing (a brand-new 1-member household has no plans).
 
 ### 4.1 `HouseholdsService.acceptInvitation` — `src/households/households.service.ts`
 
 Add to the import block after line 23:
 
 ```ts
-import { onMemberLeft, onRosterChanged } from '../weekly-plans/utils/plan-roster.util';
+import {
+  onMemberLeft,
+  onRosterChanged,
+} from '../weekly-plans/utils/plan-roster.util';
 ```
 
 **Current (lines 188-198):**
@@ -334,7 +338,7 @@ import { onMemberLeft, onRosterChanged } from '../weekly-plans/utils/plan-roster
 198:      }
 ```
 
-**New:** capture the settlement and hook the *left* households, then bracket the upsert with member counts for the *joined* household.
+**New:** capture the settlement and hook the _left_ households, then bracket the upsert with member counts for the _joined_ household.
 
 ```ts
     const now = new Date();
@@ -381,11 +385,11 @@ import { onMemberLeft, onRosterChanged } from '../weekly-plans/utils/plan-roster
 Return value (`:253-256`) gains one field for the gateway broadcast:
 
 ```ts
-      return {
-        ...membership,
-        leftHouseholdIds: otherMemberships.map((m) => m.householdId),
-        touchedWeekStarts: await weekKeysFrom(tx, invitation.householdId, now), // see note
-      };
+return {
+  ...membership,
+  leftHouseholdIds: otherMemberships.map((m) => m.householdId),
+  touchedWeekStarts: await weekKeysFrom(tx, invitation.householdId, now), // see note
+};
 ```
 
 > **Simplification:** rather than a second helper, have `onRosterChanged` return `{ count, touchedWeekStarts }` if you want the join path to broadcast. If you skip §6 (broadcasts), keep `onRosterChanged` returning `number` and do not touch the return object.
@@ -407,22 +411,22 @@ Return value (`:253-256`) gains one field for the gateway broadcast:
 **New:**
 
 ```ts
-    const now = new Date();
-    return this.prisma.$transaction(async (tx) => {
-      const removed = await tx.membership.delete({
-        where: { userId_householdId: { userId: memberUserId, householdId } },
-      });
-      // Ta sama reguła co przy wyjściu — … (comment :592-594 unchanged)
-      const settlement = await settleHouseholdAfterMemberLeft(tx, householdId);
-      const roster =
-        settlement.outcome === 'DELETED'
-          ? { touchedWeekStarts: [] as string[] }
-          : await onMemberLeft(tx, householdId, memberUserId, now);
-      return { ...removed, touchedWeekStarts: roster.touchedWeekStarts };
-    });
+const now = new Date();
+return this.prisma.$transaction(async (tx) => {
+  const removed = await tx.membership.delete({
+    where: { userId_householdId: { userId: memberUserId, householdId } },
+  });
+  // Ta sama reguła co przy wyjściu — … (comment :592-594 unchanged)
+  const settlement = await settleHouseholdAfterMemberLeft(tx, householdId);
+  const roster =
+    settlement.outcome === 'DELETED'
+      ? { touchedWeekStarts: [] as string[] }
+      : await onMemberLeft(tx, householdId, memberUserId, now);
+  return { ...removed, touchedWeekStarts: roster.touchedWeekStarts };
+});
 ```
 
-*Why the leaver's id, not `userId`:* `userId` is the **owner performing the removal**; the departing member is `memberUserId`. Getting this backwards deletes the owner's own participations — the single most likely bug in this change. Assert it in the tests.
+_Why the leaver's id, not `userId`:_ `userId` is the **owner performing the removal**; the departing member is `memberUserId`. Getting this backwards deletes the owner's own participations — the single most likely bug in this change. Assert it in the tests.
 
 ### 4.3 `HouseholdsService.leave` — `households.service.ts:610-625`
 
@@ -440,26 +444,26 @@ Return value (`:253-256`) gains one field for the gateway broadcast:
 **New:**
 
 ```ts
-    const now = new Date();
-    const { settlement, touchedWeekStarts } = await this.prisma.$transaction(
-      async (tx) => {
-        await tx.membership.delete({
-          where: { userId_householdId: { userId, householdId } },
-        });
-        const settled = await settleHouseholdAfterMemberLeft(tx, householdId);
-        if (settled.outcome === 'DELETED') {
-          return { settlement: settled, touchedWeekStarts: [] as string[] };
-        }
-        const roster = await onMemberLeft(tx, householdId, userId, now);
-        return { settlement: settled, touchedWeekStarts: roster.touchedWeekStarts };
-      },
-    );
+const now = new Date();
+const { settlement, touchedWeekStarts } = await this.prisma.$transaction(
+  async (tx) => {
+    await tx.membership.delete({
+      where: { userId_householdId: { userId, householdId } },
+    });
+    const settled = await settleHouseholdAfterMemberLeft(tx, householdId);
+    if (settled.outcome === 'DELETED') {
+      return { settlement: settled, touchedWeekStarts: [] as string[] };
+    }
+    const roster = await onMemberLeft(tx, householdId, userId, now);
+    return { settlement: settled, touchedWeekStarts: roster.touchedWeekStarts };
+  },
+);
 
-    return {
-      success: true,
-      householdDeleted: settlement.outcome === 'DELETED',
-      touchedWeekStarts,
-    };
+return {
+  success: true,
+  householdDeleted: settlement.outcome === 'DELETED',
+  touchedWeekStarts,
+};
 ```
 
 ### 4.4 `UsersService.deleteAccount` — `src/users/users.service.ts:417-439` (not in the audit)
@@ -480,37 +484,37 @@ Return value (`:253-256`) gains one field for the gateway broadcast:
 **New:** insert after `:435`, before the loop closes:
 
 ```ts
-        const settlement = await settleHouseholdAfterMemberLeft(
-          tx,
-          membership.householdId,
-        );
-        // Kaskada z `tx.user.delete` (:438) zabiera wiersze uczestnictwa, ale
-        // ROBI TO PÓŹNIEJ i po cichu: item, na którym ta osoba była jedynym
-        // uczestnikiem, awansowałby na „Wspólny", a auto-porcje „Wspólnych"
-        // zostałyby policzone dla starego składu. Hook musi pójść PRZED
-        // usunięciem użytkownika, dopóki wiersze jeszcze istnieją.
-        if (settlement.outcome !== 'DELETED') {
-          await onMemberLeft(tx, membership.householdId, userId, now);
-        }
+const settlement = await settleHouseholdAfterMemberLeft(
+  tx,
+  membership.householdId,
+);
+// Kaskada z `tx.user.delete` (:438) zabiera wiersze uczestnictwa, ale
+// ROBI TO PÓŹNIEJ i po cichu: item, na którym ta osoba była jedynym
+// uczestnikiem, awansowałby na „Wspólny", a auto-porcje „Wspólnych"
+// zostałyby policzone dla starego składu. Hook musi pójść PRZED
+// usunięciem użytkownika, dopóki wiersze jeszcze istnieją.
+if (settlement.outcome !== 'DELETED') {
+  await onMemberLeft(tx, membership.householdId, userId, now);
+}
 ```
 
 with `const now = new Date();` above `this.prisma.$transaction` at `:417`, and the import added to the existing `:7` import line group.
 
 ### 4.5 Paths that need **no** change
 
-| Path | Why |
-|---|---|
-| `HouseholdsService.create` (`:88-105`) | New 1-member household; no `WeeklyPlan` rows exist yet. |
-| `settleHouseholdAfterMemberLeft` → `DELETED` | `Household → WeeklyPlan → PlanItem → participants/consumptions` all cascade (`schema.prisma:343,370,391,409`). |
-| `settleHouseholdAfterMemberLeft` → `OWNER_PROMOTED` | Role change only; member **count** unchanged. |
-| `updateMemberRole` (`:531-562`) | Same — count unchanged. |
-| `declineInvitation`, `previewInvitation` | No membership write. |
+| Path                                                | Why                                                                                                            |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `HouseholdsService.create` (`:88-105`)              | New 1-member household; no `WeeklyPlan` rows exist yet.                                                        |
+| `settleHouseholdAfterMemberLeft` → `DELETED`        | `Household → WeeklyPlan → PlanItem → participants/consumptions` all cascade (`schema.prisma:343,370,391,409`). |
+| `settleHouseholdAfterMemberLeft` → `OWNER_PROMOTED` | Role change only; member **count** unchanged.                                                                  |
+| `updateMemberRole` (`:531-562`)                     | Same — count unchanged.                                                                                        |
+| `declineInvitation`, `previewInvitation`            | No membership write.                                                                                           |
 
 ---
 
 ## 5. Tests — new file `src/weekly-plans/utils/plan-roster.util.spec.ts`
 
-Pattern follows `src/households/household-cleanup.util.spec.ts` (a plain `makeTx()` of `jest.fn()` delegates cast to `PrismaLike`) — **not** `Test.createTestingModule`, because the unit under test is a free function that takes `tx`, so there is nothing to inject. The `Test.createTestingModule` + `$transaction`-calls-the-callback-with-the-same-mock convention (`weekly-plans.service.spec.ts:174-204`) applies to the *service* specs and is not needed here; it is also unusable for the call sites, since `jest.config.js:22-25` redirects `households.service` to `households.service.stub`.
+Pattern follows `src/households/household-cleanup.util.spec.ts` (a plain `makeTx()` of `jest.fn()` delegates cast to `PrismaLike`) — **not** `Test.createTestingModule`, because the unit under test is a free function that takes `tx`, so there is nothing to inject. The `Test.createTestingModule` + `$transaction`-calls-the-callback-with-the-same-mock convention (`weekly-plans.service.spec.ts:174-204`) applies to the _service_ specs and is not needed here; it is also unusable for the call sites, since `jest.config.js:22-25` redirects `households.service` to `households.service.stub`.
 
 Use an **in-memory store** so "manual values untouched" is a behavioural assertion, not a `where`-shape assertion.
 
@@ -532,39 +536,43 @@ const LAST_WEEK = new Date('2026-08-17T00:00:00.000Z');
 
 ### `describe('onMemberLeft')`
 
-| `it` | Input | Expected |
-|---|---|---|
-| `usuwa wiersze ducha tylko w tygodniach od bieżącego poniedziałku` | items in weeks `2026-08-17`, `2026-08-24`, `2026-08-31` | `planItemParticipant.deleteMany` called **once** with `{ where: { userId: 'user-2', planItem: { weeklyPlan: { householdId: 'hh-1', weekStart: { gte: MONDAY } } } } }`; identical `where` on `planItemConsumption.deleteMany` |
-| `kasuje item, na którym odchodzący był jedynym uczestnikiem` | `findMany` → `[{id:'solo', participants:[{userId:LEAVER}]}, {id:'duo', participants:[{userId:STAYER},{userId:LEAVER}]}]` | `planItem.deleteMany` called with `{ where: { id: { in: ['solo'] } } }`; result `deletedItemIds === ['solo']`; `'duo'` survives |
-| `nie kasuje itemu współdzielonego z pozostającym domownikiem` | as above | in-memory store still contains `'duo'` |
-| `nie kasuje niczego, gdy odchodzący nie miał posiłków imiennych` | `findMany` → `[]` | `planItem.deleteMany` **not called**; `deletedItemIds === []` |
-| `nie rusza tygodni z przeszłości` | store has `{id:'past', week: LAST_WEEK, participants:[{userId:LEAVER}]}` | `'past'` still present; not in `deletedItemIds` |
-| `przelicza Wspólne z 2 na 1 po odejściu` | `membership.count` → `1`; item `{plannedServings: 2, participants: []}` | item `plannedServings === 1`; result `reDerivedItemCount === 1` |
-| `nie rusza wartości ręcznej` | `membership.count` → `1`; items `{ps:2, participants:[]}` and `{ps:4, participants:[]}` | first → `1`, second stays `4` |
-| `nie rusza itemów imiennych` | `{ps:2, participants:[{userId:STAYER}]}` | stays `2` (filtered out by `participants: { none: {} }`) |
-| `oznacza listy zakupów od bieżącego poniedziałku jako nieaktualne` | any | `shoppingList.updateMany` called with `{ where: { householdId: 'hh-1', weekStart: { gte: MONDAY } }, data: { isStale: true } }` |
-| `zwraca klucze dotkniętych tygodni` | `weeklyPlan.findMany` → `[{weekStart: MONDAY},{weekStart: NEXT_WEEK}]` | `touchedWeekStarts === ['2026-08-24','2026-08-31']` |
+| `it`                                                               | Input                                                                                                                    | Expected                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `usuwa wiersze ducha tylko w tygodniach od bieżącego poniedziałku` | items in weeks `2026-08-17`, `2026-08-24`, `2026-08-31`                                                                  | `planItemParticipant.deleteMany` called **once** with `{ where: { userId: 'user-2', planItem: { weeklyPlan: { householdId: 'hh-1', weekStart: { gte: MONDAY } } } } }`; identical `where` on `planItemConsumption.deleteMany` |
+| `kasuje item, na którym odchodzący był jedynym uczestnikiem`       | `findMany` → `[{id:'solo', participants:[{userId:LEAVER}]}, {id:'duo', participants:[{userId:STAYER},{userId:LEAVER}]}]` | `planItem.deleteMany` called with `{ where: { id: { in: ['solo'] } } }`; result `deletedItemIds === ['solo']`; `'duo'` survives                                                                                               |
+| `nie kasuje itemu współdzielonego z pozostającym domownikiem`      | as above                                                                                                                 | in-memory store still contains `'duo'`                                                                                                                                                                                        |
+| `nie kasuje niczego, gdy odchodzący nie miał posiłków imiennych`   | `findMany` → `[]`                                                                                                        | `planItem.deleteMany` **not called**; `deletedItemIds === []`                                                                                                                                                                 |
+| `nie rusza tygodni z przeszłości`                                  | store has `{id:'past', week: LAST_WEEK, participants:[{userId:LEAVER}]}`                                                 | `'past'` still present; not in `deletedItemIds`                                                                                                                                                                               |
+| `przelicza Wspólne z 2 na 1 po odejściu`                           | `membership.count` → `1`; item `{plannedServings: 2, participants: []}`                                                  | item `plannedServings === 1`; result `reDerivedItemCount === 1`                                                                                                                                                               |
+| `nie rusza wartości ręcznej`                                       | `membership.count` → `1`; items `{ps:2, participants:[]}` and `{ps:4, participants:[]}`                                  | first → `1`, second stays `4`                                                                                                                                                                                                 |
+| `nie rusza itemów imiennych`                                       | `{ps:2, participants:[{userId:STAYER}]}`                                                                                 | stays `2` (filtered out by `participants: { none: {} }`)                                                                                                                                                                      |
+| `oznacza listy zakupów od bieżącego poniedziałku jako nieaktualne` | any                                                                                                                      | `shoppingList.updateMany` called with `{ where: { householdId: 'hh-1', weekStart: { gte: MONDAY } }, data: { isStale: true } }`                                                                                               |
+| `zwraca klucze dotkniętych tygodni`                                | `weeklyPlan.findMany` → `[{weekStart: MONDAY},{weekStart: NEXT_WEEK}]`                                                   | `touchedWeekStarts === ['2026-08-24','2026-08-31']`                                                                                                                                                                           |
 
 ### `describe('onRosterChanged')`
 
-| `it` | Input | Expected |
-|---|---|---|
-| `przelicza Wspólne z 1 na 2 po dołączeniu domownika` | `(tx, HOUSEHOLD, 1, 2, NOW)`; item `{ps:1, participants:[]}` | `plannedServings === 2`; returns `1`; `shoppingList.updateMany` called once |
-| `nie robi nic, gdy skład się nie zmienił` | `(tx, HOUSEHOLD, 2, 2, NOW)` | `planItem.updateMany` **not called**; `shoppingList.updateMany` **not called**; returns `0` |
-| `nie robi nic, gdy obie liczby przycinają się do 12` | `(tx, HOUSEHOLD, 13, 14, NOW)` | `planItem.updateMany` **not called**; returns `0` |
-| `przycina nowy licznik do 12` | `(tx, HOUSEHOLD, 12, 15, NOW)` | not called (12 → 12) |
-| `nie oznacza list nieaktualnymi, gdy nic nie przeliczono` | `(tx, HOUSEHOLD, 1, 2, NOW)` with zero matching items | `shoppingList.updateMany` **not called** |
+| `it`                                                      | Input                                                        | Expected                                                                                    |
+| --------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `przelicza Wspólne z 1 na 2 po dołączeniu domownika`      | `(tx, HOUSEHOLD, 1, 2, NOW)`; item `{ps:1, participants:[]}` | `plannedServings === 2`; returns `1`; `shoppingList.updateMany` called once                 |
+| `nie robi nic, gdy skład się nie zmienił`                 | `(tx, HOUSEHOLD, 2, 2, NOW)`                                 | `planItem.updateMany` **not called**; `shoppingList.updateMany` **not called**; returns `0` |
+| `nie robi nic, gdy obie liczby przycinają się do 12`      | `(tx, HOUSEHOLD, 13, 14, NOW)`                               | `planItem.updateMany` **not called**; returns `0`                                           |
+| `przycina nowy licznik do 12`                             | `(tx, HOUSEHOLD, 12, 15, NOW)`                               | not called (12 → 12)                                                                        |
+| `nie oznacza list nieaktualnymi, gdy nic nie przeliczono` | `(tx, HOUSEHOLD, 1, 2, NOW)` with zero matching items        | `shoppingList.updateMany` **not called**                                                    |
 
 ### Append to `src/weekly-plans/utils/week-formatting.util.spec.ts`
 
 ```ts
 describe('currentWeekStart', () => {
   it.each([
-    ['poniedziałek północ',  '2026-08-24T00:00:00.000Z', '2026-08-24'],
-    ['czwartek popołudnie',  '2026-08-27T15:30:00.000Z', '2026-08-24'],
-    ['niedziela 23:59',      '2026-08-30T23:59:59.999Z', '2026-08-24'],
-    ['poniedziałek 00:00 następnego tygodnia', '2026-08-31T00:00:00.000Z', '2026-08-31'],
-    ['przełom roku',         '2027-01-01T12:00:00.000Z', '2026-12-28'],
+    ['poniedziałek północ', '2026-08-24T00:00:00.000Z', '2026-08-24'],
+    ['czwartek popołudnie', '2026-08-27T15:30:00.000Z', '2026-08-24'],
+    ['niedziela 23:59', '2026-08-30T23:59:59.999Z', '2026-08-24'],
+    [
+      'poniedziałek 00:00 następnego tygodnia',
+      '2026-08-31T00:00:00.000Z',
+      '2026-08-31',
+    ],
+    ['przełom roku', '2027-01-01T12:00:00.000Z', '2026-12-28'],
   ])('%s -> %s', (_label, iso, expected) => {
     expect(formatWeekStart(currentWeekStart(new Date(iso)))).toBe(expected);
   });
@@ -572,7 +580,9 @@ describe('currentWeekStart', () => {
   it('zwraca datę, którą parseWeekStart uzna za poprawną', () => {
     const monday = currentWeekStart(new Date('2026-08-27T10:00:00.000Z'));
     expect(monday.getUTCDay()).toBe(1);
-    expect(parseWeekStart(formatWeekStart(monday)).getTime()).toBe(monday.getTime());
+    expect(parseWeekStart(formatWeekStart(monday)).getTime()).toBe(
+      monday.getTime(),
+    );
   });
 });
 ```
@@ -586,25 +596,25 @@ describe('currentWeekStart', () => {
 Both gateways share one Socket.IO server (`WS_GATEWAY_OPTIONS`, no namespace), so `HouseholdsGateway` can emit the weekly-plans events directly. In `src/households/households.gateway.ts`, after each `await this.emitMembersChanged({…})` at `:211-216`, `:420-425`, `:439-444`:
 
 ```ts
-      const changeVersion = Date.now();
-      for (const weekStart of result.touchedWeekStarts ?? []) {
-        this.server.emit('weeklyPlans:weekChanged', {
-          householdId: payload.householdId,
-          weekStart,
-          action: 'MEMBERSHIP_CHANGED',
-          changedByUserId: payload.userId,
-          changedByDisplayName,
-          changeVersion,
-        });
-        this.server.emit('weeklyPlans:shoppingListChanged', {
-          householdId: payload.householdId,
-          weekStart,
-          action: 'MEMBERSHIP_CHANGED',
-          changedByUserId: payload.userId,
-          changedByDisplayName,
-          changeVersion,
-        });
-      }
+const changeVersion = Date.now();
+for (const weekStart of result.touchedWeekStarts ?? []) {
+  this.server.emit('weeklyPlans:weekChanged', {
+    householdId: payload.householdId,
+    weekStart,
+    action: 'MEMBERSHIP_CHANGED',
+    changedByUserId: payload.userId,
+    changedByDisplayName,
+    changeVersion,
+  });
+  this.server.emit('weeklyPlans:shoppingListChanged', {
+    householdId: payload.householdId,
+    weekStart,
+    action: 'MEMBERSHIP_CHANGED',
+    changedByUserId: payload.userId,
+    changedByDisplayName,
+    changeVersion,
+  });
+}
 ```
 
 `changeVersion: Date.now()` mirrors `weekly-plans.gateway.ts:232-234`. **No iOS change needed:** `WeeklyMealStore.handleRemoteWeekPlanChanged` (`:527-534`) filters on `weekStart == observedWeekStart` and the monotonic `changeVersion`, then `scheduleWeekReload`; the unknown action falls into `singleChangeText`'s `default: return nil` (`PlanChangeNotificationService.swift:376-377`) → **refetch without a spurious push**. That is exactly the desired behaviour: the plan silently corrects itself.
@@ -767,17 +777,17 @@ Then two simulators in one household: remove member on device A → device B's P
 
 ## 9. Ordered steps and effort
 
-| # | Step | Files | Effort | Depends on |
-|---|---|---|---|---|
-| 1 | `currentWeekStart` + its spec cases | `week-formatting.util.ts`, `week-formatting.util.spec.ts` | 20 min | — |
-| 2 | `plan-roster.util.ts` (§3) | new file | 1.5 h | 1 |
-| 3 | `plan-roster.util.spec.ts` (§5) incl. in-memory store | new file | 1.5 h | 2 |
-| 4 | Wire the 4 removal call sites + the join path (§4) | `households.service.ts`, `users.service.ts` | 1 h | 2 |
-| 5 | Run §8 steps 1-4 in the container; fix types | — | 30 min | 3, 4 |
-| 6 | *(optional, P2)* broadcasts (§6) + `touchedWeekStarts` in the 3 return shapes | `households.gateway.ts`, `households.service.ts` | 45 min | 4 |
-| 7 | Diagnostic SQL on dev; review the delete list (§7.1) | — | 15 min | — |
-| 8 | Backup + cleanup SQL on dev; re-run diagnostics; smoke (§7.2-7.4, §8) | — | 30 min | 5, 7 |
-| 9 | Same on prod, after the code deploy | — | 20 min | 8 |
+| #   | Step                                                                          | Files                                                     | Effort | Depends on |
+| --- | ----------------------------------------------------------------------------- | --------------------------------------------------------- | ------ | ---------- |
+| 1   | `currentWeekStart` + its spec cases                                           | `week-formatting.util.ts`, `week-formatting.util.spec.ts` | 20 min | —          |
+| 2   | `plan-roster.util.ts` (§3)                                                    | new file                                                  | 1.5 h  | 1          |
+| 3   | `plan-roster.util.spec.ts` (§5) incl. in-memory store                         | new file                                                  | 1.5 h  | 2          |
+| 4   | Wire the 4 removal call sites + the join path (§4)                            | `households.service.ts`, `users.service.ts`               | 1 h    | 2          |
+| 5   | Run §8 steps 1-4 in the container; fix types                                  | —                                                         | 30 min | 3, 4       |
+| 6   | _(optional, P2)_ broadcasts (§6) + `touchedWeekStarts` in the 3 return shapes | `households.gateway.ts`, `households.service.ts`          | 45 min | 4          |
+| 7   | Diagnostic SQL on dev; review the delete list (§7.1)                          | —                                                         | 15 min | —          |
+| 8   | Backup + cleanup SQL on dev; re-run diagnostics; smoke (§7.2-7.4, §8)         | —                                                         | 30 min | 5, 7       |
+| 9   | Same on prod, after the code deploy                                           | —                                                         | 20 min | 8          |
 
 **Total ≈ 5.5 h** (6.5 h with §6) — consistent with the audit's "WP-04 2-3 h + WP-07 2 h (hook)", minus the overlap between the two hooks.
 

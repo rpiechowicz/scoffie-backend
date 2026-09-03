@@ -8,6 +8,7 @@ import {
   parseBearer,
 } from '../auth/access-token.service';
 import { resolveWsAuthMode, WsAuthMode } from '../config/ws-auth-mode';
+import { allowWsHandshake } from './ws-rate-limit';
 import { AppSocket, LEGACY_ROOM, householdRoom, userRoom } from './ws-socket';
 
 export type WsHandshakeOutcome =
@@ -32,6 +33,7 @@ const REJECTION_MESSAGES: Record<AccessTokenFailureReason, string> = {
   invalid: 'Invalid access token',
   expired: 'Access token expired',
   user_gone: 'User no longer exists',
+  rate_limited: 'Too many connection attempts',
 };
 
 /** `setTimeout` powyżej 2^31−1 ms (24,86 dnia) odpala natychmiast. */
@@ -94,6 +96,12 @@ export class AuthIoAdapter extends IoAdapter {
   createIOServer(port: number, options?: ServerOptions): Server {
     const server = super.createIOServer(port, options) as Server;
     server.use((socket, next) => {
+      // Limit per IP PRZED tokenem: odrzucenie tu nie kosztuje zapytania
+      // do bazy, a to jest jedyna obrona przed zalewem samych połączeń.
+      if (!allowWsHandshake(clientIp(socket), this.deps.now())) {
+        next(this.toExtendedError(this.reject('rate_limited')));
+        return;
+      }
       this.authenticate(socket as AppSocket).then(
         () => next(),
         (error: unknown) => next(this.toExtendedError(error)),
@@ -206,6 +214,20 @@ export class AuthIoAdapter extends IoAdapter {
     );
     return unavailable;
   }
+}
+
+/** Adres klienta — za proxy Railway pierwszy wpis `x-forwarded-for`. */
+function clientIp(socket: {
+  handshake?: { address?: string; headers?: Record<string, unknown> };
+}): string {
+  const forwarded = socket.handshake?.headers?.['x-forwarded-for'];
+  const first = Array.isArray(forwarded)
+    ? forwarded[0]
+    : typeof forwarded === 'string'
+      ? forwarded.split(',')[0]
+      : '';
+  const ip = (first ?? '').trim() || socket.handshake?.address || 'unknown';
+  return ip;
 }
 
 /** `handshake.auth.token` (connect payload) albo `Authorization: Bearer`. */

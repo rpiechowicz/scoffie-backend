@@ -13,6 +13,8 @@ import {
   longDateLabel,
   PlanRemovalReason,
   removalReasonFor,
+  kcalForPerson,
+  coversWholeDay,
 } from './agent-cards';
 
 /**
@@ -34,6 +36,8 @@ export function buildPlanDayCard(input: {
   targetKcalPerDay: number | null;
   expiresAt: Date;
   removalReasons?: readonly PlanRemovalReason[];
+  forUserId?: string;
+  enabledMealTypes?: readonly string[];
 }): PlanDayCard {
   const slots = (input.preview.slots ?? [])
     .filter((slot) => slot.dayOfWeek === input.dayOfWeek)
@@ -43,7 +47,8 @@ export function buildPlanDayCard(input: {
         MEAL_TYPES_IN_DAY_ORDER.indexOf(b.mealType),
     );
 
-  const kcalTotal = slots.reduce((sum, slot) => sum + slot.kcalPerServing, 0);
+  const kcalTotal = kcalForPerson(slots, input.forUserId);
+  const wholeDay = coversWholeDay(slots, input.enabledMealTypes);
 
   return {
     kind: 'PLAN_DAY',
@@ -72,8 +77,10 @@ export function buildPlanDayCard(input: {
     summary: {
       meals: slots.length,
       kcalTotal,
-      targetKcalPerDay: input.targetKcalPerDay,
-      goalNote: remainderNote(kcalTotal, input.targetKcalPerDay),
+      targetKcalPerDay: wholeDay ? input.targetKcalPerDay : null,
+      goalNote: wholeDay
+        ? remainderNote(kcalTotal, input.targetKcalPerDay)
+        : null,
     },
     actions: [
       {

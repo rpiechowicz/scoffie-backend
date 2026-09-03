@@ -98,6 +98,8 @@ export class AgentProviderError extends Error {
      * dobowy nie widziałby wydanych pieniędzy.
      */
     readonly usage?: AgentProviderUsage,
+    /** Ile żądań poszło do dostawcy przed błędem — do metryk. */
+    readonly apiCalls?: number,
   ) {
     super(message);
     this.name = 'AgentProviderError';

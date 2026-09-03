@@ -1,9 +1,10 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { DietPreferenceValue, Prisma, Sex, UserGoal } from '@prisma/client';
 import { AppException } from '../common/app-exception';
 import { normalizeAllergenIds } from '../common/allergens';
 import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConsentsService } from '../consents/consents.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { settleHouseholdAfterMemberLeft } from '../households/household-cleanup.util';
@@ -92,7 +93,22 @@ export interface UserProfilePayload {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Opcjonalnie: dziennik zgód (testy jednostkowe budują serwis bez niego).
+    @Optional() private readonly consents?: ConsentsService,
+  ) {}
+
+  /**
+   * Pierwsze podanie danych o zdrowiu (alergeny, sylwetka) = wyraźna zgoda
+   * z art. 9 ust. 2 lit. a. Zapis do dziennika tylko raz — dopóki zgoda
+   * jest ważna, kolejne edycje nic nie dopisują.
+   */
+  private async recordHealthConsentOnce(userId: string, source: string) {
+    if (!this.consents) return;
+    if (await this.consents.hasValid(userId, 'HEALTH_DATA')) return;
+    await this.consents.recordSystem(userId, 'HEALTH_DATA', 'GRANTED', source);
+  }
 
   getMe(userId: string) {
     return this.prisma.user.findUnique({
@@ -146,6 +162,15 @@ export class UsersService {
       where: { id: userId },
       data: update,
     });
+
+    if (
+      data.heightCm != null ||
+      data.weightKg != null ||
+      data.sex != null ||
+      data.yearOfBirth != null
+    ) {
+      await this.recordHealthConsentOnce(userId, 'PROFILE_BODY_METRICS');
+    }
 
     return this.toProfilePayload(user);
   }
@@ -345,6 +370,9 @@ export class UsersService {
       const normalised = normalizeAllergenIds(data.allergens);
       update.allergens = normalised;
       create.allergens = normalised;
+      if (normalised.length > 0) {
+        await this.recordHealthConsentOnce(userId, 'PREFERENCES_ALLERGENS');
+      }
     }
 
     if (data.excludedIngredientIds !== undefined) {
@@ -525,6 +553,25 @@ export class UsersService {
           data: { authorId: botId },
         });
       }
+
+      // Poświadczenia Cookidoo podane przez TĘ osobę znikają z jej kontem
+      // (polityka §12), nawet gdy dom zostaje — reszta domu połączy się
+      // własnym hasłem. `connectedBy` jest SetNull, więc kaskada by ich nie
+      // ruszyła.
+      await tx.cookidooIntegration.deleteMany({
+        where: { connectedById: userId },
+      });
+      // Księga kosztów i notatki domu zostają (rozliczenia, wspólna pamięć),
+      // ale bez identyfikatora osoby — po usunięciu konta nie ma kogo do nich
+      // przypiąć.
+      await tx.aiUsage.updateMany({
+        where: { userId },
+        data: { userId: null },
+      });
+      await tx.agentMemory.updateMany({
+        where: { createdByUserId: userId },
+        data: { createdByUserId: null },
+      });
 
       const memberships = await tx.membership.findMany({
         where: { userId },

@@ -72,13 +72,34 @@ Configure:
 - `R2_ACCOUNT_ID` or `R2_ENDPOINT`
 - `R2_KEY_PREFIX`
 
+## Cookidoo service (second Railway service)
+
+The Thermomix integration talks to a small Python service
+(repository `weekly-meals-cookidoo`). Deploy it as a second service in the
+same Railway project and wire it through private networking:
+
+| Where    | Variable                        | Value                                                                              |
+| -------- | ------------------------------- | ---------------------------------------------------------------------------------- |
+| Cookidoo | `INTERNAL_TOKEN`                | `openssl rand -base64 32`                                                          |
+| Cookidoo | `COOKIDOO_COUNTRY`              | `pl`                                                                               |
+| Backend  | `COOKIDOO_SERVICE_URL`          | `http://<cookidoo-service-name>.railway.internal:8000` (default is `localhost`, which on Railway means "nothing") |
+| Backend  | `COOKIDOO_SERVICE_TOKEN`        | the same value as `INTERNAL_TOKEN`                                                 |
+| Backend  | `COOKIDOO_ENCRYPTION_KEY`       | `openssl rand -base64 32` (32 bytes) — losing it means users reconnect            |
+| Backend  | `COOKIDOO_INTEGRATION_ENABLED`  | `false` hides the integration in the app (status still lets users disconnect)    |
+
+The backend starts without the Cookidoo service; the first Cookidoo call
+then answers `COOKIDOO_SERVICE_UNAVAILABLE` and raises an ops alert.
+
 ## Safe migration behavior
 
-`pnpm start:prod` already runs:
+The container starts with (see `Dockerfile`; `exec` hands SIGTERM to
+Node so Railway can stop it cleanly):
 
 ```bash
-node scripts/prisma-migrate-deploy-safe.js && node dist/main
+node scripts/prisma-migrate-deploy-safe.js && exec node dist/main
 ```
+
+`pnpm start:prod` runs the same pair without `exec` — for local use only.
 
 That means deploy startup can:
 

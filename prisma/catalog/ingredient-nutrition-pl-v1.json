@@ -1122,7 +1122,7 @@
     {
       "normalizedName": "ocet jablkowy",
       "unit": "ml",
-      "kcal": 20,
+      "kcal": 4,
       "protein": 0,
       "carbs": 0.9,
       "fat": 0,
@@ -1185,11 +1185,11 @@
     {
       "normalizedName": "kakao",
       "unit": "g",
-      "kcal": 228,
+      "kcal": 285,
       "protein": 19.6,
-      "carbs": 20.9,
+      "carbs": 10.9,
       "fat": 13.7,
-      "fiber": 37
+      "fiber": 20
     },
     {
       "normalizedName": "hummus",

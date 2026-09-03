@@ -6,11 +6,11 @@ trzeba poinformować w pierwszym miesiącu. W praktyce celujemy w tydzień.
 
 ## Skąd przychodzą wnioski
 
-| Kanał | Co robi osoba | Co robimy my |
-|---|---|---|
-| Aplikacja (docelowo) | Ustawienia → „Pobierz moje dane" / „Usuń konto" | nic — działa samo |
-| E-mail na adres z polityki | pisze z adresu konta | procedura poniżej |
-| Apple / Google (formularz sklepu) | prośba przekazana przez sklep | jak e-mail |
+| Kanał                             | Co robi osoba                                   | Co robimy my      |
+| --------------------------------- | ----------------------------------------------- | ----------------- |
+| Aplikacja (docelowo)              | Ustawienia → „Pobierz moje dane" / „Usuń konto" | nic — działa samo |
+| E-mail na adres z polityki        | pisze z adresu konta                            | procedura poniżej |
+| Apple / Google (formularz sklepu) | prośba przekazana przez sklep                   | jak e-mail        |
 
 ## 1. Weryfikacja tożsamości (zawsze)
 

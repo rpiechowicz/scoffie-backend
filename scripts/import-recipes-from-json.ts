@@ -3,7 +3,11 @@ import { join } from 'node:path';
 import { MealType, PrismaClient } from '@prisma/client';
 import { MEAL_TYPE_VALUES } from '../src/common/meal-types';
 import { deriveRecipeTags } from '../src/common/diet-tags';
-import { resolveSuitableMealTypes } from '../src/recipes/suitable-meal-types.util';
+import {
+  kcalPerServing,
+  resolveSuitableMealTypes,
+  snackKcalLimit,
+} from '../src/recipes/suitable-meal-types.util';
 import {
   ALLOWED_UNITS,
   normalizeIngredientAmount,
@@ -62,6 +66,13 @@ type RecipeBatchInput = {
 // podmieniała katalog (id sparowane po indeksie z pulą). Każdy przepis w
 // pliku musi mieć jawne `id`.
 const RECIPE_IMPORT_FILE = (process.env.RECIPE_IMPORT_FILE ?? '').trim();
+/**
+ * Ręczny slot z JSON-a ma prawo przekroczyć próg klasyfikatora o połowę
+ * (koktajl 370 kcal jako przekąska to świadoma decyzja redaktora), ale nie
+ * dwukrotnie (pierogi 900 kcal jako podwieczorek to błąd w danych).
+ */
+const MANUAL_SLOT_KCAL_TOLERANCE = 1.5;
+
 const RECIPE_IMPORT_CLEAR_EXISTING =
   process.env.RECIPE_IMPORT_CLEAR_EXISTING === 'true';
 const RECIPE_IMPORT_OWNER_USER_ID =
@@ -348,6 +359,22 @@ async function main(): Promise<void> {
   const input = JSON.parse(raw) as RecipeBatchInput;
   validateBatch(input);
   if (RECIPE_IMPORT_CLEAR_EXISTING) {
+    // Kasowanie katalogu zabiera z planów WSZYSTKICH domów pozycje wskazujące
+    // na jego przepisy. Dlatego: najpierw liczby, a zapis tylko z dzisiejszą
+    // datą w `RECIPE_IMPORT_CLEAR_CONFIRM` (ten sam wzorzec, co reset kont).
+    const [planItems, recipes] = await Promise.all([
+      prisma.planItem.count({ where: { recipe: { householdId } } }),
+      prisma.recipe.count({ where: { householdId } }),
+    ]);
+    const today = new Date().toISOString().slice(0, 10);
+    console.log(
+      `Czyszczenie katalogu: przepisów ${recipes}, pozycji planów do skasowania ${planItems}.`,
+    );
+    if ((process.env.RECIPE_IMPORT_CLEAR_CONFIRM ?? '').trim() !== today) {
+      throw new Error(
+        `RECIPE_IMPORT_CLEAR_EXISTING=true wymaga RECIPE_IMPORT_CLEAR_CONFIRM=${today} (dzisiejsza data). Nic nie skasowano.`,
+      );
+    }
     // Tylko katalog: dawniej `deleteMany()` bez `where` kasował pozycje planu
     // i składniki WSZYSTKICH gospodarstw. Pozycje planu wskazujące na
     // przepisy katalogu i tak by spadły kaskadą przy usunięciu przepisu.
@@ -438,6 +465,30 @@ async function main(): Promise<void> {
         : null) ||
       (resolvedRecipeId ? buildR2ImageUrl(resolvedRecipeId) : null);
 
+    const suitabilityInput = {
+      title: recipe.title,
+      description: recipe.description,
+      mealType: recipe.mealType,
+      prepTimeMinutes: recipe.prepTimeMinutes,
+      servings: recipe.servings,
+      nutritionKcal: recipe.nutrition.kcal,
+      suitableMealTypes: recipe.suitableMealTypes,
+    };
+    // Ręczny slot z JSON-a nie może obchodzić własnych progów klasyfikatora:
+    // przekąska 663 kcal i podwieczorek 900 kcal to błąd w danych, nie
+    // wyjątek. Taki slot wypada z ostrzeżeniem, reszta zostaje.
+    const overLimit = (recipe.suitableMealTypes ?? []).filter((slot) => {
+      const limit = snackKcalLimit(slot);
+      return (
+        limit !== null &&
+        kcalPerServing(suitabilityInput) > limit * MANUAL_SLOT_KCAL_TOLERANCE
+      );
+    });
+    if (overLimit.length > 0) {
+      console.warn(
+        `[import] "${recipe.title}": ${Math.round(kcalPerServing(suitabilityInput))} kcal/porcja ponad limit slotów ${overLimit.join(', ')} — pominięte.`,
+      );
+    }
     const commonData = {
       title: recipe.title,
       description: recipe.description,
@@ -446,14 +497,11 @@ async function main(): Promise<void> {
       // liczy je klasyfikator — inaczej każdy import wracałby z katalogiem,
       // w którym II śniadanie i podwieczorek są puste.
       suitableMealTypes: resolveSuitableMealTypes({
-        title: recipe.title,
-        description: recipe.description,
-        mealType: recipe.mealType,
-        prepTimeMinutes: recipe.prepTimeMinutes,
-        servings: recipe.servings,
-        nutritionKcal: recipe.nutrition.kcal,
-        suitableMealTypes: recipe.suitableMealTypes,
-      }),
+        ...suitabilityInput,
+        suitableMealTypes: recipe.suitableMealTypes?.filter(
+          (slot) => !overLimit.includes(slot),
+        ),
+      }).filter((slot) => !overLimit.includes(slot)),
       difficulty: recipe.difficulty,
       prepTimeMinutes: recipe.prepTimeMinutes,
       servings: recipe.servings,

@@ -1,7 +1,7 @@
 ---
 name: recipe-expansion-backlog
-description: "Zatwierdzona lista 55 nowych przepisów do dodania do bazy Weekly Meals, z podziałem na partie i statusem realizacji."
-metadata: 
+description: 'Zatwierdzona lista 55 nowych przepisów do dodania do bazy Weekly Meals, z podziałem na partie i statusem realizacji.'
+metadata:
   node_type: memory
   type: project
   originSessionId: a673613e-4da2-4a42-a697-9d485bd8a0df
@@ -14,6 +14,7 @@ Zatwierdzona 2026-08-24 lista 55 nowych przepisów (rozbudowa bazy z 30 do 85→
 
 **Partia 1 — Śniadania (8) — GOTOWA (2026-08-24): w bazie + zdjęcia w R2 podpięte.**
 Plik: `prisma/catalog/recipes-batch-breakfast-8-v1.json` (makra przeliczone skryptem, imageUrl wpisane). Baza ma 38/38 przepisów ze zdjęciami. Styl promptów Recrafta: aktualna wersja **v4** w `recipes-batch-soups-8-v1.json` — szeroki kadr, jasny blat, rekwizyty w tle, jasne światło, 3:2, plus wymuszone: centrowanie ("perfectly centered in the middle of the frame" + "in the exact center of the image"), nieprzezroczysta ceramika ("rustic opaque ceramic stoneware bowl", "no glass or transparent dishes" — v2/v3 dawały szklane miski) i wysoki kąt ~60° pokazujący wnętrze naczynia z góry. Do partii 4–6 kopiować v4 (dla dań na talerzu podmienić "bowl"→"plate").
+
 1. Owsianka nocna z masłem orzechowym i malinami — f50f6d7e-bf1e-4e06-afad-949974d7c2fa
 2. Skyr z granolą i malinami — 386586d2-b4f8-41f0-9641-cce2b7c20dd7
 3. Twarożek na słodko z brzoskwinią i granolą — 7b3ef680-7a54-460b-a3d5-39c205631318

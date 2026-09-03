@@ -57,7 +57,8 @@ const WEEK_START = {
 const RECIPE_REF = {
   type: 'string',
   description:
-    'Indeks przepisu z katalogu (np. R07) albo identyfikator przepisu gospodarstwa zwrócony przez create_recipe.',
+    'Indeks przepisu DOKŁADNIE w formie z katalogu w prompcie (np. R07 albo R007 — tyle cyfr, ile w nagłówku katalogu) ' +
+    'albo identyfikator przepisu gospodarstwa zwrócony przez create_recipe.',
 };
 
 const DAY = {

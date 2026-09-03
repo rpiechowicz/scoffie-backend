@@ -163,6 +163,49 @@ export type PlanRemovalReason = {
   reason: string;
 };
 
+/**
+ * Kalorie dnia NA OSOBĘ, nie suma pozycji.
+ *
+ * Slot (dzień + posiłek) potrafi mieć kilka pozycji — „Ania sałatka, Marek
+ * schabowy" — i suma wszystkich mówiłaby, że ktoś je dwie kolacje. Liczymy
+ * dla `forUserId`: z każdego posiłku jedną pozycję, tę, którą ta osoba je
+ * (wspólną albo imienną); posiłek bez niczego dla niej nie liczy się wcale.
+ */
+export function kcalForPerson(
+  slots: readonly {
+    mealType: string;
+    kcalPerServing: number;
+    participantIds: readonly string[];
+  }[],
+  forUserId: string | undefined,
+): number {
+  const byMeal = new Map<string, number>();
+  for (const slot of slots) {
+    const eats =
+      !forUserId ||
+      slot.participantIds.length === 0 ||
+      slot.participantIds.includes(forUserId);
+    if (!eats) continue;
+    // Pierwsza pasująca pozycja posiłku wygrywa — imienna przed wspólną
+    // byłaby dokładniejsza, ale w jednym slocie i tak zwykle jest jedna.
+    if (!byMeal.has(slot.mealType))
+      byMeal.set(slot.mealType, slot.kcalPerServing);
+  }
+  let total = 0;
+  for (const kcal of byMeal.values()) total += kcal;
+  return total;
+}
+
+/** Czy propozycja pokrywa wszystkie planowane sloty dnia — inaczej nota celu kłamie. */
+export function coversWholeDay(
+  slots: readonly { mealType: string }[],
+  enabledMealTypes: readonly string[] | undefined,
+): boolean {
+  if (!enabledMealTypes || enabledMealTypes.length === 0) return true;
+  const present = new Set(slots.map((slot) => slot.mealType));
+  return enabledMealTypes.every((mealType) => present.has(mealType));
+}
+
 /** Znajduje powód dla usuwanego slotu; `null`, gdy model go nie podał. */
 export function removalReasonFor(
   reasons: readonly PlanRemovalReason[] | undefined,

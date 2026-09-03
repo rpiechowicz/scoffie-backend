@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import {
+  importJWK,
   SignJWT,
   exportJWK,
   generateKeyPair,
@@ -34,10 +35,7 @@ describe('AppleIdentityService', () => {
     process.env.APPLE_AUDIENCE = AUDIENCE;
     service = new AppleIdentityService();
     // Inject a fake JWKS resolver that always returns our test public key.
-    const localJwks = async () => {
-      const { importJWK } = await import('jose');
-      return importJWK(publicJwk, 'RS256');
-    };
+    const localJwks = async () => importJWK(publicJwk, 'RS256');
     service._overrideJwks(
       localJwks as unknown as ReturnType<
         typeof import('jose').createRemoteJWKSet

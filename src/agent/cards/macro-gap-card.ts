@@ -58,7 +58,7 @@ export function buildMacroGapCard(input: {
     kind: 'MACRO_GAP',
     v: AGENT_CARD_VERSION,
     eyebrow: `${MACRO_LABELS[input.macro]} · ${input.scopeLabel}`,
-    title: gapTitle(gap, unit),
+    title: gapTitle(gap, unit, input.macro),
     macro: input.macro,
     unit,
     current: input.current,
@@ -89,7 +89,20 @@ export function buildMacroGapCard(input: {
  * Karta z tytułem „Białko” i paskiem obok wymagałaby policzenia różnicy
  * wzrokiem. Ta różnica JEST treścią, więc stoi w tytule.
  */
-function gapTitle(gap: number, unit: string): string {
-  if (gap <= 0) return `Cel dowieziony, z zapasem ${Math.abs(gap)} ${unit}`;
-  return `Brakuje średnio ${gap} ${unit} dziennie`;
+/**
+ * Białko: im więcej, tym lepiej — nadwyżka to zapas. Kalorie, tłuszcz,
+ * węglowodany to LIMITY: nadwyżka to przekroczenie, nie sukces.
+ */
+const MORE_IS_BETTER: ReadonlySet<MacroKey> = new Set(['PROTEIN']);
+
+function gapTitle(gap: number, unit: string, macro: MacroKey): string {
+  if (gap === 0) return 'Dokładnie w celu';
+  if (gap < 0) {
+    return MORE_IS_BETTER.has(macro)
+      ? `Cel dowieziony, z zapasem ${Math.abs(gap)} ${unit}`
+      : `Średnio ${Math.abs(gap)} ${unit} dziennie ponad cel`;
+  }
+  return MORE_IS_BETTER.has(macro)
+    ? `Brakuje średnio ${gap} ${unit} dziennie`
+    : `Średnio ${gap} ${unit} dziennie poniżej celu`;
 }

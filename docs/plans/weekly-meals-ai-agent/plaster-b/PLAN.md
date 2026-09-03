@@ -6,7 +6,7 @@ Plaster A (28.08) naprawił liczby, które użytkownik widzi. Plaster B naprawia
 
 Decyzje Rafała (28.08): posiłki **solo** odchodzącej osoby są **usuwane** z bieżącego i przyszłych tygodni; nowe alergeny (seler, gorczyca, sezam) wchodzą **później** z tagami składników.
 
-Ustalone w specyfikacjach (sześć niezależnych przeglądów kodu po plastrze A): `getSavedPlan` zostaje jako **pusty stub na jedno wydanie** (stara apka woła go w `CalendarView.task` *przed* załadowaniem tygodnia — bez handlera to 3 × 6 s bez acka = 18,75 s pustego kalendarza przy każdej zmianie tygodnia); modele `SharedMealPlan*` zostają w schemacie (DROP w osobnej migracji po wydaniu); `deleteAccount` to **czwarta** ścieżka usuwania członkostwa i też dostaje hook; testy hooka żyją w czystym utilu (jest podmienia `households.service` na stub — plaster C); iOS nie ma UI tworzenia przepisów, więc B4 weryfikuje się tylko testami i `ws:smoke`.
+Ustalone w specyfikacjach (sześć niezależnych przeglądów kodu po plastrze A): `getSavedPlan` zostaje jako **pusty stub na jedno wydanie** (stara apka woła go w `CalendarView.task` _przed_ załadowaniem tygodnia — bez handlera to 3 × 6 s bez acka = 18,75 s pustego kalendarza przy każdej zmianie tygodnia); modele `SharedMealPlan*` zostają w schemacie (DROP w osobnej migracji po wydaniu); `deleteAccount` to **czwarta** ścieżka usuwania członkostwa i też dostaje hook; testy hooka żyją w czystym utilu (jest podmienia `households.service` na stub — plaster C); iOS nie ma UI tworzenia przepisów, więc B4 weryfikuje się tylko testami i `ws:smoke`.
 
 Repozytoria: backend (B), iOS (I). Branch `fix/fundamenty-b` w obu z `develop`. Bez tsc/jest na hoście (kontener), iOS przez `xcodebuild`. Szacunek ~22 h ≈ 3 dni. Pełne specyfikacje (linie, kod, przypadki testowe) leżą w scratchpadzie sesji `scratchpad/specb/*.md` — pierwszy krok wdrożenia kopiuje je do `~/.claude/plans/weekly-meals-ai-agent/plaster-b/`.
 
@@ -17,6 +17,7 @@ Repozytoria: backend (B), iOS (I). Branch `fix/fundamenty-b` w obu z `develop`. 
 ## B1. Wycofanie puli tygodnia (~5 h)
 
 **Backend** (`src/weekly-plans/`):
+
 - `weekly-plans.gateway.ts`: usunąć handlery `listByHousehold`, `create`, `addItem`, `removeItem`, `saveSavedPlan` + ich klasy payloadów, importy DTO, `buildSavedPlanFingerprint`, emit `savedPlanChanged` w `clearWeekPlan`. `getSavedPlan` → stub: `wsRespond(async () => ({ weekStart: payload.weekStart, items: [] }))` z komentarzem DEPRECATED (usunąć w następnym wydaniu razem z `WeeklyPlansGetSavedPlanPayload`).
 - `weekly-plans.service.ts`: usunąć `listByHousehold`, `create`, `addItem`, `removeItem`, `getSharedMealPlan`, `saveSharedMealPlan` (z `pruneByMealType` — sam błąd WP-03), gałąź puli w `clearWeekPlan`; sprzątnąć importy (`ConflictException`, DTO, `MealType`).
 - `services/shopping-list.service.ts`: `buildShoppingListBase` bez gałęzi `else` z `sharedMealPlan` (`ingredientSources = (weeklyPlan?.items ?? []).map(...)`), `hasShoppingSourceData` tylko po `PlanItem` (jedno zapytanie) — dzięki temu widmowe listy same się zerują przy odczycie; poprawić komentarz nad metodą.
@@ -27,6 +28,7 @@ Repozytoria: backend (B), iOS (I). Branch `fix/fundamenty-b` w obu z `develop`. 
 - Testy: `shopping-list.service.spec.ts` — usunąć `poolItem`/`poolWith` i 2 testy puli, dodać 3 (pula ignorowana przy 0 PlanItemów → `[]`, `sharedMealPlan.findUnique` nigdy nie wołany, snapshot bez źródła przebudowuje się do pustej listy); `weekly-plans.service.spec.ts` — `clearWeekPlan` nie dotyka puli + `it.each` „metoda nie istnieje” dla 6 usuniętych.
 
 **iOS** (jeden commit, kolejność 1→5, bo moduł kompiluje się w całości):
+
 1. `CalendarView.swift:298` — usunąć `loadSavedPlanFromBackend`.
 2. `WeeklyMealStore.swift` — usunąć `savedPlan`, `hasSavedPlan`, `observeSavedPlanChanges` w init, `applySavedPlanToWeek`, `saveMealPlan`/`clearSavedPlan`, `loadSavedPlanFromBackend`, `saveMealPlanToBackend`, `clearSavedPlanFromBackend`, `handleRemoteSavedPlanChanged`, `scheduleSavedPlanReload`, `mapSavedPlan`, `calendarUsageCounts`, `syncSavedPlanSelectionFlagsWithCalendar`, `cleanupCalendarAndSync`, `syncEntries`, `markAsSelected/Available`, `mutateEntries`, persystencję `saved_plan.json`; części w `resetLocalPlanningState`; w `init` jednorazowe `deleteLegacySavedPlanFile()` (`try? removeItem`).
 3. `WeeklyPlanStore.swift` — usunąć `fetchSavedPlan`/`saveSavedPlan`/`observeSavedPlanChanges` z obu protokołów i obu implementacji, DTO `BackendSharedMealPlanDTO`/`ItemDTO`/`BackendSavedPlanChangedDTO`.
@@ -40,6 +42,7 @@ Repozytoria: backend (B), iOS (I). Branch `fix/fundamenty-b` w obu z `develop`. 
 ## B2. `replaceRecipeId` — podmiana dania w jednej transakcji (~3,5 h)
 
 **Backend:**
+
 - `dto/upsert-week-slot.dto.ts`: `@IsOptional() @IsUUID() replaceRecipeId?: string` (dekoratory nie działają na WS — strażnik w serwisie).
 - `weekly-plans.service.ts`: `parseReplaceRecipeId(value, recipeId)` (UUID albo `VALIDATION_ERROR`; równe `recipeId` = brak podmiany — `PlanSlotPickerSheet` wysyła edytowany przepis także przy zmianie samego audytorium). Przed transakcją: przy podmianie bez `participantIds` pobrać `memberIds`. W transakcji po `weeklyPlan.upsert`: `findFirst` starego wariantu → `planItem.delete` (kaskada uczestników/zjedzonych) **przed** liczeniem limitów; `effectiveParticipantIds` = DTO wygrywa, inaczej przejęte audytorium ∩ członkowie (pełny zbiór lub pusty → `[]`); porcje przez istniejące `resolveUpdatedPlannedServings` (ręczna wartość przeżywa podmianę); obie gałęzie zwracają `changeKind: 'REPLACED'` + `replacedItemIds`; `planItem.create` w `try/catch` P2002 → `AppException('CONFLICT', …, 409)` (dziś 500).
 - `weekly-plans.gateway.ts`: push także dla `REPLACED` (`CREATED || REPLACED`); broadcast bez zmian — nadal `action: 'UPSERT_SLOT'` (iOS `singleChangeText` nie ma `default`, nowy string zgasiłby powiadomienie).

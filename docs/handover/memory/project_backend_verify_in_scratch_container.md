@@ -1,7 +1,7 @@
 ---
 name: project-backend-verify-in-scratch-container
-description: "Backend weryfikuje się w jednorazowym kontenerze z obrazu API — lokalny prisma generate/tsc/jest się wieszają, a bind-mount źródeł wywala EIO."
-metadata: 
+description: 'Backend weryfikuje się w jednorazowym kontenerze z obrazu API — lokalny prisma generate/tsc/jest się wieszają, a bind-mount źródeł wywala EIO.'
+metadata:
   node_type: memory
   type: project
   originSessionId: b2c1c8be-870b-42da-a493-b2dd70f946b0
@@ -22,6 +22,7 @@ docker rm -f $CID
 ```
 
 **Dlaczego akurat tak:**
+
 - `docker cp`, a NIE `-v $PWD/src:/app/src` — bind-mount źródeł do tego obrazu wywala
   `Error: EIO: i/o error, read` przy `prisma generate`.
 - Jednorazowy kontener, a nie `docker compose exec api` — działające API ma źródła

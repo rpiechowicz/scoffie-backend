@@ -7,6 +7,7 @@ Scope verified against source: `weekly-meals-ios/.../Models/Components/{DietPref
 ## A1 — Allergen/diet knowledge exists only as a Swift heuristic; backend has no notion at all — **P0**
 
 **Evidence**
+
 - `RecipeDietProfile.swift:4-9`: "Backend nie trzyma tagów dietetycznych na przepisie — jedyne, co mamy, to lista składników … Profil wylicza się więc po stronie klienta".
 - `grep -rn allergen|dietPreference src --include=*.ts | grep -v src/users/` → **0 hits**. `Recipe` in `schema.prisma` has no allergen/diet columns; `sourceDietary` appears only in `src/recipes/dto/recipe.dto.ts:68` and is never written.
 - Personalization is applied only in `RecipesView.swift:94-108` and `PlanSlotPickerSheet.swift:108-128`; `weekly-plans.service.ts` upsert path performs no allergen/diet check. There is also no `userPreference.findMany` anywhere (only `findUnique` at `users.service.ts:234`) — nothing can fetch the preference set of a household's participants.
@@ -21,6 +22,7 @@ Scope verified against source: `weekly-meals-ios/.../Models/Components/{DietPref
 ## A2 — Gluten false negatives in 4 catalog recipes (granola, musli, zakwas) — **P0**
 
 **Evidence**
+
 - `RecipeDietProfile.swift:382-389` `glutenGrainStems` has `owsian`, `owies` but no `granol`, `musli`, `zakwas`. Design rule at lines 11-13: "alergen wykrywamy nadmiarowo … przeoczenie może zaszkodzić".
 - Python run: `granola` (dept "Zboża i makarony") → `grains` only, **no gluten** → "Skyr z granolą i malinami", "Twarożek na słodko z brzoskwinią i granolą"; `baton musli` → `processed` only → "Jogurt naturalny z musli, truskawkami i borówkami"; `zakwas na żurek` (rye starter) → **nothing** → "Żurek z białą kiełbasą i jajkiem". All four pass a gluten-avoiding user's filter today, and would pass the validator if the dictionaries are ported as-is.
 
@@ -31,6 +33,7 @@ Scope verified against source: `weekly-meals-ios/.../Models/Components/{DietPref
 ## A3 — 7-value `Allergen` enum cannot express celery/mustard/sesame though the catalog uses them; "lactose" ≠ EU "milk" — **P1**
 
 **Evidence**
+
 - `DietPreference.swift:118-126`: `gluten, lactose, eggs, nuts, peanuts, fish, soy`. Comment 108-110 says seler/sezam were dropped for "zero przepisów" — no longer true in the 89-recipe catalog:
   - `seler korzeniowy` → "Rosół z makaronem", "Krupnik z kaszą jęczmienną"
   - `sezam` → "Kurczak teriyaki z makaronem i warzywami", "Hummus z warzywami do maczania"; `hummus` (tahini) → "Wrap z indykiem, hummusem i warzywami"
@@ -47,6 +50,7 @@ Scope verified against source: `weekly-meals-ios/.../Models/Components/{DietPref
 ## A4 — Backend stores any string in `allergens`; `UpdatePreferencesDto` validators never run on the only transport (WS) — **P1**
 
 **Evidence**
+
 - `users.service.ts:278-286`: `data.allergens.map((a) => a.trim().toLowerCase()).filter(Boolean)` — no whitelist.
 - `update-preferences.dto.ts:46-52`: `@IsString({each:true}) @MaxLength(64)` — no `@IsIn`.
 - `users.gateway.ts:29-32`: `class UsersPreferencesUpdatePayload { userId: string; data: UpdatePreferencesDto; }` — no `@ValidateNested()`/`@Type()`; the developer's own comment at `weekly-plans.service.ts:688-696`: "`ValidationPipe` owszem jest globalny … ale na ścieżce WebSocketu nie ma czego zwalidować … `@Min/@Max` na DTO nigdy się nie uruchamiają". No users REST controller exists (`@Controller` only in auth/ops/integrations).
@@ -59,6 +63,7 @@ Scope verified against source: `weekly-meals-ios/.../Models/Components/{DietPref
 ## A5 — iOS drops unknown allergen ids on read and writes back the reduced set → adding enum values deletes allergens from older app versions — **P1**
 
 **Evidence**
+
 - `SessionStore.swift:1794-1800` keeps all server strings in `settings.diet.allergens` (good), but `SettingsView.swift:316-319` `selectedAllergens = … .compactMap { Allergen(rawValue:) }`, `toggleAllergen` 366-375 writes `current.map(\.rawValue)…joined(",")`, and the debounced sync at 1265-1273 sends `allergens: selectedAllergens.map(\.rawValue)` (full replace, per `saveUserPreferences` doc 1830-1832). `WelcomeView.swift:107-113` + `320-327` identical.
 - Scenario: user sets `celery` on an updated phone; partner's/old phone toggles `gluten` → sends `["gluten"]` → `celery` gone server-side, silently.
 
@@ -89,29 +94,30 @@ Scope verified against source: `weekly-meals-ios/.../Models/Components/{DietPref
 
 ## A9 — Concrete ingredient classifications that are wrong or ambiguous (≥10) — **P2** (input for A1 curation)
 
-| # | catalog name | today | problem |
-|---|---|---|---|
-| 1 | `granola` | grains, no gluten | FN gluten (oat-based) — A2 |
-| 2 | `baton musli` | processed | FN gluten (+ often nuts/peanuts) — A2 |
-| 3 | `zakwas na żurek` | nothing | FN gluten + grains (rye) — A2 |
-| 4 | `seler korzeniowy` | nothing | celery unrepresentable — A3 |
-| 5 | `sezam` | `processed` (dept "Przekąski i słodycze") | sesame unrepresentable; paleo FP |
-| 6 | `pestki dyni` | `processed` (dept) | paleo FP → "Krem z dyni z prażonymi pestkami" excluded |
-| 7 | `musztarda` | nothing | mustard unrepresentable |
-| 8 | `bulion drobiowy` / `bulion warzywny` | meat / nothing | celery (+gluten/lactose traces in cubes) unrepresentable; 10 recipes |
-| 9 | `przyprawa uniwersalna` | nothing | celery (Vegeta) |
-| 10 | `płatki owsiane` | gluten | policy choice (4 recipes); must be stated in the digest or model/validator disagree |
-| 11 | `szynka`, `boczek` | meat, not processed | inconsistent with `wędlina drobiowa`/`kiełbasa` → processed (paleo) |
-| 12 | `kakao` (dept Cukiernia) | processed | paleo FP |
-| 13 | `hummus` | legumes | sesame unrepresentable |
-| 14 | `kukurydza z puszki` | grains | paleo exclusion, debatable |
-| 15 | not yet in recipes: `białko w proszku` → no lactose (whey); `piwo*` → no gluten (barley); `orzech laskowy/włoski` → `processed` by dept; a future "ser tofu" → lactose FP via `ser` stem (`RecipeDietProfile.swift:357`); "makadamia" → gluten FP via `maka` stem (line 383) |
+| #   | catalog name                                                                                                                                                                                                                                                                 | today                                     | problem                                                                             |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1   | `granola`                                                                                                                                                                                                                                                                    | grains, no gluten                         | FN gluten (oat-based) — A2                                                          |
+| 2   | `baton musli`                                                                                                                                                                                                                                                                | processed                                 | FN gluten (+ often nuts/peanuts) — A2                                               |
+| 3   | `zakwas na żurek`                                                                                                                                                                                                                                                            | nothing                                   | FN gluten + grains (rye) — A2                                                       |
+| 4   | `seler korzeniowy`                                                                                                                                                                                                                                                           | nothing                                   | celery unrepresentable — A3                                                         |
+| 5   | `sezam`                                                                                                                                                                                                                                                                      | `processed` (dept "Przekąski i słodycze") | sesame unrepresentable; paleo FP                                                    |
+| 6   | `pestki dyni`                                                                                                                                                                                                                                                                | `processed` (dept)                        | paleo FP → "Krem z dyni z prażonymi pestkami" excluded                              |
+| 7   | `musztarda`                                                                                                                                                                                                                                                                  | nothing                                   | mustard unrepresentable                                                             |
+| 8   | `bulion drobiowy` / `bulion warzywny`                                                                                                                                                                                                                                        | meat / nothing                            | celery (+gluten/lactose traces in cubes) unrepresentable; 10 recipes                |
+| 9   | `przyprawa uniwersalna`                                                                                                                                                                                                                                                      | nothing                                   | celery (Vegeta)                                                                     |
+| 10  | `płatki owsiane`                                                                                                                                                                                                                                                             | gluten                                    | policy choice (4 recipes); must be stated in the digest or model/validator disagree |
+| 11  | `szynka`, `boczek`                                                                                                                                                                                                                                                           | meat, not processed                       | inconsistent with `wędlina drobiowa`/`kiełbasa` → processed (paleo)                 |
+| 12  | `kakao` (dept Cukiernia)                                                                                                                                                                                                                                                     | processed                                 | paleo FP                                                                            |
+| 13  | `hummus`                                                                                                                                                                                                                                                                     | legumes                                   | sesame unrepresentable                                                              |
+| 14  | `kukurydza z puszki`                                                                                                                                                                                                                                                         | grains                                    | paleo exclusion, debatable                                                          |
+| 15  | not yet in recipes: `białko w proszku` → no lactose (whey); `piwo*` → no gluten (barley); `orzech laskowy/włoski` → `processed` by dept; a future "ser tofu" → lactose FP via `ser` stem (`RecipeDietProfile.swift:357`); "makadamia" → gluten FP via `maka` stem (line 383) |
 
 Verified correct: `mleko kokosowe z puszki` (not dairy), `masło orzechowe` (peanuts, not dairy/nuts), `sos sojowy` (gluten+soy), `majonez` (eggs), `jajko` in dept "Nabiał" (eggs, not dairy), `tuńczyk w puszce` (fish), `ser feta`/`mozzarella`/`śmietana 18`/`skyr` (lactose), `kasza gryczana`/`jaglana` (grains, no gluten), `kasza jęczmienna`/`kuskus` (gluten), `tortilla pszenna`, `bułka tarta`, `noga z kurczaka`, `wieprzowina i wołowina mielona`. Recipe counts per allergen: lactose 65, gluten 50, eggs 30, fish 8, peanuts 2, soy 1, nuts 0.
 
 ---
 
 ## Checked and found FINE
+
 - `DietPreference` ↔ `DietPreferenceValue`: 7 = 7, explicit mapping `DietPreference.swift:62-80`, schema `664-672`; unknown server value keeps local (`SessionStore.swift:1790`).
 - `UserGoal` 5 = 5 (`UserGoal.swift:8-14` vs schema `674-680`), case-translated at the boundary (`SessionStore.swift:1801, 1875`).
 - `ActivityLevel` raw 1..4 (`UserGoal.swift:86-90`) = backend clamp 1..4 (`users.service.ts:16-17`).

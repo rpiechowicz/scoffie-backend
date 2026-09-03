@@ -177,6 +177,9 @@ describe('Agent E2E', () => {
     process.env.AI_ENABLED = 'true';
     process.env.AI_PROVIDER = 'stub';
     process.env.AI_STUB_DELAY_MS = '0';
+    // Bramka zgód jest od audytu 2 domyślnie włączona; ta suita testuje
+    // ją w jednym miejscu, reszta przypadków ma dostać asystenta bez klikania.
+    process.env.AI_CONSENT_REQUIRED = 'false';
     delete process.env.AI_LIMIT_MESSAGES_PER_MONTH;
     // Polling tury robi dziesiątki żądań na turę — limity throttlera są
     // przedmiotem `throttling.e2e-spec.ts`, nie tej suity.
@@ -279,7 +282,11 @@ describe('Agent E2E', () => {
           .expect(403);
         expect(refused.body).toMatchObject({
           code: 'AI_CONSENT_REQUIRED',
-          details: ['documentVersion:2026-09-02'],
+          details: [
+            'documentVersion:2026-09-15',
+            'missing:AI_ASSISTANT',
+            'missing:AGE_16',
+          ],
         });
 
         // Stan zgód jest czytelny niezależnie od asystenta.
@@ -298,7 +305,7 @@ describe('Agent E2E', () => {
           .send({
             kind: 'AI_ASSISTANT',
             action: 'GRANTED',
-            documentVersion: '2026-09-02',
+            documentVersion: '2026-09-15',
             source: 'E2E',
           })
           .expect(201);
@@ -307,6 +314,40 @@ describe('Agent E2E', () => {
             (entry) => entry.kind === 'AI_ASSISTANT',
           )?.granted,
         ).toBe(true);
+
+        // Sama zgoda na asystenta nie wystarczy — bez deklaracji wieku
+        // nadal 403, z wyliczeniem, czego brakuje.
+        const stillRefused = await request(app.getHttpServer())
+          .post('/agent/conversations')
+          .set(auth(session.accessToken))
+          .send({ householdId })
+          .expect(403);
+        expect(stillRefused.body.details).toEqual([
+          'documentVersion:2026-09-15',
+          'missing:AGE_16',
+        ]);
+
+        // Wersja z przyszłości nie ląduje w dzienniku.
+        await request(app.getHttpServer())
+          .post('/me/consents')
+          .set(auth(session.accessToken))
+          .send({
+            kind: 'AGE_16',
+            action: 'GRANTED',
+            documentVersion: '2999-01-01',
+          })
+          .expect(400);
+
+        await request(app.getHttpServer())
+          .post('/me/consents')
+          .set(auth(session.accessToken))
+          .send({
+            kind: 'AGE_16',
+            action: 'GRANTED',
+            documentVersion: '2026-09-15',
+            source: 'E2E',
+          })
+          .expect(201);
 
         await request(app.getHttpServer())
           .post('/agent/conversations')
@@ -320,7 +361,7 @@ describe('Agent E2E', () => {
           .send({
             kind: 'AI_ASSISTANT',
             action: 'REVOKED',
-            documentVersion: '2026-09-02',
+            documentVersion: '2026-09-15',
           })
           .expect(201);
         await request(app.getHttpServer())
@@ -336,11 +377,11 @@ describe('Agent E2E', () => {
           .send({
             kind: 'NEWSLETTER',
             action: 'GRANTED',
-            documentVersion: '2026-09-02',
+            documentVersion: '2026-09-15',
           })
           .expect(400);
       } finally {
-        delete process.env.AI_CONSENT_REQUIRED;
+        process.env.AI_CONSENT_REQUIRED = 'false';
         await prisma.consentEvent.deleteMany({
           where: { userId: session.user.id },
         });

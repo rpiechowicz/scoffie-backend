@@ -1,7 +1,7 @@
 ---
 name: project-docker-no-auto-migrate
 description: NIEAKTUALNE od 2026-08-26 — CMD obrazu API odpala teraz migracje przy starcie; ręczny deploy to już tylko no-op-owa asekuracja.
-metadata: 
+metadata:
   node_type: memory
   type: project
   originSessionId: 07d4f263-e5aa-4641-8925-5354fa37ecd4

@@ -1,4 +1,5 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Optional } from '@nestjs/common';
+import { ensureRecipeForHousehold } from '../weekly-plans/utils/auth-checks.util';
 import { AppException } from '../common/app-exception';
 import {
   decryptSecret,
@@ -11,6 +12,7 @@ import {
   CookidooSubscriptionInfo,
 } from './cookidoo-service.client';
 import { isCookidooIntegrationEnabled } from './cookidoo-flag';
+import { ConsentsService } from '../consents/consents.service';
 
 const STATUS_CONNECTED = 'CONNECTED';
 const STATUS_AUTH_FAILED = 'AUTH_FAILED';
@@ -37,15 +39,25 @@ export type CookidooStatusView = {
 
 @Injectable()
 export class CookidooIntegrationService {
-  // Fail-fast: bez poprawnego klucza nie wolno przyjąć żadnych poświadczeń.
-  private readonly encryptionKey = parseEncryptionKey(
-    process.env.COOKIDOO_ENCRYPTION_KEY,
-  );
+  /**
+   * Klucz czytany LENIWIE, przy pierwszym użyciu, a nie przy budowie DI:
+   * wyłączona integracja (`COOKIDOO_INTEGRATION_ENABLED=false`) nie ma
+   * prawa wywracać startu całej aplikacji brakiem sekretu, którego nic nie
+   * użyje. Przy pierwszym połączeniu brak klucza nadal jest błędem — ten sam
+   * `parseEncryptionKey`, tylko później.
+   */
+  private cachedKey: Buffer | null = null;
+  private get encryptionKey(): Buffer {
+    this.cachedKey ??= parseEncryptionKey(process.env.COOKIDOO_ENCRYPTION_KEY);
+    return this.cachedKey;
+  }
   private readonly recentSends = new Map<string, number>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly cookidooClient: CookidooServiceClient,
+    // Opcjonalnie: testy jednostkowe budują serwis bez dziennika zgód.
+    @Optional() private readonly consents?: ConsentsService,
   ) {}
 
   async connect(
@@ -79,6 +91,15 @@ export class CookidooIntegrationService {
       create: { householdId, ...encrypted },
       update: encrypted,
     });
+    // Podanie hasła JEST zgodą na przekazanie go usłudze trzeciej (polityka
+    // §3, art. 6 ust. 1 lit. a) — dziennik ma to udowodnić.
+    await this.consents?.recordSystem(
+      userId,
+      'COOKIDOO',
+      'GRANTED',
+      'COOKIDOO_CONNECT',
+      householdId,
+    );
 
     return {
       connected: true,
@@ -92,17 +113,13 @@ export class CookidooIntegrationService {
   }
 
   async status(userId: string): Promise<CookidooStatusView> {
-    if (!isCookidooIntegrationEnabled()) {
-      // Bez odczytu bazy: wyłączona integracja nie zdradza nawet tego, czy
-      // ktoś ją kiedyś podłączył; klient ma schować wiersz.
-      return { connected: false, enabled: false };
-    }
+    const enabled = isCookidooIntegrationEnabled();
     const householdId = await this.resolveHouseholdId(userId);
     const integration = await this.prisma.cookidooIntegration.findUnique({
       where: { householdId },
     });
     if (!integration) {
-      return { connected: false, enabled: true };
+      return { connected: false, enabled };
     }
 
     let login: string;
@@ -112,12 +129,15 @@ export class CookidooIntegrationService {
     } catch {
       // Klucz się zmienił (rotacja/utrata) — stare wpisy są nie do odczytania,
       // więc dla klienta integracji po prostu nie ma; trzeba połączyć ponownie.
-      return { connected: false, enabled: true };
+      return { connected: false, enabled };
     }
 
+    // Wyłączona integracja z zapisanym hasłem: klient chowa łączenie i
+    // wysyłkę, ale MUSI pokazać „rozłącz" — inaczej hasło zostaje w bazie
+    // bez drogi do usunięcia (audyt 2, 3.09.2026).
     return {
       connected: true,
-      enabled: true,
+      enabled,
       login,
       status: integration.status,
       connectedById: integration.connectedById,
@@ -130,9 +150,18 @@ export class CookidooIntegrationService {
     userId: string,
   ): Promise<{ connected: false; enabled: boolean }> {
     const householdId = await this.resolveHouseholdId(userId);
-    await this.prisma.cookidooIntegration.deleteMany({
+    const removed = await this.prisma.cookidooIntegration.deleteMany({
       where: { householdId },
     });
+    if (removed.count > 0) {
+      await this.consents?.recordSystem(
+        userId,
+        'COOKIDOO',
+        'REVOKED',
+        'COOKIDOO_DISCONNECT',
+        householdId,
+      );
+    }
     return { connected: false, enabled: isCookidooIntegrationEnabled() };
   }
 
@@ -157,6 +186,9 @@ export class CookidooIntegrationService {
       );
     }
 
+    // Przepis musi być widoczny dla TEGO domu (katalog albo własny) — bez
+    // bramki trasa była wyrocznią istnienia cudzych przepisów.
+    await ensureRecipeForHousehold(this.prisma, recipeId, householdId);
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: recipeId },
       select: { sourceProvider: true, sourceRecipeId: true, isActive: true },
