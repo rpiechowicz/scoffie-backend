@@ -24,8 +24,14 @@ export function billingEnvProblems(
     );
   }
 
+  // TE SAME WARTOŚCI, CO W `readBillingEnv`. Rozjazd był groźny w jedną stronę:
+  // `BILLING_ENABLED=yes` WŁĄCZAŁO sprzedaż (readBool przyjmuje `yes`), ale tutaj
+  // liczyło się jako wyłączona — więc znikały WSZYSTKIE ostrzeżenia o brakującym
+  // kluczu, o sandboxie na produkcji i o darmowym PRO dla wszystkich. Dokładnie
+  // wtedy, gdy są najbardziej potrzebne.
   const wantsBilling = (env.BILLING_ENABLED ?? '').trim().toLowerCase();
-  const billingOn = wantsBilling === 'true' || wantsBilling === '1';
+  const billingOn =
+    wantsBilling === 'true' || wantsBilling === '1' || wantsBilling === 'yes';
   const appleKeys = [
     'APPLE_ISSUER_ID',
     'APPLE_BILLING_KEY_ID',
