@@ -279,7 +279,11 @@ export class AiUsageCountersService {
 
   /**
    * `details` dla 429 z planu: te same pola, co w `GET /agent/usage`, plus
-   * `tier` — telefon na próbie pokazuje „Odblokuj PRO", nie datę odnowienia.
+   * `tier` — telefon na próbie pokazuje „Wybierz plan", nie datę odnowienia.
+   *
+   * `PRO` jest tu nazwą WEWNĘTRZNĄ poziomu (płatny kontra próbny). Człowiek
+   * jej nie widzi: kupuje plan Solo, We dwoje albo Rodzina, i tak nazywa się
+   * to na każdym ekranie.
    */
   quotaDetailsFor(kind: UsageKind, plan: HouseholdPlan): string[] {
     const limit = kind === 'plans' ? plan.plansLimit : plan.messagesLimit;

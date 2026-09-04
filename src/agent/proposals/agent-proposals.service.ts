@@ -721,7 +721,7 @@ export class AgentProposalsService {
       throw new AppException(
         'AI_PLAN_QUOTA_EXCEEDED',
         plan.tier === 'TRIAL'
-          ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. PRO odblokowuje pulę miesięczną dla całego domu.`
+          ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. Wybierz plan, żeby mieć pulę miesięczną dla całego domu.`
           : `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany.`,
         HttpStatus.TOO_MANY_REQUESTS,
         this.counters.quotaDetailsFor('plans', plan),

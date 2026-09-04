@@ -4,6 +4,12 @@ Dokument operacyjny: co jest w kodzie, jakie zagrożenia zamyka, co trzeba
 ustawić przed sprzedażą. Cennik i skąd wzięły się limity — osobno, w
 `docs/plans/weekly-meals-ai-agent/cennik-i-limity-2026-09.md` §16–19.
 
+**Nazewnictwo.** `PRO` jest nazwą WEWNĘTRZNĄ poziomu (płatny kontra próbny):
+enum w bazie, pole `tier` w odpowiedzi serwera, `AI_TIER_OVERRIDE`. Człowiek
+tego słowa nie widzi nigdzie. Kupuje **Solo**, **We dwoje** albo **Rodzina** i
+tak nazywa się to na paywallu, na ekranie limitów i w komunikatach o
+wyczerpanej puli. Przycisk otwierający paywall to „Wybierz plan".
+
 ---
 
 ## 1. Dwie decyzje, na których stoi całość

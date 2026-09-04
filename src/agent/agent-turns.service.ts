@@ -393,7 +393,7 @@ export class AgentTurnsService {
           throw new AppException(
             'AI_QUOTA_EXCEEDED',
             plan.tier === 'TRIAL'
-              ? `Darmowe wiadomości na próbę (${plan.messagesLimit}) są wykorzystane. PRO odblokowuje pulę miesięczną dla całego domu.`
+              ? `Darmowe wiadomości na próbę (${plan.messagesLimit}) są wykorzystane. Wybierz plan, żeby mieć pulę miesięczną dla całego domu.`
               : 'Limit wiadomości asystenta na ten miesiąc został wyczerpany.',
             HttpStatus.TOO_MANY_REQUESTS,
             this.counters.quotaDetailsFor('messages', plan),

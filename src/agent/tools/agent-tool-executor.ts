@@ -1011,7 +1011,9 @@ export class AgentToolExecutor {
           ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. `
           : `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany. `) +
           'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go' +
-          (plan.tier === 'TRIAL' ? ' bez PRO.' : ' do końca miesiąca.'),
+          (plan.tier === 'TRIAL'
+            ? ' bez wybrania planu.'
+            : ' do końca miesiąca.'),
         HttpStatus.TOO_MANY_REQUESTS,
         this.counters.quotaDetailsFor('plans', plan),
       );
