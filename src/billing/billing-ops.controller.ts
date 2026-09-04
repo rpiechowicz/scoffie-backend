@@ -27,6 +27,7 @@ import {
   subscriptionScopeId,
 } from '../config/purchase-identity';
 import { billingPeriodKey } from '../config/subscription-lifetime';
+import { BillingPreflightService } from './billing-preflight.service';
 import { SubscriptionsService } from './subscriptions.service';
 import { SubscriptionsReconcileService } from './subscriptions-reconcile.service';
 
@@ -104,7 +105,21 @@ export class BillingOpsController {
     private readonly prisma: PrismaService,
     private readonly subscriptions: SubscriptionsService,
     private readonly reconciler: SubscriptionsReconcileService,
+    private readonly preflight: BillingPreflightService,
   ) {}
+
+  /**
+   * „Czy w ogóle umiemy rozmawiać z Apple?" — jedno prawdziwe żądanie do App
+   * Store Server API, bez czekania na pierwszego płacącego klienta.
+   *
+   * Do wywołania PRZED przestawieniem `BILLING_ENABLED` na produkcji i po
+   * każdej podmianie klucza. 404 od Apple jest tu dobrą odpowiedzią: znaczy
+   * „przyjąłem twój token".
+   */
+  @Post('preflight')
+  async preflightCheck() {
+    return this.preflight.sprawdz();
+  }
 
   /** Wyszukanie subskrypcji po transakcji Apple albo po koncie. */
   @Get('subscriptions')

@@ -84,7 +84,17 @@ export class SubscriptionsReconcileService
         }
       }
       for (const id of await this.subscriptions.staleSubscriptionIds(BATCH)) {
-        if (await this.subscriptions.reconcile(id)) reconciled += 1;
+        // KAŻDY WIERSZ W OSOBNYM `try`. Pętla powiadomień miała to od początku,
+        // pętla subskrypcji nie — więc jeden wiersz, którego uzgodnienie rzuca
+        // czymkolwiek nieprzewidzianym, wywracał CAŁĄ partię i zostawiał bez
+        // odświeżenia płacących klientów czekających na zgubione odnowienie.
+        try {
+          if (await this.subscriptions.reconcile(id)) reconciled += 1;
+        } catch (error) {
+          this.logger.error(
+            `Uzgadnianie subskrypcji ${id} padło: ${String(error)}`,
+          );
+        }
       }
       if (notifications > 0 || reconciled > 0) {
         this.logger.log(

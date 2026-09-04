@@ -10,6 +10,7 @@ import {
 import { SUBSCRIPTION_PRODUCTS } from '../config/subscription-products';
 import { subscriptionAlive } from '../config/subscription-lifetime';
 import {
+  AppStoreKeyError,
   AppStoreNotFoundError,
   AppStoreServerClient,
   AppStoreUnavailableError,
@@ -219,13 +220,35 @@ export class SubscriptionsService {
     if (pointer.appAccountToken) {
       const claimed = pointer.appAccountToken.trim().toLowerCase();
       if (claimed !== user.id.toLowerCase()) {
-        this.logger.error(
-          `Transakcja ${pointer.originalTransactionId} zgłoszona przez ${userId}, a appAccountToken wskazuje na inne konto.`,
-        );
-        throw new AppException(
-          'BILLING_TRANSACTION_TAKEN',
-          'Ten zakup należy do innego konta.',
-          HttpStatus.CONFLICT,
+        // ZNACZNIK NIE MOŻE ODBIERAĆ ZAKUPU WŁASNEMU WŁAŚCICIELOWI.
+        //
+        // `appAccountToken` zostaje przy transakcji na zawsze — z identyfikatorem
+        // konta z CHWILI ZAKUPU. Kto skasował konto i zalogował się ponownie tym
+        // samym Apple ID, ma nowy identyfikator, więc znacznik wskazuje na konto,
+        // którego już nie ma. Bezwarunkowa odmowa łamała dokładnie ten przypadek,
+        // dla którego powstał cały hasz tożsamości: „skasowałem konto, wróciłem,
+        // chcę swoje opłacone PRO".
+        //
+        // Rozstrzyga więc TOŻSAMOŚĆ, nie identyfikator konta: jeśli ta subskrypcja
+        // jest już zapisana na tym samym haszu, to jest ta sama osoba i wpuszczamy.
+        // Jeśli wiersza nie ma albo należy do kogoś innego — znacznik zostaje
+        // ostatnim słowem i blokuje przejęcie wyciekłego paragonu.
+        const existing = await this.prisma.subscription.findUnique({
+          where: { originalTransactionId: pointer.originalTransactionId },
+          select: { identityHash: true },
+        });
+        if (!identityHashEquals(existing?.identityHash, identityHash)) {
+          this.logger.error(
+            `Transakcja ${pointer.originalTransactionId} zgłoszona przez ${userId}, a appAccountToken wskazuje na inne konto i tożsamość się nie zgadza.`,
+          );
+          throw new AppException(
+            'BILLING_TRANSACTION_TAKEN',
+            'Ten zakup należy do innego konta.',
+            HttpStatus.CONFLICT,
+          );
+        }
+        this.logger.log(
+          `Transakcja ${pointer.originalTransactionId}: appAccountToken wskazuje na poprzednie konto tej samej osoby — wpuszczam po haszu tożsamości.`,
         );
       }
     }
@@ -282,10 +305,26 @@ export class SubscriptionsService {
       return await this.appStore.subscriptionState(originalTransactionId, now);
     } catch (error) {
       if (error instanceof AppStoreNotFoundError) {
+        // Zostaje po to, żeby stary klient dostał znany kod. Sam klient API
+        // rzuca to dziś tylko wtedy, gdy odpowiedź Apple nie zawiera naszej
+        // subskrypcji — świeżo kupiona transakcja idzie ścieżką „chwilowo".
         throw new AppException(
           'BILLING_TRANSACTION_UNKNOWN',
-          'App Store nie zna tego zakupu.',
-          HttpStatus.BAD_REQUEST,
+          'App Store jeszcze nie widzi tego zakupu. Spróbujemy ponownie za chwilę.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      if (error instanceof AppStoreKeyError) {
+        // NASZ błąd, nie awaria Apple. Zgłoszenie z telefonu i tak nie ma jak
+        // przejść, ale w logu ma stać, co jest zepsute — inaczej wygląda to
+        // jak awaria App Store i nikt nie sprawdza własnej konfiguracji.
+        this.logger.error(
+          `Klucz do App Store Server API nie działa: ${error.message}`,
+        );
+        throw new AppException(
+          'BILLING_UPSTREAM_UNAVAILABLE',
+          'App Store chwilowo nie odpowiada. Spróbuj za moment.',
+          HttpStatus.SERVICE_UNAVAILABLE,
         );
       }
       if (error instanceof AppStoreUnavailableError) {
@@ -294,6 +333,20 @@ export class SubscriptionsService {
           'BILLING_UPSTREAM_UNAVAILABLE',
           'App Store chwilowo nie odpowiada. Spróbuj za moment.',
           HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      if (error instanceof AppleJwsError) {
+        // Odmowa TREŚCIOWA w odpowiedzi samego Apple (obca aplikacja, obce
+        // środowisko, Chmura Rodzinna). Bez tej gałęzi wychodziła z kontrolera
+        // jako 500, a telefon traktował 500 jak awarię i wracał w kółko.
+        this.logger.warn(
+          `Odpowiedź App Store odrzucona treściowo (${error.code}): ${error.message}`,
+        );
+        throw new AppException(
+          'BILLING_TRANSACTION_INVALID',
+          'Nie udało się potwierdzić tego zakupu w App Store.',
+          HttpStatus.BAD_REQUEST,
+          [`reason:${error.code}`],
         );
       }
       throw error;
@@ -785,6 +838,30 @@ export class SubscriptionsService {
         this.logger.warn(`Uzgadnianie ${subscriptionId}: ${error.message}`);
         return false;
       }
+      if (error instanceof AppStoreKeyError) {
+        this.logger.error(
+          `Uzgadnianie ${subscriptionId} bez klucza do Apple: ${error.message}`,
+        );
+        return false;
+      }
+      if (error instanceof AppleJwsError) {
+        // Wiersz, którego ODPOWIEDŹ APPLE nie przechodzi przez bramkę treści
+        // (np. FAMILY_SHARED zapisany, gdy przełącznik był włączony). Bez tej
+        // gałęzi wyjątek wychodził z `reconcile`, a przebieg nie ma try wokół
+        // pojedynczego wiersza — więc JEDEN taki wiersz wywracał całą partię,
+        // co godzinę, na zawsze. Znacznik przesuwamy, żeby nie zatykał kolejki.
+        this.logger.error(
+          `Uzgadnianie ${subscriptionId}: odpowiedź Apple odrzucona treściowo (${error.code}).`,
+        );
+        await this.prisma.subscription.updateMany({
+          where: { id: subscriptionId },
+          data: {
+            lastVerifiedAt: now,
+            lastNotificationType: `APPLE_REJECTED_${error.code}`,
+          },
+        });
+        return false;
+      }
       throw error;
     }
   }
@@ -831,6 +908,16 @@ export class SubscriptionsService {
                   {
                     status: 'EXPIRED',
                     autoRenewStatus: true,
+                    expiresAt: { gt: expiredWindow },
+                  },
+                  {
+                    // Wiersz cofnięty RĘCZNIE, z którego obsługa zdjęła już
+                    // blokadę. Bez tego pomyłkowe odebranie dostępu było nie
+                    // do cofnięcia: `unhold` czyści blokadę, ale status
+                    // REVOKED wypadał z kolejki na zawsze, więc nikt go nigdy
+                    // nie odpytał ponownie.
+                    status: 'REVOKED',
+                    operatorHoldAt: null,
                     expiresAt: { gt: expiredWindow },
                   },
                 ],

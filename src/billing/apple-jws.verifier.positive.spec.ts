@@ -96,15 +96,27 @@ describe('verifyAppleJws — ścieżka udana', () => {
     expect(payload.bundleId).toBe('app.scoffie.ios');
   });
 
-  it('ta sama treść z PODMIENIONYM jednym znakiem podpisu już nie przechodzi', () => {
+  it('ta sama treść z CUDZYM podpisem nie przechodzi', () => {
+    // PODPIS BIERZEMY SPOD INNEJ TREŚCI, a nie podmieniamy w nim znaku.
+    //
+    // Pierwsza wersja tego testu przestawiała OSTATNI znak base64url podpisu
+    // i była LOSOWO ZAWODNA — padała mniej więcej raz na pięć uruchomień.
+    // Podpis ES256 ma 64 bajty, czyli 512 bitów, a 86 znaków base64url niesie
+    // 516: ostatni znak ma cztery bity znaczące i dwa wypełniające. ECDSA
+    // losuje podpis przy każdym podpisaniu, więc co jakiś czas podmiana
+    // trafiała wyłącznie w bity wypełniające — odkodowany podpis wychodził
+    // IDENTYCZNY, weryfikacja słusznie przechodziła, a test padał bez winy
+    // kodu. Podpis spod innej treści jest zły zawsze i deterministycznie.
     const token = signJws(transactionPayload());
-    const [header, body, signature] = token.split('.');
-    const broken = `${header}.${body}.${signature.slice(0, -1)}${
-      signature.endsWith('A') ? 'B' : 'A'
-    }`;
+    const obcy = signJws(transactionPayload({ productId: 'app.scoffie.inny' }));
+    const [header, body] = token.split('.');
+    const podpisObcy = obcy.split('.')[2];
     expect(
       codeOf(() =>
-        verifyAppleJws(broken, { now: NOW, rootPem: TEST_ROOT_PEM }),
+        verifyAppleJws(`${header}.${body}.${podpisObcy}`, {
+          now: NOW,
+          rootPem: TEST_ROOT_PEM,
+        }),
       ),
     ).toBe('BAD_SIGNATURE');
   });

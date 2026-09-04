@@ -275,10 +275,13 @@ false` w iOS). Paywall pokazuje ofertę i nie pobiera pieniędzy.
   przeterminowana karta nie daje świeżej puli, tylko resztę opłaconej. Nadanie
   operatora i wieczyste nie mają okresu rozliczeniowego i zostają przy miesiącu
   kalendarzowym.
-- **Recenzent App Store kupuje w sandboxie**, a sandbox nie daje PRO na
-  produkcji (i nie może, bo wtedy każdy z TestFlightem miałby PRO za darmo).
-  Dla recenzji trzeba nadać dostęp ręcznie: `POST /ops/billing/grant` z
-  `months: 0` na koncie demo podanym w notatkach do recenzji.
+- **Recenzent App Store kupuje w sandboxie.** Klient API schodzi teraz po
+  `errorCode 4040010` na adres sandboxa (tak każe Apple), więc samo pytanie
+  o stan zadziała. Czy sandboxowa transakcja ma DAWAĆ dostęp na produkcji,
+  rozstrzyga `APPLE_ACCEPT_SANDBOX` — i to jest wybór między „recenzent kupi"
+  a „każdy z TestFlightem ma PRO za darmo". Zalecenie: włączyć na czas recenzji,
+  wyłączyć po wydaniu, a koncie demo dodatkowo nadać dostęp ręcznie
+  (`POST /ops/billing/grant`, `months: 0`) i napisać o tym w notatkach.
 
 ---
 
@@ -299,6 +302,14 @@ false` w iOS). Paywall pokazuje ofertę i nie pobiera pieniędzy.
 6. Wyślij powiadomienie testowe i sprawdź, czy przyszło 200.
 
 **Railway**
+
+6a. **`POST /ops/billing/preflight` PRZED włączeniem sprzedaży.** Jedno prawdziwe
+    żądanie do App Store Server API. `stan: "ok"` znaczy, że Apple przyjmuje
+    nasz klucz; `stan: "klucz"` znaczy, że nie — i wtedy paywall zostaje
+    zgaszony sam, żeby nikt nie zapłacił za dostęp, którego nie umiemy nadać.
+    Bez tego jedyną informacją o pomylonym kluczu była reklamacja pierwszego
+    klienta: zapłacił, dostał „App Store chwilowo nie odpowiada" i nie mijało
+    to samo, bo zły klucz nie mija.
 
 7. `PURCHASE_IDENTITY_PEPPER` — długi, losowy, **ustawiony raz na zawsze**.
 8. `APPLE_ENVIRONMENT=Production`, `APPLE_ACCEPT_SANDBOX=false`.
