@@ -127,7 +127,7 @@ export function readBillingEnv(): BillingEnv {
     enabled:
       readBool('BILLING_ENABLED', false) &&
       Boolean(issuerId && keyId && privateKey),
-    bundleId: process.env.APPLE_BUNDLE_ID?.trim() || 'app.scoffie',
+    bundleId: process.env.APPLE_BUNDLE_ID?.trim() || 'app.scoffie.ios',
     appAppleId: readInt('APPLE_APP_APPLE_ID', 0),
     environment,
     // Na produkcji sandbox jest odrzucany zawsze; poza produkcją domyślnie

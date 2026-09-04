@@ -184,7 +184,7 @@ describe('NotificationsGateway', () => {
         data: {
           deviceToken: DEVICE,
           platform: 'IOS',
-          appBundleId: 'app.scoffie',
+          appBundleId: 'app.scoffie.ios',
           apnsEnvironment: 'sandbox',
         },
       } as any);
@@ -198,7 +198,7 @@ describe('NotificationsGateway', () => {
       expect(notificationsService.registerDevice).toHaveBeenCalledWith(USER, {
         deviceToken: DEVICE,
         platform: 'IOS',
-        appBundleId: 'app.scoffie',
+        appBundleId: 'app.scoffie.ios',
         apnsEnvironment: 'sandbox',
       });
     });

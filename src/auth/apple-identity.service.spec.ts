@@ -16,7 +16,7 @@ import { AppleIdentityService } from './apple-identity.service';
  *  - Injecting a local JWKS resolver that returns our public key.
  */
 describe('AppleIdentityService', () => {
-  const AUDIENCE = 'app.scoffie';
+  const AUDIENCE = 'app.scoffie.ios';
 
   let privateKey: KeyLike;
   let publicJwk: JWK;
