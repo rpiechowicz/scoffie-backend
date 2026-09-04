@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AppStoreServerClient } from './app-store-server.client';
 import { BillingController } from './billing.controller';
@@ -14,7 +15,10 @@ import { SubscriptionsReconcileService } from './subscriptions-reconcile.service
  * (`AiUsageCountersService.resolvePlan`) i nie wie nic o Apple.
  */
 @Module({
-  imports: [PrismaModule],
+  // AuthModule dostarcza AccessTokenService dla JwtAuthGuard na kontrolerze;
+  // bez niego Nest nie zbuduje guarda w zakresie tego modułu i aplikacja
+  // pada przy starcie (UnknownDependenciesException).
+  imports: [AuthModule, PrismaModule],
   controllers: [BillingController, BillingOpsController],
   providers: [
     AppStoreServerClient,
