@@ -910,7 +910,7 @@ describe('Agent E2E', () => {
             goalLabel: expect.stringMatching(/kcal/),
           }),
         ],
-        usage: { householdId, tier: 'FREE', byUser: expect.any(Array) },
+        usage: { householdId, tier: 'PRO', byUser: expect.any(Array) },
       });
       expect(typeof res.body.weekLabel).toBe('string');
 
@@ -988,6 +988,7 @@ describe('Agent E2E', () => {
           'kind:messages',
           'limit:2',
           'remaining:0',
+          'tier:PRO',
           expect.stringMatching(/^resetsAt:\d{4}-\d{2}-01T00:00:00\.000Z$/),
         ]);
 
@@ -999,7 +1000,7 @@ describe('Agent E2E', () => {
           .expect(200);
         expect(usage.body).toMatchObject({
           householdId: quotaHousehold,
-          tier: 'FREE',
+          tier: 'PRO',
           messages: { used: 2, limit: 2, remaining: 0 },
           plans: { used: 0, remaining: expect.any(Number) },
         });

@@ -75,19 +75,30 @@ export class StubAgentProvider implements AgentProvider {
     }
 
     const text = `[stub] ${lastUserText}`.slice(0, 4000);
+    const usage = {
+      // Prymitywne, ale niezerowe: e2e sprawdza, że księga użycia i licznik
+      // kosztu dostają realne liczby, a nie same zera.
+      inputTokens: lastUserText.length,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: text.length,
+      costMicroUsd: 0,
+    };
     return {
       text,
       stopReason: 'end_turn',
       apiCalls: 1,
-      usage: {
-        // Prymitywne, ale niezerowe: e2e sprawdza, że księga użycia i licznik
-        // kosztu dostają realne liczby, a nie same zera.
-        inputTokens: lastUserText.length,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        outputTokens: text.length,
-        costMicroUsd: 0,
-      },
+      usage,
+      // Jedna faza: stub nie przekazuje pałeczki, ale księga per faza ma
+      // dostać wiersz także tutaj (e2e sprawdza `AiUsage`).
+      phases: [
+        {
+          model: request.model,
+          effort: request.effort,
+          apiCalls: 1,
+          usage,
+        },
+      ],
     };
   }
 

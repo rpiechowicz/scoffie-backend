@@ -90,6 +90,17 @@ const makeDeps = (
     }),
   };
   const counters = {
+    resolvePlan: jest.fn().mockResolvedValue({
+      tier: 'PRO',
+      source: 'ENV',
+      quotaScopeId: householdId,
+      periodKey: '2026-04',
+      renews: true,
+      resetsAt: '2026-10-01T00:00:00.000Z',
+      messagesLimit: 200,
+      plansLimit: 30,
+    }),
+    quotaDetailsFor: jest.fn().mockReturnValue(['kind:messages']),
     monthKey: jest.fn().mockReturnValue('2026-04'),
     tryConsume: jest.fn().mockResolvedValue(true),
     add: jest.fn().mockResolvedValue(undefined),

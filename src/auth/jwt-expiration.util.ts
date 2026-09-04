@@ -4,7 +4,9 @@ type JwtExpiresIn = NonNullable<
   Parameters<JwtService['signAsync']>[1]
 >['expiresIn'];
 
-const DEFAULT_JWT_EXPIRES_IN: JwtExpiresIn = '30d';
+// Godzina, nie 30 dni: logout unieważnia tylko refresh token, więc
+// skradziony access token żył dotąd miesiąc. iOS odświeża sam.
+const DEFAULT_JWT_EXPIRES_IN: JwtExpiresIn = '1h';
 
 export function resolveJwtExpiresIn(
   rawValue: string | undefined,

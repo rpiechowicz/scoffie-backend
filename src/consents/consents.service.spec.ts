@@ -19,7 +19,10 @@ type Row = {
 
 describe('ConsentsService', () => {
   let rows: Row[];
-  let prisma: { consentEvent: { findMany: jest.Mock; create: jest.Mock } };
+  let prisma: {
+    consentEvent: { findMany: jest.Mock; create: jest.Mock };
+    user: { findUnique: jest.Mock };
+  };
   let service: ConsentsService;
 
   const at = (iso: string) => new Date(iso);
@@ -27,6 +30,7 @@ describe('ConsentsService', () => {
   beforeEach(() => {
     rows = [];
     prisma = {
+      user: { findUnique: jest.fn().mockResolvedValue({ yearOfBirth: null }) },
       consentEvent: {
         // Serwis prosi o kolejność malejącą — mock ją respektuje, bo na niej
         // stoi „pierwszy napotkany = ostatni w czasie".
@@ -158,6 +162,43 @@ describe('ConsentsService', () => {
       } as never),
     ).rejects.toBeInstanceOf(AppException);
     expect(prisma.consentEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('AGE_16: rok urodzenia z profilu poniżej 16 lat blokuje zgodę, nic nie zapisane', async () => {
+    const thisYear = new Date().getUTCFullYear();
+    prisma.user.findUnique.mockResolvedValue({ yearOfBirth: thisYear - 14 });
+    await expect(
+      service.record(USER, {
+        kind: 'AGE_16',
+        action: 'GRANTED',
+        documentVersion: LEGAL_DOCUMENT_VERSIONS.AGE_16,
+      }),
+    ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
+    expect(prisma.consentEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('AGE_16: 16 lat po roku albo brak roku w profilu przechodzi; REVOKED nie pyta profilu', async () => {
+    const thisYear = new Date().getUTCFullYear();
+    prisma.user.findUnique.mockResolvedValue({ yearOfBirth: thisYear - 16 });
+    await service.record(USER, {
+      kind: 'AGE_16',
+      action: 'GRANTED',
+      documentVersion: LEGAL_DOCUMENT_VERSIONS.AGE_16,
+    });
+    prisma.user.findUnique.mockResolvedValue({ yearOfBirth: null });
+    await service.record(USER, {
+      kind: 'AGE_16',
+      action: 'GRANTED',
+      documentVersion: LEGAL_DOCUMENT_VERSIONS.AGE_16,
+    });
+    prisma.user.findUnique.mockClear();
+    await service.record(USER, {
+      kind: 'AGE_16',
+      action: 'REVOKED',
+      documentVersion: LEGAL_DOCUMENT_VERSIONS.AGE_16,
+    });
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.consentEvent.create).toHaveBeenCalledTimes(3);
   });
 
   it('record dopisuje zdarzenie i oddaje świeży stan', async () => {

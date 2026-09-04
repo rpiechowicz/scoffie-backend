@@ -1,12 +1,18 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Injectable, Logger } from '@nestjs/common';
+import { AiEffort } from '../../config/agent-env';
 import { priceFor } from '../../config/model-prices';
+import {
+  capabilitiesFor,
+  THINKING_BUDGET_TOKENS,
+} from '../../config/model-capabilities';
 import {
   AgentProvider,
   AgentProviderError,
   AgentProviderRequest,
   AgentProviderResult,
   AgentProviderUsage,
+  AgentPhaseUsage,
 } from './agent-provider';
 import { AgentToolDefinition } from '../tools/agent-tools';
 
@@ -26,6 +32,32 @@ const MAX_TOKENS = 16_000;
 
 const CACHE_READ_MULTIPLIER = 0.1;
 const CACHE_WRITE_MULTIPLIER = 2;
+
+/**
+ * Kształt pól myślenia dla KONKRETNEGO modelu.
+ *
+ * Zły kształt to nie gorsza odpowiedź, tylko 400 z API — nieponawialne,
+ * więc tura pada i kwota użytkownika nie wraca. Modele „adaptive" odrzucają
+ * `type: 'enabled'`, modele „budget" odrzucają `type: 'adaptive'`, a Haiku
+ * 4.5 odrzuca dodatkowo `output_config.effort`. Patrz `model-capabilities.ts`.
+ */
+export function reasoningParams(
+  model: string,
+  effort: AiEffort,
+): Pick<Anthropic.MessageCreateParams, 'thinking' | 'output_config'> {
+  const caps = capabilitiesFor(model);
+  if (caps.thinking === 'adaptive') {
+    return {
+      thinking: { type: 'adaptive' },
+      ...(caps.effort ? { output_config: { effort } } : {}),
+    };
+  }
+  const budget = THINKING_BUDGET_TOKENS[effort];
+  return {
+    ...(budget ? { thinking: { type: 'enabled', budget_tokens: budget } } : {}),
+    ...(caps.effort ? { output_config: { effort } } : {}),
+  };
+}
 
 const ZERO_USAGE: AgentProviderUsage = {
   inputTokens: 0,
@@ -56,6 +88,7 @@ export class AnthropicAgentProvider implements AgentProvider {
   private client: Anthropic | null = null;
   /** Ostrzeżenie o nieznanym modelu raz na proces, nie raz na rundę. */
   private readonly warnedModels = new Set<string>();
+  private readonly warnedCapabilities = new Set<string>();
 
   /**
    * Testy podstawiają klienta bez sięgania do sieci ani do env. Metoda, nie
@@ -79,7 +112,11 @@ export class AnthropicAgentProvider implements AgentProvider {
     // pałeczkę przejmuje mocniejszy model z pełną listą (patrz AI_MODEL_TOOLS).
     let model = request.model;
     let tools = request.tools;
+    let effort = request.effort;
     let handedOff = false;
+    // Księga per faza (model + wysiłek): bez niej rundy taniego modelu
+    // księgowałyby się pod planistą, który dał ostatnie słowo.
+    const phases = new Map<string, AgentPhaseUsage>();
     // Liczba wywołań API liczona jawnie — `round` nie widzi ostatniego słowa,
     // a historia rozmowy w `messages` zawyżałaby każdą inną metodę.
     let calls = 0;
@@ -91,14 +128,21 @@ export class AnthropicAgentProvider implements AgentProvider {
         // rundami też niesie zużycie dotychczasowych rund. Poza try tura
         // przerwana po ośmiu rundach za 0,40 $ znikała z księgi i budżetu.
         this.assertNotAborted(request.signal);
-        response = await this.call(client, request, messages, model, tools);
+        response = await this.call(
+          client,
+          request,
+          messages,
+          model,
+          effort,
+          tools,
+        );
       } catch (error) {
         // Zużycie z poprzednich rund musi przeżyć błąd — inaczej tura, która
         // padła w piątej rundzie, zapisze zero wydanych pieniędzy.
-        throw this.withUsage(error, usage);
+        throw this.withUsage(error, usage, phases);
       }
       calls += 1;
-      this.accumulate(usage, model, response.usage);
+      this.accumulate(usage, phases, model, effort, response.usage);
 
       // `stop_reason` PRZED czytaniem treści: przy odmowie `content` bywa puste,
       // a ślepe sięganie po tekst dałoby pustą odpowiedź zamiast wyjaśnienia.
@@ -125,6 +169,7 @@ export class AnthropicAgentProvider implements AgentProvider {
           usage,
           model,
           apiCalls: calls,
+          phases: [...phases.values()],
         };
       }
 
@@ -133,7 +178,7 @@ export class AnthropicAgentProvider implements AgentProvider {
         toolResults = await this.runTools(request, toolUses);
       } catch (error) {
         // Narzędzie przerwane sygnałem (timeout, Stop) — zużycie zostaje.
-        throw this.withUsage(error, usage);
+        throw this.withUsage(error, usage, phases);
       }
       messages.push({ role: 'user', content: toolResults });
 
@@ -147,6 +192,7 @@ export class AnthropicAgentProvider implements AgentProvider {
       ) {
         handedOff = true;
         model = request.handoff.model;
+        effort = request.handoff.effort;
         tools = request.handoff.tools;
       }
 
@@ -165,9 +211,15 @@ export class AnthropicAgentProvider implements AgentProvider {
           request,
           messages,
           usage,
+          phases,
           model,
+          effort,
           tools,
           calls,
+          // Osobny powód: turę uciął NASZ sufit kosztu, nie brak pomysłów
+          // modelu. Runner odda za nią kwotę — użytkownik nie ma płacić
+          // wiadomością za nasz bezpiecznik.
+          'cost_ceiling',
         );
       }
     }
@@ -181,7 +233,9 @@ export class AnthropicAgentProvider implements AgentProvider {
       request,
       messages,
       usage,
+      phases,
       model,
+      effort,
       tools,
       calls,
     );
@@ -199,9 +253,12 @@ export class AnthropicAgentProvider implements AgentProvider {
     request: AgentProviderRequest,
     messages: Anthropic.MessageParam[],
     usage: AgentProviderUsage,
+    phases: Map<string, AgentPhaseUsage>,
     model: string,
+    effort: AiEffort,
     tools: readonly AgentToolDefinition[],
     callsSoFar: number,
+    reason: 'tool_rounds_exhausted' | 'cost_ceiling' = 'tool_rounds_exhausted',
   ): Promise<AgentProviderResult> {
     // Prośba jako blok TEKSTOWY w TEJ SAMEJ wiadomości użytkownika, co
     // wyniki narzędzi — dwie wiadomości `user` pod rząd to niepoprawna
@@ -230,18 +287,18 @@ export class AnthropicAgentProvider implements AgentProvider {
           messages: withCacheBreakpoint(messages),
           tools: tools as unknown as Anthropic.ToolUnion[],
           tool_choice: { type: 'none' },
-          thinking: { type: 'adaptive' },
-          output_config: { effort: request.effort },
+          ...reasoningParams(model, effort),
         },
         { signal: request.signal },
       );
-      this.accumulate(usage, model, response.usage);
+      this.accumulate(usage, phases, model, effort, response.usage);
       return {
         text: this.joinText(response.content),
-        stopReason: 'tool_rounds_exhausted',
+        stopReason: reason,
         usage,
         model,
         apiCalls: callsSoFar + 1,
+        phases: [...phases.values()],
       };
     } catch (error) {
       const providerError = this.toProviderError(error);
@@ -250,6 +307,8 @@ export class AnthropicAgentProvider implements AgentProvider {
         providerError.retryable,
         providerError.status,
         usage,
+        undefined,
+        [...phases.values()],
       );
     }
   }
@@ -265,6 +324,7 @@ export class AnthropicAgentProvider implements AgentProvider {
   private withUsage(
     error: unknown,
     usage: AgentProviderUsage,
+    phases: Map<string, AgentPhaseUsage>,
   ): AgentProviderError {
     const providerError = this.toProviderError(error);
     return new AgentProviderError(
@@ -272,6 +332,8 @@ export class AnthropicAgentProvider implements AgentProvider {
       providerError.retryable,
       providerError.status,
       usage,
+      undefined,
+      [...phases.values()],
     );
   }
 
@@ -286,6 +348,7 @@ export class AnthropicAgentProvider implements AgentProvider {
     request: AgentProviderRequest,
     messages: Anthropic.MessageParam[],
     model: string,
+    effort: AiEffort,
     tools: readonly AgentToolDefinition[],
   ): Promise<Anthropic.Message> {
     try {
@@ -299,10 +362,9 @@ export class AnthropicAgentProvider implements AgentProvider {
           // na turę po pełnej stawce. Największa dźwignia kosztu w tym pliku.
           messages: withCacheBreakpoint(messages),
           tools: tools as unknown as Anthropic.ToolUnion[],
-          // Adaptacyjne myślenie: na modelach 5 `budget_tokens` jest odrzucane,
-          // a głębokość steruje się poziomem wysiłku.
-          thinking: { type: 'adaptive' },
-          output_config: { effort: request.effort },
+          // Kształt myślenia zależy od MODELU, nie od konfiguracji: modele 5
+          // chcą `adaptive` + `effort`, Haiku 4.5 odrzuca oba błędem 400.
+          ...reasoningParams(model, effort),
         },
         { signal: request.signal },
       );
@@ -380,7 +442,9 @@ export class AnthropicAgentProvider implements AgentProvider {
 
   private accumulate(
     total: AgentProviderUsage,
+    phases: Map<string, AgentPhaseUsage>,
     model: string,
+    effort: AiEffort,
     usage: Anthropic.Usage,
   ): void {
     const input = usage.input_tokens;
@@ -394,6 +458,12 @@ export class AnthropicAgentProvider implements AgentProvider {
     total.cacheWriteTokens += cacheWrite;
 
     const price = priceFor(model);
+    if (!capabilitiesFor(model).known && !this.warnedCapabilities.has(model)) {
+      this.warnedCapabilities.add(model);
+      this.logger.warn(
+        `nieznane zdolności modelu ${model} — myślenie wysyłane jako adaptive z effort (jak na modelach 5); dopisz wpis w model-capabilities.ts, jeśli to starszy model`,
+      );
+    }
     if (!price.known && !this.warnedModels.has(model)) {
       this.warnedModels.add(model);
       // Nie `return`: brak ceny znaczył kiedyś koszt zero i ślepy budżet.
@@ -401,12 +471,28 @@ export class AnthropicAgentProvider implements AgentProvider {
         `nieznany model ${model} — koszt liczony po najdroższej znanej stawce`,
       );
     }
-    total.costMicroUsd += Math.round(
+    const costMicroUsd = Math.round(
       input * price.input +
         cacheRead * price.input * CACHE_READ_MULTIPLIER +
         cacheWrite * price.input * CACHE_WRITE_MULTIPLIER +
         output * price.output,
     );
+    total.costMicroUsd += costMicroUsd;
+
+    const key = `${model}|${effort}`;
+    const phase = phases.get(key) ?? {
+      model,
+      effort,
+      apiCalls: 0,
+      usage: { ...ZERO_USAGE },
+    };
+    phase.apiCalls += 1;
+    phase.usage.inputTokens += input;
+    phase.usage.outputTokens += output;
+    phase.usage.cacheReadTokens += cacheRead;
+    phase.usage.cacheWriteTokens += cacheWrite;
+    phase.usage.costMicroUsd += costMicroUsd;
+    phases.set(key, phase);
   }
 }
 

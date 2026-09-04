@@ -19,7 +19,23 @@ export type AgentProviderMessage = {
 export type AgentProviderHandoff = {
   tool: string;
   model: string;
+  /** Wysiłek planisty — faza CHAT ma swój własny (`AI_EFFORT_TOOLS`). */
+  effort: AiEffort;
   tools: readonly AgentToolDefinition[];
+};
+
+/**
+ * Zużycie jednej FAZY tury (model + wysiłek).
+ *
+ * Bez tego podziału księga `AiUsage` zapisywała całą turę pod modelem, który
+ * dał ostatnie słowo — czyli rundy taniego modelu księgowały się pod
+ * planistą, a raport kosztów pokazywał, że tani model nic nie oszczędza.
+ */
+export type AgentPhaseUsage = {
+  model: string;
+  effort: AiEffort;
+  apiCalls: number;
+  usage: AgentProviderUsage;
 };
 
 export type AgentProviderRequest = {
@@ -70,6 +86,8 @@ export type AgentProviderResult = {
   model?: string;
   /** Ile razy model odpytał API w tej turze (1 + liczba rund narzędziowych). */
   apiCalls: number;
+  /** Rozbicie na fazy; pusta tablica = dostawca nie rozróżnia faz. */
+  phases?: AgentPhaseUsage[];
 };
 
 export interface AgentProvider {
@@ -100,6 +118,8 @@ export class AgentProviderError extends Error {
     readonly usage?: AgentProviderUsage,
     /** Ile żądań poszło do dostawcy przed błędem — do metryk. */
     readonly apiCalls?: number,
+    /** Rozbicie na fazy tego, co zdążyło się wydać przed błędem. */
+    readonly phases?: AgentPhaseUsage[],
   ) {
     super(message);
     this.name = 'AgentProviderError';

@@ -28,9 +28,15 @@ const ENV: AgentEnv = {
   model: 'claude-sonnet-5',
   apiKeyPresent: false,
   effort: 'medium',
+  effortTools: 'low',
+  householdMonthlyCostUsd: null,
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,
+  trialMessages: 5,
+  trialPlans: 1,
+  tierOverride: 'PRO',
+  maxConcurrentTurnsPerHousehold: 2,
   globalDailyBudgetUsd: null,
   stubDelayMs: 0,
   cardsMode: 'off',
@@ -79,6 +85,17 @@ describe('AgentTurnsService', () => {
   };
   const conversations = { loadOwned: jest.fn() };
   const counters = {
+    resolvePlan: jest.fn().mockResolvedValue({
+      tier: 'PRO',
+      source: 'ENV',
+      quotaScopeId: HOUSEHOLD,
+      periodKey: '2026-08',
+      renews: true,
+      resetsAt: '2026-10-01T00:00:00.000Z',
+      messagesLimit: 200,
+      plansLimit: 30,
+    }),
+    quotaDetailsFor: jest.fn().mockReturnValue(['kind:messages']),
     monthKey: jest.fn(),
     dayKey: jest.fn(),
     read: jest.fn(),
@@ -118,6 +135,16 @@ describe('AgentTurnsService', () => {
       status: 'OPEN',
     });
     counters.monthKey.mockReturnValue('2026-08');
+    counters.resolvePlan.mockResolvedValue({
+      tier: 'PRO',
+      source: 'ENV',
+      quotaScopeId: HOUSEHOLD,
+      periodKey: '2026-08',
+      renews: true,
+      resetsAt: '2026-09-01T00:00:00.000Z',
+      messagesLimit: 200,
+      plansLimit: 30,
+    });
     counters.dayKey.mockReturnValue('2026-08-31');
     counters.read.mockResolvedValue(0);
     counters.tryConsume.mockResolvedValue(true);

@@ -14,7 +14,6 @@ import {
 } from '../../weekly-plans/weekly-plans.service';
 import { AgentMetricsService } from '../../observability/agent-metrics.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { readAgentEnv } from '../../config/agent-env';
 import { AgentMemoryService } from '../agent-memory.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
@@ -299,6 +298,9 @@ export class AgentToolExecutor {
 
       case 'show_macro_gap':
         return this.showMacroGap(input, context, str('week_start'));
+
+      case 'check_plan_conflicts':
+        return this.checkPlanConflicts(context, str('week_start'));
 
       case 'show_shopping_list':
         return this.showShoppingList(context, str('week_start'));
@@ -623,6 +625,54 @@ export class AgentToolExecutor {
    * w odpowiedzi obok karty — i użytkownik przeczytałby tę samą listę dwa
    * razy, drugi raz gorzej sformatowaną.
    */
+  /**
+   * Konflikty alergenowe i wykluczenia w ZAPISANYM planie tygodnia.
+   *
+   * Bierze bieżący tydzień jako listę slotów i przepuszcza go przez tę samą
+   * bramkę, co zapis (`previewWeekPlan` → `collectPlanViolations`), więc
+   * odpowiedź asystenta i zachowanie przycisku „Dodaj do planu" nie mogą się
+   * rozjechać. Do modelu wraca sam werdykt (~50 tokenów), bez składów i bez
+   * imion osób, które nie wyraziły zgody na asystenta.
+   */
+  private async checkPlanConflicts(
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<{
+    weekStart: string;
+    checkedSlots: number;
+    conflicts: {
+      dayOfWeek: string;
+      mealType: string;
+      code: string;
+      message: string;
+    }[];
+  }> {
+    const slots = await this.weeklyPlans.snapshotWeekAsSlots(
+      context.userId,
+      context.householdId,
+      weekStart,
+    );
+    if (slots.length === 0) {
+      return { weekStart, checkedSlots: 0, conflicts: [] };
+    }
+    const preview = await this.weeklyPlans.previewWeekPlan(
+      context.userId,
+      context.householdId,
+      weekStart,
+      { slots },
+    );
+    return {
+      weekStart,
+      checkedSlots: slots.length,
+      conflicts: preview.violations.map((violation) => ({
+        dayOfWeek: violation.dayOfWeek,
+        mealType: violation.mealType,
+        code: violation.code,
+        message: violation.message,
+      })),
+    };
+  }
+
   private async showShoppingList(
     context: AgentToolContext,
     weekStart: string,
@@ -941,8 +991,11 @@ export class AgentToolExecutor {
 
     if (dryRun) return run();
 
-    const periodKey = this.counters.monthKey();
-    const limit = readAgentEnv().plansPerMonth;
+    const plan = await this.counters.resolvePlan(context.householdId, {
+      userId: context.userId,
+    });
+    const periodKey = plan.periodKey;
+    const limit = plan.plansLimit;
     const consumed = await this.counters.tryConsume(
       this.prisma,
       context.householdId,
@@ -954,10 +1007,15 @@ export class AgentToolExecutor {
       this.metrics.recordRejected('planQuota');
       throw new AppException(
         'AI_PLAN_QUOTA_EXCEEDED',
-        `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany. ` +
-          'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go do końca miesiąca.',
+        (plan.tier === 'TRIAL'
+          ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. `
+          : `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany. `) +
+          'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go' +
+          (plan.tier === 'TRIAL'
+            ? ' bez wybrania planu.'
+            : ' do końca miesiąca.'),
         HttpStatus.TOO_MANY_REQUESTS,
-        this.counters.quotaDetails('plans', limit),
+        this.counters.quotaDetailsFor('plans', plan),
       );
     }
 

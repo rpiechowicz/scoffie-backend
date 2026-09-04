@@ -1,6 +1,7 @@
 import { parseEncryptionKey } from '../common/crypto.util';
 import { throttleEnvProblems } from '../common/throttle/throttle-env';
 import { agentEnvProblems } from './agent-env';
+import { billingEnvProblems } from './billing-env-problems';
 import { wsAuthModeProblem } from './ws-auth-mode';
 
 /**
@@ -129,12 +130,18 @@ export function inspectRuntimeEnv(
       'AUTH_DEV_LOGIN_ENABLED=true — dev-login na produkcji wybija tokeny każdemu',
     );
   }
+  // Płatności NIGDY nie blokują startu — nawet na produkcji. Zablokowany
+  // deploy to cała aplikacja w dół; niedokonfigurowany paywall to tylko
+  // paywall, który się nie włączy. Dlatego zawsze `warnings`.
+  const billingWarnings = billingEnvProblems(env, {
+    localDatabase: isLocalDatabaseUrl(env.DATABASE_URL),
+  });
 
   if (production) {
     return {
       production,
       violations: [...problems, ...productionOnly],
-      warnings: [],
+      warnings: billingWarnings,
     };
   }
   // Poza produkcją sekrety z repo są dopuszczalne TYLKO przy lokalnej bazie.
@@ -150,7 +157,10 @@ export function inspectRuntimeEnv(
       (problem) =>
         `${problem} (baza nielokalna — sekret z repo nie wchodzi w grę)`,
     ),
-    warnings: problems.filter((problem) => !secretViolations.includes(problem)),
+    warnings: [
+      ...problems.filter((problem) => !secretViolations.includes(problem)),
+      ...billingWarnings,
+    ],
   };
 }
 

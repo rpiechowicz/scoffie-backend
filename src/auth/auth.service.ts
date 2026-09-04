@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthProvider, Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import { AppException } from '../common/app-exception';
+import { purchaseIdentityHashForUser } from '../config/purchase-identity';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppleIdentityService } from './apple-identity.service';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
@@ -293,6 +294,43 @@ export class AuthService {
     });
   }
 
+  /**
+   * Dopisuje hasz tożsamości zakupowej, jeśli konto go jeszcze nie ma.
+   *
+   * Robione przy KAŻDYM wejściu (logowanie i odświeżenie tokenu), nie tylko
+   * przy zakładaniu konta, bo hasz ma dwa zadania wstecz: przypiąć z powrotem
+   * subskrypcję osobie, która skasowała konto i wróciła, oraz odnaleźć jej
+   * wypaloną pulę próbną. Konta założone przed tą zmianą dostają hasz przy
+   * najbliższym logowaniu.
+   *
+   * Zapis warunkowy (`updateMany` z `identityHash: null`), bo hasz raz nadany
+   * nigdy się nie zmienia — a dwa równoległe logowania nie mają prawa go
+   * przestawić.
+   */
+  private async ensurePurchaseIdentity(user: {
+    id: string;
+    identityHash?: string | null;
+    appleSub?: string | null;
+    googleId?: string | null;
+    authProvider?: AuthProvider;
+  }): Promise<void> {
+    if (user.identityHash) return;
+    const hash = purchaseIdentityHashForUser(user);
+    if (!hash) return;
+    try {
+      await this.prisma.user.updateMany({
+        where: { id: user.id, identityHash: null },
+        data: { identityHash: hash },
+      });
+    } catch (error) {
+      // Logowanie nie ma prawa się wywalić przez ślad zakupowy — bez hasza
+      // pula próbna po prostu siada na `User.id` do następnego razu.
+      this.logger.warn(
+        `Nie udało się zapisać identityHash dla ${user.id}: ${String(error)}`,
+      );
+    }
+  }
+
   private async buildAuthResult(user: {
     id: string;
     displayName: string;
@@ -301,7 +339,11 @@ export class AuthService {
     avatarColor: number | null;
     authProvider: AuthProvider;
     onboardingCompletedAt: Date | null;
+    identityHash?: string | null;
+    appleSub?: string | null;
+    googleId?: string | null;
   }): Promise<AuthResult> {
+    await this.ensurePurchaseIdentity(user);
     // „Które gospodarstwo": NAJSTARSZE członkostwo. To jest jedyne miejsce,
     // które to rozstrzyga dla klienta (`currentHouseholdId`); to samo robi
     // `cookidoo-integration.service.ts` po JWT. Gatewaye WS biorą

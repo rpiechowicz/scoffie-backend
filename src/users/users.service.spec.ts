@@ -562,6 +562,9 @@ describe('UsersService.deleteAccount — cudze dane zostają', () => {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     prisma.aiUsage = { updateMany: jest.fn().mockResolvedValue({ count: 0 }) };
+    // Subskrypcja przeżywa kasowanie konta — serwis sprawdza tylko, czy jest
+    // co odnotować w logu.
+    prisma.subscription = { count: jest.fn().mockResolvedValue(0) };
     prisma.agentMemory = {
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };

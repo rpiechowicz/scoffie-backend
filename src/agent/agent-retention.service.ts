@@ -89,8 +89,11 @@ export class AgentRetentionService
     const reports = await this.prisma.agentReport.deleteMany({
       where: { createdAt: { lt: daysAgo(now, AGENT_REPORT_DAYS) } },
     });
+    // Unieważnione tokeny zostają do `expiresAt`: wykrywanie ponownego
+    // użycia (`auth.service`) opiera się na ZNALEZIENIU wiersza z `revokedAt`
+    // — skasowany od razu zamieniał replay w zwykłe 401 bez odcięcia rodziny.
     const refreshTokens = await this.prisma.refreshToken.deleteMany({
-      where: { OR: [{ expiresAt: { lt: now } }, { revokedAt: { not: null } }] },
+      where: { expiresAt: { lt: now } },
     });
     const pushDevices = await this.prisma.pushDevice.deleteMany({
       where: {

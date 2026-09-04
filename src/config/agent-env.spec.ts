@@ -1,5 +1,6 @@
 import {
   AGENT_ENV_DEFAULTS,
+  AI_EFFORT_TOOLS_DEFAULT,
   AI_BUDGET_OFF,
   AI_EFFORT_DEFAULT,
   AI_MODEL_DEFAULT,
@@ -16,13 +17,21 @@ describe('readAgentEnv', () => {
       model: AI_MODEL_DEFAULT,
       toolsModel: null,
       effort: AI_EFFORT_DEFAULT,
+      effortTools: AI_EFFORT_TOOLS_DEFAULT,
       apiKeyPresent: false,
       turnTimeoutMs: AGENT_ENV_DEFAULTS.turnTimeoutMs,
       messagesPerMonth: AGENT_ENV_DEFAULTS.messagesPerMonth,
       plansPerMonth: AGENT_ENV_DEFAULTS.plansPerMonth,
+      trialMessages: AGENT_ENV_DEFAULTS.trialMessages,
+      trialPlans: AGENT_ENV_DEFAULTS.trialPlans,
+      // Domyślnie PRO dla wszystkich — do czasu subskrypcji zachowanie jak dotąd.
+      tierOverride: 'PRO',
+      maxConcurrentTurnsPerHousehold:
+        AGENT_ENV_DEFAULTS.maxConcurrentTurnsPerHousehold,
       // NIE `null`: brak zmiennej znaczył kiedyś „bez limitu", więc instalacja
       // bez żadnego hamulca wydatków wyglądała jak skonfigurowana.
       globalDailyBudgetUsd: AGENT_ENV_DEFAULTS.globalDailyBudgetUsd,
+      householdMonthlyCostUsd: AGENT_ENV_DEFAULTS.householdMonthlyCostUsd,
       stubDelayMs: 0,
       // Karty domyślnie WYŁĄCZONE: wprowadzenie trybu propozycji nie może
       // zmienić zachowania instalacji, która o nic nie prosiła.

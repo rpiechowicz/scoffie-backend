@@ -131,6 +131,23 @@ export const APP_ERROR_CODES = [
   /** Vorwerk nie odpowiedział w czasie (504 z usługi) — inna kopia niż „odpowiedziało błędem”. */
   'COOKIDOO_UPSTREAM_TIMEOUT',
   'COOKIDOO_SUBSCRIPTION_INACTIVE',
+  // ─── płatności App Store ───
+  // Zakupy wyłączone w tej instalacji (brak klucza `.p8` albo
+  // `BILLING_ENABLED=false`) — paywall pokazuje ofertę i nie bierze pieniędzy.
+  'BILLING_DISABLED',
+  // Konto bez zewnętrznej tożsamości (logowanie deweloperskie) nie może kupić:
+  // takiego zakupu nie dałoby się później przywrócić.
+  'BILLING_IDENTITY_MISSING',
+  // Podpisu transakcji nie da się potwierdzić łańcuchem do korzenia Apple.
+  'BILLING_TRANSACTION_INVALID',
+  // Podpis w porządku, ale App Store nie zna tej transakcji w tym środowisku.
+  'BILLING_TRANSACTION_UNKNOWN',
+  // Ten sam zakup zgłoszony z drugiego konta — nie przepinamy subskrypcji.
+  'BILLING_TRANSACTION_TAKEN',
+  // App Store nie odpowiada. Stan zostaje nietknięty, telefon ma ponowić.
+  'BILLING_UPSTREAM_UNAVAILABLE',
+  // Powiadomienie serwera Apple bez poprawnego podpisu (nie trafia do klienta).
+  'BILLING_NOTIFICATION_INVALID',
 ] as const;
 
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number];

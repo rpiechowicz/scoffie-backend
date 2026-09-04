@@ -177,7 +177,9 @@ describe('AnthropicAgentProvider', () => {
 
       // 3 rundy = 0,60 $ ≥ 0,50 $ → czwarte wywołanie to ostatnie słowo.
       expect(create).toHaveBeenCalledTimes(4);
-      expect(result.stopReason).toBe('tool_rounds_exhausted');
+      // Osobny powód niż wyczerpane rundy: to MY ucięliśmy turę, więc runner
+      // odda za nią wiadomość z limitu użytkownika.
+      expect(result.stopReason).toBe('cost_ceiling');
       expect(result.apiCalls).toBe(4);
     });
 
@@ -221,6 +223,7 @@ describe('AnthropicAgentProvider', () => {
           handoff: {
             tool: 'start_planning',
             model: 'claude-sonnet-5',
+            effort: 'medium',
             tools: [readTool, proposeTool],
           },
         }),
@@ -257,6 +260,87 @@ describe('AnthropicAgentProvider', () => {
       );
       expect(models).toEqual(['claude-haiku-4-5', 'claude-haiku-4-5']);
       expect(result.model).toBe('claude-haiku-4-5');
+    });
+  });
+
+  describe('kształt myślenia per model (400 z API kosztuje kwotę użytkownika)', () => {
+    it('Sonnet 5 dostaje adaptive + effort', async () => {
+      create.mockResolvedValueOnce(textMessage('ok'));
+      await provider.run(request({ model: 'claude-sonnet-5', effort: 'high' }));
+      const body = create.mock.calls[0][0] as Record<string, unknown>;
+      expect(body.thinking).toEqual({ type: 'adaptive' });
+      expect(body.output_config).toEqual({ effort: 'high' });
+    });
+
+    it('Haiku 4.5 z wysiłkiem `low` NIE dostaje ani thinking, ani output_config', async () => {
+      create.mockResolvedValueOnce(textMessage('ok'));
+      await provider.run(request({ model: 'claude-haiku-4-5', effort: 'low' }));
+      const body = create.mock.calls[0][0] as Record<string, unknown>;
+      expect(body.thinking).toBeUndefined();
+      expect(body.output_config).toBeUndefined();
+    });
+
+    it('Haiku 4.5 z wysiłkiem `medium` dostaje budżet myślenia, nadal bez effort', async () => {
+      create.mockResolvedValueOnce(textMessage('ok'));
+      await provider.run(
+        request({ model: 'claude-haiku-4-5', effort: 'medium' }),
+      );
+      const body = create.mock.calls[0][0] as Record<string, unknown>;
+      expect(body.thinking).toEqual({ type: 'enabled', budget_tokens: 2048 });
+      expect(body.output_config).toBeUndefined();
+    });
+
+    it('po przekazaniu pałeczki żądania planisty mają kształt PLANISTY, nie fazy rozmowy', async () => {
+      const readTool = {
+        name: 'get_week_plan',
+        description: '',
+        input_schema: {
+          type: 'object' as const,
+          properties: {},
+          required: [],
+          additionalProperties: false as const,
+        },
+      };
+      create
+        .mockResolvedValueOnce(toolMessage('start_planning', 'a'))
+        .mockResolvedValueOnce(textMessage('gotowe'));
+      const result = await provider.run(
+        request({
+          model: 'claude-haiku-4-5',
+          effort: 'low',
+          tools: [readTool],
+          handoff: {
+            tool: 'start_planning',
+            model: 'claude-sonnet-5',
+            effort: 'medium',
+            tools: [readTool],
+          },
+        }),
+      );
+      const bodies = create.mock.calls.map(
+        (c) => c[0] as Record<string, unknown>,
+      );
+      expect(bodies[0].thinking).toBeUndefined();
+      expect(bodies[1].thinking).toEqual({ type: 'adaptive' });
+      expect(bodies[1].output_config).toEqual({ effort: 'medium' });
+      // Księga rozbita na fazy: każda po swojej stawce i ze swoim wysiłkiem.
+      expect(result.phases).toEqual([
+        expect.objectContaining({
+          model: 'claude-haiku-4-5',
+          effort: 'low',
+          apiCalls: 1,
+        }),
+        expect.objectContaining({
+          model: 'claude-sonnet-5',
+          effort: 'medium',
+          apiCalls: 1,
+        }),
+      ]);
+      const sum = result.phases!.reduce(
+        (acc, phase) => acc + phase.usage.costMicroUsd,
+        0,
+      );
+      expect(sum).toBe(result.usage.costMicroUsd);
     });
   });
 

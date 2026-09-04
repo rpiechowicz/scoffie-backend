@@ -364,6 +364,18 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'check_plan_conflicts',
+    description:
+      'Sprawdź, czy ZAPISANY plan tygodnia łamie czyjeś alergeny albo wykluczenia. ' +
+      'Wywołuj ZAWSZE, gdy ktoś pyta, czy danie albo plan jest bezpieczny dla ' +
+      'konkretnej osoby („czy środowy obiad jest ok dla Zosi?", „co mogę dać Ani?"). ' +
+      'NIE odpowiadaj na takie pytania z pamięci ani ze składników — pełny skład ' +
+      'przepisów zna wyłącznie serwer, a to narzędzie pyta tę samą bramkę, ' +
+      'która pilnuje zapisu planu.',
+    input_schema: object({ week_start: WEEK_START }, ['week_start']),
+    strict: true,
+  },
+  {
     name: 'propose_week_plan',
     description:
       'Pokaż użytkownikowi PROPOZYCJĘ tygodnia. Lista slots to stan docelowy: czego na niej nie ma, ' +
@@ -602,8 +614,8 @@ export const START_PLANNING_TOOL: AgentToolDefinition = {
     'dania, porcje dla domu, nowy albo poprawiony przepis). Dopiero po tym wywołaniu ' +
     'dostaniesz narzędzia propose_* i apply_*. NIE wywołuj przy pytaniach o to, co jest ' +
     'w planie, o składniki, bilans czy listę zakupów — na nie odpowiadasz sam. ' +
-    'Zanim je wywołasz, zbierz kontekst (plan tygodnia, domownicy), żeby planista nie ' +
-    'powtarzał tych kroków.',
+    'Wołaj OD RAZU, bez pobierania planu i domowników: planista sprawdzi sam, ' +
+    'co mu potrzebne, a to, co pobierzesz wcześniej, i tak przeczyta drugi raz.',
   input_schema: object({
     reason: {
       type: 'string',
@@ -613,17 +625,54 @@ export const START_PLANNING_TOOL: AgentToolDefinition = {
   strict: true,
 };
 
+/**
+ * Warstwa narzędzia = odpowiedź na pytanie „jaki model ma to robić".
+ *
+ * `chat` — czytanie i przepisywanie tego, co policzył serwer: tani model
+ * fazy CHAT (patrz `agent-route.ts`). `planner` — dobór dań pod alergeny,
+ * cele i makra albo zapis do bazy: mocny model fazy PLANNER.
+ *
+ * To JEST polityka routingu i jedyne miejsce, gdzie się ją zmienia:
+ * `TRIAGE_TOOLS` i `PLANNING_TOOL_NAMES` są z niej wyprowadzone, więc
+ * przeniesienie narzędzia między modelami to jedna linia widoczna w git.
+ * Test w `agent-tools.spec.ts` pilnuje, żeby każde narzędzie miało wpis —
+ * nowe narzędzie bez decyzji nie przejdzie CI.
+ */
+export type AgentToolTier = 'chat' | 'planner';
+
+export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
+  // Czytanie i pytania: dane są już policzone przez serwer.
+  get_household_context: 'chat',
+  get_week_plan: 'chat',
+  get_week_balance: 'chat',
+  show_shopping_list: 'chat',
+  search_ingredients: 'chat',
+  // Karty, które niczego nie zapisują.
+  ask_clarifying_question: 'chat',
+  offer_options: 'chat',
+  show_macro_gap: 'chat',
+  remember_note: 'chat',
+  // Bezpieczeństwo liczy serwer, model cytuje — patrz komentarz przy narzędziu.
+  check_plan_conflicts: 'chat',
+  // Układanie i zapisywanie: dobór pod ograniczenia całego domu.
+  propose_week_plan: 'planner',
+  propose_day_plan: 'planner',
+  propose_swap: 'planner',
+  propose_household_split: 'planner',
+  apply_week_plan: 'planner',
+  create_recipe: 'planner',
+  update_recipe: 'planner',
+  // Kasowanie przepisu jest jednym identyfikatorem, ale to ZAPIS — zostaje
+  // u planisty do czasu, aż raport pokaże, ile takich tur naprawdę jest.
+  delete_recipe: 'planner',
+};
+
 /** Narzędzia, których tańszy model NIE dostaje przed `start_planning`. */
-export const PLANNING_TOOL_NAMES: ReadonlySet<string> = new Set([
-  'propose_week_plan',
-  'propose_day_plan',
-  'propose_swap',
-  'propose_household_split',
-  'apply_week_plan',
-  'create_recipe',
-  'update_recipe',
-  'delete_recipe',
-]);
+export const PLANNING_TOOL_NAMES: ReadonlySet<string> = new Set(
+  Object.entries(AGENT_TOOL_TIERS)
+    .filter(([, tier]) => tier === 'planner')
+    .map(([name]) => name),
+);
 
 /** Lista narzędzi PRZED przekazaniem: czytanie + `start_planning`. */
 export const TRIAGE_TOOLS: readonly AgentToolDefinition[] = [

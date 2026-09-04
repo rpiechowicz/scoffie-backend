@@ -49,6 +49,8 @@ export type AiCardsMode = (typeof AI_CARDS_MODES)[number];
 export const AI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type AiEffort = (typeof AI_EFFORTS)[number];
 export const AI_EFFORT_DEFAULT: AiEffort = 'medium';
+/** Faza rozmowy myśli tylko wtedy, gdy ktoś tego jawnie zażąda. */
+export const AI_EFFORT_TOOLS_DEFAULT: AiEffort = 'low';
 
 export type AgentEnv = {
   enabled: boolean;
@@ -66,12 +68,39 @@ export type AgentEnv = {
    */
   toolsModel: string | null;
   effort: AiEffort;
+  /**
+   * Wysiłek fazy CHAT (tani model z `AI_MODEL_TOOLS`); `AI_EFFORT` zostaje
+   * wysiłkiem planisty. Domyślnie `low`, co na modelach „tylko budżet"
+   * (Haiku 4.5) znaczy BEZ myślenia — myślenie jest tam największą pozycją
+   * rachunku, a przepisywanie danych z narzędzi go nie potrzebuje.
+   */
+  effortTools: AiEffort;
   apiKeyPresent: boolean;
   /** Twardy limit jednej tury (AbortSignal); po nim tura = FAILED `AI_TIMEOUT`. */
   turnTimeoutMs: number;
-  /** Kwoty per gospodarstwo i miesiąc — liczniki w `AiUsageCounter`. */
+  /** Kwoty PRO per gospodarstwo i miesiąc — liczniki w `AiUsageCounter`. */
   messagesPerMonth: number;
   plansPerMonth: number;
+  /**
+   * Pula na próbę (plan TRIAL): jednorazowa, bez odnowienia — licznik żyje
+   * pod kluczem okresu `trial`. Projekt „Limity asystenta" (3.09.2026):
+   * 5 wiadomości i 1 zapis planu.
+   */
+  trialMessages: number;
+  trialPlans: number;
+  /**
+   * `AI_TIER_OVERRIDE=PRO` — każde gospodarstwo liczone jak PRO, niezależnie
+   * od subskrypcji. DOMYŚLNIE `PRO`: do czasu wdrożenia subskrypcji w App
+   * Store zachowanie jest takie, jak dotąd (pula miesięczna dla wszystkich).
+   * Włączenie modelu próbnego = jawne `AI_TIER_OVERRIDE=` (puste) albo `off`.
+   */
+  tierOverride: 'PRO' | null;
+  /**
+   * Ile tur naraz może biec w jednym gospodarstwie (wszystkie rozmowy
+   * razem); `0` = bez limitu. Lease per rozmowa nie chronił budżetu
+   * dobowego przed burstem w wielu rozmowach.
+   */
+  maxConcurrentTurnsPerHousehold: number;
   /**
    * Globalny bezpiecznik kosztu na dobę (USD); `null` = bez limitu.
    *
@@ -81,6 +110,20 @@ export type AgentEnv = {
    * skonfigurowana. Domyślna jest teraz liczba, a nieskończoność wymaga decyzji.
    */
   globalDailyBudgetUsd: number | null;
+  /**
+   * Sufit kosztu JEDNEGO gospodarstwa na miesiąc (USD); `off` = bez sufitu.
+   *
+   * Limit wiadomości NIE jest sufitem kosztu: tura przerwana timeoutem albo
+   * awarią dostawcy ODDAJE wiadomość do puli (bo użytkownik nie dostał
+   * odpowiedzi), ale pieniądze u dostawcy już poszły. Dom, któremu tury
+   * padają w pętli, potrafi więc wydać dowolną kwotę bez ruszenia licznika
+   * 60/8 — a budżet dobowy jest wspólny dla całej instalacji, więc jeden taki
+   * dom wyłącza asystenta wszystkim.
+   *
+   * Domyślnie 3× modelowy koszt pełnego miesiąca planu Rodzina — czyli nie
+   * dotyka nikogo, kto po prostu intensywnie korzysta.
+   */
+  householdMonthlyCostUsd: number | null;
   /** Opóźnienie odpowiedzi providera `stub` (testy lease/timeoutu). */
   stubDelayMs: number;
   /** Tryb kart i propozycji — patrz `AI_CARDS_MODES`. */
@@ -129,6 +172,19 @@ export type AgentEnv = {
 };
 
 /**
+ * `AI_TIER_OVERRIDE`: brak zmiennej = domyślne `PRO` (jak dotąd);
+ * `PRO` = PRO dla wszystkich; puste / `off` / `none` = plan liczony
+ * z nadania operatora i subskrypcji (model próbny włączony).
+ */
+export function readTierOverride(env: NodeJS.ProcessEnv): 'PRO' | null {
+  const raw = env.AI_TIER_OVERRIDE;
+  if (raw === undefined) return AGENT_ENV_DEFAULTS.tierOverride;
+  const value = raw.trim().toUpperCase();
+  if (value === 'PRO') return 'PRO';
+  return null;
+}
+
+/**
  * `AI_ALLOWED_USERS` — lista rozdzielona przecinkami; puste wpisy i
  * wielkość liter nie mają znaczenia (e-maile Apple bywają wpisywane różnie).
  */
@@ -143,6 +199,10 @@ export const AGENT_ENV_DEFAULTS = {
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,
+  trialMessages: 5,
+  trialPlans: 1,
+  tierOverride: 'PRO' as 'PRO' | null,
+  maxConcurrentTurnsPerHousehold: 2,
   /**
    * Siatka, nie polityka: zmierzone tury kosztują $0,12–$1,00, więc $5 na dobę
    * to około trzydziestu tur — więcej, niż zrobi normalne gospodarstwo, i o rząd
@@ -150,6 +210,7 @@ export const AGENT_ENV_DEFAULTS = {
    * albo `off`; brak zmiennej nie może znaczyć „bez limitu".
    */
   globalDailyBudgetUsd: 5,
+  householdMonthlyCostUsd: 18,
   stubDelayMs: 0,
   /** Trzy doby: tyle żyje sensowna propozycja tygodnia. */
   proposalTtlMs: 72 * 60 * 60 * 1000,
@@ -164,6 +225,22 @@ export const AGENT_ENV_DEFAULTS = {
   maxTurnCostUsd: 1,
 } as const;
 
+/**
+ * Liczba dolarów albo `off` (jawny brak sufitu). Ta sama konwencja, co przy
+ * budżecie dobowym: brak zmiennej NIE może znaczyć „bez limitu".
+ */
+function readOptionalUsd(
+  env: NodeJS.ProcessEnv,
+  key: string,
+  fallback: number,
+): number | null {
+  const raw = (env[key] ?? '').trim().toLowerCase();
+  if (raw === AI_BUDGET_OFF) return null;
+  if (raw === '') return fallback;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 /** Jedyna droga do braku budżetu — jawna i widoczna w `railway variables`. */
 export const AI_BUDGET_OFF = 'off';
 
@@ -171,6 +248,9 @@ type NumericKey =
   | 'AI_TURN_TIMEOUT_MS'
   | 'AI_LIMIT_MESSAGES_PER_MONTH'
   | 'AI_LIMIT_PLANS_PER_MONTH'
+  | 'AI_TRIAL_MESSAGES'
+  | 'AI_TRIAL_PLANS'
+  | 'AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD'
   | 'AI_STUB_DELAY_MS'
   | 'AI_PROPOSAL_TTL_MS'
   | 'AI_PROPOSAL_UNDO_WINDOW_MS'
@@ -195,11 +275,15 @@ function readNumber(
   return parsed;
 }
 
-function readEffort(env: NodeJS.ProcessEnv): AiEffort {
-  const raw = (env.AI_EFFORT ?? '').trim().toLowerCase();
+function readEffort(
+  env: NodeJS.ProcessEnv,
+  key: 'AI_EFFORT' | 'AI_EFFORT_TOOLS',
+  fallback: AiEffort,
+): AiEffort {
+  const raw = (env[key] ?? '').trim().toLowerCase();
   return (AI_EFFORTS as readonly string[]).includes(raw)
     ? (raw as AiEffort)
-    : AI_EFFORT_DEFAULT;
+    : fallback;
 }
 
 function readCardsMode(env: NodeJS.ProcessEnv): AiCardsMode {
@@ -238,7 +322,8 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
     provider: readProvider(env),
     model: (env.AI_MODEL ?? '').trim() || AI_MODEL_DEFAULT,
     toolsModel: (env.AI_MODEL_TOOLS ?? '').trim() || null,
-    effort: readEffort(env),
+    effort: readEffort(env, 'AI_EFFORT', AI_EFFORT_DEFAULT),
+    effortTools: readEffort(env, 'AI_EFFORT_TOOLS', AI_EFFORT_TOOLS_DEFAULT),
     apiKeyPresent: (env.ANTHROPIC_API_KEY ?? '').trim().length > 0,
     turnTimeoutMs: readNumber(
       env,
@@ -256,7 +341,29 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       'AI_LIMIT_PLANS_PER_MONTH',
       AGENT_ENV_DEFAULTS.plansPerMonth,
     ),
+    trialMessages: readNumber(
+      env,
+      'AI_TRIAL_MESSAGES',
+      AGENT_ENV_DEFAULTS.trialMessages,
+    ),
+    trialPlans: readNumber(
+      env,
+      'AI_TRIAL_PLANS',
+      AGENT_ENV_DEFAULTS.trialPlans,
+    ),
+    tierOverride: readTierOverride(env),
+    maxConcurrentTurnsPerHousehold: readNumber(
+      env,
+      'AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD',
+      AGENT_ENV_DEFAULTS.maxConcurrentTurnsPerHousehold,
+      { min: 0 },
+    ),
     globalDailyBudgetUsd: readDailyBudgetUsd(env),
+    householdMonthlyCostUsd: readOptionalUsd(
+      env,
+      'AI_HOUSEHOLD_MONTHLY_COST_USD',
+      AGENT_ENV_DEFAULTS.householdMonthlyCostUsd,
+    ),
     stubDelayMs: readNumber(
       env,
       'AI_STUB_DELAY_MS',

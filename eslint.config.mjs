@@ -104,11 +104,42 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
+          paths: [
+            {
+              name: 'jose',
+              importNames: ['decodeJwt', 'decodeProtectedHeader'],
+              message:
+                'Odczyt tokenu bez weryfikacji podpisu. Użyj verifyAppleJws() z src/billing/apple-jws.verifier.ts.',
+            },
+          ],
           patterns: [
             {
               group: ['**/agent/*', '**/agent/**'],
               message:
                 'src/agent/ jest modułem jednokierunkowym — domena nie może importować asystenta (rejestracja tylko w AppModule).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // To samo ograniczenie dla miejsc wyłączonych z bloku wyżej. `jose` daje
+    // `decodeJwt` i `decodeProtectedHeader`, które czytają treść tokenu BEZ
+    // sprawdzenia podpisu — jedno takie wywołanie na ścieżce nadawania PRO
+    // zamienia weryfikację zakupu w formalność. Podpisy sprawdza wyłącznie
+    // `apple-jws.verifier.ts`, z łańcuchem do przypiętego korzenia Apple.
+    files: ['src/agent/**/*.ts', 'src/app.module.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'jose',
+              importNames: ['decodeJwt', 'decodeProtectedHeader'],
+              message:
+                'Odczyt tokenu bez weryfikacji podpisu. Użyj verifyAppleJws() z src/billing/apple-jws.verifier.ts.',
             },
           ],
         },

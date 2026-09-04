@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { MealType, PrismaClient } from '@prisma/client';
+import { fenceSafe } from './agent-memory.service';
 
 /**
  * Digest katalogu — cały katalog przepisów ściśnięty do jednego bloku tekstu,
@@ -128,7 +129,9 @@ export function buildDigestLine(recipe: DigestRecipe, index: string): string {
 
   return [
     index,
-    recipe.title,
+    // Tytuł wpisuje domownik albo model (`create_recipe`) — to DANE, nie
+    // instrukcje; ta sama zamiana `<`/`>`, co w pamięci domu.
+    fenceSafe(recipe.title),
     slots.join(','),
     `${perServing(recipe.nutritionKcal, servings)}kcal ` +
       `P${perServing(recipe.nutritionProtein, servings)} ` +

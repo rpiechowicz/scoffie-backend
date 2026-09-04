@@ -47,7 +47,21 @@ const makeDeps = (baseline: unknown[]) => {
     prisma,
     weeklyPlans,
     households,
-    counters: { monthKey: jest.fn(), tryConsume: jest.fn(), add: jest.fn() },
+    counters: {
+      resolvePlan: jest.fn().mockResolvedValue({
+        tier: 'PRO',
+        source: 'ENV',
+        periodKey: '2026-08',
+        renews: true,
+        resetsAt: '2026-10-01T00:00:00.000Z',
+        messagesLimit: 200,
+        plansLimit: 30,
+      }),
+      quotaDetailsFor: jest.fn().mockReturnValue(['kind:messages']),
+      monthKey: jest.fn(),
+      tryConsume: jest.fn(),
+      add: jest.fn(),
+    },
     plansGateway: { broadcastWeekApplied: jest.fn() },
   };
 };
