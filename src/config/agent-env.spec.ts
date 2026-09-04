@@ -25,7 +25,11 @@ describe('readAgentEnv', () => {
       trialMessages: AGENT_ENV_DEFAULTS.trialMessages,
       trialPlans: AGENT_ENV_DEFAULTS.trialPlans,
       // Domyślnie PRO dla wszystkich — do czasu subskrypcji zachowanie jak dotąd.
-      tierOverride: 'PRO',
+      // BRAK ZMIENNEJ NIE ZNACZY „PRO DLA WSZYSTKICH". Do 4.09.2026 znaczyło:
+      // skasowanie `AI_TIER_OVERRIDE` w Railway (czyli to, co człowiek robi,
+      // chcąc ją wyczyścić) rozdawało asystenta za darmo i wyłączało całą
+      // ścieżkę płatności — bez jednego śladu w logu.
+      tierOverride: null,
       maxConcurrentTurnsPerHousehold:
         AGENT_ENV_DEFAULTS.maxConcurrentTurnsPerHousehold,
       // NIE `null`: brak zmiennej znaczył kiedyś „bez limitu", więc instalacja

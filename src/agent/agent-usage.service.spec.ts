@@ -128,6 +128,11 @@ describe('AgentUsageService.usage', () => {
   });
 
   it('oddaje zużycie, limit, resztę (nigdy ujemną) i datę resetu — po sprawdzeniu członkostwa', async () => {
+    // Ten test opisuje KSZTAŁT odpowiedzi na planie płatnym, więc plan musi być
+    // ustawiony JAWNIE. Wcześniej brał się z domyślnego `AI_TIER_OVERRIDE=PRO`
+    // — a to właśnie ta domyślność była luką: skasowanie zmiennej w Railway
+    // dawało PRO wszystkim.
+    process.env.AI_TIER_OVERRIDE = 'PRO';
     const view = await service.usage(USER, HOUSEHOLD, NOW);
     expect(conversations.ensureMembership).toHaveBeenCalledWith(
       USER,

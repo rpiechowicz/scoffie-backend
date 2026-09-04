@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { readAgentEnv } from '../config/agent-env';
 import { productLimits } from '../config/subscription-products';
-import { subscriptionScopeId, trialScopeId } from '../config/purchase-identity';
+import {
+  purchaseIdentityHashForUser,
+  subscriptionScopeId,
+  trialScopeId,
+} from '../config/purchase-identity';
 import {
   pickBestSubscription,
   type SubscriptionCandidate,
@@ -175,7 +179,17 @@ export class AiUsageCountersService {
       select: {
         tierOverride: true,
         memberships: {
-          select: { userId: true, user: { select: { identityHash: true } } },
+          select: {
+            userId: true,
+            user: {
+              select: {
+                identityHash: true,
+                appleSub: true,
+                googleId: true,
+                authProvider: true,
+              },
+            },
+          },
         },
       },
     });
@@ -184,8 +198,24 @@ export class AiUsageCountersService {
     }
 
     const members = household?.memberships ?? [];
+    // HASZ LICZYMY, A NIE TYLKO CZYTAMY Z KOLUMNY.
+    //
+    // `User.identityHash` wypełnia się przy logowaniu, ale między zakupem a
+    // najbliższym logowaniem kolumna bywa pusta — a wtedy płatnik ze świeżo
+    // zapisaną subskrypcją wypadał z tego zapytania i dostawał plan PRÓBNY
+    // mimo pobranej płatności. Ta sama pustka przesuwała zakres puli próbnej
+    // z `trial:<hasz>` na `trial:user:<id>`, więc uzupełnienie kolumny przy
+    // następnym logowaniu OTWIERAŁO drugą darmową próbę. Liczenie hasza na
+    // miejscu zamyka jedno i drugie: wynik jest ten sam, co przy zapisie.
+    const hashOf = (user: {
+      identityHash: string | null;
+      appleSub: string | null;
+      googleId: string | null;
+      authProvider: string;
+    }): string | null => user.identityHash ?? purchaseIdentityHashForUser(user);
+
     const hashes = members
-      .map((membership) => membership.user.identityHash)
+      .map((membership) => hashOf(membership.user))
       .filter((hash): hash is string => Boolean(hash));
 
     if (hashes.length > 0) {
@@ -206,6 +236,11 @@ export class AiUsageCountersService {
           messagesLimitSnapshot: true,
           plansLimitSnapshot: true,
           createdAt: true,
+          // Środowisko i blokada operatora rozstrzygają o żywotności tak samo
+          // jak data końca — bez nich sandbox na produkcji i ręcznie odebrany
+          // dostęp dalej dawały PRO.
+          environment: true,
+          operatorHoldAt: true,
         },
       });
       const winner = pickBestSubscription(candidates, now);
@@ -216,11 +251,11 @@ export class AiUsageCountersService {
 
     // Pula próbna należy do OSOBY, nie do domu — inaczej „wyjdź z domu →
     // załóż nowy" rozdawało świeże próby w nieskończoność.
+    const actorMember = members.find(
+      (membership) => membership.userId === actor.userId,
+    );
     const actorHash =
-      actor.identityHash ??
-      members.find((membership) => membership.userId === actor.userId)?.user
-        .identityHash ??
-      null;
+      actor.identityHash ?? (actorMember ? hashOf(actorMember.user) : null);
     return {
       tier: 'TRIAL',
       source: 'TRIAL',

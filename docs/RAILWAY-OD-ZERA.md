@@ -63,8 +63,15 @@ produktów i klucza do App Store Server API. Wtedy uzupełniasz `APPLE_ISSUER_ID
 i przestawiasz przełącznik. Aplikacja odblokuje przycisk zakupu sama, bez
 nowego builda — pyta o to serwer.
 
-`AI_TIER_OVERRIDE` zostaje **puste**. Wpisanie tam `PRO` daje asystenta za
-darmo wszystkim i wyłącza całą ścieżkę płatności.
+`AI_TIER_OVERRIDE` zostaje **puste albo skasowane** — od 4.09.2026 jedno i
+drugie znaczy to samo, czyli „plan liczy się z subskrypcji". Wcześniej BRAK tej
+zmiennej znaczył `PRO`, więc skasowanie wiersza rozdawało asystenta za darmo
+wszystkim. Wpisanie `PRO` dalej to robi i przy starcie leci o tym ostrzeżenie.
+
+`APPLE_ACCEPT_FAMILY_SHARED` zostaje na `false`. Chmura Rodzinna daje każdemu
+członkowi rodziny WŁASNĄ transakcję, czyli własny wiersz i własną pełną pulę
+wiadomości — jedna opłata potrafi utrzymać sześć pul. Przełącznik w App Store
+Connect też trzeba wyłączyć, ale kod nie opiera się już wyłącznie na nim.
 
 `APNS_USE_SANDBOX=true` jest właściwe dla TestFlighta. Przy wydaniu do sklepu
 przestaw na `false`, inaczej powiadomienia przestaną dochodzić.

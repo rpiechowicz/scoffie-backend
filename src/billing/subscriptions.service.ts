@@ -2,6 +2,7 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  identityHashEquals,
   purchaseIdentityHashForUser,
   subscriptionScopeId,
 } from '../config/purchase-identity';
@@ -51,6 +52,20 @@ function text(value: unknown, fallback = ''): string {
   return fallback;
 }
 
+/**
+ * Kody odmowy weryfikatora, które NIE ZMIENIĄ SIĘ przy ponowieniu.
+ *
+ * Podpis jest w porządku (inaczej nie doszlibyśmy do treści) — to sama treść
+ * dyskwalifikuje zdarzenie: cudza aplikacja, obce środowisko, Chmura Rodzinna,
+ * brak wymaganych pól. Ponawianie takiego zdarzenia to pętla bez końca.
+ */
+const PERMANENT_JWS_CODES = new Set([
+  'WRONG_BUNDLE',
+  'WRONG_ENVIRONMENT',
+  'FAMILY_SHARED',
+  'INCOMPLETE',
+]);
+
 /** Statusy z App Store Server API. */
 const APPLE_STATUS = {
   ACTIVE: 1,
@@ -72,6 +87,8 @@ export type SubscriptionSummary = {
   environment: string | null;
   messagesLimit: number | null;
   plansLimit: number | null;
+  /** Powód ręcznego odebrania dostępu; `null` = bez blokady. */
+  operatorHold: string | null;
 };
 
 type SubscriptionState = {
@@ -162,6 +179,25 @@ export class SubscriptionsService {
         this.logger.warn(
           `Odrzucona transakcja (${error.code}) od ${userId}: ${error.message}`,
         );
+        // Trzy odmowy mają WŁASNE komunikaty, bo znaczą co innego dla człowieka
+        // i co innego dla obsługi. Jeden komunikat „nie udało się potwierdzić"
+        // na wszystko zamieniał świadomą decyzję (Chmura Rodzinna, sandbox na
+        // produkcji) w wyglądającą na awarię — a recenzent App Store widziałby
+        // wtedy paywall, który po prostu nie działa.
+        if (error.code === 'FAMILY_SHARED') {
+          throw new AppException(
+            'BILLING_FAMILY_SHARING_UNSUPPORTED',
+            'Ta subskrypcja jest udostępniona przez Chmurę Rodzinną. Żeby korzystać z asystenta, wybierz własny plan.',
+            HttpStatus.CONFLICT,
+          );
+        }
+        if (error.code === 'WRONG_ENVIRONMENT') {
+          throw new AppException(
+            'BILLING_ENVIRONMENT_MISMATCH',
+            'Ten zakup pochodzi ze środowiska testowego App Store i nie daje dostępu w tej wersji aplikacji.',
+            HttpStatus.CONFLICT,
+          );
+        }
         throw new AppException(
           'BILLING_TRANSACTION_INVALID',
           'Nie udało się potwierdzić tego zakupu w App Store.',
@@ -170,6 +206,27 @@ export class SubscriptionsService {
         );
       }
       throw error;
+    }
+
+    // `appAccountToken` — UUID konta wkładany przez telefon w chwili zakupu.
+    // Apple podpisuje go razem z transakcją, więc jest to JEDYNY dowód, kto
+    // naprawdę klikał „Kup". Bez tego sprawdzenia podpisana transakcja, która
+    // komuś wyciekła (log serwera pośredniczącego, przechwycone żądanie),
+    // należy do tego, kto ZGŁOSI JĄ PIERWSZY — a `originalTransactionId` jest
+    // unikalny, więc prawowity właściciel dostaje potem BILLING_TRANSACTION_TAKEN
+    // i nie ma jak tego odkręcić bez obsługi.
+    if (pointer.appAccountToken) {
+      const claimed = pointer.appAccountToken.trim().toLowerCase();
+      if (claimed !== user.id.toLowerCase()) {
+        this.logger.error(
+          `Transakcja ${pointer.originalTransactionId} zgłoszona przez ${userId}, a appAccountToken wskazuje na inne konto.`,
+        );
+        throw new AppException(
+          'BILLING_TRANSACTION_TAKEN',
+          'Ten zakup należy do innego konta.',
+          HttpStatus.CONFLICT,
+        );
+      }
     }
 
     // Nieznany produkt NIE jest błędem klienta: nowy SKU wypuszczony w App
@@ -181,13 +238,32 @@ export class SubscriptionsService {
     }
 
     const state = await this.fetchState(pointer.originalTransactionId, now);
-    return this.persist(
+    const summary = await this.persist(
       identityHash,
       user.id,
       pointer.originalTransactionId,
       state,
       now,
     );
+    // ŚLAD TOŻSAMOŚCI MUSI BYĆ W KOLUMNIE, NIE TYLKO POLICZONY. `resolvePlan`
+    // szuka subskrypcji po haszach OBECNYCH domowników, a te bierze z
+    // `User.identityHash`. Konto, które kupiło zanim kolumna została wypełniona,
+    // miało subskrypcję w bazie i mimo to plan próbny — czyli dokładnie
+    // „płacę i nie mam asystenta". Zapis jest warunkowy, więc nie nadpisuje
+    // istniejącego śladu i nie przeszkadza równoległemu logowaniu.
+    if (!user.identityHash) {
+      await this.prisma.user
+        .updateMany({
+          where: { id: user.id, identityHash: null },
+          data: { identityHash },
+        })
+        .catch((error: unknown) => {
+          this.logger.warn(
+            `Nie udało się dopisać identityHash dla ${user.id}: ${String(error)}`,
+          );
+        });
+    }
+    return summary;
   }
 
   /**
@@ -290,7 +366,7 @@ export class SubscriptionsService {
       where: { originalTransactionId },
     });
 
-    if (existing && existing.identityHash !== identityHash) {
+    if (existing && !identityHashEquals(existing.identityHash, identityHash)) {
       this.logger.error(
         `Próba przypisania cudzej subskrypcji ${originalTransactionId} (użytkownik ${userId ?? '-'}).`,
       );
@@ -320,6 +396,11 @@ export class SubscriptionsService {
       messagesLimitSnapshot: limits.messages,
       plansLimitSnapshot: limits.plans,
       lastVerifiedAt: now,
+      // Stan z App Store Server API jest świeższy niż KAŻDE powiadomienie
+      // podpisane wcześniej. Bez przesunięcia tego znacznika zaległe zdarzenie
+      // z kolejki potrafiło po uzgodnieniu cofnąć stan do tego, co Apple
+      // mówiło godzinę temu — strażnik kolejności porównuje się właśnie z nim.
+      lastNotificationAt: now,
     };
 
     const saved = existing
@@ -330,12 +411,13 @@ export class SubscriptionsService {
       : await this.prisma.subscription.create({ data });
 
     if (state.ownershipType === 'FAMILY_SHARED') {
-      // Chmura Rodzinna jest w App Store Connect wyłączona, więc taki wiersz
-      // nie ma prawa powstać. Gdyby jednak powstał: pula i tak jest jedna na
-      // UMOWĘ (`sub:<id>`), więc pięć gospodarstw dzieli te same 30 wiadomości
-      // — strata jest zerowa, ale chcemy o tym wiedzieć.
+      // Tu można trafić TYLKO przy jawnym `APPLE_ACCEPT_FAMILY_SHARED=true`
+      // (bramka w `checkTransactionPayload` odrzuca resztę). Wtedy trzeba
+      // wiedzieć, że jedna opłata zaczyna właśnie utrzymywać kolejną pełną pulę:
+      // każdy członek rodziny ma własny `originalTransactionId`, więc własny
+      // wiersz i własny `sub:<id>`.
       this.logger.warn(
-        `Subskrypcja ${saved.id} przyszła jako FAMILY_SHARED — sprawdź ustawienia w App Store Connect.`,
+        `Subskrypcja ${saved.id} przyszła jako FAMILY_SHARED — osobna pula na jednej opłacie (APPLE_ACCEPT_FAMILY_SHARED=true).`,
       );
     }
 
@@ -403,10 +485,10 @@ export class SubscriptionsService {
     signedPayload: string,
     now: Date = new Date(),
   ): Promise<{ uuid: string; duplicate: boolean }> {
-    const payload = verifyAppleJws(signedPayload, { now }) as Record<
-      string,
-      unknown
-    >;
+    const payload = verifyAppleJws(signedPayload, {
+      now,
+      rootPem: readBillingEnv().rootCaPem,
+    }) as Record<string, unknown>;
     const uuid = text(payload.notificationUUID);
     if (!uuid) {
       throw new AppleJwsError(
@@ -481,10 +563,10 @@ export class SubscriptionsService {
     });
 
     try {
-      const payload = verifyAppleJws(row.signedPayload, { now }) as Record<
-        string,
-        unknown
-      >;
+      const payload = verifyAppleJws(row.signedPayload, {
+        now,
+        rootPem: readBillingEnv().rootCaPem,
+      }) as Record<string, unknown>;
       const data = (payload.data ?? {}) as Record<string, unknown>;
       const signedTransaction = data.signedTransactionInfo;
       if (typeof signedTransaction !== 'string') {
@@ -493,10 +575,37 @@ export class SubscriptionsService {
         return;
       }
       const env = readBillingEnv();
-      const transaction = verifyTransaction(signedTransaction, env, now);
+      let transaction;
+      try {
+        transaction = verifyTransaction(signedTransaction, env, now);
+      } catch (error) {
+        // ZDARZENIE, KTÓREGO NIGDY NIE PRZETWORZYMY, NIE MA WRACAĆ W KÓŁKO.
+        // Zła aplikacja, złe środowisko, Chmura Rodzinna, brak wymaganych pól —
+        // ponowienie za godzinę da dokładnie ten sam wynik. Wcześniej takie
+        // powiadomienie leciało wyjątkiem, kontroler oddawał Apple 500, Apple
+        // ponawiało pięć razy przez trzy doby i przestawało, a wiersz zostawał
+        // na zawsze nieprzetworzony — bez jednego miejsca, w którym dałoby się
+        // to zobaczyć. Teraz zamykamy je z powodem, a `GET /ops/billing/
+        // notifications/failed` pokazuje takie przypadki obsłudze.
+        if (
+          error instanceof AppleJwsError &&
+          PERMANENT_JWS_CODES.has(error.code)
+        ) {
+          this.logger.error(
+            `Powiadomienie ${uuid} odrzucone trwale (${error.code}): ${error.message}`,
+          );
+          await this.markProcessed(
+            uuid,
+            now,
+            `Odrzucone trwale: ${error.code}`,
+          );
+          return;
+        }
+        throw error;
+      }
       const renewal =
         typeof data.signedRenewalInfo === 'string'
-          ? verifyRenewalInfo(data.signedRenewalInfo, now)
+          ? verifyRenewalInfo(data.signedRenewalInfo, now, env.rootCaPem)
           : null;
 
       const existing = await this.prisma.subscription.findUnique({
@@ -523,6 +632,35 @@ export class SubscriptionsService {
         return;
       }
 
+      // ZWROT PIENIĘDZY ZA JEDEN STARY MIESIĄC NIE MOŻE ZABIĆ ŻYWEJ UMOWY.
+      // Apple potrafi zwrócić pieniądze za pojedynczy okres wstecz. Ładunek
+      // niesie wtedy TAMTĄ transakcję: z `revocationDate` i z lipcową datą
+      // końca. `toState` daje z tego REVOKED, a `revokedAt` wygrywa ze
+      // wszystkim — więc klient płacący od maja tracił dostęp mimo opłaconego
+      // września, a strażnik kolejności tego nie łapał, bo `signedDate` samego
+      // powiadomienia jest dzisiejsze. Rozstrzyga App Store Server API: ono zna
+      // stan CAŁEJ subskrypcji, a nie jednej transakcji.
+      const payloadExpires = appleDate(transaction.expiresDate);
+      const staleTransaction =
+        transaction.transactionId !== existing.latestTransactionId &&
+        payloadExpires !== null &&
+        existing.expiresAt !== null &&
+        payloadExpires.getTime() < existing.expiresAt.getTime();
+      if (staleTransaction) {
+        this.logger.warn(
+          `Powiadomienie ${uuid} dotyczy starszej transakcji subskrypcji ${existing.id} — pytamy Apple o stan całości.`,
+        );
+        const reconciled = await this.reconcile(existing.id, now);
+        await this.markProcessed(
+          uuid,
+          now,
+          reconciled
+            ? 'Starsza transakcja — stan wzięty z App Store Server API.'
+            : 'Starsza transakcja — App Store niedostępne, stan bez zmian.',
+        );
+        return;
+      }
+
       const state = this.toState({
         originalTransactionId: transaction.originalTransactionId,
         status:
@@ -531,8 +669,22 @@ export class SubscriptionsService {
         renewal,
       });
       const limits = this.limitsFor(state, existing, now);
-      await this.prisma.subscription.update({
-        where: { id: existing.id },
+      // SPRAWDŹ-I-USTAW, NIE CZYTAJ-POTEM-PISZ. Między odczytem `existing`
+      // a zapisem mieści się całe uzgodnienie i całe drugie powiadomienie —
+      // Apple potrafi wysłać DID_RENEW i DID_CHANGE_RENEWAL_STATUS w tej samej
+      // sekundzie, a Railway obsługuje je równolegle. Bez warunku w `where`
+      // starsze zdarzenie po prostu nadpisywało nowszy stan, mimo że strażnik
+      // kolejności wyżej „przepuścił" oba. `updateMany` z warunkiem na
+      // `lastNotificationAt` przegrywa cicho i zostawia świeższy stan.
+      const stamp = signedDate ?? now;
+      const written = await this.prisma.subscription.updateMany({
+        where: {
+          id: existing.id,
+          OR: [
+            { lastNotificationAt: null },
+            { lastNotificationAt: { lte: stamp } },
+          ],
+        },
         data: {
           productId: state.productId,
           latestTransactionId: state.latestTransactionId,
@@ -546,12 +698,16 @@ export class SubscriptionsService {
           ownershipType: state.ownershipType,
           messagesLimitSnapshot: limits.messages,
           plansLimitSnapshot: limits.plans,
-          lastNotificationAt: signedDate ?? now,
+          lastNotificationAt: stamp,
           lastNotificationType: text(payload.notificationType, 'UNKNOWN'),
           lastVerifiedAt: now,
         },
       });
-      await this.markProcessed(uuid, now, null);
+      await this.markProcessed(
+        uuid,
+        now,
+        written.count === 1 ? null : 'Wyprzedzone przez świeższy stan.',
+      );
     } catch (error) {
       await this.prisma.appleNotification.update({
         where: { notificationUuid: uuid },
@@ -608,6 +764,20 @@ export class SubscriptionsService {
         this.logger.error(
           `Apple nie zna subskrypcji ${subscriptionId} — wymaga ręcznego sprawdzenia.`,
         );
+        // ZATRUTA PARTIA. Kolejka uzgadniania bierze 25 NAJDAWNIEJ sprawdzanych
+        // wierszy. Wiersz, którego Apple nie zna, nie dostawał nowego znacznika,
+        // więc zostawał najdawniejszy NA ZAWSZE i wracał w każdym przebiegu —
+        // dwadzieścia pięć takich wierszy blokowało odświeżanie wszystkim
+        // pozostałym, w tym płacącym klientom czekającym na zgubione DID_RENEW.
+        // Znacznik przesuwamy MIMO niepowodzenia: to nie jest „uzgodnione",
+        // tylko „sprawdzone i nie ma po co pytać znowu w tej godzinie".
+        await this.prisma.subscription.updateMany({
+          where: { id: subscriptionId },
+          data: {
+            lastVerifiedAt: now,
+            lastNotificationType: 'APPLE_NOT_FOUND',
+          },
+        });
         return false;
       }
       if (error instanceof AppStoreUnavailableError) {
@@ -630,11 +800,28 @@ export class SubscriptionsService {
     const cutoff = new Date(
       now.getTime() - env.reconcileAfterHours * 3600 * 1000,
     );
+    // ŚWIEŻO WYGASŁE TEŻ, JEŚLI APPLE DALEJ MA JE ODNAWIAĆ. Wiersz oznaczony
+    // EXPIRED wypadał z uzgadniania na zawsze — a wpaść tam można przez jedno
+    // zgubione DID_RENEW. Klient płacił dalej, my o tym nie wiedzieliśmy i
+    // jedynym wyjściem było „Przywróć zakupy" albo reklamacja. Sześćdziesiąt
+    // dni, bo tyle wystarczy na dwa nieudane okresy; starsze naprawdę są martwe.
+    const expiredWindow = new Date(now.getTime() - 60 * 24 * 3600 * 1000);
     const rows = await this.prisma.subscription.findMany({
       where: {
         provider: 'APPLE',
-        status: { in: ['ACTIVE', 'GRACE'] },
         OR: [{ lastVerifiedAt: null }, { lastVerifiedAt: { lt: cutoff } }],
+        AND: [
+          {
+            OR: [
+              { status: { in: ['ACTIVE', 'GRACE'] } },
+              {
+                status: 'EXPIRED',
+                autoRenewStatus: true,
+                expiresAt: { gt: expiredWindow },
+              },
+            ],
+          },
+        ],
       },
       orderBy: { lastVerifiedAt: 'asc' },
       take: limit,
@@ -696,6 +883,8 @@ export class SubscriptionsService {
       revokedAt: Date | null;
       autoRenewStatus: boolean | null;
       environment: string | null;
+      operatorHoldAt: Date | null;
+      operatorHoldReason: string | null;
       messagesLimitSnapshot: number | null;
       plansLimitSnapshot: number | null;
       provider: string;
@@ -721,6 +910,8 @@ export class SubscriptionsService {
           messagesLimitSnapshot: row.messagesLimitSnapshot,
           plansLimitSnapshot: row.plansLimitSnapshot,
           createdAt: row.createdAt,
+          environment: row.environment,
+          operatorHoldAt: row.operatorHoldAt,
         },
         now,
       ),
@@ -730,6 +921,7 @@ export class SubscriptionsService {
       environment: row.environment,
       messagesLimit: row.messagesLimitSnapshot,
       plansLimit: row.plansLimitSnapshot,
+      operatorHold: row.operatorHoldAt ? (row.operatorHoldReason ?? '') : null,
     };
   }
 

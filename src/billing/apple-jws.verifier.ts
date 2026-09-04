@@ -1,5 +1,9 @@
-import { X509Certificate, createPublicKey, verify } from 'node:crypto';
-import { APPLE_ROOT_CA_G3_PEM, type BillingEnv } from './billing-env';
+import { X509Certificate, verify } from 'node:crypto';
+import {
+  APPLE_ROOT_CA_G3_PEM,
+  acceptedEnvironments,
+  type BillingEnv,
+} from './billing-env';
 
 /**
  * Weryfikacja podpisanych ładunków Apple (JWS z `x5c`).
@@ -196,7 +200,18 @@ export function verifyAppleJws(
       'sha256',
       signed,
       {
-        key: createPublicKey(leaf.publicKey),
+        // `leaf.publicKey` JEST już `KeyObject` typu `public`. Owinięcie go w
+        // `createPublicKey()` RZUCA `ERR_CRYPTO_INVALID_KEY_OBJECT_TYPE`
+        // („expected private"), bo ta funkcja przyjmuje z KeyObject wyłącznie
+        // klucz PRYWATNY, żeby wyprowadzić z niego publiczny. Wyjątek wpadał
+        // prosto w `catch` poniżej i zamieniał się w `ok = false` — czyli
+        // KAŻDY prawdziwy podpis Apple kończył się `BILLING_TRANSACTION_INVALID`
+        // z powodem `BAD_SIGNATURE`. Paywall pobierałby pieniądze i nie
+        // potwierdził ani jednego zakupu, a z zewnątrz wyglądałoby to na awarię
+        // App Store. Nie widział tego żaden test, bo wszystkie odrzucały token
+        // WCZEŚNIEJ — na algorytmie, łańcuchu albo korzeniu — i do tej linii
+        // nigdy nie docierały. Stąd `apple-jws.verifier.positive.spec.ts`.
+        key: leaf.publicKey,
         dsaEncoding: 'ieee-p1363',
       },
       signature,
@@ -267,7 +282,10 @@ export function verifyTransaction(
   now: Date = new Date(),
 ): AppleTransactionInfo {
   return checkTransactionPayload(
-    verifyAppleJws(token, { now }) as Record<string, unknown>,
+    verifyAppleJws(token, { now, rootPem: env.rootCaPem }) as Record<
+      string,
+      unknown
+    >,
     env,
   );
 }
@@ -300,13 +318,26 @@ export function checkTransactionPayload(
     );
   }
   const environment = asString(payload.environment) ?? 'Production';
-  const allowed = new Set<string>(
-    env.acceptSandbox ? [env.environment, 'Sandbox'] : [env.environment],
-  );
+  const allowed = new Set<string>(acceptedEnvironments(env));
   if (!allowed.has(environment)) {
     throw new AppleJwsError(
       'WRONG_ENVIRONMENT',
       `Transakcja ze środowiska ${environment} nie jest tu uznawana.`,
+    );
+  }
+
+  // CHMURA RODZINNA. Każdy członek rodziny dostaje WŁASNĄ transakcję z własnym
+  // `originalTransactionId` i loguje się własnym Apple ID, więc powstaje osobny
+  // wiersz, osobny `sub:<id>` i osobna pula wiadomości. Sześć osób na jednej
+  // opłacie 29,99 zł to sześć pełnych pul — czyli sześciokrotny rachunek u
+  // dostawcy modelu przy jednym przychodzie. Przełącznik w App Store Connect
+  // jest tu tylko drugą linią obrony: to jedno kliknięcie w panelu, którego
+  // kod nie widzi, a wcześniej całą decyzję opierano wyłącznie na nim.
+  const ownershipType = asString(payload.inAppOwnershipType);
+  if (ownershipType === 'FAMILY_SHARED' && !env.acceptFamilyShared) {
+    throw new AppleJwsError(
+      'FAMILY_SHARED',
+      'Transakcja z Chmury Rodzinnej nie daje tu dostępu.',
     );
   }
 
@@ -319,7 +350,7 @@ export function checkTransactionPayload(
     originalPurchaseDate: asNumber(payload.originalPurchaseDate),
     expiresDate: asNumber(payload.expiresDate),
     type: asString(payload.type),
-    inAppOwnershipType: asString(payload.inAppOwnershipType),
+    inAppOwnershipType: ownershipType,
     environment,
     revocationDate: asNumber(payload.revocationDate),
     revocationReason: asNumber(payload.revocationReason),
@@ -331,8 +362,12 @@ export function checkTransactionPayload(
 export function verifyRenewalInfo(
   token: string,
   now: Date = new Date(),
+  rootPem?: string,
 ): AppleRenewalInfo {
-  const payload = verifyAppleJws(token, { now }) as Record<string, unknown>;
+  const payload = verifyAppleJws(token, { now, rootPem }) as Record<
+    string,
+    unknown
+  >;
   const originalTransactionId = asString(payload.originalTransactionId);
   if (!originalTransactionId) {
     throw new AppleJwsError(

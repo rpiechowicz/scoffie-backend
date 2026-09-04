@@ -1,3 +1,4 @@
+import { acceptedTransactionEnvironments } from './apple-environment';
 import { SUBSCRIPTION_PRODUCTS } from './subscription-products';
 
 /**
@@ -39,6 +40,17 @@ export type SubscriptionCandidate = {
   messagesLimitSnapshot: number | null;
   plansLimitSnapshot: number | null;
   createdAt: Date;
+  /**
+   * Środowisko App Store transakcji (`Production` / `Sandbox`); `null` dla
+   * nadania ręcznego, które nie chodzi przez Apple i zawsze się liczy.
+   */
+  environment?: string | null;
+  /**
+   * Blokada operatora. Ustawiona ręcznie po zwrocie pieniędzy albo nadużyciu i
+   * NIGDY nieczyszczona przez uzgadnianie ani zgłoszenie z telefonu — inaczej
+   * „Przywróć zakupy" cofało decyzję obsługi jednym kliknięciem klienta.
+   */
+  operatorHoldAt?: Date | null;
 };
 
 /**
@@ -51,12 +63,28 @@ export type SubscriptionCandidate = {
  *    wiemy", czyli martwa. Wieczne bywa tylko nadanie ręczne z `neverExpires`.
  * 3. GRACE ma własną datę końca. Bez niej status GRACE nigdy by nie zadziałał,
  *    bo `expiresAt` z definicji leży już w przeszłości.
+ *
+ * DWIE RZECZY DOŁOŻONE PO AUDYCIE 4.09:
+ * 4. Blokada operatora ucina dostęp niezależnie od tego, co mówi Apple.
+ * 5. Wiersz ze środowiska, którego teraz nie uznajemy (sandbox na produkcji),
+ *    nie daje PRO. Bez tego literówka w `APPLE_ENVIRONMENT` zostawiała po
+ *    sobie wiersze rozdające darmowe PRO na zawsze — poprawienie zmiennej ich
+ *    nie ruszało, bo nikt ich już nie pytał o środowisko.
  */
 export function subscriptionAlive(
   sub: SubscriptionCandidate,
   now: Date,
 ): boolean {
+  if (sub.operatorHoldAt) return false;
   if (sub.revokedAt) return false;
+  if (
+    sub.environment &&
+    !acceptedTransactionEnvironments().includes(
+      sub.environment as 'Production' | 'Sandbox',
+    )
+  ) {
+    return false;
+  }
   if (sub.status !== 'ACTIVE' && sub.status !== 'GRACE') return false;
   if (sub.neverExpires) return true;
   const until =

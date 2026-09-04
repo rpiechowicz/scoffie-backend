@@ -471,6 +471,7 @@ export class AgentTurnsService {
       userId,
       householdId: conversation.householdId,
       periodKey,
+      quotaScopeId: scopeId,
       env,
       requestId,
       dates: {

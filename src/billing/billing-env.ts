@@ -7,6 +7,15 @@
  * asystent działa dalej na nadaniu operatora i na puli próbnej.
  */
 
+import {
+  acceptedTransactionEnvironments,
+  readAcceptSandbox,
+  readAppleEnvironment,
+  type AppleEnvironment,
+} from '../config/apple-environment';
+
+export type { AppleEnvironment };
+
 /** Odcisk SHA-256 certyfikatu „Apple Root CA - G3" (ważny do 30.04.2039). */
 export const APPLE_ROOT_CA_G3_SHA256 =
   '63:34:3A:BF:B8:9A:6A:03:EB:B5:7E:9B:3F:5F:A7:BE:7C:4F:5C:75:6F:30:17:B3:A8:C4:88:C3:65:3E:91:79';
@@ -40,8 +49,6 @@ at+qIxUCMG1mihDK1A3UT82NQz60imOlM27jbdoXt2QfyFMm+YhidDkLF1vLUagM
 6BgD56KyKA==
 -----END CERTIFICATE-----`;
 
-export type AppleEnvironment = 'Production' | 'Sandbox';
-
 export type BillingEnv = {
   /**
    * Czy przyjmujemy zakupy. `false` = `/billing/*` odpowiada 503, paywall w
@@ -59,11 +66,27 @@ export type BillingEnv = {
   environment: AppleEnvironment;
   /** Czy dopuścić też transakcje z sandboxa (tylko dla środowiska testowego). */
   acceptSandbox: boolean;
+  /**
+   * Czy przyjmujemy transakcje z Chmury Rodzinnej (`inAppOwnershipType ===
+   * 'FAMILY_SHARED'`). Domyślnie NIE — patrz `checkTransactionPayload`.
+   */
+  acceptFamilyShared: boolean;
   issuerId: string;
   keyId: string;
   /** Zawartość klucza `.p8` (z nagłówkiem PEM albo bez). */
   privateKey: string;
   rootCaSha256: string;
+  /**
+   * Certyfikat korzenia, do którego musi prowadzić łańcuch z `x5c`.
+   *
+   * DOMYŚLNIE I NA PRODUKCJI ZAWSZE: wpisany na sztywno korzeń Apple. Podmiana
+   * jest możliwa WYŁĄCZNIE poza produkcją (`NODE_ENV !== 'production'`) i
+   * służy jednej rzeczy — testowi na żywej bazie, który podpisuje transakcje
+   * własnym łańcuchem, bo prawdziwych podpisów Apple nie da się trzymać w
+   * repozytorium. Na produkcji zmienna jest ignorowana, więc jej ustawienie
+   * (przez pomyłkę albo złośliwie) niczego nie otwiera.
+   */
+  rootCaPem: string;
   /** Adres App Store Server API — inny dla sandboxa. */
   serverApiBaseUrl: string;
   /** Twardy limit czasu na odpowiedź Apple. */
@@ -81,9 +104,18 @@ function readBool(name: string, fallback: boolean): boolean {
   return raw === 'true' || raw === '1' || raw === 'yes';
 }
 
-function readInt(name: string, fallback: number): number {
-  const raw = Number(process.env[name]);
-  return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : fallback;
+/**
+ * Liczba z env. PUSTA ZMIENNA TO BRAK WARTOŚCI, NIE ZERO — `Number('')` daje 0,
+ * więc pusty `APPLE_SERVER_API_TIMEOUT_MS` w Railway (a puste pole zostawia się
+ * tam jednym kliknięciem) ustawiał limit czasu na 0 ms i każde pytanie do Apple
+ * kończyło się natychmiastowym przerwaniem: paywall, który nie potwierdza
+ * żadnego zakupu, i to bez jednego czytelnego błędu w logu.
+ */
+function readInt(name: string, fallback: number, min = 0): number {
+  const raw = process.env[name]?.trim();
+  if (raw === undefined || raw === '') return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= min ? Math.floor(value) : fallback;
 }
 
 /**
@@ -112,11 +144,21 @@ function readPrivateKey(): string {
     : '';
 }
 
+/**
+ * Korzeń łańcucha. Na produkcji nie ma tu żadnego wyboru — patrz `rootCaPem`.
+ */
+function readRootCaPem(): string {
+  if (process.env.NODE_ENV === 'production') return APPLE_ROOT_CA_G3_PEM;
+  const raw = process.env.APPLE_ROOT_CA_PEM?.trim();
+  if (!raw) return APPLE_ROOT_CA_G3_PEM;
+  // Railway nie lubi znaków nowej linii — tak samo, jak przy kluczu `.p8`.
+  return raw.includes('BEGIN CERTIFICATE')
+    ? raw.replace(/\\n/g, '\n')
+    : APPLE_ROOT_CA_G3_PEM;
+}
+
 export function readBillingEnv(): BillingEnv {
-  const environment: AppleEnvironment =
-    process.env.APPLE_ENVIRONMENT?.trim() === 'Production'
-      ? 'Production'
-      : 'Sandbox';
+  const environment = readAppleEnvironment();
   const issuerId = process.env.APPLE_ISSUER_ID?.trim() ?? '';
   const keyId = process.env.APPLE_BILLING_KEY_ID?.trim() ?? '';
   const privateKey = readPrivateKey();
@@ -132,26 +174,32 @@ export function readBillingEnv(): BillingEnv {
     environment,
     // Na produkcji sandbox jest odrzucany zawsze; poza produkcją domyślnie
     // przyjmowany, bo inaczej nie da się niczego przetestować.
-    acceptSandbox: readBool(
-      'APPLE_ACCEPT_SANDBOX',
-      environment !== 'Production',
-    ),
+    acceptSandbox: readAcceptSandbox(),
+    // Chmura Rodzinna: domyślnie NIE. Jedna opłata dałaby do sześciu osobnych
+    // pul, bo każdy członek rodziny dostaje własną transakcję z własnym
+    // `originalTransactionId`, czyli własny wiersz i własny zakres licznika.
+    acceptFamilyShared: readBool('APPLE_ACCEPT_FAMILY_SHARED', false),
     issuerId,
     keyId,
     privateKey,
     rootCaSha256:
       process.env.APPLE_ROOT_CA_SHA256?.trim() || APPLE_ROOT_CA_G3_SHA256,
+    rootCaPem: readRootCaPem(),
     serverApiBaseUrl:
       process.env.APPLE_SERVER_API_URL?.trim() ||
       (environment === 'Production'
         ? 'https://api.storekit.apple.com'
         : 'https://api.storekit-sandbox.itunes.apple.com'),
-    serverApiTimeoutMs: readInt('APPLE_SERVER_API_TIMEOUT_MS', 8000),
-    reconcileAfterHours: readInt('APPLE_RECONCILE_AFTER_HOURS', 24),
+    serverApiTimeoutMs: readInt('APPLE_SERVER_API_TIMEOUT_MS', 8000, 1),
+    reconcileAfterHours: readInt('APPLE_RECONCILE_AFTER_HOURS', 24, 1),
   };
 }
 
 /** Które środowiska transakcji wpuszczamy przy tej konfiguracji. */
 export function acceptedEnvironments(env: BillingEnv): AppleEnvironment[] {
-  return env.acceptSandbox ? [env.environment, 'Sandbox'] : [env.environment];
+  return env.acceptSandbox && env.environment !== 'Sandbox'
+    ? [env.environment, 'Sandbox']
+    : [env.environment];
 }
+
+export { acceptedTransactionEnvironments };

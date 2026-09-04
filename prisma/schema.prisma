@@ -460,6 +460,13 @@ model Subscription {
   /// Ostatnie uzgodnienie z App Store Server API — czym starsze, tym większa
   /// szansa, że zgubiliśmy powiadomienie.
   lastVerifiedAt        DateTime?
+  /// Blokada nałożona ręcznie przez obsługę (zwrot poza Apple, nadużycie,
+  /// obciążenie zwrotne). Ucina dostęp niezależnie od tego, co mówi Apple i
+  /// NIGDY nie jest czyszczona przez uzgadnianie ani przez zgłoszenie z
+  /// telefonu — bez tej kolumny „Przywróć zakupy" cofało decyzję obsługi
+  /// jednym kliknięciem klienta. Zdejmuje ją wyłącznie operator.
+  operatorHoldAt        DateTime?
+  operatorHoldReason    String?
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 

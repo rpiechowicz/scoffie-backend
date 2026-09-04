@@ -1,4 +1,5 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { purchaseIdentityHash } from '../config/purchase-identity';
 import {
   AiUsageCountersService,
   pickBestSubscription,
@@ -162,13 +163,22 @@ describe('resolvePlan — uprawnienie liczone, nie zapisane', () => {
   let counters: AiUsageCountersService;
 
   const householdRow = (
-    members: { userId: string; identityHash: string | null }[],
+    members: {
+      userId: string;
+      identityHash: string | null;
+      appleSub?: string | null;
+    }[],
     tierOverride: string | null = null,
   ) => ({
     tierOverride,
     memberships: members.map((member) => ({
       userId: member.userId,
-      user: { identityHash: member.identityHash },
+      user: {
+        identityHash: member.identityHash,
+        appleSub: member.appleSub ?? null,
+        googleId: null,
+        authProvider: 'APPLE',
+      },
     })),
   });
 
@@ -265,6 +275,56 @@ describe('resolvePlan — uprawnienie liczone, nie zapisane', () => {
     expect(plan.quotaScopeId).toBe(HOUSE);
     // Nadanie nie ma produktu — limity z env, jak dotąd.
     expect(plan.product).toBeNull();
+  });
+
+  it('PŁATNIK BEZ WYPEŁNIONEJ KOLUMNY HASZA i tak dostaje PRO', async () => {
+    // `User.identityHash` wypełnia się przy logowaniu. Między zakupem a
+    // najbliższym logowaniem kolumna bywa pusta — a płatnik wypadał wtedy z
+    // zapytania o subskrypcje i dostawał plan PRÓBNY mimo pobranej płatności.
+    // Hasz liczy się teraz na miejscu z `appleSub`, więc wynik jest ten sam,
+    // co przy zapisie subskrypcji.
+    const hash = purchaseIdentityHash('APPLE', 'apple-sub-platnika');
+    prisma.household.findUnique.mockResolvedValue(
+      householdRow([
+        { userId: PAYER, identityHash: null, appleSub: 'apple-sub-platnika' },
+      ]),
+    );
+    prisma.subscription.findMany.mockImplementation(
+      ({ where }: { where: { identityHash: { in: string[] } } }) =>
+        Promise.resolve(
+          where.identityHash.in.includes(hash!)
+            ? [sub({ identityHash: hash })]
+            : [],
+        ),
+    );
+
+    const plan = await counters.resolvePlan(HOUSE, { userId: PAYER }, NOW);
+    expect(plan.tier).toBe('PRO');
+    expect(plan.source).toBe('SUBSCRIPTION');
+  });
+
+  it('PULA PRÓBNA NIE ODNAWIA SIĘ po wypełnieniu kolumny hasza', async () => {
+    // Zakres puli próbnej brał się z kolumny; pusta kolumna dawała
+    // `trial:user:<id>`, a wypełniona `trial:<hasz>` — czyli następne logowanie
+    // otwierało DRUGĄ darmową próbę. Teraz obie ścieżki liczą ten sam zakres.
+    const hash = purchaseIdentityHash('APPLE', 'apple-sub-probny');
+    prisma.household.findUnique.mockResolvedValue(
+      householdRow([
+        { userId: MEMBER, identityHash: null, appleSub: 'apple-sub-probny' },
+      ]),
+    );
+    const przed = await counters.resolvePlan(HOUSE, { userId: MEMBER }, NOW);
+
+    prisma.household.findUnique.mockResolvedValue(
+      householdRow([
+        { userId: MEMBER, identityHash: hash, appleSub: 'apple-sub-probny' },
+      ]),
+    );
+    const po = await counters.resolvePlan(HOUSE, { userId: MEMBER }, NOW);
+
+    expect(przed.tier).toBe('TRIAL');
+    expect(przed.quotaScopeId).toBe(`trial:${hash!}`);
+    expect(po.quotaScopeId).toBe(przed.quotaScopeId);
   });
 
   it('AI_TIER_OVERRIDE=PRO nie tyka bazy i daje pulę domu', async () => {

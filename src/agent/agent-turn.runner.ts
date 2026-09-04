@@ -35,6 +35,18 @@ export type RunTurnInput = {
   householdId: string;
   /** Okres kwoty, z której zeszła ta tura — zwrot musi trafić tam z powrotem. */
   periodKey: string;
+  /**
+   * Zakres kwoty z CHWILI POBRANIA (`sub:<id>`, `trial:<hasz>` albo UUID domu).
+   *
+   * Bez tego pola oba zwroty w tym pliku szły na `householdId`, a kwota
+   * schodziła z `plan.quotaScopeId` — czyli przy KAŻDEJ subskrypcji i przy
+   * KAŻDEJ próbie zwrot lądował w zupełnie innym liczniku. Nieudana tura
+   * zabierała wiadomość na zawsze, a licznik domu schodził pod zero i musiał
+   * być zaokrąglany. `AgentTurn.quotaScopeId` zapisuje to samo, więc zwroty
+   * z innych ścieżek (`cancelTurn`, wygaszanie martwych tur) trafiały dobrze —
+   * tylko runner nie dostawał tej wartości wcale.
+   */
+  quotaScopeId: string;
   env: AgentEnv;
   requestId: string;
   /**
@@ -456,7 +468,7 @@ export class AgentTurnRunner {
         if (result.stopReason === 'cost_ceiling') {
           await this.counters.add(
             tx,
-            input.householdId,
+            input.quotaScopeId,
             input.periodKey,
             'messages',
             -1,
@@ -627,7 +639,7 @@ export class AgentTurnRunner {
       if (refund) {
         await this.counters.add(
           this.prisma,
-          input.householdId,
+          input.quotaScopeId,
           input.periodKey,
           'messages',
           -1,

@@ -148,6 +148,14 @@ export const APP_ERROR_CODES = [
   'BILLING_UPSTREAM_UNAVAILABLE',
   // Powiadomienie serwera Apple bez poprawnego podpisu (nie trafia do klienta).
   'BILLING_NOTIFICATION_INVALID',
+  // Subskrypcja udostępniona przez Chmurę Rodzinną. Podpis jest prawdziwy, ale
+  // każdy członek rodziny ma własną transakcję, czyli własną pełną pulę na tej
+  // samej jednej opłacie — dlatego nie przyjmujemy jej jako źródła dostępu.
+  'BILLING_FAMILY_SHARING_UNSUPPORTED',
+  // Transakcja z sandboxa zgłoszona do instalacji produkcyjnej (albo odwrotnie).
+  // Osobny kod od `BILLING_TRANSACTION_INVALID`, bo to nie jest podrobiony
+  // podpis, tylko zakup z innego świata — i wymaga innej odpowiedzi obsługi.
+  'BILLING_ENVIRONMENT_MISMATCH',
 ] as const;
 
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number];

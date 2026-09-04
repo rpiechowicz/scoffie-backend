@@ -995,10 +995,16 @@ export class AgentToolExecutor {
       userId: context.userId,
     });
     const periodKey = plan.periodKey;
+    // TA SAMA PULA, CO PRZY PROPOZYCJI. Zapis planu schodzi dziś dwiema
+    // drogami — narzędziem modelu (tu) i zatwierdzeniem karty
+    // (`agent-proposals.service`) — a ta druga liczyła na `plan.quotaScopeId`.
+    // Dwa różne zakresy znaczyły dwie osobne pule na jeden sprzedany limit:
+    // dom z Solo miał osiem zapisów narzędziem I osiem kartą.
+    const scopeId = plan.quotaScopeId;
     const limit = plan.plansLimit;
     const consumed = await this.counters.tryConsume(
       this.prisma,
-      context.householdId,
+      scopeId,
       periodKey,
       'plans',
       limit,
@@ -1026,27 +1032,18 @@ export class AgentToolExecutor {
         result.changes.updated +
         result.changes.deleted;
       if (!result.applied || changed === 0)
-        await this.refundPlan(context, periodKey);
+        await this.refundPlan(scopeId, periodKey);
       return result;
     } catch (error) {
-      await this.refundPlan(context, periodKey);
+      await this.refundPlan(scopeId, periodKey);
       throw error;
     }
   }
 
   /** Zwrot kwoty planu — nigdy nie wywraca narzędzia, bo to tylko księgowość. */
-  private async refundPlan(
-    context: AgentToolContext,
-    periodKey: string,
-  ): Promise<void> {
+  private async refundPlan(scopeId: string, periodKey: string): Promise<void> {
     try {
-      await this.counters.add(
-        this.prisma,
-        context.householdId,
-        periodKey,
-        'plans',
-        -1,
-      );
+      await this.counters.add(this.prisma, scopeId, periodKey, 'plans', -1);
     } catch (error) {
       this.logger.error(
         'nie udało się zwrócić kwoty planu',

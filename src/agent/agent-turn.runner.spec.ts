@@ -102,6 +102,10 @@ describe('AgentTurnRunner', () => {
     userId: USER,
     householdId: HOUSEHOLD,
     periodKey: '2026-08',
+    // Zakres kwoty to NIE jest gospodarstwo — przy subskrypcji to `sub:<id>`.
+    // Test trzyma tu wartość różną od `householdId` właśnie po to, żeby zwrot
+    // wysłany „do domu” od razu się wywalił.
+    quotaScopeId: `sub:${HOUSEHOLD}`,
     env: ENV,
     requestId: 'req-1',
     dates: {
@@ -229,7 +233,11 @@ describe('AgentTurnRunner', () => {
       });
       expect(counters.add).toHaveBeenCalledWith(
         prisma,
-        HOUSEHOLD,
+        // ZWROT WRACA TAM, SKĄD KWOTA ZESZŁA. Nie do gospodarstwa — do zakresu
+        // z chwili pobrania (`sub:<id>` przy subskrypcji, `trial:<hasz>` na
+        // próbie). Poprzednia wersja oddawała na `householdId`, więc każdy
+        // zwrot przy subskrypcji i przy próbie trafiał w pusty licznik.
+        `sub:${HOUSEHOLD}`,
         '2026-08',
         'messages',
         -1,
@@ -315,7 +323,11 @@ describe('AgentTurnRunner', () => {
       });
       expect(counters.add).toHaveBeenCalledWith(
         prisma,
-        HOUSEHOLD,
+        // ZWROT WRACA TAM, SKĄD KWOTA ZESZŁA. Nie do gospodarstwa — do zakresu
+        // z chwili pobrania (`sub:<id>` przy subskrypcji, `trial:<hasz>` na
+        // próbie). Poprzednia wersja oddawała na `householdId`, więc każdy
+        // zwrot przy subskrypcji i przy próbie trafiał w pusty licznik.
+        `sub:${HOUSEHOLD}`,
         '2026-08',
         'messages',
         -1,
