@@ -1015,11 +1015,11 @@ export class AgentToolExecutor {
         'AI_PLAN_QUOTA_EXCEEDED',
         (plan.tier === 'TRIAL'
           ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. `
-          : `Limit zapisanych planów na ten miesiąc (${limit}) został wyczerpany. `) +
+          : `Limit zapisanych planów w tym okresie (${limit}) został wyczerpany. `) +
           'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go' +
           (plan.tier === 'TRIAL'
             ? ' bez wybrania planu.'
-            : ' do końca miesiąca.'),
+            : ' do odnowienia planu.'),
         HttpStatus.TOO_MANY_REQUESTS,
         this.counters.quotaDetailsFor('plans', plan),
       );

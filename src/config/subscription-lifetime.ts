@@ -100,6 +100,36 @@ export function subscriptionAlive(
   return until.getTime() + SUBSCRIPTION_CLOCK_SKEW_MS > now.getTime();
 }
 
+/** Prefiks klucza okresu rozliczeniowego subskrypcji. */
+export const BILLING_PERIOD_PREFIX = 'okres:';
+
+/**
+ * Okres puli dla subskrypcji: KONIEC OPŁACONEGO OKRESU, nie koniec miesiąca.
+ *
+ * DLACZEGO NIE MIESIĄC KALENDARZOWY (decyzja Rafała, 4.09.2026). Miesiąc
+ * kalendarzowy nie ma nic wspólnego z tym, za co człowiek zapłacił. Kupując
+ * 15.09 dostawał resztę września i PEŁNĄ pulę od 1.10 — dwie pule za jedną
+ * opłatę — a wracając po przerwie 20.10 do okresu, który już opłacił we
+ * wrześniu, trafiał na licznik wyzerowany albo nie, zależnie od dnia miesiąca.
+ * Teraz pula idzie za umową: kupione 15.09 odnawia się 15.10, tak jak
+ * odnawia się płatność u Apple.
+ *
+ * KLUCZEM JEST `expiresAt`, bo to jedyna data, którą Apple daje wprost i która
+ * przesuwa się DOKŁADNIE przy odnowieniu — zmiana wartości sama otwiera nową
+ * pulę, bez żadnego crona i bez pilnowania, kiedy „minął miesiąc". W łasce
+ * płatniczej `expiresAt` stoi w miejscu, więc człowiek na przeterminowanej
+ * karcie NIE dostaje świeżej puli — dostaje resztę tej, za którą zapłacił.
+ *
+ * `null` dla nadania operatora i wieczystego (brak okresu rozliczeniowego) —
+ * wołający schodzi wtedy na miesiąc kalendarzowy.
+ */
+export function billingPeriodKey(
+  sub: Pick<SubscriptionCandidate, 'expiresAt' | 'neverExpires'> | undefined,
+): string | null {
+  if (!sub || sub.neverExpires || !sub.expiresAt) return null;
+  return `${BILLING_PERIOD_PREFIX}${sub.expiresAt.toISOString().slice(0, 10)}`;
+}
+
 /**
  * Zwycięzca wśród subskrypcji domowników.
  *

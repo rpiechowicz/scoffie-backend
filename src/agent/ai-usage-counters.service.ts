@@ -8,6 +8,7 @@ import {
   trialScopeId,
 } from '../config/purchase-identity';
 import {
+  billingPeriodKey,
   pickBestSubscription,
   type SubscriptionCandidate,
 } from '../config/subscription-lifetime';
@@ -37,7 +38,16 @@ export type HouseholdPlan = {
    *                      nie wędrują, bo `tierOverride` jest kolumną domu.
    */
   quotaScopeId: string;
-  /** `YYYY-MM` (PRO) albo `trial` (jedna pula bez odnowienia). */
+  /**
+   * Okres, w którym liczy się pula:
+   *
+   *   • `okres:<YYYY-MM-DD>` — SUBSKRYPCJA. Data to koniec opłaconego okresu
+   *     z Apple, więc pula odnawia się w rocznicę zakupu: kupione 15.09
+   *     odnawia się 15.10, a nie 1.10.
+   *   • `YYYY-MM`            — nadanie operatora i `AI_TIER_OVERRIDE`; te nie
+   *     mają okresu rozliczeniowego, więc zostają przy miesiącu kalendarzowym.
+   *   • `trial`              — jedna pula bez odnowienia.
+   */
   periodKey: string;
   renews: boolean;
   /** ISO albo `null` (próba się nie odnawia). */
@@ -297,14 +307,22 @@ export class AiUsageCountersService {
       limits.plansPerMonth,
       sub?.plansLimitSnapshot ?? 0,
     );
+    // OKRES IDZIE ZA UMOWĄ, NIE ZA KALENDARZEM. Przy subskrypcji pula odnawia
+    // się w rocznicę zakupu (kupione 15.09 → 15.10), bo tak odnawia się
+    // płatność. Nadanie operatora i `AI_TIER_OVERRIDE` nie mają okresu
+    // rozliczeniowego, więc zostają przy miesiącu kalendarzowym.
+    const period = billingPeriodKey(sub);
     return {
       tier: 'PRO',
       source,
       // Pula subskrypcji wisi na UMOWIE, nadanie operatora — na domu.
       quotaScopeId: sub ? subscriptionScopeId(sub.id) : householdId,
-      periodKey: this.monthKey(now),
+      periodKey: period ?? this.monthKey(now),
       renews: true,
-      resetsAt: this.monthResetsAt(now).toISOString(),
+      resetsAt:
+        period && sub?.expiresAt
+          ? sub.expiresAt.toISOString()
+          : this.monthResetsAt(now).toISOString(),
       messagesLimit,
       plansLimit,
       product: limits.product,
@@ -413,6 +431,8 @@ export class AiUsageCountersService {
 }
 
 export {
+  billingPeriodKey,
+  BILLING_PERIOD_PREFIX,
   pickBestSubscription,
   subscriptionAlive,
 } from '../config/subscription-lifetime';

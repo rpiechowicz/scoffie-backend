@@ -46,6 +46,20 @@ Bez tego jedna opłata za 29,99 zł dawała 30 wiadomości **w każdym odwiedzon
 domu**: kup Solo, wypal pulę, wyjdź z domu, załóż nowy, powtórz. Trzy kliknięcia
 w aplikacji, zero łamania regulaminu.
 
+**Okres też należy do umowy** (decyzja Rafała, 4.09.2026). `AiUsageCounter.periodKey`:
+
+| źródło PRO                            | okres                   | odnawia się                          |
+| ------------------------------------- | ----------------------- | ------------------------------------ |
+| subskrypcja                           | `okres:<YYYY-MM-DD>`    | w dniu odnowienia u Apple (15.09 → 15.10) |
+| pula próbna                           | `trial`                 | nigdy — jedna na życie osoby         |
+| nadanie operatora, `AI_TIER_OVERRIDE` | `YYYY-MM`               | pierwszego dnia miesiąca UTC         |
+
+Data w kluczu to `expiresAt` z Apple, czyli koniec opłaconego okresu. To jedyna
+data, która przesuwa się DOKŁADNIE przy odnowieniu, więc nowa wartość sama
+otwiera nową pulę — bez crona i bez pilnowania, kiedy „minął miesiąc". W łasce
+płatniczej `expiresAt` stoi w miejscu, więc przeterminowana karta nie daje
+świeżej puli, tylko resztę tej opłaconej.
+
 ---
 
 ## 2. Odpowiedzi na dwa pytania, od których się zaczęło
@@ -253,11 +267,14 @@ false` w iOS). Paywall pokazuje ofertę i nie pobiera pieniędzy.
   sześciokrotny rachunek u dostawcy modelu przy jednym przychodzie.
   `APPLE_ACCEPT_FAMILY_SHARED=true` włącza to świadomie; wtedy w logu leci
   ostrzeżenie przy każdym takim wierszu.
-- **Okres kwoty to miesiąc kalendarzowy UTC**, a nie okres rozliczeniowy Apple.
-  Zakup 28. dnia miesiąca daje resztę tego miesiąca i pełną pulę od 1. — czyli
-  dwie pule za jedną opłatę. Świadomie na korzyść klienta i świadomie proste;
-  zmiana na okres Apple wymaga trzymania `periodKey` per subskrypcja i migracji
-  liczników, więc czeka na decyzję, a nie na przypadek.
+- ~~Okres kwoty to miesiąc kalendarzowy UTC~~ — **zrobione 4.09.2026, decyzja
+  Rafała.** Pula idzie za UMOWĄ: kupione 15.09 odnawia się 15.10, a nie 1.10.
+  Kluczem okresu jest `expiresAt` z Apple (`okres:<YYYY-MM-DD>`), bo to jedyna
+  data, która przesuwa się DOKŁADNIE przy odnowieniu — nowa wartość sama otwiera
+  nową pulę, bez crona. W łasce płatniczej `expiresAt` stoi w miejscu, więc
+  przeterminowana karta nie daje świeżej puli, tylko resztę opłaconej. Nadanie
+  operatora i wieczyste nie mają okresu rozliczeniowego i zostają przy miesiącu
+  kalendarzowym.
 - **Recenzent App Store kupuje w sandboxie**, a sandbox nie daje PRO na
   produkcji (i nie może, bo wtedy każdy z TestFlightem miałby PRO za darmo).
   Dla recenzji trzeba nadać dostęp ręcznie: `POST /ops/billing/grant` z

@@ -26,6 +26,7 @@ import {
   purchaseIdentityHashForUser,
   subscriptionScopeId,
 } from '../config/purchase-identity';
+import { billingPeriodKey } from '../config/subscription-lifetime';
 import { SubscriptionsService } from './subscriptions.service';
 import { SubscriptionsReconcileService } from './subscriptions-reconcile.service';
 
@@ -346,7 +347,18 @@ export class BillingOpsController {
    */
   @Get('subscriptions/:id/usage')
   async usage(@Param('id') id: string) {
-    const periodKey = new Date().toISOString().slice(0, 7);
+    // OKRES BIERZE SIĘ Z SUBSKRYPCJI, NIE Z KALENDARZA. Od 4.09.2026 pula
+    // wraca w dniu odnowienia, więc pytanie o `YYYY-MM` pokazywało obsłudze
+    // pusty licznik i odpowiedź „nic nie zużyłeś" komuś, kto właśnie wyczerpał
+    // limit. Nadanie ręczne i bezterminowe nie mają okresu rozliczeniowego
+    // i zostają przy miesiącu.
+    const row = await this.prisma.subscription.findUnique({
+      where: { id },
+      select: { expiresAt: true, neverExpires: true },
+    });
+    const periodKey =
+      billingPeriodKey(row ?? undefined) ??
+      new Date().toISOString().slice(0, 7);
     const rows = await this.prisma.aiUsageCounter.findMany({
       where: { scopeId: subscriptionScopeId(id), periodKey },
       select: { kind: true, value: true },
