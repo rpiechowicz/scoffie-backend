@@ -1,6 +1,6 @@
 # IMPLEMENTATION SPEC — A4 (allergen whitelist + macro clamps, backend) & A5 (union write-back, iOS)
 
-Scope: `weakly-meals-backend` (`src/common/allergens.ts`, `src/users/*`) + `weekly-meals-ios` (`SettingsView`, `WelcomeView`, `SessionStore`). No Prisma schema change, no Prisma migration. One optional data-cleanup SQL (Step 5) that **must run before** the iOS union write-back reaches users — rationale in §0.3.
+Scope: `scoffie-backend` (`src/common/allergens.ts`, `src/users/*`) + `scoffie-ios` (`SettingsView`, `WelcomeView`, `SessionStore`). No Prisma schema change, no Prisma migration. One optional data-cleanup SQL (Step 5) that **must run before** the iOS union write-back reaches users — rationale in §0.3.
 
 ---
 
@@ -672,8 +672,8 @@ Backend unit tests — jest inside the `api` container (`WORKDIR /app`; the runn
 
 ```bash
 docker compose up -d api
-docker cp "/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src" scoffie-api:/app/src
-docker cp "/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/jest.config.js" scoffie-api:/app/jest.config.js
+docker cp "/Users/rafi/Desktop/Scoffie App/scoffie-backend/src" scoffie-api:/app/src
+docker cp "/Users/rafi/Desktop/Scoffie App/scoffie-backend/jest.config.js" scoffie-api:/app/jest.config.js
 docker exec scoffie-api npx jest src/common/allergens.spec.ts src/users/users.service.spec.ts
 docker exec scoffie-api npx jest            # full suite, regression
 ```
@@ -696,7 +696,7 @@ docker compose exec api pnpm ws:smoke users:preferences:get '{"userId":"<USER_ID
 iOS — no test target exists (`weekly meals.xcodeproj` has one `PBXNativeTarget`, zero `XCTest` matches), so verification is a build plus a manual pass:
 
 ```bash
-cd "/Users/rafi/Desktop/Scoffie App/weekly-meals-ios"
+cd "/Users/rafi/Desktop/Scoffie App/scoffie-ios"
 xcodebuild -project "weekly meals.xcodeproj" -scheme "Scoffie" \
   -destination "generic/platform=iOS Simulator" -sdk iphonesimulator build \
   ARCHS=arm64 CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES EXCLUDED_ARCHS=x86_64

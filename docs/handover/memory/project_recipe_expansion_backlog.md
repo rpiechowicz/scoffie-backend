@@ -24,7 +24,7 @@ Plik: `prisma/catalog/recipes-batch-breakfast-8-v1.json` (makra przeliczone skry
 7. Omlet z szynką i pomidorami — 3087759e-713c-4a44-b87d-2bfca0d36171
 8. Kanapki z szynką, serem i pomidorem — 4b5c9b22-d219-4719-82be-dc25b22fef52
 
-Przy imporcie ustawiać `IMAGE_GENERATOR_PROVIDER=none` (albo po imporcie wyzerować `imageUrl`) — inaczej import wstawia URL-e pollinations. Dodane składniki: granola, masło orzechowe, miód (+ makra dla 10 pozycji w `ingredient-nutrition-pl-v1.json`). Workflow partii: edycja katalogów → scratch container (`docker run --network weakly-meals-backend_default` z obrazu API) → `pnpm catalog:ingredients:load` → `catalog:ingredients:nutrition` → `recipes:recompute:nutrition -- --write` → `recipes:import:json` → docker cp JSON z powrotem.
+Przy imporcie ustawiać `IMAGE_GENERATOR_PROVIDER=none` (albo po imporcie wyzerować `imageUrl`) — inaczej import wstawia URL-e pollinations. Dodane składniki: granola, masło orzechowe, miód (+ makra dla 10 pozycji w `ingredient-nutrition-pl-v1.json`). Workflow partii: edycja katalogów → scratch container (`docker run --network scoffie-backend_default` z obrazu API) → `pnpm catalog:ingredients:load` → `catalog:ingredients:nutrition` → `recipes:recompute:nutrition -- --write` → `recipes:import:json` → docker cp JSON z powrotem.
 
 **Dodatek na życzenie (2026-08-24) — 3 pierogi — GOTOWE (zdjęcia podpięte):** Pierogi z mięsem 34efc155… · Pierogi z kapustą i grzybami e467a224… · Pierogi z truskawkami 1d3ef7ce… (plik `recipes-batch-pierogi-3-v1.json`; nowe składniki: kapusta kiszona + makro cukru; plan urósł do 58 pozycji, baza ma 52 przepisy). Prompty dopisane do artefaktu „Prompty obiadowe".
 

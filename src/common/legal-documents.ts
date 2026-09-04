@@ -4,7 +4,7 @@
  * Nie zmienna środowiskowa: literówka w `railway variables` unieważniałaby
  * zgody wszystkim użytkownikom naraz i blokowała asystenta całej instalacji.
  * Nowa wersja dokumentu = nowa data tutaj + ten sam tekst w aplikacji i na
- * stronie (`weekly-meals-ios/docs/`). Zgoda jest ważna, gdy jej wersja nie
+ * stronie (`scoffie-ios/docs/`). Zgoda jest ważna, gdy jej wersja nie
  * jest STARSZA niż minimalna wymagana — nie „równa", żeby poprawka literówki
  * w polityce nie wymagała klikania od nowa.
  *

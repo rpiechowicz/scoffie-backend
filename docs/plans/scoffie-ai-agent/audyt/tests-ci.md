@@ -1,4 +1,4 @@
-## Findings — test & CI integrity (backend `B=/Users/rafi/Desktop/Scoffie App/weakly-meals-backend`)
+## Findings — test & CI integrity (backend `B=/Users/rafi/Desktop/Scoffie App/scoffie-backend`)
 
 ### T1 — `households.service.spec.ts` tests a stub with a different API; real `HouseholdsService` has zero unit coverage — **P0**
 
@@ -87,7 +87,7 @@
 
 ### T8 — iOS has no test target; Cookidoo has no CI; backend CI ignores `develop` pushes — **P2**
 
-**Evidence:** `weekly-meals-ios/weekly meals.xcodeproj/project.pbxproj` — one `PBXNativeTarget`, `productType = "com.apple.product-type.application"`, 0 matches for `XCTest|Tests`; `ios-ci.yml:36-49` builds `generic/platform=iOS Simulator` only, on PR. `weekly-meals-cookidoo` has 6 mocked pytest cases (`tests/test_smoke.py:34-111`, no network) and no `.github/` dir. `backend-ci.yml:3-8` triggers on `pull_request` + push to `main/master` only. **LATER** (add an iOS `Tests` target when the assistant UI lands; a 15-line pytest workflow for Cookidoo is 0.5 h).
+**Evidence:** `scoffie-ios/weekly meals.xcodeproj/project.pbxproj` — one `PBXNativeTarget`, `productType = "com.apple.product-type.application"`, 0 matches for `XCTest|Tests`; `ios-ci.yml:36-49` builds `generic/platform=iOS Simulator` only, on PR. `scoffie-cookidoo` has 6 mocked pytest cases (`tests/test_smoke.py:34-111`, no network) and no `.github/` dir. `backend-ci.yml:3-8` triggers on `pull_request` + push to `main/master` only. **LATER** (add an iOS `Tests` target when the assistant UI lands; a 15-line pytest workflow for Cookidoo is 0.5 h).
 
 ### T9 — Sources live in iCloud-synced `~/Desktop` and get evicted; this is the actual origin of the stub — **P2 (fix together with T1)**
 

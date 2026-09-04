@@ -439,8 +439,8 @@ Cases (`describe('weeklyPlans:upsertWeekSlot')`):
 **4.1 Backend unit tests (inside `scoffie-api`)**
 
 ```
-docker cp "/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src" scoffie-api:/app/src
-docker cp "/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/jest.config.js" scoffie-api:/app/jest.config.js
+docker cp "/Users/rafi/Desktop/Scoffie App/scoffie-backend/src" scoffie-api:/app/src
+docker cp "/Users/rafi/Desktop/Scoffie App/scoffie-backend/jest.config.js" scoffie-api:/app/jest.config.js
 docker exec scoffie-api npx jest src/weekly-plans/weekly-plans.service.spec.ts src/weekly-plans/weekly-plans.gateway.spec.ts
 docker exec scoffie-api npx jest          # full suite before merge
 ```
@@ -465,7 +465,7 @@ Expect: ack `ok:true`, `changeKind:"REPLACED"`, `replacedItemIds` length 1; the 
 **4.4 iOS**
 
 ```
-xcodebuild -project "/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals.xcodeproj" \
+xcodebuild -project "/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals.xcodeproj" \
   -scheme "Scoffie" -destination 'platform=iOS Simulator,name=iPhone 16' build
 ```
 

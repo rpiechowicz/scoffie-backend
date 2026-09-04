@@ -8,13 +8,13 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 ## Repozytoria i środowisko
 
 - Backend: to repo. iOS (SwiftUI): `rpiechowicz/Weekly-Meals` — buduje się TYLKO na Macu
-  (`xcodebuild`). Mikroserwis Cookidoo (Python): `rpiechowicz/weekly-meals-cookidoo`,
-  sklonowany OBOK tego repo (`docker-compose.yml` buduje `../weekly-meals-cookidoo`).
+  (`xcodebuild`). Mikroserwis Cookidoo (Python): `rpiechowicz/scoffie-cookidoo`,
+  sklonowany OBOK tego repo (`docker-compose.yml` buduje `../scoffie-cookidoo`).
 - Dev: `docker compose up -d --build api` (Postgres `db`, `cookidoo`, `api` na :3000).
   `.env` jest w gitignore — klucze wg `.env.example`; od plastra C sekrety w dev muszą mieć
   ≥ 32 znaki, gdy `NODE_ENV=production` (compose ustawia `development`, więc lokalnie luz).
 - Prod: Railway, projekt `soothing-celebration`, serwisy `Backend`, `Postgres`, `Cookidoo`;
-  `main` deployuje się automatycznie. `https://weakly-meals-backend-production.up.railway.app`.
+  `main` deployuje się automatycznie. `https://scoffie-backend-production.up.railway.app`.
 
 ## Git
 

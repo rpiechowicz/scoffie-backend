@@ -12,7 +12,7 @@ type ServiceErrorBody = {
   detail?: { code?: string; message?: string };
 };
 
-// Cienki klient HTTP do mikroserwisu weekly-meals-cookidoo. Globalny fetch
+// Cienki klient HTTP do mikroserwisu scoffie-cookidoo. Globalny fetch
 // Node 20 zamiast nowej zależności — to pierwszy „zwykły" outbound HTTP
 // w repo. Nigdy nie loguje body (w środku są poświadczenia Cookidoo).
 @Injectable()

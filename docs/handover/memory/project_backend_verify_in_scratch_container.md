@@ -8,11 +8,11 @@ metadata:
   modified: 2026-08-23T08:12:19.581Z
 ---
 
-Sprawdzony sposób na `prisma generate` + `tsc` + `jest` w `weakly-meals-backend`, gdy
+Sprawdzony sposób na `prisma generate` + `tsc` + `jest` w `scoffie-backend`, gdy
 lokalnie się wieszają (2026-08-23, działa):
 
 ```
-CID=$(docker create weakly-meals-backend-api sleep 7200) && docker start $CID
+CID=$(docker create scoffie-backend-api sleep 7200) && docker start $CID
 docker cp ./src "$CID:/app/"; docker cp ./prisma "$CID:/app/"
 docker cp ./scripts "$CID:/app/"; docker cp ./test "$CID:/app/"
 docker cp ./jest.config.js "$CID:/app/"

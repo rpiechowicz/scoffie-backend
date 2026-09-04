@@ -97,7 +97,7 @@ Kill switch: gate the stub on `LEGACY_SAVED_PLAN_STUB !== 'false'` so prod can t
 ## 2. Commit / PR plan
 
 Branch in **both** repos: `fix/fundamenty-b`, cut from `develop`.
-`weakly-meals-backend/.github/workflows/backend-ci.yml:3-8` runs on `pull_request` (any base) + push to `main`/`master` — a PR into `develop` is covered. iOS `ios-ci.yml` runs on `pull_request` only; `ios-testflight.yml` fires on push to `main`.
+`scoffie-backend/.github/workflows/backend-ci.yml:3-8` runs on `pull_request` (any base) + push to `main`/`master` — a PR into `develop` is covered. iOS `ios-ci.yml` runs on `pull_request` only; `ios-testflight.yml` fires on push to `main`.
 
 ### 2.1 Backend commits (one PR, `fix/fundamenty-b` → `develop`)
 
@@ -133,7 +133,7 @@ Commits 2, 5, 6 are genuinely independent and can be split into their own PRs if
 
 ### 2.4 What can ship independently
 
-- **B4** and **B5-backend**: zero client contract change (iOS never calls `recipes:create` — grep for `recipes:create|createRecipe` across `weekly-meals-ios/**/*.swift` returns **0 hits**). Ship whenever.
+- **B4** and **B5-backend**: zero client contract change (iOS never calls `recipes:create` — grep for `recipes:create|createRecipe` across `scoffie-ios/**/*.swift` returns **0 hits**). Ship whenever.
 - **B3**: server-internal, no event changes. Ship whenever, but pair with its cleanup SQL.
 - **B2** and **B1** are the only ones with a release-order constraint.
 
@@ -214,7 +214,7 @@ and `Test.createTestingModule({ providers: [Svc, { provide: PrismaService, useVa
 ### 3.3 iOS
 
 ```bash
-cd "/Users/rafi/Desktop/Scoffie App/weekly-meals-ios"
+cd "/Users/rafi/Desktop/Scoffie App/scoffie-ios"
 xcodebuild -resolvePackageDependencies -project "weekly meals.xcodeproj"
 xcodebuild \
   -project "weekly meals.xcodeproj" \
@@ -383,7 +383,7 @@ Then open the app on two devices, walk the current week, and confirm the shoppin
 4. `…{"proteinG": 99999}` → stored clamped, not 99999.
 
 **B4 — recipe create: note explicitly**
-There is **no iOS UI for recipe creation** — grep for `recipes:create|createRecipe` across `weekly-meals-ios` returns 0 hits. B4 is verifiable **only** via `ws:smoke`/unit tests:
+There is **no iOS UI for recipe creation** — grep for `recipes:create|createRecipe` across `scoffie-ios` returns 0 hits. B4 is verifiable **only** via `ws:smoke`/unit tests:
 
 ```bash
 docker compose exec api pnpm ws:smoke recipes:create \

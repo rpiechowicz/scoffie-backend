@@ -1,6 +1,6 @@
 # Backend platform hygiene — findings (read-only audit, verified against source)
 
-`B` = `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend`, `I` = `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/Scoffie`, `C` = `/Users/rafi/Desktop/Scoffie App/weekly-meals-cookidoo`.
+`B` = `/Users/rafi/Desktop/Scoffie App/scoffie-backend`, `I` = `/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie`, `C` = `/Users/rafi/Desktop/Scoffie App/scoffie-cookidoo`.
 
 ---
 

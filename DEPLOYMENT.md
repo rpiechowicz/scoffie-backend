@@ -75,7 +75,7 @@ Configure:
 ## Cookidoo service (second Railway service)
 
 The Thermomix integration talks to a small Python service
-(repository `weekly-meals-cookidoo`). Deploy it as a second service in the
+(repository `scoffie-cookidoo`). Deploy it as a second service in the
 same Railway project and wire it through private networking:
 
 | Where    | Variable                       | Value                                                                                                             |

@@ -6,8 +6,8 @@ metadata:
 ---
 
 Projekt Railway `soothing-celebration`, środowisko `production`, serwisy: **`Backend`** (API,
-domena `weakly-meals-backend-production.up.railway.app`), **`Postgres`**, **`Cookidoo`**.
-`railway variables/run --service weakly-meals-backend` zwraca „Service not found” — poprawna
+domena `scoffie-backend-production.up.railway.app`), **`Postgres`**, **`Cookidoo`**.
+`railway variables/run --service scoffie-backend` zwraca „Service not found” — poprawna
 nazwa to `Backend` (poprawione w `commands.txt` 28.08.2026). CLI bywa podlinkowany do
 `Cookidoo` (`railway status`), więc `--service` podawać zawsze jawnie.
 

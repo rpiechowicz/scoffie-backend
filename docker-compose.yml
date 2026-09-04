@@ -41,10 +41,10 @@ services:
       - '3000:3000'
       - '5555:5555'
 
-  # Mikroserwis Cookidoo (Thermomix) — repo weekly-meals-cookidoo sklonowane
-  # obok tego repa (kontekst builda ../weekly-meals-cookidoo).
+  # Mikroserwis Cookidoo (Thermomix) — repo scoffie-cookidoo sklonowane
+  # obok tego repa (kontekst builda ../scoffie-cookidoo).
   cookidoo:
-    build: ../weekly-meals-cookidoo
+    build: ../scoffie-cookidoo
     container_name: scoffie-cookidoo
     restart: unless-stopped
     environment:

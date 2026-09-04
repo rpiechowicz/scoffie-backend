@@ -8,7 +8,7 @@ metadata:
   modified: 2026-08-26T13:24:21.003Z
 ---
 
-**Aktualizacja 2026-08-26:** `weakly-meals-backend/Dockerfile` kończy się teraz na
+**Aktualizacja 2026-08-26:** `scoffie-backend/Dockerfile` kończy się teraz na
 `CMD ["sh", "-c", "node scripts/prisma-migrate-deploy-safe.js && exec node dist/main"]`
 — kontener sam aplikuje migracje przy każdym starcie. Zweryfikowane w praktyce:
 po `docker compose build api && docker compose up -d` migracja `20260826150000_dzienne_kroki`

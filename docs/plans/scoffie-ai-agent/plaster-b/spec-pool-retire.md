@@ -6,13 +6,13 @@ Verified against the **current** files on disk (post-Plaster A: `parseWeekStart`
 
 ## 0. Decisions (read this first)
 
-| Question                                                                 | Decision                                                                                                                                                                                                                        | Rationale                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Drop `SharedMealPlan` / `SharedMealPlanItem` Prisma models + tables now? | **No.** Keep models and tables in this change. Add a follow-up ticket for a `DROP TABLE` migration ≥ 1 release after prod verification.                                                                                         | `git revert` is a complete rollback only while the schema is untouched. A `DROP TABLE` in the same PR makes rollback require a forward-fix migration, and `prisma-migrate-deploy-safe.js` runs on every container start (`/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/Dockerfile:55`), so a reverted image would boot against a schema that no longer matches the restored code. |
-| Delete the pool **rows**?                                                | **Yes, but in a separate maintenance step, after a `pg_dump -t` backup.** Not required for correctness — once the fallback is gone the rows are simply never read.                                                              | The DELETE is the only irreversible part of this work. Decoupling it keeps step 1 a pure `git revert`.                                                                                                                                                                                                                                                                                    |
-| Hard-remove all six handlers?                                            | **Five yes, one shim.** Remove `create`, `addItem`, `removeItem`, `listByHousehold`, `saveSavedPlan` outright. Keep `getSavedPlan` for **one release** as a 4-line stub returning `{ weekStart, items: [] }` with no DB access. | See §3 — a shipped iOS build calls `getSavedPlan` **before** `loadWeekPlanFromBackend` in the same `.task`, and a missing handler costs it 3 × 6 s of ACK retries → **~18 s blank calendar** for every not-yet-updated device. The other five events are called by nobody.                                                                                                                |
-| `SAVE_PLAN` notification copy?                                           | **Remove on the backend** (`notification-copy.util.ts`), **keep on iOS** for one release.                                                                                                                                       | Backend: the only producer (`saveSavedPlan`) is gone, so the branch is provably dead. iOS: 2 lines, protects against a mixed-version rollout.                                                                                                                                                                                                                                             |
-| `clearWeekPlan` pool deletion                                            | **Drop it** (not "keep harmless").                                                                                                                                                                                              | It is the only remaining writer of `sharedMealPlan*`. Leaving it forces the Prisma delegates to stay referenced and makes the "no code touches the pool" invariant untestable.                                                                                                                                                                                                            |
+| Question                                                                 | Decision                                                                                                                                                                                                                        | Rationale                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Drop `SharedMealPlan` / `SharedMealPlanItem` Prisma models + tables now? | **No.** Keep models and tables in this change. Add a follow-up ticket for a `DROP TABLE` migration ≥ 1 release after prod verification.                                                                                         | `git revert` is a complete rollback only while the schema is untouched. A `DROP TABLE` in the same PR makes rollback require a forward-fix migration, and `prisma-migrate-deploy-safe.js` runs on every container start (`/Users/rafi/Desktop/Scoffie App/scoffie-backend/Dockerfile:55`), so a reverted image would boot against a schema that no longer matches the restored code. |
+| Delete the pool **rows**?                                                | **Yes, but in a separate maintenance step, after a `pg_dump -t` backup.** Not required for correctness — once the fallback is gone the rows are simply never read.                                                              | The DELETE is the only irreversible part of this work. Decoupling it keeps step 1 a pure `git revert`.                                                                                                                                                                                                                                                                               |
+| Hard-remove all six handlers?                                            | **Five yes, one shim.** Remove `create`, `addItem`, `removeItem`, `listByHousehold`, `saveSavedPlan` outright. Keep `getSavedPlan` for **one release** as a 4-line stub returning `{ weekStart, items: [] }` with no DB access. | See §3 — a shipped iOS build calls `getSavedPlan` **before** `loadWeekPlanFromBackend` in the same `.task`, and a missing handler costs it 3 × 6 s of ACK retries → **~18 s blank calendar** for every not-yet-updated device. The other five events are called by nobody.                                                                                                           |
+| `SAVE_PLAN` notification copy?                                           | **Remove on the backend** (`notification-copy.util.ts`), **keep on iOS** for one release.                                                                                                                                       | Backend: the only producer (`saveSavedPlan`) is gone, so the branch is provably dead. iOS: 2 lines, protects against a mixed-version rollout.                                                                                                                                                                                                                                        |
+| `clearWeekPlan` pool deletion                                            | **Drop it** (not "keep harmless").                                                                                                                                                                                              | It is the only remaining writer of `sharedMealPlan*`. Leaving it forces the Prisma delegates to stay referenced and makes the "no code touches the pool" invariant untestable.                                                                                                                                                                                                       |
 
 **Net effect on the wire protocol:** 5 events deleted, 1 event becomes a no-op stub, 1 broadcast (`weeklyPlans:savedPlanChanged`) deleted, 1 broadcast action (`SAVE_PLAN_SYNC` on `weeklyPlans:weekChanged`) no longer emitted.
 
@@ -20,7 +20,7 @@ Verified against the **current** files on disk (post-Plaster A: `parseWeekStart`
 
 ## 1. Backend — file-by-file
 
-### 1.1 `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/weekly-plans/weekly-plans.gateway.ts`
+### 1.1 `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/weekly-plans/weekly-plans.gateway.ts`
 
 **a) Imports — lines 13, 14, 20.** Current:
 
@@ -155,7 +155,7 @@ Shape matches iOS `BackendSharedMealPlanDTO` (`weekStart: String`, `items: [Back
 
 ---
 
-### 1.2 `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/weekly-plans/weekly-plans.service.ts`
+### 1.2 `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/weekly-plans/weekly-plans.service.ts`
 
 **a) Imports.** Delete lines 9, 10, 14–18; edit line 2 and line 19.
 
@@ -227,7 +227,7 @@ After (g)+(h) the file ends after `getUserDisplayName` (849–855) + the private
 
 ---
 
-### 1.3 `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/weekly-plans/services/shopping-list.service.ts`
+### 1.3 `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/weekly-plans/services/shopping-list.service.ts`
 
 **a) `buildShoppingListBase` — collapse the `else` branch, lines 94–144.** Current:
 
@@ -305,12 +305,12 @@ This is what makes ghost lists self-heal without SQL: for a pool-only week the r
 
 ### 1.4 DTOs — delete files
 
-- `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/weekly-plans/dto/save-shared-meal-plan.dto.ts` (156 lines: `RecipeIdsByMealTypeConstraint`, `SaveSharedMealPlanDto`, `mergeSharedPlanRecipeIds`, `sharedPlanAddressedMealTypes`)
-- `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/weekly-plans/dto/save-shared-meal-plan.dto.spec.ts` (106 lines, 7 cases)
-- `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/weekly-plans/dto/create-plan-item.dto.ts` (21 lines)
-- `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/weekly-plans/dto/create-weekly-plan.dto.ts` (8 lines) — note this was the last `@IsDateString()` weekStart DTO, superseded by `parseWeekStart`
+- `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/weekly-plans/dto/save-shared-meal-plan.dto.ts` (156 lines: `RecipeIdsByMealTypeConstraint`, `SaveSharedMealPlanDto`, `mergeSharedPlanRecipeIds`, `sharedPlanAddressedMealTypes`)
+- `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/weekly-plans/dto/save-shared-meal-plan.dto.spec.ts` (106 lines, 7 cases)
+- `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/weekly-plans/dto/create-plan-item.dto.ts` (21 lines)
+- `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/weekly-plans/dto/create-weekly-plan.dto.ts` (8 lines) — note this was the last `@IsDateString()` weekStart DTO, superseded by `parseWeekStart`
 
-**Comment fix (compile-neutral but the reference dangles):** `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/households/dto/update-meal-times.dto.ts:46-48`
+**Comment fix (compile-neutral but the reference dangles):** `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/households/dto/update-meal-times.dto.ts:46-48`
 
 ```ts
 46	 * To odwrotna reguła niż przy zapisie puli przepisów
@@ -322,7 +322,7 @@ This is what makes ghost lists self-heal without SQL: for a pool-only week the r
 
 ---
 
-### 1.5 `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/notifications/notification-copy.util.ts`
+### 1.5 `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/notifications/notification-copy.util.ts`
 
 Line 13 — drop `SAVE_PLAN` from the union:
 
@@ -352,7 +352,7 @@ No change needed in `notifications.service.ts` — `enqueueWeeklyPlanChange` (li
 
 ---
 
-### 1.6 `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/prisma/schema.prisma` — **no change in this PR**
+### 1.6 `/Users/rafi/Desktop/Scoffie App/scoffie-backend/prisma/schema.prisma` — **no change in this PR**
 
 Keep `SharedMealPlan` (565–576), `SharedMealPlanItem` (578–592), and the back-relations at `Recipe.sharedMealPlanItems` (164) and `Household.sharedMealPlans` (243). Open the follow-up ticket now (see §8, step 8).
 
@@ -386,9 +386,9 @@ grep -rn -E "sharedMealPlan|SharedMealPlan|savedPlan|SavedPlan|listByHousehold|a
 
 **Confirmed clean — no work needed:**
 
-- `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/prisma/seed.ts` — zero hits for `sharedMealPlan`; it does not seed pools.
-- `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/scripts/ws-smoke.ts` — a generic `<event> <json>` CLI (`process.argv[2]`), hardcodes no event names.
-- `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/test/smoke.e2e-spec.ts` — only touches `weeklyPlans:upsertWeekSlot` / `weeklyPlans:weekChanged` (lines 142, 204–213). **Unaffected.**
+- `/Users/rafi/Desktop/Scoffie App/scoffie-backend/prisma/seed.ts` — zero hits for `sharedMealPlan`; it does not seed pools.
+- `/Users/rafi/Desktop/Scoffie App/scoffie-backend/scripts/ws-smoke.ts` — a generic `<event> <json>` CLI (`process.argv[2]`), hardcodes no event names.
+- `/Users/rafi/Desktop/Scoffie App/scoffie-backend/test/smoke.e2e-spec.ts` — only touches `weeklyPlans:upsertWeekSlot` / `weeklyPlans:weekChanged` (lines 142, 204–213). **Unaffected.**
 - No REST controller exists for weekly plans (only `weekly-plans.gateway.ts`), so there is no HTTP surface to deprecate.
 - `weekly-plans.module.ts` needs no change (it lists services/gateway, not DTOs).
 
@@ -398,12 +398,12 @@ grep -rn -E "sharedMealPlan|SharedMealPlan|savedPlan|SavedPlan|listByHousehold|a
 
 `wsRespond` never runs — Nest only invokes it from a registered `@SubscribeMessage`. With no handler, **socket.io silently drops the packet and never calls the ack callback**. There is no catch-all handler and no `onAny` in the codebase (grep-verified).
 
-iOS side, `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals/Networking/Recipes/SocketIORecipeSocketClient.swift`:
+iOS side, `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Networking/Recipes/SocketIORecipeSocketClient.swift`:
 
 - `ackTimeoutSeconds = 6` (line 10), `maxAckAttempts = 3` (line 11), 250 ms × attempt backoff (line 186).
 - `requestAck` resolves with `"NO ACK"` on timeout → `RecipeDataError.serverError("Brak ACK dla eventu …")` → retried 3×.
 
-So a removed event costs an old client **≈18.5 s**, then an error, **not** a `NOT_FOUND`/`HTTP_ERROR` ack. That matters only for `getSavedPlan`, because `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals/Views/Dashboard/Calendar/CalendarView.swift:297-303` awaits it **before** the week load:
+So a removed event costs an old client **≈18.5 s**, then an error, **not** a `NOT_FOUND`/`HTTP_ERROR` ack. That matters only for `getSavedPlan`, because `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Views/Dashboard/Calendar/CalendarView.swift:297-303` awaits it **before** the week load:
 
 ```swift
 297	            .task(id: datesViewModel.weekStartISO) {
@@ -537,13 +537,13 @@ The project uses `fileSystemSynchronizedGroups` (`weekly meals.xcodeproj/project
 
 ### 5.1 `Views/Dashboard/Calendar/CalendarView.swift` — do this first
 
-Path: `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals/Views/Dashboard/Calendar/CalendarView.swift`
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Views/Dashboard/Calendar/CalendarView.swift`
 
 Delete line 298 (`await mealStore.loadSavedPlanFromBackend(...)`). The `.task` becomes a single `await mealStore.loadWeekPlanFromBackend(weekStart:dates:)`. **Side benefit:** removes one serial 6 s-timeout round-trip from every week switch.
 
 ### 5.2 `Models/Stores/WeeklyMealStore.swift`
 
-Path: `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals/Models/Stores/WeeklyMealStore.swift`
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Stores/WeeklyMealStore.swift`
 
 Delete, in this order (line numbers from the current file):
 
@@ -601,7 +601,7 @@ and call it from `init` where line 68 was. It is idempotent (`try?` swallows `NS
 
 ### 5.3 `Models/Stores/WeeklyPlanStore.swift`
 
-Path: `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals/Models/Stores/WeeklyPlanStore.swift`
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Stores/WeeklyPlanStore.swift`
 
 | Lines   | Symbol                                                                                            |
 | ------- | ------------------------------------------------------------------------------------------------- |
@@ -620,7 +620,7 @@ Path: `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals/Models/Stor
 
 ### 5.4 `Models/Plans/SavedMealPlan.swift`
 
-Path: `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals/Models/Plans/SavedMealPlan.swift` (452 lines)
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Plans/SavedMealPlan.swift` (452 lines)
 
 Delete lines **344–452**: `// MARK: - PlanEntry`, `struct PlanEntry`, `// MARK: - SavedMealPlan`, `struct SavedMealPlan` (with `entriesBySlot`, `isEmpty`, `entries(for:)`, `setEntries(_:for:)`, `updateEntries(for:_:)`, `allRecipes()`, `availableRecipes(for:)`, `availableCount(for:slot:)`), and `extension SavedMealPlan` (`SlotKey`, `init(from:)`, `encode(to:)`).
 
@@ -630,17 +630,17 @@ Consider renaming the file to `PlanMeal.swift` in a **separate** commit — a re
 
 ### 5.5 `ViewModels/MealPlanViewModel.swift` — delete the whole file
 
-Path: `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals/ViewModels/MealPlanViewModel.swift` (142 lines). Never instantiated anywhere (`MealPlanViewModel(` has zero hits). `ViewModels/` retains `DatesViewModel.swift`.
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/ViewModels/MealPlanViewModel.swift` (142 lines). Never instantiated anywhere (`MealPlanViewModel(` has zero hits). `ViewModels/` retains `DatesViewModel.swift`.
 
 `RecipesCategory.toMealSlot` survives — it is still used at `Models/Components/RecipesModel.swift:321` (`primarySlot`).
 
 ### 5.6 `Models/Stores/SessionStore.swift` — no change
 
-Path: `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals/Models/Stores/SessionStore.swift`. Lines 899 and 1099 call `weeklyMealStore?.resetLocalPlanningState()`; the method keeps existing with a shorter body (§5.2). No `savedPlan` reference in the file (grep-verified). Lines 451/463 wire `WebSocketWeeklyPlanTransportClient` → `ApiWeeklyPlanRepository` — unchanged.
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Stores/SessionStore.swift`. Lines 899 and 1099 call `weeklyMealStore?.resetLocalPlanningState()`; the method keeps existing with a shorter body (§5.2). No `savedPlan` reference in the file (grep-verified). Lines 451/463 wire `WebSocketWeeklyPlanTransportClient` → `ApiWeeklyPlanRepository` — unchanged.
 
 ### 5.7 `Models/Stores/PlanChangeNotificationService.swift` — keep, adjust one comment
 
-Path: `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals/Models/Stores/PlanChangeNotificationService.swift`
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Stores/PlanChangeNotificationService.swift`
 
 - Line 374–375 `case "SAVE_PLAN": return "\(actor) ustawił/a plan posiłków na ten tydzień."` — **keep for one release** (2 lines, guards a new-app-against-old-server rollout), remove together with the `getSavedPlan` shim.
 - Line 348 comment mentions `SAVE_PLAN_SYNC` as an example of a technical broadcast the backend deliberately doesn't push. That action is no longer emitted; edit the comment to reference `SET_MEAL_EATEN` only, so it does not document a dead event.
@@ -659,7 +659,7 @@ Swift compiles the whole module at once, so a partial edit is a broken build. Do
 
 Repo pattern to follow (both existing specs): `Test.createTestingModule({ providers: [Service, { provide: PrismaService, useValue: makePrismaMock() }] })`, a plain object of `jest.fn()` delegates, and `$transaction: jest.fn().mockImplementation(cb => typeof cb === 'function' ? cb(mock) : Promise.all(cb))` — i.e. the callback receives the **same** mock.
 
-### 6.1 `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/weekly-plans/services/shopping-list.service.spec.ts`
+### 6.1 `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/weekly-plans/services/shopping-list.service.spec.ts`
 
 **Delete:** the `poolItem` helper (lines 66–71 with its 63–65 comment) and `poolWith` (79–84).
 
@@ -748,7 +748,7 @@ it('powinno przebudować listę do pustej, gdy snapshot ma pozycje, a tydzień n
 
 Input: non-stale snapshot with 1 item, no day plan. Expected: `[]` after rebuild (before this change it returned the ghost row when a pool existed). This is the direct regression test for §1.3b.
 
-### 6.2 `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/weekly-plans/weekly-plans.service.spec.ts`
+### 6.2 `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/weekly-plans/weekly-plans.service.spec.ts`
 
 No existing test covers `listByHousehold`/`create`/`addItem`/`removeItem`/`getSharedMealPlan`/`saveSharedMealPlan` (verified: the 34 `it(` blocks cover only `upsertWeekSlot`, `removeWeekSlot`, `setMealEaten`, `clearWeekPlan`, `setShoppingItemChecked`, `getByHouseholdAndWeek`) — **nothing to delete.**
 
@@ -787,17 +787,17 @@ describe('wycofane metody puli tygodniowej', () => {
 });
 ```
 
-### 6.3 `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/weekly-plans/dto/save-shared-meal-plan.dto.spec.ts`
+### 6.3 `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/weekly-plans/dto/save-shared-meal-plan.dto.spec.ts`
 
 Delete the file (7 cases across `describe('mergeSharedPlanRecipeIds')` and `describe('sharedPlanAddressedMealTypes')`). The behaviour it pins no longer has a producer.
 
-### 6.4 `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/notifications/notification-copy.util.spec.ts`
+### 6.4 `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/notifications/notification-copy.util.spec.ts`
 
 Delete `it('zapis puli wygrywa z pojedynczymi slotami')` (lines 174–189) — it asserts `buildPlanSummary(... {action:'SAVE_PLAN'}) === 'Marek ustawił/a plan na ten tydzień.'`, which is the branch removed in §1.5. With the branch gone, the same input would fall through to the single-slot text and the test would fail.
 
 ### 6.5 E2E
 
-`/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/test/smoke.e2e-spec.ts` — **no change**. Only `weeklyPlans:upsertWeekSlot` (line 213) and the `weeklyPlans:weekChanged` listener (line 206) are exercised.
+`/Users/rafi/Desktop/Scoffie App/scoffie-backend/test/smoke.e2e-spec.ts` — **no change**. Only `weeklyPlans:upsertWeekSlot` (line 213) and the `weeklyPlans:weekChanged` listener (line 206) are exercised.
 
 ---
 
@@ -808,7 +808,7 @@ Delete `it('zapis puli wygrywa z pojedynczymi slotami')` (lines 174–189) — i
 `jest.config.js` is **not** baked into the image (Dockerfile copies `src`, `test`, `prisma`, `tsconfig.json`, `tsconfig.build.json`, `package.json`, but not `jest.config.js`), so it must be copied every run. The image's `/app/node_modules` comes from `pnpm install --frozen-lockfile` without `--prod`, so `jest`/`ts-jest` are present.
 
 ```bash
-cd "/Users/rafi/Desktop/Scoffie App/weakly-meals-backend"
+cd "/Users/rafi/Desktop/Scoffie App/scoffie-backend"
 docker cp ./src           scoffie-api:/app/src
 docker cp ./jest.config.js scoffie-api:/app/jest.config.js
 docker cp ./tsconfig.json  scoffie-api:/app/tsconfig.json
@@ -858,7 +858,7 @@ pnpm tsx scripts/ws-smoke.ts weeklyPlans:getShoppingList \
 ### 7.3 iOS
 
 ```bash
-cd "/Users/rafi/Desktop/Scoffie App/weekly-meals-ios"
+cd "/Users/rafi/Desktop/Scoffie App/scoffie-ios"
 xcodebuild -project "weekly meals.xcodeproj" -scheme "Scoffie" \
   -destination 'platform=iOS Simulator,name=iPhone 16' build | tail -40
 ```

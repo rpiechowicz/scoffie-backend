@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 
-Wygenerowany lokalnie `@prisma/client` w `weakly-meals-backend` pochodzi sprzed rozszerzenia
+Wygenerowany lokalnie `@prisma/client` w `scoffie-backend` pochodzi sprzed rozszerzenia
 enuma `MealType`. Sprawdzenie zajmuje sekundę:
 
 ```

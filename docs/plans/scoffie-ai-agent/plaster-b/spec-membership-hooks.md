@@ -731,7 +731,7 @@ Re-run 7.1 → all counts for `*_future` must be `0`; `*_past` is expected to st
 ## 8. Verification (no `tsc`/`jest`/`prisma` on the developer Mac)
 
 ```bash
-cd "/Users/rafi/Desktop/Scoffie App/weakly-meals-backend"
+cd "/Users/rafi/Desktop/Scoffie App/scoffie-backend"
 docker compose up -d api
 
 # jest.config.js is NOT baked into the image (Dockerfile:32-43) — it must be copied.
@@ -767,7 +767,7 @@ Expect: B's solo items gone, shared items keep only A in `participantIds`, `plan
 **iOS** (only needed if §6 lands, and only as a regression check — there is no Swift source change):
 
 ```bash
-xcodebuild -project "/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/weekly meals.xcodeproj" \
+xcodebuild -project "/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals.xcodeproj" \
   -scheme "Scoffie" -destination 'platform=iOS Simulator,name=iPhone 16' build
 ```
 

@@ -1,6 +1,6 @@
 # Implementation Spec — WP: kill the diverged normalizer copy in `RecipesService` + compute nutrition on create
 
-**Audit refs:** `catalog-data.md` D3 (P1, FIX-BEFORE-PHASE-0), `tests-ci.md` T3 (P0). **Scope:** backend only. **No iOS work** — verified: `grep -rn "recipes:create|createRecipe" --include=*.swift` over `/Users/rafi/Desktop/Scoffie App/weekly-meals-ios` returns **0 hits**; the only WS recipe calls from iOS are `recipes:findAll` / `findById` / `setFavorite` (`weekly-meals-ios/weekly meals/Networking/Recipes/WebSocketRecipeTransportClient.swift`). `RecipesService.create` currently has **no client at all**; its only future caller is the AI-agent path. That fact drives decision D-3 below.
+**Audit refs:** `catalog-data.md` D3 (P1, FIX-BEFORE-PHASE-0), `tests-ci.md` T3 (P0). **Scope:** backend only. **No iOS work** — verified: `grep -rn "recipes:create|createRecipe" --include=*.swift` over `/Users/rafi/Desktop/Scoffie App/scoffie-ios` returns **0 hits**; the only WS recipe calls from iOS are `recipes:findAll` / `findById` / `setFavorite` (`scoffie-ios/weekly meals/Networking/Recipes/WebSocketRecipeTransportClient.swift`). `RecipesService.create` currently has **no client at all**; its only future caller is the AI-agent path. That fact drives decision D-3 below.
 
 **Current-state deltas vs. the audit text (Plaster A already landed — I read the files):**
 
@@ -73,7 +73,7 @@ export function normalizeText(value: string): string {
 
 ## 2. `RecipesService` — delete the private normalizer, import the util
 
-**File:** `/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src/recipes/recipes.service.ts`
+**File:** `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/recipes/recipes.service.ts`
 
 ### 2.1 Deletions (exact block boundaries)
 
@@ -626,7 +626,7 @@ Expected: 0 rows. If non-zero, run `pnpm catalog:ingredients:normalize:pl` **aft
 No `tsc`, `jest`, `prisma`, or `pnpm install` locally. The runner image carries full `node_modules` (Dockerfile `:32` copies from the `deps` stage, which ran `pnpm install --frozen-lockfile` before `NODE_ENV=production`), so jest and tsc exist inside `scoffie-api`. `jest.config.js` is **not** in the image (`Dockerfile:33-43`) — copy it.
 
 ```bash
-cd "/Users/rafi/Desktop/Scoffie App/weakly-meals-backend"
+cd "/Users/rafi/Desktop/Scoffie App/scoffie-backend"
 docker compose up -d api
 
 # sources + jest config into the container (note the trailing /app/ — merges into /app/src)

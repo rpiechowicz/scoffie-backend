@@ -1,6 +1,6 @@
 # Recipe & ingredient catalog — data/pipeline audit
 
-Paths: `B=/Users/rafi/Desktop/Scoffie App/weakly-meals-backend`, `I=/Users/rafi/Desktop/Scoffie App/weekly-meals-ios/Scoffie`. All numbers computed with python3 over `B/prisma/catalog/*` (read-only).
+Paths: `B=/Users/rafi/Desktop/Scoffie App/scoffie-backend`, `I=/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie`. All numbers computed with python3 over `B/prisma/catalog/*` (read-only).
 
 ## Findings
 
