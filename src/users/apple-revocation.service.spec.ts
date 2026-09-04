@@ -14,7 +14,7 @@ describe('AppleRevocationService', () => {
     APPLE_TEAM_ID: 'TEAM123',
     APPLE_KEY_ID: 'KEY456',
     APPLE_PRIVATE_KEY: pem.replace(/\n/g, '\\n'),
-    APPLE_CLIENT_ID: 'app.scoffie',
+    APPLE_CLIENT_ID: 'app.scoffie.ios',
   } as NodeJS.ProcessEnv;
 
   const response = (status: number, body: unknown = {}) =>
@@ -53,7 +53,7 @@ describe('AppleRevocationService', () => {
     expect(tokenUrl).toBe('https://appleid.apple.com/auth/token');
     expect(tokenForm.get('grant_type')).toBe('authorization_code');
     expect(tokenForm.get('code')).toBe('auth-code');
-    expect(tokenForm.get('client_id')).toBe('app.scoffie');
+    expect(tokenForm.get('client_id')).toBe('app.scoffie.ios');
     // Sekret to JWT: trzy części, nagłówek z kid i ES256.
     const secret = tokenForm.get('client_secret') ?? '';
     const header = JSON.parse(

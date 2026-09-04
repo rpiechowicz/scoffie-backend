@@ -63,7 +63,7 @@ export class AppleIdentityService {
     const raw =
       process.env.APPLE_AUDIENCE ??
       process.env.APPLE_CLIENT_ID ??
-      'app.scoffie';
+      'app.scoffie.ios';
     this.allowedAudiences = raw
       .split(',')
       .map((value) => value.trim())

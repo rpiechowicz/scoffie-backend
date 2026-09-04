@@ -398,12 +398,12 @@ grep -rn -E "sharedMealPlan|SharedMealPlan|savedPlan|SavedPlan|listByHousehold|a
 
 `wsRespond` never runs — Nest only invokes it from a registered `@SubscribeMessage`. With no handler, **socket.io silently drops the packet and never calls the ack callback**. There is no catch-all handler and no `onAny` in the codebase (grep-verified).
 
-iOS side, `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Networking/Recipes/SocketIORecipeSocketClient.swift`:
+iOS side, `/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie/Networking/Recipes/SocketIORecipeSocketClient.swift`:
 
 - `ackTimeoutSeconds = 6` (line 10), `maxAckAttempts = 3` (line 11), 250 ms × attempt backoff (line 186).
 - `requestAck` resolves with `"NO ACK"` on timeout → `RecipeDataError.serverError("Brak ACK dla eventu …")` → retried 3×.
 
-So a removed event costs an old client **≈18.5 s**, then an error, **not** a `NOT_FOUND`/`HTTP_ERROR` ack. That matters only for `getSavedPlan`, because `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Views/Dashboard/Calendar/CalendarView.swift:297-303` awaits it **before** the week load:
+So a removed event costs an old client **≈18.5 s**, then an error, **not** a `NOT_FOUND`/`HTTP_ERROR` ack. That matters only for `getSavedPlan`, because `/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie/Views/Dashboard/Calendar/CalendarView.swift:297-303` awaits it **before** the week load:
 
 ```swift
 297	            .task(id: datesViewModel.weekStartISO) {
@@ -527,23 +527,23 @@ plus deleting schema.prisma lines 164, 243, 565–592. Ship only after telemetry
 Grep over the whole iOS tree for `\.savedPlan|hasSavedPlan|allRecipes\(\)|availableRecipes\(|availableCount\(|markAsSelected|markAsAvailable|cleanupCalendarAndSync|applySavedPlanToWeek|saveMealPlan|clearSavedPlan|loadSavedPlanFromBackend|MealPlanViewModel|PlanEntry|SavedMealPlan`, excluding the three files that define them, returns exactly **two** hits:
 
 ```
-weekly meals/Models/Components/MealSlot.swift:16     (a doc comment)
-weekly meals/Views/Dashboard/Calendar/CalendarView.swift:298
+Scoffie/Models/Components/MealSlot.swift:16     (a doc comment)
+Scoffie/Views/Dashboard/Calendar/CalendarView.swift:298
 ```
 
 So: **no View renders the pool, and `MealPlanViewModel` is never instantiated.** The whole subsystem is dead weight — one network call per week switch plus a `saved_plan.json` file.
 
-The project uses `fileSystemSynchronizedGroups` (`weekly meals.xcodeproj/project.pbxproj:69`) and contains **0** references to `MealPlanViewModel`/`SavedMealPlan` — deleting files from disk needs **no `.pbxproj` edit**.
+The project uses `fileSystemSynchronizedGroups` (`Scoffie.xcodeproj/project.pbxproj:69`) and contains **0** references to `MealPlanViewModel`/`SavedMealPlan` — deleting files from disk needs **no `.pbxproj` edit**.
 
 ### 5.1 `Views/Dashboard/Calendar/CalendarView.swift` — do this first
 
-Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Views/Dashboard/Calendar/CalendarView.swift`
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie/Views/Dashboard/Calendar/CalendarView.swift`
 
 Delete line 298 (`await mealStore.loadSavedPlanFromBackend(...)`). The `.task` becomes a single `await mealStore.loadWeekPlanFromBackend(weekStart:dates:)`. **Side benefit:** removes one serial 6 s-timeout round-trip from every week switch.
 
-### 5.2 `Models/Stores/WeeklyMealStore.swift`
+### 5.2 `Models/Stores/MealCalendarStore.swift`
 
-Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Stores/WeeklyMealStore.swift`
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie/Models/Stores/MealCalendarStore.swift`
 
 Delete, in this order (line numbers from the current file):
 
@@ -601,7 +601,7 @@ and call it from `init` where line 68 was. It is idempotent (`try?` swallows `NS
 
 ### 5.3 `Models/Stores/WeeklyPlanStore.swift`
 
-Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Stores/WeeklyPlanStore.swift`
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie/Models/Stores/WeeklyPlanStore.swift`
 
 | Lines   | Symbol                                                                                            |
 | ------- | ------------------------------------------------------------------------------------------------- |
@@ -620,7 +620,7 @@ Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Stores/We
 
 ### 5.4 `Models/Plans/SavedMealPlan.swift`
 
-Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Plans/SavedMealPlan.swift` (452 lines)
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie/Models/Plans/SavedMealPlan.swift` (452 lines)
 
 Delete lines **344–452**: `// MARK: - PlanEntry`, `struct PlanEntry`, `// MARK: - SavedMealPlan`, `struct SavedMealPlan` (with `entriesBySlot`, `isEmpty`, `entries(for:)`, `setEntries(_:for:)`, `updateEntries(for:_:)`, `allRecipes()`, `availableRecipes(for:)`, `availableCount(for:slot:)`), and `extension SavedMealPlan` (`SlotKey`, `init(from:)`, `encode(to:)`).
 
@@ -630,17 +630,17 @@ Consider renaming the file to `PlanMeal.swift` in a **separate** commit — a re
 
 ### 5.5 `ViewModels/MealPlanViewModel.swift` — delete the whole file
 
-Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/ViewModels/MealPlanViewModel.swift` (142 lines). Never instantiated anywhere (`MealPlanViewModel(` has zero hits). `ViewModels/` retains `DatesViewModel.swift`.
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie/ViewModels/MealPlanViewModel.swift` (142 lines). Never instantiated anywhere (`MealPlanViewModel(` has zero hits). `ViewModels/` retains `DatesViewModel.swift`.
 
 `RecipesCategory.toMealSlot` survives — it is still used at `Models/Components/RecipesModel.swift:321` (`primarySlot`).
 
 ### 5.6 `Models/Stores/SessionStore.swift` — no change
 
-Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Stores/SessionStore.swift`. Lines 899 and 1099 call `weeklyMealStore?.resetLocalPlanningState()`; the method keeps existing with a shorter body (§5.2). No `savedPlan` reference in the file (grep-verified). Lines 451/463 wire `WebSocketWeeklyPlanTransportClient` → `ApiWeeklyPlanRepository` — unchanged.
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie/Models/Stores/SessionStore.swift`. Lines 899 and 1099 call `mealCalendarStore?.resetLocalPlanningState()`; the method keeps existing with a shorter body (§5.2). No `savedPlan` reference in the file (grep-verified). Lines 451/463 wire `WebSocketWeeklyPlanTransportClient` → `ApiWeeklyPlanRepository` — unchanged.
 
 ### 5.7 `Models/Stores/PlanChangeNotificationService.swift` — keep, adjust one comment
 
-Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals/Models/Stores/PlanChangeNotificationService.swift`
+Path: `/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie/Models/Stores/PlanChangeNotificationService.swift`
 
 - Line 374–375 `case "SAVE_PLAN": return "\(actor) ustawił/a plan posiłków na ten tydzień."` — **keep for one release** (2 lines, guards a new-app-against-old-server rollout), remove together with the `getSavedPlan` shim.
 - Line 348 comment mentions `SAVE_PLAN_SYNC` as an example of a technical broadcast the backend deliberately doesn't push. That action is no longer emitted; edit the comment to reference `SET_MEAL_EATEN` only, so it does not document a dead event.
@@ -651,7 +651,7 @@ Line 16: `/// SavedMealPlan) — nie wolno go zmieniać bez migracji cache'u.` �
 
 ### 5.9 Compile-order dependencies
 
-Swift compiles the whole module at once, so a partial edit is a broken build. Do all of §5 in **one commit**, and if you build incrementally, follow: **5.1 → 5.2 → 5.3 → 5.4 → 5.5**. Reverse order leaves `MealPlanViewModel.loadFromSaved(_ plan: SavedMealPlan)` (line 89) referencing a deleted type and `WeeklyMealStore.mapSavedPlan(dto: BackendSharedMealPlanDTO)` referencing a deleted DTO.
+Swift compiles the whole module at once, so a partial edit is a broken build. Do all of §5 in **one commit**, and if you build incrementally, follow: **5.1 → 5.2 → 5.3 → 5.4 → 5.5**. Reverse order leaves `MealPlanViewModel.loadFromSaved(_ plan: SavedMealPlan)` (line 89) referencing a deleted type and `MealCalendarStore.mapSavedPlan(dto: BackendSharedMealPlanDTO)` referencing a deleted DTO.
 
 ---
 
@@ -859,7 +859,7 @@ pnpm tsx scripts/ws-smoke.ts weeklyPlans:getShoppingList \
 
 ```bash
 cd "/Users/rafi/Desktop/Scoffie App/scoffie-ios"
-xcodebuild -project "weekly meals.xcodeproj" -scheme "Scoffie" \
+xcodebuild -project "Scoffie.xcodeproj" -scheme "Scoffie" \
   -destination 'platform=iOS Simulator,name=iPhone 16' build | tail -40
 ```
 

@@ -4,7 +4,7 @@
 
 **Evidence**
 
-- `scoffie-ios/weekly meals/Networking/Recipes/BackendRecipeDTOs.swift:170-172`
+- `scoffie-ios/Scoffie/Networking/Recipes/BackendRecipeDTOs.swift:170-172`
   ```swift
   let mappedIngredients = ingredients.compactMap { item -> Ingredient? in
       let unit = IngredientUnit(rawValue: item.unit)
@@ -87,7 +87,7 @@
 ### F10 — Dead code inventory (safe to delete now) — **P2**
 
 - `Models/Stores/ProductModel.swift` (104 lines), `Constants/HeaderConstants.swift` + `Models/Components/HeaderModel.swift`, `ViewModels/MealPlanViewModel.swift` (142 lines): zero references outside themselves (grep).
-- After removing `MealPlanViewModel`, the pool chain is dead: `WeeklyMealStore.applySavedPlanToWeek / saveMealPlan / clearSavedPlan / saveMealPlanToBackend / clearSavedPlanFromBackend / markAsSelected / markAsAvailable / cleanupCalendarAndSync` (`WeeklyMealStore.swift:388-520, 643-728`), `SavedMealPlan`/`PlanEntry` (`SavedMealPlan.swift:345-452` — keep `PlanMeal`/`DayMealPlan` in the same file), `saved_plan.json`, transport `fetchSavedPlan/saveSavedPlan/observeSavedPlanChanges` + `BackendSharedMealPlanDTO` (`WeeklyPlanStore.swift:84-95, 389-452`). The only live caller is `CalendarView.swift:298 loadSavedPlanFromBackend` whose result is read by no view — one wasted `weeklyPlans:getSavedPlan` round-trip per week switch. Keep `resetLocalPlanningState` (`SessionStore.swift:899,1099`) minus its savedPlan part.
+- After removing `MealPlanViewModel`, the pool chain is dead: `MealCalendarStore.applySavedPlanToWeek / saveMealPlan / clearSavedPlan / saveMealPlanToBackend / clearSavedPlanFromBackend / markAsSelected / markAsAvailable / cleanupCalendarAndSync` (`MealCalendarStore.swift:388-520, 643-728`), `SavedMealPlan`/`PlanEntry` (`SavedMealPlan.swift:345-452` — keep `PlanMeal`/`DayMealPlan` in the same file), `saved_plan.json`, transport `fetchSavedPlan/saveSavedPlan/observeSavedPlanChanges` + `BackendSharedMealPlanDTO` (`WeeklyPlanStore.swift:84-95, 389-452`). The only live caller is `CalendarView.swift:298 loadSavedPlanFromBackend` whose result is read by no view — one wasted `weeklyPlans:getSavedPlan` round-trip per week switch. Keep `resetLocalPlanningState` (`SessionStore.swift:899,1099`) minus its savedPlan part.
 - `ShoppingListStore.selectArchivedList` (`ShoppingListStore.swift:257-267`) + repo/transport/protocol (`weeklyPlans:selectShoppingListArchive`): no UI caller.
 - `ProductsView.historySheet` (`:692-855`): `showHistorySheet` is only ever set to `false` (`:11,295,711,764,821`) — unreachable.
 - Backend keeps its saved-plan events (legacy path in `shopping-list.service.ts:114-141`).

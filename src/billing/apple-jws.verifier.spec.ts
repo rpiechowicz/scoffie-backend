@@ -77,7 +77,7 @@ const token = (header: unknown, payload: unknown, signature = 'AAAA'): string =>
 
 const billingEnv = (over: Partial<BillingEnv> = {}): BillingEnv => ({
   ...readBillingEnv(),
-  bundleId: 'app.scoffie',
+  bundleId: 'app.scoffie.ios',
   environment: 'Production',
   acceptSandbox: false,
   ...over,
@@ -242,7 +242,7 @@ describe('treść transakcji', () => {
   const full = {
     transactionId: '2000000123',
     originalTransactionId: '2000000000',
-    bundleId: 'app.scoffie',
+    bundleId: 'app.scoffie.ios',
     productId: 'app.scoffie.pro.solo.monthly',
     purchaseDate: 1_756_000_000_000,
     environment: 'Production',

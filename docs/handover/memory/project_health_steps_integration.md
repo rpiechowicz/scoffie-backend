@@ -31,4 +31,4 @@ zbieranie danych zdrowia (App Privacy).
 **Haczyk App Store (2026-08-26):** walidacja uploadu (kod 90683) wymaga
 `NSHealthUpdateUsageDescription` przy SAMYM entitlemencie HealthKit, nawet gdy
 aplikacja tylko czyta — pierwszy release padł na tym w CI; oba opisy siedzą
-teraz w `weekly-meals-Info.plist`. Powiązane: [[project-cookidoo-integration-plan]].
+teraz w `Scoffie-Info.plist`. Powiązane: [[project-cookidoo-integration-plan]].

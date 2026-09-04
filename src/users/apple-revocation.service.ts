@@ -6,7 +6,7 @@ export type AppleRevocationOutcome = 'revoked' | 'not_configured' | 'failed';
 const APPLE_TOKEN_URL = 'https://appleid.apple.com/auth/token';
 const APPLE_REVOKE_URL = 'https://appleid.apple.com/auth/revoke';
 const APPLE_AUDIENCE = 'https://appleid.apple.com';
-const DEFAULT_CLIENT_ID = 'app.scoffie';
+const DEFAULT_CLIENT_ID = 'app.scoffie.ios';
 
 /**
  * Unieważnienie tokenów Sign in with Apple przy kasowaniu konta.

@@ -693,11 +693,11 @@ docker compose exec api pnpm ws:smoke users:preferences:get '{"userId":"<USER_ID
 
 (Rebuild the image — `docker compose up -d --build api` — before the smoke, since it runs `dist/`, not the `docker cp`-ed `src/`.)
 
-iOS — no test target exists (`weekly meals.xcodeproj` has one `PBXNativeTarget`, zero `XCTest` matches), so verification is a build plus a manual pass:
+iOS — no test target exists (`Scoffie.xcodeproj` has one `PBXNativeTarget`, zero `XCTest` matches), so verification is a build plus a manual pass:
 
 ```bash
 cd "/Users/rafi/Desktop/Scoffie App/scoffie-ios"
-xcodebuild -project "weekly meals.xcodeproj" -scheme "Scoffie" \
+xcodebuild -project "Scoffie.xcodeproj" -scheme "Scoffie" \
   -destination "generic/platform=iOS Simulator" -sdk iphonesimulator build \
   ARCHS=arm64 CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES EXCLUDED_ARCHS=x86_64
 ```

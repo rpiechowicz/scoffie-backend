@@ -1,6 +1,6 @@
 # WP-05 — Server-side atomic slot replacement (`replaceRecipeId`)
 
-**Goal:** one round-trip, one transaction, one broadcast for "Zmień przepis". Today iOS does `removeWeekSlot` → `upsertWeekSlot` (`WeeklyMealStore.swift:231-246`), which leaves an empty slot on the server if the second call fails, emits 2× `weekChanged` + 2× `shoppingListChanged`, and loses the old item's participants/servings/eaten marks unconditionally.
+**Goal:** one round-trip, one transaction, one broadcast for "Zmień przepis". Today iOS does `removeWeekSlot` → `upsertWeekSlot` (`MealCalendarStore.swift:231-246`), which leaves an empty slot on the server if the second call fails, emits 2× `weekChanged` + 2× `shoppingListChanged`, and loses the old item's participants/servings/eaten marks unconditionally.
 
 **Verified against current source (post-Plaster A):** `parseWeekStart` is already strict (`utils/week-formatting.util.ts:14-27`: regex + `getUTCDay() === 1` → `AppException('VALIDATION_ERROR', …, 400)`), so nothing here re-validates `weekStart`. `PlanItem` unique is `@@unique([weeklyPlanId, dayOfWeek, mealType, recipeId])` (`prisma/schema.prisma:379`); `PlanItemParticipant`/`PlanItemConsumption` cascade on `PlanItem` delete (`:391, :409`) — deleting the replaced item needs no manual child cleanup.
 
@@ -18,7 +18,7 @@
 | D6  | Broadcast                                                               | Unchanged: **one** `weeklyPlans:weekChanged` with `action: 'UPSERT_SLOT'`, one `shoppingListChanged`                                                                                                                          | `PlanChangeNotificationService.singleChangeText` (iOS `:361-378`) has **no `default:` branch** — a new action string like `REPLACE_SLOT` would silently drop the local notification on every installed build. Do not rename the action.                                                        |
 | D7  | Push                                                                    | `if (result?.changeKind === 'CREATED' \|\| result?.changeKind === 'REPLACED')`                                                                                                                                                | Replacing a meal _is_ news for the other member; today it reaches them as `REMOVE_SLOT` + `CREATED`.                                                                                                                                                                                           |
 | D8  | P2002 on create                                                         | `AppException('CONFLICT', 'This recipe is already assigned to that day and meal slot', HttpStatus.CONFLICT)`                                                                                                                  | Mirrors `addItem` (`weekly-plans.service.ts:255-266`, which uses Nest's `ConflictException`); `AppException` yields the same wire `code: 'CONFLICT'` via `ws-response.ts:38-50` but is explicit about the code. Currently a concurrent same-recipe create surfaces as `INTERNAL_ERROR 500`.    |
-| D9  | `removeWeekSlot`                                                        | Untouched. Still the API for explicit removal and whole-slot clears                                                                                                                                                           | `WeeklyPlanView.swift:481, 495` and `WeeklyMealStore.swift:415` depend on it.                                                                                                                                                                                                                  |
+| D9  | `removeWeekSlot`                                                        | Untouched. Still the API for explicit removal and whole-slot clears                                                                                                                                                           | `WeeklyPlanView.swift:481, 495` and `MealCalendarStore.swift:415` depend on it.                                                                                                                                                                                                                |
 | D10 | Migration                                                               | **None.** No schema change, no SQL, no backfill                                                                                                                                                                               | Rollback = revert the commit; old clients keep working (D11).                                                                                                                                                                                                                                  |
 | D11 | Backward compat                                                         | Old iOS builds still send REMOVE+UPSERT; the new field is optional and absent → code path identical to today                                                                                                                  | No version gate, no feature flag.                                                                                                                                                                                                                                                              |
 
@@ -305,7 +305,7 @@ No ack-shape change: `BackendPlanItemAckDTO` = `BackendWeeklyPlanItemDTO`, and t
 
 Add the parameter and forward `replaceRecipeId: replaceRecipeId?.uuidString` into the `client.upsertWeekSlot` call (line 492-499).
 
-### 2.4 `Models/Stores/WeeklyMealStore.swift:193-246` — drop the double call
+### 2.4 `Models/Stores/MealCalendarStore.swift:193-246` — drop the double call
 
 Current:
 
@@ -351,8 +351,8 @@ Everything else in the method is unchanged: the optimistic update at `:210-226` 
 
 - `Views/Dashboard/Recipes/Components/AddToPlanSheet.swift:691` `replacingRecipeId: replacing` — unchanged.
 - `Views/Dashboard/WeeklyPlan/PlanSlotPickerSheet.swift:454` `replacingRecipeId: editing?.recipe.id` — unchanged (D2 covers the equal case).
-- `PlanSlotPickerSheet.swift:473` (`saveAudienceOnly`), `WeeklyPlanView.swift:465` (`saveServings`), `CalendarView.swift:388`, `WeeklyMealStore.swift:406` (`applySavedPlanToWeek`) — omit `replacingRecipeId`, unchanged.
-- Conformances to the two protocols: **only** `WebSocketWeeklyPlanTransportClient` (`WeeklyPlanStore.swift:187`) and `ApiWeeklyPlanRepository` (`:454`), wired in `SessionStore.swift:451-463`. There is **no** mock/preview transport for weekly plans: `StoreEnvironmentKeys.swift:14` uses `WeeklyMealStore()` with `weeklyPlanRepository == nil`, and `UnconfiguredRecipeSocketClient` (`Networking/Recipes/SocketIORecipeSocketClient.swift:224`) is only used by `RecipeCatalogStore.swift:57` and the shopping-list key (`StoreEnvironmentKeys.swift:25`). **Nothing else to update.**
+- `PlanSlotPickerSheet.swift:473` (`saveAudienceOnly`), `WeeklyPlanView.swift:465` (`saveServings`), `CalendarView.swift:388`, `MealCalendarStore.swift:406` (`applySavedPlanToWeek`) — omit `replacingRecipeId`, unchanged.
+- Conformances to the two protocols: **only** `WebSocketWeeklyPlanTransportClient` (`WeeklyPlanStore.swift:187`) and `ApiWeeklyPlanRepository` (`:454`), wired in `SessionStore.swift:451-463`. There is **no** mock/preview transport for weekly plans: `StoreEnvironmentKeys.swift:14` uses `MealCalendarStore()` with `weeklyPlanRepository == nil`, and `UnconfiguredRecipeSocketClient` (`Networking/Recipes/SocketIORecipeSocketClient.swift:224`) is only used by `RecipeCatalogStore.swift:57` and the shopping-list key (`StoreEnvironmentKeys.swift:25`). **Nothing else to update.**
 - Optional polish (5 min): `Models/Stores/UserFacingErrorMapper.swift` — the mapper falls through to the raw server string, so a P2002 race would show English. Add before the `internal_error` rule (`:63`): `if lower.contains("already assigned to that day and meal slot") { return "Ten przepis jest już w tym slocie." }`.
 
 ---
@@ -465,11 +465,11 @@ Expect: ack `ok:true`, `changeKind:"REPLACED"`, `replacedItemIds` length 1; the 
 **4.4 iOS**
 
 ```
-xcodebuild -project "/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals.xcodeproj" \
+xcodebuild -project "/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie.xcodeproj" \
   -scheme "Scoffie" -destination 'platform=iOS Simulator,name=iPhone 16' build
 ```
 
-(there is no test target; `xcshareddata/xcschemes/weekly meals.xcscheme` is the only scheme). Manual pass on the simulator against the container: PlanSlotPickerSheet → edit a meal → pick a different recipe; the second device must receive exactly **one** `weekChanged` and one notification, and the slot must never flash empty.
+(there is no test target; `xcshareddata/xcschemes/Scoffie.xcscheme` is the only scheme). Manual pass on the simulator against the container: PlanSlotPickerSheet → edit a meal → pick a different recipe; the second device must receive exactly **one** `weekChanged` and one notification, and the slot must never flash empty.
 
 ---
 
@@ -483,21 +483,21 @@ xcodebuild -project "/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals.xc
 
 ## 6. Ordered steps & effort
 
-| #   | Step                                                                                         | Files                                         | Effort |
-| --- | -------------------------------------------------------------------------------------------- | --------------------------------------------- | ------ |
-| 1   | DTO field `replaceRecipeId`                                                                  | `dto/upsert-week-slot.dto.ts`                 | 10 min |
-| 2   | `UUID_PATTERN` + `parseReplaceRecipeId`                                                      | `weekly-plans.service.ts` (module scope)      | 15 min |
-| 3   | Pre-tx: parse + conditional `memberIds` load                                                 | `weekly-plans.service.ts:315-331`             | 15 min |
-| 4   | In-tx: find + delete replaced item, `effectiveParticipantIds`, `plannedServingsAfterReplace` | `weekly-plans.service.ts` after `:355`        | 40 min |
-| 5   | Both branches: use `effectiveParticipantIds`, `REPLACED`, `replacedItemIds`                  | `:383-425`, `:472-495`                        | 25 min |
-| 6   | P2002 → `AppException('CONFLICT', …, 409)` around the create                                 | `:472-484`                                    | 15 min |
-| 7   | Gateway push gate `CREATED \|\| REPLACED` + comment                                          | `weekly-plans.gateway.ts:504-509`             | 10 min |
-| 8   | Service spec: 12 cases                                                                       | `weekly-plans.service.spec.ts` (+ ~200 lines) | 60 min |
-| 9   | New gateway spec: 4 cases                                                                    | `weekly-plans.gateway.spec.ts`                | 40 min |
-| 10  | Run 4.1 + 4.2 + 4.3                                                                          | container                                     | 20 min |
-| 11  | iOS: both protocols + both conformances gain `replaceRecipeId`                               | `WeeklyPlanStore.swift:34, 50, 261, 488`      | 20 min |
-| 12  | iOS: drop the `removeWeekSlot` pre-call in `upsertWeekSlot`                                  | `WeeklyMealStore.swift:230-246` (+doc `:178`) | 15 min |
-| 13  | iOS optional: CONFLICT copy in `UserFacingErrorMapper`                                       | `UserFacingErrorMapper.swift:63`              | 5 min  |
-| 14  | Run 4.4 + manual two-device pass                                                             | Xcode + container                             | 30 min |
+| #   | Step                                                                                         | Files                                           | Effort |
+| --- | -------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------ |
+| 1   | DTO field `replaceRecipeId`                                                                  | `dto/upsert-week-slot.dto.ts`                   | 10 min |
+| 2   | `UUID_PATTERN` + `parseReplaceRecipeId`                                                      | `weekly-plans.service.ts` (module scope)        | 15 min |
+| 3   | Pre-tx: parse + conditional `memberIds` load                                                 | `weekly-plans.service.ts:315-331`               | 15 min |
+| 4   | In-tx: find + delete replaced item, `effectiveParticipantIds`, `plannedServingsAfterReplace` | `weekly-plans.service.ts` after `:355`          | 40 min |
+| 5   | Both branches: use `effectiveParticipantIds`, `REPLACED`, `replacedItemIds`                  | `:383-425`, `:472-495`                          | 25 min |
+| 6   | P2002 → `AppException('CONFLICT', …, 409)` around the create                                 | `:472-484`                                      | 15 min |
+| 7   | Gateway push gate `CREATED \|\| REPLACED` + comment                                          | `weekly-plans.gateway.ts:504-509`               | 10 min |
+| 8   | Service spec: 12 cases                                                                       | `weekly-plans.service.spec.ts` (+ ~200 lines)   | 60 min |
+| 9   | New gateway spec: 4 cases                                                                    | `weekly-plans.gateway.spec.ts`                  | 40 min |
+| 10  | Run 4.1 + 4.2 + 4.3                                                                          | container                                       | 20 min |
+| 11  | iOS: both protocols + both conformances gain `replaceRecipeId`                               | `WeeklyPlanStore.swift:34, 50, 261, 488`        | 20 min |
+| 12  | iOS: drop the `removeWeekSlot` pre-call in `upsertWeekSlot`                                  | `MealCalendarStore.swift:230-246` (+doc `:178`) | 15 min |
+| 13  | iOS optional: CONFLICT copy in `UserFacingErrorMapper`                                       | `UserFacingErrorMapper.swift:63`                | 5 min  |
+| 14  | Run 4.4 + manual two-device pass                                                             | Xcode + container                               | 30 min |
 
 **Total ≈ 2 h backend + 45 min iOS + 50 min verification.** Steps 1-10 are shippable on their own (backend-only, no client change); 11-14 are a separate commit.

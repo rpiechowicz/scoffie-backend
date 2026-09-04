@@ -85,19 +85,19 @@ describe('NotificationsService.registerDevice', () => {
       await service.registerDevice(USER, {
         deviceToken: DEVICE,
         platform: 'IOS',
-        appBundleId: 'app.scoffie',
+        appBundleId: 'app.scoffie.ios',
         apnsEnvironment: 'PRODUCTION',
       });
 
       expect(upsert.mock.calls[0][0]).toMatchObject({
         create: {
           platform: 'IOS',
-          appBundleId: 'app.scoffie',
+          appBundleId: 'app.scoffie.ios',
           apnsEnvironment: 'PRODUCTION',
         },
         update: {
           platform: 'IOS',
-          appBundleId: 'app.scoffie',
+          appBundleId: 'app.scoffie.ios',
           apnsEnvironment: 'PRODUCTION',
         },
       });

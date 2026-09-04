@@ -6,7 +6,7 @@
 > narzędzi, instrukcje systemowe, bloki gospodarstwa, thinking) pozostaje
 > szacunkiem. Wnioski cenowe §7–§11 się nie zmieniają — zapas idzie w naszą stronę.
 
-Model script (all parameters explicit, re-runnable): `/private/tmp/claude-502/-Users-rafi-Desktop-Weekly-Meals-App/75609ba4-f8b7-4867-95a1-9fa00f42c5f0/scratchpad/unit_econ.py`
+Model script (all parameters explicit, re-runnable): `/private/tmp/claude-502/-Users-rafi-Desktop-scoffie-ios-App/75609ba4-f8b7-4867-95a1-9fa00f42c5f0/scratchpad/unit_econ.py`
 
 ## 0. Inputs and assumptions
 

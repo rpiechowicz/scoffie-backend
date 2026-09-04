@@ -41,7 +41,7 @@ const FAMILY = 'app.scoffie.pro.family.monthly';
 const transaction = (over: Record<string, unknown> = {}) => ({
   transactionId: '2000000000000009',
   originalTransactionId: ORIGINAL_TX,
-  bundleId: 'app.scoffie',
+  bundleId: 'app.scoffie.ios',
   productId: SOLO,
   purchaseDate: Date.parse('2026-09-01T00:00:00.000Z'),
   expiresDate: Date.parse('2026-10-01T00:00:00.000Z'),
@@ -87,7 +87,7 @@ describe('SubscriptionsService', () => {
     process.env.APPLE_BILLING_KEY_ID = 'key';
     process.env.APPLE_BILLING_PRIVATE_KEY = 'klucz-testowy';
     process.env.APPLE_ENVIRONMENT = 'Sandbox';
-    process.env.APPLE_BUNDLE_ID = 'app.scoffie';
+    process.env.APPLE_BUNDLE_ID = 'app.scoffie.ios';
 
     (verifyTransaction as jest.Mock).mockReturnValue(transaction());
     (verifyRenewalInfo as jest.Mock).mockReturnValue({
@@ -311,7 +311,7 @@ describe('SubscriptionsService', () => {
       notificationType: 'DID_RENEW',
       signedDate: Date.parse('2026-09-03T10:00:00.000Z'),
       data: {
-        bundleId: 'app.scoffie',
+        bundleId: 'app.scoffie.ios',
         environment: 'Sandbox',
         status: 1,
         signedTransactionInfo: 'jws-tx',
@@ -429,7 +429,7 @@ describe('SubscriptionsService', () => {
         notification({
           notificationType: 'REFUND',
           data: {
-            bundleId: 'app.scoffie',
+            bundleId: 'app.scoffie.ios',
             status: 5,
             signedTransactionInfo: 'jws-tx',
           },
@@ -461,7 +461,7 @@ describe('SubscriptionsService', () => {
       (verifyAppleJws as jest.Mock).mockReturnValue({
         notificationUUID: 'uuid-1',
         notificationType: 'TEST',
-        data: { bundleId: 'app.scoffie' },
+        data: { bundleId: 'app.scoffie.ios' },
       });
       prisma.appleNotification.findUnique.mockResolvedValue({
         notificationUuid: 'uuid-1',

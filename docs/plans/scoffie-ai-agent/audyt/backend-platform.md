@@ -164,7 +164,7 @@
 
 ### Checked and found FINE
 
-- Apple sign-in: JWKS signature, `iss`, `aud` allow-list (default `app.scoffie`, `apple-identity.service.ts:62-65`), nonce sha256 check.
+- Apple sign-in: JWKS signature, `iss`, `aud` allow-list (default `app.scoffie.ios`, `apple-identity.service.ts:62-65`), nonce sha256 check.
 - Refresh token entropy/storage: 64 random bytes, sha256+pepper, `tokenHash @unique`, cascade on user delete.
 - All 17 `AppException` codes thrown are in the union (TS-enforced); no cast-around.
 - Cookidoo credentials: AES-256-GCM with fail-fast key parse; password never decrypted in `status()`; bodies never logged.

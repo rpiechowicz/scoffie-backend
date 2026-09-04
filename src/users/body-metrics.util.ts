@@ -2,7 +2,7 @@ import { Sex, UserGoal } from '@prisma/client';
 
 /**
  * Zapotrzebowanie kaloryczne i rozbicie na makra — PORT z iOS
- * (`weekly meals/Models/Components/BodyMetrics.swift`, `UserGoal.swift`).
+ * (`Scoffie/Models/Components/BodyMetrics.swift`, `UserGoal.swift`).
  *
  * Do tej pory te wzory żyły wyłącznie na telefonie: serwer zapisywał
  * `calorieGoal` policzony przez klienta, a makra trzymał tylko wtedy, gdy

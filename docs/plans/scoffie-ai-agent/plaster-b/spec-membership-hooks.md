@@ -18,7 +18,7 @@
 | `ShoppingList.updatedAt` is `@updatedAt` → `updateMany` bumps it automatically                                                                      | `schema.prisma:485`                                                                                                                            |
 | jest maps **any** import ending in `households.service` to the stub → hook tests cannot live in `households.service.spec.ts`                        | `jest.config.js:22-25`                                                                                                                         |
 | Both gateways use the same `WS_GATEWAY_OPTIONS`, no namespace → `this.server` is the **same** Socket.IO server                                      | `households.gateway.ts:99`, `weekly-plans.gateway.ts:136`                                                                                      |
-| iOS ignores an unknown `weekChanged.action`: `singleChangeText` `default: return nil` → no local notification, but `scheduleWeekReload` already ran | `PlanChangeNotificationService.swift:361-378`, `WeeklyMealStore.swift:527-544`                                                                 |
+| iOS ignores an unknown `weekChanged.action`: `singleChangeText` `default: return nil` → no local notification, but `scheduleWeekReload` already ran | `PlanChangeNotificationService.swift:361-378`, `MealCalendarStore.swift:527-544`                                                               |
 | iOS `households:membersChanged` handler updates the member list **only** — it never refetches the week or the list                                  | `SessionStore.swift:577-631`                                                                                                                   |
 | Prisma 6.2 — relation filters (`some`/`none`, to-one) are supported inside `updateMany`/`deleteMany` `where`                                        | `package.json` → `"@prisma/client": "^6.2.1"`                                                                                                  |
 | The container has devDeps (jest/ts-jest/tsc) and `/app/src`, `/app/tsconfig.json`, but **not** `jest.config.js`                                     | `Dockerfile:32-43` (`COPY --from=deps /app/node_modules`), `container_name: scoffie-api`                                                       |
@@ -617,7 +617,7 @@ for (const weekStart of result.touchedWeekStarts ?? []) {
 }
 ```
 
-`changeVersion: Date.now()` mirrors `weekly-plans.gateway.ts:232-234`. **No iOS change needed:** `WeeklyMealStore.handleRemoteWeekPlanChanged` (`:527-534`) filters on `weekStart == observedWeekStart` and the monotonic `changeVersion`, then `scheduleWeekReload`; the unknown action falls into `singleChangeText`'s `default: return nil` (`PlanChangeNotificationService.swift:376-377`) → **refetch without a spurious push**. That is exactly the desired behaviour: the plan silently corrects itself.
+`changeVersion: Date.now()` mirrors `weekly-plans.gateway.ts:232-234`. **No iOS change needed:** `MealCalendarStore.handleRemoteWeekPlanChanged` (`:527-534`) filters on `weekStart == observedWeekStart` and the monotonic `changeVersion`, then `scheduleWeekReload`; the unknown action falls into `singleChangeText`'s `default: return nil` (`PlanChangeNotificationService.swift:376-377`) → **refetch without a spurious push**. That is exactly the desired behaviour: the plan silently corrects itself.
 
 ---
 
@@ -767,7 +767,7 @@ Expect: B's solo items gone, shared items keep only A in `participantIds`, `plan
 **iOS** (only needed if §6 lands, and only as a regression check — there is no Swift source change):
 
 ```bash
-xcodebuild -project "/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals.xcodeproj" \
+xcodebuild -project "/Users/rafi/Desktop/Scoffie App/scoffie-ios/Scoffie.xcodeproj" \
   -scheme "Scoffie" -destination 'platform=iOS Simulator,name=iPhone 16' build
 ```
 

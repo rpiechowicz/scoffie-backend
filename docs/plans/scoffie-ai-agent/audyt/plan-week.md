@@ -1,6 +1,6 @@
 # Weekly plan & week identity — findings
 
-Verified against source (read-only). Line numbers refer to `scoffie-backend/src/...` and `scoffie-ios/weekly meals/...`.
+Verified against source (read-only). Line numbers refer to `scoffie-backend/src/...` and `scoffie-ios/Scoffie/...`.
 
 ---
 
@@ -26,7 +26,7 @@ Verified against source (read-only). Line numbers refer to `scoffie-backend/src/
 
 - `weekly-plans/utils/week-formatting.util.ts:7-8`: `const parsed = new Date(weekStart); if (Number.isNaN(...))` — accepts `'2026-08-31T00:00:00+02:00'` (= `2026-08-30T22:00Z`, a _different_ `WeeklyPlan`/`ShoppingList` row than `'2026-08-31'`), any weekday, any time. `weekly-plans.service.ts:137` and `:157` bypass even that (`weekStart: new Date(weekStart)` → Invalid Date → Prisma error → `INTERNAL_ERROR 500`).
 - `ViewModels/DatesViewModel.swift:15,20,25`: `Calendar.current` … `dateInterval(of: .weekOfYear)` … `value: calendar.firstWeekday == 1 ? 1 : 0`. With region/"First Day of Week" = Sunday: on a Sunday the interval starts _that_ Sunday, +1 → **next** Monday → Plan/Calendar/Products show next week and "today" is not in `dates`. With Saturday-first (`firstWeekday == 7`): no correction → `weekStartISO` is a **Saturday** → backend happily stores Saturday-keyed `WeeklyPlan` rows.
-- `Views/Dashboard/Recipes/Components/AddToPlanSheet.swift:707-716` computes its own Monday with `firstWeekday = 2` (correct) and `:694` sends it → same household writes two overlapping "weeks"; `WeeklyMealStore.swift:531` then ignores the `weekChanged` for the sheet's week because `observedWeekStart` differs.
+- `Views/Dashboard/Recipes/Components/AddToPlanSheet.swift:707-716` computes its own Monday with `firstWeekday = 2` (correct) and `:694` sends it → same household writes two overlapping "weeks"; `MealCalendarStore.swift:531` then ignores the `weekChanged` for the sheet's week because `observedWeekStart` differs.
 - DB rows at risk: only from devices with non-Monday `firstWeekday` (developer's pl_PL never triggers). Check: `SELECT * FROM "WeeklyPlan" WHERE EXTRACT(DOW FROM "weekStart") <> 1 OR "weekStart"::time <> '00:00'` (same for `ShoppingList`, `SharedMealPlan`, `ShoppingItemCheck`, `ShoppingListArchive`, `ShoppingListArchiveState`).
 
 **Why it escalates**: `weekStart` is the primary key of every write the assistant makes; a proposal for "next week" must land on the same row iOS reads.
@@ -64,7 +64,7 @@ Verified against source (read-only). Line numbers refer to `scoffie-backend/src/
 
 ## WP-05 · "Change recipe" = REMOVE + UPSERT, two acks, no server-side replace — **P1**
 
-**Evidence**: `Models/Stores/WeeklyMealStore.swift:235-250` (`removeWeekSlot` then `upsertWeekSlot`); callers `AddToPlanSheet.swift:673,691`, `PlanSlotPickerSheet.swift:454`. `dto/upsert-week-slot.dto.ts:19-60` has no `replaceRecipeId`; `weekly-plans.service.ts:354-356` documents that upsert never removes other variants.
+**Evidence**: `Models/Stores/MealCalendarStore.swift:235-250` (`removeWeekSlot` then `upsertWeekSlot`); callers `AddToPlanSheet.swift:673,691`, `PlanSlotPickerSheet.swift:454`. `dto/upsert-week-slot.dto.ts:19-60` has no `replaceRecipeId`; `weekly-plans.service.ts:354-356` documents that upsert never removes other variants.
 
 **Failure window**: remove acked, upsert fails (ack timeout 6 s×3, `PLAN_*` caps, `NOT_FOUND`) → server slot empty; iOS rolls back to `previous` (`:275`) showing a meal that no longer exists; the REMOVE broadcast's 250 ms refetch then blanks it. Old meal's participants/servings/eaten marks are gone. Also 2× `weekChanged`, 2× `shoppingListChanged`, 2 push batch entries per swap. Concurrent same-recipe create from two phones hits the unique index and surfaces as `INTERNAL_ERROR` (P2002 is caught in `addItem :254-264` but not in `upsertWeekSlot :469-481`).
 
@@ -97,7 +97,7 @@ Scenario: 1-person household plans "Wspólne" meals (auto = 1); partner joins �
 
 - **WP-08** Broadcasts are global: `this.server.emit(...)` at `weekly-plans.gateway.ts:220,487,544,592,645,653,694,702`, no `.to()`/`join()` anywhere → every socket receives every household's `changedByDisplayName`/actions; iOS filters client-side (`WeeklyPlanStore.swift:378-381`). Use per-household rooms once sockets are authenticated. **1–2 h, FOLD-INTO-PHASE-0.**
 - **WP-09** `szczypta`/`łyżeczka` are converted at import (`recipes/ingredient-amount.util.ts:114-128`: pinch = tsp/16 → sól 0.375 g, generic 0.156 g) so the list shows "Sól 0.38 g" rows (`shopping-items.util.ts:57` rounds to 2 dp). Correct but noise; render `< 1 g` SPICES as "do smaku". **1 h, LATER.**
-- **WP-10** `WeeklyMealStore.swift:37-42` `dateFormatter` sets neither `calendar` nor `timeZone` while `WeekDateMapper.swift:138-145`, `DatesViewModel.swift:41-48`, `EditorialWeekBar.swift:23-26` pin gregorian — on a Buddhist/Japanese device calendar local keys diverge from backend keys (plan looks empty / duplicates). **15 min, LATER** (fold into WP-02's helper).
+- **WP-10** `MealCalendarStore.swift:37-42` `dateFormatter` sets neither `calendar` nor `timeZone` while `WeekDateMapper.swift:138-145`, `DatesViewModel.swift:41-48`, `EditorialWeekBar.swift:23-26` pin gregorian — on a Buddhist/Japanese device calendar local keys diverge from backend keys (plan looks empty / duplicates). **15 min, LATER** (fold into WP-02's helper).
 - **WP-11** `upsertWeekSlot` checks neither `enabledMealTypes`, `Recipe.isActive`, nor recipe ownership (`utils/auth-checks.util.ts:6-19` `_householdId` unused). Disabling a slot intentionally keeps items (`households.service.ts:462-465`; iOS shows them while non-empty, `WeeklyPlanView.swift:142-145`) — fine, but the assistant's validator must own all three checks. Ownership check → **FOLD-INTO-PHASE-0**; others → validator design note.
 - **WP-12** Rebuild does one `upsert` per product inside an interactive tx (`shopping-list.service.ts:318-343`) and two extra `findUnique`s on every non-stale read (`:457-461`). **LATER.**
 
@@ -116,9 +116,9 @@ Scenario: 1-person household plans "Wspólne" meals (auto = 1); partner joins �
 
 ## Checked and found FINE
 
-- `changeVersion = Date.now()` (`gateway:232-234`) + iOS `changeVersion > previous` (`WeeklyMealStore.swift:533-537`, `ShoppingListStore.swift:84-87`): only same-millisecond duplicates are dropped and the 250 ms debounced refetch covers them; survives restarts (wall clock); only an NTP backward step could drop events.
+- `changeVersion = Date.now()` (`gateway:232-234`) + iOS `changeVersion > previous` (`MealCalendarStore.swift:533-537`, `ShoppingListStore.swift:84-87`): only same-millisecond duplicates are dropped and the 250 ms debounced refetch covers them; survives restarts (wall clock); only an NTP backward step could drop events.
 - `WeekDateMapper` DST (`WeeklyPlanStore.swift:157-180`): calendar-day arithmetic from local midnight + `startOfDay` diff — correct across CET/CEST.
-- `plannedServings` semantics: server clamp 1..12 (`service:697-702`), `resolveUpdatedPlannedServings` audience-toggle cases covered by spec (`weekly-plans.service.spec.ts:239-497`); iOS never substitutes 1 for unknown (`SavedMealPlan.swift:69`, `WeeklyMealStore.swift:214-215`, `WeeklyPlanStore.swift:491`); `resolveParticipants` collapse/dedupe (`:639-674`) matches `PlanAudienceChips.collapsed`.
+- `plannedServings` semantics: server clamp 1..12 (`service:697-702`), `resolveUpdatedPlannedServings` audience-toggle cases covered by spec (`weekly-plans.service.spec.ts:239-497`); iOS never substitutes 1 for unknown (`SavedMealPlan.swift:69`, `MealCalendarStore.swift:214-215`, `WeeklyPlanStore.swift:491`); `resolveParticipants` collapse/dedupe (`:639-674`) matches `PlanAudienceChips.collapsed`.
 - Shopping scaling `max(1,plannedServings)/max(1,recipe.servings)` (`shopping-list.service.ts:101-105`) with spec coverage (`shopping-list.service.spec.ts:199-262`); `isChecked` carry-over/reset-on-growth (`:266-282`); archive signature dedupe via `@@unique([householdId, weekStart, signature])` (`:586-611`); `clearWeekPlan` cleans all week tables in one serializable tx (`:774-844`).
 - All 17 catalog department labels (`scripts/load-ingredient-catalog.ts:7-25`) resolve to the intended `ShoppingDepartment` via `DEPARTMENT_KEYWORD_RULES` (computed); only `Inne → OTHER` by design.
 - `enabledMealTypes`: core trio forced, unknowns dropped, canonical order (`common/meal-types.ts:57-66`); `mealSlotTimes` constraint is correct when it runs (`households/dto/update-meal-times.dto.ts:18-38`) — see WP-06.
