@@ -11,7 +11,7 @@ import {
 } from './body-metrics.util';
 
 /**
- * Parytet z iOS (`weekly meals/Models/Components/BodyMetrics.swift`).
+ * Parytet z iOS (`Scoffie/Models/Components/BodyMetrics.swift`).
  *
  * Liczby poniżej są policzone RĘCZNIE ze wzorów w Swifcie, nie wygenerowane
  * z tej implementacji — inaczej test potwierdzałby tylko sam siebie. Gdy

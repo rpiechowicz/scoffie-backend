@@ -1,6 +1,6 @@
 # Implementation Spec — WP: kill the diverged normalizer copy in `RecipesService` + compute nutrition on create
 
-**Audit refs:** `catalog-data.md` D3 (P1, FIX-BEFORE-PHASE-0), `tests-ci.md` T3 (P0). **Scope:** backend only. **No iOS work** — verified: `grep -rn "recipes:create|createRecipe" --include=*.swift` over `/Users/rafi/Desktop/Scoffie App/scoffie-ios` returns **0 hits**; the only WS recipe calls from iOS are `recipes:findAll` / `findById` / `setFavorite` (`scoffie-ios/weekly meals/Networking/Recipes/WebSocketRecipeTransportClient.swift`). `RecipesService.create` currently has **no client at all**; its only future caller is the AI-agent path. That fact drives decision D-3 below.
+**Audit refs:** `catalog-data.md` D3 (P1, FIX-BEFORE-PHASE-0), `tests-ci.md` T3 (P0). **Scope:** backend only. **No iOS work** — verified: `grep -rn "recipes:create|createRecipe" --include=*.swift` over `/Users/rafi/Desktop/Scoffie App/scoffie-ios` returns **0 hits**; the only WS recipe calls from iOS are `recipes:findAll` / `findById` / `setFavorite` (`scoffie-ios/Scoffie/Networking/Recipes/WebSocketRecipeTransportClient.swift`). `RecipesService.create` currently has **no client at all**; its only future caller is the AI-agent path. That fact drives decision D-3 below.
 
 **Current-state deltas vs. the audit text (Plaster A already landed — I read the files):**
 

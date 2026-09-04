@@ -1025,7 +1025,7 @@
             <code>NavigationStack</code> (:221) i górny padding strony;
             przenieść <code>extension Color.mix</code> z
             <code>EditorialShoppingHero.swift:320-352</code> do
-            <code>WMDesignSystem.swift</code> (używany w Kalendarzu, Planie i
+            <code>SCDesignSystem.swift</code> (używany w Kalendarzu, Planie i
             Ustawieniach); skasować martwe <code>ProductModel.swift</code>,
             <code>HeaderConstants.swift</code>, nieosiągalny
             <code>historySheet</code>; poprawić FAQ (<code
@@ -1047,7 +1047,7 @@
         <p class="small">
           Bez zmian: <code>EditorialPageHeader</code>,
           <code>EditorialSheetHeader</code>,
-          <code>EditorialPrimaryActionButton</code>, <code>WMStepper</code>,
+          <code>EditorialPrimaryActionButton</code>, <code>SCStepper</code>,
           <code>PlanAudienceChips</code>, <code>PlanWhoBadge</code>,
           <code>CachedAsyncImage</code>, <code>EditorialMacroBlock</code> (kcal
           dnia vs cel), <code>RecipeDetailView</code>,
@@ -1779,7 +1779,7 @@
       </li>
       <li>
         Po <code>apply</code>:
-        <code>weeklyMealStore.loadWeekPlanFromBackend</code> +
+        <code>mealCalendarStore.loadWeekPlanFromBackend</code> +
         <code>shoppingListStore.load(force: true)</code> (to samo, co robi
         <code>WeeklyPlanView.refreshShoppingList()</code>),
         <code>datesViewModel.selectDate(pierwszyDzień)</code>,

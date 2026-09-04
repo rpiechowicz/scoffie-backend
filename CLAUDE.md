@@ -7,7 +7,7 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 
 ## Repozytoria i środowisko
 
-- Backend: to repo. iOS (SwiftUI): `rpiechowicz/Weekly-Meals` — buduje się TYLKO na Macu
+- Backend: to repo. iOS (SwiftUI): `rpiechowicz/scoffie-ios` — buduje się TYLKO na Macu
   (`xcodebuild`). Mikroserwis Cookidoo (Python): `rpiechowicz/scoffie-cookidoo`,
   sklonowany OBOK tego repo (`docker-compose.yml` buduje `../scoffie-cookidoo`).
 - Dev: `docker compose up -d --build api` (Postgres `db`, `cookidoo`, `api` na :3000).

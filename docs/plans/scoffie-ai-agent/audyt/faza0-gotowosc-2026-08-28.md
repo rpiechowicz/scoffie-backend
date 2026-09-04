@@ -148,7 +148,7 @@ Zrób: fetch + merge PR (nie kopiowanie z Maca); potem traktuj listę (a)–(e) 
 - `WS_CORS_ORIGIN='*'` z `credentials:true` nieasertowane na prod (`ws-gateway-options.ts:17`).
 - Telemetria WS liczy każde połączenie 5× (`ws-telemetry.service.ts:43`); brak puli/timeoutów Prisma i APNs (`prisma.service.ts:9`, `apns.service.ts:194`).
 - Brak API powiadomienia zleceniodawcy / kopii „asystent ułożył plan” — batcher zawsze wyklucza autora (`notifications.service.ts:425`).
-- iOS: katalog bez zdarzenia unieważniającego (`recipes:changed` nie istnieje) — zmiany przepisów przez agenta dotrą po foreground/12 h (`RecipeCatalogStore.swift:75`); cache `meal_plans.json` bez namespace i nieczyszczony przy logout (`WeeklyMealStore.swift:420`); `acceptInvitation` gubi kod z koperty (`SessionStore.swift:1085`).
+- iOS: katalog bez zdarzenia unieważniającego (`recipes:changed` nie istnieje) — zmiany przepisów przez agenta dotrą po foreground/12 h (`RecipeCatalogStore.swift:75`); cache `meal_plans.json` bez namespace i nieczyszczony przy logout (`MealCalendarStore.swift:420`); `acceptInvitation` gubi kod z koperty (`SessionStore.swift:1085`).
 - Parytet reguł diet backend↔iOS na literałach, bez wspólnej fixtury (`diet-rules.util.spec.ts:17`); e2e na tej samej bazie co dev (brak `.env.test`); CI bez `prisma migrate diff --exit-code`; dryf README (dev-login, kroki CI) i RELEASE_CHECKLIST.
 
 ## 5. Liczby z bazy (dev, 28.08.2026, zasiana z prisma/catalog)

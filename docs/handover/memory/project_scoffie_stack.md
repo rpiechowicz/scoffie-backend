@@ -9,7 +9,7 @@ Fakt: Repo ma dwa projekty – `scoffie-ios` (SwiftUI, Xcode) oraz `scoffie-back
 
 **Why:** Developerski backend nasłuchuje na localhost:3000 (Docker), a appka iOS działa na fizycznym iPhonie, więc `localhost` nie zadziała – iPhone musi łączyć się po LAN IP Maca.
 
-**How to apply:** Dla dev testów Apple Sign In / API z urządzenia fizycznego ustaw `API_BASE_URL` w `scoffie-ios/weekly-meals-Info.plist` na `http://<mac-lan-ip>:3000` oraz dodaj `NSExceptionDomains` w `NSAppTransportSecurity` (ATS nie pozwala na HTTP bez wyjątku; `NSAllowsLocalNetworking` samo nie wystarcza dla adresów 192.168.x.x). Prod URL to `https://api.scoffie.app` (na 2026-04-17 domena jeszcze nie rozwiązuje DNS). Backend `/auth/apple` obsługuje logowanie Apple. IP Maca może się zmieniać – zweryfikować `ipconfig getifaddr en0` przed kolejną sesją.
+**How to apply:** Dla dev testów Apple Sign In / API z urządzenia fizycznego ustaw `API_BASE_URL` w `scoffie-ios/Scoffie-Info.plist` na `http://<mac-lan-ip>:3000` oraz dodaj `NSExceptionDomains` w `NSAppTransportSecurity` (ATS nie pozwala na HTTP bez wyjątku; `NSAllowsLocalNetworking` samo nie wystarcza dla adresów 192.168.x.x). Prod URL to `https://api.scoffie.app` (na 2026-04-17 domena jeszcze nie rozwiązuje DNS). Backend `/auth/apple` obsługuje logowanie Apple. IP Maca może się zmieniać – zweryfikować `ipconfig getifaddr en0` przed kolejną sesją.
 
 **Hosting prod:** Backend deployowany na Railway (Hobby plan, $5/mc, ~8 vCPU / 8 GB RAM per replica na 2026-04-21). Przy sugestiach infra/perf pamiętać że to Railway + Docker — nie AWS/GCP/k8s.
 

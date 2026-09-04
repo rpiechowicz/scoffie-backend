@@ -5,15 +5,15 @@ buildem, więc Apple zablokowało bundle ID `rpiechowicz.weekly-meals` i SKU).
 
 ## Identyfikatory (źródło prawdy)
 
-| Co | Wartość |
-|---|---|
-| Bundle ID (Developer Portal, explicit) | `app.scoffie.ios` |
-| SKU w ASC | `scoffie-ios` |
-| Apple ID apki w ASC | `6808608589` → Railway `APPLE_APP_APPLE_ID` |
-| Product ID subskrypcji | `app.scoffie.pro.solo.monthly`, `.duet.`, `.family.` (grupa „Scoffie Pro") |
-| API | `https://api.scoffie.app` (Railway projekt `scoffie`, serwis `scoffie-backend`, deploy z `main`) |
-| Strona / support | `https://scoffie.app` (GitHub Pages z `docs/` repo iOS, `docs/CNAME`), `support@scoffie.app` |
-| URL scheme | `scoffie://invite?token=…` |
+| Co                                     | Wartość                                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Bundle ID (Developer Portal, explicit) | `app.scoffie.ios`                                                                                |
+| SKU w ASC                              | `scoffie-ios`                                                                                    |
+| Apple ID apki w ASC                    | `6808608589` → Railway `APPLE_APP_APPLE_ID`                                                      |
+| Product ID subskrypcji                 | `app.scoffie.pro.solo.monthly`, `.duet.`, `.family.` (grupa „Scoffie Pro")                       |
+| API                                    | `https://api.scoffie.app` (Railway projekt `scoffie`, serwis `scoffie-backend`, deploy z `main`) |
+| Strona / support                       | `https://scoffie.app` (GitHub Pages z `docs/` repo iOS, `docs/CNAME`), `support@scoffie.app`     |
+| URL scheme                             | `scoffie://invite?token=…`                                                                       |
 
 Backend w kodzie ma domyślny bundle ID `app.scoffie` (bez `.ios`) — na Railway
 zmienne `APPLE_AUDIENCE`, `APPLE_BUNDLE_ID`, `APNS_BUNDLE_ID` = `app.scoffie.ios`
@@ -36,7 +36,7 @@ nadpisują to. Wyrównanie domyślnych w kodzie (10 miejsc z testami) — do zro
    (TestFlight z workflow).
 2. Ikona: 3 × PNG 1024×1024 w `Scoffie/Assets.xcassets/AppIcon.appiconset/` pod obecnymi
    nazwami (`app-icon-primary.png` bez alfa, `-dark.png` tło przezroczyste, `-tinted.png`
-   skala szarości). Logo w kodzie `WMSteamingBowlLogo.swift` rysuje parę w kształcie „WM" —
+   skala szarości). Logo w kodzie `SCSteamingBowlLogo.swift` rysuje parę w kształcie „WM" —
    potrzebny nowy SVG 1024, ścieżki przenieść jak z `branding/weekly-meals-logo-v3.svg`.
 3. DNS `scoffie.app`: 4 × A na GitHub Pages (185.199.108–111.153), CNAME `www` →
    `rpiechowicz.github.io`, GitHub Settings → Pages → custom domain + Enforce HTTPS;
