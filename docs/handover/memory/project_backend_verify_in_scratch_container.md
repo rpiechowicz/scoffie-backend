@@ -8,11 +8,11 @@ metadata:
   modified: 2026-08-23T08:12:19.581Z
 ---
 
-Sprawdzony sposób na `prisma generate` + `tsc` + `jest` w `weakly-meals-backend`, gdy
+Sprawdzony sposób na `prisma generate` + `tsc` + `jest` w `scoffie-backend`, gdy
 lokalnie się wieszają (2026-08-23, działa):
 
 ```
-CID=$(docker create weakly-meals-backend-api sleep 7200) && docker start $CID
+CID=$(docker create scoffie-backend-api sleep 7200) && docker start $CID
 docker cp ./src "$CID:/app/"; docker cp ./prisma "$CID:/app/"
 docker cp ./scripts "$CID:/app/"; docker cp ./test "$CID:/app/"
 docker cp ./jest.config.js "$CID:/app/"
@@ -36,7 +36,7 @@ docker rm -f $CID
   jest bierze babel i nie parsuje TypeScriptu.
 
 Migrację SQL da się wypróbować na prawdziwych danych bez zapisu:
-`{ echo BEGIN; cat migration.sql; echo ROLLBACK; } | docker compose exec -T db psql -U weeklymeals -d weeklymeals -v ON_ERROR_STOP=1`
+`{ echo BEGIN; cat migration.sql; echo ROLLBACK; } | docker compose exec -T db psql -U scoffie -d scoffie -v ON_ERROR_STOP=1`
 
 Powiązane: [[project-stale-local-prisma-client]], [[project-mac-resources-exhausted]],
 [[project-docker-no-auto-migrate]].

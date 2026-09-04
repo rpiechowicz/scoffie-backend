@@ -1,4 +1,4 @@
-# Unit-economics model — Weekly Meals AI assistant (Claude API, direct)
+# Unit-economics model — Scoffie AI assistant (Claude API, direct)
 
 > **31.08.2026 — digest katalogu jest ZMIERZONY, nie szacowany.** Wszystkie
 > liczby digestu w §0–§10 poniżej to pierwotne szacunki; realne wartości z

@@ -82,7 +82,7 @@ export const APP_ERROR_CODES = [
   'SHOPPING_LIST_ARCHIVE_NOT_FOUND',
   'SHOPPING_ITEM_NOT_FOUND',
   // ─── asystent AI (src/agent) ───
-  // Nazwy z analizy asystenta (docs/plans/weekly-meals-ai-agent). Klient
+  // Nazwy z analizy asystenta (docs/plans/scoffie-ai-agent). Klient
   // decyduje po kodzie: DISABLED/BUDGET_PAUSED/UPSTREAM_PAUSED = „spróbuj
   // później", QUOTA_EXCEEDED = karta limitu, TURN_IN_PROGRESS = czekaj na
   // bieżącą turę.

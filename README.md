@@ -1,6 +1,6 @@
-# Weekly Meals Backend
+# Scoffie Backend
 
-Backend API for the Weekly Meals iOS app. It serves recipes, households, weekly plans, shopping lists, realtime updates, and push notifications.
+Backend API for the Scoffie iOS app. It serves recipes, households, weekly plans, shopping lists, realtime updates, and push notifications.
 
 ## Stack
 
@@ -297,6 +297,6 @@ ingredients (`Ingredient.nutritionSodiumMgPer100`, column `sodiumMg` in the
 nutrition table) × 2.5, plus `Recipe.nutritionSaltAdded` — the pinch or
 teaspoon the recipe adds by hand. Catalog JSON carries both (`salt`,
 `addedSalt`); `pnpm recipes:recompute:nutrition` keeps `salt` in sync. The
-DTO field `nutritionSalt` on create/update means *added* salt. On the first
+DTO field `nutritionSalt` on create/update means _added_ salt. On the first
 start after this change `prisma-migrate-deploy-safe.js` loads sodium and
 recomputes every recipe by itself.

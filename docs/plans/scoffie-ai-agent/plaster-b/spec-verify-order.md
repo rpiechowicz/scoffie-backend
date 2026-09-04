@@ -97,7 +97,7 @@ Kill switch: gate the stub on `LEGACY_SAVED_PLAN_STUB !== 'false'` so prod can t
 ## 2. Commit / PR plan
 
 Branch in **both** repos: `fix/fundamenty-b`, cut from `develop`.
-`weakly-meals-backend/.github/workflows/backend-ci.yml:3-8` runs on `pull_request` (any base) + push to `main`/`master` — a PR into `develop` is covered. iOS `ios-ci.yml` runs on `pull_request` only; `ios-testflight.yml` fires on push to `main`.
+`scoffie-backend/.github/workflows/backend-ci.yml:3-8` runs on `pull_request` (any base) + push to `main`/`master` — a PR into `develop` is covered. iOS `ios-ci.yml` runs on `pull_request` only; `ios-testflight.yml` fires on push to `main`.
 
 ### 2.1 Backend commits (one PR, `fix/fundamenty-b` → `develop`)
 
@@ -133,7 +133,7 @@ Commits 2, 5, 6 are genuinely independent and can be split into their own PRs if
 
 ### 2.4 What can ship independently
 
-- **B4** and **B5-backend**: zero client contract change (iOS never calls `recipes:create` — grep for `recipes:create|createRecipe` across `weekly-meals-ios/**/*.swift` returns **0 hits**). Ship whenever.
+- **B4** and **B5-backend**: zero client contract change (iOS never calls `recipes:create` — grep for `recipes:create|createRecipe` across `scoffie-ios/**/*.swift` returns **0 hits**). Ship whenever.
 - **B3**: server-internal, no event changes. Ship whenever, but pair with its cleanup SQL.
 - **B2** and **B1** are the only ones with a release-order constraint.
 
@@ -155,10 +155,10 @@ docker compose up -d --build
 docker compose exec api rm -rf /app/src /app/test
 
 # 2. push the working tree
-docker cp src            weeklymeals-api:/app/src
-docker cp test           weeklymeals-api:/app/test
-docker cp jest.config.js weeklymeals-api:/app/jest.config.js
-docker cp tsconfig.json  weeklymeals-api:/app/tsconfig.json
+docker cp src            scoffie-api:/app/src
+docker cp test           scoffie-api:/app/test
+docker cp jest.config.js scoffie-api:/app/jest.config.js
+docker cp tsconfig.json  scoffie-api:/app/tsconfig.json
 
 # 3. run the four affected suites
 docker compose exec api npx jest src/weekly-plans src/households src/recipes src/users
@@ -214,11 +214,11 @@ and `Test.createTestingModule({ providers: [Svc, { provide: PrismaService, useVa
 ### 3.3 iOS
 
 ```bash
-cd "/Users/rafi/Desktop/Weekly Meals App/weekly-meals-ios"
+cd "/Users/rafi/Desktop/Scoffie App/scoffie-ios"
 xcodebuild -resolvePackageDependencies -project "weekly meals.xcodeproj"
 xcodebuild \
   -project "weekly meals.xcodeproj" \
-  -scheme "weekly meals" \
+  -scheme "Scoffie" \
   -destination "generic/platform=iOS Simulator" \
   -sdk iphonesimulator \
   build \
@@ -231,7 +231,7 @@ xcodebuild \
 
 ## 4. Data steps — dev first, then prod, in this order
 
-Run everything through `docker compose exec db psql -U weeklymeals -d weeklymeals -c "…"` on dev, and `railway run --service Backend …`/the prod psql console on prod. **Diagnose → back up → clean → verify.** Take a DB snapshot before any `DELETE`/`UPDATE` on prod.
+Run everything through `docker compose exec db psql -U scoffie -d scoffie -c "…"` on dev, and `railway run --service Backend …`/the prod psql console on prod. **Diagnose → back up → clean → verify.** Take a DB snapshot before any `DELETE`/`UPDATE` on prod.
 
 ### 4.1 Diagnostics (read-only, run before the deploy)
 
@@ -383,7 +383,7 @@ Then open the app on two devices, walk the current week, and confirm the shoppin
 4. `…{"proteinG": 99999}` → stored clamped, not 99999.
 
 **B4 — recipe create: note explicitly**
-There is **no iOS UI for recipe creation** — grep for `recipes:create|createRecipe` across `weekly-meals-ios` returns 0 hits. B4 is verifiable **only** via `ws:smoke`/unit tests:
+There is **no iOS UI for recipe creation** — grep for `recipes:create|createRecipe` across `scoffie-ios` returns 0 hits. B4 is verifiable **only** via `ws:smoke`/unit tests:
 
 ```bash
 docker compose exec api pnpm ws:smoke recipes:create \

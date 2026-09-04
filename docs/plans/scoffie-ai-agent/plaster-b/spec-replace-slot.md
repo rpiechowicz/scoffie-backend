@@ -436,19 +436,19 @@ Cases (`describe('weeklyPlans:upsertWeekSlot')`):
 
 `docker-compose.yml` has **no bind mount** for `src`, so the container must be fed with `docker cp`.
 
-**4.1 Backend unit tests (inside `weeklymeals-api`)**
+**4.1 Backend unit tests (inside `scoffie-api`)**
 
 ```
-docker cp "/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/src" weeklymeals-api:/app/src
-docker cp "/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/jest.config.js" weeklymeals-api:/app/jest.config.js
-docker exec weeklymeals-api npx jest src/weekly-plans/weekly-plans.service.spec.ts src/weekly-plans/weekly-plans.gateway.spec.ts
-docker exec weeklymeals-api npx jest          # full suite before merge
+docker cp "/Users/rafi/Desktop/Scoffie App/scoffie-backend/src" scoffie-api:/app/src
+docker cp "/Users/rafi/Desktop/Scoffie App/scoffie-backend/jest.config.js" scoffie-api:/app/jest.config.js
+docker exec scoffie-api npx jest src/weekly-plans/weekly-plans.service.spec.ts src/weekly-plans/weekly-plans.gateway.spec.ts
+docker exec scoffie-api npx jest          # full suite before merge
 ```
 
 **4.2 Type check / build (container only)**
 
 ```
-docker exec weeklymeals-api npx tsc --noEmit -p tsconfig.json
+docker exec scoffie-api npx tsc --noEmit -p tsconfig.json
 ```
 
 **4.3 WS smoke (real DB, proves the atomicity and the caps-after-delete rule)**
@@ -465,8 +465,8 @@ Expect: ack `ok:true`, `changeKind:"REPLACED"`, `replacedItemIds` length 1; the 
 **4.4 iOS**
 
 ```
-xcodebuild -project "/Users/rafi/Desktop/Weekly Meals App/weekly-meals-ios/weekly meals.xcodeproj" \
-  -scheme "weekly meals" -destination 'platform=iOS Simulator,name=iPhone 16' build
+xcodebuild -project "/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals.xcodeproj" \
+  -scheme "Scoffie" -destination 'platform=iOS Simulator,name=iPhone 16' build
 ```
 
 (there is no test target; `xcshareddata/xcschemes/weekly meals.xcscheme` is the only scheme). Manual pass on the simulator against the container: PlanSlotPickerSheet → edit a meal → pick a different recipe; the second device must receive exactly **one** `weekChanged` and one notification, and the slot must never flash empty.

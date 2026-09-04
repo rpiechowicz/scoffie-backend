@@ -77,7 +77,7 @@ const token = (header: unknown, payload: unknown, signature = 'AAAA'): string =>
 
 const billingEnv = (over: Partial<BillingEnv> = {}): BillingEnv => ({
   ...readBillingEnv(),
-  bundleId: 'rpiechowicz.weekly-meals',
+  bundleId: 'app.scoffie',
   environment: 'Production',
   acceptSandbox: false,
   ...over,
@@ -242,8 +242,8 @@ describe('treść transakcji', () => {
   const full = {
     transactionId: '2000000123',
     originalTransactionId: '2000000000',
-    bundleId: 'rpiechowicz.weekly-meals',
-    productId: 'pl.weeklymeals.pro.solo.monthly',
+    bundleId: 'app.scoffie',
+    productId: 'app.scoffie.pro.solo.monthly',
     purchaseDate: 1_756_000_000_000,
     environment: 'Production',
   };
@@ -251,7 +251,7 @@ describe('treść transakcji', () => {
   it('przyjmuje kompletną transakcję z naszej aplikacji', () => {
     const info = checkTransactionPayload(full, billingEnv());
     expect(info.originalTransactionId).toBe('2000000000');
-    expect(info.productId).toBe('pl.weeklymeals.pro.solo.monthly');
+    expect(info.productId).toBe('app.scoffie.pro.solo.monthly');
   });
 
   it('odrzuca transakcję z INNEJ aplikacji, choć podpis jest prawdziwy', () => {

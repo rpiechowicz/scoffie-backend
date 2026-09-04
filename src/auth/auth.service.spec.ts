@@ -245,7 +245,7 @@ describe('AuthService', () => {
       emailVerified: true,
       issuedAt: Math.floor(Date.now() / 1000),
       expiresAt: Math.floor(Date.now() / 1000) + 600,
-      audience: 'rpiechowicz.weekly-meals',
+      audience: 'app.scoffie',
     };
 
     it('powinno odrzucić gdy brak identityToken', async () => {

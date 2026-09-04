@@ -8,7 +8,7 @@ metadata:
   modified: 2026-08-24T09:48:41.589Z
 ---
 
-Preferencje do przepisów w Weekly Meals (ustalone 2026-08-24 przy rozbudowie bazy):
+Preferencje do przepisów w Scoffie (ustalone 2026-08-24 przy rozbudowie bazy):
 
 - Wieprzowina i wołowina: TAK, bez ograniczeń.
 - Krewetki i śledź: NIE — nie proponować.

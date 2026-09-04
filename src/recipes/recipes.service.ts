@@ -134,7 +134,7 @@ export class RecipesService {
     process.env.IMAGE_GENERATOR_STYLE ??
     'ultra realistic food photography, natural light, 50mm lens, shallow depth of field';
   private readonly imageGeneratorSeedPrefix =
-    process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'weekly-meals';
+    process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'scoffie';
   private readonly r2PublicBaseUrl = (process.env.R2_PUBLIC_BASE_URL ?? '')
     .trim()
     .replace(/\/+$/g, '');

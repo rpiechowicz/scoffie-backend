@@ -44,19 +44,19 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_DB: weeklymeals
-          POSTGRES_USER: weeklymeals
-          POSTGRES_PASSWORD: weeklymeals
+          POSTGRES_DB: scoffie
+          POSTGRES_USER: scoffie
+          POSTGRES_PASSWORD: scoffie
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U weeklymeals -d weeklymeals"
+          --health-cmd "pg_isready -U scoffie -d scoffie"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
 
     env:
-      DATABASE_URL: postgresql://weeklymeals:weeklymeals@localhost:5432/weeklymeals?schema=public
+      DATABASE_URL: postgresql://scoffie:scoffie@localhost:5432/scoffie?schema=public
       JWT_SECRET: ci-secret
       REFRESH_TOKEN_PEPPER: ci-pepper
       AUTH_DEV_LOGIN_ENABLED: 'true'

@@ -6,7 +6,7 @@ export type AppleRevocationOutcome = 'revoked' | 'not_configured' | 'failed';
 const APPLE_TOKEN_URL = 'https://appleid.apple.com/auth/token';
 const APPLE_REVOKE_URL = 'https://appleid.apple.com/auth/revoke';
 const APPLE_AUDIENCE = 'https://appleid.apple.com';
-const DEFAULT_CLIENT_ID = 'rpiechowicz.weekly-meals';
+const DEFAULT_CLIENT_ID = 'app.scoffie';
 
 /**
  * Unieważnienie tokenów Sign in with Apple przy kasowaniu konta.
@@ -14,7 +14,7 @@ const DEFAULT_CLIENT_ID = 'rpiechowicz.weekly-meals';
  * Wytyczne App Store 5.1.1(v) od czerwca 2022: aplikacja, która pozwala
  * skasować konto, MUSI przy tym unieważnić tokeny Apple przez
  * `/auth/revoke`. Bez tego konto znika u nas, a u Apple w „Aplikacje
- * używające Apple ID" nadal wisi Weekly Meals z aktywnym logowaniem.
+ * używające Apple ID" nadal wisi Scoffie z aktywnym logowaniem.
  *
  * Potrzebne są (Railway): `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`
  * (klucz .p8 z portalu deweloperskiego, PEM; \n może być zapisane jako `\\n`)

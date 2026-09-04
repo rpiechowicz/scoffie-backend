@@ -1,6 +1,6 @@
 # Implementation Spec — WP: kill the diverged normalizer copy in `RecipesService` + compute nutrition on create
 
-**Audit refs:** `catalog-data.md` D3 (P1, FIX-BEFORE-PHASE-0), `tests-ci.md` T3 (P0). **Scope:** backend only. **No iOS work** — verified: `grep -rn "recipes:create|createRecipe" --include=*.swift` over `/Users/rafi/Desktop/Weekly Meals App/weekly-meals-ios` returns **0 hits**; the only WS recipe calls from iOS are `recipes:findAll` / `findById` / `setFavorite` (`weekly-meals-ios/weekly meals/Networking/Recipes/WebSocketRecipeTransportClient.swift`). `RecipesService.create` currently has **no client at all**; its only future caller is the AI-agent path. That fact drives decision D-3 below.
+**Audit refs:** `catalog-data.md` D3 (P1, FIX-BEFORE-PHASE-0), `tests-ci.md` T3 (P0). **Scope:** backend only. **No iOS work** — verified: `grep -rn "recipes:create|createRecipe" --include=*.swift` over `/Users/rafi/Desktop/Scoffie App/scoffie-ios` returns **0 hits**; the only WS recipe calls from iOS are `recipes:findAll` / `findById` / `setFavorite` (`scoffie-ios/weekly meals/Networking/Recipes/WebSocketRecipeTransportClient.swift`). `RecipesService.create` currently has **no client at all**; its only future caller is the AI-agent path. That fact drives decision D-3 below.
 
 **Current-state deltas vs. the audit text (Plaster A already landed — I read the files):**
 
@@ -73,7 +73,7 @@ export function normalizeText(value: string): string {
 
 ## 2. `RecipesService` — delete the private normalizer, import the util
 
-**File:** `/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/src/recipes/recipes.service.ts`
+**File:** `/Users/rafi/Desktop/Scoffie App/scoffie-backend/src/recipes/recipes.service.ts`
 
 ### 2.1 Deletions (exact block boundaries)
 
@@ -623,36 +623,36 @@ Expected: 0 rows. If non-zero, run `pnpm catalog:ingredients:normalize:pl` **aft
 
 ## 8. Verification (nothing runs on the developer Mac)
 
-No `tsc`, `jest`, `prisma`, or `pnpm install` locally. The runner image carries full `node_modules` (Dockerfile `:32` copies from the `deps` stage, which ran `pnpm install --frozen-lockfile` before `NODE_ENV=production`), so jest and tsc exist inside `weeklymeals-api`. `jest.config.js` is **not** in the image (`Dockerfile:33-43`) — copy it.
+No `tsc`, `jest`, `prisma`, or `pnpm install` locally. The runner image carries full `node_modules` (Dockerfile `:32` copies from the `deps` stage, which ran `pnpm install --frozen-lockfile` before `NODE_ENV=production`), so jest and tsc exist inside `scoffie-api`. `jest.config.js` is **not** in the image (`Dockerfile:33-43`) — copy it.
 
 ```bash
-cd "/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend"
+cd "/Users/rafi/Desktop/Scoffie App/scoffie-backend"
 docker compose up -d api
 
 # sources + jest config into the container (note the trailing /app/ — merges into /app/src)
-docker cp ./src            weeklymeals-api:/app/
-docker cp ./scripts        weeklymeals-api:/app/
-docker cp ./prisma         weeklymeals-api:/app/
-docker cp ./jest.config.js weeklymeals-api:/app/jest.config.js
+docker cp ./src            scoffie-api:/app/
+docker cp ./scripts        scoffie-api:/app/
+docker cp ./prisma         scoffie-api:/app/
+docker cp ./jest.config.js scoffie-api:/app/jest.config.js
 
 # unit tests for this WP
-docker exec -w /app weeklymeals-api npx jest src/recipes --runInBand
+docker exec -w /app scoffie-api npx jest src/recipes --runInBand
 # full suite (catches collateral from the normalizeText move)
-docker exec -w /app weeklymeals-api npx jest --runInBand
+docker exec -w /app scoffie-api npx jest --runInBand
 
 # type check — specs are transpile-only otherwise (T2); this is the only gate that
 # catches the deleted `NormalizedIngredient` type / removed imports
-docker exec -w /app weeklymeals-api npx tsc -p tsconfig.json --noEmit
+docker exec -w /app scoffie-api npx tsc -p tsconfig.json --noEmit
 
 # data steps (only if §7.1 returned rows)
-docker exec -w /app weeklymeals-api npx tsx scripts/recompute-recipe-nutrition.ts --db-only
-docker exec -w /app weeklymeals-api npx tsx scripts/recompute-recipe-nutrition.ts --write --db-only
+docker exec -w /app scoffie-api npx tsx scripts/recompute-recipe-nutrition.ts --db-only
+docker exec -w /app scoffie-api npx tsx scripts/recompute-recipe-nutrition.ts --write --db-only
 
 # SQL from §7 — psql in the db container
-docker exec -i weeklymeals-db psql -U weeklymeals -d weeklymeals -c "<query>"
+docker exec -i scoffie-db psql -U scoffie -d scoffie -c "<query>"
 ```
 
-Runtime smoke for the changed path (no HTTP DTO validation is applied on WS, so this exercises the new guards too): `pnpm ws:smoke` is a `tsx` script — run it in the container: `docker exec -w /app weeklymeals-api npx tsx scripts/ws-smoke.ts` (check it covers `recipes:create`; if not, a 15-line ad-hoc socket.io call is enough to confirm `{ok:false, code:'VALIDATION_ERROR', status:400}` on a bad unit).
+Runtime smoke for the changed path (no HTTP DTO validation is applied on WS, so this exercises the new guards too): `pnpm ws:smoke` is a `tsx` script — run it in the container: `docker exec -w /app scoffie-api npx tsx scripts/ws-smoke.ts` (check it covers `recipes:create`; if not, a 15-line ad-hoc socket.io call is enough to confirm `{ok:false, code:'VALIDATION_ERROR', status:400}` on a bad unit).
 
 **iOS: no build required.** Nothing in the Swift target references `recipes:create` (grep = 0). `xcodebuild` is not part of this WP's verification.
 

@@ -21,7 +21,7 @@
 | iOS ignores an unknown `weekChanged.action`: `singleChangeText` `default: return nil` → no local notification, but `scheduleWeekReload` already ran | `PlanChangeNotificationService.swift:361-378`, `WeeklyMealStore.swift:527-544`                                                                 |
 | iOS `households:membersChanged` handler updates the member list **only** — it never refetches the week or the list                                  | `SessionStore.swift:577-631`                                                                                                                   |
 | Prisma 6.2 — relation filters (`some`/`none`, to-one) are supported inside `updateMany`/`deleteMany` `where`                                        | `package.json` → `"@prisma/client": "^6.2.1"`                                                                                                  |
-| The container has devDeps (jest/ts-jest/tsc) and `/app/src`, `/app/tsconfig.json`, but **not** `jest.config.js`                                     | `Dockerfile:32-43` (`COPY --from=deps /app/node_modules`), `container_name: weeklymeals-api`                                                   |
+| The container has devDeps (jest/ts-jest/tsc) and `/app/src`, `/app/tsconfig.json`, but **not** `jest.config.js`                                     | `Dockerfile:32-43` (`COPY --from=deps /app/node_modules`), `container_name: scoffie-api`                                                       |
 
 **New finding not in the audit:** `UsersService.deleteAccount` is a **4th membership-removal path** (`src/users/users.service.ts:417-439`). `tx.user.delete` at `:438` cascades the ghost rows away, so WP-04 does not bite there — but the items whose participant set becomes empty are **silently promoted to "Wspólne"**, and auto servings are **not** re-derived (WP-07 in full). It must call the same hook.
 
@@ -625,7 +625,7 @@ for (const weekStart of result.touchedWeekStarts ?? []) {
 
 **No Prisma migration.** These are manual `psql` statements; run them **after** the code deploy so no new ghosts appear between the two.
 
-Run: `docker compose exec db psql -U weeklymeals -d weeklymeals -c "<sql>"`.
+Run: `docker compose exec db psql -U scoffie -d scoffie -c "<sql>"`.
 `date_trunc('week', CURRENT_DATE)` returns ISO Monday; `CURRENT_DATE` uses the session `TimeZone`, which is UTC in the container — matches `currentWeekStart`.
 
 ### 7.1 Diagnostic first (read-only)
@@ -731,12 +731,12 @@ Re-run 7.1 → all counts for `*_future` must be `0`; `*_past` is expected to st
 ## 8. Verification (no `tsc`/`jest`/`prisma` on the developer Mac)
 
 ```bash
-cd "/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend"
+cd "/Users/rafi/Desktop/Scoffie App/scoffie-backend"
 docker compose up -d api
 
 # jest.config.js is NOT baked into the image (Dockerfile:32-43) — it must be copied.
-docker cp ./src            weeklymeals-api:/app/src
-docker cp ./jest.config.js weeklymeals-api:/app/jest.config.js
+docker cp ./src            scoffie-api:/app/src
+docker cp ./jest.config.js scoffie-api:/app/jest.config.js
 
 # 1. the new unit tests
 docker compose exec api npx jest \
@@ -767,8 +767,8 @@ Expect: B's solo items gone, shared items keep only A in `participantIds`, `plan
 **iOS** (only needed if §6 lands, and only as a regression check — there is no Swift source change):
 
 ```bash
-xcodebuild -project "/Users/rafi/Desktop/Weekly Meals App/weekly-meals-ios/weekly meals.xcodeproj" \
-  -scheme "weekly meals" -destination 'platform=iOS Simulator,name=iPhone 16' build
+xcodebuild -project "/Users/rafi/Desktop/Scoffie App/scoffie-ios/weekly meals.xcodeproj" \
+  -scheme "Scoffie" -destination 'platform=iOS Simulator,name=iPhone 16' build
 ```
 
 Then two simulators in one household: remove member on device A → device B's Plan reloads within the 250 ms debounce, no notification banner.

@@ -1,14 +1,14 @@
 services:
   db:
     image: postgres:17
-    container_name: weeklymeals-db
+    container_name: scoffie-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: weeklymeals
-      POSTGRES_PASSWORD: weeklymeals
-      POSTGRES_DB: weeklymeals
+      POSTGRES_USER: scoffie
+      POSTGRES_PASSWORD: scoffie
+      POSTGRES_DB: scoffie
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U weeklymeals -d weeklymeals']
+      test: ['CMD-SHELL', 'pg_isready -U scoffie -d scoffie']
       interval: 5s
       timeout: 3s
       retries: 10
@@ -19,7 +19,7 @@ services:
 
   api:
     build: .
-    container_name: weeklymeals-api
+    container_name: scoffie-api
     depends_on:
       db:
         condition: service_healthy
@@ -33,7 +33,7 @@ services:
       # czyli przy domyślnych wartościach z `.env.example`. Compose to stack
       # deweloperski, więc prostuje to jawnie.
       NODE_ENV: development
-      DATABASE_URL: postgresql://weeklymeals:weeklymeals@db:5432/weeklymeals?schema=public
+      DATABASE_URL: postgresql://scoffie:scoffie@db:5432/scoffie?schema=public
       # Inline jak DATABASE_URL: w composie hostname to nazwa usługi, a .env
       # trzyma localhost:8000 dla api odpalanego z hosta.
       COOKIDOO_SERVICE_URL: http://cookidoo:8000
@@ -41,11 +41,11 @@ services:
       - '3000:3000'
       - '5555:5555'
 
-  # Mikroserwis Cookidoo (Thermomix) — repo weekly-meals-cookidoo sklonowane
-  # obok tego repa (kontekst builda ../weekly-meals-cookidoo).
+  # Mikroserwis Cookidoo (Thermomix) — repo scoffie-cookidoo sklonowane
+  # obok tego repa (kontekst builda ../scoffie-cookidoo).
   cookidoo:
-    build: ../weekly-meals-cookidoo
-    container_name: weeklymeals-cookidoo
+    build: ../scoffie-cookidoo
+    container_name: scoffie-cookidoo
     restart: unless-stopped
     environment:
       INTERNAL_TOKEN: ${COOKIDOO_SERVICE_TOKEN}

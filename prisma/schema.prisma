@@ -783,7 +783,7 @@ model AgentConversation {
 /// DZIŚ NIEUŻYWANE i świadomie: historia rozmowy wraca do modelu jako sam
 /// `text`, bo odgrywanie pełnych wyników narzędzi z poprzednich tur kosztowałoby
 /// w każdej turze więcej, niż jest warte — model, który potrzebuje szczegółu,
-/// woła narzędzie jeszcze raz (patrz docs/plans/weekly-meals-ai-agent/cost-model.md).
+/// woła narzędzie jeszcze raz (patrz docs/plans/scoffie-ai-agent/cost-model.md).
 model AgentMessage {
   id              String    @id @default(uuid()) @db.Uuid
   conversationId  String    @db.Uuid

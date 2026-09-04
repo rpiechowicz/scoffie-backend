@@ -12,7 +12,7 @@ przed czyszczeniem SQL utrwaliłby śmieci i zablokował zapis preferencji.
 ## 1. Backend
 
 1. `fix/fundamenty-b` → PR → `develop` → `main` (Railway `Backend` deployuje z `main`).
-2. `curl https://weakly-meals-backend-production.up.railway.app/ops/health` — commit = merge.
+2. `curl https://scoffie-backend-production.up.railway.app/ops/health` — commit = merge.
 3. Żadnej migracji Prismy w tym plastrze (schemat bez zmian; DROP puli w następnym wydaniu).
 
 ## 2. Dane na prod (Terminal z `export PROD_DB='…'`, przez lokalny kontener psql)

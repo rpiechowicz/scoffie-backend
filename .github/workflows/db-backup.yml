@@ -24,7 +24,7 @@
 # szyfrowanie, ale ma to być stan przejściowy.
 #
 # Odtworzenie:
-#   aws s3 cp s3://<bucket>/weekly-meals/<plik>.dump.age . --endpoint-url <endpoint>
+#   aws s3 cp s3://<bucket>/scoffie/<plik>.dump.age . --endpoint-url <endpoint>
 #   age -d -i <klucz-prywatny.txt> -o <plik>.dump <plik>.dump.age
 #   pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <plik>.dump
 name: DB backup
@@ -47,7 +47,7 @@ jobs:
     timeout-minutes: 20
     env:
       RETENTION_DAYS: '30'
-      PREFIX: weekly-meals
+      PREFIX: scoffie
     # Tymczasowa baza do próby odtworzenia — żyje tylko w tym przebiegu.
     services:
       postgres:
@@ -101,7 +101,7 @@ jobs:
         run: |
           set -euo pipefail
           stamp="$(date -u +%Y-%m-%dT%H%M%SZ)"
-          file="weekly-meals-${stamp}.dump"
+          file="scoffie-${stamp}.dump"
           # Format custom: skompresowany, odtwarzalny wybiórczo przez pg_restore.
           pg_dump --format=custom --no-owner --no-privileges \
             --file "$file" "$DATABASE_PUBLIC_URL"
@@ -117,7 +117,7 @@ jobs:
       - name: Verify dump is restorable
         run: |
           set -euo pipefail
-          FILE="$(ls weekly-meals-*.dump | head -n 1)"
+          FILE="$(ls scoffie-*.dump | head -n 1)"
           # Listing do pliku, nie przez potok: `head` zamyka potok po pięciu
           # liniach, pg_restore dostaje „Broken pipe", a `pipefail` uznaje to
           # za porażkę weryfikacji poprawnego zrzutu.
@@ -208,8 +208,8 @@ jobs:
           set -euo pipefail
           cutoff=$(date -u -d "-${RETENTION_DAYS} days" +%Y-%m-%dT%H%M%SZ)
           # Obie końcówki: stare zrzuty jawne (.dump) i szyfrowane (.dump.age).
-          aws s3 ls "s3://$R2_BACKUP_BUCKET/$PREFIX/" --endpoint-url "$R2_BACKUP_ENDPOINT"             | awk '{print $4}' | { grep -E '^weekly-meals-.*[.]dump([.]age)?$' || true; } | while read -r name; do
-              stamp="${name#weekly-meals-}"; stamp="${stamp%.age}"; stamp="${stamp%.dump}"
+          aws s3 ls "s3://$R2_BACKUP_BUCKET/$PREFIX/" --endpoint-url "$R2_BACKUP_ENDPOINT"             | awk '{print $4}' | { grep -E '^scoffie-.*[.]dump([.]age)?$' || true; } | while read -r name; do
+              stamp="${name#scoffie-}"; stamp="${stamp%.age}"; stamp="${stamp%.dump}"
               if [[ "$stamp" < "$cutoff" ]]; then
                 echo "usuwam $name"
                 aws s3 rm "s3://$R2_BACKUP_BUCKET/$PREFIX/$name" --endpoint-url "$R2_BACKUP_ENDPOINT" --only-show-errors
@@ -218,7 +218,7 @@ jobs:
 
       - name: Shred local dump
         if: always()
-        run: rm -f weekly-meals-*.dump weekly-meals-*.dump.age
+        run: rm -f scoffie-*.dump scoffie-*.dump.age
 
       # Cicha porażka nocnej kopii to brak kopii, o którym nikt nie wie.
       # Ten sam webhook, co alerty serwera (`OPS_ALERT_WEBHOOK_URL`) —
@@ -229,7 +229,7 @@ jobs:
           OPS_ALERT_WEBHOOK_URL: ${{ secrets.OPS_ALERT_WEBHOOK_URL }}
         run: |
           set -euo pipefail
-          MSG="Weekly Meals: nocna kopia bazy NIE powiodła się (${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER}). ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          MSG="Scoffie: nocna kopia bazy NIE powiodła się (${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER}). ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           if [ -z "${OPS_ALERT_WEBHOOK_URL:-}" ]; then
             echo "::warning::$MSG (brak sekretu OPS_ALERT_WEBHOOK_URL — alert tylko tutaj)"
             exit 0

@@ -1,7 +1,7 @@
 /**
  * Mierzy digest katalogu przez `count_tokens` — krok 4 Fazy 0.
  *
- * Model kosztowy (`docs/plans/weekly-meals-ai-agent/cost-model.md`) stoi na
+ * Model kosztowy (`docs/plans/scoffie-ai-agent/cost-model.md`) stoi na
  * SZACUNKACH: 75 tokenów bazy na linię × 1,3 (tokenizer) × 1,3 (polski) =
  * ~127, czyli 11 534 tokenów digestu i 16 734 całego stałego prefiksu. Digest
  * to najgrubszy składnik prefiksu, a prefiks jedzie w KAŻDYM zapytaniu, więc

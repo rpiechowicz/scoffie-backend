@@ -1,20 +1,20 @@
-# Weekly Meals — backend (NestJS 11 + Prisma 6 + Postgres + Socket.IO)
+# Scoffie — backend (NestJS 11 + Prisma 6 + Postgres + Socket.IO)
 
 Ten plik czyta Claude Code na każdej maszynie. Pełny kontekst projektu, decyzje
 i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
-`docs/plans/weekly-meals-ai-agent/` (analiza asystenta AI, audyt, plastry A–D).
+`docs/plans/scoffie-ai-agent/` (analiza asystenta AI, audyt, plastry A–D).
 **Zacznij od `docs/handover/2026-08-28-stan.md`.** Rozmawiamy po polsku, na „ty”.
 
 ## Repozytoria i środowisko
 
 - Backend: to repo. iOS (SwiftUI): `rpiechowicz/Weekly-Meals` — buduje się TYLKO na Macu
-  (`xcodebuild`). Mikroserwis Cookidoo (Python): `rpiechowicz/weekly-meals-cookidoo`,
-  sklonowany OBOK tego repo (`docker-compose.yml` buduje `../weekly-meals-cookidoo`).
+  (`xcodebuild`). Mikroserwis Cookidoo (Python): `rpiechowicz/scoffie-cookidoo`,
+  sklonowany OBOK tego repo (`docker-compose.yml` buduje `../scoffie-cookidoo`).
 - Dev: `docker compose up -d --build api` (Postgres `db`, `cookidoo`, `api` na :3000).
   `.env` jest w gitignore — klucze wg `.env.example`; od plastra C sekrety w dev muszą mieć
   ≥ 32 znaki, gdy `NODE_ENV=production` (compose ustawia `development`, więc lokalnie luz).
 - Prod: Railway, projekt `soothing-celebration`, serwisy `Backend`, `Postgres`, `Cookidoo`;
-  `main` deployuje się automatycznie. `https://weakly-meals-backend-production.up.railway.app`.
+  `main` deployuje się automatycznie. `https://scoffie-backend-production.up.railway.app`.
 
 ## Git
 
@@ -35,12 +35,12 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 - Nie odpalaj lintera po każdej zmianie — tylko na koniec albo na życzenie.
 - Windows (od 28.08.2026, Git Bash): `pnpm install` + `pnpm prisma:generate` na hoście, potem
   `pnpm test` (~1 min, `cross-env` ustawia `NODE_OPTIONS`), `pnpm typecheck`, `pnpm lint:check`
-  (~1 min) działają bez kontenera. SQL do dev: `docker compose exec -T db psql -U weeklymeals
--d weeklymeals -At -c "…"`. LF wymusza `.gitattributes` (`* text=auto eol=lf`); ta maszyna ma dodatkowo lokalnie `core.autocrlf=false`. Brak `gh` i `railway`
+  (~1 min) działają bez kontenera. SQL do dev: `docker compose exec -T db psql -U scoffie
+-d scoffie -At -c "…"`. LF wymusza `.gitattributes` (`* text=auto eol=lf`); ta maszyna ma dodatkowo lokalnie `core.autocrlf=false`. Brak `gh` i `railway`
   CLI na tej maszynie — PR-y i prod robi Rafał (telefon/Mac).
 - Po zmianie `prisma/schema.prisma`: `pnpm prisma:generate` (lokalny klient bywa przestarzały).
 - Alternatywa (używana na Macu z wyczerpanymi zasobami): kopiować `src test scripts prisma`
-  do kontenera `weeklymeals-api` (`rm -rf` celu przed `docker cp`, potem
+  do kontenera `scoffie-api` (`rm -rf` celu przed `docker cp`, potem
   `docker exec -u root … chown -R node:node`), dołożyć `jest.config.js`, `.prettierrc`,
   `eslint.config.mjs` (obraz ich nie ma) i uruchamiać `npx jest` / `npx tsc` w środku.
 
@@ -107,10 +107,10 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   sam `proposalId`. Stan karty (`canApply`/`canUndo`) liczy się PRZY ODCZYCIE, nigdy nie jest
   zapisywany. Zapis planu przenosi się z tury do `POST /agent/proposals/:id/apply` (i `/undo`) —
   bez modelu, czyli za darmo; tam też schodzi kwota `plans`. Tryb: `AI_CARDS_MODE=off|soft|strict`
-  + `clientCapabilities: ["cards.v1"]` w `PostMessageDto` → `resolveProposalMode`. **Lista narzędzi
-  jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
-  akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
-  jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie.
+  - `clientCapabilities: ["cards.v1"]` w `PostMessageDto` → `resolveProposalMode`. **Lista narzędzi
+    jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
+    akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
+    jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie.
 - Schematy narzędzi asystenta mają DWA limity po stronie API i oba wywracają CAŁĄ turę (400),
   zanim model cokolwiek zobaczy: (1) pól nieobowiązkowych w sumie wszystkich `AGENT_TOOLS`
   najwyżej 24, (2) łączny rozmiar gramatyki skompilowanej z narzędzi ze `strict` („compiled
@@ -134,4 +134,4 @@ delete K --service Backend` NIE wyzwala redeployu. Zmienne wymagane przez nowy k
   z nagłówkiem `x-ops-token: $OPS_TOKEN`.
 - SQL: `psql "$PROD_DB"` gdzie `PROD_DB` = `DATABASE_PUBLIC_URL` serwisu Postgres trzymany
   TYLKO w `export` w terminalu — nigdy w plikach, notatkach ani commitach.
-- Runbooki plastrów: `docs/plans/weekly-meals-ai-agent/plaster-*/PROD-RUNBOOK.md`.
+- Runbooki plastrów: `docs/plans/scoffie-ai-agent/plaster-*/PROD-RUNBOOK.md`.

@@ -152,7 +152,7 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
       deviceToken:
         'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
       platform: 'IOS',
-      appBundleId: 'com.example.weeklymeals',
+      appBundleId: 'app.scoffie',
       apnsEnvironment: 'SANDBOX',
     },
   },

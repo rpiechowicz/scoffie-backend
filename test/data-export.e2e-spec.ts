@@ -106,7 +106,7 @@ describe('Eksport danych konta (RODO)', () => {
         userId: meId,
         deviceToken: `tok-${meId}`,
         platform: 'IOS',
-        appBundleId: 'pl.weeklymeals.app',
+        appBundleId: 'app.scoffie.app',
       },
     });
     await prisma.agentConversation.create({

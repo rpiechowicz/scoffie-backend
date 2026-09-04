@@ -2,7 +2,7 @@
 
 Dokument operacyjny: co jest w kodzie, jakie zagrożenia zamyka, co trzeba
 ustawić przed sprzedażą. Cennik i skąd wzięły się limity — osobno, w
-`docs/plans/weekly-meals-ai-agent/cennik-i-limity-2026-09.md` §16–19.
+`docs/plans/scoffie-ai-agent/cennik-i-limity-2026-09.md` §16–19.
 
 **Nazewnictwo.** `PRO` jest nazwą WEWNĘTRZNĄ poziomu (płatny kontra próbny):
 enum w bazie, pole `tier` w odpowiedzi serwera, `AI_TIER_OVERRIDE`. Człowiek
@@ -225,7 +225,7 @@ false` w iOS). Paywall pokazuje ofertę i nie pobiera pieniędzy.
 **App Store Connect**
 
 1. Trzy produkty subskrypcji w jednej grupie:
-   `pl.weeklymeals.pro.{solo,duet,family}.monthly` — 29,99 / 39,99 / 49,99 zł.
+   `app.scoffie.pro.{solo,duet,family}.monthly` — 29,99 / 39,99 / 49,99 zł.
 2. W opisie każdego: liczba wiadomości i zapisów planu w miesiącu (3.1.2(c)).
    Muszą się zgadzać z `src/config/subscription-products.ts` i z paywallem iOS.
 3. Chmura Rodzinna: **wyłączona**.

@@ -1,4 +1,4 @@
-# APNs Setup (Weekly Meals)
+# APNs Setup (Scoffie)
 
 ## 1. Apple Developer
 
@@ -9,7 +9,7 @@
 
 - `APNS_KEY_ID` (Key ID),
 - `APNS_TEAM_ID` (Apple Team ID),
-- `APNS_BUNDLE_ID` (iOS bundle id, e.g. `com.yourcompany.weeklymeals`),
+- `APNS_BUNDLE_ID` (iOS bundle id, e.g. `app.scoffie`),
 - `APNS_PRIVATE_KEY` (content of `.p8` in one line, replace newlines with `\n`).
 
 ## 2. Backend `.env`
@@ -21,7 +21,7 @@ APNS_ENABLED=true
 APNS_USE_SANDBOX=true
 APNS_KEY_ID=XXXXXXXXXX
 APNS_TEAM_ID=XXXXXXXXXX
-APNS_BUNDLE_ID=com.yourcompany.weeklymeals
+APNS_BUNDLE_ID=app.scoffie
 APNS_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----
 ```
 

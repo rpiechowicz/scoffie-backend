@@ -1,6 +1,6 @@
 ---
 name: project-recipe-macro-convention
-description: Konwencja liczenia makro przepisów w Weekly Meals — całość vs porcja, węgle bez błonnika, tabela per-100 g jako źródło prawdy.
+description: Konwencja liczenia makro przepisów w Scoffie — całość vs porcja, węgle bez błonnika, tabela per-100 g jako źródło prawdy.
 metadata:
   type: project
 ---
@@ -17,4 +17,4 @@ Ustalenia z audytu 2026-08-20, których nie widać z kodu:
 
 **Why:** pierwsza baza 30 przepisów miała makro zgadnięte z zakotwiczeniem na ~400 kcal/porcję; mediana odchyłki od realnych składników wynosiła +43%, skrajność +87%, białko zaniżone o 50-70% w niemal każdym przepisie.
 
-**How to apply:** przed zmianą makro puść `pnpm audit:recipes:nutrition` (kod wyjścia 1 = coś poza progiem 10%). Poprawki rób przez `pnpm recipes:recompute:nutrition -- --write`, nigdy ręcznie — skrypt zapisuje i do bazy, i do plików w `prisma/catalog/`, bo sama baza cofnęłaby się przy najbliższym imporcie. Powiązane: [[project-weekly-meals-stack]], [[project-mac-resources-exhausted]].
+**How to apply:** przed zmianą makro puść `pnpm audit:recipes:nutrition` (kod wyjścia 1 = coś poza progiem 10%). Poprawki rób przez `pnpm recipes:recompute:nutrition -- --write`, nigdy ręcznie — skrypt zapisuje i do bazy, i do plików w `prisma/catalog/`, bo sama baza cofnęłaby się przy najbliższym imporcie. Powiązane: [[project-scoffie-stack]], [[project-mac-resources-exhausted]].

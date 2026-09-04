@@ -20,7 +20,7 @@ const TODAY = '2026-09-02';
 const PROD_URL =
   'postgresql://postgres:sekret@caboose.proxy.rlwy.net:59892/railway';
 const LOCAL_URL =
-  'postgresql://weeklymeals:weeklymeals@localhost:5432/weeklymeals?schema=public';
+  'postgresql://scoffie:scoffie@localhost:5432/scoffie?schema=public';
 
 describe('decideResetAccounts', () => {
   it('bez flagi to dry-run, niezależnie od reszty zmiennych', () => {

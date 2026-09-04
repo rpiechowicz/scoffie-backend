@@ -44,7 +44,7 @@ export class OpsAlertService {
     this.lastSent.set(key, at);
     this.prune(at);
 
-    const message = `[Weekly Meals] ${text}`;
+    const message = `[Scoffie] ${text}`;
     try {
       const response = await this.fetchImpl(url, {
         method: 'POST',

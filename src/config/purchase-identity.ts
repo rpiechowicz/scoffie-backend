@@ -39,7 +39,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
  * produkcji. Nie jest to jednak powód, żeby aplikacja nie wstała: pusty pieprz
  * psuje prywatność, a brak startu psuje wszystko.
  */
-const FALLBACK_PEPPER = 'weekly-meals-purchase-identity-fallback';
+const FALLBACK_PEPPER = 'scoffie-purchase-identity-fallback';
 
 export function purchaseIdentityPepper(): string {
   const fromEnv = process.env.PURCHASE_IDENTITY_PEPPER?.trim();

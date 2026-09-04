@@ -1,6 +1,6 @@
 # Rejestr czynności przetwarzania (art. 30) i ocena skutków (art. 35)
 
-Stan na 3.09.2026. Administrator: osoba fizyczna prowadząca Weekly Meals
+Stan na 3.09.2026. Administrator: osoba fizyczna prowadząca Scoffie
 (dane kontaktowe w polityce prywatności). Brak IOD — obowiązek nie
 powstaje (art. 37): nie ma monitorowania na dużą skalę ani przetwarzania
 danych szczególnych na dużą skalę jako działalności głównej.

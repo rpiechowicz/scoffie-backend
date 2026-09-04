@@ -52,8 +52,7 @@ describe('decideRebuild', () => {
       env: {
         SAFE_MIGRATE_REBUILD_DB: 'true',
         SAFE_MIGRATE_REBUILD_CONFIRM: TODAY,
-        DATABASE_URL:
-          'postgresql://weeklymeals:weeklymeals@db:5432/weeklymeals',
+        DATABASE_URL: 'postgresql://scoffie:scoffie@db:5432/scoffie',
       },
       now: NOW,
     });

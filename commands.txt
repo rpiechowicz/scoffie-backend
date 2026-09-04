@@ -65,7 +65,7 @@ docker compose exec api pnpm run recipes:import:json
 // docker compose down -v --remove-orphans
 
 // Full DB truncate (all app data lost):
-// docker compose exec db psql -U weeklymeals -d weeklymeals -c "TRUNCATE TABLE \"PlanItem\", \"WeeklyPlan\", \"ShoppingItemCheck\", \"SharedMealPlanItem\", \"SharedMealPlan\", \"RecipeFavorite\", \"RecipeIngredient\", \"Recipe\", \"Invitation\", \"Membership\", \"PushDevice\", \"RefreshToken\", \"Household\", \"User\" RESTART IDENTITY CASCADE;"
+// docker compose exec db psql -U scoffie -d scoffie -c "TRUNCATE TABLE \"PlanItem\", \"WeeklyPlan\", \"ShoppingItemCheck\", \"SharedMealPlanItem\", \"SharedMealPlan\", \"RecipeFavorite\", \"RecipeIngredient\", \"Recipe\", \"Invitation\", \"Membership\", \"PushDevice\", \"RefreshToken\", \"Household\", \"User\" RESTART IDENTITY CASCADE;"
 
 // Use only on throwaway DB (can reset on drift/conflict):
 // docker compose exec api pnpm prisma migrate dev --name init

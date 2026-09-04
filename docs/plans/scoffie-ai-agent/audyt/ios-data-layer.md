@@ -4,14 +4,14 @@
 
 **Evidence**
 
-- `weekly-meals-ios/weekly meals/Networking/Recipes/BackendRecipeDTOs.swift:170-172`
+- `scoffie-ios/weekly meals/Networking/Recipes/BackendRecipeDTOs.swift:170-172`
   ```swift
   let mappedIngredients = ingredients.compactMap { item -> Ingredient? in
       let unit = IngredientUnit(rawValue: item.unit)
       guard let mappedUnit = unit else { return nil }
   ```
 - `Models/Components/RecipesModel.swift:61-70` — `IngredientUnit` = `g, kg, ml, l, szt, łyżeczka, łyżka, szklanka`; no `szczypta`.
-- Backend serves the raw unit on both projections: `weakly-meals-backend/src/recipes/recipes.service.ts:54` and `:318` (`unit: true`), and accepts it on write: `src/recipes/ingredient-amount.util.ts:14-25` (`ALLOWED_UNITS … 'szczypta'`), `src/recipes/dto/create-recipe.dto.ts:27`.
+- Backend serves the raw unit on both projections: `scoffie-backend/src/recipes/recipes.service.ts:54` and `:318` (`unit: true`), and accepts it on write: `src/recipes/ingredient-amount.util.ts:14-25` (`ALLOWED_UNITS … 'szczypta'`), `src/recipes/dto/create-recipe.dto.ts:27`.
 - Data (computed in memory from `prisma/catalog/recipes-catalog-full-v2.json`, 89 recipes): 118/745 ingredients have unit `szczypta` → 69/89 recipes lose rows; names: `pieprz czarny` ×67, `sól` ×50, `papryka ostra mielona` ×1. Across all import files: 303 `szczypta` rows.
 - What the phone shows: `RecipeDetail.swift:499-516` renders `recipe.ingredients(forServings:)` → list without salt/pepper; kcal/macros unaffected (from `nutritionKcal…`, `BackendRecipeDTOs.swift:206-213`); shopping list unaffected (server uses `normalizedUnit`, see FINE list).
 

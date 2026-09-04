@@ -18,7 +18,7 @@ import type { PrismaClient } from '@prisma/client';
  * - księga kosztów asystenta (`AiUsage`) — liczona per gospodarstwo, nie
  *   per osoba, i nie zawiera treści.
  */
-export const USER_EXPORT_FORMAT = 'weekly-meals-user-export/1';
+export const USER_EXPORT_FORMAT = 'scoffie-user-export/1';
 
 export type UserExport = NonNullable<
   Awaited<ReturnType<typeof buildUserExport>>

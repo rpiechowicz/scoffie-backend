@@ -50,7 +50,7 @@ ws-smoke (z lokalnego kontenera na prod, `WS_URL=$API`): `users:findAll` → bra
 ## 3. Dev (lokalnie) — zrobione 28.08
 
 `.env`: nowe `JWT_SECRET`/`REFRESH_TOKEN_PEPPER`/`OPS_TOKEN` (32 B base64);
-`docker compose up -d --build api` → `docker inspect --format '{{.State.Health.Status}}' weeklymeals-api` = `healthy`,
+`docker compose up -d --build api` → `docker inspect --format '{{.State.Health.Status}}' scoffie-api` = `healthy`,
 `node -v` = v22, `id -u` = 1000. Dev-apka na telefonie: jedno ponowne logowanie (nowy JWT_SECRET).
 
 ## 4. iOS

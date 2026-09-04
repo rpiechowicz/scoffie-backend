@@ -713,7 +713,7 @@ async function alertMigrationFailure(error) {
   if (!url || typeof fetch !== 'function') return;
   const commit =
     process.env.APP_COMMIT ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown';
-  const content = `[weekly-meals] safe-migrate PADŁ (commit ${commit}): ${String(
+  const content = `[scoffie] safe-migrate PADŁ (commit ${commit}): ${String(
     error && error.message ? error.message : error,
   ).slice(0, 400)}`;
   try {

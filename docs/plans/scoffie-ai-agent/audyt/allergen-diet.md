@@ -1,6 +1,6 @@
 # Allergens / diet / personalization — findings
 
-Scope verified against source: `weekly-meals-ios/.../Models/Components/{DietPreference,RecipeDietProfile,RecipePersonalization,RecipeFilterOptions,MealSlot,BodyMetrics,UserGoal}.swift`, `SettingsView.swift`, `WelcomeView.swift`, `SessionStore.swift`; backend `src/users/*`, `src/main.ts`, `prisma/schema.prisma`, `prisma/catalog/recipes-catalog-full-v2.json` (89 recipes, 131 distinct ingredient names) + 17 `ingredients-*-pl-v1.txt`. The Swift classifier was ported 1:1 to python3 (same stems, prefix/word/phrase matching, department constants) and run over the catalog; numbers below come from that run.
+Scope verified against source: `scoffie-ios/.../Models/Components/{DietPreference,RecipeDietProfile,RecipePersonalization,RecipeFilterOptions,MealSlot,BodyMetrics,UserGoal}.swift`, `SettingsView.swift`, `WelcomeView.swift`, `SessionStore.swift`; backend `src/users/*`, `src/main.ts`, `prisma/schema.prisma`, `prisma/catalog/recipes-catalog-full-v2.json` (89 recipes, 131 distinct ingredient names) + 17 `ingredients-*-pl-v1.txt`. The Swift classifier was ported 1:1 to python3 (same stems, prefix/word/phrase matching, department constants) and run over the catalog; numbers below come from that run.
 
 ---
 

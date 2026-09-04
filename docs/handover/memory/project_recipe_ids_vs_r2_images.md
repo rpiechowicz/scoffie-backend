@@ -16,4 +16,4 @@ Naprawa idzie w JEDNĄ stronę: prostuje się `id` + `imageUrl` w katalogu (comm
 
 Przed każdą naprawą katalogu: `git fetch` i sprawdź, czy tego nie naprawiono już na `develop` — patrz [[feedback-check-remote-before-asking]] i [[project-branching-develop]].
 
-**Po naprawie po stronie serwera trzeba unieważnić cache w aplikacji.** Telefon trzyma katalog przez 12 h (`recipes_catalog_cache_vN.json`) i obrazy przez 30 dni (`com.weeklymeals.imagecache.vN`, klucz = URL). Adres `<id>.png` się nie zmienia, zmienia się zawartość pod nim, więc żaden z tych cache'y nie ma jak zauważyć poprawki — jedyne wyjście to podbicie numeru wersji w obu (zrobione: katalog v10, obrazy v3, 27.08.2026).
+**Po naprawie po stronie serwera trzeba unieważnić cache w aplikacji.** Telefon trzyma katalog przez 12 h (`recipes_catalog_cache_vN.json`) i obrazy przez 30 dni (`com.scoffie.imagecache.vN`, klucz = URL). Adres `<id>.png` się nie zmienia, zmienia się zawartość pod nim, więc żaden z tych cache'y nie ma jak zauważyć poprawki — jedyne wyjście to podbicie numeru wersji w obu (zrobione: katalog v10, obrazy v3, 27.08.2026).

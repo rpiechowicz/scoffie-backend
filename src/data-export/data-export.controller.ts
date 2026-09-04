@@ -21,7 +21,7 @@ export class DataExportController {
   @Header('Cache-Control', 'no-store')
   @Header(
     'Content-Disposition',
-    'attachment; filename="weekly-meals-moje-dane.json"',
+    'attachment; filename="scoffie-moje-dane.json"',
   )
   export(@CurrentUserId() userId: string) {
     return this.dataExport.exportFor(userId);

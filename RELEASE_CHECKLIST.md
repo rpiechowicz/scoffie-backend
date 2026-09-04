@@ -1,4 +1,4 @@
-# Weekly Meals — lista kontrolna wydań
+# Scoffie — lista kontrolna wydań
 
 Stan na 2.09.2026 (po audycie całości i planie naprawczym). Pozycje z dawnej
 listy „1.0" są zamknięte i przeniesione niżej; otwarte punkty są uporządkowane

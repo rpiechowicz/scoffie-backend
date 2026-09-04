@@ -1,6 +1,6 @@
 # Weekly plan & week identity — findings
 
-Verified against source (read-only). Line numbers refer to `weakly-meals-backend/src/...` and `weekly-meals-ios/weekly meals/...`.
+Verified against source (read-only). Line numbers refer to `scoffie-backend/src/...` and `scoffie-ios/weekly meals/...`.
 
 ---
 

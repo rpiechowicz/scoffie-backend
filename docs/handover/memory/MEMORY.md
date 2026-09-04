@@ -1,4 +1,4 @@
-- [Weekly Meals stack](project_weekly_meals_stack.md) — iOS + NestJS (port 3000, Docker); iPhone fizyczny łączy się po LAN IP Maca, nie localhost.
+- [Scoffie stack](project_scoffie_stack.md) — iOS + NestJS (port 3000, Docker); iPhone fizyczny łączy się po LAN IP Maca, nie localhost.
 - [Agent AI — stan i plan](project_ai_agent_decision.md) — plastry A–D WSZYSTKIE na prod 28.08 (backend `090d10d`, iOS `bbc220e`, tagi wgrane przez `railway ssh`); dalej Faza 0 (auth) + 3 decyzje Rafała.
 - [Konwencja makro przepisów](project_recipe_macro_convention.md) — makro = cały przepis, węgle bez błonnika, liczone ze składników przez skrypt, nie z ręki.
 - [Wyczerpane zasoby Maca](project_mac_resources_exhausted.md) — tsc/jest/prisma wieszają się przez pełny swap i 511 MB wolnego dysku, nie przez wersje paczek.

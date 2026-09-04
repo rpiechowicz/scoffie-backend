@@ -5,7 +5,7 @@
  * kodów, dotąd nie istniał (audyt 2).
  *
  * Uruchomienie: `pnpm check:error-parity` — repozytorium iOS obok
- * (`../weekly-meals-ios`) albo `IOS_REPO_PATH=...`. Kod wyjścia 1, gdy
+ * (`../scoffie-ios`) albo `IOS_REPO_PATH=...`. Kod wyjścia 1, gdy
  * serwer ma kod bez kopii w iOS.
  */
 import { existsSync, readFileSync } from 'node:fs';
@@ -13,10 +13,10 @@ import { join } from 'node:path';
 import { APP_ERROR_CODES } from '../src/common/app-error-code';
 
 const iosRepo =
-  process.env.IOS_REPO_PATH ?? join(process.cwd(), '..', 'weekly-meals-ios');
+  process.env.IOS_REPO_PATH ?? join(process.cwd(), '..', 'scoffie-ios');
 const mapperPath = join(
   iosRepo,
-  'weekly meals',
+  'Scoffie',
   'Models',
   'Stores',
   'UserFacingErrorMapper.swift',

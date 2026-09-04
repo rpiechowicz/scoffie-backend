@@ -73,7 +73,7 @@ const CATALOG_HOUSEHOLD_ID =
   process.env.RECIPE_IMPORT_HOUSEHOLD_ID ??
   '22222222-2222-4222-8222-222222222222';
 const CATALOG_HOUSEHOLD_NAME =
-  process.env.RECIPE_IMPORT_HOUSEHOLD_NAME ?? 'Katalog Weekly Meals';
+  process.env.RECIPE_IMPORT_HOUSEHOLD_NAME ?? 'Katalog Scoffie';
 
 async function main() {
   // Ten sam strażnik, co przy przebudowie bazy: zapis wymaga dzisiejszej
