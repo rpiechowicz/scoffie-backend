@@ -2247,10 +2247,7 @@
       "title": "Owsianka nocna z masłem orzechowym i malinami",
       "description": "Owsianka przygotowywana wieczorem w słoiku, rano gotowa do zjedzenia. Kremowa, sycąca i bez żadnego gotowania.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "SECOND_BREAKFAST"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST"],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -2387,11 +2384,7 @@
       "title": "Twarożek na słodko z brzoskwinią i granolą",
       "description": "Kremowy twarożek z jogurtem i miodem, podany z cząstkami brzoskwini i chrupiącą granolą. Lekkie śniadanie na słodko bez smażenia.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "SECOND_BREAKFAST",
-        "AFTERNOON_SNACK"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "AFTERNOON_SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -2455,11 +2448,7 @@
       "title": "Serniczki fit z twarogiem i borówkami",
       "description": "Smażone na patelni placuszki twarogowe z borówkami, słodzone miodem. Więcej białka niż w klasycznych placuszkach i naturalna słodycz owoców.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "SECOND_BREAKFAST",
-        "AFTERNOON_SNACK"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "AFTERNOON_SNACK"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 25,
       "servings": 2,
@@ -2537,11 +2526,7 @@
       "title": "Bułeczki z pastą jajeczną i rzodkiewką",
       "description": "Klasyczna pasta jajeczna z majonezem, jogurtem i szczypiorkiem, podana na bułkach z plasterkami rzodkiewki. Domowy standard w kwadrans.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "SECOND_BREAKFAST",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 15,
       "servings": 2,
@@ -2624,10 +2609,7 @@
       "title": "Tosty francuskie z owocami",
       "description": "Kromki chleba tostowego smażone w jajku z cynamonem, podane z truskawkami, borówkami i miodem. Śniadanie na słodko, które robi wrażenie.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "AFTERNOON_SNACK"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "AFTERNOON_SNACK"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -2710,11 +2692,7 @@
       "title": "Omlet z szynką i pomidorami",
       "description": "Puszysty omlet z paskami szynki i kawałkami pomidora, posypany szczypiorkiem. Proste, białkowe śniadanie z patelni.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "SECOND_BREAKFAST",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 12,
       "servings": 2,
@@ -2792,12 +2770,7 @@
       "title": "Kanapki z szynką, serem i pomidorem",
       "description": "Klasyczne kanapki na chlebie z masłem, szynką, serem gouda, pomidorem i sałatą. Szybkie śniadanie, które zawsze działa.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "SECOND_BREAKFAST",
-        "DINNER",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "DINNER", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 8,
       "servings": 2,
@@ -2866,9 +2839,7 @@
       "title": "Kotlet schabowy z ziemniakami i mizerią",
       "description": "Klasyka niedzielnego obiadu: chrupiący panierowany schabowy z gotowanymi ziemniakami i mizerią na śmietanie.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH"
-      ],
+      "suitableMealTypes": ["LUNCH"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
       "servings": 4,
@@ -2970,10 +2941,7 @@
       "title": "Kotlety mielone z ziemniakami i buraczkami",
       "description": "Domowe kotlety mielone z cebulą i majerankiem, podane z ziemniakami i ciepłymi buraczkami z masłem.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 50,
       "servings": 4,
@@ -3075,10 +3043,7 @@
       "title": "Gulasz wieprzowy z kaszą gryczaną i ogórkiem kiszonym",
       "description": "Wolno duszony gulasz z łopatki z papryką i majerankiem, podany z kaszą gryczaną i ogórkiem kiszonym.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 80,
       "servings": 4,
@@ -3185,9 +3150,7 @@
       "title": "Schab duszony w sosie pieczarkowym z ziemniakami",
       "description": "Plastry schabu duszone do miękkości w kremowym sosie pieczarkowym ze śmietaną, podane z ziemniakami.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH"
-      ],
+      "suitableMealTypes": ["LUNCH"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 50,
       "servings": 2,
@@ -3275,9 +3238,7 @@
       "title": "Bitki wołowe w sosie własnym z ziemniakami",
       "description": "Rozbijane plastry wołowiny duszone długo z cebulą, aż sos zrobi się sam. Tradycyjny obiad z ziemniakami i ogórkiem kiszonym.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH"
-      ],
+      "suitableMealTypes": ["LUNCH"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 90,
       "servings": 2,
@@ -3364,10 +3325,7 @@
       "title": "Gołąbki w sosie pomidorowym",
       "description": "Liście kapusty nadziewane mięsem z ryżem, duszone w sosie pomidorowym. Klasyka, która smakuje jeszcze lepiej odgrzana następnego dnia.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "HARD",
       "prepTimeMinutes": 100,
       "servings": 4,
@@ -3464,10 +3422,7 @@
       "title": "Pierogi ruskie z okrasą cebulową",
       "description": "Domowe pierogi z farszem ziemniaczano-twarogowym, podane z cebulką zrumienioną na maśle. Porcja pracy, która się opłaca.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "HARD",
       "prepTimeMinutes": 90,
       "servings": 4,
@@ -3559,10 +3514,7 @@
       "title": "Placki ziemniaczane ze śmietaną",
       "description": "Chrupiące placki z tartych ziemniaków z cebulą, smażone na złoto i podane z kleksem śmietany.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -3645,10 +3597,7 @@
       "title": "Leczo z kiełbasą, cukinią i papryką",
       "description": "Jednogarnkowe leczo na kiełbasie z letnimi warzywami w pomidorach. Sycące, szybkie i dobre też na drugi dzień.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -3743,10 +3692,7 @@
       "title": "Fasolka po bretońsku z kiełbasą",
       "description": "Biała fasola duszona z kiełbasą, boczkiem i majerankiem w sosie pomidorowym. Klasyka baru mlecznego w domowym wydaniu.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 45,
       "servings": 4,
@@ -3839,10 +3785,7 @@
       "title": "Polędwiczki wieprzowe z kuskusem i groszkiem",
       "description": "Medaliony z polędwiczki smażone na maśle z czosnkiem, podane z puszystym kuskusem i zielonym groszkiem. Obiad w pół godziny.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 30,
       "servings": 2,
@@ -3925,10 +3868,7 @@
       "title": "Pierogi z mięsem z okrasą cebulową",
       "description": "Klasyczne pierogi z mięsnym farszem na cieście domowej roboty, podane z rumianą okrasą z cebuli smażonej na maśle. Sycące danie, które smakuje jak u babci.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "HARD",
       "prepTimeMinutes": 100,
       "servings": 4,
@@ -4024,10 +3964,7 @@
       "title": "Pierogi z kapustą i grzybami",
       "description": "Pierogi z farszem z kiszonej kapusty i pieczarek, lepione ręcznie z prostego ciasta i podane z cebulką zeszkloną na maśle. Wigilijny smak dostępny przez cały rok.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "HARD",
       "prepTimeMinutes": 100,
       "servings": 2,
@@ -4123,11 +4060,7 @@
       "title": "Pierogi z truskawkami",
       "description": "Letnia klasyka: delikatne pierogi z całymi truskawkami w środku, podane z lekko słodzoną śmietaną. Smakują najlepiej prosto z garnka, gdy owoce są jeszcze ciepłe i soczyste.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "AFTERNOON_SNACK",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "AFTERNOON_SNACK", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 70,
       "servings": 2,
@@ -4208,9 +4141,7 @@
       "title": "Rosół z makaronem",
       "description": "Klasyczny złoty rosół gotowany powoli na nodze z kurczaka i włoszczyźnie, z opaloną cebulą dla głębi smaku. Podawany z makaronem nitki i świeżą natką pietruszki.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH"
-      ],
+      "suitableMealTypes": ["LUNCH"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 120,
       "servings": 4,
@@ -4311,10 +4242,7 @@
       "title": "Zupa ogórkowa z ziemniakami",
       "description": "Kwaśna, sycąca zupa ogórkowa na bulionie drobiowym, z ziemniakami i śmietaną. Klasyk domowego obiadu, który smakuje jeszcze lepiej następnego dnia.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -4410,10 +4338,7 @@
       "title": "Żurek z białą kiełbasą i jajkiem",
       "description": "Tradycyjny żurek na zakwasie z białą kiełbasą gotowaną w bulionie, ziemniakami i połówkami jajka na twardo. Zabielany śmietaną, doprawiony majerankiem i czosnkiem.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 50,
       "servings": 2,
@@ -4519,10 +4444,7 @@
       "title": "Krupnik z kaszą jęczmienną",
       "description": "Tradycyjny krupnik na wywarze z nogi kurczaka, z kaszą jęczmienną gotowaną razem z zupą. Sycąca, domowa zupa z warzywami korzeniowymi i ziemniakami.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 60,
       "servings": 2,
@@ -4628,10 +4550,7 @@
       "title": "Zupa gulaszowa z papryką i ziemniakami",
       "description": "Gęsta zupa gulaszowa na wieprzowej łopatce, z papryką, ziemniakami i pomidorami. Rozgrzewa jak węgierski gulasz, a robi się w jednym garnku.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 75,
       "servings": 2,
@@ -4737,10 +4656,7 @@
       "title": "Krem z brokułów z grzankami",
       "description": "Aksamitny krem z brokułów na warzywnym bulionie, zabielony śmietanką i podany z chrupiącymi grzankami z masłem. Prosta, rozgrzewająca zupa z podstawowych składników.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 35,
       "servings": 2,
@@ -4846,10 +4762,7 @@
       "title": "Krem z dyni z prażonymi pestkami",
       "description": "Aksamitny krem z dyni z nutą czosnku, podany ze śmietaną i chrupiącymi prażonymi pestkami. Rozgrzewająca zupa idealna na jesienny obiad.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -4950,10 +4863,7 @@
       "title": "Krem z pora i ziemniaków",
       "description": "Aksamitny krem z pora i ziemniaków na maśle, zblendowany na gładko ze śmietaną. Podawany z chrupiącymi grzankami z chleba tostowego i szczypiorkiem.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -5054,10 +4964,7 @@
       "title": "Potrawka z indyka z marchewką i ryżem",
       "description": "Delikatna potrawka z kawałków indyka i marchewki duszonych w bulionie, z sosem zagęszczonym masłem i mąką. Podawana na białym ryżu, posypana natką pietruszki.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -5158,10 +5065,7 @@
       "title": "Pierś z indyka pieczona z ziemniakami i brokułem",
       "description": "Soczysta pierś z indyka pieczona w piekarniku razem z ziemniakami i brokułem, wszystko na jednej blasze. Prosty obiad bez pilnowania garnków.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 60,
       "servings": 2,
@@ -5257,10 +5161,7 @@
       "title": "Chili con carne z indykiem i ryżem",
       "description": "Sycące chili con carne w lżejszej wersji z mielonym indykiem, duszone w jednym garnku z fasolą, kukurydzą i papryką. Podawane z białym ryżem, idealne na szybki obiad w tygodniu.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 50,
       "servings": 2,
@@ -5386,10 +5287,7 @@
       "title": "Burgery z mielonego indyka z bułką i warzywami",
       "description": "Domowe burgery z mielonego indyka, z chrupiącą sałatą, pomidorem i sosem jogurtowo-musztardowym. Szybki obiad, który wygląda jak z burgerowni, a powstaje z prostych składników.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 35,
       "servings": 2,
@@ -5510,10 +5408,7 @@
       "title": "Dorsz pieczony z ziemniakami i surówką z marchewki",
       "description": "Delikatny dorsz zapiekany z masłem, cytryną i koperkiem, podany z gotowanymi ziemniakami i słodką surówką z marchewki i jabłka. Prosty, lekki obiad na co dzień.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -5619,10 +5514,7 @@
       "title": "Mintaj smażony z ziemniakami i surówką z kapusty",
       "description": "Klasyka piątkowego obiadu: mintaj w mące i jajku smażony na złoto, podany z gotowanymi ziemniakami i chrupiącą surówką z białej kapusty z marchewką.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -5738,10 +5630,7 @@
       "title": "Kurczak teriyaki z makaronem i warzywami",
       "description": "Szybki stir-fry z kurczakiem w domowym sosie teriyaki z sosu sojowego i miodu, z makaronem i chrupiącymi warzywami. Wszystko robi się na jednej głębokiej patelni, gotowe w około pół godziny.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 30,
       "servings": 2,
@@ -5847,10 +5736,7 @@
       "title": "Bowl z kurczakiem, kaszą gryczaną i jajkiem",
       "description": "Pożywna miska z kaszą gryczaną, grillowanym kurczakiem, jajkiem na półmiękko i świeżymi warzywami, podana z sosem jogurtowo-czosnkowym. Prosty, domowy obiad, który sprawdzi się też na drugi dzień.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 35,
       "servings": 2,
@@ -5956,10 +5842,7 @@
       "title": "Kaszotto z kurczakiem i szpinakiem",
       "description": "Kremowe kaszotto z kaszy jęczmiennej gotowanej w bulionie, z kawałkami kurczaka, szpinakiem i parmezanem. Sycący obiad w jednym garnku, po polsku i bez wymyślnych składników.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -6065,10 +5948,7 @@
       "title": "Risotto z pieczarkami i parmezanem",
       "description": "Kremowe risotto z podsmażonymi pieczarkami, masłem i parmezanem. Klasyk włoskiej kuchni w domowym wydaniu, idealny na sycący obiad.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 45,
       "servings": 2,
@@ -6169,10 +6049,7 @@
       "title": "Makaron z cukinią i serkiem śmietankowym",
       "description": "Szybki makaron z podsmażaną cukinią w kremowym sosie z serka śmietankowego. Prosty obiad na co dzień, gotowy w około 25 minut.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 25,
       "servings": 2,
@@ -6263,10 +6140,7 @@
       "title": "Kotlety z ciecierzycy z sosem jogurtowym",
       "description": "Chrupiące z wierzchu, miękkie w środku kotlety z ciecierzycy z kminem rzymskim, podane z kaszą jaglaną i orzeźwiającym sosem jogurtowo-koperkowym z cytryną. Prosty, sycący obiad bez mięsa na każdy dzień tygodnia.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
       "servings": 4,
@@ -6387,10 +6261,7 @@
       "title": "Zapiekanki z pieczarkami i serem",
       "description": "Klasyczne domowe zapiekanki na chrupiącej bagietce z pieczarkami smażonymi z cebulą i roztopioną goudą. Na koniec obowiązkowo ketchup i posypka ze szczypiorku.",
       "mealType": "DINNER",
-      "suitableMealTypes": [
-        "DINNER",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["DINNER", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -6487,10 +6358,7 @@
       "title": "Zapiekanka makaronowa z mięsem mielonym i serem",
       "description": "Domowa zapiekanka z penne, mięsem mielonym w sosie pomidorowym i roztopioną goudą. Sycący obiad, który dobrze smakuje też odgrzany następnego dnia.",
       "mealType": "DINNER",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 50,
       "servings": 4,
@@ -6591,11 +6459,7 @@
       "title": "Sałatka z tuńczykiem, jajkiem i kukurydzą",
       "description": "Szybka, sycąca sałatka na kolację z tuńczykiem, jajkami na twardo i kukurydzą, z lekkim dressingiem majonezowo-jogurtowym. Gotowa w kwadrans, bez gotowania poza jajkami.",
       "mealType": "DINNER",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -6697,10 +6561,7 @@
       "title": "Sałatka z wędzonym łososiem, jajkiem i awokado",
       "description": "Lekka sałatka na kolację z wędzonym łososiem, jajkiem na twardo i awokado, skropiona dressingiem z oliwy i cytryny. Nie wymaga gotowania poza jajkami, więc jest gotowa w kilkanaście minut.",
       "mealType": "DINNER",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -6802,10 +6663,7 @@
       "title": "Naleśniki ze szpinakiem i serem",
       "description": "Wytrawne naleśniki z farszem ze szpinaku podsmażonego z czosnkiem i pokruszoną fetą. Sycące danie na obiad lub kolację, zwijane w rulony.",
       "mealType": "DINNER",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -6902,11 +6760,7 @@
       "title": "Wrapy z tuńczykiem, kukurydzą i jogurtem",
       "description": "Szybkie zimne wrapy z pastą z tuńczyka na jogurcie, z kukurydzą, chrupiącą sałatą i ogórkiem. Idealne na lekką kolację bez gotowania.",
       "mealType": "DINNER",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "DINNER",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 15,
       "servings": 2,
@@ -6998,11 +6852,7 @@
       "title": "Quesadilla z serem i fasolą",
       "description": "Chrupiąca quesadilla z rozpuszczoną goudą, czerwoną fasolą i warzywami, podawana z jogurtowym dipem. Szybka i sycąca kolacja z patelni.",
       "mealType": "DINNER",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -7104,11 +6954,7 @@
       "title": "Koktajl bananowo-truskawkowy z jogurtem",
       "description": "Szybki koktajl na drugie śniadanie do zabrania ze sobą. Słodycz banana i miodu łączy się z truskawkami i kremowym jogurtem.",
       "mealType": "SECOND_BREAKFAST",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "AFTERNOON_SNACK",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 5,
       "servings": 2,
@@ -7167,11 +7013,7 @@
       "title": "Koktajl ze skyrem, bananem i masłem orzechowym",
       "description": "Gęsty, kremowy koktajl na bazie skyru z bananem i masłem orzechowym. Szybkie drugie śniadanie z solidną porcją białka.",
       "mealType": "SECOND_BREAKFAST",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "AFTERNOON_SNACK",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 5,
       "servings": 2,
@@ -7235,11 +7077,7 @@
       "title": "Pudding chia na mleku z malinami",
       "description": "Kremowy pudding chia na mleku z miodem, przygotowany wieczorem, żeby rano był gotowy. Świeże maliny na wierzchu dodają kwaskowatej świeżości.",
       "mealType": "SECOND_BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "SECOND_BREAKFAST",
-        "AFTERNOON_SNACK"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "AFTERNOON_SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -7302,11 +7140,7 @@
       "title": "Pudding ryżowy z musem malinowym",
       "description": "Kremowy pudding ryżowy na mleku z nutą cynamonu, podany z prostym musem ze świeżych malin. Domowy podwieczorek, który smakuje na ciepło i na zimno.",
       "mealType": "AFTERNOON_SNACK",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "AFTERNOON_SNACK",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 30,
       "servings": 2,
@@ -7374,11 +7208,7 @@
       "title": "Deser twarogowy z kakao i bananem",
       "description": "Szybki kremowy deser z twarogu, kakao i miodu z plasterkami banana. Dobry zamiennik słodyczy na podwieczorek, z solidną porcją białka.",
       "mealType": "AFTERNOON_SNACK",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "AFTERNOON_SNACK",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -7446,11 +7276,7 @@
       "title": "Muffiny owsiane z jabłkiem i cynamonem",
       "description": "Wilgotne muffiny owsiane na jogurcie, ze startym jabłkiem i cynamonem, słodzone tylko miodem. Dobre na podwieczorek do lunchboxa, trzymają się kilka dni w lodówce.",
       "mealType": "AFTERNOON_SNACK",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "AFTERNOON_SNACK",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 40,
       "servings": 2,
@@ -7541,11 +7367,7 @@
       "title": "Hummus z warzywami do maczania",
       "description": "Kremowy domowy hummus z nutą kminu i cytryny, podany z chrupiącymi warzywami pokrojonymi w słupki. Szybka i sycąca przekąska do maczania.",
       "mealType": "SNACK",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "AFTERNOON_SNACK",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "AFTERNOON_SNACK", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 15,
       "servings": 2,
@@ -7642,11 +7464,7 @@
       "title": "Pasta z tuńczyka z ogórkiem kiszonym",
       "description": "Szybka pasta z tuńczyka z chrupiącym ogórkiem kiszonym i szczypiorkiem. Idealna na kanapki do pracy albo lekką kolację.",
       "mealType": "SECOND_BREAKFAST",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "DINNER",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -7733,11 +7551,7 @@
       "title": "Wrap z indykiem, hummusem i warzywami",
       "description": "Szybki wrap na wynos bez gotowania. Tortilla z hummusem, wędliną drobiową i chrupiącymi warzywami, ciasno zwinięta i przekrojona na pół.",
       "mealType": "SECOND_BREAKFAST",
-      "suitableMealTypes": [
-        "SECOND_BREAKFAST",
-        "DINNER",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["SECOND_BREAKFAST", "DINNER", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
@@ -7810,10 +7624,7 @@
       "title": "Budyń waniliowy z bananem",
       "description": "Klasyczny budyń waniliowy gotowany na mleku, podany w pucharkach z plasterkami banana na dnie i na wierzchu. Prosty, domowy podwieczorek, który zawsze smakuje.",
       "mealType": "AFTERNOON_SNACK",
-      "suitableMealTypes": [
-        "AFTERNOON_SNACK",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["AFTERNOON_SNACK", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 15,
       "servings": 2,
@@ -7880,10 +7691,7 @@
       "title": "Owsianka na mleku owsianym z masłem orzechowym",
       "description": "Kremowa owsianka gotowana na mleku owsianym, z masłem orzechowym, bananem i cynamonem. Sycące śniadanie bez nabiału, gotowe w kwadrans.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "SECOND_BREAKFAST"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST"],
       "difficulty": "EASY",
       "prepTimeMinutes": 12,
       "servings": 2,
@@ -7956,11 +7764,7 @@
       "title": "Tosty z awokado i pomidorkami",
       "description": "Chrupiące tosty z rozgniecionym awokado, pomidorkami koktajlowymi i szczypiorkiem, skropione oliwą i cytryną. Śniadanie na pięć minut.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "SECOND_BREAKFAST",
-        "SNACK"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST", "SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 8,
       "servings": 2,
@@ -8043,10 +7847,7 @@
       "title": "Kasza jaglana z jabłkiem i cynamonem",
       "description": "Ciepła kasza jaglana gotowana na mleku owsianym, z duszonym jabłkiem, cynamonem i orzechami włoskimi. Śniadanie w klimacie szarlotki.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": [
-        "BREAKFAST",
-        "SECOND_BREAKFAST"
-      ],
+      "suitableMealTypes": ["BREAKFAST", "SECOND_BREAKFAST"],
       "difficulty": "EASY",
       "prepTimeMinutes": 20,
       "servings": 2,
@@ -8193,10 +7994,7 @@
       "title": "Curry z ciecierzycą i szpinakiem",
       "description": "Ciecierzyca duszona w mleku kokosowym z curry, imbirem i szpinakiem, podana z ryżem basmati. Jednogarnkowe danie z zapasów ze spiżarni.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 30,
       "servings": 2,
@@ -8303,10 +8101,7 @@
       "title": "Chili sin carne z fasolą i kukurydzą",
       "description": "Ostre chili z czerwoną fasolą, kukurydzą i papryką, z kminem rzymskim i papryką ostrą. Syci jak wersja z mięsem, a gotuje się w pół godziny.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 30,
       "servings": 2,
@@ -8404,10 +8199,7 @@
       "title": "Tofu smażone z warzywami i kaszą gryczaną",
       "description": "Tofu przysmażone na złoto z brokułem, marchewką i papryką w sosie sojowym z imbirem, podane z kaszą gryczaną i sezamem.",
       "mealType": "DINNER",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "MEDIUM",
       "prepTimeMinutes": 30,
       "servings": 2,
@@ -8504,10 +8296,7 @@
       "title": "Krem z czerwonej soczewicy z marchewką",
       "description": "Gęsty krem z czerwonej soczewicy i marchewki, doprawiony kminem rzymskim. Gotuje się sam, a talerz syci jak pełny obiad.",
       "mealType": "LUNCH",
-      "suitableMealTypes": [
-        "LUNCH",
-        "DINNER"
-      ],
+      "suitableMealTypes": ["LUNCH", "DINNER"],
       "difficulty": "EASY",
       "prepTimeMinutes": 35,
       "servings": 2,
@@ -8697,7 +8486,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Tofu w sosie pomidorowym z ryżem basmati, Golden fried tofu cubes in thick tomato sauce over basmati rice, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Tofu%20w%20sosie%20pomidorowym%20z%20ry%C5%BCem%20basmati%2C%20Golden%20fried%20tofu%20cubes%20in%20thick%20tomato%20sauce%20over%20basmati%20rice%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-375c0ced-8c7e-4457-b3d6-34c375745c63&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -8798,7 +8587,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Gulasz z czerwonej soczewicy z batatem i szpinakiem, Thick red lentil and sweet potato stew with wilted spinach in a bowl, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Gulasz%20z%20czerwonej%20soczewicy%20z%20batatem%20i%20szpinakiem%2C%20Thick%20red%20lentil%20and%20sweet%20potato%20stew%20with%20wilted%20spinach%20in%20a%20bowl%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-d37af86c-e539-4e6f-9a90-01ca3f5100a3&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -8889,7 +8678,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Stir-fry z tofu, brokułem i papryką z ryżem jaśminowym, Wok stir-fry of tofu, broccoli and red pepper with sesame over jasmine rice, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Stir-fry%20z%20tofu%2C%20broku%C5%82em%20i%20papryk%C4%85%20z%20ry%C5%BCem%20ja%C5%9Bminowym%2C%20Wok%20stir-fry%20of%20tofu%2C%20broccoli%20and%20red%20pepper%20with%20sesame%20over%20jasmine%20rice%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-2e500ad6-49fc-4d15-bc65-096f072f0c40&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -8980,7 +8769,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Kasza gryczana z pieczarkami i cebulą, Buckwheat groats with golden fried mushrooms and onions, parsley on top, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Kasza%20gryczana%20z%20pieczarkami%20i%20cebul%C4%85%2C%20Buckwheat%20groats%20with%20golden%20fried%20mushrooms%20and%20onions%2C%20parsley%20on%20top%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-58330165-f222-4f4c-941e-a0287e7f8bf3&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9071,7 +8860,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Krem z dyni z mlekiem kokosowym, Velvety roasted pumpkin and coconut soup topped with pumpkin seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Krem%20z%20dyni%20z%20mlekiem%20kokosowym%2C%20Velvety%20roasted%20pumpkin%20and%20coconut%20soup%20topped%20with%20pumpkin%20seeds%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-bc4b06ec-51a8-4288-a665-56bca0af2a24&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9134,7 +8923,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Pudding chia z mlekiem kokosowym i malinami, Coconut chia pudding in a glass jar topped with raspberries and banana slices, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Pudding%20chia%20z%20mlekiem%20kokosowym%20i%20malinami%2C%20Coconut%20chia%20pudding%20in%20a%20glass%20jar%20topped%20with%20raspberries%20and%20banana%20slices%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-359a9cd6-c690-4c91-9ad7-056e27ca4dc6&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9222,7 +9011,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Sałatka z ciecierzycą, ogórkiem i pomidorem, Chickpea salad with cucumber, tomato, red onion and parsley in lemon dressing, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Sa%C5%82atka%20z%20ciecierzyc%C4%85%2C%20og%C3%B3rkiem%20i%20pomidorem%2C%20Chickpea%20salad%20with%20cucumber%2C%20tomato%2C%20red%20onion%20and%20parsley%20in%20lemon%20dressing%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-14f2eaef-68a1-435e-ab1f-a140db70ebcc&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9290,7 +9079,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Owsianka kakaowa z bananem na mleku owsianym, Chocolate oat porridge with banana slices and walnuts in a bowl, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Owsianka%20kakaowa%20z%20bananem%20na%20mleku%20owsianym%2C%20Chocolate%20oat%20porridge%20with%20banana%20slices%20and%20walnuts%20in%20a%20bowl%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-7e24dc33-0c3e-40cb-9e95-14640fe8d73f&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9386,7 +9175,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Zapiekanka z batata z czerwoną fasolą, Baked sweet potato and red bean casserole in a ceramic dish, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Zapiekanka%20z%20batata%20z%20czerwon%C4%85%20fasol%C4%85%2C%20Baked%20sweet%20potato%20and%20red%20bean%20casserole%20in%20a%20ceramic%20dish%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-7edc1d62-088b-4bc2-9015-5a47c511988a&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9473,7 +9262,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Makaron penne z cukinią, pomidorkami i pestkami dyni, Penne pasta with sautéed zucchini, cherry tomatoes and toasted pumpkin seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Makaron%20penne%20z%20cukini%C4%85%2C%20pomidorkami%20i%20pestkami%20dyni%2C%20Penne%20pasta%20with%20saut%C3%A9ed%20zucchini%2C%20cherry%20tomatoes%20and%20toasted%20pumpkin%20seeds%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-4e7bf9c8-4672-4aca-812c-03f0159ce3aa&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9555,7 +9344,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Kurczak w śmietanowym sosie ze szpinakiem, Chicken breast in creamy parmesan spinach sauce in a skillet, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Kurczak%20w%20%C5%9Bmietanowym%20sosie%20ze%20szpinakiem%2C%20Chicken%20breast%20in%20creamy%20parmesan%20spinach%20sauce%20in%20a%20skillet%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-77aa2d52-4f34-49b1-9700-3da5cb86351e&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9642,7 +9431,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Łosoś z masłem czosnkowym i brokułem, Baked salmon fillet with garlic butter and roasted broccoli, lemon wedges, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20%C5%81oso%C5%9B%20z%20mas%C5%82em%20czosnkowym%20i%20broku%C5%82em%2C%20Baked%20salmon%20fillet%20with%20garlic%20butter%20and%20roasted%20broccoli%2C%20lemon%20wedges%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-1fb1bba3-e0be-4f01-b5ff-9b2feb2bd3f7&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9720,7 +9509,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Sałatka caprese z awokado, Caprese salad with avocado slices, cherry tomatoes and torn mozzarella, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Sa%C5%82atka%20caprese%20z%20awokado%2C%20Caprese%20salad%20with%20avocado%20slices%2C%20cherry%20tomatoes%20and%20torn%20mozzarella%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-dba8974d-714a-4e0e-8dfe-af28d8655413&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9797,7 +9586,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Omlet z pieczarkami i parmezanem, Folded mushroom omelette with parmesan and chives on a plate, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Omlet%20z%20pieczarkami%20i%20parmezanem%2C%20Folded%20mushroom%20omelette%20with%20parmesan%20and%20chives%20on%20a%20plate%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-c35f48e9-c712-4450-a991-3ed0fbe70707&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9894,7 +9683,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Cukinia zapiekana z mięsem mielonym i goudą, Zucchini boats stuffed with minced meat and melted gouda cheese, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Cukinia%20zapiekana%20z%20mi%C4%99sem%20mielonym%20i%20goud%C4%85%2C%20Zucchini%20boats%20stuffed%20with%20minced%20meat%20and%20melted%20gouda%20cheese%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-552ed30e-f33c-4068-af4b-f7ccbfe7eb28&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -9971,7 +9760,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Jajka zapiekane w awokado, Baked eggs in avocado halves with chives and pumpkin seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Jajka%20zapiekane%20w%20awokado%2C%20Baked%20eggs%20in%20avocado%20halves%20with%20chives%20and%20pumpkin%20seeds%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-802bf7cb-151d-40d6-9abe-b4de5381336a&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10053,7 +9842,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Dorsz pieczony z cukinią i oliwkową gremolatą, Baked cod fillet on zucchini slices with parsley garlic gremolata, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Dorsz%20pieczony%20z%20cukini%C4%85%20i%20oliwkow%C4%85%20gremolat%C4%85%2C%20Baked%20cod%20fillet%20on%20zucchini%20slices%20with%20parsley%20garlic%20gremolata%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-3f020f86-3ce8-43b9-8782-1aaa4a51806d&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10145,7 +9934,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Sałatka z kurczakiem, ogórkiem i orzechami włoskimi, Chicken salad with iceberg lettuce, cucumber, radish and walnuts, yogurt dill dressing, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Sa%C5%82atka%20z%20kurczakiem%2C%20og%C3%B3rkiem%20i%20orzechami%20w%C5%82oskimi%2C%20Chicken%20salad%20with%20iceberg%20lettuce%2C%20cucumber%2C%20radish%20and%20walnuts%2C%20yogurt%20dill%20dressing%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-d31ec7e7-85b3-4c10-9f64-c1bbf59d7a72&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10222,7 +10011,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Polędwiczka wieprzowa z pieczoną dynią i tymiankiem, Sliced roast pork tenderloin with roasted pumpkin cubes and thyme on a sheet pan, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Pol%C4%99dwiczka%20wieprzowa%20z%20pieczon%C4%85%20dyni%C4%85%20i%20tymiankiem%2C%20Sliced%20roast%20pork%20tenderloin%20with%20roasted%20pumpkin%20cubes%20and%20thyme%20on%20a%20sheet%20pan%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-5d30be7d-72f4-44d8-8155-134a6ea335ce&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10319,7 +10108,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Indyk mielony duszony z papryką i cukinią, Ground turkey skillet with red pepper, zucchini and tomatoes, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Indyk%20mielony%20duszony%20z%20papryk%C4%85%20i%20cukini%C4%85%2C%20Ground%20turkey%20skillet%20with%20red%20pepper%2C%20zucchini%20and%20tomatoes%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-07bbe3de-c13f-4825-bd5b-59753673344c&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10406,7 +10195,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Placuszki z batata z jajkiem, Golden sweet potato fritters with sliced tomato and chives, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Placuszki%20z%20batata%20z%20jajkiem%2C%20Golden%20sweet%20potato%20fritters%20with%20sliced%20tomato%20and%20chives%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-f143df9f-1e38-4575-8b24-270f14f90406&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10498,7 +10287,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Wołowina duszona z marchewką i selerem, Slow-braised beef stew with carrot and celeriac in a rustic pot, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Wo%C5%82owina%20duszona%20z%20marchewk%C4%85%20i%20selerem%2C%20Slow-braised%20beef%20stew%20with%20carrot%20and%20celeriac%20in%20a%20rustic%20pot%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-10b0fe6a-af7b-4f15-b853-ce9e833bc3ea&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10580,7 +10369,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Sałatka z pieczonego buraka, jabłka i orzechów włoskich, Roasted beetroot salad with apple slices, walnuts and lettuce, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Sa%C5%82atka%20z%20pieczonego%20buraka%2C%20jab%C5%82ka%20i%20orzech%C3%B3w%20w%C5%82oskich%2C%20Roasted%20beetroot%20salad%20with%20apple%20slices%2C%20walnuts%20and%20lettuce%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-7561122c-da82-4db5-a45c-4bd479f627ca&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10653,7 +10442,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Jajecznica z awokado i pomidorem, Soft scrambled eggs with avocado cubes, tomato and chives, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Jajecznica%20z%20awokado%20i%20pomidorem%2C%20Soft%20scrambled%20eggs%20with%20avocado%20cubes%2C%20tomato%20and%20chives%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-168d56ab-a650-4b99-9738-c4baf5ceee42&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10745,7 +10534,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Curry z kurczaka na mleku kokosowym z brokułem, Coconut chicken curry with broccoli and red pepper in a bowl, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Curry%20z%20kurczaka%20na%20mleku%20kokosowym%20z%20broku%C5%82em%2C%20Coconut%20chicken%20curry%20with%20broccoli%20and%20red%20pepper%20in%20a%20bowl%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-6d774bd5-2ce5-4acc-a928-76f074302139&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10828,7 +10617,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Mintaj pieczony z warzywami korzeniowymi, Baked pollock fillet over roasted carrot, parsnip and leek, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Mintaj%20pieczony%20z%20warzywami%20korzeniowymi%2C%20Baked%20pollock%20fillet%20over%20roasted%20carrot%2C%20parsnip%20and%20leek%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-24c30dd8-f869-4549-a7b7-578304b43e63&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10915,7 +10704,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Kotlety z indyka z pieczonymi burakami, Turkey patties with roasted beetroot wedges and dill, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Kotlety%20z%20indyka%20z%20pieczonymi%20burakami%2C%20Turkey%20patties%20with%20roasted%20beetroot%20wedges%20and%20dill%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-9659d596-db27-4ba7-a920-6200caa602db&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -10978,7 +10767,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Miska smoothie z borówkami, bananem i chia, Blueberry smoothie bowl topped with banana, strawberries and chia seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Miska%20smoothie%20z%20bor%C3%B3wkami%2C%20bananem%20i%20chia%2C%20Blueberry%20smoothie%20bowl%20topped%20with%20banana%2C%20strawberries%20and%20chia%20seeds%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-c1099021-e4a1-4678-b4a6-ca9b64ad4432&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11059,7 +10848,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Jajka faszerowane pastą z awokado, Halved hard-boiled eggs filled with creamy green avocado paste, topped with chopped chives and cracked black pepper, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Jajka%20faszerowane%20past%C4%85%20z%20awokado%2C%20Halved%20hard-boiled%20eggs%20filled%20with%20creamy%20green%20avocado%20paste%2C%20topped%20with%20chopped%20chives%20and%20cracked%20black%20pepper%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-ca6947a2-10a8-473f-b604-caf46ce7352d&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11135,7 +10924,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Roladki z łososia wędzonego z serkiem i ogórkiem, Smoked salmon roll-ups filled with white cream cheese, dill and cucumber sticks, cut in halves and arranged upright, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Roladki%20z%20%C5%82ososia%20w%C4%99dzonego%20z%20serkiem%20i%20og%C3%B3rkiem%2C%20Smoked%20salmon%20roll-ups%20filled%20with%20white%20cream%20cheese%2C%20dill%20and%20cucumber%20sticks%2C%20cut%20in%20halves%20and%20arranged%20upright%2C%20served%20on%20a%20rustic%20wooden%20serving%20board%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20board%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-7e2abb15-bb79-4225-b77f-8a1c2f1ea6fd&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11196,7 +10985,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Chipsy z parmezanu z pestkami dyni, Golden crispy baked parmesan crisps sprinkled with green pumpkin seeds and paprika, stacked loosely, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Chipsy%20z%20parmezanu%20z%20pestkami%20dyni%2C%20Golden%20crispy%20baked%20parmesan%20crisps%20sprinkled%20with%20green%20pumpkin%20seeds%20and%20paprika%2C%20stacked%20loosely%2C%20served%20on%20a%20rustic%20wooden%20serving%20board%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20board%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-f8a09539-6d29-45df-a77c-6cda6e876d15&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11267,7 +11056,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Mus czekoladowy z awokado i kakao, Dark glossy chocolate avocado mousse in small bowls topped with fresh raspberries and a dusting of cocoa, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Mus%20czekoladowy%20z%20awokado%20i%20kakao%2C%20Dark%20glossy%20chocolate%20avocado%20mousse%20in%20small%20bowls%20topped%20with%20fresh%20raspberries%20and%20a%20dusting%20of%20cocoa%2C%20served%20in%20a%20rustic%20opaque%20ceramic%20stoneware%20bowl%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20into%20the%20bowl%20at%20about%2060%20degrees%20so%20the%20food%20inside%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20bowl%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-d19514bf-8023-47bf-ae10-36b9b8c9cc83&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11338,7 +11127,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Kulki z pestek dyni, kakao i kokosa, Eight small dark energy balls made of pumpkin seeds and cocoa, some dusted with cocoa powder, arranged in a shallow bowl, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Kulki%20z%20pestek%20dyni%2C%20kakao%20i%20kokosa%2C%20Eight%20small%20dark%20energy%20balls%20made%20of%20pumpkin%20seeds%20and%20cocoa%2C%20some%20dusted%20with%20cocoa%20powder%2C%20arranged%20in%20a%20shallow%20bowl%2C%20served%20in%20a%20rustic%20opaque%20ceramic%20stoneware%20bowl%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20into%20the%20bowl%20at%20about%2060%20degrees%20so%20the%20food%20inside%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20bowl%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-5f33691f-d5bf-432a-950e-6ef68ede64f4&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11419,7 +11208,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Sałatka z tuńczykiem, awokado i ogórkiem, Chunky tuna salad with avocado cubes, diced cucumber and chives glistening with olive oil, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Sa%C5%82atka%20z%20tu%C5%84czykiem%2C%20awokado%20i%20og%C3%B3rkiem%2C%20Chunky%20tuna%20salad%20with%20avocado%20cubes%2C%20diced%20cucumber%20and%20chives%20glistening%20with%20olive%20oil%2C%20served%20in%20a%20rustic%20opaque%20ceramic%20stoneware%20bowl%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20into%20the%20bowl%20at%20about%2060%20degrees%20so%20the%20food%20inside%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20bowl%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-b13a95c5-7b85-440e-af70-5b69b5b3a2ec&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11490,7 +11279,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Roladki z szynki z serkiem i papryką, Ham roll-ups filled with cream cheese and red pepper strips, cut in halves and stacked on a wooden board, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Roladki%20z%20szynki%20z%20serkiem%20i%20papryk%C4%85%2C%20Ham%20roll-ups%20filled%20with%20cream%20cheese%20and%20red%20pepper%20strips%2C%20cut%20in%20halves%20and%20stacked%20on%20a%20wooden%20board%2C%20served%20on%20a%20rustic%20wooden%20serving%20board%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20board%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-8439ca81-455c-4531-a02d-5af08a4f2dc8&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11576,7 +11365,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Kurczak w plastrach z guacamole, Golden pan-seared chicken breast slices next to a small bowl of chunky green guacamole with lemon wedge, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Kurczak%20w%20plastrach%20z%20guacamole%2C%20Golden%20pan-seared%20chicken%20breast%20slices%20next%20to%20a%20small%20bowl%20of%20chunky%20green%20guacamole%20with%20lemon%20wedge%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-90fccc56-bb89-4887-a0e9-5cea507b269a&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11657,7 +11446,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Marchewki i ogórek z dipem z awokado, Bright orange carrot sticks and cucumber batons arranged around a small bowl of creamy avocado dip with parsley, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Marchewki%20i%20og%C3%B3rek%20z%20dipem%20z%20awokado%2C%20Bright%20orange%20carrot%20sticks%20and%20cucumber%20batons%20arranged%20around%20a%20small%20bowl%20of%20creamy%20avocado%20dip%20with%20parsley%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-7cbc9f87-9d57-4306-b43c-11010b87a9ac&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11738,7 +11527,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Muffiny jajeczne ze szpinakiem i pomidorkami, Six golden baked egg muffins studded with spinach and halved cherry tomatoes, one cut open to show the inside, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Muffiny%20jajeczne%20ze%20szpinakiem%20i%20pomidorkami%2C%20Six%20golden%20baked%20egg%20muffins%20studded%20with%20spinach%20and%20halved%20cherry%20tomatoes%2C%20one%20cut%20open%20to%20show%20the%20inside%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-5e2c7f21-187e-41eb-9387-3392cdb97c9e&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11804,7 +11593,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Chipsy z batata z papryką, Thin crispy baked sweet potato chips with paprika, golden with curled edges, piled on parchment, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Chipsy%20z%20batata%20z%20papryk%C4%85%2C%20Thin%20crispy%20baked%20sweet%20potato%20chips%20with%20paprika%2C%20golden%20with%20curled%20edges%2C%20piled%20on%20parchment%2C%20served%20on%20a%20rustic%20wooden%20serving%20board%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20board%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-541ea46a-01a5-42f2-8614-f765871cfb11&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11880,7 +11669,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Sałatka owocowa z pestkami dyni, Colorful fruit salad of apple, peach, blueberries and raspberries topped with toasted green pumpkin seeds, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Sa%C5%82atka%20owocowa%20z%20pestkami%20dyni%2C%20Colorful%20fruit%20salad%20of%20apple%2C%20peach%2C%20blueberries%20and%20raspberries%20topped%20with%20toasted%20green%20pumpkin%20seeds%2C%20served%20in%20a%20rustic%20opaque%20ceramic%20stoneware%20bowl%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20into%20the%20bowl%20at%20about%2060%20degrees%20so%20the%20food%20inside%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20bowl%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-ced82f95-d057-4255-8767-6b9ba8def929&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -11951,7 +11740,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Kasza jaglana na mleku kokosowym z malinami, Creamy golden millet porridge with fresh raspberries, banana slices and a sprinkle of cinnamon, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Kasza%20jaglana%20na%20mleku%20kokosowym%20z%20malinami%2C%20Creamy%20golden%20millet%20porridge%20with%20fresh%20raspberries%2C%20banana%20slices%20and%20a%20sprinkle%20of%20cinnamon%2C%20served%20in%20a%20rustic%20opaque%20ceramic%20stoneware%20bowl%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20into%20the%20bowl%20at%20about%2060%20degrees%20so%20the%20food%20inside%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20bowl%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-8f83aba3-3630-4db8-9af2-70b9da390651&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -12022,7 +11811,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Pudding chia z bananem i kakao, Dark chocolate chia pudding in glass-free ceramic cups topped with banana slices and a dusting of cocoa, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Pudding%20chia%20z%20bananem%20i%20kakao%2C%20Dark%20chocolate%20chia%20pudding%20in%20glass-free%20ceramic%20cups%20topped%20with%20banana%20slices%20and%20a%20dusting%20of%20cocoa%2C%20served%20in%20a%20rustic%20opaque%20ceramic%20stoneware%20bowl%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20into%20the%20bowl%20at%20about%2060%20degrees%20so%20the%20food%20inside%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20bowl%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-0ef3a2e0-1619-4295-9b54-1f6ac6d08257&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -12093,7 +11882,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Placuszki jaglano-bananowe, Small golden millet banana pancakes stacked on a plate with banana slices and a cinnamon dusting, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Placuszki%20jaglano-bananowe%2C%20Small%20golden%20millet%20banana%20pancakes%20stacked%20on%20a%20plate%20with%20banana%20slices%20and%20a%20cinnamon%20dusting%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-9949e032-3bfa-4319-bf01-13c1bc77702f&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -12179,7 +11968,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Tosty z batata z awokado i pomidorkami, Toasted sweet potato slices topped with smashed avocado, halved cherry tomatoes and sesame seeds, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Tosty%20z%20batata%20z%20awokado%20i%20pomidorkami%2C%20Toasted%20sweet%20potato%20slices%20topped%20with%20smashed%20avocado%2C%20halved%20cherry%20tomatoes%20and%20sesame%20seeds%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-82b56aba-6dc5-4fb3-8b82-2bf9a601c596&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -12250,7 +12039,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Smoothie bowl z borówkami i pestkami dyni, Thick purple blueberry smoothie bowl topped with rows of raspberries, blueberries and toasted pumpkin seeds, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Smoothie%20bowl%20z%20bor%C3%B3wkami%20i%20pestkami%20dyni%2C%20Thick%20purple%20blueberry%20smoothie%20bowl%20topped%20with%20rows%20of%20raspberries%2C%20blueberries%20and%20toasted%20pumpkin%20seeds%2C%20served%20in%20a%20rustic%20opaque%20ceramic%20stoneware%20bowl%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20into%20the%20bowl%20at%20about%2060%20degrees%20so%20the%20food%20inside%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20bowl%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-fb554931-f9e1-41c5-a94b-73a448464c5c&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -12341,7 +12130,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Tofucznica ze szpinakiem i pomidorkami, Golden crumbled tofu scramble with wilted spinach and blistered cherry tomatoes in a skillet-style plate, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Tofucznica%20ze%20szpinakiem%20i%20pomidorkami%2C%20Golden%20crumbled%20tofu%20scramble%20with%20wilted%20spinach%20and%20blistered%20cherry%20tomatoes%20in%20a%20skillet-style%20plate%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-b69c555f-550a-4d57-a1dc-a7894426f114&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -12412,7 +12201,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Kasza gryczana na słodko z jabłkiem i cynamonem, Bowl of creamy buckwheat porridge topped with caramelized apple cubes and cinnamon, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Kasza%20gryczana%20na%20s%C5%82odko%20z%20jab%C5%82kiem%20i%20cynamonem%2C%20Bowl%20of%20creamy%20buckwheat%20porridge%20topped%20with%20caramelized%20apple%20cubes%20and%20cinnamon%2C%20served%20in%20a%20rustic%20opaque%20ceramic%20stoneware%20bowl%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20into%20the%20bowl%20at%20about%2060%20degrees%20so%20the%20food%20inside%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20bowl%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-bbb5df7d-78c1-4ac4-8160-7f2f18e94dc4&width=1200&height=800&nologo=true"
       }
     },
     {
@@ -12483,7 +12272,7 @@
       ],
       "image": {
         "prompt": "professional food photo, Ryż na mleku kokosowym z brzoskwinią, Creamy coconut rice pudding in a bowl topped with fresh peach slices, cinnamon and toasted sesame, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
-        "imageUrl": null
+        "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Ry%C5%BC%20na%20mleku%20kokosowym%20z%20brzoskwini%C4%85%2C%20Creamy%20coconut%20rice%20pudding%20in%20a%20bowl%20topped%20with%20fresh%20peach%20slices%2C%20cinnamon%20and%20toasted%20sesame%2C%20served%20in%20a%20rustic%20opaque%20ceramic%20stoneware%20bowl%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20into%20the%20bowl%20at%20about%2060%20degrees%20so%20the%20food%20inside%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20bowl%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-785daaad-8ab9-4e30-84a4-a9a36af98f6a&width=1200&height=800&nologo=true"
       }
     }
   ]
