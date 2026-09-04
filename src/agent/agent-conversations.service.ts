@@ -379,6 +379,31 @@ export class AgentConversationsService {
         HttpStatus.NOT_FOUND,
       );
     }
+
+    // WŁASNOŚĆ ROZMOWY TO ZA MAŁO — LICZY SIĘ CZŁONKOSTWO DZIŚ.
+    //
+    // Rozmowa jest przypięta do gospodarstwa z chwili założenia, a `userId`
+    // nigdy nie przestaje się zgadzać. Kto wyszedł z domu (albo został z niego
+    // usunięty), miał więc dalej działającą rozmowę o TAMTYM domu: czytał jego
+    // plan tygodnia i listę zakupów przez kontekst asystenta, a każda jego
+    // wiadomość schodziła z puli opłaconej przez byłego domownika — bo plan
+    // liczy się z `conversation.householdId`, nie z tego, gdzie pytający jest
+    // teraz. To jest ta sama bramka, co w całej domenie; 404 zamiast 403,
+    // bo cudzego zasobu nie potwierdzamy nawet przez kod błędu (tak samo
+    // zachowuje się `findById` przepisu).
+    const membership = await this.prisma.membership.findUnique({
+      where: {
+        userId_householdId: { userId, householdId: conversation.householdId },
+      },
+      select: { userId: true },
+    });
+    if (!membership) {
+      throw new AppException(
+        'AI_CONVERSATION_NOT_FOUND',
+        'Nie znaleziono tej rozmowy.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
     return conversation;
   }
 

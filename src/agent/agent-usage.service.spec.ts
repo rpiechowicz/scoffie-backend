@@ -57,6 +57,7 @@ describe('AgentUsageService.usage', () => {
     household: { findUnique: jest.Mock };
     subscription: { findMany: jest.Mock; findUnique: jest.Mock };
     membership: { findFirst: jest.Mock };
+    agentTurn: { groupBy: jest.Mock };
   } & Record<string, unknown>;
 
   /** Dom z jednym domownikiem o znanym haszu tożsamości. */
@@ -128,6 +129,11 @@ describe('AgentUsageService.usage', () => {
   });
 
   it('oddaje zużycie, limit, resztę (nigdy ujemną) i datę resetu — po sprawdzeniu członkostwa', async () => {
+    // Ten test opisuje KSZTAŁT odpowiedzi na planie płatnym, więc plan musi być
+    // ustawiony JAWNIE. Wcześniej brał się z domyślnego `AI_TIER_OVERRIDE=PRO`
+    // — a to właśnie ta domyślność była luką: skasowanie zmiennej w Railway
+    // dawało PRO wszystkim.
+    process.env.AI_TIER_OVERRIDE = 'PRO';
     const view = await service.usage(USER, HOUSEHOLD, NOW);
     expect(conversations.ensureMembership).toHaveBeenCalledWith(
       USER,
@@ -207,12 +213,31 @@ describe('AgentUsageService.usage', () => {
     ]);
     const read = jest.spyOn(counters, 'read');
     await service.usage(USER, HOUSEHOLD, NOW);
+    // Okres to KONIEC OPŁACONEGO OKRESU, nie koniec miesiąca kalendarzowego:
+    // subskrypcja ważna do 15.10 ma własną pulę do 15.10, a nie do 1.10.
     expect(read).toHaveBeenCalledWith(
       'sub:ffffffff-ffff-4fff-8fff-ffffffffffff',
-      '2026-09',
+      'okres:2026-10-15',
       'messages',
     );
     read.mockRestore();
+  });
+
+  it('ROZKŁAD NA DOMOWNIKÓW pyta o ten sam okres i zakres, co licznik obok', async () => {
+    // Wcześniej wycinał tury po dacie (od 1. dnia miesiąca), a licznik obok
+    // liczył okres rozliczeniowy albo całą pulę próbną — dwie różne liczby na
+    // jednym ekranie. Tura zapisuje zakres i okres, z których zeszła kwota.
+    process.env.AI_TIER_OVERRIDE = 'off';
+    prisma.household.findUnique.mockResolvedValue(householdWith(null));
+    prisma.subscription.findMany.mockResolvedValue([
+      subscriptionRow(new Date('2026-10-15T00:00:00.000Z')),
+    ]);
+    await service.usage(USER, HOUSEHOLD, NOW);
+    const where = prisma.agentTurn.groupBy.mock.calls.at(-1)?.[0]
+      .where as Record<string, unknown>;
+    expect(where.quotaScopeId).toBe('sub:ffffffff-ffff-4fff-8fff-ffffffffffff');
+    expect(where.quotaPeriodKey).toBe('okres:2026-10-15');
+    expect(where.startedAt).toBeUndefined();
   });
 
   it('płacący widzi siebie jako płatnika, domownik widzi jego imię', async () => {

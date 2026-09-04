@@ -46,6 +46,20 @@ Bez tego jedna opłata za 29,99 zł dawała 30 wiadomości **w każdym odwiedzon
 domu**: kup Solo, wypal pulę, wyjdź z domu, załóż nowy, powtórz. Trzy kliknięcia
 w aplikacji, zero łamania regulaminu.
 
+**Okres też należy do umowy** (decyzja Rafała, 4.09.2026). `AiUsageCounter.periodKey`:
+
+| źródło PRO                            | okres                   | odnawia się                          |
+| ------------------------------------- | ----------------------- | ------------------------------------ |
+| subskrypcja                           | `okres:<YYYY-MM-DD>`    | w dniu odnowienia u Apple (15.09 → 15.10) |
+| pula próbna                           | `trial`                 | nigdy — jedna na życie osoby         |
+| nadanie operatora, `AI_TIER_OVERRIDE` | `YYYY-MM`               | pierwszego dnia miesiąca UTC         |
+
+Data w kluczu to `expiresAt` z Apple, czyli koniec opłaconego okresu. To jedyna
+data, która przesuwa się DOKŁADNIE przy odnowieniu, więc nowa wartość sama
+otwiera nową pulę — bez crona i bez pilnowania, kiedy „minął miesiąc". W łasce
+płatniczej `expiresAt` stoi w miejscu, więc przeterminowana karta nie daje
+świeżej puli, tylko resztę tej opłaconej.
+
 ---
 
 ## 2. Odpowiedzi na dwa pytania, od których się zaczęło
@@ -129,6 +143,26 @@ Wszystko, co nadaje PRO, przechodzi przez `src/billing/apple-jws.verifier.ts`.
    nic nie wie o zwrocie pieniędzy sprzed godziny.
 6. **Nie przejmiesz cudzej.** `originalTransactionId` jest unikalny; zgłoszenie
    z konta o innym haszu tożsamości dostaje 409, a nie przepięcie.
+7. **`appAccountToken` musi wskazywać zgłaszającego.** Telefon wkłada w zakup
+   UUID konta, a Apple go podpisuje — to jedyny dowód, kto naprawdę klikał
+   „Kup". Bez tego sprawdzenia podpisana transakcja, która komuś wyciekła,
+   należałaby do tego, kto zgłosi ją pierwszy; prawowity właściciel dostawałby
+   potem `BILLING_TRANSACTION_TAKEN` i nie miał jak tego odkręcić bez obsługi.
+8. **Chmura Rodzinna jest odrzucana** (`BILLING_FAMILY_SHARING_UNSUPPORTED`),
+   dopóki `APPLE_ACCEPT_FAMILY_SHARED` nie powie inaczej. Powód niżej, w §7.
+
+**Poprawka z 4.09.2026, warta zapamiętania.** Weryfikator owijał klucz publiczny
+z liścia w `createPublicKey()`. Ta funkcja przyjmuje z `KeyObject` wyłącznie
+klucz PRYWATNY, więc rzucała `ERR_CRYPTO_INVALID_KEY_OBJECT_TYPE`, a wyjątek
+wpadał w `catch` obok i zamieniał się w „podpis się nie zgadza". Skutek: KAŻDY
+prawdziwy podpis Apple kończył się `BILLING_TRANSACTION_INVALID`. Paywall
+pobierałby pieniądze i nie potwierdził ani jednego zakupu, a z zewnątrz
+wyglądałoby to na awarię App Store. Nie widział tego żaden test, bo wszystkie
+odrzucały token WCZEŚNIEJ — na algorytmie, łańcuchu albo korzeniu — i do tej
+linii nigdy nie docierały. Stąd `apple-jws.verifier.positive.spec.ts`: własny
+łańcuch (korzeń P-384, pośredni i liść P-256), prawdziwy podpis ES256 i
+przypięcie własnego korzenia przez `rootPem`. **Test, który tylko odrzuca, nie
+dowodzi niczego o przyjmowaniu.**
 
 Odcisk korzenia do sprawdzenia własnoręcznie:
 
@@ -176,6 +210,8 @@ odciąć płacącego przez cudzą awarię.
 | `GET /ops/billing/subscriptions?userId=…` albo `?originalTransactionId=…` | „zapłaciłem i nie mam PRO"                                  |
 | `POST /ops/billing/subscriptions/:id/reconcile`                           | wymuszone uzgodnienie z Apple                               |
 | `POST /ops/billing/subscriptions/:id/revoke`                              | odebranie dostępu po zwrocie, gdy powiadomienie nie doszło  |
+| `POST /ops/billing/subscriptions/:id/unhold`                             | zdjęcie ręcznej blokady i natychmiastowe uzgodnienie        |
+| `GET /ops/billing/notifications/failed`                                  | zdarzenia Apple, których nie udało się przetworzyć          |
 | `GET /ops/billing/subscriptions/:id/usage`                                | „ile mi zostało" przez wsparcie                             |
 | `POST /ops/billing/grant`                                                 | konto recenzenta App Store, rekompensata, rodzina testująca |
 | `POST /ops/billing/households/:id/cost-reset`                             | zwolnienie sufitu kosztu, który odciął płacącego            |
@@ -183,6 +219,17 @@ odciąć płacącego przez cudzą awarię.
 
 Sufit `AI_HOUSEHOLD_MONTHLY_COST_USD` jest bezpiecznikiem przed pętlą błędów, a
 nie limitem sprzedanym klientowi — dlatego musi mieć przycisk zwalniający.
+
+**Odebranie dostępu zostawia TRWAŁĄ blokadę** (`Subscription.operatorHoldAt`).
+Do 4.09.2026 ustawiało tylko `status` i `revokedAt` — czyli dokładnie te pola,
+które przepisuje każde uzgodnienie z Apple i każde zgłoszenie z telefonu.
+Klient odzyskiwał dostęp naciskając „Przywróć zakupy", a obsługa nie miała jak
+się o tym dowiedzieć. Blokady nie czyści nic poza `…/unhold`.
+
+**Nadanie ręczne sprawdza, do kogo trafia.** Wcześniej przyjmowało dowolny napis
+jako hasz: literówka dawała 201 z identyfikatorem wiersza i nie robiła NIC, bo
+`resolvePlan` szuka po haszach domowników. Teraz wygodniej podać `userId`
+(serwer policzy hasz sam); nadanie na hasz bez konta wymaga `force: true`.
 
 ---
 
@@ -211,12 +258,27 @@ daty, środowisko), `AppleNotification` (surowe zdarzenia Apple).
 
 - **Zakup w aplikacji jest wyłączony** (`SubscriptionCatalog.purchasesEnabled =
 false` w iOS). Paywall pokazuje ofertę i nie pobiera pieniędzy.
-- **iOS nie zgłasza jeszcze transakcji** na `POST /billing/apple/transaction`.
-- **`appAccountToken`** nie jest ustawiany przy zakupie, więc powiadomienie
-  o nieznanej subskrypcji nie umie samo wskazać właściciela. Nie boli, dopóki
-  telefon zgłasza zakup od razu po jego dokonaniu.
-- **Chmura Rodzinna wyłączona** w App Store Connect. Kod i tak sobie z nią
-  radzi: pula wisi na umowie, więc pięć gospodarstw dzieliłoby jedną pulę.
+- **Chmura Rodzinna jest ODRZUCANA w kodzie**, nie tylko wyłączona w App Store
+  Connect. Wcześniejszy komentarz mówił, że „pula i tak jest jedna na umowę,
+  więc strata jest zerowa" — to była nieprawda. Przy Chmurze Rodzinnej KAŻDY
+  członek rodziny dostaje własną transakcję z własnym `originalTransactionId`,
+  a `originalTransactionId` jest unikalny: powstaje osobny wiersz, osobne
+  `sub:<id>` i osobna PEŁNA pula. Sześć osób na jednej opłacie 29,99 zł to
+  sześciokrotny rachunek u dostawcy modelu przy jednym przychodzie.
+  `APPLE_ACCEPT_FAMILY_SHARED=true` włącza to świadomie; wtedy w logu leci
+  ostrzeżenie przy każdym takim wierszu.
+- ~~Okres kwoty to miesiąc kalendarzowy UTC~~ — **zrobione 4.09.2026, decyzja
+  Rafała.** Pula idzie za UMOWĄ: kupione 15.09 odnawia się 15.10, a nie 1.10.
+  Kluczem okresu jest `expiresAt` z Apple (`okres:<YYYY-MM-DD>`), bo to jedyna
+  data, która przesuwa się DOKŁADNIE przy odnowieniu — nowa wartość sama otwiera
+  nową pulę, bez crona. W łasce płatniczej `expiresAt` stoi w miejscu, więc
+  przeterminowana karta nie daje świeżej puli, tylko resztę opłaconej. Nadanie
+  operatora i wieczyste nie mają okresu rozliczeniowego i zostają przy miesiącu
+  kalendarzowym.
+- **Recenzent App Store kupuje w sandboxie**, a sandbox nie daje PRO na
+  produkcji (i nie może, bo wtedy każdy z TestFlightem miałby PRO za darmo).
+  Dla recenzji trzeba nadać dostęp ręcznie: `POST /ops/billing/grant` z
+  `months: 0` na koncie demo podanym w notatkach do recenzji.
 
 ---
 
@@ -241,11 +303,18 @@ false` w iOS). Paywall pokazuje ofertę i nie pobiera pieniędzy.
 7. `PURCHASE_IDENTITY_PEPPER` — długi, losowy, **ustawiony raz na zawsze**.
 8. `APPLE_ENVIRONMENT=Production`, `APPLE_ACCEPT_SANDBOX=false`.
 9. `BILLING_ENABLED=true` — dopiero po punktach 4–8.
-10. **`AI_TIER_OVERRIDE` — wyczyścić.** Dopóki daje PRO wszystkim, subskrypcje
-    nie mają czego odblokowywać. Start ostrzega o tym w logu.
+10. **`AI_TIER_OVERRIDE` — wyczyścić albo skasować.** Od 4.09.2026 jedno i
+    drugie znaczy to samo. Wcześniej BRAK zmiennej znaczył `PRO`, więc
+    skasowanie wiersza w Railway rozdawało asystenta za darmo wszystkim.
+    Start ostrzega o `PRO` niezależnie od `BILLING_ENABLED`.
 11. Reszta zmiennych z decyzji cennikowej: `AI_MAX_TURN_COST_USD=0.6`,
     `AI_LIMIT_MESSAGES_PER_MONTH=50`, `AI_LIMIT_PLANS_PER_MONTH=12`,
     `AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD=1`, `AI_MODEL_TOOLS` puste.
+
+11a. `APPLE_ACCEPT_FAMILY_SHARED=false` (domyślnie) — i przełącznik Chmury
+    Rodzinnej wyłączony także w App Store Connect.
+11b. Konto demo dla recenzenta App Store + `POST /ops/billing/grant` z
+    `months: 0` na jego tożsamość; login i hasło w notatkach do recenzji.
 
 **iOS**
 

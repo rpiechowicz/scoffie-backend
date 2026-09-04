@@ -1,3 +1,5 @@
+import { parseAppleEnvironment } from './apple-environment';
+
 /**
  * Ostrzeżenia o konfiguracji płatności i tożsamości zakupowej.
  *
@@ -43,7 +45,7 @@ export function billingEnvProblems(
   if (
     billingOn &&
     production &&
-    (env.APPLE_ENVIRONMENT ?? '').trim() !== 'Production'
+    parseAppleEnvironment(env.APPLE_ENVIRONMENT) !== 'Production'
   ) {
     problems.push(
       'BILLING_ENABLED=true na produkcji, a APPLE_ENVIRONMENT != Production — transakcje z App Store będą odrzucane',
@@ -63,12 +65,26 @@ export function billingEnvProblems(
   // Ostatni hamulec przed uruchomieniem sprzedaży: dopóki `AI_TIER_OVERRIDE`
   // daje PRO wszystkim, cała ścieżka subskrypcji jest martwym kodem —
   // subskrypcje nie mają czego odblokować, a limity nie mają czego pilnować.
-  if (
-    billingOn &&
-    (env.AI_TIER_OVERRIDE ?? '').trim().toUpperCase() === 'PRO'
-  ) {
+  if ((env.AI_TIER_OVERRIDE ?? '').trim().toUpperCase() === 'PRO') {
+    // Głośno ZAWSZE, nie tylko przy włączonych zakupach. Ten przełącznik
+    // rozdaje płatną funkcję za darmo; jeśli stoi na produkcji, to musi być
+    // decyzją, a nie pozostałością po testach.
     problems.push(
-      'BILLING_ENABLED=true przy AI_TIER_OVERRIDE=PRO — każdy ma PRO za darmo, subskrypcje nic nie zmieniają',
+      billingOn
+        ? 'BILLING_ENABLED=true przy AI_TIER_OVERRIDE=PRO — każdy ma PRO za darmo, subskrypcje nic nie zmieniają'
+        : 'AI_TIER_OVERRIDE=PRO — asystent jest za darmo dla wszystkich',
+    );
+  }
+
+  // Literówka w nazwie środowiska. Do 4.09.2026 każdy napis inny niż dokładne
+  // „Production" po cichu wybierał sandbox: testerzy dostawali darmowe PRO,
+  // a płacący klienci BILLING_TRANSACTION_UNKNOWN, bo pytanie o stan szło pod
+  // adres sandboxa. Teraz `production` małą literą działa, a napis, którego nie
+  // rozpoznajemy, jest widoczny przy starcie.
+  const rawEnvironment = (env.APPLE_ENVIRONMENT ?? '').trim();
+  if (rawEnvironment && parseAppleEnvironment(rawEnvironment) === null) {
+    problems.push(
+      `APPLE_ENVIRONMENT="${rawEnvironment}" nie jest ani Production, ani Sandbox — używamy Sandbox, więc zakupy z App Store będą odrzucane`,
     );
   }
 

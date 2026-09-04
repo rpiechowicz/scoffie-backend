@@ -394,7 +394,10 @@ export class AgentTurnsService {
             'AI_QUOTA_EXCEEDED',
             plan.tier === 'TRIAL'
               ? `Darmowe wiadomości na próbę (${plan.messagesLimit}) są wykorzystane. Wybierz plan, żeby mieć pulę miesięczną dla całego domu.`
-              : 'Limit wiadomości asystenta na ten miesiąc został wyczerpany.',
+              : // „W tym miesiącu" byłoby nieprawdą: od 4.09.2026 pula wraca
+                // w dniu odnowienia subskrypcji, a nie pierwszego. Datę niesie
+                // `resetsAt` w `details` — telefon pokazuje ją wprost.
+                'Limit wiadomości asystenta w tym okresie został wyczerpany.',
             HttpStatus.TOO_MANY_REQUESTS,
             this.counters.quotaDetailsFor('messages', plan),
           );
@@ -471,6 +474,7 @@ export class AgentTurnsService {
       userId,
       householdId: conversation.householdId,
       periodKey,
+      quotaScopeId: scopeId,
       env,
       requestId,
       dates: {

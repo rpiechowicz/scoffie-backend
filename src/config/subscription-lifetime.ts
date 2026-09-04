@@ -1,3 +1,4 @@
+import { acceptedTransactionEnvironments } from './apple-environment';
 import { SUBSCRIPTION_PRODUCTS } from './subscription-products';
 
 /**
@@ -39,6 +40,17 @@ export type SubscriptionCandidate = {
   messagesLimitSnapshot: number | null;
   plansLimitSnapshot: number | null;
   createdAt: Date;
+  /**
+   * Środowisko App Store transakcji (`Production` / `Sandbox`); `null` dla
+   * nadania ręcznego, które nie chodzi przez Apple i zawsze się liczy.
+   */
+  environment?: string | null;
+  /**
+   * Blokada operatora. Ustawiona ręcznie po zwrocie pieniędzy albo nadużyciu i
+   * NIGDY nieczyszczona przez uzgadnianie ani zgłoszenie z telefonu — inaczej
+   * „Przywróć zakupy" cofało decyzję obsługi jednym kliknięciem klienta.
+   */
+  operatorHoldAt?: Date | null;
 };
 
 /**
@@ -51,12 +63,28 @@ export type SubscriptionCandidate = {
  *    wiemy", czyli martwa. Wieczne bywa tylko nadanie ręczne z `neverExpires`.
  * 3. GRACE ma własną datę końca. Bez niej status GRACE nigdy by nie zadziałał,
  *    bo `expiresAt` z definicji leży już w przeszłości.
+ *
+ * DWIE RZECZY DOŁOŻONE PO AUDYCIE 4.09:
+ * 4. Blokada operatora ucina dostęp niezależnie od tego, co mówi Apple.
+ * 5. Wiersz ze środowiska, którego teraz nie uznajemy (sandbox na produkcji),
+ *    nie daje PRO. Bez tego literówka w `APPLE_ENVIRONMENT` zostawiała po
+ *    sobie wiersze rozdające darmowe PRO na zawsze — poprawienie zmiennej ich
+ *    nie ruszało, bo nikt ich już nie pytał o środowisko.
  */
 export function subscriptionAlive(
   sub: SubscriptionCandidate,
   now: Date,
 ): boolean {
+  if (sub.operatorHoldAt) return false;
   if (sub.revokedAt) return false;
+  if (
+    sub.environment &&
+    !acceptedTransactionEnvironments().includes(
+      sub.environment as 'Production' | 'Sandbox',
+    )
+  ) {
+    return false;
+  }
   if (sub.status !== 'ACTIVE' && sub.status !== 'GRACE') return false;
   if (sub.neverExpires) return true;
   const until =
@@ -70,6 +98,36 @@ export function subscriptionAlive(
       : sub.expiresAt;
   if (!until) return false;
   return until.getTime() + SUBSCRIPTION_CLOCK_SKEW_MS > now.getTime();
+}
+
+/** Prefiks klucza okresu rozliczeniowego subskrypcji. */
+export const BILLING_PERIOD_PREFIX = 'okres:';
+
+/**
+ * Okres puli dla subskrypcji: KONIEC OPŁACONEGO OKRESU, nie koniec miesiąca.
+ *
+ * DLACZEGO NIE MIESIĄC KALENDARZOWY (decyzja Rafała, 4.09.2026). Miesiąc
+ * kalendarzowy nie ma nic wspólnego z tym, za co człowiek zapłacił. Kupując
+ * 15.09 dostawał resztę września i PEŁNĄ pulę od 1.10 — dwie pule za jedną
+ * opłatę — a wracając po przerwie 20.10 do okresu, który już opłacił we
+ * wrześniu, trafiał na licznik wyzerowany albo nie, zależnie od dnia miesiąca.
+ * Teraz pula idzie za umową: kupione 15.09 odnawia się 15.10, tak jak
+ * odnawia się płatność u Apple.
+ *
+ * KLUCZEM JEST `expiresAt`, bo to jedyna data, którą Apple daje wprost i która
+ * przesuwa się DOKŁADNIE przy odnowieniu — zmiana wartości sama otwiera nową
+ * pulę, bez żadnego crona i bez pilnowania, kiedy „minął miesiąc". W łasce
+ * płatniczej `expiresAt` stoi w miejscu, więc człowiek na przeterminowanej
+ * karcie NIE dostaje świeżej puli — dostaje resztę tej, za którą zapłacił.
+ *
+ * `null` dla nadania operatora i wieczystego (brak okresu rozliczeniowego) —
+ * wołający schodzi wtedy na miesiąc kalendarzowy.
+ */
+export function billingPeriodKey(
+  sub: Pick<SubscriptionCandidate, 'expiresAt' | 'neverExpires'> | undefined,
+): string | null {
+  if (!sub || sub.neverExpires || !sub.expiresAt) return null;
+  return `${BILLING_PERIOD_PREFIX}${sub.expiresAt.toISOString().slice(0, 10)}`;
 }
 
 /**

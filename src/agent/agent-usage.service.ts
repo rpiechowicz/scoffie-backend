@@ -102,13 +102,6 @@ export class AgentUsageService {
     await this.conversations.ensureMembership(userId, householdId);
     const plan = await this.counters.resolvePlan(householdId, { userId }, now);
     const period = plan.periodKey;
-    // Rozkład na domowników: w PRO z bieżącego miesiąca, na próbie z całej
-    // puli (jedna na życie gospodarstwa).
-    const periodStart = plan.renews
-      ? new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
-        )
-      : undefined;
     // Zakres licznika, NIE gospodarstwo: kwota schodzi z `sub:<id>` przy
     // subskrypcji i z `trial:<hasz>` na próbie. Czytanie po `householdId`
     // pokazywałoby zero zużycia każdemu, kto ma plan.
@@ -125,14 +118,15 @@ export class AgentUsageService {
           // i awarii dostawcy kwotę zwróciły i w rozkładzie ich nie ma.
           status: { not: 'RUNNING' },
           quotaRefunded: false,
-          ...(periodStart
-            ? {
-                startedAt: {
-                  gte: periodStart,
-                  lt: this.counters.monthResetsAt(now),
-                },
-              }
-            : {}),
+          // ROZKŁAD MUSI SUMOWAĆ SIĘ DO LICZBY, KTÓRA STOI OBOK NIEGO.
+          // Wcześniej wycinał tury po DACIE — od 1. dnia miesiąca do 1. dnia
+          // następnego — a licznik obok liczył co innego: przy próbie całą pulę
+          // bez względu na datę, a od 4.09.2026 przy subskrypcji OKRES
+          // ROZLICZENIOWY (kupione 15.09 → do 15.10). Dwa różne pytania dawały
+          // dwie różne liczby na jednym ekranie. Tura zapisuje zakres i okres,
+          // z których zeszła kwota, więc pytamy dokładnie o to samo, co licznik.
+          quotaScopeId: scopeId,
+          quotaPeriodKey: period,
         },
         _count: { _all: true },
       }),

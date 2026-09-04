@@ -8,13 +8,25 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { OpsTokenGuard } from '../observability/ops-token.guard';
 import { SUBSCRIPTION_PRODUCTS } from '../config/subscription-products';
-import { subscriptionScopeId } from '../config/purchase-identity';
+import {
+  purchaseIdentityHashForUser,
+  subscriptionScopeId,
+} from '../config/purchase-identity';
+import { billingPeriodKey } from '../config/subscription-lifetime';
 import { SubscriptionsService } from './subscriptions.service';
 import { SubscriptionsReconcileService } from './subscriptions-reconcile.service';
 
@@ -34,9 +46,18 @@ import { SubscriptionsReconcileService } from './subscriptions-reconcile.service
  */
 
 export class GrantManualDto {
-  /** Hasz tożsamości obdarowanej osoby (z `GET /ops/billing/subscriptions`). */
+  /**
+   * Hasz tożsamości obdarowanej osoby (z `GET /ops/billing/subscriptions`).
+   * Zamiast niego można podać `userId` — serwer policzy hasz sam.
+   */
+  @IsOptional()
   @IsString()
-  identityHash!: string;
+  identityHash?: string;
+
+  /** Konto obdarowanej osoby. Wygodniejsze i trudniejsze do pomylenia. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
 
   @IsString()
   productId!: string;
@@ -47,6 +68,23 @@ export class GrantManualDto {
   @Min(0)
   @Max(60)
   months!: number;
+
+  /**
+   * Nadanie na hasz, do którego nie ma dziś żadnego konta. Domyślnie odmawiamy:
+   * nadanie na literówkę wygląda w odpowiedzi jak sukces i nie robi NIC, a
+   * dowiadujemy się o tym z drugiej reklamacji tego samego klienta.
+   */
+  @IsOptional()
+  @IsBoolean()
+  force?: boolean;
+}
+
+export class RevokeDto {
+  /** Po co odebrano dostęp — zostaje w wierszu, żeby dało się to odkręcić. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }
 
 export class LookupQueryDto {
@@ -106,10 +144,20 @@ export class BillingOpsController {
    * a `resolvePlan` dalej widziało ACTIVE z datą w przyszłości.
    */
   @Post('subscriptions/:id/revoke')
-  async revoke(@Param('id') id: string) {
+  async revoke(@Param('id') id: string, @Body() dto: RevokeDto) {
+    const now = new Date();
     const updated = await this.prisma.subscription.updateMany({
       where: { id },
-      data: { status: 'REVOKED', revokedAt: new Date() },
+      data: {
+        status: 'REVOKED',
+        revokedAt: now,
+        // BLOKADA JEST TYM, CO ZOSTAJE. `status` i `revokedAt` przepisuje
+        // KAŻDE uzgodnienie z Apple i każde zgłoszenie z telefonu — więc samo
+        // ich ustawienie znaczyło „dostęp wraca przy najbliższym »Przywróć
+        // zakupy«". Tej kolumny nie rusza nic poza operatorem.
+        operatorHoldAt: now,
+        operatorHoldReason: dto?.reason?.trim() || 'Odebrane przez obsługę.',
+      },
     });
     if (updated.count === 0) {
       throw new AppException(
@@ -118,7 +166,55 @@ export class BillingOpsController {
         HttpStatus.NOT_FOUND,
       );
     }
-    return { revoked: true };
+    return { revoked: true, holdAt: now.toISOString() };
+  }
+
+  /**
+   * Zdjęcie blokady operatora. Osobny przycisk, bo pomyłka przy odbieraniu
+   * dostępu musi dać się cofnąć bez wchodzenia do bazy — a przy okazji
+   * uzgadniamy stan z Apple, żeby nie zostawić wiersza z ręcznym REVOKED.
+   */
+  @Post('subscriptions/:id/unhold')
+  async unhold(@Param('id') id: string) {
+    const updated = await this.prisma.subscription.updateMany({
+      where: { id },
+      data: { operatorHoldAt: null, operatorHoldReason: null },
+    });
+    if (updated.count === 0) {
+      throw new AppException(
+        'NOT_FOUND',
+        'Nie znaleziono subskrypcji.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return { held: false, reconciled: await this.subscriptions.reconcile(id) };
+  }
+
+  /**
+   * Powiadomienia Apple, których nie udało się przetworzyć albo które zamknięto
+   * z powodem. Bez tego takie zdarzenie przepadało po cichu: Apple ponawia pięć
+   * razy przez trzy doby i przestaje, a w kodzie nie było ani jednego miejsca,
+   * w którym dałoby się je zobaczyć.
+   */
+  @Get('notifications/failed')
+  async failedNotifications() {
+    const rows = await this.prisma.appleNotification.findMany({
+      where: { OR: [{ processedAt: null }, { error: { not: null } }] },
+      orderBy: { receivedAt: 'desc' },
+      take: 100,
+      select: {
+        notificationUuid: true,
+        notificationType: true,
+        subtype: true,
+        originalTransactionId: true,
+        environment: true,
+        attempts: true,
+        error: true,
+        receivedAt: true,
+        processedAt: true,
+      },
+    });
+    return { notifications: rows };
   }
 
   /**
@@ -135,6 +231,14 @@ export class BillingOpsController {
         HttpStatus.BAD_REQUEST,
       );
     }
+
+    // KOMU TO NADAJEMY. Wcześniej przyjmowaliśmy dowolny napis: literówka w
+    // haszu dawała 201 z identyfikatorem wiersza i nie robiła NIC — bo
+    // `resolvePlan` szuka po haszach domowników, a taki wiersz nie pasował do
+    // nikogo. Wyglądało to jak udane nadanie, więc recenzent App Store albo
+    // klient po reklamacji dalej siedział bez dostępu.
+    const identityHash = await this.resolveGrantIdentity(dto);
+
     const now = new Date();
     const expiresAt =
       dto.months > 0
@@ -148,7 +252,7 @@ export class BillingOpsController {
         : null;
     const created = await this.prisma.subscription.create({
       data: {
-        identityHash: dto.identityHash,
+        identityHash,
         provider: 'MANUAL',
         productId: dto.productId,
         status: 'ACTIVE',
@@ -161,7 +265,62 @@ export class BillingOpsController {
         lastVerifiedAt: now,
       },
     });
-    return { subscriptionId: created.id, expiresAt, product: product.name };
+    return {
+      subscriptionId: created.id,
+      identityHash,
+      expiresAt,
+      product: product.name,
+    };
+  }
+
+  /** `userId` → hasz, albo podany hasz sprawdzony pod kątem „czy do kogoś trafia". */
+  private async resolveGrantIdentity(dto: GrantManualDto): Promise<string> {
+    if (dto.userId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: dto.userId },
+        select: {
+          identityHash: true,
+          appleSub: true,
+          googleId: true,
+          authProvider: true,
+        },
+      });
+      const hash =
+        user?.identityHash ??
+        (user ? purchaseIdentityHashForUser(user) : null) ??
+        null;
+      if (!hash) {
+        throw new AppException(
+          'VALIDATION_ERROR',
+          'To konto nie ma tożsamości zakupowej — zaloguj je raz przez Apple albo podaj identityHash z force.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      return hash;
+    }
+
+    const hash = dto.identityHash?.trim();
+    if (!hash) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Podaj userId albo identityHash.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (!dto.force) {
+      const owner = await this.prisma.user.findFirst({
+        where: { identityHash: hash },
+        select: { id: true },
+      });
+      if (!owner) {
+        throw new AppException(
+          'VALIDATION_ERROR',
+          'Żadne konto nie ma tego hasza tożsamości. Sprawdź go albo powtórz z force:true, jeśli nadajesz z wyprzedzeniem.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+    return hash;
   }
 
   /**
@@ -188,7 +347,18 @@ export class BillingOpsController {
    */
   @Get('subscriptions/:id/usage')
   async usage(@Param('id') id: string) {
-    const periodKey = new Date().toISOString().slice(0, 7);
+    // OKRES BIERZE SIĘ Z SUBSKRYPCJI, NIE Z KALENDARZA. Od 4.09.2026 pula
+    // wraca w dniu odnowienia, więc pytanie o `YYYY-MM` pokazywało obsłudze
+    // pusty licznik i odpowiedź „nic nie zużyłeś" komuś, kto właśnie wyczerpał
+    // limit. Nadanie ręczne i bezterminowe nie mają okresu rozliczeniowego
+    // i zostają przy miesiącu.
+    const row = await this.prisma.subscription.findUnique({
+      where: { id },
+      select: { expiresAt: true, neverExpires: true },
+    });
+    const periodKey =
+      billingPeriodKey(row ?? undefined) ??
+      new Date().toISOString().slice(0, 7);
     const rows = await this.prisma.aiUsageCounter.findMany({
       where: { scopeId: subscriptionScopeId(id), periodKey },
       select: { kind: true, value: true },

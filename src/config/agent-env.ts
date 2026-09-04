@@ -172,9 +172,16 @@ export type AgentEnv = {
 };
 
 /**
- * `AI_TIER_OVERRIDE`: brak zmiennej = domyślne `PRO` (jak dotąd);
- * `PRO` = PRO dla wszystkich; puste / `off` / `none` = plan liczony
- * z nadania operatora i subskrypcji (model próbny włączony).
+ * `AI_TIER_OVERRIDE`: `PRO` = PRO dla wszystkich, cokolwiek innego (także brak
+ * zmiennej) = plan liczony z nadania operatora i subskrypcji.
+ *
+ * DOMYŚLNA WARTOŚĆ ZMIENIŁA SIĘ 4.09.2026 Z `PRO` NA BRAK. Powód jest ten sam,
+ * co przy budżecie dobowym: brak zmiennej nie może znaczyć „rozdawaj". Dopóki
+ * domyślną wartością było `PRO`, USUNIĘCIE tej zmiennej w Railway — czyli
+ * dokładnie to, co człowiek robi, gdy chce ją „wyczyścić" — dawało asystenta
+ * za darmo wszystkim i zamieniało całą ścieżkę płatności w martwy kod. Puste
+ * pole działało poprawnie, skasowany wiersz nie; różnicy nie było widać ani
+ * w aplikacji, ani w logu.
  */
 export function readTierOverride(env: NodeJS.ProcessEnv): 'PRO' | null {
   const raw = env.AI_TIER_OVERRIDE;
@@ -201,7 +208,7 @@ export const AGENT_ENV_DEFAULTS = {
   plansPerMonth: 30,
   trialMessages: 5,
   trialPlans: 1,
-  tierOverride: 'PRO' as 'PRO' | null,
+  tierOverride: null as 'PRO' | null,
   maxConcurrentTurnsPerHousehold: 2,
   /**
    * Siatka, nie polityka: zmierzone tury kosztują $0,12–$1,00, więc $5 na dobę

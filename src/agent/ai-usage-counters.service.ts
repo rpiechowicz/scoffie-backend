@@ -2,8 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { readAgentEnv } from '../config/agent-env';
 import { productLimits } from '../config/subscription-products';
-import { subscriptionScopeId, trialScopeId } from '../config/purchase-identity';
 import {
+  purchaseIdentityHashForUser,
+  subscriptionScopeId,
+  trialScopeId,
+} from '../config/purchase-identity';
+import {
+  billingPeriodKey,
   pickBestSubscription,
   type SubscriptionCandidate,
 } from '../config/subscription-lifetime';
@@ -33,7 +38,16 @@ export type HouseholdPlan = {
    *                      nie wędrują, bo `tierOverride` jest kolumną domu.
    */
   quotaScopeId: string;
-  /** `YYYY-MM` (PRO) albo `trial` (jedna pula bez odnowienia). */
+  /**
+   * Okres, w którym liczy się pula:
+   *
+   *   • `okres:<YYYY-MM-DD>` — SUBSKRYPCJA. Data to koniec opłaconego okresu
+   *     z Apple, więc pula odnawia się w rocznicę zakupu: kupione 15.09
+   *     odnawia się 15.10, a nie 1.10.
+   *   • `YYYY-MM`            — nadanie operatora i `AI_TIER_OVERRIDE`; te nie
+   *     mają okresu rozliczeniowego, więc zostają przy miesiącu kalendarzowym.
+   *   • `trial`              — jedna pula bez odnowienia.
+   */
   periodKey: string;
   renews: boolean;
   /** ISO albo `null` (próba się nie odnawia). */
@@ -175,7 +189,17 @@ export class AiUsageCountersService {
       select: {
         tierOverride: true,
         memberships: {
-          select: { userId: true, user: { select: { identityHash: true } } },
+          select: {
+            userId: true,
+            user: {
+              select: {
+                identityHash: true,
+                appleSub: true,
+                googleId: true,
+                authProvider: true,
+              },
+            },
+          },
         },
       },
     });
@@ -184,8 +208,24 @@ export class AiUsageCountersService {
     }
 
     const members = household?.memberships ?? [];
+    // HASZ LICZYMY, A NIE TYLKO CZYTAMY Z KOLUMNY.
+    //
+    // `User.identityHash` wypełnia się przy logowaniu, ale między zakupem a
+    // najbliższym logowaniem kolumna bywa pusta — a wtedy płatnik ze świeżo
+    // zapisaną subskrypcją wypadał z tego zapytania i dostawał plan PRÓBNY
+    // mimo pobranej płatności. Ta sama pustka przesuwała zakres puli próbnej
+    // z `trial:<hasz>` na `trial:user:<id>`, więc uzupełnienie kolumny przy
+    // następnym logowaniu OTWIERAŁO drugą darmową próbę. Liczenie hasza na
+    // miejscu zamyka jedno i drugie: wynik jest ten sam, co przy zapisie.
+    const hashOf = (user: {
+      identityHash: string | null;
+      appleSub: string | null;
+      googleId: string | null;
+      authProvider: string;
+    }): string | null => user.identityHash ?? purchaseIdentityHashForUser(user);
+
     const hashes = members
-      .map((membership) => membership.user.identityHash)
+      .map((membership) => hashOf(membership.user))
       .filter((hash): hash is string => Boolean(hash));
 
     if (hashes.length > 0) {
@@ -206,6 +246,11 @@ export class AiUsageCountersService {
           messagesLimitSnapshot: true,
           plansLimitSnapshot: true,
           createdAt: true,
+          // Środowisko i blokada operatora rozstrzygają o żywotności tak samo
+          // jak data końca — bez nich sandbox na produkcji i ręcznie odebrany
+          // dostęp dalej dawały PRO.
+          environment: true,
+          operatorHoldAt: true,
         },
       });
       const winner = pickBestSubscription(candidates, now);
@@ -216,11 +261,11 @@ export class AiUsageCountersService {
 
     // Pula próbna należy do OSOBY, nie do domu — inaczej „wyjdź z domu →
     // załóż nowy" rozdawało świeże próby w nieskończoność.
+    const actorMember = members.find(
+      (membership) => membership.userId === actor.userId,
+    );
     const actorHash =
-      actor.identityHash ??
-      members.find((membership) => membership.userId === actor.userId)?.user
-        .identityHash ??
-      null;
+      actor.identityHash ?? (actorMember ? hashOf(actorMember.user) : null);
     return {
       tier: 'TRIAL',
       source: 'TRIAL',
@@ -262,14 +307,22 @@ export class AiUsageCountersService {
       limits.plansPerMonth,
       sub?.plansLimitSnapshot ?? 0,
     );
+    // OKRES IDZIE ZA UMOWĄ, NIE ZA KALENDARZEM. Przy subskrypcji pula odnawia
+    // się w rocznicę zakupu (kupione 15.09 → 15.10), bo tak odnawia się
+    // płatność. Nadanie operatora i `AI_TIER_OVERRIDE` nie mają okresu
+    // rozliczeniowego, więc zostają przy miesiącu kalendarzowym.
+    const period = billingPeriodKey(sub);
     return {
       tier: 'PRO',
       source,
       // Pula subskrypcji wisi na UMOWIE, nadanie operatora — na domu.
       quotaScopeId: sub ? subscriptionScopeId(sub.id) : householdId,
-      periodKey: this.monthKey(now),
+      periodKey: period ?? this.monthKey(now),
       renews: true,
-      resetsAt: this.monthResetsAt(now).toISOString(),
+      resetsAt:
+        period && sub?.expiresAt
+          ? sub.expiresAt.toISOString()
+          : this.monthResetsAt(now).toISOString(),
       messagesLimit,
       plansLimit,
       product: limits.product,
@@ -378,6 +431,8 @@ export class AiUsageCountersService {
 }
 
 export {
+  billingPeriodKey,
+  BILLING_PERIOD_PREFIX,
   pickBestSubscription,
   subscriptionAlive,
 } from '../config/subscription-lifetime';

@@ -24,6 +24,7 @@ jest.mock('./apple-jws.verifier', () => {
 });
 
 import {
+  AppleJwsError,
   verifyAppleJws,
   verifyRenewalInfo,
   verifyTransaction,
@@ -64,11 +65,16 @@ const codeOf = async (run: () => Promise<unknown>): Promise<string> => {
 describe('SubscriptionsService', () => {
   const originals = { ...process.env };
   let prisma: {
-    user: { findUnique: jest.Mock };
+    user: {
+      findUnique: jest.Mock;
+      findFirst: jest.Mock;
+      updateMany: jest.Mock;
+    };
     subscription: {
       findUnique: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
       findMany: jest.Mock;
     };
     appleNotification: {
@@ -105,6 +111,8 @@ describe('SubscriptionsService', () => {
           identityHash: HASH,
           authProvider: 'APPLE',
         }),
+        findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       subscription: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -120,6 +128,7 @@ describe('SubscriptionsService', () => {
           createdAt: NOW,
           ...data,
         })),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findMany: jest.fn().mockResolvedValue([]),
       },
       appleNotification: {
@@ -247,6 +256,59 @@ describe('SubscriptionsService', () => {
       expect(
         await codeOf(() => service.registerAppleTransaction(USER, 'jws', NOW)),
       ).toBe('BILLING_IDENTITY_MISSING');
+    });
+
+    it('appAccountToken wskazujący INNE konto ucina zgłoszenie', async () => {
+      // Podpisana transakcja, która komuś wyciekła, należała do tego, kto
+      // ZGŁOSI JĄ PIERWSZY — a `originalTransactionId` jest unikalny, więc
+      // prawowity właściciel dostawał potem BILLING_TRANSACTION_TAKEN.
+      (verifyTransaction as jest.Mock).mockReturnValue(
+        transaction({ appAccountToken: OTHER_USER }),
+      );
+      expect(
+        await codeOf(() => service.registerAppleTransaction(USER, 'jws', NOW)),
+      ).toBe('BILLING_TRANSACTION_TAKEN');
+      expect(prisma.subscription.create).not.toHaveBeenCalled();
+    });
+
+    it('appAccountToken zgodny z kontem przechodzi (wielkość liter bez znaczenia)', async () => {
+      (verifyTransaction as jest.Mock).mockReturnValue(
+        transaction({ appAccountToken: USER.toUpperCase() }),
+      );
+      await service.registerAppleTransaction(USER, 'jws', NOW);
+      expect(prisma.subscription.create).toHaveBeenCalled();
+    });
+
+    it('CHMURA RODZINNA dostaje własny kod, a nie „nie udało się potwierdzić"', async () => {
+      (verifyTransaction as jest.Mock).mockImplementation(() => {
+        throw new AppleJwsError('FAMILY_SHARED', 'Chmura Rodzinna.');
+      });
+      expect(
+        await codeOf(() => service.registerAppleTransaction(USER, 'jws', NOW)),
+      ).toBe('BILLING_FAMILY_SHARING_UNSUPPORTED');
+    });
+
+    it('sandbox na produkcji dostaje własny kod — to nie jest podrobiony podpis', async () => {
+      (verifyTransaction as jest.Mock).mockImplementation(() => {
+        throw new AppleJwsError('WRONG_ENVIRONMENT', 'Sandbox.');
+      });
+      expect(
+        await codeOf(() => service.registerAppleTransaction(USER, 'jws', NOW)),
+      ).toBe('BILLING_ENVIRONMENT_MISMATCH');
+    });
+
+    it('zakup UZUPEŁNIA pustą kolumnę hasza — inaczej płatnik zostaje na próbie', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: USER,
+        appleSub: 'sub-apple',
+        googleId: null,
+        identityHash: null,
+        authProvider: 'APPLE',
+      });
+      await service.registerAppleTransaction(USER, 'jws', NOW);
+      const call = prisma.user.updateMany.mock.calls.at(-1)?.[0];
+      expect(call.where).toEqual({ id: USER, identityHash: null });
+      expect(typeof call.data.identityHash).toBe('string');
     });
   });
 
@@ -380,7 +442,7 @@ describe('SubscriptionsService', () => {
         plansLimitSnapshot: 8,
       });
       await service.processNotification('uuid-1', NOW);
-      const data = prisma.subscription.update.mock.calls.at(-1)?.[0].data;
+      const data = prisma.subscription.updateMany.mock.calls.at(-1)?.[0].data;
       expect(data.status).toBe('ACTIVE');
       expect(data.lastNotificationType).toBe('COS_NOWEGO');
     });
@@ -447,14 +509,113 @@ describe('SubscriptionsService', () => {
         id: 'sub-1',
         identityHash: HASH,
         lastNotificationAt: null,
+        latestTransactionId: '2000000000000009',
         expiresAt: new Date('2026-10-01T00:00:00.000Z'),
         messagesLimitSnapshot: 30,
         plansLimitSnapshot: 8,
       });
       await service.processNotification('uuid-1', NOW);
-      const data = prisma.subscription.update.mock.calls.at(-1)?.[0].data;
+      const data = prisma.subscription.updateMany.mock.calls.at(-1)?.[0].data;
       expect(data.status).toBe('REVOKED');
       expect(data.revokedAt).toEqual(new Date('2026-09-03T09:00:00.000Z'));
+    });
+
+    it('TRWALE nieprzetwarzalne zdarzenie zamyka się z powodem, zamiast wracać w kółko', async () => {
+      // Cudza aplikacja, obce środowisko, Chmura Rodzinna — ponowienie za
+      // godzinę da ten sam wynik. Wcześniej leciał wyjątek, kontroler oddawał
+      // Apple 500, Apple ponawiało pięć razy przez trzy doby i przestawało,
+      // a wiersz zostawał nieprzetworzony bez miejsca, w którym da się to zobaczyć.
+      (verifyAppleJws as jest.Mock).mockReturnValue(notification());
+      (verifyTransaction as jest.Mock).mockImplementation(() => {
+        throw new AppleJwsError('FAMILY_SHARED', 'Chmura Rodzinna.');
+      });
+      prisma.appleNotification.findUnique.mockResolvedValue({
+        notificationUuid: 'uuid-1',
+        signedPayload: 'payload',
+        processedAt: null,
+      });
+
+      await expect(
+        service.processNotification('uuid-1', NOW),
+      ).resolves.toBeUndefined();
+      const zapis = prisma.appleNotification.update.mock.calls.at(-1)?.[0].data;
+      expect(zapis.processedAt).toEqual(NOW);
+      expect(String(zapis.error)).toContain('FAMILY_SHARED');
+      expect(prisma.subscription.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('ZWROT ZA STARY MIESIĄC nie zabija żywej subskrypcji — pytamy Apple o całość', async () => {
+      // Apple potrafi zwrócić pieniądze za jeden okres wstecz. Ładunek niesie
+      // wtedy TAMTĄ transakcję (z `revocationDate` i starą datą końca), a
+      // `revokedAt` wygrywa ze wszystkim — klient płacący od maja tracił dostęp
+      // mimo opłaconego września. Strażnik kolejności tego nie łapał, bo
+      // `signedDate` samego powiadomienia jest dzisiejsze.
+      (verifyAppleJws as jest.Mock).mockReturnValue(
+        notification({ notificationType: 'REFUND' }),
+      );
+      (verifyTransaction as jest.Mock).mockReturnValue(
+        transaction({
+          transactionId: '2000000000000002',
+          expiresDate: Date.parse('2026-08-01T00:00:00.000Z'),
+          revocationDate: Date.parse('2026-09-03T09:00:00.000Z'),
+        }),
+      );
+      prisma.appleNotification.findUnique.mockResolvedValue({
+        notificationUuid: 'uuid-1',
+        signedPayload: 'payload',
+        processedAt: null,
+      });
+      prisma.subscription.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        identityHash: HASH,
+        purchaserUserId: USER,
+        provider: 'APPLE',
+        originalTransactionId: ORIGINAL_TX,
+        lastNotificationAt: null,
+        latestTransactionId: '2000000000000009',
+        expiresAt: new Date('2026-10-01T00:00:00.000Z'),
+        messagesLimitSnapshot: 30,
+        plansLimitSnapshot: 8,
+      });
+
+      await service.processNotification('uuid-1', NOW);
+
+      // Stan NIE bierze się z ładunku — bierze się z App Store Server API.
+      expect(prisma.subscription.updateMany).not.toHaveBeenCalled();
+      expect(appStore.subscriptionState).toHaveBeenCalledWith(ORIGINAL_TX, NOW);
+    });
+
+    it('zapis stanu jest WARUNKOWY — przegrany wyścig nie nadpisuje świeższego', async () => {
+      // Apple potrafi wysłać dwa zdarzenia w tej samej sekundzie, a Railway
+      // obsługuje je równolegle. Sam odczyt `existing` przed zapisem tego nie
+      // domykał: oba przechodziły strażnika kolejności, a zapisywało to,
+      // które skończyło później.
+      (verifyAppleJws as jest.Mock).mockReturnValue(notification());
+      prisma.appleNotification.findUnique.mockResolvedValue({
+        notificationUuid: 'uuid-1',
+        signedPayload: 'payload',
+        processedAt: null,
+      });
+      prisma.subscription.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        identityHash: HASH,
+        lastNotificationAt: null,
+        latestTransactionId: '2000000000000009',
+        expiresAt: new Date('2026-09-01T00:00:00.000Z'),
+        messagesLimitSnapshot: 30,
+        plansLimitSnapshot: 8,
+      });
+      prisma.subscription.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.processNotification('uuid-1', NOW);
+
+      const where = prisma.subscription.updateMany.mock.calls.at(-1)?.[0].where;
+      expect(where.OR).toEqual([
+        { lastNotificationAt: null },
+        { lastNotificationAt: { lte: new Date('2026-09-03T10:00:00.000Z') } },
+      ]);
+      const zapis = prisma.appleNotification.update.mock.calls.at(-1)?.[0].data;
+      expect(String(zapis.error)).toContain('świeższy');
     });
 
     it('zdarzenie bez transakcji (TEST) przechodzi bez zmian stanu', async () => {
@@ -497,6 +658,53 @@ describe('SubscriptionsService', () => {
       });
       expect(await service.reconcile('sub-1', NOW)).toBe(false);
       expect(appStore.subscriptionState).not.toHaveBeenCalled();
+    });
+
+    it('subskrypcja NIEZNANA Apple nie zatyka kolejki — dostaje świeży znacznik', async () => {
+      // Kolejka bierze 25 NAJDAWNIEJ sprawdzanych wierszy. Wiersz bez nowego
+      // znacznika zostawał najdawniejszy NA ZAWSZE i wracał w każdym przebiegu;
+      // dwadzieścia pięć takich blokowało odświeżanie WSZYSTKIM pozostałym,
+      // w tym płacącym czekającym na zgubione DID_RENEW.
+      prisma.subscription.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        identityHash: HASH,
+        purchaserUserId: USER,
+        provider: 'APPLE',
+        originalTransactionId: ORIGINAL_TX,
+      });
+      appStore.subscriptionState.mockRejectedValue(
+        new AppStoreNotFoundError('nie znam'),
+      );
+      expect(await service.reconcile('sub-1', NOW)).toBe(false);
+      const call = prisma.subscription.updateMany.mock.calls.at(-1)?.[0];
+      expect(call.where).toEqual({ id: 'sub-1' });
+      expect(call.data.lastVerifiedAt).toEqual(NOW);
+    });
+
+    it('świeżo WYGASŁA z żywym odnowieniem wraca do uzgadniania', async () => {
+      // Wpaść w EXPIRED można przez jedno zgubione DID_RENEW. Wcześniej taki
+      // wiersz wypadał z kolejki na zawsze i klient płacił dalej w ciszy.
+      await service.staleSubscriptionIds(25, NOW);
+      const where = prisma.subscription.findMany.mock.calls.at(-1)?.[0].where;
+      const nieswieze = (where.OR as Record<string, any>[])[0];
+      const warianty = nieswieze.AND[0].OR as Record<string, unknown>[];
+      expect(warianty).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ status: 'EXPIRED', autoRenewStatus: true }),
+        ]),
+      );
+    });
+
+    it('wiersz, któremu WŁAŚNIE minął okres, wchodzi bez czekania na dobę', async () => {
+      // Odnowienie następuje w konkretnej minucie. Gdy akurat wtedy zgubimy
+      // DID_RENEW, jedynym kryterium było „24 godziny od ostatniego
+      // sprawdzenia" — a ono mogło być świeże, więc płacący klient czekał
+      // nawet dobę. Przebieg chodzi co godzinę, więc czeka najwyżej godzinę.
+      await service.staleSubscriptionIds(25, NOW);
+      const where = prisma.subscription.findMany.mock.calls.at(-1)?.[0].where;
+      const swiezoPoKoncu = (where.OR as Record<string, any>[])[1];
+      expect(swiezoPoKoncu.status).toEqual({ in: ['ACTIVE', 'GRACE'] });
+      expect(swiezoPoKoncu.expiresAt.lt).toEqual(NOW);
     });
   });
 });

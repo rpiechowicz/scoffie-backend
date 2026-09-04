@@ -129,6 +129,42 @@ describe('AgentConversationsService', () => {
       );
       expect(prisma.agentConversation.findFirst).not.toHaveBeenCalled();
     });
+
+    it('BYŁY DOMOWNIK nie wchodzi do własnej rozmowy o cudzym już domu', async () => {
+      // Rozmowa jest przypięta do gospodarstwa z chwili założenia, a `userId`
+      // nigdy nie przestaje się zgadzać. Kto wyszedł z domu, miał więc dalej
+      // działającą rozmowę o TAMTYM domu: czytał jego plan tygodnia przez
+      // kontekst asystenta, a każda jego wiadomość schodziła z puli opłaconej
+      // przez byłego domownika — bo plan liczy się z `conversation.householdId`.
+      prisma.agentConversation.findFirst.mockResolvedValue({
+        id: CONVERSATION,
+        userId: USER,
+        householdId: HOUSEHOLD,
+        status: 'ACTIVE',
+      });
+      prisma.membership.findUnique.mockResolvedValue(null);
+
+      expect(await codeOf(service.loadOwned(USER, CONVERSATION))).toBe(
+        'AI_CONVERSATION_NOT_FOUND',
+      );
+      expect(prisma.membership.findUnique).toHaveBeenCalledWith({
+        where: { userId_householdId: { userId: USER, householdId: HOUSEHOLD } },
+        select: { userId: true },
+      });
+    });
+
+    it('obecny domownik przechodzi', async () => {
+      prisma.agentConversation.findFirst.mockResolvedValue({
+        id: CONVERSATION,
+        userId: USER,
+        householdId: HOUSEHOLD,
+        status: 'ACTIVE',
+      });
+      prisma.membership.findUnique.mockResolvedValue({ userId: USER });
+      await expect(service.loadOwned(USER, CONVERSATION)).resolves.toEqual(
+        expect.objectContaining({ id: CONVERSATION }),
+      );
+    });
   });
 
   describe('messages', () => {

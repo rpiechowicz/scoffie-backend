@@ -1,4 +1,5 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { purchaseIdentityHash } from '../config/purchase-identity';
 import {
   AiUsageCountersService,
   pickBestSubscription,
@@ -162,13 +163,22 @@ describe('resolvePlan — uprawnienie liczone, nie zapisane', () => {
   let counters: AiUsageCountersService;
 
   const householdRow = (
-    members: { userId: string; identityHash: string | null }[],
+    members: {
+      userId: string;
+      identityHash: string | null;
+      appleSub?: string | null;
+    }[],
     tierOverride: string | null = null,
   ) => ({
     tierOverride,
     memberships: members.map((member) => ({
       userId: member.userId,
-      user: { identityHash: member.identityHash },
+      user: {
+        identityHash: member.identityHash,
+        appleSub: member.appleSub ?? null,
+        googleId: null,
+        authProvider: 'APPLE',
+      },
     })),
   });
 
@@ -265,6 +275,155 @@ describe('resolvePlan — uprawnienie liczone, nie zapisane', () => {
     expect(plan.quotaScopeId).toBe(HOUSE);
     // Nadanie nie ma produktu — limity z env, jak dotąd.
     expect(plan.product).toBeNull();
+  });
+
+  it('PŁATNIK BEZ WYPEŁNIONEJ KOLUMNY HASZA i tak dostaje PRO', async () => {
+    // `User.identityHash` wypełnia się przy logowaniu. Między zakupem a
+    // najbliższym logowaniem kolumna bywa pusta — a płatnik wypadał wtedy z
+    // zapytania o subskrypcje i dostawał plan PRÓBNY mimo pobranej płatności.
+    // Hasz liczy się teraz na miejscu z `appleSub`, więc wynik jest ten sam,
+    // co przy zapisie subskrypcji.
+    const hash = purchaseIdentityHash('APPLE', 'apple-sub-platnika');
+    prisma.household.findUnique.mockResolvedValue(
+      householdRow([
+        { userId: PAYER, identityHash: null, appleSub: 'apple-sub-platnika' },
+      ]),
+    );
+    prisma.subscription.findMany.mockImplementation(
+      ({ where }: { where: { identityHash: { in: string[] } } }) =>
+        Promise.resolve(
+          where.identityHash.in.includes(hash!)
+            ? [sub({ identityHash: hash })]
+            : [],
+        ),
+    );
+
+    const plan = await counters.resolvePlan(HOUSE, { userId: PAYER }, NOW);
+    expect(plan.tier).toBe('PRO');
+    expect(plan.source).toBe('SUBSCRIPTION');
+  });
+
+  it('PULA PRÓBNA NIE ODNAWIA SIĘ po wypełnieniu kolumny hasza', async () => {
+    // Zakres puli próbnej brał się z kolumny; pusta kolumna dawała
+    // `trial:user:<id>`, a wypełniona `trial:<hasz>` — czyli następne logowanie
+    // otwierało DRUGĄ darmową próbę. Teraz obie ścieżki liczą ten sam zakres.
+    const hash = purchaseIdentityHash('APPLE', 'apple-sub-probny');
+    prisma.household.findUnique.mockResolvedValue(
+      householdRow([
+        { userId: MEMBER, identityHash: null, appleSub: 'apple-sub-probny' },
+      ]),
+    );
+    const przed = await counters.resolvePlan(HOUSE, { userId: MEMBER }, NOW);
+
+    prisma.household.findUnique.mockResolvedValue(
+      householdRow([
+        { userId: MEMBER, identityHash: hash, appleSub: 'apple-sub-probny' },
+      ]),
+    );
+    const po = await counters.resolvePlan(HOUSE, { userId: MEMBER }, NOW);
+
+    expect(przed.tier).toBe('TRIAL');
+    expect(przed.quotaScopeId).toBe(`trial:${hash!}`);
+    expect(po.quotaScopeId).toBe(przed.quotaScopeId);
+  });
+
+  describe('okres puli idzie za UMOWĄ, nie za kalendarzem', () => {
+    // Decyzja Rafała z 4.09.2026: „kupuje 15.09 → odnawia się 15.10, nie 1.10".
+    // Miesiąc kalendarzowy nie miał nic wspólnego z tym, za co człowiek
+    // zapłacił: kupując 15.09 dostawał resztę września i PEŁNĄ pulę od 1.10,
+    // czyli dwie pule za jedną opłatę.
+    const zPlanem = async (expiresAt: Date, teraz: Date) => {
+      prisma.household.findUnique.mockResolvedValue(
+        householdRow([{ userId: PAYER, identityHash: PAYER_HASH }]),
+      );
+      prisma.subscription.findMany.mockResolvedValue([sub({ expiresAt })]);
+      return counters.resolvePlan(HOUSE, { userId: PAYER }, teraz);
+    };
+
+    it('okres kończy się w dniu odnowienia, a nie pierwszego', async () => {
+      const plan = await zPlanem(
+        new Date('2026-10-15T09:30:00.000Z'),
+        new Date('2026-09-20T12:00:00.000Z'),
+      );
+      expect(plan.periodKey).toBe('okres:2026-10-15');
+      expect(plan.resetsAt).toBe('2026-10-15T09:30:00.000Z');
+      expect(plan.renews).toBe(true);
+    });
+
+    it('PIERWSZY DZIEŃ MIESIĄCA NIE ODNAWIA PULI — to była ta luka', async () => {
+      const przedKalendarzowym = await zPlanem(
+        new Date('2026-10-15T09:30:00.000Z'),
+        new Date('2026-09-30T23:59:00.000Z'),
+      );
+      const poKalendarzowym = await zPlanem(
+        new Date('2026-10-15T09:30:00.000Z'),
+        new Date('2026-10-01T00:01:00.000Z'),
+      );
+      expect(poKalendarzowym.periodKey).toBe(przedKalendarzowym.periodKey);
+    });
+
+    it('odnowienie u Apple (nowe expiresAt) otwiera nową pulę', async () => {
+      const wrzesien = await zPlanem(
+        new Date('2026-10-15T09:30:00.000Z'),
+        new Date('2026-10-14T12:00:00.000Z'),
+      );
+      const pazdziernik = await zPlanem(
+        new Date('2026-11-15T09:30:00.000Z'),
+        new Date('2026-10-16T12:00:00.000Z'),
+      );
+      expect(pazdziernik.periodKey).not.toBe(wrzesien.periodKey);
+    });
+
+    it('ŁASKA PŁATNICZA nie daje świeżej puli — data końca stoi w miejscu', async () => {
+      // Karta przeterminowana: Apple daje do 16 dni na poprawienie. Człowiek
+      // dostaje RESZTĘ puli, za którą zapłacił, a nie nową.
+      prisma.household.findUnique.mockResolvedValue(
+        householdRow([{ userId: PAYER, identityHash: PAYER_HASH }]),
+      );
+      prisma.subscription.findMany.mockResolvedValue([
+        sub({
+          status: 'GRACE',
+          expiresAt: new Date('2026-10-15T09:30:00.000Z'),
+          graceExpiresAt: new Date('2026-10-31T09:30:00.000Z'),
+        }),
+      ]);
+      const plan = await counters.resolvePlan(
+        HOUSE,
+        { userId: PAYER },
+        new Date('2026-10-20T12:00:00.000Z'),
+      );
+      expect(plan.periodKey).toBe('okres:2026-10-15');
+    });
+
+    it('nadanie operatora zostaje przy miesiącu — nie ma okresu rozliczeniowego', async () => {
+      prisma.household.findUnique.mockResolvedValue(
+        householdRow([{ userId: PAYER, identityHash: PAYER_HASH }], 'PRO'),
+      );
+      const plan = await counters.resolvePlan(
+        HOUSE,
+        { userId: PAYER },
+        new Date('2026-09-20T12:00:00.000Z'),
+      );
+      expect(plan.source).toBe('GRANTED');
+      expect(plan.periodKey).toBe('2026-09');
+      expect(plan.resetsAt).toBe('2026-10-01T00:00:00.000Z');
+    });
+
+    it('nadanie BEZTERMINOWE (recenzent App Store) też zostaje przy miesiącu', async () => {
+      prisma.household.findUnique.mockResolvedValue(
+        householdRow([{ userId: PAYER, identityHash: PAYER_HASH }]),
+      );
+      prisma.subscription.findMany.mockResolvedValue([
+        sub({ provider: 'MANUAL', neverExpires: true, expiresAt: null }),
+      ]);
+      const plan = await counters.resolvePlan(
+        HOUSE,
+        { userId: PAYER },
+        new Date('2026-09-20T12:00:00.000Z'),
+      );
+      expect(plan.tier).toBe('PRO');
+      expect(plan.periodKey).toBe('2026-09');
+    });
   });
 
   it('AI_TIER_OVERRIDE=PRO nie tyka bazy i daje pulę domu', async () => {

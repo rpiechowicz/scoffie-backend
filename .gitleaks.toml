@@ -1,0 +1,44 @@
+# Skaner sekretów — wyjątki.
+#
+# PO CO TEN PLIK. `secrets-scan` w CI jest zamiennikiem płatnej ochrony GitHuba
+# dla prywatnych repozytoriów i ma jedno zadanie: nie wpuścić prawdziwego
+# sekretu do repozytorium. Domyślna reguła `generic-api-key` jest entropijna,
+# więc łapie też atrapy z testów („tok-12345678") i przykłady w dokumentacji
+# API — a skaner, który świeci na czerwono przy każdym mergu z powodów, o które
+# nikomu nie chodzi, przestaje być czytany. Wtedy prawdziwy wyciek przechodzi
+# razem z resztą hałasu.
+#
+# ZASADA: wyjątek jest ZAWSZE na konkretną ścieżkę albo konkretną wartość,
+# nigdy na regułę globalnie. Reguły na prawdziwe klucze dostawców
+# (`anthropic-api-key`, `aws-*`, `github-pat`, `stripe-*`) obowiązują wszędzie
+# i bez wyjątków.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Atrapy w testach, przykłady w dokumentacji API i wartości CI"
+
+paths = [
+  # Testy i ich pomocniki. Tu z definicji mieszkają wymyślone poświadczenia:
+  # `tok-12345678`, `haslo-testowe`, klucze szyfrowania z samych zer.
+  '''.*\.spec\.ts$''',
+  '''.*\.spec-helper\.ts$''',
+  '''.*\.e2e-spec\.ts$''',
+  # Konfiguracja CI. `JWT_SECRET: ci-secret` i klucz szyfrowania z samych cyfr
+  # są jawne CELOWO — biegną na bazie, która żyje pięć minut i nie ma w niej
+  # niczyich danych. Prawdziwe sekrety CI idą przez `secrets.*`, a tych plik
+  # workflow nie zawiera.
+  '''\.github/workflows/.*\.ya?ml$''',
+  # Wzorzec `.env` — same nazwy zmiennych i puste wartości. Prawdziwy `.env`
+  # jest w `.gitignore` i nigdy nie trafia do repozytorium.
+  '''\.env\.example$''',
+]
+
+regexes = [
+  # Przykłady odpowiedzi w Swaggerze (`@ApiResponse`) w `auth.controller.ts`.
+  # Ucięte wielokropkiem, żeby było widać, że to atrapa, a nie token.
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.\.\.''',
+  '''d3b07384d113edec49eaa6238ad5ff00\.\.\.''',
+  '''8f14e45fceea167a5a36dedd4bea2543\.\.\.''',
+]
