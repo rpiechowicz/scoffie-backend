@@ -68,6 +68,14 @@ describe('Narzędzia asystenta E2E', () => {
   beforeAll(async () => {
     // Bramka zgód domyślnie włączona; narzędzia testujemy bez klikania zgód.
     process.env.AI_CONSENT_REQUIRED = 'false';
+    // PLAN JAWNIE, NIE Z DOMYŚLNEJ WARTOŚCI. Do 4.09.2026 brak
+    // `AI_TIER_OVERRIDE` znaczył „PRO dla wszystkich", więc ta suita dostawała
+    // pulę domu z miesiąca kalendarzowego, nie wiedząc o tym. Po zmianie
+    // domyślnej wartości (skasowanie zmiennej w Railway rozdawało asystenta za
+    // darmo) taki dom wpada na PRÓBĘ: pięć wiadomości i licznik w zakresie
+    // `trial:<hasz>`, a nie `householdId`. Ta suita testuje asystenta, nie
+    // paywall, więc mówi wprost, czego oczekuje.
+    process.env.AI_TIER_OVERRIDE = 'PRO';
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -150,6 +158,10 @@ describe('Narzędzia asystenta E2E', () => {
     });
     await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     await moduleRef.close();
+    // Suity biegną w jednym procesie (`--runInBand`), więc zmienna zostawiona
+    // po sobie przestawiłaby plan następnej.
+    delete process.env.AI_TIER_OVERRIDE;
+    delete process.env.AI_CONSENT_REQUIRED;
   });
 
   it('każde zadeklarowane narzędzie jest obsłużone', async () => {

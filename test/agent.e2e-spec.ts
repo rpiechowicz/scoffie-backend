@@ -67,6 +67,7 @@ describe('Agent E2E', () => {
     'AI_ENABLED',
     'AI_PROVIDER',
     'AI_STUB_DELAY_MS',
+    'AI_TIER_OVERRIDE',
     'AI_LIMIT_MESSAGES_PER_MONTH',
     'AI_CARDS_MODE',
     'AI_ALLOWED_USERS',
@@ -179,6 +180,14 @@ describe('Agent E2E', () => {
     process.env.AI_STUB_DELAY_MS = '0';
     // Bramka zgód jest od audytu 2 domyślnie włączona; ta suita testuje
     // ją w jednym miejscu, reszta przypadków ma dostać asystenta bez klikania.
+    // PLAN JAWNIE, NIE Z DOMYŚLNEJ WARTOŚCI. Do 4.09.2026 brak
+    // `AI_TIER_OVERRIDE` znaczył „PRO dla wszystkich", więc ta suita dostawała
+    // pulę domu z miesiąca kalendarzowego, nie wiedząc o tym. Po zmianie
+    // domyślnej wartości (skasowanie zmiennej w Railway rozdawało asystenta za
+    // darmo) taki dom wpada na PRÓBĘ: pięć wiadomości i licznik w zakresie
+    // `trial:<hasz>`, a nie `householdId`. Ta suita testuje asystenta, nie
+    // paywall, więc mówi wprost, czego oczekuje.
+    process.env.AI_TIER_OVERRIDE = 'PRO';
     process.env.AI_CONSENT_REQUIRED = 'false';
     delete process.env.AI_LIMIT_MESSAGES_PER_MONTH;
     // Polling tury robi dziesiątki żądań na turę — limity throttlera są
