@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -806,21 +807,37 @@ export class SubscriptionsService {
     // jedynym wyjściem było „Przywróć zakupy" albo reklamacja. Sześćdziesiąt
     // dni, bo tyle wystarczy na dwa nieudane okresy; starsze naprawdę są martwe.
     const expiredWindow = new Date(now.getTime() - 60 * 24 * 3600 * 1000);
+    // KONIEC OPŁACONEGO OKRESU JEST PILNIEJSZY NIŻ „24 GODZINY OD OSTATNIEGO
+    // SPRAWDZENIA". Odnowienie następuje w konkretnej minucie; jeśli akurat
+    // wtedy zgubimy DID_RENEW, klient czekał na odświeżenie nawet dobę — bo
+    // jedynym kryterium było `lastVerifiedAt`, a ono mogło być świeże.
+    // Wiersz, któremu okres właśnie minął, wchodzi do partii NIEZALEŻNIE od
+    // tego, kiedy go ostatnio pytaliśmy: przebieg chodzi co godzinę, więc
+    // płacący klient czeka najwyżej godzinę zamiast doby.
+    const justEnded: Prisma.SubscriptionWhereInput = {
+      status: { in: ['ACTIVE', 'GRACE'] },
+      expiresAt: { lt: now, gt: expiredWindow },
+    };
     const rows = await this.prisma.subscription.findMany({
       where: {
         provider: 'APPLE',
-        OR: [{ lastVerifiedAt: null }, { lastVerifiedAt: { lt: cutoff } }],
-        AND: [
+        OR: [
           {
-            OR: [
-              { status: { in: ['ACTIVE', 'GRACE'] } },
+            OR: [{ lastVerifiedAt: null }, { lastVerifiedAt: { lt: cutoff } }],
+            AND: [
               {
-                status: 'EXPIRED',
-                autoRenewStatus: true,
-                expiresAt: { gt: expiredWindow },
+                OR: [
+                  { status: { in: ['ACTIVE', 'GRACE'] } },
+                  {
+                    status: 'EXPIRED',
+                    autoRenewStatus: true,
+                    expiresAt: { gt: expiredWindow },
+                  },
+                ],
               },
             ],
           },
+          justEnded,
         ],
       },
       orderBy: { lastVerifiedAt: 'asc' },

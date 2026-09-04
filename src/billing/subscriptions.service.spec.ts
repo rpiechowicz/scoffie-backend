@@ -686,12 +686,25 @@ describe('SubscriptionsService', () => {
       // wiersz wypadał z kolejki na zawsze i klient płacił dalej w ciszy.
       await service.staleSubscriptionIds(25, NOW);
       const where = prisma.subscription.findMany.mock.calls.at(-1)?.[0].where;
-      const warianty = where.AND[0].OR as Record<string, unknown>[];
+      const nieswieze = (where.OR as Record<string, any>[])[0];
+      const warianty = nieswieze.AND[0].OR as Record<string, unknown>[];
       expect(warianty).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ status: 'EXPIRED', autoRenewStatus: true }),
         ]),
       );
+    });
+
+    it('wiersz, któremu WŁAŚNIE minął okres, wchodzi bez czekania na dobę', async () => {
+      // Odnowienie następuje w konkretnej minucie. Gdy akurat wtedy zgubimy
+      // DID_RENEW, jedynym kryterium było „24 godziny od ostatniego
+      // sprawdzenia" — a ono mogło być świeże, więc płacący klient czekał
+      // nawet dobę. Przebieg chodzi co godzinę, więc czeka najwyżej godzinę.
+      await service.staleSubscriptionIds(25, NOW);
+      const where = prisma.subscription.findMany.mock.calls.at(-1)?.[0].where;
+      const swiezoPoKoncu = (where.OR as Record<string, any>[])[1];
+      expect(swiezoPoKoncu.status).toEqual({ in: ['ACTIVE', 'GRACE'] });
+      expect(swiezoPoKoncu.expiresAt.lt).toEqual(NOW);
     });
   });
 });
