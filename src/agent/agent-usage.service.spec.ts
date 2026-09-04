@@ -55,7 +55,8 @@ describe('AgentUsageService.usage', () => {
   let service: AgentUsageService;
   let prisma: {
     household: { findUnique: jest.Mock };
-    subscription: { findMany: jest.Mock };
+    subscription: { findMany: jest.Mock; findUnique: jest.Mock };
+    membership: { findFirst: jest.Mock };
   } & Record<string, unknown>;
 
   /** Dom z jednym domownikiem o znanym haszu tożsamości. */
@@ -74,7 +75,16 @@ describe('AgentUsageService.usage', () => {
       household: {
         findUnique: jest.fn().mockResolvedValue(householdWith(null)),
       },
-      subscription: { findMany: jest.fn().mockResolvedValue([]) },
+      subscription: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue({ identityHash: IDENTITY }),
+      },
+      // Płatnik: ten sam hasz tożsamości, co domownik z `householdWith`.
+      membership: {
+        findFirst: jest.fn().mockResolvedValue({
+          user: { id: USER, displayName: 'Rafał' },
+        }),
+      },
       agentTurn: {
         groupBy: jest.fn().mockResolvedValue([
           { userId: 'u-1', _count: { _all: 9 } },
@@ -131,6 +141,9 @@ describe('AgentUsageService.usage', () => {
       tier: 'PRO',
       source: 'ENV',
       product: null,
+      // Nadanie z env nie ma subskrypcji, więc nie ma też płatnika.
+      payerName: null,
+      isPayer: false,
       messages: { used: 12, limit: 30, remaining: 18 },
       // Rozkład na domowników z domkniętych tur; były domownik bez imienia.
       byUser: [
@@ -182,6 +195,45 @@ describe('AgentUsageService.usage', () => {
       subscriptionRow(new Date('2026-08-01T00:00:00.000Z')),
     ]);
     expect((await service.usage(USER, HOUSEHOLD, NOW)).tier).toBe('TRIAL');
+  });
+
+  it('liczniki czyta z zakresu UMOWY, nie z gospodarstwa', async () => {
+    // Kwota schodzi z `sub:<id>`. Czytanie po `householdId` pokazywałoby
+    // zero zużycia każdemu, kto ma wykupiony plan.
+    process.env.AI_TIER_OVERRIDE = 'off';
+    prisma.household.findUnique.mockResolvedValue(householdWith(null));
+    prisma.subscription.findMany.mockResolvedValue([
+      subscriptionRow(new Date('2026-10-15T00:00:00.000Z')),
+    ]);
+    const read = jest.spyOn(counters, 'read');
+    await service.usage(USER, HOUSEHOLD, NOW);
+    expect(read).toHaveBeenCalledWith(
+      'sub:ffffffff-ffff-4fff-8fff-ffffffffffff',
+      '2026-09',
+      'messages',
+    );
+    read.mockRestore();
+  });
+
+  it('płacący widzi siebie jako płatnika, domownik widzi jego imię', async () => {
+    process.env.AI_TIER_OVERRIDE = 'off';
+    prisma.household.findUnique.mockResolvedValue(householdWith(null));
+    prisma.subscription.findMany.mockResolvedValue([
+      subscriptionRow(new Date('2026-10-15T00:00:00.000Z')),
+    ]);
+    prisma.membership.findFirst.mockResolvedValue({
+      user: { id: 'u-platnik', displayName: 'Ania' },
+    });
+    const asMember = await service.usage(USER, HOUSEHOLD, NOW);
+    expect(asMember.payerName).toBe('Ania');
+    // Domownik NIE dostaje zarządzania subskrypcją — to nie jego umowa.
+    expect(asMember.isPayer).toBe(false);
+
+    prisma.membership.findFirst.mockResolvedValue({
+      user: { id: USER, displayName: 'Rafał' },
+    });
+    const asPayer = await service.usage(USER, HOUSEHOLD, NOW);
+    expect(asPayer.isPayer).toBe(true);
   });
 
   it('subskrypcja WSPÓŁDOMOWNIKA odblokowuje asystenta pytającemu', async () => {
