@@ -32,12 +32,16 @@ nadpisują to. Wyrównanie domyślnych w kodzie (10 miejsc z testami) — do zro
 
 ## Do zrobienia (kolejność)
 
-1. PR iOS `claude/rebranding-scoffie-xyht15` → `develop` (CI buduje), potem `develop` → `main`
-   (TestFlight z workflow).
+1. ~~PR iOS → `develop`~~ ZROBIONE. Doszedł do tego drugi przebieg rebrandingu (`17ac690`):
+   przedrostek `WM`, czyli inicjały starej marki, zniknął z 1995 miejsc w 106 plikach
+   (`WMPalette` → `SCPalette` i cała rodzina, `WeeklyMealStore` → `MealCalendarStore`).
+   Dwanaście plików w `branding/` nosiło nazwy `scoffie-*`, mając w środku rysunek starej
+   marki — poszły do `branding/poprzednia-marka/` z przedrostkiem `wm-`.
 2. Ikona: 3 × PNG 1024×1024 w `Scoffie/Assets.xcassets/AppIcon.appiconset/` pod obecnymi
    nazwami (`app-icon-primary.png` bez alfa, `-dark.png` tło przezroczyste, `-tinted.png`
    skala szarości). Logo w kodzie `SCSteamingBowlLogo.swift` rysuje parę w kształcie „WM" —
-   potrzebny nowy SVG 1024, ścieżki przenieść jak z `branding/weekly-meals-logo-v3.svg`.
+   potrzebny nowy SVG 1024, ścieżki przenieść jak z `branding/poprzednia-marka/wm-logo-v3.svg`.
+   Nowe logo leży w `branding/scoffie-logo.svg`.
 3. DNS `scoffie.app`: 4 × A na GitHub Pages (185.199.108–111.153), CNAME `www` →
    `rpiechowicz.github.io`, GitHub Settings → Pages → custom domain + Enforce HTTPS;
    Cloudflare Email Routing dla `support@scoffie.app`. Potem Support URL w ASC na
