@@ -2,11 +2,13 @@ name: Backend CI
 
 on:
   pull_request:
+  # Tylko `main`. Wcześniej były tu też `develop` i `master`, przez co każdy
+  # pull request z develop biegł DWA razy: raz ze zdarzenia push, raz
+  # z pull_request. Ten sam zestaw testów, ten sam Postgres, podwójny rachunek
+  # za minuty. `master` w tym repozytorium nie istnieje.
   push:
     branches:
       - main
-      - master
-      - develop
 
 # Token joba tylko do odczytu: instalacja zależności nie może pisać do repo.
 permissions:
