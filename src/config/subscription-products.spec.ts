@@ -3,19 +3,21 @@ import { SUBSCRIPTION_PRODUCTS, productLimits } from './subscription-products';
 describe('productLimits', () => {
   it('kupiony produkt narzuca limity, nie env', () => {
     const fallback = { messagesPerMonth: 200, plansPerMonth: 30 };
-    expect(productLimits('pl.weeklymeals.pro.duet.monthly', fallback)).toEqual({
+    expect(productLimits('app.scoffie.pro.duet.monthly', fallback)).toEqual({
       messagesPerMonth: 50,
       plansPerMonth: 12,
       product: 'We dwoje',
     });
-    expect(
-      productLimits('pl.weeklymeals.pro.family.monthly', fallback),
-    ).toEqual({ messagesPerMonth: 75, plansPerMonth: 18, product: 'Rodzina' });
+    expect(productLimits('app.scoffie.pro.family.monthly', fallback)).toEqual({
+      messagesPerMonth: 75,
+      plansPerMonth: 18,
+      product: 'Rodzina',
+    });
   });
 
   it('nieznany produkt (nowy SKU przed deployem) nie blokuje i nie daje nieskończoności', () => {
     const fallback = { messagesPerMonth: 200, plansPerMonth: 30 };
-    expect(productLimits('pl.weeklymeals.pro.nowy', fallback)).toEqual({
+    expect(productLimits('app.scoffie.pro.nowy', fallback)).toEqual({
       ...fallback,
       product: null,
     });
@@ -55,9 +57,9 @@ describe('productLimits', () => {
     // dom danej wielkości w miesiącu. Limit poniżej tej liczby znaczyłby
     // produkt, który kończy się w połowie miesiąca.
     const realne = {
-      'pl.weeklymeals.pro.solo.monthly': 14,
-      'pl.weeklymeals.pro.duet.monthly': 40,
-      'pl.weeklymeals.pro.family.monthly': 70,
+      'app.scoffie.pro.solo.monthly': 14,
+      'app.scoffie.pro.duet.monthly': 40,
+      'app.scoffie.pro.family.monthly': 70,
     };
     for (const [id, uzycie] of Object.entries(realne)) {
       expect(SUBSCRIPTION_PRODUCTS[id].messagesPerMonth).toBeGreaterThan(

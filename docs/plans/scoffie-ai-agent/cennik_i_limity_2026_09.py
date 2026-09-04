@@ -2,7 +2,7 @@
 """Rachunek cennika i limitów asystenta — stan na 3.09.2026.
 
 Wszystkie parametry są jawne i podpisane źródłem. Uruchom:
-    python docs/plans/weekly-meals-ai-agent/cennik_i_limity_2026_09.py
+    python docs/plans/scoffie-ai-agent/cennik_i_limity_2026_09.py
 Wynik to tabele wklejone do `cennik-i-limity-2026-09.md`.
 """
 

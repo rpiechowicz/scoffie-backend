@@ -8,7 +8,7 @@ Strona do czytania: https://claude.ai/code/artifact/1f931878-c3d7-48e6-9976-34b0
 Plan Fazy 0, którego ten audyt dotyczy: ../../../handover/2026-08-28-stan.md
 -->
 
-# Weekly Meals — audyt gotowości do Fazy 0 (agent AI)
+# Scoffie — audyt gotowości do Fazy 0 (agent AI)
 
 ## 1. Werdykt
 
@@ -35,7 +35,7 @@ Zrób: krok post-migrate w safe-migrate (loader jest idempotentny: uruchamiać, 
 ### Must-before (nie blokują, ale zrób zanim ruszysz)
 
 **M1. Lokalny stack dev za main** (medium)
-Obraz `weeklymeals-api` z 10:58 UTC (przed f4b9f24), 31/32 migracji, brak `Recipe/Ingredient.allergens/dietTags`, w kontenerze brak `dist/recipes/diet-rules*`; `/ops/health` zwraca `commit:""` (`.env.example:65` pusty string nie spada do `'unknown'`, `ops.controller.ts:47-49`).
+Obraz `scoffie-api` z 10:58 UTC (przed f4b9f24), 31/32 migracji, brak `Recipe/Ingredient.allergens/dietTags`, w kontenerze brak `dist/recipes/diet-rules*`; `/ops/health` zwraca `commit:""` (`.env.example:65` pusty string nie spada do `'unknown'`, `ops.controller.ts:47-49`).
 Agent: lokalnie nie przetestujesz walidatora (b) ani unii preferencji; `pnpm test:e2e` z main wywali się na brakujących kolumnach.
 Zrób: `docker compose up -d --build` (CMD robi migrate deploy), `pnpm catalog:ingredients:tags`, sprawdź `/ops/health`; przekaż `APP_COMMIT` w compose.
 
@@ -45,7 +45,7 @@ Agent: refaktor auth dotknie 5 gatewayów/39 handlerów, a regresji nie odróżn
 Zrób: `scripts/**` do tsconfig include (lub `allowDefaultProject`), `pnpm lint --fix`, 3 ręczne poprawki; `pnpm install` żeby hook wstał; wymagany status check na develop/main.
 
 **M3. Plan Fazy 0 na niezmergowanej gałęzi** (low)
-`git ls-remote` → `refs/heads/docs/handover-windows-2026-08-28` (614f735, 28.08 14:32) z `CLAUDE.md`, `docs/handover/2026-08-28-stan.md:40-56`, `docs/handover/memory/*`, `docs/plans/weekly-meals-ai-agent/**`; iOS `CLAUDE.md:3-5` odsyła do tych ścieżek, których na main/develop nie ma.
+`git ls-remote` → `refs/heads/docs/handover-windows-2026-08-28` (614f735, 28.08 14:32) z `CLAUDE.md`, `docs/handover/2026-08-28-stan.md:40-56`, `docs/handover/memory/*`, `docs/plans/scoffie-ai-agent/**`; iOS `CLAUDE.md:3-5` odsyła do tych ścieżek, których na main/develop nie ma.
 Zrób: fetch + merge PR (nie kopiowanie z Maca); potem traktuj listę (a)–(e) jako minimum.
 
 ## 3. Do zrobienia w Fazie 0

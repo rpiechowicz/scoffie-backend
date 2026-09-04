@@ -1,6 +1,6 @@
 ---
 name: recipe-expansion-backlog
-description: 'Zatwierdzona lista 55 nowych przepisów do dodania do bazy Weekly Meals, z podziałem na partie i statusem realizacji.'
+description: 'Zatwierdzona lista 55 nowych przepisów do dodania do bazy Scoffie, z podziałem na partie i statusem realizacji.'
 metadata:
   node_type: memory
   type: project

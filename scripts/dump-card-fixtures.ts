@@ -8,7 +8,7 @@
  *
  * Buildery są czyste (nie ruszają bazy), więc skrypt nie potrzebuje niczego
  * poza kodem:
- *   docker exec weeklymeals-api sh -c 'cd /app && npx tsx scripts/dump-card-fixtures.ts'
+ *   docker exec scoffie-api sh -c 'cd /app && npx tsx scripts/dump-card-fixtures.ts'
  */
 import { buildPlanWeekCard } from '../src/agent/cards/plan-week-card';
 import { buildAppliedCard } from '../src/agent/cards/applied-card';

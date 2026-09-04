@@ -37,7 +37,7 @@ Gałęzie `fix/fundamenty-c` z `origin/develop` (oba repa). Bez tsc/jest/prisma 
 
 - `Dockerfile`: `node:22-bookworm-slim` we wszystkich trzech stage'ach (zgodnie z CI i README); `HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/ops/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"`; `RUN chown -R node:node /app` + `USER node` przed `CMD`; nie kopiować `test/` do runnera (jest nie biega w obrazie; `Dockerfile:35` out). `src/` zostaje (skrypty `tsx` importują `../src`). `prisma`/`tsx` zostają w devDependencies (pełne `node_modules` w runnerze — świadomie, bez `--prod`).
 - `.dockerignore`: `+ .github .husky *.md coverage/ .DS_Store`.
-- Weryfikacja: `docker compose up -d --build api` + `docker inspect --format '{{.State.Health.Status}}' weeklymeals-api` → `healthy`; `docker exec weeklymeals-api id -u` → 1000; `docker exec weeklymeals-api node -v` → v22.
+- Weryfikacja: `docker compose up -d --build api` + `docker inspect --format '{{.State.Health.Status}}' scoffie-api` → `healthy`; `docker exec scoffie-api id -u` → 1000; `docker exec scoffie-api node -v` → v22.
 
 ## C5. Jeden kontrakt błędów — backend + iOS (~1 dzień + 0,5 dnia)
 
@@ -98,7 +98,7 @@ Kolejność nośna: **najpierw** nowy spec na prawdziwych sygnaturach, **potem**
 
 ## Kolejność commitów
 
-Krok 0: zapisać trzy raporty zwiadu i projekt C5 do `~/.claude/plans/weekly-meals-ai-agent/plaster-c/` (jak przy B), utworzyć gałęzie z `origin/develop` po `git fetch --prune`.
+Krok 0: zapisać trzy raporty zwiadu i projekt C5 do `~/.claude/plans/scoffie-ai-agent/plaster-c/` (jak przy B), utworzyć gałęzie z `origin/develop` po `git fetch --prune`.
 
 **Backend `fix/fundamenty-c`** (jeden PR): C2 → C1 → C3 → C4 → C9-backend (guard ops, shutdown hooks, `households.create`) → C6 → C7 (od tego commitu CI ma type-check) → C8 → C5 (najszerszy — na końcu, gdy reszta jest zielona). Po każdym: `rm -rf /app/src /app/test` → `docker cp` → `NODE_OPTIONS=--experimental-vm-modules npx jest …` w kontenerze.
 **iOS `fix/fundamenty-c`**: C5 (kontrakt) → C9 (cache przy wylogowaniu).

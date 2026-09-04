@@ -12,7 +12,7 @@ const IDENTITY = 'b'.repeat(64);
 const subscriptionRow = (expiresAt: Date) => ({
   id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
   provider: 'APPLE',
-  productId: 'pl.weeklymeals.pro.solo.monthly',
+  productId: 'app.scoffie.pro.solo.monthly',
   status: 'ACTIVE',
   expiresAt,
   graceExpiresAt: null,

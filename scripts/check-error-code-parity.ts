@@ -16,7 +16,7 @@ const iosRepo =
   process.env.IOS_REPO_PATH ?? join(process.cwd(), '..', 'weekly-meals-ios');
 const mapperPath = join(
   iosRepo,
-  'weekly meals',
+  'Scoffie',
   'Models',
   'Stores',
   'UserFacingErrorMapper.swift',

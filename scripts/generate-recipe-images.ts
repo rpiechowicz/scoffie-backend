@@ -14,7 +14,7 @@ const IMAGE_GENERATOR_STYLE =
   process.env.IMAGE_GENERATOR_STYLE ??
   'ultra realistic food photography, natural light, 50mm lens, shallow depth of field';
 const IMAGE_GENERATOR_SEED_PREFIX =
-  process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'weekly-meals';
+  process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'scoffie';
 const IMAGE_HOUSEHOLD_NAME = (
   process.env.IMAGE_HOUSEHOLD_NAME ?? 'Home'
 ).trim();

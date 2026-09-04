@@ -1,4 +1,4 @@
-# Research report: monetizing an AI meal-planning assistant in "Weekly Meals" (iOS, Poland)
+# Research report: monetizing an AI meal-planning assistant in "Scoffie" (iOS, Poland)
 
 All pages were fetched on 2026-08-27. Where a page carries no publication date, I mark it "undated, fetched 2026-08-27". Third-party (non-official) sources are labeled as such.
 

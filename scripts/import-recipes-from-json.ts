@@ -97,7 +97,7 @@ const RECIPE_IMPORT_HOUSEHOLD_ID =
   process.env.RECIPE_IMPORT_HOUSEHOLD_ID ??
   '22222222-2222-4222-8222-222222222222';
 const RECIPE_IMPORT_HOUSEHOLD_NAME =
-  process.env.RECIPE_IMPORT_HOUSEHOLD_NAME ?? 'Katalog Weekly Meals';
+  process.env.RECIPE_IMPORT_HOUSEHOLD_NAME ?? 'Katalog Scoffie';
 // Import trafia w istniejący wiersz PO ID, więc plik z id sparowanym z innym
 // daniem nie dodaje przepisu — on go PODMIENIA. Wszystko, co trzyma samo id
 // (pozycje planu, ulubione, cache katalogu w aplikacji, obrazek w R2 nazwany
@@ -128,7 +128,7 @@ const IMAGE_GENERATOR_STYLE =
   process.env.IMAGE_GENERATOR_STYLE ??
   'ultra realistic food photography, natural light, 50mm lens, shallow depth of field';
 const IMAGE_GENERATOR_SEED_PREFIX =
-  process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'weekly-meals';
+  process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'scoffie';
 const R2_PUBLIC_BASE_URL = (process.env.R2_PUBLIC_BASE_URL ?? '')
   .trim()
   .replace(/\/+$/g, '');

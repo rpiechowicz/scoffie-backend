@@ -1,4 +1,4 @@
-# Runbook incydentu — Weekly Meals (backend + Cookidoo)
+# Runbook incydentu — Scoffie (backend + Cookidoo)
 
 Jeden dokument na „coś się dzieje": co sprawdzić w tej kolejności, co wolno
 zrobić bez namysłu, a co wymaga decyzji. Runbooki wdrożeniowe konkretnych
@@ -14,12 +14,12 @@ zmian są w `docs/plans/**/PROD-RUNBOOK.md` — to nie one.
 
 ## 1. Serwis nie odpowiada / 502 z Railway
 
-| Objaw | Najczęstsza przyczyna | Co robić |
-|---|---|---|
-| Deploy czerwony, kontener restartuje się w kółko | `safe-migrate` padł (migracja) albo `assert-env` odmówił startu (brak/zły sekret) | Logi deployu: szukaj `[safe-migrate]` albo `assert-env`. Migracja: patrz §3. Env: uzupełnij zmienną, Redeploy. |
-| Deploy zielony, `/ops/health` nie odpowiada | Proces wisi (OOM, pętla) | Railway → Restart. Jeśli wraca: rollback do poprzedniego deployu (Deployments → ⋯ → Rollback). |
-| `/ops/health` OK, aplikacja „Problem z połączeniem" | WebSocket (Socket.IO) albo CORS | `/ops/metrics → ws` (handshakes/odmowy). Sprawdź `CORS_ORIGIN`, `WS_AUTH_MODE`. |
-| Wszystko OK, ale wolno | Baza (locki, PITR w toku) albo Anthropic | Railway → Postgres → Metrics; `/ops/metrics → agent.upstream`. |
+| Objaw                                               | Najczęstsza przyczyna                                                             | Co robić                                                                                                       |
+| --------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Deploy czerwony, kontener restartuje się w kółko    | `safe-migrate` padł (migracja) albo `assert-env` odmówił startu (brak/zły sekret) | Logi deployu: szukaj `[safe-migrate]` albo `assert-env`. Migracja: patrz §3. Env: uzupełnij zmienną, Redeploy. |
+| Deploy zielony, `/ops/health` nie odpowiada         | Proces wisi (OOM, pętla)                                                          | Railway → Restart. Jeśli wraca: rollback do poprzedniego deployu (Deployments → ⋯ → Rollback).                 |
+| `/ops/health` OK, aplikacja „Problem z połączeniem" | WebSocket (Socket.IO) albo CORS                                                   | `/ops/metrics → ws` (handshakes/odmowy). Sprawdź `CORS_ORIGIN`, `WS_AUTH_MODE`.                                |
+| Wszystko OK, ale wolno                              | Baza (locki, PITR w toku) albo Anthropic                                          | Railway → Postgres → Metrics; `/ops/metrics → agent.upstream`.                                                 |
 
 **Rollback deployu** (bez zmian w bazie): Railway → Deployments → poprzedni zielony → Rollback.
 Rollback po migracji, która zmieniła schemat, jest osobną decyzją — patrz §3.
@@ -45,12 +45,12 @@ Kontener kończy się kodem 1, Railway zostawia stary deploy — użytkownicy ni
 
 ## 4. Asystent AI
 
-| Objaw | Co sprawdzić | Dźwignie |
-|---|---|---|
-| 503 `AI_BUDGET_PAUSED` | `/ops/metrics → agent.budget` | To bezpiecznik, nie awaria. Podnieś `AI_GLOBAL_DAILY_BUDGET_USD` tylko świadomie. |
-| 503 `AI_UPSTREAM_PAUSED` | Bezpiecznik dostawcy otwarty (status Anthropic) | Czekać; bezpiecznik zamyka się sam. |
-| Koszty rosną bez sensu | `/ops/metrics → agent.cost`, tabela `AiUsage` | `AI_MAX_TURN_COST_USD`, `AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD`, w ostateczności `AI_ENABLED=false`. |
-| Dziwne odpowiedzi / podejrzenie prompt injection | Zgłoszenia (`AgentReport`), treść rozmowy przez `pnpm rodo:export` | `AI_ALLOWED_USERS` zawęża dostęp bez deployu. |
+| Objaw                                            | Co sprawdzić                                                       | Dźwignie                                                                                             |
+| ------------------------------------------------ | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| 503 `AI_BUDGET_PAUSED`                           | `/ops/metrics → agent.budget`                                      | To bezpiecznik, nie awaria. Podnieś `AI_GLOBAL_DAILY_BUDGET_USD` tylko świadomie.                    |
+| 503 `AI_UPSTREAM_PAUSED`                         | Bezpiecznik dostawcy otwarty (status Anthropic)                    | Czekać; bezpiecznik zamyka się sam.                                                                  |
+| Koszty rosną bez sensu                           | `/ops/metrics → agent.cost`, tabela `AiUsage`                      | `AI_MAX_TURN_COST_USD`, `AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD`, w ostateczności `AI_ENABLED=false`. |
+| Dziwne odpowiedzi / podejrzenie prompt injection | Zgłoszenia (`AgentReport`), treść rozmowy przez `pnpm rodo:export` | `AI_ALLOWED_USERS` zawęża dostęp bez deployu.                                                        |
 
 Wyłączenie asystenta = `AI_ENABLED=false` (restart serwisu). Aplikacja pokazuje „niedostępny", nic więcej się nie psuje.
 

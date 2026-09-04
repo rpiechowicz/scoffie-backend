@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit-economics model for Weekly Meals AI assistant. All token numbers are explicit parameters."""
+"""Unit-economics model for Scoffie AI assistant. All token numbers are explicit parameters."""
 import math
 
 FX = 3.6894          # PLN per USD, NBP 2026-08-25

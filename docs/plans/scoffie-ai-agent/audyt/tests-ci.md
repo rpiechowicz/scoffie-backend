@@ -1,4 +1,4 @@
-## Findings — test & CI integrity (backend `B=/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend`)
+## Findings — test & CI integrity (backend `B=/Users/rafi/Desktop/Scoffie App/weakly-meals-backend`)
 
 ### T1 — `households.service.spec.ts` tests a stub with a different API; real `HouseholdsService` has zero unit coverage — **P0**
 

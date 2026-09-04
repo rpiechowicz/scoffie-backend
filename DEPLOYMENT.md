@@ -78,14 +78,14 @@ The Thermomix integration talks to a small Python service
 (repository `weekly-meals-cookidoo`). Deploy it as a second service in the
 same Railway project and wire it through private networking:
 
-| Where    | Variable                        | Value                                                                              |
-| -------- | ------------------------------- | ---------------------------------------------------------------------------------- |
-| Cookidoo | `INTERNAL_TOKEN`                | `openssl rand -base64 32`                                                          |
-| Cookidoo | `COOKIDOO_COUNTRY`              | `pl`                                                                               |
-| Backend  | `COOKIDOO_SERVICE_URL`          | `http://<cookidoo-service-name>.railway.internal:8000` (default is `localhost`, which on Railway means "nothing") |
-| Backend  | `COOKIDOO_SERVICE_TOKEN`        | the same value as `INTERNAL_TOKEN`                                                 |
-| Backend  | `COOKIDOO_ENCRYPTION_KEY`       | `openssl rand -base64 32` (32 bytes) — losing it means users reconnect            |
-| Backend  | `COOKIDOO_INTEGRATION_ENABLED`  | `false` hides the integration in the app (status still lets users disconnect)    |
+| Where    | Variable                       | Value                                                                                                             |
+| -------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Cookidoo | `INTERNAL_TOKEN`               | `openssl rand -base64 32`                                                                                         |
+| Cookidoo | `COOKIDOO_COUNTRY`             | `pl`                                                                                                              |
+| Backend  | `COOKIDOO_SERVICE_URL`         | `http://<cookidoo-service-name>.railway.internal:8000` (default is `localhost`, which on Railway means "nothing") |
+| Backend  | `COOKIDOO_SERVICE_TOKEN`       | the same value as `INTERNAL_TOKEN`                                                                                |
+| Backend  | `COOKIDOO_ENCRYPTION_KEY`      | `openssl rand -base64 32` (32 bytes) — losing it means users reconnect                                            |
+| Backend  | `COOKIDOO_INTEGRATION_ENABLED` | `false` hides the integration in the app (status still lets users disconnect)                                     |
 
 The backend starts without the Cookidoo service; the first Cookidoo call
 then answers `COOKIDOO_SERVICE_UNAVAILABLE` and raises an ops alert.
@@ -150,8 +150,8 @@ before upload. One-time setup (on the Mac: `brew install age`; on Windows:
 `winget install FiloSottile.age`):
 
 ```bash
-age-keygen -o weekly-meals-backup-key.txt      # keep this file in the password manager
-grep 'public key' weekly-meals-backup-key.txt  # "age1…" → repository secret BACKUP_AGE_PUBLIC_KEY
+age-keygen -o scoffie-backup-key.txt      # keep this file in the password manager
+grep 'public key' scoffie-backup-key.txt  # "age1…" → repository secret BACKUP_AGE_PUBLIC_KEY
 ```
 
 Without the secret the workflow still uploads (with a warning) — an unencrypted
@@ -160,8 +160,8 @@ copy beats no copy, but treat that as a transition state.
 Restore by hand:
 
 ```bash
-aws s3 cp s3://<bucket>/weekly-meals/<file>.dump.age . --endpoint-url <endpoint>
-age -d -i weekly-meals-backup-key.txt -o <file>.dump <file>.dump.age
+aws s3 cp s3://<bucket>/scoffie/<file>.dump.age . --endpoint-url <endpoint>
+age -d -i scoffie-backup-key.txt -o <file>.dump <file>.dump.age
 pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <file>.dump
 ```
 
@@ -202,8 +202,8 @@ Never enable `SAFE_MIGRATE_REBUILD_DB=true` in production unless you intentional
 Example local build:
 
 ```bash
-docker build -t weekly-meals-backend .
-docker run --rm -p 3000:3000 --env-file .env weekly-meals-backend
+docker build -t scoffie-backend .
+docker run --rm -p 3000:3000 --env-file .env scoffie-backend
 ```
 
 ## Post-deploy verification

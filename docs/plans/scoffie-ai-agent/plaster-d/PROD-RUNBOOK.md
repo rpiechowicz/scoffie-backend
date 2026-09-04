@@ -22,7 +22,7 @@ Lokalny obraz API musi być zbudowany z gałęzi z plikiem tagów (`docker compo
 
 ```sh
 # w Terminalu: export PROD_DB='…'  (DATABASE_PUBLIC_URL z serwisu Postgres; nigdy w plikach)
-docker exec -e DATABASE_URL="$PROD_DB" weeklymeals-api pnpm exec tsx scripts/load-ingredient-tags.ts
+docker exec -e DATABASE_URL="$PROD_DB" scoffie-api pnpm exec tsx scripts/load-ingredient-tags.ts
 ```
 
 Oczekiwane: `[tags] done. version=ingredient-tags-pl-v1, wpisow=403, skladnikow zaktualizowanych=403,

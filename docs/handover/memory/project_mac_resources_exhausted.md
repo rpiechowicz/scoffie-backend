@@ -22,7 +22,7 @@ Miejsce zjadają: `~/Library/Developer/Xcode/iOS DeviceSupport` 27 GB (5 wpisów
 
 **Why:** trzy niepowiązane narzędzia psujące się identycznie wyglądają jak niekompatybilność z Node 24 — i tak to początkowo zdiagnozowałem błędnie. Aktualizacja paczek nie tylko by nie pomogła, ale pogorszyła sprawę: `pnpm update` musi zapisać gigabajty tam, gdzie zostało 511 MB.
 
-**How to apply:** zanim zaczniesz szukać winy w kodzie albo w zależnościach, sprawdź `df -h /System/Volumes/Data` i `sysctl vm.swapusage`. Docker: wolumen `weakly-meals-backend_pgdata` trzyma bazę przepisów — nigdy nie czyść Dockera z flagą `--volumes`. Powiązane: [[project-recipe-macro-convention]], [[project-weekly-meals-stack]].
+**How to apply:** zanim zaczniesz szukać winy w kodzie albo w zależnościach, sprawdź `df -h /System/Volumes/Data` i `sysctl vm.swapusage`. Docker: wolumen `weakly-meals-backend_pgdata` trzyma bazę przepisów — nigdy nie czyść Dockera z flagą `--volumes`. Powiązane: [[project-recipe-macro-convention]], [[project-scoffie-stack]].
 
 **AKTUALIZACJA 2026-08-26:** dysk ma 4,9 GB wolnego, pamięć 36% wolnej — docker build, xcodebuild i jest-w-kontenerze działają normalnie. Objawy mogą wrócić przy spadku poniżej ~1 GB. Nowy fakt: obraz API **nie zawiera `jest.config.js`** (nie jest kopiowany w Dockerfile) — jest w kontenerze pada na „Cannot use import statement outside a module"; fix: `docker cp jest.config.js <kontener>:/app/` przed `npx jest`.
 

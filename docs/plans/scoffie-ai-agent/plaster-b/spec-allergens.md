@@ -428,14 +428,14 @@ Not a Prisma migration: no schema change, so `prisma/migrations/` stays untouche
 **5.1 Inspect (safe, read-only)**
 
 ```bash
-docker compose exec db psql -U weeklymeals -d weeklymeals -c \
+docker compose exec db psql -U scoffie -d scoffie -c \
 "SELECT v AS value, count(*) FROM \"UserPreference\" p, unnest(p.allergens) v \
  WHERE v <> ALL (ARRAY['gluten','lactose','eggs','nuts','peanuts','fish','soy']) \
  GROUP BY v ORDER BY 2 DESC;"
 ```
 
 ```bash
-docker compose exec db psql -U weeklymeals -d weeklymeals -c \
+docker compose exec db psql -U scoffie -d scoffie -c \
 "SELECT count(*) FROM \"UserPreference\" WHERE \"proteinG\" NOT BETWEEN 0 AND 400 \
  OR \"fatG\" NOT BETWEEN 0 AND 300 OR \"carbsG\" NOT BETWEEN 0 AND 800;"
 ```
@@ -672,13 +672,13 @@ Backend unit tests — jest inside the `api` container (`WORKDIR /app`; the runn
 
 ```bash
 docker compose up -d api
-docker cp "/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/src" weeklymeals-api:/app/src
-docker cp "/Users/rafi/Desktop/Weekly Meals App/weakly-meals-backend/jest.config.js" weeklymeals-api:/app/jest.config.js
-docker exec weeklymeals-api npx jest src/common/allergens.spec.ts src/users/users.service.spec.ts
-docker exec weeklymeals-api npx jest            # full suite, regression
+docker cp "/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/src" scoffie-api:/app/src
+docker cp "/Users/rafi/Desktop/Scoffie App/weakly-meals-backend/jest.config.js" scoffie-api:/app/jest.config.js
+docker exec scoffie-api npx jest src/common/allergens.spec.ts src/users/users.service.spec.ts
+docker exec scoffie-api npx jest            # full suite, regression
 ```
 
-Type-check (no local `tsc`): `docker exec weeklymeals-api npx tsc -p tsconfig.json --noEmit`. Note this is currently the _only_ place specs get type-checked (T2: `isolatedModules: true` makes ts-jest transpile-only, `tsconfig.build.json` excludes `*.spec.ts`) — so run it, or a signature typo in the new spec passes jest silently.
+Type-check (no local `tsc`): `docker exec scoffie-api npx tsc -p tsconfig.json --noEmit`. Note this is currently the _only_ place specs get type-checked (T2: `isolatedModules: true` makes ts-jest transpile-only, `tsconfig.build.json` excludes `*.spec.ts`) — so run it, or a signature typo in the new spec passes jest silently.
 
 Behavioural smoke over the real WS path (this is what proves the DTO-vs-service split):
 
@@ -696,8 +696,8 @@ docker compose exec api pnpm ws:smoke users:preferences:get '{"userId":"<USER_ID
 iOS — no test target exists (`weekly meals.xcodeproj` has one `PBXNativeTarget`, zero `XCTest` matches), so verification is a build plus a manual pass:
 
 ```bash
-cd "/Users/rafi/Desktop/Weekly Meals App/weekly-meals-ios"
-xcodebuild -project "weekly meals.xcodeproj" -scheme "weekly meals" \
+cd "/Users/rafi/Desktop/Scoffie App/weekly-meals-ios"
+xcodebuild -project "weekly meals.xcodeproj" -scheme "Scoffie" \
   -destination "generic/platform=iOS Simulator" -sdk iphonesimulator build \
   ARCHS=arm64 CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES EXCLUDED_ARCHS=x86_64
 ```

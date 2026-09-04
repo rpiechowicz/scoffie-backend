@@ -35,8 +35,8 @@ describe('OpsAlertService', () => {
     expect(url).toBe('https://hooks.example/abc');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({
-      content: '[Weekly Meals] budżet',
-      text: '[Weekly Meals] budżet',
+      content: '[Scoffie] budżet',
+      text: '[Scoffie] budżet',
     });
   });
 

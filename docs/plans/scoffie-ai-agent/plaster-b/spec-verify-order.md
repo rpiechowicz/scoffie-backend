@@ -155,10 +155,10 @@ docker compose up -d --build
 docker compose exec api rm -rf /app/src /app/test
 
 # 2. push the working tree
-docker cp src            weeklymeals-api:/app/src
-docker cp test           weeklymeals-api:/app/test
-docker cp jest.config.js weeklymeals-api:/app/jest.config.js
-docker cp tsconfig.json  weeklymeals-api:/app/tsconfig.json
+docker cp src            scoffie-api:/app/src
+docker cp test           scoffie-api:/app/test
+docker cp jest.config.js scoffie-api:/app/jest.config.js
+docker cp tsconfig.json  scoffie-api:/app/tsconfig.json
 
 # 3. run the four affected suites
 docker compose exec api npx jest src/weekly-plans src/households src/recipes src/users
@@ -214,11 +214,11 @@ and `Test.createTestingModule({ providers: [Svc, { provide: PrismaService, useVa
 ### 3.3 iOS
 
 ```bash
-cd "/Users/rafi/Desktop/Weekly Meals App/weekly-meals-ios"
+cd "/Users/rafi/Desktop/Scoffie App/weekly-meals-ios"
 xcodebuild -resolvePackageDependencies -project "weekly meals.xcodeproj"
 xcodebuild \
   -project "weekly meals.xcodeproj" \
-  -scheme "weekly meals" \
+  -scheme "Scoffie" \
   -destination "generic/platform=iOS Simulator" \
   -sdk iphonesimulator \
   build \
@@ -231,7 +231,7 @@ xcodebuild \
 
 ## 4. Data steps — dev first, then prod, in this order
 
-Run everything through `docker compose exec db psql -U weeklymeals -d weeklymeals -c "…"` on dev, and `railway run --service Backend …`/the prod psql console on prod. **Diagnose → back up → clean → verify.** Take a DB snapshot before any `DELETE`/`UPDATE` on prod.
+Run everything through `docker compose exec db psql -U scoffie -d scoffie -c "…"` on dev, and `railway run --service Backend …`/the prod psql console on prod. **Diagnose → back up → clean → verify.** Take a DB snapshot before any `DELETE`/`UPDATE` on prod.
 
 ### 4.1 Diagnostics (read-only, run before the deploy)
 

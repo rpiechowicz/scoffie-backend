@@ -1,6 +1,6 @@
 ---
 name: project-ai-agent-decision
-description: Stan projektu agenta AI dla Weekly Meals — analiza z 27.08.2026, plastry A i B na prod, plaster C na prod 28.08 (incydent: merge przed zmiennymi Railway), plaster D (tagi składników) gotowy na fix/fundamenty-d — ostatni przed Fazą 0; trzy decyzje czekają na Rafała.
+description: Stan projektu agenta AI dla Scoffie — analiza z 27.08.2026, plastry A i B na prod, plaster C na prod 28.08 (incydent: merge przed zmiennymi Railway), plaster D (tagi składników) gotowy na fix/fundamenty-d — ostatni przed Fazą 0; trzy decyzje czekają na Rafała.
 metadata: 
   node_type: memory
   type: project
@@ -14,7 +14,7 @@ Rafi buduje asystenta AI (czat w miejscu zakładki „Produkty”, planowanie ty
 **27.08.2026 — analiza gotowa, kodowanie jeszcze nie ruszyło.** Pełny plan:
 artefakt https://claude.ai/code/artifact/fe880174-783b-493c-9017-d014063bca77
 (kopia HTML + `unit_econ.py` + model kosztów + briefing API + research rynku w
-`/Users/rafi/.claude/plans/weekly-meals-ai-agent/`). Plan przeszedł 4 niezależne
+`/Users/rafi/.claude/plans/scoffie-ai-agent/`). Plan przeszedł 4 niezależne
 weryfikacje (kod, API, arytmetyka, spójność) — poprawki wniesione.
 
 Rekomendacje (do potwierdzenia przez Rafała):
@@ -62,7 +62,7 @@ niedzielny weekStart → VALIDATION_ERROR. Gospodarstwo katalogu na dev:
 Zostało: TestFlight z main (cache katalogu v11) + ręczne sprawdzenie na iPhonie; rotacja hasła
 bazy prod (trafiło do transkryptu). Szczegóły operacyjne: [[project-railway-prod-ops]].
 Uwaga: `ws:smoke` przez `pnpm` na hoście trwa >2 min — odpalać w kontenerze
-(`docker exec -e WS_URL=http://localhost:3000 weeklymeals-api pnpm exec tsx scripts/ws-smoke.ts …`).
+(`docker exec -e WS_URL=http://localhost:3000 scoffie-api pnpm exec tsx scripts/ws-smoke.ts …`).
 **Plaster B WDROŻONY NA PROD 28.08.2026** — backend `main` = `1ef311a` (PR #32, Railway 10:19),
 iOS `main` = `6f4112b` (PR #64; TestFlight po stronie Rafała). Dane prod: diagnostyka czysta (0 duchów
 w przyszłości, 0 śmieci w alergenach, 0 przepisów spoza importera, listy już isStale); jedyny zapis =
@@ -74,7 +74,7 @@ składu domu `plan-roster.util.ts`, jeden `normalizeText` w `src/common`, makro 
 replaceRecipeId, pula usunięta, unia alergenów). Zweryfikowane na dev: jest 338/341 (3 stare
 porażki `auth/apple-identity` niezależne), tsc build czysty, xcodebuild OK, ws-smoke wszystkich
 punktów OK, pula na dev skasowana (backup w scratchpadzie sesji). Runbook prod:
-`~/.claude/plans/weekly-meals-ai-agent/plaster-b/PROD-RUNBOOK.md` — kolejność backend → SQL → iOS
+`~/.claude/plans/scoffie-ai-agent/plaster-b/PROD-RUNBOOK.md` — kolejność backend → SQL → iOS
 jest nośna. E2E (`npx jest --config ./test/jest-e2e.json --runInBand` w kontenerze) przechodzi 3/3
 tylko z `docker exec -e AUTH_DEV_LOGIN_ENABLED=true …` — obraz ma `false` i dev-login odpowiada 403;
 `docker cp test …:/app/test` na istniejący katalog tworzy `/app/test/test` (najpierw `rm -rf`).
@@ -106,7 +106,7 @@ corepacka → pobieranie najnowszego pnpm przy starcie; rozwiązane wspólnym CO
 nowe sekrety (32 B) + OPS_TOKEN. **Wdrożenie wymaga kolejności**: NAJPIERW zmienne Railway
 (`REFRESH_TOKEN_PEPPER` ≥32 — dziś 10 znaków, nowy `OPS_TOKEN`, usunąć `SAFE_MIGRATE_BACKFILL_R2_IMAGE_URLS`),
 POTEM merge backendu — inaczej crash-loop na asercji. Runbook:
-`~/.claude/plans/weekly-meals-ai-agent/plaster-c/PROD-RUNBOOK.md`. Bez SQL. iOS niezależnie
+`~/.claude/plans/scoffie-ai-agent/plaster-c/PROD-RUNBOOK.md`. Bez SQL. iOS niezależnie
 (kompatybilność w obie strony). Hasło bazy prod nadal nierotowane.
 **Plaster D (tagi składników) WDROŻONY NA PROD 28.08.2026** — backend `main` = `090d10d` (deployment 19884edf 12:06,
 migracja tagów zastosowana), loader tagów puszczony na prod przez `railway ssh` 12:20 (403 składniki, 89 przepisów; Żurek
@@ -128,7 +128,7 @@ inaczej „Sync” w VS Code pcha commity prosto na develop.
 Kuracja: workflow 6 klasyfikatorów + 3 weryfikatorów; parytet z audytem — liczności diet z unii tagów
 identyczne z portem Swift (44/1/52/7/6/48), gluten 54 vs 50 = A2. **Kolejność wdrożenia nośna**: backend
 → `pnpm catalog:ingredients:tags` na prod (kolumny puste do pierwszego przebiegu; nowy iOS traktuje [] jako
-fakt) → iOS. Runbook: `~/.claude/plans/weekly-meals-ai-agent/plaster-d/PROD-RUNBOOK.md`.
+fakt) → iOS. Runbook: `~/.claude/plans/scoffie-ai-agent/plaster-d/PROD-RUNBOOK.md`.
 Pułapki kontenera po C4 (USER node): `docker cp` zostawia pliki roota → `docker exec -u root chown -R node:node`;
 obraz nie ma `jest.config.js`, `.prettierrc`, `eslint.config.mjs` — kopiować przed testami/lintem.
 Następne: **Faza 0** (auth: refresh tokenu w iOS, auth WS/JWT, throttler, `src/agent` szkielet z AI_ENABLED=false,
@@ -140,5 +140,5 @@ pomiar digestu przez count_tokens) + trzy decyzje produktowe Rafała + rotacja h
 Ustalenia z 20.08 nadal obowiązują: model do języka i gustu, kod do liczb i twardych
 ograniczeń; Python tylko jako narzędzie (solver), nigdy jako host.
 
-Stack: [[weekly-meals-stack]]. Powiązane: [[project-meal-slots-architecture]],
+Stack: [[scoffie-stack]]. Powiązane: [[project-meal-slots-architecture]],
 [[project-planned-servings-semantics]], [[project-mac-resources-exhausted]].

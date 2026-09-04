@@ -36,7 +36,7 @@ docker rm -f $CID
   jest bierze babel i nie parsuje TypeScriptu.
 
 Migrację SQL da się wypróbować na prawdziwych danych bez zapisu:
-`{ echo BEGIN; cat migration.sql; echo ROLLBACK; } | docker compose exec -T db psql -U weeklymeals -d weeklymeals -v ON_ERROR_STOP=1`
+`{ echo BEGIN; cat migration.sql; echo ROLLBACK; } | docker compose exec -T db psql -U scoffie -d scoffie -v ON_ERROR_STOP=1`
 
 Powiązane: [[project-stale-local-prisma-client]], [[project-mac-resources-exhausted]],
 [[project-docker-no-auto-migrate]].

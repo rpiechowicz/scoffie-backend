@@ -196,8 +196,7 @@ export class NotificationsService implements OnModuleDestroy {
         userId,
         deviceToken: normalizedToken,
         platform: dto.platform ?? PushPlatform.IOS,
-        appBundleId:
-          dto.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
+        appBundleId: dto.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'scoffie',
         // Token z buildu debugowego działa tylko na hoście sandbox, a z
         // TestFlight tylko na produkcyjnym. Bez tego pola serwer wysyłał
         // wszystko pod jeden host z `APNS_USE_SANDBOX` i telefony z drugiego
@@ -210,8 +209,7 @@ export class NotificationsService implements OnModuleDestroy {
       update: {
         userId,
         platform: dto.platform ?? PushPlatform.IOS,
-        appBundleId:
-          dto.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'weeklymeals',
+        appBundleId: dto.appBundleId ?? process.env.APNS_BUNDLE_ID ?? 'scoffie',
         ...(apnsEnvironment ? { apnsEnvironment } : {}),
         isActive: true,
         lastSeenAt: new Date(),

@@ -20,5 +20,5 @@ była już zaaplikowana, a ręczne `pnpm prisma migrate deploy` odpowiedziało
 (jest idempotentny), ale nie jest już wymagany. Stan nadal sprawdzisz przez
 `select migration_name from _prisma_migrations`. Historyczny kontekst: wcześniej
 CMD nie robiło deployu i pominięta migracja wywalała zakładki błędem
-`The table public.X does not exist`. Powiązane: [[project-weekly-meals-stack]],
+`The table public.X does not exist`. Powiązane: [[project-scoffie-stack]],
 [[project-mac-resources-exhausted]].

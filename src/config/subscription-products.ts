@@ -59,21 +59,21 @@ export type SubscriptionProduct = {
 export const SUBSCRIPTION_PRODUCTS: Readonly<
   Record<string, SubscriptionProduct>
 > = {
-  'pl.weeklymeals.pro.solo.monthly': {
+  'app.scoffie.pro.solo.monthly': {
     name: 'Solo',
     seatsLabel: '1 osoba',
     pricePln: 29.99,
     messagesPerMonth: 30,
     plansPerMonth: 8,
   },
-  'pl.weeklymeals.pro.duet.monthly': {
+  'app.scoffie.pro.duet.monthly': {
     name: 'We dwoje',
     seatsLabel: '2 osoby',
     pricePln: 39.99,
     messagesPerMonth: 50,
     plansPerMonth: 12,
   },
-  'pl.weeklymeals.pro.family.monthly': {
+  'app.scoffie.pro.family.monthly': {
     name: 'Rodzina',
     seatsLabel: '3 osoby i więcej',
     pricePln: 49.99,

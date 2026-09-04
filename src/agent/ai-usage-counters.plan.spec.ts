@@ -27,7 +27,7 @@ const MEMBER_HASH = 'e'.repeat(64);
 const sub = (over: Record<string, unknown> = {}) => ({
   id: 'sub-1',
   provider: 'APPLE',
-  productId: 'pl.weeklymeals.pro.solo.monthly',
+  productId: 'app.scoffie.pro.solo.monthly',
   status: 'ACTIVE',
   expiresAt: new Date('2026-10-01T00:00:00.000Z'),
   graceExpiresAt: null,
@@ -102,7 +102,7 @@ describe('pickBestSubscription', () => {
       [
         sub({
           id: 'martwa-rodzina',
-          productId: 'pl.weeklymeals.pro.family.monthly',
+          productId: 'app.scoffie.pro.family.monthly',
           messagesLimitSnapshot: 75,
           revokedAt: new Date('2026-09-01'),
         }),
@@ -119,7 +119,7 @@ describe('pickBestSubscription', () => {
         sub({ id: 'solo' }),
         sub({
           id: 'rodzina',
-          productId: 'pl.weeklymeals.pro.family.monthly',
+          productId: 'app.scoffie.pro.family.monthly',
           messagesLimitSnapshot: 75,
         }),
       ],
@@ -141,7 +141,7 @@ describe('pickBestSubscription', () => {
 
   it('sam nieznany produkt nie gubi limitu z migawki', () => {
     const winner = pickBestSubscription(
-      [sub({ id: 'nowy-sku', productId: 'pl.weeklymeals.pro.nowy.monthly' })],
+      [sub({ id: 'nowy-sku', productId: 'app.scoffie.pro.nowy.monthly' })],
       NOW,
     );
     expect(winner?.id).toBe('nowy-sku');

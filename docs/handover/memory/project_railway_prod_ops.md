@@ -19,7 +19,7 @@ Gospodarstwo katalogu na prod: `9c5156e9-2df3-4768-84b6-800213c205a1` (nazwa „
 do internetu): `docker compose exec -T db psql "$PROD_DB" -c "…"`, gdzie `$PROD_DB` =
 `DATABASE_PUBLIC_URL` z serwisu Postgres, trzymany tylko w `export` w Terminalu — nigdy w plikach.
 Import katalogu na prod: `docker exec -e DATABASE_URL="$PROD_DB" -e RECIPE_IMPORT_FILE=… -e
-RECIPE_IMPORT_CLEAR_EXISTING=false weeklymeals-api pnpm exec tsx scripts/import-recipes-from-json.ts`
+RECIPE_IMPORT_CLEAR_EXISTING=false scoffie-api pnpm exec tsx scripts/import-recipes-from-json.ts`
 (lokalny obraz API musi być zbudowany z gałęzi z właściwym JSON-em).
 
 **Dyscyplina:** każda zmiana w `prisma/catalog/recipes-catalog-full-v2.json` na `develop` wymaga
@@ -45,4 +45,4 @@ z kontenera dopiero przy następnym deployu (`railway redeploy --service Backend
 `x-ops-token` = `OPS_TOKEN` z Variables serwisu Backend. Follow-up: `healthcheckPath: /ops/health` w `railway.json`.
 
 Hasło do bazy prod trafiło do transkryptu sesji 28.08.2026 — Rafał ma je zrotować w Railway.
-Powiązane: [[project-weekly-meals-stack]], [[project-ai-agent-decision]].
+Powiązane: [[project-scoffie-stack]], [[project-ai-agent-decision]].
