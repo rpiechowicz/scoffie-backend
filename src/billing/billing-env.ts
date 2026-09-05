@@ -16,6 +16,10 @@ import {
 
 export type { AppleEnvironment };
 
+export const APPLE_PRODUCTION_API_URL = 'https://api.storekit.apple.com';
+export const APPLE_SANDBOX_API_URL =
+  'https://api.storekit-sandbox.itunes.apple.com';
+
 /** Odcisk SHA-256 certyfikatu „Apple Root CA - G3" (ważny do 30.04.2039). */
 export const APPLE_ROOT_CA_G3_SHA256 =
   '63:34:3A:BF:B8:9A:6A:03:EB:B5:7E:9B:3F:5F:A7:BE:7C:4F:5C:75:6F:30:17:B3:A8:C4:88:C3:65:3E:91:79';
@@ -89,6 +93,12 @@ export type BillingEnv = {
   rootCaPem: string;
   /** Adres App Store Server API — inny dla sandboxa. */
   serverApiBaseUrl: string;
+  /**
+   * Adres sandboxa. Apple wymaga, żeby po `errorCode 4040010` powtórzyć
+   * pytanie właśnie tutaj: recenzent App Store i każdy tester z TestFlighta
+   * kupują w sandboxie, mimo że build jest produkcyjny.
+   */
+  sandboxApiBaseUrl: string;
   /** Twardy limit czasu na odpowiedź Apple. */
   serverApiTimeoutMs: number;
   /**
@@ -188,8 +198,10 @@ export function readBillingEnv(): BillingEnv {
     serverApiBaseUrl:
       process.env.APPLE_SERVER_API_URL?.trim() ||
       (environment === 'Production'
-        ? 'https://api.storekit.apple.com'
-        : 'https://api.storekit-sandbox.itunes.apple.com'),
+        ? APPLE_PRODUCTION_API_URL
+        : APPLE_SANDBOX_API_URL),
+    sandboxApiBaseUrl:
+      process.env.APPLE_SANDBOX_API_URL?.trim() || APPLE_SANDBOX_API_URL,
     serverApiTimeoutMs: readInt('APPLE_SERVER_API_TIMEOUT_MS', 8000, 1),
     reconcileAfterHours: readInt('APPLE_RECONCILE_AFTER_HOURS', 24, 1),
   };

@@ -4,6 +4,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AppStoreServerClient } from './app-store-server.client';
 import { BillingController } from './billing.controller';
 import { BillingOpsController } from './billing-ops.controller';
+import { BillingPreflightService } from './billing-preflight.service';
 import { PurchaseIdentityGuardService } from './purchase-identity-guard.service';
 import { SubscriptionsService } from './subscriptions.service';
 import { SubscriptionsReconcileService } from './subscriptions-reconcile.service';
@@ -26,6 +27,7 @@ import { SubscriptionsReconcileService } from './subscriptions-reconcile.service
     SubscriptionsService,
     SubscriptionsReconcileService,
     PurchaseIdentityGuardService,
+    BillingPreflightService,
   ],
   exports: [SubscriptionsService],
 })

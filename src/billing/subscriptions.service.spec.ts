@@ -51,6 +51,23 @@ const transaction = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+const statusOf = async (
+  run: () => Promise<unknown>,
+): Promise<{ code: string; status: number }> => {
+  try {
+    await run();
+  } catch (error) {
+    if (error instanceof AppException) {
+      return {
+        code: (error.getResponse() as { code?: string }).code ?? 'BRAK-KODU',
+        status: error.getStatus(),
+      };
+    }
+    return { code: `NIE-APP:${String(error)}`, status: 0 };
+  }
+  return { code: 'BRAK-BLEDU', status: 0 };
+};
+
 const codeOf = async (run: () => Promise<unknown>): Promise<string> => {
   try {
     await run();
@@ -295,6 +312,80 @@ describe('SubscriptionsService', () => {
       expect(
         await codeOf(() => service.registerAppleTransaction(USER, 'jws', NOW)),
       ).toBe('BILLING_ENVIRONMENT_MISMATCH');
+    });
+
+    it('OSOBA PO SKASOWANIU KONTA odzyskuje zakup, choć znacznik wskazuje stare konto', async () => {
+      // `appAccountToken` zostaje przy transakcji na zawsze, z identyfikatorem
+      // konta z CHWILI ZAKUPU. Kto skasował konto i wrócił tym samym Apple ID,
+      // ma NOWY identyfikator — a to jest dokładnie ten przypadek, dla którego
+      // powstał cały hasz tożsamości. Bezwarunkowa odmowa go łamała.
+      (verifyTransaction as jest.Mock).mockReturnValue(
+        transaction({ appAccountToken: OTHER_USER }),
+      );
+      prisma.subscription.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        identityHash: HASH,
+        expiresAt: new Date('2026-10-01T00:00:00.000Z'),
+        messagesLimitSnapshot: 30,
+        plansLimitSnapshot: 8,
+      });
+
+      await expect(
+        service.registerAppleTransaction(USER, 'jws', NOW),
+      ).resolves.toMatchObject({ id: 'sub-1' });
+    });
+
+    it('cudzy paragon BEZ wiersza w bazie dalej jest odrzucany', async () => {
+      // Tu znacznik zostaje ostatnim słowem: nie ma czym udowodnić, że to
+      // ta sama osoba, więc pierwszy zgłaszający nie przejmuje zakupu.
+      (verifyTransaction as jest.Mock).mockReturnValue(
+        transaction({ appAccountToken: OTHER_USER }),
+      );
+      prisma.subscription.findUnique.mockResolvedValue(null);
+      expect(
+        await codeOf(() => service.registerAppleTransaction(USER, 'jws', NOW)),
+      ).toBe('BILLING_TRANSACTION_TAKEN');
+    });
+
+    it('cudzy paragon z CUDZĄ tożsamością jest odrzucany', async () => {
+      (verifyTransaction as jest.Mock).mockReturnValue(
+        transaction({ appAccountToken: OTHER_USER }),
+      );
+      prisma.subscription.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        identityHash: OTHER_HASH,
+      });
+      expect(
+        await codeOf(() => service.registerAppleTransaction(USER, 'jws', NOW)),
+      ).toBe('BILLING_TRANSACTION_TAKEN');
+    });
+
+    it('APPLE JESZCZE NIE WIDZI zakupu to 503, a nie trwała odmowa', async () => {
+      // Przy 400 telefon uznawał to za odmowę ostateczną i DOMYKAŁ transakcję —
+      // pieniądze przepadały bez ścieżki odzysku. App Store Server API bywa
+      // opóźnione o kilka minut wobec zakupu, więc to jest „spróbuj ponownie".
+      appStore.subscriptionState.mockRejectedValue(
+        new AppStoreNotFoundError('nie widzę'),
+      );
+      const bledy = await statusOf(() =>
+        service.registerAppleTransaction(USER, 'jws', NOW),
+      );
+      expect(bledy.code).toBe('BILLING_TRANSACTION_UNKNOWN');
+      expect(bledy.status).toBe(503);
+    });
+
+    it('ODMOWA TREŚCIOWA w odpowiedzi Apple nie wychodzi jako 500', async () => {
+      // `verifyTransaction` chodzi także po odpowiedzi App Store Server API.
+      // Bez tej gałęzi odmowa (np. Chmura Rodzinna) wypadała z kontrolera jako
+      // 500, a telefon traktował 500 jak awarię i wracał z tym w kółko.
+      appStore.subscriptionState.mockRejectedValue(
+        new AppleJwsError('FAMILY_SHARED', 'Chmura Rodzinna.'),
+      );
+      const bledy = await statusOf(() =>
+        service.registerAppleTransaction(USER, 'jws', NOW),
+      );
+      expect(bledy.code).toBe('BILLING_TRANSACTION_INVALID');
+      expect(bledy.status).toBe(400);
     });
 
     it('zakup UZUPEŁNIA pustą kolumnę hasza — inaczej płatnik zostaje na próbie', async () => {
@@ -679,6 +770,40 @@ describe('SubscriptionsService', () => {
       const call = prisma.subscription.updateMany.mock.calls.at(-1)?.[0];
       expect(call.where).toEqual({ id: 'sub-1' });
       expect(call.data.lastVerifiedAt).toEqual(NOW);
+    });
+
+    it('ODMOWA TREŚCIOWA w odpowiedzi Apple nie wywraca uzgadniania', async () => {
+      // Jeden taki wiersz wywracał CAŁĄ partię co godzinę i nie dostawał
+      // nowego znacznika, więc wracał na początek każdej następnej.
+      prisma.subscription.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        identityHash: HASH,
+        purchaserUserId: USER,
+        provider: 'APPLE',
+        originalTransactionId: ORIGINAL_TX,
+      });
+      appStore.subscriptionState.mockRejectedValue(
+        new AppleJwsError('FAMILY_SHARED', 'Chmura Rodzinna.'),
+      );
+
+      await expect(service.reconcile('sub-1', NOW)).resolves.toBe(false);
+      const call = prisma.subscription.updateMany.mock.calls.at(-1)?.[0];
+      expect(call.data.lastVerifiedAt).toEqual(NOW);
+      expect(String(call.data.lastNotificationType)).toContain('FAMILY_SHARED');
+    });
+
+    it('RĘCZNIE COFNIĘTY wiersz po zdjęciu blokady wraca do uzgadniania', async () => {
+      // Bez tego pomyłkowe odebranie dostępu było nie do cofnięcia: `unhold`
+      // czyści blokadę, ale status REVOKED wypadał z kolejki na zawsze.
+      await service.staleSubscriptionIds(25, NOW);
+      const where = prisma.subscription.findMany.mock.calls.at(-1)?.[0].where;
+      const nieswieze = (where.OR as Record<string, any>[])[0];
+      const warianty = nieswieze.AND[0].OR as Record<string, unknown>[];
+      expect(warianty).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ status: 'REVOKED', operatorHoldAt: null }),
+        ]),
+      );
     });
 
     it('świeżo WYGASŁA z żywym odnowieniem wraca do uzgadniania', async () => {

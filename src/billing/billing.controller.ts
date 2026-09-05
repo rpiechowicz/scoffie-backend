@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AppException } from '../common/app-exception';
 import { AppleJwsError } from './apple-jws.verifier';
 import { readBillingEnv } from './billing-env';
+import { BillingPreflightService } from './billing-preflight.service';
 import { SubscriptionsService } from './subscriptions.service';
 
 /** Podpisana transakcja StoreKit 2 — bywa długa, ale nie nieskończona. */
@@ -39,7 +40,10 @@ export class AppleNotificationDto {
 export class BillingController {
   private readonly logger = new Logger(BillingController.name);
 
-  constructor(private readonly subscriptions: SubscriptionsService) {}
+  constructor(
+    private readonly subscriptions: SubscriptionsService,
+    private readonly preflight: BillingPreflightService,
+  ) {}
 
   /**
    * Stan subskrypcji tej osoby.
@@ -59,7 +63,12 @@ export class BillingController {
       // Telefon musi wiedzieć, czy w ogóle pokazywać przycisk zakupu —
       // paywall, który przyjmuje pieniądze bez działającej weryfikacji, jest
       // gorszy niż brak paywalla.
-      purchasesEnabled: env.enabled,
+      //
+      // NIEPUSTE ZMIENNE TO ZA MAŁO. Klucz App Store Connect API wklejony
+      // zamiast klucza In-App Purchase wygląda tak samo i podpisuje tak samo,
+      // a Apple odpowiada na niego 401. Dlatego druga bramka pyta Apple
+      // NAPRAWDĘ, raz przy starcie, i gasi sprzedaż, gdy token jest odrzucany.
+      purchasesEnabled: env.enabled && this.preflight.wolnoSprzedawac(),
       environment: env.environment,
       subscriptions: items,
     };

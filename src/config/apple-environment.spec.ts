@@ -47,6 +47,20 @@ describe('środowisko App Store', () => {
     expect(problems.join(' | ')).toContain('Prodution');
   });
 
+  it('BILLING_ENABLED=yes włącza sprzedaż I NIE wycisza ostrzeżeń', () => {
+    // `readBool` przyjmuje `yes`, a ostrzeżenia liczyły tylko `true`/`1` —
+    // więc ta jedna wartość włączała paywall i jednocześnie gasiła wszystkie
+    // ostrzeżenia o brakującym kluczu i o sandboxie na produkcji.
+    const problems = billingEnvProblems({
+      BILLING_ENABLED: 'yes',
+      NODE_ENV: 'production',
+      APPLE_ENVIRONMENT: 'Sandbox',
+      PURCHASE_IDENTITY_PEPPER: 'x'.repeat(40),
+    } as NodeJS.ProcessEnv);
+    expect(problems.join(' | ')).toContain('APPLE_ISSUER_ID');
+    expect(problems.join(' | ')).toContain('APPLE_ENVIRONMENT != Production');
+  });
+
   it('AI_TIER_OVERRIDE=PRO jest głośne NAWET przy wyłączonych zakupach', () => {
     const problems = billingEnvProblems({
       AI_TIER_OVERRIDE: 'PRO',

@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BillingOpsController } from './billing-ops.controller';
 import { SubscriptionsService } from './subscriptions.service';
 import { SubscriptionsReconcileService } from './subscriptions-reconcile.service';
+import { BillingPreflightService } from './billing-preflight.service';
 
 /**
  * Panel obsługi. Dwie rzeczy, które audyt znalazł tu jako CICHE:
@@ -72,6 +73,9 @@ describe('BillingOpsController', () => {
       prisma as unknown as PrismaService,
       subscriptions as unknown as SubscriptionsService,
       {} as unknown as SubscriptionsReconcileService,
+      {
+        sprawdz: jest.fn().mockResolvedValue({ stan: 'ok' }),
+      } as unknown as BillingPreflightService,
     );
   });
 
