@@ -2,7 +2,7 @@ import { parseEncryptionKey } from '../common/crypto.util';
 import { throttleEnvProblems } from '../common/throttle/throttle-env';
 import { agentEnvProblems } from './agent-env';
 import { billingEnvProblems } from './billing-env-problems';
-import { wsAuthModeProblem } from './ws-auth-mode';
+import { wsAuthModeProblem, wsAuthModeProductionProblem } from './ws-auth-mode';
 
 /**
  * Wartości, które leżą w repo (`.env.example`, CI, fallbacki w kodzie).
@@ -25,6 +25,41 @@ export type RuntimeEnvReport = {
   /** To samo poza produkcją — tylko ostrzeżenie w logu. */
   warnings: string[];
 };
+
+/**
+ * Mikroserwis Cookidoo dostaje JAWNE hasła użytkowników do Vorwerka, więc na
+ * produkcji wolno do niego mówić tylko po https albo po sieci prywatnej
+ * Railway (`*.railway.internal`) — publiczny `http://` wysyłałby te hasła
+ * otwartym tekstem przez internet.
+ */
+export function cookidooServiceUrlProblem(
+  raw: string | undefined,
+): string | null {
+  const value = (raw ?? '').trim();
+  if (!value) return null; // klient używa localhost:8000
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return 'COOKIDOO_SERVICE_URL nie jest poprawnym adresem http(s)';
+  }
+  // `cookidoo:8000` parsuje się jako schemat `cookidoo:` — to też nie jest
+  // adres, pod który klient HTTP potrafi zapukać.
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return 'COOKIDOO_SERVICE_URL nie jest poprawnym adresem http(s)';
+  }
+  if (url.protocol === 'https:') return null;
+  const host = url.hostname.toLowerCase();
+  const privateHost =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '[::1]' ||
+    host.endsWith('.internal') ||
+    host.endsWith('.local');
+  if (url.protocol === 'http:' && privateHost) return null;
+  return `COOKIDOO_SERVICE_URL=${url.protocol}//${host} — hasła Cookidoo szłyby jawnie; użyj https albo hosta *.railway.internal`;
+}
 
 /** Baza na tej samej maszynie (dev, CI, docker-compose) — tylko tam wolno żyć sekretom z repo. */
 export function isLocalDatabaseUrl(raw: string | undefined): boolean {
@@ -96,6 +131,9 @@ export function inspectRuntimeEnv(
   // być świadoma decyzja, nie przypadek.
   const wsAuthProblem = wsAuthModeProblem(env);
   if (wsAuthProblem) problems.push(wsAuthProblem);
+  // Jawne `soft` na produkcji = podszywanie się po WS pod dowolne konto.
+  const wsSoftProblem = wsAuthModeProductionProblem(env);
+  if (wsSoftProblem) problems.push(wsSoftProblem);
 
   // Asystent AI: przy AI_ENABLED pustym/false nic nie jest wymagane (merge bez
   // zmiennych na Railway); `true` z dostawcą anthropic wymaga klucza.
@@ -115,6 +153,10 @@ export function inspectRuntimeEnv(
       'COOKIDOO_SERVICE_TOKEN jest pusty (pusty token = 503 przy pierwszym użyciu integracji)',
     );
   }
+  const cookidooUrlProblem = cookidooServiceUrlProblem(
+    env.COOKIDOO_SERVICE_URL,
+  );
+  if (cookidooUrlProblem) productionOnly.push(cookidooUrlProblem);
   try {
     parseEncryptionKey(env.COOKIDOO_ENCRYPTION_KEY);
   } catch (error) {
@@ -124,6 +166,16 @@ export function inspectRuntimeEnv(
   }
   if (!(env.OPS_TOKEN ?? '').trim()) {
     productionOnly.push('OPS_TOKEN jest pusty (chroni /ops/metrics)');
+  }
+  // Długość OPS_TOKEN to ostrzeżenie, nie blokada startu: token chroni
+  // nadawanie PRO i cofanie subskrypcji, więc ma być losowy i długi — ale
+  // krótki token na Railway nie może położyć całej aplikacji przy deployu.
+  const productionWarnings: string[] = [];
+  const opsTokenProblem = secretProblem('OPS_TOKEN', env.OPS_TOKEN);
+  if ((env.OPS_TOKEN ?? '').trim() && opsTokenProblem) {
+    productionWarnings.push(
+      `${opsTokenProblem} — zrotuj na dłuższy przy najbliższej okazji`,
+    );
   }
   if (env.AUTH_DEV_LOGIN_ENABLED === 'true') {
     productionOnly.push(
@@ -141,7 +193,7 @@ export function inspectRuntimeEnv(
     return {
       production,
       violations: [...problems, ...productionOnly],
-      warnings: billingWarnings,
+      warnings: [...productionWarnings, ...billingWarnings],
     };
   }
   // Poza produkcją sekrety z repo są dopuszczalne TYLKO przy lokalnej bazie.

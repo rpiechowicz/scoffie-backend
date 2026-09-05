@@ -19,6 +19,9 @@ import { BillingPreflightService } from './billing-preflight.service';
 
 const SOLO = 'app.scoffie.pro.solo.monthly';
 const HASH = 'c'.repeat(64);
+// Trasy `:id` przechodzą przez `assertUuid`, więc atrapy muszą być UUID-ami.
+const SUB = '11111111-1111-4111-8111-111111111111';
+const SUB_MISSING = '22222222-2222-4222-8222-222222222222';
 
 const codeOf = async (run: () => Promise<unknown>): Promise<string> => {
   try {
@@ -81,7 +84,7 @@ describe('BillingOpsController', () => {
 
   describe('odebranie dostępu', () => {
     it('zostawia TRWAŁĄ blokadę, a nie tylko status do nadpisania', async () => {
-      await controller.revoke('sub-1', { reason: 'zwrot poza Apple' });
+      await controller.revoke(SUB, { reason: 'zwrot poza Apple' });
       const data = prisma.subscription.updateMany.mock.calls.at(-1)?.[0].data;
       expect(data.status).toBe('REVOKED');
       expect(data.operatorHoldAt).toBeInstanceOf(Date);
@@ -89,23 +92,33 @@ describe('BillingOpsController', () => {
     });
 
     it('bez powodu wpisuje powód domyślny — pusty wiersz nic nie tłumaczy', async () => {
-      await controller.revoke('sub-1', {});
+      await controller.revoke(SUB, {});
       const data = prisma.subscription.updateMany.mock.calls.at(-1)?.[0].data;
       expect(String(data.operatorHoldReason).length).toBeGreaterThan(0);
     });
 
     it('nieistniejąca subskrypcja to 404, nie ciche „zrobione"', async () => {
       prisma.subscription.updateMany.mockResolvedValue({ count: 0 });
-      expect(await codeOf(() => controller.revoke('sub-x', {}))).toBe(
+      expect(await codeOf(() => controller.revoke(SUB_MISSING, {}))).toBe(
         'NOT_FOUND',
       );
     });
 
+    it('literówka w id to 400 przed Prismą, nie P2023 z bazy', async () => {
+      expect(await codeOf(() => controller.revoke('sub-x', {}))).toBe(
+        'VALIDATION_ERROR',
+      );
+      expect(await codeOf(() => controller.unhold('sub-x'))).toBe(
+        'VALIDATION_ERROR',
+      );
+      expect(prisma.subscription.updateMany).not.toHaveBeenCalled();
+    });
+
     it('zdjęcie blokady czyści kolumnę i od razu uzgadnia stan z Apple', async () => {
-      const wynik = await controller.unhold('sub-1');
+      const wynik = await controller.unhold(SUB);
       const data = prisma.subscription.updateMany.mock.calls.at(-1)?.[0].data;
       expect(data).toEqual({ operatorHoldAt: null, operatorHoldReason: null });
-      expect(subscriptions.reconcile).toHaveBeenCalledWith('sub-1');
+      expect(subscriptions.reconcile).toHaveBeenCalledWith(SUB);
       expect(wynik.held).toBe(false);
     });
   });

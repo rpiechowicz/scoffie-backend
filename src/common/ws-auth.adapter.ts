@@ -216,18 +216,30 @@ export class AuthIoAdapter extends IoAdapter {
   }
 }
 
-/** Adres klienta — za proxy Railway pierwszy wpis `x-forwarded-for`. */
-function clientIp(socket: {
+/**
+ * Adres klienta — za proxy Railway OSTATNI wpis `x-forwarded-for`.
+ *
+ * Proxy DOPISUJE adres, z którego przyszło połączenie, na koniec listy;
+ * wszystko wcześniej to treść nagłówka przysłana przez klienta. Pierwszy wpis
+ * był więc wartością pod kontrolą atakującego: limit handshake'ów per IP
+ * dało się ominąć, rotując nagłówek. Ostatni wpis to to samo, co Express z
+ * `trust proxy 1` daje w `req.ip` dla HTTP — obie ścieżki liczą ten sam adres.
+ */
+export function clientIp(socket: {
   handshake?: { address?: string; headers?: Record<string, unknown> };
 }): string {
   const forwarded = socket.handshake?.headers?.['x-forwarded-for'];
-  const first = Array.isArray(forwarded)
-    ? forwarded[0]
+  const raw = Array.isArray(forwarded)
+    ? forwarded[forwarded.length - 1]
     : typeof forwarded === 'string'
-      ? forwarded.split(',')[0]
+      ? forwarded
       : '';
-  const ip = (first ?? '').trim() || socket.handshake?.address || 'unknown';
-  return ip;
+  const last = String(raw ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .pop();
+  return last || socket.handshake?.address || 'unknown';
 }
 
 /** `handshake.auth.token` (connect payload) albo `Authorization: Bearer`. */

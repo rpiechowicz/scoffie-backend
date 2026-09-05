@@ -690,15 +690,16 @@ export class HouseholdsService {
           select: {
             id: true,
             displayName: true,
-            email: true,
+            // Bez `email`: adres domownika to jego sprawa (przy Sign in with
+            // Apple bywa prywatnym relayem, którego celowo nikomu nie pokazał),
+            // a klient identyfikuje ludzi po `displayName` i kolorze awatara.
+            // Ta lista idzie też broadcastem `households:membersChanged`.
             avatarUrl: true,
             // Kolor awatara jedzie razem z domownikiem, zeby ta sama osoba
             // wygladala tak samo w Ustawieniach i w Planie. Bez tego klient
             // kolorowal awatary domownikow po pozycji na liscie i jeden
             // uzytkownik mial dwa rozne kolory na dwoch ekranach.
             avatarColor: true,
-            createdAt: true,
-            updatedAt: true,
           },
         },
       },

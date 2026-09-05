@@ -16,6 +16,7 @@ import {
   IsPositive,
   IsString,
   IsUUID,
+  IsUrl,
   Max,
   MaxLength,
   MinLength,
@@ -36,6 +37,12 @@ const ingredientUnits = [...ALLOWED_UNITS];
 export const RECIPE_TITLE_MAX = 200;
 export const RECIPE_DESCRIPTION_MAX = 4000;
 export const RECIPE_IMAGE_URL_MAX = 2048;
+/** Zdjęcie przepisu: pełny adres https (bez `http:`, `javascript:`, hostów bez domeny). */
+export const RECIPE_IMAGE_URL_OPTIONS = {
+  protocols: ['https'],
+  require_protocol: true,
+  require_tld: true,
+};
 export const RECIPE_INGREDIENTS_MAX = 60;
 /** Przepisy użytkownika bywają na więcej porcji niż katalogowe 1..8. */
 export const RECIPE_SERVINGS_MAX = 20;
@@ -147,6 +154,10 @@ export class CreateRecipeDto {
   @IsOptional()
   @IsString()
   @MaxLength(RECIPE_IMAGE_URL_MAX)
+  // Adres wraca do WSZYSTKICH domowników i ładuje go telefon: tylko https,
+  // żeby nie dało się wpisać `javascript:`, adresu w sieci wewnętrznej ani
+  // piksela śledzącego po jawnym http.
+  @IsUrl(RECIPE_IMAGE_URL_OPTIONS)
   imageUrl?: string;
 
   @ApiPropertyOptional({ example: 520 })

@@ -15,8 +15,9 @@ const productionEnv = (
     DATABASE_URL: 'postgresql://u:p@db.internal:5432/app',
     COOKIDOO_SERVICE_TOKEN: 't'.repeat(44),
     COOKIDOO_ENCRYPTION_KEY: ENCRYPTION_KEY,
-    OPS_TOKEN: 'o'.repeat(24),
+    OPS_TOKEN: 'o'.repeat(40),
     AUTH_DEV_LOGIN_ENABLED: 'false',
+    COOKIDOO_SERVICE_URL: 'http://cookidoo.railway.internal:8000',
     ...overrides,
   };
   for (const key of Object.keys(env)) {
@@ -68,6 +69,21 @@ describe('inspectRuntimeEnv', () => {
       { AUTH_DEV_LOGIN_ENABLED: 'true' },
       /AUTH_DEV_LOGIN_ENABLED=true/,
     ],
+    [
+      'Cookidoo po publicznym http',
+      { COOKIDOO_SERVICE_URL: 'http://cookidoo.up.railway.app' },
+      /COOKIDOO_SERVICE_URL=http:/,
+    ],
+    [
+      'Cookidoo z adresem, który nie jest URL-em',
+      { COOKIDOO_SERVICE_URL: 'cookidoo:8000' },
+      /COOKIDOO_SERVICE_URL nie jest poprawnym/,
+    ],
+    [
+      'WS_AUTH_MODE=soft (tożsamość z payloadu)',
+      { WS_AUTH_MODE: 'soft' },
+      /WS_AUTH_MODE=soft/,
+    ],
   ])('produkcja: %s → naruszenie', (_label, overrides, pattern) => {
     const report = inspectRuntimeEnv(productionEnv(overrides));
     expect(report.violations.some((v) => pattern.test(v))).toBe(true);
@@ -102,8 +118,34 @@ describe('inspectRuntimeEnv', () => {
       JWT_SECRET: STRONG,
       REFRESH_TOKEN_PEPPER: OTHER_STRONG,
       AUTH_DEV_LOGIN_ENABLED: 'true',
+      COOKIDOO_SERVICE_URL: 'http://cookidoo.up.railway.app',
+      WS_AUTH_MODE: 'soft',
     });
     expect(report).toEqual({ production: false, violations: [], warnings: [] });
+  });
+
+  it.each([
+    ['https publiczny', 'https://cookidoo.up.railway.app'],
+    ['sieć prywatna Railway', 'http://cookidoo.railway.internal:8000'],
+    ['localhost (api z hosta)', 'http://localhost:8000'],
+    ['docker-compose', 'http://cookidoo.local:8000'],
+    ['brak zmiennej', undefined],
+  ])('produkcja: COOKIDOO_SERVICE_URL %s przechodzi', (_label, url) => {
+    const report = inspectRuntimeEnv(
+      productionEnv({ COOKIDOO_SERVICE_URL: url }),
+    );
+    expect(report.violations).toEqual([]);
+  });
+
+  it('krótki OPS_TOKEN na produkcji to ostrzeżenie, nie blokada startu', () => {
+    const report = inspectRuntimeEnv(
+      productionEnv({ OPS_TOKEN: 'o'.repeat(12) }),
+    );
+    expect(report.violations).toEqual([]);
+    expect(report.warnings).toEqual([
+      expect.stringMatching(/OPS_TOKEN ma 12 znaków/),
+    ]);
+    expect(report.warnings.join('\n')).not.toContain('oooooooooooo');
   });
 });
 
@@ -132,14 +174,14 @@ describe('assertRuntimeEnv', () => {
 });
 
 describe('WS_AUTH_MODE w assert-env', () => {
-  it('poprawne wartości i brak zmiennej nie są naruszeniem', () => {
+  it('strict i brak zmiennej nie są naruszeniem, jawne soft jest', () => {
     expect(inspectRuntimeEnv(productionEnv()).violations).toEqual([]);
     expect(
       inspectRuntimeEnv(productionEnv({ WS_AUTH_MODE: 'strict' })).violations,
     ).toEqual([]);
     expect(
       inspectRuntimeEnv(productionEnv({ WS_AUTH_MODE: 'soft' })).violations,
-    ).toEqual([]);
+    ).toEqual([expect.stringContaining('WS_AUTH_MODE=soft')]);
   });
 
   it('literówka to naruszenie na produkcji i ostrzeżenie poza nią', () => {

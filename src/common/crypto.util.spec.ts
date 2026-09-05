@@ -29,6 +29,17 @@ describe('crypto.util', () => {
     expect(() => decryptSecret(parts.join(':'), key)).toThrow();
   });
 
+  it('odrzuca skrócony tag GCM zamiast go zaakceptować', () => {
+    // Node domyślnie przyjmuje tagi od 4 bajtów; 4-bajtowy tag zgaduje się
+    // w 2^32 próbach, więc taki wpis ma być odrzucony jako uszkodzony.
+    const encrypted = encryptSecret('haslo', key);
+    const parts = encrypted.split(':');
+    parts[2] = Buffer.from(parts[2], 'base64')
+      .subarray(0, 4)
+      .toString('base64');
+    expect(() => decryptSecret(parts.join(':'), key)).toThrow(/tagu/);
+  });
+
   it('odrzuca zły klucz', () => {
     const encrypted = encryptSecret('haslo', key);
     expect(() => decryptSecret(encrypted, randomBytes(32))).toThrow();

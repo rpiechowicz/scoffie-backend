@@ -16,7 +16,7 @@ const guard = require('../../scripts/lib/rebuild-guard.js') as {
 const NOW = new Date('2026-08-28T10:00:00.000Z');
 const TODAY = '2026-08-28';
 const PROD_URL =
-  'postgresql://postgres:sekret@caboose.proxy.rlwy.net:59892/railway';
+  'postgresql://postgres:sekret@example.proxy.rlwy.net:12345/railway';
 
 describe('decideRebuild', () => {
   it('bez flagi niczego nie żąda', () => {
@@ -74,7 +74,7 @@ describe('decideRebuild', () => {
       now: NOW,
     });
     expect(result.allowed).toBe(false);
-    expect(result.reason).toContain('caboose.proxy.rlwy.net:59892');
+    expect(result.reason).toContain('example.proxy.rlwy.net:12345');
     // Powód idzie do logu — hasło z DATABASE_URL nie może się w nim znaleźć.
     expect(result.reason).not.toContain('sekret');
   });
@@ -96,11 +96,11 @@ describe('decideRebuild', () => {
       guard.decideRebuild({
         env: {
           ...base,
-          SAFE_MIGRATE_ALLOW_PROD_REBUILD: 'caboose.proxy.rlwy.net:59892',
+          SAFE_MIGRATE_ALLOW_PROD_REBUILD: 'example.proxy.rlwy.net:12345',
         },
         now: NOW,
       }),
-    ).toMatchObject({ allowed: true, host: 'caboose.proxy.rlwy.net:59892' });
+    ).toMatchObject({ allowed: true, host: 'example.proxy.rlwy.net:12345' });
   });
 
   it('na produkcji bez rozpoznawalnego hosta odmawia', () => {
@@ -120,7 +120,7 @@ describe('decideRebuild', () => {
 
 describe('hostOf', () => {
   it('zwraca host z portem, bez hasła', () => {
-    expect(guard.hostOf(PROD_URL)).toBe('caboose.proxy.rlwy.net:59892');
+    expect(guard.hostOf(PROD_URL)).toBe('example.proxy.rlwy.net:12345');
   });
 
   it('zwraca null dla śmieci i braku', () => {

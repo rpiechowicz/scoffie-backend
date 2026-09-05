@@ -1025,7 +1025,10 @@ export class SubscriptionsService {
       environment: row.environment,
       messagesLimit: row.messagesLimitSnapshot,
       plansLimit: row.plansLimitSnapshot,
-      operatorHold: row.operatorHoldAt ? (row.operatorHoldReason ?? '') : null,
+      // Sam fakt blokady, nie jej powód: `operatorHoldReason` to notatka
+      // obsługi (np. „chargeback, podejrzenie oszustwa") i zostaje w
+      // `/ops/billing`, a nie w odpowiedzi dla telefonu.
+      operatorHold: row.operatorHoldAt ? 'OPERATOR_HOLD' : null,
     };
   }
 

@@ -12,6 +12,7 @@ import {
   IsString,
   ValidateIf,
   IsUUID,
+  IsUrl,
   Max,
   MaxLength,
   Min,
@@ -23,6 +24,7 @@ import {
   CreateRecipeIngredientDto,
   RECIPE_DESCRIPTION_MAX,
   RECIPE_IMAGE_URL_MAX,
+  RECIPE_IMAGE_URL_OPTIONS,
   RECIPE_INGREDIENTS_MAX,
   RECIPE_PREP_TIME_MAX,
   RECIPE_SERVINGS_MAX,
@@ -108,6 +110,7 @@ export class UpdateRecipeDto {
   @IsOptional()
   @IsString()
   @MaxLength(RECIPE_IMAGE_URL_MAX)
+  @IsUrl(RECIPE_IMAGE_URL_OPTIONS)
   imageUrl?: string;
 
   @ApiPropertyOptional({ type: [CreateRecipeIngredientDto] })

@@ -8,16 +8,24 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SkipThrottle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { IsString, MaxLength, MinLength } from 'class-validator';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUserId } from '../auth/current-user-id.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AppException } from '../common/app-exception';
+import { THROTTLE_WINDOW_MS } from '../common/throttle/throttle-env';
 import { AppleJwsError } from './apple-jws.verifier';
 import { readBillingEnv } from './billing-env';
 import { BillingPreflightService } from './billing-preflight.service';
 import { SubscriptionsService } from './subscriptions.service';
+
+/**
+ * Powiadomienia z jednego adresu Apple na minutę. Prawdziwy ruch to
+ * pojedyncze zdarzenia dziennie na subskrypcję; 600 to sufit na burst
+ * (masowe odnowienia, ponowienia po naszej awarii), nie na normalny dzień.
+ */
+export const APPLE_NOTIFICATIONS_PER_MINUTE = 600;
 
 /** Podpisana transakcja StoreKit 2 — bywa długa, ale nie nieskończona. */
 export class RegisterTransactionDto {
@@ -99,17 +107,23 @@ export class BillingController {
    * Uwierzytelnieniem jest podpis ładunku sprawdzony do przypiętego korzenia;
    * ktokolwiek inny dostanie 400 i niczego nie zapisze.
    *
-   * `@SkipThrottle` jest tu konieczne, a nie wygodne: globalny limiter liczy po
-   * adresie IP, a Apple wysyła wszystko z własnej puli adresów. Odbicie
-   * powiadomienia 429-tką wygląda dla Apple jak awaria — ponowi pięć razy przez
-   * trzy doby, a potem przestanie i zdarzenie przepadnie na zawsze.
+   * Limit jest HOJNY, ale jest: globalne 120/min liczy po adresie IP, a Apple
+   * wysyła wszystko z własnej puli adresów, więc odbicie powiadomienia 429-tką
+   * wyglądałoby dla Apple jak awaria — ponowi pięć razy przez trzy doby, a
+   * potem przestanie i zdarzenie przepadnie na zawsze. Dlatego zamiast
+   * `@SkipThrottle()` (zero limitu na weryfikację podpisu z ciałem do 100 KB)
+   * jest własny sufit per adres, którego Apple nigdy nie dotknie, a ktoś
+   * bombardujący nas podrobionymi ładunkami — owszem.
    *
    * 200 dopiero PO trwałym zapisie. Kolejność „zapisz surowy ładunek →
    * przetwórz → odpowiedz" oznacza, że deploy w złej sekundzie kosztuje
    * najwyżej jedno ponowienie, a nie utratę zdarzenia.
    */
   @Post('apple/notifications')
-  @SkipThrottle()
+  @SkipThrottle({ ip: true })
+  @Throttle({
+    default: { limit: APPLE_NOTIFICATIONS_PER_MINUTE, ttl: THROTTLE_WINDOW_MS },
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Powiadomienie App Store Server Notifications v2' })
   async notification(@Body() dto: AppleNotificationDto) {

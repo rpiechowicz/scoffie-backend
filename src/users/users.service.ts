@@ -112,13 +112,49 @@ export class UsersService {
     await this.consents.recordSystem(userId, 'HEALTH_DATA', 'GRANTED', source);
   }
 
+  /**
+   * Profil pytającego z członkostwami. Jawny `select`, nie cały wiersz:
+   * `appleSub`, `googleId`, `identityHash` i `tokenVersion` to wewnętrzne
+   * identyfikatory tożsamości i sesji, których telefon nie czyta, a
+   * `identityHash` jest celowo wycinany nawet z eksportu RODO — nie ma
+   * powodu, żeby wychodził tu. Gospodarstwo bez `tierOverride`
+   * (nadanie operatora to sprawa obsługi, nie klienta).
+   */
   getMe(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        avatarUrl: true,
+        yearOfBirth: true,
+        heightCm: true,
+        weightKg: true,
+        sex: true,
+        avatarColor: true,
+        onboardingCompletedAt: true,
+        authProvider: true,
+        createdAt: true,
+        updatedAt: true,
         memberships: {
-          include: {
-            household: true,
+          select: {
+            id: true,
+            userId: true,
+            householdId: true,
+            role: true,
+            createdAt: true,
+            household: {
+              select: {
+                id: true,
+                name: true,
+                enabledMealTypes: true,
+                mealSlotTimes: true,
+                createdById: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
           },
         },
       },
