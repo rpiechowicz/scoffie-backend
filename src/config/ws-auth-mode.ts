@@ -38,5 +38,25 @@ export function wsAuthModeProblem(
 ): string | null {
   const raw = (env.WS_AUTH_MODE ?? '').trim().toLowerCase();
   if (!raw || (WS_AUTH_MODES as readonly string[]).includes(raw)) return null;
-  return `WS_AUTH_MODE=${raw} — dozwolone: ${WS_AUTH_MODES.join(', ')} (przy złej wartości działa jak soft)`;
+  return `WS_AUTH_MODE=${raw} — dozwolone: ${WS_AUTH_MODES.join(', ')} (przy złej wartości działa jak domyślny: strict na produkcji, soft poza nią)`;
+}
+
+/**
+ * `soft` na produkcji to naruszenie blokujące start — nie ostrzeżenie.
+ *
+ * W tym trybie socket bez tokenu bierze tożsamość z `payload.userId`, czyli
+ * każdy może nadać dowolne zdarzenie (także `users:delete`) w imieniu
+ * dowolnego konta, a pokój `legacy` dostaje broadcasty wszystkich gospodarstw.
+ * Okno przejściowe skończyło się z buildem iOS z PR #69 (każdy build od
+ * 31.08.2026 wysyła token), więc jedyną drogą włączenia `soft` na produkcji
+ * była pomyłka przy kopiowaniu `.env.example` na Railway. Poza produkcją
+ * `soft` zostaje — lokalne narzędzia (`pnpm ws:smoke`) chodzą bez tokenu.
+ */
+export function wsAuthModeProductionProblem(
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  if (env.NODE_ENV !== 'production') return null;
+  const raw = (env.WS_AUTH_MODE ?? '').trim().toLowerCase();
+  if (raw !== 'soft') return null;
+  return 'WS_AUTH_MODE=soft — na produkcji socket bez tokenu podszywa się pod dowolne konto; usuń zmienną albo ustaw strict';
 }

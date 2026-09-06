@@ -25,12 +25,23 @@ import { RequestMetricsService } from './observability/request-metrics.service';
  * format `details`.
  */
 export function configureApp(app: NestExpressApplication): void {
-  // Nagłówki bezpieczeństwa bez CSP (API + kilka plików statycznych, nie
-  // strona); `hidePoweredBy` w zestawie. `crossOriginResourcePolicy` na
-  // `cross-origin`, bo obrazki z `/static/` czyta aplikacja spoza tej domeny.
+  // Nagłówki bezpieczeństwa; `hidePoweredBy` w zestawie. CSP w wersji
+  // „nic nie wolno": to API JSON plus kilka obrazków, więc żadna odpowiedź
+  // nie ma prawa wykonać skryptu ani zostać osadzona w ramce — gdyby kiedyś
+  // strona błędu albo Swagger trafiły na produkcję, przeglądarka i tak nic z
+  // nich nie uruchomi. `crossOriginResourcePolicy` na `cross-origin`, bo
+  // obrazki z `/static/` czyta aplikacja spoza tej domeny.
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: {
+        useDefaults: false,
+        directives: {
+          'default-src': ["'none'"],
+          'frame-ancestors': ["'none'"],
+          'base-uri': ["'none'"],
+          'form-action': ["'none'"],
+        },
+      },
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );

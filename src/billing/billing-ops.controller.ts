@@ -19,6 +19,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AppException } from '../common/app-exception';
+import { assertUuid } from '../common/uuid';
 import { PrismaService } from '../prisma/prisma.service';
 import { OpsTokenGuard } from '../observability/ops-token.guard';
 import { SUBSCRIPTION_PRODUCTS } from '../config/subscription-products';
@@ -53,14 +54,17 @@ export class GrantManualDto {
    */
   @IsOptional()
   @IsString()
+  @MaxLength(128)
   identityHash?: string;
 
   /** Konto obdarowanej osoby. Wygodniejsze i trudniejsze do pomylenia. */
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   userId?: string;
 
   @IsString()
+  @MaxLength(128)
   productId!: string;
 
   /** Na ile miesięcy; 0 = bezterminowo (konto recenzenta). */
@@ -91,10 +95,12 @@ export class RevokeDto {
 export class LookupQueryDto {
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   originalTransactionId?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   userId?: string;
 }
 
@@ -142,7 +148,10 @@ export class BillingOpsController {
 
   /** Wymuszone uzgodnienie z Apple dla jednej subskrypcji. */
   @Post('subscriptions/:id/reconcile')
-  async reconcile(@Param('id') id: string) {
+  async reconcile(@Param('id') rawId: string) {
+    // `assertUuid` na każdym `:id` tej klasy: literówka operatora ma dostać
+    // 400 z nazwą pola, a nie P2023 z Postgresa przebrany za 400 albo 500.
+    const id = assertUuid(rawId, 'id');
     return { reconciled: await this.subscriptions.reconcile(id) };
   }
 
@@ -159,7 +168,8 @@ export class BillingOpsController {
    * a `resolvePlan` dalej widziało ACTIVE z datą w przyszłości.
    */
   @Post('subscriptions/:id/revoke')
-  async revoke(@Param('id') id: string, @Body() dto: RevokeDto) {
+  async revoke(@Param('id') rawId: string, @Body() dto: RevokeDto) {
+    const id = assertUuid(rawId, 'id');
     const now = new Date();
     const updated = await this.prisma.subscription.updateMany({
       where: { id },
@@ -190,7 +200,8 @@ export class BillingOpsController {
    * uzgadniamy stan z Apple, żeby nie zostawić wiersza z ręcznym REVOKED.
    */
   @Post('subscriptions/:id/unhold')
-  async unhold(@Param('id') id: string) {
+  async unhold(@Param('id') rawId: string) {
+    const id = assertUuid(rawId, 'id');
     const updated = await this.prisma.subscription.updateMany({
       where: { id },
       data: { operatorHoldAt: null, operatorHoldReason: null },
@@ -347,7 +358,8 @@ export class BillingOpsController {
    * wchodzenia do bazy.
    */
   @Post('households/:id/cost-reset')
-  async resetCost(@Param('id') householdId: string) {
+  async resetCost(@Param('id') rawHouseholdId: string) {
+    const householdId = assertUuid(rawHouseholdId, 'id');
     const periodKey = new Date().toISOString().slice(0, 7);
     const result = await this.prisma.aiUsageCounter.updateMany({
       where: { scopeId: householdId, periodKey, kind: 'costMicroUsd' },
@@ -361,7 +373,8 @@ export class BillingOpsController {
    * gdy klient pyta przez wsparcie, a nie przez aplikację.
    */
   @Get('subscriptions/:id/usage')
-  async usage(@Param('id') id: string) {
+  async usage(@Param('id') rawId: string) {
+    const id = assertUuid(rawId, 'id');
     // OKRES BIERZE SIĘ Z SUBSKRYPCJI, NIE Z KALENDARZA. Od 4.09.2026 pula
     // wraca w dniu odnowienia, więc pytanie o `YYYY-MM` pokazywało obsłudze
     // pusty licznik i odpowiedź „nic nie zużyłeś" komuś, kto właśnie wyczerpał

@@ -89,6 +89,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Znane podatności w zależnościach produkcyjnych. Dependabot otwiera PR-y
+      # z poprawkami, ale dopiero czerwony bieg zatrzymuje merge kodu, który
+      # wozi dziurawy pakiet. `high` i wyżej — `moderate` bywa hałasem.
+      - name: Audit dependencies
+        run: pnpm audit --prod --audit-level=high
+
       - name: Generate Prisma client
         run: pnpm prisma:generate
 

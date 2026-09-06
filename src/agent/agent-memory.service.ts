@@ -29,10 +29,11 @@ export const MEMORY_LIMIT = 30;
 /** Jedno zdanie, nie akapit — długie „wspomnienia" to zwykle streszczenie rozmowy. */
 export const MEMORY_TEXT_MAX = 200;
 
-/** Znaki ogrodzenia zamienione na typograficzne — treść zostaje czytelna, znacznika nie da się domknąć. */
-export function fenceSafe(text: string): string {
-  return text.replace(/</g, '‹').replace(/>/g, '›');
-}
+// Jedna definicja ogrodzenia dla pamięci, digestu katalogu i promptu
+// systemowego (`fence-safe.ts`); tu zostaje re-eksport dla dotychczasowych
+// importów.
+import { fenceSafe } from './fence-safe';
+export { fenceSafe };
 
 /** Nieznany albo pusty rodzaj = PREFERENCE, żeby stare wiersze i literówki modelu nie psuły ekranu. */
 export function toMemoryKind(raw: string | undefined | null): MemoryKind {

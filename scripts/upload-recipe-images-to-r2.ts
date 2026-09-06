@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { basename, extname, join } from 'node:path';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { PrismaClient } from '@prisma/client';
 
@@ -85,13 +85,19 @@ function extractImageFileName(
   const noQuery = imageUrl.split('?')[0];
   const marker = '/static/recipe-images/';
   const markerIndex = noQuery.indexOf(marker);
-  if (markerIndex >= 0) {
-    return noQuery.slice(markerIndex + marker.length);
-  }
+  const candidate =
+    markerIndex >= 0
+      ? noQuery.slice(markerIndex + marker.length)
+      : (noQuery.split('/').filter(Boolean).pop() ?? '');
+  if (!candidate) return `${recipeId}.png`;
 
-  const last = noQuery.split('/').filter(Boolean).pop();
-  if (!last) return `${recipeId}.png`;
-  return decodeURIComponent(last);
+  // Nazwa pliku pochodzi z kolumny w bazie — `basename` po dekodowaniu, żeby
+  // `..%2F` w `imageUrl` nie wyprowadziło odczytu poza `public/recipe-images`.
+  const fileName = basename(decodeURIComponent(candidate));
+  if (!fileName || fileName === '.' || fileName === '..') {
+    return `${recipeId}.png`;
+  }
+  return fileName;
 }
 
 function isAlreadyOnR2Target(imageUrl: string | null): boolean {

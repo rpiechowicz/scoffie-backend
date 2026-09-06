@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { AccessTokenVerdict } from '../auth/access-token.service';
 import {
   AuthIoAdapter,
+  clientIp,
   extractToken,
   WS_AUTH_EXPIRED_EVENT,
   WS_AUTH_EXPIRY_GRACE_MS,
@@ -45,6 +46,28 @@ const GOOD: AccessTokenVerdict = {
   userId: 'user-1',
   exp: null,
 };
+
+describe('clientIp', () => {
+  const socketWith = (headers: Record<string, unknown>, address = '10.0.0.9') =>
+    ({ handshake: { address, headers } }) as Parameters<typeof clientIp>[0];
+
+  it('bierze OSTATNI wpis x-forwarded-for — ten dopisany przez proxy', () => {
+    // Klient przysłał własny nagłówek z obcym adresem, proxy Railway dopisało
+    // prawdziwy. Limit per IP ma liczyć ten prawdziwy, nie podstawiony.
+    expect(
+      clientIp(socketWith({ 'x-forwarded-for': '1.1.1.1, 203.0.113.7' })),
+    ).toBe('203.0.113.7');
+    expect(
+      clientIp(socketWith({ 'x-forwarded-for': ['1.1.1.1', ' 203.0.113.7 '] })),
+    ).toBe('203.0.113.7');
+  });
+
+  it('bez nagłówka wraca adres gniazda, bez niczego — unknown', () => {
+    expect(clientIp(socketWith({}))).toBe('10.0.0.9');
+    expect(clientIp(socketWith({ 'x-forwarded-for': ' , ' }))).toBe('10.0.0.9');
+    expect(clientIp({ handshake: { headers: {} } })).toBe('unknown');
+  });
+});
 
 const makeAdapter = (opts: {
   verdict?: AccessTokenVerdict;

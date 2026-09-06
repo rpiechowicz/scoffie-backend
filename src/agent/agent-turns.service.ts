@@ -637,6 +637,25 @@ export class AgentTurnsService {
         HttpStatus.NOT_FOUND,
       );
     }
+    // Ta sama bramka, co `loadOwned` rozmowy: własność tury to za mało, liczy
+    // się członkostwo DZIŚ. Kto wyszedł z domu, czytał tu dalej odpowiedzi
+    // asystenta o TAMTYM domu (plan, lista zakupów) i mógł anulować cudzą turę.
+    const membership = await this.prisma.membership.findUnique({
+      where: {
+        userId_householdId: {
+          userId,
+          householdId: turn.conversation.householdId,
+        },
+      },
+      select: { userId: true },
+    });
+    if (!membership) {
+      throw new AppException(
+        'AI_TURN_NOT_FOUND',
+        'Nie znaleziono tej tury.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
     return turn;
   }
 

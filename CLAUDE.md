@@ -74,9 +74,10 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 - WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje
   `AuthIoAdapter` (`src/common/ws-auth.adapter.ts`, jeden dla 5 gatewayów); tożsamość w handlerze
   WYŁĄCZNIE przez `actorId(client, payload)` (`src/common/ws-socket.ts`), broadcasty przez
-  `broadcastToHousehold` do pokoju `household:<id>` (`src/common/ws-rooms.ts`). `WS_AUTH_MODE=soft`
-  (domyślnie) wpuszcza stare buildy bez tokenu jako `legacy` z `payload.userId`; `strict` po adopcji
-  buildu iOS (metryki `/ops/metrics.wsAuth`).
+  `broadcastToHousehold` do pokoju `household:<id>` (`src/common/ws-rooms.ts`). Produkcja chodzi w
+  `strict` (domyślne przy braku `WS_AUTH_MODE`, a jawne `soft` z `NODE_ENV=production` to odmowa
+  startu — audyt 5.09.2026). `soft` zostaje TYLKO poza produkcją dla `pnpm ws:smoke`: socket bez
+  tokenu wchodzi jako `legacy` z `payload.userId`, czyli podszywa się pod kogo chce.
 - Walidacja wejścia (od Fazy 0, krok 2): globalny `ValidationPipe` obejmuje TYLKO HTTP, a pipe na
   WS omijałby ack — dlatego JAWNIE: serwis waliduje DTO na wejściu (`dto = await validateDto(XDto, dto)`,
   `src/common/validate-dto.ts`; ten sam pipe i format `details`, co HTTP; chroni też narzędzia

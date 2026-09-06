@@ -12,8 +12,13 @@ import { JwtAuthGuard } from './jwt-auth.guard';
     JwtModule.register({
       secret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
       signOptions: {
+        algorithm: 'HS256',
         expiresIn: resolveJwtExpiresIn(process.env.JWT_EXPIRES_IN),
       },
+      // Jawna lista algorytmów przy weryfikacji: token z innym `alg` w
+      // nagłówku ma być odrzucony od razu, a nie zależeć od domyślnych
+      // ustawień biblioteki w kolejnej wersji.
+      verifyOptions: { algorithms: ['HS256'] },
     }),
   ],
   controllers: [AuthController],

@@ -18,7 +18,7 @@ const guard = require('../../scripts/lib/reset-accounts-guard.js') as {
 const NOW = new Date('2026-09-02T10:00:00.000Z');
 const TODAY = '2026-09-02';
 const PROD_URL =
-  'postgresql://postgres:sekret@caboose.proxy.rlwy.net:59892/railway';
+  'postgresql://postgres:sekret@example.proxy.rlwy.net:12345/railway';
 const LOCAL_URL =
   'postgresql://scoffie:scoffie@localhost:5432/scoffie?schema=public';
 
@@ -28,7 +28,7 @@ describe('decideResetAccounts', () => {
       env: {
         DATABASE_URL: PROD_URL,
         RESET_ACCOUNTS_CONFIRM: TODAY,
-        RESET_ACCOUNTS_ALLOW_HOST: 'caboose.proxy.rlwy.net:59892',
+        RESET_ACCOUNTS_ALLOW_HOST: 'example.proxy.rlwy.net:12345',
       },
       now: NOW,
     });
@@ -87,8 +87,8 @@ describe('decideResetAccounts', () => {
       now: NOW,
     });
     expect(result.allowed).toBe(false);
-    expect(result.host).toBe('caboose.proxy.rlwy.net:59892');
-    expect(result.reason).toContain('caboose.proxy.rlwy.net:59892');
+    expect(result.host).toBe('example.proxy.rlwy.net:12345');
+    expect(result.reason).toContain('example.proxy.rlwy.net:12345');
   });
 
   it('baza spoza maszyny z dokładnym hostem przechodzi', () => {
@@ -97,7 +97,7 @@ describe('decideResetAccounts', () => {
         DATABASE_URL: PROD_URL,
         RESET_ACCOUNTS_WRITE: 'true',
         RESET_ACCOUNTS_CONFIRM: TODAY,
-        RESET_ACCOUNTS_ALLOW_HOST: 'caboose.proxy.rlwy.net:59892',
+        RESET_ACCOUNTS_ALLOW_HOST: 'example.proxy.rlwy.net:12345',
       },
       now: NOW,
     });
@@ -120,7 +120,7 @@ describe('decideResetAccounts', () => {
     expect(guard.isLocalHost('localhost:5432')).toBe(true);
     expect(guard.isLocalHost('127.0.0.1')).toBe(true);
     expect(guard.isLocalHost('db:5432')).toBe(true);
-    expect(guard.isLocalHost('caboose.proxy.rlwy.net:59892')).toBe(false);
+    expect(guard.isLocalHost('example.proxy.rlwy.net:12345')).toBe(false);
     expect(guard.isLocalHost(null)).toBe(false);
   });
 });

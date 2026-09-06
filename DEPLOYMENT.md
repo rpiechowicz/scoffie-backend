@@ -237,37 +237,35 @@ Avoid emergency database mutations unless the issue is confirmed to be migration
 
 Since Phase 0 the Socket.IO handshake carries the access token (`auth: { token }`
 or `Authorization: Bearer`). Identity comes from the token, broadcasts go to
-`household:<id>` rooms. Rollout order, because old iOS builds send no token:
+`household:<id>` rooms.
 
-1. Deploy backend with `WS_AUTH_MODE` unset (= `soft`): sockets with a token are
-   verified, sockets without one keep working as `legacy` (identity from the
-   payload, as before). No Railway variable is required for this step — but
-   check with `railway variables --service Backend` that `REFRESH_TOKEN_DAYS`
-   is unset or ≥ 60 and `JWT_EXPIRES_IN` is unset or shorter than that; the
-   refresh token must outlive the access token for the iOS refresh to work.
-2. Ship the iOS build that sends the token in the handshake and refreshes it
-   — **done**: every iOS build since PR #69 (`main` from 31.08.2026) sends it.
-3. Watch `GET /ops/metrics` → `http.wsAuth.handshakes.legacy` and `legacyActs`.
-   The counters live in process memory and reset on every restart, so take
-   two readings at least an hour apart with a growing `http.uptimeSeconds`
-   and the same `commit` in `/ops/health`. When they stop growing, set
-   `WS_AUTH_MODE=strict` on the `Backend` service — no token = `connect_error`
-   with `{code: 'UNAUTHORIZED', reason: 'missing'}`. Rollback is the same
-   variable back to `soft`.
+**The rollout is over.** Every iOS build since PR #69 (`main` from 31.08.2026)
+sends the token, so production runs `strict`: no token = `connect_error` with
+`{code: 'UNAUTHORIZED', reason: 'missing'}`. Since 3.09.2026 `strict` is the
+default when `WS_AUTH_MODE` is unset in production, and since the 5.09.2026
+security audit an explicit `WS_AUTH_MODE=soft` with `NODE_ENV=production` is a
+boot violation — the process refuses to start. **Before merging that change,
+check `railway variables --service Backend` and delete `WS_AUTH_MODE` if it is
+set to `soft`**; a refused boot on Railway is a production outage (see the
+28.08.2026 lesson in `CLAUDE.md`).
 
-Until `strict` is on, a socket without a token is accepted as `legacy` with the
-identity taken from the payload, and every household broadcast is also sent to
-the shared `legacy` room. That is why this switch is the first item of the
-2.09.2026 remediation plan, not a cosmetic one.
+Why `soft` is not allowed in production: in that mode a socket without a token
+is accepted as `legacy` with the identity taken from the payload (`userId`), so
+anyone can send any event — including `users:delete` — on behalf of any
+account, and every household broadcast is also sent to the shared `legacy`
+room. Outside production `soft` stays the default so that local tools
+(`pnpm ws:smoke` with `userId` in the payload) keep working.
 
 `WS_AUTH_MODE` is read per handshake; a typo is a boot violation in production.
-Refresh tokens now default to 60 days (`REFRESH_TOKEN_DAYS`), reuse of a rotated
+Refresh tokens default to 60 days (`REFRESH_TOKEN_DAYS`), reuse of a rotated
 refresh token revokes the whole family (deliberate: a lost refresh response
 means re-login on every device of that user), and `POST /auth/logout` revokes
-one refresh token — the access token stays valid until its `exp` (30 days by
-default), which is why the next step after iOS adoption is a shorter
-`JWT_EXPIRES_IN`. A verification outage (database) during the handshake is
-reported as `SERVICE_UNAVAILABLE`, not `UNAUTHORIZED`, so clients keep their
+one refresh token — the access token stays valid until its `exp`. The code
+default is **1 hour** (`JWT_EXPIRES_IN` unset); `30d`, which older copies of
+`.env.example` carried, means a month of access after logout, so make sure
+Railway does not override it (`railway variables --service Backend`). A
+verification outage (database) during the handshake is reported as
+`SERVICE_UNAVAILABLE`, not `UNAUTHORIZED`, so clients keep their
 auto-reconnect instead of refreshing tokens.
 
 ## Stan produkcji asystenta (aktualizacja 2.09.2026)

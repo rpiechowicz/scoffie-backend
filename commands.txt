@@ -122,7 +122,7 @@ railway ssh --service Backend -- sh -c 'cd /app && RESET_ACCOUNTS_WRITE=true RES
 // B) Z LOKALNEGO CHECKOUTU (dziala PRZED merge — `railway run` odpala skrypt
 //    u ciebie na dysku, tylko ze zmiennymi produkcji; wymaga wiec galezi
 //    z tym plikiem i `pnpm install` na miejscu; host to wtedy publiczny
-//    proxy z DATABASE_URL, np. caboose.proxy.rlwy.net:59892):
+//    proxy z DATABASE_URL, np. example.proxy.rlwy.net:12345):
 railway run --service Backend pnpm accounts:reset
 railway run --service Backend RESET_ACCOUNTS_WRITE=true RESET_ACCOUNTS_CONFIRM=$(date -u +%Y-%m-%d) RESET_ACCOUNTS_ALLOW_HOST=<host:port z DATABASE_URL> pnpm accounts:reset
 //

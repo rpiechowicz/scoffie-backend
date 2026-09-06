@@ -76,6 +76,10 @@ describe('AgentTurnsService', () => {
       findFirst: jest.fn(),
       updateMany: jest.fn(),
     },
+    // Bramka członkostwa w `loadOwnedTurn` — domyślnie pytający jest w domu.
+    membership: {
+      findUnique: jest.fn().mockResolvedValue({ userId: USER }),
+    },
     $transaction: jest.fn(),
   };
   const config = {
@@ -402,6 +406,22 @@ describe('AgentTurnsService', () => {
         'VALIDATION_ERROR',
       );
       expect(prisma.agentTurn.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('własna tura po wyjściu z domu to też 404 — liczy się członkostwo dziś', async () => {
+      prisma.agentTurn.findFirst.mockResolvedValue(turnRow());
+      prisma.membership.findUnique.mockResolvedValueOnce(null);
+      expect(await codeOf(service.getTurn(USER, TURN))).toBe(
+        'AI_TURN_NOT_FOUND',
+      );
+      expect(prisma.membership.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId_householdId: { userId: USER, householdId: HOUSEHOLD },
+          },
+        }),
+      );
+      expect(prisma.agentMessage.findMany).not.toHaveBeenCalled();
     });
 
     it('DONE dokłada odpowiedź asystenta i zużycie', async () => {

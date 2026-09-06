@@ -8,6 +8,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
 const VERSION = 'v1';
 const IV_LENGTH = 12;
+const TAG_LENGTH = 16;
 const KEY_LENGTH = 32;
 
 export function parseEncryptionKey(base64Key: string | undefined): Buffer {
@@ -41,12 +42,18 @@ export function decryptSecret(payload: string, key: Buffer): string {
   if (version !== VERSION || !ivB64 || !tagB64 || !dataB64) {
     throw new Error(`Nieznany format zaszyfrowanego sekretu: ${version}`);
   }
-  const decipher = createDecipheriv(
-    'aes-256-gcm',
-    key,
-    Buffer.from(ivB64, 'base64'),
-  );
-  decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
+  const iv = Buffer.from(ivB64, 'base64');
+  const tag = Buffer.from(tagB64, 'base64');
+  // Node przyjmuje w GCM skrócone tagi (już od 4 bajtów) — a im krótszy tag,
+  // tym łatwiej go zgadnąć. Nasz zapis ma zawsze pełne 16 bajtów, więc
+  // wszystko inne to uszkodzony albo podrobiony wpis, nie „inna wersja".
+  if (iv.length !== IV_LENGTH || tag.length !== TAG_LENGTH) {
+    throw new Error('Uszkodzony zaszyfrowany sekret (długość IV lub tagu)');
+  }
+  const decipher = createDecipheriv('aes-256-gcm', key, iv, {
+    authTagLength: TAG_LENGTH,
+  });
+  decipher.setAuthTag(tag);
   return Buffer.concat([
     decipher.update(Buffer.from(dataB64, 'base64')),
     decipher.final(),

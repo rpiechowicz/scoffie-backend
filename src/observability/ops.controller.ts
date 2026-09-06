@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
+import { assertUuid } from '../common/uuid';
 import { SkipThrottle } from '@nestjs/throttler';
 import { OpsTokenGuard } from './ops-token.guard';
 import { RequestMetricsService } from './request-metrics.service';
@@ -64,14 +65,9 @@ export class OpsController {
         ['tier'],
       );
     }
-    if (!/^[0-9a-f-]{36}$/i.test(id)) {
-      throw new AppException(
-        'VALIDATION_ERROR',
-        'id gospodarstwa musi być UUID.',
-        HttpStatus.BAD_REQUEST,
-        ['id'],
-      );
-    }
+    // Ta sama definicja UUID, co w bramkach domeny — luźny regex przepuszczał
+    // 36 dowolnych znaków z zakresu i kończył się P2023 z bazy.
+    assertUuid(id, 'id');
     const household = await this.prisma.household.findUnique({
       where: { id },
       select: { id: true },

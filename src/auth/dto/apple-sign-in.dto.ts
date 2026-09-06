@@ -24,6 +24,9 @@ export class AppleSignInDto {
   })
   @IsString()
   @MinLength(10)
+  // Prawdziwy token Apple ma około 1 KB; 8 KB to margines na przyszłe claimy,
+  // a nie zaproszenie do wysyłania nam 100 KB do weryfikacji podpisu.
+  @MaxLength(8192)
   identityToken: string;
 
   @ApiProperty({
