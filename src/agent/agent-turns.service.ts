@@ -38,7 +38,8 @@ export type AcceptedTurn = {
 
 /**
  * Szybkie odpowiedzi po przekroczeniu czasu albo „Stop": najczęstszą
- * przyczyną 90 s jest zbyt szeroki zakres, więc proponujemy mniejszy.
+ * przyczyną wyczerpania `AI_TURN_TIMEOUT_MS` jest zbyt szeroki zakres,
+ * więc proponujemy mniejszy.
  * Serwer, nie klient — ta sama lista ma się pokazać na każdym telefonie.
  */
 export const TIMEOUT_SUGGESTIONS: readonly string[] = [

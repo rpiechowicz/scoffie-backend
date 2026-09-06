@@ -203,7 +203,16 @@ export function parseAllowedUsers(raw: string | undefined): string[] {
 }
 
 export const AGENT_ENV_DEFAULTS = {
-  turnTimeoutMs: 90_000,
+  /**
+   * Sufit jednej tury. 240 s, nie 90 s: przy 90 s trudniejsze pytanie
+   * („zaplanuj cały tydzień dla dwóch osób z alergiami") padało jako
+   * `AI_TIMEOUT` w połowie pracy — użytkownik płacił kwotą wiadomości
+   * i nie dostawał nic. Czas nie jest tu prawdziwym zaworem bezpieczeństwa;
+   * są nim `maxTurnCostUsd` (sufit kosztu POJEDYNCZEJ tury) i
+   * `globalDailyBudgetUsd` — one łapią pętlę niezależnie od tego, jak długo
+   * biegnie. Timeout ma tylko nie zostawić martwej tury na wieczność.
+   */
+  turnTimeoutMs: 240_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,
   trialMessages: 5,
