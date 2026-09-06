@@ -133,7 +133,7 @@ status, requestId}` plus a `Location` header, and the client polls `GET
 - `AI_PROVIDER` — `anthropic` (default) or `stub` (canned replies, used by
   `test/agent.e2e-spec.ts`; no model call, no API key)
 - `ANTHROPIC_API_KEY` — required only with `AI_ENABLED=true` and `anthropic`
-- `AI_MODEL` (`claude-sonnet-5`), `AI_TURN_TIMEOUT_MS` (90000)
+- `AI_MODEL` (`claude-sonnet-5`), `AI_TURN_TIMEOUT_MS` (240000)
 - `AI_MODEL_TOOLS` (unset) — model routing. When set (e.g. `claude-haiku-4-5`)
   a turn starts in the CHAT phase on that model with read-only tools plus
   `start_planning`, and hands over to `AI_MODEL` with the full tool list the
