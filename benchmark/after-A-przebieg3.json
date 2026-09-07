@@ -1,0 +1,1172 @@
+{
+  "label": "AFTER-p3",
+  "startedAt": "2026-09-07T08:16:55.759Z",
+  "cardsMode": "off",
+  "weekStart": "2026-10-05",
+  "scenarios": 15,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 15,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 5,
+      "maxRounds": 5,
+      "medianCostUsd": 0.038466,
+      "p95CostUsd": 0.32086,
+      "medianLatencyMs": 11689,
+      "cacheHitRatio": 0.9185416657801647,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 1,
+          "runs": 3,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.024988
+        },
+        {
+          "group": 3,
+          "runs": 3,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.03999
+        },
+        {
+          "group": 4,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 5,
+          "medianCostUsd": 0.302817
+        },
+        {
+          "group": 7,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.019631
+        },
+        {
+          "group": 8,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.037741
+        },
+        {
+          "group": 10,
+          "runs": 3,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.02722
+        },
+        {
+          "group": 11,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 4,
+          "medianCostUsd": 0.045856
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g1-kcal-sroda",
+      "group": 1,
+      "pyta": "Czy liczba kalorii pochodzi z serwera, a nie z pamięci modelu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_balance"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 5050,
+      "inputTokens": 4,
+      "outputTokens": 159,
+      "cacheReadTokens": 62387,
+      "cacheWriteTokens": 1682,
+      "cacheHitRatio": 0.9736862641050053,
+      "costMicroUsd": 20803,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": null,
+      "answer": "Środa ma zaplanowane 1640 kcal — to poniżej Twojego celu 2200 kcal, więc jest spory zapas.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g1-weekend",
+      "group": 1,
+      "pyta": "Czy „weekend\" znaczy sobota i niedziela, a nie cały tydzień?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 6302,
+      "inputTokens": 4,
+      "outputTokens": 328,
+      "cacheReadTokens": 62382,
+      "cacheWriteTokens": 2848,
+      "cacheHitRatio": 0.9562804672410092,
+      "costMicroUsd": 27156,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3617,
+      "answer": "Na weekend masz zaplanowane:\n\nSobota:\n- Śniadanie: Kanapka z twarożkiem i ogórkiem\n- Obiad: Cukinia zapiekana z mięsem mielonym i goudą\n- Kolacja: Jajka sadzone z ziemniakami i mizerią\n\nNiedziela:\n- Śniadanie: Kanapki z hummusem i warzywami\n- Obiad: Curry z ciecierzycą i szpinakiem\n- Kolacja: Kanapki na ciepło z mozzarellą i pomidorem\n\nChcesz coś zmienić albo sprawdzić bilans kalorii na te dni?",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g1-wtorek-obiad",
+      "group": 1,
+      "pyta": "Czy proste pytanie o plan czyta plan, zamiast zgadywać?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 5120,
+      "inputTokens": 4,
+      "outputTokens": 125,
+      "cacheReadTokens": 62390,
+      "cacheWriteTokens": 2813,
+      "cacheHitRatio": 0.9567991166592543,
+      "costMicroUsd": 24988,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3617,
+      "answer": "We wtorek na obiad masz bowl z kurczakiem, kaszą gryczaną i jajkiem — 588 kcal na porcję, przygotowanie zajmuje 35 minut.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g3-bez-ryby",
+      "group": 3,
+      "pyta": "Czy powód podmiany („nie chcę ryby\") trafia do doboru dania?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "propose_swap",
+        "apply_week_plan",
+        "apply_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 5,
+      "latencyMs": 25862,
+      "inputTokens": 10,
+      "outputTokens": 2556,
+      "cacheReadTokens": 165689,
+      "cacheWriteTokens": 60104,
+      "cacheHitRatio": 0.7337767877308982,
+      "costMicroUsd": 299132,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3635,
+      "answer": "Zapisane. Na czwartkową kolację wchodzi kasza gryczana z pieczarkami i cebulą (bez ryby, bezmięsne, 431 kcal na porcję) zamiast dorsza. Reszta tygodnia bez zmian.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g3-podmien-dla-osoby",
+      "group": 3,
+      "pyta": "Czy podmiana „dla Ani\" nie zabiera jedzenia reszcie domu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "offer_options"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 11689,
+      "inputTokens": 6,
+      "outputTokens": 555,
+      "cacheReadTokens": 96462,
+      "cacheWriteTokens": 3403,
+      "cacheHitRatio": 0.9658659670975559,
+      "costMicroUsd": 38466,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3617,
+      "answer": "Podałem trzy propozycje na wtorkową kolację tylko dla Ani: sałatka caprese z awokado, krem z pomidorów z grzankami i sałatka z ciecierzycą, ogórkiem i pomidorem. Rafał zostanie przy dotychczasowym dorszu. Wybierz kafelek, a od razu przygotuję podmianę.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Kolacja · wtorek",
+            "title": "Nowa kolacja we wtorek dla Ani",
+            "options": [
+              {
+                "recipeId": "dba8974d-714a-4e0e-8dfe-af28d8655413",
+                "title": "Sałatka caprese z awokado",
+                "kcalPerServing": 614,
+                "prepTimeMinutes": 10,
+                "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Sa%C5%82atka%20caprese%20z%20awokado%2C%20Caprese%20salad%20with%20avocado%20slices%2C%20cherry%20tomatoes%20and%20torn%20mozzarella%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-dba8974d-714a-4e0e-8dfe-af28d8655413&width=1200&height=800&nologo=true",
+                "tag": "Lekkie",
+                "prompt": "Wybieram: Sałatka caprese z awokado"
+              },
+              {
+                "recipeId": "9a745133-a07e-4489-a345-b2e59e8968d0",
+                "title": "Krem z pomidorów z grzankami",
+                "kcalPerServing": 355,
+                "prepTimeMinutes": 26,
+                "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Krem%20z%20pomidor%C3%B3w%20z%20grzankami%2C%20smooth%20tomato%20soup%20served%20with%20crispy%20bread%20croutons%2C%20warm%20bowl%20close-up%2C%20ultra%20realistic%20food%20photography%2C%20natural%20light%2C%2050mm%20lens%2C%20shallow%20depth%20of%20field%2C%20no%20text%2C%20no%20watermark%2C%20plated%20dish%2C%20appetizing?seed=scoffie-9a745133-a07e-4489-a345-b2e59e8968d0&width=1200&height=800&nologo=true",
+                "tag": "Rozgrzewające",
+                "prompt": "Wybieram: Krem z pomidorów z grzankami"
+              },
+              {
+                "recipeId": "14f2eaef-68a1-435e-ab1f-a140db70ebcc",
+                "title": "Sałatka z ciecierzycą, ogórkiem i pomidorem",
+                "kcalPerServing": 465,
+                "prepTimeMinutes": 15,
+                "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Sa%C5%82atka%20z%20ciecierzyc%C4%85%2C%20og%C3%B3rkiem%20i%20pomidorem%2C%20Chickpea%20salad%20with%20cucumber%2C%20tomato%2C%20red%20onion%20and%20parsley%20in%20lemon%20dressing%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-14f2eaef-68a1-435e-ab1f-a140db70ebcc&width=1200&height=800&nologo=true",
+                "tag": "Bez gotowania",
+                "prompt": "Wybieram: Sałatka z ciecierzycą, ogórkiem i pomidorem"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "scenario": "g3-podmien-kolacje",
+      "group": 3,
+      "pyta": "Czy podmiana rusza dokładnie jeden slot?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "offer_options"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 16222,
+      "inputTokens": 6,
+      "outputTokens": 720,
+      "cacheReadTokens": 96029,
+      "cacheWriteTokens": 3393,
+      "cacheHitRatio": 0.9658144587037857,
+      "costMicroUsd": 39990,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3617,
+      "answer": "Podałem trzy opcje na środową kolację w miejsce fasolki po bretońsku: dorsz z warzywami korzeniowymi, kasza gryczana z pieczarkami (wegetariańska) i stir-fry z tofu i brokułem. Wybierz kafelek, a zapiszę zmianę.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Kolacja · środa",
+            "title": "Propozycje na środową kolację",
+            "options": [
+              {
+                "recipeId": "24c30dd8-f869-4549-a7b7-578304b43e63",
+                "title": "Mintaj pieczony z warzywami korzeniowymi",
+                "kcalPerServing": 379,
+                "prepTimeMinutes": 35,
+                "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Mintaj%20pieczony%20z%20warzywami%20korzeniowymi%2C%20Baked%20pollock%20fillet%20over%20roasted%20carrot%2C%20parsnip%20and%20leek%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-24c30dd8-f869-4549-a7b7-578304b43e63&width=1200&height=800&nologo=true",
+                "tag": "Lekkie",
+                "prompt": "Wybieram: Mintaj pieczony z warzywami korzeniowymi"
+              },
+              {
+                "recipeId": "58330165-f222-4f4c-941e-a0287e7f8bf3",
+                "title": "Kasza gryczana z pieczarkami i cebulą",
+                "kcalPerServing": 431,
+                "prepTimeMinutes": 25,
+                "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Kasza%20gryczana%20z%20pieczarkami%20i%20cebul%C4%85%2C%20Buckwheat%20groats%20with%20golden%20fried%20mushrooms%20and%20onions%2C%20parsley%20on%20top%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-58330165-f222-4f4c-941e-a0287e7f8bf3&width=1200&height=800&nologo=true",
+                "tag": "Wegetariańskie",
+                "prompt": "Wybieram: Kasza gryczana z pieczarkami i cebulą"
+              },
+              {
+                "recipeId": "2e500ad6-49fc-4d15-bc65-096f072f0c40",
+                "title": "Stir-fry z tofu, brokułem i papryką z ryżem jaśminowym",
+                "kcalPerServing": 612,
+                "prepTimeMinutes": 25,
+                "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Stir-fry%20z%20tofu%2C%20broku%C5%82em%20i%20papryk%C4%85%20z%20ry%C5%BCem%20ja%C5%9Bminowym%2C%20Wok%20stir-fry%20of%20tofu%2C%20broccoli%20and%20red%20pepper%20with%20sesame%20over%20jasmine%20rice%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-2e500ad6-49fc-4d15-bc65-096f072f0c40&width=1200&height=800&nologo=true",
+                "tag": "Sycące",
+                "prompt": "Wybieram: Stir-fry z tofu, brokułem i papryką z ryżem jaśminowym"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "scenario": "g4-zaplanuj-piatek",
+      "group": 4,
+      "pyta": "Czy „zaplanuj piątek\" rusza wyłącznie piątek?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "apply_week_plan",
+        "apply_week_plan",
+        "apply_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 5,
+      "latencyMs": 37167,
+      "inputTokens": 10,
+      "outputTokens": 3235,
+      "cacheReadTokens": 166242,
+      "cacheWriteTokens": 59300,
+      "cacheHitRatio": 0.7370451159821239,
+      "costMicroUsd": 302817,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3085,
+      "answer": "Zapisane. Piątek: owsianka z bananem i borówką na śniadanie, ryż z kurczakiem i papryką na obiad, mintaj pieczony z warzywami korzeniowymi na kolację. Reszta tygodnia bez zmian.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g7-domownik-bez-zgody",
+      "group": 7,
+      "pyta": "P0: czy konflikt alergenowy wraca do modelu BEZ kodu alergenu i bez danych osoby bez zgody?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "check_plan_conflicts"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 5663,
+      "inputTokens": 4,
+      "outputTokens": 250,
+      "cacheReadTokens": 62519,
+      "cacheWriteTokens": 1155,
+      "cacheHitRatio": 0.9817990514777474,
+      "costMicroUsd": 19631,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": null,
+      "answer": "Środowa kolacja koliduje z alergenem jednego z domowników — serwer to wykrył, choć nie znam szczegółów tej osoby (nie ma zgody na dostęp do jej profilu). Danie w obecnej formie nie jest bezpieczne dla całego domu.\n\nChcesz, żebym zaproponował inną kolację na środę? Podaj, czy szukamy zamiennika dla całego domu, czy tylko dla Rafała, a reszta zostaje przy swoim.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g8-podzial-posilku",
+      "group": 8,
+      "pyta": "Czy „jedno danie, dwa talerze\" ląduje w jednym slocie z właściwym audytorium?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "apply_week_plan",
+        "apply_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 4,
+      "latencyMs": 38256,
+      "inputTokens": 8,
+      "outputTokens": 3640,
+      "cacheReadTokens": 132684,
+      "cacheWriteTokens": 64477,
+      "cacheHitRatio": 0.6729455441778373,
+      "costMicroUsd": 320860,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3617,
+      "answer": "Zapisane. Czwartkowa kolacja jest teraz rozdzielona: Rafal dostaje mintaja pieczonego z warzywami korzeniowymi (379 kcal, sporo białka, lekko na redukcję), a Ania sałatkę z kurczakiem, ogórkiem i orzechami włoskimi (449 kcal). Uwaga: ta sałatka ma orzechy włoskie — jeśli ktoś z domowników miałby na nie uczulenie, trzeba by ją zamienić, ale w profilach nikt tego alergenu nie ma. Gołąbki zniknęły z czwartkowej kolacji, reszta tygodnia bez zmian.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g8-zakres-pytania",
+      "group": 8,
+      "pyta": "Czy zakres pytania (scopeUserIds) zawęża audytorium zamiast zmieniać plan całemu domowi?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "offer_options"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 10221,
+      "inputTokens": 6,
+      "outputTokens": 465,
+      "cacheReadTokens": 96616,
+      "cacheWriteTokens": 3439,
+      "cacheHitRatio": 0.9655710016889697,
+      "costMicroUsd": 37741,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3617,
+      "answer": "Podrzuciłem trzy opcje na kafelkach — jajecznica z awokado, owsianka z bananem i borówką albo serniczki fit z twarogiem. Wybierz, a podmienię śniadanie tylko dla Ciebie, Rafał zostanie przy bułeczkach.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Śniadanie · poniedziałek",
+            "title": "Inne śniadanie w poniedziałek",
+            "options": [
+              {
+                "recipeId": "168d56ab-a650-4b99-9738-c4baf5ceee42",
+                "title": "Jajecznica z awokado i pomidorem",
+                "kcalPerServing": 373,
+                "prepTimeMinutes": 10,
+                "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Jajecznica%20z%20awokado%20i%20pomidorem%2C%20Soft%20scrambled%20eggs%20with%20avocado%20cubes%2C%20tomato%20and%20chives%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20stoneware%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=weekly-meals-168d56ab-a650-4b99-9738-c4baf5ceee42&width=1200&height=800&nologo=true",
+                "tag": "Sycące",
+                "prompt": "Wybieram: Jajecznica z awokado i pomidorem"
+              },
+              {
+                "recipeId": "9e845247-f630-4dcc-9bab-3656828cac29",
+                "title": "Owsianka z bananem i borówką",
+                "kcalPerServing": 447,
+                "prepTimeMinutes": 12,
+                "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Owsianka%20z%20bananem%20i%20bor%C3%B3wk%C4%85%2C%20creamy%20oatmeal%20in%20ceramic%20bowl%2C%20sliced%20banana%20and%20fresh%20blueberries%20on%20top%2C%20soft%20morning%20light%2C%20ultra%20realistic%20food%20photography%2C%20natural%20light%2C%2050mm%20lens%2C%20shallow%20depth%20of%20field%2C%20no%20text%2C%20no%20watermark%2C%20plated%20dish%2C%20appetizing?seed=scoffie-9e845247-f630-4dcc-9bab-3656828cac29&width=1200&height=800&nologo=true",
+                "tag": "Owsiane",
+                "prompt": "Wybieram: Owsianka z bananem i borówką"
+              },
+              {
+                "recipeId": "0a1dd45f-1e37-4b35-8315-5fb61441e87d",
+                "title": "Serniczki fit z twarogiem i borówkami",
+                "kcalPerServing": 478,
+                "prepTimeMinutes": 25,
+                "imageUrl": "https://image.pollinations.ai/prompt/professional%20food%20photo%2C%20Serniczki%20fit%20z%20twarogiem%20i%20bor%C3%B3wkami%2C%20stack%20of%20golden-brown%20pan-fried%20cottage%20cheese%20pancakes%20with%20caramelized%20crispy%20edges%2C%20fresh%20blueberries%20and%20a%20dollop%20of%20yogurt%2C%20served%20on%20a%20rustic%20opaque%20ceramic%20plate%2C%20the%20dish%20perfectly%20centered%20in%20the%20middle%20of%20the%20frame%2C%20whole%20dish%20fully%20visible%20with%20even%20space%20on%20all%20sides%2C%20high%20elevated%20camera%20angle%20looking%20down%20at%20the%20plate%20at%20about%2060%20degrees%20so%20the%20food%20is%20clearly%20visible%2C%20light%20grey%20stone%20kitchen%20countertop%2C%20styled%20food%20scene%20with%20fresh%20ingredients%2C%20herbs%20and%20a%20linen%20napkin%20softly%20blurred%20in%20the%20background%2C%20bright%20soft%20natural%20daylight%2C%20clean%20and%20airy%2C%20vivid%20fresh%20colors%2C%20ultra%20realistic%20professional%20food%20photography%2C%20wide%20landscape%20composition%20with%20the%20plate%20in%20the%20exact%20center%20of%20the%20image%2C%20no%20glass%20or%20transparent%20dishes%2C%20no%20text%2C%20no%20watermark%2C%20appetizing?seed=scoffie-0a1dd45f-1e37-4b35-8315-5fb61441e87d&width=1200&height=800&nologo=true",
+                "tag": "Wysokobiałkowe",
+                "prompt": "Wybieram: Serniczki fit z twarogiem i borówkami"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "scenario": "g10-konflikty-planu",
+      "group": 10,
+      "pyta": "Czy werdykt o bezpieczeństwie planu pochodzi z tej samej bramki, co zapis?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "check_plan_conflicts",
+        "get_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 8038,
+      "inputTokens": 6,
+      "outputTokens": 307,
+      "cacheReadTokens": 94214,
+      "cacheWriteTokens": 1324,
+      "cacheHitRatio": 0.9860797119651679,
+      "costMicroUsd": 27220,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 393,
+      "answer": "Nie, plan nie jest bezpieczny. Kolacja w poniedziałek — Bowl z kurczakiem, kaszą gryczaną i jajkiem — zawiera laktozę, na którą masz alergię. Reszta zaplanowanych posiłków (na razie tylko wtorkowa kolacja) jest w porządku.\n\nChcesz, żebym zamienił poniedziałkową kolację na coś bez nabiału?",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g10-lista-zakupow",
+      "group": 10,
+      "pyta": "Czy lista zakupów jest kartą, a nie listą przepisaną w odpowiedzi?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "show_shopping_list"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 4958,
+      "inputTokens": 4,
+      "outputTokens": 196,
+      "cacheReadTokens": 62398,
+      "cacheWriteTokens": 960,
+      "cacheHitRatio": 0.9847858337804993,
+      "costMicroUsd": 18287,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": null,
+      "answer": "Gotowe — lista zakupów na ten tydzień czeka w karcie, podzielona na 12 działów sklepu, z 72 pozycjami do kupienia. Daj znać, jeśli chcesz coś jeszcze zmienić w planie przed zakupami.",
+      "cards": [
+        {
+          "kind": "SHOPPING_LIST",
+          "payload": {
+            "kind": "SHOPPING_LIST",
+            "v": 1,
+            "weekStart": "2026-10-05",
+            "eyebrow": "Lista zakupów · 5–11 października",
+            "title": "72 rzeczy do kupienia",
+            "groups": [
+              {
+                "department": "Warzywa",
+                "departmentKey": "VEGETABLES",
+                "items": [
+                  "Cebula (g) 275 g",
+                  "Cebula (szt) 1,5 szt",
+                  "Cukinia 500 g",
+                  "Czosnek 6 szt",
+                  "Kapusta biała 200 g",
+                  "Koperek 6,5 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Cebula (g) 275 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cebula (szt) 1,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cukinia 500 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Czosnek 6 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kapusta biała 200 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Koperek 6,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Marchew 125 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Natka pietruszki 7,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ogórek 325 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Papryka czerwona 227,5 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 11
+              },
+              {
+                "department": "Owoce",
+                "departmentKey": "FRUITS",
+                "items": [
+                  "Awokado 1,5 szt",
+                  "Borówka 30 g",
+                  "Cytryna (g) 30 g",
+                  "Cytryna (szt) 0,5 szt",
+                  "Jabłko 75 g",
+                  "Truskawka 75 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Awokado 1,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Borówka 30 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cytryna (g) 30 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cytryna (szt) 0,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Jabłko 75 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Truskawka 75 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Mięso",
+                "departmentKey": "MEAT",
+                "items": [
+                  "Boczek 25 g",
+                  "Filet z kurczaka 175 g",
+                  "Indyk mielony 400 g",
+                  "Kiełbasa śląska 62,5 g",
+                  "Łopatka wieprzowa 125 g",
+                  "Wieprzowina i wołowina mielona 150 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Boczek 25 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Filet z kurczaka 175 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Indyk mielony 400 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kiełbasa śląska 62,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Łopatka wieprzowa 125 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Wieprzowina i wołowina mielona 150 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Wieprzowina mielona 100 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Wołowina 250 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 2
+              },
+              {
+                "department": "Ryby",
+                "departmentKey": "FISH",
+                "items": [
+                  "Dorsz 375 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Dorsz 375 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Nabiał",
+                "departmentKey": "DAIRY",
+                "items": [
+                  "Jajko 13,5 szt",
+                  "Jogurt naturalny 320 g",
+                  "Masło 17,5 g",
+                  "Mozzarella 65 g",
+                  "Ser gouda 60 g",
+                  "Twarożek 90 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Jajko 13,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Jogurt naturalny 320 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Masło 17,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mozzarella 65 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ser gouda 60 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Twarożek 90 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Piekarnia",
+                "departmentKey": "BAKERY",
+                "items": [
+                  "Bułka 150 g",
+                  "Bułka tarta 15 g",
+                  "Chleb 240 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Bułka 150 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bułka tarta 15 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Chleb 240 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Zboża i makarony",
+                "departmentKey": "GRAINS",
+                "items": [
+                  "Kasza gryczana 97,5 g",
+                  "Mąka pszenna 13,8 g",
+                  "Ryż basmati 50 g",
+                  "Ryż biały 160 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Kasza gryczana 97,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mąka pszenna 13,8 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ryż basmati 50 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ryż biały 160 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Konserwy",
+                "departmentKey": "CANNED",
+                "items": [
+                  "Ciecierzyca z puszki 200 g",
+                  "Fasola biała z puszki 120 g",
+                  "Fasola czerwona z puszki 320 g",
+                  "Koncentrat pomidorowy 17,5 g",
+                  "Kukurydza z puszki 150 g",
+                  "Mleko kokosowe z puszki 75 ml"
+                ],
+                "entries": [
+                  {
+                    "label": "Ciecierzyca z puszki 200 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Fasola biała z puszki 120 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Fasola czerwona z puszki 320 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Koncentrat pomidorowy 17,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kukurydza z puszki 150 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mleko kokosowe z puszki 75 ml",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ogórek kiszony 125 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Passata pomidorowa 275 ml",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Pomidor krojony z puszki 500 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 3
+              },
+              {
+                "department": "Przyprawy i sosy",
+                "departmentKey": "SPICES",
+                "items": [
+                  "Cukier 2,5 g",
+                  "Curry 2,5 g",
+                  "Imbir mielony 1,1 g",
+                  "Ketchup 15 g",
+                  "Kmin rzymski 2,5 g",
+                  "Majeranek 1,9 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Cukier 2,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Curry 2,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Imbir mielony 1,1 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ketchup 15 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kmin rzymski 2,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Majeranek 1,9 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Majonez 15 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Musztarda 7,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Oregano 1,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Papryka ostra mielona 1,2 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 7
+              },
+              {
+                "department": "Olej i tłuszcze",
+                "departmentKey": "OILS",
+                "items": [
+                  "Olej rzepakowy 70,3 ml",
+                  "Oliwa z oliwek 34 ml"
+                ],
+                "entries": [
+                  {
+                    "label": "Olej rzepakowy 70,3 ml",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Oliwa z oliwek 34 ml",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Przekąski i słodycze",
+                "departmentKey": "SNACKS",
+                "items": [
+                  "Baton musli 40 g",
+                  "Pestki dyni 7,5 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Baton musli 40 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Pestki dyni 7,5 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Inne",
+                "departmentKey": "OTHER",
+                "items": [
+                  "Hummus 60 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Hummus 60 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              }
+            ],
+            "summary": {
+              "remaining": 72,
+              "checked": 0
+            },
+            "emptyDepartments": 5,
+            "checkedNote": null,
+            "actions": [
+              {
+                "type": "OPEN_SHOPPING",
+                "proposalId": null,
+                "label": "Otwórz listę zakupów",
+                "style": "PRIMARY"
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "scenario": "g10-luka-makro",
+      "group": 10,
+      "pyta": "Czy karta luki makro pokazuje liczby serwera, a nie modelu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_balance",
+        "get_week_plan",
+        "show_macro_gap"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 16375,
+      "inputTokens": 6,
+      "outputTokens": 886,
+      "cacheReadTokens": 96926,
+      "cacheWriteTokens": 4281,
+      "cacheHitRatio": 0.9576437809372313,
+      "costMicroUsd": 45381,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3617,
+      "answer": "Średnio brakuje około 640 kcal dziennie do celu 2200 kcal — plan jest teraz na poziomie ok. 1560 kcal/dzień, czyli sporo poniżej. Największe niedobory są w poniedziałek, piątek i sobotę.\n\nŻeby to domknąć, warto zwiększyć porcje obiadów w dni z największym deficytem, zamienić lżejsze śniadania (jogurt, jajecznica) na bardziej kaloryczne (owsianka z masłem orzechowym) i podmienić lekkie kolacje rybne na coś z serem albo mięsem. Chcesz, żebym od razu przygotował taki zmieniony plan tygodnia?",
+      "cards": [
+        {
+          "kind": "MACRO_GAP",
+          "payload": {
+            "kind": "MACRO_GAP",
+            "v": 1,
+            "eyebrow": "Kalorie · ten tydzień",
+            "title": "Średnio 639 kcal dziennie poniżej celu",
+            "macro": "KCAL",
+            "unit": "kcal",
+            "current": 1561,
+            "target": 2200,
+            "boosters": [
+              {
+                "text": "Większe porcje obiadów (1.5x) w dni z największym niedoborem",
+                "amount": 300,
+                "prompt": "Zastosuj w planie tę zmianę: Większe porcje obiadów (1.5x) w dni z największym niedoborem. Pokaż mi ją jako propozycję."
+              },
+              {
+                "text": "Owsianka z masłem orzechowym zamiast lżejszego śniadania",
+                "amount": 150,
+                "prompt": "Zastosuj w planie tę zmianę: Owsianka z masłem orzechowym zamiast lżejszego śniadania. Pokaż mi ją jako propozycję."
+              },
+              {
+                "text": "Kolacja z serem/mięsem zamiast lekkiej rybnej",
+                "amount": 200,
+                "prompt": "Zastosuj w planie tę zmianę: Kolacja z serem/mięsem zamiast lekkiej rybnej. Pokaż mi ją jako propozycję."
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Zastosuj wszystkie trzy",
+                "style": "PRIMARY",
+                "prompt": "Zastosuj te zmiany w planie i pokaż mi je jako propozycję."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "scenario": "g11-przepis-katalogowy",
+      "group": 11,
+      "pyta": "Czy próba edycji przepisu KATALOGOWEGO kończy się odmową?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "apply_week_plan",
+        "apply_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 4,
+      "latencyMs": 17290,
+      "inputTokens": 8,
+      "outputTokens": 773,
+      "cacheReadTokens": 126625,
+      "cacheWriteTokens": 4848,
+      "cacheHitRatio": 0.963066907005575,
+      "costMicroUsd": 52463,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 229,
+      "answer": "Zrobione — poniedziałkowa kolacja (Bowl z kurczakiem, kaszą gryczaną i jajkiem) ma teraz 8 zaplanowanych porcji zamiast 1. Reszta tygodnia bez zmian.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g11-zmiana-przepisu",
+      "group": 11,
+      "pyta": "Czy edycja własnego przepisu z planu działa — i czy jego referencja daje się rozwiązać?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "update_recipe",
+        "update_recipe"
+      ],
+      "handoff": false,
+      "apiCalls": 4,
+      "latencyMs": 18520,
+      "inputTokens": 8,
+      "outputTokens": 850,
+      "cacheReadTokens": 126982,
+      "cacheWriteTokens": 2986,
+      "cacheHitRatio": 0.9769649781498123,
+      "costMicroUsd": 45856,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 232,
+      "answer": "Zrobione. Przepis „Owsianka Rafala\" jest teraz na 4 porcje, a ilość jajek zwiększyłem proporcjonalnie z 2 do 8, żeby wartości odżywcze na porcję się nie zmieniły (572 kcal na cały przepis, ok. 143 kcal/porcję). W planie na poniedziałek stoi wciąż 1 porcja zaplanowana — jeśli chcesz, żeby śniadanie zajadały teraz 4 porcje z tego przepisu, daj znać, poprawię też plan.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

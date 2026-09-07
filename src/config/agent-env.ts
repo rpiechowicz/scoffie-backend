@@ -17,6 +17,13 @@
  * progu znaczyłyby, że lista mówi co innego niż wysyłka.
  */
 import { KNOWN_MODELS } from './model-prices';
+import { SUBSCRIPTION_PRODUCTS } from './subscription-products';
+
+/**
+ * Najtańszy PŁATNY produkt. Z niego bierze się pula dla ścieżek bez
+ * kupionego produktu — patrz `AGENT_ENV_DEFAULTS.messagesPerMonth`.
+ */
+const SMALLEST_PAID_PRODUCT = 'app.scoffie.pro.solo.monthly';
 
 export const TURN_TIMEOUT_GRACE_MS = 5_000;
 
@@ -213,8 +220,28 @@ export const AGENT_ENV_DEFAULTS = {
    * biegnie. Timeout ma tylko nie zostawić martwej tury na wieczność.
    */
   turnTimeoutMs: 240_000,
-  messagesPerMonth: 200,
-  plansPerMonth: 30,
+  /**
+   * ŚCIEŻKA AWARYJNA PULI, nie cennik. Limity płacących biorą się z
+   * KUPIONEGO produktu (`SUBSCRIPTION_PRODUCTS` → `productLimits`); te dwie
+   * liczby dostaje tylko ten, kto produktu nie ma: `AI_TIER_OVERRIDE=PRO`,
+   * nadanie operatora i nieznany SKU wypuszczony w App Store przed deployem.
+   *
+   * DLACZEGO TYLE, CO SOLO, A NIE 200/30. Zmierzone 7.09.2026 na
+   * benchmarku (`benchmark/after-A-przebieg*.json`, Sonnet/medium, ciepły
+   * cache): tura planowania tygodnia $0,248, podmiana $0,181, rozmowa
+   * $0,026. Przy mixie 20/20/60 z `cennik-i-limity-2026-09.md` daje to
+   * **$20,34 miesięcznie na pulę 200/30** — przy $5,57 netto z planu Solo.
+   * Czyli każdy dom na nadaniu operatora albo na nieznanym SKU kosztował
+   * blisko czterokrotność najdroższej subskrypcji, a jedyną barierą był
+   * `householdMonthlyCostUsd`. Pula równa najmniejszemu PŁATNEMU planowi
+   * kosztuje $3,05 i mieści się w przychodzie z każdego z nich.
+   *
+   * Liczby idą z `SUBSCRIPTION_PRODUCTS`, a nie są przepisane, bo rozjazd
+   * między ścieżką awaryjną a cennikiem byłby niewidoczny w diffie.
+   */
+  messagesPerMonth:
+    SUBSCRIPTION_PRODUCTS[SMALLEST_PAID_PRODUCT].messagesPerMonth,
+  plansPerMonth: SUBSCRIPTION_PRODUCTS[SMALLEST_PAID_PRODUCT].plansPerMonth,
   trialMessages: 5,
   trialPlans: 1,
   tierOverride: null as 'PRO' | null,
@@ -226,7 +253,18 @@ export const AGENT_ENV_DEFAULTS = {
    * albo `off`; brak zmiennej nie może znaczyć „bez limitu".
    */
   globalDailyBudgetUsd: 5,
-  householdMonthlyCostUsd: 18,
+  /**
+   * BEZPIECZNIK NA PĘTLĘ, nie narzędzie marży. Ma nie odpalić NIGDY przy
+   * uczciwym użyciu, więc siedzi nad najdroższym legalnym miesiącem.
+   *
+   * 14, nie 18 i nie 8. Zmierzony miesiąc przy PEŁNYM wykorzystaniu
+   * najhojniejszego planu (Rodzina, 75 wiadomości) to $7,63 na ciepłym
+   * cache; wariant pesymistyczny z zimnym cache (+40 %, `cennik-i-limity`
+   * §4) to ~$10,70. $8 ucinałoby więc Rodzinę dokładnie wtedy, gdy korzysta
+   * z tego, za co zapłaciła — a $18 to 3,2× przychodu netto z Solo, czyli
+   * bezpiecznik, który przepuszcza trzy miesięczne rachunki, zanim zadziała.
+   */
+  householdMonthlyCostUsd: 14,
   stubDelayMs: 0,
   /** Trzy doby: tyle żyje sensowna propozycja tygodnia. */
   proposalTtlMs: 72 * 60 * 60 * 1000,
@@ -235,10 +273,17 @@ export const AGENT_ENV_DEFAULTS = {
   /** 90 dni: tyle obiecuje polityka prywatności (decyzja 2.09.2026). */
   conversationRetentionDays: 90,
   /**
-   * $1: zmierzona tura niewykonalna. Zwykłe tury kosztują $0,12–0,30, więc
-   * sufit ich nie dotyka; łapie wyłącznie pętlę.
+   * Sufit POJEDYNCZEJ tury. $0,80, nie $1: po odchudzeniu `get_week_plan`
+   * (7.09.2026) najdroższa ZMIERZONA uczciwa tura to $0,594 — podmiana dla
+   * jednej osoby w gospodarstwie dwuosobowym, sześć rund. P95 wszystkich
+   * 45 przebiegów to $0,32.
+   *
+   * NIE $0,40, choć tyle sugerował `cennik-i-limity-2026-09.md` §2: tamta
+   * liczba powstała, zanim istniał pomiar, i ucinałaby realną pracę. $0,80
+   * zostawia 35 % zapasu nad najdroższą zmierzoną turą (na zimny cache
+   * i dłuższe tytuły), a ucieczkę na dwunastu rundach tnie o piątą część.
    */
-  maxTurnCostUsd: 1,
+  maxTurnCostUsd: 0.8,
 } as const;
 
 /**

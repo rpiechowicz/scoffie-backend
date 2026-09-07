@@ -18,6 +18,7 @@ import {
   buildCatalogDigest,
   loadDigestRecipes,
 } from '../src/agent/catalog-digest';
+import { LEGAL_DOCUMENT_VERSIONS } from '../src/common/legal-documents';
 
 /**
  * Narzędzia asystenta na żywej bazie — bez ani jednego wywołania modelu.
@@ -242,13 +243,14 @@ describe('Narzędzia asystenta E2E', () => {
     // RECIPE_NOT_FOUND zamiast zapisać tydzień.
     expect(result.applied).toBe(true);
 
-    const plan = data<{ items: { recipe: { id: string } }[] }>(
+    // …i wraca tym samym indeksem, którym model o niego poprosił. To jest
+    // pełna pętla: R07 → zapis → odczyt → R07, więc model może wziąć
+    // referencję z planu i włożyć ją prosto do kolejnego narzędzia.
+    const plan = data<{ items: { recipe: string }[] }>(
       await run('get_week_plan', { week_start: WEEK_START }),
     );
     expect(plan.items).toHaveLength(1);
-    expect(plan.items[0].recipe.id).toBe(
-      context.catalogIndex[firstCatalogIndex],
-    );
+    expect(plan.items[0].recipe).toBe(firstCatalogIndex);
   });
 
   it('get_week_balance liczy zaplanowany dzień', async () => {
@@ -319,7 +321,11 @@ describe('Narzędzia asystenta E2E', () => {
           limit: 1,
         }),
       );
-      const recipe = data<{ id: string; nutritionKcal: number }>(
+      const recipe = data<{
+        id: string;
+        kcalPerServing: number;
+        ingredientCount: number;
+      }>(
         await run('create_recipe', {
           title: 'Danie asystenta',
           meal_type: 'DINNER',
@@ -330,8 +336,10 @@ describe('Narzędzia asystenta E2E', () => {
         }),
       );
       recipeId = recipe.id;
-      // Makra liczy serwer — model ich nie podawał i nie mógł.
-      expect(recipe.nutritionKcal).toBeGreaterThan(0);
+      // Makra liczy serwer — model ich nie podawał i nie mógł. Wynik oddaje je
+      // NA PORCJĘ, tak jak katalog i plan; w bazie siedzą dla całego przepisu.
+      expect(recipe.kcalPerServing).toBeGreaterThan(0);
+      expect(recipe.ingredientCount).toBe(1);
     });
 
     it('pominięty czas przygotowania nie wywraca zapisu', async () => {
@@ -1063,6 +1071,376 @@ describe('Narzędzia asystenta E2E', () => {
           where: { conversationId: context.conversationId },
         }),
       ).toBe(before);
+    });
+  });
+
+  /**
+   * Odchudzony `get_week_plan` — projekcja na granicy asystenta.
+   *
+   * Jednostkowo sprawdza to `agent-week-plan-projection.spec.ts`; tutaj
+   * chodzi o pełną drogę: PRAWDZIWY plan z bazy, przez serwis, przez
+   * executor, do kształtu, który zobaczy model.
+   */
+  describe('get_week_plan dla modelu', () => {
+    const SLIM_WEEK = '2026-11-02';
+
+    beforeAll(async () => {
+      await run('apply_week_plan', {
+        week_start: SLIM_WEEK,
+        slots: [
+          {
+            day_of_week: 'MON',
+            meal_type: 'DINNER',
+            recipe: firstCatalogIndex,
+          },
+          {
+            day_of_week: 'TUE',
+            meal_type: 'DINNER',
+            recipe: secondCatalogIndex,
+          },
+        ],
+      });
+    });
+
+    it('nie oddaje modelowi ani składów, ani pól technicznych', async () => {
+      const result = await run('get_week_plan', { week_start: SLIM_WEEK });
+      const serialized = JSON.stringify(result);
+
+      // Pełne `RecipeIngredient` każdego dania były najgrubszą pozycją
+      // wyniku — a model nie użył z nich nic, bo składy ma w digeście.
+      for (const zabronione of [
+        'ingredients',
+        'imageUrl',
+        'authorId',
+        'createdAt',
+        'updatedAt',
+        'weeklyPlanId',
+        'nutritionProtein',
+        'normalizedAmount',
+        'difficulty',
+      ]) {
+        expect(serialized).not.toContain(zabronione);
+      }
+    });
+
+    it('każda pozycja niesie to, czego model potrzebuje do rozumowania', async () => {
+      const plan = data<{
+        weekStart: string;
+        items: {
+          dayOfWeek: string;
+          mealType: string;
+          recipe: string;
+          title: string;
+          kcalPerServing: number;
+          prepTimeMinutes: number;
+          plannedServings: number;
+        }[];
+      }>(await run('get_week_plan', { week_start: SLIM_WEEK }));
+
+      expect(plan.weekStart).toBe(SLIM_WEEK);
+      expect(plan.items).toHaveLength(2);
+      const monday = plan.items.find((item) => item.dayOfWeek === 'MON');
+      expect(monday).toBeDefined();
+      expect(monday?.mealType).toBe('DINNER');
+      expect(monday?.title.length).toBeGreaterThan(0);
+      expect(monday?.kcalPerServing).toBeGreaterThan(0);
+      expect(monday?.prepTimeMinutes).toBeGreaterThan(0);
+      expect(monday?.plannedServings).toBeGreaterThan(0);
+      // Sufit skalowany z limitu 8 KB na pełny tydzień (21 pozycji), który
+      // zmierzył `agent-week-plan-projection.spec.ts`.
+      expect(JSON.stringify(plan).length).toBeLessThan((8192 / 21) * 2 + 200);
+    });
+
+    /**
+     * BUDŻET ROZMIARU NA KAŻDE NARZĘDZIE, nie tylko na `get_week_plan`.
+     *
+     * Odchudzenie jednego wyniku nic nie daje, jeśli sąsiednie narzędzie
+     * oddaje ten sam model domenowy tylnymi drzwiami — a dokładnie to się
+     * stało: `get_week_plan` schudł do 3,6 KB, podczas gdy `apply_week_plan`
+     * dalej zwracał 99,5 KB, bo echo zapisanego planu nikomu nie rzuciło się
+     * w oczy. Ten opis mierzy WSZYSTKIE grube ścieżki naraz, więc następne
+     * `include: { ingredients: true }` przewróci go, zanim ktoś zapłaci za nie
+     * rachunek u dostawcy.
+     *
+     * Sufity są z pomiaru (7.09.2026) plus zapas na dłuższe tytuły; nie są
+     * dobrane pod zielony wynik. Wartości zmierzone: apply 3 689 B,
+     * get_week_plan 3 585 B, create/update ~212 B, search (20 wyników) 2 730 B.
+     */
+    it('żadne narzędzie nie oddaje modelowi modelu domenowego', async () => {
+      const rozmiar = (wynik: AgentToolResult) =>
+        Buffer.byteLength(
+          JSON.stringify(wynik.ok ? wynik.data : wynik.error),
+          'utf8',
+        );
+
+      const zapis = await run('apply_week_plan', {
+        week_start: SLIM_WEEK,
+        slots: [
+          {
+            day_of_week: 'FRI',
+            meal_type: 'DINNER',
+            recipe: secondCatalogIndex,
+          },
+        ],
+      });
+      // Trzy pozycje w tygodniu; sufit skalowany do pełnych 21.
+      expect(rozmiar(zapis)).toBeLessThan((8192 / 21) * 3 + 400);
+      const zapisJson = JSON.stringify(zapis);
+      for (const zabronione of ['ingredients', 'imageUrl', 'authorId']) {
+        expect(zapisJson).not.toContain(zabronione);
+      }
+
+      const szukaj = await run('search_ingredients', { query: 'a', limit: 20 });
+      expect(rozmiar(szukaj)).toBeLessThan(4096);
+      // Model wybiera składnik po nazwie i jednostce; kategoria i tagi diety
+      // nie biorą udziału w tej decyzji, bo skład przepisu liczy serwer.
+      for (const zabronione of ['category', 'dietTags', 'gramsPerPiece']) {
+        expect(JSON.stringify(szukaj)).not.toContain(zabronione);
+      }
+
+      const bilans = await run('get_week_balance', { week_start: SLIM_WEEK });
+      expect(rozmiar(bilans)).toBeLessThan(4096);
+
+      const dom = await run('get_household_context');
+      expect(rozmiar(dom)).toBeLessThan(2048);
+    });
+
+    it('referencja z planu daje się użyć w kolejnym narzędziu', async () => {
+      // Sedno odchudzenia: skoro model dostaje mniej, to co dostaje, MUSI
+      // wystarczyć. Bierzemy referencję prosto z wyniku i wkładamy ją do
+      // `apply_week_plan` — bez żadnego tłumaczenia po drodze.
+      const plan = data<{ items: { recipe: string }[] }>(
+        await run('get_week_plan', { week_start: SLIM_WEEK }),
+      );
+      const ref = plan.items[0].recipe;
+
+      const applied = data<{ applied: boolean; violations: unknown[] }>(
+        await run('apply_week_plan', {
+          week_start: SLIM_WEEK,
+          dry_run: true,
+          slots: [{ day_of_week: 'THU', meal_type: 'DINNER', recipe: ref }],
+        }),
+      );
+      expect(applied.violations).toEqual([]);
+    });
+  });
+
+  /**
+   * P0 (audyt etapu 2): konflikt alergenowy domownika BEZ zgody na asystenta.
+   *
+   * Bramka planu chroni WSZYSTKICH domowników — także tych, których nie ma
+   * w `get_household_context`. Do 7.09.2026 znaczyło to, że komunikat bramki
+   * („Danie zawiera alergeny domownika: LACTOSE, GLUTEN.") wracał do modelu
+   * przez `check_plan_conflicts` nietknięty, bo redakcja rozpoznaje pole
+   * `violations`, a to narzędzie nazywało je `conflicts`. Model dostawał dane
+   * o zdrowiu osoby, która nigdy nie kliknęła zgody — i przepisywał je do
+   * odpowiedzi.
+   */
+  describe('check_plan_conflicts nie ujawnia alergii domownika bez zgody', () => {
+    const CONFLICT_WEEK = '2026-11-09';
+    let konfliktowyContext: AgentToolContext;
+    let bezZgodyUserId: string;
+    let bezZgodyName: string;
+    let konfliktowyHouseholdId: string;
+
+    beforeAll(async () => {
+      // Bramka zgód WŁĄCZONA — inaczej ten test mierzy zupełnie co innego.
+      process.env.AI_CONSENT_REQUIRED = 'true';
+
+      const stamp = `${Date.now()}`;
+      const owner = await prisma.user.create({
+        data: {
+          displayName: `Wlasciciel ${stamp}`,
+          email: `konflikt-owner-${stamp}@agent.local`,
+          authProvider: 'DEV',
+          yearOfBirth: 1994,
+          preferences: { create: { allergens: [] } },
+        },
+        select: { id: true },
+      });
+      bezZgodyName = `Kubaxyz${stamp}`;
+      const bezZgody = await prisma.user.create({
+        data: {
+          displayName: bezZgodyName,
+          email: `konflikt-kuba-${stamp}@agent.local`,
+          authProvider: 'DEV',
+          yearOfBirth: 1994,
+          // DWIE alergie, żeby test nie przeszedł przypadkiem na jednym
+          // kodzie, którego akurat nie ma w komunikacie.
+          preferences: { create: { allergens: ['lactose', 'gluten'] } },
+        },
+        select: { id: true },
+      });
+      createdUserIds.push(owner.id, bezZgody.id);
+      bezZgodyUserId = bezZgody.id;
+
+      // TYLKO właściciel klika zgodę. Drugi domownik nie — i to jest sedno.
+      await prisma.consentEvent.create({
+        data: {
+          userId: owner.id,
+          kind: 'AI_ASSISTANT',
+          action: 'GRANTED',
+          documentVersion: LEGAL_DOCUMENT_VERSIONS.AI_ASSISTANT,
+        },
+      });
+
+      const household = await prisma.household.create({
+        data: { name: `Dom konfliktu ${stamp}`, createdById: owner.id },
+        select: { id: true },
+      });
+      konfliktowyHouseholdId = household.id;
+      createdHouseholdIds.push(household.id);
+      await prisma.membership.createMany({
+        data: [
+          { userId: owner.id, householdId: household.id, role: 'OWNER' },
+          { userId: bezZgody.id, householdId: household.id, role: 'MEMBER' },
+        ],
+      });
+
+      const conversation = await prisma.agentConversation.create({
+        data: { userId: owner.id, householdId: household.id },
+        select: { id: true },
+      });
+      konfliktowyContext = {
+        ...context,
+        userId: owner.id,
+        householdId: household.id,
+        conversationId: conversation.id,
+      };
+
+      // Danie z laktozą I glutenem na kolację: konflikt dotyczy domownika
+      // bez zgody, nie pytającego.
+      const recipes = await loadDigestRecipes(prisma, CATALOG_HOUSEHOLD);
+      const konfliktowy = recipes.find(
+        (recipe) =>
+          recipe.allergens.includes('lactose') &&
+          recipe.allergens.includes('gluten') &&
+          (recipe.suitableMealTypes.length > 0
+            ? recipe.suitableMealTypes
+            : [recipe.mealType]
+          ).includes('DINNER'),
+      );
+      if (!konfliktowy) throw new Error('katalog nie ma dania lactose+gluten');
+
+      const plan = await prisma.weeklyPlan.create({
+        data: {
+          householdId: household.id,
+          weekStart: new Date(`${CONFLICT_WEEK}T00:00:00.000Z`),
+        },
+        select: { id: true },
+      });
+      await prisma.planItem.create({
+        data: {
+          weeklyPlanId: plan.id,
+          recipeId: konfliktowy.id,
+          dayOfWeek: 'WED',
+          mealType: 'DINNER',
+          plannedServings: 2,
+          participants: { create: [{ userId: bezZgody.id }] },
+        },
+      });
+    });
+
+    afterAll(() => {
+      process.env.AI_CONSENT_REQUIRED = 'false';
+    });
+
+    it('domownik bez zgody NIE jest widoczny w get_household_context', async () => {
+      // Warunek wstępny: gdyby był, cały ten opis niczego by nie dowodził.
+      const members = data<{ userId: string }[]>(
+        await executor.execute('get_household_context', {}, konfliktowyContext),
+      );
+      expect(members.map((member) => member.userId)).not.toContain(
+        bezZgodyUserId,
+      );
+    });
+
+    it('bramka WIDZI konflikt — ochrona nie osłabła', async () => {
+      const result = data<{
+        checkedSlots: number;
+        violations: { code: string }[];
+      }>(
+        await executor.execute(
+          'check_plan_conflicts',
+          { week_start: CONFLICT_WEEK },
+          konfliktowyContext,
+        ),
+      );
+      expect(result.checkedSlots).toBe(1);
+      expect(result.violations.map((entry) => entry.code)).toContain(
+        'RECIPE_ALLERGEN_CONFLICT',
+      );
+    });
+
+    it('…ale model NIE dostaje kodów alergenów ani danych tej osoby', async () => {
+      const result = await executor.execute(
+        'check_plan_conflicts',
+        { week_start: CONFLICT_WEEK },
+        konfliktowyContext,
+      );
+      const serialized = JSON.stringify(result);
+
+      for (const kod of [
+        'LACTOSE',
+        'GLUTEN',
+        'lactose',
+        'gluten',
+        'milk',
+        'eggs',
+      ]) {
+        expect(serialized).not.toContain(kod);
+      }
+      expect(serialized).not.toContain(bezZgodyUserId);
+      expect(serialized).not.toContain(bezZgodyName);
+      // Kod naruszenia ZOSTAJE: model ma wiedzieć, że musi zmienić danie.
+      expect(serialized).toContain('RECIPE_ALLERGEN_CONFLICT');
+    });
+
+    it('get_week_plan też nie wynosi tożsamości osoby bez zgody', async () => {
+      const plan = await executor.execute(
+        'get_week_plan',
+        { week_start: CONFLICT_WEEK },
+        konfliktowyContext,
+      );
+      const serialized = JSON.stringify(plan);
+      expect(serialized).not.toContain(bezZgodyUserId);
+      expect(serialized).not.toContain(bezZgodyName);
+      // …za to LICZBA jedzących zostaje, bo bez niej nie ma jak policzyć porcji.
+      expect(serialized).toContain('othersCount');
+    });
+
+    it('redakcja dla apply_week_plan / propose_* działa jak dotąd', async () => {
+      // Ta sama funkcja redagująca obsługiwała `violations` od początku;
+      // poprawka `conflicts` → `violations` nie miała prawa jej ruszyć.
+      const rejected = data<{
+        applied: boolean;
+        violations: { code: string; message: string }[];
+      }>(
+        await executor.execute(
+          'apply_week_plan',
+          {
+            week_start: CONFLICT_WEEK,
+            dry_run: true,
+            slots: [
+              {
+                day_of_week: 'THU',
+                meal_type: 'DINNER',
+                recipe: firstCatalogIndex,
+                participant_user_ids: [bezZgodyUserId],
+              },
+            ],
+          },
+          konfliktowyContext,
+        ),
+      );
+
+      const konflikt = rejected.violations.find(
+        (entry) => entry.code === 'RECIPE_ALLERGEN_CONFLICT',
+      );
+      expect(konflikt).toBeDefined();
+      expect(konflikt?.message).not.toMatch(/lactose|gluten/i);
+      expect(konflikt?.message).toContain('wybierz inne danie');
+      expect(konfliktowyHouseholdId).toBeDefined();
     });
   });
 });

@@ -92,7 +92,11 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     name: 'get_week_plan',
     description:
       'Co już stoi w planie danego tygodnia. Wywołaj przed zmianą planu, żeby nie zaproponować ' +
-      'czegoś, co już tam jest, i żeby wiedzieć, co zniknie po zastosowaniu nowego tygodnia.',
+      'czegoś, co już tam jest, i żeby wiedzieć, co zniknie po zastosowaniu nowego tygodnia. ' +
+      'Pole recipe każdej pozycji to gotowa referencja do innych narzędzi: indeks katalogu (R07) ' +
+      'albo identyfikator przepisu tego domu. Brak participants znaczy „posiłek dla całego domu"; ' +
+      'othersCount mówi, ILU jedzących nie ma na liście, i tych osób nie da się wskazać po imieniu. ' +
+      'Składów tu nie ma — masz je w katalogu.',
     input_schema: object({ week_start: WEEK_START }, ['week_start']),
     strict: true,
   },
@@ -646,7 +650,6 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   get_week_plan: 'chat',
   get_week_balance: 'chat',
   show_shopping_list: 'chat',
-  search_ingredients: 'chat',
   // Karty, które niczego nie zapisują.
   ask_clarifying_question: 'chat',
   offer_options: 'chat',
@@ -662,6 +665,12 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   apply_week_plan: 'planner',
   create_recipe: 'planner',
   update_recipe: 'planner',
+  // NIE `chat`, mimo że samo w sobie tylko czyta. To narzędzie ma dokładnie
+  // jedno zastosowanie — zdobyć `ingredient_id` do `create_recipe` /
+  // `update_recipe` — a oba są u planisty. W warstwie rozmowy było więc
+  // ślepą uliczką: tani model mógł wyszukać składnik i nie mieć co z nim
+  // zrobić, płacąc rundę za nic.
+  search_ingredients: 'planner',
   // Kasowanie przepisu jest jednym identyfikatorem, ale to ZAPIS — zostaje
   // u planisty do czasu, aż raport pokaże, ile takich tur naprawdę jest.
   delete_recipe: 'planner',
