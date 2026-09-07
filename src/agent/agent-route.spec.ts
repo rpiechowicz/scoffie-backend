@@ -64,6 +64,45 @@ describe('resolveRoute', () => {
     expect(AGENT_TOOL_TIERS.check_plan_conflicts).toBe('chat');
   });
 
+  it('search_ingredients jedzie w tej samej warstwie, co przepisy, którym służy', () => {
+    // To narzędzie ma DOKŁADNIE jedno zastosowanie: zdobyć `ingredient_id`
+    // do `create_recipe` / `update_recipe`. W warstwie CHAT było ślepą
+    // uliczką — tani model mógł wyszukać składnik i nie mieć czym go użyć,
+    // bo obu narzędzi zapisujących nie ma na jego liście. Rundę płacił
+    // użytkownik.
+    expect(AGENT_TOOL_TIERS.search_ingredients).toBe('planner');
+    expect(AGENT_TOOL_TIERS.search_ingredients).toBe(
+      AGENT_TOOL_TIERS.create_recipe,
+    );
+    expect(AGENT_TOOL_TIERS.search_ingredients).toBe(
+      AGENT_TOOL_TIERS.update_recipe,
+    );
+    const route = resolveRoute(env({ toolsModel: 'claude-haiku-4-5' }));
+    expect(route.tools.map((tool) => tool.name)).not.toContain(
+      'search_ingredients',
+    );
+  });
+
+  it('warstwa CHAT to same narzędzia CZYTAJĄCE i karty bez skutków', () => {
+    // Tabela tierów jest jedyną barierą między tanim modelem a zapisem:
+    // narzędzie warstwy `planner` po prostu NIE ISTNIEJE na jego liście.
+    // Wpisanie tam czegoś, co pisze do bazy, otworzyłoby tę furtkę bez
+    // jednej linijki w diffie poza tą tabelą.
+    const zapisujace = [
+      'apply_week_plan',
+      'propose_week_plan',
+      'propose_day_plan',
+      'propose_swap',
+      'propose_household_split',
+      'create_recipe',
+      'update_recipe',
+      'delete_recipe',
+    ];
+    for (const name of zapisujace) {
+      expect(AGENT_TOOL_TIERS[name]).toBe('planner');
+    }
+  });
+
   it('każde narzędzie ma przypisaną warstwę — nowe narzędzie bez decyzji nie przechodzi', () => {
     for (const tool of AGENT_TOOLS) {
       expect(AGENT_TOOL_TIERS[tool.name]).toMatch(/^(chat|planner)$/);

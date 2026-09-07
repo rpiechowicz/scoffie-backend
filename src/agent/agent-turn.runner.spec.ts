@@ -349,6 +349,134 @@ describe('AgentTurnRunner', () => {
     });
   });
 
+  /**
+   * `AiUsage.apiCalls` — ile ŻĄDAŃ do modelu złożyło się na wiersz księgi.
+   *
+   * Wiersz księgi to FAZA, nie żądanie: bez tej kolumny tura po dwunastu
+   * rundach wyglądała w produkcji tak samo jak tura po jednej, więc mediany
+   * ani ogona rund nie dawało się policzyć inaczej niż benchmarkiem.
+   */
+  describe('księga: apiCalls', () => {
+    it('wariant bez faz zapisuje apiCalls całej tury', async () => {
+      run.mockResolvedValue({ ...RESULT, apiCalls: 7 });
+      await runner.run(input());
+
+      expect(tx.aiUsage.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ apiCalls: 7 })],
+      });
+    });
+
+    it('każda faza zapisuje SWOJE apiCalls, nie sumę tury', async () => {
+      run.mockResolvedValue({
+        ...RESULT,
+        apiCalls: 9,
+        phases: [
+          {
+            model: 'claude-haiku-4-5',
+            effort: 'low',
+            apiCalls: 3,
+            usage: {
+              inputTokens: 10,
+              cacheReadTokens: 1,
+              cacheWriteTokens: 0,
+              outputTokens: 5,
+              costMicroUsd: 100,
+            },
+          },
+          {
+            model: 'claude-sonnet-5',
+            effort: 'medium',
+            apiCalls: 6,
+            usage: {
+              inputTokens: 90,
+              cacheReadTokens: 4,
+              cacheWriteTokens: 2,
+              outputTokens: 45,
+              costMicroUsd: 4100,
+            },
+          },
+        ],
+      });
+      await runner.run(input());
+
+      expect(tx.aiUsage.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ model: 'claude-haiku-4-5', apiCalls: 3 }),
+          expect.objectContaining({ model: 'claude-sonnet-5', apiCalls: 6 }),
+        ],
+      });
+    });
+
+    it('nieudana tura księguje żądania, które zdążyły pójść', async () => {
+      run.mockRejectedValue(
+        new AgentProviderError(
+          '503 po czterech rundach',
+          true,
+          503,
+          {
+            inputTokens: 18_000,
+            cacheReadTokens: 16_000,
+            cacheWriteTokens: 0,
+            outputTokens: 900,
+            costMicroUsd: 41_000,
+          },
+          4,
+        ),
+      );
+      await runner.run(input());
+
+      expect(prisma.aiUsage.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ apiCalls: 4 })],
+      });
+    });
+
+    it('brak pomiaru zapisuje NULL, a nie zero — „nie wiadomo" to nie „zero żądań"', async () => {
+      run.mockRejectedValue(
+        new AgentProviderError('503 bez licznika', true, 503, {
+          inputTokens: 100,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: 10,
+          costMicroUsd: 500,
+        }),
+      );
+      await runner.run(input());
+
+      expect(prisma.aiUsage.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ apiCalls: null })],
+      });
+    });
+
+    it('księga kosztów nie zmienia się poza nową kolumną', async () => {
+      run.mockResolvedValue({ ...RESULT, apiCalls: 3 });
+      await runner.run(input());
+
+      expect(tx.aiUsage.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            turnId: TURN,
+            userId: USER,
+            householdId: HOUSEHOLD,
+            provider: 'stub',
+            model: 'claude-sonnet-5',
+            effort: 'medium',
+            inputTokens: 100,
+            cacheReadTokens: 5,
+            cacheWriteTokens: 2,
+            outputTokens: 50,
+            costMicroUsd: 4200,
+            stopReason: 'end_turn',
+          }),
+        ],
+      });
+      expect(counters.addHouseholdCost).toHaveBeenCalledWith(
+        tx,
+        HOUSEHOLD,
+        4200,
+      );
+    });
+  });
+
   describe('run nigdy nie rzuca', () => {
     it('rozmowa skasowana w trakcie tury (P2025)', async () => {
       prisma.$transaction.mockRejectedValue(

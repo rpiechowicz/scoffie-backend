@@ -59,6 +59,7 @@ async function main() {
       cacheWriteTokens: true,
       outputTokens: true,
       costMicroUsd: true,
+      apiCalls: true,
     },
   });
 
@@ -110,17 +111,30 @@ async function main() {
   // per turn
   const byTurn = new Map<
     string,
-    { cost: number; calls: number; householdId: string | null }
+    {
+      cost: number;
+      rows: number;
+      /** Suma `apiCalls` faz; `null` = choć jedna faza tury jej nie zna. */
+      apiCalls: number | null;
+      householdId: string | null;
+    }
   >();
   for (const r of rows) {
     const key = r.turnId ?? `bez-tury:${r.householdId ?? '-'}`;
     const t = byTurn.get(key) ?? {
       cost: 0,
-      calls: 0,
+      rows: 0,
+      apiCalls: 0 as number | null,
       householdId: r.householdId,
     };
     t.cost += r.costMicroUsd;
-    t.calls += 1;
+    t.rows += 1;
+    // Jedna faza bez pomiaru psuje sumę CAŁEJ tury — taka tura wypada
+    // z rozkładu rund zamiast zaniżać go o brakującą fazę.
+    t.apiCalls =
+      t.apiCalls === null || r.apiCalls === null
+        ? null
+        : t.apiCalls + r.apiCalls;
     byTurn.set(key, t);
   }
   const turnCosts = [...byTurn.values()]
@@ -147,12 +161,32 @@ async function main() {
       ` (${modelsPerTurn.size ? Math.round((100 * handedOff) / modelsPerTurn.size) : 0} %)`,
   );
 
-  const callsPerTurn = [...byTurn.values()]
-    .map((t) => t.calls)
-    .sort((a, b) => a - b);
   console.log(
-    `  wywołań na turę: średnia ${(rows.length / turnCosts.length).toFixed(2)}  p95 ${percentile(callsPerTurn, 95)}  max ${callsPerTurn[callsPerTurn.length - 1]}`,
+    `  faz na turę: średnia ${(rows.length / turnCosts.length).toFixed(2)}`,
   );
+
+  // RUNDY MODELU, nie wiersze księgi. Do 7.09.2026 ta linia liczyła wiersze
+  // i nazywała je „wywołaniami na turę" — a wiersz to FAZA, więc tura po
+  // dwunastu rundach raportowała się jako jedno wywołanie. Teraz liczba
+  // pochodzi z `AiUsage.apiCalls`; tury sprzed tej kolumny (`null`) są
+  // POMIJANE, a nie liczone jako zero.
+  const roundsPerTurn = [...byTurn.values()]
+    .map((t) => t.apiCalls)
+    .filter((calls): calls is number => calls !== null)
+    .sort((a, b) => a - b);
+  if (roundsPerTurn.length === 0) {
+    console.log(
+      '  rund modelu na turę: brak danych (wiersze sprzed kolumny apiCalls)',
+    );
+  } else {
+    const sum = roundsPerTurn.reduce((a, b) => a + b, 0);
+    console.log(
+      `  rund modelu na turę (${roundsPerTurn.length} z ${byTurn.size} tur): ` +
+        `średnia ${(sum / roundsPerTurn.length).toFixed(2)}  ` +
+        `p50 ${percentile(roundsPerTurn, 50)}  p95 ${percentile(roundsPerTurn, 95)}  ` +
+        `p99 ${percentile(roundsPerTurn, 99)}  max ${roundsPerTurn[roundsPerTurn.length - 1]}`,
+    );
+  }
 
   // per household
   const byHousehold = new Map<string, { cost: number; turns: number }>();
