@@ -13,8 +13,10 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 - Dev: `docker compose up -d --build api` (Postgres `db`, `cookidoo`, `api` na :3000).
   `.env` jest w gitignore — klucze wg `.env.example`; od plastra C sekrety w dev muszą mieć
   ≥ 32 znaki, gdy `NODE_ENV=production` (compose ustawia `development`, więc lokalnie luz).
-- Prod: Railway, projekt `soothing-celebration`, serwisy `Backend`, `Postgres`, `Cookidoo`;
-  `main` deployuje się automatycznie. `https://scoffie-backend-production.up.railway.app`.
+- Prod: Railway, projekt `scoffie`, środowisko `production`, serwisy `scoffie-backend`
+  (domena `api.scoffie.app`), `Postgres`, `Postgres-PITR`, `scoffie-cookidoo`;
+  `main` deployuje się automatycznie. Nazwy sprzed rebrandingu (`soothing-celebration`,
+  serwis `Backend`) są NIEAKTUALNE — komenda z nimi kończy się „service not found".
 
 ## Git
 
@@ -127,11 +129,11 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
 
 ## Operacje na prod (tylko z jawnym „tak” użytkownika przy zapisie)
 
-- Zmienne: `railway variables --service Backend [--skip-deploys --set K=V]`; `railway variable
-delete K --service Backend` NIE wyzwala redeployu. Zmienne wymagane przez nowy kod ustawiać
+- Zmienne: `railway variables --service scoffie-backend [--skip-deploys --set K=V]`; `railway variable
+delete K --service scoffie-backend` NIE wyzwala redeployu. Zmienne wymagane przez nowy kod ustawiać
   PRZED merge (asercja sekretów przy starcie; 28.08 kosztowało to ~10 min przestoju).
-- Skrypty jednorazowe: `railway ssh --service Backend -- sh -c 'cd /app && pnpm exec tsx scripts/<x>.ts'`.
-- Logi: `railway logs --service Backend -d -n 200`; zdrowie `/ops/health`; metryki `/ops/metrics`
+- Skrypty jednorazowe: `railway ssh --service scoffie-backend -- sh -c 'cd /app && pnpm exec tsx scripts/<x>.ts'`.
+- Logi: `railway logs --service scoffie-backend -d -n 200`; zdrowie `/ops/health`; metryki `/ops/metrics`
   z nagłówkiem `x-ops-token: $OPS_TOKEN`.
 - SQL: `psql "$PROD_DB"` gdzie `PROD_DB` = `DATABASE_PUBLIC_URL` serwisu Postgres trzymany
   TYLKO w `export` w terminalu — nigdy w plikach, notatkach ani commitach.
