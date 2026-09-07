@@ -298,8 +298,80 @@ describe('redactViolationsForModel', () => {
     );
   });
 
-  it('wynik BEZ pola violations przechodzi bez zmian', () => {
+  it('wynik bez naruszeń przechodzi bez zmian — ta sama referencja', () => {
     const plain = { weekStart: '2026-10-05', items: [] };
     expect(redactViolationsForModel(plain)).toBe(plain);
+  });
+
+  /**
+   * SEDNO POPRAWKI Z 7.09.2026. Wyciek wziął się stąd, że redakcja
+   * rozpoznawała naruszenia po NAZWIE POLA (`violations`), a
+   * `check_plan_conflicts` nazywał je `conflicts`. Ujednolicenie nazwy
+   * naprawiło jeden przypadek i zostawiło klasę błędu. Teraz liczy się
+   * kształt, więc te testy pilnują, że nazwa pola nie ma już nic do rzeczy.
+   */
+  describe('nazwa pola nie ma znaczenia — liczy się kształt', () => {
+    const naruszenie = {
+      dayOfWeek: 'WED',
+      mealType: 'DINNER',
+      code: 'RECIPE_ALLERGEN_CONFLICT',
+      message: 'Danie zawiera alergeny domownika: LACTOSE, GLUTEN.',
+    };
+
+    it.each(['violations', 'conflicts', 'problems', 'issues', 'errors'])(
+      'redaguje naruszenia w polu %s',
+      (pole) => {
+        const wynik = JSON.stringify(
+          redactViolationsForModel({ [pole]: [naruszenie] }),
+        );
+        expect(wynik).not.toContain('LACTOSE');
+        expect(wynik).not.toContain('GLUTEN');
+        expect(wynik).toContain('RECIPE_ALLERGEN_CONFLICT');
+      },
+    );
+
+    it('redaguje naruszenie ZAGNIEŻDŻONE, nie tylko na wierzchu', () => {
+      // Tak wygląda wynik narzędzia opakowany w kopertę albo w kartę:
+      // gdyby redakcja patrzyła tylko na pierwszy poziom, przeszłoby.
+      const wynik = JSON.stringify(
+        redactViolationsForModel({
+          ok: true,
+          data: { preview: { slots: [{ ...naruszenie }] } },
+        }),
+      );
+      expect(wynik).not.toContain('LACTOSE');
+      expect(wynik).toContain('RECIPE_ALLERGEN_CONFLICT');
+    });
+
+    it('redaguje naruszenie stojące SAMO, bez tablicy wokół', () => {
+      const wynik = redactViolationsForModel({ violation: naruszenie }) as {
+        violation: { message: string };
+      };
+      expect(wynik.violation.message).not.toMatch(/lactose|gluten/i);
+      expect(wynik.violation.message).toContain('wybierz inne danie');
+    });
+
+    it('nie rusza obiektu z kodem, ale bez komunikatu', () => {
+      const bezKomunikatu = { code: 'RECIPE_ALLERGEN_CONFLICT' };
+      const wejscie = { violations: [bezKomunikatu] };
+      expect(redactViolationsForModel(wejscie)).toBe(wejscie);
+    });
+
+    it('nie rusza kodów spoza tabeli — redakcja to nie cenzura', () => {
+      // `RECIPE_NOT_FOUND` i spółka mówią modelowi, co poprawić, i nie niosą
+      // ani jednej danej o zdrowiu. Zabranie im treści byłoby stratą.
+      const inne = {
+        violations: [
+          { code: 'RECIPE_NOT_SUITABLE_FOR_SLOT', message: 'Nie ten posiłek.' },
+        ],
+      };
+      expect(redactViolationsForModel(inne)).toBe(inne);
+    });
+
+    it('nie wywraca się na strukturze głębszej niż sufit redakcji', () => {
+      let glebokie: Record<string, unknown> = { ...naruszenie };
+      for (let i = 0; i < 40; i += 1) glebokie = { poziom: glebokie };
+      expect(() => redactViolationsForModel(glebokie)).not.toThrow();
+    });
   });
 });

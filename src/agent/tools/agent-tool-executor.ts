@@ -56,14 +56,18 @@ import { DayOfWeek, MealType } from '@prisma/client';
  * ma wybrać inne danie, a nie poznać, na co uczulony jest domownik bez zgody
  * (polityka §6). Kod naruszenia zostaje — po nim model wie, co poprawić.
  *
- * REDAKCJA ROZPOZNAJE POLE `violations` I TYLKO JE. To nie jest szczegół
- * implementacji, tylko kontrakt: każde narzędzie, które oddaje modelowi
- * naruszenia bramki planu, MUSI nazwać je `violations`. Do 7.09.2026
- * `check_plan_conflicts` nazywał je `conflicts` i cała ta funkcja go mijała —
- * komunikat „Danie zawiera alergeny domownika: LACTOSE, GLUTEN." szedł do
- * modelu (a stamtąd do odpowiedzi) w całości, także dla domownika, który
- * NIGDY nie zgodził się na asystenta. Nowe narzędzie z własną nazwą pola
- * powtórzyłoby ten błąd bez jednej linijki ostrzeżenia.
+ * REDAKCJA IDZIE ZA KSZTAŁTEM, NIE ZA NAZWĄ POLA. Szukamy obiektu, który ma
+ * `code` z tabeli niżej i `message` — gdziekolwiek w wyniku by nie siedział.
+ *
+ * Wcześniej ta funkcja rozpoznawała wyłącznie pole o nazwie `violations`
+ * i to była PRZYCZYNA wycieku z 7.09.2026: `check_plan_conflicts` nazywał je
+ * `conflicts`, więc komunikat „Danie zawiera alergeny domownika: LACTOSE,
+ * GLUTEN." przechodził nietknięty do modelu, a stamtąd do odpowiedzi — także
+ * dla domownika, który NIGDY nie zgodził się na asystenta. Samo ujednolicenie
+ * nazwy naprawiło ten jeden przypadek i zostawiło klasę błędu: następne
+ * narzędzie z polem `problems` albo `issues` przeciekłoby tak samo, a jedyną
+ * obroną byłby komentarz. Komentarz nie jest bramką, więc nazwa pola przestała
+ * mieć znaczenie dla bezpieczeństwa.
  */
 const REDACTED_VIOLATION_MESSAGES: Record<string, string> = {
   RECIPE_ALLERGEN_CONFLICT:
@@ -72,22 +76,65 @@ const REDACTED_VIOLATION_MESSAGES: Record<string, string> = {
     'Danie zawiera składnik, którego ktoś z jedzących nie je — wybierz inne danie.',
 };
 
+/**
+ * Sufit zagnieżdżenia. Wyniki narzędzi to zwykły JSON z serwisów (bez cykli),
+ * więc to nie jest ochrona przed pętlą, tylko przed kosztem: gdyby kiedyś
+ * wpadł tu wynik o nieoczekiwanej głębokości, redakcja ma się zatrzymać,
+ * a nie chodzić po całym grafie.
+ */
+const MAX_REDACTION_DEPTH = 8;
+
+/** Zredagowany komunikat dla tego obiektu albo `null`, gdy go nie dotyczy. */
+function redactedMessageFor(record: Record<string, unknown>): string | null {
+  const { code, message } = record;
+  if (typeof code !== 'string' || typeof message !== 'string') return null;
+  return REDACTED_VIOLATION_MESSAGES[code] ?? null;
+}
+
+/**
+ * Zwraca TĘ SAMĄ referencję, gdy nic nie wymagało redakcji — dzięki temu
+ * wynik bez naruszeń (czyli zdecydowana większość) nie kosztuje ani jednej
+ * alokacji, a testy mogą sprawdzać brak zmian tożsamością.
+ */
+function redactNode(node: unknown, depth: number): unknown {
+  if (
+    depth > MAX_REDACTION_DEPTH ||
+    node === null ||
+    typeof node !== 'object'
+  ) {
+    return node;
+  }
+
+  if (Array.isArray(node)) {
+    let changed = false;
+    const next = node.map((entry) => {
+      const redacted = redactNode(entry, depth + 1);
+      if (redacted !== entry) changed = true;
+      return redacted;
+    });
+    return changed ? next : node;
+  }
+
+  const record = node as Record<string, unknown>;
+  const replacement = redactedMessageFor(record);
+  let next: Record<string, unknown> | null =
+    replacement === null ? null : { ...record, message: replacement };
+
+  for (const [key, value] of Object.entries(record)) {
+    // `message` już podmieniony — schodzenie w nie miałoby co poprawić.
+    if (key === 'message' && replacement !== null) continue;
+    const redacted = redactNode(value, depth + 1);
+    if (redacted !== value) {
+      next = next ?? { ...record };
+      next[key] = redacted;
+    }
+  }
+
+  return next ?? node;
+}
+
 export function redactViolationsForModel<T>(result: T): T {
-  if (!result || typeof result !== 'object') return result;
-  const record = result as Record<string, unknown>;
-  if (!Array.isArray(record.violations)) return result;
-  const violations = record.violations as unknown[];
-  return {
-    ...record,
-    violations: violations.map((violation): unknown => {
-      if (!violation || typeof violation !== 'object') return violation;
-      const entry = violation as { code?: string; message?: string };
-      const redacted = entry.code
-        ? REDACTED_VIOLATION_MESSAGES[entry.code]
-        : null;
-      return redacted ? { ...entry, message: redacted } : violation;
-    }),
-  } as T;
+  return redactNode(result, 0) as T;
 }
 
 /**
@@ -750,14 +797,12 @@ export class AgentToolExecutor {
    * rozjechać. Do modelu wraca sam werdykt (~50 tokenów), bez składów i bez
    * imion osób, które nie wyraziły zgody na asystenta.
    *
-   * POLE NAZYWA SIĘ `violations`, NIE `conflicts`. Nazwa jest tu mechanizmem
-   * bezpieczeństwa, a nie kwestią gustu: redakcja
-   * (`redactViolationsForModel`) rozpoznaje wyłącznie `violations`, więc pod
-   * starą nazwą surowy komunikat bramki — „Danie zawiera alergeny domownika:
-   * LACTOSE, GLUTEN." — szedł do modelu nietknięty. Dwa zdania niżej ten sam
-   * model pisał go użytkownikowi, ujawniając alergie domownika, który nie
-   * wyraził zgody na asystenta. To pole nie jest częścią kontraktu z
-   * telefonem: wynik narzędzia widzi wyłącznie model.
+   * POLE NAZYWA SIĘ `violations`, NIE `conflicts` — dla spójności z
+   * `apply_week_plan` i `propose_*`, bo to dokładnie ta sama bramka i te same
+   * kody. Nazwa NIE JEST już jednak mechanizmem bezpieczeństwa: redakcja idzie
+   * za kształtem obiektu (`code` + `message`), więc pomyłka w nazwie nie
+   * otworzy wycieku po raz drugi. To pole nie jest częścią kontraktu
+   * z telefonem — wynik narzędzia widzi wyłącznie model.
    */
   /**
    * Plan tygodnia dla modelu — pełny odczyt domenowy, zawężony na granicy.
