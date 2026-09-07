@@ -82,6 +82,11 @@ Use [`.env.example`](./.env.example) as the source of truth.
 - `DATABASE_URL`
 - `JWT_SECRET` (≥32 characters in production)
 - `REFRESH_TOKEN_PEPPER` (≥32 characters in production, different from `JWT_SECRET`)
+- `REFRESH_REUSE_GRACE_SECONDS` (60) — grace window for a *lost* rotation
+  response. Refresh tokens are single-use and replay revokes the whole family;
+  without this window a phone suspended mid-refresh was logged out through no
+  fault of its own. Recovery fires once per rotation and only while the
+  successor token is still unused.
 - `COOKIDOO_ENCRYPTION_KEY` (32 bytes base64 — the API refuses to boot without it)
 
 ### Required in production only (`NODE_ENV=production`, checked at boot)

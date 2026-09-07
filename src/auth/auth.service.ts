@@ -49,6 +49,17 @@ export class AuthService {
     Number(process.env.REFRESH_TOKEN_DAYS ?? '60') || 60;
   private readonly refreshTokenPepper =
     process.env.REFRESH_TOKEN_PEPPER ?? process.env.JWT_SECRET ?? 'dev-pepper';
+  /**
+   * Okno laski na ZGUBIONA ODPOWIEDZ z rotacji (`REFRESH_REUSE_GRACE_SECONDS`).
+   *
+   * Telefon wysyla refresh, serwer rotuje token, iOS uspia proces i odpowiedz
+   * nigdy nie dojezdza. W Keychain zostaje stary token, a nastepne
+   * uruchomienie wyglada jak replay. Minuta wystarcza z zapasem (zadanie ma
+   * 15 s timeoutu na telefonie), a jest za krotka, zeby dac cokolwiek komus,
+   * kto wszedl w posiadanie kopii sprzed godzin.
+   */
+  private readonly refreshReuseGraceMs =
+    (Number(process.env.REFRESH_REUSE_GRACE_SECONDS ?? '60') || 60) * 1000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -206,9 +217,15 @@ export class AuthService {
     const now = new Date();
 
     if (storedToken?.revokedAt) {
+      // Zanim skasujemy rodzine: czy to nie jest po prostu telefon, do
+      // ktorego nowa para nie dojechala? Jesli tak, dostaje swieza i zyje
+      // dalej - patrz `recoverLostRotation`.
+      const recovered = await this.recoverLostRotation(storedToken, now);
+      if (recovered) return recovered;
+
       const revoked = await this.prisma.refreshToken.updateMany({
         where: { userId: storedToken.userId, revokedAt: null },
-        data: { revokedAt: now },
+        data: { revokedAt: now, revokedReason: 'REUSE' },
       });
       // Rodzina refresh tokenów pada, ale tokeny DOSTĘPU żyły dalej do
       // końca TTL — podbicie wersji unieważnia je natychmiast.
@@ -231,12 +248,12 @@ export class AuthService {
     // rotację, drugie jest replayem i idzie tą samą ścieżką co wyżej.
     const rotated = await this.prisma.refreshToken.updateMany({
       where: { tokenHash, revokedAt: null },
-      data: { revokedAt: now },
+      data: { revokedAt: now, revokedReason: 'ROTATED' },
     });
     if (rotated.count === 0) {
       const revoked = await this.prisma.refreshToken.updateMany({
         where: { userId: storedToken.userId, revokedAt: null },
-        data: { revokedAt: now },
+        data: { revokedAt: now, revokedReason: 'REUSE' },
       });
       this.logger.warn(
         `refresh token concurrent reuse for user ${storedToken.userId} — revoked ${revoked.count} active token(s)`,
@@ -248,9 +265,77 @@ export class AuthService {
     });
 
     const accessToken = await this.issueAccessToken(storedToken.userId);
-    const newRefreshToken = await this.issueRefreshToken(storedToken.userId);
+    const successor = await this.issueRefreshToken(storedToken.userId);
+    // Wskaznik na nastepce zapisujemy PO jego wydaniu - od tej chwili
+    // zgubiona odpowiedz jest odwracalna.
+    await this.prisma.refreshToken.updateMany({
+      where: { tokenHash },
+      data: { replacedByHash: successor.tokenHash },
+    });
 
-    return { accessToken, refreshToken: newRefreshToken };
+    return { accessToken, refreshToken: successor.rawToken };
+  }
+
+  /**
+   * Ratunek dla telefonu, ktory zgubil odpowiedz z rotacji.
+   *
+   * Warunki sa celowo waskie i musza zajsc WSZYSTKIE naraz:
+   *  - token uniewaznila ROTACJA (nie logout i nie wykryty wczesniej replay),
+   *  - miescimy sie w oknie laski (`REFRESH_REUSE_GRACE_SECONDS`),
+   *  - sam token nie zdazyl wygasnac,
+   *  - a nastepca jest NIETKNIETY.
+   *
+   * Ostatni warunek jest najwazniejszy: jesli nastepca zostal juz uzyty, to
+   * znaczy, ze para DOTARLA do klienta - a skoro stary token wraca mimo to,
+   * mamy kopie i rodzina musi pasc. Dlatego uniewaznienie nastepcy idzie
+   * warunkowym `updateMany` (`revokedAt: null`): to samo zapytanie sprawdza
+   * i zajmuje, wiec dwa rownolegle ratunki nie wydadza dwoch waznych par.
+   *
+   * `null` = nie ratujemy, wywolujacy idzie sciezka kasowania rodziny.
+   */
+  private async recoverLostRotation(
+    storedToken: {
+      tokenHash: string;
+      userId: string;
+      revokedAt: Date | null;
+      revokedReason: string | null;
+      replacedByHash: string | null;
+      expiresAt: Date;
+    },
+    now: Date,
+  ): Promise<{ accessToken: string; refreshToken: string } | null> {
+    const { revokedAt, revokedReason, replacedByHash } = storedToken;
+    if (revokedReason !== 'ROTATED' || !revokedAt || !replacedByHash) {
+      return null;
+    }
+    if (now.getTime() - revokedAt.getTime() > this.refreshReuseGraceMs) {
+      return null;
+    }
+    if (storedToken.expiresAt <= now) return null;
+
+    // Porzucony nastepca ginie jako REUSE, nie ROTATED, i nie dostaje
+    // wskaznika na nikogo. Gdyby ginal jako ROTATED z lancuchem, jego wlasne
+    // powtorzenie tez by sie ratowalo — i okno laski dawaloby sie przedluzac
+    // w nieskonczonosc, przesuwajac je co ratunek o kolejna minute.
+    const claimed = await this.prisma.refreshToken.updateMany({
+      where: { tokenHash: replacedByHash, revokedAt: null },
+      data: { revokedAt: now, revokedReason: 'REUSE' },
+    });
+    if (claimed.count === 0) return null;
+
+    // Ratunek jest JEDNORAZOWY na rotacje: to samo powtorzenie drugi raz nie
+    // jest juz zgubiona odpowiedzia, tylko kopia, i idzie kasowaniem rodziny.
+    await this.prisma.refreshToken.updateMany({
+      where: { tokenHash: storedToken.tokenHash },
+      data: { revokedReason: 'RECOVERED' },
+    });
+
+    const accessToken = await this.issueAccessToken(storedToken.userId);
+    const successor = await this.issueRefreshToken(storedToken.userId);
+    this.logger.log(
+      `refresh token rotation recovered for user ${storedToken.userId} - client never received the rotated pair`,
+    );
+    return { accessToken, refreshToken: successor.rawToken };
   }
 
   /**
@@ -262,7 +347,7 @@ export class AuthService {
     const tokenHash = this.hashRefreshToken(refreshToken);
     const result = await this.prisma.refreshToken.updateMany({
       where: { tokenHash, revokedAt: null },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: new Date(), revokedReason: 'LOGOUT' },
     });
     return { revoked: result.count > 0 };
   }
@@ -286,7 +371,7 @@ export class AuthService {
   async logoutEverywhere(userId: string): Promise<void> {
     await this.prisma.refreshToken.updateMany({
       where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: new Date(), revokedReason: 'LOGOUT' },
     });
     await this.prisma.user.updateMany({
       where: { id: userId },
@@ -351,7 +436,7 @@ export class AuthService {
     // nie ma auth (Faza 0), nie da się tego ujednolicić po stronie serwera.
     // `households.create` i `acceptInvitation` pilnują, żeby członkostwo było
     // jedno, więc „najstarsze" znaczy w praktyce „jedyne".
-    const [accessToken, refreshToken, membership] = await Promise.all([
+    const [accessToken, issuedRefresh, membership] = await Promise.all([
       this.issueAccessToken(user.id),
       this.issueRefreshToken(user.id),
       this.prisma.membership.findFirst({
@@ -363,7 +448,7 @@ export class AuthService {
 
     return {
       accessToken,
-      refreshToken,
+      refreshToken: issuedRefresh.rawToken,
       user: {
         id: user.id,
         displayName: user.displayName,
@@ -380,6 +465,10 @@ export class AuthService {
     };
   }
 
+  /**
+   * Zwraca RAZEM token jawny i jego hash: rotacja musi zapisac na poprzedniku
+   * wskaznik na nastepce, a hash liczy sie tylko tutaj.
+   */
   private async issueRefreshToken(userId: string) {
     const rawToken = randomBytes(64).toString('hex');
     const tokenHash = this.hashRefreshToken(rawToken);
@@ -394,7 +483,7 @@ export class AuthService {
       },
     });
 
-    return rawToken;
+    return { rawToken, tokenHash };
   }
 
   private hashRefreshToken(token: string) {
