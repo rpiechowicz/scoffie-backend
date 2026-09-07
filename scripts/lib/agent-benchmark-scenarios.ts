@@ -172,8 +172,6 @@ export type Scenario = {
   ownRecipes?: { title: string; mealType: MealType; servings: number }[];
   /** Plan zakładany przed turą. */
   seed?: (world: ScenarioWorld) => SeedSlot[];
-  /** Zakres pytania (`scopeUserIds`) — klucze domowników. */
-  scope?: string[];
   /** Kolejne wiadomości użytkownika; więcej niż jedna = rozmowa. */
   prompts: string[];
   /**
@@ -1248,11 +1246,10 @@ const GROUP_8: Scenario[] = [
   {
     name: 'g8-zakres-pytania',
     group: 8,
-    pyta: 'Czy zakres pytania (scopeUserIds) zawęża audytorium zamiast zmieniać plan całemu domowi?',
+    pyta: 'Czy osoba nazwana w pytaniu zawęża audytorium zamiast zmieniać plan całemu domowi?',
     members: PARA,
-    scope: ['ania'],
     seed: (world) => fullWeekSeed(world),
-    prompts: ['Chcę inne śniadanie w poniedziałek.'],
+    prompts: ['Ania chce inne śniadanie w poniedziałek.'],
     expectedTools: [
       'propose_swap',
       'apply_week_plan',
