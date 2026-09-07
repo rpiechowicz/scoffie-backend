@@ -166,6 +166,108 @@ export type WeekPlanForModel = {
   items: WeekPlanItemForModel[];
 };
 
+/**
+ * Wynik zapisu tygodnia w kształcie dla modelu.
+ *
+ * `plan` przechodzi przez tę samą projekcję, co `get_week_plan`. Zmierzone
+ * 7.09.2026: wynik `apply_week_plan` po zapisie 21 pozycji ważył 99 581 B,
+ * z czego 99 477 B (99,9 %) to było pole `plan` — pełna encja z listą
+ * składników każdego dania, `imageUrl`, `authorId` i znacznikami czasu.
+ * Model dostawał z powrotem ~33 tys. tokenów opisujących stan, KTÓRY SAM
+ * przed chwilą wysłał. A że w produkcji `AI_CARDS_MODE=off`, to jest GŁÓWNA
+ * ścieżka zapisu planu — czyli najdroższa tura płaciła ten rachunek za
+ * każdym razem.
+ *
+ * Pola nie usuwamy, tylko chudzimy: potwierdzenie ma dalej pochodzić z BAZY
+ * po transakcji, a nie z pamięci modelu o tym, co wysłał. To ta sama reguła,
+ * co przy kartach („liczby liczy serwer, model cytuje").
+ */
+export type ApplyWeekPlanForModel = Omit<ApplyWeekPlanResult, 'plan'> & {
+  plan: WeekPlanForModel | null;
+};
+
+/**
+ * Przepis po zapisie — POTWIERDZENIE, nie encja.
+ *
+ * `create_recipe` i `update_recipe` oddawały modelowi cały wiersz z bazy:
+ * 1 299 B i 1 184 B (pomiar 7.09.2026), z czego 362 B to sam `imageUrl`.
+ * Model nie ma co zrobić z adresem zdjęcia — ale MA gdzie go wkleić, bo
+ * pisze odpowiedź użytkownikowi. Zostaje to, po co się tu przychodzi:
+ * identyfikator do dalszej pracy i MAKRA POLICZONE PRZEZ SERWER, bo to
+ * jedyna liczba, której model nie ma prawa podać sam.
+ */
+export type RecipeForModel = {
+  id: string;
+  title: string;
+  mealType: string;
+  servings: number;
+  prepTimeMinutes: number;
+  kcalPerServing: number;
+  allergens: string[];
+  dietTags: string[];
+  /** Ile składników zapisał serwer — po tym model pozna, że coś wypadło. */
+  ingredientCount: number;
+};
+
+export function projectRecipeForModel(recipe: {
+  id: string;
+  title: string;
+  mealType: string;
+  servings: number | null;
+  prepTimeMinutes: number | null;
+  nutritionKcal: number | null;
+  allergens: string[];
+  dietTags: string[];
+  ingredients?: unknown[];
+}): RecipeForModel {
+  const servings = Math.max(1, recipe.servings ?? 1);
+  return {
+    id: recipe.id,
+    title: recipe.title,
+    mealType: recipe.mealType,
+    servings,
+    prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
+    kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
+    allergens: recipe.allergens,
+    dietTags: recipe.dietTags,
+    ingredientCount: recipe.ingredients?.length ?? 0,
+  };
+}
+
+/**
+ * Składnik z wyszukiwarki — tyle, ile trzeba do zbudowania przepisu.
+ *
+ * Wypadają `category`, `dietTags` i `gramsPerPiece`: model wybiera składnik
+ * po nazwie, a alergeny i tagi diety przepisu liczy serwer ze składu, więc
+ * nie ma ich po co czytać przy wyborze. `allergens` zostają, bo po nich
+ * model widzi, że dokłada do przepisu coś, czego domownik nie zje.
+ */
+export type IngredientForModel = {
+  id: string;
+  name: string;
+  allowedUnits: string[];
+  hasNutrition: boolean;
+  allergens: string[];
+};
+
+export function projectIngredientsForModel(
+  rows: readonly {
+    id: string;
+    name: string;
+    allowedUnits: string[];
+    hasNutrition: boolean;
+    allergens: string[];
+  }[],
+): IngredientForModel[] {
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    allowedUnits: row.allowedUnits,
+    hasNutrition: row.hasNutrition,
+    allergens: row.allergens,
+  }));
+}
+
 /** Wiersz planu w kształcie, w jakim oddaje go `WeeklyPlansService`. */
 type PlanItemForProjection = {
   dayOfWeek: string;
@@ -441,11 +543,13 @@ export class AgentToolExecutor {
         return this.weekBalanceForModel(input, context, str('week_start'));
 
       case 'search_ingredients':
-        return this.ingredients.search({
-          query: str('query'),
-          onlyWithNutrition: input.only_with_nutrition === true,
-          ...(typeof input.limit === 'number' ? { limit: input.limit } : {}),
-        });
+        return this.ingredients
+          .search({
+            query: str('query'),
+            onlyWithNutrition: input.only_with_nutrition === true,
+            ...(typeof input.limit === 'number' ? { limit: input.limit } : {}),
+          })
+          .then(projectIngredientsForModel);
 
       case 'ask_clarifying_question':
         return Promise.resolve(this.askClarifyingQuestion(input, context));
@@ -498,7 +602,9 @@ export class AgentToolExecutor {
           ingredients: this.toIngredients(input.ingredients),
           ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
         };
-        return this.recipes.create(userId, payload as CreateRecipeDto);
+        return this.recipes
+          .create(userId, payload as CreateRecipeDto)
+          .then(projectRecipeForModel);
       }
 
       case 'update_recipe': {
@@ -517,11 +623,9 @@ export class AgentToolExecutor {
             : {}),
           ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
         };
-        return this.recipes.update(
-          userId,
-          str('recipe_id'),
-          payload as UpdateRecipeDto,
-        );
+        return this.recipes
+          .update(userId, str('recipe_id'), payload as UpdateRecipeDto)
+          .then(projectRecipeForModel);
       }
 
       case 'remember_note':
@@ -816,21 +920,59 @@ export class AgentToolExecutor {
     context: AgentToolContext,
     weekStart: string,
   ): Promise<WeekPlanForModel> {
-    const [plan, visible] = await Promise.all([
+    const [plan, view] = await Promise.all([
       this.weeklyPlans.getByHouseholdAndWeek(
         context.userId,
         context.householdId,
         weekStart,
       ),
-      this.households
-        .memberPreferences(context.userId, context.householdId)
-        .then((all) => this.prompts.membersForModel(all))
-        .then((result) => new Set(result.members.map((m) => m.userId))),
+      this.planViewFor(context),
     ]);
-    const refByRecipeId = new Map(
-      Object.entries(context.catalogIndex).map(([ref, id]) => [id, ref]),
-    );
-    return projectWeekPlanForModel(plan, refByRecipeId, visible);
+    return projectWeekPlanForModel(plan, view.refByRecipeId, view.visible);
+  }
+
+  /**
+   * Dwie rzeczy potrzebne, żeby przełożyć plan na kształt dla modelu:
+   * odwrotny indeks katalogu i zbiór osób, które model może zobaczyć.
+   *
+   * Jedno miejsce, bo używają tego dwie drogi — odczyt (`get_week_plan`)
+   * i potwierdzenie zapisu (`apply_week_plan`). Rozjazd między nimi znaczyłby,
+   * że ten sam tydzień wygląda inaczej zależnie od tego, którędy się o niego
+   * zapytało.
+   */
+  private async planViewFor(context: AgentToolContext): Promise<{
+    refByRecipeId: Map<string, string>;
+    visible: Set<string>;
+  }> {
+    const visible = await this.households
+      .memberPreferences(context.userId, context.householdId)
+      .then((all) => this.prompts.membersForModel(all))
+      .then((result) => new Set(result.members.map((m) => m.userId)));
+    return {
+      refByRecipeId: new Map(
+        Object.entries(context.catalogIndex).map(([ref, id]) => [id, ref]),
+      ),
+      visible,
+    };
+  }
+
+  /**
+   * Wynik zapisu przełożony dla modelu — patrz `ApplyWeekPlanForModel`.
+   *
+   * Przy `plan: null` (dry-run albo naruszenia) nie ma czego chudzić i nie
+   * pytamy bazy o domowników.
+   */
+  private async applyResultForModel(
+    result: ApplyWeekPlanResult,
+    context: AgentToolContext,
+  ): Promise<ApplyWeekPlanForModel> {
+    const { plan, ...rest } = result;
+    if (!plan) return { ...rest, plan: null };
+    const view = await this.planViewFor(context);
+    return {
+      ...rest,
+      plan: projectWeekPlanForModel(plan, view.refByRecipeId, view.visible),
+    };
   }
 
   private async checkPlanConflicts(
@@ -1158,7 +1300,7 @@ export class AgentToolExecutor {
     input: Record<string, unknown>,
     context: AgentToolContext,
     weekStart: string,
-  ): Promise<ApplyWeekPlanResult> {
+  ): Promise<ApplyWeekPlanForModel> {
     // Zmyślony indeks katalogu zatrzymujemy TUTAJ, a nie w walidacji DTO.
     // Przepuszczony dalej wróciłby jako „recipeId must be a UUID" — model
     // mówi indeksami (`R07`), więc taki komunikat nic mu nie mówi i pętla
@@ -1188,7 +1330,7 @@ export class AgentToolExecutor {
         payload as ApplyWeekPlanDto,
       );
 
-    if (dryRun) return run();
+    if (dryRun) return this.applyResultForModel(await run(), context);
 
     const plan = await this.counters.resolvePlan(context.householdId, {
       userId: context.userId,
@@ -1232,7 +1374,7 @@ export class AgentToolExecutor {
         result.changes.deleted;
       if (!result.applied || changed === 0)
         await this.refundPlan(scopeId, periodKey);
-      return result;
+      return this.applyResultForModel(result, context);
     } catch (error) {
       await this.refundPlan(scopeId, periodKey);
       throw error;
