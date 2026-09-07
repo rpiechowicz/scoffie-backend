@@ -28,8 +28,6 @@ import { ReportMessageDto } from './dto/report-message.dto';
 import { AgentTurnsService } from './agent-turns.service';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { ApplyProposalDto } from './dto/apply-proposal.dto';
-import { ContextQueryDto } from './dto/context-query.dto';
-import { AgentContextService } from './agent-context.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
 import { EditMessageDto, PostMessageDto } from './dto/post-message.dto';
@@ -56,7 +54,6 @@ export class AgentController {
     private readonly proposals: AgentProposalsService,
     private readonly reports: AgentReportsService,
     private readonly usageService: AgentUsageService,
-    private readonly context: AgentContextService,
   ) {}
 
   /**
@@ -269,17 +266,6 @@ export class AgentController {
     @Query() query: MemoryQueryDto,
   ) {
     return this.memory.forgetAll(userId, query.householdId);
-  }
-
-  /**
-   * Kontekst do chipów nad polem („Ten tydzień", „Cały dom · 4", „Cel 2 100")
-   * i do arkusza „Dla kogo liczyć": domownicy z etykietą celu i zgodą.
-   * Bez tego telefon zgadywałby z własnych cache'ów, a chip pokazywałby
-   * innego domownika niż ten, którego weźmie serwer.
-   */
-  @Get('context')
-  getContext(@CurrentUserId() userId: string, @Query() query: ContextQueryDto) {
-    return this.context.context(userId, query);
   }
 
   /** Porządki na liście rozmów — jedna pozycja, nie całość. */

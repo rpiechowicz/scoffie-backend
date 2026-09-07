@@ -16,7 +16,6 @@ import { AgentConfigService } from './agent-config.service';
 import { AgentConversationsService } from './agent-conversations.service';
 import { AgentMemoryService } from './agent-memory.service';
 import { AgentController } from './agent.controller';
-import { AgentContextService } from './agent-context.service';
 import { AgentTurnRunner } from './agent-turn.runner';
 import { AgentTurnsService } from './agent-turns.service';
 import { AiUsageCountersService } from './ai-usage-counters.service';
@@ -62,7 +61,6 @@ import { UpstreamBreaker } from './upstream-breaker';
     AgentProviderResolver,
     AgentToolExecutor,
     AgentProposalsService,
-    AgentContextService,
     AgentPromptService,
     AgentRetentionService,
     AgentReportsService,

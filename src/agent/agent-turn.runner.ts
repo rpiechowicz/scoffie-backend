@@ -62,8 +62,6 @@ export type RunTurnInput = {
    * przyjmowałby zapisy.
    */
   proposalMode: boolean;
-  /** Kogo dotyczy pytanie; puste = całe gospodarstwo. */
-  scopeUserIds?: string[];
 };
 
 /** Ile ostatnich wiadomości rozmowy idzie do modelu jako kontekst. */
@@ -164,7 +162,6 @@ export class AgentTurnRunner {
         input.householdId,
         input.dates,
         input.proposalMode,
-        input.scopeUserIds ?? [],
         route.promptHandoff,
       );
       const provider = this.providers.resolve(input.env);
@@ -186,7 +183,6 @@ export class AgentTurnRunner {
             conversationId: input.conversationId,
             turnId: input.turnId,
             proposalMode: input.proposalMode,
-            scopeUserIds: input.scopeUserIds ?? [],
             collectCard: (card) => {
               pendingCard = card;
             },
