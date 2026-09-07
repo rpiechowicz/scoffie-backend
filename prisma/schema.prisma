@@ -923,8 +923,15 @@ model AgentTurn {
   @@index([userId, createdAt])
 }
 
-/// Jeden wiersz na żądanie do API dostawcy — surowiec do kalibracji modelu
+/// Jeden wiersz na FAZĘ tury (model + wysiłek) — surowiec do kalibracji modelu
 /// kosztów (tokeny z cache osobno, latencja, powód zatrzymania).
+///
+/// KOMENTARZ MÓWIŁ „jeden wiersz na żądanie do API" I BYŁ NIEPRAWDZIWY od
+/// chwili, gdy tura dostała fazy: `AgentTurnRunner.usageRows` dopisuje jeden
+/// wiersz na fazę, a nie na żądanie. Ile żądań poszło w tej fazie, mówi
+/// dopiero `apiCalls` — bez tej kolumny z produkcji nie dawało się policzyć
+/// ani mediany, ani ogona rund, czyli jedynych liczb, po których widać
+/// pętlę narzędzi.
 model AiUsage {
   id               String   @id @default(uuid()) @db.Uuid
   /// Nullable od 2.09.2026: księga kosztów to dane ROZLICZENIOWE i musi
@@ -944,6 +951,11 @@ model AiUsage {
   cacheWriteTokens Int      @default(0)
   outputTokens     Int      @default(0)
   costMicroUsd     Int      @default(0)
+  /// Ile żądań do modelu złożyło się na ten wiersz (1 + rundy narzędziowe
+  /// tej fazy). Nullable CELOWO: wiersze sprzed 7.09.2026 tej liczby nie
+  /// znają, a `0` znaczyłoby „zero żądań" — czyli nieprawdę wyglądającą jak
+  /// pomiar. `NULL` znaczy „nie wiadomo" i tak też liczą to raporty.
+  apiCalls         Int?
   latencyMs        Int?
   createdAt        DateTime @default(now())
 

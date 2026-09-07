@@ -52,7 +52,7 @@ describe('readAgentEnv', () => {
     });
   });
 
-  it('sufit kosztu tury: off = null, ułamki ok, śmieci = domyślny $1', () => {
+  it('sufit kosztu tury: off = null, ułamki ok, śmieci = wartość domyślna', () => {
     expect(readAgentEnv({ AI_MAX_TURN_COST_USD: 'off' }).maxTurnCostUsd).toBe(
       null,
     );
@@ -60,7 +60,7 @@ describe('readAgentEnv', () => {
       0.5,
     );
     expect(readAgentEnv({ AI_MAX_TURN_COST_USD: 'dużo' }).maxTurnCostUsd).toBe(
-      1,
+      AGENT_ENV_DEFAULTS.maxTurnCostUsd,
     );
   });
 

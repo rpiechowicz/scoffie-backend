@@ -294,6 +294,14 @@ export class AgentTurnRunner {
    * Suma kosztu wierszy jest zawsze równa kosztowi tury, bo fazy powstają
    * z tych samych wywołań, które składają się na `usage` — budżet dobowy i
    * metryki liczą dalej z sumy, nie stąd.
+   *
+   * `apiCalls` idzie do księgi razem z kosztem, bo bez niego wiersz nie mówi,
+   * ILE żądań się na niego złożyło — a to jedyna droga do mediany i ogona
+   * rund liczonych z PRODUKCJI, nie z benchmarku. Przy fazach bierzemy
+   * `phase.apiCalls` (każda faza liczy własne żądania), bez faz —
+   * `params.apiCalls`, czyli licznik całej tury. Gdy dostawca nie podał
+   * liczby (błąd przed pierwszym żądaniem), zostaje `null`: „nie wiadomo",
+   * a nie „zero".
    */
   private usageRows(
     input: RunTurnInput,
@@ -302,6 +310,8 @@ export class AgentTurnRunner {
       fallbackModel: string;
       fallbackEffort: string;
       usage: AgentProviderUsage;
+      /** Żądania CAŁEJ tury — używane tylko w wariancie bez faz. */
+      apiCalls?: number;
       stopReason: string | null;
       durationMs: number;
     },
@@ -328,6 +338,7 @@ export class AgentTurnRunner {
           cacheWriteTokens: params.usage.cacheWriteTokens,
           outputTokens: params.usage.outputTokens,
           costMicroUsd: params.usage.costMicroUsd,
+          apiCalls: params.apiCalls ?? null,
         },
       ];
     }
@@ -340,6 +351,7 @@ export class AgentTurnRunner {
       cacheWriteTokens: phase.usage.cacheWriteTokens,
       outputTokens: phase.usage.outputTokens,
       costMicroUsd: phase.usage.costMicroUsd,
+      apiCalls: phase.apiCalls,
     }));
   }
 
@@ -349,6 +361,7 @@ export class AgentTurnRunner {
     verdict: FailureVerdict,
     durationMs: number,
     phases?: AgentPhaseUsage[],
+    apiCalls?: number,
   ): Promise<void> {
     try {
       await this.prisma.aiUsage.createMany({
@@ -360,6 +373,7 @@ export class AgentTurnRunner {
           fallbackModel: resolveRoute(input.env).model,
           fallbackEffort: resolveRoute(input.env).effort,
           usage: spent,
+          ...(apiCalls === undefined ? {} : { apiCalls }),
           stopReason: verdict.errorCode,
           durationMs,
         }),
@@ -489,6 +503,7 @@ export class AgentTurnRunner {
             fallbackModel: result.model ?? input.env.model,
             fallbackEffort: input.env.effort,
             usage,
+            apiCalls: result.apiCalls,
             stopReason: result.stopReason,
             durationMs,
           }),
@@ -595,6 +610,7 @@ export class AgentTurnRunner {
           verdict,
           durationMs,
           error instanceof AgentProviderError ? error.phases : undefined,
+          error instanceof AgentProviderError ? error.apiCalls : undefined,
         );
         await this.counters.addHouseholdCost(
           this.prisma,

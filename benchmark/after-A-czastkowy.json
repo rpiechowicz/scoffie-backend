@@ -1,0 +1,142 @@
+{
+  "label": "fixcheck",
+  "startedAt": "2026-09-07T07:29:15.758Z",
+  "cardsMode": "off",
+  "weekStart": "2026-10-05",
+  "scenarios": 3,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 3,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 4,
+      "maxRounds": 4,
+      "medianCostUsd": 0.141861,
+      "p95CostUsd": 0.234463,
+      "medianLatencyMs": 6552,
+      "cacheHitRatio": 0.5481271755931874,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 1,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.141861
+        },
+        {
+          "group": 7,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.136158
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g1-wtorek-obiad",
+      "group": 1,
+      "pyta": "Czy proste pytanie o plan czyta plan, zamiast zgadywać?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 4725,
+      "inputTokens": 4,
+      "outputTokens": 116,
+      "cacheReadTokens": 31606,
+      "cacheWriteTokens": 33593,
+      "cacheHitRatio": 0.484732297593669,
+      "costMicroUsd": 141861,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3617,
+      "answer": "We wtorek na obiad masz bowl z kurczakiem, kaszą gryczaną i jajkiem – 588 kcal, gotowe w około 35 minut.",
+      "error": null
+    },
+    {
+      "scenario": "g7-domownik-bez-zgody",
+      "group": 7,
+      "pyta": "P0: czy konflikt alergenowy wraca do modelu BEZ kodu alergenu i bez danych osoby bez zgody?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "check_plan_conflicts"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 6552,
+      "inputTokens": 4,
+      "outputTokens": 211,
+      "cacheReadTokens": 31741,
+      "cacheWriteTokens": 31923,
+      "cacheHitRatio": 0.49853929760633287,
+      "costMicroUsd": 136158,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": null,
+      "answer": "Sprawdziłem środową kolację — wynik jest negatywny. Danie zawiera alergen, na który reaguje jeden z domowników (nie mam wglądu w profil tej osoby, bo nie wyraziła zgody na asystenta, ale serwer wykrył konflikt). Trzeba zmienić to danie na inne.\n\nChcesz, żebym od razu zaproponował/zapisał zamiennik na środową kolację?",
+      "error": null
+    },
+    {
+      "scenario": "g7-wykluczenia",
+      "group": 7,
+      "pyta": "Czy wykluczony składnik działa tak samo twardo jak alergen?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "apply_week_plan",
+        "apply_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 4,
+      "latencyMs": 23356,
+      "inputTokens": 8,
+      "outputTokens": 1725,
+      "cacheReadTokens": 96528,
+      "cacheWriteTokens": 49473,
+      "cacheHitRatio": 0.6611099315795602,
+      "costMicroUsd": 234463,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 56,
+      "answer": "Zapisane. Na poniedziałek, wtorek i środę dodałem obiady i kolacje bez pieczarek — zgodnie z Twoim wykluczeniem:\n\n- Poniedziałek: obiad — kurczak pieczony z batatem i cukinią; kolacja — dorsz pieczony z cukinią i gremolatą.\n- Wtorek: obiad — chili con carne z indykiem i ryżem; kolacja — klopsiki z indyka w sosie pomidorowym z ryżem.\n- Środa: obiad — pierś z indyka pieczona z ziemniakami i brokułem; kolacja — mintaj pieczony z warzywami korzeniowymi.\n\nDwie kolacje (dorsz i mintaj) zawierają rybę — daj znać, jeśli to problem, to podmienię.",
+      "error": null
+    }
+  ]
+}

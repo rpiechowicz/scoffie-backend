@@ -19,7 +19,8 @@ export const UPSTREAM_BREAKER_DEFAULTS: UpstreamBreakerOptions = {
  * Chodzi o pieniądze i o czas użytkownika. Gdy Anthropic ma awarię albo
  * przycina nas limitem, każda kolejna tura i tak padnie — ale najpierw
  * zdejmie kwotę z licznika, zajmie lease rozmowy na czas timeoutu i pokaże
- * użytkownikowi kręciołek na 90 sekund. Odmowa NA WEJŚCIU (przed transakcją)
+ * użytkownikowi kręciołek aż do `AI_TURN_TIMEOUT_MS`. Odmowa NA WEJŚCIU
+ * (przed transakcją)
  * jest tańsza i uczciwsza: klient dostaje 503 i wie, że ma spróbować później.
  *
  * Stan w pamięci procesu — jedna instancja na Railway. Do kontenera trafia

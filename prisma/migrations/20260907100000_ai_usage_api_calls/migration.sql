@@ -1,0 +1,15 @@
+-- Ile żądań do modelu złożyło się na jeden wiersz księgi.
+--
+-- PO CO. `AiUsage` opisywał się w schemacie jako „jeden wiersz na żądanie do
+-- API", ale `AgentTurnRunner.usageRows` od czasu faz dopisuje jeden wiersz na
+-- FAZĘ (model + wysiłek), a faza to jedno albo dwanaście żądań. Dostawca tę
+-- liczbę zna (`AgentPhaseUsage.apiCalls`) i wyrzucał ją do kosza przy zapisie,
+-- więc z produkcji nie dawało się policzyć ani mediany rund, ani jej ogona —
+-- czyli jedynych liczb, po których widać, że model kręci się w pętli narzędzi.
+-- Bez nich decyzja o `MAX_TOOL_ROUNDS` byłaby zgadywaniem.
+--
+-- NULLABLE CELOWO. Wiersze sprzed tej migracji tej liczby nie znają. `0`
+-- znaczyłoby „zero żądań do modelu" — nieprawdę wyglądającą jak pomiar, która
+-- zaniżałaby każdą średnią. `NULL` znaczy „nie wiadomo" i raporty mają to
+-- pomijać, a nie wliczać.
+ALTER TABLE "AiUsage" ADD COLUMN "apiCalls" INTEGER;
