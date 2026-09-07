@@ -54,13 +54,6 @@ export class PostMessageDto {
    * znaczy „nic ponad tekst": stary build dostaje dotychczasowe zachowanie
    * i nie zobaczy tury, która kończy się przyciskiem, którego nie ma.
    */
-  @ApiPropertyOptional({ type: [String], format: 'uuid' })
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(12)
-  @IsUUID('4', { each: true })
-  scopeUserIds?: string[];
-
   @ApiPropertyOptional({ example: ['cards.v1'], type: [String] })
   @IsOptional()
   @IsArray()

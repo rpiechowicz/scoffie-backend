@@ -56,14 +56,18 @@ import { DayOfWeek, MealType } from '@prisma/client';
  * ma wybrać inne danie, a nie poznać, na co uczulony jest domownik bez zgody
  * (polityka §6). Kod naruszenia zostaje — po nim model wie, co poprawić.
  *
- * REDAKCJA ROZPOZNAJE POLE `violations` I TYLKO JE. To nie jest szczegół
- * implementacji, tylko kontrakt: każde narzędzie, które oddaje modelowi
- * naruszenia bramki planu, MUSI nazwać je `violations`. Do 7.09.2026
- * `check_plan_conflicts` nazywał je `conflicts` i cała ta funkcja go mijała —
- * komunikat „Danie zawiera alergeny domownika: LACTOSE, GLUTEN." szedł do
- * modelu (a stamtąd do odpowiedzi) w całości, także dla domownika, który
- * NIGDY nie zgodził się na asystenta. Nowe narzędzie z własną nazwą pola
- * powtórzyłoby ten błąd bez jednej linijki ostrzeżenia.
+ * REDAKCJA IDZIE ZA KSZTAŁTEM, NIE ZA NAZWĄ POLA. Szukamy obiektu, który ma
+ * `code` z tabeli niżej i `message` — gdziekolwiek w wyniku by nie siedział.
+ *
+ * Wcześniej ta funkcja rozpoznawała wyłącznie pole o nazwie `violations`
+ * i to była PRZYCZYNA wycieku z 7.09.2026: `check_plan_conflicts` nazywał je
+ * `conflicts`, więc komunikat „Danie zawiera alergeny domownika: LACTOSE,
+ * GLUTEN." przechodził nietknięty do modelu, a stamtąd do odpowiedzi — także
+ * dla domownika, który NIGDY nie zgodził się na asystenta. Samo ujednolicenie
+ * nazwy naprawiło ten jeden przypadek i zostawiło klasę błędu: następne
+ * narzędzie z polem `problems` albo `issues` przeciekłoby tak samo, a jedyną
+ * obroną byłby komentarz. Komentarz nie jest bramką, więc nazwa pola przestała
+ * mieć znaczenie dla bezpieczeństwa.
  */
 const REDACTED_VIOLATION_MESSAGES: Record<string, string> = {
   RECIPE_ALLERGEN_CONFLICT:
@@ -72,22 +76,65 @@ const REDACTED_VIOLATION_MESSAGES: Record<string, string> = {
     'Danie zawiera składnik, którego ktoś z jedzących nie je — wybierz inne danie.',
 };
 
+/**
+ * Sufit zagnieżdżenia. Wyniki narzędzi to zwykły JSON z serwisów (bez cykli),
+ * więc to nie jest ochrona przed pętlą, tylko przed kosztem: gdyby kiedyś
+ * wpadł tu wynik o nieoczekiwanej głębokości, redakcja ma się zatrzymać,
+ * a nie chodzić po całym grafie.
+ */
+const MAX_REDACTION_DEPTH = 8;
+
+/** Zredagowany komunikat dla tego obiektu albo `null`, gdy go nie dotyczy. */
+function redactedMessageFor(record: Record<string, unknown>): string | null {
+  const { code, message } = record;
+  if (typeof code !== 'string' || typeof message !== 'string') return null;
+  return REDACTED_VIOLATION_MESSAGES[code] ?? null;
+}
+
+/**
+ * Zwraca TĘ SAMĄ referencję, gdy nic nie wymagało redakcji — dzięki temu
+ * wynik bez naruszeń (czyli zdecydowana większość) nie kosztuje ani jednej
+ * alokacji, a testy mogą sprawdzać brak zmian tożsamością.
+ */
+function redactNode(node: unknown, depth: number): unknown {
+  if (
+    depth > MAX_REDACTION_DEPTH ||
+    node === null ||
+    typeof node !== 'object'
+  ) {
+    return node;
+  }
+
+  if (Array.isArray(node)) {
+    let changed = false;
+    const next = node.map((entry) => {
+      const redacted = redactNode(entry, depth + 1);
+      if (redacted !== entry) changed = true;
+      return redacted;
+    });
+    return changed ? next : node;
+  }
+
+  const record = node as Record<string, unknown>;
+  const replacement = redactedMessageFor(record);
+  let next: Record<string, unknown> | null =
+    replacement === null ? null : { ...record, message: replacement };
+
+  for (const [key, value] of Object.entries(record)) {
+    // `message` już podmieniony — schodzenie w nie miałoby co poprawić.
+    if (key === 'message' && replacement !== null) continue;
+    const redacted = redactNode(value, depth + 1);
+    if (redacted !== value) {
+      next = next ?? { ...record };
+      next[key] = redacted;
+    }
+  }
+
+  return next ?? node;
+}
+
 export function redactViolationsForModel<T>(result: T): T {
-  if (!result || typeof result !== 'object') return result;
-  const record = result as Record<string, unknown>;
-  if (!Array.isArray(record.violations)) return result;
-  const violations = record.violations as unknown[];
-  return {
-    ...record,
-    violations: violations.map((violation): unknown => {
-      if (!violation || typeof violation !== 'object') return violation;
-      const entry = violation as { code?: string; message?: string };
-      const redacted = entry.code
-        ? REDACTED_VIOLATION_MESSAGES[entry.code]
-        : null;
-      return redacted ? { ...entry, message: redacted } : violation;
-    }),
-  } as T;
+  return redactNode(result, 0) as T;
 }
 
 /**
@@ -118,6 +165,108 @@ export type WeekPlanForModel = {
   weekStart: string;
   items: WeekPlanItemForModel[];
 };
+
+/**
+ * Wynik zapisu tygodnia w kształcie dla modelu.
+ *
+ * `plan` przechodzi przez tę samą projekcję, co `get_week_plan`. Zmierzone
+ * 7.09.2026: wynik `apply_week_plan` po zapisie 21 pozycji ważył 99 581 B,
+ * z czego 99 477 B (99,9 %) to było pole `plan` — pełna encja z listą
+ * składników każdego dania, `imageUrl`, `authorId` i znacznikami czasu.
+ * Model dostawał z powrotem ~33 tys. tokenów opisujących stan, KTÓRY SAM
+ * przed chwilą wysłał. A że w produkcji `AI_CARDS_MODE=off`, to jest GŁÓWNA
+ * ścieżka zapisu planu — czyli najdroższa tura płaciła ten rachunek za
+ * każdym razem.
+ *
+ * Pola nie usuwamy, tylko chudzimy: potwierdzenie ma dalej pochodzić z BAZY
+ * po transakcji, a nie z pamięci modelu o tym, co wysłał. To ta sama reguła,
+ * co przy kartach („liczby liczy serwer, model cytuje").
+ */
+export type ApplyWeekPlanForModel = Omit<ApplyWeekPlanResult, 'plan'> & {
+  plan: WeekPlanForModel | null;
+};
+
+/**
+ * Przepis po zapisie — POTWIERDZENIE, nie encja.
+ *
+ * `create_recipe` i `update_recipe` oddawały modelowi cały wiersz z bazy:
+ * 1 299 B i 1 184 B (pomiar 7.09.2026), z czego 362 B to sam `imageUrl`.
+ * Model nie ma co zrobić z adresem zdjęcia — ale MA gdzie go wkleić, bo
+ * pisze odpowiedź użytkownikowi. Zostaje to, po co się tu przychodzi:
+ * identyfikator do dalszej pracy i MAKRA POLICZONE PRZEZ SERWER, bo to
+ * jedyna liczba, której model nie ma prawa podać sam.
+ */
+export type RecipeForModel = {
+  id: string;
+  title: string;
+  mealType: string;
+  servings: number;
+  prepTimeMinutes: number;
+  kcalPerServing: number;
+  allergens: string[];
+  dietTags: string[];
+  /** Ile składników zapisał serwer — po tym model pozna, że coś wypadło. */
+  ingredientCount: number;
+};
+
+export function projectRecipeForModel(recipe: {
+  id: string;
+  title: string;
+  mealType: string;
+  servings: number | null;
+  prepTimeMinutes: number | null;
+  nutritionKcal: number | null;
+  allergens: string[];
+  dietTags: string[];
+  ingredients?: unknown[];
+}): RecipeForModel {
+  const servings = Math.max(1, recipe.servings ?? 1);
+  return {
+    id: recipe.id,
+    title: recipe.title,
+    mealType: recipe.mealType,
+    servings,
+    prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
+    kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
+    allergens: recipe.allergens,
+    dietTags: recipe.dietTags,
+    ingredientCount: recipe.ingredients?.length ?? 0,
+  };
+}
+
+/**
+ * Składnik z wyszukiwarki — tyle, ile trzeba do zbudowania przepisu.
+ *
+ * Wypadają `category`, `dietTags` i `gramsPerPiece`: model wybiera składnik
+ * po nazwie, a alergeny i tagi diety przepisu liczy serwer ze składu, więc
+ * nie ma ich po co czytać przy wyborze. `allergens` zostają, bo po nich
+ * model widzi, że dokłada do przepisu coś, czego domownik nie zje.
+ */
+export type IngredientForModel = {
+  id: string;
+  name: string;
+  allowedUnits: string[];
+  hasNutrition: boolean;
+  allergens: string[];
+};
+
+export function projectIngredientsForModel(
+  rows: readonly {
+    id: string;
+    name: string;
+    allowedUnits: string[];
+    hasNutrition: boolean;
+    allergens: string[];
+  }[],
+): IngredientForModel[] {
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    allowedUnits: row.allowedUnits,
+    hasNutrition: row.hasNutrition,
+    allergens: row.allergens,
+  }));
+}
 
 /** Wiersz planu w kształcie, w jakim oddaje go `WeeklyPlansService`. */
 type PlanItemForProjection = {
@@ -221,16 +370,6 @@ export type AgentToolContext = {
    * (patrz `modeBlock` w `agent-system-prompt.ts`).
    */
   proposalMode: boolean;
-  /**
-   * Kogo dotyczy pytanie — wybór użytkownika zrobiony PRZED wysłaniem.
-   *
-   * Puste = całe gospodarstwo. To NIE jest podpowiedź dla modelu, tylko
-   * wartość domyślna audytorium: gdy model nie poda uczestników, posiłek
-   * dostają wybrane osoby, a nie cały dom. Odwrotna kolejność (model
-   * decyduje, zakres doradza) kończyła się tym, że „chcę inne śniadanie niż
-   * Gaba" zmieniało śniadanie CAŁEMU domowi.
-   */
-  scopeUserIds: string[];
   /**
    * Karta, która NIE zapisuje niczego (pytanie, zestawienie, wybór).
    *
@@ -394,11 +533,13 @@ export class AgentToolExecutor {
         return this.weekBalanceForModel(input, context, str('week_start'));
 
       case 'search_ingredients':
-        return this.ingredients.search({
-          query: str('query'),
-          onlyWithNutrition: input.only_with_nutrition === true,
-          ...(typeof input.limit === 'number' ? { limit: input.limit } : {}),
-        });
+        return this.ingredients
+          .search({
+            query: str('query'),
+            onlyWithNutrition: input.only_with_nutrition === true,
+            ...(typeof input.limit === 'number' ? { limit: input.limit } : {}),
+          })
+          .then(projectIngredientsForModel);
 
       case 'ask_clarifying_question':
         return Promise.resolve(this.askClarifyingQuestion(input, context));
@@ -451,7 +592,9 @@ export class AgentToolExecutor {
           ingredients: this.toIngredients(input.ingredients),
           ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
         };
-        return this.recipes.create(userId, payload as CreateRecipeDto);
+        return this.recipes
+          .create(userId, payload as CreateRecipeDto)
+          .then(projectRecipeForModel);
       }
 
       case 'update_recipe': {
@@ -470,11 +613,9 @@ export class AgentToolExecutor {
             : {}),
           ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
         };
-        return this.recipes.update(
-          userId,
-          str('recipe_id'),
-          payload as UpdateRecipeDto,
-        );
+        return this.recipes
+          .update(userId, str('recipe_id'), payload as UpdateRecipeDto)
+          .then(projectRecipeForModel);
       }
 
       case 'remember_note':
@@ -661,9 +802,11 @@ export class AgentToolExecutor {
     );
 
     const reason = asString(input.reason).trim();
+    // Brak uczestników od modelu = całe gospodarstwo. Kogo dotyczy pytanie,
+    // model czyta z samego zdania — nie ma już osobnego wyboru w aplikacji.
     const participantIds = Array.isArray(input.participant_user_ids)
       ? (input.participant_user_ids as string[])
-      : context.scopeUserIds;
+      : [];
 
     return this.proposals.createSwapProposal({
       userId: context.userId,
@@ -707,11 +850,7 @@ export class AgentToolExecutor {
         note: asString(entry.note).trim() || null,
       }))
       .filter((portion) => portion.userId.length > 0);
-    const withScope =
-      portions.length > 0
-        ? portions
-        : context.scopeUserIds.map((userId) => ({ userId, note: null }));
-    if (withScope.length === 0) {
+    if (portions.length === 0) {
       throw new AppException(
         'VALIDATION_ERROR',
         'Podaj, kto je to danie — bez tego karta nie ma o czym mówić.',
@@ -730,7 +869,7 @@ export class AgentToolExecutor {
       mealType: asString(input.meal_type) as MealType,
       recipeId,
       dish: await this.recipeSide(recipeId, context),
-      portions: withScope,
+      portions,
     });
   }
 
@@ -750,14 +889,12 @@ export class AgentToolExecutor {
    * rozjechać. Do modelu wraca sam werdykt (~50 tokenów), bez składów i bez
    * imion osób, które nie wyraziły zgody na asystenta.
    *
-   * POLE NAZYWA SIĘ `violations`, NIE `conflicts`. Nazwa jest tu mechanizmem
-   * bezpieczeństwa, a nie kwestią gustu: redakcja
-   * (`redactViolationsForModel`) rozpoznaje wyłącznie `violations`, więc pod
-   * starą nazwą surowy komunikat bramki — „Danie zawiera alergeny domownika:
-   * LACTOSE, GLUTEN." — szedł do modelu nietknięty. Dwa zdania niżej ten sam
-   * model pisał go użytkownikowi, ujawniając alergie domownika, który nie
-   * wyraził zgody na asystenta. To pole nie jest częścią kontraktu z
-   * telefonem: wynik narzędzia widzi wyłącznie model.
+   * POLE NAZYWA SIĘ `violations`, NIE `conflicts` — dla spójności z
+   * `apply_week_plan` i `propose_*`, bo to dokładnie ta sama bramka i te same
+   * kody. Nazwa NIE JEST już jednak mechanizmem bezpieczeństwa: redakcja idzie
+   * za kształtem obiektu (`code` + `message`), więc pomyłka w nazwie nie
+   * otworzy wycieku po raz drugi. To pole nie jest częścią kontraktu
+   * z telefonem — wynik narzędzia widzi wyłącznie model.
    */
   /**
    * Plan tygodnia dla modelu — pełny odczyt domenowy, zawężony na granicy.
@@ -771,21 +908,59 @@ export class AgentToolExecutor {
     context: AgentToolContext,
     weekStart: string,
   ): Promise<WeekPlanForModel> {
-    const [plan, visible] = await Promise.all([
+    const [plan, view] = await Promise.all([
       this.weeklyPlans.getByHouseholdAndWeek(
         context.userId,
         context.householdId,
         weekStart,
       ),
-      this.households
-        .memberPreferences(context.userId, context.householdId)
-        .then((all) => this.prompts.membersForModel(all))
-        .then((result) => new Set(result.members.map((m) => m.userId))),
+      this.planViewFor(context),
     ]);
-    const refByRecipeId = new Map(
-      Object.entries(context.catalogIndex).map(([ref, id]) => [id, ref]),
-    );
-    return projectWeekPlanForModel(plan, refByRecipeId, visible);
+    return projectWeekPlanForModel(plan, view.refByRecipeId, view.visible);
+  }
+
+  /**
+   * Dwie rzeczy potrzebne, żeby przełożyć plan na kształt dla modelu:
+   * odwrotny indeks katalogu i zbiór osób, które model może zobaczyć.
+   *
+   * Jedno miejsce, bo używają tego dwie drogi — odczyt (`get_week_plan`)
+   * i potwierdzenie zapisu (`apply_week_plan`). Rozjazd między nimi znaczyłby,
+   * że ten sam tydzień wygląda inaczej zależnie od tego, którędy się o niego
+   * zapytało.
+   */
+  private async planViewFor(context: AgentToolContext): Promise<{
+    refByRecipeId: Map<string, string>;
+    visible: Set<string>;
+  }> {
+    const visible = await this.households
+      .memberPreferences(context.userId, context.householdId)
+      .then((all) => this.prompts.membersForModel(all))
+      .then((result) => new Set(result.members.map((m) => m.userId)));
+    return {
+      refByRecipeId: new Map(
+        Object.entries(context.catalogIndex).map(([ref, id]) => [id, ref]),
+      ),
+      visible,
+    };
+  }
+
+  /**
+   * Wynik zapisu przełożony dla modelu — patrz `ApplyWeekPlanForModel`.
+   *
+   * Przy `plan: null` (dry-run albo naruszenia) nie ma czego chudzić i nie
+   * pytamy bazy o domowników.
+   */
+  private async applyResultForModel(
+    result: ApplyWeekPlanResult,
+    context: AgentToolContext,
+  ): Promise<ApplyWeekPlanForModel> {
+    const { plan, ...rest } = result;
+    if (!plan) return { ...rest, plan: null };
+    const view = await this.planViewFor(context);
+    return {
+      ...rest,
+      plan: projectWeekPlanForModel(plan, view.refByRecipeId, view.visible),
+    };
   }
 
   private async checkPlanConflicts(
@@ -1113,7 +1288,7 @@ export class AgentToolExecutor {
     input: Record<string, unknown>,
     context: AgentToolContext,
     weekStart: string,
-  ): Promise<ApplyWeekPlanResult> {
+  ): Promise<ApplyWeekPlanForModel> {
     // Zmyślony indeks katalogu zatrzymujemy TUTAJ, a nie w walidacji DTO.
     // Przepuszczony dalej wróciłby jako „recipeId must be a UUID" — model
     // mówi indeksami (`R07`), więc taki komunikat nic mu nie mówi i pętla
@@ -1143,7 +1318,7 @@ export class AgentToolExecutor {
         payload as ApplyWeekPlanDto,
       );
 
-    if (dryRun) return run();
+    if (dryRun) return this.applyResultForModel(await run(), context);
 
     const plan = await this.counters.resolvePlan(context.householdId, {
       userId: context.userId,
@@ -1187,7 +1362,7 @@ export class AgentToolExecutor {
         result.changes.deleted;
       if (!result.applied || changed === 0)
         await this.refundPlan(scopeId, periodKey);
-      return result;
+      return this.applyResultForModel(result, context);
     } catch (error) {
       await this.refundPlan(scopeId, periodKey);
       throw error;
@@ -1245,11 +1420,10 @@ export class AgentToolExecutor {
     if (!Array.isArray(slots)) return [];
     return slots.map((raw) => {
       const slot = (raw ?? {}) as Record<string, unknown>;
-      // Uczestnicy od modelu, a gdy ich nie podał — z zakresu pytania.
-      // Pusta tablica z obu stron znaczy „całe gospodarstwo" i tak zostaje.
+      // Uczestnicy od modelu; brak listy znaczy „całe gospodarstwo".
       const participantIds = Array.isArray(slot.participant_user_ids)
         ? (slot.participant_user_ids as string[])
-        : context.scopeUserIds;
+        : [];
 
       return {
         dayOfWeek: slot.day_of_week,

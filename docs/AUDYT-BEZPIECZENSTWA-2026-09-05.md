@@ -74,8 +74,8 @@ Weryfikacja: `pnpm typecheck`, `pnpm test` (2252), `pnpm lint:check`,
 
 ### 2.2. Decyzje produktowe (wymagają Twojego „tak”, potem kod)
 
-- [ ] **Dane zdrowotne domowników.** `households:memberPreferences`,
-      `GET /agent/context` i `weeklyPlans:balance` z `memberUserId` oddają
+- [ ] **Dane zdrowotne domowników.** `households:memberPreferences`
+      i `weeklyPlans:balance` z `memberUserId` oddają
       alergeny, dietę, cele i makra WSZYSTKICH domowników każdemu członkowi
       domu — bez zgody tych osób (art. 9 RODO). Opcje: (a) przełącznik
       „udostępniaj domownikom” per użytkownik na wzór zgody `AI_ASSISTANT`,
@@ -84,7 +84,7 @@ Weryfikacja: `pnpm typecheck`, `pnpm test` (2252), `pnpm lint:check`,
 - [ ] **RLS w Postgresie.** Dziś zero polityk i ról; izolacja gospodarstw
       jest w 100% aplikacyjna (spójna: 47 tras + 45 handlerów WS z bramką).
       Minimum: osobna rola aplikacyjna bez DDL. Docelowo `ENABLE ROW LEVEL
-    SECURITY` na tabelach z `householdId`/`userId` i polityki na
+  SECURITY` na tabelach z `householdId`/`userId` i polityki na
       `current_setting('app.user_id')` ustawiane `SET LOCAL` w transakcji.
 - [ ] **Zaproszenia przez Universal Links (iOS).** Token zaproszenia idzie
       w `scoffie://invite?token=…` (`SessionStore.swift`), a inna aplikacja

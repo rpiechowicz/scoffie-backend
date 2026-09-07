@@ -145,7 +145,6 @@ describe('Narzędzia asystenta E2E', () => {
       turnId: '00000000-0000-4000-8000-00000000c0a2',
       // Domyślnie stary tor: reszta tej suity sprawdza zapis wprost.
       proposalMode: false,
-      scopeUserIds: [],
       collectCard: (card) => collectedCards.push(card),
     };
   });
@@ -321,7 +320,11 @@ describe('Narzędzia asystenta E2E', () => {
           limit: 1,
         }),
       );
-      const recipe = data<{ id: string; nutritionKcal: number }>(
+      const recipe = data<{
+        id: string;
+        kcalPerServing: number;
+        ingredientCount: number;
+      }>(
         await run('create_recipe', {
           title: 'Danie asystenta',
           meal_type: 'DINNER',
@@ -332,8 +335,10 @@ describe('Narzędzia asystenta E2E', () => {
         }),
       );
       recipeId = recipe.id;
-      // Makra liczy serwer — model ich nie podawał i nie mógł.
-      expect(recipe.nutritionKcal).toBeGreaterThan(0);
+      // Makra liczy serwer — model ich nie podawał i nie mógł. Wynik oddaje je
+      // NA PORCJĘ, tak jak katalog i plan; w bazie siedzą dla całego przepisu.
+      expect(recipe.kcalPerServing).toBeGreaterThan(0);
+      expect(recipe.ingredientCount).toBe(1);
     });
 
     it('pominięty czas przygotowania nie wywraca zapisu', async () => {
@@ -1143,6 +1148,60 @@ describe('Narzędzia asystenta E2E', () => {
       // Sufit skalowany z limitu 8 KB na pełny tydzień (21 pozycji), który
       // zmierzył `agent-week-plan-projection.spec.ts`.
       expect(JSON.stringify(plan).length).toBeLessThan((8192 / 21) * 2 + 200);
+    });
+
+    /**
+     * BUDŻET ROZMIARU NA KAŻDE NARZĘDZIE, nie tylko na `get_week_plan`.
+     *
+     * Odchudzenie jednego wyniku nic nie daje, jeśli sąsiednie narzędzie
+     * oddaje ten sam model domenowy tylnymi drzwiami — a dokładnie to się
+     * stało: `get_week_plan` schudł do 3,6 KB, podczas gdy `apply_week_plan`
+     * dalej zwracał 99,5 KB, bo echo zapisanego planu nikomu nie rzuciło się
+     * w oczy. Ten opis mierzy WSZYSTKIE grube ścieżki naraz, więc następne
+     * `include: { ingredients: true }` przewróci go, zanim ktoś zapłaci za nie
+     * rachunek u dostawcy.
+     *
+     * Sufity są z pomiaru (7.09.2026) plus zapas na dłuższe tytuły; nie są
+     * dobrane pod zielony wynik. Wartości zmierzone: apply 3 689 B,
+     * get_week_plan 3 585 B, create/update ~212 B, search (20 wyników) 2 730 B.
+     */
+    it('żadne narzędzie nie oddaje modelowi modelu domenowego', async () => {
+      const rozmiar = (wynik: AgentToolResult) =>
+        Buffer.byteLength(
+          JSON.stringify(wynik.ok ? wynik.data : wynik.error),
+          'utf8',
+        );
+
+      const zapis = await run('apply_week_plan', {
+        week_start: SLIM_WEEK,
+        slots: [
+          {
+            day_of_week: 'FRI',
+            meal_type: 'DINNER',
+            recipe: secondCatalogIndex,
+          },
+        ],
+      });
+      // Trzy pozycje w tygodniu; sufit skalowany do pełnych 21.
+      expect(rozmiar(zapis)).toBeLessThan((8192 / 21) * 3 + 400);
+      const zapisJson = JSON.stringify(zapis);
+      for (const zabronione of ['ingredients', 'imageUrl', 'authorId']) {
+        expect(zapisJson).not.toContain(zabronione);
+      }
+
+      const szukaj = await run('search_ingredients', { query: 'a', limit: 20 });
+      expect(rozmiar(szukaj)).toBeLessThan(4096);
+      // Model wybiera składnik po nazwie i jednostce; kategoria i tagi diety
+      // nie biorą udziału w tej decyzji, bo skład przepisu liczy serwer.
+      for (const zabronione of ['category', 'dietTags', 'gramsPerPiece']) {
+        expect(JSON.stringify(szukaj)).not.toContain(zabronione);
+      }
+
+      const bilans = await run('get_week_balance', { week_start: SLIM_WEEK });
+      expect(rozmiar(bilans)).toBeLessThan(4096);
+
+      const dom = await run('get_household_context');
+      expect(rozmiar(dom)).toBeLessThan(2048);
     });
 
     it('referencja z planu daje się użyć w kolejnym narzędziu', async () => {

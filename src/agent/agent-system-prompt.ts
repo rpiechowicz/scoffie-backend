@@ -45,13 +45,6 @@ export type HouseholdPromptContext = {
   /** Czy model proponuje (i człowiek zatwierdza), czy zapisuje sam. */
   proposalMode: boolean;
   /**
-   * Kogo dotyczy TO pytanie — imiona wybrane w aplikacji.
-   *
-   * Puste = całe gospodarstwo. Zakres jest wyborem użytkownika zrobionym
-   * PRZED wysłaniem, więc model nie ma go negocjować ani zgadywać z treści.
-   */
-  scopeNames: string[];
-  /**
    * Czy tura zaczyna na tańszym modelu z `start_planning` (AI_MODEL_TOOLS).
    * Blok mówi tańszemu modelowi, na co odpowiada sam, a kiedy oddaje pałeczkę.
    */
@@ -249,17 +242,6 @@ export function buildSystemPrompt(
           `Poza listą jest jeszcze ${context.membersWithheld} domowników bez zgody na asystenta:`,
           'nie znasz ich preferencji, ale serwer pilnuje ich alergenów i wykluczeń przy',
           'zapisie — odmowę z tego powodu przyjmij i zaproponuj inne danie.',
-        ]
-      : []),
-    // Zakres na KOŃCU listy domowników, bo dotyczy właśnie ich — i tuż przed
-    // pamięcią, czyli najbliżej pytania.
-    ...(context.scopeNames.length > 0
-      ? [
-          '',
-          // Imiona są danymi użytkownika — to samo ogrodzenie, co wyżej.
-          `TO PYTANIE DOTYCZY WYŁĄCZNIE: <zakres>${context.scopeNames.map(fenceSafe).join(', ')}</zakres>.`,
-          'Użytkownik wybrał te osoby w aplikacji przed wysłaniem. Planujesz dla nich',
-          'i wpisujesz je jako uczestników posiłków; reszty domu nie ruszasz.',
         ]
       : []),
     // Pamięć na KOŃCU bloku gospodarstwa: to najbardziej zmienna jego część

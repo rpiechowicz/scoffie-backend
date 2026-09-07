@@ -677,9 +677,6 @@ async function runOnce(
   const planBefore = await readPlan(deps.prisma, built.householdId);
 
   try {
-    const scopeUserIds = (scenario.scope ?? []).map(
-      (key) => built.world.members[key].userId,
-    );
     for (const text of scenario.prompts) {
       const prompt = await deps.prompts.build(
         built.ownerId,
@@ -690,7 +687,6 @@ async function runOnce(
           timeZone: 'Europe/Warsaw',
         },
         proposalMode,
-        scopeUserIds,
         route.promptHandoff,
       );
       messages.push({ role: 'USER', text });
@@ -717,7 +713,6 @@ async function runOnce(
               conversationId: built.conversationId,
               turnId: randomUUID(),
               proposalMode,
-              scopeUserIds,
               collectCard: (card: AgentCard) =>
                 cards.push({
                   kind: card.kind,
