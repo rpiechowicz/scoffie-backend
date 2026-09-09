@@ -447,14 +447,68 @@ describe('WS auth E2E', () => {
       const fresh = rotated.body.refreshToken as string;
       expect(fresh).not.toBe(session.refreshToken);
 
-      // Replay starego tokenu = ktoś ma kopię → nowy też ma przestać działać.
+      // Klient UŻYWA nowej pary — to dowód, że ją dostał. Bez tego kroku
+      // powtórzenie starego tokenu jest nieodróżnialne od zgubionej
+      // odpowiedzi z rotacji i serwer słusznie je ratuje (test niżej).
+      const second = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: fresh })
+        .expect(201);
+      const newest = second.body.refreshToken as string;
+
+      // Replay starego tokenu = ktoś ma kopię → cała rodzina ma paść.
       await request(app.getHttpServer())
         .post('/auth/refresh')
         .send({ refreshToken: session.refreshToken })
         .expect(401);
       await request(app.getHttpServer())
         .post('/auth/refresh')
-        .send({ refreshToken: fresh })
+        .send({ refreshToken: newest })
+        .expect(401);
+    });
+
+    // Telefon wysłał refresh, serwer zrotował token, iOS uśpił proces i
+    // odpowiedź nie dojechała — w Keychain został STARY token. To NIE jest
+    // kradzież i nie może kończyć się wylogowaniem („Sesja wygasła”).
+    it('zgubiona odpowiedź z rotacji: powtórzenie w oknie łaski oddaje świeżą parę', async () => {
+      const session = await devLogin('LostRotation');
+
+      const rotated = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: session.refreshToken })
+        .expect(201);
+      // `rotated.body.refreshToken` udaje parę, która nigdy nie dotarła —
+      // nikt jej nie używa.
+      const lost = rotated.body.refreshToken as string;
+
+      const recovered = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: session.refreshToken })
+        .expect(201);
+      expect(recovered.body.refreshToken).not.toBe(lost);
+      expect(recovered.body.refreshToken).not.toBe(session.refreshToken);
+
+      // Porzucona para jest martwa, a odratowana działa.
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: lost })
+        .expect(401);
+    });
+
+    it('ratunek jest jednorazowy — drugie powtórzenie tego samego tokenu to 401', async () => {
+      const session = await devLogin('LostRotationOnce');
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: session.refreshToken })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: session.refreshToken })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: session.refreshToken })
         .expect(401);
     });
 

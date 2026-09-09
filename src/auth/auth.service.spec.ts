@@ -385,7 +385,13 @@ describe('AuthService', () => {
       // Rotacja jest warunkowa (revokedAt: null) — patrz test wyścigu niżej.
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { tokenHash: expect.any(String), revokedAt: null },
-        data: { revokedAt: expect.any(Date) },
+        data: { revokedAt: expect.any(Date), revokedReason: 'ROTATED' },
+      });
+      // Poprzednik dostaje wskaźnik na następcę — bez niego zgubiona
+      // odpowiedź z rotacji nie ma jak zostać rozpoznana.
+      expect(prisma.refreshToken.updateMany).toHaveBeenLastCalledWith({
+        where: { tokenHash: expect.any(String) },
+        data: { replacedByHash: expect.any(String) },
       });
     });
 
@@ -399,7 +405,7 @@ describe('AuthService', () => {
       );
       expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
         where: { userId: mockRefreshToken.userId, revokedAt: null },
-        data: { revokedAt: expect.any(Date) },
+        data: { revokedAt: expect.any(Date), revokedReason: 'REUSE' },
       });
       expect(jwt.signAsync).not.toHaveBeenCalled();
       expect(prisma.refreshToken.create).not.toHaveBeenCalled();
@@ -424,7 +430,7 @@ describe('AuthService', () => {
       );
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { userId: mockRefreshToken.userId, revokedAt: null },
-        data: { revokedAt: expect.any(Date) },
+        data: { revokedAt: expect.any(Date), revokedReason: 'REUSE' },
       });
       // Rodzina refresh tokenów pada RAZEM z tokenami dostępu — podbicie wersji.
       expect(prisma.user.updateMany).toHaveBeenCalledWith({
@@ -444,6 +450,105 @@ describe('AuthService', () => {
           expiresAt: { lt: expect.any(Date) },
         },
       });
+    });
+
+    // ─── zgubiona odpowiedź z rotacji ────────────────────────────────────
+    //
+    // Telefon wysłał refresh, serwer zrotował token, iOS uśpił proces i
+    // odpowiedź nie dojechała. W Keychain został STARY token. Bez okna łaski
+    // następne uruchomienie wyglądało jak kradzież i kończyło się
+    // wylogowaniem („Sesja wygasła”) mimo że użytkownik nic nie zrobił.
+
+    it('zgubiona odpowiedź z rotacji: nietknięty następca w oknie łaski → świeża para, rodzina żyje', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        ...mockRefreshToken,
+        revokedAt: new Date(Date.now() - 5_000),
+        revokedReason: 'ROTATED',
+        replacedByHash: 'hash-nastepcy',
+      });
+      // Zajęcie następcy się udaje = nikt go nie użył, czyli para nie dotarła.
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      const result = await service.refreshAccessToken('stary-token');
+
+      expect(result).toHaveProperty('accessToken', 'mock-access-token');
+      expect(result).toHaveProperty('refreshToken');
+      // Rodzina NIE pada i tokeny dostępu zostają ważne.
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(1, {
+        where: { tokenHash: 'hash-nastepcy', revokedAt: null },
+        data: { revokedAt: expect.any(Date), revokedReason: 'REUSE' },
+      });
+      // Ratunek jest jednorazowy — powtórzony ten sam token nie jest już
+      // zgubioną odpowiedzią.
+      expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { tokenHash: mockRefreshToken.tokenHash },
+        data: { revokedReason: 'RECOVERED' },
+      });
+    });
+
+    it('drugie powtórzenie tego samego tokenu już nie ratuje — rodzina pada', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        ...mockRefreshToken,
+        revokedAt: new Date(Date.now() - 5_000),
+        revokedReason: 'RECOVERED',
+        replacedByHash: 'hash-nastepcy',
+      });
+
+      await expect(service.refreshAccessToken('stary-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.user.updateMany).toHaveBeenCalled();
+    });
+
+    it('następca już użyty → to jednak replay: rodzina unieważniona, 401', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        ...mockRefreshToken,
+        revokedAt: new Date(Date.now() - 5_000),
+        revokedReason: 'ROTATED',
+        replacedByHash: 'hash-nastepcy',
+      });
+      // Zajęcie następcy nie udaje się = klient parę dostał i jej użył.
+      prisma.refreshToken.updateMany
+        .mockResolvedValueOnce({ count: 0 })
+        .mockResolvedValueOnce({ count: 3 });
+
+      await expect(service.refreshAccessToken('stary-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: mockRefreshToken.userId },
+        data: { tokenVersion: { increment: 1 } },
+      });
+    });
+
+    it('poza oknem łaski nie ratujemy — stara kopia tokenu kasuje rodzinę', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        ...mockRefreshToken,
+        revokedAt: new Date(Date.now() - 10 * 60 * 1000),
+        revokedReason: 'ROTATED',
+        replacedByHash: 'hash-nastepcy',
+      });
+
+      await expect(service.refreshAccessToken('stary-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.user.updateMany).toHaveBeenCalled();
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('token unieważniony przez LOGOUT nigdy nie jest ratowany', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        ...mockRefreshToken,
+        revokedAt: new Date(Date.now() - 1_000),
+        revokedReason: 'LOGOUT',
+        replacedByHash: null,
+      });
+
+      await expect(service.refreshAccessToken('wylogowany')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(jwt.signAsync).not.toHaveBeenCalled();
     });
 
     it('powinno odrzucić wygasły token', async () => {
@@ -469,7 +574,7 @@ describe('AuthService', () => {
       });
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { tokenHash: expect.any(String), revokedAt: null },
-        data: { revokedAt: expect.any(Date) },
+        data: { revokedAt: expect.any(Date), revokedReason: 'LOGOUT' },
       });
     });
 
