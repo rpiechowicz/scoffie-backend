@@ -18,6 +18,7 @@ import {
 import { AgentProgressStep } from './agent-progress';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { AgentTurnRunner } from './agent-turn.runner';
+import { AgentQuotaMailService } from './agent-quota-mail.service';
 import {
   AiUsageCountersService,
   GLOBAL_SCOPE,
@@ -108,6 +109,7 @@ export class AgentTurnsService {
     private readonly config: AgentConfigService,
     private readonly conversations: AgentConversationsService,
     private readonly counters: AiUsageCountersService,
+    private readonly quotaMail: AgentQuotaMailService,
     private readonly breaker: UpstreamBreaker,
     private readonly metrics: AgentMetricsService,
     private readonly runner: AgentTurnRunner,
@@ -462,6 +464,12 @@ export class AgentTurnsService {
           data.clientMessageId,
         );
         if (raced) return { ...raced, requestId };
+      }
+      // Pula wiadomości pusta. Mail MUSI pójść tutaj, a nie przy rzucie:
+      // kwota schodzi wewnątrz transakcji, a odmowa ją wycofuje — wiersz
+      // zakolejkowany w środku zniknąłby razem z nią.
+      if (error instanceof AppException && error.code === 'AI_QUOTA_EXCEEDED') {
+        await this.quotaMail.announce(userId, plan, 'messages');
       }
       throw error;
     }

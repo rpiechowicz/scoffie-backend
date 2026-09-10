@@ -5,6 +5,8 @@ import { normalizeAllergenIds } from '../common/allergens';
 import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConsentsService } from '../consents/consents.service';
+import { MailOutboxService } from '../mail/mail-outbox.service';
+import { readAgentEnv } from '../config/agent-env';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { settleHouseholdAfterMemberLeft } from '../households/household-cleanup.util';
@@ -99,6 +101,9 @@ export class UsersService {
     private readonly prisma: PrismaService,
     // Opcjonalnie: dziennik zgód (testy jednostkowe budują serwis bez niego).
     @Optional() private readonly consents?: ConsentsService,
+    // Opcjonalnie, jak dziennik zgód: testy jednostkowe budują serwis bez
+    // poczty, a brak maila nigdy nie ma prawa wywrócić operacji na koncie.
+    @Optional() private readonly mail?: MailOutboxService,
   ) {}
 
   /**
@@ -256,6 +261,25 @@ export class UsersService {
         avatarColor: await this.pickAvatarColor(userId),
       },
     });
+
+    // Powitanie WYŁĄCZNIE w tej gałęzi: wyżej `onboardingCompletedAt` już
+    // stoi, a ta metoda jest idempotentna i telefon woła ją po każdym
+    // nieudanym żądaniu. Klucz deduplikacji broni się i tak, ale nie ma po co
+    // dotykać bazy przy każdym ponowieniu.
+    if (this.mail) {
+      const trial = readAgentEnv();
+      await this.mail.enqueue(this.prisma, {
+        template: 'WELCOME',
+        dedupeKey: `welcome:${userId}`,
+        to: user.email,
+        userId,
+        payload: {
+          displayName: user.displayName,
+          trialMessages: trial.trialMessages,
+          trialPlans: trial.trialPlans,
+        },
+      });
+    }
 
     return this.toProfilePayload(user);
   }
@@ -552,7 +576,9 @@ export class UsersService {
   async deleteAccount(userId: string): Promise<{ id: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true },
+      // Adres czytamy TERAZ, nie w trakcie transakcji: pożegnanie wychodzi
+      // po skasowaniu konta, więc w chwili wysyłki nie ma już z czego go wziąć.
+      select: { id: true, email: true },
     });
 
     if (!user) {
@@ -574,6 +600,10 @@ export class UsersService {
     }
 
     const now = new Date();
+    // Czy po tej osobie zostaje dom z innymi domownikami. Decyduje o treści
+    // pożegnania: „domownicy mają to dalej" byłoby fałszem, gdyby dom poszedł
+    // razem z kontem jako pusty.
+    let householdRemains = false;
     await this.prisma.$transaction(async (tx) => {
       // Przepisy autorstwa tej osoby (z aplikacji albo z ręki asystenta w jej
       // turze) NIE giną z kontem: `Recipe.author` to kaskada, a z przepisem
@@ -658,8 +688,30 @@ export class UsersService {
         // zostałyby policzone dla starego składu. Hook musi pójść PRZED
         // usunięciem użytkownika, dopóki wiersze jeszcze istnieją.
         if (settlement.outcome !== 'DELETED') {
+          householdRemains = true;
           await onMemberLeft(tx, membership.householdId, userId, now);
         }
+      }
+
+      // Pożegnanie kolejkujemy W TEJ SAMEJ TRANSAKCJI, PRZED usunięciem konta.
+      // Wysłane wcześniej wyszłoby także wtedy, gdyby transakcja padła; wysłane
+      // po niej ginie, gdy padnie proces. Wiersz w transakcji rozwiązuje oba
+      // przypadki, a `MailMessage.userId` jest `SetNull`, więc kaskada z
+      // `tx.user.delete` go nie zabierze.
+      if (this.mail) {
+        await this.mail.enqueue(tx, {
+          template: 'ACCOUNT_DELETED',
+          dedupeKey: `deleted:${userId}`,
+          to: user.email,
+          userId,
+          payload: {
+            email: user.email ?? '',
+            deletedAtIso: now.toISOString(),
+            householdRemains,
+            keptRecipes: authored,
+            hasLiveSubscription: liveSubscriptions > 0,
+          },
+        });
       }
 
       await tx.user.delete({ where: { id: userId } });
