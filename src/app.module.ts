@@ -12,6 +12,7 @@ import { CommonModule } from './common/common.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { AgentModule } from './agent/agent.module';
 import { BillingModule } from './billing/billing.module';
+import { MailModule } from './mail/mail.module';
 import { ConsentsModule } from './consents/consents.module';
 import { DataExportModule } from './data-export/data-export.module';
 import { AppThrottleModule } from './common/throttle/throttle.module';
@@ -39,6 +40,7 @@ import { AppThrottleModule } from './common/throttle/throttle.module';
     DataExportModule,
     AgentModule,
     BillingModule,
+    MailModule,
   ],
 })
 export class AppModule {}

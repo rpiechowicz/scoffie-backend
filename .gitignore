@@ -59,3 +59,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # Python (skrypty pomocnicze w docs/plans)
 __pycache__/
 *.pyc
+
+# Podgląd maili i maile z transportu `stub` — wynik lokalnego uruchomienia,
+# nie źródło. `pnpm mail:preview` odtwarza to w sekundę.
+var/
