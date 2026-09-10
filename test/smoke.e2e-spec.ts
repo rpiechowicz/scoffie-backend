@@ -181,6 +181,15 @@ describe('Smoke E2E', () => {
     expect(typeof refreshResponse.body.refreshToken).toBe('string');
     expect(refreshResponse.body.refreshToken).not.toBe(originalRefreshToken);
 
+    // Klient POTWIERDZA odbiór pary, używając jej. Dopiero po tym powtórzenie
+    // starego tokenu jest na pewno kopią, a nie zgubioną odpowiedzią z rotacji
+    // (tę serwer ratuje w oknie `REFRESH_REUSE_GRACE_SECONDS` — patrz
+    // `ws-auth.e2e-spec.ts`).
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: refreshResponse.body.refreshToken as string })
+      .expect(201);
+
     const reused = await request(app.getHttpServer())
       .post('/auth/refresh')
       .send({ refreshToken: originalRefreshToken })
