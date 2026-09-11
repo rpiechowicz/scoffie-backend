@@ -87,7 +87,10 @@ model User {
 /// rozmowy, a zgłoszenie ma przeżyć razem z MIGAWKĄ treści (`messageText`),
 /// bo bez niej nie da się go rozpatrzyć. Kaskada tylko z kontem.
 model AgentReport {
-  id             String   @id @default(uuid()) @db.Uuid
+  /// `dbgenerated`, nie `uuid()`: migracja tej tabeli była pisana ręcznie
+  /// z `DEFAULT gen_random_uuid()` i tak stoi na produkcji. Schema musi mówić
+  /// to samo, co baza — inaczej `migrate dev` widzi rozjazd i żąda resetu.
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId         String   @db.Uuid
   conversationId String?  @db.Uuid
   messageId      String?  @db.Uuid
@@ -118,7 +121,10 @@ model AgentReport {
 /// gospodarstwie. `householdId` jest wyłącznie kontekstem dowodowym.
 /// Kaskada z kontem: po usunięciu konta nie ma już komu przypisać dowodu.
 model ConsentEvent {
-  id              String   @id @default(uuid()) @db.Uuid
+  /// `dbgenerated`, nie `uuid()`: migracja tej tabeli była pisana ręcznie
+  /// z `DEFAULT gen_random_uuid()` i tak stoi na produkcji. Schema musi mówić
+  /// to samo, co baza — inaczej `migrate dev` widzi rozjazd i żąda resetu.
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId          String   @db.Uuid
   kind            String
   action          String
@@ -852,7 +858,10 @@ model AgentMessage {
 /// `messageId` puste = tura nie domknęła się i propozycja jest nieosiągalna;
 /// to celowe, bo karty nikt nigdy nie zobaczył.
 model AgentProposal {
-  id              String    @id @default(uuid()) @db.Uuid
+  /// `dbgenerated`, nie `uuid()`: migracja tej tabeli była pisana ręcznie
+  /// z `DEFAULT gen_random_uuid()` i tak stoi na produkcji. Schema musi mówić
+  /// to samo, co baza — inaczej `migrate dev` widzi rozjazd i żąda resetu.
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   conversationId  String    @db.Uuid
   turnId          String    @db.Uuid
   /// Kopia z rozmowy — sprawdzenie właściciela bez joina.
