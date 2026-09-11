@@ -16,21 +16,12 @@ import { clipSubject, formatDayYear } from './mail-format';
 import { AccountDeletedPayload, RenderedMail } from '../mail-template';
 
 /**
- * F — konto usunięte. Najostrożniejszy mail z całego zestawu, bo dotyka RODO:
- * nie wolno mu twierdzić, że coś zostało usunięte, jeśli kod tego nie usuwa.
+ * F — konto usunięte. Trzy fakty, które człowiek musi dostać, i nic ponad to:
+ * co jest usunięte, co zostaje domownikom, i że subskrypcja w App Store żyje
+ * dalej (to jedyna rzecz po usunięciu konta, która kosztuje pieniądze).
  *
- * CO BYŁO NIEPRAWDĄ W MAKIECIE:
- *
- * — „Prywatne przepisy i plany zostały usunięte razem z kontem". `deleteAccount`
- *   ich NIE KASUJE: przepisuje autorstwo na konto bota katalogu i zostawia je
- *   w gospodarstwie. Znikają wyłącznie wtedy, gdy dom był jednoosobowy i poszedł
- *   jako pusty — stąd wariant po `householdRemains`.
- * — „Przepisy dodane do wspólnego katalogu w nim zostają". Użytkownik NIGDY
- *   niczego nie dodaje do wspólnego katalogu: `isCatalog: true` powstaje
- *   wyłącznie przy imporcie, a `recipes:create` zawsze daje `false`.
- * — milczenie o subskrypcji. `purchaserUserId` jest `SetNull`, właścicielem
- *   jest `identityHash` — umowa z Apple żyje dalej i pobierze kolejną opłatę.
- *   To jedyna rzecz po usunięciu konta, która kosztuje pieniądze.
+ * `deleteAccount` NIE kasuje przepisów — zostają w gospodarstwie. Gdy dom był
+ * jednoosobowy, idzie razem z kontem; stąd wariant po `householdRemains`.
  */
 export function renderAccountDeleted(
   c: MailCtx,
@@ -45,18 +36,27 @@ export function renderAccountDeleted(
   const rows: [string, string][] = [['Konto', esc(d.email)]];
   if (when) rows.push(['Usunięte', esc(when)]);
 
+  const przepisy = `${d.keptRecipes} ${plural(d.keptRecipes, 'przepis', 'przepisy', 'przepisów')}`;
   const wspolne = d.householdRemains
     ? d.keptRecipes > 0
-      ? `${b('Przepisy i plany zostają domownikom.')} Wszystko, co powstało w Waszym gospodarstwie — ${d.keptRecipes} ${plural(d.keptRecipes, 'przepis', 'przepisy', 'przepisów')} dodane przez Ciebie, plan tygodnia i lista zakupów — należy do domu, nie do konta. Zostaje na miejscu, więc domownikom nie rozsypie się plan w połowie tygodnia; przy Twoich przepisach autorstwo przechodzi na konto Scoffie.`
-      : `${b('Wspólne rzeczy zostają w domu.')} Plan tygodnia, lista zakupów i przepisy gospodarstwa należą do domu, nie do konta — domownicy mają je dalej u siebie, dokładnie tam, gdzie były.`
-    : `${b('Dom zniknął razem z kontem.')} Byłeś w gospodarstwie sam, więc poszło razem z Tobą — a z nim jego plany tygodnia, listy zakupów i przepisy. Wspólny katalog przepisów Scoffie to osobny zbiór, który prowadzimy my; jego to nie dotyczy.`;
+      ? `${b('Przepisy i plany zostają domownikom.')} ${esc(przepisy)}, które dodałeś, plan tygodnia i lista zakupów należą do domu, nie do konta — Twoi domownicy mają je dalej.`
+      : `${b('Wspólne rzeczy zostają w domu.')} Plan tygodnia, lista zakupów i przepisy należą do domu, nie do konta — domownicy mają je dalej.`
+    : `${b('Dom zniknął razem z kontem.')} Byłeś w gospodarstwie sam, więc jego plany, listy zakupów i przepisy też są usunięte.`;
+  const wspolneText = d.householdRemains
+    ? d.keptRecipes > 0
+      ? `Przepisy i plany zostają domownikom. ${przepisy}, które dodałeś, plan tygodnia i lista zakupów należą do domu, nie do konta — Twoi domownicy mają je dalej.`
+      : 'Wspólne rzeczy zostają w domu. Plan tygodnia, lista zakupów i przepisy należą do domu, nie do konta — domownicy mają je dalej.'
+    : 'Dom zniknął razem z kontem. Byłeś w gospodarstwie sam, więc jego plany, listy zakupów i przepisy też są usunięte.';
+
+  const subskrypcja =
+    'Płatność prowadzi Apple, więc usunięcie konta jej nie zatrzymuje. Wyłącz odnawianie: Ustawienia iPhone’a → Twoje imię → Subskrypcje → Scoffie — najlepiej co najmniej dobę przed końcem bieżącego okresu.';
 
   const body =
     head(c, { name: false }) +
     h1(c, 'Konto usunięte') +
     p(
       c,
-      'Zrobione — usunęliśmy Twój profil, preferencje, rozmowy z asystentem, kroki ze Zdrowia, poświadczenia Cookidoo, tokeny logowania i dziennik zgód. Tego nie da się cofnąć, więc piszemy tylko po to, żeby zostało Ci to na papierze i żeby było jasne, co dalej z rzeczami, które były wspólne.',
+      'Zrobione — Twoje konto, profil, preferencje i rozmowy z asystentem są usunięte. Tego nie da się cofnąć.',
       { pt: 16 },
     ) +
     kv(c, rows) +
@@ -64,23 +64,18 @@ export function renderAccountDeleted(
       ? warn(c, {
           pt: 26,
           title: 'Subskrypcja nie kończy się razem z kontem',
-          body: `Płatność prowadzi Apple, nie my, więc usunięcie konta w Scoffie jej nie zatrzymuje — dopóki nie wyłączysz odnawiania, App Store pobierze opłatę za kolejny okres. Zrobisz to w Ustawieniach iPhone’a → [Twoje imię] → Subskrypcje → Scoffie, najlepiej co najmniej 24 godziny przed końcem bieżącego okresu.`,
+          body: esc(subskrypcja),
         })
       : '') +
     p(c, wspolne, { pt: 26 }) +
     p(
       c,
-      `${b('Okres próbny nie wraca.')} Jeśli kiedyś powstanie tu nowe konto na tym samym Apple ID, dostęp próbny do asystenta się nie odnowi — przysługuje raz. Opłacona subskrypcja odwrotnie: odnajdzie się sama.`,
+      `${b('Dostęp próbny nie wraca.')} Przy nowym koncie na tym samym Apple ID asystent nie da drugiej próby. Opłacona subskrypcja odnajdzie się sama.`,
       { pt: 14 },
     ) +
     p(
       c,
-      'Zostaje jeden ślad: nieodwracalny pseudonim wyliczony z Twojego identyfikatora logowania, a przy nim licznik wykorzystanej próby i zapis subskrypcji. Trzymamy go właśnie po to, żeby te dwie rzeczy działały tak, jak wyżej. Przy gospodarstwie zostają jeszcze notatki pamięci domu i rozliczenie kosztów asystenta — bez powiązania z Tobą. Szczegóły opisuje Polityka prywatności w punkcie o okresach przechowywania.',
-      { pt: 14, small: true, soft: true },
-    ) +
-    p(
-      c,
-      'Poza tym nie wysyłamy już żadnych wiadomości. Dziękujemy za czas spędzony w Scoffie — i za każdy przepis, który po Tobie został.',
+      'To ostatnia wiadomość od nas. Dziękujemy za czas spędzony w Scoffie.',
       { pt: 14 },
     ) +
     textLink(c, {
@@ -92,30 +87,22 @@ export function renderAccountDeleted(
 
   const text = `Konto usunięte.
 
-Zrobione — usunęliśmy Twój profil, preferencje, rozmowy z asystentem, kroki ze Zdrowia, poświadczenia Cookidoo, tokeny logowania i dziennik zgód. Tego nie da się cofnąć.
+Zrobione — Twoje konto, profil, preferencje i rozmowy z asystentem są usunięte. Tego nie da się cofnąć.
 
 Konto: ${d.email}${when ? `\nUsunięte: ${when}` : ''}
 ${
   d.hasLiveSubscription
     ? `
 SUBSKRYPCJA NIE KOŃCZY SIĘ RAZEM Z KONTEM
-Płatność prowadzi Apple, nie my — usunięcie konta w Scoffie jej nie zatrzymuje. Wyłącz odnawianie w Ustawieniach iPhone'a → [Twoje imię] → Subskrypcje → Scoffie, najlepiej co najmniej 24 godziny przed końcem bieżącego okresu.
+${subskrypcja}
 `
     : ''
 }
-${
-  d.householdRemains
-    ? d.keptRecipes > 0
-      ? `Przepisy i plany zostają domownikom. Wszystko, co powstało w Waszym gospodarstwie — ${d.keptRecipes} ${plural(d.keptRecipes, 'przepis', 'przepisy', 'przepisów')} dodane przez Ciebie, plan tygodnia i lista zakupów — należy do domu, nie do konta. Przy Twoich przepisach autorstwo przechodzi na konto Scoffie.`
-      : 'Wspólne rzeczy zostają w domu. Plan tygodnia, lista zakupów i przepisy gospodarstwa należą do domu, nie do konta.'
-    : 'Dom zniknął razem z kontem. Byłeś w gospodarstwie sam, więc poszło razem z Tobą — a z nim jego plany, listy zakupów i przepisy.'
-}
+${wspolneText}
 
-Okres próbny nie wraca. Jeśli kiedyś powstanie tu nowe konto na tym samym Apple ID, dostęp próbny do asystenta się nie odnowi. Opłacona subskrypcja odwrotnie: odnajdzie się sama.
+Dostęp próbny nie wraca. Przy nowym koncie na tym samym Apple ID asystent nie da drugiej próby. Opłacona subskrypcja odnajdzie się sama.
 
-Zostaje jeden ślad: nieodwracalny pseudonim wyliczony z Twojego identyfikatora logowania, a przy nim licznik wykorzystanej próby i zapis subskrypcji. Przy gospodarstwie zostają notatki pamięci domu i rozliczenie kosztów asystenta — bez powiązania z Tobą.
-
-Poza tym nie wysyłamy już żadnych wiadomości. Dziękujemy za czas spędzony w Scoffie.
+To ostatnia wiadomość od nas. Dziękujemy za czas spędzony w Scoffie.
 
 Zostały pytania? ${c.site}/support/
 

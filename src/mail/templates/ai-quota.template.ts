@@ -40,13 +40,18 @@ function planCards(currentName?: string): MailPlan[] {
   }));
 }
 
+const CO_DZIALA = [
+  'Plan tygodnia — układacie go ręcznie, bez limitu',
+  'Lista zakupów — dalej liczy się sama z planu',
+  'Przepisy z katalogu i Waszego domu, także te od asystenta',
+];
+
 /**
  * C1 — wyczerpana pula próbna.
  *
- * Wiadomości i zapisy planu to DWA niezależne liczniki, więc mail mówi o tym,
- * który naprawdę padł. Makieta twierdziła „5 z 5 wiadomości i 1 z 1 planu"
- * niezależnie od stanu — czyli pokazywała nieprawdziwą liczbę w wiadomości,
- * której jedynym celem jest sprzedaż planu.
+ * Wiadomości i zapisy planu to DWA niezależne liczniki, więc mail mówi
+ * o tym, który naprawdę padł. Makieta twierdziła „5 z 5 wiadomości i 1 z 1
+ * planu" niezależnie od stanu.
  */
 export function renderAiTrialExhausted(
   c: MailCtx,
@@ -59,46 +64,46 @@ export function renderAiTrialExhausted(
       : 'Próbny zapis planu wykorzystany',
   );
   const preheader = messagesOut
-    ? 'Plan tygodnia, lista zakupów i przepisy działają dalej — bez asystenta i bez limitu.'
-    : 'Rozmawiać z asystentem możesz dalej. Zapisać jego plan do kalendarza — już nie.';
+    ? 'Plan, lista i przepisy działają dalej. Asystent czeka na plan.'
+    : 'Rozmawiać z asystentem możesz dalej. Zapisać jego plan — już nie.';
 
-  const wiad = `${d.messagesUsed} z ${d.messagesLimit} ${plural(d.messagesLimit, 'wiadomości', 'wiadomości', 'wiadomości')}`;
+  const wiad = `${d.messagesUsed} z ${d.messagesLimit} wiadomości`;
   const zapisy = `${d.plansUsed} z ${d.plansLimit} ${plural(d.plansLimit, 'zapisu', 'zapisów', 'zapisów')} planu`;
-  const leftMessages = Math.max(0, d.messagesLimit - d.messagesUsed);
+  const left = Math.max(0, d.messagesLimit - d.messagesUsed);
+
+  const warnBody = messagesOut
+    ? 'Dostęp próbny przysługuje raz i nie odnawia się.'
+    : left > 0
+      ? `Zostało Ci ${left} ${plural(left, 'wiadomość', 'wiadomości', 'wiadomości')} — asystent ułoży tydzień i pokaże go w odpowiedzi, ale do kalendarza już go nie zapisze.`
+      : 'Wiadomości próbne też są wykorzystane. Dostęp próbny przysługuje raz.';
 
   const body =
     head(c, { name: false }) +
     h1(
       c,
       messagesOut
-        ? 'Skończyły się wiadomości z okresu próbnego'
-        : 'Próbny zapis planu jest wykorzystany',
+        ? 'Skończyły się wiadomości próbne'
+        : 'Próbny zapis planu wykorzystany',
     ) +
     warn(c, {
-      title: messagesOut
-        ? `Wykorzystane: ${esc(wiad)}`
-        : `Wykorzystane: ${esc(zapisy)}`,
-      body: messagesOut
-        ? `Drugi licznik: ${esc(zapisy)}. Dostęp próbny dostaje się raz i nie odnawia się — ale to nie koniec Scoffie.`
-        : leftMessages > 0
-          ? `Rozmawiać z asystentem możesz dalej — zostało ${leftMessages} ${plural(leftMessages, 'wiadomość', 'wiadomości', 'wiadomości')}. Ułoży Ci tydzień i pokaże go w odpowiedzi, ale zapisać do planu już go nie zdoła.`
-          : `Drugi licznik też jest pusty: ${esc(wiad)}. Dostęp próbny dostaje się raz i nie odnawia się.`,
+      title: `Wykorzystane: ${esc(messagesOut ? wiad : zapisy)}`,
+      body: esc(warnBody),
     }) +
     p(
       c,
-      'Najważniejsze: reszta aplikacji zostaje z Tobą. Plan tygodnia układasz dalej po swojemu i nigdy nie miało to limitu, lista zakupów nadal robi się z planu, a przepisy — te z katalogu i te Waszego domu — są tam, gdzie były.',
+      'Reszta aplikacji działa bez zmian: plan tygodnia układasz ręcznie bez limitu, lista zakupów dalej robi się z planu, przepisy są tam, gdzie były.',
       { pt: 20 },
     ) +
     p(
       c,
-      'Asystent to ta część, która zdejmuje z Ciebie myślenie „co ugotować w czwartek”. Pamięta, czego nie jadacie, potrafi ułożyć cały tydzień pod jedne zakupy i podmienić jeden obiad, gdy plany się zmienią.',
+      'Asystent pamięta, czego nie jadacie, układa cały tydzień pod jedne zakupy i podmienia obiad, gdy plany się zmienią.',
       { pt: 14 },
     ) +
     plans(c, { items: planCards(), pt: 28 }) +
     btn(c, { label: 'Zobacz cennik', href: `${c.site}/#cennik` }) +
     p(
       c,
-      `Plan włączasz w aplikacji: ${b(IN_APP_PATH)}. Płatność prowadzi App Store, więc zmienisz go albo wyłączysz w każdej chwili — bez rozmowy z nami i bez okresu wypowiedzenia.`,
+      `Plan włączasz w aplikacji: ${b(IN_APP_PATH)}. Płatność prowadzi App Store — zmienisz go albo wyłączysz w każdej chwili.`,
       { small: true, soft: true, pt: 22 },
     ) +
     foot(c, {
@@ -113,14 +118,13 @@ export function renderAiTrialExhausted(
     )
     .join('\n');
 
-  const text = `${messagesOut ? 'Skończyły się wiadomości z okresu próbnego.' : 'Próbny zapis planu jest wykorzystany.'}
+  const text = `${messagesOut ? 'Skończyły się wiadomości próbne.' : 'Próbny zapis planu wykorzystany.'}
 
-Wiadomości: ${wiad} · Zapisy planu: ${zapisy}
-Dostęp próbny dostaje się raz i nie odnawia się — ale to nie koniec Scoffie.
+Wykorzystane: ${messagesOut ? wiad : zapisy}. ${warnBody}
 
-Reszta aplikacji zostaje z Tobą: plan tygodnia układasz dalej po swojemu (nigdy nie miało to limitu), lista zakupów nadal robi się z planu, przepisy z katalogu i Waszego domu są tam, gdzie były.
+Reszta aplikacji działa bez zmian: plan tygodnia układasz ręcznie bez limitu, lista zakupów dalej robi się z planu, przepisy są tam, gdzie były.
 
-Asystent to ta część, która zdejmuje myślenie „co ugotować w czwartek”. Pamięta, czego nie jadacie, ułoży cały tydzień pod jedne zakupy i podmieni jeden obiad, gdy plany się zmienią.
+Asystent pamięta, czego nie jadacie, układa cały tydzień pod jedne zakupy i podmienia obiad, gdy plany się zmienią.
 
 PLANY
 ${planLines}
@@ -147,9 +151,8 @@ Scoffie · scoffie.app`;
  * C2 — wyczerpana pula w opłaconym planie. DWA warianty.
  *
  * Pula wisi na `sub:<id>`, czyli na jednej umowie dla całego domu. Adresatem
- * jest ten, kto uderzył w limit — bywa nim domownik, który niczego nie płaci.
- * Mówienie mu „Twój plan" i pokazywanie przycisku „Zmień plan" byłoby
- * podwójnie nietrafione: to nie jego pula i nie jego rachunek.
+ * jest ten, kto uderzył w limit — bywa nim domownik, który niczego nie płaci
+ * i dla którego przycisk „Zmień plan" byłby martwy.
  */
 export function renderAiQuotaExhausted(
   c: MailCtx,
@@ -163,22 +166,21 @@ export function renderAiQuotaExhausted(
   );
   const preheader = willRenew
     ? `Pula wiadomości odnowi się ${back}. Plan, lista i przepisy działają normalnie.`
-    : 'Plan tygodnia, lista zakupów i przepisy działają normalnie — bez zmian.';
+    : 'Plan tygodnia, lista zakupów i przepisy działają normalnie.';
+
+  const intro = willRenew
+    ? `Wspólna pula wiadomości w Waszym domu się skończyła. Odnowi się ${esc(back)} — historia rozmów zostaje.`
+    : 'Wspólna pula wiadomości w Waszym domu się skończyła. Odnawianie jest wyłączone, więc pula wróci dopiero po ponownym włączeniu planu.';
 
   const rows: [string, string][] = [
-    [
-      d.isPayer ? 'Plan domu' : 'Plan domu',
-      esc(d.planName) + (d.isPayer ? ' (opłacasz go Ty)' : ''),
-    ],
+    ['Plan domu', esc(d.planName) + (d.isPayer ? ' (opłacasz go Ty)' : '')],
     ['Wiadomości asystenta', `${d.messagesUsed} z ${d.messagesLimit}`],
     ['Zapisy planu przez asystenta', `${d.plansUsed} z ${d.plansLimit}`],
   ];
   if (willRenew) rows.push(['Pula wraca', esc(back)]);
   else if (!d.renews) rows.push(['Odnawianie', 'wyłączone w App Store']);
 
-  const intro = willRenew
-    ? `Wspólna pula wiadomości w Waszym domu właśnie się skończyła. Odnowi się ${esc(back)} — wtedy wrócicie do rozmowy tam, gdzie ją zostawiliście, bo historia zostaje.`
-    : 'Wspólna pula wiadomości w Waszym domu właśnie się skończyła. Odnawianie subskrypcji jest wyłączone, więc pula nie wróci sama — wróci dopiero, gdy plan zostanie włączony na nowo.';
+  const platnik = d.payerName ? esc(d.payerName) : 'inna osoba w Waszym domu';
 
   const body =
     head(c, { name: false }) +
@@ -188,25 +190,20 @@ export function renderAiQuotaExhausted(
       ? ''
       : p(
           c,
-          `Pula jest wspólna dla całego gospodarstwa — nie liczy się osobno dla każdego. Plan opłaca ${d.payerName ? esc(d.payerName) : 'inna osoba w Waszym domu'}, więc to po jej stronie jest decyzja, czy go zmienić.`,
-          { pt: 14, small: true, soft: true },
+          `Plan opłaca ${platnik} — decyzja o zmianie jest po tej stronie.`,
+          {
+            pt: 14,
+            small: true,
+            soft: true,
+          },
         )) +
     kv(c, rows, { title: 'Zużycie całego domu w tym okresie' }) +
     list(c, {
       title: 'Co działa bez asystenta',
       tone: 'ok',
       pt: 26,
-      items: [
-        'Plan tygodnia — układacie go ręcznie, tyle razy, ile chcecie; to nigdy nie miało limitu',
-        'Lista zakupów — dalej przelicza się sama z tego, co jest w planie',
-        'Przepisy z katalogu i przepisy Waszego domu, razem z tymi od asystenta',
-      ],
+      items: CO_DZIALA,
     }) +
-    p(
-      c,
-      'Mała rada na przyszły okres: jedna dobrze opisana wiadomość („ułóż tydzień na cztery osoby, bez ryb, dwa obiady na dwa dni”) robi więcej niż pięć krótkich.',
-      { pt: 24 },
-    ) +
     (d.isPayer
       ? btn(c, {
           label: 'Zmień plan',
@@ -215,14 +212,10 @@ export function renderAiQuotaExhausted(
         }) +
         p(
           c,
-          `Plan prowadzi App Store — zmienisz go tam albo w aplikacji: ${b(IN_APP_PATH)}. Przejście na wyższy plan działa od razu i podnosi pulę całemu domowi; niższy wchodzi dopiero od najbliższego odnowienia. Jeśli obecny Wam wystarcza — nie musisz nic robić.`,
+          `Plan zmienisz w App Store albo w aplikacji: ${b(IN_APP_PATH)}. Wyższy plan działa od razu dla całego domu; niższy — od najbliższego odnowienia.`,
           { small: true, soft: true, pt: 22 },
         )
-      : p(
-          c,
-          'Nie musisz nic robić. Jeśli w domu uznacie, że pula jest za mała, plan zmienia osoba, która go opłaca.',
-          { small: true, soft: true, pt: 24 },
-        )) +
+      : p(c, 'Nie musisz nic robić.', { small: true, soft: true, pt: 24 })) +
     foot(c, {
       reason:
         'bo wspólna pula wiadomości asystenta w Waszym domu się skończyła.',
@@ -230,8 +223,12 @@ export function renderAiQuotaExhausted(
 
   const text = `Asystent odpoczywa do końca okresu.
 
-${willRenew ? `Wspólna pula wiadomości w Waszym domu właśnie się skończyła. Odnowi się ${back} — wtedy wrócicie do rozmowy tam, gdzie ją zostawiliście, bo historia zostaje.` : 'Wspólna pula wiadomości w Waszym domu właśnie się skończyła. Odnawianie subskrypcji jest wyłączone, więc pula nie wróci sama.'}
-${d.isPayer ? '' : `\nPula jest wspólna dla całego gospodarstwa. Plan opłaca ${d.payerName ?? 'inna osoba w Waszym domu'}.\n`}
+${
+  willRenew
+    ? `Wspólna pula wiadomości w Waszym domu się skończyła. Odnowi się ${back} — historia rozmów zostaje.`
+    : 'Wspólna pula wiadomości w Waszym domu się skończyła. Odnawianie jest wyłączone, więc pula wróci dopiero po ponownym włączeniu planu.'
+}
+${d.isPayer ? '' : `\nPlan opłaca ${d.payerName ?? 'inna osoba w Waszym domu'} — decyzja o zmianie jest po tej stronie.\n`}
 ZUŻYCIE CAŁEGO DOMU W TYM OKRESIE
 Plan domu: ${d.planName}${d.isPayer ? ' (opłacasz go Ty)' : ''}
 Wiadomości asystenta: ${d.messagesUsed} z ${d.messagesLimit}
@@ -239,17 +236,13 @@ Zapisy planu przez asystenta: ${d.plansUsed} z ${d.plansLimit}
 ${willRenew ? `Pula wraca: ${back}` : 'Odnawianie: wyłączone w App Store'}
 
 CO DZIAŁA BEZ ASYSTENTA
-- Plan tygodnia — układacie go ręcznie, tyle razy, ile chcecie; to nigdy nie miało limitu
-- Lista zakupów — dalej przelicza się sama z tego, co jest w planie
-- Przepisy z katalogu i przepisy Waszego domu, razem z tymi od asystenta
-
-Mała rada na przyszły okres: jedna dobrze opisana wiadomość („ułóż tydzień na cztery osoby, bez ryb”) robi więcej niż pięć krótkich.
+${CO_DZIALA.map((item) => `- ${item}`).join('\n')}
 
 ${
   d.isPayer
     ? `Zmień plan: https://apps.apple.com/account/subscriptions
-Albo w aplikacji: ${IN_APP_PATH}. Przejście na wyższy plan działa od razu i podnosi pulę całemu domowi; niższy wchodzi od najbliższego odnowienia.`
-    : 'Nie musisz nic robić. Jeśli w domu uznacie, że pula jest za mała, plan zmienia osoba, która go opłaca.'
+Albo w aplikacji: ${IN_APP_PATH}. Wyższy plan działa od razu dla całego domu; niższy — od najbliższego odnowienia.`
+    : 'Nie musisz nic robić.'
 }
 
 --

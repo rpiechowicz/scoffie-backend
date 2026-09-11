@@ -129,7 +129,7 @@ describe('warianty, które muszą się różnić', () => {
       renews: false,
     });
     expect(mail.subject).toBe('Pula asystenta się skończyła');
-    expect(mail.html).toContain('nie wróci sama');
+    expect(mail.html).toContain('wróci dopiero po ponownym włączeniu planu');
   });
 
   it('C1 rozróżnia, który licznik się skończył', () => {
@@ -213,7 +213,9 @@ describe('warianty, które muszą się różnić', () => {
       hasLiveSubscription: false,
     });
     expect(zDomem.html).toContain('12 przepisów');
-    expect(zDomem.html).toContain('autorstwo przechodzi');
+    // Żadnej mechaniki „pod maską" — użytkownik nie musi wiedzieć o botach ani autorstwie.
+    expect(zDomem.html).not.toContain('autorstwo');
+    expect(zDomem.html).not.toContain('pseudonim');
 
     const zDomemBezPrzepisow = render('ACCOUNT_DELETED', {
       email: 'a@b.pl',

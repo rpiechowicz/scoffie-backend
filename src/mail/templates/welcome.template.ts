@@ -18,23 +18,15 @@ import { RenderedMail, WelcomePayload } from '../mail-template';
 /**
  * A — „Witaj w Scoffie". Wyzwalacz: `users.service.completeOnboarding`.
  *
- * CZEGO TU NIE MA, CHOĆ BYŁO W MAKIECIE:
- *
- * — kroku „Załóż dom". Gospodarstwo powstaje w OSTATNIM kroku kreatora
- *   (`WelcomeView`, krok 5), a `completeOnboarding` stempluje się dopiero
- *   po nim. W chwili wysyłki dom już stoi, a próba założenia drugiego kończy
- *   się `HOUSEHOLD_ALREADY_MEMBER` (409) — mail kazałby zrobić rzecz zrobioną
- *   i technicznie zablokowaną.
- * — obietnicy „nazwę zmienisz w Ustawieniach". Backend ma
- *   `households:updateName`, ale aplikacja nigdy go nie woła.
- * — zdania „bez zakładania niczego od nowa" przy zapraszaniu. Zapraszany
- *   przechodzi WŁASNY onboarding z własnym domem, a dołączenie wymaga zgody
- *   na wyjście z niego (`INVITATION_REQUIRES_LEAVE`).
+ * Bez kroku „Załóż dom": gospodarstwo powstaje w OSTATNIM kroku kreatora
+ * w iOS, a `completeOnboarding` stempluje się dopiero po nim — w chwili
+ * wysyłki dom już stoi, a próba założenia drugiego kończy się
+ * `HOUSEHOLD_ALREADY_MEMBER`. Bez obietnicy zmiany nazwy domu: backend ma
+ * `households:updateName`, ale aplikacja nigdy go nie woła.
  */
 export function renderWelcome(c: MailCtx, d: WelcomePayload): RenderedMail {
   const subject = clipSubject('Twoje konto w Scoffie jest gotowe');
-  const preheader =
-    'Zaproś domowników i zaplanujcie pierwszy tydzień. Zajmie to kilka minut.';
+  const preheader = 'Zaproś domowników i zaplanujcie pierwszy tydzień.';
 
   const wiadomosci = `${d.trialMessages} ${plural(d.trialMessages, 'wiadomość', 'wiadomości', 'wiadomości')}`;
   const zapisy = `${d.trialPlans} ${plural(d.trialPlans, 'zapis', 'zapisy', 'zapisów')} planu tygodnia`;
@@ -45,41 +37,41 @@ export function renderWelcome(c: MailCtx, d: WelcomePayload): RenderedMail {
     lead(c, `Cześć, ${esc(d.displayName)}. Dobrze Cię tu widzieć.`) +
     p(
       c,
-      'Scoffie zbiera w jednym miejscu to, co u większości domów rozjeżdża się po karteczkach i głowach: co jecie w tym tygodniu, co trzeba kupić i gdzie są te przepisy, które faktycznie się powtarzają. Jeden plan, jedna lista, jeden dom.',
+      'Jeden plan tygodnia, jedna lista zakupów i wspólne przepisy — dla całego domu.',
       { pt: 12 },
     ) +
-    btn(c, { label: 'Otwórz Scoffie', href: `${c.site}/otworz` }) +
+    btn(c, { label: 'Otwórz Scoffie', href: `${c.site}/otworz/` }) +
     steps(c, {
       title: 'Od czego zacząć',
       items: [
         {
           t: 'Twój dom już stoi',
-          d: 'Powstał razem z kontem i to w nim siedzi plan tygodnia, lista zakupów i przepisy. Wszystko, co od teraz dodasz, ląduje właśnie tam.',
+          d: 'Powstał razem z kontem. To w nim jest plan tygodnia, lista zakupów i przepisy.',
         },
         {
           t: 'Zaproś domowników',
-          d: 'Link z Ustawień działa raz i jest ważny tydzień — dla kolejnej osoby wygeneruj nowy. Kto otworzy go na iPhonie, wchodzi do Waszego domu i od razu widzi ten sam plan.',
+          d: 'Link z Ustawień działa raz i przez tydzień — dla kolejnej osoby wygeneruj nowy. Kto otworzy go na iPhonie, wchodzi do Waszego domu.',
         },
         {
-          t: 'Zaplanuj pierwszy tydzień',
-          d: 'Wybierz posiłki na siedem dni albo powiedz asystentowi, co lubicie i czego nie — ułoży plan za Ciebie.',
+          t: 'Zaplanuj tydzień',
+          d: 'Wybierz posiłki na siedem dni albo poproś asystenta — ułoży plan za Ciebie.',
         },
       ],
     }) +
     p(
       c,
-      'Lista zakupów robi się sama z tego, co jest w planie — nie musisz jej pisać. Podmienisz obiad w środę wieczorem, lista przeliczy się razem z nim.',
+      'Lista zakupów układa się sama z planu. Zmienisz obiad — lista przeliczy się razem z nim.',
       { pt: 26 },
     ) +
     panel(c, {
       pt: 22,
       html:
-        `<div class="ink" style="font:700 15px/23px ${c.ff};color:${c.p.ink};">Na start masz dostęp próbny do asystenta</div>` +
-        `<div class="soft" style="font:400 15px/23px ${c.ff};color:${c.p.soft};padding-top:3px;">${esc(wiadomosci)} i ${esc(zapisy)} — warto wykorzystać je na tydzień, który naprawdę chcesz przetestować. Próbę dostajesz raz i nie odnawia się.</div>`,
+        `<div class="ink" style="font:700 15px/23px ${c.ff};color:${c.p.ink};">Dostęp próbny do asystenta</div>` +
+        `<div class="soft" style="font:400 15px/23px ${c.ff};color:${c.p.soft};padding-top:3px;">${esc(wiadomosci)} i ${esc(zapisy)}. Przysługuje raz i nie odnawia się.</div>`,
     }) +
     p(
       c,
-      `Jak coś nie zagra albo czegoś nie znajdziesz — napisz do nas przez <a href="${c.site}/support/" style="color:${c.p.terra};text-decoration:underline;">pomoc</a>. Odpisujemy jak ludzie, nie jak formularz.`,
+      `Pytania? Napisz do nas przez <a href="${c.site}/support/" style="color:${c.p.terra};text-decoration:underline;">pomoc</a>.`,
       { small: true, soft: true, pt: 22 },
     ) +
     foot(c, {
@@ -90,20 +82,20 @@ export function renderWelcome(c: MailCtx, d: WelcomePayload): RenderedMail {
 
 Cześć, ${d.displayName}. Dobrze Cię tu widzieć.
 
-Scoffie zbiera w jednym miejscu to, co u większości domów rozjeżdża się po karteczkach i głowach: co jecie w tym tygodniu, co trzeba kupić i gdzie są te przepisy, które faktycznie się powtarzają. Jeden plan, jedna lista, jeden dom.
+Jeden plan tygodnia, jedna lista zakupów i wspólne przepisy — dla całego domu.
 
-Otwórz Scoffie: ${c.site}/otworz
+Otwórz Scoffie: ${c.site}/otworz/
 
 OD CZEGO ZACZĄĆ
-1. Twój dom już stoi — powstał razem z kontem. To w nim siedzi plan tygodnia, lista zakupów i przepisy.
-2. Zaproś domowników — link z Ustawień działa raz i jest ważny tydzień; dla kolejnej osoby wygeneruj nowy.
-3. Zaplanuj pierwszy tydzień — wybierz posiłki na siedem dni albo powiedz asystentowi, co lubicie.
+1. Twój dom już stoi — powstał razem z kontem. To w nim jest plan tygodnia, lista zakupów i przepisy.
+2. Zaproś domowników — link z Ustawień działa raz i przez tydzień; dla kolejnej osoby wygeneruj nowy.
+3. Zaplanuj tydzień — wybierz posiłki na siedem dni albo poproś asystenta.
 
-Lista zakupów robi się sama z tego, co jest w planie — nie musisz jej pisać.
+Lista zakupów układa się sama z planu. Zmienisz obiad — lista przeliczy się razem z nim.
 
-Na start masz dostęp próbny do asystenta: ${wiadomosci} i ${zapisy}. Próbę dostajesz raz i nie odnawia się.
+Dostęp próbny do asystenta: ${wiadomosci} i ${zapisy}. Przysługuje raz i nie odnawia się.
 
-Jak coś nie zagra — napisz: ${c.site}/support/
+Pytania? ${c.site}/support/
 
 --
 To wiadomość dotycząca Twojego konta w Scoffie. Dostajesz ją, bo ten adres jest przypisany do Twojego konta w Scoffie.

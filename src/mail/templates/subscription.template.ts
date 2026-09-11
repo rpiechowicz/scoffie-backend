@@ -25,14 +25,8 @@ const IN_APP_PATH = 'Ustawienia → Asystent i plan';
 /**
  * D — nieudana płatność, subskrypcja w okresie łaski.
  *
- * DWA WARIANTY, bo backend nie zawsze zna datę końca łaski: `graceExpiresAt`
- * bierze się z `renewal?.gracePeriodExpiresDate`, a `renewal` bywa nieobecne.
- * Wariant bez daty nie zgaduje — mówi „przez najbliższe dni". Wpisanie tam
- * wyliczonych 16 dni byłoby podaniem terminu, którego Apple nie potwierdziło.
- *
- * Ceny NIE MA. `Subscription` nie przechowuje kwoty ani waluty; jedyne źródło
- * to cennik pomocniczy w kodzie. W mailu o nieudanej płatności zmyślona kwota
- * jest gorsza niż jej brak.
+ * Dwa warianty, bo backend nie zawsze zna datę końca łaski (`graceExpiresAt`
+ * bywa `null`). Bez ceny — `Subscription` nie przechowuje kwoty ani waluty.
  */
 export function renderSubscriptionGrace(
   c: MailCtx,
@@ -41,8 +35,8 @@ export function renderSubscriptionGrace(
   const until = formatDay(d.graceEndsAtIso);
   const subject = clipSubject('Płatność nie przeszła. Plan działa');
   const preheader = until
-    ? `Apple ponowi próbę do ${until}. Do tego czasu u Was nic się nie zmienia.`
-    : 'Apple ponawia próbę płatności. Przez ten czas plan działa u Was normalnie.';
+    ? `Apple ponowi próbę do ${until}. Do tego czasu nic się nie zmienia.`
+    : 'Apple ponawia próbę płatności. Plan działa normalnie.';
 
   const rows: [string, string][] = [['Plan', esc(d.planName)]];
   if (until) rows.push(['Plan działa do', esc(until)]);
@@ -53,24 +47,19 @@ export function renderSubscriptionGrace(
     warn(c, {
       title: until
         ? `Plan działa normalnie do ${esc(until)}`
-        : 'Plan działa normalnie — na razie nic nie tracicie',
+        : 'Plan działa normalnie',
       body: until
-        ? 'Apple spróbuje pobrać opłatę jeszcze kilka razy. Jeśli karta jest aktualna, najprawdopodobniej nie musisz robić nic.'
-        : 'Apple będzie próbowało pobrać opłatę jeszcze kilka razy przez najbliższe dni. Jeśli karta jest aktualna, najprawdopodobniej nie musisz robić nic.',
+        ? 'Apple spróbuje pobrać opłatę jeszcze kilka razy. Jeśli karta jest aktualna, nie musisz nic robić.'
+        : 'Apple spróbuje pobrać opłatę jeszcze kilka razy przez najbliższe dni. Jeśli karta jest aktualna, nie musisz nic robić.',
     }) +
     p(
       c,
-      'Piszemy zawczasu, żeby to nie zaskoczyło Cię w środku układania planu na tydzień. Asystent działa w całym gospodarstwie tak jak wczoraj.',
+      `${b('Pula wiadomości nie odnowi się, dopóki płatność nie przejdzie')} — do tego czasu zostaje Wam reszta z opłaconego okresu.`,
       { pt: 20 },
     ) +
     p(
       c,
-      `Jedna rzecz jednak się zmienia: ${b('pula wiadomości nie odnowi się, dopóki płatność nie przejdzie')} — do tego czasu zostaje Wam reszta z opłaconego okresu. Gdy Apple pobierze opłatę, pula rusza od nowa.`,
-      { pt: 14 },
-    ) +
-    p(
-      c,
-      `Jeśli ${until ? `do ${esc(until)} ` : ''}płatność się nie uda, plan po prostu się wyłączy: asystent przestanie układać nowe tygodnie. ${b('Nic nie zniknie')} — plan tygodnia, lista zakupów, przepisy i gospodarstwo zostają na miejscu.`,
+      `Jeśli ${until ? `do ${esc(until)} ` : ''}płatność się nie uda, plan się wyłączy: asystent przestanie układać tygodnie. ${b('Nic nie zniknie')} — plan, lista zakupów, przepisy i gospodarstwo zostają.`,
       { pt: 14 },
     ) +
     kv(c, rows) +
@@ -86,7 +75,7 @@ export function renderSubscriptionGrace(
     btn(c, { label: 'Ustawienia subskrypcji', href: APPLE_SUBSCRIPTIONS }) +
     p(
       c,
-      'Płatności prowadzi App Store — kwotę, walutę i kartę zobaczysz i zmienisz tylko tam; my nie widzimy ani jednego, ani drugiego. Ta wiadomość nie jest paragonem; paragony i przypomnienia o odnowieniu wysyła Apple.',
+      'Kwotę, walutę i kartę zmienisz tylko w App Store. Ta wiadomość nie jest paragonem — paragony wysyła Apple.',
       { small: true, soft: true, pt: 22 },
     ) +
     foot(c, {
@@ -97,15 +86,13 @@ export function renderSubscriptionGrace(
 
 ${
   until
-    ? `Plan działa normalnie do ${until}. Apple spróbuje pobrać opłatę jeszcze kilka razy — jeśli karta jest aktualna, najprawdopodobniej nie musisz robić nic.`
-    : 'Plan działa normalnie. Apple będzie próbowało pobrać opłatę jeszcze kilka razy przez najbliższe dni.'
+    ? `Plan działa normalnie do ${until}. Apple spróbuje pobrać opłatę jeszcze kilka razy — jeśli karta jest aktualna, nie musisz nic robić.`
+    : 'Plan działa normalnie. Apple spróbuje pobrać opłatę jeszcze kilka razy przez najbliższe dni — jeśli karta jest aktualna, nie musisz nic robić.'
 }
 
-Piszemy zawczasu, żeby to nie zaskoczyło Cię w środku układania planu na tydzień.
+Pula wiadomości nie odnowi się, dopóki płatność nie przejdzie — do tego czasu zostaje Wam reszta z opłaconego okresu.
 
-Jedna rzecz się zmienia: pula wiadomości nie odnowi się, dopóki płatność nie przejdzie — do tego czasu zostaje Wam reszta z opłaconego okresu.
-
-Jeśli ${until ? `do ${until} ` : ''}płatność się nie uda, plan się wyłączy: asystent przestanie układać nowe tygodnie. Nic nie zniknie — plan tygodnia, lista zakupów, przepisy i gospodarstwo zostają.
+Jeśli ${until ? `do ${until} ` : ''}płatność się nie uda, plan się wyłączy: asystent przestanie układać tygodnie. Nic nie zniknie — plan, lista zakupów, przepisy i gospodarstwo zostają.
 
 Plan: ${d.planName}${until ? `\nPlan działa do: ${until}` : ''}
 
@@ -116,7 +103,7 @@ NAJCZĘSTSZA PRZYCZYNA
 
 Ustawienia subskrypcji: ${APPLE_SUBSCRIPTIONS}
 
-Płatności prowadzi App Store — kwotę, walutę i kartę zobaczysz i zmienisz tylko tam. Ta wiadomość nie jest paragonem.
+Kwotę, walutę i kartę zmienisz tylko w App Store. Ta wiadomość nie jest paragonem — paragony wysyła Apple.
 
 --
 To wiadomość dotycząca Twojego konta w Scoffie. Dostajesz ją, bo App Store zgłosił nieudaną płatność za subskrypcję.
@@ -134,14 +121,9 @@ Scoffie · scoffie.app`;
 /**
  * E — subskrypcja wygasła albo została cofnięta.
  *
- * BEZ SŁOWA „PRO". To nazwa poziomu w kodzie, której użytkownik nie widzi
- * nigdzie: kupuje „plan Solo / We dwoje / Rodzina", ekran nazywa się
- * „Asystent i plan", plakietka mówi „Plan Solo" albo „Dostęp próbny".
- *
- * Asystent NIE znika bezwarunkowo: po wygaśnięciu `resolvePlan` spada na plan
- * próbny (kto go nie ruszył, ma jeszcze pulę), a jeśli inny domownik ma żywą
- * subskrypcję, asystent działa u całego domu dalej. Mail musi to powiedzieć,
- * bo inaczej jest po prostu nieprawdziwy dla części odbiorców.
+ * Bez słowa „PRO" — to nazwa poziomu w kodzie; użytkownik widzi „plan Solo"
+ * i ekran „Asystent i plan". Jedno zdanie o innym płatniku w domu, bo wtedy
+ * asystent działa dalej i mail bez tego wyglądałby na pomyłkę.
  */
 export function renderSubscriptionExpired(
   c: MailCtx,
@@ -157,8 +139,8 @@ export function renderSubscriptionExpired(
     'Asystent jest wyłączony. Plany, przepisy i lista zakupów zostają.';
 
   const opening = d.revoked
-    ? `Apple cofnęło zakup subskrypcji${when ? ` ${esc(when)}` : ''} i zwróciło opłatę, więc dostęp do asystenta zamknął się od razu. Nie usunęliśmy niczego i nie zamknęliśmy Ci dostępu do domu.`
-    : `Subskrypcja skończyła się${when ? ` ${esc(when)}` : ''}. Nie usunęliśmy niczego i nie zamknęliśmy Ci dostępu do domu — zmieniło się tylko to, co poniżej.`;
+    ? `Apple cofnęło zakup subskrypcji${when ? ` ${esc(when)}` : ''} i zwróciło opłatę. Nic z Waszych danych nie zniknęło.`
+    : `Subskrypcja skończyła się${when ? ` ${esc(when)}` : ''}. Nic z Waszych danych nie zniknęło — zmieniło się tylko to, co poniżej.`;
 
   const body =
     head(c) +
@@ -174,8 +156,8 @@ export function renderSubscriptionExpired(
       tone: 'off',
       pt: 26,
       items: [
-        'Asystent z Waszego planu — nowe wiadomości i układanie tygodnia za Was',
-        'Miesięczna pula zapisów planu przez asystenta',
+        'Asystent — nowe wiadomości i układanie tygodnia za Was',
+        'Zapisywanie planu przez asystenta',
       ],
     }) +
     list(c, {
@@ -183,27 +165,22 @@ export function renderSubscriptionExpired(
       tone: 'ok',
       pt: 24,
       items: [
-        'Ręczne układanie planu tygodnia — działa jak zawsze i nigdy nie miało limitu',
-        'Wszystkie dotychczasowe plany — otwierasz i zmieniasz jak dotąd',
-        'Przepisy Waszego domu i katalog, razem z tymi od asystenta',
+        'Ręczne układanie planu — jak zawsze, bez limitu',
+        'Wszystkie dotychczasowe plany',
+        'Przepisy Waszego domu i katalog',
         'Lista zakupów i jej historia',
-        'Gospodarstwo i wszyscy domownicy',
+        'Gospodarstwo i domownicy',
       ],
     }) +
     p(
       c,
-      'Dwa wyjątki, o których warto wiedzieć: jeśli nie zużyłeś jeszcze puli próbnej, zostaje Ci z niej to, co było. A jeśli plan opłaca ktoś inny w Waszym domu, asystent działa dalej — z jego planu.',
+      'Jeśli plan opłaca ktoś inny w Waszym domu, asystent działa dalej z jego planu.',
       { pt: 22, small: true, soft: true },
-    ) +
-    p(
-      c,
-      'Wielu domom Scoffie bez asystenta wystarcza w zupełności — plan na tydzień da się kliknąć w dziesięć minut w niedzielę. Ale jeśli brakuje Ci tego, że ktoś układa go za Ciebie, plan włączysz z powrotem bez zakładania czegokolwiek od nowa.',
-      { pt: 22 },
     ) +
     btn(c, { label: 'Włącz plan ponownie', href: APPLE_SUBSCRIPTIONS }) +
     p(
       c,
-      `Możesz też zrobić to w aplikacji: ${b(IN_APP_PATH)}. Ostatni plan: ${esc(d.planName)} — wróć do niego albo wybierz inny, jeśli w domu zmieniła się liczba osób.`,
+      `Albo w aplikacji: ${b(IN_APP_PATH)}. Ostatni plan: ${esc(d.planName)}.`,
       { small: true, soft: true, pt: 22 },
     ) +
     foot(c, {
@@ -216,22 +193,22 @@ export function renderSubscriptionExpired(
 
 ${
   d.revoked
-    ? `Apple cofnęło zakup subskrypcji${when ? ` ${when}` : ''} i zwróciło opłatę, więc dostęp do asystenta zamknął się od razu.`
-    : `Subskrypcja skończyła się${when ? ` ${when}` : ''}. Nie usunęliśmy niczego i nie zamknęliśmy dostępu do domu.`
+    ? `Apple cofnęło zakup subskrypcji${when ? ` ${when}` : ''} i zwróciło opłatę. Nic z Waszych danych nie zniknęło.`
+    : `Subskrypcja skończyła się${when ? ` ${when}` : ''}. Nic z Waszych danych nie zniknęło.`
 }
 
 PRZESTAJE DZIAŁAĆ
-- Asystent z Waszego planu — nowe wiadomości i układanie tygodnia za Was
-- Miesięczna pula zapisów planu przez asystenta
+- Asystent — nowe wiadomości i układanie tygodnia za Was
+- Zapisywanie planu przez asystenta
 
 ZOSTAJE
-- Ręczne układanie planu tygodnia — działa jak zawsze i nigdy nie miało limitu
-- Wszystkie dotychczasowe plany — otwierasz i zmieniasz jak dotąd
-- Przepisy Waszego domu i katalog, razem z tymi od asystenta
+- Ręczne układanie planu — jak zawsze, bez limitu
+- Wszystkie dotychczasowe plany
+- Przepisy Waszego domu i katalog
 - Lista zakupów i jej historia
-- Gospodarstwo i wszyscy domownicy
+- Gospodarstwo i domownicy
 
-Dwa wyjątki: jeśli nie zużyłeś jeszcze puli próbnej, zostaje Ci z niej to, co było. A jeśli plan opłaca ktoś inny w Waszym domu, asystent działa dalej z jego planu.
+Jeśli plan opłaca ktoś inny w Waszym domu, asystent działa dalej z jego planu.
 
 Włącz plan ponownie: ${APPLE_SUBSCRIPTIONS}
 Albo w aplikacji: ${IN_APP_PATH}. Ostatni plan: ${d.planName}.

@@ -11,25 +11,16 @@ import {
   p,
   panel,
 } from './mail-kit';
-
 import { HouseholdJoinedPayload, RenderedMail } from '../mail-template';
 
 /**
  * B — „Witaj w gospodarstwie". Wyzwalacz: przyjęcie zaproszenia
  * (`households.service`, ustawienie `Invitation.redeemedAt`).
  *
- * POPRAWIONE WOBEC MAKIETY:
- *
- * — „Twoje prywatne przepisy zostają Twoje" wypadło. W modelu NIE MA
- *   prywatnych przepisów: przepis należy do GOSPODARSTWA (`householdId`),
- *   a widoczność to `isCatalog = true OR householdId = mój dom`. `authorId`
- *   niczego nie filtruje.
- * — „dorzucisz coś do listy zakupów" wypadło. Lista liczy się WYŁĄCZNIE
- *   z pozycji planu; jedyne, co można na niej zrobić, to odhaczyć pozycję.
- * — przekąski nie są domyślne. Dom startuje ze śniadaniem, obiadem i kolacją;
- *   pozostałe pory włącza się w ustawieniach gospodarstwa.
- * — dołożone zdanie o poprzednim domu: przyjęcie zaproszenia KOŃCZY
- *   dotychczasowe członkostwo, a dom bez domowników jest kasowany.
+ * Bez „prywatnych przepisów" — w modelu ich nie ma, przepis należy do
+ * gospodarstwa i widzą go wszyscy domownicy. Bez „dorzucisz coś do listy
+ * zakupów" — lista liczy się wyłącznie z planu. Bez przekąsek w domyślnym
+ * planie — dom startuje ze śniadaniem, obiadem i kolacją.
  */
 export function renderHouseholdJoined(
   c: MailCtx,
@@ -42,7 +33,7 @@ export function renderHouseholdJoined(
   const subject =
     [...pelny].length <= 45 ? pelny : 'Witaj w nowym gospodarstwie';
   const preheader =
-    'Plan tygodnia, lista zakupów i przepisy są od teraz wspólne. Zobacz, co już jest.';
+    'Plan tygodnia, lista zakupów i przepisy są od teraz wspólne.';
 
   const body =
     head(c) +
@@ -51,35 +42,26 @@ export function renderHouseholdJoined(
       pt: 14,
     }) +
     house(c, { name: d.householdName, members: d.members, pt: 20 }) +
-    p(
-      c,
-      'Wszystko, co tu jest, jest wspólne. Jak w środę wieczorem podmienisz obiad, lista zakupów przeliczy się sama, a pozostali zobaczą nową wersję od razu. Odhaczysz jajka w sklepie — reszta domu widzi to w tej samej chwili, więc nikt nie kupi drugiego opakowania.',
-      { pt: 20 },
-    ) +
     list(c, {
-      title: 'Co widzisz wspólnie',
+      title: 'Co widzicie wspólnie',
+      pt: 26,
       items: [
-        `${b('Plan tygodnia')} — śniadania, obiady i kolacje na każdy dzień. II śniadanie, podwieczorek i przekąskę dokładacie w ustawieniach domu, jeśli chcecie. Plan możesz zmieniać, nie tylko przeglądać.`,
-        `${b('Lista zakupów')} — składa się sama z tego, co jest w planie. Odhaczanie widzą wszyscy w czasie realnym.`,
-        `${b('Przepisy')} — wspólny katalog Scoffie i przepisy tego domu. Co dopiszecie, widzi i może zmienić każdy domownik.`,
+        `${b('Plan tygodnia')} — śniadania, obiady i kolacje na każdy dzień; inne pory włączycie w ustawieniach domu. Możesz go zmieniać, nie tylko oglądać.`,
+        `${b('Lista zakupów')} — układa się sama z planu. Odhaczenie w sklepie widzą wszyscy od razu.`,
+        `${b('Przepisy')} — wspólny katalog Scoffie i przepisy Waszego domu. Co dodacie, widzi każdy domownik.`,
       ],
     }) +
+    btn(c, { label: 'Otwórz Scoffie', href: `${c.site}/otworz/` }) +
     p(
       c,
-      'Jeśli byłeś wcześniej w innym gospodarstwie, tamte przepisy, plany i listy zostają przy nim — nie przenoszą się tutaj razem z Tobą.',
-      { pt: 20, small: true, soft: true },
-    ) +
-    btn(c, { label: 'Otwórz Scoffie', href: `${c.site}/otworz` }) +
-    p(
-      c,
-      'Dobry pierwszy krok: wejdź w plan tygodnia i sprawdź, czy jest tam coś, czego nie jadasz. Przytrzymaj danie i wybierz „Zamień przepis lub osoby”.',
+      'Dobry pierwszy krok: sprawdź w planie, czy jest tam coś, czego nie jadasz. Przytrzymaj danie i wybierz „Zamień przepis lub osoby”.',
       { pt: 24 },
     ) +
     panel(c, {
       pt: 22,
       html:
         `<div class="ink" style="font:700 15px/23px ${c.ff};color:${c.p.ink};">Jeśli ktoś w domu ma opłacony plan, asystent działa też u Ciebie</div>` +
-        `<div class="soft" style="font:400 15px/23px ${c.ff};color:${c.p.soft};padding-top:3px;">Subskrypcja należy do tej osoby i to ona ją rozlicza — Ty nic nie opłacasz. Pula wiadomości jest wspólna dla całego domu, więc dzielicie ją między siebie. Gdyby kiedyś subskrypcję wyłączyła, plan, lista i przepisy zostają; zniknie tylko asystent.</div>`,
+        `<div class="soft" style="font:400 15px/23px ${c.ff};color:${c.p.soft};padding-top:3px;">Płaci ta osoba, a pula wiadomości jest wspólna dla całego domu.</div>`,
     }) +
     foot(c, { reason: 'bo Twoje konto zostało dodane do gospodarstwa.' });
 
@@ -91,20 +73,16 @@ Zaproszenie przyjęte — od teraz planujecie jedzenie razem.
 Gospodarstwo: ${d.householdName}
 Domownicy (${d.members.length}): ${members}
 
-Wszystko, co tu jest, jest wspólne. Jak w środę wieczorem podmienisz obiad, lista zakupów przeliczy się sama i pozostali zobaczą nową wersję od razu. Odhaczysz jajka w sklepie — reszta domu widzi to w tej samej chwili.
+CO WIDZICIE WSPÓLNIE
+- Plan tygodnia — śniadania, obiady i kolacje na każdy dzień; inne pory włączycie w ustawieniach domu. Możesz go zmieniać.
+- Lista zakupów — układa się sama z planu. Odhaczenie w sklepie widzą wszyscy od razu.
+- Przepisy — wspólny katalog Scoffie i przepisy Waszego domu. Co dodacie, widzi każdy domownik.
 
-CO WIDZISZ WSPÓLNIE
-- Plan tygodnia — śniadania, obiady i kolacje na każdy dzień. II śniadanie, podwieczorek i przekąskę dokładacie w ustawieniach domu. Plan możesz zmieniać.
-- Lista zakupów — składa się sama z tego, co jest w planie. Odhaczanie widzą wszyscy.
-- Przepisy — wspólny katalog Scoffie i przepisy tego domu. Co dopiszecie, widzi i może zmienić każdy domownik.
+Otwórz Scoffie: ${c.site}/otworz/
 
-Jeśli byłeś wcześniej w innym gospodarstwie, tamte przepisy, plany i listy zostają przy nim.
+Dobry pierwszy krok: sprawdź w planie, czy jest tam coś, czego nie jadasz. Przytrzymaj danie i wybierz „Zamień przepis lub osoby”.
 
-Otwórz Scoffie: ${c.site}/otworz
-
-Dobry pierwszy krok: wejdź w plan tygodnia i sprawdź, czy jest tam coś, czego nie jadasz. Przytrzymaj danie i wybierz „Zamień przepis lub osoby”.
-
-Jeśli ktoś w domu ma opłacony plan, asystent działa też u Ciebie. Subskrypcja należy do tej osoby — Ty nic nie opłacasz, a pula wiadomości jest wspólna dla całego domu.
+Jeśli ktoś w domu ma opłacony plan, asystent działa też u Ciebie. Płaci ta osoba, a pula wiadomości jest wspólna dla całego domu.
 
 --
 To wiadomość dotycząca Twojego konta w Scoffie. Dostajesz ją, bo Twoje konto zostało dodane do gospodarstwa.

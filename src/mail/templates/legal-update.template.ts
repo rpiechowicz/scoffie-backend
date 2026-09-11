@@ -18,16 +18,10 @@ import { LegalUpdatePayload, RenderedMail } from '../mail-template';
 /**
  * G — zmiana regulaminu lub polityki prywatności. Najsurowszy z zestawu.
  *
- * POPRAWIONE WOBEC MAKIETY:
- *
- * — punkty „co się zmienia" są PARAMETREM, nie treścią w kodzie. Makieta miała
- *   wpisane trzy przykładowe, w tym „Weekly Meals występuje w dokumentach jako
- *   Scoffie" — a w dokumentach nigdy nie było tej nazwy (wersja 1.0 z 15.09.2026
- *   jest pierwsza i od razu mówi „Scoffie"). Mail przypomniałby markę, której
- *   nikt tam nie widział, i zasugerował zmianę podmiotu.
- * — zdanie „dalsze korzystanie oznacza akceptację" ma wariant. Przy zmianie
- *   istotnej (podniesione minimum wersji) jest po prostu nieprawdziwe: wtedy
- *   aplikacja poprosi o zgodę jeszcze raz.
+ * Punkty „co się zmienia" są PARAMETREM, nie treścią w kodzie. Zdanie
+ * o akceptacji ma wariant: przy zmianie istotnej (podniesione minimum wersji)
+ * aplikacja poprosi o zgodę jeszcze raz i „dalsze korzystanie oznacza
+ * akceptację" byłoby nieprawdą.
  */
 export function renderLegalUpdate(
   c: MailCtx,
@@ -47,15 +41,15 @@ export function renderLegalUpdate(
   rows.push(['Wersja dokumentów', esc(d.version)]);
 
   const acceptance = d.requiresConsent
-    ? `Ta zmiana jest na tyle istotna, że samo dalsze korzystanie nie wystarczy — poprosimy Cię w aplikacji o potwierdzenie nowej wersji. Do czasu potwierdzenia obowiązuje Cię ta, którą już zaakceptowałeś. Jeśli się nie zgadzasz, konto usuniesz w Ustawieniach.`
-    : `Dalsze korzystanie ze Scoffie${from ? ` po ${esc(from)}` : ''} oznacza akceptację nowej wersji. Jeśli się nie zgadzasz, konto usuniesz w Ustawieniach — bez pisania do nas i bez pytań.`;
+    ? 'Ta zmiana jest istotna, więc poprosimy Cię w aplikacji o potwierdzenie nowej wersji. Do tego czasu obowiązuje wersja, którą już zaakceptowałeś. Jeśli się nie zgadzasz, konto usuniesz w Ustawieniach.'
+    : `Dalsze korzystanie ze Scoffie${from ? ` po ${esc(from)}` : ''} oznacza akceptację nowej wersji. Jeśli się nie zgadzasz, konto usuniesz w Ustawieniach.`;
 
   const body =
     head(c, { name: false }) +
     h1(c, 'Zmieniamy regulamin i politykę prywatności') +
     p(
       c,
-      'Bez owijania: poniżej data i to, co się zmienia. Streszczenie jest po ludzku, ale wiąże tekst dokumentu, nie ten mail.',
+      'Poniżej data i to, co się zmienia. Wiąże tekst dokumentu, nie to streszczenie.',
       { pt: 16 },
     ) +
     kv(c, rows, { pt: 20 }) +
@@ -67,11 +61,6 @@ export function renderLegalUpdate(
       ),
     }) +
     p(c, acceptance, { pt: 24 }) +
-    p(
-      c,
-      'Jeśli masz w domu subskrypcję, pamiętaj, że usunięcie konta w Scoffie nie zatrzymuje płatności w App Store — odnawianie wyłącza się w ustawieniach subskrypcji Apple.',
-      { pt: 14, small: true, soft: true },
-    ) +
     btn(c, { label: 'Przeczytaj regulamin', href: `${c.site}/terms/` }) +
     textLink(c, {
       label: 'Polityka prywatności — scoffie.app/privacy',
@@ -88,7 +77,7 @@ export function renderLegalUpdate(
 
   const text = `Zmieniamy regulamin i politykę prywatności.
 
-Bez owijania: poniżej data i to, co się zmienia. Streszczenie jest po ludzku, ale wiąże tekst dokumentu, nie ten mail.
+Poniżej data i to, co się zmienia. Wiąże tekst dokumentu, nie to streszczenie.
 
 ${from ? `Wchodzi w życie: ${from}\n` : ''}Dotyczy: Regulaminu i Polityki prywatności
 Wersja dokumentów: ${d.version}
@@ -98,11 +87,9 @@ ${changeLines}
 
 ${
   d.requiresConsent
-    ? 'Ta zmiana jest na tyle istotna, że samo dalsze korzystanie nie wystarczy — poprosimy Cię w aplikacji o potwierdzenie nowej wersji. Do czasu potwierdzenia obowiązuje Cię ta, którą już zaakceptowałeś.'
+    ? 'Ta zmiana jest istotna, więc poprosimy Cię w aplikacji o potwierdzenie nowej wersji. Do tego czasu obowiązuje wersja, którą już zaakceptowałeś. Jeśli się nie zgadzasz, konto usuniesz w Ustawieniach.'
     : `Dalsze korzystanie ze Scoffie${from ? ` po ${from}` : ''} oznacza akceptację nowej wersji. Jeśli się nie zgadzasz, konto usuniesz w Ustawieniach.`
 }
-
-Jeśli masz w domu subskrypcję, pamiętaj: usunięcie konta nie zatrzymuje płatności w App Store — odnawianie wyłącza się w ustawieniach subskrypcji Apple.
 
 Regulamin: ${c.site}/terms/
 Polityka prywatności: ${c.site}/privacy/
