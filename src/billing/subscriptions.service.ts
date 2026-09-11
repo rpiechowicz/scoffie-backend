@@ -1,7 +1,8 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailOutboxService } from '../mail/mail-outbox.service';
 import {
   identityHashEquals,
   purchaseIdentityHashForUser,
@@ -113,7 +114,76 @@ export class SubscriptionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly appStore: AppStoreServerClient,
+    // Opcjonalnie — testy jednostkowe budują serwis bez poczty, a mail nigdy
+    // nie ma prawa wywrócić rozliczenia zakupu.
+    @Optional() private readonly mail?: MailOutboxService,
   ) {}
+
+  /**
+   * Mail o zmianie stanu subskrypcji — TYLKO NA PRZEJŚCIU, nigdy na „stan jest
+   * taki od tygodnia".
+   *
+   * Uzgadnianie chodzi co godzinę, a Apple potrafi przysłać to samo
+   * powiadomienie dwa razy; bez porównania z poprzednim stanem człowiek
+   * dostawałby „subskrypcja wygasła" codziennie do końca świata. Drugą linią
+   * obrony jest klucz deduplikacji z `latestTransactionId`.
+   */
+  private async announceStatusChange(input: {
+    previous: SubscriptionState['status'] | null;
+    subscriptionId: string;
+    purchaserUserId: string | null;
+    state: SubscriptionState;
+  }): Promise<void> {
+    if (!this.mail) return;
+    const { previous, state } = input;
+    if (previous === state.status) return;
+
+    // Adresatem jest KUPUJĄCY. Po skasowaniu konta `purchaserUserId` jest
+    // `null` (SetNull) — wtedy nie ma komu wysłać i nie ma czego szukać.
+    if (!input.purchaserUserId) return;
+    const buyer = await this.prisma.user.findUnique({
+      where: { id: input.purchaserUserId },
+      select: { email: true },
+    });
+    if (!buyer?.email) return;
+
+    const planName =
+      SUBSCRIPTION_PRODUCTS[state.productId]?.name ?? 'Plan Scoffie';
+    const tx = state.latestTransactionId;
+
+    if (state.status === 'GRACE') {
+      await this.mail.enqueue(this.prisma, {
+        template: 'SUBSCRIPTION_GRACE',
+        dedupeKey: `grace:${input.subscriptionId}:${tx}`,
+        to: buyer.email,
+        userId: input.purchaserUserId,
+        payload: {
+          planName,
+          graceEndsAtIso: state.graceExpiresAt
+            ? state.graceExpiresAt.toISOString()
+            : null,
+        },
+      });
+      return;
+    }
+
+    const died = state.status === 'EXPIRED' || state.status === 'REVOKED';
+    const wasAlive = previous === 'ACTIVE' || previous === 'GRACE';
+    if (died && wasAlive) {
+      await this.mail.enqueue(this.prisma, {
+        template: 'SUBSCRIPTION_EXPIRED',
+        dedupeKey: `expired:${input.subscriptionId}:${tx}`,
+        to: buyer.email,
+        userId: input.purchaserUserId,
+        payload: {
+          planName,
+          expiredAtIso:
+            (state.revokedAt ?? state.expiresAt)?.toISOString() ?? null,
+          revoked: state.status === 'REVOKED',
+        },
+      });
+    }
+  }
 
   // ────────────────────────────── ZAKUP ──────────────────────────────
 
@@ -464,6 +534,13 @@ export class SubscriptionsService {
         })
       : await this.prisma.subscription.create({ data });
 
+    await this.announceStatusChange({
+      previous: existing?.status ?? null,
+      subscriptionId: saved.id,
+      purchaserUserId: userId,
+      state,
+    });
+
     if (state.ownershipType === 'FAMILY_SHARED') {
       // Tu można trafić TYLKO przy jawnym `APPLE_ACCEPT_FAMILY_SHARED=true`
       // (bramka w `checkTransactionPayload` odrzuca resztę). Wtedy trzeba
@@ -757,6 +834,19 @@ export class SubscriptionsService {
           lastVerifiedAt: now,
         },
       });
+
+      if (written.count > 0) {
+        // Tylko po udanym zapisie: `updateMany` ze strażnikiem kolejności
+        // potrafi przegrać cicho ze świeższym stanem, a wtedy nic się nie
+        // zmieniło i nie ma o czym pisać.
+        await this.announceStatusChange({
+          previous: existing.status,
+          subscriptionId: existing.id,
+          purchaserUserId: existing.purchaserUserId,
+          state,
+        });
+      }
+
       await this.markProcessed(
         uuid,
         now,

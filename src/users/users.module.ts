@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConsentsModule } from '../consents/consents.module';
+import { MailModule } from '../mail/mail.module';
 import { UsersGateway } from './users.gateway';
 import { AppleRevocationService } from './apple-revocation.service';
 import { UsersService } from './users.service';
 
 @Module({
-  imports: [ConsentsModule],
+  imports: [ConsentsModule, MailModule],
   providers: [UsersService, UsersGateway, AppleRevocationService],
 })
 export class UsersModule {}
