@@ -74,8 +74,9 @@ async function main(): Promise<void> {
       from: env.from,
       to: adres,
       replyTo: env.replyTo || undefined,
-      // Prefiks, żeby w skrzynce od razu było widać, że to próba, i który stan.
-      subject: `[próba: ${fixture.key}] ${mail.subject}`,
+      // Temat DOKŁADNIE taki, jaki dostanie użytkownik — próbę rozpoznasz po
+      // nagłówku X-Scoffie-Fixture, nie po prefiksie w temacie.
+      subject: mail.subject,
       html: mail.html,
       text: mail.text,
       headers: {

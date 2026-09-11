@@ -174,18 +174,18 @@ export const rule = (c: MailCtx): string =>
  * przy zablokowanych obrazkach — a to stan domyślny w Outlooku i w części
  * konfiguracji Gmaila.
  *
- * `<picture>` podaje wariant na ciemne tło: Apple Mail i iOS Mail go wezmą,
- * reszta zignoruje `<source>` i zostanie przy `<img>`. Gmail nie zna
- * `<picture>`, ale jasny znak jest terakotą na przezroczystym tle, więc czyta
- * się na obu tłach — wariant ciemny tylko go rozjaśnia.
+ * ZWYKŁY `<img>`, BEZ `<picture>`. Pierwsza wersja podawała wariant na ciemne
+ * tło przez `<picture><source media="(prefers-color-scheme: dark)">` i w iOS
+ * Mail wychodziła z tego pusta ramka ze znakiem zapytania — mimo że oba pliki
+ * odpowiadały 200 (sprawdzone 11.09.2026 na wiadomości z produkcji). Według
+ * caniemail `<picture>` ma ~24 % wsparcia: Apple Mail „usuwa go w niektórych
+ * przypadkach", Gmail podmienia na `<u>`, Outlook nie zna wcale. Znak jest
+ * terakotą na przezroczystym tle, więc czyta się na obu tłach bez wariantu.
  */
 export function head(c: MailCtx, o?: { name?: boolean }): string {
   const p = c.p;
-  const light = `${c.assetBase}/email/scoffie-mark.png`;
-  const dark = `${c.assetBase}/email/scoffie-mark-dark.png`;
-  const img =
-    `<picture><source srcset="${dark}" media="(prefers-color-scheme: dark)">` +
-    `<img src="${light}" width="44" height="44" alt="Scoffie" style="display:block;width:44px;height:44px;border:0;outline:none;text-decoration:none;"></picture>`;
+  const src = `${c.assetBase}/email/scoffie-mark.png`;
+  const img = `<img src="${src}" width="44" height="44" alt="Scoffie" style="display:block;width:44px;height:44px;border:0;outline:none;text-decoration:none;">`;
   const wordmark =
     o?.name === false
       ? ''

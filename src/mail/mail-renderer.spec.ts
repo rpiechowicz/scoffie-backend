@@ -81,7 +81,9 @@ describe('adresy w treści', () => {
       trialPlans: 1,
     });
     expect(mail.html).toContain('https://a.test/email/scoffie-mark.png');
-    expect(mail.html).toContain('https://a.test/email/scoffie-mark-dark.png');
+    // Bez `<picture>`: iOS Mail pokazywał z niego pustą ramkę (11.09.2026).
+    expect(mail.html).not.toContain('<picture');
+    expect(mail.html).not.toContain('srcset=');
   });
 });
 
