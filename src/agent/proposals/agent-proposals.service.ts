@@ -33,6 +33,7 @@ import {
   SwapCardSide,
 } from '../cards/agent-cards';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
+import { AgentQuotaMailService } from '../agent-quota-mail.service';
 import { weekBaselineHash } from './proposal-baseline';
 import type { MessageView } from '../agent-conversations.service';
 
@@ -129,6 +130,7 @@ export class AgentProposalsService {
     private readonly weeklyPlans: WeeklyPlansService,
     private readonly households: HouseholdsService,
     private readonly counters: AiUsageCountersService,
+    private readonly quotaMail: AgentQuotaMailService,
     private readonly plansGateway: WeeklyPlansGateway,
   ) {}
 
@@ -718,6 +720,9 @@ export class AgentProposalsService {
       limit,
     );
     if (!consumed) {
+      // Tu jesteśmy POZA transakcją (`tryConsume` dostał `this.prisma`), więc
+      // kolejkowanie przed rzutem jest bezpieczne — nic się nie wycofa.
+      await this.quotaMail.announce(userId, plan, 'plans');
       throw new AppException(
         'AI_PLAN_QUOTA_EXCEEDED',
         plan.tier === 'TRIAL'

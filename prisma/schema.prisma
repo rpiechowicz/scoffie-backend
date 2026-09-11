@@ -73,6 +73,9 @@ model User {
   agentConversations AgentConversation[]
   consentEvents      ConsentEvent[]
   agentReports       AgentReport[]
+  /// Maile zakolejkowane do tej osoby. `SetNull`, nie kaskada — patrz
+  /// `MailMessage.userId`: mail pożegnalny musi przeżyć skasowanie konta.
+  mailMessages       MailMessage[]
 
   @@index([identityHash])
 }
@@ -84,7 +87,10 @@ model User {
 /// rozmowy, a zgłoszenie ma przeżyć razem z MIGAWKĄ treści (`messageText`),
 /// bo bez niej nie da się go rozpatrzyć. Kaskada tylko z kontem.
 model AgentReport {
-  id             String   @id @default(uuid()) @db.Uuid
+  /// `dbgenerated`, nie `uuid()`: migracja tej tabeli była pisana ręcznie
+  /// z `DEFAULT gen_random_uuid()` i tak stoi na produkcji. Schema musi mówić
+  /// to samo, co baza — inaczej `migrate dev` widzi rozjazd i żąda resetu.
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId         String   @db.Uuid
   conversationId String?  @db.Uuid
   messageId      String?  @db.Uuid
@@ -115,7 +121,10 @@ model AgentReport {
 /// gospodarstwie. `householdId` jest wyłącznie kontekstem dowodowym.
 /// Kaskada z kontem: po usunięciu konta nie ma już komu przypisać dowodu.
 model ConsentEvent {
-  id              String   @id @default(uuid()) @db.Uuid
+  /// `dbgenerated`, nie `uuid()`: migracja tej tabeli była pisana ręcznie
+  /// z `DEFAULT gen_random_uuid()` i tak stoi na produkcji. Schema musi mówić
+  /// to samo, co baza — inaczej `migrate dev` widzi rozjazd i żąda resetu.
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId          String   @db.Uuid
   kind            String
   action          String
@@ -194,11 +203,22 @@ model RefreshToken {
   expiresAt DateTime
   createdAt DateTime  @default(now())
   revokedAt DateTime?
+  /// Dlaczego token przestał być ważny: ROTATED | LOGOUT | REUSE | RECOVERED.
+  /// Bez tego każde ponowne użycie wygląda tak samo, a to dwie różne
+  /// sytuacje: klient, ktory zgubil odpowiedz z rotacji, i cudza kopia
+  /// starego tokenu.
+  revokedReason String?
+  /// Hash nastepcy wydanego przy rotacji tego tokenu. Pozwala rozpoznac
+  /// telefon, do ktorego nowa para nigdy nie dojechala (iOS uspil proces
+  /// w polowie zadania), i oddac mu swieza pare zamiast kasowac cala
+  /// rodzine tokenow.
+  replacedByHash String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([replacedByHash])
 }
 
 model Recipe {
@@ -838,7 +858,10 @@ model AgentMessage {
 /// `messageId` puste = tura nie domknęła się i propozycja jest nieosiągalna;
 /// to celowe, bo karty nikt nigdy nie zobaczył.
 model AgentProposal {
-  id              String    @id @default(uuid()) @db.Uuid
+  /// `dbgenerated`, nie `uuid()`: migracja tej tabeli była pisana ręcznie
+  /// z `DEFAULT gen_random_uuid()` i tak stoi na produkcji. Schema musi mówić
+  /// to samo, co baza — inaczej `migrate dev` widzi rozjazd i żąda resetu.
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   conversationId  String    @db.Uuid
   turnId          String    @db.Uuid
   /// Kopia z rozmowy — sprawdzenie właściciela bez joina.
@@ -1119,6 +1142,121 @@ model PushDevice {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isActive])
+}
+
+/// Skrzynka nadawcza poczty. Kod domeny NIGDY nie woła dostawcy w trakcie
+/// żądania — wstawia tu wiersz, najlepiej w TEJ SAMEJ transakcji co zmiana,
+/// którą mail opisuje. Wysyłką zajmuje się `MailWorkerService`.
+///
+/// DLACZEGO PRZEZ BAZĘ, A NIE OD RAZU HTTP-em:
+///  1. Kasowanie konta to jedna transakcja. Mail wysłany przed nią wychodzi
+///     także wtedy, gdy transakcja padnie; wysłany po niej ginie, gdy padnie
+///     proces. Wiersz w transakcji rozwiązuje oba przypadki naraz.
+///  2. Dostawca ma prawo oddać 429 albo 503. Bez ponowień „witaj w Scoffie"
+///     po prostu nie dochodzi i nikt się o tym nie dowiaduje.
+///  3. Apple dubluje powiadomienia, a uzgadnianie subskrypcji chodzi co
+///     godzinę — bez `dedupeKey` ktoś dostaje trzy razy „subskrypcja wygasła".
+///  4. Przy reklamacji „nie dostałem" widać wiersz, status i odpowiedź
+///     dostawcy, zamiast zgadywania z logów Railway.
+model MailMessage {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Klucz idempotencji zdarzenia, np. `welcome:<userId>` albo
+  /// `grace:<subId>:<txId>`. UNIQUE robi całą robotę: druga próba tego samego
+  /// zdarzenia odbija się o bazę, zamiast wysyłać drugi mail. Wołający łapie
+  /// konflikt i traktuje go jako sukces, bo mail już jest w kolejce.
+  dedupeKey String @unique
+
+  /// Identyfikator szablonu (`WELCOME`, `ACCOUNT_DELETED`, …). Tekst, nie enum:
+  /// ta sama defensywna konwencja co przy `PushDevice.apnsEnvironment` —
+  /// dołożenie szablonu ma być zmianą kodu, nie migracją bazy. Dopuszczalne
+  /// wartości pilnuje `MAIL_TEMPLATE_IDS` i test parytetu.
+  template String
+
+  /// Adres SKOPIOWANY w chwili kolejkowania, a nie czytany z relacji.
+  /// Mail pożegnalny wychodzi już PO skasowaniu konta — gdyby adres wisiał
+  /// na `User`, nie byłoby dokąd go wysłać.
+  to String
+
+  /// Wskaźnik na konto, wyłącznie do diagnostyki i retencji. `SetNull`, nie
+  /// kaskada: kaskada skasowałaby mail pożegnalny w tej samej transakcji,
+  /// w której go kolejkujemy.
+  userId String? @db.Uuid
+
+  /// Zmienne do podstawienia w szablonie — tylko to, co naprawdę wchodzi do
+  /// treści (nazwa wyświetlana, nazwa gospodarstwa, liczby, daty jako tekst).
+  /// Nigdy dane, których mail nie pokazuje.
+  payload Json
+
+  status   MailStatus @default(QUEUED)
+  attempts Int        @default(0)
+
+  /// Kiedy robotnik ma spróbować następnym razem. Zwłoka rośnie
+  /// (1 min → 5 → 30 → 2 h → 6 h), bo błąd dostawcy zwykle nie mija w sekundę.
+  nextAttemptAt DateTime @default(now())
+
+  /// Ostatni błąd w formie nadającej się do logu — kod i skrót odpowiedzi
+  /// dostawcy, bez treści maila.
+  lastError String?
+
+  /// Identyfikator wiadomości u dostawcy. Po nim wiąże się webhook o odrzucie
+  /// z konkretnym wysłanym mailem.
+  providerMessageId String?
+
+  /// Temat w postaci, w jakiej NAPRAWDĘ poszedł. Zapisywany przy wysyłce, bo
+  /// szablon w kodzie może się jutro zmienić, a dowód wysyłki ma zostać ten.
+  subject String?
+
+  sentAt DateTime?
+
+  /// Kiedy z wiersza wyczyszczono dane osobowe (`to`, `payload`, `subject`).
+  /// Retencja: 30 dni od wysyłki zostawia sam dowód nadania, 12 miesięcy
+  /// kasuje wiersz. Wiersz przeżywa skasowanie konta, więc bez tego trzymałby
+  /// adres i nazwę wyświetlaną osoby, której u nas już nie ma.
+  scrubbedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// Indeks pod jedyne zapytanie robotnika: „co czeka i jest już wymagalne".
+  @@index([status, nextAttemptAt])
+  @@index([userId])
+  @@index([sentAt])
+}
+
+enum MailStatus {
+  QUEUED
+  /// Zajęte przez robotnika. Stan przejściowy — chroni przed drugą wysyłką
+  /// tego samego wiersza, gdy przebieg trwa dłużej niż odstęp pętli.
+  SENDING
+  SENT
+  /// Wyczerpane próby albo odmowa, której nie ma sensu ponawiać.
+  FAILED
+  /// Świadomie pominięty: brak adresu, adres na liście wykluczeń, poczta
+  /// wyłączona. Nie jest błędem i nie budzi alertu.
+  SKIPPED
+}
+
+/// Adresy, na które nie wysyłamy nigdy więcej: twardy odrzut albo skarga na
+/// spam. Zasila je webhook dostawcy.
+///
+/// Klucz to adres pisany małymi literami, a nie `userId` — wykluczenie ma
+/// przeżyć skasowanie konta i objąć konto założone od nowa na ten sam adres.
+/// Wysyłanie na adres, który raz twardo odbił, psuje reputację domeny
+/// wszystkim pozostałym.
+model MailSuppression {
+  email String @id
+
+  /// HARD_BOUNCE | COMPLAINT | MANUAL. Tekst, nie enum — dostawcy nazywają
+  /// zdarzenia po swojemu i lista bywa dłuższa niż nasza wyobraźnia.
+  reason String
+
+  /// Skrót powodu od dostawcy, do wglądu przy reklamacji.
+  detail String?
+
+  createdAt DateTime @default(now())
 }
 
 enum MembershipRole {

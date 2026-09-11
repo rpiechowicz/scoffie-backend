@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AppStoreServerClient } from './app-store-server.client';
+import { MailModule } from '../mail/mail.module';
 import { BillingController } from './billing.controller';
 import { BillingOpsController } from './billing-ops.controller';
 import { BillingPreflightService } from './billing-preflight.service';
@@ -20,7 +21,7 @@ import { SubscriptionsReconcileService } from './subscriptions-reconcile.service
   // AuthModule dostarcza AccessTokenService dla JwtAuthGuard na kontrolerze;
   // bez niego Nest nie zbuduje guarda w zakresie tego modułu i aplikacja
   // pada przy starcie (UnknownDependenciesException).
-  imports: [AuthModule, PrismaModule],
+  imports: [AuthModule, PrismaModule, MailModule],
   controllers: [BillingController, BillingOpsController],
   providers: [
     AppStoreServerClient,

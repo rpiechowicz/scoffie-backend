@@ -18,7 +18,9 @@ import { AgentMemoryService } from './agent-memory.service';
 import { AgentController } from './agent.controller';
 import { AgentTurnRunner } from './agent-turn.runner';
 import { AgentTurnsService } from './agent-turns.service';
+import { MailModule } from '../mail/mail.module';
 import { AiUsageCountersService } from './ai-usage-counters.service';
+import { AgentQuotaMailService } from './agent-quota-mail.service';
 import { AgentProviderResolver } from './providers/agent-provider.resolver';
 import { AnthropicAgentProvider } from './providers/anthropic-agent.provider';
 import { StubAgentProvider } from './providers/stub-agent.provider';
@@ -47,6 +49,9 @@ import { UpstreamBreaker } from './upstream-breaker';
     RecipesModule,
     // Zgody: bramka przed turą i filtr domowników w prompcie.
     ConsentsModule,
+    // Poczta: mail o wyczerpanej puli. Granica trzyma się kierunku — agent
+    // woła pocztę, poczta nie wie o agencie.
+    MailModule,
     // Push „asystent odpowiedział" po domknięciu tury.
     NotificationsModule,
   ],
@@ -54,6 +59,7 @@ import { UpstreamBreaker } from './upstream-breaker';
   providers: [
     AgentConfigService,
     AiUsageCountersService,
+    AgentQuotaMailService,
     AgentMemoryService,
     AgentConversationsService,
     AgentTurnsService,

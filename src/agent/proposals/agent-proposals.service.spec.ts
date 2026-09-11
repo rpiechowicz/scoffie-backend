@@ -5,6 +5,7 @@ import { HouseholdsService } from '../../households/households.service';
 import { WeeklyPlansService } from '../../weekly-plans/weekly-plans.service';
 import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
+import { AgentQuotaMailService } from '../agent-quota-mail.service';
 
 // Sedno modelu „agent proponuje, człowiek zatwierdza": tura NIC nie zapisuje
 // w planie. Te testy pilnują, że propozycja z naruszeniem nie powstaje wcale,
@@ -76,6 +77,12 @@ const buildService = async (deps: ReturnType<typeof makeDeps>) => {
       { provide: WeeklyPlansService, useValue: deps.weeklyPlans },
       { provide: HouseholdsService, useValue: deps.households },
       { provide: AiUsageCountersService, useValue: deps.counters },
+      // Mail o wyczerpanej puli — atrapa: te testy sprawdzają propozycje,
+      // nie pocztę.
+      {
+        provide: AgentQuotaMailService,
+        useValue: { announce: jest.fn().mockResolvedValue(undefined) },
+      },
       { provide: WeeklyPlansGateway, useValue: deps.plansGateway },
     ],
   }).compile();

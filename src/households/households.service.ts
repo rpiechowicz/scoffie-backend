@@ -1,9 +1,10 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { AppException } from '../common/app-exception';
 import { assertUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailOutboxService } from '../mail/mail-outbox.service';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { CreateHouseholdDto } from './dto/create-household.dto';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
@@ -35,7 +36,12 @@ const INVITATION_MAX_DAYS = 30;
 
 @Injectable()
 export class HouseholdsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Opcjonalnie — testy jednostkowe budują serwis bez poczty, a brak maila
+    // nie ma prawa wywrócić przyjęcia zaproszenia.
+    @Optional() private readonly mail?: MailOutboxService,
+  ) {}
 
   /*
    * Walidacja wejścia (Faza 0, krok 2): każda metoda przyjmująca DTO woła
@@ -386,7 +392,9 @@ export class HouseholdsService {
       const [self, housemates] = await Promise.all([
         tx.user.findUniqueOrThrow({
           where: { id: userId },
-          select: { id: true, avatarColor: true },
+          // Adres i nazwa do powitania w gospodarstwie — jedno zapytanie
+          // zamiast drugiego okrążenia do bazy w tej samej transakcji.
+          select: { id: true, avatarColor: true, email: true },
         }),
         tx.user.findMany({
           where: {
@@ -401,6 +409,37 @@ export class HouseholdsService {
         await tx.user.update({
           where: { id: userId },
           data: { avatarColor: pickFreeAvatarColor(taken, userId) },
+        });
+      }
+
+      // Powitanie w gospodarstwie. Skład czytamy PO ustaleniu koloru, żeby
+      // kółka w mailu miały te same barwy, co chipy w aplikacji.
+      if (this.mail) {
+        const members = await tx.membership.findMany({
+          where: { householdId: invitation.householdId },
+          orderBy: { createdAt: 'asc' },
+          select: {
+            user: { select: { displayName: true, avatarColor: true } },
+          },
+        });
+        const household = await tx.household.findUnique({
+          where: { id: invitation.householdId },
+          select: { name: true },
+        });
+        await this.mail.enqueue(tx, {
+          template: 'HOUSEHOLD_JOINED',
+          // Po ZAPROSZENIU, nie po użytkowniku: ten sam człowiek może dołączyć
+          // do kilku domów, a każde dołączenie jest osobnym zdarzeniem.
+          dedupeKey: `joined:${invitation.id}`,
+          to: self.email,
+          userId,
+          payload: {
+            householdName: household?.name ?? 'Wasze gospodarstwo',
+            members: members.map((m) => ({
+              name: m.user.displayName,
+              avatarColor: m.user.avatarColor,
+            })),
+          },
         });
       }
 

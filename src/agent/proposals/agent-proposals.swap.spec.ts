@@ -5,6 +5,7 @@ import { HouseholdsService } from '../../households/households.service';
 import { WeeklyPlansService } from '../../weekly-plans/weekly-plans.service';
 import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
+import { AgentQuotaMailService } from '../agent-quota-mail.service';
 
 // Podmiana DLA JEDNEJ OSOBY nie ma prawa zabrać jedzenia reszcie domu.
 //
@@ -74,6 +75,12 @@ const build = async (deps: ReturnType<typeof makeDeps>) => {
       { provide: WeeklyPlansService, useValue: deps.weeklyPlans },
       { provide: HouseholdsService, useValue: deps.households },
       { provide: AiUsageCountersService, useValue: deps.counters },
+      // Mail o wyczerpanej puli — atrapa: te testy sprawdzają propozycje,
+      // nie pocztę.
+      {
+        provide: AgentQuotaMailService,
+        useValue: { announce: jest.fn().mockResolvedValue(undefined) },
+      },
       { provide: WeeklyPlansGateway, useValue: deps.plansGateway },
     ],
   }).compile();
