@@ -512,6 +512,43 @@ describe('WS auth E2E', () => {
         .expect(401);
     });
 
+    // Telefon ma single-flight, ale POST i tak potrafi pójść dwa razy: gdy
+    // połączenie padnie, zanim odpowiedź dojedzie, URLSession ponawia żądanie
+    // i serwer dostaje dwa refreshe tym samym tokenem w tej samej sekundzie.
+    // Do 11.09.2026 przegrany tę turę dostawał 401, rodzina padała, a telefon
+    // pokazywał „Sesja wygasła”.
+    it('dwa równoległe refreshe tym samym tokenem nie kończą sesji', async () => {
+      const session = await devLogin('RownolegleOdswiezenie');
+
+      const [first, second] = await Promise.all([
+        request(app.getHttpServer())
+          .post('/auth/refresh')
+          .send({ refreshToken: session.refreshToken }),
+        request(app.getHttpServer())
+          .post('/auth/refresh')
+          .send({ refreshToken: session.refreshToken }),
+      ]);
+
+      // Żadne z nich nie jest replayem — jedno rotuje, drugie ratuje się
+      // oknem łaski, obie strony dostają parę.
+      expect([first.status, second.status]).toEqual([201, 201]);
+      expect(first.body.refreshToken).not.toBe(session.refreshToken);
+      expect(second.body.refreshToken).not.toBe(session.refreshToken);
+      expect(first.body.refreshToken).not.toBe(second.body.refreshToken);
+
+      // Rodzina nie padła, więc `tokenVersion` nie poszło w górę i tokeny
+      // DOSTĘPU z obu odpowiedzi nadal otwierają REST.
+      for (const accessToken of [
+        first.body.accessToken as string,
+        second.body.accessToken as string,
+      ]) {
+        await request(app.getHttpServer())
+          .get('/integrations/cookidoo/status')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .expect(200);
+      }
+    });
+
     it('REST z tokenem skasowanego konta → 401 UNAUTHORIZED/user_gone', async () => {
       const ghost = await devLogin('RestGhost');
       await prisma.user.delete({ where: { id: ghost.user.id } });

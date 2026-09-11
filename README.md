@@ -86,7 +86,9 @@ Use [`.env.example`](./.env.example) as the source of truth.
   response. Refresh tokens are single-use and replay revokes the whole family;
   without this window a phone suspended mid-refresh was logged out through no
   fault of its own. Recovery fires once per rotation and only while the
-  successor token is still unused.
+  successor token is still unused. It also covers the duplicate that arrives
+  *during* the rotation: the phone retransmits a POST whose connection died
+  before the response, so both requests carry the same token.
 - `COOKIDOO_ENCRYPTION_KEY` (32 bytes base64 — the API refuses to boot without it)
 
 ### Required in production only (`NODE_ENV=production`, checked at boot)
