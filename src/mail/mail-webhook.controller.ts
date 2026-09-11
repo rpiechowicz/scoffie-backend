@@ -59,10 +59,29 @@ export class MailWebhookController {
     if (!check.ok) {
       // 204 mimo odmowy: dostawca ma przestać ponawiać, a my nie mamy powodu
       // opowiadać nadawcy, CZEGO zabrakło. Powód idzie do logu i do alertu.
-      this.logger.warn(`webhook poczty odrzucony: ${check.reason}`);
+      //
+      // Z KONTEKSTEM ŻĄDANIA, bo bez niego nie da się odróżnić dwóch zupełnie
+      // różnych sytuacji: „Svix wysłał JSON, a sekret się nie zgadza" od
+      // „ktoś POST-nął pod ten adres bez ciała" (skaner, ręczne sprawdzenie
+      // z curl-a). 11.09.2026 alert bez tych danych kosztował pół dnia
+      // szukania błędu, którego w kodzie nie było.
+      const kontekst =
+        `${req.method} ${req.originalUrl ?? req.url}; content-type=` +
+        `${header(req, 'content-type') ?? '-'}; content-length=` +
+        `${header(req, 'content-length') ?? '-'}; json=${
+          req.body !== undefined && typeof req.body === 'object' ? 'tak' : 'nie'
+        }; svix-id=${header(req, 'svix-id') ? 'jest' : 'brak'}`;
+      this.logger.warn(
+        `webhook poczty odrzucony: ${check.reason} [${kontekst}]`,
+      );
+      // Klucz per powód: zły sekret i pusty POST ze skanera to dwa różne
+      // alerty, a jeden wspólny klucz wyciszałby drugi na sześć godzin.
       void this.alerts.notify(
-        'mail-webhook-rejected',
-        `Webhook poczty odrzucony (${check.reason}) — sprawdź MAIL_WEBHOOK_SECRET.`,
+        `mail-webhook-rejected:${check.reason}`,
+        `Webhook poczty odrzucony: ${check.reason} [${kontekst}]` +
+          (check.reason === 'podpis się nie zgadza'
+            ? ' — sprawdź MAIL_WEBHOOK_SECRET.'
+            : ''),
       );
       return;
     }
