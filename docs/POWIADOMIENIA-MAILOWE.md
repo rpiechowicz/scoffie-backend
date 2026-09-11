@@ -139,6 +139,11 @@ trzymałby dane osoby, której u nas już nie ma.
 - **Kolejka stoi?** `SELECT status, count(*) FROM "MailMessage" GROUP BY 1;`
   Wiersze `FAILED` mają powód w `lastError`; alert idzie na
   `OPS_ALERT_WEBHOOK_URL` raz na szablon.
+- **Pusta ramka zamiast znaku w Apple Mail, choć adres obrazka odpowiada 200**
+  = obrazek stoi za Cloudflare, a Bot Fight Mode (Static Resource Protection)
+  odbija proxy prywatności Apple. Dlatego znak leci z `api.scoffie.app/static/`
+  (Railway, bez Cloudflare). Nie przestawiać `MAIL_ASSET_BASE_URL` na
+  `scoffie.app`, dopóki w Cloudflare nie ma wyjątku dla `/email/*`.
 - **Nagły wysyp odrzutów z `@privaterelay.appleid.com`** = domena nadawcza
   wypadła z rejestru „Sign in with Apple for Email Communication". To pierwsza
   rzecz do sprawdzenia; alert `mail-relay-bounce` mówi o tym wprost.
