@@ -48,9 +48,15 @@ export type MailEnv = {
   redirectTo: string;
 
   /**
-   * Skąd mail bierze obrazki (znak w nagłówku). Osobno od adresu strony, bo
-   * obrazek musi żyć NIEZALEŻNIE od tego, czy strona akurat się przebudowała
-   * — pusty prostokąt w nagłówku widzi każdy odbiorca.
+   * Skąd mail bierze obrazki (znak w nagłówku). Osobno od adresu strony
+   * i DOMYŚLNIE Z BACKENDU (`/static/`), nie ze `scoffie.app`.
+   *
+   * Strona stoi za Cloudflare, a Bot Fight Mode (Static Resource Protection)
+   * odbija żądania proxy prywatności Apple Mail — w iOS Mail zamiast znaku
+   * była pusta ramka, choć ten sam adres z przeglądarki i z Gmaila odpowiadał
+   * 200 (11.09.2026, potwierdzone na wiadomości z produkcji). Backend na
+   * Railway serwuje ten sam plik bez żadnej bramki po drodze, a wysyłający
+   * ma go zawsze przy sobie — niezależnie od tego, co dzieje się ze stroną.
    */
   assetBaseUrl: string;
 
@@ -71,7 +77,7 @@ export type MailEnv = {
 const DEFAULTS = {
   from: 'Scoffie <support@scoffie.app>',
   replyTo: 'support@scoffie.app',
-  assetBaseUrl: 'https://scoffie.app',
+  assetBaseUrl: 'https://api.scoffie.app/static',
   siteUrl: 'https://scoffie.app',
   workerIntervalMs: 15_000,
   maxAttempts: 5,

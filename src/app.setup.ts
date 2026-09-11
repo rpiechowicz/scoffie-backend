@@ -94,6 +94,13 @@ export function configureApp(app: NestExpressApplication): void {
         ),
     }),
   );
-  app.useStaticAssets(join(process.cwd(), 'public'), { prefix: '/static/' });
+  // `maxAge`: znak do maili leci stąd (patrz `MAIL_ASSET_BASE_URL`), a klient
+  // pocztowy otwiera tę samą wiadomość wiele razy — doba w cache zamiast
+  // pobierania przy każdym otwarciu. Pliki w `public/` nie zmieniają się
+  // częściej niż raz na wydanie.
+  app.useStaticAssets(join(process.cwd(), 'public'), {
+    prefix: '/static/',
+    maxAge: 24 * 60 * 60 * 1000,
+  });
   app.enableShutdownHooks();
 }
