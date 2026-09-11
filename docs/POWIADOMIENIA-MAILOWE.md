@@ -140,19 +140,23 @@ trzymałby dane osoby, której u nas już nie ma.
   Wiersze `FAILED` mają powód w `lastError`; alert idzie na
   `OPS_ALERT_WEBHOOK_URL` raz na szablon.
 - **Pusta ramka zamiast znaku w Apple Mail, choć adres obrazka odpowiada 200**
-  = obrazek stoi za Cloudflare, a Bot Fight Mode (Static Resource Protection)
-  odbija proxy prywatności Apple. Dlatego znak leci z `api.scoffie.app/static/`
-  (Railway, bez Cloudflare). Nie przestawiać `MAIL_ASSET_BASE_URL` na
-  `scoffie.app`, dopóki w Cloudflare nie ma wyjątku dla `/email/*`.
+  = proxy prywatności Apple trzyma w swoim cache'u starą odpowiedź. 11.09.2026
+  mail wyszedł, zanim strona z `/email/*` weszła na prod: proxy dostało 404
+  z `Cache-Control: max-age=86400` (reguła `_headers` na Workers obejmuje
+  także 404) i przez dobę nie pytało ponownie — w logu Cloudflare nie ma
+  żadnego żądania z Apple po deployu, a Bot Fight Mode był wyłączony.
+  Ratunek to NOWY adres obrazka, nie ponowna wysyłka. Dlatego znak leci
+  z `api.scoffie.app/static/`: plik jedzie w tym samym deployu, co kod, który
+  go linkuje, a 404 Nesta nie niesie `Cache-Control`.
 - **Nagły wysyp odrzutów z `@privaterelay.appleid.com`** = domena nadawcza
   wypadła z rejestru „Sign in with Apple for Email Communication". To pierwsza
   rzecz do sprawdzenia; alert `mail-relay-bounce` mówi o tym wprost.
 
 ## Zanim pierwszy mail pójdzie do użytkownika
 
-1. **Deploy `scoffie-web`.** Maile linkują do `/otworz` (most do aplikacji,
-   bo Universal Links nie ma) i ładują znak z `/email/scoffie-mark.png`.
-   Do czasu deployu jedno daje 404, drugie pustą ramkę w nagłówku.
+1. **Deploy `scoffie-web`.** Maile linkują do `/otworz/` (most do aplikacji,
+   bo Universal Links nie ma) i do `/zaproszenie/`. Znak w nagłówku od strony
+   NIE zależy — jedzie z `public/email/` tego repo pod `/static/`.
 2. **Webhook w panelu Resendu** na `https://api.scoffie.app/mail/webhooks/resend`,
    sekret do `MAIL_WEBHOOK_SECRET`.
 3. **Wpis do polityki prywatności i rejestru czynności** o Resend jako podmiocie

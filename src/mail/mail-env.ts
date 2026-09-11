@@ -51,12 +51,13 @@ export type MailEnv = {
    * Skąd mail bierze obrazki (znak w nagłówku). Osobno od adresu strony
    * i DOMYŚLNIE Z BACKENDU (`/static/`), nie ze `scoffie.app`.
    *
-   * Strona stoi za Cloudflare, a Bot Fight Mode (Static Resource Protection)
-   * odbija żądania proxy prywatności Apple Mail — w iOS Mail zamiast znaku
-   * była pusta ramka, choć ten sam adres z przeglądarki i z Gmaila odpowiadał
-   * 200 (11.09.2026, potwierdzone na wiadomości z produkcji). Backend na
-   * Railway serwuje ten sam plik bez żadnej bramki po drodze, a wysyłający
-   * ma go zawsze przy sobie — niezależnie od tego, co dzieje się ze stroną.
+   * Obrazek ma żyć w TYM SAMYM deployu, co kod, który go linkuje. 11.09.2026
+   * mail wyszedł, zanim strona z `/email/*` weszła na prod: proxy prywatności
+   * Apple Mail dostało 404 z `Cache-Control: max-age=86400` (reguła `_headers`
+   * na Workers obejmuje też 404) i przez dobę pokazywało pustą ramkę, choć
+   * ten sam adres z przeglądarki i z Gmaila dawał już 200. Nest na brak pliku
+   * odpowiada 404 bez `Cache-Control`, a plik leży w `public/email/` obok
+   * kodu — pomyłki o dobę nie ma jak powtórzyć.
    */
   assetBaseUrl: string;
 
