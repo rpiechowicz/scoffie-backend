@@ -10,7 +10,12 @@ async function bootstrap() {
   // Przed `NestFactory.create`: na produkcji brak sekretów ma zatrzymać start,
   // a nie wyjść dopiero jako podrabialny token przy pierwszym logowaniu.
   assertRuntimeEnv();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // `rawBody: true` — webhook poczty liczy podpis z BAJTÓW ciała.
+  // Przeparsowany i ponownie zserializowany JSON daje inny HMAC, więc bez
+  // surowego ciała nie da się odróżnić prawdziwego odrzutu od podrobionego.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
   configureApp(app);
   await app.listen(process.env.PORT ?? 3000);
 }

@@ -47,7 +47,9 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:e2e:ci": "jest --config ./test/jest-e2e.json --runInBand",
     "prepare": "husky",
-    "agent:report:usage": "tsx scripts/agent-usage-report.ts"
+    "agent:report:usage": "tsx scripts/agent-usage-report.ts",
+    "mail:preview": "tsx scripts/mail-preview.ts",
+    "mail:test": "tsx scripts/mail-test-send.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

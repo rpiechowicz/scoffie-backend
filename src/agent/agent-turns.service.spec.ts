@@ -120,6 +120,8 @@ describe('AgentTurnsService', () => {
       config as unknown as AgentConfigService,
       conversations as unknown as AgentConversationsService,
       counters as unknown as AiUsageCountersService,
+      // Mail o wyczerpanej puli — atrapa, bo ten test sprawdza odmowy, nie pocztę.
+      { announce: jest.fn().mockResolvedValue(undefined) } as never,
       breaker,
       metrics,
       runner as unknown as AgentTurnRunner,
