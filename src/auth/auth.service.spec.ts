@@ -52,27 +52,36 @@ const mockRefreshToken = {
   revokedAt: null,
 };
 
-const makePrismaMock = () => ({
-  user: {
-    upsert: jest.fn().mockResolvedValue(mockUser),
-    findUnique: jest.fn().mockResolvedValue(null),
-    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-    create: jest.fn().mockResolvedValue(mockAppleUser),
-    update: jest.fn().mockResolvedValue(mockAppleUser),
-  },
-  refreshToken: {
-    create: jest.fn().mockResolvedValue(mockRefreshToken),
-    findUnique: jest.fn().mockResolvedValue(mockRefreshToken),
-    update: jest
-      .fn()
-      .mockResolvedValue({ ...mockRefreshToken, revokedAt: new Date() }),
-    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-  },
-  membership: {
-    findFirst: jest.fn().mockResolvedValue(null),
-  },
-});
+const makePrismaMock = () => {
+  const prisma = {
+    user: {
+      upsert: jest.fn().mockResolvedValue(mockUser),
+      findUnique: jest.fn().mockResolvedValue(null),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      create: jest.fn().mockResolvedValue(mockAppleUser),
+      update: jest.fn().mockResolvedValue(mockAppleUser),
+    },
+    refreshToken: {
+      create: jest.fn().mockResolvedValue(mockRefreshToken),
+      findUnique: jest.fn().mockResolvedValue(mockRefreshToken),
+      update: jest
+        .fn()
+        .mockResolvedValue({ ...mockRefreshToken, revokedAt: new Date() }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    membership: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    // Transakcja interaktywna: bez bazy nie ma czego izolować, więc callback
+    // dostaje ten sam mock. Testy patrzą na to, CO poszło w jednym zapytaniu.
+    $transaction: jest.fn(),
+  };
+  prisma.$transaction.mockImplementation(
+    (run: (tx: typeof prisma) => unknown) => run(prisma),
+  );
+  return prisma;
+};
 
 const makeJwtMock = () => ({
   signAsync: jest.fn().mockResolvedValue('mock-access-token'),
@@ -382,23 +391,73 @@ describe('AuthService', () => {
 
       expect(result).toHaveProperty('accessToken', 'mock-access-token');
       expect(result).toHaveProperty('refreshToken');
-      // Rotacja jest warunkowa (revokedAt: null) — patrz test wyścigu niżej.
+      // JEDNO zapytanie: unieważnienie warunkowe (revokedAt: null — patrz test
+      // wyścigu niżej) RAZEM ze wskaźnikiem na następcę. Rozbicie tego na dwa
+      // zapytania zostawiało między nimi wiersz z ROTATED bez następcy, a w
+      // tym oknie `recoverLostRotation` nie ma po czym poznać zgubionej
+      // odpowiedzi i kasuje całą rodzinę (prod, 11.09.2026).
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { tokenHash: expect.any(String), revokedAt: null },
-        data: { revokedAt: expect.any(Date), revokedReason: 'ROTATED' },
+        data: {
+          revokedAt: expect.any(Date),
+          revokedReason: 'ROTATED',
+          replacedByHash: expect.any(String),
+        },
       });
-      // Poprzednik dostaje wskaźnik na następcę — bez niego zgubiona
-      // odpowiedź z rotacji nie ma jak zostać rozpoznana.
-      expect(prisma.refreshToken.updateMany).toHaveBeenLastCalledWith({
-        where: { tokenHash: expect.any(String) },
-        data: { replacedByHash: expect.any(String) },
+      // Następca powstaje w tej samej transakcji, więc wskaźnik nigdy nie
+      // wskazuje na wiersz, którego jeszcze nie ma.
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
+        data: {
+          tokenHash: expect.any(String),
+          userId: mockRefreshToken.userId,
+          expiresAt: expect.any(Date),
+        },
       });
     });
 
-    it('przegrany wyścig o rotację (updateMany → 0) to replay: rodzina unieważniona, 401', async () => {
-      prisma.refreshToken.updateMany
-        .mockResolvedValueOnce({ count: 0 })
-        .mockResolvedValueOnce({ count: 2 });
+    // ─── wyścig dwóch żądań tym samym tokenem ────────────────────────────
+    //
+    // Telefon ma single-flight, ale POST i tak potrafi pójść dwa razy: gdy
+    // połączenie padnie przed odpowiedzią, URLSession ponawia żądanie. Serwer
+    // widzi wtedy dwa refreshe tym samym tokenem w tej samej sekundzie.
+
+    it('przegrany wyścig o rotację to ponowiony POST, nie kradzież: ratunek zamiast kasowania rodziny', async () => {
+      // Zwycięzca zdążył zatwierdzić transakcję, więc warunkowy UPDATE
+      // przegranego trafia w 0 wierszy, a ponowny odczyt widzi już komplet.
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce(mockRefreshToken)
+        .mockResolvedValueOnce({
+          ...mockRefreshToken,
+          revokedAt: new Date(),
+          revokedReason: 'ROTATED',
+          replacedByHash: 'hash-nastepcy',
+        });
+
+      const result = await service.refreshAccessToken('ponowiony-token');
+
+      expect(result).toHaveProperty('accessToken', 'mock-access-token');
+      expect(result).toHaveProperty('refreshToken');
+      // Rodzina żyje, tokeny dostępu zostają ważne.
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { tokenHash: 'hash-nastepcy', revokedAt: null },
+        data: { revokedAt: expect.any(Date), revokedReason: 'REUSE' },
+      });
+    });
+
+    it('przegrany wyścig bez szans na ratunek: rodzina unieważniona, 401', async () => {
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce(mockRefreshToken)
+        .mockResolvedValueOnce({
+          ...mockRefreshToken,
+          revokedAt: new Date(),
+          revokedReason: 'LOGOUT',
+          replacedByHash: null,
+        });
 
       await expect(service.refreshAccessToken('raced-token')).rejects.toThrow(
         UnauthorizedException,
@@ -406,6 +465,11 @@ describe('AuthService', () => {
       expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
         where: { userId: mockRefreshToken.userId, revokedAt: null },
         data: { revokedAt: expect.any(Date), revokedReason: 'REUSE' },
+      });
+      // Wykryty replay gasi też tokeny DOSTĘPU — inaczej żyłyby do końca TTL.
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: mockRefreshToken.userId },
+        data: { tokenVersion: { increment: 1 } },
       });
       expect(jwt.signAsync).not.toHaveBeenCalled();
       expect(prisma.refreshToken.create).not.toHaveBeenCalled();
