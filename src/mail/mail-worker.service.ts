@@ -123,10 +123,24 @@ export class MailWorkerService
   }
 
   /**
-   * Zajęcie porcji. Dwa kroki, bo Postgres nie oddaje z `updateMany` tego, co
-   * zmienił: najpierw wybieramy identyfikatory, potem zmieniamy stan Z WARUNKIEM
-   * `status: QUEUED`. Warunek jest tu jedynym zamkiem — drugi przebieg, który
-   * wszedłby równolegle, zmieni zero wierszy i nic nie wyśle po raz drugi.
+   * Zajęcie porcji. Warunkowy `updateMany` na KAŻDYM wierszu z osobna, bo
+   * tylko jego `count` mówi, kto ten wiersz naprawdę zajął.
+   *
+   * AUDYT 12.09.2026 (P1.12). Poprzednia wersja robiła jeden zbiorczy
+   * `updateMany` z warunkiem `status: QUEUED`, a potem DOCZYTYWAŁA wiersze
+   * po `status: SENDING`. Warunek faktycznie chronił przed podwójną zmianą
+   * stanu — ale wynik `count` był wyrzucany, a doczytanie nie odróżniało
+   * wierszy zajętych przez TEN przebieg od zajętych przez inny. Drugi
+   * przebieg wchodzący równolegle zmieniał zero wierszy, po czym odczytywał
+   * te same dwadzieścia wiadomości i wysyłał je PO RAZ DRUGI. Komentarz
+   * obiecywał dokładnie odwrotność tego, co robił kod.
+   *
+   * Dziś nie boli, bo instancja jest jedna, a `running` w pętli nie pozwala
+   * jej wejść samej sobie w drogę. Zaczyna boleć w sekundzie, w której na
+   * Railway pojawi się druga replika — a wtedy objawem jest podwójny mail
+   * do użytkownika, czyli rzecz widoczna i nieodwracalna.
+   *
+   * Koszt: dwadzieścia krótkich `UPDATE` po indeksie co piętnaście sekund.
    */
   private async claim(batchSize: number): Promise<MailMessage[]> {
     const now = new Date();
@@ -138,14 +152,18 @@ export class MailWorkerService
     });
     if (waiting.length === 0) return [];
 
-    const ids = waiting.map((row) => row.id);
-    await this.prisma.mailMessage.updateMany({
-      where: { id: { in: ids }, status: 'QUEUED' },
-      data: { status: 'SENDING' },
-    });
+    const mine: string[] = [];
+    for (const { id } of waiting) {
+      const { count } = await this.prisma.mailMessage.updateMany({
+        where: { id, status: 'QUEUED' },
+        data: { status: 'SENDING' },
+      });
+      if (count === 1) mine.push(id);
+    }
+    if (mine.length === 0) return [];
 
     return this.prisma.mailMessage.findMany({
-      where: { id: { in: ids }, status: 'SENDING' },
+      where: { id: { in: mine }, status: 'SENDING' },
     });
   }
 
