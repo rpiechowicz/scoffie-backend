@@ -370,6 +370,7 @@ describe('HouseholdsService', () => {
       prisma.invitation.findUnique.mockResolvedValue({
         id: 'inv-1',
         householdId: HH,
+        createdById: OWNER,
         redeemedAt: null,
         declinedAt: null,
         expiresAt: new Date(Date.now() + 86_400_000),
@@ -380,6 +381,77 @@ describe('HouseholdsService', () => {
         service.acceptInvitation(MEMBER, { token: 'a'.repeat(32) }),
       ).rejects.toMatchObject({
         response: { code: 'INVITATION_ALREADY_REDEEMED' },
+      });
+    });
+
+    // AUDYT 12.09.2026 (P1.10). Zaproszenie żyło własnym życiem: ani
+    // wyrzucenie wystawcy, ani jego wyjście z domu, ani degradacja, ani
+    // skasowanie konta nie tykały tabeli `Invitation`, a `acceptInvitation`
+    // nigdy nie pytał, czy wystawca ma jeszcze cokolwiek wspólnego z domem.
+    // Wyrzucony właściciel wracał WŁASNYM linkiem jako MEMBER — z dostępem do
+    // planu, listy zakupów, prywatnych przepisów i pamięci asystenta.
+    describe('wystawca musi być właścicielem W CHWILI przyjęcia', () => {
+      const zywyLink = (createdById: string | null) => ({
+        id: 'inv-1',
+        householdId: HH,
+        createdById,
+        redeemedAt: null,
+        declinedAt: null,
+        expiresAt: new Date(Date.now() + 86_400_000),
+        invitedUserId: null,
+      });
+
+      it('wystawca wyleciał z domu → INVITATION_EXPIRED', async () => {
+        prisma.invitation.findUnique.mockResolvedValue(zywyLink(OWNER));
+        // Dom bez wystawcy: został sam MEMBER, który zdążył awansować.
+        state.membersOfHousehold[HH] = [
+          { userId: MEMBER, householdId: HH, role: 'OWNER' } as never,
+        ];
+
+        await expectCode(
+          service.acceptInvitation(STRANGER, { token: 'a'.repeat(32) }),
+          'INVITATION_EXPIRED',
+        );
+        expect(prisma.invitation.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('wystawca zdegradowany do MEMBER → INVITATION_EXPIRED', async () => {
+        prisma.invitation.findUnique.mockResolvedValue(zywyLink(OWNER));
+        state.membersOfHousehold[HH] = [
+          { userId: OWNER, householdId: HH, role: 'MEMBER' } as never,
+        ];
+
+        await expectCode(
+          service.acceptInvitation(STRANGER, { token: 'a'.repeat(32) }),
+          'INVITATION_EXPIRED',
+        );
+      });
+
+      it('wystawca skasował konto (createdById = null) → INVITATION_EXPIRED', async () => {
+        prisma.invitation.findUnique.mockResolvedValue(zywyLink(null));
+
+        await expectCode(
+          service.acceptInvitation(STRANGER, { token: 'a'.repeat(32) }),
+          'INVITATION_EXPIRED',
+        );
+        // Fail-closed: brak wystawcy to odmowa, nie „pewnie w porządku".
+        expect(prisma.membership.findUnique).not.toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              userId_householdId: expect.objectContaining({ userId: null }),
+            }),
+          }),
+        );
+      });
+
+      it('wystawca wciąż właścicielem → link działa', async () => {
+        prisma.invitation.findUnique.mockResolvedValue(zywyLink(OWNER));
+        prisma.invitation.updateMany.mockResolvedValue({ count: 1 });
+        state.membershipsOfUser[STRANGER] = [];
+
+        await expect(
+          service.acceptInvitation(STRANGER, { token: 'a'.repeat(32) }),
+        ).resolves.toBeDefined();
       });
     });
 

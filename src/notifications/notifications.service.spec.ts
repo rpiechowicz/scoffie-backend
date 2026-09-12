@@ -26,7 +26,11 @@ describe('NotificationsService.registerDevice', () => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     upsert = jest.fn().mockResolvedValue({});
     isConfigured = jest.fn().mockReturnValue(true);
-    const prisma = { pushDevice: { upsert } } as any;
+    // `findUnique` sprawdza, czy token nie należy dziś do kogoś innego —
+    // domyślnie „nowe urządzenie" (audyt 12.09.2026, P1.10).
+    const prisma = {
+      pushDevice: { upsert, findUnique: jest.fn().mockResolvedValue(null) },
+    } as any;
     const apns = { isConfigured, defaultEnvironment: 'SANDBOX' } as any;
     service = new NotificationsService(prisma, apns);
   });

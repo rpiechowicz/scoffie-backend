@@ -225,10 +225,22 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
       _min: { createdAt: true },
       _max: { createdAt: true },
     }),
+    // Notatka O TEJ OSOBIE jest jej danymi (art. 15), nawet jeśli napisał ją
+    // ktoś inny — a filtr szedł wyłącznie po autorze (audyt 12.09.2026, P1.11).
+    // `aboutUserId` w wyniku zostaje, żeby w paczce dało się odróżnić „to
+    // napisałeś Ty" od „to zapisano o Tobie".
     prisma.agentMemory.findMany({
-      where: { createdByUserId: userId },
+      where: {
+        OR: [{ createdByUserId: userId }, { aboutUserId: userId }],
+      },
       orderBy: { createdAt: 'asc' },
-      select: { householdId: true, text: true, kind: true, createdAt: true },
+      select: {
+        householdId: true,
+        text: true,
+        kind: true,
+        createdAt: true,
+        aboutUserId: true,
+      },
     }),
     // Subskrypcje wiszą na HASZU tożsamości, nie na `userId` — bo mają
     // przeżywać skasowanie konta. Do eksportu (art. 15) wchodzą wyłącznie

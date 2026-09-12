@@ -51,6 +51,22 @@ export class ConsentsService {
     if (dto.kind === 'AGE_16' && dto.action === 'GRANTED') {
       await this.assertProfileAllowsAge16(userId);
     }
+    // `householdId` to kontekst DOWODU, więc nie może być tym, co klient
+    // zechce przysłać. Wiersz zgody jest dokumentem na wypadek sporu i musi
+    // opisywać rzeczywistość: obcy identyfikator zapisany na słowo klienta
+    // fałszowałby ten dokument (audyt 12.09.2026, P1.10). Nie odmawiamy —
+    // zgoda ma się zapisać zawsze — tylko zapisujemy `null`, gdy nie umiemy
+    // potwierdzić przynależności.
+    const householdId = dto.householdId ?? null;
+    const householdIdIfMember =
+      householdId !== null &&
+      (await this.prisma.membership.findUnique({
+        where: { userId_householdId: { userId, householdId } },
+        select: { id: true },
+      })) !== null
+        ? householdId
+        : null;
+
     await this.prisma.consentEvent.create({
       data: {
         userId,
@@ -59,7 +75,7 @@ export class ConsentsService {
         documentVersion: dto.documentVersion,
         source: dto.source ?? null,
         appVersion: dto.appVersion ?? null,
-        householdId: dto.householdId ?? null,
+        householdId: householdIdIfMember,
       },
     });
     return this.status(userId);

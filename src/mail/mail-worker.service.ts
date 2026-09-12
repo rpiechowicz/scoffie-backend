@@ -324,6 +324,13 @@ export class MailWorkerService
    * Retencja. Wiersz przeżywa skasowanie konta, więc bez sprzątania trzymałby
    * adres i nazwę wyświetlaną osoby, której u nas już nie ma. Po 30 dniach
    * zostaje sam dowód nadania, po roku znika i on.
+   *
+   * AUDYT 12.09.2026 (P1.11). Szorowanie szło wyłącznie po `sentAt`, więc
+   * wiersz, który NIGDY nie wyszedł — `FAILED` po wyczerpaniu prób, `SKIPPED`
+   * z listy wykluczeń albo pominięty przy kasowaniu konta — trzymał adres
+   * i `payload` (nazwa wyświetlana, nazwa domu) przez pełne dwanaście
+   * miesięcy zamiast trzydziestu dni. Dokładnie odwrotnie, niż powinno być:
+   * wiersz bez wysyłki nie jest nawet dowodem nadania.
    */
   private async maybeRunRetention(): Promise<void> {
     const now = Date.now();
@@ -332,7 +339,15 @@ export class MailWorkerService
 
     const scrubBefore = new Date(now - SCRUB_AFTER_DAYS * 24 * 60 * 60_000);
     const scrubbed = await this.prisma.mailMessage.updateMany({
-      where: { sentAt: { lt: scrubBefore }, scrubbedAt: null },
+      where: {
+        scrubbedAt: null,
+        OR: [
+          { sentAt: { lt: scrubBefore } },
+          // Nigdy niewysłane liczymy od utworzenia — inaczej `sentAt: null`
+          // nie pasuje do żadnego warunku i wiersz czeka do skasowania.
+          { sentAt: null, createdAt: { lt: scrubBefore } },
+        ],
+      },
       data: {
         to: '',
         subject: null,

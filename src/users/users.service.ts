@@ -9,7 +9,11 @@ import { MailOutboxService } from '../mail/mail-outbox.service';
 import { readAgentEnv } from '../config/agent-env';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { settleHouseholdAfterMemberLeft } from '../households/household-cleanup.util';
+import {
+  revokeInvitationsCreatedBy,
+  settleHouseholdAfterMemberLeft,
+} from '../households/household-cleanup.util';
+import { disconnectRevokedUser } from '../common/ws-rooms';
 import {
   catalogOwnerUserId,
   ensureCatalogOwner,
@@ -660,6 +664,33 @@ export class UsersService {
         where: { createdByUserId: userId },
         data: { createdByUserId: null },
       });
+      // Notatki O TEJ OSOBIE giną razem z kontem — inaczej niż notatki
+      // NAPISANE przez nią.
+      //
+      // AUDYT 12.09.2026 (P1.11). Kod zerował `createdByUserId` i na tym
+      // kończył, więc „Kubie nie dawać orzechów" zostawało w pamięci domu po
+      // tym, jak Kuba skorzystał z art. 17 — a to dane o zdrowiu z art. 9.
+      // Do modelu taka notatka już nie szła (filtr zgód jest po tożsamości
+      // i skasowane konto nigdy nie trafi na listę zgód), ale każdy pozostały
+      // domownik widział ją na ekranie „Co o Was pamięta", i zajmowała jedno
+      // z trzydziestu miejsc limitu, będąc martwa.
+      //
+      // KASUJEMY, nie zerujemy. Wyzerowany `aboutUserId` zamienia notatkę
+      // w notatkę „o całym domu" — a taka zaczęłaby chodzić do modelu, gdy
+      // reszta domu ma zgodę. To byłoby gorsze niż stan sprzed poprawki.
+      await tx.agentMemory.deleteMany({ where: { aboutUserId: userId } });
+
+      // Poczta zakolejkowana, a jeszcze niewysłana, nie pójdzie.
+      //
+      // AUDYT 12.09.2026 (P1.11). `MailWorkerService` czyta wyłącznie `status`
+      // i `nextAttemptAt` — o koncie nie wie nic. Wiersz `WELCOME` albo
+      // `HOUSEHOLD_JOINED` czekający na kolejną próbę (backoff sięga sześciu
+      // godzin) trafiłby na skrzynkę po skasowaniu konta. `SKIPPED` to ten sam
+      // stan, którego kolejka używa dla adresów z listy wykluczeń.
+      await tx.mailMessage.updateMany({
+        where: { userId, status: 'QUEUED' },
+        data: { status: 'SKIPPED' },
+      });
 
       const memberships = await tx.membership.findMany({
         where: { userId },
@@ -670,6 +701,15 @@ export class UsersService {
       // policzy, kto zostal. Kaskada z usuniecia uzytkownika zrobilaby to
       // dopiero po, wiec kazdy dom wygladalby na wciaz zamieszkany.
       for (const membership of memberships) {
+        // Linki zapraszające wystawione przez tę osobę tracą moc razem z jej
+        // członkostwem — tak samo jak przy wyrzuceniu i wyjściu z domu
+        // (audyt 12.09.2026, P1.10).
+        await revokeInvitationsCreatedBy(
+          tx,
+          membership.householdId,
+          userId,
+          now,
+        );
         await tx.membership.delete({
           where: {
             userId_householdId: { userId, householdId: membership.householdId },
@@ -716,6 +756,16 @@ export class UsersService {
 
       await tx.user.delete({ where: { id: userId } });
     });
+
+    // Zerwanie otwartych socketów należy do KASOWANIA KONTA, nie do gatewaya.
+    //
+    // AUDYT 12.09.2026 (P1.11). Dotąd wisiało w `users.gateway.ts`, więc
+    // `scripts/delete-user-account.ts` (obsługa wniosku RODO z konsoli) wołał
+    // serwis wprost i socketów nie zrywał — otwarte połączenie tej osoby żyło
+    // przez resztę ważności access tokenu, nawet godzinę. Skutek był
+    // niewielki, bo bez członkostw każda operacja odbija się o `ensureMembership`,
+    // ale to niepotrzebna asymetria między dwiema drogami do tej samej rzeczy.
+    disconnectRevokedUser(userId);
 
     return { id: userId };
   }
