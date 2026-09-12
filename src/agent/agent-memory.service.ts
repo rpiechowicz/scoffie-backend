@@ -14,6 +14,8 @@ export type MemoryNoteView = {
   /** Grupa na ekranie „Co o Was pamięta": preferencje / ograniczenia / zwyczaje. */
   kind: MemoryKind;
   createdByUserId: string | null;
+  /** Kogo dotyczy notatka; `null` = całego domu. Patrz `promptBlock`. */
+  aboutUserId: string | null;
   createdAt: string;
 };
 
@@ -84,6 +86,12 @@ export class AgentMemoryService {
     userId: string,
     rawText: string,
     rawKind?: string,
+    /**
+     * Kogo dotyczy notatka. Wołający MUSI już sprawdzić, że ta osoba jest
+     * w domu i ma zgodę na asystenta — tu tylko zapisujemy tożsamość, żeby
+     * odczyt (`promptBlock`) nie musiał zgadywać z tekstu.
+     */
+    aboutUserId?: string | null,
   ): Promise<MemoryNoteView> {
     const kind = toMemoryKind(rawKind);
     await ensureMembership(this.prisma, userId, householdId);
@@ -116,6 +124,7 @@ export class AgentMemoryService {
           textNormalized,
           kind,
           createdByUserId: userId,
+          aboutUserId: aboutUserId ?? null,
         },
       });
       await this.trim(householdId);
@@ -141,6 +150,7 @@ export class AgentMemoryService {
     text: string;
     kind: string;
     createdByUserId: string | null;
+    aboutUserId?: string | null;
     createdAt: Date;
   }): MemoryNoteView {
     return {
@@ -148,6 +158,7 @@ export class AgentMemoryService {
       text: note.text,
       kind: toMemoryKind(note.kind),
       createdByUserId: note.createdByUserId,
+      aboutUserId: note.aboutUserId ?? null,
       createdAt: note.createdAt.toISOString(),
     };
   }
@@ -223,17 +234,37 @@ export class AgentMemoryService {
   /**
    * Notatki jako blok do promptu. Pusto = pusty string, żeby prompt nie miał
    * nagłówka nad niczym.
+   *
+   * FILTR ZGÓD JEST PO TOŻSAMOŚCI I FAIL-CLOSED (audyt 12.09.2026, P0.4).
+   *
+   * Poprzedni filtr porównywał IMIĘ domownika bez zgody jako podciąg treści.
+   * Nie działał w polszczyźnie: „Kubie nie dawać orzechów" nie zawiera słowa
+   * „Kuba", „u Zosi alergia" nie zawiera „Zosia", a „mój syn nie je ryb" nie
+   * zawiera niczyjego imienia. Wyłączał się też całkiem dla domownika
+   * z jednoznakową nazwą (odsiew `length >= 2`). Efekt: dane o zdrowiu osoby,
+   * która nigdy nie kliknęła zgody, szły do dostawcy modelu przy KAŻDEJ
+   * wiadomości KAŻDEGO domownika, bezterminowo.
+   *
+   * Teraz decyduje `aboutUserId`, a nie tekst:
+   *  - notatka o konkretnej osobie idzie do modelu tylko wtedy, gdy ta osoba
+   *    ma zgodę;
+   *  - notatka bez adresata (`null` — także każda stara, sprzed tej zmiany)
+   *    idzie tylko wtedy, gdy zgodę ma CAŁY dom. Nie wiemy, kogo dotyczy,
+   *    więc brak pewności znaczy „nie wysyłamy".
    */
   async promptBlock(
     householdId: string,
-    /** Imiona domowników bez zgody — notatki o nich zostają w domu. */
-    withheldNames: readonly string[] = [],
+    consent: {
+      /** Domownicy, którzy zgodzili się na asystenta. */
+      consentedUserIds: ReadonlySet<string>;
+      /** Czy zgodę ma cały dom — warunek wysłania notatek bez adresata. */
+      allConsented: boolean;
+    } = { consentedUserIds: new Set(), allConsented: true },
   ): Promise<string> {
-    const lowered = withheldNames
-      .map((name) => name.trim().toLowerCase())
-      .filter((name) => name.length >= 2);
-    const notes = (await this.list(householdId)).filter(
-      (note) => !lowered.some((name) => note.text.toLowerCase().includes(name)),
+    const notes = (await this.list(householdId)).filter((note) =>
+      note.aboutUserId === null || note.aboutUserId === undefined
+        ? consent.allConsented
+        : consent.consentedUserIds.has(note.aboutUserId),
     );
     if (notes.length === 0) return '';
     // Notatki pisze użytkownik, a lądują w bloku SYSTEMOWYM — więc muszą być

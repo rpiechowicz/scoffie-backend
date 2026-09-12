@@ -549,6 +549,57 @@ export class AgentToolExecutor {
     );
   }
 
+  /**
+   * Zapis notatki do pamięci domu — z jawnym adresatem, jeśli notatka jest
+   * o konkretnej osobie.
+   *
+   * Adresat jest sprawdzany PRZED zapisem wobec listy domowników ZE ZGODĄ
+   * (tej samej, którą dostaje prompt). Notatka o osobie bez zgody nie
+   * powstaje w ogóle — to jest tańsze i pewniejsze niż odsiewanie jej potem
+   * przy każdym budowaniu promptu, a przy okazji zamyka drogę, którą dane
+   * o zdrowiu jednej osoby lądowały w bazie z winy drugiej.
+   *
+   * Model podaje `about_user_id` z `get_household_context`, więc identyfikator
+   * pochodzi z listy, którą sam dostał, a nie z jego wyobraźni. Zmyślony
+   * i tak nie przejdzie: nie ma go wśród domowników ze zgodą.
+   */
+  private async rememberNote(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<unknown> {
+    const { userId, householdId } = context;
+    const about = asString(input.about_user_id).trim();
+    if (!about) {
+      return this.memory.remember(
+        householdId,
+        userId,
+        asString(input.text),
+        asString(input.kind) || undefined,
+      );
+    }
+
+    const all = await this.households.memberPreferences(userId, householdId);
+    const { members } = await this.prompts.membersForModel(all);
+    if (!members.some((member) => member.userId === about)) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Ta osoba nie zgodziła się na asystenta albo nie ma jej w tym domu — ' +
+          'nie zapisuję o niej notatki. Zapisz zdanie bez wskazywania osoby ' +
+          'albo pomiń je zupełnie.',
+        HttpStatus.BAD_REQUEST,
+        ['about_user_id'],
+      );
+    }
+
+    return this.memory.remember(
+      householdId,
+      userId,
+      asString(input.text),
+      asString(input.kind) || undefined,
+      about,
+    );
+  }
+
   private refuseOutOfMode(
     name: string,
     context: AgentToolContext,
@@ -686,12 +737,7 @@ export class AgentToolExecutor {
       }
 
       case 'remember_note':
-        return this.memory.remember(
-          householdId,
-          userId,
-          str('text'),
-          asString(input.kind) || undefined,
-        );
+        return this.rememberNote(input, context);
 
       case 'start_planning':
         // Sama zmiana modelu dzieje się w dostawcy (patrz AgentProviderHandoff);

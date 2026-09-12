@@ -583,10 +583,18 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           enum: ['PREFERENCE', 'CONSTRAINT', 'HABIT'],
           description:
             'PREFERENCE = co lubią / wolą; CONSTRAINT = czego nie jedzą albo nie mogą; ' +
-            'HABIT = stałe zwyczaje i rytm tygodnia. Pomiń = PREFERENCE.',
+            'HABIT = stałe zwyczaje i rytm tygodnia.',
+        },
+        about_user_id: {
+          type: 'string',
+          description:
+            'Jeżeli notatka jest o KONKRETNYM domowniku — jego user_id z get_household_context. ' +
+            'Pomiń, gdy zdanie dotyczy całego domu. Notatka o osobie, której nie ma na tej ' +
+            'liście, nie zostanie zapisana; notatka bez tego pola nie trafi do kolejnych rozmów, ' +
+            'jeśli ktokolwiek w domu nie zgodził się na asystenta.',
         },
       },
-      ['text'],
+      ['text', 'kind'],
     ),
     strict: true,
   },
