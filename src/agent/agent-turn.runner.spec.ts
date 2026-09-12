@@ -351,6 +351,8 @@ describe('AgentTurnRunner', () => {
                 new AgentProviderError('przerwane', true, undefined, {
                   inputTokens: 30_000,
                   outputTokens: 900,
+                  cacheReadTokens: 0,
+                  cacheWriteTokens: 0,
                   costMicroUsd: 620_000,
                 }),
               ),
@@ -381,6 +383,8 @@ describe('AgentTurnRunner', () => {
         new AgentProviderError('529 overloaded', true, 529, {
           inputTokens: 12_000,
           outputTokens: 200,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
           costMicroUsd: 90_000,
         }),
       );

@@ -370,11 +370,26 @@ function readEffort(
     : fallback;
 }
 
+/**
+ * Tryb kart — FAIL-SAFE. Brak zmiennej i literówka znaczą `strict`, czyli
+ * „model proponuje, człowiek zatwierdza".
+ *
+ * DO 12.09.2026 ZNACZYŁY `off`, czyli DOKŁADNIE ODWROTNIE: instalacja, której
+ * nikt nie skonfigurował, pozwalała modelowi zapisać plan tygodnia samemu —
+ * bez karty, bez potwierdzenia i bez „Cofnij", bo cofnięcie istnieje tylko dla
+ * propozycji. Pusta lista slotów przechodziła walidację i kasowała cały
+ * tydzień. Nie trzeba było do tego napastnika: wystarczyło, żeby model źle
+ * zrozumiał „ułóż mi tydzień od nowa".
+ *
+ * Nieznana wartość NIE może cicho degradować do trybu, który zapisuje —
+ * to ta sama reguła, co przy `WS_AUTH_MODE` i przy budżetach: brak decyzji
+ * jest decyzją najostrożniejszą, nie najwygodniejszą.
+ */
 function readCardsMode(env: NodeJS.ProcessEnv): AiCardsMode {
   const raw = (env.AI_CARDS_MODE ?? '').trim().toLowerCase();
   return (AI_CARDS_MODES as readonly string[]).includes(raw)
     ? (raw as AiCardsMode)
-    : 'off';
+    : 'strict';
 }
 
 function readProvider(env: NodeJS.ProcessEnv): AiProvider {
@@ -583,7 +598,7 @@ export function agentEnvProblems(
   const cardsRaw = (env.AI_CARDS_MODE ?? '').trim().toLowerCase();
   if (cardsRaw && !(AI_CARDS_MODES as readonly string[]).includes(cardsRaw)) {
     problems.push(
-      `AI_CARDS_MODE=${cardsRaw} — dozwolone: ${AI_CARDS_MODES.join(', ')} (przy złej wartości działa off)`,
+      `AI_CARDS_MODE=${cardsRaw} — dozwolone: ${AI_CARDS_MODES.join(', ')} (przy złej wartości działa strict, czyli model nie zapisze planu sam)`,
     );
   }
   const numeric: Array<[NumericKey, { min: number; integer: boolean }]> = [

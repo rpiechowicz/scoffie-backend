@@ -404,6 +404,14 @@ export type AgentToolResult =
   | { ok: true; data: unknown }
   | { ok: false; error: { code: string; message: string; details?: string[] } };
 
+/**
+ * Ile pozycji planu wolno USUNĄĆ zapisem, którego nie zatwierdził człowiek.
+ *
+ * Dwie, czyli tyle, ile znaczy „popraw wtorek i czwartek". Trzecia i dalsze
+ * to już przemeblowanie tygodnia i wymagają kliknięcia w kartę propozycji.
+ */
+const MAX_DIRECT_PLAN_REMOVALS = 2;
+
 @Injectable()
 export class AgentToolExecutor {
   private readonly logger = new Logger(AgentToolExecutor.name);
@@ -436,6 +444,9 @@ export class AgentToolExecutor {
 
     const refusal = this.refuseOutOfMode(name, context);
     if (refusal) return refusal;
+
+    const destructive = await this.refuseDestructiveWrite(name, input, context);
+    if (destructive) return destructive;
 
     try {
       return {
@@ -482,6 +493,62 @@ export class AgentToolExecutor {
    * narzędzie i kończy turę normalnie. Wyjątek zabiłby całą turę za coś,
    * z czego model potrafi się poprawić w jednej rundzie.
    */
+  /**
+   * Trzecia bramka: ile wolno USUNĄĆ bez kliknięcia człowieka.
+   *
+   * `refuseOutOfMode` pilnuje TRYBU, ta pilnuje SKUTKU — i działa nawet
+   * wtedy, gdy ktoś świadomie zszedł na `off`. Powód: `apply_week_plan`
+   * przyjmuje STAN DOCELOWY, więc czego nie ma na liście, tego nie ma
+   * w planie. `slots: []` przechodzi walidację i kasuje cały tydzień jednym
+   * wywołaniem, a „Cofnij" istnieje wyłącznie dla propozycji, więc tej drogi
+   * nie da się odwrócić. Nie trzeba do tego napastnika — wystarczy, że model
+   * źle zrozumie „ułóż mi tydzień od nowa".
+   *
+   * Liczbę usunięć bierzemy z SUCHEGO PRZEBIEGU tego samego zapisu, więc
+   * reguła klucza jest dokładnie ta sama, co przy prawdziwym zapisie
+   * (`planSlotKey`) — nie ma tu drugiej implementacji, która mogłaby się
+   * rozjechać. Poniżej progu model dalej pracuje sam; powyżej musi przejść
+   * przez `propose_week_plan`, czyli przez kliknięcie użytkownika.
+   */
+  private async refuseDestructiveWrite(
+    name: string,
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<AgentToolResult | null> {
+    if (name !== 'apply_week_plan' || input.dry_run === true) return null;
+    const weekStart = asString(input.week_start);
+    if (!weekStart) return null;
+
+    let deleted: number;
+    try {
+      const dry = await this.weeklyPlans.applyWeekPlan(
+        context.userId,
+        context.householdId,
+        weekStart,
+        {
+          dryRun: true,
+          slots: this.toSlots(input.slots, context),
+        } as unknown as ApplyWeekPlanDto,
+      );
+      deleted = dry.changes.deleted;
+    } catch {
+      // Suchy przebieg padł (zmyślony przepis, zła data, brak członkostwa) —
+      // nie zgadujemy. Prawdziwy zapis zgłosi ten sam błąd normalną drogą,
+      // z pełnym komunikatem dla modelu.
+      return null;
+    }
+
+    if (deleted <= MAX_DIRECT_PLAN_REMOVALS) return null;
+    this.metrics.recordRejected('destructive');
+    return this.failure(
+      'AI_TOOL_NOT_IN_MODE',
+      `Ten zapis usunąłby ${deleted} pozycji z planu, a bez potwierdzenia ` +
+        `użytkownika wolno usunąć najwyżej ${MAX_DIRECT_PLAN_REMOVALS}. ` +
+        'Podaj ten sam stan docelowy przez propose_week_plan — użytkownik ' +
+        'zatwierdzi go jednym kliknięciem w aplikacji.',
+    );
+  }
+
   private refuseOutOfMode(
     name: string,
     context: AgentToolContext,
