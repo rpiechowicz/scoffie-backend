@@ -129,6 +129,10 @@ describe('Smoke E2E', () => {
       .expect(200);
     expect(health.body.status).toBe('ok');
     expect(typeof health.body.timestamp).toBe('string');
+    // Trasa jest publiczna i bez limitu żądań, więc `commit` ma być skrócony
+    // do siedmiu znaków — pełny SHA wskazywałby obcemu dokładny punkt
+    // w historii prywatnego repozytorium (audyt 12.09.2026, P1.15).
+    expect((health.body.commit as string).length).toBeLessThanOrEqual(7);
 
     if (process.env.OPS_TOKEN) {
       // Bez nagłówka metryki są zamknięte — to mapa serwera, nie sonda.

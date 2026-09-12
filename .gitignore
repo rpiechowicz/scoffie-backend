@@ -63,3 +63,16 @@ __pycache__/
 # Podgląd maili i maile z transportu `stub` — wynik lokalnego uruchomienia,
 # nie źródło. `pnpm mail:preview` odtwarza to w sekundę.
 var/
+
+# Klucze i certyfikaty — nigdy w repo (audyt 12.09.2026, P1.13).
+# Sekrety wkleja się jako zmienne środowiskowe, ale nikt nie broni pobrać
+# `AuthKey_XXXX.p8` do katalogu projektu „na chwilę, żeby przekonwertować".
+*.p8
+*.p12
+*.pem
+*.key
+*.cer
+*.pfx
+*.keystore
+*.jks
+*.mobileprovision

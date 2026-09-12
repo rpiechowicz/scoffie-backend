@@ -53,3 +53,39 @@ export function leaveHousehold(
 export function disconnectUser(server: RoomServer, userId: string): void {
   server?.in(userRoom(userId)).disconnectSockets(true);
 }
+
+/**
+ * Serwer socketów widziany spoza gatewayów — wpinany raz, jak
+ * `setWsAuthObserver` w `ws-socket.ts`.
+ *
+ * Potrzebny, bo unieważnienie sesji zapada w `AuthService` (REST), a socket
+ * żyje w warstwie WS. Statyczny rejestr zamiast wstrzykiwania: gatewaye
+ * dostają ten sam egzemplarz serwera Socket.IO, a `AuthService` nie ma się
+ * po co dowiadywać o istnieniu pięciu gatewayów.
+ */
+let sessionServer: RoomServer = undefined;
+
+export function setSessionSocketServer(server: RoomServer): void {
+  sessionServer = server;
+}
+
+/**
+ * Zrywa WSZYSTKIE otwarte połączenia użytkownika po unieważnieniu sesji.
+ *
+ * AUDYT 12.09.2026 (P1.9). `tokenVersion` był sprawdzany WYŁĄCZNIE
+ * w `AccessTokenService.verify`, a ten po stronie WS woła się jeden raz —
+ * przy handshake'u. Handler bierze potem tożsamość z `socket.data`, więc po
+ * wykryciu kradzieży (`revokeTokenFamily`) i po wylogowaniu ze wszystkich
+ * urządzeń (`logoutEverywhere`) żądania REST atakującego dostawały 401,
+ * ale JEGO OTWARTY SOCKET pracował dalej — aż do wygaśnięcia access tokenu,
+ * czyli nawet godzinę. Przez ten czas czytał i zapisywał plan, listę zakupów
+ * i przepisy domu. Komentarz przy `tokenVersion` obiecywał „unieważnia
+ * natychmiast"; na kanale WS ta obietnica była nieprawdziwa.
+ *
+ * `setImmediate` jak przy `users:delete`: rozłączenie ma pójść PO odesłaniu
+ * bieżącej odpowiedzi, żeby wołający dostał swój ack, a nie urwane połączenie.
+ */
+export function disconnectRevokedUser(userId: string): void {
+  if (!sessionServer) return;
+  setImmediate(() => disconnectUser(sessionServer, userId));
+}

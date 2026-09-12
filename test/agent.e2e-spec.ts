@@ -900,37 +900,13 @@ describe('Agent E2E', () => {
         .expect(403);
     });
 
-    it('kontekst chipów: domownicy z etykietą celu, cel pytającego, zużycie', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/agent/context')
-        .query({ householdId, weekStart: WEEK_START })
-        .set(auth(session.accessToken))
-        .expect(200);
-      expect(res.body).toMatchObject({
-        householdId,
-        weekStart: WEEK_START,
-        memberCount: 1,
-        handoff: false,
-        members: [
-          expect.objectContaining({
-            userId: session.user.id,
-            isSelf: true,
-            consented: true,
-            goalLabel: expect.stringMatching(/kcal/),
-          }),
-        ],
-        usage: { householdId, tier: 'PRO', byUser: expect.any(Array) },
-      });
-      expect(typeof res.body.weekLabel).toBe('string');
-
-      const stranger = await devLogin('Postronny');
-      await request(app.getHttpServer())
-        .get('/agent/context')
-        .query({ householdId })
-        .set(auth(stranger.accessToken))
-        .expect(403);
-    });
-
+    // USUNIĘTY TEST: `GET /agent/context`.
+    //
+    // Trasa powstała w b5c9536 i została zdjęta w 78a7b7d („zakres pytania
+    // znika z serwera”), a test o niej został i od tamtej pory pada na 404.
+    // Nikt tego nie zauważył, bo CI stoi na rozliczeniach GitHuba od 11.09.
+    // Chipy kontekstu przychodzą do klienta razem z turą (`usedContext`),
+    // więc nie ma czego przywracać — jest co skasować (audyt 12.09.2026).
     it('cudza notatka: 404, nie 403 — inaczej da się zgadywać identyfikatory', async () => {
       const note = await prisma.agentMemory.create({
         data: {

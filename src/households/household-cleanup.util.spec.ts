@@ -1,5 +1,6 @@
 import {
   PrismaLike,
+  revokeInvitationsCreatedBy,
   settleHouseholdAfterMemberLeft,
 } from './household-cleanup.util';
 
@@ -102,5 +103,78 @@ describe('settleHouseholdAfterMemberLeft', () => {
     await settleHouseholdAfterMemberLeft(tx, HOUSEHOLD);
 
     expect(deletedHouseholds).toEqual([]);
+  });
+});
+
+// AUDYT 12.09.2026 (P1.10). Zaproszenie to anonimowy link ważny do 30 dni,
+// wystawiany wyłącznie przez właściciela. Nic nie wiązało jego życia z życiem
+// członkostwa: wyrzucony właściciel wracał WŁASNYM linkiem jako MEMBER,
+// z dostępem do planu, listy zakupów, prywatnych przepisów i pamięci
+// asystenta — i to samo mógł zrobić każdy, komu link przekazał.
+describe('revokeInvitationsCreatedBy', () => {
+  const HOUSEHOLD = 'household-1';
+  const ODCHODZACY = 'u1';
+  const TERAZ = new Date('2026-09-13T10:00:00.000Z');
+
+  const makeTx = () => {
+    const wywolania: unknown[] = [];
+    const tx = {
+      invitation: {
+        updateMany: jest.fn().mockImplementation((args: unknown) => {
+          wywolania.push(args);
+          return Promise.resolve({ count: 2 });
+        }),
+      },
+    } as unknown as PrismaLike;
+    return { tx, wywolania };
+  };
+
+  it('wygasza tylko linki TEJ osoby, TEGO domu i jeszcze żywe', async () => {
+    const { tx, wywolania } = makeTx();
+
+    const count = await revokeInvitationsCreatedBy(
+      tx,
+      HOUSEHOLD,
+      ODCHODZACY,
+      TERAZ,
+    );
+
+    expect(count).toBe(2);
+    expect(wywolania[0]).toEqual({
+      where: {
+        householdId: HOUSEHOLD,
+        createdById: ODCHODZACY,
+        // Wykorzystanego linku nie ruszamy: `redeemedAt` jest dowodem, kto
+        // i kiedy wszedł, a przestawianie mu terminu zacierałoby ten ślad.
+        redeemedAt: null,
+        expiresAt: { gt: TERAZ },
+      },
+      data: { expiresAt: new Date(TERAZ.getTime() - 1_000) },
+    });
+  });
+
+  it('nowy termin leży w PRZESZŁOŚCI, nie „teraz"', async () => {
+    const { tx, wywolania } = makeTx();
+
+    await revokeInvitationsCreatedBy(tx, HOUSEHOLD, ODCHODZACY, TERAZ);
+
+    const { data } = wywolania[0] as { data: { expiresAt: Date } };
+    // Porównanie w `acceptInvitation` jest ostre (`<`), a zapis i próba
+    // przyjęcia mogą trafić w tę samą milisekundę. Równe „teraz" przepuściłoby
+    // link, który miał właśnie umrzeć.
+    expect(data.expiresAt.getTime()).toBeLessThan(TERAZ.getTime());
+  });
+
+  it('wygaszamy, a nie kasujemy — ślad po zaproszeniu zostaje', async () => {
+    const { tx } = makeTx();
+
+    await revokeInvitationsCreatedBy(tx, HOUSEHOLD, ODCHODZACY, TERAZ);
+
+    // Odbiorca dostaje istniejący, zrozumiały `INVITATION_EXPIRED` zamiast
+    // „nie znaleziono", a w bazie widać, że link kiedyś był.
+    expect(
+      (tx as unknown as { invitation: { deleteMany?: unknown } }).invitation
+        .deleteMany,
+    ).toBeUndefined();
   });
 });

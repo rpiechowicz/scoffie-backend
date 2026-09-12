@@ -11,6 +11,7 @@ import { createHash, randomBytes } from 'crypto';
 import { AppException } from '../common/app-exception';
 import { purchaseIdentityHashForUser } from '../config/purchase-identity';
 import { PrismaService } from '../prisma/prisma.service';
+import { disconnectRevokedUser } from '../common/ws-rooms';
 import { AppleIdentityService } from './apple-identity.service';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
 import { DevLoginDto } from './dto/dev-login.dto';
@@ -324,6 +325,10 @@ export class AuthService {
       where: { id: userId },
       data: { tokenVersion: { increment: 1 } },
     });
+    // Otwarty socket nie widzi `tokenVersion` — sprawdza je tylko handshake.
+    // Bez tego wykrycie kradzieży zamykało REST, a kanał WS zostawiało
+    // otwarty do wygaśnięcia access tokenu (audyt 12.09.2026, P1.9).
+    disconnectRevokedUser(userId);
     this.logger.warn(
       `refresh token ${reason} for user ${userId} — revoked ${revoked.count} active token(s)`,
     );
@@ -450,6 +455,9 @@ export class AuthService {
       where: { id: userId },
       data: { tokenVersion: { increment: 1 } },
     });
+    // Wylogowanie ze wszystkich urządzeń musi objąć także kanał WS — patrz
+    // `disconnectRevokedUser` (audyt 12.09.2026, P1.9).
+    disconnectRevokedUser(userId);
   }
 
   /**

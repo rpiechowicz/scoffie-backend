@@ -342,42 +342,47 @@ describe('UsersGateway', () => {
     });
   });
 
+  // AUDYT 12.09.2026 (P1.11). Rozłączanie socketów przeniosło się STĄD do
+  // `UsersService.deleteAccount`: `scripts/delete-user-account.ts` (wniosek
+  // RODO z konsoli) woła serwis wprost i tej ścieżki nie przechodził, więc
+  // otwarte połączenie żyło przez resztę ważności access tokenu. Tutaj zostaje
+  // to, co należy do gatewaya: kogo poda serwisowi i czy sam nie rusza pokoi.
+  // Dowód na samo zerwanie połączenia jest w `users.service.deletion.spec.ts`
+  // (jednostkowo) i w `test/ws-auth.e2e-spec.ts` (na żywym sockecie).
   describe('users:delete', () => {
-    it('po udanym skasowaniu rozłącza wszystkie sockety użytkownika — po acku', async () => {
+    it('kasuje konto z TOKENU i nie tyka pokoi po drodze', async () => {
       const response = await gateway.deleteAccount(tokenClient(USER), {});
 
       expect(response).toEqual({ ok: true, data: { id: USER } });
-      // Ack już policzony, rozłączenie jeszcze nie — inaczej socket.io porzuciłby ack.
-      expect(disconnectSockets).not.toHaveBeenCalled();
+      expect(usersService.deleteAccount).toHaveBeenCalledWith(USER);
 
       await flushImmediate();
 
-      expect(inRoom).toHaveBeenCalledWith(`user:${USER}`);
-      expect(disconnectSockets).toHaveBeenCalledWith(true);
+      // Gateway nie zarządza już połączeniami przy kasowaniu — robi to serwis.
+      expect(inRoom).not.toHaveBeenCalled();
+      expect(disconnectSockets).not.toHaveBeenCalled();
       expect(socketsJoin).not.toHaveBeenCalled();
       expect(socketsLeave).not.toHaveBeenCalled();
     });
 
-    it('rozłącza konto z tokenu, nie z payloadu', async () => {
+    it('kasuje konto z tokenu, nie z payloadu', async () => {
       await gateway.deleteAccount(tokenClient(VICTIM), {
         userId: 'attacker',
       });
       await flushImmediate();
 
       expect(usersService.deleteAccount).toHaveBeenCalledWith(VICTIM);
-      expect(inRoom).toHaveBeenCalledWith(`user:${VICTIM}`);
-      expect(inRoom).not.toHaveBeenCalledWith('user:attacker');
+      expect(usersService.deleteAccount).not.toHaveBeenCalledWith('attacker');
     });
 
-    it('w trybie legacy rozłącza sockety użytkownika z payloadu', async () => {
+    it('w trybie legacy bierze użytkownika z payloadu', async () => {
       await gateway.deleteAccount(legacyClient(), { userId: LEGACY_USER });
       await flushImmediate();
 
-      expect(inRoom).toHaveBeenCalledWith(`user:${LEGACY_USER}`);
-      expect(disconnectSockets).toHaveBeenCalledWith(true);
+      expect(usersService.deleteAccount).toHaveBeenCalledWith(LEGACY_USER);
     });
 
-    it('przy błędzie serwisu nie rozłącza socketów', async () => {
+    it('przy błędzie serwisu oddaje odmowę i nie rusza pokoi', async () => {
       usersService.deleteAccount.mockRejectedValue(new Error('boom'));
 
       const response = await gateway.deleteAccount(tokenClient(USER), {});
@@ -388,12 +393,26 @@ describe('UsersGateway', () => {
       expect(disconnectSockets).not.toHaveBeenCalled();
     });
 
-    it('bez tożsamości nie rozłącza nikogo', async () => {
+    it('bez tożsamości nie kasuje nikogo', async () => {
       await gateway.deleteAccount(anonClient(), { userId: USER });
       await flushImmediate();
 
+      expect(usersService.deleteAccount).not.toHaveBeenCalled();
       expect(inRoom).not.toHaveBeenCalled();
-      expect(disconnectSockets).not.toHaveBeenCalled();
+    });
+
+    // AUDYT 12.09.2026 (P1.10). Jedyny handler w repo, który czytał `payload`
+    // bez walidacji koperty — `@MaxLength(4096)` nigdy się nie uruchamiał,
+    // więc dowolnie długi string szedł prosto do żądania POST do Apple.
+    it('kod autoryzacyjny dłuższy niż 4096 znaków → VALIDATION_ERROR', async () => {
+      const response = await gateway.deleteAccount(tokenClient(USER), {
+        appleAuthorizationCode: 'a'.repeat(4097),
+      });
+
+      expect(response).toEqual(
+        expect.objectContaining({ ok: false, code: 'VALIDATION_ERROR' }),
+      );
+      expect(usersService.deleteAccount).not.toHaveBeenCalled();
     });
   });
 });

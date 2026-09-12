@@ -2,6 +2,7 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AgentProposal, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ConsentsService } from '../../consents/consents.service';
 import { HouseholdsService } from '../../households/households.service';
 import {
   PlanViolation,
@@ -132,6 +133,7 @@ export class AgentProposalsService {
     private readonly counters: AiUsageCountersService,
     private readonly quotaMail: AgentQuotaMailService,
     private readonly plansGateway: WeeklyPlansGateway,
+    private readonly consents: ConsentsService,
   ) {}
 
   /**
@@ -424,6 +426,26 @@ export class AgentProposalsService {
   }
 
   /**
+   * Domownicy ze zgodą na asystenta — ta sama reguła, co
+   * `AgentPromptService.membersForModel`, w miejscu, które nie może na tamten
+   * serwis polecieć (zależność szłaby pod prąd grafu modułów). Przy
+   * `AI_CONSENT_REQUIRED=false` reguła nie obowiązuje i wszyscy przechodzą.
+   */
+  private async membersWithConsent<T extends { userId: string }>(
+    members: readonly T[],
+  ): Promise<{ members: T[]; withheld: number }> {
+    if (!readAgentEnv().consentRequired) {
+      return { members: [...members], withheld: 0 };
+    }
+    const consented = await this.consents.usersWithValid(
+      members.map((member) => member.userId),
+      'AI_ASSISTANT',
+    );
+    const kept = members.filter((member) => consented.has(member.userId));
+    return { members: kept, withheld: members.length - kept.length };
+  }
+
+  /**
    * Jedno danie, kilka talerzy.
    *
    * Zapis jest zwyczajny — jedna pozycja w slocie z listą uczestników. Cała
@@ -438,7 +460,18 @@ export class AgentProposalsService {
       input.userId,
       input.householdId,
     );
-    const known = new Map(members.map((member) => [member.userId, member]));
+    // Talerz może dostać tylko domownik, który zgodził się na asystenta.
+    //
+    // AUDYT 12.09.2026 (P1.10). Bramka sprawdzała samo członkostwo. Dziś nikt
+    // tędy nie przejdzie, bo model nie zna identyfikatora osoby bez zgody —
+    // `get_household_context` i rzut planu odfiltrowują takie osoby, zanim
+    // cokolwiek do niego trafi. Ale to znaczy, że jedyną ochroną była
+    // NIEZNAJOMOŚĆ UUID-a, a nie sprawdzenie. Karta niesie obok imienia cel
+    // kaloryczny i alergeny, czyli dokładnie to, czego brak zgody zabrania
+    // pokazywać; taka bramka ma stać na regule, nie na tym, czego model
+    // przypadkiem nie widział.
+    const { members: allowed } = await this.membersWithConsent(members);
+    const known = new Map(allowed.map((member) => [member.userId, member]));
     const unknown = input.portions
       .map((portion) => portion.userId)
       .filter((userId) => !known.has(userId));

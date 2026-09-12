@@ -416,6 +416,52 @@ describe('WS auth E2E', () => {
       expect(err.data).toMatchObject({ reason: 'user_gone' });
     });
 
+    // AUDYT 12.09.2026 (P1.9). `tokenVersion` sprawdzał WYŁĄCZNIE handshake,
+    // a handler bierze tożsamość z `socket.data`. Po wykryciu kradzieży REST
+    // atakującego dostawał 401, ale jego OTWARTY socket pracował dalej — aż
+    // do wygaśnięcia access tokenu, czyli nawet godzinę.
+    it('wykrycie kradzieży refresh tokenu zrywa otwarty socket', async () => {
+      process.env.WS_AUTH_MODE = 'strict';
+      const ofiara = await devLogin('KradziezSocket');
+
+      // Atakujący ma kopię refresh tokenu i otwiera socket na swojej parze.
+      const pierwsza = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: ofiara.refreshToken })
+        .expect(201);
+      const atakujacy = connect({
+        token: (pierwsza.body as { accessToken: string }).accessToken,
+      });
+      await waitConnect(atakujacy);
+      // Socket działa: zdarzenie przechodzi normalnie.
+      expect((await ack(atakujacy, 'users:me', {})).ok).toBe(true);
+
+      const zerwane = new Promise<string>((resolve) =>
+        atakujacy.once('disconnect', (reason: string) => resolve(reason)),
+      );
+
+      // Druga rotacja zużywa NASTĘPCĘ pierwszego tokenu. Od tej chwili okno
+      // łaski nie ma czego ratować (`recoverLostRotation` wymaga następcy
+      // z `revokedAt: null`), więc replay pierwotnego tokenu jest replayem
+      // bez dwuznaczności — niezależnie od `REFRESH_REUSE_GRACE_SECONDS`.
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({
+          refreshToken: (pierwsza.body as { refreshToken: string })
+            .refreshToken,
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: ofiara.refreshToken })
+        .expect(401);
+
+      // Socket atakującego ma zniknąć, a nie dożyć wygaśnięcia tokenu.
+      expect(typeof (await zerwane)).toBe('string');
+      expect(atakujacy.connected).toBe(false);
+    });
+
     it('POST /auth/logout unieważnia refresh token; ponowne użycie → 401', async () => {
       const session = await devLogin('Logout');
 
@@ -538,12 +584,20 @@ describe('WS auth E2E', () => {
 
       // Rodzina nie padła, więc `tokenVersion` nie poszło w górę i tokeny
       // DOSTĘPU z obu odpowiedzi nadal otwierają REST.
+      //
+      // Trasa MUSI być user-scope'owa. Do 12.09.2026 stało tu
+      // `/integrations/cookidoo/status`, które poza tokenem wymaga jeszcze
+      // członkostwa w gospodarstwie — a `devLogin` tworzy konto bez domu,
+      // więc ten test nie przeszedł ANI RAZU od dnia, w którym powstał
+      // (CI stoi na rozliczeniach od 11.09, więc nikt tego nie zobaczył).
+      // `GET /me/consents` sprawdza dokładnie to, o co tu chodzi: czy token
+      // jest przyjmowany.
       for (const accessToken of [
         first.body.accessToken as string,
         second.body.accessToken as string,
       ]) {
         await request(app.getHttpServer())
-          .get('/integrations/cookidoo/status')
+          .get('/me/consents')
           .set('Authorization', `Bearer ${accessToken}`)
           .expect(200);
       }
