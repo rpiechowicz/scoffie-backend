@@ -538,12 +538,20 @@ describe('WS auth E2E', () => {
 
       // Rodzina nie padła, więc `tokenVersion` nie poszło w górę i tokeny
       // DOSTĘPU z obu odpowiedzi nadal otwierają REST.
+      //
+      // Trasa MUSI być user-scope'owa. Do 12.09.2026 stało tu
+      // `/integrations/cookidoo/status`, które poza tokenem wymaga jeszcze
+      // członkostwa w gospodarstwie — a `devLogin` tworzy konto bez domu,
+      // więc ten test nie przeszedł ANI RAZU od dnia, w którym powstał
+      // (CI stoi na rozliczeniach od 11.09, więc nikt tego nie zobaczył).
+      // `GET /me/consents` sprawdza dokładnie to, o co tu chodzi: czy token
+      // jest przyjmowany.
       for (const accessToken of [
         first.body.accessToken as string,
         second.body.accessToken as string,
       ]) {
         await request(app.getHttpServer())
-          .get('/integrations/cookidoo/status')
+          .get('/me/consents')
           .set('Authorization', `Bearer ${accessToken}`)
           .expect(200);
       }
