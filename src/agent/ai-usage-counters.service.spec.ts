@@ -99,6 +99,41 @@ describe('AiUsageCountersService', () => {
     });
   });
 
+  describe('addHouseholdCost', () => {
+    // AUDYT 12.09.2026 (P0.2). Koszt szedł wyłącznie na licznik MIESIĘCZNY,
+    // więc nie istniał sufit dobowy per dom — a budżet dobowy instalacji był
+    // wspólny, czyli jeden dom wyłączał asystenta wszystkim.
+    it('dopisuje koszt do licznika miesięcznego I dobowego', async () => {
+      const at = new Date('2026-08-31T23:30:00.000Z');
+      await service.addHouseholdCost(client, 'dom', 4200, at);
+
+      const okresy = upsert.mock.calls.map(
+        (
+          call: [{ where: { scopeId_periodKey_kind: { periodKey: string } } }],
+        ) => call[0].where.scopeId_periodKey_kind.periodKey,
+      );
+      expect(okresy).toEqual(['2026-08', '2026-08-31']);
+      expect(upsert).toHaveBeenCalledTimes(2);
+    });
+
+    it('zero i wartości ujemne nie ruszają żadnego licznika', async () => {
+      await service.addHouseholdCost(client, 'dom', 0);
+      await service.addHouseholdCost(client, 'dom', -100);
+      expect(upsert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('dayResetsAt', () => {
+    it('najbliższa północ UTC, także w ostatnim dniu miesiąca', () => {
+      expect(
+        service.dayResetsAt(new Date('2026-08-31T23:30:00.000Z')).toISOString(),
+      ).toBe('2026-09-01T00:00:00.000Z');
+      expect(
+        service.dayResetsAt(new Date('2026-12-31T00:00:01.000Z')).toISOString(),
+      ).toBe('2027-01-01T00:00:00.000Z');
+    });
+  });
+
   describe('read', () => {
     it('brak wiersza to zero, nie null', async () => {
       await expect(

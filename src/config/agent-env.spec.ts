@@ -36,6 +36,9 @@ describe('readAgentEnv', () => {
       // bez żadnego hamulca wydatków wyglądała jak skonfigurowana.
       globalDailyBudgetUsd: AGENT_ENV_DEFAULTS.globalDailyBudgetUsd,
       householdMonthlyCostUsd: AGENT_ENV_DEFAULTS.householdMonthlyCostUsd,
+      // Sufit dobowy DOMU (audyt 12.09.2026): też liczba, nie null — bez
+      // niego budżet dobowy instalacji jest wyłącznikiem dla wszystkich.
+      householdDailyCostUsd: AGENT_ENV_DEFAULTS.householdDailyCostUsd,
       stubDelayMs: 0,
       // Karty domyślnie WYŁĄCZONE: wprowadzenie trybu propozycji nie może
       // zmienić zachowania instalacji, która o nic nie prosiła.
@@ -235,6 +238,33 @@ describe('agentEnvProblems', () => {
     expect(problems).toHaveLength(1);
     expect(problems[0]).toMatch(pattern);
   });
+  // AUDYT 12.09.2026 (P0.2). Sufit dobowy domu chroni budżet instalacji
+  // tylko wtedy, gdy jest od niego NIŻSZY. Ustawiony wyżej wygląda jak
+  // ochrona, a nią nie jest — to musi być widać przy starcie procesu.
+  it('sufit dobowy domu >= budżet globalny → czytelny problem', () => {
+    const problems = agentEnvProblems({
+      AI_HOUSEHOLD_DAILY_COST_USD: '5',
+      AI_GLOBAL_DAILY_BUDGET_USD: '5',
+    });
+    expect(problems.join(' ')).toContain('AI_HOUSEHOLD_DAILY_COST_USD');
+    expect(problems.join(' ')).toContain('wyłączyć asystenta wszystkim');
+  });
+
+  it('sufit dobowy domu niższy od globalnego → bez problemu', () => {
+    expect(
+      agentEnvProblems({
+        AI_HOUSEHOLD_DAILY_COST_USD: '1.5',
+        AI_GLOBAL_DAILY_BUDGET_USD: '5',
+      }),
+    ).toEqual([]);
+  });
+
+  it('AI_HOUSEHOLD_DAILY_COST_USD=abc → czytelny problem', () => {
+    expect(
+      agentEnvProblems({ AI_HOUSEHOLD_DAILY_COST_USD: 'abc' }).join(' '),
+    ).toContain('AI_HOUSEHOLD_DAILY_COST_USD=abc');
+  });
+
   it('AI_MODEL_TOOLS: tańszy model na rozmowę; puste = jeden model na całą turę', () => {
     expect(
       readAgentEnv({ AI_MODEL_TOOLS: ' claude-haiku-4-5 ' }).toolsModel,

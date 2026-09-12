@@ -472,10 +472,18 @@ export class AgentTurnRunner {
           });
         }
         // Turę uciął NASZ sufit kosztu (`AI_MAX_TURN_COST_USD`), a nie
-        // wyczerpane rundy — użytkownik dostał skróconą odpowiedź z naszego
-        // powodu, więc wiadomość wraca do puli. Bez tego bezpiecznik kosztu
-        // płaciłby z limitu użytkownika.
-        if (result.stopReason === 'cost_ceiling') {
+        // wyczerpane rundy. Wiadomość wraca do puli TYLKO wtedy, gdy tura nic
+        // nie kosztowała — przy `cost_ceiling` z definicji kosztowała, więc
+        // w praktyce nie wraca.
+        //
+        // DLACZEGO ZMIANA (12.09.2026): zwrot bezwarunkowy dawał licznik, który
+        // oscylował i nigdy nie dobijał do limitu. Konto z pulą próbną pięciu
+        // wiadomości mogło wysyłać drogie tury bez końca: każda trafiała
+        // w sufit kosztu, każda oddawała wiadomość, a rachunek u dostawcy rósł.
+        // Przy `cost_ceiling` użytkownik dostaje skróconą, ale prawdziwą
+        // odpowiedź („ostatnie słowo"), więc zapłata jedną wiadomością jest
+        // uczciwa. Tura, która nie zdążyła nic wydać, nadal wraca za darmo.
+        if (result.stopReason === 'cost_ceiling' && usage.costMicroUsd === 0) {
           await this.counters.add(
             tx,
             input.quotaScopeId,
@@ -637,17 +645,19 @@ export class AgentTurnRunner {
         );
       }
 
-      // „Stop" po tym, jak model już policzył tokeny, nie może być darmowy:
-      // wyślij → poczekaj 80 s → Stop → kwota wraca, a rachunek u dostawcy
-      // zostaje. Przerwanie bez kosztu (zanim dostawca odpowiedział) wraca.
-      const refund =
-        verdict.refund &&
-        !(
-          verdict.errorCode === 'AI_CANCELLED' &&
-          spent !== undefined &&
-          spent !== null &&
-          spent.costMicroUsd > 0
-        );
+      // Zwrot wiadomości NALEŻY SIĘ TYLKO ZA TURĘ, KTÓRA NIC NIE KOSZTOWAŁA.
+      //
+      // Wcześniej ten wyjątek obejmował wyłącznie „Stop" użytkownika
+      // (AI_CANCELLED), a timeout i ponawialny błąd dostawcy oddawały
+      // wiadomość niezależnie od tego, ile pieniędzy poszło. Skutek: licznik
+      // wiadomości oscylował wokół zera, a jedno konto mogło zrobić dowolnie
+      // wiele PŁATNYCH tur w granicach pięciowiadomościowej puli próbnej.
+      // Reguła jest teraz jedna dla wszystkich powodów porażki i łatwa do
+      // wytłumaczenia: nie wydaliśmy Twoich pieniędzy — nie bierzemy
+      // wiadomości.
+      const spentAnything =
+        spent !== undefined && spent !== null && spent.costMicroUsd > 0;
+      const refund = verdict.refund && !spentAnything;
       if (refund) {
         await this.counters.add(
           this.prisma,

@@ -125,9 +125,35 @@ export class AiUsageCountersService {
   }
 
   /**
-   * Koszt gospodarstwa w bieżącym miesiącu — surowiec dla sufitu z
-   * `AI_HOUSEHOLD_MONTHLY_COST_USD`. Zawsze `monthKey`, także na próbie:
-   * pula próbna nie ma miesiąca, ale pieniądze wydają się w miesiącach.
+   * Kiedy odnawia się budżet dobowy: najbliższa północ UTC. Do `details`
+   * przy odmowie — samo „spróbuj jutro" jest w Warszawie mylące, bo doba
+   * serwera kończy się o 1:00 albo 2:00 czasu lokalnego.
+   */
+  dayResetsAt(now: Date = new Date()): Date {
+    return new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + 1,
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
+  }
+
+  /**
+   * Koszt gospodarstwa — DWA liczniki naraz: miesięczny (sufit z
+   * `AI_HOUSEHOLD_MONTHLY_COST_USD`) i dobowy (`AI_HOUSEHOLD_DAILY_COST_USD`).
+   * Zawsze `monthKey`/`dayKey`, także na próbie: pula próbna nie ma miesiąca,
+   * ale pieniądze wydają się w miesiącach i dobach.
+   *
+   * Dobowy dopisano 12.09.2026, bo bez niego jedyną DOBOWĄ bramką był budżet
+   * CAŁEJ instalacji: dom, któremu tury padają w pętli, wyłączał asystenta
+   * wszystkim, nie zbliżywszy się do własnego sufitu miesięcznego. Oba wiersze
+   * lecą w tej samej transakcji co reszta domknięcia tury — rozjazd między
+   * nimi znaczyłby, że jeden sufit liczy inne pieniądze niż drugi.
    */
   async addHouseholdCost(
     client: UsageCounterClient,
@@ -140,6 +166,13 @@ export class AiUsageCountersService {
       client,
       householdId,
       this.monthKey(now),
+      'costMicroUsd',
+      costMicroUsd,
+    );
+    await this.add(
+      client,
+      householdId,
+      this.dayKey(now),
       'costMicroUsd',
       costMicroUsd,
     );
