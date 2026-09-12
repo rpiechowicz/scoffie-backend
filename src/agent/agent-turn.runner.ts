@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { stripClickableLinks } from './answer-links';
 import { Prisma } from '@prisma/client';
 import { AgentEnv } from '../config/agent-env';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
@@ -456,7 +457,11 @@ export class AgentTurnRunner {
             // Karta jest DODATKIEM do tekstu, nigdy zamiennikiem: klient,
             // który jej nie zna, ma dalej pokazać sensowne zdanie.
             kind: card?.kind ?? 'TEXT',
-            text: result.text,
+            // Bez klikalnych adresów: iOS renderuje tę treść jako markdown,
+            // a odpowiedź modelu potrafi nieść link podsunięty iniekcją
+            // z tytułu przepisu (audyt 12.09.2026, P0.8). Etykieta zostaje,
+            // adres przestaje być przyciskiem.
+            text: stripClickableLinks(result.text),
             ...(card ? { card: card.payload as Prisma.InputJsonValue } : {}),
             ...(usedContext.length > 0
               ? { context: { used: usedContext } as Prisma.InputJsonValue }
