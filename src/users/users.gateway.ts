@@ -3,6 +3,7 @@ import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
+  OnGatewayInit,
   OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
@@ -14,7 +15,7 @@ import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import type { AppSocket } from '../common/ws-socket';
 import { actorId } from '../common/ws-socket';
-import { disconnectUser } from '../common/ws-rooms';
+import { disconnectUser, setSessionSocketServer } from '../common/ws-rooms';
 import { UsersService } from './users.service';
 import { AppleRevocationService } from './apple-revocation.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
@@ -65,7 +66,9 @@ class UsersProfileUpdatePayload extends UsersActorPayload {
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
-export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class UsersGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -75,6 +78,15 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Opcjonalnie: testy jednostkowe bramki nie stawiają tego serwisu.
     @Optional() private readonly appleRevocation?: AppleRevocationService,
   ) {}
+
+  /**
+   * Udostępnia serwer socketów `AuthService` (patrz `disconnectRevokedUser`).
+   * Wszystkie gatewaye dzielą jeden egzemplarz Socket.IO, więc wystarczy
+   * zarejestrować go raz — a ten gateway i tak już rozłącza po `users:delete`.
+   */
+  afterInit(server: Server): void {
+    setSessionSocketServer(server);
+  }
 
   handleConnection(_client: Socket) {
     this.wsTelemetry.onConnect(UsersGateway.name);
