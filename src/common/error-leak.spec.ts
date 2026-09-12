@@ -17,7 +17,7 @@ import { wsRespond } from './ws-response';
 
 /** Rzeczy, których klient nie ma prawa zobaczyć, w kształcie, w jakim wyciekają. */
 const SEKRETY = [
-  'postgresql://scoffie:P4ssw0rd-Prod@shinkansen.proxy.rlwy.net:41234/railway',
+  'postgresql://scoffie:P4ssw0rd-Prod@example.proxy.rlwy.net:12345/railway',
   'P4ssw0rd-Prod',
   'sk-ant-api03-TAJNY-KLUCZ',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.tajny.podpis',
