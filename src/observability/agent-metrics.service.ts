@@ -8,7 +8,13 @@ export type AgentRejection =
   | 'upstream'
   | 'inProgress'
   /** Wyczerpany miesięczny limit planów — odmowa NARZĘDZIA, nie całej tury. */
-  | 'planQuota';
+  | 'planQuota'
+  /**
+   * Zapis planu, który usunąłby za dużo pozycji bez potwierdzenia człowieka.
+   * Osobny licznik, bo to jedyna odmowa, która mówi „model chciał skasować
+   * cudzy tydzień" — jeśli zacznie rosnąć, prompt albo tryb są źle ustawione.
+   */
+  | 'destructive';
 
 /**
  * Liczniki asystenta od startu procesu — sekcja `agent` w `/ops/metrics`.
@@ -36,6 +42,7 @@ export class AgentMetricsService {
     upstream: 0,
     inProgress: 0,
     planQuota: 0,
+    destructive: 0,
   };
   private readonly usage = {
     providerCalls: 0,

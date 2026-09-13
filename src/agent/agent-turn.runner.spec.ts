@@ -27,6 +27,7 @@ const ENV: AgentEnv = {
   effort: 'medium',
   effortTools: 'low',
   householdMonthlyCostUsd: null,
+  householdDailyCostUsd: null,
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,
@@ -335,6 +336,68 @@ describe('AgentTurnRunner', () => {
       // Nasz timeout to nie awaria dostawcy.
       expect(metrics.snapshot().upstream.total).toBe(0);
       expect(metrics.snapshot().turns.timeout).toBe(1);
+    });
+
+    // AUDYT 12.09.2026 (P0.2). Zwrot bezwarunkowy przy timeoucie i ponawialnym
+    // błędzie dostawcy dawał licznik, który oscylował i nigdy nie dobijał do
+    // limitu: konto z pulą próbną pięciu wiadomości mogło wysyłać drogie tury
+    // bez końca, bo każda oddawała wiadomość, a rachunek u dostawcy rósł.
+    it('timeout PO wydaniu pieniędzy NIE oddaje wiadomości', async () => {
+      run.mockImplementation(
+        (request: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            request.signal.addEventListener('abort', () =>
+              reject(
+                new AgentProviderError('przerwane', true, undefined, {
+                  inputTokens: 30_000,
+                  outputTokens: 900,
+                  cacheReadTokens: 0,
+                  cacheWriteTokens: 0,
+                  costMicroUsd: 620_000,
+                }),
+              ),
+            );
+          }),
+      );
+
+      await runner.run(input({ env: { ...ENV, turnTimeoutMs: 10 } }));
+
+      expect(counters.add).not.toHaveBeenCalledWith(
+        prisma,
+        `sub:${HOUSEHOLD}`,
+        '2026-08',
+        'messages',
+        -1,
+      );
+      // Pieniądze i tak muszą trafić do liczników kosztu — inaczej sufity
+      // dobowy i miesięczny nie widziałyby wydatku nieudanej tury.
+      expect(counters.addHouseholdCost).toHaveBeenCalledWith(
+        prisma,
+        HOUSEHOLD,
+        620_000,
+      );
+    });
+
+    it('ponawialny błąd dostawcy PO wydaniu pieniędzy NIE oddaje wiadomości', async () => {
+      run.mockRejectedValue(
+        new AgentProviderError('529 overloaded', true, 529, {
+          inputTokens: 12_000,
+          outputTokens: 200,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          costMicroUsd: 90_000,
+        }),
+      );
+
+      await runner.run(input());
+
+      expect(counters.add).not.toHaveBeenCalledWith(
+        prisma,
+        expect.anything(),
+        expect.anything(),
+        'messages',
+        -1,
+      );
     });
 
     it('nieoczekiwany błąd (nie od dostawcy) daje INTERNAL_ERROR ze zwrotem', async () => {

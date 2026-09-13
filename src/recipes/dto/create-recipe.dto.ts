@@ -6,6 +6,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsEnum,
@@ -203,9 +204,17 @@ export class CreateRecipeDto {
   /** Sól DODANA w gramach (szczypta ≈ 0,3 g, łyżeczka ≈ 6 g); sól ze składników liczy serwer z sodu. */
   nutritionSalt?: number;
 
+  /**
+   * Pominięcie pola = przepis bez składników (makra podane wprost). PUSTA
+   * LISTA to nie to samo: `resolveRecipeNutrition` liczy z zera składników
+   * makra zerowe, a `deriveRecipeTags` zwraca PUSTĄ listę alergenów — czyli
+   * przepis „bez alergenów", którego bramka alergenowa przepuści każdemu.
+   * Wołający, który przysyła listę, musi przysłać w niej coś.
+   */
   @ApiPropertyOptional({ type: [CreateRecipeIngredientDto] })
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(RECIPE_INGREDIENTS_MAX)
   @ValidateNested({ each: true })
   @Type(() => CreateRecipeIngredientDto)
@@ -219,6 +228,7 @@ export class CreateRecipeDto {
   @ApiPropertyOptional({ type: [RecipeStepDto] })
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(RECIPE_STEPS_MAX)
   @ValidateNested({ each: true })
   @Type(() => RecipeStepDto)

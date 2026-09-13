@@ -1,0 +1,12 @@
+-- Kogo dotyczy notatka pamięci asystenta; NULL = całego domu.
+--
+-- Zgoda na asystenta jest indywidualna (art. 9 RODO: alergie i dieta to
+-- dane o zdrowiu). Poprzedni filtr porównywał imię jako podciąg treści
+-- i nie działał w polszczyźnie ("Kubie" nie zawiera "Kuba"). Kolumna
+-- pozwala filtrować po tożsamości, a nie po tekście.
+--
+-- Bez klucza obcego do User: notatka ma przeżyć skasowanie konta tak samo
+-- jak `createdByUserId` (kolumna również bez FK) — kaskada zabrałaby cudzy
+-- wpis z pamięci domu. Osierocony identyfikator nigdy nie trafi na listę
+-- domowników ze zgodą, więc filtr i tak taką notatkę zatrzyma.
+ALTER TABLE "AgentMemory" ADD COLUMN "aboutUserId" UUID;

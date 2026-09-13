@@ -142,6 +142,11 @@ const makePrismaMock = () => {
       upsert: jest.fn().mockResolvedValue({ id: 'fav-1' }),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    // `update` kasuje wiersze składników tylko wtedy, gdy przyszła ich nowa
+    // lista — testy pustej listy pilnują, że nie kasuje ich nigdy indziej.
+    recipeIngredient: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     $transaction: jest
       .fn()
       .mockImplementation((cbOrOps: any) =>
@@ -942,5 +947,91 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
       });
       expect(prisma.recipeFavorite.upsert).not.toHaveBeenCalled();
     });
+  });
+});
+
+// ─── Puste listy nie są łatką ──────────────────────────────────────────────────
+
+/**
+ * AUDYT 13.09.2026. `ingredients: []` przechodziło walidację i było traktowane
+ * jak „zastąp składniki" — a lista zastępuje W CAŁOŚCI, więc `deleteMany`
+ * kasował wszystkie wiersze, `create` się nie wykonywał (`?.length` = 0),
+ * makra schodziły do zera, a `deriveRecipeTags([])` czyścił ALERGENY. Zostawał
+ * tytuł „Kurczak z orzechami" bez składników, o zerowych kaloriach i bez
+ * alergenów — a bramka alergenowa czyta właśnie `Recipe.allergens`.
+ *
+ * Model potrafi taką listę wygenerować z samego złego zrozumienia prośby,
+ * a dla przepisów nie ma „Cofnij". Dlatego pusta lista jest teraz błędem
+ * walidacji, a „nie ruszaj składników" wyraża się POMINIĘCIEM pola.
+ */
+describe('RecipesService — pusta lista nie jest łatką', () => {
+  let service: RecipesService;
+  let prisma: ReturnType<typeof makePrismaMock>;
+
+  beforeEach(async () => {
+    prisma = makePrismaMock();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        RecipesService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: RecipesCacheService, useValue: makeCacheMock() },
+      ],
+    }).compile();
+    service = module.get<RecipesService>(RecipesService);
+  });
+
+  it('update z ingredients: [] odmawia i NIE kasuje składników', async () => {
+    await expect(
+      service.update(mockUserId, RECIPE_ID, {
+        householdId: mockHouseholdId,
+        ingredients: [],
+      } as any),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'VALIDATION_ERROR' },
+    });
+
+    // Kluczowa asercja: transakcja nigdy nie ruszyła, więc nie ma jak
+    // skasować składników ani wyzerować alergenów.
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.recipe.update).not.toHaveBeenCalled();
+  });
+
+  it('update z steps: [] odmawia — kroki też zastępują w całości', async () => {
+    await expect(
+      service.update(mockUserId, RECIPE_ID, {
+        householdId: mockHouseholdId,
+        steps: [],
+      } as any),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'VALIDATION_ERROR' },
+    });
+    expect(prisma.recipe.update).not.toHaveBeenCalled();
+  });
+
+  it('update BEZ pola ingredients zostawia składniki w spokoju', async () => {
+    // Druga strona kontraktu: pominięcie pola to jedyny sposób, żeby
+    // poprawić tytuł bez ruszania składników — i on musi dalej działać.
+    await service.update(mockUserId, RECIPE_ID, {
+      householdId: mockHouseholdId,
+      title: 'Owsianka inaczej',
+    } as any);
+
+    expect(prisma.recipeIngredient.deleteMany).not.toHaveBeenCalled();
+    const data = prisma.recipe.update.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty('ingredients');
+    expect(data).not.toHaveProperty('allergens');
+    expect(data.title).toBe('Owsianka inaczej');
+  });
+
+  it('create z ingredients: [] odmawia — przepis bez alergenów wygląda na bezpieczny', async () => {
+    await expect(
+      service.create(mockUserId, baseDto({ ingredients: [] })),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'VALIDATION_ERROR' },
+    });
+    expect(prisma.recipe.create).not.toHaveBeenCalled();
   });
 });

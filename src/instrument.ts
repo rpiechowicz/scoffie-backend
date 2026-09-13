@@ -41,4 +41,11 @@ Sentry.init({
   tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? '0') || 0,
   sendDefaultPii: false,
   beforeSend: (event) => scrubEvent(event),
+  // Okruchy (breadcrumbs) NIE przechodzą przez `beforeSend`, tylko przez ten
+  // hak — a SDK zbiera je sam z modułów http i pg, czyli z adresów żądań
+  // i treści zapytań SQL. `scrubEvent` ich nie widzi, więc jedyny sposób,
+  // żeby nie wysyłać czegoś, czego nie sprawdziliśmy, to nie wysyłać nic.
+  // Do diagnozy wystarcza ślad wyjątku i `requestId` do wyszukania w logu.
+  // (Audyt 12.09.2026, P1.15.)
+  beforeBreadcrumb: () => null,
 });

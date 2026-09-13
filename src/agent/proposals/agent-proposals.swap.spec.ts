@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { HouseholdsService } from '../../households/households.service';
 import { WeeklyPlansService } from '../../weekly-plans/weekly-plans.service';
 import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
+import { ConsentsService } from '../../consents/consents.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { AgentQuotaMailService } from '../agent-quota-mail.service';
 
@@ -82,6 +83,15 @@ const build = async (deps: ReturnType<typeof makeDeps>) => {
         useValue: { announce: jest.fn().mockResolvedValue(undefined) },
       },
       { provide: WeeklyPlansGateway, useValue: deps.plansGateway },
+      // Zgoda na asystenta bramkuje talerze w propozycji „kilka talerzy"
+      // (audyt 12.09.2026, P1.10). Domyślnie wszyscy w domu ją mają.
+      {
+        provide: ConsentsService,
+        useValue: {
+          usersWithValid: (ids: readonly string[]) =>
+            Promise.resolve(new Set(ids)),
+        },
+      },
     ],
   }).compile();
   return module.get(AgentProposalsService);

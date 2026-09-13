@@ -20,6 +20,7 @@ import {
 import {
   settleHouseholdAfterMemberLeft,
   revokeCookidooCredentialsOf,
+  revokeInvitationsCreatedBy,
 } from './household-cleanup.util';
 import {
   resolveInvitationStatus,
@@ -261,6 +262,34 @@ export class HouseholdsService {
       );
     }
 
+    // Wystawca musi być W TEJ CHWILI właścicielem tego domu.
+    //
+    // Wygaszanie przy odejściu (`revokeInvitationsCreatedBy`) załatwia to
+    // u źródła, ale tylko dla linków wystawionych OD TEJ ZMIANY i tylko dla
+    // ścieżek, które pamiętałem. To jest ta sama reguła sprawdzana w chwili
+    // użycia — jedyny moment, w którym da się ją sprawdzić na pewno. Łapie
+    // też linki wystawione wcześniej, których w bazie nie ruszamy, i wypadek,
+    // w którym wystawca skasował konto (`createdById` idzie wtedy na `null`).
+    // Fail-closed: brak wystawcy = odmowa, nie domysł.
+    const inviterStillOwner = !invitation.createdById
+      ? null
+      : await this.prisma.membership.findUnique({
+          where: {
+            userId_householdId: {
+              userId: invitation.createdById,
+              householdId: invitation.householdId,
+            },
+          },
+          select: { role: true },
+        });
+    if (!inviterStillOwner || inviterStillOwner.role !== 'OWNER') {
+      throw new AppException(
+        'INVITATION_EXPIRED',
+        'Invitation expired',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     // Konto obsługuje jedno gospodarstwo naraz. Schemat dopuszcza kilka
     // członkostw, ale reszta aplikacji z tego nie korzysta: `buildAuthResult`
     // wybiera NAJSTARSZE członkostwo, a klient trzyma jedno
@@ -298,6 +327,7 @@ export class HouseholdsService {
 
       for (const previous of otherMemberships) {
         await revokeCookidooCredentialsOf(tx, previous.householdId, userId);
+        await revokeInvitationsCreatedBy(tx, previous.householdId, userId, now);
         await tx.membership.delete({
           where: {
             userId_householdId: { userId, householdId: previous.householdId },
@@ -859,6 +889,19 @@ export class HouseholdsService {
       }
     }
 
+    // Degradacja OWNER → MEMBER odbiera prawo zapraszania, więc odbiera też
+    // moc linkom już wystawionym. Inaczej zdegradowany właściciel mógłby
+    // dołączyć kogoś do domu jeszcze przez trzydzieści dni (audyt 12.09.2026).
+    if (targetMembership.role === 'OWNER' && dto.role !== 'OWNER') {
+      return this.prisma.$transaction(async (tx) => {
+        await revokeInvitationsCreatedBy(tx, householdId, memberUserId);
+        return tx.membership.update({
+          where: { userId_householdId: { userId: memberUserId, householdId } },
+          data: { role: dto.role },
+        });
+      });
+    }
+
     return this.prisma.membership.update({
       where: { userId_householdId: { userId: memberUserId, householdId } },
       data: { role: dto.role },
@@ -899,6 +942,7 @@ export class HouseholdsService {
     const now = new Date();
     return this.prisma.$transaction(async (tx) => {
       await revokeCookidooCredentialsOf(tx, householdId, memberUserId);
+      await revokeInvitationsCreatedBy(tx, householdId, memberUserId, now);
       const removed = await tx.membership.delete({
         where: { userId_householdId: { userId: memberUserId, householdId } },
       });
@@ -934,6 +978,7 @@ export class HouseholdsService {
     const { settlement, touchedWeekStarts } = await this.prisma.$transaction(
       async (tx) => {
         await revokeCookidooCredentialsOf(tx, householdId, userId);
+        await revokeInvitationsCreatedBy(tx, householdId, userId, now);
         await tx.membership.delete({
           where: { userId_householdId: { userId, householdId } },
         });

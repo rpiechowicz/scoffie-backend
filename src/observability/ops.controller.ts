@@ -107,10 +107,17 @@ export class OpsController {
       // i nie dało się orzec, czy wina jest w kodzie, czy w tym, że kod
       // jeszcze nie dojechał. Railway wystawia `RAILWAY_GIT_COMMIT_SHA` sam;
       // `APP_COMMIT` jest furtką dla innych środowisk.
-      commit:
+      //
+      // Skrócony do siedmiu znaków (audyt 5.09.2026, domknięte 12.09.2026):
+      // ta trasa jest PUBLICZNA i bez limitu żądań, a pełny SHA daje obcemu
+      // dokładny punkt w historii prywatnego repozytorium. Siedem znaków
+      // wystarcza, żeby odpowiedzieć na „czy produkcja ma już tę poprawkę",
+      // i nie mówi nic więcej.
+      commit: (
         process.env.APP_COMMIT ??
         process.env.RAILWAY_GIT_COMMIT_SHA ??
-        'unknown',
+        'unknown'
+      ).slice(0, 7),
     };
   }
 

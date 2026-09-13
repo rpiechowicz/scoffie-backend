@@ -554,6 +554,15 @@ model AgentMemory {
   /// check-then-act.
   textNormalized  String
   createdByUserId String?  @db.Uuid
+  /// KOGO dotyczy notatka; `null` = całego domu.
+  ///
+  /// Zgoda na asystenta jest indywidualna, a notatka „Kubie nie dawać
+  /// orzechów" niesie dane o zdrowiu Kuby. Do 12.09.2026 filtr porównywał
+  /// IMIĘ jako podciąg tekstu, więc polska odmiana („Kubie", „u Zosi") go
+  /// omijała, a notatka bez imienia („mój syn nie je ryb") była poza jego
+  /// zasięgiem z definicji. Tożsamość rozstrzyga to jednoznacznie: notatka
+  /// o osobie bez zgody nie powstaje, a jeśli już jest — nie idzie do modelu.
+  aboutUserId     String?  @db.Uuid
   /// PREFERENCE | CONSTRAINT | HABIT — grupa na ekranie „Co o Was pamięta".
   /// Tekst, nie enum (patrz `CookidooIntegration.status`); podaje model.
   kind            String   @default("PREFERENCE")

@@ -69,6 +69,15 @@ describe('inspectRuntimeEnv', () => {
       { AUTH_DEV_LOGIN_ENABLED: 'true' },
       /AUTH_DEV_LOGIN_ENABLED=true/,
     ],
+    // AUDYT 12.09.2026 (P0.3). `off` z włączonym asystentem znaczy, że model
+    // zapisuje plan sam: bez karty, bez potwierdzenia i bez „Cofnij". Ta sama
+    // reguła co przy WS_AUTH_MODE=soft — tryb, który zdejmuje zgodę człowieka,
+    // nie wchodzi na produkcję przez zapomnianą zmienną.
+    [
+      'zapis planu bez potwierdzenia człowieka',
+      { AI_ENABLED: 'true', AI_PROVIDER: 'stub', AI_CARDS_MODE: 'off' },
+      /AI_CARDS_MODE=off/,
+    ],
     [
       'Cookidoo po publicznym http',
       { COOKIDOO_SERVICE_URL: 'http://cookidoo.up.railway.app' },
