@@ -3,6 +3,7 @@ import { Difficulty, MealType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsEnum,
@@ -113,17 +114,36 @@ export class UpdateRecipeDto {
   @IsUrl(RECIPE_IMAGE_URL_OPTIONS)
   imageUrl?: string;
 
+  /**
+   * PUSTA LISTA NIE JEST LEGALNĄ ŁATKĄ — patrz `@ArrayMinSize(1)`.
+   *
+   * Przysłana lista zastępuje poprzednią w całości, więc `ingredients: []`
+   * przechodziło walidację i kasowało WSZYSTKIE składniki (`deleteMany` bez
+   * `create`), zerowało makra (`resolveRecipeNutrition` z zera wierszy) i
+   * czyściło alergeny (`deriveRecipeTags([])` = pusta lista). Zostawał tytuł
+   * bez treści, o zerowych kaloriach i „bez alergenów" — a bramka alergenowa
+   * czyta właśnie `Recipe.allergens`, więc danie z orzechami przestawało być
+   * blokowane domownikowi z uczuleniem. Model potrafi wygenerować taką listę
+   * z samego złego zrozumienia prośby („usuń stamtąd cebulę"), a „Cofnij"
+   * istnieje wyłącznie dla propozycji planu, nie dla przepisów.
+   *
+   * „Nie ruszaj składników" wyraża się POMINIĘCIEM pola — tak, jak opisuje to
+   * dokumentacja tego DTO i schemat narzędzia `update_recipe`.
+   */
   @ApiPropertyOptional({ type: [CreateRecipeIngredientDto] })
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(RECIPE_INGREDIENTS_MAX)
   @ValidateNested({ each: true })
   @Type(() => CreateRecipeIngredientDto)
   ingredients?: CreateRecipeIngredientDto[];
 
+  /** Ta sama reguła co przy składnikach: lista zastępuje, więc nie może być pusta. */
   @ApiPropertyOptional({ type: [RecipeStepDto] })
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(RECIPE_STEPS_MAX)
   @ValidateNested({ each: true })
   @Type(() => RecipeStepDto)

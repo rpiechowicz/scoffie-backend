@@ -499,6 +499,11 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         },
         ingredients: {
           type: 'array',
+          // Granica idzie w OPISIE, nie w `minItems` — słów kluczowych JSON
+          // Schema to API nie przyjmuje (patrz `agent-tools.spec.ts`).
+          // Pilnuje jej walidacja DTO: `@ArrayMinSize(1)`, bo przepis bez
+          // składników ma zerowe makra i PUSTĄ listę alergenów, czyli wygląda
+          // na danie bezpieczne dla każdego.
           description: 'Co najmniej jeden składnik, najwyżej 60.',
           items: object(
             {
@@ -518,7 +523,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         },
         steps: {
           type: 'array',
-          description: 'Kroki po kolei; najwyżej 40.',
+          description: 'Kroki po kolei; co najmniej jeden, najwyżej 40.',
           items: object({ text: { type: 'string' } }, ['text']),
         },
       },
@@ -546,7 +551,13 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         },
         ingredients: {
           type: 'array',
-          description: 'Pełna lista, nie różnica; najwyżej 60 pozycji.',
+          // Granica w OPISIE, nie w `minItems` (patrz `create_recipe`).
+          // Pusta lista skasowałaby wszystkie składniki razem z makrami
+          // i alergenami; odrzuca ją walidacja DTO (`@ArrayMinSize(1)`).
+          // „Nie ruszaj składników" to POMINIĘCIE pola, nie `[]`.
+          description:
+            'Pełna lista, nie różnica; co najmniej jedna pozycja, najwyżej 60. ' +
+            'Nie zmieniasz składników? Pomiń to pole — pustej listy nie wolno przysłać.',
           items: object(
             {
               ingredient_id: { type: 'string' },
@@ -558,7 +569,8 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         },
         steps: {
           type: 'array',
-          description: 'Kroki po kolei; najwyżej 40.',
+          description:
+            'Kroki po kolei; co najmniej jeden, najwyżej 40. Nie zmieniasz kroków? Pomiń to pole.',
           items: object({ text: { type: 'string' } }, ['text']),
         },
       },
