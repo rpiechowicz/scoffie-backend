@@ -534,14 +534,22 @@ describe('WS auth E2E', () => {
       expect(recovered.body.refreshToken).not.toBe(lost);
       expect(recovered.body.refreshToken).not.toBe(session.refreshToken);
 
-      // Porzucona para jest martwa, a odratowana działa.
+      // OBIE pary działają — i to jest sedno poprawki z 13.09.2026.
+      //
+      // Ten test sprawdzał wcześniej, że para z rotacji (`lost`) jest martwa,
+      // i to założenie było błędem, który wylogowywał telefon. „Nieużyta" nie
+      // znaczy „niedostarczona": świeży refresh token leży u klienta nieużywany
+      // tak długo, jak żyje jego access token, czyli do godziny. Serwer nie wie,
+      // którą z dwóch odpowiedzi klient dostał, więc obie muszą działać.
+      // Zmierzone na produkcji: ratunek kasował parę z rotacji o 12:26,
+      // a telefon wylogowywał się o 16:49 z `reason=REUSE successor=missing`.
       await request(app.getHttpServer())
         .post('/auth/refresh')
         .send({ refreshToken: lost })
-        .expect(401);
+        .expect(201);
     });
 
-    it('ratunek jest jednorazowy — drugie powtórzenie tego samego tokenu to 401', async () => {
+    it('kolejne ponowienia tego samego żądania też są ratowane (URLSession ponawia więcej niż raz)', async () => {
       const session = await devLogin('LostRotationOnce');
 
       await request(app.getHttpServer())
@@ -552,10 +560,15 @@ describe('WS auth E2E', () => {
         .post('/auth/refresh')
         .send({ refreshToken: session.refreshToken })
         .expect(201);
+      // TRZECIE ponowienie. Wcześniej kończyło się 401 i kasowaniem rodziny,
+      // czyli wylogowaniem ze WSZYSTKICH urządzeń za to, że sieć była słaba.
+      // Granicę stawia czas (okno łaski liczone od rotacji, nieruchome), a nie
+      // licznik ponowień — telefon nie ma jak wiedzieć, które z jego żądań
+      // serwer już obsłużył.
       await request(app.getHttpServer())
         .post('/auth/refresh')
         .send({ refreshToken: session.refreshToken })
-        .expect(401);
+        .expect(201);
     });
 
     // Telefon ma single-flight, ale POST i tak potrafi pójść dwa razy: gdy

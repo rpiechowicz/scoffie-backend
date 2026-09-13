@@ -222,10 +222,16 @@ export class AuthService {
       // Zanim skasujemy rodzine: czy to nie jest po prostu telefon, do
       // ktorego nowa para nie dojechala? Jesli tak, dostaje swieza i zyje
       // dalej - patrz `recoverLostRotation`.
-      const recovered = await this.recoverLostRotation(storedToken, now);
-      if (recovered) return recovered;
-
-      await this.revokeTokenFamily(storedToken.userId, now, 'reuse detected');
+      const outcome = await this.recoverLostRotation(storedToken, now);
+      if (outcome.kind === 'recovered') {
+        return {
+          accessToken: outcome.accessToken,
+          refreshToken: outcome.refreshToken,
+        };
+      }
+      if (outcome.kind === 'replay') {
+        await this.revokeTokenFamily(storedToken.userId, now, 'reuse detected');
+      }
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
@@ -248,12 +254,22 @@ export class AuthService {
       const afterRace = await this.prisma.refreshToken.findUnique({
         where: { tokenHash },
       });
-      const recovered = afterRace
+      const outcome = afterRace
         ? await this.recoverLostRotation(afterRace, new Date())
-        : null;
-      if (recovered) return recovered;
-
-      await this.revokeTokenFamily(storedToken.userId, now, 'concurrent reuse');
+        : ({ kind: 'stale' } as const);
+      if (outcome.kind === 'recovered') {
+        return {
+          accessToken: outcome.accessToken,
+          refreshToken: outcome.refreshToken,
+        };
+      }
+      if (outcome.kind === 'replay') {
+        await this.revokeTokenFamily(
+          storedToken.userId,
+          now,
+          'concurrent reuse',
+        );
+      }
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
@@ -335,6 +351,25 @@ export class AuthService {
   }
 
   /**
+   * Wynik proby ratunku. Odmowa ma DWA smaki i to jest sedno poprawki
+   * z 13.09.2026 (audyt cyklu zycia sesji):
+   *
+   *  - `replay` — lancuch sie ROZWIDLIL: nastepca zostal uzyty, czyli para
+   *    dotarla do klienta i zyje wlasnym zyciem, a mimo to wraca stary token.
+   *    Dwie strony maja dzialajace poswiadczenia. To jedyna sytuacja, w ktorej
+   *    mamy dowod, i jedyna, w ktorej pada CALA rodzina (wszystkie urzadzenia
+   *    + `tokenVersion`).
+   *  - `stale` — token jest martwy, ale nic nie wskazuje na kopie: wylogowany,
+   *    wygasly, juz raz wykryty, albo zgubiony tak dawno, ze nie miesci sie
+   *    w oknie laski. Odmawiamy TEMU zadaniu (401) i na tym koniec.
+   *
+   * Dotad kazda odmowa kasowala rodzine. Znaczylo to, ze telefon, ktoremu
+   * padla siec na dluzej niz okno laski, wylogowywal wlasciciela ze WSZYSTKICH
+   * urzadzen i zostawial w logach ostrzezenie o kradziezy tokenu. Kara za brak
+   * zasiegu byla ta sama, co za kradziez — a wykrywanie, ktore krzyczy przy
+   * kazdym slabym polaczeniu, przestaje cokolwiek znaczyc.
+   */
+  /**
    * Ratunek dla telefonu, ktory zgubil odpowiedz z rotacji.
    *
    * Warunki sa celowo waskie i musza zajsc WSZYSTKIE naraz:
@@ -379,29 +414,60 @@ export class AuthService {
       expiresAt: Date;
     },
     now: Date,
-  ): Promise<{ accessToken: string; refreshToken: string } | null> {
+  ): Promise<
+    | { kind: 'recovered'; accessToken: string; refreshToken: string }
+    | { kind: 'replay' }
+    | { kind: 'stale' }
+  > {
     const { revokedAt, revokedReason, replacedByHash } = storedToken;
     // Kazda odmowa konczy sie kasowaniem rodziny, czyli wylogowaniem — wiec
     // kazda mowi, CO ja wywolalo. Bez tego jedyny slad po wylogowaniu to
     // `reuse detected`, z ktorego nie wynika, ktory warunek nie wyszedl.
-    if (revokedReason !== 'ROTATED' || !revokedAt || !replacedByHash) {
+    // ROTATED = pierwsze ponowienie, RECOVERED = kolejne. Jedno i drugie to
+    // ten sam telefon pukajacy po odpowiedz, ktorej nie dostal — URLSession
+    // ponawia POST tyle razy, ile trzeba, a nie raz. Zmierzone e2e: przy
+    // TRZECIM ponowieniu stary warunek (`!== 'ROTATED'`) odmawial ratunku
+    // i kasowal cala rodzine, czyli wylogowywal ze wszystkich urzadzen za to,
+    // ze siec byla slaba. Okna laski to nie przedluza: `revokedAt` jest
+    // ustawiane RAZ, przy rotacji, i ratunek go nie rusza — wiec wszystkie
+    // ponowienia mieszcza sie w tym samym, nieruchomym oknie.
+    const rotatedOrRecovered =
+      revokedReason === 'ROTATED' || revokedReason === 'RECOVERED';
+    if (!rotatedOrRecovered || !revokedAt || !replacedByHash) {
+      // LOGOUT, REUSE (rodzina juz padla) albo rotacja bez wskaznika na
+      // nastepce. Zadne z tego nie jest dowodem kopii: wylogowany token wraca
+      // po prostu z ponowionego zadania, a raz wykryty replay nie ma juz czego
+      // kasowac drugi raz.
       this.logger.warn(
-        `rotation recovery refused for user ${storedToken.userId}: reason=${revokedReason ?? 'NULL'} successor=${replacedByHash ? 'set' : 'missing'}`,
+        `rotation recovery refused for user ${storedToken.userId}: reason=${revokedReason ?? 'NULL'} successor=${replacedByHash ? 'set' : 'missing'} — odmowa bez kasowania rodziny`,
       );
-      return null;
+      return { kind: 'stale' };
     }
     const ageMs = now.getTime() - revokedAt.getTime();
     if (ageMs > this.refreshReuseGraceMs) {
+      // Tu rodzina pada — i to jest ŚWIADOMY wybór, nie przeoczenie.
+      //
+      // Ten przypadek (rotacja, nastepca zyje, ale dawno) wyglada IDENTYCZNIE
+      // z dwoch stron: telefon, ktory zgubil odpowiedz i wrocil po godzinie,
+      // oraz wlasciciel, ktoremu ktos ukradl token, zrotowal go i wlasnie zyje
+      // w jego koncie. Serwer nie ma czym ich odroznic — nie ma zadnego
+      // sygnalu, ktory by je rozdzielil.
+      //
+      // Probowalem to zlagodzic (odmowa bez kasowania rodziny) i e2e pokazalo
+      // cene: w wariancie z kradzieza ofiara dostaje 401, loguje sie od nowa,
+      // a ZLODZIEJ zostaje w koncie na zawsze, bo nic go nie gasi. To za duzo
+      // za wygode. Zostaje kasowanie rodziny, a decyzja o szerokosci okna
+      // (`REFRESH_REUSE_GRACE_SECONDS`) jest jawna i nalezy do wlasciciela.
       this.logger.warn(
         `rotation recovery refused for user ${storedToken.userId}: rotated ${Math.round(ageMs / 1000)}s ago, grace ${this.refreshReuseGraceMs / 1000}s`,
       );
-      return null;
+      return { kind: 'replay' };
     }
     if (storedToken.expiresAt <= now) {
       this.logger.warn(
         `rotation recovery refused for user ${storedToken.userId}: token expired`,
       );
-      return null;
+      return { kind: 'stale' };
     }
 
     // Nastepca musi ZYC. Uzyty albo uniewazniony znaczy, ze para nie tylko
@@ -413,33 +479,34 @@ export class AuthService {
       select: { revokedAt: true },
     });
     if (!successorToken || successorToken.revokedAt) {
+      // JEDYNA sciezka, na ktorej pada cala rodzina: lancuch sie rozwidlil.
       this.logger.warn(
-        `rotation recovery refused for user ${storedToken.userId}: successor already used or revoked`,
+        `rotation recovery refused for user ${storedToken.userId}: successor already used or revoked — lancuch rozwidlony`,
       );
-      return null;
+      return { kind: 'replay' };
     }
 
-    // Ratunek jest JEDNORAZOWY na rotacje, i to TU sie rozstrzyga: warunek na
-    // `revokedReason` sprawia, ze z dwoch rownoleglych ratunkow wygrywa jeden,
-    // a trzecie powtorzenie tego samego tokenu odpadnie juz na pierwszym
-    // warunku (RECOVERED to nie ROTATED).
-    const claimed = await this.prisma.refreshToken.updateMany({
-      where: { tokenHash: storedToken.tokenHash, revokedReason: 'ROTATED' },
+    // Slad, ze ta rotacja byla juz ratowana. Nie jest to blokada: granice
+    // stawia CZAS (okno laski liczone od `revokedAt`, ktore sie nie przesuwa),
+    // a nie licznik ratunkow. Blokada na liczniku wygladala rozsadnie, dopoki
+    // e2e nie pokazalo, ze trzecie ponowienie tego samego zadania konczy sie
+    // wylogowaniem — a telefon nie ma jak wiedziec, ktore z jego ponowien
+    // serwer juz obsluzyl.
+    await this.prisma.refreshToken.updateMany({
+      where: { tokenHash: storedToken.tokenHash },
       data: { revokedReason: 'RECOVERED' },
     });
-    if (claimed.count === 0) {
-      this.logger.warn(
-        `rotation recovery refused for user ${storedToken.userId}: rotation already recovered by a parallel request`,
-      );
-      return null;
-    }
 
     const accessToken = await this.issueAccessToken(storedToken.userId);
     const successor = await this.issueRefreshToken(storedToken.userId);
     this.logger.log(
       `refresh token rotation recovered for user ${storedToken.userId} - client never received the rotated pair`,
     );
-    return { accessToken, refreshToken: successor.rawToken };
+    return {
+      kind: 'recovered',
+      accessToken,
+      refreshToken: successor.rawToken,
+    };
   }
 
   /**
