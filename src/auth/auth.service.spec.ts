@@ -434,7 +434,9 @@ describe('AuthService', () => {
           revokedAt: new Date(),
           revokedReason: 'ROTATED',
           replacedByHash: 'hash-nastepcy',
-        });
+        })
+        // Odczyt następcy: żyje, więc para mogła nie dojechać.
+        .mockResolvedValueOnce({ revokedAt: null });
 
       const result = await service.refreshAccessToken('ponowiony-token');
 
@@ -442,9 +444,10 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('refreshToken');
       // Rodzina żyje, tokeny dostępu zostają ważne.
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
+      // Zajęcie idzie na PRZEDSTAWIONYM tokenie, nie na następcy.
       expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { tokenHash: 'hash-nastepcy', revokedAt: null },
-        data: { revokedAt: expect.any(Date), revokedReason: 'REUSE' },
+        where: { tokenHash: mockRefreshToken.tokenHash, revokedReason: 'ROTATED' },
+        data: { revokedReason: 'RECOVERED' },
       });
     });
 
@@ -524,13 +527,15 @@ describe('AuthService', () => {
     // wylogowaniem („Sesja wygasła”) mimo że użytkownik nic nie zrobił.
 
     it('zgubiona odpowiedź z rotacji: nietknięty następca w oknie łaski → świeża para, rodzina żyje', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue({
-        ...mockRefreshToken,
-        revokedAt: new Date(Date.now() - 5_000),
-        revokedReason: 'ROTATED',
-        replacedByHash: 'hash-nastepcy',
-      });
-      // Zajęcie następcy się udaje = nikt go nie użył, czyli para nie dotarła.
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce({
+          ...mockRefreshToken,
+          revokedAt: new Date(Date.now() - 5_000),
+          revokedReason: 'ROTATED',
+          replacedByHash: 'hash-nastepcy',
+        })
+        // Następca ŻYJE = nikt go nie użył.
+        .mockResolvedValueOnce({ revokedAt: null });
       prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
 
       const result = await service.refreshAccessToken('stary-token');
@@ -539,16 +544,67 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('refreshToken');
       // Rodzina NIE pada i tokeny dostępu zostają ważne.
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
+      // Ratunek jest jednorazowy, i rozstrzyga to zajęcie PRZEDSTAWIONEGO
+      // tokenu: ROTATED → RECOVERED, warunkowo, więc z dwóch równoległych
+      // ratunków wygrywa jeden.
       expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(1, {
-        where: { tokenHash: 'hash-nastepcy', revokedAt: null },
-        data: { revokedAt: expect.any(Date), revokedReason: 'REUSE' },
-      });
-      // Ratunek jest jednorazowy — powtórzony ten sam token nie jest już
-      // zgubioną odpowiedzią.
-      expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { tokenHash: mockRefreshToken.tokenHash },
+        where: { tokenHash: mockRefreshToken.tokenHash, revokedReason: 'ROTATED' },
         data: { revokedReason: 'RECOVERED' },
       });
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    // ─── PROD 13.09.2026: ratunek zabijał token, który klient właśnie dostał ──
+    //
+    // Zmierzone na produkcji. 12:26 rotacja (klient dostaje S_A) i w tej samej
+    // sekundzie ratunek dla ponowionego POST-a, który kasował S_A jako REUSE
+    // i wydawał S_B. Klient miał w Keychainie S_A, więc S_B oddał przez
+    // /auth/logout — i został z tokenem, który serwer właśnie zabił. O 16:49,
+    // gdy wygasł access token, S_A wrócił jako `reason=REUSE successor=missing`
+    // i skończyło się wylogowaniem. Założenie „nieużyty = nie dotarł" jest
+    // fałszywe: świeży refresh token leży u klienta nieużywany nawet godzinę.
+
+    it('ratunek NIE unieważnia następcy — on może już leżeć u klienta', async () => {
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce({
+          ...mockRefreshToken,
+          revokedAt: new Date(Date.now() - 5_000),
+          revokedReason: 'ROTATED',
+          replacedByHash: 'hash-nastepcy',
+        })
+        .mockResolvedValueOnce({ revokedAt: null });
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await service.refreshAccessToken('stary-token');
+
+      // Następca jest tylko CZYTANY.
+      expect(prisma.refreshToken.findUnique).toHaveBeenNthCalledWith(2, {
+        where: { tokenHash: 'hash-nastepcy' },
+        select: { revokedAt: true },
+      });
+      // I żaden zapis go nie dotyka — ani po `tokenHash`, ani przy okazji.
+      for (const call of prisma.refreshToken.updateMany.mock.calls) {
+        expect(call[0]?.where?.tokenHash).not.toBe('hash-nastepcy');
+      }
+      expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+    });
+
+    it('dwa równoległe ratunki wydają JEDNĄ parę — drugi odpada na zajęciu', async () => {
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce({
+          ...mockRefreshToken,
+          revokedAt: new Date(Date.now() - 5_000),
+          revokedReason: 'ROTATED',
+          replacedByHash: 'hash-nastepcy',
+        })
+        .mockResolvedValueOnce({ revokedAt: null });
+      // Zajęcie przedstawionego tokenu przegrywa: ktoś już uratował tę rotację.
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(service.refreshAccessToken('stary-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(jwt.signAsync).not.toHaveBeenCalled();
     });
 
     it('drugie powtórzenie tego samego tokenu już nie ratuje — rodzina pada', async () => {
@@ -566,16 +622,16 @@ describe('AuthService', () => {
     });
 
     it('następca już użyty → to jednak replay: rodzina unieważniona, 401', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue({
-        ...mockRefreshToken,
-        revokedAt: new Date(Date.now() - 5_000),
-        revokedReason: 'ROTATED',
-        replacedByHash: 'hash-nastepcy',
-      });
-      // Zajęcie następcy nie udaje się = klient parę dostał i jej użył.
-      prisma.refreshToken.updateMany
-        .mockResolvedValueOnce({ count: 0 })
-        .mockResolvedValueOnce({ count: 3 });
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce({
+          ...mockRefreshToken,
+          revokedAt: new Date(Date.now() - 5_000),
+          revokedReason: 'ROTATED',
+          replacedByHash: 'hash-nastepcy',
+        })
+        // Następca unieważniony = klient parę dostał i poszedł dalej.
+        .mockResolvedValueOnce({ revokedAt: new Date(Date.now() - 1_000) });
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 3 });
 
       await expect(service.refreshAccessToken('stary-token')).rejects.toThrow(
         UnauthorizedException,
