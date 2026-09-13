@@ -341,13 +341,31 @@ export class AuthService {
    *  - token uniewaznila ROTACJA (nie logout i nie wykryty wczesniej replay),
    *  - miescimy sie w oknie laski (`REFRESH_REUSE_GRACE_SECONDS`),
    *  - sam token nie zdazyl wygasnac,
-   *  - a nastepca jest NIETKNIETY.
+   *  - a nastepca ZYJE (nie zostal uzyty ani uniewazniony).
    *
-   * Ostatni warunek jest najwazniejszy: jesli nastepca zostal juz uzyty, to
-   * znaczy, ze para DOTARLA do klienta - a skoro stary token wraca mimo to,
-   * mamy kopie i rodzina musi pasc. Dlatego uniewaznienie nastepcy idzie
-   * warunkowym `updateMany` (`revokedAt: null`): to samo zapytanie sprawdza
-   * i zajmuje, wiec dwa rownolegle ratunki nie wydadza dwoch waznych par.
+   * **Nastepcy NIE uniewazniamy** — i to jest poprawka z 13.09.2026, zmierzona
+   * na produkcji. Dotad ratunek "zajmowal" nastepce, kasujac go jako REUSE,
+   * na zalozeniu "nieuzyty = nie dotarl do klienta". To zalozenie jest
+   * FALSZYWE: swiezo wydany refresh token lezy u klienta nieuzywany tak dlugo,
+   * jak dlugo zyje jego access token, czyli do godziny. Log z prod:
+   *
+   *   12:26:17  POST /auth/refresh 201        <- rotacja, klient dostaje S_A
+   *   12:26:17  rotation recovered            <- ratunek dla powtorzenia,
+   *                                              kasuje S_A i wydaje S_B
+   *   12:26:17  POST /auth/logout 200         <- klient oddaje S_B (ma juz S_A)
+   *   16:49:17  reason=REUSE successor=missing <- S_A, zabity przez ratunek
+   *   16:49:17  POST /auth/refresh 401 -> wylogowanie
+   *
+   * Czyli ratunek zabijal token, ktory klient WLASNIE dostal i schowal, a cztery
+   * godziny pozniej ten sam klient wygladal z tym tokenem na zlodzieja. Sesja
+   * umierala w chwili "ratunku", a uzytkownik dowiadywal sie o tym po godzinie.
+   *
+   * Jednorazowosc ratunku daje teraz warunkowe zajecie PRZEDSTAWIONEGO tokenu
+   * (ROTATED -> RECOVERED): drugie powtorzenie tego samego tokenu nie przejdzie
+   * juz przez pierwszy warunek, a dwa rownolegle ratunki nie wydadza dwoch par,
+   * bo `updateMany` z warunkiem na `revokedReason` wygrywa tylko jeden.
+   * Nastepca zostaje zywy — jesli klient go ma, dziala mu dalej; jesli nie ma,
+   * dostal wlasnie swieza pare i stary nastepca umrze sam, z uplywem waznosci.
    *
    * `null` = nie ratujemy, wywolujacy idzie sciezka kasowania rodziny.
    */
@@ -386,27 +404,35 @@ export class AuthService {
       return null;
     }
 
-    // Porzucony nastepca ginie jako REUSE, nie ROTATED, i nie dostaje
-    // wskaznika na nikogo. Gdyby ginal jako ROTATED z lancuchem, jego wlasne
-    // powtorzenie tez by sie ratowalo — i okno laski dawaloby sie przedluzac
-    // w nieskonczonosc, przesuwajac je co ratunek o kolejna minute.
-    const claimed = await this.prisma.refreshToken.updateMany({
-      where: { tokenHash: replacedByHash, revokedAt: null },
-      data: { revokedAt: now, revokedReason: 'REUSE' },
+    // Nastepca musi ZYC. Uzyty albo uniewazniony znaczy, ze para nie tylko
+    // dotarla, ale zyje wlasnym zyciem — a skoro stary token wraca mimo to,
+    // mamy kopie i rodzina musi pasc. To jest ODCZYT, nie zajecie: nastepca
+    // moze w tej chwili lezec u klienta i czekac na swoja kolej.
+    const successorToken = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash: replacedByHash },
+      select: { revokedAt: true },
     });
-    if (claimed.count === 0) {
+    if (!successorToken || successorToken.revokedAt) {
       this.logger.warn(
         `rotation recovery refused for user ${storedToken.userId}: successor already used or revoked`,
       );
       return null;
     }
 
-    // Ratunek jest JEDNORAZOWY na rotacje: to samo powtorzenie drugi raz nie
-    // jest juz zgubiona odpowiedzia, tylko kopia, i idzie kasowaniem rodziny.
-    await this.prisma.refreshToken.updateMany({
-      where: { tokenHash: storedToken.tokenHash },
+    // Ratunek jest JEDNORAZOWY na rotacje, i to TU sie rozstrzyga: warunek na
+    // `revokedReason` sprawia, ze z dwoch rownoleglych ratunkow wygrywa jeden,
+    // a trzecie powtorzenie tego samego tokenu odpadnie juz na pierwszym
+    // warunku (RECOVERED to nie ROTATED).
+    const claimed = await this.prisma.refreshToken.updateMany({
+      where: { tokenHash: storedToken.tokenHash, revokedReason: 'ROTATED' },
       data: { revokedReason: 'RECOVERED' },
     });
+    if (claimed.count === 0) {
+      this.logger.warn(
+        `rotation recovery refused for user ${storedToken.userId}: rotation already recovered by a parallel request`,
+      );
+      return null;
+    }
 
     const accessToken = await this.issueAccessToken(storedToken.userId);
     const successor = await this.issueRefreshToken(storedToken.userId);
