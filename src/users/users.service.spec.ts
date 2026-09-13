@@ -1,3 +1,10 @@
+const mockRozlaczeni: string[] = [];
+jest.mock('../common/ws-rooms', () => ({
+  disconnectRevokedUser: (userId: string) => {
+    mockRozlaczeni.push(userId);
+  },
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -548,6 +555,7 @@ describe('UsersService.deleteAccount — cudze dane zostają', () => {
 
   beforeEach(async () => {
     prisma = makePrismaMock();
+    mockRozlaczeni.length = 0;
     prisma.user.upsert = jest.fn().mockResolvedValue({ id: botId });
     prisma.user.delete = jest.fn().mockResolvedValue({ id: mockUserId });
     prisma.recipe = {
@@ -566,6 +574,16 @@ describe('UsersService.deleteAccount — cudze dane zostają', () => {
     // co odnotować w logu.
     prisma.subscription = { count: jest.fn().mockResolvedValue(0) };
     prisma.agentMemory = {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      // Notatki O TEJ OSOBIE giną z kontem (audyt 12.09.2026, P1.11).
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    };
+    // Zakolejkowana, jeszcze niewysłana poczta nie pójdzie po skasowaniu konta.
+    prisma.mailMessage = {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    };
+    // Linki zapraszające wystawione przez tę osobę tracą moc razem z nią.
+    prisma.invitation = {
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -607,6 +625,90 @@ describe('UsersService.deleteAccount — cudze dane zostają', () => {
       response: { code: 'FORBIDDEN' },
     });
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  // AUDYT 12.09.2026 (P1.11).
+  describe('co jeszcze musi zniknąć razem z kontem', () => {
+    it('notatki O TEJ OSOBIE są KASOWANE, nie zerowane', async () => {
+      await service.deleteAccount(mockUserId);
+
+      expect(prisma.agentMemory.deleteMany).toHaveBeenCalledWith({
+        where: { aboutUserId: mockUserId },
+      });
+      // „Kubie nie dawać orzechów" to dane o zdrowiu (art. 9). Zostawały
+      // w pamięci domu po skorzystaniu z art. 17: do modelu już nie szły
+      // (filtr zgód jest po tożsamości), ale każdy domownik widział je na
+      // ekranie „Co o Was pamięta", a notatka zajmowała martwe miejsce
+      // w limicie trzydziestu.
+      const zerowanie = prisma.agentMemory.updateMany.mock.calls.map(
+        (call: unknown[]) => JSON.stringify(call[0]),
+      );
+      // Zerowany jest WYŁĄCZNIE autor. Wyzerowany `aboutUserId` zrobiłby
+      // z notatki notatkę „o całym domu" — a taka zaczęłaby chodzić do
+      // modelu, gdy reszta domu ma zgodę. Gorzej niż przed poprawką.
+      expect(zerowanie.join(' ')).not.toContain('aboutUserId');
+    });
+
+    it('poczta zakolejkowana, a niewysłana, dostaje SKIPPED', async () => {
+      await service.deleteAccount(mockUserId);
+
+      expect(prisma.mailMessage.updateMany).toHaveBeenCalledWith({
+        where: { userId: mockUserId, status: 'QUEUED' },
+        data: { status: 'SKIPPED' },
+      });
+      // Robotnik poczty czyta tylko `status` i `nextAttemptAt`, o koncie nie
+      // wie nic — bez tego `WELCOME` z backoffem sięgającym sześciu godzin
+      // trafiłby na skrzynkę już po skasowaniu konta.
+      const kolejnosc = [
+        prisma.mailMessage.updateMany.mock.invocationCallOrder[0],
+        prisma.user.delete.mock.invocationCallOrder[0],
+      ];
+      expect(kolejnosc[0]).toBeLessThan(kolejnosc[1]);
+    });
+
+    it('linki zapraszające wystawione przez tę osobę tracą moc', async () => {
+      const HH = '44444444-4444-4444-8444-444444444444';
+      // Jedno członkostwo, a po wyjściu dom zostaje pusty i znika — najkrótsza
+      // ścieżka przez pętlę rozliczania, bez wchodzenia w przeliczanie porcji.
+      prisma.membership.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where?.userId ? [{ householdId: HH, role: 'OWNER' }] : [],
+        ),
+      );
+      prisma.membership.delete = jest.fn().mockResolvedValue({});
+      prisma.recipe.count.mockResolvedValue(0);
+      prisma.household = { delete: jest.fn().mockResolvedValue({}) };
+
+      await service.deleteAccount(mockUserId);
+
+      expect(prisma.invitation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            householdId: HH,
+            createdById: mockUserId,
+            redeemedAt: null,
+          }),
+        }),
+      );
+    });
+
+    it('otwarte sockety zrywa SERWIS, nie gateway', async () => {
+      await service.deleteAccount(mockUserId);
+
+      // `scripts/delete-user-account.ts` (wniosek RODO z konsoli) woła serwis
+      // wprost i przez gateway nie przechodzi — dotąd otwarte połączenie tej
+      // osoby żyło przez resztę ważności access tokenu, nawet godzinę.
+      expect(mockRozlaczeni).toEqual([mockUserId]);
+    });
+
+    it('nieudana transakcja nie zrywa nikomu połączenia', async () => {
+      prisma.user.delete.mockRejectedValue(new Error('baza padła'));
+
+      await expect(service.deleteAccount(mockUserId)).rejects.toThrow(
+        'baza padła',
+      );
+      expect(mockRozlaczeni).toEqual([]);
+    });
   });
 });
 

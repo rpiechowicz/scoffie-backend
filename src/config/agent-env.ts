@@ -131,6 +131,23 @@ export type AgentEnv = {
    * dotyka nikogo, kto po prostu intensywnie korzysta.
    */
   householdMonthlyCostUsd: number | null;
+  /**
+   * Sufit kosztu JEDNEGO gospodarstwa na DOBĘ (USD); `off` = bez sufitu.
+   *
+   * Bez tego sufitu budżet dobowy instalacji jest wyłącznikiem dla
+   * WSZYSTKICH: sufit miesięczny domu ($14) jest wyższy niż budżet dobowy
+   * całej instalacji ($5), więc jeden dom potrafi wyczerpać dobę i wyłączyć
+   * asystenta każdemu — także płacącej Rodzinie — do północy UTC, nie
+   * zbliżywszy się do własnego limitu. Sufit dobowy domu odwraca tę
+   * kolejność: pierwsza odmowa trafia w sprawcę, nie we wszystkich.
+   *
+   * $1,50, czyli około dwóch najdroższych zmierzonych tur ($0,594) albo
+   * kilkunastu przeciętnych ($0,12–0,25) — więcej, niż zrobi dom w jeden
+   * dzień, i o rząd mniej, niż potrzeba, żeby ruszyć budżet instalacji.
+   * MUSI być niższy niż `globalDailyBudgetUsd`, inaczej nie chroni; pilnuje
+   * tego `agentEnvProblems`.
+   */
+  householdDailyCostUsd: number | null;
   /** Opóźnienie odpowiedzi providera `stub` (testy lease/timeoutu). */
   stubDelayMs: number;
   /** Tryb kart i propozycji — patrz `AI_CARDS_MODES`. */
@@ -265,6 +282,12 @@ export const AGENT_ENV_DEFAULTS = {
    * bezpiecznik, który przepuszcza trzy miesięczne rachunki, zanim zadziała.
    */
   householdMonthlyCostUsd: 14,
+  /**
+   * Dobowy bezpiecznik na dom — patrz `householdDailyCostUsd` w typie.
+   * Trzyma się tej samej reguły co budżet globalny: brak zmiennej NIE znaczy
+   * „bez limitu", zdjęcie sufitu wymaga jawnego `off`.
+   */
+  householdDailyCostUsd: 1.5,
   stubDelayMs: 0,
   /** Trzy doby: tyle żyje sensowna propozycja tygodnia. */
   proposalTtlMs: 72 * 60 * 60 * 1000,
@@ -347,11 +370,26 @@ function readEffort(
     : fallback;
 }
 
+/**
+ * Tryb kart — FAIL-SAFE. Brak zmiennej i literówka znaczą `strict`, czyli
+ * „model proponuje, człowiek zatwierdza".
+ *
+ * DO 12.09.2026 ZNACZYŁY `off`, czyli DOKŁADNIE ODWROTNIE: instalacja, której
+ * nikt nie skonfigurował, pozwalała modelowi zapisać plan tygodnia samemu —
+ * bez karty, bez potwierdzenia i bez „Cofnij", bo cofnięcie istnieje tylko dla
+ * propozycji. Pusta lista slotów przechodziła walidację i kasowała cały
+ * tydzień. Nie trzeba było do tego napastnika: wystarczyło, żeby model źle
+ * zrozumiał „ułóż mi tydzień od nowa".
+ *
+ * Nieznana wartość NIE może cicho degradować do trybu, który zapisuje —
+ * to ta sama reguła, co przy `WS_AUTH_MODE` i przy budżetach: brak decyzji
+ * jest decyzją najostrożniejszą, nie najwygodniejszą.
+ */
 function readCardsMode(env: NodeJS.ProcessEnv): AiCardsMode {
   const raw = (env.AI_CARDS_MODE ?? '').trim().toLowerCase();
   return (AI_CARDS_MODES as readonly string[]).includes(raw)
     ? (raw as AiCardsMode)
-    : 'off';
+    : 'strict';
 }
 
 function readProvider(env: NodeJS.ProcessEnv): AiProvider {
@@ -424,6 +462,11 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
       env,
       'AI_HOUSEHOLD_MONTHLY_COST_USD',
       AGENT_ENV_DEFAULTS.householdMonthlyCostUsd,
+    ),
+    householdDailyCostUsd: readOptionalUsd(
+      env,
+      'AI_HOUSEHOLD_DAILY_COST_USD',
+      AGENT_ENV_DEFAULTS.householdDailyCostUsd,
     ),
     stubDelayMs: readNumber(
       env,
@@ -527,10 +570,35 @@ export function agentEnvProblems(
       );
     }
   }
+  const dailyRaw = (env.AI_HOUSEHOLD_DAILY_COST_USD ?? '').trim();
+  if (dailyRaw && dailyRaw.toLowerCase() !== AI_BUDGET_OFF) {
+    const parsed = Number(dailyRaw);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      problems.push(
+        `AI_HOUSEHOLD_DAILY_COST_USD=${dailyRaw} — oczekiwana liczba ≥ 0 albo ${AI_BUDGET_OFF} ` +
+          `(przy złej wartości działa domyślne $${AGENT_ENV_DEFAULTS.householdDailyCostUsd}/dobę)`,
+      );
+    }
+  }
+  // Sufit dobowy domu ma sens tylko poniżej budżetu dobowego instalacji.
+  // Wyżej niczego nie chroni: jeden dom nadal wyczerpie dobę wszystkim,
+  // zanim uderzy we własny limit. To był cały mechanizm znaleziska z audytu
+  // 12.09.2026, więc zła relacja tych dwóch liczb musi być widoczna od razu.
+  if (
+    agent.householdDailyCostUsd !== null &&
+    agent.globalDailyBudgetUsd !== null &&
+    agent.householdDailyCostUsd >= agent.globalDailyBudgetUsd
+  ) {
+    problems.push(
+      `AI_HOUSEHOLD_DAILY_COST_USD=$${agent.householdDailyCostUsd} nie jest niższy od ` +
+        `AI_GLOBAL_DAILY_BUDGET_USD=$${agent.globalDailyBudgetUsd} — jedno gospodarstwo ` +
+        'nadal może wyczerpać budżet dobowy całej instalacji i wyłączyć asystenta wszystkim',
+    );
+  }
   const cardsRaw = (env.AI_CARDS_MODE ?? '').trim().toLowerCase();
   if (cardsRaw && !(AI_CARDS_MODES as readonly string[]).includes(cardsRaw)) {
     problems.push(
-      `AI_CARDS_MODE=${cardsRaw} — dozwolone: ${AI_CARDS_MODES.join(', ')} (przy złej wartości działa off)`,
+      `AI_CARDS_MODE=${cardsRaw} — dozwolone: ${AI_CARDS_MODES.join(', ')} (przy złej wartości działa strict, czyli model nie zapisze planu sam)`,
     );
   }
   const numeric: Array<[NumericKey, { min: number; integer: boolean }]> = [

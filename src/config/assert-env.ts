@@ -188,6 +188,21 @@ export function inspectRuntimeEnv(
       'AUTH_DEV_LOGIN_ENABLED=true — dev-login na produkcji wybija tokeny każdemu',
     );
   }
+  // Jawne `AI_CARDS_MODE=off` z włączonym asystentem = model zapisuje plan
+  // tygodnia SAM: bez karty, bez potwierdzenia użytkownika i bez „Cofnij"
+  // (cofnięcie istnieje wyłącznie dla propozycji). Ta sama reguła i ten sam
+  // powód, co przy `WS_AUTH_MODE=soft`: tryb, który zdejmuje z drogi zgodę
+  // człowieka, nie może wejść na produkcję przez zapomnianą zmienną. `off`
+  // zostaje dźwignią awaryjną poza produkcją.
+  if (
+    (env.AI_ENABLED ?? '').trim().toLowerCase() === 'true' &&
+    (env.AI_CARDS_MODE ?? '').trim().toLowerCase() === 'off'
+  ) {
+    productionOnly.push(
+      'AI_CARDS_MODE=off przy AI_ENABLED=true — model zapisywałby plan bez karty, ' +
+        'bez potwierdzenia i bez „Cofnij"; na produkcji użyj soft albo strict',
+    );
+  }
   // Płatności NIGDY nie blokują startu — nawet na produkcji. Zablokowany
   // deploy to cała aplikacja w dół; niedokonfigurowany paywall to tylko
   // paywall, który się nie włączy. Dlatego zawsze `warnings`.

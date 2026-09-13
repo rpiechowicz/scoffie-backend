@@ -80,12 +80,14 @@ export class AgentPromptService {
     // pilnuje kod przy zapisie (`applyWeekPlan`), więc plan nadal ich nie
     // skrzywdzi; model po prostu o nich nie wie.
     const { members, withheld } = await this.membersForModel(allMembers);
-    // Notatka „Kuba nie je ryb" o Kubie bez zgody to ta sama dana, co jego
-    // profil — nie idzie do modelu, dopóki Kuba nie kliknie.
-    const withheldNames = allMembers
-      .filter((member) => !members.some((m) => m.userId === member.userId))
-      .map((member) => member.displayName);
-    const memory = await this.memory.promptBlock(householdId, withheldNames);
+    // Notatka „Kubie nie dawać orzechów" o Kubie bez zgody to ta sama dana, co
+    // jego profil — nie idzie do modelu, dopóki Kuba nie kliknie. Filtr
+    // dostaje TOŻSAMOŚCI, nie imiona: dopasowanie imienia w tekście nie działa
+    // w polszczyźnie i nie łapie notatek bez imienia (audyt 12.09.2026).
+    const memory = await this.memory.promptBlock(householdId, {
+      consentedUserIds: new Set(members.map((member) => member.userId)),
+      allConsented: withheld === 0,
+    });
 
     const system = buildSystemPrompt(digest, {
       memory,

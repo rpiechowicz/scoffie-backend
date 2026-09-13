@@ -7,6 +7,7 @@ import { validateDto } from '../common/validate-dto';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
 import { OpsAlertService } from '../observability/ops-alert.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { runSerializable } from '../weekly-plans/utils/transaction-runner.util';
 import { TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
 import {
@@ -240,6 +241,31 @@ export class AgentTurnsService {
       );
     }
 
+    // Sufit kosztu domu na DOBĘ — sprawdzany PRZED globalnym, bo ma odmówić
+    // sprawcy, zanim sprawca odmówi wszystkim. Kolejność jest tu całą
+    // poprawką: budżet globalny to bezpiecznik na rachunek infrastruktury,
+    // a nie narzędzie do dzielenia go między domy.
+    if (env.householdDailyCostUsd !== null) {
+      const spentToday = await this.counters.read(
+        conversation.householdId,
+        this.counters.dayKey(),
+        'costMicroUsd',
+      );
+      if (spentToday >= env.householdDailyCostUsd * 1_000_000) {
+        this.metrics.recordRejected('budget');
+        void this.alerts.notify(
+          `ai-household-daily:${conversation.householdId}:${this.counters.dayKey()}`,
+          `gospodarstwo ${conversation.householdId} przekroczyło dobowy sufit kosztu ($${env.householdDailyCostUsd}) — asystent odpowiada 503 do północy UTC`,
+        );
+        throw new AppException(
+          'AI_BUDGET_PAUSED',
+          'Wasz dom wykorzystał dziś asystenta do końca. Wróćcie jutro.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+          [`resetsAt:${this.counters.dayResetsAt().toISOString()}`],
+        );
+      }
+    }
+
     if (env.globalDailyBudgetUsd !== null) {
       const spentMicroUsd = await this.counters.read(
         GLOBAL_SCOPE,
@@ -296,7 +322,16 @@ export class AgentTurnsService {
     }
     let accepted: AcceptedTurn;
     try {
-      accepted = await this.prisma.$transaction(async (tx) => {
+      // SERIALIZABLE, nie domyślny READ COMMITTED. Lease rozmowy i semafor
+      // domu to `count()`, a zaraz po nim `create()` — pod READ COMMITTED dwie
+      // równoległe transakcje nie widzą swoich niezacommitowanych wstawek,
+      // więc obie liczą „zero biegnących" i obie zakładają turę (write skew).
+      // Dwadzieścia żądań wystrzelonych naraz uruchamiało dwadzieścia tur
+      // zamiast dwóch. SSI Postgresa wykrywa dokładnie ten wzorzec i przegranej
+      // transakcji oddaje P2034, które `runSerializable` ponawia; po ponowieniu
+      // `count()` widzi już zacommitowaną turę i odmawia uczciwie, kodem
+      // AI_TURN_IN_PROGRESS. Ta sama funkcja pilnuje zapisu planu tygodnia.
+      accepted = await runSerializable(this.prisma, async (tx) => {
         // Lease rozmowy: jedna tura naraz. Liczymy w transakcji, bo dwa
         // telefony tej samej osoby potrafią wysłać równocześnie; przy jednej
         // instancji i krótkiej transakcji to wystarcza (kolejny wyścig i tak

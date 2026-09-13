@@ -3,6 +3,7 @@ import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
+  OnGatewayInit,
   OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
@@ -14,7 +15,7 @@ import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import type { AppSocket } from '../common/ws-socket';
 import { actorId } from '../common/ws-socket';
-import { disconnectUser } from '../common/ws-rooms';
+import { setSessionSocketServer } from '../common/ws-rooms';
 import { UsersService } from './users.service';
 import { AppleRevocationService } from './apple-revocation.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
@@ -65,7 +66,9 @@ class UsersProfileUpdatePayload extends UsersActorPayload {
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
-export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class UsersGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -75,6 +78,15 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Opcjonalnie: testy jednostkowe bramki nie stawiają tego serwisu.
     @Optional() private readonly appleRevocation?: AppleRevocationService,
   ) {}
+
+  /**
+   * Udostępnia serwer socketów `AuthService` (patrz `disconnectRevokedUser`).
+   * Wszystkie gatewaye dzielą jeden egzemplarz Socket.IO, więc wystarczy
+   * zarejestrować go raz — a ten gateway i tak już rozłącza po `users:delete`.
+   */
+  afterInit(server: Server): void {
+    setSessionSocketServer(server);
+  }
 
   handleConnection(_client: Socket) {
     this.wsTelemetry.onConnect(UsersGateway.name);
@@ -138,6 +150,10 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * rozwiązaniu promise handlera, a socket.io porzuca pakiety do zamkniętego
    * połączenia — synchroniczne `disconnectSockets(true)` wewnątrz handlera
    * zjadłoby ack i iOS czekałby 3×6 s na odpowiedź, której nie dostanie.
+   * Samo rozłączenie robi teraz `UsersService.deleteAccount` przez
+   * `disconnectRevokedUser` — tu została tylko odroczona ścieżka odczytu
+   * `payload`, bo obie muszą zadziałać także dla skryptu konsolowego
+   * (audyt 12.09.2026, P1.11).
    */
   @SubscribeMessage('users:delete')
   deleteAccount(
@@ -146,15 +162,18 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     return wsRespond(async () => {
       const userId = actorId(client, payload);
+      // AUDYT 12.09.2026 (P1.10). Jedyny handler w repo, który czytał
+      // `payload` BEZ walidacji koperty — `@MaxLength(4096)` z
+      // `UsersDeletePayload` nigdy się nie uruchamiał, więc dowolnie długi
+      // string szedł prosto do żądania POST do Apple.
+      payload = await validateWsPayload(UsersDeletePayload, payload);
       // Najpierw Apple, potem baza: kod jest jednorazowy i żyje 5 minut,
       // a porażka u Apple nie blokuje kasowania (prawo z art. 17 RODO).
       const code = payload?.appleAuthorizationCode?.trim();
       if (code && this.appleRevocation) {
         await this.appleRevocation.revoke(code);
       }
-      const result = await this.usersService.deleteAccount(userId);
-      setImmediate(() => disconnectUser(this.server, userId));
-      return result;
+      return this.usersService.deleteAccount(userId);
     });
   }
 

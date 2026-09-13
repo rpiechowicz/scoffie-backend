@@ -53,6 +53,45 @@ export async function revokeCookidooCredentialsOf(
   return result.count;
 }
 
+/**
+ * Zaproszenia wystawione przez osobę, która właśnie przestała być
+ * właścicielem tego domu, przestają działać.
+ *
+ * AUDYT 12.09.2026 (P1.10). Zaproszenie to anonimowy link ważny do 30 dni,
+ * a tworzyć je może wyłącznie właściciel. Nic jednak nie wiązało jego życia
+ * z życiem członkostwa: ani `removeMember`, ani `leave`, ani degradacja
+ * OWNER → MEMBER, ani skasowanie konta nie tykały tabeli `Invitation`.
+ * `acceptInvitation` sprawdzał tylko, czy link istnieje, nie jest wykorzystany,
+ * nie wygasł i nie został odrzucony — nigdy, czy wystawca ma jeszcze
+ * cokolwiek wspólnego z domem.
+ *
+ * Skutek: wyrzucony właściciel wracał własnym linkiem jako MEMBER, z pełnym
+ * dostępem do planu, listy zakupów, prywatnych przepisów i pamięci asystenta.
+ * To samo dotyczyło każdego, komu ten link przekazał.
+ *
+ * Wygaszamy, a nie kasujemy: ślad zostaje, a odbiorca dostaje istniejący,
+ * zrozumiały `INVITATION_EXPIRED` zamiast „nie znaleziono". Sekunda wstecz,
+ * bo porównanie w `acceptInvitation` jest ostre (`<`), a zapis i próba
+ * przyjęcia mogą trafić w tę samą milisekundę.
+ */
+export async function revokeInvitationsCreatedBy(
+  tx: PrismaLike,
+  householdId: string,
+  userId: string,
+  now: Date = new Date(),
+): Promise<number> {
+  const result = await tx.invitation.updateMany({
+    where: {
+      householdId,
+      createdById: userId,
+      redeemedAt: null,
+      expiresAt: { gt: now },
+    },
+    data: { expiresAt: new Date(now.getTime() - 1_000) },
+  });
+  return result.count;
+}
+
 export async function settleHouseholdAfterMemberLeft(
   tx: PrismaLike,
   householdId: string,

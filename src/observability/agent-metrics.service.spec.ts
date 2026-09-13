@@ -12,6 +12,7 @@ describe('AgentMetricsService', () => {
         upstream: 0,
         inProgress: 0,
         planQuota: 0,
+        destructive: 0,
       },
       usage: {
         providerCalls: 0,
@@ -51,6 +52,7 @@ describe('AgentMetricsService', () => {
         upstream: 0,
         inProgress: 0,
         planQuota: 1,
+        destructive: 0,
       },
       usage: {
         providerCalls: 2,

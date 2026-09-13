@@ -72,6 +72,7 @@ describe('Agent E2E', () => {
     'AI_CARDS_MODE',
     'AI_ALLOWED_USERS',
     'AI_CONSENT_REQUIRED',
+    'AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD',
     'THROTTLE_DEFAULT_LIMIT',
     'THROTTLE_IP_LIMIT',
     'THROTTLE_AGENT_MESSAGE_LIMIT',
@@ -613,6 +614,126 @@ describe('Agent E2E', () => {
       }
     });
 
+    /*
+     * Testy RÓWNOLEGŁE — write skew, nie „drugie żądanie po pierwszym".
+     *
+     * Test wyżej wysyła drugą wiadomość, gdy pierwsza tura JEST JUŻ
+     * zacommitowana, więc przechodzi także pod READ COMMITTED. Prawdziwy
+     * wyścig wygląda inaczej: dwadzieścia żądań startuje RAZEM, każde robi
+     * `count()` biegnących tur, żadne nie widzi niezacommitowanych wstawek
+     * pozostałych i wszystkie liczą „zero biegnących". Dokładnie to zdarzenie
+     * opisuje komentarz przy `runSerializable` w `agent-turns.service.ts` jako
+     * powód, dla którego transakcja jest SERIALIZABLE.
+     *
+     * Z atrapą Prismy ten warunek nic nie znaczy — poziom izolacji istnieje
+     * tylko w prawdziwym Postgresie. Stąd te dwa testy tutaj, a nie w unitach.
+     */
+    it('RÓWNOLEGLE: osiem żądań w jednej rozmowie — startuje dokładnie jedna tura', async () => {
+      process.env.AI_STUB_DELAY_MS = '1500';
+      try {
+        const conversation = await createConversation(
+          session.accessToken,
+          householdId,
+        );
+        const before = await readQuota(householdId);
+
+        // Bez `await` między żądaniami: wszystkie osiem wchodzi w transakcję
+        // zanim którakolwiek zacommituje turę.
+        const results = await Promise.all(
+          Array.from({ length: 8 }, () =>
+            postMessage(session.accessToken, conversation.id, {
+              clientMessageId: randomUUID(),
+              text: 'Równolegle',
+            }),
+          ),
+        );
+
+        const accepted = results.filter((res) => res.status === 202);
+        const rejected = results.filter((res) => res.status === 409);
+        expect(accepted).toHaveLength(1);
+        expect(rejected).toHaveLength(7);
+        for (const res of rejected) {
+          expect(res.body).toMatchObject({ code: 'AI_TURN_IN_PROGRESS' });
+        }
+
+        // Stan w bazie, nie tylko kody odpowiedzi: odmowa musi wycofać CAŁĄ
+        // transakcję, więc po siedmiu 409 nie ma ani wiersza tury, ani
+        // wiadomości, ani zdjętej kwoty.
+        const turns = await prisma.agentTurn.count({
+          where: { conversationId: conversation.id },
+        });
+        expect(turns).toBe(1);
+        const messages = await prisma.agentMessage.count({
+          where: { conversationId: conversation.id, role: 'USER' },
+        });
+        expect(messages).toBe(1);
+        expect(await readQuota(householdId)).toBe(before + 1);
+
+        await pollTurn(
+          session.accessToken,
+          (accepted[0].body as AcceptedTurn).turnId,
+        );
+      } finally {
+        process.env.AI_STUB_DELAY_MS = '0';
+      }
+    });
+
+    it('RÓWNOLEGLE: sześć rozmów jednego domu — semafor przepuszcza najwyżej dwie', async () => {
+      // To jest bramka na obejście budżetu dobowego, nie na wygodę: budżet
+      // sprawdza się PRZED turą, a koszt dopisuje PO niej, więc burst w wielu
+      // rozmowach naraz potrafił wydać wielokrotność sufitu, zanim
+      // którykolwiek koszt trafił do licznika. Lease per rozmowa tego nie
+      // łapie — każda rozmowa jest „wolna".
+      process.env.AI_STUB_DELAY_MS = '1500';
+      process.env.AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD = '2';
+      try {
+        const conversations = await Promise.all(
+          Array.from({ length: 6 }, () =>
+            createConversation(session.accessToken, householdId),
+          ),
+        );
+        const before = await readQuota(householdId);
+
+        const results = await Promise.all(
+          conversations.map((conversation) =>
+            postMessage(session.accessToken, conversation.id, {
+              clientMessageId: randomUUID(),
+              text: 'Burst',
+            }),
+          ),
+        );
+
+        const accepted = results.filter((res) => res.status === 202);
+        const rejected = results.filter((res) => res.status === 409);
+        expect(accepted.length).toBeGreaterThanOrEqual(1);
+        expect(accepted.length).toBeLessThanOrEqual(2);
+        expect(accepted.length + rejected.length).toBe(6);
+        for (const res of rejected) {
+          expect(res.body).toMatchObject({ code: 'AI_TURN_IN_PROGRESS' });
+        }
+
+        // Kwota schodzi dokładnie tyle razy, ile tur naprawdę ruszyło —
+        // odmowa nie ma prawa spalić nikomu wiadomości z puli.
+        expect(await readQuota(householdId)).toBe(before + accepted.length);
+        const running = await prisma.agentTurn.count({
+          where: {
+            conversation: { householdId },
+            status: 'RUNNING',
+          },
+        });
+        expect(running).toBeLessThanOrEqual(2);
+
+        await Promise.all(
+          accepted.map((res) =>
+            pollTurn(session.accessToken, (res.body as AcceptedTurn).turnId),
+          ),
+        );
+      } finally {
+        process.env.AI_STUB_DELAY_MS = '0';
+        delete process.env.AI_MAX_CONCURRENT_TURNS_PER_HOUSEHOLD;
+      }
+    });
+
     it('„Stop" przerywa turę: AI_CANCELLED, kwota wraca, podpowiedzi, activeTurnId znika', async () => {
       process.env.AI_STUB_DELAY_MS = '1500';
       try {
@@ -900,37 +1021,13 @@ describe('Agent E2E', () => {
         .expect(403);
     });
 
-    it('kontekst chipów: domownicy z etykietą celu, cel pytającego, zużycie', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/agent/context')
-        .query({ householdId, weekStart: WEEK_START })
-        .set(auth(session.accessToken))
-        .expect(200);
-      expect(res.body).toMatchObject({
-        householdId,
-        weekStart: WEEK_START,
-        memberCount: 1,
-        handoff: false,
-        members: [
-          expect.objectContaining({
-            userId: session.user.id,
-            isSelf: true,
-            consented: true,
-            goalLabel: expect.stringMatching(/kcal/),
-          }),
-        ],
-        usage: { householdId, tier: 'PRO', byUser: expect.any(Array) },
-      });
-      expect(typeof res.body.weekLabel).toBe('string');
-
-      const stranger = await devLogin('Postronny');
-      await request(app.getHttpServer())
-        .get('/agent/context')
-        .query({ householdId })
-        .set(auth(stranger.accessToken))
-        .expect(403);
-    });
-
+    // USUNIĘTY TEST: `GET /agent/context`.
+    //
+    // Trasa powstała w b5c9536 i została zdjęta w 78a7b7d („zakres pytania
+    // znika z serwera”), a test o niej został i od tamtej pory pada na 404.
+    // Nikt tego nie zauważył, bo CI stoi na rozliczeniach GitHuba od 11.09.
+    // Chipy kontekstu przychodzą do klienta razem z turą (`usedContext`),
+    // więc nie ma czego przywracać — jest co skasować (audyt 12.09.2026).
     it('cudza notatka: 404, nie 403 — inaczej da się zgadywać identyfikatory', async () => {
       const note = await prisma.agentMemory.create({
         data: {

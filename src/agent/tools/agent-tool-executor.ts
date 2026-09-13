@@ -404,6 +404,14 @@ export type AgentToolResult =
   | { ok: true; data: unknown }
   | { ok: false; error: { code: string; message: string; details?: string[] } };
 
+/**
+ * Ile pozycji planu wolno USUNĄĆ zapisem, którego nie zatwierdził człowiek.
+ *
+ * Dwie, czyli tyle, ile znaczy „popraw wtorek i czwartek". Trzecia i dalsze
+ * to już przemeblowanie tygodnia i wymagają kliknięcia w kartę propozycji.
+ */
+const MAX_DIRECT_PLAN_REMOVALS = 2;
+
 @Injectable()
 export class AgentToolExecutor {
   private readonly logger = new Logger(AgentToolExecutor.name);
@@ -436,6 +444,9 @@ export class AgentToolExecutor {
 
     const refusal = this.refuseOutOfMode(name, context);
     if (refusal) return refusal;
+
+    const destructive = await this.refuseDestructiveWrite(name, input, context);
+    if (destructive) return destructive;
 
     try {
       return {
@@ -482,6 +493,113 @@ export class AgentToolExecutor {
    * narzędzie i kończy turę normalnie. Wyjątek zabiłby całą turę za coś,
    * z czego model potrafi się poprawić w jednej rundzie.
    */
+  /**
+   * Trzecia bramka: ile wolno USUNĄĆ bez kliknięcia człowieka.
+   *
+   * `refuseOutOfMode` pilnuje TRYBU, ta pilnuje SKUTKU — i działa nawet
+   * wtedy, gdy ktoś świadomie zszedł na `off`. Powód: `apply_week_plan`
+   * przyjmuje STAN DOCELOWY, więc czego nie ma na liście, tego nie ma
+   * w planie. `slots: []` przechodzi walidację i kasuje cały tydzień jednym
+   * wywołaniem, a „Cofnij" istnieje wyłącznie dla propozycji, więc tej drogi
+   * nie da się odwrócić. Nie trzeba do tego napastnika — wystarczy, że model
+   * źle zrozumie „ułóż mi tydzień od nowa".
+   *
+   * Liczbę usunięć bierzemy z SUCHEGO PRZEBIEGU tego samego zapisu, więc
+   * reguła klucza jest dokładnie ta sama, co przy prawdziwym zapisie
+   * (`planSlotKey`) — nie ma tu drugiej implementacji, która mogłaby się
+   * rozjechać. Poniżej progu model dalej pracuje sam; powyżej musi przejść
+   * przez `propose_week_plan`, czyli przez kliknięcie użytkownika.
+   */
+  private async refuseDestructiveWrite(
+    name: string,
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<AgentToolResult | null> {
+    if (name !== 'apply_week_plan' || input.dry_run === true) return null;
+    const weekStart = asString(input.week_start);
+    if (!weekStart) return null;
+
+    let deleted: number;
+    try {
+      const dry = await this.weeklyPlans.applyWeekPlan(
+        context.userId,
+        context.householdId,
+        weekStart,
+        {
+          dryRun: true,
+          slots: this.toSlots(input.slots, context),
+        } as unknown as ApplyWeekPlanDto,
+      );
+      deleted = dry.changes.deleted;
+    } catch {
+      // Suchy przebieg padł (zmyślony przepis, zła data, brak członkostwa) —
+      // nie zgadujemy. Prawdziwy zapis zgłosi ten sam błąd normalną drogą,
+      // z pełnym komunikatem dla modelu.
+      return null;
+    }
+
+    if (deleted <= MAX_DIRECT_PLAN_REMOVALS) return null;
+    this.metrics.recordRejected('destructive');
+    return this.failure(
+      'AI_TOOL_NOT_IN_MODE',
+      `Ten zapis usunąłby ${deleted} pozycji z planu, a bez potwierdzenia ` +
+        `użytkownika wolno usunąć najwyżej ${MAX_DIRECT_PLAN_REMOVALS}. ` +
+        'Podaj ten sam stan docelowy przez propose_week_plan — użytkownik ' +
+        'zatwierdzi go jednym kliknięciem w aplikacji.',
+    );
+  }
+
+  /**
+   * Zapis notatki do pamięci domu — z jawnym adresatem, jeśli notatka jest
+   * o konkretnej osobie.
+   *
+   * Adresat jest sprawdzany PRZED zapisem wobec listy domowników ZE ZGODĄ
+   * (tej samej, którą dostaje prompt). Notatka o osobie bez zgody nie
+   * powstaje w ogóle — to jest tańsze i pewniejsze niż odsiewanie jej potem
+   * przy każdym budowaniu promptu, a przy okazji zamyka drogę, którą dane
+   * o zdrowiu jednej osoby lądowały w bazie z winy drugiej.
+   *
+   * Model podaje `about_user_id` z `get_household_context`, więc identyfikator
+   * pochodzi z listy, którą sam dostał, a nie z jego wyobraźni. Zmyślony
+   * i tak nie przejdzie: nie ma go wśród domowników ze zgodą.
+   */
+  private async rememberNote(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<unknown> {
+    const { userId, householdId } = context;
+    const about = asString(input.about_user_id).trim();
+    if (!about) {
+      return this.memory.remember(
+        householdId,
+        userId,
+        asString(input.text),
+        asString(input.kind) || undefined,
+      );
+    }
+
+    const all = await this.households.memberPreferences(userId, householdId);
+    const { members } = await this.prompts.membersForModel(all);
+    if (!members.some((member) => member.userId === about)) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Ta osoba nie zgodziła się na asystenta albo nie ma jej w tym domu — ' +
+          'nie zapisuję o niej notatki. Zapisz zdanie bez wskazywania osoby ' +
+          'albo pomiń je zupełnie.',
+        HttpStatus.BAD_REQUEST,
+        ['about_user_id'],
+      );
+    }
+
+    return this.memory.remember(
+      householdId,
+      userId,
+      asString(input.text),
+      asString(input.kind) || undefined,
+      about,
+    );
+  }
+
   private refuseOutOfMode(
     name: string,
     context: AgentToolContext,
@@ -619,12 +737,7 @@ export class AgentToolExecutor {
       }
 
       case 'remember_note':
-        return this.memory.remember(
-          householdId,
-          userId,
-          str('text'),
-          asString(input.kind) || undefined,
-        );
+        return this.rememberNote(input, context);
 
       case 'start_planning':
         // Sama zmiana modelu dzieje się w dostawcy (patrz AgentProviderHandoff);

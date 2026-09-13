@@ -30,6 +30,7 @@ const ENV: AgentEnv = {
   effort: 'medium',
   effortTools: 'low',
   householdMonthlyCostUsd: null,
+  householdDailyCostUsd: null,
   turnTimeoutMs: 90_000,
   messagesPerMonth: 200,
   plansPerMonth: 30,
@@ -102,6 +103,9 @@ describe('AgentTurnsService', () => {
     quotaDetailsFor: jest.fn().mockReturnValue(['kind:messages']),
     monthKey: jest.fn(),
     dayKey: jest.fn(),
+    dayResetsAt: jest
+      .fn()
+      .mockReturnValue(new Date('2026-09-01T00:00:00.000Z')),
     read: jest.fn(),
     tryConsume: jest.fn(),
     add: jest.fn(),
@@ -269,6 +273,88 @@ describe('AgentTurnsService', () => {
       });
       counters.read.mockResolvedValue(999_999);
       await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+    });
+
+    // AUDYT 12.09.2026 (P0.2). Budżet dobowy jest WSPÓLNY dla instalacji,
+    // a jedyny hamulec per dom był MIESIĘCZNY i wyższy od niego — więc jeden
+    // dom wyczerpywał dobę i wyłączał asystenta wszystkim, także płacącym,
+    // nie zbliżywszy się do własnego limitu. Sufit dobowy domu ma odmówić
+    // sprawcy PRZED bramką globalną.
+    it('sufit dobowy domu odmawia zanim ruszy budżet globalny', async () => {
+      config.assertEnabled.mockReturnValue({
+        ...ENV,
+        householdDailyCostUsd: 1.5,
+        globalDailyBudgetUsd: 5,
+      });
+      // Dom wydał dziś $1,50; instalacja jest daleko od swojego $5.
+      counters.read.mockImplementation((scopeId: string, periodKey: string) =>
+        Promise.resolve(
+          scopeId === HOUSEHOLD && periodKey === '2026-08-31' ? 1_500_000 : 0,
+        ),
+      );
+
+      expect(await codeOf(post())).toBe('AI_BUDGET_PAUSED');
+      expect(metrics.snapshot().rejected.budget).toBe(1);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('sufit dobowy liczy się PER DOM, nie z licznika globalnego', async () => {
+      config.assertEnabled.mockReturnValue({
+        ...ENV,
+        householdDailyCostUsd: 1.5,
+        globalDailyBudgetUsd: 5,
+      });
+      // Instalacja wydała dziś $4,90, ten dom nic — jego tura ma przejść.
+      counters.read.mockImplementation((scopeId: string) =>
+        Promise.resolve(scopeId === HOUSEHOLD ? 0 : 4_900_000),
+      );
+
+      await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+      expect(counters.read).toHaveBeenCalledWith(
+        HOUSEHOLD,
+        '2026-08-31',
+        'costMicroUsd',
+      );
+    });
+
+    it('odmowa dobowa mówi, KIEDY limit wraca', async () => {
+      config.assertEnabled.mockReturnValue({
+        ...ENV,
+        householdDailyCostUsd: 1,
+      });
+      counters.read.mockResolvedValue(1_000_000);
+      try {
+        await post();
+        throw new Error('spodziewana odmowa');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppException);
+        expect((error as AppException).details).toEqual([
+          'resetsAt:2026-09-01T00:00:00.000Z',
+        ]);
+      }
+    });
+
+    it('jawne `off` zdejmuje sufit dobowy domu', async () => {
+      config.assertEnabled.mockReturnValue({
+        ...ENV,
+        householdDailyCostUsd: null,
+        globalDailyBudgetUsd: null,
+      });
+      counters.read.mockResolvedValue(999_000_000);
+      await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+    });
+
+    // AUDYT 12.09.2026 (P0.7). Lease rozmowy i semafor domu to `count()`,
+    // a zaraz po nim `create()`. Pod READ COMMITTED dwadzieścia równoległych
+    // żądań widzi „zero biegnących" i zakłada dwadzieścia tur. Izolacji nie da
+    // się sprawdzić atrapą — sprawdzamy więc, że transakcja O NIĄ PROSI;
+    // realny wyścig łapie `test/agent-lease-race.e2e-spec.ts`.
+    it('lease tury jedzie w transakcji SERIALIZABLE', async () => {
+      await post();
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ isolationLevel: 'Serializable' }),
+      );
     });
 
     it('6. zajęta rozmowa: AI_TURN_IN_PROGRESS, kwota nietknięta', async () => {

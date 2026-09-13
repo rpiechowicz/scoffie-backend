@@ -8,35 +8,61 @@
 # nikomu nie chodzi, przestaje być czytany. Wtedy prawdziwy wyciek przechodzi
 # razem z resztą hałasu.
 #
-# ZASADA: wyjątek jest ZAWSZE na konkretną ścieżkę albo konkretną wartość,
-# nigdy na regułę globalnie. Reguły na prawdziwe klucze dostawców
-# (`anthropic-api-key`, `aws-*`, `github-pat`, `stripe-*`) obowiązują wszędzie
-# i bez wyjątków.
+# ZASADA: wyjątek dotyczy WYŁĄCZNIE reguł zgadujących po entropii
+# (`generic-api-key`, `private-key`) i jest zawsze przypięty do nich przez
+# `targetRules`. Reguły na klucze konkretnych dostawców — `anthropic-api-key`,
+# `aws-*`, `github-pat`, `stripe-*`, `slack-*`, `sendgrid-*` i reszta zestawu
+# domyślnego — obowiązują W KAŻDYM PLIKU i nie mają ani jednego wyjątku.
+#
+# AUDYT 12.09.2026 (P1.13). Do tego commita powyższe było NIEPRAWDĄ, mimo że
+# stało w komentarzu. Wyjątki siedziały w globalnym `[allowlist]`, a ten
+# w gitleaks ucina znalezisko PO dopasowaniu reguły i bez oglądania się na to,
+# która reguła je zgłosiła. Sprawdzone doświadczalnie na gitleaks 8.30.1:
+# klucz w kształcie `sk-ant-api03-…` wklejony do `*.spec.ts` albo do pliku
+# workflow przechodził bez słowa; łapał się tylko ten w zwykłym `.ts`.
+# Czyli dokładnie ten scenariusz, przed którym skaner ma bronić — „wkleiłem
+# prawdziwy klucz do testu, żeby coś sprawdzić" — był poza jego zasięgiem,
+# w kilkudziesięciu plikach naraz.
+#
+# Jak sprawdzić po zmianie (bez czekania na CI):
+#   docker run --rm -v "$PWD":/repo zricethezav/gitleaks:8.30.1 \
+#     detect --source=/repo --config=/repo/.gitleaks.toml --redact -v
+# Wynik ma być pusty. Skan obejmuje CAŁĄ historię, nie tylko zmiany.
 
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Atrapy w testach, przykłady w dokumentacji API i wartości CI"
+# --- Wyjątki dla reguł entropijnych -----------------------------------------
+# `targetRules` zawęża ten blok do dwóch reguł, które zgadują po entropii.
+# Reszta zestawu domyślnego go NIE WIDZI.
+
+[[allowlists]]
+targetRules = ["generic-api-key", "private-key"]
+description = "Atrapy w testach i wartości CI — tylko dla reguł zgadujących"
 
 paths = [
   # Testy i ich pomocniki. Tu z definicji mieszkają wymyślone poświadczenia:
-  # `tok-12345678`, `haslo-testowe`, klucze szyfrowania z samych zer.
+  # `tok-12345678`, `haslo-testowe`, klucze szyfrowania z samych zer, a w
+  # `apple-jws-chain.spec-helper.ts` własny łańcuch PEM wygenerowany do testów.
   '''.*\.spec\.ts$''',
   '''.*\.spec-helper\.ts$''',
   '''.*\.e2e-spec\.ts$''',
   # Konfiguracja CI. `JWT_SECRET: ci-secret` i klucz szyfrowania z samych cyfr
   # są jawne CELOWO — biegną na bazie, która żyje pięć minut i nie ma w niej
-  # niczyich danych. Prawdziwe sekrety CI idą przez `secrets.*`, a tych plik
-  # workflow nie zawiera.
+  # niczyich danych. Prawdziwe sekrety CI idą przez `secrets.*`.
   '''\.github/workflows/.*\.ya?ml$''',
   # Wzorzec `.env` — same nazwy zmiennych i puste wartości. Prawdziwy `.env`
-  # jest w `.gitignore` i nigdy nie trafia do repozytorium.
+  # jest w `.gitignore` i nigdy nie trafił do repozytorium.
   '''\.env\.example$''',
+  # Trafienie z historii (styczeń 2026): przykładowy `token=` w opisie API.
+  '''^README\.md$''',
 ]
 
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Przykłady odpowiedzi w Swaggerze (@ApiResponse w auth.controller.ts)"
+
 regexes = [
-  # Przykłady odpowiedzi w Swaggerze (`@ApiResponse`) w `auth.controller.ts`.
   # Ucięte wielokropkiem, żeby było widać, że to atrapa, a nie token.
   '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.\.\.''',
   '''d3b07384d113edec49eaa6238ad5ff00\.\.\.''',

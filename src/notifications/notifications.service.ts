@@ -190,6 +190,29 @@ export class NotificationsService implements OnModuleDestroy {
     // wartości nie dochodzą, więc `undefined` znaczy tylko „nie podano".
     const apnsEnvironment = parseApnsEnvironment(dto.apnsEnvironment);
 
+    // Przepisanie CUDZEGO tokenu na siebie musi być jawnym przejęciem, nie
+    // skutkiem ubocznym `upsert`.
+    //
+    // AUDYT 12.09.2026 (P1.10). `deviceToken` jest unikatem, a `update`
+    // nadpisywał `userId` bez pytania. Kto zdobył cudzy token APNs, przepinał
+    // jego powiadomienia na swoje konto: ofiara cichła, a atakujący dostawał
+    // treści z jej gospodarstwa. Token ma 64 znaki i jest nieodgadywalny, więc
+    // realność jest niska — ale skutek jest dokładnie taki, przed jakim
+    // broni reszta tego modułu.
+    //
+    // Przejęcie ZOSTAJE dozwolone: na jednym telefonie da się wylogować
+    // i zalogować jako ktoś inny, a wtedy token faktycznie zmienia właściciela.
+    // Zmienia się tylko to, że zostawia ślad, po którym da się to rozpoznać.
+    const existing = await this.prisma.pushDevice.findUnique({
+      where: { deviceToken: normalizedToken },
+      select: { userId: true },
+    });
+    if (existing && existing.userId !== userId) {
+      this.logger.warn(
+        `token urządzenia przechodzi z konta ${existing.userId} na ${userId}`,
+      );
+    }
+
     await this.prisma.pushDevice.upsert({
       where: { deviceToken: normalizedToken },
       create: {

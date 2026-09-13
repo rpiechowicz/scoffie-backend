@@ -1,0 +1,40 @@
+name: Pełny skan sekretów
+
+# PO CO OSOBNY WORKFLOW. `gitleaks-action` przy `pull_request` i `push` ogląda
+# WYŁĄCZNIE commity z tego zdarzenia. Sekret, który wszedł zanim skaner
+# w ogóle się tu pojawił, nie zostanie znaleziony nigdy — a to najczęstszy
+# przypadek. Pełny skan historii robi się tylko przy `schedule`
+# i `workflow_dispatch`, i żadnego z nich dotąd nie było.
+# (Audyt 12.09.2026, P1.13.)
+#
+# Bieg trwa kilkanaście sekund i nie stawia bazy — świadomie osobno od CI,
+# żeby cotygodniowy harmonogram nie odpalał całej suity testów.
+
+on:
+  schedule:
+    # Poniedziałek, 4:17 UTC. Nierówna minuta, bo o pełnej godzinie kolejka
+    # GitHuba potrafi przesunąć bieg o kwadranse.
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pelna-historia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Bez tego skan „całej historii" widzi jeden commit.
+          fetch-depth: 0
+          persist-credentials: false
+      # Przypięte do commita, nie do ruchomego taga `v2` — akcja dostaje
+      # GITHUB_TOKEN. SHA = tag v2 z 13.09.2026.
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # `.gitleaks.toml` używa `[[allowlists]]` z `targetRules`, czego
+          # gitleaks przed 8.19 nie rozumie — wersja idzie razem z konfiguracją.
+          GITLEAKS_VERSION: 8.30.1
