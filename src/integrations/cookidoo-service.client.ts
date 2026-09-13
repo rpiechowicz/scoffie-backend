@@ -1,6 +1,13 @@
-import { HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  HttpStatus,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  Optional,
+} from '@nestjs/common';
 import { AppException } from '../common/app-exception';
 import { OpsAlertService } from '../observability/ops-alert.service';
+import { isCookidooIntegrationEnabled } from './cookidoo-flag';
 
 export type CookidooSubscriptionInfo = {
   active: boolean;
@@ -16,10 +23,56 @@ type ServiceErrorBody = {
 // Node 20 zamiast nowej zależności — to pierwszy „zwykły" outbound HTTP
 // w repo. Nigdy nie loguje body (w środku są poświadczenia Cookidoo).
 @Injectable()
-export class CookidooServiceClient {
+export class CookidooServiceClient implements OnApplicationBootstrap {
   private readonly logger = new Logger(CookidooServiceClient.name);
 
   constructor(@Optional() private readonly alerts?: OpsAlertService) {}
+
+  /**
+   * Jedna sonda `/health` po starcie — i adres, pod który pukamy, w logu.
+   *
+   * Powód jest konkretny: 13.09.2026 produkcja przez wiele dni odpowiadała
+   * „usługa Cookidoo chwilowo niedostępna" na KAŻDE żądanie, bo Railway
+   * wstrzyknął mikroserwisowi `PORT=8080`, a `COOKIDOO_SERVICE_URL` wskazywał
+   * `:8000`. Nic tego nie mówiło: mikroserwis miał się dobrze i pisał
+   * w swoim logu „Uvicorn running on socket ('::', 8080)", backend miał się
+   * dobrze i milczał, a jedynym objawem był błąd u użytkownika, który
+   * wyglądał jak chwilowa awaria po stronie Vorwerka.
+   *
+   * Sonda nigdy nie rzuca i nie blokuje startu (3 s sufitu): jej jedynym
+   * zadaniem jest zamienić ciszę w jedną linijkę, którą widać w logu
+   * wdrożenia obok portu, na którym mikroserwis naprawdę słucha.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    if (!isCookidooIntegrationEnabled()) {
+      this.logger.log('Integracja Cookidoo wyłączona — sonda pominięta.');
+      return;
+    }
+    try {
+      const response = await fetch(`${this.baseUrl}/health`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (response.ok) {
+        this.logger.log(`Mikroserwis Cookidoo odpowiada: ${this.baseUrl}`);
+        return;
+      }
+      this.logger.error(
+        `Mikroserwis Cookidoo pod ${this.baseUrl} odpowiedział ${response.status} na /health.`,
+      );
+    } catch (error) {
+      // Alert idzie tą samą drogą i z tym samym kluczem co awaria w trakcie
+      // żądania — operator ma dowiedzieć się o tym z wdrożenia, a nie od
+      // pierwszego użytkownika, który spróbuje połączyć konto.
+      this.logger.error(
+        `Mikroserwis Cookidoo NIEOSIĄGALNY pod ${this.baseUrl}: ${String(error)}. ` +
+          'Sprawdź COOKIDOO_SERVICE_URL — port musi być ten, na którym mikroserwis słucha (jego PORT).',
+      );
+      void this.alerts?.notify(
+        'cookidoo-unavailable',
+        `Mikroserwis Cookidoo nieosiągalny po starcie (${this.baseUrl}): ${String(error).slice(0, 200)}`,
+      );
+    }
+  }
 
   private readonly baseUrl = (
     process.env.COOKIDOO_SERVICE_URL ?? 'http://localhost:8000'
