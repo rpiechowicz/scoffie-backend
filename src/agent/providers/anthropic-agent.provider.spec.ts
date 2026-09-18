@@ -40,6 +40,29 @@ const toolMessage = (name: string, id = 'tu-1', u: Usage = usage()) => ({
   usage: u,
 });
 
+/**
+ * Strumień z gotowej wiadomości: jeden `text_delta` na blok tekstu, potem
+ * `finalMessage`. Odrzucona obietnica źródła wychodzi z iteracji i z
+ * `finalMessage` tak samo, jak z prawdziwego SDK.
+ */
+function fakeStream(source: Promise<Anthropic.Message>) {
+  return {
+    async *[Symbol.asyncIterator]() {
+      const message = await source;
+      for (const block of message.content) {
+        if (block.type === 'text') {
+          yield {
+            type: 'content_block_delta',
+            index: 0,
+            delta: { type: 'text_delta', text: block.text },
+          };
+        }
+      }
+    },
+    finalMessage: () => source,
+  };
+}
+
 describe('AnthropicAgentProvider', () => {
   let create: jest.Mock;
   let provider: AnthropicAgentProvider;
@@ -63,7 +86,34 @@ describe('AnthropicAgentProvider', () => {
     create = jest.fn();
     executeTool = jest.fn().mockResolvedValue({ ok: true, data: { plan: [] } });
     provider = new AnthropicAgentProvider();
-    provider.useClient({ messages: { create } } as unknown as Anthropic);
+    // Dostawca streamuje; testy dalej mówią wiadomościami. `create` zostaje
+    // źródłem odpowiedzi (i miejscem, gdzie asercje oglądają parametry),
+    // a `stream` zamienia ją w strumień z fragmentami tekstu + `finalMessage`.
+    const stream = jest.fn((params: unknown, opts: unknown) =>
+      fakeStream(
+        Promise.resolve().then(
+          () => create(params, opts) as Promise<Anthropic.Message>,
+        ),
+      ),
+    );
+    provider.useClient({ messages: { stream } } as unknown as Anthropic);
+  });
+
+  describe('szkic odpowiedzi', () => {
+    it('pusty szkic na starcie każdego wywołania, potem narastający tekst', async () => {
+      // Runda z narzędziem oddaje tekst-preambułę, który NIE jest odpowiedzią:
+      // następne wywołanie ma zacząć od pustego szkicu, nie doklejać.
+      create
+        .mockResolvedValueOnce(toolMessage('get_week_plan', 'a'))
+        .mockResolvedValueOnce(textMessage('gotowe'));
+      const drafts: string[] = [];
+      await provider.run(request({ onDraft: (text) => drafts.push(text) }));
+      expect(drafts[0]).toBe('');
+      expect(drafts).toContain('gotowe');
+      // Ostatni szkic to pełna odpowiedź — klient podmienia, nie dokleja.
+      expect(drafts[drafts.length - 1]).toBe('gotowe');
+      expect(drafts.indexOf('')).toBeLessThan(drafts.lastIndexOf(''));
+    });
   });
 
   describe('cennik', () => {

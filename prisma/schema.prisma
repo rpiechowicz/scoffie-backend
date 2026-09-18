@@ -921,6 +921,9 @@ model AgentTurn {
   userMessageId  String    @db.Uuid
   status         String    @default("RUNNING")
   progress       Json      @default("[]")
+  /// Narastający tekst odpowiedzi w TRAKCIE tury (streaming z modelu przez
+  /// odpytywanie). Prawdą po domknięciu jest `AgentMessage`; tu zostaje NULL.
+  draftText      String?
   errorCode      String?
   requestId      String
   provider       String?
