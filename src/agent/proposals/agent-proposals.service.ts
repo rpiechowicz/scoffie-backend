@@ -23,6 +23,7 @@ import {
 import { buildPlanWeekCard } from '../cards/plan-week-card';
 import { buildPlanDayCard } from '../cards/plan-day-card';
 import { buildSwapCard } from '../cards/swap-card';
+import { buildRemoveMealCard } from '../cards/remove-meal-card';
 import {
   buildHouseholdSplitCard,
   goalLabel,
@@ -75,6 +76,23 @@ export type CreateSwapProposalInput = Omit<
    *
    * To rozróżnienie decyduje o tym, czy podmiana WYMIENIA slot, czy tylko
    * wydziela z niego jedną porcję — patrz `createSwapProposal`.
+   */
+  participantIds: string[];
+};
+
+export type CreateRemoveProposalInput = Omit<
+  CreateWeekProposalInput,
+  'slots' | 'note'
+> & {
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  /** Co stoi w tym slocie — rozwiązuje executor, bo to on zna katalog. */
+  removed: SwapCardSide;
+  /** Czego chciał użytkownik („nie będzie nas w domu”). */
+  reason?: string;
+  /**
+   * KOMU to danie znika. Puste = całemu domowi, czyli pozycja wypada z planu.
+   * Podane = wypisujemy z niej te osoby, a pozycja zostaje dla reszty.
    */
   participantIds: string[];
 };
@@ -420,6 +438,119 @@ export class AgentProposalsService {
         updated: preview.changes.updated,
         removed: preview.changes.deleted,
         averageKcalPerDay: input.to.kcalPerServing,
+        targetKcalPerDay: null,
+      },
+    };
+  }
+
+  /**
+   * Usunięcie jednego posiłku — przez ten sam stan docelowy, co każdy zapis.
+   *
+   * Po co osobna droga, skoro `apply_week_plan` to potrafi: bo potrafi to
+   * WYŁĄCZNIE przez podanie całego tygodnia od nowa. Model, który chce
+   * skasować czwartkową kolację, musi wypisać dwadzieścia pozostałych pozycji
+   * bezbłędnie — a każda pominięta znika razem z nią, po cichu i bez śladu
+   * w karcie. Tutaj baseline bierze serwer, a model podaje jeden slot.
+   *
+   * Wypisanie OSOBY nie jest usunięciem posiłku: przy podanych uczestnikach
+   * pozycja zostaje dla reszty domu i znika dopiero wtedy, gdy nie zostaje
+   * przy niej nikt. Ta sama reguła, co przy podmianie dla wybranych osób —
+   * inaczej „nie będę jadł tej kolacji" zabierałoby ją całemu domowi.
+   */
+  async createRemoveMealProposal(
+    input: CreateRemoveProposalInput,
+  ): Promise<CreateWeekProposalResult> {
+    const baseline = await this.weeklyPlans.snapshotWeekAsSlots(
+      input.userId,
+      input.householdId,
+      input.weekStart,
+    );
+    const isSlot = (slot: { dayOfWeek: string; mealType: string }) =>
+      slot.dayOfWeek === input.dayOfWeek && slot.mealType === input.mealType;
+    const untouched = baseline.filter((slot) => !isSlot(slot));
+    const standing = baseline.filter(isSlot);
+
+    let merged: ApplyWeekSlotDto[];
+    if (input.participantIds.length === 0) {
+      merged = untouched;
+    } else {
+      const everyone = await this.householdMemberIds(
+        input.userId,
+        input.householdId,
+      );
+      const leaving = new Set(input.participantIds);
+      const narrowed = standing
+        .map((slot) => {
+          const current = slot.participantIds?.length
+            ? slot.participantIds
+            : everyone;
+          const remaining = current.filter((userId) => !leaving.has(userId));
+          return remaining.length > 0
+            ? ({ ...slot, participantIds: remaining } as ApplyWeekSlotDto)
+            : null;
+        })
+        .filter((slot): slot is ApplyWeekSlotDto => slot !== null);
+      merged = [...untouched, ...narrowed];
+    }
+
+    const preview = await this.weeklyPlans.previewWeekPlan(
+      input.userId,
+      input.householdId,
+      input.weekStart,
+      { slots: merged },
+    );
+    if (preview.violations.length > 0 || preview.slots === null) {
+      return { proposed: false, violations: preview.violations };
+    }
+
+    const env = readAgentEnv();
+    const proposalId = randomUUID();
+    const expiresAt = new Date(Date.now() + env.proposalTtlMs);
+
+    const card = buildRemoveMealCard({
+      forNames: await this.displayNames(
+        input.userId,
+        input.householdId,
+        input.participantIds,
+      ),
+      proposalId,
+      weekStart: input.weekStart,
+      date: dateForDay(input.weekStart, input.dayOfWeek),
+      dayOfWeek: input.dayOfWeek,
+      mealType: input.mealType,
+      removed: input.removed,
+      ...(input.reason ? { reason: input.reason } : {}),
+      expiresAt,
+    });
+
+    await this.prisma.agentProposal.create({
+      data: {
+        id: proposalId,
+        conversationId: input.conversationId,
+        turnId: input.turnId,
+        userId: input.userId,
+        householdId: input.householdId,
+        kind: 'REMOVE_MEAL',
+        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+        action: { slots: merged } as unknown as Prisma.InputJsonValue,
+        card: card as unknown as Prisma.InputJsonValue,
+        baselineHash: weekBaselineHash(baseline),
+        expiresAt,
+      },
+    });
+
+    return {
+      proposed: true,
+      proposalId,
+      summary: {
+        meals: 0,
+        created: preview.changes.created,
+        updated: preview.changes.updated,
+        removed: preview.changes.deleted,
+        // Ta karta nie mówi o kaloriach dnia i model nie ma czego tu cytować:
+        // po usunięciu jednej pozycji średnia tygodnia jest liczbą o czymś
+        // innym niż pytanie, które padło.
+        averageKcalPerDay: 0,
         targetKcalPerDay: null,
       },
     };

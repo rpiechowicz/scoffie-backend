@@ -25,6 +25,7 @@ export const AGENT_MESSAGE_KINDS = [
   'PLAN_DAY',
   'OPTIONS',
   'SWAP',
+  'REMOVE_MEAL',
   'HOUSEHOLD_SPLIT',
   'MACRO_GAP',
   'SHOPPING_LIST',
@@ -362,6 +363,36 @@ export type SwapCard = {
   state: AgentCardState;
 };
 
+/**
+ * Usunięcie jednego posiłku z planu.
+ *
+ * Osobna karta, a nie podmiana z pustym „po”: podmiana odpowiada na pytanie
+ * „co się zmieni”, a tu nic nie wchodzi w to miejsce — pytanie brzmi „czego
+ * nie będzie”. Karta z pustą prawą stroną wyglądałaby jak błąd renderowania,
+ * a `SwapCard.to` jest nie bez powodu nie-`null`: cała karta podmiany opiera
+ * się na zestawieniu dwóch dań.
+ *
+ * Powód, dla którego to jest OSOBNE NARZĘDZIE, a nie zapis tygodnia: dziś
+ * jedyną drogą do usunięcia jednego dania jest `apply_week_plan` ze STANEM
+ * DOCELOWYM całego tygodnia — model musi odtworzyć dwadzieścia pozycji, żeby
+ * skasować jedną, a każda pominięta znika po cichu.
+ */
+export type RemoveMealCard = {
+  kind: 'REMOVE_MEAL';
+  v: number;
+  proposalId: string;
+  weekStart: string;
+  date: string;
+  eyebrow: string;
+  title: string;
+  /** Co znika z planu. */
+  removed: SwapCardSide;
+  /** Jedno zdanie modelu „dlaczego”; `null`, gdy nie podał. */
+  note: string | null;
+  actions: AgentCardAction[];
+  state: AgentCardState;
+};
+
 /** Jedna osoba przy wspólnym daniu. */
 export type HouseholdSplitPortion = {
   userId: string;
@@ -523,6 +554,7 @@ export type AgentCard =
   | PlanDayCard
   | OptionsCard
   | SwapCard
+  | RemoveMealCard
   | HouseholdSplitCard
   | MacroGapCard
   | ShoppingListCard
