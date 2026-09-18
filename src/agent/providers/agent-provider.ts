@@ -56,6 +56,14 @@ export type AgentProviderRequest = {
     name: string,
     input: Record<string, unknown>,
   ) => Promise<AgentToolResult>;
+  /**
+   * Model dostał wyniki narzędzi i zaczyna nad nimi myśleć — dostawca woła to
+   * tuż PRZED kolejnym żądaniem do API. Runner zapisuje wtedy krok postępu
+   * `think`, żeby wskaźnik na telefonie nie stał przez pół minuty na nazwie
+   * narzędzia, które już się skończyło. Opcjonalne i best-effort: brak
+   * albo błąd nie zmienia przebiegu tury.
+   */
+  onThinking?: () => Promise<void>;
   /** Przerwanie tury po `AI_TURN_TIMEOUT_MS` — dostawca MUSI go respektować. */
   signal: AbortSignal;
   /**

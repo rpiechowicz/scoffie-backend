@@ -35,7 +35,29 @@ export type AgentProgressStep = {
    * Brak pola = zwykły krok.
    */
   phase?: 'PLANNING';
+  /**
+   * Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który
+   * warto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki
+   * narzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje
+   * go w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s"
+   * — bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem
+   * co drugi wiersz. Brak pola = zwykły krok.
+   */
+  transient?: true;
 };
+
+/**
+ * Nie narzędzie, tylko CISZA między narzędziami.
+ *
+ * Wywołanie modelu po wynikach narzędzi trwa 10–30 s — najdłużej na końcu
+ * tury, gdy model pisze odpowiedź. Przez ten czas ostatnim krokiem było
+ * „Zapisuję plan tygodnia", czyli zdanie o czymś, co skończyło się pół
+ * minuty temu; wskaźnik na telefonie wyglądał wtedy na zawieszony. Ten krok
+ * mówi prawdę o tym odcinku, a serwer NIE WIE z góry, czy po nim przyjdzie
+ * kolejne narzędzie, czy ostatnie słowo — stąd sformułowania, które pasują
+ * do obu.
+ */
+export const THINK_STEP_TOOL = 'think';
 
 /**
  * Etykiety mówią, co asystent ROBI DLA UŻYTKOWNIKA, a nie jak nazywa się
@@ -109,6 +131,11 @@ const LABELS: Record<string, readonly string[]> = {
   create_recipe: ['Dodaję przepis', 'Zapisuję nowy przepis'],
   update_recipe: ['Poprawiam przepis'],
   delete_recipe: ['Wycofuję przepis'],
+  [THINK_STEP_TOOL]: [
+    'Zbieram to w całość',
+    'Analizuję, co wyszło',
+    'Myślę, co z tym zrobić',
+  ],
 };
 
 const DRY_RUN_LABELS: readonly string[] = [
@@ -174,6 +201,7 @@ export function progressStep(
     at: now.toISOString(),
     writes: WRITING_TOOLS.has(tool) && !dryRun,
     ...(tool === 'start_planning' ? { phase: 'PLANNING' as const } : {}),
+    ...(tool === THINK_STEP_TOOL ? { transient: true as const } : {}),
   };
 }
 
