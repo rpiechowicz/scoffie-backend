@@ -119,6 +119,39 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'get_recipe_details',
+    description:
+      'Pełny przepis: WSZYSTKIE składniki z gramaturą i kroki przygotowania. ' +
+      'Katalog w prompcie pokazuje tylko pięć najcięższych składników i zero kroków, ' +
+      'więc na pytania „jak to ugotować", „ile tam czego" i „czy jest w tym X" ' +
+      'odpowiadasz WYŁĄCZNIE po wywołaniu tego narzędzia. Nie zgaduj z nazwy dania ' +
+      'ani z tych pięciu składników — „dorsz z masłem" wygląda stamtąd na danie bez nabiału. ' +
+      'Kroki przepisz swoimi słowami tylko wtedy, gdy użytkownik o nie prosi.',
+    input_schema: object({ recipe: RECIPE_REF }, ['recipe']),
+    strict: true,
+  },
+  {
+    name: 'search_recipes_by_ingredient',
+    description:
+      'Znajdź dania, w których naprawdę JEST dany składnik — po całym składzie, ' +
+      'nie po nazwie dania. Używaj, gdy pytanie wychodzi od produktu („co zrobić ' +
+      'z bakłażanem", „mam pół kurczaka", „coś z soczewicą"): katalog w prompcie ' +
+      'niesie tylko pięć najcięższych składników każdego dania, więc sam go nie ' +
+      'przejrzysz pod tym kątem i przegapisz połowę trafień. ' +
+      'Odmiana nie przeszkadza („jajka" znajdzie „jajko"). ' +
+      'Wynik niesie gotowe referencje do propose_* — używaj ich dosłownie.',
+    input_schema: object(
+      {
+        ingredient: {
+          type: 'string',
+          description: 'Nazwa składnika albo jej fragment, po polsku.',
+        },
+      },
+      ['ingredient'],
+    ),
+    strict: true,
+  },
+  {
     name: 'search_ingredients',
     description:
       'Znajdź składnik po nazwie i pobierz jego identyfikator, alergeny i dozwolone jednostki. ' +
@@ -277,6 +310,42 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         },
       },
       ['week_start', 'day_of_week', 'meal_type', 'recipe'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'propose_remove_meal',
+    description:
+      'Zaproponuj USUNIĘCIE jednego dania z planu — gdy użytkownik mówi, że ' +
+      'czegoś nie będzie („w czwartek jemy u teściów", „zdejmij tę kolację"). ' +
+      'NIE rób tego przez apply_week_plan: tamto przyjmuje stan docelowy CAŁEGO ' +
+      'tygodnia i każda pozycja, której nie wypiszesz, zniknie razem z tą jedną. ' +
+      'Podaj participant_user_ids, gdy danie ma zniknąć TYLKO komuś — reszta domu ' +
+      'zostaje wtedy przy swoim. TY NIE ZAPISUJESZ — usunie użytkownik jednym kliknięciem.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        day_of_week: DAY,
+        meal_type: MEAL,
+        reason: {
+          type: 'string',
+          description:
+            'Dlaczego to znika, kilka słów („nie ma nas w domu"). Trafia w tytuł karty.',
+        },
+        participant_user_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'KOMU danie znika. Puste = całemu domowi, czyli pozycja wypada z planu.',
+        },
+      },
+      [
+        'week_start',
+        'day_of_week',
+        'meal_type',
+        'reason',
+        'participant_user_ids',
+      ],
     ),
     strict: true,
   },
@@ -670,6 +739,13 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   get_week_plan: 'chat',
   get_week_balance: 'chat',
   show_shopping_list: 'chat',
+  // Czytanie przepisu i szukanie po składniku zostaje w rozmowie CELOWO:
+  // to są odpowiedzi na pytania („jak to ugotować", „co zrobić z bakłażanem"),
+  // a nie układanie planu. Gdyby wymagały `start_planning`, najczęstsze
+  // pytanie o przepis kosztowałoby drugi, droższy model za nic. Planista ma
+  // je też — lista `AGENT_TOOLS` jest dla niego pełna.
+  get_recipe_details: 'chat',
+  search_recipes_by_ingredient: 'chat',
   // Karty, które niczego nie zapisują.
   ask_clarifying_question: 'chat',
   offer_options: 'chat',
@@ -681,6 +757,7 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   propose_week_plan: 'planner',
   propose_day_plan: 'planner',
   propose_swap: 'planner',
+  propose_remove_meal: 'planner',
   propose_household_split: 'planner',
   apply_week_plan: 'planner',
   create_recipe: 'planner',

@@ -11,6 +11,7 @@ import { AgentProposalsService } from '../proposals/agent-proposals.service';
 import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
 import { AgentToolContext, AgentToolExecutor } from './agent-tool-executor';
 import { AgentPromptService } from '../agent-prompt.service';
+import { AGENT_TOOLS } from './agent-tools';
 
 // Bramka trybu jest DRUGA po prompcie i jedyna, która nie zależy od tego, czy
 // model przeczytał instrukcję. Bez niej „agent tylko proponuje" byłoby
@@ -105,6 +106,23 @@ describe('AgentToolExecutor — bramka trybu', () => {
 
     expect(result.ok).toBe(false);
     expect(applyWeekPlan).not.toHaveBeenCalled();
+  });
+
+  // Reguła, nie wyliczanka: każde narzędzie `propose_*` ma być odmówione poza
+  // trybem propozycji. Wpisanie ich po nazwie znaczyłoby, że następne
+  // przechodzi bramkę tylko dlatego, że nikt nie dopisał go do testu — a poza
+  // trybem propozycji jego karta nie miałaby czym się zapisać.
+  it.each(
+    AGENT_TOOLS.map((tool) => tool.name).filter((name) =>
+      name.startsWith('propose_'),
+    ),
+  )('%s jest odmawiane poza trybem propozycji', async (name) => {
+    const result = await executor.execute(name, {}, context(false));
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'AI_TOOL_NOT_IN_MODE' },
+    });
   });
 
   it('w trybie zapisu propozycja nie powstaje', async () => {

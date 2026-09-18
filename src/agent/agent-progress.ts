@@ -63,6 +63,15 @@ const LABELS: Record<string, readonly string[]> = {
     'Sprawdzam, jak wychodzą kalorie',
     'Podliczam tydzień',
   ],
+  get_recipe_details: [
+    'Czytam przepis',
+    'Sprawdzam skład i kroki',
+    'Zaglądam do przepisu',
+  ],
+  search_recipes_by_ingredient: [
+    'Szukam dań z tym składnikiem',
+    'Przeglądam składy przepisów',
+  ],
   search_ingredients: [
     'Szukam składników',
     'Przeglądam listę produktów',
@@ -76,6 +85,10 @@ const LABELS: Record<string, readonly string[]> = {
   ],
   propose_day_plan: ['Układam ten dzień', 'Dobieram posiłki na jeden dzień'],
   propose_swap: ['Szukam czegoś w zamian', 'Dobieram danie na podmianę'],
+  propose_remove_meal: [
+    'Wyjmuję to z planu',
+    'Sprawdzam, co zostanie po usunięciu',
+  ],
   propose_household_split: [
     'Rozdzielam porcje',
     'Dopasowuję wielkość porcji do każdego',
