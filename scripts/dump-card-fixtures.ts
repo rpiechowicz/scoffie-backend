@@ -15,6 +15,7 @@ import { buildAppliedCard } from '../src/agent/cards/applied-card';
 import { buildPlanDayCard } from '../src/agent/cards/plan-day-card';
 import { buildClarifyCard } from '../src/agent/cards/clarify-card';
 import { buildSwapCard } from '../src/agent/cards/swap-card';
+import { buildRemoveMealCard } from '../src/agent/cards/remove-meal-card';
 import {
   buildOptionsCard,
   optionPrompt,
@@ -171,6 +172,22 @@ const swap = buildSwapCard({
   expiresAt: new Date('2026-09-03T10:00:00.000Z'),
 });
 
+const removeMeal = buildRemoveMealCard({
+  proposalId: '99999999-9999-4999-8999-999999999999',
+  weekStart: '2026-08-31',
+  date: '2026-09-03',
+  dayOfWeek: 'THU',
+  mealType: 'DINNER',
+  removed: {
+    recipeId: 'r-9',
+    title: 'Zapiekanka z cukinią',
+    kcalPerServing: 640,
+    prepTimeMinutes: 55,
+  },
+  reason: 'Jemy u teściów',
+  expiresAt: new Date('2026-09-03T10:00:00.000Z'),
+});
+
 const options = buildOptionsCard({
   title: 'Trzy szybkie kolacje',
   slotLabel: 'Kolacja · wtorek',
@@ -300,6 +317,7 @@ console.log(
       planDay,
       options,
       swap,
+      removeMeal,
       householdSplit,
       macroGap,
       shoppingList,
