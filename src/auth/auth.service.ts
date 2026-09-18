@@ -61,6 +61,18 @@ export class AuthService {
    */
   private readonly refreshReuseGraceMs =
     (Number(process.env.REFRESH_REUSE_GRACE_SECONDS ?? '60') || 60) * 1000;
+  /**
+   * `REFRESH_STRICT_REUSE=true` przywraca zachowanie sprzed 18.09.2026:
+   * zgubiona rotacja starsza niz okno laski kasuje CALA rodzine tokenow.
+   *
+   * Domyslnie WYLACZONE, bo to wlasnie ono wylogowywalo wlascicieli telefonow,
+   * ktorzy wrocili do aplikacji po kilku dniach — patrz `recoverLostRotation`.
+   * Zostaje jako przelacznik, bo to jest decyzja o kompromisie
+   * bezpieczenstwo/wygoda i nalezy do wlasciciela instalacji, a nie do kodu.
+   */
+  private get strictReuse(): boolean {
+    return (process.env.REFRESH_STRICT_REUSE ?? '').trim() === 'true';
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -236,6 +248,17 @@ export class AuthService {
     }
 
     if (!storedToken || storedToken.expiresAt <= now) {
+      // Te dwie odmowy wygladaly w logach IDENTYCZNIE — jako brak wpisu — a
+      // znacza zupelnie co innego i prowadza do innych napraw. Token NIEZNANY
+      // to albo inna instalacja, albo zmieniony `REFRESH_TOKEN_PEPPER`
+      // (wtedy 401 dostaja WSZYSCY naraz i nie ma to nic wspolnego z rotacja).
+      // Token WYGASLY to po prostu `REFRESH_TOKEN_DAYS`. Bez tego rozroznienia
+      // diagnoza wylogowan zaczyna sie od zgadywania.
+      this.logger.warn(
+        storedToken
+          ? `refresh refused: token expired ${Math.round((now.getTime() - storedToken.expiresAt.getTime()) / 1000)}s ago for user ${storedToken.userId} (REFRESH_TOKEN_DAYS=${this.refreshTokenDays})`
+          : 'refresh refused: token unknown — brak wpisu dla tego skrotu (inna instalacja albo zmieniony REFRESH_TOKEN_PEPPER)',
+      );
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
@@ -372,11 +395,16 @@ export class AuthService {
   /**
    * Ratunek dla telefonu, ktory zgubil odpowiedz z rotacji.
    *
-   * Warunki sa celowo waskie i musza zajsc WSZYSTKIE naraz:
+   * Warunki (wszystkie naraz):
    *  - token uniewaznila ROTACJA (nie logout i nie wykryty wczesniej replay),
-   *  - miescimy sie w oknie laski (`REFRESH_REUSE_GRACE_SECONDS`),
    *  - sam token nie zdazyl wygasnac,
-   *  - a nastepca ZYJE (nie zostal uzyty ani uniewazniony).
+   *  - a nastepca ZYJE i NIKT GO NIE UZYL.
+   *
+   * Ostatni warunek jest tym, ktory naprawde rozstrzyga — patrz komentarz
+   * przy nim. Okno laski (`REFRESH_REUSE_GRACE_SECONDS`) od 18.09.2026 nie
+   * decyduje juz o odmowie, tylko o TONIE logu: ratunek poza oknem jest
+   * sygnalem, ze klient systematycznie gubi rotacje. Stare zachowanie wraca
+   * pod `REFRESH_STRICT_REUSE=true`.
    *
    * **Nastepcy NIE uniewazniamy** — i to jest poprawka z 13.09.2026, zmierzona
    * na produkcji. Dotad ratunek "zajmowal" nastepce, kasujac go jako REUSE,
@@ -444,25 +472,6 @@ export class AuthService {
       return { kind: 'stale' };
     }
     const ageMs = now.getTime() - revokedAt.getTime();
-    if (ageMs > this.refreshReuseGraceMs) {
-      // Tu rodzina pada — i to jest ŚWIADOMY wybór, nie przeoczenie.
-      //
-      // Ten przypadek (rotacja, nastepca zyje, ale dawno) wyglada IDENTYCZNIE
-      // z dwoch stron: telefon, ktory zgubil odpowiedz i wrocil po godzinie,
-      // oraz wlasciciel, ktoremu ktos ukradl token, zrotowal go i wlasnie zyje
-      // w jego koncie. Serwer nie ma czym ich odroznic — nie ma zadnego
-      // sygnalu, ktory by je rozdzielil.
-      //
-      // Probowalem to zlagodzic (odmowa bez kasowania rodziny) i e2e pokazalo
-      // cene: w wariancie z kradzieza ofiara dostaje 401, loguje sie od nowa,
-      // a ZLODZIEJ zostaje w koncie na zawsze, bo nic go nie gasi. To za duzo
-      // za wygode. Zostaje kasowanie rodziny, a decyzja o szerokosci okna
-      // (`REFRESH_REUSE_GRACE_SECONDS`) jest jawna i nalezy do wlasciciela.
-      this.logger.warn(
-        `rotation recovery refused for user ${storedToken.userId}: rotated ${Math.round(ageMs / 1000)}s ago, grace ${this.refreshReuseGraceMs / 1000}s`,
-      );
-      return { kind: 'replay' };
-    }
     if (storedToken.expiresAt <= now) {
       this.logger.warn(
         `rotation recovery refused for user ${storedToken.userId}: token expired`,
@@ -470,10 +479,35 @@ export class AuthService {
       return { kind: 'stale' };
     }
 
-    // Nastepca musi ZYC. Uzyty albo uniewazniony znaczy, ze para nie tylko
-    // dotarla, ale zyje wlasnym zyciem — a skoro stary token wraca mimo to,
-    // mamy kopie i rodzina musi pasc. To jest ODCZYT, nie zajecie: nastepca
-    // moze w tej chwili lezec u klienta i czekac na swoja kolej.
+    // O ROZWIDLENIU ŁAŃCUCHA decyduje NASTĘPCA, nie zegar.
+    //
+    // Następca żywy i nieużyty znaczy, że nowa para nie doszła do nikogo:
+    // ani do właściciela (bo wraca stary token), ani do kogokolwiek innego
+    // (bo nikt jej nie użył). To nie jest kradzież, tylko zgubiona odpowiedź —
+    // i wygląda tak samo minutę po rotacji, jak i cztery dni później.
+    //
+    // Zegar był tu do 18.09.2026 jedynym kryterium i to on wylogowywał
+    // właścicieli. Droga, którą przechodzili: cichy push budzi aplikację w tle,
+    // ta woła `/auth/refresh`, serwer rotuje token — i iOS zawiesza proces,
+    // zanim odpowiedź zdąży trafić do Keychaina (`completionHandler` pusha
+    // wraca od razu, więc system ma prawo uśpić aplikację w każdej chwili).
+    // W telefonie zostaje token poprzedni. Przez kilka dni nic tego nie
+    // wykrywa, bo nikt aplikacji nie otwiera. Po tych kilku dniach pierwsze
+    // uruchomienie pokazuje serwerowi token zrotowany dawno temu — i dostaje
+    // za to `replay`, czyli skasowanie rodziny, podbicie `tokenVersion`
+    // i wylogowanie ZE WSZYSTKICH urządzeń. Kara za to, że telefon leżał
+    // w szufladzie.
+    //
+    // Cena tej zmiany jest realna i trzeba ją nazwać: ktoś, kto wszedł
+    // w posiadanie STAREGO, już zrotowanego tokenu, którego następcy nikt nie
+    // użył, dostanie teraz świeżą parę zamiast wywalić rodzinę. Przedtem taka
+    // próba kończyła się wylogowaniem wszystkich — czyli złodziej też wypadał,
+    // ale razem z właścicielem i przy każdej zgubionej odpowiedzi. Kto woli
+    // tamten kompromis, ustawia `REFRESH_STRICT_REUSE=true`.
+    //
+    // Czego ta zmiana NIE rusza: rozwidlonego łańcucha (następca użyty albo
+    // unieważniony) niżej. To jedyny przypadek z DOWODEM na dwie działające
+    // kopie i tam rodzina dalej pada.
     const successorToken = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: replacedByHash },
       select: { revokedAt: true },
@@ -486,8 +520,25 @@ export class AuthService {
       return { kind: 'replay' };
     }
 
-    // Slad, ze ta rotacja byla juz ratowana. Nie jest to blokada: granice
-    // stawia CZAS (okno laski liczone od `revokedAt`, ktore sie nie przesuwa),
+    if (ageMs > this.refreshReuseGraceMs) {
+      if (this.strictReuse) {
+        this.logger.warn(
+          `rotation recovery refused for user ${storedToken.userId}: rotated ${Math.round(ageMs / 1000)}s ago, grace ${this.refreshReuseGraceMs / 1000}s, REFRESH_STRICT_REUSE=true`,
+        );
+        return { kind: 'replay' };
+      }
+      // Ratunek „na zimno": telefon wrócił po dniach z tokenem, którego
+      // następcy nikt nigdy nie użył. Osobny poziom logu, bo to jest sygnał
+      // diagnostyczny — jeśli takich wpisów jest dużo, to znaczy, że klient
+      // systematycznie gubi rotacje i trzeba naprawić JEGO, a nie poszerzać
+      // okno po stronie serwera.
+      this.logger.warn(
+        `refresh token rotation recovered COLD for user ${storedToken.userId}: rotated ${Math.round(ageMs / 1000)}s ago (grace ${this.refreshReuseGraceMs / 1000}s), successor never used — klient zgubil odpowiedz z rotacji`,
+      );
+    }
+
+    // Slad, ze ta rotacja byla juz ratowana. Nie jest to blokada — granice
+    // stawia STAN LANCUCHA (nastepca uzyty = rozwidlenie = koniec rodziny),
     // a nie licznik ratunkow. Blokada na liczniku wygladala rozsadnie, dopoki
     // e2e nie pokazalo, ze trzecie ponowienie tego samego zadania konczy sie
     // wylogowaniem — a telefon nie ma jak wiedziec, ktore z jego ponowien
