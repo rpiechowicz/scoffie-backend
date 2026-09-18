@@ -59,6 +59,12 @@ export type TurnView = {
   suggestions?: string[];
   /** „Stop" przyjęty, tura jeszcze się domyka — klient odpytuje dalej. */
   stopRequested?: boolean;
+  /**
+   * Narastający tekst odpowiedzi, TYLKO gdy tura biegnie: telefon pokazuje
+   * go w miejscu, w którym za chwilę stanie odpowiedź. Cały dotychczasowy,
+   * nie przyrost — klient podmienia, nie dokleja. Brak = jeszcze nic.
+   */
+  draftText?: string;
   messages?: MessageView[];
   usage?: {
     inputTokens: number;
@@ -553,6 +559,10 @@ export class AgentTurnsService {
       startedAt: turn.startedAt.toISOString(),
       finishedAt: turn.finishedAt?.toISOString() ?? null,
     };
+
+    if (turn.status === 'RUNNING' && turn.draftText) {
+      view.draftText = turn.draftText;
+    }
 
     if (
       turn.status === 'FAILED' &&
