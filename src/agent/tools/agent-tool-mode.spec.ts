@@ -9,6 +9,7 @@ import { AgentMemoryService } from '../agent-memory.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { AgentProposalsService } from '../proposals/agent-proposals.service';
 import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
+import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { AgentToolContext, AgentToolExecutor } from './agent-tool-executor';
 import { AgentPromptService } from '../agent-prompt.service';
 import { AGENT_TOOLS } from './agent-tools';
@@ -53,6 +54,7 @@ describe('AgentToolExecutor — bramka trybu', () => {
           useValue: { createWeekPlanProposal },
         },
         { provide: ShoppingListService, useValue: {} },
+        { provide: WeeklyPlansGateway, useValue: {} },
         {
           provide: AgentPromptService,
           useValue: {

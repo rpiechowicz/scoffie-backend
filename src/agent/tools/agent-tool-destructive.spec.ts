@@ -9,6 +9,7 @@ import { AgentMemoryService } from '../agent-memory.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { AgentProposalsService } from '../proposals/agent-proposals.service';
 import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
+import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { AgentToolContext, AgentToolExecutor } from './agent-tool-executor';
 import { AgentPromptService } from '../agent-prompt.service';
 
@@ -93,6 +94,7 @@ describe('AgentToolExecutor — bramka destrukcyjnego zapisu planu', () => {
         { provide: AgentMemoryService, useValue: {} },
         { provide: AgentProposalsService, useValue: {} },
         { provide: ShoppingListService, useValue: {} },
+        { provide: WeeklyPlansGateway, useValue: {} },
         {
           provide: AgentPromptService,
           useValue: {

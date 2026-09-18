@@ -108,7 +108,9 @@ describe('readRecipeSteps', () => {
   });
 
   it('pusty krok nie jest krokiem', () => {
-    expect(readRecipeSteps([{ text: '   ' }, { text: 'coś' }])).toEqual(['coś']);
+    expect(readRecipeSteps([{ text: '   ' }, { text: 'coś' }])).toEqual([
+      'coś',
+    ]);
   });
 
   it('nie-tablica nie wywraca odczytu', () => {

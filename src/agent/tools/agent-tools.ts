@@ -437,6 +437,54 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'mark_meal_eaten',
+    description:
+      'Odhacz zaplanowany posiłek jako ZJEDZONY przez osobę, z którą rozmawiasz ' +
+      '(albo cofnij odhaczenie). Używaj, gdy pada to wprost: „zjadłem obiad", ' +
+      '„kolacji nie jadłem". To zmienia WYŁĄCZNIE bilans tej osoby — plan zostaje ' +
+      'nietknięty, innym domownikom nic nie ubywa. Danie bierze się z planu, więc ' +
+      'nie podajesz przepisu; pusty slot kończy się błędem, nie odhaczeniem. ' +
+      'Nie odhaczaj niczego „przy okazji" — tylko wtedy, gdy użytkownik o tym mówi.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        day_of_week: DAY,
+        meal_type: MEAL,
+        eaten: {
+          type: 'boolean',
+          description: 'true = zjedzone, false = zdejmij odhaczenie.',
+        },
+      },
+      ['week_start', 'day_of_week', 'meal_type', 'eaten'],
+    ),
+    strict: true,
+  },
+  {
+    name: 'check_shopping_items',
+    description:
+      'Odhacz produkty na liście zakupów tego tygodnia (albo cofnij odhaczenie), ' +
+      'gdy użytkownik mówi, że je ma: „kupiłem mleko i jajka". Podajesz NAZWY ' +
+      'produktów po polsku — dopasowanie do listy robi serwer i oddaje, czego nie ' +
+      'znalazł. Nie wymyślaj nazw spoza tego, co powiedział użytkownik, i nie ' +
+      'odhaczaj „całej listy" na podstawie domysłu, że skoro był w sklepie, to ma wszystko.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        products: {
+          type: 'array',
+          description: 'Nazwy produktów, tak jak powiedział je użytkownik.',
+          items: { type: 'string' },
+        },
+        checked: {
+          type: 'boolean',
+          description: 'true = kupione, false = zdejmij odhaczenie.',
+        },
+      },
+      ['week_start', 'products', 'checked'],
+    ),
+    strict: true,
+  },
+  {
     name: 'check_plan_conflicts',
     description:
       'Sprawdź, czy ZAPISANY plan tygodnia łamie czyjeś alergeny albo wykluczenia. ' +
@@ -753,6 +801,16 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   remember_note: 'chat',
   // Bezpieczeństwo liczy serwer, model cytuje — patrz komentarz przy narzędziu.
   check_plan_conflicts: 'chat',
+  // ZAPISY, a mimo to w warstwie rozmowy — i to jest decyzja, nie przeoczenie.
+  // Podział warstw idzie za tym, jakiej INTELIGENCJI wymaga zadanie, a nie za
+  // tym, czy coś dotyka bazy: odhaczenie „zjadłem obiad" nie dobiera dania,
+  // nie sprawdza alergenów i nie rusza planu — zmienia bilans jednej osoby
+  // albo jeden checkbox na liście zakupów. Oba są odwracalne tym samym
+  // zdaniem („jednak nie jadłem"). Przepuszczenie ich przez `start_planning`
+  // znaczyłoby, że najkrótsza wiadomość w całej aplikacji uruchamia droższy
+  // model i drugą rundę narzędzi.
+  mark_meal_eaten: 'chat',
+  check_shopping_items: 'chat',
   // Układanie i zapisywanie: dobór pod ograniczenia całego domu.
   propose_week_plan: 'planner',
   propose_day_plan: 'planner',

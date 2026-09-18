@@ -42,19 +42,21 @@ describe('buildRemoveMealCard', () => {
   });
 
   it('nadtytuł mówi, komu to znika', () => {
-    expect(buildRemoveMealCard(base).eyebrow).toBe('Usunięcie · czwartek, kolacja');
-    expect(
-      buildRemoveMealCard({ ...base, forNames: ['Ania'] }).eyebrow,
-    ).toBe('Usunięcie · czwartek, kolacja · tylko Ania');
+    expect(buildRemoveMealCard(base).eyebrow).toBe(
+      'Usunięcie · czwartek, kolacja',
+    );
+    expect(buildRemoveMealCard({ ...base, forNames: ['Ania'] }).eyebrow).toBe(
+      'Usunięcie · czwartek, kolacja · tylko Ania',
+    );
     expect(
       buildRemoveMealCard({ ...base, forNames: ['Ania', 'Kuba'] }).eyebrow,
     ).toBe('Usunięcie · czwartek, kolacja · tylko Ania i Kuba');
   });
 
   it('krótki powód idzie w tytuł, długi w notatkę', () => {
-    expect(buildRemoveMealCard({ ...base, reason: 'Jemy u teściów' }).title).toBe(
-      'Jemy u teściów',
-    );
+    expect(
+      buildRemoveMealCard({ ...base, reason: 'Jemy u teściów' }).title,
+    ).toBe('Jemy u teściów');
 
     const long = 'a'.repeat(61);
     const card = buildRemoveMealCard({ ...base, reason: long });

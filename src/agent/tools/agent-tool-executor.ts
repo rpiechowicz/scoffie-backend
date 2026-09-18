@@ -40,8 +40,13 @@ import {
 import { buildMacroGapCard, MAX_BOOSTERS } from '../cards/macro-gap-card';
 import { buildShoppingListCard } from '../cards/shopping-list-card';
 import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
+import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
+import { SetMealEatenDto } from '../../weekly-plans/dto/set-meal-eaten.dto';
+import { UpdateShoppingItemCheckDto } from '../../weekly-plans/dto/update-shopping-item-check.dto';
 import { ShoppingDepartment } from '../../weekly-plans/types/shopping-department.enum';
 import { DayOfWeek, MealType } from '@prisma/client';
+import { normalizeText } from '../../common/normalize-text.util';
+import { searchStem } from '../../recipes/ingredient-search.util';
 
 /**
  * Kontekst tury: kto pyta i o które gospodarstwo.
@@ -348,6 +353,66 @@ export function projectRecipeDetailsForModel(recipe: {
 }
 
 /**
+ * Dopasowanie nazwy produktu wypowiedzianej przez człowieka do pozycji listy.
+ *
+ * Model nie dostaje listy zakupów w wyniku `show_shopping_list` (dostałby
+ * pokusę przepisania jej w odpowiedzi), więc nie ma skąd wziąć `productKey`.
+ * Mówi więc nazwami — „kupiłem mleko i jajka" — a dopasowanie robi serwer.
+ *
+ * Trzy progi, w tej kolejności: dokładna nazwa, potem zawieranie w jedną albo
+ * drugą stronę („jajka" w „jajka kurze", „mleko" w „mleko 2%"), a na końcu
+ * wspólny rdzeń czterech znaków, bo polska odmiana zmienia końcówkę
+ * („jajka"/„jajko"). Sortowanie po długości nazwy wybiera najkrótszą, czyli
+ * najbardziej ogólną pozycję — „mleko" przed „mleko kokosowe".
+ *
+ * Wieloznaczność NIE jest odhaczana na chybił trafił: gdy próg trafia więcej
+ * niż jedną pozycję, oddajemy je modelowi jako `ambiguous` i to użytkownik
+ * rozstrzyga. Odhaczenie nie swojego produktu jest ciche — nikt tego nie
+ * zauważy aż do sklepu.
+ */
+export function matchShoppingProduct(
+  query: string,
+  items: readonly { productKey: string; name: string }[],
+): {
+  matched: { productKey: string; name: string } | null;
+  ambiguous: string[];
+} {
+  const needle = normalizeText(query);
+  if (!needle) return { matched: null, ambiguous: [] };
+
+  const rows = items.map((item) => ({ item, name: normalizeText(item.name) }));
+  // Rdzeń liczymy tą samą funkcją, co wyszukiwarka składników: najdłuższe
+  // słowo przycięte do czterech znaków. „mąki pszennej" ma rdzeń „psze",
+  // więc trafia w „mąka pszenna" mimo dwóch różnych końcówek — reguła na
+  // prefiksie pierwszego słowa gubiła to („maki" ≠ „maka").
+  const stem = searchStem(query);
+
+  const tiers = [
+    rows.filter((row) => row.name === needle),
+    rows.filter(
+      (row) => row.name.includes(needle) || needle.includes(row.name),
+    ),
+    stem ? rows.filter((row) => row.name.includes(stem)) : [],
+  ];
+
+  for (const tier of tiers) {
+    if (tier.length === 0) continue;
+    // WIĘCEJ NIŻ JEDEN KANDYDAT = pytanie do użytkownika, nie zgadywanie.
+    // „ser" pasuje do białego i żółtego równie dobrze; wybranie krótszej
+    // nazwy byłoby rzutem monetą, którego nikt nie zauważy aż do sklepu.
+    if (tier.length === 1) return { matched: tier[0].item, ambiguous: [] };
+    return {
+      matched: null,
+      ambiguous: tier
+        .map((row) => row.item.name)
+        .sort((a, b) => a.localeCompare(b, 'pl')),
+    };
+  }
+
+  return { matched: null, ambiguous: [] };
+}
+
+/**
  * Trafienie wyszukiwania po składniku.
  *
  * `recipe` jest GOTOWĄ REFERENCJĄ dla kolejnych narzędzi — indeksem katalogu
@@ -558,6 +623,9 @@ export class AgentToolExecutor {
     private readonly memory: AgentMemoryService,
     private readonly proposals: AgentProposalsService,
     private readonly shoppingList: ShoppingListService,
+    // Rozgłoszenia tą samą drogą, co zmiany zrobione palcem w aplikacji —
+    // patrz `broadcastMealEaten` / `broadcastShoppingItemChecked`.
+    private readonly plansGateway: WeeklyPlansGateway,
     // Filtr zgód domowników — ta sama reguła, co przy budowie promptu.
     private readonly prompts: AgentPromptService,
   ) {}
@@ -814,6 +882,12 @@ export class AgentToolExecutor {
 
       case 'show_macro_gap':
         return this.showMacroGap(input, context, str('week_start'));
+
+      case 'mark_meal_eaten':
+        return this.markMealEaten(input, context, str('week_start'));
+
+      case 'check_shopping_items':
+        return this.checkShoppingItems(input, context, str('week_start'));
 
       case 'check_plan_conflicts':
         return this.checkPlanConflicts(context, str('week_start'));
@@ -1310,6 +1384,174 @@ export class AgentToolExecutor {
         code: violation.code,
         message: violation.message,
       })),
+    };
+  }
+
+  /**
+   * Odhaczenie „zjedzone" — z planu, nie od modelu.
+   *
+   * `SetMealEatenDto` adresuje posiłek trójką (dzień, posiłek, przepis), ale
+   * przepisu NIE pytamy modelu: stoi w planie, a model, który podałby go
+   * z pamięci, odhaczyłby nieistniejącą pozycję i dostał 404 zamiast zrobić
+   * to, o co go poproszono. Przy okazji ubywa pole ze schematu, a limit pól
+   * nieobowiązkowych jest wyczerpany co do jednego.
+   *
+   * Rozgłoszenie idzie tą samą drogą, co odhaczenie palcem w aplikacji —
+   * inaczej drugi telefon w domu pokazywałby stary stan do przeładowania.
+   */
+  private async markMealEaten(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<{
+    eaten: boolean;
+    dayOfWeek: string;
+    mealType: string;
+    title: string;
+  }> {
+    const dayOfWeek = asString(input.day_of_week) as DayOfWeek;
+    const mealType = asString(input.meal_type) as MealType;
+    const isEaten = input.eaten === true;
+
+    const slots = await this.weeklyPlans.snapshotWeekAsSlots(
+      context.userId,
+      context.householdId,
+      weekStart,
+    );
+    const standing = slots.find(
+      (slot) => slot.dayOfWeek === dayOfWeek && slot.mealType === mealType,
+    );
+    if (!standing) {
+      throw new AppException(
+        'PLAN_ITEM_NOT_FOUND',
+        'W tym slocie nic nie stoi — nie ma czego odhaczyć. Powiedz to wprost ' +
+          'zamiast szukać dalej.',
+        HttpStatus.NOT_FOUND,
+        ['day_of_week', 'meal_type'],
+      );
+    }
+
+    await this.weeklyPlans.setMealEaten(
+      context.userId,
+      context.householdId,
+      weekStart,
+      {
+        dayOfWeek,
+        mealType,
+        recipeId: standing.recipeId,
+        isEaten,
+      } as unknown as SetMealEatenDto,
+    );
+    this.plansGateway.broadcastMealEaten({
+      householdId: context.householdId,
+      weekStart,
+      changedByUserId: context.userId,
+      dayOfWeek,
+      mealType,
+    });
+
+    const side = await this.recipeSide(standing.recipeId, context);
+    return { eaten: isEaten, dayOfWeek, mealType, title: side.title };
+  }
+
+  /**
+   * Odhaczenie produktów z listy zakupów.
+   *
+   * Model podaje NAZWY, bo listy nie widzi (patrz `showShoppingList`) i nie ma
+   * skąd wziąć `productKey`. Dopasowanie robi serwer i mówi wprost, czego nie
+   * znalazł albo co było wieloznaczne — model powtarza to użytkownikowi
+   * zamiast udawać, że odhaczył wszystko.
+   *
+   * Po odhaczeniu pokazujemy kartę listy z NOWYM stanem: użytkownik widzi
+   * skutek od razu, bez pytania „to ile mi zostało".
+   */
+  private async checkShoppingItems(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ): Promise<{
+    checked: string[];
+    notFound: string[];
+    ambiguous: string[];
+    remaining: number;
+  }> {
+    const products = (Array.isArray(input.products) ? input.products : [])
+      .map((entry) => asString(entry).trim())
+      .filter((entry) => entry.length > 0);
+    if (products.length === 0) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Podaj, co użytkownik kupił — bez nazw nie ma czego odhaczyć.',
+        HttpStatus.BAD_REQUEST,
+        ['products'],
+      );
+    }
+
+    const isChecked = input.checked === true;
+    const items = await this.shoppingList.getShoppingList(
+      context.userId,
+      context.householdId,
+      weekStart,
+    );
+
+    const checked: string[] = [];
+    const notFound: string[] = [];
+    const ambiguous: string[] = [];
+    const done = new Set<string>();
+
+    for (const product of products) {
+      const { matched, ambiguous: rivals } = matchShoppingProduct(
+        product,
+        items,
+      );
+      if (!matched) {
+        if (rivals.length > 0) ambiguous.push(...rivals);
+        else notFound.push(product);
+        continue;
+      }
+      // Ta sama pozycja w dwóch nazwach od modelu („jajka" i „jajko") to
+      // jedno odhaczenie, nie dwa zapisy i dwa rozgłoszenia.
+      if (done.has(matched.productKey)) continue;
+      done.add(matched.productKey);
+
+      await this.shoppingList.setShoppingItemChecked(
+        context.userId,
+        context.householdId,
+        weekStart,
+        {
+          productKey: matched.productKey,
+          isChecked,
+        } as unknown as UpdateShoppingItemCheckDto,
+      );
+      this.plansGateway.broadcastShoppingItemChecked({
+        householdId: context.householdId,
+        weekStart,
+        changedByUserId: context.userId,
+        productKey: matched.productKey,
+        isChecked,
+      });
+      checked.push(matched.name);
+    }
+
+    const card = buildShoppingListCard({
+      weekStart,
+      items: await this.shoppingList.getShoppingList(
+        context.userId,
+        context.householdId,
+        weekStart,
+      ),
+      departmentOrder: Object.values(ShoppingDepartment),
+      departmentKeys: Object.fromEntries(
+        Object.entries(ShoppingDepartment).map(([key, label]) => [label, key]),
+      ),
+    });
+    context.collectCard(card);
+
+    return {
+      checked,
+      notFound,
+      ambiguous: Array.from(new Set(ambiguous)),
+      remaining: card.summary.remaining,
     };
   }
 
