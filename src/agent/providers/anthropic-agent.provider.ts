@@ -196,6 +196,10 @@ export class AnthropicAgentProvider implements AgentProvider {
         throw this.withUsage(error, usage, phases);
       }
       messages.push({ role: 'user', content: toolResults });
+      // Od tej chwili do następnej odpowiedzi API model „myśli" — najdłuższy
+      // cichy odcinek tury. Runner zapisuje krok, po którym telefon wie, że
+      // narzędzia się skończyły, a odpowiedź dopiero powstaje.
+      await request.onThinking?.();
 
       // Przekazanie PO wykonaniu narzędzi tej rundy: wynik `start_planning`
       // wraca jeszcze do tańszego modelu jako zwykły tool_result, a od
