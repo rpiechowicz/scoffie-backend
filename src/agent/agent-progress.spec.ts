@@ -3,6 +3,7 @@ import {
   AgentProgressStep,
   PROGRESS_FALLBACK,
   progressStep,
+  THINK_STEP_TOOL,
 } from './agent-progress';
 
 describe('progressStep', () => {
@@ -98,6 +99,49 @@ describe('progressStep', () => {
     ])('%s tylko czyta', (tool) => {
       expect(progressStep(tool).writes).toBe(false);
     });
+  });
+});
+
+describe('krok `think` — cisza między narzędziami', () => {
+  it('jest przejściowy i nigdy nie zapisuje', () => {
+    // Klient pokazuje go na żywo, ale pomija w podsumowaniu po turze —
+    // inaczej co drugi wiersz „Myślałem 42 s" mówiłby to samo zdanie.
+    const step = progressStep(THINK_STEP_TOOL, {}, new Date(), 't-1');
+    expect(step.transient).toBe(true);
+    expect(step.writes).toBe(false);
+    expect(step.phase).toBeUndefined();
+    expect(step.label).not.toBe(PROGRESS_FALLBACK);
+  });
+
+  it('zwykły krok nie dostaje flagi przejściowej', () => {
+    // Brak pola = zwykły krok: starszy klient nie ma czego nie rozumieć.
+    expect(
+      progressStep('get_week_plan', {}, new Date(), 't-1'),
+    ).not.toHaveProperty('transient');
+  });
+
+  it('przeplata się z narzędziami zamiast się zlewać', () => {
+    // narzędzie → think → narzędzie → think: każde kolejne to inna nazwa,
+    // więc żadne nie ginie w odsiewie powtórzeń; powtórzone think — tak.
+    const steps: AgentProgressStep[] = [];
+    const at = new Date();
+    expect(
+      appendProgress(steps, progressStep('get_week_plan', {}, at, 't')),
+    ).toBe(true);
+    expect(
+      appendProgress(steps, progressStep(THINK_STEP_TOOL, {}, at, 't')),
+    ).toBe(true);
+    expect(
+      appendProgress(steps, progressStep(THINK_STEP_TOOL, {}, at, 't')),
+    ).toBe(false);
+    expect(
+      appendProgress(steps, progressStep('apply_week_plan', {}, at, 't')),
+    ).toBe(true);
+    expect(steps.map((step) => step.tool)).toEqual([
+      'get_week_plan',
+      THINK_STEP_TOOL,
+      'apply_week_plan',
+    ]);
   });
 });
 

@@ -22,6 +22,7 @@ import {
   AgentProgressStep,
   appendProgress,
   progressStep,
+  THINK_STEP_TOOL,
 } from './agent-progress';
 import { AgentPromptService, TurnDates } from './agent-prompt.service';
 import { AgentCard } from './cards/agent-cards';
@@ -189,6 +190,9 @@ export class AgentTurnRunner {
             },
           });
         },
+        // Cisza po narzędziach też jest krokiem — patrz `THINK_STEP_TOOL`.
+        onThinking: () =>
+          this.publishProgress(input.turnId, progress, THINK_STEP_TOOL, {}),
         signal: controller.signal,
         maxTurnCostUsd: input.env.maxTurnCostUsd,
       });
