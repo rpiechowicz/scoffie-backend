@@ -64,6 +64,14 @@ export type AgentProviderRequest = {
    * albo błąd nie zmienia przebiegu tury.
    */
   onThinking?: () => Promise<void>;
+  /**
+   * Narastający tekst odpowiedzi w trakcie generowania (cały dotychczasowy,
+   * nie przyrost). Dostawca woła to przy każdym fragmencie tekstu z modelu
+   * i z PUSTYM tekstem na starcie każdego wywołania — tekst z rundy, która
+   * skończyła się narzędziem, nie jest odpowiedzią. Synchroniczne i tanie:
+   * dławienie i zapis to sprawa runnera. Opcjonalne, best-effort.
+   */
+  onDraft?: (text: string) => void;
   /** Przerwanie tury po `AI_TURN_TIMEOUT_MS` — dostawca MUSI go respektować. */
   signal: AbortSignal;
   /**

@@ -149,6 +149,7 @@ export class AgentTurnRunner {
     );
 
     const progress: AgentProgressStep[] = [];
+    const draft = new DraftPublisher(this.prisma, this.logger, input.turnId);
     // Karta bez skutków ubocznych (pytanie, zestawienie) żyje w pamięci tury.
     // Propozycje idą przez bazę, bo muszą przeżyć pad procesu — ta nie ma
     // czego przeżywać: bez domkniętej tury nie powstaje żadna wiadomość.
@@ -193,6 +194,7 @@ export class AgentTurnRunner {
         // Cisza po narzędziach też jest krokiem — patrz `THINK_STEP_TOOL`.
         onThinking: () =>
           this.publishProgress(input.turnId, progress, THINK_STEP_TOOL, {}),
+        onDraft: (text) => draft.push(text),
         signal: controller.signal,
         maxTurnCostUsd: input.env.maxTurnCostUsd,
       });
@@ -213,6 +215,7 @@ export class AgentTurnRunner {
         controller.signal.reason === ABORT_REASON_CANCELLED,
       );
     } finally {
+      draft.stop();
       clearTimeout(timeout);
       this.running.delete(input.turnId);
     }
@@ -428,6 +431,9 @@ export class AgentTurnRunner {
           data: {
             status: 'DONE',
             finishedAt: new Date(),
+            // Prawdą jest teraz `AgentMessage`; szkic zostawiony tu myliłby
+            // odczyt tury sprzed domknięcia.
+            draftText: null,
             durationMs,
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
@@ -768,5 +774,65 @@ export class AgentTurnRunner {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2025'
     );
+  }
+}
+
+/**
+ * Szkic odpowiedzi do bazy — z dławieniem, bo model oddaje kilkadziesiąt
+ * fragmentów na sekundę, a telefon i tak odpytuje co sekundę.
+ *
+ * Zapis zawsze niesie CAŁY dotychczasowy tekst (nie przyrost), więc zgubiony
+ * zapis niczego nie psuje — następny nadpisze. Warunek `status: 'RUNNING'`
+ * jak przy postępie: tura domknięta przez timeout nie ma prawa dostać
+ * spóźnionego szkicu. Błąd zapisu jest połykany — szkic to udogodnienie.
+ */
+class DraftPublisher {
+  /** Najwyżej jeden zapis na tyle ms; ostatni fragment zawsze dojeżdża. */
+  private static readonly intervalMs = 350;
+  private pending: string | null = null;
+  private timer: NodeJS.Timeout | null = null;
+  private stopped = false;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly logger: Logger,
+    private readonly turnId: string,
+  ) {}
+
+  push(text: string): void {
+    if (this.stopped) return;
+    this.pending = text;
+    if (this.timer) return;
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.flush();
+    }, DraftPublisher.intervalMs);
+  }
+
+  /** Koniec tury: nic więcej nie zapisujemy, także z zegara w locie. */
+  stop(): void {
+    this.stopped = true;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+  }
+
+  private async flush(): Promise<void> {
+    const text = this.pending;
+    this.pending = null;
+    if (text === null || this.stopped) return;
+    try {
+      await this.prisma.agentTurn.updateMany({
+        where: { id: this.turnId, status: 'RUNNING' },
+        data: { draftText: text },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `nie udało się zapisać szkicu tury ${this.turnId}: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
+    }
   }
 }
