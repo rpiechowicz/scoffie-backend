@@ -248,6 +248,76 @@ export class WeeklyPlansGateway
     });
   }
 
+  /**
+   * Odhaczenie „zjedzone" — rozgłoszenie bez pusha.
+   *
+   * Publiczne z tego samego powodu, co `broadcastWeekApplied`: to samo
+   * odhaczenie robi dziś także asystent (`mark_meal_eaten`), a zmiana zrobiona
+   * jego ręką ma dojechać do drugiego telefonu tak samo jak zrobiona palcem.
+   * Bez tego kalendarz na drugim urządzeniu pokazywałby nieodhaczony posiłek
+   * do następnego przeładowania.
+   *
+   * Push nie leci nigdy: to, co ktoś zjadł, nie zmienia planu ani listy,
+   * a dzwonienie domownikom o czyimś śniadaniu jest szumem.
+   */
+  broadcastMealEaten(input: {
+    householdId: string;
+    weekStart: string;
+    changedByUserId: string;
+    dayOfWeek?: string | null;
+    mealType?: string | null;
+  }): void {
+    broadcastToHousehold(
+      this.server,
+      input.householdId,
+      'weeklyPlans:weekChanged',
+      {
+        householdId: input.householdId,
+        weekStart: input.weekStart,
+        action: 'SET_MEAL_EATEN',
+        changedByUserId: input.changedByUserId,
+        changedByDisplayName: null,
+        dayOfWeek: input.dayOfWeek ?? undefined,
+        mealType: input.mealType ?? undefined,
+        changeVersion: this.nextChangeVersion(),
+      },
+    );
+  }
+
+  /**
+   * Odhaczenie pozycji listy zakupów — rozgłoszenie plus bufor powiadomień.
+   *
+   * Jedno miejsce dla obu dróg (palec w aplikacji i `check_shopping_items`
+   * asystenta), żeby nie dało się zmienić jednej i zapomnieć o drugiej.
+   * Pojedynczy checkbox nigdy nie zamienia się w powiadomienie — bufor czeka,
+   * aż ktoś skończy zakupy, i wysyła jedno „odhaczył 12 produktów".
+   */
+  broadcastShoppingItemChecked(input: {
+    householdId: string;
+    weekStart: string;
+    changedByUserId: string;
+    changedByDisplayName?: string | null;
+    productKey: string;
+    isChecked: boolean;
+  }): void {
+    this.emitShoppingListChanged({
+      householdId: input.householdId,
+      weekStart: input.weekStart,
+      action: 'SET_ITEM_CHECKED',
+      changedByUserId: input.changedByUserId,
+      changedByDisplayName: input.changedByDisplayName ?? null,
+      productKey: input.productKey,
+      isChecked: input.isChecked,
+    });
+    this.notifyShoppingListChanged({
+      householdId: input.householdId,
+      changedByUserId: input.changedByUserId,
+      changedByDisplayName: input.changedByDisplayName ?? null,
+      action: 'SET_ITEM_CHECKED',
+      isChecked: input.isChecked,
+    });
+  }
+
   @SubscribeMessage('weeklyPlans:getByWeek')
   getByWeek(
     @ConnectedSocket() client: AppSocket,
@@ -439,22 +509,12 @@ export class WeeklyPlansGateway
         payload.data,
       );
 
-      this.emitShoppingListChanged({
+      this.broadcastShoppingItemChecked({
         householdId: payload.householdId,
         weekStart: payload.weekStart,
-        action: 'SET_ITEM_CHECKED',
         changedByUserId: userId,
         changedByDisplayName,
         productKey: payload.data.productKey,
-        isChecked: payload.data.isChecked,
-      });
-      // Pojedynczy checkbox nigdy nie zamienia się w powiadomienie — bufor
-      // czeka, aż ktoś skończy zakupy, i wysyła jedno „odhaczył 12 produktów".
-      this.notifyShoppingListChanged({
-        householdId: payload.householdId,
-        changedByUserId: userId,
-        changedByDisplayName,
-        action: 'SET_ITEM_CHECKED',
         isChecked: payload.data.isChecked,
       });
 
@@ -664,26 +724,13 @@ export class WeeklyPlansGateway
         payload.data,
       );
 
-      // Broadcast so a second device of the same user redraws, but no push
-      // notification and no shopping-list invalidation: logging what you ate
-      // changes neither the plan nor the list, and nagging the household
-      // about someone's breakfast would be noise.
-      const changeVersion = this.nextChangeVersion();
-      broadcastToHousehold(
-        this.server,
-        payload.householdId,
-        'weeklyPlans:weekChanged',
-        {
-          householdId: payload.householdId,
-          weekStart: payload.weekStart,
-          action: 'SET_MEAL_EATEN',
-          changedByUserId: userId,
-          changedByDisplayName: null,
-          dayOfWeek: payload.data?.dayOfWeek,
-          mealType: payload.data?.mealType,
-          changeVersion,
-        },
-      );
+      this.broadcastMealEaten({
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        changedByUserId: userId,
+        dayOfWeek: payload.data?.dayOfWeek,
+        mealType: payload.data?.mealType,
+      });
 
       return result;
     });

@@ -63,6 +63,15 @@ const LABELS: Record<string, readonly string[]> = {
     'Sprawdzam, jak wychodzą kalorie',
     'Podliczam tydzień',
   ],
+  get_recipe_details: [
+    'Czytam przepis',
+    'Sprawdzam skład i kroki',
+    'Zaglądam do przepisu',
+  ],
+  search_recipes_by_ingredient: [
+    'Szukam dań z tym składnikiem',
+    'Przeglądam składy przepisów',
+  ],
   search_ingredients: [
     'Szukam składników',
     'Przeglądam listę produktów',
@@ -76,6 +85,10 @@ const LABELS: Record<string, readonly string[]> = {
   ],
   propose_day_plan: ['Układam ten dzień', 'Dobieram posiłki na jeden dzień'],
   propose_swap: ['Szukam czegoś w zamian', 'Dobieram danie na podmianę'],
+  propose_remove_meal: [
+    'Wyjmuję to z planu',
+    'Sprawdzam, co zostanie po usunięciu',
+  ],
   propose_household_split: [
     'Rozdzielam porcje',
     'Dopasowuję wielkość porcji do każdego',
@@ -87,6 +100,8 @@ const LABELS: Record<string, readonly string[]> = {
     'Sprawdzam, czego trzeba dokupić',
   ],
   remember_note: ['Zapamiętuję to sobie', 'Notuję na przyszłość'],
+  mark_meal_eaten: ['Odhaczam posiłek', 'Zaznaczam, że to zjedzone'],
+  check_shopping_items: ['Odhaczam zakupy', 'Zaznaczam kupione produkty'],
   // Jedno sformułowanie, celowo: to jest MOMENT, nie kolejny krok, i ma
   // wyglądać tak samo w każdej turze.
   start_planning: ['Biorę się za plan'],
@@ -111,6 +126,11 @@ const WRITING_TOOLS = new Set([
   'create_recipe',
   'update_recipe',
   'delete_recipe',
+  // Nie zmieniają PLANU, ale zmieniają dane gospodarstwa, które użytkownik
+  // ogląda na osobnych ekranach — po takiej turze skrót „otwórz plan" albo
+  // „otwórz listę" prowadzi do czegoś, co naprawdę wygląda inaczej.
+  'mark_meal_eaten',
+  'check_shopping_items',
 ]);
 
 /**

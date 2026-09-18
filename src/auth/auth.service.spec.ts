@@ -616,7 +616,13 @@ describe('AuthService', () => {
       expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
-    it('drugie powtórzenie tego samego tokenu już nie ratuje — rodzina pada', async () => {
+    // Nazwa tego testu kłamała: mówiła „drugie powtórzenie już nie ratuje",
+    // a tuż wyżej stoi test, w którym token RECOVERED ratuje się dalej.
+    // Naprawdę sprawdzał co innego — `mockResolvedValue` (bez `Once`) oddaje
+    // ten sam unieważniony wiersz także przy odczycie NASTĘPCY, czyli
+    // rozwidlenie łańcucha. I to jest przypadek warty testu, tylko pod
+    // własną nazwą.
+    it('token po ratunku (RECOVERED) z UŻYTYM następcą → rodzina pada', async () => {
       prisma.refreshToken.findUnique.mockResolvedValue({
         ...mockRefreshToken,
         revokedAt: new Date(Date.now() - 5_000),
@@ -651,9 +657,82 @@ describe('AuthService', () => {
       });
     });
 
-    it('poza oknem łaski nie ratujemy — stara kopia tokenu kasuje rodzinę', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue({
+    // ─── PROD 18.09.2026: telefon w szufladzie przez kilka dni ───────────
+    //
+    // Przyczyna wylogowań „odpaliłem apkę po kilku dniach i znowu mnie
+    // wyrzuciło". Cichy push budzi aplikację w tle, ta woła `/auth/refresh`,
+    // serwer rotuje token — i iOS zawiesza proces, zanim odpowiedź trafi do
+    // Keychaina. Telefon leży kilka dni, po czym pokazuje token zrotowany
+    // dawno temu. Do 18.09 decydował o tym ZEGAR i taki telefon dostawał
+    // `replay`: skasowanie rodziny, `tokenVersion++` i wylogowanie ze
+    // WSZYSTKICH urządzeń. Teraz decyduje NASTĘPCA.
+
+    it('zgubiona rotacja sprzed DNI: następca nietknięty → świeża para, rodzina żyje', async () => {
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce({
+          ...mockRefreshToken,
+          revokedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+          revokedReason: 'ROTATED',
+          replacedByHash: 'hash-nastepcy',
+        })
+        // Nikt nigdy nie użył następcy — nowa para nie dotarła do NIKOGO.
+        .mockResolvedValueOnce({ revokedAt: null });
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      const result = await service.refreshAccessToken('stary-token');
+
+      expect(result).toHaveProperty('refreshToken');
+      // Najważniejsze w całej tej poprawce: rodzina NIE pada, więc pozostałe
+      // urządzenia domownika zostają zalogowane.
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rozwidlony łańcuch kasuje rodzinę także wtedy, gdy rotacja była przed chwilą', async () => {
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce({
+          ...mockRefreshToken,
+          revokedAt: new Date(Date.now() - 5_000),
+          revokedReason: 'ROTATED',
+          replacedByHash: 'hash-nastepcy',
+        })
+        // Następca UŻYTY = para dotarła i żyje własnym życiem, a mimo to wraca
+        // stary token. To jedyny przypadek z dowodem na dwie kopie.
+        .mockResolvedValueOnce({ revokedAt: new Date() });
+
+      await expect(service.refreshAccessToken('stary-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.user.updateMany).toHaveBeenCalled();
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('REFRESH_STRICT_REUSE=true przywraca kasowanie rodziny poza oknem łaski', async () => {
+      // Kompromis bezpieczeństwo/wygoda należy do właściciela instalacji:
+      // ten przełącznik oddaje zachowanie sprzed poprawki.
+      process.env.REFRESH_STRICT_REUSE = 'true';
+      try {
+        prisma.refreshToken.findUnique
+          .mockResolvedValueOnce({
+            ...mockRefreshToken,
+            revokedAt: new Date(Date.now() - 10 * 60 * 1000),
+            revokedReason: 'ROTATED',
+            replacedByHash: 'hash-nastepcy',
+          })
+          .mockResolvedValueOnce({ revokedAt: null });
+
+        await expect(service.refreshAccessToken('stary-token')).rejects.toThrow(
+          UnauthorizedException,
+        );
+        expect(prisma.user.updateMany).toHaveBeenCalled();
+      } finally {
+        delete process.env.REFRESH_STRICT_REUSE;
+      }
+    });
+
+    it('wygasły token nie jest ratowany, ale też nie kasuje rodziny', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValueOnce({
         ...mockRefreshToken,
+        expiresAt: new Date(Date.now() - 1_000),
         revokedAt: new Date(Date.now() - 10 * 60 * 1000),
         revokedReason: 'ROTATED',
         replacedByHash: 'hash-nastepcy',
@@ -662,8 +741,7 @@ describe('AuthService', () => {
       await expect(service.refreshAccessToken('stary-token')).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(prisma.user.updateMany).toHaveBeenCalled();
-      expect(jwt.signAsync).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
     it('token unieważniony przez LOGOUT nigdy nie jest ratowany', async () => {
