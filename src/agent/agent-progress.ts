@@ -60,6 +60,33 @@ export type AgentProgressStep = {
 export const THINK_STEP_TOOL = 'think';
 
 /**
+ * Trzy kroki PRZED pierwszym narzędziem i MIĘDZY nimi, których nie widać
+ * w żadnym wywołaniu narzędzia — a które zajmują większość ciszy tury.
+ *
+ * `read`: tura ruszyła, historia i prompt się składają, żądanie idzie do
+ * API. `reason`: model myśli (bloki `thinking` w strumieniu) — przy modelach
+ * z rozumowaniem to 10–40 s bez jednej litery odpowiedzi i bez narzędzia.
+ * `write`: pierwszy fragment tekstu — od tej chwili szkic rośnie na
+ * telefonie. Bez tych trzech telefon przez pierwsze pół minuty pokazywał
+ * „Zastanawiam się…" i nic więcej, a użytkownik brał to za zawieszenie.
+ *
+ * Wszystkie są przejściowe jak `think`: mówią, co dzieje się TERAZ, ale po
+ * turze nie są etapem, który warto pamiętać — `settledProgress` zdejmuje je
+ * z zapisu przy domknięciu.
+ */
+export const READ_STEP_TOOL = 'read';
+export const REASON_STEP_TOOL = 'reason';
+export const WRITE_STEP_TOOL = 'write';
+
+/** Kroki, które mówią o TERAŹNIEJSZOŚCI, nie o etapie — patrz `transient`. */
+const TRANSIENT_TOOLS: ReadonlySet<string> = new Set([
+  THINK_STEP_TOOL,
+  READ_STEP_TOOL,
+  REASON_STEP_TOOL,
+  WRITE_STEP_TOOL,
+]);
+
+/**
  * Etykiety mówią, co asystent ROBI DLA UŻYTKOWNIKA, a nie jak nazywa się
  * narzędzie. „Czytam plan tygodnia" jest zrozumiałe; „get_week_plan" nie jest.
  *
@@ -136,6 +163,22 @@ const LABELS: Record<string, readonly string[]> = {
     'Analizuję, co wyszło',
     'Myślę, co z tym zrobić',
   ],
+  [READ_STEP_TOOL]: [
+    'Czytam pytanie',
+    'Czytam, o co pytasz',
+    'Zaczynam od pytania',
+  ],
+  [REASON_STEP_TOOL]: [
+    'Zastanawiam się nad podejściem',
+    'Myślę nad tym',
+    'Rozważam, co zrobić',
+    'Układam plan działania',
+  ],
+  [WRITE_STEP_TOOL]: [
+    'Piszę odpowiedź',
+    'Układam odpowiedź',
+    'Formułuję odpowiedź',
+  ],
 };
 
 const DRY_RUN_LABELS: readonly string[] = [
@@ -201,8 +244,22 @@ export function progressStep(
     at: now.toISOString(),
     writes: WRITING_TOOLS.has(tool) && !dryRun,
     ...(tool === 'start_planning' ? { phase: 'PLANNING' as const } : {}),
-    ...(tool === THINK_STEP_TOOL ? { transient: true as const } : {}),
+    ...(TRANSIENT_TOOLS.has(tool) ? { transient: true as const } : {}),
   };
+}
+
+/**
+ * Postęp do ZAPISU przy domknięciu tury: bez kroków przejściowych.
+ *
+ * Na żywo „Czytam pytanie" i „Piszę odpowiedź" są sygnałem życia; po turze
+ * byłyby szumem w podsumowaniu „Myślałem 42 s" i w każdym kliencie, który
+ * nie zna flagi `transient`. Zostaje to, co asystent zrobił: narzędzia,
+ * przekazanie planiście, zapis.
+ */
+export function settledProgress(
+  steps: readonly AgentProgressStep[],
+): AgentProgressStep[] {
+  return steps.filter((step) => step.transient !== true);
 }
 
 /**

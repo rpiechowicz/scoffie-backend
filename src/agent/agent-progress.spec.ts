@@ -4,6 +4,10 @@ import {
   PROGRESS_FALLBACK,
   progressStep,
   THINK_STEP_TOOL,
+  READ_STEP_TOOL,
+  REASON_STEP_TOOL,
+  WRITE_STEP_TOOL,
+  settledProgress,
 } from './agent-progress';
 
 describe('progressStep', () => {
@@ -142,6 +146,41 @@ describe('krok `think` — cisza między narzędziami', () => {
       THINK_STEP_TOOL,
       'apply_week_plan',
     ]);
+  });
+});
+
+describe('kroki `read`, `reason`, `write` — życie tury bez narzędzi', () => {
+  it.each([READ_STEP_TOOL, REASON_STEP_TOOL, WRITE_STEP_TOOL])(
+    '`%s` jest przejściowy, nie zapisuje i ma polską etykietę',
+    (tool) => {
+      const step = progressStep(tool, {}, new Date(), 't-1');
+      expect(step.transient).toBe(true);
+      expect(step.writes).toBe(false);
+      expect(step.phase).toBeUndefined();
+      expect(step.label).not.toBe(PROGRESS_FALLBACK);
+      expect(step.label).not.toContain('_');
+    },
+  );
+
+  it('settledProgress zostawia po turze tylko to, co asystent zrobił', () => {
+    // Na żywo sygnały życia są potrzebne; po turze „Czytam pytanie" i
+    // „Piszę odpowiedź" byłyby szumem w „Myślałem 42 s" i w każdym kliencie,
+    // który nie zna flagi `transient`.
+    const at = new Date();
+    const steps = [
+      progressStep(READ_STEP_TOOL, {}, at, 't'),
+      progressStep(REASON_STEP_TOOL, {}, at, 't'),
+      progressStep('get_week_plan', {}, at, 't'),
+      progressStep(THINK_STEP_TOOL, {}, at, 't'),
+      progressStep('apply_week_plan', {}, at, 't'),
+      progressStep(WRITE_STEP_TOOL, {}, at, 't'),
+    ];
+    expect(settledProgress(steps).map((step) => step.tool)).toEqual([
+      'get_week_plan',
+      'apply_week_plan',
+    ]);
+    // Nie rusza wejścia: lista na żywo jest dalej pełna.
+    expect(steps).toHaveLength(6);
   });
 });
 

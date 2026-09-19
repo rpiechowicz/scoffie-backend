@@ -348,11 +348,29 @@ export class AnthropicAgentProvider implements AgentProvider {
     // zostać na ekranie pod kolejnym krokiem.
     request.onDraft?.('');
     let draft = '';
+    // Raz na wywołanie i rodzaj: model potrafi oddać kilkaset fragmentów
+    // myślenia, a telefon potrzebuje jednego zdania „myślę", nie kilkuset.
+    let announcedReasoning = false;
+    let announcedWriting = false;
     for await (const event of stream) {
-      if (
-        event.type === 'content_block_delta' &&
-        event.delta.type === 'text_delta'
-      ) {
+      if (event.type === 'content_block_start') {
+        if (event.content_block.type === 'thinking' && !announcedReasoning) {
+          announcedReasoning = true;
+          await request.onActivity?.('reasoning');
+        }
+        continue;
+      }
+      if (event.type !== 'content_block_delta') continue;
+      if (event.delta.type === 'thinking_delta' && !announcedReasoning) {
+        announcedReasoning = true;
+        await request.onActivity?.('reasoning');
+        continue;
+      }
+      if (event.delta.type === 'text_delta') {
+        if (!announcedWriting) {
+          announcedWriting = true;
+          await request.onActivity?.('writing');
+        }
         draft += event.delta.text;
         request.onDraft?.(draft);
       }
