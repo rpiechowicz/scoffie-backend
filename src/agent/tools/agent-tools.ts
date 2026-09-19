@@ -128,7 +128,12 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       'ani z tych pięciu składników — „dorsz z masłem" wygląda stamtąd na danie bez nabiału. ' +
       'Kroki przepisz swoimi słowami tylko wtedy, gdy użytkownik o nie prosi.',
     input_schema: object({ recipe: RECIPE_REF }, ['recipe']),
-    strict: true,
+    // BEZ `strict` — to i cztery kolejne narzędzia z 18.09 weszły ze `strict`
+    // bez smoke-testu na żywym API i produkcja oddawała AI_PROVIDER_ERROR na
+    // KAŻDEJ turze (gramatyka wszystkich narzędzi ze `strict` kompiluje się
+    // razem; patrz limit w agent-tools.spec.ts). Walidacja DTO w executorze
+    // sprawdza to samo. Wracać do `strict` tylko po zielonym
+    // `pnpm exec tsx scripts/agent-tools-smoke.ts`.
   },
   {
     name: 'search_recipes_by_ingredient',
@@ -149,7 +154,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['ingredient'],
     ),
-    strict: true,
   },
   {
     name: 'search_ingredients',
@@ -347,7 +351,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         'participant_user_ids',
       ],
     ),
-    strict: true,
   },
   {
     name: 'propose_household_split',
@@ -457,7 +460,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['week_start', 'day_of_week', 'meal_type', 'eaten'],
     ),
-    strict: true,
   },
   {
     name: 'check_shopping_items',
@@ -482,7 +484,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['week_start', 'products', 'checked'],
     ),
-    strict: true,
   },
   {
     name: 'check_plan_conflicts',
