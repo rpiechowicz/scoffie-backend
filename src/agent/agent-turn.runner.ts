@@ -22,6 +22,10 @@ import {
   AgentProgressStep,
   appendProgress,
   progressStep,
+  READ_STEP_TOOL,
+  REASON_STEP_TOOL,
+  settledProgress,
+  WRITE_STEP_TOOL,
   THINK_STEP_TOOL,
 } from './agent-progress';
 import { AgentPromptService, TurnDates } from './agent-prompt.service';
@@ -156,6 +160,10 @@ export class AgentTurnRunner {
     let pendingCard: AgentCard | null = null;
 
     try {
+      // Pierwszy krok od razu: historia i prompt składają się 1–3 s, potem
+      // model myśli — bez tego wpisu telefon widział pustą listę kroków
+      // i własne „Zastanawiam się…" aż do pierwszego narzędzia.
+      await this.publishProgress(input.turnId, progress, READ_STEP_TOOL, {});
       const messages = await this.loadHistory(input.conversationId);
       // Trasa tury (faza CHAT → faza PLANNER) — czysta funkcja konfiguracji,
       // liczona raz, przed pierwszym wywołaniem modelu.
@@ -194,6 +202,16 @@ export class AgentTurnRunner {
         // Cisza po narzędziach też jest krokiem — patrz `THINK_STEP_TOOL`.
         onThinking: () =>
           this.publishProgress(input.turnId, progress, THINK_STEP_TOOL, {}),
+        // Myślenie i pisanie z samego strumienia — to jedyne, co dzieje się
+        // w turze bez narzędzi, i jedyne, po czym telefon poznaje, że model
+        // żyje przez pierwsze pół minuty.
+        onActivity: (activity) =>
+          this.publishProgress(
+            input.turnId,
+            progress,
+            activity === 'reasoning' ? REASON_STEP_TOOL : WRITE_STEP_TOOL,
+            {},
+          ),
         onDraft: (text) => draft.push(text),
         signal: controller.signal,
         maxTurnCostUsd: input.env.maxTurnCostUsd,
@@ -204,6 +222,7 @@ export class AgentTurnRunner {
         Date.now() - startedAt,
         pendingCard,
         prompt.usedContext,
+        progress,
       );
       this.breaker.recordSuccess();
     } catch (error) {
@@ -213,6 +232,7 @@ export class AgentTurnRunner {
         Date.now() - startedAt,
         controller.signal.aborted,
         controller.signal.reason === ABORT_REASON_CANCELLED,
+        progress,
       );
     } finally {
       draft.stop();
@@ -420,6 +440,7 @@ export class AgentTurnRunner {
     durationMs: number,
     pendingCard: AgentCard | null,
     usedContext: string[] = [],
+    progress: readonly AgentProgressStep[] = [],
   ): Promise<void> {
     const { usage } = result;
     let closed = false;
@@ -434,6 +455,11 @@ export class AgentTurnRunner {
             // Prawdą jest teraz `AgentMessage`; szkic zostawiony tu myliłby
             // odczyt tury sprzed domknięcia.
             draftText: null,
+            // Bez kroków przejściowych („Czytam pytanie", „Piszę odpowiedź"):
+            // po turze liczą się narzędzia i zapis, nie sygnały życia.
+            progress: settledProgress(
+              progress,
+            ) as unknown as Prisma.InputJsonValue,
             durationMs,
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
@@ -585,6 +611,7 @@ export class AgentTurnRunner {
     durationMs: number,
     aborted: boolean,
     cancelled = false,
+    progress: readonly AgentProgressStep[] = [],
   ): Promise<void> {
     const verdict = this.classify(error, aborted, cancelled);
 
@@ -601,6 +628,9 @@ export class AgentTurnRunner {
           errorCode: verdict.errorCode,
           finishedAt: new Date(),
           durationMs,
+          progress: settledProgress(
+            progress,
+          ) as unknown as Prisma.InputJsonValue,
           ...(spent
             ? {
                 inputTokens: spent.inputTokens,

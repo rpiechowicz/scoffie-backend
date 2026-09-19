@@ -114,6 +114,11 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
     jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
     akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
     jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie.
+- Postęp tury (`AgentTurn.progress`, `src/agent/agent-progress.ts`): kroki narzędzi plus kroki
+  PRZEJŚCIOWE (`transient: true`) — `read` (start tury), `reason` (blok myślenia w strumieniu),
+  `write` (pierwszy fragment tekstu), `think` (cisza po narzędziach). Dostawca melduje je przez
+  `onActivity`/`onThinking`, telefon pokazuje na żywo obok tykającego czasu, a przy domknięciu tury
+  `settledProgress` zdejmuje je z zapisu — po turze zostają narzędzia i zapis (e2e liczy na to).
 - Schematy narzędzi asystenta mają DWA limity po stronie API i oba wywracają CAŁĄ turę (400),
   zanim model cokolwiek zobaczy: (1) pól nieobowiązkowych w sumie wszystkich `AGENT_TOOLS`
   najwyżej 24, (2) łączny rozmiar gramatyki skompilowanej z narzędzi ze `strict` („compiled
