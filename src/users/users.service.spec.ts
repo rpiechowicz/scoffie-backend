@@ -677,7 +677,11 @@ describe('UsersService.deleteAccount — cudze dane zostają', () => {
       );
       prisma.membership.delete = jest.fn().mockResolvedValue({});
       prisma.recipe.count.mockResolvedValue(0);
-      prisma.household = { delete: jest.fn().mockResolvedValue({}) };
+      prisma.household = {
+        // `update` = zamek składu przed policzeniem, kto został w domu.
+        update: jest.fn().mockResolvedValue({}),
+        delete: jest.fn().mockResolvedValue({}),
+      };
 
       await service.deleteAccount(mockUserId);
 

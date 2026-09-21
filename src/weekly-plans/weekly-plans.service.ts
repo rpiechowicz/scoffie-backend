@@ -20,6 +20,7 @@ import {
 } from './utils/planned-servings.util';
 import {
   ensureMembership,
+  ensureMembershipInTx,
   ensureRecipeForHousehold,
 } from './utils/auth-checks.util';
 import { runSerializable } from './utils/transaction-runner.util';
@@ -493,6 +494,8 @@ export class WeeklyPlansService {
         select: { id: true },
       });
       await lockWeekForWrite(tx, weeklyPlan.id);
+      // Członkostwo jeszcze raz, już pod zamkiem — patrz `ensureMembershipInTx`.
+      await ensureMembershipInTx(tx, userId, householdId, participantIds);
 
       await tx.shoppingListArchiveState.deleteMany({
         where: {
@@ -850,6 +853,12 @@ export class WeeklyPlansService {
       // warunki z `guard` — liczy się na stanie, którego nikt równolegle
       // nie zmienia.
       await lockWeekForWrite(tx, weeklyPlan.id);
+      await ensureMembershipInTx(
+        tx,
+        userId,
+        householdId,
+        desired.flatMap((slot) => slot.participantIds),
+      );
 
       // Stan archiwum listy zakupów dla tygodnia bez archiwum jest
       // nieaktualny z chwilą zmiany planu.
@@ -1470,6 +1479,7 @@ export class WeeklyPlansService {
       if (weeklyPlan) {
         await lockWeekForWrite(tx, weeklyPlan.id);
       }
+      await ensureMembershipInTx(tx, userId, householdId);
 
       await tx.shoppingListArchiveState.deleteMany({
         where: {
@@ -1777,6 +1787,7 @@ export class WeeklyPlansService {
       if (weeklyPlan) {
         await lockWeekForWrite(tx, weeklyPlan.id);
       }
+      await ensureMembershipInTx(tx, userId, householdId);
 
       // Stan archiwum zaraz po zamku, PRZED pozycjami i listą zakupów — w tej
       // kolejności biorą je zapisy posiłków. Dawniej szedł niżej, po liście:

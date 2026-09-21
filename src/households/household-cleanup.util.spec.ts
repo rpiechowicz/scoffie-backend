@@ -34,6 +34,8 @@ describe('settleHouseholdAfterMemberLeft', () => {
         }),
       },
       household: {
+        // Zamek składu (`lockHouseholdRoster`) — tu tylko ma się dać zawołać.
+        update: jest.fn().mockResolvedValue({}),
         delete: jest.fn().mockImplementation((args: unknown) => {
           const typed = args as { where: { id: string } };
           deletedHouseholds.push(typed.where.id);

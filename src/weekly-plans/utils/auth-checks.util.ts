@@ -1,4 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
 import { assertUuid } from '../../common/uuid';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -68,4 +69,46 @@ export async function ensureMembership(
     );
   }
   return membership;
+}
+
+/// `ensureMembership` policzone jeszcze raz W transakcji zapisu, PO zamku
+/// tygodnia (`lockWeekForWrite`).
+///
+/// AUDYT 21.09.2026. Bramka na wejściu metody biegnie przed transakcją, więc
+/// żądanie, które ją minęło tuż przed wyrzuceniem domownika, zapisywało potem
+/// do domu, w którym tej osoby już nie było. Usunięcie ze składu bierze ten
+/// sam zamek (`onMemberLeft` → `lockWeeksForWriteFrom`), więc po nim oba
+/// zdarzenia są uszeregowane: kto czekał na zamek, liczy członkostwo już po
+/// cudzym zatwierdzeniu (w SERIALIZABLE — po ponowieniu na świeżej migawce).
+///
+/// `participantIds` to ta sama reguła dla osób WPISYWANYCH do posiłku: bez
+/// niej zapis, który przeczekał usunięcie, odtwarzał wiersz uczestnika dla
+/// kogoś, kogo `onMemberLeft` dopiero co z planu wyczyścił.
+export async function ensureMembershipInTx(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  householdId: string,
+  participantIds: readonly string[] = [],
+): Promise<void> {
+  const wanted = Array.from(new Set([userId, ...participantIds]));
+  const present = await tx.membership.findMany({
+    where: { householdId, userId: { in: wanted } },
+    select: { userId: true },
+  });
+  const presentIds = new Set(present.map((row) => row.userId));
+  if (!presentIds.has(userId)) {
+    throw new AppException(
+      'NOT_HOUSEHOLD_MEMBER',
+      'User is not a member of this household',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+  const gone = wanted.filter((id) => !presentIds.has(id));
+  if (gone.length > 0) {
+    throw new AppException(
+      'PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD',
+      `Not a household member: ${gone.join(', ')}`,
+      HttpStatus.BAD_REQUEST,
+    );
+  }
 }

@@ -82,6 +82,16 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   `applyWeekPlan(…, { guard, settle })` — biegną w transakcji, w każdej jej próbie, więc tylko baza
   przez `tx`, żadnych efektów zewnętrznych. Tak działa `AgentProposalsService.undo`: przejęcie
   propozycji (status + `appliedAt`), odcisk, plan, zwrot kwoty i wiadomość w jednej transakcji.
+- Kontrole dostępu a współbieżność (audyt autoryzacji 21.09.2026, dowód: `test/authz-audit.e2e-spec.ts`):
+  (1) bramka członkostwa idzie PRZED odczytem zasobu — obcy dostaje `NOT_HOUSEHOLD_MEMBER` tak samo dla
+  domu/przepisu istniejącego i nieistniejącego (odwrotna kolejność = wyrocznia istnienia); (2) zapis oparty
+  na tym, KTO jest właścicielem (degradacja, `removeMember`, rozliczenie domu po wyjściu), bierze
+  `lockHouseholdRoster(tx, householdId)` i liczy `ensureOwnerInTx`/właścicieli W transakcji — zamek składu
+  idzie PRZED zamkiem tygodnia, a kto trzyma zamek tygodnia, nie sięga po ten; (3) transakcje zapisu planu
+  wołają po `lockWeekForWrite` jeszcze `ensureMembershipInTx(tx, userId, householdId, participantIds)`;
+  (4) `removeMember` gasi WSZYSTKIE otwarte zaproszenia domu (`revokeOpenInvitationsOf`) — wyrzucony zna
+  też cudze linki; `leave` tego nie robi; (5) `acceptInvitation` ma ważność i `declinedAt` w warunku
+  samego `updateMany`, nie tylko w kontroli przed transakcją.
 - Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
 - WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje

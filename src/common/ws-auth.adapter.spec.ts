@@ -16,6 +16,7 @@ type FakeSocket = {
   data: Record<string, unknown>;
   handshake: { auth: Record<string, unknown>; headers: Record<string, string> };
   join: jest.Mock;
+  leave: jest.Mock;
   emit: jest.Mock;
   disconnect: jest.Mock;
   once: jest.Mock;
@@ -32,6 +33,7 @@ const makeSocket = (
     data: {},
     handshake: { auth, headers },
     join: jest.fn().mockResolvedValue(undefined),
+    leave: jest.fn().mockResolvedValue(undefined),
     emit: jest.fn(),
     disconnect: jest.fn(),
     once: jest.fn((event: string, cb: () => void) => {
@@ -146,6 +148,32 @@ describe('AuthIoAdapter.authenticate', () => {
       socket.join.mock.invocationCallOrder[0],
     );
     expect(outcomes).toEqual([{ outcome: 'token' }]);
+  });
+
+  it('domownik usunięty w trakcie łączenia socketu nie zostaje w pokoju domu', async () => {
+    // Pierwszy odczyt widzi jeszcze oba domy, a usunięcie z hh-2 zatwierdza
+    // się (i `leaveHousehold` mija ten socket) zanim dojdzie do `join`.
+    // Drugi odczyt, już po `join`, ma to wyłapać.
+    const { adapter, householdIds } = makeAdapter({});
+    householdIds
+      .mockResolvedValueOnce(['hh-1', 'hh-2'])
+      .mockResolvedValueOnce(['hh-1']);
+    const socket = makeSocket({ token: 'good' });
+
+    await adapter.authenticate(socket as never);
+
+    expect(socket.leave).toHaveBeenCalledTimes(1);
+    expect(socket.leave).toHaveBeenCalledWith('household:hh-2');
+    expect(socket.leave.mock.invocationCallOrder[0]).toBeGreaterThan(
+      socket.join.mock.invocationCallOrder[1],
+    );
+  });
+
+  it('bez zmian w składzie nikt z żadnego pokoju nie wychodzi', async () => {
+    const { adapter } = makeAdapter({});
+    const socket = makeSocket({ token: 'good' });
+    await adapter.authenticate(socket as never);
+    expect(socket.leave).not.toHaveBeenCalled();
   });
 
   it('bez członkostw dołącza tylko do user:<id>', async () => {
