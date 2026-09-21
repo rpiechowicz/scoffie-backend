@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthProvider } from '@prisma/client';
 import { AuthService } from './auth.service';
 import {
@@ -367,6 +371,143 @@ describe('AuthService', () => {
 
       const updateCall = prisma.user.update.mock.calls[0][0];
       expect(updateCall.data).not.toHaveProperty('displayName');
+    });
+
+    describe('adres e-mail: tylko z podpisanego tokenu, nigdy z DTO', () => {
+      const ATAKOWANY = 'ofiara@cudza-firma.pl';
+      let warn: jest.SpyInstance;
+
+      beforeEach(() => {
+        warn = jest
+          .spyOn(Logger.prototype, 'warn')
+          .mockImplementation(() => undefined);
+      });
+      afterEach(() => warn.mockRestore());
+
+      it('poprawny token + zgodny e-mail w DTO: zapis z tokenu, bez ostrzeżenia', async () => {
+        apple.verify.mockResolvedValue(verified);
+        prisma.user.findUnique.mockResolvedValue(null);
+        prisma.user.create.mockResolvedValue(mockAppleUser);
+
+        await service.loginWithApple({
+          identityToken: 'eyJ.valid.token',
+          rawNonce: 'raw-nonce',
+          // Wielkość liter i spacje nie robią z tego rozjazdu.
+          email: '  Rafal@Example.com ',
+        });
+
+        const data = prisma.user.create.mock.calls[0][0].data;
+        expect(data.email).toBe('rafal@example.com');
+        expect(data.emailVerified).toBe(true);
+        expect(warn).not.toHaveBeenCalled();
+      });
+
+      it('nowe konto, e-mail w DTO podmieniony: do bazy idzie adres z tokenu', async () => {
+        apple.verify.mockResolvedValue(verified);
+        prisma.user.findUnique.mockResolvedValue(null);
+        prisma.user.create.mockResolvedValue(mockAppleUser);
+
+        await service.loginWithApple({
+          identityToken: 'eyJ.valid.token',
+          rawNonce: 'raw-nonce',
+          email: ATAKOWANY,
+        });
+
+        const data = prisma.user.create.mock.calls[0][0].data;
+        expect(data.email).toBe('rafal@example.com');
+        expect(JSON.stringify(data)).not.toContain(ATAKOWANY);
+        // Rozjazd jest odnotowany, ale BEZ żadnego z adresów w logu.
+        expect(warn).toHaveBeenCalledTimes(1);
+        const line = String(warn.mock.calls[0][0]);
+        expect(line).not.toContain(ATAKOWANY);
+        expect(line).not.toContain('rafal@example.com');
+      });
+
+      it('token BEZ claimu email + e-mail w DTO: konto powstaje bez adresu i bez „verified”', async () => {
+        // Najgorszy wariant: token twierdzi `email_verified`, ale adresu nie
+        // niesie — dawniej to potwierdzenie przyklejało się do adresu z DTO.
+        apple.verify.mockResolvedValue({
+          ...verified,
+          email: null,
+          emailVerified: true,
+        });
+        prisma.user.findUnique.mockResolvedValue(null);
+        prisma.user.create.mockResolvedValue({ ...mockAppleUser, email: null });
+
+        await service.loginWithApple({
+          identityToken: 'eyJ.valid.token',
+          rawNonce: 'raw-nonce',
+          email: ATAKOWANY,
+        });
+
+        const data = prisma.user.create.mock.calls[0][0].data;
+        expect(data.email).toBeNull();
+        expect(data.emailVerified).toBe(false);
+        // Nazwa zastępcza też nie bierze się z cudzego adresu.
+        expect(data.displayName).toBe(`Apple-${verified.appleSub.slice(0, 8)}`);
+      });
+
+      it('istniejące konto: podmieniony e-mail w DTO nie rusza adresu ani `emailVerified`', async () => {
+        apple.verify.mockResolvedValue({
+          ...verified,
+          email: null,
+          emailVerified: true,
+        });
+        prisma.user.findUnique.mockResolvedValue({
+          ...mockAppleUser,
+          email: ATAKOWANY,
+          emailVerified: false,
+        });
+
+        await service.loginWithApple({
+          identityToken: 'eyJ.valid.token',
+          rawNonce: 'raw-nonce',
+          // Zgodny z bazą, ale token go nie potwierdza.
+          email: ATAKOWANY,
+        });
+
+        const data = prisma.user.update.mock.calls[0][0].data;
+        expect(data).not.toHaveProperty('email');
+        expect(data).not.toHaveProperty('emailVerified');
+      });
+
+      it('istniejące konto: nowy adres z tokenu wygrywa z tym z DTO', async () => {
+        apple.verify.mockResolvedValue({
+          ...verified,
+          email: 'nowy@example.com',
+        });
+        prisma.user.findUnique.mockResolvedValue(mockAppleUser);
+
+        await service.loginWithApple({
+          identityToken: 'eyJ.valid.token',
+          rawNonce: 'raw-nonce',
+          email: ATAKOWANY,
+        });
+
+        const data = prisma.user.update.mock.calls[0][0].data;
+        expect(data.email).toBe('nowy@example.com');
+        expect(data.emailVerified).toBe(true);
+      });
+
+      it('log o nowym koncie nie niesie adresu ani `sub` Apple', async () => {
+        const log = jest
+          .spyOn(Logger.prototype, 'log')
+          .mockImplementation(() => undefined);
+        apple.verify.mockResolvedValue(verified);
+        prisma.user.findUnique.mockResolvedValue(null);
+        prisma.user.create.mockResolvedValue(mockAppleUser);
+
+        await service.loginWithApple({
+          identityToken: 'eyJ.valid.token',
+          rawNonce: 'raw-nonce',
+        });
+
+        const lines = log.mock.calls.map((call) => String(call[0])).join('\n');
+        expect(lines).toContain(mockAppleUser.id);
+        expect(lines).not.toContain('rafal@example.com');
+        expect(lines).not.toContain(verified.appleSub.slice(0, 8));
+        log.mockRestore();
+      });
     });
 
     it('powinno propagować UnauthorizedException z AppleIdentityService', async () => {

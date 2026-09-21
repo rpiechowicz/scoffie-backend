@@ -559,6 +559,66 @@ describe('Audyt autoryzacji 21.09.2026 E2E', () => {
     });
   });
 
+  describe('trasy /ops: brak OPS_TOKEN znaczy ZAMKNIĘTE, nie otwarte', () => {
+    const TRASY = ['/ops/metrics', '/ops/billing/subscriptions'];
+    const przy = async (
+      zmienne: { NODE_ENV: string; OPS_TOKEN?: string },
+      proba: () => Promise<void>,
+    ) => {
+      const przed = {
+        NODE_ENV: process.env.NODE_ENV,
+        OPS_TOKEN: process.env.OPS_TOKEN,
+      };
+      process.env.NODE_ENV = zmienne.NODE_ENV;
+      if (zmienne.OPS_TOKEN === undefined) delete process.env.OPS_TOKEN;
+      else process.env.OPS_TOKEN = zmienne.OPS_TOKEN;
+      try {
+        await proba();
+      } finally {
+        for (const [key, value] of Object.entries(przed)) {
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+        }
+      }
+    };
+
+    it.each(['staging', 'development', 'production'])(
+      'NODE_ENV=%s bez OPS_TOKEN: 403 z nagłówkiem i bez',
+      async (nodeEnv) => {
+        await przy({ NODE_ENV: nodeEnv }, async () => {
+          for (const trasa of TRASY) {
+            await request(app.getHttpServer()).get(trasa).expect(403);
+            await request(app.getHttpServer())
+              .get(trasa)
+              .set('x-ops-token', 'cokolwiek')
+              .expect(403);
+          }
+        });
+      },
+    );
+
+    it('staging z OPS_TOKEN: błędny token 403, poprawny 200, a odmowa nie zdradza tokenu', async () => {
+      const token = 'staging-ops-token-0123456789abcdef';
+      await przy({ NODE_ENV: 'staging', OPS_TOKEN: token }, async () => {
+        const zly = await request(app.getHttpServer())
+          .get('/ops/metrics')
+          .set('x-ops-token', `${token}x`)
+          .expect(403);
+        expect(JSON.stringify(zly.body)).not.toContain(token);
+        await request(app.getHttpServer())
+          .get('/ops/metrics')
+          .set('x-ops-token', token)
+          .expect(200);
+      });
+    });
+
+    it('sonda /ops/health zostaje publiczna także bez OPS_TOKEN', async () => {
+      await przy({ NODE_ENV: 'staging' }, async () => {
+        await request(app.getHttpServer()).get('/ops/health').expect(200);
+      });
+    });
+  });
+
   describe('asystent: były domownik nie widzi rozmów o cudzym już domu', () => {
     const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
