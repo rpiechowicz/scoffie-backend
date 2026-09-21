@@ -162,6 +162,8 @@ const makePrismaMock = (state: MockState) => {
     },
     weeklyPlan: {
       findMany: jest.fn().mockResolvedValue([]),
+      // Zamek zapisu tygodni (`lockWeeksForWriteFrom`).
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     planItem: {
       findMany: jest.fn().mockResolvedValue([]),

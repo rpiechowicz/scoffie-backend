@@ -117,6 +117,8 @@ const makePrismaMock = () => {
       findUniqueOrThrow: jest.fn().mockResolvedValue(mockWeeklyPlan),
       create: jest.fn().mockResolvedValue({ ...mockWeeklyPlan, items: [] }),
       upsert: jest.fn().mockResolvedValue({ id: 'plan-1' }),
+      // Zamek zapisu tygodnia (`lockWeekForWrite`).
+      update: jest.fn().mockResolvedValue({ id: 'plan-1' }),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     planItem: {

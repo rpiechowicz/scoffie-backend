@@ -23,6 +23,7 @@ import {
   ensureRecipeForHousehold,
 } from './utils/auth-checks.util';
 import { runSerializable } from './utils/transaction-runner.util';
+import { lockWeekForWrite } from './utils/week-write-lock.util';
 import { weeklyBalanceForMember } from './utils/daily-balance.util';
 import { ShoppingListService } from './services/shopping-list.service';
 
@@ -172,6 +173,32 @@ export type PlanViolation = {
   recipeId: string;
   code: AppErrorCode;
   message: string;
+};
+
+/**
+ * Haki WEWNĘTRZNE `applyWeekPlan` — dla wołających in-process (asystent),
+ * nigdy z drutu: gateway ich nie przekazuje, a DTO ich nie zna.
+ *
+ * Oba biegną W TRANSAKCJI zapisu, po zamku tygodnia, i to jest cały ich sens:
+ * warunek, od którego zależy zapis, oraz rozliczenie, które ma zapaść razem
+ * z nim, nie mogą żyć po stronie wołającego — między jego sprawdzeniem
+ * a naszym zapisem zmieściłby się cudzy zapis. Transakcja bywa ponawiana
+ * (`runSerializable`), więc haki biegną w KAŻDEJ próbie od nowa i nie mogą
+ * robić nic poza bazą przez przekazany `tx`. Rzut wycofuje całość.
+ *
+ * Domena nie wie, kto i po co je podaje — zależność zostaje jednokierunkowa.
+ */
+export type ApplyWeekPlanHooks = {
+  /** Przed jakimkolwiek zapisem; `current` = tydzień odczytany pod zamkiem. */
+  guard?: (
+    tx: Prisma.TransactionClient,
+    current: ApplyWeekSlotDto[],
+  ) => Promise<void>;
+  /** Po zapisie pozycji, przed zatwierdzeniem. */
+  settle?: (
+    tx: Prisma.TransactionClient,
+    changes: { created: number; updated: number; deleted: number },
+  ) => Promise<void>;
 };
 
 /** Jedna pozycja proponowanego tygodnia, gotowa do pokazania człowiekowi. */
@@ -467,6 +494,7 @@ export class WeeklyPlansService {
         },
         select: { id: true },
       });
+      await lockWeekForWrite(tx, weeklyPlan.id);
 
       // „Zmień danie": stary wariant znika w tej samej transakcji, w której
       // wchodzi nowy. Dwa skutki, oba celowe: slot nigdy nie stoi pusty
@@ -756,6 +784,7 @@ export class WeeklyPlansService {
     householdId: string,
     weekStart: string,
     input: ApplyWeekPlanDto,
+    hooks: ApplyWeekPlanHooks = {},
   ): Promise<ApplyWeekPlanResult> {
     const dto = await validateDto(ApplyWeekPlanDto, input);
     await ensureMembership(this.prisma, userId, householdId);
@@ -820,6 +849,9 @@ export class WeeklyPlansService {
         create: { householdId, weekStart: weekStartDate },
         select: { id: true },
       });
+      // Zamek PRZED odczytem pozycji: wszystko niżej — także warunki z `guard`
+      // — liczy się na stanie, którego nikt równolegle nie zmienia.
+      await lockWeekForWrite(tx, weeklyPlan.id);
 
       const current = await tx.planItem.findMany({
         where: { weeklyPlanId: weeklyPlan.id },
@@ -832,6 +864,19 @@ export class WeeklyPlansService {
           participants: { select: { userId: true } },
         },
       });
+      if (hooks.guard) {
+        await hooks.guard(
+          tx,
+          current.map((item) => ({
+            dayOfWeek: item.dayOfWeek,
+            mealType: item.mealType,
+            recipeId: item.recipeId,
+            participantIds: item.participants.map((p) => p.userId),
+            plannedServings: item.plannedServings,
+          })),
+        );
+      }
+
       const currentByKey = new Map(
         current.map((item) => [planSlotKey(item), item]),
       );
@@ -917,7 +962,11 @@ export class WeeklyPlansService {
         tx,
       );
 
-      return { created, updated, deleted: removedIds.length };
+      const changes = { created, updated, deleted: removedIds.length };
+      if (hooks.settle) {
+        await hooks.settle(tx, changes);
+      }
+      return changes;
     });
 
     // Odczyt po transakcji, tym samym kształtem, co `getByWeek` — klient i
@@ -1419,6 +1468,7 @@ export class WeeklyPlansService {
       if (!weeklyPlan) {
         return null;
       }
+      await lockWeekForWrite(tx, weeklyPlan.id);
 
       // With splits a slot can hold several variants. `recipeId` targets one
       // of them; omitting it clears the whole slot, which is what every
@@ -1712,6 +1762,7 @@ export class WeeklyPlansService {
       });
 
       if (weeklyPlan) {
+        await lockWeekForWrite(tx, weeklyPlan.id);
         await tx.planItem.deleteMany({
           where: { weeklyPlanId: weeklyPlan.id },
         });
