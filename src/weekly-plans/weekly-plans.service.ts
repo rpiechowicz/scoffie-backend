@@ -23,6 +23,7 @@ import {
   ensureRecipeForHousehold,
 } from './utils/auth-checks.util';
 import { runSerializable } from './utils/transaction-runner.util';
+import { lockWeekForWrite } from './utils/week-write-lock.util';
 import { weeklyBalanceForMember } from './utils/daily-balance.util';
 import { ShoppingListService } from './services/shopping-list.service';
 
@@ -172,6 +173,32 @@ export type PlanViolation = {
   recipeId: string;
   code: AppErrorCode;
   message: string;
+};
+
+/**
+ * Haki WEWNĘTRZNE `applyWeekPlan` — dla wołających in-process (asystent),
+ * nigdy z drutu: gateway ich nie przekazuje, a DTO ich nie zna.
+ *
+ * Oba biegną W TRANSAKCJI zapisu, po zamku tygodnia, i to jest cały ich sens:
+ * warunek, od którego zależy zapis, oraz rozliczenie, które ma zapaść razem
+ * z nim, nie mogą żyć po stronie wołającego — między jego sprawdzeniem
+ * a naszym zapisem zmieściłby się cudzy zapis. Transakcja bywa ponawiana
+ * (`runSerializable`), więc haki biegną w KAŻDEJ próbie od nowa i nie mogą
+ * robić nic poza bazą przez przekazany `tx`. Rzut wycofuje całość.
+ *
+ * Domena nie wie, kto i po co je podaje — zależność zostaje jednokierunkowa.
+ */
+export type ApplyWeekPlanHooks = {
+  /** Przed jakimkolwiek zapisem; `current` = tydzień odczytany pod zamkiem. */
+  guard?: (
+    tx: Prisma.TransactionClient,
+    current: ApplyWeekSlotDto[],
+  ) => Promise<void>;
+  /** Po zapisie pozycji, przed zatwierdzeniem. */
+  settle?: (
+    tx: Prisma.TransactionClient,
+    changes: { created: number; updated: number; deleted: number },
+  ) => Promise<void>;
 };
 
 /** Jedna pozycja proponowanego tygodnia, gotowa do pokazania człowiekowi. */
@@ -445,14 +472,12 @@ export class WeeklyPlansService {
     const memberIdsForGate = members.memberIds;
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.shoppingListArchiveState.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-          currentArchiveId: null,
-        },
-      });
-
+      // KOLEJNOŚĆ BLOKAD — ta sama w każdej transakcji zmieniającej tydzień:
+      // zamek tygodnia → stan archiwum → pozycje planu → lista zakupów.
+      // Zamek idzie PIERWSZY: kto na nim czeka, nie trzyma jeszcze niczego,
+      // więc nie ma na co czekać nawzajem (`test/week-lock-order.e2e-spec.ts`).
+      // Tydzień, którego jeszcze nie ma, zakłada `upsert` — równoległych
+      // założycieli szereguje indeks unikalny (householdId, weekStart).
       const weeklyPlan = await tx.weeklyPlan.upsert({
         where: {
           householdId_weekStart: {
@@ -466,6 +491,15 @@ export class WeeklyPlansService {
           weekStart: weekStartDate,
         },
         select: { id: true },
+      });
+      await lockWeekForWrite(tx, weeklyPlan.id);
+
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
       });
 
       // „Zmień danie": stary wariant znika w tej samej transakcji, w której
@@ -756,6 +790,7 @@ export class WeeklyPlansService {
     householdId: string,
     weekStart: string,
     input: ApplyWeekPlanDto,
+    hooks: ApplyWeekPlanHooks = {},
   ): Promise<ApplyWeekPlanResult> {
     const dto = await validateDto(ApplyWeekPlanDto, input);
     await ensureMembership(this.prisma, userId, householdId);
@@ -802,16 +837,6 @@ export class WeeklyPlansService {
     }
 
     const changes = await runSerializable(this.prisma, async (tx) => {
-      // Ten sam porządek, co w `upsertWeekSlot`: stan archiwum listy zakupów
-      // dla tygodnia bez archiwum jest nieaktualny z chwilą zmiany planu.
-      await tx.shoppingListArchiveState.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-          currentArchiveId: null,
-        },
-      });
-
       const weeklyPlan = await tx.weeklyPlan.upsert({
         where: {
           householdId_weekStart: { householdId, weekStart: weekStartDate },
@@ -819,6 +844,21 @@ export class WeeklyPlansService {
         update: {},
         create: { householdId, weekStart: weekStartDate },
         select: { id: true },
+      });
+      // Zamek jako PIERWSZA blokada transakcji (kolejność jak w
+      // `upsertWeekSlot`) i PRZED odczytem pozycji: wszystko niżej — także
+      // warunki z `guard` — liczy się na stanie, którego nikt równolegle
+      // nie zmienia.
+      await lockWeekForWrite(tx, weeklyPlan.id);
+
+      // Stan archiwum listy zakupów dla tygodnia bez archiwum jest
+      // nieaktualny z chwilą zmiany planu.
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
       });
 
       const current = await tx.planItem.findMany({
@@ -832,6 +872,19 @@ export class WeeklyPlansService {
           participants: { select: { userId: true } },
         },
       });
+      if (hooks.guard) {
+        await hooks.guard(
+          tx,
+          current.map((item) => ({
+            dayOfWeek: item.dayOfWeek,
+            mealType: item.mealType,
+            recipeId: item.recipeId,
+            participantIds: item.participants.map((p) => p.userId),
+            plannedServings: item.plannedServings,
+          })),
+        );
+      }
+
       const currentByKey = new Map(
         current.map((item) => [planSlotKey(item), item]),
       );
@@ -917,7 +970,11 @@ export class WeeklyPlansService {
         tx,
       );
 
-      return { created, updated, deleted: removedIds.length };
+      const changes = { created, updated, deleted: removedIds.length };
+      if (hooks.settle) {
+        await hooks.settle(tx, changes);
+      }
+      return changes;
     });
 
     // Odczyt po transakcji, tym samym kształtem, co `getByWeek` — klient i
@@ -1398,14 +1455,6 @@ export class WeeklyPlansService {
     const weekStartDate = parseWeekStart(weekStart);
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.shoppingListArchiveState.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-          currentArchiveId: null,
-        },
-      });
-
       const weeklyPlan = await tx.weeklyPlan.findUnique({
         where: {
           householdId_weekStart: {
@@ -1414,6 +1463,20 @@ export class WeeklyPlansService {
           },
         },
         select: { id: true },
+      });
+      // Zamek przed stanem archiwum — kolejność jak w `upsertWeekSlot`.
+      // Tygodnia bez wiersza nie ma czym zamknąć i nie trzeba: stan archiwum
+      // jest wtedy jedyną blokadą tej transakcji.
+      if (weeklyPlan) {
+        await lockWeekForWrite(tx, weeklyPlan.id);
+      }
+
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
       });
 
       if (!weeklyPlan) {
@@ -1712,6 +1775,23 @@ export class WeeklyPlansService {
       });
 
       if (weeklyPlan) {
+        await lockWeekForWrite(tx, weeklyPlan.id);
+      }
+
+      // Stan archiwum zaraz po zamku, PRZED pozycjami i listą zakupów — w tej
+      // kolejności biorą je zapisy posiłków. Dawniej szedł niżej, po liście:
+      // zapis trzymał stan archiwum i czekał na tydzień albo listę, a
+      // czyszczenie trzymało tydzień albo listę i czekało na stan archiwum.
+      // Postgres kończył to `40P01 deadlock detected`, którego Prisma NIE
+      // zamienia na P2034 — `runSerializable` tego nie ponawiał i wychodziło 500.
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      });
+
+      if (weeklyPlan) {
         await tx.planItem.deleteMany({
           where: { weeklyPlanId: weeklyPlan.id },
         });
@@ -1725,13 +1805,6 @@ export class WeeklyPlansService {
       });
 
       await tx.shoppingList.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-        },
-      });
-
-      await tx.shoppingListArchiveState.deleteMany({
         where: {
           householdId,
           weekStart: weekStartDate,
