@@ -312,14 +312,24 @@ describe('HouseholdsService', () => {
 
     it('UUID wielkimi literami (iOS `uuidString`) przechodzi bramkę', async () => {
       // Mock członkostw jest kluczowany małymi literami, więc dalej odbija się
-      // o `ensureMembership` — istotne jest, że to NIE jest VALIDATION_ERROR
-      // i że zapytanie o dom w ogóle poszło.
+      // o `ensureMembership` — istotne jest, że to NIE jest VALIDATION_ERROR.
       await expect(
         service.findById(OWNER, HH.toUpperCase()),
       ).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
-      expect(prisma.household.findUnique).toHaveBeenCalledWith({
-        where: { id: HH.toUpperCase() },
+    });
+
+    it('obcy dostaje TĘ SAMĄ odmowę dla domu istniejącego i nieistniejącego', async () => {
+      // Dawniej dom czytał się przed członkostwem: 404 dla id z powietrza,
+      // 403 dla prawdziwego — czyli potwierdzenie, że cudzy dom istnieje.
+      await expect(service.findById(STRANGER, HH)).rejects.toMatchObject({
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
       });
+      prisma.household.findUnique.mockResolvedValue(null);
+      await expect(service.findById(STRANGER, GHOST_HH)).rejects.toMatchObject({
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
+      // Obcy nie dochodzi nawet do zapytania o dom.
+      expect(prisma.household.findUnique).not.toHaveBeenCalled();
     });
   });
 
@@ -388,7 +398,7 @@ describe('HouseholdsService', () => {
     });
 
     it('drugi wyścig o ten sam link: zero zmienionych wierszy = ALREADY_REDEEMED, transakcja wycofana', async () => {
-      prisma.invitation.findUnique.mockResolvedValue({
+      const open = {
         id: 'inv-1',
         householdId: HH,
         createdById: OWNER,
@@ -396,12 +406,44 @@ describe('HouseholdsService', () => {
         declinedAt: null,
         expiresAt: new Date(Date.now() + 86_400_000),
         invitedUserId: null,
-      });
+      };
+      // Pierwszy odczyt (przed transakcją) widzi link otwarty, drugi — już po
+      // przegranym `updateMany` — wykorzystany przez kogoś innego.
+      prisma.invitation.findUnique
+        .mockResolvedValueOnce(open)
+        .mockResolvedValueOnce({ redeemedAt: new Date() });
       prisma.invitation.updateMany.mockResolvedValue({ count: 0 });
       await expect(
         service.acceptInvitation(MEMBER, { token: 'a'.repeat(32) }),
       ).rejects.toMatchObject({
         response: { code: 'INVITATION_ALREADY_REDEEMED' },
+      });
+    });
+
+    it('link zgaszony MIĘDZY kontrolą a zapisem (wyrzucenie wystawcy) nie wpuszcza: EXPIRED', async () => {
+      const open = {
+        id: 'inv-1',
+        householdId: HH,
+        createdById: OWNER,
+        redeemedAt: null,
+        declinedAt: null,
+        expiresAt: new Date(Date.now() + 86_400_000),
+        invitedUserId: null,
+      };
+      prisma.invitation.findUnique
+        .mockResolvedValueOnce(open)
+        .mockResolvedValueOnce({ redeemedAt: null });
+      prisma.invitation.updateMany.mockResolvedValue({ count: 0 });
+      await expect(
+        service.acceptInvitation(MEMBER, { token: 'a'.repeat(32) }),
+      ).rejects.toMatchObject({ response: { code: 'INVITATION_EXPIRED' } });
+      // Warunek ważności siedzi w SAMYM zapisie, nie tylko w kontroli wyżej.
+      const where = prisma.invitation.updateMany.mock.calls[0][0].where;
+      expect(where).toMatchObject({
+        id: 'inv-1',
+        redeemedAt: null,
+        declinedAt: null,
+        expiresAt: { gt: expect.any(Date) },
       });
     });
 
@@ -640,7 +682,7 @@ describe('HouseholdsService', () => {
       // `updateMany` z warunkiem `redeemedAt: null` — zamek na drugi wyścig.
       expect(prisma.invitation.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'inv-1', redeemedAt: null },
+          where: expect.objectContaining({ id: 'inv-1', redeemedAt: null }),
           data: expect.objectContaining({
             redeemedById: STRANGER,
             invitedUserId: STRANGER,
@@ -885,11 +927,11 @@ describe('HouseholdsService', () => {
       });
     });
 
-    it('nieznany dom → NotFound', async () => {
+    it('nieznany dom → ta sama odmowa co cudzy (nie zdradza istnienia)', async () => {
       prisma.household.findUnique.mockResolvedValue(null);
       await expect(
         service.updateName(OWNER, GHOST_HH, { name: 'Nowa' }),
-      ).rejects.toMatchObject({ response: { code: 'HOUSEHOLD_NOT_FOUND' } });
+      ).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
 
     it.each([

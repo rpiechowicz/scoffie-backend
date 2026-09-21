@@ -645,6 +645,14 @@ export class RecipesService {
     // `recipe-1` do kolumny `@db.Uuid` (P2023 → dawniej 500).
     assertUuid(id, 'id');
     if (householdId) assertUuid(householdId, 'householdId');
+    // Członkostwo PRZED jakimkolwiek odczytem przepisu. Po pierwsze bez niego
+    // wystarczyłoby podać cudze `householdId`, żeby obejrzeć prywatny przepis
+    // tamtego domu. Po drugie kolejność odwrotna (przepis, potem członkostwo)
+    // zdradzała istnienie: aktywny przepis DOWOLNEGO domu dawał 403, a id
+    // nieistniejące 404 (audyt 21.09.2026).
+    if (householdId) {
+      await this.ensureMembership(userIdentifier, householdId);
+    }
     const recipe = await this.prisma.recipe.findFirst({
       // `isActive` w warunku, nie po odczycie: od `recipes:delete` wycofany
       // przepis realnie istnieje w bazie i nie ma prawa wracać z odczytu.
@@ -659,11 +667,6 @@ export class RecipesService {
       );
     }
 
-    // Członkostwo PRZED bramką widoczności: bez tego wystarczyłoby podać
-    // cudze `householdId`, żeby obejrzeć prywatny przepis tamtego domu.
-    if (householdId) {
-      await this.ensureMembership(userIdentifier, householdId);
-    }
     // Katalog widzą wszyscy; przepis gospodarstwa — tylko ono. 404, nie 403:
     // cudzy przepis nie ma prawa nawet potwierdzić, że istnieje.
     if (!recipe.isCatalog && recipe.householdId !== householdId) {
@@ -957,6 +960,9 @@ export class RecipesService {
 
   async setFavorite(userIdentifier: string, input: UpdateRecipeFavoriteDto) {
     const data = await validateDto(UpdateRecipeFavoriteDto, input);
+    // Najpierw członkostwo — z tego samego powodu, co w `findById`: obcy nie
+    // ma się dowiedzieć, czy przepis o danym id istnieje.
+    await this.ensureMembership(userIdentifier, data.householdId);
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: data.recipeId },
       select: {
@@ -973,7 +979,6 @@ export class RecipesService {
         HttpStatus.NOT_FOUND,
       );
     }
-    await this.ensureMembership(userIdentifier, data.householdId);
     // Ta sama bramka, co w `findById`: ulubiony może być przepis katalogu
     // albo własny tego domu. Zapis dla cudzego przepisu przechodził, a potem
     // odczyt padał na wierszu, którego dom nie widzi.

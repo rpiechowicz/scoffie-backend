@@ -102,7 +102,7 @@ Use [`.env.example`](./.env.example) as the source of truth.
 
 ### Required in production only (`NODE_ENV=production`, checked at boot)
 
-- `OPS_TOKEN` (guards `GET /ops/metrics`)
+- `OPS_TOKEN` (guards every `/ops/*` route except `/ops/health`). Boot is refused without it only in production, but the guard is fail-closed everywhere: an empty token means 403 in dev and staging too. The sole exception is `NODE_ENV=test`.
 - `COOKIDOO_SERVICE_TOKEN`
 - `AUTH_DEV_LOGIN_ENABLED` must not be `true`
 

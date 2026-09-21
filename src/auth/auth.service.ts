@@ -122,10 +122,26 @@ export class AuthService {
       dto.familyName,
     );
 
-    // Email: prefer the one from the verified JWT (signed by Apple);
-    // fall back to DTO only if JWT didn't carry it for some reason.
-    const email =
-      verified.email ?? (dto.email?.trim().toLowerCase() || null) ?? null;
+    // Adres WYŁĄCZNIE z identity tokenu — to jedyna wartość podpisana przez
+    // Apple. `dto.email` jest tekstem wpisanym przez klienta.
+    //
+    // AUDYT 21.09.2026. Dawniej token bez claimu `email` oznaczał „weź adres
+    // z DTO": dowolne konto Apple mogło wpisać sobie cudzy adres, a powitanie,
+    // pożegnanie i maile o subskrypcji (z nazwą wybraną przez nadawcę) szły
+    // do osoby trzeciej. Przy istniejącym koncie ta sama gałąź przepisywała
+    // `emailVerified` z tokenu na adres, którego token nie niósł.
+    //
+    // Pole zostaje w DTO (kontrakt z iOS), ale niczego nie zapisuje. Rozjazd
+    // z tokenem tylko odnotowujemy — BEZ adresów w logu.
+    const email = verified.email;
+    const declaredEmail = dto.email?.trim().toLowerCase() || null;
+    if (declaredEmail && declaredEmail !== email) {
+      this.logger.warn(
+        `Apple sign-in: dto.email ${
+          email ? 'differs from' : 'sent without'
+        } the identity token email claim — ignored`,
+      );
+    }
 
     // Look up existing user first so we can decide what to update.
     const existing = await this.prisma.user.findUnique({
@@ -149,10 +165,10 @@ export class AuthService {
       }
 
       // Only update email if we learn a new one; do not clear it.
-      if (email && existing.email !== email) {
-        updateData.email = email;
-        updateData.emailVerified = verified.emailVerified;
-      } else if (existing.email === email) {
+      // `emailVerified` opisuje adres Z TOKENU, więc rusza się tylko razem
+      // z nim — token bez adresu nie potwierdza niczego, co leży w bazie.
+      if (email) {
+        if (existing.email !== email) updateData.email = email;
         updateData.emailVerified = verified.emailVerified;
       }
 
@@ -176,9 +192,8 @@ export class AuthService {
           lastLoginAt: new Date(),
         },
       });
-      this.logger.log(
-        `New Apple user created: ${user.id} (appleSub=${verified.appleSub.slice(0, 12)}…)`,
-      );
+      // Sam `user.id`: adres i `sub` Apple to dane osobowe, w logu zbędne.
+      this.logger.log(`New Apple user created: ${user.id}`);
     }
 
     return this.buildAuthResult(user);
