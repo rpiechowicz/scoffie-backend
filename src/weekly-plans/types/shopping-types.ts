@@ -23,8 +23,17 @@ export type ShoppingListArchiveSnapshot = {
   items: ShoppingListItem[];
 };
 
+/**
+ * Pozycja bieżącej listy tak, jak widzi ją ekran: plus tytuły przepisów,
+ * z których coś do niej DOPISANO (`ShoppingListExtra`). Pusta tablica =
+ * pozycja wyłącznie z planu. Archiwa tego pola nie mają.
+ */
+export type ShoppingListStateItem = ShoppingListItem & {
+  addedFrom: string[];
+};
+
 export type ShoppingListStateDto = {
-  items: ShoppingListItem[];
+  items: ShoppingListStateItem[];
   archives: ShoppingListArchiveSnapshot[];
 };
 
