@@ -10,6 +10,8 @@ import { CARDS_CAPABILITY_V1 } from '../src/agent/cards/agent-cards';
 import { AiUsageCountersService } from '../src/agent/ai-usage-counters.service';
 import { WeeklyPlansService } from '../src/weekly-plans/weekly-plans.service';
 import { lockWeekForWrite } from '../src/weekly-plans/utils/week-write-lock.util';
+import { ShoppingListService } from '../src/weekly-plans/services/shopping-list.service';
+import { HouseholdsService } from '../src/households/households.service';
 
 /**
  * Asystent AI (Faza 0, krok 3) na żywym serwerze, z dostawcą `stub`.
@@ -1880,6 +1882,308 @@ describe('Agent E2E', () => {
         });
         expect(await ctx.plansUsed()).toBe(ctx.usedAfterApply - 1);
         expect(await ctx.confirmations()).toBe(1);
+      });
+
+      // Zapis propozycji (`apply`) — ta sama transakcja zapisu planu, co
+      // cofnięcie: przejęcie, odcisk, plan, kwota, wiadomość i odcisk „po"
+      // zatwierdzają się razem albo wcale.
+      describe('zapis pod współbieżnością i awariami', () => {
+        // Każdy przypadek to osobna tura w TYM SAMYM domu, a pula wiadomości
+        // najmniejszego planu (30) skończyłaby się w połowie suity. Ta sekcja
+        // testuje zapis planu, nie kwotę wiadomości: na czas jej trwania sufit
+        // (env czytany per żądanie), a po niej licznik wiadomości wraca do
+        // stanu sprzed niej — dalsze sekcje widzą tę samą pulę co bez niej.
+        let messagesBefore = 0;
+        beforeAll(async () => {
+          messagesBefore = await readQuota(householdId);
+          process.env.AI_LIMIT_MESSAGES_PER_MONTH = '100000';
+        });
+        afterAll(async () => {
+          delete process.env.AI_LIMIT_MESSAGES_PER_MONTH;
+          await prisma.aiUsageCounter.updateMany({
+            where: {
+              scopeId: householdId,
+              periodKey: monthKey(),
+              kind: 'messages',
+            },
+            data: { value: messagesBefore },
+          });
+        });
+
+        /** Plan z R, propozycja podmienia na N (`recipeId`) i CZEKA na klik. */
+        const preparePending = async (who: Session = session) => {
+          await prisma.weeklyPlan.deleteMany({
+            where: { householdId, weekStart: weekStartDate },
+          });
+          await prisma.weeklyPlan.create({
+            data: {
+              householdId,
+              weekStart: weekStartDate,
+              items: {
+                create: [
+                  { dayOfWeek: 'MON', mealType: 'DINNER', recipeId: before },
+                ],
+              },
+            },
+          });
+          const conversation = await createConversation(
+            who.accessToken,
+            householdId,
+          );
+          const accepted = await postMessage(who.accessToken, conversation.id, {
+            clientMessageId: randomUUID(),
+            text: `Podmień kolację [[propose:${recipeId}:${WEEK_START}]]`,
+            clientCapabilities: [CARDS_CAPABILITY_V1],
+          }).expect(202);
+          await pollTurn(
+            who.accessToken,
+            (accepted.body as AcceptedTurn).turnId,
+          );
+          const proposalRow = await prisma.agentProposal.findFirstOrThrow({
+            where: { conversationId: conversation.id },
+          });
+          const proposalId = proposalRow.id;
+          const plan = await counters.resolvePlan(householdId, {
+            userId: who.user.id,
+          });
+          const plansUsed = async () =>
+            (
+              await prisma.aiUsageCounter.findUnique({
+                where: {
+                  scopeId_periodKey_kind: {
+                    scopeId: plan.quotaScopeId,
+                    periodKey: plan.periodKey,
+                    kind: 'plans',
+                  },
+                },
+              })
+            )?.value ?? 0;
+          const appliedMessages = () =>
+            prisma.agentMessage.count({
+              where: { conversationId: conversation.id, kind: 'APPLIED' },
+            });
+          const apply = (body: Record<string, unknown> = {}) =>
+            request(app.getHttpServer())
+              .post(`/agent/proposals/${proposalId}/apply`)
+              .set(auth(who.accessToken))
+              .send(body);
+          const proposal = () =>
+            prisma.agentProposal.findUnique({ where: { id: proposalId } });
+          return {
+            conversation,
+            proposalId,
+            apply,
+            proposal,
+            plansUsed,
+            appliedMessages,
+            usedBefore: await plansUsed(),
+          };
+        };
+
+        /** Nic z zapisu nie zapadło: plan, propozycja, kwota i rozmowa. */
+        const expectUntouched = async (
+          ctx: Awaited<ReturnType<typeof preparePending>>,
+          status: string,
+        ) => {
+          expect(await planRecipes()).toEqual([`MON:DINNER:${before}`]);
+          expect(await ctx.proposal()).toMatchObject({
+            status,
+            appliedAt: null,
+            appliedHash: null,
+            undoSnapshot: null,
+            quotaPeriodKey: null,
+          });
+          expect(await ctx.plansUsed()).toBe(ctx.usedBefore);
+          expect(await ctx.appliedMessages()).toBe(0);
+        };
+
+        it('F: sukces jednej propozycji — plan, APPLIED, jedna kwota, jedno potwierdzenie; ponowny klik niczego nie dokłada', async () => {
+          const ctx = await preparePending();
+
+          const res = await ctx.apply().expect(200);
+          expect(res.body).toMatchObject({
+            proposalId: ctx.proposalId,
+            status: 'APPLIED',
+            message: { kind: 'APPLIED' },
+          });
+          expect(await planRecipes()).toEqual([`MON:DINNER:${recipeId}`]);
+          const row = await ctx.proposal();
+          // Podmiana dania to usunięcie starej pozycji i utworzenie nowej.
+          expect(row).toMatchObject({ status: 'APPLIED', changedCount: 2 });
+          expect(row!.appliedHash).toEqual(expect.any(String));
+          expect(row!.undoSnapshot).toEqual([
+            expect.objectContaining({ recipeId: before }),
+          ]);
+          expect(await ctx.plansUsed()).toBe(ctx.usedBefore + 1);
+          expect(await ctx.appliedMessages()).toBe(1);
+
+          // Ponowne apply po sukcesie: ten sam wynik, zero skutków.
+          const again = await ctx.apply().expect(200);
+          expect(again.body).toMatchObject({
+            status: 'APPLIED',
+            message: {
+              id: (res.body as { message: { id: string } }).message.id,
+            },
+          });
+          expect(await ctx.plansUsed()).toBe(ctx.usedBefore + 1);
+          expect(await ctx.appliedMessages()).toBe(1);
+          expect(await ctx.proposal()).toMatchObject({
+            appliedAt: row!.appliedAt,
+            appliedHash: row!.appliedHash,
+          });
+        });
+
+        it('G: dwa zapisy zwolnione z bariery naraz — jeden zapis, jedna kwota, jedno potwierdzenie', async () => {
+          const ctx = await preparePending();
+          const hold = holdApplyWeekPlan(2);
+
+          const first = ctx.apply().then((res) => res);
+          const second = ctx.apply().then((res) => res);
+          // Oba przeszły kontrole wstępne na PENDING i stoją przed zapisem.
+          await hold.allArrived();
+          hold.release();
+          const results = await Promise.all([first, second]);
+
+          expect(results.map((res) => res.status)).toEqual([200, 200]);
+          expect(
+            results.map((res) => (res.body as { status: string }).status),
+          ).toEqual(['APPLIED', 'APPLIED']);
+          expect(await planRecipes()).toEqual([`MON:DINNER:${recipeId}`]);
+          const row = await ctx.proposal();
+          expect(row).toMatchObject({ status: 'APPLIED', changedCount: 2 });
+          // „Stan sprzed" to tydzień sprzed PIERWSZEGO zapisu, nie już zmieniony.
+          expect(row!.undoSnapshot).toEqual([
+            expect.objectContaining({ recipeId: before }),
+          ]);
+          expect(await ctx.plansUsed()).toBe(ctx.usedBefore + 1);
+          expect(await ctx.appliedMessages()).toBe(1);
+        });
+
+        describe('domownik wyrzucony przed zatwierdzeniem', () => {
+          let member: Session;
+
+          beforeEach(async () => {
+            member = await devLogin('Domownik');
+            await prisma.membership.create({
+              data: { userId: member.user.id, householdId, role: 'MEMBER' },
+            });
+          });
+
+          afterEach(async () => {
+            await prisma.membership.deleteMany({
+              where: { userId: member.user.id, householdId },
+            });
+          });
+
+          const removeMember = () =>
+            app
+              .get(HouseholdsService)
+              .removeMember(session.user.id, householdId, member.user.id);
+
+          it('H: wyrzucony PRZED kliknięciem — 403, nic nie zapada', async () => {
+            const ctx = await preparePending(member);
+            await removeMember();
+
+            const res = await ctx.apply();
+
+            expect(res.status).toBe(403);
+            expect(res.body).toMatchObject({ code: 'NOT_HOUSEHOLD_MEMBER' });
+            await expectUntouched(ctx, 'PENDING');
+          });
+
+          it('I: wyrzucony W TRAKCIE zapisu (po kontrolach wstępnych) — plan nietknięty, propozycja nie APPLIED, kwota bez zmian', async () => {
+            const ctx = await preparePending(member);
+            const hold = holdApplyWeekPlan(1);
+
+            const late = ctx.apply().then((res) => res);
+            // Kontrola członkostwa w `apply` już przeszła.
+            await hold.allArrived();
+            await removeMember();
+            hold.release();
+            const res = await late;
+
+            expect(res.status).toBe(403);
+            expect(res.body).toMatchObject({ code: 'NOT_HOUSEHOLD_MEMBER' });
+            await expectUntouched(ctx, 'PENDING');
+          });
+        });
+
+        it('J: awaria techniczna W transakcji (po zapisie pozycji) — 500, wszystko wycofane, FAILED; ponowienie zapisuje raz', async () => {
+          const ctx = await preparePending();
+          const shopping = app.get(ShoppingListService);
+          const original = shopping.markShoppingListStale.bind(shopping);
+          let failed = false;
+          jest
+            .spyOn(shopping, 'markShoppingListStale')
+            .mockImplementation((...args) => {
+              if (!failed) {
+                failed = true;
+                return Promise.reject(new Error('baza padła'));
+              }
+              return original(...args);
+            });
+
+          await ctx.apply().expect(500);
+          expect(failed).toBe(true);
+          await expectUntouched(ctx, 'FAILED');
+
+          // FAILED = „Spróbuj ponownie": zwykły klik, bez `force`.
+          await ctx.apply().expect(200);
+          expect(await planRecipes()).toEqual([`MON:DINNER:${recipeId}`]);
+          expect(await ctx.proposal()).toMatchObject({ status: 'APPLIED' });
+          expect(await ctx.plansUsed()).toBe(ctx.usedBefore + 1);
+          expect(await ctx.appliedMessages()).toBe(1);
+        });
+
+        it('K: awaria licznika kwoty W transakcji — 500, plan i propozycja wycofane, kwota bez zmian', async () => {
+          const ctx = await preparePending();
+          jest
+            .spyOn(counters, 'tryConsume')
+            .mockRejectedValueOnce(new Error('licznik padł'));
+
+          await ctx.apply().expect(500);
+          await expectUntouched(ctx, 'FAILED');
+        });
+
+        it('L: pytanie poprawione po propozycji — STALE; zwykły klik i „Zapisz mimo to" odmawiają, nic nie zapada', async () => {
+          const ctx = await preparePending();
+          const question = await prisma.agentMessage.findFirstOrThrow({
+            where: { conversationId: ctx.conversation.id, role: 'USER' },
+          });
+
+          const edited = await request(app.getHttpServer())
+            .post(`/agent/conversations/${ctx.conversation.id}/messages/edit`)
+            .set(auth(session.accessToken))
+            .send({
+              messageId: question.id,
+              clientMessageId: randomUUID(),
+              text: 'Jednak nic nie zmieniaj',
+              weekStart: WEEK_START,
+              clientToday: CLIENT_TODAY,
+              timeZone: TIME_ZONE,
+              clientCapabilities: [CARDS_CAPABILITY_V1],
+            })
+            .expect(202);
+          await pollTurn(
+            session.accessToken,
+            (edited.body as AcceptedTurn).turnId,
+          );
+          expect(await ctx.proposal()).toMatchObject({ status: 'STALE' });
+
+          // Plan jest DOKŁADNIE taki, jak przy propozycji — odcisk się zgadza,
+          // więc to status i ukryte pytanie muszą zatrzymać zapis.
+          const plain = await ctx.apply().expect(409);
+          expect(plain.body).toMatchObject({
+            code: 'AI_PROPOSAL_STALE',
+            details: ['reason:STALE'],
+          });
+          const forced = await ctx.apply({ force: true }).expect(409);
+          expect(forced.body).toMatchObject({
+            code: 'AI_PROPOSAL_STALE',
+            details: ['reason:WITHDRAWN'],
+          });
+          await expectUntouched(ctx, 'STALE');
+        });
       });
     });
 

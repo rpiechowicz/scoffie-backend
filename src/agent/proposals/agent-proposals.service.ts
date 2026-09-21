@@ -817,7 +817,9 @@ export class AgentProposalsService {
     options: { force?: boolean } = {},
   ): Promise<ProposalActionResult> {
     const proposal = await this.loadOwned(userId, proposalId);
-    // Członkostwo mogło się zmienić między propozycją a kliknięciem.
+    // Członkostwo mogło się zmienić między propozycją a kliknięciem. To jest
+    // szybka odmowa; wiążąca kontrola biegnie jeszcze raz pod zamkiem tygodnia
+    // w `applyWeekPlan` (`ensureMembershipInTx`).
     await ensureMembership(this.prisma, userId, proposal.householdId);
 
     // Podwójny klik dostaje TEN SAM wynik, nie konflikt — to jest odpowiedź
@@ -836,9 +838,21 @@ export class AgentProposalsService {
         [`reason:${proposal.status}`],
       );
     }
+    // STALE bez `force` to odmowa, nawet gdy odcisk tygodnia wrócił do stanu
+    // z propozycji: STALE znaczy też „pytanie poprawione" (`editMessage`), a
+    // tego odcisk planu nie widzi. Telefon wysyła z karty STALE wyłącznie
+    // „Zapisz mimo to" (`force: true`), więc kontrakt się nie zmienia.
+    if (proposal.status === 'STALE' && !options.force) {
+      throw new AppException(
+        'AI_PROPOSAL_STALE',
+        'Ta propozycja jest już nieaktualna. Poproś asystenta o nową.',
+        HttpStatus.CONFLICT,
+        ['reason:STALE'],
+      );
+    }
     const statusBefore = proposal.status;
     if (proposal.expiresAt.getTime() <= Date.now()) {
-      await this.markStatus(proposal.id, 'EXPIRED');
+      await this.markStatusFrom(proposal.id, statusBefore, 'EXPIRED');
       throw new AppException(
         'AI_PROPOSAL_EXPIRED',
         'Ta propozycja wygasła. Poproś asystenta o nową.',
@@ -846,169 +860,223 @@ export class AgentProposalsService {
       );
     }
 
-    const weekStart = toWeekStartString(proposal.weekStart);
-    const before = await this.weeklyPlans.snapshotWeekAsSlots(
-      userId,
-      proposal.householdId,
-      weekStart,
-    );
-    // `force` pomija TYLKO to porównanie: użytkownik widział na karcie, że
-    // plan się zmienił, i świadomie zapisuje. Walidacja domeny (alergeny,
-    // wykluczenia) biegnie niżej w `applyWeekPlan` tak samo jak zawsze.
-    if (!options.force && weekBaselineHash(before) !== proposal.baselineHash) {
-      await this.markStatus(proposal.id, 'STALE');
-      throw new AppException(
-        'AI_PROPOSAL_STALE',
-        'Plan tygodnia zmienił się od czasu tej propozycji. Poproś asystenta o nową.',
-        HttpStatus.CONFLICT,
-        ['reason:CHANGED'],
-      );
-    }
-
-    // Kwota PRZED zamkiem: odmowa kwoty nie zostawia wtedy propozycji
-    // APPLIED bez odcisku (dawny „rollback" przez markStatus połykał błędy,
-    // a cofnięcie bez odcisku nadpisywało cudze zmiany).
+    // Zakres i limit kwoty liczone PRZED transakcją (to odczyt planu domu,
+    // nie blokada); samo zdjęcie kwoty zapada w transakcji zapisu niżej.
+    // Zakres ten sam, co przy wiadomościach: `sub:<id>` przy subskrypcji,
+    // `trial:<hasz>` na próbie, dom przy nadaniu operatora.
     const plan = await this.counters.resolvePlan(proposal.householdId, {
       userId,
     });
     const periodKey = plan.periodKey;
-    // Zakres kwoty planu — ten sam, co przy wiadomościach: `sub:<id>` przy
-    // subskrypcji, `trial:<hasz>` na próbie, dom przy nadaniu operatora.
     const scopeId = plan.quotaScopeId;
     const limit = plan.plansLimit;
-    const consumed = await this.counters.tryConsume(
-      this.prisma,
-      scopeId,
-      periodKey,
-      'plans',
-      limit,
-    );
-    if (!consumed) {
-      // Tu jesteśmy POZA transakcją (`tryConsume` dostał `this.prisma`), więc
-      // kolejkowanie przed rzutem jest bezpieczne — nic się nie wycofa.
-      await this.quotaMail.announce(userId, plan, 'plans');
-      throw new AppException(
-        'AI_PLAN_QUOTA_EXCEEDED',
-        plan.tier === 'TRIAL'
-          ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. Wybierz plan, żeby mieć pulę miesięczną dla całego domu.`
-          : `Limit zapisanych planów w tym okresie (${limit}) został wyczerpany.`,
-        HttpStatus.TOO_MANY_REQUESTS,
-        this.counters.quotaDetailsFor('plans', plan),
-      );
-    }
+    const weekStart = toWeekStartString(proposal.weekStart);
+    const messageId = proposal.messageId;
 
-    // Zamek na poziomie bazy. Chodzi nie tylko o podwójny zapis (ten i tak
-    // byłby bezstratny — `applyWeekPlan` to operacja stanu docelowego), ale
-    // o `undoSnapshot`: drugi przebieg zapisałby jako „stan sprzed" tydzień
-    // JUŻ ZMIENIONY i zabiłby „Cofnij".
-    const locked = await this.prisma.agentProposal.updateMany({
-      where: { id: proposal.id, status: statusBefore },
-      data: {
-        status: 'APPLIED',
-        undoSnapshot: before as unknown as Prisma.InputJsonValue,
-        appliedAt: new Date(),
-        appliedByUserId: userId,
-        undoneAt: null,
-        quotaPeriodKey: periodKey,
-        quotaScopeId: scopeId,
-        changedCount: null,
-        appliedHash: null,
-      },
-    });
-    if (locked.count === 0) {
-      // Ktoś zdążył pierwszy — jego zapis już zjadł kwotę, nasza wraca.
-      await this.refundPlan(scopeId, periodKey);
-      return this.resultForApplied(await this.loadOwned(userId, proposalId));
-    }
-
-    const slots = readSlots(proposal.action);
+    // JEDNA transakcja na cały zapis — ta, w której domena zapisuje plan.
+    //
+    // Historia: do 21.09.2026 zapis szedł czterema krokami poza transakcją
+    // planu: kwota → status APPLIED → plan → wiadomość i odcisk. Każda przerwa
+    // zostawiała inny kłopot: odmowa członkostwa pod zamkiem zostawiała
+    // propozycję APPLIED ze zjedzoną kwotą i bez planu; błąd zapisu wiadomości
+    // po zatwierdzonym planie oznaczał propozycję FAILED i oddawał kwotę, choć
+    // plan się zmienił; zwrot kwoty połykał błędy, więc przegrany wyścig
+    // potrafił ją zgubić; odcisk sprawdzany przed zamkiem przepuszczał cudzy
+    // zapis wciśnięty między kontrolę a zapis.
+    //
+    // Teraz, jak w `undo`, `guard` i `settle` biegną POD ZAMKIEM TYGODNIA,
+    // w transakcji zapisu, w każdej jej próbie od nowa:
+    //  1. przejęcie propozycji ze statusu, który widzieliśmy — przegrany
+    //     wyścig (drugi klik, drugi telefon) odpada, zanim dotknie planu,
+    //     kwoty albo rozmowy;
+    //  2. pytanie, z którego propozycja wyszła, nie jest wycofane;
+    //  3. odcisk tygodnia odczytanego pod zamkiem (chyba że `force`);
+    //  4. zapis pozycji (domena, z członkostwem sprawdzonym pod zamkiem);
+    //  5. kwota, wiadomość, odcisk „po" i domknięcie propozycji.
+    // Wszystko zatwierdza się razem albo wcale, więc nie ma stanu APPLIED bez
+    // planu, planu bez APPLIED, kwoty bez zapisu ani potwierdzenia bez zmiany.
+    let message: MessageView | null = null;
+    let result: Awaited<ReturnType<WeeklyPlansService['applyWeekPlan']>>;
     try {
-      const result = await this.weeklyPlans.applyWeekPlan(
+      result = await this.weeklyPlans.applyWeekPlan(
         userId,
         proposal.householdId,
         weekStart,
-        { slots },
-      );
+        { slots: readSlots(proposal.action) },
+        {
+          guard: async (tx, current) => {
+            const claimed = await tx.agentProposal.updateMany({
+              where: { id: proposal.id, status: statusBefore },
+              data: {
+                status: 'APPLIED',
+                // „Stan sprzed" z tygodnia odczytanego POD ZAMKIEM — migawka
+                // spoza transakcji mogła już nie być prawdą, a „Cofnij"
+                // przywróciłby wtedy cudzy tydzień.
+                undoSnapshot: current as unknown as Prisma.InputJsonValue,
+                appliedAt: new Date(),
+                appliedByUserId: userId,
+                undoneAt: null,
+                quotaPeriodKey: null,
+                quotaScopeId: null,
+                changedCount: null,
+                appliedHash: null,
+              },
+            });
+            if (claimed.count === 0) throw new ProposalSuperseded();
+            // Pytanie poprawione po propozycji (`editMessage` ukrywa wszystko
+            // od niego w dół): zapis planu, którego nikt już nie chce. Pod
+            // zamkiem, bo karta mogła zostać na drugim telefonie, a `force`
+            // tego nie omija — pomija wyłącznie odcisk planu.
+            const source = messageId
+              ? await tx.agentMessage.findUnique({
+                  where: { id: messageId },
+                  select: { hiddenAt: true },
+                })
+              : null;
+            if (!source || source.hiddenAt) {
+              throw new ProposalRefused(
+                'WITHDRAWN',
+                'Pytanie, na które odpowiadała ta propozycja, zostało poprawione. Poproś asystenta o nową.',
+              );
+            }
+            // `force` pomija TYLKO to porównanie: użytkownik widział na karcie,
+            // że plan się zmienił, i świadomie zapisuje. Walidacja domeny
+            // (alergeny, wykluczenia, członkostwo) biegnie tak samo jak zawsze.
+            if (
+              !options.force &&
+              weekBaselineHash(current) !== proposal.baselineHash
+            ) {
+              throw new ProposalRefused(
+                'CHANGED',
+                'Plan tygodnia zmienił się od czasu tej propozycji. Poproś asystenta o nową.',
+              );
+            }
+          },
+          settle: async (tx, changes) => {
+            const changed = changes.created + changes.updated + changes.deleted;
+            // Zapis bez zmian nie kosztuje planu — kwota nawet nie schodzi,
+            // a cofnięcie nie ma czego zwracać (klucze kwoty zostają puste).
+            if (changed > 0) {
+              const consumed = await this.counters.tryConsume(
+                tx,
+                scopeId,
+                periodKey,
+                'plans',
+                limit,
+              );
+              if (!consumed) throw new PlanQuotaExhausted();
+            }
 
-      if (!result.applied) {
-        await this.refundPlan(scopeId, periodKey);
-        await this.markStatus(proposal.id, 'STALE', {
-          quotaPeriodKey: null,
-          quotaScopeId: null,
-        });
+            const after = await this.weeklyPlans.snapshotWeekAsSlots(
+              userId,
+              proposal.householdId,
+              weekStart,
+              tx,
+            );
+            const card = buildAppliedCard({
+              proposalId: proposal.id,
+              weekStart,
+              changes,
+              undoUntil: new Date(
+                Date.now() + readAgentEnv().proposalUndoWindowMs,
+              ),
+              canUndo: changed > 0,
+            });
+            // Nadpisywane w każdej próbie — wiadomości z wycofanych prób
+            // nie istnieją, zostaje ta z zatwierdzonej.
+            message = await this.writeMessage(
+              {
+                conversationId: proposal.conversationId,
+                kind: 'APPLIED',
+                text: appliedMessageText({ weekStart, changes }),
+                card,
+              },
+              tx,
+            );
+            await tx.agentProposal.update({
+              where: { id: proposal.id },
+              data: {
+                appliedHash: weekBaselineHash(after),
+                changedCount: changed,
+                quotaPeriodKey: changed === 0 ? null : periodKey,
+                quotaScopeId: changed === 0 ? null : scopeId,
+              },
+            });
+          },
+        },
+      );
+    } catch (error) {
+      if (error instanceof ProposalSuperseded) {
+        // Przegrany wyścig: plan, kwota i rozmowa nietknięte. Równoległy
+        // zapis TEJ SAMEJ propozycji to dwa dotknięcia przycisku — ten sam
+        // wynik. Wszystko inne (np. cofnięcie w międzyczasie) to odmowa.
+        const latest = await this.loadOwned(userId, proposalId);
+        if (latest.status === 'APPLIED') return this.resultForApplied(latest);
         throw new AppException(
           'AI_PROPOSAL_STALE',
-          'Tej propozycji nie da się już zapisać — plan albo przepisy zmieniły się w międzyczasie.',
+          'Ta propozycja zmieniła stan w trakcie zapisu. Odśwież rozmowę i spróbuj ponownie.',
           HttpStatus.CONFLICT,
-          [
-            'reason:VIOLATIONS',
-            ...result.violations.map((violation) => violation.code),
-          ],
+          [`reason:${latest.status}`],
         );
       }
-
-      const changed =
-        result.changes.created +
-        result.changes.updated +
-        result.changes.deleted;
-      if (changed === 0) {
-        // Zapis bez zmian nie kosztuje planu — i cofnięcie nie ma już czego
-        // zwracać (`quotaPeriodKey` niżej zostaje puste).
-        await this.refundPlan(scopeId, periodKey);
+      if (error instanceof ProposalRefused) {
+        await this.markStatusFrom(proposal.id, statusBefore, 'STALE');
+        throw new AppException(
+          'AI_PROPOSAL_STALE',
+          error.message,
+          HttpStatus.CONFLICT,
+          [`reason:${error.reason}`],
+        );
       }
-
-      const after = await this.weeklyPlans.snapshotWeekAsSlots(
-        userId,
-        proposal.householdId,
-        weekStart,
-      );
-      const undoUntil = new Date(
-        Date.now() + readAgentEnv().proposalUndoWindowMs,
-      );
-      const card = buildAppliedCard({
-        proposalId: proposal.id,
-        weekStart,
-        changes: result.changes,
-        undoUntil,
-        canUndo: changed > 0,
-      });
-
-      const message = await this.writeMessage({
-        conversationId: proposal.conversationId,
-        kind: 'APPLIED',
-        text: appliedMessageText({ weekStart, changes: result.changes }),
-        card,
-      });
-
-      await this.prisma.agentProposal.update({
-        where: { id: proposal.id },
-        data: {
-          appliedHash: weekBaselineHash(after),
-          changedCount: changed,
-          quotaPeriodKey: changed === 0 ? null : periodKey,
-          quotaScopeId: changed === 0 ? null : scopeId,
-        },
-      });
-
-      this.broadcast(userId, proposal.householdId, weekStart);
-
-      return {
-        proposalId: proposal.id,
-        status: 'APPLIED',
-        message,
-        changes: result.changes,
-      };
-    } catch (error) {
-      if (error instanceof AppException) throw error;
-      // Propozycja, która padła przy zapisie, nie wraca do klikania:
-      // przycisk działający raz na dwa razy jest gorszy niż jego brak.
-      await this.refundPlan(scopeId, periodKey);
-      await this.markStatus(proposal.id, 'FAILED', {
-        quotaPeriodKey: null,
-        quotaScopeId: null,
-      });
+      if (error instanceof PlanQuotaExhausted) {
+        // Transakcja jest już wycofana — kolejkowanie maila przed rzutem
+        // nie ma czego wycofać.
+        await this.quotaMail.announce(userId, plan, 'plans');
+        throw new AppException(
+          'AI_PLAN_QUOTA_EXCEEDED',
+          plan.tier === 'TRIAL'
+            ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. Wybierz plan, żeby mieć pulę miesięczną dla całego domu.`
+            : `Limit zapisanych planów w tym okresie (${limit}) został wyczerpany.`,
+          HttpStatus.TOO_MANY_REQUESTS,
+          this.counters.quotaDetailsFor('plans', plan),
+        );
+      }
+      // Odmowa domeny rzucona wyjątkiem (np. `NOT_HOUSEHOLD_MEMBER` pod
+      // zamkiem po wyrzuceniu z domu) nie jest awarią: status zostaje, jaki
+      // był. Awaria techniczna — FAILED („Spróbuj ponownie"). W obu razach
+      // transakcja jest wycofana w całości, więc kwota nie zeszła, a błąd
+      // idzie dalej bez zmian.
+      if (!(error instanceof AppException)) {
+        await this.markStatusFrom(proposal.id, statusBefore, 'FAILED');
+      }
       throw error;
     }
+
+    if (!result.applied || !message) {
+      // Naruszenia domeny zapadają PRZED transakcją, więc haki nie biegły:
+      // nic nie zostało przejęte ani zdjęte.
+      await this.markStatusFrom(proposal.id, statusBefore, 'STALE');
+      throw new AppException(
+        'AI_PROPOSAL_STALE',
+        'Tej propozycji nie da się już zapisać — plan albo przepisy zmieniły się w międzyczasie.',
+        HttpStatus.CONFLICT,
+        [
+          'reason:VIOLATIONS',
+          ...result.violations.map((violation) => violation.code),
+        ],
+      );
+    }
+
+    // Rozgłoszenie dopiero PO zatwierdzeniu i raz — nie z haka, który biegnie
+    // w każdej próbie transakcji.
+    this.broadcast(userId, proposal.householdId, weekStart);
+
+    return {
+      proposalId: proposal.id,
+      status: 'APPLIED',
+      message,
+      changes: result.changes,
+    };
   }
 
   /**
@@ -1049,7 +1117,9 @@ export class AgentProposalsService {
     // Zapis, który nie doszedł do odcisku (proces padł między zamkiem a
     // `appliedHash`), nie ma wiarygodnej migawki „po" — cofanie go
     // nadpisałoby tydzień stanem sprzed nieznanej liczby zmian.
-    if (!proposal.appliedHash) {
+    // To samo przy braku migawki „przed": `readSlots` oddałby pustą listę,
+    // a stan docelowy „nic" wyczyściłby cały tydzień i ogłosił to cofnięciem.
+    if (!proposal.appliedHash || !Array.isArray(proposal.undoSnapshot)) {
       throw new AppException(
         'AI_PROPOSAL_STALE',
         'Ten zapis nie został domknięty, więc nie da się go bezpiecznie cofnąć. Popraw plan ręcznie.',
@@ -1268,32 +1338,30 @@ export class AgentProposalsService {
     return proposal;
   }
 
-  private async markStatus(
+  /**
+   * Oznaczenie propozycji po odmowie albo awarii — WARUNKOWE, ze statusu,
+   * który widzieliśmy. Bez warunku spóźniona odmowa nadpisałaby cudzy,
+   * zatwierdzony już zapis (APPLIED → STALE przy planie, który się zmienił).
+   *
+   * To księgowość karty, nie poprawność zapisu: transakcja jest już wycofana,
+   * a status sprzed niej jest bezpieczny (zapis sprawdzi wszystko od nowa).
+   * Dlatego błąd tutaj tylko logujemy — i nigdy nie zasłania on błędu, który
+   * wołający i tak rzuca dalej.
+   */
+  private async markStatusFrom(
     id: string,
+    from: string,
     status: string,
-    extra: {
-      quotaPeriodKey?: string | null;
-      quotaScopeId?: string | null;
-    } = {},
   ): Promise<void> {
     try {
-      await this.prisma.agentProposal.update({
-        where: { id },
-        data: { status, ...extra },
+      await this.prisma.agentProposal.updateMany({
+        where: { id, status: from },
+        data: { status },
       });
     } catch (error) {
       this.logger.warn(
         `nie udało się ustawić statusu propozycji: ${String(error)}`,
       );
-    }
-  }
-
-  /** Zwrot kwoty planu — księgowość nie może wywrócić operacji użytkownika. */
-  private async refundPlan(scopeId: string, periodKey: string): Promise<void> {
-    try {
-      await this.counters.add(this.prisma, scopeId, periodKey, 'plans', -1);
-    } catch (error) {
-      this.logger.warn(`nie udało się zwrócić kwoty planu: ${String(error)}`);
     }
   }
 
@@ -1411,6 +1479,22 @@ export class AgentProposalsService {
 
 /** Sygnał z `guard`: TEN zapis propozycji przejął już ktoś inny. */
 class UndoSuperseded extends Error {}
+
+/** Sygnał z `guard` zapisu: propozycję przejął już ktoś inny. */
+class ProposalSuperseded extends Error {}
+
+/** Sygnał z `guard` zapisu: propozycja nieaktualna (powód w `details`). */
+class ProposalRefused extends Error {
+  constructor(
+    readonly reason: 'CHANGED' | 'WITHDRAWN',
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+/** Sygnał z `settle` zapisu: kwota planów wyczerpana — wycofaj wszystko. */
+class PlanQuotaExhausted extends Error {}
 
 export type ProposalActionResult = {
   proposalId: string;

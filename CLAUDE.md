@@ -82,6 +82,11 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   `applyWeekPlan(…, { guard, settle })` — biegną w transakcji, w każdej jej próbie, więc tylko baza
   przez `tx`, żadnych efektów zewnętrznych. Tak działa `AgentProposalsService.undo`: przejęcie
   propozycji (status + `appliedAt`), odcisk, plan, zwrot kwoty i wiadomość w jednej transakcji.
+  I tak samo `apply` (od 21.09.2026): przejęcie ze statusu sprzed kliknięcia, ukryte pytanie
+  (`editMessage`) = odmowa także z `force`, odcisk spod zamka, plan, `tryConsume` na `tx` (tylko
+  gdy są zmiany), wiadomość APPLIED i `appliedHash` — razem albo wcale; poza transakcją zostaje
+  wyłącznie WARUNKOWE oznaczenie STALE/FAILED/EXPIRED po odmowie i mail o kwocie. STALE bez
+  `force` = 409 `reason:STALE`. Dowód: `test/agent.e2e-spec.ts` › „zapis pod współbieżnością”.
 - Kontrole dostępu a współbieżność (audyt autoryzacji 21.09.2026, dowód: `test/authz-audit.e2e-spec.ts`):
   (1) bramka członkostwa idzie PRZED odczytem zasobu — obcy dostaje `NOT_HOUSEHOLD_MEMBER` tak samo dla
   domu/przepisu istniejącego i nieistniejącego (odwrotna kolejność = wyrocznia istnienia); (2) zapis oparty
