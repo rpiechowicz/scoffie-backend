@@ -163,10 +163,13 @@ const LABELS: Record<string, readonly string[]> = {
     'Analizuję, co wyszło',
     'Myślę, co z tym zrobić',
   ],
+  // Start tury. Nie „czytam pytanie": to opis mechaniki (i brzmiało jak
+  // automat, który głośno sylabizuje), a nie tego, co asystent robi dla
+  // użytkownika. Tu ma paść zdanie człowieka, który bierze się do roboty.
   [READ_STEP_TOOL]: [
-    'Czytam pytanie',
-    'Czytam, o co pytasz',
-    'Zaczynam od pytania',
+    'Już się tym zajmuję',
+    'Zabieram się do tego',
+    'Chwila, już patrzę',
   ],
   [REASON_STEP_TOOL]: [
     'Zastanawiam się nad podejściem',
@@ -251,7 +254,7 @@ export function progressStep(
 /**
  * Postęp do ZAPISU przy domknięciu tury: bez kroków przejściowych.
  *
- * Na żywo „Czytam pytanie" i „Piszę odpowiedź" są sygnałem życia; po turze
+ * Na żywo „Już się tym zajmuję" i „Piszę odpowiedź" są sygnałem życia; po turze
  * byłyby szumem w podsumowaniu „Myślałem 42 s" i w każdym kliencie, który
  * nie zna flagi `transient`. Zostaje to, co asystent zrobił: narzędzia,
  * przekazanie planiście, zapis.
