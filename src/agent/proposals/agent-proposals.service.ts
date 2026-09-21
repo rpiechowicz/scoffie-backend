@@ -1059,14 +1059,23 @@ export class AgentProposalsService {
     }
 
     const weekStart = toWeekStartString(proposal.weekStart);
-    const current = await this.weeklyPlans.snapshotWeekAsSlots(
-      userId,
-      proposal.householdId,
-      weekStart,
+    const restoreSlots = readSlots(proposal.undoSnapshot, 'slots-array');
+    const currentHash = weekBaselineHash(
+      await this.weeklyPlans.snapshotWeekAsSlots(
+        userId,
+        proposal.householdId,
+        weekStart,
+      ),
     );
+    // Plan stoi JUŻ w stanie sprzed zapisu, choć status mówi APPLIED: wcześniejsze
+    // cofnięcie przywróciło tydzień i padło przed domknięciem (albo równoległe
+    // właśnie jest między zapisem a domknięciem). Wyjątek z `applyWeekPlan` nie
+    // mówi, czy transakcja weszła — rozstrzyga to dopiero odcisk planu, i to on
+    // pozwala bezpiecznie ponowić: nie ma czego zapisywać, zostaje domknąć.
+    const alreadyRestored = currentHash === weekBaselineHash(restoreSlots);
     // Ktoś w domu poprawił tydzień PO zapisie — cofnięcie skasowałoby jego
     // pracę razem z naszą zmianą.
-    if (weekBaselineHash(current) !== proposal.appliedHash) {
+    if (!alreadyRestored && currentHash !== proposal.appliedHash) {
       throw new AppException(
         'AI_PROPOSAL_STALE',
         'Plan zmienił się po zapisaniu, więc cofnięcie skasowałoby także tamte zmiany.',
@@ -1075,20 +1084,66 @@ export class AgentProposalsService {
       );
     }
 
-    const locked = await this.prisma.agentProposal.updateMany({
-      where: { id: proposal.id, status: 'APPLIED' },
-      data: { status: 'UNDONE', undoneAt: new Date() },
-    });
-    if (locked.count === 0) {
-      return this.resultForUndone(await this.loadOwned(userId, proposalId));
+    // NAJPIERW plan, POTEM status. W odwrotnej kolejności (tak było do
+    // 21.09.2026) propozycja stawała się UNDONE, zanim było wiadomo, czy tydzień
+    // wrócił: odmowa domeny (`applied: false` — np. domownik dodał alergen i
+    // dawnego dania nie wolno już wstawić) kończyła się zwrotem kwoty i
+    // wiadomością „Cofnąłem…" przy nietkniętym planie, a wyjątek zostawiał
+    // UNDONE na stałe. Teraz UNDONE zapada wyłącznie po potwierdzonym
+    // przywróceniu, więc nie ma statusu, który trzeba by odkręcać — i nie ma
+    // czym nadpisać wyniku równoległego żądania.
+    let changes = { created: 0, updated: 0, deleted: 0 };
+    if (!alreadyRestored) {
+      const result = await this.weeklyPlans.applyWeekPlan(
+        userId,
+        proposal.householdId,
+        weekStart,
+        { slots: restoreSlots },
+      );
+      if (!result.applied) {
+        // Propozycja zostaje APPLIED — bo plan nadal jest taki, jak go zapisała.
+        throw new AppException(
+          'AI_PROPOSAL_STALE',
+          'Nie da się już przywrócić poprzedniego planu — preferencje domowników albo przepisy zmieniły się od zapisu. Popraw plan ręcznie.',
+          HttpStatus.CONFLICT,
+          [
+            'reason:VIOLATIONS',
+            ...result.violations.map((violation) => violation.code),
+          ],
+        );
+      }
+      changes = result.changes;
     }
 
-    const result = await this.weeklyPlans.applyWeekPlan(
-      userId,
-      proposal.householdId,
-      weekStart,
-      { slots: readSlots(proposal.undoSnapshot, 'slots-array') },
-    );
+    // Domknięcie warunkowe: z dwóch równoległych cofnięć oba przywracają ten
+    // sam stan docelowy (drugi zapis jest pusty), ale tylko JEDNO przechodzi
+    // tędy — i tylko ono zwraca kwotę i pisze wiadomość. `appliedAt` w warunku
+    // odcina żądanie spóźnione o cały cykl „cofnij → zapisz ponownie": nie
+    // może zamknąć nowego zapisu ani oddać jego kwoty. Klucz kwoty zeruje się
+    // w TYM SAMYM zapisie, więc zwrot jest co najwyżej jeden.
+    const closed = await this.prisma.agentProposal.updateMany({
+      where: {
+        id: proposal.id,
+        status: 'APPLIED',
+        appliedAt: proposal.appliedAt,
+      },
+      data: {
+        status: 'UNDONE',
+        undoneAt: new Date(),
+        quotaPeriodKey: null,
+        quotaScopeId: null,
+      },
+    });
+    if (closed.count === 0) {
+      const latest = await this.loadOwned(userId, proposalId);
+      if (latest.status === 'UNDONE') return this.resultForUndone(latest);
+      throw new AppException(
+        'AI_PROPOSAL_STALE',
+        'Ta propozycja zmieniła stan w trakcie cofania. Odśwież rozmowę i spróbuj ponownie.',
+        HttpStatus.CONFLICT,
+        [`reason:${latest.status}`],
+      );
+    }
 
     // Cofnięcie to korekta, nie nowy plan — kwota wraca, ale TYLKO ta,
     // która naprawdę zeszła, i do miesiąca, z którego zeszła (zapis 31.,
@@ -1100,10 +1155,6 @@ export class AgentProposalsService {
         proposal.quotaScopeId ?? proposal.householdId,
         proposal.quotaPeriodKey,
       );
-      await this.markStatus(proposal.id, 'UNDONE', {
-        quotaPeriodKey: null,
-        quotaScopeId: null,
-      });
     }
 
     const message = await this.writeMessage({
@@ -1119,7 +1170,7 @@ export class AgentProposalsService {
       proposalId: proposal.id,
       status: 'UNDONE',
       message,
-      changes: result.changes,
+      changes,
     };
   }
 

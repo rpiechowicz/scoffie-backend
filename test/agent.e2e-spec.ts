@@ -1347,6 +1347,181 @@ describe('Agent E2E', () => {
       });
     });
 
+    it('„Cofnij", którego domena odmawia (alergen dodany po zapisie), NIE udaje sukcesu; po zdjęciu alergenu cofa dokładnie raz', async () => {
+      const weekStartDate = new Date(`${WEEK_START}T00:00:00.000Z`);
+      // R — danie z alergenem, stoi w planie PRZED propozycją; N — bez żadnego.
+      const withAllergen = await prisma.recipe.findFirst({
+        where: {
+          isCatalog: true,
+          suitableMealTypes: { has: 'DINNER' },
+          NOT: { allergens: { isEmpty: true } },
+        },
+        select: { id: true, allergens: true },
+      });
+      const clean = await prisma.recipe.findFirst({
+        where: {
+          isCatalog: true,
+          suitableMealTypes: { has: 'DINNER' },
+          allergens: { isEmpty: true },
+        },
+        select: { id: true },
+      });
+      if (!withAllergen || !clean) {
+        throw new Error('katalog nie ma pary kolacji z alergenem i bez');
+      }
+      const allergen = withAllergen.allergens[0];
+
+      const planRecipes = async () =>
+        (
+          await prisma.planItem.findMany({
+            where: { weeklyPlan: { householdId, weekStart: weekStartDate } },
+            select: { dayOfWeek: true, mealType: true, recipeId: true },
+          })
+        ).map((item) => `${item.dayOfWeek}:${item.mealType}:${item.recipeId}`);
+      const setAllergens = (allergens: string[]) =>
+        prisma.userPreference.upsert({
+          where: { userId: session.user.id },
+          create: { userId: session.user.id, allergens },
+          update: { allergens },
+        });
+
+      await prisma.weeklyPlan.deleteMany({
+        where: { householdId, weekStart: weekStartDate },
+      });
+      await prisma.weeklyPlan.create({
+        data: {
+          householdId,
+          weekStart: weekStartDate,
+          items: {
+            create: [
+              {
+                dayOfWeek: 'MON',
+                mealType: 'DINNER',
+                recipeId: withAllergen.id,
+              },
+            ],
+          },
+        },
+      });
+
+      try {
+        const conversation = await createConversation(
+          session.accessToken,
+          householdId,
+        );
+        const accepted = await postMessage(
+          session.accessToken,
+          conversation.id,
+          {
+            clientMessageId: randomUUID(),
+            text: `Podmień kolację [[propose:${clean.id}:${WEEK_START}]]`,
+            clientCapabilities: [CARDS_CAPABILITY_V1],
+          },
+        ).expect(202);
+        await pollTurn(
+          session.accessToken,
+          (accepted.body as AcceptedTurn).turnId,
+        );
+        const messages = await history(conversation.id);
+        const proposalId = messages[messages.length - 1].card!.proposalId;
+        const undo = () =>
+          request(app.getHttpServer())
+            .post(`/agent/proposals/${proposalId}/undo`)
+            .set(auth(session.accessToken));
+
+        await request(app.getHttpServer())
+          .post(`/agent/proposals/${proposalId}/apply`)
+          .set(auth(session.accessToken))
+          .expect(200);
+        expect(await planRecipes()).toEqual([`MON:DINNER:${clean.id}`]);
+
+        const appliedRow = await prisma.agentProposal.findUniqueOrThrow({
+          where: { id: proposalId },
+        });
+        expect(appliedRow.quotaPeriodKey).not.toBeNull();
+        const scopeId = appliedRow.quotaScopeId ?? householdId;
+        const periodKey = appliedRow.quotaPeriodKey!;
+        const plansUsed = async () =>
+          (
+            await prisma.aiUsageCounter.findUnique({
+              where: {
+                scopeId_periodKey_kind: { scopeId, periodKey, kind: 'plans' },
+              },
+            })
+          )?.value ?? 0;
+        const messageTexts = async () =>
+          (
+            await prisma.agentMessage.findMany({
+              where: { conversationId: conversation.id },
+              select: { text: true },
+            })
+          ).map((message) => message.text);
+        const usedAfterApply = await plansUsed();
+        const messagesAfterApply = (await messageTexts()).length;
+        expect(usedAfterApply).toBeGreaterThan(0);
+
+        // Domownik dodaje alergen: R nie wolno już wstawić, a bieżący plan
+        // (N) nadal zgadza się z `appliedHash`.
+        await setAllergens([allergen]);
+
+        // Dwa razy — ponowienie odmowy ma dać to samo i niczego nie ruszyć.
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const refused = await undo().expect(409);
+          expect(refused.body).toMatchObject({ code: 'AI_PROPOSAL_STALE' });
+          expect((refused.body as { details: string[] }).details).toEqual(
+            expect.arrayContaining([
+              'reason:VIOLATIONS',
+              'RECIPE_ALLERGEN_CONFLICT',
+            ]),
+          );
+
+          expect(await planRecipes()).toEqual([`MON:DINNER:${clean.id}`]);
+          const row = await prisma.agentProposal.findUniqueOrThrow({
+            where: { id: proposalId },
+          });
+          expect(row).toMatchObject({
+            status: 'APPLIED',
+            undoneAt: null,
+            quotaPeriodKey: periodKey,
+            appliedHash: appliedRow.appliedHash,
+          });
+          expect(await plansUsed()).toBe(usedAfterApply);
+          const texts = await messageTexts();
+          expect(texts).toHaveLength(messagesAfterApply);
+          expect(texts.some((text) => text.startsWith('Cofnąłem'))).toBe(false);
+        }
+
+        // Alergen zdjęty → cofnięcie przechodzi. Dwa żądania NARAZ: oba 200,
+        // ale kwota wraca raz i wiadomość jest jedna.
+        await setAllergens([]);
+        const [first, second] = await Promise.all([undo(), undo()]);
+        expect([first.status, second.status]).toEqual([200, 200]);
+        expect(await planRecipes()).toEqual([`MON:DINNER:${withAllergen.id}`]);
+        const undoneRow = await prisma.agentProposal.findUniqueOrThrow({
+          where: { id: proposalId },
+        });
+        expect(undoneRow).toMatchObject({
+          status: 'UNDONE',
+          quotaPeriodKey: null,
+          quotaScopeId: null,
+        });
+        expect(undoneRow.undoneAt).not.toBeNull();
+        expect(await plansUsed()).toBe(usedAfterApply - 1);
+
+        // Trzecie kliknięcie: ten sam wynik, bez drugiego zwrotu.
+        await undo().expect(200);
+        expect(await plansUsed()).toBe(usedAfterApply - 1);
+        expect(
+          (await messageTexts()).filter((text) => text.startsWith('Cofnąłem')),
+        ).toHaveLength(1);
+      } finally {
+        await setAllergens([]);
+        await prisma.weeklyPlan.deleteMany({
+          where: { householdId, weekStart: weekStartDate },
+        });
+      }
+    });
+
     it('klient bez `cards.v1` nie dostaje propozycji, której nie umie pokazać', async () => {
       const conversation = await createConversation(
         session.accessToken,

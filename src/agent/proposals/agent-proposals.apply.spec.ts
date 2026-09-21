@@ -300,17 +300,33 @@ describe('AgentProposalsService.apply', () => {
 });
 
 describe('AgentProposalsService.undo', () => {
+  // Tydzień PO zapisie propozycji — różny od `BEFORE`, bo cofnięcie rozróżnia
+  // „plan stoi tak, jak go zapisaliśmy" od „plan już wrócił do stanu sprzed".
+  const AFTER = [
+    ...BEFORE,
+    { ...SLOT, participantIds: [], plannedServings: 2 },
+  ];
+  const appliedAt = new Date();
   const applied = {
     status: 'APPLIED',
-    appliedAt: new Date(),
+    appliedAt,
     undoSnapshot: BEFORE,
     quotaPeriodKey: '2026-04',
-    changedCount: 2,
-    appliedHash: weekBaselineHash(BEFORE),
+    quotaScopeId: householdId,
+    changedCount: 1,
+    appliedHash: weekBaselineHash(AFTER),
+  };
+
+  const expectNothingSettled = (deps: ReturnType<typeof makeDeps>) => {
+    expect(deps.prisma.agentProposal.updateMany).not.toHaveBeenCalled();
+    expect(deps.prisma.agentProposal.update).not.toHaveBeenCalled();
+    expect(deps.counters.add).not.toHaveBeenCalled();
+    expect(deps.prisma.agentMessage.create).not.toHaveBeenCalled();
+    expect(deps.plansGateway.broadcastWeekApplied).not.toHaveBeenCalled();
   };
 
   it('przywraca tydzień sprzed zapisu i zwraca kwotę', async () => {
-    const deps = makeDeps({ proposal: applied });
+    const deps = makeDeps({ proposal: applied, week: AFTER });
     const service = await buildService(deps);
 
     const result = await service.undo(userId, proposalId);
@@ -324,6 +340,7 @@ describe('AgentProposalsService.undo', () => {
       '2026-04-13',
       { slots: BEFORE },
     );
+    expect(deps.counters.add).toHaveBeenCalledTimes(1);
     expect(deps.counters.add).toHaveBeenCalledWith(
       deps.prisma,
       householdId,
@@ -336,9 +353,118 @@ describe('AgentProposalsService.undo', () => {
     );
   });
 
+  it('status UNDONE zapada dopiero PO przywróceniu planu, warunkowo i razem z wyzerowaniem kwoty', async () => {
+    const deps = makeDeps({ proposal: applied, week: AFTER });
+    const service = await buildService(deps);
+
+    await service.undo(userId, proposalId);
+
+    expect(deps.prisma.agentProposal.updateMany).toHaveBeenCalledTimes(1);
+    const claim = deps.prisma.agentProposal.updateMany.mock.calls[0][0];
+    // `appliedAt` w warunku: cofnięcie spóźnione o cały cykl „cofnij →
+    // zapisz ponownie" nie może zamknąć NOWEGO zapisu.
+    expect(claim.where).toEqual({
+      id: proposalId,
+      status: 'APPLIED',
+      appliedAt,
+    });
+    expect(claim.data).toMatchObject({
+      status: 'UNDONE',
+      quotaPeriodKey: null,
+      quotaScopeId: null,
+    });
+    expect(
+      deps.weeklyPlans.applyWeekPlan.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      deps.prisma.agentProposal.updateMany.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('odmowa przywrócenia planu (np. alergen dodany po zapisie) NIE jest cofnięciem', async () => {
+    const deps = makeDeps({ proposal: applied, week: AFTER });
+    deps.weeklyPlans.applyWeekPlan.mockResolvedValue({
+      applied: false,
+      dryRun: false,
+      violations: [
+        { index: 0, code: 'RECIPE_ALLERGEN_CONFLICT', message: 'alergen' },
+      ],
+      changes: { created: 0, updated: 0, deleted: 0 },
+      plan: null,
+    });
+    const service = await buildService(deps);
+
+    await expect(service.undo(userId, proposalId)).rejects.toMatchObject({
+      status: 409,
+      response: {
+        code: 'AI_PROPOSAL_STALE',
+        details: ['reason:VIOLATIONS', 'RECIPE_ALLERGEN_CONFLICT'],
+      },
+    });
+    expectNothingSettled(deps);
+  });
+
+  it('wyjątek przy przywracaniu nie zostawia propozycji jako cofniętej', async () => {
+    const deps = makeDeps({ proposal: applied, week: AFTER });
+    deps.weeklyPlans.applyWeekPlan.mockRejectedValue(new Error('baza padła'));
+    const service = await buildService(deps);
+
+    await expect(service.undo(userId, proposalId)).rejects.toThrow(
+      'baza padła',
+    );
+    expectNothingSettled(deps);
+  });
+
+  it('ponowienie po błędzie, który padł JUŻ PO zapisie planu, domyka cofnięcie bez drugiego zapisu', async () => {
+    // Plan stoi w stanie sprzed propozycji, a status nadal mówi APPLIED:
+    // poprzednie żądanie przywróciło tydzień i padło przed domknięciem.
+    const deps = makeDeps({ proposal: applied, week: BEFORE });
+    const service = await buildService(deps);
+
+    const result = await service.undo(userId, proposalId);
+
+    expect(result.status).toBe('UNDONE');
+    expect(deps.weeklyPlans.applyWeekPlan).not.toHaveBeenCalled();
+    expect(deps.counters.add).toHaveBeenCalledTimes(1);
+    expect(deps.prisma.agentMessage.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('przegrany wyścig dwóch cofnięć: jeden zwrot kwoty, jedna wiadomość', async () => {
+    const deps = makeDeps({ proposal: applied, week: AFTER });
+    deps.prisma.agentProposal.updateMany.mockResolvedValue({ count: 0 });
+    deps.prisma.agentProposal.findFirst
+      .mockResolvedValueOnce(proposalRow(applied))
+      .mockResolvedValueOnce(proposalRow({ ...applied, status: 'UNDONE' }));
+    const service = await buildService(deps);
+
+    const result = await service.undo(userId, proposalId);
+
+    expect(result.status).toBe('UNDONE');
+    expect(deps.counters.add).not.toHaveBeenCalled();
+    expect(deps.prisma.agentMessage.create).not.toHaveBeenCalled();
+  });
+
+  it('przegrany wyścig z ponownym zapisem nie udaje cofnięcia', async () => {
+    const deps = makeDeps({ proposal: applied, week: AFTER });
+    deps.prisma.agentProposal.updateMany.mockResolvedValue({ count: 0 });
+    deps.prisma.agentProposal.findFirst
+      .mockResolvedValueOnce(proposalRow(applied))
+      .mockResolvedValueOnce(
+        proposalRow({ ...applied, appliedAt: new Date(Date.now() + 1000) }),
+      );
+    const service = await buildService(deps);
+
+    await expect(service.undo(userId, proposalId)).rejects.toMatchObject({
+      status: 409,
+      response: { code: 'AI_PROPOSAL_STALE' },
+    });
+    expect(deps.counters.add).not.toHaveBeenCalled();
+    expect(deps.prisma.agentMessage.create).not.toHaveBeenCalled();
+  });
+
   it('nie kasuje zmian, które ktoś zrobił PO zapisie', async () => {
     const deps = makeDeps({
       proposal: { ...applied, appliedHash: 'inny-odcisk' },
+      week: AFTER,
     });
     const service = await buildService(deps);
 
