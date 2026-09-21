@@ -180,6 +180,14 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
     ...hhWeek,
     data: { productKey: 'mleko::l', isChecked: true },
   },
+  'weeklyPlans:addRecipeExtras': {
+    ...hhWeek,
+    data: { recipeId: RECIPE_2, servings: 2, ingredientIds: [RECIPE_2] },
+  },
+  'weeklyPlans:removeShoppingExtra': {
+    ...hhWeek,
+    data: { productKey: 'mleko::ml' },
+  },
   'weeklyPlans:upsertWeekSlot': {
     ...hhWeek,
     data: {
@@ -406,6 +414,14 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
   'weeklyPlans:setShoppingItemChecked': [
     missingData(hhWeek),
     dataNotObject(hhWeek, 'mleko::l'),
+  ],
+  'weeklyPlans:addRecipeExtras': [
+    missingData(hhWeek),
+    dataNotObject(hhWeek, 'mleko'),
+  ],
+  'weeklyPlans:removeShoppingExtra': [
+    missingData(hhWeek),
+    dataNotObject(hhWeek, 'mleko::ml'),
   ],
   'weeklyPlans:balance': [
     badHouseholdId({ weekStart: WEEK_START }),

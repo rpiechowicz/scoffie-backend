@@ -455,7 +455,7 @@ export class AgentTurnRunner {
             // Prawdą jest teraz `AgentMessage`; szkic zostawiony tu myliłby
             // odczyt tury sprzed domknięcia.
             draftText: null,
-            // Bez kroków przejściowych („Czytam pytanie", „Piszę odpowiedź"):
+            // Bez kroków przejściowych („Już się tym zajmuję", „Piszę odpowiedź"):
             // po turze liczą się narzędzia i zapis, nie sygnały życia.
             progress: settledProgress(
               progress,

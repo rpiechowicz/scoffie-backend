@@ -5,6 +5,8 @@ import { assertUuid } from '../../common/uuid';
 import { validateDto } from '../../common/validate-dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateShoppingItemCheckDto } from '../dto/update-shopping-item-check.dto';
+import { AddRecipeExtrasDto } from '../dto/add-recipe-extras.dto';
+import { RemoveShoppingExtraDto } from '../dto/remove-shopping-extra.dto';
 import type {
   ShoppingAccumulator,
   ShoppingListItem,
@@ -117,7 +119,8 @@ export class ShoppingListService {
       },
     });
 
-    // `PlanItem` jest JEDYNYM źródłem listy. Wycofana pula tygodniowa
+    // Z planu liczy się wyłącznie `PlanItem` (drugie źródło listy to
+    // dopisane pozycje, niżej). Wycofana pula tygodniowa
     // (`SharedMealPlan`) podstawiała tu widmową listę tygodniowi, z którego
     // usunięto wszystkie posiłki po jednym — a asystentowi kazałaby liczyć
     // bilans z danych, których nie widać w aplikacji (WP-03).
@@ -168,6 +171,35 @@ export class ShoppingListService {
           totalAmount: amountToAdd,
         });
       }
+    }
+
+    // Drugie źródło: to, co ktoś dopisał ręcznie ze szczegółu przepisu.
+    // Ilość jest już przeliczona na porcje przy zapisie, a klucz liczony tak
+    // samo jak wyżej — więc „Mleko" z planu i „Mleko" dopisane stają się
+    // jedną pozycją z sumą, a nie dwoma wierszami.
+    const extras = await client.shoppingListExtra.findMany({
+      where: { householdId, weekStart: weekStartDate },
+      select: {
+        productKey: true,
+        name: true,
+        unit: true,
+        department: true,
+        amount: true,
+      },
+    });
+    for (const extra of extras) {
+      const current = aggregated.get(extra.productKey);
+      if (current) {
+        current.totalAmount += extra.amount;
+        continue;
+      }
+      aggregated.set(extra.productKey, {
+        productKey: extra.productKey,
+        name: extra.name,
+        unit: extra.unit,
+        department: extra.department,
+        totalAmount: extra.amount,
+      });
     }
 
     if (missingNormalization.size > 0) {
@@ -398,7 +430,7 @@ export class ShoppingListService {
     weekStartDate: Date,
     client: PrismaReadClient = this.prisma,
   ): Promise<boolean> {
-    // Tylko `PlanItem`. Dzięki temu widmowa lista — snapshot zbudowany kiedyś
+    // `PlanItem` albo dopisane pozycje. Dzięki temu widmowa lista — snapshot zbudowany kiedyś
     // z wycofanej puli, dziś bez pokrycia w planie dnia — sama zeruje się przy
     // pierwszym odczycie: „ma pozycje, nie ma źródła" wymusza przebudowę do
     // pustej listy, bez ręcznego SQL-a.
@@ -417,7 +449,16 @@ export class ShoppingListService {
       },
     });
 
-    return (weeklyPlan?.items.length ?? 0) > 0;
+    if ((weeklyPlan?.items.length ?? 0) > 0) {
+      return true;
+    }
+    // Lista z samych dopisanych pozycji też ma źródło — bez tego każdy odczyt
+    // takiej listy przebudowywałby ją od nowa jako „widmową".
+    const extra = await client.shoppingListExtra.findFirst({
+      where: { householdId, weekStart: weekStartDate },
+      select: { id: true },
+    });
+    return extra !== null;
   }
 
   private async rebuildShoppingListSnapshotWithClient(
@@ -580,8 +621,17 @@ export class ShoppingListService {
     const shouldHideCurrentWeekList =
       currentWeekArchiveState?.currentArchiveId === null;
 
+    const addedFrom = shouldHideCurrentWeekList
+      ? new Map<string, string[]>()
+      : await this.extrasSourcesByProduct(householdId, weekStartDate);
+
     return {
-      items: shouldHideCurrentWeekList ? [] : items,
+      items: shouldHideCurrentWeekList
+        ? []
+        : items.map((item) => ({
+            ...item,
+            addedFrom: addedFrom.get(item.productKey) ?? [],
+          })),
       archives: archives.map((archive) =>
         toArchiveSnapshot(archive, currentArchiveIds),
       ),
@@ -857,6 +907,225 @@ export class ShoppingListService {
       });
 
       return { success: true };
+    });
+  }
+
+  /**
+   * Przepisy, z których dopisano coś do listy — po `productKey`, tytułami.
+   *
+   * Tylko do pokazania („dopisane z: Owsianka z bananem") i do decyzji, czy
+   * wiersz da się zdjąć z listy. Nie wchodzi do migawki `ShoppingListItem`,
+   * bo nie jest stanem listy, tylko opisem jej pochodzenia.
+   */
+  private async extrasSourcesByProduct(
+    householdId: string,
+    weekStartDate: Date,
+  ): Promise<Map<string, string[]>> {
+    const rows = await this.prisma.shoppingListExtra.findMany({
+      where: { householdId, weekStart: weekStartDate },
+      orderBy: { createdAt: 'asc' },
+      select: { productKey: true, recipe: { select: { title: true } } },
+    });
+    const byProduct = new Map<string, string[]>();
+    for (const row of rows) {
+      const titles = byProduct.get(row.productKey) ?? [];
+      if (!titles.includes(row.recipe.title)) {
+        titles.push(row.recipe.title);
+      }
+      byProduct.set(row.productKey, titles);
+    }
+    return byProduct;
+  }
+
+  /**
+   * „Brakuje mi" ze szczegółu przepisu — dopisuje wybrane składniki do listy
+   * zakupów tygodnia.
+   *
+   * Przepis musi być widoczny dla gospodarstwa (katalog albo własny, aktywny)
+   * — ta sama bramka, co przy wstawianiu do planu. Ilości liczy serwer
+   * z `RecipeIngredient` przeskalowanego na `servings` porcji; ponowne
+   * dopisanie tego samego przepisu podmienia ilość, a nie dokłada drugą.
+   *
+   * Dopisany produkt, który był już odhaczony jako kupiony, wraca na listę
+   * jako niekupiony: skoro ktoś mówi, że go brakuje, to trzeba go dokupić.
+   */
+  async addRecipeExtras(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    input: AddRecipeExtrasDto,
+  ): Promise<{ added: number; productKeys: string[] }> {
+    const dto = await validateDto(AddRecipeExtrasDto, input);
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+
+    const recipe = await this.prisma.recipe.findFirst({
+      where: {
+        id: dto.recipeId,
+        isActive: true,
+        OR: [{ isCatalog: true }, { householdId }],
+      },
+      select: {
+        id: true,
+        servings: true,
+        ingredients: {
+          where: { id: { in: dto.ingredientIds } },
+          select: {
+            id: true,
+            name: true,
+            normalizedAmount: true,
+            normalizedUnit: true,
+            department: true,
+          },
+        },
+      },
+    });
+
+    // Cudzy, wycofany i nieistniejący przepis to z punktu widzenia
+    // wołającego to samo — tak samo jak w planie.
+    if (!recipe) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        'Nie znaleziono przepisu.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (recipe.ingredients.length !== dto.ingredientIds.length) {
+      const detail = 'ingredientIds must belong to the recipe';
+      throw new AppException(
+        'VALIDATION_ERROR',
+        detail,
+        HttpStatus.BAD_REQUEST,
+        [detail],
+      );
+    }
+
+    const factor = dto.servings / Math.max(1, recipe.servings);
+    const byKey = new Map<string, ShoppingAccumulator>();
+    for (const ingredient of recipe.ingredients) {
+      const productKey = normalizeProductKey(
+        ingredient.name,
+        ingredient.normalizedUnit,
+      );
+      const amount = ingredient.normalizedAmount * factor;
+      const current = byKey.get(productKey);
+      if (current) {
+        current.totalAmount += amount;
+        continue;
+      }
+      byKey.set(productKey, {
+        productKey,
+        name: toTitleCase(ingredient.name),
+        unit: ingredient.normalizedUnit,
+        department: toShoppingDepartment(ingredient.department),
+        totalAmount: amount,
+      });
+    }
+    const entries = Array.from(byKey.values());
+    const productKeys = entries.map((entry) => entry.productKey);
+
+    // Kolejność blokad jak w reszcie domeny (CLAUDE.md, „Zamek zapisu
+    // tygodnia"): `ShoppingListArchiveState` → dopisane → `ShoppingList` →
+    // `ShoppingListItem` → `ShoppingItemCheck`. Odwrócona kończy się
+    // `40P01`, którego `runSerializable` nie ponawia.
+    await runSerializable(this.prisma, async (tx) => {
+      // Tydzień z wyczyszczoną historią ma listę schowaną (stan archiwum
+      // z `currentArchiveId = null`). Świadome dopisanie znaczy „idę na
+      // zakupy" — lista musi się pokazać, inaczej dopisane znikałoby
+      // w próżni.
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
+      });
+
+      for (const entry of entries) {
+        await tx.shoppingListExtra.upsert({
+          where: {
+            householdId_weekStart_recipeId_productKey: {
+              householdId,
+              weekStart: weekStartDate,
+              recipeId: recipe.id,
+              productKey: entry.productKey,
+            },
+          },
+          update: {
+            name: entry.name,
+            unit: entry.unit,
+            department: entry.department,
+            amount: entry.totalAmount,
+          },
+          create: {
+            householdId,
+            weekStart: weekStartDate,
+            recipeId: recipe.id,
+            productKey: entry.productKey,
+            name: entry.name,
+            unit: entry.unit,
+            department: entry.department,
+            amount: entry.totalAmount,
+          },
+        });
+      }
+
+      await this.markShoppingListStale(householdId, weekStartDate, tx);
+
+      // Kupione → do kupienia. Oba zapisy stanu, bo przebudowa migawki
+      // czyta i `ShoppingListItem`, i starszy `ShoppingItemCheck`.
+      await tx.shoppingListItem.updateMany({
+        where: {
+          shoppingList: { householdId, weekStart: weekStartDate },
+          productKey: { in: productKeys },
+        },
+        data: { isChecked: false },
+      });
+      await tx.shoppingItemCheck.updateMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          productKey: { in: productKeys },
+        },
+        data: { isChecked: false },
+      });
+    });
+
+    return { added: entries.length, productKeys };
+  }
+
+  /**
+   * Zdejmuje z listy DOPISANĄ część produktu — ze wszystkich przepisów
+   * naraz. Ilość z planu zostaje; wiersz znika tylko wtedy, gdy poza
+   * dopisanym nic go nie trzymało.
+   */
+  async removeShoppingExtra(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    input: RemoveShoppingExtraDto,
+  ): Promise<{ removed: number }> {
+    const dto = await validateDto(RemoveShoppingExtraDto, input);
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.shoppingListExtra.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          productKey: dto.productKey,
+        },
+      });
+      if (count === 0) {
+        throw new AppException(
+          'SHOPPING_ITEM_NOT_FOUND',
+          'Nie znaleziono pozycji listy zakupów',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      await this.markShoppingListStale(householdId, weekStartDate, tx);
+      return { removed: count };
     });
   }
 

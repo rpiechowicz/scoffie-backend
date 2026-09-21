@@ -92,11 +92,24 @@ const makePrismaMock = () => {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn().mockResolvedValue({ count: 0 }),
       update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       upsert: jest.fn().mockImplementation((args: any) => args.create),
     },
     shoppingItemCheck: {
       findMany: jest.fn().mockResolvedValue([]),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    // Dopisane „brakuje mi" — domyślnie nic, jak w domu, który z tego nie
+    // korzysta.
+    shoppingListExtra: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+      upsert: jest.fn().mockResolvedValue({}),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    recipe: {
+      findFirst: jest.fn().mockResolvedValue(null),
     },
     shoppingListArchiveState: {
       findUnique: jest.fn().mockResolvedValue(null),
@@ -825,6 +838,340 @@ describe('ShoppingListService — walidacja i kody', () => {
       expect(prisma.shoppingListItem.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { isChecked: true } }),
       );
+    });
+  });
+});
+
+// ─── Dopisane z przepisu („brakuje mi") ───────────────────────────────────────
+
+const mockRecipeId = '55555555-5555-4555-8555-555555555555';
+const ING_MILK = '66666666-6666-4666-8666-666666666666';
+const ING_OATS = '77777777-7777-4777-8777-777777777777';
+
+const recipeIngredient = (
+  id: string,
+  name: string,
+  normalizedAmount: number,
+  normalizedUnit = 'g',
+  department = 'Nabiał',
+) => ({ id, name, normalizedAmount, normalizedUnit, department });
+
+describe('ShoppingListService — dopisane z przepisu', () => {
+  let service: ShoppingListService;
+  let prisma: ReturnType<typeof makePrismaMock>;
+
+  beforeEach(async () => {
+    prisma = makePrismaMock();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ShoppingListService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+    service = module.get<ShoppingListService>(ShoppingListService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  const add = (data: object) =>
+    service.addRecipeExtras(
+      mockUserId,
+      mockHouseholdId,
+      mockWeekStart,
+      data as any,
+    );
+
+  describe('agregacja', () => {
+    it('powinno zsumować dopisane z tym samym produktem z planu w jeden wiersz', async () => {
+      prisma.weeklyPlan.findUnique.mockResolvedValue(
+        weekPlanWith([
+          dayItem('i-1', 1, 'BREAKFAST', [ingredient('mleko', 200, 'ml')]),
+        ]),
+      );
+      prisma.shoppingListExtra.findMany.mockResolvedValue([
+        {
+          productKey: 'mleko::ml',
+          name: 'Mleko',
+          unit: 'ml',
+          department: 'Nabiał',
+          amount: 100,
+        },
+      ]);
+
+      const items = await service.getShoppingList(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+      );
+
+      expect(items).toHaveLength(1);
+      expect(findItem(items, 'mleko').totalAmount).toBe(300);
+    });
+
+    it('powinno zbudować listę z samych dopisanych, gdy plan jest pusty', async () => {
+      prisma.shoppingListExtra.findMany.mockResolvedValue([
+        {
+          productKey: 'borówka::g',
+          name: 'Borówka',
+          unit: 'g',
+          department: 'Owoce',
+          amount: 50,
+        },
+      ]);
+
+      const items = await service.getShoppingList(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+      );
+
+      expect(items).toEqual([
+        expect.objectContaining({
+          productKey: 'borówka::g',
+          totalAmount: 50,
+          isChecked: false,
+        }),
+      ]);
+    });
+
+    it('nie powinno przebudowywać listy z samych dopisanych przy każdym odczycie', async () => {
+      prisma.shoppingList.findUnique.mockResolvedValue({
+        id: 'sl-1',
+        isStale: false,
+        items: [
+          {
+            productKey: 'borówka::g',
+            name: 'Borówka',
+            unit: 'g',
+            department: 'Owoce',
+            totalAmount: 50,
+            isChecked: false,
+          },
+        ],
+      });
+      prisma.shoppingListExtra.findFirst.mockResolvedValue({ id: 'x-1' });
+
+      await service.getShoppingList(mockUserId, mockHouseholdId, mockWeekStart);
+
+      expect(prisma.shoppingList.upsert).not.toHaveBeenCalled();
+    });
+
+    it('powinno podpisać pozycje stanu listy przepisami, z których je dopisano', async () => {
+      prisma.shoppingListExtra.findMany.mockImplementation((args: any) =>
+        Promise.resolve(
+          args.select?.recipe
+            ? [
+                { productKey: 'borówka::g', recipe: { title: 'Owsianka' } },
+                { productKey: 'borówka::g', recipe: { title: 'Owsianka' } },
+                { productKey: 'borówka::g', recipe: { title: 'Pancakes' } },
+              ]
+            : [
+                {
+                  productKey: 'borówka::g',
+                  name: 'Borówka',
+                  unit: 'g',
+                  department: 'Owoce',
+                  amount: 50,
+                },
+              ],
+        ),
+      );
+      prisma.shoppingListArchive.findMany = jest.fn().mockResolvedValue([]);
+      prisma.shoppingListArchiveState.findMany = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      const state = await service.getShoppingListState(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+      );
+
+      expect(state.items[0].addedFrom).toEqual(['Owsianka', 'Pancakes']);
+    });
+  });
+
+  describe('addRecipeExtras', () => {
+    beforeEach(() => {
+      prisma.recipe.findFirst.mockResolvedValue({
+        id: mockRecipeId,
+        servings: 2,
+        ingredients: [
+          recipeIngredient(ING_MILK, 'mleko', 200, 'ml'),
+          recipeIngredient(ING_OATS, 'płatki owsiane', 50, 'g', 'Zboża'),
+        ],
+      });
+    });
+
+    it('powinno przeskalować ilości na porcje i zapisać je pod kluczem z listy', async () => {
+      const result = await add({
+        recipeId: mockRecipeId,
+        servings: 1,
+        ingredientIds: [ING_MILK, ING_OATS],
+      });
+
+      expect(result).toEqual({
+        added: 2,
+        productKeys: ['mleko::ml', 'płatki owsiane::g'],
+      });
+      expect(prisma.shoppingListExtra.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            householdId_weekStart_recipeId_productKey: {
+              householdId: mockHouseholdId,
+              weekStart: new Date(mockWeekStart),
+              recipeId: mockRecipeId,
+              productKey: 'mleko::ml',
+            },
+          },
+          // Podmiana, nie dopisanie: drugie stuknięcie nie dubluje ilości.
+          update: expect.objectContaining({ amount: 100 }),
+          create: expect.objectContaining({ name: 'Mleko', amount: 100 }),
+        }),
+      );
+    });
+
+    it('powinno szukać przepisu tylko w katalogu i w przepisach tego domu', async () => {
+      await add({
+        recipeId: mockRecipeId,
+        servings: 2,
+        ingredientIds: [ING_MILK, ING_OATS],
+      });
+
+      expect(prisma.recipe.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: mockRecipeId,
+            isActive: true,
+            OR: [{ isCatalog: true }, { householdId: mockHouseholdId }],
+          },
+        }),
+      );
+    });
+
+    it('powinno odhaczone jako kupione przywrócić do kupienia i oznaczyć listę do przebudowy', async () => {
+      await add({
+        recipeId: mockRecipeId,
+        servings: 2,
+        ingredientIds: [ING_MILK, ING_OATS],
+      });
+
+      expect(prisma.shoppingListItem.updateMany).toHaveBeenCalledWith({
+        where: {
+          shoppingList: {
+            householdId: mockHouseholdId,
+            weekStart: new Date(mockWeekStart),
+          },
+          productKey: { in: ['mleko::ml', 'płatki owsiane::g'] },
+        },
+        data: { isChecked: false },
+      });
+      expect(prisma.shoppingItemCheck.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { isChecked: false } }),
+      );
+      expect(prisma.shoppingList.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ isStale: true }),
+        }),
+      );
+    });
+
+    it('powinno odsłonić listę schowaną po wyczyszczeniu historii tygodnia', async () => {
+      await add({
+        recipeId: mockRecipeId,
+        servings: 2,
+        ingredientIds: [ING_MILK, ING_OATS],
+      });
+
+      expect(prisma.shoppingListArchiveState.deleteMany).toHaveBeenCalledWith({
+        where: {
+          householdId: mockHouseholdId,
+          weekStart: new Date(mockWeekStart),
+          currentArchiveId: null,
+        },
+      });
+    });
+
+    it('cudzy albo wycofany przepis → RECIPE_NOT_FOUND bez zapisu', async () => {
+      prisma.recipe.findFirst.mockResolvedValue(null);
+
+      await expect(
+        add({ recipeId: mockRecipeId, servings: 2, ingredientIds: [ING_MILK] }),
+      ).rejects.toMatchObject({
+        status: 404,
+        response: { code: 'RECIPE_NOT_FOUND' },
+      });
+      expect(prisma.shoppingListExtra.upsert).not.toHaveBeenCalled();
+    });
+
+    it('składnik spoza przepisu → VALIDATION_ERROR bez zapisu', async () => {
+      prisma.recipe.findFirst.mockResolvedValue({
+        id: mockRecipeId,
+        servings: 2,
+        ingredients: [recipeIngredient(ING_MILK, 'mleko', 200, 'ml')],
+      });
+
+      await expect(
+        add({
+          recipeId: mockRecipeId,
+          servings: 2,
+          ingredientIds: [ING_MILK, ING_OATS],
+        }),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: 'VALIDATION_ERROR',
+          details: ['ingredientIds must belong to the recipe'],
+        },
+      });
+      expect(prisma.shoppingListExtra.upsert).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['porcje poza widełkami', { servings: 13, ingredientIds: [ING_MILK] }],
+      ['pusta lista składników', { servings: 2, ingredientIds: [] }],
+      ['składnik nie-UUID', { servings: 2, ingredientIds: ['mleko'] }],
+    ])('%s → VALIDATION_ERROR przed membership', async (_, data) => {
+      await expect(
+        add({ recipeId: mockRecipeId, ...data }),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: { code: 'VALIDATION_ERROR' },
+      });
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removeShoppingExtra', () => {
+    const remove = (productKey: string) =>
+      service.removeShoppingExtra(mockUserId, mockHouseholdId, mockWeekStart, {
+        productKey,
+      });
+
+    it('powinno zdjąć dopisane ze wszystkich przepisów i oznaczyć listę do przebudowy', async () => {
+      prisma.shoppingListExtra.deleteMany.mockResolvedValue({ count: 2 });
+
+      await expect(remove('mleko::ml')).resolves.toEqual({ removed: 2 });
+      expect(prisma.shoppingListExtra.deleteMany).toHaveBeenCalledWith({
+        where: {
+          householdId: mockHouseholdId,
+          weekStart: new Date(mockWeekStart),
+          productKey: 'mleko::ml',
+        },
+      });
+      expect(prisma.shoppingList.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ isStale: true }),
+        }),
+      );
+    });
+
+    it('produkt bez dopisanej części → SHOPPING_ITEM_NOT_FOUND', async () => {
+      await expect(remove('mleko::ml')).rejects.toMatchObject({
+        status: 404,
+        response: { code: 'SHOPPING_ITEM_NOT_FOUND' },
+      });
+      expect(prisma.shoppingList.upsert).not.toHaveBeenCalled();
     });
   });
 });

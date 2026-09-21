@@ -76,12 +76,17 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   domu: `lockWeeksForWriteFrom`) — `UPDATE` wiersza `WeeklyPlan`, który szereguje piszących, a w
   SERIALIZABLE wymusza ponowienie na świeżej migawce. Nowa ścieżka zapisu bez zamka = dziura w
   „Cofnij". KOLEJNOŚĆ BLOKAD jest jedna dla wszystkich: zamek tygodnia (pierwsza blokada
-  transakcji) → `ShoppingListArchiveState` → `PlanItem` → `ShoppingItemCheck`/`ShoppingList` →
-  `ShoppingListArchive`. Odwrócenie kończy się `40P01 deadlock detected`, którego Prisma NIE mapuje
+  transakcji) → `ShoppingListArchiveState` → `PlanItem` → `ShoppingListExtra` →
+  `ShoppingItemCheck`/`ShoppingList` → `ShoppingListArchive`. Odwrócenie kończy się `40P01 deadlock detected`, którego Prisma NIE mapuje
   na P2034, więc `runSerializable` go nie ponowi i wychodzi 500 (`test/week-lock-order.e2e-spec.ts`). Warunek albo rozliczenie, które musi zapaść RAZEM z zapisem planu, idzie przez haki
   `applyWeekPlan(…, { guard, settle })` — biegną w transakcji, w każdej jej próbie, więc tylko baza
   przez `tx`, żadnych efektów zewnętrznych. Tak działa `AgentProposalsService.undo`: przejęcie
   propozycji (status + `appliedAt`), odcisk, plan, zwrot kwoty i wiadomość w jednej transakcji.
+  I tak samo `apply` (od 21.09.2026): przejęcie ze statusu sprzed kliknięcia, ukryte pytanie
+  (`editMessage`) = odmowa także z `force`, odcisk spod zamka, plan, `tryConsume` na `tx` (tylko
+  gdy są zmiany), wiadomość APPLIED i `appliedHash` — razem albo wcale; poza transakcją zostaje
+  wyłącznie WARUNKOWE oznaczenie STALE/FAILED/EXPIRED po odmowie i mail o kwocie. STALE bez
+  `force` = 409 `reason:STALE`. Dowód: `test/agent.e2e-spec.ts` › „zapis pod współbieżnością”.
 - Kontrole dostępu a współbieżność (audyt autoryzacji 21.09.2026, dowód: `test/authz-audit.e2e-spec.ts`):
   (1) bramka członkostwa idzie PRZED odczytem zasobu — obcy dostaje `NOT_HOUSEHOLD_MEMBER` tak samo dla
   domu/przepisu istniejącego i nieistniejącego (odwrotna kolejność = wyrocznia istnienia); (2) zapis oparty
@@ -104,6 +109,14 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   a nie przy każdym użyciu. Następca zgaszony wylogowaniem nie jest dowodem kopii (401 bez kasowania), chyba że
   poprzednik był ratowany (RECOVERED — istnieje para spoza łańcucha). `POST /auth/logout-everywhere`: Bearer
   access token, bez ciała, 200 `{revokedSessions}`.
+- Lista zakupów ma DWA źródła (od 21.09.2026): `PlanItem` i `ShoppingListExtra` — „brakuje mi"
+  ze szczegółu przepisu (`weeklyPlans:addRecipeExtras` / `removeShoppingExtra`). Telefon wysyła
+  tylko `recipeId`, `servings` i id `RecipeIngredient`; ilość, jednostkę i klucz liczy serwer tak
+  samo jak dla planu, więc oba źródła sumują się pod jednym `productKey`. Klucz dopisanego to
+  `(dom, tydzień, przepis, productKey)` — ponowne dopisanie PODMIENIA ilość. Dopisanie odznacza
+  kupione i odsłania listę schowaną po wyczyszczeniu historii. To NIE jest spiżarnia (aplikacja
+  dalej nie wie, co stoi w szafce). Pozycje z `getShoppingListState` niosą `addedFrom` (tytuły
+  przepisów); archiwa nie. Dowód: `test/shopping-extras.e2e-spec.ts`.
 - Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
 - WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje

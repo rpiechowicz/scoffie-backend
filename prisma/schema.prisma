@@ -292,6 +292,8 @@ model Recipe {
 
   planItems   PlanItem[]
   ingredients RecipeIngredient[]
+  /// Składniki dopisane z tego przepisu do list zakupów („brakuje mi").
+  shoppingListExtras ShoppingListExtra[]
   favorites   RecipeFavorite[]
 
   // Druga gałąź filtru widoczności (`isCatalog = true OR householdId = …`).
@@ -386,6 +388,7 @@ model Household {
   shoppingItemChecks        ShoppingItemCheck[]
   shoppingListArchives      ShoppingListArchive[]
   shoppingListArchiveStates ShoppingListArchiveState[]
+  shoppingListExtras        ShoppingListExtra[]
   recipeFavorites           RecipeFavorite[]
   cookidooIntegration       CookidooIntegration?
   agentConversations        AgentConversation[]
@@ -1089,6 +1092,38 @@ model ShoppingListItem {
 
   @@unique([shoppingListId, productKey])
   @@index([shoppingListId])
+}
+
+/// Pozycja dopisana do listy zakupów RĘCZNIE, spoza planu — „brakuje mi"
+/// ze szczegółu przepisu.
+///
+/// Lista zakupów jest liczona z planu (`PlanItem`) i tego się nie zmienia:
+/// ta tabela jest jej DRUGIM źródłem, sumowanym pod tym samym `productKey`.
+/// To NIE jest spiżarnia — aplikacja dalej nie wie, co stoi w szafce; wie
+/// tylko, co ktoś świadomie dopisał, i z którego przepisu.
+///
+/// Klucz `(householdId, weekStart, recipeId, productKey)`: ponowne dopisanie
+/// tego samego przepisu PODMIENIA ilość (np. po zmianie porcji), zamiast
+/// dublować ją drugim stuknięciem.
+model ShoppingListExtra {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  weekStart   DateTime
+  recipeId    String   @db.Uuid
+  productKey  String
+  name        String
+  unit        String
+  department  String
+  amount      Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipe    Recipe    @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, weekStart, recipeId, productKey])
+  @@index([householdId, weekStart])
+  @@index([recipeId])
 }
 
 model ShoppingListArchive {

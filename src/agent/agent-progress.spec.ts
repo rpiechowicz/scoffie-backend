@@ -163,7 +163,7 @@ describe('kroki `read`, `reason`, `write` — życie tury bez narzędzi', () => 
   );
 
   it('settledProgress zostawia po turze tylko to, co asystent zrobił', () => {
-    // Na żywo sygnały życia są potrzebne; po turze „Czytam pytanie" i
+    // Na żywo sygnały życia są potrzebne; po turze „Już się tym zajmuję" i
     // „Piszę odpowiedź" byłyby szumem w „Myślałem 42 s" i w każdym kliencie,
     // który nie zna flagi `transient`.
     const at = new Date();

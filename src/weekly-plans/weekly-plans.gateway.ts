@@ -23,6 +23,8 @@ import { broadcastToHousehold } from '../common/ws-rooms';
 import { WeeklyPlansService } from './weekly-plans.service';
 import { ShoppingListService } from './services/shopping-list.service';
 import { UpdateShoppingItemCheckDto } from './dto/update-shopping-item-check.dto';
+import { AddRecipeExtrasDto } from './dto/add-recipe-extras.dto';
+import { RemoveShoppingExtraDto } from './dto/remove-shopping-extra.dto';
 import { ApplyWeekPlanDto } from './dto/apply-week-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
@@ -75,6 +77,16 @@ class WeeklyPlansShoppingListArchivePayload extends WeeklyPlansHouseholdPayload 
 class WeeklyPlansSetShoppingItemCheckedPayload extends WeeklyPlansHouseholdWeekPayload {
   @IsObject()
   data: UpdateShoppingItemCheckDto;
+}
+
+class WeeklyPlansAddRecipeExtrasPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: AddRecipeExtrasDto;
+}
+
+class WeeklyPlansRemoveShoppingExtraPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: RemoveShoppingExtraDto;
 }
 
 class WeeklyPlansUpsertWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
@@ -516,6 +528,66 @@ export class WeeklyPlansGateway
         changedByDisplayName,
         productKey: payload.data.productKey,
         isChecked: payload.data.isChecked,
+      });
+
+      return result;
+    });
+  }
+
+  /**
+   * „Brakuje mi" ze szczegółu przepisu — dopisanie składników do listy.
+   *
+   * Rozgłoszenie tak, jak każda zmiana listy (drugi telefon przeładowuje
+   * zakupy), ale BEZ pusha: dopisanie to przygotowanie do zakupów, a nie
+   * informacja, na którą domownik ma zareagować.
+   */
+  @SubscribeMessage('weeklyPlans:addRecipeExtras')
+  addRecipeExtras(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansAddRecipeExtrasPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansAddRecipeExtrasPayload, payload);
+      const result = await this.shoppingListService.addRecipeExtras(
+        userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      );
+
+      this.emitShoppingListChanged({
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'ADD_RECIPE_EXTRAS',
+        changedByUserId: userId,
+      });
+
+      return result;
+    });
+  }
+
+  @SubscribeMessage('weeklyPlans:removeShoppingExtra')
+  removeShoppingExtra(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansRemoveShoppingExtraPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansRemoveShoppingExtraPayload, payload);
+      const result = await this.shoppingListService.removeShoppingExtra(
+        userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      );
+
+      this.emitShoppingListChanged({
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'REMOVE_SHOPPING_EXTRA',
+        changedByUserId: userId,
+        productKey: payload.data.productKey,
       });
 
       return result;
