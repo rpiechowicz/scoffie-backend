@@ -114,6 +114,11 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
     jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
     akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
     jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie.
+- Postęp tury (`AgentTurn.progress`, `src/agent/agent-progress.ts`): kroki narzędzi plus kroki
+  PRZEJŚCIOWE (`transient: true`) — `read` (start tury), `reason` (blok myślenia w strumieniu),
+  `write` (pierwszy fragment tekstu), `think` (cisza po narzędziach). Dostawca melduje je przez
+  `onActivity`/`onThinking`, telefon pokazuje na żywo obok tykającego czasu, a przy domknięciu tury
+  `settledProgress` zdejmuje je z zapisu — po turze zostają narzędzia i zapis (e2e liczy na to).
 - Schematy narzędzi asystenta mają DWA limity po stronie API i oba wywracają CAŁĄ turę (400),
   zanim model cokolwiek zobaczy: (1) pól nieobowiązkowych w sumie wszystkich `AGENT_TOOLS`
   najwyżej 24, (2) łączny rozmiar gramatyki skompilowanej z narzędzi ze `strict` („compiled
@@ -122,7 +127,10 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   DTO i tak sprawdza to samo). Oba limity pilnują spec-i w `agent-tools.spec.ts`, ale jedyny
   pewny sprawdzian to `pnpm exec tsx scripts/agent-tools-smoke.ts` — jedno żądanie do API za
   grosze. Dostawca `stub` schematów NIE OGLĄDA, więc pełna suita bywa zielona przy schematach,
-  które padają u każdego użytkownika.
+  które padają u każdego użytkownika. **Budżet pól nieobowiązkowych jest WYCZERPANY: 24/24**
+  (stan 18.09.2026), więc nowe narzędzie może mieć wyłącznie pola wymagane — albo trzeba
+  najpierw zwolnić miejsce w istniejących. Jak liczyć: spec „pól nieobowiązkowych mieści się
+  w limicie (24)” w `agent-tools.spec.ts`.
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
   Puste tagi są dla reguł diet faktem („czysto”), nie brakiem danych.

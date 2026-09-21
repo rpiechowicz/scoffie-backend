@@ -35,7 +35,56 @@ export type AgentProgressStep = {
    * Brak pola = zwykły krok.
    */
   phase?: 'PLANNING';
+  /**
+   * Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który
+   * warto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki
+   * narzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje
+   * go w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s"
+   * — bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem
+   * co drugi wiersz. Brak pola = zwykły krok.
+   */
+  transient?: true;
 };
+
+/**
+ * Nie narzędzie, tylko CISZA między narzędziami.
+ *
+ * Wywołanie modelu po wynikach narzędzi trwa 10–30 s — najdłużej na końcu
+ * tury, gdy model pisze odpowiedź. Przez ten czas ostatnim krokiem było
+ * „Zapisuję plan tygodnia", czyli zdanie o czymś, co skończyło się pół
+ * minuty temu; wskaźnik na telefonie wyglądał wtedy na zawieszony. Ten krok
+ * mówi prawdę o tym odcinku, a serwer NIE WIE z góry, czy po nim przyjdzie
+ * kolejne narzędzie, czy ostatnie słowo — stąd sformułowania, które pasują
+ * do obu.
+ */
+export const THINK_STEP_TOOL = 'think';
+
+/**
+ * Trzy kroki PRZED pierwszym narzędziem i MIĘDZY nimi, których nie widać
+ * w żadnym wywołaniu narzędzia — a które zajmują większość ciszy tury.
+ *
+ * `read`: tura ruszyła, historia i prompt się składają, żądanie idzie do
+ * API. `reason`: model myśli (bloki `thinking` w strumieniu) — przy modelach
+ * z rozumowaniem to 10–40 s bez jednej litery odpowiedzi i bez narzędzia.
+ * `write`: pierwszy fragment tekstu — od tej chwili szkic rośnie na
+ * telefonie. Bez tych trzech telefon przez pierwsze pół minuty pokazywał
+ * „Zastanawiam się…" i nic więcej, a użytkownik brał to za zawieszenie.
+ *
+ * Wszystkie są przejściowe jak `think`: mówią, co dzieje się TERAZ, ale po
+ * turze nie są etapem, który warto pamiętać — `settledProgress` zdejmuje je
+ * z zapisu przy domknięciu.
+ */
+export const READ_STEP_TOOL = 'read';
+export const REASON_STEP_TOOL = 'reason';
+export const WRITE_STEP_TOOL = 'write';
+
+/** Kroki, które mówią o TERAŹNIEJSZOŚCI, nie o etapie — patrz `transient`. */
+const TRANSIENT_TOOLS: ReadonlySet<string> = new Set([
+  THINK_STEP_TOOL,
+  READ_STEP_TOOL,
+  REASON_STEP_TOOL,
+  WRITE_STEP_TOOL,
+]);
 
 /**
  * Etykiety mówią, co asystent ROBI DLA UŻYTKOWNIKA, a nie jak nazywa się
@@ -63,6 +112,15 @@ const LABELS: Record<string, readonly string[]> = {
     'Sprawdzam, jak wychodzą kalorie',
     'Podliczam tydzień',
   ],
+  get_recipe_details: [
+    'Czytam przepis',
+    'Sprawdzam skład i kroki',
+    'Zaglądam do przepisu',
+  ],
+  search_recipes_by_ingredient: [
+    'Szukam dań z tym składnikiem',
+    'Przeglądam składy przepisów',
+  ],
   search_ingredients: [
     'Szukam składników',
     'Przeglądam listę produktów',
@@ -76,6 +134,10 @@ const LABELS: Record<string, readonly string[]> = {
   ],
   propose_day_plan: ['Układam ten dzień', 'Dobieram posiłki na jeden dzień'],
   propose_swap: ['Szukam czegoś w zamian', 'Dobieram danie na podmianę'],
+  propose_remove_meal: [
+    'Wyjmuję to z planu',
+    'Sprawdzam, co zostanie po usunięciu',
+  ],
   propose_household_split: [
     'Rozdzielam porcje',
     'Dopasowuję wielkość porcji do każdego',
@@ -87,6 +149,8 @@ const LABELS: Record<string, readonly string[]> = {
     'Sprawdzam, czego trzeba dokupić',
   ],
   remember_note: ['Zapamiętuję to sobie', 'Notuję na przyszłość'],
+  mark_meal_eaten: ['Odhaczam posiłek', 'Zaznaczam, że to zjedzone'],
+  check_shopping_items: ['Odhaczam zakupy', 'Zaznaczam kupione produkty'],
   // Jedno sformułowanie, celowo: to jest MOMENT, nie kolejny krok, i ma
   // wyglądać tak samo w każdej turze.
   start_planning: ['Biorę się za plan'],
@@ -94,6 +158,27 @@ const LABELS: Record<string, readonly string[]> = {
   create_recipe: ['Dodaję przepis', 'Zapisuję nowy przepis'],
   update_recipe: ['Poprawiam przepis'],
   delete_recipe: ['Wycofuję przepis'],
+  [THINK_STEP_TOOL]: [
+    'Zbieram to w całość',
+    'Analizuję, co wyszło',
+    'Myślę, co z tym zrobić',
+  ],
+  [READ_STEP_TOOL]: [
+    'Czytam pytanie',
+    'Czytam, o co pytasz',
+    'Zaczynam od pytania',
+  ],
+  [REASON_STEP_TOOL]: [
+    'Zastanawiam się nad podejściem',
+    'Myślę nad tym',
+    'Rozważam, co zrobić',
+    'Układam plan działania',
+  ],
+  [WRITE_STEP_TOOL]: [
+    'Piszę odpowiedź',
+    'Układam odpowiedź',
+    'Formułuję odpowiedź',
+  ],
 };
 
 const DRY_RUN_LABELS: readonly string[] = [
@@ -111,6 +196,11 @@ const WRITING_TOOLS = new Set([
   'create_recipe',
   'update_recipe',
   'delete_recipe',
+  // Nie zmieniają PLANU, ale zmieniają dane gospodarstwa, które użytkownik
+  // ogląda na osobnych ekranach — po takiej turze skrót „otwórz plan" albo
+  // „otwórz listę" prowadzi do czegoś, co naprawdę wygląda inaczej.
+  'mark_meal_eaten',
+  'check_shopping_items',
 ]);
 
 /**
@@ -154,7 +244,22 @@ export function progressStep(
     at: now.toISOString(),
     writes: WRITING_TOOLS.has(tool) && !dryRun,
     ...(tool === 'start_planning' ? { phase: 'PLANNING' as const } : {}),
+    ...(TRANSIENT_TOOLS.has(tool) ? { transient: true as const } : {}),
   };
+}
+
+/**
+ * Postęp do ZAPISU przy domknięciu tury: bez kroków przejściowych.
+ *
+ * Na żywo „Czytam pytanie" i „Piszę odpowiedź" są sygnałem życia; po turze
+ * byłyby szumem w podsumowaniu „Myślałem 42 s" i w każdym kliencie, który
+ * nie zna flagi `transient`. Zostaje to, co asystent zrobił: narzędzia,
+ * przekazanie planiście, zapis.
+ */
+export function settledProgress(
+  steps: readonly AgentProgressStep[],
+): AgentProgressStep[] {
+  return steps.filter((step) => step.transient !== true);
 }
 
 /**

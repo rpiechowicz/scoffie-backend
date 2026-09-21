@@ -38,6 +38,9 @@ export type AgentPhaseUsage = {
   usage: AgentProviderUsage;
 };
 
+/** Faza strumienia z modelu, o której warto powiedzieć telefonowi. */
+export type AgentStreamActivity = 'reasoning' | 'writing';
+
 export type AgentProviderRequest = {
   model: string;
   effort: AiEffort;
@@ -56,6 +59,31 @@ export type AgentProviderRequest = {
     name: string,
     input: Record<string, unknown>,
   ) => Promise<AgentToolResult>;
+  /**
+   * Model dostał wyniki narzędzi i zaczyna nad nimi myśleć — dostawca woła to
+   * tuż PRZED kolejnym żądaniem do API. Runner zapisuje wtedy krok postępu
+   * `think`, żeby wskaźnik na telefonie nie stał przez pół minuty na nazwie
+   * narzędzia, które już się skończyło. Opcjonalne i best-effort: brak
+   * albo błąd nie zmienia przebiegu tury.
+   */
+  onThinking?: () => Promise<void>;
+  /**
+   * Co model robi w strumieniu, zanim pojawi się cokolwiek innego:
+   * `reasoning` = pierwszy blok myślenia w tym wywołaniu API, `writing` =
+   * pierwszy fragment tekstu. Raz na wywołanie i rodzaj. Runner zapisuje
+   * z tego kroki przejściowe, żeby wskaźnik na telefonie zmieniał się także
+   * w tych 10–40 s, w których nie ma ani narzędzia, ani litery odpowiedzi.
+   * Opcjonalne i best-effort jak `onThinking`.
+   */
+  onActivity?: (activity: AgentStreamActivity) => Promise<void> | void;
+  /**
+   * Narastający tekst odpowiedzi w trakcie generowania (cały dotychczasowy,
+   * nie przyrost). Dostawca woła to przy każdym fragmencie tekstu z modelu
+   * i z PUSTYM tekstem na starcie każdego wywołania — tekst z rundy, która
+   * skończyła się narzędziem, nie jest odpowiedzią. Synchroniczne i tanie:
+   * dławienie i zapis to sprawa runnera. Opcjonalne, best-effort.
+   */
+  onDraft?: (text: string) => void;
   /** Przerwanie tury po `AI_TURN_TIMEOUT_MS` — dostawca MUSI go respektować. */
   signal: AbortSignal;
   /**

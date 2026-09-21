@@ -119,6 +119,43 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'get_recipe_details',
+    description:
+      'Pełny przepis: WSZYSTKIE składniki z gramaturą i kroki przygotowania. ' +
+      'Katalog w prompcie pokazuje tylko pięć najcięższych składników i zero kroków, ' +
+      'więc na pytania „jak to ugotować", „ile tam czego" i „czy jest w tym X" ' +
+      'odpowiadasz WYŁĄCZNIE po wywołaniu tego narzędzia. Nie zgaduj z nazwy dania ' +
+      'ani z tych pięciu składników — „dorsz z masłem" wygląda stamtąd na danie bez nabiału. ' +
+      'Kroki przepisz swoimi słowami tylko wtedy, gdy użytkownik o nie prosi.',
+    input_schema: object({ recipe: RECIPE_REF }, ['recipe']),
+    // BEZ `strict` — to i cztery kolejne narzędzia z 18.09 weszły ze `strict`
+    // bez smoke-testu na żywym API i produkcja oddawała AI_PROVIDER_ERROR na
+    // KAŻDEJ turze (gramatyka wszystkich narzędzi ze `strict` kompiluje się
+    // razem; patrz limit w agent-tools.spec.ts). Walidacja DTO w executorze
+    // sprawdza to samo. Wracać do `strict` tylko po zielonym
+    // `pnpm exec tsx scripts/agent-tools-smoke.ts`.
+  },
+  {
+    name: 'search_recipes_by_ingredient',
+    description:
+      'Znajdź dania, w których naprawdę JEST dany składnik — po całym składzie, ' +
+      'nie po nazwie dania. Używaj, gdy pytanie wychodzi od produktu („co zrobić ' +
+      'z bakłażanem", „mam pół kurczaka", „coś z soczewicą"): katalog w prompcie ' +
+      'niesie tylko pięć najcięższych składników każdego dania, więc sam go nie ' +
+      'przejrzysz pod tym kątem i przegapisz połowę trafień. ' +
+      'Odmiana nie przeszkadza („jajka" znajdzie „jajko"). ' +
+      'Wynik niesie gotowe referencje do propose_* — używaj ich dosłownie.',
+    input_schema: object(
+      {
+        ingredient: {
+          type: 'string',
+          description: 'Nazwa składnika albo jej fragment, po polsku.',
+        },
+      },
+      ['ingredient'],
+    ),
+  },
+  {
     name: 'search_ingredients',
     description:
       'Znajdź składnik po nazwie i pobierz jego identyfikator, alergeny i dozwolone jednostki. ' +
@@ -281,6 +318,41 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
+    name: 'propose_remove_meal',
+    description:
+      'Zaproponuj USUNIĘCIE jednego dania z planu — gdy użytkownik mówi, że ' +
+      'czegoś nie będzie („w czwartek jemy u teściów", „zdejmij tę kolację"). ' +
+      'NIE rób tego przez apply_week_plan: tamto przyjmuje stan docelowy CAŁEGO ' +
+      'tygodnia i każda pozycja, której nie wypiszesz, zniknie razem z tą jedną. ' +
+      'Podaj participant_user_ids, gdy danie ma zniknąć TYLKO komuś — reszta domu ' +
+      'zostaje wtedy przy swoim. TY NIE ZAPISUJESZ — usunie użytkownik jednym kliknięciem.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        day_of_week: DAY,
+        meal_type: MEAL,
+        reason: {
+          type: 'string',
+          description:
+            'Dlaczego to znika, kilka słów („nie ma nas w domu"). Trafia w tytuł karty.',
+        },
+        participant_user_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'KOMU danie znika. Puste = całemu domowi, czyli pozycja wypada z planu.',
+        },
+      },
+      [
+        'week_start',
+        'day_of_week',
+        'meal_type',
+        'reason',
+        'participant_user_ids',
+      ],
+    ),
+  },
+  {
     name: 'propose_household_split',
     description:
       'Zaproponuj JEDNO danie dla kilku osób naraz i powiedz, jak podać je każdej z nich. ' +
@@ -366,6 +438,52 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       'Aplikacja nie wie, co użytkownik ma w domu — nie mów, czego mu „nie brakuje".',
     input_schema: object({ week_start: WEEK_START }, ['week_start']),
     strict: true,
+  },
+  {
+    name: 'mark_meal_eaten',
+    description:
+      'Odhacz zaplanowany posiłek jako ZJEDZONY przez osobę, z którą rozmawiasz ' +
+      '(albo cofnij odhaczenie). Używaj, gdy pada to wprost: „zjadłem obiad", ' +
+      '„kolacji nie jadłem". To zmienia WYŁĄCZNIE bilans tej osoby — plan zostaje ' +
+      'nietknięty, innym domownikom nic nie ubywa. Danie bierze się z planu, więc ' +
+      'nie podajesz przepisu; pusty slot kończy się błędem, nie odhaczeniem. ' +
+      'Nie odhaczaj niczego „przy okazji" — tylko wtedy, gdy użytkownik o tym mówi.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        day_of_week: DAY,
+        meal_type: MEAL,
+        eaten: {
+          type: 'boolean',
+          description: 'true = zjedzone, false = zdejmij odhaczenie.',
+        },
+      },
+      ['week_start', 'day_of_week', 'meal_type', 'eaten'],
+    ),
+  },
+  {
+    name: 'check_shopping_items',
+    description:
+      'Odhacz produkty na liście zakupów tego tygodnia (albo cofnij odhaczenie), ' +
+      'gdy użytkownik mówi, że je ma: „kupiłem mleko i jajka". Podajesz NAZWY ' +
+      'produktów po polsku — dopasowanie do listy robi serwer i oddaje, czego nie ' +
+      'znalazł. Nie wymyślaj nazw spoza tego, co powiedział użytkownik, i nie ' +
+      'odhaczaj „całej listy" na podstawie domysłu, że skoro był w sklepie, to ma wszystko.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        products: {
+          type: 'array',
+          description: 'Nazwy produktów, tak jak powiedział je użytkownik.',
+          items: { type: 'string' },
+        },
+        checked: {
+          type: 'boolean',
+          description: 'true = kupione, false = zdejmij odhaczenie.',
+        },
+      },
+      ['week_start', 'products', 'checked'],
+    ),
   },
   {
     name: 'check_plan_conflicts',
@@ -670,6 +788,13 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   get_week_plan: 'chat',
   get_week_balance: 'chat',
   show_shopping_list: 'chat',
+  // Czytanie przepisu i szukanie po składniku zostaje w rozmowie CELOWO:
+  // to są odpowiedzi na pytania („jak to ugotować", „co zrobić z bakłażanem"),
+  // a nie układanie planu. Gdyby wymagały `start_planning`, najczęstsze
+  // pytanie o przepis kosztowałoby drugi, droższy model za nic. Planista ma
+  // je też — lista `AGENT_TOOLS` jest dla niego pełna.
+  get_recipe_details: 'chat',
+  search_recipes_by_ingredient: 'chat',
   // Karty, które niczego nie zapisują.
   ask_clarifying_question: 'chat',
   offer_options: 'chat',
@@ -677,10 +802,21 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   remember_note: 'chat',
   // Bezpieczeństwo liczy serwer, model cytuje — patrz komentarz przy narzędziu.
   check_plan_conflicts: 'chat',
+  // ZAPISY, a mimo to w warstwie rozmowy — i to jest decyzja, nie przeoczenie.
+  // Podział warstw idzie za tym, jakiej INTELIGENCJI wymaga zadanie, a nie za
+  // tym, czy coś dotyka bazy: odhaczenie „zjadłem obiad" nie dobiera dania,
+  // nie sprawdza alergenów i nie rusza planu — zmienia bilans jednej osoby
+  // albo jeden checkbox na liście zakupów. Oba są odwracalne tym samym
+  // zdaniem („jednak nie jadłem"). Przepuszczenie ich przez `start_planning`
+  // znaczyłoby, że najkrótsza wiadomość w całej aplikacji uruchamia droższy
+  // model i drugą rundę narzędzi.
+  mark_meal_eaten: 'chat',
+  check_shopping_items: 'chat',
   // Układanie i zapisywanie: dobór pod ograniczenia całego domu.
   propose_week_plan: 'planner',
   propose_day_plan: 'planner',
   propose_swap: 'planner',
+  propose_remove_meal: 'planner',
   propose_household_split: 'planner',
   apply_week_plan: 'planner',
   create_recipe: 'planner',

@@ -196,6 +196,10 @@ export class AnthropicAgentProvider implements AgentProvider {
         throw this.withUsage(error, usage, phases);
       }
       messages.push({ role: 'user', content: toolResults });
+      // Od tej chwili do następnej odpowiedzi API model „myśli" — najdłuższy
+      // cichy odcinek tury. Runner zapisuje krok, po którym telefon wie, że
+      // narzędzia się skończyły, a odpowiedź dopiero powstaje.
+      await request.onThinking?.();
 
       // Przekazanie PO wykonaniu narzędzi tej rundy: wynik `start_planning`
       // wraca jeszcze do tańszego modelu jako zwykły tool_result, a od
@@ -294,18 +298,15 @@ export class AnthropicAgentProvider implements AgentProvider {
     }
 
     try {
-      const response = await client.messages.create(
-        {
-          model,
-          max_tokens: MAX_TOKENS,
-          system: request.system,
-          messages: withCacheBreakpoint(messages),
-          tools: tools as unknown as Anthropic.ToolUnion[],
-          tool_choice: { type: 'none' },
-          ...reasoningParams(model, effort),
-        },
-        { signal: request.signal },
-      );
+      const response = await this.streamMessage(client, request, {
+        model,
+        max_tokens: MAX_TOKENS,
+        system: request.system,
+        messages: withCacheBreakpoint(messages),
+        tools: tools as unknown as Anthropic.ToolUnion[],
+        tool_choice: { type: 'none' },
+        ...reasoningParams(model, effort),
+      });
       this.accumulate(usage, phases, model, effort, response.usage);
       return {
         text: this.joinText(response.content),
@@ -326,6 +327,55 @@ export class AnthropicAgentProvider implements AgentProvider {
         [...phases.values()],
       );
     }
+  }
+
+  /**
+   * Jedno żądanie do API jako strumień — nie dla samego streamingu, tylko
+   * dla SZKICU: telefon czekał 25–240 s na pierwszą literę, bo tekst istniał
+   * dopiero po `create`. Każdy fragment tekstu idzie do `onDraft`, a
+   * `finalMessage()` oddaje tę samą pełną wiadomość, którą dawało `create`
+   * — pętla narzędzi nie widzi różnicy. Błędy przechodzą przez `catch`
+   * wołającego, bo to on wie, ile zużycia ma dopiąć do wyjątku.
+   */
+  private async streamMessage(
+    client: Anthropic,
+    request: AgentProviderRequest,
+    params: Anthropic.MessageCreateParamsNonStreaming,
+  ): Promise<Anthropic.Message> {
+    const stream = client.messages.stream(params, { signal: request.signal });
+    // Pusty szkic NA STARCIE każdego wywołania: tekst rundy, która skończyła
+    // się narzędziem („sprawdzę plan…"), nie jest odpowiedzią i nie ma prawa
+    // zostać na ekranie pod kolejnym krokiem.
+    request.onDraft?.('');
+    let draft = '';
+    // Raz na wywołanie i rodzaj: model potrafi oddać kilkaset fragmentów
+    // myślenia, a telefon potrzebuje jednego zdania „myślę", nie kilkuset.
+    let announcedReasoning = false;
+    let announcedWriting = false;
+    for await (const event of stream) {
+      if (event.type === 'content_block_start') {
+        if (event.content_block.type === 'thinking' && !announcedReasoning) {
+          announcedReasoning = true;
+          await request.onActivity?.('reasoning');
+        }
+        continue;
+      }
+      if (event.type !== 'content_block_delta') continue;
+      if (event.delta.type === 'thinking_delta' && !announcedReasoning) {
+        announcedReasoning = true;
+        await request.onActivity?.('reasoning');
+        continue;
+      }
+      if (event.delta.type === 'text_delta') {
+        if (!announcedWriting) {
+          announcedWriting = true;
+          await request.onActivity?.('writing');
+        }
+        draft += event.delta.text;
+        request.onDraft?.(draft);
+      }
+    }
+    return stream.finalMessage();
   }
 
   private getClient(): Anthropic {
@@ -367,22 +417,19 @@ export class AnthropicAgentProvider implements AgentProvider {
     tools: readonly AgentToolDefinition[],
   ): Promise<Anthropic.Message> {
     try {
-      return await client.messages.create(
-        {
-          model,
-          max_tokens: MAX_TOKENS,
-          system: request.system,
-          // Trzeci punkt cache na końcu historii rund: bez niego rosnąca
-          // tablica wiadomości (myślenie + wyniki narzędzi) szła do 14 razy
-          // na turę po pełnej stawce. Największa dźwignia kosztu w tym pliku.
-          messages: withCacheBreakpoint(messages),
-          tools: tools as unknown as Anthropic.ToolUnion[],
-          // Kształt myślenia zależy od MODELU, nie od konfiguracji: modele 5
-          // chcą `adaptive` + `effort`, Haiku 4.5 odrzuca oba błędem 400.
-          ...reasoningParams(model, effort),
-        },
-        { signal: request.signal },
-      );
+      return await this.streamMessage(client, request, {
+        model,
+        max_tokens: MAX_TOKENS,
+        system: request.system,
+        // Trzeci punkt cache na końcu historii rund: bez niego rosnąca
+        // tablica wiadomości (myślenie + wyniki narzędzi) szła do 14 razy
+        // na turę po pełnej stawce. Największa dźwignia kosztu w tym pliku.
+        messages: withCacheBreakpoint(messages),
+        tools: tools as unknown as Anthropic.ToolUnion[],
+        // Kształt myślenia zależy od MODELU, nie od konfiguracji: modele 5
+        // chcą `adaptive` + `effort`, Haiku 4.5 odrzuca oba błędem 400.
+        ...reasoningParams(model, effort),
+      });
     } catch (error) {
       throw this.toProviderError(error);
     }

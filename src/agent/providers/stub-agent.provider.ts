@@ -75,6 +75,10 @@ export class StubAgentProvider implements AgentProvider {
     }
 
     const text = `[stub] ${lastUserText}`.slice(0, 4000);
+    // Jak prawdziwy dostawca: szkic przed ostatnim słowem, żeby e2e widziało
+    // kolumnę `draftText` w ruchu.
+    await request.onActivity?.('writing');
+    request.onDraft?.(text);
     const usage = {
       // Prymitywne, ale niezerowe: e2e sprawdza, że księga użycia i licznik
       // kosztu dostają realne liczby, a nie same zera.
