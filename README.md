@@ -89,6 +89,15 @@ Use [`.env.example`](./.env.example) as the source of truth.
   successor token is still unused. It also covers the duplicate that arrives
   *during* the rotation: the phone retransmits a POST whose connection died
   before the response, so both requests carry the same token.
+- `REFRESH_STRICT_REUSE` (`true`) — what happens when a rotated token comes
+  back *after* the grace window while its successor is still unused. `true`
+  (default; also when unset, empty or misspelled): treated as replay, the whole
+  token family is revoked. Only an explicit `false` enables "cold" recovery
+  after the window — more forgiving for a phone that lost a response, but a
+  stolen copy of the old token then gets a session that a later use of the
+  successor no longer detects. A forked chain (successor already used) revokes
+  the family in both modes. Check the Railway value before deploying: an
+  explicit `false` set there overrides the default.
 - `COOKIDOO_ENCRYPTION_KEY` (32 bytes base64 — the API refuses to boot without it)
 
 ### Required in production only (`NODE_ENV=production`, checked at boot)

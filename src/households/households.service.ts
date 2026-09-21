@@ -1,5 +1,4 @@
 import { HttpStatus, Injectable, Optional } from '@nestjs/common';
-import { randomBytes } from 'crypto';
 import { AppException } from '../common/app-exception';
 import { assertUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
@@ -31,6 +30,11 @@ import {
   onRosterChanged,
 } from '../weekly-plans/utils/plan-roster.util';
 import { MemberContext, toMemberContext } from './member-context.util';
+import {
+  generateInvitationToken,
+  invitationLookup,
+  toInboxHandle,
+} from './invitation-token.util';
 
 /** Najdłuższa ważność linku zaproszenia. */
 const INVITATION_MAX_DAYS = 30;
@@ -191,7 +195,7 @@ export class HouseholdsService {
       );
     }
 
-    const token = randomBytes(16).toString('hex');
+    const { token, tokenHash } = generateInvitationToken();
     let expiresAt = dto.expiresAt
       ? new Date(dto.expiresAt)
       : new Date(Date.now() + 7 * 86400000);
@@ -217,20 +221,25 @@ export class HouseholdsService {
       );
     }
 
-    return this.prisma.invitation.create({
+    // Do bazy idzie WYŁĄCZNIE hasz. Surowy token istnieje w tej jednej
+    // odpowiedzi (klient składa z niego link) i nigdzie więcej — nie da się
+    // go później odczytać, także przez skrzynkę zaproszeń.
+    const invitation = await this.prisma.invitation.create({
       data: {
-        token,
+        tokenHash,
         householdId,
         createdById: userId,
         expiresAt,
       },
+      omit: { token: true, tokenHash: true },
     });
+    return { ...invitation, token };
   }
 
   async acceptInvitation(userId: string, dto: AcceptInvitationDto) {
     dto = await validateDto(AcceptInvitationDto, dto);
     const invitation = await this.prisma.invitation.findUnique({
-      where: { token: dto.token },
+      where: invitationLookup(userId, dto.token),
     });
     if (!invitation) {
       throw new AppException(
@@ -494,7 +503,7 @@ export class HouseholdsService {
   async previewInvitation(userId: string, dto: AcceptInvitationDto) {
     dto = await validateDto(AcceptInvitationDto, dto);
     const invitation = await this.prisma.invitation.findUnique({
-      where: { token: dto.token },
+      where: invitationLookup(userId, dto.token),
       include: {
         household: {
           select: {
@@ -569,7 +578,8 @@ export class HouseholdsService {
     const current = otherMemberships[0]?.household ?? null;
 
     return {
-      token: invitation.token,
+      // Echo tego, co przysłał klient — z bazy tokenu nie da się już wziąć.
+      token: dto.token,
       status,
       household: invitation.household,
       invitedByDisplayName: invitation.createdBy?.displayName ?? null,
@@ -621,7 +631,12 @@ export class HouseholdsService {
     return invitations
       .filter((invitation) => !joined.has(invitation.householdId))
       .map((invitation) => ({
-        token: invitation.token,
+        id: invitation.id,
+        // NIE token z linku (w bazie jest tylko jego hasz), tylko uchwyt
+        // skrzynki `inv_<id>`, ważny wyłącznie dla adresata. Zostaje pod
+        // nazwą `token`, bo wydane buildy iOS dekodują to pole jako wymagane
+        // i odsyłają je w `accept`/`decline`/`preview` bez zmian.
+        token: toInboxHandle(invitation.id),
         household: invitation.household,
         invitedByDisplayName: invitation.createdBy?.displayName ?? null,
         expiresAt: invitation.expiresAt,
@@ -636,7 +651,7 @@ export class HouseholdsService {
   async declineInvitation(userId: string, dto: AcceptInvitationDto) {
     dto = await validateDto(AcceptInvitationDto, dto);
     const invitation = await this.prisma.invitation.findUnique({
-      where: { token: dto.token },
+      where: invitationLookup(userId, dto.token),
       select: { id: true, redeemedAt: true, invitedUserId: true },
     });
     if (!invitation) {

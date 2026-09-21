@@ -8,7 +8,11 @@ import {
 } from 'class-validator';
 
 export class AcceptInvitationDto {
-  /** Token z linku (32 hex z `randomBytes(16)`); `MaxLength` odcina śmieci, nie prawdziwe tokeny. */
+  /**
+   * Token z linku (32 hex z `randomBytes(16)`) ALBO uchwyt skrzynki
+   * `inv_<id zaproszenia>` z `households:listPendingInvitations` — ten drugi
+   * działa tylko dla adresata. `MaxLength` odcina śmieci, nie prawdziwe tokeny.
+   */
   @ApiProperty({ example: 'invite-home-demo', minLength: 8, maxLength: 128 })
   @IsString()
   @MinLength(8)

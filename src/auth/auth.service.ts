@@ -62,16 +62,29 @@ export class AuthService {
   private readonly refreshReuseGraceMs =
     (Number(process.env.REFRESH_REUSE_GRACE_SECONDS ?? '60') || 60) * 1000;
   /**
-   * `REFRESH_STRICT_REUSE=true` przywraca zachowanie sprzed 18.09.2026:
-   * zgubiona rotacja starsza niz okno laski kasuje CALA rodzine tokenow.
+   * Polityka dla starego tokenu, ktory wraca PO oknie laski, choc jego
+   * nastepcy nikt nie uzyl (`REFRESH_STRICT_REUSE`).
    *
-   * Domyslnie WYLACZONE, bo to wlasnie ono wylogowywalo wlascicieli telefonow,
-   * ktorzy wrocili do aplikacji po kilku dniach — patrz `recoverLostRotation`.
-   * Zostaje jako przelacznik, bo to jest decyzja o kompromisie
-   * bezpieczenstwo/wygoda i nalezy do wlasciciela instalacji, a nie do kodu.
+   * DOMYSLNIE STRICT (od 21.09.2026): taka proba kasuje CALA rodzine tokenow.
+   * Lagodny tryb byl domyslny przez trzy dni (18–21.09.2026) i mial koszt,
+   * ktory e2e przypina wprost: para wydana „ratunkiem na zimno" nie jest
+   * spieta z lancuchem, wiec gdy wlasciciel uzyje potem swojego nastepcy,
+   * rozwidlenia NIC juz nie wykrywa — kopia starego tokenu i wlasciciel
+   * pracuja rownolegle, bez sladu. Swiezy refresh token lezy u klienta
+   * nieuzywany nawet godzine (do konca access tokenu), wiec to nie jest
+   * przypadek brzegowy.
+   *
+   * Lagodny tryb wlacza WYLACZNIE jawne `REFRESH_STRICT_REUSE=false`. Brak
+   * zmiennej, pusta wartosc i literowka daja strict: pomylka w konfiguracji
+   * ma konczyc sie bezpieczniejszym zachowaniem, nie luzniejszym. Cena strict
+   * tez jest realna — telefon, ktory zgubil odpowiedz z rotacji i wrocil po
+   * oknie, wylogowuje wlasciciela ze wszystkich urzadzen — dlatego to zostaje
+   * przelacznikiem wlasciciela instalacji. Czytane per zadanie.
    */
   private get strictReuse(): boolean {
-    return (process.env.REFRESH_STRICT_REUSE ?? '').trim() === 'true';
+    return (
+      (process.env.REFRESH_STRICT_REUSE ?? '').trim().toLowerCase() !== 'false'
+    );
   }
 
   constructor(
@@ -380,11 +393,13 @@ export class AuthService {
    *  - `replay` — lancuch sie ROZWIDLIL: nastepca zostal uzyty, czyli para
    *    dotarla do klienta i zyje wlasnym zyciem, a mimo to wraca stary token.
    *    Dwie strony maja dzialajace poswiadczenia. To jedyna sytuacja, w ktorej
-   *    mamy dowod, i jedyna, w ktorej pada CALA rodzina (wszystkie urzadzenia
-   *    + `tokenVersion`).
+   *    mamy DOWOD. Tak samo (cala rodzina: wszystkie urzadzenia +
+   *    `tokenVersion`) konczy sie w domyslnym trybie strict zrotowany token,
+   *    ktory wraca PO oknie laski — dowodu nie ma, ale nie ma tez czym
+   *    odroznic spoznionego telefonu od kopii (patrz `strictReuse`).
    *  - `stale` — token jest martwy, ale nic nie wskazuje na kopie: wylogowany,
-   *    wygasly, juz raz wykryty, albo zgubiony tak dawno, ze nie miesci sie
-   *    w oknie laski. Odmawiamy TEMU zadaniu (401) i na tym koniec.
+   *    wygasly albo juz raz wykryty. Odmawiamy TEMU zadaniu (401) i na tym
+   *    koniec.
    *
    * Dotad kazda odmowa kasowala rodzine. Znaczylo to, ze telefon, ktoremu
    * padla siec na dluzej niz okno laski, wylogowywal wlasciciela ze WSZYSTKICH
@@ -400,11 +415,10 @@ export class AuthService {
    *  - sam token nie zdazyl wygasnac,
    *  - a nastepca ZYJE i NIKT GO NIE UZYL.
    *
-   * Ostatni warunek jest tym, ktory naprawde rozstrzyga — patrz komentarz
-   * przy nim. Okno laski (`REFRESH_REUSE_GRACE_SECONDS`) od 18.09.2026 nie
-   * decyduje juz o odmowie, tylko o TONIE logu: ratunek poza oknem jest
-   * sygnalem, ze klient systematycznie gubi rotacje. Stare zachowanie wraca
-   * pod `REFRESH_STRICT_REUSE=true`.
+   * Ostatni warunek rozstrzyga W OKNIE laski (`REFRESH_REUSE_GRACE_SECONDS`).
+   * PO oknie decyduje `REFRESH_STRICT_REUSE` — patrz `strictReuse`: domyslnie
+   * (strict) to juz replay i pada cala rodzina; przy jawnym `false` ratunek
+   * przechodzi takze po oknie („recovered COLD" w logu).
    *
    * **Nastepcy NIE uniewazniamy** — i to jest poprawka z 13.09.2026, zmierzona
    * na produkcji. Dotad ratunek "zajmowal" nastepce, kasujac go jako REUSE,
@@ -479,15 +493,16 @@ export class AuthService {
       return { kind: 'stale' };
     }
 
-    // O ROZWIDLENIU ŁAŃCUCHA decyduje NASTĘPCA, nie zegar.
+    // NAJPIERW NASTĘPCA, POTEM ZEGAR.
     //
-    // Następca żywy i nieużyty znaczy, że nowa para nie doszła do nikogo:
-    // ani do właściciela (bo wraca stary token), ani do kogokolwiek innego
-    // (bo nikt jej nie użył). To nie jest kradzież, tylko zgubiona odpowiedź —
-    // i wygląda tak samo minutę po rotacji, jak i cztery dni później.
+    // Następca żywy i nieużyty znaczy, że nowa para PRAWDOPODOBNIE nie doszła
+    // do nikogo — ale tylko prawdopodobnie: świeży refresh token leży u
+    // klienta nieużywany do końca życia access tokenu, więc „nieużyty" nie
+    // dowodzi „niedostarczony". Dlatego po oknie łaski domyślnie (strict)
+    // nie ratujemy; niżej historia trybu łagodnego i jego cena.
     //
-    // Zegar był tu do 18.09.2026 jedynym kryterium i to on wylogowywał
-    // właścicieli. Droga, którą przechodzili: cichy push budzi aplikację w tle,
+    // Zegar był tu do 18.09.2026 jedynym kryterium i wylogowywał właścicieli.
+    // Droga, którą przechodzili: cichy push budzi aplikację w tle,
     // ta woła `/auth/refresh`, serwer rotuje token — i iOS zawiesza proces,
     // zanim odpowiedź zdąży trafić do Keychaina (`completionHandler` pusha
     // wraca od razu, więc system ma prawo uśpić aplikację w każdej chwili).
@@ -498,14 +513,18 @@ export class AuthService {
     // i wylogowanie ZE WSZYSTKICH urządzeń. Kara za to, że telefon leżał
     // w szufladzie.
     //
-    // Cena tej zmiany jest realna i trzeba ją nazwać: ktoś, kto wszedł
-    // w posiadanie STAREGO, już zrotowanego tokenu, którego następcy nikt nie
-    // użył, dostanie teraz świeżą parę zamiast wywalić rodzinę. Przedtem taka
-    // próba kończyła się wylogowaniem wszystkich — czyli złodziej też wypadał,
-    // ale razem z właścicielem i przy każdej zgubionej odpowiedzi. Kto woli
-    // tamten kompromis, ustawia `REFRESH_STRICT_REUSE=true`.
+    // Tryb łagodny (`REFRESH_STRICT_REUSE=false`) to naprawia, ale jego cena
+    // jest realna i trzeba ją nazwać: ktoś, kto wszedł w posiadanie STAREGO,
+    // już zrotowanego tokenu, którego następcy nikt jeszcze nie użył, dostaje
+    // świeżą parę — i ZOSTAJE, bo ta para nie jest spięta z łańcuchem, więc
+    // późniejsze użycie następcy przez właściciela niczego nie wykrywa
+    // (`test/auth-refresh-after-grace.e2e-spec.ts`, test „KOSZT"). W strict
+    // taka próba wylogowuje wszystkich: złodzieja też, ale razem z właścicielem
+    // i przy każdej zgubionej odpowiedzi starszej niż okno. Od 21.09.2026
+    // domyślny jest strict; właściwą naprawą „telefonu w szufladzie" jest
+    // klient, który nie gubi rotacji, nie luźniejszy serwer.
     //
-    // Czego ta zmiana NIE rusza: rozwidlonego łańcucha (następca użyty albo
+    // Czego żaden tryb NIE rusza: rozwidlonego łańcucha (następca użyty albo
     // unieważniony) niżej. To jedyny przypadek z DOWODEM na dwie działające
     // kopie i tam rodzina dalej pada.
     const successorToken = await this.prisma.refreshToken.findUnique({
@@ -513,7 +532,7 @@ export class AuthService {
       select: { revokedAt: true },
     });
     if (!successorToken || successorToken.revokedAt) {
-      // JEDYNA sciezka, na ktorej pada cala rodzina: lancuch sie rozwidlil.
+      // Lancuch sie rozwidlil — rodzina pada w OBU trybach.
       this.logger.warn(
         `rotation recovery refused for user ${storedToken.userId}: successor already used or revoked — lancuch rozwidlony`,
       );
@@ -523,10 +542,11 @@ export class AuthService {
     if (ageMs > this.refreshReuseGraceMs) {
       if (this.strictReuse) {
         this.logger.warn(
-          `rotation recovery refused for user ${storedToken.userId}: rotated ${Math.round(ageMs / 1000)}s ago, grace ${this.refreshReuseGraceMs / 1000}s, REFRESH_STRICT_REUSE=true`,
+          `rotation recovery refused for user ${storedToken.userId}: rotated ${Math.round(ageMs / 1000)}s ago, grace ${this.refreshReuseGraceMs / 1000}s, strict reuse (REFRESH_STRICT_REUSE != false)`,
         );
         return { kind: 'replay' };
       }
+      // Tylko przy jawnym `REFRESH_STRICT_REUSE=false`.
       // Ratunek „na zimno": telefon wrócił po dniach z tokenem, którego
       // następcy nikt nigdy nie użył. Osobny poziom logu, bo to jest sygnał
       // diagnostyczny — jeśli takich wpisów jest dużo, to znaczy, że klient

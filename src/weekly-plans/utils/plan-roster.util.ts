@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { autoPlannedServings } from './planned-servings.util';
 import { currentWeekStart, formatWeekStart } from './week-formatting.util';
+import { lockWeeksForWriteFrom } from './week-write-lock.util';
 
 /// Klient Prismy albo transakcja — jak w `household-cleanup.util.ts`.
 /// Porządkowanie planu MUSI iść w tej samej transakcji co usunięcie
@@ -112,6 +113,7 @@ export async function onRosterChanged(
     return { touchedWeekStarts: [], reDerivedItemCount: 0 };
   }
   const monday = currentWeekStart(now);
+  await lockWeeksForWriteFrom(tx, householdId, monday);
   const reDerivedItemCount = await reDeriveSharedServings(
     tx,
     householdId,
@@ -152,6 +154,7 @@ export async function onMemberLeft(
   const monday = currentWeekStart(now);
   const weekScope = { householdId, weekStart: { gte: monday } };
 
+  await lockWeeksForWriteFrom(tx, householdId, monday);
   const touchedWeekStarts = await listWeekStartsFrom(tx, householdId, monday);
 
   // Kandydatów do skasowania trzeba znaleźć PRZED usunięciem wierszy

@@ -71,6 +71,17 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   kasuje archiwa list zakupów. Naruszenia wracają LISTĄ (`violations[]` z `index` w `slots`), a nie
   wyjątkiem, i przy jakimkolwiek naruszeniu NIC się nie zapisuje — także bez `dryRun`. Limity liczą
   się od stanu docelowego. `dryRun: true` = policz i sprawdź, nie zapisuj (właściwy tryb dla asystenta).
+- Zamek zapisu tygodnia (od 21.09.2026): KAŻDA transakcja zmieniająca `PlanItem` woła najpierw
+  `lockWeekForWrite(tx, weeklyPlanId)` (`src/weekly-plans/utils/week-write-lock.util.ts`; zmiana składu
+  domu: `lockWeeksForWriteFrom`) — `UPDATE` wiersza `WeeklyPlan`, który szereguje piszących, a w
+  SERIALIZABLE wymusza ponowienie na świeżej migawce. Nowa ścieżka zapisu bez zamka = dziura w
+  „Cofnij". KOLEJNOŚĆ BLOKAD jest jedna dla wszystkich: zamek tygodnia (pierwsza blokada
+  transakcji) → `ShoppingListArchiveState` → `PlanItem` → `ShoppingItemCheck`/`ShoppingList` →
+  `ShoppingListArchive`. Odwrócenie kończy się `40P01 deadlock detected`, którego Prisma NIE mapuje
+  na P2034, więc `runSerializable` go nie ponowi i wychodzi 500 (`test/week-lock-order.e2e-spec.ts`). Warunek albo rozliczenie, które musi zapaść RAZEM z zapisem planu, idzie przez haki
+  `applyWeekPlan(…, { guard, settle })` — biegną w transakcji, w każdej jej próbie, więc tylko baza
+  przez `tx`, żadnych efektów zewnętrznych. Tak działa `AgentProposalsService.undo`: przejęcie
+  propozycji (status + `appliedAt`), odcisk, plan, zwrot kwoty i wiadomość w jednej transakcji.
 - Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
 - WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje
@@ -94,6 +105,10 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   limit nie wymaga builda. Nowy kontroler ostrzejszy niż domyślny = `@Throttle({ default: { limit:
 () => readThrottleLimit('…') } })`; sondy = `@SkipThrottle({ default: true, ip: true })`.
   WebSocket ma własny limiter (`checkWsRateLimit` w `actorId`), bo guard omija ack.
+- Zaproszenia: w bazie leży tylko `Invitation.tokenHash` (sha256 hex, bez peppera); surowy token
+  istnieje wyłącznie w odpowiedzi `households:createInvitation`. Skrzynka oddaje w polu `token`
+  uchwyt `inv_<id>`, ważny tylko dla adresata (`invitationLookup`). Kolumna `token` jest WYCOFYWANA
+  — nie czytać, nie zapisywać; plan kroku 2: `docs/ZAPROSZENIA-HASZ-TOKENU.md`.
 - Asystent AI (`src/agent/`, od Fazy 0, krok 3): moduł JEDNOKIERUNKOWY — wolno mu wołać domenę
   i obserwowalność, nic w aplikacji nie importuje `src/agent/` (pilnuje `no-restricted-imports`;
   wyjątek: `AppModule`). W `src/agent/**` reguły `no-unsafe-*` są BŁĘDEM, nie ostrzeżeniem.

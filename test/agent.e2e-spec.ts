@@ -7,6 +7,9 @@ import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { STUB_TOOL_MARKER } from '../src/agent/providers/stub-agent.provider';
 import { CARDS_CAPABILITY_V1 } from '../src/agent/cards/agent-cards';
+import { AiUsageCountersService } from '../src/agent/ai-usage-counters.service';
+import { WeeklyPlansService } from '../src/weekly-plans/weekly-plans.service';
+import { lockWeekForWrite } from '../src/weekly-plans/utils/week-write-lock.util';
 
 /**
  * Asystent AI (Faza 0, krok 3) na żywym serwerze, z dostawcą `stub`.
@@ -1344,6 +1347,539 @@ describe('Agent E2E', () => {
           householdId,
           weekStart: new Date(`${WEEK_START}T00:00:00.000Z`),
         },
+      });
+    });
+
+    it('„Cofnij", którego domena odmawia (alergen dodany po zapisie), NIE udaje sukcesu; po zdjęciu alergenu cofa dokładnie raz', async () => {
+      const weekStartDate = new Date(`${WEEK_START}T00:00:00.000Z`);
+      // R — danie z alergenem, stoi w planie PRZED propozycją; N — bez żadnego.
+      const withAllergen = await prisma.recipe.findFirst({
+        where: {
+          isCatalog: true,
+          suitableMealTypes: { has: 'DINNER' },
+          NOT: { allergens: { isEmpty: true } },
+        },
+        select: { id: true, allergens: true },
+      });
+      const clean = await prisma.recipe.findFirst({
+        where: {
+          isCatalog: true,
+          suitableMealTypes: { has: 'DINNER' },
+          allergens: { isEmpty: true },
+        },
+        select: { id: true },
+      });
+      if (!withAllergen || !clean) {
+        throw new Error('katalog nie ma pary kolacji z alergenem i bez');
+      }
+      const allergen = withAllergen.allergens[0];
+
+      const planRecipes = async () =>
+        (
+          await prisma.planItem.findMany({
+            where: { weeklyPlan: { householdId, weekStart: weekStartDate } },
+            select: { dayOfWeek: true, mealType: true, recipeId: true },
+          })
+        ).map((item) => `${item.dayOfWeek}:${item.mealType}:${item.recipeId}`);
+      const setAllergens = (allergens: string[]) =>
+        prisma.userPreference.upsert({
+          where: { userId: session.user.id },
+          create: { userId: session.user.id, allergens },
+          update: { allergens },
+        });
+
+      await prisma.weeklyPlan.deleteMany({
+        where: { householdId, weekStart: weekStartDate },
+      });
+      await prisma.weeklyPlan.create({
+        data: {
+          householdId,
+          weekStart: weekStartDate,
+          items: {
+            create: [
+              {
+                dayOfWeek: 'MON',
+                mealType: 'DINNER',
+                recipeId: withAllergen.id,
+              },
+            ],
+          },
+        },
+      });
+
+      try {
+        const conversation = await createConversation(
+          session.accessToken,
+          householdId,
+        );
+        const accepted = await postMessage(
+          session.accessToken,
+          conversation.id,
+          {
+            clientMessageId: randomUUID(),
+            text: `Podmień kolację [[propose:${clean.id}:${WEEK_START}]]`,
+            clientCapabilities: [CARDS_CAPABILITY_V1],
+          },
+        ).expect(202);
+        await pollTurn(
+          session.accessToken,
+          (accepted.body as AcceptedTurn).turnId,
+        );
+        const messages = await history(conversation.id);
+        const proposalId = messages[messages.length - 1].card!.proposalId;
+        const undo = () =>
+          request(app.getHttpServer())
+            .post(`/agent/proposals/${proposalId}/undo`)
+            .set(auth(session.accessToken));
+
+        await request(app.getHttpServer())
+          .post(`/agent/proposals/${proposalId}/apply`)
+          .set(auth(session.accessToken))
+          .expect(200);
+        expect(await planRecipes()).toEqual([`MON:DINNER:${clean.id}`]);
+
+        const appliedRow = await prisma.agentProposal.findUniqueOrThrow({
+          where: { id: proposalId },
+        });
+        expect(appliedRow.quotaPeriodKey).not.toBeNull();
+        const scopeId = appliedRow.quotaScopeId ?? householdId;
+        const periodKey = appliedRow.quotaPeriodKey!;
+        const plansUsed = async () =>
+          (
+            await prisma.aiUsageCounter.findUnique({
+              where: {
+                scopeId_periodKey_kind: { scopeId, periodKey, kind: 'plans' },
+              },
+            })
+          )?.value ?? 0;
+        const messageTexts = async () =>
+          (
+            await prisma.agentMessage.findMany({
+              where: { conversationId: conversation.id },
+              select: { text: true },
+            })
+          ).map((message) => message.text);
+        const usedAfterApply = await plansUsed();
+        const messagesAfterApply = (await messageTexts()).length;
+        expect(usedAfterApply).toBeGreaterThan(0);
+
+        // Domownik dodaje alergen: R nie wolno już wstawić, a bieżący plan
+        // (N) nadal zgadza się z `appliedHash`.
+        await setAllergens([allergen]);
+
+        // Dwa razy — ponowienie odmowy ma dać to samo i niczego nie ruszyć.
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const refused = await undo().expect(409);
+          expect(refused.body).toMatchObject({ code: 'AI_PROPOSAL_STALE' });
+          expect((refused.body as { details: string[] }).details).toEqual(
+            expect.arrayContaining([
+              'reason:VIOLATIONS',
+              'RECIPE_ALLERGEN_CONFLICT',
+            ]),
+          );
+
+          expect(await planRecipes()).toEqual([`MON:DINNER:${clean.id}`]);
+          const row = await prisma.agentProposal.findUniqueOrThrow({
+            where: { id: proposalId },
+          });
+          expect(row).toMatchObject({
+            status: 'APPLIED',
+            undoneAt: null,
+            quotaPeriodKey: periodKey,
+            appliedHash: appliedRow.appliedHash,
+          });
+          expect(await plansUsed()).toBe(usedAfterApply);
+          const texts = await messageTexts();
+          expect(texts).toHaveLength(messagesAfterApply);
+          expect(texts.some((text) => text.startsWith('Cofnąłem'))).toBe(false);
+        }
+
+        // Alergen zdjęty → cofnięcie przechodzi. Dwa żądania NARAZ: oba 200,
+        // ale kwota wraca raz i wiadomość jest jedna.
+        await setAllergens([]);
+        const [first, second] = await Promise.all([undo(), undo()]);
+        expect([first.status, second.status]).toEqual([200, 200]);
+        expect(await planRecipes()).toEqual([`MON:DINNER:${withAllergen.id}`]);
+        const undoneRow = await prisma.agentProposal.findUniqueOrThrow({
+          where: { id: proposalId },
+        });
+        expect(undoneRow).toMatchObject({
+          status: 'UNDONE',
+          quotaPeriodKey: null,
+          quotaScopeId: null,
+        });
+        expect(undoneRow.undoneAt).not.toBeNull();
+        expect(await plansUsed()).toBe(usedAfterApply - 1);
+
+        // Trzecie kliknięcie: ten sam wynik, bez drugiego zwrotu.
+        await undo().expect(200);
+        expect(await plansUsed()).toBe(usedAfterApply - 1);
+        expect(
+          (await messageTexts()).filter((text) => text.startsWith('Cofnąłem')),
+        ).toHaveLength(1);
+      } finally {
+        await setAllergens([]);
+        await prisma.weeklyPlan.deleteMany({
+          where: { householdId, weekStart: weekStartDate },
+        });
+      }
+    });
+
+    /**
+     * Przeploty cofnięcia na ŻYWEJ bazie, z wymuszoną kolejnością.
+     *
+     * Bariera stoi na wejściu do `applyWeekPlan`: żądanie zatrzymane w tym
+     * miejscu ma już za sobą odczyt propozycji i wszystkie kontrole wstępne,
+     * a nie dotknęło jeszcze planu — dokładnie ten moment, w którym spóźnione
+     * cofnięcie jest groźne. Żadnych `setTimeout`: test sam zwalnia barierę.
+     */
+    describe('cofnięcie pod współbieżnością', () => {
+      const weekStartDate = new Date(`${WEEK_START}T00:00:00.000Z`);
+      let weeklyPlans: WeeklyPlansService;
+      let counters: AiUsageCountersService;
+      let before: string; // R — stoi w planie przed propozycją
+      let manual: string; // X — ręczna edycja domownika
+
+      type Deferred = { promise: Promise<void>; resolve: () => void };
+      const deferred = (): Deferred => {
+        let resolve!: () => void;
+        const promise = new Promise<void>((done) => (resolve = done));
+        return { promise, resolve };
+      };
+
+      /** Zatrzymuje pierwsze `count` wejść do `applyWeekPlan` do `release()`. */
+      const holdApplyWeekPlan = (count: number) => {
+        const arrived = Array.from({ length: count }, deferred);
+        const gate = deferred();
+        const original = weeklyPlans.applyWeekPlan.bind(weeklyPlans);
+        let seen = 0;
+        jest
+          .spyOn(weeklyPlans, 'applyWeekPlan')
+          .mockImplementation(async (...args) => {
+            const mine = seen;
+            seen += 1;
+            if (mine < count) {
+              arrived[mine].resolve();
+              await gate.promise;
+            }
+            return original(...args);
+          });
+        return {
+          allArrived: () => Promise.all(arrived.map((entry) => entry.promise)),
+          release: () => gate.resolve(),
+        };
+      };
+
+      const planRecipes = async () =>
+        (
+          await prisma.planItem.findMany({
+            where: { weeklyPlan: { householdId, weekStart: weekStartDate } },
+            select: { dayOfWeek: true, mealType: true, recipeId: true },
+          })
+        )
+          .map((item) => `${item.dayOfWeek}:${item.mealType}:${item.recipeId}`)
+          .sort();
+
+      /** Plan z R, propozycja podmienia na N (`recipeId`) i jest ZAPISANA. */
+      const prepareApplied = async () => {
+        await prisma.weeklyPlan.deleteMany({
+          where: { householdId, weekStart: weekStartDate },
+        });
+        await prisma.weeklyPlan.create({
+          data: {
+            householdId,
+            weekStart: weekStartDate,
+            items: {
+              create: [
+                { dayOfWeek: 'MON', mealType: 'DINNER', recipeId: before },
+              ],
+            },
+          },
+        });
+        const conversation = await createConversation(
+          session.accessToken,
+          householdId,
+        );
+        const accepted = await postMessage(
+          session.accessToken,
+          conversation.id,
+          {
+            clientMessageId: randomUUID(),
+            text: `Podmień kolację [[propose:${recipeId}:${WEEK_START}]]`,
+            clientCapabilities: [CARDS_CAPABILITY_V1],
+          },
+        ).expect(202);
+        await pollTurn(
+          session.accessToken,
+          (accepted.body as AcceptedTurn).turnId,
+        );
+        const messages = await history(conversation.id);
+        const proposalId = messages[messages.length - 1].card!.proposalId;
+        const apply = () =>
+          request(app.getHttpServer())
+            .post(`/agent/proposals/${proposalId}/apply`)
+            .set(auth(session.accessToken));
+        const undo = () =>
+          request(app.getHttpServer())
+            .post(`/agent/proposals/${proposalId}/undo`)
+            .set(auth(session.accessToken));
+        await apply().expect(200);
+        const row = await prisma.agentProposal.findUniqueOrThrow({
+          where: { id: proposalId },
+        });
+        const scopeId = row.quotaScopeId ?? householdId;
+        const periodKey = row.quotaPeriodKey!;
+        const plansUsed = async () =>
+          (
+            await prisma.aiUsageCounter.findUnique({
+              where: {
+                scopeId_periodKey_kind: { scopeId, periodKey, kind: 'plans' },
+              },
+            })
+          )?.value ?? 0;
+        const confirmations = async () =>
+          (
+            await prisma.agentMessage.findMany({
+              where: { conversationId: conversation.id },
+              select: { text: true },
+            })
+          ).filter((message) => message.text.startsWith('Cofnąłem')).length;
+        const proposal = () =>
+          prisma.agentProposal.findUniqueOrThrow({ where: { id: proposalId } });
+        return {
+          apply,
+          undo,
+          proposal,
+          plansUsed,
+          confirmations,
+          appliedRow: row,
+          usedAfterApply: await plansUsed(),
+        };
+      };
+
+      beforeAll(async () => {
+        weeklyPlans = app.get(WeeklyPlansService);
+        counters = app.get(AiUsageCountersService);
+        const others = await prisma.recipe.findMany({
+          where: {
+            isCatalog: true,
+            suitableMealTypes: { has: 'DINNER' },
+            allergens: { isEmpty: true },
+            id: { not: recipeId },
+          },
+          select: { id: true },
+          take: 2,
+        });
+        if (others.length < 2) throw new Error('katalog ma za mało kolacji');
+        [before, manual] = others.map((recipe) => recipe.id);
+      });
+
+      afterEach(async () => {
+        jest.restoreAllMocks();
+        await prisma.weeklyPlan.deleteMany({
+          where: { householdId, weekStart: weekStartDate },
+        });
+      });
+
+      it('A: spóźnione drugie cofnięcie nie kasuje ręcznej edycji domownika', async () => {
+        const ctx = await prepareApplied();
+        const hold = holdApplyWeekPlan(1);
+
+        // B przechodzi kontrole i staje tuż przed zapisem planu.
+        const late = ctx.undo().then((res) => res);
+        await hold.allArrived();
+
+        // A cofa do końca, potem domownik dokłada wtorek.
+        await ctx.undo().expect(200);
+        await weeklyPlans.upsertWeekSlot(
+          session.user.id,
+          householdId,
+          WEEK_START,
+          { dayOfWeek: 'TUE', mealType: 'DINNER', recipeId: manual },
+        );
+        const expected = [
+          `MON:DINNER:${before}`,
+          `TUE:DINNER:${manual}`,
+        ].sort();
+        expect(await planRecipes()).toEqual(expected);
+
+        hold.release();
+        const lateRes = await late;
+
+        // Wtorek domownika MUSI przeżyć — niezależnie od kodu odpowiedzi.
+        expect(await planRecipes()).toEqual(expected);
+        expect(lateRes.status).toBe(200);
+        expect((lateRes.body as { status: string }).status).toBe('UNDONE');
+        expect(await ctx.proposal()).toMatchObject({
+          status: 'UNDONE',
+          quotaPeriodKey: null,
+        });
+        expect(await ctx.plansUsed()).toBe(ctx.usedAfterApply - 1);
+        expect(await ctx.confirmations()).toBe(1);
+      });
+
+      it('B: cofnięcie spóźnione o cykl „cofnij → zastosuj ponownie" nie rusza nowego zapisu', async () => {
+        const ctx = await prepareApplied();
+        const hold = holdApplyWeekPlan(1);
+
+        const late = ctx.undo().then((res) => res);
+        await hold.allArrived();
+
+        await ctx.undo().expect(200);
+        await ctx.apply().expect(200);
+        const reapplied = await ctx.proposal();
+        expect(reapplied.status).toBe('APPLIED');
+        expect(reapplied.appliedAt).not.toEqual(ctx.appliedRow.appliedAt);
+        expect(await planRecipes()).toEqual([`MON:DINNER:${recipeId}`]);
+
+        hold.release();
+        const lateRes = await late;
+
+        expect(await planRecipes()).toEqual([`MON:DINNER:${recipeId}`]);
+        expect(lateRes.status).toBe(409);
+        expect(lateRes.body).toMatchObject({ code: 'AI_PROPOSAL_STALE' });
+        const after = await ctx.proposal();
+        expect(after).toMatchObject({
+          status: 'APPLIED',
+          appliedHash: reapplied.appliedHash,
+          quotaPeriodKey: reapplied.quotaPeriodKey,
+          quotaScopeId: reapplied.quotaScopeId,
+        });
+        expect(after.appliedAt).toEqual(reapplied.appliedAt);
+        // Zapis → zwrot → ponowny zapis: kwota nowego zapisu zostaje zjedzona.
+        expect(await ctx.plansUsed()).toBe(ctx.usedAfterApply);
+        expect(await ctx.confirmations()).toBe(1);
+      });
+
+      it('C: awaria zwrotu kwoty nie gubi go — nic się nie zatwierdza, a ponowienie rozlicza dokładnie raz', async () => {
+        const ctx = await prepareApplied();
+        const originalAdd = counters.add.bind(counters);
+        let failed = false;
+        jest.spyOn(counters, 'add').mockImplementation((...args) => {
+          if (!failed && args[3] === 'plans' && args[4] < 0) {
+            failed = true;
+            return Promise.reject(new Error('licznik padł'));
+          }
+          return originalAdd(...args);
+        });
+
+        await ctx.undo().expect(500);
+        expect(failed).toBe(true);
+        // Należny zwrot nie mógł zniknąć: albo jest wykonany, albo propozycja
+        // nadal go niesie. Tutaj — wszystko wycofane razem z planem.
+        expect(await planRecipes()).toEqual([`MON:DINNER:${recipeId}`]);
+        expect(await ctx.proposal()).toMatchObject({
+          status: 'APPLIED',
+          undoneAt: null,
+          quotaPeriodKey: ctx.appliedRow.quotaPeriodKey,
+          quotaScopeId: ctx.appliedRow.quotaScopeId,
+        });
+        expect(await ctx.plansUsed()).toBe(ctx.usedAfterApply);
+        expect(await ctx.confirmations()).toBe(0);
+
+        await ctx.undo().expect(200);
+        expect(await planRecipes()).toEqual([`MON:DINNER:${before}`]);
+        expect(await ctx.proposal()).toMatchObject({
+          status: 'UNDONE',
+          quotaPeriodKey: null,
+        });
+        expect(await ctx.plansUsed()).toBe(ctx.usedAfterApply - 1);
+        expect(await ctx.confirmations()).toBe(1);
+
+        await ctx.undo().expect(200);
+        expect(await ctx.plansUsed()).toBe(ctx.usedAfterApply - 1);
+        expect(await ctx.confirmations()).toBe(1);
+      });
+
+      it('E: cofnięcie, które trafia na edycję domownika W TOKU, czeka na nią i odmawia — bez zwrotu i bez wiadomości', async () => {
+        const ctx = await prepareApplied();
+        const week = await prisma.weeklyPlan.findUniqueOrThrow({
+          where: {
+            householdId_weekStart: { householdId, weekStart: weekStartDate },
+          },
+        });
+        const locked = deferred();
+        const mayFinish = deferred();
+        // Edycja ma zamek tygodnia, ale jeszcze nie zatwierdziła: cofnięcie
+        // czyta więc plan zgodny z `appliedHash` i przechodzi kontrole wstępne.
+        const manualEdit = prisma.$transaction(
+          async (tx) => {
+            await lockWeekForWrite(tx, week.id);
+            locked.resolve();
+            await mayFinish.promise;
+            await tx.planItem.create({
+              data: {
+                weeklyPlanId: week.id,
+                dayOfWeek: 'TUE',
+                mealType: 'DINNER',
+                recipeId: manual,
+              },
+            });
+          },
+          { timeout: 15_000 },
+        );
+        await locked.promise;
+
+        const late = ctx.undo().then((res) => res);
+        const deadline = Date.now() + 10_000;
+        for (;;) {
+          if (Date.now() > deadline) {
+            mayFinish.resolve();
+            throw new Error('cofnięcie nie stanęło na zamku tygodnia');
+          }
+          const [{ waiting }] = await prisma.$queryRaw<{ waiting: bigint }[]>`
+            SELECT count(*) AS waiting FROM pg_stat_activity
+            WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+          if (waiting > 0n) break;
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+        mayFinish.resolve();
+        await manualEdit;
+        const lateRes = await late;
+
+        expect(lateRes.status).toBe(409);
+        expect(lateRes.body).toMatchObject({
+          code: 'AI_PROPOSAL_STALE',
+          details: ['reason:CHANGED_AFTER_APPLY'],
+        });
+        expect(await planRecipes()).toEqual(
+          [`MON:DINNER:${recipeId}`, `TUE:DINNER:${manual}`].sort(),
+        );
+        expect(await ctx.proposal()).toMatchObject({
+          status: 'APPLIED',
+          undoneAt: null,
+          quotaPeriodKey: ctx.appliedRow.quotaPeriodKey,
+        });
+        expect(await ctx.plansUsed()).toBe(ctx.usedAfterApply);
+        expect(await ctx.confirmations()).toBe(0);
+      });
+
+      it('D: dwa cofnięcia zwolnione z bariery naraz — jeden zwrot, jedno potwierdzenie', async () => {
+        const ctx = await prepareApplied();
+        const hold = holdApplyWeekPlan(2);
+
+        const first = ctx.undo().then((res) => res);
+        const second = ctx.undo().then((res) => res);
+        // Oba przeczytały TĘ SAMĄ zapisaną propozycję i oba stoją przed zapisem.
+        await hold.allArrived();
+        hold.release();
+        const results = await Promise.all([first, second]);
+
+        expect(results.map((res) => res.status)).toEqual([200, 200]);
+        const texts = results.map(
+          (res) => (res.body as { message: { text: string } }).message.text,
+        );
+        expect(
+          texts.filter((text) => text.startsWith('Cofnąłem')),
+        ).toHaveLength(1);
+        expect(await planRecipes()).toEqual([`MON:DINNER:${before}`]);
+        expect(await ctx.proposal()).toMatchObject({
+          status: 'UNDONE',
+          quotaPeriodKey: null,
+          quotaScopeId: null,
+        });
+        expect(await ctx.plansUsed()).toBe(ctx.usedAfterApply - 1);
+        expect(await ctx.confirmations()).toBe(1);
       });
     });
 

@@ -1059,60 +1059,120 @@ export class AgentProposalsService {
     }
 
     const weekStart = toWeekStartString(proposal.weekStart);
-    const current = await this.weeklyPlans.snapshotWeekAsSlots(
-      userId,
-      proposal.householdId,
-      weekStart,
-    );
-    // Ktoś w domu poprawił tydzień PO zapisie — cofnięcie skasowałoby jego
-    // pracę razem z naszą zmianą.
-    if (weekBaselineHash(current) !== proposal.appliedHash) {
+    const { appliedAt, appliedHash } = proposal;
+
+    // JEDNA transakcja na całe cofnięcie — ta, w której domena zapisuje plan.
+    //
+    // Historia: do 21.09.2026 status UNDONE zapadał PRZED zapisem planu
+    // (fałszywy sukces przy odmowie domeny); pierwsza poprawka odwróciła
+    // kolejność, ale zostawiła warunki po stronie wołającego: między kontrolą
+    // odcisku a zapisem mieścił się cudzy zapis, więc spóźnione cofnięcie
+    // nadpisywało ręczną edycję albo ponowny zapis propozycji, a dopiero potem
+    // dowiadywało się, że przegrało. Zwrot kwoty szedł osobno, po wyzerowaniu
+    // klucza — awaria między nimi gubiła go na stałe.
+    //
+    // Teraz `guard` i `settle` biegną POD ZAMKIEM TYGODNIA, w transakcji
+    // zapisu, i w każdej jej próbie od nowa:
+    //  1. przejęcie TEGO zapisu (status + `appliedAt`) — kto przegrał wyścig
+    //     albo spóźnił się o cykl „cofnij → zapisz ponownie", odpada, zanim
+    //     dotknie planu;
+    //  2. odcisk tygodnia odczytanego pod zamkiem — cudza edycja = odmowa;
+    //  3. zapis pozycji (domena);
+    //  4. zwrot kwoty i wiadomość.
+    // Wszystko zatwierdza się razem albo wcale: nie ma stanu „cofnięte bez
+    // zwrotu" ani „zwrócone bez cofnięcia", więc ponowienie po awarii jest
+    // zwykłym cofnięciem, a po sukcesie — odczytem gotowego wyniku.
+    let message: MessageView | null = null;
+    let result: Awaited<ReturnType<WeeklyPlansService['applyWeekPlan']>>;
+    try {
+      result = await this.weeklyPlans.applyWeekPlan(
+        userId,
+        proposal.householdId,
+        weekStart,
+        { slots: readSlots(proposal.undoSnapshot, 'slots-array') },
+        {
+          guard: async (tx, current) => {
+            const claimed = await tx.agentProposal.updateMany({
+              where: { id: proposal.id, status: 'APPLIED', appliedAt },
+              data: {
+                status: 'UNDONE',
+                undoneAt: new Date(),
+                quotaPeriodKey: null,
+                quotaScopeId: null,
+              },
+            });
+            if (claimed.count === 0) throw new UndoSuperseded();
+            // Ktoś w domu poprawił tydzień PO zapisie — cofnięcie skasowałoby
+            // jego pracę razem z naszą zmianą.
+            if (weekBaselineHash(current) !== appliedHash) {
+              throw new AppException(
+                'AI_PROPOSAL_STALE',
+                'Plan zmienił się po zapisaniu, więc cofnięcie skasowałoby także tamte zmiany.',
+                HttpStatus.CONFLICT,
+                ['reason:CHANGED_AFTER_APPLY'],
+              );
+            }
+          },
+          settle: async (tx) => {
+            // Cofnięcie to korekta, nie nowy plan — kwota wraca, ale TYLKO ta,
+            // która naprawdę zeszła, do zakresu i okresu z chwili ZAPISU
+            // (zapis 31., cofnięcie 1.; subskrypcja, która zdążyła wygasnąć).
+            // Zapis bez zmian już ją oddał. Bez `try/catch`: błąd licznika
+            // wycofuje całe cofnięcie, zamiast po cichu zgubić zwrot.
+            if (proposal.quotaPeriodKey) {
+              await this.counters.add(
+                tx,
+                proposal.quotaScopeId ?? proposal.householdId,
+                proposal.quotaPeriodKey,
+                'plans',
+                -1,
+              );
+            }
+            // Nadpisywane w każdej próbie — wiadomości z wycofanych prób
+            // nie istnieją, zostaje ta z zatwierdzonej.
+            message = await this.writeMessage(
+              {
+                conversationId: proposal.conversationId,
+                kind: 'TEXT',
+                text: `Cofnąłem zapis planu na tydzień od ${weekStartLabel(weekStart)}.`,
+                card: null,
+              },
+              tx,
+            );
+          },
+        },
+      );
+    } catch (error) {
+      if (!(error instanceof UndoSuperseded)) throw error;
+      // Przegrany wyścig: plan nietknięty. Równoległe cofnięcie TEGO SAMEGO
+      // zapisu to odpowiedź na dwa dotknięcia przycisku — ten sam wynik.
+      // Wszystko inne (np. nowszy zapis) to uczciwa odmowa.
+      const latest = await this.loadOwned(userId, proposalId);
+      if (latest.status === 'UNDONE') return this.resultForUndone(latest);
       throw new AppException(
         'AI_PROPOSAL_STALE',
-        'Plan zmienił się po zapisaniu, więc cofnięcie skasowałoby także tamte zmiany.',
+        'Ta propozycja zmieniła stan w trakcie cofania. Odśwież rozmowę i spróbuj ponownie.',
         HttpStatus.CONFLICT,
-        ['reason:CHANGED_AFTER_APPLY'],
+        [`reason:${latest.status}`],
       );
     }
 
-    const locked = await this.prisma.agentProposal.updateMany({
-      where: { id: proposal.id, status: 'APPLIED' },
-      data: { status: 'UNDONE', undoneAt: new Date() },
-    });
-    if (locked.count === 0) {
-      return this.resultForUndone(await this.loadOwned(userId, proposalId));
-    }
-
-    const result = await this.weeklyPlans.applyWeekPlan(
-      userId,
-      proposal.householdId,
-      weekStart,
-      { slots: readSlots(proposal.undoSnapshot, 'slots-array') },
-    );
-
-    // Cofnięcie to korekta, nie nowy plan — kwota wraca, ale TYLKO ta,
-    // która naprawdę zeszła, i do miesiąca, z którego zeszła (zapis 31.,
-    // cofnięcie 1.). Zapis bez zmian już ją oddał i nie ma czego zwracać.
-    if (proposal.quotaPeriodKey) {
-      await this.refundPlan(
-        // Zakres z chwili ZAPISU. Propozycja zapisana na subskrypcji, cofnięta
-        // po jej wygaśnięciu, musi oddać kwotę tam, skąd ją wzięła.
-        proposal.quotaScopeId ?? proposal.householdId,
-        proposal.quotaPeriodKey,
+    if (!result.applied || !message) {
+      // Odmowa domeny zapada PRZED transakcją, więc haki nie biegły:
+      // propozycja zostaje APPLIED — bo plan nadal jest taki, jak go zapisała.
+      throw new AppException(
+        'AI_PROPOSAL_STALE',
+        'Nie da się już przywrócić poprzedniego planu — preferencje domowników albo przepisy zmieniły się od zapisu. Popraw plan ręcznie.',
+        HttpStatus.CONFLICT,
+        [
+          'reason:VIOLATIONS',
+          ...result.violations.map((violation) => violation.code),
+        ],
       );
-      await this.markStatus(proposal.id, 'UNDONE', {
-        quotaPeriodKey: null,
-        quotaScopeId: null,
-      });
     }
 
-    const message = await this.writeMessage({
-      conversationId: proposal.conversationId,
-      kind: 'TEXT',
-      text: `Cofnąłem zapis planu na tydzień od ${weekStartLabel(weekStart)}.`,
-      card: null,
-    });
-
+    // Rozgłoszenie dopiero PO zatwierdzeniu i raz — nie z haka, który biegnie
+    // w każdej próbie transakcji.
     this.broadcast(userId, proposal.householdId, weekStart);
 
     return {
@@ -1237,13 +1297,16 @@ export class AgentProposalsService {
     }
   }
 
-  private async writeMessage(input: {
-    conversationId: string;
-    kind: string;
-    text: string;
-    card: unknown;
-  }): Promise<MessageView> {
-    const message = await this.prisma.agentMessage.create({
+  private async writeMessage(
+    input: {
+      conversationId: string;
+      kind: string;
+      text: string;
+      card: unknown;
+    },
+    client: Prisma.TransactionClient = this.prisma,
+  ): Promise<MessageView> {
+    const message = await client.agentMessage.create({
       data: {
         conversationId: input.conversationId,
         role: 'ASSISTANT',
@@ -1254,7 +1317,7 @@ export class AgentProposalsService {
         ...(input.card ? { card: input.card as Prisma.InputJsonValue } : {}),
       },
     });
-    await this.prisma.agentConversation.update({
+    await client.agentConversation.update({
       where: { id: input.conversationId },
       data: { lastMessageAt: message.createdAt },
     });
@@ -1345,6 +1408,9 @@ export class AgentProposalsService {
     };
   }
 }
+
+/** Sygnał z `guard`: TEN zapis propozycji przejął już ktoś inny. */
+class UndoSuperseded extends Error {}
 
 export type ProposalActionResult = {
   proposalId: string;
