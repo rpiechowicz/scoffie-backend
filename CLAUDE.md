@@ -96,6 +96,14 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   środowisku (dev, staging, prod); jedyny wyjątek to dokładnie `NODE_ENV=test`. Tokenu nie logujemy.
 - Apple sign-in: adres e-mail i `emailVerified` idą WYŁĄCZNIE z claimów zweryfikowanego identity tokenu;
   `dto.email` zostaje w kontrakcie, ale niczego nie zapisuje (rozjazd = ostrzeżenie bez adresów w logu).
+- Sesje (audyt 21.09.2026, dowód: `test/auth-session-audit.e2e-spec.ts`): każda transakcja, która WYDAJE albo
+  UNIEWAŻNIA refresh tokeny osoby, bierze najpierw `lockUserSessions` (`SELECT … FROM "User" … FOR NO KEY UPDATE`)
+  — bez tego unieważnienie nie widziało tokenu wstawianego równolegle i sesja je przeżywała. Token dostępu
+  z rotacji/ratunku niesie `tokenVersion` odczytane W tej transakcji. Kasowanie rodziny i `logoutEverywhere`
+  (`retireAllUserTokens`) przepisują też powód starych ROTATED/RECOVERED, więc stara kopia kasuje rodzinę RAZ,
+  a nie przy każdym użyciu. Następca zgaszony wylogowaniem nie jest dowodem kopii (401 bez kasowania), chyba że
+  poprzednik był ratowany (RECOVERED — istnieje para spoza łańcucha). `POST /auth/logout-everywhere`: Bearer
+  access token, bez ciała, 200 `{revokedSessions}`.
 - Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
 - WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje

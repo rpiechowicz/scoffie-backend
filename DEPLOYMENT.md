@@ -258,9 +258,14 @@ room. Outside production `soft` stays the default so that local tools
 
 `WS_AUTH_MODE` is read per handshake; a typo is a boot violation in production.
 Refresh tokens default to 60 days (`REFRESH_TOKEN_DAYS`), reuse of a rotated
-refresh token revokes the whole family (deliberate: a lost refresh response
-means re-login on every device of that user), and `POST /auth/logout` revokes
-one refresh token — the access token stays valid until its `exp`. The code
+refresh token revokes the whole family once the grace window
+(`REFRESH_REUSE_GRACE_SECONDS`, 60 s) has passed, unless `REFRESH_STRICT_REUSE`
+is explicitly `false` (strict is the default; a forked chain revokes the family
+in both modes). `POST /auth/logout` revokes one refresh token — the access
+token stays valid until its `exp`. `POST /auth/logout-everywhere` (Bearer
+access token, no body) revokes every refresh token of the user, bumps
+`tokenVersion` so every access token dies at once, and disconnects open
+sockets. The code
 default is **1 hour** (`JWT_EXPIRES_IN` unset); `30d`, which older copies of
 `.env.example` carried, means a month of access after logout, so make sure
 Railway does not override it (`railway variables --service Backend`). A
