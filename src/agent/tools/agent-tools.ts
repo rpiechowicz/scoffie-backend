@@ -265,7 +265,10 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         },
         slot_label: {
           type: 'string',
-          description: 'Czego dotyczy wybór, np. „Kolacja · wtorek".',
+          description:
+            'Pora i DZIEŃ, którego dotyczy wybór — zawsze oba, np. „Kolacja · wtorek". ' +
+            'Dzień nazwą tygodnia, także dla „dziś" i „jutro": aplikacja składa z niego ' +
+            'przycisk „Wstaw na wtorek".',
         },
         options: {
           type: 'array',

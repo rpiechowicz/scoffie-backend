@@ -1079,6 +1079,11 @@ export class AgentToolExecutor {
         kcalPerServing: detail.kcalPerServing,
         prepTimeMinutes: detail.prepTimeMinutes,
         imageUrl: detail.imageUrl,
+        description: detail.description,
+        proteinGrams: detail.proteinGrams,
+        carbsGrams: detail.carbsGrams,
+        fatGrams: detail.fatGrams,
+        ingredientCount: detail.ingredientCount,
         tag: tag ? tag : null,
         prompt: optionPrompt(detail.title),
       });
@@ -1807,19 +1812,38 @@ export class AgentToolExecutor {
   private async recipeSide(
     recipeId: string,
     context: AgentToolContext,
-  ): Promise<SwapCardSide & { imageUrl: string | null }> {
+  ): Promise<
+    SwapCardSide & {
+      imageUrl: string | null;
+      description: string | null;
+      proteinGrams: number | null;
+      carbsGrams: number | null;
+      fatGrams: number | null;
+      ingredientCount: number | null;
+    }
+  > {
     const recipe = await this.recipes.findById(
       context.userId,
       recipeId,
       context.householdId,
     );
     const servings = Math.max(1, recipe.servings ?? 1);
+    const perServing = (value: number): number | null => {
+      if (!Number.isFinite(value) || value <= 0) return null;
+      return Math.round(value / servings);
+    };
     return {
       recipeId,
       title: recipe.title,
       kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
       prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
       imageUrl: recipe.imageUrl ?? null,
+      description: recipe.description?.trim() || null,
+      proteinGrams: perServing(recipe.nutritionProtein ?? 0),
+      carbsGrams: perServing(recipe.nutritionCarbs ?? 0),
+      fatGrams: perServing(recipe.nutritionFat ?? 0),
+      ingredientCount:
+        recipe.ingredients.length > 0 ? recipe.ingredients.length : null,
     };
   }
 
