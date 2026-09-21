@@ -75,7 +75,10 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   `lockWeekForWrite(tx, weeklyPlanId)` (`src/weekly-plans/utils/week-write-lock.util.ts`; zmiana składu
   domu: `lockWeeksForWriteFrom`) — `UPDATE` wiersza `WeeklyPlan`, który szereguje piszących, a w
   SERIALIZABLE wymusza ponowienie na świeżej migawce. Nowa ścieżka zapisu bez zamka = dziura w
-  „Cofnij". Warunek albo rozliczenie, które musi zapaść RAZEM z zapisem planu, idzie przez haki
+  „Cofnij". KOLEJNOŚĆ BLOKAD jest jedna dla wszystkich: zamek tygodnia (pierwsza blokada
+  transakcji) → `ShoppingListArchiveState` → `PlanItem` → `ShoppingItemCheck`/`ShoppingList` →
+  `ShoppingListArchive`. Odwrócenie kończy się `40P01 deadlock detected`, którego Prisma NIE mapuje
+  na P2034, więc `runSerializable` go nie ponowi i wychodzi 500 (`test/week-lock-order.e2e-spec.ts`). Warunek albo rozliczenie, które musi zapaść RAZEM z zapisem planu, idzie przez haki
   `applyWeekPlan(…, { guard, settle })` — biegną w transakcji, w każdej jej próbie, więc tylko baza
   przez `tx`, żadnych efektów zewnętrznych. Tak działa `AgentProposalsService.undo`: przejęcie
   propozycji (status + `appliedAt`), odcisk, plan, zwrot kwoty i wiadomość w jednej transakcji.

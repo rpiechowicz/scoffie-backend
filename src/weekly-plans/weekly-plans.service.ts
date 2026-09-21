@@ -472,14 +472,12 @@ export class WeeklyPlansService {
     const memberIdsForGate = members.memberIds;
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.shoppingListArchiveState.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-          currentArchiveId: null,
-        },
-      });
-
+      // KOLEJNOŚĆ BLOKAD — ta sama w każdej transakcji zmieniającej tydzień:
+      // zamek tygodnia → stan archiwum → pozycje planu → lista zakupów.
+      // Zamek idzie PIERWSZY: kto na nim czeka, nie trzyma jeszcze niczego,
+      // więc nie ma na co czekać nawzajem (`test/week-lock-order.e2e-spec.ts`).
+      // Tydzień, którego jeszcze nie ma, zakłada `upsert` — równoległych
+      // założycieli szereguje indeks unikalny (householdId, weekStart).
       const weeklyPlan = await tx.weeklyPlan.upsert({
         where: {
           householdId_weekStart: {
@@ -495,6 +493,14 @@ export class WeeklyPlansService {
         select: { id: true },
       });
       await lockWeekForWrite(tx, weeklyPlan.id);
+
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
+      });
 
       // „Zmień danie": stary wariant znika w tej samej transakcji, w której
       // wchodzi nowy. Dwa skutki, oba celowe: slot nigdy nie stoi pusty
@@ -831,16 +837,6 @@ export class WeeklyPlansService {
     }
 
     const changes = await runSerializable(this.prisma, async (tx) => {
-      // Ten sam porządek, co w `upsertWeekSlot`: stan archiwum listy zakupów
-      // dla tygodnia bez archiwum jest nieaktualny z chwilą zmiany planu.
-      await tx.shoppingListArchiveState.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-          currentArchiveId: null,
-        },
-      });
-
       const weeklyPlan = await tx.weeklyPlan.upsert({
         where: {
           householdId_weekStart: { householdId, weekStart: weekStartDate },
@@ -849,9 +845,21 @@ export class WeeklyPlansService {
         create: { householdId, weekStart: weekStartDate },
         select: { id: true },
       });
-      // Zamek PRZED odczytem pozycji: wszystko niżej — także warunki z `guard`
-      // — liczy się na stanie, którego nikt równolegle nie zmienia.
+      // Zamek jako PIERWSZA blokada transakcji (kolejność jak w
+      // `upsertWeekSlot`) i PRZED odczytem pozycji: wszystko niżej — także
+      // warunki z `guard` — liczy się na stanie, którego nikt równolegle
+      // nie zmienia.
       await lockWeekForWrite(tx, weeklyPlan.id);
+
+      // Stan archiwum listy zakupów dla tygodnia bez archiwum jest
+      // nieaktualny z chwilą zmiany planu.
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
+      });
 
       const current = await tx.planItem.findMany({
         where: { weeklyPlanId: weeklyPlan.id },
@@ -1447,14 +1455,6 @@ export class WeeklyPlansService {
     const weekStartDate = parseWeekStart(weekStart);
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.shoppingListArchiveState.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-          currentArchiveId: null,
-        },
-      });
-
       const weeklyPlan = await tx.weeklyPlan.findUnique({
         where: {
           householdId_weekStart: {
@@ -1464,11 +1464,24 @@ export class WeeklyPlansService {
         },
         select: { id: true },
       });
+      // Zamek przed stanem archiwum — kolejność jak w `upsertWeekSlot`.
+      // Tygodnia bez wiersza nie ma czym zamknąć i nie trzeba: stan archiwum
+      // jest wtedy jedyną blokadą tej transakcji.
+      if (weeklyPlan) {
+        await lockWeekForWrite(tx, weeklyPlan.id);
+      }
+
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
+      });
 
       if (!weeklyPlan) {
         return null;
       }
-      await lockWeekForWrite(tx, weeklyPlan.id);
 
       // With splits a slot can hold several variants. `recipeId` targets one
       // of them; omitting it clears the whole slot, which is what every
@@ -1763,6 +1776,22 @@ export class WeeklyPlansService {
 
       if (weeklyPlan) {
         await lockWeekForWrite(tx, weeklyPlan.id);
+      }
+
+      // Stan archiwum zaraz po zamku, PRZED pozycjami i listą zakupów — w tej
+      // kolejności biorą je zapisy posiłków. Dawniej szedł niżej, po liście:
+      // zapis trzymał stan archiwum i czekał na tydzień albo listę, a
+      // czyszczenie trzymało tydzień albo listę i czekało na stan archiwum.
+      // Postgres kończył to `40P01 deadlock detected`, którego Prisma NIE
+      // zamienia na P2034 — `runSerializable` tego nie ponawiał i wychodziło 500.
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+        },
+      });
+
+      if (weeklyPlan) {
         await tx.planItem.deleteMany({
           where: { weeklyPlanId: weeklyPlan.id },
         });
@@ -1776,13 +1805,6 @@ export class WeeklyPlansService {
       });
 
       await tx.shoppingList.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-        },
-      });
-
-      await tx.shoppingListArchiveState.deleteMany({
         where: {
           householdId,
           weekStart: weekStartDate,
