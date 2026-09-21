@@ -51,6 +51,8 @@ const makeTx = (params: { items?: StoredItem[]; memberCount?: number }) => {
 
   const tx = {
     weeklyPlan: {
+      // Zamek zapisu tygodni (`lockWeeksForWriteFrom`).
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findMany: jest.fn().mockImplementation(({ where }: any) => {
         const gte: Date = where.weekStart.gte;
         const weeks = Array.from(

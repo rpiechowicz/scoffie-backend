@@ -31,6 +31,13 @@ import { PrismaService } from '../src/prisma/prisma.service';
 // i nadal mieściły się w oknie — czyli byłyby zielone, nic nie sprawdzając.
 const GRACE_BEFORE = process.env.REFRESH_REUSE_GRACE_SECONDS;
 process.env.REFRESH_REUSE_GRACE_SECONDS = '2';
+// Polityka PO oknie łaski — jawnie, żeby wynik nie zależał ani od lokalnego
+// środowiska, ani od suity, która biegła wcześniej. Zestaw chodzi w trybie
+// domyślnym (strict); testy trybu łagodnego przełączają go u siebie przez
+// `withStrictReuse` i sprzątają w `finally`. Serwis czyta tę zmienną per
+// żądanie, więc przełączenie w trakcie działa bez przebudowy modułu.
+const STRICT_BEFORE = process.env.REFRESH_STRICT_REUSE;
+process.env.REFRESH_STRICT_REUSE = 'true';
 
 describe('Cykl życia sesji (e2e, żywa baza)', () => {
   let app: NestExpressApplication;
@@ -85,6 +92,28 @@ describe('Cykl życia sesji (e2e, żywa baza)', () => {
     return res.body.refreshToken as string;
   };
 
+  /**
+   * `REFRESH_STRICT_REUSE` na czas `run`; `undefined` = zmienna nieustawiona.
+   * Zawsze wraca do wartości zestawu, także po nieudanej asercji.
+   */
+  const withStrictReuse = async (
+    value: 'true' | 'false' | undefined,
+    run: () => Promise<void>,
+  ) => {
+    const before = process.env.REFRESH_STRICT_REUSE;
+    if (value === undefined) delete process.env.REFRESH_STRICT_REUSE;
+    else process.env.REFRESH_STRICT_REUSE = value;
+    try {
+      await run();
+    } finally {
+      if (before === undefined) delete process.env.REFRESH_STRICT_REUSE;
+      else process.env.REFRESH_STRICT_REUSE = before;
+    }
+  };
+
+  const pastGraceWindow = () =>
+    new Promise((resolve) => setTimeout(resolve, 2_500));
+
   /** Czy tym tokenem da się jeszcze pracować (bez zużywania go na rotację). */
   const accessWorks = async (accessToken: string): Promise<boolean> => {
     const res = await request(app.getHttpServer())
@@ -112,6 +141,11 @@ describe('Cykl życia sesji (e2e, żywa baza)', () => {
       delete process.env.REFRESH_REUSE_GRACE_SECONDS;
     } else {
       process.env.REFRESH_REUSE_GRACE_SECONDS = GRACE_BEFORE;
+    }
+    if (STRICT_BEFORE === undefined) {
+      delete process.env.REFRESH_STRICT_REUSE;
+    } else {
+      process.env.REFRESH_STRICT_REUSE = STRICT_BEFORE;
     }
   });
 
@@ -249,16 +283,64 @@ describe('Cykl życia sesji (e2e, żywa baza)', () => {
     await refresh(first.body.refreshToken as string).expect(201);
   });
 
-  it('ten sam token PO oknie laski: to juz kopia, rodzina pada', async () => {
-    const session = await login('po-oknie');
-    const first = await refresh(session.refreshToken).expect(201);
-    const second = await refresh(first.body.refreshToken as string).expect(201);
+  // PO oknie rozstrzyga `REFRESH_STRICT_REUSE`. Każdy test niżej ustawia tryb,
+  // który sprawdza — także domyślny, bo „brak zmiennej = strict" jest częścią
+  // kontraktu konfiguracji, a nie przypadkiem.
 
-    // Okno laski w tym zestawie to 2 s (REFRESH_REUSE_GRACE_SECONDS).
-    await new Promise((resolve) => setTimeout(resolve, 2_500));
+  it.each([
+    ['true', 'true' as const],
+    ['nieustawione (domyślnie)', undefined],
+  ])(
+    'STRICT (REFRESH_STRICT_REUSE=%s): ten sam token PO oknie laski to juz kopia, rodzina pada',
+    async (_label, value) => {
+      await withStrictReuse(value, async () => {
+        const session = await login('po-oknie');
+        const first = await refresh(session.refreshToken).expect(201);
+        const second = await refresh(first.body.refreshToken as string).expect(
+          201,
+        );
 
-    await refresh(first.body.refreshToken as string).expect(401);
-    await refresh(second.body.refreshToken as string).expect(401);
+        // Okno laski w tym zestawie to 2 s (REFRESH_REUSE_GRACE_SECONDS).
+        await pastGraceWindow();
+
+        await refresh(first.body.refreshToken as string).expect(401);
+        // Rodzina pada RAZEM z nastepca i tokenami dostepu.
+        await refresh(second.body.refreshToken as string).expect(401);
+        expect(await accessWorks(second.body.accessToken as string)).toBe(
+          false,
+        );
+      });
+    },
+    20_000,
+  );
+
+  it('LAGODNY (REFRESH_STRICT_REUSE=false): ten sam token PO oknie dostaje pare TYLKO dlatego, ze nastepca zyje i nikt go nie uzyl', async () => {
+    await withStrictReuse('false', async () => {
+      const session = await login('po-oknie-lagodny');
+      const first = await refresh(session.refreshToken).expect(201);
+      const second = await refresh(first.body.refreshToken as string).expect(
+        201,
+      );
+
+      await pastGraceWindow();
+
+      // Nastepca `first` (czyli `second`) zyje i jest nieuzyty → ratunek.
+      const recovered = await refresh(first.body.refreshToken as string).expect(
+        201,
+      );
+      // Nastepca NIE zostal zabity ratunkiem: klient, ktory jednak go mial,
+      // pracuje dalej — tak samo jak ten, ktory dostal pare z ratunku.
+      expect(await accessWorks(second.body.accessToken as string)).toBe(true);
+      await refresh(recovered.body.refreshToken as string).expect(201);
+      await refresh(second.body.refreshToken as string).expect(201);
+
+      // …ale ten sam stary token, gdy nastepca jest juz UZYTY, to rozwidlenie:
+      // lagodny tryb tego nie lagodzi i rodzina pada.
+      await refresh(first.body.refreshToken as string).expect(401);
+      expect(await accessWorks(recovered.body.accessToken as string)).toBe(
+        false,
+      );
+    });
   }, 20_000);
 
   it('juz wykryty replay nie kasuje rodziny DRUGI raz — sam 401, bez alarmu', async () => {
@@ -286,21 +368,38 @@ describe('Cykl życia sesji (e2e, żywa baza)', () => {
   // KRADZIEZ. Wolno ja wymierzyc tylko wtedy, gdy mamy dowod: lancuch sie
   // rozwidlil (nastepca zostal uzyty). Kazda inna odmowa ma zostac lokalna.
 
-  it('token PO OKNIE laski nadal kasuje rodzine — tego nie zlagodzilem i to jest wybor', async () => {
-    const session = await login('promien-okno');
-    const deviceB = await loginSecondDevice(session.email);
-    const first = await refresh(session.refreshToken).expect(201);
+  it('STRICT: token PO OKNIE laski kasuje rodzine razem z drugim urzadzeniem — to jest wybor wlasciciela', async () => {
+    await withStrictReuse('true', async () => {
+      const session = await login('promien-okno');
+      const deviceB = await loginSecondDevice(session.email);
+      const first = await refresh(session.refreshToken).expect(201);
 
-    await new Promise((resolve) => setTimeout(resolve, 2_500));
+      await pastGraceWindow();
 
-    // Ten przypadek wyglada identycznie z dwoch stron: telefon, ktory zgubil
-    // odpowiedz i wrocil po godzinie, oraz zlodziej, ktory zrotowal skradziony
-    // token. Zlagodzenie tego (odmowa bez kasowania rodziny) zostawialoby
-    // zlodzieja w koncie na zawsze — wiec rodzina pada, a szerokosc okna jest
-    // jawna decyzja wlasciciela.
-    await refresh(session.refreshToken).expect(401);
-    await refresh(first.body.refreshToken as string).expect(401);
-    await refresh(deviceB).expect(401);
+      // Ten przypadek wyglada identycznie z dwoch stron: telefon, ktory zgubil
+      // odpowiedz i wrocil po godzinie, oraz zlodziej, ktory zrotowal skradziony
+      // token. Zlagodzenie tego (odmowa bez kasowania rodziny) zostawialoby
+      // zlodzieja w koncie na zawsze — wiec rodzina pada, a szerokosc okna jest
+      // jawna decyzja wlasciciela.
+      await refresh(session.refreshToken).expect(401);
+      await refresh(first.body.refreshToken as string).expect(401);
+      await refresh(deviceB).expect(401);
+    });
+  }, 20_000);
+
+  it('LAGODNY: ten sam przypadek konczy sie ratunkiem i NIE rusza drugiego urzadzenia', async () => {
+    await withStrictReuse('false', async () => {
+      const session = await login('promien-okno-lagodny');
+      const deviceB = await loginSecondDevice(session.email);
+      const first = await refresh(session.refreshToken).expect(201);
+
+      await pastGraceWindow();
+
+      const recovered = await refresh(session.refreshToken).expect(201);
+      await refresh(recovered.body.refreshToken as string).expect(201);
+      await refresh(first.body.refreshToken as string).expect(201);
+      await refresh(deviceB).expect(201);
+    });
   }, 20_000);
 
   it('token unieważniony WYLOGOWANIEM nie zabiera drugiego urzadzenia', async () => {

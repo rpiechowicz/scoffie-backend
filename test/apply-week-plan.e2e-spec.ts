@@ -6,6 +6,9 @@ import { AddressInfo } from 'net';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { WeeklyPlansService } from '../src/weekly-plans/weekly-plans.service';
+import { ApplyWeekSlotDto } from '../src/weekly-plans/dto/apply-week-plan.dto';
+import { lockWeekForWrite } from '../src/weekly-plans/utils/week-write-lock.util';
 
 /**
  * Operacja wsadowa na tydzień (`weeklyPlans:applyWeekPlan`) na żywej bazie.
@@ -49,6 +52,7 @@ describe('applyWeekPlan E2E', () => {
   const originalMode = process.env.WS_AUTH_MODE;
 
   let householdId: string;
+  let plannerId: string;
   let socket: Socket;
   let dinnerA: string;
   let dinnerB: string;
@@ -186,6 +190,7 @@ describe('applyWeekPlan E2E', () => {
     notBreakfast = unsuitable.id;
 
     const session = await devLogin('Planista');
+    plannerId = session.user.id;
     socket = connect(session.accessToken);
     await waitConnect(socket);
     householdId = okData(
@@ -630,6 +635,172 @@ describe('applyWeekPlan E2E', () => {
 
       expect(received).toBe(0);
       socket.off('weeklyPlans:weekChanged', count);
+    });
+  });
+
+  /**
+   * Haki wewnętrzne (`guard`/`settle`) i zamek zapisu tygodnia.
+   *
+   * Na nich stoi „Cofnij" asystenta: warunek zapisu i rozliczenie muszą zapaść
+   * w TEJ SAMEJ transakcji co pozycje planu, a transakcja nie może liczyć
+   * warunku na migawce sprzed cudzego zapisu. Tego mock nie udowodni.
+   */
+  describe('haki transakcyjne i zamek tygodnia', () => {
+    let plans: WeeklyPlansService;
+    const weekStartDate = new Date(`${WEEK_START}T00:00:00.000Z`);
+
+    const recipesInWeek = async () =>
+      (
+        await prisma.planItem.findMany({
+          where: { weeklyPlan: { householdId, weekStart: weekStartDate } },
+          select: { dayOfWeek: true, recipeId: true },
+        })
+      )
+        .map((item) => `${item.dayOfWeek}:${item.recipeId}`)
+        .sort();
+
+    beforeAll(() => {
+      plans = app.get(WeeklyPlansService);
+    });
+
+    beforeEach(async () => {
+      await apply([slot('MON', 'DINNER', dinnerA)]);
+    });
+
+    it('`guard` dostaje bieżący tydzień; jego rzut wycofuje wszystko — także to, co sam zapisał', async () => {
+      let seen: string[] = [];
+      await expect(
+        plans.applyWeekPlan(
+          plannerId,
+          householdId,
+          WEEK_START,
+          { slots: [slot('MON', 'DINNER', dinnerB)] as ApplyWeekSlotDto[] },
+          {
+            guard: async (tx, current) => {
+              seen = current.map(
+                (item) => `${item.dayOfWeek}:${item.recipeId}`,
+              );
+              const week = await tx.weeklyPlan.findUniqueOrThrow({
+                where: {
+                  householdId_weekStart: {
+                    householdId,
+                    weekStart: weekStartDate,
+                  },
+                },
+              });
+              await tx.planItem.create({
+                data: {
+                  weeklyPlanId: week.id,
+                  dayOfWeek: 'SUN',
+                  mealType: 'DINNER',
+                  recipeId: dinnerB,
+                },
+              });
+              throw new Error('warunek niespełniony');
+            },
+          },
+        ),
+      ).rejects.toThrow('warunek niespełniony');
+
+      expect(seen).toEqual([`MON:${dinnerA}`]);
+      expect(await recipesInWeek()).toEqual([`MON:${dinnerA}`]);
+    });
+
+    it('rzut z `settle` wycofuje już zapisane pozycje planu', async () => {
+      await expect(
+        plans.applyWeekPlan(
+          plannerId,
+          householdId,
+          WEEK_START,
+          { slots: [slot('MON', 'DINNER', dinnerB)] as ApplyWeekSlotDto[] },
+          {
+            settle: (_tx, changes) => {
+              expect(changes).toEqual({ created: 1, updated: 0, deleted: 1 });
+              return Promise.reject(new Error('rozliczenie padło'));
+            },
+          },
+        ),
+      ).rejects.toThrow('rozliczenie padło');
+
+      expect(await recipesInWeek()).toEqual([`MON:${dinnerA}`]);
+    });
+
+    it('zapis czeka na cudzą edycję w toku i liczy `guard` na stanie PO niej, nie na starej migawce', async () => {
+      const week = await prisma.weeklyPlan.findUniqueOrThrow({
+        where: {
+          householdId_weekStart: { householdId, weekStart: weekStartDate },
+        },
+      });
+      let locked!: () => void;
+      const isLocked = new Promise<void>((resolve) => (locked = resolve));
+      let finish!: () => void;
+      const mayFinish = new Promise<void>((resolve) => (finish = resolve));
+
+      // Ręczna edycja domownika: ma zamek, jeszcze nie zatwierdziła.
+      const manualEdit = prisma.$transaction(
+        async (tx) => {
+          await lockWeekForWrite(tx, week.id);
+          locked();
+          await mayFinish;
+          await tx.planItem.create({
+            data: {
+              weeklyPlanId: week.id,
+              dayOfWeek: 'TUE',
+              mealType: 'DINNER',
+              recipeId: dinnerB,
+            },
+          });
+        },
+        { timeout: 15_000 },
+      );
+      await isLocked;
+
+      const seen: string[][] = [];
+      const write = plans.applyWeekPlan(
+        plannerId,
+        householdId,
+        WEEK_START,
+        { slots: [slot('MON', 'DINNER', dinnerB)] as ApplyWeekSlotDto[] },
+        {
+          guard: (_tx, current) => {
+            seen.push(
+              current
+                .map((item) => `${item.dayOfWeek}:${item.recipeId}`)
+                .sort(),
+            );
+            return current.length === 1
+              ? Promise.resolve()
+              : Promise.reject(new Error('plan zmieniony'));
+          },
+        },
+      );
+      const outcome = write.then(
+        () => 'zapisano',
+        (error: Error) => error.message,
+      );
+
+      // Warunek, nie opóźnienie: czekamy, aż baza pokaże sesję stojącą na zamku.
+      const deadline = Date.now() + 10_000;
+      for (;;) {
+        if (Date.now() > deadline) {
+          finish();
+          throw new Error('zapis nie stanął na zamku tygodnia');
+        }
+        const [{ waiting }] = await prisma.$queryRaw<{ waiting: bigint }[]>`
+          SELECT count(*) AS waiting FROM pg_stat_activity
+          WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+        if (waiting > 0n) break;
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      finish();
+      await manualEdit;
+
+      expect(await outcome).toBe('plan zmieniony');
+      // `guard` NIGDY nie zobaczył tygodnia sprzed cudzej edycji.
+      expect(seen).toEqual([[`MON:${dinnerA}`, `TUE:${dinnerB}`].sort()]);
+      expect(await recipesInWeek()).toEqual(
+        [`MON:${dinnerA}`, `TUE:${dinnerB}`].sort(),
+      );
     });
   });
 });

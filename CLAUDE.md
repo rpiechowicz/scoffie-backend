@@ -71,6 +71,39 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   kasuje archiwa list zakupów. Naruszenia wracają LISTĄ (`violations[]` z `index` w `slots`), a nie
   wyjątkiem, i przy jakimkolwiek naruszeniu NIC się nie zapisuje — także bez `dryRun`. Limity liczą
   się od stanu docelowego. `dryRun: true` = policz i sprawdź, nie zapisuj (właściwy tryb dla asystenta).
+- Zamek zapisu tygodnia (od 21.09.2026): KAŻDA transakcja zmieniająca `PlanItem` woła najpierw
+  `lockWeekForWrite(tx, weeklyPlanId)` (`src/weekly-plans/utils/week-write-lock.util.ts`; zmiana składu
+  domu: `lockWeeksForWriteFrom`) — `UPDATE` wiersza `WeeklyPlan`, który szereguje piszących, a w
+  SERIALIZABLE wymusza ponowienie na świeżej migawce. Nowa ścieżka zapisu bez zamka = dziura w
+  „Cofnij". KOLEJNOŚĆ BLOKAD jest jedna dla wszystkich: zamek tygodnia (pierwsza blokada
+  transakcji) → `ShoppingListArchiveState` → `PlanItem` → `ShoppingItemCheck`/`ShoppingList` →
+  `ShoppingListArchive`. Odwrócenie kończy się `40P01 deadlock detected`, którego Prisma NIE mapuje
+  na P2034, więc `runSerializable` go nie ponowi i wychodzi 500 (`test/week-lock-order.e2e-spec.ts`). Warunek albo rozliczenie, które musi zapaść RAZEM z zapisem planu, idzie przez haki
+  `applyWeekPlan(…, { guard, settle })` — biegną w transakcji, w każdej jej próbie, więc tylko baza
+  przez `tx`, żadnych efektów zewnętrznych. Tak działa `AgentProposalsService.undo`: przejęcie
+  propozycji (status + `appliedAt`), odcisk, plan, zwrot kwoty i wiadomość w jednej transakcji.
+- Kontrole dostępu a współbieżność (audyt autoryzacji 21.09.2026, dowód: `test/authz-audit.e2e-spec.ts`):
+  (1) bramka członkostwa idzie PRZED odczytem zasobu — obcy dostaje `NOT_HOUSEHOLD_MEMBER` tak samo dla
+  domu/przepisu istniejącego i nieistniejącego (odwrotna kolejność = wyrocznia istnienia); (2) zapis oparty
+  na tym, KTO jest właścicielem (degradacja, `removeMember`, rozliczenie domu po wyjściu), bierze
+  `lockHouseholdRoster(tx, householdId)` i liczy `ensureOwnerInTx`/właścicieli W transakcji — zamek składu
+  idzie PRZED zamkiem tygodnia, a kto trzyma zamek tygodnia, nie sięga po ten; (3) transakcje zapisu planu
+  wołają po `lockWeekForWrite` jeszcze `ensureMembershipInTx(tx, userId, householdId, participantIds)`;
+  (4) `removeMember` gasi WSZYSTKIE otwarte zaproszenia domu (`revokeOpenInvitationsOf`) — wyrzucony zna
+  też cudze linki; `leave` tego nie robi; (5) `acceptInvitation` ma ważność i `declinedAt` w warunku
+  samego `updateMany`, nie tylko w kontroli przed transakcją.
+- Trasy `/ops/*` (poza `/ops/health`): `OpsTokenGuard` jest fail-closed — pusty `OPS_TOKEN` = 403 w KAŻDYM
+  środowisku (dev, staging, prod); jedyny wyjątek to dokładnie `NODE_ENV=test`. Tokenu nie logujemy.
+- Apple sign-in: adres e-mail i `emailVerified` idą WYŁĄCZNIE z claimów zweryfikowanego identity tokenu;
+  `dto.email` zostaje w kontrakcie, ale niczego nie zapisuje (rozjazd = ostrzeżenie bez adresów w logu).
+- Sesje (audyt 21.09.2026, dowód: `test/auth-session-audit.e2e-spec.ts`): każda transakcja, która WYDAJE albo
+  UNIEWAŻNIA refresh tokeny osoby, bierze najpierw `lockUserSessions` (`SELECT … FROM "User" … FOR NO KEY UPDATE`)
+  — bez tego unieważnienie nie widziało tokenu wstawianego równolegle i sesja je przeżywała. Token dostępu
+  z rotacji/ratunku niesie `tokenVersion` odczytane W tej transakcji. Kasowanie rodziny i `logoutEverywhere`
+  (`retireAllUserTokens`) przepisują też powód starych ROTATED/RECOVERED, więc stara kopia kasuje rodzinę RAZ,
+  a nie przy każdym użyciu. Następca zgaszony wylogowaniem nie jest dowodem kopii (401 bez kasowania), chyba że
+  poprzednik był ratowany (RECOVERED — istnieje para spoza łańcucha). `POST /auth/logout-everywhere`: Bearer
+  access token, bez ciała, 200 `{revokedSessions}`.
 - Plan tygodnia: `plannedServings` = porcje ŁĄCZNE; brak = policz z audytorium, nigdy 1.
   Kolejność enuma `MealType` jest znacząca; sloty per gospodarstwo + `suitableMealTypes`.
 - WebSocket (od Fazy 0): JWT w handshake (`auth: { token }` lub `Authorization: Bearer`) weryfikuje
@@ -94,6 +127,10 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   limit nie wymaga builda. Nowy kontroler ostrzejszy niż domyślny = `@Throttle({ default: { limit:
 () => readThrottleLimit('…') } })`; sondy = `@SkipThrottle({ default: true, ip: true })`.
   WebSocket ma własny limiter (`checkWsRateLimit` w `actorId`), bo guard omija ack.
+- Zaproszenia: w bazie leży tylko `Invitation.tokenHash` (sha256 hex, bez peppera); surowy token
+  istnieje wyłącznie w odpowiedzi `households:createInvitation`. Skrzynka oddaje w polu `token`
+  uchwyt `inv_<id>`, ważny tylko dla adresata (`invitationLookup`). Kolumna `token` jest WYCOFYWANA
+  — nie czytać, nie zapisywać; plan kroku 2: `docs/ZAPROSZENIA-HASZ-TOKENU.md`.
 - Asystent AI (`src/agent/`, od Fazy 0, krok 3): moduł JEDNOKIERUNKOWY — wolno mu wołać domenę
   i obserwowalność, nic w aplikacji nie importuje `src/agent/` (pilnuje `no-restricted-imports`;
   wyjątek: `AppModule`). W `src/agent/**` reguły `no-unsafe-*` są BŁĘDEM, nie ostrzeżeniem.

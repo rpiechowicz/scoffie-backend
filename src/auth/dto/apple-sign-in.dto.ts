@@ -63,7 +63,7 @@ export class AppleSignInDto {
 
   @ApiProperty({
     description:
-      'Email returned by Apple (either the real email or a private relay address). Optional — we also read email from the JWT.',
+      'Email returned by Apple on first sign-in. Accepted for compatibility and IGNORED: the stored address comes only from the verified identity token.',
     required: false,
     example: 'rafal@example.com',
   })

@@ -92,10 +92,62 @@ export async function revokeInvitationsCreatedBy(
   return result.count;
 }
 
+/**
+ * Wszystkie otwarte zaproszenia domu przestają działać — wołane przy
+ * WYRZUCENIU domownika.
+ *
+ * AUDYT 21.09.2026. `revokeInvitationsCreatedBy` gasi linki wystawione przez
+ * odchodzącego, ale usunięty domownik zna też linki CUDZE: właściciel wrzucił
+ * dwa na rodzinny czat, jednym ktoś dołączył, drugi leży otwarty do 30 dni.
+ * `acceptInvitation` nie pamięta, że tę osobę z domu usunięto, więc wracała
+ * tym drugim linkiem jako MEMBER — do planu, listy zakupów, przepisów i
+ * pamięci asystenta. Nie da się zgasić „linków, które zna usunięty", bo surowy
+ * token nie ma adresata; gasną więc wszystkie, a właściciel wystawia nowe.
+ */
+export async function revokeOpenInvitationsOf(
+  tx: PrismaLike,
+  householdId: string,
+  now: Date = new Date(),
+): Promise<number> {
+  const result = await tx.invitation.updateMany({
+    where: { householdId, redeemedAt: null, expiresAt: { gt: now } },
+    data: { expiresAt: new Date(now.getTime() - 1_000) },
+  });
+  return result.count;
+}
+
+/**
+ * Zamek składu domu — bierze go transakcja, która opiera zapis na tym, KTO
+ * jest właścicielem (degradacja, usunięcie domownika).
+ *
+ * Zwykły `UPDATE` wiersza `Household`, jak `lockWeekForWrite`: szereguje
+ * piszących, a po odczekaniu kolejne zapytania w READ COMMITTED widzą stan po
+ * cudzym zatwierdzeniu. `UPDATE` kolumny spoza klucza bierze
+ * `FOR NO KEY UPDATE`, więc nie blokuje wstawiania wierszy z kluczem obcym do
+ * domu (plan, członkostwo). KOLEJNOŚĆ BLOKAD: ten zamek jest PRZED zamkiem
+ * tygodnia (`onMemberLeft` bierze tamten później, w tej samej transakcji);
+ * nikt, kto trzyma zamek tygodnia, nie sięga po ten.
+ */
+export async function lockHouseholdRoster(
+  tx: PrismaLike,
+  householdId: string,
+): Promise<void> {
+  await tx.household.update({
+    where: { id: householdId },
+    data: { updatedAt: new Date() },
+    select: { id: true },
+  });
+}
+
 export async function settleHouseholdAfterMemberLeft(
   tx: PrismaLike,
   householdId: string,
 ): Promise<HouseholdSettlement> {
+  // Zamek PRZED policzeniem, kto został: dwóch właścicieli wychodzących naraz
+  // widziało siebie nawzajem jako „zostaje właściciel" i dom kończył bez
+  // właściciela (albo pusty, a nieskasowany). Drugi czeka tu na pierwszego
+  // i liczy już po jego zatwierdzeniu (audyt 21.09.2026).
+  await lockHouseholdRoster(tx, householdId);
   const remaining = await tx.membership.findMany({
     where: { householdId },
     orderBy: { createdAt: 'asc' },

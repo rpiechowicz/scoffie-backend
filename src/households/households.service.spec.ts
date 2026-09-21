@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HouseholdsService } from './households.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppException } from '../common/app-exception';
+import { hashInvitationToken } from './invitation-token.util';
 
 // Ten spec testuje PRAWDZIWY `HouseholdsService`. Wcześniej `jest.config.js`
 // podmieniał moduł na stub o innym API (`createHousehold`, `householdInvitation`),
@@ -41,7 +42,7 @@ const memberMembership = {
 
 const futureInvitation = () => ({
   id: 'inv-1',
-  token: 'tok-12345678',
+  tokenHash: hashInvitationToken('tok-12345678'),
   householdId: HH,
   createdById: OWNER,
   redeemedById: null,
@@ -146,8 +147,15 @@ const makePrismaMock = (state: MockState) => {
       findMany: jest.fn().mockResolvedValue([]),
       create: jest
         .fn()
-        .mockImplementation(({ data }: any) =>
-          Promise.resolve({ id: 'inv-new', ...data }),
+        // Jak Prisma: `omit` zdejmuje pola z wyniku.
+        .mockImplementation(({ data, omit }: any) =>
+          Promise.resolve(
+            Object.fromEntries(
+              Object.entries({ id: 'inv-new', ...data }).filter(
+                ([key]) => !omit?.[key],
+              ),
+            ),
+          ),
         ),
       update: jest.fn().mockResolvedValue({}),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -162,6 +170,8 @@ const makePrismaMock = (state: MockState) => {
     },
     weeklyPlan: {
       findMany: jest.fn().mockResolvedValue([]),
+      // Zamek zapisu tygodni (`lockWeeksForWriteFrom`).
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     planItem: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -302,14 +312,24 @@ describe('HouseholdsService', () => {
 
     it('UUID wielkimi literami (iOS `uuidString`) przechodzi bramkę', async () => {
       // Mock członkostw jest kluczowany małymi literami, więc dalej odbija się
-      // o `ensureMembership` — istotne jest, że to NIE jest VALIDATION_ERROR
-      // i że zapytanie o dom w ogóle poszło.
+      // o `ensureMembership` — istotne jest, że to NIE jest VALIDATION_ERROR.
       await expect(
         service.findById(OWNER, HH.toUpperCase()),
       ).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
-      expect(prisma.household.findUnique).toHaveBeenCalledWith({
-        where: { id: HH.toUpperCase() },
+    });
+
+    it('obcy dostaje TĘ SAMĄ odmowę dla domu istniejącego i nieistniejącego', async () => {
+      // Dawniej dom czytał się przed członkostwem: 404 dla id z powietrza,
+      // 403 dla prawdziwego — czyli potwierdzenie, że cudzy dom istnieje.
+      await expect(service.findById(STRANGER, HH)).rejects.toMatchObject({
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
       });
+      prisma.household.findUnique.mockResolvedValue(null);
+      await expect(service.findById(STRANGER, GHOST_HH)).rejects.toMatchObject({
+        response: { code: 'NOT_HOUSEHOLD_MEMBER' },
+      });
+      // Obcy nie dochodzi nawet do zapytania o dom.
+      expect(prisma.household.findUnique).not.toHaveBeenCalled();
     });
   });
 
@@ -336,11 +356,22 @@ describe('HouseholdsService', () => {
       const arg = prisma.invitation.create.mock.calls[0][0].data;
       expect(arg.householdId).toBe(HH);
       expect(arg.createdById).toBe(OWNER);
-      expect(arg.token).toMatch(/^[0-9a-f]{32}$/);
       expect(arg.expiresAt.getTime()).toBeGreaterThanOrEqual(
         before + 7 * 86_400_000 - 1000,
       );
-      expect(result.token).toBe(arg.token);
+      expect(result.token).toMatch(/^[0-9a-f]{32}$/);
+    });
+
+    it('do bazy idzie hasz, surowy token tylko do odpowiedzi', async () => {
+      const result = await service.createInvitation(OWNER, HH, {});
+
+      const arg = prisma.invitation.create.mock.calls[0][0].data;
+      expect(arg).not.toHaveProperty('token');
+      expect(arg.tokenHash).toBe(hashInvitationToken(result.token));
+      expect(JSON.stringify(prisma.invitation.create.mock.calls)).not.toContain(
+        result.token,
+      );
+      expect(result).not.toHaveProperty('tokenHash');
     });
 
     it('jawny expiresAt wygrywa z domyślnym', async () => {
@@ -367,7 +398,7 @@ describe('HouseholdsService', () => {
     });
 
     it('drugi wyścig o ten sam link: zero zmienionych wierszy = ALREADY_REDEEMED, transakcja wycofana', async () => {
-      prisma.invitation.findUnique.mockResolvedValue({
+      const open = {
         id: 'inv-1',
         householdId: HH,
         createdById: OWNER,
@@ -375,12 +406,44 @@ describe('HouseholdsService', () => {
         declinedAt: null,
         expiresAt: new Date(Date.now() + 86_400_000),
         invitedUserId: null,
-      });
+      };
+      // Pierwszy odczyt (przed transakcją) widzi link otwarty, drugi — już po
+      // przegranym `updateMany` — wykorzystany przez kogoś innego.
+      prisma.invitation.findUnique
+        .mockResolvedValueOnce(open)
+        .mockResolvedValueOnce({ redeemedAt: new Date() });
       prisma.invitation.updateMany.mockResolvedValue({ count: 0 });
       await expect(
         service.acceptInvitation(MEMBER, { token: 'a'.repeat(32) }),
       ).rejects.toMatchObject({
         response: { code: 'INVITATION_ALREADY_REDEEMED' },
+      });
+    });
+
+    it('link zgaszony MIĘDZY kontrolą a zapisem (wyrzucenie wystawcy) nie wpuszcza: EXPIRED', async () => {
+      const open = {
+        id: 'inv-1',
+        householdId: HH,
+        createdById: OWNER,
+        redeemedAt: null,
+        declinedAt: null,
+        expiresAt: new Date(Date.now() + 86_400_000),
+        invitedUserId: null,
+      };
+      prisma.invitation.findUnique
+        .mockResolvedValueOnce(open)
+        .mockResolvedValueOnce({ redeemedAt: null });
+      prisma.invitation.updateMany.mockResolvedValue({ count: 0 });
+      await expect(
+        service.acceptInvitation(MEMBER, { token: 'a'.repeat(32) }),
+      ).rejects.toMatchObject({ response: { code: 'INVITATION_EXPIRED' } });
+      // Warunek ważności siedzi w SAMYM zapisie, nie tylko w kontroli wyżej.
+      const where = prisma.invitation.updateMany.mock.calls[0][0].where;
+      expect(where).toMatchObject({
+        id: 'inv-1',
+        redeemedAt: null,
+        declinedAt: null,
+        expiresAt: { gt: expect.any(Date) },
       });
     });
 
@@ -515,6 +578,25 @@ describe('HouseholdsService', () => {
       ).rejects.toMatchObject({ response: { code: 'INVITATION_NOT_FOUND' } });
     });
 
+    it('szuka po haszu — surowy token nie trafia do zapytania', async () => {
+      await service.acceptInvitation(STRANGER, dto).catch(() => undefined);
+
+      expect(prisma.invitation.findUnique).toHaveBeenCalledWith({
+        where: { tokenHash: hashInvitationToken(dto.token) },
+      });
+    });
+
+    it('uchwyt skrzynki szuka po id I adresacie — samo id nic nie otwiera', async () => {
+      const id = '7b1f0c52-3d0e-4c0a-9a53-2f6f3c1d9e10';
+      await service
+        .acceptInvitation(STRANGER, { token: `inv_${id}` })
+        .catch(() => undefined);
+
+      expect(prisma.invitation.findUnique).toHaveBeenCalledWith({
+        where: { id, invitedUserId: STRANGER },
+      });
+    });
+
     it("leaveOtherHouseholds: 'false' (napis) → VALIDATION_ERROR, nie zgoda na opuszczenie domu", async () => {
       prisma.invitation.findUnique.mockResolvedValue(futureInvitation());
       state.membershipsOfUser[STRANGER] = [{ householdId: OTHER_HH }];
@@ -600,7 +682,7 @@ describe('HouseholdsService', () => {
       // `updateMany` z warunkiem `redeemedAt: null` — zamek na drugi wyścig.
       expect(prisma.invitation.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'inv-1', redeemedAt: null },
+          where: expect.objectContaining({ id: 'inv-1', redeemedAt: null }),
           data: expect.objectContaining({
             redeemedById: STRANGER,
             invitedUserId: STRANGER,
@@ -725,6 +807,27 @@ describe('HouseholdsService', () => {
         token: 'tok-12345678',
       });
       expect(result).toMatchObject({ status: 'NOT_FOUND', household: null });
+      expect(prisma.invitation.findUnique.mock.calls[0][0].where).toEqual({
+        tokenHash: hashInvitationToken('tok-12345678'),
+      });
+    });
+
+    it('odpowiedź nie niesie haszu, a `token` to echo wejścia', async () => {
+      prisma.invitation.findUnique.mockResolvedValue({
+        ...futureInvitation(),
+        household: { id: HH, name: 'Dom' },
+        createdBy: { displayName: 'Ania' },
+      });
+      state.membershipsOfUser[STRANGER] = [];
+
+      const result = await service.previewInvitation(STRANGER, {
+        token: 'tok-12345678',
+      });
+
+      expect(result.token).toBe('tok-12345678');
+      expect(JSON.stringify(result)).not.toContain(
+        hashInvitationToken('tok-12345678'),
+      );
     });
 
     it('pierwszy podgląd odkłada zaproszenie do skrzynki adresata', async () => {
@@ -745,6 +848,31 @@ describe('HouseholdsService', () => {
         where: { id: 'inv-1' },
         data: { invitedUserId: STRANGER },
       });
+    });
+  });
+
+  describe('listPendingInvitations', () => {
+    it('oddaje id i uchwyt skrzynki — nigdy tokenu ani haszu z bazy', async () => {
+      const id = '7b1f0c52-3d0e-4c0a-9a53-2f6f3c1d9e10';
+      prisma.invitation.findMany.mockResolvedValue([
+        {
+          ...futureInvitation(),
+          id,
+          invitedUserId: STRANGER,
+          household: { id: HH, name: 'Dom' },
+          createdBy: { displayName: 'Ania' },
+        },
+      ]);
+      state.membershipsOfUser[STRANGER] = [];
+
+      const result = await service.listPendingInvitations(STRANGER);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ id, token: `inv_${id}` });
+      expect(result[0]).not.toHaveProperty('tokenHash');
+      expect(JSON.stringify(result)).not.toContain(
+        hashInvitationToken('tok-12345678'),
+      );
     });
   });
 
@@ -799,11 +927,11 @@ describe('HouseholdsService', () => {
       });
     });
 
-    it('nieznany dom → NotFound', async () => {
+    it('nieznany dom → ta sama odmowa co cudzy (nie zdradza istnienia)', async () => {
       prisma.household.findUnique.mockResolvedValue(null);
       await expect(
         service.updateName(OWNER, GHOST_HH, { name: 'Nowa' }),
-      ).rejects.toMatchObject({ response: { code: 'HOUSEHOLD_NOT_FOUND' } });
+      ).rejects.toMatchObject({ response: { code: 'NOT_HOUSEHOLD_MEMBER' } });
     });
 
     it.each([

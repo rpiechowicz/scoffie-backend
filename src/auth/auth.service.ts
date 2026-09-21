@@ -62,16 +62,29 @@ export class AuthService {
   private readonly refreshReuseGraceMs =
     (Number(process.env.REFRESH_REUSE_GRACE_SECONDS ?? '60') || 60) * 1000;
   /**
-   * `REFRESH_STRICT_REUSE=true` przywraca zachowanie sprzed 18.09.2026:
-   * zgubiona rotacja starsza niz okno laski kasuje CALA rodzine tokenow.
+   * Polityka dla starego tokenu, ktory wraca PO oknie laski, choc jego
+   * nastepcy nikt nie uzyl (`REFRESH_STRICT_REUSE`).
    *
-   * Domyslnie WYLACZONE, bo to wlasnie ono wylogowywalo wlascicieli telefonow,
-   * ktorzy wrocili do aplikacji po kilku dniach — patrz `recoverLostRotation`.
-   * Zostaje jako przelacznik, bo to jest decyzja o kompromisie
-   * bezpieczenstwo/wygoda i nalezy do wlasciciela instalacji, a nie do kodu.
+   * DOMYSLNIE STRICT (od 21.09.2026): taka proba kasuje CALA rodzine tokenow.
+   * Lagodny tryb byl domyslny przez trzy dni (18–21.09.2026) i mial koszt,
+   * ktory e2e przypina wprost: para wydana „ratunkiem na zimno" nie jest
+   * spieta z lancuchem, wiec gdy wlasciciel uzyje potem swojego nastepcy,
+   * rozwidlenia NIC juz nie wykrywa — kopia starego tokenu i wlasciciel
+   * pracuja rownolegle, bez sladu. Swiezy refresh token lezy u klienta
+   * nieuzywany nawet godzine (do konca access tokenu), wiec to nie jest
+   * przypadek brzegowy.
+   *
+   * Lagodny tryb wlacza WYLACZNIE jawne `REFRESH_STRICT_REUSE=false`. Brak
+   * zmiennej, pusta wartosc i literowka daja strict: pomylka w konfiguracji
+   * ma konczyc sie bezpieczniejszym zachowaniem, nie luzniejszym. Cena strict
+   * tez jest realna — telefon, ktory zgubil odpowiedz z rotacji i wrocil po
+   * oknie, wylogowuje wlasciciela ze wszystkich urzadzen — dlatego to zostaje
+   * przelacznikiem wlasciciela instalacji. Czytane per zadanie.
    */
   private get strictReuse(): boolean {
-    return (process.env.REFRESH_STRICT_REUSE ?? '').trim() === 'true';
+    return (
+      (process.env.REFRESH_STRICT_REUSE ?? '').trim().toLowerCase() !== 'false'
+    );
   }
 
   constructor(
@@ -109,10 +122,26 @@ export class AuthService {
       dto.familyName,
     );
 
-    // Email: prefer the one from the verified JWT (signed by Apple);
-    // fall back to DTO only if JWT didn't carry it for some reason.
-    const email =
-      verified.email ?? (dto.email?.trim().toLowerCase() || null) ?? null;
+    // Adres WYŁĄCZNIE z identity tokenu — to jedyna wartość podpisana przez
+    // Apple. `dto.email` jest tekstem wpisanym przez klienta.
+    //
+    // AUDYT 21.09.2026. Dawniej token bez claimu `email` oznaczał „weź adres
+    // z DTO": dowolne konto Apple mogło wpisać sobie cudzy adres, a powitanie,
+    // pożegnanie i maile o subskrypcji (z nazwą wybraną przez nadawcę) szły
+    // do osoby trzeciej. Przy istniejącym koncie ta sama gałąź przepisywała
+    // `emailVerified` z tokenu na adres, którego token nie niósł.
+    //
+    // Pole zostaje w DTO (kontrakt z iOS), ale niczego nie zapisuje. Rozjazd
+    // z tokenem tylko odnotowujemy — BEZ adresów w logu.
+    const email = verified.email;
+    const declaredEmail = dto.email?.trim().toLowerCase() || null;
+    if (declaredEmail && declaredEmail !== email) {
+      this.logger.warn(
+        `Apple sign-in: dto.email ${
+          email ? 'differs from' : 'sent without'
+        } the identity token email claim — ignored`,
+      );
+    }
 
     // Look up existing user first so we can decide what to update.
     const existing = await this.prisma.user.findUnique({
@@ -136,10 +165,10 @@ export class AuthService {
       }
 
       // Only update email if we learn a new one; do not clear it.
-      if (email && existing.email !== email) {
-        updateData.email = email;
-        updateData.emailVerified = verified.emailVerified;
-      } else if (existing.email === email) {
+      // `emailVerified` opisuje adres Z TOKENU, więc rusza się tylko razem
+      // z nim — token bez adresu nie potwierdza niczego, co leży w bazie.
+      if (email) {
+        if (existing.email !== email) updateData.email = email;
         updateData.emailVerified = verified.emailVerified;
       }
 
@@ -163,9 +192,8 @@ export class AuthService {
           lastLoginAt: new Date(),
         },
       });
-      this.logger.log(
-        `New Apple user created: ${user.id} (appleSub=${verified.appleSub.slice(0, 12)}…)`,
-      );
+      // Sam `user.id`: adres i `sub` Apple to dane osobowe, w logu zbędne.
+      this.logger.log(`New Apple user created: ${user.id}`);
     }
 
     return this.buildAuthResult(user);
@@ -242,7 +270,11 @@ export class AuthService {
         };
       }
       if (outcome.kind === 'replay') {
-        await this.revokeTokenFamily(storedToken.userId, now, 'reuse detected');
+        this.reportFamilyRevoked(
+          storedToken.userId,
+          'reuse detected',
+          outcome.revokedCount,
+        );
       }
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -287,10 +319,10 @@ export class AuthService {
         };
       }
       if (outcome.kind === 'replay') {
-        await this.revokeTokenFamily(
+        this.reportFamilyRevoked(
           storedToken.userId,
-          now,
           'concurrent reuse',
+          outcome.revokedCount,
         );
       }
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -300,7 +332,14 @@ export class AuthService {
       where: { userId: storedToken.userId, expiresAt: { lt: now } },
     });
 
-    const accessToken = await this.issueAccessToken(storedToken.userId);
+    // Wersja odczytana W transakcji rotacji, pod zamkiem sesji — patrz
+    // `lockUserSessions`. Odczyt po transakcji mógł trafić już w wersję
+    // podbitą przez równoległe unieważnienie i wydać działający token dostępu
+    // sesji, która właśnie została zamknięta.
+    const accessToken = await this.signAccessToken(
+      storedToken.userId,
+      successor.tokenVersion,
+    );
     return { accessToken, refreshToken: successor.rawToken };
   }
 
@@ -323,13 +362,18 @@ export class AuthService {
     userId: string,
     tokenHash: string,
     now: Date,
-  ): Promise<{ rawToken: string; tokenHash: string } | null> {
+  ): Promise<{
+    rawToken: string;
+    tokenHash: string;
+    tokenVersion: number;
+  } | null> {
     const rawToken = randomBytes(64).toString('hex');
     const successorHash = this.hashRefreshToken(rawToken);
     const expiresAt = new Date(now);
     expiresAt.setDate(expiresAt.getDate() + this.refreshTokenDays);
 
     return this.prisma.$transaction(async (tx) => {
+      await this.lockUserSessions(tx, userId);
       // Uniewaznienie warunkowe (`revokedAt: null`): to samo zapytanie
       // sprawdza i zajmuje, wiec z dwoch rownoleglych zadan tym samym tokenem
       // pare wyda tylko jedno. Drugie czeka tutaj na blokadzie wiersza.
@@ -346,8 +390,82 @@ export class AuthService {
       await tx.refreshToken.create({
         data: { tokenHash: successorHash, userId, expiresAt },
       });
-      return { rawToken, tokenHash: successorHash };
+      const tokenVersion = await this.readTokenVersion(tx, userId);
+      return { rawToken, tokenHash: successorHash, tokenVersion };
     });
+  }
+
+  /**
+   * Zamek sesji użytkownika: `FOR NO KEY UPDATE` na jego wierszu `User`.
+   *
+   * AUDYT 21.09.2026. Unieważnienie (kasowanie rodziny po replayu,
+   * `logoutEverywhere`) robiło `updateMany … where revokedAt: null`. W READ
+   * COMMITTED takie zapytanie widzi wiersze z chwili SWOJEGO startu, więc
+   * następca wstawiany właśnie przez równoległą rotację albo ratunek nie
+   * wpadał pod unieważnienie i przeżywał je — a razem z nim cała sesja, bo
+   * tym tokenem da się odświeżać dalej. Sprawdzone e2e: wstrzyknięte
+   * wylogowanie w środek rotacji zostawiało jeden żywy token. Napastnik,
+   * który odświeża w pętli, miał więc realną szansę przeżyć wykrycie
+   * kradzieży.
+   *
+   * Każda transakcja, która WYDAJE albo UNIEWAŻNIA refresh tokeny tej osoby,
+   * bierze ten zamek jako pierwszą blokadę. Szereguje to wydawanie
+   * z unieważnianiem: albo unieważnienie startuje po zatwierdzeniu nowego
+   * tokenu i go widzi, albo rotacja czeka i jej warunkowy zapis trafia już
+   * w token unieważniony. `NO KEY` nie blokuje wstawiania wierszy z kluczem
+   * obcym do użytkownika (plan, członkostwa) — to nie jest zamek na konto.
+   */
+  private async lockUserSessions(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<void> {
+    await tx.$queryRaw`SELECT 1 FROM "User" WHERE "id" = ${userId}::uuid FOR NO KEY UPDATE`;
+  }
+
+  private async readTokenVersion(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<number> {
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { tokenVersion: true },
+    });
+    return user?.tokenVersion ?? 0;
+  }
+
+  /**
+   * Unieważnia WSZYSTKO, co ta osoba ma: żywe refresh tokeny dostają
+   * `revokedAt` i powód, a tokeny już zrotowane albo ratowane — sam powód.
+   *
+   * Przepisanie powodu na starych wierszach to poprawka z audytu 21.09.2026.
+   * Kasowanie rodziny zostawiało je jako ROTATED/RECOVERED, czyli wciąż
+   * „do sprawdzenia”, a nie „martwe”. Ta sama stara kopia tokenu — albo
+   * kolejny stary token z tego samego łańcucha — wyzwalała więc kasowanie
+   * rodziny PRZY KAŻDYM użyciu: także wtedy, gdy właściciel zdążył się już
+   * zalogować od nowa. Kto miał jedną skradzioną kopię, mógł wylogowywać
+   * właściciela ze wszystkich urządzeń w kółko, aż do wygaśnięcia tokenu
+   * (60 dni). Po przepisaniu `recoverLostRotation` widzi REUSE/LOGOUT
+   * i odmawia bez kasowania — to jest ten sam stan, co „już wykryty replay”.
+   */
+  private async retireAllUserTokens(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    reason: 'REUSE' | 'LOGOUT',
+    now: Date,
+  ): Promise<number> {
+    const live = await tx.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: now, revokedReason: reason },
+    });
+    await tx.refreshToken.updateMany({
+      where: { userId, revokedReason: { in: ['ROTATED', 'RECOVERED'] } },
+      data: { revokedReason: reason },
+    });
+    await tx.user.updateMany({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+    });
+    return live.count;
   }
 
   /**
@@ -355,21 +473,18 @@ export class AuthService {
    * tokenow pada. Tokeny DOSTEPU zylyby dalej do konca swojego TTL, wiec
    * `tokenVersion` uniewaznia je natychmiast.
    */
-  private async revokeTokenFamily(userId: string, now: Date, reason: string) {
-    const revoked = await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: now, revokedReason: 'REUSE' },
-    });
-    await this.prisma.user.updateMany({
-      where: { id: userId },
-      data: { tokenVersion: { increment: 1 } },
-    });
+  private reportFamilyRevoked(
+    userId: string,
+    reason: string,
+    revokedCount: number,
+  ): void {
     // Otwarty socket nie widzi `tokenVersion` — sprawdza je tylko handshake.
     // Bez tego wykrycie kradzieży zamykało REST, a kanał WS zostawiało
     // otwarty do wygaśnięcia access tokenu (audyt 12.09.2026, P1.9).
+    // Wołane PO zatwierdzeniu transakcji, która rodzinę skasowała.
     disconnectRevokedUser(userId);
     this.logger.warn(
-      `refresh token ${reason} for user ${userId} — revoked ${revoked.count} active token(s)`,
+      `refresh token ${reason} for user ${userId} — revoked ${revokedCount} active token(s)`,
     );
   }
 
@@ -380,11 +495,13 @@ export class AuthService {
    *  - `replay` — lancuch sie ROZWIDLIL: nastepca zostal uzyty, czyli para
    *    dotarla do klienta i zyje wlasnym zyciem, a mimo to wraca stary token.
    *    Dwie strony maja dzialajace poswiadczenia. To jedyna sytuacja, w ktorej
-   *    mamy dowod, i jedyna, w ktorej pada CALA rodzina (wszystkie urzadzenia
-   *    + `tokenVersion`).
+   *    mamy DOWOD. Tak samo (cala rodzina: wszystkie urzadzenia +
+   *    `tokenVersion`) konczy sie w domyslnym trybie strict zrotowany token,
+   *    ktory wraca PO oknie laski — dowodu nie ma, ale nie ma tez czym
+   *    odroznic spoznionego telefonu od kopii (patrz `strictReuse`).
    *  - `stale` — token jest martwy, ale nic nie wskazuje na kopie: wylogowany,
-   *    wygasly, juz raz wykryty, albo zgubiony tak dawno, ze nie miesci sie
-   *    w oknie laski. Odmawiamy TEMU zadaniu (401) i na tym koniec.
+   *    wygasly albo juz raz wykryty. Odmawiamy TEMU zadaniu (401) i na tym
+   *    koniec.
    *
    * Dotad kazda odmowa kasowala rodzine. Znaczylo to, ze telefon, ktoremu
    * padla siec na dluzej niz okno laski, wylogowywal wlasciciela ze WSZYSTKICH
@@ -400,11 +517,10 @@ export class AuthService {
    *  - sam token nie zdazyl wygasnac,
    *  - a nastepca ZYJE i NIKT GO NIE UZYL.
    *
-   * Ostatni warunek jest tym, ktory naprawde rozstrzyga — patrz komentarz
-   * przy nim. Okno laski (`REFRESH_REUSE_GRACE_SECONDS`) od 18.09.2026 nie
-   * decyduje juz o odmowie, tylko o TONIE logu: ratunek poza oknem jest
-   * sygnalem, ze klient systematycznie gubi rotacje. Stare zachowanie wraca
-   * pod `REFRESH_STRICT_REUSE=true`.
+   * Ostatni warunek rozstrzyga W OKNIE laski (`REFRESH_REUSE_GRACE_SECONDS`).
+   * PO oknie decyduje `REFRESH_STRICT_REUSE` — patrz `strictReuse`: domyslnie
+   * (strict) to juz replay i pada cala rodzina; przy jawnym `false` ratunek
+   * przechodzi takze po oknie („recovered COLD" w logu).
    *
    * **Nastepcy NIE uniewazniamy** — i to jest poprawka z 13.09.2026, zmierzona
    * na produkcji. Dotad ratunek "zajmowal" nastepce, kasujac go jako REUSE,
@@ -444,119 +560,187 @@ export class AuthService {
     now: Date,
   ): Promise<
     | { kind: 'recovered'; accessToken: string; refreshToken: string }
-    | { kind: 'replay' }
+    | { kind: 'replay'; revokedCount: number }
     | { kind: 'stale' }
   > {
-    const { revokedAt, revokedReason, replacedByHash } = storedToken;
-    // Kazda odmowa konczy sie kasowaniem rodziny, czyli wylogowaniem — wiec
-    // kazda mowi, CO ja wywolalo. Bez tego jedyny slad po wylogowaniu to
-    // `reuse detected`, z ktorego nie wynika, ktory warunek nie wyszedl.
-    // ROTATED = pierwsze ponowienie, RECOVERED = kolejne. Jedno i drugie to
-    // ten sam telefon pukajacy po odpowiedz, ktorej nie dostal — URLSession
-    // ponawia POST tyle razy, ile trzeba, a nie raz. Zmierzone e2e: przy
-    // TRZECIM ponowieniu stary warunek (`!== 'ROTATED'`) odmawial ratunku
-    // i kasowal cala rodzine, czyli wylogowywal ze wszystkich urzadzen za to,
-    // ze siec byla slaba. Okna laski to nie przedluza: `revokedAt` jest
-    // ustawiane RAZ, przy rotacji, i ratunek go nie rusza — wiec wszystkie
-    // ponowienia mieszcza sie w tym samym, nieruchomym oknie.
-    const rotatedOrRecovered =
-      revokedReason === 'ROTATED' || revokedReason === 'RECOVERED';
-    if (!rotatedOrRecovered || !revokedAt || !replacedByHash) {
-      // LOGOUT, REUSE (rodzina juz padla) albo rotacja bez wskaznika na
-      // nastepce. Zadne z tego nie jest dowodem kopii: wylogowany token wraca
-      // po prostu z ponowionego zadania, a raz wykryty replay nie ma juz czego
-      // kasowac drugi raz.
-      this.logger.warn(
-        `rotation recovery refused for user ${storedToken.userId}: reason=${revokedReason ?? 'NULL'} successor=${replacedByHash ? 'set' : 'missing'} — odmowa bez kasowania rodziny`,
-      );
-      return { kind: 'stale' };
-    }
-    const ageMs = now.getTime() - revokedAt.getTime();
-    if (storedToken.expiresAt <= now) {
-      this.logger.warn(
-        `rotation recovery refused for user ${storedToken.userId}: token expired`,
-      );
-      return { kind: 'stale' };
-    }
-
-    // O ROZWIDLENIU ŁAŃCUCHA decyduje NASTĘPCA, nie zegar.
-    //
-    // Następca żywy i nieużyty znaczy, że nowa para nie doszła do nikogo:
-    // ani do właściciela (bo wraca stary token), ani do kogokolwiek innego
-    // (bo nikt jej nie użył). To nie jest kradzież, tylko zgubiona odpowiedź —
-    // i wygląda tak samo minutę po rotacji, jak i cztery dni później.
-    //
-    // Zegar był tu do 18.09.2026 jedynym kryterium i to on wylogowywał
-    // właścicieli. Droga, którą przechodzili: cichy push budzi aplikację w tle,
-    // ta woła `/auth/refresh`, serwer rotuje token — i iOS zawiesza proces,
-    // zanim odpowiedź zdąży trafić do Keychaina (`completionHandler` pusha
-    // wraca od razu, więc system ma prawo uśpić aplikację w każdej chwili).
-    // W telefonie zostaje token poprzedni. Przez kilka dni nic tego nie
-    // wykrywa, bo nikt aplikacji nie otwiera. Po tych kilku dniach pierwsze
-    // uruchomienie pokazuje serwerowi token zrotowany dawno temu — i dostaje
-    // za to `replay`, czyli skasowanie rodziny, podbicie `tokenVersion`
-    // i wylogowanie ZE WSZYSTKICH urządzeń. Kara za to, że telefon leżał
-    // w szufladzie.
-    //
-    // Cena tej zmiany jest realna i trzeba ją nazwać: ktoś, kto wszedł
-    // w posiadanie STAREGO, już zrotowanego tokenu, którego następcy nikt nie
-    // użył, dostanie teraz świeżą parę zamiast wywalić rodzinę. Przedtem taka
-    // próba kończyła się wylogowaniem wszystkich — czyli złodziej też wypadał,
-    // ale razem z właścicielem i przy każdej zgubionej odpowiedzi. Kto woli
-    // tamten kompromis, ustawia `REFRESH_STRICT_REUSE=true`.
-    //
-    // Czego ta zmiana NIE rusza: rozwidlonego łańcucha (następca użyty albo
-    // unieważniony) niżej. To jedyny przypadek z DOWODEM na dwie działające
-    // kopie i tam rodzina dalej pada.
-    const successorToken = await this.prisma.refreshToken.findUnique({
-      where: { tokenHash: replacedByHash },
-      select: { revokedAt: true },
-    });
-    if (!successorToken || successorToken.revokedAt) {
-      // JEDYNA sciezka, na ktorej pada cala rodzina: lancuch sie rozwidlil.
-      this.logger.warn(
-        `rotation recovery refused for user ${storedToken.userId}: successor already used or revoked — lancuch rozwidlony`,
-      );
-      return { kind: 'replay' };
-    }
-
-    if (ageMs > this.refreshReuseGraceMs) {
-      if (this.strictReuse) {
-        this.logger.warn(
-          `rotation recovery refused for user ${storedToken.userId}: rotated ${Math.round(ageMs / 1000)}s ago, grace ${this.refreshReuseGraceMs / 1000}s, REFRESH_STRICT_REUSE=true`,
-        );
-        return { kind: 'replay' };
+    // Decyzja i wydanie pary zapadają W JEDNEJ transakcji pod zamkiem sesji,
+    // na ŚWIEŻYM odczycie przedstawionego tokenu i jego następcy. Dawniej
+    // biegły na odczycie sprzed chwili, a para z ratunku powstawała poza
+    // transakcją — unieważnienie rodziny albo wylogowanie zewsząd, które
+    // wpadło pomiędzy, nie obejmowało jej i sesja przeżywała (audyt
+    // 21.09.2026, patrz `lockUserSessions`).
+    const decided = await this.prisma.$transaction(async (tx) => {
+      await this.lockUserSessions(tx, storedToken.userId);
+      const current = await tx.refreshToken.findUnique({
+        where: { tokenHash: storedToken.tokenHash },
+      });
+      if (!current) {
+        return { kind: 'stale' } as const;
       }
-      // Ratunek „na zimno": telefon wrócił po dniach z tokenem, którego
-      // następcy nikt nigdy nie użył. Osobny poziom logu, bo to jest sygnał
-      // diagnostyczny — jeśli takich wpisów jest dużo, to znaczy, że klient
-      // systematycznie gubi rotacje i trzeba naprawić JEGO, a nie poszerzać
-      // okno po stronie serwera.
-      this.logger.warn(
-        `refresh token rotation recovered COLD for user ${storedToken.userId}: rotated ${Math.round(ageMs / 1000)}s ago (grace ${this.refreshReuseGraceMs / 1000}s), successor never used — klient zgubil odpowiedz z rotacji`,
-      );
-    }
+      const { revokedAt, revokedReason, replacedByHash } = current;
+      // Replay kasuje rodzinę W TEJ SAMEJ transakcji, co decyzja: dwa
+      // równoległe echa tej samej kopii nie mogą obu uznać „replay" na
+      // stanie sprzed kasowania — drugie czeka na zamek i widzi już REUSE.
+      const replay = async () =>
+        ({
+          kind: 'replay',
+          revokedCount: await this.retireAllUserTokens(
+            tx,
+            storedToken.userId,
+            'REUSE',
+            now,
+          ),
+        }) as const;
+      // Kazda odmowa konczy sie kasowaniem rodziny, czyli wylogowaniem — wiec
+      // kazda mowi, CO ja wywolalo. Bez tego jedyny slad po wylogowaniu to
+      // `reuse detected`, z ktorego nie wynika, ktory warunek nie wyszedl.
+      // ROTATED = pierwsze ponowienie, RECOVERED = kolejne. Jedno i drugie to
+      // ten sam telefon pukajacy po odpowiedz, ktorej nie dostal — URLSession
+      // ponawia POST tyle razy, ile trzeba, a nie raz. Zmierzone e2e: przy
+      // TRZECIM ponowieniu stary warunek (`!== 'ROTATED'`) odmawial ratunku
+      // i kasowal cala rodzine, czyli wylogowywal ze wszystkich urzadzen za to,
+      // ze siec byla slaba. Okna laski to nie przedluza: `revokedAt` jest
+      // ustawiane RAZ, przy rotacji, i ratunek go nie rusza — wiec wszystkie
+      // ponowienia mieszcza sie w tym samym, nieruchomym oknie.
+      const rotatedOrRecovered =
+        revokedReason === 'ROTATED' || revokedReason === 'RECOVERED';
+      if (!rotatedOrRecovered || !revokedAt || !replacedByHash) {
+        // LOGOUT, REUSE (rodzina juz padla) albo rotacja bez wskaznika na
+        // nastepce. Zadne z tego nie jest dowodem kopii: wylogowany token wraca
+        // po prostu z ponowionego zadania, a raz wykryty replay nie ma juz czego
+        // kasowac drugi raz.
+        this.logger.warn(
+          `rotation recovery refused for user ${storedToken.userId}: reason=${revokedReason ?? 'NULL'} successor=${replacedByHash ? 'set' : 'missing'} — odmowa bez kasowania rodziny`,
+        );
+        return { kind: 'stale' } as const;
+      }
+      const ageMs = now.getTime() - revokedAt.getTime();
+      if (current.expiresAt <= now) {
+        this.logger.warn(
+          `rotation recovery refused for user ${storedToken.userId}: token expired`,
+        );
+        return { kind: 'stale' } as const;
+      }
 
-    // Slad, ze ta rotacja byla juz ratowana. Nie jest to blokada — granice
-    // stawia STAN LANCUCHA (nastepca uzyty = rozwidlenie = koniec rodziny),
-    // a nie licznik ratunkow. Blokada na liczniku wygladala rozsadnie, dopoki
-    // e2e nie pokazalo, ze trzecie ponowienie tego samego zadania konczy sie
-    // wylogowaniem — a telefon nie ma jak wiedziec, ktore z jego ponowien
-    // serwer juz obsluzyl.
-    await this.prisma.refreshToken.updateMany({
-      where: { tokenHash: storedToken.tokenHash },
-      data: { revokedReason: 'RECOVERED' },
+      // NAJPIERW NASTĘPCA, POTEM ZEGAR.
+      //
+      // Następca żywy i nieużyty znaczy, że nowa para PRAWDOPODOBNIE nie doszła
+      // do nikogo — ale tylko prawdopodobnie: świeży refresh token leży u
+      // klienta nieużywany do końca życia access tokenu, więc „nieużyty" nie
+      // dowodzi „niedostarczony". Dlatego po oknie łaski domyślnie (strict)
+      // nie ratujemy; niżej historia trybu łagodnego i jego cena.
+      //
+      // Zegar był tu do 18.09.2026 jedynym kryterium i wylogowywał właścicieli.
+      // Droga, którą przechodzili: cichy push budzi aplikację w tle,
+      // ta woła `/auth/refresh`, serwer rotuje token — i iOS zawiesza proces,
+      // zanim odpowiedź zdąży trafić do Keychaina (`completionHandler` pusha
+      // wraca od razu, więc system ma prawo uśpić aplikację w każdej chwili).
+      // W telefonie zostaje token poprzedni. Przez kilka dni nic tego nie
+      // wykrywa, bo nikt aplikacji nie otwiera. Po tych kilku dniach pierwsze
+      // uruchomienie pokazuje serwerowi token zrotowany dawno temu — i dostaje
+      // za to `replay`, czyli skasowanie rodziny, podbicie `tokenVersion`
+      // i wylogowanie ZE WSZYSTKICH urządzeń. Kara za to, że telefon leżał
+      // w szufladzie.
+      //
+      // Tryb łagodny (`REFRESH_STRICT_REUSE=false`) to naprawia, ale jego cena
+      // jest realna i trzeba ją nazwać: ktoś, kto wszedł w posiadanie STAREGO,
+      // już zrotowanego tokenu, którego następcy nikt jeszcze nie użył, dostaje
+      // świeżą parę — i ZOSTAJE, bo ta para nie jest spięta z łańcuchem, więc
+      // późniejsze użycie następcy przez właściciela niczego nie wykrywa
+      // (`test/auth-refresh-after-grace.e2e-spec.ts`, test „KOSZT"). W strict
+      // taka próba wylogowuje wszystkich: złodzieja też, ale razem z właścicielem
+      // i przy każdej zgubionej odpowiedzi starszej niż okno. Od 21.09.2026
+      // domyślny jest strict; właściwą naprawą „telefonu w szufladzie" jest
+      // klient, który nie gubi rotacji, nie luźniejszy serwer.
+      //
+      // Czego żaden tryb NIE rusza: rozwidlonego łańcucha (następca użyty albo
+      // unieważniony) niżej. To jedyny przypadek z DOWODEM na dwie działające
+      // kopie i tam rodzina dalej pada.
+      const successorToken = await tx.refreshToken.findUnique({
+        where: { tokenHash: replacedByHash },
+        select: { revokedAt: true, revokedReason: true },
+      });
+      // Następca zgaszony WYLOGOWANIEM nie jest dowodem kopii: nie był
+      // nigdy użyty do odświeżenia, więc łańcuch się nie rozwidlił. Tak
+      // wygląda iOS, który oddał przez /auth/logout świeży token (Keychain
+      // zmienił się w trakcie), a URLSession ponowił POST poprzednikiem.
+      // Dotąd to kasowało rodzinę: wylogowanie ze WSZYSTKICH urządzeń,
+      // podbite `tokenVersion` i fałszywy alarm o kradzieży (audyt
+      // 21.09.2026). Teraz 401 tylko temu żądaniu.
+      //
+      // Warunek `ROTATED`, nie `RECOVERED`: z tokenu RATOWANEGO wyszła para
+      // niepowiązana z łańcuchem, a nie wiemy, kto ją trzyma. Kopia, która
+      // wymusiła ratunek i wylogowała następcę, zatrzymałaby ją sobie —
+      // dlatego tam rodzina dalej pada.
+      if (
+        successorToken?.revokedReason === 'LOGOUT' &&
+        revokedReason === 'ROTATED'
+      ) {
+        this.logger.warn(
+          `rotation recovery refused for user ${storedToken.userId}: successor logged out — odmowa bez kasowania rodziny`,
+        );
+        return { kind: 'stale' } as const;
+      }
+      if (!successorToken || successorToken.revokedAt) {
+        // Lancuch sie rozwidlil — rodzina pada w OBU trybach.
+        this.logger.warn(
+          `rotation recovery refused for user ${storedToken.userId}: successor already used or revoked — lancuch rozwidlony`,
+        );
+        return replay();
+      }
+
+      if (ageMs > this.refreshReuseGraceMs) {
+        if (this.strictReuse) {
+          this.logger.warn(
+            `rotation recovery refused for user ${storedToken.userId}: rotated ${Math.round(ageMs / 1000)}s ago, grace ${this.refreshReuseGraceMs / 1000}s, strict reuse (REFRESH_STRICT_REUSE != false)`,
+          );
+          return replay();
+        }
+        // Tylko przy jawnym `REFRESH_STRICT_REUSE=false`.
+        // Ratunek „na zimno": telefon wrócił po dniach z tokenem, którego
+        // następcy nikt nigdy nie użył. Osobny poziom logu, bo to jest sygnał
+        // diagnostyczny — jeśli takich wpisów jest dużo, to znaczy, że klient
+        // systematycznie gubi rotacje i trzeba naprawić JEGO, a nie poszerzać
+        // okno po stronie serwera.
+        this.logger.warn(
+          `refresh token rotation recovered COLD for user ${storedToken.userId}: rotated ${Math.round(ageMs / 1000)}s ago (grace ${this.refreshReuseGraceMs / 1000}s), successor never used — klient zgubil odpowiedz z rotacji`,
+        );
+      }
+
+      // Slad, ze ta rotacja byla juz ratowana. Nie jest to blokada — granice
+      // stawia STAN LANCUCHA (nastepca uzyty = rozwidlenie = koniec rodziny),
+      // a nie licznik ratunkow. Blokada na liczniku wygladala rozsadnie, dopoki
+      // e2e nie pokazalo, ze trzecie ponowienie tego samego zadania konczy sie
+      // wylogowaniem — a telefon nie ma jak wiedziec, ktore z jego ponowien
+      // serwer juz obsluzyl.
+      // Zajęcie WARUNKOWE (stan sprawdzony wyżej, pod zamkiem), w tej samej
+      // transakcji co nowa para i odczyt wersji dla tokenu dostępu.
+      await tx.refreshToken.updateMany({
+        where: {
+          tokenHash: storedToken.tokenHash,
+          revokedReason: { in: ['ROTATED', 'RECOVERED'] },
+        },
+        data: { revokedReason: 'RECOVERED' },
+      });
+      const successor = await this.createRefreshToken(tx, storedToken.userId);
+      const tokenVersion = await this.readTokenVersion(tx, storedToken.userId);
+      return { kind: 'recovered', successor, tokenVersion } as const;
     });
 
-    const accessToken = await this.issueAccessToken(storedToken.userId);
-    const successor = await this.issueRefreshToken(storedToken.userId);
+    if (decided.kind !== 'recovered') {
+      return decided;
+    }
+    const accessToken = await this.signAccessToken(
+      storedToken.userId,
+      decided.tokenVersion,
+    );
     this.logger.log(
       `refresh token rotation recovered for user ${storedToken.userId} - client never received the rotated pair`,
     );
     return {
       kind: 'recovered',
       accessToken,
-      refreshToken: successor.rawToken,
+      refreshToken: decided.successor.rawToken,
     };
   }
 
@@ -575,33 +759,43 @@ export class AuthService {
   }
 
   async issueAccessToken(userId: string) {
-    const expiresIn = resolveJwtExpiresIn(process.env.JWT_EXPIRES_IN);
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { tokenVersion: true },
     });
+    return this.signAccessToken(userId, user?.tokenVersion ?? 0);
+  }
+
+  private signAccessToken(userId: string, tokenVersion: number) {
+    const expiresIn = resolveJwtExpiresIn(process.env.JWT_EXPIRES_IN);
     return this.jwtService.signAsync(
-      { sub: userId, tv: user?.tokenVersion ?? 0 },
+      { sub: userId, tv: tokenVersion },
       { expiresIn },
     );
   }
 
   /**
-   * Wylogowanie ZEWSZĄD: wszystkie refresh tokeny i wszystkie tokeny dostępu
-   * tej osoby przestają działać. Zwykłe `logout` gasi jedno urządzenie.
+   * Wylogowanie ZEWSZĄD (`POST /auth/logout-everywhere`): wszystkie refresh
+   * tokeny i wszystkie tokeny dostępu tej osoby przestają działać, a otwarte
+   * sockety się rozłączają. Zwykłe `logout` gasi jedno urządzenie.
+   *
+   * Pod zamkiem sesji i razem z przepisaniem powodu na starych tokenach
+   * (`retireAllUserTokens`): token wydany równolegle nie przeżywa wylogowania,
+   * a token sprzed wylogowania — nawet taki, który w starym łańcuchu
+   * wyglądałby na kopię — daje 401 i nie rusza sesji założonej po nim.
    */
-  async logoutEverywhere(userId: string): Promise<void> {
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date(), revokedReason: 'LOGOUT' },
-    });
-    await this.prisma.user.updateMany({
-      where: { id: userId },
-      data: { tokenVersion: { increment: 1 } },
+  async logoutEverywhere(userId: string): Promise<{ revokedSessions: number }> {
+    const revokedSessions = await this.prisma.$transaction(async (tx) => {
+      await this.lockUserSessions(tx, userId);
+      return this.retireAllUserTokens(tx, userId, 'LOGOUT', new Date());
     });
     // Wylogowanie ze wszystkich urządzeń musi objąć także kanał WS — patrz
     // `disconnectRevokedUser` (audyt 12.09.2026, P1.9).
     disconnectRevokedUser(userId);
+    this.logger.log(
+      `logout everywhere for user ${userId} — revoked ${revokedSessions} active token(s)`,
+    );
+    return { revokedSessions };
   }
 
   /**
@@ -696,12 +890,19 @@ export class AuthService {
    * uniewaznienie poprzednika.
    */
   private async issueRefreshToken(userId: string) {
+    return this.createRefreshToken(this.prisma, userId);
+  }
+
+  private async createRefreshToken(
+    client: Prisma.TransactionClient,
+    userId: string,
+  ) {
     const rawToken = randomBytes(64).toString('hex');
     const tokenHash = this.hashRefreshToken(rawToken);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + this.refreshTokenDays);
 
-    await this.prisma.refreshToken.create({
+    await client.refreshToken.create({
       data: {
         tokenHash,
         userId,

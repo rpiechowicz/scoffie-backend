@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable, Optional } from '@nestjs/common';
-import { randomBytes } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { AppException } from '../common/app-exception';
 import { assertUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
@@ -18,9 +18,11 @@ import {
   pickFreeAvatarColor,
 } from '../common/avatar-color.util';
 import {
+  lockHouseholdRoster,
   settleHouseholdAfterMemberLeft,
   revokeCookidooCredentialsOf,
   revokeInvitationsCreatedBy,
+  revokeOpenInvitationsOf,
 } from './household-cleanup.util';
 import {
   resolveInvitationStatus,
@@ -31,6 +33,11 @@ import {
   onRosterChanged,
 } from '../weekly-plans/utils/plan-roster.util';
 import { MemberContext, toMemberContext } from './member-context.util';
+import {
+  generateInvitationToken,
+  invitationLookup,
+  toInboxHandle,
+} from './invitation-token.util';
 
 /** Najdłuższa ważność linku zaproszenia. */
 const INVITATION_MAX_DAYS = 30;
@@ -72,8 +79,8 @@ export class HouseholdsService {
   }
 
   private async ensureMembership(userId: string, householdId: string) {
-    // `createInvitation` nie przechodzi przez `getHouseholdOrThrow`, więc
-    // bramka jest też tutaj. `userId` nie sprawdzamy — token/`actorId` już to zrobiły.
+    // To jest PIERWSZA bramka każdej ścieżki (dom czyta się dopiero po niej,
+    // żeby 404/403 nie zdradzało istnienia cudzego domu), więc UUID sprawdzamy tutaj. `userId` nie sprawdzamy — token/`actorId` już to zrobiły.
     assertUuid(householdId, 'householdId');
     const membership = await this.prisma.membership.findUnique({
       where: { userId_householdId: { userId, householdId } },
@@ -100,13 +107,33 @@ export class HouseholdsService {
     return membership;
   }
 
-  private async countOwners(householdId: string) {
-    return this.prisma.membership.count({
-      where: {
-        householdId,
-        role: 'OWNER',
-      },
+  /**
+   * `ensureOwner` liczone W transakcji, po `lockHouseholdRoster` — jedyna
+   * wersja, na której wolno oprzeć zapis zmieniający skład albo role.
+   */
+  private async ensureOwnerInTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    householdId: string,
+  ) {
+    const membership = await tx.membership.findUnique({
+      where: { userId_householdId: { userId, householdId } },
+      select: { role: true },
     });
+    if (!membership) {
+      throw new AppException(
+        'NOT_HOUSEHOLD_MEMBER',
+        'User is not a member of this household',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    if (membership.role !== 'OWNER') {
+      throw new AppException(
+        'OWNER_REQUIRED',
+        'Only owners can manage household members',
+        HttpStatus.FORBIDDEN,
+      );
+    }
   }
 
   async findAll(userId: string) {
@@ -122,9 +149,12 @@ export class HouseholdsService {
   }
 
   async findById(userId: string, id: string) {
-    const household = await this.getHouseholdOrThrow(id);
+    // Członkostwo PRZED odczytem domu: odwrotna kolejność odpowiadała obcemu
+    // 404 dla id nieistniejącego i 403 dla istniejącego — czyli potwierdzała,
+    // że cudze gospodarstwo istnieje. Członkostwo ma klucz obcy do domu, więc
+    // po tej bramce dom jest na pewno (audyt 21.09.2026).
     await this.ensureMembership(userId, id);
-    return household;
+    return this.getHouseholdOrThrow(id);
   }
 
   /**
@@ -191,7 +221,7 @@ export class HouseholdsService {
       );
     }
 
-    const token = randomBytes(16).toString('hex');
+    const { token, tokenHash } = generateInvitationToken();
     let expiresAt = dto.expiresAt
       ? new Date(dto.expiresAt)
       : new Date(Date.now() + 7 * 86400000);
@@ -217,20 +247,25 @@ export class HouseholdsService {
       );
     }
 
-    return this.prisma.invitation.create({
+    // Do bazy idzie WYŁĄCZNIE hasz. Surowy token istnieje w tej jednej
+    // odpowiedzi (klient składa z niego link) i nigdzie więcej — nie da się
+    // go później odczytać, także przez skrzynkę zaproszeń.
+    const invitation = await this.prisma.invitation.create({
       data: {
-        token,
+        tokenHash,
         householdId,
         createdById: userId,
         expiresAt,
       },
+      omit: { token: true, tokenHash: true },
     });
+    return { ...invitation, token };
   }
 
   async acceptInvitation(userId: string, dto: AcceptInvitationDto) {
     dto = await validateDto(AcceptInvitationDto, dto);
     const invitation = await this.prisma.invitation.findUnique({
-      where: { token: dto.token },
+      where: invitationLookup(userId, dto.token),
     });
     if (!invitation) {
       throw new AppException(
@@ -395,8 +430,18 @@ export class HouseholdsService {
       // POZA transakcją, więc dwa równoległe kliknięcia w ten sam link
       // wchodziły oba. Zero zmienionych wierszy = ktoś był pierwszy, a cała
       // transakcja (członkostwo, porcje, kolor) się wycofuje.
+      //
+      // Ten sam zamek pilnuje ODWOŁANIA (audyt 21.09.2026): wyrzucenie albo
+      // degradacja wystawcy gasi link przez `expiresAt`, a kontrola ważności
+      // na górze też biegła poza transakcją. Z samym `redeemedAt: null` link
+      // zgaszony między kontrolą a tym zapisem nadal wpuszczał do domu.
       const redeemed = await tx.invitation.updateMany({
-        where: { id: invitation.id, redeemedAt: null },
+        where: {
+          id: invitation.id,
+          redeemedAt: null,
+          declinedAt: null,
+          expiresAt: { gt: new Date() },
+        },
         data: {
           redeemedAt: new Date(),
           redeemedById: userId,
@@ -406,6 +451,17 @@ export class HouseholdsService {
         },
       });
       if (redeemed.count === 0) {
+        const current = await tx.invitation.findUnique({
+          where: { id: invitation.id },
+          select: { redeemedAt: true },
+        });
+        if (current && !current.redeemedAt) {
+          throw new AppException(
+            'INVITATION_EXPIRED',
+            'Invitation expired',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
         throw new AppException(
           'INVITATION_ALREADY_REDEEMED',
           'Invitation already redeemed',
@@ -494,7 +550,7 @@ export class HouseholdsService {
   async previewInvitation(userId: string, dto: AcceptInvitationDto) {
     dto = await validateDto(AcceptInvitationDto, dto);
     const invitation = await this.prisma.invitation.findUnique({
-      where: { token: dto.token },
+      where: invitationLookup(userId, dto.token),
       include: {
         household: {
           select: {
@@ -569,7 +625,8 @@ export class HouseholdsService {
     const current = otherMemberships[0]?.household ?? null;
 
     return {
-      token: invitation.token,
+      // Echo tego, co przysłał klient — z bazy tokenu nie da się już wziąć.
+      token: dto.token,
       status,
       household: invitation.household,
       invitedByDisplayName: invitation.createdBy?.displayName ?? null,
@@ -621,7 +678,12 @@ export class HouseholdsService {
     return invitations
       .filter((invitation) => !joined.has(invitation.householdId))
       .map((invitation) => ({
-        token: invitation.token,
+        id: invitation.id,
+        // NIE token z linku (w bazie jest tylko jego hasz), tylko uchwyt
+        // skrzynki `inv_<id>`, ważny wyłącznie dla adresata. Zostaje pod
+        // nazwą `token`, bo wydane buildy iOS dekodują to pole jako wymagane
+        // i odsyłają je w `accept`/`decline`/`preview` bez zmian.
+        token: toInboxHandle(invitation.id),
         household: invitation.household,
         invitedByDisplayName: invitation.createdBy?.displayName ?? null,
         expiresAt: invitation.expiresAt,
@@ -636,7 +698,7 @@ export class HouseholdsService {
   async declineInvitation(userId: string, dto: AcceptInvitationDto) {
     dto = await validateDto(AcceptInvitationDto, dto);
     const invitation = await this.prisma.invitation.findUnique({
-      where: { token: dto.token },
+      where: invitationLookup(userId, dto.token),
       select: { id: true, redeemedAt: true, invitedUserId: true },
     });
     if (!invitation) {
@@ -683,7 +745,6 @@ export class HouseholdsService {
     dto: UpdateHouseholdDto,
   ) {
     dto = await validateDto(UpdateHouseholdDto, dto);
-    await this.getHouseholdOrThrow(householdId);
     await this.ensureOwner(userId, householdId);
     return this.prisma.household.update({
       where: { id: householdId },
@@ -710,7 +771,6 @@ export class HouseholdsService {
     dto: UpdateHouseholdMealTypesDto,
   ) {
     dto = await validateDto(UpdateHouseholdMealTypesDto, dto);
-    await this.getHouseholdOrThrow(householdId);
     await this.ensureMembership(userId, householdId);
 
     // Po walidacji nieznany slot już tu nie dotrze; normalizacja zostaje jako
@@ -739,7 +799,6 @@ export class HouseholdsService {
     dto: UpdateHouseholdMealTimesDto,
   ) {
     dto = await validateDto(UpdateHouseholdMealTimesDto, dto);
-    await this.getHouseholdOrThrow(householdId);
     await this.ensureMembership(userId, householdId);
 
     return this.prisma.household.update({
@@ -749,7 +808,6 @@ export class HouseholdsService {
   }
 
   async listMembers(userId: string, householdId: string) {
-    await this.getHouseholdOrThrow(householdId);
     await this.ensureMembership(userId, householdId);
     return this.prisma.membership.findMany({
       where: { householdId },
@@ -860,7 +918,6 @@ export class HouseholdsService {
     dto = await validateDto(UpdateMemberRoleDto, dto);
     // `memberUserId` idzie do `findUnique` po kluczu z kolumną `@db.Uuid`.
     assertUuid(memberUserId, 'memberUserId');
-    await this.getHouseholdOrThrow(householdId);
     await this.ensureOwner(userId, householdId);
 
     const targetMembership = await this.prisma.membership.findUnique({
@@ -878,22 +935,28 @@ export class HouseholdsService {
       return targetMembership;
     }
 
-    if (targetMembership.role === 'OWNER' && dto.role !== 'OWNER') {
-      const ownerCount = await this.countOwners(householdId);
-      if (ownerCount <= 1) {
-        throw new AppException(
-          'LAST_OWNER',
-          'Household must have at least one owner',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
     // Degradacja OWNER → MEMBER odbiera prawo zapraszania, więc odbiera też
     // moc linkom już wystawionym. Inaczej zdegradowany właściciel mógłby
     // dołączyć kogoś do domu jeszcze przez trzydzieści dni (audyt 12.09.2026).
+    //
+    // Kontrole biegną W transakcji, pod zamkiem składu (audyt 21.09.2026):
+    // liczone przed nią pozwalały dwóm właścicielom zdegradować się nawzajem
+    // w tej samej chwili — oba żądania widziały „jest dwóch" i dom zostawał
+    // bez właściciela, czyli bez nikogo, kto może nim zarządzać.
     if (targetMembership.role === 'OWNER' && dto.role !== 'OWNER') {
       return this.prisma.$transaction(async (tx) => {
+        await lockHouseholdRoster(tx, householdId);
+        await this.ensureOwnerInTx(tx, userId, householdId);
+        const ownerCount = await tx.membership.count({
+          where: { householdId, role: 'OWNER' },
+        });
+        if (ownerCount <= 1) {
+          throw new AppException(
+            'LAST_OWNER',
+            'Household must have at least one owner',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
         await revokeInvitationsCreatedBy(tx, householdId, memberUserId);
         return tx.membership.update({
           where: { userId_householdId: { userId: memberUserId, householdId } },
@@ -914,7 +977,6 @@ export class HouseholdsService {
     memberUserId: string,
   ) {
     assertUuid(memberUserId, 'memberUserId');
-    await this.getHouseholdOrThrow(householdId);
     await this.ensureOwner(userId, householdId);
 
     const targetMembership = await this.prisma.membership.findUnique({
@@ -928,21 +990,34 @@ export class HouseholdsService {
       );
     }
 
-    if (targetMembership.role === 'OWNER') {
-      const ownerCount = await this.countOwners(householdId);
-      if (ownerCount <= 1) {
-        throw new AppException(
-          'LAST_OWNER',
-          'Cannot remove the last owner from household',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
     const now = new Date();
     return this.prisma.$transaction(async (tx) => {
+      // Zamek składu + kontrole W transakcji (audyt 21.09.2026). Liczone przed
+      // nią przepuszczały dwa wyścigi: właściciel zdegradowany milisekundy
+      // wcześniej kończył usuwanie, do którego nie miał już prawa, a dwóch
+      // właścicieli usuwających się nawzajem zostawiało dom bez właściciela.
+      await lockHouseholdRoster(tx, householdId);
+      await this.ensureOwnerInTx(tx, userId, householdId);
+      if (targetMembership.role === 'OWNER') {
+        const ownerCount = await tx.membership.count({
+          where: { householdId, role: 'OWNER' },
+        });
+        if (ownerCount <= 1) {
+          throw new AppException(
+            'LAST_OWNER',
+            'Cannot remove the last owner from household',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
       await revokeCookidooCredentialsOf(tx, householdId, memberUserId);
       await revokeInvitationsCreatedBy(tx, householdId, memberUserId, now);
+      // Usunięty zna linki, które krążyły po rodzinnym czacie — także te
+      // wystawione przez KOGOŚ INNEGO. Dopóki działały, wracał do domu jednym
+      // kliknięciem (a skrzynka zaproszeń sama mu je podsuwała). Przy
+      // wyrzuceniu gasną więc wszystkie otwarte linki domu; właściciel
+      // wystawia nowe. `leave` tego nie robi: kto wyszedł sam, może wrócić.
+      await revokeOpenInvitationsOf(tx, householdId, now);
       const removed = await tx.membership.delete({
         where: { userId_householdId: { userId: memberUserId, householdId } },
       });
@@ -971,7 +1046,6 @@ export class HouseholdsService {
    * dom, którym nikt nie mógł administrować.
    */
   async leave(userId: string, householdId: string) {
-    await this.getHouseholdOrThrow(householdId);
     await this.ensureMembership(userId, householdId);
 
     const now = new Date();

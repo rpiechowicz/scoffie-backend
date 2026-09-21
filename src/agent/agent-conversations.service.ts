@@ -195,7 +195,15 @@ export class AgentConversationsService {
   async list(userId: string): Promise<ConversationView[]> {
     this.config.assertEnabled();
     const conversations = await this.prisma.agentConversation.findMany({
-      where: { userId },
+      // Ta sama reguła, co w `loadOwned`: rozmowa jest czytelna, dopóki jej
+      // autor NALEŻY DZIŚ do domu, o którym rozmawiał. Lista filtrowała po
+      // samym `userId`, więc wyrzucony domownik dalej dostawał tytuły i
+      // 120-znakowe podglądy odpowiedzi o cudzym już planie i zakupach —
+      // choć otwarcie tej samej rozmowy kończyło się 404 (audyt 21.09.2026).
+      where: {
+        userId,
+        household: { memberships: { some: { userId } } },
+      },
       orderBy: [{ lastMessageAt: 'desc' }, { createdAt: 'desc' }],
       take: CONVERSATIONS_PAGE_SIZE,
       include: {

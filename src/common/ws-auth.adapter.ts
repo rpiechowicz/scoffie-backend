@@ -156,6 +156,21 @@ export class AuthIoAdapter extends IoAdapter {
     );
     if (householdIds.length > 0) {
       await socket.join(householdIds.map(householdRoom));
+      // Drugi odczyt PO dołączeniu (audyt 21.09.2026). Usunięcie domownika,
+      // które zatwierdziło się po pierwszym odczycie, a `leaveHousehold`
+      // wykonało przed `join` powyżej, zostawiało świeży socket w pokoju
+      // cudzego już domu aż do wygaśnięcia tokenu — z planem, listą zakupów
+      // i składem domu w broadcastach. Teraz: albo ten odczyt widzi usunięcie
+      // i sam wyprowadza socket, albo `leaveHousehold` biegnie po nim i trafia
+      // w socket, który w pokoju już jest.
+      const current = new Set(
+        await this.deps.accessTokens.householdIds(verdict.userId),
+      );
+      for (const householdId of householdIds) {
+        if (!current.has(householdId)) {
+          await socket.leave(householdRoom(householdId));
+        }
+      }
     }
     this.deps.onHandshake({ outcome: 'token' });
   }

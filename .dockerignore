@@ -9,3 +9,4 @@ coverage
 *.md
 .env
 .DS_Store
+*.tsbuildinfo

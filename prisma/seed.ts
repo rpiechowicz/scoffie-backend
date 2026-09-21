@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { isLocalDatabaseUrl } from '../src/config/assert-env';
 import { normalizeText } from '../src/common/normalize-text.util';
+import { hashInvitationToken } from '../src/households/invitation-token.util';
 
 const prisma = new PrismaClient();
 
@@ -62,7 +63,8 @@ async function main(): Promise<void> {
       invitations: {
         create: [
           {
-            token: 'invite-home-demo',
+            // W bazie leży tylko hasz; link demo to nadal `invite-home-demo`.
+            tokenHash: hashInvitationToken('invite-home-demo'),
             createdById: anna.id,
             expiresAt: new Date('2026-12-31T23:59:59.000Z'),
           },

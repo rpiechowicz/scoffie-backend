@@ -300,6 +300,12 @@ export type OptionsCardItem = {
   prepTimeMinutes: number;
   /** Zdjęcie z katalogu; `null`, gdy przepis go nie ma. */
   imageUrl: string | null;
+  /** Dane szczegółu arkusza; opcjonalne dla starszych kart zapisanych w historii. */
+  description: string | null;
+  proteinGrams: number | null;
+  carbsGrams: number | null;
+  fatGrams: number | null;
+  ingredientCount: number | null;
   /** „Najszybsze”, „Najwięcej białka” — jedno słowo od modelu. */
   tag: string | null;
   /** Gotowe zdanie, które wyśle się po dotknięciu. */

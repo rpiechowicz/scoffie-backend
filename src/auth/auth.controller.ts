@@ -1,8 +1,17 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { readThrottleLimit } from '../common/throttle/throttle-env';
 import { AuthService } from './auth.service';
+import { CurrentUserId } from './current-user-id.decorator';
+import { JwtAuthGuard } from './jwt-auth.guard';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
 import { DevLoginDto } from './dto/dev-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -96,5 +105,23 @@ export class AuthController {
   @ApiOkResponse({ schema: { example: { revoked: true } } })
   logout(@Body() dto: RefreshTokenDto) {
     return this.authService.logout(dto.refreshToken);
+  }
+
+  /**
+   * Wylogowanie ze WSZYSTKICH urządzeń: każdy refresh token i każdy token
+   * dostępu tej osoby przestaje działać, otwarte sockety się rozłączają.
+   *
+   * Poświadczeniem jest TOKEN DOSTĘPU (`Authorization: Bearer`), nie refresh
+   * token w ciele: tożsamość idzie wyłącznie z sesji, a żądanie nie przyjmuje
+   * żadnych identyfikatorów. Ten sam token dostępu nie zadziała drugi raz —
+   * `tokenVersion` go unieważnia. Bez ciała, zawsze 200 z liczbą zgaszonych
+   * refresh tokenów; klient i tak ma się po nim zalogować od nowa.
+   */
+  @Post('logout-everywhere')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ schema: { example: { revokedSessions: 3 } } })
+  logoutEverywhere(@CurrentUserId() userId: string) {
+    return this.authService.logoutEverywhere(userId);
   }
 }
