@@ -1350,16 +1350,24 @@ export class WeeklyPlansService {
    * To jest materiał na „Cofnij”: operacja stanu docelowego jest swoją własną
    * odwrotnością, więc cofnięcie zapisu to ponowne zastosowanie tego, co było
    * przed nim — bez liczenia odwrotnego diffa i bez drugiej ścieżki zapisu.
+   *
+   * `tx` = odczyt W transakcji zapisu (hak `settle` z `applyWeekPlan`), czyli
+   * tydzień, który właśnie zatwierdzamy, a nie ostatni zatwierdzony. Bramkę
+   * członkostwa ta transakcja przeszła już pod zamkiem tygodnia
+   * (`ensureMembershipInTx`), więc tu jej nie powtarzamy — odczyt poza
+   * transakcją widziałby skład domu z innej chwili.
    */
   async snapshotWeekAsSlots(
     userId: string,
     householdId: string,
     weekStart: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<ApplyWeekSlotDto[]> {
-    await ensureMembership(this.prisma, userId, householdId);
+    if (!tx) await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
+    const client = tx ?? this.prisma;
 
-    const items = await this.prisma.planItem.findMany({
+    const items = await client.planItem.findMany({
       where: { weeklyPlan: { householdId, weekStart: weekStartDate } },
       select: {
         dayOfWeek: true,
