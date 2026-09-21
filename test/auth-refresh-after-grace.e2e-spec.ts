@@ -242,9 +242,12 @@ describe('Refresh token po oknie łaski — diagnoza (e2e, żywa baza)', () => {
           } else {
             // Polityka sprzed 18.09.2026 — dokładnie to, czego oczekuje
             // czerwony test: rodzina pada razem z tokenami dostępu.
+            // Od audytu 21.09.2026 kasowanie rodziny przepisuje powód także
+            // na starych, zrotowanych wierszach (wskaźniki zostają): inaczej
+            // każde kolejne użycie T0/T1 kasowałoby rodzinę od nowa.
             expect(shape(after)).toEqual([
-              'T0 ROTATED →T1',
-              'T1 ROTATED →T2',
+              'T0 REUSE →T1',
+              'T1 REUSE →T2',
               'T2 REUSE',
             ]);
             expect(await tokenVersion(session.userId)).toBe(versionBefore + 1);
@@ -313,9 +316,10 @@ describe('Refresh token po oknie łaski — diagnoza (e2e, żywa baza)', () => {
       await pastGrace();
       await refresh(session.refreshToken).expect(401);
 
+      // Stare wiersze też REUSE (audyt 21.09.2026) — echo nie kasuje drugi raz.
       expect(shape(await chain(session.userId))).toEqual([
-        'T0 ROTATED →T1',
-        'T1 ROTATED →T2',
+        'T0 REUSE →T1',
+        'T1 REUSE →T2',
         'T2 REUSE',
       ]);
       expect(await tokenVersion(session.userId)).toBe(versionBefore + 1);
