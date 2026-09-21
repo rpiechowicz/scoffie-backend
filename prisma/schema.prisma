@@ -630,7 +630,15 @@ model Membership {
 
 model Invitation {
   id           String    @id @default(uuid()) @db.Uuid
-  token        String    @unique
+  /// `sha256(token)` w hex — surowy token istnieje tylko w linku i w odpowiedzi
+  /// na `households:createInvitation`. Zrzut bazy nie może być kompletem
+  /// działających wejść do domów (ta sama zasada co `RefreshToken.tokenHash`).
+  tokenHash    String    @unique
+  /// WYCOFYWANE — kod tego pola nie czyta ani nie zapisuje. Zostaje na jedno
+  /// wdrożenie (krok „expand"), żeby poprzednia wersja aplikacji działała
+  /// w oknie deployu i po ewentualnym rollbacku; kolumnę usuwa druga migracja
+  /// opisana w `docs/ZAPROSZENIA-HASZ-TOKENU.md`.
+  token        String?   @unique
   householdId  String    @db.Uuid
   createdById  String?   @db.Uuid
   redeemedById String?   @db.Uuid

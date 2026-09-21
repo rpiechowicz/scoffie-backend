@@ -105,6 +105,10 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   limit nie wymaga builda. Nowy kontroler ostrzejszy niż domyślny = `@Throttle({ default: { limit:
 () => readThrottleLimit('…') } })`; sondy = `@SkipThrottle({ default: true, ip: true })`.
   WebSocket ma własny limiter (`checkWsRateLimit` w `actorId`), bo guard omija ack.
+- Zaproszenia: w bazie leży tylko `Invitation.tokenHash` (sha256 hex, bez peppera); surowy token
+  istnieje wyłącznie w odpowiedzi `households:createInvitation`. Skrzynka oddaje w polu `token`
+  uchwyt `inv_<id>`, ważny tylko dla adresata (`invitationLookup`). Kolumna `token` jest WYCOFYWANA
+  — nie czytać, nie zapisywać; plan kroku 2: `docs/ZAPROSZENIA-HASZ-TOKENU.md`.
 - Asystent AI (`src/agent/`, od Fazy 0, krok 3): moduł JEDNOKIERUNKOWY — wolno mu wołać domenę
   i obserwowalność, nic w aplikacji nie importuje `src/agent/` (pilnuje `no-restricted-imports`;
   wyjątek: `AppModule`). W `src/agent/**` reguły `no-unsafe-*` są BŁĘDEM, nie ostrzeżeniem.
