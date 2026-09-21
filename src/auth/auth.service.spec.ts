@@ -667,7 +667,27 @@ describe('AuthService', () => {
     // `replay`: skasowanie rodziny, `tokenVersion++` i wylogowanie ze
     // WSZYSTKICH urządzeń. Teraz decyduje NASTĘPCA.
 
-    it('zgubiona rotacja sprzed DNI: następca nietknięty → świeża para, rodzina żyje', async () => {
+    /**
+     * Ustawia `REFRESH_STRICT_REUSE` na czas `run` i ZAWSZE przywraca stan
+     * sprzed testu — wynik nie może zależeć od środowiska, w którym biegnie
+     * suita. `undefined` = zmienna nieustawiona.
+     */
+    const withStrictReuse = async (
+      value: string | undefined,
+      run: () => Promise<void>,
+    ) => {
+      const before = process.env.REFRESH_STRICT_REUSE;
+      if (value === undefined) delete process.env.REFRESH_STRICT_REUSE;
+      else process.env.REFRESH_STRICT_REUSE = value;
+      try {
+        await run();
+      } finally {
+        if (before === undefined) delete process.env.REFRESH_STRICT_REUSE;
+        else process.env.REFRESH_STRICT_REUSE = before;
+      }
+    };
+
+    const lostRotationDaysAgo = () => {
       prisma.refreshToken.findUnique
         .mockResolvedValueOnce({
           ...mockRefreshToken,
@@ -675,17 +695,25 @@ describe('AuthService', () => {
           revokedReason: 'ROTATED',
           replacedByHash: 'hash-nastepcy',
         })
-        // Nikt nigdy nie użył następcy — nowa para nie dotarła do NIKOGO.
+        // Nikt nigdy nie użył następcy.
         .mockResolvedValueOnce({ revokedAt: null });
       prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
+    };
 
-      const result = await service.refreshAccessToken('stary-token');
+    it.each([' false ', 'FALSE', 'false'])(
+      'tryb łagodny (REFRESH_STRICT_REUSE=%j): zgubiona rotacja sprzed DNI, następca nietknięty → świeża para, rodzina żyje',
+      async (value) => {
+        await withStrictReuse(value, async () => {
+          lostRotationDaysAgo();
 
-      expect(result).toHaveProperty('refreshToken');
-      // Najważniejsze w całej tej poprawce: rodzina NIE pada, więc pozostałe
-      // urządzenia domownika zostają zalogowane.
-      expect(prisma.user.updateMany).not.toHaveBeenCalled();
-    });
+          const result = await service.refreshAccessToken('stary-token');
+
+          expect(result).toHaveProperty('refreshToken');
+          // Rodzina NIE pada, więc pozostałe urządzenia zostają zalogowane.
+          expect(prisma.user.updateMany).not.toHaveBeenCalled();
+        });
+      },
+    );
 
     it('rozwidlony łańcuch kasuje rodzinę także wtedy, gdy rotacja była przed chwilą', async () => {
       prisma.refreshToken.findUnique
@@ -706,27 +734,41 @@ describe('AuthService', () => {
       expect(jwt.signAsync).not.toHaveBeenCalled();
     });
 
-    it('REFRESH_STRICT_REUSE=true przywraca kasowanie rodziny poza oknem łaski', async () => {
-      // Kompromis bezpieczeństwo/wygoda należy do właściciela instalacji:
-      // ten przełącznik oddaje zachowanie sprzed poprawki.
-      process.env.REFRESH_STRICT_REUSE = 'true';
-      try {
+    // DOMYŚLNIE STRICT (od 21.09.2026). Łagodny tryb włącza wyłącznie jawne
+    // `false`; brak zmiennej, pusta wartość i literówka mają kończyć się
+    // BEZPIECZNIEJSZYM zachowaniem, nie luźniejszym.
+    it.each([undefined, '', 'true', 'TRUE', 'tak', 'flase'])(
+      'strict (REFRESH_STRICT_REUSE=%j): ta sama rotacja sprzed DNI kasuje rodzinę i nie wydaje pary',
+      async (value) => {
+        await withStrictReuse(value, async () => {
+          lostRotationDaysAgo();
+
+          await expect(
+            service.refreshAccessToken('stary-token'),
+          ).rejects.toThrow(UnauthorizedException);
+          expect(prisma.user.updateMany).toHaveBeenCalled();
+          expect(jwt.signAsync).not.toHaveBeenCalled();
+        });
+      },
+    );
+
+    it('strict NIE zabiera ratunku W oknie łaski — zgubiona odpowiedź dalej dostaje parę', async () => {
+      await withStrictReuse('true', async () => {
         prisma.refreshToken.findUnique
           .mockResolvedValueOnce({
             ...mockRefreshToken,
-            revokedAt: new Date(Date.now() - 10 * 60 * 1000),
+            revokedAt: new Date(Date.now() - 5_000),
             revokedReason: 'ROTATED',
             replacedByHash: 'hash-nastepcy',
           })
           .mockResolvedValueOnce({ revokedAt: null });
+        prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
 
-        await expect(service.refreshAccessToken('stary-token')).rejects.toThrow(
-          UnauthorizedException,
-        );
-        expect(prisma.user.updateMany).toHaveBeenCalled();
-      } finally {
-        delete process.env.REFRESH_STRICT_REUSE;
-      }
+        const result = await service.refreshAccessToken('stary-token');
+
+        expect(result).toHaveProperty('refreshToken');
+        expect(prisma.user.updateMany).not.toHaveBeenCalled();
+      });
     });
 
     it('wygasły token nie jest ratowany, ale też nie kasuje rodziny', async () => {
