@@ -22,10 +22,18 @@ const AI_USAGE_DAYS = 365;
 const AGENT_REPORT_DAYS = 365;
 /** Urządzenie push, które od 90 dni nie odpowiada, nie wróci. */
 const DEAD_PUSH_DEVICE_DAYS = 90;
+/**
+ * Rozmowa bez ani jednej wiadomości znika po dobie od założenia. Doba, a nie
+ * od razu: telefon trzyma identyfikator świeżo założonej rozmowy i wysyła do
+ * niej pierwsze pytanie — skasowana pod nim dałaby 404. Klient i tak zaczyna
+ * czystą kartkę po 30 minutach bezczynności, więc doba to duży zapas.
+ */
+const EMPTY_CONVERSATION_HOURS = 24;
 
 export type RetentionSweep = {
   cutoff: string | null;
   conversations: number;
+  emptyConversations: number;
   invitations: number;
   aiUsage: number;
   reports: number;
@@ -37,7 +45,7 @@ export type RetentionSweep = {
  * Automatyczna retencja — to, co polityka prywatności obiecuje, kod musi
  * robić sam. Rozmowy asystenta (z wiadomościami, turami, kartami i
  * propozycjami) znikają po `AI_CONVERSATION_RETENTION_DAYS` od ostatniej
- * wiadomości; księga kosztów zostaje, bo `AiUsage.turnId` jest od 2.09
+ * wiadomości, a puste — po dobie od założenia; księga kosztów zostaje, bo `AiUsage.turnId` jest od 2.09
  * `SetNull`. Przy okazji znikają zaproszenia, które wygasły ponad miesiąc
  * temu i nikt ich nie przyjął.
  *
@@ -101,7 +109,22 @@ export class AgentRetentionService
         updatedAt: { lt: daysAgo(now, DEAD_PUSH_DEVICE_DAYS) },
       },
     });
+    // Puste rozmowy nie niosą niczyich danych — nie ma czego trzymać, a na
+    // liście historii to same „Nowa rozmowa · Bez wiadomości". Poza retencją
+    // treści, więc `AI_CONVERSATION_RETENTION_DAYS=0` ich nie zatrzymuje.
+    // `turns: none` zamiast samego „nic w biegu": tura bez wiadomości to
+    // rozmowa, która coś robiła — tę oddajemy zwykłej retencji.
+    const emptyConversations = await this.prisma.agentConversation.deleteMany({
+      where: {
+        createdAt: {
+          lt: new Date(now.getTime() - EMPTY_CONVERSATION_HOURS * 3_600_000),
+        },
+        messages: { none: {} },
+        turns: { none: {} },
+      },
+    });
     const extras = {
+      emptyConversations: emptyConversations.count,
       aiUsage: aiUsage.count,
       reports: reports.count,
       refreshTokens: refreshTokens.count,
@@ -152,9 +175,13 @@ export class AgentRetentionService
   private async runQuietly(): Promise<void> {
     try {
       const result = await this.sweep();
-      if (result.conversations > 0 || result.invitations > 0) {
+      if (
+        result.conversations > 0 ||
+        result.emptyConversations > 0 ||
+        result.invitations > 0
+      ) {
         this.logger.log(
-          `retencja: rozmowy ${result.conversations} (przed ${result.cutoff ?? '—'}), zaproszenia ${result.invitations}`,
+          `retencja: rozmowy ${result.conversations} (przed ${result.cutoff ?? '—'}), puste ${result.emptyConversations}, zaproszenia ${result.invitations}`,
         );
       }
     } catch (error) {
