@@ -48,11 +48,46 @@ type Section = {
 };
 
 const SECTIONS: Section[] = [
-  { prefix: 'sn', label: 'Śniadania', size: 90, mealType: 'BREAKFAST', batchFile: 'recipes-batch-sniadania-90-v1.json', kcal: [250, 750] },
-  { prefix: 'ob', label: 'Obiady', size: 101, mealType: 'LUNCH', batchFile: 'recipes-batch-obiady-101-v1.json', kcal: [400, 1000] },
-  { prefix: 'ko', label: 'Kolacje', size: 94, mealType: 'DINNER', batchFile: 'recipes-batch-kolacje-94-v1.json', kcal: [300, 900] },
-  { prefix: 'de', label: 'Desery', size: 35, mealType: 'AFTERNOON_SNACK', batchFile: 'recipes-batch-desery-35-v1.json', kcal: [120, 600] },
-  { prefix: 'pr', label: 'Przekąski', size: 35, mealType: 'SNACK', batchFile: 'recipes-batch-przekaski-35-v1.json', kcal: [60, 450] },
+  {
+    prefix: 'sn',
+    label: 'Śniadania',
+    size: 90,
+    mealType: 'BREAKFAST',
+    batchFile: 'recipes-batch-sniadania-90-v1.json',
+    kcal: [250, 750],
+  },
+  {
+    prefix: 'ob',
+    label: 'Obiady',
+    size: 101,
+    mealType: 'LUNCH',
+    batchFile: 'recipes-batch-obiady-101-v1.json',
+    kcal: [400, 1000],
+  },
+  {
+    prefix: 'ko',
+    label: 'Kolacje',
+    size: 94,
+    mealType: 'DINNER',
+    batchFile: 'recipes-batch-kolacje-94-v1.json',
+    kcal: [300, 900],
+  },
+  {
+    prefix: 'de',
+    label: 'Desery',
+    size: 35,
+    mealType: 'AFTERNOON_SNACK',
+    batchFile: 'recipes-batch-desery-35-v1.json',
+    kcal: [120, 600],
+  },
+  {
+    prefix: 'pr',
+    label: 'Przekąski',
+    size: 35,
+    mealType: 'SNACK',
+    batchFile: 'recipes-batch-przekaski-35-v1.json',
+    kcal: [60, 450],
+  },
 ];
 
 /** Część → zakres numerów listy, który ma pokryć. */
@@ -71,7 +106,8 @@ const PARTS: Record<string, { prefix: string; from: number; to: number }> = {
 };
 
 /** Ustalone z Rafałem 24.08.2026 i 22.09.2026: tych składników nie proponujemy. */
-const FORBIDDEN = /krewet|śledź|sledz|homar|krab|małż|malz|kalmar|ośmiorn|osmiorn|surimi|omułk|omulk|langust|ostryg/i;
+const FORBIDDEN =
+  /krewet|śledź|sledz|homar|krab|małż|malz|kalmar|ośmiorn|osmiorn|surimi|omułk|omulk|langust|ostryg/i;
 
 type NutritionEntry = {
   normalizedName: string;
@@ -117,15 +153,61 @@ function stableUuid(plan: string): string {
   ).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-function loadModule(file: string): { DEFS?: Def[]; ADDITIONS?: IngredientAddition[] } | null {
+type PartModule = { DEFS?: Def[]; ADDITIONS?: IngredientAddition[] };
+
+function loadModule(file: string): PartModule | null {
   const path = join(PARTS_DIR, `${file}.ts`);
   if (!existsSync(path)) return null;
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return require(path);
+  return require(path) as PartModule;
 }
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+/**
+ * Podmienia elementy tablicy najwyższego poziomu w tekście pliku JSON
+ * (formatowanie 2 spacje), nie serializując reszty od nowa. `JSON.stringify`
+ * zamienia zapisane `2.0` na `2`, więc pełny zapis dawał w diffie dziesiątki
+ * zmienionych wierszy, których nikt nie ruszał.
+ */
+function patchArrayText<T>(
+  text: string,
+  key: string,
+  keep: (item: T) => boolean,
+  extra: unknown[],
+): string {
+  const open = `\n  "${key}": [\n`;
+  const start = text.indexOf(open);
+  const end = text.lastIndexOf('\n  ]');
+  if (start < 0 || end < start)
+    throw new Error(`Nie znalazłem tablicy "${key}"`);
+  const lines = text.slice(start + open.length, end).split('\n');
+  const chunks: string[] = [];
+  let current: string[] = [];
+  for (const line of lines) {
+    current.push(line);
+    if (/^ {4}\},?$/.test(line)) {
+      chunks.push(current.join('\n').replace(/,$/, ''));
+      current = [];
+    }
+  }
+  if (current.join('').trim())
+    throw new Error(`Nierozpoznany fragment tablicy "${key}"`);
+  const kept = chunks.filter((chunk) => keep(JSON.parse(chunk) as T));
+  const added = extra.map((item) =>
+    JSON.stringify(item, null, 2)
+      .split('\n')
+      .map((line) => `    ${line}`)
+      .join('\n'),
+  );
+  const out =
+    text.slice(0, start + open.length) +
+    [...kept, ...added].join(',\n') +
+    text.slice(end);
+  JSON.parse(out);
+  return out;
 }
 
 type Built = ReturnType<typeof buildRecipe>;
@@ -141,7 +223,9 @@ function buildRecipe(
   const section = SECTIONS.find((s) => def.plan.startsWith(`${s.prefix}-`));
   if (!section) errors.push(`${where}: nieznany prefiks klucza`);
   if (section && def.mealType !== section.mealType)
-    errors.push(`${where}: mealType ${def.mealType}, a sekcja ${section.label} to ${section.mealType}`);
+    errors.push(
+      `${where}: mealType ${def.mealType}, a sekcja ${section.label} to ${section.mealType}`,
+    );
   if (!def.title.trim() || def.title.length > 70)
     errors.push(`${where}: tytuł pusty albo dłuższy niż 70 znaków`);
   if (def.description.length < 80 || def.description.length > 320)
@@ -151,7 +235,9 @@ function buildRecipe(
   if (def.steps.some((s) => s.trim().length < 15))
     errors.push(`${where}: krok krótszy niż 15 znaków`);
   if (/^\s*\d+[.)]/.test(def.steps.join('\n')))
-    errors.push(`${where}: kroki nie mogą zaczynać się od numeru (numeruje import)`);
+    errors.push(
+      `${where}: kroki nie mogą zaczynać się od numeru (numeruje import)`,
+    );
   if (def.ingredients.length < 3)
     errors.push(`${where}: mniej niż 3 składniki`);
   if (!(def.prepTimeMinutes >= 3 && def.prepTimeMinutes <= 300))
@@ -159,7 +245,9 @@ function buildRecipe(
   if (!(def.servings >= 1 && def.servings <= 8))
     errors.push(`${where}: porcje ${def.servings} poza 1–8`);
   if (def.servings !== 2 && !['de', 'pr'].includes(section?.prefix ?? ''))
-    errors.push(`${where}: porcje ${def.servings} — dania główne i śniadania mają 2 porcje`);
+    errors.push(
+      `${where}: porcje ${def.servings} — dania główne i śniadania mają 2 porcje`,
+    );
   if (!def.photo || def.photo.length < 30)
     errors.push(`${where}: brak opisu zdjęcia (photo)`);
 
@@ -168,23 +256,37 @@ function buildRecipe(
     const norm = normalizeText(name);
     if (seen.has(norm)) errors.push(`${where}: składnik „${name}" dwa razy`);
     seen.add(norm);
-    if (FORBIDDEN.test(name)) errors.push(`${where}: zakazany składnik „${name}"`);
+    if (FORBIDDEN.test(name))
+      errors.push(`${where}: zakazany składnik „${name}"`);
     if (!['g', 'ml', 'szt'].includes(unit))
       errors.push(`${where}: jednostka „${unit}" (tylko g, ml, szt)`);
     if (!(amount > 0)) errors.push(`${where}: ilość „${name}" ≤ 0`);
     const tag = tagsByNorm.get(norm);
-    if (!tag) errors.push(`${where}: nieznany składnik „${name}" (dodaj do ADDITIONS)`);
+    if (!tag)
+      errors.push(`${where}: nieznany składnik „${name}" (dodaj do ADDITIONS)`);
     if (tag && tag.name !== name)
       errors.push(`${where}: pisz „${tag.name}", nie „${name}"`);
     const nut = nutritionByNorm.get(norm);
     if (tag && !nut) errors.push(`${where}: brak makro dla „${name}"`);
     if (nut && unit !== 'szt' && nut.unit !== unit)
-      errors.push(`${where}: „${name}" liczony w ${nut.unit}, a przepis podaje ${unit}`);
+      errors.push(
+        `${where}: „${name}" liczony w ${nut.unit}, a przepis podaje ${unit}`,
+      );
     if (unit === 'szt' && nut && !nut.gramsPerPiece)
-      errors.push(`${where}: „${name}" nie ma wagi sztuki — podaj w ${nut.unit}`);
-    let normalized = { normalizedAmount: amount, normalizedUnit: unit as 'g' | 'ml' | 'szt' };
+      errors.push(
+        `${where}: „${name}" nie ma wagi sztuki — podaj w ${nut.unit}`,
+      );
+    let normalized = {
+      normalizedAmount: amount,
+      normalizedUnit: unit,
+    };
     try {
-      normalized = normalizeIngredientAmount(name, tag?.category ?? 'inne', amount, unit);
+      normalized = normalizeIngredientAmount(
+        name,
+        tag?.category ?? 'inne',
+        amount,
+        unit,
+      );
     } catch (error) {
       errors.push(`${where}: ${(error as Error).message}`);
     }
@@ -207,7 +309,10 @@ function buildRecipe(
   });
 
   const result = computeRecipeNutrition(items);
-  const addedSalt = def.ingredients.find(([name]) => name === 'sól')?.[1] ?? 0;
+  // Sól ze składników (także „sól” na liście — ma sód w tabeli) liczy się
+  // z sodu. `addedSalt` jest tylko na sól spoza listy składników, a tej
+  // przepisy tej partii nie mają; wpisanie tu gramów „sól” liczyłoby ją dwa razy.
+  const addedSalt = 0;
   const per = {
     kcal: result.totals.kcal / def.servings,
     protein: result.totals.protein / def.servings,
@@ -215,20 +320,26 @@ function buildRecipe(
     fat: result.totals.fat / def.servings,
     salt: (result.totals.sodiumMg * 0.0025 + addedSalt) / def.servings,
   };
-  const complete = !result.missingNutrition.length && !result.missingPieceWeight.length;
+  const complete =
+    !result.missingNutrition.length && !result.missingPieceWeight.length;
   if (section && complete) {
     const [min, max] = section.kcal;
     if (per.kcal < min || per.kcal > max)
-      errors.push(`${where}: ${Math.round(per.kcal)} kcal/porcja poza ${min}–${max} dla ${section.label}`);
+      errors.push(
+        `${where}: ${Math.round(per.kcal)} kcal/porcja poza ${min}–${max} dla ${section.label}`,
+      );
     if (section.prefix === 'ob' && per.protein < 20)
-      warnings.push(`${where}: tylko ${Math.round(per.protein)} g białka/porcja na obiad`);
+      warnings.push(
+        `${where}: tylko ${Math.round(per.protein)} g białka/porcja na obiad`,
+      );
     if (per.salt > 4)
       warnings.push(`${where}: ${round1(per.salt)} g soli/porcja`);
   }
 
   const allergens = new Set<string>();
   for (const [name] of def.ingredients)
-    for (const a of tagsByNorm.get(normalizeText(name))?.allergens ?? []) allergens.add(a);
+    for (const a of tagsByNorm.get(normalizeText(name))?.allergens ?? [])
+      allergens.add(a);
 
   return {
     recipe: {
@@ -245,7 +356,7 @@ function buildRecipe(
         carbs: Math.round(result.totals.carbs),
         fat: Math.round(result.totals.fat),
         fiber: Math.round(result.totals.fiber),
-        // Sól łączna = sód × 2,5 + dodana; `recipes:recompute:nutrition` liczy tak samo.
+        // Sól łączna = sód × 2,5 + dodana — `totalSaltGrams` w recompute liczy tak samo.
         salt: round1(result.totals.sodiumMg * 0.0025 + addedSalt),
         addedSalt: round1(addedSalt),
       },
@@ -267,8 +378,11 @@ function buildRecipe(
 function main() {
   const args = process.argv.slice(2);
   const write = args.includes('--write');
-  const partArg = args.includes('--part') ? args[args.indexOf('--part') + 1] : null;
-  if (partArg && !PARTS[partArg]) throw new Error(`Nieznana część „${partArg}"`);
+  const partArg = args.includes('--part')
+    ? args[args.indexOf('--part') + 1]
+    : null;
+  if (partArg && !PARTS[partArg])
+    throw new Error(`Nieznana część „${partArg}"`);
   if (partArg && write) throw new Error('--write zapisuje całość, bez --part');
 
   const errors: string[] = [];
@@ -276,7 +390,10 @@ function main() {
   const partNames = partArg ? [partArg] : Object.keys(PARTS);
 
   // ─── składniki ───
-  const modules = new Map<string, { DEFS?: Def[]; ADDITIONS?: IngredientAddition[] }>();
+  const modules = new Map<
+    string,
+    { DEFS?: Def[]; ADDITIONS?: IngredientAddition[] }
+  >();
   const common = loadModule('skladniki');
   if (common) modules.set('skladniki', common);
   for (const part of partNames) {
@@ -286,12 +403,19 @@ function main() {
     else errors.push(`część ${part}: brak pliku`);
   }
 
-  const tagsByNorm = new Map(TAGS.ingredients.map((t) => [t.normalizedName, t]));
-  const nutritionByNorm = new Map(NUTRITION.ingredients.map((n) => [n.normalizedName, n]));
+  const tagsByNorm = new Map(
+    TAGS.ingredients.map((t) => [t.normalizedName, t]),
+  );
+  const nutritionByNorm = new Map(
+    NUTRITION.ingredients.map((n) => [n.normalizedName, n]),
+  );
   const categories = new Set(TAGS.ingredients.map((t) => t.category));
   const newTags: TagEntry[] = [];
   const newNutrition: NutritionEntry[] = [];
-  const additionSource = new Map<string, { source: string; addition: IngredientAddition }>();
+  const additionSource = new Map<
+    string,
+    { source: string; addition: IngredientAddition }
+  >();
 
   for (const [source, mod] of modules) {
     for (const addition of mod.ADDITIONS ?? []) {
@@ -301,12 +425,18 @@ function main() {
       if (earlier) {
         const a = earlier.addition.nutrition;
         const b = addition.nutrition;
-        if (Math.abs(a.kcal - b.kcal) > Math.max(10, a.kcal * 0.1) || a.unit !== b.unit)
-          errors.push(`${where}: zdublowany z ${earlier.source} z innym makro (${a.kcal} vs ${b.kcal} kcal) — zostaw jeden wpis`);
+        if (
+          Math.abs(a.kcal - b.kcal) > Math.max(10, a.kcal * 0.1) ||
+          a.unit !== b.unit
+        )
+          errors.push(
+            `${where}: zdublowany z ${earlier.source} z innym makro (${a.kcal} vs ${b.kcal} kcal) — zostaw jeden wpis`,
+          );
         // Alergeny sumujemy: oznaczamy nadmiarowo.
         const tag = tagsByNorm.get(norm);
         if (tag && addition.allergens)
-          for (const x of addition.allergens) if (!tag.allergens.includes(x)) tag.allergens.push(x);
+          for (const x of addition.allergens)
+            if (!tag.allergens.includes(x)) tag.allergens.push(x);
         continue;
       }
       additionSource.set(norm, { source, addition });
@@ -314,28 +444,52 @@ function main() {
       const existingTag = tagsByNorm.get(norm);
       if (existingTag && existingTag.name !== addition.name)
         errors.push(`${where}: w katalogu jest jako „${existingTag.name}"`);
-      if (nutritionByNorm.has(norm)) {
-        errors.push(`${where}: ma już makro w tabeli`);
+      const present = nutritionByNorm.get(norm);
+      if (present) {
+        // Po `--write` wpis już jest w tabeli — ten sam to nie błąd, inny tak.
+        const same =
+          present.unit === addition.nutrition.unit &&
+          present.kcal === addition.nutrition.kcal &&
+          present.protein === addition.nutrition.protein &&
+          existingTag !== undefined;
+        if (!same) errors.push(`${where}: ma już inne makro w tabeli`);
         continue;
       }
       const n = addition.nutrition;
-      if (!['g', 'ml'].includes(n.unit)) errors.push(`${where}: unit ${n.unit}`);
+      if (!['g', 'ml'].includes(n.unit))
+        errors.push(`${where}: unit ${n.unit}`);
       const energy = n.protein * 4 + n.carbs * 4 + n.fat * 9 + n.fiber * 2;
-      if (n.kcal > 20 && Math.abs(energy - n.kcal) > Math.max(25, n.kcal * 0.15))
-        errors.push(`${where}: ${n.kcal} kcal nie zgadza się z makro (${Math.round(energy)} z B/W/T/błonnika)`);
-      if ([n.kcal, n.protein, n.carbs, n.fat, n.fiber, n.sodiumMg].some((v) => !(v >= 0)))
+      if (
+        n.kcal > 20 &&
+        Math.abs(energy - n.kcal) > Math.max(25, n.kcal * 0.15)
+      )
+        errors.push(
+          `${where}: ${n.kcal} kcal nie zgadza się z makro (${Math.round(energy)} z B/W/T/błonnika)`,
+        );
+      if (
+        [n.kcal, n.protein, n.carbs, n.fat, n.fiber, n.sodiumMg].some(
+          (v) => !(v >= 0),
+        )
+      )
         errors.push(`${where}: ujemna albo brakująca wartość`);
       if (n.protein + n.carbs + n.fat + n.fiber > 101)
         errors.push(`${where}: makro > 100 g na 100 g`);
 
       if (!existingTag) {
         if (!addition.category || !categories.has(addition.category))
-          errors.push(`${where}: nowy składnik wymaga category z ${[...categories].join(', ')}`);
+          errors.push(
+            `${where}: nowy składnik wymaga category z ${[...categories].join(', ')}`,
+          );
         const bad = [
-          ...(addition.allergens ?? []).filter((a) => !(ALLERGEN_IDS as readonly string[]).includes(a)),
-          ...(addition.dietTags ?? []).filter((d) => !(DIET_TAG_IDS as readonly string[]).includes(d)),
+          ...(addition.allergens ?? []).filter(
+            (a) => !(ALLERGEN_IDS as readonly string[]).includes(a),
+          ),
+          ...(addition.dietTags ?? []).filter(
+            (d) => !(DIET_TAG_IDS as readonly string[]).includes(d),
+          ),
         ];
-        if (bad.length) errors.push(`${where}: nieznane tagi ${bad.join(', ')}`);
+        if (bad.length)
+          errors.push(`${where}: nieznane tagi ${bad.join(', ')}`);
         if (!addition.allergens || !addition.dietTags)
           errors.push(`${where}: nowy składnik wymaga allergens i dietTags`);
         const tag: TagEntry = {
@@ -348,8 +502,13 @@ function main() {
         };
         tagsByNorm.set(norm, tag);
         newTags.push(tag);
-      } else if (addition.category && addition.category !== existingTag.category) {
-        errors.push(`${where}: kategoria ${addition.category}, w katalogu ${existingTag.category}`);
+      } else if (
+        addition.category &&
+        addition.category !== existingTag.category
+      ) {
+        errors.push(
+          `${where}: kategoria ${addition.category}, w katalogu ${existingTag.category}`,
+        );
       }
       const entry: NutritionEntry = {
         normalizedName: norm,
@@ -378,29 +537,51 @@ function main() {
     const defs = modules.get(part)?.DEFS ?? [];
     for (const def of defs) {
       const m = /^([a-z]{2})-(\d+)$/.exec(def.plan);
-      if (!m || m[1] !== range.prefix || +m[2] < range.from || +m[2] > range.to) {
-        errors.push(`[${def.plan}] ${def.title}: klucz spoza zakresu części ${part} (${range.prefix}-${range.from}…${range.to})`);
+      if (
+        !m ||
+        m[1] !== range.prefix ||
+        +m[2] < range.from ||
+        +m[2] > range.to
+      ) {
+        errors.push(
+          `[${def.plan}] ${def.title}: klucz spoza zakresu części ${part} (${range.prefix}-${range.from}…${range.to})`,
+        );
         continue;
       }
       if (built.has(def.plan)) errors.push(`[${def.plan}]: klucz dwa razy`);
       const titleKey = normalizeText(def.title);
       const sameTitle = existingTitles.get(titleKey);
       if (sameTitle && sameTitle !== stableUuid(def.plan))
-        errors.push(`[${def.plan}] ${def.title}: taki tytuł już jest w katalogu`);
-      if (titles.has(titleKey)) errors.push(`[${def.plan}] ${def.title}: tytuł powtarza ${titles.get(titleKey)}`);
+        errors.push(
+          `[${def.plan}] ${def.title}: taki tytuł już jest w katalogu`,
+        );
+      if (titles.has(titleKey))
+        errors.push(
+          `[${def.plan}] ${def.title}: tytuł powtarza ${titles.get(titleKey)}`,
+        );
       titles.set(titleKey, def.plan);
-      built.set(def.plan, buildRecipe(def, tagsByNorm, nutritionByNorm, errors, warnings));
+      built.set(
+        def.plan,
+        buildRecipe(def, tagsByNorm, nutritionByNorm, errors, warnings),
+      );
     }
     const missing: string[] = [];
     for (let i = range.from; i <= range.to; i++)
-      if (!built.has(`${range.prefix}-${i}`)) missing.push(`${range.prefix}-${i}`);
-    if (missing.length) (partArg || write ? errors : warnings).push(`część ${part}: brak ${missing.join(', ')}`);
+      if (!built.has(`${range.prefix}-${i}`))
+        missing.push(`${range.prefix}-${i}`);
+    if (missing.length)
+      (partArg || write ? errors : warnings).push(
+        `część ${part}: brak ${missing.join(', ')}`,
+      );
   }
 
   for (const b of built.values()) console.log(b.report);
   if (newNutrition.length)
-    console.log(`\nuzupełnienia składników: ${newNutrition.length} makro, ${newTags.length} nowych nazw`);
-  if (warnings.length) console.log(`\nUWAGI (${warnings.length}):\n${warnings.join('\n')}`);
+    console.log(
+      `\nuzupełnienia składników: ${newNutrition.length} makro, ${newTags.length} nowych nazw`,
+    );
+  if (warnings.length)
+    console.log(`\nUWAGI (${warnings.length}):\n${warnings.join('\n')}`);
   if (errors.length) {
     console.error(`\nBŁĘDY (${errors.length}):\n${errors.join('\n')}`);
     process.exit(1);
@@ -413,16 +594,35 @@ function main() {
   // przebieg nie ma już czego dopisać, bo wpisy są w tabelach.
   for (const tag of newTags) {
     const txt = join(CATALOG_DIR, `ingredients-${tag.category}-pl-v1.txt`);
-    const lines = readFileSync(txt, 'utf8').split('\n').map((l) => l.trim());
+    const lines = readFileSync(txt, 'utf8')
+      .split('\n')
+      .map((l) => l.trim());
     if (!lines.some((l) => normalizeText(l) === tag.normalizedName)) {
       const raw = readFileSync(txt, 'utf8');
-      writeFileSync(txt, `${raw.endsWith('\n') ? raw : `${raw}\n`}${tag.name}\n`);
+      writeFileSync(
+        txt,
+        `${raw.endsWith('\n') ? raw : `${raw}\n`}${tag.name}\n`,
+      );
     }
   }
-  TAGS.ingredients.push(...newTags);
-  writeFileSync(TAGS_PATH, JSON.stringify(TAGS, null, 2) + '\n');
-  NUTRITION.ingredients.push(...newNutrition);
-  writeFileSync(NUTRITION_PATH, JSON.stringify(NUTRITION, null, 2) + '\n');
+  writeFileSync(
+    TAGS_PATH,
+    patchArrayText(
+      readFileSync(TAGS_PATH, 'utf8'),
+      'ingredients',
+      () => true,
+      newTags,
+    ),
+  );
+  writeFileSync(
+    NUTRITION_PATH,
+    patchArrayText(
+      readFileSync(NUTRITION_PATH, 'utf8'),
+      'ingredients',
+      () => true,
+      newNutrition,
+    ),
+  );
 
   for (const section of SECTIONS) {
     const recipes = [...built.entries()]
@@ -431,24 +631,33 @@ function main() {
       .map(([, b]) => b.recipe);
     writeFileSync(
       join(CATALOG_DIR, section.batchFile),
-      JSON.stringify({ version: section.batchFile.replace(/\.json$/, ''), recipes }, null, 2) + '\n',
+      JSON.stringify(
+        { version: section.batchFile.replace(/\.json$/, ''), recipes },
+        null,
+        2,
+      ) + '\n',
     );
   }
 
-  const byId = new Map([...built.values()].map((b) => [b.recipe.id, b.recipe]));
-  let replaced = 0;
-  FULL.recipes = FULL.recipes.map((r) => {
-    const next = byId.get(r.id);
-    if (!next) return r;
-    byId.delete(r.id);
-    replaced += 1;
-    return next;
-  });
-  FULL.recipes.push(...byId.values());
-  writeFileSync(FULL_PATH, JSON.stringify(FULL, null, 2) + '\n');
+  // Przepisy partii wypadają z pełnego katalogu i wracają na koniec w
+  // kolejności listy — reszta pliku zostaje bajt w bajt.
+  const ours = [...built.values()].map((b) => b.recipe);
+  const ourIds = new Set(ours.map((r) => r.id));
+  const replaced = FULL.recipes.filter((r) => ourIds.has(r.id)).length;
+  writeFileSync(
+    FULL_PATH,
+    patchArrayText(
+      readFileSync(FULL_PATH, 'utf8'),
+      'recipes',
+      (r: { id?: string }) => !ourIds.has(r.id ?? ''),
+      ours,
+    ),
+  );
+  const total = FULL.recipes.length - replaced + ours.length;
+  const added = ours.length - replaced;
   console.log(
     `zapisano: ${newTags.length} nowych składników, ${newNutrition.length} wpisów makro; ` +
-      `pełny katalog: ${byId.size} dodanych, ${replaced} podmienionych, razem ${FULL.recipes.length}`,
+      `pełny katalog: ${added} dodanych, ${replaced} podmienionych, razem ${total}`,
   );
 }
 

@@ -4056,6 +4056,771 @@
       "allergens": [],
       "dietTags": [],
       "note": "Traktowana jako świeża/mrożona żurawina; suszona słodzona byłaby PROCESSED, ale nazwa tego nie precyzuje."
+    },
+    {
+      "name": "jagoda",
+      "normalizedName": "jagoda",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Świeże jagody leśne (czarne borówki); borówka amerykańska to „borówka\"."
+    },
+    {
+      "name": "rabarbar",
+      "normalizedName": "rabarbar",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Botanicznie warzywo, w kuchni i w sklepie traktowany jak owoc."
+    },
+    {
+      "name": "bazylia",
+      "normalizedName": "bazylia",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Świeża (doniczka); suszona to „bazylia suszona\"."
+    },
+    {
+      "name": "mięta",
+      "normalizedName": "mieta",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Świeża."
+    },
+    {
+      "name": "kolendra",
+      "normalizedName": "kolendra",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Świeże liście."
+    },
+    {
+      "name": "szczaw",
+      "normalizedName": "szczaw",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Świeży; szczaw ze słoika ma podobne makro, ale jest solony."
+    },
+    {
+      "name": "botwina",
+      "normalizedName": "botwina",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Młode buraczki z liśćmi (pęczek, sezonowo)."
+    },
+    {
+      "name": "papryczka chili",
+      "normalizedName": "papryczka chili",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Świeża, ostra."
+    },
+    {
+      "name": "sałata rzymska",
+      "normalizedName": "salata rzymska",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "grzyb suszony",
+      "normalizedName": "grzyb suszony",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Suszone grzyby leśne (borowik, podgrzybek) — do bigosu, uszek, zupy grzybowej."
+    },
+    {
+      "name": "wątróbka drobiowa",
+      "normalizedName": "watrobka drobiowa",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ]
+    },
+    {
+      "name": "udko z kurczaka",
+      "normalizedName": "udko z kurczaka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ],
+      "note": "Z kością i skórą. Wartości na masę zakupu z kością (część jadalna × jej udział); w przepisie podawaj masę zakupu albo sztuki. Część jadalna ok. 79%."
+    },
+    {
+      "name": "kurczak cały",
+      "normalizedName": "kurczak caly",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ],
+      "note": "Tuszka do pieczenia. Wartości na masę zakupu z kością (część jadalna × jej udział); w przepisie podawaj masę zakupu albo sztuki. Część jadalna ok. 68%."
+    },
+    {
+      "name": "żeberko wieprzowe",
+      "normalizedName": "zeberko wieprzowe",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ],
+      "note": "Surowe żeberka. Wartości na masę zakupu z kością (część jadalna × jej udział); w przepisie podawaj masę zakupu albo sztuki. Część jadalna ok. 72%."
+    },
+    {
+      "name": "golonka wieprzowa",
+      "normalizedName": "golonka wieprzowa",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ],
+      "note": "Surowa, ze skórą. Wartości na masę zakupu z kością (część jadalna × jej udział); w przepisie podawaj masę zakupu albo sztuki. Część jadalna ok. 65%."
+    },
+    {
+      "name": "makrela",
+      "normalizedName": "makrela",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ],
+      "note": "Świeża/mrożona, cała patroszona. Wartości na masę zakupu z kością (część jadalna × jej udział); w przepisie podawaj masę zakupu albo sztuki. Część jadalna ok. 65%."
+    },
+    {
+      "name": "makrela wędzona",
+      "normalizedName": "makrela wedzona",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ],
+      "note": "Mięso bez skóry i ości — w przepisie podawaj masę mięsa (z całej ryby ok. 65%)."
+    },
+    {
+      "name": "sardynka w oleju",
+      "normalizedName": "sardynka w oleju",
+      "category": "konserwy-i-sloiki",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH",
+        "PROCESSED"
+      ],
+      "note": "Puszka, odsączona."
+    },
+    {
+      "name": "pomidor suszony w oleju",
+      "normalizedName": "pomidor suszony w oleju",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Ze słoika, lekko odsączony."
+    },
+    {
+      "name": "fasola w sosie pomidorowym",
+      "normalizedName": "fasola w sosie pomidorowym",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Puszka typu baked beans, z sosem."
+    },
+    {
+      "name": "dżem",
+      "normalizedName": "dzem",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Owocowy (truskawkowy, wiśniowy…), zwykły lub niskosłodzony — średnia."
+    },
+    {
+      "name": "sos żurawinowy",
+      "normalizedName": "sos zurawinowy",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Żurawina do mięs i serów ze słoika."
+    },
+    {
+      "name": "pesto bazyliowe",
+      "normalizedName": "pesto bazyliowe",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "lactose",
+        "milk",
+        "nuts"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Pesto alla genovese ze słoika: ser (mleko) i orzechy nerkowca/pinii — nadmiarowo."
+    },
+    {
+      "name": "sos barbecue",
+      "normalizedName": "sos barbecue",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "mustard"
+      ],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Gorczyca częsta w składzie — nadmiarowo."
+    },
+    {
+      "name": "sos słodko-kwaśny",
+      "normalizedName": "sos slodko-kwasny",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "sos chili słodki",
+      "normalizedName": "sos chili slodki",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "pasta curry",
+      "normalizedName": "pasta curry",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "crustaceans",
+        "fish"
+      ],
+      "dietTags": [
+        "CRUSTACEAN",
+        "FISH",
+        "PROCESSED"
+      ],
+      "note": "Tajska pasta curry (czerwona/zielona). Wiele marek ma pastę krewetkową — nadmiarowo fish + crustaceans."
+    },
+    {
+      "name": "płatki chili",
+      "normalizedName": "platki chili",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "papryka wędzona mielona",
+      "normalizedName": "papryka wedzona mielona",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "garam masala",
+      "normalizedName": "garam masala",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "gałka muszkatołowa",
+      "normalizedName": "galka muszkatolowa",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "zioła prowansalskie",
+      "normalizedName": "ziola prowansalskie",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "przyprawa do gyrosa",
+      "normalizedName": "przyprawa do gyrosa",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "celery",
+        "mustard"
+      ],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Mieszanka z solą (ok. 20%); seler i gorczyca częste w mieszankach — nadmiarowo."
+    },
+    {
+      "name": "przyprawa do piernika",
+      "normalizedName": "przyprawa do piernika",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "cebula prażona",
+      "normalizedName": "cebula prazona",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Chrupiąca cebulka smażona w mące pszennej (do hot dogów, sałatek)."
+    },
+    {
+      "name": "ocet balsamiczny",
+      "normalizedName": "ocet balsamiczny",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "sulphites"
+      ],
+      "dietTags": []
+    },
+    {
+      "name": "cukier waniliowy",
+      "normalizedName": "cukier waniliowy",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Cukier z wanilią/wanilinowy z torebki."
+    },
+    {
+      "name": "olej sezamowy",
+      "normalizedName": "olej sezamowy",
+      "category": "olej-i-tluszcz",
+      "allergens": [
+        "sesame"
+      ],
+      "dietTags": []
+    },
+    {
+      "name": "tahini",
+      "normalizedName": "tahini",
+      "category": "inne",
+      "allergens": [
+        "sesame"
+      ],
+      "dietTags": [],
+      "note": "Pasta sezamowa."
+    },
+    {
+      "name": "ciasto francuskie",
+      "normalizedName": "ciasto francuskie",
+      "category": "cukiernia",
+      "allergens": [
+        "gluten",
+        "lactose",
+        "milk"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Gotowe z lodówki; część marek na margarynie z mlekiem/maśle — mleko nadmiarowo."
+    },
+    {
+      "name": "wiórki kokosowe",
+      "normalizedName": "wiorki kokosowe",
+      "category": "cukiernia",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Kokos nie jest orzechem — bez nuts."
+    },
+    {
+      "name": "soda oczyszczona",
+      "normalizedName": "soda oczyszczona",
+      "category": "cukiernia",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "herbatnik",
+      "normalizedName": "herbatnik",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "eggs",
+        "gluten",
+        "lactose",
+        "milk"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Herbatniki maślane (Petit Beurre) — mleko/masło, często jajko; nadmiarowo."
+    },
+    {
+      "name": "czekolada biała",
+      "normalizedName": "czekolada biala",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "lactose",
+        "milk",
+        "soy"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "LEGUME",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "migdał",
+      "normalizedName": "migdal",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "nuts"
+      ],
+      "dietTags": [],
+      "note": "Całe lub płatki migdałowe — to samo makro."
+    },
+    {
+      "name": "daktyl suszony",
+      "normalizedName": "daktyl suszony",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "śliwka suszona",
+      "normalizedName": "sliwka suszona",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "morela suszona",
+      "normalizedName": "morela suszona",
+      "category": "przekaska-i-slodycz",
+      "allergens": [
+        "sulphites"
+      ],
+      "dietTags": [],
+      "note": "Zwykle siarkowana (E220) — sulphites nadmiarowo."
+    },
+    {
+      "name": "żurawina suszona",
+      "normalizedName": "zurawina suszona",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Słodzona cukrem, jak w sklepie."
+    },
+    {
+      "name": "syrop malinowy",
+      "normalizedName": "syrop malinowy",
+      "category": "napoje",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "„Sok malinowy\" do herbaty i kaszy manny (syrop z cukrem)."
+    },
+    {
+      "name": "ser gorgonzola",
+      "normalizedName": "ser gorgonzola",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose",
+        "milk"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ]
+    },
+    {
+      "name": "ser kozi",
+      "normalizedName": "ser kozi",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose",
+        "milk"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ],
+      "note": "Miękki (roladka/serek); mleko kozie też wywołuje alergię na białko mleka."
+    },
+    {
+      "name": "mleko w proszku",
+      "normalizedName": "mleko w proszku",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose",
+        "milk"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ],
+      "note": "Pełne (do bloku czekoladowego)."
+    },
+    {
+      "name": "malina mrożona",
+      "normalizedName": "malina mrozona",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "wiśnia mrożona",
+      "normalizedName": "wisnia mrozona",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Drylowana."
+    },
+    {
+      "name": "edamame",
+      "normalizedName": "edamame",
+      "category": "mrozonka",
+      "allergens": [
+        "soy"
+      ],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Łuskane ziarna; w strąkach część jadalna to ok. 55% masy."
+    },
+    {
+      "name": "bajgiel",
+      "normalizedName": "bajgiel",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "ciabatta",
+      "normalizedName": "ciabatta",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "bułka do hamburgera",
+      "normalizedName": "bulka do hamburgera",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten",
+        "sesame"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Zwykle posypana sezamem — nadmiarowo."
+    },
+    {
+      "name": "bułka do hot doga",
+      "normalizedName": "bulka do hot doga",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "groch łuskany",
+      "normalizedName": "groch luskany",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Suchy, połówki."
+    },
+    {
+      "name": "makaron tagliatelle",
+      "normalizedName": "makaron tagliatelle",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "eggs",
+        "gluten"
+      ],
+      "dietTags": [
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Jajeczny, suchy (gniazda)."
+    },
+    {
+      "name": "makaron lasagne",
+      "normalizedName": "makaron lasagne",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "eggs",
+        "gluten"
+      ],
+      "dietTags": [
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Płaty; część marek jajeczna — eggs nadmiarowo."
+    },
+    {
+      "name": "makaron cannelloni",
+      "normalizedName": "makaron cannelloni",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Rurki z semoliny."
+    },
+    {
+      "name": "makaron łazanki",
+      "normalizedName": "makaron lazanki",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "eggs",
+        "gluten"
+      ],
+      "dietTags": [
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Często jajeczne — eggs nadmiarowo."
+    },
+    {
+      "name": "makaron kolanka",
+      "normalizedName": "makaron kolanka",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "makaron ryżowy",
+      "normalizedName": "makaron ryzowy",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ]
+    },
+    {
+      "name": "makaron udon",
+      "normalizedName": "makaron udon",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Suchy (sól w cieście); świeży podgotowany z próżniowej paczki ma ok. 2,6× mniej na 100 g."
+    },
+    {
+      "name": "makaron sojowy",
+      "normalizedName": "makaron sojowy",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Szklisty makaron ze skrobi fasoli mung — mimo nazwy bez soi."
+    },
+    {
+      "name": "gnocchi",
+      "normalizedName": "gnocchi",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Gotowe z paczki (ziemniak, mąka pszenna); typowo bez jajka."
+    },
+    {
+      "name": "tortellini z serem",
+      "normalizedName": "tortellini z serem",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "eggs",
+        "gluten",
+        "lactose",
+        "milk"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "EGG",
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Świeże z lodówki, z nadzieniem serowym (np. ricotta-szpinak)."
+    },
+    {
+      "name": "papier ryżowy",
+      "normalizedName": "papier ryzowy",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ],
+      "note": "Arkusze do sajgonek i spring rolls."
     }
   ]
 }

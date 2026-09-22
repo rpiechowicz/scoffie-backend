@@ -14,3 +14,7 @@ rogalik
 tortilla pszenna
 tortilla pełnoziarnista
 bułka tarta
+bajgiel
+ciabatta
+bułka do hamburgera
+bułka do hot doga
