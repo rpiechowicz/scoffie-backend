@@ -112,6 +112,9 @@ describe('Dopisane do listy zakupów E2E', () => {
 
     // Kolacja z katalogu z co najmniej dwoma składnikami o RÓŻNYCH kluczach —
     // jeden dopisujemy, drugi pilnuje, że reszta listy zostaje nietknięta.
+    // Tylko składniki w gramach/mililitrach bez masy sztuki: te idą na listę
+    // w jednostce z przepisu, więc klucz i ilość da się tu policzyć wprost.
+    // Przeliczanie na sztuki pilnuje `shopping-units.e2e-spec.ts`.
     const candidates = await prisma.recipe.findMany({
       where: {
         isCatalog: true,
@@ -131,18 +134,26 @@ describe('Dopisane do listy zakupów E2E', () => {
             name: true,
             normalizedAmount: true,
             normalizedUnit: true,
+            ingredient: { select: { gramsPerPiece: true } },
           },
         },
       },
-      take: 20,
+      take: 40,
     });
+    const plainIngredients = (candidate: (typeof candidates)[number]) =>
+      candidate.ingredients.filter(
+        (ingredient) =>
+          ingredient.normalizedUnit !== 'szt' &&
+          !ingredient.ingredient.gramsPerPiece,
+      );
     const found = candidates.find(
       (candidate) =>
         new Set(candidate.ingredients.map(productKeyOf)).size ===
-          candidate.ingredients.length && candidate.ingredients.length >= 2,
+          candidate.ingredients.length &&
+        plainIngredients(candidate).length >= 2,
     );
     if (!found) throw new Error('katalog nie ma kolacji z dwoma składnikami');
-    recipe = found;
+    recipe = { ...found, ingredients: plainIngredients(found) };
 
     const stamp = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     const res = await request(app.getHttpServer())

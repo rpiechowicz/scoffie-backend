@@ -1062,12 +1062,17 @@ model ShoppingItemCheck {
 }
 
 model ShoppingList {
-  id          String   @id @default(uuid()) @db.Uuid
-  householdId String   @db.Uuid
-  weekStart   DateTime
-  isStale     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid()) @db.Uuid
+  householdId  String   @db.Uuid
+  weekStart    DateTime
+  isStale      Boolean  @default(false)
+  /// Wersja reguł liczenia, według których zbudowano tę migawkę
+  /// (`SHOPPING_LIST_RULES_VERSION` w `shopping-list.service.ts`). Starsza =
+  /// przebudowa przy najbliższym odczycie — zmiana reguł nie wymaga
+  /// masowego `UPDATE` na produkcji.
+  rulesVersion Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   household Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   items     ShoppingListItem[]

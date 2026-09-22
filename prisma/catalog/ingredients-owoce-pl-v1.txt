@@ -29,3 +29,5 @@ winogrono białe
 winogrono czerwone
 wiśnia
 żurawina
+jagoda
+rabarbar

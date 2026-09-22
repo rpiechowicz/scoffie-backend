@@ -1,0 +1,3109 @@
+{
+  "version": "recipes-batch-desery-35-v1",
+  "recipes": [
+    {
+      "id": "67982589-2afe-413d-8c34-83cbed2b3674",
+      "title": "Szarlotka na kruchym cieście",
+      "description": "Klasyczna domowa szarlotka: kruche, maślane ciasto i gruba warstwa duszonych jabłek z cynamonem. Najlepsza lekko ciepła, z cukrem pudrem, na niedzielną kawę albo wizytę gości.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 120,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 4150,
+        "protein": 50,
+        "carbs": 557,
+        "fat": 181,
+        "fiber": 46,
+        "salt": 1.8,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Zagnieć szybko mąkę pszenną, zimne masło pokrojone w kostkę, 80 g cukru pudru, jajka i proszek do pieczenia na gładkie ciasto. Podziel je na 2/3 i 1/3, owiń folią i schłódź w lodówce 30 minut."
+        },
+        {
+          "step": 2,
+          "instruction": "Jabłka obierz, usuń gniazda nasienne i zetrzyj na tarce o grubych oczkach."
+        },
+        {
+          "step": 3,
+          "instruction": "Przełóż jabłka do garnka, dodaj cukier i cynamon, duś 10 minut, aż zmiękną i puszczą sok. Odlej nadmiar soku, wmieszaj mąkę ziemniaczaną i ostudź."
+        },
+        {
+          "step": 4,
+          "instruction": "Większą część ciasta rozwałkuj lub rozpłaszcz dłońmi na dnie blachy 20×30 cm wyłożonej papierem, nakłuj widelcem i podpiecz 15 minut w 180°C (góra-dół)."
+        },
+        {
+          "step": 5,
+          "instruction": "Rozłóż jabłka na podpieczonym spodzie, a pozostałe ciasto zetrzyj na wierzch na tarce o grubych oczkach."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 45–50 minut w 180°C, aż wierzch będzie złocisty. Ostudź co najmniej 20 minut, żeby jabłka stężały."
+        },
+        {
+          "step": 7,
+          "instruction": "Pokrój na kwadraty i podawaj lekko ciepłą, oprószoną resztą cukru pudru."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 90,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jabłko",
+          "amount": 1500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 4,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka ziemniaczana",
+          "amount": 15,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Szarlotka na kruchym cieście, Square slice of apple pie with golden grated shortcrust top dusted with powdered sugar and a thick layer of cinnamon apples, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "04d47fcc-75ec-4dc3-9440-0bebcfd3c59c",
+      "title": "Sernik na zimno z truskawkami",
+      "description": "Puszysty sernik bez pieczenia na maślanym spodzie z herbatników, przykryty truskawkami w galaretce. Lekki i orzeźwiający, idealny na ciepłe dni i przyjęcia w ogrodzie.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 300,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3629,
+        "protein": 182,
+        "carbs": 332,
+        "fat": 172,
+        "fiber": 12,
+        "salt": 3.2,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Herbatniki pokrusz na drobny piasek, wymieszaj z roztopionym masłem i ubij na dnie tortownicy o średnicy 24 cm. Wstaw do lodówki."
+        },
+        {
+          "step": 2,
+          "instruction": "Żelatynę zalej 100 ml zimnej wody na 5 minut, potem podgrzej, mieszając, aż się rozpuści (nie gotuj). Przestudź."
+        },
+        {
+          "step": 3,
+          "instruction": "Twaróg zmiel dwukrotnie albo zmiksuj z cukrem pudrem na gładką masę. Śmietankę ubij na sztywno."
+        },
+        {
+          "step": 4,
+          "instruction": "Do twarogu wlej cienkim strumieniem żelatynę, stale miksując, a potem delikatnie wmieszaj bitą śmietankę. Wyłóż masę na spód, wyrównaj i schłódź 1 godzinę."
+        },
+        {
+          "step": 5,
+          "instruction": "Galaretkę rozpuść w 350 ml gorącej wody i ostudź, aż zacznie gęstnieć. Truskawki umyj, odszypułkuj i przekrój na połówki."
+        },
+        {
+          "step": 6,
+          "instruction": "Ułóż truskawki na stężałej masie i zalej je tężejącą galaretką. Chłodź sernik co najmniej 4 godziny, najlepiej całą noc."
+        },
+        {
+          "step": 7,
+          "instruction": "Obejdź brzeg tortownicy nożem, zdejmij obręcz i podawaj schłodzony, krojąc nożem maczanym w gorącej wodzie."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "herbatnik",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 70,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser twaróg półtłusty",
+          "amount": 750,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "śmietanka 30",
+          "amount": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "żelatyna",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "truskawka",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "galaretka",
+          "amount": 75,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sernik na zimno z truskawkami, Slice of no-bake cheesecake with biscuit crumb base, white creamy layer and glossy strawberry halves set in red jelly on top, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "3ad0ca72-78d2-42cf-89ae-79fc000b69f1",
+      "title": "Sernik klasyczny na kruchym spodzie",
+      "description": "Domowy sernik pieczony z mielonego twarogu, gęsty i wilgotny, z nutą wanilii i cienkim kruchym spodem. Ciasto na święta i rodzinne okazje, które smakuje najlepiej na drugi dzień.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 300,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 4274,
+        "protein": 235,
+        "carbs": 422,
+        "fat": 180,
+        "fiber": 4,
+        "salt": 2.2,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Zagnieć mąkę, 70 g zimnego masła, cukier puder i 1 jajko na kruche ciasto. Wyłóż nim dno tortownicy 24 cm, nakłuj widelcem i podpiecz 15 minut w 180°C (góra-dół)."
+        },
+        {
+          "step": 2,
+          "instruction": "Twaróg zmiel dwukrotnie przez maszynkę albo przetrzyj przez sito, żeby masa była gładka."
+        },
+        {
+          "step": 3,
+          "instruction": "Utrzyj resztę miękkiego masła z cukrem i cukrem waniliowym, dodawaj po jednym pozostałe 4 jajka, a potem stopniowo twaróg i proszek budyniowy. Miksuj krótko, na niskich obrotach, tylko do połączenia."
+        },
+        {
+          "step": 4,
+          "instruction": "Wylej masę na podpieczony spód i wyrównaj. Zmniejsz temperaturę do 160°C."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz około 70 minut, aż brzegi będą ścięte, a środek lekko drżący. Wyłącz piekarnik, uchyl drzwiczki i zostaw sernik w środku na godzinę, żeby nie opadł."
+        },
+        {
+          "step": 6,
+          "instruction": "Ostudzony sernik chłódź w lodówce co najmniej 4 godziny, najlepiej przez noc."
+        },
+        {
+          "step": 7,
+          "instruction": "Kroi się go najlepiej ostrym nożem maczanym w gorącej wodzie; podawaj schłodzony, sam albo z owocami."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 130,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 5,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "ser twaróg półtłusty",
+          "amount": 1000,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "budyń",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier waniliowy",
+          "amount": 16,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sernik klasyczny na kruchym spodzie, Tall slice of baked Polish cheesecake with pale golden top and thin shortcrust base, creamy dense white filling, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "83bed066-d7ed-47e6-ad6e-5fde15f4da82",
+      "title": "Brownie z gorzką czekoladą",
+      "description": "Mocno czekoladowe brownie z chrupiącą, popękaną skórką i wilgotnym, ciągnącym się środkiem. Wystarczy jedna miska i pół godziny pieczenia, a kwadraty dobrze znoszą transport.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 50,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3525,
+        "protein": 48,
+        "carbs": 314,
+        "fat": 224,
+        "fiber": 28,
+        "salt": 1.7,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 180°C (góra-dół), formę 20×20 cm wyłóż papierem do pieczenia."
+        },
+        {
+          "step": 2,
+          "instruction": "Połam czekoladę, dodaj masło i roztop w misce nad garnkiem z gotującą się wodą, mieszając. Odstaw na 5 minut, żeby przestygła."
+        },
+        {
+          "step": 3,
+          "instruction": "Jajka ubij z cukrem przez 3 minuty, aż masa zbieleje i zgęstnieje, a potem wmieszaj roztopioną czekoladę."
+        },
+        {
+          "step": 4,
+          "instruction": "Przesiej mąkę, kakao i sól, wmieszaj szpatułką tylko do połączenia składników."
+        },
+        {
+          "step": 5,
+          "instruction": "Przelej masę do formy i piecz 22–25 minut. Patyczek wbity w środek ma wyjść z wilgotnymi okruchami, a nie czysty."
+        },
+        {
+          "step": 6,
+          "instruction": "Ostudź brownie w formie co najmniej 20 minut, pokrój na 8 kawałków i podawaj."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "czekolada gorzka",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Brownie z gorzką czekoladą, Fudgy dark chocolate brownie squares with crackly shiny top stacked on parchment paper, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "2684e3f2-c75d-4e80-aca3-f46921e386db",
+      "title": "Ciasto marchewkowe z kremem serowym",
+      "description": "Wilgotne ciasto z tartą marchewką, orzechami i cynamonem, przykryte gładkim kremem z serka. Korzenne i niezbyt słodkie, świetnie trzyma świeżość przez kilka dni w lodówce.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 90,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 4097,
+        "protein": 68,
+        "carbs": 415,
+        "fat": 238,
+        "fiber": 22,
+        "salt": 8.2,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 175°C (góra-dół), keksówkę lub formę 20×20 cm wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Marchew obierz i zetrzyj na tarce o drobnych oczkach. Orzechy posiekaj, kilka zostaw do dekoracji."
+        },
+        {
+          "step": 3,
+          "instruction": "Jajka ubij z cukrem brązowym na puszystą masę, wlej cienkim strumieniem olej i dalej miksuj."
+        },
+        {
+          "step": 4,
+          "instruction": "Wymieszaj mąkę, proszek do pieczenia, sodę i cynamon, dodaj do masy i wymieszaj łyżką. Na koniec wmieszaj marchew i orzechy."
+        },
+        {
+          "step": 5,
+          "instruction": "Przelej ciasto do formy i piecz 45–50 minut, do suchego patyczka. Ostudź całkowicie na kratce."
+        },
+        {
+          "step": 6,
+          "instruction": "Serek kremowy utrzyj z cukrem pudrem na gładki krem, rozsmaruj na wierzchu ostudzonego ciasta."
+        },
+        {
+          "step": 7,
+          "instruction": "Posyp resztą orzechów, pokrój i podawaj od razu albo po schłodzeniu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "marchew",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier brązowy",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 150,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "soda oczyszczona",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "serek kremowy",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 50,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Ciasto marchewkowe z kremem serowym, Moist carrot cake slice with visible orange flecks, thick white cream cheese frosting and chopped walnuts on top, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "2daeae9c-528a-4af5-8a81-df08f8266565",
+      "title": "Ciasto ucierane ze śliwkami",
+      "description": "Maślane ciasto ucierane z połówkami węgierek, które w piekarniku zapadają się i puszczają kwaskowy sok. Sezonowy klasyk z końca lata, prosty i zawsze udany.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 80,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3880,
+        "protein": 60,
+        "carbs": 475,
+        "fat": 189,
+        "fiber": 16,
+        "salt": 3.4,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 180°C (góra-dół), blachę 20×30 cm wyłóż papierem. Śliwki umyj, przekrój na połówki i usuń pestki."
+        },
+        {
+          "step": 2,
+          "instruction": "Miękkie masło utrzyj z cukrem i cukrem waniliowym na puszystą, jasną masę (około 5 minut)."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodawaj po jednym jajku, za każdym razem miksując do połączenia."
+        },
+        {
+          "step": 4,
+          "instruction": "Wmieszaj mąkę przesianą z proszkiem do pieczenia, krótko, tylko do połączenia. Rozsmaruj ciasto w blasze."
+        },
+        {
+          "step": 5,
+          "instruction": "Ułóż śliwki gęsto skórką do dołu, lekko je wciskając w ciasto."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 45–50 minut, aż ciasto między śliwkami będzie złote, a patyczek suchy."
+        },
+        {
+          "step": 7,
+          "instruction": "Ostudź, oprósz cukrem pudrem i podawaj pokrojone w kwadraty."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "masło",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier waniliowy",
+          "amount": 16,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 280,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "śliwka",
+          "amount": 600,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Ciasto ucierane ze śliwkami, Golden butter sponge cake studded with sunken purple plum halves, dusted with powdered sugar, cut into squares, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "0986ca9d-a1d2-4370-8a3b-ba2d09abfe11",
+      "title": "Murzynek z polewą czekoladową",
+      "description": "Wilgotne ciasto kakaowe z PRL-owskiego zeszytu z przepisami, polane lśniącą polewą z tej samej masy. Proste, tanie i zawsze znika jako pierwsze z talerza.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 75,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3911,
+        "protein": 67,
+        "carbs": 454,
+        "fat": 196,
+        "fiber": 16,
+        "salt": 3.6,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "W garnku podgrzej masło, cukier, cukier waniliowy, kakao i mleko, mieszając, aż cukier się rozpuści i powstanie gładka polewa. Odlej 1/3 masy na polewę, resztę ostudź."
+        },
+        {
+          "step": 2,
+          "instruction": "Nagrzej piekarnik do 180°C (góra-dół), keksówkę 30 cm wyłóż papierem."
+        },
+        {
+          "step": 3,
+          "instruction": "Jajka rozdziel. Do ostudzonej masy kakaowej dodaj żółtka i wymieszaj, a potem wsyp mąkę przesianą z proszkiem do pieczenia."
+        },
+        {
+          "step": 4,
+          "instruction": "Białka ubij na sztywno i delikatnie wmieszaj do ciasta szpatułką."
+        },
+        {
+          "step": 5,
+          "instruction": "Przelej ciasto do formy i piecz 40–45 minut, do suchego patyczka. Ostudź w formie."
+        },
+        {
+          "step": 6,
+          "instruction": "Podgrzej odlaną polewę, jeśli zgęstniała, polej nią ostudzone ciasto i odstaw, aż stężeje."
+        },
+        {
+          "step": 7,
+          "instruction": "Pokrój na grube kromki i podawaj do kawy lub szklanki mleka."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "masło",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 220,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 120,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 280,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier waniliowy",
+          "amount": 16,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Murzynek z polewą czekoladową, Slices of dark cocoa loaf cake with thick glossy chocolate glaze dripping on the sides, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "b7a622a6-bc6f-430b-aaf9-5309e4879142",
+      "title": "Babka marmurkowa",
+      "description": "Puszysta babka piaskowa z jasno-kakaowym marmurkowym wzorem, pieczona w formie z kominem. Ciasto do kawy, które długo zostaje świeże i ładnie wygląda po przekrojeniu.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 80,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3836,
+        "protein": 54,
+        "carbs": 466,
+        "fat": 191,
+        "fiber": 9,
+        "salt": 3.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 175°C (góra-dół). Formę do babki z kominem wysmaruj masłem i oprósz mąką."
+        },
+        {
+          "step": 2,
+          "instruction": "Miękkie masło utrzyj z cukrem i cukrem waniliowym na puszysto, potem dodawaj po jednym jajku."
+        },
+        {
+          "step": 3,
+          "instruction": "Obie mąki przesiej z proszkiem do pieczenia i wmieszaj do masy na zmianę z 40 ml mleka."
+        },
+        {
+          "step": 4,
+          "instruction": "Odłóż 1/3 ciasta do drugiej miski i wmieszaj do niej kakao oraz resztę mleka."
+        },
+        {
+          "step": 5,
+          "instruction": "Do formy nakładaj na zmianę łyżką jasne i ciemne ciasto, a potem przeciągnij przez nie widelcem kilka spiral, żeby powstał marmurek."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 50–55 minut, do suchego patyczka. Odstaw na 10 minut i wyjmij z formy na kratkę."
+        },
+        {
+          "step": 7,
+          "instruction": "Ostudzoną babkę oprósz cukrem pudrem i podawaj pokrojoną w plastry."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "masło",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier waniliowy",
+          "amount": 16,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka ziemniaczana",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 60,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Babka marmurkowa, Bundt marble cake with swirls of vanilla and cocoa sponge visible in a cut slice, dusted with powdered sugar, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "76bacdf9-555e-47c9-8e92-ae8b74140425",
+      "title": "Tiramisu",
+      "description": "Włoski deser z biszkoptów nasączonych kawą, przełożonych puszystym kremem z mascarpone i oprószonych kakao. Krem bez surowych jajek, robi się go bez pieczenia, a po nocy w lodówce smakuje najlepiej.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 270,
+      "servings": 6,
+      "nutrition": {
+        "kcal": 3079,
+        "protein": 40,
+        "carbs": 226,
+        "fat": 223,
+        "fiber": 5,
+        "salt": 1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Kawę rozpuść we wrzącej wodzie (250 ml) i całkowicie ostudź."
+        },
+        {
+          "step": 2,
+          "instruction": "Schłodzoną śmietankę ubij z cukrem pudrem na sztywno."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj zimny mascarpone i miksuj na niskich obrotach tylko do połączenia, aż krem będzie gładki i gęsty — dłuższe miksowanie może go zważyć."
+        },
+        {
+          "step": 4,
+          "instruction": "Biszkopty maczaj krótko w kawie (sekunda na stronę) i ułóż warstwę na dnie naczynia 20×25 cm. Przykryj połową kremu, ułóż drugą warstwę biszkoptów i resztę kremu."
+        },
+        {
+          "step": 5,
+          "instruction": "Przykryj folią i chłódź co najmniej 4 godziny, najlepiej przez noc."
+        },
+        {
+          "step": 6,
+          "instruction": "Tuż przed podaniem oprósz obficie kakao przez sitko i nakładaj porcje łopatką."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "kawa rozpuszczalna",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser mascarpone",
+          "amount": 350,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "śmietanka 30",
+          "amount": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "biszkopt",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Tiramisu, Square portion of tiramisu with visible layers of coffee-soaked ladyfingers and mascarpone cream, heavily dusted with cocoa powder, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "769eb77b-5463-4f72-9134-8d19efd8a092",
+      "title": "Panna cotta z musem malinowym",
+      "description": "Gładki, waniliowy krem ze śmietanki, który delikatnie drży na łyżce, polany kwaskowym musem z malin. Elegancki deser na przyjęcie, który przygotujesz dzień wcześniej.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 270,
+      "servings": 4,
+      "nutrition": {
+        "kcal": 1731,
+        "protein": 24,
+        "carbs": 116,
+        "fat": 125,
+        "fiber": 16,
+        "salt": 0.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Żelatynę zalej 3 łyżkami zimnego mleka i odstaw na 5 minut do napęcznienia."
+        },
+        {
+          "step": 2,
+          "instruction": "W garnku podgrzej śmietankę z resztą mleka, cukrem i cukrem waniliowym prawie do wrzenia, mieszając, aż cukier się rozpuści."
+        },
+        {
+          "step": 3,
+          "instruction": "Zdejmij z ognia, dodaj napęczniałą żelatynę i mieszaj, aż całkowicie się rozpuści."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozlej masę do 4 szklanek lub kokilek, ostudź i chłódź co najmniej 4 godziny, aż stężeje."
+        },
+        {
+          "step": 5,
+          "instruction": "Maliny rozmroź, zmiksuj z cukrem pudrem i przetrzyj przez sito, żeby pozbyć się pestek."
+        },
+        {
+          "step": 6,
+          "instruction": "Przed podaniem polej każdą panna cottę musem malinowym i podawaj schłodzoną."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "żelatyna",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "śmietanka 30",
+          "amount": 400,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 100,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier waniliowy",
+          "amount": 16,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "malina mrożona",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 20,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Panna cotta z musem malinowym, White vanilla panna cotta in a glass topped with a bright red raspberry coulis layer, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "ec63651a-15b9-4fd2-8344-dc0b31fbe331",
+      "title": "Pieczone jabłka z cynamonem i orzechami",
+      "description": "Całe jabłka pieczone z nadzieniem z orzechów, rodzynek i miodu, miękkie i pachnące cynamonem. Jesienny deser prawie bez pracy, świetny z łyżką gęstego jogurtu.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 50,
+      "servings": 4,
+      "nutrition": {
+        "kcal": 1012,
+        "protein": 18,
+        "carbs": 123,
+        "fat": 49,
+        "fiber": 20,
+        "salt": 0.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 180°C (góra-dół). Jabłka umyj, odetnij wierzch jako „czapeczkę” i wydrąż gniazda nasienne łyżeczką, nie przebijając dna."
+        },
+        {
+          "step": 2,
+          "instruction": "Orzechy posiekaj, wymieszaj z rodzynkami, miodem i cynamonem."
+        },
+        {
+          "step": 3,
+          "instruction": "Napełnij jabłka farszem, na każde połóż kawałek masła i przykryj czapeczką."
+        },
+        {
+          "step": 4,
+          "instruction": "Ułóż jabłka w naczyniu żaroodpornym, podlej 3 łyżkami wody i piecz 30–35 minut, aż skórka zacznie pękać, a miąższ będzie miękki."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj ciepłe, polane sosem z dna naczynia, z łyżką jogurtu greckiego."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jabłko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "rodzynka",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt grecki",
+          "amount": 100,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pieczone jabłka z cynamonem i orzechami, Whole baked red apple with wrinkled skin, filled with walnuts and raisins in honey, with a dollop of Greek yogurt beside it, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "80bcb782-f324-492e-8ff3-cef145f63153",
+      "title": "Crumble jabłkowe z owsianą kruszonką",
+      "description": "Soczyste jabłka z cynamonem pod grubą, chrupiącą kruszonką z masła, mąki i płatków owsianych. Rozgrzewający deser z jednego naczynia, gotowy w niecałą godzinę.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 50,
+      "servings": 4,
+      "nutrition": {
+        "kcal": 1739,
+        "protein": 28,
+        "carbs": 222,
+        "fat": 78,
+        "fiber": 24,
+        "salt": 0.2,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 190°C (góra-dół). Jabłka obierz, usuń gniazda i pokrój w kostkę 1,5 cm."
+        },
+        {
+          "step": 2,
+          "instruction": "Wymieszaj jabłka z sokiem z cytryny, 20 g cukru brązowego i cynamonem, przełóż do naczynia żaroodpornego około 20×20 cm."
+        },
+        {
+          "step": 3,
+          "instruction": "W misce połącz mąkę, płatki owsiane i resztę cukru, dodaj zimne masło w kostce i rozcieraj palcami, aż powstaną grudki kruszonki."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozsyp kruszonkę równo na jabłkach."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 30–35 minut, aż kruszonka będzie złota, a sok z jabłek zacznie bulgotać na brzegach."
+        },
+        {
+          "step": 6,
+          "instruction": "Odstaw na 5 minut i podawaj ciepłe, z łyżką jogurtu greckiego."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jabłko",
+          "amount": 600,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier brązowy",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "płatki owsiane",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt grecki",
+          "amount": 120,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Crumble jabłkowe z owsianą kruszonką, Apple crumble in a ceramic baking dish with golden oat crumb topping and bubbling apple juices at the edges, spoon of Greek yogurt on top, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "51bc2453-3e41-48bd-b32a-7fdb5862684e",
+      "title": "Chlebek bananowy z orzechami",
+      "description": "Wilgotna keksówka z bardzo dojrzałych bananów, lekko karmelowa, z chrupiącymi kawałkami orzechów. Dobry sposób na brązowiejące owoce, a kromka sprawdzi się też w pudełku do pracy.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 75,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 2569,
+        "protein": 48,
+        "carbs": 338,
+        "fat": 111,
+        "fiber": 20,
+        "salt": 4.8,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 175°C (góra-dół), keksówkę około 25 cm wyłóż papierem. Masło roztop i przestudź."
+        },
+        {
+          "step": 2,
+          "instruction": "Banany rozgnieć widelcem na gładkie purée, dodaj cukier brązowy, jajka i roztopione masło, wymieszaj trzepaczką."
+        },
+        {
+          "step": 3,
+          "instruction": "W drugiej misce połącz mąkę, proszek do pieczenia, sodę, cynamon i sól, wsyp do mokrych składników i wymieszaj łyżką tylko do połączenia."
+        },
+        {
+          "step": 4,
+          "instruction": "Orzechy posiekaj grubo i wmieszaj do ciasta, garść zostaw na wierzch."
+        },
+        {
+          "step": 5,
+          "instruction": "Przelej ciasto do formy, posyp orzechami i piecz 50–55 minut, do suchego patyczka. Jeśli wierzch za szybko się rumieni, przykryj go folią."
+        },
+        {
+          "step": 6,
+          "instruction": "Ostudź w formie 15 minut, wyjmij na kratkę i podawaj pokrojony w grube kromki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "banan",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier brązowy",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 220,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "soda oczyszczona",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 50,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Chlebek bananowy z orzechami, Sliced banana bread loaf with dark caramelized crust and walnut pieces on top, moist crumb visible, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "1ffeb18f-b098-4ccd-a763-ac9c8d58080c",
+      "title": "Ciasteczka owsiane z rodzynkami",
+      "description": "Chrupiące na brzegach, miękkie w środku ciasteczka z płatków owsianych z rodzynkami i cynamonem. Gotowe w pół godziny, dobrze znoszą przechowywanie w puszce przez tydzień.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 2645,
+        "protein": 46,
+        "carbs": 334,
+        "fat": 119,
+        "fiber": 27,
+        "salt": 2.6,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 180°C (góra-dół), dwie blachy wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Miękkie masło utrzyj z cukrem brązowym, dodaj jajko i miksuj do połączenia."
+        },
+        {
+          "step": 3,
+          "instruction": "Wsyp płatki owsiane, mąkę, proszek do pieczenia, cynamon i sól, wymieszaj łyżką. Na koniec wmieszaj rodzynki."
+        },
+        {
+          "step": 4,
+          "instruction": "Formuj kulki wielkości orzecha włoskiego (około 24 sztuki), układaj z odstępami i spłaszcz dłonią na grubość 1 cm."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 12–14 minut, aż brzegi będą złote, a środek jeszcze miękki — stężeje po wystudzeniu."
+        },
+        {
+          "step": 6,
+          "instruction": "Ostudź na blasze 5 minut, przełóż na kratkę i podawaj po 3 ciasteczka na porcję."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "masło",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier brązowy",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "płatki owsiane",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "rodzynka",
+          "amount": 60,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Ciasteczka owsiane z rodzynkami, Stack of golden oatmeal cookies with raisins and rough oat texture on a wooden board, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "a378bd8c-3fbd-4e9b-a22b-538d1de1c37a",
+      "title": "Ciastka z kawałkami czekolady",
+      "description": "Duże, maślane ciastka w stylu amerykańskim, chrupiące na brzegach i ciągnące się w środku, z grubymi kawałkami gorzkiej czekolady. Najlepsze jeszcze lekko ciepłe, do szklanki mleka.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3443,
+        "protein": 45,
+        "carbs": 414,
+        "fat": 172,
+        "fiber": 23,
+        "salt": 4.4,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 180°C (góra-dół), dwie blachy wyłóż papierem. Czekoladę posiekaj nożem na kawałki wielkości groszku."
+        },
+        {
+          "step": 2,
+          "instruction": "Roztopione i lekko przestudzone masło wymieszaj z oboma cukrami i cukrem waniliowym, dodaj jajko i ubij trzepaczką na gładką masę."
+        },
+        {
+          "step": 3,
+          "instruction": "Wsyp mąkę, sodę i sól, wymieszaj łyżką, a na koniec wmieszaj czekoladę."
+        },
+        {
+          "step": 4,
+          "instruction": "Formuj kulki po około 40 g (16 sztuk) i układaj na blachach w dużych odstępach, bo ciastka się rozpłyną."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 10–12 minut, aż brzegi się zezłocą, a środek będzie jeszcze blady i miękki."
+        },
+        {
+          "step": 6,
+          "instruction": "Zostaw na blasze 5 minut, przełóż na kratkę i podawaj po 2 ciastka na porcję."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "masło",
+          "amount": 125,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier brązowy",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier waniliowy",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "soda oczyszczona",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czekolada gorzka",
+          "amount": 150,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Ciastka z kawałkami czekolady, Large chewy chocolate chip cookies with golden edges and melted dark chocolate chunks, one broken in half, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "8c86378c-537a-4975-a0eb-91e39737ec12",
+      "title": "Domowy kisiel z wiśniami i truskawkami",
+      "description": "Prawdziwy kisiel z owoców zagęszczony mąką ziemniaczaną, bez torebki i sztucznych aromatów. Gęsty, kwaskowo-słodki, dobry na ciepło w chłodne popołudnie i schłodzony latem.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 433,
+        "protein": 2,
+        "carbs": 102,
+        "fat": 1,
+        "fiber": 6,
+        "salt": 0,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Wiśnie i truskawki wrzuć do garnka z 400 ml wody i cukrem, zagotuj i gotuj 5 minut, aż owoce zmiękną. Większe truskawki rozgnieć łyżką."
+        },
+        {
+          "step": 2,
+          "instruction": "Mąkę ziemniaczaną rozmieszaj dokładnie w pozostałych 100 ml zimnej wody, bez grudek."
+        },
+        {
+          "step": 3,
+          "instruction": "Zmniejsz ogień i wlewaj zawiesinę cienkim strumieniem do owoców, cały czas energicznie mieszając."
+        },
+        {
+          "step": 4,
+          "instruction": "Doprowadź do wrzenia i gotuj jeszcze minutę, aż kisiel zgęstnieje i stanie się przejrzysty."
+        },
+        {
+          "step": 5,
+          "instruction": "Rozlej do miseczek i podawaj ciepły albo schłodzony."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "wiśnia mrożona",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "truskawka mrożona",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka ziemniaczana",
+          "amount": 30,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Domowy kisiel z wiśniami i truskawkami, Glass bowl of thick glossy deep red fruit kisiel with whole cherries and strawberry pieces, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "d18f7815-c9ae-4f24-8f73-59c311ec6eb3",
+      "title": "Lody bananowe z kakao i masłem orzechowym",
+      "description": "Kremowe lody z samych zamrożonych bananów, zmiksowanych z kakao i masłem orzechowym, bez maszyny i bez śmietanki. Konsystencja miękkich lodów, słodycz wyłącznie z owoców.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 250,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 557,
+        "protein": 16,
+        "carbs": 78,
+        "fat": 19,
+        "fiber": 13,
+        "salt": 0.4,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Dojrzałe banany obierz, pokrój w plasterki grubości 1 cm, rozłóż na talerzu i zamroź na co najmniej 4 godziny."
+        },
+        {
+          "step": 2,
+          "instruction": "Zamrożone plasterki przełóż do blendera kielichowego lub malaksera, dodaj kakao i 20 g masła orzechowego."
+        },
+        {
+          "step": 3,
+          "instruction": "Miksuj, dolewając stopniowo mleko i zgarniając masę ze ścianek, aż powstanie gładki, kremowy krem o konsystencji lodów (2–3 minuty)."
+        },
+        {
+          "step": 4,
+          "instruction": "Jeśli wolisz twardsze lody, przełóż masę do pojemnika i zamroź jeszcze na 30 minut."
+        },
+        {
+          "step": 5,
+          "instruction": "Nakładaj gałki do miseczek, polej resztą masła orzechowego i podawaj od razu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "banan",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło orzechowe",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 40,
+          "unit": "ml"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Lody bananowe z kakao i masłem orzechowym, Scoops of creamy chocolate banana nice cream in a bowl drizzled with peanut butter, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "a73203e2-2401-40c9-8f37-f81b5b19ba07",
+      "title": "Kokosanki",
+      "description": "Małe ciasteczka z wiórków kokosowych i ubitych białek, chrupiące z wierzchu, a w środku wilgotne i ciągnące. Tylko trzy składniki i dobry sposób na wykorzystanie białek.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 6,
+      "nutrition": {
+        "kcal": 2055,
+        "protein": 33,
+        "carbs": 146,
+        "fat": 143,
+        "fiber": 33,
+        "salt": 1.7,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 160°C (góra-dół), blachę wyłóż papierem. Oddziel białka od żółtek (żółtka wykorzystaj np. do budyniu lub kremu)."
+        },
+        {
+          "step": 2,
+          "instruction": "Białka ubij ze szczyptą soli na sztywno, a potem dodawaj po łyżce cukier, miksując, aż piana będzie lśniąca."
+        },
+        {
+          "step": 3,
+          "instruction": "Wsyp wiórki kokosowe i delikatnie wmieszaj je szpatułką."
+        },
+        {
+          "step": 4,
+          "instruction": "Zwilżonymi dłońmi lub dwiema łyżeczkami formuj małe kopczyki (około 18 sztuk) i układaj je na blasze z odstępami."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 18–20 minut, aż czubki i spody lekko się zezłocą."
+        },
+        {
+          "step": 6,
+          "instruction": "Ostudź na blasze, żeby stężały, i podawaj po 3 sztuki na porcję."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jajko",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 130,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "wiórki kokosowe",
+          "amount": 200,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Kokosanki, Small golden-tipped coconut macaroon mounds on parchment paper, rough shredded coconut texture, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "f53b0816-0efb-4e4e-85b3-d95c5588af59",
+      "title": "Deser z galaretką, bitą śmietaną i owocami",
+      "description": "Kolorowy deser w pucharkach: warstwy truskawkowej galaretki z owocami i puszystej bitej śmietany. Ulubieniec dzieci z rodzinnych imienin, przygotowany z produktów z każdego sklepu.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 180,
+      "servings": 4,
+      "nutrition": {
+        "kcal": 1120,
+        "protein": 13,
+        "carbs": 128,
+        "fat": 61,
+        "fiber": 7,
+        "salt": 0.9,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Galaretkę rozpuść w 450 ml gorącej wody i ostudź do temperatury pokojowej."
+        },
+        {
+          "step": 2,
+          "instruction": "Truskawki pokrój w ćwiartki, banana w plasterki. Kilka kawałków truskawek odłóż do dekoracji."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozłóż owoce do 4 szklanek lub pucharków, zalej galaretką i wstaw do lodówki na 2–2,5 godziny, aż stężeje."
+        },
+        {
+          "step": 4,
+          "instruction": "Schłodzoną śmietankę ubij z cukrem pudrem na sztywno."
+        },
+        {
+          "step": 5,
+          "instruction": "Nałóż bitą śmietanę na stężałą galaretkę, udekoruj odłożonymi truskawkami i podawaj od razu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "galaretka",
+          "amount": 75,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "truskawka",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "śmietanka 30",
+          "amount": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 20,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Deser z galaretką, bitą śmietaną i owocami, Glass cup with red strawberry jelly and fruit pieces at the bottom, topped with swirl of whipped cream and fresh strawberry, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "b6c4b3d6-4d09-4281-a60a-074a877d9d01",
+      "title": "Ciasto jogurtowe z borówkami",
+      "description": "Szybkie ciasto na jogurcie i oleju, mierzone jak u babci, z owocami zatopionymi w miękkim, wilgotnym cieście. Wyjdzie z każdymi sezonowymi owocami, a najładniej z borówkami.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 70,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3419,
+        "protein": 60,
+        "carbs": 474,
+        "fat": 137,
+        "fiber": 14,
+        "salt": 3.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 180°C (góra-dół), blachę 20×30 cm wyłóż papierem. Borówki umyj i osusz."
+        },
+        {
+          "step": 2,
+          "instruction": "Jajka ubij z cukrem na jasną, puszystą masę (około 4 minut)."
+        },
+        {
+          "step": 3,
+          "instruction": "Zmniejsz obroty, dodaj jogurt i olej, a potem mąkę przesianą z proszkiem do pieczenia. Miksuj tylko do połączenia."
+        },
+        {
+          "step": 4,
+          "instruction": "Przelej ciasto do blachy i rozsyp na wierzchu borówki."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 40–45 minut, aż ciasto będzie złote, a patyczek suchy."
+        },
+        {
+          "step": 6,
+          "instruction": "Ostudź, oprósz cukrem pudrem i podawaj pokrojone w kwadraty."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jajko",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 120,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "borówka",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Ciasto jogurtowe z borówkami, Squares of fluffy yogurt sponge cake studded with blueberries, dusted with powdered sugar, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "9d65f873-16e6-4508-a2f4-1c4adeecdb41",
+      "title": "Sernik baskijski",
+      "description": "Hiszpański sernik bez spodu z celowo przypaloną, karmelową skórką i kremowym, niemal płynnym środkiem. Pięć składników, jedna miska i efekt jak z kawiarni.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 300,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3913,
+        "protein": 81,
+        "carbs": 255,
+        "fat": 286,
+        "fiber": 1,
+        "salt": 7.9,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 220°C (góra-dół). Tortownicę 22 cm wyłóż dwoma pogniecionymi arkuszami papieru do pieczenia tak, żeby wystawały ponad brzeg."
+        },
+        {
+          "step": 2,
+          "instruction": "Serek kremowy w temperaturze pokojowej zmiksuj z cukrem na gładką masę."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodawaj po jednym jajku, miksując na niskich obrotach, a potem wlej śmietankę i wsyp przesianą mąkę."
+        },
+        {
+          "step": 4,
+          "instruction": "Przelej masę do formy i piecz 30–35 minut, aż wierzch będzie ciemnobrązowy, niemal przypalony, a środek wyraźnie falujący przy potrząśnięciu."
+        },
+        {
+          "step": 5,
+          "instruction": "Ostudź sernik w formie w temperaturze pokojowej (około godziny), potem chłódź co najmniej 4 godziny."
+        },
+        {
+          "step": 6,
+          "instruction": "Wyjmij razem z papierem i podawaj w klinach, najlepiej 20 minut po wyjęciu z lodówki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "serek kremowy",
+          "amount": 800,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "śmietanka 30",
+          "amount": 250,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 20,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Sernik baskijski, Wedge of Basque burnt cheesecake with dark caramelized top and creamy pale center, rustic parchment edges, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "bb1b5226-75be-4e56-a97f-cbc293b380c4",
+      "title": "Ciasto z rabarbarem i kruszonką",
+      "description": "Maślane ciasto ucierane z kwaskowym rabarbarem i grubą warstwą chrupiącej kruszonki. Wiosenny klasyk z działki, w którym słodycz ciasta równoważy ostry smak łodyg.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 85,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3735,
+        "protein": 62,
+        "carbs": 479,
+        "fat": 166,
+        "fiber": 18,
+        "salt": 2.9,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Przygotuj kruszonkę: 80 g mąki, 50 g zimnego masła i 50 g cukru rozcieraj palcami na grudki i wstaw do lodówki."
+        },
+        {
+          "step": 2,
+          "instruction": "Rabarbar umyj, obierz grubsze łodygi z włókien i pokrój w kawałki 1,5 cm. Nagrzej piekarnik do 180°C (góra-dół), blachę 20×30 cm wyłóż papierem."
+        },
+        {
+          "step": 3,
+          "instruction": "Resztę miękkiego masła utrzyj z resztą cukru i cukrem waniliowym, dodawaj po jednym jajku, a potem jogurt."
+        },
+        {
+          "step": 4,
+          "instruction": "Wmieszaj pozostałą mąkę przesianą z proszkiem do pieczenia i rozsmaruj ciasto w blasze."
+        },
+        {
+          "step": 5,
+          "instruction": "Rozłóż równo rabarbar i posyp go kruszonką."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 45–50 minut, aż kruszonka będzie złota, a patyczek wbity w ciasto suchy."
+        },
+        {
+          "step": 7,
+          "instruction": "Ostudź w blasze i podawaj pokrojone w kwadraty."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "masło",
+          "amount": 175,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier waniliowy",
+          "amount": 16,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 330,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "rabarbar",
+          "amount": 500,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Ciasto z rabarbarem i kruszonką, Square slice of rhubarb cake with pink rhubarb pieces and thick golden crumble topping, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "59e1e8fe-818b-4dc8-8e7c-ef0a18c751a9",
+      "title": "Czekoladowe ciasto z kubka",
+      "description": "Wilgotne ciasto czekoladowe pieczone w kubku w mikrofalówce z kawałkami czekolady, które roztapiają się w środku. Deser na nagłą ochotę na słodkie, gotowy w 10 minut.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 902,
+        "protein": 20,
+        "carbs": 97,
+        "fat": 46,
+        "fiber": 8,
+        "salt": 0.8,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "W misce wymieszaj mąkę, kakao, cukier i proszek do pieczenia."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj jajko, mleko i olej, wymieszaj widelcem na gładkie, gęste ciasto bez grudek."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozdziel ciasto do dwóch dużych kubków (co najmniej 300 ml), wypełniając je najwyżej do połowy. W środek każdego wciśnij kilka kostek czekolady."
+        },
+        {
+          "step": 4,
+          "instruction": "Piecz każdy kubek osobno w mikrofalówce 70–90 sekund przy 800 W, aż ciasto wyrośnie, a wierzch będzie suchy, ale sprężysty."
+        },
+        {
+          "step": 5,
+          "instruction": "Odstaw na minutę, bo kubek jest gorący, i jedz łyżeczką prosto z kubka, póki czekolada w środku jest płynna."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 60,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 30,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "czekolada gorzka",
+          "amount": 20,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Czekoladowe ciasto z kubka, Chocolate mug cake risen above the rim of a white mug, with melted dark chocolate in the center, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "c54c666c-35c9-40b8-9566-49e514af0db1",
+      "title": "Muffinki czekoladowe",
+      "description": "Puszyste, mocno kakaowe muffinki z kawałkami gorzkiej czekolady w środku i na wierzchu. Robi się je metodą dwóch misek, bez miksera, a świetnie nadają się do szkolnego pudełka.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 2644,
+        "protein": 48,
+        "carbs": 293,
+        "fat": 136,
+        "fiber": 20,
+        "salt": 5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 190°C (góra-dół), 8 wgłębień formy do muffinek wyłóż papilotkami. Czekoladę posiekaj na kawałki."
+        },
+        {
+          "step": 2,
+          "instruction": "W dużej misce wymieszaj mąkę, kakao, cukier, proszek do pieczenia, sodę i sól."
+        },
+        {
+          "step": 3,
+          "instruction": "W drugiej misce roztrzep jajka z mlekiem i olejem."
+        },
+        {
+          "step": 4,
+          "instruction": "Wlej mokre składniki do suchych i wymieszaj łyżką tylko do połączenia — grudki są w porządku. Wmieszaj 2/3 czekolady."
+        },
+        {
+          "step": 5,
+          "instruction": "Nałóż ciasto do papilotek do 3/4 wysokości, posyp resztą czekolady."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 20–22 minuty, do suchego patyczka. Ostudź na kratce i podawaj po jednej muffince."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "soda oczyszczona",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 150,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 90,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "czekolada gorzka",
+          "amount": 80,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Muffinki czekoladowe, Dark chocolate muffins in paper cases with domed tops studded with melted chocolate chunks, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "f779b222-f513-46be-a1f9-522429341b3d",
+      "title": "Blok czekoladowy z herbatnikami i orzechami",
+      "description": "Kultowy deser z czasów PRL-u: zastygnięta masa z mleka w proszku, kakao i masła z kawałkami herbatników, orzechów i rodzynek. Bez pieczenia, słodki i konkretny, kroi się go w cienkie plastry.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 270,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3846,
+        "protein": 91,
+        "carbs": 337,
+        "fat": 239,
+        "fiber": 14,
+        "salt": 3.4,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Keksówkę około 25 cm wyłóż folią spożywczą lub papierem. Herbatniki połam na kawałki wielkości 1–2 cm, orzechy przekrój na połówki."
+        },
+        {
+          "step": 2,
+          "instruction": "W garnku podgrzej masło, cukier i mleko, mieszając, aż cukier całkowicie się rozpuści. Zagotuj i zdejmij z ognia."
+        },
+        {
+          "step": 3,
+          "instruction": "Wsyp kakao i wymieszaj, a potem stopniowo dodawaj mleko w proszku, ucierając łyżką na gładką, gęstą masę bez grudek."
+        },
+        {
+          "step": 4,
+          "instruction": "Wmieszaj herbatniki, orzechy i rodzynki."
+        },
+        {
+          "step": 5,
+          "instruction": "Przełóż masę do formy, mocno dociśnij i wyrównaj. Ostudź i chłódź co najmniej 4 godziny, aż całkiem stężeje."
+        },
+        {
+          "step": 6,
+          "instruction": "Wyjmij blok z formy, zdejmij folię i podawaj pokrojony w plastry grubości 1,5 cm."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "masło",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 80,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 25,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko w proszku",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "herbatnik",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "orzech laskowy",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "rodzynka",
+          "amount": 50,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Blok czekoladowy z herbatnikami i orzechami, Slices of chocolate block fudge showing pieces of biscuits, hazelnuts and raisins in dark cocoa mass, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "786552e0-03c4-4500-b310-74944a8e1d4b",
+      "title": "Ciasto na herbatnikach z budyniem i bitą śmietaną",
+      "description": "Popularne ciasto bez pieczenia: dwie warstwy herbatników przełożone budyniowym kremem na maśle i przykryte bitą śmietaną. Szybkie do zrobienia, a efektowne na rodzinne spotkania.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 280,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3521,
+        "protein": 48,
+        "carbs": 364,
+        "fat": 207,
+        "fiber": 6,
+        "salt": 3.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Dno blachy 20×30 cm wyłóż papierem i ułóż na nim ciasno połowę herbatników."
+        },
+        {
+          "step": 2,
+          "instruction": "Z 150 ml mleka rozmieszaj proszek budyniowy. Resztę mleka zagotuj z cukrem, wlej zawiesinę i gotuj, mieszając, aż budyń zgęstnieje (około minuty). Przykryj folią przy powierzchni i ostudź."
+        },
+        {
+          "step": 3,
+          "instruction": "Miękkie masło utrzyj na puszysto, a potem dodawaj po łyżce ostudzony budyń, miksując na gładki krem. Oba składniki muszą mieć tę samą temperaturę, żeby krem się nie zważył."
+        },
+        {
+          "step": 4,
+          "instruction": "Wyłóż połowę kremu na herbatniki, przykryj drugą warstwą herbatników i resztą kremu."
+        },
+        {
+          "step": 5,
+          "instruction": "Schłodzoną śmietankę ubij z cukrem pudrem na sztywno i rozsmaruj na wierzchu."
+        },
+        {
+          "step": 6,
+          "instruction": "Chłódź ciasto co najmniej 4 godziny, żeby herbatniki zmiękły."
+        },
+        {
+          "step": 7,
+          "instruction": "Przed podaniem oprósz kakao przez sitko i pokrój ostrym nożem na kwadraty."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "herbatnik",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 750,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "budyń",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "śmietanka 30",
+          "amount": 250,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 5,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Ciasto na herbatnikach z budyniem i bitą śmietaną, Square slice of no-bake layered cake with biscuit layers, yellow vanilla custard cream and whipped cream top dusted with cocoa, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "5cd3c899-3fed-4288-b316-b16588852ee5",
+      "title": "Rogaliki twarogowe z dżemem",
+      "description": "Kruche, maślane rogaliki z ciasta na twarogu, zwinięte z łyżeczką dżemu i oprószone cukrem pudrem. Ciastka do kawy i do pudełka, które wychodzą delikatne i lekko listkujące.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 90,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3395,
+        "protein": 80,
+        "carbs": 354,
+        "fat": 180,
+        "fiber": 10,
+        "salt": 1.7,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Twaróg zmiel lub rozgnieć widelcem na gładko. Mąkę wymieszaj z proszkiem do pieczenia i 20 g cukru pudru."
+        },
+        {
+          "step": 2,
+          "instruction": "Dodaj do mąki zimne masło w kostce i posiekaj nożem na drobną kruszonkę, potem dodaj twaróg i szybko zagnieć gładkie ciasto."
+        },
+        {
+          "step": 3,
+          "instruction": "Podziel ciasto na 4 części, owiń folią i schłódź w lodówce 30 minut. Nagrzej piekarnik do 180°C (góra-dół), blachy wyłóż papierem."
+        },
+        {
+          "step": 4,
+          "instruction": "Każdą część rozwałkuj na koło grubości 3 mm i pokrój jak tort na 8 trójkątów."
+        },
+        {
+          "step": 5,
+          "instruction": "Na szerszym brzegu każdego trójkąta połóż pół łyżeczki gęstego dżemu i zwiń rogalik w stronę czubka, zaginając końce w półksiężyc."
+        },
+        {
+          "step": 6,
+          "instruction": "Układaj rogaliki czubkiem do spodu i piecz 18–20 minut, aż będą złote na spodzie."
+        },
+        {
+          "step": 7,
+          "instruction": "Ostudzone rogaliki oprósz obficie resztą cukru pudru i podawaj po 4 sztuki na porcję."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser twaróg półtłusty",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "dżem",
+          "amount": 150,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Rogaliki twarogowe z dżemem, Small crescent pastries dusted heavily with powdered sugar, one broken open to show red jam filling, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "55305435-cda7-43eb-b6e0-b8664ebbd49a",
+      "title": "Wiśniowiec, czyli ciasto kakaowe z wiśniami",
+      "description": "Wilgotne ciasto kakaowe gęsto przetykane kwaśnymi wiśniami, które pięknie kontrastują z ciemnym miąższem. Z mrożonych owoców zrobisz je o każdej porze roku.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 70,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3327,
+        "protein": 65,
+        "carbs": 435,
+        "fat": 141,
+        "fiber": 19,
+        "salt": 3.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Wiśnie rozmroź na sicie i dobrze odsącz z soku, a potem obtocz w mące ziemniaczanej, żeby nie opadły na dno."
+        },
+        {
+          "step": 2,
+          "instruction": "Nagrzej piekarnik do 180°C (góra-dół), blachę 20×30 cm wyłóż papierem."
+        },
+        {
+          "step": 3,
+          "instruction": "Jajka ubij z cukrem na jasną, puszystą masę. Na niższych obrotach wlej olej i mleko."
+        },
+        {
+          "step": 4,
+          "instruction": "Mąkę pszenną przesiej z kakao i proszkiem do pieczenia, dodaj do masy i wymieszaj tylko do połączenia."
+        },
+        {
+          "step": 5,
+          "instruction": "Przelej ciasto do blachy i rozsyp równo wiśnie."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 40–45 minut, do suchego patyczka (sprawdzaj między owocami)."
+        },
+        {
+          "step": 7,
+          "instruction": "Ostudź, oprósz cukrem pudrem i podawaj pokrojone w kwadraty."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "wiśnia mrożona",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka ziemniaczana",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 120,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 120,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Wiśniowiec, czyli ciasto kakaowe z wiśniami, Squares of dark chocolate sponge cake with deep red sour cherries visible on top, dusted with powdered sugar, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "4a2e2b18-c2a0-43c5-b3d2-0260c9a713f0",
+      "title": "Tarta z budyniem i owocami",
+      "description": "Kruchy, maślany spód wypełniony gęstym budyniem waniliowym i obłożony świeżymi truskawkami, borówkami i kiwi. Kolorowa tarta na lato, która robi wrażenie na każdym stole.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 150,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 2588,
+        "protein": 48,
+        "carbs": 344,
+        "fat": 108,
+        "fiber": 18,
+        "salt": 0.9,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Zagnieć mąkę, zimne masło w kostce, cukier puder i jajko na gładkie ciasto, owiń folią i schłódź 30 minut."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozwałkuj ciasto i wyłóż nim formę do tarty o średnicy 24 cm, nakłuj widelcem. Przykryj papierem, obciąż suchą fasolą i piecz 15 minut w 190°C (góra-dół), potem zdejmij obciążenie i piecz jeszcze 10 minut, aż się zezłoci. Ostudź."
+        },
+        {
+          "step": 3,
+          "instruction": "Z 100 ml mleka rozmieszaj proszek budyniowy. Resztę mleka zagotuj z cukrem, wlej zawiesinę i gotuj, mieszając, aż budyń zgęstnieje."
+        },
+        {
+          "step": 4,
+          "instruction": "Gorący budyń wylej na ostudzony spód, wyrównaj i przykryj folią przy powierzchni. Ostudź, a potem chłódź 1 godzinę."
+        },
+        {
+          "step": 5,
+          "instruction": "Truskawki przekrój na połówki, kiwi obierz i pokrój w plastry, borówki umyj i osusz."
+        },
+        {
+          "step": 6,
+          "instruction": "Ułóż owoce na stężałym budyniu w koła lub dowolny wzór i podawaj schłodzoną tartę pokrojoną w kawałki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 500,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "budyń",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "truskawka",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "borówka",
+          "amount": 125,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kiwi",
+          "amount": 2,
+          "unit": "szt"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Tarta z budyniem i owocami, Fruit tart with golden shortcrust shell, vanilla custard filling and neat rows of strawberry halves, blueberries and kiwi slices, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "0a31ac99-ac7e-4915-adc5-f1e912a67398",
+      "title": "Blondie z białą czekoladą",
+      "description": "Jasny kuzyn brownie: ciągnące się, karmelowe ciasto z brązowego cukru i masła z kawałkami białej czekolady. Bardzo słodkie i sycące, więc wystarczy mały kwadrat do kawy.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 50,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3337,
+        "protein": 42,
+        "carbs": 404,
+        "fat": 174,
+        "fiber": 6,
+        "salt": 2.6,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 180°C (góra-dół), formę 20×20 cm wyłóż papierem. Białą czekoladę posiekaj na kawałki."
+        },
+        {
+          "step": 2,
+          "instruction": "Masło roztop, przestudź 5 minut i wymieszaj trzepaczką z cukrem brązowym i cukrem waniliowym."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj jajka i ubijaj trzepaczką minutę, aż masa będzie lśniąca."
+        },
+        {
+          "step": 4,
+          "instruction": "Wsyp mąkę, proszek do pieczenia i sól, wymieszaj szpatułką, a na koniec wmieszaj 3/4 czekolady."
+        },
+        {
+          "step": 5,
+          "instruction": "Rozłóż ciasto w formie, posyp resztą czekolady i piecz 25–28 minut, aż brzegi będą złote, a środek jeszcze lekko miękki."
+        },
+        {
+          "step": 6,
+          "instruction": "Ostudź w formie co najmniej 30 minut, pokrój na 8 kawałków i podawaj."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "masło",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier brązowy",
+          "amount": 180,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier waniliowy",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czekolada biała",
+          "amount": 120,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Blondie z białą czekoladą, Golden blondie squares with chewy crackled top and visible white chocolate chunks, stacked on parchment, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "41d568a7-8007-4d09-b6c9-ea6d03a15cd5",
+      "title": "Cynamonki drożdżowe z lukrem",
+      "description": "Miękkie bułeczki drożdżowe zwinięte ze słodkim, cynamonowym nadzieniem z masła i brązowego cukru, polane cienkim lukrem. Pachną na cały dom i najlepiej smakują jeszcze ciepłe.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "MEDIUM",
+      "prepTimeMinutes": 150,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3330,
+        "protein": 58,
+        "carbs": 497,
+        "fat": 115,
+        "fiber": 18,
+        "salt": 3.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "W 200 ml letniego mleka rozpuść drożdże z łyżeczką cukru i odstaw na 10 minut, aż się spienią."
+        },
+        {
+          "step": 2,
+          "instruction": "W misce połącz mąkę, resztę cukru, sól, jajko, zaczyn i 60 g roztopionego, przestudzonego masła. Wyrabiaj 8–10 minut, aż ciasto będzie gładkie i elastyczne. Przykryj i odstaw w ciepłe miejsce na godzinę, aż podwoi objętość."
+        },
+        {
+          "step": 3,
+          "instruction": "Resztę miękkiego masła wymieszaj z cukrem brązowym i cynamonem na pastę."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozwałkuj ciasto na prostokąt 30×40 cm, rozsmaruj nadzienie i zwiń ciasno wzdłuż dłuższego boku. Pokrój ostrym nożem na 8 plastrów."
+        },
+        {
+          "step": 5,
+          "instruction": "Ułóż cynamonki w formie 20×30 cm wyłożonej papierem, przykryj i odstaw na 30 minut do ponownego wyrośnięcia. Nagrzej piekarnik do 180°C (góra-dół)."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 22–25 minut, aż będą złote. Cukier puder utrzyj z 15 ml mleka na gęsty lukier."
+        },
+        {
+          "step": 7,
+          "instruction": "Polej lekko przestudzone cynamonki lukrem i podawaj ciepłe."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mleko",
+          "amount": 215,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "drożdże",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier brązowy",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 60,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Cynamonki drożdżowe z lukrem, Swirled cinnamon rolls in a baking dish, golden brown with dark cinnamon spirals and drizzled white glaze, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "c55e2fa2-9a30-45dd-8cdf-34c503ff9a2f",
+      "title": "Jabłka w cieście francuskim",
+      "description": "Połówki jabłek z cynamonowym cukrem owinięte paskami chrupiącego ciasta francuskiego i upieczone na złoto. Efektowny deser z gotowego ciasta, gotowy w pół godziny.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 4,
+      "nutrition": {
+        "kcal": 1440,
+        "protein": 22,
+        "carbs": 180,
+        "fat": 69,
+        "fiber": 13,
+        "salt": 3.3,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C (góra-dół), blachę wyłóż papierem. Ciasto francuskie wyjmij z lodówki 10 minut wcześniej."
+        },
+        {
+          "step": 2,
+          "instruction": "Jabłka obierz, przekrój na połówki i wydrąż gniazda nasienne łyżeczką."
+        },
+        {
+          "step": 3,
+          "instruction": "Cukier wymieszaj z cynamonem, wsyp do zagłębień jabłek i obtocz w nim resztę owoców."
+        },
+        {
+          "step": 4,
+          "instruction": "Pokrój ciasto na paski szerokości 1,5 cm i owiń nimi każdą połówkę spiralnie, od dołu do czubka, lekko nakładając paski na siebie. Ułóż jabłka płaską stroną na blasze."
+        },
+        {
+          "step": 5,
+          "instruction": "Posmaruj ciasto roztrzepanym jajkiem i piecz 25 minut, aż będzie złote i wyrośnięte."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj ciepłe, oprószone cukrem pudrem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ciasto francuskie",
+          "amount": 275,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jabłko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cukier",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cukier puder",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Jabłka w cieście francuskim, Apple halves wrapped in spiral strips of golden flaky puff pastry, dusted with powdered sugar, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "204cbf7f-62e3-4933-90ff-4e4a3442fc20",
+      "title": "Jogurtowe lody na patyku z owocami",
+      "description": "Domowe lody z gęstego jogurtu z miodem, przekładane zmiksowanymi truskawkami i całymi borówkami. Orzeźwiająca, mniej słodka alternatywa dla sklepowych lodów, lubiana przez dzieci.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 300,
+      "servings": 4,
+      "nutrition": {
+        "kcal": 768,
+        "protein": 43,
+        "carbs": 92,
+        "fat": 24,
+        "fiber": 7,
+        "salt": 0.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Jogurt grecki wymieszaj z 40 g miodu na gładką masę."
+        },
+        {
+          "step": 2,
+          "instruction": "Truskawki odszypułkuj i zmiksuj z resztą miodu na gęsty mus."
+        },
+        {
+          "step": 3,
+          "instruction": "Do 8 foremek na lody (po około 100 ml) nakładaj na zmianę łyżką jogurt, mus truskawkowy i kilka borówek, a potem przeciągnij patyczkiem, żeby powstały smugi."
+        },
+        {
+          "step": 4,
+          "instruction": "Włóż patyczki i zamrażaj co najmniej 5 godzin, najlepiej przez noc."
+        },
+        {
+          "step": 5,
+          "instruction": "Przed podaniem zanurz foremki na kilka sekund w ciepłej wodzie, wyjmij lody i podawaj od razu, po 2 na porcję."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jogurt grecki",
+          "amount": 450,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "truskawka",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "borówka",
+          "amount": 100,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Jogurtowe lody na patyku z owocami, Frozen yogurt popsicles with pink strawberry swirls and whole blueberries on wooden sticks, lying on crushed ice, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "f9ff30bf-e9be-480b-aabe-bc340890108e",
+      "title": "Szybki piernik z polewą czekoladową",
+      "description": "Wilgotny, ciemny piernik bez leżakowania, pachnący miodem i korzenną przyprawą, oblany gorzką czekoladą. Zrobisz go w jeden wieczór, a na drugi dzień jest jeszcze lepszy.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 90,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 3637,
+        "protein": 69,
+        "carbs": 498,
+        "fat": 143,
+        "fiber": 28,
+        "salt": 6.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "W garnku roztop masło z miodem i cukrem brązowym, mieszając, aż cukier się rozpuści. Ostudź do letniej temperatury."
+        },
+        {
+          "step": 2,
+          "instruction": "Nagrzej piekarnik do 170°C (góra-dół), keksówkę 30 cm wyłóż papierem."
+        },
+        {
+          "step": 3,
+          "instruction": "Do przestudzonej masy dodaj jajka i mleko, wymieszaj trzepaczką."
+        },
+        {
+          "step": 4,
+          "instruction": "Mąkę przesiej z kakao, przyprawą do piernika i sodą, wsyp do mokrych składników i wymieszaj na gładkie, rzadkie ciasto."
+        },
+        {
+          "step": 5,
+          "instruction": "Przelej ciasto do formy i piecz 50–55 minut, do suchego patyczka. Ostudź na kratce."
+        },
+        {
+          "step": 6,
+          "instruction": "Czekoladę roztop w kąpieli wodnej i polej nią wierzch piernika, pozwalając spłynąć po bokach."
+        },
+        {
+          "step": 7,
+          "instruction": "Gdy polewa stężeje, pokrój piernik w kromki i podawaj do herbaty."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "masło",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cukier brązowy",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kakao",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "przyprawa do piernika",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "soda oczyszczona",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czekolada gorzka",
+          "amount": 80,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Szybki piernik z polewą czekoladową, Dark spiced gingerbread loaf slices with a glossy dark chocolate glaze on top, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "c9814d52-2783-48de-9f29-fe2df265dbc6",
+      "title": "Pucharek z jogurtem, owocami i herbatnikami",
+      "description": "Warstwowy deser w szklance: gęsty jogurt z miodem, pokruszone herbatniki, maliny i banan. Zrobisz go w 10 minut bez gotowania, a herbatniki lekko miękną, dając smak jak z sernika.",
+      "mealType": "AFTERNOON_SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 10,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 691,
+        "protein": 33,
+        "carbs": 87,
+        "fat": 21,
+        "fiber": 11,
+        "salt": 0.7,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Jogurt wymieszaj z miodem. Herbatniki pokrusz w dłoniach na grube okruchy."
+        },
+        {
+          "step": 2,
+          "instruction": "Banana obierz i pokrój w plasterki, maliny opłucz i osusz."
+        },
+        {
+          "step": 3,
+          "instruction": "Do dwóch szklanek nakładaj warstwami: okruchy herbatników, jogurt, banana i maliny, a potem powtórz warstwy."
+        },
+        {
+          "step": 4,
+          "instruction": "Odstaw na 5 minut, żeby herbatniki lekko zmiękły, albo schłódź do godziny."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj od razu, udekorowane kilkoma malinami i okruchami herbatników na wierzchu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jogurt grecki",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "herbatnik",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "malina",
+          "amount": 100,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pucharek z jogurtem, owocami i herbatnikami, Glass cup parfait with layers of white Greek yogurt, crushed biscuits, banana slices and fresh raspberries on top, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    }
+  ]
+}
