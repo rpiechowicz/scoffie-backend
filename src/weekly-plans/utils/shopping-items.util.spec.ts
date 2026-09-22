@@ -6,7 +6,9 @@ import type {
 import {
   buildDisplayShoppingItems,
   itemSignature,
+  roundShoppingAmount,
   sortShoppingItems,
+  toShoppingUnit,
 } from './shopping-items.util';
 
 const item = (
@@ -150,5 +152,44 @@ describe('sortShoppingItems', () => {
     const input = [item({ name: 'Ziemniak' }), item({ name: 'Cebula' })];
     sortShoppingItems(input);
     expect(input.map((row) => row.name)).toEqual(['Ziemniak', 'Cebula']);
+  });
+});
+
+describe('toShoppingUnit', () => {
+  it('przelicza gramy na sztuki, gdy produkt ma masę sztuki', () => {
+    expect(toShoppingUnit(330, 'g', 110)).toEqual({ amount: 3, unit: 'szt' });
+  });
+
+  it('sztuki zostają sztukami', () => {
+    expect(toShoppingUnit(1, 'szt', 110)).toEqual({ amount: 1, unit: 'szt' });
+  });
+
+  it.each([
+    ['bez masy sztuki', 150, 'g', null],
+    ['masa sztuki zero', 150, 'g', 0],
+    ['mililitry nie są masą', 200, 'ml', 110],
+  ])('%s → bez zmian', (_, amount, unit, gramsPerPiece) => {
+    expect(toShoppingUnit(amount, unit, gramsPerPiece)).toEqual({
+      amount,
+      unit,
+    });
+  });
+});
+
+describe('roundShoppingAmount', () => {
+  it.each([
+    [1.08, 1.5],
+    [0.25, 0.5],
+    [0.5, 0.5],
+    [2, 2],
+    // Suma zmiennoprzecinkowa tuż nad całością nie może skoczyć o połówkę.
+    [330 / 110 + 1 + 1e-9, 4],
+  ])('sztuki: %p → %p (w górę do połówki)', (amount, expected) => {
+    expect(roundShoppingAmount(amount, 'szt')).toBe(expected);
+  });
+
+  it('gramy i mililitry — dwa miejsca po przecinku, jak dotąd', () => {
+    expect(roundShoppingAmount(0.375, 'g')).toBe(0.38);
+    expect(roundShoppingAmount(7.5, 'ml')).toBe(7.5);
   });
 });

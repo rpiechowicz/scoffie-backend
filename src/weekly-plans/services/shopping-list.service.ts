@@ -23,7 +23,9 @@ import {
   itemSignature,
   buildDisplayShoppingItems,
   mapSnapshotItems,
+  roundShoppingAmount,
   toArchiveSnapshot,
+  toShoppingUnit,
 } from '../utils/shopping-items.util';
 import { ensureMembership } from '../utils/auth-checks.util';
 import { runSerializable } from '../utils/transaction-runner.util';
@@ -70,6 +72,31 @@ function archiveNotFound(): AppException {
 /** Ile ostatnich archiwów wraca ze stanem listy — starsze tylko w bazie. */
 const MAX_ARCHIVES_IN_STATE = 52;
 
+/**
+ * Wersja reguł, według których zbudowano migawkę `ShoppingList`.
+ *
+ * Migawka to pamięć podręczna policzona z planu — po zmianie reguł liczenia
+ * (np. 1: jedna jednostka na produkt, `toShoppingUnit`) stare migawki
+ * trzymałyby stary kształt aż do pierwszej zmiany planu w danym domu. Starsza
+ * wersja = przebudowa przy najbliższym odczycie, jak przy `isStale`, bez
+ * masowego `UPDATE` na produkcji. Zmiana reguł = podbicie tej liczby.
+ */
+export const SHOPPING_LIST_RULES_VERSION = 1;
+
+/** Dopisana pozycja w jednostce listy — patrz `loadExtras`. */
+type ShoppingExtraRow = {
+  id: string;
+  /** Klucz tak, jak leży w bazie (wiersz sprzed 22.09.2026: `cebula::g`). */
+  storedKey: string;
+  /** Klucz w dzisiejszej jednostce listy — pod nim wiersz się sumuje. */
+  productKey: string;
+  name: string;
+  unit: string;
+  department: string;
+  amount: number;
+  recipeTitle: string;
+};
+
 @Injectable()
 export class ShoppingListService {
   private readonly logger = new Logger(ShoppingListService.name);
@@ -110,6 +137,9 @@ export class ShoppingListService {
                     normalizedAmount: true,
                     normalizedUnit: true,
                     department: true,
+                    // Masa sztuki — z niej `toShoppingUnit` sprowadza gramy
+                    // i sztuki tego samego produktu do jednej jednostki.
+                    ingredient: { select: { gramsPerPiece: true } },
                   },
                 },
               },
@@ -149,8 +179,14 @@ export class ShoppingListService {
         ) {
           missingNormalization.add(ingredient.name);
         }
-        const baseAmount = ingredient.normalizedAmount ?? ingredient.amount;
-        const baseUnit = ingredient.normalizedUnit ?? ingredient.unit;
+        // Jedna jednostka na produkt: gramy produktu ze znaną masą sztuki
+        // idą na sztuki, zanim powstanie klucz — inaczej „cebula 150 g”
+        // i „cebula 1 szt” lądowały w dwóch wierszach.
+        const { amount: baseAmount, unit: baseUnit } = toShoppingUnit(
+          ingredient.normalizedAmount ?? ingredient.amount,
+          ingredient.normalizedUnit ?? ingredient.unit,
+          ingredient.ingredient.gramsPerPiece,
+        );
         // Nazwa z katalogu jest kanoniczna — na listę idzie dosłownie (tylko
         // z wielką literą), a klucz scala wyłącznie ten sam produkt w tej
         // samej jednostce. Bez regexowego „canonicalizera”, który zamieniał
@@ -177,15 +213,9 @@ export class ShoppingListService {
     // Ilość jest już przeliczona na porcje przy zapisie, a klucz liczony tak
     // samo jak wyżej — więc „Mleko" z planu i „Mleko" dopisane stają się
     // jedną pozycją z sumą, a nie dwoma wierszami.
-    const extras = await client.shoppingListExtra.findMany({
-      where: { householdId, weekStart: weekStartDate },
-      select: {
-        productKey: true,
-        name: true,
-        unit: true,
-        department: true,
-        amount: true,
-      },
+    const extras = await this.loadExtras(client, {
+      householdId,
+      weekStart: weekStartDate,
     });
     for (const extra of extras) {
       const current = aggregated.get(extra.productKey);
@@ -235,12 +265,14 @@ export class ShoppingListService {
       },
       update: {
         isStale: false,
+        rulesVersion: SHOPPING_LIST_RULES_VERSION,
         updatedAt: new Date(),
       },
       create: {
         householdId,
         weekStart: weekStartDate,
         isStale: false,
+        rulesVersion: SHOPPING_LIST_RULES_VERSION,
       },
       include: {
         items: {
@@ -306,11 +338,12 @@ export class ShoppingListService {
     const checkedMap = new Map<string, boolean>();
     for (const item of aggregatedItems) {
       const previousAmount = baselineAmounts.get(item.productKey) ?? 0;
-      // Baseline z archiwum jest zapisany po zaokrągleniu do 2 miejsc
+      // Baseline z archiwum jest zapisany po zaokrągleniu
       // (`buildDisplayShoppingItems`), a `item.totalAmount` jeszcze nie —
       // porównanie surowej sumy z zaokrąglonym baseline'em odznaczało
-      // pozycję po samym odświeżeniu (0.375 vs 0.38).
-      const nextAmount = Number(item.totalAmount.toFixed(2));
+      // pozycję po samym odświeżeniu (0.375 vs 0.38). To samo zaokrąglenie
+      // co na liście, także dla sztuk (w górę do połówki).
+      const nextAmount = roundShoppingAmount(item.totalAmount, item.unit);
       const hasNewUncheckedDelta = Boolean(
         currentArchiveState?.currentArchiveId &&
         nextAmount > previousAmount + 0.000_001,
@@ -522,7 +555,10 @@ export class ShoppingListService {
     });
 
     if (snapshot) {
-      if (snapshot.isStale) {
+      if (
+        snapshot.isStale ||
+        snapshot.rulesVersion < SHOPPING_LIST_RULES_VERSION
+      ) {
         return this.rebuildShoppingListSnapshotWithClient(
           householdId,
           weekStartDate,
@@ -921,20 +957,85 @@ export class ShoppingListService {
     householdId: string,
     weekStartDate: Date,
   ): Promise<Map<string, string[]>> {
-    const rows = await this.prisma.shoppingListExtra.findMany({
-      where: { householdId, weekStart: weekStartDate },
-      orderBy: { createdAt: 'asc' },
-      select: { productKey: true, recipe: { select: { title: true } } },
+    const rows = await this.loadExtras(this.prisma, {
+      householdId,
+      weekStart: weekStartDate,
     });
     const byProduct = new Map<string, string[]>();
     for (const row of rows) {
       const titles = byProduct.get(row.productKey) ?? [];
-      if (!titles.includes(row.recipe.title)) {
-        titles.push(row.recipe.title);
+      if (!titles.includes(row.recipeTitle)) {
+        titles.push(row.recipeTitle);
       }
       byProduct.set(row.productKey, titles);
     }
     return byProduct;
+  }
+
+  /**
+   * Dopisane pozycje tygodnia z kluczem i ilością w jednostce listy.
+   *
+   * Wiersz zapisany przed ujednoliceniem jednostek (22.09.2026) ma klucz
+   * `cebula::g` i ilość w gramach, a plan liczy już cebulę w sztukach —
+   * bez przeliczenia wróciłyby dwa wiersze „Cebula (g)” i „Cebula (szt)”.
+   * Przeliczamy go przy odczycie tak samo jak plan (`toShoppingUnit`),
+   * z masą sztuki z przepisu, z którego go dopisano, zamiast przepisywać
+   * tabelę migracją. Wiersze nowsze są już w jednostce listy i przechodzą
+   * bez zmian. Kolejność: od najstarszego (`addedFrom` pokazuje ją tak).
+   */
+  private async loadExtras(
+    client: PrismaReadClient,
+    where: Prisma.ShoppingListExtraWhereInput,
+  ): Promise<ShoppingExtraRow[]> {
+    const rows = await client.shoppingListExtra.findMany({
+      where,
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        productKey: true,
+        name: true,
+        unit: true,
+        department: true,
+        amount: true,
+        recipe: {
+          select: {
+            title: true,
+            ingredients: {
+              select: {
+                name: true,
+                ingredient: { select: { gramsPerPiece: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    return rows.map((row) => {
+      const separator = row.productKey.lastIndexOf('::');
+      const keyName =
+        separator >= 0 ? row.productKey.slice(0, separator) : row.productKey;
+      const source = row.recipe.ingredients.find(
+        (ingredient) => ingredient.name.trim().toLowerCase() === keyName,
+      );
+      const shopping = toShoppingUnit(
+        row.amount,
+        row.unit,
+        source?.ingredient.gramsPerPiece,
+      );
+      return {
+        id: row.id,
+        storedKey: row.productKey,
+        productKey:
+          shopping.unit === row.unit
+            ? row.productKey
+            : normalizeProductKey(keyName, shopping.unit),
+        name: row.name,
+        unit: shopping.unit,
+        department: row.department,
+        amount: shopping.amount,
+        recipeTitle: row.recipe.title,
+      };
+    });
   }
 
   /**
@@ -976,6 +1077,7 @@ export class ShoppingListService {
             normalizedAmount: true,
             normalizedUnit: true,
             department: true,
+            ingredient: { select: { gramsPerPiece: true } },
           },
         },
       },
@@ -1003,11 +1105,15 @@ export class ShoppingListService {
     const factor = dto.servings / Math.max(1, recipe.servings);
     const byKey = new Map<string, ShoppingAccumulator>();
     for (const ingredient of recipe.ingredients) {
-      const productKey = normalizeProductKey(
-        ingredient.name,
+      // Ta sama jednostka co w planie (`toShoppingUnit`) — inaczej dopisana
+      // „cebula” w gramach nie trafiłaby w wiersz „cebula” w sztukach.
+      const shopping = toShoppingUnit(
+        ingredient.normalizedAmount,
         ingredient.normalizedUnit,
+        ingredient.ingredient.gramsPerPiece,
       );
-      const amount = ingredient.normalizedAmount * factor;
+      const productKey = normalizeProductKey(ingredient.name, shopping.unit);
+      const amount = shopping.amount * factor;
       const current = byKey.get(productKey);
       if (current) {
         current.totalAmount += amount;
@@ -1016,7 +1122,7 @@ export class ShoppingListService {
       byKey.set(productKey, {
         productKey,
         name: toTitleCase(ingredient.name),
-        unit: ingredient.normalizedUnit,
+        unit: shopping.unit,
         department: toShoppingDepartment(ingredient.department),
         totalAmount: amount,
       });
@@ -1040,6 +1146,27 @@ export class ShoppingListService {
           currentArchiveId: null,
         },
       });
+
+      // Wiersz tego przepisu sprzed ujednolicenia jednostek (`cebula::g`)
+      // liczy się dziś pod tym samym kluczem, co nowy zapis (`cebula::szt`).
+      // Zostawiony dodałby się do podmienionej ilości — a ponowne dopisanie
+      // ma ją podmieniać, nie dublować.
+      const superseded = (
+        await this.loadExtras(tx, {
+          householdId,
+          weekStart: weekStartDate,
+          recipeId: recipe.id,
+        })
+      ).filter(
+        (extra) =>
+          extra.storedKey !== extra.productKey &&
+          productKeys.includes(extra.productKey),
+      );
+      if (superseded.length > 0) {
+        await tx.shoppingListExtra.deleteMany({
+          where: { id: { in: superseded.map((extra) => extra.id) } },
+        });
+      }
 
       for (const entry of entries) {
         await tx.shoppingListExtra.upsert({
@@ -1110,13 +1237,20 @@ export class ShoppingListService {
     const weekStartDate = parseWeekStart(weekStart);
 
     return this.prisma.$transaction(async (tx) => {
-      const { count } = await tx.shoppingListExtra.deleteMany({
-        where: {
-          householdId,
-          weekStart: weekStartDate,
-          productKey: dto.productKey,
-        },
-      });
+      // Po kluczu w jednostce listy, nie po kluczu z bazy: wiersz „Cebula”
+      // w sztukach zbiera też dopisane sprzed ujednolicenia (`cebula::g`),
+      // a zdjęcie ma zabrać całą dopisaną część, którą widać na ekranie.
+      const ids = (
+        await this.loadExtras(tx, { householdId, weekStart: weekStartDate })
+      )
+        .filter((extra) => extra.productKey === dto.productKey)
+        .map((extra) => extra.id);
+      const { count } =
+        ids.length > 0
+          ? await tx.shoppingListExtra.deleteMany({
+              where: { id: { in: ids } },
+            })
+          : { count: 0 };
       if (count === 0) {
         throw new AppException(
           'SHOPPING_ITEM_NOT_FOUND',
