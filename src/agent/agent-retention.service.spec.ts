@@ -44,6 +44,7 @@ describe('AgentRetentionService.sweep', () => {
     expect(result).toEqual({
       cutoff: cutoff.toISOString(),
       conversations: 3,
+      emptyConversations: 3,
       invitations: 1,
       aiUsage: 4,
       reports: 0,
@@ -65,6 +66,17 @@ describe('AgentRetentionService.sweep', () => {
     });
   });
 
+  it('puste rozmowy: bez wiadomości i bez tur, założone ponad dobę temu', async () => {
+    await service.sweep(NOW);
+    expect(prisma.agentConversation.deleteMany).toHaveBeenCalledWith({
+      where: {
+        createdAt: { lt: new Date('2026-09-01T12:00:00.000Z') },
+        messages: { none: {} },
+        turns: { none: {} },
+      },
+    });
+  });
+
   it('zaproszenia: wygasłe ponad 30 dni temu i nieprzyjęte', async () => {
     await service.sweep(NOW);
     expect(prisma.invitation.deleteMany).toHaveBeenCalledWith({
@@ -80,7 +92,12 @@ describe('AgentRetentionService.sweep', () => {
     const result = await service.sweep(NOW);
     expect(result.cutoff).toBeNull();
     expect(result.conversations).toBe(0);
-    expect(prisma.agentConversation.deleteMany).not.toHaveBeenCalled();
+    // Puste rozmowy znikają dalej — to nie retencja treści, treści tam nie ma.
+    expect(result.emptyConversations).toBe(3);
+    expect(prisma.agentConversation.deleteMany).toHaveBeenCalledTimes(1);
+    expect(prisma.agentConversation.deleteMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ messages: { none: {} } }),
+    });
     expect(prisma.invitation.deleteMany).toHaveBeenCalled();
   });
 
