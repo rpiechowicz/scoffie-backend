@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { RECIPE_IMAGE_PLACEHOLDER_URL } from '../src/recipes/recipe-image-placeholder';
 
 const prisma = new PrismaClient();
 
@@ -125,7 +126,14 @@ async function main() {
       householdId: { in: householdIds },
       ...(R2_SYNC_OVERWRITE_EXISTING
         ? {}
-        : { OR: [{ imageUrl: null }, { imageUrl: '' }] }),
+        : {
+            OR: [
+              { imageUrl: null },
+              { imageUrl: '' },
+              // Zaślepka = „zdjęcie do zrobienia", nie zdjęcie.
+              { imageUrl: RECIPE_IMAGE_PLACEHOLDER_URL },
+            ],
+          }),
     },
     orderBy: { createdAt: 'asc' },
     select: { id: true },

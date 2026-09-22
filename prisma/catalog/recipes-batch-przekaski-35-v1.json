@@ -1,0 +1,2944 @@
+{
+  "version": "recipes-batch-przekaski-35-v1",
+  "recipes": [
+    {
+      "id": "430a0f51-db80-4a0b-b063-dbdb7f0357d9",
+      "title": "Guacamole z nachosami",
+      "description": "Gęsta pasta z dojrzałego awokado z limonką, pomidorem, czerwoną cebulą i kolendrą, do tego chrupiące nachosy. Szybka przekąska na wieczór z filmem albo na stół dla gości.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 775,
+        "protein": 12,
+        "carbs": 44,
+        "fat": 56,
+        "fiber": 25,
+        "salt": 1.6,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Pomidor przekrój, wyjmij łyżeczką gniazda nasienne i pokrój miąższ w kostkę 0,5 cm. Cebulę i chili (bez pestek) posiekaj bardzo drobno, kolendrę posiekaj."
+        },
+        {
+          "step": 2,
+          "instruction": "Awokado przekrój, usuń pestki i wyjmij miąższ łyżką do miski."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozgnieć awokado widelcem na grubą pastę — małe kawałki mogą zostać. Od razu wlej sok z limonki, żeby pasta nie ściemniała."
+        },
+        {
+          "step": 4,
+          "instruction": "Dodaj przeciśnięty przez praskę czosnek, cebulę, chili, pomidor i kolendrę, posól i wymieszaj. Spróbuj i w razie potrzeby dodaj jeszcze limonki."
+        },
+        {
+          "step": 5,
+          "instruction": "Przełóż guacamole do miseczki, obłóż nachosami i podawaj od razu, posypane odrobiną kolendry."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "awokado",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "limonka",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cebula czerwona",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kolendra",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryczka chili",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "chips kukurydziany",
+          "amount": 50,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Guacamole z nachosami, Chunky bright green guacamole with diced tomato, red onion and cilantro leaves in the centre, surrounded by golden triangular corn tortilla chips, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "4bad5844-3572-4b35-8566-cf2101f98162",
+      "title": "Nachos zapiekane z serem i salsą",
+      "description": "Chipsy kukurydziane zapieczone pod warstwą roztopionego cheddara, polane świeżą salsą pomidorową i kleksami śmietany. Ciepła, ciągnąca się przekąska do dzielenia na spotkanie przy meczu.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 657,
+        "protein": 20,
+        "carbs": 51,
+        "fat": 41,
+        "fiber": 6,
+        "salt": 2.6,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C z termoobiegiem."
+        },
+        {
+          "step": 2,
+          "instruction": "Przygotuj salsę: pomidor pokrój w kostkę 0,5 cm, cebulę i chili (bez pestek) posiekaj drobno, kolendrę posiekaj. Wymieszaj z sokiem z limonki i solą."
+        },
+        {
+          "step": 3,
+          "instruction": "Ser cheddar zetrzyj na tarce o grubych oczkach."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozłóż nachosy w naczyniu żaroodpornym albo na blasze z papierem, zachodzące na siebie. Posyp połową sera, ułóż drugą warstwę chipsów i posyp resztą sera."
+        },
+        {
+          "step": 5,
+          "instruction": "Zapiekaj 5–6 minut, aż ser całkiem się roztopi i zacznie bąbelkować na brzegach."
+        },
+        {
+          "step": 6,
+          "instruction": "Od razu wyłóż na chipsy salsę, dodaj kilka kleksów śmietany i podawaj na ciepło, posypane kolendrą."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "chips kukurydziany",
+          "amount": 70,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser cheddar",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cebula czerwona",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryczka chili",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kolendra",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "limonka",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "śmietana 18",
+          "amount": 40,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Nachos zapiekane z serem i salsą, Golden corn tortilla chips covered with melted orange cheddar, topped with fresh diced tomato salsa, red onion, dollops of sour cream and cilantro, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "60776905-f467-4176-bdc0-4ef0f7b52a9e",
+      "title": "Frytki z piekarnika z dipem czosnkowym",
+      "description": "Grube frytki pieczone na blasze z odrobiną oleju i papryki — chrupiące z zewnątrz, miękkie w środku. Do maczania gęsty sos czosnkowy na jogurcie greckim.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 766,
+        "protein": 20,
+        "carbs": 80,
+        "fat": 36,
+        "fiber": 12,
+        "salt": 2.3,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 220°C z termoobiegiem, blachę wyłóż papierem do pieczenia."
+        },
+        {
+          "step": 2,
+          "instruction": "Ziemniaki obierz (albo dokładnie wyszoruj) i pokrój w słupki grubości 1 cm. Namocz 10 minut w zimnej wodzie, odcedź i bardzo dokładnie osusz ręcznikiem."
+        },
+        {
+          "step": 3,
+          "instruction": "Wymieszaj ziemniaki z olejem, papryką i połową soli. Rozłóż na blasze w jednej warstwie, tak żeby się nie stykały."
+        },
+        {
+          "step": 4,
+          "instruction": "Piecz 30–35 minut, po 15 minutach przewróć. Frytki są gotowe, gdy są złote i chrupiące na brzegach."
+        },
+        {
+          "step": 5,
+          "instruction": "W czasie pieczenia przygotuj dip: jogurt wymieszaj z majonezem, przeciśniętym czosnkiem, posiekaną natką, pieprzem i szczyptą soli. Odstaw do lodówki."
+        },
+        {
+          "step": 6,
+          "instruction": "Frytki posyp resztą soli i podawaj od razu, z miseczką dipu czosnkowego."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ziemniak",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jogurt grecki",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "majonez",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Frytki z piekarnika z dipem czosnkowym, Thick golden oven-baked potato fries dusted with paprika, with a small bowl of white garlic yogurt dip sprinkled with chopped parsley, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "0cf9e275-9776-443c-b6e0-9f9f67ebbd4a",
+      "title": "Pieczone skrzydełka BBQ",
+      "description": "Skrzydełka kurczaka pieczone na chrupko z wędzoną papryką, a na koniec glazurowane sosem barbecue z miodem. Lepiące się, słodko-dymne — do jedzenia palcami przy meczu albo na imprezę.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 55,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 773,
+        "protein": 51,
+        "carbs": 30,
+        "fat": 48,
+        "fiber": 2,
+        "salt": 2.7,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 210°C z termoobiegiem, blachę wyłóż papierem, a na niej postaw kratkę, jeśli masz."
+        },
+        {
+          "step": 2,
+          "instruction": "Skrzydełka osusz ręcznikiem papierowym, rozetnij w stawie na dwie części, końcówki możesz odciąć."
+        },
+        {
+          "step": 3,
+          "instruction": "Wymieszaj skrzydełka z olejem, papryką wędzoną, czosnkiem granulowanym, solą i pieprzem. Ułóż na kratce w jednej warstwie."
+        },
+        {
+          "step": 4,
+          "instruction": "Piecz 35 minut, w połowie przewracając, aż skórka będzie złota i chrupiąca."
+        },
+        {
+          "step": 5,
+          "instruction": "Wymieszaj sos barbecue z miodem. Wyjmij skrzydełka, obtocz w sosie w misce i wróć na blachę na 8–10 minut, aż sos się skarmelizuje i zacznie lepić."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj od razu na ciepło, z papierowymi serwetkami pod ręką."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "skrzydełko z kurczaka",
+          "amount": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 5,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "papryka wędzona mielona",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek granulowany",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sos barbecue",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pieczone skrzydełka BBQ, Sticky glazed chicken wings coated in dark glossy barbecue sauce with caramelised edges, piled high, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "554893ac-1e2a-4e0e-827e-b79d5b03210a",
+      "title": "Paluszki z ciasta francuskiego z serem",
+      "description": "Skręcone paluszki z ciasta francuskiego z żółtym serem, sezamem i papryką, pieczone na złoto. Chrupią i się łamią, więc znikają z talerza szybciej, niż zdążysz je ostudzić.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 6,
+      "nutrition": {
+        "kcal": 1362,
+        "protein": 37,
+        "carbs": 107,
+        "fat": 87,
+        "fiber": 5,
+        "salt": 4.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C (góra-dół), blachę wyłóż papierem. Ser zetrzyj drobno."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozwiń ciasto francuskie na papierze, na którym było zwinięte. Jajko roztrzep i posmaruj nim cały płat."
+        },
+        {
+          "step": 3,
+          "instruction": "Posyp połowę płata serem i papryką, przykryj drugą połową i mocno dociśnij wałkiem."
+        },
+        {
+          "step": 4,
+          "instruction": "Pokrój ciasto w paski szerokości 1,5 cm. Każdy pasek skręć kilka razy jak sprężynkę i ułóż na blasze."
+        },
+        {
+          "step": 5,
+          "instruction": "Posmaruj wierzch resztą jajka i posyp sezamem."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 14–16 minut, aż paluszki będą złote i wyraźnie wyrośnięte. Podawaj lekko przestudzone, same albo z ulubionym dipem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ciasto francuskie",
+          "amount": 275,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser żółty",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "sezam",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Paluszki z ciasta francuskiego z serem, Golden twisted puff pastry cheese straws sprinkled with sesame seeds and paprika, stacked on a wooden board, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "b2ad0c70-cda7-46df-a5e9-0a4f6b8d61e1",
+      "title": "Parówki w cieście francuskim",
+      "description": "Parówki zawinięte spiralnie w paski ciasta francuskiego, posmarowane jajkiem i posypane sezamem. Imprezowa klasyka, którą dzieci jedzą z ketchupem, a dorośli z musztardą.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 6,
+      "nutrition": {
+        "kcal": 1786,
+        "protein": 49,
+        "carbs": 127,
+        "fat": 121,
+        "fiber": 5,
+        "salt": 10.2,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C (góra-dół), blachę wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozwiń ciasto francuskie i pokrój wzdłuż dłuższego boku na 6 pasków szerokości ok. 3 cm."
+        },
+        {
+          "step": 3,
+          "instruction": "Parówki osusz ręcznikiem. Każdą owiń spiralnie paskiem ciasta tak, żeby końce parówki wystawały, a zakładki lekko na siebie nachodziły."
+        },
+        {
+          "step": 4,
+          "instruction": "Ułóż parówki na blasze łączeniem do dołu, posmaruj roztrzepanym jajkiem i posyp sezamem."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 18–20 minut, aż ciasto będzie złote i chrupiące."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj ciepłe, z miseczkami ketchupu i musztardy do maczania."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ciasto francuskie",
+          "amount": 275,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "parówka",
+          "amount": 6,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "sezam",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ketchup",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "musztarda",
+          "amount": 20,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Parówki w cieście francuskim, Golden puff pastry wrapped sausages with spiral pattern and sesame seeds, served with small bowls of ketchup and mustard, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "7ac42cf6-c5f2-4139-a213-937dcff4d5f1",
+      "title": "Pizzerinki z ciasta francuskiego z salami",
+      "description": "Małe kwadraty ciasta francuskiego z sosem pomidorowym, mozzarellą, salami i oregano. Smakują jak pizza, a robi się je w pół godziny — dobre na imprezę urodzinową i do pudełka.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 6,
+      "nutrition": {
+        "kcal": 1568,
+        "protein": 51,
+        "carbs": 110,
+        "fat": 102,
+        "fiber": 6,
+        "salt": 6.9,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C (góra-dół), blachę wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozwiń ciasto i pokrój na 12 kwadratów. Przełóż je na blachę z odstępami, każdy nakłuj kilka razy widelcem w środku, zostawiając 1 cm wolnego brzegu."
+        },
+        {
+          "step": 3,
+          "instruction": "Passatę wymieszaj z oregano i rozsmaruj po łyżeczce na każdym kwadracie, bez brzegów."
+        },
+        {
+          "step": 4,
+          "instruction": "Posyp mozzarellą, a salami pokrój w ćwiartki plastrów i ułóż na serze."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 15–17 minut, aż brzegi urosną i się zezłocą, a ser się roztopi."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj ciepłe, z listkami świeżej bazylii na wierzchu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ciasto francuskie",
+          "amount": 275,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "passata pomidorowa",
+          "amount": 60,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "oregano",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mozzarella tarta",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "salami",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "bazylia",
+          "amount": 5,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pizzerinki z ciasta francuskiego z salami, Twelve small square puff pastry pizzas with puffed golden edges, tomato sauce, melted mozzarella, salami pieces and fresh basil leaves, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "7959a859-b5cb-4799-a631-1135cf2ae674",
+      "title": "Chleb czosnkowy z serem",
+      "description": "Bagietka nacięta i przełożona masłem czosnkowym z natką, zapieczona pod ciągnącą się mozzarellą. Pachnie na całe mieszkanie i świetnie pasuje do wieczoru z filmem albo grilla.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 4,
+      "nutrition": {
+        "kcal": 1300,
+        "protein": 42,
+        "carbs": 140,
+        "fat": 63,
+        "fiber": 7,
+        "salt": 5.6,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C (góra-dół). Masło wyjmij wcześniej z lodówki, żeby zmiękło."
+        },
+        {
+          "step": 2,
+          "instruction": "Czosnek przeciśnij przez praskę, natkę posiekaj drobno. Utrzyj z masłem i solą na gładką pastę."
+        },
+        {
+          "step": 3,
+          "instruction": "Bagietkę natnij w poprzek co 2 cm, nie dokrawając do spodu."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozsmaruj masło czosnkowe w nacięciach i cienko na wierzchu, a w nacięcia i na górę wsyp mozzarellę."
+        },
+        {
+          "step": 5,
+          "instruction": "Owiń bagietkę luźno folią aluminiową, zostawiając odkryty wierzch, i piecz 10 minut, potem odkryj i piecz jeszcze 5 minut, aż ser się zezłoci."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj od razu, odrywając kromki po nacięciach, posypane resztą natki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "bagietka",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mozzarella tarta",
+          "amount": 80,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Chleb czosnkowy z serem, Sliced baguette filled with garlic herb butter and golden melted mozzarella between the cuts, sprinkled with chopped parsley, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "83eb317e-3896-45d1-a00d-217eb1253895",
+      "title": "Klasyczne jajka faszerowane z musztardą",
+      "description": "Połówki jajek na twardo z kremowym farszem z żółtek, majonezu i musztardy, posypane szczypiorkiem i papryką. Wielkanocna klasyka, która sprawdza się też jako przekąska na każdy dzień.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 442,
+        "protein": 26,
+        "carbs": 3,
+        "fat": 35,
+        "fiber": 1,
+        "salt": 2.2,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Jajka włóż do wrzącej wody i gotuj 10 minut, potem przełóż do zimnej wody na 5 minut i obierz."
+        },
+        {
+          "step": 2,
+          "instruction": "Przekrój jajka wzdłuż na połówki i ostrożnie wyjmij żółtka do miski."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozgnieć żółtka widelcem, dodaj majonez, musztardę, sól i pieprz, utrzyj na gładki krem. Wmieszaj połowę posiekanego szczypiorku."
+        },
+        {
+          "step": 4,
+          "instruction": "Nałóż farsz łyżeczką albo szprycą z powrotem do białek, formując kopczyki."
+        },
+        {
+          "step": 5,
+          "instruction": "Posyp resztą szczypiorku i szczyptą papryki, schłodź chwilę w lodówce i podawaj."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jajko",
+          "amount": 4,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "majonez",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "musztarda",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Klasyczne jajka faszerowane z musztardą, Eight deviled egg halves with piped pale yellow mustard filling, dusted with red paprika and chopped chives, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "6c06356c-9bba-479d-be59-cf2fa35c7d9f",
+      "title": "Tzatziki z warzywami do maczania",
+      "description": "Gęsty sos z jogurtu greckiego z tartym ogórkiem, czosnkiem i koperkiem, do tego chrupiące słupki marchewki, papryki, selera i ogórka. Lekka, orzeźwiająca przekąska, która dobrze znosi pudełko.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 408,
+        "protein": 24,
+        "carbs": 35,
+        "fat": 16,
+        "fiber": 11,
+        "salt": 1.6,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Odetnij połowę ogórka i zetrzyj ją na tarce o grubych oczkach. Posól szczyptą soli, odstaw na 5 minut i mocno odciśnij z soku w dłoniach."
+        },
+        {
+          "step": 2,
+          "instruction": "Jogurt wymieszaj z odciśniętym ogórkiem, przeciśniętym czosnkiem, posiekanym koperkiem, pieprzem i resztą soli."
+        },
+        {
+          "step": 3,
+          "instruction": "Przełóż tzatziki do miseczki i polej oliwą. Schłodź w lodówce przynajmniej 10 minut, żeby smaki się połączyły."
+        },
+        {
+          "step": 4,
+          "instruction": "Marchew obierz, a marchew, paprykę, seler naciowy i drugą połowę ogórka pokrój w słupki długości ok. 8 cm."
+        },
+        {
+          "step": 5,
+          "instruction": "Podawaj tzatziki w miseczce na środku, otoczone słupkami warzyw do maczania."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jogurt grecki",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 5,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "marchew",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "papryka czerwona",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "seler naciowy",
+          "amount": 100,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Tzatziki z warzywami do maczania, A bowl of thick white tzatziki with grated cucumber, dill and a drizzle of olive oil, surrounded by carrot, red pepper, celery and cucumber sticks, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "c5864723-bbf4-4ce7-94c8-e61f6ffdacd4",
+      "title": "Prażona ciecierzyca z papryką",
+      "description": "Ciecierzyca z puszki upieczona na chrupko z wędzoną papryką, czosnkiem i kuminem. Słona, sycąca i pełna białka — zdrowsza alternatywa chipsów, dobra do chrupania przy pracy.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 430,
+        "protein": 18,
+        "carbs": 41,
+        "fat": 16,
+        "fiber": 16,
+        "salt": 2.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C z termoobiegiem, blachę wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Ciecierzycę odcedź, przepłucz i bardzo dokładnie osusz ręcznikiem — zdejmij przy tym luźne skórki. Im suchsza, tym bardziej chrupie."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozłóż ciecierzycę na blasze i piecz 20 minut bez przypraw."
+        },
+        {
+          "step": 4,
+          "instruction": "Wymieszaj oliwę z papryką, czosnkiem, kuminem i solą, polej nią ciecierzycę na blasze i dokładnie obtocz."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz jeszcze 12–15 minut, potrząsając blachą w połowie, aż ziarna będą złote i suche w środku."
+        },
+        {
+          "step": 6,
+          "instruction": "Ostudź na blasze — dopiero wtedy stają się naprawdę chrupiące. Podawaj w miseczce."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ciecierzyca z puszki",
+          "amount": 240,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "papryka wędzona mielona",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek granulowany",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Prażona ciecierzyca z papryką, Crunchy roasted chickpeas coated in red smoked paprika, piled in a small bowl with a few scattered around, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "f14029a7-c581-4ab0-9e45-7f828537cbe9",
+      "title": "Pieczone paluszki z mozzarelli z sosem pomidorowym",
+      "description": "Słupki mozzarelli w podwójnej panierce, pieczone zamiast smażenia — chrupiące na zewnątrz, ciągnące się w środku. Podane z ciepłym sosem pomidorowym do maczania.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 60,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 780,
+        "protein": 47,
+        "carbs": 45,
+        "fat": 43,
+        "fiber": 4,
+        "salt": 3,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Mozzarellę w kostce pokrój w słupki grubości ok. 1,5 cm."
+        },
+        {
+          "step": 2,
+          "instruction": "Przygotuj trzy talerze: z mąką, z roztrzepanym jajkiem i z bułką tartą wymieszaną z oregano i papryką."
+        },
+        {
+          "step": 3,
+          "instruction": "Obtocz każdy słupek w mące, jajku i bułce, a potem jeszcze raz w jajku i bułce — podwójna panierka nie pozwoli serowi wyciec."
+        },
+        {
+          "step": 4,
+          "instruction": "Ułóż paluszki na talerzu i zamroź na 30 minut. W tym czasie nagrzej piekarnik do 220°C z termoobiegiem."
+        },
+        {
+          "step": 5,
+          "instruction": "Przełóż paluszki na blachę z papierem, skrop olejem i piecz 7–9 minut, aż panierka się zezłoci, a ser zacznie mięknąć."
+        },
+        {
+          "step": 6,
+          "instruction": "Sos pomidorowy podgrzej w rondelku. Podawaj paluszki od razu, z miseczką ciepłego sosu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mozzarella",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bułka tarta",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oregano",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 5,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sos pomidorowy",
+          "amount": 80,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pieczone paluszki z mozzarelli z sosem pomidorowym, Golden breaded mozzarella sticks, one pulled apart showing stretchy melted cheese, with a small bowl of red tomato dipping sauce, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "25bf4a6a-df6f-4642-83c2-1c6f5e1bcb76",
+      "title": "Koreczki z serem, szynką i ogórkiem",
+      "description": "Kolorowe koreczki na wykałaczkach: kostki żółtego sera, zwinięta szynka, ogórek konserwowy i pomidorki koktajlowe. Przekąska na zimno bez gotowania, gotowa w dziesięć minut na każde przyjęcie.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 549,
+        "protein": 44,
+        "carbs": 13,
+        "fat": 35,
+        "fiber": 2,
+        "salt": 6.3,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ser żółty w bloku pokrój w kostki ok. 2 cm."
+        },
+        {
+          "step": 2,
+          "instruction": "Ogórki konserwowe osusz i pokrój w grube plastry, pomidorki koktajlowe przekrój na pół."
+        },
+        {
+          "step": 3,
+          "instruction": "Plastry szynki przekrój wzdłuż na paski i każdy zwiń w ciasny rulonik albo złóż w harmonijkę."
+        },
+        {
+          "step": 4,
+          "instruction": "Nabijaj na wykałaczki kolejno: pomidorek, szynkę, ogórek i na koniec kostkę sera jako podstawę."
+        },
+        {
+          "step": 5,
+          "instruction": "Ustaw koreczki na desce serem do dołu i podawaj od razu albo schłodzone."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ser żółty",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szynka",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek konserwowy",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 100,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Koreczki z serem, szynką i ogórkiem, Party skewers with yellow cheese cubes, rolled ham, pickled cucumber slices and halved cherry tomatoes standing upright, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "bcdb5333-ec70-4229-8bdd-637aa446c3f7",
+      "title": "Ślimaczki z tortilli z serkiem i szpinakiem",
+      "description": "Tortille posmarowane serkiem kremowym z czosnkiem, wyłożone świeżym szpinakiem, zwinięte i pokrojone w plastry. Zimna przekąska bez gotowania, którą łatwo zrobić wcześniej i zabrać w pudełku.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 45,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 643,
+        "protein": 18,
+        "carbs": 64,
+        "fat": 33,
+        "fiber": 4,
+        "salt": 2.8,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Serek kremowy wymieszaj z przeciśniętym czosnkiem i pieprzem."
+        },
+        {
+          "step": 2,
+          "instruction": "Szpinak umyj i bardzo dokładnie osusz, większe liście porwij."
+        },
+        {
+          "step": 3,
+          "instruction": "Rozsmaruj serek równą warstwą na obu tortillach, aż do brzegów."
+        },
+        {
+          "step": 4,
+          "instruction": "Wyłóż szpinak na serek, zostawiając 2 cm wolnego brzegu, i ciasno zwiń każdą tortillę w rulon."
+        },
+        {
+          "step": 5,
+          "instruction": "Owiń rulony folią spożywczą i schłodź 30 minut w lodówce, żeby się związały."
+        },
+        {
+          "step": 6,
+          "instruction": "Odetnij nierówne końce i pokrój rulony ostrym nożem w plastry grubości 2 cm. Podawaj ułożone przekrojem do góry."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tortilla pszenna",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "serek kremowy",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szpinak",
+          "amount": 50,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Ślimaczki z tortilli z serkiem i szpinakiem, Round tortilla pinwheels with white cream cheese and green spinach swirls, arranged cut side up in rows, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "0a069f45-231c-4601-b017-9be21ea8a7fc",
+      "title": "Pieczone krążki cebulowe z ketchupem",
+      "description": "Grube plastry cebuli w chrupiącej panierce z bułki tartej, pieczone w piekarniku zamiast w głębokim tłuszczu. Słodkie w środku, złote z zewnątrz, z ketchupem do maczania.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 634,
+        "protein": 19,
+        "carbs": 83,
+        "fat": 22,
+        "fiber": 7,
+        "salt": 2.8,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 220°C z termoobiegiem, blachę wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Cebule obierz i pokrój w plastry grubości 1 cm, rozdziel na pojedyncze krążki (najmniejsze środki zostaw na inny dzień)."
+        },
+        {
+          "step": 3,
+          "instruction": "Mąkę wymieszaj z solą, jajko roztrzep, a bułkę tartą wymieszaj z papryką i olejem, aż będzie wilgotna jak mokry piasek."
+        },
+        {
+          "step": 4,
+          "instruction": "Obtaczaj każdy krążek kolejno w mące, jajku i bułce, dociskając panierkę palcami."
+        },
+        {
+          "step": 5,
+          "instruction": "Ułóż krążki na blasze w jednej warstwie i piecz 15–18 minut, przewracając po 10 minutach, aż będą złote i chrupiące."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj od razu, z miseczką ketchupu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "cebula",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bułka tarta",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ketchup",
+          "amount": 40,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pieczone krążki cebulowe z ketchupem, Golden crispy breaded onion rings stacked loosely, with a small bowl of red ketchup on the side, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "5e57de53-64bc-4186-9895-5e6b7becbf96",
+      "title": "Chipsy z jarmużu z papryką",
+      "description": "Liście jarmużu upieczone na cienkie, kruche płatki z oliwą, solą i odrobiną czosnku. Rozpadają się w ustach jak chipsy, a są prawie samą zieleniną — przekąska do chrupania bez wyrzutów.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 152,
+        "protein": 7,
+        "carbs": 7,
+        "fat": 11,
+        "fiber": 7,
+        "salt": 1.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 150°C z termoobiegiem, dwie blachy wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Jarmuż umyj i bardzo dokładnie osusz — mokre liście zamiast chrupać, będą się dusić. Wytnij twarde łodygi, liście porwij na kawałki wielkości chipsów."
+        },
+        {
+          "step": 3,
+          "instruction": "Wmasuj w liście oliwę dłońmi, tak żeby każdy był cienko pokryty, i posyp czosnkiem oraz papryką."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozłóż jarmuż na blachach w jednej warstwie, bez nakładania."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 15–20 minut, obracając blachy w połowie. Chipsy są gotowe, gdy są suche i szeleszczą, zanim zaczną brązowieć."
+        },
+        {
+          "step": 6,
+          "instruction": "Posyp solą dopiero po upieczeniu i podawaj od razu w misce."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jarmuż",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek granulowany",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Chipsy z jarmużu z papryką, Crispy dark green baked kale chips lightly dusted with paprika and sea salt, piled in a bowl, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "d05f0e55-9d75-4663-bf22-6f4c1233e169",
+      "title": "Mini szaszłyki caprese",
+      "description": "Pomidorki koktajlowe, kawałki mozzarelli i listki bazylii na wykałaczkach, skropione oliwą i octem balsamicznym. Włoskie połączenie w wersji na jeden kęs — szybkie, kolorowe i zawsze znika pierwsze.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 481,
+        "protein": 30,
+        "carbs": 10,
+        "fat": 35,
+        "fiber": 3,
+        "salt": 2.2,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Mozzarellę odsącz z zalewy, osusz i pokrój w kostkę ok. 2 cm."
+        },
+        {
+          "step": 2,
+          "instruction": "Pomidorki koktajlowe umyj i osusz, większe przekrój na pół."
+        },
+        {
+          "step": 3,
+          "instruction": "Nabijaj na wykałaczki kolejno pomidorek, listek bazylii i kostkę mozzarelli."
+        },
+        {
+          "step": 4,
+          "instruction": "Ułóż szaszłyki na talerzu, posól i popieprz."
+        },
+        {
+          "step": 5,
+          "instruction": "Tuż przed podaniem skrop oliwą i octem balsamicznym, udekoruj resztą bazylii."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "pomidor koktajlowy",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mozzarella",
+          "amount": 125,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "bazylia",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ocet balsamiczny",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Mini szaszłyki caprese, Mini caprese skewers with red cherry tomatoes, white mozzarella cubes and fresh basil leaves, drizzled with olive oil and dark balsamic, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "e6ff1ad7-c049-4509-b0fc-20bc6f9b13d7",
+      "title": "Koktajl zielony ze szpinakiem, jabłkiem i bananem",
+      "description": "Gładki, jasnozielony koktajl ze świeżego szpinaku, słodkiego jabłka i banana z nutą cytryny. Szpinaku prawie nie czuć, za to jest orzeźwiająco — dobry na popołudniowy spadek energii.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 5,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 200,
+        "protein": 3,
+        "carbs": 43,
+        "fat": 1,
+        "fiber": 8,
+        "salt": 0.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Szpinak dokładnie umyj. Jabłko umyj, usuń gniazdo nasienne i pokrój w ćwiartki (skórkę możesz zostawić)."
+        },
+        {
+          "step": 2,
+          "instruction": "Banana obierz i połam na kawałki."
+        },
+        {
+          "step": 3,
+          "instruction": "Włóż do blendera szpinak, jabłko, banana, sok z cytryny i wodę (200 ml)."
+        },
+        {
+          "step": 4,
+          "instruction": "Miksuj ok. 1 minuty na najwyższych obrotach, aż koktajl będzie całkiem gładki, bez widocznych kawałków liści."
+        },
+        {
+          "step": 5,
+          "instruction": "Rozlej do dwóch szklanek i wypij od razu, póki jest jasnozielony i świeży."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "szpinak",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jabłko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "banan",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Koktajl zielony ze szpinakiem, jabłkiem i bananem, Smooth bright green spinach, apple and banana smoothie filling the vessel, garnished with a thin apple slice and a small spinach leaf, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "63574d23-2d55-44a4-85b9-1ccf4bfea4ec",
+      "title": "Batoniki owsiane z bakaliami",
+      "description": "Domowe batoniki z płatków owsianych, miodu i masła z rodzynkami, morelami, żurawiną i orzechami. Chrupiące na brzegach, lekko ciągnące w środku — do plecaka, na wycieczkę i do biura.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 60,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 1957,
+        "protein": 36,
+        "carbs": 258,
+        "fat": 82,
+        "fiber": 30,
+        "salt": 0.1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 170°C (góra-dół). Formę ok. 20 × 20 cm wyłóż papierem do pieczenia."
+        },
+        {
+          "step": 2,
+          "instruction": "Morele pokrój w paski, orzechy posiekaj grubo."
+        },
+        {
+          "step": 3,
+          "instruction": "W rondelku rozpuść masło z miodem na małym ogniu, aż się połączą — nie gotuj."
+        },
+        {
+          "step": 4,
+          "instruction": "W misce wymieszaj płatki, rodzynki, morele, żurawinę, orzechy i cynamon. Wlej masło z miodem i mieszaj, aż wszystkie płatki będą oblepione."
+        },
+        {
+          "step": 5,
+          "instruction": "Przełóż masę do formy i mocno dociśnij łyżką albo dnem szklanki, żeby była zbita i równa."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 20–25 minut, aż brzegi będą złotobrązowe. Wystudź całkowicie w formie (ok. 30 minut), dopiero wtedy pokrój ostrym nożem na 8 batoników i podawaj."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "płatki owsiane",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "rodzynka",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "morela suszona",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "żurawina suszona",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Batoniki owsiane z bakaliami, Golden baked oat bars with visible raisins, dried apricot pieces, red cranberries and walnuts, cut into rectangles and stacked, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "21b25e84-f1f9-4d66-b494-f2f8b99128f6",
+      "title": "Orzechy prażone w miodzie",
+      "description": "Mieszanka orzechów włoskich, laskowych i migdałów prażona na patelni w miodzie z masłem, cynamonem i szczyptą soli. Słodko-słone, chrupiące — na zimowe popołudnie albo do słoika na prezent.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 20,
+      "servings": 4,
+      "nutrition": {
+        "kcal": 1104,
+        "protein": 26,
+        "carbs": 36,
+        "fat": 96,
+        "fiber": 15,
+        "salt": 1,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Przygotuj arkusz papieru do pieczenia rozłożony na blacie."
+        },
+        {
+          "step": 2,
+          "instruction": "Wsyp orzechy i migdały na suchą patelnię i praż na średnim ogniu 5–6 minut, często mieszając, aż zaczną pachnieć."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodaj masło, a gdy się rozpuści, wlej miód i wsyp cynamon. Mieszaj bez przerwy 2–3 minuty, aż miód zacznie się karmelizować i oblepi orzechy."
+        },
+        {
+          "step": 4,
+          "instruction": "Od razu przełóż orzechy na papier, rozdziel łyżką na pojedyncze sztuki i posyp solą."
+        },
+        {
+          "step": 5,
+          "instruction": "Zostaw do całkowitego wystygnięcia (ok. 10 minut), aż karmel stwardnieje. Podawaj w miseczce albo przechowuj w szczelnym słoiku."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "orzech laskowy",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "migdał",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Orzechy prażone w miodzie, Glossy honey roasted walnuts, hazelnuts and almonds with a caramelised coating and flakes of salt, piled in a small bowl, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "8ece7fe5-1884-42dd-aafe-ef5b63eecb21",
+      "title": "Mini pizze z cukinii",
+      "description": "Grube plastry cukinii zapieczone jak pizzerki: z passatą, mozzarellą, oregano i bazylią. Lekka, ciepła przekąska bez ciasta, gotowa w dwadzieścia minut.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 366,
+        "protein": 25,
+        "carbs": 12,
+        "fat": 23,
+        "fiber": 5,
+        "salt": 2.3,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 220°C z termoobiegiem, blachę wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Cukinię pokrój ukośnie w plastry grubości 1 cm, żeby były jak największe. Osusz ręcznikiem."
+        },
+        {
+          "step": 3,
+          "instruction": "Ułóż plastry na blasze, posmaruj oliwą, posól i popieprz. Podpiecz 8 minut, aż lekko zmiękną."
+        },
+        {
+          "step": 4,
+          "instruction": "Passatę wymieszaj z oregano i nałóż po łyżeczce na każdy plaster, posyp mozzarellą."
+        },
+        {
+          "step": 5,
+          "instruction": "Zapiekaj 6–8 minut, aż ser się roztopi i zacznie rumienić."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj od razu, z listkami bazylii na wierzchu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "cukinia",
+          "amount": 350,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 5,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "passata pomidorowa",
+          "amount": 60,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "oregano",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mozzarella tarta",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "bazylia",
+          "amount": 5,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Mini pizze z cukinii, Round zucchini slices topped with tomato sauce and bubbling golden melted mozzarella, garnished with fresh basil leaves, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "1a7f321c-d654-4db2-a768-36cd52084776",
+      "title": "Chipsy z buraka z tymiankiem",
+      "description": "Cieniutkie plasterki buraka suszone w piekarniku na chrupiące, rubinowe chipsy z tymiankiem i solą. Lekko słodkie i ziemiste — ładnie wyglądają w misce na stole.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 60,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 296,
+        "protein": 6,
+        "carbs": 28,
+        "fat": 15,
+        "fiber": 11,
+        "salt": 1.6,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 150°C z termoobiegiem, dwie blachy wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Buraki obierz (najlepiej w rękawiczkach) i pokrój na mandolinie albo ostrym nożem w plasterki grubości 1–2 mm."
+        },
+        {
+          "step": 3,
+          "instruction": "Osusz plasterki ręcznikiem papierowym, wymieszaj z oliwą i tymiankiem."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozłóż je na blachach w jednej warstwie, bez nakładania."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 35–45 minut, zamieniając blachy w połowie. Wyjmuj plasterki, które są już suche i pofalowane na brzegach — dopieczone chipsy chrupią dopiero po ostudzeniu."
+        },
+        {
+          "step": 6,
+          "instruction": "Posyp solą, ostudź na blasze 10 minut i podawaj w misce."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "burak",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "tymianek suszony",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Chipsy z buraka z tymiankiem, Thin crispy deep ruby red beetroot chips with curled edges, sprinkled with dried thyme and sea salt, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "6b47eba3-b69a-4cb3-a0b7-e44c4fca69f4",
+      "title": "Wytrawne muffinki z serem i szynką",
+      "description": "Puszyste wytrawne muffinki z kawałkami szynki, żółtym serem i szczypiorkiem. Dobre na ciepło i na zimno — do pudełka, na piknik albo zamiast kanapki do pracy.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 6,
+      "nutrition": {
+        "kcal": 1877,
+        "protein": 74,
+        "carbs": 160,
+        "fat": 101,
+        "fiber": 6,
+        "salt": 8.2,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 190°C (góra-dół), formę na 12 muffinek wyłóż papilotkami."
+        },
+        {
+          "step": 2,
+          "instruction": "Ser zetrzyj na tarce o grubych oczkach (garść zostaw do posypania), szynkę pokrój w kostkę 0,5 cm, szczypiorek posiekaj."
+        },
+        {
+          "step": 3,
+          "instruction": "W jednej misce wymieszaj mąkę, proszek do pieczenia, sól i pieprz. W drugiej roztrzep jajka z mlekiem i olejem."
+        },
+        {
+          "step": 4,
+          "instruction": "Wlej mokre składniki do suchych i wymieszaj łyżką tylko do połączenia — grudki mogą zostać. Wmieszaj ser, szynkę i szczypiorek."
+        },
+        {
+          "step": 5,
+          "instruction": "Nałóż ciasto do papilotek do 3/4 wysokości, posyp resztą sera."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 20–22 minuty, aż muffinki urosną i się zezłocą, a patyczek wbity w środek wyjdzie suchy. Podawaj ciepłe albo ostudzone, po dwie na porcję."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 8,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 180,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 60,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "ser żółty",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szynka",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "szczypiorek",
+          "amount": 10,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Wytrawne muffinki z serem i szynką, Golden savory muffins with melted cheese tops and visible ham cubes and chives, one broken open showing a fluffy crumb, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "29fffa56-ef35-4cd0-a90e-a3ddc10a1db1",
+      "title": "Pierożki z ciasta francuskiego ze szpinakiem i fetą",
+      "description": "Chrupiące trójkąty z ciasta francuskiego z farszem ze szpinaku, czosnku i słonej fety. Smakują jak greckie spanakopita, a robi się je z gotowego ciasta — na ciepło i na zimno.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 6,
+      "nutrition": {
+        "kcal": 1478,
+        "protein": 42,
+        "carbs": 114,
+        "fat": 95,
+        "fiber": 9,
+        "salt": 6.4,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C (góra-dół), blachę wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Na patelni rozgrzej oliwę, dodaj posiekany czosnek i szpinak. Duś 3–4 minuty, aż liście zwiędną, a woda odparuje. Przełóż na sitko, odciśnij i ostudź."
+        },
+        {
+          "step": 3,
+          "instruction": "Szpinak posiekaj, wymieszaj z pokruszoną fetą i pieprzem. Soli nie dodawaj — feta jest wystarczająco słona."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozwiń ciasto i pokrój na 12 kwadratów. Na każdy nałóż łyżkę farszu, złóż po przekątnej w trójkąt i dokładnie zlep brzegi widelcem."
+        },
+        {
+          "step": 5,
+          "instruction": "Ułóż pierożki na blasze, posmaruj roztrzepanym jajkiem i natnij każdy nożem na wierzchu."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 18–20 minut, aż będą złote i wyrośnięte. Podawaj ciepłe, po dwa na porcję."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "szpinak",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 5,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "ser feta",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ciasto francuskie",
+          "amount": 275,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pierożki z ciasta francuskiego ze szpinakiem i fetą, Golden flaky puff pastry triangles with fork-crimped edges, one cut open showing a green spinach and white feta filling, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "69324fde-1bb2-4138-b6d5-5200b8f63c66",
+      "title": "Bułeczki serowe z twarogiem",
+      "description": "Szybkie bułeczki na proszku do pieczenia z twarogiem i żółtym serem, bez czekania na drożdże. Miękkie w środku, z rumianą serową skórką — do zupy, na śniadanie albo do pudełka.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 8,
+      "nutrition": {
+        "kcal": 1860,
+        "protein": 91,
+        "carbs": 197,
+        "fat": 73,
+        "fiber": 7,
+        "salt": 7.6,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C (góra-dół), blachę wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "W misce wymieszaj mąkę, proszek do pieczenia i sól. Dodaj zimne masło pokrojone w kostkę i rozetrzyj palcami na kruszonkę."
+        },
+        {
+          "step": 3,
+          "instruction": "Ser żółty zetrzyj na grubych oczkach, 2 łyżki odłóż. Do miski dodaj twaróg, resztę żółtego sera, mleko i połowę roztrzepanego jajka."
+        },
+        {
+          "step": 4,
+          "instruction": "Szybko zagnieć miękkie ciasto — tylko do połączenia, żeby bułeczki nie wyszły twarde."
+        },
+        {
+          "step": 5,
+          "instruction": "Podziel ciasto na 8 części, uformuj kulki i ułóż na blasze w odstępach. Posmaruj resztą jajka i posyp odłożonym serem."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 20–22 minuty, aż będą złote i puste w środku przy opukaniu spodu. Podawaj ciepłe, same albo z masłem."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "proszek do pieczenia",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser twaróg półtłusty",
+          "amount": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser żółty",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mleko",
+          "amount": 50,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Bułeczki serowe z twarogiem, Eight round golden cheese buns with crispy melted cheese tops, one torn open showing a soft white crumb, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "92f67085-4746-46f9-a0db-a065c646d23d",
+      "title": "Salsa z mango z chipsami z tortilli",
+      "description": "Soczysta salsa z mango, pomidora, czerwonej cebuli, chili i kolendry z sokiem z limonki, do tego domowe chipsy z pieczonej tortilli. Słodko-ostra, świeża przekąska na letnie popołudnie.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 681,
+        "protein": 15,
+        "carbs": 106,
+        "fat": 20,
+        "fiber": 11,
+        "salt": 2.8,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 190°C z termoobiegiem. Tortille posmaruj cienko oliwą, pokrój każdą na 8 trójkątów i rozłóż na blasze z papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Piecz 7–9 minut, aż trójkąty będą złote i sztywne. Posyp połową soli i ostudź — stwardnieją jeszcze bardziej."
+        },
+        {
+          "step": 3,
+          "instruction": "Mango obierz, odkrój miąższ od pestki i pokrój w kostkę 1 cm. Pomidor pokrój w podobną kostkę, odrzucając gniazda nasienne."
+        },
+        {
+          "step": 4,
+          "instruction": "Cebulę i chili (bez pestek) posiekaj drobno, kolendrę posiekaj."
+        },
+        {
+          "step": 5,
+          "instruction": "Wymieszaj mango, pomidor, cebulę, chili i kolendrę z sokiem z limonki i resztą soli. Odstaw na 5 minut, żeby puściła sok."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj salsę w miseczce z chipsami z tortilli do nabierania."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "tortilla pszenna",
+          "amount": 2,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mango",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "pomidor",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cebula czerwona",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryczka chili",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "kolendra",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "limonka",
+          "amount": 20,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Salsa z mango z chipsami z tortilli, A bowl of colorful mango salsa with orange mango cubes, red tomato, red onion and green cilantro, with golden baked tortilla chips around it, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "29b191de-de8f-45b8-bb33-6eeb6a04c0a7",
+      "title": "Pasta z pieczonego bakłażana z pitą",
+      "description": "Kremowa, dymna pasta z upieczonego bakłażana z tahini, czosnkiem i cytryną, w stylu baba ganoush. Podana z ciepłą pitą — sycąca przekąska, która świetnie trzyma się w lodówce.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 60,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 649,
+        "protein": 19,
+        "carbs": 78,
+        "fat": 25,
+        "fiber": 15,
+        "salt": 2.7,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 220°C (góra-dół). Bakłażana nakłuj widelcem w kilku miejscach i połóż na blasze."
+        },
+        {
+          "step": 2,
+          "instruction": "Piecz 40–45 minut, obracając w połowie, aż skórka się pomarszczy i przypali, a miąższ zrobi się zupełnie miękki."
+        },
+        {
+          "step": 3,
+          "instruction": "Przekrój bakłażana, wyjmij miąższ łyżką na sitko i odstaw na 5 minut, żeby odciekł gorzki sok."
+        },
+        {
+          "step": 4,
+          "instruction": "Rozgnieć miąższ widelcem albo krótko zmiksuj z tahini, przeciśniętym czosnkiem, sokiem z cytryny, kuminem, solą i połową oliwy."
+        },
+        {
+          "step": 5,
+          "instruction": "Pitę podgrzej 2 minuty w gorącym piekarniku i pokrój w trójkąty."
+        },
+        {
+          "step": 6,
+          "instruction": "Przełóż pastę do miseczki, zrób łyżką zagłębienie, polej resztą oliwy i posyp natką. Podawaj z ciepłą pitą."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "bakłażan",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "tahini",
+          "amount": 25,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "kmin rzymski",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "natka pietruszki",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pita",
+          "amount": 2,
+          "unit": "szt"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Pasta z pieczonego bakłażana z pitą, Creamy smoky grey-beige eggplant dip with a swirl of olive oil and chopped parsley, served with warm pita triangles, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "594f5ff4-2ee4-460e-ae8b-273b509389db",
+      "title": "Edamame z czosnkiem i chili",
+      "description": "Strączki edamame obsmażone na oleju sezamowym z czosnkiem, sosem sojowym i płatkami chili. Wyciska się je zębami prosto ze strączków — zabawna, białkowa przekąska gotowa w dziesięć minut.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 15,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 362,
+        "protein": 31,
+        "carbs": 12,
+        "fat": 18,
+        "fiber": 13,
+        "salt": 2.4,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Zagotuj wodę z połową soli, wrzuć mrożone edamame i gotuj 4–5 minut. Odcedź i osusz."
+        },
+        {
+          "step": 2,
+          "instruction": "Czosnek posiekaj drobno."
+        },
+        {
+          "step": 3,
+          "instruction": "Na dużej patelni rozgrzej olej sezamowy, wrzuć czosnek i smaż 30 sekund, aż zacznie pachnieć — nie przypal go."
+        },
+        {
+          "step": 4,
+          "instruction": "Dodaj edamame, sos sojowy i płatki chili, smaż 2 minuty, mieszając, aż strączki się błyszczą i lekko przypieką."
+        },
+        {
+          "step": 5,
+          "instruction": "Przełóż do miski, posyp resztą soli i podawaj na ciepło, z drugą miseczką na puste strączki."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "edamame",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej sezamowy",
+          "amount": 5,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "sos sojowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "płatki chili",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Edamame z czosnkiem i chili, Glossy bright green edamame pods tossed with golden minced garlic and red chili flakes, piled in a bowl, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "0b492e59-1f95-4b2f-ac7b-552f633d120e",
+      "title": "Camembert z piekarnika z żurawiną",
+      "description": "Cały krążek camemberta zapieczony, aż środek zrobi się płynny, podany z sosem żurawinowym, miodem, orzechami i grzankami z bagietki. Przekąska na zimowy wieczór we dwoje.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 25,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 831,
+        "protein": 35,
+        "carbs": 80,
+        "fat": 41,
+        "fiber": 4,
+        "salt": 3.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C (góra-dół)."
+        },
+        {
+          "step": 2,
+          "instruction": "Camembert wyjmij z opakowania, połóż w małym naczyniu żaroodpornym albo na papierze. Natnij wierzch w kratkę na głębokość 3 mm i posyp tymiankiem."
+        },
+        {
+          "step": 3,
+          "instruction": "Piecz 12–15 minut, aż ser będzie miękki i wypukły, a środek płynny przy dotknięciu."
+        },
+        {
+          "step": 4,
+          "instruction": "W tym czasie pokrój bagietkę w ukośne kromki grubości 1 cm i opiecz je na blasze obok sera przez ostatnie 6 minut. Orzechy posiekaj grubo."
+        },
+        {
+          "step": 5,
+          "instruction": "Na gorący ser wyłóż sos żurawinowy, skrop miodem i posyp orzechami."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj od razu, z grzankami do nabierania roztopionego sera."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ser camembert",
+          "amount": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "tymianek suszony",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sos żurawinowy",
+          "amount": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "orzech włoski",
+          "amount": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "bagietka",
+          "amount": 100,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Camembert z piekarnika z żurawiną, Whole baked camembert with scored golden top, topped with red cranberry sauce, honey and chopped walnuts, surrounded by toasted baguette slices, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "94eaf122-c180-4581-b078-058fca804de2",
+      "title": "Paluszki z cukinii w panierce z dipem jogurtowym",
+      "description": "Słupki cukinii w chrupiącej panierce z bułki tartej i parmezanu, pieczone na złoto. Do maczania czosnkowy dip jogurtowy — przekąska, po którą chętnie sięgają nawet przeciwnicy warzyw.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 40,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 674,
+        "protein": 36,
+        "carbs": 64,
+        "fat": 28,
+        "fiber": 7,
+        "salt": 2.7,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 220°C z termoobiegiem, blachę wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Cukinię pokrój w słupki 1 × 1 × 8 cm i dokładnie osusz ręcznikiem papierowym."
+        },
+        {
+          "step": 3,
+          "instruction": "Na trzech talerzach przygotuj: mąkę z solą, roztrzepane jajko i bułkę tartą wymieszaną z drobno startym parmezanem i czosnkiem granulowanym."
+        },
+        {
+          "step": 4,
+          "instruction": "Obtaczaj słupki kolejno w mące, jajku i panierce, układaj na blasze w odstępach i skrop oliwą."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 18–20 minut, przewracając w połowie, aż panierka będzie złota i chrupiąca."
+        },
+        {
+          "step": 6,
+          "instruction": "Jogurt wymieszaj z przeciśniętym czosnkiem i szczyptą soli. Podawaj paluszki gorące, z dipem w miseczce."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "cukinia",
+          "amount": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bułka tarta",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ser parmezan",
+          "amount": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek granulowany",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jogurt grecki",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 1,
+          "unit": "szt"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Paluszki z cukinii w panierce z dipem jogurtowym, Golden breaded zucchini fries with parmesan crust, stacked on a plate with a small bowl of white garlic yogurt dip, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "8d71a6ca-862c-4f1d-8ce7-dea5e622dc20",
+      "title": "Domowe krakersy serowe",
+      "description": "Kruche, maślane krakersy z dużą ilością cheddara i szczyptą papryki, wykrawane w małe kwadraciki. Pachną serem, chrupią jak ze sklepu i dobrze trzymają się w puszce przez tydzień.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 60,
+      "servings": 6,
+      "nutrition": {
+        "kcal": 1393,
+        "protein": 41,
+        "carbs": 112,
+        "fat": 84,
+        "fiber": 4,
+        "salt": 3.5,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Ser cheddar zetrzyj drobno. Masło pokrój w kostkę i trzymaj w lodówce do ostatniej chwili."
+        },
+        {
+          "step": 2,
+          "instruction": "W misce albo w malakserze połącz mąkę, sól, paprykę, ser i zimne masło, aż powstanie kruszonka."
+        },
+        {
+          "step": 3,
+          "instruction": "Dodawaj stopniowo zimną wodę (ok. 30 ml), łyżka po łyżce, i zagnieć krótko gładkie ciasto. Owiń folią i schłódź 20 minut."
+        },
+        {
+          "step": 4,
+          "instruction": "Nagrzej piekarnik do 180°C (góra-dół), blachy wyłóż papierem."
+        },
+        {
+          "step": 5,
+          "instruction": "Rozwałkuj ciasto na grubość 3 mm, pokrój radełkiem w kwadraty 3 × 3 cm i ułóż na blachach. Każdy nakłuj na środku patyczkiem."
+        },
+        {
+          "step": 6,
+          "instruction": "Piecz 12–15 minut, aż brzegi się zezłocą. Ostudź na kratce — krakersy chrupią po wystygnięciu. Podawaj w miseczce."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "ser cheddar",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "mąka pszenna",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "masło",
+          "amount": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "papryka słodka mielona",
+          "amount": 1,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Domowe krakersy serowe, Small square golden-orange cheese crackers with a hole in the middle, piled loosely on a wooden board, served on a rustic wooden serving board, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the board in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "d6f9b11c-750a-4820-b156-895b81b844a1",
+      "title": "Roladki z grillowanej cukinii z serkiem",
+      "description": "Cienkie plastry cukinii podsmażone na patelni grillowej, posmarowane serkiem z czosnkiem i bazylią, zwinięte z suszonym pomidorem. Elegancka, a prosta przekąska na zimno.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 30,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 446,
+        "protein": 11,
+        "carbs": 14,
+        "fat": 38,
+        "fiber": 5,
+        "salt": 2.6,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Cukinię pokrój wzdłuż obieraczką albo nożem w plastry grubości 3 mm (wyjdzie ok. 10–12 pasków). Posmaruj je cienko oliwą i posól."
+        },
+        {
+          "step": 2,
+          "instruction": "Rozgrzej patelnię grillową i smaż plastry po 1–2 minuty z każdej strony, aż będą miękkie i z wyraźnymi paskami. Ostudź na talerzu."
+        },
+        {
+          "step": 3,
+          "instruction": "Serek wymieszaj z przeciśniętym czosnkiem, posiekaną bazylią (kilka listków zostaw) i pieprzem."
+        },
+        {
+          "step": 4,
+          "instruction": "Pomidory suszone odsącz z oleju i pokrój w cienkie paski."
+        },
+        {
+          "step": 5,
+          "instruction": "Każdy plaster cukinii posmaruj serkiem, na jednym końcu połóż pasek pomidora i ciasno zwiń."
+        },
+        {
+          "step": 6,
+          "instruction": "Ustaw roladki na talerzu, spinając wykałaczką te, które się rozwijają, i podawaj z listkami bazylii."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "cukinia",
+          "amount": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "oliwa z oliwek",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "serek kremowy",
+          "amount": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bazylia",
+          "amount": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pomidor suszony w oleju",
+          "amount": 30,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Roladki z grillowanej cukinii z serkiem, Grilled zucchini roll-ups with char marks, filled with white cream cheese and sun-dried tomato strips, garnished with basil leaves, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "028a1105-5afa-464f-b9ac-8c657ecfd156",
+      "title": "Chipsy jabłkowe z piekarnika z cynamonem",
+      "description": "Cieniutkie plasterki jabłek suszone powoli w piekarniku z cynamonem, aż zrobią się chrupiące. Naturalnie słodkie, bez cukru — przekąska dla dzieci i do pracy zamiast ciastek.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 150,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 242,
+        "protein": 2,
+        "carbs": 52,
+        "fat": 1,
+        "fiber": 12,
+        "salt": 0,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 100°C z termoobiegiem, dwie blachy wyłóż papierem."
+        },
+        {
+          "step": 2,
+          "instruction": "Jabłka umyj, wytnij gniazda nasienne wykrawaczem albo nożem i pokrój w poprzek na plasterki grubości 1–2 mm (najlepiej na mandolinie)."
+        },
+        {
+          "step": 3,
+          "instruction": "Skrop plasterki sokiem z cytryny, żeby nie ściemniały, i rozłóż na blachach w jednej warstwie. Oprósz cynamonem przez sitko."
+        },
+        {
+          "step": 4,
+          "instruction": "Susz 1,5–2 godziny, przewracając plasterki po godzinie. Drzwiczki piekarnika możesz uchylić łyżką, żeby uchodziła para."
+        },
+        {
+          "step": 5,
+          "instruction": "Wyłącz piekarnik i zostaw chipsy w środku na 15 minut, aż całkiem wyschną — po wystygnięciu mają chrupać."
+        },
+        {
+          "step": 6,
+          "instruction": "Podawaj w misce albo przechowuj w szczelnym słoiku do tygodnia."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "jabłko",
+          "amount": 3,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "cytryna",
+          "amount": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cynamon",
+          "amount": 2,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Chipsy jabłkowe z piekarnika z cynamonem, Thin crispy round apple chips with a star-shaped core pattern, lightly dusted with cinnamon, piled in a bowl, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "e043ec2b-6471-44f8-be85-b15e18457aa7",
+      "title": "Koktajl kefirowy z jagodami",
+      "description": "Fioletowy koktajl z kefiru i jagód, lekko dosłodzony miodem. Kwaskowaty, orzeźwiający i sycący — dobry na upalne popołudnie albo po treningu.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 5,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 320,
+        "protein": 15,
+        "carbs": 44,
+        "fat": 9,
+        "fiber": 5,
+        "salt": 0.4,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Jagody przebierz i opłucz na sitku (możesz użyć mrożonych — koktajl będzie od razu zimny). Kilka odłóż do dekoracji."
+        },
+        {
+          "step": 2,
+          "instruction": "Włóż jagody do blendera, dodaj miód i wlej schłodzony kefir."
+        },
+        {
+          "step": 3,
+          "instruction": "Miksuj ok. 30 sekund, aż koktajl będzie gładki i jednolicie fioletowy."
+        },
+        {
+          "step": 4,
+          "instruction": "Spróbuj i jeśli jagody były kwaśne, dodaj odrobinę miodu i zmiksuj jeszcze raz."
+        },
+        {
+          "step": 5,
+          "instruction": "Rozlej do dwóch szklanek, na wierzch wrzuć odłożone jagody i podawaj od razu."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "kefir",
+          "amount": 400,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jagoda",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "miód",
+          "amount": 15,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Koktajl kefirowy z jagodami, Thick purple blueberry kefir smoothie topped with a few whole fresh blueberries, served in a rustic opaque ceramic stoneware bowl, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down into the bowl at about 60 degrees so the food inside is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the bowl in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    },
+    {
+      "id": "9434aa82-da5f-4d05-a4ee-e90a6d21470a",
+      "title": "Mini klopsiki z indyka z dipem jogurtowym",
+      "description": "Małe, soczyste klopsiki z mielonego indyka z majerankiem, pieczone w piekarniku, podane z chłodnym dipem z jogurtu, ogórka i koperku. Białkowa przekąska na wykałaczkach, dobra też do pudełka.",
+      "mealType": "SNACK",
+      "difficulty": "EASY",
+      "prepTimeMinutes": 35,
+      "servings": 2,
+      "nutrition": {
+        "kcal": 756,
+        "protein": 64,
+        "carbs": 36,
+        "fat": 40,
+        "fiber": 3,
+        "salt": 2.7,
+        "addedSalt": 0
+      },
+      "steps": [
+        {
+          "step": 1,
+          "instruction": "Nagrzej piekarnik do 200°C z termoobiegiem, blachę wyłóż papierem i posmaruj połową oleju."
+        },
+        {
+          "step": 2,
+          "instruction": "Cebulę zetrzyj na drobnych oczkach, czosnek przeciśnij przez praskę."
+        },
+        {
+          "step": 3,
+          "instruction": "W misce wymieszaj indyka z jajkiem, bułką tartą, cebulą, czosnkiem, majerankiem, połową soli i pieprzem. Wyrabiaj ręką 2 minuty, aż masa się zwiąże."
+        },
+        {
+          "step": 4,
+          "instruction": "Wilgotnymi dłońmi formuj kulki wielkości orzecha włoskiego (ok. 20 sztuk), ułóż na blasze i skrop resztą oleju."
+        },
+        {
+          "step": 5,
+          "instruction": "Piecz 15–18 minut, przewracając w połowie, aż klopsiki się zrumienią i w środku nie będą już różowe."
+        },
+        {
+          "step": 6,
+          "instruction": "Ogórek zetrzyj na grubych oczkach i odciśnij, wymieszaj z jogurtem, posiekanym koperkiem i resztą soli. Podawaj klopsiki na wykałaczkach z dipem w miseczce."
+        }
+      ],
+      "ingredients": [
+        {
+          "ingredientName": "indyk mielony",
+          "amount": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "jajko",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "bułka tarta",
+          "amount": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "cebula",
+          "amount": 50,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "czosnek",
+          "amount": 1,
+          "unit": "szt"
+        },
+        {
+          "ingredientName": "majeranek",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "sól",
+          "amount": 1.5,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "pieprz czarny",
+          "amount": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "olej rzepakowy",
+          "amount": 10,
+          "unit": "ml"
+        },
+        {
+          "ingredientName": "jogurt naturalny",
+          "amount": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "ogórek",
+          "amount": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientName": "koperek",
+          "amount": 5,
+          "unit": "g"
+        }
+      ],
+      "image": {
+        "prompt": "professional food photo, Mini klopsiki z indyka z dipem jogurtowym, Small golden-brown turkey meatballs on toothpicks next to a bowl of creamy white yogurt dip with grated cucumber and dill, served on a rustic opaque ceramic stoneware plate, the dish perfectly centered in the middle of the frame, whole dish fully visible with even space on all sides, high elevated camera angle looking down at about 60 degrees so the food is clearly visible, light grey stone kitchen countertop, styled food scene with fresh ingredients, herbs and a linen napkin softly blurred in the background, bright soft natural daylight, clean and airy, vivid fresh colors, ultra realistic professional food photography, wide landscape composition with the plate in the exact center of the image, no glass or transparent dishes, no text, no watermark, appetizing",
+        "imageUrl": "https://api.scoffie.app/static/recipe-placeholder.png"
+      }
+    }
+  ]
+}

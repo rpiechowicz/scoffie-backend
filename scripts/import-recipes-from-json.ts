@@ -13,6 +13,7 @@ import {
   normalizeIngredientAmount,
   normalizeText,
 } from '../src/recipes/ingredient-amount.util';
+import { isRecipeImagePlaceholder } from '../src/recipes/recipe-image-placeholder';
 
 const prisma = new PrismaClient();
 
@@ -147,6 +148,23 @@ function buildR2ImageUrl(recipeId: string): string | null {
   if (!RECIPE_IMPORT_BUILD_R2_IMAGE_URLS) return null;
   if (!R2_PUBLIC_BASE_URL) return null;
   return `${R2_PUBLIC_BASE_URL}/${R2_KEY_PREFIX}/${recipeId}.${RECIPE_IMPORT_IMAGE_EXTENSION}`;
+}
+
+/**
+ * Zaślepka z pliku nie nadpisuje zdjęcia, które już jest w bazie. Zdjęcia
+ * z Recrafta trafiają do bazy backfillem z R2, zanim ktokolwiek poprawi
+ * plik katalogu, więc ponowny import z zaślepką cofnąłby je do zaślepki.
+ * Obrazek z generatora (pollinations) zdjęciem nie jest — ten zaślepka
+ * zastępuje celowo.
+ */
+function keepsUploadedImage(
+  existingImageUrl: string | null,
+  incomingImageUrl: string | null,
+): existingImageUrl is string {
+  if (!existingImageUrl?.trim()) return false;
+  if (!isRecipeImagePlaceholder(incomingImageUrl)) return false;
+  if (isRecipeImagePlaceholder(existingImageUrl)) return false;
+  return !existingImageUrl.startsWith(IMAGE_GENERATOR_BASE_URL);
 }
 
 function buildGeneratedImageUrl(
@@ -545,7 +563,9 @@ async function main(): Promise<void> {
         where: { id: existing.id },
         data: {
           ...commonData,
-          imageUrl: incomingImageUrl ?? existing.imageUrl ?? null,
+          imageUrl: keepsUploadedImage(existing.imageUrl, incomingImageUrl)
+            ? existing.imageUrl
+            : (incomingImageUrl ?? existing.imageUrl ?? null),
           ingredients: {
             deleteMany: {},
             create: mappedIngredients,

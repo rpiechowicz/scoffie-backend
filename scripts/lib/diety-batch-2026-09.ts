@@ -27,6 +27,7 @@ import {
   normalizeIngredientAmount,
   normalizeText,
 } from '../../src/recipes/ingredient-amount.util';
+import { RECIPE_IMAGE_PLACEHOLDER_URL } from '../../src/recipes/recipe-image-placeholder';
 
 type Ing = [name: string, amount: number, unit: 'g' | 'ml' | 'szt'];
 
@@ -980,7 +981,7 @@ function build() {
       })),
       image: {
         prompt: `professional food photo, ${def.title}, ${def.photo}, natural light, no text`,
-        imageUrl: null,
+        imageUrl: RECIPE_IMAGE_PLACEHOLDER_URL,
       },
       _pools: {
         vegan: isVegan,
