@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
-import { ShoppingListService } from './shopping-list.service';
+import {
+  SHOPPING_LIST_RULES_VERSION,
+  ShoppingListService,
+} from './shopping-list.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
@@ -20,12 +23,14 @@ const mockMembership = {
 };
 
 /// A recipe ingredient row as the aggregator sees it — already normalized,
-/// which is what `RecipeIngredient` stores.
+/// which is what `RecipeIngredient` stores. `gramsPerPiece` przychodzi
+/// z katalogu (`Ingredient`) — domyślnie brak, czyli bez przeliczania.
 const ingredient = (
   name: string,
   amount: number,
   unit = 'g',
   department = 'OTHER',
+  gramsPerPiece: number | null = null,
 ) => ({
   name,
   amount,
@@ -33,6 +38,7 @@ const ingredient = (
   normalizedAmount: amount,
   normalizedUnit: unit,
   department,
+  ingredient: { gramsPerPiece },
 });
 
 type Ingredient = ReturnType<typeof ingredient>;
@@ -269,6 +275,163 @@ describe('ShoppingListService — agregacja z Planu v2', () => {
 
     expect(findItem(items, 'seler korzeniowy').department).toBe('Warzywa');
     expect(findItem(items, 'tajemniczy').department).toBe('Inne');
+  });
+
+  // ─── Jedna jednostka na produkt ─────────────────────────────────────────────
+  //
+  // Katalog zapisuje cebulę raz w gramach („150 g”), raz w sztukach („1 szt”).
+  // Lista kleiła pozycje po parze nazwa + jednostka, więc tydzień z obydwoma
+  // przepisami dawał „Cebula (g)” i „Cebula (szt)” — zgłoszenie z 22.09.2026.
+
+  it('powinno złożyć cebulę w gramach i w sztukach w jeden wiersz w sztukach', async () => {
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'LUNCH', [
+          ingredient('cebula', 330, 'g', 'Warzywa', 110),
+        ]),
+        dayItem('i-2', 2, 'DINNER', [
+          ingredient('cebula', 1, 'szt', 'Warzywa', 110),
+        ]),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(items).toEqual([
+      expect.objectContaining({
+        productKey: 'cebula::szt',
+        name: 'Cebula',
+        unit: 'szt',
+        totalAmount: 4,
+      }),
+    ]);
+  });
+
+  it('powinno liczyć produkt z masą sztuki w sztukach także wtedy, gdy tydzień ma go tylko w gramach', async () => {
+    // Jednostka zależy od produktu, nie od tygodnia — inaczej cebula
+    // skakałaby między gramami a sztukami razem z planem, a zaznaczenie
+    // „kupione” gubiłoby się przy każdej takiej zmianie (inny `productKey`).
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'LUNCH', [
+          ingredient('ziemniak', 500, 'g', 'Warzywa', 100),
+        ]),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(items).toEqual([
+      expect.objectContaining({
+        productKey: 'ziemniak::szt',
+        unit: 'szt',
+        totalAmount: 5,
+      }),
+    ]);
+  });
+
+  it('powinno zaokrąglić sztuki w górę do połówki', async () => {
+    // 145 g + pół sztuki ogórka po 250 g = 1,08 szt → w sklepie półtora.
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'LUNCH', [
+          ingredient('ogórek', 145, 'g', 'Warzywa', 250),
+          ingredient('jajko', 1, 'szt', 'Nabiał', 50),
+        ]),
+        dayItem('i-2', 2, 'LUNCH', [
+          ingredient('ogórek', 0.5, 'szt', 'Warzywa', 250),
+        ]),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(findItem(items, 'ogorek')).toMatchObject({
+      unit: 'szt',
+      totalAmount: 1.5,
+    });
+    expect(findItem(items, 'jajko').totalAmount).toBe(1);
+  });
+
+  it('bez masy sztuki nie ma czym przeliczyć — gramy i sztuki zostają osobno, z jednostką w nazwie', async () => {
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'LUNCH', [ingredient('seler naciowy', 80, 'g')]),
+        dayItem('i-2', 2, 'LUNCH', [ingredient('seler naciowy', 1, 'szt')]),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(items.map((item) => item.name).sort()).toEqual([
+      'Seler naciowy (g)',
+      'Seler naciowy (szt)',
+    ]);
+  });
+
+  it('powinno przeliczyć migawkę zbudowaną według starszych reguł przy pierwszym odczycie', async () => {
+    // Lista policzona przed ujednoliceniem jednostek nie jest „stale”, ale
+    // trzyma stare wiersze — bez wersji reguł czekałaby na zmianę planu.
+    prisma.shoppingList.findUnique.mockResolvedValue({
+      id: 'sl-1',
+      isStale: false,
+      rulesVersion: 0,
+      items: [
+        {
+          productKey: 'cebula::g',
+          name: 'Cebula (g)',
+          unit: 'g',
+          department: 'Warzywa',
+          totalAmount: 330,
+          isChecked: false,
+        },
+      ],
+    });
+    prisma.weeklyPlan.findUnique.mockResolvedValue(
+      weekPlanWith([
+        dayItem('i-1', 1, 'LUNCH', [
+          ingredient('cebula', 330, 'g', 'Warzywa', 110),
+        ]),
+      ]),
+    );
+
+    const items = await getList();
+
+    expect(items.map((item) => item.productKey)).toEqual(['cebula::szt']);
+    expect(prisma.shoppingList.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          isStale: false,
+          rulesVersion: SHOPPING_LIST_RULES_VERSION,
+        }),
+      }),
+    );
+  });
+
+  it('nie powinno przebudowywać migawki zbudowanej według bieżących reguł', async () => {
+    prisma.shoppingList.findUnique.mockResolvedValue({
+      id: 'sl-1',
+      isStale: false,
+      rulesVersion: SHOPPING_LIST_RULES_VERSION,
+      items: [
+        {
+          productKey: 'cebula::szt',
+          name: 'Cebula',
+          unit: 'szt',
+          department: 'Warzywa',
+          totalAmount: 3,
+          isChecked: true,
+        },
+      ],
+    });
+    prisma.weeklyPlan.findUnique.mockResolvedValue({ items: [{ id: 'i-1' }] });
+
+    const items = await getList();
+
+    expect(items).toEqual([
+      expect.objectContaining({ productKey: 'cebula::szt', isChecked: true }),
+    ]);
+    expect(prisma.shoppingList.upsert).not.toHaveBeenCalled();
   });
 
   // ─── Reguła „pozycja waży plannedServings / recipe.servings" ────────────────
@@ -528,6 +691,7 @@ describe('ShoppingListService — zaznaczenia i archiwum', () => {
             normalizedAmount: null as unknown as number,
             normalizedUnit: null as unknown as string,
             department: 'Inne',
+            ingredient: { gramsPerPiece: null },
           },
         ]),
       ]),
@@ -854,7 +1018,44 @@ const recipeIngredient = (
   normalizedAmount: number,
   normalizedUnit = 'g',
   department = 'Nabiał',
-) => ({ id, name, normalizedAmount, normalizedUnit, department });
+  gramsPerPiece: number | null = null,
+) => ({
+  id,
+  name,
+  normalizedAmount,
+  normalizedUnit,
+  department,
+  ingredient: { gramsPerPiece },
+});
+
+/// Wiersz `ShoppingListExtra` tak, jak czyta go `loadExtras` — z przepisem,
+/// z którego go dopisano (tytuł dla `addedFrom`, składniki dla masy sztuki).
+const extraRow = (
+  productKey: string,
+  name: string,
+  unit: string,
+  amount: number,
+  options: {
+    id?: string;
+    department?: string;
+    recipeTitle?: string;
+    recipeIngredients?: Array<{
+      name: string;
+      ingredient: { gramsPerPiece: number | null };
+    }>;
+  } = {},
+) => ({
+  id: options.id ?? `x-${productKey}`,
+  productKey,
+  name,
+  unit,
+  department: options.department ?? 'Inne',
+  amount,
+  recipe: {
+    title: options.recipeTitle ?? 'Przepis',
+    ingredients: options.recipeIngredients ?? [],
+  },
+});
 
 describe('ShoppingListService — dopisane z przepisu', () => {
   let service: ShoppingListService;
@@ -889,13 +1090,7 @@ describe('ShoppingListService — dopisane z przepisu', () => {
         ]),
       );
       prisma.shoppingListExtra.findMany.mockResolvedValue([
-        {
-          productKey: 'mleko::ml',
-          name: 'Mleko',
-          unit: 'ml',
-          department: 'Nabiał',
-          amount: 100,
-        },
+        extraRow('mleko::ml', 'Mleko', 'ml', 100, { department: 'Nabiał' }),
       ]);
 
       const items = await service.getShoppingList(
@@ -910,13 +1105,7 @@ describe('ShoppingListService — dopisane z przepisu', () => {
 
     it('powinno zbudować listę z samych dopisanych, gdy plan jest pusty', async () => {
       prisma.shoppingListExtra.findMany.mockResolvedValue([
-        {
-          productKey: 'borówka::g',
-          name: 'Borówka',
-          unit: 'g',
-          department: 'Owoce',
-          amount: 50,
-        },
+        extraRow('borówka::g', 'Borówka', 'g', 50, { department: 'Owoce' }),
       ]);
 
       const items = await service.getShoppingList(
@@ -938,6 +1127,7 @@ describe('ShoppingListService — dopisane z przepisu', () => {
       prisma.shoppingList.findUnique.mockResolvedValue({
         id: 'sl-1',
         isStale: false,
+        rulesVersion: SHOPPING_LIST_RULES_VERSION,
         items: [
           {
             productKey: 'borówka::g',
@@ -957,23 +1147,13 @@ describe('ShoppingListService — dopisane z przepisu', () => {
     });
 
     it('powinno podpisać pozycje stanu listy przepisami, z których je dopisano', async () => {
-      prisma.shoppingListExtra.findMany.mockImplementation((args: any) =>
-        Promise.resolve(
-          args.select?.recipe
-            ? [
-                { productKey: 'borówka::g', recipe: { title: 'Owsianka' } },
-                { productKey: 'borówka::g', recipe: { title: 'Owsianka' } },
-                { productKey: 'borówka::g', recipe: { title: 'Pancakes' } },
-              ]
-            : [
-                {
-                  productKey: 'borówka::g',
-                  name: 'Borówka',
-                  unit: 'g',
-                  department: 'Owoce',
-                  amount: 50,
-                },
-              ],
+      prisma.shoppingListExtra.findMany.mockResolvedValue(
+        ['Owsianka', 'Owsianka', 'Pancakes'].map((recipeTitle, index) =>
+          extraRow('borówka::g', 'Borówka', 'g', 50, {
+            id: `x-${index}`,
+            department: 'Owoce',
+            recipeTitle,
+          }),
         ),
       );
       prisma.shoppingListArchive.findMany = jest.fn().mockResolvedValue([]);
@@ -988,6 +1168,41 @@ describe('ShoppingListService — dopisane z przepisu', () => {
       );
 
       expect(state.items[0].addedFrom).toEqual(['Owsianka', 'Pancakes']);
+    });
+
+    it('powinno przeliczyć dopisaną cebulę sprzed ujednolicenia (gramy) i złożyć ją z cebulą z planu', async () => {
+      // Wiersz zapisany 21.09.2026 ma klucz `cebula::g` — tabela nie jest
+      // przepisywana migracją, więc przeliczenie dzieje się przy odczycie.
+      prisma.weeklyPlan.findUnique.mockResolvedValue(
+        weekPlanWith([
+          dayItem('i-1', 1, 'LUNCH', [
+            ingredient('cebula', 1, 'szt', 'Warzywa', 110),
+          ]),
+        ]),
+      );
+      prisma.shoppingListExtra.findMany.mockResolvedValue([
+        extraRow('cebula::g', 'Cebula', 'g', 220, {
+          department: 'Warzywa',
+          recipeIngredients: [
+            { name: 'cebula', ingredient: { gramsPerPiece: 110 } },
+          ],
+        }),
+      ]);
+
+      const items = await service.getShoppingList(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+      );
+
+      expect(items).toEqual([
+        expect.objectContaining({
+          productKey: 'cebula::szt',
+          name: 'Cebula',
+          unit: 'szt',
+          totalAmount: 3,
+        }),
+      ]);
     });
   });
 
@@ -1029,6 +1244,71 @@ describe('ShoppingListService — dopisane z przepisu', () => {
           create: expect.objectContaining({ name: 'Mleko', amount: 100 }),
         }),
       );
+    });
+
+    it('powinno zapisać produkt z masą sztuki w sztukach — pod tym samym kluczem, co plan', async () => {
+      prisma.recipe.findFirst.mockResolvedValue({
+        id: mockRecipeId,
+        servings: 2,
+        ingredients: [
+          recipeIngredient(ING_MILK, 'cebula', 220, 'g', 'Warzywa', 110),
+        ],
+      });
+
+      const result = await add({
+        recipeId: mockRecipeId,
+        servings: 2,
+        ingredientIds: [ING_MILK],
+      });
+
+      expect(result).toEqual({ added: 1, productKeys: ['cebula::szt'] });
+      expect(prisma.shoppingListExtra.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ unit: 'szt', amount: 2 }),
+          create: expect.objectContaining({
+            productKey: 'cebula::szt',
+            unit: 'szt',
+            amount: 2,
+          }),
+        }),
+      );
+    });
+
+    it('ponowne dopisanie zastępuje wiersz tego przepisu sprzed ujednolicenia, zamiast go dublować', async () => {
+      prisma.recipe.findFirst.mockResolvedValue({
+        id: mockRecipeId,
+        servings: 2,
+        ingredients: [
+          recipeIngredient(ING_MILK, 'cebula', 220, 'g', 'Warzywa', 110),
+        ],
+      });
+      prisma.shoppingListExtra.findMany.mockResolvedValue([
+        extraRow('cebula::g', 'Cebula', 'g', 220, {
+          id: 'x-stary',
+          recipeIngredients: [
+            { name: 'cebula', ingredient: { gramsPerPiece: 110 } },
+          ],
+        }),
+      ]);
+
+      await add({
+        recipeId: mockRecipeId,
+        servings: 2,
+        ingredientIds: [ING_MILK],
+      });
+
+      expect(prisma.shoppingListExtra.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            householdId: mockHouseholdId,
+            weekStart: new Date(mockWeekStart),
+            recipeId: mockRecipeId,
+          },
+        }),
+      );
+      expect(prisma.shoppingListExtra.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['x-stary'] } },
+      });
     });
 
     it('powinno szukać przepisu tylko w katalogu i w przepisach tego domu', async () => {
@@ -1149,15 +1429,24 @@ describe('ShoppingListService — dopisane z przepisu', () => {
       });
 
     it('powinno zdjąć dopisane ze wszystkich przepisów i oznaczyć listę do przebudowy', async () => {
+      prisma.shoppingListExtra.findMany.mockResolvedValue([
+        extraRow('mleko::ml', 'Mleko', 'ml', 100, { id: 'x-1' }),
+        extraRow('mleko::ml', 'Mleko', 'ml', 50, { id: 'x-2' }),
+        extraRow('owies::g', 'Owies', 'g', 50, { id: 'x-3' }),
+      ]);
       prisma.shoppingListExtra.deleteMany.mockResolvedValue({ count: 2 });
 
       await expect(remove('mleko::ml')).resolves.toEqual({ removed: 2 });
+      expect(prisma.shoppingListExtra.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            householdId: mockHouseholdId,
+            weekStart: new Date(mockWeekStart),
+          },
+        }),
+      );
       expect(prisma.shoppingListExtra.deleteMany).toHaveBeenCalledWith({
-        where: {
-          householdId: mockHouseholdId,
-          weekStart: new Date(mockWeekStart),
-          productKey: 'mleko::ml',
-        },
+        where: { id: { in: ['x-1', 'x-2'] } },
       });
       expect(prisma.shoppingList.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1171,7 +1460,25 @@ describe('ShoppingListService — dopisane z przepisu', () => {
         status: 404,
         response: { code: 'SHOPPING_ITEM_NOT_FOUND' },
       });
+      expect(prisma.shoppingListExtra.deleteMany).not.toHaveBeenCalled();
       expect(prisma.shoppingList.upsert).not.toHaveBeenCalled();
+    });
+
+    it('zdjęcie „Cebula” w sztukach zabiera też dopisane sprzed ujednolicenia (w gramach)', async () => {
+      prisma.shoppingListExtra.findMany.mockResolvedValue([
+        extraRow('cebula::g', 'Cebula', 'g', 220, {
+          id: 'x-stary',
+          recipeIngredients: [
+            { name: 'cebula', ingredient: { gramsPerPiece: 110 } },
+          ],
+        }),
+      ]);
+      prisma.shoppingListExtra.deleteMany.mockResolvedValue({ count: 1 });
+
+      await expect(remove('cebula::szt')).resolves.toEqual({ removed: 1 });
+      expect(prisma.shoppingListExtra.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['x-stary'] } },
+      });
     });
   });
 });
