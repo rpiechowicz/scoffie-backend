@@ -1,6 +1,6 @@
 process.env.SENTRY_DSN = '';
 import {
-  isOrphanDbTransaction,
+  isNonHttpTransaction,
   scrubEvent,
   scrubLogMessage,
   scrubSpanData,
@@ -69,15 +69,27 @@ describe('scrubLogMessage', () => {
   });
 });
 
-describe('isOrphanDbTransaction', () => {
+describe('isNonHttpTransaction', () => {
+  const tx = (op: string | undefined, transaction: string) =>
+    ({ transaction, contexts: { trace: { op } } }) as never;
+
   it('odrzuca samotne zapytanie Prismy z zadania w tle', () => {
+    expect(isNonHttpTransaction(tx('default', 'prisma:client:operation'))).toBe(
+      true,
+    );
+  });
+
+  it('odrzuca ValidationPipe z handlera WebSocketu', () => {
     expect(
-      isOrphanDbTransaction({ transaction: 'prisma:client:operation' }),
+      isNonHttpTransaction(tx('middleware.nestjs', 'ValidationPipe')),
     ).toBe(true);
   });
 
   it('zostawia żądania HTTP (z zapytaniami w środku)', () => {
-    expect(isOrphanDbTransaction({ transaction: 'GET /recipes' })).toBe(false);
-    expect(isOrphanDbTransaction({})).toBe(false);
+    expect(isNonHttpTransaction(tx('http.server', 'GET /recipes'))).toBe(false);
+  });
+
+  it('bez kontekstu śladu — odrzuca (nie wiemy, co to jest)', () => {
+    expect(isNonHttpTransaction({})).toBe(true);
   });
 });
