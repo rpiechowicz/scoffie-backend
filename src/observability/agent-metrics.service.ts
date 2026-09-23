@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 
 export type AgentTurnOutcome = 'done' | 'failed' | 'timeout' | 'limited';
 export type AgentRejection =
@@ -25,6 +26,10 @@ export type AgentRejection =
  * (per użytkownik, per dzień) jest w bazie (`AiUsage`, `AiUsageCounter`); te
  * liczniki mówią tylko, co dzieje się TERAZ na tej instancji (jedna
  * instancja Railway — patrz analiza asystenta, „Jedna instancja").
+ *
+ * Te same zdarzenia idą jako metryki do Sentry (`scoffie.agent.*`) — tam
+ * przeżywają restart i dają historię; bez `SENTRY_DSN` to no-op. Atrybuty
+ * tylko o niskiej krotności: wynik, powód. Nigdy id użytkownika.
  */
 @Injectable()
 export class AgentMetricsService {
@@ -58,10 +63,14 @@ export class AgentMetricsService {
 
   recordTurnFinished(outcome: AgentTurnOutcome): void {
     this.turns[outcome] += 1;
+    Sentry.metrics.count('scoffie.agent.turn', 1, { attributes: { outcome } });
   }
 
   recordRejected(reason: AgentRejection): void {
     this.rejected[reason] += 1;
+    Sentry.metrics.count('scoffie.agent.rejected', 1, {
+      attributes: { reason },
+    });
   }
 
   recordProviderUsage(
@@ -77,14 +86,27 @@ export class AgentMetricsService {
     this.usage.inputTokens += usage.inputTokens;
     this.usage.outputTokens += usage.outputTokens;
     this.usage.costMicroUsd += usage.costMicroUsd;
+    Sentry.metrics.count('scoffie.agent.provider_calls', Math.max(1, calls));
+    Sentry.metrics.count('scoffie.agent.tokens', usage.inputTokens, {
+      attributes: { direction: 'input' },
+    });
+    Sentry.metrics.count('scoffie.agent.tokens', usage.outputTokens, {
+      attributes: { direction: 'output' },
+    });
+    Sentry.metrics.distribution(
+      'scoffie.agent.cost_usd',
+      usage.costMicroUsd / 1_000_000,
+    );
   }
 
   recordUpstreamError(): void {
     this.upstreamErrors.total += 1;
+    Sentry.metrics.count('scoffie.agent.upstream_error');
   }
 
   recordBreakerOpened(): void {
     this.upstreamErrors.breakerOpened += 1;
+    Sentry.metrics.count('scoffie.agent.breaker_opened');
   }
 
   snapshot() {
