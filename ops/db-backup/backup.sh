@@ -94,8 +94,14 @@ chmod 0711 "$WORK"
 install -d -o postgres -g postgres -m 0700 "$PGDATA_TMP"
 install -d -o postgres -g postgres -m 0755 "$SOCK"
 gosu postgres initdb -D "$PGDATA_TMP" -U restore --auth=trust >/dev/null
-gosu postgres pg_ctl -D "$PGDATA_TMP" -w -l "$WORK/pg.log" \
-  -o "-c listen_addresses='' -k $SOCK" start >/dev/null
+# Log serwera w katalogu użytkownika postgres: $WORK należy do roota (0711)
+# i pg_ctl nie mógł tam pisać — pierwszy przebieg na 18 padł właśnie na tym.
+if ! gosu postgres pg_ctl -D "$PGDATA_TMP" -w -l "$SOCK/pg.log" \
+  -o "-c listen_addresses='' -k $SOCK" start >/dev/null; then
+  log "tymczasowy serwer nie wstał — koniec jego logu:"
+  tail -n 20 "$SOCK/pg.log" 2>/dev/null || true
+  exit 1
+fi
 CHECK_URL="postgresql:///postgres?host=$SOCK&user=restore"
 psql "$CHECK_URL" -qAtc 'create database restorecheck' >/dev/null
 CHECK_URL="postgresql:///restorecheck?host=$SOCK&user=restore"
