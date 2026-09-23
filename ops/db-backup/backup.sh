@@ -18,7 +18,7 @@ set -Eeuo pipefail
 # więc stderr idzie tam, gdzie stdout, a pierwsza linia pada przed czymkolwiek,
 # co może się nie udać — brak tej linii w logach = skrypt w ogóle nie ruszył.
 exec 2>&1
-echo "[db-backup] start $(date -u +%FT%TZ) — $(pg_dump --version), $(age --version 2>/dev/null || echo 'age ?'), dry_run=${BACKUP_DRY_RUN:-false}"
+echo "[db-backup] start $(date -u +%FT%TZ) — $(pg_dump --version), $(age --version 2>/dev/null || echo 'age ?'), dry_run=${BACKUP_DRY_RUN:-false}, cel=${R2_BACKUP_BUCKET:-?}/${PREFIX:-scoffie}"
 
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 # BACKUP_DRY_RUN=true: zrzut + próba odtworzenia, BEZ szyfrowania i wysyłki —
