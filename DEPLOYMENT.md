@@ -150,7 +150,8 @@ project:
    (`DATABASE_URL=${{Postgres.DATABASE_URL}}`), so Postgres needs no public TCP
    proxy. It dumps (custom format), checks the table of contents, **restores the
    dump into a throwaway local cluster and counts tables and accounts**,
-   encrypts with `age`, uploads to the private bucket `weekly-meals-backups`
+   encrypts with `age`, uploads to the private bucket `scoffie-backups` (EEUR, no public
+   access, no custom domain — NOT `scoffie`, which is public as `img.scoffie.app`)
    (prefix `scoffie/`) and prunes copies older than 30 days. Any failure sends
    one line to `OPS_ALERT_WEBHOOK_URL`.
 

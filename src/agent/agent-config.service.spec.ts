@@ -129,7 +129,7 @@ describe('AgentConfigService', () => {
       await expect(service.assertUserAllowed(USER_ID)).rejects.toMatchObject({
         code: 'AI_CONSENT_REQUIRED',
         details: [
-          'documentVersion:2026-09-15',
+          'documentVersion:2026-09-23',
           'missing:AI_ASSISTANT',
           'missing:AGE_16',
         ],
