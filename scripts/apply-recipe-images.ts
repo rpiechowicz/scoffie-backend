@@ -9,6 +9,7 @@
  *   po `id`, tylko dla przepisów katalogu. Na prod nie importujemy całego
  *   `full-v2` (przebudowałoby składniki starych przepisów), więc adresy idą SQL-em.
  */
+import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadState, WORK_DIR } from './recraft-recipe-images';
@@ -17,7 +18,10 @@ const CATALOG_FILE = 'prisma/catalog/recipes-catalog-full-v2.json';
 
 type Catalog = {
   version: unknown;
-  recipes: Array<{ id: string; image?: { prompt?: string; imageUrl?: string } }>;
+  recipes: Array<{
+    id: string;
+    image?: { prompt?: string; imageUrl?: string };
+  }>;
 };
 
 const sqlString = (value: string) => `'${value.replace(/'/g, "''")}'`;
@@ -35,11 +39,16 @@ function main() {
   }
 
   writeFileSync(CATALOG_FILE, `${JSON.stringify(catalog, null, 2)}\n`);
+  // Katalog jest w repo sformatowany Prettierem (krótkie tablice w jednej linii) —
+  // bez tego diff to 2300 linii zamiast samych zdjęć.
+  execSync(`npx prettier --write ${CATALOG_FILE}`, { stdio: 'ignore' });
   const sql = [
     '-- Nowe zdjęcia przepisów (recraft-recipe-images.ts). Zmienia tylko przepisy katalogu.',
     'UPDATE "Recipe" AS r SET "imageUrl" = v.url',
     'FROM (VALUES',
-    rows.map(([id, url]) => `  (${sqlString(id)}::uuid, ${sqlString(url)})`).join(',\n'),
+    rows
+      .map(([id, url]) => `  (${sqlString(id)}::uuid, ${sqlString(url)})`)
+      .join(',\n'),
     ') AS v(id, url)',
     'WHERE r.id = v.id AND r."isCatalog" = true;',
     '',

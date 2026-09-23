@@ -55,9 +55,19 @@ function houghRing(
     for (let x = 1; x < width - 1; x++) {
       const at = (dx: number, dy: number) => gray[(y + dy) * width + x + dx];
       const sx =
-        -at(-1, -1) - 2 * at(-1, 0) - at(-1, 1) + at(1, -1) + 2 * at(1, 0) + at(1, 1);
+        -at(-1, -1) -
+        2 * at(-1, 0) -
+        at(-1, 1) +
+        at(1, -1) +
+        2 * at(1, 0) +
+        at(1, 1);
       const sy =
-        -at(-1, -1) - 2 * at(0, -1) - at(1, -1) + at(-1, 1) + 2 * at(0, 1) + at(1, 1);
+        -at(-1, -1) -
+        2 * at(0, -1) -
+        at(1, -1) +
+        at(-1, 1) +
+        2 * at(0, 1) +
+        at(1, 1);
       const i = y * width + x;
       gx[i] = sx;
       gy[i] = sy;
@@ -93,7 +103,8 @@ function houghRing(
     for (let x = 3; x < width - 3; x++) {
       let sum = 0;
       for (let dy = -2; dy <= 2; dy++) {
-        for (let dx = -2; dx <= 2; dx++) sum += votes[(y + dy) * width + x + dx];
+        for (let dx = -2; dx <= 2; dx++)
+          sum += votes[(y + dy) * width + x + dx];
       }
       if (sum > best) {
         best = sum;
@@ -200,7 +211,13 @@ export async function detectFromCutout(
     }
   }
   const seen = new Uint8Array(w * h);
-  let best: { n: number; x0: number; y0: number; x1: number; y1: number } | null = null;
+  let best: {
+    n: number;
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+  } | null = null;
   for (let start = 0; start < w * h; start++) {
     if (!on[start] || seen[start]) continue;
     const stack = [start];
@@ -283,10 +300,16 @@ export function judgeEdges(
   const mx = plan.width * marginShare;
   const my = plan.height * marginShare;
   const problems: string[] = [];
-  if (whole.cx - whole.a < plan.left + mx || whole.cx + whole.a > plan.left + plan.width - mx) {
+  if (
+    whole.cx - whole.a < plan.left + mx ||
+    whole.cx + whole.a > plan.left + plan.width - mx
+  ) {
     problems.push('potrawa wychodzi poza bok kadru');
   }
-  if (whole.cy - whole.b < plan.top + my || whole.cy + whole.b > plan.top + plan.height - my) {
+  if (
+    whole.cy - whole.b < plan.top + my ||
+    whole.cy + whole.b > plan.top + plan.height - my
+  ) {
     problems.push('potrawa wychodzi poza górę albo dół kadru');
   }
   return { ok: problems.length === 0, problems };
@@ -309,7 +332,10 @@ export const QA_LIMITS = {
   maxHeightShareOfWindow: 0.85,
 };
 
-export function judgePlate(plate: PlateEllipse, plan: CenteringPlan): QaVerdict {
+export function judgePlate(
+  plate: PlateEllipse,
+  plan: CenteringPlan,
+): QaVerdict {
   const problems: string[] = [];
   const dx = plate.cx - plate.width / 2;
   const dy = plate.cy - plate.height / 2;
@@ -317,10 +343,18 @@ export function judgePlate(plate: PlateEllipse, plan: CenteringPlan): QaVerdict 
   if (plate.coverage < QA_LIMITS.minCoverage) {
     problems.push(`niepewne wykrycie naczynia (${plate.coverage.toFixed(2)})`);
   }
-  if (Math.abs(dx) > QA_LIMITS.maxOffsetX || Math.abs(dy) > QA_LIMITS.maxOffsetY) {
-    problems.push(`za duże przesunięcie (${dx.toFixed(0)}, ${dy.toFixed(0)} px)`);
+  if (
+    Math.abs(dx) > QA_LIMITS.maxOffsetX ||
+    Math.abs(dy) > QA_LIMITS.maxOffsetY
+  ) {
+    problems.push(
+      `za duże przesunięcie (${dx.toFixed(0)}, ${dy.toFixed(0)} px)`,
+    );
   }
-  if (heightPct < QA_LIMITS.minHeightPct || heightPct > QA_LIMITS.maxHeightPct) {
+  if (
+    heightPct < QA_LIMITS.minHeightPct ||
+    heightPct > QA_LIMITS.maxHeightPct
+  ) {
     problems.push(`naczynie ${heightPct.toFixed(0)}% wysokości`);
   }
   if ((2 * plate.a) / plan.width > QA_LIMITS.maxWidthShareOfWindow) {

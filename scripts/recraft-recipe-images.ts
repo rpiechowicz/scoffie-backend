@@ -69,6 +69,9 @@ export type ImageState = {
   angleRatio?: number;
   /** Żadna próba nie trafiła w kąt; wzięta najwyższa — do przeglądu. */
   angleWeak?: boolean;
+  /** Ostatnia poprawka nie przeszła kontroli — zostaje poprzednie zdjęcie. */
+  retryFailedAt?: string;
+  retryAttempts?: Array<{ seed: number; problems: string[] }>;
   error?: string;
   finishedAt: string;
 };
@@ -85,7 +88,10 @@ function parseArgs(argv: string[]) {
     return i >= 0 ? argv[i + 1] : undefined;
   };
   return {
-    ids: get('--ids')?.split(',').map((s) => s.trim()).filter(Boolean),
+    ids: get('--ids')
+      ?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     all: argv.includes('--all'),
     force: argv.includes('--force'),
     noUpload: argv.includes('--no-upload'),
@@ -93,13 +99,19 @@ function parseArgs(argv: string[]) {
     strictEdges: argv.includes('--strict-edges'),
     concurrency: Number(get('--concurrency') ?? 3),
     /** `id=plik,…` — zatwierdzone zdjęcia: tylko centrowanie i wgranie. */
-    useRaw: get('--use-raw')?.split(',').map((s) => s.trim()).filter(Boolean),
+    useRaw: get('--use-raw')
+      ?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
   };
 }
 
 export function loadState(): Record<string, ImageState> {
   if (!existsSync(STATE_FILE)) return {};
-  return JSON.parse(readFileSync(STATE_FILE, 'utf8')) as Record<string, ImageState>;
+  return JSON.parse(readFileSync(STATE_FILE, 'utf8')) as Record<
+    string,
+    ImageState
+  >;
 }
 
 function loadDishes(): Map<string, DishEntry> {
@@ -132,7 +144,8 @@ async function centerOnPlate(raw: Buffer, plate: PlateEllipse) {
   let factor = 1;
   if (plan.upscale > CRISP_UPSCALE_ABOVE) {
     source = await recraftCrispUpscale(raw);
-    factor = ((await sharp(source).metadata()).width ?? plate.width) / plate.width;
+    factor =
+      ((await sharp(source).metadata()).width ?? plate.width) / plate.width;
   }
   const webp = await sharp(source)
     .extract({
@@ -169,7 +182,10 @@ type Evaluation = {
   angleOk: boolean;
 };
 
-async function evaluate(raw: Buffer, strictEdges: boolean): Promise<Evaluation> {
+async function evaluate(
+  raw: Buffer,
+  strictEdges: boolean,
+): Promise<Evaluation> {
   const rim = await detectPlate(raw);
   const angleRatio = rim.coverage >= MIN_COVERAGE_FOR_ANGLE ? rim.k : null;
   let plate = rim;
@@ -187,19 +203,33 @@ async function evaluate(raw: Buffer, strictEdges: boolean): Promise<Evaluation> 
     } else {
       verdict = {
         ok: false,
-        problems: [...verdict.problems, ...second.problems.map((p) => `wycięcie: ${p}`)],
+        problems: [
+          ...verdict.problems,
+          ...second.problems.map((p) => `wycięcie: ${p}`),
+        ],
       };
     }
   }
   if (verdict.ok && strictEdges) {
-    const whole = await detectFromCutout(await recraftRemoveBackground(raw), rim.width, rim.height);
+    const whole = await detectFromCutout(
+      await recraftRemoveBackground(raw),
+      rim.width,
+      rim.height,
+    );
     const edges = judgeEdges(whole, planCentering(plate));
     if (!edges.ok) verdict = edges;
   }
   const angleOk = angleRatio === null || angleRatio >= MIN_ANGLE_RATIO;
   const problems = [...verdict.problems];
   if (!angleOk) problems.push(`kąt za niski (k=${angleRatio?.toFixed(2)})`);
-  return { plate, detection, problems, framingOk: verdict.ok, angleRatio, angleOk };
+  return {
+    plate,
+    detection,
+    problems,
+    framingOk: verdict.ok,
+    angleRatio,
+    angleOk,
+  };
 }
 
 async function finish(
@@ -214,7 +244,10 @@ async function finish(
   const { webp, plan } = await centerOnPlate(raw, ev.plate);
   writeFileSync(join(WORK_DIR, 'final', `${entry.id}.webp`), webp);
   const hash = createHash('sha256').update(webp).digest('hex').slice(0, 10);
-  const prefix = (process.env.R2_KEY_PREFIX?.trim() || 'recipe-images').replace(/^\/+|\/+$/g, '');
+  const prefix = (process.env.R2_KEY_PREFIX?.trim() || 'recipe-images').replace(
+    /^\/+|\/+$/g,
+    '',
+  );
   const key = `${prefix}/${entry.id}-${hash}.webp`;
   if (r2) {
     await r2.send(
@@ -259,7 +292,10 @@ async function processRecipe(
   if (approvedRaw) {
     const ev = await evaluate(approvedRaw, false);
     attempts.push({ seed: -1, problems: ev.problems });
-    return finish(entry, r2, prompt, attempts, approvedRaw, -1, { ...ev, angleOk: true });
+    return finish(entry, r2, prompt, attempts, approvedRaw, -1, {
+      ...ev,
+      angleOk: true,
+    });
   }
 
   let best: { raw: Buffer; seed: number; ev: Evaluation } | null = null;
@@ -270,10 +306,17 @@ async function processRecipe(
     attempts.push({ seed, problems: ev.problems });
     if (!ev.framingOk) continue;
     if (ev.angleOk) return finish(entry, r2, prompt, attempts, raw, seed, ev);
-    if (!best || (ev.angleRatio ?? 0) > (best.ev.angleRatio ?? 0)) best = { raw, seed, ev };
+    if (!best || (ev.angleRatio ?? 0) > (best.ev.angleRatio ?? 0))
+      best = { raw, seed, ev };
   }
-  if (best) return finish(entry, r2, prompt, attempts, best.raw, best.seed, best.ev);
-  return { status: 'failed', prompt, attempts, finishedAt: new Date().toISOString() };
+  if (best)
+    return finish(entry, r2, prompt, attempts, best.raw, best.seed, best.ev);
+  return {
+    status: 'failed',
+    prompt,
+    attempts,
+    finishedAt: new Date().toISOString(),
+  };
 }
 
 /** Brak środków na koncie Recrafta: stop całego przebiegu, bez oznaczania przepisów jako nieudanych. */
@@ -283,7 +326,8 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const dishes = loadDishes();
   const state = loadState();
-  for (const dir of ['raw', 'final']) mkdirSync(join(WORK_DIR, dir), { recursive: true });
+  for (const dir of ['raw', 'final'])
+    mkdirSync(join(WORK_DIR, dir), { recursive: true });
 
   const approved = new Map(
     (args.useRaw ?? []).map((pair) => {
@@ -291,10 +335,14 @@ async function main() {
       return [id, readFileSync(file)] as const;
     }),
   );
-  const wanted = args.all ? [...dishes.keys()] : (args.ids ?? [...approved.keys()]);
-  if (wanted.length === 0) throw new Error('Podaj --ids <id,…>, --use-raw <id=plik,…> albo --all');
+  const wanted = args.all
+    ? [...dishes.keys()]
+    : (args.ids ?? [...approved.keys()]);
+  if (wanted.length === 0)
+    throw new Error('Podaj --ids <id,…>, --use-raw <id=plik,…> albo --all');
   const missing = wanted.filter((id) => !dishes.has(id));
-  if (missing.length) throw new Error(`Brak opisu dania dla: ${missing.join(', ')}`);
+  if (missing.length)
+    throw new Error(`Brak opisu dania dla: ${missing.join(', ')}`);
   const queue = wanted.filter(
     (id) => approved.has(id) || args.force || state[id]?.status !== 'ok',
   );
@@ -304,18 +352,26 @@ async function main() {
     `[recipe-images] do zrobienia ${queue.length} z ${wanted.length} (gotowe pomijam), równolegle ${args.concurrency}`,
   );
   let done = 0;
-  let stopReason: string | null = null;
+  // Przypisywane w workerach — bez `as` TS zawęża do `null` i melduje `never`.
+  let stopReason = null as string | null;
   const worker = async () => {
     for (let id = queue.shift(); id && !stopReason; id = queue.shift()) {
       const entry = dishes.get(id)!;
       let result: ImageState;
       try {
-        result = await processRecipe(entry, r2, approved.get(id), args.strictEdges);
+        result = await processRecipe(
+          entry,
+          r2,
+          approved.get(id),
+          args.strictEdges,
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (OUT_OF_CREDITS.test(message)) {
           stopReason = message;
-          console.error(`[recipe-images] STOP — Recraft odmawia (środki?): ${message}`);
+          console.error(
+            `[recipe-images] STOP — Recraft odmawia (środki?): ${message}`,
+          );
           return;
         }
         result = {
@@ -324,6 +380,15 @@ async function main() {
           attempts: [],
           error: message,
           finishedAt: new Date().toISOString(),
+        };
+      }
+      // Nieudana poprawka NIE kasuje poprzedniego, przyzwoitego zdjęcia.
+      const previous = state[id];
+      if (result.status !== 'ok' && previous?.status === 'ok') {
+        result = {
+          ...previous,
+          retryFailedAt: result.finishedAt,
+          retryAttempts: result.attempts,
         };
       }
       state[id] = result;
@@ -339,12 +404,17 @@ async function main() {
       );
     }
   };
-  await Promise.all(Array.from({ length: Math.max(1, args.concurrency) }, worker));
+  await Promise.all(
+    Array.from({ length: Math.max(1, args.concurrency) }, worker),
+  );
 
   const all = wanted.map((id) => state[id]);
   const ok = all.filter((s) => s?.status === 'ok');
   const weak = ok.filter((s) => s.angleWeak).length;
-  const generations = all.reduce((n, s) => n + (s?.attempts.filter((a) => a.seed >= 0).length ?? 0), 0);
+  const generations = all.reduce(
+    (n, s) => n + (s?.attempts.filter((a) => a.seed >= 0).length ?? 0),
+    0,
+  );
   console.log(
     `[recipe-images] gotowe ${ok.length}/${wanted.length} (słaby kąt ${weak}), nieudane ${wanted.length - ok.length}, generacji ${generations}` +
       (stopReason ? ` — PRZERWANE: ${stopReason}` : ''),

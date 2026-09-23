@@ -40,7 +40,9 @@ async function main() {
   const titles = new Map(catalog.recipes.map((r) => [r.id, r.title]));
   const state = loadState();
   const ids = Object.keys(state).filter(
-    (id) => state[id].status === 'ok' && existsSync(join(WORK_DIR, 'final', `${id}.webp`)),
+    (id) =>
+      state[id].status === 'ok' &&
+      existsSync(join(WORK_DIR, 'final', `${id}.webp`)),
   );
   const outDir = join(WORK_DIR, 'sheets');
   mkdirSync(outDir, { recursive: true });
@@ -72,12 +74,19 @@ async function main() {
   writeFileSync(
     join(outDir, 'index.json'),
     JSON.stringify(
-      ids.map((id, i) => ({ n: i + 1, id, title: titles.get(id), seed: state[id].seed })),
+      ids.map((id, i) => ({
+        n: i + 1,
+        id,
+        title: titles.get(id),
+        seed: state[id].seed,
+      })),
       null,
       1,
     ),
   );
-  console.log(`[recipe-images-sheets] ${ids.length} zdjęć, ${Math.ceil(ids.length / PER_SHEET)} arkuszy w ${outDir}`);
+  console.log(
+    `[recipe-images-sheets] ${ids.length} zdjęć, ${Math.ceil(ids.length / PER_SHEET)} arkuszy w ${outDir}`,
+  );
 }
 
 main().catch((error) => {

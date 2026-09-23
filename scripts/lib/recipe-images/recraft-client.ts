@@ -60,21 +60,23 @@ export async function recraftGenerate(
   prompt: string,
   seed: number,
 ): Promise<Buffer> {
-  const response = await withRetry(() => fetch(`${BASE_URL}/generations`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt,
-      model: RECRAFT_MODEL,
-      size: RECRAFT_SIZE,
-      n: 1,
-      random_seed: seed,
-      response_format: 'url',
+  const response = await withRetry(() =>
+    fetch(`${BASE_URL}/generations`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        model: RECRAFT_MODEL,
+        size: RECRAFT_SIZE,
+        n: 1,
+        random_seed: seed,
+        response_format: 'url',
+      }),
     }),
-  }));
+  );
   return download(await readImageUrl(response, 'generations'));
 }
 
