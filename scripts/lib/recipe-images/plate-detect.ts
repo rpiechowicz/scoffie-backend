@@ -7,7 +7,7 @@
  * 10–50 px), a `removeBackground` Recrafta bywa zawodne (potrafi wyciąć samo
  * jedzenie bez talerza) — dlatego szukamy brzegu naczynia lokalnie.
  *
- * Ujęcie pod kątem 40°: brzeg okrągłego naczynia to elipsa o poziomej osi.
+ * Ujęcie pod kątem (od 23.09.2026: 55°): brzeg okrągłego naczynia to elipsa o poziomej osi.
  * Rozciągamy obraz w pionie o 1/k — elipsa o proporcji k staje się okręgiem —
  * i szukamy okręgu transformatą Hougha z kierunkiem gradientu. Wygrywa k
  * z najlepiej pokrytym obwodem.
@@ -278,6 +278,12 @@ export const QA_LIMITS = {
   maxHeightPct: 86,
   /** Po wyśrodkowaniu talerz ma zostawić margines po bokach okna. */
   maxWidthShareOfWindow: 0.96,
+  /**
+   * …i u góry i u dołu. Ciaśniej niż po bokach: elipsa to brzeg, a pod nim
+   * widać jeszcze bok naczynia. Przy 65° talerz dotykał dolnej krawędzi,
+   * a kontrola samej wysokości tego nie łapała.
+   */
+  maxHeightShareOfWindow: 0.85,
 };
 
 export function judgePlate(plate: PlateEllipse, plan: CenteringPlan): QaVerdict {
@@ -296,6 +302,9 @@ export function judgePlate(plate: PlateEllipse, plan: CenteringPlan): QaVerdict 
   }
   if ((2 * plate.a) / plan.width > QA_LIMITS.maxWidthShareOfWindow) {
     problems.push('naczynie dotyka boków kadru');
+  }
+  if ((2 * plate.b) / plan.height > QA_LIMITS.maxHeightShareOfWindow) {
+    problems.push('naczynie dotyka góry albo dołu kadru');
   }
   return { ok: problems.length === 0, problems };
 }

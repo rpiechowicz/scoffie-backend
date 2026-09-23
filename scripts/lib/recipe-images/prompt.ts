@@ -1,5 +1,6 @@
 /**
- * Szablon promptu zdjęć przepisów (styl „A”, zatwierdzony 23.09.2026).
+ * Szablon promptu zdjęć przepisów (styl „A”, zatwierdzony 23.09.2026; kąt podniesiony
+ * z 40° na 55° tego samego dnia — przy 65° talerz dotykał krawędzi kadru).
  *
  * Kolejność zdań ma znaczenie: model najmocniej waży początek, więc najpierw
  * kompozycja (kąt, talerz na środku), potem danie, potem stały blok, który
@@ -53,7 +54,7 @@ export function buildRecipeImagePrompt(
   const { noun, lead, size } = VESSEL_TEXT[vessel];
   const shortNoun = vessel === 'cup' ? 'tumbler' : vessel;
   return [
-    'Appetizing professional food photograph, camera at a 40-degree elevated angle looking down at the dish from the front.',
+    'Appetizing professional food photograph, camera at a high 55-degree elevated angle looking down at the dish from the front.',
     `One ${noun} placed exactly in the center of the frame, the whole ${shortNoun} fully visible, ${size}, with even space around it.`,
     `${lead}: ${dish.trim().replace(/\.+$/, '')}.`,
     'Perfectly cooked and freshly served, juicy and delicious, rich natural colors, visible texture, golden-brown where roasted, fried or baked, subtle glossy sheen on sauces and butter.',
