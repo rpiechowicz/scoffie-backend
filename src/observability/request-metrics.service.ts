@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 
 type RouteStats = {
   count: number;
@@ -62,8 +63,13 @@ export class RequestMetricsService {
     this.routeStats.set(routeKey, existing);
   }
 
-  recordWsError(code: string, _status: number): void {
+  recordWsError(code: string, status: number): void {
     this.wsErrorsTotal += 1;
+    // Do Sentry też: ślady HTTP nie widzą ruchu po sockecie, a to jego
+    // większość. `code` to zamknięty słownik z `error-contract`.
+    Sentry.metrics.count('scoffie.ws.error', 1, {
+      attributes: { code, status },
+    });
     this.wsErrorsByCode.set(code, (this.wsErrorsByCode.get(code) ?? 0) + 1);
   }
 
@@ -72,6 +78,9 @@ export class RequestMetricsService {
     reason?: string,
   ): void {
     this.wsAuthHandshakes[outcome] += 1;
+    Sentry.metrics.count('scoffie.ws.handshake', 1, {
+      attributes: { outcome, reason: reason ?? 'none' },
+    });
     if (outcome === 'rejected') {
       const key = reason ?? 'unknown';
       this.wsAuthRejectedByReason.set(
@@ -91,6 +100,9 @@ export class RequestMetricsService {
 
   recordThrottled(routeKey: string): void {
     this.throttledTotal += 1;
+    Sentry.metrics.count('scoffie.http.throttled', 1, {
+      attributes: { route: routeKey },
+    });
     this.throttledByRoute.set(
       routeKey,
       (this.throttledByRoute.get(routeKey) ?? 0) + 1,
