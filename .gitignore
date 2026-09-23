@@ -76,3 +76,6 @@ var/
 *.keystore
 *.jks
 *.mobileprovision
+
+# Robocze pliki generatora zdjęć przepisów (scripts/recraft-recipe-images.ts)
+/tmp/recipe-images
