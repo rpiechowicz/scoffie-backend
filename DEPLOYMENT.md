@@ -71,6 +71,17 @@ Configure:
 - `R2_PUBLIC_BASE_URL`
 - `R2_ACCOUNT_ID` or `R2_ENDPOINT`
 - `R2_KEY_PREFIX`
+- `R2_LEGACY_PUBLIC_BASE_URLS` (opcjonalnie, po przecinku) — adresy poprzednich
+  bucketów. Backend traktuje `…/recipe-images/<uuid>.<ext>` spoza znanych
+  bucketów jak stary plik statyczny i podmienia go na generator, więc przy
+  przenosinach stary adres musi tu być, dopóki baza go trzyma.
+
+Bucket `scoffie` (od 23.09.2026) pod `https://img.scoffie.app`: zdjęcia dla
+aplikacji to `recipe-images/<id>.webp` (WebP, jakość 100, rozdzielczość
+oryginału), oryginały bez zmian w `originals/recipe-images/`. Pliki mają
+`Cache-Control: immutable` na rok — nowe zdjęcie dla przepisu = NOWY klucz,
+nigdy nadpisanie pod starym adresem (telefony i Cloudflare trzymają starą
+wersję; `CachedAsyncImage` w iOS kluczuje po URL-u).
 
 ## Cookidoo service (second Railway service)
 

@@ -26,7 +26,7 @@ const R2_KEY_PREFIX = (env('R2_KEY_PREFIX') || 'recipe-images').replace(
 
 const R2_SYNC_OVERWRITE_EXISTING =
   env('R2_SYNC_OVERWRITE_EXISTING').toLowerCase() === 'true';
-const R2_SYNC_EXTENSIONS = (env('R2_SYNC_EXTENSIONS') || 'png,jpg,jpeg,webp')
+const R2_SYNC_EXTENSIONS = (env('R2_SYNC_EXTENSIONS') || 'webp,png,jpg,jpeg')
   .split(',')
   .map((part) => part.trim().toLowerCase())
   .filter(Boolean);

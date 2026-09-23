@@ -135,9 +135,16 @@ export class RecipesService {
     'ultra realistic food photography, natural light, 50mm lens, shallow depth of field';
   private readonly imageGeneratorSeedPrefix =
     process.env.IMAGE_GENERATOR_SEED_PREFIX ?? 'scoffie';
-  private readonly r2PublicBaseUrl = (process.env.R2_PUBLIC_BASE_URL ?? '')
-    .trim()
-    .replace(/\/+$/g, '');
+  // Bieżący bucket plus poprzednie (`R2_LEGACY_PUBLIC_BASE_URLS`, po
+  // przecinku). Przy przenosinach zdjęć do nowego bucketu baza przez chwilę
+  // trzyma adresy obu — bez listy jeden z nich wyglądałby na „stary statyczny"
+  // i dostałby pollinations zamiast prawdziwego zdjęcia.
+  private readonly r2PublicBaseUrls = [
+    process.env.R2_PUBLIC_BASE_URL ?? '',
+    ...(process.env.R2_LEGACY_PUBLIC_BASE_URLS ?? '').split(','),
+  ]
+    .map((url) => url.trim().replace(/\/+$/g, ''))
+    .filter(Boolean);
 
   private async resolveUserId(userIdentifier: string): Promise<string> {
     const byId = await this.prisma.user.findUnique({
@@ -459,8 +466,7 @@ export class RecipesService {
 
     const normalized = imageUrl.trim();
     if (
-      this.r2PublicBaseUrl &&
-      normalized.startsWith(`${this.r2PublicBaseUrl}/`)
+      this.r2PublicBaseUrls.some((base) => normalized.startsWith(`${base}/`))
     ) {
       return false;
     }

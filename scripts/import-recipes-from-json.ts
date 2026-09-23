@@ -112,7 +112,7 @@ const RECIPE_IMPORT_ALLOW_RETITLE =
 const RECIPE_IMPORT_BUILD_R2_IMAGE_URLS =
   process.env.RECIPE_IMPORT_BUILD_R2_IMAGE_URLS !== 'false';
 const RECIPE_IMPORT_IMAGE_EXTENSION = (
-  process.env.RECIPE_IMPORT_IMAGE_EXTENSION ?? 'png'
+  process.env.RECIPE_IMPORT_IMAGE_EXTENSION ?? 'webp'
 )
   .trim()
   .replace(/^\./, '')
