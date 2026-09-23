@@ -194,8 +194,9 @@ delete K --service scoffie-backend` NIE wyzwala redeployu. Zmienne wymagane prze
 - Logi: `railway logs --service scoffie-backend -d -n 200`; zdrowie `/ops/health`; metryki `/ops/metrics`
   z nagłówkiem `x-ops-token: $OPS_TOKEN`.
 - SQL: Postgres NIE ma publicznego proxy TCP (zdjęty po audycie 12.09.2026) — `DATABASE_PUBLIC_URL`
-  nie działa. Do SQL: `railway ssh --service scoffie-backend` i `psql "$DATABASE_URL"` w kontenerze
-  (sieć prywatna) albo tymczasowy proxy TCP w panelu, zdjęty zaraz po robocie. Adresu nigdy w plikach.
+  nie działa. Do SQL: tymczasowy proxy TCP w panelu serwisu Postgres (Settings → Networking), zdjęty
+  zaraz po robocie; skrypty `tsx` przez `railway ssh` idą siecią prywatną (obraz API nie ma `psql`).
+  Adresu nigdy w plikach.
 - Nocna kopia bazy: serwis cron `db-backup` na Railwayu (`ops/db-backup/`, 03:15 UTC, R2 + age,
   z próbą odtworzenia). NIE GitHub Actions — tam szła przez publiczny proxy i padała od 12.09.
 - Runbooki plastrów: `docs/plans/scoffie-ai-agent/plaster-*/PROD-RUNBOOK.md`.
