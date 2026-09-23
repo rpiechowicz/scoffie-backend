@@ -43,6 +43,11 @@ const APPLE_TRANSACTION_ID_NOT_FOUND = 4040010;
 const PROBE_TRANSACTION_ID = '0';
 
 /**
+ * Odpowiedź z informacją, SKĄD przyszła — produkcja czy sandbox.
+ */
+type Lookup = { response: Response; fromSandbox: boolean };
+
+/**
  * Powód odmowy prosto od Apple.
  *
  * Ciało odpowiedzi błędu było dotąd wyrzucane bez czytania, więc w logu
@@ -164,12 +169,10 @@ export class AppStoreServerClient {
     // sandboxowym; tak samo każdy tester z TestFlighta. Bez tego zejścia
     // recenzent klika „Kup", płaci w sandboxie i dostaje odmowę — czyli
     // odrzucenie aplikacji, zanim pojawi się pierwszy prawdziwy klient.
-    let response = await this.get(
-      env,
-      env.serverApiBaseUrl,
-      originalTransactionId,
-    );
+    const first = await this.lookup(env, originalTransactionId);
+    let response = first.response;
     if (
+      !first.fromSandbox &&
       response.status === 404 &&
       env.sandboxApiBaseUrl !== env.serverApiBaseUrl
     ) {
@@ -282,12 +285,12 @@ export class AppStoreServerClient {
       return { stan: 'nieznany', szczegol: 'Płatności są wyłączone.' };
     }
     let response: Response;
+    let fromSandbox: boolean;
     try {
-      response = await this.get(
+      ({ response, fromSandbox } = await this.lookup(
         env,
-        env.serverApiBaseUrl,
         PROBE_TRANSACTION_ID,
-      );
+      ));
     } catch (error) {
       if (error instanceof AppStoreKeyError) {
         return { stan: 'klucz', szczegol: error.message };
@@ -303,7 +306,9 @@ export class AppStoreServerClient {
     if (response.status === 404 || response.ok) {
       return {
         stan: 'ok',
-        szczegol: `Apple przyjęło nasz token (HTTP ${response.status}).`,
+        szczegol: fromSandbox
+          ? `Produkcja Apple odmawia (401) — tak jest do pierwszego wydania aplikacji w App Store. Sandbox przyjął ten sam token (HTTP ${response.status}), więc klucz jest dobry.`
+          : `Apple przyjęło nasz token (HTTP ${response.status}).`,
       };
     }
     const powod = await readAppleError(response);
@@ -311,6 +316,53 @@ export class AppStoreServerClient {
       stan: 'nieznany',
       szczegol: `App Store odpowiedziało ${response.status} (${powod.opis}).`,
     };
+  }
+
+  /**
+   * Pierwsze pytanie o transakcję: produkcja, a po 401 — sandbox.
+   *
+   * APLIKACJA PRZED PIERWSZYM WYDANIEM. Produkcyjne App Store Server API
+   * odmawia (401) KAŻDEGO żądania aplikacji, która nie ma jeszcze wydania
+   * w App Store — także z dobrym kluczem („Until you have a release in
+   * production, access to the production APIs is not allowed”, Apple
+   * Developer Forums). Zejście po 404 (`TransactionIdNotFound`) nigdy wtedy
+   * nie zachodzi, bo 401 przychodzi pierwsze: recenzent App Store kupuje
+   * w sandboxie i dostaje odmowę, a sprawdzenie przy starcie gasiło
+   * sprzedaż, choć klucz był dobry (prod, 23.09.2026).
+   *
+   * Schodzimy TYLKO przy jawnej zgodzie na sandbox (`acceptSandbox`) i tylko
+   * po 401. Jeśli sandbox też odmawia, zwracamy odpowiedź produkcji — wtedy
+   * klucz jest naprawdę zły. Po wydaniu produkcja przestaje odmawiać i ta
+   * gałąź sama wygasa.
+   */
+  private async lookup(
+    env: BillingEnv,
+    originalTransactionId: string,
+  ): Promise<Lookup> {
+    const response = await this.get(
+      env,
+      env.serverApiBaseUrl,
+      originalTransactionId,
+    );
+    if (
+      response.status !== 401 ||
+      !env.acceptSandbox ||
+      env.sandboxApiBaseUrl === env.serverApiBaseUrl
+    ) {
+      return { response, fromSandbox: false };
+    }
+    const sandbox = await this.get(
+      env,
+      env.sandboxApiBaseUrl,
+      originalTransactionId,
+    );
+    if (sandbox.status === 401 || sandbox.status === 403) {
+      return { response, fromSandbox: false };
+    }
+    this.logger.warn(
+      'Produkcja App Store odmawia (401), sandbox przyjmuje — aplikacja bez wydania w App Store?',
+    );
+    return { response: sandbox, fromSandbox: true };
   }
 
   /** Jedno żądanie pod wskazany adres. Awaria sieci = awaria chwilowa. */

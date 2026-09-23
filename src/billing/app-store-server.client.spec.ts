@@ -92,6 +92,70 @@ describe('AppStoreServerClient', () => {
     });
   });
 
+  describe('aplikacja przed pierwszym wydaniem w App Store', () => {
+    // Produkcja odmawia (401) każdemu żądaniu aplikacji bez wydania — także
+    // z dobrym kluczem. Na prod 23.09.2026 gasiło to sprzedaż, a recenzent
+    // App Store kupujący w sandboxie dostałby odmowę zamiast dostępu.
+    beforeEach(() => {
+      process.env.APPLE_ACCEPT_SANDBOX = 'true';
+    });
+
+    it('401 z produkcji przy zgodzie na sandbox pyta sandbox', async () => {
+      fetchMock
+        .mockResolvedValueOnce(odpowiedz(401, {}))
+        .mockResolvedValueOnce(odpowiedz(404, { errorCode: 4040010 }));
+      await expect(
+        client.subscriptionState('2000000000000001'),
+      ).rejects.toBeInstanceOf(AppStoreUnavailableError);
+      // Sandbox pytany RAZ — już był źródłem, nie ma do czego schodzić drugi raz.
+      expect(adresy()).toEqual([PRODUKCJA, SANDBOX]);
+    });
+
+    it('sandbox też odmawia — klucz jest naprawdę zły', async () => {
+      fetchMock
+        .mockResolvedValueOnce(odpowiedz(401, {}))
+        .mockResolvedValueOnce(odpowiedz(401, {}));
+      await expect(
+        client.subscriptionState('2000000000000001'),
+      ).rejects.toBeInstanceOf(AppStoreKeyError);
+    });
+
+    it('403 z produkcji NIE schodzi do sandboxa — to nie jest blokada przed wydaniem', async () => {
+      fetchMock.mockResolvedValueOnce(odpowiedz(403, {}));
+      await expect(
+        client.subscriptionState('2000000000000001'),
+      ).rejects.toBeInstanceOf(AppStoreKeyError);
+      expect(adresy()).toEqual([PRODUKCJA]);
+    });
+
+    it('bez zgody na sandbox 401 z produkcji zostaje błędem klucza', async () => {
+      delete process.env.APPLE_ACCEPT_SANDBOX;
+      fetchMock.mockResolvedValueOnce(odpowiedz(401, {}));
+      await expect(
+        client.subscriptionState('2000000000000001'),
+      ).rejects.toBeInstanceOf(AppStoreKeyError);
+      expect(adresy()).toEqual([PRODUKCJA]);
+    });
+
+    it('sprawdzenie przy starcie: sandbox przyjmuje token → klucz dobry, sprzedaż zostaje', async () => {
+      fetchMock
+        .mockResolvedValueOnce(odpowiedz(401, {}))
+        .mockResolvedValueOnce(odpowiedz(404, { errorCode: 4040010 }));
+      const wynik = await client.verifyCredentials();
+      expect(wynik.stan).toBe('ok');
+      expect(wynik.szczegol).toMatch(/pierwszego wydania/);
+    });
+
+    it('sprawdzenie przy starcie: sandbox też odmawia → zły klucz', async () => {
+      fetchMock
+        .mockResolvedValueOnce(odpowiedz(401, {}))
+        .mockResolvedValueOnce(odpowiedz(401, {}));
+      await expect(client.verifyCredentials()).resolves.toMatchObject({
+        stan: 'klucz',
+      });
+    });
+  });
+
   describe('klasyfikacja odmów', () => {
     it('ŚWIEŻO KUPIONA transakcja to awaria CHWILOWA, nie „nie ma takiej"', async () => {
       // App Store Server API bywa opóźnione o kilka minut wobec zakupu. To 404
