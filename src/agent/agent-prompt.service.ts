@@ -9,7 +9,11 @@ import {
   CatalogDigest,
   loadDigestRecipes,
 } from './catalog-digest';
-import { buildSystemPrompt, SystemBlock } from './agent-system-prompt';
+import {
+  buildSystemPrompt,
+  clientClock,
+  SystemBlock,
+} from './agent-system-prompt';
 import { weekRangeLabel } from './cards/agent-cards';
 
 /**
@@ -95,6 +99,7 @@ export class AgentPromptService {
       clientToday: dates.clientToday,
       weekStart: dates.weekStart,
       timeZone: dates.timeZone,
+      clientTime: clientClock(dates.timeZone),
       enabledMealTypes: household?.enabledMealTypes ?? [],
       members,
       membersWithheld: withheld,
