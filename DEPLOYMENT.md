@@ -179,15 +179,28 @@ pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <file>.dump
 Railway side: point-in-time recovery and a nightly volume backup are enabled
 on the `Postgres` service (3.09.2026) — three independent layers in total.
 
-## Error tracking (`SENTRY_DSN`)
+## Sentry (`SENTRY_DSN` and friends)
 
-Create a Sentry project (platform Node.js / NestJS, **data region EU**) and
-set `SENTRY_DSN` on the `Backend` service. Nothing else is required: without
-the variable the SDK is a no-op. Only unexpected errors are sent (see
-`src/common/app-exception.filter.ts` and `src/common/ws-response.ts`),
-scrubbed of headers, cookies, bodies and user data except the user id.
-Sentry is listed in the privacy policy (§9) as a processor of technical
-error data. Pair it with an external uptime probe on `/ops/health`.
+Sentry project `scoffie/scoffie-backend` (NestJS, **data region EU**,
+`de.sentry.io`). Every signal is switched by a variable on the
+`scoffie-backend` service, so turning one off needs no code deploy:
+
+| Variable | Prod | What it does |
+| --- | --- | --- |
+| `SENTRY_DSN` | set | Master switch. Empty = the SDK is a no-op. Errors: only unexpected ones (5xx, see `src/common/app-exception.filter.ts` and `src/common/ws-response.ts`). |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.1` | Share of HTTP requests traced (spans for Nest, http, Prisma). WebSocket traffic is not traced. |
+| `SENTRY_PROFILE_SESSION_SAMPLE_RATE` | `1` | CPU profiles during traced spans; decided once per process. Requires traces > 0. Native add-on (`@sentry/profiling-node`, version pinned to `@sentry/nestjs`). |
+| `SENTRY_LOGS` | `true` | `warn`/`error` lines of the Nest logger go to Sentry Logs (`SentryForwardingLogger`). |
+
+Metrics (`scoffie.agent.*`, `scoffie.ws.*`, `scoffie.http.throttled`) are sent
+whenever the DSN is set; they mirror the `/ops/metrics` counters but survive
+restarts. Attributes are low-cardinality only — never a user id.
+
+What leaves the process is scrubbed in `src/instrument.ts`: no headers,
+cookies, bodies or query strings, no IP, user agent or e-mail addresses, no
+breadcrumbs; the user is reduced to their id. Sentry is listed in the privacy
+policy (§9) as a processor of technical data. Pair it with an external uptime
+probe on `/ops/health`.
 
 ## Operator alerts (`OPS_ALERT_WEBHOOK_URL`)
 
