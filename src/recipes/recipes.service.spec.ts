@@ -1035,3 +1035,42 @@ describe('RecipesService — pusta lista nie jest łatką', () => {
     expect(prisma.recipe.create).not.toHaveBeenCalled();
   });
 });
+
+describe('RecipesService — adresy zdjęć z R2 w trakcie przenosin bucketu', () => {
+  const ID = '9e845247-f630-4dcc-9bab-3656828cac29';
+  const OLD = 'https://pub-old.r2.dev';
+  const NEW = 'https://img.scoffie.app';
+  const saved = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  const resolve = (imageUrl: string) => {
+    process.env.R2_PUBLIC_BASE_URL = `${NEW}/`;
+    process.env.R2_LEGACY_PUBLIC_BASE_URLS = ` ${OLD} , `;
+    const service = new RecipesService({} as any, {} as any);
+    return (service as any).resolveRecipeImageUrl({
+      id: ID,
+      title: 'Owsianka',
+      description: null,
+      imageUrl,
+      sourceMeta: null,
+    });
+  };
+
+  it('nowy i stary bucket zostają nietknięte', () => {
+    expect(resolve(`${NEW}/recipe-images/${ID}.webp`)).toBe(
+      `${NEW}/recipe-images/${ID}.webp`,
+    );
+    expect(resolve(`${OLD}/recipe-images/${ID}.png`)).toBe(
+      `${OLD}/recipe-images/${ID}.png`,
+    );
+  });
+
+  it('obcy host z tą samą ścieżką dalej idzie do generatora', () => {
+    expect(resolve(`https://api.scoffie.app/recipe-images/${ID}.png`)).toMatch(
+      /^https:\/\/image\.pollinations\.ai\/prompt\//,
+    );
+  });
+});
