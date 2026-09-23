@@ -157,7 +157,11 @@ project:
    Variables on the `db-backup` service: `DATABASE_URL`, `R2_BACKUP_ENDPOINT`,
    `R2_BACKUP_BUCKET`, `R2_BACKUP_ACCESS_KEY_ID`, `R2_BACKUP_SECRET_ACCESS_KEY`
    (an R2 token scoped to that bucket only), `BACKUP_AGE_PUBLIC_KEY`,
-   `OPS_ALERT_WEBHOOK_URL`. Until 23.09.2026 this ran in GitHub Actions
+   `OPS_ALERT_WEBHOOK_URL`. Service settings live in Railway (config-as-code is
+   deprecated there): root directory `/ops/db-backup`, Dockerfile builder, cron
+   `15 3 * * *`, restart policy `NEVER`, watch pattern `/ops/db-backup/**`.
+   `BACKUP_DRY_RUN=true` runs the dump and the restore check without encrypting
+   or uploading. Until 23.09.2026 this ran in GitHub Actions
    (`db-backup.yml`) through the public proxy; after the proxy was removed
    (audit 12.09) every run failed, and the last copy from that path is dated
    8.09.2026.
