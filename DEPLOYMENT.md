@@ -145,7 +145,7 @@ project:
 1. **Railway volume backups** on the `Postgres` service (panel → Backups) —
    enable and note the retention.
 2. **Off-platform dump to Cloudflare R2**: the Railway cron service `db-backup`
-   (`ops/db-backup/`, Dockerfile on `postgres:17`) runs every night at 03:15 UTC.
+   (`ops/db-backup/`, Dockerfile on `postgres:18` — must match the server's major version) runs every night at 03:15 UTC.
    It reaches the database over the **private network**
    (`DATABASE_URL=${{Postgres.DATABASE_URL}}`), so Postgres needs no public TCP
    proxy. It dumps (custom format), checks the table of contents, **restores the
