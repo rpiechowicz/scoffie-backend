@@ -1,5 +1,10 @@
 process.env.SENTRY_DSN = '';
-import { scrubEvent, scrubLogMessage, scrubSpanData } from './instrument';
+import {
+  isOrphanDbTransaction,
+  scrubEvent,
+  scrubLogMessage,
+  scrubSpanData,
+} from './instrument';
 
 describe('scrubEvent', () => {
   it('zdejmuje nagłówki, cookies, ciało i dane osobowe użytkownika', () => {
@@ -61,5 +66,18 @@ describe('scrubLogMessage', () => {
     expect(scrubLogMessage('nie wysłano do jan.k+x@poczta.pl')).toBe(
       'nie wysłano do [email]',
     );
+  });
+});
+
+describe('isOrphanDbTransaction', () => {
+  it('odrzuca samotne zapytanie Prismy z zadania w tle', () => {
+    expect(
+      isOrphanDbTransaction({ transaction: 'prisma:client:operation' }),
+    ).toBe(true);
+  });
+
+  it('zostawia żądania HTTP (z zapytaniami w środku)', () => {
+    expect(isOrphanDbTransaction({ transaction: 'GET /recipes' })).toBe(false);
+    expect(isOrphanDbTransaction({})).toBe(false);
   });
 });
