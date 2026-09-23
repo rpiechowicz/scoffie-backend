@@ -269,6 +269,29 @@ export function planCentering(plate: PlateEllipse): CenteringPlan {
 
 export type QaVerdict = { ok: boolean; problems: string[] };
 
+/**
+ * Czy CAŁA potrawa (obrys z wyciętego tła: naczynie + jedzenie, które z niego
+ * wystaje) mieści się w oknie kadru z marginesem. Sam brzeg naczynia tego nie
+ * łapie: pita, szaszłyki czy stos ciastek wystawały poza kadr przy talerzu
+ * idealnie na środku (przegląd arkuszy 23.09.2026).
+ */
+export function judgeEdges(
+  whole: PlateEllipse,
+  plan: CenteringPlan,
+  marginShare = 0.015,
+): QaVerdict {
+  const mx = plan.width * marginShare;
+  const my = plan.height * marginShare;
+  const problems: string[] = [];
+  if (whole.cx - whole.a < plan.left + mx || whole.cx + whole.a > plan.left + plan.width - mx) {
+    problems.push('potrawa wychodzi poza bok kadru');
+  }
+  if (whole.cy - whole.b < plan.top + my || whole.cy + whole.b > plan.top + plan.height - my) {
+    problems.push('potrawa wychodzi poza górę albo dół kadru');
+  }
+  return { ok: problems.length === 0, problems };
+}
+
 /** Progi dobrane na próbach z 23.09.2026 (dobre zdjęcia: pokrycie 0,9–1,5). */
 export const QA_LIMITS = {
   minCoverage: 0.8,

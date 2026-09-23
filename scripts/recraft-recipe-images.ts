@@ -35,6 +35,7 @@ import {
 import {
   detectFromCutout,
   detectPlate,
+  judgeEdges,
   judgePlate,
   OUTPUT_HEIGHT,
   OUTPUT_WIDTH,
@@ -88,6 +89,8 @@ function parseArgs(argv: string[]) {
     all: argv.includes('--all'),
     force: argv.includes('--force'),
     noUpload: argv.includes('--no-upload'),
+    /** Dodatkowa kontrola obrysu całej potrawy (+0,01 $ za próbę). */
+    strictEdges: argv.includes('--strict-edges'),
     concurrency: Number(get('--concurrency') ?? 3),
     /** `id=plik,…` — zatwierdzone zdjęcia: tylko centrowanie i wgranie. */
     useRaw: get('--use-raw')?.split(',').map((s) => s.trim()).filter(Boolean),
@@ -166,7 +169,7 @@ type Evaluation = {
   angleOk: boolean;
 };
 
-async function evaluate(raw: Buffer): Promise<Evaluation> {
+async function evaluate(raw: Buffer, strictEdges: boolean): Promise<Evaluation> {
   const rim = await detectPlate(raw);
   const angleRatio = rim.coverage >= MIN_COVERAGE_FOR_ANGLE ? rim.k : null;
   let plate = rim;
@@ -187,6 +190,11 @@ async function evaluate(raw: Buffer): Promise<Evaluation> {
         problems: [...verdict.problems, ...second.problems.map((p) => `wycięcie: ${p}`)],
       };
     }
+  }
+  if (verdict.ok && strictEdges) {
+    const whole = await detectFromCutout(await recraftRemoveBackground(raw), rim.width, rim.height);
+    const edges = judgeEdges(whole, planCentering(plate));
+    if (!edges.ok) verdict = edges;
   }
   const angleOk = angleRatio === null || angleRatio >= MIN_ANGLE_RATIO;
   const problems = [...verdict.problems];
@@ -241,6 +249,7 @@ async function processRecipe(
   entry: DishEntry,
   r2: S3Client | null,
   approvedRaw?: Buffer,
+  strictEdges = false,
 ): Promise<ImageState> {
   const prompt = buildRecipeImagePrompt(entry.dish, entry.vessel);
   const attempts: ImageState['attempts'] = [];
@@ -248,7 +257,7 @@ async function processRecipe(
   // Zdjęcie wybrane przez Rafała z prób — tylko centrowanie, bez losowania od nowa
   // (Recraft NIE odtwarza obrazka z tego samego ziarna).
   if (approvedRaw) {
-    const ev = await evaluate(approvedRaw);
+    const ev = await evaluate(approvedRaw, false);
     attempts.push({ seed: -1, problems: ev.problems });
     return finish(entry, r2, prompt, attempts, approvedRaw, -1, { ...ev, angleOk: true });
   }
@@ -257,7 +266,7 @@ async function processRecipe(
   for (const seed of SEEDS.slice(0, MAX_ATTEMPTS)) {
     const raw = await recraftGenerate(prompt, seed);
     writeFileSync(join(WORK_DIR, 'raw', `${entry.id}-${seed}.webp`), raw);
-    const ev = await evaluate(raw);
+    const ev = await evaluate(raw, strictEdges);
     attempts.push({ seed, problems: ev.problems });
     if (!ev.framingOk) continue;
     if (ev.angleOk) return finish(entry, r2, prompt, attempts, raw, seed, ev);
@@ -301,7 +310,7 @@ async function main() {
       const entry = dishes.get(id)!;
       let result: ImageState;
       try {
-        result = await processRecipe(entry, r2, approved.get(id));
+        result = await processRecipe(entry, r2, approved.get(id), args.strictEdges);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (OUT_OF_CREDITS.test(message)) {

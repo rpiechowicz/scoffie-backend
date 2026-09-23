@@ -39,9 +39,10 @@ const VESSEL_TEXT: Record<
     lead: 'On the board',
     size: 'filling only about half of the image width, with plenty of countertop visible on the left and right',
   },
-  // „cup” sam z siebie wychodził jak miska; kształt trzeba nazwać wprost.
+  // „cup” sam z siebie wychodził jak miska, a „tumbler” rósł na całą wysokość
+  // kadru — niski, szeroki kubek trzyma wielkość.
   cup: {
-    noun: 'short straight-sided matte off-white rustic ceramic tumbler',
+    noun: 'low wide matte off-white rustic ceramic cup, about as wide as it is tall',
     lead: 'In the tumbler',
     size: 'small in the frame, filling only about half of the image height, with countertop visible above and below it',
   },
@@ -57,6 +58,8 @@ export function buildRecipeImagePrompt(
     'Appetizing professional food photograph, high-angle three-quarter view from above, camera at about 55 degrees looking down onto the dish from the front, so the round plate appears as a wide, only slightly flattened oval and the top surface of the food is clearly visible.',
     `One ${noun} placed exactly in the center of the frame, the whole ${shortNoun} fully visible, ${size}, with even space around it.`,
     `${lead}: ${dish.trim().replace(/\.+$/, '')}.`,
+    // Przekąski i desery wypełniały kadr po brzegi (pita, szaszłyki, stosy ciastek).
+    `All the food sits on the ${shortNoun}; nothing sticks out beyond the edges of the frame.`,
     'Perfectly cooked and freshly served, juicy and delicious, rich natural colors, visible texture, golden-brown where roasted, fried or baked, subtle glossy sheen on sauces and butter.',
     `Setting: a large light grey stone kitchen countertop that extends far beyond the frame in every direction and fills the entire background, with a folded natural linen napkin and a few fresh herbs softly blurred behind the ${shortNoun}; no cutlery, no other dishes.`,
     'Soft natural daylight from the left and slightly behind, gentle highlights and soft shadows, bright and airy with a slightly warm tone.',
