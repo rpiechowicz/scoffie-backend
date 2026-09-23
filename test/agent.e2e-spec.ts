@@ -298,7 +298,7 @@ describe('Agent E2E', () => {
         expect(refused.body).toMatchObject({
           code: 'AI_CONSENT_REQUIRED',
           details: [
-            'documentVersion:2026-09-15',
+            'documentVersion:2026-09-23',
             'missing:AI_ASSISTANT',
             'missing:AGE_16',
           ],
@@ -338,7 +338,7 @@ describe('Agent E2E', () => {
           .send({ householdId })
           .expect(403);
         expect(stillRefused.body.details).toEqual([
-          'documentVersion:2026-09-15',
+          'documentVersion:2026-09-23',
           'missing:AGE_16',
         ]);
 

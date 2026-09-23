@@ -42,16 +42,17 @@ export const CONSENT_ACTION_VALUES: string[] = [...CONSENT_ACTIONS];
 
 /** Bieżąca wersja każdego dokumentu (to klient wysyła w zdarzeniu). */
 export const LEGAL_DOCUMENT_VERSIONS: Record<ConsentKind, string> = {
-  // Wersja 1.0 z 15.09.2026 — od niej startujemy w App Store. Jedna data
-  // dla wszystkich rodzajów: polityka i warunki opisują asystenta, Zdrowie
-  // i Cookidoo w tym samym tekście, więc zgody szczegółowe dotyczą tej
-  // samej wersji dokumentu (tekst w AuthFooterView.swift i docs/).
-  TERMS: '2026-09-15',
-  PRIVACY: '2026-09-15',
-  AI_ASSISTANT: '2026-09-15',
-  COOKIDOO: '2026-09-15',
-  AGE_16: '2026-09-15',
-  HEALTH_DATA: '2026-09-15',
+  // Wersja 1.1 z 23.09.2026: Sentry jako diagnostyka, bez „wykluczonych
+  // składników” i „maksymalnego czasu gotowania” w danych profilu. Jedna data
+  // dla wszystkich rodzajów, bo iOS wysyła JEDNĄ wersję (`LegalDocMeta`)
+  // przy każdej zgodzie. Minimum zostaje na 1.0 — zmiana nie dodaje odbiorcy
+  // ani celu, więc nikt nie musi klikać od nowa.
+  TERMS: '2026-09-23',
+  PRIVACY: '2026-09-23',
+  AI_ASSISTANT: '2026-09-23',
+  COOKIDOO: '2026-09-23',
+  AGE_16: '2026-09-23',
+  HEALTH_DATA: '2026-09-23',
 };
 
 /**
