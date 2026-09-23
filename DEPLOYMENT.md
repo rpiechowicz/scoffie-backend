@@ -144,17 +144,23 @@ project:
 
 1. **Railway volume backups** on the `Postgres` service (panel → Backups) —
    enable and note the retention.
-2. **Off-platform dump to Cloudflare R2**: `.github/workflows/db-backup.yml`
-   runs `pg_dump` (client 17, custom format) every night at 03:15 UTC and
-   uploads it to a dedicated private bucket, pruning copies older than 30
-   days. Repository secrets: `DATABASE_PUBLIC_URL`, `R2_BACKUP_ENDPOINT`,
-   `R2_BACKUP_BUCKET`, `R2_BACKUP_ACCESS_KEY_ID`, `R2_BACKUP_SECRET_ACCESS_KEY`
-   (an R2 token scoped to that bucket only). Run it once by hand from the
-   Actions tab after adding the secrets — a dump under 20 KB fails the job.
+2. **Off-platform dump to Cloudflare R2**: the Railway cron service `db-backup`
+   (`ops/db-backup/`, Dockerfile on `postgres:17`) runs every night at 03:15 UTC.
+   It reaches the database over the **private network**
+   (`DATABASE_URL=${{Postgres.DATABASE_URL}}`), so Postgres needs no public TCP
+   proxy. It dumps (custom format), checks the table of contents, **restores the
+   dump into a throwaway local cluster and counts tables and accounts**,
+   encrypts with `age`, uploads to the private bucket `weekly-meals-backups`
+   (prefix `scoffie/`) and prunes copies older than 30 days. Any failure sends
+   one line to `OPS_ALERT_WEBHOOK_URL`.
 
-Every run also restores the fresh dump into a throwaway Postgres 17 on the
-runner and counts tables and accounts — a red workflow means the copy is not
-restorable, not just "not uploaded".
+   Variables on the `db-backup` service: `DATABASE_URL`, `R2_BACKUP_ENDPOINT`,
+   `R2_BACKUP_BUCKET`, `R2_BACKUP_ACCESS_KEY_ID`, `R2_BACKUP_SECRET_ACCESS_KEY`
+   (an R2 token scoped to that bucket only), `BACKUP_AGE_PUBLIC_KEY`,
+   `OPS_ALERT_WEBHOOK_URL`. Until 23.09.2026 this ran in GitHub Actions
+   (`db-backup.yml`) through the public proxy; after the proxy was removed
+   (audit 12.09) every run failed, and the last copy from that path is dated
+   8.09.2026.
 
 The dump contains personal data, so it is encrypted with an `age` public key
 before upload. One-time setup (on the Mac: `brew install age`; on Windows:
@@ -162,11 +168,11 @@ before upload. One-time setup (on the Mac: `brew install age`; on Windows:
 
 ```bash
 age-keygen -o scoffie-backup-key.txt      # keep this file in the password manager
-grep 'public key' scoffie-backup-key.txt  # "age1…" → repository secret BACKUP_AGE_PUBLIC_KEY
+grep 'public key' scoffie-backup-key.txt  # "age1…" → variable BACKUP_AGE_PUBLIC_KEY on db-backup
 ```
 
-Without the secret the workflow still uploads (with a warning) — an unencrypted
-copy beats no copy, but treat that as a transition state.
+Without `BACKUP_AGE_PUBLIC_KEY` the job refuses to upload: the dump holds
+allergy data (GDPR art. 9), so an unencrypted copy never leaves the container.
 
 Restore by hand:
 
