@@ -72,13 +72,15 @@ export function scrubSpanData(data: Record<string, unknown> | undefined): void {
 }
 
 /**
- * Zapytanie Prismy BEZ żądania nad sobą (worker poczty, zadania w tle
- * odpytujące bazę co chwilę) staje się własną transakcją. Pierwsza godzina
- * na prod: 300 takich na godzinę przy 10% próbkowania, zero wartości —
- * a zjadają limit śladów. Zapytania wewnątrz żądania HTTP zostają.
+ * Transakcja, która NIE jest żądaniem HTTP, to u nas zawsze samotny kawałek
+ * bez kontekstu: zapytanie Prismy z zadania w tle (worker poczty odpytuje
+ * bazę co chwilę) albo `ValidationPipe` z handlera WebSocketu, który nie ma
+ * żądania nad sobą. Pierwsza godzina na prod: ~300 + ~70 takich na godzinę
+ * przy 10% próbkowania, zero wartości — a zjadają limit śladów. Ślady
+ * żądań HTTP (z zapytaniami w środku) zostają.
  */
-export function isOrphanDbTransaction(event: Sentry.Event): boolean {
-  return (event.transaction ?? '').startsWith('prisma:');
+export function isNonHttpTransaction(event: Sentry.Event): boolean {
+  return event.contexts?.trace?.op !== 'http.server';
 }
 
 /**
@@ -113,7 +115,7 @@ Sentry.init({
   sendDefaultPii: false,
   beforeSend: (event) => scrubEvent(event),
   beforeSendTransaction: (event) => {
-    if (isOrphanDbTransaction(event)) return null;
+    if (isNonHttpTransaction(event)) return null;
     scrubEvent(event);
     scrubSpanData(event.contexts?.trace?.data);
     return event;

@@ -260,7 +260,7 @@ the mock-up are part of the subscription work, not implemented here.
 - `OPS_ALERT_WEBHOOK_URL` (empty = off) — webhook that gets a one-line alert
   when the assistant's daily budget is exhausted or the provider breaker
   opens; see `DEPLOYMENT.md` → "Operator alerts".
-- Nightly off-platform database dump to R2: `.github/workflows/db-backup.yml`
+- Nightly off-platform database dump to R2: Railway cron service `db-backup` (`ops/db-backup/`, see `DEPLOYMENT.md` → "Backups")
   (`DEPLOYMENT.md` → "Backups").
 
 ### Optional integrations
