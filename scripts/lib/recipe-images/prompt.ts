@@ -54,7 +54,7 @@ export function buildRecipeImagePrompt(
   const { noun, lead, size } = VESSEL_TEXT[vessel];
   const shortNoun = vessel === 'cup' ? 'tumbler' : vessel;
   return [
-    'Appetizing professional food photograph, camera at a high 55-degree elevated angle looking down at the dish from the front.',
+    'Appetizing professional food photograph, high-angle three-quarter view from above, camera at about 55 degrees looking down onto the dish from the front, so the round plate appears as a wide, only slightly flattened oval and the top surface of the food is clearly visible.',
     `One ${noun} placed exactly in the center of the frame, the whole ${shortNoun} fully visible, ${size}, with even space around it.`,
     `${lead}: ${dish.trim().replace(/\.+$/, '')}.`,
     'Perfectly cooked and freshly served, juicy and delicious, rich natural colors, visible texture, golden-brown where roasted, fried or baked, subtle glossy sheen on sauces and butter.',

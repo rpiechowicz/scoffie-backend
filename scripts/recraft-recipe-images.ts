@@ -3,6 +3,7 @@
  *
  *   pnpm exec tsx scripts/recraft-recipe-images.ts --ids <id,id,…>
  *   pnpm exec tsx scripts/recraft-recipe-images.ts --all [--concurrency 3]
+ *   pnpm exec tsx scripts/recraft-recipe-images.ts --use-raw <id>=<plik>,…
  *
  * Opis dania i naczynie: `prisma/catalog/recipe-image-dishes.json`; szablon:
  * `scripts/lib/recipe-images/prompt.ts`. Stan każdego przepisu ląduje w
@@ -63,6 +64,10 @@ export type ImageState = {
   plate?: Pick<PlateEllipse, 'cx' | 'cy' | 'a' | 'b' | 'k' | 'coverage'>;
   upscale?: number;
   detection?: 'rim' | 'cutout';
+  /** Spłaszczenie elipsy brzegu (b/a) — miara kąta kamery. */
+  angleRatio?: number;
+  /** Żadna próba nie trafiła w kąt; wzięta najwyższa — do przeglądu. */
+  angleWeak?: boolean;
   error?: string;
   finishedAt: string;
 };
@@ -84,6 +89,8 @@ function parseArgs(argv: string[]) {
     force: argv.includes('--force'),
     noUpload: argv.includes('--no-upload'),
     concurrency: Number(get('--concurrency') ?? 3),
+    /** `id=plik,…` — zatwierdzone zdjęcia: tylko centrowanie i wgranie. */
+    useRaw: get('--use-raw')?.split(',').map((s) => s.trim()).filter(Boolean),
   };
 }
 
@@ -137,73 +144,131 @@ async function centerOnPlate(raw: Buffer, plate: PlateEllipse) {
   return { webp, plan };
 }
 
+/**
+ * Kąt z promptu model traktuje jak wskazówkę (±10°), a to on najbardziej
+ * decyduje o wyglądzie katalogu. Mierzymy go spłaszczeniem elipsy brzegu
+ * (k = b/a): zatwierdzony gulasz „55°” ma k ≈ 0,65, burger wybrany przez
+ * Rafała 0,5 (wysokie danie zasłania tylny brzeg, więc mierzy się niżej).
+ * Poniżej progu — kolejna próba; gdy żadna nie trafi, bierzemy najwyższą
+ * i znaczymy `angleWeak` do przeglądu na arkuszach.
+ */
+const MIN_ANGLE_RATIO = 0.55;
+/** Pomiar kąta tylko przy przyzwoicie pewnej elipsie; niżej to szum. */
+const MIN_COVERAGE_FOR_ANGLE = 0.5;
+const MAX_ATTEMPTS = 4;
+
+type Evaluation = {
+  plate: PlateEllipse;
+  detection: 'rim' | 'cutout';
+  problems: string[];
+  framingOk: boolean;
+  angleRatio: number | null;
+  angleOk: boolean;
+};
+
+async function evaluate(raw: Buffer): Promise<Evaluation> {
+  const rim = await detectPlate(raw);
+  const angleRatio = rim.coverage >= MIN_COVERAGE_FOR_ANGLE ? rim.k : null;
+  let plate = rim;
+  let detection: Evaluation['detection'] = 'rim';
+  let verdict = judgePlate(rim, planCentering(rim));
+  if (!verdict.ok) {
+    // Brzeg zawiódł (kubek, gruba deska) — druga opinia z wyciętego tła.
+    const cutout = await recraftRemoveBackground(raw);
+    const fromCutout = await detectFromCutout(cutout, rim.width, rim.height);
+    const second = judgePlate(fromCutout, planCentering(fromCutout));
+    if (second.ok) {
+      plate = fromCutout;
+      detection = 'cutout';
+      verdict = second;
+    } else {
+      verdict = {
+        ok: false,
+        problems: [...verdict.problems, ...second.problems.map((p) => `wycięcie: ${p}`)],
+      };
+    }
+  }
+  const angleOk = angleRatio === null || angleRatio >= MIN_ANGLE_RATIO;
+  const problems = [...verdict.problems];
+  if (!angleOk) problems.push(`kąt za niski (k=${angleRatio?.toFixed(2)})`);
+  return { plate, detection, problems, framingOk: verdict.ok, angleRatio, angleOk };
+}
+
+async function finish(
+  entry: DishEntry,
+  r2: S3Client | null,
+  prompt: string,
+  attempts: ImageState['attempts'],
+  raw: Buffer,
+  seed: number,
+  ev: Evaluation,
+): Promise<ImageState> {
+  const { webp, plan } = await centerOnPlate(raw, ev.plate);
+  writeFileSync(join(WORK_DIR, 'final', `${entry.id}.webp`), webp);
+  const hash = createHash('sha256').update(webp).digest('hex').slice(0, 10);
+  const prefix = (process.env.R2_KEY_PREFIX?.trim() || 'recipe-images').replace(/^\/+|\/+$/g, '');
+  const key = `${prefix}/${entry.id}-${hash}.webp`;
+  if (r2) {
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: env('R2_BUCKET'),
+        Key: key,
+        Body: webp,
+        ContentType: 'image/webp',
+        CacheControl: CACHE_CONTROL,
+      }),
+    );
+  }
+  const { cx, cy, a, b, k, coverage } = ev.plate;
+  return {
+    status: 'ok',
+    prompt,
+    attempts,
+    seed,
+    key,
+    url: `${env('R2_PUBLIC_BASE_URL').replace(/\/+$/, '')}/${key}`,
+    bytes: webp.length,
+    plate: { cx, cy, a, b, k, coverage },
+    upscale: plan.upscale,
+    detection: ev.detection,
+    angleRatio: ev.angleRatio ?? undefined,
+    angleWeak: !ev.angleOk || undefined,
+    finishedAt: new Date().toISOString(),
+  };
+}
+
 async function processRecipe(
   entry: DishEntry,
   r2: S3Client | null,
+  approvedRaw?: Buffer,
 ): Promise<ImageState> {
   const prompt = buildRecipeImagePrompt(entry.dish, entry.vessel);
   const attempts: ImageState['attempts'] = [];
-  for (const seed of SEEDS) {
+
+  // Zdjęcie wybrane przez Rafała z prób — tylko centrowanie, bez losowania od nowa
+  // (Recraft NIE odtwarza obrazka z tego samego ziarna).
+  if (approvedRaw) {
+    const ev = await evaluate(approvedRaw);
+    attempts.push({ seed: -1, problems: ev.problems });
+    return finish(entry, r2, prompt, attempts, approvedRaw, -1, { ...ev, angleOk: true });
+  }
+
+  let best: { raw: Buffer; seed: number; ev: Evaluation } | null = null;
+  for (const seed of SEEDS.slice(0, MAX_ATTEMPTS)) {
     const raw = await recraftGenerate(prompt, seed);
     writeFileSync(join(WORK_DIR, 'raw', `${entry.id}-${seed}.webp`), raw);
-    let plate = await detectPlate(raw);
-    let verdict = judgePlate(plate, planCentering(plate));
-    let detection: 'rim' | 'cutout' = 'rim';
-    if (!verdict.ok) {
-      // Brzeg zawiódł (kubek, gruba deska) — druga opinia z wyciętego tła.
-      const cutout = await recraftRemoveBackground(raw);
-      const fromCutout = await detectFromCutout(cutout, plate.width, plate.height);
-      const second = judgePlate(fromCutout, planCentering(fromCutout));
-      if (second.ok) {
-        plate = fromCutout;
-        verdict = second;
-        detection = 'cutout';
-      } else {
-        verdict = { ok: false, problems: [...verdict.problems, ...second.problems.map((p) => `wycięcie: ${p}`)] };
-      }
-    }
-    attempts.push({ seed, problems: verdict.problems });
-    if (!verdict.ok) continue;
-
-    const { webp, plan } = await centerOnPlate(raw, plate);
-    writeFileSync(join(WORK_DIR, 'final', `${entry.id}.webp`), webp);
-    const hash = createHash('sha256').update(webp).digest('hex').slice(0, 10);
-    const prefix = (process.env.R2_KEY_PREFIX?.trim() || 'recipe-images').replace(/^\/+|\/+$/g, '');
-    const key = `${prefix}/${entry.id}-${hash}.webp`;
-    if (r2) {
-      await r2.send(
-        new PutObjectCommand({
-          Bucket: env('R2_BUCKET'),
-          Key: key,
-          Body: webp,
-          ContentType: 'image/webp',
-          CacheControl: CACHE_CONTROL,
-        }),
-      );
-    }
-    return {
-      status: 'ok',
-      prompt,
-      attempts,
-      seed,
-      key,
-      url: `${env('R2_PUBLIC_BASE_URL').replace(/\/+$/, '')}/${key}`,
-      bytes: webp.length,
-      plate: {
-        cx: plate.cx,
-        cy: plate.cy,
-        a: plate.a,
-        b: plate.b,
-        k: plate.k,
-        coverage: plate.coverage,
-      },
-      upscale: plan.upscale,
-      detection,
-      finishedAt: new Date().toISOString(),
-    };
+    const ev = await evaluate(raw);
+    attempts.push({ seed, problems: ev.problems });
+    if (!ev.framingOk) continue;
+    if (ev.angleOk) return finish(entry, r2, prompt, attempts, raw, seed, ev);
+    if (!best || (ev.angleRatio ?? 0) > (best.ev.angleRatio ?? 0)) best = { raw, seed, ev };
   }
+  if (best) return finish(entry, r2, prompt, attempts, best.raw, best.seed, best.ev);
   return { status: 'failed', prompt, attempts, finishedAt: new Date().toISOString() };
 }
+
+/** Brak środków na koncie Recrafta: stop całego przebiegu, bez oznaczania przepisów jako nieudanych. */
+const OUT_OF_CREDITS = /\b402\b|credit|insufficient|balance|payment|quota/i;
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -211,29 +276,44 @@ async function main() {
   const state = loadState();
   for (const dir of ['raw', 'final']) mkdirSync(join(WORK_DIR, dir), { recursive: true });
 
-  const wanted = args.all ? [...dishes.keys()] : (args.ids ?? []);
-  if (wanted.length === 0) throw new Error('Podaj --ids <id,…> albo --all');
+  const approved = new Map(
+    (args.useRaw ?? []).map((pair) => {
+      const [id, file] = pair.split('=');
+      return [id, readFileSync(file)] as const;
+    }),
+  );
+  const wanted = args.all ? [...dishes.keys()] : (args.ids ?? [...approved.keys()]);
+  if (wanted.length === 0) throw new Error('Podaj --ids <id,…>, --use-raw <id=plik,…> albo --all');
   const missing = wanted.filter((id) => !dishes.has(id));
   if (missing.length) throw new Error(`Brak opisu dania dla: ${missing.join(', ')}`);
-  const queue = wanted.filter((id) => args.force || state[id]?.status !== 'ok');
+  const queue = wanted.filter(
+    (id) => approved.has(id) || args.force || state[id]?.status !== 'ok',
+  );
   const r2 = args.noUpload ? null : createR2();
 
   console.log(
     `[recipe-images] do zrobienia ${queue.length} z ${wanted.length} (gotowe pomijam), równolegle ${args.concurrency}`,
   );
   let done = 0;
+  let stopReason: string | null = null;
   const worker = async () => {
-    for (let id = queue.shift(); id; id = queue.shift()) {
+    for (let id = queue.shift(); id && !stopReason; id = queue.shift()) {
       const entry = dishes.get(id)!;
       let result: ImageState;
       try {
-        result = await processRecipe(entry, r2);
+        result = await processRecipe(entry, r2, approved.get(id));
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (OUT_OF_CREDITS.test(message)) {
+          stopReason = message;
+          console.error(`[recipe-images] STOP — Recraft odmawia (środki?): ${message}`);
+          return;
+        }
         result = {
           status: 'failed',
           prompt: buildRecipeImagePrompt(entry.dish, entry.vessel),
           attempts: [],
-          error: error instanceof Error ? error.message : String(error),
+          error: message,
           finishedAt: new Date().toISOString(),
         };
       }
@@ -243,9 +323,9 @@ async function main() {
       done += 1;
       const tries = result.attempts.length;
       console.log(
-        `[recipe-images] ${done}/${wanted.length} ${id} ${result.status}` +
+        `[recipe-images] ${done}/${queue.length + done} ${id} ${result.status}` +
           (result.status === 'ok'
-            ? ` (próba ${tries}, ${Math.round((result.bytes ?? 0) / 1024)} KB, x${result.upscale?.toFixed(2)})`
+            ? ` (próba ${tries}, k=${result.angleRatio?.toFixed(2) ?? '—'}${result.angleWeak ? ' KĄT SŁABY' : ''}, ${Math.round((result.bytes ?? 0) / 1024)} KB)`
             : ` ${result.error ?? result.attempts.map((a) => a.problems.join('; ')).join(' | ')}`),
       );
     }
@@ -254,9 +334,11 @@ async function main() {
 
   const all = wanted.map((id) => state[id]);
   const ok = all.filter((s) => s?.status === 'ok');
-  const generations = all.reduce((n, s) => n + (s?.attempts.length ?? 0), 0);
+  const weak = ok.filter((s) => s.angleWeak).length;
+  const generations = all.reduce((n, s) => n + (s?.attempts.filter((a) => a.seed >= 0).length ?? 0), 0);
   console.log(
-    `[recipe-images] gotowe ${ok.length}/${wanted.length}, nieudane ${wanted.length - ok.length}, generacji ${generations}`,
+    `[recipe-images] gotowe ${ok.length}/${wanted.length} (słaby kąt ${weak}), nieudane ${wanted.length - ok.length}, generacji ${generations}` +
+      (stopReason ? ` — PRZERWANE: ${stopReason}` : ''),
   );
 }
 

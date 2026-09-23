@@ -32,6 +32,22 @@ async function readImageUrl(response: Response, what: string): Promise<string> {
   return url;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * 429 (`rate_limit_exceeded`) przyszło już przy 6 równoległych żądaniach
+ * (23.09.2026) — ponawiamy z rosnącą przerwą, tak samo przy 5xx.
+ */
+async function withRetry(send: () => Promise<Response>): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    const response = await send();
+    const retriable = response.status === 429 || response.status >= 500;
+    if (!retriable || attempt >= 6) return response;
+    await response.text();
+    await sleep(5_000 * attempt);
+  }
+}
+
 async function download(url: string): Promise<Buffer> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -44,7 +60,7 @@ export async function recraftGenerate(
   prompt: string,
   seed: number,
 ): Promise<Buffer> {
-  const response = await fetch(`${BASE_URL}/generations`, {
+  const response = await withRetry(() => fetch(`${BASE_URL}/generations`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey()}`,
@@ -58,18 +74,21 @@ export async function recraftGenerate(
       random_seed: seed,
       response_format: 'url',
     }),
-  });
+  }));
   return download(await readImageUrl(response, 'generations'));
 }
 
 async function postImage(endpoint: string, image: Buffer): Promise<Buffer> {
-  const form = new FormData();
-  form.append('file', new Blob([new Uint8Array(image)]), 'source.webp');
-  form.append('image_format', 'png');
-  const response = await fetch(`${BASE_URL}/${endpoint}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey()}` },
-    body: form,
+  const response = await withRetry(() => {
+    // FormData jest jednorazowe — przy ponowieniu budujemy je od nowa.
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(image)]), 'source.webp');
+    form.append('image_format', 'png');
+    return fetch(`${BASE_URL}/${endpoint}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey()}` },
+      body: form,
+    });
   });
   return download(await readImageUrl(response, endpoint));
 }
