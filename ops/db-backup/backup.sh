@@ -16,6 +16,9 @@
 set -Eeuo pipefail
 
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
+# BACKUP_DRY_RUN=true: zrzut + próba odtworzenia, BEZ szyfrowania i wysyłki —
+# zrzut nie opuszcza kontenera. Do sprawdzenia serwisu, zanim dostanie klucze.
+DRY_RUN="${BACKUP_DRY_RUN:-false}"
 PREFIX="${PREFIX:-scoffie}"
 STEP="start"
 
@@ -49,13 +52,19 @@ cleanup() {
 trap cleanup EXIT
 
 STEP="zmienne"
-for v in DATABASE_URL R2_BACKUP_ENDPOINT R2_BACKUP_BUCKET R2_BACKUP_ACCESS_KEY_ID R2_BACKUP_SECRET_ACCESS_KEY BACKUP_AGE_PUBLIC_KEY; do
+REQUIRED="DATABASE_URL"
+if [ "$DRY_RUN" != "true" ]; then
+  REQUIRED="$REQUIRED R2_BACKUP_ENDPOINT R2_BACKUP_BUCKET R2_BACKUP_ACCESS_KEY_ID R2_BACKUP_SECRET_ACCESS_KEY BACKUP_AGE_PUBLIC_KEY"
+fi
+for v in $REQUIRED; do
   if [ -z "${!v:-}" ]; then log "brak zmiennej $v"; exit 1; fi
 done
-case "$BACKUP_AGE_PUBLIC_KEY" in
-  age1*) ;;
-  *) log "BACKUP_AGE_PUBLIC_KEY nie wygląda na klucz publiczny age (age1…)"; exit 1 ;;
-esac
+if [ "$DRY_RUN" != "true" ]; then
+  case "$BACKUP_AGE_PUBLIC_KEY" in
+    age1*) ;;
+    *) log "BACKUP_AGE_PUBLIC_KEY nie wygląda na klucz publiczny age (age1…)"; exit 1 ;;
+  esac
+fi
 
 STEP="pg_dump"
 stamp="$(date -u +%Y-%m-%dT%H%M%SZ)"
@@ -102,6 +111,12 @@ if [ "$TABLES" -lt 20 ] || [ "$USERS" -lt 1 ]; then
   log "odtworzona baza jest niekompletna (tabel=$TABLES, kont=$USERS)"; exit 1
 fi
 gosu postgres pg_ctl -D "$PGDATA_TMP" -m fast stop >/dev/null
+
+if [ "$DRY_RUN" = "true" ]; then
+  STEP="koniec"
+  log "PRÓBA OK — zrzut i odtworzenie działają; bez szyfrowania i wysyłki (BACKUP_DRY_RUN=true)"
+  exit 0
+fi
 
 STEP="szyfrowanie"
 age -r "$BACKUP_AGE_PUBLIC_KEY" -o "$FILE.age" "$FILE"
