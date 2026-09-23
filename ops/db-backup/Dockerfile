@@ -1,10 +1,13 @@
 # Nocna kopia bazy produkcyjnej — osobny serwis cron w projekcie Railway.
 #
-# Obraz Postgresa 17, bo niesie wszystko naraz: `pg_dump`/`pg_restore` w wersji
-# serwera (Railway: 17.x; klient starszy od serwera odmawia zrzutu) ORAZ sam
-# serwer do próby odtworzenia w tymczasowym klastrze. `age` szyfruje,
-# `awscli` wysyła do R2 (API S3).
-FROM postgres:17-bookworm
+# Obraz Postgresa W WERSJI SERWERA, bo niesie wszystko naraz: `pg_dump`/
+# `pg_restore` (klient starszy od serwera odmawia zrzutu: „server version
+# mismatch”) ORAZ sam serwer do próby odtworzenia w tymczasowym klastrze.
+# Produkcja to Postgres 18 (18.6, sprawdzone 23.09.2026 — pierwszy przebieg na
+# obrazie 17 padł właśnie na tym). Podbicie wersji bazy na Railwayu = podbicie
+# tutaj. Bookworm, nie trixie: `age` i `awscli` z tych samych pakietów Debiana.
+# `age` szyfruje, `awscli` wysyła do R2 (API S3).
+FROM postgres:18-bookworm
 
 RUN apt-get update -qq \
   && apt-get install -y -qq --no-install-recommends age awscli ca-certificates curl \
