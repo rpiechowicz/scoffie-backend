@@ -1,5 +1,5 @@
 /**
- * Wyniki `generate-recipe-images.ts` → katalog JSON + SQL dla produkcji.
+ * Wyniki `recraft-recipe-images.ts` → katalog JSON + SQL dla produkcji.
  *
  *   pnpm exec tsx scripts/apply-recipe-images.ts
  *
@@ -11,7 +11,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadState, WORK_DIR } from './generate-recipe-images';
+import { loadState, WORK_DIR } from './recraft-recipe-images';
 
 const CATALOG_FILE = 'prisma/catalog/recipes-catalog-full-v2.json';
 
@@ -36,7 +36,7 @@ function main() {
 
   writeFileSync(CATALOG_FILE, `${JSON.stringify(catalog, null, 2)}\n`);
   const sql = [
-    '-- Nowe zdjęcia przepisów (generate-recipe-images.ts). Zmienia tylko przepisy katalogu.',
+    '-- Nowe zdjęcia przepisów (recraft-recipe-images.ts). Zmienia tylko przepisy katalogu.',
     'UPDATE "Recipe" AS r SET "imageUrl" = v.url',
     'FROM (VALUES',
     rows.map(([id, url]) => `  (${sqlString(id)}::uuid, ${sqlString(url)})`).join(',\n'),

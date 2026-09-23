@@ -10,7 +10,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { loadState, WORK_DIR } from './generate-recipe-images';
+import { loadState, WORK_DIR } from './recraft-recipe-images';
 
 const W = 384;
 const H = 219;
