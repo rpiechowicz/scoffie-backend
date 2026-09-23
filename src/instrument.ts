@@ -72,6 +72,16 @@ export function scrubSpanData(data: Record<string, unknown> | undefined): void {
 }
 
 /**
+ * Zapytanie Prismy BEZ żądania nad sobą (worker poczty, zadania w tle
+ * odpytujące bazę co chwilę) staje się własną transakcją. Pierwsza godzina
+ * na prod: 300 takich na godzinę przy 10% próbkowania, zero wartości —
+ * a zjadają limit śladów. Zapytania wewnątrz żądania HTTP zostają.
+ */
+export function isOrphanDbTransaction(event: Sentry.Event): boolean {
+  return (event.transaction ?? '').startsWith('prisma:');
+}
+
+/**
  * Linia logu żądania (`RequestLoggingInterceptor`) ma `ip=` i `ua=` — do
  * Railway tak, do Sentry nie. `ua=` jest ostatnie i zawiera spacje, więc
  * ucinamy do końca linii. Adres ścieżki traci query, e-maile idą w maskę.
@@ -103,6 +113,7 @@ Sentry.init({
   sendDefaultPii: false,
   beforeSend: (event) => scrubEvent(event),
   beforeSendTransaction: (event) => {
+    if (isOrphanDbTransaction(event)) return null;
     scrubEvent(event);
     scrubSpanData(event.contexts?.trace?.data);
     return event;
