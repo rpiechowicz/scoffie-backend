@@ -178,10 +178,10 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
   {
     name: 'ask_clarifying_question',
     description:
-      'Zadaj JEDNO pytanie, gdy brakuje ci informacji, bez której plan byłby zgadywaniem ' +
-      '(dla ilu osób, na który tydzień, co z alergią, której nie ma w profilu). ' +
-      'Podaj 2–4 gotowe odpowiedzi — użytkownik wybiera jedną dotknięciem, więc pytaj o rzeczy ' +
-      'rozstrzygalne jednym słowem. NIE używaj tego zamiast sprawdzenia narzędziem: jeśli ' +
+      'Zadaj JEDNO pytanie, gdy brakuje ci informacji, której nie da się rozsądnie założyć ' +
+      '(np. alergia spoza profilu). Dnia, pory, osób i liczby dań NIE pytasz — zakładasz: ' +
+      'dziś (albo jutro, gdy ta pora minęła), najbliższa pora, cały dom, trzy do wyboru. ' +
+      'Podaj 2–4 gotowe odpowiedzi — użytkownik wybiera jedną dotknięciem. NIE używaj tego zamiast sprawdzenia narzędziem: jeśli ' +
       'odpowiedź jest w get_household_context albo w get_week_plan, po prostu ją sprawdź. ' +
       'Po tym narzędziu KOŃCZYSZ turę — nie proponujesz planu w tej samej odpowiedzi.',
     input_schema: object(
@@ -199,7 +199,8 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           type: 'array',
           description:
             'Gotowe odpowiedzi, od najbardziej prawdopodobnej. 2–4 pozycje, ' +
-            'każda krótka jak przycisk („Dla czterech osób").',
+            'każda krótka jak przycisk, ale PEŁNA: sama wystarcza do działania, ' +
+            'z dniem i porą, gdy ich dotyczy („Lekka kolacja na dziś", nie „Dziś").',
           items: { type: 'string' },
         },
       },

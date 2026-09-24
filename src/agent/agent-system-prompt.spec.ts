@@ -1,6 +1,7 @@
 import {
   AGENT_INSTRUCTIONS,
   buildSystemPrompt,
+  clientClock,
   modeBlock,
 } from './agent-system-prompt';
 import { CatalogDigest } from './catalog-digest';
@@ -82,6 +83,37 @@ describe('buildSystemPrompt — tryb a cache', () => {
     expect(household).toContain('GOSPODARSTWO: <nazwa>Dom</nazwa>');
     expect(household.indexOf('Kuba nie je ryb')).toBeGreaterThan(
       household.indexOf('GOSPODARSTWO'),
+    );
+  });
+
+  it('godzina użytkownika stoi pod datą, a bez niej linii nie ma', () => {
+    const withTime = buildSystemPrompt(digest, {
+      ...context(true),
+      clientTime: '21:40',
+    })[2].text;
+    expect(withTime).toContain(
+      'DZIŚ: 2026-09-02 (strefa Europe/Warsaw)\nTERAZ: 21:40 u użytkownika',
+    );
+    expect(buildSystemPrompt(digest, context(true))[2].text).not.toContain(
+      'TERAZ:',
+    );
+  });
+
+  it('godzina liczy się w strefie telefonu, zła strefa jej nie daje', () => {
+    // 20:30 UTC to 22:30 w Warszawie (czas letni) — serwer stoi w UTC.
+    const now = new Date('2026-09-23T20:30:00Z');
+    expect(clientClock('Europe/Warsaw', now)).toBe('22:30');
+    expect(clientClock('UTC', now)).toBe('20:30');
+    expect(clientClock('Nie/Ma', now)).toBeUndefined();
+  });
+
+  it('dopytanie ma domyślne założenia i pełne odpowiedzi', () => {
+    // Każde dopytanie to wiadomość z puli; „na który dzień?" przy
+    // „coś lekkiego na wieczór" było zbędną turą.
+    expect(AGENT_INSTRUCTIONS).toContain('bez dnia = dziś');
+    expect(AGENT_INSTRUCTIONS).toContain('Pytasz najwyżej RAZ');
+    expect(AGENT_INSTRUCTIONS).toContain(
+      'Każda gotowa odpowiedź jest PEŁNĄ prośbą',
     );
   });
 
