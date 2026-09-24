@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import type { Request } from 'express';
+import type { ResolvedAdminSession } from './auth/admin-sessions.service';
 
 /**
  * Kontekst żądania, które przeszło bramkę Access. Wszystko, co panel zapisuje
@@ -25,6 +26,8 @@ export type AdminAccessContext = {
 
 export type AdminRequest = Request & {
   adminAccess?: AdminAccessContext;
+  /** Sesja panelu po bramce; `null` = brak (trasy `none` / `optional`). */
+  adminSession?: ResolvedAdminSession | null;
   requestId?: string;
 };
 

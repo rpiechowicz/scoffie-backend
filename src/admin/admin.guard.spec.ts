@@ -1,9 +1,20 @@
 import { ExecutionContext, NotFoundException } from '@nestjs/common';
+import type { Reflector } from '@nestjs/core';
 import { AppException } from '../common/app-exception';
 import { AccessJwtVerifier } from './access/access-jwt.verifier';
 import { AdminGuard } from './admin.guard';
 import { AdminRateLimiter } from './admin-rate-limiter';
 import type { AdminRequest } from './admin-request';
+import {
+  ADMIN_ALLOW_REENROLL,
+  ADMIN_PERMISSION,
+  ADMIN_SESSION_MODE,
+  ADMIN_STEP_UP,
+} from './admin.decorators';
+import type {
+  AdminSessionsService,
+  ResolvedAdminSession,
+} from './auth/admin-sessions.service';
 
 /**
  * Bramka panelu. E2e na żywej bazie (`test/admin-panel.e2e-spec.ts`)
@@ -17,12 +28,16 @@ describe('AdminGuard — bramka Access', () => {
     'ADMIN_ACCESS_AUD',
     'ADMIN_ACCESS_DEV_EMAIL',
     'THROTTLE_ADMIN_AUTH_LIMIT',
+    'THROTTLE_ADMIN_LIMIT',
   ] as const;
   const saved: Record<string, string | undefined> = {};
 
   let verify: jest.Mock;
+  let resolve: jest.Mock;
   let guard: AdminGuard;
   let limiter: AdminRateLimiter;
+  /** Metadane trasy — domyślnie trasa BEZ sesji, bo tu sprawdzamy bramkę. */
+  let meta: Record<string, unknown>;
 
   const request = (headers: Record<string, string> = {}): AdminRequest =>
     ({
@@ -53,9 +68,20 @@ describe('AdminGuard — bramka Access', () => {
     process.env.ADMIN_ACCESS_AUD = 'aud';
     delete process.env.ADMIN_ACCESS_DEV_EMAIL;
     delete process.env.THROTTLE_ADMIN_AUTH_LIMIT;
+    delete process.env.THROTTLE_ADMIN_LIMIT;
     verify = jest.fn().mockResolvedValue(null);
+    resolve = jest.fn().mockResolvedValue(null);
     limiter = new AdminRateLimiter();
-    guard = new AdminGuard({ verify } as unknown as AccessJwtVerifier, limiter);
+    meta = { [ADMIN_SESSION_MODE]: 'none' };
+    const reflector = {
+      getAllAndOverride: (key: string) => meta[key],
+    } as unknown as Reflector;
+    guard = new AdminGuard(
+      { verify } as unknown as AccessJwtVerifier,
+      limiter,
+      { resolve } as unknown as AdminSessionsService,
+      reflector,
+    );
   });
 
   afterEach(() => {
@@ -145,5 +171,101 @@ describe('AdminGuard — bramka Access', () => {
       code: 'TOO_MANY_REQUESTS',
     });
     await expect(withToken()).rejects.toBeInstanceOf(AppException);
+  });
+  describe('sesja panelu po bramce', () => {
+    const session = (
+      over: Partial<ResolvedAdminSession> = {},
+    ): ResolvedAdminSession => ({
+      id: 's1',
+      adminUserId: 'a1',
+      method: 'passkey',
+      mustReenroll: false,
+      stepUpUntil: null,
+      createdAt: new Date(),
+      lastSeenAt: new Date(),
+      expiresAt: new Date(Date.now() + 3_600_000),
+      admin: {
+        id: 'a1',
+        email: 'rafal@example.com',
+        displayName: 'Rafał',
+        role: 'OWNER',
+      },
+      ...over,
+    });
+    const withToken = () => {
+      verify.mockResolvedValue({ email: 'rafal@example.com', subject: 's' });
+      return request({ 'cf-access-jwt-assertion': 'ok' });
+    };
+
+    it('trasa wymagająca sesji bez sesji — 404 jak brak trasy, mimo tokenu', async () => {
+      meta = {};
+      await expect(run(withToken()).result).rejects.toMatchObject({
+        message: 'Cannot GET /admin/users?q=ala',
+      });
+      expect(resolve).toHaveBeenCalledWith(
+        expect.anything(),
+        'rafal@example.com',
+      );
+    });
+
+    it('z sesją — przepuszcza i odkłada sesję w żądaniu', async () => {
+      meta = {};
+      resolve.mockResolvedValue(session());
+      const req = withToken();
+      await expect(run(req).result).resolves.toBe(true);
+      expect(req.adminSession?.id).toBe('s1');
+    });
+
+    it('sesja z kodu odzyskiwania — 403 NOT_ALLOWED poza konfiguracją wejścia', async () => {
+      meta = {};
+      resolve.mockResolvedValue(session({ mustReenroll: true }));
+      await expect(run(withToken()).result).rejects.toMatchObject({
+        code: 'NOT_ALLOWED',
+      });
+      meta = { [ADMIN_ALLOW_REENROLL]: true };
+      await expect(run(withToken()).result).resolves.toBe(true);
+    });
+
+    it('rola bez uprawnienia — 404, nie 403', async () => {
+      meta = { [ADMIN_PERMISSION]: 'users.read' };
+      resolve.mockResolvedValue(
+        session({
+          admin: {
+            id: 'a1',
+            email: 'rafal@example.com',
+            displayName: 'Rafał',
+            role: 'NIKT',
+          },
+        }),
+      );
+      await expect(run(withToken()).result).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('akcja ze step-upem: bez świeżego potwierdzenia 403, z nim przepuszcza', async () => {
+      meta = { [ADMIN_STEP_UP]: true };
+      resolve.mockResolvedValue(
+        session({ stepUpUntil: new Date(Date.now() - 1) }),
+      );
+      await expect(run(withToken()).result).rejects.toMatchObject({
+        code: 'STEP_UP_REQUIRED',
+      });
+      resolve.mockResolvedValue(
+        session({ stepUpUntil: new Date(Date.now() + 60_000) }),
+      );
+      await expect(run(withToken()).result).resolves.toBe(true);
+    });
+
+    it('z sesją limit liczy się per admin (THROTTLE_ADMIN_LIMIT), nie per IP', async () => {
+      meta = {};
+      process.env.THROTTLE_ADMIN_LIMIT = '1';
+      process.env.THROTTLE_ADMIN_AUTH_LIMIT = '100';
+      resolve.mockResolvedValue(session());
+      await expect(run(withToken()).result).resolves.toBe(true);
+      await expect(run(withToken()).result).rejects.toMatchObject({
+        code: 'TOO_MANY_REQUESTS',
+      });
+    });
   });
 });
