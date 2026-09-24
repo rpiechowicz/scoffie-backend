@@ -683,6 +683,14 @@ describe('Audyt autoryzacji 21.09.2026 E2E', () => {
         .set(auth(byly.accessToken))
         .send({ householdId: nowyDom })
         .expect(201);
+      // Pusta rozmowa nie trafia na listę (24.09.2026) — z wiadomością tak.
+      await prisma.agentMessage.create({
+        data: {
+          conversationId: (nowa.body as { id: string }).id,
+          role: 'USER',
+          text: 'Co na obiad?',
+        },
+      });
       const poPrzeprowadzce = await lista();
       expect(poPrzeprowadzce.map((r) => r.id)).toEqual([
         (nowa.body as { id: string }).id,

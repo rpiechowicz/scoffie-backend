@@ -23,12 +23,14 @@ const AGENT_REPORT_DAYS = 365;
 /** Urządzenie push, które od 90 dni nie odpowiada, nie wróci. */
 const DEAD_PUSH_DEVICE_DAYS = 90;
 /**
- * Rozmowa bez ani jednej wiadomości znika po dobie od założenia. Doba, a nie
- * od razu: telefon trzyma identyfikator świeżo założonej rozmowy i wysyła do
- * niej pierwsze pytanie — skasowana pod nim dałaby 404. Klient i tak zaczyna
- * czystą kartkę po 30 minutach bezczynności, więc doba to duży zapas.
+ * Rozmowa bez ani jednej wiadomości znika po godzinie od założenia. Nie od
+ * razu: telefon trzyma identyfikator świeżo założonej rozmowy i wysyła do
+ * niej pierwsze pytanie — skasowana pod nim dałaby 404. Klient zakłada
+ * rozmowę dopiero z pierwszym pytaniem i zaczyna czystą kartkę po 30 minutach
+ * bezczynności, więc godzina wystarcza (24.09.2026: z doby — puste rozmowy
+ * sprzed godzin wisiały w historii). Z listy znikają od razu (`list`).
  */
-const EMPTY_CONVERSATION_HOURS = 24;
+const EMPTY_CONVERSATION_HOURS = 1;
 
 export type RetentionSweep = {
   cutoff: string | null;
@@ -45,7 +47,7 @@ export type RetentionSweep = {
  * Automatyczna retencja — to, co polityka prywatności obiecuje, kod musi
  * robić sam. Rozmowy asystenta (z wiadomościami, turami, kartami i
  * propozycjami) znikają po `AI_CONVERSATION_RETENTION_DAYS` od ostatniej
- * wiadomości, a puste — po dobie od założenia; księga kosztów zostaje, bo `AiUsage.turnId` jest od 2.09
+ * wiadomości, a puste — po godzinie od założenia; księga kosztów zostaje, bo `AiUsage.turnId` jest od 2.09
  * `SetNull`. Przy okazji znikają zaproszenia, które wygasły ponad miesiąc
  * temu i nikt ich nie przyjął.
  *

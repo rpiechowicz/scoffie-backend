@@ -200,9 +200,14 @@ export class AgentConversationsService {
       // samym `userId`, więc wyrzucony domownik dalej dostawał tytuły i
       // 120-znakowe podglądy odpowiedzi o cudzym już planie i zakupach —
       // choć otwarcie tej samej rozmowy kończyło się 404 (audyt 21.09.2026).
+      // Rozmowa bez wiadomości i bez tury to pusta kartka („Nowa rozmowa ·
+      // Bez wiadomości”) — w historii nie ma czego otwierać. Znika z listy
+      // od razu, a z bazy przy najbliższym sprzątaniu (`AgentRetentionService`).
+      // Tura bez wiadomości zostaje: to rozmowa, która coś robiła.
       where: {
         userId,
         household: { memberships: { some: { userId } } },
+        OR: [{ messages: { some: {} } }, { turns: { some: {} } }],
       },
       orderBy: [{ lastMessageAt: 'desc' }, { createdAt: 'desc' }],
       take: CONVERSATIONS_PAGE_SIZE,
