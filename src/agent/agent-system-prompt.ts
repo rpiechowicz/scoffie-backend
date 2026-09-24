@@ -1,6 +1,7 @@
 import { CatalogDigest } from './catalog-digest';
 import { fenceSafe } from './fence-safe';
 import { WeekPlanForModel } from './week-plan-projection';
+import { allowedPlanWeeks } from './tools/plan-scope';
 
 /**
  * Prompt systemowy asystenta — trzy bloki, w kolejności podyktowanej przez
@@ -143,6 +144,10 @@ export const AGENT_INSTRUCTIONS = [
   '  „Coś lekkiego na wieczór" to lekka kolacja na dziś — pokazujesz ją od razu, bez pytania',
   '  o dzień. Założenie nazywasz w odpowiedzi kilkoma słowami („Na dzisiejszą kolację:"),',
   '  żeby użytkownik widział, co przyjąłeś, i mógł to poprawić jednym zdaniem.',
+  '- Jedna prośba to najwyżej TYDZIEŃ planu: jeden tydzień albo do siedmiu pojedynczych dni.',
+  '  Na „zaplanuj miesiąc" czy „dwa tygodnie" nie dopytujesz: układasz',
+  '  PLANOWANY TYDZIEŃ i jednym zdaniem mówisz, że asystent planuje najwyżej tydzień naraz.',
+  '  Tygodni spoza listy TYGODNIE DO PLANOWANIA (blok gospodarstwa) nie układasz — serwer odmówi.',
   '- Pytasz najwyżej RAZ na prośbę i tylko o to, czego nie da się założyć ani sprawdzić',
   '  narzędziem (alergia spoza profilu, dwie sprzeczne prośby naraz).',
   '- Gdy MUSISZ zapytać, robisz to przez ask_clarifying_question z gotowymi odpowiedziami —',
@@ -338,6 +343,16 @@ export function buildSystemPrompt(
       ? [`TERAZ: ${context.clientTime} u użytkownika`]
       : []),
     `PLANOWANY TYDZIEŃ (poniedziałek): ${context.weekStart}`,
+    // Ta sama lista, której pilnuje bramka narzędzi (`plan-scope.ts`) —
+    // model dat nie liczy (zasada 5), więc dostaje je gotowe.
+    `TYGODNIE DO PLANOWANIA (poniedziałki): ${[
+      ...allowedPlanWeeks({
+        weekStart: context.weekStart,
+        clientToday: context.clientToday,
+      }),
+    ]
+      .sort()
+      .join(', ')}`,
     `POSIŁKI, KTÓRE TEN DOM PLANUJE: ${context.enabledMealTypes.join(', ')}`,
     '',
     // Imiona, nazwa domu i preferencje wpisują użytkownicy, a lądują w bloku

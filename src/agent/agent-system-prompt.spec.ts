@@ -86,6 +86,14 @@ describe('buildSystemPrompt — tryb a cache', () => {
     );
   });
 
+  it('tygodnie do planowania to ta sama lista, której pilnuje bramka narzędzi', () => {
+    const household = buildSystemPrompt(digest, context(true))[2].text;
+    expect(household).toContain(
+      'TYGODNIE DO PLANOWANIA (poniedziałki): 2026-08-31, 2026-09-07',
+    );
+    expect(AGENT_INSTRUCTIONS).toContain('najwyżej TYDZIEŃ planu');
+  });
+
   it('godzina użytkownika stoi pod datą, a bez niej linii nie ma', () => {
     const withTime = buildSystemPrompt(digest, {
       ...context(true),

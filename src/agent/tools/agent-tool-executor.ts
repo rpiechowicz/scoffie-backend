@@ -20,6 +20,12 @@ import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../../recipes/dto/update-recipe.dto';
 import { AGENT_TOOL_NAMES } from './agent-tools';
 import {
+  checkPlanScope,
+  PlanScope,
+  PlanScopeDates,
+  recordPlannedDays,
+} from './plan-scope';
+import {
   AgentProposalsService,
   CreateWeekProposalResult,
 } from '../proposals/agent-proposals.service';
@@ -476,6 +482,13 @@ export type AgentToolContext = {
    * jej gdzie pokazać. Wiersz w bazie byłby tu wyłącznie kosztem.
    */
   collectCard: (card: AgentCard) => void;
+  /**
+   * Zakres planowania tury (`plan-scope.ts`): najwyżej tydzień na prośbę
+   * i tylko bliskie tygodnie. Runner podaje oba pola zawsze; opcjonalne,
+   * bo narzędzia wołane poza turą (testy) nie mają tury, której by pilnowały.
+   */
+  planScope?: PlanScope;
+  dates?: PlanScopeDates;
 };
 
 /**
@@ -545,16 +558,20 @@ export class AgentToolExecutor {
     const refusal = this.refuseOutOfMode(name, context);
     if (refusal) return refusal;
 
+    const outOfScope = this.refuseOutOfPlanScope(name, input, context);
+    if (outOfScope) return outOfScope;
+
     const destructive = await this.refuseDestructiveWrite(name, input, context);
     if (destructive) return destructive;
 
     try {
-      return {
-        ok: true,
-        data: redactViolationsForModel(
-          await this.dispatch(name, input, context),
-        ),
-      };
+      const data = redactViolationsForModel(
+        await this.dispatch(name, input, context),
+      );
+      if (context.planScope) {
+        recordPlannedDays(name, input, context.planScope);
+      }
+      return { ok: true, data };
     } catch (error) {
       const { contract } = mapError(error);
       if (!(error instanceof AppException)) {
@@ -698,6 +715,28 @@ export class AgentToolExecutor {
       asString(input.kind) || undefined,
       about,
     );
+  }
+
+  /**
+   * Czwarta bramka: ILE planu naraz — najwyżej tydzień na prośbę i tylko
+   * bliskie tygodnie (`plan-scope.ts`). Odmowa jako dane, jak przy trybie:
+   * model kończy turę tym, co już ułożył, zamiast padać całą turą.
+   */
+  private refuseOutOfPlanScope(
+    name: string,
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): AgentToolResult | null {
+    if (!context.planScope || !context.dates) return null;
+    const refusal = checkPlanScope(
+      name,
+      input,
+      context.planScope,
+      context.dates,
+    );
+    if (!refusal) return null;
+    this.metrics.recordRejected('planRange');
+    return this.failure('AI_PLAN_RANGE_EXCEEDED', refusal.message);
   }
 
   private refuseOutOfMode(
