@@ -15,7 +15,12 @@ export type AgentRejection =
    * Osobny licznik, bo to jedyna odmowa, która mówi „model chciał skasować
    * cudzy tydzień" — jeśli zacznie rosnąć, prompt albo tryb są źle ustawione.
    */
-  | 'destructive';
+  | 'destructive'
+  /**
+   * Model próbował ułożyć więcej niż tydzień w jednej turze albo tydzień
+   * poza zasięgiem (`agent/tools/plan-scope.ts`).
+   */
+  | 'planRange';
 
 /**
  * Liczniki asystenta od startu procesu — sekcja `agent` w `/ops/metrics`.
@@ -48,6 +53,7 @@ export class AgentMetricsService {
     inProgress: 0,
     planQuota: 0,
     destructive: 0,
+    planRange: 0,
   };
   private readonly usage = {
     providerCalls: 0,

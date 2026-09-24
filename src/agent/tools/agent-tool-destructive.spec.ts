@@ -11,6 +11,7 @@ import { AgentProposalsService } from '../proposals/agent-proposals.service';
 import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
 import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { AgentToolContext, AgentToolExecutor } from './agent-tool-executor';
+import { createPlanScope } from './plan-scope';
 import { AgentPromptService } from '../agent-prompt.service';
 
 // AUDYT 12.09.2026 (P0.3). `apply_week_plan` przyjmuje STAN DOCELOWY: czego
@@ -205,5 +206,40 @@ describe('AgentToolExecutor — bramka destrukcyjnego zapisu planu', () => {
 
     expect(out.ok).toBe(false);
     expect(recordRejected).not.toHaveBeenCalledWith('destructive');
+  });
+  it('drugi tydzień w tej samej turze odmawia, zanim dotknie planu', async () => {
+    applyWeekPlan.mockImplementation(
+      (
+        _userId: string,
+        _householdId: string,
+        _weekStart: string,
+        dto: { dryRun?: boolean },
+      ) => Promise.resolve(result(0, dto.dryRun === true)),
+    );
+    const scoped: AgentToolContext = {
+      ...context(),
+      planScope: createPlanScope(),
+      dates: { weekStart: '2026-08-31', clientToday: '2026-09-02' },
+    };
+
+    const first = await executor.execute(
+      'apply_week_plan',
+      { week_start: '2026-08-31', slots: [slot('MON')] },
+      scoped,
+    );
+    applyWeekPlan.mockClear();
+    const second = await executor.execute(
+      'apply_week_plan',
+      { week_start: '2026-09-07', slots: [slot('MON')] },
+      scoped,
+    );
+
+    expect(first.ok).toBe(true);
+    expect(second).toMatchObject({
+      ok: false,
+      error: { code: 'AI_PLAN_RANGE_EXCEEDED' },
+    });
+    expect(applyWeekPlan).not.toHaveBeenCalled();
+    expect(recordRejected).toHaveBeenCalledWith('planRange');
   });
 });

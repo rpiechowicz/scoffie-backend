@@ -33,6 +33,7 @@ import { AgentPromptService, TurnDates } from './agent-prompt.service';
 import { AgentCard } from './cards/agent-cards';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
+import { createPlanScope } from './tools/plan-scope';
 import { UpstreamBreaker } from './upstream-breaker';
 
 export type RunTurnInput = {
@@ -159,6 +160,9 @@ export class AgentTurnRunner {
     // Propozycje idą przez bazę, bo muszą przeżyć pad procesu — ta nie ma
     // czego przeżywać: bez domkniętej tury nie powstaje żadna wiadomość.
     let pendingCard: AgentCard | null = null;
+    // Zakres planowania CAŁEJ tury — wspólny dla obu faz (rozmowa → planista),
+    // więc przekazanie pałeczki nie zeruje budżetu tygodnia.
+    const planScope = createPlanScope();
 
     try {
       // Pierwszy krok od razu: historia i prompt składają się 1–3 s, potem
@@ -196,6 +200,11 @@ export class AgentTurnRunner {
             conversationId: input.conversationId,
             turnId: input.turnId,
             proposalMode: input.proposalMode,
+            planScope,
+            dates: {
+              weekStart: input.dates.weekStart,
+              clientToday: input.dates.clientToday,
+            },
             collectCard: (card) => {
               pendingCard = card;
             },
