@@ -8,7 +8,10 @@ oraz w jakiej kolejności go budować. Decyzje otwarte są na końcu.
 Założenia od Rafała:
 
 - panel jest **własny** (nie Metabase / Retool / AdminJS),
-- front: **Vue 3** + Pinia i biblioteki wokół,
+- front: **wybiera Claude, bo to on pisze kod** (24.09 — zmiana z Vue 3;
+  wybór i powody w §2),
+- wygląd **zgodny z aplikacją iOS** (§2a), projekt ekranów w Claude Design,
+- **działa na telefonie** — Rafał będzie z niego korzystał z iPhone'a,
 - stoi na **naszej domenie**, ale ma być **ukryty**,
 - logowanie **na kilka sposobów**,
 - backend rozwijamy o to, czego panel potrzebuje.
@@ -49,7 +52,7 @@ Założenia od Rafała:
 
 ```
 przeglądarka ──► Cloudflare Access ──► Worker „scoffie-admin” ──► api.scoffie.app/admin/*
-                 (bramka zerowa)       · statyczny build Vue          (Railway, NestJS)
+                 (bramka zerowa)       · statyczny build React        (Railway, NestJS)
                                        · /api/* → proxy do backendu   · weryfikuje JWT Access
                                          z nagłówkiem Access JWT      · weryfikuje sesję admina
                                                                       · RBAC + audyt
@@ -57,22 +60,88 @@ przeglądarka ──► Cloudflare Access ──► Worker „scoffie-admin” �
 
 ### Front — repo `rpiechowicz/scoffie-admin` (nowe)
 
+**Dlaczego React, a nie Vue** (decyzja z 24.09): kod pisze Claude, a w
+React pisze najpewniej. Do tego ekosystem dashboardów jest tam najbogatszy
+(shadcn/ui, TanStack), a Claude Design generuje makiety w React, więc
+makieta przechodzi w kod prawie wprost. **Bez Next.js, Nuxta i Astro** —
+panel siedzi za logowaniem, SEO i renderowanie na serwerze nic mu nie dają,
+a SSR na Workerze to sesja po stronie serwera, czyli więcej miejsc na błąd.
+Czysty SPA.
+
+Wersje sprawdzone w npm 24.09.2026:
+
 | Warstwa           | Wybór                                             | Dlaczego |
 | ----------------- | ------------------------------------------------- | -------- |
-| Rdzeń             | Vue 3 (`<script setup>`), TypeScript, Vite        | ustalone |
-| Stan              | Pinia (sesja, preferencje UI, filtry)             | ustalone |
-| Dane z API        | TanStack Query for Vue (albo Pinia Colada)        | cache, odświeżanie, paginacja — Pinia nie powinna trzymać odpowiedzi serwera |
-| Routing           | Vue Router, strażnik sesji i uprawnień            | |
-| Komponenty        | PrimeVue (tryb unstyled/Aura) — głównie `DataTable` | najmocniejsza tabela w ekosystemie Vue: filtry, sortowanie, leniwe ładowanie, eksport CSV |
-| Wykresy           | ECharts przez `vue-echarts`                       | szeregi czasowe, histogramy, lejki, heatmapy kohort w jednej bibliotece |
-| Formularze        | VeeValidate + Zod                                 | edytor przepisu jest duży |
-| Typy API          | `openapi-typescript` z `@nestjs/swagger` dla `/admin` | jeden kontrakt, zero ręcznie przepisywanych typów |
-| Passkeys          | `@simplewebauthn/browser`                         | parowany z `@simplewebauthn/server` w backendzie |
-| Daty / liczby     | `Intl` + `date-fns`, strefa `Europe/Warsaw`       | serwer stoi w UTC |
+| Rdzeń             | React 19.3 + React Compiler 1.0, TypeScript 7, Vite 8 (Rolldown) | kompilator zdejmuje ręczne `useMemo`/`useCallback`; TS 7 i Vite 8 to szybki build |
+| Routing           | TanStack Router (trasy z plików, typowane parametry i `search`) | filtry tabel siedzą w URL-u — link do „użytkownicy bez kreatora, 7 dni” da się wkleić |
+| Dane z API        | TanStack Query 5                                  | cache, odświeżanie w tle, prefetch przy najechaniu, optymistyczne akcje |
+| Stan interfejsu   | bez biblioteki (`useState` / kontekst); Zustand dopiero gdy zaboli | stan serwera trzyma Query, filtry trzyma URL — zostaje niewiele |
+| Komponenty        | **shadcn/ui** (CLI 4, Tailwind 4, prymitywy Radix) + Sonner (toasty) + Vaul (arkusze od dołu na telefonie) + cmdk (⌘K) | kod komponentów w repo = pełna kontrola nad wyglądem iOS; Vaul daje arkusz jak w aplikacji |
+| Tabele            | TanStack Table 9 + TanStack Virtual               | sortowanie, filtry, paginacja z serwera, tysiące wierszy bez przycinania |
+| Wykresy           | **Recharts 3 przez shadcn charts** (kafle, trendy, słupki, kołowe); **ECharts 6** ładowany leniwie tylko do heatmapy kohort i lejka | shadcn charts biorą kolory z tych samych tokenów co reszta; ECharts tam, gdzie Recharts nie ma typu wykresu |
+| Animacje          | Motion 13 (dawniej Framer Motion)                 | sprężyny i przejścia jak w SwiftUI |
+| Formularze        | React Hook Form + Zod 4                           | edytor przepisu jest duży; ten sam schemat Zod waliduje w formularzu |
+| Typy API          | `@hey-api/openapi-ts` z `@nestjs/swagger` dla `/admin` → typy + klient + hooki Query | jeden kontrakt, zero ręcznie przepisywanych typów |
+| Ikony             | Lucide (kreska 1,75 — najbliżej SF Symbols)       | |
+| Passkeys          | `@simplewebauthn/browser` 14                      | parowany z `@simplewebauthn/server` 14 w backendzie |
+| Daty / liczby     | `Intl` + `date-fns`, strefa `Europe/Warsaw`, polski | serwer stoi w UTC |
+| PWA               | `vite-plugin-pwa` — ikona na ekranie iPhone'a, pełny ekran | uwaga: PWA na iOS ma osobne ciasteczka niż Safari, więc loguje się osobno |
+| Testy             | Vitest + Playwright (w tym profil iPhone)         | e2e przechodzi logowanie i główne ekrany na obu szerokościach |
 
 Hosting: **Cloudflare Workers** (jak strona), ale — inaczej niż `scoffie-web`
-— z małym runtime'em: Worker serwuje build i proxuje `/api/*` do backendu.
-Jedno źródło pochodzenia (origin) = bez CORS i z ciasteczkami `SameSite=Strict`.
+— z małym runtime'em: Worker (`@cloudflare/vite-plugin`, Wrangler 4) serwuje
+build jako static assets i proxuje `/api/*` do backendu. Jedno źródło
+pochodzenia (origin) = bez CORS i z ciasteczkami `SameSite=Strict`.
+Subdomena podpięta rekordem DNS za pomarańczową chmurką + Route do Workera,
+nie przez Custom Domain — sprawdzić przed konfiguracją, czy Custom Domain nie
+wystawia certyfikatu z nazwą (patrz §3.2).
+
+**RWD od pierwszego ekranu, nie dorabiane:** na telefonie menu boczne zamienia
+się w pływający dolny pasek (jak `SCFloatingTabBar` w aplikacji), tabele w
+listę kart, szczegóły i filtry otwierają się w arkuszu od dołu (Vaul), a akcje
+są w zasięgu kciuka. Każdy ekran ma w e2e zrzut na 393 px i na 1440 px.
+
+### 2a. Wygląd — ten sam system co iOS
+
+Panel ma wyglądać jak brat aplikacji, nie jak generyczny szablon. Źródło
+tokenów: `scoffie-ios/Scoffie/Components/SCDesignSystem.swift` („Cozy
+Kitchen”), przepisane 1:1 do zmiennych CSS i motywu Tailwinda. Ciemny motyw
+jest pierwszy, jasny jest lustrem; przełącza się za systemem.
+
+| Token | Ciemny | Jasny | Użycie |
+| ----- | ------ | ----- | ------ |
+| tło strony (`scPageBase`) | `#0C0806` | `#FBF5EA` | + miękka poświata terakoty u góry (`SCPageBackground`: 12 % / 10 %) |
+| tekst (`scLabel`) | `#FBF3E8` | `#1A1411` | |
+| tekst drugorzędny (`scMuted`) | tekst × 58 % | tekst × 66 % | |
+| karta (`scTileBg` + `scTileStroke`) | tekst × 4 % + obrys 6 % | tekst × 6 % + obrys 12 % | **każda karta taka sama, bez cienia, bez białych kart** |
+| pole / studzienka (`scChipBg`) | tekst × 8 % | tekst × 5 % | inputy, segmenty, pigułki |
+| linia (`scRule`) | tekst × 12 % | tekst × 18 % | |
+| terakota (akcent główny) | `#DB8452` | `#B6643C` | akcje, kalorie, zaznaczenie |
+| szałwia | `#87C2A5` | `#4C8766` | „zrobione”, sukces, węglowodany |
+| indygo | `#6573CA` | `#4B58AF` | informacja, białko |
+| masło | `#E8CF85` | `#A07828` | uwaga, tłuszcz |
+| róż / morska / lawenda | `#E09AA4` / `#6FB9CC` / `#B79BE0` | `#B04E68` / `#287891` / `#7E4FA0` | dodatkowe serie wykresów |
+| ember (błąd) | `#FE6171` | `#BF2D3E` | tylko błędy i alarmy, nigdzie indziej |
+
+- **Krój**: stos systemowy (`-apple-system, system-ui`) — na iPhonie i Macu to
+  prawdziwy SF Pro jak w aplikacji; Inter jako zapas na innych systemach.
+  Tytuł strony jak `EditorialPageHeader`: 28–32 px, heavy, tracking −0,5.
+  Liczby w tabelach i kaflach `tabular-nums`.
+- **Zaokrąglenia** z aplikacji: karty 18, mniejsze kafle 14–16, arkusze 22–26,
+  przyciski i pigułki jako kapsuły.
+- **Przyciski** jak `SCSoftButton`: kapsuła w tincie akcentu (16 % / 10 %)
+  z tekstem w kolorze akcentu, bez gradientu. Pełny kolor tylko dla jednej
+  głównej akcji na ekranie.
+- **Szkło** (`backdrop-filter`) tylko na elementach pływających — dolny pasek
+  i nagłówek przy przewijaniu, jak Liquid Glass w aplikacji.
+- **Kolory pór posiłków i makr** te same co w aplikacji (`SCMacroPalette`,
+  paleta pór) — wykres makr w panelu ma być rozpoznawalny od razu.
+- **Zasada treści z aplikacji**: każda informacja raz, bez objaśniających
+  zdań; „życie” przez kolor, ikonę w tincie, zdjęcie dania i etykiety, nie
+  przez tekst. Ani szaro-pusto, ani przegadane.
+- Ekrany projektuje Rafał w **Claude Design** z promptu w
+  `PROMPT-CLAUDE-DESIGN.md`. Jak przy iOS: biała karta albo cień z makiety to
+  nie decyzja do przeniesienia — obowiązują tokeny z tej tabeli.
 
 ### Backend — moduł `src/admin/`
 
@@ -470,7 +539,7 @@ Panel prawie nie wymaga zmian w telefonie. Jedna ważna:
 
 | Etap | Zakres | Wynik |
 | ---- | ------ | ----- |
-| **0. Fundament** | repo `scoffie-admin` (Vue 3 + Vite + TS + Pinia + Router + PrimeVue + ECharts), Worker z proxy, Cloudflare Access, subdomena; `src/admin/` z 404 dla obcych, `AdminUser` + passkey + Google + TOTP + kody odzyskiwania, sesje, audyt, alert o logowaniu | można się bezpiecznie zalogować i zobaczyć pusty pulpit |
+| **0. Fundament** | repo `scoffie-admin` (React 19 + Vite 8 + TS + TanStack Router/Query + shadcn/ui z tokenami iOS + układ RWD), Worker z proxy, Cloudflare Access, subdomena; `src/admin/` z 404 dla obcych, `AdminUser` + passkey + Google + TOTP + kody odzyskiwania, sesje, audyt, alert o logowaniu | można się bezpiecznie zalogować i zobaczyć pusty pulpit |
 | **1. Wgląd** (tylko odczyt) | pulpit, użytkownicy, gospodarstwa, subskrypcje, asystent: zużycie i rentowność, kolejka zgłoszeń; nagłówek wersji z iOS | wiesz, co się dzieje i czy zarabiasz |
 | **2. Operacje** | akcje przeniesione z `/ops` i `/billing/ops` do panelu, wyloguj zewsząd, eksport / usunięcie konta (RODO), statusy zgłoszeń, skrzynka maili i wykluczenia, step-up, „Odsłoń" | koniec z curlem na co dzień |
 | **3. Katalog** | edytor przepisów i składników, przeliczanie, zdjęcia do R2, wersje, publikacja, popularność | przepisy bez JSON-a i importu |
@@ -490,7 +559,7 @@ Etapy 1 i 2 dają najwięcej. Etap 3 czeka na decyzję D1.
   publikacji traci połowę sensu, a eksport zachowuje historię w gicie.
 - **D2. Nazwa subdomeny** panelu.
 - **D3. Dostawcy w Cloudflare Access**: Google + kod na e-mail (minimum), GitHub?
-- **D4. Biblioteka komponentów**: PrimeVue (rekomendacja — tabela) czy Naive UI.
+- ~~**D4. Stos frontu**~~ — zamknięte 24.09: React + shadcn/ui, wybór Claude'a (§2).
 - **D5. Czy panel kiedyś dostanie ktoś poza Rafałem** — jeśli tak, role od
   etapu 2, nie 6.
 - **D6. Aktualizacja dokumentów RODO**: rejestr czynności / DPIA musi
