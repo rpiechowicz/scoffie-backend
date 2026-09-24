@@ -96,9 +96,9 @@ ani przegadany.
 ## Ekrany (każdy w obu motywach i na obu szerokościach)
 
 1. **Logowanie**: znak Scoffie na tle z poświatą. Jedna główna akcja
-   „Zaloguj passkeyem” (Face ID / Touch ID), pod nią drugorzędne „Google”
-   i „Link na e-mail”. Drugi krok: 6 pól kodu TOTP. Obok „Użyj kodu
-   odzyskiwania”.
+   „Zaloguj Face ID” (passkey; na Macu Touch ID), pod nią drugorzędne
+   „Zaloguj przez Apple” i „Zaloguj przez Google”. Po Apple / Google drugi
+   krok: 6 pól kodu z Google Authenticator. Obok „Użyj kodu odzyskiwania”.
 2. **Pulpit**: rząd kafli KPI z trendem vs wczoraj / 7 dni i sparkline
    (Użytkownicy aktywni dziś, Nowi, MRR w zł, Aktywne subskrypcje, Koszt
    asystenta dziś vs dzienny budżet jako pierścień, Crash-free %). Pod

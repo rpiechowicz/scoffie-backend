@@ -85,7 +85,6 @@ Wersje sprawdzone w npm 24.09.2026:
 | Ikony             | Lucide (kreska 1,75 — najbliżej SF Symbols)       | |
 | Passkeys          | `@simplewebauthn/browser` 14                      | parowany z `@simplewebauthn/server` 14 w backendzie |
 | Daty / liczby     | `Intl` + `date-fns`, strefa `Europe/Warsaw`, polski | serwer stoi w UTC |
-| PWA               | `vite-plugin-pwa` — ikona na ekranie iPhone'a, pełny ekran | uwaga: PWA na iOS ma osobne ciasteczka niż Safari, więc loguje się osobno |
 | Testy             | Vitest + Playwright (w tym profil iPhone)         | e2e przechodzi logowanie i główne ekrany na obu szerokościach |
 
 Hosting: **Cloudflare Workers** (jak strona), ale — inaczej niż `scoffie-web`
@@ -163,8 +162,9 @@ jest pierwszy, jasny jest lustrem; przełącza się za systemem.
 Nic z tego osobno nie jest zabezpieczeniem — to warstwy. Zabezpieczeniem jest
 §4. Ale im mniej widać, tym mniej ktoś próbuje.
 
-1. **Nieoczywista subdomena**, np. `k7q2.scoffie.app` zamiast `admin.`.
-   Wybór nazwy — decyzja Rafała.
+1. **Subdomena `dashboard.scoffie.app`** (D2, 24.09). Świadomie czytelna, nie
+   zgadywanka: skaner, który ją trafi, zobaczy wyłącznie ekran logowania
+   Cloudflare Access. Chroni §4, nie nazwa.
 2. **Certyfikat bez nazwy w logach Certificate Transparency.** Każdy
    certyfikat wystawiony dla konkretnej subdomeny ląduje publicznie w
    crt.sh — tam szuka się paneli w pierwszej kolejności. Subdomena za
@@ -189,10 +189,19 @@ Nic z tego osobno nie jest zabezpieczeniem — to warstwy. Zabezpieczeniem jest
 
 ### Warstwa 0 — Cloudflare Access (bramka przed wszystkim)
 
-- Darmowe do 50 osób. Dostawcy tożsamości do wyboru jednocześnie:
-  **Google**, **GitHub**, **jednorazowy kod na e-mail** (One-time PIN).
-- Polityka: dokładna lista adresów (Rafał), opcjonalnie kraj = PL, czas sesji
-  Access 24 h. Później: stan urządzenia (WARP) — tylko z Maca/telefonu Rafała.
+- Darmowe do 50 osób. Dostawcy tożsamości (D3, 24.09): **Google** (główny),
+  **konto Cloudflare** (IdP dostępny od 05.2026, z 2FA konta) i
+  **jednorazowy kod na e-mail** (One-time PIN) — tylko awaryjnie.
+  **Bez GitHuba** (dodatkowe konto do przejęcia, nic nie wnosi).
+- **Apple NIE w bramce**: Access nie ma go wśród gotowych dostawców, a przez
+  ogólne OIDC wymaga sekretu klienta będącego JWT ważnym najwyżej pół roku —
+  bramka przestałaby cicho działać. Apple jest w warstwie 1, gdzie backend
+  sam podpisuje ten JWT kluczem `.p8` przy każdym logowaniu.
+- Polityka: dokładna lista adresów (sam adres Rafała, nie domena), czas sesji
+  Access **7 dni** (z telefonu codzienne logowanie do Google byłoby męczące;
+  częściej pilnuje sesja warstwy 1). **Bez** blokady kraju — zamknęłaby
+  Rafała za granicą; zamiast niej alert o logowaniu z nowego kraju. Stan
+  urządzenia (WARP) — nie teraz.
 - To załatwia boty, skanery i ataki na formularz logowania: formularz
   logowania panelu w ogóle nie jest osiągalny z internetu.
 
@@ -208,13 +217,22 @@ zamykało drzwi):
 
 | Metoda | Rola | Uwagi |
 | ------ | ---- | ----- |
-| **Passkey (WebAuthn)** — Touch ID / Face ID / klucz sprzętowy (YubiKey) | główna | sama w sobie jest dwuskładnikowa (urządzenie + biometria), odporna na phishing; kilka kluczy na konto |
+| **Passkey (WebAuthn)** — Face ID w Safari na iPhonie, Touch ID na Macu (ten sam klucz z pęku kluczy iCloud); opcjonalnie YubiKey | główna | sama w sobie jest dwuskładnikowa (urządzenie + biometria), odporna na phishing; kilka kluczy na konto; działa w zwykłej przeglądarce, PWA niepotrzebne |
+| **Sign in with Apple** (web, Services ID) | alternatywa | wiązana po `sub`, nie po adresie (ukryty e-mail Apple); sekret klienta JWT podpisuje backend; wymaga drugiego składnika |
 | **Google OIDC** | alternatywa | wiązana po `sub`, nie po adresie; wymaga drugiego składnika |
-| **Link na e-mail** (magic link przez Resend, 10 min, jednorazowy) | awaryjna | wymaga drugiego składnika |
-| **TOTP** (aplikacja 1Password / Authenticator) | drugi składnik | sekret szyfrowany jak Cookidoo (AES-256-GCM, klucz w env) |
-| **Kody odzyskiwania** (10 × jednorazowe, trzymane jako hasze) | ostatnia deska | pokazane raz przy włączeniu 2FA |
+| **TOTP** (Google Authenticator lub dowolna aplikacja TOTP) | drugi składnik | sekret szyfrowany jak Cookidoo (AES-256-GCM, klucz w env) |
+| **Kody odzyskiwania** (10 × jednorazowe, trzymane jako hasze) | ostatnia deska | pokazane raz przy włączeniu 2FA; Rafał trzyma je w menedżerze haseł |
 
-Reguła: **passkey = wejście od razu; każda inna metoda + TOTP.** Haseł nie ma.
+Reguła: **passkey = wejście od razu; Apple / Google + TOTP.** Haseł nie ma.
+
+Świadomie **nie ma**: **SMS** (przejęcie numeru na nową kartę SIM, koszt
+dostawcy, nic ponad TOTP) i **linku na e-mail w warstwie 1** (poczta to to
+samo konto Google — nie byłby niezależnym składnikiem; kod na e-mail zostaje
+tylko jako awaryjne wejście przez bramkę). Później, z iOS: zatwierdzenie
+logowania w aplikacji Scoffie.
+
+Na co dzień z telefonu: bramka Google raz na 7 dni, potem Face ID mniej
+więcej dwa razy dziennie.
 
 ### Sesje
 
@@ -539,7 +557,7 @@ Panel prawie nie wymaga zmian w telefonie. Jedna ważna:
 
 | Etap | Zakres | Wynik |
 | ---- | ------ | ----- |
-| **0. Fundament** | repo `scoffie-admin` (React 19 + Vite 8 + TS + TanStack Router/Query + shadcn/ui z tokenami iOS + układ RWD), Worker z proxy, Cloudflare Access, subdomena; `src/admin/` z 404 dla obcych, `AdminUser` + passkey + Google + TOTP + kody odzyskiwania, sesje, audyt, alert o logowaniu | można się bezpiecznie zalogować i zobaczyć pusty pulpit |
+| **0. Fundament** | repo `scoffie-admin` (React 19 + Vite 8 + TS + TanStack Router/Query + shadcn/ui z tokenami iOS + układ RWD), Worker z proxy, Cloudflare Access, subdomena; `src/admin/` z 404 dla obcych, `AdminUser` + passkey + Apple + Google + TOTP + kody odzyskiwania, sesje, audyt, alert o logowaniu | można się bezpiecznie zalogować i zobaczyć pusty pulpit |
 | **1. Wgląd** (tylko odczyt) | pulpit, użytkownicy, gospodarstwa, subskrypcje, asystent: zużycie i rentowność, kolejka zgłoszeń; nagłówek wersji z iOS | wiesz, co się dzieje i czy zarabiasz |
 | **2. Operacje** | akcje przeniesione z `/ops` i `/billing/ops` do panelu, wyloguj zewsząd, eksport / usunięcie konta (RODO), statusy zgłoszeń, skrzynka maili i wykluczenia, step-up, „Odsłoń" | koniec z curlem na co dzień |
 | **3. Katalog** | edytor przepisów i składników, przeliczanie, zdjęcia do R2, wersje, publikacja, popularność | przepisy bez JSON-a i importu |
@@ -557,11 +575,14 @@ Etapy 1 i 2 dają najwięcej. Etap 3 czeka na decyzję D1.
   (`pnpm catalog:export`) i kopią w repo; (B) panel robi commit do JSON-a,
   a zmiana wchodzi importem. Rekomendacja: **A** — panel bez natychmiastowej
   publikacji traci połowę sensu, a eksport zachowuje historię w gicie.
-- **D2. Nazwa subdomeny** panelu.
-- **D3. Dostawcy w Cloudflare Access**: Google + kod na e-mail (minimum), GitHub?
+- ~~**D2. Nazwa subdomeny**~~ — zamknięte 24.09: `dashboard.scoffie.app` (§3).
+- ~~**D3. Metody logowania**~~ — zamknięte 24.09: bramka Google / konto
+  Cloudflare / kod na e-mail; panel Face ID albo Apple / Google + Google
+  Authenticator; kody odzyskiwania; bez SMS i bez PWA (§4).
 - ~~**D4. Stos frontu**~~ — zamknięte 24.09: React + shadcn/ui, wybór Claude'a (§2).
-- **D5. Czy panel kiedyś dostanie ktoś poza Rafałem** — jeśli tak, role od
-  etapu 2, nie 6.
+- ~~**D5. Czy panel dostanie ktoś poza Rafałem**~~ — zamknięte 24.09: na razie
+  nie. Jedna rola `OWNER`, ale uprawnienia w kodzie od początku jako lista
+  napisów, więc druga osoba to konfiguracja, nie przebudowa.
 - **D6. Aktualizacja dokumentów RODO**: rejestr czynności / DPIA musi
   wymienić panel, Cloudflare Access (podmiot przetwarzający — Cloudflare jest
   już dostawcą strony) i dziennik audytu z jego retencją.
