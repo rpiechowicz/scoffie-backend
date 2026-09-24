@@ -1,17 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ObservabilityModule } from '../observability/observability.module';
-import { AccessJwtVerifier } from './access/access-jwt.verifier';
-import { AdminGuard } from './admin.guard';
-import { AdminRateLimiter } from './admin-rate-limiter';
-import { AdminAuditService } from './audit/admin-audit.service';
+import { AdminCoreModule } from './admin-core.module';
 import {
   AdminAuthController,
   AdminSessionController,
 } from './auth/admin-auth.controller';
 import { AdminAuthService } from './auth/admin-auth.service';
-import { AdminLockoutService } from './auth/admin-lockout.service';
-import { AdminSessionsService } from './auth/admin-sessions.service';
-import { AdminWebAuthnService } from './auth/admin-webauthn.service';
 
 /**
  * Panel administratora — backend (`/admin/*`), plan w
@@ -22,20 +15,12 @@ import { AdminWebAuthnService } from './auth/admin-webauthn.service';
  * `src/admin/` — rejestruje go wyłącznie `AppModule`.
  *
  * Każdy kontroler panelu powstaje przez `@AdminController` (bramka Access,
- * sesja, uprawnienia, step-up, identyczne 404 dla obcych, limit po bramce).
+ * sesja, uprawnienia, step-up, identyczne 404 dla obcych, limit po bramce),
+ * a każdy moduł ekranu importuje `AdminCoreModule`.
  */
 @Module({
-  imports: [ObservabilityModule],
+  imports: [AdminCoreModule],
   controllers: [AdminAuthController, AdminSessionController],
-  providers: [
-    AccessJwtVerifier,
-    AdminRateLimiter,
-    AdminGuard,
-    AdminSessionsService,
-    AdminLockoutService,
-    AdminWebAuthnService,
-    AdminAuditService,
-    AdminAuthService,
-  ],
+  providers: [AdminAuthService],
 })
 export class AdminModule {}
