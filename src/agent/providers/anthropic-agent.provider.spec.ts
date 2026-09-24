@@ -41,22 +41,24 @@ const toolMessage = (name: string, id = 'tu-1', u: Usage = usage()) => ({
 });
 
 /**
- * Strumień z gotowej wiadomości: jeden `text_delta` na blok tekstu, potem
- * `finalMessage`. Odrzucona obietnica źródła wychodzi z iteracji i z
- * `finalMessage` tak samo, jak z prawdziwego SDK.
+ * Strumień z gotowej wiadomości: każdy blok ma start i stop, blok tekstu
+ * dodatkowo jeden `text_delta`, potem `finalMessage`. Odrzucona obietnica
+ * źródła wychodzi z iteracji i z `finalMessage` tak samo, jak z prawdziwego SDK.
  */
 function fakeStream(source: Promise<Anthropic.Message>) {
   return {
     async *[Symbol.asyncIterator]() {
       const message = await source;
-      for (const block of message.content) {
+      for (const [index, block] of message.content.entries()) {
+        yield { type: 'content_block_start', index, content_block: block };
         if (block.type === 'text') {
           yield {
             type: 'content_block_delta',
-            index: 0,
+            index,
             delta: { type: 'text_delta', text: block.text },
           };
         }
+        yield { type: 'content_block_stop', index };
       }
     },
     finalMessage: () => source,
@@ -113,6 +115,47 @@ describe('AnthropicAgentProvider', () => {
       // Ostatni szkic to pełna odpowiedź — klient podmienia, nie dokleja.
       expect(drafts[drafts.length - 1]).toBe('gotowe');
       expect(drafts.indexOf('')).toBeLessThan(drafts.lastIndexOf(''));
+    });
+  });
+
+  describe('pomiar czasu', () => {
+    it('jedno wpisanie na wywołanie API: model, tokeny, narzędzia i czas ich wykonania', async () => {
+      create
+        .mockResolvedValueOnce(
+          toolMessage('get_week_plan', 'a', usage({ output_tokens: 300 })),
+        )
+        .mockResolvedValueOnce(
+          textMessage('gotowe', usage({ output_tokens: 40 })),
+        );
+
+      const result = await provider.run(request());
+
+      expect(result.timings).toHaveLength(2);
+      const [first, second] = result.timings ?? [];
+      expect(first).toMatchObject({
+        model: 'claude-sonnet-5',
+        outputTokens: 300,
+        tools: ['get_week_plan'],
+      });
+      expect(first.firstBlockMs).not.toBeNull();
+      // Runda z narzędziem ma zmierzone wykonanie; ostatnie słowo — nie.
+      expect(first.toolsRunMs).toEqual(expect.any(Number));
+      expect(second).toMatchObject({
+        outputTokens: 40,
+        tools: [],
+        toolsRunMs: null,
+      });
+    });
+
+    it('ostatnie słowo bez narzędzi też jest zmierzone', async () => {
+      for (let i = 0; i <= MAX_TOOL_ROUNDS; i += 1) {
+        create.mockResolvedValueOnce(toolMessage('get_week_plan', `t${i}`));
+      }
+      create.mockResolvedValueOnce(textMessage('podsumowanie'));
+
+      const result = await provider.run(request());
+
+      expect(result.timings).toHaveLength(result.apiCalls);
     });
   });
 

@@ -41,6 +41,7 @@ import { AgentMemoryService } from '../src/agent/agent-memory.service';
 import { AiEffort, AgentEnv, readAgentEnv } from '../src/config/agent-env';
 import { resolveRoute } from '../src/agent/agent-route';
 import {
+  AgentCallTiming,
   AgentProviderError,
   AgentProviderMessage,
   AgentProviderRequest,
@@ -152,6 +153,8 @@ type RunRecord = {
   stopReason: string | null;
   /** Rozmiar wyniku `get_week_plan` w bajtach — do porównania BEFORE/AFTER. */
   weekPlanPayloadBytes: number | null;
+  /** Czas każdego wywołania API: na co poszła latencja (myślenie, narzędzia, tekst). */
+  timings: AgentCallTiming[];
   /**
    * Ostatnia odpowiedź, przycięta. NIE służy do oceny (correctness liczy się
    * z bazy i kontraktu narzędzi) — jest po to, żeby dało się zobaczyć, co
@@ -666,6 +669,7 @@ async function runOnce(
   const messages: AgentProviderMessage[] = [];
   let apiCalls = 0;
   let latencyMs = 0;
+  const timings: AgentCallTiming[] = [];
   let inputTokens = 0;
   let outputTokens = 0;
   let cacheReadTokens = 0;
@@ -736,6 +740,7 @@ async function runOnce(
         latencyMs += Date.now() - started;
       }
       apiCalls += result.apiCalls;
+      timings.push(...(result.timings ?? []));
       inputTokens += result.usage.inputTokens;
       outputTokens += result.usage.outputTokens;
       cacheReadTokens += result.usage.cacheReadTokens;
@@ -839,6 +844,7 @@ async function runOnce(
     handoff: tools.includes('start_planning'),
     apiCalls,
     latencyMs,
+    timings,
     inputTokens,
     outputTokens,
     cacheReadTokens,
@@ -921,6 +927,17 @@ type Aggregate = {
   medianCostUsd: number;
   p95CostUsd: number;
   medianLatencyMs: number;
+  /**
+   * Na co poszła latencja wszystkich przebiegów razem (udziały, suma = 1).
+   * `wait` to czas do pierwszego bloku każdego wywołania (kolejka, prefill,
+   * sieć); `other` to reszta strumienia poza blokami i czas między rundami.
+   */
+  latencySplit: Record<
+    'wait' | 'thinking' | 'toolInput' | 'text' | 'toolsRun' | 'other',
+    number
+  > | null;
+  /** Mediana czasu do pierwszego bloku jednego wywołania API. */
+  medianFirstBlockMs: number | null;
   cacheHitRatio: number;
   unnecessaryHandoffRate: number | null;
   missedHandoffRate: number | null;
@@ -932,6 +949,37 @@ type Aggregate = {
     medianCostUsd: number;
   }[];
 };
+
+function medianOrNull(values: number[]): number | null {
+  return values.length === 0 ? null : median(values);
+}
+
+/** Udziały składowych w łącznej latencji przebiegów, które mają pomiar. */
+function latencySplit(rows: RunRecord[]): Aggregate['latencySplit'] {
+  const measured = rows.filter((row) => row.timings.length > 0);
+  const total = measured.reduce((sum, row) => sum + row.latencyMs, 0);
+  if (total === 0) return null;
+  const sum = (pick: (timing: AgentCallTiming) => number) =>
+    measured.reduce(
+      (acc, row) =>
+        acc + row.timings.reduce((inner, timing) => inner + pick(timing), 0),
+      0,
+    );
+  const wait = sum((timing) => timing.firstBlockMs ?? timing.totalMs);
+  const thinking = sum((timing) => timing.thinkingMs);
+  const toolInput = sum((timing) => timing.toolInputMs);
+  const text = sum((timing) => timing.textMs);
+  const toolsRun = sum((timing) => timing.toolsRunMs ?? 0);
+  const other = total - wait - thinking - toolInput - text - toolsRun;
+  return {
+    wait: wait / total,
+    thinking: thinking / total,
+    toolInput: toolInput / total,
+    text: text / total,
+    toolsRun: toolsRun / total,
+    other: other / total,
+  };
+}
 
 function aggregate(records: RunRecord[]): Aggregate[] {
   const byConfig = new Map<string, RunRecord[]>();
@@ -968,6 +1016,14 @@ function aggregate(records: RunRecord[]): Aggregate[] {
       medianCostUsd: median(costs),
       p95CostUsd: percentile(costs, 95),
       medianLatencyMs: median(rows.map((row) => row.latencyMs)),
+      latencySplit: latencySplit(rows),
+      medianFirstBlockMs: medianOrNull(
+        rows.flatMap((row) =>
+          row.timings.flatMap((timing) =>
+            timing.firstBlockMs === null ? [] : [timing.firstBlockMs],
+          ),
+        ),
+      ),
       cacheHitRatio: mean(rows.map((row) => row.cacheHitRatio)),
       unnecessaryHandoffRate:
         routingActive && proste.length > 0
@@ -1012,6 +1068,19 @@ function printSummary(records: RunRecord[]): void {
         `${String(Math.round(row.medianLatencyMs / 1000)).padStart(6)} s   ` +
         `${(row.cacheHitRatio * 100).toFixed(0).padStart(3)}%   ` +
         `${pct(row.unnecessaryHandoffRate)}       ${pct(row.missedHandoffRate)}`,
+    );
+  }
+
+  for (const row of aggregates) {
+    if (!row.latencySplit) continue;
+    const split = row.latencySplit;
+    console.log(
+      `
+  ${row.config}: na co poszedl czas: ` +
+        `czekanie na 1. blok ${pct(split.wait)}, myslenie ${pct(split.thinking)}, ` +
+        `wejscie narzedzi ${pct(split.toolInput)}, tekst ${pct(split.text)}, ` +
+        `wykonanie narzedzi ${pct(split.toolsRun)}, reszta ${pct(split.other)}; ` +
+        `1. blok p50 ${row.medianFirstBlockMs ?? '-'} ms`,
     );
   }
 
@@ -1195,6 +1264,7 @@ async function main(): Promise<void> {
           costMicroUsd: 0,
           stopReason: 'HARNESS_ERROR',
           weekPlanPayloadBytes: null,
+          timings: [],
           answer: '',
           cards: [],
           error: caught instanceof Error ? caught.message : String(caught),
