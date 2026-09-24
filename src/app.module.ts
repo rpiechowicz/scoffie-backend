@@ -16,6 +16,7 @@ import { MailModule } from './mail/mail.module';
 import { ConsentsModule } from './consents/consents.module';
 import { DataExportModule } from './data-export/data-export.module';
 import { AppThrottleModule } from './common/throttle/throttle.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -41,6 +42,10 @@ import { AppThrottleModule } from './common/throttle/throttle.module';
     AgentModule,
     BillingModule,
     MailModule,
+    // Panel administratora (`/admin/*`) — moduł jednokierunkowy jak asystent:
+    // woła domenę, nic go nie importuje. Bez ADMIN_ACCESS_* każda jego trasa
+    // odpowiada jak nieistniejąca (404).
+    AdminModule,
   ],
 })
 export class AppModule {}

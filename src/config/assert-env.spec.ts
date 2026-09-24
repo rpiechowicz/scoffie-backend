@@ -69,6 +69,13 @@ describe('inspectRuntimeEnv', () => {
       { AUTH_DEV_LOGIN_ENABLED: 'true' },
       /AUTH_DEV_LOGIN_ENABLED=true/,
     ],
+    // Obejście bramki Cloudflare Access panelu admina — wejście do panelu
+    // bez logowania do Google. Tylko lokalnie, na produkcji odmowa startu.
+    [
+      'obejście bramki panelu admina',
+      { ADMIN_ACCESS_DEV_EMAIL: 'ja@dev.local' },
+      /ADMIN_ACCESS_DEV_EMAIL/,
+    ],
     // AUDYT 12.09.2026 (P0.3). `off` z włączonym asystentem znaczy, że model
     // zapisuje plan sam: bez karty, bez potwierdzenia i bez „Cofnij". Ta sama
     // reguła co przy WS_AUTH_MODE=soft — tryb, który zdejmuje zgodę człowieka,

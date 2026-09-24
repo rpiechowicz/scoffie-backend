@@ -22,6 +22,8 @@ export const THROTTLE_KEYS = [
   'THROTTLE_AUTH_LIMIT',
   'THROTTLE_AGENT_MESSAGE_LIMIT',
   'THROTTLE_AGENT_POLL_LIMIT',
+  'THROTTLE_ADMIN_LIMIT',
+  'THROTTLE_ADMIN_AUTH_LIMIT',
 ] as const;
 
 export type ThrottleKey = (typeof THROTTLE_KEYS)[number];
@@ -39,6 +41,12 @@ export const THROTTLE_DEFAULTS: Readonly<Record<ThrottleKey, number>> = {
   // Asystent: wysyłka wiadomości jest droga (tura woła model), polling tani.
   THROTTLE_AGENT_MESSAGE_LIMIT: 20,
   THROTTLE_AGENT_POLL_LIMIT: 120,
+  // Panel admina (`AdminRateLimiter`, liczony PO bramce Access): per admin
+  // z sesją — panel odświeża kilka zapytań naraz, więc luźno…
+  THROTTLE_ADMIN_LIMIT: 300,
+  // …i per adres bez sesji (logowanie) — tu bronimy się przed zgadywaniem;
+  // twardą barierą i tak jest blokada po 5 nieudanych próbach.
+  THROTTLE_ADMIN_AUTH_LIMIT: 30,
 };
 
 /**

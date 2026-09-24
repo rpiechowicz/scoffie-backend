@@ -1,5 +1,6 @@
 import { parseEncryptionKey } from '../common/crypto.util';
 import { throttleEnvProblems } from '../common/throttle/throttle-env';
+import { adminEnvProblems } from './admin-env';
 import { agentEnvProblems } from './agent-env';
 import { billingEnvProblems } from './billing-env-problems';
 import { mailEnvProblems, readMailEnv } from '../mail/mail-env';
@@ -210,11 +211,17 @@ export function inspectRuntimeEnv(
     localDatabase: isLocalDatabaseUrl(env.DATABASE_URL),
   });
 
+  // Panel administratora: blokuje WYŁĄCZNIE obejście bramki Access na
+  // produkcji (`ADMIN_ACCESS_DEV_EMAIL`). Niekompletny panel to ostrzeżenie —
+  // jest wtedy zamknięty (404), a nie otwarty.
+  const admin = adminEnvProblems(env);
+  productionOnly.push(...admin.violations);
+
   if (production) {
     return {
       production,
       violations: [...problems, ...productionOnly],
-      warnings: [...productionWarnings, ...billingWarnings],
+      warnings: [...productionWarnings, ...billingWarnings, ...admin.warnings],
     };
   }
   // Poza produkcją sekrety z repo są dopuszczalne TYLKO przy lokalnej bazie.
