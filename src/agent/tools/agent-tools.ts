@@ -91,8 +91,9 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
   {
     name: 'get_week_plan',
     description:
-      'Co już stoi w planie danego tygodnia. Wywołaj przed zmianą planu, żeby nie zaproponować ' +
-      'czegoś, co już tam jest, i żeby wiedzieć, co zniknie po zastosowaniu nowego tygodnia. ' +
+      'Co stoi w planie INNEGO tygodnia niż planowany — plan planowanego masz już w bloku ' +
+      'gospodarstwa (znacznik plan), w tym samym kształcie. Przy innym tygodniu wywołaj przed ' +
+      'zmianą planu, żeby nie zaproponować czegoś, co już tam jest. ' +
       'Pole recipe każdej pozycji to gotowa referencja do innych narzędzi: indeks katalogu (R07) ' +
       'albo identyfikator przepisu tego domu. Brak participants znaczy „posiłek dla całego domu"; ' +
       'othersCount mówi, ILU jedzących nie ma na liście, i tych osób nie da się wskazać po imieniu. ' +

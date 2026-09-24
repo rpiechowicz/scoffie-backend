@@ -116,6 +116,36 @@ export type AgentProviderResult = {
   apiCalls: number;
   /** Rozbicie na fazy; pusta tablica = dostawca nie rozróżnia faz. */
   phases?: AgentPhaseUsage[];
+  /** Czasy kolejnych wywołań API; brak pola = dostawca nie mierzy. */
+  timings?: AgentCallTiming[];
+};
+
+/**
+ * Na co poszedł czas JEDNEGO wywołania API — pomiar, nie rozliczenie.
+ *
+ * Benchmark z 7.09.2026 (168 tur) tłumaczył czas tury w 94 % trzema
+ * liczbami: ~1,5 s na rundę, ~10 ms na token wyjścia i ~2 s stałej. Tokeny
+ * wyjścia to jednak trzy różne rzeczy — myślenie, wejście narzędzia (cały
+ * tydzień w `propose_week_plan`) i tekst — a z `usage` nie da się ich
+ * rozdzielić. Czas bloków w strumieniu da się, i to on mówi, co skracać.
+ */
+export type AgentCallTiming = {
+  model: string;
+  /** Od wysłania żądania do końca strumienia. */
+  totalMs: number;
+  /** Do początku pierwszego bloku treści; `null` = strumień bez bloków. */
+  firstBlockMs: number | null;
+  /** Suma czasu bloków myślenia. */
+  thinkingMs: number;
+  /** Suma czasu bloków `tool_use` — model pisze wejście narzędzia. */
+  toolInputMs: number;
+  /** Suma czasu bloków tekstu. */
+  textMs: number;
+  outputTokens: number;
+  /** Narzędzia, o które model poprosił w tym wywołaniu. */
+  tools: string[];
+  /** Wykonanie tych narzędzi po naszej stronie; `null` = nie było narzędzi. */
+  toolsRunMs: number | null;
 };
 
 export interface AgentProvider {

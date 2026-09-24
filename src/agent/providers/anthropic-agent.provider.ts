@@ -13,6 +13,7 @@ import {
   AgentProviderResult,
   AgentProviderUsage,
   AgentPhaseUsage,
+  AgentCallTiming,
 } from './agent-provider';
 import { AgentToolDefinition } from '../tools/agent-tools';
 import { fenceSafeDeep } from '../fence-safe';
@@ -28,7 +29,6 @@ import { fenceSafeDeep } from '../fence-safe';
  */
 export const MAX_TOOL_ROUNDS = 12;
 
-/** Nie streamujemy — klient i tak odpytuje turę pollingiem. */
 const MAX_TOKENS = 16_000;
 
 const CACHE_READ_MULTIPLIER = 0.1;
@@ -135,6 +135,7 @@ export class AnthropicAgentProvider implements AgentProvider {
     // Liczba wywołań API liczona jawnie — `round` nie widzi ostatniego słowa,
     // a historia rozmowy w `messages` zawyżałaby każdą inną metodę.
     let calls = 0;
+    const timings: AgentCallTiming[] = [];
 
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
       let response: Anthropic.Message;
@@ -150,6 +151,7 @@ export class AnthropicAgentProvider implements AgentProvider {
           model,
           effort,
           tools,
+          timings,
         );
       } catch (error) {
         // Zużycie z poprzednich rund musi przeżyć błąd — inaczej tura, która
@@ -185,16 +187,20 @@ export class AnthropicAgentProvider implements AgentProvider {
           model,
           apiCalls: calls,
           phases: [...phases.values()],
+          timings,
         };
       }
 
       let toolResults: Anthropic.ToolResultBlockParam[];
+      const toolsStartedAt = Date.now();
       try {
         toolResults = await this.runTools(request, toolUses);
       } catch (error) {
         // Narzędzie przerwane sygnałem (timeout, Stop) — zużycie zostaje.
         throw this.withUsage(error, usage, phases);
       }
+      const lastTiming = timings[timings.length - 1];
+      if (lastTiming) lastTiming.toolsRunMs = Date.now() - toolsStartedAt;
       messages.push({ role: 'user', content: toolResults });
       // Od tej chwili do następnej odpowiedzi API model „myśli" — najdłuższy
       // cichy odcinek tury. Runner zapisuje krok, po którym telefon wie, że
@@ -235,6 +241,7 @@ export class AnthropicAgentProvider implements AgentProvider {
           effort,
           tools,
           calls,
+          timings,
           // Osobny powód: turę uciął NASZ sufit kosztu, nie brak pomysłów
           // modelu. Runner odda za nią kwotę — użytkownik nie ma płacić
           // wiadomością za nasz bezpiecznik.
@@ -257,6 +264,7 @@ export class AnthropicAgentProvider implements AgentProvider {
       effort,
       tools,
       calls,
+      timings,
     );
   }
 
@@ -277,6 +285,7 @@ export class AnthropicAgentProvider implements AgentProvider {
     effort: AiEffort,
     tools: readonly AgentToolDefinition[],
     callsSoFar: number,
+    timings: AgentCallTiming[],
     reason: 'tool_rounds_exhausted' | 'cost_ceiling' = 'tool_rounds_exhausted',
   ): Promise<AgentProviderResult> {
     // Prośba jako blok TEKSTOWY w TEJ SAMEJ wiadomości użytkownika, co
@@ -298,15 +307,20 @@ export class AnthropicAgentProvider implements AgentProvider {
     }
 
     try {
-      const response = await this.streamMessage(client, request, {
-        model,
-        max_tokens: MAX_TOKENS,
-        system: request.system,
-        messages: withCacheBreakpoint(messages),
-        tools: tools as unknown as Anthropic.ToolUnion[],
-        tool_choice: { type: 'none' },
-        ...reasoningParams(model, effort),
-      });
+      const response = await this.streamMessage(
+        client,
+        request,
+        {
+          model,
+          max_tokens: MAX_TOKENS,
+          system: request.system,
+          messages: withCacheBreakpoint(messages),
+          tools: tools as unknown as Anthropic.ToolUnion[],
+          tool_choice: { type: 'none' },
+          ...reasoningParams(model, effort),
+        },
+        timings,
+      );
       this.accumulate(usage, phases, model, effort, response.usage);
       return {
         text: this.joinText(response.content),
@@ -315,6 +329,7 @@ export class AnthropicAgentProvider implements AgentProvider {
         model,
         apiCalls: callsSoFar + 1,
         phases: [...phases.values()],
+        timings,
       };
     } catch (error) {
       const providerError = this.toProviderError(error);
@@ -336,12 +351,30 @@ export class AnthropicAgentProvider implements AgentProvider {
    * `finalMessage()` oddaje tę samą pełną wiadomość, którą dawało `create`
    * — pętla narzędzi nie widzi różnicy. Błędy przechodzą przez `catch`
    * wołającego, bo to on wie, ile zużycia ma dopiąć do wyjątku.
+   *
+   * Przy okazji mierzy, na co poszedł czas wywołania (`AgentCallTiming`):
+   * granice bloków w strumieniu to jedyne miejsce, gdzie myślenie, wejście
+   * narzędzia i tekst dają się od siebie oddzielić.
    */
   private async streamMessage(
     client: Anthropic,
     request: AgentProviderRequest,
     params: Anthropic.MessageCreateParamsNonStreaming,
+    timings: AgentCallTiming[],
   ): Promise<Anthropic.Message> {
+    const startedAt = Date.now();
+    const timing: AgentCallTiming = {
+      model: params.model,
+      totalMs: 0,
+      firstBlockMs: null,
+      thinkingMs: 0,
+      toolInputMs: 0,
+      textMs: 0,
+      outputTokens: 0,
+      tools: [],
+      toolsRunMs: null,
+    };
+    const blockStarts = new Map<number, { at: number; type: string }>();
     const stream = client.messages.stream(params, { signal: request.signal });
     // Pusty szkic NA STARCIE każdego wywołania: tekst rundy, która skończyła
     // się narzędziem („sprawdzę plan…"), nie jest odpowiedzią i nie ma prawa
@@ -353,7 +386,17 @@ export class AnthropicAgentProvider implements AgentProvider {
     let announcedReasoning = false;
     let announcedWriting = false;
     for await (const event of stream) {
+      if (event.type === 'content_block_stop') {
+        this.closeBlock(timing, blockStarts.get(event.index));
+        continue;
+      }
       if (event.type === 'content_block_start') {
+        const now = Date.now();
+        timing.firstBlockMs ??= now - startedAt;
+        blockStarts.set(event.index, {
+          at: now,
+          type: event.content_block.type,
+        });
         if (event.content_block.type === 'thinking' && !announcedReasoning) {
           announcedReasoning = true;
           await request.onActivity?.('reasoning');
@@ -375,7 +418,30 @@ export class AnthropicAgentProvider implements AgentProvider {
         request.onDraft?.(draft);
       }
     }
-    return stream.finalMessage();
+    const message = await stream.finalMessage();
+    timing.totalMs = Date.now() - startedAt;
+    timing.outputTokens = message.usage.output_tokens;
+    timing.tools = message.content
+      .filter((block) => block.type === 'tool_use')
+      .map((block) => block.name);
+    timings.push(timing);
+    return message;
+  }
+
+  /** Dolicza czas zamkniętego bloku do jego rodzaju. */
+  private closeBlock(
+    timing: AgentCallTiming,
+    start: { at: number; type: string } | undefined,
+  ): void {
+    if (!start) return;
+    const ms = Date.now() - start.at;
+    if (start.type === 'thinking' || start.type === 'redacted_thinking') {
+      timing.thinkingMs += ms;
+    } else if (start.type === 'tool_use') {
+      timing.toolInputMs += ms;
+    } else if (start.type === 'text') {
+      timing.textMs += ms;
+    }
   }
 
   private getClient(): Anthropic {
@@ -415,21 +481,27 @@ export class AnthropicAgentProvider implements AgentProvider {
     model: string,
     effort: AiEffort,
     tools: readonly AgentToolDefinition[],
+    timings: AgentCallTiming[],
   ): Promise<Anthropic.Message> {
     try {
-      return await this.streamMessage(client, request, {
-        model,
-        max_tokens: MAX_TOKENS,
-        system: request.system,
-        // Trzeci punkt cache na końcu historii rund: bez niego rosnąca
-        // tablica wiadomości (myślenie + wyniki narzędzi) szła do 14 razy
-        // na turę po pełnej stawce. Największa dźwignia kosztu w tym pliku.
-        messages: withCacheBreakpoint(messages),
-        tools: tools as unknown as Anthropic.ToolUnion[],
-        // Kształt myślenia zależy od MODELU, nie od konfiguracji: modele 5
-        // chcą `adaptive` + `effort`, Haiku 4.5 odrzuca oba błędem 400.
-        ...reasoningParams(model, effort),
-      });
+      return await this.streamMessage(
+        client,
+        request,
+        {
+          model,
+          max_tokens: MAX_TOKENS,
+          system: request.system,
+          // Trzeci punkt cache na końcu historii rund: bez niego rosnąca
+          // tablica wiadomości (myślenie + wyniki narzędzi) szła do 14 razy
+          // na turę po pełnej stawce. Największa dźwignia kosztu w tym pliku.
+          messages: withCacheBreakpoint(messages),
+          tools: tools as unknown as Anthropic.ToolUnion[],
+          // Kształt myślenia zależy od MODELU, nie od konfiguracji: modele 5
+          // chcą `adaptive` + `effort`, Haiku 4.5 odrzuca oba błędem 400.
+          ...reasoningParams(model, effort),
+        },
+        timings,
+      );
     } catch (error) {
       throw this.toProviderError(error);
     }

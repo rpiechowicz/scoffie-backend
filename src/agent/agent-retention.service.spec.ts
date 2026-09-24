@@ -66,11 +66,11 @@ describe('AgentRetentionService.sweep', () => {
     });
   });
 
-  it('puste rozmowy: bez wiadomości i bez tur, założone ponad dobę temu', async () => {
+  it('puste rozmowy: bez wiadomości i bez tur, założone ponad godzinę temu', async () => {
     await service.sweep(NOW);
     expect(prisma.agentConversation.deleteMany).toHaveBeenCalledWith({
       where: {
-        createdAt: { lt: new Date('2026-09-01T12:00:00.000Z') },
+        createdAt: { lt: new Date('2026-09-02T11:00:00.000Z') },
         messages: { none: {} },
         turns: { none: {} },
       },

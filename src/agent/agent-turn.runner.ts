@@ -28,6 +28,7 @@ import {
   WRITE_STEP_TOOL,
   THINK_STEP_TOOL,
 } from './agent-progress';
+import { formatTurnTiming } from './agent-timing';
 import { AgentPromptService, TurnDates } from './agent-prompt.service';
 import { AgentCard } from './cards/agent-cards';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -176,6 +177,7 @@ export class AgentTurnRunner {
         route.promptHandoff,
       );
       const provider = this.providers.resolve(input.env);
+      const prepMs = Date.now() - startedAt;
       const result = await provider.run({
         model: route.model,
         effort: route.effort,
@@ -216,6 +218,16 @@ export class AgentTurnRunner {
         signal: controller.signal,
         maxTurnCostUsd: input.env.maxTurnCostUsd,
       });
+      if (result.timings) {
+        this.logger.log(
+          formatTurnTiming(
+            input.turnId,
+            Date.now() - startedAt,
+            prepMs,
+            result.timings,
+          ),
+        );
+      }
       await this.finishDone(
         input,
         result,

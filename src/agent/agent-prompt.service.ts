@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HouseholdsService } from '../households/households.service';
+import { WeeklyPlansService } from '../weekly-plans/weekly-plans.service';
 import { ConsentsService } from '../consents/consents.service';
 import { readAgentEnv } from '../config/agent-env';
 import { AgentMemoryService } from './agent-memory.service';
@@ -15,6 +16,10 @@ import {
   SystemBlock,
 } from './agent-system-prompt';
 import { weekRangeLabel } from './cards/agent-cards';
+import {
+  projectWeekPlanForModel,
+  WeekPlanForModel,
+} from './week-plan-projection';
 
 /**
  * Gospodarstwo katalogowe — to samo, co `RECIPE_IMPORT_HOUSEHOLD_ID`.
@@ -55,11 +60,14 @@ export type AgentPrompt = {
  */
 @Injectable()
 export class AgentPromptService {
+  private readonly logger = new Logger(AgentPromptService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly households: HouseholdsService,
     private readonly memory: AgentMemoryService,
     private readonly consents: ConsentsService,
+    private readonly weeklyPlans: WeeklyPlansService,
   ) {}
 
   async build(
@@ -69,13 +77,14 @@ export class AgentPromptService {
     proposalMode: boolean,
     handoff = false,
   ): Promise<AgentPrompt> {
-    const [digest, household, allMembers] = await Promise.all([
+    const [digest, household, allMembers, rawPlan] = await Promise.all([
       this.loadDigest(),
       this.prisma.household.findUnique({
         where: { id: householdId },
         select: { name: true, enabledMealTypes: true },
       }),
       this.households.memberPreferences(userId, householdId),
+      this.loadWeekPlan(userId, householdId, dates.weekStart),
     ]);
 
     // Do modelu (czyli do USA) idą dane TYLKO tych domowników, którzy sami
@@ -93,6 +102,16 @@ export class AgentPromptService {
       allConsented: withheld === 0,
     });
 
+    // Ta sama projekcja i ten sam filtr zgód, co w `get_week_plan`: indeks
+    // katalogu zamiast UUID przepisu, domownik bez zgody jako liczba.
+    const weekPlan: WeekPlanForModel | null = rawPlan
+      ? projectWeekPlanForModel(
+          rawPlan,
+          new Map(Object.entries(digest.index).map(([ref, id]) => [id, ref])),
+          new Set(members.map((member) => member.userId)),
+        )
+      : null;
+
     const system = buildSystemPrompt(digest, {
       memory,
       householdName: household?.name ?? 'Dom',
@@ -105,6 +124,7 @@ export class AgentPromptService {
       membersWithheld: withheld,
       proposalMode,
       handoff,
+      weekPlan,
     });
 
     const asking = allMembers.find((member) => member.userId === userId);
@@ -142,6 +162,33 @@ export class AgentPromptService {
     );
     const kept = members.filter((member) => consented.has(member.userId));
     return { members: kept, withheld: members.length - kept.length };
+  }
+
+  /**
+   * Plan planowanego tygodnia do bloku gospodarstwa — patrz `weekPlanLines`.
+   *
+   * Błąd odczytu NIE wywraca tury: bez planu w prompcie model sięgnie po
+   * `get_week_plan`, czyli zachowa się dokładnie tak, jak przed tą zmianą.
+   */
+  private async loadWeekPlan(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+  ): Promise<Parameters<typeof projectWeekPlanForModel>[0] | null> {
+    try {
+      return await this.weeklyPlans.getByHouseholdAndWeek(
+        userId,
+        householdId,
+        weekStart,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `plan tygodnia do promptu niedostępny (${
+          error instanceof Error ? error.name : 'nieznany błąd'
+        }) — model sięgnie po get_week_plan`,
+      );
+      return null;
+    }
   }
 
   private async loadDigest(): Promise<CatalogDigest> {
