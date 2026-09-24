@@ -1,0 +1,1505 @@
+{
+  "label": "TEMPO-A-strict",
+  "startedAt": "2026-09-24T05:32:33.579Z",
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 12,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 12,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 4,
+      "maxRounds": 4,
+      "medianCostUsd": 0.069668,
+      "p95CostUsd": 0.357536,
+      "medianLatencyMs": 10022,
+      "latencySplit": {
+        "wait": 0.3593072626945116,
+        "thinking": 0.4133101974546814,
+        "toolInput": 0.13081442384408948,
+        "text": 0.09440889131902405,
+        "toolsRun": 0.0017407702908537027,
+        "other": 0.0004184543968398324
+      },
+      "medianFirstBlockMs": 1826,
+      "cacheHitRatio": 0.9429818792927506,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 1,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.044929
+        },
+        {
+          "group": 2,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.045923
+        },
+        {
+          "group": 3,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.069668
+        },
+        {
+          "group": 4,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.096325
+        },
+        {
+          "group": 5,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.077595
+        },
+        {
+          "group": 6,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 4,
+          "medianCostUsd": 0.138891
+        },
+        {
+          "group": 8,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.076099
+        },
+        {
+          "group": 10,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.04149
+        },
+        {
+          "group": 12,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.024021
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g1-kcal-sroda",
+      "group": 1,
+      "pyta": "Czy liczba kalorii pochodzi z serwera, a nie z pamięci modelu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_balance"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 5509,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3111,
+          "firstBlockMs": 2144,
+          "thinkingMs": 963,
+          "toolInputMs": 3,
+          "textMs": 0,
+          "outputTokens": 109,
+          "tools": [
+            "get_week_balance"
+          ],
+          "toolsRunMs": 7
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2391,
+          "firstBlockMs": 1241,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1143,
+          "outputTokens": 62,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 171,
+      "cacheReadTokens": 163996,
+      "cacheWriteTokens": 2603,
+      "cacheHitRatio": 0.9843520224725846,
+      "costMicroUsd": 44929,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": null,
+      "answer": "Środa ma zaplanowane 1852 kcal — to trochę poniżej Twojego celu 2200 kcal, więc jest zapas na dodatkową przekąskę.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g1-wtorek-obiad",
+      "group": 1,
+      "pyta": "Czy proste pytanie o plan czyta plan, zamiast zgadywać?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 10502,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 7633,
+          "firstBlockMs": 7047,
+          "thinkingMs": 314,
+          "toolInputMs": 271,
+          "textMs": 0,
+          "outputTokens": 79,
+          "tools": [
+            "get_week_plan"
+          ],
+          "toolsRunMs": 15
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2853,
+          "firstBlockMs": 2003,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 848,
+          "outputTokens": 58,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 137,
+      "cacheReadTokens": 82810,
+      "cacheWriteTokens": 84899,
+      "cacheHitRatio": 0.49376017362995117,
+      "costMicroUsd": 357536,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3526,
+      "answer": "We wtorek na obiad masz bigos z kiełbasą i suszonymi grzybami — 806 kcal, przygotowanie zajmuje 150 minut.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g2-co-na-kolacje",
+      "group": 2,
+      "pyta": "Czy „co na kolację\" daje wybór, a nie gotowy zapis?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "offer_options"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 8027,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6421,
+          "firstBlockMs": 1795,
+          "thinkingMs": 3064,
+          "toolInputMs": 1561,
+          "textMs": 0,
+          "outputTokens": 407,
+          "tools": [
+            "offer_options"
+          ],
+          "toolsRunMs": 13
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 1593,
+          "firstBlockMs": 958,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 632,
+          "outputTokens": 30,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 437,
+      "cacheReadTokens": 164003,
+      "cacheWriteTokens": 2186,
+      "cacheHitRatio": 0.9868225496862082,
+      "costMicroUsd": 45923,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": null,
+      "answer": "Wybieraj dotknięciem kafelka — czekam na Twój wybór.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Kolacja · poniedziałek",
+            "title": "Trzy pomysły na kolację",
+            "options": [
+              {
+                "recipeId": "76566d55-5d30-4828-bfd8-c3aa28321afe",
+                "title": "Kurczak zapiekany z pomidorem i mozzarellą",
+                "kcalPerServing": 468,
+                "prepTimeMinutes": 35,
+                "imageUrl": "https://img.scoffie.app/recipe-images/76566d55-5d30-4828-bfd8-c3aa28321afe-4d0b661b2c.webp",
+                "description": "Pierś kurczaka przykryta plastrami pomidora i mozzarelli, zapieczona z czosnkiem i bazylią, aż ser się rozpłynie i zarumieni. Prosta kolacja w stylu caprese na ciepło, z rukolą na talerzu.",
+                "proteinGrams": 56,
+                "carbsGrams": 7,
+                "fatGrams": 23,
+                "ingredientCount": 11,
+                "tag": "Najwięcej białka",
+                "prompt": "Wybieram: Kurczak zapiekany z pomidorem i mozzarellą"
+              },
+              {
+                "recipeId": "3f020f86-3ce8-43b9-8782-1aaa4a51806d",
+                "title": "Dorsz pieczony z cukinią i oliwkową gremolatą",
+                "kcalPerServing": 325,
+                "prepTimeMinutes": 25,
+                "imageUrl": "https://img.scoffie.app/recipe-images/3f020f86-3ce8-43b9-8782-1aaa4a51806d-383764274b.webp",
+                "description": "Filet z dorsza i plastry cukinii pieczone razem, polane oliwą z czosnkiem, natką i cytryną. Lekka kolacja niskowęglowodanowa.",
+                "proteinGrams": 35,
+                "carbsGrams": 9,
+                "fatGrams": 16,
+                "ingredientCount": 8,
+                "tag": "Najszybsze",
+                "prompt": "Wybieram: Dorsz pieczony z cukinią i oliwkową gremolatą"
+              },
+              {
+                "recipeId": "73b9e066-e6e1-464b-bd9d-83bc42198dbe",
+                "title": "Ratatouille z bagietką",
+                "kcalPerServing": 538,
+                "prepTimeMinutes": 60,
+                "imageUrl": "https://img.scoffie.app/recipe-images/73b9e066-e6e1-464b-bd9d-83bc42198dbe-c357ee2c1f.webp",
+                "description": "Prowansalski gulasz z bakłażana, cukinii, papryki i pomidorów, duszony na oliwie z ziołami, aż warzywa staną się miękkie i słodkie. Z chrupiącą bagietką to sycąca, roślinna kolacja, a nazajutrz smakuje jeszcze lepiej.",
+                "proteinGrams": 15,
+                "carbsGrams": 66,
+                "fatGrams": 22,
+                "ingredientCount": 13,
+                "tag": "Lekkie warzywne",
+                "prompt": "Wybieram: Ratatouille z bagietką"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "scenario": "g2-cos-szybkiego",
+      "group": 2,
+      "pyta": "Czy „szybko\" filtruje po czasie z katalogu, a nie po wrażeniu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "offer_options"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 10915,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2444,
+          "firstBlockMs": 1764,
+          "thinkingMs": 0,
+          "toolInputMs": 677,
+          "textMs": 0,
+          "outputTokens": 57,
+          "tools": [
+            "get_week_plan"
+          ],
+          "toolsRunMs": 8
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6264,
+          "firstBlockMs": 2367,
+          "thinkingMs": 2699,
+          "toolInputMs": 1198,
+          "textMs": 0,
+          "outputTokens": 422,
+          "tools": [
+            "offer_options"
+          ],
+          "toolsRunMs": 12
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2187,
+          "firstBlockMs": 1490,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 692,
+          "outputTokens": 42,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 521,
+      "cacheReadTokens": 247061,
+      "cacheWriteTokens": 2429,
+      "cacheHitRatio": 0.9902403244941803,
+      "costMicroUsd": 64351,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 56,
+      "answer": "Podałem trzy szybkie opcje na kolację w poniedziałek — wybierz, która Ci pasuje.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Kolacja · poniedziałek",
+            "title": "Szybkie kolacje na poniedziałek",
+            "options": [
+              {
+                "recipeId": "dba8974d-714a-4e0e-8dfe-af28d8655413",
+                "title": "Sałatka caprese z awokado",
+                "kcalPerServing": 614,
+                "prepTimeMinutes": 10,
+                "imageUrl": "https://img.scoffie.app/recipe-images/dba8974d-714a-4e0e-8dfe-af28d8655413-511429cd34.webp",
+                "description": "Mozzarella, pomidorki koktajlowe i awokado z oliwą, sokiem z cytryny i oregano. Kolacja bez gotowania, która syci tłuszczem, nie pieczywem.",
+                "proteinGrams": 31,
+                "carbsGrams": 11,
+                "fatGrams": 48,
+                "ingredientCount": 8,
+                "tag": "Najszybsze",
+                "prompt": "Wybieram: Sałatka caprese z awokado"
+              },
+              {
+                "recipeId": "f6d71810-b632-4b91-a37e-baf898f47ba0",
+                "title": "Tosty z szynką i serem",
+                "kcalPerServing": 521,
+                "prepTimeMinutes": 12,
+                "imageUrl": "https://img.scoffie.app/recipe-images/f6d71810-b632-4b91-a37e-baf898f47ba0-1c2c89e667.webp",
+                "description": "Ciepłe tosty z szynką i ciągnącym się serem to szybka kolacja lub sycące śniadanie. Proste składniki i bardzo dobry efekt.",
+                "proteinGrams": 29,
+                "carbsGrams": 41,
+                "fatGrams": 26,
+                "ingredientCount": 5,
+                "tag": "Szybkie",
+                "prompt": "Wybieram: Tosty z szynką i serem"
+              },
+              {
+                "recipeId": "9afe1a2b-4f90-4772-801b-624c592d97ad",
+                "title": "Kanapki na ciepło z mozzarellą i pomidorem",
+                "kcalPerServing": 456,
+                "prepTimeMinutes": 14,
+                "imageUrl": "https://img.scoffie.app/recipe-images/9afe1a2b-4f90-4772-801b-624c592d97ad-049938753b.webp",
+                "description": "Szybkie kanapki na ciepło z roztopioną mozzarellą i pomidorem. Świetna kolacja, gdy chcesz zjeść coś prostego i smacznego.",
+                "proteinGrams": 23,
+                "carbsGrams": 43,
+                "fatGrams": 19,
+                "ingredientCount": 6,
+                "tag": "Na ciepło",
+                "prompt": "Wybieram: Kanapki na ciepło z mozzarellą i pomidorem"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "scenario": "g3-bez-ryby",
+      "group": 3,
+      "pyta": "Czy powód podmiany („nie chcę ryby\") trafia do doboru dania?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "propose_swap"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 7940,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2773,
+          "firstBlockMs": 1792,
+          "thinkingMs": 973,
+          "toolInputMs": 5,
+          "textMs": 0,
+          "outputTokens": 89,
+          "tools": [
+            "get_week_plan"
+          ],
+          "toolsRunMs": 12
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2924,
+          "firstBlockMs": 1298,
+          "thinkingMs": 0,
+          "toolInputMs": 889,
+          "textMs": 737,
+          "outputTokens": 188,
+          "tools": [
+            "propose_swap"
+          ],
+          "toolsRunMs": 29
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2202,
+          "firstBlockMs": 1151,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1050,
+          "outputTokens": 48,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 325,
+      "cacheReadTokens": 248930,
+      "cacheWriteTokens": 4155,
+      "cacheHitRatio": 0.9835592731468128,
+      "costMicroUsd": 69668,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3543,
+      "answer": "Podmieniłem czwartkową kolację na kotleciki z indyka i cukinii z sosem koperkowym — bez ryby.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g3-podmien-kolacje",
+      "group": 3,
+      "pyta": "Czy podmiana rusza dokładnie jeden slot?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "propose_swap"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 10022,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4112,
+          "firstBlockMs": 3539,
+          "thinkingMs": 346,
+          "toolInputMs": 226,
+          "textMs": 0,
+          "outputTokens": 80,
+          "tools": [
+            "get_week_plan"
+          ],
+          "toolsRunMs": 10
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3070,
+          "firstBlockMs": 1414,
+          "thinkingMs": 0,
+          "toolInputMs": 736,
+          "textMs": 914,
+          "outputTokens": 204,
+          "tools": [
+            "propose_swap"
+          ],
+          "toolsRunMs": 36
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2793,
+          "firstBlockMs": 1450,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1338,
+          "outputTokens": 84,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 368,
+      "cacheReadTokens": 248896,
+      "cacheWriteTokens": 4141,
+      "cacheHitRatio": 0.9836114810526274,
+      "costMicroUsd": 70035,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3526,
+      "answer": "Podmieniłem środową kolację na kurczaka zapiekanego z pomidorem i mozzarellą — lżejszą i szybszą opcję niż poprzednia. Zatwierdzasz w karcie jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g4-zaplanuj-piatek",
+      "group": 4,
+      "pyta": "Czy „zaplanuj piątek\" rusza wyłącznie piątek?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "propose_day_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 30966,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3376,
+          "firstBlockMs": 1945,
+          "thinkingMs": 1209,
+          "toolInputMs": 221,
+          "textMs": 0,
+          "outputTokens": 153,
+          "tools": [
+            "get_week_plan"
+          ],
+          "toolsRunMs": 10
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 23714,
+          "firstBlockMs": 2452,
+          "thinkingMs": 19597,
+          "toolInputMs": 1662,
+          "textMs": 0,
+          "outputTokens": 2067,
+          "tools": [
+            "propose_day_plan"
+          ],
+          "toolsRunMs": 27
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3839,
+          "firstBlockMs": 1909,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1924,
+          "outputTokens": 108,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 2328,
+      "cacheReadTokens": 248703,
+      "cacheWriteTokens": 5823,
+      "cacheHitRatio": 0.9770991466691811,
+      "costMicroUsd": 96325,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3025,
+      "answer": "Piątek gotowy: dzień wychodzi na około 2054 kcal, blisko Twojego celu 2200 kcal, z solidną dawką białka na obiad i kolację. Tłuszcz jest lekko poniżej celu — jeśli chcesz, mogę dołożyć coś tłustszego.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g5-trzy-dni",
+      "group": 5,
+      "pyta": "Czy trzy dni to trzy dni — i czy mieszczą się w rozsądnej liczbie rund?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "propose_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 23126,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5044,
+          "firstBlockMs": 1928,
+          "thinkingMs": 2902,
+          "toolInputMs": 213,
+          "textMs": 0,
+          "outputTokens": 299,
+          "tools": [
+            "get_week_plan"
+          ],
+          "toolsRunMs": 6
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 13196,
+          "firstBlockMs": 2453,
+          "thinkingMs": 8245,
+          "toolInputMs": 2497,
+          "textMs": 0,
+          "outputTokens": 1069,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 17
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4863,
+          "firstBlockMs": 3823,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1038,
+          "outputTokens": 76,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 1444,
+      "cacheReadTokens": 247312,
+      "cacheWriteTokens": 3420,
+      "cacheHitRatio": 0.9863363351386707,
+      "costMicroUsd": 77595,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 56,
+      "answer": "Plan gotowy w karcie wyżej — obiady i kolacje na poniedziałek, wtorek i środę, z rotacją drób/ryba/wege. Zatwierdzasz jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g6-pelny-tydzien",
+      "group": 6,
+      "pyta": "Czy asystent układa cały tydzień i naprawdę go zapisuje?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "propose_week_plan",
+        "propose_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 4,
+      "latencyMs": 48972,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2862,
+          "firstBlockMs": 1340,
+          "thinkingMs": 1515,
+          "toolInputMs": 3,
+          "textMs": 0,
+          "outputTokens": 180,
+          "tools": [
+            "get_week_plan"
+          ],
+          "toolsRunMs": 7
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 26969,
+          "firstBlockMs": 1745,
+          "thinkingMs": 19896,
+          "toolInputMs": 5327,
+          "textMs": 0,
+          "outputTokens": 2613,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 6
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 15571,
+          "firstBlockMs": 2325,
+          "thinkingMs": 7695,
+          "toolInputMs": 5551,
+          "textMs": 0,
+          "outputTokens": 1532,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 18
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3539,
+          "firstBlockMs": 1474,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2060,
+          "outputTokens": 117,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 8,
+      "outputTokens": 4442,
+      "cacheReadTokens": 333551,
+      "cacheWriteTokens": 6936,
+      "cacheHitRatio": 0.9796061616176449,
+      "costMicroUsd": 138891,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 56,
+      "answer": "Plan na cały tydzień jest gotowy do zatwierdzenia w karcie powyżej. Średnio wychodzi około 233 kcal dziennie poniżej celu — jeśli chcesz, mogę dorzucić coś na dobicie kalorii, np. drugie śniadanie albo większe porcje w kilku dniach.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g8-podzial-posilku",
+      "group": 8,
+      "pyta": "Czy „jedno danie, dwa talerze\" ląduje w jednym slocie z właściwym audytorium?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_week_plan",
+        "propose_swap"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "latencyMs": 14316,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2806,
+          "firstBlockMs": 2090,
+          "thinkingMs": 471,
+          "toolInputMs": 244,
+          "textMs": 0,
+          "outputTokens": 83,
+          "tools": [
+            "get_week_plan"
+          ],
+          "toolsRunMs": 10
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 8074,
+          "firstBlockMs": 2358,
+          "thinkingMs": 4189,
+          "toolInputMs": 1524,
+          "textMs": 0,
+          "outputTokens": 576,
+          "tools": [
+            "propose_swap"
+          ],
+          "toolsRunMs": 30
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3396,
+          "firstBlockMs": 2158,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1236,
+          "outputTokens": 71,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 730,
+      "cacheReadTokens": 249333,
+      "cacheWriteTokens": 4730,
+      "cacheHitRatio": 0.9813593944951962,
+      "costMicroUsd": 76099,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": 3526,
+      "answer": "Gotowe — na czwartkową kolację Rafal dostaje lżejsze, wysokobiałkowe danie, a Ania zostaje przy dotychczasowym burgerze z kurczaka.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g10-lista-zakupow",
+      "group": 10,
+      "pyta": "Czy lista zakupów jest kartą, a nie listą przepisaną w odpowiedzi?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "show_shopping_list"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "latencyMs": 4878,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2203,
+          "firstBlockMs": 1563,
+          "thinkingMs": 0,
+          "toolInputMs": 638,
+          "textMs": 0,
+          "outputTokens": 58,
+          "tools": [
+            "show_shopping_list"
+          ],
+          "toolsRunMs": 39
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2636,
+          "firstBlockMs": 1557,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1078,
+          "outputTokens": 74,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 132,
+      "cacheReadTokens": 164008,
+      "cacheWriteTokens": 1840,
+      "cacheHitRatio": 0.9888816535224175,
+      "costMicroUsd": 41490,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": null,
+      "answer": "Lista zakupów na ten tydzień jest gotowa i podzielona na 13 działów sklepu — masz w niej 103 pozycje do kupienia. Daj znać, gdy coś odhaczysz.",
+      "cards": [
+        {
+          "kind": "SHOPPING_LIST",
+          "payload": {
+            "kind": "SHOPPING_LIST",
+            "v": 1,
+            "weekStart": "2026-10-05",
+            "eyebrow": "Lista zakupów · 5–11 października",
+            "title": "103 rzeczy do kupienia",
+            "groups": [
+              {
+                "department": "Warzywa",
+                "departmentKey": "VEGETABLES",
+                "items": [
+                  "Batat 350 g",
+                  "Bazylia 7,5 g",
+                  "Brokuł 125 g",
+                  "Burak 150 g",
+                  "Cebula 4,5 szt",
+                  "Cebula czerwona 1 szt"
+                ],
+                "entries": [
+                  {
+                    "label": "Batat 350 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bazylia 7,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Brokuł 125 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Burak 150 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cebula 4,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cebula czerwona 1 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Czosnek 6,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Grzyb suszony 5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kapusta biała 300 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kolendra 2,5 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 17
+              },
+              {
+                "department": "Owoce",
+                "departmentKey": "FRUITS",
+                "items": [
+                  "Awokado 0,5 szt",
+                  "Borówka 70 g",
+                  "Limonka 0,5 szt",
+                  "Truskawka 150 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Awokado 0,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Borówka 70 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Limonka 0,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Truskawka 150 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Mięso",
+                "departmentKey": "MEAT",
+                "items": [
+                  "Boczek 25 g",
+                  "Filet z indyka 150 g",
+                  "Filet z kurczaka 425 g",
+                  "Indyk mielony 550 g",
+                  "Kiełbasa wędzona 60 g",
+                  "Łopatka wieprzowa 75 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Boczek 25 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Filet z indyka 150 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Filet z kurczaka 425 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Indyk mielony 550 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kiełbasa wędzona 60 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Łopatka wieprzowa 75 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Szynka 100 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Wołowina 250 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Wołowina mielona 100 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 3
+              },
+              {
+                "department": "Nabiał",
+                "departmentKey": "DAIRY",
+                "items": [
+                  "Jajko 13 szt",
+                  "Jogurt grecki 135 g",
+                  "Jogurt naturalny 250 g",
+                  "Masło 12,5 g",
+                  "Mleko 90 ml",
+                  "Mozzarella 50 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Jajko 13 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Jogurt grecki 135 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Jogurt naturalny 250 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Masło 12,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mleko 90 ml",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mozzarella 50 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mozzarella tarta 40 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ser cheddar 60 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ser feta 40 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ser gouda 20 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 7
+              },
+              {
+                "department": "Piekarnia",
+                "departmentKey": "BAKERY",
+                "items": [
+                  "Bagietka 125 g",
+                  "Bajgiel 1 szt",
+                  "Bułka 150 g",
+                  "Bułka do hamburgera 2 szt",
+                  "Bułka tarta 55 g",
+                  "Chleb 130 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Bagietka 125 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bajgiel 1 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bułka 150 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bułka do hamburgera 2 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bułka tarta 55 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Chleb 130 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Tortilla pszenna 1 szt",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 1
+              },
+              {
+                "department": "Zboża i makarony",
+                "departmentKey": "GRAINS",
+                "items": [
+                  "Kasza gryczana 60 g",
+                  "Makaron cannelloni 75 g",
+                  "Mąka pszenna 190 g",
+                  "Płatki owsiane 40 g",
+                  "Ryż biały 160 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Kasza gryczana 60 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Makaron cannelloni 75 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mąka pszenna 190 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Płatki owsiane 40 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ryż biały 160 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Konserwy",
+                "departmentKey": "CANNED",
+                "items": [
+                  "Bulion warzywny 400 ml",
+                  "Fasola biała z puszki 100 g",
+                  "Fasola czerwona z puszki 505 g",
+                  "Fasola w sosie pomidorowym 200 g",
+                  "Kapusta kiszona 200 g",
+                  "Koncentrat pomidorowy 45 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Bulion warzywny 400 ml",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Fasola biała z puszki 100 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Fasola czerwona z puszki 505 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Fasola w sosie pomidorowym 200 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kapusta kiszona 200 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Koncentrat pomidorowy 45 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kukurydza z puszki 185 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ogórek kiszony 75 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ogórek konserwowy 20 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Passata pomidorowa 250 ml",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 5
+              },
+              {
+                "department": "Przyprawy i sosy",
+                "departmentKey": "SPICES",
+                "items": [
+                  "Bazylia suszona 0,5 g",
+                  "Cukier 9 g",
+                  "Cynamon 0,5 g",
+                  "Czosnek granulowany 0,5 g",
+                  "Gałka muszkatołowa 0,3 g",
+                  "Ketchup 25 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Bazylia suszona 0,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cukier 9 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cynamon 0,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Czosnek granulowany 0,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Gałka muszkatołowa 0,3 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ketchup 25 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kmin rzymski 5,3 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Liść laurowy 0,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Majeranek 1 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Majonez 25 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 15
+              },
+              {
+                "department": "Olej i tłuszcze",
+                "departmentKey": "OILS",
+                "items": [
+                  "Olej kokosowy 7,5 g",
+                  "Olej rzepakowy 90 ml",
+                  "Oliwa z oliwek 47,5 ml"
+                ],
+                "entries": [
+                  {
+                    "label": "Olej kokosowy 7,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Olej rzepakowy 90 ml",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Oliwa z oliwek 47,5 ml",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Przekąski i słodycze",
+                "departmentKey": "SNACKS",
+                "items": [
+                  "Orzech laskowy 10 g",
+                  "Pestki dyni 7,5 g",
+                  "Śliwka suszona 20 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Orzech laskowy 10 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Pestki dyni 7,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Śliwka suszona 20 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Mrożonki",
+                "departmentKey": "FROZEN",
+                "items": [
+                  "Szpinak mrożony 125 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Szpinak mrożony 125 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Cukiernia",
+                "departmentKey": "CONFECTIONERY",
+                "items": [
+                  "Drożdże 5 g",
+                  "Proszek do pieczenia 2,5 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Drożdże 5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Proszek do pieczenia 2,5 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Inne",
+                "departmentKey": "OTHER",
+                "items": [
+                  "Miód 20 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Miód 20 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              }
+            ],
+            "summary": {
+              "remaining": 103,
+              "checked": 0
+            },
+            "emptyDepartments": 4,
+            "checkedNote": null,
+            "actions": [
+              {
+                "type": "OPEN_SHOPPING",
+                "proposalId": null,
+                "label": "Otwórz listę zakupów",
+                "style": "PRIMARY"
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "scenario": "g12-poza-dziedzina",
+      "group": 12,
+      "pyta": "Czy prośba spoza dziedziny kończy się krótką odmową, a nie pracą?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "latencyMs": 4058,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4058,
+          "firstBlockMs": 1826,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2231,
+          "outputTokens": 121,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 121,
+      "cacheReadTokens": 81194,
+      "cacheWriteTokens": 1642,
+      "cacheHitRatio": 0.9801540355875323,
+      "costMicroUsd": 24021,
+      "stopReason": "end_turn",
+      "weekPlanPayloadBytes": null,
+      "answer": "Jestem asystentem do planowania posiłków w Scoffie — pomogę z planem tygodnia, zakupami czy przepisami, ale wierszy o Napoleonie nie napiszę.\n\nChętnie zajmę się czymś z jedzenia — np. co zaplanować na dziś albo przejrzeć nadchodzący tydzień?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}
