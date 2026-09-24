@@ -368,13 +368,15 @@ const GROUP_1: Scenario[] = [
   {
     name: 'g1-wtorek-obiad',
     group: 1,
-    pyta: 'Czy proste pytanie o plan czyta plan, zamiast zgadywać?',
+    pyta: 'Czy proste pytanie o plan czyta plan, zamiast zgadywać — i to bez rundy narzędzi?',
     members: SOLO,
     seed: (world) => fullWeekSeed(world),
     prompts: ['Co jest we wtorek na obiad?'],
-    expectedTools: ['get_week_plan'],
+    // Od 24.09.2026 plan planowanego tygodnia stoi w bloku gospodarstwa:
+    // odpowiedź ma przyjść w JEDNYM wywołaniu. Że model czytał plan, a nie
+    // zgadywał, pokazuje `verify` — nazwa dania z bazy musi paść w odpowiedzi.
     forbiddenTools: [...WRITING_TOOLS, 'start_planning'],
-    maxRounds: 2,
+    maxRounds: 1,
     verify: (v) => {
       const issues: string[] = [];
       const stojace = slotOf(v.planBefore, 'TUE', 'LUNCH')[0];
@@ -418,9 +420,9 @@ const GROUP_1: Scenario[] = [
     members: SOLO,
     seed: (world) => fullWeekSeed(world),
     prompts: ['Co mam w planie na weekend?'],
-    expectedTools: ['get_week_plan'],
+    // Plan jest w bloku gospodarstwa — patrz `g1-wtorek-obiad`.
     forbiddenTools: [...WRITING_TOOLS, 'start_planning'],
-    maxRounds: 2,
+    maxRounds: 1,
     verify: (v) => {
       const issues: string[] = [];
       const sobota = slotOf(v.planBefore, 'SAT', 'LUNCH')[0];
