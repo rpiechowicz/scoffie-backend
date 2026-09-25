@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AdminCoreModule } from './admin-core.module';
 import { AdminAssistantModule } from './assistant/admin-assistant.module';
+import { AdminCatalogModule } from './catalog/admin-catalog.module';
 import {
   AdminAuthController,
   AdminSessionController,
@@ -20,7 +21,7 @@ import { AdminAuthService } from './auth/admin-auth.service';
  * a każdy moduł ekranu importuje `AdminCoreModule`.
  */
 @Module({
-  imports: [AdminCoreModule, AdminAssistantModule],
+  imports: [AdminCoreModule, AdminAssistantModule, AdminCatalogModule],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],
 })
