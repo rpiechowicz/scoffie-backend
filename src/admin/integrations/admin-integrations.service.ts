@@ -1,13 +1,23 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../../common/app-exception';
 import type {
+  AscReviewResponse,
   AppStoreState,
   OpsData,
   OpsRange,
   RailwayLogs,
   RailwayServiceState,
 } from '../contract';
-import { fetchAppStore } from './app-store-connect.client';
+import {
+  AdminAuditService,
+  type AdminActor,
+} from '../audit/admin-audit.service';
+import {
+  AscWriteError,
+  deleteReviewResponse,
+  fetchAppStore,
+  respondToReview,
+} from './app-store-connect.client';
 import { IntegrationCache, IntegrationError } from './integration-fetch';
 import {
   missingAsc,
@@ -38,6 +48,8 @@ const SERVICE_TTL_MS = 30_000;
 export class AdminIntegrationsService {
   private readonly cache = new IntegrationCache();
 
+  constructor(private readonly audit: AdminAuditService) {}
+
   async ops(): Promise<OpsData> {
     const sentryEnv = readSentryEnv();
     const railwayToken = readRailwayToken();
@@ -60,6 +72,109 @@ export class AdminIntegrationsService {
     const missing = missingAsc(env);
     if (missing.length > 0) return Promise.resolve({ status: 'off', missing });
     return this.cache.get('asc', ASC_TTL_MS, () => fetchAppStore(env));
+  }
+
+  /**
+   * Odpowiedź na recenzję (utworzenie albo zastąpienie). W audycie tylko
+   * długość — treść recenzji i odpowiedzi zostaje w App Store Connect.
+   */
+  respondToReview(
+    actor: AdminActor,
+    reviewId: string,
+    body: string,
+  ): Promise<AscReviewResponse> {
+    const env = this.ascEnvForWrite();
+    return this.audit.run(
+      actor,
+      {
+        action: 'appstore.review.respond',
+        targetType: 'AscReview',
+        targetId: reviewId,
+        details: { length: body.length },
+      },
+      () => this.ascWrite(() => respondToReview(env, reviewId, body)),
+      (response) => ({ responseId: response.id, state: response.state }),
+    );
+  }
+
+  async deleteReviewResponse(
+    actor: AdminActor,
+    reviewId: string,
+  ): Promise<void> {
+    const env = this.ascEnvForWrite();
+    await this.audit.run(
+      actor,
+      {
+        action: 'appstore.review.response.delete',
+        targetType: 'AscReview',
+        targetId: reviewId,
+      },
+      () => this.ascWrite(() => deleteReviewResponse(env, reviewId)),
+    );
+  }
+
+  private ascEnvForWrite() {
+    const env = readAscEnv();
+    if (missingAsc(env).length > 0) {
+      throw new AppException(
+        'SERVICE_UNAVAILABLE',
+        'App Store Connect nie jest podłączony (ADMIN_ASC_*).',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+    return env;
+  }
+
+  /**
+   * Zapis w ASC z czytelną odmową zamiast 500. Po zapisie (także
+   * nieudanym — stan u Apple mógł się zmienić) czyścimy pamięć odczytu.
+   */
+  private async ascWrite<T>(write: () => Promise<T>): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      if (error instanceof IntegrationError) {
+        throw new AppException(
+          'SERVICE_UNAVAILABLE',
+          error.message,
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      if (!(error instanceof AscWriteError)) throw error;
+      if (error.status === 401 || error.status === 403) {
+        throw new AppException(
+          'SERVICE_UNAVAILABLE',
+          'Klucz ASC bez prawa odpowiadania na recenzje — zmień jego rolę na Customer Support (albo App Manager / Admin).',
+          HttpStatus.SERVICE_UNAVAILABLE,
+          [`asc_http_${error.status}`],
+        );
+      }
+      if (error.status === 404) {
+        throw new AppException(
+          'NOT_FOUND',
+          error.message,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      if (
+        error.status === 409 ||
+        error.status === 422 ||
+        error.status === 400
+      ) {
+        throw new AppException(
+          'VALIDATION_ERROR',
+          error.message,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      throw new AppException(
+        'SERVICE_UNAVAILABLE',
+        error.message,
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    } finally {
+      this.cache.invalidate('asc');
+    }
   }
 
   service(id: string, range: OpsRange): Promise<RailwayServiceState> {

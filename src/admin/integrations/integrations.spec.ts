@@ -1,6 +1,11 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { jwtVerify } from 'jose';
-import { fetchAppStore } from './app-store-connect.client';
+import {
+  AscWriteError,
+  deleteReviewResponse,
+  fetchAppStore,
+  respondToReview,
+} from './app-store-connect.client';
 import {
   IntegrationCache,
   IntegrationError,
@@ -531,7 +536,7 @@ describe('App Store Connect', () => {
     expect(data.reviews[0]).toMatchObject({
       rating: 5,
       body: null,
-      response: { body: 'Dzięki!', state: 'PUBLISHED' },
+      response: { id: 'x1', body: 'Dzięki!', state: 'PUBLISHED' },
     });
     expect(data.url).toBe(
       'https://appstoreconnect.apple.com/apps/A1/distribution',
@@ -558,6 +563,85 @@ describe('App Store Connect', () => {
       fetchAppStore({ ...env, privateKey: 'nie-klucz' }, impl),
     ).rejects.toThrow(/ADMIN_ASC_PRIVATE_KEY/);
     expect(calls).toHaveLength(0);
+  });
+
+  it('odpowiedź na recenzję: POST z relacją do recenzji, stan z odpowiedzi Apple', async () => {
+    const { impl, calls } = fakeFetch((u, init) =>
+      u.pathname === '/v1/customerReviewResponses' && init.method === 'POST'
+        ? json(
+            {
+              data: {
+                id: 'R9',
+                type: 'customerReviewResponses',
+                attributes: {
+                  responseBody: 'Dziękujemy!',
+                  state: 'PENDING_PUBLISH',
+                },
+              },
+            },
+            201,
+          )
+        : undefined,
+    );
+    await expect(
+      respondToReview(env, 'rev-1', 'Dziękujemy!', impl),
+    ).resolves.toEqual({
+      id: 'R9',
+      body: 'Dziękujemy!',
+      state: 'PENDING_PUBLISH',
+    });
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({
+      data: {
+        type: 'customerReviewResponses',
+        attributes: { responseBody: 'Dziękujemy!' },
+        relationships: {
+          review: { data: { type: 'customerReviews', id: 'rev-1' } },
+        },
+      },
+    });
+  });
+
+  it('odmowa Apple niesie kod HTTP (403 = rola klucza bez prawa odpowiadania)', async () => {
+    const { impl } = fakeFetch(() =>
+      json(
+        {
+          errors: [
+            { title: 'Forbidden', detail: 'The API key has insufficient role' },
+          ],
+        },
+        403,
+      ),
+    );
+    const error = (await respondToReview(env, 'rev-1', 'x', impl).catch(
+      (e: unknown) => e,
+    )) as AscWriteError;
+    expect(error).toBeInstanceOf(AscWriteError);
+    expect(error.status).toBe(403);
+    expect(error.message).toContain('insufficient role');
+  });
+
+  it('usunięcie odpowiedzi: id odpowiedzi od Apple, potem DELETE; brak odpowiedzi → 404', async () => {
+    const { impl, calls } = fakeFetch(
+      (u) =>
+        u.pathname === '/v1/customerReviews/rev-1/response'
+          ? json({ data: { id: 'R9', type: 'customerReviewResponses' } })
+          : undefined,
+      (u, init) =>
+        u.pathname === '/v1/customerReviewResponses/R9' &&
+        init.method === 'DELETE'
+          ? new Response(null, { status: 204 })
+          : undefined,
+      (u) =>
+        u.pathname === '/v1/customerReviews/rev-2/response'
+          ? json({ data: null })
+          : undefined,
+    );
+    await deleteReviewResponse(env, 'rev-1', impl);
+    expect(calls.map((c) => c.init.method)).toEqual(['GET', 'DELETE']);
+    const missing = (await deleteReviewResponse(env, 'rev-2', impl).catch(
+      (e: unknown) => e,
+    )) as AscWriteError;
+    expect(missing.status).toBe(404);
   });
 
   it('brakujące zmienne po nazwie; Issuer ID domyślnie z APPLE_ISSUER_ID', () => {

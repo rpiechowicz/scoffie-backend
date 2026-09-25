@@ -810,7 +810,8 @@ export interface AscReview {
   /** ISO 3166-1 alfa-3, np. `POL` */
   territory: string | null;
   createdAt: IsoDate;
-  response: { body: string; state: string } | null;
+  /** `id` — odpowiedź w App Store Connect (`customerReviewResponses`) */
+  response: { id: string; body: string; state: string } | null;
 }
 
 export interface AppStoreData {
@@ -966,4 +967,50 @@ export interface AuditPage {
   nextCursor: string | null;
   /** akcje, które są w dzienniku (do filtra), alfabetycznie */
   actions: string[];
+}
+
+// ——— Sterowanie w locie i odpowiedzi na recenzje (ROADMAPA §5.12, §5.9) ———
+
+export type RuntimeSettingKind = 'boolean' | 'number' | 'list';
+
+export interface RuntimeSettingView {
+  /** np. `AI_ENABLED` — biała lista w `src/config/runtime-settings.ts` */
+  key: string;
+  label: string;
+  kind: RuntimeSettingKind;
+  /** surowa wartość z Railwaya; `null` — zmiennej nie ma (działa domyślna) */
+  envValue: string | null;
+  /** nadpisanie z panelu; `null` — działa env */
+  override: string | null;
+  /** wartość, która naprawdę działa: `true`/`false`, liczba, `off`, adresy po przecinku */
+  effective: string;
+  updatedAt: IsoDate | null;
+  /** adres admina */
+  updatedBy: string | null;
+  reason: string | null;
+}
+
+/** `GET /admin/settings` */
+export interface RuntimeSettingsData {
+  settings: RuntimeSettingView[];
+}
+
+/** `PUT /admin/settings/:key` (step-up); `DELETE` bierze samo `{ reason }` */
+export interface RuntimeSettingUpdate {
+  value: string;
+  reason: string;
+}
+
+/** `POST /admin/app-store/reviews/:id/response` (step-up) */
+export interface AscReviewResponseInput {
+  /** 1–5970 znaków */
+  body: string;
+}
+
+/** Odpowiedź po zapisie — ten sam kształt co `AscReview.response`. */
+export interface AscReviewResponse {
+  id: string;
+  body: string;
+  /** `PUBLISHED`, `PENDING_PUBLISH` */
+  state: string;
 }

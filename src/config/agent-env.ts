@@ -17,6 +17,7 @@
  * progu znaczyłyby, że lista mówi co innego niż wysyłka.
  */
 import { KNOWN_MODELS } from './model-prices';
+import { effectiveProcessEnv } from './runtime-overrides';
 import { SUBSCRIPTION_PRODUCTS } from './subscription-products';
 
 /**
@@ -348,15 +349,45 @@ function readNumber(
 ): number {
   const raw = (env[key] ?? '').trim();
   if (!raw) return fallback;
-  const parsed = Number(raw);
+  return parseNumberStrict(raw, { min, integer }) ?? fallback;
+}
+
+/**
+ * Ścisłe parsery wartości — te same dla env i dla nadpisań z panelu
+ * (`runtime-settings.ts`). `undefined` = wartość nieprawidłowa: env spada
+ * wtedy na domyślną (literówka w Railwayu nie wywraca startu), panel
+ * odmawia zapisu (400) — tam człowiek widzi błąd od razu.
+ */
+export function parseNumberStrict(
+  raw: string,
+  { min = 0, integer = true }: { min?: number; integer?: boolean } = {},
+): number | undefined {
+  const value = raw.trim();
+  if (!value) return undefined;
+  const parsed = Number(value);
   if (
     !Number.isFinite(parsed) ||
     parsed < min ||
     (integer && !Number.isInteger(parsed))
   ) {
-    return fallback;
+    return undefined;
   }
   return parsed;
+}
+
+/** Kwota w USD ≥ 0 albo `off` (`null` = bez limitu); `undefined` = śmieci. */
+export function parseUsdOrOffStrict(raw: string): number | null | undefined {
+  const value = raw.trim().toLowerCase();
+  if (value === AI_BUDGET_OFF) return null;
+  return parseNumberStrict(value, { min: 0, integer: false });
+}
+
+/** `AI_ENABLED`: tylko `true` / `false`; `undefined` = śmieci. */
+export function parseEnabledStrict(raw: string): boolean | undefined {
+  const value = raw.trim().toLowerCase();
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return undefined;
 }
 
 function readEffort(
@@ -405,17 +436,22 @@ function readProvider(env: NodeJS.ProcessEnv): AiProvider {
  * skutkiem jest wyłączony asystent, a to bywa dokładnie tym, o co chodzi.
  */
 function readDailyBudgetUsd(env: NodeJS.ProcessEnv): number | null {
-  const raw = (env.AI_GLOBAL_DAILY_BUDGET_USD ?? '').trim().toLowerCase();
+  const raw = (env.AI_GLOBAL_DAILY_BUDGET_USD ?? '').trim();
   if (!raw) return AGENT_ENV_DEFAULTS.globalDailyBudgetUsd;
-  if (raw === AI_BUDGET_OFF) return null;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return AGENT_ENV_DEFAULTS.globalDailyBudgetUsd;
-  }
-  return parsed;
+  const parsed = parseUsdOrOffStrict(raw);
+  return parsed === undefined
+    ? AGENT_ENV_DEFAULTS.globalDailyBudgetUsd
+    : parsed;
 }
 
-export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
+/**
+ * Domyślnie `process.env` SCALONE z nadpisaniami z panelu (`RuntimeSetting`,
+ * ROADMAPA §5.12) — nadpisanie wygrywa, usunięte wraca do env. Jawnie podany
+ * `env` (testy, `assert-env`) nadpisań nie widzi.
+ */
+export function readAgentEnv(
+  env: NodeJS.ProcessEnv = effectiveProcessEnv(),
+): AgentEnv {
   return {
     enabled: (env.AI_ENABLED ?? '').trim().toLowerCase() === 'true',
     provider: readProvider(env),
@@ -505,14 +541,10 @@ export function readAgentEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
 
 /** Jak budżet dobowy: liczba ≥ 0, `off` = bez sufitu, śmieci = domyślne. */
 function readMaxTurnCostUsd(env: NodeJS.ProcessEnv): number | null {
-  const raw = (env.AI_MAX_TURN_COST_USD ?? '').trim().toLowerCase();
+  const raw = (env.AI_MAX_TURN_COST_USD ?? '').trim();
   if (!raw) return AGENT_ENV_DEFAULTS.maxTurnCostUsd;
-  if (raw === AI_BUDGET_OFF) return null;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return AGENT_ENV_DEFAULTS.maxTurnCostUsd;
-  }
-  return parsed;
+  const parsed = parseUsdOrOffStrict(raw);
+  return parsed === undefined ? AGENT_ENV_DEFAULTS.maxTurnCostUsd : parsed;
 }
 
 /**

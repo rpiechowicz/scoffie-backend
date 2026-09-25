@@ -1610,3 +1610,18 @@ enum UserGoal {
   MAINTAIN
   PLAN
 }
+
+/// Nadpisania zmiennych środowiskowych z panelu (ROADMAPA §5.12): wyłącznik
+/// i limity asystenta bez restartu. Tylko klucze z białej listy
+/// (`src/config/runtime-settings.ts`), nigdy sekrety. Brak wiersza = działa
+/// wartość z Railwaya; historia zmian żyje w `AdminAuditLog`.
+model RuntimeSetting {
+  /// np. `AI_ENABLED`
+  key       String   @id
+  /// Wartość po normalizacji, w formacie zmiennej środowiskowej.
+  value     String
+  /// Adres admina, który ustawił nadpisanie.
+  updatedBy String
+  reason    String
+  updatedAt DateTime @updatedAt
+}
