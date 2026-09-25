@@ -4,7 +4,11 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { AccessJwtVerifier } from '../src/admin/access/access-jwt.verifier';
+import { AdminRateLimiter } from '../src/admin/admin-rate-limiter';
+import { AdminAuditService } from '../src/admin/audit/admin-audit.service';
 import { totpCode, totpStep } from '../src/admin/auth/totp';
+import { OpsAlertService } from '../src/observability/ops-alert.service';
 import {
   ADMIN_E2E_EMAIL,
   createAdminSession,
@@ -30,6 +34,9 @@ describe('Panel admina — logowanie (e2e)', () => {
     ADMIN_BOOTSTRAP_EMAIL: ADMIN_E2E_EMAIL,
     ADMIN_WEBAUTHN_RP_ID: 'localhost',
     ADMIN_WEBAUTHN_ORIGIN: 'http://localhost:5173',
+    // Scenariusz robi kilkanaście prób kodu w minutę — limit w pamięci
+    // (domyślnie 10/min) sprawdza osobny test serii.
+    THROTTLE_ADMIN_CODE_LIMIT: '1000',
   };
   const authenticator = new SoftwareAuthenticator(
     'localhost',
@@ -407,5 +414,344 @@ describe('Panel admina — logowanie (e2e)', () => {
       .expect(429);
     const state = await api().get('/admin/auth/state').expect(200);
     expect(state.body.lockedUntil).not.toBeNull();
+  });
+
+  // ——— audyt logowania 25.09.2026 ———
+
+  /** Rozkład statusów (i kodów) z serii równoległych żądań. */
+  const tally = (responses: request.Response[]) => {
+    const out: Record<string, number> = {};
+    for (const res of responses) {
+      const key = `${res.status}${res.body?.code ? ` ${res.body.code}` : ''}`;
+      out[key] = (out[key] ?? 0) + 1;
+    }
+    return out;
+  };
+  const wrongCode = (i: number) => {
+    const code = String(100000 + i);
+    return code === currentCode() ? String(200000 + i) : code;
+  };
+
+  it('blokada pod równoległą serią: dokładnie 5 weryfikacji, reszta 429 LOCKED, także z rotowanym CF-Connecting-IP', async () => {
+    await prisma.adminLoginAttempt.deleteMany({});
+    // Limit żądań bez sesji (per IP, domyślnie 30/min) nie jest tu badany.
+    app.get(AdminRateLimiter).reset();
+    const savedAuthLimit = process.env.THROTTLE_ADMIN_AUTH_LIMIT;
+    process.env.THROTTLE_ADMIN_AUTH_LIMIT = '1000';
+    const responses = await Promise.all(
+      Array.from({ length: 40 }, (_, i) =>
+        api()
+          .post('/admin/auth/totp/login')
+          // Bez ADMIN_PROXY_SECRET nagłówek jest ignorowany — rotacja adresu
+          // nie rozbija licznika per IP ani per adres.
+          .set('cf-connecting-ip', `10.9.${i >> 8}.${i & 255}`)
+          .send({ code: wrongCode(i) }),
+      ),
+    ).finally(() => {
+      process.env.THROTTLE_ADMIN_AUTH_LIMIT = savedAuthLimit;
+    });
+    expect(tally(responses)).toEqual({
+      '401 INVALID_CODE': 5,
+      '429 LOCKED': 35,
+    });
+    const byResult = await prisma.adminLoginAttempt.groupBy({
+      by: ['result'],
+      _count: { _all: true },
+    });
+    const counts = Object.fromEntries(
+      byResult.map((row) => [row.result, row._count._all]),
+    );
+    expect(counts).toEqual({ FAILED: 5, LOCKED: 35 });
+    const ips = await prisma.adminLoginAttempt.findMany({
+      distinct: ['ip'],
+      select: { ip: true, country: true },
+    });
+    expect(ips).toHaveLength(1);
+    expect(ips[0].ip).not.toMatch(/^10\.9\./);
+  });
+
+  it('step-up pod równoległą serią: 5 × 401, reszta 429 (blokada albo limit prób kodu)', async () => {
+    await prisma.adminLoginAttempt.deleteMany({});
+    const limiter = app.get(AdminRateLimiter);
+    limiter.reset();
+    const saved = process.env.THROTTLE_ADMIN_CODE_LIMIT;
+    delete process.env.THROTTLE_ADMIN_CODE_LIMIT; // domyślne 10 / min
+    try {
+      const stale = await createAdminSession(prisma, { stepUp: false });
+      const responses = await Promise.all(
+        Array.from({ length: 60 }, (_, i) =>
+          api()
+            .post('/admin/auth/step-up')
+            .set('Cookie', stale.cookie)
+            .send({ totp: wrongCode(i) }),
+        ),
+      );
+      const counts = tally(responses);
+      expect(counts['401 INVALID_CODE']).toBe(5);
+      expect(
+        (counts['429 LOCKED'] ?? 0) + (counts['429 TOO_MANY_REQUESTS'] ?? 0),
+      ).toBe(55);
+      expect(counts['429 TOO_MANY_REQUESTS']).toBe(50);
+      expect(
+        await prisma.adminLoginAttempt.count({
+          where: { result: { in: ['FAILED', 'PENDING'] } },
+        }),
+      ).toBe(5);
+    } finally {
+      process.env.THROTTLE_ADMIN_CODE_LIMIT = saved;
+      limiter.reset();
+      await prisma.adminLoginAttempt.deleteMany({});
+    }
+  });
+
+  it('TOTP (pierwszy i kolejny) wymaga świeżego step-upu; sesja z kodu odzyskiwania — nie', async () => {
+    const stale = await createAdminSession(prisma, { stepUp: false });
+    const setup = await api()
+      .post('/admin/auth/totp/setup')
+      .set('Cookie', stale.cookie)
+      .send({})
+      .expect(403);
+    expect(setup.body.code).toBe('STEP_UP_REQUIRED');
+    const confirm = await api()
+      .post('/admin/auth/totp/confirm')
+      .set('Cookie', stale.cookie)
+      .send({ code: '123456' })
+      .expect(403);
+    expect(confirm.body.code).toBe('STEP_UP_REQUIRED');
+
+    // Pierwszy TOTP: konto bez TOTP, sesja bez step-upu — też 403.
+    const saved = await prisma.adminTotp.findMany();
+    await prisma.adminTotp.deleteMany({});
+    try {
+      await api()
+        .post('/admin/auth/totp/setup')
+        .set('Cookie', stale.cookie)
+        .send({})
+        .expect(403);
+      const reenroll = await createAdminSession(prisma, {
+        stepUp: false,
+        mustReenroll: true,
+      });
+      await api()
+        .post('/admin/auth/totp/setup')
+        .set('Cookie', reenroll.cookie)
+        .send({})
+        .expect(201);
+    } finally {
+      await prisma.adminTotp.deleteMany({});
+      for (const row of saved) await prisma.adminTotp.create({ data: row });
+    }
+  });
+
+  it('konfiguracja TOTP po wygaśnięciu step-upu: confirm przechodzi, gdy sekret powstał pod step-upem tej sesji', async () => {
+    const saved = await prisma.adminTotp.findMany();
+    await prisma.adminTotp.deleteMany({});
+    await prisma.adminRecoveryCode.deleteMany({});
+    try {
+      const session = await createAdminSession(prisma, { stepUp: true });
+      const setup = await api()
+        .post('/admin/auth/totp/setup')
+        .set('Cookie', session.cookie)
+        .send({})
+        .expect(201);
+      // Sekret powstał 6 minut temu pod step-upem, który wygasł minutę temu
+      // (skanowanie kodu QR trwało dłużej niż 5 minut).
+      await prisma.adminTotp.updateMany({
+        data: { pendingCreatedAt: new Date(Date.now() - 6 * 60_000) },
+      });
+      await prisma.adminSession.update({
+        where: { id: session.sessionId },
+        data: { stepUpUntil: new Date(Date.now() - 60_000) },
+      });
+      // Inna sesja bez step-upu tego sekretu nie potwierdzi.
+      const other = await createAdminSession(prisma, { stepUp: false });
+      const denied = await api()
+        .post('/admin/auth/totp/confirm')
+        .set('Cookie', other.cookie)
+        .send({ code: totpCode(setup.body.secret, totpStep(Date.now())) })
+        .expect(403);
+      expect(denied.body.code).toBe('STEP_UP_REQUIRED');
+      const confirm = await api()
+        .post('/admin/auth/totp/confirm')
+        .set('Cookie', session.cookie)
+        .send({ code: totpCode(setup.body.secret, totpStep(Date.now())) })
+        .expect(201);
+      expect(confirm.body.recoveryCodes).toHaveLength(10);
+    } finally {
+      await prisma.adminTotp.deleteMany({});
+      for (const row of saved) await prisma.adminTotp.create({ data: row });
+    }
+  });
+
+  it('ten sam klucz drugi raz — 409 PASSKEY_EXISTS; dodanie klucza budzi alert', async () => {
+    const notify = jest.spyOn(app.get(OpsAlertService), 'notify');
+    try {
+      const session = await createAdminSession(prisma, { stepUp: true });
+      const register = async () => {
+        const options = await api()
+          .post('/admin/auth/passkey/register/options')
+          .set('Cookie', session.cookie)
+          .send({ name: 'Mac' })
+          .expect(201);
+        return api()
+          .post('/admin/auth/passkey/register')
+          .set('Cookie', session.cookie)
+          .send({
+            name: 'Mac',
+            response: authenticator.register(options.body),
+          });
+      };
+      expect((await register()).status).toBe(201);
+      const again = await register();
+      expect(again.status).toBe(409);
+      expect(again.body.code).toBe('PASSKEY_EXISTS');
+      expect(notify).toHaveBeenCalledWith(
+        expect.stringMatching(/^admin-method:/),
+        expect.stringContaining('dodano klucz dostępu'),
+      );
+    } finally {
+      notify.mockRestore();
+    }
+  });
+
+  it('dwa równoległe DELETE przy dwóch kluczach bez TOTP — jeden 204, drugi 409 LAST_METHOD', async () => {
+    const session = await createAdminSession(prisma, { stepUp: true });
+    await prisma.adminTotp.deleteMany({});
+    await prisma.adminCredential.deleteMany({});
+    const keys = await Promise.all(
+      ['A', 'B'].map((name) =>
+        prisma.adminCredential.create({
+          data: {
+            adminUserId: session.adminUserId,
+            credentialId: `wyscig-${name}-${Date.now()}`,
+            publicKey: Buffer.alloc(10),
+            deviceType: 'multiDevice',
+            name,
+          },
+        }),
+      ),
+    );
+    const responses = await Promise.all(
+      keys.map((key) =>
+        api()
+          .delete(`/admin/auth/passkeys/${key.id}`)
+          .set('Cookie', session.cookie),
+      ),
+    );
+    expect(responses.map((res) => res.status).sort()).toEqual([204, 409]);
+    expect(responses.find((res) => res.status === 409)?.body.code).toBe(
+      'LAST_METHOD',
+    );
+    expect(
+      await prisma.adminCredential.count({
+        where: { adminUserId: session.adminUserId },
+      }),
+    ).toBe(1);
+  });
+
+  it('CSRF w obrębie witryny: formularz 415, Sec-Fetch-Site inny niż same-origin 403, DELETE bez ciała 204', async () => {
+    const session = await createAdminSession(prisma, { stepUp: true });
+    const form = await api()
+      .post('/admin/auth/step-up')
+      .set('Cookie', session.cookie)
+      .type('form')
+      .send('totp=123456')
+      .expect(415);
+    expect(form.body.code).toBe('UNSUPPORTED_MEDIA_TYPE');
+    const plain = await api()
+      .post('/admin/auth/recovery/regenerate')
+      .set('Cookie', session.cookie)
+      .set('Content-Type', 'text/plain')
+      .send('{}')
+      .expect(415);
+    expect(plain.body.code).toBe('UNSUPPORTED_MEDIA_TYPE');
+    const sibling = await api()
+      .post('/admin/auth/recovery/regenerate')
+      .set('Cookie', session.cookie)
+      .set('Sec-Fetch-Site', 'same-site')
+      .send({})
+      .expect(403);
+    expect(sibling.body.code).toBe('CROSS_SITE');
+    await api()
+      .post('/admin/auth/step-up/options')
+      .set('Cookie', session.cookie)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .send({})
+      .expect(201);
+    await api()
+      .delete(`/admin/auth/sessions/${session.sessionId}`)
+      .set('Cookie', session.cookie)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .expect(204);
+  });
+
+  it('wylogowanie: błąd dziennika audytu nie blokuje — 204 i skasowane ciasteczko', async () => {
+    const session = await createAdminSession(prisma);
+    const record = jest
+      .spyOn(app.get(AdminAuditService), 'record')
+      .mockRejectedValueOnce(new Error('baza leży'));
+    try {
+      const out = await api()
+        .delete('/admin/session')
+        .set('Cookie', session.cookie)
+        .expect(204);
+      expect((out.headers['set-cookie'] as unknown as string[])[0]).toMatch(
+        /Max-Age=0/,
+      );
+      await api()
+        .get('/admin/session')
+        .set('Cookie', session.cookie)
+        .expect(404);
+    } finally {
+      record.mockRestore();
+    }
+  });
+
+  it('bramka Access weryfikowana także na nieistniejących trasach — raz na żądanie, 404 bez zmian', async () => {
+    const verifier = app.get(AccessJwtVerifier);
+    const verify = jest.spyOn(verifier, 'verify');
+    const saved = {
+      dev: process.env.ADMIN_ACCESS_DEV_EMAIL,
+      team: process.env.ADMIN_ACCESS_TEAM_DOMAIN,
+      aud: process.env.ADMIN_ACCESS_AUD,
+    };
+    delete process.env.ADMIN_ACCESS_DEV_EMAIL;
+    process.env.ADMIN_ACCESS_TEAM_DOMAIN = 'audit.cloudflareaccess.com';
+    process.env.ADMIN_ACCESS_AUD = 'aud';
+    try {
+      const missing = await api()
+        .get('/admin/nie-ma-takiej-trasy')
+        .set('cf-access-jwt-assertion', 'podrobiony.token.x')
+        .expect(404);
+      expect(verify).toHaveBeenCalledTimes(1);
+      const hidden = await api()
+        .get('/admin/auth/state')
+        .set('cf-access-jwt-assertion', 'podrobiony.token.x')
+        .expect(404);
+      expect(verify).toHaveBeenCalledTimes(2);
+      const deep = await api()
+        .post('/admin/a/b/c')
+        .set('cf-access-jwt-assertion', 'podrobiony.token.x')
+        .send({})
+        .expect(404);
+      expect(verify).toHaveBeenCalledTimes(3);
+      expect(hidden.body.code).toBe(missing.body.code);
+      expect(hidden.body.message).toBe('Cannot GET /admin/auth/state');
+      expect(deep.body.message).toBe('Cannot POST /admin/a/b/c');
+      expect(Object.keys(hidden.headers).sort()).toEqual(
+        Object.keys(missing.headers).sort(),
+      );
+      expect(hidden.headers['x-robots-tag']).toBeUndefined();
+    } finally {
+      verify.mockRestore();
+      for (const [key, value] of [
+        ['ADMIN_ACCESS_DEV_EMAIL', saved.dev],
+        ['ADMIN_ACCESS_TEAM_DOMAIN', saved.team],
+        ['ADMIN_ACCESS_AUD', saved.aud],
+      ] as const) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 });

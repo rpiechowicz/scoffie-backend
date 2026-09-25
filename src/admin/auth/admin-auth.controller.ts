@@ -261,7 +261,11 @@ export class AdminSessionController {
     @CurrentAdminSession() session: ResolvedAdminSession | null,
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
-    await this.auth.logout(access, session);
-    clearSessionCookie(res);
+    try {
+      await this.auth.logout(access, session);
+    } finally {
+      // Ciasteczko znika także wtedy, gdy zapis w bazie się nie uda.
+      clearSessionCookie(res);
+    }
   }
 }

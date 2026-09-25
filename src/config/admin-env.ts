@@ -105,6 +105,26 @@ export function readAdminTotpKey(
   }
 }
 
+/** Minimalna długość `ADMIN_PROXY_SECRET` — krótszy sekret jest ignorowany. */
+export const ADMIN_PROXY_SECRET_MIN_LENGTH = 32;
+
+/**
+ * Wspólny sekret Workera panelu (`ADMIN_PROXY_SECRET`) albo `null`.
+ *
+ * Worker dokłada go w nagłówku `X-Admin-Proxy-Secret` razem z
+ * `CF-Connecting-IP` / `CF-IPCountry`. `api.scoffie.app` stoi na Railwayu
+ * bez proxy Cloudflare (DNS-only), więc te nagłówki może podać KAŻDY, kto
+ * zapuka prosto do backendu — bez sekretu nie wolno im wierzyć (IP w liczniku
+ * blokady i w dzienniku). Sekret krótszy niż 32 znaki traktujemy jak brak:
+ * lepiej stracić kraj w dzienniku niż ufać zgadywalnej wartości.
+ */
+export function readAdminProxySecret(
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const value = (env.ADMIN_PROXY_SECRET ?? '').trim();
+  return value.length >= ADMIN_PROXY_SECRET_MIN_LENGTH ? value : null;
+}
+
 /**
  * Problemy konfiguracji do `assert-env`.
  *
@@ -124,6 +144,13 @@ export function adminEnvProblems(env: NodeJS.ProcessEnv = process.env): {
   if (production && lower(env.ADMIN_ACCESS_DEV_EMAIL)) {
     violations.push(
       'ADMIN_ACCESS_DEV_EMAIL na produkcji — obejście bramki Access panelu jest tylko do pracy lokalnej',
+    );
+  }
+
+  const proxySecret = (env.ADMIN_PROXY_SECRET ?? '').trim();
+  if (proxySecret && proxySecret.length < ADMIN_PROXY_SECRET_MIN_LENGTH) {
+    warnings.push(
+      `Panel admina: ADMIN_PROXY_SECRET krótszy niż ${ADMIN_PROXY_SECRET_MIN_LENGTH} znaki — ignorowany, IP i kraj z nagłówków Cloudflare nie są przyjmowane`,
     );
   }
 
@@ -163,6 +190,11 @@ export function adminEnvProblems(env: NodeJS.ProcessEnv = process.env): {
     } else {
       warnings.push(
         'Panel admina: brak ADMIN_TOTP_ENCRYPTION_KEY — TOTP i kody odzyskiwania niedostępne (zostają passkeye)',
+      );
+    }
+    if (production && !readAdminProxySecret(env)) {
+      warnings.push(
+        'Panel admina: brak ADMIN_PROXY_SECRET — CF-Connecting-IP / CF-IPCountry od Workera są ignorowane (IP = adres połączenia, kraj pusty)',
       );
     }
     if (!admin.bootstrapEmail) {
