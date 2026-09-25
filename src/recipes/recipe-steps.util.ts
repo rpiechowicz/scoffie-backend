@@ -47,3 +47,39 @@ export function normalizeRecipeSteps(
     )
     .map((step, position) => ({ stepNumber: position + 1, text: step.text }));
 }
+
+/**
+ * Kroki z `Recipe.sourceInstructions` → teksty w kolejności wykonania.
+ *
+ * Kolumna ma dwie pisownie: import katalogu zapisuje `{ step, text }`,
+ * `recipes:create`/`update` — `{ stepNumber, text }` (`normalizeRecipeSteps`).
+ * Czytamy to samo, co iOS: numer z `stepNumber` / `step` / `step_number`, tekst
+ * z `text` / `instruction`, a bez numeru — pozycję w tablicy. Puste kroki
+ * odpadają, jak w `normalizeRecipeSteps`. Czytają to panel (szczegół
+ * przepisu) i eksport katalogu (`catalog-export.ts`).
+ */
+export function stepsFromInstructions(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const entries = value as unknown[];
+  const steps: { order: number; index: number; text: string }[] = [];
+  entries.forEach((entry, index) => {
+    if (typeof entry === 'string') {
+      steps.push({ order: index + 1, index, text: entry.trim() });
+      return;
+    }
+    if (!entry || typeof entry !== 'object') return;
+    const record = entry as Record<string, unknown>;
+    const order = [record.stepNumber, record.step, record.step_number].find(
+      (candidate): candidate is number =>
+        typeof candidate === 'number' && Number.isFinite(candidate),
+    );
+    const text = [record.text, record.instruction].find(
+      (candidate): candidate is string => typeof candidate === 'string',
+    );
+    steps.push({ order: order ?? index + 1, index, text: (text ?? '').trim() });
+  });
+  return steps
+    .filter((step) => step.text.length > 0)
+    .sort((a, b) => a.order - b.order || a.index - b.index)
+    .map((step) => step.text);
+}

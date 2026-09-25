@@ -1,9 +1,31 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { MealType, Prisma } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
 import { effectiveSuitableMealTypes } from '../../common/meal-types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RecipesCacheService } from '../../recipes/recipes-cache.service';
+import { normalizeText } from '../../common/normalize-text.util';
+import {
+  nutritionColumnsFromIngredients,
+  nutritionMissingDetails,
+} from '../../recipes/recipe-nutrition.util';
+import {
+  catalogEntryFromColumns,
+  catalogEntryFromRow,
+  catalogExportSelect,
+  changedCatalogFields,
+  sameIngredientLines,
+} from '../../recipes/catalog/catalog-export';
+import {
+  CatalogRecipeError,
+  catalogRecipeColumns,
+  ingredientCreateRows,
+  loadCatalogIngredientLookup,
+  resolveCatalogIngredients,
+  validateCatalogRecipe,
+  type CatalogIngredientRow,
+  type CatalogRecipeInput,
+} from '../../recipes/catalog/catalog-recipe';
 import {
   AdminAuditService,
   type AdminActor,
@@ -17,6 +39,7 @@ import {
   kcalPerServing,
   stepsFromInstructions,
 } from './catalog-math';
+import type { UpdateCatalogRecipeDto } from './admin-catalog.dto';
 
 const recipeNotFound = () =>
   new AppException(
@@ -226,12 +249,11 @@ export class AdminCatalogService {
    * Stąd zapis tutaj, z tym samym skutkiem ubocznym co domena: unieważnienie
    * cache listy przepisów.
    *
-   * A IMPORT KATALOGU? `scripts/import-recipes-from-json.ts` w zwykłym trybie
-   * (upsert po id) NIE zapisuje `isActive`, więc wycofanie przeżywa kolejny
-   * import. Cofa je dopiero `RECIPE_IMPORT_CLEAR_EXISTING=true`: skasowanie
-   * i założenie katalogu od nowa (domyślnie `isActive = true`, przy okazji
-   * znikają pozycje planów). I odwrotnie: poprawka przepisu w JSON-ie + import
-   * NIE przywraca wycofanego — trzeba to zrobić tutaj.
+   * A IMPORT KATALOGU? Od D1 (25.09.2026) plik katalogu jest eksportem bazy
+   * i niesie `"isActive": false` dla wycofanych (nocny PR `catalog-sync`).
+   * Import zapisuje `isActive` z pliku, ale na niepustym katalogu najpierw
+   * liczy różnice i odmawia, gdy baza ma zmiany, których plik nie ma — więc
+   * wycofanie nie zniknie po cichu przy imporcie starego pliku.
    */
   async setActive(
     actor: AdminActor,
@@ -267,6 +289,192 @@ export class AdminCatalogService {
     // Cache listy żyje w pamięci procesu (`RecipesCacheService`) — bez tego
     // wycofany przepis wisiałby w katalogu aplikacji do końca TTL (90 s).
     this.recipesCache.invalidateRecipesList();
+  }
+
+  /**
+   * Edycja przepisu katalogu (D1, 25.09.2026: baza = źródło prawdy, plik JSON
+   * = eksport, nocny PR z `catalog-sync`).
+   *
+   * Zapis idzie TĄ SAMĄ ścieżką co import (`src/recipes/catalog/`): wiersz →
+   * wpis pliku (eksport) → poprawki z edytora → te same reguły poprawności,
+   * normalizacja ilości, unia alergenów i tagów diet, sloty z klasyfikatorem.
+   * Makro liczy serwer ze składników (`nutritionColumnsFromIngredients`) —
+   * tylko gdy zmieniły się składniki; sól dodana zostaje z wiersza. Bez
+   * zmiany składników makro zostaje, jakie było (katalog ma wartości z pliku,
+   * przeliczone `recipes:recompute:nutrition`).
+   *
+   * Współbieżność optymistyczna: `updatedAt` z edytora musi się zgadzać
+   * z wierszem pod blokadą (`FOR UPDATE`) — inaczej 409 `CONFLICT` i nic się
+   * nie zapisuje. Brak zmian = brak zapisu (i `updatedAt` bez zmian).
+   */
+  async updateRecipe(
+    actor: AdminActor,
+    id: string,
+    dto: UpdateCatalogRecipeDto,
+  ): Promise<RecipeDetail> {
+    if (dto.id !== undefined && dto.id !== id) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Identyfikator w ciele nie zgadza się z adresem.',
+        HttpStatus.BAD_REQUEST,
+        ['id'],
+      );
+    }
+    await this.audit.run(
+      actor,
+      { action: 'recipe.update', targetType: 'Recipe', targetId: id },
+      () =>
+        this.prisma.$transaction(async (tx) => {
+          const locked = await tx.$queryRaw<{ updatedAt: Date }[]>(Prisma.sql`
+            SELECT "updatedAt" FROM "Recipe"
+            WHERE "id" = ${id}::uuid AND "isCatalog" = true
+            FOR UPDATE
+          `);
+          if (locked.length === 0) throw recipeNotFound();
+          const current = locked[0].updatedAt;
+          if (current.getTime() !== Date.parse(dto.updatedAt)) {
+            throw new AppException(
+              'CONFLICT',
+              'Ktoś zmienił ten przepis w międzyczasie — odśwież i nanieś zmiany jeszcze raz.',
+              HttpStatus.CONFLICT,
+              [`updatedAt: ${current.toISOString()}`],
+            );
+          }
+
+          const row = await tx.recipe.findUniqueOrThrow({
+            where: { id },
+            select: catalogExportSelect,
+          });
+          if (
+            dto.imageUrl !== undefined &&
+            dto.imageUrl !== (row.imageUrl ?? '')
+          ) {
+            throw new AppException(
+              'VALIDATION_ERROR',
+              'Zmiana zdjęcia z panelu jeszcze nie działa (upload do R2 to osobny krok).',
+              HttpStatus.BAD_REQUEST,
+              ['imageUrl'],
+            );
+          }
+
+          const before = catalogEntryFromRow(row);
+          const lookup = await loadCatalogIngredientLookup(tx);
+          const draft: CatalogRecipeInput = {
+            ...before,
+            title: dto.title.trim(),
+            description: dto.description.trim(),
+            mealType: dto.mealType as MealType,
+            suitableMealTypes: dto.suitableMealTypes as MealType[],
+            difficulty: dto.difficulty,
+            prepTimeMinutes: dto.prepTimeMinutes,
+            servings: dto.servings,
+            steps: dto.steps.map((text, index) => ({
+              step: index + 1,
+              instruction: text.trim(),
+            })),
+            // `key` = `normalizedName`; nieznany zostaje kluczem i wraca
+            // w `details` jako „nieznany składnik: <key>”.
+            ingredients: dto.ingredients.map((line) => ({
+              ingredientName:
+                lookup.get(normalizeText(line.key))?.name ?? line.key,
+              amount: line.amount,
+              unit: line.unit,
+            })),
+          };
+
+          const problems = validateCatalogRecipe(draft);
+          if (problems.length > 0) {
+            throw new AppException(
+              'VALIDATION_ERROR',
+              'Przepis nie przechodzi reguł katalogu.',
+              HttpStatus.BAD_REQUEST,
+              problems,
+            );
+          }
+          let rows: CatalogIngredientRow[];
+          try {
+            rows = resolveCatalogIngredients(draft, lookup);
+          } catch (error) {
+            if (error instanceof CatalogRecipeError) {
+              throw new AppException(
+                'VALIDATION_ERROR',
+                'Złe składniki przepisu.',
+                HttpStatus.BAD_REQUEST,
+                error.details,
+              );
+            }
+            throw error;
+          }
+
+          const recomputed = !sameIngredientLines(
+            before.ingredients,
+            draft.ingredients,
+            { ignoreOrder: true },
+          );
+          if (recomputed) {
+            const nutrition = nutritionColumnsFromIngredients(
+              rows,
+              before.nutrition.addedSalt ?? 0,
+            );
+            if (!nutrition.ok) {
+              throw new AppException(
+                'VALIDATION_ERROR',
+                'Nie da się policzyć makro ze składników.',
+                HttpStatus.BAD_REQUEST,
+                nutritionMissingDetails(nutrition),
+              );
+            }
+            draft.nutrition = {
+              kcal: nutrition.columns.nutritionKcal,
+              protein: nutrition.columns.nutritionProtein,
+              carbs: nutrition.columns.nutritionCarbs,
+              fat: nutrition.columns.nutritionFat,
+              fiber: nutrition.columns.nutritionFiber,
+              salt: nutrition.columns.nutritionSalt,
+              addedSalt: nutrition.columns.nutritionSaltAdded,
+            };
+          }
+
+          const columns = catalogRecipeColumns(draft, rows);
+          const after = catalogEntryFromColumns(
+            id,
+            columns,
+            rows,
+            row.imageUrl,
+          );
+          const changed = changedCatalogFields(before, after);
+          if (changed.length > 0) {
+            const rewriteIngredients = !sameIngredientLines(
+              before.ingredients,
+              after.ingredients,
+            );
+            await tx.recipe.update({
+              where: { id },
+              data: {
+                ...columns,
+                ...(rewriteIngredients
+                  ? {
+                      ingredients: {
+                        deleteMany: {},
+                        create: ingredientCreateRows(rows),
+                      },
+                    }
+                  : {}),
+              },
+            });
+          }
+          return { changed, recomputedNutrition: recomputed };
+        }),
+      // Same nazwy pól — bez treści przepisu.
+      (result) => ({
+        changed: result.changed,
+        recomputedNutrition: result.recomputedNutrition,
+      }),
+    );
+    // Cache listy żyje w pamięci procesu (`RecipesCacheService`) — bez tego
+    // aplikacja widziałaby starą wersję do końca TTL (90 s).
+    this.recipesCache.invalidateRecipesList();
+    return this.recipe(id);
   }
 }
 

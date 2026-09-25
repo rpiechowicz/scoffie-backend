@@ -499,6 +499,37 @@ export interface RecipeDetail extends RecipeListItem {
   updatedAt: IsoDate;
 }
 
+/**
+ * `PUT /admin/catalog/recipes/:id` (step-up) — ciało to `RecipeDetail`
+ * z edytora; odpowiedź 200 to świeży `RecipeDetail` (nowe `updatedAt`,
+ * przeliczone makro/`kcalPerServing`, alergeny, tagi diet, sloty).
+ *
+ * Zapisywane: `title`, `description`, `mealType`, `suitableMealTypes`
+ * (serwer dokłada podpowiedzi klasyfikatora), `difficulty`,
+ * `prepTimeMinutes` (1–1440), `servings` (1–8), `steps` (1–40 niepustych),
+ * `ingredients` (1–60, `key` aktywnego składnika, `unit` z listy importu,
+ * każdy składnik raz). `updatedAt` z `GET` WYMAGANE. Reszta pól jest
+ * pomijana; `imageUrl` inny niż zapisany = 400.
+ *
+ * Błędy: 403 `STEP_UP_REQUIRED` · 400 `VALIDATION_ERROR` (`details`: pola,
+ * „nieznany składnik: …”, „brak makro na 100 g: …”) · 404 `RECIPE_NOT_FOUND`
+ * · 409 `CONFLICT` (przepis zmieniony po `GET` — odśwież i nanieś ponownie).
+ */
+export type RecipeSaveRequest = Pick<
+  RecipeDetail,
+  | 'title'
+  | 'description'
+  | 'mealType'
+  | 'suitableMealTypes'
+  | 'difficulty'
+  | 'prepTimeMinutes'
+  | 'servings'
+  | 'steps'
+  | 'ingredients'
+  | 'updatedAt'
+> &
+  Partial<RecipeDetail>;
+
 export interface SearchResults {
   users: UserListItem[];
   households: HouseholdListItem[];
@@ -569,3 +600,195 @@ export type AuthErrorCode =
   | 'STEP_UP_REQUIRED'
   | 'LAST_METHOD'
   | 'NOT_ALLOWED';
+
+// ——— Integracje (ROADMAPA §5.9, §5.10) ———
+
+/**
+ * Odpowiedź zewnętrznego serwisu tak, jak widzi ją panel. Brak zmiennych na
+ * Railwayu to `off` z ich nazwami (panel mówi, co ustawić), awaria dostawcy
+ * to `error` — nigdy wyjątek, który położyłby cały ekran.
+ */
+export type IntegrationState<T> =
+  | { status: 'ok'; data: T; fetchedAt: IsoDate }
+  | { status: 'off'; missing: string[] }
+  | { status: 'error'; message: string; fetchedAt: IsoDate };
+
+// ——— Poczta ———
+
+export type MailStatus = Mail['status'];
+
+/** Wiersz skrzynki nadawczej (`MailMessage`). */
+export interface MailRow extends Mail {
+  /** `null` po retencji (30 dni od wysyłki) */
+  to: string | null;
+  userId: string | null;
+  subject: string | null;
+  /** adres leży na `MailSuppression` */
+  suppressed: boolean;
+}
+
+/** `MailSuppression` — `reason`: HARD_BOUNCE | COMPLAINT | MANUAL (tekst od dostawcy bywa inny). */
+export interface MailSuppressionRow {
+  email: string;
+  reason: string;
+  detail: string | null;
+  createdAt: IsoDate;
+}
+
+/** Domena nadawcy u Resend (`GET /domains`). */
+export interface MailDomain {
+  name: string;
+  /** `verified`, `pending`, `failed`, … */
+  status: string;
+  region: string | null;
+}
+
+export interface MailFilters {
+  status?: MailStatus;
+  template?: MailTemplate;
+  /** fragment adresu */
+  q?: string;
+}
+
+/** `GET /admin/mail` */
+export interface MailData {
+  /** `MAIL_ENABLED` */
+  enabled: boolean;
+  transport: 'stub' | 'resend';
+  /** `MAIL_REDIRECT_TO` ustawiony — wszystko leci na jeden adres */
+  redirected: boolean;
+  /** wiersze z ostatnich 30 dni wg statusu */
+  last30: Record<MailStatus, number>;
+  /** QUEUED + SENDING: ile czeka i od kiedy najstarszy */
+  queue: { waiting: number; oldestAt: IsoDate | null };
+  /** najnowsze 100 wg filtrów */
+  messages: MailRow[];
+  suppressions: MailSuppressionRow[];
+  resend: IntegrationState<{ domains: MailDomain[] }>;
+}
+
+// ——— Stabilność: Sentry + Railway ———
+
+export interface SentryProjectHealth {
+  /** `scoffie-ios`, `scoffie-backend`, `scoffie-dashboard` */
+  slug: string;
+  /** 0–100, ostatnie 24 h; `null` — projekt bez sesji (backend, panel) */
+  crashFreeUsers: number | null;
+  crashFreeSessions: number | null;
+  /** nierozwiązane z aktywnością w 24 h */
+  unresolved: number;
+  /** pierwszy raz w 24 h */
+  new24h: number;
+}
+
+export interface SentryIssue {
+  id: string;
+  /** `SCOFFIE-IOS-1A` */
+  shortId: string;
+  title: string;
+  culprit: string | null;
+  level: string;
+  project: string;
+  /** zdarzenia w 24 h */
+  count: number;
+  userCount: number;
+  firstSeen: IsoDate;
+  lastSeen: IsoDate;
+  permalink: string;
+}
+
+export interface SentryData {
+  projects: SentryProjectHealth[];
+  /** nierozwiązane z 24 h, najczęstsze pierwsze (do 15) */
+  issues: SentryIssue[];
+  /** link do organizacji */
+  url: string;
+}
+
+export interface RailwayDeploy {
+  id: string;
+  /** `SUCCESS`, `FAILED`, `CRASHED`, `BUILDING`, `DEPLOYING`, `SLEEPING`, … */
+  status: string;
+  createdAt: IsoDate;
+  commitHash: string | null;
+  commitMessage: string | null;
+  branch: string | null;
+}
+
+export interface MetricPoint {
+  /** sekundy od epoki */
+  ts: number;
+  value: number;
+}
+
+export interface RailwayService {
+  id: string;
+  name: string;
+  /** usługa cron (np. `db-backup`) */
+  cron: string | null;
+  nextCronRunAt: IsoDate | null;
+  /** najnowsze pierwsze, do 5 */
+  deploys: RailwayDeploy[];
+  /** vCPU, 24 h co 30 min */
+  cpu: MetricPoint[];
+  memoryGb: MetricPoint[];
+  url: string;
+}
+
+export interface RailwayData {
+  services: RailwayService[];
+}
+
+/** `GET /admin/ops` */
+export interface OpsData {
+  sentry: IntegrationState<SentryData>;
+  railway: IntegrationState<RailwayData>;
+}
+
+// ——— App Store Connect ———
+
+export interface AscBuild {
+  id: string;
+  /** `CFBundleVersion`, np. `35` */
+  build: string;
+  /** `CFBundleShortVersionString`, np. `1.0` */
+  version: string | null;
+  /** `PROCESSING`, `FAILED`, `INVALID`, `VALID` */
+  processingState: string;
+  uploadedAt: IsoDate;
+  expired: boolean;
+}
+
+export interface AscVersion {
+  id: string;
+  version: string;
+  /** `appVersionState`: `READY_FOR_DISTRIBUTION`, `WAITING_FOR_REVIEW`, `IN_REVIEW`, `REJECTED`, … */
+  state: string;
+  createdAt: IsoDate;
+}
+
+export interface AscReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  reviewer: string | null;
+  /** ISO 3166-1 alfa-3, np. `POL` */
+  territory: string | null;
+  createdAt: IsoDate;
+  response: { body: string; state: string } | null;
+}
+
+export interface AppStoreData {
+  app: { id: string; name: string; bundleId: string };
+  /** najnowsze pierwsze, do 10 */
+  builds: AscBuild[];
+  /** do 5 */
+  versions: AscVersion[];
+  /** najnowsze pierwsze, do 20 */
+  reviews: AscReview[];
+  url: string;
+}
+
+/** `GET /admin/app-store` */
+export type AppStoreState = IntegrationState<AppStoreData>;

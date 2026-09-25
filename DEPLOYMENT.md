@@ -190,6 +190,101 @@ pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" <file>.dump
 Railway side: point-in-time recovery and a nightly volume backup are enabled
 on the `Postgres` service (3.09.2026) — three independent layers in total.
 
+## Catalog sync (`catalog-sync`, decision D1)
+
+Since 25.09.2026 the **database is the source of truth** for the shared recipe
+catalog (the admin panel saves recipes directly, `PUT /admin/catalog/recipes/:id`)
+and `prisma/catalog/recipes-catalog-full-v2.json` is its faithful mirror in the
+repo — for git history, review and bootstrapping an empty database. The mirror
+is refreshed by the Railway cron service `catalog-sync` (`ops/catalog-sync/`),
+every night at **03:45 UTC** (after `db-backup` at 03:15):
+
+1. shallow clone of `develop` (`rpiechowicz/scoffie-backend`),
+2. `pnpm install --frozen-lockfile` + `prisma generate` of THAT revision (the
+   export must run the same code that will later import the file, so the image
+   carries only tools: Node 22, pnpm 10.15.1, git, curl, jq),
+3. `pnpm exec tsx scripts/export-catalog.ts` against the production database over
+   the **private network** (read-only: `findMany` on `Recipe`),
+4. no difference → log line and exit; difference → one commit by
+   `Scoffie Catalog Bot <catalog-bot@scoffie.app>` (subject: counts of changed /
+   added / retired recipes; body: titles) on branch
+   `chore/katalog-z-bazy-<YYYY-MM-DD>`, force-pushed, and a PR to `develop` via
+   the GitHub REST API. If an **open bot PR** already exists (head branch starts
+   with `chore/katalog-z-bazy-`), its branch is force-pushed instead and its
+   title/body updated — never a second PR. The bot branch always holds exactly
+   one commit on top of fresh `develop`, so it shows the current DB ↔ develop
+   difference.
+
+Any failure sends one line to `OPS_ALERT_WEBHOOK_URL` (same format as
+`db-backup`). The first log line is printed before anything can fail — no such
+line in Railway logs means the container never started.
+
+The GitHub token never reaches the logs, the clone URL or process arguments:
+git gets the `Authorization` header through `GIT_CONFIG_*` environment variables,
+curl reads it from its config on stdin.
+
+| Variable | Value / where from |
+| --- | --- |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (reference variable — private network) |
+| `GITHUB_TOKEN` | fine-grained PAT (below) |
+| `OPS_ALERT_WEBHOOK_URL` | the same webhook as `db-backup` / `scoffie-backend` |
+| `GITHUB_REPO` | optional, default `rpiechowicz/scoffie-backend` |
+| `CATALOG_SYNC_BASE_BRANCH` | optional, default `develop` |
+| `CATALOG_SYNC_DRY_RUN` | `true` = export + diff + commit locally, **no push, no PR** (first deploy) |
+
+Service settings (Railway panel; config-as-code is deprecated there): new
+service from the GitHub repo `rpiechowicz/scoffie-backend`, branch `main`, root
+directory `/ops/catalog-sync`, builder Dockerfile (`Dockerfile` in that
+directory), cron schedule `45 3 * * *`, restart policy `NEVER`, watch pattern
+`/ops/catalog-sync/**`, no public domain. 1 GB RAM is plenty.
+
+**GitHub token** (github.com → Settings → Developer settings → Personal access
+tokens → Fine-grained tokens → Generate new token): name `scoffie-catalog-sync`,
+expiration 1 year (calendar reminder to rotate), resource owner `rpiechowicz`,
+repository access **Only select repositories → `scoffie-backend`**, repository
+permissions **Contents: Read and write**, **Pull requests: Read and write**
+(Metadata: Read-only is added automatically), nothing else. Branch protection on
+`develop`/`main` stays as it is — the bot only pushes `chore/katalog-z-bazy-*`.
+
+Time and cost: clone ~5 s, `pnpm install` 1–2 min (no cache between runs),
+export ~5 s — ~2–3 minutes of a ~1 GB container once a day, i.e. cents per
+month on Railway usage pricing.
+
+First deploy: set `CATALOG_SYNC_DRY_RUN=true`, trigger a run from the panel and
+read the summary in the logs; then remove the variable. The first real PR may
+list many recipes as "changed" only because of ingredient order: before
+25.09.2026 every ingredient row of a recipe had the same `createdAt`, so the
+order in the database (and in the app) was effectively random, while the file
+keeps the authored order. Either merge that PR (the database order becomes the
+file order) or, once, re-import the file on production to write the authored
+order into the database — the import guard ignores ingredient order and refuses
+if anything else differs:
+
+```bash
+railway ssh --service scoffie-backend -- sh -c 'cd /app && RECIPE_IMPORT_FILE=prisma/catalog/recipes-catalog-full-v2.json pnpm exec tsx scripts/import-recipes-from-json.ts'
+```
+
+Local check (Docker, no real token):
+
+```bash
+docker build -t scoffie-catalog-sync ops/catalog-sync
+docker run --rm -e CATALOG_SYNC_DRY_RUN=true \
+  -e DATABASE_URL=postgresql://scoffie:scoffie@host.docker.internal:5434/<db> \
+  -e CATALOG_SYNC_LOCAL_REPO=/repo -e CATALOG_SYNC_BASE_BRANCH=<branch> \
+  -e CATALOG_SYNC_DRY_RUN_OPEN_PR="123 chore/katalog-z-bazy-2026-09-24" \
+  -v "$PWD/../scoffie-backend:/repo:ro" scoffie-catalog-sync
+```
+
+(`CATALOG_SYNC_LOCAL_REPO` clones a mounted repository instead of GitHub;
+`CATALOG_SYNC_DRY_RUN_OPEN_PR` simulates an open bot PR — both only for local
+checks.)
+
+Importing the file (`pnpm recipes:import:json`) is now the exception, not the
+way to change the catalog: on a non-empty catalog it compares database and
+file first and refuses when the database has changes the file lacks, unless
+`RECIPE_IMPORT_FROM_JSON_CONFIRM=<today, YYYY-MM-DD>`. Bootstrap of an empty
+database (safe-migrate) is unchanged.
+
 ## Sentry (`SENTRY_DSN` and friends)
 
 Sentry project `scoffie/scoffie-backend` (NestJS, **data region EU**,

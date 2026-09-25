@@ -3,40 +3,10 @@
  * reguły dało się sprawdzić testem jednostkowym (`catalog-math.spec.ts`).
  */
 
-/**
- * Kroki z `Recipe.sourceInstructions` → teksty w kolejności wykonania.
- *
- * Kolumna ma dwie pisownie: import katalogu zapisuje `{ step, text }`,
- * `recipes:create`/`update` — `{ stepNumber, text }` (`recipe-steps.util.ts`).
- * Czytamy to samo, co iOS: numer z `stepNumber` / `step` / `step_number`, tekst
- * z `text` / `instruction`, a bez numeru — pozycję w tablicy. Puste kroki
- * odpadają, jak w `normalizeRecipeSteps`.
- */
-export function stepsFromInstructions(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  const entries = value as unknown[];
-  const steps: { order: number; index: number; text: string }[] = [];
-  entries.forEach((entry, index) => {
-    if (typeof entry === 'string') {
-      steps.push({ order: index + 1, index, text: entry.trim() });
-      return;
-    }
-    if (!entry || typeof entry !== 'object') return;
-    const record = entry as Record<string, unknown>;
-    const order = [record.stepNumber, record.step, record.step_number].find(
-      (candidate): candidate is number =>
-        typeof candidate === 'number' && Number.isFinite(candidate),
-    );
-    const text = [record.text, record.instruction].find(
-      (candidate): candidate is string => typeof candidate === 'string',
-    );
-    steps.push({ order: order ?? index + 1, index, text: (text ?? '').trim() });
-  });
-  return steps
-    .filter((step) => step.text.length > 0)
-    .sort((a, b) => a.order - b.order || a.index - b.index)
-    .map((step) => step.text);
-}
+// Kroki i porządek alfabetyczny żyją w domenie, bo czyta je też eksport
+// katalogu (`src/recipes/catalog/`), a domena nie importuje `src/admin/`.
+export { stepsFromInstructions } from '../../recipes/recipe-steps.util';
+export { comparePolish } from '../../common/polish-order';
 
 /**
  * Podstawa wartości odżywczych składnika: 100 g czy 100 ml.
@@ -67,16 +37,4 @@ export function kcalPerServing(
   servings: number,
 ): number {
   return Math.round(nutritionKcal / Math.max(1, servings));
-}
-
-const POLISH = new Intl.Collator('pl', { sensitivity: 'base', numeric: true });
-
-/** Porządek alfabetyczny po polsku („ł” po „l”, „ż” na końcu), remis po id. */
-export function comparePolish(
-  a: { text: string; id: string },
-  b: { text: string; id: string },
-): number {
-  return (
-    POLISH.compare(a.text, b.text) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
-  );
 }
