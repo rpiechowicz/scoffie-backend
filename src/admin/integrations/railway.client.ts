@@ -13,12 +13,45 @@ const METRICS_SAMPLE_SECONDS = 1800;
 
 type Gql<T> = { data?: T; errors?: { message: string }[] };
 
-type ApiDeploy = {
+export type ApiDeploy = {
   id: string;
   status: string;
   createdAt: string;
   meta?: Record<string, unknown> | null;
 };
+
+export type RailwayGql = <T>(
+  query: string,
+  variables?: Record<string, unknown>,
+) => Promise<T>;
+
+/** Jedno zapytanie GraphQL tokenem projektu; błąd w odpowiedzi 200 też rzuca. */
+export function railwayGql(
+  token: string,
+  fetchImpl: typeof fetch = globalThis.fetch,
+): RailwayGql {
+  return async <T>(query: string, variables: Record<string, unknown> = {}) => {
+    const { body } = await fetchJson<Gql<T>>(
+      'Railway',
+      ENDPOINT,
+      {
+        method: 'POST',
+        headers: {
+          'project-access-token': token,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ query, variables }),
+      },
+      fetchImpl,
+    );
+    if (body.errors?.length || !body.data) {
+      throw new IntegrationError(
+        `Railway: ${body.errors?.map((e) => e.message).join('; ') || 'pusta odpowiedź'}`,
+      );
+    }
+    return body.data;
+  };
+}
 
 const TOKEN_QUERY = `query { projectToken { projectId environmentId } }`;
 
@@ -33,7 +66,7 @@ const ENVIRONMENT_QUERY = `query ($eid: String!) {
   }
 }`;
 
-type ApiInstance = {
+export type ApiInstance = {
   serviceId: string;
   serviceName: string;
   cronSchedule: string | null;
@@ -60,6 +93,31 @@ const METRICS_QUERY = `query ($pid: String!, $eid: String!, $start: DateTime!) {
   }
 }`;
 
+export type RailwayScope = {
+  pid: string;
+  eid: string;
+  instances: ApiInstance[];
+};
+
+/** Projekt i środowisko z tokenu + usługi, które w nim naprawdę są. */
+export async function railwayScope(gql: RailwayGql): Promise<RailwayScope> {
+  const { projectToken } = await gql<{
+    projectToken: { projectId: string; environmentId: string };
+  }>(TOKEN_QUERY);
+  const { projectId: pid, environmentId: eid } = projectToken;
+  const { environment } = await gql<{
+    environment: { serviceInstances: { edges: { node: ApiInstance }[] } };
+  }>(ENVIRONMENT_QUERY, { eid });
+  return {
+    pid,
+    eid,
+    instances: environment.serviceInstances.edges.map((e) => e.node),
+  };
+}
+
+export const railwayServiceUrl = (scope: RailwayScope, serviceId: string) =>
+  `https://railway.com/project/${scope.pid}/service/${serviceId}?environmentId=${scope.eid}`;
+
 /**
  * Railway (publiczne API GraphQL) tylko do odczytu, tokenem PROJEKTU
  * (`Project-Access-Token`) — token widzi jeden projekt i jedno środowisko,
@@ -73,49 +131,18 @@ export async function fetchRailway(
   fetchImpl: typeof fetch = globalThis.fetch,
   now: Date = new Date(),
 ): Promise<RailwayData> {
-  const gql = async <T>(
-    query: string,
-    variables: Record<string, unknown> = {},
-  ) => {
-    const { body } = await fetchJson<Gql<T>>(
-      'Railway',
-      ENDPOINT,
-      {
-        method: 'POST',
-        headers: {
-          'project-access-token': token,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ query, variables }),
-      },
-      fetchImpl,
-    );
-    if (body.errors?.length || !body.data) {
-      throw new IntegrationError(
-        `Railway: ${body.errors?.map((e) => e.message).join('; ') || 'pusta odpowiedź'}`,
-      );
-    }
-    return body.data;
-  };
+  const gql = railwayGql(token, fetchImpl);
+  const scope = await railwayScope(gql);
+  const { pid, eid } = scope;
 
-  const { projectToken } = await gql<{
-    projectToken: { projectId: string; environmentId: string };
-  }>(TOKEN_QUERY);
-  const { projectId: pid, environmentId: eid } = projectToken;
-
-  const [{ environment }, metrics] = await Promise.all([
-    gql<{
-      environment: { serviceInstances: { edges: { node: ApiInstance }[] } };
-    }>(ENVIRONMENT_QUERY, { eid }),
-    // Metryki to ozdoba karty — ich brak nie może zasłonić stanu deployów.
-    gql<{ metrics: ApiMetric[] }>(METRICS_QUERY, {
-      pid,
-      eid,
-      start: new Date(now.getTime() - METRICS_WINDOW_MS).toISOString(),
-    })
-      .then((d) => d.metrics)
-      .catch((): ApiMetric[] => []),
-  ]);
+  // Metryki to ozdoba karty — ich brak nie może zasłonić stanu deployów.
+  const metrics = await gql<{ metrics: ApiMetric[] }>(METRICS_QUERY, {
+    pid,
+    eid,
+    start: new Date(now.getTime() - METRICS_WINDOW_MS).toISOString(),
+  })
+    .then((d) => d.metrics)
+    .catch((): ApiMetric[] => []);
 
   const series = (serviceId: string, measurement: string): MetricPoint[] =>
     metrics.find(
@@ -123,29 +150,30 @@ export async function fetchRailway(
     )?.values ?? [];
 
   const services = await Promise.all(
-    environment.serviceInstances.edges.map(
-      async ({ node }): Promise<RailwayService> => {
-        const { deployments } = await gql<{
-          deployments: { edges: { node: ApiDeploy }[] };
-        }>(DEPLOYS_QUERY, { pid, eid, sid: node.serviceId });
-        return {
-          id: node.serviceId,
-          name: node.serviceName,
-          cron: node.cronSchedule,
-          nextCronRunAt: node.nextCronRunAt,
-          deploys: deployments.edges.map((e) => toDeploy(e.node)),
-          cpu: series(node.serviceId, 'CPU_USAGE'),
-          memoryGb: series(node.serviceId, 'MEMORY_USAGE_GB'),
-          url: `https://railway.com/project/${pid}/service/${node.serviceId}?environmentId=${eid}`,
-        };
-      },
-    ),
+    scope.instances.map(async (node): Promise<RailwayService> => {
+      const { deployments } = await gql<{
+        deployments: { edges: { node: ApiDeploy }[] };
+      }>(DEPLOYS_QUERY, { pid, eid, sid: node.serviceId });
+      return {
+        id: node.serviceId,
+        name: node.serviceName,
+        cron: node.cronSchedule,
+        nextCronRunAt: node.nextCronRunAt,
+        deploys: deployments.edges.map((e) => toDeploy(e.node)),
+        cpu: series(node.serviceId, 'CPU_USAGE'),
+        memoryGb: series(node.serviceId, 'MEMORY_USAGE_GB'),
+        url: railwayServiceUrl(scope, node.serviceId),
+      };
+    }),
   );
 
   return { services: services.sort((a, b) => a.name.localeCompare(b.name)) };
 }
 
-const metaText = (meta: ApiDeploy['meta'], key: string): string | null => {
+export const metaText = (
+  meta: ApiDeploy['meta'],
+  key: string,
+): string | null => {
   const value = meta?.[key];
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 };
