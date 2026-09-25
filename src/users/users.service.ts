@@ -14,6 +14,7 @@ import {
   settleHouseholdAfterMemberLeft,
 } from '../households/household-cleanup.util';
 import { disconnectRevokedUser } from '../common/ws-rooms';
+import { emitLive } from '../common/live-events';
 import {
   catalogOwnerUserId,
   ensureCatalogOwner,
@@ -766,6 +767,8 @@ export class UsersService {
     // niewielki, bo bez członkostw każda operacja odbija się o `ensureMembership`,
     // ale to niepotrzebna asymetria między dwiema drogami do tej samej rzeczy.
     disconnectRevokedUser(userId);
+    // Panel (kanał na żywo): lista osób, domy i pulpit — bez danych osoby.
+    emitLive({ topics: ['users', 'households', 'dashboard'] });
 
     return { id: userId };
   }

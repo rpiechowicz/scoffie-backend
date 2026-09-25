@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { emitLive } from '../common/live-events';
 import { readMailEnv } from './mail-env';
 import {
   MailRefusal,
@@ -109,6 +110,11 @@ export class MailOutboxService {
       skipDuplicates: true,
     });
 
-    return created.count === 1 ? 'QUEUED' : 'DUPLICATE';
+    if (created.count === 1) {
+      // Panel: skrzynka nadawcza (sam sygnał — bez adresu i treści).
+      emitLive({ topics: ['mail'] });
+      return 'QUEUED';
+    }
+    return 'DUPLICATE';
   }
 }

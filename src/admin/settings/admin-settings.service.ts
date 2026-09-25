@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../../common/app-exception';
+import { emitLive } from '../../common/live-events';
 import { readAgentEnv } from '../../config/agent-env';
 import {
   isRuntimeSettingKey,
@@ -121,6 +122,20 @@ export class AdminSettingsService {
         previous: done.previous === null ? null : describe(key, done.previous),
       }),
     );
+    if (key === 'AI_ENABLED') {
+      // Kanał na żywo: pozostałe sesje panelu wiedzą od razu (ta, która
+      // przełączyła, widzi to na ekranie).
+      emitLive({
+        topics: ['settings', 'assistant'],
+        exceptAdminSessionId: actor.sessionId ?? undefined,
+        notice: {
+          level: result.value === 'true' ? 'success' : 'warning',
+          title: `Asystent ${result.value === 'true' ? 'włączony' : 'wyłączony'} z panelu`,
+          link: '/settings',
+          topic: 'settings',
+        },
+      });
+    }
     void this.alerts.notify(
       `runtime-setting:${key}:${Date.now()}`,
       key === 'AI_ENABLED'

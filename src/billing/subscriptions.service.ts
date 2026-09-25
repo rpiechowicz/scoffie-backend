@@ -2,6 +2,7 @@ import { HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../common/app-exception';
 import { PrismaService } from '../prisma/prisma.service';
+import { emitLive } from '../common/live-events';
 import { MailOutboxService } from '../mail/mail-outbox.service';
 import {
   identityHashEquals,
@@ -134,6 +135,7 @@ export class SubscriptionsService {
     purchaserUserId: string | null;
     state: SubscriptionState;
   }): Promise<void> {
+    announceSubscriptionLive(input.previous, input.state);
     if (!this.mail) return;
     const { previous, state } = input;
     if (previous === state.status) return;
@@ -870,6 +872,7 @@ export class SubscriptionsService {
       where: { notificationUuid: uuid },
       data: { processedAt: now, error: note },
     });
+    emitLive({ topics: ['subscriptions'] });
   }
 
   // ───────────────────────────── UZGADNIANIE ─────────────────────────────
@@ -1126,4 +1129,35 @@ export class SubscriptionsService {
   scopeOf(subscriptionId: string): string {
     return subscriptionScopeId(subscriptionId);
   }
+}
+
+/**
+ * Sygnał dla panelu (kanał na żywo) przy każdym zapisanym stanie subskrypcji;
+ * powiadomienie tylko na przejściu: nowa subskrypcja albo zwrot (REVOKED).
+ * Sama nazwa planu — bez danych kupującego.
+ */
+function announceSubscriptionLive(
+  previous: SubscriptionState['status'] | null,
+  state: SubscriptionState,
+): void {
+  const planName =
+    SUBSCRIPTION_PRODUCTS[state.productId]?.name ?? 'Plan Scoffie';
+  const wasAlive = previous === 'ACTIVE' || previous === 'GRACE';
+  const notice =
+    previous !== state.status && state.status === 'ACTIVE' && !wasAlive
+      ? {
+          level: 'success' as const,
+          title: `Nowa subskrypcja: ${planName}`,
+          link: '/subscriptions',
+          topic: 'subscriptions' as const,
+        }
+      : previous !== state.status && state.status === 'REVOKED'
+        ? {
+            level: 'warning' as const,
+            title: `Zwrot subskrypcji: ${planName}`,
+            link: '/subscriptions',
+            topic: 'subscriptions' as const,
+          }
+        : undefined;
+  emitLive({ topics: ['subscriptions', 'dashboard'], notice });
 }

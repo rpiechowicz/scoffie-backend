@@ -27,6 +27,7 @@ import { AdminAnnouncementsModule } from './announcements/admin-announcements.mo
 import { AdminIntegrationsModule } from './integrations/admin-integrations.module';
 import { AdminSubscriptionsModule } from './subscriptions/admin-subscriptions.module';
 import { AdminUsersModule } from './users/admin-users.module';
+import { AdminLiveModule } from './live/admin-live.module';
 
 /**
  * Panel administratora — backend (`/admin/*`), plan w
@@ -63,6 +64,7 @@ import { AdminUsersModule } from './users/admin-users.module';
     AdminTrafficModule,
     AdminFlagsModule,
     AdminAnnouncementsModule,
+    AdminLiveModule,
   ],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],
