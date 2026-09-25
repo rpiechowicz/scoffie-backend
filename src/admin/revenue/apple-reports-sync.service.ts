@@ -8,7 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { IntegrationError } from '../integrations/integration-fetch';
 import {
   missingAscReports,
-  readAscEnv,
+  readAscReportsEnv,
   readAscVendorNumber,
   type AscEnv,
 } from '../integrations/integrations-env';
@@ -75,7 +75,7 @@ export class AppleReportsSyncService
     force = false,
   ): Promise<void> {
     if (this.running) return;
-    const env = readAscEnv();
+    const env = readAscReportsEnv();
     const vendor = readAscVendorNumber();
     if (missingAscReports(env, vendor).length > 0) return;
     this.running = true;

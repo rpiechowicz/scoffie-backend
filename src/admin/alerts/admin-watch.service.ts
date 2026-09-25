@@ -15,7 +15,7 @@ import { IntegrationError } from '../integrations/integration-fetch';
 import {
   missingAscReports,
   missingSentry,
-  readAscEnv,
+  readAscReportsEnv,
   readAscVendorNumber,
   readRailwayToken,
   readSentryEnv,
@@ -229,7 +229,9 @@ export class AdminWatchService
 
     // Przychód z Apple: stan ostatniej synchronizacji leży w bazie
     // (`AppleReportsSyncService`) — bez klucza/vendora reguła milczy.
-    if (missingAscReports(readAscEnv(), readAscVendorNumber()).length === 0) {
+    if (
+      missingAscReports(readAscReportsEnv(), readAscVendorNumber()).length === 0
+    ) {
       await attempt('raporty Apple', async () => [
         {
           kind: 'apple-reports',

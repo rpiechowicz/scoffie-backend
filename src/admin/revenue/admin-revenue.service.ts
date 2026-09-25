@@ -8,7 +8,7 @@ import type {
 } from '../contract';
 import {
   missingAscReports,
-  readAscEnv,
+  readAscReportsEnv,
   readAscVendorNumber,
 } from '../integrations/integrations-env';
 import { readOnlyQuery } from '../read-only-query';
@@ -159,7 +159,10 @@ export function revenueState(
   lastSaleDate: string | null,
   env: NodeJS.ProcessEnv = process.env,
 ): IntegrationState<RevenueSync> {
-  const missing = missingAscReports(readAscEnv(env), readAscVendorNumber(env));
+  const missing = missingAscReports(
+    readAscReportsEnv(env),
+    readAscVendorNumber(env),
+  );
   if (missing.length > 0) return { status: 'off', missing };
   const sales = syncs.find((s) => s.kind === 'sales');
   const finance = syncs.find((s) => s.kind === 'finance');
