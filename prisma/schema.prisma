@@ -78,6 +78,8 @@ model User {
   mailMessages       MailMessage[]
 
   @@index([identityHash])
+  /// Panel: „zalogowani dziś” na pulpicie i sortowanie listy osób i domów.
+  @@index([lastLoginAt])
 }
 
 /// Zgłoszenie niewłaściwej odpowiedzi asystenta („Zgłoś odpowiedź").
@@ -228,6 +230,8 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@index([replacedByHash])
+  /// Panel: „kopia tokenu w 24 h” — równość po powodzie, zakres po dacie.
+  @@index([revokedReason, revokedAt])
 }
 
 model Recipe {
@@ -735,6 +739,8 @@ model PlanItem {
   /// Wycofanie przepisu, import katalogu i „gdzie ten przepis jest w planie"
   /// szukają po przepisie — bez indeksu to pełny skan pozycji.
   @@index([recipeId])
+  /// Panel: seria „pozycje planu dziennie” na pulpicie.
+  @@index([createdAt])
 }
 
 /// Which household members a given plan item is for.
@@ -927,6 +933,8 @@ model AgentProposal {
   @@index([conversationId, createdAt])
   @@index([householdId, status])
   @@index([turnId])
+  /// Panel: propozycje w oknie czasu (rentowność, pulpit asystenta).
+  @@index([createdAt])
 }
 
 /// Jedno przetworzenie wiadomości użytkownika: RUNNING | DONE | FAILED |
@@ -976,6 +984,8 @@ model AgentTurn {
   @@unique([userMessageId])
   @@index([conversationId, status])
   @@index([userId, createdAt])
+  /// Panel: tury dziennie i „dziś” na pulpicie — bez filtra po osobie.
+  @@index([createdAt])
 }
 
 /// Jeden wiersz na FAZĘ tury (model + wysiłek) — surowiec do kalibracji modelu
@@ -1018,6 +1028,8 @@ model AiUsage {
 
   @@index([userId, createdAt])
   @@index([createdAt])
+  /// Panel: koszt tury i łączenie księgi z turą (`AiUsage.turnId`).
+  @@index([turnId])
 }
 
 /// Liczniki atomowe na Postgresie (bez Redis): `scopeId` = id gospodarstwa
