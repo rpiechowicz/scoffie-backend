@@ -3,6 +3,7 @@ import {
   fetchRailwayService,
   groupByStatusClass,
 } from './railway-service.client';
+import { toCronRun } from './railway.client';
 
 type Body = { query: string; variables: Record<string, unknown> };
 
@@ -202,6 +203,80 @@ describe('szczegóły usługi Railway', () => {
       metrics: { cpu: [] },
     });
     expect(bodies.some((b) => b.query.includes('httpMetrics'))).toBe(false);
+  });
+
+  it('cron: do 30 uruchomień, najnowsze pierwsze; bez crona — bez pytania', async () => {
+    const withCron = (b: Body) => {
+      const scope = SCOPE(b) as
+        | {
+            data: {
+              environment?: {
+                serviceInstances: {
+                  edges: { node: Record<string, unknown> }[];
+                };
+              };
+            };
+          }
+        | undefined;
+      const edges = scope?.data.environment?.serviceInstances.edges;
+      if (edges) edges[1].node.cronSchedule = '15 3 * * *';
+      return scope;
+    };
+    const { impl, bodies } = fakeRailway((b) => {
+      const scope = withCron(b);
+      if (scope) return scope;
+      if (b.query.includes('serviceInstance('))
+        return {
+          data: {
+            serviceInstance: INSTANCE,
+            deployments: { edges: [] },
+            domains: { serviceDomains: [], customDomains: [] },
+          },
+        };
+      if (b.query.includes('deploymentInstanceExecutions('))
+        return {
+          data: {
+            deploymentInstanceExecutions: {
+              edges: Array.from({ length: 35 }, (_, i) => ({
+                node: {
+                  id: `r${i}`,
+                  status: i === 0 ? 'RUNNING' : 'EXITED',
+                  createdAt: new Date(
+                    Date.UTC(2026, 7, 1 + i, 3, 15),
+                  ).toISOString(),
+                  updatedAt: new Date(
+                    Date.UTC(2026, 7, 1 + i, 3, 17),
+                  ).toISOString(),
+                  completedAt: null,
+                },
+              })),
+            },
+          },
+        };
+      return { data: { metrics: [] } };
+    });
+    const d = await fetchRailwayService('tok', 'db', '24h', impl);
+    expect(d.runs).toHaveLength(30);
+    expect(d.runs[0]).toMatchObject({ id: 'r34', status: 'EXITED' });
+    expect(d.runs[0].finishedAt).toBe('2026-09-04T03:17:00.000Z');
+
+    const plain = await fetchRailwayService('tok', 'api', '24h', impl);
+    expect(plain.runs).toEqual([]);
+    expect(
+      bodies.filter((b) => b.query.includes('deploymentInstanceExecutions('))
+        .length,
+    ).toBe(1);
+  });
+
+  it('uruchomienie w toku nie ma końca', () => {
+    expect(
+      toCronRun({
+        id: 'r',
+        status: 'RUNNING',
+        createdAt: '2026-09-25T03:15:00Z',
+        updatedAt: '2026-09-25T03:15:10Z',
+      }).finishedAt,
+    ).toBeNull();
   });
 
   it('obcy id usługi → błąd, zanim padnie pytanie o jej dane', async () => {
