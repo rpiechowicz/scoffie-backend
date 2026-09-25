@@ -116,7 +116,7 @@ export class AdminIntegrationsService {
   private ascEnvForWrite() {
     const env = readAscEnv();
     if (missingAsc(env).length > 0) {
-      throw new AppException(
+      throw ascRefusal(
         'SERVICE_UNAVAILABLE',
         'App Store Connect nie jest podłączony (ADMIN_ASC_*).',
         HttpStatus.SERVICE_UNAVAILABLE,
@@ -126,15 +126,16 @@ export class AdminIntegrationsService {
   }
 
   /**
-   * Zapis w ASC z czytelną odmową zamiast 500. Po zapisie (także
-   * nieudanym — stan u Apple mógł się zmienić) czyścimy pamięć odczytu.
+   * Zapis w ASC z czytelną odmową zamiast 500 (komunikat także w `details`,
+   * bo panel pokazuje je wprost). Po zapisie (także nieudanym — stan u Apple
+   * mógł się zmienić) czyścimy pamięć odczytu.
    */
   private async ascWrite<T>(write: () => Promise<T>): Promise<T> {
     try {
       return await write();
     } catch (error) {
       if (error instanceof IntegrationError) {
-        throw new AppException(
+        throw ascRefusal(
           'SERVICE_UNAVAILABLE',
           error.message,
           HttpStatus.SERVICE_UNAVAILABLE,
@@ -142,32 +143,23 @@ export class AdminIntegrationsService {
       }
       if (!(error instanceof AscWriteError)) throw error;
       if (error.status === 401 || error.status === 403) {
-        throw new AppException(
+        throw ascRefusal(
           'SERVICE_UNAVAILABLE',
           'Klucz ASC bez prawa odpowiadania na recenzje — zmień jego rolę na Customer Support (albo App Manager / Admin).',
           HttpStatus.SERVICE_UNAVAILABLE,
-          [`asc_http_${error.status}`],
         );
       }
       if (error.status === 404) {
-        throw new AppException(
-          'NOT_FOUND',
-          error.message,
-          HttpStatus.NOT_FOUND,
-        );
+        throw ascRefusal('NOT_FOUND', error.message, HttpStatus.NOT_FOUND);
       }
-      if (
-        error.status === 409 ||
-        error.status === 422 ||
-        error.status === 400
-      ) {
-        throw new AppException(
+      if ([400, 409, 422].includes(error.status)) {
+        throw ascRefusal(
           'VALIDATION_ERROR',
           error.message,
           HttpStatus.BAD_REQUEST,
         );
       }
-      throw new AppException(
+      throw ascRefusal(
         'SERVICE_UNAVAILABLE',
         error.message,
         HttpStatus.SERVICE_UNAVAILABLE,
@@ -222,3 +214,9 @@ export class AdminIntegrationsService {
     });
   }
 }
+
+const ascRefusal = (
+  code: 'SERVICE_UNAVAILABLE' | 'NOT_FOUND' | 'VALIDATION_ERROR',
+  message: string,
+  status: HttpStatus,
+) => new AppException(code, message, status, [message]);
