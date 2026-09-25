@@ -21,6 +21,7 @@ import { fetchRailway } from '../integrations/railway.client';
 import { fetchResendDomains } from '../integrations/resend-domains.client';
 import { fetchSentry } from '../integrations/sentry.client';
 import {
+  cronAlerts,
   crashFreeAlerts,
   domainAlerts,
   mailFailedAlerts,
@@ -147,12 +148,13 @@ export class AdminWatchService
 
     const railwayToken = readRailwayToken();
     if (railwayToken) {
-      await attempt('Railway', async () => [
-        {
-          kind: 'deploy-failed',
-          problems: railwayAlerts(await fetchRailway(railwayToken)),
-        },
-      ]);
+      await attempt('Railway', async () => {
+        const railway = await fetchRailway(railwayToken);
+        return [
+          { kind: 'deploy-failed', problems: railwayAlerts(railway) },
+          { kind: 'cron-failed', problems: cronAlerts(railway) },
+        ];
+      });
     }
 
     const sentryEnv = readSentryEnv();

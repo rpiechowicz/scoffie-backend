@@ -127,6 +127,7 @@ describe('treść raportu', () => {
     ],
     openAlerts: 2,
     sentryNew24h: null,
+    backup: { status: 'CRASHED', startedAt: '2026-09-25T01:00:00.000Z' },
   });
   const find = (label: string) =>
     payload.sections.flatMap((s) => s.metrics).find((m) => m.label === label);
@@ -154,6 +155,10 @@ describe('treść raportu', () => {
     expect(find('Nowe problemy Sentry (24 h)')).toBeUndefined();
     expect(payload.notes).toEqual([
       { tone: 'warn', text: 'Otwarte alerty: 2. Szczegóły na ekranie Alerty.' },
+      {
+        tone: 'warn',
+        text: 'Kopia bazy: ostatnie uruchomienie 2026-09-25 01:00 UTC ma status CRASHED.',
+      },
     ]);
   });
 });

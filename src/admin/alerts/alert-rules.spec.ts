@@ -7,6 +7,7 @@ import type {
   SentryProjectHealth,
 } from '../contract';
 import {
+  cronAlerts,
   crashFreeAlerts,
   domainAlerts,
   mailFailedAlerts,
@@ -47,6 +48,14 @@ const service = (
   cpu: [],
   memoryGb: [],
   url: 'https://railway.com',
+  runs: [],
+});
+
+const run = (id: string, status: string) => ({
+  id,
+  status,
+  startedAt: '2026-09-25T01:00:00.000Z',
+  finishedAt: null,
 });
 
 const railway = (...services: RailwayService[]): RailwayData => ({ services });
@@ -148,6 +157,56 @@ describe('Railway: wdrożenie FAILED/CRASHED', () => {
       [{ kind: 'deploy-failed', problems: railwayAlerts(fixed) }],
     ]);
     expect(history[0]).toHaveLength(1);
+    expect(history[1]).toHaveLength(1);
+    expect(history[2][0].resolvedAt).toEqual(NOW);
+  });
+});
+
+describe('Railway: uruchomienie crona (kopia bazy)', () => {
+  const backup = (...runs: ReturnType<typeof run>[]) =>
+    railway({ ...service('s2', [deploy('d1', 'SUCCESS')], '0 3 * * *'), runs });
+
+  it('wykrywa ostatnie uruchomienie CRASHED, EXITED to w porządku', () => {
+    expect(
+      cronAlerts(backup(run('r2', 'EXITED'), run('r1', 'CRASHED'))),
+    ).toEqual([]);
+    const [alert] = cronAlerts(backup(run('r2', 'CRASHED')));
+    expect(alert).toMatchObject({
+      key: 'cron-failed:s2:r2',
+      title: 'Kopia bazy nie powstała',
+      severity: 'critical',
+    });
+    // Usługa bez crona nie ma uruchomień do sprawdzania.
+    expect(
+      cronAlerts(
+        railway({ ...service('s1', []), runs: [run('x', 'CRASHED')] }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('nie dubluje i rozwiązuje po udanym uruchomieniu', () => {
+    const history = simulate([
+      [
+        {
+          kind: 'cron-failed',
+          problems: cronAlerts(backup(run('r2', 'CRASHED'))),
+        },
+      ],
+      [
+        {
+          kind: 'cron-failed',
+          problems: cronAlerts(backup(run('r2', 'CRASHED'))),
+        },
+      ],
+      [
+        {
+          kind: 'cron-failed',
+          problems: cronAlerts(
+            backup(run('r3', 'EXITED'), run('r2', 'CRASHED')),
+          ),
+        },
+      ],
+    ]);
     expect(history[1]).toHaveLength(1);
     expect(history[2][0].resolvedAt).toEqual(NOW);
   });

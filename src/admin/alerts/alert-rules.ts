@@ -21,6 +21,7 @@ import { plural } from '../../mail/templates/mail-kit';
 
 export type AlertKind =
   | 'deploy-failed'
+  | 'cron-failed'
   | 'crash-free'
   | 'sentry-fatal'
   | 'mail-queue'
@@ -69,6 +70,32 @@ export function railwayAlerts(data: RailwayData): DetectedAlert[] {
           ? `${service.name}: uruchomienie padło`
           : `${service.name}: wdrożenie padło`,
         detail: `Ostatnie wdrożenie usługi ${service.name} ma status ${last.status}${commit}.`,
+      },
+    ];
+  });
+}
+
+/**
+ * 1b. Ostatnie uruchomienie usługi cron (`db-backup`) `CRASHED`.
+ *
+ * Railway nie podaje kodu wyjścia — `EXITED` to „proces się skończył”,
+ * `CRASHED` to jedyny pewny sygnał porażki. Klucz z id uruchomienia: kolejne
+ * udane zamyka alert, kolejne nieudane otwiera nowy.
+ */
+export function cronAlerts(data: RailwayData): DetectedAlert[] {
+  return data.services.flatMap((service): DetectedAlert[] => {
+    const last = (service.runs ?? [])[0];
+    if (!service.cron || !last || last.status !== 'CRASHED') return [];
+    const backup = service.name === 'db-backup';
+    return [
+      {
+        key: `cron-failed:${service.id}:${last.id}`,
+        kind: 'cron-failed',
+        severity: 'critical',
+        title: backup
+          ? 'Kopia bazy nie powstała'
+          : `${service.name}: uruchomienie crona padło`,
+        detail: `Ostatnie uruchomienie ${service.name} (${last.startedAt.slice(0, 16).replace('T', ' ')} UTC) skończyło się statusem CRASHED.`,
       },
     ];
   });

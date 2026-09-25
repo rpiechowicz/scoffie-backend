@@ -1027,7 +1027,7 @@ export interface AdminAlertRow {
   id: string;
   /** np. `deploy-failed:<serviceId>:<deployId>`, `crash-free:scoffie-ios` */
   key: string;
-  /** `deploy-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain` */
+  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain` */
   kind: string;
   severity: AlertSeverity;
   title: string;

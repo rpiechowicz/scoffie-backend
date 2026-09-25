@@ -27,7 +27,12 @@ import type {
   DailyReportPreview,
   DailyReportSendResult,
 } from '../contract';
-import { missingSentry, readSentryEnv } from '../integrations/integrations-env';
+import {
+  missingSentry,
+  readRailwayToken,
+  readSentryEnv,
+} from '../integrations/integrations-env';
+import { fetchRailway } from '../integrations/railway.client';
 import { fetchSentry } from '../integrations/sentry.client';
 import { AdminDashboardService } from '../users/admin-dashboard.service';
 import { readAlertsEnv } from './alerts-env';
@@ -255,12 +260,13 @@ export class AdminDailyReportService
 
   private async payload(day: string, now: Date): Promise<DailyReportPayload> {
     const days = reportPanelDays(day);
-    const [{ stats, subscriptions }, counts, openAlerts, sentryNew24h] =
+    const [{ stats, subscriptions }, counts, openAlerts, sentryNew24h, backup] =
       await Promise.all([
         this.dashboard.reportDays(days, now),
         this.counts(days[0].start, days[1].end),
         this.prisma.adminAlert.count({ where: { resolvedAt: null } }),
         this.sentryNew24h(),
+        this.backup(),
       ]);
     const byDay = (key: string): ReportCounts => {
       const row = counts.find((c) => c.day === key);
@@ -280,6 +286,7 @@ export class AdminDailyReportService
       counts: days.map((d) => byDay(d.key)),
       openAlerts,
       sentryNew24h,
+      backup,
     });
   }
 
@@ -318,6 +325,22 @@ export class AdminDailyReportService
       out.set(row.day, entry);
     }
     return [...out.values()];
+  }
+
+  /** Ostatnie uruchomienie `db-backup` — dodatek, jak Sentry. */
+  private async backup(): Promise<{
+    status: string;
+    startedAt: string;
+  } | null> {
+    const token = readRailwayToken();
+    if (!token) return null;
+    try {
+      const data = await fetchRailway(token);
+      const run = data.services.find((s) => s.name === 'db-backup')?.runs?.[0];
+      return run ? { status: run.status, startedAt: run.startedAt } : null;
+    } catch {
+      return null;
+    }
   }
 
   /** Sentry to dodatek — jego brak albo awaria nie zatrzymuje raportu. */

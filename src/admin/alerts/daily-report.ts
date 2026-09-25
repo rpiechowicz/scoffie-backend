@@ -76,6 +76,8 @@ export type ReportInput = {
   openAlerts: number;
   /** Nowe problemy Sentry z 24 h (suma projektów); `null` — Sentry niepodłączony albo nie odpowiedział. */
   sentryNew24h: number | null;
+  /** Ostatnie uruchomienie `db-backup` z Railwaya; `null` — brak tokenu albo usługi. */
+  backup: { status: string; startedAt: string } | null;
 };
 
 const metric = (
@@ -154,6 +156,20 @@ export function buildReportPayload(input: ReportInput): DailyReportPayload {
         }
       : { tone: 'ok', text: 'Brak otwartych alertów.' },
   ];
+  if (input.backup) {
+    const at = `${input.backup.startedAt.slice(0, 16).replace('T', ' ')} UTC`;
+    notes.push(
+      input.backup.status === 'EXITED'
+        ? {
+            tone: 'ok',
+            text: `Kopia bazy: ostatnie uruchomienie ${at} zakończone.`,
+          }
+        : {
+            tone: 'warn',
+            text: `Kopia bazy: ostatnie uruchomienie ${at} ma status ${input.backup.status}.`,
+          },
+    );
+  }
 
   return {
     day: days[1].key,
