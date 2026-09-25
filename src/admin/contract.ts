@@ -981,13 +981,15 @@ export interface AuditPage {
 
 // ——— Sterowanie w locie i odpowiedzi na recenzje (ROADMAPA §5.12, §5.9) ———
 
-export type RuntimeSettingKind = 'boolean' | 'number' | 'list';
+export type RuntimeSettingKind = 'boolean' | 'number' | 'list' | 'choice';
 
 export interface RuntimeSettingView {
   /** np. `AI_ENABLED` — biała lista w `src/config/runtime-settings.ts` */
   key: string;
   label: string;
   kind: RuntimeSettingKind;
+  /** dozwolone wartości przy `kind: 'choice'` (np. `AI_CARDS_MODE`) */
+  options?: string[];
   /** surowa wartość z Railwaya; `null` — zmiennej nie ma (działa domyślna) */
   envValue: string | null;
   /** nadpisanie z panelu; `null` — działa env */
@@ -1406,4 +1408,172 @@ export interface RevenueData {
   estimatedNetMrrPln: number;
   /** waluty wypłat bez kursu NBP (tabela A) — ich kwot nie ma w sumach w PLN */
   unconverted: string[];
+}
+
+// ——— Katalog: jakość i popularność · Baza danych · Ruch · Historia Sterowania ———
+
+/**
+ * Rodzaje luk w przepisie katalogu (`GET /admin/catalog/insights`):
+ * - `no-image` — brak `imageUrl`
+ * - `zero-macros` — kcal ≤ 0 albo białko + tłuszcz + węgle ≈ 0
+ * - `kcal-mismatch` — kcal różni się od makro (Atwater) o > 25 %
+ * - `ingredient-no-nutrition` — składnik bez wartości odżywczych
+ * - `piece-no-grams` — składnik w `szt` bez `gramsPerPiece`
+ * - `no-meal-types` — puste `suitableMealTypes` (brak backfillu pór)
+ * - `no-steps` — brak kroków przygotowania
+ * - `no-ingredients` — przepis bez składników
+ */
+export type CatalogGapKind =
+  | 'no-image'
+  | 'zero-macros'
+  | 'kcal-mismatch'
+  | 'ingredient-no-nutrition'
+  | 'piece-no-grams'
+  | 'no-meal-types'
+  | 'no-steps'
+  | 'no-ingredients';
+
+export interface CatalogGapRecipe {
+  id: string;
+  title: string;
+  /** pusty — brak zdjęcia */
+  imageUrl: string;
+  isActive: boolean;
+  mealType: MealType;
+  gaps: CatalogGapKind[];
+  /** nazwy składników przy `ingredient-no-nutrition` i `piece-no-grams` */
+  ingredients: string[];
+  /** cały przepis, jak `Recipe.nutritionKcal` */
+  kcal: number;
+  /** 4·B + 4·W + 9·T + 2·błonnik — do porównania przy `kcal-mismatch` */
+  kcalFromMacros: number;
+}
+
+/** Pozycja rankingu popularności — tylko przepisy katalogu. */
+export interface CatalogRankItem {
+  id: string;
+  title: string;
+  imageUrl: string;
+  isActive: boolean;
+  count: number;
+}
+
+/** Składnik z „czego nie jem” — sama liczba osób, bez osób. */
+export interface CatalogExcludedIngredient {
+  key: string;
+  name: string;
+  count: number;
+}
+
+export interface CatalogPopularity {
+  /** okno rankingów „w planach”, „zjedzone”, „proponowane” */
+  days: number;
+  /** pozycje planu (`PlanItem`) dodane w oknie */
+  planned: CatalogRankItem[];
+  /** `PlanItemConsumption` w oknie */
+  eaten: CatalogRankItem[];
+  /** `RecipeFavorite` — łącznie, bez okna */
+  favorites: CatalogRankItem[];
+  /** nowe dania w kartach propozycji asystenta (`AgentProposal`) w oknie */
+  proposed: CatalogRankItem[];
+  /** aktywne przepisy, których nikt nigdy nie dodał do planu (do 50) */
+  neverUsed: CatalogRankItem[];
+  neverUsedTotal: number;
+  /** `UserPreference.excludedIngredientIds` — liczba osób na składnik */
+  excludedIngredients: CatalogExcludedIngredient[];
+}
+
+/** `GET /admin/catalog/insights` */
+export interface CatalogInsights {
+  /** liczba przepisów z daną luką */
+  gaps: Record<CatalogGapKind, number>;
+  /** przepisy z co najmniej jedną luką, najpierw aktywne i z największą liczbą luk */
+  recipes: CatalogGapRecipe[];
+  popularity: CatalogPopularity;
+  generatedAt: IsoDate;
+}
+
+export interface DatabaseTable {
+  name: string;
+  /** `pg_total_relation_size` — z indeksami i TOAST */
+  totalBytes: number;
+  /** `pg_class.reltuples` — szacunek; `-1`/brak analizy = 0 */
+  rowsEstimate: number;
+}
+
+/** Zapytanie trwające > 5 s — BEZ tekstu (mógłby zawierać dane). */
+export interface DatabaseLongQuery {
+  seconds: number;
+  /** `active`, `idle in transaction`, … */
+  state: string;
+  /** `Lock`, `IO`, … — `null`, gdy nie czeka */
+  waitEventType: string | null;
+}
+
+/** `pg_stat_statements` — tekst znormalizowany (`$1`), przycięty do 200 znaków. */
+export interface DatabaseSlowQuery {
+  query: string;
+  calls: number;
+  meanMs: number;
+  totalMs: number;
+}
+
+/** `GET /admin/ops/database` */
+export interface DatabaseData {
+  sizeBytes: number;
+  /** 10 największych tabel */
+  tables: DatabaseTable[];
+  /** połączenia klientów tej bazy wg `state` */
+  connections: { state: string; count: number }[];
+  /** `max_connections` */
+  maxConnections: number | null;
+  longQueries: DatabaseLongQuery[];
+  migrations: {
+    /** `null` — brak tabeli `_prisma_migrations` */
+    last: { name: string; finishedAt: IsoDate | null } | null;
+    applied: number;
+    /** nazwy migracji rozpoczętych, niezakończonych i niecofniętych */
+    failed: string[];
+  };
+  /** `null` — rozszerzenie `pg_stat_statements` niewłączone albo niedostępne */
+  slowQueries: DatabaseSlowQuery[] | null;
+  fetchedAt: IsoDate;
+}
+
+export interface TrafficDay {
+  /** `YYYY-MM-DD` (UTC, jak w Cloudflare) */
+  date: string;
+  requests: number;
+  /** unikalni odwiedzający danego dnia (`uniq.uniques`) */
+  visitors: number;
+  pageViews: number;
+}
+
+export interface TrafficCount {
+  /** ścieżka albo kod kraju (ISO 3166-1 alfa-2) */
+  name: string;
+  count: number;
+}
+
+/** `GET /admin/traffic` — strefa scoffie.app z Cloudflare, 30 dni. */
+export interface TrafficData {
+  /** cała strefa (także img. i dashboard.), dzień po dniu, bez dziur */
+  days: TrafficDay[];
+  /** strony `scoffie.app` (bez plików, bez błędów); `null` — niedostępne */
+  paths: TrafficCount[] | null;
+  countries: TrafficCount[] | null;
+  /** wejścia na `/zaproszenie` (landing zaproszeń); `null` — niedostępne */
+  invites: { total: number; days: { date: string; count: number }[] } | null;
+}
+
+export type TrafficState = IntegrationState<TrafficData>;
+
+/** `GET /admin/settings/changes?days=` — z dziennika audytu, od najstarszej. */
+export interface RuntimeSettingChange {
+  at: IsoDate;
+  key: string;
+  action: 'set' | 'clear';
+  /** nowa wartość (lista osób = sama liczba); `null` przy `clear` */
+  value: string | null;
+  previous: string | null;
 }

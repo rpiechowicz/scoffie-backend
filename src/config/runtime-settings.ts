@@ -1,6 +1,13 @@
 import {
+  readThrottleLimit,
+  parseThrottleLimitStrict,
+  type ThrottleKey,
+} from '../common/throttle/throttle-env';
+import {
+  AI_CARDS_MODES,
   AgentEnv,
   parseAllowedUsers,
+  parseCardsModeStrict,
   parseEnabledStrict,
   parseNumberStrict,
   parseUsdOrOffStrict,
@@ -26,10 +33,19 @@ export const RUNTIME_SETTING_KEYS = [
   'AI_TRIAL_MESSAGES',
   'AI_TRIAL_PLANS',
   'AI_ALLOWED_USERS',
+  'AI_CARDS_MODE',
+  // Limity HTTP — `readThrottleLimit` czyta je per żądanie (z nadpisaniami),
+  // więc zmiana działa bez restartu. Celowo BEZ `THROTTLE_ADMIN_*`: zbyt
+  // niski limit panelu zamknąłby panel przed adminem, który chce go cofnąć.
+  'THROTTLE_DEFAULT_LIMIT',
+  'THROTTLE_IP_LIMIT',
+  'THROTTLE_AUTH_LIMIT',
+  'THROTTLE_AGENT_MESSAGE_LIMIT',
+  'THROTTLE_AGENT_POLL_LIMIT',
 ] as const;
 export type RuntimeSettingKey = (typeof RUNTIME_SETTING_KEYS)[number];
 
-export type RuntimeSettingKind = 'boolean' | 'number' | 'list';
+export type RuntimeSettingKind = 'boolean' | 'number' | 'list' | 'choice';
 
 type Normalized = { ok: true; value: string } | { ok: false; error: string };
 
@@ -37,6 +53,8 @@ type RuntimeSettingSpec = {
   label: string;
   kind: RuntimeSettingKind;
   normalize: (raw: string) => Normalized;
+  /** Dozwolone wartości przy `kind: 'choice'`. */
+  options?: readonly string[];
   /** Wartość, która naprawdę działa — z `readAgentEnv`, z domyślnymi. */
   effective: (agent: AgentEnv) => string;
 };
@@ -66,6 +84,18 @@ const count =
 const ALLOWED_ENTRY =
   /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[^\s@,]+@[^\s@,]+\.[^\s@,]+)$/;
 const MAX_ALLOWED_ENTRIES = 200;
+
+const throttle = (key: ThrottleKey, label: string): RuntimeSettingSpec => ({
+  label,
+  kind: 'number',
+  normalize: (raw) => {
+    const parsed = parseThrottleLimitStrict(raw);
+    return parsed === undefined
+      ? { ok: false, error: `${key}: oczekiwana liczba całkowita ≥ 1` }
+      : { ok: true, value: String(parsed) };
+  },
+  effective: () => String(readThrottleLimit(key)),
+});
 
 export const RUNTIME_SETTINGS: Record<RuntimeSettingKey, RuntimeSettingSpec> = {
   AI_ENABLED: {
@@ -137,6 +167,49 @@ export const RUNTIME_SETTINGS: Record<RuntimeSettingKey, RuntimeSettingSpec> = {
     },
     effective: (agent) => agent.allowedUsers.join(','),
   },
+  AI_CARDS_MODE: {
+    label: 'Tryb kart asystenta',
+    kind: 'choice',
+    options: AI_CARDS_MODES,
+    normalize: (raw) => {
+      const parsed = parseCardsModeStrict(raw);
+      if (parsed === undefined) {
+        return {
+          ok: false,
+          error: `AI_CARDS_MODE: dozwolone ${AI_CARDS_MODES.join(', ')}`,
+        };
+      }
+      // Ta sama reguła, co w `assert-env`: na produkcji `off` zdejmuje zgodę
+      // człowieka z zapisu planu (bez karty i bez „Cofnij”). Env z `off`
+      // i włączonym asystentem nie przejdzie startu — panel nie może być
+      // tylnymi drzwiami do tego samego stanu.
+      if (parsed === 'off' && process.env.NODE_ENV === 'production') {
+        return {
+          ok: false,
+          error: 'AI_CARDS_MODE: off nie jest dozwolone na produkcji',
+        };
+      }
+      return { ok: true, value: parsed };
+    },
+    effective: (agent) => agent.cardsMode,
+  },
+  THROTTLE_DEFAULT_LIMIT: throttle(
+    'THROTTLE_DEFAULT_LIMIT',
+    'Żądania na minutę na osobę',
+  ),
+  THROTTLE_IP_LIMIT: throttle('THROTTLE_IP_LIMIT', 'Żądania na minutę na IP'),
+  THROTTLE_AUTH_LIMIT: throttle(
+    'THROTTLE_AUTH_LIMIT',
+    'Logowania na minutę na IP',
+  ),
+  THROTTLE_AGENT_MESSAGE_LIMIT: throttle(
+    'THROTTLE_AGENT_MESSAGE_LIMIT',
+    'Wiadomości do asystenta na minutę',
+  ),
+  THROTTLE_AGENT_POLL_LIMIT: throttle(
+    'THROTTLE_AGENT_POLL_LIMIT',
+    'Odpytania asystenta na minutę',
+  ),
 };
 
 export function isRuntimeSettingKey(key: string): key is RuntimeSettingKey {

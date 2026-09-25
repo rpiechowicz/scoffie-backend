@@ -11,6 +11,8 @@ import { AdminAlertsModule } from './alerts/admin-alerts.module';
 import { AdminAssistantModule } from './assistant/admin-assistant.module';
 import { AdminCatalogModule } from './catalog/admin-catalog.module';
 import { AdminGdprModule } from './gdpr/admin-gdpr.module';
+import { AdminDatabaseModule } from './database/admin-database.module';
+import { AdminTrafficModule } from './traffic/admin-traffic.module';
 import {
   AdminAuthController,
   AdminSessionController,
@@ -55,6 +57,8 @@ import { AdminUsersModule } from './users/admin-users.module';
     AdminGrowthModule,
     AdminGdprModule,
     AdminRevenueModule,
+    AdminDatabaseModule,
+    AdminTrafficModule,
   ],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],

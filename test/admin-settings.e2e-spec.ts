@@ -120,6 +120,12 @@ describe('Panel — sterowanie (/admin/settings) i odpowiedzi na recenzje', () =
       'AI_TRIAL_MESSAGES',
       'AI_TRIAL_PLANS',
       'AI_ALLOWED_USERS',
+      'AI_CARDS_MODE',
+      'THROTTLE_DEFAULT_LIMIT',
+      'THROTTLE_IP_LIMIT',
+      'THROTTLE_AUTH_LIMIT',
+      'THROTTLE_AGENT_MESSAGE_LIMIT',
+      'THROTTLE_AGENT_POLL_LIMIT',
     ]);
     expect(data.settings[0]).toMatchObject({
       kind: 'boolean',
