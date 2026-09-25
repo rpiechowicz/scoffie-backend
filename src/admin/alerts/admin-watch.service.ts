@@ -24,6 +24,7 @@ import {
   cronAlerts,
   crashFreeAlerts,
   domainAlerts,
+  gdprAlerts,
   mailFailedAlerts,
   mailQueueAlerts,
   planAlerts,
@@ -33,6 +34,7 @@ import {
   type Detection,
 } from './alert-rules';
 import { readAlertsEnv } from './alerts-env';
+import { GDPR_OPEN_STATUSES } from '../gdpr/gdpr-rules';
 
 /** Co 10 minut — częściej nie ma po co (Railway i Sentry mają limity). */
 export const WATCH_INTERVAL_MS = 10 * 60_000;
@@ -200,6 +202,14 @@ export class AdminWatchService
         },
         { kind: 'mail-failed', problems: mailFailedAlerts(failed24h) },
       ];
+    });
+
+    await attempt('RODO', async () => {
+      const open = await this.prisma.gdprRequest.findMany({
+        where: { status: { in: [...GDPR_OPEN_STATUSES] } },
+        select: { id: true, kind: true, dueAt: true },
+      });
+      return [{ kind: 'gdpr-due', problems: gdprAlerts(open, now) }];
     });
 
     if (mailEnv.transport === 'resend' && mailEnv.apiKey) {

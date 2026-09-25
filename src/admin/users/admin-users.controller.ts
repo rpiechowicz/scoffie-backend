@@ -23,9 +23,21 @@ import {
 } from '../admin.decorators';
 import { adminActor } from '../audit/admin-audit.service';
 import type { ResolvedAdminSession } from '../auth/admin-sessions.service';
-import type { HealthData, UserDetail, UserList } from '../contract';
+import type {
+  HealthData,
+  PushTestResult,
+  SentryUserState,
+  UserDetail,
+  UserList,
+} from '../contract';
 import { AdminMailsService } from './admin-mails.service';
-import { AdminReasonDto, AdminUserListQueryDto } from './admin-users.dto';
+import { AdminPushTestService } from './admin-push-test.service';
+import { AdminUserSentryService } from './admin-user-sentry.service';
+import {
+  AdminPushTestDto,
+  AdminReasonDto,
+  AdminUserListQueryDto,
+} from './admin-users.dto';
 import { AdminUsersService } from './admin-users.service';
 
 /**
@@ -35,7 +47,11 @@ import { AdminUsersService } from './admin-users.service';
  */
 @AdminController('users')
 export class AdminUsersController {
-  constructor(private readonly users: AdminUsersService) {}
+  constructor(
+    private readonly users: AdminUsersService,
+    private readonly pushTest: AdminPushTestService,
+    private readonly sentry: AdminUserSentryService,
+  ) {}
 
   @Get()
   @AdminRequires('users.read')
@@ -47,6 +63,37 @@ export class AdminUsersController {
   @AdminRequires('users.read')
   detail(@Param('id') rawId: string): Promise<UserDetail> {
     return this.users.detail(assertUuid(rawId, 'id'));
+  }
+
+  /** Błędy Sentry osoby z 14 dni — `users.read`, uzasadnienie w serwisie. */
+  @Get(':id/sentry')
+  @AdminRequires('users.read')
+  sentryIssues(@Param('id') rawId: string): Promise<SentryUserState> {
+    return this.sentry.forUser(assertUuid(rawId, 'id'));
+  }
+
+  /**
+   * Testowy push przez APNs (ROADMAPA §5.10). Step-up zawsze; urządzenie
+   * obcej osoby — dodatkowo potwierdzenie i powód (patrz serwis).
+   */
+  @Post(':id/devices/:deviceId/test-push')
+  @AdminRequires('users.push.test')
+  @RequireStepUp()
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  testPush(
+    @AdminAccess() access: AdminAccessContext,
+    @CurrentAdminSession() session: ResolvedAdminSession | null,
+    @Param('id') rawId: string,
+    @Param('deviceId') rawDeviceId: string,
+    @Body() dto: AdminPushTestDto,
+  ): Promise<PushTestResult> {
+    return this.pushTest.send(
+      adminActor(session, access),
+      assertUuid(rawId, 'id'),
+      assertUuid(rawDeviceId, 'deviceId'),
+      dto,
+    );
   }
 
   @Post(':id/health')

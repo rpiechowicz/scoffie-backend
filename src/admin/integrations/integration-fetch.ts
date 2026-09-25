@@ -69,6 +69,8 @@ export function normalizePrivateKey(raw: string | undefined): string {
     : '';
 }
 
+const MAX_CACHE_ENTRIES = 500;
+
 type CacheEntry = { at: number; value: Promise<IntegrationState<unknown>> };
 
 /**
@@ -95,6 +97,13 @@ export class IntegrationCache {
       return hit.value as Promise<IntegrationState<T>>;
     }
     const value = toState(load);
+    // Klucze per osoba (błędy Sentry na karcie) rosną z każdą otwartą
+    // kartą — powyżej sufitu wypada najstarszy wpis (Map trzyma kolejność).
+    this.entries.delete(key);
+    if (this.entries.size >= MAX_CACHE_ENTRIES) {
+      const [oldest] = this.entries.keys();
+      if (oldest !== undefined) this.entries.delete(oldest);
+    }
     this.entries.set(key, { at: this.now(), value });
     return value;
   }

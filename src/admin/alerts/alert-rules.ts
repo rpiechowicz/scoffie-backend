@@ -5,6 +5,11 @@ import type {
   SentryData,
 } from '../contract';
 import { plural } from '../../mail/templates/mail-kit';
+import {
+  GDPR_KIND_LABELS,
+  gdprDaysLeft,
+  gdprUrgency,
+} from '../gdpr/gdpr-rules';
 
 /**
  * Reguły centrum alertów — CZYSTE funkcje: stan świata → lista problemów.
@@ -26,7 +31,8 @@ export type AlertKind =
   | 'sentry-fatal'
   | 'mail-queue'
   | 'mail-failed'
-  | 'mail-domain';
+  | 'mail-domain'
+  | 'gdpr-due';
 
 export type DetectedAlert = {
   key: string;
@@ -197,6 +203,46 @@ export function domainAlerts(domains: readonly MailDomain[]): DetectedAlert[] {
       title: `Domena ${domain.name} niezweryfikowana`,
       detail: `Resend podaje status „${domain.status}” dla domeny nadawcy ${domain.name} — maile mogą lądować w spamie albo nie wychodzić.`,
     }));
+}
+
+/**
+ * 4. Wnioski RODO: otwarty wniosek mniej niż 7 dni przed terminem →
+ * `warning`, po terminie → `critical` (ten sam klucz — przebieg po terminie
+ * podbija wagę istniejącego alertu). Zamknięcie wniosku zamyka alert.
+ *
+ * Treść bez adresu wnioskodawcy: rodzaj, skrót id i data — reszta w panelu.
+ */
+export function gdprAlerts(
+  open: readonly { id: string; kind: string; dueAt: Date }[],
+  now: Date,
+): DetectedAlert[] {
+  return open.flatMap((request): DetectedAlert[] => {
+    const urgency = gdprUrgency(request.dueAt, now);
+    if (urgency === 'ok') return [];
+    const label =
+      GDPR_KIND_LABELS[request.kind as keyof typeof GDPR_KIND_LABELS] ??
+      request.kind;
+    const days = gdprDaysLeft(request.dueAt, now);
+    const due = request.dueAt.toISOString().slice(0, 10);
+    const short = request.id.slice(0, 8);
+    return [
+      urgency === 'overdue'
+        ? {
+            key: `gdpr-due:${request.id}`,
+            kind: 'gdpr-due',
+            severity: 'critical',
+            title: 'RODO: wniosek po terminie',
+            detail: `Wniosek ${short} — ${label} — miał termin ${due} (${-days} ${plural(-days, 'dzień', 'dni', 'dni')} temu). Odpowiedz i zamknij go w panelu RODO.`,
+          }
+        : {
+            key: `gdpr-due:${request.id}`,
+            kind: 'gdpr-due',
+            severity: 'warning',
+            title: 'RODO: zbliża się termin wniosku',
+            detail: `Wniosek ${short} — ${label} — termin ${due}, za ${days} ${plural(days, 'dzień', 'dni', 'dni')}.`,
+          },
+    ];
+  });
 }
 
 /* ── uzgadnianie z bazą ─────────────────────────────────────────────────── */

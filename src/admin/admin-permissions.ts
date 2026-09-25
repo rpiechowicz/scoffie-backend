@@ -44,6 +44,11 @@ export const ADMIN_PERMISSIONS = [
   'daily-report.send',
   /** Ekran „Wzrost”: lejek, kohorty, DAU/WAU/MAU (tylko agregaty). */
   'growth.read',
+  /** Testowy push na urządzenie osoby (step-up; obcej osoby — z powodem). */
+  'users.push.test',
+  /** Rejestr wniosków RODO (ROADMAPA §5.11) — odczyt i obsługa. */
+  'gdpr.read',
+  'gdpr.write',
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 

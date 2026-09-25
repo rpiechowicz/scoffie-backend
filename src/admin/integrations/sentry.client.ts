@@ -1,4 +1,10 @@
-import type { SentryData, SentryIssue, SentryProjectHealth } from '../contract';
+import type {
+  SentryData,
+  SentryIssue,
+  SentryProjectHealth,
+  SentryUserData,
+  SentryUserEvent,
+} from '../contract';
 import { fetchJson, IntegrationError } from './integration-fetch';
 import type { SentryEnv } from './integrations-env';
 
@@ -44,8 +50,33 @@ export async function fetchSentry(
   env: SentryEnv,
   fetchImpl: typeof fetch = globalThis.fetch,
 ): Promise<SentryData> {
+  const get = sentryGet(env, fetchImpl);
+  const { projects, missing, projectParams } = await sentryProjects(env, get);
+  const events = await eventsPerProject(get, projectParams);
+  const [health, issues] = await Promise.all([
+    Promise.all(projects.map((p) => projectHealth(p, get, events))),
+    get<ApiIssue[]>(
+      `/issues/?${new URLSearchParams({ query: UNRESOLVED, statsPeriod: '24h', sort: 'freq', limit: String(ISSUE_LIMIT) })}&${projectParams}`,
+    ).then(({ body }) => body.map((issue) => toIssue(issue))),
+  ]);
+
+  return {
+    projects: health,
+    issues,
+    url: `https://${env.org}.sentry.io/issues/`,
+    missing,
+  };
+}
+
+type SentryGet = <T>(path: string) => Promise<{ body: T; headers: Headers }>;
+
+/** GET w API organizacji — token w nagłówku, limit czasu z `fetchJson`. */
+export function sentryGet(
+  env: SentryEnv,
+  fetchImpl: typeof fetch = globalThis.fetch,
+): SentryGet {
   const base = `${env.apiUrl}/api/0/organizations/${encodeURIComponent(env.org)}`;
-  const get = <T>(path: string) =>
+  return <T>(path: string) =>
     fetchJson<T>(
       'Sentry',
       `${base}${path}`,
@@ -57,7 +88,20 @@ export async function fetchSentry(
       },
       fetchImpl,
     );
+}
 
+/**
+ * Projekty z `ADMIN_SENTRY_PROJECTS`, które token widzi (slug → numeryczne
+ * id, bo filtry chcą id), i gotowy fragment `project=…&project=…`.
+ */
+async function sentryProjects(
+  env: SentryEnv,
+  get: SentryGet,
+): Promise<{
+  projects: ApiProject[];
+  missing: string[];
+  projectParams: string;
+}> {
   const { body: all } = await get<ApiProject[]>('/projects/?per_page=100');
   const projects = env.projects
     .map((slug) => all.find((p) => p.slug === slug))
@@ -67,24 +111,116 @@ export async function fetchSentry(
       `Sentry: token nie widzi żadnego z projektów ${env.projects.join(', ')}`,
     );
   }
-
   const missing = env.projects.filter(
     (slug) => !all.some((p) => p.slug === slug),
   );
   const projectParams = projects.map((p) => `project=${p.id}`).join('&');
-  const events = await eventsPerProject(get, projectParams);
-  const [health, issues] = await Promise.all([
-    Promise.all(projects.map((p) => projectHealth(p, get, events))),
-    get<ApiIssue[]>(
-      `/issues/?${new URLSearchParams({ query: UNRESOLVED, statsPeriod: '24h', sort: 'freq', limit: String(ISSUE_LIMIT) })}&${projectParams}`,
-    ).then(({ body }) => body.map(toIssue)),
+  return { projects, missing, projectParams };
+}
+
+const USER_PERIOD = '14d';
+const USER_ISSUE_LIMIT = 25;
+const USER_EVENT_LIMIT = 20;
+const USER_EVENT_FIELDS = [
+  'id',
+  'title',
+  'level',
+  'project',
+  'release',
+  'timestamp',
+  'issue.id',
+] as const;
+
+type ApiEventRow = Partial<
+  Record<(typeof USER_EVENT_FIELDS)[number] | 'project.name', unknown>
+>;
+
+/**
+ * Błędy JEDNEJ osoby z 14 dni — iOS (i backend) ustawia w Sentry
+ * `user.id` = id konta, więc wystarczy wyszukiwanie po tym tagu:
+ *   - `/issues/?query=user.id:<id>` — problemy, w których osoba ma zdarzenie,
+ *     z licznikiem z 14 dni (`groupStatsPeriod=14d`),
+ *   - `/events/?field=…&query=user.id:<id>` (Discover, zbiór `errors`) —
+ *     ostatnie zdarzenia z wydaniem aplikacji.
+ * Zdarzenia to dodatek: ich porażka daje `eventsUnavailable`, nie błąd karty
+ * (Discover bywa wyłączony w planie albo odrzuca pole, którego nie zna).
+ *
+ * `userId` to UUID sprawdzony przez kontroler — wchodzi do zapytania bez
+ * cudzysłowów, bez możliwości doklejenia innego warunku.
+ */
+export async function fetchSentryUser(
+  env: SentryEnv,
+  userId: string,
+  fetchImpl: typeof fetch = globalThis.fetch,
+): Promise<SentryUserData> {
+  const get = sentryGet(env, fetchImpl);
+  const { projectParams } = await sentryProjects(env, get);
+  const query = `user.id:${userId}`;
+
+  const issueParams = new URLSearchParams({
+    query,
+    statsPeriod: USER_PERIOD,
+    groupStatsPeriod: USER_PERIOD,
+    sort: 'date',
+    limit: String(USER_ISSUE_LIMIT),
+  });
+  const eventParams = new URLSearchParams({
+    query,
+    statsPeriod: USER_PERIOD,
+    sort: '-timestamp',
+    per_page: String(USER_EVENT_LIMIT),
+    dataset: 'errors',
+  });
+  for (const field of USER_EVENT_FIELDS) eventParams.append('field', field);
+
+  const [issues, events] = await Promise.all([
+    get<ApiIssue[]>(`/issues/?${issueParams}&${projectParams}`).then(
+      ({ body }) =>
+        (Array.isArray(body) ? body : []).map((issue) =>
+          toIssue(issue, USER_PERIOD),
+        ),
+    ),
+    get<{ data?: ApiEventRow[] }>(`/events/?${eventParams}&${projectParams}`)
+      .then(({ body }) =>
+        (Array.isArray(body?.data) ? body.data : [])
+          .map((row) => toUserEvent(env, row))
+          .filter((event): event is SentryUserEvent => event !== null),
+      )
+      .catch((): null => null),
   ]);
 
   return {
-    projects: health,
     issues,
-    url: `https://${env.org}.sentry.io/issues/`,
-    missing,
+    events: events ?? [],
+    eventsUnavailable: events === null,
+    url: `https://${env.org}.sentry.io/issues/?${new URLSearchParams({ query, statsPeriod: USER_PERIOD })}`,
+  };
+}
+
+const str = (value: unknown): string | null =>
+  typeof value === 'string' && value ? value : null;
+
+/** Wiersz Discover → zdarzenie; wiersz bez id albo czasu odpada. */
+function toUserEvent(env: SentryEnv, row: ApiEventRow): SentryUserEvent | null {
+  const id = str(row.id);
+  const at = str(row.timestamp);
+  if (!id || !at) return null;
+  const project = str(row.project) ?? str(row['project.name']) ?? '';
+  const issueId =
+    typeof row['issue.id'] === 'number'
+      ? String(row['issue.id'])
+      : str(row['issue.id']);
+  const origin = `https://${env.org}.sentry.io`;
+  return {
+    id,
+    title: str(row.title) ?? '(bez tytułu)',
+    level: str(row.level) ?? 'error',
+    project,
+    release: str(row.release),
+    at,
+    permalink: issueId
+      ? `${origin}/issues/${encodeURIComponent(issueId)}/events/${encodeURIComponent(id)}/`
+      : `${origin}/discover/${encodeURIComponent(project)}:${encodeURIComponent(id)}/`,
   };
 }
 
@@ -97,7 +233,7 @@ type ApiStats = {
 
 /** Przyjęte zdarzenia błędów z 24 h wg id projektu; porażka = pusta mapa. */
 async function eventsPerProject(
-  get: <T>(path: string) => Promise<{ body: T }>,
+  get: SentryGet,
   projectParams: string,
 ): Promise<Map<string, number> | null> {
   const query = new URLSearchParams({
@@ -127,7 +263,7 @@ type ApiRelease = { version: string; dateCreated: string };
 
 async function projectHealth(
   project: ApiProject,
-  get: <T>(path: string) => Promise<{ body: T }>,
+  get: SentryGet,
   events: Map<string, number> | null,
 ): Promise<SentryProjectHealth> {
   const counts = new URLSearchParams({
@@ -182,9 +318,9 @@ function percent(rate: number | null | undefined): number | null {
   return typeof rate === 'number' ? Math.round(rate * 10_000) / 100 : null;
 }
 
-export function toIssue(issue: ApiIssue): SentryIssue {
-  // `count` to całe życie problemu; zdarzenia z okna są w `stats['24h']`.
-  const window = issue.stats?.['24h'];
+export function toIssue(issue: ApiIssue, period = '24h'): SentryIssue {
+  // `count` to całe życie problemu; zdarzenia z okna są w `stats[okres]`.
+  const window = issue.stats?.[period];
   const count = window
     ? window.reduce((sum, [, n]) => sum + n, 0)
     : Number(issue.count ?? 0);
