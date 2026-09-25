@@ -24,6 +24,7 @@ const ADMIN_ENV_KEYS = [
   'ADMIN_ACCESS_AUD',
   'THROTTLE_ADMIN_LIMIT',
   'THROTTLE_ADMIN_AUTH_LIMIT',
+  'THROTTLE_ADMIN_CODE_LIMIT',
 ] as const;
 
 /** Obejście bramki na czas testu; zwraca funkcję przywracającą env. */
@@ -32,8 +33,11 @@ export function useAdminDevGate(email = ADMIN_E2E_EMAIL): () => void {
   for (const key of ADMIN_ENV_KEYS) saved[key] = process.env[key];
   process.env.ADMIN_ACCESS_DEV_EMAIL = email;
   // Testy odpytują panel seriami — limit po bramce nie może ich dławić.
-  process.env.THROTTLE_ADMIN_LIMIT = '0';
-  process.env.THROTTLE_ADMIN_AUTH_LIMIT = '0';
+  // Wysoka liczba, nie 0: `readThrottleLimit` traktuje 0 jako błąd i wraca
+  // do domyślnej, więc „0” po cichu zostawiało limity włączone.
+  process.env.THROTTLE_ADMIN_LIMIT = '100000';
+  process.env.THROTTLE_ADMIN_AUTH_LIMIT = '100000';
+  process.env.THROTTLE_ADMIN_CODE_LIMIT = '100000';
   return () => {
     for (const key of ADMIN_ENV_KEYS) {
       if (saved[key] === undefined) delete process.env[key];

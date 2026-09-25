@@ -85,6 +85,9 @@ describe('Panel admina — logowanie (e2e)', () => {
     app = moduleRef.createNestApplication<NestExpressApplication>();
     configureApp(app);
     await app.init();
+    // Jeden nasłuchujący serwer: bez tego supertest stawia osobny na każde
+    // żądanie, a seria 60 równoległych kończyła się w CI `ECONNRESET`.
+    await app.listen(0);
     prisma = app.get(PrismaService);
     await wipeAdmins();
   });
@@ -427,6 +430,16 @@ describe('Panel admina — logowanie (e2e)', () => {
     }
     return out;
   };
+  // Jak Promise.all, ale czeka na WSZYSTKIE żądania, zanim zgłosi błąd —
+  // inaczej sprzątanie w `finally` biegnie, gdy reszta serii jeszcze leci,
+  // i spóźnione próby blokują następny test.
+  const settledAll = async <T>(items: PromiseLike<T>[]): Promise<T[]> => {
+    const results = await Promise.allSettled(items);
+    const failed = results.find((r) => r.status === 'rejected');
+    if (failed) throw failed.reason;
+    return results.map((r) => (r as PromiseFulfilledResult<T>).value);
+  };
+
   const wrongCode = (i: number) => {
     const code = String(100000 + i);
     return code === currentCode() ? String(200000 + i) : code;
@@ -438,7 +451,7 @@ describe('Panel admina — logowanie (e2e)', () => {
     app.get(AdminRateLimiter).reset();
     const savedAuthLimit = process.env.THROTTLE_ADMIN_AUTH_LIMIT;
     process.env.THROTTLE_ADMIN_AUTH_LIMIT = '1000';
-    const responses = await Promise.all(
+    const responses = await settledAll(
       Array.from({ length: 40 }, (_, i) =>
         api()
           .post('/admin/auth/totp/login')
@@ -478,7 +491,7 @@ describe('Panel admina — logowanie (e2e)', () => {
     delete process.env.THROTTLE_ADMIN_CODE_LIMIT; // domyślne 10 / min
     try {
       const stale = await createAdminSession(prisma, { stepUp: false });
-      const responses = await Promise.all(
+      const responses = await settledAll(
         Array.from({ length: 60 }, (_, i) =>
           api()
             .post('/admin/auth/step-up')
