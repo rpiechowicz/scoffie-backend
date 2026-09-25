@@ -186,6 +186,23 @@ describe('trendy i marża', () => {
       ),
     ).toBe(-60);
   });
+
+  it('poprzedni okres bez przychodu — zmiana marży 0 (brak porównania), nie cała bieżąca marża', () => {
+    expect(
+      marginTrendPp(
+        { revenueZl: 100, costUsd: 10 },
+        { revenueZl: 0, costUsd: 3 },
+        4,
+      ),
+    ).toBe(0);
+    expect(
+      marginTrendPp(
+        { revenueZl: 0, costUsd: 0 },
+        { revenueZl: 0, costUsd: 0 },
+        4,
+      ),
+    ).toBe(0);
+  });
 });
 
 describe('czas tury', () => {

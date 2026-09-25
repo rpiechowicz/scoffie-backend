@@ -187,12 +187,21 @@ export function marginPct(
   return ((revenueZl - costUsd * usdPln) / revenueZl) * 100;
 }
 
-/** Zmiana marży w punktach procentowych (bieżący − poprzedni okres). */
+/**
+ * Zmiana marży w punktach procentowych (bieżący − poprzedni okres).
+ *
+ * Poprzedni okres bez przychodu nie ma marży (dzielenie przez zero), więc
+ * nie ma też porównania — wtedy 0, jak w `trendPct`. Liczone wobec umownego
+ * 0 % pokazywałoby CAŁĄ bieżącą marżę jako „wzrost”; front przy zmianie 0
+ * i bieżącym przychodzie > 0 chowa plakietkę trendu. Bieżący okres bez
+ * przychodu zostaje spadkiem do 0 % — przychód realnie zniknął.
+ */
 export function marginTrendPp(
   current: { revenueZl: number; costUsd: number },
   previous: { revenueZl: number; costUsd: number },
   usdPln: number,
 ): number {
+  if (!(previous.revenueZl > 0)) return 0; // brak porównania
   return roundTo(
     marginPct(current.revenueZl, current.costUsd, usdPln) -
       marginPct(previous.revenueZl, previous.costUsd, usdPln),
