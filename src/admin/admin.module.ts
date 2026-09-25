@@ -22,6 +22,8 @@ import { AdminGrowthModule } from './growth/admin-growth.module';
 import { AdminHouseholdsModule } from './households/admin-households.module';
 import { AdminRevenueModule } from './revenue/admin-revenue.module';
 import { AdminSettingsModule } from './settings/admin-settings.module';
+import { AdminFlagsModule } from './flags/admin-flags.module';
+import { AdminAnnouncementsModule } from './announcements/admin-announcements.module';
 import { AdminIntegrationsModule } from './integrations/admin-integrations.module';
 import { AdminSubscriptionsModule } from './subscriptions/admin-subscriptions.module';
 import { AdminUsersModule } from './users/admin-users.module';
@@ -59,6 +61,8 @@ import { AdminUsersModule } from './users/admin-users.module';
     AdminRevenueModule,
     AdminDatabaseModule,
     AdminTrafficModule,
+    AdminFlagsModule,
+    AdminAnnouncementsModule,
   ],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],

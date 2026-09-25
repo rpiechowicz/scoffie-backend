@@ -18,6 +18,8 @@ import { DataExportModule } from './data-export/data-export.module';
 import { AppThrottleModule } from './common/throttle/throttle.module';
 import { AdminModule } from './admin/admin.module';
 import { RuntimeSettingsModule } from './runtime-settings/runtime-settings.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
 
 @Module({
   imports: [
@@ -46,6 +48,9 @@ import { RuntimeSettingsModule } from './runtime-settings/runtime-settings.modul
     AgentModule,
     BillingModule,
     MailModule,
+    // Flagi funkcji per dom (`/me/flags`) i banery (`/me/announcements`).
+    FeatureFlagsModule,
+    AnnouncementsModule,
     // Panel administratora (`/admin/*`) — moduł jednokierunkowy jak asystent:
     // woła domenę, nic go nie importuje. Bez ADMIN_ACCESS_* każda jego trasa
     // odpowiada jak nieistniejąca (404).

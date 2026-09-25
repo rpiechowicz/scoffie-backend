@@ -1277,6 +1277,70 @@
         "tags": ["billing"],
         "security": [{ "bearer": [] }]
       }
+    },
+    "/me/flags": {
+      "get": {
+        "operationId": "featureFlagsList",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureFlagsListResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Błąd: `{code, message, details?, requestId}`",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "security": [{ "bearer": [] }],
+        "tags": ["me"]
+      }
+    },
+    "/me/announcements": {
+      "get": {
+        "operationId": "announcementsList",
+        "parameters": [
+          {
+            "name": "X-Client-Platform",
+            "in": "header",
+            "description": "`ios` albo `android`. Bez nagłówka platformę rozpoznaje `User-Agent` (URLSession → ios, OkHttp → android).",
+            "required": false,
+            "schema": { "type": "string", "enum": ["ios", "android"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementsListResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Błąd: `{code, message, details?, requestId}`",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "security": [{ "bearer": [] }],
+        "tags": ["me"]
+      }
     }
   },
   "info": {
@@ -8290,6 +8354,58 @@
           "tier"
         ]
       },
+      "AnnouncementSeverityValue": {
+        "enum": ["critical", "info", "warning"],
+        "type": "string"
+      },
+      "AnnouncementsListResponse": {
+        "description": "`GET /me/announcements`",
+        "type": "object",
+        "properties": {
+          "announcements": {
+            "description": "aktywne teraz dla tej osoby i platformy, krytyczne pierwsze, najwyżej 3",
+            "type": "array",
+            "items": {
+              "description": "Jeden baner w aplikacji (`GET /me/announcements`).",
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "title": {
+                  "description": "≤ 80 znaków, czysty tekst, jedna linia",
+                  "type": "string"
+                },
+                "body": {
+                  "description": "≤ 400 znaków, czysty tekst, może mieć `\\n`",
+                  "type": "string"
+                },
+                "severity": {
+                  "$ref": "#/components/schemas/AnnouncementSeverityValue"
+                },
+                "dismissible": {
+                  "description": "`true` — osoba może zamknąć baner (klient pamięta `id` lokalnie)",
+                  "type": "boolean"
+                },
+                "startsAt": { "type": "string" },
+                "endsAt": {
+                  "description": "`null` = do odwołania",
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "body",
+                "dismissible",
+                "endsAt",
+                "id",
+                "severity",
+                "startsAt",
+                "title"
+              ]
+            }
+          }
+        },
+        "required": ["announcements"]
+      },
       "AppErrorCode": {
         "enum": [
           "AI_BUDGET_PAUSED",
@@ -9440,6 +9556,18 @@
           "requestId": { "type": "string" }
         },
         "required": ["code", "message", "requestId"]
+      },
+      "FeatureFlagsListResponse": {
+        "description": "`GET /me/flags`",
+        "type": "object",
+        "properties": {
+          "flags": {
+            "description": "`{ klucz: włączona }` — tylko flagi, które istnieją; nieznany klucz = wyłączona.",
+            "type": "object",
+            "additionalProperties": { "type": "boolean" }
+          }
+        },
+        "required": ["flags"]
       },
       "FindRecipesDto": {
         "type": "object",

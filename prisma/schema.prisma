@@ -412,6 +412,7 @@ model Household {
   cookidooIntegration       CookidooIntegration?
   agentConversations        AgentConversation[]
   agentMemories             AgentMemory[]
+  featureFlagOverrides      FeatureFlagHousehold[]
   /// Ręczne nadanie planu (operator, `POST /ops/households/:id/tier`):
   /// rodzina testująca, rekompensata, konto recenzenta App Store. Ma
   /// pierwszeństwo przed subskrypcją; `null` = liczy się subskrypcja.
@@ -1785,4 +1786,73 @@ model RuntimeSetting {
   updatedBy String
   reason    String
   updatedAt DateTime @updatedAt
+}
+
+/// Flagi funkcji (bety) per dom. Ocena w `src/feature-flags/`: nadpisanie
+/// domu > rollout (hasz klucza i id domu, stabilny) > `enabled`. Zmiany tylko
+/// z panelu (`/admin/flags`, step-up + audyt); aplikacja czyta `GET /me/flags`.
+model FeatureFlag {
+  /// np. `assistant.voice` — małe litery, cyfry, `.`, `_`, `-`
+  key            String   @id
+  description    String   @default("")
+  /// Włączona dla wszystkich domów (poza nadpisaniem „wyłączona”).
+  enabled        Boolean  @default(false)
+  /// 0–100: odsetek domów, które dostają flagę mimo `enabled = false`.
+  rolloutPercent Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  /// Adres admina, który ostatnio zmienił flagę.
+  updatedBy      String
+
+  households FeatureFlagHousehold[]
+}
+
+/// Nadpisanie flagi dla jednego domu. Kasowanie domu albo flagi kasuje wpis.
+model FeatureFlagHousehold {
+  flagKey     String
+  householdId String   @db.Uuid
+  enabled     Boolean
+  updatedAt   DateTime @updatedAt
+  updatedBy   String
+
+  flag      FeatureFlag @relation(fields: [flagKey], references: [key], onDelete: Cascade, onUpdate: Cascade)
+  household Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@id([flagKey, householdId])
+  @@index([householdId])
+}
+
+enum AnnouncementSeverity {
+  info
+  warning
+  critical
+}
+
+enum AnnouncementAudience {
+  all
+  ios
+  android
+  households
+}
+
+/// Komunikat (baner) w aplikacji. Aktywny, gdy `startsAt <= now < endsAt`
+/// (`endsAt` null = do odwołania). Czysty tekst, tytuł ≤ 80, treść ≤ 400,
+/// najwyżej 3 aktywne naraz — pilnuje `src/announcements/`.
+model AppAnnouncement {
+  id           String               @id @default(uuid()) @db.Uuid
+  title        String
+  body         String
+  severity     AnnouncementSeverity @default(info)
+  audience     AnnouncementAudience @default(all)
+  /// Tylko przy `audience = households`. Bez klucza obcego: skasowany dom
+  /// po prostu nikogo już nie dopasuje.
+  householdIds String[]             @default([]) @db.Uuid
+  startsAt     DateTime
+  endsAt       DateTime?
+  dismissible  Boolean              @default(true)
+  createdBy    String
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([startsAt, endsAt])
 }

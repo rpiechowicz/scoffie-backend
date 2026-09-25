@@ -1577,3 +1577,119 @@ export interface RuntimeSettingChange {
   value: string | null;
   previous: string | null;
 }
+
+// ——— Flagi funkcji (bety) i komunikaty w aplikacji ———
+
+/** Skąd wartość flagi dla domu: nadpisanie > rollout > globalnie > wyłączona. */
+export type FeatureFlagSource = 'override' | 'rollout' | 'global' | 'off';
+
+export interface FeatureFlagRow {
+  /** `assistant.voice` — małe litery, cyfry, `.`, `_`, `-` */
+  key: string;
+  description: string;
+  /** włączona dla wszystkich domów */
+  enabled: boolean;
+  /** 0–100, deterministycznie po haszu klucza i id domu */
+  rolloutPercent: number;
+  /** nadpisania domów: ile włącza, ile wyłącza */
+  overridesOn: number;
+  overridesOff: number;
+  updatedAt: IsoDate;
+  /** adres admina */
+  updatedBy: string;
+}
+
+/** `GET /admin/flags` */
+export interface FeatureFlagsData {
+  flags: FeatureFlagRow[];
+}
+
+/** `POST /admin/flags` (step-up) */
+export interface FeatureFlagCreate {
+  key: string;
+  description: string;
+  enabled: boolean;
+  rolloutPercent: number;
+  reason: string;
+}
+
+/** `PATCH /admin/flags/:key` (step-up) — pola pominięte zostają */
+export interface FeatureFlagUpdate {
+  description?: string;
+  enabled?: boolean;
+  rolloutPercent?: number;
+  reason: string;
+}
+
+export interface HouseholdFlagRow {
+  key: string;
+  description: string;
+  /** nadpisanie tego domu; `null` — brak */
+  override: boolean | null;
+  /** co dom dostaje teraz */
+  effective: boolean;
+  source: FeatureFlagSource;
+}
+
+/** `GET /admin/flags/households/:householdId` */
+export interface HouseholdFlagsData {
+  householdId: string;
+  flags: HouseholdFlagRow[];
+}
+
+/** `PUT /admin/flags/:key/households/:householdId` (step-up); zdjęcie — `DELETE` z `{ reason }` */
+export interface HouseholdFlagOverride {
+  enabled: boolean;
+  reason: string;
+}
+
+export type AnnouncementSeverity = 'info' | 'warning' | 'critical';
+/** `households` — tylko domy z `householdIds` */
+export type AnnouncementAudience = 'all' | 'ios' | 'android' | 'households';
+export type AnnouncementState = 'active' | 'scheduled' | 'ended';
+
+export interface AnnouncementRow {
+  id: string;
+  /** ≤ 80 znaków, czysty tekst */
+  title: string;
+  /** ≤ 400 znaków, czysty tekst */
+  body: string;
+  severity: AnnouncementSeverity;
+  audience: AnnouncementAudience;
+  householdIds: string[];
+  startsAt: IsoDate;
+  /** `null` — do odwołania */
+  endsAt: IsoDate | null;
+  dismissible: boolean;
+  /** adres admina */
+  createdBy: string;
+  createdAt: IsoDate;
+  state: AnnouncementState;
+}
+
+/** `GET /admin/announcements` */
+export interface AnnouncementsData {
+  /** aktywne teraz, krytyczne pierwsze */
+  active: AnnouncementRow[];
+  /** start w przyszłości, najbliższe pierwsze */
+  scheduled: AnnouncementRow[];
+  /** zakończone w ostatnich 30 dniach, najnowsze pierwsze (≤ 50) */
+  ended: AnnouncementRow[];
+  limits: { titleMax: number; bodyMax: number; maxActive: number };
+}
+
+/** `POST /admin/announcements` (step-up) */
+export interface AnnouncementCreate {
+  title: string;
+  body: string;
+  severity: AnnouncementSeverity;
+  audience: AnnouncementAudience;
+  /** wymagane przy `audience = households` (1–50) */
+  householdIds?: string[];
+  /** brak — od teraz */
+  startsAt?: IsoDate | null;
+  /** brak — do odwołania */
+  endsAt?: IsoDate | null;
+  dismissible: boolean;
+  reason: string;
+}

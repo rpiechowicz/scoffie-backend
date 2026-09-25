@@ -51,6 +51,12 @@ export const ADMIN_PERMISSIONS = [
   'gdpr.write',
   /** Wypłaty z Apple (raporty sprzedaży i finansów App Store Connect) i kurs NBP. */
   'revenue.read',
+  /** Flagi funkcji (bety) per dom — zapis ze step-upem. */
+  'flags.read',
+  'flags.write',
+  /** Komunikaty (banery) w aplikacji — publikacja ze step-upem. */
+  'announcements.read',
+  'announcements.write',
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
