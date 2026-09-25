@@ -11,6 +11,7 @@ describe('AgentRetentionService.sweep', () => {
     agentReport: { deleteMany: jest.Mock };
     refreshToken: { deleteMany: jest.Mock };
     pushDevice: { deleteMany: jest.Mock };
+    userActivityDay: { deleteMany: jest.Mock };
     agentTurn: { updateMany: jest.Mock };
   };
   let service: AgentRetentionService;
@@ -26,6 +27,9 @@ describe('AgentRetentionService.sweep', () => {
       agentReport: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
       refreshToken: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
       pushDevice: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      userActivityDay: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 5 }),
+      },
       agentTurn: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
     service = new AgentRetentionService(prisma as unknown as PrismaService);
@@ -50,10 +54,15 @@ describe('AgentRetentionService.sweep', () => {
       reports: 0,
       refreshTokens: 2,
       pushDevices: 0,
+      activityDays: 5,
     });
     // Polityka §10: księga kosztów do 12 miesięcy.
     expect(prisma.aiUsage.deleteMany).toHaveBeenCalledWith({
       where: { createdAt: { lt: new Date('2025-09-02T12:00:00.000Z') } },
+    });
+    // Aktywność dzienna — też dane o użyciu, też 12 miesięcy.
+    expect(prisma.userActivityDay.deleteMany).toHaveBeenCalledWith({
+      where: { date: { lt: new Date('2025-09-02T12:00:00.000Z') } },
     });
     expect(prisma.agentConversation.deleteMany).toHaveBeenCalledWith({
       where: {

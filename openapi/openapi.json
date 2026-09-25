@@ -9279,9 +9279,11 @@
                 "status"
               ]
             }
-          }
+          },
+          "activityDays": { "type": "array", "items": { "type": "string" } }
         },
         "required": [
+          "activityDays",
           "assistant",
           "consents",
           "cookidoo",

@@ -69,6 +69,7 @@ model User {
   cookidooIntegrations CookidooIntegration[] @relation("CookidooIntegrationConnector")
 
   dailySteps DailyStepCount[]
+  activityDays UserActivityDay[]
 
   agentConversations AgentConversation[]
   consentEvents      ConsentEvent[]
@@ -80,6 +81,8 @@ model User {
   @@index([identityHash])
   /// Panel: „zalogowani dziś” na pulpicie i sortowanie listy osób i domów.
   @@index([lastLoginAt])
+  /// Panel: kohorty rejestracji (lejek, retencja — ekran „Wzrost”).
+  @@index([createdAt])
 }
 
 /// Zgłoszenie niewłaściwej odpowiedzi asystenta („Zgłoś odpowiedź").
@@ -801,6 +804,23 @@ model DailyStepCount {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, date])
+}
+
+/// Doba (warszawska), w której osoba użyła aplikacji: pierwsze uwierzytelnione
+/// żądanie HTTP albo połączenie socketu (`UserActivityService`). Jeden wiersz
+/// na osobę i dobę — z tego panel liczy DAU/WAU/MAU i retencję kohort
+/// (ROADMAPA §5.8), czego `lastLoginAt` (tylko OSTATNIE logowanie) nie umie.
+/// Kaskada z kontem (RODO), w eksporcie danych osoby, retencja 12 miesięcy
+/// (`AgentRetentionService`).
+model UserActivityDay {
+  userId String   @db.Uuid
+  date   DateTime @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, date])
+  /// DAU/WAU/MAU: zakres dat bez względu na osobę.
+  @@index([date])
 }
 
 /// Rozmowa z asystentem AI — per użytkownik, w zakresie gospodarstwa

@@ -15,6 +15,7 @@ import {
   AdminSessionController,
 } from './auth/admin-auth.controller';
 import { AdminAuthService } from './auth/admin-auth.service';
+import { AdminGrowthModule } from './growth/admin-growth.module';
 import { AdminHouseholdsModule } from './households/admin-households.module';
 import { AdminSettingsModule } from './settings/admin-settings.module';
 import { AdminIntegrationsModule } from './integrations/admin-integrations.module';
@@ -49,6 +50,7 @@ import { AdminUsersModule } from './users/admin-users.module';
     AdminAuditModule,
     AdminSettingsModule,
     AdminAlertsModule,
+    AdminGrowthModule,
   ],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],

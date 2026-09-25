@@ -20,6 +20,8 @@ const INVITATION_GRACE_DAYS = 30;
 const AI_USAGE_DAYS = 365;
 /** Zgłoszenia odpowiedzi — rok, tyle trzeba na rozpatrzenie i statystykę. */
 const AGENT_REPORT_DAYS = 365;
+/** Aktywność dzienna (`UserActivityDay`) — dane o użyciu, polityka §10: do 12 miesięcy. */
+const ACTIVITY_DAYS = 365;
 /** Urządzenie push, które od 90 dni nie odpowiada, nie wróci. */
 const DEAD_PUSH_DEVICE_DAYS = 90;
 /**
@@ -41,6 +43,7 @@ export type RetentionSweep = {
   reports: number;
   refreshTokens: number;
   pushDevices: number;
+  activityDays: number;
 };
 
 /**
@@ -105,6 +108,11 @@ export class AgentRetentionService
     const refreshTokens = await this.prisma.refreshToken.deleteMany({
       where: { expiresAt: { lt: now } },
     });
+    // `date` to doba (`@db.Date`) — porównanie z chwilą przycina ją do dnia UTC,
+    // co przy roku retencji nie ma znaczenia.
+    const activityDays = await this.prisma.userActivityDay.deleteMany({
+      where: { date: { lt: daysAgo(now, ACTIVITY_DAYS) } },
+    });
     const pushDevices = await this.prisma.pushDevice.deleteMany({
       where: {
         isActive: false,
@@ -131,6 +139,7 @@ export class AgentRetentionService
       reports: reports.count,
       refreshTokens: refreshTokens.count,
       pushDevices: pushDevices.count,
+      activityDays: activityDays.count,
     };
     if (days <= 0) {
       return {

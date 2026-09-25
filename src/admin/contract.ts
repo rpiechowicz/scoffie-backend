@@ -1090,3 +1090,67 @@ export interface DailyReportSendResult {
   queued: number;
   recipients: string[];
 }
+
+// ——— Wzrost: lejek, kohorty, aktywni (ROADMAPA §5.8) ———
+
+/** `GET /admin/growth?period=7|30|90` — kohorta rejestracji z ostatnich N dób (Warszawa). */
+export type GrowthPeriod = '7' | '30' | '90';
+
+/**
+ * Kroki lejka po kolei: `User.createdAt` → `onboardingCompletedAt` →
+ * pierwsze `Membership` → pierwszy `PlanItem` w domu osoby → zgoda
+ * `ConsentEvent` AI_ASSISTANT/GRANTED → pierwsza `AgentTurn` → pierwsza
+ * `Subscription` APPLE z produkcji.
+ */
+export type FunnelStepKey =
+  | 'registered'
+  | 'onboarded'
+  | 'household'
+  | 'plan'
+  | 'aiConsent'
+  | 'firstTurn'
+  | 'purchase';
+
+export interface FunnelStep {
+  key: FunnelStepKey;
+  /** osoby z kohorty, które doszły do tego kroku i do wszystkich poprzednich */
+  users: number;
+  /** % od rejestracji (0–100, jedno miejsce po przecinku) */
+  pctOfStart: number;
+  /** % od poprzedniego kroku (pierwszy krok: 100) */
+  pctOfPrevious: number;
+  /** mediana czasu od rejestracji do kroku w sekundach; `null` — nikt nie doszedł */
+  medianSecondsToStep: number | null;
+}
+
+/** Tygodniowa kohorta rejestracji (tydzień od poniedziałku, Warszawa). */
+export interface Cohort {
+  /** poniedziałek tygodnia rejestracji (północ w Warszawie) */
+  weekStart: IsoDate;
+  users: number;
+  /**
+   * tydzień 0..8: % osób kohorty aktywnych w tym tygodniu (`UserActivityDay`);
+   * `null` — tydzień jeszcze nie nastał albo skończył się przed `activitySince`
+   */
+  weeks: (number | null)[];
+}
+
+/** Doba z `UserActivityDay`: DAU tej doby, WAU z 7 i MAU z 30 dób do niej włącznie. */
+export interface ActiveDay {
+  /** północ doby w Warszawie */
+  date: IsoDate;
+  dau: number;
+  wau: number;
+  mau: number;
+}
+
+export interface GrowthData {
+  period: GrowthPeriod;
+  funnel: FunnelStep[];
+  /** ostatnie 12 tygodni, najstarszy pierwszy */
+  cohorts: Cohort[];
+  /** ostatnie 30 dób do dziś włącznie */
+  active: ActiveDay[];
+  /** od kiedy zbieramy aktywność (wdrożenie tabeli); `null` — jeszcze nie */
+  activitySince: IsoDate | null;
+}

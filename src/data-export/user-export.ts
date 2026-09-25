@@ -65,6 +65,7 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
     aiUsage,
     memoryNotes,
     subscriptions,
+    activityDays,
   ] = await Promise.all([
     prisma.consentEvent.findMany({
       where: { userId },
@@ -262,6 +263,13 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
           },
         })
       : Promise.resolve([]),
+    // Doby, w których osoba korzystała z aplikacji (retencja w panelu) — same
+    // daty, bez godzin i bez tego, co robiła.
+    prisma.userActivityDay.findMany({
+      where: { userId },
+      orderBy: { date: 'asc' },
+      select: { date: true },
+    }),
   ]);
 
   // `identityHash` NIE wychodzi w eksporcie: to nasz klucz wewnętrzny, a jego
@@ -333,6 +341,9 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
     },
     devices,
     cookidoo,
+    activityDays: activityDays.map((day) =>
+      day.date.toISOString().slice(0, 10),
+    ),
   };
 }
 
