@@ -50,6 +50,11 @@ export const WS_AUTH_EXPIRED_EVENT = 'auth:expired';
 type Dependencies = {
   accessTokens: Pick<AccessTokenService, 'verify' | 'householdIds'>;
   onHandshake?: WsHandshakeObserver;
+  /**
+   * Osoba rozpoznana z tokenu (`UserActivityService.record`) — synchronicznie,
+   * bez czekania; zapis aktywności nie może opóźnić ani położyć handshake'u.
+   */
+  onAuthenticated?: (userId: string) => void;
   /** Czytany per handshake — e2e przełącza tryb w jednym procesie. */
   readMode?: () => WsAuthMode;
   now?: () => number;
@@ -88,6 +93,7 @@ export class AuthIoAdapter extends IoAdapter {
     this.deps = {
       accessTokens: deps.accessTokens,
       onHandshake: deps.onHandshake ?? (() => undefined),
+      onAuthenticated: deps.onAuthenticated ?? (() => undefined),
       readMode: deps.readMode ?? (() => resolveWsAuthMode(process.env)),
       now: deps.now ?? (() => Date.now()),
     };
@@ -173,6 +179,13 @@ export class AuthIoAdapter extends IoAdapter {
       }
     }
     this.deps.onHandshake({ outcome: 'token' });
+    try {
+      this.deps.onAuthenticated(verdict.userId);
+    } catch (error) {
+      this.logger.warn(
+        `onAuthenticated failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private reject(reason: AccessTokenFailureReason): WsHandshakeError {

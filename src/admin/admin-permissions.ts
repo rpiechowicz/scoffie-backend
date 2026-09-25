@@ -42,6 +42,8 @@ export const ADMIN_PERMISSIONS = [
   /** Raport „Scoffie wczoraj” — podgląd i wysyłka na żądanie (NIE `reports.*`, to zgłoszenia asystenta). */
   'daily-report.read',
   'daily-report.send',
+  /** Ekran „Wzrost”: lejek, kohorty, DAU/WAU/MAU (tylko agregaty). */
+  'growth.read',
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 

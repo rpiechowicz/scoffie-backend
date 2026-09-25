@@ -85,16 +85,18 @@ const makeAdapter = (opts: {
     .fn()
     .mockResolvedValue(opts.households ?? ['hh-1', 'hh-2']);
   const outcomes: WsHandshakeOutcome[] = [];
+  const authenticated: string[] = [];
   // Konstruktor IoAdapter czyta tylko `getUnderlyingHttpServer` — atrapa
   // aplikacji wystarcza, serwer Socket.IO nie powstaje w tym teście.
   const app = { getUnderlyingHttpServer: () => ({}) } as never;
   const adapter = new AuthIoAdapter(app, {
     accessTokens: { verify, householdIds },
     onHandshake: (o) => outcomes.push(o),
+    onAuthenticated: (userId) => authenticated.push(userId),
     readMode: () => opts.mode ?? 'soft',
     now: opts.now,
   });
-  return { adapter, verify, householdIds, outcomes };
+  return { adapter, verify, householdIds, outcomes, authenticated };
 };
 
 /** Ścieżka runtime: middleware, potem `connection` uzbraja timer. */
@@ -131,7 +133,7 @@ describe('AuthIoAdapter.authenticate', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('poprawny token → socket.data, najpierw user:<id>, potem household:*, outcome token', async () => {
-    const { adapter, householdIds, outcomes } = makeAdapter({});
+    const { adapter, householdIds, outcomes, authenticated } = makeAdapter({});
     const socket = makeSocket({ token: 'good' });
 
     await adapter.authenticate(socket as never);
@@ -148,6 +150,8 @@ describe('AuthIoAdapter.authenticate', () => {
       socket.join.mock.invocationCallOrder[0],
     );
     expect(outcomes).toEqual([{ outcome: 'token' }]);
+    // Aktywność dnia: osoba rozpoznana z tokenu.
+    expect(authenticated).toEqual(['user-1']);
   });
 
   it('domownik usunięty w trakcie łączenia socketu nie zostaje w pokoju domu', async () => {
@@ -186,7 +190,7 @@ describe('AuthIoAdapter.authenticate', () => {
 
   it('token, którego exp minął w trakcie weryfikacji → odmowa expired (disconnect w middleware to no-op)', async () => {
     const now = 1_000_000_000_000;
-    const { adapter, outcomes } = makeAdapter({
+    const { adapter, outcomes, authenticated } = makeAdapter({
       verdict: { ...GOOD, exp: now / 1000 - 1 },
       now: () => now,
     });
@@ -197,6 +201,7 @@ describe('AuthIoAdapter.authenticate', () => {
       .catch((e: unknown) => e);
 
     expect((error as WsHandshakeError).data.reason).toBe('expired');
+    expect(authenticated).toEqual([]);
     expect(socket.join).not.toHaveBeenCalled();
     expect(outcomes).toEqual([{ outcome: 'rejected', reason: 'expired' }]);
   });

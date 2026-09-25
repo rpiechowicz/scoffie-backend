@@ -7,6 +7,7 @@ import {
 import { Request } from 'express';
 import { AppException } from '../common/app-exception';
 import { AccessTokenService, parseBearer } from './access-token.service';
+import { UserActivityService } from './user-activity.service';
 
 type RequestWithUser = Request & { user?: { id: string } };
 
@@ -14,10 +15,15 @@ type RequestWithUser = Request & { user?: { id: string } };
  * REST: `Authorization: Bearer <access token>` → `request.user.id`.
  * Ta sama weryfikacja co handshake WS (`AccessTokenService`): podpis, `exp`
  * i istnienie usera. Odmowa zawsze jako `UNAUTHORIZED` z powodem w `details`.
+ * Rozpoznana osoba liczy się do aktywności dnia (`UserActivityService` —
+ * raz na dobę, bez czekania na zapis).
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly accessTokens: AccessTokenService) {}
+  constructor(
+    private readonly accessTokens: AccessTokenService,
+    private readonly activity: UserActivityService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithUser>();
@@ -43,6 +49,7 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     request.user = { id: verdict.userId };
+    this.activity.record(verdict.userId);
     return true;
   }
 }
