@@ -17,8 +17,13 @@ export type AdminEnv = {
   accessTeamDomain: string | null;
   /** Tag AUD aplikacji Access (jeden albo kilka po przecinku). */
   accessAud: string[];
-  /** Adres, który może założyć PIERWSZE konto admina (bootstrap). */
-  bootstrapEmail: string | null;
+  /**
+   * Adresy właściciela (`ADMIN_BOOTSTRAP_EMAIL`, po przecinku). Każdym z nich
+   * można założyć PIERWSZE konto, a potem każdy wchodzi na TO SAMO konto —
+   * Access przepuszcza tego samego człowieka pod kilkoma adresami (Gmail,
+   * iCloud, służbowy), a klucze i TOTP są jedne.
+   */
+  ownerEmails: string[];
   /** RP ID WebAuthn — domena panelu, np. `dashboard.scoffie.app`; lokalnie `localhost`. */
   webauthnRpId: string | null;
   /** Pochodzenie panelu, np. `https://dashboard.scoffie.app` (kilka po przecinku). */
@@ -65,11 +70,24 @@ export function adminDevBypassEmail(
   return email || null;
 }
 
+/** Ten sam człowiek: ten sam adres albo oba na liście adresów właściciela. */
+export function sameAdminIdentity(
+  a: string,
+  b: string,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (a === b) return true;
+  const owners = readAdminEnv(env).ownerEmails;
+  return owners.includes(a) && owners.includes(b);
+}
+
 export function readAdminEnv(env: NodeJS.ProcessEnv = process.env): AdminEnv {
   return {
     accessTeamDomain: normalizeTeamDomain(env.ADMIN_ACCESS_TEAM_DOMAIN),
     accessAud: list(env.ADMIN_ACCESS_AUD),
-    bootstrapEmail: lower(env.ADMIN_BOOTSTRAP_EMAIL) || null,
+    ownerEmails: list(env.ADMIN_BOOTSTRAP_EMAIL).map((email) =>
+      email.toLowerCase(),
+    ),
     webauthnRpId: lower(env.ADMIN_WEBAUTHN_RP_ID) || null,
     webauthnOrigins: list(env.ADMIN_WEBAUTHN_ORIGIN).map((origin) =>
       origin.replace(/\/+$/, ''),
@@ -197,7 +215,7 @@ export function adminEnvProblems(env: NodeJS.ProcessEnv = process.env): {
         'Panel admina: brak ADMIN_PROXY_SECRET — CF-Connecting-IP / CF-IPCountry od Workera są ignorowane (IP = adres połączenia, kraj pusty)',
       );
     }
-    if (!admin.bootstrapEmail) {
+    if (admin.ownerEmails.length === 0) {
       warnings.push(
         'Panel admina: brak ADMIN_BOOTSTRAP_EMAIL — jeśli w bazie nie ma jeszcze admina, pierwszego konta nie da się założyć',
       );

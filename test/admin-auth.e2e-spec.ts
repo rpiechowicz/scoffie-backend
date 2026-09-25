@@ -767,4 +767,40 @@ describe('Panel admina — logowanie (e2e)', () => {
       }
     }
   });
+
+  it('kilka adresów właściciela = jedno konto; obcy adres nie wchodzi na sesję', async () => {
+    const saved = {
+      boot: process.env.ADMIN_BOOTSTRAP_EMAIL,
+      dev: process.env.ADMIN_ACCESS_DEV_EMAIL,
+    };
+    const restore = (key: string, value: string | undefined) => {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    };
+    try {
+      process.env.ADMIN_BOOTSTRAP_EMAIL = `${ADMIN_E2E_EMAIL}, Drugi@Scoffie.local`;
+      const session = await createAdminSession(prisma, { stepUp: true });
+
+      // Ten sam człowiek przez Access pod drugim adresem: ta sama sesja i konto.
+      process.env.ADMIN_ACCESS_DEV_EMAIL = 'drugi@scoffie.local';
+      const view = await api()
+        .get('/admin/session')
+        .set('Cookie', session.cookie)
+        .expect(200);
+      expect(view.body.email).toBe(ADMIN_E2E_EMAIL);
+      const state = await api().get('/admin/auth/state').expect(200);
+      expect(state.body.bootstrap).toBe(false);
+      expect(await prisma.adminUser.count()).toBe(1);
+
+      // Adres spoza listy — ta sama sesja to już 404.
+      process.env.ADMIN_ACCESS_DEV_EMAIL = 'obcy@scoffie.local';
+      await api()
+        .get('/admin/session')
+        .set('Cookie', session.cookie)
+        .expect(404);
+    } finally {
+      restore('ADMIN_BOOTSTRAP_EMAIL', saved.boot);
+      restore('ADMIN_ACCESS_DEV_EMAIL', saved.dev);
+    }
+  });
 });

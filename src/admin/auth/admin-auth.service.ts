@@ -913,6 +913,9 @@ export class AdminAuthService {
   }> {
     try {
       return await this.prisma.$transaction(async (tx) => {
+        // Kilka adresów właściciela = unikalność e-maila nie łapie już dwóch
+        // równoległych pierwszych wejść z RÓŻNYCH adresów. Zamek je szereguje.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('scoffie-admin-bootstrap'))`;
         if ((await tx.adminUser.count()) > 0) {
           throw new AdminAuthException('NOT_ALLOWED');
         }
@@ -943,13 +946,20 @@ export class AdminAuthService {
   }
 
   private async canBootstrap(email: string): Promise<boolean> {
-    const bootstrapEmail = readAdminEnv().bootstrapEmail;
-    if (!bootstrapEmail || bootstrapEmail !== email) return false;
+    if (!readAdminEnv().ownerEmails.includes(email)) return false;
     return (await this.prisma.adminUser.count()) === 0;
   }
 
   private async findAdmin(email: string): Promise<AdminRow | null> {
-    const admin = await this.prisma.adminUser.findUnique({ where: { email } });
+    let admin = await this.prisma.adminUser.findUnique({ where: { email } });
+    // Drugi adres właściciela wchodzi na konto założone pierwszym.
+    const owners = readAdminEnv().ownerEmails;
+    if (!admin && owners.includes(email)) {
+      admin = await this.prisma.adminUser.findFirst({
+        where: { email: { in: owners } },
+        orderBy: { createdAt: 'asc' },
+      });
+    }
     return admin && !admin.disabledAt ? admin : null;
   }
 

@@ -5,6 +5,7 @@ import {
   readAdminEnv,
   readAdminProxySecret,
   readAdminTotpKey,
+  sameAdminIdentity,
 } from './admin-env';
 
 const KEY = 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
@@ -69,7 +70,7 @@ describe('admin-env', () => {
         ADMIN_WEBAUTHN_ORIGIN:
           'https://dashboard.scoffie.app/, http://localhost:5173',
         ADMIN_WEBAUTHN_RP_ID: 'Dashboard.Scoffie.App',
-        ADMIN_BOOTSTRAP_EMAIL: 'Rafal@Example.com',
+        ADMIN_BOOTSTRAP_EMAIL: 'Rafal@Example.com, rafal@icloud.com',
       }),
     );
     expect(admin.accessAud).toEqual(['a', 'b']);
@@ -78,7 +79,18 @@ describe('admin-env', () => {
       'http://localhost:5173',
     ]);
     expect(admin.webauthnRpId).toBe('dashboard.scoffie.app');
-    expect(admin.bootstrapEmail).toBe('rafal@example.com');
+    expect(admin.ownerEmails).toEqual([
+      'rafal@example.com',
+      'rafal@icloud.com',
+    ]);
+  });
+
+  it('adresy właściciela to jedna tożsamość, obcy adres nie', () => {
+    const e = env({ ADMIN_BOOTSTRAP_EMAIL: 'a@x.pl,b@y.pl' });
+    expect(sameAdminIdentity('a@x.pl', 'b@y.pl', e)).toBe(true);
+    expect(sameAdminIdentity('c@z.pl', 'c@z.pl', e)).toBe(true);
+    expect(sameAdminIdentity('a@x.pl', 'c@z.pl', e)).toBe(false);
+    expect(sameAdminIdentity('a@x.pl', 'b@y.pl', env({}))).toBe(false);
   });
 
   it('klucz TOTP: 32 bajty albo nic', () => {
