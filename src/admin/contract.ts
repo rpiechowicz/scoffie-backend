@@ -467,14 +467,27 @@ export interface RecipeListItem {
   id: string;
   title: string;
   imageUrl: string;
+  /** prawdziwe zdjęcie — nie pusty adres ani zaślepka `recipe-placeholder.png` */
+  hasImage: boolean;
   /** `Recipe.isActive` — wycofany przepis nie pokazuje się w katalogu */
   isActive: boolean;
   mealType: MealType;
+  /** pory, do których pasuje (zawsze z `mealType`), w kolejności dnia */
+  suitableMealTypes: MealType[];
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   prepTimeMinutes: number;
+  servings: number;
   kcalPerServing: number;
+  /** gramy na porcję, jedno miejsce po przecinku (kolumny przepisu / `servings`) */
+  proteinPerServing: number;
+  fatPerServing: number;
+  carbsPerServing: number;
+  /** unia alergenów składników (`Recipe.allergens`) */
+  allergens: string[];
   /** w ilu planach stoi teraz (przed wycofaniem) */
   inPlans: number;
   favorites: number;
+  updatedAt: IsoDate;
 }
 
 export interface Ingredient {
@@ -499,14 +512,9 @@ export interface RecipeIngredientLine {
 
 export interface RecipeDetail extends RecipeListItem {
   description: string;
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
-  servings: number;
-  suitableMealTypes: MealType[];
   steps: string[];
   ingredients: RecipeIngredientLine[];
-  allergens: string[];
   dietTags: string[];
-  updatedAt: IsoDate;
 }
 
 /**

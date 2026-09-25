@@ -141,8 +141,24 @@ export class UpdateCatalogRecipeDto {
   isActive?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  hasImage?: boolean;
+
+  @IsOptional()
   @IsNumber()
   kcalPerServing?: number;
+
+  @IsOptional()
+  @IsNumber()
+  proteinPerServing?: number;
+
+  @IsOptional()
+  @IsNumber()
+  fatPerServing?: number;
+
+  @IsOptional()
+  @IsNumber()
+  carbsPerServing?: number;
 
   @IsOptional()
   @IsInt()

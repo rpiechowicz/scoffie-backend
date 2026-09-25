@@ -1,7 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { MealType, Prisma } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
-import { effectiveSuitableMealTypes } from '../../common/meal-types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RecipesCacheService } from '../../recipes/recipes-cache.service';
 import { normalizeText } from '../../common/normalize-text.util';
@@ -36,9 +35,9 @@ import { inPlansByRecipe } from '../common/recipe-in-plans';
 import {
   baseUnitFromUsage,
   comparePolish,
-  kcalPerServing,
   stepsFromInstructions,
 } from './catalog-math';
+import { recipeListSelect, toRecipeListItem } from './recipe-list-item';
 import type { UpdateCatalogRecipeDto } from './admin-catalog.dto';
 
 const recipeNotFound = () =>
@@ -47,19 +46,6 @@ const recipeNotFound = () =>
     'Nie znaleziono przepisu w katalogu.',
     HttpStatus.NOT_FOUND,
   );
-
-const listSelect = {
-  id: true,
-  title: true,
-  imageUrl: true,
-  isActive: true,
-  mealType: true,
-  prepTimeMinutes: true,
-  nutritionKcal: true,
-  servings: true,
-} satisfies Prisma.RecipeSelect;
-
-type ListRow = Prisma.RecipeGetPayload<{ select: typeof listSelect }>;
 
 /**
  * Katalog przepisów i składników w panelu (ROADMAPA §5.7).
@@ -86,7 +72,7 @@ export class AdminCatalogService {
           isCatalog: true,
           ...(active === undefined ? {} : { isActive: active }),
         },
-        select: listSelect,
+        select: recipeListSelect,
       });
       const plansOf = await inPlansByRecipe(tx, now, null);
       const favorites = await tx.recipeFavorite.groupBy({
@@ -99,7 +85,7 @@ export class AdminCatalogService {
       );
       const items = rows
         .map((row) =>
-          toListItem(
+          toRecipeListItem(
             row,
             plansOf.get(row.id) ?? 0,
             favoritesOf.get(row.id) ?? 0,
@@ -124,14 +110,10 @@ export class AdminCatalogService {
       const recipe = await tx.recipe.findFirst({
         where: { id, isCatalog: true },
         select: {
-          ...listSelect,
+          ...recipeListSelect,
           description: true,
-          difficulty: true,
-          suitableMealTypes: true,
           sourceInstructions: true,
-          allergens: true,
           dietTags: true,
-          updatedAt: true,
           ingredients: {
             orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
             select: {
@@ -148,13 +130,8 @@ export class AdminCatalogService {
         where: { recipeId: id },
       });
       return {
-        ...toListItem(recipe, inPlans, favorites),
+        ...toRecipeListItem(recipe, inPlans, favorites),
         description: recipe.description ?? '',
-        difficulty: recipe.difficulty,
-        servings: recipe.servings,
-        // Pusta lista = wiersz sprzed backfillu; czytający dokładają slot
-        // bazowy — ta sama reguła, co w aplikacji.
-        suitableMealTypes: effectiveSuitableMealTypes(recipe),
         steps: stepsFromInstructions(recipe.sourceInstructions),
         // `key` = `Ingredient.normalizedName`, ten sam klucz, co w
         // `GET /admin/catalog/ingredients`; ilość i jednostka tak, jak zapisał
@@ -165,9 +142,7 @@ export class AdminCatalogService {
           amount: line.amount,
           unit: line.unit,
         })),
-        allergens: recipe.allergens,
         dietTags: recipe.dietTags,
-        updatedAt: recipe.updatedAt.toISOString(),
       };
     });
   }
@@ -476,24 +451,4 @@ export class AdminCatalogService {
     this.recipesCache.invalidateRecipesList();
     return this.recipe(id);
   }
-}
-
-function toListItem(
-  row: ListRow,
-  inPlans: number,
-  favorites: number,
-): RecipeListItem {
-  return {
-    id: row.id,
-    title: row.title,
-    // Katalog ma zdjęcia pod img.scoffie.app; przepis bez zdjęcia dostaje
-    // pusty adres (panel rysuje wtedy zastępnik), a nie wygenerowany URL.
-    imageUrl: row.imageUrl ?? '',
-    isActive: row.isActive,
-    mealType: row.mealType,
-    prepTimeMinutes: row.prepTimeMinutes,
-    kcalPerServing: kcalPerServing(row.nutritionKcal, row.servings),
-    inPlans,
-    favorites,
-  };
 }

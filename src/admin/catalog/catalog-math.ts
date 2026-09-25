@@ -38,3 +38,12 @@ export function kcalPerServing(
 ): number {
   return Math.round(nutritionKcal / Math.max(1, servings));
 }
+
+/**
+ * Gramy makroskładnika na porcję (białko, tłuszcz, węglowodany) — z kolumny
+ * CAŁEGO przepisu, jak `kcalPerServing` i `Recipe.nutritionPerServing` w iOS;
+ * jedno miejsce po przecinku.
+ */
+export function gramsPerServing(total: number, servings: number): number {
+  return Math.round((total / Math.max(1, servings)) * 10) / 10;
+}
