@@ -23,6 +23,8 @@ export const ADMIN_PERMISSIONS = [
   'mail.write',
   /** Sentry i Railway — tylko odczyt. */
   'ops.read',
+  /** Logi usług Railway — mogą zawierać dane osób z żądań. */
+  'ops.logs',
   /** App Store Connect — tylko odczyt. */
   'appstore.read',
   'catalog.read',

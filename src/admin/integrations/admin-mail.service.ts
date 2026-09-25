@@ -8,8 +8,14 @@ import {
   AdminAuditService,
   type AdminActor,
 } from '../audit/admin-audit.service';
+import {
+  sqlInstant,
+  sqlWarsawDay,
+  warsawDays,
+} from '../common/warsaw-calendar';
 import type {
   MailData,
+  MailDay,
   MailFilters,
   MailRow,
   MailStatus,
@@ -29,6 +35,9 @@ const STATUSES: MailStatus[] = [
   'FAILED',
   'SKIPPED',
 ];
+const DAYS = 30;
+
+type DayRow = { day: string; status: MailStatus; count: number };
 
 /**
  * Poczta w panelu (ROADMAPA §5.10): skrzynka nadawcza, lista wykluczeń
@@ -59,7 +68,8 @@ export class AdminMailService {
         : {}),
     };
 
-    const [rows, grouped, queue, suppressions] = await Promise.all([
+    const days = warsawDays(now, DAYS);
+    const [rows, grouped, queue, suppressions, perDay] = await Promise.all([
       this.prisma.mailMessage.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -76,6 +86,8 @@ export class AdminMailService {
           userId: true,
           subject: true,
           scrubbedAt: true,
+          providerMessageId: true,
+          nextAttemptAt: true,
         },
       }),
       this.prisma.mailMessage.groupBy({
@@ -92,6 +104,12 @@ export class AdminMailService {
         orderBy: { createdAt: 'desc' },
         take: SUPPRESSIONS,
       }),
+      this.prisma.$queryRaw<DayRow[]>`
+        SELECT ${sqlWarsawDay(Prisma.sql`"createdAt"`)} AS "day", "status",
+               COUNT(*)::int AS "count"
+          FROM "MailMessage"
+          WHERE "createdAt" >= ${sqlInstant(days[0].start)}
+          GROUP BY 1, 2`,
     ]);
 
     // Wykluczenie mogło przyjść po wysyłce — sprawdzamy adresy tej strony.
@@ -128,6 +146,19 @@ export class AdminMailService {
         waiting: queue._count._all,
         oldestAt: queue._min.createdAt?.toISOString() ?? null,
       },
+      from: env.from,
+      replyTo: env.replyTo,
+      daily: days.map((d): MailDay => {
+        const of = (status: MailStatus) =>
+          perDay.find((r) => r.day === d.key && r.status === status)?.count ??
+          0;
+        return {
+          date: d.start.toISOString(),
+          sent: of('SENT'),
+          failed: of('FAILED'),
+          skipped: of('SKIPPED'),
+        };
+      }),
       messages: rows.map((r): MailRow => {
         const to = r.scrubbedAt || !r.to.trim() ? null : r.to;
         return {
@@ -142,6 +173,9 @@ export class AdminMailService {
           userId: r.userId,
           subject: r.scrubbedAt ? null : r.subject,
           suppressed: to !== null && suppressed.has(normalizeEmail(to)),
+          providerMessageId: r.providerMessageId,
+          nextAttemptAt:
+            r.status === 'QUEUED' ? r.nextAttemptAt.toISOString() : null,
         };
       }),
       suppressions: suppressions.map((s) => ({
