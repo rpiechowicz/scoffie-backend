@@ -4,6 +4,7 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { AdminGuard } from './admin.guard';
 import { AdminAuthExceptionFilter } from './auth/admin-auth.errors';
@@ -16,6 +17,9 @@ import { AdminAuthExceptionFilter } from './auth/admin-auth.errors';
  *
  * Jeden dekorator zamiast czterech przy każdej klasie: kontroler panelu bez
  * bramki nie może powstać przez przeoczenie.
+ *
+ * Poza `openapi/openapi.json` — specyfikacja opisuje API aplikacji
+ * mobilnych, a mapa tras panelu nie ma powodu leżeć obok niej.
  */
 export function AdminController(path = ''): ClassDecorator {
   const route = path ? `admin/${path.replace(/^\/+|\/+$/g, '')}` : 'admin';
@@ -24,5 +28,6 @@ export function AdminController(path = ''): ClassDecorator {
     UseGuards(AdminGuard),
     UseFilters(AdminAuthExceptionFilter),
     SkipThrottle({ default: true, ip: true }),
+    ApiExcludeController(),
   );
 }

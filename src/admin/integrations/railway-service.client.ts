@@ -190,10 +190,7 @@ export async function fetchRailwayService(
     },
     http,
     deploys: main.deployments.edges.map(
-      ({ node }): RailwayDeployDetail => ({
-        ...toDeploy(node),
-        statusUpdatedAt: node.statusUpdatedAt ?? null,
-      }),
+      ({ node }): RailwayDeployDetail => toDeploy(node),
     ),
   };
 }

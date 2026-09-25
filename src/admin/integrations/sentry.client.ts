@@ -34,7 +34,11 @@ type ApiSessions = {
  *   - `/organizations/{org}/issues-count/` — liczniki kart „nierozwiązane”
  *     i „nowe z 24 h” jednym wywołaniem na projekt,
  *   - `/organizations/{org}/sessions/` — crash-free; projekt bez sesji
- *     (backend, panel) oddaje puste grupy → `null`, a nie 100 %.
+ *     (backend, panel) oddaje puste grupy → `null`, a nie 100 %,
+ *   - `/organizations/{org}/stats_v2/` — przyjęte zdarzenia z 24 h, jedno
+ *     zapytanie dla wszystkich projektów,
+ *   - `/organizations/{org}/releases/` — najnowsze wydanie projektu.
+ * Statystyki i wydania to dodatki: ich porażka daje `null`, nie błąd karty.
  */
 export async function fetchSentry(
   env: SentryEnv,
@@ -64,9 +68,13 @@ export async function fetchSentry(
     );
   }
 
+  const missing = env.projects.filter(
+    (slug) => !all.some((p) => p.slug === slug),
+  );
   const projectParams = projects.map((p) => `project=${p.id}`).join('&');
+  const events = await eventsPerProject(get, projectParams);
   const [health, issues] = await Promise.all([
-    Promise.all(projects.map((p) => projectHealth(p, get))),
+    Promise.all(projects.map((p) => projectHealth(p, get, events))),
     get<ApiIssue[]>(
       `/issues/?${new URLSearchParams({ query: UNRESOLVED, statsPeriod: '24h', sort: 'freq', limit: String(ISSUE_LIMIT) })}&${projectParams}`,
     ).then(({ body }) => body.map(toIssue)),
@@ -76,12 +84,51 @@ export async function fetchSentry(
     projects: health,
     issues,
     url: `https://${env.org}.sentry.io/issues/`,
+    missing,
   };
 }
+
+type ApiStats = {
+  groups?: {
+    by?: { project?: number | string };
+    totals?: Record<string, number>;
+  }[];
+};
+
+/** Przyjęte zdarzenia błędów z 24 h wg id projektu; porażka = pusta mapa. */
+async function eventsPerProject(
+  get: <T>(path: string) => Promise<{ body: T }>,
+  projectParams: string,
+): Promise<Map<string, number> | null> {
+  const query = new URLSearchParams({
+    field: 'sum(quantity)',
+    groupBy: 'project',
+    category: 'error',
+    outcome: 'accepted',
+    statsPeriod: '24h',
+    interval: '1d',
+  });
+  try {
+    const { body } = await get<ApiStats>(
+      `/stats_v2/?${query}&${projectParams}`,
+    );
+    return new Map(
+      (body.groups ?? []).map((g) => [
+        String(g.by?.project ?? ''),
+        g.totals?.['sum(quantity)'] ?? 0,
+      ]),
+    );
+  } catch {
+    return null;
+  }
+}
+
+type ApiRelease = { version: string; dateCreated: string };
 
 async function projectHealth(
   project: ApiProject,
   get: <T>(path: string) => Promise<{ body: T }>,
+  events: Map<string, number> | null,
 ): Promise<SentryProjectHealth> {
   const counts = new URLSearchParams({
     statsPeriod: '24h',
@@ -97,7 +144,7 @@ async function projectHealth(
   sessions.append('field', 'crash_free_rate(session)');
   sessions.append('field', 'crash_free_rate(user)');
 
-  const [{ body: count }, rates] = await Promise.all([
+  const [{ body: count }, rates, release] = await Promise.all([
     get<Record<string, number>>(`/issues-count/?${counts}`),
     // Brak sesji w projekcie bywa 400 zamiast pustych grup — to nie awaria.
     get<ApiSessions>(`/sessions/?${sessions}`)
@@ -110,6 +157,13 @@ async function projectHealth(
           return {};
         throw error;
       }),
+    get<ApiRelease[]>(`/releases/?project=${project.id}&per_page=1`)
+      .then(({ body }) =>
+        body[0]
+          ? { version: body[0].version, createdAt: body[0].dateCreated }
+          : null,
+      )
+      .catch(() => null),
   ]);
 
   return {
@@ -118,6 +172,8 @@ async function projectHealth(
     crashFreeSessions: percent(rates['crash_free_rate(session)']),
     unresolved: count[UNRESOLVED] ?? 0,
     new24h: count[NEW_24H] ?? 0,
+    events24h: events ? (events.get(project.id) ?? 0) : null,
+    release,
   };
 }
 

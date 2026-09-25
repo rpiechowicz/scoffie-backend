@@ -79,3 +79,6 @@ var/
 
 # Robocze pliki generatora zdjęć przepisów (scripts/recraft-recipe-images.ts)
 /tmp/recipe-images
+
+# Generator OpenAPI (pnpm openapi) — pliki robocze
+/.openapi-cache

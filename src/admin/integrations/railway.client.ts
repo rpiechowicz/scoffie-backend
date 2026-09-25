@@ -17,6 +17,7 @@ export type ApiDeploy = {
   id: string;
   status: string;
   createdAt: string;
+  statusUpdatedAt?: string | null;
   meta?: Record<string, unknown> | null;
 };
 
@@ -62,7 +63,7 @@ const TOKEN_QUERY = `query { projectToken { projectId environmentId } }`;
  */
 const ENVIRONMENT_QUERY = `query ($eid: String!) {
   environment(id: $eid) {
-    serviceInstances { edges { node { serviceId serviceName cronSchedule nextCronRunAt } } }
+    serviceInstances { edges { node { serviceId serviceName cronSchedule nextCronRunAt region numReplicas } } }
   }
 }`;
 
@@ -71,11 +72,13 @@ export type ApiInstance = {
   serviceName: string;
   cronSchedule: string | null;
   nextCronRunAt: string | null;
+  region?: string | null;
+  numReplicas?: number | null;
 };
 
 const DEPLOYS_QUERY = `query ($pid: String!, $eid: String!, $sid: String!) {
   deployments(first: ${DEPLOYS}, input: { projectId: $pid, environmentId: $eid, serviceId: $sid }) {
-    edges { node { id status createdAt meta } }
+    edges { node { id status createdAt statusUpdatedAt meta } }
   }
 }`;
 
@@ -159,6 +162,8 @@ export async function fetchRailway(
         name: node.serviceName,
         cron: node.cronSchedule,
         nextCronRunAt: node.nextCronRunAt,
+        region: node.region ?? null,
+        replicas: node.numReplicas ?? null,
         deploys: deployments.edges.map((e) => toDeploy(e.node)),
         cpu: series(node.serviceId, 'CPU_USAGE'),
         memoryGb: series(node.serviceId, 'MEMORY_USAGE_GB'),
@@ -186,5 +191,8 @@ export function toDeploy(d: ApiDeploy): RailwayDeploy {
     commitHash: metaText(d.meta, 'commitHash'),
     commitMessage: metaText(d.meta, 'commitMessage'),
     branch: metaText(d.meta, 'branch'),
+    statusUpdatedAt: d.statusUpdatedAt ?? null,
+    author: metaText(d.meta, 'commitAuthor'),
+    reason: metaText(d.meta, 'reason'),
   };
 }

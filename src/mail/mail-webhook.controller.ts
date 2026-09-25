@@ -6,6 +6,7 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 // `import type`: typ użyty w sygnaturze z dekoratorem, a `emitDecoratorMetadata`
 // próbowałby go wciągnąć jako wartość (TS1272).
 import type { RawBodyRequest } from '@nestjs/common';
@@ -33,6 +34,8 @@ import {
  * a dostawca po kilku takich odpowiedziach wyłącza webhook. Bramką jest
  * podpis, nie licznik żądań.
  */
+// Trasa operatorska/serwerowa, nie API aplikacji — poza openapi.json.
+@ApiExcludeController()
 @Controller('mail/webhooks')
 export class MailWebhookController {
   private readonly logger = new Logger(MailWebhookController.name);

@@ -22,6 +22,8 @@
     "audit:recipes:nutrition": "tsx scripts/audit-recipe-nutrition.ts",
     "recipes:recompute:nutrition": "tsx scripts/recompute-recipe-nutrition.ts",
     "check:error-parity": "tsx scripts/check-error-code-parity.ts",
+    "openapi": "ts-node --transpile-only -r tsconfig-paths/register scripts/openapi/generate-openapi.ts",
+    "openapi:check": "ts-node --transpile-only -r tsconfig-paths/register scripts/openapi/generate-openapi.ts --check",
     "recipes:backfill:slots": "tsx scripts/backfill-suitable-meal-types.ts",
     "plans:backfill:servings": "tsx scripts/backfill-plan-item-servings.ts",
     "households:cleanup:empty": "tsx scripts/cleanup-empty-households.ts",
@@ -106,7 +108,8 @@
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.20.0"
+    "typescript-eslint": "^8.20.0",
+    "typescript-json-schema": "^0.68.0"
   },
   "lint-staged": {
     "*.{ts,js}": [

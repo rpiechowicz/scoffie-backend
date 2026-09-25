@@ -46,7 +46,12 @@ export function readSentryEnv(env: NodeJS.ProcessEnv = process.env): SentryEnv {
     projects:
       projects.length > 0
         ? projects
-        : ['scoffie-ios', 'scoffie-backend', 'scoffie-dashboard'],
+        : [
+            'scoffie-ios',
+            'scoffie-android',
+            'scoffie-backend',
+            'scoffie-dashboard',
+          ],
   };
 }
 
