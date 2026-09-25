@@ -38,6 +38,11 @@ process.env.REFRESH_REUSE_GRACE_SECONDS = '2';
 // żądanie, więc przełączenie w trakcie działa bez przebudowy modułu.
 const STRICT_BEFORE = process.env.REFRESH_STRICT_REUSE;
 process.env.REFRESH_STRICT_REUSE = 'true';
+// Kilkadziesiąt `/auth/dev` i `/auth/refresh` z jednego IP w minutę — limit
+// logowania (20/min) to przedmiot `throttling.e2e-spec.ts`, nie tej suity.
+// Throttler czyta limit per żądanie, więc wystarczy ustawić go tutaj.
+const AUTH_LIMIT_BEFORE = process.env.THROTTLE_AUTH_LIMIT;
+process.env.THROTTLE_AUTH_LIMIT = '10000';
 
 describe('Cykl życia sesji (e2e, żywa baza)', () => {
   let app: NestExpressApplication;
@@ -146,6 +151,11 @@ describe('Cykl życia sesji (e2e, żywa baza)', () => {
       delete process.env.REFRESH_STRICT_REUSE;
     } else {
       process.env.REFRESH_STRICT_REUSE = STRICT_BEFORE;
+    }
+    if (AUTH_LIMIT_BEFORE === undefined) {
+      delete process.env.THROTTLE_AUTH_LIMIT;
+    } else {
+      process.env.THROTTLE_AUTH_LIMIT = AUTH_LIMIT_BEFORE;
     }
   });
 
