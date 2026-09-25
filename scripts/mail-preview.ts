@@ -15,7 +15,10 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { MailRenderer } from '../src/mail/mail-renderer';
-import { MAIL_FIXTURES } from '../src/mail/templates/mail-fixtures';
+import {
+  MAIL_FIXTURES,
+  OPERATOR_MAIL_FIXTURES,
+} from '../src/mail/templates/mail-fixtures';
 import { ctx, esc } from '../src/mail/templates/mail-kit';
 import { readMailEnv } from '../src/mail/mail-env';
 
@@ -27,7 +30,8 @@ async function main(): Promise<void> {
   const renderer = new MailRenderer();
   const rows: string[] = [];
 
-  for (const fixture of MAIL_FIXTURES) {
+  // Maile do operatora (alert, raport) na końcu — ta sama siatka podglądu.
+  for (const fixture of [...MAIL_FIXTURES, ...OPERATOR_MAIL_FIXTURES]) {
     for (const width of [600, 320]) {
       const c = ctx({
         w: width,

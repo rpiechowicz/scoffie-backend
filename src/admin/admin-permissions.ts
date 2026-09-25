@@ -36,6 +36,12 @@ export const ADMIN_PERMISSIONS = [
   /** Sterowanie w locie: wyłącznik i limity asystenta (ROADMAPA §5.12). */
   'settings.read',
   'settings.write',
+  /** Centrum alertów: odczyt i „Przyjąłem”. */
+  'alerts.read',
+  'alerts.write',
+  /** Raport „Scoffie wczoraj” — podgląd i wysyłka na żądanie (NIE `reports.*`, to zgłoszenia asystenta). */
+  'daily-report.read',
+  'daily-report.send',
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 

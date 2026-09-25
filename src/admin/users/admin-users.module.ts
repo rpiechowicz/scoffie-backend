@@ -45,5 +45,7 @@ import { AdminUsersService } from './admin-users.service';
     AdminUsersService,
     AdminMailsService,
   ],
+  // Raport dzienny (moduł alertów) liczy wczoraj tą samą arytmetyką co pulpit.
+  exports: [AdminDashboardService],
 })
 export class AdminUsersModule {}
