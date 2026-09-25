@@ -22,12 +22,25 @@ type ApiDeploy = {
 
 const TOKEN_QUERY = `query { projectToken { projectId environmentId } }`;
 
-const PROJECT_QUERY = `query ($id: String!) {
-  project(id: $id) { services { edges { node { id name } } } }
+/**
+ * Usługi ŚRODOWISKA, nie projektu: usługa dodana w projekcie, ale nigdy nie
+ * uruchomiona w production (np. świeży cron), nie ma tu instancji — pytanie
+ * o nią kończyło się „ServiceInstance not found” i gasiło całą kartę.
+ */
+const ENVIRONMENT_QUERY = `query ($eid: String!) {
+  environment(id: $eid) {
+    serviceInstances { edges { node { serviceId serviceName cronSchedule nextCronRunAt } } }
+  }
 }`;
 
-const SERVICE_QUERY = `query ($pid: String!, $eid: String!, $sid: String!) {
-  serviceInstance(serviceId: $sid, environmentId: $eid) { cronSchedule nextCronRunAt }
+type ApiInstance = {
+  serviceId: string;
+  serviceName: string;
+  cronSchedule: string | null;
+  nextCronRunAt: string | null;
+};
+
+const DEPLOYS_QUERY = `query ($pid: String!, $eid: String!, $sid: String!) {
   deployments(first: ${DEPLOYS}, input: { projectId: $pid, environmentId: $eid, serviceId: $sid }) {
     edges { node { id status createdAt meta } }
   }
@@ -90,12 +103,10 @@ export async function fetchRailway(
   }>(TOKEN_QUERY);
   const { projectId: pid, environmentId: eid } = projectToken;
 
-  const [{ project }, metrics] = await Promise.all([
+  const [{ environment }, metrics] = await Promise.all([
     gql<{
-      project: {
-        services: { edges: { node: { id: string; name: string } }[] };
-      };
-    }>(PROJECT_QUERY, { id: pid }),
+      environment: { serviceInstances: { edges: { node: ApiInstance }[] } };
+    }>(ENVIRONMENT_QUERY, { eid }),
     // Metryki to ozdoba karty — ich brak nie może zasłonić stanu deployów.
     gql<{ metrics: ApiMetric[] }>(METRICS_QUERY, {
       pid,
@@ -112,25 +123,23 @@ export async function fetchRailway(
     )?.values ?? [];
 
   const services = await Promise.all(
-    project.services.edges.map(async ({ node }): Promise<RailwayService> => {
-      const data = await gql<{
-        serviceInstance: {
-          cronSchedule: string | null;
-          nextCronRunAt: string | null;
-        } | null;
-        deployments: { edges: { node: ApiDeploy }[] };
-      }>(SERVICE_QUERY, { pid, eid, sid: node.id });
-      return {
-        id: node.id,
-        name: node.name,
-        cron: data.serviceInstance?.cronSchedule ?? null,
-        nextCronRunAt: data.serviceInstance?.nextCronRunAt ?? null,
-        deploys: data.deployments.edges.map((e) => toDeploy(e.node)),
-        cpu: series(node.id, 'CPU_USAGE'),
-        memoryGb: series(node.id, 'MEMORY_USAGE_GB'),
-        url: `https://railway.com/project/${pid}/service/${node.id}?environmentId=${eid}`,
-      };
-    }),
+    environment.serviceInstances.edges.map(
+      async ({ node }): Promise<RailwayService> => {
+        const { deployments } = await gql<{
+          deployments: { edges: { node: ApiDeploy }[] };
+        }>(DEPLOYS_QUERY, { pid, eid, sid: node.serviceId });
+        return {
+          id: node.serviceId,
+          name: node.serviceName,
+          cron: node.cronSchedule,
+          nextCronRunAt: node.nextCronRunAt,
+          deploys: deployments.edges.map((e) => toDeploy(e.node)),
+          cpu: series(node.serviceId, 'CPU_USAGE'),
+          memoryGb: series(node.serviceId, 'MEMORY_USAGE_GB'),
+          url: `https://railway.com/project/${pid}/service/${node.serviceId}?environmentId=${eid}`,
+        };
+      },
+    ),
   );
 
   return { services: services.sort((a, b) => a.name.localeCompare(b.name)) };
