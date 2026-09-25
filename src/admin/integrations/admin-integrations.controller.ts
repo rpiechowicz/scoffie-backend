@@ -19,16 +19,19 @@ import {
 import { adminActor } from '../audit/admin-audit.service';
 import type { ResolvedAdminSession } from '../auth/admin-sessions.service';
 import type {
+  AscReviewResponse,
   AppStoreState,
   MailData,
   OpsData,
   RailwayLogs,
   RailwayServiceState,
 } from '../contract';
+import { AppException } from '../../common/app-exception';
 import { assertUuid } from '../../common/uuid';
 import { AdminReasonDto } from '../users/admin-users.dto';
 import {
   AdminMailQueryDto,
+  AdminReviewResponseDto,
   AdminServiceLogsQueryDto,
   AdminServiceQueryDto,
   AdminSuppressDto,
@@ -113,7 +116,10 @@ export class AdminOpsController {
   }
 }
 
-/** App Store Connect: buildy, wersje, recenzje (ROADMAPA §5.9), tylko odczyt. */
+/**
+ * App Store Connect: buildy, wersje, recenzje (ROADMAPA §5.9). Jedyny zapis:
+ * odpowiedź na recenzję — step-up i audyt.
+ */
 @AdminController('app-store')
 export class AdminAppStoreController {
   constructor(private readonly integrations: AdminIntegrationsService) {}
@@ -123,4 +129,47 @@ export class AdminAppStoreController {
   data(): Promise<AppStoreState> {
     return this.integrations.appStore();
   }
+
+  @Post('reviews/:id/response')
+  @AdminRequires('appstore.write')
+  @RequireStepUp()
+  respond(
+    @AdminAccess() access: AdminAccessContext,
+    @CurrentAdminSession() session: ResolvedAdminSession | null,
+    @Param('id') rawId: string,
+    @Body() dto: AdminReviewResponseDto,
+  ): Promise<AscReviewResponse> {
+    return this.integrations.respondToReview(
+      adminActor(session, access),
+      assertAscId(rawId),
+      dto.body,
+    );
+  }
+
+  @Delete('reviews/:id/response')
+  @AdminRequires('appstore.write')
+  @RequireStepUp()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteResponse(
+    @AdminAccess() access: AdminAccessContext,
+    @CurrentAdminSession() session: ResolvedAdminSession | null,
+    @Param('id') rawId: string,
+  ): Promise<void> {
+    await this.integrations.deleteReviewResponse(
+      adminActor(session, access),
+      assertAscId(rawId),
+    );
+  }
+}
+
+/** Id zasobu ASC (recenzje mają postać `00000029-…`) — trafia do ścieżki URL Apple. */
+function assertAscId(raw: string): string {
+  if (!/^[A-Za-z0-9-]{1,64}$/.test(raw)) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      'Nieprawidłowy identyfikator recenzji.',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+  return raw;
 }

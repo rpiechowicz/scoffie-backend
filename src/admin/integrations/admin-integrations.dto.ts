@@ -4,10 +4,13 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { ASC_RESPONSE_MAX_LENGTH } from './app-store-connect.client';
 import type {
+  AscReviewResponseInput,
   MailFilters,
   MailStatus,
   MailTemplate,
@@ -74,4 +77,12 @@ export class AdminServiceLogsQueryDto {
   @IsString()
   @MaxLength(200)
   filter?: string;
+}
+
+/** `POST /admin/app-store/reviews/:id/response` */
+export class AdminReviewResponseDto implements AscReviewResponseInput {
+  @IsString()
+  @Matches(/\S/, { message: 'body: odpowiedź nie może być pusta' })
+  @MaxLength(ASC_RESPONSE_MAX_LENGTH)
+  body!: string;
 }

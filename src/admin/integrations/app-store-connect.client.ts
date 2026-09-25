@@ -4,6 +4,7 @@ import type {
   AppStoreData,
   AscBuild,
   AscReview,
+  AscReviewResponse,
   AscVersion,
 } from '../contract';
 import { fetchJson, IntegrationError } from './integration-fetch';
@@ -26,9 +27,9 @@ type Doc<A> = {
 };
 
 /**
- * App Store Connect API tylko do odczytu: buildy (Xcode Cloud / TestFlight),
- * wersje w sklepie i recenzje. Odpowiedź na recenzję — druga runda (decyzja
- * z 25.09.2026), wtedy z step-upem i audytem.
+ * App Store Connect API: buildy (Xcode Cloud / TestFlight), wersje w sklepie
+ * i recenzje. Jedyny zapis to odpowiedź na recenzję (`respondToReview`,
+ * `deleteReviewResponse` niżej) — ze step-upem i audytem w serwisie.
  *
  * Token jak w `AppStoreServerClient`: ES256 kluczem `.p8`, 5 minut, nowy na
  * każde odświeżenie — ale BEZ `bid` (to claim App Store Server API).
@@ -218,9 +219,132 @@ export function toReview(
     createdAt: r.attributes.createdDate,
     response: responseBody
       ? {
+          id: response?.id ?? '',
           body: responseBody,
           state: str(response?.attributes.state) ?? 'UNKNOWN',
         }
       : null,
   };
+}
+
+/**
+ * Limit długości odpowiedzi na recenzję. API go nie dokumentuje (schemat
+ * `responseBody` to goły `string`) — 5970 znaków to limit pola odpowiedzi
+ * w App Store Connect; dłuższy tekst Apple odrzuca 409.
+ */
+export const ASC_RESPONSE_MAX_LENGTH = 5970;
+
+/** Odmowa Apple przy zapisie — z kodem HTTP, żeby serwis dobrał komunikat. */
+export class AscWriteError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'AscWriteError';
+  }
+}
+
+type AscErrorDoc = { errors?: { title?: string; detail?: string }[] };
+
+async function ascSend<T>(
+  env: AscEnv,
+  method: 'GET' | 'POST' | 'DELETE',
+  path: string,
+  body: unknown,
+  fetchImpl: typeof fetch,
+): Promise<T | null> {
+  const token = await ascToken(env);
+  let res: Response;
+  try {
+    res = await fetchImpl(`${API}${path}`, {
+      method,
+      headers: {
+        authorization: `Bearer ${token}`,
+        accept: 'application/json',
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (error) {
+    throw new AscWriteError(
+      `App Store Connect nie odpowiada (${error instanceof Error ? error.name : 'sieć'})`,
+      0,
+    );
+  }
+  if (!res.ok) {
+    const doc = (await res.json().catch(() => null)) as AscErrorDoc | null;
+    const first = doc?.errors?.[0];
+    const detail = (first?.detail ?? first?.title ?? '').slice(0, 200).trim();
+    throw new AscWriteError(
+      `App Store Connect: HTTP ${res.status}${detail ? ` · ${detail}` : ''}`,
+      res.status,
+    );
+  }
+  if (res.status === 204) return null;
+  return (await res.json().catch(() => null)) as T | null;
+}
+
+/**
+ * Odpowiedź na recenzję. `POST /v1/customerReviewResponses` tworzy ALBO
+ * zastępuje istniejącą odpowiedź — „Edytuj” to ten sam zapis.
+ */
+export async function respondToReview(
+  env: AscEnv,
+  reviewId: string,
+  responseBody: string,
+  fetchImpl: typeof fetch = globalThis.fetch,
+): Promise<AscReviewResponse> {
+  const doc = await ascSend<{
+    data: Resource<{ responseBody?: string; state?: string }>;
+  }>(
+    env,
+    'POST',
+    '/customerReviewResponses',
+    {
+      data: {
+        type: 'customerReviewResponses',
+        attributes: { responseBody },
+        relationships: {
+          review: { data: { type: 'customerReviews', id: reviewId } },
+        },
+      },
+    },
+    fetchImpl,
+  );
+  return {
+    id: doc?.data.id ?? '',
+    body: str(doc?.data.attributes.responseBody) ?? responseBody,
+    state: str(doc?.data.attributes.state) ?? 'PENDING_PUBLISH',
+  };
+}
+
+/**
+ * Usunięcie odpowiedzi. Id odpowiedzi bierzemy od Apple (relacja
+ * `response` recenzji), a nie od klienta — panel wskazuje tylko recenzję.
+ */
+export async function deleteReviewResponse(
+  env: AscEnv,
+  reviewId: string,
+  fetchImpl: typeof fetch = globalThis.fetch,
+): Promise<void> {
+  const doc = await ascSend<{ data: Resource<unknown> | null }>(
+    env,
+    'GET',
+    `/customerReviews/${encodeURIComponent(reviewId)}/response?${new URLSearchParams({ 'fields[customerReviewResponses]': 'state' })}`,
+    undefined,
+    fetchImpl,
+  );
+  const responseId = doc?.data?.id;
+  if (!responseId) {
+    throw new AscWriteError('Ta recenzja nie ma odpowiedzi.', 404);
+  }
+  await ascSend(
+    env,
+    'DELETE',
+    `/customerReviewResponses/${encodeURIComponent(responseId)}`,
+    undefined,
+    fetchImpl,
+  );
 }

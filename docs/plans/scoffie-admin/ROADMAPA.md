@@ -70,22 +70,22 @@ Czysty SPA.
 
 Wersje sprawdzone w npm 24.09.2026:
 
-| Warstwa           | Wybór                                             | Dlaczego |
-| ----------------- | ------------------------------------------------- | -------- |
-| Rdzeń             | React 19.3 + React Compiler 1.0, TypeScript 7, Vite 8 (Rolldown) | kompilator zdejmuje ręczne `useMemo`/`useCallback`; TS 7 i Vite 8 to szybki build |
-| Routing           | TanStack Router (trasy z plików, typowane parametry i `search`) | filtry tabel siedzą w URL-u — link do „użytkownicy bez kreatora, 7 dni” da się wkleić |
-| Dane z API        | TanStack Query 5                                  | cache, odświeżanie w tle, prefetch przy najechaniu, optymistyczne akcje |
-| Stan interfejsu   | bez biblioteki (`useState` / kontekst); Zustand dopiero gdy zaboli | stan serwera trzyma Query, filtry trzyma URL — zostaje niewiele |
-| Komponenty        | **shadcn/ui** (CLI 4, Tailwind 4, prymitywy Radix) + Sonner (toasty) + Vaul (arkusze od dołu na telefonie) + cmdk (⌘K) | kod komponentów w repo = pełna kontrola nad wyglądem iOS; Vaul daje arkusz jak w aplikacji |
-| Tabele            | TanStack Table 9 + TanStack Virtual               | sortowanie, filtry, paginacja z serwera, tysiące wierszy bez przycinania |
-| Wykresy           | **Recharts 3 przez shadcn charts** (kafle, trendy, słupki, kołowe); **ECharts 6** ładowany leniwie tylko do heatmapy kohort i lejka | shadcn charts biorą kolory z tych samych tokenów co reszta; ECharts tam, gdzie Recharts nie ma typu wykresu |
-| Animacje          | Motion 13 (dawniej Framer Motion)                 | sprężyny i przejścia jak w SwiftUI |
-| Formularze        | React Hook Form + Zod 4                           | edytor przepisu jest duży; ten sam schemat Zod waliduje w formularzu |
-| Typy API          | `@hey-api/openapi-ts` z `@nestjs/swagger` dla `/admin` → typy + klient + hooki Query | jeden kontrakt, zero ręcznie przepisywanych typów |
-| Ikony             | Lucide (kreska 1,75 — najbliżej SF Symbols)       | |
-| Passkeys          | `@simplewebauthn/browser` 14                      | parowany z `@simplewebauthn/server` 14 w backendzie |
-| Daty / liczby     | `Intl` + `date-fns`, strefa `Europe/Warsaw`, polski | serwer stoi w UTC |
-| Testy             | Vitest + Playwright (w tym profil iPhone)         | e2e przechodzi logowanie i główne ekrany na obu szerokościach |
+| Warstwa         | Wybór                                                                                                                               | Dlaczego                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Rdzeń           | React 19.3 + React Compiler 1.0, TypeScript 7, Vite 8 (Rolldown)                                                                    | kompilator zdejmuje ręczne `useMemo`/`useCallback`; TS 7 i Vite 8 to szybki build                           |
+| Routing         | TanStack Router (trasy z plików, typowane parametry i `search`)                                                                     | filtry tabel siedzą w URL-u — link do „użytkownicy bez kreatora, 7 dni” da się wkleić                       |
+| Dane z API      | TanStack Query 5                                                                                                                    | cache, odświeżanie w tle, prefetch przy najechaniu, optymistyczne akcje                                     |
+| Stan interfejsu | bez biblioteki (`useState` / kontekst); Zustand dopiero gdy zaboli                                                                  | stan serwera trzyma Query, filtry trzyma URL — zostaje niewiele                                             |
+| Komponenty      | **shadcn/ui** (CLI 4, Tailwind 4, prymitywy Radix) + Sonner (toasty) + Vaul (arkusze od dołu na telefonie) + cmdk (⌘K)              | kod komponentów w repo = pełna kontrola nad wyglądem iOS; Vaul daje arkusz jak w aplikacji                  |
+| Tabele          | TanStack Table 9 + TanStack Virtual                                                                                                 | sortowanie, filtry, paginacja z serwera, tysiące wierszy bez przycinania                                    |
+| Wykresy         | **Recharts 3 przez shadcn charts** (kafle, trendy, słupki, kołowe); **ECharts 6** ładowany leniwie tylko do heatmapy kohort i lejka | shadcn charts biorą kolory z tych samych tokenów co reszta; ECharts tam, gdzie Recharts nie ma typu wykresu |
+| Animacje        | Motion 13 (dawniej Framer Motion)                                                                                                   | sprężyny i przejścia jak w SwiftUI                                                                          |
+| Formularze      | React Hook Form + Zod 4                                                                                                             | edytor przepisu jest duży; ten sam schemat Zod waliduje w formularzu                                        |
+| Typy API        | `@hey-api/openapi-ts` z `@nestjs/swagger` dla `/admin` → typy + klient + hooki Query                                                | jeden kontrakt, zero ręcznie przepisywanych typów                                                           |
+| Ikony           | Lucide (kreska 1,75 — najbliżej SF Symbols)                                                                                         |                                                                                                             |
+| Passkeys        | `@simplewebauthn/browser` 14                                                                                                        | parowany z `@simplewebauthn/server` 14 w backendzie                                                         |
+| Daty / liczby   | `Intl` + `date-fns`, strefa `Europe/Warsaw`, polski                                                                                 | serwer stoi w UTC                                                                                           |
+| Testy           | Vitest + Playwright (w tym profil iPhone)                                                                                           | e2e przechodzi logowanie i główne ekrany na obu szerokościach                                               |
 
 Hosting: **Cloudflare Workers** (jak strona), ale — inaczej niż `scoffie-web`
 — z małym runtime'em: Worker (`@cloudflare/vite-plugin`, Wrangler 4) serwuje
@@ -107,20 +107,20 @@ tokenów: `scoffie-ios/Scoffie/Components/SCDesignSystem.swift` („Cozy
 Kitchen”), przepisane 1:1 do zmiennych CSS i motywu Tailwinda. Ciemny motyw
 jest pierwszy, jasny jest lustrem; przełącza się za systemem.
 
-| Token | Ciemny | Jasny | Użycie |
-| ----- | ------ | ----- | ------ |
-| tło strony (`scPageBase`) | `#0C0806` | `#FBF5EA` | + miękka poświata terakoty u góry (`SCPageBackground`: 12 % / 10 %) |
-| tekst (`scLabel`) | `#FBF3E8` | `#1A1411` | |
-| tekst drugorzędny (`scMuted`) | tekst × 58 % | tekst × 66 % | |
-| karta (`scTileBg` + `scTileStroke`) | tekst × 4 % + obrys 6 % | tekst × 6 % + obrys 12 % | **każda karta taka sama, bez cienia, bez białych kart** |
-| pole / studzienka (`scChipBg`) | tekst × 8 % | tekst × 5 % | inputy, segmenty, pigułki |
-| linia (`scRule`) | tekst × 12 % | tekst × 18 % | |
-| terakota (akcent główny) | `#DB8452` | `#B6643C` | akcje, kalorie, zaznaczenie |
-| szałwia | `#87C2A5` | `#4C8766` | „zrobione”, sukces, węglowodany |
-| indygo | `#6573CA` | `#4B58AF` | informacja, białko |
-| masło | `#E8CF85` | `#A07828` | uwaga, tłuszcz |
-| róż / morska / lawenda | `#E09AA4` / `#6FB9CC` / `#B79BE0` | `#B04E68` / `#287891` / `#7E4FA0` | dodatkowe serie wykresów |
-| ember (błąd) | `#FE6171` | `#BF2D3E` | tylko błędy i alarmy, nigdzie indziej |
+| Token                               | Ciemny                            | Jasny                             | Użycie                                                              |
+| ----------------------------------- | --------------------------------- | --------------------------------- | ------------------------------------------------------------------- |
+| tło strony (`scPageBase`)           | `#0C0806`                         | `#FBF5EA`                         | + miękka poświata terakoty u góry (`SCPageBackground`: 12 % / 10 %) |
+| tekst (`scLabel`)                   | `#FBF3E8`                         | `#1A1411`                         |                                                                     |
+| tekst drugorzędny (`scMuted`)       | tekst × 58 %                      | tekst × 66 %                      |                                                                     |
+| karta (`scTileBg` + `scTileStroke`) | tekst × 4 % + obrys 6 %           | tekst × 6 % + obrys 12 %          | **każda karta taka sama, bez cienia, bez białych kart**             |
+| pole / studzienka (`scChipBg`)      | tekst × 8 %                       | tekst × 5 %                       | inputy, segmenty, pigułki                                           |
+| linia (`scRule`)                    | tekst × 12 %                      | tekst × 18 %                      |                                                                     |
+| terakota (akcent główny)            | `#DB8452`                         | `#B6643C`                         | akcje, kalorie, zaznaczenie                                         |
+| szałwia                             | `#87C2A5`                         | `#4C8766`                         | „zrobione”, sukces, węglowodany                                     |
+| indygo                              | `#6573CA`                         | `#4B58AF`                         | informacja, białko                                                  |
+| masło                               | `#E8CF85`                         | `#A07828`                         | uwaga, tłuszcz                                                      |
+| róż / morska / lawenda              | `#E09AA4` / `#6FB9CC` / `#B79BE0` | `#B04E68` / `#287891` / `#7E4FA0` | dodatkowe serie wykresów                                            |
+| ember (błąd)                        | `#FE6171`                         | `#BF2D3E`                         | tylko błędy i alarmy, nigdzie indziej                               |
 
 - **Krój**: stos systemowy (`-apple-system, system-ui`) — na iPhonie i Macu to
   prawdziwy SF Pro jak w aplikacji; Inter jako zapas na innych systemach.
@@ -215,13 +215,13 @@ otworzyć `/admin`. Inne `aud`, inny sekret, inny cykl życia.
 Metody (admin wybiera, ile włączy — minimum dwie, żeby zgubienie jednej nie
 zamykało drzwi):
 
-| Metoda | Rola | Uwagi |
-| ------ | ---- | ----- |
-| **Passkey (WebAuthn)** — Face ID w Safari na iPhonie, Touch ID na Macu (ten sam klucz z pęku kluczy iCloud); opcjonalnie YubiKey | główna | sama w sobie jest dwuskładnikowa (urządzenie + biometria), odporna na phishing; kilka kluczy na konto; działa w zwykłej przeglądarce, PWA niepotrzebne |
-| **Sign in with Apple** (web, Services ID) | alternatywa | wiązana po `sub`, nie po adresie (ukryty e-mail Apple); sekret klienta JWT podpisuje backend; wymaga drugiego składnika |
-| **Google OIDC** | alternatywa | wiązana po `sub`, nie po adresie; wymaga drugiego składnika |
-| **TOTP** (Google Authenticator lub dowolna aplikacja TOTP) | drugi składnik | sekret szyfrowany jak Cookidoo (AES-256-GCM, klucz w env) |
-| **Kody odzyskiwania** (10 × jednorazowe, trzymane jako hasze) | ostatnia deska | pokazane raz przy włączeniu 2FA; Rafał trzyma je w menedżerze haseł |
+| Metoda                                                                                                                           | Rola           | Uwagi                                                                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Passkey (WebAuthn)** — Face ID w Safari na iPhonie, Touch ID na Macu (ten sam klucz z pęku kluczy iCloud); opcjonalnie YubiKey | główna         | sama w sobie jest dwuskładnikowa (urządzenie + biometria), odporna na phishing; kilka kluczy na konto; działa w zwykłej przeglądarce, PWA niepotrzebne |
+| **Sign in with Apple** (web, Services ID)                                                                                        | alternatywa    | wiązana po `sub`, nie po adresie (ukryty e-mail Apple); sekret klienta JWT podpisuje backend; wymaga drugiego składnika                                |
+| **Google OIDC**                                                                                                                  | alternatywa    | wiązana po `sub`, nie po adresie; wymaga drugiego składnika                                                                                            |
+| **TOTP** (Google Authenticator lub dowolna aplikacja TOTP)                                                                       | drugi składnik | sekret szyfrowany jak Cookidoo (AES-256-GCM, klucz w env)                                                                                              |
+| **Kody odzyskiwania** (10 × jednorazowe, trzymane jako hasze)                                                                    | ostatnia deska | pokazane raz przy włączeniu 2FA; Rafał trzyma je w menedżerze haseł                                                                                    |
 
 Reguła: **passkey = wejście od razu; Apple / Google + TOTP.** Haseł nie ma.
 
@@ -505,6 +505,12 @@ podmiana źródła jest tania:
 - później: flagi funkcji per dom (bety) i komunikat w aplikacji — wymagają
   zmian w iOS.
 
+Zrobione 25.09: `RuntimeSetting` + `/admin/settings` (ekran „Sterowanie”) dla
+`AI_ENABLED`, `AI_MAX_TURN_COST_USD`, `AI_GLOBAL_DAILY_BUDGET_USD`, limitów
+puli i próby oraz `AI_ALLOWED_USERS` (biała lista w
+`src/config/runtime-settings.ts`). Jeszcze nie: `AI_CARDS_MODE`, `THROTTLE_*`,
+znacznik zmiany na wykresach.
+
 ### 5.13 Alerty i raport dzienny
 
 - centrum alertów w panelu (to, co dziś idzie tylko przez `OpsAlertService`),
@@ -517,18 +523,18 @@ podmiana źródła jest tania:
 
 ## 6. Co dobudować w backendzie (schemat i serwisy)
 
-| Nowe                         | Po co |
-| ---------------------------- | ----- |
-| `AdminUser`, `AdminCredential` (passkeys), `AdminTotp`, `AdminRecoveryCode`, `AdminSession`, `AdminLoginAttempt` | §4 |
-| `AdminAuditEvent` (tylko dopisywanie) | §1.2 — `adminId`, `action`, `targetType`, `targetId`, `reason`, `diff` bez danych wrażliwych, IP, `requestId` |
-| `AdminDailyStat` (dzień × metryka × wymiar) | historia i szybkie wykresy, liczone w nocy |
-| `UserActivityDay (userId, date)` | retencja i kohorty; upsert raz dziennie przy pierwszym żądaniu / połączeniu socketu |
-| `RecipeRevision` | historia wersji przepisu |
-| `RuntimeSetting` | §5.12 |
-| `FxRate (date, pair, rate)` | przychód w USD po kursie z dnia |
-| `IntegrationSnapshot` | cache odpowiedzi Sentry / ASC / Railway (limity ich API, szybki pulpit) |
-| `AgentReport` + kolumny statusu | §5.5 |
-| `PushDevice` / sesja + `appVersion`, `osVersion` | §7 |
+| Nowe                                                                                                             | Po co                                                                                                         |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `AdminUser`, `AdminCredential` (passkeys), `AdminTotp`, `AdminRecoveryCode`, `AdminSession`, `AdminLoginAttempt` | §4                                                                                                            |
+| `AdminAuditEvent` (tylko dopisywanie)                                                                            | §1.2 — `adminId`, `action`, `targetType`, `targetId`, `reason`, `diff` bez danych wrażliwych, IP, `requestId` |
+| `AdminDailyStat` (dzień × metryka × wymiar)                                                                      | historia i szybkie wykresy, liczone w nocy                                                                    |
+| `UserActivityDay (userId, date)`                                                                                 | retencja i kohorty; upsert raz dziennie przy pierwszym żądaniu / połączeniu socketu                           |
+| `RecipeRevision`                                                                                                 | historia wersji przepisu                                                                                      |
+| `RuntimeSetting`                                                                                                 | §5.12                                                                                                         |
+| `FxRate (date, pair, rate)`                                                                                      | przychód w USD po kursie z dnia                                                                               |
+| `IntegrationSnapshot`                                                                                            | cache odpowiedzi Sentry / ASC / Railway (limity ich API, szybki pulpit)                                       |
+| `AgentReport` + kolumny statusu                                                                                  | §5.5                                                                                                          |
+| `PushDevice` / sesja + `appVersion`, `osVersion`                                                                 | §7                                                                                                            |
 
 Serwisy: `AdminAuthService` (+ `@simplewebauthn/server`, `otplib`),
 `AdminAuditService`, `AdminStatsJob` (noc), `UnitEconomicsService` (jedno
@@ -556,15 +562,15 @@ Panel prawie nie wymaga zmian w telefonie. Jedna ważna:
 
 ## 8. Etapy
 
-| Etap | Zakres | Wynik |
-| ---- | ------ | ----- |
-| **0. Fundament** | repo `scoffie-admin` (React 19 + Vite 8 + TS + TanStack Router/Query + shadcn/ui z tokenami iOS + układ RWD), Worker z proxy, Cloudflare Access, subdomena; `src/admin/` z 404 dla obcych, `AdminUser` + passkey + Apple + Google + TOTP + kody odzyskiwania, sesje, audyt, alert o logowaniu | można się bezpiecznie zalogować i zobaczyć pusty pulpit |
-| **1. Wgląd** (tylko odczyt) | pulpit, użytkownicy, gospodarstwa, subskrypcje, asystent: zużycie i rentowność, kolejka zgłoszeń; nagłówek wersji z iOS | wiesz, co się dzieje i czy zarabiasz |
-| **2. Operacje** | akcje przeniesione z `/ops` i `/billing/ops` do panelu, wyloguj zewsząd, eksport / usunięcie konta (RODO), statusy zgłoszeń, skrzynka maili i wykluczenia, step-up, „Odsłoń" | koniec z curlem na co dzień |
-| **3. Katalog** | edytor przepisów i składników, przeliczanie, zdjęcia do R2, wersje, publikacja, popularność | przepisy bez JSON-a i importu |
-| **4. Integracje** | Sentry, Anthropic cost report, App Store Connect (finanse, recenzje, TestFlight, Xcode Cloud), NBP, Railway, Cloudflare, Resend; centrum alertów, mail dzienny | jedno miejsce zamiast sześciu kart przeglądarki |
-| **5. Analityka** | `UserActivityDay`, kohorty, lejek, użycie funkcji, historia z `AdminDailyStat` | retencja i konwersja w liczbach |
-| **6. Sterowanie** | `RuntimeSetting` + wyłącznik asystenta, flagi funkcji, role dla kolejnych osób, komunikaty w aplikacji (z iOS) | zmiana limitu bez redeployu |
+| Etap                        | Zakres                                                                                                                                                                                                                                                                                        | Wynik                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **0. Fundament**            | repo `scoffie-admin` (React 19 + Vite 8 + TS + TanStack Router/Query + shadcn/ui z tokenami iOS + układ RWD), Worker z proxy, Cloudflare Access, subdomena; `src/admin/` z 404 dla obcych, `AdminUser` + passkey + Apple + Google + TOTP + kody odzyskiwania, sesje, audyt, alert o logowaniu | można się bezpiecznie zalogować i zobaczyć pusty pulpit |
+| **1. Wgląd** (tylko odczyt) | pulpit, użytkownicy, gospodarstwa, subskrypcje, asystent: zużycie i rentowność, kolejka zgłoszeń; nagłówek wersji z iOS                                                                                                                                                                       | wiesz, co się dzieje i czy zarabiasz                    |
+| **2. Operacje**             | akcje przeniesione z `/ops` i `/billing/ops` do panelu, wyloguj zewsząd, eksport / usunięcie konta (RODO), statusy zgłoszeń, skrzynka maili i wykluczenia, step-up, „Odsłoń"                                                                                                                  | koniec z curlem na co dzień                             |
+| **3. Katalog**              | edytor przepisów i składników, przeliczanie, zdjęcia do R2, wersje, publikacja, popularność                                                                                                                                                                                                   | przepisy bez JSON-a i importu                           |
+| **4. Integracje**           | Sentry, Anthropic cost report, App Store Connect (finanse, recenzje, TestFlight, Xcode Cloud), NBP, Railway, Cloudflare, Resend; centrum alertów, mail dzienny                                                                                                                                | jedno miejsce zamiast sześciu kart przeglądarki         |
+| **5. Analityka**            | `UserActivityDay`, kohorty, lejek, użycie funkcji, historia z `AdminDailyStat`                                                                                                                                                                                                                | retencja i konwersja w liczbach                         |
+| **6. Sterowanie**           | `RuntimeSetting` + wyłącznik asystenta, flagi funkcji, role dla kolejnych osób, komunikaty w aplikacji (z iOS)                                                                                                                                                                                | zmiana limitu bez redeployu                             |
 
 Etapy 1 i 2 dają najwięcej. Etap 3 czeka na decyzję D1.
 

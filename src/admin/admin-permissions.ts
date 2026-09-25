@@ -27,10 +27,15 @@ export const ADMIN_PERMISSIONS = [
   'ops.logs',
   /** App Store Connect — tylko odczyt. */
   'appstore.read',
+  /** Odpowiedzi na recenzje w App Store (step-up). */
+  'appstore.write',
   'catalog.read',
   'catalog.publish',
   /** Dziennik audytu panelu — tylko odczyt. */
   'audit.read',
+  /** Sterowanie w locie: wyłącznik i limity asystenta (ROADMAPA §5.12). */
+  'settings.read',
+  'settings.write',
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
