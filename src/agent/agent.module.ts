@@ -79,5 +79,8 @@ import { UpstreamBreaker } from './upstream-breaker';
     // a DI i tak próbowałoby go wstrzyknąć.
     { provide: UpstreamBreaker, useFactory: () => new UpstreamBreaker() },
   ],
+  // Tylko dla panelu administratora (`src/admin/`, wierzchołek grafu jak
+  // AppModule): pula i reset sufitu liczą się tą samą funkcją, co kwota.
+  exports: [AiUsageCountersService],
 })
 export class AgentModule {}

@@ -32,6 +32,8 @@ import { JwtAuthGuard } from './jwt-auth.guard';
   // WebSocketu żyje poza DI. `RollingTokenInterceptor` odszedł: nigdy nie był
   // podpięty, a przy streamingu asystenta nagłówek z nowym tokenem nie ma
   // sensu — odświeżanie idzie przez `POST /auth/refresh`.
-  exports: [JwtModule, JwtAuthGuard, AccessTokenService],
+  // `AuthService` — panel administratora woła `logoutEverywhere` tą samą
+  // drogą co `POST /auth/logout-everywhere` (zamek sesji, `tokenVersion`).
+  exports: [JwtModule, JwtAuthGuard, AccessTokenService, AuthService],
 })
 export class AuthModule {}
