@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AdminCoreModule } from '../admin-core.module';
+import { AdminFxModule } from '../revenue/admin-fx.module';
 import { AdminAssistantController } from './admin-assistant.controller';
 import { AdminProfitService } from './admin-profit.service';
 import { AdminReportsService } from './admin-reports.service';
@@ -10,7 +11,7 @@ import { AdminReportsService } from './admin-reports.service';
  * nie ma serwisu dla kolumn decyzji o zgłoszeniu, a odczyty są agregatami.
  */
 @Module({
-  imports: [AdminCoreModule],
+  imports: [AdminCoreModule, AdminFxModule],
   controllers: [AdminAssistantController],
   providers: [AdminProfitService, AdminReportsService],
 })

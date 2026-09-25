@@ -18,8 +18,9 @@ export const APPLE_PROCEEDS_SHARE = 0.85;
 
 /**
  * Kurs USD→PLN, NBP tabela A z 3.09.2026 — ten sam, na którym policzono
- * cennik. Stała, a nie kurs z dnia: dziennego kursu NBP backend jeszcze nie
- * pobiera (`FxRate`, ROADMAPA §5.6 i §6 — osobna praca).
+ * cennik. Panel bierze kurs z dnia z `FxRate` (`FxRateService`), a tę stałą
+ * tylko jako zapas, gdy tabela jest pusta; strażnik cennika zostaje na niej
+ * świadomie.
  */
 export const REFERENCE_USD_PLN = 3.7224;
 

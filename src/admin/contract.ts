@@ -376,6 +376,8 @@ export type ProposalStatus =
 
 export interface ProfitData {
   fxUsdPln: number;
+  /** dzień notowania NBP kursu `fxUsdPln`; `null` — stała cennika (brak kursu w bazie) */
+  fxDate?: string | null;
   revenueTrend: number;
   marginTrendPp: number;
   trials: number;
@@ -1310,4 +1312,98 @@ export interface GdprExtendInput {
 export interface GdprCloseInput {
   status: 'DONE' | 'REJECTED';
   resolution: string;
+}
+
+// ——— Przychód z Apple i kurs NBP (ROADMAPA §5.6) ———
+
+/** `GET /admin/revenue?period=30|90|365` — dni wstecz od wczoraj. */
+export type RevenuePeriod = '30' | '90' | '365';
+
+/** Kurs średni NBP (tabela A); przy pustej tabeli — stała cennika. */
+export interface FxInfo {
+  /** dzień notowania `YYYY-MM-DD`; `null` — brak kursu w bazie */
+  date: string | null;
+  usdPln: number;
+  /** `null` — brak notowania EUR w bazie */
+  eurPln: number | null;
+  /** `NBP` — z bazy; `REFERENCE` — `REFERENCE_USD_PLN` z cennika */
+  source: 'NBP' | 'REFERENCE';
+}
+
+/** Dzień raportu Sales Summary (zakupy w aplikacji). */
+export interface RevenueDay {
+  /** dzień raportu Apple `YYYY-MM-DD` */
+  date: string;
+  /** netto (zakupy − zwroty) */
+  units: number;
+  proceedsPln: number;
+  proceedsUsd: number;
+}
+
+export interface RevenueProductRow {
+  /** SKU = productId subskrypcji */
+  sku: string;
+  title: string;
+  /** `IAY` — subskrypcja odnawialna, `IA1` — jednorazowy zakup, … */
+  productType: string;
+  units: number;
+  /** sztuki ze znakiem minus (zwroty), jako liczba dodatnia */
+  refunds: number;
+  proceedsPln: number;
+}
+
+export interface RevenueCountryRow {
+  /** ISO 3166-1 alpha-2 */
+  country: string;
+  units: number;
+  proceedsPln: number;
+}
+
+/** Raport finansowy (FINANCIAL, region ZZ) — miesiąc × waluta rozliczenia. */
+export interface RevenueFinanceRow {
+  /** miesiąc fiskalny Apple `YYYY-MM` */
+  month: string;
+  currency: string;
+  units: number;
+  /** w walucie `currency` */
+  proceeds: number;
+  /** po kursie NBP z ostatniego dnia miesiąca; `null` — waluta spoza tabeli A */
+  proceedsPln: number | null;
+}
+
+export interface RevenueSync {
+  /** ostatnia udana synchronizacja raportów sprzedaży; `null` — jeszcze nie było */
+  salesSyncedAt: IsoDate | null;
+  financeSyncedAt: IsoDate | null;
+  /** najnowszy dzień z jakąkolwiek sprzedażą w bazie */
+  lastSaleDate: string | null;
+}
+
+export interface RevenueData {
+  period: RevenuePeriod;
+  /** `off` — brak klucza ASC albo `ADMIN_ASC_VENDOR_NUMBER`; `error` — ostatnia synchronizacja padła (dane poniżej mogą być starsze) */
+  state: IntegrationState<RevenueSync>;
+  /** każdy dzień okresu, od najstarszego (dni bez sprzedaży = 0) */
+  days: RevenueDay[];
+  totals: {
+    units: number;
+    refunds: number;
+    proceedsPln: number;
+    proceedsUsd: number;
+    avgPerDayPln: number;
+    /** cena brutto zapłacona przez osoby, w PLN */
+    customerPricePln: number;
+  };
+  /** najwyższy przychód pierwszy */
+  byProduct: RevenueProductRow[];
+  byCountry: RevenueCountryRow[];
+  /** najnowszy miesiąc pierwszy */
+  finance: RevenueFinanceRow[];
+  fx: FxInfo;
+  /** MRR z cennika (brutto) — ta sama liczba co na ekranie Subskrypcje */
+  estimatedMrrPln: number;
+  /** to samo po VAT i prowizji Apple — do porównania z wypłatą */
+  estimatedNetMrrPln: number;
+  /** waluty wypłat bez kursu NBP (tabela A) — ich kwot nie ma w sumach w PLN */
+  unconverted: string[];
 }

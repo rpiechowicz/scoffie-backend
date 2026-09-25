@@ -1,5 +1,3 @@
-import { createPrivateKey, type KeyObject } from 'node:crypto';
-import { SignJWT } from 'jose';
 import type {
   AppStoreData,
   AscBuild,
@@ -7,6 +5,7 @@ import type {
   AscReviewResponse,
   AscVersion,
 } from '../contract';
+import { ascToken } from './asc-token';
 import { fetchJson, IntegrationError } from './integration-fetch';
 import type { AscEnv } from './integrations-env';
 
@@ -31,8 +30,7 @@ type Doc<A> = {
  * i recenzje. Jedyny zapis to odpowiedź na recenzję (`respondToReview`,
  * `deleteReviewResponse` niżej) — ze step-upem i audytem w serwisie.
  *
- * Token jak w `AppStoreServerClient`: ES256 kluczem `.p8`, 5 minut, nowy na
- * każde odświeżenie — ale BEZ `bid` (to claim App Store Server API).
+ * Token: `ascToken` (wspólny z raportami sprzedaży).
  */
 export async function fetchAppStore(
   env: AscEnv,
@@ -124,25 +122,6 @@ export async function fetchAppStore(
     reviews: reviews.data.map((r) => toReview(r, reviews.included)),
     url: `https://appstoreconnect.apple.com/apps/${app.id}/distribution`,
   };
-}
-
-async function ascToken(env: AscEnv): Promise<string> {
-  let key: KeyObject;
-  try {
-    key = createPrivateKey(env.privateKey);
-  } catch {
-    // Urwany albo źle wklejony `.p8` — błąd konfiguracji, nie awaria Apple.
-    throw new IntegrationError(
-      'App Store Connect: nie da się odczytać ADMIN_ASC_PRIVATE_KEY (sprawdź, czy wklejono cały plik .p8)',
-    );
-  }
-  return new SignJWT({})
-    .setProtectedHeader({ alg: 'ES256', kid: env.keyId, typ: 'JWT' })
-    .setIssuer(env.issuerId)
-    .setAudience('appstoreconnect-v1')
-    .setIssuedAt()
-    .setExpirationTime('5m')
-    .sign(key);
 }
 
 const related = (

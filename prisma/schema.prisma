@@ -1636,6 +1636,74 @@ model GdprRequest {
   @@index([userId])
 }
 
+/// Kurs średni NBP (tabela A) na dzień notowania, `pair` jako `USD/PLN`.
+/// Dzień bez notowania (weekend, święto) NIE ma wiersza — bierzemy ostatni
+/// wcześniejszy. Tylko panel (przychód z Apple, rentowność, raport dzienny);
+/// limity kosztów asystenta liczą w USD i kursu nie czytają.
+model FxRate {
+  id        String   @id @default(uuid()) @db.Uuid
+  date      DateTime @db.Date
+  pair      String
+  rate      Decimal  @db.Decimal(14, 8)
+  /// numer tabeli NBP, np. `186/A/NBP/2026`
+  source    String
+  createdAt DateTime @default(now())
+
+  @@unique([date, pair])
+  @@index([pair, date])
+}
+
+/// Raport Sales Summary (DAILY) z App Store Connect, zagregowany po
+/// produkcie, kraju i walutach. Tylko zakupy w aplikacji (subskrypcje), bez
+/// pobrań. Kwoty to SUMY wiersza (Units × cena jednostkowa), zwroty ujemne.
+model AppleSalesDay {
+  id               String   @id @default(uuid()) @db.Uuid
+  /// dzień raportu Apple
+  date             DateTime @db.Date
+  /// SKU produktu (u nas = productId subskrypcji)
+  sku              String
+  title            String
+  /// `Product Type Identifier`, np. `IAY` (subskrypcja odnawialna)
+  productType      String
+  /// `Country Code` (ISO 3166-1 alpha-2)
+  country          String
+  units            Int
+  /// `Developer Proceeds` × Units — to, co Apple przelewa (po prowizji i VAT)
+  proceeds         Decimal  @db.Decimal(14, 4)
+  proceedsCurrency String
+  /// `Customer Price` × Units — cena brutto zapłacona przez osobę
+  customerPrice    Decimal  @db.Decimal(14, 4)
+  customerCurrency String
+  fetchedAt        DateTime @default(now())
+
+  @@unique([date, sku, country, productType, proceedsCurrency, customerCurrency])
+  @@index([date])
+}
+
+/// Raport finansowy App Store Connect (FINANCIAL, region `ZZ`) — co Apple
+/// faktycznie rozliczył w miesiącu fiskalnym, po walucie.
+model AppleFinanceMonth {
+  /// miesiąc fiskalny Apple `YYYY-MM`
+  month     String
+  currency  String
+  units     Int
+  /// suma `Extended Partner Share`
+  proceeds  Decimal  @db.Decimal(14, 4)
+  fetchedAt DateTime @default(now())
+
+  @@id([month, currency])
+}
+
+/// Stan synchronizacji raportów Apple (`sales`, `finance`) — przeżywa
+/// restart, żeby panel pokazał błąd klucza bez czekania na kolejny przebieg.
+model AppleReportSync {
+  kind      String    @id
+  lastRunAt DateTime
+  lastOkAt  DateTime?
+  /// ostatni błąd (bez tokenu); `null` po udanym przebiegu
+  lastError String?
+}
+
 enum MembershipRole {
   OWNER
   MEMBER

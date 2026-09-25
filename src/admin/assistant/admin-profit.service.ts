@@ -1,15 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { isUuid } from '../../common/uuid';
-import { REFERENCE_USD_PLN } from '../../config/ai-unit-economics';
 import {
   SUBSCRIPTION_SCOPE_PREFIX,
   TRIAL_SCOPE_PREFIX,
 } from '../../config/purchase-identity';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ProfitData, ProfitPeriod, ProfitRow } from '../contract';
-import { sqlInstant, sqlWarsawDay } from '../common/warsaw-calendar';
+import {
+  sqlInstant,
+  sqlWarsawDay,
+  warsawDateKey,
+} from '../common/warsaw-calendar';
 import { readOnlyQuery } from '../read-only-query';
+import { FxRateService } from '../revenue/fx-rate.service';
+import type { RateOnDay } from '../revenue/fx-rates';
 import { isAdminProductId } from '../subscriptions/admin-products';
 import {
   marginTrendPp,
@@ -53,12 +58,21 @@ type ModelRow = { model: string; turns: number; cost: bigint };
  */
 @Injectable()
 export class AdminProfitService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly fx: FxRateService,
+  ) {}
 
-  profit(period: ProfitPeriod, now: Date = new Date()): Promise<ProfitData> {
+  async profit(
+    period: ProfitPeriod,
+    now: Date = new Date(),
+  ): Promise<ProfitData> {
     const { current, previous } = profitWindows(period, now);
+    // Kurs NBP z ostatniego notowania (koszt AI w PLN i marża); pusta tabela
+    // `FxRate` — stała cennika `REFERENCE_USD_PLN`.
+    const fx = await this.fx.usdPlnOn(warsawDateKey(now));
     return readOnlyQuery(this.prisma, (tx) =>
-      this.compute(tx, current, previous),
+      this.compute(tx, current, previous, fx),
     );
   }
 
@@ -66,6 +80,7 @@ export class AdminProfitService {
     tx: Tx,
     current: ProfitWindow,
     previous: ProfitWindow,
+    fx: RateOnDay,
   ): Promise<ProfitData> {
     const { from, to } = current;
 
@@ -337,12 +352,13 @@ export class AdminProfitService {
     const revenuePrevious = sum(revenueBefore);
 
     return {
-      fxUsdPln: REFERENCE_USD_PLN,
+      fxUsdPln: fx.rate,
+      fxDate: fx.date,
       revenueTrend: trendPct(revenueCurrent, revenuePrevious),
       marginTrendPp: marginTrendPp(
         { revenueZl: revenueCurrent, costUsd: costOf(current) },
         { revenueZl: revenuePrevious, costUsd: costOf(previous) },
-        REFERENCE_USD_PLN,
+        fx.rate,
       ),
       trials: stats?.trials ?? 0,
       days: current.days.map((day, index) => ({

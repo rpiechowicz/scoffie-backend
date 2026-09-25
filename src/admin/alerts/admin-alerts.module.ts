@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MailModule } from '../../mail/mail.module';
 import { AdminCoreModule } from '../admin-core.module';
+import { AdminFxModule } from '../revenue/admin-fx.module';
 import { AdminUsersModule } from '../users/admin-users.module';
 import {
   AdminAlertsController,
@@ -17,7 +18,7 @@ import { AdminWatchService } from './admin-watch.service';
  * tą samą arytmetyką co pulpit (`AdminUsersModule` → `AdminDashboardService`).
  */
 @Module({
-  imports: [AdminCoreModule, MailModule, AdminUsersModule],
+  imports: [AdminCoreModule, MailModule, AdminUsersModule, AdminFxModule],
   controllers: [AdminAlertsController, AdminDailyReportController],
   providers: [AdminWatchService, AdminDailyReportService, AdminAlertsService],
 })

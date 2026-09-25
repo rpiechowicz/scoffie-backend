@@ -78,6 +78,8 @@ export type ReportInput = {
   sentryNew24h: number | null;
   /** Ostatnie uruchomienie `db-backup` z Railwaya; `null` — brak tokenu albo usługi. */
   backup: { status: string; startedAt: string } | null;
+  /** USD/PLN z NBP na dobę raportu (`FxRateService.usdPlnOn`); brak — stała cennika. */
+  usdPln?: number;
 };
 
 const metric = (
@@ -208,11 +210,11 @@ export function buildReportPayload(input: ReportInput): DailyReportPayload {
             'neutral',
           ),
           metric('Koszt AI', cost, 'usd', 'down'),
-          // Kurs referencyjny z `ai-unit-economics.ts` — ten sam, co na
-          // ekranie Asystent; to przybliżenie, nie kurs z faktury.
+          // Kurs NBP z doby raportu (ostatnie notowanie), bez niego stała
+          // cennika z `ai-unit-economics.ts` — to przybliżenie, nie kurs z faktury.
           metric(
             'Koszt AI w złotych',
-            cost.map((c) => round2(c * REFERENCE_USD_PLN)),
+            cost.map((c) => round2(c * (input.usdPln ?? REFERENCE_USD_PLN))),
             'pln',
             'down',
           ),

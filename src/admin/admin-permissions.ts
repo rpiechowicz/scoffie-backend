@@ -49,6 +49,8 @@ export const ADMIN_PERMISSIONS = [
   /** Rejestr wniosków RODO (ROADMAPA §5.11) — odczyt i obsługa. */
   'gdpr.read',
   'gdpr.write',
+  /** Wypłaty z Apple (raporty sprzedaży i finansów App Store Connect) i kurs NBP. */
+  'revenue.read',
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
