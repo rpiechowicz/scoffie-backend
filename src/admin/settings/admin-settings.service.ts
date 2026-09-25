@@ -13,7 +13,8 @@ import {
   AdminAuditService,
   type AdminActor,
 } from '../audit/admin-audit.service';
-import type { RuntimeSettingsData } from '../contract';
+import { PrismaService } from '../../prisma/prisma.service';
+import type { RuntimeSettingChange, RuntimeSettingsData } from '../contract';
 
 /**
  * „Sterowanie” (ROADMAPA §5.12): wyłącznik i limity asystenta nadpisywane
@@ -26,7 +27,51 @@ export class AdminSettingsService {
     private readonly runtime: RuntimeSettingsService,
     private readonly audit: AdminAuditService,
     private readonly alerts: OpsAlertService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  /**
+   * Udane zmiany ustawień z ostatnich `days` dni, od najstarszej — z dziennika
+   * audytu (`settings.set` / `settings.clear`), bo historia żyje tylko tam.
+   * Wartość to już opis z audytu (lista osób = sama liczba).
+   */
+  async changes(
+    days: number,
+    now: Date = new Date(),
+  ): Promise<RuntimeSettingChange[]> {
+    const rows = await this.prisma.adminAuditLog.findMany({
+      where: {
+        action: { in: ['settings.set', 'settings.clear'] },
+        result: 'SUCCESS',
+        createdAt: { gte: new Date(now.getTime() - days * 86_400_000) },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 500,
+      select: { createdAt: true, action: true, targetId: true, details: true },
+    });
+    return rows
+      .filter(
+        (row) => row.targetId !== null && isRuntimeSettingKey(row.targetId),
+      )
+      .map((row) => {
+        const details =
+          row.details &&
+          typeof row.details === 'object' &&
+          !Array.isArray(row.details)
+            ? (row.details as Record<string, unknown>)
+            : {};
+        const text = (value: unknown) =>
+          typeof value === 'string' ? value : null;
+        const cleared = row.action === 'settings.clear';
+        return {
+          at: row.createdAt.toISOString(),
+          key: row.targetId as string,
+          action: cleared ? ('clear' as const) : ('set' as const),
+          value: cleared ? null : text(details.value),
+          previous: text(details.previous),
+        };
+      });
+  }
 
   async data(): Promise<RuntimeSettingsData> {
     const rows = new Map(
@@ -42,6 +87,7 @@ export class AdminSettingsService {
           key,
           label: spec.label,
           kind: spec.kind,
+          ...(spec.options ? { options: [...spec.options] } : {}),
           envValue: envRaw === undefined ? null : envRaw.trim(),
           override: row?.value ?? null,
           effective: spec.effective(agent),

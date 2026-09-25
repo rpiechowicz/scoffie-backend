@@ -417,10 +417,15 @@ function readEffort(
  * jest decyzją najostrożniejszą, nie najwygodniejszą.
  */
 function readCardsMode(env: NodeJS.ProcessEnv): AiCardsMode {
-  const raw = (env.AI_CARDS_MODE ?? '').trim().toLowerCase();
-  return (AI_CARDS_MODES as readonly string[]).includes(raw)
-    ? (raw as AiCardsMode)
-    : 'strict';
+  return parseCardsModeStrict(env.AI_CARDS_MODE ?? '') ?? 'strict';
+}
+
+/** Ścisły parser trybu kart — env (`readCardsMode`) i panel (`runtime-settings.ts`). */
+export function parseCardsModeStrict(raw: string): AiCardsMode | undefined {
+  const value = raw.trim().toLowerCase();
+  return (AI_CARDS_MODES as readonly string[]).includes(value)
+    ? (value as AiCardsMode)
+    : undefined;
 }
 
 function readProvider(env: NodeJS.ProcessEnv): AiProvider {

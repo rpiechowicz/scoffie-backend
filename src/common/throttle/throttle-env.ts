@@ -1,3 +1,5 @@
+import { effectiveProcessEnv } from '../../config/runtime-overrides';
+
 /**
  * Limity throttlera z env — czytane PER ŻĄDANIE (`Resolvable<number>` z
  * `@nestjs/throttler`), nie przy starcie modułu.
@@ -54,19 +56,31 @@ export const THROTTLE_DEFAULTS: Readonly<Record<ThrottleKey, number>> = {
 };
 
 /**
- * Limit z env albo domyślny. Zła wartość (nie-liczba, ułamek, < 1) jest
- * ignorowana — limit 0 blokowałby wszystko, więc nie jest legalnym „wyłącz”.
- * Wyłączenie throttlera robi się `@SkipThrottle`, nie zerem w env.
+ * Ścisły parser limitu — ten sam dla env i dla nadpisań z panelu
+ * (`runtime-settings.ts`). `undefined` = wartość nieprawidłowa (nie-liczba,
+ * ułamek, < 1) — limit 0 blokowałby wszystko, więc nie jest legalnym
+ * „wyłącz”. Wyłączenie throttlera robi się `@SkipThrottle`, nie zerem w env.
+ */
+export function parseThrottleLimitStrict(raw: string): number | undefined {
+  const value = raw.trim();
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) return undefined;
+  return parsed;
+}
+
+/**
+ * Limit z env albo domyślny; zła wartość jest ignorowana.
+ *
+ * Domyślnie `process.env` SCALONE z nadpisaniami z panelu (`RuntimeSetting`,
+ * ROADMAPA §5.12) — limity czyta się per żądanie, więc nadpisanie działa od
+ * następnego żądania, bez restartu. Jawnie podany `env` nadpisań nie widzi.
  */
 export function readThrottleLimit(
   key: ThrottleKey,
-  env: NodeJS.ProcessEnv = process.env,
+  env: NodeJS.ProcessEnv = effectiveProcessEnv(),
 ): number {
-  const raw = (env[key] ?? '').trim();
-  if (!raw) return THROTTLE_DEFAULTS[key];
-  const parsed = Number(raw);
-  if (!Number.isInteger(parsed) || parsed < 1) return THROTTLE_DEFAULTS[key];
-  return parsed;
+  return parseThrottleLimitStrict(env[key] ?? '') ?? THROTTLE_DEFAULTS[key];
 }
 
 /** Problemy konfiguracji do `assert-env` — te same zasady, co dla `AI_*`. */
@@ -77,8 +91,7 @@ export function throttleEnvProblems(
   for (const key of THROTTLE_KEYS) {
     const raw = (env[key] ?? '').trim();
     if (!raw) continue;
-    const parsed = Number(raw);
-    if (!Number.isInteger(parsed) || parsed < 1) {
+    if (parseThrottleLimitStrict(raw) === undefined) {
       problems.push(
         `${key}=${raw} — oczekiwana liczba całkowita ≥ 1 (przy złej wartości działa domyślna ${THROTTLE_DEFAULTS[key]})`,
       );

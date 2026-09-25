@@ -19,7 +19,13 @@ import {
 } from '../admin.decorators';
 import { adminActor } from '../audit/admin-audit.service';
 import type { ResolvedAdminSession } from '../auth/admin-sessions.service';
-import type { Ingredient, RecipeDetail, RecipeListItem } from '../contract';
+import type {
+  CatalogInsights,
+  Ingredient,
+  RecipeDetail,
+  RecipeListItem,
+} from '../contract';
+import { AdminCatalogInsightsService } from './admin-catalog-insights.service';
 import {
   CatalogRecipesQueryDto,
   RecipeActiveDto,
@@ -30,7 +36,17 @@ import { AdminCatalogService } from './admin-catalog.service';
 /** Katalog przepisów i składników (ROADMAPA §5.7). */
 @AdminController('catalog')
 export class AdminCatalogController {
-  constructor(private readonly catalog: AdminCatalogService) {}
+  constructor(
+    private readonly catalog: AdminCatalogService,
+    private readonly catalogInsights: AdminCatalogInsightsService,
+  ) {}
+
+  /** „Jakość” (luki w danych) i „Popularność” katalogu. */
+  @Get('insights')
+  @AdminRequires('catalog.read')
+  insights(): Promise<CatalogInsights> {
+    return this.catalogInsights.insights();
+  }
 
   @Get('recipes')
   @AdminRequires('catalog.read')
