@@ -38,6 +38,7 @@ import {
   type UserRow,
 } from './admin-user-items';
 import type { AdminUserListQueryDto } from './admin-users.dto';
+import { isOwnerAccount } from './owner-account';
 import { refreshFamilies } from './refresh-families';
 import {
   daysBefore,
@@ -369,6 +370,7 @@ export class AdminUsersService {
         ),
         stepsSource: toStepsSource(user.dailySteps[0]?.source),
         memoryNotes: await tx.agentMemory.count({ where: { aboutUserId: id } }),
+        ownerAccount: isOwnerAccount(user.email),
       };
     });
   }

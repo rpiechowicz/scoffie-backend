@@ -269,6 +269,11 @@ export interface UserDetail extends UserListItem {
   stepsSource: 'APPLE_HEALTH' | 'GARMIN' | null;
   /** notatki `AgentMemory.aboutUserId` — tylko liczba */
   memoryNotes: number;
+  /**
+   * Konto z listy właściciela (`ADMIN_BOOTSTRAP_EMAIL`) — testowy push bez
+   * potwierdzenia. Brak pola = starszy backend (panel pyta jak o obcą osobę).
+   */
+  ownerAccount?: boolean;
 }
 
 /** `User` + `UserPreference` — dane szczególnej kategorii, dopiero po „Odsłoń”. */
@@ -1027,7 +1032,7 @@ export interface AdminAlertRow {
   id: string;
   /** np. `deploy-failed:<serviceId>:<deployId>`, `crash-free:scoffie-ios` */
   key: string;
-  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain` */
+  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain`, `gdpr-due` */
   kind: string;
   severity: AlertSeverity;
   title: string;
@@ -1153,4 +1158,156 @@ export interface GrowthData {
   active: ActiveDay[];
   /** od kiedy zbieramy aktywność (wdrożenie tabeli); `null` — jeszcze nie */
   activitySince: IsoDate | null;
+}
+
+// ——— Karta osoby: testowy push, błędy Sentry; rejestr wniosków RODO (ROADMAPA §5.10, §5.11) ———
+
+/**
+ * `POST /admin/users/:id/devices/:deviceId/test-push` (step-up). Na
+ * urządzenie konta spoza listy właściciela — tylko z `confirmForeign` i powodem.
+ */
+export interface PushTestInput {
+  confirmForeign?: boolean;
+  /** 5–500 znaków; wymagany przy obcej osobie */
+  reason?: string;
+}
+
+/** Odpowiedź APNs na testowy push — bez treści powiadomienia. */
+export interface PushTestResult {
+  /** APNs przyjął (HTTP 200) */
+  ok: boolean;
+  /** HTTP z APNs; 0 = brak odpowiedzi */
+  status: number;
+  /** nagłówek `apns-id` */
+  apnsId: string | null;
+  /** `BadDeviceToken`, `Unregistered`, `DeviceTokenNotForTopic`, `TopicDisallowed`, `NoResponse`, … */
+  reason: string | null;
+  environment: 'SANDBOX' | 'PRODUCTION';
+  /** `apns-topic` — bundle id urządzenia */
+  topic: string;
+  sentAt: IsoDate;
+}
+
+/** Zdarzenie Sentry osoby (`organizations/{org}/events/`, `user.id`). */
+export interface SentryUserEvent {
+  id: string;
+  title: string;
+  level: string;
+  /** slug projektu */
+  project: string;
+  /** wydanie aplikacji, np. `app.scoffie@1.0.3+35` */
+  release: string | null;
+  at: IsoDate;
+  permalink: string;
+}
+
+/** `GET /admin/users/:id/sentry` — ostatnie 14 dni */
+export interface SentryUserData {
+  /** problemy z co najmniej jednym zdarzeniem tej osoby; `count` = zdarzenia w 14 dni (wszystkich osób) */
+  issues: SentryIssue[];
+  /** najnowsze zdarzenia osoby */
+  events: SentryUserEvent[];
+  /** `true` — Sentry nie oddał listy zdarzeń (problemy są) */
+  eventsUnavailable: boolean;
+  /** wyszukiwanie w Sentry po `user.id` */
+  url: string;
+}
+
+export type SentryUserState = IntegrationState<SentryUserData>;
+
+export type GdprKind =
+  | 'ACCESS'
+  | 'ERASURE'
+  | 'RECTIFICATION'
+  | 'RESTRICTION'
+  | 'OBJECTION'
+  | 'PORTABILITY';
+export type GdprStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'REJECTED';
+/** skąd przyszedł wniosek */
+export type GdprChannel = 'EMAIL' | 'APP' | 'STORE' | 'POST' | 'OTHER';
+
+/** `GdprRequest` — wiersz rejestru */
+export interface GdprRequestRow {
+  id: string;
+  kind: GdprKind;
+  status: GdprStatus;
+  receivedAt: IsoDate;
+  /** `receivedAt` + 30 dni, po przedłużeniu + 90 */
+  dueAt: IsoDate;
+  /** przedłużony o 60 dni (art. 12 ust. 3) */
+  extended: boolean;
+  requesterEmail: string;
+  userId: string | null;
+  /** `displayName` powiązanego konta; `null` — brak konta albo usunięte */
+  userName: string | null;
+  channel: GdprChannel;
+  closedAt: IsoDate | null;
+  createdAt: IsoDate;
+}
+
+/** `GET /admin/gdpr?state=open|closed|all&kind=` */
+export interface GdprData {
+  stats: {
+    /** OPEN + IN_PROGRESS */
+    open: number;
+    /** otwarte, termin za mniej niż 7 dni */
+    dueSoon: number;
+    /** otwarte po terminie */
+    overdue: number;
+    /** DONE + REJECTED w ostatnich 30 dniach */
+    closed30d: number;
+  };
+  /** otwarte: najbliższy termin pierwszy; zamknięte: najnowsze pierwsze */
+  items: GdprRequestRow[];
+}
+
+export interface GdprFilters {
+  /** domyślnie `open` */
+  state?: 'open' | 'closed' | 'all';
+  kind?: GdprKind;
+}
+
+/** `GET /admin/gdpr/:id` */
+export interface GdprRequestDetail extends GdprRequestRow {
+  notes: string | null;
+  extensionReason: string | null;
+  /** DONE / REJECTED — co odpowiedzieliśmy */
+  resolution: string | null;
+  /** adres admina, który zamknął */
+  closedBy: string | null;
+  /** wpisy dziennika audytu z `targetId` = id wniosku, najstarsze pierwsze */
+  history: AuditEntry[];
+}
+
+/** `POST /admin/gdpr` */
+export interface GdprCreateInput {
+  kind: GdprKind;
+  channel: GdprChannel;
+  /** domyślnie teraz; nie z przyszłości */
+  receivedAt?: IsoDate;
+  requesterEmail: string;
+  userId?: string | null;
+  notes?: string | null;
+}
+
+/** `PATCH /admin/gdpr/:id` — powiązanie z kontem i notatki */
+export interface GdprUpdateInput {
+  userId?: string | null;
+  notes?: string | null;
+}
+
+/** `POST /admin/gdpr/:id/status` — tylko otwarte stany */
+export interface GdprStatusInput {
+  status: 'OPEN' | 'IN_PROGRESS';
+}
+
+/** `POST /admin/gdpr/:id/extend` — raz, przed terminem; `reason` = uzasadnienie */
+export interface GdprExtendInput {
+  reason: string;
+}
+
+/** `POST /admin/gdpr/:id/close` — `resolution` trafia też jako powód do dziennika */
+export interface GdprCloseInput {
+  status: 'DONE' | 'REJECTED';
+  resolution: string;
 }

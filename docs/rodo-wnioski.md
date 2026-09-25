@@ -79,22 +79,28 @@ w prompcie), a jej rozmowy znikają w cyklu retencji (90 dni) albo na
 
 ## 5. Rejestr wniosków
 
-Każdy wniosek notujemy (data wpływu, rodzaj, data odpowiedzi, kto obsłużył)
-w prywatnym arkuszu administratora — bez kopiowania treści danych. To dowód
-dotrzymania terminu, gdyby osoba złożyła skargę do UODO.
+Każdy wniosek notujemy w panelu administratora, ekran **RODO** (`/gdpr`,
+tabela `GdprRequest`): data wpływu, rodzaj, kanał, adres wnioskodawcy,
+powiązane konto, termin (30 dni, raz przedłużany o 60 z uzasadnieniem —
+tylko przed upływem terminu), odpowiedź i kto zamknął — bez kopiowania
+treści danych. Historia zmian wniosku to wpisy dziennika audytu (w dzienniku
+tylko id wniosku, bez adresu). Centrum alertów ostrzega 7 dni przed terminem
+i alarmuje po terminie. To dowód dotrzymania terminu, gdyby osoba złożyła
+skargę do UODO. Z wniosku o dostęp / usunięcie panel prowadzi do eksportu
+albo usunięcia konta na karcie osoby.
 
 ## Kasowanie danych z kopii zapasowych (art. 17 — dopełnienie)
 
 Usunięcie konta (przycisk w aplikacji albo `pnpm accounts:delete`) kasuje dane
 z **bazy produkcyjnej** natychmiast. Dane tej osoby istnieją jeszcze w:
 
-| Gdzie | Retencja | Co się dzieje |
-|---|---|---|
-| Nocne kopie w R2 (`.dump.age`, zaszyfrowane kluczem `age`) | 30 dni (prune w workflow `DB backup`) | Znikają same najpóźniej 30 dni po usunięciu konta. Nie edytujemy kopii punktowo — kopia jest zaszyfrowana i niepodzielna. |
-| Railway PITR + kopia woluminu | wg planu Railway (do wpisania w rejestrze) | Znikają same z końcem okna retencji. |
-| Logi Railway (IP, user-agent, `userId` w logach żądań) | wg planu Railway | Znikają same; nie zawierają treści rozmów ani danych o zdrowiu. |
-| Sentry | 90 dni (zdarzenia) | Zdarzenia niosą tylko `userId`, bez treści. |
-| Anthropic (treść rozmów w API) | wg umowy / zero-retention (do potwierdzenia w konsoli) | Poza naszą kontrolą po wysłaniu; opisane w polityce §6. |
+| Gdzie                                                      | Retencja                                               | Co się dzieje                                                                                                             |
+| ---------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Nocne kopie w R2 (`.dump.age`, zaszyfrowane kluczem `age`) | 30 dni (prune w workflow `DB backup`)                  | Znikają same najpóźniej 30 dni po usunięciu konta. Nie edytujemy kopii punktowo — kopia jest zaszyfrowana i niepodzielna. |
+| Railway PITR + kopia woluminu                              | wg planu Railway (do wpisania w rejestrze)             | Znikają same z końcem okna retencji.                                                                                      |
+| Logi Railway (IP, user-agent, `userId` w logach żądań)     | wg planu Railway                                       | Znikają same; nie zawierają treści rozmów ani danych o zdrowiu.                                                           |
+| Sentry                                                     | 90 dni (zdarzenia)                                     | Zdarzenia niosą tylko `userId`, bez treści.                                                                               |
+| Anthropic (treść rozmów w API)                             | wg umowy / zero-retention (do potwierdzenia w konsoli) | Poza naszą kontrolą po wysłaniu; opisane w polityce §6.                                                                   |
 
 **Odpowiedź dla wnioskodawcy (art. 17):** dane usunięte z systemu
 produkcyjnego z dniem X; kopie zapasowe, z których dane znikają

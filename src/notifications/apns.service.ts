@@ -103,6 +103,33 @@ export class ApnsSendError extends Error {
   }
 }
 
+/** Odpowiedź APNs na jeden push — patrz `ApnsService.sendWithResult`. */
+export type ApnsDeliveryResult = {
+  /** HTTP z APNs; 0 = brak odpowiedzi (sieć, zerwana sesja) */
+  status: number;
+  /** nagłówek `apns-id` — identyfikator u Apple, do zgłoszeń */
+  apnsId: string | null;
+  /** `reason` z ciała odmowy (np. `BadDeviceToken`, `Unregistered`) */
+  reason: string | null;
+  environment: ApnsEnvironment;
+  topic: string;
+};
+
+/** `{"reason":"BadDeviceToken"}` → `BadDeviceToken`; inne ciało — pierwsze 80 znaków. */
+export function apnsReason(body: string): string | null {
+  const text = body.trim();
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text) as { reason?: unknown };
+    if (typeof parsed.reason === 'string' && parsed.reason) {
+      return parsed.reason.slice(0, 80);
+    }
+  } catch {
+    // nie JSON — zostaje surowy skrót
+  }
+  return text.slice(0, 80);
+}
+
 @Injectable()
 export class ApnsService implements OnModuleInit {
   private readonly logger = new Logger(ApnsService.name);
@@ -182,7 +209,76 @@ export class ApnsService implements OnModuleInit {
     if (!this.isConfigured()) {
       return;
     }
+    const response = await this.deliver(
+      deviceToken,
+      payload,
+      appBundleId,
+      environment,
+    );
+    if (response.status >= 200 && response.status < 300) {
+      return;
+    }
+    throw new ApnsSendError(
+      `APNs ${response.status}: ${response.body || 'Unknown error'}`,
+      response.status,
+      response.body,
+    );
+  }
 
+  /**
+   * Jeden push z pełną odpowiedzią APNs — dla testu z panelu (ROADMAPA §5.10).
+   *
+   * Ta sama droga co `sendToDevice` (JWT, host wg środowiska, nagłówki), ale
+   * zamiast rzucać przy odmowie oddaje status, `apns-id` i `reason` z ciała
+   * odpowiedzi — panel pokazuje je wprost. Brak odpowiedzi (sieć) to status 0
+   * z powodem `NoResponse`. Wywołujący sprawdza `isConfigured()` wcześniej.
+   */
+  async sendWithResult(
+    deviceToken: string,
+    payload: PushPayload,
+    appBundleId?: string,
+    environment?: ApnsEnvironment | null,
+  ): Promise<ApnsDeliveryResult> {
+    const resolved = environment ?? this.defaultEnvironment;
+    const topic = appBundleId?.trim() || this.bundleId;
+    try {
+      const response = await this.deliver(
+        deviceToken,
+        payload,
+        appBundleId,
+        resolved,
+      );
+      return {
+        status: response.status,
+        apnsId: response.apnsId,
+        reason:
+          response.status >= 200 && response.status < 300
+            ? null
+            : apnsReason(response.body),
+        environment: resolved,
+        topic,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `APNs test send without response: ${(error as Error).message}`,
+      );
+      return {
+        status: 0,
+        apnsId: null,
+        reason: 'NoResponse',
+        environment: resolved,
+        topic,
+      };
+    }
+  }
+
+  /** Jedno żądanie HTTP/2 do APNs — status, ciało i `apns-id` odpowiedzi. */
+  private async deliver(
+    deviceToken: string,
+    payload: PushPayload,
+    appBundleId?: string,
+    environment?: ApnsEnvironment | null,
+  ): Promise<{ status: number; body: string; apnsId: string | null }> {
     const topic = appBundleId?.trim() || this.bundleId;
 
     const jwt = await this.getJwt();
@@ -193,7 +289,7 @@ export class ApnsService implements OnModuleInit {
     client.on('error', () => {});
 
     try {
-      await new Promise<void>((resolve, reject) => {
+      return await new Promise((resolve, reject) => {
         const headers: Record<string, string | number> = {
           ':method': 'POST',
           ':path': `/3/device/${deviceToken}`,
@@ -221,11 +317,14 @@ export class ApnsService implements OnModuleInit {
 
         let responseStatus = 0;
         let responseBody = '';
+        let apnsId: string | null = null;
 
         req.setEncoding('utf8');
 
         req.on('response', (headers) => {
           responseStatus = Number(headers[':status'] ?? 0);
+          const id = headers['apns-id'];
+          apnsId = typeof id === 'string' && id ? id : null;
         });
 
         req.on('data', (chunk) => {
@@ -233,17 +332,7 @@ export class ApnsService implements OnModuleInit {
         });
 
         req.on('end', () => {
-          if (responseStatus >= 200 && responseStatus < 300) {
-            resolve();
-            return;
-          }
-          reject(
-            new ApnsSendError(
-              `APNs ${responseStatus}: ${responseBody || 'Unknown error'}`,
-              responseStatus,
-              responseBody,
-            ),
-          );
+          resolve({ status: responseStatus, body: responseBody, apnsId });
         });
 
         req.on('error', reject);

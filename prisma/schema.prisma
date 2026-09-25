@@ -77,6 +77,9 @@ model User {
   /// Maile zakolejkowane do tej osoby. `SetNull`, nie kaskada — patrz
   /// `MailMessage.userId`: mail pożegnalny musi przeżyć skasowanie konta.
   mailMessages       MailMessage[]
+  /// Wnioski RODO powiązane z kontem (rejestr w panelu). `SetNull`: wniosek
+  /// o usunięcie ma przeżyć usunięcie konta — to dowód dotrzymania terminu.
+  gdprRequests       GdprRequest[]
 
   @@index([identityHash])
   /// Panel: „zalogowani dziś” na pulpicie i sortowanie listy osób i domów.
@@ -1591,6 +1594,46 @@ model AdminAlert {
 
   @@index([resolvedAt])
   @@index([lastAt])
+}
+
+/// Rejestr wniosków RODO (ROADMAPA §5.11) — dawniej ręczny arkusz
+/// z `docs/rodo-wnioski.md` §5. Dowód dotrzymania terminu z art. 12 ust. 3
+/// (miesiąc, przedłużenie o dwa przy sprawach złożonych).
+///
+/// Rodzaj, stan i kanał to tekst, nie enum (konwencja migracji panelu) —
+/// wartości pilnuje DTO. `requesterEmail` to dane osobowe: nie trafia ani do
+/// dziennika audytu (tam tylko id wniosku), ani do alertów.
+model GdprRequest {
+  id              String    @id @default(uuid()) @db.Uuid
+  /// ACCESS | ERASURE | RECTIFICATION | RESTRICTION | OBJECTION | PORTABILITY
+  kind            String
+  /// OPEN | IN_PROGRESS | DONE | REJECTED
+  status          String    @default("OPEN")
+  receivedAt      DateTime
+  /// `receivedAt` + 30 dni; po przedłużeniu + 90.
+  dueAt           DateTime
+  /// Przedłużenie o 60 dni — raz, przed pierwotnym terminem, z uzasadnieniem.
+  extendedAt      DateTime?
+  extensionReason String?
+  requesterEmail  String
+  userId          String?   @db.Uuid
+  /// EMAIL | APP | STORE | POST | OTHER
+  channel         String
+  notes           String?
+  closedAt        DateTime?
+  /// Adres admina z panelu — kopia, jak `AdminAuditLog.adminEmail`.
+  closedBy        String?
+  resolution      String?
+  createdBy       String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// Otwarte po terminie (lista, karty, reguła alertu).
+  @@index([status, dueAt])
+  @@index([closedAt])
+  @@index([userId])
 }
 
 enum MembershipRole {
