@@ -109,7 +109,10 @@ describe('eksport katalogu', () => {
       const text = formatCatalogFile({
         version: 'v',
         recipes: [
-          { ...base, suitableMealTypes: ['BREAKFAST', 'SECOND_BREAKFAST'] },
+          withCanonicalKeyOrder({
+            ...base,
+            suitableMealTypes: ['BREAKFAST', 'SECOND_BREAKFAST'],
+          }),
         ],
       });
       expect(text.endsWith('}\n')).toBe(true);
@@ -256,18 +259,20 @@ describe('eksport katalogu', () => {
   });
 
   describe('obieg wpis → kolumny → wpis', () => {
-    const canonical = (entry: CatalogRecipeInput): CatalogRecipeInput => ({
-      ...entry,
-      suitableMealTypes: resolveSuitableMealTypes({
-        title: entry.title,
-        description: entry.description,
-        mealType: entry.mealType,
-        prepTimeMinutes: entry.prepTimeMinutes,
-        servings: entry.servings,
-        nutritionKcal: entry.nutrition.kcal,
-        suitableMealTypes: entry.suitableMealTypes,
-      }),
-    });
+    // Kolejność kluczy jak w eksporcie — sam spread dokleja pole na końcu.
+    const canonical = (entry: CatalogRecipeInput): CatalogRecipeInput =>
+      withCanonicalKeyOrder({
+        ...entry,
+        suitableMealTypes: resolveSuitableMealTypes({
+          title: entry.title,
+          description: entry.description,
+          mealType: entry.mealType,
+          prepTimeMinutes: entry.prepTimeMinutes,
+          servings: entry.servings,
+          nutritionKcal: entry.nutrition.kcal,
+          suitableMealTypes: entry.suitableMealTypes,
+        }),
+      });
 
     it('wpis w formacie eksportu wraca bez zmian (bajt w bajt)', () => {
       const entries = [

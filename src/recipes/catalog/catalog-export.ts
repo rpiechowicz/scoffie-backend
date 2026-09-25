@@ -250,12 +250,7 @@ function render(
     const items = value.map(
       (item, index) =>
         inner +
-        render(
-          item,
-          inner,
-          inner.length,
-          index < value.length - 1 ? ',' : '',
-        ),
+        render(item, inner, inner.length, index < value.length - 1 ? ',' : ''),
     );
     return `[\n${items.join(',\n')}\n${indent}]`;
   }

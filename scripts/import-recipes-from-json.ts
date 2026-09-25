@@ -167,8 +167,7 @@ function validateBatch(input: RecipeBatchInput): void {
   const problems = input.recipes.flatMap(validateCatalogRecipe);
   if (problems.length > 0) {
     throw new Error(`Plik importu ma błędy:
-${problems.join('
-')}`);
+${problems.join(String.fromCharCode(10))}`);
   }
 }
 

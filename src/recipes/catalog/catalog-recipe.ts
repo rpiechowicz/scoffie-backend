@@ -146,10 +146,7 @@ export function validateCatalogRecipe(recipe: CatalogRecipeInput): string[] {
       `"${title}": servings musi być liczbą całkowitą 1..8 (jest ${String(recipe.servings)}).`,
     );
   }
-  if (
-    !Number.isInteger(recipe.prepTimeMinutes) ||
-    recipe.prepTimeMinutes < 0
-  ) {
+  if (!Number.isInteger(recipe.prepTimeMinutes) || recipe.prepTimeMinutes < 0) {
     problems.push(`"${title}": zły czas przygotowania.`);
   }
   if (!Array.isArray(recipe.steps) || recipe.steps.length === 0) {
@@ -268,6 +265,13 @@ export async function loadCatalogIngredientLookup(
   const lookup: CatalogIngredientLookup = new Map();
   for (const ingredient of ingredients) {
     lookup.set(ingredient.normalizedName, toIngredientRef(ingredient));
+  }
+  // Także po znormalizowanej NAZWIE: panel zamienia klucz na nazwę i szuka
+  // po niej, a `normalizedName` nie musi być dokładnie `normalizeText(name)`.
+  // Klucz ma pierwszeństwo, więc to niczego nie przesłania.
+  for (const ingredient of ingredients) {
+    const byName = normalizeText(ingredient.name);
+    if (!lookup.has(byName)) lookup.set(byName, toIngredientRef(ingredient));
   }
   for (const alias of aliases) {
     lookup.set(alias.normalizedAlias, toIngredientRef(alias.ingredient));
