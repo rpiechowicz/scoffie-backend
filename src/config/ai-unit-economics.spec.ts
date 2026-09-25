@@ -1,4 +1,5 @@
 import { AGENT_ENV_DEFAULTS } from './agent-env';
+import { netRevenuePln, netRevenueUsd } from './ai-unit-economics';
 import { SUBSCRIPTION_PRODUCTS } from './subscription-products';
 
 /**
@@ -46,10 +47,12 @@ function kosztMiesiaca(wiadomosci: number): number {
   );
 }
 
-/** Przychód netto z ceny brutto w PLN: VAT 23 %, Apple 15 %, USD/PLN 3,7224. */
-function nettoUsd(pricePln: number): number {
-  return (pricePln / 1.23) * 0.85 * (1 / 3.7224);
-}
+/**
+ * Przychód netto z ceny brutto w PLN: VAT 23 %, Apple 15 %, USD/PLN 3,7224.
+ * Ta sama funkcja liczy rentowność w panelu administratora — strażnik i panel
+ * nie mają prawa mieć dwóch różnych arytmetyk.
+ */
+const nettoUsd = (pricePln: number): number => netRevenueUsd(pricePln);
 
 const SOLO = SUBSCRIPTION_PRODUCTS['app.scoffie.pro.solo.monthly'];
 const NAJWIEKSZY = Object.values(SUBSCRIPTION_PRODUCTS).sort(
@@ -57,6 +60,15 @@ const NAJWIEKSZY = Object.values(SUBSCRIPTION_PRODUCTS).sort(
 )[0];
 
 describe('jednostkowa ekonomia asystenta', () => {
+  it('netto z ceny brutto zgadza się z tabelą cennika (§3)', () => {
+    // `cennik-i-limity-2026-09.md` §3: 29,99 zł → 20,72 zł = $5,57 itd.
+    expect(netRevenuePln(29.99)).toBeCloseTo(20.72, 2);
+    expect(netRevenuePln(39.99)).toBeCloseTo(27.64, 2);
+    expect(netRevenuePln(49.99)).toBeCloseTo(34.55, 2);
+    expect(netRevenueUsd(29.99)).toBeCloseTo(5.57, 2);
+    expect(netRevenueUsd(49.99)).toBeCloseTo(9.28, 2);
+  });
+
   describe('pula dla gospodarstw bez kupionego produktu', () => {
     it('nie jest hojniejsza niż najtańszy PŁATNY plan', () => {
       // Dostają ją `AI_TIER_OVERRIDE=PRO`, nadanie operatora i nieznany SKU.

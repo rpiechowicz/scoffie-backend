@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AdminCoreModule } from './admin-core.module';
+import { AdminAssistantModule } from './assistant/admin-assistant.module';
+import { AdminCatalogModule } from './catalog/admin-catalog.module';
 import {
   AdminAuthController,
   AdminSessionController,
@@ -27,6 +29,8 @@ import { AdminUsersModule } from './users/admin-users.module';
     AdminUsersModule,
     AdminHouseholdsModule,
     AdminSubscriptionsModule,
+    AdminAssistantModule,
+    AdminCatalogModule,
   ],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],
