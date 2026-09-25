@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'crypto';
 import type { Request, Response } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AdminAccessContext } from '../admin-request';
+import { sameAdminIdentity } from '../../config/admin-env';
 
 /** Ciasteczko sesji: `__Host-` wymusza Secure, Path=/ i brak Domain. */
 export const ADMIN_SESSION_COOKIE = '__Host-scoffie_admin';
@@ -160,7 +161,7 @@ export class AdminSessionsService {
       return null;
     }
     if (row.admin.disabledAt) return null;
-    if (row.admin.email !== accessEmail) return null;
+    if (!sameAdminIdentity(row.admin.email, accessEmail)) return null;
 
     if (now.getTime() - row.lastSeenAt.getTime() >= TOUCH_EVERY_MS) {
       await this.prisma.adminSession.updateMany({

@@ -159,7 +159,7 @@ z kasowaniem ciasteczka.
 | --- | --- | --- |
 | `ADMIN_ACCESS_TEAM_DOMAIN` | `empty-dream-49ba.cloudflareaccess.com` | wydawca tokenów Access; brak = panel zamknięty (404) |
 | `ADMIN_ACCESS_AUD` | tag aplikacji Access (`724efc95…`) | `aud` tokenu; brak = panel zamknięty |
-| `ADMIN_BOOTSTRAP_EMAIL` | adres Rafała | kto może założyć pierwsze konto |
+| `ADMIN_BOOTSTRAP_EMAIL` | adresy Rafała po przecinku | adresy właściciela: każdym można założyć pierwsze konto, a potem każdy wchodzi na TO SAMO konto (te same klucze i TOTP); adres spoza listy = `NOT_ALLOWED` |
 | `ADMIN_BOOTSTRAP_NAME` | opcjonalnie | wyświetlana nazwa pierwszego konta (domyślnie z adresu) |
 | `ADMIN_WEBAUTHN_RP_ID` | `dashboard.scoffie.app` | RP ID passkeyów |
 | `ADMIN_WEBAUTHN_ORIGIN` | `https://dashboard.scoffie.app` | dozwolone pochodzenie (lista po przecinku) |
