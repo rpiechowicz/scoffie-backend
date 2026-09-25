@@ -8,6 +8,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { AiUsageCountersService } from '../src/agent/ai-usage-counters.service';
 import { purchaseIdentityHash } from '../src/config/purchase-identity';
 import { fallbackAvatarColor } from '../src/common/avatar-color.util';
+import { catalogHouseholdId } from '../src/common/catalog-owner';
 import type { HouseholdDetail, HouseholdListItem } from '../src/admin/contract';
 import {
   ADMIN_E2E_EMAIL,
@@ -505,7 +506,16 @@ describe('Panel — gospodarstwa (/admin/households)', () => {
     it('kształt, liczba wszystkich domów i kolejność po najświeższym logowaniu', async () => {
       const res = await get('/admin/households').expect(200);
       const body = res.body as { total: number; items: HouseholdListItem[] };
-      expect(body.total).toBe(await prisma.household.count());
+      // Gospodarstwo katalogu (bot importu) nie jest domem osoby — ani na
+      // liście, ani w `total`.
+      expect(body.total).toBe(
+        await prisma.household.count({
+          where: { id: { not: catalogHouseholdId() } },
+        }),
+      );
+      expect(body.items.map((item) => item.id)).not.toContain(
+        catalogHouseholdId(),
+      );
       const mine = body.items
         .filter((item) => createdHouseholdIds.includes(item.id))
         .map((item) => item.id);
@@ -675,6 +685,28 @@ describe('Panel — gospodarstwa (/admin/households)', () => {
       expect(missing.body.code).toBe('HOUSEHOLD_NOT_FOUND');
       const bad = await get('/admin/households/nie-uuid').expect(400);
       expect(bad.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('gospodarstwo katalogu — 404 jak nieistniejące, także przy zapisach', async () => {
+      const catalog = catalogHouseholdId();
+      const tierOf = () =>
+        prisma.household.findUnique({
+          where: { id: catalog },
+          select: { tierOverride: true },
+        });
+      const before = await tierOf();
+      const detail = await get(`/admin/households/${catalog}`).expect(404);
+      expect(detail.body.code).toBe('HOUSEHOLD_NOT_FOUND');
+      const tier = await post(`/admin/households/${catalog}/tier`, {
+        tier: 'PRO',
+        reason: 'pomyłka w id',
+      }).expect(404);
+      expect(tier.body.code).toBe('HOUSEHOLD_NOT_FOUND');
+      const reset = await post(`/admin/households/${catalog}/cost-reset`, {
+        reason: 'pomyłka w id',
+      }).expect(404);
+      expect(reset.body.code).toBe('HOUSEHOLD_NOT_FOUND');
+      expect(await tierOf()).toEqual(before);
     });
   });
 

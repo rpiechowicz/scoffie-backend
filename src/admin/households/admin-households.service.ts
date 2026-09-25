@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { AiUsageCountersService } from '../../agent/ai-usage-counters.service';
 import { AppException } from '../../common/app-exception';
 import { effectiveAvatarColor } from '../../common/avatar-color.util';
+import { catalogHouseholdId } from '../../common/catalog-owner';
 import { readAgentEnv } from '../../config/agent-env';
 import type { SubscriptionCandidate } from '../../config/subscription-lifetime';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -142,6 +143,15 @@ const householdNotFound = () =>
     HttpStatus.NOT_FOUND,
   );
 
+/**
+ * Gospodarstwo katalogu (bot importu) nie jest domem żadnej osoby: nie ma go
+ * na liście ani w `total`, a karta i zapisy na nim kończą się tym samym 404,
+ * co na nieistniejącym — tak jak w wyszukiwarce ⌘K i na pulpicie. Nadanie PRO
+ * albo reset sufitu kosztu botowi to pomyłka, nie akcja obsługi.
+ */
+const isCatalogHousehold = (id: string): boolean =>
+  id.toLowerCase() === catalogHouseholdId().toLowerCase();
+
 const iso = (date: Date | null): string | null => date?.toISOString() ?? null;
 
 /**
@@ -167,7 +177,10 @@ export class AdminHouseholdsService {
     const env = readAgentEnv();
     const calendar = this.calendar(now);
     return readOnlyQuery(this.prisma, async (tx) => {
-      const total = await tx.household.count();
+      const catalog = catalogHouseholdId();
+      const total = await tx.household.count({
+        where: { id: { not: catalog } },
+      });
       // Kolejność liczy baza: „najnowsza aktywność" to najpóźniejsze
       // logowanie któregokolwiek domownika. Sortowanie w pamięci po `take`
       // pokazywałoby przy >1000 domów przypadkowy tysiąc, nie najświeższy.
@@ -176,6 +189,7 @@ export class AdminHouseholdsService {
         FROM "Household" h
         LEFT JOIN "Membership" m ON m."householdId" = h.id
         LEFT JOIN "User" u ON u.id = m."userId"
+        WHERE h.id <> ${catalog}::uuid
         GROUP BY h.id
         ORDER BY MAX(u."lastLoginAt") DESC NULLS LAST, h."createdAt" DESC, h.id
         LIMIT ${HOUSEHOLDS_LIST_LIMIT}
@@ -202,6 +216,7 @@ export class AdminHouseholdsService {
   async detail(id: string, now: Date = new Date()): Promise<HouseholdDetail> {
     const env = readAgentEnv();
     const calendar = this.calendar(now);
+    if (isCatalogHousehold(id)) throw householdNotFound();
     return readOnlyQuery(this.prisma, async (tx) => {
       const row = await tx.household.findUnique({
         where: { id },
@@ -292,6 +307,7 @@ export class AdminHouseholdsService {
    * zamków planu (`lockHouseholdRoster` → `lockWeekForWrite`).
    */
   async setTier(id: string, tier: 'PRO' | null): Promise<TierChange> {
+    if (isCatalogHousehold(id)) throw householdNotFound();
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<{ tierOverride: string | null }[]>(
         Prisma.sql`
@@ -331,6 +347,7 @@ export class AdminHouseholdsService {
     id: string,
     now: Date = new Date(),
   ): Promise<{ periodKey: string; reset: number }> {
+    if (isCatalogHousehold(id)) throw householdNotFound();
     const periodKey = this.costPeriodKey(now);
     const household = await this.prisma.household.findUnique({
       where: { id },
