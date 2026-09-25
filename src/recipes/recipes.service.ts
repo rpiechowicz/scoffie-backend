@@ -22,10 +22,9 @@ import {
   normalizeIngredientAmount,
 } from './ingredient-amount.util';
 import {
-  computeRecipeNutrition,
-  roundTotalsForStorage,
+  nutritionColumnsFromIngredients,
+  nutritionMissingDetails,
   type IngredientNutritionPer100,
-  totalSaltGrams,
 } from './recipe-nutrition.util';
 import { resolveSuitableMealTypes } from './suitable-meal-types.util';
 import { normalizeRecipeSteps } from './recipe-steps.util';
@@ -373,32 +372,16 @@ export class RecipesService {
       };
     }
 
-    const { totals, missingNutrition, missingPieceWeight } =
-      computeRecipeNutrition(rows);
-    if (missingNutrition.length > 0 || missingPieceWeight.length > 0) {
+    const result = nutritionColumnsFromIngredients(rows, nutritionSaltAdded);
+    if (!result.ok) {
       throw new AppException(
         'VALIDATION_ERROR',
         'Cannot compute recipe nutrition from ingredients.',
         HttpStatus.BAD_REQUEST,
-        [
-          ...missingNutrition.map((name) => `brak makro na 100 g: ${name}`),
-          ...missingPieceWeight.map(
-            (name) => `brak masy sztuki (gramsPerPiece): ${name}`,
-          ),
-        ],
+        nutritionMissingDetails(result),
       );
     }
-
-    const stored = roundTotalsForStorage(totals);
-    return {
-      nutritionKcal: stored.kcal,
-      nutritionProtein: stored.protein,
-      nutritionFat: stored.fat,
-      nutritionCarbs: stored.carbs,
-      nutritionFiber: stored.fiber,
-      nutritionSalt: totalSaltGrams(totals.sodiumMg, nutritionSaltAdded),
-      nutritionSaltAdded,
-    };
+    return result.columns;
   }
 
   private readonly listSelect = recipeListSelect;

@@ -1,65 +1,46 @@
+/**
+ * Import katalogu przepisów z pliku JSON do bazy.
+ *
+ * Od decyzji D1 (25.09.2026) źródłem prawdy katalogu jest BAZA, a plik
+ * `prisma/catalog/recipes-catalog-full-v2.json` jej eksportem (`pnpm
+ * catalog:export`, co noc PR z serwisu `catalog-sync`). Import zostaje do
+ * bootstrapu pustej bazy (safe-migrate, CI) i do świadomego wgrania pliku —
+ * dlatego na NIEPUSTYM katalogu najpierw liczy różnice baza ↔ plik i odmawia,
+ * gdy baza ma zmiany, których plik nie ma (edycja w panelu, wycofanie,
+ * przeliczone makro), chyba że `RECIPE_IMPORT_FROM_JSON_CONFIRM=<dzisiejsza
+ * data>`. Nowe przepisy w pliku (brak w bazie) przechodzą bez potwierdzenia.
+ *
+ * Kolumny liczy `src/recipes/catalog/catalog-recipe.ts` — ta sama funkcja,
+ * co zapis z panelu (`PUT /admin/catalog/recipes/:id`).
+ */
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { MealType, PrismaClient } from '@prisma/client';
-import { MEAL_TYPE_VALUES } from '../src/common/meal-types';
-import { deriveRecipeTags } from '../src/common/diet-tags';
-import {
-  kcalPerServing,
-  resolveSuitableMealTypes,
-  snackKcalLimit,
-} from '../src/recipes/suitable-meal-types.util';
-import {
-  ALLOWED_UNITS,
-  normalizeIngredientAmount,
-  normalizeText,
-} from '../src/recipes/ingredient-amount.util';
+import { PrismaClient } from '@prisma/client';
 import { isRecipeImagePlaceholder } from '../src/recipes/recipe-image-placeholder';
+import {
+  catalogEntryFromColumns,
+  catalogEntryFromRow,
+  catalogExportSelect,
+  describeCatalogDiff,
+  diffCatalog,
+  importGuard,
+  summarizeCatalogDiff,
+  type CatalogDiff,
+} from '../src/recipes/catalog/catalog-export';
+import {
+  catalogRecipeColumns,
+  ingredientCreateRows,
+  loadCatalogIngredientLookup,
+  overLimitManualSlots,
+  resolveCatalogIngredients,
+  validateCatalogRecipe,
+  type CatalogIngredientLookup,
+  type CatalogRecipeInput,
+} from '../src/recipes/catalog/catalog-recipe';
 
 const prisma = new PrismaClient();
 
-type RecipeInput = {
-  id?: string;
-  title: string;
-  description: string;
-  mealType: MealType;
-  /**
-   * Opcjonalne, ręczne rozszerzenie slotów. Pominięte = import policzy je
-   * klasyfikatorem (`resolveSuitableMealTypes`).
-   */
-  suitableMealTypes?: MealType[];
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
-  prepTimeMinutes: number;
-  servings: number;
-  nutrition: {
-    kcal: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-    fiber: number;
-    /** Sól ŁĄCZNIE (g na przepis) — wynik `recipes:recompute:nutrition`. */
-    salt: number;
-    /** Sól DODANA (g na przepis); brak = 0. */
-    addedSalt?: number;
-  };
-  steps: Array<{ step: number; instruction: string }>;
-  /**
-   * Zewnętrzne źródło przepisu. Podane w JSON-ie (np. "cookidoo" +
-   * "r56899" z URL-a przepisu) przeżywa każdy re-import — bez tego pola
-   * import nadpisywałby linkowanie do Cookidoo swoim "manual-json-v1"
-   * i przycisk „Gotuj w Thermomixie" znikał po każdym odświeżeniu katalogu.
-   */
-  sourceProvider?: string;
-  sourceRecipeId?: string;
-  ingredients: Array<{
-    ingredientName: string;
-    amount: number;
-    unit: string;
-  }>;
-  image: {
-    prompt: string;
-    imageUrl: string | null;
-  };
-};
+type RecipeInput = CatalogRecipeInput;
 
 type RecipeBatchInput = {
   version?: string;
@@ -70,13 +51,6 @@ type RecipeBatchInput = {
 // podmieniała katalog (id sparowane po indeksie z pulą). Każdy przepis w
 // pliku musi mieć jawne `id`.
 const RECIPE_IMPORT_FILE = (process.env.RECIPE_IMPORT_FILE ?? '').trim();
-/**
- * Ręczny slot z JSON-a ma prawo przekroczyć próg klasyfikatora o połowę
- * (koktajl 370 kcal jako przekąska to świadoma decyzja redaktora), ale nie
- * dwukrotnie (pierogi 900 kcal jako podwieczorek to błąd w danych).
- */
-const MANUAL_SLOT_KCAL_TOLERANCE = 1.5;
-
 const RECIPE_IMPORT_CLEAR_EXISTING =
   process.env.RECIPE_IMPORT_CLEAR_EXISTING === 'true';
 const RECIPE_IMPORT_OWNER_USER_ID =
@@ -137,13 +111,6 @@ const R2_KEY_PREFIX = (process.env.R2_KEY_PREFIX ?? 'recipe-images')
   .trim()
   .replace(/^\/+|\/+$/g, '');
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function isUuid(value: string): boolean {
-  return UUID_PATTERN.test(value);
-}
-
 function buildR2ImageUrl(recipeId: string): string | null {
   if (!RECIPE_IMPORT_BUILD_R2_IMAGE_URLS) return null;
   if (!R2_PUBLIC_BASE_URL) return null;
@@ -197,69 +164,11 @@ function validateBatch(input: RecipeBatchInput): void {
   if (!Array.isArray(input.recipes) || input.recipes.length === 0) {
     throw new Error('Invalid input: "recipes" must be a non-empty array.');
   }
-
-  for (const recipe of input.recipes) {
-    if (!recipe.id?.trim()) {
-      throw new Error(
-        `Recipe "${recipe.title}" must have an explicit id (UUID) — importer no longer assigns ids from a pool.`,
-      );
-    }
-    if (!isUuid(recipe.id.trim())) {
-      throw new Error(
-        `Recipe "${recipe.title}" has invalid id "${recipe.id}". Expected UUID.`,
-      );
-    }
-    if (!recipe.title?.trim()) throw new Error('Recipe title is required.');
-    if (!MEAL_TYPE_VALUES.includes(recipe.mealType)) {
-      throw new Error(`Invalid mealType for recipe "${recipe.title}".`);
-    }
-    if (
-      recipe.suitableMealTypes?.some(
-        (mealType) => !MEAL_TYPE_VALUES.includes(mealType),
-      )
-    ) {
-      throw new Error(
-        `Invalid suitableMealTypes for recipe "${recipe.title}".`,
-      );
-    }
-    if (!['EASY', 'MEDIUM', 'HARD'].includes(recipe.difficulty)) {
-      throw new Error(`Invalid difficulty for recipe "${recipe.title}".`);
-    }
-    // Porcje = na ile osób NAPISANY jest przepis. Katalog długo wymuszał 2,
-    // przez co partie na 4 (pierogi, gołąbki) pokazywały 950–1290 kcal „na
-    // porcję”. Zakres 1–8 zostawia miejsce na realne wydajności.
-    if (
-      !Number.isInteger(recipe.servings) ||
-      recipe.servings < 1 ||
-      recipe.servings > 8
-    ) {
-      throw new Error(
-        `Recipe "${recipe.title}" must have integer servings in range 1..8 (got ${String(recipe.servings)}).`,
-      );
-    }
-    if (!Array.isArray(recipe.steps) || recipe.steps.length === 0) {
-      throw new Error(`Recipe "${recipe.title}" must contain steps.`);
-    }
-    if (!Array.isArray(recipe.ingredients) || recipe.ingredients.length === 0) {
-      throw new Error(`Recipe "${recipe.title}" must contain ingredients.`);
-    }
-    for (const ingredient of recipe.ingredients) {
-      if (!ingredient.ingredientName?.trim()) {
-        throw new Error(
-          `Recipe "${recipe.title}" has ingredient with empty name.`,
-        );
-      }
-      if (!(ingredient.amount > 0)) {
-        throw new Error(
-          `Recipe "${recipe.title}" has invalid amount for "${ingredient.ingredientName}".`,
-        );
-      }
-      if (!ALLOWED_UNITS.has(ingredient.unit)) {
-        throw new Error(
-          `Recipe "${recipe.title}" has invalid unit "${ingredient.unit}" for "${ingredient.ingredientName}".`,
-        );
-      }
-    }
+  const problems = input.recipes.flatMap(validateCatalogRecipe);
+  if (problems.length > 0) {
+    throw new Error(`Plik importu ma błędy:
+${problems.join('
+')}`);
   }
 }
 
@@ -312,60 +221,95 @@ async function ensureImportContext() {
   };
 }
 
-async function resolveIngredientMap() {
-  const [ingredients, aliases] = await Promise.all([
-    prisma.ingredient.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        name: true,
-        category: true,
-        normalizedName: true,
-        allergens: true,
-        dietTags: true,
-      },
-    }),
-    prisma.ingredientAlias.findMany({
-      select: {
-        normalizedAlias: true,
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            isActive: true,
-            normalizedName: true,
-            allergens: true,
-            dietTags: true,
-          },
-        },
-      },
-    }),
-  ]);
-  const byName = new Map<
-    string,
-    {
-      id: string;
-      name: string;
-      category: string;
-      allergens: string[];
-      dietTags: string[];
-    }
-  >();
-  for (const ingredient of ingredients) {
-    byName.set(ingredient.normalizedName, ingredient);
+/**
+ * Zdjęcie, które import zapisze dla przepisu: z pliku, z generatora albo
+ * z R2; zaślepka z pliku nie nadpisuje zdjęcia już wgranego do bazy.
+ */
+function importImageUrl(
+  recipe: RecipeInput,
+  recipeId: string,
+  existing: { imageUrl: string | null } | null,
+): string | null {
+  const incoming =
+    recipe.image?.imageUrl?.trim() ||
+    buildGeneratedImageUrl(recipeId, recipe) ||
+    buildR2ImageUrl(recipeId);
+  if (!existing) return incoming;
+  return keepsUploadedImage(existing.imageUrl, incoming)
+    ? existing.imageUrl
+    : (incoming ?? existing.imageUrl ?? null);
+}
+
+/**
+ * Różnice baza ↔ plik w kształcie eksportu: plik przepuszczony przez te same
+ * funkcje, co zapis (czyli „co byłoby w bazie po imporcie”), baza — przez
+ * eksport. Kolejność składników się nie liczy: przed 25.09.2026 zapis dawał
+ * wszystkim liniom ten sam `createdAt`, więc kolejność w bazie była losowa,
+ * a import ją właśnie porządkuje.
+ */
+async function diffDatabaseAgainstFile(
+  input: RecipeBatchInput,
+  lookup: CatalogIngredientLookup,
+): Promise<CatalogDiff> {
+  const dbRows = await prisma.recipe.findMany({
+    where: { isCatalog: true },
+    select: catalogExportSelect,
+  });
+  const dbImage = new Map(dbRows.map((row) => [row.id, row.imageUrl]));
+  const fileEntries = input.recipes.map((recipe) => {
+    const id = (recipe.id ?? '').trim();
+    const rows = resolveCatalogIngredients(recipe, lookup);
+    const columns = catalogRecipeColumns(recipe, rows);
+    const existing = dbImage.has(id)
+      ? { imageUrl: dbImage.get(id) ?? null }
+      : null;
+    return catalogEntryFromColumns(
+      id,
+      columns,
+      rows,
+      importImageUrl(recipe, id, existing),
+    );
+  });
+  return diffCatalog(fileEntries, dbRows.map(catalogEntryFromRow), {
+    ignoreIngredientOrder: true,
+  });
+}
+
+/**
+ * Strażnik D1: import na niepustym katalogu nie nadpisuje po cichu zmian,
+ * które istnieją TYLKO w bazie. „Tylko w bazie” = przepis, którego plik nie
+ * zna, wycofanie/przywrócenie i każda różnica treści (nie da się odróżnić, po
+ * której stronie zaszła, więc zakładamy gorszy wariant). Przepisy z pliku,
+ * których baza nie ma, to zwykłe dodanie — bez pytania.
+ */
+async function assertNoDatabaseOnlyChanges(
+  input: RecipeBatchInput,
+  lookup: CatalogIngredientLookup,
+): Promise<void> {
+  const catalogSize = await prisma.recipe.count({
+    where: { isCatalog: true },
+  });
+  if (catalogSize === 0) {
+    console.log('[recipes-import] pusty katalog — bootstrap bez porównania.');
+    return;
   }
-  for (const alias of aliases) {
-    if (!alias.ingredient.isActive) continue;
-    byName.set(alias.normalizedAlias, {
-      id: alias.ingredient.id,
-      name: alias.ingredient.name,
-      category: alias.ingredient.category,
-      allergens: alias.ingredient.allergens,
-      dietTags: alias.ingredient.dietTags,
-    });
+  const diff = await diffDatabaseAgainstFile(input, lookup);
+  const guard = importGuard(diff, process.env.RECIPE_IMPORT_FROM_JSON_CONFIRM);
+  console.log(
+    `[recipes-import] baza ↔ plik: nowe z pliku ${diff.removed.length}, różnice po stronie bazy ${guard.count} (${summarizeCatalogDiff(guard.databaseOnly)}).`,
+  );
+  if (guard.count === 0) return;
+  const details = describeCatalogDiff(guard.databaseOnly, { limit: 20 });
+  if (!guard.allowed) {
+    throw new Error(
+      `Baza ma zmiany katalogu, których plik nie ma — import by je nadpisał.\n${details}\n` +
+        `Źródłem prawdy katalogu jest baza (D1): odśwież plik \`pnpm catalog:export\`, ` +
+        `a jeśli nadpisanie jest zamierzone, ustaw RECIPE_IMPORT_FROM_JSON_CONFIRM=${guard.today} (dzisiejsza data). Nic nie zapisano.`,
+    );
   }
-  return byName;
+  console.warn(
+    `[recipes-import] RECIPE_IMPORT_FROM_JSON_CONFIRM=${guard.today} — nadpisuję zmiany z bazy:\n${details}`,
+  );
 }
 
 async function main(): Promise<void> {
@@ -379,6 +323,23 @@ async function main(): Promise<void> {
   const raw = await readFile(filePath, 'utf8');
   const input = JSON.parse(raw) as RecipeBatchInput;
   validateBatch(input);
+
+  const ids = new Set<string>();
+  for (const recipe of input.recipes) {
+    const id = (recipe.id ?? '').trim();
+    if (ids.has(id)) {
+      throw new Error(`Duplicate recipe id "${id}" detected in import input.`);
+    }
+    ids.add(id);
+  }
+
+  // Strażnik PRZED czyszczeniem: `RECIPE_IMPORT_CLEAR_EXISTING` niszczy
+  // zmiany z bazy jeszcze skuteczniej niż zwykły upsert.
+  await assertNoDatabaseOnlyChanges(
+    input,
+    await loadCatalogIngredientLookup(prisma),
+  );
+
   if (RECIPE_IMPORT_CLEAR_EXISTING) {
     // Kasowanie katalogu zabiera z planów WSZYSTKICH domów pozycje wskazujące
     // na jego przepisy. Dlatego: najpierw liczby, a zapis tylko z dzisiejszą
@@ -415,55 +376,18 @@ async function main(): Promise<void> {
     await prisma.recipe.deleteMany({ where: { householdId } });
   }
 
-  const ingredientMap = await resolveIngredientMap();
-  const assignedRecipeIds = new Set<string>();
+  const lookup = await loadCatalogIngredientLookup(prisma);
 
   let created = 0;
   let updated = 0;
   for (const recipe of input.recipes) {
-    const mappedIngredients = recipe.ingredients.map((ingredient) => {
-      const found = ingredientMap.get(normalizeText(ingredient.ingredientName));
-      if (!found) {
-        throw new Error(
-          `Ingredient "${ingredient.ingredientName}" not found in Ingredient table (recipe: "${recipe.title}").`,
-        );
-      }
-      const normalized = normalizeIngredientAmount(
-        found.name,
-        found.category,
-        ingredient.amount,
-        ingredient.unit,
-      );
-
-      return {
-        ingredientId: found.id,
-        name: found.name,
-        amount: ingredient.amount,
-        unit: ingredient.unit,
-        normalizedAmount: Number(normalized.normalizedAmount.toFixed(4)),
-        normalizedUnit: normalized.normalizedUnit,
-        department: found.category,
-      };
-    });
-    // Tagi przepisu = unia tagów składników z bazy (JSON ich nie ma). Wymaga
-    // wgranych tagów składników PRZED importem — patrz bootstrap.
-    const recipeTags = deriveRecipeTags(
-      recipe.ingredients.map(
-        (ingredient) =>
-          ingredientMap.get(normalizeText(ingredient.ingredientName))!,
-      ),
-    );
-
     // `validateBatch` gwarantuje, że każdy przepis ma jawne UUID.
-    const incomingRecipeId = (recipe.id ?? '').trim();
-    if (assignedRecipeIds.has(incomingRecipeId)) {
-      throw new Error(
-        `Duplicate recipe id "${incomingRecipeId}" detected in import input.`,
-      );
-    }
-    assignedRecipeIds.add(incomingRecipeId);
+    const recipeId = (recipe.id ?? '').trim();
+    // Tagi przepisu = unia tagów składników z bazy (plik ich nie ma). Wymaga
+    // wgranych tagów składników PRZED importem — patrz bootstrap.
+    const rows = resolveCatalogIngredients(recipe, lookup);
     const existing = await prisma.recipe.findUnique({
-      where: { id: incomingRecipeId },
+      where: { id: recipeId },
       select: { id: true, title: true, imageUrl: true },
     });
 
@@ -472,103 +396,39 @@ async function main(): Promise<void> {
     // wiersza: plik z rozjechaną pulą id psuje zwykle kilkadziesiąt pozycji
     // naraz, a import w połowie zostawiłby katalog w stanie gorszym niż przed.
     if (
-      incomingRecipeId &&
       existing &&
       existing.title !== recipe.title &&
       !RECIPE_IMPORT_ALLOW_RETITLE
     ) {
       throw new Error(
-        `Recipe id "${incomingRecipeId}" already belongs to "${existing.title}", ` +
+        `Recipe id "${recipeId}" already belongs to "${existing.title}", ` +
           `import wants to overwrite it with "${recipe.title}". ` +
           `Popraw id w pliku importu albo ustaw RECIPE_IMPORT_ALLOW_RETITLE=true, ` +
           `jeśli podmiana dania pod tym id jest zamierzona.`,
       );
     }
 
-    const resolvedRecipeId = incomingRecipeId ?? existing?.id ?? null;
-    const incomingImageUrl =
-      recipe.image?.imageUrl?.trim() ||
-      (resolvedRecipeId
-        ? buildGeneratedImageUrl(resolvedRecipeId, recipe)
-        : null) ||
-      (resolvedRecipeId ? buildR2ImageUrl(resolvedRecipeId) : null);
-
-    const suitabilityInput = {
-      title: recipe.title,
-      description: recipe.description,
-      mealType: recipe.mealType,
-      prepTimeMinutes: recipe.prepTimeMinutes,
-      servings: recipe.servings,
-      nutritionKcal: recipe.nutrition.kcal,
-      suitableMealTypes: recipe.suitableMealTypes,
-    };
-    // Ręczny slot z JSON-a nie może obchodzić własnych progów klasyfikatora:
-    // przekąska 663 kcal i podwieczorek 900 kcal to błąd w danych, nie
-    // wyjątek. Taki slot wypada z ostrzeżeniem, reszta zostaje.
-    const overLimit = (recipe.suitableMealTypes ?? []).filter((slot) => {
-      const limit = snackKcalLimit(slot);
-      return (
-        limit !== null &&
-        kcalPerServing(suitabilityInput) > limit * MANUAL_SLOT_KCAL_TOLERANCE
-      );
-    });
+    const overLimit = overLimitManualSlots(recipe);
     if (overLimit.length > 0) {
       console.warn(
-        `[import] "${recipe.title}": ${Math.round(kcalPerServing(suitabilityInput))} kcal/porcja ponad limit slotów ${overLimit.join(', ')} — pominięte.`,
+        `[import] "${recipe.title}": ${Math.round(recipe.nutrition.kcal / Math.max(1, recipe.servings))} kcal/porcja ponad limit slotów ${overLimit.join(', ')} — pominięte.`,
       );
     }
-    const commonData = {
-      title: recipe.title,
-      description: recipe.description,
-      mealType: recipe.mealType,
-      // Sloty, w których danie ma sens. JSON może je podać wprost; jeśli nie,
-      // liczy je klasyfikator — inaczej każdy import wracałby z katalogiem,
-      // w którym II śniadanie i podwieczorek są puste.
-      suitableMealTypes: resolveSuitableMealTypes({
-        ...suitabilityInput,
-        suitableMealTypes: recipe.suitableMealTypes?.filter(
-          (slot) => !overLimit.includes(slot),
-        ),
-      }).filter((slot) => !overLimit.includes(slot)),
-      difficulty: recipe.difficulty,
-      prepTimeMinutes: recipe.prepTimeMinutes,
-      servings: recipe.servings,
-      nutritionKcal: recipe.nutrition.kcal,
-      nutritionProtein: recipe.nutrition.protein,
-      nutritionFat: recipe.nutrition.fat,
-      nutritionCarbs: recipe.nutrition.carbs,
-      nutritionFiber: recipe.nutrition.fiber,
-      nutritionSalt: recipe.nutrition.salt,
-      nutritionSaltAdded: recipe.nutrition.addedSalt ?? 0,
-      allergens: recipeTags.allergens,
-      dietTags: recipeTags.dietTags,
-      sourceProvider: recipe.sourceProvider ?? 'manual-json-v1',
-      sourceRecipeId: recipe.sourceRecipeId ?? null,
-      sourceInstructions: recipe.steps.map((step) => ({
-        step: step.step,
-        text: step.instruction,
-      })),
-      sourceMeta: {
-        imagePrompt: recipe.image?.prompt ?? null,
-      },
-      sourceRaw: recipe as unknown as object,
+    const data = {
+      ...catalogRecipeColumns(recipe, rows),
       householdId,
-      // Import zasila WSPÓLNY katalog — to jedyne miejsce, które go tworzy.
-      isCatalog: true,
       authorId: userId,
+      imageUrl: importImageUrl(recipe, recipeId, existing),
     };
 
     if (existing) {
       await prisma.recipe.update({
         where: { id: existing.id },
         data: {
-          ...commonData,
-          imageUrl: keepsUploadedImage(existing.imageUrl, incomingImageUrl)
-            ? existing.imageUrl
-            : (incomingImageUrl ?? existing.imageUrl ?? null),
+          ...data,
           ingredients: {
             deleteMany: {},
-            create: mappedIngredients,
+            create: ingredientCreateRows(rows),
           },
         },
       });
@@ -576,12 +436,9 @@ async function main(): Promise<void> {
     } else {
       await prisma.recipe.create({
         data: {
-          ...(incomingRecipeId ? { id: incomingRecipeId } : {}),
-          ...commonData,
-          imageUrl: incomingImageUrl,
-          ingredients: {
-            create: mappedIngredients,
-          },
+          id: recipeId,
+          ...data,
+          ingredients: { create: ingredientCreateRows(rows) },
         },
       });
       created += 1;
