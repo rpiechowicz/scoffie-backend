@@ -181,14 +181,28 @@ describe('Railway', () => {
         return json({
           data: { projectToken: { projectId: 'p1', environmentId: 'e1' } },
         });
-      if (query.includes('project(id'))
+      if (query.includes('environment(id'))
         return json({
           data: {
-            project: {
-              services: {
+            environment: {
+              serviceInstances: {
                 edges: [
-                  { node: { id: 's2', name: 'scoffie-backend' } },
-                  { node: { id: 's1', name: 'db-backup' } },
+                  {
+                    node: {
+                      serviceId: 's2',
+                      serviceName: 'scoffie-backend',
+                      cronSchedule: null,
+                      nextCronRunAt: null,
+                    },
+                  },
+                  {
+                    node: {
+                      serviceId: 's1',
+                      serviceName: 'db-backup',
+                      cronSchedule: '0 3 * * *',
+                      nextCronRunAt: '2026-09-26T03:00:00Z',
+                    },
+                  },
                 ],
               },
             },
@@ -209,13 +223,6 @@ describe('Railway', () => {
       if (query.includes('deployments(')) {
         return json({
           data: {
-            serviceInstance:
-              variables.sid === 's1'
-                ? {
-                    cronSchedule: '0 3 * * *',
-                    nextCronRunAt: '2026-09-26T03:00:00Z',
-                  }
-                : { cronSchedule: null, nextCronRunAt: null },
             deployments: {
               edges: [
                 {
@@ -261,6 +268,11 @@ describe('Railway', () => {
     expect(new Headers(calls[0].init.headers).get('project-access-token')).toBe(
       'tok',
     );
+    // Pytanie o instancję usługi spoza środowiska kończy się błędem całego
+    // zapytania („ServiceInstance not found”) — listę daje samo środowisko.
+    expect(
+      calls.some((c) => (c.init.body as string).includes('serviceInstance(')),
+    ).toBe(false);
   });
 
   it('błąd GraphQL w odpowiedzi 200 → błąd integracji', async () => {
@@ -279,18 +291,29 @@ describe('Railway', () => {
         return json({
           data: { projectToken: { projectId: 'p', environmentId: 'e' } },
         });
-      if (query.includes('project(id'))
+      if (query.includes('environment(id'))
         return json({
           data: {
-            project: {
-              services: { edges: [{ node: { id: 's', name: 'x' } }] },
+            environment: {
+              serviceInstances: {
+                edges: [
+                  {
+                    node: {
+                      serviceId: 's',
+                      serviceName: 'x',
+                      cronSchedule: null,
+                      nextCronRunAt: null,
+                    },
+                  },
+                ],
+              },
             },
           },
         });
       if (query.includes('metrics('))
         return json({ errors: [{ message: 'boom' }] });
       return json({
-        data: { serviceInstance: null, deployments: { edges: [] } },
+        data: { deployments: { edges: [] } },
       });
     });
     expect((await fetchRailway('t', impl)).services[0]).toMatchObject({
