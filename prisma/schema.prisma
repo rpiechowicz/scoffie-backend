@@ -78,6 +78,8 @@ model User {
   mailMessages       MailMessage[]
 
   @@index([identityHash])
+  /// Panel: „zalogowani dziś” na pulpicie i sortowanie listy osób i domów.
+  @@index([lastLoginAt])
 }
 
 /// Zgłoszenie niewłaściwej odpowiedzi asystenta („Zgłoś odpowiedź").
@@ -99,10 +101,19 @@ model AgentReport {
   comment        String?
   messageText    String
   createdAt      DateTime @default(now())
+  /// Decyzja z panelu administratora (ROADMAPA §5.5): NEW | REVIEWED |
+  /// DISMISSED. Tekst, nie enum — ta sama defensywna konwencja migracji co
+  /// przy `CookidooIntegration.status`; wartości pilnuje panel.
+  status            String    @default("NEW")
+  reviewedAt        DateTime?
+  /// `AdminUser.id` — celowo BEZ klucza obcego: tabele aplikacji nie wiedzą
+  /// nic o panelu, a zgłoszenie ma przeżyć także zmianę konta admina.
+  reviewedByAdminId String?   @db.Uuid
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
+  @@index([status, createdAt])
 }
 
 /// Zdarzenia zgód — TYLKO dopisywanie, nigdy nadpisywanie.
@@ -219,6 +230,8 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@index([replacedByHash])
+  /// Panel: „kopia tokenu w 24 h” — równość po powodzie, zakres po dacie.
+  @@index([revokedReason, revokedAt])
 }
 
 model Recipe {
@@ -726,6 +739,8 @@ model PlanItem {
   /// Wycofanie przepisu, import katalogu i „gdzie ten przepis jest w planie"
   /// szukają po przepisie — bez indeksu to pełny skan pozycji.
   @@index([recipeId])
+  /// Panel: seria „pozycje planu dziennie” na pulpicie.
+  @@index([createdAt])
 }
 
 /// Which household members a given plan item is for.
@@ -918,6 +933,8 @@ model AgentProposal {
   @@index([conversationId, createdAt])
   @@index([householdId, status])
   @@index([turnId])
+  /// Panel: propozycje w oknie czasu (rentowność, pulpit asystenta).
+  @@index([createdAt])
 }
 
 /// Jedno przetworzenie wiadomości użytkownika: RUNNING | DONE | FAILED |
@@ -967,6 +984,8 @@ model AgentTurn {
   @@unique([userMessageId])
   @@index([conversationId, status])
   @@index([userId, createdAt])
+  /// Panel: tury dziennie i „dziś” na pulpicie — bez filtra po osobie.
+  @@index([createdAt])
 }
 
 /// Jeden wiersz na FAZĘ tury (model + wysiłek) — surowiec do kalibracji modelu
@@ -1009,6 +1028,8 @@ model AiUsage {
 
   @@index([userId, createdAt])
   @@index([createdAt])
+  /// Panel: koszt tury i łączenie księgi z turą (`AiUsage.turnId`).
+  @@index([turnId])
 }
 
 /// Liczniki atomowe na Postgresie (bez Redis): `scopeId` = id gospodarstwa
@@ -1317,6 +1338,209 @@ model MailSuppression {
   detail String?
 
   createdAt DateTime @default(now())
+}
+
+// ───────────────────────── PANEL ADMINISTRATORA ─────────────────────────
+//
+// `docs/plans/scoffie-admin/ROADMAPA.md` §4 i §6. Osobna tożsamość, NIE rola
+// na `User`: konto w aplikacji można skasować (RODO), przejęte konto w
+// aplikacji nie może dawać panelu, a token dostępu aplikacji nigdy nie otwiera
+// `/admin`. Żadnych kluczy obcych do tabel aplikacji — w obie strony.
+
+/// Administrator panelu (warstwa 1 logowania, za bramką Cloudflare Access).
+model AdminUser {
+  id             String    @id @default(uuid()) @db.Uuid
+  /// Adres z tokenu Cloudflare Access, małymi literami. Wiąże warstwę 1 z
+  /// bramką: passkey, TOTP i kod odzyskiwania działają WYŁĄCZNIE dla
+  /// żądania, które przeszło bramkę z tym adresem.
+  email          String    @unique
+  displayName    String
+  /// Nazwa zestawu uprawnień z `src/admin/admin-permissions.ts` (dziś tylko
+  /// OWNER — decyzja D5). Tekst, nie enum: kolejna rola to wpis w kodzie.
+  role           String    @default("OWNER")
+  /// Uchwyt użytkownika WebAuthn (`user.id` w opcjach rejestracji), base64url.
+  /// Losowy, a nie id wiersza: authenticator trzyma go u siebie.
+  webauthnUserId String    @unique
+  /// Konto wyłączone — nie otwiera sesji, ale zostaje, bo wskazuje na nie
+  /// dziennik audytu. Panel nigdy nie kasuje wierszy tej tabeli.
+  disabledAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  credentials   AdminCredential[]
+  totp          AdminTotp?
+  recoveryCodes AdminRecoveryCode[]
+  sessions      AdminSession[]
+}
+
+/// Passkey admina (WebAuthn): Face ID / Touch ID z pęku kluczy iCloud albo
+/// klucz sprzętowy. Kilka na konto, każdy z nazwą nadaną przy rejestracji.
+model AdminCredential {
+  id           String    @id @default(uuid()) @db.Uuid
+  adminUserId  String    @db.Uuid
+  /// `credential.id` z WebAuthn (base64url) — po nim szukamy klucza.
+  credentialId String    @unique
+  publicKey    Bytes
+  /// Licznik podpisów z authenticatora; spadek = sklonowany klucz (passkeye
+  /// z pęku kluczy iCloud mają stale 0 i to jest poprawne).
+  counter      Int       @default(0)
+  transports   String[]  @default([])
+  /// singleDevice | multiDevice
+  deviceType   String
+  backedUp     Boolean   @default(false)
+  name         String
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  admin AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+}
+
+/// TOTP admina (Google Authenticator). Sekret szyfrowany AES-256-GCM kluczem
+/// `ADMIN_TOTP_ENCRYPTION_KEY`, w formacie Cookidoo (`v1:<iv>:<tag>:<ct>`).
+model AdminTotp {
+  adminUserId            String    @id @db.Uuid
+  /// Sekret potwierdzony pierwszym kodem — tylko on otwiera sesję.
+  secretEncrypted        String?
+  confirmedAt            DateTime?
+  /// Ostatni przyjęty krok (unix / 30 s). Kod z tego samego albo starszego
+  /// kroku odpada, więc podejrzany kod nie działa drugi raz nawet w swoim
+  /// oknie. Przejęcie kroku to warunkowy `updateMany` — dwa równoległe
+  /// żądania z tym samym kodem nie przejdą oba.
+  lastUsedStep           Int?
+  /// Sekret w trakcie konfiguracji: pokazany raz, czeka na pierwszy kod.
+  /// Osobna kolumna, żeby nieukończona zmiana nie wyłączyła działającego TOTP.
+  pendingSecretEncrypted String?
+  pendingCreatedAt       DateTime?
+  updatedAt              DateTime  @updatedAt
+
+  admin AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+}
+
+/// Kody odzyskiwania — 10 jednorazowych. W bazie wyłącznie HMAC-SHA256
+/// kluczem pochodnym `ADMIN_TOTP_ENCRYPTION_KEY`: wyciek bazy bez klucza nie
+/// pozwala ich odtworzyć nawet przeglądem całej przestrzeni.
+model AdminRecoveryCode {
+  id          String    @id @default(uuid()) @db.Uuid
+  adminUserId String    @db.Uuid
+  codeHash    String    @unique
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  admin AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+}
+
+/// Sesja panelu. W ciasteczku `__Host-scoffie_admin` leży surowy token, tu
+/// wyłącznie jego sha256 — zrzut bazy nie jest kompletem działających sesji
+/// (ta sama zasada co `RefreshToken.tokenHash`).
+model AdminSession {
+  id            String    @id @default(uuid()) @db.Uuid
+  adminUserId   String    @db.Uuid
+  tokenHash     String    @unique
+  /// passkey | totp | recovery — czym otwarto sesję.
+  method        String
+  /// Wejście kodem odzyskiwania: do czasu nowego passkeya albo TOTP sesja
+  /// widzi wyłącznie konfigurację logowania, nie dane.
+  mustReenroll  Boolean   @default(false)
+  /// Ponowne potwierdzenie (step-up) ważne do tej chwili — 5 minut.
+  stepUpUntil   DateTime?
+  createdAt     DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  /// Twardy koniec: 12 h od otwarcia. Bezczynność (30 min) liczy się z
+  /// `lastSeenAt`.
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  /// LOGOUT | REVOKED
+  revokedReason String?
+  /// `CF-Connecting-IP` z Workera panelu (albo adres połączenia).
+  ip            String?
+  /// `CF-IPCountry`
+  country       String?
+  userAgent     String?
+
+  admin AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId, createdAt])
+  @@index([expiresAt])
+}
+
+/// Próby logowania i step-upu — z nich liczy się blokada (5 nieudanych w 15
+/// minut per adres i per IP). Także dla adresów, które nie są adminem.
+model AdminLoginAttempt {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// Adres z bramki Access, małymi literami.
+  email       String
+  adminUserId String?  @db.Uuid
+  ip          String?
+  country     String?
+  userAgent   String?
+  /// passkey | totp | recovery
+  method      String
+  /// LOGIN | STEP_UP
+  kind        String
+  /// SUCCESS | FAILED | LOCKED
+  result      String
+  /// Kod odmowy (INVALID_CODE, PASSKEY_FAILED, …).
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+}
+
+/// Dziennik audytu panelu — tylko dopisywanie (ROADMAPA §1.2). Każda zmiana
+/// z panelu i każde odsłonięcie danych wrażliwych, z powodem. Wiersz powstaje
+/// PRZED skutkiem (`PENDING`), więc akcja bez śladu jest niemożliwa nawet
+/// wtedy, gdy proces padnie w jej połowie.
+model AdminAuditLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  adminUserId String?   @db.Uuid
+  /// Kopia adresu — wpis ma mówić „kto" niezależnie od losów konta admina.
+  adminEmail  String
+  sessionId   String?   @db.Uuid
+  /// np. `household.tier.set`, `user.health.reveal`, `auth.passkey.register`
+  action      String
+  targetType  String?
+  targetId    String?
+  reason      String?
+  /// Parametry i skutek akcji — bez danych osobowych i bez danych o zdrowiu.
+  details     Json?
+  /// PENDING → SUCCESS | FAILED
+  result      String
+  errorCode   String?
+  ip          String?
+  /// `CF-IPCountry`
+  country     String?
+  requestId   String?
+  createdAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+  @@index([adminUserId, createdAt])
+}
+
+/// Wyzwania WebAuthn między `…/options` a weryfikacją. Jednorazowe (przejęcie
+/// warunkowym `updateMany`), ważne 5 minut, związane z adresem z bramki
+/// (a przy step-upie — z sesją).
+model AdminWebAuthnChallenge {
+  id             String    @id @default(uuid()) @db.Uuid
+  challenge      String    @unique
+  /// LOGIN | REGISTER | STEP_UP
+  purpose        String
+  email          String
+  adminUserId    String?   @db.Uuid
+  sessionId      String?   @db.Uuid
+  /// Rejestracja pierwszego admina: uchwyt WebAuthn konta, które dopiero powstanie.
+  webauthnUserId String?
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([expiresAt])
 }
 
 enum MembershipRole {

@@ -408,14 +408,8 @@ export class AiUsageCountersService {
     limit: number,
   ): Promise<boolean> {
     if (limit <= 0) return false;
-    // Wiersz musi istnieć, żeby `updateMany` miał co podnieść; `create` bez
-    // `update` jest bezpieczne przy wyścigu (P2002 obsłuży ponowny odczyt
-    // wołającego, a `upsert` z pustym `update` po prostu nic nie robi).
-    await client.aiUsageCounter.upsert({
-      where: { scopeId_periodKey_kind: { scopeId, periodKey, kind } },
-      create: { scopeId, periodKey, kind, value: 0 },
-      update: {},
-    });
+    // Wiersz musi istnieć, żeby `updateMany` miał co podnieść.
+    await this.ensureRow(client, scopeId, periodKey, kind);
     const consumed = await client.aiUsageCounter.updateMany({
       where: { scopeId, periodKey, kind, value: { lt: limit } },
       data: { value: { increment: 1 } },
@@ -436,10 +430,10 @@ export class AiUsageCountersService {
     delta: number,
   ): Promise<void> {
     if (delta === 0) return;
-    await client.aiUsageCounter.upsert({
-      where: { scopeId_periodKey_kind: { scopeId, periodKey, kind } },
-      create: { scopeId, periodKey, kind, value: Math.max(0, delta) },
-      update: { value: { increment: delta } },
+    await this.ensureRow(client, scopeId, periodKey, kind);
+    await client.aiUsageCounter.updateMany({
+      where: { scopeId, periodKey, kind },
+      data: { value: { increment: delta } },
     });
     if (delta < 0) {
       await client.aiUsageCounter.updateMany({
@@ -447,6 +441,24 @@ export class AiUsageCountersService {
         data: { value: 0 },
       });
     }
+  }
+
+  /**
+   * Zakłada wiersz licznika z zerem, jeśli go nie ma. NIE `upsert`: przy kluczu
+   * złożonym Prisma robi z niego odczyt + INSERT, więc dwa równoległe żądania
+   * o pierwszą wiadomość okresu kończyły się P2002 (500 zamiast 429, a w
+   * transakcji — jej przerwaniem). `skipDuplicates` to `ON CONFLICT DO NOTHING`.
+   */
+  private async ensureRow(
+    client: UsageCounterClient,
+    scopeId: string,
+    periodKey: string,
+    kind: UsageKind,
+  ): Promise<void> {
+    await client.aiUsageCounter.createMany({
+      data: [{ scopeId, periodKey, kind, value: 0 }],
+      skipDuplicates: true,
+    });
   }
 
   async read(

@@ -132,6 +132,9 @@ describe('Audyt autoryzacji 21.09.2026 E2E', () => {
     process.env.AI_TIER_OVERRIDE = 'PRO';
     process.env.AI_CONSENT_REQUIRED = 'false';
     delete process.env.AI_ALLOWED_USERS;
+    // Kilkanaście `/auth/dev` z jednego IP — limit logowania (20/min) to
+    // przedmiot `throttling.e2e-spec.ts`; `afterAll` przywraca całe env.
+    process.env.THROTTLE_AUTH_LIMIT = '10000';
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AppModule],

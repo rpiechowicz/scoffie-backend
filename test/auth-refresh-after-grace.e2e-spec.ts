@@ -28,6 +28,11 @@ import { PrismaService } from '../src/prisma/prisma.service';
  */
 const GRACE_SECONDS = 2;
 const GRACE_BEFORE = process.env.REFRESH_REUSE_GRACE_SECONDS;
+// Kilkadziesiąt `/auth/dev` i `/auth/refresh` z jednego IP w minutę — limit
+// logowania (20/min) to przedmiot `throttling.e2e-spec.ts`, nie tej suity.
+// Throttler czyta limit per żądanie, więc wystarczy ustawić go tutaj.
+const AUTH_LIMIT_BEFORE = process.env.THROTTLE_AUTH_LIMIT;
+process.env.THROTTLE_AUTH_LIMIT = '10000';
 const STRICT_BEFORE = process.env.REFRESH_STRICT_REUSE;
 // Okno czytane RAZ, przy konstrukcji `AuthService` — musi stać przed modułem.
 process.env.REFRESH_REUSE_GRACE_SECONDS = String(GRACE_SECONDS);
@@ -181,6 +186,7 @@ describe('Refresh token po oknie łaski — diagnoza (e2e, żywa baza)', () => {
     };
     restore('REFRESH_REUSE_GRACE_SECONDS', GRACE_BEFORE);
     restore('REFRESH_STRICT_REUSE', STRICT_BEFORE);
+    restore('THROTTLE_AUTH_LIMIT', AUTH_LIMIT_BEFORE);
   });
 
   // ─── Czerwony test nr 1: „ten sam token PO oknie laski" ──────────────────

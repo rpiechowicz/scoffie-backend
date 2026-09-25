@@ -94,12 +94,34 @@ export default tseslint.config(
     },
   },
   {
+    // Panel administratora: każde żądanie niesie dane z zewnątrz (JWT bramki,
+    // odpowiedzi WebAuthn, ciała akcji operatora) i każda akcja zmienia cudze
+    // konto albo pieniądze — `any` nie ma tu prawa wsiąknąć, tak jak w
+    // `src/agent/`.
+    files: ['src/admin/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.spec-helper.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+    },
+  },
+  {
     // Granica modułu, jednokierunkowa: asystent woła domenę, domena nigdy nie
     // woła asystenta. Bez tej reguły pierwszy `import { AgentTurnsService }`
     // w serwisie planu zamieniłby flagę AI_ENABLED z przełącznika funkcji w
     // zależność całego backendu. Wyjątek ma tylko `AppModule` (rejestracja).
+    //
+    // To samo dla panelu administratora (ROADMAPA §1.6): `src/admin/` woła
+    // domenę, obserwowalność i — wyłącznie do odczytu puli i zgłoszeń —
+    // asystenta; NIC w aplikacji nie importuje `src/admin/`. Panel jest
+    // wierzchołkiem grafu zależności, jak `AppModule`, dlatego sam jest
+    // wyłączony z zakazu importu asystenta.
     files: ['src/**/*.ts'],
-    ignores: ['src/agent/**', 'src/app.module.ts'],
+    ignores: ['src/agent/**', 'src/admin/**', 'src/app.module.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -117,6 +139,11 @@ export default tseslint.config(
               group: ['**/agent/*', '**/agent/**'],
               message:
                 'src/agent/ jest modułem jednokierunkowym — domena nie może importować asystenta (rejestracja tylko w AppModule).',
+            },
+            {
+              group: ['**/admin/*', '**/admin/**'],
+              message:
+                'src/admin/ jest modułem jednokierunkowym — nic w aplikacji nie importuje panelu administratora (rejestracja tylko w AppModule).',
             },
           ],
         },
@@ -140,6 +167,27 @@ export default tseslint.config(
               importNames: ['decodeJwt', 'decodeProtectedHeader'],
               message:
                 'Odczyt tokenu bez weryfikacji podpisu. Użyj verifyAppleJws() z src/billing/apple-jws.verifier.ts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Panel: ten sam zakaz odczytu tokenu bez podpisu (tu stoi bramka
+    // Cloudflare Access — `decodeJwt` zamiast `jwtVerify` otwierałby panel
+    // każdemu, kto wklei dowolny JWT z właściwym `email`).
+    files: ['src/admin/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'jose',
+              importNames: ['decodeJwt', 'decodeProtectedHeader'],
+              message:
+                'Odczyt tokenu bez weryfikacji podpisu. Bramkę Access sprawdza wyłącznie AccessJwtVerifier (jwtVerify po JWKS).',
             },
           ],
         },

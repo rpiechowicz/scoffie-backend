@@ -11,11 +11,18 @@ const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
 const KEY_LENGTH = 32;
 
-export function parseEncryptionKey(base64Key: string | undefined): Buffer {
+/**
+ * `name` tylko do komunikatu błędu — ten sam format klucza mają poświadczenia
+ * Cookidoo i sekrety TOTP panelu admina (osobne klucze, patrz `admin-env.ts`).
+ */
+export function parseEncryptionKey(
+  base64Key: string | undefined,
+  name = 'COOKIDOO_ENCRYPTION_KEY',
+): Buffer {
   const key = Buffer.from((base64Key ?? '').trim(), 'base64');
   if (key.length !== KEY_LENGTH) {
     throw new Error(
-      'COOKIDOO_ENCRYPTION_KEY musi być 32 bajtami w base64 (wygeneruj: openssl rand -base64 32).',
+      `${name} musi być 32 bajtami w base64 (wygeneruj: openssl rand -base64 32).`,
     );
   }
   return key;

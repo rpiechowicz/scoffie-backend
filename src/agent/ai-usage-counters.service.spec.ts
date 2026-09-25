@@ -2,16 +2,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AiUsageCountersService } from './ai-usage-counters.service';
 
 describe('AiUsageCountersService', () => {
-  const upsert = jest.fn();
+  const createMany = jest.fn();
   const updateMany = jest.fn();
   const findUnique = jest.fn();
   const client = {
-    aiUsageCounter: { upsert, updateMany, findUnique },
+    aiUsageCounter: { createMany, updateMany, findUnique },
   } as unknown as PrismaService;
   const service = new AiUsageCountersService(client);
 
   beforeEach(() => {
-    upsert.mockReset().mockResolvedValue(undefined);
+    createMany.mockReset().mockResolvedValue({ count: 1 });
     updateMany.mockReset().mockResolvedValue({ count: 1 });
     findUnique.mockReset().mockResolvedValue(null);
   });
@@ -30,17 +30,13 @@ describe('AiUsageCountersService', () => {
         service.tryConsume(client, 'dom', '2026-08', 'messages', 200),
       ).resolves.toBe(true);
 
-      expect(upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: {
-            scopeId: 'dom',
-            periodKey: '2026-08',
-            kind: 'messages',
-            value: 0,
-          },
-          update: {},
-        }),
-      );
+      // Atomowe ON CONFLICT DO NOTHING zamiast odczytu + INSERT (wyścig P2002).
+      expect(createMany).toHaveBeenCalledWith({
+        data: [
+          { scopeId: 'dom', periodKey: '2026-08', kind: 'messages', value: 0 },
+        ],
+        skipDuplicates: true,
+      });
       expect(updateMany).toHaveBeenCalledWith({
         where: {
           scopeId: 'dom',
@@ -63,7 +59,7 @@ describe('AiUsageCountersService', () => {
       await expect(
         service.tryConsume(client, 'dom', '2026-08', 'messages', 0),
       ).resolves.toBe(false);
-      expect(upsert).not.toHaveBeenCalled();
+      expect(createMany).not.toHaveBeenCalled();
       expect(updateMany).not.toHaveBeenCalled();
     });
   });
@@ -71,17 +67,18 @@ describe('AiUsageCountersService', () => {
   describe('add', () => {
     it('delta 0 nie robi nic', async () => {
       await service.add(client, 'dom', '2026-08', 'messages', 0);
-      expect(upsert).not.toHaveBeenCalled();
+      expect(createMany).not.toHaveBeenCalled();
     });
 
     it('zwrot kwoty podcina licznik do zera', async () => {
       await service.add(client, 'dom', '2026-08', 'messages', -1);
-      expect(upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ value: 0 }),
-          update: { value: { increment: -1 } },
-        }),
+      expect(createMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skipDuplicates: true }),
       );
+      expect(updateMany).toHaveBeenCalledWith({
+        where: { scopeId: 'dom', periodKey: '2026-08', kind: 'messages' },
+        data: { value: { increment: -1 } },
+      });
       expect(updateMany).toHaveBeenCalledWith({
         where: {
           scopeId: 'dom',
@@ -95,7 +92,10 @@ describe('AiUsageCountersService', () => {
 
     it('dodatnia delta nie odpala podcinania', async () => {
       await service.add(client, 'global', '2026-08-31', 'costMicroUsd', 1234);
-      expect(updateMany).not.toHaveBeenCalled();
+      expect(updateMany).toHaveBeenCalledTimes(1);
+      expect(updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({ data: { value: 0 } }),
+      );
     });
   });
 
@@ -107,19 +107,18 @@ describe('AiUsageCountersService', () => {
       const at = new Date('2026-08-31T23:30:00.000Z');
       await service.addHouseholdCost(client, 'dom', 4200, at);
 
-      const okresy = upsert.mock.calls.map(
-        (
-          call: [{ where: { scopeId_periodKey_kind: { periodKey: string } } }],
-        ) => call[0].where.scopeId_periodKey_kind.periodKey,
+      const okresy = createMany.mock.calls.map(
+        (call: [{ data: { periodKey: string }[] }]) =>
+          call[0].data[0].periodKey,
       );
       expect(okresy).toEqual(['2026-08', '2026-08-31']);
-      expect(upsert).toHaveBeenCalledTimes(2);
+      expect(createMany).toHaveBeenCalledTimes(2);
     });
 
     it('zero i wartości ujemne nie ruszają żadnego licznika', async () => {
       await service.addHouseholdCost(client, 'dom', 0);
       await service.addHouseholdCost(client, 'dom', -100);
-      expect(upsert).not.toHaveBeenCalled();
+      expect(createMany).not.toHaveBeenCalled();
     });
   });
 
