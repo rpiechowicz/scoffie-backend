@@ -117,6 +117,13 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   środowisku (dev, staging, prod); jedyny wyjątek to dokładnie `NODE_ENV=test`. Tokenu nie logujemy.
 - Apple sign-in: adres e-mail i `emailVerified` idą WYŁĄCZNIE z claimów zweryfikowanego identity tokenu;
   `dto.email` zostaje w kontrakcie, ale niczego nie zapisuje (rozjazd = ostrzeżenie bez adresów w logu).
+- Google sign-in (Android, od 25.09.2026): `POST /auth/google` `{idToken, nonce?, platform?}` → ta sama koperta
+  co `/auth/apple`. Weryfikacja `google-auth-library` (`aud` ∈ `GOOGLE_OAUTH_CLIENT_IDS`, czytane per żądanie;
+  pusto = 503 `SERVICE_UNAVAILABLE`), zły token = 401 `APPLE_IDENTITY_INVALID` (ten sam kod co Apple). Konto:
+  po `googleId`, potem ŁĄCZENIE PO ADRESIE — tylko `email_verified === true` w tokenie i DOKŁADNIE jedno konto
+  z tym adresem, `emailVerified` i bez `googleId`; dopisuje się wyłącznie `googleId` (`authProvider`, `appleSub`,
+  `identityHash` bez zmian — próba i subskrypcja zostają). Inaczej nowe konto `GOOGLE`. Testy e2e bez sieci:
+  `GoogleIdentityService._overrideCerts` + `src/auth/google-id-token.spec-helper.ts`.
 - Sesje (audyt 21.09.2026, dowód: `test/auth-session-audit.e2e-spec.ts`): każda transakcja, która WYDAJE albo
   UNIEWAŻNIA refresh tokeny osoby, bierze najpierw `lockUserSessions` (`SELECT … FROM "User" … FOR NO KEY UPDATE`)
   — bez tego unieważnienie nie widziało tokenu wstawianego równolegle i sesja je przeżywała. Token dostępu

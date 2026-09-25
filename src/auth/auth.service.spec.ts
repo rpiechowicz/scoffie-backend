@@ -5,13 +5,19 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AuthProvider } from '@prisma/client';
+import { AuthProvider, Prisma } from '@prisma/client';
 import { AuthService } from './auth.service';
 import {
   AppleIdentityService,
   VerifiedAppleIdentity,
 } from './apple-identity.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  GoogleIdentityService,
+  VerifiedGoogleIdentity,
+} from './google-identity.service';
+import { AppException } from '../common/app-exception';
+import { purchaseIdentityHash } from '../config/purchase-identity';
 
 // ─── Mock factories ────────────────────────────────────────────────────────────
 
@@ -61,6 +67,7 @@ const makePrismaMock = () => {
     user: {
       upsert: jest.fn().mockResolvedValue(mockUser),
       findUnique: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       create: jest.fn().mockResolvedValue(mockAppleUser),
       update: jest.fn().mockResolvedValue(mockAppleUser),
@@ -89,6 +96,14 @@ const makePrismaMock = () => {
   return prisma;
 };
 
+const makeGoogleMock = () => ({
+  assertEnabled: jest.fn(() => ['test.apps.googleusercontent.com']),
+  verify: jest.fn<
+    Promise<VerifiedGoogleIdentity>,
+    [string, (string | null)?]
+  >(),
+});
+
 const makeJwtMock = () => ({
   signAsync: jest.fn().mockResolvedValue('mock-access-token'),
 });
@@ -105,11 +120,13 @@ describe('AuthService', () => {
   let prisma: ReturnType<typeof makePrismaMock>;
   let jwt: ReturnType<typeof makeJwtMock>;
   let apple: ReturnType<typeof makeAppleMock>;
+  let google: ReturnType<typeof makeGoogleMock>;
 
   beforeEach(async () => {
     prisma = makePrismaMock();
     jwt = makeJwtMock();
     apple = makeAppleMock();
+    google = makeGoogleMock();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -117,6 +134,7 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwt },
         { provide: AppleIdentityService, useValue: apple },
+        { provide: GoogleIdentityService, useValue: google },
       ],
     }).compile();
 
@@ -240,15 +258,26 @@ describe('AuthService', () => {
     });
   });
 
-  // ─── wycofane logowanie Google ────────────────────────────────────────────
+  // ─── dawne logowanie Google (wycofane w F2) ───────────────────────────────
   //
-  // `POST /auth/google` wybijał pełną sesję każdemu, kto podał dowolny
-  // `googleId` — bez weryfikacji tokenu. iOS nigdy z niego nie korzystał.
+  // Stary `POST /auth/google` wybijał pełną sesję każdemu, kto podał dowolny
+  // `googleId` — bez weryfikacji tokenu. Nowy (25.09.2026) bierze tożsamość
+  // WYŁĄCZNIE z ID tokenu zweryfikowanego przez Google; to przypina ten test.
 
-  it('loginWithGoogle nie istnieje już w serwisie', () => {
-    expect(
-      (service as unknown as Record<string, unknown>).loginWithGoogle,
-    ).toBeUndefined();
+  it('loginWithGoogle nie ufa niczemu z ciała poza tokenem do weryfikacji', async () => {
+    google.verify.mockRejectedValue(
+      new AppException('APPLE_IDENTITY_INVALID', 'Invalid', 401),
+    );
+    await expect(
+      service.loginWithGoogle({
+        idToken: 'podrobiony.token.x',
+        googleId: '109876543210',
+        email: 'ofiara@example.com',
+      } as unknown as Parameters<AuthService['loginWithGoogle']>[0]),
+    ).rejects.toMatchObject({ code: 'APPLE_IDENTITY_INVALID' });
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+    expect(prisma.refreshToken.create).not.toHaveBeenCalled();
   });
 
   // ─── loginWithApple ───────────────────────────────────────────────────────
@@ -527,6 +556,229 @@ describe('AuthService', () => {
   });
 
   // ─── refreshAccessToken ───────────────────────────────────────────────────
+
+  // ─── loginWithGoogle ──────────────────────────────────────────────────────
+
+  describe('loginWithGoogle', () => {
+    const verifiedGoogle = (
+      overrides: Partial<VerifiedGoogleIdentity> = {},
+    ): VerifiedGoogleIdentity => ({
+      googleSub: '109876543210',
+      email: 'rafal@example.com',
+      emailVerified: true,
+      name: 'Rafał Google',
+      givenName: 'Rafał',
+      familyName: 'Google',
+      picture: 'https://lh3.googleusercontent.com/a/x',
+      ...overrides,
+    });
+    const googleUser = {
+      ...mockAppleUser,
+      id: 'user-google-1',
+      appleSub: null,
+      googleId: '109876543210',
+      authProvider: AuthProvider.GOOGLE,
+      identityHash: null,
+    };
+
+    it('nowy użytkownik: konto GOOGLE z profilem z tokenu, identityHash z GOOGLE:sub', async () => {
+      google.verify.mockResolvedValue(verifiedGoogle());
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.user.create.mockResolvedValue(googleUser);
+
+      const result = await service.loginWithGoogle({
+        idToken: 'google.id.token',
+        nonce: 'nonce-12345678',
+        platform: 'android',
+      });
+
+      expect(google.verify).toHaveBeenCalledWith(
+        'google.id.token',
+        'nonce-12345678',
+      );
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          googleId: '109876543210',
+          authProvider: AuthProvider.GOOGLE,
+          email: 'rafal@example.com',
+          emailVerified: true,
+          displayName: 'Rafał Google',
+          avatarUrl: 'https://lh3.googleusercontent.com/a/x',
+        }),
+      });
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'user-google-1', identityHash: null },
+        data: {
+          identityHash: purchaseIdentityHash('GOOGLE', '109876543210'),
+        },
+      });
+      // Ta sama koperta co /auth/apple.
+      expect(Object.keys(result).sort()).toEqual(
+        ['accessToken', 'household', 'refreshToken', 'user'].sort(),
+      );
+      expect(result.user).toMatchObject({
+        id: 'user-google-1',
+        provider: AuthProvider.GOOGLE,
+      });
+      expect(prisma.refreshToken.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('istniejący po googleId: bez łączenia i bez zakładania, provider bez zmian', async () => {
+      google.verify.mockResolvedValue(verifiedGoogle());
+      prisma.user.findUnique.mockResolvedValueOnce(googleUser);
+      prisma.user.update.mockResolvedValue(googleUser);
+
+      await service.loginWithGoogle({ idToken: 'google.id.token' });
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { googleId: '109876543210' },
+      });
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      const data = prisma.user.update.mock.calls[0][0].data;
+      expect(data).not.toHaveProperty('authProvider');
+      expect(data).toHaveProperty('lastLoginAt');
+    });
+
+    it('konto Apple zalogowane Google: adres Apple nie jest nadpisywany', async () => {
+      const linkedApple = {
+        ...mockAppleUser,
+        googleId: '109876543210',
+        email: 'apple@example.com',
+      };
+      google.verify.mockResolvedValue(verifiedGoogle());
+      prisma.user.findUnique.mockResolvedValueOnce(linkedApple);
+      prisma.user.update.mockResolvedValue(linkedApple);
+
+      await service.loginWithGoogle({ idToken: 'google.id.token' });
+
+      const data = prisma.user.update.mock.calls[0][0].data;
+      expect(data).not.toHaveProperty('email');
+      expect(data).not.toHaveProperty('emailVerified');
+      expect(data).not.toHaveProperty('authProvider');
+    });
+
+    it('łączenie po adresie: potwierdzony w Google i w koncie → dopisany googleId, reszta konta nietknięta', async () => {
+      google.verify.mockResolvedValue(verifiedGoogle());
+      prisma.user.findUnique
+        .mockResolvedValueOnce(null) // po googleId
+        .mockResolvedValueOnce({
+          ...mockAppleUser,
+          googleId: '109876543210',
+          identityHash: 'hash-apple',
+        }); // po id, po dopisaniu
+      prisma.user.findMany.mockResolvedValue([{ id: mockAppleUser.id }]);
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.loginWithGoogle({ idToken: 'tok.en.x' });
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            email: { equals: 'rafal@example.com', mode: 'insensitive' },
+            emailVerified: true,
+            googleId: null,
+          },
+        }),
+      );
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: mockAppleUser.id, googleId: null, emailVerified: true },
+        data: { googleId: '109876543210', lastLoginAt: expect.any(Date) },
+      });
+      // Wyłącznie googleId i lastLoginAt — bez authProvider, appleSub, identityHash.
+      const linkData = prisma.user.updateMany.mock.calls[0][0].data as object;
+      expect(Object.keys(linkData).sort()).toEqual(['googleId', 'lastLoginAt']);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(result.user).toMatchObject({
+        id: mockAppleUser.id,
+        provider: AuthProvider.APPLE,
+      });
+      // identityHash już był — ensurePurchaseIdentity niczego nie przelicza.
+      expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('brak łączenia, gdy Google nie potwierdza adresu (email_verified=false)', async () => {
+      google.verify.mockResolvedValue(verifiedGoogle({ emailVerified: false }));
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(googleUser);
+
+      await service.loginWithGoogle({ idToken: 'tok.en.x' });
+
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+      expect(prisma.user.create).toHaveBeenCalled();
+    });
+
+    it('brak łączenia z kontem o niepotwierdzonym albo innym adresie → nowe konto', async () => {
+      google.verify.mockResolvedValue(verifiedGoogle());
+      prisma.user.findUnique.mockResolvedValue(null);
+      // Zapytanie żąda emailVerified: true i równego adresu — konto
+      // niepotwierdzone albo z innym adresem nie wraca.
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.user.create.mockResolvedValue(googleUser);
+
+      const result = await service.loginWithGoogle({ idToken: 'tok.en.x' });
+
+      const linkCalls = prisma.user.updateMany.mock.calls.filter(
+        ([args]) => 'googleId' in (args.data as object),
+      );
+      expect(linkCalls).toHaveLength(0);
+      expect(prisma.user.create).toHaveBeenCalled();
+      expect(result.user.id).toBe('user-google-1');
+    });
+
+    it('dwa potwierdzone konta z tym adresem → nie zgadujemy, nowe konto', async () => {
+      google.verify.mockResolvedValue(verifiedGoogle());
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.findMany.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
+      prisma.user.create.mockResolvedValue(googleUser);
+
+      await service.loginWithGoogle({ idToken: 'tok.en.x' });
+
+      expect(prisma.user.create).toHaveBeenCalled();
+    });
+
+    it('wyścig dwóch pierwszych logowań: P2002 na googleId → konto zwycięzcy', async () => {
+      google.verify.mockResolvedValue(verifiedGoogle({ emailVerified: false }));
+      prisma.user.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(googleUser);
+      prisma.user.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+      prisma.user.update.mockResolvedValue(googleUser);
+
+      const result = await service.loginWithGoogle({ idToken: 'tok.en.x' });
+
+      expect(result.user.id).toBe('user-google-1');
+    });
+
+    it('zły token (aud, nonce, podpis) → błąd weryfikatora przechodzi bez zapisu', async () => {
+      google.verify.mockRejectedValue(
+        new AppException('APPLE_IDENTITY_INVALID', 'Invalid', 401),
+      );
+
+      await expect(
+        service.loginWithGoogle({ idToken: 'tok.en.x', nonce: 'zly-nonce-1' }),
+      ).rejects.toMatchObject({ code: 'APPLE_IDENTITY_INVALID' });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+    });
+
+    it('brak env → 503 zanim cokolwiek zostanie zweryfikowane', async () => {
+      google.assertEnabled.mockImplementation(() => {
+        throw new AppException('SERVICE_UNAVAILABLE', 'off', 503);
+      });
+
+      await expect(
+        service.loginWithGoogle({ idToken: 'tok.en.x' }),
+      ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+      expect(google.verify).not.toHaveBeenCalled();
+    });
+  });
 
   describe('refreshAccessToken', () => {
     it('powinno wydać nowy access token i nowy refresh token', async () => {

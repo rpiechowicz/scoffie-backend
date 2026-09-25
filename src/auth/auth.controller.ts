@@ -14,12 +14,14 @@ import { CurrentUserId } from './current-user-id.decorator';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
 import { DevLoginDto } from './dto/dev-login.dto';
+import { GoogleSignInDto } from './dto/google-sign-in.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('auth')
 // Logowanie i odświeżanie tokenu limitujemy ostrzej niż resztę i zawsze po
 // IP: żądanie jest z natury bez tokenu, więc tracker throttlera i tak nie ma
-// tożsamości. To bariera na zgadywanie (`/auth/apple`, `/auth/refresh`), nie
+// tożsamości. To bariera na zgadywanie (`/auth/apple`, `/auth/google`,
+// `/auth/refresh`), nie
 // na pętlę w kliencie.
 @Throttle({
   default: { limit: () => readThrottleLimit('THROTTLE_AUTH_LIMIT') },
@@ -58,6 +60,37 @@ export class AuthController {
   })
   loginWithApple(@Body() dto: AppleSignInDto) {
     return this.authService.loginWithApple(dto);
+  }
+
+  /**
+   * Logowanie przez Google (aplikacja Android). Ciało: `idToken` z Credential
+   * Managera, opcjonalnie `nonce` (musi zgadzać się z claimem) i `platform`.
+   *
+   * Ta sama koperta co `/auth/apple`. Nieważny token = 401
+   * `APPLE_IDENTITY_INVALID` (ten sam kod co zły token Apple); brak
+   * `GOOGLE_OAUTH_CLIENT_IDS` = 503 `SERVICE_UNAVAILABLE`.
+   */
+  @Post('google')
+  @ApiOkResponse({
+    schema: {
+      example: {
+        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        refreshToken: 'd3b07384d113edec49eaa6238ad5ff00...',
+        user: {
+          id: 'edbc139a-636b-4aaf-953f-9b4644eb8b55',
+          displayName: 'Rafał Piechowicz',
+          email: 'rafal@example.com',
+          provider: 'GOOGLE',
+        },
+        household: {
+          id: 'f6478b3a-5f76-47fd-94cd-e85c2564e366',
+          name: 'Home',
+        },
+      },
+    },
+  })
+  loginWithGoogle(@Body() dto: GoogleSignInDto) {
+    return this.authService.loginWithGoogle(dto);
   }
 
   @Post('dev')

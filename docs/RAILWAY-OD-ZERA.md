@@ -73,6 +73,12 @@ członkowi rodziny WŁASNĄ transakcję, czyli własny wiersz i własną pełną
 wiadomości — jedna opłata potrafi utrzymać sześć pul. Przełącznik w App Store
 Connect też trzeba wyłączyć, ale kod nie opiera się już wyłącznie na nim.
 
+`GOOGLE_OAUTH_CLIENT_IDS` zostaje puste, dopóki nie wychodzi aplikacja na
+Androida — wtedy `POST /auth/google` odpowiada 503, a reszta działa. Wartość to
+ID klienta OAuth typu „Web application” z Google Cloud Console (ten, który
+Android podaje jako `serverClientId`), kilka po przecinku. Zmienna jest
+czytana per żądanie, więc wystarczy ją ustawić — bez nowego builda.
+
 `APNS_USE_SANDBOX=true` jest właściwe dla TestFlighta. Przy wydaniu do sklepu
 przestaw na `false`, inaczej powiadomienia przestaną dochodzić.
 
