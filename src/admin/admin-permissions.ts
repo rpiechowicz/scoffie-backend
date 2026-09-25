@@ -19,7 +19,12 @@ export const ADMIN_PERMISSIONS = [
   'reports.write',
   'subscriptions.read',
   'subscriptions.write',
+  'mail.read',
   'mail.write',
+  /** Sentry i Railway — tylko odczyt. */
+  'ops.read',
+  /** App Store Connect — tylko odczyt. */
+  'appstore.read',
   'catalog.read',
   'catalog.publish',
 ] as const;
