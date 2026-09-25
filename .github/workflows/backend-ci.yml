@@ -89,9 +89,10 @@ jobs:
 
       - name: Setup pnpm
         # Przypięte do commita — akcja steruje instalacją WSZYSTKICH zależności.
+        # Wersję bierze z `packageManager` w package.json: drugie źródło
+        # (`with: version`) akcja odrzuca („Multiple versions of pnpm
+        # specified”) i CI padało w 30 s, zanim cokolwiek sprawdziło.
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-        with:
-          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

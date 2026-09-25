@@ -27,6 +27,11 @@ process.env.REFRESH_REUSE_GRACE_SECONDS = '2';
 const STRICT_BEFORE = process.env.REFRESH_STRICT_REUSE;
 delete process.env.REFRESH_STRICT_REUSE;
 const NODE_ENV_BEFORE = process.env.NODE_ENV;
+// Kilkadziesiąt `/auth/dev` i `/auth/refresh` z jednego IP w minutę — limit
+// logowania (20/min) to przedmiot `throttling.e2e-spec.ts`, nie tej suity.
+// Throttler czyta limit per żądanie, więc wystarczy ustawić go tutaj.
+const AUTH_LIMIT_BEFORE = process.env.THROTTLE_AUTH_LIMIT;
+process.env.THROTTLE_AUTH_LIMIT = '10000';
 
 type Session = {
   accessToken: string;
@@ -225,6 +230,7 @@ describe('Audyt cyklu życia sesji 21.09.2026 (e2e, żywa baza)', () => {
     restore('REFRESH_REUSE_GRACE_SECONDS', GRACE_BEFORE);
     restore('REFRESH_STRICT_REUSE', STRICT_BEFORE);
     restore('NODE_ENV', NODE_ENV_BEFORE);
+    restore('THROTTLE_AUTH_LIMIT', AUTH_LIMIT_BEFORE);
   });
 
   // ─── 1. Poprawny refresh ─────────────────────────────────────────────────

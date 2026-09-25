@@ -915,6 +915,16 @@ describe('Agent E2E', () => {
     it('kasowanie JEDNEJ rozmowy zostawia pozostałe', async () => {
       const keep = await createConversation(session.accessToken, householdId);
       const remove = await createConversation(session.accessToken, householdId);
+      // Pusta rozmowa nie trafia na listę (#152), więc `keep` musi coś mieć —
+      // inaczej jej brak na liście nie mówiłby nic o kasowaniu.
+      const accepted = await postMessage(session.accessToken, keep.id, {
+        clientMessageId: randomUUID(),
+        text: 'Zostaję',
+      }).expect(202);
+      await pollTurn(
+        session.accessToken,
+        (accepted.body as AcceptedTurn).turnId,
+      );
 
       await request(app.getHttpServer())
         .delete(`/agent/conversations/${remove.id}`)
