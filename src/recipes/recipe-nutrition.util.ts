@@ -176,3 +176,64 @@ export function roundTotalsForStorage(
     sodiumMg: Math.round(totals.sodiumMg),
   };
 }
+
+/** Kolumny makro przepisu (`Recipe.nutrition*`) — cały przepis, nie porcja. */
+export type RecipeNutritionColumns = {
+  nutritionKcal: number;
+  nutritionProtein: number;
+  nutritionFat: number;
+  nutritionCarbs: number;
+  nutritionFiber: number;
+  /** Sól ŁĄCZNIE: z sodu składników + dodana. */
+  nutritionSalt: number;
+  /** Sól DODANA — jedyna część, której nie da się policzyć ze składników. */
+  nutritionSaltAdded: number;
+};
+
+/**
+ * Makro przepisu ze składników, gotowe do zapisu w kolumnach `Recipe`.
+ *
+ * Jedna definicja dla `RecipesService` (przepisy domu i asystenta) i dla
+ * edycji katalogu w panelu. Składnik bez makr albo sztuka bez masy to
+ * `ok: false` z listą braków — wołający zamienia to na odmowę, bo zaniżona
+ * suma zapisana jako prawda jest gorsza niż błąd.
+ */
+export function nutritionColumnsFromIngredients(
+  items: NutritionInputItem[],
+  addedSalt: number,
+):
+  | { ok: true; columns: RecipeNutritionColumns }
+  | { ok: false; missingNutrition: string[]; missingPieceWeight: string[] } {
+  const { totals, missingNutrition, missingPieceWeight } =
+    computeRecipeNutrition(items);
+  if (missingNutrition.length > 0 || missingPieceWeight.length > 0) {
+    return { ok: false, missingNutrition, missingPieceWeight };
+  }
+  const stored = roundTotalsForStorage(totals);
+  const nutritionSaltAdded = Math.max(0, addedSalt);
+  return {
+    ok: true,
+    columns: {
+      nutritionKcal: stored.kcal,
+      nutritionProtein: stored.protein,
+      nutritionFat: stored.fat,
+      nutritionCarbs: stored.carbs,
+      nutritionFiber: stored.fiber,
+      nutritionSalt: totalSaltGrams(totals.sodiumMg, nutritionSaltAdded),
+      nutritionSaltAdded,
+    },
+  };
+}
+
+/** Braki danych z `nutritionColumnsFromIngredients` jako `details` błędu. */
+export function nutritionMissingDetails(missing: {
+  missingNutrition: string[];
+  missingPieceWeight: string[];
+}): string[] {
+  return [
+    ...missing.missingNutrition.map((name) => `brak makro na 100 g: ${name}`),
+    ...missing.missingPieceWeight.map(
+      (name) => `brak masy sztuki (gramsPerPiece): ${name}`,
+    ),
+  ];
+}

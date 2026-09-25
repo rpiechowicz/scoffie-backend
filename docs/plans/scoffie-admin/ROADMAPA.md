@@ -430,9 +430,10 @@ Dane: `Recipe` (+ `RecipeIngredient`), `Ingredient` (wartości na 100 g,
 
 Przepisy prywatne domów (`isCatalog = false`) — tylko liczby, bez treści.
 
-**Decyzja przed budową (§9, D1):** dziś źródłem prawdy jest
-`prisma/catalog/recipes-catalog-full-v2.json` + import. Edycja w panelu
-prosto w bazie rozjedzie się z JSON-em przy następnym imporcie.
+**Decyzja D1 (§9) zamknięta 25.09: baza jest źródłem prawdy**, plik JSON
+jej eksportem (nocny PR z `catalog-sync`). Edytor przepisu zapisuje od razu
+— tymi samymi funkcjami co import. Zostało: zdjęcie (upload do R2), nowy
+przepis z panelu, historia wersji.
 
 ### 5.8 Zaangażowanie, lejek, retencja
 
@@ -571,10 +572,13 @@ Etapy 1 i 2 dają najwięcej. Etap 3 czeka na decyzję D1.
 
 ## 9. Decyzje otwarte
 
-- **D1. Źródło prawdy katalogu.** (A) baza, a JSON staje się eksportem
-  (`pnpm catalog:export`) i kopią w repo; (B) panel robi commit do JSON-a,
-  a zmiana wchodzi importem. Rekomendacja: **A** — panel bez natychmiastowej
-  publikacji traci połowę sensu, a eksport zachowuje historię w gicie.
+- ~~**D1. Źródło prawdy katalogu**~~ — zamknięte 25.09: **A**. Baza jest
+  źródłem prawdy, `prisma/catalog/recipes-catalog-full-v2.json` jej eksportem
+  (`pnpm catalog:export`), odświeżanym co noc PR-em do `develop` z serwisu
+  cron `catalog-sync` (`ops/catalog-sync/`, 03:45 UTC). Panel zapisuje od
+  razu (`PUT /admin/catalog/recipes/:id`, step-up, 409 przy konflikcie);
+  `recipes:import:json` na niepustym katalogu odmawia nadpisania zmian
+  z bazy bez `RECIPE_IMPORT_FROM_JSON_CONFIRM=<data>`.
 - ~~**D2. Nazwa subdomeny**~~ — zamknięte 24.09: `dashboard.scoffie.app` (§3).
 - ~~**D3. Metody logowania**~~ — zamknięte 24.09: bramka Google / konto
   Cloudflare / kod na e-mail; panel Face ID albo Apple / Google + Google

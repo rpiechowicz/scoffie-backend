@@ -27,7 +27,7 @@ type RecipeList = { total: number; items: RecipeListItem[] };
 
 /**
  * Panel administratora — katalog przepisów: lista, szczegół, składniki,
- * zablokowana edycja (D1) i wycofanie / przywrócenie przepisu. Na żywej bazie
+ * edycja (D1: baza = źródło prawdy) i wycofanie / przywrócenie przepisu. Na żywej bazie
  * z katalogiem; własne przepisy i składniki z unikalnym znacznikiem.
  */
 describe('Panel administratora — katalog (e2e)', () => {
@@ -52,8 +52,14 @@ describe('Panel administratora — katalog (e2e)', () => {
     private: '',
     ingMilk: '',
     ingOats: '',
+    ingEgg: '',
+    editable: '',
   };
-  const keys = { milk: `mleko-a3-${stamp}`, oats: `platki-a3-${stamp}` };
+  const keys = {
+    milk: `mleko-a3-${stamp}`,
+    oats: `platki-a3-${stamp}`,
+    egg: `jajko-a3-${stamp}`,
+  };
 
   const server = () => app.getHttpServer();
   const get = (path: string) =>
@@ -136,6 +142,26 @@ describe('Panel administratora — katalog (e2e)', () => {
 
     ids.ingMilk = await createIngredient(keys.milk, 64);
     ids.ingOats = await createIngredient(keys.oats, null);
+    ids.ingEgg = (
+      await prisma.ingredient.create({
+        data: {
+          name: `Składnik ${keys.egg}`,
+          normalizedName: keys.egg,
+          category: 'test',
+          nutritionKcalPer100: 140,
+          nutritionProteinPer100: 12.6,
+          nutritionCarbsPer100: 0.7,
+          nutritionFatPer100: 9.5,
+          nutritionFiberPer100: 0,
+          nutritionSodiumMgPer100: 200,
+          gramsPerPiece: 50,
+          allergens: ['eggs'],
+          dietTags: ['EGG'],
+        },
+        select: { id: true },
+      })
+    ).id;
+    ingredientIds.push(ids.ingEgg);
 
     const recipe = (data: {
       title: string;
@@ -170,6 +196,45 @@ describe('Panel administratora — katalog (e2e)', () => {
       await recipe({ title: 'Wycofana A3', isCatalog: true, isActive: false })
     ).id;
     ids.private = (await recipe({ title: 'Prywatna A3', isCatalog: false })).id;
+    // Przepis do edycji: składnik z makro (mleko 250 ml = 160 kcal), kroki
+    // w pisowni importu, sól dodana 0,3 g.
+    ids.editable = (
+      await prisma.recipe.create({
+        data: {
+          title: `Mleko z miodem A3 ${stamp}`,
+          description: 'Na dobranoc.',
+          mealType: 'DINNER',
+          suitableMealTypes: ['DINNER'],
+          prepTimeMinutes: 5,
+          servings: 2,
+          nutritionKcal: 160,
+          nutritionSalt: 0.3,
+          nutritionSaltAdded: 0.3,
+          isCatalog: true,
+          authorId: ids.author,
+          householdId: ids.hAuthor,
+          allergens: ['MILK'],
+          dietTags: ['DAIRY'],
+          sourceInstructions: [{ step: 1, text: 'Podgrzej mleko.' }],
+          sourceMeta: { imagePrompt: 'Kubek mleka' },
+          imageUrl: 'https://img.scoffie.app/recipe-images/a3.webp',
+          ingredients: {
+            create: [
+              {
+                ingredientId: ids.ingMilk,
+                name: 'mleko',
+                amount: 250,
+                unit: 'ml',
+                normalizedAmount: 250,
+                normalizedUnit: 'ml',
+                department: 'test',
+              },
+            ],
+          },
+        },
+        select: { id: true },
+      })
+    ).id;
 
     // Kolejność linii = kolejność zapisu; mleko w ml, płatki w g.
     await prisma.recipeIngredient.create({
@@ -402,18 +467,212 @@ describe('Panel administratora — katalog (e2e)', () => {
     });
   });
 
-  describe('PUT /admin/catalog/recipes/:id (D1)', () => {
-    it('edycja zablokowana: 403 NOT_ALLOWED, przepis bez zmian', async () => {
-      const res = await request(server())
-        .put(`/admin/catalog/recipes/${ids.active}`)
-        .set('Cookie', session.cookie)
-        .send({ id: ids.active, title: 'Podmieniony tytuł' })
-        .expect(403);
-      expect((res.body as { code: string }).code).toBe('NOT_ALLOWED');
-      const row = await prisma.recipe.findUniqueOrThrow({
-        where: { id: ids.active },
+  describe('PUT /admin/catalog/recipes/:id', () => {
+    const detail = async () =>
+      (await get(`/recipes/${ids.editable}`).expect(200)).body as RecipeDetail;
+    const put = (id: string, body: unknown, who = session) =>
+      request(server())
+        .put(`/admin/catalog/recipes/${id}`)
+        .set('Cookie', who.cookie)
+        .send(body as object);
+    const row = () =>
+      prisma.recipe.findUniqueOrThrow({
+        where: { id: ids.editable },
+        include: {
+          ingredients: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        },
       });
-      expect(row.title).toBe(`Owsianka A3 ${stamp}`);
+    const lastAudit = () =>
+      prisma.adminAuditLog.findFirstOrThrow({
+        where: { action: 'recipe.update', targetId: ids.editable },
+        orderBy: { createdAt: 'desc' },
+      });
+
+    it('bez świeżego potwierdzenia — 403 STEP_UP_REQUIRED, przepis bez zmian', async () => {
+      const before = await detail();
+      const res = await put(
+        ids.editable,
+        { ...before, title: 'Podmieniony' },
+        noStepUp,
+      ).expect(403);
+      expect((res.body as { code: string }).code).toBe('STEP_UP_REQUIRED');
+      expect((await row()).title).toBe(`Mleko z miodem A3 ${stamp}`);
+    });
+
+    it('zapis: baza, przeliczone makro i alergeny, kolejność składników, audyt bez treści, cache', async () => {
+      const before = await detail();
+      const cache = app.get(RecipesCacheService);
+      const invalidate = jest.spyOn(cache, 'invalidateRecipesList');
+      const res = await put(ids.editable, {
+        ...before,
+        title: `Kakao z jajkiem A3 ${stamp}`,
+        servings: 4,
+        steps: ['Podgrzej mleko.', ' Wbij jajka i mieszaj. '],
+        ingredients: [
+          { key: keys.egg, amount: 2, unit: 'szt' },
+          { key: keys.milk, amount: 500, unit: 'ml' },
+        ],
+      }).expect(200);
+      expect(invalidate).toHaveBeenCalledTimes(1);
+      invalidate.mockRestore();
+
+      const saved = res.body as RecipeDetail;
+      // 2 jajka × 50 g × 140 kcal/100 g + 500 ml × 64 kcal/100 ml = 460 kcal
+      // na cały przepis → 115 na porcję (4 porcje).
+      expect(saved).toMatchObject({
+        id: ids.editable,
+        title: `Kakao z jajkiem A3 ${stamp}`,
+        servings: 4,
+        kcalPerServing: 115,
+        steps: ['Podgrzej mleko.', 'Wbij jajka i mieszaj.'],
+        ingredients: [
+          { key: keys.egg, amount: 2, unit: 'szt' },
+          { key: keys.milk, amount: 500, unit: 'ml' },
+        ],
+        allergens: ['MILK', 'eggs'],
+        dietTags: ['DAIRY', 'EGG'],
+        imageUrl: 'https://img.scoffie.app/recipe-images/a3.webp',
+      });
+      expect(saved.updatedAt).not.toBe(before.updatedAt);
+
+      const stored = await row();
+      expect(stored).toMatchObject({
+        title: `Kakao z jajkiem A3 ${stamp}`,
+        nutritionKcal: 460,
+        // Sól dodana zostaje z wiersza; sód: 100 g jajka × 200 mg/100 g
+        // = 200 mg → 0,5 g soli + 0,3 g dodanej = 0,8 g.
+        nutritionSaltAdded: 0.3,
+        nutritionSalt: 0.8,
+        isCatalog: true,
+        isActive: true,
+        householdId: ids.hAuthor,
+      });
+      expect(stored.ingredients.map((line) => line.ingredientId)).toEqual([
+        ids.ingEgg,
+        ids.ingMilk,
+      ]);
+      expect(stored.sourceMeta).toEqual({ imagePrompt: 'Kubek mleka' });
+
+      const audit = await lastAudit();
+      expect(audit).toMatchObject({
+        result: 'SUCCESS',
+        targetType: 'Recipe',
+        adminUserId: session.adminUserId,
+      });
+      const details = audit.details as unknown as {
+        changed: string[];
+        recomputedNutrition: boolean;
+      };
+      expect(details.recomputedNutrition).toBe(true);
+      expect(details.changed).toEqual(
+        expect.arrayContaining([
+          'title',
+          'servings',
+          'nutrition',
+          'steps',
+          'ingredients',
+        ]),
+      );
+      // Same nazwy pól — bez tytułu, kroków i składników.
+      expect(JSON.stringify(audit.details)).not.toContain('Kakao');
+    });
+
+    it('bez zmian — 200, bez zapisu (updatedAt stoi), audyt z pustą listą', async () => {
+      const before = await detail();
+      const res = await put(ids.editable, before).expect(200);
+      expect((res.body as RecipeDetail).updatedAt).toBe(before.updatedAt);
+      expect((await lastAudit()).details).toEqual({
+        changed: [],
+        recomputedNutrition: false,
+      });
+    });
+
+    it('zmiana w międzyczasie — 409 CONFLICT, nic się nie zapisuje', async () => {
+      const stale = await detail();
+      // Druga karta zapisuje pierwsza.
+      await put(ids.editable, { ...stale, prepTimeMinutes: 7 }).expect(200);
+      const res = await put(ids.editable, {
+        ...stale,
+        title: 'Z nieaktualnego formularza',
+      }).expect(409);
+      expect((res.body as { code: string }).code).toBe('CONFLICT');
+      const stored = await row();
+      expect(stored.title).toBe(`Kakao z jajkiem A3 ${stamp}`);
+      expect(stored.prepTimeMinutes).toBe(7);
+      expect(await lastAudit()).toMatchObject({
+        result: 'FAILED',
+        errorCode: 'CONFLICT',
+      });
+    });
+
+    it('zły składnik — 400 z nazwą klucza; składnik bez makro — 400; przepis bez zmian', async () => {
+      const before = await detail();
+      const unknown = `nie-ma-takiego-${stamp}`;
+      const res = await put(ids.editable, {
+        ...before,
+        ingredients: [
+          ...before.ingredients,
+          { key: unknown, amount: 1, unit: 'g' },
+        ],
+      }).expect(400);
+      expect(res.body).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        details: [`nieznany składnik: ${unknown}`],
+      });
+
+      const noMacro = await put(ids.editable, {
+        ...before,
+        ingredients: [
+          ...before.ingredients,
+          { key: keys.oats, amount: 40, unit: 'g' },
+        ],
+      }).expect(400);
+      expect((noMacro.body as { details: string[] }).details).toEqual([
+        `brak makro na 100 g: Składnik ${keys.oats}`,
+      ]);
+
+      const stored = await row();
+      expect(stored.ingredients).toHaveLength(2);
+      expect(stored.updatedAt.toISOString()).toBe(before.updatedAt);
+    });
+
+    it('walidacja ciała — 400; przepis domu — 404; zły identyfikator — 400', async () => {
+      const before = await detail();
+      const bad: Record<string, unknown>[] = [
+        { servings: 9 },
+        { servings: 0 },
+        { steps: [] },
+        { steps: ['Podgrzej.', '   '] },
+        { ingredients: [] },
+        { ingredients: [{ key: keys.milk, amount: 1, unit: 'kubek' }] },
+        { ingredients: [{ key: keys.milk, amount: -1, unit: 'ml' }] },
+        {
+          ingredients: [
+            { key: keys.milk, amount: 1, unit: 'ml' },
+            { key: keys.milk, amount: 2, unit: 'ml' },
+          ],
+        },
+        { title: '   ' },
+        { mealType: 'BRUNCH' },
+        { difficulty: 'EXPERT' },
+        { updatedAt: undefined },
+        { updatedAt: 'wczoraj' },
+        { imageUrl: 'data:image/png;base64,AAAA' },
+        { id: ids.active },
+        { nieznanePole: 1 },
+      ];
+      for (const patch of bad) {
+        const res = await put(ids.editable, { ...before, ...patch });
+        expect({ patch, status: res.status }).toEqual({ patch, status: 400 });
+      }
+      expect((await row()).updatedAt.toISOString()).toBe(before.updatedAt);
+
+      const priv = await put(ids.private, {
+        ...before,
+        id: ids.private,
+      }).expect(404);
+      expect((priv.body as { code: string }).code).toBe('RECIPE_NOT_FOUND');
+      await put('nie-uuid', before).expect(400);
     });
   });
 

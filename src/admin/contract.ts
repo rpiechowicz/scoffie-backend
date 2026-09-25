@@ -499,6 +499,37 @@ export interface RecipeDetail extends RecipeListItem {
   updatedAt: IsoDate;
 }
 
+/**
+ * `PUT /admin/catalog/recipes/:id` (step-up) — ciało to `RecipeDetail`
+ * z edytora; odpowiedź 200 to świeży `RecipeDetail` (nowe `updatedAt`,
+ * przeliczone makro/`kcalPerServing`, alergeny, tagi diet, sloty).
+ *
+ * Zapisywane: `title`, `description`, `mealType`, `suitableMealTypes`
+ * (serwer dokłada podpowiedzi klasyfikatora), `difficulty`,
+ * `prepTimeMinutes` (1–1440), `servings` (1–8), `steps` (1–40 niepustych),
+ * `ingredients` (1–60, `key` aktywnego składnika, `unit` z listy importu,
+ * każdy składnik raz). `updatedAt` z `GET` WYMAGANE. Reszta pól jest
+ * pomijana; `imageUrl` inny niż zapisany = 400.
+ *
+ * Błędy: 403 `STEP_UP_REQUIRED` · 400 `VALIDATION_ERROR` (`details`: pola,
+ * „nieznany składnik: …”, „brak makro na 100 g: …”) · 404 `RECIPE_NOT_FOUND`
+ * · 409 `CONFLICT` (przepis zmieniony po `GET` — odśwież i nanieś ponownie).
+ */
+export type RecipeSaveRequest = Pick<
+  RecipeDetail,
+  | 'title'
+  | 'description'
+  | 'mealType'
+  | 'suitableMealTypes'
+  | 'difficulty'
+  | 'prepTimeMinutes'
+  | 'servings'
+  | 'steps'
+  | 'ingredients'
+  | 'updatedAt'
+> &
+  Partial<RecipeDetail>;
+
 export interface SearchResults {
   users: UserListItem[];
   households: HouseholdListItem[];
