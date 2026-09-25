@@ -29,6 +29,8 @@ export const ADMIN_PERMISSIONS = [
   'appstore.read',
   'catalog.read',
   'catalog.publish',
+  /** Dziennik audytu panelu — tylko odczyt. */
+  'audit.read',
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { AdminCoreModule } from './admin-core.module';
 import { AdminGateMiddleware } from './admin-gate';
+import { AdminAuditModule } from './audit/admin-audit.module';
 import { AdminAssistantModule } from './assistant/admin-assistant.module';
 import { AdminCatalogModule } from './catalog/admin-catalog.module';
 import {
@@ -43,6 +44,7 @@ import { AdminUsersModule } from './users/admin-users.module';
     AdminAssistantModule,
     AdminCatalogModule,
     AdminIntegrationsModule,
+    AdminAuditModule,
   ],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],

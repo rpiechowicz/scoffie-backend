@@ -1,4 +1,5 @@
 import type {
+  CronRun,
   MetricPoint,
   RailwayData,
   RailwayDeploy,
@@ -8,6 +9,7 @@ import { fetchJson, IntegrationError } from './integration-fetch';
 
 const ENDPOINT = 'https://backboard.railway.com/graphql/v2';
 const DEPLOYS = 5;
+const RUNS = 7;
 const METRICS_WINDOW_MS = 24 * 60 * 60 * 1000;
 const METRICS_SAMPLE_SECONDS = 1800;
 
@@ -96,6 +98,65 @@ const METRICS_QUERY = `query ($pid: String!, $eid: String!, $start: DateTime!) {
   }
 }`;
 
+const RUNS_QUERY = `query ($eid: String!, $sid: String!, $first: Int!) {
+  deploymentInstanceExecutions(first: $first, input: { environmentId: $eid, serviceId: $sid }) {
+    edges { node { id status createdAt updatedAt completedAt } }
+  }
+}`;
+
+type ApiExecution = {
+  id: string;
+  status: string;
+  createdAt: string;
+  updatedAt?: string | null;
+  completedAt?: string | null;
+};
+
+/** Stany, w których uruchomienie już się skończyło (tak czy inaczej). */
+const FINISHED_RUN = new Set([
+  'EXITED',
+  'CRASHED',
+  'STOPPED',
+  'REMOVED',
+  'SKIPPED',
+]);
+
+export function toCronRun(e: ApiExecution): CronRun {
+  return {
+    id: e.id,
+    status: e.status,
+    startedAt: e.createdAt,
+    finishedAt:
+      e.completedAt ??
+      (FINISHED_RUN.has(e.status) ? (e.updatedAt ?? null) : null),
+  };
+}
+
+/**
+ * Ostatnie uruchomienia usługi cron, najnowsze pierwsze. Łagodna porażka:
+ * zapytanie, którego Railway nie przyjmie (zmiana schematu, brak uprawnień
+ * tokenu), daje pustą historię, a nie błąd karty z wdrożeniami. Pobieramy
+ * zapas i sortujemy sami — kolejność krawędzi nie jest opisana w schemacie.
+ */
+export async function fetchCronRuns(
+  gql: RailwayGql,
+  eid: string,
+  sid: string,
+  limit: number,
+): Promise<CronRun[]> {
+  try {
+    const data = await gql<{
+      deploymentInstanceExecutions: { edges: { node: ApiExecution }[] };
+    }>(RUNS_QUERY, { eid, sid, first: 50 });
+    return data.deploymentInstanceExecutions.edges
+      .map((e) => toCronRun(e.node))
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+      .slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
 export type RailwayScope = {
   pid: string;
   eid: string;
@@ -154,9 +215,14 @@ export async function fetchRailway(
 
   const services = await Promise.all(
     scope.instances.map(async (node): Promise<RailwayService> => {
-      const { deployments } = await gql<{
-        deployments: { edges: { node: ApiDeploy }[] };
-      }>(DEPLOYS_QUERY, { pid, eid, sid: node.serviceId });
+      const [{ deployments }, runs] = await Promise.all([
+        gql<{
+          deployments: { edges: { node: ApiDeploy }[] };
+        }>(DEPLOYS_QUERY, { pid, eid, sid: node.serviceId }),
+        node.cronSchedule
+          ? fetchCronRuns(gql, eid, node.serviceId, RUNS)
+          : Promise.resolve<CronRun[]>([]),
+      ]);
       return {
         id: node.serviceId,
         name: node.serviceName,
@@ -168,6 +234,7 @@ export async function fetchRailway(
         cpu: series(node.serviceId, 'CPU_USAGE'),
         memoryGb: series(node.serviceId, 'MEMORY_USAGE_GB'),
         url: railwayServiceUrl(scope, node.serviceId),
+        runs,
       };
     }),
   );

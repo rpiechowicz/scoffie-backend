@@ -246,6 +246,35 @@ describe('Railway', () => {
             ],
           },
         });
+      if (query.includes('deploymentInstanceExecutions(')) {
+        expect(variables).toMatchObject({ eid: 'e1', sid: 's1' });
+        return json({
+          data: {
+            deploymentInstanceExecutions: {
+              edges: [
+                {
+                  node: {
+                    id: 'r-old',
+                    status: 'EXITED',
+                    createdAt: '2026-09-24T03:15:00Z',
+                    updatedAt: '2026-09-24T03:17:00Z',
+                    completedAt: null,
+                  },
+                },
+                {
+                  node: {
+                    id: 'r-new',
+                    status: 'CRASHED',
+                    createdAt: '2026-09-25T03:15:00Z',
+                    updatedAt: '2026-09-25T03:16:00Z',
+                    completedAt: '2026-09-25T03:15:40Z',
+                  },
+                },
+              ],
+            },
+          },
+        });
+      }
       if (query.includes('deployments(')) {
         return json({
           data: {
@@ -288,6 +317,23 @@ describe('Railway', () => {
       cpu: [],
     });
     expect(backend.cpu).toEqual([{ ts: 1, value: 0.2 }]);
+    // Uruchomienia tylko dla crona, najnowsze pierwsze; koniec z `completedAt`,
+    // a gdy go brak przy zakończonym — z ostatniej zmiany stanu.
+    expect(backup.runs).toEqual([
+      {
+        id: 'r-new',
+        status: 'CRASHED',
+        startedAt: '2026-09-25T03:15:00Z',
+        finishedAt: '2026-09-25T03:15:40Z',
+      },
+      {
+        id: 'r-old',
+        status: 'EXITED',
+        startedAt: '2026-09-24T03:15:00Z',
+        finishedAt: '2026-09-24T03:17:00Z',
+      },
+    ]);
+    expect(backend.runs).toEqual([]);
     expect(backend.url).toBe(
       'https://railway.com/project/p1/service/s2?environmentId=e1',
     );
@@ -310,7 +356,7 @@ describe('Railway', () => {
     );
   });
 
-  it('awaria metryk nie zasłania deployów', async () => {
+  it('awaria metryk i uruchomień nie zasłania deployów', async () => {
     const { impl } = fakeFetch((_u, init) => {
       const { query } = JSON.parse(init.body as string) as { query: string };
       if (query.includes('projectToken'))
@@ -327,7 +373,7 @@ describe('Railway', () => {
                     node: {
                       serviceId: 's',
                       serviceName: 'x',
-                      cronSchedule: null,
+                      cronSchedule: '15 3 * * *',
                       nextCronRunAt: null,
                     },
                   },
@@ -338,6 +384,8 @@ describe('Railway', () => {
         });
       if (query.includes('metrics('))
         return json({ errors: [{ message: 'boom' }] });
+      if (query.includes('deploymentInstanceExecutions('))
+        return json({ errors: [{ message: 'Cannot query field' }] });
       return json({
         data: { deployments: { edges: [] } },
       });
@@ -346,6 +394,7 @@ describe('Railway', () => {
       name: 'x',
       cpu: [],
       deploys: [],
+      runs: [],
     });
   });
 });

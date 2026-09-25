@@ -765,6 +765,8 @@ export interface RailwayService {
   cpu: MetricPoint[];
   memoryGb: MetricPoint[];
   url: string;
+  /** uruchomienia crona, najnowsze pierwsze, do 7; pusta dla nie-cronów */
+  runs: CronRun[];
 }
 
 export interface RailwayData {
@@ -891,6 +893,8 @@ export interface RailwayServiceDetail {
   } | null;
   /** najnowsze pierwsze, do 20 */
   deploys: RailwayDeployDetail[];
+  /** uruchomienia crona, najnowsze pierwsze, do 30; pusta dla nie-cronów */
+  runs: CronRun[];
 }
 
 export interface RailwayLogLine {
@@ -909,3 +913,57 @@ export interface RailwayLogs {
 
 /** `GET /admin/ops/services/:id` */
 export type RailwayServiceState = IntegrationState<RailwayServiceDetail>;
+
+// ——— Uruchomienia cronów (Railway) ———
+
+/**
+ * Jedno uruchomienie usługi cron (`deploymentInstanceExecutions`). Railway nie
+ * podaje kodu wyjścia: `EXITED` = proces się zakończył (jedyny sygnał, że np.
+ * kopia bazy powstała), `CRASHED` = nieudane, `CREATED`/`INITIALIZING`/
+ * `RUNNING` = w toku, reszta (`SKIPPED`, `STOPPED`, `REMOVED`, …) — inne.
+ */
+export interface CronRun {
+  id: string;
+  status: string;
+  startedAt: IsoDate;
+  /** `null` — jeszcze trwa albo Railway nie podał końca */
+  finishedAt: IsoDate | null;
+}
+
+// ——— Dziennik audytu panelu ———
+
+export type AuditResult = 'PENDING' | 'SUCCESS' | 'FAILED';
+
+export interface AuditEntry {
+  id: string;
+  at: IsoDate;
+  finishedAt: IsoDate | null;
+  adminEmail: string;
+  /** np. `mail.suppression.add`, `household.tier.set`, `auth.login` */
+  action: string;
+  /** np. `User`, `Household`, `MailSuppression`, `Recipe` */
+  targetType: string | null;
+  /** id celu — przy wykluczeniach poczty to adres e-mail */
+  targetId: string | null;
+  reason: string | null;
+  result: AuditResult;
+  /** kod błędu przy `FAILED` */
+  errorCode: string | null;
+  details: Record<string, unknown> | null;
+  ip: string | null;
+  country: string | null;
+}
+
+export interface AuditFilters {
+  action?: string;
+  result?: AuditResult;
+}
+
+/** `GET /admin/audit?action=&result=&before=&limit=` — najnowsze pierwsze */
+export interface AuditPage {
+  entries: AuditEntry[];
+  /** `before` następnej strony; `null` — to już koniec */
+  nextCursor: string | null;
+  /** akcje, które są w dzienniku (do filtra), alfabetycznie */
+  actions: string[];
+}
