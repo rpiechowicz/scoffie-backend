@@ -5,6 +5,7 @@ import {
   AdminAccess,
   AdminRequires,
   CurrentAdminSession,
+  RequireStepUp,
 } from '../admin.decorators';
 import { adminActor, AdminAuditService } from '../audit/admin-audit.service';
 import type { ResolvedAdminSession } from '../auth/admin-sessions.service';
@@ -15,10 +16,11 @@ import {
 } from './admin-subscriptions.service';
 
 /**
- * Subskrypcje i przychód (ROADMAPA §5.6). Ponowienie powiadomienia nie ma
- * step-upu: nie nadaje ani nie odbiera niczego samo z siebie, tylko prosi
+ * Subskrypcje i przychód (ROADMAPA §5.6). Ponowienie powiadomienia prosi
  * domenę o przetworzenie zdarzenia, które Apple już podpisało — tą samą
- * ścieżką co godzinny przebieg uzgadniania.
+ * ścieżką co godzinny przebieg uzgadniania — ale ma step-up: zdarzenie typu
+ * REFUND / REVOKE / EXPIRED cofa PRO osobie, a cofnięcie subskrypcji to
+ * akcja, która boli (brief panelu).
  */
 @AdminController('subscriptions')
 export class AdminSubscriptionsController {
@@ -35,6 +37,7 @@ export class AdminSubscriptionsController {
 
   @Post('notifications/:id/retry')
   @AdminRequires('subscriptions.write')
+  @RequireStepUp()
   @HttpCode(HttpStatus.NO_CONTENT)
   async retry(
     @AdminAccess() access: AdminAccessContext,

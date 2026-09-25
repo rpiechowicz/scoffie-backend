@@ -555,8 +555,20 @@ describe('Panel — subskrypcje (/admin/subscriptions)', () => {
     const path = (id: string) =>
       `/admin/subscriptions/notifications/${id}/retry`;
 
-    it('przetwarza NAPRAWDĘ (bez step-upu): wiersz zamknięty, subskrypcja odświeżona, audyt', async () => {
-      await post(path(uuid.retryOk), adminWithoutStepUp).expect(204);
+    it('bez świeżego step-upu — 403 STEP_UP_REQUIRED i nic się nie rusza', async () => {
+      const res = await post(path(uuid.retryOk), adminWithoutStepUp).expect(
+        403,
+      );
+      expect(res.body.code).toBe('STEP_UP_REQUIRED');
+      const row = await prisma.appleNotification.findUnique({
+        where: { notificationUuid: uuid.retryOk },
+      });
+      expect(row?.processedAt).toBeNull();
+      expect(row?.attempts).toBe(0);
+    });
+
+    it('przetwarza NAPRAWDĘ (step-up — może cofnąć PRO): wiersz zamknięty, subskrypcja odświeżona, audyt', async () => {
+      await post(path(uuid.retryOk)).expect(204);
 
       const row = await prisma.appleNotification.findUnique({
         where: { notificationUuid: uuid.retryOk },
@@ -581,7 +593,7 @@ describe('Panel — subskrypcje (/admin/subscriptions)', () => {
       expect(audit).toMatchObject({
         result: 'SUCCESS',
         targetType: 'AppleNotification',
-        adminUserId: adminWithoutStepUp.adminUserId,
+        adminUserId: admin.adminUserId,
         details: { notificationType: 'DID_CHANGE_RENEWAL_STATUS', note: null },
       });
     });
