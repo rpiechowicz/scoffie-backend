@@ -18,6 +18,7 @@ import {
 import { AdminAuthService } from './auth/admin-auth.service';
 import { AdminGrowthModule } from './growth/admin-growth.module';
 import { AdminHouseholdsModule } from './households/admin-households.module';
+import { AdminRevenueModule } from './revenue/admin-revenue.module';
 import { AdminSettingsModule } from './settings/admin-settings.module';
 import { AdminIntegrationsModule } from './integrations/admin-integrations.module';
 import { AdminSubscriptionsModule } from './subscriptions/admin-subscriptions.module';
@@ -53,6 +54,7 @@ import { AdminUsersModule } from './users/admin-users.module';
     AdminAlertsModule,
     AdminGrowthModule,
     AdminGdprModule,
+    AdminRevenueModule,
   ],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],

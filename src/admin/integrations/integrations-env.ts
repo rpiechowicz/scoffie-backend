@@ -86,3 +86,21 @@ export function missingAsc(env: AscEnv): string[] {
     ...(env.issuerId ? [] : ['APPLE_ISSUER_ID']),
   ];
 }
+
+/**
+ * Numer dostawcy (Vendor Number) z App Store Connect → Payments and Financial
+ * Reports — wymagany przez raporty sprzedaży i finansów (przychód z Apple).
+ */
+export function readAscVendorNumber(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return text(env.ADMIN_ASC_VENDOR_NUMBER);
+}
+
+/** Raporty sprzedaży: klucz ASC + numer dostawcy. */
+export function missingAscReports(env: AscEnv, vendorNumber: string): string[] {
+  return [
+    ...missingAsc(env),
+    ...(vendorNumber ? [] : ['ADMIN_ASC_VENDOR_NUMBER']),
+  ];
+}

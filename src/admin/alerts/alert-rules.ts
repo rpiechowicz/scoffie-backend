@@ -32,7 +32,8 @@ export type AlertKind =
   | 'mail-queue'
   | 'mail-failed'
   | 'mail-domain'
-  | 'gdpr-due';
+  | 'gdpr-due'
+  | 'apple-reports';
 
 export type DetectedAlert = {
   key: string;
@@ -243,6 +244,28 @@ export function gdprAlerts(
           },
     ];
   });
+}
+
+/**
+ * 5. Raporty App Store Connect (przychód z Apple) nie schodzą — najczęściej
+ * klucz bez roli Finance/Sales. Komunikat to nasz tekst z kodem HTTP
+ * (`apple-reports.client.ts`), bez danych osób.
+ */
+export function appleReportAlerts(
+  states: readonly { kind: string; lastError: string | null }[],
+): DetectedAlert[] {
+  return states
+    .filter((state) => state.lastError)
+    .map((state) => ({
+      key: `apple-reports:${state.kind}`,
+      kind: 'apple-reports' as const,
+      severity: 'warning' as const,
+      title:
+        state.kind === 'finance'
+          ? 'Raporty finansowe Apple się nie pobierają'
+          : 'Raporty sprzedaży Apple się nie pobierają',
+      detail: (state.lastError ?? '').slice(0, 300),
+    }));
 }
 
 /* ── uzgadnianie z bazą ─────────────────────────────────────────────────── */

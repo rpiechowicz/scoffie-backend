@@ -13,7 +13,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { warsawDateKey } from '../common/warsaw-calendar';
 import { IntegrationError } from '../integrations/integration-fetch';
 import {
+  missingAscReports,
   missingSentry,
+  readAscEnv,
+  readAscVendorNumber,
   readRailwayToken,
   readSentryEnv,
 } from '../integrations/integrations-env';
@@ -21,6 +24,7 @@ import { fetchRailway } from '../integrations/railway.client';
 import { fetchResendDomains } from '../integrations/resend-domains.client';
 import { fetchSentry } from '../integrations/sentry.client';
 import {
+  appleReportAlerts,
   cronAlerts,
   crashFreeAlerts,
   domainAlerts,
@@ -218,6 +222,21 @@ export class AdminWatchService
           kind: 'mail-domain',
           problems: domainAlerts(
             (await fetchResendDomains(mailEnv.apiKey)).domains,
+          ),
+        },
+      ]);
+    }
+
+    // Przychód z Apple: stan ostatniej synchronizacji leży w bazie
+    // (`AppleReportsSyncService`) — bez klucza/vendora reguła milczy.
+    if (missingAscReports(readAscEnv(), readAscVendorNumber()).length === 0) {
+      await attempt('raporty Apple', async () => [
+        {
+          kind: 'apple-reports',
+          problems: appleReportAlerts(
+            await this.prisma.appleReportSync.findMany({
+              select: { kind: true, lastError: true },
+            }),
           ),
         },
       ]);
