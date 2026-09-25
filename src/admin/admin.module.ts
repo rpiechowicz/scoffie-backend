@@ -5,6 +5,8 @@ import {
   AdminSessionController,
 } from './auth/admin-auth.controller';
 import { AdminAuthService } from './auth/admin-auth.service';
+import { AdminHouseholdsModule } from './households/admin-households.module';
+import { AdminSubscriptionsModule } from './subscriptions/admin-subscriptions.module';
 import { AdminUsersModule } from './users/admin-users.module';
 
 /**
@@ -20,7 +22,12 @@ import { AdminUsersModule } from './users/admin-users.module';
  * a każdy moduł ekranu importuje `AdminCoreModule`.
  */
 @Module({
-  imports: [AdminCoreModule, AdminUsersModule],
+  imports: [
+    AdminCoreModule,
+    AdminUsersModule,
+    AdminHouseholdsModule,
+    AdminSubscriptionsModule,
+  ],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],
 })
