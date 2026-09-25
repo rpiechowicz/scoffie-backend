@@ -5,15 +5,8 @@ import {
   catalogOwnerUserId,
 } from '../../common/catalog-owner';
 import { PrismaService } from '../../prisma/prisma.service';
-import type {
-  HouseholdListItem,
-  MealType,
-  Pool,
-  RecipeListItem,
-  SearchResults,
-} from '../contract';
+import type { HouseholdListItem, Pool, SearchResults } from '../contract';
 import { readOnlyQuery } from '../read-only-query';
-import { kcalPerServing } from './admin-metrics';
 import { payingUserIds } from './admin-plans';
 import {
   normalizeQuery,
@@ -30,6 +23,10 @@ import {
   type UserRow,
 } from './admin-user-items';
 import { inPlansByRecipe } from '../common/recipe-in-plans';
+import {
+  toRecipeListItem,
+  type RecipeListRow,
+} from '../catalog/recipe-list-item';
 
 /** Ile trafień na grupę — tyle mieści podpowiedź ⌘K bez przewijania. */
 export const SEARCH_LIMIT = 6;
@@ -48,15 +45,7 @@ const SEARCH_POOL: Pool = {
   resetsAt: null,
 };
 
-type RecipeRow = {
-  id: string;
-  title: string;
-  imageUrl: string | null;
-  isActive: boolean;
-  mealType: MealType;
-  prepTimeMinutes: number;
-  nutritionKcal: number;
-  servings: number;
+type RecipeRow = RecipeListRow & {
   favorites: number;
   inPlans: number;
 };
@@ -134,7 +123,9 @@ export class AdminSearchService {
           .map((household) =>
             toHouseholdListItem(household, cookidoo.get(household.id)),
           ),
-        recipes: recipes.map(toRecipeListItem),
+        recipes: recipes.map((row) =>
+          toRecipeListItem(row, row.inPlans, row.favorites),
+        ),
       };
     });
   }
@@ -153,8 +144,12 @@ export class AdminSearchService {
   ): Promise<RecipeRow[]> {
     const rows = await tx.$queryRaw<Omit<RecipeRow, 'inPlans'>[]>`
       SELECT r."id", r."title", r."imageUrl", r."isActive",
-             r."mealType"::text AS "mealType", r."prepTimeMinutes",
-             r."nutritionKcal", r."servings",
+             r."mealType"::text AS "mealType",
+             r."suitableMealTypes"::text[] AS "suitableMealTypes",
+             r."difficulty"::text AS "difficulty", r."prepTimeMinutes",
+             r."servings", r."nutritionKcal", r."nutritionProtein",
+             r."nutritionFat", r."nutritionCarbs", r."allergens",
+             r."updatedAt",
              (SELECT COUNT(*) FROM "RecipeFavorite" f
                WHERE f."recipeId" = r."id")::int AS "favorites"
       FROM "Recipe" r
@@ -216,19 +211,5 @@ function toHouseholdListItem(
     cookidoo: cookidoo ?? null,
     lastLoginAt: lastLogin?.toISOString() ?? null,
     createdAt: household.createdAt.toISOString(),
-  };
-}
-
-function toRecipeListItem(row: RecipeRow): RecipeListItem {
-  return {
-    id: row.id,
-    title: row.title,
-    imageUrl: row.imageUrl ?? '',
-    isActive: row.isActive,
-    mealType: row.mealType,
-    prepTimeMinutes: row.prepTimeMinutes,
-    kcalPerServing: kcalPerServing(row.nutritionKcal, row.servings),
-    inPlans: row.inPlans,
-    favorites: row.favorites,
   };
 }

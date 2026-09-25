@@ -175,6 +175,9 @@ describe('Panel administratora — katalog (e2e)', () => {
           prepTimeMinutes: 10,
           servings: 2,
           nutritionKcal: 1_250,
+          nutritionProtein: 45.3,
+          nutritionFat: 20,
+          nutritionCarbs: 150,
           imageUrl: data.isCatalog ? null : 'https://img.scoffie.app/x.webp',
           isCatalog: data.isCatalog,
           isActive: data.isActive ?? true,
@@ -362,28 +365,46 @@ describe('Panel administratora — katalog (e2e)', () => {
   });
 
   describe('GET /admin/catalog/recipes', () => {
-    it('przepis katalogu: kcal na porcję, pozycje przyszłych planów, ulubione', async () => {
+    it('przepis katalogu: kcal i makro na porcję, pozycje przyszłych planów, ulubione', async () => {
       const data = await list();
       expect(data.total).toBe(data.items.length);
-      expect(data.items.find((r) => r.id === ids.active)).toEqual({
+      const item = data.items.find((r) => r.id === ids.active);
+      expect(item).toEqual({
         id: ids.active,
         title: `Owsianka A3 ${stamp}`,
         imageUrl: '',
+        hasImage: false,
         isActive: true,
         mealType: 'BREAKFAST',
+        // Pusta kolumna = wiersz sprzed backfillu → slot bazowy.
+        suitableMealTypes: ['BREAKFAST'],
+        difficulty: 'EASY',
         prepTimeMinutes: 10,
+        servings: 2,
         kcalPerServing: 625,
+        // Kolumny CAŁEGO przepisu / 2 porcje, jedno miejsce po przecinku.
+        proteinPerServing: 22.7,
+        fatPerServing: 10,
+        carbsPerServing: 75,
+        allergens: ['MILK'],
         inPlans: 3,
         favorites: 2,
+        updatedAt: expect.any(String) as unknown,
       });
-      // ⌘K liczy „w planach” tą samą funkcją — ta sama liczba.
+      expect(Number.isNaN(Date.parse(item?.updatedAt ?? ''))).toBe(false);
+      // Prawdziwe zdjęcie i pory z kolumny w kolejności dnia.
+      expect(data.items.find((r) => r.id === ids.editable)).toMatchObject({
+        hasImage: true,
+        suitableMealTypes: ['DINNER'],
+      });
+      // ⌘K składa wiersz tą samą funkcją — ten sam wiersz, łącznie z „w planach”.
       const found = (
         await request(server())
           .get(`/admin/search?q=${encodeURIComponent(`Owsianka A3 ${stamp}`)}`)
           .set('Cookie', session.cookie)
           .expect(200)
-      ).body as { recipes: { id: string; inPlans: number }[] };
-      expect(found.recipes.find((r) => r.id === ids.active)?.inPlans).toBe(3);
+      ).body as { recipes: RecipeListItem[] };
+      expect(found.recipes.find((r) => r.id === ids.active)).toEqual(item);
       // Przepis domu nie istnieje dla panelu.
       expect(data.items.some((r) => r.id === ids.private)).toBe(false);
       expect(data.items.find((r) => r.id === ids.retired)?.isActive).toBe(
