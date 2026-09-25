@@ -34,6 +34,7 @@ import {
 } from '../integrations/integrations-env';
 import { fetchRailway } from '../integrations/railway.client';
 import { fetchSentry } from '../integrations/sentry.client';
+import { FxRateService } from '../revenue/fx-rate.service';
 import { AdminDashboardService } from '../users/admin-dashboard.service';
 import { readAlertsEnv } from './alerts-env';
 import { recipientTag } from './admin-watch.service';
@@ -82,6 +83,7 @@ export class AdminDailyReportService
     private readonly outbox: MailOutboxService,
     private readonly renderer: MailRenderer,
     private readonly audit: AdminAuditService,
+    private readonly fx: FxRateService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -260,14 +262,21 @@ export class AdminDailyReportService
 
   private async payload(day: string, now: Date): Promise<DailyReportPayload> {
     const days = reportPanelDays(day);
-    const [{ stats, subscriptions }, counts, openAlerts, sentryNew24h, backup] =
-      await Promise.all([
-        this.dashboard.reportDays(days, now),
-        this.counts(days[0].start, days[1].end),
-        this.prisma.adminAlert.count({ where: { resolvedAt: null } }),
-        this.sentryNew24h(),
-        this.backup(),
-      ]);
+    const [
+      { stats, subscriptions },
+      counts,
+      openAlerts,
+      sentryNew24h,
+      backup,
+      fx,
+    ] = await Promise.all([
+      this.dashboard.reportDays(days, now),
+      this.counts(days[0].start, days[1].end),
+      this.prisma.adminAlert.count({ where: { resolvedAt: null } }),
+      this.sentryNew24h(),
+      this.backup(),
+      this.fx.usdPlnOn(day),
+    ]);
     const byDay = (key: string): ReportCounts => {
       const row = counts.find((c) => c.day === key);
       return {
@@ -287,6 +296,7 @@ export class AdminDailyReportService
       openAlerts,
       sentryNew24h,
       backup,
+      usdPln: fx.rate,
     });
   }
 

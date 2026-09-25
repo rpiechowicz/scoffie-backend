@@ -74,6 +74,22 @@ export function readAscEnv(env: NodeJS.ProcessEnv = process.env): AscEnv {
   };
 }
 
+/**
+ * Klucz do raportów sprzedaży i finansów. Raporty wymagają roli Finance
+ * (albo Sales), a odpowiedzi na recenzje — Customer Support; jeden klucz
+ * obu naraz nie ma bez roli Admin. Dlatego raporty mogą mieć WŁASNY klucz
+ * (`ADMIN_ASC_REPORTS_KEY_ID` + `ADMIN_ASC_REPORTS_PRIVATE_KEY`) — bez nich
+ * idą kluczem głównym, jak dotąd.
+ */
+export function readAscReportsEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): AscEnv {
+  const main = readAscEnv(env);
+  const keyId = text(env.ADMIN_ASC_REPORTS_KEY_ID);
+  const privateKey = normalizePrivateKey(env.ADMIN_ASC_REPORTS_PRIVATE_KEY);
+  return keyId && privateKey ? { ...main, keyId, privateKey } : main;
+}
+
 /** Nazwy brakujących zmiennych — panel pokazuje je w stanie `off`. */
 export function missingSentry(env: SentryEnv): string[] {
   return env.token ? [] : ['ADMIN_SENTRY_TOKEN'];
@@ -84,5 +100,23 @@ export function missingAsc(env: AscEnv): string[] {
     ...(env.keyId ? [] : ['ADMIN_ASC_KEY_ID']),
     ...(env.privateKey ? [] : ['ADMIN_ASC_PRIVATE_KEY']),
     ...(env.issuerId ? [] : ['APPLE_ISSUER_ID']),
+  ];
+}
+
+/**
+ * Numer dostawcy (Vendor Number) z App Store Connect → Payments and Financial
+ * Reports — wymagany przez raporty sprzedaży i finansów (przychód z Apple).
+ */
+export function readAscVendorNumber(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return text(env.ADMIN_ASC_VENDOR_NUMBER);
+}
+
+/** Raporty sprzedaży: klucz ASC + numer dostawcy. */
+export function missingAscReports(env: AscEnv, vendorNumber: string): string[] {
+  return [
+    ...missingAsc(env),
+    ...(vendorNumber ? [] : ['ADMIN_ASC_VENDOR_NUMBER']),
   ];
 }

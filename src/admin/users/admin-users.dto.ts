@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  Equals,
   IsBoolean,
   IsOptional,
   IsString,
@@ -56,6 +57,23 @@ export class AdminSearchQueryDto {
   @IsString()
   @MaxLength(200)
   q?: string;
+}
+
+/**
+ * `POST /admin/users/:id/devices/:deviceId/test-push`. Na urządzenie obcej
+ * osoby oba pola są wymagane — pilnuje tego serwis (zależy od konta).
+ */
+export class AdminPushTestDto {
+  @IsOptional()
+  @IsBoolean()
+  @Equals(true)
+  confirmForeign?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(5)
+  @MaxLength(500)
+  reason?: string;
 }
 
 /** Powód akcji — trafia do `AdminAuditLog.reason`. */

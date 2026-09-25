@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, type AdminAuditLog } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
 import { isUuid } from '../../common/uuid';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -36,6 +36,28 @@ export function decodeAuditCursor(raw: string): Cursor {
 }
 
 const RESULTS = new Set<string>(['PENDING', 'SUCCESS', 'FAILED']);
+
+/** Wiersz `AdminAuditLog` → wpis kontraktu (Dziennik, historia wniosku RODO). */
+export function toAuditEntry(r: AdminAuditLog): AuditEntry {
+  return {
+    id: r.id,
+    at: r.createdAt.toISOString(),
+    finishedAt: r.finishedAt?.toISOString() ?? null,
+    adminEmail: r.adminEmail,
+    action: r.action,
+    targetType: r.targetType,
+    targetId: r.targetId,
+    reason: r.reason,
+    result: (RESULTS.has(r.result) ? r.result : 'PENDING') as AuditResult,
+    errorCode: r.errorCode,
+    details:
+      r.details && typeof r.details === 'object' && !Array.isArray(r.details)
+        ? (r.details as Record<string, unknown>)
+        : null,
+    ip: r.ip,
+    country: r.country,
+  };
+}
 
 /**
  * Odczyt dziennika audytu panelu (ekran „Dziennik”). Najnowsze pierwsze,
@@ -79,28 +101,7 @@ export class AdminAuditLogService {
     const page = rows.slice(0, limit);
     const last = page[page.length - 1];
     return {
-      entries: page.map(
-        (r): AuditEntry => ({
-          id: r.id,
-          at: r.createdAt.toISOString(),
-          finishedAt: r.finishedAt?.toISOString() ?? null,
-          adminEmail: r.adminEmail,
-          action: r.action,
-          targetType: r.targetType,
-          targetId: r.targetId,
-          reason: r.reason,
-          result: (RESULTS.has(r.result) ? r.result : 'PENDING') as AuditResult,
-          errorCode: r.errorCode,
-          details:
-            r.details &&
-            typeof r.details === 'object' &&
-            !Array.isArray(r.details)
-              ? (r.details as Record<string, unknown>)
-              : null,
-          ip: r.ip,
-          country: r.country,
-        }),
-      ),
+      entries: page.map(toAuditEntry),
       nextCursor:
         rows.length > limit && last
           ? encodeAuditCursor({ at: last.createdAt, id: last.id })

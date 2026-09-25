@@ -269,6 +269,11 @@ export interface UserDetail extends UserListItem {
   stepsSource: 'APPLE_HEALTH' | 'GARMIN' | null;
   /** notatki `AgentMemory.aboutUserId` — tylko liczba */
   memoryNotes: number;
+  /**
+   * Konto z listy właściciela (`ADMIN_BOOTSTRAP_EMAIL`) — testowy push bez
+   * potwierdzenia. Brak pola = starszy backend (panel pyta jak o obcą osobę).
+   */
+  ownerAccount?: boolean;
 }
 
 /** `User` + `UserPreference` — dane szczególnej kategorii, dopiero po „Odsłoń”. */
@@ -371,6 +376,8 @@ export type ProposalStatus =
 
 export interface ProfitData {
   fxUsdPln: number;
+  /** dzień notowania NBP kursu `fxUsdPln`; `null` — stała cennika (brak kursu w bazie) */
+  fxDate?: string | null;
   revenueTrend: number;
   marginTrendPp: number;
   trials: number;
@@ -974,13 +981,15 @@ export interface AuditPage {
 
 // ——— Sterowanie w locie i odpowiedzi na recenzje (ROADMAPA §5.12, §5.9) ———
 
-export type RuntimeSettingKind = 'boolean' | 'number' | 'list';
+export type RuntimeSettingKind = 'boolean' | 'number' | 'list' | 'choice';
 
 export interface RuntimeSettingView {
   /** np. `AI_ENABLED` — biała lista w `src/config/runtime-settings.ts` */
   key: string;
   label: string;
   kind: RuntimeSettingKind;
+  /** dozwolone wartości przy `kind: 'choice'` (np. `AI_CARDS_MODE`) */
+  options?: string[];
   /** surowa wartość z Railwaya; `null` — zmiennej nie ma (działa domyślna) */
   envValue: string | null;
   /** nadpisanie z panelu; `null` — działa env */
@@ -1027,7 +1036,7 @@ export interface AdminAlertRow {
   id: string;
   /** np. `deploy-failed:<serviceId>:<deployId>`, `crash-free:scoffie-ios` */
   key: string;
-  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain` */
+  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain`, `gdpr-due` */
   kind: string;
   severity: AlertSeverity;
   title: string;
@@ -1089,4 +1098,598 @@ export interface DailyReportSendResult {
   /** ile maili trafiło do skrzynki nadawczej */
   queued: number;
   recipients: string[];
+}
+
+// ——— Wzrost: lejek, kohorty, aktywni (ROADMAPA §5.8) ———
+
+/** `GET /admin/growth?period=7|30|90` — kohorta rejestracji z ostatnich N dób (Warszawa). */
+export type GrowthPeriod = '7' | '30' | '90';
+
+/**
+ * Kroki lejka po kolei: `User.createdAt` → `onboardingCompletedAt` →
+ * pierwsze `Membership` → pierwszy `PlanItem` w domu osoby → zgoda
+ * `ConsentEvent` AI_ASSISTANT/GRANTED → pierwsza `AgentTurn` → pierwsza
+ * `Subscription` APPLE z produkcji.
+ */
+export type FunnelStepKey =
+  | 'registered'
+  | 'onboarded'
+  | 'household'
+  | 'plan'
+  | 'aiConsent'
+  | 'firstTurn'
+  | 'purchase';
+
+export interface FunnelStep {
+  key: FunnelStepKey;
+  /** osoby z kohorty, które doszły do tego kroku i do wszystkich poprzednich */
+  users: number;
+  /** % od rejestracji (0–100, jedno miejsce po przecinku) */
+  pctOfStart: number;
+  /** % od poprzedniego kroku (pierwszy krok: 100) */
+  pctOfPrevious: number;
+  /** mediana czasu od rejestracji do kroku w sekundach; `null` — nikt nie doszedł */
+  medianSecondsToStep: number | null;
+}
+
+/** Tygodniowa kohorta rejestracji (tydzień od poniedziałku, Warszawa). */
+export interface Cohort {
+  /** poniedziałek tygodnia rejestracji (północ w Warszawie) */
+  weekStart: IsoDate;
+  users: number;
+  /**
+   * tydzień 0..8: % osób kohorty aktywnych w tym tygodniu (`UserActivityDay`);
+   * `null` — tydzień jeszcze nie nastał albo skończył się przed `activitySince`
+   */
+  weeks: (number | null)[];
+}
+
+/** Doba z `UserActivityDay`: DAU tej doby, WAU z 7 i MAU z 30 dób do niej włącznie. */
+export interface ActiveDay {
+  /** północ doby w Warszawie */
+  date: IsoDate;
+  dau: number;
+  wau: number;
+  mau: number;
+}
+
+export interface GrowthData {
+  period: GrowthPeriod;
+  funnel: FunnelStep[];
+  /** ostatnie 12 tygodni, najstarszy pierwszy */
+  cohorts: Cohort[];
+  /** ostatnie 30 dób do dziś włącznie */
+  active: ActiveDay[];
+  /** od kiedy zbieramy aktywność (wdrożenie tabeli); `null` — jeszcze nie */
+  activitySince: IsoDate | null;
+}
+
+// ——— Karta osoby: testowy push, błędy Sentry; rejestr wniosków RODO (ROADMAPA §5.10, §5.11) ———
+
+/**
+ * `POST /admin/users/:id/devices/:deviceId/test-push` (step-up). Na
+ * urządzenie konta spoza listy właściciela — tylko z `confirmForeign` i powodem.
+ */
+export interface PushTestInput {
+  confirmForeign?: boolean;
+  /** 5–500 znaków; wymagany przy obcej osobie */
+  reason?: string;
+}
+
+/** Odpowiedź APNs na testowy push — bez treści powiadomienia. */
+export interface PushTestResult {
+  /** APNs przyjął (HTTP 200) */
+  ok: boolean;
+  /** HTTP z APNs; 0 = brak odpowiedzi */
+  status: number;
+  /** nagłówek `apns-id` */
+  apnsId: string | null;
+  /** `BadDeviceToken`, `Unregistered`, `DeviceTokenNotForTopic`, `TopicDisallowed`, `NoResponse`, … */
+  reason: string | null;
+  environment: 'SANDBOX' | 'PRODUCTION';
+  /** `apns-topic` — bundle id urządzenia */
+  topic: string;
+  sentAt: IsoDate;
+}
+
+/** Zdarzenie Sentry osoby (`organizations/{org}/events/`, `user.id`). */
+export interface SentryUserEvent {
+  id: string;
+  title: string;
+  level: string;
+  /** slug projektu */
+  project: string;
+  /** wydanie aplikacji, np. `app.scoffie@1.0.3+35` */
+  release: string | null;
+  at: IsoDate;
+  permalink: string;
+}
+
+/** `GET /admin/users/:id/sentry` — ostatnie 14 dni */
+export interface SentryUserData {
+  /** problemy z co najmniej jednym zdarzeniem tej osoby; `count` = zdarzenia w 14 dni (wszystkich osób) */
+  issues: SentryIssue[];
+  /** najnowsze zdarzenia osoby */
+  events: SentryUserEvent[];
+  /** `true` — Sentry nie oddał listy zdarzeń (problemy są) */
+  eventsUnavailable: boolean;
+  /** wyszukiwanie w Sentry po `user.id` */
+  url: string;
+}
+
+export type SentryUserState = IntegrationState<SentryUserData>;
+
+export type GdprKind =
+  | 'ACCESS'
+  | 'ERASURE'
+  | 'RECTIFICATION'
+  | 'RESTRICTION'
+  | 'OBJECTION'
+  | 'PORTABILITY';
+export type GdprStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'REJECTED';
+/** skąd przyszedł wniosek */
+export type GdprChannel = 'EMAIL' | 'APP' | 'STORE' | 'POST' | 'OTHER';
+
+/** `GdprRequest` — wiersz rejestru */
+export interface GdprRequestRow {
+  id: string;
+  kind: GdprKind;
+  status: GdprStatus;
+  receivedAt: IsoDate;
+  /** `receivedAt` + 30 dni, po przedłużeniu + 90 */
+  dueAt: IsoDate;
+  /** przedłużony o 60 dni (art. 12 ust. 3) */
+  extended: boolean;
+  requesterEmail: string;
+  userId: string | null;
+  /** `displayName` powiązanego konta; `null` — brak konta albo usunięte */
+  userName: string | null;
+  channel: GdprChannel;
+  closedAt: IsoDate | null;
+  createdAt: IsoDate;
+}
+
+/** `GET /admin/gdpr?state=open|closed|all&kind=` */
+export interface GdprData {
+  stats: {
+    /** OPEN + IN_PROGRESS */
+    open: number;
+    /** otwarte, termin za mniej niż 7 dni */
+    dueSoon: number;
+    /** otwarte po terminie */
+    overdue: number;
+    /** DONE + REJECTED w ostatnich 30 dniach */
+    closed30d: number;
+  };
+  /** otwarte: najbliższy termin pierwszy; zamknięte: najnowsze pierwsze */
+  items: GdprRequestRow[];
+}
+
+export interface GdprFilters {
+  /** domyślnie `open` */
+  state?: 'open' | 'closed' | 'all';
+  kind?: GdprKind;
+}
+
+/** `GET /admin/gdpr/:id` */
+export interface GdprRequestDetail extends GdprRequestRow {
+  notes: string | null;
+  extensionReason: string | null;
+  /** DONE / REJECTED — co odpowiedzieliśmy */
+  resolution: string | null;
+  /** adres admina, który zamknął */
+  closedBy: string | null;
+  /** wpisy dziennika audytu z `targetId` = id wniosku, najstarsze pierwsze */
+  history: AuditEntry[];
+}
+
+/** `POST /admin/gdpr` */
+export interface GdprCreateInput {
+  kind: GdprKind;
+  channel: GdprChannel;
+  /** domyślnie teraz; nie z przyszłości */
+  receivedAt?: IsoDate;
+  requesterEmail: string;
+  userId?: string | null;
+  notes?: string | null;
+}
+
+/** `PATCH /admin/gdpr/:id` — powiązanie z kontem i notatki */
+export interface GdprUpdateInput {
+  userId?: string | null;
+  notes?: string | null;
+}
+
+/** `POST /admin/gdpr/:id/status` — tylko otwarte stany */
+export interface GdprStatusInput {
+  status: 'OPEN' | 'IN_PROGRESS';
+}
+
+/** `POST /admin/gdpr/:id/extend` — raz, przed terminem; `reason` = uzasadnienie */
+export interface GdprExtendInput {
+  reason: string;
+}
+
+/** `POST /admin/gdpr/:id/close` — `resolution` trafia też jako powód do dziennika */
+export interface GdprCloseInput {
+  status: 'DONE' | 'REJECTED';
+  resolution: string;
+}
+
+// ——— Przychód z Apple i kurs NBP (ROADMAPA §5.6) ———
+
+/** `GET /admin/revenue?period=30|90|365` — dni wstecz od wczoraj. */
+export type RevenuePeriod = '30' | '90' | '365';
+
+/** Kurs średni NBP (tabela A); przy pustej tabeli — stała cennika. */
+export interface FxInfo {
+  /** dzień notowania `YYYY-MM-DD`; `null` — brak kursu w bazie */
+  date: string | null;
+  usdPln: number;
+  /** `null` — brak notowania EUR w bazie */
+  eurPln: number | null;
+  /** `NBP` — z bazy; `REFERENCE` — `REFERENCE_USD_PLN` z cennika */
+  source: 'NBP' | 'REFERENCE';
+}
+
+/** Dzień raportu Sales Summary (zakupy w aplikacji). */
+export interface RevenueDay {
+  /** dzień raportu Apple `YYYY-MM-DD` */
+  date: string;
+  /** netto (zakupy − zwroty) */
+  units: number;
+  proceedsPln: number;
+  proceedsUsd: number;
+}
+
+export interface RevenueProductRow {
+  /** SKU = productId subskrypcji */
+  sku: string;
+  title: string;
+  /** `IAY` — subskrypcja odnawialna, `IA1` — jednorazowy zakup, … */
+  productType: string;
+  units: number;
+  /** sztuki ze znakiem minus (zwroty), jako liczba dodatnia */
+  refunds: number;
+  proceedsPln: number;
+}
+
+export interface RevenueCountryRow {
+  /** ISO 3166-1 alpha-2 */
+  country: string;
+  units: number;
+  proceedsPln: number;
+}
+
+/** Raport finansowy (FINANCIAL, region ZZ) — miesiąc × waluta rozliczenia. */
+export interface RevenueFinanceRow {
+  /** miesiąc fiskalny Apple `YYYY-MM` */
+  month: string;
+  currency: string;
+  units: number;
+  /** w walucie `currency` */
+  proceeds: number;
+  /** po kursie NBP z ostatniego dnia miesiąca; `null` — waluta spoza tabeli A */
+  proceedsPln: number | null;
+}
+
+export interface RevenueSync {
+  /** ostatnia udana synchronizacja raportów sprzedaży; `null` — jeszcze nie było */
+  salesSyncedAt: IsoDate | null;
+  financeSyncedAt: IsoDate | null;
+  /** najnowszy dzień z jakąkolwiek sprzedażą w bazie */
+  lastSaleDate: string | null;
+}
+
+export interface RevenueData {
+  period: RevenuePeriod;
+  /** `off` — brak klucza ASC albo `ADMIN_ASC_VENDOR_NUMBER`; `error` — ostatnia synchronizacja padła (dane poniżej mogą być starsze) */
+  state: IntegrationState<RevenueSync>;
+  /** każdy dzień okresu, od najstarszego (dni bez sprzedaży = 0) */
+  days: RevenueDay[];
+  totals: {
+    units: number;
+    refunds: number;
+    proceedsPln: number;
+    proceedsUsd: number;
+    avgPerDayPln: number;
+    /** cena brutto zapłacona przez osoby, w PLN */
+    customerPricePln: number;
+  };
+  /** najwyższy przychód pierwszy */
+  byProduct: RevenueProductRow[];
+  byCountry: RevenueCountryRow[];
+  /** najnowszy miesiąc pierwszy */
+  finance: RevenueFinanceRow[];
+  fx: FxInfo;
+  /** MRR z cennika (brutto) — ta sama liczba co na ekranie Subskrypcje */
+  estimatedMrrPln: number;
+  /** to samo po VAT i prowizji Apple — do porównania z wypłatą */
+  estimatedNetMrrPln: number;
+  /** waluty wypłat bez kursu NBP (tabela A) — ich kwot nie ma w sumach w PLN */
+  unconverted: string[];
+}
+
+// ——— Katalog: jakość i popularność · Baza danych · Ruch · Historia Sterowania ———
+
+/**
+ * Rodzaje luk w przepisie katalogu (`GET /admin/catalog/insights`):
+ * - `no-image` — brak `imageUrl`
+ * - `zero-macros` — kcal ≤ 0 albo białko + tłuszcz + węgle ≈ 0
+ * - `kcal-mismatch` — kcal różni się od makro (Atwater) o > 25 %
+ * - `ingredient-no-nutrition` — składnik bez wartości odżywczych
+ * - `piece-no-grams` — składnik w `szt` bez `gramsPerPiece`
+ * - `no-meal-types` — puste `suitableMealTypes` (brak backfillu pór)
+ * - `no-steps` — brak kroków przygotowania
+ * - `no-ingredients` — przepis bez składników
+ */
+export type CatalogGapKind =
+  | 'no-image'
+  | 'zero-macros'
+  | 'kcal-mismatch'
+  | 'ingredient-no-nutrition'
+  | 'piece-no-grams'
+  | 'no-meal-types'
+  | 'no-steps'
+  | 'no-ingredients';
+
+export interface CatalogGapRecipe {
+  id: string;
+  title: string;
+  /** pusty — brak zdjęcia */
+  imageUrl: string;
+  isActive: boolean;
+  mealType: MealType;
+  gaps: CatalogGapKind[];
+  /** nazwy składników przy `ingredient-no-nutrition` i `piece-no-grams` */
+  ingredients: string[];
+  /** cały przepis, jak `Recipe.nutritionKcal` */
+  kcal: number;
+  /** 4·B + 4·W + 9·T + 2·błonnik — do porównania przy `kcal-mismatch` */
+  kcalFromMacros: number;
+}
+
+/** Pozycja rankingu popularności — tylko przepisy katalogu. */
+export interface CatalogRankItem {
+  id: string;
+  title: string;
+  imageUrl: string;
+  isActive: boolean;
+  count: number;
+}
+
+/** Składnik z „czego nie jem” — sama liczba osób, bez osób. */
+export interface CatalogExcludedIngredient {
+  key: string;
+  name: string;
+  count: number;
+}
+
+export interface CatalogPopularity {
+  /** okno rankingów „w planach”, „zjedzone”, „proponowane” */
+  days: number;
+  /** pozycje planu (`PlanItem`) dodane w oknie */
+  planned: CatalogRankItem[];
+  /** `PlanItemConsumption` w oknie */
+  eaten: CatalogRankItem[];
+  /** `RecipeFavorite` — łącznie, bez okna */
+  favorites: CatalogRankItem[];
+  /** nowe dania w kartach propozycji asystenta (`AgentProposal`) w oknie */
+  proposed: CatalogRankItem[];
+  /** aktywne przepisy, których nikt nigdy nie dodał do planu (do 50) */
+  neverUsed: CatalogRankItem[];
+  neverUsedTotal: number;
+  /** `UserPreference.excludedIngredientIds` — liczba osób na składnik */
+  excludedIngredients: CatalogExcludedIngredient[];
+}
+
+/** `GET /admin/catalog/insights` */
+export interface CatalogInsights {
+  /** liczba przepisów z daną luką */
+  gaps: Record<CatalogGapKind, number>;
+  /** przepisy z co najmniej jedną luką, najpierw aktywne i z największą liczbą luk */
+  recipes: CatalogGapRecipe[];
+  popularity: CatalogPopularity;
+  generatedAt: IsoDate;
+}
+
+export interface DatabaseTable {
+  name: string;
+  /** `pg_total_relation_size` — z indeksami i TOAST */
+  totalBytes: number;
+  /** `pg_class.reltuples` — szacunek; `-1`/brak analizy = 0 */
+  rowsEstimate: number;
+}
+
+/** Zapytanie trwające > 5 s — BEZ tekstu (mógłby zawierać dane). */
+export interface DatabaseLongQuery {
+  seconds: number;
+  /** `active`, `idle in transaction`, … */
+  state: string;
+  /** `Lock`, `IO`, … — `null`, gdy nie czeka */
+  waitEventType: string | null;
+}
+
+/** `pg_stat_statements` — tekst znormalizowany (`$1`), przycięty do 200 znaków. */
+export interface DatabaseSlowQuery {
+  query: string;
+  calls: number;
+  meanMs: number;
+  totalMs: number;
+}
+
+/** `GET /admin/ops/database` */
+export interface DatabaseData {
+  sizeBytes: number;
+  /** 10 największych tabel */
+  tables: DatabaseTable[];
+  /** połączenia klientów tej bazy wg `state` */
+  connections: { state: string; count: number }[];
+  /** `max_connections` */
+  maxConnections: number | null;
+  longQueries: DatabaseLongQuery[];
+  migrations: {
+    /** `null` — brak tabeli `_prisma_migrations` */
+    last: { name: string; finishedAt: IsoDate | null } | null;
+    applied: number;
+    /** nazwy migracji rozpoczętych, niezakończonych i niecofniętych */
+    failed: string[];
+  };
+  /** `null` — rozszerzenie `pg_stat_statements` niewłączone albo niedostępne */
+  slowQueries: DatabaseSlowQuery[] | null;
+  fetchedAt: IsoDate;
+}
+
+export interface TrafficDay {
+  /** `YYYY-MM-DD` (UTC, jak w Cloudflare) */
+  date: string;
+  requests: number;
+  /** unikalni odwiedzający danego dnia (`uniq.uniques`) */
+  visitors: number;
+  pageViews: number;
+}
+
+export interface TrafficCount {
+  /** ścieżka albo kod kraju (ISO 3166-1 alfa-2) */
+  name: string;
+  count: number;
+}
+
+/** `GET /admin/traffic` — strefa scoffie.app z Cloudflare, 30 dni. */
+export interface TrafficData {
+  /** cała strefa (także img. i dashboard.), dzień po dniu, bez dziur */
+  days: TrafficDay[];
+  /** strony `scoffie.app` (bez plików, bez błędów); `null` — niedostępne */
+  paths: TrafficCount[] | null;
+  countries: TrafficCount[] | null;
+  /** wejścia na `/zaproszenie` (landing zaproszeń); `null` — niedostępne */
+  invites: { total: number; days: { date: string; count: number }[] } | null;
+}
+
+export type TrafficState = IntegrationState<TrafficData>;
+
+/** `GET /admin/settings/changes?days=` — z dziennika audytu, od najstarszej. */
+export interface RuntimeSettingChange {
+  at: IsoDate;
+  key: string;
+  action: 'set' | 'clear';
+  /** nowa wartość (lista osób = sama liczba); `null` przy `clear` */
+  value: string | null;
+  previous: string | null;
+}
+
+// ——— Flagi funkcji (bety) i komunikaty w aplikacji ———
+
+/** Skąd wartość flagi dla domu: nadpisanie > rollout > globalnie > wyłączona. */
+export type FeatureFlagSource = 'override' | 'rollout' | 'global' | 'off';
+
+export interface FeatureFlagRow {
+  /** `assistant.voice` — małe litery, cyfry, `.`, `_`, `-` */
+  key: string;
+  description: string;
+  /** włączona dla wszystkich domów */
+  enabled: boolean;
+  /** 0–100, deterministycznie po haszu klucza i id domu */
+  rolloutPercent: number;
+  /** nadpisania domów: ile włącza, ile wyłącza */
+  overridesOn: number;
+  overridesOff: number;
+  updatedAt: IsoDate;
+  /** adres admina */
+  updatedBy: string;
+}
+
+/** `GET /admin/flags` */
+export interface FeatureFlagsData {
+  flags: FeatureFlagRow[];
+}
+
+/** `POST /admin/flags` (step-up) */
+export interface FeatureFlagCreate {
+  key: string;
+  description: string;
+  enabled: boolean;
+  rolloutPercent: number;
+  reason: string;
+}
+
+/** `PATCH /admin/flags/:key` (step-up) — pola pominięte zostają */
+export interface FeatureFlagUpdate {
+  description?: string;
+  enabled?: boolean;
+  rolloutPercent?: number;
+  reason: string;
+}
+
+export interface HouseholdFlagRow {
+  key: string;
+  description: string;
+  /** nadpisanie tego domu; `null` — brak */
+  override: boolean | null;
+  /** co dom dostaje teraz */
+  effective: boolean;
+  source: FeatureFlagSource;
+}
+
+/** `GET /admin/flags/households/:householdId` */
+export interface HouseholdFlagsData {
+  householdId: string;
+  flags: HouseholdFlagRow[];
+}
+
+/** `PUT /admin/flags/:key/households/:householdId` (step-up); zdjęcie — `DELETE` z `{ reason }` */
+export interface HouseholdFlagOverride {
+  enabled: boolean;
+  reason: string;
+}
+
+export type AnnouncementSeverity = 'info' | 'warning' | 'critical';
+/** `households` — tylko domy z `householdIds` */
+export type AnnouncementAudience = 'all' | 'ios' | 'android' | 'households';
+export type AnnouncementState = 'active' | 'scheduled' | 'ended';
+
+export interface AnnouncementRow {
+  id: string;
+  /** ≤ 80 znaków, czysty tekst */
+  title: string;
+  /** ≤ 400 znaków, czysty tekst */
+  body: string;
+  severity: AnnouncementSeverity;
+  audience: AnnouncementAudience;
+  householdIds: string[];
+  startsAt: IsoDate;
+  /** `null` — do odwołania */
+  endsAt: IsoDate | null;
+  dismissible: boolean;
+  /** adres admina */
+  createdBy: string;
+  createdAt: IsoDate;
+  state: AnnouncementState;
+}
+
+/** `GET /admin/announcements` */
+export interface AnnouncementsData {
+  /** aktywne teraz, krytyczne pierwsze */
+  active: AnnouncementRow[];
+  /** start w przyszłości, najbliższe pierwsze */
+  scheduled: AnnouncementRow[];
+  /** zakończone w ostatnich 30 dniach, najnowsze pierwsze (≤ 50) */
+  ended: AnnouncementRow[];
+  limits: { titleMax: number; bodyMax: number; maxActive: number };
+}
+
+/** `POST /admin/announcements` (step-up) */
+export interface AnnouncementCreate {
+  title: string;
+  body: string;
+  severity: AnnouncementSeverity;
+  audience: AnnouncementAudience;
+  /** wymagane przy `audience = households` (1–50) */
+  householdIds?: string[];
+  /** brak — od teraz */
+  startsAt?: IsoDate | null;
+  /** brak — do odwołania */
+  endsAt?: IsoDate | null;
+  dismissible: boolean;
+  reason: string;
 }

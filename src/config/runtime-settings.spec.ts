@@ -1,3 +1,4 @@
+import { readThrottleLimit } from '../common/throttle/throttle-env';
 import { readAgentEnv } from './agent-env';
 import {
   effectiveProcessEnv,
@@ -65,6 +66,12 @@ describe('nadpisania env z panelu', () => {
         'AI_TRIAL_MESSAGES',
         'AI_TRIAL_PLANS',
         'AI_ALLOWED_USERS',
+        'AI_CARDS_MODE',
+        'THROTTLE_DEFAULT_LIMIT',
+        'THROTTLE_IP_LIMIT',
+        'THROTTLE_AUTH_LIMIT',
+        'THROTTLE_AGENT_MESSAGE_LIMIT',
+        'THROTTLE_AGENT_POLL_LIMIT',
       ].sort(),
     );
     for (const key of [
@@ -73,6 +80,10 @@ describe('nadpisania env z panelu', () => {
       'DATABASE_URL',
       'AI_PROVIDER',
       'AI_CONSENT_REQUIRED',
+      // Zbyt niski limit panelu zamknąłby panel przed adminem.
+      'THROTTLE_ADMIN_LIMIT',
+      'THROTTLE_ADMIN_AUTH_LIMIT',
+      'THROTTLE_ADMIN_CODE_LIMIT',
     ]) {
       expect(isRuntimeSettingKey(key)).toBe(false);
     }
@@ -141,5 +152,38 @@ describe('nadpisania env z panelu', () => {
     expect(RUNTIME_SETTINGS.AI_ALLOWED_USERS.effective(agent)).toBe(
       'ala@example.com',
     );
+  });
+
+  it('tryb kart: lista wyboru, te same wartości co env; off nie na produkcji', () => {
+    const spec = RUNTIME_SETTINGS.AI_CARDS_MODE;
+    expect(spec.kind).toBe('choice');
+    expect(spec.options).toEqual(['off', 'soft', 'strict']);
+    expect(spec.normalize(' SOFT ')).toEqual({ ok: true, value: 'soft' });
+    expect(spec.normalize('lenient')).toMatchObject({ ok: false });
+    expect(spec.normalize('off')).toEqual({ ok: true, value: 'off' });
+    process.env.NODE_ENV = 'production';
+    expect(spec.normalize('off')).toMatchObject({ ok: false });
+    expect(spec.normalize('strict')).toEqual({ ok: true, value: 'strict' });
+
+    process.env.NODE_ENV = 'test';
+    process.env.AI_CARDS_MODE = 'soft';
+    setRuntimeOverrides({ AI_CARDS_MODE: 'strict' });
+    expect(spec.effective(readAgentEnv())).toBe('strict');
+  });
+
+  it('limity THROTTLE_*: liczba całkowita ≥ 1, działają bez restartu', () => {
+    const spec = RUNTIME_SETTINGS.THROTTLE_AGENT_MESSAGE_LIMIT;
+    expect(spec.kind).toBe('number');
+    expect(spec.normalize(' 40 ')).toEqual({ ok: true, value: '40' });
+    for (const bad of ['0', '-3', '2.5', 'dużo', '']) {
+      expect(spec.normalize(bad)).toMatchObject({ ok: false });
+    }
+    delete process.env.THROTTLE_AGENT_MESSAGE_LIMIT;
+    expect(readThrottleLimit('THROTTLE_AGENT_MESSAGE_LIMIT')).toBe(20);
+    setRuntimeOverrides({ THROTTLE_AGENT_MESSAGE_LIMIT: '7' });
+    expect(readThrottleLimit('THROTTLE_AGENT_MESSAGE_LIMIT')).toBe(7);
+    expect(spec.effective(readAgentEnv())).toBe('7');
+    // Jawny env (assert-env, e2e) nadpisań nie widzi.
+    expect(readThrottleLimit('THROTTLE_AGENT_MESSAGE_LIMIT', {})).toBe(20);
   });
 });

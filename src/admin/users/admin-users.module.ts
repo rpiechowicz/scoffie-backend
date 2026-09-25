@@ -10,6 +10,8 @@ import {
 } from './admin-dashboard.controller';
 import { AdminDashboardService } from './admin-dashboard.service';
 import { AdminMailsService } from './admin-mails.service';
+import { AdminPushTestService } from './admin-push-test.service';
+import { AdminUserSentryService } from './admin-user-sentry.service';
 import { AdminSearchService } from './admin-search.service';
 import {
   AdminMailsController,
@@ -44,6 +46,8 @@ import { AdminUsersService } from './admin-users.service';
     AdminSearchService,
     AdminUsersService,
     AdminMailsService,
+    AdminPushTestService,
+    AdminUserSentryService,
   ],
   // Raport dzienny (moduł alertów) liczy wczoraj tą samą arytmetyką co pulpit.
   exports: [AdminDashboardService],

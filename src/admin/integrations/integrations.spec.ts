@@ -11,7 +11,12 @@ import {
   IntegrationError,
   normalizePrivateKey,
 } from './integration-fetch';
-import { missingAsc, readAscEnv, readSentryEnv } from './integrations-env';
+import {
+  missingAsc,
+  readAscEnv,
+  readAscReportsEnv,
+  readSentryEnv,
+} from './integrations-env';
 import { fetchRailway } from './railway.client';
 import { fetchResendDomains } from './resend-domains.client';
 import { fetchSentry } from './sentry.client';
@@ -686,5 +691,26 @@ describe('Resend', () => {
         { name: 'scoffie.app', status: 'verified', region: 'eu-west-1' },
       ],
     });
+  });
+});
+
+describe('klucz raportów App Store Connect', () => {
+  it('osobny klucz raportów, gdy oba pola są ustawione; inaczej klucz główny', () => {
+    const base = {
+      ADMIN_ASC_KEY_ID: 'MAIN',
+      ADMIN_ASC_PRIVATE_KEY: 'QUJD',
+      APPLE_ISSUER_ID: 'iss',
+    };
+    expect(readAscReportsEnv(base).keyId).toBe('MAIN');
+    expect(
+      readAscReportsEnv({ ...base, ADMIN_ASC_REPORTS_KEY_ID: 'REP' }).keyId,
+    ).toBe('MAIN');
+    const both = readAscReportsEnv({
+      ...base,
+      ADMIN_ASC_REPORTS_KEY_ID: 'REP',
+      ADMIN_ASC_REPORTS_PRIVATE_KEY: 'REVG',
+    });
+    expect(both).toMatchObject({ keyId: 'REP', issuerId: 'iss' });
+    expect(both.privateKey).toContain('REVG');
   });
 });

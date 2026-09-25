@@ -42,6 +42,21 @@ export const ADMIN_PERMISSIONS = [
   /** Raport „Scoffie wczoraj” — podgląd i wysyłka na żądanie (NIE `reports.*`, to zgłoszenia asystenta). */
   'daily-report.read',
   'daily-report.send',
+  /** Ekran „Wzrost”: lejek, kohorty, DAU/WAU/MAU (tylko agregaty). */
+  'growth.read',
+  /** Testowy push na urządzenie osoby (step-up; obcej osoby — z powodem). */
+  'users.push.test',
+  /** Rejestr wniosków RODO (ROADMAPA §5.11) — odczyt i obsługa. */
+  'gdpr.read',
+  'gdpr.write',
+  /** Wypłaty z Apple (raporty sprzedaży i finansów App Store Connect) i kurs NBP. */
+  'revenue.read',
+  /** Flagi funkcji (bety) per dom — zapis ze step-upem. */
+  'flags.read',
+  'flags.write',
+  /** Komunikaty (banery) w aplikacji — publikacja ze step-upem. */
+  'announcements.read',
+  'announcements.write',
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 

@@ -17,12 +17,17 @@ const contextWithHeader = (
 
 const guardWith = (verdict: AccessTokenVerdict) => {
   const verify = jest.fn().mockResolvedValue(verdict);
-  return { guard: new JwtAuthGuard({ verify } as never), verify };
+  const record = jest.fn();
+  return {
+    guard: new JwtAuthGuard({ verify } as never, { record } as never),
+    verify,
+    record,
+  };
 };
 
 describe('JwtAuthGuard', () => {
   it('poprawny token → request.user.id z tokenu', async () => {
-    const { guard, verify } = guardWith({
+    const { guard, verify, record } = guardWith({
       ok: true,
       userId: 'user-1',
       exp: null,
@@ -32,6 +37,7 @@ describe('JwtAuthGuard', () => {
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(request.user).toEqual({ id: 'user-1' });
     expect(verify).toHaveBeenCalledWith('good');
+    expect(record).toHaveBeenCalledWith('user-1');
   });
 
   it.each([
@@ -52,10 +58,11 @@ describe('JwtAuthGuard', () => {
   it.each(['invalid', 'expired', 'user_gone'] as const)(
     'odmowa weryfikatora %s → UNAUTHORIZED z powodem w details',
     async (reason) => {
-      const { guard } = guardWith({ ok: false, reason });
+      const { guard, record } = guardWith({ ok: false, reason });
       const { context, request } = contextWithHeader('Bearer whatever');
 
       const error = await guard.canActivate(context).catch((e: unknown) => e);
+      expect(record).not.toHaveBeenCalled();
 
       expect(error).toBeInstanceOf(AppException);
       expect((error as AppException).getStatus()).toBe(401);

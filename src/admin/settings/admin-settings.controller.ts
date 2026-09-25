@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Put,
+  Query,
 } from '@nestjs/common';
 import { AdminController } from '../admin-controller.decorator';
 import type { AdminAccessContext } from '../admin-request';
@@ -17,9 +18,12 @@ import {
 } from '../admin.decorators';
 import { adminActor } from '../audit/admin-audit.service';
 import type { ResolvedAdminSession } from '../auth/admin-sessions.service';
-import type { RuntimeSettingsData } from '../contract';
+import type { RuntimeSettingChange, RuntimeSettingsData } from '../contract';
 import { AdminReasonDto } from '../users/admin-users.dto';
-import { AdminRuntimeSettingDto } from './admin-settings.dto';
+import {
+  AdminRuntimeSettingDto,
+  SettingChangesQueryDto,
+} from './admin-settings.dto';
 import { AdminSettingsService } from './admin-settings.service';
 
 /** Sterowanie w locie (ROADMAPA §5.12). Zapis i powrót do env — step-up. */
@@ -31,6 +35,15 @@ export class AdminSettingsController {
   @AdminRequires('settings.read')
   data(): Promise<RuntimeSettingsData> {
     return this.settings.data();
+  }
+
+  /** Historia zmian z dziennika audytu — znaczniki na wykresach panelu. */
+  @Get('changes')
+  @AdminRequires('settings.read')
+  changes(
+    @Query() query: SettingChangesQueryDto,
+  ): Promise<RuntimeSettingChange[]> {
+    return this.settings.changes(query.days ?? 90);
   }
 
   @Put(':key')

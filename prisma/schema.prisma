@@ -69,6 +69,7 @@ model User {
   cookidooIntegrations CookidooIntegration[] @relation("CookidooIntegrationConnector")
 
   dailySteps DailyStepCount[]
+  activityDays UserActivityDay[]
 
   agentConversations AgentConversation[]
   consentEvents      ConsentEvent[]
@@ -76,10 +77,15 @@ model User {
   /// Maile zakolejkowane do tej osoby. `SetNull`, nie kaskada — patrz
   /// `MailMessage.userId`: mail pożegnalny musi przeżyć skasowanie konta.
   mailMessages       MailMessage[]
+  /// Wnioski RODO powiązane z kontem (rejestr w panelu). `SetNull`: wniosek
+  /// o usunięcie ma przeżyć usunięcie konta — to dowód dotrzymania terminu.
+  gdprRequests       GdprRequest[]
 
   @@index([identityHash])
   /// Panel: „zalogowani dziś” na pulpicie i sortowanie listy osób i domów.
   @@index([lastLoginAt])
+  /// Panel: kohorty rejestracji (lejek, retencja — ekran „Wzrost”).
+  @@index([createdAt])
 }
 
 /// Zgłoszenie niewłaściwej odpowiedzi asystenta („Zgłoś odpowiedź").
@@ -406,6 +412,7 @@ model Household {
   cookidooIntegration       CookidooIntegration?
   agentConversations        AgentConversation[]
   agentMemories             AgentMemory[]
+  featureFlagOverrides      FeatureFlagHousehold[]
   /// Ręczne nadanie planu (operator, `POST /ops/households/:id/tier`):
   /// rodzina testująca, rekompensata, konto recenzenta App Store. Ma
   /// pierwszeństwo przed subskrypcją; `null` = liczy się subskrypcja.
@@ -801,6 +808,23 @@ model DailyStepCount {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, date])
+}
+
+/// Doba (warszawska), w której osoba użyła aplikacji: pierwsze uwierzytelnione
+/// żądanie HTTP albo połączenie socketu (`UserActivityService`). Jeden wiersz
+/// na osobę i dobę — z tego panel liczy DAU/WAU/MAU i retencję kohort
+/// (ROADMAPA §5.8), czego `lastLoginAt` (tylko OSTATNIE logowanie) nie umie.
+/// Kaskada z kontem (RODO), w eksporcie danych osoby, retencja 12 miesięcy
+/// (`AgentRetentionService`).
+model UserActivityDay {
+  userId String   @db.Uuid
+  date   DateTime @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, date])
+  /// DAU/WAU/MAU: zakres dat bez względu na osobę.
+  @@index([date])
 }
 
 /// Rozmowa z asystentem AI — per użytkownik, w zakresie gospodarstwa
@@ -1573,6 +1597,114 @@ model AdminAlert {
   @@index([lastAt])
 }
 
+/// Rejestr wniosków RODO (ROADMAPA §5.11) — dawniej ręczny arkusz
+/// z `docs/rodo-wnioski.md` §5. Dowód dotrzymania terminu z art. 12 ust. 3
+/// (miesiąc, przedłużenie o dwa przy sprawach złożonych).
+///
+/// Rodzaj, stan i kanał to tekst, nie enum (konwencja migracji panelu) —
+/// wartości pilnuje DTO. `requesterEmail` to dane osobowe: nie trafia ani do
+/// dziennika audytu (tam tylko id wniosku), ani do alertów.
+model GdprRequest {
+  id              String    @id @default(uuid()) @db.Uuid
+  /// ACCESS | ERASURE | RECTIFICATION | RESTRICTION | OBJECTION | PORTABILITY
+  kind            String
+  /// OPEN | IN_PROGRESS | DONE | REJECTED
+  status          String    @default("OPEN")
+  receivedAt      DateTime
+  /// `receivedAt` + 30 dni; po przedłużeniu + 90.
+  dueAt           DateTime
+  /// Przedłużenie o 60 dni — raz, przed pierwotnym terminem, z uzasadnieniem.
+  extendedAt      DateTime?
+  extensionReason String?
+  requesterEmail  String
+  userId          String?   @db.Uuid
+  /// EMAIL | APP | STORE | POST | OTHER
+  channel         String
+  notes           String?
+  closedAt        DateTime?
+  /// Adres admina z panelu — kopia, jak `AdminAuditLog.adminEmail`.
+  closedBy        String?
+  resolution      String?
+  createdBy       String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// Otwarte po terminie (lista, karty, reguła alertu).
+  @@index([status, dueAt])
+  @@index([closedAt])
+  @@index([userId])
+}
+
+/// Kurs średni NBP (tabela A) na dzień notowania, `pair` jako `USD/PLN`.
+/// Dzień bez notowania (weekend, święto) NIE ma wiersza — bierzemy ostatni
+/// wcześniejszy. Tylko panel (przychód z Apple, rentowność, raport dzienny);
+/// limity kosztów asystenta liczą w USD i kursu nie czytają.
+model FxRate {
+  id        String   @id @default(uuid()) @db.Uuid
+  date      DateTime @db.Date
+  pair      String
+  rate      Decimal  @db.Decimal(14, 8)
+  /// numer tabeli NBP, np. `186/A/NBP/2026`
+  source    String
+  createdAt DateTime @default(now())
+
+  @@unique([date, pair])
+  @@index([pair, date])
+}
+
+/// Raport Sales Summary (DAILY) z App Store Connect, zagregowany po
+/// produkcie, kraju i walutach. Tylko zakupy w aplikacji (subskrypcje), bez
+/// pobrań. Kwoty to SUMY wiersza (Units × cena jednostkowa), zwroty ujemne.
+model AppleSalesDay {
+  id               String   @id @default(uuid()) @db.Uuid
+  /// dzień raportu Apple
+  date             DateTime @db.Date
+  /// SKU produktu (u nas = productId subskrypcji)
+  sku              String
+  title            String
+  /// `Product Type Identifier`, np. `IAY` (subskrypcja odnawialna)
+  productType      String
+  /// `Country Code` (ISO 3166-1 alpha-2)
+  country          String
+  units            Int
+  /// `Developer Proceeds` × Units — to, co Apple przelewa (po prowizji i VAT)
+  proceeds         Decimal  @db.Decimal(14, 4)
+  proceedsCurrency String
+  /// `Customer Price` × Units — cena brutto zapłacona przez osobę
+  customerPrice    Decimal  @db.Decimal(14, 4)
+  customerCurrency String
+  fetchedAt        DateTime @default(now())
+
+  @@unique([date, sku, country, productType, proceedsCurrency, customerCurrency])
+  @@index([date])
+}
+
+/// Raport finansowy App Store Connect (FINANCIAL, region `ZZ`) — co Apple
+/// faktycznie rozliczył w miesiącu fiskalnym, po walucie.
+model AppleFinanceMonth {
+  /// miesiąc fiskalny Apple `YYYY-MM`
+  month     String
+  currency  String
+  units     Int
+  /// suma `Extended Partner Share`
+  proceeds  Decimal  @db.Decimal(14, 4)
+  fetchedAt DateTime @default(now())
+
+  @@id([month, currency])
+}
+
+/// Stan synchronizacji raportów Apple (`sales`, `finance`) — przeżywa
+/// restart, żeby panel pokazał błąd klucza bez czekania na kolejny przebieg.
+model AppleReportSync {
+  kind      String    @id
+  lastRunAt DateTime
+  lastOkAt  DateTime?
+  /// ostatni błąd (bez tokenu); `null` po udanym przebiegu
+  lastError String?
+}
+
 enum MembershipRole {
   OWNER
   MEMBER
@@ -1654,4 +1786,73 @@ model RuntimeSetting {
   updatedBy String
   reason    String
   updatedAt DateTime @updatedAt
+}
+
+/// Flagi funkcji (bety) per dom. Ocena w `src/feature-flags/`: nadpisanie
+/// domu > rollout (hasz klucza i id domu, stabilny) > `enabled`. Zmiany tylko
+/// z panelu (`/admin/flags`, step-up + audyt); aplikacja czyta `GET /me/flags`.
+model FeatureFlag {
+  /// np. `assistant.voice` — małe litery, cyfry, `.`, `_`, `-`
+  key            String   @id
+  description    String   @default("")
+  /// Włączona dla wszystkich domów (poza nadpisaniem „wyłączona”).
+  enabled        Boolean  @default(false)
+  /// 0–100: odsetek domów, które dostają flagę mimo `enabled = false`.
+  rolloutPercent Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  /// Adres admina, który ostatnio zmienił flagę.
+  updatedBy      String
+
+  households FeatureFlagHousehold[]
+}
+
+/// Nadpisanie flagi dla jednego domu. Kasowanie domu albo flagi kasuje wpis.
+model FeatureFlagHousehold {
+  flagKey     String
+  householdId String   @db.Uuid
+  enabled     Boolean
+  updatedAt   DateTime @updatedAt
+  updatedBy   String
+
+  flag      FeatureFlag @relation(fields: [flagKey], references: [key], onDelete: Cascade, onUpdate: Cascade)
+  household Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@id([flagKey, householdId])
+  @@index([householdId])
+}
+
+enum AnnouncementSeverity {
+  info
+  warning
+  critical
+}
+
+enum AnnouncementAudience {
+  all
+  ios
+  android
+  households
+}
+
+/// Komunikat (baner) w aplikacji. Aktywny, gdy `startsAt <= now < endsAt`
+/// (`endsAt` null = do odwołania). Czysty tekst, tytuł ≤ 80, treść ≤ 400,
+/// najwyżej 3 aktywne naraz — pilnuje `src/announcements/`.
+model AppAnnouncement {
+  id           String               @id @default(uuid()) @db.Uuid
+  title        String
+  body         String
+  severity     AnnouncementSeverity @default(info)
+  audience     AnnouncementAudience @default(all)
+  /// Tylko przy `audience = households`. Bez klucza obcego: skasowany dom
+  /// po prostu nikogo już nie dopasuje.
+  householdIds String[]             @default([]) @db.Uuid
+  startsAt     DateTime
+  endsAt       DateTime?
+  dismissible  Boolean              @default(true)
+  createdBy    String
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([startsAt, endsAt])
 }

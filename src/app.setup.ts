@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { AccessTokenService } from './auth/access-token.service';
+import { UserActivityService } from './auth/user-activity.service';
 import { AuthIoAdapter } from './common/ws-auth.adapter';
 import { RequestMetricsService } from './observability/request-metrics.service';
 
@@ -80,9 +81,11 @@ export function configureApp(app: NestExpressApplication): void {
   // gospodarstwo (`src/common/ws-auth.adapter.ts`). Adapter żyje poza DI,
   // więc zależności bierze z kontenera tutaj — tak samo w main.ts i w e2e.
   const metrics = app.get(RequestMetricsService, { strict: false });
+  const activity = app.get(UserActivityService, { strict: false });
   app.useWebSocketAdapter(
     new AuthIoAdapter(app, {
       accessTokens: app.get(AccessTokenService, { strict: false }),
+      onAuthenticated: (userId) => activity.record(userId),
       onHandshake: (result) =>
         metrics.recordWsHandshake(
           result.outcome === 'unavailable' ? 'rejected' : result.outcome,

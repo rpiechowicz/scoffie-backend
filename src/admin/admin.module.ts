@@ -10,13 +10,20 @@ import { AdminAuditModule } from './audit/admin-audit.module';
 import { AdminAlertsModule } from './alerts/admin-alerts.module';
 import { AdminAssistantModule } from './assistant/admin-assistant.module';
 import { AdminCatalogModule } from './catalog/admin-catalog.module';
+import { AdminGdprModule } from './gdpr/admin-gdpr.module';
+import { AdminDatabaseModule } from './database/admin-database.module';
+import { AdminTrafficModule } from './traffic/admin-traffic.module';
 import {
   AdminAuthController,
   AdminSessionController,
 } from './auth/admin-auth.controller';
 import { AdminAuthService } from './auth/admin-auth.service';
+import { AdminGrowthModule } from './growth/admin-growth.module';
 import { AdminHouseholdsModule } from './households/admin-households.module';
+import { AdminRevenueModule } from './revenue/admin-revenue.module';
 import { AdminSettingsModule } from './settings/admin-settings.module';
+import { AdminFlagsModule } from './flags/admin-flags.module';
+import { AdminAnnouncementsModule } from './announcements/admin-announcements.module';
 import { AdminIntegrationsModule } from './integrations/admin-integrations.module';
 import { AdminSubscriptionsModule } from './subscriptions/admin-subscriptions.module';
 import { AdminUsersModule } from './users/admin-users.module';
@@ -49,6 +56,13 @@ import { AdminUsersModule } from './users/admin-users.module';
     AdminAuditModule,
     AdminSettingsModule,
     AdminAlertsModule,
+    AdminGrowthModule,
+    AdminGdprModule,
+    AdminRevenueModule,
+    AdminDatabaseModule,
+    AdminTrafficModule,
+    AdminFlagsModule,
+    AdminAnnouncementsModule,
   ],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],

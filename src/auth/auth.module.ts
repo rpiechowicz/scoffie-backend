@@ -4,8 +4,10 @@ import { AccessTokenService } from './access-token.service';
 import { AppleIdentityService } from './apple-identity.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { GoogleIdentityService } from './google-identity.service';
 import { resolveJwtExpiresIn } from './jwt-expiration.util';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { UserActivityService } from './user-activity.service';
 
 @Module({
   imports: [
@@ -25,8 +27,10 @@ import { JwtAuthGuard } from './jwt-auth.guard';
   providers: [
     AuthService,
     AppleIdentityService,
+    GoogleIdentityService,
     AccessTokenService,
     JwtAuthGuard,
+    UserActivityService,
   ],
   // `AccessTokenService` bierze też `app.get()` w `configureApp` — adapter
   // WebSocketu żyje poza DI. `RollingTokenInterceptor` odszedł: nigdy nie był
@@ -34,6 +38,14 @@ import { JwtAuthGuard } from './jwt-auth.guard';
   // sensu — odświeżanie idzie przez `POST /auth/refresh`.
   // `AuthService` — panel administratora woła `logoutEverywhere` tą samą
   // drogą co `POST /auth/logout-everywhere` (zamek sesji, `tokenVersion`).
-  exports: [JwtModule, JwtAuthGuard, AccessTokenService, AuthService],
+  // `UserActivityService` — zależność `JwtAuthGuard` (moduły, które go
+  // używają, rozwiązują ją z tego eksportu) i adaptera WS (`configureApp`).
+  exports: [
+    JwtModule,
+    JwtAuthGuard,
+    AccessTokenService,
+    AuthService,
+    UserActivityService,
+  ],
 })
 export class AuthModule {}

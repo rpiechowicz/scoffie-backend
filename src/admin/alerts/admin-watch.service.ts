@@ -13,7 +13,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { warsawDateKey } from '../common/warsaw-calendar';
 import { IntegrationError } from '../integrations/integration-fetch';
 import {
+  missingAscReports,
   missingSentry,
+  readAscReportsEnv,
+  readAscVendorNumber,
   readRailwayToken,
   readSentryEnv,
 } from '../integrations/integrations-env';
@@ -21,9 +24,11 @@ import { fetchRailway } from '../integrations/railway.client';
 import { fetchResendDomains } from '../integrations/resend-domains.client';
 import { fetchSentry } from '../integrations/sentry.client';
 import {
+  appleReportAlerts,
   cronAlerts,
   crashFreeAlerts,
   domainAlerts,
+  gdprAlerts,
   mailFailedAlerts,
   mailQueueAlerts,
   planAlerts,
@@ -33,6 +38,7 @@ import {
   type Detection,
 } from './alert-rules';
 import { readAlertsEnv } from './alerts-env';
+import { GDPR_OPEN_STATUSES } from '../gdpr/gdpr-rules';
 
 /** Co 10 minut — częściej nie ma po co (Railway i Sentry mają limity). */
 export const WATCH_INTERVAL_MS = 10 * 60_000;
@@ -202,12 +208,37 @@ export class AdminWatchService
       ];
     });
 
+    await attempt('RODO', async () => {
+      const open = await this.prisma.gdprRequest.findMany({
+        where: { status: { in: [...GDPR_OPEN_STATUSES] } },
+        select: { id: true, kind: true, dueAt: true },
+      });
+      return [{ kind: 'gdpr-due', problems: gdprAlerts(open, now) }];
+    });
+
     if (mailEnv.transport === 'resend' && mailEnv.apiKey) {
       await attempt('Resend', async () => [
         {
           kind: 'mail-domain',
           problems: domainAlerts(
             (await fetchResendDomains(mailEnv.apiKey)).domains,
+          ),
+        },
+      ]);
+    }
+
+    // Przychód z Apple: stan ostatniej synchronizacji leży w bazie
+    // (`AppleReportsSyncService`) — bez klucza/vendora reguła milczy.
+    if (
+      missingAscReports(readAscReportsEnv(), readAscVendorNumber()).length === 0
+    ) {
+      await attempt('raporty Apple', async () => [
+        {
+          kind: 'apple-reports',
+          problems: appleReportAlerts(
+            await this.prisma.appleReportSync.findMany({
+              select: { kind: true, lastError: true },
+            }),
           ),
         },
       ]);
