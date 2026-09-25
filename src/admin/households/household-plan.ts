@@ -7,12 +7,11 @@ import {
 } from '../../config/purchase-identity';
 import {
   billingPeriodKey,
-  pickBestSubscription,
   type SubscriptionCandidate,
 } from '../../config/subscription-lifetime';
 import { productLimits } from '../../config/subscription-products';
 import type { HouseholdPlan, Pool } from '../contract';
-import { isAdminProductId } from '../subscriptions/admin-products';
+import { decideHouseholdPlan } from '../common/plan-decision';
 
 /**
  * Plan i pula gospodarstwa w panelu — ta sama arytmetyka, co
@@ -27,8 +26,8 @@ import { isAdminProductId } from '../subscriptions/admin-products';
  * wymagałby więc zmiany kolejności kroków, a tę pilnuje e2e, który porównuje
  * wynik z `resolvePlan` na żywej bazie (`test/admin-households.e2e-spec.ts`).
  *
- * Kolejność jak w `resolvePlan`: `AI_TIER_OVERRIDE=PRO` → nadanie operatora
- * (`tierOverride = PRO`) → żywa subskrypcja któregoś domownika → próba.
+ * Sam plan (kolejność jak w `resolvePlan`) rozstrzyga `decideHouseholdPlan`
+ * z `../common/plan-decision` — ten sam, którego używa lista osób.
  */
 
 /** Domownik — tyle, ile trzeba do hasza tożsamości i do wyboru puli próbnej. */
@@ -107,13 +106,22 @@ export function resolveHouseholdPlan(
     plansPerMonth: env.plansPerMonth,
   };
 
-  // `AI_TIER_OVERRIDE=PRO` i nadanie operatora dają tę samą pulę: zakres
-  // domu, miesiąc kalendarzowy, limity z env. Kontrakt ma na to jeden rodzaj
-  // planu — „PRO bez subskrypcji".
-  if (env.tierOverride === 'PRO' || household.tierOverride === 'PRO') {
+  const { plan, winner } = decideHouseholdPlan(
+    {
+      tierOverride: household.tierOverride,
+      memberHashes: household.members.map(memberIdentityHash),
+    },
+    subscriptionsByHash,
+    now,
+    env.tierOverride,
+  );
+
+  // Nadanie operatora i `AI_TIER_OVERRIDE` (bez zwycięskiej subskrypcji): zakres
+  // domu, miesiąc kalendarzowy, limity z env.
+  if (plan.kind === 'override' && !winner) {
     const limits = productLimits(undefined, fallback);
     return {
-      plan: { kind: 'override' },
+      plan,
       scopes: [{ scopeId: household.id, periodKey: calendar.monthKey }],
       limits: {
         messages: limits.messagesPerMonth,
@@ -123,29 +131,12 @@ export function resolveHouseholdPlan(
     };
   }
 
-  const seen = new Set<string>();
-  const candidates: SubscriptionCandidate[] = [];
-  for (const member of household.members) {
-    const hash = memberIdentityHash(member);
-    if (!hash) continue;
-    for (const candidate of subscriptionsByHash.get(hash) ?? []) {
-      if (seen.has(candidate.id)) continue;
-      seen.add(candidate.id);
-      candidates.push(candidate);
-    }
-  }
-  const winner = pickBestSubscription(candidates, now);
   if (winner) {
     const limits = productLimits(winner.productId, fallback);
     const period = billingPeriodKey(winner);
     return {
-      // Nieznany SKU (sprzedany w App Store przed deployem serwera) dostaje w
-      // domenie limity z env — tak jak nadanie. Kontrakt nie ma dla niego
-      // `productId`, a front wywraca się na nieznanym, więc pokazujemy go jako
-      // „PRO bez produktu", zamiast zmyślać plan.
-      plan: isAdminProductId(winner.productId)
-        ? { kind: 'subscription', productId: winner.productId }
-        : { kind: 'override' },
+      // Nieznany SKU → `override` (patrz `subscriptionPlan`).
+      plan,
       scopes: [
         {
           scopeId: subscriptionScopeId(winner.id),

@@ -3,10 +3,27 @@ import {
   identityHashOf,
   indexByIdentity,
   payingUserIds,
-  resolveHouseholdPlan,
   type IdentityFields,
   type LiveSubscription,
 } from './admin-plans';
+import { decideHouseholdPlan } from '../common/plan-decision';
+
+/** Lista osób woła wspólny resolver z haszami liczonymi przez `identityHashOf`. */
+const resolveHouseholdPlan = (
+  household: { tierOverride: string | null; members: IdentityFields[] },
+  index: ReadonlyMap<string, readonly LiveSubscription[]>,
+  now: Date,
+  envTierOverride: 'PRO' | null,
+) =>
+  decideHouseholdPlan(
+    {
+      tierOverride: household.tierOverride,
+      memberHashes: household.members.map(identityHashOf),
+    },
+    index,
+    now,
+    envTierOverride,
+  ).plan;
 
 const NOW = new Date('2026-09-24T10:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
@@ -181,6 +198,20 @@ describe('plan gospodarstwa w paczce (jak resolvePlan)', () => {
       ),
     ).toEqual({ kind: 'trial' });
     expect(payingUserIds([sandbox], NOW).size).toBe(0);
+  });
+
+  it('nieznany SKU nie idzie na drut jako productId — plan „PRO bez produktu"', () => {
+    const index = indexByIdentity([
+      subscription('nowy', anna, { productId: 'app.scoffie.pro.yearly' }),
+    ]);
+    expect(
+      resolveHouseholdPlan(
+        { tierOverride: null, members: [anna] },
+        index,
+        NOW,
+        null,
+      ),
+    ).toEqual({ kind: 'override' });
   });
 
   it('płacący = kupujący żywej subskrypcji', () => {

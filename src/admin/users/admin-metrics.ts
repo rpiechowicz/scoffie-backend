@@ -2,9 +2,13 @@ import {
   DEFAULT_GRACE_DAYS,
   SUBSCRIPTION_CLOCK_SKEW_MS,
 } from '../../config/subscription-lifetime';
-import { SUBSCRIPTION_PRODUCTS } from '../../config/subscription-products';
 import type { Trend } from '../contract';
-import type { PanelDay } from './warsaw-time';
+import {
+  mrrAt,
+  revenueSpans,
+  type MetricSubscription,
+} from '../subscriptions/subscription-metrics';
+import type { PanelDay } from '../common/warsaw-calendar';
 
 /**
  * Arytmetyka pulpitu bez bazy: trendy procentowe i stan subskrypcji w
@@ -71,11 +75,6 @@ export type SubscriptionHistoryRow = {
 /** Środowisko, które jest przychodem. Sandbox (TestFlight, recenzja) — nie. */
 export const MRR_ENVIRONMENT = 'Production';
 
-/** Cena brutto z cennika; nieznany produkt (nowy SKU przed deployem) = 0 zł. */
-export function grossPricePln(productId: string): number {
-  return SUBSCRIPTION_PRODUCTS[productId]?.pricePln ?? 0;
-}
-
 const isLiveStatus = (status: string) =>
   status === 'ACTIVE' || status === 'GRACE';
 
@@ -136,27 +135,31 @@ function paidUntil(row: SubscriptionHistoryRow): Date | null {
 }
 
 /**
- * Liczba opłaconych subskrypcji i MRR (suma cen brutto, zł) w każdej chwili
- * z `points`.
+ * Liczba opłaconych subskrypcji (Production, ACTIVE/GRACE) w każdej chwili
+ * z `points`. W chwili „teraz" to ta sama liczba, co „aktywne" na ekranie
+ * Subskrypcje (żywe wiersze App Store z produkcji, z Chmurą Rodzinną).
  */
-export function subscriptionSeries(
+export function paidCounts(
   rows: readonly SubscriptionHistoryRow[],
   points: readonly Date[],
-): { counts: number[]; mrrZl: number[] } {
-  const counts: number[] = [];
-  const mrrZl: number[] = [];
-  for (const point of points) {
-    let count = 0;
-    let sum = 0;
-    for (const row of rows) {
-      if (!paidAt(row, point)) continue;
-      count += 1;
-      sum += grossPricePln(row.productId);
-    }
-    counts.push(count);
-    mrrZl.push(Math.round(sum * 100) / 100);
-  }
-  return { counts, mrrZl };
+): number[] {
+  return points.map((point) => rows.filter((row) => paidAt(row, point)).length);
+}
+
+/**
+ * MRR w każdej chwili z `points` — JEDNA definicja z ekranem Subskrypcje
+ * (`revenueSpans` + `mrrAt`): bez `FAMILY_SHARED` (kopia cudzej opłaty),
+ * bez nadań ręcznych i Sandboxa, nieznany SKU za 0 zł. Wcześniej pulpit
+ * sumował ceny wszystkich opłaconych wierszy i pokazywał inne MRR niż
+ * ekran obok.
+ */
+export function mrrSeries(
+  rows: readonly MetricSubscription[],
+  points: readonly Date[],
+  now: Date,
+): number[] {
+  const spans = revenueSpans(rows, now);
+  return points.map((point) => mrrAt(spans, point));
 }
 
 /** Makro przepisu jest na CAŁY przepis — na porcję dzielimy przez `servings`. */

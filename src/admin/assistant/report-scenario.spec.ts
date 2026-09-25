@@ -1,6 +1,10 @@
 import * as ts from 'typescript';
 import { runInNewContext } from 'node:vm';
-import { buildReportScenario, reportTestId } from './report-scenario';
+import {
+  buildReportScenario,
+  PASTE_AFTER_ANONYMIZATION,
+  reportTestId,
+} from './report-scenario';
 
 const REPORT = {
   id: '1A2B3C4D-0000-4000-8000-000000000001',
@@ -51,12 +55,14 @@ describe('zgłoszenie → scenariusz benchmarku', () => {
     expect(scenario.group).toBe(7); // UNSAFE → alergie i wykluczenia
     // Pytania nie ma: leży w rozmowie, której panel nie czyta (ROADMAPA §1.4).
     expect(scenario.prompts).toEqual([]);
-    expect(scenario.todo[0]).toContain('prompts');
+    expect(scenario.todo[0]).toContain('art. 17');
+    expect(scenario.todo[0]).toContain('zdrowiu');
+    expect(scenario.todo[1]).toContain('prompts');
     expect(scenario.reported).toEqual({
       reportId: REPORT.id,
       reason: 'UNSAFE',
-      comment: REPORT.comment,
-      messageText: REPORT.messageText,
+      comment: PASTE_AFTER_ANONYMIZATION,
+      messageText: PASTE_AFTER_ANONYMIZATION,
       createdAt: '2026-09-24T07:05:00.000Z',
       model: 'claude-sonnet-5',
     });
@@ -68,12 +74,24 @@ describe('zgłoszenie → scenariusz benchmarku', () => {
     ).toBe(12);
   });
 
-  it('wpis `source` kompiluje się, a `verify` łapie powtórzoną odpowiedź', () => {
+  it('wpis `source` kompiluje się, a `verify` bez wklejonej migawki niczego nie oblewa', () => {
     const { scenario } = buildReportScenario(REPORT);
     const pasted = evaluateSource(scenario.source);
     expect(pasted.name).toBe('report-1a2b3c4d');
     expect(pasted.group).toBe(7);
     expect(pasted.prompts).toEqual([]);
+    expect(
+      pasted.verify({ answer: `Proszę bardzo!\n${REPORT.messageText}` }),
+    ).toEqual([]);
+  });
+
+  it('po ręcznym wklejeniu migawki `verify` łapie powtórzoną odpowiedź', () => {
+    const { scenario } = buildReportScenario(REPORT);
+    const filled = scenario.source.replace(
+      "const zgloszona = '';",
+      "const zgloszona = 'kolacja na czwartek: makaron z pesto';",
+    );
+    const pasted = evaluateSource(filled);
     expect(
       pasted.verify({ answer: `Proszę bardzo!\n${REPORT.messageText}` }),
     ).toEqual(['asystent powtórzył zgłoszoną odpowiedź']);
@@ -82,15 +100,10 @@ describe('zgłoszenie → scenariusz benchmarku', () => {
     ).toEqual([]);
   });
 
-  it('tekst użytkownika nie wychodzi z literału napisu', () => {
-    const hostile = {
-      ...REPORT,
-      messageText:
-        'Koniec\'; process.exit(1); const x = `${1}` */ "\\ \n// komentarz dalej',
-    };
-    const pasted = evaluateSource(buildReportScenario(hostile).scenario.source);
-    expect(pasted.verify({ answer: hostile.messageText })).toEqual([
-      'asystent powtórzył zgłoszoną odpowiedź',
-    ]);
+  it('surowa treść zgłoszenia nie trafia do szkicu (repo) — ani odpowiedź, ani komentarz', () => {
+    const draft = JSON.stringify(buildReportScenario(REPORT));
+    expect(draft).not.toContain('orzech');
+    expect(draft).not.toContain('Iga');
+    expect(draft).not.toContain('pesto');
   });
 });

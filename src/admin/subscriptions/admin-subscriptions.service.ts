@@ -14,14 +14,15 @@ import {
   liveNow,
   mrrAt,
   mrrSeriesPoints,
-  oneMonthEarlier,
   percentChange,
   revenueSpans,
   riskSignal,
   roundMoney,
+  METRIC_SUBSCRIPTION_SELECT,
   type MetricSubscription,
   type RiskSignal,
 } from './subscription-metrics';
+import { oneMonthEarlier } from '../common/warsaw-calendar';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Okno ruchu: ostatnie 30 dni kroczące, porównane z 30 dniami wcześniej. */
@@ -48,26 +49,6 @@ export function assertNotificationId(raw: unknown): string {
   }
   return raw;
 }
-
-const METRIC_SELECT = {
-  id: true,
-  provider: true,
-  productId: true,
-  status: true,
-  environment: true,
-  ownershipType: true,
-  expiresAt: true,
-  graceExpiresAt: true,
-  neverExpires: true,
-  revokedAt: true,
-  operatorHoldAt: true,
-  autoRenewStatus: true,
-  messagesLimitSnapshot: true,
-  plansLimitSnapshot: true,
-  purchaserUserId: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.SubscriptionSelect;
 
 /** Bez `signedPayload` — surowy ładunek Apple nie wychodzi do panelu. */
 const NOTIFICATION_SELECT = {
@@ -132,7 +113,7 @@ export class AdminSubscriptionsService {
             { updatedAt: { gte: earliest } },
           ],
         },
-        select: METRIC_SELECT,
+        select: METRIC_SUBSCRIPTION_SELECT,
       });
 
       // ODNOWIENIA Z DZIENNIKA APPLE. Wiersz `Subscription` trzyma tylko stan

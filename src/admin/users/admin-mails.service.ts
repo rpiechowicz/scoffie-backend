@@ -45,7 +45,7 @@ export class AdminMailsService {
     return this.audit
       .run(
         actor,
-        { action: 'mail.retry', targetType: 'mail', targetId: id },
+        { action: 'mail.retry', targetType: 'MailMessage', targetId: id },
         async () => {
           const mail = await this.prisma.mailMessage.findUnique({
             where: { id },

@@ -19,12 +19,12 @@ import type {
   HealthData,
   Mail,
   MailTemplate,
-  ProductId,
   PushDevice,
   Subscription,
   UserDetail,
   UserList,
 } from '../contract';
+import { knownProductId } from '../common/plan-decision';
 import { readOnlyQuery } from '../read-only-query';
 import { loadLiveSubscriptions, payingUserIds } from './admin-plans';
 import {
@@ -44,7 +44,7 @@ import {
   sqlInstant,
   sqlWarsawDay,
   warsawMonthDays,
-} from './warsaw-time';
+} from '../common/warsaw-calendar';
 
 /** Sufit listy — panel filtruje i sortuje resztę po swojej stronie. */
 export const USER_LIST_LIMIT = 1000;
@@ -448,7 +448,7 @@ export class AdminUsersService {
       actor,
       {
         action: 'user.health.reveal',
-        targetType: 'user',
+        targetType: 'User',
         targetId: id,
         reason,
         details: { minutes: HEALTH_REVEAL_MS / 60_000 },
@@ -503,7 +503,7 @@ export class AdminUsersService {
   logoutEverywhere(actor: AdminActor, id: string): Promise<{ closed: number }> {
     return this.audit.run(
       actor,
-      { action: 'user.logout-everywhere', targetType: 'user', targetId: id },
+      { action: 'user.logout-everywhere', targetType: 'User', targetId: id },
       async () => {
         await this.assertUserExists(id);
         const { revokedSessions } = await this.auth.logoutEverywhere(id);
@@ -528,7 +528,7 @@ export class AdminUsersService {
   ): Promise<UserExport> {
     return this.audit.run(
       actor,
-      { action: 'user.export', targetType: 'user', targetId: id, reason },
+      { action: 'user.export', targetType: 'User', targetId: id, reason },
       () => this.dataExport.exportFor(id),
       (bundle) => ({ format: bundle.format }),
     );
@@ -548,7 +548,7 @@ export class AdminUsersService {
   ): Promise<void> {
     await this.audit.run(
       actor,
-      { action: 'user.delete', targetType: 'user', targetId: id, reason },
+      { action: 'user.delete', targetType: 'User', targetId: id, reason },
       () => this.users.deleteAccount(id),
     );
   }
@@ -562,6 +562,12 @@ export class AdminUsersService {
   }
 }
 
+/**
+ * `null` przy nieznanym SKU (wypuszczonym w App Store przed deployem): kontrakt
+ * nie ma dla niego `productId`, a front robi `PRODUCTS[productId]` bez
+ * zabezpieczenia. Karta pokaże wtedy „brak subskrypcji", plan osoby — `override`
+ * (patrz `subscriptionPlan`), więc dostęp PRO nadal widać.
+ */
 function toSubscription(row: {
   id: string;
   productId: string;
@@ -574,10 +580,12 @@ function toSubscription(row: {
   lastVerifiedAt: Date | null;
   operatorHoldAt: Date | null;
   createdAt: Date;
-}): Subscription {
+}): Subscription | null {
+  const productId = knownProductId(row.productId);
+  if (!productId) return null;
   return {
     id: row.id,
-    productId: row.productId as ProductId,
+    productId,
     status: row.status,
     // Apple podaje środowisko przy każdej transakcji; wszystko poza
     // Production (Sandbox, Xcode) to zakup testowy.

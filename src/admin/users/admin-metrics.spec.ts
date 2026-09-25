@@ -1,14 +1,19 @@
 import { subscriptionAlive } from '../../config/subscription-lifetime';
 import {
   endOfDayPoints,
-  grossPricePln,
+  mrrSeries,
   paidAt,
+  paidCounts,
   percentChange,
-  subscriptionSeries,
   trendOfSeries,
   type SubscriptionHistoryRow,
 } from './admin-metrics';
-import { warsawDays } from './warsaw-time';
+import {
+  mrrAt,
+  revenueSpans,
+  type MetricSubscription,
+} from '../subscriptions/subscription-metrics';
+import { warsawDays } from '../common/warsaw-calendar';
 
 const NOW = new Date('2026-09-24T10:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
@@ -170,17 +175,44 @@ describe('paidAt — stan subskrypcji w przeszłości', () => {
   });
 });
 
-describe('subscriptionSeries', () => {
-  it('sumuje ceny brutto z cennika; nieznany produkt liczy się do sztuk za 0 zł', () => {
+describe('paidCounts / mrrSeries', () => {
+  const metric = (
+    patch: Partial<MetricSubscription> = {},
+  ): MetricSubscription => ({
+    ...row(),
+    id: `sub-${Math.random()}`,
+    provider: 'APPLE',
+    ownershipType: 'PURCHASED',
+    autoRenewStatus: true,
+    messagesLimitSnapshot: null,
+    plansLimitSnapshot: null,
+    purchaserUserId: null,
+    ...patch,
+  });
+
+  it('liczy sztuki opłaconych wierszy z produkcji; nieznany produkt też jest sztuką', () => {
     const rows = [
       row({ productId: 'app.scoffie.pro.family.monthly' }),
       row({ productId: 'app.scoffie.pro.duet.monthly', createdAt: ago(2) }),
       row({ productId: 'app.scoffie.pro.nowy.sku' }),
       row({ environment: 'Sandbox' }),
     ];
-    const series = subscriptionSeries(rows, [ago(3), NOW]);
-    expect(series.counts).toEqual([2, 3]);
-    expect(series.mrrZl).toEqual([49.99, 89.98]);
-    expect(grossPricePln('app.scoffie.pro.nowy.sku')).toBe(0);
+    expect(paidCounts(rows, [ago(3), NOW])).toEqual([2, 3]);
+  });
+
+  it('MRR pulpitu = MRR ekranu Subskrypcje: bez Chmury Rodzinnej, nieznany SKU za 0 zł', () => {
+    const rows = [
+      metric({ productId: 'app.scoffie.pro.family.monthly' }),
+      metric({ productId: 'app.scoffie.pro.duet.monthly', createdAt: ago(2) }),
+      metric({ productId: 'app.scoffie.pro.nowy.sku' }),
+      metric({ environment: 'Sandbox' }),
+      metric({ ownershipType: 'FAMILY_SHARED' }),
+      metric({ provider: 'MANUAL' }),
+    ];
+    const points = [ago(3), NOW];
+    const series = mrrSeries(rows, points, NOW);
+    expect(series).toEqual([49.99, 89.98]);
+    const spans = revenueSpans(rows, NOW);
+    expect(series).toEqual(points.map((point) => mrrAt(spans, point)));
   });
 });

@@ -2,6 +2,7 @@ import { MembershipRole, Prisma } from '@prisma/client';
 import { effectiveAvatarColor } from '../../common/avatar-color.util';
 import { readAgentEnv } from '../../config/agent-env';
 import { isAppleRelay } from '../../mail/mail-eligibility';
+import { decideHouseholdPlan } from '../common/plan-decision';
 import type { HouseholdPlan, UserListItem } from '../contract';
 import {
   IDENTITY_SELECT,
@@ -9,7 +10,6 @@ import {
   identityHashOf,
   indexByIdentity,
   payingUserIds,
-  resolveHouseholdPlan,
   type IdentityFields,
   type LiveSubscription,
 } from './admin-plans';
@@ -188,15 +188,17 @@ export function withPlans(
       roster.id,
       {
         ...roster,
-        plan: resolveHouseholdPlan(
+        plan: decideHouseholdPlan(
           {
             tierOverride: roster.tierOverride,
-            members: roster.members.map((member) => member.identity),
+            memberHashes: roster.members.map((member) =>
+              identityHashOf(member.identity),
+            ),
           },
           byIdentity,
           now,
           envTierOverride,
-        ),
+        ).plan,
       },
     ]),
   );

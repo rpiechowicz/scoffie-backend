@@ -7,11 +7,12 @@ import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { netRevenuePln } from '../src/config/ai-unit-economics';
 import type { AgentReport, ProfitData } from '../src/admin/contract';
+import { PASTE_AFTER_ANONYMIZATION } from '../src/admin/assistant/report-scenario';
 import {
   addDays,
   warsawDateKey,
   warsawDayStart,
-} from '../src/admin/assistant/warsaw-calendar';
+} from '../src/admin/common/warsaw-calendar';
 import {
   cleanupAdmins,
   createAdminSession,
@@ -808,8 +809,10 @@ describe('Panel administratora — asystent (e2e)', () => {
         name: testId,
         group: 10, // WRONG → liczby liczone przez serwer
         prompts: [],
-        reported: { messageText: R1_TEXT, model: SONNET },
+        // Surowa treść zgłoszenia nie idzie do szkicu (ląduje w repo).
+        reported: { messageText: PASTE_AFTER_ANONYMIZATION, model: SONNET },
       });
+      expect(JSON.stringify(body)).not.toContain(R1_TEXT);
       expect(body.scenario.source).toContain(`name: "${testId}"`);
       expect(body.scenario.source).toContain('verify: (v) =>');
 

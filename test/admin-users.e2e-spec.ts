@@ -11,7 +11,7 @@ import type {
   UserList,
   UserListItem,
 } from '../src/admin/contract';
-import { grossPricePln } from '../src/admin/users/admin-metrics';
+import { SUBSCRIPTION_PRODUCTS } from '../src/config/subscription-products';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   cleanupAdmins,
@@ -286,7 +286,8 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
     expect(after.subsSpark).toHaveLength(14);
     expect(after.activeSubs).toBe(before.activeSubs + 1);
     expect(after.mrrZl).toBeCloseTo(
-      before.mrrZl + grossPricePln('app.scoffie.pro.duet.monthly'),
+      before.mrrZl +
+        SUBSCRIPTION_PRODUCTS['app.scoffie.pro.duet.monthly'].pricePln,
       2,
     );
     expect(after.production.migrations.applied).toBeGreaterThan(0);
@@ -455,6 +456,7 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
     const [entry] = await auditOf('user.health.reveal', ids.owner);
     expect(entry).toMatchObject({
       result: 'SUCCESS',
+      targetType: 'User',
       reason: 'Zgłoszenie z supportu #1',
       adminUserId: session.adminUserId,
     });
@@ -473,7 +475,7 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
     });
     expect(alive).toBe(0);
     const [entry] = await auditOf('user.logout-everywhere', ids.owner);
-    expect(entry.result).toBe('SUCCESS');
+    expect(entry).toMatchObject({ result: 'SUCCESS', targetType: 'User' });
   });
 
   it('eksport RODO: step-up, paczka jako plik, wpis w dzienniku', async () => {
@@ -487,15 +489,17 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
     const res = await post(`/admin/users/${ids.member}/export`, {
       reason: 'Wniosek z art. 15',
     }).expect(200);
-    expect(res.headers['content-disposition']).toContain(
-      `scoffie-dane-${ids.member}.json`,
+    expect(res.headers['content-disposition']).toBe(
+      `attachment; filename="scoffie-dane-${ids.member}.json"`,
     );
+    expect(res.headers['content-type']).toMatch(/^application\/json;/);
     expect(res.headers['cache-control']).toBe('no-store');
     expect(res.body.format).toBeDefined();
 
     const [entry] = await auditOf('user.export', ids.member);
     expect(entry).toMatchObject({
       result: 'SUCCESS',
+      targetType: 'User',
       reason: 'Wniosek z art. 15',
     });
   });
@@ -524,6 +528,9 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
       'FAILED',
       'SUCCESS',
     ]);
+    expect(entries.every((entry) => entry.targetType === 'MailMessage')).toBe(
+      true,
+    );
   });
 
   it('usunięcie konta: step-up, konto znika drogą domeny, porażka też w dzienniku', async () => {
@@ -545,6 +552,7 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
     const [entry] = await auditOf('user.delete', ids.loner);
     expect(entry).toMatchObject({
       result: 'SUCCESS',
+      targetType: 'User',
       reason: 'Prośba osoby mailem',
     });
 

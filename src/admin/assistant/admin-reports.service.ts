@@ -240,8 +240,6 @@ export class AdminReportsService {
         return buildReportScenario({
           id: source.report.id,
           reason: reportReasonOf(source.report.reason),
-          comment: source.report.comment,
-          messageText: source.report.messageText,
           createdAt: source.report.createdAt,
           model: source.model,
         });

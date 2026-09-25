@@ -8,9 +8,10 @@ import {
 } from '../../config/purchase-identity';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ProfitData, ProfitPeriod, ProfitRow } from '../contract';
+import { sqlInstant, sqlWarsawDay } from '../common/warsaw-calendar';
 import { readOnlyQuery } from '../read-only-query';
+import { isAdminProductId } from '../subscriptions/admin-products';
 import {
-  isContractProductId,
   marginTrendPp,
   proposalCounts,
   profitWindows,
@@ -23,17 +24,8 @@ import {
   usdOf,
   type ProfitWindow,
 } from './profit-math';
-import { PANEL_TIME_ZONE } from './warsaw-calendar';
 
 type Tx = Prisma.TransactionClient;
-
-/**
- * Chwila jako `timestamp` w UTC — tak Prisma trzyma `DateTime` w Postgresie
- * (`timestamp(3)` bez strefy). Jawne rzutowanie zamiast gołego parametru:
- * porównanie `timestamp` z `timestamptz` zależałoby od strefy SESJI bazy.
- */
-const utc = (instant: Date): Prisma.Sql =>
-  Prisma.sql`(${instant.toISOString()}::timestamptz AT TIME ZONE 'UTC')`;
 
 type DailyCostRow = { day: string; cost: bigint; trialCost: bigint };
 type ScopeRow = {
@@ -83,14 +75,14 @@ export class AdminProfitService {
     // go przypisać do żadnego zakresu.
     const dailyCost = await tx.$queryRaw<DailyCostRow[]>(Prisma.sql`
       SELECT
-        to_char((u."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${PANEL_TIME_ZONE}, 'YYYY-MM-DD') AS day,
+        ${sqlWarsawDay(Prisma.sql`u."createdAt"`)} AS day,
         COALESCE(SUM(u."costMicroUsd"), 0)::bigint AS cost,
         COALESCE(SUM(u."costMicroUsd") FILTER (
           WHERE starts_with(t."quotaScopeId", ${TRIAL_SCOPE_PREFIX})
         ), 0)::bigint AS "trialCost"
       FROM "AiUsage" u
       LEFT JOIN "AgentTurn" t ON t.id = u."turnId"
-      WHERE u."createdAt" >= ${utc(previous.from)} AND u."createdAt" < ${utc(to)}
+      WHERE u."createdAt" >= ${sqlInstant(previous.from)} AND u."createdAt" < ${sqlInstant(to)}
       GROUP BY 1
     `);
 
@@ -107,14 +99,14 @@ export class AdminProfitService {
         FROM "AgentTurn" t
         JOIN "AgentConversation" c ON c.id = t."conversationId"
         WHERE starts_with(t."quotaScopeId", ${SUBSCRIPTION_SCOPE_PREFIX})
-          AND t."createdAt" >= ${utc(from)} AND t."createdAt" < ${utc(to)}
+          AND t."createdAt" >= ${sqlInstant(from)} AND t."createdAt" < ${sqlInstant(to)}
         GROUP BY t."quotaScopeId"
       ), costs AS (
         SELECT t."quotaScopeId" AS scope, SUM(u."costMicroUsd")::bigint AS cost
         FROM "AiUsage" u
         JOIN "AgentTurn" t ON t.id = u."turnId"
         WHERE starts_with(t."quotaScopeId", ${SUBSCRIPTION_SCOPE_PREFIX})
-          AND u."createdAt" >= ${utc(from)} AND u."createdAt" < ${utc(to)}
+          AND u."createdAt" >= ${sqlInstant(from)} AND u."createdAt" < ${sqlInstant(to)}
         GROUP BY t."quotaScopeId"
       )
       SELECT
@@ -139,7 +131,7 @@ export class AdminProfitService {
           WHERE starts_with(t."quotaScopeId", ${TRIAL_SCOPE_PREFIX})
         )::int AS trials
       FROM "AgentTurn" t
-      WHERE t."createdAt" >= ${utc(from)} AND t."createdAt" < ${utc(to)}
+      WHERE t."createdAt" >= ${sqlInstant(from)} AND t."createdAt" < ${sqlInstant(to)}
     `);
 
     // 4. Histogram czasu tury — `width_bucket` z tymi samymi progami, co
@@ -149,7 +141,7 @@ export class AdminProfitService {
         width_bucket(t."durationMs", ARRAY[${Prisma.join([...TURN_BUCKET_THRESHOLDS_MS])}]::int[]) AS bucket,
         COUNT(*)::int AS count
       FROM "AgentTurn" t
-      WHERE t."createdAt" >= ${utc(from)} AND t."createdAt" < ${utc(to)}
+      WHERE t."createdAt" >= ${sqlInstant(from)} AND t."createdAt" < ${sqlInstant(to)}
         AND t.status <> 'RUNNING' AND t."durationMs" IS NOT NULL
       GROUP BY 1
     `);
@@ -163,7 +155,7 @@ export class AdminProfitService {
         COUNT(DISTINCT u."turnId")::int AS turns,
         COALESCE(SUM(u."costMicroUsd"), 0)::bigint AS cost
       FROM "AiUsage" u
-      WHERE u."createdAt" >= ${utc(from)} AND u."createdAt" < ${utc(to)}
+      WHERE u."createdAt" >= ${sqlInstant(from)} AND u."createdAt" < ${sqlInstant(to)}
       GROUP BY u.model
       ORDER BY cost DESC, model ASC
     `);
@@ -302,7 +294,7 @@ export class AdminProfitService {
       // Zakres bez wiersza subskrypcji albo z SKU spoza kontraktu panelu nie
       // ma produktu, który front umie narysować (`PlanBadge`) — pomijamy go,
       // koszt i tak jest w „dzień po dniu” i w modelach.
-      if (!subscription || !isContractProductId(subscription.productId)) {
+      if (!subscription || !isAdminProductId(subscription.productId)) {
         continue;
       }
       const household =

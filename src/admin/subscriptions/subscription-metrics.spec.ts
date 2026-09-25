@@ -2,17 +2,13 @@ import {
   carriesRevenue,
   compareRisk,
   endedAt,
-  fromWarsawWallClock,
   graceEnd,
   liveNow,
   mrrAt,
   mrrSeriesPoints,
-  oneMonthEarlier,
   percentChange,
   revenueSpans,
   riskSignal,
-  warsawMonthStart,
-  warsawWallClock,
   type MetricSubscription,
 } from './subscription-metrics';
 
@@ -166,41 +162,7 @@ describe('subscription-metrics', () => {
     expect(percentChange(0, 4)).toBe(-100);
   });
 
-  describe('kalendarz Warszawy', () => {
-    it('początek miesiąca: czas letni i zimowy', () => {
-      expect(warsawMonthStart(2026, 8).toISOString()).toBe(
-        '2026-08-31T22:00:00.000Z',
-      );
-      expect(warsawMonthStart(2026, 0).toISOString()).toBe(
-        '2025-12-31T23:00:00.000Z',
-      );
-      // Miesiąc 12 przechodzi na następny rok, jak w `Date.UTC`.
-      expect(warsawMonthStart(2026, 12).toISOString()).toBe(
-        '2026-12-31T23:00:00.000Z',
-      );
-    });
-
-    it('zegar ścienny i droga powrotna', () => {
-      const wall = warsawWallClock(new Date('2026-03-29T01:30:00.000Z'));
-      expect([wall.day, wall.hour, wall.minute]).toEqual([29, 3, 30]);
-      expect(fromWarsawWallClock(2026, 2, 29, 3, 30).toISOString()).toBe(
-        '2026-03-29T01:30:00.000Z',
-      );
-    });
-
-    it('ten sam dzień miesiąc temu — także przez zmianę czasu i koniec lutego', () => {
-      expect(oneMonthEarlier(NOW).toISOString()).toBe(
-        '2026-08-24T12:00:00.000Z',
-      );
-      // 12:00 CEST 15 kwietnia → 12:00 CET 15 marca.
-      expect(
-        oneMonthEarlier(new Date('2026-04-15T10:00:00.000Z')).toISOString(),
-      ).toBe('2026-03-15T11:00:00.000Z');
-      expect(
-        oneMonthEarlier(new Date('2026-03-31T10:00:00.000Z')).toISOString(),
-      ).toBe('2026-02-28T11:00:00.000Z');
-    });
-
+  describe('wykres MRR', () => {
     it('punkty wykresu: sześć miesięcy, koniec każdego, bieżący = teraz', () => {
       const points = mrrSeriesPoints(NOW);
       expect(points.map((p) => p.month)).toEqual([

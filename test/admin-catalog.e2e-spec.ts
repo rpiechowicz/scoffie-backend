@@ -15,7 +15,7 @@ import {
   addDays,
   mondayOf,
   warsawDateKey,
-} from '../src/admin/assistant/warsaw-calendar';
+} from '../src/admin/common/warsaw-calendar';
 import {
   cleanupAdmins,
   createAdminSession,
@@ -200,8 +200,9 @@ describe('Panel administratora — katalog (e2e)', () => {
       });
     }
 
-    // Plany: bieżący tydzień (2 pozycje w dwóch domach), przyszły (1),
-    // miniony (1 — historia, nie liczy się do „w planach”).
+    // Plany: bieżący tydzień (3 pozycje w dwóch domach — dwie w jednym
+    // planie), przyszły (1), miniony (1 — historia, nie liczy się do „w
+    // planach”). `inPlans` liczy PLANY, nie pozycje: 3, a nie 4.
     const monday = mondayOf(warsawDateKey(new Date()));
     const mondayKey = monday.toISOString().slice(0, 10);
     const week = (householdId: string, offsetDays: number) =>
@@ -225,6 +226,12 @@ describe('Panel administratora — katalog (e2e)', () => {
           recipeId: ids.active,
           dayOfWeek: 'MON',
           mealType: 'BREAKFAST',
+        },
+        {
+          weeklyPlanId: current.id,
+          recipeId: ids.active,
+          dayOfWeek: 'FRI',
+          mealType: 'DINNER',
         },
         {
           weeklyPlanId: currentOther.id,
@@ -304,6 +311,14 @@ describe('Panel administratora — katalog (e2e)', () => {
         inPlans: 3,
         favorites: 2,
       });
+      // ⌘K liczy „w planach” tą samą funkcją — ta sama liczba.
+      const found = (
+        await request(server())
+          .get(`/admin/search?q=${encodeURIComponent(`Owsianka A3 ${stamp}`)}`)
+          .set('Cookie', session.cookie)
+          .expect(200)
+      ).body as { recipes: { id: string; inPlans: number }[] };
+      expect(found.recipes.find((r) => r.id === ids.active)?.inPlans).toBe(3);
       // Przepis domu nie istnieje dla panelu.
       expect(data.items.some((r) => r.id === ids.private)).toBe(false);
       expect(data.items.find((r) => r.id === ids.retired)?.isActive).toBe(
@@ -418,7 +433,7 @@ describe('Panel administratora — katalog (e2e)', () => {
       ).toBe(true);
     });
 
-    it('wycofanie: skutek w bazie, audyt z powodem i liczbą pozycji w planach, cache', async () => {
+    it('wycofanie: skutek w bazie, audyt z powodem i liczbą planów, cache', async () => {
       const cache = app.get(RecipesCacheService);
       const invalidate = jest.spyOn(cache, 'invalidateRecipesList');
       await setActive(ids.active, { isActive: false, reason: REASON }).expect(
@@ -431,10 +446,10 @@ describe('Panel administratora — katalog (e2e)', () => {
         where: { id: ids.active },
       });
       expect(row.isActive).toBe(false);
-      // Pozycje w planach zostają.
+      // Pozycje w planach zostają (5 pozycji w 4 planach, w tym minionym).
       expect(
         await prisma.planItem.count({ where: { recipeId: ids.active } }),
-      ).toBe(4);
+      ).toBe(5);
 
       const audit = await prisma.adminAuditLog.findFirstOrThrow({
         where: { action: 'recipe.active.set', targetId: ids.active },

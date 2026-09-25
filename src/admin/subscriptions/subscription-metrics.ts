@@ -1,9 +1,11 @@
+import type { Prisma } from '@prisma/client';
 import {
   DEFAULT_GRACE_DAYS,
   subscriptionAlive,
 } from '../../config/subscription-lifetime';
 import { SUBSCRIPTION_PRODUCTS } from '../../config/subscription-products';
 import type { ProductId, SubscriptionsData } from '../contract';
+import { warsawMonthStart, warsawWallClock } from '../common/warsaw-calendar';
 import { isAdminProductId } from './admin-products';
 
 /**
@@ -38,6 +40,27 @@ export type MetricSubscription = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+/** Kolumny `MetricSubscription` — jeden `select` dla ekranu Subskrypcje i pulpitu. */
+export const METRIC_SUBSCRIPTION_SELECT = {
+  id: true,
+  provider: true,
+  productId: true,
+  status: true,
+  environment: true,
+  ownershipType: true,
+  expiresAt: true,
+  graceExpiresAt: true,
+  neverExpires: true,
+  revokedAt: true,
+  operatorHoldAt: true,
+  autoRenewStatus: true,
+  messagesLimitSnapshot: true,
+  plansLimitSnapshot: true,
+  purchaserUserId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const satisfies Prisma.SubscriptionSelect;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -179,111 +202,7 @@ export function percentChange(current: number, previous: number): number {
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
-// ——— kalendarz w strefie Europe/Warsaw ———
-
-const WARSAW = 'Europe/Warsaw';
-
-const WALL_CLOCK = new Intl.DateTimeFormat('en-US', {
-  timeZone: WARSAW,
-  year: 'numeric',
-  month: 'numeric',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: 'numeric',
-  second: 'numeric',
-  hourCycle: 'h23',
-});
-
-export type WallClock = {
-  year: number;
-  /** 0–11, jak w `Date`. */
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-  second: number;
-  ms: number;
-};
-
-/** Zegar ścienny Warszawy dla chwili `date` (serwer stoi w UTC). */
-export function warsawWallClock(date: Date): WallClock {
-  const parts: Record<string, number> = {};
-  for (const part of WALL_CLOCK.formatToParts(date)) {
-    if (part.type !== 'literal') parts[part.type] = Number(part.value);
-  }
-  return {
-    year: parts.year,
-    month: parts.month - 1,
-    day: parts.day,
-    hour: parts.hour,
-    minute: parts.minute,
-    second: parts.second,
-    ms: date.getUTCMilliseconds(),
-  };
-}
-
-function warsawOffsetMs(instant: number): number {
-  const wall = warsawWallClock(new Date(instant));
-  return (
-    Date.UTC(
-      wall.year,
-      wall.month,
-      wall.day,
-      wall.hour,
-      wall.minute,
-      wall.second,
-      wall.ms,
-    ) - instant
-  );
-}
-
-/**
- * Chwila, w której zegar w Warszawie pokazuje podaną datę i godzinę.
- * Miesiąc spoza 0–11 przechodzi na sąsiedni rok (jak w `Date.UTC`). Dwa
- * przybliżenia przesunięcia, bo zmiana czasu potrafi leżeć między zgadnięciem
- * a wynikiem.
- */
-export function fromWarsawWallClock(
-  year: number,
-  month: number,
-  day: number,
-  hour = 0,
-  minute = 0,
-  second = 0,
-  ms = 0,
-): Date {
-  const guess = Date.UTC(year, month, day, hour, minute, second, ms);
-  const first = guess - warsawOffsetMs(guess);
-  return new Date(guess - warsawOffsetMs(first));
-}
-
-/** Północ pierwszego dnia miesiąca w Warszawie. */
-export function warsawMonthStart(year: number, month: number): Date {
-  return fromWarsawWallClock(year, month, 1);
-}
-
-function daysInMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-}
-
-/**
- * „Ten sam dzień miesiąc temu" na zegarze Warszawy; 31 marca → 28/29 lutego.
- */
-export function oneMonthEarlier(now: Date): Date {
-  const wall = warsawWallClock(now);
-  const target = new Date(Date.UTC(wall.year, wall.month - 1, 1));
-  const year = target.getUTCFullYear();
-  const month = target.getUTCMonth();
-  return fromWarsawWallClock(
-    year,
-    month,
-    Math.min(wall.day, daysInMonth(year, month)),
-    wall.hour,
-    wall.minute,
-    wall.second,
-    wall.ms,
-  );
-}
+// ——— wykres MRR ———
 
 /** Skróty miesięcy jak na osi wykresu w panelu (`'wrz'`). */
 export const MONTH_LABELS_PL = [

@@ -1,20 +1,17 @@
 import { Prisma } from '@prisma/client';
-import { readAgentEnv } from '../../config/agent-env';
 import { purchaseIdentityHashForUser } from '../../config/purchase-identity';
 import {
-  pickBestSubscription,
   subscriptionAlive,
   type SubscriptionCandidate,
 } from '../../config/subscription-lifetime';
-import type { HouseholdPlan, ProductId } from '../contract';
 
 /**
  * Plan gospodarstwa dla WIELU domów naraz — ta sama kolejność co
  * `AiUsageCountersService.resolvePlan` (`AI_TIER_OVERRIDE` → nadanie operatora
  * → żywa subskrypcja któregoś z domowników → próba), ale bez zapytania na
- * dom: subskrypcje czytamy raz, a rozstrzygnięcie robią te same funkcje
- * domeny (`pickBestSubscription` / `subscriptionAlive`). Lista tysiąca osób
- * nie może oznaczać tysiąca zapytań.
+ * dom: subskrypcje czytamy raz, a plan rozstrzyga wspólny
+ * `decideHouseholdPlan` (`../common/plan-decision`), ten sam co na liście
+ * domów. Lista tysiąca osób nie może oznaczać tysiąca zapytań.
  */
 
 /** Pola konta, z których liczy się hasz tożsamości zakupowej. */
@@ -104,38 +101,4 @@ export function indexByIdentity(
     index.set(subscription.identityHash, list);
   }
   return index;
-}
-
-/**
- * Plan jednego domu z już wczytanych danych. `envTierOverride` podaje
- * wołający (raz na żądanie) — `AI_TIER_OVERRIDE=PRO` daje PRO wszystkim,
- * a kontrakt panelu nie ma osobnego rodzaju na nadanie z env, więc to też
- * jest „override".
- */
-export function resolveHouseholdPlan(
-  household: {
-    tierOverride: string | null;
-    members: readonly IdentityFields[];
-  },
-  subscriptionsByIdentity: ReadonlyMap<string, readonly LiveSubscription[]>,
-  now: Date,
-  envTierOverride: 'PRO' | null = readAgentEnv().tierOverride,
-): HouseholdPlan {
-  if (envTierOverride === 'PRO') return { kind: 'override' };
-  if (household.tierOverride === 'PRO') return { kind: 'override' };
-  const candidates: LiveSubscription[] = [];
-  const seen = new Set<string>();
-  for (const member of household.members) {
-    const hash = identityHashOf(member);
-    if (!hash || seen.has(hash)) continue;
-    seen.add(hash);
-    candidates.push(...(subscriptionsByIdentity.get(hash) ?? []));
-  }
-  const winner = pickBestSubscription(candidates, now);
-  if (winner) {
-    // Nieznany SKU (wypuszczony w App Store przed deployem) przechodzi
-    // takim, jaki jest — lepiej pokazać prawdziwy identyfikator niż zgadywać.
-    return { kind: 'subscription', productId: winner.productId as ProductId };
-  }
-  return { kind: 'trial' };
 }

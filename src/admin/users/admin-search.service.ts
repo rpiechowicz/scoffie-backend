@@ -29,7 +29,7 @@ import {
   type HouseholdInfo,
   type UserRow,
 } from './admin-user-items';
-import { sqlInstant, warsawWeekStart } from './warsaw-time';
+import { inPlansByRecipe } from '../common/recipe-in-plans';
 
 /** Ile trafień na grupę — tyle mieści podpowiedź ⌘K bez przewijania. */
 export const SEARCH_LIMIT = 6;
@@ -144,30 +144,31 @@ export class AdminSearchService {
    * panel pokazuje z nich tylko liczby, ROADMAPA §5.7), także wycofane:
    * admin szuka ich właśnie po to, żeby je przywrócić.
    *
-   * `inPlans` = w ilu planach tygodni od bieżącego wzwyż stoi przepis —
-   * minione tygodnie to historia, której wycofanie już nie dotyczy.
+   * `inPlans` — wspólna definicja z katalogiem (`inPlansByRecipe`).
    */
-  private recipes(
+  private async recipes(
     tx: Prisma.TransactionClient,
     q: string,
     now: Date,
   ): Promise<RecipeRow[]> {
-    const weekStart = sqlInstant(warsawWeekStart(now));
-    return tx.$queryRaw<RecipeRow[]>`
+    const rows = await tx.$queryRaw<Omit<RecipeRow, 'inPlans'>[]>`
       SELECT r."id", r."title", r."imageUrl", r."isActive",
              r."mealType"::text AS "mealType", r."prepTimeMinutes",
              r."nutritionKcal", r."servings",
              (SELECT COUNT(*) FROM "RecipeFavorite" f
-               WHERE f."recipeId" = r."id")::int AS "favorites",
-             (SELECT COUNT(DISTINCT pi."weeklyPlanId") FROM "PlanItem" pi
-               JOIN "WeeklyPlan" wp ON wp."id" = pi."weeklyPlanId"
-               WHERE pi."recipeId" = r."id" AND wp."weekStart" >= ${weekStart})::int AS "inPlans"
+               WHERE f."recipeId" = r."id")::int AS "favorites"
       FROM "Recipe" r
       WHERE r."isCatalog" = true
         AND (${sqlFoldedContains(Prisma.sql`r."title"`, q)}
           OR ${sqlIdContains(Prisma.sql`r."id"`, q)})
       ORDER BY r."isActive" DESC, r."title" ASC, r."id" ASC
       LIMIT ${SEARCH_LIMIT}::int`;
+    const inPlans = await inPlansByRecipe(
+      tx,
+      now,
+      rows.map((row) => row.id),
+    );
+    return rows.map((row) => ({ ...row, inPlans: inPlans.get(row.id) ?? 0 }));
   }
 
   private async cookidoo(

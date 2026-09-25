@@ -16,12 +16,16 @@ import type {
 } from '../contract';
 import { readOnlyQuery } from '../read-only-query';
 import {
+  METRIC_SUBSCRIPTION_SELECT,
+  type MetricSubscription,
+} from '../subscriptions/subscription-metrics';
+import {
   MRR_ENVIRONMENT,
   endOfDayPoints,
   kcalPerServing,
-  subscriptionSeries,
+  mrrSeries,
+  paidCounts,
   trendOfSeries,
-  type SubscriptionHistoryRow,
 } from './admin-metrics';
 import {
   daysBefore,
@@ -30,7 +34,7 @@ import {
   warsawDays,
   warsawWeekStart,
   type PanelDay,
-} from './warsaw-time';
+} from '../common/warsaw-calendar';
 
 /** Wykres aktywności: 30 dób do dziś włącznie. */
 export const DASHBOARD_DAYS = 30;
@@ -110,7 +114,8 @@ export class AdminDashboardService {
       const topRecipes = await this.topRecipes(tx, weekStart);
       const migrations = await this.migrations(tx);
 
-      const { counts, mrrZl } = subscriptionSeries(subscriptions, sparkPoints);
+      const counts = paidCounts(subscriptions, sparkPoints);
+      const mrrZl = mrrSeries(subscriptions, sparkPoints, now);
       const todayStat = series[series.length - 1];
 
       return {
@@ -250,37 +255,31 @@ export class AdminDashboardService {
   }
 
   /**
-   * Wiersze, które mogły być opłacone w którymkolwiek punkcie iskierki:
-   * żywe teraz albo zmienione po pierwszym punkcie (martwy wiersz nie żył po
-   * swoim ostatnim zapisie — patrz `paidAt`). Tylko Production: sandbox to
-   * testy, nie przychód.
+   * Wiersze App Store z produkcji, które mogły płacić w którymkolwiek punkcie
+   * iskierki — nadzbiór jak na ekranie Subskrypcje: żywe teraz albo z którąś
+   * datą końca (`endedAt`, `paidAt`) po pierwszym punkcie. Sandbox to testy,
+   * `MANUAL` — nadanie bez pieniędzy; oba ekran Subskrypcje też pomija.
    */
   private subscriptionHistory(
     tx: Prisma.TransactionClient,
     now: Date,
     firstPoint: Date,
-  ): Promise<SubscriptionHistoryRow[]> {
+  ): Promise<MetricSubscription[]> {
     return tx.subscription.findMany({
       where: {
+        provider: 'APPLE',
         environment: MRR_ENVIRONMENT,
         createdAt: { lte: now },
         OR: [
           { status: { in: ['ACTIVE', 'GRACE'] } },
+          { expiresAt: { gt: firstPoint } },
+          { graceExpiresAt: { gt: firstPoint } },
+          { revokedAt: { gt: firstPoint } },
+          { operatorHoldAt: { gt: firstPoint } },
           { updatedAt: { gt: firstPoint } },
         ],
       },
-      select: {
-        productId: true,
-        status: true,
-        environment: true,
-        expiresAt: true,
-        graceExpiresAt: true,
-        neverExpires: true,
-        revokedAt: true,
-        operatorHoldAt: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: METRIC_SUBSCRIPTION_SELECT,
     });
   }
 

@@ -1,7 +1,11 @@
 import { netRevenuePln } from '../../config/ai-unit-economics';
 import { SUBSCRIPTION_PRODUCTS } from '../../config/subscription-products';
-import type { ProductId, ProfitPeriod, ProposalStatus } from '../contract';
-import { addDays, warsawDateKey, warsawDayStart } from './warsaw-calendar';
+import type { ProfitPeriod, ProposalStatus } from '../contract';
+import {
+  addDays,
+  warsawDateKey,
+  warsawDayStart,
+} from '../common/warsaw-calendar';
 
 /**
  * Czysta arytmetyka ekranu „Rentowność asystenta” — bez Prismy, żeby każdą
@@ -109,6 +113,14 @@ export function dailyNetRevenuePln(sub: RevenueSubscription): number {
  * Łaska płatnicza (GRACE) NIE jest przychodem: Apple dopiero próbuje pobrać
  * pieniądze, a udane odnowienie przesunie `expiresAt` samo.
  *
+ * ŚWIADOMIE INACZEJ NIŻ MRR. MRR (pulpit i ekran Subskrypcje,
+ * `subscription-metrics.ts` › `revenueSpans`) liczy GRACE, bo mówi, ile
+ * przychodu jest „w umowach" teraz — klient w łasce wciąż ma dostęp i zwykle
+ * płaci po ponowieniu. Rentowność zestawia koszt modelu z pieniędzmi
+ * NAPRAWDĘ pobranymi za dany dzień, więc łaska wchodzi dopiero wtedy, gdy
+ * odnowienie się uda (i przesunie `expiresAt`). Wyłączenia wierszy (MANUAL,
+ * Sandbox, FAMILY_SHARED, nieznany SKU) są w obu miejscach te same.
+ *
  * Historia z bieżącego wiersza jest przybliżeniem: przerwa w subskrypcji,
  * po której ta sama umowa wróciła (ten sam `originalTransactionId`), wygląda
  * tu jak ciągłość. Dokładną historię da dopiero nocne `AdminDailyStat` (§6).
@@ -142,23 +154,6 @@ export function revenueByDay(
 ): number[] {
   const daily = dailyNetRevenuePln(sub);
   return days.map((day) => (daily > 0 && paysForDay(sub, day) ? daily : 0));
-}
-
-// ——— produkty ———
-
-/**
- * Produkty, które zna kontrakt panelu (`ProductId`). Wiersz rentowności
- * z innym SKU wywróciłby front (`PRODUCTS[productId].name`), więc taki wiersz
- * nie wychodzi — patrz `admin-profit.service.ts`.
- */
-const CONTRACT_PRODUCT_IDS = [
-  'app.scoffie.pro.solo.monthly',
-  'app.scoffie.pro.duet.monthly',
-  'app.scoffie.pro.family.monthly',
-] as const satisfies readonly ProductId[];
-
-export function isContractProductId(value: string): value is ProductId {
-  return (CONTRACT_PRODUCT_IDS as readonly string[]).includes(value);
 }
 
 // ——— trendy i marża ———

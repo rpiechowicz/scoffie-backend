@@ -2,7 +2,6 @@ import { netRevenuePln } from '../../config/ai-unit-economics';
 import {
   dailyNetRevenuePln,
   DAYS_PER_MONTH,
-  isContractProductId,
   isProfitPeriod,
   marginPct,
   marginTrendPp,
@@ -19,7 +18,7 @@ import {
   type DayWindow,
   type RevenueSubscription,
 } from './profit-math';
-import { addDays, warsawDayStart } from './warsaw-calendar';
+import { addDays, warsawDayStart } from '../common/warsaw-calendar';
 
 const NOW = new Date('2026-09-24T10:00:00Z');
 const SOLO = 'app.scoffie.pro.solo.monthly';
@@ -150,12 +149,6 @@ describe('przychód z subskrypcji', () => {
 
   it('dni sprzed zakupu nie niosą przychodu', () => {
     expect(paysForDay(sub(), day('2026-08-31', '2026-09-01'))).toBe(false);
-  });
-
-  it('produkt spoza kontraktu panelu nie daje wiersza', () => {
-    expect(isContractProductId(SOLO)).toBe(true);
-    expect(isContractProductId('app.scoffie.pro.family.monthly')).toBe(true);
-    expect(isContractProductId('app.scoffie.pro.solo.yearly')).toBe(false);
   });
 });
 

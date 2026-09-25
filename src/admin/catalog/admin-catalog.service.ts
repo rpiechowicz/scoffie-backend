@@ -10,7 +10,7 @@ import {
 } from '../audit/admin-audit.service';
 import type { Ingredient, RecipeDetail, RecipeListItem } from '../contract';
 import { readOnlyQuery } from '../read-only-query';
-import { mondayOf, warsawDateKey } from '../assistant/warsaw-calendar';
+import { inPlansByRecipe } from '../common/recipe-in-plans';
 import {
   baseUnitFromUsage,
   comparePolish,
@@ -24,18 +24,6 @@ const recipeNotFound = () =>
     'Nie znaleziono przepisu w katalogu.',
     HttpStatus.NOT_FOUND,
   );
-
-/**
- * „W planach” = pozycje `PlanItem` z tym przepisem w tygodniach od BIEŻĄCEGO
- * poniedziałku (czas polski) wzwyż — czyli to, co wycofanie przepisu realnie
- * dotyka: plany, które ktoś jeszcze ugotuje. Minione tygodnie to historia.
- * Liczymy pozycje, nie plany: ten sam przepis trzy razy w tygodniu to trzy.
- */
-const upcomingPlanItems = (
-  now: Date,
-): Prisma.PlanItemWhereInput['weeklyPlan'] => ({
-  weekStart: { gte: mondayOf(warsawDateKey(now)) },
-});
 
 const listSelect = {
   id: true,
@@ -77,22 +65,12 @@ export class AdminCatalogService {
         },
         select: listSelect,
       });
-      const plans = await tx.planItem.groupBy({
-        by: ['recipeId'],
-        where: {
-          recipe: { isCatalog: true },
-          weeklyPlan: upcomingPlanItems(now),
-        },
-        _count: { _all: true },
-      });
+      const plansOf = await inPlansByRecipe(tx, now, null);
       const favorites = await tx.recipeFavorite.groupBy({
         by: ['recipeId'],
         where: { recipe: { isCatalog: true } },
         _count: { _all: true },
       });
-      const plansOf = new Map(
-        plans.map((row) => [row.recipeId, row._count._all]),
-      );
       const favoritesOf = new Map(
         favorites.map((row) => [row.recipeId, row._count._all]),
       );
@@ -142,9 +120,7 @@ export class AdminCatalogService {
         },
       });
       if (!recipe) throw recipeNotFound();
-      const inPlans = await tx.planItem.count({
-        where: { recipeId: id, weeklyPlan: upcomingPlanItems(now) },
-      });
+      const inPlans = (await inPlansByRecipe(tx, now, [id])).get(id) ?? 0;
       const favorites = await tx.recipeFavorite.count({
         where: { recipeId: id },
       });
@@ -283,9 +259,7 @@ export class AdminCatalogService {
           if (recipe.isActive !== isActive) {
             await tx.recipe.update({ where: { id }, data: { isActive } });
           }
-          const inPlans = await tx.planItem.count({
-            where: { recipeId: id, weeklyPlan: upcomingPlanItems(now) },
-          });
+          const inPlans = (await inPlansByRecipe(tx, now, [id])).get(id) ?? 0;
           return { from: recipe.isActive, to: isActive, inPlans };
         }),
       (result) => result,
