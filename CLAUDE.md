@@ -55,12 +55,21 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
   Tagi składników: `prisma/catalog/ingredient-tags-pl-v1.json` → `pnpm catalog:ingredients:tags`
   (idempotentny, przelicza `Recipe.allergens/dietTags`); reguły diet w
   `src/recipes/diet-rules.util.ts` mają parytet 1:1 z iOS — walidator asystenta czyta JE.
-- Katalog przepisów: `prisma/catalog/recipes-catalog-full-v2.json` = źródło prawdy; zmiana
-  w JSON = import na prod. Makro = cały przepis, węgle bez błonnika, liczone ze składników.
+- Katalog przepisów (D1, od 25.09.2026): źródłem prawdy jest BAZA, a
+  `prisma/catalog/recipes-catalog-full-v2.json` jej eksportem (`pnpm catalog:export`; co noc
+  serwis `catalog-sync` otwiera PR `chore/katalog-z-bazy-<data>` do `develop`). Przepis zmienia
+  się w panelu (`PUT /admin/catalog/recipes/:id`), NIE w pliku. Import i panel liczą kolumny
+  jedną ścieżką (`src/recipes/catalog/`), więc plik → import → eksport = ten sam plik bajt
+  w bajt (`test/catalog-export.e2e-spec.ts`); plik ma układ kanoniczny (pora → tytuł, `id`
+  pierwsze, pełne `suitableMealTypes`, `"isActive": false` dla wycofanych) — ręcznie go nie
+  formatuj. `recipes:import:json` na NIEPUSTYM katalogu odmawia, gdy baza ma zmiany, których
+  plik nie ma (`RECIPE_IMPORT_FROM_JSON_CONFIRM=<dzisiejsza data>` = świadome nadpisanie);
+  bootstrap pustej bazy działa bez zmian. Kolejność składników = `[createdAt, id]` (zapis nadaje
+  rosnący `createdAt`). Makro = cały przepis, węgle bez błonnika, liczone ze składników.
   `servings` 1..8 (nie „zawsze 2”). Składnik: `name` po polsku, `normalizedName` ASCII = klucz.
 - Widoczność przepisów (od Fazy 0, krok 3): `Recipe.isCatalog` rozdziela WSPÓLNY katalog od
-  przepisów gospodarstwa. Katalog tworzy WYŁĄCZNIE import (`recipes:import:json`); `recipes:create`
-  zawsze daje `isCatalog: false`. Każdy odczyt przepisów MUSI filtrować przez
+  przepisów gospodarstwa. Katalog tworzy WYŁĄCZNIE import (`recipes:import:json`), a zmienia import i panel
+  admina; `recipes:create` zawsze daje `isCatalog: false`. Każdy odczyt przepisów MUSI filtrować przez
   `OR: [{ isCatalog: true }, { householdId }]` — `findAll` (bez `householdId` widać sam katalog),
   `findById` (cudzy przepis = 404, nie 403) i `ensureRecipeForHousehold` (bramka wstawiania do
   planu). Klucz cache listy niesie `householdId`, bo wynik zależy od pytającego. Dowód na żywej
@@ -199,4 +208,7 @@ delete K --service scoffie-backend` NIE wyzwala redeployu. Zmienne wymagane prze
   Adresu nigdy w plikach.
 - Nocna kopia bazy: serwis cron `db-backup` na Railwayu (`ops/db-backup/`, 03:15 UTC, R2 + age,
   z próbą odtworzenia). NIE GitHub Actions — tam szła przez publiczny proxy i padała od 12.09.
+- Nocny eksport katalogu: serwis cron `catalog-sync` (`ops/catalog-sync/`, 03:45 UTC): klon
+  `develop`, `pnpm catalog:export` siecią prywatną, przy różnicy commit bota + PR do `develop`
+  (otwarty PR bota = aktualizacja jego gałęzi). `CATALOG_SYNC_DRY_RUN=true` = bez pusha.
 - Runbooki plastrów: `docs/plans/scoffie-ai-agent/plaster-*/PROD-RUNBOOK.md`.
