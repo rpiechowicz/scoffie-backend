@@ -13,6 +13,9 @@ import type {
   HouseholdFlagsData,
 } from '../contract';
 
+const conflict = (message: string) =>
+  new AppException('CONFLICT', message, HttpStatus.CONFLICT, [message]);
+
 const notFound = (message: string) =>
   new AppException('NOT_FOUND', message, HttpStatus.NOT_FOUND);
 
@@ -74,11 +77,7 @@ export class AdminFlagsService {
           select: { key: true },
         });
         if (existing) {
-          throw new AppException(
-            'CONFLICT',
-            `Flaga ${input.key} już istnieje.`,
-            HttpStatus.CONFLICT,
-          );
+          throw conflict(`Flaga ${input.key} już istnieje.`);
         }
         await this.prisma.featureFlag.create({
           data: {

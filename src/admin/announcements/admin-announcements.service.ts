@@ -24,6 +24,9 @@ import type {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const conflict = (message: string) =>
+  new AppException('CONFLICT', message, HttpStatus.CONFLICT, [message]);
+
 const invalid = (problems: string[]) =>
   new AppException(
     'VALIDATION_ERROR',
@@ -172,10 +175,8 @@ export class AdminAnnouncementsService {
           },
         });
         if (overlapping >= ANNOUNCEMENT_MAX_ACTIVE) {
-          throw new AppException(
-            'CONFLICT',
+          throw conflict(
             `W tym czasie są już ${overlapping} komunikaty — najwyżej ${ANNOUNCEMENT_MAX_ACTIVE} naraz. Zakończ któryś albo zmień termin.`,
-            HttpStatus.CONFLICT,
           );
         }
         return this.prisma.appAnnouncement.create({
@@ -224,11 +225,7 @@ export class AdminAnnouncementsService {
           );
         }
         if (announcementState(row, now) === 'ended') {
-          throw new AppException(
-            'CONFLICT',
-            'Ten komunikat już się zakończył.',
-            HttpStatus.CONFLICT,
-          );
+          throw conflict('Ten komunikat już się zakończył.');
         }
         return this.prisma.appAnnouncement.update({
           where: { id },
