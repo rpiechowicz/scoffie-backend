@@ -324,6 +324,18 @@ function ingredientsKey(
   return JSON.stringify(ignoreOrder ? [...lines].sort() : lines);
 }
 
+/** Czy dwie listy składników są te same (nazwa, ilość, jednostka). */
+export function sameIngredientLines(
+  a: CatalogRecipeInput['ingredients'],
+  b: CatalogRecipeInput['ingredients'],
+  options: { ignoreOrder?: boolean } = {},
+): boolean {
+  return (
+    ingredientsKey(a, !!options.ignoreOrder) ===
+    ingredientsKey(b, !!options.ignoreOrder)
+  );
+}
+
 /** Pola wpisu, które się różnią (bez `isActive` — to osobna kategoria). */
 export function changedCatalogFields(
   before: CatalogRecipeInput,

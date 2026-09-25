@@ -18,10 +18,13 @@ import {
   RequireStepUp,
 } from '../admin.decorators';
 import { adminActor } from '../audit/admin-audit.service';
-import { AdminAuthException } from '../auth/admin-auth.errors';
 import type { ResolvedAdminSession } from '../auth/admin-sessions.service';
 import type { Ingredient, RecipeDetail, RecipeListItem } from '../contract';
-import { CatalogRecipesQueryDto, RecipeActiveDto } from './admin-catalog.dto';
+import {
+  CatalogRecipesQueryDto,
+  RecipeActiveDto,
+  UpdateCatalogRecipeDto,
+} from './admin-catalog.dto';
 import { AdminCatalogService } from './admin-catalog.service';
 
 /** Katalog przepisów i składników (ROADMAPA §5.7). */
@@ -52,22 +55,25 @@ export class AdminCatalogController {
   }
 
   /**
-   * Edycja przepisu katalogu — ZABLOKOWANA do decyzji D1 (ROADMAPA §9).
-   *
-   * Źródłem prawdy katalogu jest dziś `prisma/catalog/recipes-catalog-full-v2.json`
-   * + import, który przy każdym przebiegu nadpisuje treść przepisu z pliku.
-   * Zapis z panelu prosto do bazy zniknąłby więc po cichu przy następnym
-   * imporcie — gorzej niż jawna odmowa. Trasa istnieje (panel ma już edytor),
-   * odpowiada zawsze 403 `NOT_ALLOWED` i niczego nie dotyka: bez ciała (żadnej
-   * walidacji, która zamieniłaby odmowę w 400) i bez step-upu (potwierdzenie
-   * tożsamości przed akcją, która i tak się nie wykona, to pusty rytuał).
+   * Edycja przepisu katalogu (D1 zamknięte 25.09.2026: baza jest źródłem
+   * prawdy, `recipes-catalog-full-v2.json` — jej eksportem, odświeżanym nocnym
+   * PR-em). Zmianę widać od razu u wszystkich użytkowników, stąd step-up
+   * (403 `STEP_UP_REQUIRED` w guardzie, przed walidacją ciała). Szczegóły
+   * zapisu i kody błędów: `AdminCatalogService.updateRecipe`.
    */
   @Put('recipes/:id')
   @AdminRequires('catalog.publish')
-  updateRecipe(): never {
-    throw new AdminAuthException(
-      'NOT_ALLOWED',
-      'Edycja katalogu czeka na decyzję D1 (źródło prawdy: JSON z importem czy baza) — zmiana zapisana w bazie zniknęłaby przy następnym imporcie.',
+  @RequireStepUp()
+  updateRecipe(
+    @AdminAccess() access: AdminAccessContext,
+    @CurrentAdminSession() session: ResolvedAdminSession | null,
+    @Param('id') rawId: string,
+    @Body() dto: UpdateCatalogRecipeDto,
+  ): Promise<RecipeDetail> {
+    return this.catalog.updateRecipe(
+      adminActor(session, access),
+      assertUuid(rawId, 'id'),
+      dto,
     );
   }
 
