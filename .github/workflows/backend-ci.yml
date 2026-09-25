@@ -127,6 +127,13 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # `openapi/openapi.json` i `openapi/SOCKET-EVENTS.md` są generowane z kodu
+      # (klient Kotlin dla Androida powstaje z tego pliku). Zmiana kontraktu
+      # bez `pnpm openapi` = czerwony bieg, zanim klient rozjedzie się z API.
+      # Bez bazy i bez sekretów — AppModule wstaje w trybie `preview`.
+      - name: OpenAPI up to date
+        run: pnpm openapi:check
+
       - name: Unit tests
         run: pnpm test
 

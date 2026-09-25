@@ -7,6 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { AppException } from '../common/app-exception';
 import { assertUuid } from '../common/uuid';
 import { SkipThrottle } from '@nestjs/throttler';
@@ -17,6 +18,8 @@ import { WsTelemetryService } from '../common/ws-telemetry.service';
 import { RecipesCacheService } from '../recipes/recipes-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+// Trasa operatorska/serwerowa, nie API aplikacji — poza openapi.json.
+@ApiExcludeController()
 @Controller('ops')
 export class OpsController {
   constructor(

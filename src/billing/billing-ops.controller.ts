@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsInt,
@@ -104,6 +105,8 @@ export class LookupQueryDto {
   userId?: string;
 }
 
+// Trasa operatorska/serwerowa, nie API aplikacji — poza openapi.json.
+@ApiExcludeController()
 @Controller('ops/billing')
 @UseGuards(OpsTokenGuard)
 export class BillingOpsController {
