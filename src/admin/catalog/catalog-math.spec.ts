@@ -1,6 +1,7 @@
 import {
   baseUnitFromUsage,
   comparePolish,
+  gramsPerServing,
   kcalPerServing,
   stepsFromInstructions,
 } from './catalog-math';
@@ -57,6 +58,12 @@ describe('katalog w panelu', () => {
     expect(kcalPerServing(1000, 3)).toBe(333);
     // `servings` 0 w starym wierszu nie może dzielić przez zero.
     expect(kcalPerServing(500, 0)).toBe(500);
+  });
+
+  it('gramy makro na porcję z CAŁEGO przepisu, jedno miejsce po przecinku', () => {
+    expect(gramsPerServing(45.3, 2)).toBe(22.7);
+    expect(gramsPerServing(10, 3)).toBe(3.3);
+    expect(gramsPerServing(12, 0)).toBe(12);
   });
 
   it('sortowanie po polsku: „ł” po „l”, „ż” na końcu, bez wielkości liter', () => {
