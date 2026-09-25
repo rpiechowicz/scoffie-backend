@@ -8,5 +8,7 @@ import { DataExportService } from './data-export.service';
   imports: [AuthModule],
   controllers: [DataExportController],
   providers: [DataExportService],
+  // Panel administratora oddaje TĘ SAMĄ paczkę przy wniosku z art. 15/20.
+  exports: [DataExportService],
 })
 export class DataExportModule {}

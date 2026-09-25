@@ -5,6 +5,7 @@ import {
   AdminSessionController,
 } from './auth/admin-auth.controller';
 import { AdminAuthService } from './auth/admin-auth.service';
+import { AdminUsersModule } from './users/admin-users.module';
 
 /**
  * Panel administratora — backend (`/admin/*`), plan w
@@ -19,7 +20,7 @@ import { AdminAuthService } from './auth/admin-auth.service';
  * a każdy moduł ekranu importuje `AdminCoreModule`.
  */
 @Module({
-  imports: [AdminCoreModule],
+  imports: [AdminCoreModule, AdminUsersModule],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],
 })

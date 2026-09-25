@@ -8,5 +8,7 @@ import { UsersService } from './users.service';
 @Module({
   imports: [ConsentsModule, MailModule],
   providers: [UsersService, UsersGateway, AppleRevocationService],
+  // Panel administratora kasuje konto TĄ SAMĄ ścieżką co telefon.
+  exports: [UsersService],
 })
 export class UsersModule {}
