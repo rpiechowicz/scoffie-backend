@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ObservabilityModule } from '../observability/observability.module';
 import { AccessJwtVerifier } from './access/access-jwt.verifier';
+import { AdminGate, AdminGateMiddleware } from './admin-gate';
 import { AdminGuard } from './admin.guard';
 import { AdminRateLimiter } from './admin-rate-limiter';
 import { AdminAuditService } from './audit/admin-audit.service';
@@ -21,6 +22,8 @@ import { AdminWebAuthnService } from './auth/admin-webauthn.service';
   imports: [ObservabilityModule],
   providers: [
     AccessJwtVerifier,
+    AdminGate,
+    AdminGateMiddleware,
     AdminRateLimiter,
     AdminGuard,
     AdminSessionsService,
@@ -31,6 +34,8 @@ import { AdminWebAuthnService } from './auth/admin-webauthn.service';
   exports: [
     ObservabilityModule,
     AccessJwtVerifier,
+    AdminGate,
+    AdminGateMiddleware,
     AdminRateLimiter,
     AdminGuard,
     AdminSessionsService,

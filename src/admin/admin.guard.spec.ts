@@ -2,6 +2,7 @@ import { ExecutionContext, NotFoundException } from '@nestjs/common';
 import type { Reflector } from '@nestjs/core';
 import { AppException } from '../common/app-exception';
 import { AccessJwtVerifier } from './access/access-jwt.verifier';
+import { AdminGate } from './admin-gate';
 import { AdminGuard } from './admin.guard';
 import { AdminRateLimiter } from './admin-rate-limiter';
 import type { AdminRequest } from './admin-request';
@@ -29,6 +30,7 @@ describe('AdminGuard — bramka Access', () => {
     'ADMIN_ACCESS_DEV_EMAIL',
     'THROTTLE_ADMIN_AUTH_LIMIT',
     'THROTTLE_ADMIN_LIMIT',
+    'ADMIN_PROXY_SECRET',
   ] as const;
   const saved: Record<string, string | undefined> = {};
 
@@ -39,9 +41,13 @@ describe('AdminGuard — bramka Access', () => {
   /** Metadane trasy — domyślnie trasa BEZ sesji, bo tu sprawdzamy bramkę. */
   let meta: Record<string, unknown>;
 
-  const request = (headers: Record<string, string> = {}): AdminRequest =>
+  const PROXY_SECRET = 'sekret-workera-panelu-0123456789abcdef';
+  const request = (
+    headers: Record<string, string> = {},
+    method = 'GET',
+  ): AdminRequest =>
     ({
-      method: 'GET',
+      method,
       originalUrl: '/admin/users?q=ala',
       ip: '10.0.0.1',
       headers,
@@ -69,6 +75,7 @@ describe('AdminGuard — bramka Access', () => {
     delete process.env.ADMIN_ACCESS_DEV_EMAIL;
     delete process.env.THROTTLE_ADMIN_AUTH_LIMIT;
     delete process.env.THROTTLE_ADMIN_LIMIT;
+    process.env.ADMIN_PROXY_SECRET = PROXY_SECRET;
     verify = jest.fn().mockResolvedValue(null);
     resolve = jest.fn().mockResolvedValue(null);
     limiter = new AdminRateLimiter();
@@ -77,7 +84,7 @@ describe('AdminGuard — bramka Access', () => {
       getAllAndOverride: (key: string) => meta[key],
     } as unknown as Reflector;
     guard = new AdminGuard(
-      { verify } as unknown as AccessJwtVerifier,
+      new AdminGate({ verify } as unknown as AccessJwtVerifier),
       limiter,
       { resolve } as unknown as AdminSessionsService,
       reflector,
@@ -116,10 +123,11 @@ describe('AdminGuard — bramka Access', () => {
     expect(verify).not.toHaveBeenCalled();
   });
 
-  it('poprawny token — przepuszcza, kontekst z nagłówków Cloudflare, noindex', async () => {
+  it('poprawny token — przepuszcza, kontekst z nagłówków Cloudflare od Workera, noindex', async () => {
     verify.mockResolvedValue({ email: 'rafal@example.com', subject: 's' });
     const req = request({
       'cf-access-jwt-assertion': 'ok',
+      'x-admin-proxy-secret': PROXY_SECRET,
       'cf-connecting-ip': '203.0.113.7',
       'cf-ipcountry': 'pl',
       'user-agent': 'Safari',
@@ -133,6 +141,116 @@ describe('AdminGuard — bramka Access', () => {
       ip: '203.0.113.7',
       country: 'PL',
       userAgent: 'Safari',
+    });
+  });
+
+  it.each([
+    ['bez nagłówka sekretu', {}],
+    ['ze złym sekretem', { 'x-admin-proxy-secret': 'zly-sekret' }],
+    [
+      'z sekretem różnym o jeden znak',
+      { 'x-admin-proxy-secret': `${PROXY_SECRET.slice(0, -1)}X` },
+    ],
+  ])(
+    'CF-Connecting-IP / CF-IPCountry %s — ignorowane (IP połączenia, bez kraju)',
+    async (_label, extra: Record<string, string>) => {
+      verify.mockResolvedValue({ email: 'rafal@example.com', subject: 's' });
+      const req = request({
+        'cf-access-jwt-assertion': 'ok',
+        'cf-connecting-ip': '203.0.113.7',
+        'cf-ipcountry': 'pl',
+        ...extra,
+      });
+      await expect(run(req).result).resolves.toBe(true);
+      expect(req.adminAccess).toMatchObject({ ip: '10.0.0.1', country: null });
+    },
+  );
+
+  it('bez ADMIN_PROXY_SECRET (albo z za krótkim) nagłówkom Cloudflare nie wierzymy nawet z sekretem', async () => {
+    verify.mockResolvedValue({ email: 'rafal@example.com', subject: 's' });
+    for (const secret of [undefined, 'krotki']) {
+      if (secret === undefined) delete process.env.ADMIN_PROXY_SECRET;
+      else process.env.ADMIN_PROXY_SECRET = secret;
+      const req = request({
+        'cf-access-jwt-assertion': 'ok',
+        'x-admin-proxy-secret': secret ?? '',
+        'cf-connecting-ip': '203.0.113.7',
+        'cf-ipcountry': 'pl',
+      });
+      await expect(run(req).result).resolves.toBe(true);
+      expect(req.adminAccess).toMatchObject({ ip: '10.0.0.1', country: null });
+    }
+  });
+
+  it('bramkę liczy raz na żądanie — wynik z middleware jest używany przez guard', async () => {
+    verify.mockResolvedValue({ email: 'rafal@example.com', subject: 's' });
+    const req = request({ 'cf-access-jwt-assertion': 'ok' });
+    const gate = new AdminGate({ verify } as unknown as AccessJwtVerifier);
+    await gate.pass(req);
+    await expect(run(req).result).resolves.toBe(true);
+    expect(verify).toHaveBeenCalledTimes(1);
+  });
+
+  describe('CSRF w obrębie witryny (POST/PUT/PATCH/DELETE)', () => {
+    const write = (headers: Record<string, string>, method = 'POST') => {
+      verify.mockResolvedValue({ email: 'rafal@example.com', subject: 's' });
+      return run(
+        request({ 'cf-access-jwt-assertion': 'ok', ...headers }, method),
+      ).result;
+    };
+
+    it('JSON z własnego pochodzenia przechodzi, DELETE bez ciała też', async () => {
+      await expect(
+        write({
+          'content-type': 'application/json; charset=utf-8',
+          'content-length': '2',
+          'sec-fetch-site': 'same-origin',
+        }),
+      ).resolves.toBe(true);
+      await expect(
+        write({ 'sec-fetch-site': 'same-origin' }, 'DELETE'),
+      ).resolves.toBe(true);
+      await expect(write({}, 'DELETE')).resolves.toBe(true);
+    });
+
+    it.each(['same-site', 'cross-site', 'none'])(
+      'Sec-Fetch-Site: %s — 403 CROSS_SITE',
+      async (site) => {
+        await expect(
+          write({
+            'content-type': 'application/json',
+            'content-length': '2',
+            'sec-fetch-site': site,
+          }),
+        ).rejects.toMatchObject({ code: 'CROSS_SITE' });
+      },
+    );
+
+    it.each([
+      ['application/x-www-form-urlencoded', 'POST'],
+      ['multipart/form-data; boundary=x', 'POST'],
+      ['text/plain', 'POST'],
+      ['text/plain', 'DELETE'],
+      ['application/jsonx', 'PATCH'],
+    ])(
+      'Content-Type %s (%s) — 415 UNSUPPORTED_MEDIA_TYPE',
+      async (type, method) => {
+        await expect(
+          write({ 'content-type': type, 'content-length': '5' }, method),
+        ).rejects.toMatchObject({ code: 'UNSUPPORTED_MEDIA_TYPE' });
+      },
+    );
+
+    it('ciało bez Content-Type — 415', async () => {
+      await expect(
+        write({ 'content-length': '5' }, 'PUT'),
+      ).rejects.toMatchObject({ code: 'UNSUPPORTED_MEDIA_TYPE' });
+    });
+
+    it('GET nie jest sprawdzany', async () => {
+      await expect(
+        write({ 'sec-fetch-site': 'cross-site' }, 'GET'),
+      ).resolves.toBe(true);
     });
   });
 

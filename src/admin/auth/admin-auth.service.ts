@@ -8,9 +8,11 @@ import type {
 } from '@simplewebauthn/server';
 import { AppException } from '../../common/app-exception';
 import { decryptSecret, encryptSecret } from '../../common/crypto.util';
+import { readThrottleLimit } from '../../common/throttle/throttle-env';
 import { readAdminEnv, readAdminTotpKey } from '../../config/admin-env';
 import { OpsAlertService } from '../../observability/ops-alert.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AdminRateLimiter } from '../admin-rate-limiter';
 import type { AdminAccessContext } from '../admin-request';
 import { adminActor, AdminAuditService } from '../audit/admin-audit.service';
 import type {
@@ -88,8 +90,13 @@ function nameFromEmail(email: string): string {
  * odzyskiwania, po którym sesja widzi wyłącznie konfigurację nowego wejścia.
  *
  * Zasady wspólne dla każdej ścieżki:
- *   - blokada 5 porażek / 15 min per adres i per IP liczona PRZED weryfikacją
- *     (`AdminLockoutService`), każda próba zostaje w `AdminLoginAttempt`,
+ *   - blokada 5 porażek / 15 min per adres i per IP: próba REZERWUJE miejsce
+ *     w liczniku PRZED weryfikacją, atomowo pod zamkiem doradczym
+ *     (`AdminLockoutService.reserve`), i dopiero potem weryfikuje; każda
+ *     próba zostaje w `AdminLoginAttempt`. Przed rezerwacją — tani limit
+ *     w pamięci na próby kodu per adres (`THROTTLE_ADMIN_CODE_LIMIT`),
+ *   - dodanie / usunięcie passkeya, włączenie TOTP i nowe kody odzyskiwania
+ *     wymagają świeżego step-upu i budzą alert operatora,
  *   - wejście i każda zmiana sposobu logowania idzie do dziennika audytu,
  *   - każde udane logowanie budzi alert operatora (`OPS_ALERT_WEBHOOK_URL`),
  *     wejście kodem odzyskiwania — wyraźniejszy,
@@ -107,6 +114,7 @@ export class AdminAuthService {
     private readonly webauthn: AdminWebAuthnService,
     private readonly audit: AdminAuditService,
     private readonly alerts: OpsAlertService,
+    private readonly limiter: AdminRateLimiter,
   ) {}
 
   // ——— stan przed zalogowaniem ———
@@ -172,18 +180,28 @@ export class AdminAuthService {
     response: AuthenticationResponseJSON,
   ): Promise<OpenedSession> {
     const admin = await this.requireAdmin(access);
-    await this.lockout.assertNotLocked(access, 'passkey', 'LOGIN', admin.id);
-    const verified = await this.webauthn.verifyAuthentication(response, {
-      email: access.email,
-      sessionId: null,
-      adminUserId: admin.id,
-      purpose: 'LOGIN',
-    });
+    this.throttleAttempts(access);
+    const attempt = await this.lockout.reserve(
+      access,
+      'passkey',
+      'LOGIN',
+      admin.id,
+    );
+    const verified = await this.settleOnError(attempt, () =>
+      this.webauthn.verifyAuthentication(response, {
+        email: access.email,
+        sessionId: null,
+        adminUserId: admin.id,
+        purpose: 'LOGIN',
+      }),
+    );
     if (!verified) {
-      await this.failed(access, admin, 'passkey', 'LOGIN', 'PASSKEY_FAILED');
+      await this.failed(access, admin, 'passkey', 'LOGIN', 'PASSKEY_FAILED', {
+        attempt,
+      });
       throw new AdminAuthException('PASSKEY_FAILED');
     }
-    return this.open(access, admin, 'passkey');
+    return this.open(access, admin, 'passkey', { attempt });
   }
 
   async totpLogin(
@@ -192,12 +210,23 @@ export class AdminAuthService {
   ): Promise<OpenedSession> {
     const key = this.requireTotpKey();
     const admin = await this.requireAdmin(access);
-    await this.lockout.assertNotLocked(access, 'totp', 'LOGIN', admin.id);
-    if (!(await this.claimTotp(admin.id, code, key))) {
-      await this.failed(access, admin, 'totp', 'LOGIN', 'INVALID_CODE');
+    this.throttleAttempts(access);
+    const attempt = await this.lockout.reserve(
+      access,
+      'totp',
+      'LOGIN',
+      admin.id,
+    );
+    const ok = await this.settleOnError(attempt, () =>
+      this.claimTotp(admin.id, code, key),
+    );
+    if (!ok) {
+      await this.failed(access, admin, 'totp', 'LOGIN', 'INVALID_CODE', {
+        attempt,
+      });
       throw new AdminAuthException('INVALID_CODE');
     }
-    return this.open(access, admin, 'totp');
+    return this.open(access, admin, 'totp', { attempt });
   }
 
   async recoveryLogin(
@@ -206,10 +235,16 @@ export class AdminAuthService {
   ): Promise<OpenedSession> {
     const key = this.requireTotpKey();
     const admin = await this.requireAdmin(access);
-    await this.lockout.assertNotLocked(access, 'recovery', 'LOGIN', admin.id);
+    this.throttleAttempts(access);
+    const attempt = await this.lockout.reserve(
+      access,
+      'recovery',
+      'LOGIN',
+      admin.id,
+    );
     const normalized = normalizeRecoveryCode(code);
-    let used = false;
-    if (normalized) {
+    const used = await this.settleOnError(attempt, async () => {
+      if (!normalized) return false;
       const { count } = await this.prisma.adminRecoveryCode.updateMany({
         where: {
           adminUserId: admin.id,
@@ -218,13 +253,15 @@ export class AdminAuthService {
         },
         data: { usedAt: new Date() },
       });
-      used = count === 1;
-    }
+      return count === 1;
+    });
     if (!used) {
-      await this.failed(access, admin, 'recovery', 'LOGIN', 'INVALID_CODE');
+      await this.failed(access, admin, 'recovery', 'LOGIN', 'INVALID_CODE', {
+        attempt,
+      });
       throw new AdminAuthException('INVALID_CODE');
     }
-    return this.open(access, admin, 'recovery');
+    return this.open(access, admin, 'recovery', { attempt });
   }
 
   // ——— passkeye ———
@@ -301,6 +338,12 @@ export class AdminAuthService {
       if (verified.adminUserId !== null) {
         throw new AdminAuthException('NOT_ALLOWED');
       }
+      // Warunek bootstrapu sprawdzony drugi raz, tuż przed zapisem: między
+      // `…/options` a odpowiedzią mogła się zmienić konfiguracja albo powstać
+      // pierwsze konto (to drugie łapie też transakcja `bootstrapAdmin`).
+      if (!(await this.canBootstrap(access.email))) {
+        throw new AdminAuthException('NOT_ALLOWED');
+      }
       const created = await this.bootstrapAdmin(
         access,
         verified.webauthnUserId,
@@ -322,13 +365,27 @@ export class AdminAuthService {
         targetType: 'AdminCredential',
         details: { name },
       },
-      () =>
-        this.prisma.adminCredential.create({
-          data: { ...credentialData, adminUserId: session.adminUserId },
-        }),
+      async () => {
+        try {
+          return await this.prisma.adminCredential.create({
+            data: { ...credentialData, adminUserId: session.adminUserId },
+          });
+        } catch (error) {
+          // Ten sam `credentialId` już jest (klucz zapisany drugi raz mimo
+          // `excludeCredentials`) — 409 z kodem, nie 500.
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            throw new AdminAuthException('PASSKEY_EXISTS');
+          }
+          throw error;
+        }
+      },
       (row) => ({ credentialRowId: row.id }),
     );
     if (session.mustReenroll) await this.sessions.clearMustReenroll(session.id);
+    this.alertMethodChange(session, access, `dodano klucz dostępu „${name}”`);
     return { passkey: this.toPasskey(credential), opened: null };
   }
 
@@ -370,25 +427,56 @@ export class AdminAuthService {
         details: { name: credential.name },
       },
       () =>
-        this.prisma.adminCredential.deleteMany({
-          where: { id: credential.id, adminUserId: session.adminUserId },
+        // Sprawdzenie „ostatniej metody” i usunięcie RAZEM, pod blokadą
+        // wiersza admina: dwa równoległe DELETE przy dwóch kluczach bez TOTP
+        // widziały dawniej po dwa klucze i kasowały oba (audyt 25.09.2026).
+        this.prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT 1 FROM "AdminUser" WHERE id = ${session.adminUserId}::uuid FOR UPDATE`;
+          const passkeys = await tx.adminCredential.count({
+            where: { adminUserId: session.adminUserId },
+          });
+          const totp = await tx.adminTotp.findUnique({
+            where: { adminUserId: session.adminUserId },
+            select: { confirmedAt: true, secretEncrypted: true },
+          });
+          if (passkeys <= 1 && !(totp?.confirmedAt && totp.secretEncrypted)) {
+            throw new AdminAuthException('LAST_METHOD');
+          }
+          const { count } = await tx.adminCredential.deleteMany({
+            where: { id: credential.id, adminUserId: session.adminUserId },
+          });
+          if (count === 0) {
+            throw new AppException(
+              'NOT_FOUND',
+              'Nie ma takiego klucza.',
+              HttpStatus.NOT_FOUND,
+            );
+          }
         }),
+    );
+    this.alertMethodChange(
+      session,
+      access,
+      `usunięto klucz dostępu „${credential.name}”`,
     );
   }
 
   // ——— TOTP i kody odzyskiwania ———
 
-  /** Nowy sekret TOTP (czeka na pierwszy kod). Zmiana działającego wymaga step-upu. */
+  /**
+   * Nowy sekret TOTP (czeka na pierwszy kod). ZAWSZE wymaga świeżego
+   * step-upu — także pierwszy TOTP (dawniej tylko wymiana działającego), bo
+   * pierwszy TOTP to nowy sposób wejścia plus 10 kodów odzyskiwania, a
+   * ukradzione ciasteczko sesji nie może ich sobie dopisać. Wyjątek: sesja
+   * z kodu odzyskiwania (`mustReenroll`). Świeżo po bootstrapie sesja ma
+   * step-up z logowania passkeyem, więc kreator pierwszego wejścia działa.
+   */
   async totpSetup(
     access: AdminAccessContext,
     session: ResolvedAdminSession,
   ): Promise<{ otpauthUrl: string; secret: string }> {
     const key = this.requireTotpKey();
-    const existing = await this.prisma.adminTotp.findUnique({
-      where: { adminUserId: session.adminUserId },
-      select: { confirmedAt: true },
-    });
-    if (existing?.confirmedAt) this.requireFreshUnlessReenroll(session);
+    this.requireFreshUnlessReenroll(session);
     const secret = generateTotpSecret();
     const pendingSecretEncrypted = encryptSecret(secret, key);
     await this.prisma.adminTotp.upsert({
@@ -417,6 +505,12 @@ export class AdminAuthService {
   /**
    * Pierwszy kod z aplikacji włącza sekret. Kody odzyskiwania wracają tylko
    * wtedy, gdy konto nie ma już żadnego niewykorzystanego.
+   *
+   * Step-up: świeży ALBO ten, pod którym powstał oczekujący sekret
+   * (`pendingCreatedAt` przed `stepUpUntil` tej sesji). Skanowanie kodu QR
+   * potrafi trwać dłużej niż 5 minut ważności step-upu, a kreator pierwszego
+   * wejścia (zaraz po bootstrapie) nie ma okna step-upu — sekret i tak zna
+   * tylko ten, kto wywołał `totp/setup`, a to wymagało step-upu.
    */
   async totpConfirm(
     access: AdminAccessContext,
@@ -427,6 +521,17 @@ export class AdminAuthService {
     const row = await this.prisma.adminTotp.findUnique({
       where: { adminUserId: session.adminUserId },
     });
+    const stepUpCoversPending =
+      row?.pendingCreatedAt != null &&
+      session.stepUpUntil !== null &&
+      row.pendingCreatedAt.getTime() < session.stepUpUntil.getTime();
+    if (
+      !session.mustReenroll &&
+      !stepUpValid(session) &&
+      !stepUpCoversPending
+    ) {
+      throw new AdminAuthException('STEP_UP_REQUIRED');
+    }
     const pendingFresh =
       row?.pendingSecretEncrypted &&
       row.pendingCreatedAt &&
@@ -465,6 +570,13 @@ export class AdminAuthService {
       (codes) => ({ recoveryCodesIssued: codes?.length ?? 0 }),
     );
     if (session.mustReenroll) await this.sessions.clearMustReenroll(session.id);
+    this.alertMethodChange(
+      session,
+      access,
+      recoveryCodes
+        ? 'włączono kod z aplikacji (TOTP) i wydano nowe kody odzyskiwania'
+        : 'włączono kod z aplikacji (TOTP)',
+    );
     return { recoveryCodes };
   }
 
@@ -479,6 +591,11 @@ export class AdminAuthService {
       { action: 'auth.recovery.regenerate' },
       () => this.issueRecoveryCodes(session.adminUserId, key),
       (codes) => ({ recoveryCodesIssued: codes.length }),
+    );
+    this.alertMethodChange(
+      session,
+      access,
+      'wydano nowe kody odzyskiwania (stare przestały działać)',
     );
     return { recoveryCodes };
   }
@@ -510,31 +627,46 @@ export class AdminAuthService {
   ): Promise<{ stepUpUntil: string }> {
     const method: AdminAuthMethod = proof.passkey ? 'passkey' : 'totp';
     const admin = await this.adminById(session.adminUserId);
-    await this.lockout.assertNotLocked(access, method, 'STEP_UP', admin.id);
-    let ok = false;
-    if (proof.passkey) {
-      ok =
-        (await this.webauthn.verifyAuthentication(proof.passkey, {
-          email: access.email,
-          sessionId: session.id,
-          adminUserId: admin.id,
-          purpose: 'STEP_UP',
-        })) !== null;
-    } else if (typeof proof.totp === 'string') {
-      ok = await this.claimTotp(admin.id, proof.totp, this.requireTotpKey());
-    }
+    const totpKey = proof.passkey ? null : this.requireTotpKey();
+    this.throttleAttempts(access);
+    const attempt = await this.lockout.reserve(
+      access,
+      method,
+      'STEP_UP',
+      admin.id,
+    );
+    const ok = await this.settleOnError(attempt, async () => {
+      if (proof.passkey) {
+        return (
+          (await this.webauthn.verifyAuthentication(proof.passkey, {
+            email: access.email,
+            sessionId: session.id,
+            adminUserId: admin.id,
+            purpose: 'STEP_UP',
+          })) !== null
+        );
+      }
+      if (typeof proof.totp === 'string' && totpKey) {
+        return this.claimTotp(admin.id, proof.totp, totpKey);
+      }
+      return false;
+    });
     if (!ok) {
       const code = method === 'passkey' ? 'PASSKEY_FAILED' : 'INVALID_CODE';
-      await this.failed(access, admin, method, 'STEP_UP', code, session);
+      await this.failed(access, admin, method, 'STEP_UP', code, {
+        session,
+        attempt,
+      });
       throw new AdminAuthException(code);
     }
-    await this.lockout.record(access, method, 'STEP_UP', 'SUCCESS', admin.id);
-    const until = await this.sessions.markStepUp(session.id);
-    await this.audit.record(adminActor(session, access), {
-      action: 'auth.step-up',
-      result: 'SUCCESS',
-      details: { method },
-    });
+    await this.lockout.settle(attempt, 'SUCCESS');
+    // Ślad PRZED skutkiem (`PENDING`): step-up bez wpisu w dzienniku jest
+    // niemożliwy, nawet gdy proces padnie między zapisami.
+    const until = await this.audit.run(
+      adminActor(session, access),
+      { action: 'auth.step-up', details: { method } },
+      () => this.sessions.markStepUp(session.id),
+    );
     return { stepUpUntil: until.toISOString() };
   }
 
@@ -573,12 +705,20 @@ export class AdminAuthService {
   ): Promise<void> {
     if (!session) return;
     await this.sessions.revoke(session.adminUserId, session.id, 'LOGOUT');
-    await this.audit.record(adminActor(session, access), {
-      action: 'auth.logout',
-      targetType: 'AdminSession',
-      targetId: session.id,
-      result: 'SUCCESS',
-    });
+    // Sesja już zgaszona — błąd dziennika nie może zamienić wylogowania
+    // w 500 i zostawić ciasteczka w przeglądarce.
+    try {
+      await this.audit.record(adminActor(session, access), {
+        action: 'auth.logout',
+        targetType: 'AdminSession',
+        targetId: session.id,
+        result: 'SUCCESS',
+      });
+    } catch (error) {
+      this.logger.error(
+        `wylogowanie sesji ${session.id} bez wpisu w dzienniku audytu: ${error instanceof Error ? error.name : 'błąd'}`,
+      );
+    }
   }
 
   // ——— pomocnicze ———
@@ -587,7 +727,7 @@ export class AdminAuthService {
     access: AdminAccessContext,
     admin: AdminRow,
     method: AdminAuthMethod,
-    options: { action?: string } = {},
+    options: { action?: string; attempt?: string } = {},
   ): Promise<OpenedSession> {
     const recovery = method === 'recovery';
     const { token, session } = await this.sessions.create(
@@ -598,7 +738,11 @@ export class AdminAuthService {
       // tego zamyka sesję w konfiguracji nowego wejścia.
       { mustReenroll: recovery, stepUp: !recovery },
     );
-    await this.lockout.record(access, method, 'LOGIN', 'SUCCESS', admin.id);
+    if (options.attempt) {
+      await this.lockout.settle(options.attempt, 'SUCCESS');
+    } else {
+      await this.lockout.record(access, method, 'LOGIN', 'SUCCESS', admin.id);
+    }
     await this.audit.record(adminActor(session, access), {
       action: options.action ?? 'auth.login',
       targetType: 'AdminSession',
@@ -622,15 +766,71 @@ export class AdminAuthService {
     method: AdminAuthMethod,
     kind: AttemptKind,
     reason: string,
-    session: ResolvedAdminSession | null = null,
+    options: { session?: ResolvedAdminSession; attempt?: string } = {},
   ): Promise<void> {
-    await this.lockout.record(access, method, kind, 'FAILED', admin.id, reason);
-    await this.audit.record(adminActor(session, access), {
+    if (options.attempt) {
+      await this.lockout.settle(options.attempt, 'FAILED', reason);
+    } else {
+      await this.lockout.record(
+        access,
+        method,
+        kind,
+        'FAILED',
+        admin.id,
+        reason,
+      );
+    }
+    await this.audit.record(adminActor(options.session ?? null, access), {
       action: kind === 'LOGIN' ? 'auth.login' : 'auth.step-up',
       result: 'FAILED',
       errorCode: reason,
       details: { method },
     });
+  }
+
+  /**
+   * Tani limit prób kodu / klucza per adres z bramki (w pamięci, przed
+   * rezerwacją w bazie) — seria żądań odbija się 429, zanim dotknie bazy.
+   */
+  private throttleAttempts(access: AdminAccessContext): void {
+    this.limiter.check(
+      `code:${access.email}`,
+      readThrottleLimit('THROTTLE_ADMIN_CODE_LIMIT'),
+    );
+  }
+
+  /**
+   * Weryfikacja z rezerwacją w liczniku: wyjątek w trakcie (baza, 503)
+   * domyka rezerwację jako porażkę, zamiast zostawić ją w `PENDING`.
+   */
+  private async settleOnError<T>(
+    attempt: string,
+    verify: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await verify();
+    } catch (error) {
+      await this.lockout
+        .settle(attempt, 'FAILED', 'ERROR')
+        .catch(() => undefined);
+      throw error;
+    }
+  }
+
+  /**
+   * Alert operatora przy zmianie sposobu wejścia (passkey, TOTP, kody
+   * odzyskiwania). Bez sekretów: tylko adres, co się stało i skąd.
+   */
+  private alertMethodChange(
+    session: ResolvedAdminSession,
+    access: AdminAccessContext,
+    what: string,
+  ): void {
+    const where = [access.country, access.ip].filter(Boolean).join(', ');
+    void this.alerts.notify(
+      `admin-method:${session.id}:${Date.now()}`,
+      `Panel admina: ${what} (${session.admin.email}${where ? `, ${where}` : ''}).`,
+    );
   }
 
   /**

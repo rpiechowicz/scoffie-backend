@@ -2,19 +2,9 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Response } from 'express';
 import { readThrottleLimit } from '../common/throttle/throttle-env';
-import {
-  ACCESS_JWT_HEADER,
-  AccessJwtVerifier,
-} from './access/access-jwt.verifier';
-import { accessGateConfigured, readAdminEnv } from '../config/admin-env';
+import { AdminGate } from './admin-gate';
 import { AdminRateLimiter } from './admin-rate-limiter';
-import {
-  AdminAccessContext,
-  AdminRequest,
-  describeAdminRequest,
-  hiddenNotFound,
-  requestHeader,
-} from './admin-request';
+import { AdminRequest, hiddenNotFound, requestHeader } from './admin-request';
 import { roleHasPermission, type AdminPermission } from './admin-permissions';
 import {
   ADMIN_ALLOW_REENROLL,
@@ -39,6 +29,9 @@ import {
  *      widzi nawet 429.
  *   2. `X-Robots-Tag` — dopiero po bramce, bo nagłówek na 404 odróżniałby
  *      `/admin/users` od trasy, której nie ma.
+ *   2a. Żądanie zmieniające stan (POST/PUT/PATCH/DELETE) spoza pochodzenia
+ *      panelu — 403 `CROSS_SITE` (`Sec-Fetch-Site`), ciało inne niż JSON —
+ *      415 `UNSUPPORTED_MEDIA_TYPE` (`assertSameOriginJson`).
  *   3. Sesja panelu (ciasteczko `__Host-scoffie_admin`, związane z adresem
  *      z bramki) i limit żądań: z sesją po `admin:<id>`, bez niej po IP
  *      (niski limit tras logowania).
@@ -52,7 +45,7 @@ import {
 @Injectable()
 export class AdminGuard implements CanActivate {
   constructor(
-    private readonly verifier: AccessJwtVerifier,
+    private readonly gate: AdminGate,
     private readonly limiter: AdminRateLimiter,
     private readonly sessions: AdminSessionsService,
     private readonly reflector: Reflector,
@@ -64,10 +57,12 @@ export class AdminGuard implements CanActivate {
     const req = http.getRequest<AdminRequest>();
     const res = http.getResponse<Response>();
 
-    const access = await this.passGate(req);
+    // Zwykle policzone już przez `AdminGateMiddleware` — tu tylko odczyt.
+    const access = await this.gate.pass(req);
     if (!access) throw hiddenNotFound(req);
     req.adminAccess = access;
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    assertSameOriginJson(req);
 
     const targets = [context.getHandler(), context.getClass()];
     const mode =
@@ -124,22 +119,42 @@ export class AdminGuard implements CanActivate {
     }
     return true;
   }
+}
 
-  /** Tożsamość z bramki albo `null` (= 404). Nigdy nie rzuca. */
-  private async passGate(
-    req: AdminRequest,
-  ): Promise<AdminAccessContext | null> {
-    const env = readAdminEnv();
-    const described = describeAdminRequest(req);
-    if (env.devEmail) {
-      return { email: env.devEmail, subject: null, via: 'dev', ...described };
-    }
-    if (!accessGateConfigured(env)) return null;
-    const identity = await this.verifier.verify(
-      requestHeader(req, ACCESS_JWT_HEADER) ?? undefined,
-      env,
-    );
-    if (!identity) return null;
-    return { ...identity, via: 'access', ...described };
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/**
+ * CSRF w obrębie witryny (audyt logowania 25.09.2026). `SameSite=Strict`
+ * chroni przed obcą domeną, ale NIE przed inną stroną tej samej witryny
+ * (`*.scoffie.app`) — dla przeglądarki to „same-site”, więc ciasteczko
+ * sesji jedzie. Dwie zapory, obie zgodne z frontem panelu (`src/api/client.ts`:
+ * POST/PUT/PATCH zawsze z `Content-Type: application/json`, DELETE bez
+ * ciała i bez nagłówka):
+ *
+ *   1. `Sec-Fetch-Site` obecny i inny niż `same-origin` = 403 `CROSS_SITE`.
+ *      Panel woła `/api/*` z własnego pochodzenia, a Worker przekazuje
+ *      nagłówki przeglądarki. Brak nagłówka (curl, testy, stara przeglądarka)
+ *      nie jest odrzucany — o to dba punkt 2.
+ *   2. Ciało (albo `Content-Type`) tylko jako `application/json`, inaczej
+ *      415 `UNSUPPORTED_MEDIA_TYPE`. Formularz HTML nie wyśle JSON-a, a
+ *      `fetch` z JSON-em na obce pochodzenie wymaga preflightu CORS, którego
+ *      backend nie przepuszcza. Żądanie bez ciała i bez `Content-Type` (DELETE
+ *      z panelu) przechodzi.
+ */
+export function assertSameOriginJson(req: AdminRequest): void {
+  if (SAFE_METHODS.has(req.method.toUpperCase())) return;
+  const site = requestHeader(req, 'sec-fetch-site');
+  if (site && site.toLowerCase() !== 'same-origin') {
+    throw new AdminAuthException('CROSS_SITE');
+  }
+  const contentType = requestHeader(req, 'content-type');
+  const length = Number(requestHeader(req, 'content-length') ?? '0');
+  const hasBody =
+    (Number.isFinite(length) && length > 0) ||
+    requestHeader(req, 'transfer-encoding') !== null;
+  if (!contentType && !hasBody) return;
+  const mime = (contentType ?? '').split(';')[0].trim().toLowerCase();
+  if (mime !== 'application/json') {
+    throw new AdminAuthException('UNSUPPORTED_MEDIA_TYPE');
   }
 }

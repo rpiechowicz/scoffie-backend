@@ -22,6 +22,9 @@ export const ADMIN_AUTH_ERROR_CODES = [
   'STEP_UP_REQUIRED',
   'LAST_METHOD',
   'NOT_ALLOWED',
+  'PASSKEY_EXISTS',
+  'CROSS_SITE',
+  'UNSUPPORTED_MEDIA_TYPE',
 ] as const;
 export type AdminAuthErrorCode = (typeof ADMIN_AUTH_ERROR_CODES)[number];
 
@@ -32,6 +35,9 @@ const STATUS: Record<AdminAuthErrorCode, HttpStatus> = {
   STEP_UP_REQUIRED: HttpStatus.FORBIDDEN,
   NOT_ALLOWED: HttpStatus.FORBIDDEN,
   LAST_METHOD: HttpStatus.CONFLICT,
+  PASSKEY_EXISTS: HttpStatus.CONFLICT,
+  CROSS_SITE: HttpStatus.FORBIDDEN,
+  UNSUPPORTED_MEDIA_TYPE: HttpStatus.UNSUPPORTED_MEDIA_TYPE,
 };
 
 const DEFAULT_MESSAGE: Record<AdminAuthErrorCode, string> = {
@@ -41,6 +47,9 @@ const DEFAULT_MESSAGE: Record<AdminAuthErrorCode, string> = {
   STEP_UP_REQUIRED: 'Ta akcja wymaga ponownego potwierdzenia tożsamości.',
   NOT_ALLOWED: 'Ta operacja nie jest teraz dozwolona.',
   LAST_METHOD: 'To ostatni sposób logowania — najpierw dodaj inny.',
+  PASSKEY_EXISTS: 'Ten klucz jest już zapisany.',
+  CROSS_SITE: 'Żądanie spoza panelu zostało odrzucone.',
+  UNSUPPORTED_MEDIA_TYPE: 'Panel przyjmuje wyłącznie JSON.',
 };
 
 type AdminAuthBody = {

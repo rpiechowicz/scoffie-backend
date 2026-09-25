@@ -3,6 +3,7 @@ import {
   adminEnvProblems,
   normalizeTeamDomain,
   readAdminEnv,
+  readAdminProxySecret,
   readAdminTotpKey,
 } from './admin-env';
 
@@ -141,9 +142,37 @@ describe('admin-env', () => {
             ADMIN_WEBAUTHN_ORIGIN: 'https://dashboard.scoffie.app',
             ADMIN_TOTP_ENCRYPTION_KEY: KEY,
             ADMIN_BOOTSTRAP_EMAIL: 'rafal@example.com',
+            ADMIN_PROXY_SECRET: 'x'.repeat(32),
           }),
         ),
       ).toEqual({ violations: [], warnings: [] });
+    });
+
+    it('ADMIN_PROXY_SECRET: za krótki — ignorowany z ostrzeżeniem; brak na produkcji — ostrzeżenie', () => {
+      expect(
+        readAdminProxySecret(env({ ADMIN_PROXY_SECRET: 'x'.repeat(31) })),
+      ).toBeNull();
+      expect(
+        readAdminProxySecret(
+          env({ ADMIN_PROXY_SECRET: ` ${'x'.repeat(32)} ` }),
+        ),
+      ).toBe('x'.repeat(32));
+      expect(
+        adminEnvProblems(env({ ADMIN_PROXY_SECRET: 'krotki' })).warnings,
+      ).toEqual([expect.stringContaining('ADMIN_PROXY_SECRET krótszy')]);
+      expect(
+        adminEnvProblems(
+          env({
+            NODE_ENV: 'production',
+            ADMIN_ACCESS_TEAM_DOMAIN: 'scoffie.cloudflareaccess.com',
+            ADMIN_ACCESS_AUD: 'aud',
+            ADMIN_WEBAUTHN_RP_ID: 'dashboard.scoffie.app',
+            ADMIN_WEBAUTHN_ORIGIN: 'https://dashboard.scoffie.app',
+            ADMIN_TOTP_ENCRYPTION_KEY: KEY,
+            ADMIN_BOOTSTRAP_EMAIL: 'rafal@example.com',
+          }),
+        ).warnings,
+      ).toEqual([expect.stringContaining('brak ADMIN_PROXY_SECRET')]);
     });
   });
 });

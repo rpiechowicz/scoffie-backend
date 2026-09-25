@@ -24,6 +24,7 @@ export const THROTTLE_KEYS = [
   'THROTTLE_AGENT_POLL_LIMIT',
   'THROTTLE_ADMIN_LIMIT',
   'THROTTLE_ADMIN_AUTH_LIMIT',
+  'THROTTLE_ADMIN_CODE_LIMIT',
 ] as const;
 
 export type ThrottleKey = (typeof THROTTLE_KEYS)[number];
@@ -47,6 +48,9 @@ export const THROTTLE_DEFAULTS: Readonly<Record<ThrottleKey, number>> = {
   // …i per adres bez sesji (logowanie) — tu bronimy się przed zgadywaniem;
   // twardą barierą i tak jest blokada po 5 nieudanych próbach.
   THROTTLE_ADMIN_AUTH_LIMIT: 30,
+  // …i osobno próby kodu / klucza (logowanie, step-up) per adres z bramki —
+  // tania zapora w pamięci przed blokadą w bazie (5 porażek / 15 min).
+  THROTTLE_ADMIN_CODE_LIMIT: 10,
 };
 
 /**
