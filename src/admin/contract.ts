@@ -696,6 +696,10 @@ export interface SentryProjectHealth {
   unresolved: number;
   /** pierwszy raz w 24 h */
   new24h: number;
+  /** przyjęte zdarzenia błędów w 24 h; `null` — Sentry nie podał */
+  events24h: number | null;
+  /** najnowsze wydanie projektu */
+  release: { version: string; createdAt: IsoDate } | null;
 }
 
 export interface SentryIssue {
@@ -720,6 +724,8 @@ export interface SentryData {
   issues: SentryIssue[];
   /** link do organizacji */
   url: string;
+  /** projekty z konfiguracji, których w Sentry nie ma (np. `scoffie-android`) */
+  missing: string[];
 }
 
 export interface RailwayDeploy {
@@ -730,6 +736,12 @@ export interface RailwayDeploy {
   commitHash: string | null;
   commitMessage: string | null;
   branch: string | null;
+  /** ostatnia zmiana stanu — z `createdAt` daje czas budowy i startu */
+  statusUpdatedAt: IsoDate | null;
+  /** autor commita */
+  author: string | null;
+  /** `deploy`, `redeploy`, `rollback`, … — z `meta.reason` */
+  reason: string | null;
 }
 
 export interface MetricPoint {
@@ -744,6 +756,9 @@ export interface RailwayService {
   /** usługa cron (np. `db-backup`) */
   cron: string | null;
   nextCronRunAt: IsoDate | null;
+  /** np. `europe-west4-drams3a` */
+  region: string | null;
+  replicas: number | null;
   /** najnowsze pierwsze, do 5 */
   deploys: RailwayDeploy[];
   /** vCPU, 24 h co 30 min */
@@ -814,10 +829,8 @@ export type AppStoreState = IntegrationState<AppStoreData>;
 
 export type OpsRange = '1h' | '6h' | '24h' | '7d' | '30d';
 
-export interface RailwayDeployDetail extends RailwayDeploy {
-  /** ostatnia zmiana stanu — z `createdAt` daje czas budowy i startu */
-  statusUpdatedAt: IsoDate | null;
-}
+/** Wdrożenie na stronie usługi — dziś to samo co na liście. */
+export type RailwayDeployDetail = RailwayDeploy;
 
 export interface RailwayServiceConfig {
   region: string | null;
