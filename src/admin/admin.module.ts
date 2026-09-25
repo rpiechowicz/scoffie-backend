@@ -14,6 +14,7 @@ import {
 } from './auth/admin-auth.controller';
 import { AdminAuthService } from './auth/admin-auth.service';
 import { AdminHouseholdsModule } from './households/admin-households.module';
+import { AdminIntegrationsModule } from './integrations/admin-integrations.module';
 import { AdminSubscriptionsModule } from './subscriptions/admin-subscriptions.module';
 import { AdminUsersModule } from './users/admin-users.module';
 
@@ -41,6 +42,7 @@ import { AdminUsersModule } from './users/admin-users.module';
     AdminSubscriptionsModule,
     AdminAssistantModule,
     AdminCatalogModule,
+    AdminIntegrationsModule,
   ],
   controllers: [AdminAuthController, AdminSessionController],
   providers: [AdminAuthService],
