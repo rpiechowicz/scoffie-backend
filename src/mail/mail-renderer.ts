@@ -5,9 +5,12 @@ import {
   AccountDeletedPayload,
   AiQuotaExhaustedPayload,
   AiTrialExhaustedPayload,
+  DailyReportMetric,
+  DailyReportPayload,
   HouseholdJoinedPayload,
   LegalUpdatePayload,
   MailTemplateId,
+  OpsAlertPayload,
   RenderedMail,
   SubscriptionExpiredPayload,
   SubscriptionGracePayload,
@@ -25,6 +28,10 @@ import {
 } from './templates/subscription.template';
 import { renderAccountDeleted } from './templates/account-deleted.template';
 import { renderLegalUpdate } from './templates/legal-update.template';
+import {
+  renderDailyReport,
+  renderOpsAlert,
+} from './templates/operator.template';
 
 /**
  * Renderer: identyfikator szablonu + `payload` z bazy → gotowa wiadomość.
@@ -68,6 +75,10 @@ export class MailRenderer {
         return renderAccountDeleted(c, this.accountDeleted(payload));
       case 'LEGAL_UPDATE':
         return renderLegalUpdate(c, this.legalUpdate(payload));
+      case 'OPS_ALERT':
+        return renderOpsAlert(c, this.opsAlert(payload));
+      case 'DAILY_REPORT':
+        return renderDailyReport(c, this.dailyReport(payload));
     }
   }
 
@@ -215,6 +226,79 @@ export class MailRenderer {
       version: this.str(p, 'version'),
       requiresConsent: this.bool(p, 'requiresConsent'),
       changes,
+    };
+  }
+
+  private opsAlert(p: Record<string, unknown>): OpsAlertPayload {
+    const severity = p.severity;
+    if (severity !== 'critical' && severity !== 'warning') {
+      throw new Error('pole "severity" musi być "critical" albo "warning"');
+    }
+    return {
+      severity,
+      title: this.str(p, 'title'),
+      detail: this.str(p, 'detail'),
+      firstAtIso: this.str(p, 'firstAtIso'),
+      panelUrl: this.str(p, 'panelUrl'),
+    };
+  }
+
+  private dailyReport(p: Record<string, unknown>): DailyReportPayload {
+    const sections = p.sections;
+    if (!Array.isArray(sections) || sections.length === 0) {
+      throw new Error('brak listy "sections"');
+    }
+    const notes = Array.isArray(p.notes) ? p.notes : [];
+    return {
+      day: this.str(p, 'day'),
+      panelUrl: this.str(p, 'panelUrl'),
+      sections: sections.map((entry, i) => {
+        const section = entry as Record<string, unknown>;
+        if (typeof section?.title !== 'string' || !section.title.trim()) {
+          throw new Error(`sekcja ${i} bez tytułu`);
+        }
+        if (!Array.isArray(section.metrics) || section.metrics.length === 0) {
+          throw new Error(`sekcja ${i} bez liczb`);
+        }
+        return {
+          title: section.title,
+          metrics: section.metrics.map((m, j) =>
+            this.metric(m as Record<string, unknown>, `${i}.${j}`),
+          ),
+        };
+      }),
+      notes: notes.map((entry, i) => {
+        const note = entry as Record<string, unknown>;
+        if (
+          (note?.tone !== 'ok' && note?.tone !== 'warn') ||
+          typeof note.text !== 'string'
+        ) {
+          throw new Error(`uwaga ${i} bez tonu albo tekstu`);
+        }
+        return { tone: note.tone, text: note.text };
+      }),
+    };
+  }
+
+  private metric(m: Record<string, unknown>, at: string): DailyReportMetric {
+    const format = m?.format;
+    const good = m?.good;
+    if (format !== 'count' && format !== 'usd' && format !== 'pln') {
+      throw new Error(`liczba ${at}: zły "format"`);
+    }
+    if (good !== 'up' && good !== 'down' && good !== 'neutral') {
+      throw new Error(`liczba ${at}: zły "good"`);
+    }
+    const previous = m.previous;
+    return {
+      label: this.str(m, 'label'),
+      value: this.num(m, 'value'),
+      previous:
+        previous === null || previous === undefined
+          ? null
+          : this.num(m, 'previous'),
+      format,
+      good,
     };
   }
 }

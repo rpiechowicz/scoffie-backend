@@ -215,7 +215,10 @@ export type MailTemplate =
   | 'SUBSCRIPTION_GRACE'
   | 'SUBSCRIPTION_EXPIRED'
   | 'LEGAL_UPDATE'
-  | 'ACCOUNT_DELETED';
+  | 'ACCOUNT_DELETED'
+  /** do operatora (bez `userId`): alert i raport dzienny */
+  | 'OPS_ALERT'
+  | 'DAILY_REPORT';
 
 /** `MailMessage` */
 export interface Mail {
@@ -1013,4 +1016,77 @@ export interface AscReviewResponse {
   body: string;
   /** `PUBLISHED`, `PENDING_PUBLISH` */
   state: string;
+}
+
+// ——— Alerty i raport dzienny ———
+
+export type AlertSeverity = 'critical' | 'warning';
+
+/** `AdminAlert` — jeden wiersz na problem (nie na sprawdzenie). */
+export interface AdminAlertRow {
+  id: string;
+  /** np. `deploy-failed:<serviceId>:<deployId>`, `crash-free:scoffie-ios` */
+  key: string;
+  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain` */
+  kind: string;
+  severity: AlertSeverity;
+  title: string;
+  /** bez danych osobowych */
+  detail: string;
+  firstAt: IsoDate;
+  /** ostatnie sprawdzenie, które jeszcze widziało problem */
+  lastAt: IsoDate;
+  resolvedAt: IsoDate | null;
+  acknowledgedAt: IsoDate | null;
+  /** adres admina z panelu */
+  acknowledgedBy: string | null;
+}
+
+/** Raport „Scoffie wczoraj” o 7:00 (Europe/Warsaw). */
+export interface DailyReportInfo {
+  /** `ADMIN_DAILY_REPORT` */
+  enabled: boolean;
+  /** `ADMIN_REPORT_EMAILS` (pusta = jak alerty) */
+  emails: string[];
+  /** ostatni `MailMessage` z `dedupeKey` `daily-report:%` */
+  lastSentAt: IsoDate | null;
+  /** doba, której dotyczył (`YYYY-MM-DD`) */
+  lastDay: string | null;
+}
+
+/** `GET /admin/alerts?state=open|all` */
+export interface AlertsData {
+  /** otwarte (bez `resolvedAt`), krytyczne pierwsze */
+  open: AdminAlertRow[];
+  /** zamknięte z ostatnich 30 dni, najnowsze pierwsze (przy `state=open` puste) */
+  recent: AdminAlertRow[];
+  /** ostatni przebieg sprawdzeń (co 10 min); `null` — od startu jeszcze nie było */
+  lastCheckAt: IsoDate | null;
+  channels: {
+    /** `OPS_ALERT_WEBHOOK_URL` ustawiony */
+    webhook: boolean;
+    /** `ADMIN_ALERT_EMAILS` (pusta = pierwszy `ADMIN_BOOTSTRAP_EMAIL`) */
+    emails: string[];
+    /** `MAIL_ENABLED` — bez tego maile do operatora też nie wychodzą */
+    mail: boolean;
+    /** `ADMIN_ALERTS` — `false` wyłącza sprawdzenia */
+    enabled: boolean;
+  };
+  report: DailyReportInfo;
+}
+
+/** `GET /admin/reports/daily/preview?date=YYYY-MM-DD` */
+export interface DailyReportPreview {
+  /** doba raportu */
+  day: string;
+  subject: string;
+  html: string;
+}
+
+/** `POST /admin/reports/daily/send` (step-up) */
+export interface DailyReportSendResult {
+  day: string;
+  /** ile maili trafiło do skrzynki nadawczej */
+  queued: number;
+  recipients: string[];
 }
