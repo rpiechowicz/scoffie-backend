@@ -5,6 +5,8 @@ import { ApnsService } from './apns.service';
 
 @Module({
   providers: [NotificationsGateway, NotificationsService, ApnsService],
-  exports: [NotificationsService],
+  // `ApnsService` — panel administratora pokazuje środowisko APNs urządzeń,
+  // które go nie podały, tak jak liczy je wysyłka (`defaultEnvironment`).
+  exports: [NotificationsService, ApnsService],
 })
 export class NotificationsModule {}
