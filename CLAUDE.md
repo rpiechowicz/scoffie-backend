@@ -41,6 +41,13 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 -d scoffie -At -c "…"`. LF wymusza `.gitattributes` (`* text=auto eol=lf`); ta maszyna ma dodatkowo lokalnie `core.autocrlf=false`. Brak `gh` i `railway`
   CLI na tej maszynie — PR-y i prod robi Rafał (telefon/Mac).
 - Po zmianie `prisma/schema.prisma`: `pnpm prisma:generate` (lokalny klient bywa przestarzały).
+- OpenAPI (od 25.09.2026): `openapi/openapi.json` + `openapi/SOCKET-EVENTS.md` są GENEROWANE
+  (`pnpm openapi`, ~20 s, bez bazy i sekretów — `AppModule` w trybie `preview`); CI robi
+  `pnpm openapi:check`. Zmiana kształtu odpowiedzi REST/acku WS/DTO = regeneruj i commituj razem.
+  Wejście opisuje wtyczka `@nestjs/swagger` (uruchamiana w skrypcie, NIE w `nest-cli.json`),
+  wyjście — typy TS zwracane przez metody (`typescript-json-schema`), więc ręczne `@ApiOkResponse`
+  są zbędne. Swagger UI nie jest wystawiany nigdzie. Kontrolery spoza API aplikacji (panel,
+  `/ops`, webhooki) mają `@ApiExcludeController()`.
 - Alternatywa (używana na Macu z wyczerpanymi zasobami): kopiować `src test scripts prisma`
   do kontenera `scoffie-api` (`rm -rf` celu przed `docker cp`, potem
   `docker exec -u root … chown -R node:node`), dołożyć `jest.config.js`, `.prettierrc`,

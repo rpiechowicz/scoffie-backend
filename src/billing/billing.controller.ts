@@ -10,7 +10,12 @@ import {
 } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { IsString, MaxLength, MinLength } from 'class-validator';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExcludeEndpoint,
+  ApiOperation,
+  ApiProperty,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUserId } from '../auth/current-user-id.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AppException } from '../common/app-exception';
@@ -29,6 +34,7 @@ export const APPLE_NOTIFICATIONS_PER_MINUTE = 600;
 
 /** Podpisana transakcja StoreKit 2 — bywa długa, ale nie nieskończona. */
 export class RegisterTransactionDto {
+  @ApiProperty({ minLength: 20, maxLength: 20000 })
   @IsString()
   @MinLength(20)
   @MaxLength(20000)
@@ -126,6 +132,8 @@ export class BillingController {
   })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Powiadomienie App Store Server Notifications v2' })
+  // Woła to Apple, nie aplikacja — poza openapi.json.
+  @ApiExcludeEndpoint()
   async notification(@Body() dto: AppleNotificationDto) {
     let stored;
     try {
