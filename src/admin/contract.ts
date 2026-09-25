@@ -625,6 +625,18 @@ export interface MailRow extends Mail {
   subject: string | null;
   /** adres leży na `MailSuppression` */
   suppressed: boolean;
+  /** id wiadomości u Resend — po nim szuka się jej w panelu dostawcy */
+  providerMessageId: string | null;
+  /** kiedy robotnik spróbuje znowu (QUEUED) */
+  nextAttemptAt: IsoDate | null;
+}
+
+/** Dzień wysyłki (Europe/Warsaw), wiersze wg `createdAt`. */
+export interface MailDay {
+  date: IsoDate;
+  sent: number;
+  failed: number;
+  skipped: number;
 }
 
 /** `MailSuppression` — `reason`: HARD_BOUNCE | COMPLAINT | MANUAL (tekst od dostawcy bywa inny). */
@@ -661,6 +673,11 @@ export interface MailData {
   last30: Record<MailStatus, number>;
   /** QUEUED + SENDING: ile czeka i od kiedy najstarszy */
   queue: { waiting: number; oldestAt: IsoDate | null };
+  /** `MAIL_FROM` i `MAIL_REPLY_TO` — adresy firmowe, nie osób */
+  from: string;
+  replyTo: string;
+  /** ostatnie 30 dni, od najstarszego */
+  daily: MailDay[];
   /** najnowsze 100 wg filtrów */
   messages: MailRow[];
   suppressions: MailSuppressionRow[];
@@ -792,3 +809,90 @@ export interface AppStoreData {
 
 /** `GET /admin/app-store` */
 export type AppStoreState = IntegrationState<AppStoreData>;
+
+// ——— Szczegóły usługi Railway ———
+
+export type OpsRange = '1h' | '6h' | '24h' | '7d' | '30d';
+
+export interface RailwayDeployDetail extends RailwayDeploy {
+  /** ostatnia zmiana stanu — z `createdAt` daje czas budowy i startu */
+  statusUpdatedAt: IsoDate | null;
+}
+
+export interface RailwayServiceConfig {
+  region: string | null;
+  replicas: number | null;
+  /** `ON_FAILURE`, `ALWAYS`, `NEVER` */
+  restartPolicy: string | null;
+  restartMaxRetries: number | null;
+  healthcheckPath: string | null;
+  startCommand: string | null;
+  rootDirectory: string | null;
+  /** `RAILPACK`, `NIXPACKS`, `DOCKERFILE`, … */
+  builder: string | null;
+  repo: string | null;
+  image: string | null;
+  /** usypianie po bezczynności */
+  sleeps: boolean;
+  cron: string | null;
+  nextCronRunAt: IsoDate | null;
+  /** publiczne adresy: własne domeny i `*.up.railway.app` */
+  domains: string[];
+}
+
+export interface LatencyPoint {
+  ts: number;
+  /** milisekundy */
+  p50: number;
+  p95: number;
+  p99: number;
+}
+
+export interface RailwayServiceDetail {
+  id: string;
+  name: string;
+  url: string;
+  range: OpsRange;
+  config: RailwayServiceConfig;
+  metrics: {
+    cpu: MetricPoint[];
+    memoryGb: MetricPoint[];
+    networkRxGb: MetricPoint[];
+    networkTxGb: MetricPoint[];
+    diskGb: MetricPoint[];
+    /** ostatni znany limit usługi; `null` — Railway go nie podał */
+    cpuLimit: number | null;
+    memoryLimitGb: number | null;
+  };
+  /** `null` — usługa bez ruchu HTTP (cron, baza, sieć prywatna) */
+  http: {
+    /** żądania na krok wykresu wg klasy statusu */
+    requests: {
+      ts: number;
+      ok: number;
+      redirect: number;
+      clientError: number;
+      serverError: number;
+    }[];
+    latency: LatencyPoint[];
+  } | null;
+  /** najnowsze pierwsze, do 20 */
+  deploys: RailwayDeployDetail[];
+}
+
+export interface RailwayLogLine {
+  timestamp: IsoDate;
+  /** `info`, `warn`, `error`, … — `null`, gdy Railway nie rozpoznał */
+  severity: string | null;
+  message: string;
+}
+
+/** `GET /admin/ops/services/:id/logs` */
+export interface RailwayLogs {
+  deploymentId: string;
+  kind: 'deploy' | 'build';
+  lines: RailwayLogLine[];
+}
+
+/** `GET /admin/ops/services/:id` */
+export type RailwayServiceState = IntegrationState<RailwayServiceDetail>;

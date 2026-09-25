@@ -1,4 +1,5 @@
 import {
+  IsUUID,
   IsEmail,
   IsIn,
   IsOptional,
@@ -6,7 +7,12 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import type { MailFilters, MailStatus, MailTemplate } from '../contract';
+import type {
+  MailFilters,
+  MailStatus,
+  MailTemplate,
+  OpsRange,
+} from '../contract';
 import { MAIL_TEMPLATE_IDS } from '../../mail/mail-template';
 
 const STATUSES: MailStatus[] = [
@@ -43,4 +49,29 @@ export class AdminSuppressDto {
   @MinLength(5)
   @MaxLength(500)
   reason!: string;
+}
+
+const RANGES: OpsRange[] = ['1h', '6h', '24h', '7d', '30d'];
+
+/** `GET /admin/ops/services/:id?range=` */
+export class AdminServiceQueryDto {
+  @IsOptional()
+  @IsIn(RANGES)
+  range?: OpsRange;
+}
+
+/** `GET /admin/ops/services/:id/logs` */
+export class AdminServiceLogsQueryDto {
+  @IsOptional()
+  @IsUUID()
+  deployment?: string;
+
+  @IsOptional()
+  @IsIn(['deploy', 'build'])
+  kind?: 'deploy' | 'build';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  filter?: string;
 }

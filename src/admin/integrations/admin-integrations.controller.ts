@@ -18,9 +18,21 @@ import {
 } from '../admin.decorators';
 import { adminActor } from '../audit/admin-audit.service';
 import type { ResolvedAdminSession } from '../auth/admin-sessions.service';
-import type { AppStoreState, MailData, OpsData } from '../contract';
+import type {
+  AppStoreState,
+  MailData,
+  OpsData,
+  RailwayLogs,
+  RailwayServiceState,
+} from '../contract';
+import { assertUuid } from '../../common/uuid';
 import { AdminReasonDto } from '../users/admin-users.dto';
-import { AdminMailQueryDto, AdminSuppressDto } from './admin-integrations.dto';
+import {
+  AdminMailQueryDto,
+  AdminServiceLogsQueryDto,
+  AdminServiceQueryDto,
+  AdminSuppressDto,
+} from './admin-integrations.dto';
 import { AdminIntegrationsService } from './admin-integrations.service';
 import { AdminMailService } from './admin-mail.service';
 
@@ -73,6 +85,31 @@ export class AdminOpsController {
   @AdminRequires('ops.read')
   data(): Promise<OpsData> {
     return this.integrations.ops();
+  }
+
+  @Get('services/:id')
+  @AdminRequires('ops.read')
+  service(
+    @Param('id') rawId: string,
+    @Query() query: AdminServiceQueryDto,
+  ): Promise<RailwayServiceState> {
+    return this.integrations.service(
+      assertUuid(rawId, 'id'),
+      query.range ?? '24h',
+    );
+  }
+
+  @Get('services/:id/logs')
+  @AdminRequires('ops.logs')
+  logs(
+    @Param('id') rawId: string,
+    @Query() query: AdminServiceLogsQueryDto,
+  ): Promise<RailwayLogs> {
+    return this.integrations.logs(assertUuid(rawId, 'id'), {
+      deploymentId: query.deployment,
+      kind: query.kind ?? 'deploy',
+      filter: query.filter,
+    });
   }
 }
 

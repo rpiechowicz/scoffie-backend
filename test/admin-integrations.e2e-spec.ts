@@ -143,6 +143,15 @@ describe('Panel — integracje (/admin/mail, /admin/ops, /admin/app-store)', () 
     // 40-dniowy wiersz jest na liście, ale nie w licznikach okna.
     expect(all.last30.FAILED - before.last30.FAILED).toBe(1);
     expect(all.last30.SENT - before.last30.SENT).toBe(1);
+    // Wysyłka dzień po dniu: 30 dni, dzisiejszy FAILED i SENT w ostatnim.
+    expect(all.daily).toHaveLength(30);
+    const today = all.daily[29];
+    const todayBefore = before.daily[29];
+    expect(today.failed - todayBefore.failed).toBe(1);
+    expect(today.sent - todayBefore.sent).toBe(1);
+    expect(all.from).toContain('@');
+    expect(failedRow).toHaveProperty('providerMessageId', null);
+    expect(failedRow).toHaveProperty('nextAttemptAt', null);
 
     const onlyFailed = (
       await get(`/admin/mail?q=${TAG}&status=FAILED`).expect(200)
@@ -213,5 +222,21 @@ describe('Panel — integracje (/admin/mail, /admin/ops, /admin/app-store)', () 
       status: 'off',
       missing: ['ADMIN_ASC_KEY_ID', 'ADMIN_ASC_PRIVATE_KEY', 'APPLE_ISSUER_ID'],
     });
+  });
+
+  it('szczegóły usługi i logi: bez tokenu `off` / 503, zły id i okres 400', async () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const svc = await get(`/admin/ops/services/${id}?range=7d`).expect(200);
+    expect(svc.body).toEqual({
+      status: 'off',
+      missing: ['ADMIN_RAILWAY_TOKEN'],
+    });
+    await get(`/admin/ops/services/${id}/logs?kind=build`).expect(503);
+
+    await get('/admin/ops/services/nie-uuid').expect(400);
+    await get(`/admin/ops/services/${id}?range=2y`).expect(400);
+    await get(`/admin/ops/services/${id}/logs?kind=inne`).expect(400);
+    await get(`/admin/ops/services/${id}/logs?deployment=nie-uuid`).expect(400);
+    await request(server()).get(`/admin/ops/services/${id}`).expect(404);
   });
 });
