@@ -35,6 +35,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
 import { createPlanScope } from './tools/plan-scope';
 import { UpstreamBreaker } from './upstream-breaker';
+import { emitLive } from '../common/live-events';
 
 export type RunTurnInput = {
   turnId: string;
@@ -615,6 +616,7 @@ export class AgentTurnRunner {
     }
 
     this.metrics.recordTurnFinished('done');
+    emitLive({ topics: ['assistant', 'dashboard'] });
     this.metrics.recordProviderUsage(
       {
         inputTokens: usage.inputTokens,
@@ -754,6 +756,7 @@ export class AgentTurnRunner {
     }
 
     this.metrics.recordTurnFinished(verdict.outcome);
+    emitLive({ topics: ['assistant', 'dashboard'] });
     if (verdict.countsToBreaker) {
       this.metrics.recordUpstreamError();
       if (this.breaker.recordFailure()) {

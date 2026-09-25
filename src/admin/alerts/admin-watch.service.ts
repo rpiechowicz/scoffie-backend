@@ -10,6 +10,7 @@ import { MailOutboxService } from '../../mail/mail-outbox.service';
 import { readMailEnv } from '../../mail/mail-env';
 import { OpsAlertService } from '../../observability/ops-alert.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { emitLive } from '../../common/live-events';
 import { warsawDateKey } from '../common/warsaw-calendar';
 import { IntegrationError } from '../integrations/integration-fetch';
 import {
@@ -21,6 +22,7 @@ import {
   readSentryEnv,
 } from '../integrations/integrations-env';
 import { fetchRailway } from '../integrations/railway.client';
+import type { RailwayData } from '../contract';
 import { fetchResendDomains } from '../integrations/resend-domains.client';
 import { fetchSentry } from '../integrations/sentry.client';
 import {
@@ -81,6 +83,7 @@ export class AdminWatchService
   private first: NodeJS.Timeout | null = null;
   private running = false;
   private lastCheck: Date | null = null;
+  private deployFingerprint: string | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -107,6 +110,28 @@ export class AdminWatchService
     if (this.timer) clearInterval(this.timer);
     this.first = null;
     this.timer = null;
+  }
+
+  /**
+   * Kanał na żywo: stan wdrożeń Railway zmienił się od poprzedniego
+   * sprawdzenia (nowe wdrożenie, BUILDING → SUCCESS, …) → sygnał `ops`.
+   * Pierwsze sprawdzenie po starcie tylko zapamiętuje stan.
+   */
+  private noteDeploys(railway: RailwayData): void {
+    const fingerprint = railway.services
+      .map(
+        (s) =>
+          `${s.id}:${s.deploys[0]?.id ?? '-'}:${s.deploys[0]?.status ?? '-'}`,
+      )
+      .sort()
+      .join('|');
+    if (
+      this.deployFingerprint !== null &&
+      this.deployFingerprint !== fingerprint
+    ) {
+      emitLive({ topics: ['ops'] });
+    }
+    this.deployFingerprint = fingerprint;
   }
 
   lastCheckAt(): Date | null {
@@ -156,6 +181,7 @@ export class AdminWatchService
     if (railwayToken) {
       await attempt('Railway', async () => {
         const railway = await fetchRailway(railwayToken);
+        this.noteDeploys(railway);
         return [
           { kind: 'deploy-failed', problems: railwayAlerts(railway) },
           { kind: 'cron-failed', problems: cronAlerts(railway) },
@@ -289,6 +315,7 @@ export class AdminWatchService
       if (count === 1) await this.notifyOpened(alert, now, now);
     }
 
+    if (plan.touch.length > 0) emitLive({ topics: ['alerts'] });
     for (const { row, alert } of plan.touch) {
       await this.prisma.adminAlert.update({
         where: { id: row.id },
@@ -310,6 +337,15 @@ export class AdminWatchService
         const resolved = await this.prisma.adminAlert.findUnique({
           where: { id: row.id },
           select: { title: true },
+        });
+        emitLive({
+          topics: ['alerts', 'dashboard'],
+          notice: {
+            level: 'success',
+            title: `Rozwiązane: ${resolved?.title ?? row.key}`,
+            link: '/alerts',
+            topic: 'alerts',
+          },
         });
         void this.ops.notify(
           `admin-alert-resolved:${row.key}`,
@@ -335,6 +371,16 @@ export class AdminWatchService
     now: Date,
   ): Promise<void> {
     const env = readAlertsEnv();
+    emitLive({
+      topics: ['alerts', 'dashboard'],
+      notice: {
+        level: alert.severity === 'critical' ? 'error' : 'warning',
+        title: alert.title,
+        body: alert.detail,
+        link: '/alerts',
+        topic: 'alerts',
+      },
+    });
     void this.ops.notify(
       `admin-alert:${alert.key}`,
       `${alert.severity === 'critical' ? '[krytyczny]' : '[uwaga]'} ${alert.title} — ${alert.detail}`,

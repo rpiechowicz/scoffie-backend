@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
 import { assertUuid, isUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
+import { emitLive } from '../common/live-events';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplyWeekPlanDto, ApplyWeekSlotDto } from './dto/apply-week-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
@@ -472,7 +473,7 @@ export class WeeklyPlansService {
     const { allergensByMember, exclusionsByMember } = members;
     const memberIdsForGate = members.memberIds;
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // KOLEJNOŚĆ BLOKAD — ta sama w każdej transakcji zmieniającej tydzień:
       // zamek tygodnia → stan archiwum → pozycje planu → lista zakupów.
       // Zamek idzie PIERWSZY: kto na nim czeka, nie trzyma jeszcze niczego,
@@ -758,6 +759,9 @@ export class WeeklyPlansService {
         changeKind: replaced ? ('REPLACED' as const) : ('CREATED' as const),
       };
     });
+    // Panel (kanał na żywo): pulpit liczy dania w planach. Po commicie.
+    emitLive({ topics: ['dashboard'] });
+    return result;
   }
 
   /**
@@ -993,6 +997,9 @@ export class WeeklyPlansService {
       householdId,
       weekStart,
     );
+    if (changes.created + changes.updated + changes.deleted > 0) {
+      emitLive({ topics: ['dashboard'] });
+    }
     return { applied: true, dryRun: false, violations: [], changes, plan };
   }
 

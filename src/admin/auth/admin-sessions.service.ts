@@ -4,6 +4,7 @@ import type { Request, Response } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AdminAccessContext } from '../admin-request';
 import { sameAdminIdentity } from '../../config/admin-env';
+import { emitLive } from '../../common/live-events';
 
 /** Ciasteczko sesji: `__Host-` wymusza Secure, Path=/ i brak Domain. */
 export const ADMIN_SESSION_COOKIE = '__Host-scoffie_admin';
@@ -66,7 +67,10 @@ function asMethod(value: string): AdminAuthMethod {
 }
 
 /** Surowa wartość ciasteczka z nagłówka `Cookie` (bez zależności od cookie-parsera). */
-export function readCookie(req: Request, name: string): string | null {
+export function readCookie(
+  req: Pick<Request, 'headers'>,
+  name: string,
+): string | null {
   const header = req.headers.cookie;
   if (!header) return null;
   for (const part of header.split(';')) {
@@ -143,11 +147,16 @@ export class AdminSessionsService {
   /**
    * Sesja z ciasteczka albo `null`. Nie rzuca — co zrobić z brakiem sesji
    * (404, 403), decyduje guard.
+   *
+   * `touch: false` — sprawdzenie bez przesuwania `lastSeenAt`. Używa go kanał
+   * na żywo przy ponownej walidacji co minutę: otwarta karta nie może
+   * podtrzymywać sesji bez końca (bezczynność liczy się z żądań REST).
    */
   async resolve(
-    req: Request,
+    req: Pick<Request, 'headers'>,
     accessEmail: string,
     now: Date = new Date(),
+    options: { touch?: boolean } = {},
   ): Promise<ResolvedAdminSession | null> {
     const token = readCookie(req, ADMIN_SESSION_COOKIE);
     if (!token || token.length > 200) return null;
@@ -163,7 +172,10 @@ export class AdminSessionsService {
     if (row.admin.disabledAt) return null;
     if (!sameAdminIdentity(row.admin.email, accessEmail)) return null;
 
-    if (now.getTime() - row.lastSeenAt.getTime() >= TOUCH_EVERY_MS) {
+    if (
+      options.touch !== false &&
+      now.getTime() - row.lastSeenAt.getTime() >= TOUCH_EVERY_MS
+    ) {
       await this.prisma.adminSession.updateMany({
         where: { id: row.id, revokedAt: null },
         data: { lastSeenAt: now },
@@ -228,6 +240,14 @@ export class AdminSessionsService {
       where: { id: sessionId, adminUserId, revokedAt: null },
       data: { revokedAt: now, revokedReason: reason },
     });
+    if (count === 1) {
+      // Kanał na żywo zamyka gniazda tej sesji od razu, nie przy walidacji.
+      emitLive({
+        topics: ['admin-sessions'],
+        adminUserId,
+        revokedAdminSessionId: sessionId,
+      });
+    }
     return count === 1;
   }
 

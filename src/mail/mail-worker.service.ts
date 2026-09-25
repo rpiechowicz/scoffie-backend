@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { MailMessage } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { emitLive } from '../common/live-events';
 import { OpsAlertService } from '../observability/ops-alert.service';
 import { mapWithConcurrency } from '../common/concurrency.util';
 import { readMailEnv } from './mail-env';
@@ -109,6 +110,9 @@ export class MailWorkerService
         await mapWithConcurrency(claimed, SEND_CONCURRENCY, (row) =>
           this.deliver(row),
         );
+        // Panel: statusy zajętych wiadomości się zmieniły (SENT / FAILED /
+        // ponowienie) — jeden sygnał na przebieg, nie na wiadomość.
+        emitLive({ topics: ['mail'] });
       }
       await this.maybeRunRetention();
     } catch (error) {
@@ -284,6 +288,16 @@ export class MailWorkerService
       data: { status: 'FAILED', attempts, lastError: error.slice(0, 500) },
     });
     this.logger.warn(`mail ${row.template} nieudany: ${error}`);
+    emitLive({
+      topics: ['mail'],
+      notice: {
+        level: 'error',
+        title: `Mail nie wyszedł: ${row.template}`,
+        body: `Po ${attempts} ${attempts === 1 ? 'próbie' : 'próbach'}`,
+        link: '/mail',
+        topic: 'mail',
+      },
+    });
     // Alert po SZABLONIE, nie po wiadomości: jeden zepsuty szablon albo jedna
     // zła konfiguracja odezwie się raz, a nie sto razy pod rząd.
     void this.alerts.notify(

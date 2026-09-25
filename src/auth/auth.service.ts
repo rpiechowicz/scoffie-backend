@@ -12,6 +12,7 @@ import { AppException } from '../common/app-exception';
 import { purchaseIdentityHashForUser } from '../config/purchase-identity';
 import { PrismaService } from '../prisma/prisma.service';
 import { disconnectRevokedUser } from '../common/ws-rooms';
+import { emitLive } from '../common/live-events';
 import { AppleIdentityService } from './apple-identity.service';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
 import { DevLoginDto } from './dto/dev-login.dto';
@@ -200,6 +201,7 @@ export class AuthService {
       });
       // Sam `user.id`: adres i `sub` Apple to dane osobowe, w logu zbędne.
       this.logger.log(`New Apple user created: ${user.id}`);
+      announceNewAccount(user.id, user.displayName);
     }
 
     return this.buildAuthResult(user);
@@ -273,6 +275,7 @@ export class AuthService {
         },
       });
       this.logger.log(`New Google user created: ${user.id}`);
+      announceNewAccount(user.id, user.displayName);
       return this.buildAuthResult(user);
     } catch (error) {
       // Dwa równoległe pierwsze logowania tym samym kontem Google: oba nie
@@ -960,6 +963,7 @@ export class AuthService {
     // Wylogowanie ze wszystkich urządzeń musi objąć także kanał WS — patrz
     // `disconnectRevokedUser` (audyt 12.09.2026, P1.9).
     disconnectRevokedUser(userId);
+    emitLive({ topics: ['users'] });
     this.logger.log(
       `logout everywhere for user ${userId} — revoked ${revokedSessions} active token(s)`,
     );
@@ -1109,4 +1113,20 @@ export class AuthService {
     // Email-local-part heuristic — a single lowercase token without spaces.
     return /^[a-z0-9._-]+$/.test(displayName);
   }
+}
+
+/**
+ * Sygnał dla panelu (kanał na żywo): nowe konto. Imię tak, jak panel i tak
+ * pokazuje je na liście osób — adresu e-mail nie wysyłamy.
+ */
+function announceNewAccount(userId: string, displayName: string): void {
+  emitLive({
+    topics: ['users', 'dashboard'],
+    notice: {
+      level: 'success',
+      title: `Nowe konto: ${displayName}`,
+      link: `/users/${userId}`,
+      topic: 'users',
+    },
+  });
 }

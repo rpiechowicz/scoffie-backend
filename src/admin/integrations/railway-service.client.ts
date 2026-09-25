@@ -3,6 +3,7 @@ import type {
   MetricPoint,
   OpsRange,
   RailwayDeployDetail,
+  RailwayLogLine,
   RailwayLogs,
   RailwayServiceDetail,
 } from '../contract';
@@ -71,6 +72,20 @@ const LOGS_QUERY = (
     timestamp severity message
   }
 }`;
+/** To samo od chwili `startDate` (Railway: `startDate: DateTime` na obu polach). */
+const LOGS_SINCE_QUERY = (
+  kind: 'deploy' | 'build',
+) => `query ($id: String!, $limit: Int!, $start: DateTime!) {
+  logs: ${kind === 'build' ? 'buildLogs' : 'deploymentLogs'}(deploymentId: $id, limit: $limit, startDate: $start) {
+    timestamp severity message
+  }
+}`;
+
+type ApiLogLine = {
+  timestamp: string;
+  severity: string | null;
+  message: string;
+};
 
 type ApiServiceInstance = {
   region: string | null;
@@ -266,10 +281,138 @@ export async function fetchRailwayLogs(
   fetchImpl: typeof fetch = globalThis.fetch,
 ): Promise<RailwayLogs> {
   const gql = railwayGql(token, fetchImpl);
+  const deploymentId = await resolveLogDeployment(
+    gql,
+    serviceId,
+    options.deploymentId,
+  );
+  if (!deploymentId) return { deploymentId: '', kind: options.kind, lines: [] };
+
+  const { logs } = await gql<{ logs: ApiLogLine[] }>(LOGS_QUERY(options.kind), {
+    id: deploymentId,
+    limit: LOG_LINES,
+    filter: options.filter?.trim() || null,
+  });
+
+  return { deploymentId, kind: options.kind, lines: toLogLines(logs) };
+}
+
+/**
+ * Wdrożenie, którego logi wolno czytać: podane (sprawdzone, że należy do tej
+ * usługi w środowisku tokenu) albo najnowsze usługi. `null` — usługa bez
+ * wdrożeń.
+ */
+export async function resolveRailwayLogDeployment(
+  token: string,
+  serviceId: string,
+  deploymentId: string | undefined,
+  fetchImpl: typeof fetch = globalThis.fetch,
+): Promise<string | null> {
+  return resolveLogDeployment(
+    railwayGql(token, fetchImpl),
+    serviceId,
+    deploymentId,
+  );
+}
+
+/**
+ * Linie logów wdrożenia od chwili `since` (kanał na żywo panelu). Bez
+ * sprawdzania usługi — wołający zrobił to raz przy subskrypcji
+ * (`resolveRailwayLogDeployment`). Gdyby Railway odrzucił `startDate`
+ * (zmiana schematu), spada na zwykłe ostatnie linie — duplikaty odsiewa
+ * `RailwayLogTail`.
+ */
+export async function fetchRailwayLogLinesSince(
+  token: string,
+  deploymentId: string,
+  kind: 'deploy' | 'build',
+  since: Date,
+  fetchImpl: typeof fetch = globalThis.fetch,
+): Promise<RailwayLogLine[]> {
+  const gql = railwayGql(token, fetchImpl);
+  try {
+    const { logs } = await gql<{ logs: ApiLogLine[] }>(LOGS_SINCE_QUERY(kind), {
+      id: deploymentId,
+      limit: LOG_LINES,
+      start: since.toISOString(),
+    });
+    return toLogLines(logs);
+  } catch (error) {
+    if (
+      !(error instanceof IntegrationError) ||
+      !/startDate|Unknown argument/i.test(error.message)
+    ) {
+      throw error;
+    }
+    const { logs } = await gql<{ logs: ApiLogLine[] }>(LOGS_QUERY(kind), {
+      id: deploymentId,
+      limit: LOG_LINES,
+      filter: null,
+    });
+    return toLogLines(logs);
+  }
+}
+
+function toLogLines(logs: ApiLogLine[]): RailwayLogLine[] {
+  return [...logs]
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+    .map((l) => ({
+      timestamp: l.timestamp,
+      severity: l.severity?.toLowerCase() || null,
+      message: l.message,
+    }));
+}
+
+/**
+ * Odsiewacz powtórek dla strumienia logów: każde pobranie zachodzi na
+ * poprzednie (zakładka na spóźnione linie), więc linia już wysłana nie
+ * może pójść drugi raz. Klucz = czas + treść; pamięć ograniczona.
+ */
+export class RailwayLogTail {
+  private readonly seen = new Set<string>();
+  private latestMs: number | null = null;
+
+  constructor(private readonly memory = 5_000) {}
+
+  /** Nowe linie (rosnąco), zapamiętane jako widziane. */
+  accept(lines: readonly RailwayLogLine[]): RailwayLogLine[] {
+    const fresh: RailwayLogLine[] = [];
+    for (const line of lines) {
+      const key = `${line.timestamp}\u0000${line.message}`;
+      if (this.seen.has(key)) continue;
+      this.seen.add(key);
+      fresh.push(line);
+      const ms = Date.parse(line.timestamp);
+      if (
+        Number.isFinite(ms) &&
+        (this.latestMs === null || ms > this.latestMs)
+      ) {
+        this.latestMs = ms;
+      }
+    }
+    // Set pamięta kolejność wstawiania — pierwsze klucze są najstarsze.
+    for (const key of this.seen) {
+      if (this.seen.size <= this.memory) break;
+      this.seen.delete(key);
+    }
+    return fresh.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  }
+
+  /** Czas najnowszej widzianej linii (ms) albo `null`. */
+  get latest(): number | null {
+    return this.latestMs;
+  }
+}
+
+async function resolveLogDeployment(
+  gql: RailwayGql,
+  serviceId: string,
+  requested: string | undefined,
+): Promise<string | null> {
   const scope = await railwayScope(gql);
   assertInScope(scope, serviceId);
 
-  let deploymentId = options.deploymentId;
+  let deploymentId = requested;
   if (deploymentId) {
     const { deployment } = await gql<{
       deployment: { serviceId: string; environmentId: string } | null;
@@ -293,27 +436,6 @@ export async function fetchRailwayLogs(
       { pid: scope.pid, eid: scope.eid, sid: serviceId },
     );
     deploymentId = deployments.edges[0]?.node.id;
-    if (!deploymentId)
-      return { deploymentId: '', kind: options.kind, lines: [] };
   }
-
-  const { logs } = await gql<{
-    logs: { timestamp: string; severity: string | null; message: string }[];
-  }>(LOGS_QUERY(options.kind), {
-    id: deploymentId,
-    limit: LOG_LINES,
-    filter: options.filter?.trim() || null,
-  });
-
-  return {
-    deploymentId,
-    kind: options.kind,
-    lines: [...logs]
-      .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
-      .map((l) => ({
-        timestamp: l.timestamp,
-        severity: l.severity?.toLowerCase() || null,
-        message: l.message,
-      })),
-  };
+  return deploymentId ?? null;
 }
