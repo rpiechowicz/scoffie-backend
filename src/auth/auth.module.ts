@@ -4,6 +4,7 @@ import { AccessTokenService } from './access-token.service';
 import { AppleIdentityService } from './apple-identity.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { GoogleIdentityService } from './google-identity.service';
 import { resolveJwtExpiresIn } from './jwt-expiration.util';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { UserActivityService } from './user-activity.service';
@@ -26,6 +27,7 @@ import { UserActivityService } from './user-activity.service';
   providers: [
     AuthService,
     AppleIdentityService,
+    GoogleIdentityService,
     AccessTokenService,
     JwtAuthGuard,
     UserActivityService,

@@ -49,6 +49,54 @@
         "tags": ["auth"]
       }
     },
+    "/auth/google": {
+      "post": {
+        "operationId": "authLoginWithGoogle",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GoogleSignInDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResult" },
+                "example": {
+                  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                  "refreshToken": "d3b07384d113edec49eaa6238ad5ff00...",
+                  "user": {
+                    "id": "edbc139a-636b-4aaf-953f-9b4644eb8b55",
+                    "displayName": "Rafał Piechowicz",
+                    "email": "rafal@example.com",
+                    "provider": "GOOGLE"
+                  },
+                  "household": {
+                    "id": "f6478b3a-5f76-47fd-94cd-e85c2564e366",
+                    "name": "Home"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Błąd: `{code, message, details?, requestId}`",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "summary": "Logowanie przez Google (aplikacja Android). Ciało: `idToken` z Credential\nManagera, opcjonalnie `nonce` (musi zgadzać się z claimem) i `platform`.\n\nTa sama koperta co `/auth/apple`. Nieważny token = 401\n`APPLE_IDENTITY_INVALID` (ten sam kod co zły token Apple); brak\n`GOOGLE_OAUTH_CLIENT_IDS` = 503 `SERVICE_UNAVAILABLE`.",
+        "tags": ["auth"]
+      }
+    },
     "/auth/dev": {
       "post": {
         "operationId": "authLoginDev",
@@ -9413,6 +9461,32 @@
           "page": { "type": "number" },
           "limit": { "type": "number" }
         }
+      },
+      "GoogleSignInDto": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 8192,
+            "description": "Google ID token (JWT) z Credential Managera.",
+            "example": "eyJhbGciOiJSUzI1NiIsImtpZCI6Ij..."
+          },
+          "nonce": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 512,
+            "description": "Nonce przekazany do `GetGoogleIdOption.setNonce` (surowy, bez haszowania). Gdy podany, musi być równy claimowi `nonce` tokenu.",
+            "example": "b3f1c2d4e5a6978812345678"
+          },
+          "platform": {
+            "enum": ["android", "ios"],
+            "type": "string",
+            "description": "Platforma klienta (informacyjnie).",
+            "example": "android"
+          }
+        },
+        "required": ["idToken"]
       },
       "HealthStepsClearResponse": {
         "type": "object",

@@ -3,6 +3,7 @@ import { throttleEnvProblems } from '../common/throttle/throttle-env';
 import { adminEnvProblems } from './admin-env';
 import { agentEnvProblems } from './agent-env';
 import { billingEnvProblems } from './billing-env-problems';
+import { googleAuthEnvProblems } from './google-auth-env';
 import { mailEnvProblems, readMailEnv } from '../mail/mail-env';
 import { wsAuthModeProblem, wsAuthModeProductionProblem } from './ws-auth-mode';
 
@@ -217,11 +218,20 @@ export function inspectRuntimeEnv(
   const admin = adminEnvProblems(env);
   productionOnly.push(...admin.violations);
 
+  // Logowanie przez Google: pusta lista = endpoint wyłączony (503), nie powód
+  // do odmowy startu. Ostrzegamy tylko o wpisie, który nie jest ID klienta.
+  const googleWarnings = googleAuthEnvProblems(env);
+
   if (production) {
     return {
       production,
       violations: [...problems, ...productionOnly],
-      warnings: [...productionWarnings, ...billingWarnings, ...admin.warnings],
+      warnings: [
+        ...productionWarnings,
+        ...billingWarnings,
+        ...admin.warnings,
+        ...googleWarnings,
+      ],
     };
   }
   // Poza produkcją sekrety z repo są dopuszczalne TYLKO przy lokalnej bazie.
@@ -240,6 +250,7 @@ export function inspectRuntimeEnv(
     warnings: [
       ...problems.filter((problem) => !secretViolations.includes(problem)),
       ...billingWarnings,
+      ...googleWarnings,
     ],
   };
 }

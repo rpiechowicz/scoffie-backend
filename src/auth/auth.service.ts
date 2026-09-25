@@ -15,6 +15,11 @@ import { disconnectRevokedUser } from '../common/ws-rooms';
 import { AppleIdentityService } from './apple-identity.service';
 import { AppleSignInDto } from './dto/apple-sign-in.dto';
 import { DevLoginDto } from './dto/dev-login.dto';
+import { GoogleSignInDto } from './dto/google-sign-in.dto';
+import {
+  GoogleIdentityService,
+  type VerifiedGoogleIdentity,
+} from './google-identity.service';
 import { resolveJwtExpiresIn } from './jwt-expiration.util';
 
 export interface AuthResult {
@@ -91,6 +96,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly appleIdentity: AppleIdentityService,
+    private readonly googleIdentity: GoogleIdentityService,
   ) {}
 
   /**
@@ -197,6 +203,168 @@ export class AuthService {
     }
 
     return this.buildAuthResult(user);
+  }
+
+  /**
+   * Logowanie przez Google (aplikacja Android).
+   *
+   * Kolejność dopasowania konta:
+   *  1. `googleId = sub` — osoba logowała się już przez Google.
+   *  2. ŁĄCZENIE PO ADRESIE (decyzja właściciela, 25.09.2026): gdy Google
+   *     potwierdza adres (`email_verified === true`) i istnieje DOKŁADNIE jedno
+   *     konto z tym samym adresem (bez wielkości liter), POTWIERDZONYM
+   *     (`emailVerified`) i bez `googleId` — dopisujemy mu `googleId`. Konto
+   *     zostaje sobą: `authProvider`, `appleSub` i `identityHash` bez zmian,
+   *     więc pula próbna i subskrypcja zostają przy nim. Adresy przekaźnikowe
+   *     Apple (`@privaterelay.appleid.com`) nie trafią na adres Google — to
+   *     oczekiwane, taka osoba dostaje nowe konto.
+   *  3. Nowe konto `authProvider = GOOGLE`; `identityHash` z `GOOGLE:sub`
+   *     liczy `buildAuthResult` tą samą drogą co dla Apple.
+   *
+   * Profil wyłącznie z podpisanego tokenu. W logach tylko `user.id`.
+   * Stanów „usunięte/zablokowane” nie ma: usunięcie konta kasuje wiersz
+   * (ponowne logowanie = nowe konto, jak przy Apple), blokady nie ma w modelu.
+   *
+   * `platform` nie trafia do bazy: `RefreshToken` nie ma kolumny na platformę
+   * ani urządzenie.
+   */
+  async loginWithGoogle(dto: GoogleSignInDto): Promise<AuthResult> {
+    // Najpierw „wyłączone”: bez konfiguracji nie ma czego weryfikować, a klient
+    // ma dostać 503, nie 400 za puste pole.
+    this.googleIdentity.assertEnabled();
+    if (!dto.idToken?.trim()) {
+      throw new BadRequestException('Missing idToken.');
+    }
+
+    const verified = await this.googleIdentity.verify(
+      dto.idToken.trim(),
+      dto.nonce ?? null,
+    );
+    const now = new Date();
+
+    const byGoogleId = await this.prisma.user.findUnique({
+      where: { googleId: verified.googleSub },
+    });
+    if (byGoogleId) {
+      return this.buildAuthResult(
+        await this.touchGoogleUser(byGoogleId, verified, now),
+      );
+    }
+
+    const linked = await this.linkGoogleByEmail(verified, now);
+    if (linked) return this.buildAuthResult(linked);
+
+    const displayName =
+      verified.name ||
+      [verified.givenName, verified.familyName].filter(Boolean).join(' ') ||
+      (verified.email ? verified.email.split('@')[0] : null) ||
+      `Google-${verified.googleSub.slice(0, 8)}`;
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          googleId: verified.googleSub,
+          authProvider: AuthProvider.GOOGLE,
+          email: verified.email,
+          emailVerified: verified.emailVerified,
+          displayName: displayName.slice(0, 80),
+          avatarUrl: verified.picture,
+          lastLoginAt: now,
+        },
+      });
+      this.logger.log(`New Google user created: ${user.id}`);
+      return this.buildAuthResult(user);
+    } catch (error) {
+      // Dwa równoległe pierwsze logowania tym samym kontem Google: oba nie
+      // znalazły `googleId`, jedno wygrało `create`, drugie wpada na unikat.
+      // Przegrany loguje się na konto zwycięzcy zamiast oddawać 500.
+      if (!this.isUniqueViolation(error)) throw error;
+      const winner = await this.prisma.user.findUnique({
+        where: { googleId: verified.googleSub },
+      });
+      if (!winner) throw error;
+      return this.buildAuthResult(
+        await this.touchGoogleUser(winner, verified, now),
+      );
+    }
+  }
+
+  /**
+   * Łączenie z istniejącym kontem po potwierdzonym adresie. `null` = nie ma
+   * z czym łączyć (albo niejednoznacznie) — wołający zakłada nowe konto.
+   */
+  private async linkGoogleByEmail(verified: VerifiedGoogleIdentity, now: Date) {
+    if (!verified.email || !verified.emailVerified) return null;
+
+    const candidates = await this.prisma.user.findMany({
+      where: {
+        email: { equals: verified.email, mode: 'insensitive' },
+        emailVerified: true,
+        googleId: null,
+      },
+      select: { id: true },
+      take: 2,
+    });
+    if (candidates.length !== 1) {
+      if (candidates.length > 1) {
+        // Dwa potwierdzone konta z jednym adresem (np. dwa Apple ID) — nie
+        // zgadujemy, które jest „tym”. Bez adresu w logu.
+        this.logger.warn(
+          'Google sign-in: ambiguous e-mail match (>1 verified account) — not linking',
+        );
+      }
+      return null;
+    }
+
+    const targetId = candidates[0].id;
+    try {
+      // Warunkowo: `googleId: null` i `emailVerified` jeszcze raz W zapisie —
+      // równoległe łączenie innym kontem Google nie nadpisze zwycięzcy.
+      const claimed = await this.prisma.user.updateMany({
+        where: { id: targetId, googleId: null, emailVerified: true },
+        data: { googleId: verified.googleSub, lastLoginAt: now },
+      });
+      if (claimed.count === 0) {
+        // Ktoś był szybszy. Jeśli to ten sam `sub` — to nasze konto.
+        return this.prisma.user.findUnique({
+          where: { googleId: verified.googleSub },
+        });
+      }
+    } catch (error) {
+      // Ten sam `sub` właśnie dopisał się gdzie indziej (wyścig z `create`).
+      if (!this.isUniqueViolation(error)) throw error;
+      return this.prisma.user.findUnique({
+        where: { googleId: verified.googleSub },
+      });
+    }
+    this.logger.log(`Google sign-in linked to existing user: ${targetId}`);
+    return this.prisma.user.findUnique({ where: { id: targetId } });
+  }
+
+  /**
+   * Kolejne logowanie znanym kontem Google. `authProvider` się NIE zmienia
+   * (konto Apple z dopisanym Google zostaje kontem Apple). Adres odświeżamy
+   * tylko na kontach założonych przez Google — konto Apple ma swój adres
+   * z tokenu Apple i nie wymieniamy go na adres z innego dostawcy.
+   */
+  private async touchGoogleUser(
+    user: { id: string; authProvider: AuthProvider; email: string | null },
+    verified: VerifiedGoogleIdentity,
+    now: Date,
+  ) {
+    const data: Prisma.UserUpdateInput = { lastLoginAt: now };
+    if (user.authProvider === AuthProvider.GOOGLE && verified.email) {
+      if (user.email !== verified.email) data.email = verified.email;
+      data.emailVerified = verified.emailVerified;
+    }
+    return this.prisma.user.update({ where: { id: user.id }, data });
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 
   async loginDev(dto: DevLoginDto): Promise<AuthResult> {
