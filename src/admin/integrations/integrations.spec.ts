@@ -103,6 +103,23 @@ describe('Sentry', () => {
             : json({ detail: 'no sessions' }, 400)
           : undefined,
       (u) =>
+        u.pathname.endsWith('/stats_v2/')
+          ? json({
+              groups: [{ by: { project: 1 }, totals: { 'sum(quantity)': 42 } }],
+            })
+          : undefined,
+      (u) =>
+        u.pathname.endsWith('/releases/')
+          ? u.searchParams.get('project') === '1'
+            ? json([
+                {
+                  version: 'app.scoffie.ios@1.0+35',
+                  dateCreated: '2026-09-24T17:00:00Z',
+                },
+              ])
+            : json({ detail: 'boom' }, 500)
+          : undefined,
+      (u) =>
         u.pathname.endsWith('/issues/')
           ? json([
               {
@@ -139,6 +156,11 @@ describe('Sentry', () => {
         crashFreeSessions: 99.81,
         unresolved: 4,
         new24h: 1,
+        events24h: 42,
+        release: {
+          version: 'app.scoffie.ios@1.0+35',
+          createdAt: '2026-09-24T17:00:00Z',
+        },
       },
       {
         slug: 'scoffie-backend',
@@ -146,8 +168,12 @@ describe('Sentry', () => {
         crashFreeSessions: null,
         unresolved: 1,
         new24h: 1,
+        // Brak w statystykach = 0 zdarzeń; awaria wydań = brak wydania, nie błąd karty.
+        events24h: 0,
+        release: null,
       },
     ]);
+    expect(data.missing).toEqual(['nie-ma']);
     expect(data.issues[0]).toMatchObject({
       shortId: 'SCOFFIE-IOS-1A',
       count: 7,
