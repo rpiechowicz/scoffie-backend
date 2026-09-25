@@ -98,6 +98,11 @@ export class IntegrationCache {
     this.entries.set(key, { at: this.now(), value });
     return value;
   }
+
+  /** Po zapisie u dostawcy — następny odczyt idzie po świeże dane. */
+  invalidate(key: string): void {
+    this.entries.delete(key);
+  }
 }
 
 async function toState<T>(

@@ -215,7 +215,10 @@ export type MailTemplate =
   | 'SUBSCRIPTION_GRACE'
   | 'SUBSCRIPTION_EXPIRED'
   | 'LEGAL_UPDATE'
-  | 'ACCOUNT_DELETED';
+  | 'ACCOUNT_DELETED'
+  /** do operatora (bez `userId`): alert i raport dzienny */
+  | 'OPS_ALERT'
+  | 'DAILY_REPORT';
 
 /** `MailMessage` */
 export interface Mail {
@@ -765,6 +768,8 @@ export interface RailwayService {
   cpu: MetricPoint[];
   memoryGb: MetricPoint[];
   url: string;
+  /** uruchomienia crona, najnowsze pierwsze, do 7; pusta dla nie-cronów */
+  runs: CronRun[];
 }
 
 export interface RailwayData {
@@ -808,7 +813,8 @@ export interface AscReview {
   /** ISO 3166-1 alfa-3, np. `POL` */
   territory: string | null;
   createdAt: IsoDate;
-  response: { body: string; state: string } | null;
+  /** `id` — odpowiedź w App Store Connect (`customerReviewResponses`) */
+  response: { id: string; body: string; state: string } | null;
 }
 
 export interface AppStoreData {
@@ -891,6 +897,8 @@ export interface RailwayServiceDetail {
   } | null;
   /** najnowsze pierwsze, do 20 */
   deploys: RailwayDeployDetail[];
+  /** uruchomienia crona, najnowsze pierwsze, do 30; pusta dla nie-cronów */
+  runs: CronRun[];
 }
 
 export interface RailwayLogLine {
@@ -909,3 +917,176 @@ export interface RailwayLogs {
 
 /** `GET /admin/ops/services/:id` */
 export type RailwayServiceState = IntegrationState<RailwayServiceDetail>;
+
+// ——— Uruchomienia cronów (Railway) ———
+
+/**
+ * Jedno uruchomienie usługi cron (`deploymentInstanceExecutions`). Railway nie
+ * podaje kodu wyjścia: `EXITED` = proces się zakończył (jedyny sygnał, że np.
+ * kopia bazy powstała), `CRASHED` = nieudane, `CREATED`/`INITIALIZING`/
+ * `RUNNING` = w toku, reszta (`SKIPPED`, `STOPPED`, `REMOVED`, …) — inne.
+ */
+export interface CronRun {
+  id: string;
+  status: string;
+  startedAt: IsoDate;
+  /** `null` — jeszcze trwa albo Railway nie podał końca */
+  finishedAt: IsoDate | null;
+}
+
+// ——— Dziennik audytu panelu ———
+
+export type AuditResult = 'PENDING' | 'SUCCESS' | 'FAILED';
+
+export interface AuditEntry {
+  id: string;
+  at: IsoDate;
+  finishedAt: IsoDate | null;
+  adminEmail: string;
+  /** np. `mail.suppression.add`, `household.tier.set`, `auth.login` */
+  action: string;
+  /** np. `User`, `Household`, `MailSuppression`, `Recipe` */
+  targetType: string | null;
+  /** id celu — przy wykluczeniach poczty to adres e-mail */
+  targetId: string | null;
+  reason: string | null;
+  result: AuditResult;
+  /** kod błędu przy `FAILED` */
+  errorCode: string | null;
+  details: Record<string, unknown> | null;
+  ip: string | null;
+  country: string | null;
+}
+
+export interface AuditFilters {
+  action?: string;
+  result?: AuditResult;
+}
+
+/** `GET /admin/audit?action=&result=&before=&limit=` — najnowsze pierwsze */
+export interface AuditPage {
+  entries: AuditEntry[];
+  /** `before` następnej strony; `null` — to już koniec */
+  nextCursor: string | null;
+  /** akcje, które są w dzienniku (do filtra), alfabetycznie */
+  actions: string[];
+}
+
+// ——— Sterowanie w locie i odpowiedzi na recenzje (ROADMAPA §5.12, §5.9) ———
+
+export type RuntimeSettingKind = 'boolean' | 'number' | 'list';
+
+export interface RuntimeSettingView {
+  /** np. `AI_ENABLED` — biała lista w `src/config/runtime-settings.ts` */
+  key: string;
+  label: string;
+  kind: RuntimeSettingKind;
+  /** surowa wartość z Railwaya; `null` — zmiennej nie ma (działa domyślna) */
+  envValue: string | null;
+  /** nadpisanie z panelu; `null` — działa env */
+  override: string | null;
+  /** wartość, która naprawdę działa: `true`/`false`, liczba, `off`, adresy po przecinku */
+  effective: string;
+  updatedAt: IsoDate | null;
+  /** adres admina */
+  updatedBy: string | null;
+  reason: string | null;
+}
+
+/** `GET /admin/settings` */
+export interface RuntimeSettingsData {
+  settings: RuntimeSettingView[];
+}
+
+/** `PUT /admin/settings/:key` (step-up); `DELETE` bierze samo `{ reason }` */
+export interface RuntimeSettingUpdate {
+  value: string;
+  reason: string;
+}
+
+/** `POST /admin/app-store/reviews/:id/response` (step-up) */
+export interface AscReviewResponseInput {
+  /** 1–5970 znaków */
+  body: string;
+}
+
+/** Odpowiedź po zapisie — ten sam kształt co `AscReview.response`. */
+export interface AscReviewResponse {
+  id: string;
+  body: string;
+  /** `PUBLISHED`, `PENDING_PUBLISH` */
+  state: string;
+}
+
+// ——— Alerty i raport dzienny ———
+
+export type AlertSeverity = 'critical' | 'warning';
+
+/** `AdminAlert` — jeden wiersz na problem (nie na sprawdzenie). */
+export interface AdminAlertRow {
+  id: string;
+  /** np. `deploy-failed:<serviceId>:<deployId>`, `crash-free:scoffie-ios` */
+  key: string;
+  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain` */
+  kind: string;
+  severity: AlertSeverity;
+  title: string;
+  /** bez danych osobowych */
+  detail: string;
+  firstAt: IsoDate;
+  /** ostatnie sprawdzenie, które jeszcze widziało problem */
+  lastAt: IsoDate;
+  resolvedAt: IsoDate | null;
+  acknowledgedAt: IsoDate | null;
+  /** adres admina z panelu */
+  acknowledgedBy: string | null;
+}
+
+/** Raport „Scoffie wczoraj” o 7:00 (Europe/Warsaw). */
+export interface DailyReportInfo {
+  /** `ADMIN_DAILY_REPORT` */
+  enabled: boolean;
+  /** `ADMIN_REPORT_EMAILS` (pusta = jak alerty) */
+  emails: string[];
+  /** ostatni `MailMessage` z `dedupeKey` `daily-report:%` */
+  lastSentAt: IsoDate | null;
+  /** doba, której dotyczył (`YYYY-MM-DD`) */
+  lastDay: string | null;
+}
+
+/** `GET /admin/alerts?state=open|all` */
+export interface AlertsData {
+  /** otwarte (bez `resolvedAt`), krytyczne pierwsze */
+  open: AdminAlertRow[];
+  /** zamknięte z ostatnich 30 dni, najnowsze pierwsze (przy `state=open` puste) */
+  recent: AdminAlertRow[];
+  /** ostatni przebieg sprawdzeń (co 10 min); `null` — od startu jeszcze nie było */
+  lastCheckAt: IsoDate | null;
+  channels: {
+    /** `OPS_ALERT_WEBHOOK_URL` ustawiony */
+    webhook: boolean;
+    /** `ADMIN_ALERT_EMAILS` (pusta = pierwszy `ADMIN_BOOTSTRAP_EMAIL`) */
+    emails: string[];
+    /** `MAIL_ENABLED` — bez tego maile do operatora też nie wychodzą */
+    mail: boolean;
+    /** `ADMIN_ALERTS` — `false` wyłącza sprawdzenia */
+    enabled: boolean;
+  };
+  report: DailyReportInfo;
+}
+
+/** `GET /admin/reports/daily/preview?date=YYYY-MM-DD` */
+export interface DailyReportPreview {
+  /** doba raportu */
+  day: string;
+  subject: string;
+  html: string;
+}
+
+/** `POST /admin/reports/daily/send` (step-up) */
+export interface DailyReportSendResult {
+  day: string;
+  /** ile maili trafiło do skrzynki nadawczej */
+  queued: number;
+  recipients: string[];
+}

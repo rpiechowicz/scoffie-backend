@@ -1543,6 +1543,36 @@ model AdminWebAuthnChallenge {
   @@index([expiresAt])
 }
 
+/// Alert operacyjny panelu (`AdminWatchService`, co 10 minut): padnięte
+/// wdrożenie, spadek crash-free, stojąca poczta, domena nadawcy… Jeden wiersz
+/// na PROBLEM, nie na sprawdzenie — `key` wiąże kolejne przebiegi z tym samym
+/// problemem, więc trwająca awaria to jeden wiersz z rosnącym `lastAt`,
+/// a nie sto powiadomień. Bez kluczy obcych (zasada panelu).
+model AdminAlert {
+  id             String    @id @default(uuid()) @db.Uuid
+  /// np. `deploy-failed:<serviceId>:<deployId>`, `crash-free:scoffie-ios`.
+  key            String    @unique
+  /// Rodzaj reguły (`deploy-failed`, `crash-free`, `sentry-fatal`, …).
+  kind           String
+  /// critical | warning. Tekst, nie enum (konwencja migracji panelu).
+  severity       String
+  title          String
+  /// Jedno–dwa zdania dla operatora. BEZ danych osobowych: adresów, nazw
+  /// osób, treści rozmów — ten tekst idzie też webhookiem i mailem.
+  detail         String
+  firstAt        DateTime  @default(now())
+  /// Ostatni przebieg, który jeszcze widział problem.
+  lastAt         DateTime  @default(now())
+  /// Problem zniknął sam. Powrót tego samego klucza zeruje pole (i przyjęcie).
+  resolvedAt     DateTime?
+  acknowledgedAt DateTime?
+  /// Adres admina z panelu — kopia, jak `AdminAuditLog.adminEmail`.
+  acknowledgedBy String?
+
+  @@index([resolvedAt])
+  @@index([lastAt])
+}
+
 enum MembershipRole {
   OWNER
   MEMBER
@@ -1609,4 +1639,19 @@ enum UserGoal {
   GAIN
   MAINTAIN
   PLAN
+}
+
+/// Nadpisania zmiennych środowiskowych z panelu (ROADMAPA §5.12): wyłącznik
+/// i limity asystenta bez restartu. Tylko klucze z białej listy
+/// (`src/config/runtime-settings.ts`), nigdy sekrety. Brak wiersza = działa
+/// wartość z Railwaya; historia zmian żyje w `AdminAuditLog`.
+model RuntimeSetting {
+  /// np. `AI_ENABLED`
+  key       String   @id
+  /// Wartość po normalizacji, w formacie zmiennej środowiskowej.
+  value     String
+  /// Adres admina, który ustawił nadpisanie.
+  updatedBy String
+  reason    String
+  updatedAt DateTime @updatedAt
 }

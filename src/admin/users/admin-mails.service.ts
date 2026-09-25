@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../../common/app-exception';
 import { checkEligibility, normalizeEmail } from '../../mail/mail-eligibility';
 import { readMailEnv } from '../../mail/mail-env';
+import { isOperatorMailTemplate } from '../../mail/mail-template';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   AdminAuditService,
@@ -75,7 +76,16 @@ export class AdminMailsService {
               'Retencja wyczyściła już adres i treść tego maila — nie ma czego wysłać.',
             );
           }
-          if (!mail.userId && mail.template !== FAREWELL_TEMPLATE) {
+          // Bez konta wolno wysłać tylko dwa rodzaje maili: pożegnanie (konto
+          // skasowano, a mail o tym ma dojść) i mail DO OPERATORA (alert,
+          // raport dzienny) — ten nie miał konta nigdy, adresat pochodzi
+          // z `ADMIN_ALERT_EMAILS`. Każdy inny szablon bez `userId` znaczy
+          // „osoba usunęła konto” i jej maili już nie ponawiamy.
+          if (
+            !mail.userId &&
+            mail.template !== FAREWELL_TEMPLATE &&
+            !isOperatorMailTemplate(mail.template)
+          ) {
             throw conflict(
               'Konto adresata już nie istnieje — po usunięciu konta wychodzi tylko pożegnanie.',
             );

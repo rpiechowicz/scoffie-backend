@@ -225,6 +225,28 @@ Scoffie · <a class="faint-link" href="${c.site}" style="color:${p.faint};text-d
   );
 }
 
+/**
+ * Stopka maili DO OPERATORA (alert, raport dzienny). Bez linków prawnych
+ * i bez „dotyczy Twojego konta” — adresatem nie jest osoba z aplikacji,
+ * tylko właściciel z `ADMIN_ALERT_EMAILS` / `ADMIN_REPORT_EMAILS`.
+ */
+export function opsFoot(c: MailCtx, o: { panelUrl: string }): string {
+  const p = c.p;
+  return (
+    rule(c) +
+    row(
+      c,
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="soft" style="font:400 13px/20px ${c.ff};color:${p.soft};">
+Wiadomość dla operatora Scoffie, nie dla użytkowników. Adresatów ustawiają zmienne ADMIN_ALERT_EMAILS i ADMIN_REPORT_EMAILS.
+</td></tr><tr><td class="faint" style="padding-top:10px;font:400 13px/20px ${c.ff};color:${p.faint};">
+Panel · <a class="faint-link" href="${esc(o.panelUrl)}" style="color:${p.faint};text-decoration:underline;">${esc(o.panelUrl.replace(/^https?:\/\//, ''))}</a>
+</td></tr></table>`,
+      18,
+      34,
+    )
+  );
+}
+
 /* ── 3. Przyciski ────────────────────────────────────────────────────────── */
 
 /**

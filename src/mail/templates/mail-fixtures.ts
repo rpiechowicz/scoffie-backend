@@ -236,6 +236,142 @@ export const MAIL_FIXTURES: MailFixture[] = [
   },
 ];
 
+/**
+ * Maile DO OPERATORA (alert, raport dzienny) — osobna lista, bo mają inną
+ * stopkę (bez „dotyczy Twojego konta”) i linki do panelu, a nie do strony,
+ * więc reguły z `mail-renderer.spec.ts` dla maili do osób ich nie dotyczą.
+ */
+export const OPERATOR_MAIL_FIXTURES: MailFixture[] = [
+  {
+    key: 'ops-alert',
+    label: 'Operator · alert krytyczny',
+    template: 'OPS_ALERT',
+    payload: {
+      severity: 'critical',
+      title: 'scoffie-backend: wdrożenie padło',
+      detail:
+        'Ostatnie wdrożenie usługi scoffie-backend ma status FAILED (commit 0e231a1).',
+      firstAtIso: '2026-09-25T09:40:00.000Z',
+      panelUrl: 'https://dashboard.scoffie.app',
+    },
+  },
+  {
+    key: 'ops-alert-warning',
+    label: 'Operator · ostrzeżenie',
+    template: 'OPS_ALERT',
+    payload: {
+      severity: 'warning',
+      title: 'iOS: crash-free poniżej 99 %',
+      detail:
+        'Crash-free sesji scoffie-ios w ostatnich 24 h: 98,40 % (próg 99 %).',
+      firstAtIso: '2026-09-25T09:40:00.000Z',
+      panelUrl: 'https://dashboard.scoffie.app',
+    },
+  },
+  {
+    key: 'daily-report',
+    label: 'Operator · Scoffie wczoraj',
+    template: 'DAILY_REPORT',
+    payload: {
+      day: '2026-09-24',
+      panelUrl: 'https://dashboard.scoffie.app',
+      sections: [
+        {
+          title: 'Ludzie',
+          metrics: [
+            {
+              label: 'Nowe konta',
+              value: 12,
+              previous: 9,
+              format: 'count',
+              good: 'up',
+            },
+            {
+              label: 'Osoby z asystentem',
+              value: 31,
+              previous: 34,
+              format: 'count',
+              good: 'up',
+            },
+          ],
+        },
+        {
+          title: 'Asystent',
+          metrics: [
+            {
+              label: 'Tury asystenta',
+              value: 184,
+              previous: 184,
+              format: 'count',
+              good: 'neutral',
+            },
+            {
+              label: 'Koszt AI',
+              value: 3.42,
+              previous: 2.9,
+              format: 'usd',
+              good: 'down',
+            },
+            {
+              label: 'Koszt AI w złotych',
+              value: 12.73,
+              previous: 10.8,
+              format: 'pln',
+              good: 'down',
+            },
+          ],
+        },
+        {
+          title: 'Subskrypcje',
+          metrics: [
+            {
+              label: 'MRR',
+              value: 1249.5,
+              previous: 1219.6,
+              format: 'pln',
+              good: 'up',
+            },
+            {
+              label: 'Odejścia',
+              value: 0,
+              previous: 1,
+              format: 'count',
+              good: 'down',
+            },
+          ],
+        },
+        {
+          title: 'Operacje',
+          metrics: [
+            {
+              label: 'Maile nieudane',
+              value: 0,
+              previous: 0,
+              format: 'count',
+              good: 'down',
+            },
+            {
+              label: 'Nowe problemy Sentry (24 h)',
+              value: 2,
+              previous: null,
+              format: 'count',
+              good: 'down',
+            },
+          ],
+        },
+      ],
+      notes: [
+        {
+          tone: 'warn',
+          text: 'Otwarte alerty: 1. Szczegóły na ekranie Alerty.',
+        },
+      ],
+    },
+  },
+];
+
 export function fixtureByKey(key: string): MailFixture | undefined {
-  return MAIL_FIXTURES.find((f) => f.key === key);
+  return [...MAIL_FIXTURES, ...OPERATOR_MAIL_FIXTURES].find(
+    (f) => f.key === key,
+  );
 }

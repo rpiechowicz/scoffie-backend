@@ -29,12 +29,31 @@ export const MAIL_TEMPLATE_IDS = [
   'ACCOUNT_DELETED',
   /** G — nowa wersja regulaminu lub polityki prywatności. */
   'LEGAL_UPDATE',
+  /** Operator — alert z centrum alertów panelu (`AdminWatchService`). */
+  'OPS_ALERT',
+  /** Operator — „Scoffie wczoraj”, raport o 7:00 (`AdminDailyReportService`). */
+  'DAILY_REPORT',
 ] as const;
 
 export type MailTemplateId = (typeof MAIL_TEMPLATE_IDS)[number];
 
 export function isMailTemplateId(value: string): value is MailTemplateId {
   return (MAIL_TEMPLATE_IDS as readonly string[]).includes(value);
+}
+
+/**
+ * Maile DO OPERATORA, nie do osoby z konta. Nie mają `userId` z definicji
+ * (adresat to `ADMIN_ALERT_EMAILS` / `ADMIN_REPORT_EMAILS`), więc reguły
+ * pisane pod „konto już nie istnieje” (np. „Ponów” w panelu) muszą je
+ * odróżniać od maila do osoby, której konto skasowano.
+ */
+export const OPERATOR_MAIL_TEMPLATES: readonly MailTemplateId[] = [
+  'OPS_ALERT',
+  'DAILY_REPORT',
+];
+
+export function isOperatorMailTemplate(value: string): boolean {
+  return (OPERATOR_MAIL_TEMPLATES as readonly string[]).includes(value);
 }
 
 /** A — jedyne, co wiemy na pewno, to nazwa wyświetlana wybrana w aplikacji. */
@@ -148,6 +167,39 @@ export type LegalUpdatePayload = {
   changes: { title: string; body: string }[];
 };
 
+/**
+ * Alert operacyjny. Treść pochodzi z `AdminAlert` — BEZ danych osobowych
+ * (reguły wykrywania piszą ją same, nie kopiują tekstów od użytkowników).
+ */
+export type OpsAlertPayload = {
+  severity: 'critical' | 'warning';
+  title: string;
+  detail: string;
+  firstAtIso: string;
+  /** Adres panelu (`https://dashboard.scoffie.app`) — przycisk prowadzi na `/alerts`. */
+  panelUrl: string;
+};
+
+/** Jedna liczba raportu dziennego i jej wartość z dnia wcześniej. */
+export type DailyReportMetric = {
+  label: string;
+  value: number;
+  /** `null` — nie da się porównać (np. Sentry podaje tylko ostatnie 24 h). */
+  previous: number | null;
+  format: 'count' | 'usd' | 'pln';
+  /** Który kierunek zmiany jest dobry — decyduje o kolorze strzałki. */
+  good: 'up' | 'down' | 'neutral';
+};
+
+export type DailyReportPayload = {
+  /** Doba raportu `YYYY-MM-DD` (Europe/Warsaw). */
+  day: string;
+  panelUrl: string;
+  sections: { title: string; metrics: DailyReportMetric[] }[];
+  /** Krótkie zdania o stanie na chwilę wysyłki (otwarte alerty, kopia bazy). */
+  notes: { tone: 'ok' | 'warn'; text: string }[];
+};
+
 export type MailPayloads = {
   WELCOME: WelcomePayload;
   HOUSEHOLD_JOINED: HouseholdJoinedPayload;
@@ -157,6 +209,8 @@ export type MailPayloads = {
   SUBSCRIPTION_EXPIRED: SubscriptionExpiredPayload;
   ACCOUNT_DELETED: AccountDeletedPayload;
   LEGAL_UPDATE: LegalUpdatePayload;
+  OPS_ALERT: OpsAlertPayload;
+  DAILY_REPORT: DailyReportPayload;
 };
 
 /** Gotowa wiadomość — cztery części, które idą do dostawcy. */

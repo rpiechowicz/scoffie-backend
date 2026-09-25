@@ -17,6 +17,7 @@ import { ConsentsModule } from './consents/consents.module';
 import { DataExportModule } from './data-export/data-export.module';
 import { AppThrottleModule } from './common/throttle/throttle.module';
 import { AdminModule } from './admin/admin.module';
+import { RuntimeSettingsModule } from './runtime-settings/runtime-settings.module';
 
 @Module({
   imports: [
@@ -25,6 +26,9 @@ import { AdminModule } from './admin/admin.module';
     // (`captureUnexpected`), a co zwykłą odpowiedzią 4xx.
     SentryModule.forRoot(),
     PrismaModule,
+    // Nadpisania env z panelu (wyłącznik i limity asystenta) — wczytane przy
+    // starcie, zanim ruszy pierwsze żądanie do `/agent`.
+    RuntimeSettingsModule,
     CommonModule,
     // Globalny throttler HTTP — rejestruje APP_GUARD, więc musi być w drzewie
     // przed kontrolerami, które ogranicza.

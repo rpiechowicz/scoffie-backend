@@ -8,6 +8,7 @@ import type {
 } from '../contract';
 import { IntegrationError } from './integration-fetch';
 import {
+  fetchCronRuns,
   railwayGql,
   railwayScope,
   railwayServiceUrl,
@@ -18,6 +19,7 @@ import {
 } from './railway.client';
 
 const DEPLOYS = 20;
+const RUNS = 30;
 const LOG_LINES = 500;
 
 /** Okres wykresu → długość i krok próbek (ok. 60–180 punktów na wykres). */
@@ -129,7 +131,7 @@ export async function fetchRailwayService(
     step,
   };
 
-  const [main, metrics] = await Promise.all([
+  const [main, metrics, runs] = await Promise.all([
     gql<{
       serviceInstance: ApiServiceInstance;
       deployments: { edges: { node: ApiDeployDetail }[] };
@@ -141,6 +143,9 @@ export async function fetchRailwayService(
     gql<{ metrics: ApiMetric[] }>(METRICS_QUERY, window)
       .then((d) => d.metrics)
       .catch((): ApiMetric[] => []),
+    instance.cronSchedule
+      ? fetchCronRuns(gql, scope.eid, serviceId, RUNS)
+      : Promise.resolve([]),
   ]);
 
   const domains = [
@@ -192,6 +197,7 @@ export async function fetchRailwayService(
     deploys: main.deployments.edges.map(
       ({ node }): RailwayDeployDetail => toDeploy(node),
     ),
+    runs,
   };
 }
 

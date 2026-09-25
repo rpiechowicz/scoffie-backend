@@ -163,6 +163,32 @@ export class AdminDashboardService {
   }
 
   /**
+   * Raport dzienny (`AdminDailyReportService`): te same serie dzienne i ten
+   * sam zbiór subskrypcji, co pulpit — dla wskazanych dób zamiast ostatnich
+   * trzydziestu. Jedna arytmetyka, jedno zapytanie: raport nie może mówić
+   * o wczoraj czegoś innego niż słupek „wczoraj” na pulpicie.
+   *
+   * Subskrypcje oddajemy surowo (nadzbiór od POCZĄTKU pierwszej doby —
+   * odejście w jej trakcie też ma się złapać), a MRR,
+   * liczbę opłaconych i ruch liczy wołający funkcjami z `admin-metrics.ts`
+   * i `subscription-metrics.ts`.
+   */
+  reportDays(
+    days: PanelDay[],
+    now: Date,
+  ): Promise<{ stats: DayStat[]; subscriptions: MetricSubscription[] }> {
+    return readOnlyQuery(this.prisma, async (tx) => {
+      const stats = await this.dailySeries(tx, days);
+      const subscriptions = await this.subscriptionHistory(
+        tx,
+        now,
+        days[0].start,
+      );
+      return { stats, subscriptions };
+    });
+  }
+
+  /**
    * Cztery serie dzienne jednym zapytaniem: każda to `GROUP BY` doby
    * warszawskiej (grupowanie po numerze kolumny, bo strefa jest parametrem,
    * a dwa różne parametry to dla Postgresa dwa różne wyrażenia).
