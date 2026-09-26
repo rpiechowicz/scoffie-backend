@@ -10,7 +10,8 @@
 | 0. Baseline | **DONE** — harness i lokalny baseline gotowe; płatny live benchmark świadomie odłożony na finał | `reports/00-baseline.md` |
 | 1. Poprawność, stan, koszty | **DONE** — po review + addendum (klucz idempotencji księgi) | `reports/01-correctness-state-costs.md` |
 | 2. Server-side planner | **DONE** — po poprawce semantyki celu kcal (raport 02, Addendum A1) | `reports/02-server-side-planner.md` |
-| 3. Odchudzenie agenta | **READY** | `reports/03-agent-thinning.md` |
+| 2.2 Porcje per osoba | **IN_PROGRESS** | `reports/02-2-per-user-portions.md` |
+| 3. Odchudzenie agenta | WAITING (po review Etapu 2.2) | `reports/03-agent-thinning.md` |
 | 4. Katalog / DB / API | WAITING | `reports/04-catalog-db-api-scale.md` |
 | 5. Trwałe tury | WAITING | `reports/05-durable-turns.md` |
 | 6. Modele / routing | WAITING | `reports/06-model-evaluation.md` |
@@ -82,5 +83,4 @@ Poprzednie: `reports/01-correctness-state-costs.md`, `reports/00-baseline.md` �
 do końcowego porównania: commit `22aa63c` (ten sam benchmark na anchorze i finalnym HEAD,
 tego samego dnia, na tej samej konfiguracji modelu).
 
-**Etap 2 zakończony (po poprawce semantyki celu). Etap 3 READY — wykonawca czeka na
-polecenie startu.**
+**Etap 2 zakończony. Trwa Etap 2.2 (porcje per osoba) — Etap 3 czeka na jego review.**

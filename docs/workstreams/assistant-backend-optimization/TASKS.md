@@ -153,6 +153,31 @@ bilansu. Serwer zwraca gotowy, walidowalny szkic. Raport:
 
 ---
 
+## Etap 2.2 — porcje per osoba
+
+### Cel
+Główny invariant: gdy Scoffie planuje dzień, backend próbuje doprowadzić CAŁY dzień
+KAŻDEJ osoby możliwie blisko 100 % jej `calorieGoal` (≤ 5 % bardzo dobrze, ≤ 10 %
+akceptowalnie, > 10 % = PARTIAL; twarde ograniczenia nigdy dla kcal). Równy podział
+`plannedServings` blokuje ten cel przy różnych celach w domu — potrzebna alokacja porcji
+per osoba dla wspólnego dania.
+
+### Zadania
+- [ ] Audyt cross-repo (backend + iOS) i projekt przed zmianą schematu.
+- [ ] Model danych z porcjami ułamkowymi; legacy bez alokacji = dzisiejszy równy podział.
+- [ ] Jednoznaczna relacja `plannedServings` ↔ suma porcji osób.
+- [ ] Planer: dobór przepisu + alokacja porcji (zakres i krok jako stałe domenowe).
+- [ ] Lista zakupów z jawną semantyką ilości (test).
+- [ ] iOS: dekodowanie starych/nowych planów, bilans z porcji osoby, cache.
+- [ ] Kompatybilność stary/nowy klient × stary/nowy backend, plan rolloutu.
+- [ ] Testy obowiązkowe 1–17, `planner:eval` przed/po.
+
+### Kryterium zakończenia
+Para i rodzina o różnych celach schodzą istotnie poniżej granicy równego podziału,
+twarde ograniczenia = 0, legacy działa bez zmian. Raport: `reports/02-2-per-user-portions.md`.
+
+---
+
 ## Etap 3 — odchudzenie asystenta i liczby rund
 
 ### Cel
