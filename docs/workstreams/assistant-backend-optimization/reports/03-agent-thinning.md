@@ -1,7 +1,7 @@
 # Raport etapu 03 — Odchudzenie agenta / mniej rund modelu
 
 **Data:** 2026-09-26  
-**Status:** DONE — wszystko sprawdzone bez modelu (unit, e2e na żywej bazie, harness na sucho,
+**Status:** DONE (po review — Addendum A1) — wszystko sprawdzone bez modelu (unit, e2e na żywej bazie, harness na sucho,
 metryki lokalne). Liczby o zachowaniu MODELU (rundy, tokeny, koszt) są policzone z kodu
 (CALCULATED), nie zmierzone: płatny benchmark świadomie nie był uruchamiany (§12).  
 **Branch:** `claude/admin-crm-planning-b0hmgo`  
@@ -102,7 +102,7 @@ Wynik dla modelu (gdy tura trwa dalej): `offered`, `status`, `eligible`, `remain
 **Zdanie serwera na koniec tury** (`AgentToolResult.turnText`, `turnTextFor`): karta, po której
 model nic nie napisał, kończy turę zdaniem serwera („Trzy propozycje na kolację w środę — wybierz
 jedną.", „Plan na sobotę gotowy — zatwierdzisz go jednym kliknięciem."). `null` = model ma coś do
-wyjaśnienia (plan PARTIAL, zamiennik nie-OK) i dostaje rundę jak dotąd. Tekst modelu ma pierwszeństwo.
+wyjaśnienia (plan PARTIAL, zamiennik nie-OK) i dostaje rundę jak dotąd. ~~Tekst modelu ma pierwszeństwo.~~ **Zmienione w Addendum A1:** kończy wyłącznie zdanie serwera.
 
 **Jedna karta na turę** (`TurnMemo.claimCard`): druga karta w tej samej turze — także równolegle
 w jednej rundzie — dostaje `AI_ONE_CARD_PER_TURN`; odmowa narzędzia zwalnia kartę. Dotąd druga
@@ -180,7 +180,7 @@ tura „co na kolację" czyta domowników **raz**.
 | `pnpm test` | **188/188 suit, 3401/3401** (przed Etapem 3: 186/3377; −3 przypadki `it.each` po krótszej liście narzędzi, +27 nowych) |
 | — `src/meal-planner/suggest-for-slot.spec.ts` (nowy) | 8: 3 różne dania (1), alergia+dieta (2), „szybkie" + jawne łagodzenie (3), różnorodność białka, pula składnika, dopasowanie do dnia (ciężki obiad → lżejsza kolacja), UNSAT, determinizm |
 | — `src/agent/agent-thinning.spec.ts` (nowy) | 13: `TurnMemo` (raz na klucz, także równolegle; błąd nie zostaje; jedna karta — 10, 12), `turnTextFor`, `suggest_meals` w warstwie chat/kończy turę/same pola wymagane, wycofane narzędzia poza listami i poza runnerem/trasą/dostawcami (11), prompt bez wycofanych nazw i bez „liczenia" |
-| — `anthropic-agent.provider.spec.ts` (+6) | karta ze zdaniem serwera = 1 wywołanie (4), tekst modelu ma pierwszeństwo, karta bez zdania → model dostaje głos, dwie karty z odmową drugiej → tura nie kończy się przed przetworzeniem (12), dwie udane karty → oba zdania, narzędzie spoza listy fazy nie trafia do executora |
+| — `anthropic-agent.provider.spec.ts` (+6) | karta ze zdaniem serwera = 1 wywołanie (4), ~~tekst modelu ma pierwszeństwo~~ (zastąpione w A1), karta bez zdania → model dostaje głos, dwie karty z odmową drugiej → tura nie kończy się przed przetworzeniem (12), dwie udane karty → oba zdania, narzędzie spoza listy fazy nie trafia do executora |
 | `e2e.sh test/agent-thinning` (nowy, żywa baza) | **7/7**: „co na kolację" = tylko `suggest_meals`, karta OPTIONS z 3 różnymi daniami na kolację, domownicy czytani RAZ (1, 10); alergia+dieta z profilu (2); „szybkie" ≤ 25 min (3); `build_meal_plan` sam, bez `propose_week_plan`/`find_recipes` (5); „wybieram drugą" — model widzi opcje karty `suggest_meals` w kolejności kafelków (7); chudy `find_recipes` (9); dwie karty w jednej turze równolegle → jedna odmówiona, odmowa zwalnia kartę, zdanie serwera (12) |
 | e2e regresja: `agent*` (agent, accounting, card-state, catalog-boundary, tools, thinning), `meal-planner`, `per-user-portions`, `apply-week-plan`, `authz-audit`, `data-export`, `account-deletion` | **12/12 suit, 188/188** — w tym Etap 1 (księga, stan kart, propozycje: 8) i `replace_plan_item` zmienia wyłącznie wskazany slot (`meal-planner.e2e` „8.–9.", 6) |
 | `admin-assistant.e2e` | 13/15 — 2 błędy ŚRODOWISKOWE: kurs USD/PLN z lokalnej tabeli `FxRate` (3,8404) zamiast stałej referencyjnej (3,7224), niezwiązane z Etapem 3 |
@@ -225,3 +225,70 @@ tura „co na kolację" czyta domowników **raz**.
 6. Tokeny wejścia: schemat −452 znaki, instrukcje −915 znaków, wyniki narzędzi −51…−96 %.
 7. Scenariusze przepisów (`g11-*`) — czy `create_recipe`/`update_recipe` zostają w schemacie.
 8. Tryb przekazania (jeśli zostanie włączony): koszt rundy planisty bez kandydatów.
+
+---
+
+## Addendum A1 — po review (26.09.2026): autorytatywne zdanie serwera, porcje przez wybór z karty
+
+### A1.1 Problem: tekst modelu napisany w ciemno kończył turę
+
+Dostawca kończył turę po karcie tekstem, który model napisał PRZED wywołaniem narzędzia
+(`modelText || serverText`). Ten tekst powstaje bez wyniku domeny: „Plan gotowy." przed
+`build_meal_plan`, który wraca PARTIAL, albo „Mam trzy propozycje." przed `suggest_meals`, który
+znalazł dwie — i użytkownik dostawał zdanie sprzeczne z kartą. Test „zdanie modelu ma
+pierwszeństwo przed zdaniem serwera" przypinał tę błędną zasadę.
+
+### A1.2 Nowa zasada: kończy wyłącznie zdanie serwera
+
+`AnthropicAgentProvider` (pętla narzędzi):
+- **A.** każde narzędzie rundy to udana karta z `turnText` → tura kończy się BEZ kolejnego
+  wywołania, a tekstem finalnym jest `turnText` (zdanie z faktycznego wyniku: „Dwie propozycje…");
+  tekst modelu sprzed wywołania jest pomijany;
+- **B.** udana karta bez `turnText` (plan/zamiennik PARTIAL — `turnTextFor` oddaje `null`) → wynik
+  idzie do modelu i model dostaje rundę, NAWET gdy coś napisał przed wywołaniem;
+- **C.** odmowa/błąd narzędzia → jak dotąd, model widzi wynik i się poprawia.
+
+Prompt: przed wywołaniem narzędzia z kartą model NIC nie pisze („zwykły wynik opisze serwer
+jednym zdaniem, a gdy wynik wymaga wyjaśnienia, dostaniesz go i dopiero wtedy odpowiadasz");
+pytanie z `ask_clarifying_question` pokazuje karta; opis `suggest_meals` jw.; „najwyżej dwa
+zdania" dotyczy odpowiedzi PO wyniku.
+
+### A1.3 Porcje per osoba przez suggest → wybór → propozycja → zapis
+
+Problem: przy `AI_PLANNER_PER_USER_PORTIONS=true` `suggest_meals` rankingował na równym
+podziale (`portionMode: 'auto'`), a wybór z karty szedł `propose_swap`/`revise_proposal` BEZ
+porcji — po zapisie para 1600/2600 wracała do równego podziału (~23 %).
+
+Rozwiązanie (najmniejsza spójna zmiana; schemat narzędzi bez zmian, model nie widzi ani nie
+przenosi liczb):
+- `AgentMealPlannerService.suggest` — `portionMode` za tym samym włącznikiem co build/replace:
+  włączony = ranking z porcją KAŻDEJ osoby (`suggestForSlot` na `per_user`).
+- `AgentMealPlannerService.portionsForChoice` — dla dania WYBRANEGO przez użytkownika: ten sam
+  planer zawężony do jednego przepisu (`PlanningRequest.onlyRecipeIds`), filtry twarde
+  wszystkich jedzących (alergeny, wykluczenia, DIETA), bilans osoby przy reszcie dnia, porcja
+  0,5–1,5 co 0,05. Danie, które nie przechodzi filtrów, to błąd dla modelu (nie cicha podmiana).
+- Wołają go SAME ścieżki z konkretnym daniem, po stronie serwera: `propose_swap` (zapisany plan,
+  także dla wybranych osób — `participant_user_ids`) i `revise_proposal` (propozycja PENDING,
+  audytorium slotu z propozycji). Model podaje wyłącznie przepis — jak dotąd.
+- `createSwapProposal`: porcje także w podmianie dla części domu (dotąd tylko cały slot);
+  `narrowSlot` zdejmuje z pozostałej pozycji porcje wychodzących osób.
+- `replace_plan_item` w zapisanym planie: slot imienny zostaje imienny (audytorium podmiany =
+  audytorium planera) — wcześniej porcje dla imiennego audytorium trafiały na slot „Wspólne"
+  (niespójna alokacja przy włączonej fladze).
+- Flaga `false`: żadnych nowych obliczeń ani alokacji — przepływ identyczny jak przed poprawką.
+- Stub: `[[swap:<DZIEŃ>:<PORA>:<recipeId>(:<userId>)?]]` (wybór bez modelu w e2e).
+
+### A1.4 Testy
+
+| Test | Wynik |
+|---|---|
+| `anthropic-agent.provider.spec.ts` | 36/36; nowe/zmienione: 1./2. `build_meal_plan` i `replace_plan_item` PARTIAL + tekst modelu → DWIE rundy, finał po `tool_result` (druga runda widzi `PARTIAL`); 3. model „Trzy propozycje", serwer `offered=2` → tekst SERWERA; 4. karta OK + sprzeczny tekst modelu → `turnText`; 5. karta OK bez tekstu → 1 wywołanie; 6. zwykłe narzędzie bez regresji; odmowa karty → runda; test „zdanie modelu ma pierwszeństwo" USUNIĘTY (zastąpiony 4.) |
+| `suggest-for-slot.spec.ts` | +1: tryb `per_user` — każda propozycja z porcją każdej osoby |
+| `e2e.sh test/agent-choice-portions` (nowy, żywa baza, stub) | **6/6**: 1./8. flaga OFF — suggest → wybór → zapis jak dotąd, 0 wierszy `PlanItemPortion`; 2. flaga ON — ranking pary 1600/2600 z porcjami (Rafał > Asia); 3./4./5. flaga ON — „wybieram drugą" → propozycja z porcjami od serwera → zapis utrwala 2 wiersze → `weeklyBalance` środy: **Asia 0,3 %, Rafał 0,2 %** od celu (MEASURED; przed Etapem 2.2 ~23 %); 6. wybór w PENDING propozycji — pozostałe sloty identyczne (z porcjami), wybrany z nowymi porcjami; wybrane osoby — danie tylko dla Asi: jej porcja od serwera, Rafał przy swoim daniu z niezmienioną porcją; 7. dieta osoby odrzuca wybrane mięsne danie (brak propozycji) |
+| `pnpm test` | **188/188 suit, 3407/3407** |
+| e2e regresja `agent*` (w tym `agent-thinning`, `agent-choice-portions`), `meal-planner`, `per-user-portions`, `apply-week-plan` | **10/10 suit, 169/169** |
+| `pnpm typecheck`, `pnpm lint:check`, `pnpm openapi:check` | 0 błędów, OpenAPI aktualne (kontrakt REST/WS bez zmian) |
+
+Poza zakresem (świadomie): `propose_day_plan` z daniami podanymi przez użytkownika tworzy
+pozycje bez porcji per osoba (to nie jest przepływ wyboru z karty); do rozważenia przy
+włączaniu flagi. Flaga produkcyjna zostaje `false`; iOS bez zmian.

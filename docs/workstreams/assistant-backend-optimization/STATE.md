@@ -11,7 +11,7 @@
 | 1. Poprawność, stan, koszty | **DONE** — po review + addendum (klucz idempotencji księgi) | `reports/01-correctness-state-costs.md` |
 | 2. Server-side planner | **DONE** — po poprawce semantyki celu kcal (raport 02, Addendum A1) | `reports/02-server-side-planner.md` |
 | 2.2 Porcje per osoba | **DONE (backend)** — zaakceptowany. iOS compile verification: **DEFERRED / przed rolloutem** (gałąź `claude/per-user-portions` bez zmian i bez merge'a; nie blokuje kolejnych etapów) | `reports/02-2-per-user-portions.md` |
-| 3. Odchudzenie agenta | **DONE** — `suggest_meals`, zdanie serwera na koniec tury, jedna karta na turę, pamięć tury, 3 narzędzia zdjęte ze schematu modelu; zachowanie modelu do potwierdzenia w końcowym live benchmarku | `reports/03-agent-thinning.md` |
+| 3. Odchudzenie agenta | **DONE** — po review (Addendum A1: autorytatywne zdanie serwera, porcje per osoba przez wybór z karty); `suggest_meals`, jedna karta na turę, pamięć tury, 3 narzędzia zdjęte ze schematu modelu; zachowanie modelu do potwierdzenia w końcowym live benchmarku | `reports/03-agent-thinning.md` |
 | 4. Katalog / DB / API | **READY** (czeka na akceptację Rafała) | `reports/04-catalog-db-api-scale.md` |
 | 5. Trwałe tury | WAITING | `reports/05-durable-turns.md` |
 | 6. Modele / routing | WAITING | `reports/06-model-evaluation.md` |
@@ -53,9 +53,6 @@ Po zakończeniu:
 - Backlog (świadomie odłożone): limit `/auth/refresh` per rodzina tokenów (dziś hasz
   tokenu + bezpiecznik IP); atomowy budżet instalacji przy wielu równoczesnych startach
   / wielu instancjach (dziś nieatomowy odczyt + sufit w trakcie tury, raport 01 A2).
-- Porcje per osoba (wariant C) — osobna decyzja architektoniczna po Etapie 2
-  (kierunek: C). Dziś `plannedServings` dzieli się RÓWNO; para 1600/2600 przy
-  wspólnych daniach ma ~23 % odchylenia dnia (granica modelu, raport 02 §9.1, A1).
 - Dieta w walidatorze zapisu `applyWeekPlan` (planer ją egzekwuje, walidator nie).
 - Tolerancje planera przyjęte roboczo: kcal ±10 % PEŁNEGO celu dnia (`FULL_DAY`) albo
   celu zakresu (`PARTIAL`), białko ±20 %, tłuszcz/węgle ±25 %, powtórki 0 poza
@@ -67,7 +64,10 @@ Po zakończeniu:
 `reports/03-agent-thinning.md` (26.09.2026) — Etap 3 **DONE**:
 - nowa operacja `suggest_meals` (silnik `suggestForSlot`: filtry twarde planera, bilans dnia,
   zawężenie „szybko", różnorodność; ta sama karta OPTIONS co `offer_options`);
-- karta kończy turę także bez tekstu modelu (`turnText` serwera); jedna karta na turę
+- karta kończy turę WYŁĄCZNIE autorytatywnym zdaniem serwera (`turnText`); karta bez niego
+  (plan PARTIAL) oddaje wynik modelowi — tekst modelu sprzed wywołania nie wygrywa (Addendum A1);
+- porcje per osoba przez suggest → wybór → propozycja → zapis liczy serwer (Addendum A1);
+  jedna karta na turę
   (`AI_ONE_CARD_PER_TURN`); dostawca wykonuje tylko narzędzia z listy fazy;
 - `TurnMemo`: domownicy, zgody i pory raz na turę (prompt, narzędzia, planer, propozycje);
 - ze schematu modelu zdjęte `get_household_context`, `propose_week_plan` (wewnętrzne dla stuba),
@@ -107,7 +107,7 @@ Poprzednie: `reports/01-correctness-state-costs.md`, `reports/00-baseline.md` �
 do końcowego porównania: commit `22aa63c` (ten sam benchmark na anchorze i finalnym HEAD,
 tego samego dnia, na tej samej konfiguracji modelu).
 
-**Etap 3 zakończony — czeka na review. Etap 4 READY (nie zaczynać bez akceptacji Rafała).**
+**Etap 3 zakończony (po review, Addendum A1) — czeka na akceptację. Etap 4 READY (nie zaczynać bez akceptacji Rafała).**
 
 ### Warunek rolloutu porcji per osoba (Etap 2.2)
 

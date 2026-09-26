@@ -270,9 +270,11 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   model rozumie prośbę i wybiera JEDNĄ operację serwera, serwer szuka, filtruje, planuje, liczy
   i buduje kartę. „Co na kolację?"/„3 szybkie"/„mam kurczaka" = `suggest_meals` (silnik
   `suggestForSlot`: filtry twarde planera, bilans dnia osoby, zawężenie życzeniem miękkim,
-  różnorodność; ta sama karta OPTIONS co `offer_options`). Narzędzie z kartą kończy turę także bez
-  tekstu modelu — `AgentToolResult.turnText` (zdanie serwera, `turnTextFor`); `null` = model ma
-  coś do wyjaśnienia (np. plan PARTIAL) i dostaje rundę. JEDNA karta na turę: `TurnMemo.claimCard`
+  różnorodność; ta sama karta OPTIONS co `offer_options`). Turę po karcie kończy WYŁĄCZNIE
+  autorytatywne zdanie serwera (`AgentToolResult.turnText`, `turnTextFor`) — tekst modelu sprzed
+  wywołania nigdy nie wygrywa; `null` (plan/zamiennik PARTIAL) = model dostaje wynik i rundę.
+  Porcje per osoba dania WYBRANEGO z karty (`propose_swap`, `revise_proposal`) liczy serwer
+  (`portionsForChoice`, planer zawężony `onlyRecipeIds`) — model podaje tylko przepis. JEDNA karta na turę: `TurnMemo.claimCard`
   (synchronicznie, przed pierwszym `await`), druga = `AI_ONE_CARD_PER_TURN`, odmowa zwalnia kartę.
   Pamięć tury `src/agent/turn-memo.ts` (`TURN_KEYS`): domownicy, zgody i wiersz domu czytane RAZ
   na turę przez prompt, executor, planer i propozycje — planu tygodnia tam NIE ma (zapis go
