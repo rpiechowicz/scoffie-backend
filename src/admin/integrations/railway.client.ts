@@ -263,3 +263,42 @@ export function toDeploy(d: ApiDeploy): RailwayDeploy {
     reason: metaText(d.meta, 'reason'),
   };
 }
+
+const LATEST_DEPLOY_QUERY = `query ($pid: String!, $eid: String!, $sid: String!) {
+  deployments(first: 1, input: { projectId: $pid, environmentId: $eid, serviceId: $sid }) {
+    edges { node { id status createdAt statusUpdatedAt meta } }
+  }
+}`;
+
+export type LatestDeploy = {
+  serviceId: string;
+  serviceName: string;
+  deploy: RailwayDeploy | null;
+};
+
+/**
+ * Tylko najnowsze wdrożenie każdej usługi — jedno zapytanie na usługę, bez
+ * metryk i uruchomień cronów. Do śledzenia budowy co kilka sekund.
+ */
+export async function fetchLatestDeploys(
+  gql: RailwayGql,
+  scope: RailwayScope,
+): Promise<LatestDeploy[]> {
+  return Promise.all(
+    scope.instances.map(async (node) => {
+      const { deployments } = await gql<{
+        deployments: { edges: { node: ApiDeploy }[] };
+      }>(LATEST_DEPLOY_QUERY, {
+        pid: scope.pid,
+        eid: scope.eid,
+        sid: node.serviceId,
+      });
+      const latest = deployments.edges[0]?.node;
+      return {
+        serviceId: node.serviceId,
+        serviceName: node.serviceName,
+        deploy: latest ? toDeploy(latest) : null,
+      };
+    }),
+  );
+}
