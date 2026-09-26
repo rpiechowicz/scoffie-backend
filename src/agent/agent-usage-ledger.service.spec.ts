@@ -87,6 +87,7 @@ describe('AgentUsageLedger', () => {
       expect(tx.aiUsage.createMany).toHaveBeenCalledWith({
         data: [
           expect.objectContaining({
+            callKey: `turn:${TURN}:2`,
             turnId: TURN,
             callIndex: 2,
             userId: USER,
@@ -174,7 +175,15 @@ describe('AgentUsageLedger', () => {
       tx.agentTurn.findUnique.mockResolvedValue(null);
       await ledger.record(TURN_CTX, call(3000));
       expect(tx.aiUsage.createMany).toHaveBeenCalledWith({
-        data: [expect.objectContaining({ turnId: null, callIndex: null })],
+        // Klucz idempotencji ten sam co przy żywej turze — ponowienie po
+        // skasowaniu rozmowy trafia w unikat (e2e: agent-accounting).
+        data: [
+          expect.objectContaining({
+            turnId: null,
+            callIndex: 2,
+            callKey: `turn:${TURN}:2`,
+          }),
+        ],
         skipDuplicates: true,
       });
       expect(tx.agentTurn.updateMany).not.toHaveBeenCalled();

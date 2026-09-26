@@ -199,7 +199,8 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   tylko `turnId`, `requestId` i kod.
 - Księga kosztu asystenta (od 26.09.2026, workstream Etap 1): wiersz `AiUsage` na KAŻDE wywołanie
   dostawcy, zapisany zaraz po nim przez `onUsage` → `AgentUsageLedger.record` (klucz idempotencji
-  `(turnId, callIndex)`, jedna transakcja: wiersz + przyrost tokenów/kosztu tury BEZ względu na
+  `AiUsage.callKey` = `turn:<turnId>:<callIndex>`, NOT NULL UNIQUE i niezależny od FK — działa też po
+  skasowaniu tury; NIE opierać idempotencji na unikacie z kolumn nullable), jedna transakcja: wiersz + przyrost tokenów/kosztu tury BEZ względu na
   status + liczniki sufitów + cofnięcie zwrotu, gdy koszt dojechał do tury już zwróconej).
   `finishDone`/`finishFailed` NIE piszą już kosztu ani liczników. Nowy dostawca MUSI meldować
   wywołania (`onUsage`), inaczej runner zapisze jeden zbiorczy wiersz po turze i przerwanie z

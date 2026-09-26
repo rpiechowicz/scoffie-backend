@@ -1049,18 +1049,21 @@ model AiUsage {
   /// pomiar. `NULL` znaczy „nie wiadomo" i tak też liczą to raporty.
   apiCalls         Int?
   latencyMs        Int?
-  /// Numer wywołania dostawcy w turze (0, 1, …) — klucz idempotencji księgi.
-  /// Od 26.09.2026 jeden wiersz = jedno wywołanie API, zapisany ZARAZ po nim,
-  /// niezależnie od tego, jak tura się skończy. `NULL` = wiersz sprzed tej
-  /// kolumny (jeden na fazę) albo spoza tury (podgrzewanie cache).
+  /// Numer wywołania dostawcy w turze (0, 1, …). Od 26.09.2026 jeden
+  /// wiersz = jedno wywołanie API, zapisany ZARAZ po nim, niezależnie od
+  /// tego, jak tura się skończy. `NULL` = wiersz sprzed tej kolumny (jeden na
+  /// fazę) albo spoza tury (podgrzewanie cache).
   callIndex        Int?
+  /// KLUCZ IDEMPOTENCJI wywołania: `turn:<turnId>:<callIndex>` dla wywołań
+  /// tury, losowy dla wierszy spoza niej (podgrzewanie cache), `legacy:<id>`
+  /// dla wierszy sprzed kolumny. Nie-null i niezależny od FK: tura skasowana
+  /// w trakcie (RODO) przepisuje `turnId` na NULL, a klucz zostaje — więc
+  /// ponowienie zapisu trafia w unikat i nie nalicza kosztu drugi raz.
+  /// (Wcześniej unikat `(turnId, callIndex)` przepuszczał wiele `(NULL, NULL)`.)
+  callKey          String   @unique @default(dbgenerated("(gen_random_uuid())::text"))
   createdAt        DateTime @default(now())
 
   turn AgentTurn? @relation(fields: [turnId], references: [id], onDelete: SetNull)
-
-  /// To samo wywołanie zapisane drugi raz (ponowienie po błędzie bazy,
-  /// wyścig runnera z domknięciem) nie dubluje kosztu.
-  @@unique([turnId, callIndex])
 
   @@index([userId, createdAt])
   @@index([createdAt])

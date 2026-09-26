@@ -12,6 +12,15 @@ import {
   AgentUsageVerdict,
 } from './providers/agent-provider';
 
+/**
+ * Klucz idempotencji wywołania w księdze: ten sam dla każdego zapisu tego
+ * samego wywołania, niezależnie od tego, czy tura jeszcze istnieje. Ten sam
+ * kształt nadaje istniejącym wierszom migracja `ksiega_klucz_wywolania`.
+ */
+export function usageCallKey(turnId: string, callIndex: number): string {
+  return `turn:${turnId}:${callIndex}`;
+}
+
 /** Tożsamość tury, pod którą księga zapisuje wywołania. */
 export type LedgerTurn = {
   turnId: string;
@@ -39,9 +48,10 @@ export type LedgerTurn = {
  *
  * Jedna transakcja na wywołanie: wiersz księgi, tokeny i koszt tury
  * (przyrost, bez względu na status), liczniki kosztu domu (doba, miesiąc)
- * i instalacji (doba). Kluczem idempotencji jest `(turnId, callIndex)` —
- * `skipDuplicates` przy ponowieniu po błędzie bazy oddaje `count = 0` i nic
- * więcej się nie dolicza.
+ * i instalacji (doba). Kluczem idempotencji jest `callKey`
+ * (`turn:<turnId>:<callIndex>`, patrz `usageCallKey`) — nie-null i niezależny
+ * od FK do tury, więc działa także po jej usunięciu. `skipDuplicates` przy
+ * ponowieniu oddaje `count = 0` i nic więcej się nie dolicza.
  *
  * Tura już zamknięta ze zwrotem kwoty (`quotaRefunded`), do której dojechał
  * koszt, traci zwrot: flaga wraca na `false`, a wiadomość do licznika. To ta
@@ -70,8 +80,11 @@ export class AgentUsageLedger {
       const inserted = await tx.aiUsage.createMany({
         data: [
           {
+            // Klucz z identyfikatora tury, NIE z istnienia wiersza tury:
+            // ponowienie po skasowaniu rozmowy trafia w ten sam klucz.
+            callKey: usageCallKey(turn.turnId, call.callIndex),
             turnId: current ? turn.turnId : null,
-            callIndex: current ? call.callIndex : null,
+            callIndex: call.callIndex,
             userId: turn.userId,
             householdId: turn.householdId,
             provider: turn.provider,

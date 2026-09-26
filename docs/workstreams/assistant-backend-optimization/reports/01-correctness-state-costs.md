@@ -244,3 +244,86 @@ Etap poprawnościowy — bez pomiarów modelu (płatne, poza zakresem). Liczby:
 - `95e7303` — test(auth): odświeżanie tokenu za NAT-em blokuje poprawnych użytkowników
 - `e3c30fc` — fix(auth): /auth/refresh limitowane per sesja z luźnym bezpiecznikiem IP
 - (następny) — docs: raport Etapu 1, STATE.md, CLAUDE.md
+
+## Addendum — 2026-09-26, po review
+
+### A1. Idempotencja księgi po usunięciu tury (poprawione)
+
+**Problem (znaleziony w review):** `AgentUsageLedger.record` deduplikował wywołania
+unikatem `(turnId, callIndex)`. Gdy tury już nie ma (rozmowa skasowana w trakcie,
+ścieżka RODO), wiersz zapisywał się jako `(NULL, NULL)`, a kasowanie rozmowy
+przepisywało `turnId` istniejących wierszy na `NULL` (FK `SET NULL`). W Postgresie
+NULL-e nie kolidują w indeksie unikalnym, więc ponowienie tego samego zapisu
+naliczało koszt drugi raz — w księdze i w licznikach sufitów.
+
+**Rozwiązanie:** trwały klucz idempotencji wywołania `AiUsage.callKey`
+(`TEXT NOT NULL UNIQUE`), niezależny od FK: `turn:<turnId>:<callIndex>` — liczony
+z identyfikatora tury, który runner zna, a nie z istnienia wiersza tury. Po
+skasowaniu rozmowy `turnId` staje się `NULL`, klucz zostaje, więc ponowienie trafia
+w unikat (`skipDuplicates` → `count = 0` → nic się nie dolicza). Stary nullable
+unikat `(turnId, callIndex)` usunięty; `callIndex` zostaje jako kolumna
+informacyjna (teraz wypełniana także przy nieistniejącej turze). Wiersze spoza tury
+(podgrzewanie cache) dostają klucz losowy z domyślnej bazy — ich nikt nie ponawia.
+
+**Migracja** `20260926140000_ksiega_klucz_wywolania` (wymagana):
+- `ADD COLUMN "callKey" TEXT` → backfill: wywołania tury
+  `turn:<turnId>:<callIndex>` (ten sam kształt, który liczy kod), pozostałe
+  (fazy sprzed 26.09, podgrzewanie cache, wiersze po skasowanych rozmowach)
+  `legacy:<id>` — unikalne z definicji → `SET DEFAULT gen_random_uuid()::text` →
+  `SET NOT NULL` → `CREATE UNIQUE INDEX` → `DROP INDEX "AiUsage_turnId_callIndex_key"`.
+- Dane: żaden wiersz nie znika i nie zmienia kosztu. Na bazie dev: 93 istniejące
+  wiersze → 93 × `legacy:` (MEASURED), `prisma migrate diff` baza ↔ schemat:
+  „No difference detected".
+- Blokada: `UPDATE` całej tabeli + budowa indeksu bez `CONCURRENTLY` — przy rzędzie
+  tysięcy wierszy (ESTIMATE) to ułamek sekundy w trakcie safe-migrate przy starcie.
+- Rollback: `DROP INDEX "AiUsage_callKey_key"`, `DROP COLUMN "callKey"`; kod sprzed
+  poprawki kolumny nie używa. Pisarze bez klucza (podgrzewanie cache, testy panelu)
+  działają dzięki domyślnej w bazie.
+
+**Test:** `test/agent-accounting.e2e-spec.ts` › „idempotencja księgi po usunięciu tury":
+| Przypadek | Przed (`b0113b4`) | Po |
+|---|---|---|
+| tura usunięta przed zapisem, dwa zapisy tego samego wywołania | 2 wiersze, 10 000 µ$ w księdze i liczniku doby | 1 wiersz, 5 000 µ$ |
+| zapis przy żywej turze → skasowanie rozmowy → ponowienie | 2 wiersze, 8 000 µ$ | 1 wiersz, 4 000 µ$ |
+
+Oba **MEASURED** na lokalnej bazie. Spec jednostkowy księgi sprawdza, że klucz
+jest ten sam przy żywej i przy nieistniejącej turze.
+
+**Uruchomione po poprawce:** `pnpm prisma:generate`, `prisma migrate deploy` (dev),
+`pnpm typecheck` (0), `pnpm lint:check` (0 błędów, 42 ostrzeżenia w plikach
+nieruszanych), `pnpm test` (181/181, 3309/3309), e2e `agent-accounting` (7/7),
+`agent-catalog-boundary`, `agent-card-state`, `agent`, `agent-tools`, `data-export`,
+`account-deletion`, `admin-person-gdpr`, `admin-users`, `admin-assistant` — razem
+153/155; 2 porażki to znane środowiskowe `admin-assistant › profit` (kurs NBP
+w bazie dev, identyczne na `1c265a3`, §4).
+
+### A2. Budżet — doprecyzowanie gwarancji
+
+System budżetowy **nie jest w całości wolny od wyścigów**:
+- **Sufity gospodarstwa** (doba, miesiąc) są chronione współbieżnie: odczyt
+  wydanych pieniędzy i żywych tur domu z rezerwacją idzie w tej samej transakcji
+  SERIALIZABLE co semafor i założenie tury, więc równoległe starty jednego domu
+  szeregują się (e2e „dwa równoległe starty").
+- **Budżet instalacji (globalny)** jest sprawdzany przed transakcją, NIEATOMOWO —
+  **nie daje ścisłej gwarancji** przy K równoczesnych startach w różnych domach:
+  wszystkie mogą przejść ten sam odczyt. Świadomie zaakceptowane na tym etapie.
+- **Zabezpieczenie w trakcie tury ogranicza skutki:** werdykt księgi po każdym
+  wywołaniu kończy turę po sufcie — każda tura w biegu robi najwyżej wywołanie,
+  które przekracza, i jedno ostatnie słowo (§5, CALCULATED). Przekroczenie
+  instalacji jest więc ograniczone przez K × (koszt tych dwóch wywołań), a nie
+  przez `AI_MAX_TURN_COST_USD`.
+- Temat wraca przy większej skali albo wielu instancjach (atomowa rezerwacja
+  budżetu globalnego, np. licznik rezerwacji w tej samej transakcji albo osobny
+  mechanizm poza procesem).
+
+### A3. `/auth/refresh`
+
+Bez zmian w implementacji. Hasz przedstawionego refresh tokenu + luźny
+bezpiecznik IP zaakceptowane na obecnym etapie; limit per rodzina tokenów
+(§9 pkt 3) zostaje **świadomym backlogiem**.
+
+### A4. Status
+
+Etap 1 **DONE**, Etap 2 **READY**. Commity addendum:
+- `b0113b4` — test(agent): ponowienie zapisu księgi po usunięciu tury dubluje koszt (CZERWONY)
+- (następny) — fix(agent): trwały klucz idempotencji wywołania w księdze kosztu
