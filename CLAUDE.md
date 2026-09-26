@@ -207,13 +207,14 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   zewnątrz zgubi koszt. Raporty liczą tury przez `COUNT(DISTINCT turnId)`, nie wiersze. Werdykt
   księgi (`budgetExceeded`) kończy pętlę narzędzi ostatnim słowem (`stopReason: budget_ceiling`).
   Rezerwacja przy przyjęciu tury: `AI_TURN_COST_RESERVE_USD` (0,25) × inne ŻYWE tury.
-- Życie tury (`src/agent/agent-turn-liveness.ts`): runner odświeża `AgentTurn.updatedAt` co 15 s;
-  tura RUNNING bez znaku życia od 60 s = osierocona (`AI_PROVIDER_ERROR`), po czasie tury +
-  margines = `AI_TIMEOUT`. Jedna definicja dla lease, semafora, leniwego timeoutu i
-  `AgentTurnSweeper` (start procesu + co minutę). Tura z mapy TEGO procesu nie jest osierocona
-  z powodu ciszy. SIGTERM (`beforeApplicationShutdown`): nowe tury 503, biegnące mają
-  `AI_SHUTDOWN_GRACE_MS` (8 s), potem przerwanie bez bezpiecznika — działa TYLKO z
-  `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` > 0 (domyślnie 0 = SIGKILL od razu).
+- Życie tury (`src/agent/agent-turn-liveness.ts`, od Etapu 5 `turnCloseVerdict`): tura z lease
+  żyje do `deadlineAt`; po padzie procesu czeka na przejęcie, nie na FAILED. Tylko tury sprzed
+  Etapu 5 (bez `execution`) po 60 s ciszy = `AI_PROVIDER_ERROR`. Jedna definicja dla lease
+  rozmowy, semafora, leniwego timeoutu i `AgentTurnSweeper` (start procesu + co minutę).
+  SIGTERM (`beforeApplicationShutdown`): worker przestaje przejmować, biegnące mają
+  `AI_SHUTDOWN_GRACE_MS` (8 s), potem lease wraca do kolejki — natychmiastowe przejęcie przez nową
+  instancję działa TYLKO z `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` > 0 (domyślnie 0 = SIGKILL,
+  przejęcie po wygaśnięciu lease ≤30 s).
 - Karty i propozycje (E2): `AgentMessage.kind` + `card Json` to KONTRAKT z telefonem — karta
   jest DODATKIEM do `text` (nieznany `kind` = klient rysuje sam tekst). Encja `AgentProposal`
   rozdziela INTENCJĘ (`action`, nigdy nie idzie na drut) od WIDOKU (`card`); klient przysyła
@@ -299,6 +300,22 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   Pula: `src/prisma/database-config.ts` loguje `pula Prisma:` przy starcie — limitu Railwaya
   nie zgadywać, `connection_limit` ustawia się w `DATABASE_URL`. Pomiar skali: `pnpm
   catalog:scale-probe` na bazie `*_scale` (`SCALE_DATABASE_URL`), wyniki w `benchmark/`.
+- Trwałe tury (od 27.09.2026, workstream Etap 5, raport `reports/05-durable-turns.md`): wykonanie
+  tury NIE żyje w pamięci procesu. `POST /messages` zapisuje wejście (`AgentTurn.execution`,
+  `deadlineAt`) i tylko szturcha `AgentTurnWorker.kick`; worker (`src/agent/durable/`) przejmuje
+  tury jednym `UPDATE … FOR UPDATE SKIP LOCKED` (nowy `leaseToken` = fencing, `attempt += 1`,
+  zegar BAZY), przy starcie i co `AI_TURN_WORKER_POLL_MS`. KAŻDE domknięcie tury i KAŻDY zapis
+  z tury (postęp, szkic, odpowiedź) ma `leaseToken` w warunku; efekt narzędzia woła
+  `AgentTurnQueue.fence` W SWOJEJ transakcji i dopisuje wiersz `AgentTurnEffect` (klucz `card`
+  albo `<narzędzie>#<n>`) — nowe narzędzie z efektem MUSI dostać klasę w `effectKind`
+  (`turn-effects.ts`) i hak transakcji w domenie (`inTransaction`/`effect`/`settle`), inaczej
+  odzyskana tura zrobi efekt drugi raz. Wygasły lease ≠ porażka: sprzątanie domyka tylko
+  po `deadlineAt`, wyczerpane próby (`AI_TURN_MAX_ATTEMPTS`), trwały „Stop” (`cancelRequestedAt`)
+  bez workera i stare tury bez `execution` (`turnCloseVerdict`). Klucz księgi od próby 2:
+  `turn:<id>:a<próba>:<n>`. Odpowiedź ma `outputKey='final'` (unikat z `turnId`). SIGTERM oddaje
+  lease (bez FAILED), a wiadomości w trakcie zamykania są przyjmowane (202). e2e restartu:
+  `test/durable-turns.e2e-spec.ts` (dwie instancje `AppModule`, `vanishForTests()` = SIGKILL);
+  stub: `[[hold]]` (opóźnienie ZA narzędziami), `[[note:…]]`, `[[apply:<id>:<data>]]`.
 - Postęp tury (`AgentTurn.progress`, `src/agent/agent-progress.ts`): kroki narzędzi plus kroki
   PRZEJŚCIOWE (`transient: true`) — `read` (start tury), `reason` (blok myślenia w strumieniu),
   `write` (pierwszy fragment tekstu), `think` (cisza po narzędziach). Dostawca melduje je przez

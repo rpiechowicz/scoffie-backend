@@ -1,6 +1,6 @@
 # Stan workstreamu
 
-**Ostatnia aktualizacja:** 26.09.2026 (po Etapie 4)  
+**Ostatnia aktualizacja:** 27.09.2026 (po Etapie 5)  
 **Branch startowy:** `claude/admin-crm-planning-b0hmgo`
 
 ## Status
@@ -13,8 +13,8 @@
 | 2.2 Porcje per osoba | **DONE (backend)** — zaakceptowany. iOS compile verification: **DEFERRED / przed rolloutem** (gałąź `claude/per-user-portions` bez zmian i bez merge'a; nie blokuje kolejnych etapów) | `reports/02-2-per-user-portions.md` |
 | 3. Odchudzenie agenta | **DONE** — po review (Addendum A1: autorytatywne zdanie serwera, porcje per osoba przez wybór z karty); `suggest_meals`, jedna karta na turę, pamięć tury, 3 narzędzia zdjęte ze schematu modelu; zachowanie modelu do potwierdzenia w końcowym live benchmarku | `reports/03-agent-thinning.md` |
 | 4. Katalog / DB / API | **DONE (backend)** — log zmian katalogu z triggerów, snapshot + delta z tombstone'ami, granice cache'u, single-flight (popularność, zakupy), szkic 1 s, `getTurn` 1 zapytanie, indeks `AgentMessage(turnId)`. iOS (`claude/catalog-sync`, bez merge'a): kompilacja Xcode i `catalog-sync-check.sh` **DEFERRED / przed rolloutem** | `reports/04-catalog-db-api-scale.md` |
-| 5. Trwałe tury | **READY** (czeka na akceptację Rafała) | `reports/05-durable-turns.md` |
-| 6. Modele / routing | WAITING | `reports/06-model-evaluation.md` |
+| 5. Trwałe tury | **DONE** — `AgentTurn` jako zadanie z lease (fencing token, zegar bazy), worker w procesie API (przy starcie + co 3 s), dziennik efektów narzędzi w transakcji efektu, klucz wywołania dostawcy z numerem próby, trwały „Stop”, twardy termin tury, limit 3 prób; prawdziwy restart 2 instancji w e2e | `reports/05-durable-turns.md` |
+| 6. Modele / routing | **READY** (czeka na akceptację Rafała) | `reports/06-model-evaluation.md` |
 
 ## Aktualne polecenie dla wykonawcy
 
@@ -49,7 +49,9 @@ Po zakończeniu:
 - Rezydencja danych / docelowa ścieżka dostawcy dla danych wrażliwych — OSOBNY tor,
   nie część wyboru modelu (raport 01, §10).
 - `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` (domyślnie 0 = łagodne zamknięcie nie działa;
-  propozycja 12) i smoke schematów narzędzi przed deployem (raport 01, §9).
+  propozycja 12) i smoke schematów narzędzi przed deployem (raport 01, §9). Od Etapu 5
+  bez tej zmiennej tura z deployu przechodzi na nową instancję po wygaśnięciu lease
+  (≤30 s), z nią — od razu (raport 05, decyzje).
 - Backlog (świadomie odłożone): limit `/auth/refresh` per rodzina tokenów (dziś hasz
   tokenu + bezpiecznik IP); atomowy budżet instalacji przy wielu równoczesnych startach
   / wielu instancjach (dziś nieatomowy odczyt + sufit w trakcie tury, raport 01 A2).
@@ -63,6 +65,20 @@ Po zakończeniu:
 - Kompresja WS (`perMessageDeflate` z progiem) i `statement_timeout` — po pomiarze (raport 04, §8).
 
 ## Ostatni raport
+
+`reports/05-durable-turns.md` (27.09.2026) — Etap 5 **DONE**:
+- audyt 10 okien awarii przed zmianą (KNOWN COST vs UNKNOWN PROVIDER OUTCOME);
+- `AgentTurn` = zadanie: `execution`, `deadlineAt`, `attempt`, `leaseOwner/Token/ExpiresAt`,
+  `cancelRequestedAt`, `failureDetail`; claim jednym zdaniem `FOR UPDATE SKIP LOCKED`
+  (20 równoległych → 1 właściciel; 0,54 ms przy 200 tys. tur), odnowienie co 10 s;
+- fencing tokenem w każdym domknięciu i W TRANSAKCJI każdego efektu narzędzia;
+- wznowienie = restart próby + dziennik efektów `AgentTurnEffect` (`card` / `narzędzie#n`),
+  karta kończąca turę domyka odzyskaną turę bez modelu; kwota planu w transakcji zapisu;
+- księga: `turn:<id>:<n>` (próba 1, bez zmian) / `turn:<id>:a<próba>:<n>`;
+- „Stop” trwały, termin tury trwały, limit prób → `AI_PROVIDER_ERROR` +
+  `failureDetail=AI_TURN_ATTEMPTS_EXHAUSTED`; SIGTERM oddaje lease zamiast FAILED;
+- testy: unit 3468/3468, e2e `durable-turns` 17/17 (×3), pełne e2e 51/54 (te same 3
+  suity środowiskowe co przed etapem).
 
 `reports/04-catalog-db-api-scale.md` (26.09.2026) — Etap 4 **DONE (backend)**:
 - katalog na telefon: trwały log `CatalogChange` (triggery na `Recipe`/`RecipeIngredient`,
@@ -124,7 +140,7 @@ Poprzednie: `reports/01-correctness-state-costs.md`, `reports/00-baseline.md` �
 do końcowego porównania: commit `22aa63c` (ten sam benchmark na anchorze i finalnym HEAD,
 tego samego dnia, na tej samej konfiguracji modelu).
 
-**Etap 4 zakończony (backend) — czeka na review. Etap 5 READY (nie zaczynać bez akceptacji Rafała).**
+**Etap 5 zakończony — czeka na review. Etap 6 READY (nie zaczynać bez akceptacji Rafała).**
 
 ### Warunek rolloutu synchronizacji katalogu (Etap 4)
 

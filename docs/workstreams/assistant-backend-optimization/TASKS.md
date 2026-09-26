@@ -282,13 +282,13 @@ Preferować mechanizm oparty na istniejącym PostgreSQL/`AgentTurn`, jeśli
 spełni wymagania. Redis/kolejka zewnętrzna nie jest celem samym w sobie.
 
 ### Wymagania
-- [ ] Trwały stan zadania i lease/claim workera.
-- [ ] Odzyskanie zadania po wygaśnięciu lease lub restarcie.
-- [ ] Idempotentne efekty uboczne.
-- [ ] Exactly-once księgowanie usage na poziomie tego, co kontrolujemy.
-- [ ] Anulowanie widoczne przez worker z trwałego stanu, nie wyłącznie pamięci.
-- [ ] Graceful shutdown pozostaje dodatkową ochroną, nie jedyną.
-- [ ] Telemetria: liczba queued/running/retried/orphaned/failed.
+- [x] Trwały stan zadania i lease/claim workera. — kolumny na `AgentTurn`, claim `FOR UPDATE SKIP LOCKED`, fencing token
+- [x] Odzyskanie zadania po wygaśnięciu lease lub restarcie. — worker przy starcie i co 3 s; sprzątanie nie domyka tur do przejęcia
+- [x] Idempotentne efekty uboczne. — dziennik `AgentTurnEffect` w transakcji efektu (raport 05 §12)
+- [x] Exactly-once księgowanie usage na poziomie tego, co kontrolujemy. — klucz wywołania z numerem próby (§11); granica: wywołanie przerwane padem
+- [x] Anulowanie widoczne przez worker z trwałego stanu, nie wyłącznie pamięci. — `cancelRequestedAt`
+- [x] Graceful shutdown pozostaje dodatkową ochroną, nie jedyną. — zwolnienie lease; SIGKILL → przejęcie po wygaśnięciu
+- [x] Telemetria: liczba queued/running/retried/orphaned/failed. — `/ops/metrics` › `agent.jobs` (§15)
 
 ### Dopiero przy potrzebie wielu instancji
 - Redis adapter Socket.IO,
