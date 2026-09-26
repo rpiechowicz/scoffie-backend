@@ -117,9 +117,10 @@ const LABELS: Record<string, readonly string[]> = {
     'Sprawdzam skład i kroki',
     'Zaglądam do przepisu',
   ],
-  search_recipes_by_ingredient: [
-    'Szukam dań z tym składnikiem',
-    'Przeglądam składy przepisów',
+  find_recipes: [
+    'Szukam pasujących dań',
+    'Przeglądam katalog przepisów',
+    'Dobieram dania do Waszych ograniczeń',
   ],
   search_ingredients: [
     'Szukam składników',

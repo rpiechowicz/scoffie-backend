@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WeeklyPlansService } from '../weekly-plans/weekly-plans.service';
 import { AgentMemoryService } from './agent-memory.service';
 import { AgentPromptService } from './agent-prompt.service';
+import { AgentCatalogService } from './search/agent-catalog.service';
 
 const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -25,6 +26,7 @@ describe('AgentPromptService.membersForModel', () => {
       {} as AgentMemoryService,
       consents as unknown as ConsentsService,
       {} as WeeklyPlansService,
+      {} as AgentCatalogService,
     );
   });
 
@@ -135,6 +137,9 @@ describe('AgentPromptService.build — plan tygodnia w bloku gospodarstwa', () =
         usersWithValid: jest.fn().mockResolvedValue(new Set([A])),
       } as unknown as ConsentsService,
       { getByHouseholdAndWeek } as unknown as WeeklyPlansService,
+      // Prawdziwy serwis katalogu na tym samym mocku bazy: bez `aggregate`
+      // odcisk wersji się nie liczy i indeks buduje się przy każdej turze.
+      new AgentCatalogService(prisma as unknown as PrismaService),
     );
   });
 

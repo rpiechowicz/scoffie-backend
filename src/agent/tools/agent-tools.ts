@@ -11,10 +11,14 @@
  * `additionalProperties: false` gwarantuje, że wejście zgadza się ze
  * schematem, więc halucynowane pole zatrzymuje się przed naszym kodem.
  *
- * Identyfikatory przepisów z katalogu model podaje jako KRÓTKI INDEKS z digestu
- * (`R01`), nigdy jako UUID — patrz `src/agent/catalog-digest.ts`. UUID kosztuje
- * 20–25 tokenów i model i tak by go przekręcił.
+ * Identyfikatory przepisów z katalogu model podaje jako KRÓTKI INDEKS (`R01`),
+ * nigdy jako UUID — patrz `src/agent/catalog-digest.ts`. UUID kosztuje
+ * 20–25 tokenów i model i tak by go przekręcił. Indeksy dostaje z wyników
+ * `find_recipes` i z planu w prompcie (albo z digestu, gdy `AI_CATALOG_MODE=digest`).
  */
+import { RECIPE_SEARCH_TAGS } from '../../recipes/recipe-facets.util';
+import { SEARCH_SORTS } from '../search/catalog-search';
+
 export type AgentToolDefinition = {
   name: string;
   description: string;
@@ -57,8 +61,8 @@ const WEEK_START = {
 const RECIPE_REF = {
   type: 'string',
   description:
-    'Indeks przepisu DOKŁADNIE w formie z katalogu w prompcie (np. R07 albo R007 — tyle cyfr, ile w nagłówku katalogu) ' +
-    'albo identyfikator przepisu gospodarstwa zwrócony przez create_recipe.',
+    'Referencja przepisu DOKŁADNIE w formie z wyników find_recipes, planu albo katalogu (np. R007 — ' +
+    'tyle cyfr, ile tam) albo identyfikator przepisu gospodarstwa zwrócony przez create_recipe.',
 };
 
 const DAY = {
@@ -97,7 +101,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       'Pole recipe każdej pozycji to gotowa referencja do innych narzędzi: indeks katalogu (R07) ' +
       'albo identyfikator przepisu tego domu. Brak participants znaczy „posiłek dla całego domu"; ' +
       'othersCount mówi, ILU jedzących nie ma na liście, i tych osób nie da się wskazać po imieniu. ' +
-      'Składów tu nie ma — masz je w katalogu.',
+      'Składów tu nie ma — skład daje get_recipe_details.',
     input_schema: object({ week_start: WEEK_START }, ['week_start']),
     strict: true,
   },
@@ -123,7 +127,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     name: 'get_recipe_details',
     description:
       'Pełny przepis: WSZYSTKIE składniki z gramaturą i kroki przygotowania. ' +
-      'Katalog w prompcie pokazuje tylko pięć najcięższych składników i zero kroków, ' +
+      'Wyniki find_recipes (i katalog) pokazują tylko pięć najcięższych składników i zero kroków, ' +
       'więc na pytania „jak to ugotować", „ile tam czego" i „czy jest w tym X" ' +
       'odpowiadasz WYŁĄCZNIE po wywołaniu tego narzędzia. Nie zgaduj z nazwy dania ' +
       'ani z tych pięciu składników — „dorsz z masłem" wygląda stamtąd na danie bez nabiału. ' +
@@ -137,23 +141,97 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     // `pnpm exec tsx scripts/agent-tools-smoke.ts`.
   },
   {
-    name: 'search_recipes_by_ingredient',
+    name: 'find_recipes',
     description:
-      'Znajdź dania, w których naprawdę JEST dany składnik — po całym składzie, ' +
-      'nie po nazwie dania. Używaj, gdy pytanie wychodzi od produktu („co zrobić ' +
-      'z bakłażanem", „mam pół kurczaka", „coś z soczewicą"): katalog w prompcie ' +
-      'niesie tylko pięć najcięższych składników każdego dania, więc sam go nie ' +
-      'przejrzysz pod tym kątem i przegapisz połowę trafień. ' +
-      'Odmiana nie przeszkadza („jajka" znajdzie „jajko"). ' +
-      'Wynik niesie gotowe referencje do propose_* — używaj ich dosłownie.',
+      'Znajdź dania z katalogu i przepisów tego domu. JEDYNA droga do dań: samego katalogu nie ' +
+      'widzisz w prompcie. Podajesz KRYTERIA z prośby, a serwer oddaje najlepiej dopasowane dania ' +
+      'z makro na porcję, czasem, alergenami, tagami i powodem („why"). Alergeny, wykluczenia ' +
+      'i dietę jedzących nakłada SAM (te same reguły, co walidator planu) — nie przepisuj ich tutaj. ' +
+      'Ranking omija dania już zaplanowane w tym tygodniu, lubi ulubione domu i składniki, ' +
+      'które i tak będą na liście zakupów. Gdy układasz kilka pór naraz, wołaj to narzędzie ' +
+      'dla każdej pory RÓWNOLEGLE w jednej rundzie. Zero wyników = pole relaxations mówi, ' +
+      'ile dań byłoby bez danego kryterium. Wynik niesie gotowe referencje — używaj ich dosłownie. ' +
+      'Każde pole jest wymagane; „bez ograniczenia" to pusty napis, pusta lista albo 0.',
     input_schema: object(
       {
-        ingredient: {
+        query: {
           type: 'string',
-          description: 'Nazwa składnika albo jej fragment, po polsku.',
+          description:
+            'Słowa z prośby, które opisują danie: nazwa, składnik, charakter („zupa z soczewicy", ' +
+            '„coś z kurczakiem", „lekkie"). Pusty napis, gdy prośba to same kryteria. ' +
+            'Wykluczeń („bez mięsa") tu nie pisz — od tego są exclude_ingredients i tags.',
+        },
+        meal_type: {
+          ...MEAL,
+          enum: [...MEAL.enum, 'ANY'],
+          description: 'Pora, na którą danie ma pasować; ANY = dowolna.',
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string', enum: [...RECIPE_SEARCH_TAGS] },
+          description:
+            'Tagi z mapy katalogu (rodzaj dania, mięso, smak, quick/light/high_protein). ' +
+            'W grupie LUB, między grupami I. Pusta lista = bez zawężenia.',
+        },
+        include_ingredients: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Składniki, które MUSZĄ być w daniu (każdy), po polsku, np. „kurczak", „bakłażan". ' +
+            'Odmiana nie przeszkadza. Pusta lista = dowolne.',
+        },
+        exclude_ingredients: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Składniki, których w daniu NIE MA być („pieczarki", „kolendra") — z tej prośby. ' +
+            'Stałe niechęci domowników serwer nakłada sam. Pusta lista = żadnych.',
+        },
+        max_prep_minutes: {
+          type: 'integer',
+          description:
+            'Najdłuższy czas przygotowania w minutach; 0 = bez limitu.',
+        },
+        max_kcal_per_serving: {
+          type: 'integer',
+          description: 'Najwięcej kalorii na porcję; 0 = bez limitu.',
+        },
+        min_protein_per_serving: {
+          type: 'integer',
+          description: 'Najmniej gramów białka na porcję; 0 = bez limitu.',
+        },
+        for_user_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Kto będzie to jadł (user_id z get_household_context); pusta lista = cały dom.',
+        },
+        sort: {
+          type: 'string',
+          enum: [...SEARCH_SORTS],
+          description:
+            'BEST_FIT = najlepiej dopasowane (domyślnie); QUICKEST, HIGH_PROTEIN, LIGHTEST — gdy ' +
+            'prośba wprost o to pyta („najszybsze", „najwięcej białka", „najlżejsze").',
+        },
+        limit: {
+          type: 'integer',
+          description:
+            'Ile dań oddać, 1–15. Do wyboru 3 dań bierz 6–8, do planu kilku dni 10–15.',
         },
       },
-      ['ingredient'],
+      [
+        'query',
+        'meal_type',
+        'tags',
+        'include_ingredients',
+        'exclude_ingredients',
+        'max_prep_minutes',
+        'max_kcal_per_serving',
+        'min_protein_per_serving',
+        'for_user_ids',
+        'sort',
+        'limit',
+      ],
     ),
   },
   {
@@ -762,7 +840,9 @@ export const START_PLANNING_TOOL: AgentToolDefinition = {
     'dostaniesz narzędzia propose_* i apply_*. NIE wywołuj przy pytaniach o to, co jest ' +
     'w planie, o składniki, bilans czy listę zakupów — na nie odpowiadasz sam. ' +
     'Wołaj OD RAZU, bez pobierania planu i domowników: planista sprawdzi sam, ' +
-    'co mu potrzebne, a to, co pobierzesz wcześniej, i tak przeczyta drugi raz.',
+    'co mu potrzebne, a to, co pobierzesz wcześniej, i tak przeczyta drugi raz. ' +
+    'Wynik niesie kandydatów na każdą porę domu (find_recipes dla całego domu) — ' +
+    'planista zaczyna od nich.',
   input_schema: object({
     reason: {
       type: 'string',
@@ -799,7 +879,9 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   // pytanie o przepis kosztowałoby drugi, droższy model za nic. Planista ma
   // je też — lista `AGENT_TOOLS` jest dla niego pełna.
   get_recipe_details: 'chat',
-  search_recipes_by_ingredient: 'chat',
+  // Wyszukiwanie dań to odpowiedź na „co na kolację?" i „co zrobić
+  // z bakłażanem?" — najczęstsze pytania w ogóle. Planista ma je także.
+  find_recipes: 'chat',
   // Karty, które niczego nie zapisują.
   ask_clarifying_question: 'chat',
   offer_options: 'chat',

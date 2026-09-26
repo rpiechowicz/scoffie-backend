@@ -5,9 +5,11 @@ import {
 } from '../common/throttle/throttle-env';
 import {
   AI_CARDS_MODES,
+  AI_CATALOG_MODES,
   AgentEnv,
   parseAllowedUsers,
   parseCardsModeStrict,
+  parseCatalogModeStrict,
   parseEnabledStrict,
   parseNumberStrict,
   parseUsdOrOffStrict,
@@ -34,6 +36,9 @@ export const RUNTIME_SETTING_KEYS = [
   'AI_TRIAL_PLANS',
   'AI_ALLOWED_USERS',
   'AI_CARDS_MODE',
+  // Wyszukiwarka dań vs cały katalog w prompcie — powrót bez deployu.
+  'AI_CATALOG_MODE',
+  'AI_CACHE_WARM_HOURS',
   // Limity HTTP — `readThrottleLimit` czyta je per żądanie (z nadpisaniami),
   // więc zmiana działa bez restartu. Celowo BEZ `THROTTLE_ADMIN_*`: zbyt
   // niski limit panelu zamknąłby panel przed adminem, który chce go cofnąć.
@@ -192,6 +197,29 @@ export const RUNTIME_SETTINGS: Record<RuntimeSettingKey, RuntimeSettingSpec> = {
       return { ok: true, value: parsed };
     },
     effective: (agent) => agent.cardsMode,
+  },
+  AI_CATALOG_MODE: {
+    label:
+      'Katalog w prompcie asystenta (search = mapa + wyszukiwarka, digest = cały katalog)',
+    kind: 'choice',
+    options: AI_CATALOG_MODES,
+    normalize: (raw) => {
+      const parsed = parseCatalogModeStrict(raw);
+      return parsed === undefined
+        ? {
+            ok: false,
+            error: `AI_CATALOG_MODE: dozwolone ${AI_CATALOG_MODES.join(', ')}`,
+          }
+        : { ok: true, value: parsed };
+    },
+    effective: (agent) => agent.catalogMode,
+  },
+  AI_CACHE_WARM_HOURS: {
+    label:
+      'Podgrzewanie cache asystenta: ile godzin po ostatniej turze (0 = wyłączone)',
+    kind: 'number',
+    normalize: count('AI_CACHE_WARM_HOURS'),
+    effective: (agent) => String(agent.cacheWarmHours),
   },
   THROTTLE_DEFAULT_LIMIT: throttle(
     'THROTTLE_DEFAULT_LIMIT',

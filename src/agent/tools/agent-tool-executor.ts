@@ -65,6 +65,19 @@ import { ShoppingDepartment } from '../../weekly-plans/types/shopping-department
 import { DayOfWeek, MealType } from '@prisma/client';
 import { normalizeText } from '../../common/normalize-text.util';
 import { searchStem } from '../../recipes/ingredient-search.util';
+import { isRecipeSearchTag } from '../../recipes/recipe-facets.util';
+import {
+  AgentCatalogService,
+  AgentSearchResult,
+} from '../search/agent-catalog.service';
+import {
+  RecipeHit,
+  RecipeSearchQuery,
+  SEARCH_DEFAULT_LIMIT,
+  SEARCH_MAX_LIMIT,
+  SEARCH_SORTS,
+  SearchSort,
+} from '../search/catalog-search';
 
 /**
  * Kontekst tury: kto pyta i o które gospodarstwo.
@@ -402,22 +415,47 @@ export function matchShoppingProduct(
 }
 
 /**
- * Trafienie wyszukiwania po składniku.
+ * Trafienie `find_recipes` w kształcie dla modelu.
  *
  * `recipe` jest GOTOWĄ REFERENCJĄ dla kolejnych narzędzi — indeksem katalogu
- * (`R07`), gdy przepis jest w digeście tej tury, albo identyfikatorem przepisu
- * domu. Bez tego model dostawałby UUID i wpisywał go tam, gdzie kod spodziewa
- * się indeksu — albo, co gorsza, przepisywał go z pamięci z błędem.
+ * tej tury (`R007`) albo identyfikatorem przepisu domu. Bez tego model
+ * dostawałby UUID i wpisywał go tam, gdzie kod spodziewa się indeksu — albo,
+ * co gorsza, przepisywał go z pamięci z błędem.
  */
-export const RECIPE_HITS_LIMIT = 8;
+export type RecipeHitForModel = RecipeHit;
 
-export type RecipeHitForModel = {
-  recipe: string;
-  title: string;
-  mealType: string;
-  kcalPerServing: number;
-  prepTimeMinutes: number;
+export type FindRecipesForModel = Omit<AgentSearchResult, 'hits'> & {
+  hits: RecipeHitForModel[];
 };
+
+/** Kandydatów na porę w wyniku `start_planning` — tyle, żeby wybrać, nie czytać. */
+export const PLANNING_CANDIDATES_PER_SLOT = 6;
+
+const MEAL_TYPES: readonly MealType[] = [
+  'BREAKFAST',
+  'SECOND_BREAKFAST',
+  'LUNCH',
+  'AFTERNOON_SNACK',
+  'DINNER',
+  'SNACK',
+];
+
+/**
+ * Narzędzia, po których udanym wywołaniu tura jest SKOŃCZONA: karta stoi,
+ * a model i tak kończy turę (instrukcje: „po tym narzędziu kończysz turę",
+ * „najwyżej dwa zdania"). Dostawca nie woła wtedy modelu jeszcze raz tylko
+ * po to, żeby dopisał zdanie — napisał je w tej samej wiadomości, co
+ * wywołanie (pomiar 24.09.2026: ta ostatnia runda to 18 % czasu tury).
+ */
+export const TURN_ENDING_TOOLS: ReadonlySet<string> = new Set([
+  'ask_clarifying_question',
+  'offer_options',
+  'propose_week_plan',
+  'propose_day_plan',
+  'propose_swap',
+  'propose_remove_meal',
+  'propose_household_split',
+]);
 
 /**
  * Składnik z wyszukiwarki — tyle, ile trzeba do zbudowania przepisu.
@@ -511,7 +549,15 @@ function asString(value: unknown): string {
 }
 
 export type AgentToolResult =
-  | { ok: true; data: unknown }
+  | {
+      ok: true;
+      data: unknown;
+      /**
+       * Udane narzędzie z `TURN_ENDING_TOOLS`: karta powstała i tura może się
+       * skończyć bez kolejnego wywołania modelu (patrz dostawca).
+       */
+      endsTurn?: true;
+    }
   | { ok: false; error: { code: string; message: string; details?: string[] } };
 
 /**
@@ -542,6 +588,8 @@ export class AgentToolExecutor {
     private readonly plansGateway: WeeklyPlansGateway,
     // Filtr zgód domowników — ta sama reguła, co przy budowie promptu.
     private readonly prompts: AgentPromptService,
+    // Indeks katalogu w pamięci i wyszukiwarka dań (`find_recipes`).
+    private readonly catalog: AgentCatalogService,
   ) {}
 
   async execute(
@@ -571,7 +619,16 @@ export class AgentToolExecutor {
       if (context.planScope) {
         recordPlannedDays(name, input, context.planScope);
       }
-      return { ok: true, data };
+      // Propozycja z naruszeniami (`proposed: false`) NIE kończy tury:
+      // model musi poprawić dania i zawołać jeszcze raz.
+      const endsTurn =
+        TURN_ENDING_TOOLS.has(name) &&
+        (data as { proposed?: unknown } | null)?.proposed !== false;
+      return {
+        ok: true,
+        data,
+        ...(endsTurn ? { endsTurn: true as const } : {}),
+      };
     } catch (error) {
       const { contract } = mapError(error);
       if (!(error instanceof AppException)) {
@@ -793,8 +850,8 @@ export class AgentToolExecutor {
       case 'get_recipe_details':
         return this.recipeDetails(input, context);
 
-      case 'search_recipes_by_ingredient':
-        return this.recipesByIngredient(input, context);
+      case 'find_recipes':
+        return this.findRecipes(input, context);
 
       case 'search_ingredients':
         return this.ingredients
@@ -896,14 +953,10 @@ export class AgentToolExecutor {
 
       case 'start_planning':
         // Sama zmiana modelu dzieje się w dostawcy (patrz AgentProviderHandoff);
-        // tu wystarczy potwierdzenie, które planista przeczyta jako pierwsze.
-        return Promise.resolve({
-          handoff: true,
-          note:
-            'Od tej rundy prowadzisz turę jako planista i masz pełny zestaw narzędzi ' +
-            '(propose_*, apply_*). Kontekst zebrany wcześniej jest w historii — nie ' +
-            'powtarzaj tych wywołań.',
-        });
+        // tu potwierdzenie, które planista przeczyta jako pierwsze, i od razu
+        // kandydaci na pory domu — bez tego pierwszą rundą planisty byłoby
+        // i tak szukanie dań.
+        return this.startPlanning(context);
 
       case 'delete_recipe':
         return this.recipes.remove(userId, str('recipe_id'), householdId);
@@ -1664,83 +1717,178 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Dania po składniku — po SKŁADZIE z bazy, nie po nazwie dania.
+   * Wyszukiwanie dań — kryteria od modelu, reszta po stronie serwera.
    *
-   * Dwa kroki, bo model podaje nazwę („bakłażan"), a skład wiąże się przez
-   * `ingredientId`: najpierw ta sama wyszukiwarka składników, co przy
-   * budowaniu przepisu (łapie polską odmianę), potem przepisy z tymi
-   * składnikami. Bierzemy TRZY najlepsze dopasowania składnika, a nie jedno:
-   * „ser" to w katalogu kilka osobnych pozycji i jedno trafienie gubiłoby
-   * większość dań.
-   *
-   * Widoczność jest ta sama, co w każdym odczycie przepisów (CLAUDE.md):
-   * wspólny katalog ALBO przepisy tego domu. Bez tego filtra asystent
-   * pokazywałby dania z cudzych kuchni.
+   * Model nie widzi katalogu (w prompcie jest tylko jego mapa), więc to jest
+   * jedyna droga do dań. Filtry twarde jedzących nakłada serwis katalogu
+   * tymi samymi regułami, co walidator planu; model tylko zawęża prośbą.
+   * Widoczność ta sama, co w każdym odczycie przepisów: wspólny katalog
+   * ALBO przepisy tego domu.
    */
-  private async recipesByIngredient(
+  private async findRecipes(
     input: Record<string, unknown>,
     context: AgentToolContext,
-  ): Promise<{
-    ingredient: string;
-    matched: string[];
-    recipes: RecipeHitForModel[];
-    more: number;
-  }> {
-    const query = asString(input.ingredient).trim();
-    if (query.length === 0) {
+  ): Promise<FindRecipesForModel> {
+    const query = this.toSearchQuery(input);
+    const forUserIds = (
+      Array.isArray(input.for_user_ids) ? input.for_user_ids : []
+    )
+      .map((id) => asString(id).trim())
+      .filter((id) => id.length > 0);
+    const result = await this.catalog.search(
+      await this.searchContext(context, forUserIds),
+      query,
+    );
+    return this.searchResultForModel(result, context);
+  }
+
+  private toSearchQuery(input: Record<string, unknown>): RecipeSearchQuery {
+    const list = (value: unknown): string[] =>
+      (Array.isArray(value) ? value : [])
+        .map((entry) => asString(entry).trim())
+        .filter((entry) => entry.length > 0)
+        .slice(0, 10);
+    const limitOrNull = (value: unknown): number | null => {
+      const number = typeof value === 'number' ? Math.round(value) : 0;
+      return Number.isFinite(number) && number > 0 ? number : null;
+    };
+
+    const rawMeal = asString(input.meal_type);
+    const mealType = (MEAL_TYPES as readonly string[]).includes(rawMeal)
+      ? (rawMeal as MealType)
+      : null;
+    const rawTags = list(input.tags);
+    const unknownTags = rawTags.filter((tag) => !isRecipeSearchTag(tag));
+    if (unknownTags.length > 0) {
       throw new AppException(
         'VALIDATION_ERROR',
-        'Podaj nazwę składnika — bez niej nie ma czego szukać.',
+        `Nieznane tagi: ${unknownTags.join(', ')}. Dozwolone są tylko tagi z mapy katalogu.`,
         HttpStatus.BAD_REQUEST,
-        ['ingredient'],
+        unknownTags,
       );
     }
+    const rawSort = asString(input.sort);
+    const sort: SearchSort = (SEARCH_SORTS as readonly string[]).includes(
+      rawSort,
+    )
+      ? (rawSort as SearchSort)
+      : 'BEST_FIT';
+    const limit = limitOrNull(input.limit) ?? SEARCH_DEFAULT_LIMIT;
 
-    const hits = await this.ingredients.search({ query, limit: 3 });
-    if (hits.length === 0) {
-      return { ingredient: query, matched: [], recipes: [], more: 0 };
-    }
+    return {
+      text: asString(input.query).slice(0, 200),
+      mealType,
+      tags: rawTags.filter(isRecipeSearchTag),
+      includeIngredients: list(input.include_ingredients),
+      excludeIngredients: list(input.exclude_ingredients),
+      maxPrepMinutes: limitOrNull(input.max_prep_minutes),
+      maxKcalPerServing: limitOrNull(input.max_kcal_per_serving),
+      minProteinPerServing: limitOrNull(input.min_protein_per_serving),
+      sort,
+      limit: Math.min(SEARCH_MAX_LIMIT, limit),
+    };
+  }
 
-    const rows = await this.prisma.recipe.findMany({
-      where: {
-        isActive: true,
-        OR: [{ isCatalog: true }, { householdId: context.householdId }],
-        ingredients: {
-          some: { ingredientId: { in: hits.map((hit) => hit.id) } },
-        },
-      },
-      select: {
-        id: true,
-        title: true,
-        mealType: true,
-        servings: true,
-        prepTimeMinutes: true,
-        nutritionKcal: true,
-      },
-      orderBy: { title: 'asc' },
-      // O jeden więcej niż sufit: po tym poznajemy, że coś zostało za listą,
-      // i mówimy to modelowi wprost, zamiast udawać, że to cały wynik.
-      take: RECIPE_HITS_LIMIT + 1,
+  /** Kontekst wyszukiwania z tury — zgody tą samą regułą, co prompt. */
+  private async searchContext(context: AgentToolContext, forUserIds: string[]) {
+    const memberships = await this.prisma.membership.findMany({
+      where: { householdId: context.householdId },
+      select: { userId: true },
     });
+    const { members } = await this.prompts.membersForModel(memberships);
+    return {
+      userId: context.userId,
+      householdId: context.householdId,
+      ...(context.dates ? { weekStart: context.dates.weekStart } : {}),
+      forUserIds,
+      consentedUserIds: new Set(members.map((member) => member.userId)),
+    };
+  }
 
-    const refByRecipeId = new Map(
+  /**
+   * Referencje z indeksu TEJ tury, nie z pamięci katalogu: gdyby katalog
+   * zmienił się w trakcie tury, numeracja w pamięci mogłaby rozjechać się
+   * z tą, którą model zna z planu w prompcie.
+   */
+  private searchResultForModel(
+    result: AgentSearchResult,
+    context: AgentToolContext,
+  ): FindRecipesForModel {
+    const refById = new Map(
       Object.entries(context.catalogIndex).map(([ref, id]) => [id, ref]),
     );
     return {
-      ingredient: query,
-      matched: hits.map((hit) => hit.name),
-      recipes: rows.slice(0, RECIPE_HITS_LIMIT).map((row) => {
-        const servings = Math.max(1, row.servings ?? 1);
-        return {
-          recipe: refByRecipeId.get(row.id) ?? row.id,
-          title: row.title,
-          mealType: row.mealType,
-          kcalPerServing: Math.round((row.nutritionKcal ?? 0) / servings),
-          prepTimeMinutes: row.prepTimeMinutes ?? 0,
-        };
-      }),
-      more: Math.max(0, rows.length - RECIPE_HITS_LIMIT),
+      ...result,
+      hits: result.hits.map(({ id, ...hit }) => ({
+        ...hit,
+        recipe: refById.get(id) ?? id,
+      })),
     };
+  }
+
+  /**
+   * Przekazanie planiście z kandydatami na każdą porę domu.
+   *
+   * Kandydaci dla CAŁEGO domu (filtry twarde wszystkich), bez tekstu, po
+   * rankingu z sygnałami planu — to samo, co `find_recipes` z pustymi
+   * kryteriami. Gdy prośba jest węższa („dla Ani", „bez ryżu"), planista
+   * zawoła `find_recipes` sam; te listy mają oszczędzić mu rundę w typowym
+   * przypadku, a nie zastąpić wyszukiwanie.
+   */
+  private async startPlanning(context: AgentToolContext): Promise<{
+    handoff: true;
+    note: string;
+    candidates: {
+      mealType: MealType;
+      total: number;
+      hits: RecipeHitForModel[];
+    }[];
+  }> {
+    const note =
+      'Od tej rundy prowadzisz turę jako planista i masz pełny zestaw narzędzi ' +
+      '(propose_*, apply_*). Kontekst zebrany wcześniej jest w historii — nie ' +
+      'powtarzaj tych wywołań. Niżej kandydaci na każdą porę domu dla CAŁEGO domu; ' +
+      'do węższej prośby (inne osoby, składnik, czas) wołaj find_recipes.';
+    let candidates: {
+      mealType: MealType;
+      total: number;
+      hits: RecipeHitForModel[];
+    }[] = [];
+    try {
+      const household = await this.prisma.household.findUnique({
+        where: { id: context.householdId },
+        select: { enabledMealTypes: true },
+      });
+      const searchContext = await this.searchContext(context, []);
+      candidates = await Promise.all(
+        (household?.enabledMealTypes ?? []).map(async (mealType) => {
+          const result = this.searchResultForModel(
+            await this.catalog.search(searchContext, {
+              text: '',
+              mealType,
+              tags: [],
+              includeIngredients: [],
+              excludeIngredients: [],
+              maxPrepMinutes: null,
+              maxKcalPerServing: null,
+              minProteinPerServing: null,
+              sort: 'BEST_FIT',
+              limit: PLANNING_CANDIDATES_PER_SLOT,
+            }),
+            context,
+          );
+          return { mealType, total: result.total, hits: result.hits };
+        }),
+      );
+    } catch (error) {
+      // Kandydaci są dodatkiem: bez nich planista szuka sam, jak dawniej.
+      this.logger.warn(
+        `kandydaci do planowania niedostępni (${
+          error instanceof Error ? error.name : 'nieznany błąd'
+        })`,
+      );
+    }
+    return { handoff: true, note, candidates };
   }
 
   /**

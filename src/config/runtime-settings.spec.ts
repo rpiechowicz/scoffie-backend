@@ -67,6 +67,8 @@ describe('nadpisania env z panelu', () => {
         'AI_TRIAL_PLANS',
         'AI_ALLOWED_USERS',
         'AI_CARDS_MODE',
+        'AI_CATALOG_MODE',
+        'AI_CACHE_WARM_HOURS',
         'THROTTLE_DEFAULT_LIMIT',
         'THROTTLE_IP_LIMIT',
         'THROTTLE_AUTH_LIMIT',

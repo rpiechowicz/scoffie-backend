@@ -25,6 +25,8 @@ import { AgentProviderResolver } from './providers/agent-provider.resolver';
 import { AnthropicAgentProvider } from './providers/anthropic-agent.provider';
 import { StubAgentProvider } from './providers/stub-agent.provider';
 import { UpstreamBreaker } from './upstream-breaker';
+import { AgentCatalogService } from './search/agent-catalog.service';
+import { AgentCacheWarmer } from './agent-cache-warmer.service';
 
 /**
  * Asystent AI — szkielet Fazy 0.
@@ -68,6 +70,10 @@ import { UpstreamBreaker } from './upstream-breaker';
     AgentToolExecutor,
     AgentProposalsService,
     AgentPromptService,
+    // Indeks katalogu w pamięci + wyszukiwarka dań (`find_recipes`).
+    AgentCatalogService,
+    // Ping co 55 min trzyma cache prefiksu ciepłym przy ruchu.
+    AgentCacheWarmer,
     AgentRetentionService,
     AgentReportsService,
     AgentUsageService,

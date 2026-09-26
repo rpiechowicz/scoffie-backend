@@ -29,6 +29,13 @@ import { fenceSafeDeep } from '../fence-safe';
  */
 export const MAX_TOOL_ROUNDS = 12;
 
+/**
+ * Powód zatrzymania, gdy turę zamknęła karta, a nie ostatnie słowo modelu —
+ * zapisany w księdze `AiUsage.stopReason`, żeby raport widział, ile rund
+ * oszczędza (patrz `TURN_ENDING_TOOLS`).
+ */
+export const TOOL_ENDED_TURN = 'tool_ended_turn';
+
 const MAX_TOKENS = 16_000;
 
 const CACHE_READ_MULTIPLIER = 0.1;
@@ -192,15 +199,39 @@ export class AnthropicAgentProvider implements AgentProvider {
       }
 
       let toolResults: Anthropic.ToolResultBlockParam[];
+      let endsTurn = false;
       const toolsStartedAt = Date.now();
       try {
-        toolResults = await this.runTools(request, toolUses);
+        ({ blocks: toolResults, endsTurn } = await this.runTools(
+          request,
+          toolUses,
+        ));
       } catch (error) {
         // Narzędzie przerwane sygnałem (timeout, Stop) — zużycie zostaje.
         throw this.withUsage(error, usage, phases);
       }
       const lastTiming = timings[timings.length - 1];
       if (lastTiming) lastTiming.toolsRunMs = Date.now() - toolsStartedAt;
+
+      // Tura skończona BEZ kolejnego wywołania: każde narzędzie tej rundy
+      // postawiło kartę, która kończy turę (propozycja, wybór dań, pytanie),
+      // a model napisał już swoje zdanie w tej samej wiadomości. Pomiar
+      // 24.09.2026: runda, w której model dopisywał 1–2 zdania po karcie, to
+      // 18 % czasu tury i pełne ~2 s czekania na pierwszy token. Bez tekstu
+      // (albo przy odmowie narzędzia) pętla idzie dalej jak dawniej.
+      const text = this.joinText(response.content);
+      if (endsTurn && text.length > 0) {
+        return {
+          text,
+          stopReason: TOOL_ENDED_TURN,
+          usage,
+          model,
+          apiCalls: calls,
+          phases: [...phases.values()],
+          timings,
+        };
+      }
+
       messages.push({ role: 'user', content: toolResults });
       // Od tej chwili do następnej odpowiedzi API model „myśli" — najdłuższy
       // cichy odcinek tury. Runner zapisuje krok, po którym telefon wie, że
@@ -266,6 +297,31 @@ export class AnthropicAgentProvider implements AgentProvider {
       calls,
       timings,
     );
+  }
+
+  /**
+   * Podgrzanie cache prefiksu: jedno żądanie z tym samym `system` i `tools`,
+   * co tura, i jednym tokenem wyjścia. Trafienie w cache odnawia jego życie
+   * (TTL godzina), więc pierwsza tura po ciszy nie płaci zapisu prefiksu
+   * i nie czeka na niego (~5 s, pomiar 24.09.2026). Bez myślenia — ustawienia
+   * myślenia nie wchodzą do klucza cache narzędzi i systemu.
+   */
+  async warmCache(params: {
+    model: string;
+    system: AgentProviderRequest['system'];
+    tools: readonly AgentToolDefinition[];
+  }): Promise<AgentProviderUsage> {
+    const client = this.getClient();
+    const response = await client.messages.create({
+      model: params.model,
+      max_tokens: 1,
+      system: params.system,
+      tools: params.tools as unknown as Anthropic.ToolUnion[],
+      messages: [{ role: 'user', content: '.' }],
+    });
+    const usage: AgentProviderUsage = { ...ZERO_USAGE };
+    this.accumulate(usage, new Map(), params.model, 'low', response.usage);
+    return usage;
   }
 
   /**
@@ -545,15 +601,19 @@ export class AnthropicAgentProvider implements AgentProvider {
   private async runTools(
     request: AgentProviderRequest,
     toolUses: Anthropic.ToolUseBlock[],
-  ): Promise<Anthropic.ToolResultBlockParam[]> {
+  ): Promise<{ blocks: Anthropic.ToolResultBlockParam[]; endsTurn: boolean }> {
+    // Czy KAŻDE narzędzie tej rundy kończy turę — jedno „zwykłe" obok
+    // (np. odczyt planu) znaczy, że model czeka na jego wynik.
+    let endsTurn = toolUses.length > 0;
     // Równolegle: model prosi o kilka narzędzi naraz właśnie po to, żeby nie
     // czekać na nie po kolei.
-    return Promise.all(
+    const blocks = await Promise.all(
       toolUses.map(async (toolUse) => {
         const result = await request.executeTool(
           toolUse.name,
           (toolUse.input ?? {}) as Record<string, unknown>,
         );
+        if (!(result.ok && result.endsTurn)) endsTurn = false;
         return {
           type: 'tool_result' as const,
           tool_use_id: toolUse.id,
@@ -584,6 +644,7 @@ export class AnthropicAgentProvider implements AgentProvider {
         };
       }),
     );
+    return { blocks, endsTurn };
   }
 
   private joinText(content: Anthropic.ContentBlock[]): string {

@@ -45,6 +45,8 @@ const ENV: AgentEnv = {
   conversationRetentionDays: 90,
   maxTurnCostUsd: 1,
   toolsModel: null,
+  catalogMode: 'search',
+  cacheWarmHours: 0,
 };
 
 const RESULT: AgentProviderResult = {

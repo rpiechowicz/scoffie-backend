@@ -54,6 +54,18 @@ export const AI_MODEL_DEFAULT = 'claude-sonnet-5';
 export const AI_CARDS_MODES = ['off', 'soft', 'strict'] as const;
 export type AiCardsMode = (typeof AI_CARDS_MODES)[number];
 
+/**
+ * Skąd model zna katalog przepisów.
+ *
+ * `search` (domyślnie, od 26.09.2026): w prompcie tylko MAPA katalogu (stały
+ * rozmiar), dania model bierze z `find_recipes`. `digest`: cały katalog
+ * linia po linii w prompcie, jak przed 26.09 — furtka powrotu z panelu bez
+ * deployu, gdyby wyszukiwarka zawiodła na produkcji. Lista narzędzi jest
+ * w obu trybach TA SAMA (prefiks cache); różni się tylko blok katalogu.
+ */
+export const AI_CATALOG_MODES = ['search', 'digest'] as const;
+export type AiCatalogMode = (typeof AI_CATALOG_MODES)[number];
+
 export const AI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type AiEffort = (typeof AI_EFFORTS)[number];
 export const AI_EFFORT_DEFAULT: AiEffort = 'medium';
@@ -194,6 +206,15 @@ export type AgentEnv = {
    * dostawca kończy pętlę narzędzi odpowiedzią tekstową.
    */
   maxTurnCostUsd: number | null;
+  /** Katalog w prompcie: mapa + wyszukiwarka albo cały digest — patrz `AI_CATALOG_MODES`. */
+  catalogMode: AiCatalogMode;
+  /**
+   * Podgrzewanie cache prefiksu (`AgentCacheWarmer`): co ~55 min jedno tanie
+   * żądanie z tym samym prefiksem, ale TYLKO gdy ostatnia tura była najwyżej
+   * tyle godzin temu; `0` = wyłączone. Zdejmuje +5 s i zapis cache z pierwszej
+   * tury po godzinie ciszy (pomiar 24.09.2026).
+   */
+  cacheWarmHours: number;
 };
 
 /**
@@ -308,6 +329,12 @@ export const AGENT_ENV_DEFAULTS = {
    * i dłuższe tytuły), a ucieczkę na dwunastu rundach tnie o piątą część.
    */
   maxTurnCostUsd: 0.8,
+  /**
+   * Trzy godziny: rozmowy w ciągu dnia trzymają cache ciepły, noc nie kosztuje
+   * nic (brak tur = brak pingów). Ping przy prefiksie ~20 tys. tokenów to
+   * odczyt z cache za ~$0,005, czyli najwyżej ~$0,15 na dobę pełnego ruchu.
+   */
+  cacheWarmHours: 3,
 } as const;
 
 /**
@@ -339,7 +366,8 @@ type NumericKey =
   | 'AI_STUB_DELAY_MS'
   | 'AI_PROPOSAL_TTL_MS'
   | 'AI_PROPOSAL_UNDO_WINDOW_MS'
-  | 'AI_CONVERSATION_RETENTION_DAYS';
+  | 'AI_CONVERSATION_RETENTION_DAYS'
+  | 'AI_CACHE_WARM_HOURS';
 
 function readNumber(
   env: NodeJS.ProcessEnv,
@@ -541,7 +569,22 @@ export function readAgentEnv(
       { min: 0 },
     ),
     maxTurnCostUsd: readMaxTurnCostUsd(env),
+    catalogMode: parseCatalogModeStrict(env.AI_CATALOG_MODE ?? '') ?? 'search',
+    cacheWarmHours: readNumber(
+      env,
+      'AI_CACHE_WARM_HOURS',
+      AGENT_ENV_DEFAULTS.cacheWarmHours,
+      { min: 0 },
+    ),
   };
+}
+
+/** Ścisły parser trybu katalogu — env (literówka = `search`) i panel (400). */
+export function parseCatalogModeStrict(raw: string): AiCatalogMode | undefined {
+  const value = raw.trim().toLowerCase();
+  return (AI_CATALOG_MODES as readonly string[]).includes(value)
+    ? (value as AiCatalogMode)
+    : undefined;
 }
 
 /** Jak budżet dobowy: liczba ≥ 0, `off` = bez sufitu, śmieci = domyślne. */
@@ -638,6 +681,12 @@ export function agentEnvProblems(
       `AI_CARDS_MODE=${cardsRaw} — dozwolone: ${AI_CARDS_MODES.join(', ')} (przy złej wartości działa strict, czyli model nie zapisze planu sam)`,
     );
   }
+  const catalogRaw = (env.AI_CATALOG_MODE ?? '').trim();
+  if (catalogRaw && parseCatalogModeStrict(catalogRaw) === undefined) {
+    problems.push(
+      `AI_CATALOG_MODE=${catalogRaw} — dozwolone: ${AI_CATALOG_MODES.join(', ')} (przy złej wartości działa search)`,
+    );
+  }
   const numeric: Array<[NumericKey, { min: number; integer: boolean }]> = [
     ['AI_TURN_TIMEOUT_MS', { min: 1, integer: true }],
     ['AI_LIMIT_MESSAGES_PER_MONTH', { min: 0, integer: true }],
@@ -646,6 +695,7 @@ export function agentEnvProblems(
     ['AI_PROPOSAL_TTL_MS', { min: 1, integer: true }],
     ['AI_PROPOSAL_UNDO_WINDOW_MS', { min: 0, integer: true }],
     ['AI_CONVERSATION_RETENTION_DAYS', { min: 0, integer: true }],
+    ['AI_CACHE_WARM_HOURS', { min: 0, integer: true }],
   ];
   for (const [key, opts] of numeric) {
     const raw = (env[key] ?? '').trim();

@@ -1080,6 +1080,139 @@ describe('Narzędzia asystenta E2E', () => {
    * chodzi o pełną drogę: PRAWDZIWY plan z bazy, przez serwis, przez
    * executor, do kształtu, który zobaczy model.
    */
+  describe('find_recipes na żywym katalogu', () => {
+    type Found = {
+      total: number;
+      hits: {
+        recipe: string;
+        title: string;
+        slots: string[];
+        kcal: number | null;
+        allergens: string[];
+        tags: string[];
+      }[];
+      textIgnored: boolean;
+      appliedForAudience: string[];
+    };
+    const criteria = (over: Record<string, unknown> = {}) => ({
+      query: '',
+      meal_type: 'ANY',
+      tags: [],
+      include_ingredients: [],
+      exclude_ingredients: [],
+      max_prep_minutes: 0,
+      max_kcal_per_serving: 0,
+      min_protein_per_serving: 0,
+      for_user_ids: [],
+      sort: 'BEST_FIT',
+      limit: 8,
+      ...over,
+    });
+
+    afterEach(async () => {
+      await prisma.userPreference.deleteMany({
+        where: { userId: context.userId },
+      });
+    });
+
+    it('oddaje dania na porę z referencjami, które przyjmą kolejne narzędzia', async () => {
+      const found = data<Found>(
+        await run('find_recipes', criteria({ meal_type: 'DINNER', limit: 5 })),
+      );
+      expect(found.total).toBeGreaterThan(0);
+      expect(found.hits.length).toBeGreaterThan(0);
+      for (const hit of found.hits) {
+        expect(hit.slots).toContain('DINNER');
+        // Referencja z indeksu TEJ tury — nie UUID.
+        expect(context.catalogIndex[hit.recipe]).toBeDefined();
+      }
+      // I da się jej użyć od razu, bez przepisywania.
+      const details = await run('get_recipe_details', {
+        recipe: found.hits[0].recipe,
+      });
+      expect(details.ok).toBe(true);
+    });
+
+    it('alergen domownika wycina danie, nawet gdy prośba wprost go wymienia', async () => {
+      const withAllergen = await prisma.recipe.findFirst({
+        where: {
+          householdId: CATALOG_HOUSEHOLD,
+          isActive: true,
+          NOT: { allergens: { isEmpty: true } },
+        },
+        select: { title: true, allergens: true },
+      });
+      if (!withAllergen) throw new Error('katalog nie ma dania z alergenem');
+      await prisma.userPreference.create({
+        data: {
+          userId: context.userId,
+          allergens: [withAllergen.allergens[0]],
+        },
+      });
+
+      const found = data<Found>(
+        await run(
+          'find_recipes',
+          criteria({ query: withAllergen.title, limit: 15 }),
+        ),
+      );
+      expect(found.hits.map((hit) => hit.title)).not.toContain(
+        withAllergen.title,
+      );
+      for (const hit of found.hits) {
+        expect(hit.allergens).not.toContain(withAllergen.allergens[0]);
+      }
+    });
+
+    it('nieznany tag wraca jako błąd z kodem, nie jako pusta lista', async () => {
+      const result = await run('find_recipes', criteria({ tags: ['zupki'] }));
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR' },
+      });
+    });
+
+    it('start_planning niesie kandydatów na pory domu', async () => {
+      const handoff = data<{
+        handoff: boolean;
+        candidates: { mealType: string; hits: { recipe: string }[] }[];
+      }>(await run('start_planning', { reason: 'tydzień' }));
+      expect(handoff.handoff).toBe(true);
+      const household = await prisma.household.findUniqueOrThrow({
+        where: { id: context.householdId },
+        select: { enabledMealTypes: true },
+      });
+      expect(handoff.candidates.map((entry) => entry.mealType).sort()).toEqual(
+        [...household.enabledMealTypes].sort(),
+      );
+      expect(handoff.candidates.every((entry) => entry.hits.length > 0)).toBe(
+        true,
+      );
+    });
+
+    it('prompt w trybie search niesie mapę katalogu, a nie listę dań', async () => {
+      const prompt = await prompts.build(
+        context.userId,
+        context.householdId,
+        {
+          weekStart: WEEK_START,
+          clientToday: '2026-09-29',
+          timeZone: 'Europe/Warsaw',
+        },
+        true,
+      );
+      const catalogBlock = prompt.system[1].text;
+      expect(catalogBlock).toContain('KATALOG PRZEPISÓW — MAPA');
+      const anyTitle = await prisma.recipe.findFirstOrThrow({
+        where: { householdId: CATALOG_HOUSEHOLD, isActive: true },
+        select: { title: true },
+      });
+      expect(catalogBlock).not.toContain(anyTitle.title);
+      // Indeks tury dalej obejmuje cały katalog — referencje z planu działają.
+      expect(Object.keys(prompt.catalogIndex).length).toBeGreaterThan(0);
+    });
+  });
+
   describe('get_week_plan dla modelu', () => {
     const SLIM_WEEK = '2026-11-02';
 

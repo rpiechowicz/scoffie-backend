@@ -53,7 +53,30 @@ describe('readAgentEnv', () => {
       consentRequired: true,
       conversationRetentionDays: AGENT_ENV_DEFAULTS.conversationRetentionDays,
       maxTurnCostUsd: AGENT_ENV_DEFAULTS.maxTurnCostUsd,
+      // Wyszukiwarka zamiast całego katalogu w prompcie; podgrzewanie przy ruchu.
+      catalogMode: 'search',
+      cacheWarmHours: AGENT_ENV_DEFAULTS.cacheWarmHours,
     });
+  });
+
+  it('AI_CATALOG_MODE: digest jawnie, literówka = search', () => {
+    expect(readAgentEnv({ AI_CATALOG_MODE: 'digest' }).catalogMode).toBe(
+      'digest',
+    );
+    expect(readAgentEnv({ AI_CATALOG_MODE: ' DIGEST ' }).catalogMode).toBe(
+      'digest',
+    );
+    expect(readAgentEnv({ AI_CATALOG_MODE: 'katalog' }).catalogMode).toBe(
+      'search',
+    );
+  });
+
+  it('AI_CACHE_WARM_HOURS: 0 wyłącza, śmieci = domyślne', () => {
+    expect(readAgentEnv({ AI_CACHE_WARM_HOURS: '0' }).cacheWarmHours).toBe(0);
+    expect(readAgentEnv({ AI_CACHE_WARM_HOURS: '6' }).cacheWarmHours).toBe(6);
+    expect(readAgentEnv({ AI_CACHE_WARM_HOURS: 'dużo' }).cacheWarmHours).toBe(
+      AGENT_ENV_DEFAULTS.cacheWarmHours,
+    );
   });
 
   it('sufit kosztu tury: off = null, ułamki ok, śmieci = wartość domyślna', () => {

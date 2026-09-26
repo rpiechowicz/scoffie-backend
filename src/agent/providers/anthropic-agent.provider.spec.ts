@@ -3,6 +3,7 @@ import { AgentProviderError, AgentProviderRequest } from './agent-provider';
 import {
   AnthropicAgentProvider,
   MAX_TOOL_ROUNDS,
+  TOOL_ENDED_TURN,
 } from './anthropic-agent.provider';
 
 /**
@@ -99,6 +100,64 @@ describe('AnthropicAgentProvider', () => {
       ),
     );
     provider.useClient({ messages: { stream } } as unknown as Anthropic);
+  });
+
+  describe('karta kończy turę bez ostatniej rundy', () => {
+    it('udane narzędzie kończące turę + tekst w tej samej wiadomości = koniec bez kolejnego wywołania', async () => {
+      executeTool.mockResolvedValue({
+        ok: true,
+        data: { offered: 3 },
+        endsTurn: true,
+      });
+      create.mockResolvedValueOnce(toolMessage('offer_options'));
+
+      const result = await provider.run(request());
+
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(result.text).toBe('sprawdzam');
+      expect(result.stopReason).toBe(TOOL_ENDED_TURN);
+      expect(result.apiCalls).toBe(1);
+    });
+
+    it('bez tekstu w wiadomości model dostaje jeszcze głos, jak dawniej', async () => {
+      executeTool.mockResolvedValue({ ok: true, data: {}, endsTurn: true });
+      create
+        .mockResolvedValueOnce({
+          stop_reason: 'tool_use',
+          content: [
+            { type: 'tool_use', id: 'tu-1', name: 'offer_options', input: {} },
+          ],
+          usage: usage(),
+        })
+        .mockResolvedValueOnce(textMessage('Wybierz jedno.'));
+
+      const result = await provider.run(request());
+
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(result.text).toBe('Wybierz jedno.');
+    });
+
+    it('odmowa albo zwykłe narzędzie w tej samej rundzie — pętla idzie dalej', async () => {
+      executeTool
+        .mockResolvedValueOnce({ ok: true, data: {}, endsTurn: true })
+        .mockResolvedValueOnce({ ok: true, data: { plan: [] } });
+      create
+        .mockResolvedValueOnce({
+          stop_reason: 'tool_use',
+          content: [
+            { type: 'text', text: 'Proponuję tak.' },
+            { type: 'tool_use', id: 'a', name: 'propose_day_plan', input: {} },
+            { type: 'tool_use', id: 'b', name: 'get_week_plan', input: {} },
+          ],
+          usage: usage(),
+        })
+        .mockResolvedValueOnce(textMessage('gotowe'));
+
+      const result = await provider.run(request());
+
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(result.text).toBe('gotowe');
+    });
   });
 
   describe('szkic odpowiedzi', () => {

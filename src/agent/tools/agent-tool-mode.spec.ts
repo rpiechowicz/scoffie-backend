@@ -12,6 +12,7 @@ import { ShoppingListService } from '../../weekly-plans/services/shopping-list.s
 import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { AgentToolContext, AgentToolExecutor } from './agent-tool-executor';
 import { AgentPromptService } from '../agent-prompt.service';
+import { AgentCatalogService } from '../search/agent-catalog.service';
 import { AGENT_TOOLS } from './agent-tools';
 
 // Bramka trybu jest DRUGA po prompcie i jedyna, która nie zależy od tego, czy
@@ -55,6 +56,7 @@ describe('AgentToolExecutor — bramka trybu', () => {
         },
         { provide: ShoppingListService, useValue: {} },
         { provide: WeeklyPlansGateway, useValue: {} },
+        { provide: AgentCatalogService, useValue: {} },
         {
           provide: AgentPromptService,
           useValue: {
@@ -171,6 +173,34 @@ describe('AgentToolExecutor — bramka trybu', () => {
       slots: { participantIds?: string[] }[];
     };
     expect(passed.slots[0].participantIds).toBeUndefined();
+  });
+
+  // Karta, która stanęła, kończy turę bez kolejnego wywołania modelu
+  // (dostawca, `TURN_ENDING_TOOLS`) — ale TYLKO gdy propozycja powstała.
+  it('udana propozycja kończy turę, propozycja z naruszeniami — nie', async () => {
+    createWeekPlanProposal.mockResolvedValueOnce({
+      proposed: true,
+      proposalId: 'p-1',
+      summary: {},
+    });
+    const done = await executor.execute(
+      'propose_week_plan',
+      { week_start: '2026-08-31', slots },
+      context(true),
+    );
+    expect(done).toMatchObject({ ok: true, endsTurn: true });
+
+    createWeekPlanProposal.mockResolvedValueOnce({
+      proposed: false,
+      violations: [],
+    });
+    const rejected = await executor.execute(
+      'propose_week_plan',
+      { week_start: '2026-08-31', slots },
+      context(true),
+    );
+    expect(rejected.ok).toBe(true);
+    expect(rejected).not.toHaveProperty('endsTurn');
   });
 
   it('bramka dotyczy WYŁĄCZNIE tych dwóch narzędzi', async () => {

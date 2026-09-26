@@ -187,6 +187,17 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
     jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
     akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
     jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie.
+- Katalog dla asystenta (od 26.09.2026, `docs/plans/scoffie-ai-agent/wyszukiwarka-i-tempo-2026-09.md`):
+  w prefiksie jest MAPA katalogu (liczby dań na pory i tagi, stały rozmiar), a dania model bierze
+  z `find_recipes` (`src/agent/search/`): filtry twarde jedzących tymi samymi funkcjami co walidator
+  planu (`diet-rules.util`), kryteria z prośby, ranking (plan tygodnia, ulubione, składniki wspólne
+  z planem, popularność), dywersyfikacja. Indeks żyje w pamięci (`AgentCatalogService`, odcisk
+  wersji + 10 min), numeracja `R001` = ta sama co digestu. Tagi (rodzaj dania, mięso, smak,
+  quick/light/high_protein) liczy `src/recipes/recipe-facets.util.ts` regułami z iOS.
+  `AI_CATALOG_MODE=digest` (panel → Sterowanie) wraca do całego katalogu w prompcie bez deployu.
+  Karta kończy turę bez ostatniej rundy (`TURN_ENDING_TOOLS`, `stopReason: tool_ended_turn`), gdy
+  model napisał zdanie w tej samej wiadomości; `AgentCacheWarmer` pinguje prefiks co 55 min przy
+  ruchu w ostatnich `AI_CACHE_WARM_HOURS` (0 = wyłączone, koszt w `AiUsage` jako `cache_warm`).
 - Postęp tury (`AgentTurn.progress`, `src/agent/agent-progress.ts`): kroki narzędzi plus kroki
   PRZEJŚCIOWE (`transient: true`) — `read` (start tury), `reason` (blok myślenia w strumieniu),
   `write` (pierwszy fragment tekstu), `think` (cisza po narzędziach). Dostawca melduje je przez

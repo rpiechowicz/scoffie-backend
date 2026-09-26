@@ -1,4 +1,3 @@
-import { CatalogDigest } from './catalog-digest';
 import { fenceSafe } from './fence-safe';
 import { WeekPlanForModel } from './week-plan-projection';
 import { allowedPlanWeeks } from './tools/plan-scope';
@@ -12,8 +11,9 @@ import { allowedPlanWeeks } from './tools/plan-scope';
  * najbardziej zmiennego:
  *
  * 1. **instrukcje** — te same dla wszystkich i dla każdej tury,
- * 2. **digest katalogu** — ten sam dla WSZYSTKICH gospodarstw, zmienia się
- *    tylko przy zmianie katalogu (stąd punkt cache z dłuższym życiem),
+ * 2. **katalog** — mapa katalogu (`AI_CATALOG_MODE=search`) albo cały digest
+ *    (`digest`); ten sam dla WSZYSTKICH gospodarstw, zmienia się tylko przy
+ *    zmianie katalogu (stąd punkt cache z dłuższym życiem),
  * 3. **kontekst gospodarstwa** — inny dla każdego domu.
  *
  * Gdyby kontekst domu szedł przed digestem, każdy dom miałby własną kopię
@@ -90,13 +90,14 @@ export const AGENT_INSTRUCTIONS = [
   'Nie jesteś czatem ogólnego przeznaczenia: pytania spoza jedzenia, zakupów i planu grzecznie odsyłasz.',
   '',
   'ZASADY, OD KTÓRYCH NIE MA ODSTĘPSTW:',
-  '1. Nie zmyślasz przepisów ani składników. Wszystko, co proponujesz, pochodzi z katalogu poniżej',
-  '   albo z narzędzi. Nie ma czegoś w katalogu — powiedz to wprost, nie wymyślaj.',
+  '1. Nie zmyślasz przepisów ani składników. Wszystko, co proponujesz, pochodzi z wyników',
+  '   find_recipes, z katalogu poniżej albo z innych narzędzi. Nie ma czegoś — powiedz to wprost,',
+  '   nie wymyślaj.',
   '2. Alergeny i diety są twarde. Zanim cokolwiek zaproponujesz, sprawdź gospodarstwo przez',
   '   get_household_context. Danie z alergenem domownika nie jest propozycją do rozważenia.',
   '   Gdy ktoś pyta, czy ZAPISANY plan albo danie jest bezpieczne dla konkretnej osoby,',
-  '   wołasz check_plan_conflicts i cytujesz wynik. Nie wnioskujesz o składzie z katalogu:',
-  '   widzisz w nim pięć najcięższych składników, a nie cały skład — „dorsz z masłem" wygląda',
+  '   wołasz check_plan_conflicts i cytujesz wynik. Nie wnioskujesz o składzie z katalogu ani',
+  '   z wyników wyszukiwania: widzisz tam pięć najcięższych składników, a nie cały skład — „dorsz z masłem" wygląda',
   '   stamtąd na danie bez nabiału. O sam SKŁAD i kroki pytasz przez get_recipe_details;',
   '   to jedyne miejsce, z którego wolno ci mówić, co jest w daniu i jak je ugotować.',
   '3. `restrictions` przy domowniku czytasz tak samo poważnie jak alergeny:',
@@ -130,6 +131,16 @@ export const AGENT_INSTRUCTIONS = [
   '',
   'JAK PRACUJESZ:',
   '- Najpierw sprawdzasz stan (kontekst gospodarstwa, plan, bilans), potem działasz.',
+  '- Katalog widzisz niżej albo CAŁY (lista dań), albo jako MAPĘ (liczby i tagi). Przy mapie dania',
+  '  bierzesz WYŁĄCZNIE z find_recipes: podajesz kryteria z prośby, serwer oddaje najlepiej',
+  '  dopasowane dania już po alergenach i diecie jedzących. Do wyboru na jedną porę: jedno',
+  '  find_recipes, potem offer_options. Plan kilku pór albo dni: find_recipes dla każdej pory',
+  '  RÓWNOLEGLE w jednej rundzie (limit 10–15), potem propose_*. Tych samych kryteriów nie',
+  '  szukasz drugi raz — wyniki masz w historii tej tury.',
+  '- Gdy wołasz narzędzie, które KOŃCZY turę (propose_*, offer_options, ask_clarifying_question),',
+  '  swoją odpowiedź dla użytkownika piszesz W TEJ SAMEJ wiadomości, przed wywołaniem. Po udanej',
+  '  karcie tura kończy się od razu i głosu już nie dostaniesz. Gdy narzędzie odmówi (naruszenia,',
+  '  błąd), poprawiasz i piszesz odpowiedź od nowa razem z kolejnym wywołaniem.',
   '- Plan PLANOWANEGO tygodnia masz już w bloku gospodarstwa niżej (znacznik plan) — nie',
   '  pobierasz go drugi raz. get_week_plan wołasz wyłącznie po INNY tydzień.',
   '- Zmiany opisujesz krótko i po ludzku: co wchodzi, co znika, dlaczego.',
@@ -170,8 +181,8 @@ export const AGENT_INSTRUCTIONS = [
   '  z wybranym daniem w tym miejscu i resztą bez zmian.',
   '- Pytanie „jak to ugotować?", „ile tam czego?" i „czy jest w tym X?" załatwia',
   '  get_recipe_details, a pytanie wychodzące od produktu („co zrobić z bakłażanem?") —',
-  '  search_recipes_by_ingredient. Katalog niżej pokazuje po pięć składników na danie,',
-  '  więc sam go pod tym kątem nie przejrzysz.',
+  '  find_recipes z include_ingredients. Serwer szuka po CAŁYM składzie, a ty widzisz',
+  '  najwyżej pięć składników na danie.',
   '- Gdy użytkownik mówi, że coś zjadł albo kupił („zjadłem obiad", „mam już mleko"),',
   '  odhaczasz to przez mark_meal_eaten albo check_shopping_items. Nie odhaczasz niczego,',
   '  o czym nie powiedział, i nie domyślasz się, że skoro był w sklepie, to ma wszystko.',
@@ -227,7 +238,7 @@ export function clientClock(
  * Akapit trybu — JEDYNE miejsce, w którym prompt mówi, kto zapisuje plan.
  *
  * Siedzi w bloku gospodarstwa, a nie w instrukcjach, ze względu na cache.
- * Prefiks (instrukcje + katalog, ~8 000 tokenów) jest wspólny dla całej
+ * Prefiks (instrukcje + katalog) jest wspólny dla całej
  * instalacji i cache'owany na godzinę; gdyby tryb siedział w instrukcjach,
  * okres przejściowy z dwoma trybami naraz oznaczałby DWA takie zapisy zamiast
  * jednego wspólnego. Blok gospodarstwa i tak jest inny dla każdego domu.
@@ -317,9 +328,28 @@ function weekPlanLines(plan: WeekPlanForModel | null | undefined): string[] {
 }
 
 /**
+ * Wspólny prefiks instalacji: instrukcje i katalog (mapa albo digest), z
+ * punktem cache na końcu katalogu. Osobna funkcja, bo ten sam prefiks —
+ * bajt w bajt — buduje podgrzewacz cache (`AgentCacheWarmer`); jedna
+ * różnica w znaku i ping podgrzewałby wpis, którego żadna tura nie czyta.
+ */
+export function sharedSystemBlocks(catalog: { text: string }): SystemBlock[] {
+  return [
+    { type: 'text', text: AGENT_INSTRUCTIONS },
+    {
+      type: 'text',
+      text: catalog.text,
+      // Punkt cache PO katalogu: wszystko przed nim jest wspólne dla całej
+      // instalacji, więc jeden zapis obsługuje wszystkie gospodarstwa.
+      cache_control: { type: 'ephemeral', ttl: '1h' },
+    },
+  ];
+}
+
+/**
  * Buduje bloki systemowe tury.
  *
- * Dwa punkty cache. Pierwszy po digeście: instrukcje razem z katalogiem to
+ * Dwa punkty cache. Pierwszy po katalogu: instrukcje razem z katalogiem to
  * jeden wspólny prefiks dla CAŁEJ instalacji (TTL godzina — katalog zmienia się
  * rzadko, a przy kilkudziesięciu użytkownikach trafienie jest niemal pewne).
  * Drugi na bloku gospodarstwa (TTL 5 minut): ten blok jest inny dla każdego
@@ -327,7 +357,7 @@ function weekPlanLines(plan: WeekPlanForModel | null | undefined): string[] {
  * narzędzi — więc zapis za 1,25× zwraca się już przy trzeciej rundzie.
  */
 export function buildSystemPrompt(
-  digest: CatalogDigest,
+  catalog: { text: string },
   context: HouseholdPromptContext,
 ): SystemBlock[] {
   const householdBlock = [
@@ -383,14 +413,7 @@ export function buildSystemPrompt(
   ].join('\n');
 
   return [
-    { type: 'text', text: AGENT_INSTRUCTIONS },
-    {
-      type: 'text',
-      text: digest.text,
-      // Punkt cache PO katalogu: wszystko przed nim jest wspólne dla całej
-      // instalacji, więc jeden zapis obsługuje wszystkie gospodarstwa.
-      cache_control: { type: 'ephemeral', ttl: '1h' },
-    },
+    ...sharedSystemBlocks(catalog),
     {
       type: 'text',
       text: householdBlock,
