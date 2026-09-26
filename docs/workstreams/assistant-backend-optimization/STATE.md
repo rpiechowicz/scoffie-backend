@@ -1,6 +1,6 @@
 # Stan workstreamu
 
-**Ostatnia aktualizacja:** 27.09.2026 (po Etapie 5)  
+**Ostatnia aktualizacja:** 27.09.2026 (po Etapie 5 i jego Addendum A1)  
 **Branch startowy:** `claude/admin-crm-planning-b0hmgo`
 
 ## Status
@@ -13,7 +13,7 @@
 | 2.2 Porcje per osoba | **DONE (backend)** — zaakceptowany. iOS compile verification: **DEFERRED / przed rolloutem** (gałąź `claude/per-user-portions` bez zmian i bez merge'a; nie blokuje kolejnych etapów) | `reports/02-2-per-user-portions.md` |
 | 3. Odchudzenie agenta | **DONE** — po review (Addendum A1: autorytatywne zdanie serwera, porcje per osoba przez wybór z karty); `suggest_meals`, jedna karta na turę, pamięć tury, 3 narzędzia zdjęte ze schematu modelu; zachowanie modelu do potwierdzenia w końcowym live benchmarku | `reports/03-agent-thinning.md` |
 | 4. Katalog / DB / API | **DONE (backend)** — log zmian katalogu z triggerów, snapshot + delta z tombstone'ami, granice cache'u, single-flight (popularność, zakupy), szkic 1 s, `getTurn` 1 zapytanie, indeks `AgentMessage(turnId)`. iOS (`claude/catalog-sync`, bez merge'a): kompilacja Xcode i `catalog-sync-check.sh` **DEFERRED / przed rolloutem** | `reports/04-catalog-db-api-scale.md` |
-| 5. Trwałe tury | **DONE** — `AgentTurn` jako zadanie z lease (fencing token, zegar bazy), worker w procesie API (przy starcie + co 3 s), dziennik efektów narzędzi w transakcji efektu, klucz wywołania dostawcy z numerem próby, trwały „Stop”, twardy termin tury, limit 3 prób; prawdziwy restart 2 instancji w e2e | `reports/05-durable-turns.md` |
+| 5. Trwałe tury | **DONE** — `AgentTurn` jako zadanie z lease (fencing token, zegar bazy), worker w procesie API (przy starcie + co 3 s), dziennik efektów narzędzi w transakcji efektu, klucz wywołania dostawcy z numerem próby, trwały „Stop”, twardy termin tury, limit 3 prób; prawdziwy restart 2 instancji w e2e. Po review (Addendum A1): efekt odtwarzany tylko przy zgodnym narzędziu i kanonicznym wejściu, inaczej `AI_DURABLE_EFFECT_CONFLICT`; kursor efektów zamiast licznika | `reports/05-durable-turns.md` |
 | 6. Modele / routing | **READY** (czeka na akceptację Rafała) | `reports/06-model-evaluation.md` |
 
 ## Aktualne polecenie dla wykonawcy
@@ -66,7 +66,13 @@ Po zakończeniu:
 
 ## Ostatni raport
 
-`reports/05-durable-turns.md` (27.09.2026) — Etap 5 **DONE**:
+`reports/05-durable-turns.md` (27.09.2026) — Etap 5 **DONE** (po review, Addendum A1):
+- A1: odtworzenie efektu wymaga zgodnego narzędzia i kanonicznego wejścia; niezgodne =
+  jawny konflikt (bez nowego zapisu i bez cudzego wyniku); `#n` to kursor przesuwany po
+  rozpoznaniu/commicie (konflikt nie przepuszcza jako `#n+1`); blok odzyskiwania dla
+  modelu; `mark_meal_eaten` w transakcji dziennika, `check_shopping_items` świadomie
+  słabiej; rezerwacja przejętej tury przed startem (SIGTERM w tym oknie oddaje lease);
+  unit 3472/3472, `durable-turns` 22/22 ×5;
 - audyt 10 okien awarii przed zmianą (KNOWN COST vs UNKNOWN PROVIDER OUTCOME);
 - `AgentTurn` = zadanie: `execution`, `deadlineAt`, `attempt`, `leaseOwner/Token/ExpiresAt`,
   `cancelRequestedAt`, `failureDetail`; claim jednym zdaniem `FOR UPDATE SKIP LOCKED`
@@ -140,7 +146,7 @@ Poprzednie: `reports/01-correctness-state-costs.md`, `reports/00-baseline.md` �
 do końcowego porównania: commit `22aa63c` (ten sam benchmark na anchorze i finalnym HEAD,
 tego samego dnia, na tej samej konfiguracji modelu).
 
-**Etap 5 zakończony — czeka na review. Etap 6 READY (nie zaczynać bez akceptacji Rafała).**
+**Etap 5 zakończony (po review, Addendum A1) — czeka na akceptację. Etap 6 READY (nie zaczynać bez akceptacji Rafała).**
 
 ### Warunek rolloutu synchronizacji katalogu (Etap 4)
 

@@ -1,7 +1,7 @@
 # Raport etapu 05 — Trwałe wykonywanie tur asystenta
 
 **Data:** 2026-09-27  
-**Status:** DONE  
+**Status:** DONE (po review: Addendum A1 — tożsamość efektu przy niedeterministycznym modelu)  
 **Branch:** `claude/admin-crm-planning-b0hmgo`  
 **Zakres z TASKS.md:** Etap 5 (+ polecenie 5.0–5.20)
 
@@ -207,9 +207,11 @@ zużycie nie jest ani liczone drugi raz, ani gubione.
 ## 12. Idempotencja efektów narzędzi
 
 Trwała tożsamość wywołania narzędzia = **`card`** (jedna karta na turę) albo
-**`<narzędzie>#<n>`** (n-te wywołanie tego narzędzia w turze, nadawane synchronicznie
-przed pierwszym `await`). Nie z identyfikatora `tool_use` (każda próba to nowe
-wywołanie API z nowymi id) ani z losowego UUID.
+**`<narzędzie>#<n>`** (n-ty efekt tego narzędzia w turze). Nie z identyfikatora
+`tool_use` (każda próba to nowe wywołanie API z nowymi id) ani z losowego UUID.
+**Po review (Addendum A1):** klucz to tylko ADRES efektu; odtworzenie wymaga zgodności
+narzędzia i kanonicznego wejścia, a `n` jest kursorem przesuwanym po rozpoznaniu albo
+commicie — nie licznikiem wywołań.
 
 | Narzędzie | Klasa | Klucz | Co przy padzie 1 ms po COMMIT, przed wynikiem |
 |---|---|---|---|
@@ -219,11 +221,12 @@ wywołanie API z nowymi id) ani z losowego UUID.
 | `create_recipe`, `update_recipe` | keyed | `…#n` | hak `inTransaction` w `RecipesService.create/update` → przepis + dziennik razem; próba 2 dostaje `{recipeId, alreadyDone}` |
 | `remember_note` | keyed | `…#n` | hak `inTransaction` w `AgentMemoryService.remember` (plus istniejący unikat treści) |
 | `apply_week_plan` (tryb bez kart) | keyed | `…#n` | kwota planu schodzi w haku `settle` transakcji zapisu (i tylko przy zmianach), razem z dziennikiem → brak drugiego zapisu, drugiej kwoty, drugiego undo (zapis narzędziem nie robi migawki undo) |
-| `mark_meal_eaten`, `check_shopping_items` | natural | `…#n` | ustawienie wartości; dziennik po wykonaniu. Pad między commitem a dziennikiem → próba 2 ustawia TĘ SAMĄ wartość jeszcze raz (drugi broadcast, bez drugiego efektu) |
+| `mark_meal_eaten` | keyed (od A1) | `…#n` | hak `inTransaction` w `WeeklyPlansService.setMealEaten` → odhaczenie + dziennik razem |
+| `check_shopping_items` | natural | `…#n` | kilka zapisów „kupione" (osobna transakcja na produkt); dziennik po wykonaniu. Pad między commitem a dziennikiem → próba 2 ustawia TĘ SAMĄ wartość jeszcze raz (drugi broadcast, bez drugiego efektu) |
 
-Odmowy narzędzi z kluczem `…#n` też trafiają do dziennika, żeby n-te wywołanie w
-próbie 2 dostało tę samą odmowę, a nie wykonało się jako „pierwsze udane". Nieudana
-karta nie zajmuje klucza `card`.
+~~Odmowy narzędzi z kluczem `…#n` też trafiają do dziennika.~~ **Od A1:** odmowa
+narzędzia (brak efektu) niczego nie zapisuje i nie przesuwa kursora. Nieudana karta nie
+zajmuje klucza `card`.
 
 Testy „SIDE EFFECT COMMITTED → crash → recovery → brak drugiego efektu" (e2e, prawdziwy
 restart): #7 propozycja, #8 notatka, #8b zapis planu z kwotą, #14 `suggest_meals`,
@@ -306,13 +309,17 @@ Jedyna zmiana w istniejącym e2e: `agent-accounting` › leniwy timeout przesuwa
 1. **Wywołania dostawcy** — at-least-once: próba N+1 woła model od nowa (znany,
    zapisany koszt). Wywołanie przerwane padem = UNKNOWN PROVIDER OUTCOME (brak klucza
    idempotencji u dostawcy).
-2. **Efekty „z natury"** (`mark_meal_eaten`, `check_shopping_items`): pad między
-   commitem a dziennikiem → ta sama wartość ustawiona drugi raz; gdyby w tej przerwie
-   domownik zmienił ją ręcznie, próba 2 ustawi ją z powrotem.
-3. **Rozbieżność modelu między próbami**: n-te wywołanie narzędzia w próbie 2 dostaje
-   wynik n-tego z próby 1, nawet gdy model podał inne wejście (flaga `alreadyDone`) —
-   to cena gwarancji „bez drugiego efektu". Model może też w próbie 2 zdecydować o
-   innej karcie, jeśli próba 1 nie zdążyła żadnej zapisać.
+2. **`check_shopping_items`** (efekt „z natury", świadomie słabsza gwarancja — A1):
+   pad między commitem a dziennikiem → ta sama wartość ustawiona drugi raz; gdyby w
+   tej przerwie domownik zmienił ją ręcznie, próba 2 ustawi ją z powrotem.
+   `mark_meal_eaten` ma od A1 dziennik w transakcji odhaczenia.
+3. **Rozbieżność modelu między próbami** — ~~cena gwarancji~~ **zamknięte w
+   Addendum A1**: inne wejście niż zapisany efekt to jawny konflikt
+   (`AI_DURABLE_EFFECT_CONFLICT`) — ani drugi efekt, ani wynik starej operacji jako
+   wynik nowej. Zostaje tylko to, że konflikt nie jest „DONE za wszelką cenę":
+   odpowiedź odzyskanej tury mówi, co zapisano, zamiast wykonać nową wersję.
+   Jeśli próba 1 nie zdążyła zapisać żadnej karty, próba 2 może postawić inną —
+   to nie jest efekt zdublowany, tylko pierwszy.
 4. **Push i broadcast WS**: best-effort, poza transakcją — mogą zginąć albo (dla
    broadcastu przy efekcie „z natury") pójść drugi raz.
 5. **Zegar**: lease i claim liczy zegar bazy; werdykt sprzątania (Stop/wyczerpane próby)
@@ -362,4 +369,120 @@ Jedyna zmiana w istniejącym e2e: `agent-accounting` › leniwy timeout przesuwa
 ## Commity
 
 - `db0e55b` — feat(asystent): trwałe wykonywanie tur — lease, fencing i dziennik efektów
-- commit dokumentacji (ten raport, STATE, TASKS, CLAUDE.md) — następny po `db0e55b`
+- `4cfd348` — docs(workstream): raport Etapu 5
+- `0dc8f6b` — fix(asystent): odzyskana tura nie oddaje cudzego efektu jako wyniku innego wejścia (Addendum A1)
+- commit dokumentacji Addendum A1 — następny po `0dc8f6b`
+
+---
+
+## Addendum A1 — tożsamość efektu przy niedeterministycznym modelu (po review, 27.09.2026)
+
+**Luka z review.** Odtworzenie szukało efektu wyłącznie po kluczu (`card` /
+`<narzędzie>#<n>`). Model w odzyskanej próbie nie jest bitowo deterministyczny:
+`create_recipe#1 {title: "Kurczak tikka masala"}` w próbie 2 dostawał wynik zapisanego
+przed padem `create_recipe#1 {title: "Kurczak curry"}` jako własny sukces. Drugiego
+przepisu nie było, ale odpowiedź dotyczyła innej operacji niż ta, o którą model prosił.
+Raport opisywał to jako świadomą cenę (§17.3) — review tego nie przyjął.
+
+### A1.1 Kanoniczna tożsamość
+
+`isSameOperation(stored, name, input)` = to samo narzędzie **i** równy
+`canonicalJson(stored.input) === canonicalJson(input)` (`src/agent/durable/turn-effects.ts`):
+klucze obiektów posortowane, kolejność tablic zachowana (żadne pole narzędzi z efektem nie
+ma dziś semantyki zbioru), `null` ≠ brak pola, typy bez zmian (`1` ≠ `"1"`), `undefined`
+= brak pola (tak zapisuje JSONB). Porównanie w pamięci, na `input JSONB` z dziennika —
+bez nowej kolumny. Treść wejścia nigdy nie trafia do logu (log: id tury, klucz, nazwy
+narzędzi).
+
+### A1.2 Zachowanie przy niezgodności
+
+Dla istniejącego efektu:
+- **zgodne** narzędzie + wejście → odtworzenie jak dotąd (`alreadyDone`, karta ze zdaniem
+  serwera), kursor dalej;
+- **niezgodne** → `AI_DURABLE_EFFECT_CONFLICT` jako DANE dla modelu: „W poprzedniej próbie
+  tej odpowiedzi (przed restartem serwera) <nazwa operacji> zostało już zapisane. Nie
+  wykonuję innej wersji tej samej operacji podczas odzyskiwania — powiedz użytkownikowi,
+  co zostało zapisane, i nie próbuj ponownie." Bez nowego zapisu, bez danych zapisanego
+  efektu (tylko nazwa narzędzia w `details`). Log `warn` + metryka
+  `agent.jobs.effectConflicts` / Sentry `scoffie.agent.job.effect_conflict`.
+  Tura biegnie dalej — model kończy słowami; ponawianie tego samego narzędzia daje ten sam
+  konflikt (A1.3), a pętlę ogranicza istniejący sufit rund i kosztu. Kontrolowane
+  zakończenie próby nie było potrzebne: konflikt sam w sobie nie dopuszcza drugiego efektu.
+- **Karta** (jawna reguła): karta zapisana przed restartem jest kartą TEJ TURY. Zgodne
+  wywołanie — odtworzenie; niezgodne — konflikt, a zapisana karta zostaje na odpowiedzi
+  (propozycja przypięta przez `finishDone`, karta bez skutków zebrana z dziennika). Nowa
+  karta nie powstaje. Szybkie domknięcie z dziennika (karta ze zdaniem serwera, bez
+  modelu) bez zmian.
+
+### A1.3 Ochrona przed przejściem do `#2`
+
+`n` jest **kursorem**, nie licznikiem wywołań: `keyFor` tylko podgląda `#n`, a
+`advance` przesuwa kursor dopiero po udanym odtworzeniu albo po commicie nowego efektu.
+Konflikt kursora nie rusza — kolejne `create_recipe` znowu trafia na `#1` i znowu
+dostaje konflikt, więc drugi przepis nie powstanie. Odmowa narzędzia (brak efektu) też
+kursora nie rusza i nie trafia do dziennika. Wywołania jednego narzędzia w próbie idą po
+kolei (`TurnEffects.exclusive`), żeby dwa równoległe nie dostały tego samego `#n` (co
+bez tego zamieniłoby legalne dwa przepisy w jednej rundzie w konflikt). Kursory narzędzi
+są rozłączne, a klucz zawiera nazwę narzędzia i jest dodatkowo sprawdzana — efekt jednego
+narzędzia nie zostanie pomylony z innym. Globalna bariera między narzędziami nie jest
+potrzebna: duplikat to ten sam efekt tego samego narzędzia.
+
+### A1.4 Blok odzyskiwania
+
+Próba ≥ 2 dopisuje do ostatniego pytania użytkownika (w historii dla modelu, nie w bazie)
+blok SERWERA: „[Informacja serwera, nie od użytkownika: to wznowienie tej odpowiedzi po
+restarcie serwera. Przed restartem zapisano już: notatka (remember_note) — zapisane; nowy
+przepis (create_recipe) — zapisane, id przepisu …. Nie powtarzaj tych operacji.]". Tylko
+nazwy operacji i id przepisu — bez wejść i wyników. Mała zmiana w runnerze, bez przebudowy
+historii dostawcy; prefiks cache (system + narzędzia) nietknięty.
+
+### A1.5 Efekty „z natury"
+
+- `mark_meal_eaten` — pojedynczy zapis, więc przeniesiony do klasy `keyed`: hak
+  `inTransaction` w `WeeklyPlansService.setMealEaten` (odhaczenie + dziennik w jednej
+  transakcji). Luka „ręczna zmiana w przerwie" zamknięta.
+- `check_shopping_items` — kilka zapisów w osobnych transakcjach (po jednej na produkt,
+  `ShoppingListService.setShoppingItemChecked` z przebudową migawki listy). Wspólna
+  transakcja wymagałaby przebudowy serwisu listy — **zostaje świadomie słabsza gwarancja**
+  (§17.2).
+
+### A1.6 Przy okazji: dwie poprawki wykryte przez nowe testy
+
+- **Zamykanie procesu w oknie „przejęta, jeszcze nie wystartowała"**: worker czytał turę
+  z bazy po przejęciu, a runner rejestrował ją dopiero w `run` — SIGTERM w tym oknie nie
+  widział tury, nie oddawał lease (tura wracała po wygaśnięciu, nie od razu) i tura
+  startowała mimo zamykania. Teraz worker rezerwuje turę w runnerze synchronicznie przy
+  przejęciu (`reserve`), a `run` z przerwaną rezerwacją od razu oddaje lease.
+- `AI_TURN_WORKER_POLL_MS` przyjmuje do 10 min (było 60 s — wyższa wartość wracała po
+  cichu do 3 s).
+
+### A1.7 Testy
+
+| Komenda | Wynik |
+|---|---|
+| `pnpm test` | **192/192 suites, 3472/3472** (MEASURED) |
+| `pnpm typecheck` / `lint:check` / `openapi:check` | OK / 0 błędów / OK |
+| `test/durable-turns.e2e-spec.ts` | **22/22**, pięć przebiegów z rzędu |
+| regresja e2e asystenta (agent, accounting, thinning, tools, card-state, choice-portions, meal-planner, apply-week-plan, account-deletion, weekly-balance) | zielone |
+
+Obowiązkowe testy review → `test/durable-turns.e2e-spec.ts` › „Addendum A1" (narzędzie
+wołane tak jak w runnerze, na żywej bazie; próba 2 = nowe przejęcie z nowym tokenem i
+pustym kursorem):
+1. `remember_note` A → pad → B: A dokładnie raz, B nie powstaje, wynik B nie niesie A —
+   A1.1;
+2. `create_recipe` „Kurczak curry" → pad → „Kurczak tikka masala": jeden przepis, konflikt
+   — A1.2;
+3. `apply_week_plan` inny stan docelowy: plan i kwota planu bez drugiego zapisu — A1.3;
+4. drugie niezgodne wywołanie nie przechodzi jako `#2` — A1.1;
+5. to samo wejście w innej kolejności kluczy — odtworzenie — A1.1;
+6. to samo wejście — odtworzenie, dokładnie raz — A1.1, A1.2;
+7. po rozpoznaniu `#1` kolejny prawdziwy efekt przechodzi jako `#2` — A1.1;
+8. dwa różne narzędzia po odzyskaniu — rozłączne kursory i efekty — A1.2;
+9. szybkie domknięcie karty bez regresji — #7, #14 + A1.6 karta (zgodna/niezgodna);
+10. prawdziwy restart na dwóch `AppModule` — #4 oraz „A1 PRAWDZIWY RESTART z
+    niedeterministycznym modelem" (`AI_STUB_VARIANT`: w próbie 2 stub pisze notatkę innymi
+    słowami → notatka z próby 1 raz, wersji z próby 2 brak, tura DONE z jedną odpowiedzią,
+    blok odzyskiwania dotarł do modelu, `effectConflicts ≥ 1`).
+
+Reguły czyste: `src/agent/durable/durable-turns.spec.ts` (kanoniczny JSON, zgodność
+operacji, kursor, kolejka jednego pasa).

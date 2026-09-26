@@ -309,7 +309,9 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   `AgentTurnQueue.fence` W SWOJEJ transakcji i dopisuje wiersz `AgentTurnEffect` (klucz `card`
   albo `<narzędzie>#<n>`) — nowe narzędzie z efektem MUSI dostać klasę w `effectKind`
   (`turn-effects.ts`) i hak transakcji w domenie (`inTransaction`/`effect`/`settle`), inaczej
-  odzyskana tura zrobi efekt drugi raz. Wygasły lease ≠ porażka: sprzątanie domyka tylko
+  odzyskana tura zrobi efekt drugi raz. Odtworzenie tylko przy zgodnym narzędziu i
+  kanonicznym wejściu (`isSameOperation`); inne wejście = `AI_DURABLE_EFFECT_CONFLICT`,
+  `#n` to kursor przesuwany dopiero po rozpoznaniu/commicie (Addendum A1). Wygasły lease ≠ porażka: sprzątanie domyka tylko
   po `deadlineAt`, wyczerpane próby (`AI_TURN_MAX_ATTEMPTS`), trwały „Stop” (`cancelRequestedAt`)
   bez workera i stare tury bez `execution` (`turnCloseVerdict`). Klucz księgi od próby 2:
   `turn:<id>:a<próba>:<n>`. Odpowiedź ma `outputKey='final'` (unikat z `turnId`). SIGTERM oddaje
