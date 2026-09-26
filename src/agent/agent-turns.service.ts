@@ -29,17 +29,28 @@ import { resolveProposalMode } from './cards/agent-cards';
 import { UpstreamBreaker } from './upstream-breaker';
 import { AgentUsageLedger } from './agent-usage-ledger.service';
 import {
+  closeCandidatesWhere,
   liveTurnWhere,
-  orphanCandidatesWhere,
-  orphanErrorCode,
-  orphanReason,
+  TURN_FAILURE_DETAIL,
+  TurnCloseVerdict,
+  turnCloseVerdict,
+  TurnLivenessRow,
 } from './agent-turn-liveness';
+import { AgentTurnWorker } from './durable/agent-turn-worker.service';
+import {
+  readTurnLeaseConfig,
+  TurnExecutionInput,
+} from './durable/turn-lease-config';
 
-/**
- * Po ilu sekundach wrócić, gdy proces właśnie się zamyka (deploy). Nowa
- * instancja przejmuje ruch w kilka sekund, więc ponowienie trafi już w nią.
- */
-export const DRAINING_RETRY_AFTER_SECONDS = 5;
+/** Kolumny werdyktu żywotności (`turnCloseVerdict`). */
+const TURN_LIVENESS_SELECT_LOCAL = {
+  startedAt: true,
+  updatedAt: true,
+  deadlineAt: true,
+  attempt: true,
+  leaseExpiresAt: true,
+  cancelRequestedAt: true,
+} as const;
 
 export const TURN_STATUSES = ['RUNNING', 'DONE', 'FAILED', 'LIMITED'] as const;
 export type TurnStatus = (typeof TURN_STATUSES)[number];
@@ -140,6 +151,7 @@ export class AgentTurnsService {
     private readonly proposals: AgentProposalsService,
     private readonly alerts: OpsAlertService,
     private readonly ledger: AgentUsageLedger,
+    private readonly worker: AgentTurnWorker,
   ) {}
 
   /**
@@ -265,18 +277,9 @@ export class AgentTurnsService {
       );
     }
 
-    // Proces się zamyka (SIGTERM po deployu): tura przyjęta teraz zostałaby
-    // przerwana po `AI_SHUTDOWN_GRACE_MS`. Ten sam kod co bezpiecznik — dla
-    // telefonu to „chwilowa przerwa, ponów za kilka sekund".
-    if (this.runner.isDraining()) {
-      this.metrics.recordRejected('upstream');
-      throw new AppException(
-        'AI_UPSTREAM_PAUSED',
-        'Asystent ma chwilową przerwę. Spróbuj za kilka sekund.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-        [`retryAfterSeconds:${DRAINING_RETRY_AFTER_SECONDS}`],
-      );
-    }
+    // Proces się zamyka (SIGTERM po deployu): od Etapu 5 tura i tak jest
+    // trwała — przyjmujemy ją, a wykona ją nowa instancja (ten proces jej
+    // nie przejmuje, patrz `AgentTurnWorker.kick`). Wcześniej: 503.
 
     // Sufit kosztu domu na DOBĘ — sprawdzany PRZED globalnym, bo ma odmówić
     // sprawcy, zanim sprawca odmówi wszystkim. Kolejność jest tu całą
@@ -390,38 +393,33 @@ export class AgentTurnsService {
         // instancji i krótkiej transakcji to wystarcza (kolejny wyścig i tak
         // zatrzyma unikat na `clientMessageId`).
         //
-        // Tury po padzie procesu (deploy, OOM) ZAMYKAMY tutaj, zamiast je
-        // pomijać przy liczeniu.
-        //
-        // Samo pominięcie wystarczyłoby, żeby odblokować rozmowę, ale
-        // zostawiałoby w bazie wiersz RUNNING, którego nikt już nie domknie —
-        // a zombie obok żywej tury znaczyłby trwale spaloną wiadomość.
-        // Definicja „tura już nie żyje" jest jedna dla wszystkich ścieżek
-        // (`orphanReason`): minuta bez znaku życia albo czas tury z marginesem.
-        // Po restarcie rozmowa odblokowuje się więc w minutę, a nie po 4.
+        // Tury, których NIKT już nie dokończy, ZAMYKAMY tutaj, zamiast je
+        // pomijać przy liczeniu — zombie obok żywej tury znaczyłby trwale
+        // spaloną wiadomość. Definicja jest jedna dla wszystkich ścieżek
+        // (`turnCloseVerdict`): po terminie tury, stara tura bez znaku życia,
+        // wyczerpane próby, „Stop" bez workera. Od Etapu 5 tura z wygasłym
+        // lease NIE jest martwa — worker ją dokończy, więc blokuje rozmowę
+        // dalej (409), jak każda tura w biegu.
+        const { maxAttempts } = readTurnLeaseConfig();
         const stale = await tx.agentTurn.findMany({
           where: {
             conversationId,
-            ...orphanCandidatesWhere(env.turnTimeoutMs),
+            ...closeCandidatesWhere(env.turnTimeoutMs, maxAttempts),
           },
-          select: { id: true, startedAt: true, updatedAt: true },
+          select: { id: true, ...TURN_LIVENESS_SELECT_LOCAL },
         });
         for (const dead of stale) {
-          const reason = orphanReason(
-            dead,
-            env.turnTimeoutMs,
-            this.runner.isRunning(dead.id),
-          );
-          if (!reason) continue;
+          const verdict = this.closeVerdictFor(dead, env, maxAttempts);
+          if (!verdict) continue;
           const closed = await this.ledger.closeTurn(tx, {
             turnId: dead.id,
-            errorCode: orphanErrorCode(reason),
+            errorCode: verdict.errorCode,
+            failureDetail: verdict.detail,
             fallbackScopeId: conversation.householdId,
+            onlyIfUnleased: verdict.detail !== TURN_FAILURE_DETAIL.deadline,
           });
           if (!closed) continue;
-          this.metrics.recordTurnFinished(
-            reason === 'timeout' ? 'timeout' : 'failed',
-          );
+          this.metrics.recordTurnFinished(verdict.outcome);
         }
 
         const running = await tx.agentTurn.count({
@@ -509,6 +507,21 @@ export class AgentTurnsService {
             clientMessageId: data.clientMessageId,
           },
         });
+        // Trwałe wejście tury (Etap 5): wszystko, czego nowy worker
+        // potrzebuje, żeby ją wykonać, gdyby ten proces padł 1 ms po 202.
+        // Tryb rozstrzyga się TU, raz na turę: env mówi, co jest włączone,
+        // klient — czy w ogóle umie pokazać kartę.
+        const execution: TurnExecutionInput = {
+          dates: {
+            weekStart: data.weekStart,
+            clientToday: data.clientToday,
+            timeZone: data.timeZone,
+          },
+          proposalMode: resolveProposalMode(
+            env.cardsMode,
+            data.clientCapabilities,
+          ),
+        };
         const turn = await tx.agentTurn.create({
           data: {
             conversationId,
@@ -521,6 +534,9 @@ export class AgentTurnsService {
             model: resolveRoute(env).model,
             quotaPeriodKey: periodKey,
             quotaScopeId: scopeId,
+            execution: execution as unknown as Prisma.InputJsonValue,
+            // Twardy termin CAŁEJ tury — kolejne próby go nie przesuwają.
+            deadlineAt: new Date(Date.now() + env.turnTimeoutMs),
           },
         });
         await tx.agentMessage.update({
@@ -569,27 +585,10 @@ export class AgentTurnsService {
     }
 
     this.metrics.recordTurnStarted();
-    // Tura biegnie in-process, poza cyklem żądania — klient ma już 202
-    // i odpytuje `GET /agent/turns/:id`. Runner łapie wszystko sam.
-    void this.runner.run({
-      turnId: accepted.turnId,
-      conversationId,
-      userId,
-      householdId: conversation.householdId,
-      periodKey,
-      quotaScopeId: scopeId,
-      env,
-      requestId,
-      dates: {
-        weekStart: data.weekStart,
-        clientToday: data.clientToday,
-        timeZone: data.timeZone,
-      },
-      // Tryb rozstrzyga się TU, raz na turę: env mówi, co jest włączone,
-      // klient — czy w ogóle umie pokazać kartę. Runner dostaje gotową
-      // odpowiedź, żeby prompt i bramka narzędzi nie mogły się rozjechać.
-      proposalMode: resolveProposalMode(env.cardsMode, data.clientCapabilities),
-    });
+    // Tura jest w bazie razem z wejściem (Etap 5) — 202 może wrócić. Ten
+    // proces próbuje ją przejąć od razu; jeśli nie zdąży (pad, deploy,
+    // `AI_TURN_WORKER=off`), przejmie ją odpytywanie dowolnej instancji.
+    this.worker.kick(accepted.turnId);
 
     return accepted;
   }
@@ -669,26 +668,42 @@ export class AgentTurnsService {
     const turn = await this.loadOwnedTurn(userId, turnId);
     if (turn.status !== 'RUNNING') return this.getTurn(userId, turnId);
 
-    if (this.runner.cancel(turn.id)) {
-      await this.waitUntilClosed(turn.id);
-      const view = await this.getTurn(userId, turnId);
-      // Narzędzie potrafi trwać dłużej niż okno czekania — tura jest już
-      // przerywana, ale jeszcze nie domknięta. Klient ma to wiedzieć, zamiast
-      // dostać RUNNING bez słowa.
-      return view.status === 'RUNNING'
-        ? { ...view, stopRequested: true }
-        : view;
+    // „Stop" jest TRWAŁY (Etap 5): zapis w bazie przeżywa pad procesu —
+    // żaden worker nie przejmie już tej tury, a ten, który ją prowadzi,
+    // zobaczy żądanie przy najbliższym odnowieniu lease albo przed kolejnym
+    // wywołaniem modelu czy zapisem narzędzia.
+    await this.prisma.agentTurn.updateMany({
+      where: { id: turn.id, status: 'RUNNING', cancelRequestedAt: null },
+      data: { cancelRequestedAt: new Date() },
+    });
+
+    // Tura w TYM procesie — sygnał od razu, bez czekania na odnowienie.
+    const local = this.runner.cancel(turn.id);
+    if (!local) {
+      // Tura bez żywego lease (proces padł, nikt jej jeszcze nie przejął)
+      // albo sprzed Etapu 5: domykamy tu. Z żywym lease w innym procesie —
+      // nie; tamten worker domknie ją sam (`AI_CANCELLED`, księga, zwrot).
+      const closed = await this.prisma.$transaction((tx) =>
+        this.ledger.closeTurn(tx, {
+          turnId: turn.id,
+          errorCode: 'AI_CANCELLED',
+          failureDetail: TURN_FAILURE_DETAIL.cancelRequested,
+          fallbackScopeId: turn.conversation.householdId,
+          onlyIfUnleased: true,
+        }),
+      );
+      if (closed) {
+        this.metrics.recordTurnFinished('failed');
+        return this.getTurn(userId, turnId);
+      }
     }
 
-    const closed = await this.prisma.$transaction((tx) =>
-      this.ledger.closeTurn(tx, {
-        turnId: turn.id,
-        errorCode: 'AI_CANCELLED',
-        fallbackScopeId: turn.conversation.householdId,
-      }),
-    );
-    if (closed) this.metrics.recordTurnFinished('failed');
-    return this.getTurn(userId, turnId);
+    await this.waitUntilClosed(turn.id);
+    const view = await this.getTurn(userId, turnId);
+    // Narzędzie potrafi trwać dłużej niż okno czekania — tura jest już
+    // przerywana, ale jeszcze nie domknięta. Klient ma to wiedzieć, zamiast
+    // dostać RUNNING bez słowa.
+    return view.status === 'RUNNING' ? { ...view, stopRequested: true } : view;
   }
 
   /** Krótkie oczekiwanie na domknięcie tury przez runner po sygnale. */
@@ -797,22 +812,20 @@ export class AgentTurnsService {
    * która nic nie wydała.
    */
   private async expireIfStale<
-    T extends {
+    T extends TurnLivenessRow & {
       id: string;
       conversationId: string;
       status: string;
-      startedAt: Date;
-      updatedAt: Date;
     },
   >(turn: T): Promise<T> {
     if (turn.status !== 'RUNNING') return turn;
     const env = this.config.read();
-    const reason = orphanReason(
+    const verdict = this.closeVerdictFor(
       turn,
-      env.turnTimeoutMs,
-      this.runner.isRunning(turn.id),
+      env,
+      readTurnLeaseConfig().maxAttempts,
     );
-    if (!reason) return turn;
+    if (!verdict) return turn;
 
     // Dom rozmowy tylko tutaj (rzadka ścieżka) — odpytywanie go nie czyta.
     const conversation = await this.prisma.agentConversation.findUnique({
@@ -822,21 +835,34 @@ export class AgentTurnsService {
     const closed = await this.prisma.$transaction((tx) =>
       this.ledger.closeTurn(tx, {
         turnId: turn.id,
-        errorCode: orphanErrorCode(reason),
+        errorCode: verdict.errorCode,
+        failureDetail: verdict.detail,
         fallbackScopeId: conversation?.householdId ?? turn.conversationId,
+        onlyIfUnleased: verdict.detail !== TURN_FAILURE_DETAIL.deadline,
       }),
     );
     if (!closed) {
       return this.loadOwnedTurnById(turn);
     }
 
-    this.metrics.recordTurnFinished(
-      reason === 'timeout' ? 'timeout' : 'failed',
-    );
+    this.metrics.recordTurnFinished(verdict.outcome);
     this.logger.warn(
-      `turn ${turn.id} domknięta leniwie jako ${orphanErrorCode(reason)} (proces nie dokończył tury)`,
+      `turn ${turn.id} domknięta leniwie jako ${verdict.errorCode} (${verdict.detail})`,
     );
     return this.loadOwnedTurnById(turn);
+  }
+
+  /** Werdykt żywotności z mapą runnera tego procesu. */
+  private closeVerdictFor(
+    turn: TurnLivenessRow & { id: string },
+    env: AgentEnv,
+    maxAttempts: number,
+  ): TurnCloseVerdict | null {
+    return turnCloseVerdict(turn, {
+      turnTimeoutMs: env.turnTimeoutMs,
+      maxAttempts,
+      inProcess: this.runner.isRunning(turn.id),
+    });
   }
 
   private async loadOwnedTurnById<T extends { id: string }>(

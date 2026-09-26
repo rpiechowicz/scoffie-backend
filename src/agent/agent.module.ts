@@ -29,6 +29,8 @@ import { AgentCatalogService } from './search/agent-catalog.service';
 import { AgentCacheWarmer } from './agent-cache-warmer.service';
 import { AgentUsageLedger } from './agent-usage-ledger.service';
 import { AgentTurnSweeper } from './agent-turn-sweeper.service';
+import { AgentTurnQueue } from './durable/agent-turn-queue.service';
+import { AgentTurnWorker } from './durable/agent-turn-worker.service';
 import { AgentMealPlannerService } from './planner/agent-meal-planner.service';
 
 /**
@@ -72,6 +74,8 @@ import { AgentMealPlannerService } from './planner/agent-meal-planner.service';
     // Księga kosztu per wywołanie dostawcy i sprzątanie osieroconych tur.
     AgentUsageLedger,
     AgentTurnSweeper,
+    AgentTurnQueue,
+    AgentTurnWorker,
     AgentProviderResolver,
     AgentToolExecutor,
     AgentProposalsService,

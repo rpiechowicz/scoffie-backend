@@ -47,6 +47,14 @@ import { createTurnMemo } from './turn-memo';
 import { createPlanScope } from './tools/plan-scope';
 import { UpstreamBreaker } from './upstream-breaker';
 import { emitLive } from '../common/live-events';
+import { AgentTurnQueue } from './durable/agent-turn-queue.service';
+import { TurnEffects, toStored } from './durable/turn-effects';
+import {
+  LeaseLostError,
+  readTurnLeaseConfig,
+} from './durable/turn-lease-config';
+import { turnTextFor } from './tools/agent-tool-executor';
+import { TOOL_ENDED_TURN } from './providers/anthropic-agent.provider';
 
 export type RunTurnInput = {
   turnId: string;
@@ -82,7 +90,23 @@ export type RunTurnInput = {
    * przyjmowałby zapisy.
    */
   proposalMode: boolean;
+  /**
+   * Lease workera (workstream, Etap 5): fencing token, numer próby i twardy
+   * termin tury. Brak = wykonanie poza kolejką (testy jednostkowe) — bez
+   * dziennika efektów i bez fencingu, jak przed Etapem 5.
+   */
+  lease?: TurnLease;
 };
+
+export type TurnLease = {
+  token: string;
+  attempt: number;
+  /** Koniec CAŁEJ tury — odzyskana próba dostaje tylko resztę czasu. */
+  deadlineAt: Date;
+};
+
+/** Klucz wyjścia odpowiedzi asystenta (`AgentMessage.outputKey`). */
+export const FINAL_OUTPUT_KEY = 'final';
 
 /** Ile ostatnich wiadomości rozmowy idzie do modelu jako kontekst. */
 export const HISTORY_WINDOW = 40;
@@ -102,6 +126,19 @@ export const ABORT_REASON_SHUTDOWN = 'shutdown';
  * pieniędzmi wydanymi na odpowiedź, której nikt nie zobaczy.
  */
 export const ABORT_REASON_CLOSED = 'closed';
+
+/**
+ * Lease tury przejął inny worker (albo tura została domknięta) — ten proces
+ * przerywa pracę i NICZEGO już nie zapisuje (Etap 5). Koszt wywołań, które
+ * zdążył zrobić, zostaje w księdze pod kluczami swojej próby.
+ */
+export const ABORT_REASON_LEASE_LOST = 'lease_lost';
+
+/**
+ * Tylko testy: symulacja utraty procesu (SIGKILL) — runner znika bez
+ * jednego zapisu, jakby pamięć procesu przestała istnieć.
+ */
+export const ABORT_REASON_VANISH = 'vanish';
 
 /**
  * Ile ms po przerwaniu tur przy zamykaniu procesu czekamy jeszcze na ich
@@ -167,7 +204,27 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     // Opcjonalnie: testy jednostkowe runnera nie stawiają modułu powiadomień,
     // a push po turze jest udogodnieniem, nie częścią kontraktu tury.
     @Optional() private readonly notifications?: NotificationsService,
+    // Kolejka tur (Etap 5) — lease, odnowienia, zwolnienie. Opcjonalna tylko
+    // dla testów jednostkowych, które uruchamiają `run` bez lease.
+    @Optional() private readonly queue?: AgentTurnQueue,
   ) {}
+
+  /** Liczba tur w biegu w tym procesie (limit współbieżności workera). */
+  runningCount(): number {
+    return this.running.size;
+  }
+
+  /**
+   * TYLKO TESTY: symulacja SIGKILL. Każda tura w biegu przerywa się bez
+   * żadnego zapisu (bez domknięcia, bez zwolnienia lease, bez odnowień) —
+   * dokładnie to, co zostaje w bazie po nagłej śmierci procesu.
+   */
+  vanishForTests(): void {
+    this.draining = true;
+    for (const controller of this.running.values()) {
+      controller.abort(ABORT_REASON_VANISH);
+    }
+  }
 
   /**
    * Przerwanie biegnącej tury na życzenie użytkownika. `true` = tura była
@@ -214,7 +271,7 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     await this.waitForIdle(graceMs);
     if (this.running.size === 0) return;
     this.logger.warn(
-      `zamykanie procesu: przerywam ${this.running.size} tur (AI_PROVIDER_ERROR)`,
+      `zamykanie procesu: przerywam ${this.running.size} tur — lease wraca do kolejki`,
     );
     for (const controller of this.running.values()) {
       controller.abort(ABORT_REASON_SHUTDOWN);
@@ -233,16 +290,27 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     const startedAt = Date.now();
     const controller = new AbortController();
     this.running.set(input.turnId, controller);
+    const lease = input.lease ?? null;
+    const leaseConfig = readTurnLeaseConfig();
+    // Termin CAŁEJ tury (Etap 5): odzyskana próba dostaje resztę czasu od
+    // `deadlineAt`, a nie świeże `AI_TURN_TIMEOUT_MS` — wygasły lease to nie
+    // timeout, ale też nie powód, żeby tura żyła dłużej niż obiecaliśmy.
     const timeout = setTimeout(
       () => controller.abort(),
-      input.env.turnTimeoutMs,
+      lease
+        ? Math.max(0, lease.deadlineAt.getTime() - Date.now())
+        : input.env.turnTimeoutMs,
     );
-    // Znak życia: `updatedAt` odświeżane co 15 s. Po nim lease rozmowy,
-    // semafor domu i sprzątanie poznają turę osieroconą przez pad procesu
-    // w minutę, a nie dopiero po `AI_TURN_TIMEOUT_MS`.
+    // Znak życia. Z lease: odnowienie co ⅓ ważności — nieudane = tura nie
+    // jest już nasza (przerwij, nic nie zapisuj), trwały „Stop" = przerwij.
+    // Bez lease (testy, stare wywołania): `updatedAt` co 15 s jak dotąd.
+    const liveness = { lastRenewedAt: Date.now() };
     const heartbeat = setInterval(
-      () => void this.heartbeat(input, controller),
-      TURN_HEARTBEAT_MS,
+      () =>
+        void (lease
+          ? this.renewLease(input, lease, controller, liveness)
+          : this.heartbeat(input, controller)),
+      lease ? leaseConfig.renewMs : TURN_HEARTBEAT_MS,
     );
     heartbeat.unref?.();
     const turnLedger = new TurnLedger(this.ledger, this.logger, {
@@ -250,11 +318,21 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
       userId: input.userId,
       householdId: input.householdId,
       provider: input.env.provider,
+      attempt: lease?.attempt ?? 1,
       env: input.env,
     });
 
     const progress: AgentProgressStep[] = [];
-    const draft = new DraftPublisher(this.prisma, this.logger, input.turnId);
+    const draft = new DraftPublisher(
+      this.prisma,
+      this.logger,
+      input.turnId,
+      lease?.token,
+    );
+    // Dziennik efektów narzędzi tej próby (Etap 5) — tylko pod lease.
+    const effects = lease
+      ? new TurnEffects(this.prisma, input.turnId, lease.attempt, lease.token)
+      : null;
     // Karta bez skutków ubocznych (pytanie, zestawienie) żyje w pamięci tury.
     // Propozycje idą przez bazę, bo muszą przeżyć pad procesu — ta nie ma
     // czego przeżywać: bez domkniętej tury nie powstaje żadna wiadomość.
@@ -270,7 +348,33 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
       // Pierwszy krok od razu: historia i prompt składają się 1–3 s, potem
       // model myśli — bez tego wpisu telefon widział pustą listę kroków
       // i własne „Zastanawiam się…" aż do pierwszego narzędzia.
-      await this.publishProgress(input.turnId, progress, READ_STEP_TOOL, {});
+      await this.publishProgress(
+        input.turnId,
+        progress,
+        READ_STEP_TOOL,
+        {},
+        lease?.token,
+      );
+      // Odzyskana tura, której poprzednia próba zdążyła postawić kartę
+      // kończącą turę (propozycja, wybór, pytanie) ze zdaniem serwera: to jest
+      // DOKŁADNIE to, co dostawca by oddał (`tool_ended_turn`), więc domykamy
+      // bez ani jednego wywołania modelu — bez kosztu i bez drugiej karty.
+      if (lease && lease.attempt > 1) {
+        const replay = await this.replayTerminalCard(input.turnId);
+        if (replay) {
+          await this.finishDone(
+            input,
+            replay.result,
+            Date.now() - startedAt,
+            replay.card,
+            [],
+            progress,
+            false,
+          );
+          return;
+        }
+      }
+      if (lease) await this.leaseCheckpoint(input, lease, controller);
       // Trasa tury (faza CHAT → faza PLANNER) — czysta funkcja konfiguracji,
       // liczona raz, przed pierwszym wywołaniem modelu.
       const route = resolveRoute(input.env);
@@ -287,6 +391,11 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
       const messages = await this.loadHistory(input.conversationId, prompt);
       const provider = this.providers.resolve(input.env);
       const prepMs = Date.now() - startedAt;
+      // „Stop" albo utrata lease w trakcie składania promptu — nie wołamy
+      // modelu wcale (dostawca bez opóźnienia nie zajrzałby do sygnału).
+      if (controller.signal.aborted) {
+        throw new Error('tura przerwana przed wywołaniem modelu');
+      }
       const result = await provider.run({
         model: route.model,
         effort: route.effort,
@@ -297,7 +406,13 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
         // Domknięcie z tożsamością tury: dostawca nie zna ani użytkownika, ani
         // gospodarstwa, więc nie ma jak sięgnąć do bazy z pominięciem bramek.
         executeTool: async (name, toolInput) => {
-          await this.publishProgress(input.turnId, progress, name, toolInput);
+          await this.publishProgress(
+            input.turnId,
+            progress,
+            name,
+            toolInput,
+            lease?.token,
+          );
           return this.tools.execute(name, toolInput, {
             userId: input.userId,
             householdId: input.householdId,
@@ -314,11 +429,39 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
             collectCard: (card) => {
               pendingCard = card;
             },
+            ...(lease && effects
+              ? {
+                  durable: {
+                    effects,
+                    checkpoint: () =>
+                      this.leaseCheckpoint(input, lease, controller),
+                    onLeaseLost: () => {
+                      if (!controller.signal.aborted) {
+                        controller.abort(ABORT_REASON_LEASE_LOST);
+                      }
+                    },
+                  },
+                }
+              : {}),
           });
         },
         // Cisza po narzędziach też jest krokiem — patrz `THINK_STEP_TOOL`.
-        onThinking: () =>
-          this.publishProgress(input.turnId, progress, THINK_STEP_TOOL, {}),
+        // Pod lease to też moment PRZED kolejnym wywołaniem modelu: trwały
+        // „Stop" i utrata lease przerywają turę, zanim wydamy na nią więcej.
+        onThinking: async () => {
+          await this.publishProgress(
+            input.turnId,
+            progress,
+            THINK_STEP_TOOL,
+            {},
+            lease?.token,
+          );
+          if (lease) {
+            await this.leaseCheckpoint(input, lease, controller).catch(
+              () => undefined,
+            );
+          }
+        },
         // Myślenie i pisanie z samego strumienia — to jedyne, co dzieje się
         // w turze bez narzędzi, i jedyne, po czym telefon poznaje, że model
         // żyje przez pierwsze pół minuty.
@@ -328,6 +471,7 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
             progress,
             activity === 'reasoning' ? REASON_STEP_TOOL : WRITE_STEP_TOOL,
             {},
+            lease?.token,
           ),
         onDraft: (text) => draft.push(text),
         // Księga po każdym wywołaniu — patrz `AgentUsageLedger`.
@@ -368,6 +512,43 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
       );
       this.breaker.recordSuccess();
     } catch (error) {
+      const abortReason = controller.signal.aborted
+        ? (controller.signal.reason as unknown)
+        : undefined;
+      // Symulowany SIGKILL (testy): proces „nie istnieje" — zero zapisów.
+      if (abortReason === ABORT_REASON_VANISH) return;
+      // Tura nie jest już nasza (Etap 5): ktoś ją przejął albo domknął.
+      // Koszt wywołań tej próby zostaje w księdze (klucze próby), a poza tym
+      // NIC — ani szkic, ani domknięcie, ani zwrot kwoty.
+      if (abortReason === ABORT_REASON_LEASE_LOST) {
+        draft.stop();
+        await this.settleLedgerAfterError(
+          input,
+          turnLedger,
+          error,
+          'lease_lost',
+        );
+        this.metrics.recordJobLeaseLost();
+        this.logger.warn(
+          `turn ${input.turnId} requestId=${input.requestId}: lease utracony w próbie ${lease?.attempt ?? 1} — przerywam bez zapisu`,
+        );
+        return;
+      }
+      // Zamykanie procesu pod lease: nie FAILED, tylko oddanie tury do
+      // kolejki — nowa instancja przejmie ją od razu (Etap 5, §5.15).
+      if (abortReason === ABORT_REASON_SHUTDOWN && lease && this.queue) {
+        draft.stop();
+        await this.settleLedgerAfterError(input, turnLedger, error, 'shutdown');
+        const released = await this.queue
+          .release(input.turnId, lease.token)
+          .catch(() => false);
+        this.logger.warn(
+          `turn ${input.turnId} requestId=${input.requestId}: zamykanie procesu — lease ${
+            released ? 'oddany' : 'już nie nasz'
+          } (próba ${lease.attempt})`,
+        );
+        return;
+      }
       // Także przy błędzie i anulowaniu: szkic to jedyny ślad tego, co model
       // zdążył napisać (warunkowy zapis — tylko póki tura jest RUNNING).
       await draft.settle();
@@ -408,6 +589,129 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
       clearInterval(heartbeat);
       this.running.delete(input.turnId);
     }
+  }
+
+  /** Księga po przerwaniu bez domknięcia (utrata lease, zamykanie procesu). */
+  private async settleLedgerAfterError(
+    input: RunTurnInput,
+    turnLedger: TurnLedger,
+    error: unknown,
+    stopReason: string,
+  ): Promise<void> {
+    if (error instanceof AgentProviderError && error.usage) {
+      const route = resolveRoute(input.env);
+      await turnLedger.settle({
+        usage: error.usage,
+        phases: error.phases,
+        apiCalls: error.apiCalls,
+        model: route.model,
+        effort: route.effort,
+        stopReason,
+        requireCost: true,
+      });
+      return;
+    }
+    await turnLedger.settle();
+  }
+
+  /**
+   * Odnowienie lease (Etap 5). Nieudane (`held: false`) = turę przejął ktoś
+   * inny albo ją domknął — przerywamy. Błąd bazy: próbujemy dalej, ale gdy od
+   * ostatniego udanego odnowienia minęła cała ważność lease, inny worker
+   * mógł już turę przejąć — przerywamy też, bo nie wiemy, czy wolno pisać.
+   */
+  private async renewLease(
+    input: RunTurnInput,
+    lease: TurnLease,
+    controller: AbortController,
+    liveness: { lastRenewedAt: number },
+  ): Promise<void> {
+    if (!this.queue || controller.signal.aborted) return;
+    const { leaseMs } = readTurnLeaseConfig();
+    try {
+      const state = await this.queue.renew(input.turnId, lease.token, leaseMs);
+      if (!state.held) {
+        if (!controller.signal.aborted) {
+          controller.abort(ABORT_REASON_LEASE_LOST);
+        }
+        return;
+      }
+      liveness.lastRenewedAt = Date.now();
+      if (state.cancelRequested && !controller.signal.aborted) {
+        controller.abort(ABORT_REASON_CANCELLED);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `turn ${input.turnId}: lease nie odnowiony: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
+      if (
+        Date.now() - liveness.lastRenewedAt >= leaseMs &&
+        !controller.signal.aborted
+      ) {
+        controller.abort(ABORT_REASON_LEASE_LOST);
+      }
+    }
+  }
+
+  /**
+   * Sprawdzenie z bazy przed kosztowną albo zapisującą czynnością (wywołanie
+   * modelu, narzędzie z efektem): lease nadal nasz i bez „Stop". Rzuca po
+   * ustawieniu przyczyny przerwania — dostawca i tak zobaczy sygnał.
+   */
+  private async leaseCheckpoint(
+    input: RunTurnInput,
+    lease: TurnLease,
+    controller: AbortController,
+  ): Promise<void> {
+    if (!this.queue) return;
+    const state = await this.queue.check(input.turnId, lease.token);
+    if (!state.held) {
+      if (!controller.signal.aborted) {
+        controller.abort(ABORT_REASON_LEASE_LOST);
+      }
+      throw new LeaseLostError(input.turnId);
+    }
+    if (state.cancelRequested) {
+      if (!controller.signal.aborted) controller.abort(ABORT_REASON_CANCELLED);
+      throw new Error('tura zatrzymana przez użytkownika');
+    }
+  }
+
+  /**
+   * Karta kończąca turę, zapisana w dzienniku przez wcześniejszą próbę,
+   * razem ze zdaniem serwera (`turnTextFor`). `null` = nie ma albo karta
+   * wymaga słowa modelu (plan PARTIAL) — wtedy próba biegnie normalnie,
+   * a narzędzie i tak odda wynik z dziennika.
+   */
+  private async replayTerminalCard(
+    turnId: string,
+  ): Promise<{ result: AgentProviderResult; card: AgentCard | null } | null> {
+    const row = await this.prisma.agentTurnEffect.findUnique({
+      where: { turnId_key: { turnId, key: 'card' } },
+    });
+    if (!row) return null;
+    const stored = toStored(row);
+    if (!stored.result.ok) return null;
+    const text = turnTextFor(stored.tool, stored.input, stored.result.data);
+    if (!text) return null;
+    return {
+      result: {
+        text,
+        stopReason: TOOL_ENDED_TURN,
+        usage: {
+          inputTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: 0,
+          costMicroUsd: 0,
+        },
+        apiCalls: 0,
+        phases: [],
+      },
+      card: stored.card,
+    };
   }
 
   /**
@@ -479,6 +783,8 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     steps: AgentProgressStep[],
     tool: string,
     input: Record<string, unknown>,
+    /** Fencing (Etap 5): worker bez lease nie nadpisze postępu następcy. */
+    leaseToken?: string,
   ): Promise<void> {
     // Ziarno z tury: dwie tury opisują tę samą pracę innymi słowami, a jedna
     // tura nigdy nie podmienia tekstu pod ręką użytkownika.
@@ -487,7 +793,11 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     }
     try {
       await this.prisma.agentTurn.updateMany({
-        where: { id: turnId, status: 'RUNNING' },
+        where: {
+          id: turnId,
+          status: 'RUNNING',
+          ...(leaseToken ? { leaseToken } : {}),
+        },
         data: { progress: steps as unknown as Prisma.InputJsonValue },
       });
     } catch (error) {
@@ -561,9 +871,16 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     try {
       closed = await this.prisma.$transaction(async (tx) => {
         const update = await tx.agentTurn.updateMany({
-          where: { id: input.turnId, status: 'RUNNING' },
+          // Fencing (Etap 5): domyka WYŁĄCZNIE właściciel aktualnego lease.
+          // Worker, który stracił lease i „odżył", trafia tu w `count === 0`.
+          where: {
+            id: input.turnId,
+            status: 'RUNNING',
+            ...(input.lease ? { leaseToken: input.lease.token } : {}),
+          },
           data: {
             status: 'DONE',
+            leaseExpiresAt: null,
             finishedAt: new Date(),
             // Prawdą jest teraz `AgentMessage`; szkic zostawiony tu myliłby
             // odczyt tury sprzed domknięcia.
@@ -615,6 +932,9 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
               ? { context: { used: usedContext } as Prisma.InputJsonValue }
               : {}),
             turnId: input.turnId,
+            // Klucz wyjścia (Etap 5): druga odpowiedź tej tury — z odzyskanej
+            // próby albo ponowionego domknięcia — trafia w unikat.
+            outputKey: FINAL_OUTPUT_KEY,
           },
         });
 
@@ -660,7 +980,13 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
         );
         return;
       }
-      throw error;
+      // Odpowiedź tej tury już jest (klucz `final`) — domknij turę na niej,
+      // bez drugiej wiadomości.
+      if (this.isFinalOutputConflict(error)) {
+        closed = await this.closeOnExistingAnswer(input);
+      } else {
+        throw error;
+      }
     }
 
     if (!closed) {
@@ -683,6 +1009,56 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     this.notifyFinished(input, { ok: true, text: result.text });
   }
 
+  /**
+   * Domknięcie tury, której odpowiedź (`outputKey = final`) już istnieje —
+   * np. zapisana przez wcześniejszą próbę, która padła przed zmianą statusu.
+   * Status DONE i przypięcie propozycji, bez nowej wiadomości; fencing jak
+   * przy zwykłym domknięciu.
+   */
+  private async closeOnExistingAnswer(input: RunTurnInput): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const update = await tx.agentTurn.updateMany({
+        where: {
+          id: input.turnId,
+          status: 'RUNNING',
+          ...(input.lease ? { leaseToken: input.lease.token } : {}),
+        },
+        data: {
+          status: 'DONE',
+          leaseExpiresAt: null,
+          finishedAt: new Date(),
+          draftText: null,
+        },
+      });
+      if (update.count === 0) return false;
+      const answer = await tx.agentMessage.findFirst({
+        where: { turnId: input.turnId, outputKey: FINAL_OUTPUT_KEY },
+        select: { id: true, createdAt: true },
+      });
+      if (answer) {
+        await tx.agentProposal.updateMany({
+          where: { turnId: input.turnId, messageId: null },
+          data: { messageId: answer.id },
+        });
+      }
+      return true;
+    });
+  }
+
+  private isFinalOutputConflict(error: unknown): boolean {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== 'P2002'
+    ) {
+      return false;
+    }
+    const target = (error.meta as { target?: unknown } | undefined)?.target;
+    const fields = Array.isArray(target)
+      ? target.map(String)
+      : [String(target)];
+    return fields.some((field) => field.includes('outputKey'));
+  }
+
   private async finishFailed(
     input: RunTurnInput,
     error: unknown,
@@ -694,9 +1070,14 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
   ): Promise<void> {
     try {
       const closed = await this.prisma.agentTurn.updateMany({
-        where: { id: input.turnId, status: 'RUNNING' },
+        where: {
+          id: input.turnId,
+          status: 'RUNNING',
+          ...(input.lease ? { leaseToken: input.lease.token } : {}),
+        },
         data: {
           status: 'FAILED',
+          leaseExpiresAt: null,
           errorCode: verdict.errorCode,
           finishedAt: new Date(),
           durationMs,
@@ -993,6 +1374,8 @@ export class DraftPublisher {
     private readonly prisma: PrismaService,
     private readonly logger: Logger,
     private readonly turnId: string,
+    /** Fencing (Etap 5): szkic pisze tylko właściciel lease. */
+    private readonly leaseToken?: string,
   ) {}
 
   push(text: string): void {
@@ -1043,7 +1426,11 @@ export class DraftPublisher {
   private async write(text: string): Promise<void> {
     try {
       await this.prisma.agentTurn.updateMany({
-        where: { id: this.turnId, status: 'RUNNING' },
+        where: {
+          id: this.turnId,
+          status: 'RUNNING',
+          ...(this.leaseToken ? { leaseToken: this.leaseToken } : {}),
+        },
         data: { draftText: text },
       });
     } catch (error) {

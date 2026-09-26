@@ -302,6 +302,8 @@ describe('AgentUsageLedger', () => {
           status: 'FAILED',
           errorCode: 'AI_PROVIDER_ERROR',
           finishedAt: expect.any(Date),
+          // Lease tury przestaje obowiązywać razem z domknięciem (Etap 5).
+          leaseExpiresAt: null,
         },
       });
       expect(counters.add).toHaveBeenCalledWith(

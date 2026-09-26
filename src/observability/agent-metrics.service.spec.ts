@@ -5,6 +5,16 @@ describe('AgentMetricsService', () => {
     const metrics = new AgentMetricsService();
     expect(metrics.snapshot()).toEqual({
       turns: { started: 0, done: 0, failed: 0, timeout: 0, limited: 0 },
+      jobs: {
+        ready: 0,
+        claimed: 0,
+        running: 0,
+        attempts: 0,
+        recovered: 0,
+        leaseLost: 0,
+        failed: 0,
+        cancelled: 0,
+      },
       rejected: {
         disabled: 0,
         quota: 0,
@@ -46,6 +56,16 @@ describe('AgentMetricsService', () => {
 
     expect(metrics.snapshot()).toEqual({
       turns: { started: 2, done: 1, failed: 0, timeout: 1, limited: 0 },
+      jobs: {
+        ready: 0,
+        claimed: 0,
+        running: 0,
+        attempts: 0,
+        recovered: 0,
+        leaseLost: 0,
+        failed: 0,
+        cancelled: 0,
+      },
       rejected: {
         disabled: 1,
         quota: 1,

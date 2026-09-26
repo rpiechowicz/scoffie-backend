@@ -129,6 +129,8 @@ describe('AgentTurnsService', () => {
     isRunning: jest.fn().mockReturnValue(false),
     isDraining: jest.fn().mockReturnValue(false),
   };
+  // Worker (Etap 5): przyjęcie tury tylko go szturcha — wykonanie jest jego.
+  const worker = { kick: jest.fn() };
   // Domknięcie z zewnątrz i zwrot za darmową turę żyją w księdze
   // (`agent-usage-ledger.service.spec.ts`); tu sprawdzamy, KIEDY je woła.
   const ledger = {
@@ -155,6 +157,7 @@ describe('AgentTurnsService', () => {
       { withCardState: (messages: unknown) => messages } as never,
       { notify: jest.fn().mockResolvedValue(false) } as never,
       ledger as unknown as AgentUsageLedger,
+      worker as never,
     );
   };
 
@@ -295,18 +298,11 @@ describe('AgentTurnsService', () => {
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it('zamykany proces (SIGTERM): AI_UPSTREAM_PAUSED zanim cokolwiek zapisze', async () => {
+    it('zamykany proces (SIGTERM): tura PRZYJĘTA — trwała, wykona ją nowa instancja (Etap 5)', async () => {
       runner.isDraining.mockReturnValue(true);
-      try {
-        await post();
-        throw new Error('oczekiwano odmowy');
-      } catch (error) {
-        const exception = error as AppException;
-        expect(exception.code).toBe('AI_UPSTREAM_PAUSED');
-        expect(exception.getStatus()).toBe(503);
-        expect(exception.details).toEqual(['retryAfterSeconds:5']);
-      }
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+      // Przejęcie rozstrzyga worker (w trakcie zamykania nie przejmuje).
+      expect(worker.kick).toHaveBeenCalledWith(TURN);
     });
 
     it('budżet globalny liczy rezerwację za każdą żywą turę instalacji', async () => {
@@ -439,11 +435,14 @@ describe('AgentTurnsService', () => {
 
       await post();
 
-      expect(ledger.closeTurn).toHaveBeenCalledWith(tx, {
-        turnId: 'zombie-1',
-        errorCode: 'AI_TIMEOUT',
-        fallbackScopeId: HOUSEHOLD,
-      });
+      expect(ledger.closeTurn).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({
+          turnId: 'zombie-1',
+          errorCode: 'AI_TIMEOUT',
+          fallbackScopeId: HOUSEHOLD,
+        }),
+      );
       expect(metrics.snapshot().turns.timeout).toBe(1);
     });
 
@@ -455,12 +454,35 @@ describe('AgentTurnsService', () => {
 
       await post();
 
-      expect(ledger.closeTurn).toHaveBeenCalledWith(tx, {
-        turnId: 'orphan-1',
-        errorCode: 'AI_PROVIDER_ERROR',
-        fallbackScopeId: HOUSEHOLD,
-      });
+      expect(ledger.closeTurn).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({
+          turnId: 'orphan-1',
+          errorCode: 'AI_PROVIDER_ERROR',
+          failureDetail: 'AI_TURN_LEGACY_ORPHAN',
+          fallbackScopeId: HOUSEHOLD,
+        }),
+      );
       expect(metrics.snapshot().turns.failed).toBe(1);
+    });
+
+    it('tura z trwałym wykonaniem i wygasłym lease NIE jest martwa — blokuje rozmowę, worker ją dokończy', async () => {
+      const ago = new Date(Date.now() - 90 * 1000);
+      tx.agentTurn.findMany.mockResolvedValue([
+        {
+          id: 'reclaimable-1',
+          startedAt: ago,
+          updatedAt: ago,
+          deadlineAt: new Date(Date.now() + 120_000),
+          attempt: 1,
+          leaseExpiresAt: new Date(Date.now() - 30_000),
+          cancelRequestedAt: null,
+        },
+      ]);
+      tx.agentTurn.count.mockResolvedValue(1);
+
+      expect(await codeOf(post())).toBe('AI_TURN_IN_PROGRESS');
+      expect(ledger.closeTurn).not.toHaveBeenCalled();
     });
 
     it('cicha tura prowadzona przez TEN proces żyje — nie zamykamy jej', async () => {
@@ -521,13 +543,19 @@ describe('AgentTurnsService', () => {
       await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
     });
 
-    it('semafor domu liczy tylko ŻYWE tury (ze znakiem życia)', async () => {
+    it('semafor domu liczy tylko ŻYWE tury (przed terminem albo ze znakiem życia)', async () => {
       await post();
       expect(tx.agentTurn.count).toHaveBeenCalledWith({
         where: expect.objectContaining({
           conversation: { householdId: HOUSEHOLD },
           status: 'RUNNING',
-          updatedAt: { gt: expect.any(Date) },
+          OR: [
+            { deadlineAt: { gt: expect.any(Date) } },
+            expect.objectContaining({
+              deadlineAt: null,
+              updatedAt: { gt: expect.any(Date) },
+            }),
+          ],
         }),
       });
     });
@@ -547,7 +575,7 @@ describe('AgentTurnsService', () => {
   });
 
   describe('postMessage — przyjęcie tury', () => {
-    it('oddaje 202 i uruchamia runnera z okresem kwoty', async () => {
+    it('oddaje 202, zapisuje trwałe wejście tury i szturcha workera', async () => {
       await expect(post()).resolves.toEqual({
         turnId: TURN,
         messageId: MESSAGE,
@@ -570,16 +598,22 @@ describe('AgentTurnsService', () => {
           requestId: REQUEST_ID,
           provider: 'stub',
           model: 'claude-sonnet-5',
+          quotaPeriodKey: '2026-08',
+          // Wszystko, czego nowy worker potrzebuje po padzie tego procesu.
+          execution: {
+            dates: {
+              weekStart: '2026-08-31',
+              clientToday: '2026-09-02',
+              timeZone: 'Europe/Warsaw',
+            },
+            proposalMode: expect.any(Boolean),
+          },
+          deadlineAt: expect.any(Date),
         }),
       });
-      expect(runner.run).toHaveBeenCalledWith(
-        expect.objectContaining({
-          turnId: TURN,
-          householdId: HOUSEHOLD,
-          periodKey: '2026-08',
-          requestId: REQUEST_ID,
-        }),
-      );
+      // Wykonanie nie jest już obietnicą w pamięci tego procesu.
+      expect(runner.run).not.toHaveBeenCalled();
+      expect(worker.kick).toHaveBeenCalledWith(TURN);
       expect(metrics.snapshot().turns.started).toBe(1);
     });
 
@@ -599,7 +633,7 @@ describe('AgentTurnsService', () => {
       });
 
       await expect(post()).resolves.toMatchObject({ turnId: TURN });
-      expect(runner.run).not.toHaveBeenCalled();
+      expect(worker.kick).not.toHaveBeenCalled();
     });
   });
 
@@ -719,11 +753,14 @@ describe('AgentTurnsService', () => {
       expect(view.errorCode).toBe('AI_TIMEOUT');
       // Tura żyje w tym procesie? Po czasie nie ma to znaczenia — i tak ją
       // zamykamy. Koszt zostaje (dopisała go księga), zwrot decyduje baza.
-      expect(ledger.closeTurn).toHaveBeenCalledWith(tx, {
-        turnId: TURN,
-        errorCode: 'AI_TIMEOUT',
-        fallbackScopeId: HOUSEHOLD,
-      });
+      expect(ledger.closeTurn).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({
+          turnId: TURN,
+          errorCode: 'AI_TIMEOUT',
+          fallbackScopeId: HOUSEHOLD,
+        }),
+      );
       expect(metrics.snapshot().turns.timeout).toBe(1);
     });
 
@@ -792,12 +829,21 @@ describe('AgentTurnsService', () => {
           conversation: { householdId: HOUSEHOLD },
         });
 
+      prisma.agentTurn.updateMany.mockResolvedValue({ count: 1 });
       const view = await service.cancelTurn(USER, TURN);
+      // „Stop" najpierw TRWALE w bazie (Etap 5), potem sygnał lokalny.
+      expect(prisma.agentTurn.updateMany).toHaveBeenCalledWith({
+        where: { id: TURN, status: 'RUNNING', cancelRequestedAt: null },
+        data: { cancelRequestedAt: expect.any(Date) },
+      });
       expect(runner.cancel).toHaveBeenCalledWith(TURN);
       expect(ledger.closeTurn).toHaveBeenCalledWith(tx, {
         turnId: TURN,
         errorCode: 'AI_CANCELLED',
+        failureDetail: 'AI_TURN_CANCEL_REQUESTED',
         fallbackScopeId: HOUSEHOLD,
+        // Z żywym lease w innym procesie nie domykamy — tamten worker to zrobi.
+        onlyIfUnleased: true,
       });
       expect(view.errorCode).toBe('AI_CANCELLED');
       expect(metrics.snapshot().turns.failed).toBe(1);

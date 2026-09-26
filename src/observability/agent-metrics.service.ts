@@ -62,6 +62,22 @@ export class AgentMetricsService {
     costMicroUsd: 0,
   };
   private readonly upstreamErrors = { total: 0, breakerOpened: 0 };
+  /**
+   * Trwałe wykonywanie tur (workstream, Etap 5). Liczniki od startu procesu
+   * (przejęcia, odzyskania, utracone lease, porażki i „Stop" domknięte przez
+   * sprzątanie) plus stan kolejki z bazy (`ready`, `claimed`) odświeżany
+   * przez sprzątanie co minutę i `running` = tury w biegu w tym procesie.
+   */
+  private readonly jobs = {
+    ready: 0,
+    claimed: 0,
+    running: 0,
+    attempts: 0,
+    recovered: 0,
+    leaseLost: 0,
+    failed: 0,
+    cancelled: 0,
+  };
 
   recordTurnStarted(): void {
     this.turns.started += 1;
@@ -115,9 +131,51 @@ export class AgentMetricsService {
     Sentry.metrics.count('scoffie.agent.breaker_opened');
   }
 
+  /** Przejęcie tury przez workera; `attempt > 1` = tura odzyskana. */
+  recordJobClaimed(attempt: number): void {
+    this.jobs.attempts += 1;
+    Sentry.metrics.count('scoffie.agent.job.claimed', 1);
+    if (attempt > 1) {
+      this.jobs.recovered += 1;
+      Sentry.metrics.count('scoffie.agent.job.recovered', 1, {
+        attributes: { attempt: String(attempt) },
+      });
+    }
+  }
+
+  recordJobLeaseLost(): void {
+    this.jobs.leaseLost += 1;
+    Sentry.metrics.count('scoffie.agent.job.lease_lost', 1);
+  }
+
+  /** Tura domknięta przez sprzątanie: wyczerpane próby albo stara osierocona. */
+  recordJobFailed(detail: string): void {
+    this.jobs.failed += 1;
+    Sentry.metrics.count('scoffie.agent.job.failed', 1, {
+      attributes: { detail },
+    });
+  }
+
+  /** „Stop" tury bez żywego workera, domknięty z trwałego żądania. */
+  recordJobCancelled(): void {
+    this.jobs.cancelled += 1;
+    Sentry.metrics.count('scoffie.agent.job.cancelled', 1);
+  }
+
+  recordJobGauges(gauges: {
+    ready: number;
+    claimed: number;
+    running: number;
+  }): void {
+    this.jobs.ready = gauges.ready;
+    this.jobs.claimed = gauges.claimed;
+    this.jobs.running = gauges.running;
+  }
+
   snapshot() {
     return {
       turns: { ...this.turns },
+      jobs: { ...this.jobs },
       rejected: { ...this.rejected },
       usage: { ...this.usage },
       upstream: { ...this.upstreamErrors },

@@ -122,6 +122,18 @@ type RecipeImageSource = {
   sourceMeta?: Prisma.JsonValue | null;
 };
 
+/**
+ * Opcje zapisu przepisu. `inTransaction` biegnie w transakcji zapisu, po nim,
+ * przed commitem — rzut wycofuje przepis. Domena nie wie, kto go podaje
+ * (asystent dopisuje tu dziennik efektów tury, workstream Etap 5).
+ */
+export type RecipeWriteOptions = {
+  inTransaction?: (
+    tx: Prisma.TransactionClient,
+    recipeId: string,
+  ) => Promise<void>;
+};
+
 @Injectable()
 export class RecipesService {
   constructor(
@@ -790,7 +802,11 @@ export class RecipesService {
     };
   }
 
-  async create(userIdentifier: string, input: CreateRecipeDto) {
+  async create(
+    userIdentifier: string,
+    input: CreateRecipeDto,
+    options: RecipeWriteOptions = {},
+  ) {
     // Zwalidowana instancja (z `@Type` na liczbach i wyciętymi nieznanymi
     // polami) idzie dalej zamiast surowego wejścia: zły enum albo `servings:
     // 'dwa'` zatrzymują się tu jako VALIDATION_ERROR z listą dozwolonych,
@@ -806,7 +822,7 @@ export class RecipesService {
     const nutrition = this.resolveRecipeNutrition(data, ingredientRows);
     const steps = normalizeRecipeSteps(data.steps);
 
-    const created = await this.prisma.recipe.create({
+    const createArgs = {
       data: {
         title: data.title,
         description: data.description,
@@ -854,10 +870,20 @@ export class RecipesService {
       },
       include: {
         ingredients: {
-          orderBy: { createdAt: 'asc' },
+          orderBy: { createdAt: 'asc' as const },
         },
       },
-    });
+    } satisfies Prisma.RecipeCreateArgs;
+    // Hak wołającego (asystent: dziennik efektów tury, Etap 5) w TEJ SAMEJ
+    // transakcji co przepis — bez haka jedno zapytanie, jak dotąd.
+    const { inTransaction } = options;
+    const created = inTransaction
+      ? await this.prisma.$transaction(async (tx) => {
+          const row = await tx.recipe.create(createArgs);
+          await inTransaction(tx, row.id);
+          return row;
+        })
+      : await this.prisma.recipe.create(createArgs);
     // Przepis GOSPODARSTWA: tylko wpisy listy tego domu (Etap 4B) — wspólny
     // katalog i listy innych domów zostają w pamięci.
     this.recipesCache.invalidateRecipesList(data.householdId);
@@ -884,6 +910,7 @@ export class RecipesService {
     userIdentifier: string,
     recipeId: string,
     input: UpdateRecipeDto,
+    options: RecipeWriteOptions = {},
   ) {
     const data = await validateDto(UpdateRecipeDto, input);
     assertUuid(recipeId, 'recipeId');
@@ -955,6 +982,8 @@ export class RecipesService {
             : {}),
         },
       });
+      // Hak wołającego w tej samej transakcji (patrz `create`).
+      await options.inTransaction?.(tx, recipeId);
     });
 
     // Przepis GOSPODARSTWA: tylko wpisy listy tego domu (Etap 4B) — wspólny

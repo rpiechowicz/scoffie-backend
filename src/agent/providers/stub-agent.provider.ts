@@ -90,6 +90,24 @@ export const STUB_SUGGEST_PATTERN =
 export const STUB_SWAP_PATTERN =
   /\[\[swap:([A-Z]{3}):([A-Z_]+):([0-9a-fA-F-]{36})(?::([0-9a-fA-F-]{36}))?\]\]/;
 
+/**
+ * Wstrzykiwanie awarii w e2e trwałych tur (workstream, Etap 5):
+ * `[[hold]]` przenosi opóźnienie `AI_STUB_DELAY_MS` ZA narzędzia — efekt
+ * narzędzia jest już zapisany, a tura jeszcze nie domknięta. W tym oknie
+ * test „zabija" proces i sprawdza, że odzyskanie nie powtórzy efektu.
+ */
+export const STUB_HOLD_MARKER = '[[hold]]';
+
+/** `[[note:<tekst>]]` → `remember_note` (efekt z kluczem idempotencji). */
+export const STUB_NOTE_PATTERN = /\[\[note:([^\]]{1,200})\]\]/;
+
+/**
+ * `[[apply:<recipeId>:<YYYY-MM-DD>]]` → `apply_week_plan` bez `dry_run`
+ * (tryb bez kart): kolacja we wtorek. Zapis planu z kwotą — efekt z kluczem.
+ */
+export const STUB_APPLY_PATTERN =
+  /\[\[apply:([0-9a-fA-F-]{36}):(\d{4}-\d{2}-\d{2})\]\]/;
+
 export const STUB_REVISE_PATTERN =
   /\[\[revise:([0-9a-fA-F-]{36}):([A-Z]{3}):([A-Z_]+):([0-9a-fA-F-]{36})\]\]/;
 
@@ -124,7 +142,10 @@ export class StubAgentProvider implements AgentProvider {
       await this.report(request, calls, spent);
       calls += 1;
     }
-    await this.delay(readAgentEnv().stubDelayMs, request.signal, spent);
+    const hold = lastUserText.includes(STUB_HOLD_MARKER);
+    if (!hold) {
+      await this.delay(readAgentEnv().stubDelayMs, request.signal, spent);
+    }
 
     if (lastUserText.includes(STUB_UPSTREAM_ERROR_MARKER)) {
       throw new AgentProviderError('stub: symulowany błąd dostawcy', true, 503);
@@ -229,6 +250,23 @@ export class StubAgentProvider implements AgentProvider {
       });
     }
 
+    const note = STUB_NOTE_PATTERN.exec(lastUserText);
+    if (note) {
+      await request.executeTool('remember_note', {
+        text: note[1],
+        kind: 'PREFERENCE',
+      });
+    }
+
+    const apply = STUB_APPLY_PATTERN.exec(lastUserText);
+    if (apply) {
+      await request.executeTool('apply_week_plan', {
+        week_start: apply[2],
+        dry_run: false,
+        slots: [{ day_of_week: 'TUE', meal_type: 'DINNER', recipe: apply[1] }],
+      });
+    }
+
     const revise = STUB_REVISE_PATTERN.exec(lastUserText);
     if (revise) {
       await request.executeTool('revise_proposal', {
@@ -237,6 +275,11 @@ export class StubAgentProvider implements AgentProvider {
         meal_type: revise[3],
         recipe: revise[4],
       });
+    }
+
+    // Efekty narzędzi już w bazie, tura jeszcze nie — okno „pad po zapisie".
+    if (hold) {
+      await this.delay(readAgentEnv().stubDelayMs, request.signal, spent);
     }
 
     const text = `[stub] ${lastUserText}`.slice(0, 4000);

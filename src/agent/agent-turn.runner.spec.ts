@@ -911,6 +911,8 @@ describe('AgentTurnRunner', () => {
           userId: USER,
           householdId: HOUSEHOLD,
           provider: 'stub',
+          // Bez lease (wykonanie poza kolejką) = pierwsza próba.
+          attempt: 1,
           env: ENV,
         },
         {

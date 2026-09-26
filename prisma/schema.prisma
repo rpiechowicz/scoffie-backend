@@ -918,10 +918,15 @@ model AgentMessage {
   /// zostaje w bazie. Kasowanie zamieniłoby `AgentTurn` i `AgentProposal`
   /// wskazujące na te wiersze w dziury, a księgę użycia w niepełną.
   hiddenAt        DateTime?
+  /// Klucz WYJŚCIA tury (Etap 5): odpowiedź asystenta ma `final`. Unikat
+  /// `(turnId, outputKey)` sprawia, że odzyskana tura nie dopisze drugiej
+  /// odpowiedzi. `NULL` = pytanie użytkownika albo wiadomość sprzed kolumny.
+  outputKey       String?
 
   conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, clientMessageId])
+  @@unique([turnId, outputKey])
   @@index([conversationId, createdAt])
   @@index([turnId])
 }
@@ -1027,17 +1032,70 @@ model AgentTurn {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  /// TRWAŁE WYKONANIE (workstream, Etap 5). Wejście tury, którego nie ma
+  /// w innych kolumnach: daty telefonu i tryb propozycji `{dates,
+  /// proposalMode}`. `NULL` = tura sprzed Etapu 5 — nieodzyskiwalna, domyka
+  /// ją sprzątanie jak dawniej.
+  execution         Json?
+  /// Twardy koniec tury (`startedAt` + `AI_TURN_TIMEOUT_MS` z chwili
+  /// przyjęcia). Nie przesuwa się przy kolejnej próbie — odzyskana tura ma
+  /// tylko RESZTĘ czasu.
+  deadlineAt        DateTime?
+  /// Ile razy turę przejął worker (1 = pierwsze wykonanie, >1 = odzyskana).
+  attempt           Int       @default(0)
+  /// Kto trzyma lease: `host:pid:losowe` procesu.
+  leaseOwner        String?
+  /// FENCING TOKEN: nowy przy każdym przejęciu. Każde domknięcie i każdy
+  /// efekt narzędzia sprawdza go w swojej transakcji — worker, który stracił
+  /// lease, nie zapisze już nic.
+  leaseToken        String?   @db.Uuid
+  /// Do kiedy lease jest ważny (zegar BAZY). `NULL` albo przeszłość = turę
+  /// może przejąć dowolny worker.
+  leaseExpiresAt    DateTime?
+  /// „Stop" z telefonu — trwale, nie tylko sygnał w pamięci procesu.
+  cancelRequestedAt DateTime?
+  /// Dokładny powód porażki dla operatora (`errorCode` zostaje kontraktem
+  /// z telefonem), np. `AI_TURN_ATTEMPTS_EXHAUSTED`, `AI_TURN_LEGACY_ORPHAN`.
+  failureDetail     String?
+
   conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   usage        AiUsage[]
+  effects      AgentTurnEffect[]
 
   @@unique([userMessageId])
   @@index([conversationId, status])
   /// Sprzątanie tur osieroconych przez restart: RUNNING bez znaku życia
   /// (`updatedAt` odświeża runner co kilkanaście sekund).
   @@index([status, updatedAt])
+  /// Claim workera: RUNNING bez żywego lease.
+  @@index([status, leaseExpiresAt])
   @@index([userId, createdAt])
   /// Panel: tury dziennie i „dziś” na pulpicie — bez filtra po osobie.
   @@index([createdAt])
+}
+
+/// Dziennik efektów narzędzi tury (workstream, Etap 5). Wiersz powstaje
+/// W TEJ SAMEJ TRANSAKCJI co efekt (propozycja, przepis, notatka, zapis
+/// planu), więc odzyskana tura nie wykona go drugi raz: klucz `(turnId, key)`
+/// = `card` (jedna karta na turę) albo `<narzędzie>#<n>` (n-te wywołanie tego
+/// narzędzia w turze). Kasowany razem z turą.
+model AgentTurnEffect {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  turnId    String   @db.Uuid
+  key       String
+  tool      String
+  attempt   Int
+  input     Json
+  /// Wynik narzędzia dla modelu (`{ok, data|error}`).
+  result    Json
+  /// Karta bez skutków w bazie (wybór, pytanie) — do domknięcia tury.
+  card      Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  turn AgentTurn @relation(fields: [turnId], references: [id], onDelete: Cascade)
+
+  @@unique([turnId, key])
 }
 
 /// Jeden wiersz na FAZĘ tury (model + wysiłek) — surowiec do kalibracji modelu
@@ -1086,6 +1144,9 @@ model AiUsage {
   /// ponowienie zapisu trafia w unikat i nie nalicza kosztu drugi raz.
   /// (Wcześniej unikat `(turnId, callIndex)` przepuszczał wiele `(NULL, NULL)`.)
   callKey          String   @unique @default(dbgenerated("(gen_random_uuid())::text"))
+  /// Próba wykonania tury, w której padło wywołanie (Etap 5). `NULL` =
+  /// wiersz sprzed kolumny albo spoza tury; 1 = pierwsze wykonanie.
+  attempt          Int?
   createdAt        DateTime @default(now())
 
   turn AgentTurn? @relation(fields: [turnId], references: [id], onDelete: SetNull)

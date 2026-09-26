@@ -209,11 +209,14 @@ describe('Asystent: księgowanie kosztu E2E', () => {
     const turnId = (accepted.body as { turnId: string }).turnId;
 
     // Proces „wisi" dłużej niż sufit tury: odczyt uznaje turę za martwą.
+    // Od Etapu 5 termin tury to trwałe `deadlineAt` (nie `startedAt` +
+    // bieżący env), więc przesuwamy właśnie jego.
     await sleep(300);
     await prisma.$executeRaw`
       UPDATE "AgentTurn"
          SET "startedAt" = now() - interval '10 minutes',
-             "updatedAt" = now() - interval '10 minutes'
+             "updatedAt" = now() - interval '10 minutes',
+             "deadlineAt" = now() - interval '6 minutes'
        WHERE id = ${turnId}::uuid`;
     const polled = await request(app.getHttpServer())
       .get(`/agent/turns/${turnId}`)

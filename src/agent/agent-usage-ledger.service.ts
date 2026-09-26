@@ -16,9 +16,23 @@ import {
  * Klucz idempotencji wywołania w księdze: ten sam dla każdego zapisu tego
  * samego wywołania, niezależnie od tego, czy tura jeszcze istnieje. Ten sam
  * kształt nadaje istniejącym wierszom migracja `ksiega_klucz_wywolania`.
+ *
+ * Od Etapu 5 tura może mieć kilka PRÓB wykonania (odzyskanie po padzie
+ * procesu), a każda liczy `callIndex` od zera. Druga próba to NOWE, realne
+ * wywołania dostawcy — z kluczem pierwszej księga uznałaby je za powtórkę
+ * i zgubiła koszt. Dlatego od próby 2 klucz niesie jej numer:
+ * `turn:<turnId>:a<próba>:<callIndex>`. Próba 1 zostaje w starym kształcie —
+ * istniejące wiersze i raporty bez zmian. Ponowiony zapis TEGO SAMEGO
+ * wywołania (ta sama próba, ten sam indeks) trafia w ten sam klucz.
  */
-export function usageCallKey(turnId: string, callIndex: number): string {
-  return `turn:${turnId}:${callIndex}`;
+export function usageCallKey(
+  turnId: string,
+  callIndex: number,
+  attempt = 1,
+): string {
+  return attempt <= 1
+    ? `turn:${turnId}:${callIndex}`
+    : `turn:${turnId}:a${attempt}:${callIndex}`;
 }
 
 /** Tożsamość tury, pod którą księga zapisuje wywołania. */
@@ -27,6 +41,8 @@ export type LedgerTurn = {
   userId: string;
   householdId: string;
   provider: string;
+  /** Próba wykonania tury (Etap 5); brak = 1. */
+  attempt?: number;
   /** Konfiguracja z przyjęcia tury — sufity kosztu do werdyktu budżetu. */
   env: Pick<
     AgentEnv,
@@ -82,9 +98,10 @@ export class AgentUsageLedger {
           {
             // Klucz z identyfikatora tury, NIE z istnienia wiersza tury:
             // ponowienie po skasowaniu rozmowy trafia w ten sam klucz.
-            callKey: usageCallKey(turn.turnId, call.callIndex),
+            callKey: usageCallKey(turn.turnId, call.callIndex, turn.attempt),
             turnId: current ? turn.turnId : null,
             callIndex: call.callIndex,
+            attempt: turn.attempt ?? 1,
             userId: turn.userId,
             householdId: turn.householdId,
             provider: turn.provider,
@@ -200,14 +217,37 @@ export class AgentUsageLedger {
       turnId: string;
       errorCode: 'AI_TIMEOUT' | 'AI_CANCELLED' | 'AI_PROVIDER_ERROR';
       fallbackScopeId: string;
+      /** Dokładny powód dla operatora (`AgentTurn.failureDetail`, Etap 5). */
+      failureDetail?: string;
+      /**
+       * Tylko gdy żaden worker nie trzyma żywego lease (Etap 5) — „Stop"
+       * tury prowadzonej gdzie indziej zostaje trwałym żądaniem, które
+       * worker odczyta przy najbliższym odnowieniu.
+       */
+      onlyIfUnleased?: boolean;
     },
   ): Promise<boolean> {
     const closed = await tx.agentTurn.updateMany({
-      where: { id: params.turnId, status: 'RUNNING' },
+      where: {
+        id: params.turnId,
+        status: 'RUNNING',
+        ...(params.onlyIfUnleased
+          ? {
+              OR: [
+                { leaseExpiresAt: null },
+                { leaseExpiresAt: { lte: new Date() } },
+              ],
+            }
+          : {}),
+      },
       data: {
         status: 'FAILED',
         errorCode: params.errorCode,
         finishedAt: new Date(),
+        leaseExpiresAt: null,
+        ...(params.failureDetail
+          ? { failureDetail: params.failureDetail }
+          : {}),
       },
     });
     if (closed.count === 0) return false;

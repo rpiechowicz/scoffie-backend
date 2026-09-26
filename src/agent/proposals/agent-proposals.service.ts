@@ -40,11 +40,21 @@ import { AgentQuotaMailService } from '../agent-quota-mail.service';
 import { weekBaselineHash } from './proposal-baseline';
 import type { MessageView } from '../agent-conversations.service';
 
+export type ProposalEffect = (
+  tx: Prisma.TransactionClient,
+  result: CreateWeekProposalResult,
+) => Promise<void>;
+
 export type CreateWeekProposalInput = {
   userId: string;
   householdId: string;
   /** Pamięć tury (Etap 3.7) — domownicy i pory czytane raz na turę. */
   memo?: TurnMemo;
+  /**
+   * Hak w transakcji zapisu propozycji (dziennik efektów tury, Etap 5):
+   * fencing lease i wiersz dziennika z tym samym commitem.
+   */
+  effect?: ProposalEffect;
   conversationId: string;
   turnId: string;
   weekStart: string;
@@ -192,6 +202,27 @@ export class AgentProposalsService {
   ) {}
 
   /**
+   * Zapis propozycji. Z hakiem `effect` (asystent, Etap 5) propozycja
+   * i wiersz dziennika efektów tury idą JEDNĄ transakcją: odzyskana tura nie
+   * zapisze drugiej propozycji, a worker bez lease nie zapisze żadnej.
+   */
+  private async insertProposal<T extends CreateWeekProposalResult>(
+    args: Prisma.AgentProposalCreateArgs,
+    effect: ProposalEffect | undefined,
+    result: T,
+  ): Promise<T> {
+    if (!effect) {
+      await this.prisma.agentProposal.create(args);
+      return result;
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.agentProposal.create(args);
+      await effect(tx, result);
+    });
+    return result;
+  }
+
+  /**
    * Policz tydzień, złóż kartę i odłóż propozycję.
    *
    * Walidację robi domena tą samą ścieżką co zapis, więc alergen domownika
@@ -241,30 +272,32 @@ export class AgentProposalsService {
       ),
     });
 
-    await this.prisma.agentProposal.create({
-      data: {
-        id: proposalId,
-        conversationId: input.conversationId,
-        turnId: input.turnId,
-        userId: input.userId,
-        householdId: input.householdId,
-        kind: 'PLAN_WEEK',
-        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-        // Stan docelowy zostaje po stronie serwera. Klient przysyła sam
-        // identyfikator propozycji, więc nie ma jak podmienić tego, co się
-        // zapisze — nawet gdyby ktoś ruszył ruch w locie.
-        action: { slots: input.slots } as unknown as Prisma.InputJsonValue,
-        card: card as unknown as Prisma.InputJsonValue,
-        baselineHash: weekBaselineHash(baseline),
-        expiresAt,
+    return this.insertProposal(
+      {
+        data: {
+          id: proposalId,
+          conversationId: input.conversationId,
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          kind: 'PLAN_WEEK',
+          weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+          // Stan docelowy zostaje po stronie serwera. Klient przysyła sam
+          // identyfikator propozycji, więc nie ma jak podmienić tego, co się
+          // zapisze — nawet gdyby ktoś ruszył ruch w locie.
+          action: { slots: input.slots } as unknown as Prisma.InputJsonValue,
+          card: card as unknown as Prisma.InputJsonValue,
+          baselineHash: weekBaselineHash(baseline),
+          expiresAt,
+        },
       },
-    });
-
-    return {
-      proposed: true,
-      proposalId,
-      summary: card.summary,
-    };
+      input.effect,
+      {
+        proposed: true,
+        proposalId,
+        summary: card.summary,
+      },
+    );
   }
 
   /**
@@ -328,34 +361,36 @@ export class AgentProposalsService {
       ),
     });
 
-    await this.prisma.agentProposal.create({
-      data: {
-        id: proposalId,
-        conversationId: input.conversationId,
-        turnId: input.turnId,
-        userId: input.userId,
-        householdId: input.householdId,
-        kind: 'PLAN_DAY',
-        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-        action: { slots: merged } as unknown as Prisma.InputJsonValue,
-        card: card as unknown as Prisma.InputJsonValue,
-        baselineHash: weekBaselineHash(baseline),
-        expiresAt,
+    return this.insertProposal(
+      {
+        data: {
+          id: proposalId,
+          conversationId: input.conversationId,
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          kind: 'PLAN_DAY',
+          weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+          action: { slots: merged } as unknown as Prisma.InputJsonValue,
+          card: card as unknown as Prisma.InputJsonValue,
+          baselineHash: weekBaselineHash(baseline),
+          expiresAt,
+        },
       },
-    });
-
-    return {
-      proposed: true,
-      proposalId,
-      summary: {
-        meals: card.summary.meals,
-        created: preview.changes.created,
-        updated: preview.changes.updated,
-        removed: preview.changes.deleted,
-        averageKcalPerDay: card.summary.kcalTotal,
-        targetKcalPerDay: card.summary.targetKcalPerDay,
+      input.effect,
+      {
+        proposed: true,
+        proposalId,
+        summary: {
+          meals: card.summary.meals,
+          created: preview.changes.created,
+          updated: preview.changes.updated,
+          removed: preview.changes.deleted,
+          averageKcalPerDay: card.summary.kcalTotal,
+          targetKcalPerDay: card.summary.targetKcalPerDay,
+        },
       },
-    };
+    );
   }
 
   /**
@@ -416,6 +451,7 @@ export class AgentProposalsService {
       userId: input.userId,
       householdId: input.householdId,
       memo: input.memo,
+      effect: input.effect,
       conversationId: input.conversationId,
       turnId: input.turnId,
       weekStart,
@@ -610,34 +646,36 @@ export class AgentProposalsService {
       expiresAt,
     });
 
-    await this.prisma.agentProposal.create({
-      data: {
-        id: proposalId,
-        conversationId: input.conversationId,
-        turnId: input.turnId,
-        userId: input.userId,
-        householdId: input.householdId,
-        kind: 'SWAP',
-        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-        action: { slots: merged } as unknown as Prisma.InputJsonValue,
-        card: card as unknown as Prisma.InputJsonValue,
-        baselineHash: weekBaselineHash(baseline),
-        expiresAt,
+    return this.insertProposal(
+      {
+        data: {
+          id: proposalId,
+          conversationId: input.conversationId,
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          kind: 'SWAP',
+          weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+          action: { slots: merged } as unknown as Prisma.InputJsonValue,
+          card: card as unknown as Prisma.InputJsonValue,
+          baselineHash: weekBaselineHash(baseline),
+          expiresAt,
+        },
       },
-    });
-
-    return {
-      proposed: true,
-      proposalId,
-      summary: {
-        meals: 1,
-        created: preview.changes.created,
-        updated: preview.changes.updated,
-        removed: preview.changes.deleted,
-        averageKcalPerDay: input.to.kcalPerServing,
-        targetKcalPerDay: null,
+      input.effect,
+      {
+        proposed: true,
+        proposalId,
+        summary: {
+          meals: 1,
+          created: preview.changes.created,
+          updated: preview.changes.updated,
+          removed: preview.changes.deleted,
+          averageKcalPerDay: input.to.kcalPerServing,
+          targetKcalPerDay: null,
+        },
       },
-    };
+    );
   }
 
   /**
@@ -720,37 +758,39 @@ export class AgentProposalsService {
       expiresAt,
     });
 
-    await this.prisma.agentProposal.create({
-      data: {
-        id: proposalId,
-        conversationId: input.conversationId,
-        turnId: input.turnId,
-        userId: input.userId,
-        householdId: input.householdId,
-        kind: 'REMOVE_MEAL',
-        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-        action: { slots: merged } as unknown as Prisma.InputJsonValue,
-        card: card as unknown as Prisma.InputJsonValue,
-        baselineHash: weekBaselineHash(baseline),
-        expiresAt,
+    return this.insertProposal(
+      {
+        data: {
+          id: proposalId,
+          conversationId: input.conversationId,
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          kind: 'REMOVE_MEAL',
+          weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+          action: { slots: merged } as unknown as Prisma.InputJsonValue,
+          card: card as unknown as Prisma.InputJsonValue,
+          baselineHash: weekBaselineHash(baseline),
+          expiresAt,
+        },
       },
-    });
-
-    return {
-      proposed: true,
-      proposalId,
-      summary: {
-        meals: 0,
-        created: preview.changes.created,
-        updated: preview.changes.updated,
-        removed: preview.changes.deleted,
-        // Ta karta nie mówi o kaloriach dnia i model nie ma czego tu cytować:
-        // po usunięciu jednej pozycji średnia tygodnia jest liczbą o czymś
-        // innym niż pytanie, które padło.
-        averageKcalPerDay: 0,
-        targetKcalPerDay: null,
+      input.effect,
+      {
+        proposed: true,
+        proposalId,
+        summary: {
+          meals: 0,
+          created: preview.changes.created,
+          updated: preview.changes.updated,
+          removed: preview.changes.deleted,
+          // Ta karta nie mówi o kaloriach dnia i model nie ma czego tu cytować:
+          // po usunięciu jednej pozycji średnia tygodnia jest liczbą o czymś
+          // innym niż pytanie, które padło.
+          averageKcalPerDay: 0,
+          targetKcalPerDay: null,
+        },
       },
-    };
+    );
   }
 
   /**
@@ -895,34 +935,36 @@ export class AgentProposalsService {
       expiresAt,
     });
 
-    await this.prisma.agentProposal.create({
-      data: {
-        id: proposalId,
-        conversationId: input.conversationId,
-        turnId: input.turnId,
-        userId: input.userId,
-        householdId: input.householdId,
-        kind: 'HOUSEHOLD_SPLIT',
-        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-        action: { slots: merged } as unknown as Prisma.InputJsonValue,
-        card: card as unknown as Prisma.InputJsonValue,
-        baselineHash: weekBaselineHash(baseline),
-        expiresAt,
+    return this.insertProposal(
+      {
+        data: {
+          id: proposalId,
+          conversationId: input.conversationId,
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          kind: 'HOUSEHOLD_SPLIT',
+          weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+          action: { slots: merged } as unknown as Prisma.InputJsonValue,
+          card: card as unknown as Prisma.InputJsonValue,
+          baselineHash: weekBaselineHash(baseline),
+          expiresAt,
+        },
       },
-    });
-
-    return {
-      proposed: true,
-      proposalId,
-      summary: {
-        meals: 1,
-        created: preview.changes.created,
-        updated: preview.changes.updated,
-        removed: preview.changes.deleted,
-        averageKcalPerDay: input.dish.kcalPerServing,
-        targetKcalPerDay: null,
+      input.effect,
+      {
+        proposed: true,
+        proposalId,
+        summary: {
+          meals: 1,
+          created: preview.changes.created,
+          updated: preview.changes.updated,
+          removed: preview.changes.deleted,
+          averageKcalPerDay: input.dish.kcalPerServing,
+          targetKcalPerDay: null,
+        },
       },
-    };
+    );
   }
 
   /**

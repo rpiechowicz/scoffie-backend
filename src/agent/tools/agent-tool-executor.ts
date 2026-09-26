@@ -20,6 +20,15 @@ import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../../recipes/dto/update-recipe.dto';
 import { EXECUTABLE_TOOL_NAMES } from './agent-tools';
 import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
+import {
+  EffectAlreadyCommittedError,
+  EffectCommit,
+  EffectKind,
+  effectKind,
+  StoredEffect,
+  TurnEffects,
+} from '../durable/turn-effects';
+import { LeaseLostError } from '../durable/turn-lease-config';
 import { readAgentEnv } from '../../config/agent-env';
 import {
   checkPlanScope,
@@ -560,6 +569,22 @@ export type AgentToolContext = {
    * dla wywołań spoza tury (testy, skrypty).
    */
   memo?: TurnMemo;
+  /**
+   * Trwałe wykonanie tury (Etap 5): dziennik efektów tej próby, sprawdzenie
+   * lease i „Stop" przed zapisem, sygnał utraty lease. Brak = wywołanie spoza
+   * workera (testy, skrypty) — narzędzia działają jak dotąd, bez dziennika.
+   */
+  durable?: {
+    effects: TurnEffects;
+    /** Rzuca, gdy tura nie jest już nasza albo użytkownik ją zatrzymał. */
+    checkpoint: () => Promise<void>;
+    onLeaseLost: () => void;
+  };
+  /**
+   * Hak do transakcji efektu TEGO wywołania (fencing + wiersz dziennika).
+   * Ustawia `execute` na czas jednego wywołania; narzędzie podaje go domenie.
+   */
+  effectCommit?: EffectCommit;
 };
 
 /**
@@ -645,6 +670,28 @@ export class AgentToolExecutor {
       return this.failure('BAD_REQUEST', `Nie ma narzędzia o nazwie ${name}.`);
     }
 
+    // Trwałe wykonanie (Etap 5): efekt, który ta tura już zapisała (w tej
+    // albo w poprzedniej próbie, przed padem procesu), wraca z dziennika
+    // zamiast wykonać się drugi raz. Klucz nadajemy PRZED jakimkolwiek
+    // `await`, więc kolejność wywołań w próbie jest deterministyczna.
+    const durable = context.durable;
+    const kind: EffectKind = durable ? effectKind(name, input) : 'read';
+    const key =
+      durable && kind !== 'read' ? durable.effects.keyFor(name, kind) : null;
+    if (durable && key) {
+      const stored = await durable.effects.load(key);
+      if (stored) return this.replayEffect(stored, context);
+      // Lease i „Stop" z bazy PRZED zapisem — nie po nim.
+      try {
+        await durable.checkpoint();
+      } catch {
+        return this.failure(
+          'AI_TURN_INTERRUPTED',
+          'Tura została przerwana — nie wykonuję zapisu.',
+        );
+      }
+    }
+
     // Jedna karta na turę — rezerwacja SYNCHRONICZNIE, przed pierwszym
     // `await`, więc z dwóch kart w jednej rundzie wygrywa dokładnie jedna
     // (patrz `TurnMemo.claimCard`). Odmowa narzędzia zwalnia rezerwację.
@@ -659,11 +706,145 @@ export class AgentToolExecutor {
         );
       }
     }
-    const result = await this.executeClaimed(name, input, context);
+
+    let committed = false;
+    let captured: AgentCard | null = null;
+    const commit =
+      durable && key && (kind === 'card-db' || kind === 'keyed')
+        ? durable.effects.commitFor(key, name, input)
+        : undefined;
+    const callContext: AgentToolContext =
+      durable && key
+        ? {
+            ...context,
+            effectCommit: commit
+              ? async (tx, data) => {
+                  await commit(tx, data);
+                  committed = true;
+                }
+              : undefined,
+            collectCard: (card) => {
+              captured = card;
+              context.collectCard(card);
+            },
+          }
+        : context;
+
+    let result: AgentToolResult;
+    try {
+      result = await this.executeClaimed(name, input, callContext);
+    } catch (error) {
+      if (cardTool) context.memo?.releaseCard(name);
+      // Wyścig z inną próbą tej samej tury: efekt już jest — oddaj go.
+      if (error instanceof EffectAlreadyCommittedError && durable && key) {
+        const stored = await durable.effects.load(key);
+        if (stored) return this.replayEffect(stored, context);
+      }
+      if (error instanceof LeaseLostError && durable) {
+        durable.onLeaseLost();
+        return this.failure(
+          'AI_TURN_INTERRUPTED',
+          'Tura została przerwana — zapis wycofany.',
+        );
+      }
+      throw error;
+    }
     if (cardTool && !(result.ok && result.endsTurn)) {
       context.memo?.releaseCard(name);
     }
+    if (durable && key) {
+      await this.journal(durable, key, kind, name, input, result, {
+        committed,
+        card: captured,
+      });
+    }
     return result;
+  }
+
+  /**
+   * Wynik z dziennika zamiast drugiego wykonania. Karta tury wraca jako
+   * karta (kończy turę tym samym zdaniem serwera), efekt z kluczem — z
+   * `alreadyDone`, żeby model wiedział, że to już się stało.
+   */
+  private replayEffect(
+    stored: StoredEffect,
+    context: AgentToolContext,
+  ): AgentToolResult {
+    if (!stored.result.ok) {
+      return { ok: false, error: stored.result.error };
+    }
+    const data = stored.result.data;
+    if (stored.key === 'card') {
+      context.memo?.claimCard(stored.tool);
+      if (stored.card) context.collectCard(stored.card);
+      const turnText = turnTextFor(stored.tool, stored.input, data);
+      return {
+        ok: true,
+        data,
+        endsTurn: true,
+        ...(turnText ? { turnText } : {}),
+      };
+    }
+    return {
+      ok: true,
+      data:
+        data && typeof data === 'object' && !Array.isArray(data)
+          ? { ...(data as Record<string, unknown>), alreadyDone: true }
+          : { result: data, alreadyDone: true },
+    };
+  }
+
+  /**
+   * Wpis do dziennika po wykonaniu. Efekt zapisany w transakcji dostaje
+   * pełny wynik (`complete`); karta bez skutków i efekt „z natury" — wiersz
+   * teraz; odmowa narzędzia z kluczem `<narzędzie>#<n>` — też, żeby n-te
+   * wywołanie w odzyskanej próbie dostało tę samą odmowę, a nie wykonało się
+   * jako „pierwsze udane". Nieudana karta NIE zajmuje klucza `card`.
+   */
+  private async journal(
+    durable: NonNullable<AgentToolContext['durable']>,
+    key: string,
+    kind: EffectKind,
+    name: string,
+    input: Record<string, unknown>,
+    result: AgentToolResult,
+    outcome: { committed: boolean; card: AgentCard | null },
+  ): Promise<void> {
+    try {
+      if (result.ok && outcome.committed) {
+        await durable.effects.complete(key, result.data);
+        return;
+      }
+      if (kind === 'card-db' || kind === 'card-memory') {
+        if (kind === 'card-db' || !(result.ok && result.endsTurn)) return;
+        await durable.effects.record(
+          key,
+          name,
+          input,
+          { ok: true, data: result.data },
+          outcome.card,
+        );
+        return;
+      }
+      await durable.effects.record(
+        key,
+        name,
+        input,
+        result.ok
+          ? { ok: true, data: result.data }
+          : { ok: false, error: result.error },
+      );
+    } catch (error) {
+      if (error instanceof LeaseLostError) {
+        durable.onLeaseLost();
+        return;
+      }
+      this.logger.warn(
+        `dziennik efektu ${key} nie zapisany: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
+    }
   }
 
   private async executeClaimed(
@@ -700,6 +881,13 @@ export class AgentToolExecutor {
         ...(turnText ? { turnText } : {}),
       };
     } catch (error) {
+      // Efekt już w dzienniku / lease stracony — decyduje `execute`, nie model.
+      if (
+        error instanceof EffectAlreadyCommittedError ||
+        error instanceof LeaseLostError
+      ) {
+        throw error;
+      }
       const { contract } = mapError(error);
       if (!(error instanceof AppException)) {
         // Nieznany błąd to nasza awaria, nie pomyłka modelu — w logu zostaje
@@ -834,6 +1022,11 @@ export class AgentToolExecutor {
     context: AgentToolContext,
   ): Promise<unknown> {
     const { userId, householdId } = context;
+    const commit = context.effectCommit;
+    const inTransaction = commit
+      ? (tx: Parameters<EffectCommit>[0], noteId: string) =>
+          commit(tx, { noteId })
+      : undefined;
     const about = asString(input.about_user_id).trim();
     if (!about) {
       return this.memory.remember(
@@ -841,6 +1034,8 @@ export class AgentToolExecutor {
         userId,
         asString(input.text),
         asString(input.kind) || undefined,
+        null,
+        inTransaction,
       );
     }
 
@@ -862,6 +1057,7 @@ export class AgentToolExecutor {
       asString(input.text),
       asString(input.kind) || undefined,
       about,
+      inTransaction,
     );
   }
 
@@ -1020,8 +1216,13 @@ export class AgentToolExecutor {
           ingredients: this.toIngredients(input.ingredients),
           ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
         };
+        const commit = context.effectCommit;
         return this.recipes
-          .create(userId, payload as CreateRecipeDto)
+          .create(userId, payload as CreateRecipeDto, {
+            inTransaction: commit
+              ? (tx, recipeId) => commit(tx, { recipeId })
+              : undefined,
+          })
           .then(projectRecipeForModel);
       }
 
@@ -1041,8 +1242,13 @@ export class AgentToolExecutor {
             : {}),
           ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
         };
+        const commit = context.effectCommit;
         return this.recipes
-          .update(userId, str('recipe_id'), payload as UpdateRecipeDto)
+          .update(userId, str('recipe_id'), payload as UpdateRecipeDto, {
+            inTransaction: commit
+              ? (tx, recipeId) => commit(tx, { recipeId })
+              : undefined,
+          })
           .then(projectRecipeForModel);
       }
 
@@ -1253,6 +1459,7 @@ export class AgentToolExecutor {
 
     return this.proposals.createSwapProposal({
       memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -1349,6 +1556,7 @@ export class AgentToolExecutor {
 
     return this.proposals.createRemoveMealProposal({
       memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -1399,6 +1607,7 @@ export class AgentToolExecutor {
     const recipeId = this.resolveRecipeRef(ref, context);
     return this.proposals.createHouseholdSplitProposal({
       memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -2104,6 +2313,7 @@ export class AgentToolExecutor {
     const note = asString(input.note).trim();
     return this.proposals.createDayPlanProposal({
       memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -2165,6 +2375,7 @@ export class AgentToolExecutor {
     const removalReasons = this.toRemovalReasons(input.removals);
     return this.proposals.createWeekPlanProposal({
       memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -2245,6 +2456,7 @@ export class AgentToolExecutor {
     }
     return this.proposals.reviseProposal({
       memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -2301,6 +2513,7 @@ export class AgentToolExecutor {
       days.length === 1
         ? await this.proposals.createDayPlanProposal({
             memo: context.memo,
+            effect: context.effectCommit,
             userId: context.userId,
             householdId: context.householdId,
             conversationId: context.conversationId,
@@ -2313,6 +2526,7 @@ export class AgentToolExecutor {
           })
         : await this.proposals.createWeekPlanProposal({
             memo: context.memo,
+            effect: context.effectCommit,
             userId: context.userId,
             householdId: context.householdId,
             conversationId: context.conversationId,
@@ -2491,6 +2705,7 @@ export class AgentToolExecutor {
     const proposal = pending
       ? await this.proposals.reviseProposal({
           memo: context.memo,
+          effect: context.effectCommit,
           userId: context.userId,
           householdId: context.householdId,
           conversationId: context.conversationId,
@@ -2581,54 +2796,50 @@ export class AgentToolExecutor {
     // dom z Solo miał osiem zapisów narzędziem I osiem kartą.
     const scopeId = plan.quotaScopeId;
     const limit = plan.plansLimit;
-    const consumed = await this.counters.tryConsume(
-      this.prisma,
-      scopeId,
-      periodKey,
-      'plans',
-      limit,
+    // Kwota schodzi W TRANSAKCJI zapisu (hak `settle`, Etap 5), razem
+    // z dziennikiem efektu tury — i tylko wtedy, gdy zapis coś zmienia.
+    // Wcześniej: `tryConsume` przed zapisem i zwrot po nim, czyli dwie
+    // transakcje, między którymi pad procesu zostawiał zjedzoną kwotę bez
+    // planu albo plan bez zwrotu. Zapis odrzucony przez naruszenia i zapis
+    // bez zmian (ten sam stan docelowy drugi raz) nadal nic nie kosztują;
+    // brak kwoty wycofuje cały zapis.
+    const commit = context.effectCommit;
+    const result = await this.weeklyPlans.applyWeekPlan(
+      context.userId,
+      context.householdId,
+      weekStart,
+      payload as ApplyWeekPlanDto,
+      {
+        settle: async (tx, changes) => {
+          if (changes.created + changes.updated + changes.deleted > 0) {
+            const consumed = await this.counters.tryConsume(
+              tx,
+              scopeId,
+              periodKey,
+              'plans',
+              limit,
+            );
+            if (!consumed) {
+              this.metrics.recordRejected('planQuota');
+              throw new AppException(
+                'AI_PLAN_QUOTA_EXCEEDED',
+                (plan.tier === 'TRIAL'
+                  ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. `
+                  : `Limit zapisanych planów w tym okresie (${limit}) został wyczerpany. `) +
+                  'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go' +
+                  (plan.tier === 'TRIAL'
+                    ? ' bez wybrania planu.'
+                    : ' do odnowienia planu.'),
+                HttpStatus.TOO_MANY_REQUESTS,
+                this.counters.quotaDetailsFor('plans', plan),
+              );
+            }
+          }
+          await commit?.(tx, { changes });
+        },
+      },
     );
-    if (!consumed) {
-      this.metrics.recordRejected('planQuota');
-      throw new AppException(
-        'AI_PLAN_QUOTA_EXCEEDED',
-        (plan.tier === 'TRIAL'
-          ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. `
-          : `Limit zapisanych planów w tym okresie (${limit}) został wyczerpany. `) +
-          'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go' +
-          (plan.tier === 'TRIAL'
-            ? ' bez wybrania planu.'
-            : ' do odnowienia planu.'),
-        HttpStatus.TOO_MANY_REQUESTS,
-        this.counters.quotaDetailsFor('plans', plan),
-      );
-    }
-
-    try {
-      const result = await run();
-      const changed =
-        result.changes.created +
-        result.changes.updated +
-        result.changes.deleted;
-      if (!result.applied || changed === 0)
-        await this.refundPlan(scopeId, periodKey);
-      return this.applyResultForModel(result, context);
-    } catch (error) {
-      await this.refundPlan(scopeId, periodKey);
-      throw error;
-    }
-  }
-
-  /** Zwrot kwoty planu — nigdy nie wywraca narzędzia, bo to tylko księgowość. */
-  private async refundPlan(scopeId: string, periodKey: string): Promise<void> {
-    try {
-      await this.counters.add(this.prisma, scopeId, periodKey, 'plans', -1);
-    } catch (error) {
-      this.logger.error(
-        'nie udało się zwrócić kwoty planu',
-        error instanceof Error ? error.stack : undefined,
-      );
-    }
+    return this.applyResultForModel(result, context);
   }
 
   /**
