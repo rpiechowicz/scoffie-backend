@@ -1044,7 +1044,7 @@ export interface AdminAlertRow {
   id: string;
   /** np. `deploy-failed:<serviceId>:<deployId>`, `crash-free:scoffie-ios` */
   key: string;
-  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain`, `gdpr-due` */
+  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain`, `gdpr-due`, `apple-reports`, `anthropic-balance-low` */
   kind: string;
   severity: AlertSeverity;
   title: string;
@@ -1575,6 +1575,92 @@ export interface TrafficData {
 }
 
 export type TrafficState = IntegrationState<TrafficData>;
+
+// ——— Kredyty Claude (Anthropic Console) ———
+
+/**
+ * `GET /admin/anthropic` — wydatki z Usage & Cost Admin API i szacowane
+ * saldo. API Anthropic nie podaje salda ani doładowań: saldo to ostatnia
+ * kotwica wpisana w panelu minus wydatki od jej chwili. Dni kosztów to doby
+ * UTC (tak liczy Anthropic, także „ten miesiąc” w Console) — nie Warszawa.
+ */
+export interface AnthropicBilling {
+  /** jest `ANTHROPIC_ADMIN_KEY` */
+  configured: boolean;
+  /** błąd pobrania z Anthropic (np. 401 zły klucz) — reszta pól może być pusta */
+  error: string | null;
+  fetchedAt: IsoDate;
+  /** `null` — brak kotwicy */
+  balance: {
+    anchorUsd: number;
+    anchorAt: IsoDate;
+    /** szacunek: pełne doby po dobie kotwicy + część doby kotwicy wg tokenów po `anchorAt` */
+    spentSinceUsd: number;
+    estimatedUsd: number;
+  } | null;
+  lowBalanceUsd: number;
+  /** dni do zera przy średnim dziennym wydatku z 7 pełnych dni; null gdy brak salda albo wydatków */
+  runwayDays: number | null;
+  spend: {
+    /** doba UTC w toku (dane z opóźnieniem ~5 min) */
+    todayUsd: number;
+    yesterdayUsd: number;
+    /** dziś i 6 poprzednich dób */
+    last7Usd: number;
+    /** miesiąc kalendarzowy UTC w toku */
+    monthUsd: number;
+    prevMonthUsd: number;
+  };
+  /** ostatnie 31 dób UTC (także z zerem), najstarsza pierwsza; `date` = `YYYY-MM-DD` */
+  daily: { date: string; usd: number; byModel: Record<string, number> }[];
+  /**
+   * Bieżący miesiąc UTC, od najdroższego. Koszty bez modelu (wyszukiwanie,
+   * wykonywanie kodu) pod swoim rodzajem (`web_search`, `code_execution`, …).
+   */
+  byModel: {
+    model: string;
+    usd: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+  }[];
+  /** ostatnie 24 h, kubełki godzinowe (ostatni w toku), najstarszy pierwszy */
+  hourly: {
+    at: IsoDate;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+  }[];
+  tokens: {
+    /** wszystkie tokeny (wejście, cache, wyjście) — dziś i 6 poprzednich dób */
+    last7: number;
+    /** udział odczytu z cache we wszystkich tokenach wejścia, 0–1 */
+    cacheReadShare: number;
+  };
+  /** najnowsze pierwsze, do 20 */
+  anchors: {
+    id: string;
+    at: IsoDate;
+    balanceUsd: number;
+    amountUsd: number | null;
+    note: string | null;
+    by: string | null;
+  }[];
+}
+
+/** `POST /admin/anthropic/anchors` — saldo z Console po doładowaniu albo kontrolnie. */
+export interface AnthropicAnchorCreate {
+  balanceUsd: number;
+  /** kwota doładowania, jeśli kotwica to doładowanie */
+  amountUsd?: number;
+  note?: string;
+}
+
+/** `PUT /admin/anthropic/settings` */
+export interface AnthropicBillingSettings {
+  lowBalanceUsd: number;
+}
 
 /** `GET /admin/settings/changes?days=` — z dziennika audytu, od najstarszej. */
 export interface RuntimeSettingChange {

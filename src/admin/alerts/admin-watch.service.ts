@@ -28,7 +28,10 @@ import {
 } from '../integrations/deploy-tracker.service';
 import { fetchResendDomains } from '../integrations/resend-domains.client';
 import { fetchSentry } from '../integrations/sentry.client';
+import { AdminAnthropicService } from '../anthropic/admin-anthropic.service';
+import { readAnthropicAdminKey } from '../anthropic/anthropic-billing.client';
 import {
+  anthropicBalanceAlerts,
   appleReportAlerts,
   cronAlerts,
   crashFreeAlerts,
@@ -92,6 +95,7 @@ export class AdminWatchService
     private readonly outbox: MailOutboxService,
     private readonly ops: OpsAlertService,
     private readonly deploys: DeployTrackerService,
+    private readonly anthropic: AdminAnthropicService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -251,6 +255,21 @@ export class AdminWatchService
           ),
         },
       ]);
+    }
+
+    // Kredyty Claude: saldo z kotwicy w panelu minus wydatki z Anthropic.
+    // Błąd pobrania to „nie wiem” — rzucamy, żeby alert nie zniknął.
+    if (readAnthropicAdminKey()) {
+      await attempt('Anthropic', async () => {
+        const billing = await this.anthropic.billing(now);
+        if (billing.error) throw new IntegrationError(billing.error);
+        return [
+          {
+            kind: 'anthropic-balance-low',
+            problems: anthropicBalanceAlerts(billing),
+          },
+        ];
+      });
     }
 
     return detections;
