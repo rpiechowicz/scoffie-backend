@@ -1,6 +1,6 @@
 # Stan workstreamu
 
-**Ostatnia aktualizacja:** 26.09.2026 (po Etapie 2)  
+**Ostatnia aktualizacja:** 26.09.2026 (po Etapie 2.2)  
 **Branch startowy:** `claude/admin-crm-planning-b0hmgo`
 
 ## Status
@@ -10,7 +10,7 @@
 | 0. Baseline | **DONE** — harness i lokalny baseline gotowe; płatny live benchmark świadomie odłożony na finał | `reports/00-baseline.md` |
 | 1. Poprawność, stan, koszty | **DONE** — po review + addendum (klucz idempotencji księgi) | `reports/01-correctness-state-costs.md` |
 | 2. Server-side planner | **DONE** — po poprawce semantyki celu kcal (raport 02, Addendum A1) | `reports/02-server-side-planner.md` |
-| 2.2 Porcje per osoba | **IN_PROGRESS** | `reports/02-2-per-user-portions.md` |
+| 2.2 Porcje per osoba | **DONE** — backend na testach; iOS na gałęzi `claude/per-user-portions`, NIESKOMPILOWANY; włącznik planera `false` | `reports/02-2-per-user-portions.md` |
 | 3. Odchudzenie agenta | WAITING (po review Etapu 2.2) | `reports/03-agent-thinning.md` |
 | 4. Katalog / DB / API | WAITING | `reports/04-catalog-db-api-scale.md` |
 | 5. Trwałe tury | WAITING | `reports/05-durable-turns.md` |
@@ -64,6 +64,18 @@ Po zakończeniu:
 
 ## Ostatni raport
 
+`reports/02-2-per-user-portions.md` (26.09.2026) — Etap 2.2 **DONE**:
+- `PlanItemPortion` (osoba → jednostki 0,05 porcji), migracja addytywna, bez backfillu:
+  pozycja bez alokacji liczy się jak dotąd; z alokacją — bilans z porcji osoby, lista
+  zakupów z Σ (ułamkowo), `plannedServings` = pochodna `ceil(Σ)` dla starych klientów;
+- planer `per_user` (to samo danie, porcja 0,5–1,5 co 0,05) za `AI_PLANNER_PER_USER_PORTIONS`
+  (domyślnie `false` do wydania iOS);
+- `planner:eval`, odchylenie kcal dnia średnio/max: para 23,0/27,2 → 0,6/2,7 %, rodzina
+  13,7/27,7 → 0,3/0,7 %, wege 11,2/19,0 → 0,2/0,5 %, solo 1,6/3,1 → 0,2/0,6 %; 0 złamań,
+  12 zapytań; PARTIAL zostaje tylko przez białko (katalog);
+- testy: unit 3377/3377, e2e 12 nowych + regresja 242/242; iOS: składnia OK, kompilacja
+  i `Scripts/plan-portions-check.sh` czekają na Maca.
+
 `reports/02-server-side-planner.md` (26.09.2026) — Etap 2 **DONE**:
 - audyt 2A (testy charakteryzujące): `plannedServings` = porcje ŁĄCZNE, równy udział
   na osobę; model danych wystarcza do poprawnego planera, nie wyraża nierównych porcji
@@ -83,4 +95,4 @@ Poprzednie: `reports/01-correctness-state-costs.md`, `reports/00-baseline.md` �
 do końcowego porównania: commit `22aa63c` (ten sam benchmark na anchorze i finalnym HEAD,
 tego samego dnia, na tej samej konfiguracji modelu).
 
-**Etap 2 zakończony. Trwa Etap 2.2 (porcje per osoba) — Etap 3 czeka na jego review.**
+**Etap 2.2 zakończony — czeka na review. Etap 3 WAITING (nie zaczynać bez akceptacji Rafała).**

@@ -163,14 +163,15 @@ akceptowalnie, > 10 % = PARTIAL; twarde ograniczenia nigdy dla kcal). Równy pod
 per osoba dla wspólnego dania.
 
 ### Zadania
-- [ ] Audyt cross-repo (backend + iOS) i projekt przed zmianą schematu.
-- [ ] Model danych z porcjami ułamkowymi; legacy bez alokacji = dzisiejszy równy podział.
-- [ ] Jednoznaczna relacja `plannedServings` ↔ suma porcji osób.
-- [ ] Planer: dobór przepisu + alokacja porcji (zakres i krok jako stałe domenowe).
-- [ ] Lista zakupów z jawną semantyką ilości (test).
-- [ ] iOS: dekodowanie starych/nowych planów, bilans z porcji osoby, cache.
-- [ ] Kompatybilność stary/nowy klient × stary/nowy backend, plan rolloutu.
-- [ ] Testy obowiązkowe 1–17, `planner:eval` przed/po.
+- [x] Audyt cross-repo (backend + iOS) i projekt przed zmianą schematu.
+- [x] Model danych z porcjami ułamkowymi; legacy bez alokacji = dzisiejszy równy podział.
+- [x] Jednoznaczna relacja `plannedServings` ↔ suma porcji osób.
+- [x] Planer: dobór przepisu + alokacja porcji (zakres i krok jako stałe domenowe).
+- [x] Lista zakupów z jawną semantyką ilości (test).
+- [x] iOS: dekodowanie starych/nowych planów, bilans z porcji osoby, cache (NIESKOMPILOWANE).
+- [x] Kompatybilność stary/nowy klient × stary/nowy backend, plan rolloutu.
+- [x] Testy obowiązkowe 1–12 (backend) i `planner:eval` przed/po; 13–17 (iOS) napisane,
+      czekają na uruchomienie na Macu (`sh Scripts/plan-portions-check.sh`).
 
 ### Kryterium zakończenia
 Para i rodzina o różnych celach schodzą istotnie poniżej granicy równego podziału,

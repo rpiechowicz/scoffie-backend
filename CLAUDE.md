@@ -245,14 +245,26 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   (bez bazy i modelu; `planMeals` dla dnia/tygodnia/slotu, `evaluatePlan` = te same metryki dla
   dowolnego planu) + adapter `src/agent/planner/agent-meal-planner.service.ts`. Filtry twarde
   (alergie, wykluczenia i DIETA każdego jedzącego, pora, aktywność, wymagania prośby) idą PRZED
-  scoringiem; walidator `applyWeekPlan` diet nie sprawdza. Porcje: udział 0,75–1,5 na osobę,
-  porcje łączne całkowite (osoba sama = 1) — model danych zna tylko RÓWNY udział (audyt 2A,
-  `portion-semantics.audit.spec.ts`). Cel kcal: `scope` `FULL_DAY` (pory domu = 100 % celu, wagi
-  pór normalizowane — jak porównuje aplikacja) albo `PARTIAL` (cel osoby minus to, co ONA je poza
+  scoringiem; walidator `applyWeekPlan` diet nie sprawdza. Porcje: tryb `tune` = udział
+  0,75–1,5 na osobę, porcje łączne całkowite (równy podział); tryb `per_user` (włącznik
+  `AI_PLANNER_PER_USER_PORTIONS`, domyślnie `false` do wydania iOS, który czyta porcje) = to samo
+  danie, WŁASNA porcja każdej osoby 0,5–1,5 co 0,05, domykająca JEJ dzień.
+  Cel kcal: `scope` `FULL_DAY` (pory domu = 100 % celu, wagi pór normalizowane — jak porównuje aplikacja) albo `PARTIAL` (cel osoby minus to, co ONA je poza
   planowanymi porami, wagami między pory niepokryte); posiłek innej osoby nie zmienia celu
   (`assessEaterDay`). Asystent: `build_meal_plan` (plan dni × pór) i
   `replace_plan_item` (jeden slot w propozycji PENDING albo w planie) — tylko pola wymagane,
   zapis przez propozycje. `pnpm planner:eval` = bezpłatne metryki na lokalnym katalogu.
+- Porcje per osoba (od 26.09.2026, workstream Etap 2.2): `PlanItemPortion(planItemId, userId,
+  units)`, 1 jednostka = 0,05 porcji (INT, CHECK 2..120), na drucie `PlanItem.portions:
+  {userId, servings}[]`. Pozycja BEZ wierszy = jak zawsze (`plannedServings / jedzący`), więc
+  żadnego backfillu. Pozycja Z alokacją: alokacja jest źródłem prawdy (bilans osoby = jej porcja,
+  brak wpisu = 1,0), lista zakupów gotuje DOKŁADNIE Σ porcji (ułamkowo), a `plannedServings` to
+  pochodna `ceil(Σ)` liczona przez serwer — tylko dla starych klientów (`Int` w ich dekoderze).
+  Zbiór osób alokacji = audytorium pozycji (inaczej `PLAN_PORTIONS_INVALID`); zapis slotu BEZ
+  `portions` (stary iOS, stepper porcji łącznych) wraca do równego podziału. Skład domu: nowy
+  domownik dostaje 1,0, wychodzący znika z alokacji (`plan-roster.util.ts`). Reguły w
+  `src/weekly-plans/utils/plan-portions.util.ts`; nowa ścieżka zapisu planu MUSI przejść przez
+  `portionsProblem`, a zawężenie audytorium — zdjąć porcje osób, które wychodzą (`narrowSlot`).
 - Postęp tury (`AgentTurn.progress`, `src/agent/agent-progress.ts`): kroki narzędzi plus kroki
   PRZEJŚCIOWE (`transient: true`) — `read` (start tury), `reason` (blok myślenia w strumieniu),
   `write` (pierwszy fragment tekstu), `think` (cisza po narzędziach). Dostawca melduje je przez
