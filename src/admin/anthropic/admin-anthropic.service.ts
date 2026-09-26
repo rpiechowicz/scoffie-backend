@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { AnthropicCreditAnchor } from '@prisma/client';
+import { Prisma, type AnthropicCreditAnchor } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
 import { emitLive } from '../../common/live-events';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,6 +7,7 @@ import {
   AdminAuditService,
   type AdminActor,
 } from '../audit/admin-audit.service';
+import { sqlInstant } from '../common/warsaw-calendar';
 import type { AnthropicAnchorCreate, AnthropicBilling } from '../contract';
 import { IntegrationCache } from '../integrations/integration-fetch';
 import {
@@ -18,7 +19,9 @@ import {
   ANCHORS_SHOWN,
   billingRange,
   buildBilling,
+  buildLedger,
   dayKey,
+  ledgerRange,
   type AnchorRow,
   type BillingRaw,
 } from './anthropic-billing';
@@ -58,12 +61,13 @@ export class AdminAnthropicService {
     now: Date = new Date(),
     fetchImpl: typeof fetch = globalThis.fetch,
   ): Promise<AnthropicBilling> {
-    const [rows, lowBalanceUsd] = await Promise.all([
+    const [rows, lowBalanceUsd, ledger] = await Promise.all([
       this.prisma.anthropicCreditAnchor.findMany({
         orderBy: { at: 'desc' },
         take: ANCHORS_SHOWN,
       }),
       this.lowBalanceUsd(),
+      this.ledger(now),
     ]);
     const anchors = rows.map(toAnchor);
     const key = readAnthropicAdminKey();
@@ -76,6 +80,7 @@ export class AdminAnthropicService {
         lowBalanceUsd,
         now,
         fetchedAt: now,
+        ledger,
       });
     }
     const range = billingRange(now, anchors[0]?.at ?? null);
@@ -92,7 +97,34 @@ export class AdminAnthropicService {
       lowBalanceUsd,
       now,
       fetchedAt: state.status === 'off' ? now : new Date(state.fetchedAt),
+      ledger,
     });
+  }
+
+  /**
+   * Własna księga kosztu (`AiUsage`, per wywołanie modelu) w dobach UTC —
+   * do porównania z rachunkiem Anthropic. Nie zależy od klucza; błąd bazy
+   * nie może zasłonić reszty ekranu, więc wtedy `null`.
+   */
+  private async ledger(now: Date): Promise<AnthropicBilling['ledger']> {
+    const { from, to } = ledgerRange(now);
+    try {
+      const rows = await this.prisma.$queryRaw<{ day: string; cost: bigint }[]>(
+        Prisma.sql`
+          SELECT to_char(u."createdAt", 'YYYY-MM-DD') AS day,
+                 COALESCE(SUM(u."costMicroUsd"), 0)::bigint AS cost
+          FROM "AiUsage" u
+          WHERE u."createdAt" >= ${sqlInstant(from)} AND u."createdAt" < ${sqlInstant(to)}
+          GROUP BY 1
+        `,
+      );
+      return buildLedger(
+        rows.map((r) => ({ day: r.day, microUsd: Number(r.cost) })),
+        now,
+      );
+    } catch {
+      return null;
+    }
   }
 
   private async load(
