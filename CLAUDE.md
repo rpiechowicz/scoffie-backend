@@ -241,6 +241,15 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   Karta kończy turę bez ostatniej rundy (`TURN_ENDING_TOOLS`, `stopReason: tool_ended_turn`), gdy
   model napisał zdanie w tej samej wiadomości; `AgentCacheWarmer` pinguje prefiks co 55 min przy
   ruchu w ostatnich `AI_CACHE_WARM_HOURS` (domyślnie 0 = wyłączone; koszt w `AiUsage` jako `cache_warm`).
+- Serwerowy planer posiłków (od 26.09.2026, workstream Etap 2): czysty silnik `src/meal-planner/`
+  (bez bazy i modelu; `planMeals` dla dnia/tygodnia/slotu, `evaluatePlan` = te same metryki dla
+  dowolnego planu) + adapter `src/agent/planner/agent-meal-planner.service.ts`. Filtry twarde
+  (alergie, wykluczenia i DIETA każdego jedzącego, pora, aktywność, wymagania prośby) idą PRZED
+  scoringiem; walidator `applyWeekPlan` diet nie sprawdza. Porcje: udział 0,75–1,5 na osobę,
+  porcje łączne całkowite (osoba sama = 1) — model danych zna tylko RÓWNY udział (audyt 2A,
+  `portion-semantics.audit.spec.ts`). Asystent: `build_meal_plan` (plan dni × pór) i
+  `replace_plan_item` (jeden slot w propozycji PENDING albo w planie) — tylko pola wymagane,
+  zapis przez propozycje. `pnpm planner:eval` = bezpłatne metryki na lokalnym katalogu.
 - Postęp tury (`AgentTurn.progress`, `src/agent/agent-progress.ts`): kroki narzędzi plus kroki
   PRZEJŚCIOWE (`transient: true`) — `read` (start tury), `reason` (blok myślenia w strumieniu),
   `write` (pierwszy fragment tekstu), `think` (cisza po narzędziach). Dostawca melduje je przez
