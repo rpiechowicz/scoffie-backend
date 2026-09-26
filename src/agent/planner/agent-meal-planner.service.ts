@@ -42,8 +42,17 @@ export type PlannerWishes = {
   preferredTags: string[];
   /** Składniki, których ma nie być (twarde; nazwy po polsku). */
   avoidIngredients: string[];
-  /** Podpowiedź czasu gotowania (miękka); `null` = bez. */
+  /**
+   * Limit czasu gotowania; `null` = bez. W planie i podmianie TWARDY (Etap
+   * 6.1), w sugestiach miękki — serwer poluzuje go jawnie (`relaxed`).
+   */
   maxPrepMinutes: number | null;
+  /**
+   * Cel/limit kcal NA DZIEŃ z TEJ prośby („zmieść się w 1800") dla osoby
+   * pytającej — nadpisuje cel z profilu tylko w tym planie, profilu nie
+   * zmienia (Etap 6.1). `null` = cel z profilu.
+   */
+  dayKcalTarget?: number | null;
 };
 
 export type BuildPlanInput = {
@@ -93,6 +102,11 @@ export type SuggestInput = {
   count: number;
   seed: string;
   memo?: TurnMemo;
+  /**
+   * Dania już pokazane na ten posiłek w tej rozmowie („pokaż inne", Etap
+   * 6.1) — wypadają z propozycji. Odczytuje je serwer z historii, nie model.
+   */
+  excludeRecipeIds?: string[];
 };
 
 /**
@@ -170,7 +184,11 @@ export class AgentMealPlannerService {
       input.householdId,
       input.weekStart,
     );
-    const eaters = members.map(toEater);
+    const eaters = withDayKcalTarget(
+      members.map(toEater),
+      input.userId,
+      input.wishes.dayKcalTarget ?? null,
+    );
     const participantIds = normalizeParticipants(input.forUserIds, eaters);
     const days = new Set(input.days);
     const meals = new Set(mealTypes);
@@ -195,8 +213,11 @@ export class AgentMealPlannerService {
       members: eaters,
       participantIds,
       fixed: kept.map((slot) => toItem(slot, eaters.length)),
-      constraints: constraintsOf(input.wishes, []),
-      preferences: { ...context.preferences, ...softOf(input.wishes) },
+      constraints: constraintsOf(input.wishes, [], { hardPrep: true }),
+      preferences: {
+        ...context.preferences,
+        ...softOf(input.wishes, { hardPrep: true }),
+      },
       // Porcje per osoba (Etap 2.2) za włącznikiem rolloutu.
       portionMode: readAgentEnv().plannerPerUserPortions ? 'per_user' : 'tune',
       seed: input.seed,
@@ -259,8 +280,12 @@ export class AgentMealPlannerService {
       constraints: constraintsOf(
         input.wishes,
         replaced.map((slot) => slot.recipeId),
+        { hardPrep: true },
       ),
-      preferences: { ...context.preferences, ...softOf(input.wishes) },
+      preferences: {
+        ...context.preferences,
+        ...softOf(input.wishes, { hardPrep: true }),
+      },
       slotKcalTargets,
       portionMode: readAgentEnv().plannerPerUserPortions
         ? 'per_user'
@@ -373,10 +398,10 @@ export class AgentMealPlannerService {
       members: eaters,
       participantIds,
       fixed: kept.map((slot) => toItem(slot, eaters.length)),
-      constraints: constraintsOf(
-        input.wishes,
-        current.map((slot) => slot.recipeId),
-      ),
+      constraints: constraintsOf(input.wishes, [
+        ...current.map((slot) => slot.recipeId),
+        ...(input.excludeRecipeIds ?? []),
+      ]),
       preferences: { ...context.preferences, ...softOf(input.wishes) },
       // Porcje per osoba (Etap 2.2) za tym samym włącznikiem, co build/replace:
       // przy włączonym danie ocenia się z porcją KAŻDEJ osoby, a wybór z karty
@@ -669,7 +694,18 @@ const NO_WISHES: PlannerWishes = {
   maxPrepMinutes: null,
 };
 
-function constraintsOf(wishes: PlannerWishes, excludeRecipeIds: string[]) {
+/**
+ * `hardPrep` (plan, podmiana — Etap 6.1): „każde danie najwyżej N minut" to
+ * warunek, nie podpowiedź. Dotąd był wyłącznie miękki, a jego przekroczenie
+ * szło jako `info`, którego model nie widzi — plan z daniami po 30 min
+ * wracał bez słowa o limicie, a model pisał „wszystkie do 5 minut".
+ * W sugestiach zostaje miękki: tam serwer poluzowuje go jawnie (`relaxed`).
+ */
+function constraintsOf(
+  wishes: PlannerWishes,
+  excludeRecipeIds: string[],
+  options: { hardPrep?: boolean } = {},
+) {
   return {
     diet: wishes.diet && wishes.diet !== 'NONE' ? wishes.diet : null,
     requiredTags: wishes.requiredTags,
@@ -677,14 +713,43 @@ function constraintsOf(wishes: PlannerWishes, excludeRecipeIds: string[]) {
       .map((name) => normalizeText(name).trim())
       .filter(Boolean),
     excludeRecipeIds,
+    maxPrepMinutes: options.hardPrep ? wishes.maxPrepMinutes : null,
   };
 }
 
-function softOf(wishes: PlannerWishes) {
+function softOf(wishes: PlannerWishes, options: { hardPrep?: boolean } = {}) {
   return {
     preferredTags: wishes.preferredTags,
-    maxPrepMinutes: wishes.maxPrepMinutes,
+    maxPrepMinutes: options.hardPrep ? null : wishes.maxPrepMinutes,
   };
+}
+
+/**
+ * Cel dnia z prośby dla osoby pytającej (Etap 6.1) — na czas TEGO planu.
+ * Makro skalowane w tej samej proporcji, żeby bilans nie ciągnął w stronę
+ * starego celu. Profil (i każda inna ścieżka) nie widzi tej zmiany.
+ */
+function withDayKcalTarget(
+  eaters: PlannerEater[],
+  userId: string,
+  dayKcalTarget: number | null,
+): PlannerEater[] {
+  if (!dayKcalTarget) return eaters;
+  return eaters.map((eater) => {
+    if (eater.userId !== userId) return eater;
+    const ratio = eater.kcalTarget > 0 ? dayKcalTarget / eater.kcalTarget : 1;
+    return {
+      ...eater,
+      kcalTarget: dayKcalTarget,
+      macros: eater.macros
+        ? {
+            proteinG: Math.round(eater.macros.proteinG * ratio),
+            fatG: Math.round(eater.macros.fatG * ratio),
+            carbsG: Math.round(eater.macros.carbsG * ratio),
+          }
+        : null,
+    };
+  });
 }
 
 function toItem(slot: ApplyWeekSlotDto, memberCount: number): PlannedItem {

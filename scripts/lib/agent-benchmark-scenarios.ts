@@ -15,6 +15,7 @@
  * mówi o danych, które dostał, czy o tych, które pamięta.
  */
 import { DayOfWeek, DietPreferenceValue, MealType } from '@prisma/client';
+import { satisfiesDiet } from '../../src/recipes/diet-rules.util';
 
 /** Poniedziałek. Wszystkie scenariusze planują ten sam tydzień. */
 export const WEEK_START = '2026-10-05';
@@ -141,6 +142,11 @@ export type Verdict = {
    * scenariuszy „zmień w tej propozycji", które sprawdzają, że reszta została.
    */
   proposalHistory?: PlanRow[][];
+  /**
+   * Karty propozycji domu (rodzaj + treść) — te idą przez bazę, nie przez
+   * `cards` (Etap 6.1: np. podział dania z porcjami osób od serwera).
+   */
+  proposalCards?: { kind: string; payload: Record<string, unknown> }[];
   answer: string;
   answers: string[];
   tools: string[];
@@ -1278,7 +1284,26 @@ const GROUP_8: Scenario[] = [
     verify: (v) => {
       const issues: string[] = [];
       const sloty = slotOf(v.target, 'THU', 'DINNER');
-      if (sloty.length < 2) {
+      // Dwie drogi do tego samego celu (Etap 6.1): dwa dania z imiennym
+      // audytorium ALBO jedno danie z porcjami osób policzonymi przez
+      // serwer (karta HOUSEHOLD_SPLIT dla tego slotu, różne kcal osób).
+      const split = (v.proposalCards ?? []).find(
+        (card) =>
+          card.kind === 'HOUSEHOLD_SPLIT' &&
+          card.payload.dayOfWeek === 'THU' &&
+          card.payload.mealType === 'DINNER',
+      );
+      const splitPortions = (split?.payload.portions ?? []) as {
+        kcal?: number;
+      }[];
+      const oneDishSplit =
+        split !== undefined &&
+        sloty.length === 1 &&
+        splitPortions.length >= 2 &&
+        new Set(splitPortions.map((portion) => portion.kcal)).size > 1;
+      if (oneDishSplit) {
+        // jedno danie, porcje od serwera — rozdzielone
+      } else if (sloty.length < 2) {
         issues.push(`w slocie ${sloty.length} dan, oczekiwano rozdzielenia`);
       } else {
         const zAudytorium = sloty.filter(
@@ -1481,13 +1506,13 @@ const GROUP_10: Scenario[] = [
         ) {
           issues.push('karta i wynik narzedzia mowia rozne liczby');
         }
-        if (
-          typeof payload.current === 'number' &&
-          !mentionsNumber(v.answer, payload.current, 0.05) &&
-          typeof payload.target === 'number' &&
-          !mentionsNumber(v.answer, payload.target, 0.05)
-        ) {
-          issues.push('odpowiedz nie cytuje zadnej z liczb karty');
+        // Źródłem prawdy są karta i wynik narzędzia (Etap 6.1) — zdanie nie
+        // musi przepisywać liczb. Ale liczba kcal, której NIE MA w żadnym
+        // wyniku narzędzia, to liczba zmyślona albo policzona przez model.
+        for (const said of kcalNumbersIn(v.answer)) {
+          if (!v.modelSaw.includes(String(said))) {
+            issues.push(`liczba ${said} kcal nie pochodzi z serwera`);
+          }
         }
       }
       issues.push(...changedOutside(v.planBefore, v.plan, []));
@@ -1886,6 +1911,15 @@ const optionIds = (card: { payload: Record<string, unknown> } | undefined) =>
     .map((option) => option.recipeId)
     .filter((id): id is string => typeof id === 'string');
 
+/** Liczby podane w zdaniu jako kcal („1 907 kcal", „293 kcal"). */
+function kcalNumbersIn(text: string): number[] {
+  const out: number[] = [];
+  for (const match of text.matchAll(/(\d[\d\s]{0,6}\d|\d)\s*kcal/gi)) {
+    out.push(Number(match[1].replace(/\s/g, '')));
+  }
+  return out;
+}
+
 const PROPOSAL_OR_WRITE = [
   'propose_swap',
   'propose_day_plan',
@@ -2010,9 +2044,13 @@ const GROUP_13: Scenario[] = [
       const dinner = wed(after, 'DINNER');
       if (!dinner) issues.push('brak kolacji w środę po poprawce');
       else if (
-        !dinner.recipe.dietTags.some((tag) =>
-          ['VEGETARIAN', 'VEGAN'].includes(tag),
-        )
+        // `dietTags` to KATEGORIE składników (MEAT, DAIRY, LEGUME…), nie
+        // etykiety diet — wegetariańskość liczy ta sama reguła, co planer.
+        !satisfiesDiet('VEGETARIAN', {
+          dietTags: dinner.recipe.dietTags,
+          hasIngredientData: dinner.recipe.ingredientIds.length > 0,
+          perServing: null,
+        })
       ) {
         issues.push('kolacja po poprawce nie jest wegetariańska');
       }

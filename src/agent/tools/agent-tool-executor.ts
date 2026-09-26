@@ -924,8 +924,9 @@ export class AgentToolExecutor {
       // Propozycja z naruszeniami (`proposed: false`) NIE kończy tury:
       // model musi poprawić dania i zawołać jeszcze raz.
       const endsTurn =
-        TURN_ENDING_TOOLS.has(name) &&
-        (data as { proposed?: unknown } | null)?.proposed !== false;
+        (TURN_ENDING_TOOLS.has(name) &&
+          (data as { proposed?: unknown } | null)?.proposed !== false) ||
+        isReadOnlyRecipeResult(name, data);
       const turnText = endsTurn ? turnTextFor(name, input, data) : null;
       return {
         ok: true,
@@ -1279,31 +1280,8 @@ export class AgentToolExecutor {
           .then(projectRecipeForModel);
       }
 
-      case 'update_recipe': {
-        const payload: unknown = {
-          householdId,
-          ...(input.title ? { title: str('title') } : {}),
-          ...(input.description ? { description: str('description') } : {}),
-          ...(input.prep_time_minutes !== undefined
-            ? { prepTimeMinutes: Number(input.prep_time_minutes) }
-            : {}),
-          ...(input.servings !== undefined
-            ? { servings: Number(input.servings) }
-            : {}),
-          ...(input.ingredients
-            ? { ingredients: this.toIngredients(input.ingredients) }
-            : {}),
-          ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
-        };
-        const commit = context.effectCommit;
-        return this.recipes
-          .update(userId, str('recipe_id'), payload as UpdateRecipeDto, {
-            inTransaction: commit
-              ? (tx, recipeId) => commit(tx, { recipeId })
-              : undefined,
-          })
-          .then(projectRecipeForModel);
-      }
+      case 'update_recipe':
+        return this.updateRecipe(input, context);
 
       case 'remember_note':
         return this.rememberNote(input, context);
@@ -1642,13 +1620,23 @@ export class AgentToolExecutor {
     }
 
     const raw = Array.isArray(input.portions) ? input.portions : [];
-    const portions = raw
+    let portions = raw
       .map((entry) => (entry ?? {}) as Record<string, unknown>)
       .map((entry) => ({
         userId: asString(entry.user_id),
         note: asString(entry.note).trim() || null,
       }))
       .filter((portion) => portion.userId.length > 0);
+    // Bez listy osób = cały dom (domownicy ze zgodą) — Etap 6.1: model nie
+    // musi przepisywać identyfikatorów, a porcje każdej osoby i tak liczy
+    // serwer z jej celu.
+    if (portions.length === 0) {
+      const { members } = await this.visibleMembers(context);
+      portions = members.map((member) => ({
+        userId: member.userId,
+        note: null,
+      }));
+    }
     if (portions.length === 0) {
       throw new AppException(
         'VALIDATION_ERROR',
@@ -2625,19 +2613,33 @@ export class AgentToolExecutor {
       typeof input.count === 'number' ? Math.round(input.count) : 3;
     const count = Math.min(MAX_OPTIONS, Math.max(2, rawCount || 3));
     const wishes = wishesOf(input);
-    const outcome = await this.planner.suggest({
-      userId: context.userId,
-      householdId: context.householdId,
-      weekStart,
-      dayOfWeek,
-      mealType,
-      forUserIds: stringList(input.for_user_ids),
-      wishes,
-      includeIngredients: stringList(input.include_ingredients).slice(0, 5),
-      count,
-      seed: context.turnId,
-      memo: context.memo,
-    });
+    const slotLabel = `${MEAL_LABELS[mealType]} · ${DAY_LABELS[dayOfWeek].toLowerCase()}`;
+    // „Pokaż inne" (Etap 6.1): dania z kart wyboru na TEN posiłek w tej
+    // rozmowie wypadają — serwer czyta je z historii, model nie przenosi
+    // identyfikatorów. Gdy bez nich zostaje za mało dań, pokazujemy znowu
+    // całą pulę i mówimy to (`repeatedShown`).
+    const shown = await this.shownOptionIds(context.conversationId, slotLabel);
+    const ask = (excludeRecipeIds: string[]) =>
+      this.planner.suggest({
+        userId: context.userId,
+        householdId: context.householdId,
+        weekStart,
+        dayOfWeek,
+        mealType,
+        forUserIds: stringList(input.for_user_ids),
+        wishes,
+        includeIngredients: stringList(input.include_ingredients).slice(0, 5),
+        count,
+        seed: context.turnId,
+        memo: context.memo,
+        excludeRecipeIds,
+      });
+    let outcome = await ask(shown);
+    let repeatedShown = false;
+    if (shown.length > 0 && outcome.draft.suggestions.length < 2) {
+      outcome = await ask([]);
+      repeatedShown = true;
+    }
     const { draft } = outcome;
     const budget = draft.slotBudget.find(
       (entry) => entry.userId === context.userId,
@@ -2649,6 +2651,10 @@ export class AgentToolExecutor {
       // na ten posiłek przy reszcie dnia.
       ...(budget ? { remainingKcalForMeal: budget.kcal } : {}),
       ...(draft.relaxed.length > 0 ? { relaxed: draft.relaxed } : {}),
+      ...(shown.length > 0 && !repeatedShown
+        ? { skippedShown: shown.length }
+        : {}),
+      ...(repeatedShown ? { repeatedShown: true } : {}),
     };
     if (draft.suggestions.length < 2) {
       // Jedno danie to nie wybór — karty nie ma, model mówi, czego zabrakło.
@@ -2690,7 +2696,7 @@ export class AgentToolExecutor {
       buildOptionsCard({
         title: `${NUMERALS[options.length] ?? options.length} ${quick ? 'szybkie ' : ''}propozycje`,
         options,
-        slotLabel: `${MEAL_LABELS[mealType]} · ${DAY_LABELS[dayOfWeek].toLowerCase()}`,
+        slotLabel,
       }),
     );
     const refById = new Map(
@@ -2792,6 +2798,88 @@ export class AgentToolExecutor {
           chosen.portions ?? [],
         );
     return { ...proposal, planner: diagnostics };
+  }
+
+  /**
+   * Zmiana przepisu. Przepis z KATALOGU jest tylko do odczytu (Etap 6.1):
+   * zamiast błędu, po którym model sam kombinował (kopia przez
+   * `create_recipe` po kilkunastu `search_ingredients` albo zmiana porcji
+   * w planie przez propozycję), serwer oddaje jawny wynik „tylko do odczytu"
+   * i sam kończy turę zdaniem, które wyjaśnia, co może zrobić zamiast tego.
+   */
+  private async updateRecipe(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<unknown> {
+    const recipeId = this.resolveRecipeRef(asString(input.recipe_id), context);
+    if (UUID_PATTERN.test(recipeId)) {
+      const target = await this.prisma.recipe.findUnique({
+        where: { id: recipeId },
+        select: { isCatalog: true, title: true },
+      });
+      if (target?.isCatalog) {
+        return {
+          updated: false,
+          readOnly: true,
+          reason: 'CATALOG_RECIPE_READ_ONLY',
+          recipe: target.title,
+        };
+      }
+    }
+    const str = (key: string): string => asString(input[key]);
+    const payload: unknown = {
+      householdId: context.householdId,
+      ...(input.title ? { title: str('title') } : {}),
+      ...(input.description ? { description: str('description') } : {}),
+      ...(input.prep_time_minutes !== undefined
+        ? { prepTimeMinutes: Number(input.prep_time_minutes) }
+        : {}),
+      ...(input.servings !== undefined
+        ? { servings: Number(input.servings) }
+        : {}),
+      ...(input.ingredients
+        ? { ingredients: this.toIngredients(input.ingredients) }
+        : {}),
+      ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
+    };
+    const commit = context.effectCommit;
+    return this.recipes
+      .update(context.userId, recipeId, payload as UpdateRecipeDto, {
+        inTransaction: commit
+          ? (tx, id) => commit(tx, { recipeId: id })
+          : undefined,
+      })
+      .then(projectRecipeForModel);
+  }
+
+  /** Dania z ostatnich kart wyboru na ten posiłek w tej rozmowie. */
+  private async shownOptionIds(
+    conversationId: string,
+    slotLabel: string,
+  ): Promise<string[]> {
+    const rows = await this.prisma.agentMessage.findMany({
+      where: {
+        conversationId,
+        role: 'ASSISTANT',
+        kind: 'OPTIONS',
+        hiddenAt: null,
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: SHOWN_OPTIONS_LOOKBACK,
+      select: { card: true },
+    });
+    const ids = new Set<string>();
+    for (const row of rows) {
+      const card = (row.card ?? {}) as {
+        eyebrow?: string;
+        options?: { recipeId?: string }[];
+      };
+      if (card.eyebrow !== slotLabel) continue;
+      for (const option of card.options ?? []) {
+        if (typeof option.recipeId === 'string') ids.add(option.recipeId);
+      }
+    }
+    return [...ids];
   }
 
   /** Powody usunięć od modelu — bez walidacji slotów, dopasowanie robi karta. */
@@ -3032,16 +3120,49 @@ function wishesOf(input: Record<string, unknown>): PlannerWishes {
     typeof input.max_prep_minutes === 'number' && input.max_prep_minutes > 0
       ? Math.round(input.max_prep_minutes)
       : null;
+  // Cel dnia z prośby (Etap 6.1): 0/brak = profil; poza rozsądnym zakresem
+  // odmowa zamiast cichego planu pod zmyśloną liczbę.
+  const rawKcal =
+    typeof input.day_kcal_target === 'number'
+      ? Math.round(input.day_kcal_target)
+      : 0;
+  if (rawKcal !== 0 && (rawKcal < DAY_KCAL_MIN || rawKcal > DAY_KCAL_MAX)) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      `day_kcal_target: ${DAY_KCAL_MIN}–${DAY_KCAL_MAX} albo 0 (cel z profilu).`,
+      HttpStatus.BAD_REQUEST,
+      ['day_kcal_target'],
+    );
+  }
   return {
     diet: diet && diet !== 'NONE' ? diet : null,
     requiredTags: tags(input.must_have_tags, 'must_have_tags'),
     preferredTags: tags(input.prefer_tags, 'prefer_tags'),
     avoidIngredients: stringList(input.avoid_ingredients).slice(0, 10),
     maxPrepMinutes: maxPrep,
+    dayKcalTarget: rawKcal > 0 ? rawKcal : null,
   };
 }
 
 const NUMERALS: Record<number, string> = { 2: 'Dwie', 3: 'Trzy', 4: 'Cztery' };
+
+/** Ile ostatnich kart wyboru rozmowy przeglądamy przy „pokaż inne". */
+const SHOWN_OPTIONS_LOOKBACK = 5;
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Wynik `update_recipe` dla przepisu z katalogu (Etap 6.1). */
+function isReadOnlyRecipeResult(name: string, data: unknown): boolean {
+  return (
+    name === 'update_recipe' &&
+    (data as { readOnly?: unknown } | null)?.readOnly === true
+  );
+}
+
+/** Zakres celu dnia z prośby (`day_kcal_target`). */
+const DAY_KCAL_MIN = 800;
+const DAY_KCAL_MAX = 6000;
 
 /** „na kolację", „na drugie śniadanie" — do zdań serwera. */
 const MEAL_FOR: Record<MealType, string> = {
@@ -3147,6 +3268,15 @@ export function turnTextFor(
     case 'ask_clarifying_question': {
       const question = asString(input.question).trim();
       return question.length > 0 ? question : null;
+    }
+    case 'update_recipe': {
+      if (!isReadOnlyRecipeResult(name, data)) return null;
+      const title = (data as { recipe?: string }).recipe;
+      return (
+        `${title ? `„${title}” to` : 'To'} przepis z katalogu Scoffie — takich przepisów nie da się ` +
+        'edytować, więc go nie zmieniłem. Mogę zmienić liczbę porcji tego posiłku w planie albo ' +
+        'przygotować Twoją własną wersję przepisu — powiedz, co wolisz.'
+      );
     }
     default:
       return null;

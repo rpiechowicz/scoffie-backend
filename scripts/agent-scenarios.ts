@@ -32,7 +32,7 @@ import { execSync } from 'child_process';
 import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { DayOfWeek, MealType } from '@prisma/client';
+import { DayOfWeek, MealType, Prisma } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AgentPromptService } from '../src/agent/agent-prompt.service';
@@ -870,6 +870,17 @@ async function runOnce(
         memo as never,
       );
       history.push({ role: 'USER', kind: 'TEXT', text, card: null });
+      // Jak runner: pytanie w bazie PRZED turą — narzędzia czytające
+      // historię rozmowy (Etap 6.1: „pokaż inne") widzą to, co w produkcji.
+      await deps.prisma.agentMessage.create({
+        data: {
+          conversationId: built.conversationId,
+          role: 'USER',
+          kind: 'TEXT',
+          text,
+          turnId,
+        },
+      });
       const messages = await historyForModel(
         deps,
         built.conversationId,
@@ -956,6 +967,19 @@ async function runOnce(
         text: result.text,
         card: proposal?.card ?? memoryCard?.payload ?? null,
       });
+      const answerCard = proposal?.card ?? memoryCard?.payload ?? null;
+      await deps.prisma.agentMessage.create({
+        data: {
+          conversationId: built.conversationId,
+          role: 'ASSISTANT',
+          kind: proposal?.kind ?? memoryCard?.kind ?? 'TEXT',
+          text: result.text,
+          turnId,
+          ...(answerCard
+            ? { card: answerCard as unknown as Prisma.InputJsonValue }
+            : {}),
+        },
+      });
     }
   } catch (caught) {
     error = caught instanceof Error ? caught.message : String(caught);
@@ -979,6 +1003,16 @@ async function runOnce(
   const proposalHistory = proposalMode
     ? await readProposalHistory(deps.prisma, built.householdId)
     : [];
+  const proposalCards = (
+    await deps.prisma.agentProposal.findMany({
+      where: { householdId: built.householdId },
+      orderBy: { createdAt: 'asc' },
+      select: { kind: true, card: true },
+    })
+  ).map((row) => ({
+    kind: row.kind,
+    payload: (row.card ?? {}) as Record<string, unknown>,
+  }));
   const notes = (
     await deps.prisma.agentMemory.findMany({
       where: { householdId: built.householdId },
@@ -1015,6 +1049,7 @@ async function runOnce(
           target: proposalTarget ?? plan,
           proposed: proposalTarget !== null,
           proposalHistory,
+          proposalCards,
           answer: answers[answers.length - 1] ?? '',
           answers,
           tools,

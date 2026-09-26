@@ -86,6 +86,13 @@ export type PlanningConstraints = {
   avoidIngredients: string[];
   /** Przepisy wykluczone (np. danie, które właśnie podmieniamy). */
   excludeRecipeIds: string[];
+  /**
+   * TWARDY limit czasu przygotowania (min) — „każde danie najwyżej 5 minut"
+   * w planie i podmianie (Etap 6.1). Danie dłuższe nie wejdzie; pora bez
+   * takich dań = `NO_CANDIDATES` z powodem `PREP_TIME`. Brak = bez limitu
+   * (miękka podpowiedź żyje w `PlanningPreferences.maxPrepMinutes`).
+   */
+  maxPrepMinutes?: number | null;
 };
 
 /** Miękkie preferencje — wpływają na ranking, nigdy na dopuszczalność. */
@@ -197,7 +204,8 @@ export type HardFilterReason =
   | 'REQUEST_DIET'
   | 'REQUIRED_TAG'
   | 'AVOIDED_INGREDIENT'
-  | 'EXCLUDED_RECIPE';
+  | 'EXCLUDED_RECIPE'
+  | 'PREP_TIME';
 
 export type CandidateStats = {
   mealType: MealType;

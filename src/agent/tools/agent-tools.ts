@@ -111,7 +111,9 @@ const PLANNER_WISHES = {
   max_prep_minutes: {
     type: 'integer',
     description:
-      'Podpowiedź czasu gotowania w minutach (miękka). 0 = bez podpowiedzi.',
+      'Najwyżej tyle minut przygotowania. 0 = bez limitu. W planie i podmianie to limit TWARDY ' +
+      '(dłuższe dania nie wejdą; gdy ich zabraknie — PARTIAL z powodem), w daniach do wyboru ' +
+      'serwer może go poluzować i powie to w `relaxed`.',
   },
 };
 
@@ -475,9 +477,10 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     description:
       'Zaproponuj JEDNO danie dla kilku osób naraz i powiedz, jak podać je każdej z nich. ' +
       'Używaj, gdy w domu są różne cele albo ograniczenia, a gotuje się jedno („co ugotować, ' +
-      'żeby każdy zjadł swoje"). Cele i alergeny karta bierze z profili — ty dokładasz sam ' +
-      'sposób podania (wielkość porcji, co odłożyć osobno, czego nie dosypywać). ' +
-      'TY NIE ZAPISUJESZ — zapisze użytkownik.',
+      'żeby każdy zjadł swoje"), także gdy użytkownik chce ROZDZIELIĆ zaplanowany posiłek ' +
+      'między osoby o różnych celach (redukcja / masa). Porcję każdej osoby (kcal) liczy ' +
+      'serwer z jej celu — ty dokładasz najwyżej sposób podania (co odłożyć osobno, czego nie ' +
+      'dosypywać). TY NIE ZAPISUJESZ — zapisze użytkownik.',
     input_schema: object(
       {
         week_start: WEEK_START,
@@ -486,7 +489,9 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         recipe: RECIPE_REF,
         portions: {
           type: 'array',
-          description: 'Po jednej pozycji na osobę, która to je.',
+          description:
+            'Kto je i jak podać (bez liczb — porcję każdej osoby liczy serwer z jej celu). ' +
+            '[] = cały dom.',
           items: object(
             {
               user_id: {
@@ -625,7 +630,10 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       'Ty podajesz tylko posiłek, dzień i życzenia ze zdania — bez find_recipes i bez wybierania ' +
       'dań. Karta kończy turę: przed wywołaniem nic nie piszesz — zdanie dopisze serwer. ' +
       'Po „Wybieram: …" wstawiasz danie przez propose_swap, a w propozycji, która czeka na ' +
-      'zatwierdzenie — przez revise_proposal. TY NIE ZAPISUJESZ.',
+      'zatwierdzenie — przez revise_proposal. „Pokaż inne" = to samo narzędzie jeszcze raz: ' +
+      'serwer sam pominie dania już pokazane na ten posiłek. NIE do rozdzielania posiłku ' +
+      'między domowników (propose_household_split) ani do zmiany dania w propozycji lub planie ' +
+      '(replace_plan_item). TY NIE ZAPISUJESZ.',
     input_schema: object(
       {
         week_start: WEEK_START,
@@ -694,6 +702,13 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
           description: 'Dla kogo. [] = cały dom (zwykle tak).',
         },
         ...PLANNER_WISHES,
+        day_kcal_target: {
+          type: 'integer',
+          description:
+            'Dzienny cel albo limit kcal podany W TEJ prośbie („zmieść się w 1800") — planer ' +
+            'celuje w niego zamiast w cel z profilu pytającego, tylko w tym planie (profil bez ' +
+            'zmian). 0 = cel z profilu (zwykle tak).',
+        },
       },
       [
         'week_start',
@@ -705,6 +720,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         'prefer_tags',
         'avoid_ingredients',
         'max_prep_minutes',
+        'day_kcal_target',
       ],
     ),
   },
@@ -868,13 +884,15 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     description:
       'Popraw przepis gospodarstwa. Podaj tylko to, co ma się zmienić. Uwaga: przysłane składniki ' +
       'albo kroki ZASTĘPUJĄ poprzednie w całości, więc wysyłaj pełną listę, nie różnicę. ' +
-      'Przepisów z katalogu nie da się zmienić — zrób własną kopię przez create_recipe.',
+      'Przepis z KATALOGU jest tylko do odczytu: wołaj to narzędzie i tak — serwer odmówi, sam ' +
+      'wyjaśni to użytkownikowi i zaproponuje, co można zrobić zamiast tego. Nie rób kopii ' +
+      '(create_recipe) ani nie zmieniaj planu, dopóki użytkownik wprost o to nie poprosi.',
     input_schema: object(
       {
         recipe_id: {
           type: 'string',
           description:
-            'Identyfikator przepisu gospodarstwa (nie indeks katalogu).',
+            'Przepis: identyfikator przepisu gospodarstwa albo indeks katalogu (R07).',
         },
         title: { type: 'string' },
         prep_time_minutes: { type: 'integer' },

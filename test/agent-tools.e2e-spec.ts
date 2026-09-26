@@ -400,16 +400,33 @@ describe('Narzędzia asystenta E2E', () => {
       expect(recipe.isActive).toBe(true);
     });
 
-    it('edycja przepisu z katalogu wraca jako błąd z kodem', async () => {
+    // Etap 6.1: zamiast błędu (po którym model sam robił kopię przez
+    // create_recipe albo zmieniał plan) — jawny wynik „tylko do odczytu",
+    // który kończy turę zdaniem serwera. Katalog dalej nietknięty.
+    it('edycja przepisu z katalogu: jawny wynik „tylko do odczytu", katalog nietknięty', async () => {
       const catalogRecipeId = context.catalogIndex[firstCatalogIndex];
+      const before = await prisma.recipe.findUniqueOrThrow({
+        where: { id: catalogRecipeId },
+        select: { title: true },
+      });
       const result = await run('update_recipe', {
         recipe_id: catalogRecipeId,
         title: 'Podmiana katalogu',
       });
       expect(result).toMatchObject({
-        ok: false,
-        error: { code: 'RECIPE_NOT_EDITABLE' },
+        ok: true,
+        endsTurn: true,
+        data: {
+          updated: false,
+          readOnly: true,
+          reason: 'CATALOG_RECIPE_READ_ONLY',
+        },
       });
+      const after = await prisma.recipe.findUniqueOrThrow({
+        where: { id: catalogRecipeId },
+        select: { title: true },
+      });
+      expect(after.title).toBe(before.title);
     });
   });
 

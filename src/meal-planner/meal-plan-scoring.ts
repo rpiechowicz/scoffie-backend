@@ -196,6 +196,10 @@ export function hardFilterReason(
   if (request.constraints.excludeRecipeIds.includes(recipe.id)) {
     return 'EXCLUDED_RECIPE';
   }
+  const maxPrep = request.constraints.maxPrepMinutes;
+  if (typeof maxPrep === 'number' && recipe.prepTimeMinutes > maxPrep) {
+    return 'PREP_TIME';
+  }
   const allergens = audience.flatMap((eater) => eater.allergens);
   if (conflictingAllergens(recipe.allergens, allergens).length > 0) {
     return 'ALLERGEN';

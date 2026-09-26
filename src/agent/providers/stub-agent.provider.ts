@@ -63,7 +63,15 @@ export const STUB_OPTIONS_PATTERN = /\[\[options:([0-9a-fA-F,-]{36,})\]\]/;
  * Wymusza SERWEROWY PLAN: `[[build:<YYYY-MM-DD>:<DNI po przecinku>]]` →
  * `build_meal_plan` dla tych dni, pór domu i całego domu, bez życzeń.
  */
-export const STUB_BUILD_PATTERN = /\[\[build:(\d{4}-\d{2}-\d{2}):([A-Z,]+)\]\]/;
+export const STUB_BUILD_PATTERN =
+  /\[\[build:(\d{4}-\d{2}-\d{2}):([A-Z,]+)(?::kcal=(\d{3,4}))?(?::prep=(\d{1,3}))?\]\]/;
+
+/**
+ * `[[update-recipe:<recipeId>:<porcje>]]` → `update_recipe` (Etap 6.1: przepis
+ * z katalogu ma skończyć turę jawnym „tylko do odczytu” od serwera).
+ */
+export const STUB_UPDATE_RECIPE_PATTERN =
+  /\[\[update-recipe:([0-9a-fA-F-]{36}):(\d{1,2})\]\]/;
 
 /**
  * Wymusza ZAMIENNIK od planera:
@@ -232,7 +240,34 @@ export class StubAgentProvider implements AgentProvider {
         for_user_ids: [],
         diet: 'NONE',
         ...wishes,
+        max_prep_minutes: build[4] ? Number(build[4]) : 0,
+        day_kcal_target: build[3] ? Number(build[3]) : 0,
       });
+    }
+
+    const updateRecipe = STUB_UPDATE_RECIPE_PATTERN.exec(lastUserText);
+    if (updateRecipe) {
+      const outcome = await request.executeTool('update_recipe', {
+        recipe_id: updateRecipe[1],
+        servings: Number(updateRecipe[2]),
+      });
+      // Jak prawdziwy dostawca: wynik kończący turę ze zdaniem serwera =
+      // koniec tury bez kolejnej rundy (`tool_ended_turn`).
+      if (outcome.ok && outcome.endsTurn && outcome.turnText) {
+        return {
+          text: outcome.turnText,
+          stopReason: 'tool_ended_turn',
+          apiCalls: calls + 1,
+          usage: {
+            inputTokens: lastUserText.length,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            outputTokens: 0,
+            costMicroUsd: cost,
+          },
+          phases: [],
+        };
+      }
     }
 
     const replace = STUB_REPLACE_PATTERN.exec(lastUserText);

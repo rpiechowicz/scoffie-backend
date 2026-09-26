@@ -746,8 +746,13 @@ function describeRemoved(
   removed: Partial<Record<HardFilterReason, number>>,
 ): string {
   const entries = Object.entries(removed).filter(([, count]) => count);
+  // Powód, który model ma powiedzieć użytkownikowi, słowami — nie kodem.
+  const label = (reason: string) =>
+    reason === 'PREP_TIME'
+      ? 'PREP_TIME (czas przygotowania ponad limit)'
+      : reason;
   return entries.length > 0
-    ? entries.map(([reason, count]) => `${reason}×${count}`).join(', ')
+    ? entries.map(([reason, count]) => `${label(reason)}×${count}`).join(', ')
     : 'brak dań na tę porę';
 }
 
