@@ -28,6 +28,7 @@
  *   pnpm agent:scenarios -- --list
  */
 import { NestFactory } from '@nestjs/core';
+import { execSync } from 'child_process';
 import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -40,6 +41,7 @@ import { AnthropicAgentProvider } from '../src/agent/providers/anthropic-agent.p
 import { AgentMemoryService } from '../src/agent/agent-memory.service';
 import { AiEffort, AgentEnv, readAgentEnv } from '../src/config/agent-env';
 import { resolveRoute } from '../src/agent/agent-route';
+import { createPlanScope } from '../src/agent/tools/plan-scope';
 import {
   AgentCallTiming,
   AgentProviderError,
@@ -150,7 +152,13 @@ type RunRecord = {
   cacheWriteTokens: number;
   cacheHitRatio: number;
   costMicroUsd: number;
+  /** Powód zatrzymania OSTATNIEJ tury scenariusza. */
   stopReason: string | null;
+  /**
+   * Powód zatrzymania KAŻDEJ tury (scenariusz bywa rozmową). Od 26.09.2026
+   * `tool_ended_turn` znaczy, że karta zakończyła turę bez ostatniej rundy.
+   */
+  stopReasons: string[];
   /** Rozmiar wyniku `get_week_plan` w bajtach — do porównania BEFORE/AFTER. */
   weekPlanPayloadBytes: number | null;
   /** Czas każdego wywołania API: na co poszła latencja (myślenie, narzędzia, tekst). */
@@ -616,12 +624,40 @@ function dryRun(request: AgentProviderRequest): Promise<AgentProviderResult> {
   // Jedno CZYTAJĄCE narzędzie, żeby przejść ścieżkę wykonania narzędzi bez
   // dotykania planu. `get_household_context` nie bierze argumentów i niczego
   // nie zapisuje — ta sama sztuczka, co w `STUB_TOOL_MARKER`.
-  const readOnly = request.tools.find(
-    (tool) => tool.name === 'get_household_context',
-  );
-  const run = readOnly
-    ? request.executeTool('get_household_context', {})
-    : Promise.resolve(null);
+  //
+  // Od 26.09.2026 także `find_recipes` (też tylko czyta): w trybie mapy
+  // katalogu to jedyna droga do dań, więc przebieg na sucho ma sprawdzić,
+  // że wyszukiwarka działa w świecie scenariusza (alergeny, dieta, pory).
+  const has = (name: string) =>
+    request.tools.some((tool) => tool.name === name);
+  // Odmowa narzędzia na sucho to zepsuty świat albo harness — ma być głośna,
+  // a nie cicho połknięta jak zwykły wynik dla modelu.
+  const call = async (name: string, input: Record<string, unknown>) => {
+    const outcome = await request.executeTool(name, input);
+    if (!outcome.ok) {
+      throw new Error(`harness: ${name} → ${outcome.error.code}`);
+    }
+  };
+  const run = (async () => {
+    if (has('get_household_context')) {
+      await call('get_household_context', {});
+    }
+    if (has('find_recipes')) {
+      await call('find_recipes', {
+        query: '',
+        meal_type: 'ANY',
+        tags: [],
+        include_ingredients: [],
+        exclude_ingredients: [],
+        max_prep_minutes: 0,
+        max_kcal_per_serving: 0,
+        min_protein_per_serving: 0,
+        for_user_ids: [],
+        sort: 'BEST_FIT',
+        limit: 8,
+      });
+    }
+  })();
   return run.then(() => ({
     text: '(przebieg na sucho — model nie był wołany)',
     stopReason: 'dry_run',
@@ -676,6 +712,7 @@ async function runOnce(
   let cacheWriteTokens = 0;
   let costMicroUsd = 0;
   let stopReason: string | null = null;
+  const stopReasons: string[] = [];
   let error: string | null = null;
 
   const planBefore = await readPlan(deps.prisma, built.householdId);
@@ -694,6 +731,10 @@ async function runOnce(
         route.promptHandoff,
       );
       messages.push({ role: 'USER', text });
+      // Zakres planowania TURY — tak jak w `AgentTurnRunner`: jeden na turę,
+      // wspólny dla obu faz. Bez niego scenariusz omijał bramkę „najwyżej
+      // tydzień na prośbę", a `find_recipes` rankingu bez planu tygodnia.
+      const planScope = createPlanScope();
       const started = Date.now();
       let result: AgentProviderResult;
       const call: (
@@ -717,6 +758,8 @@ async function runOnce(
               conversationId: built.conversationId,
               turnId: randomUUID(),
               proposalMode,
+              planScope,
+              dates: { weekStart: WEEK_START, clientToday: WEEK_START },
               collectCard: (card: AgentCard) =>
                 cards.push({
                   kind: card.kind,
@@ -747,6 +790,7 @@ async function runOnce(
       cacheWriteTokens += result.usage.cacheWriteTokens;
       costMicroUsd += result.usage.costMicroUsd;
       stopReason = result.stopReason;
+      stopReasons.push(result.stopReason ?? 'null');
       answers.push(result.text);
       messages.push({ role: 'ASSISTANT', text: result.text });
     }
@@ -853,6 +897,7 @@ async function runOnce(
       cacheDenominator > 0 ? cacheReadTokens / cacheDenominator : 0,
     costMicroUsd,
     stopReason,
+    stopReasons,
     weekPlanPayloadBytes: weekPlanCall
       ? Buffer.byteLength(weekPlanCall.json, 'utf8')
       : null,
@@ -1123,6 +1168,33 @@ function printSummary(records: RunRecord[]): void {
 // Wejście
 // ---------------------------------------------------------------------------
 
+/**
+ * Co trzeba wiedzieć, żeby porównać dwa przebiegi (BEFORE/AFTER): commit,
+ * tryb katalogu w prompcie i wielkość katalogu. Stare wyniki w `benchmark/`
+ * tego nie mają — patrz `benchmark/README.md`.
+ */
+function runMetadata(
+  env: AgentEnv,
+  catalogSize: number,
+): Record<string, unknown> {
+  const git = (command: string): string | null => {
+    try {
+      return execSync(command, { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString()
+        .trim();
+    } catch {
+      return null;
+    }
+  };
+  return {
+    commit: git('git rev-parse --short HEAD'),
+    worktreeDirty: (git('git status --porcelain') ?? '').length > 0,
+    catalogMode: env.catalogMode,
+    catalogSize,
+    cacheWarmHours: env.cacheWarmHours,
+  };
+}
+
 async function main(): Promise<void> {
   if (has('list')) {
     for (const scenario of SCENARIOS) {
@@ -1134,7 +1206,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (!(process.env.ANTHROPIC_API_KEY ?? '').trim()) {
+  // Przebieg na sucho (`--dry`) nie woła modelu, więc nie potrzebuje klucza —
+  // dzięki temu harness da się sprawdzić za darmo, także bez sekretów.
+  if (!has('dry') && !(process.env.ANTHROPIC_API_KEY ?? '').trim()) {
     console.error('Brak ANTHROPIC_API_KEY — ten skrypt woła prawdziwe API.');
     process.exit(1);
   }
@@ -1263,6 +1337,7 @@ async function main(): Promise<void> {
           cacheHitRatio: 0,
           costMicroUsd: 0,
           stopReason: 'HARNESS_ERROR',
+          stopReasons: ['HARNESS_ERROR'],
           weekPlanPayloadBytes: null,
           timings: [],
           answer: '',
@@ -1276,7 +1351,7 @@ async function main(): Promise<void> {
         // Na sucho zastrzeżenia są NORMĄ (nikt nie ułożył planu). Awarią jest
         // wywrócone `verify` albo zepsuty fixture — i tylko to pokazujemy.
         const zepsute = record.issues.filter((issue) =>
-          /^(harness:|fixture:|verify wywalilo sie)/.test(issue),
+          /^(harness:|fixture:|verify wywalilo sie|tura padla)/.test(issue),
         );
         console.log(
           `[${String(done).padStart(3)}/${jobs.length}] ${record.scenario.padEnd(28)} ` +
@@ -1299,10 +1374,26 @@ async function main(): Promise<void> {
     Array.from({ length: Math.min(concurrency, jobs.length) }, () => worker()),
   );
 
+  const meta = runMetadata(baseEnv, deps.catalog.length);
+
   if (dry) {
+    if (flag('out')) {
+      const dryPath = resolve(process.cwd(), out);
+      mkdirSync(dirname(dryPath), { recursive: true });
+      writeFileSync(
+        dryPath,
+        JSON.stringify(
+          { label, dry: true, ...meta, cardsMode, records },
+          null,
+          2,
+        ),
+        'utf8',
+      );
+      console.log(`Wyniki na sucho: ${dryPath}`);
+    }
     const zepsute = records.filter((record) =>
       record.issues.some((issue) =>
-        /^(harness:|fixture:|verify wywalilo sie)/.test(issue),
+        /^(harness:|fixture:|verify wywalilo sie|tura padla)/.test(issue),
       ),
     );
     console.log(
@@ -1336,6 +1427,7 @@ NA SUCHO: ${records.length - zepsute.length} z ${records.length} scenariuszy ma 
       {
         label,
         startedAt: new Date().toISOString(),
+        ...meta,
         cardsMode,
         weekStart: WEEK_START,
         scenarios: chosen.length,
