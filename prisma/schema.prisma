@@ -1007,6 +1007,9 @@ model AgentTurn {
 
   @@unique([userMessageId])
   @@index([conversationId, status])
+  /// Sprzątanie tur osieroconych przez restart: RUNNING bez znaku życia
+  /// (`updatedAt` odświeża runner co kilkanaście sekund).
+  @@index([status, updatedAt])
   @@index([userId, createdAt])
   /// Panel: tury dziennie i „dziś” na pulpicie — bez filtra po osobie.
   @@index([createdAt])
@@ -1046,9 +1049,18 @@ model AiUsage {
   /// pomiar. `NULL` znaczy „nie wiadomo" i tak też liczą to raporty.
   apiCalls         Int?
   latencyMs        Int?
+  /// Numer wywołania dostawcy w turze (0, 1, …) — klucz idempotencji księgi.
+  /// Od 26.09.2026 jeden wiersz = jedno wywołanie API, zapisany ZARAZ po nim,
+  /// niezależnie od tego, jak tura się skończy. `NULL` = wiersz sprzed tej
+  /// kolumny (jeden na fazę) albo spoza tury (podgrzewanie cache).
+  callIndex        Int?
   createdAt        DateTime @default(now())
 
   turn AgentTurn? @relation(fields: [turnId], references: [id], onDelete: SetNull)
+
+  /// To samo wywołanie zapisane drugi raz (ponowienie po błędzie bazy,
+  /// wyścig runnera z domknięciem) nie dubluje kosztu.
+  @@unique([turnId, callIndex])
 
   @@index([userId, createdAt])
   @@index([createdAt])

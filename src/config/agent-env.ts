@@ -215,6 +215,20 @@ export type AgentEnv = {
    * tury po godzinie ciszy (pomiar 24.09.2026).
    */
   cacheWarmHours: number;
+  /**
+   * Rezerwacja budżetu na turę W BIEGU (USD), liczona przy przyjęciu nowej
+   * tury: sufit domu (doba, miesiąc) i instalacji widzi wydane pieniądze PLUS
+   * tyle za każdą inną żywą turę. Bez tego dwa równoległe starty tuż pod
+   * sufitem przechodziły oba, bo koszt dopisywał się dopiero po turze.
+   * `0` = bez rezerwacji (samo „wydane < sufit", jak przed 26.09.2026).
+   */
+  turnCostReserveUsd: number;
+  /**
+   * Ile ms po SIGTERM czekamy, aż tury w biegu domkną się same, zanim
+   * przerwiemy resztę (`AI_PROVIDER_ERROR`, koszt zostaje w księdze).
+   * Ma sens tylko, gdy platforma daje procesowi ten czas przed SIGKILL.
+   */
+  shutdownGraceMs: number;
 };
 
 /**
@@ -338,6 +352,14 @@ export const AGENT_ENV_DEFAULTS = {
    * raport pokaże dużo tur z `cacheWriteTokens` > 0.
    */
   cacheWarmHours: 0,
+  /**
+   * Typowa tura w trybie wyszukiwarki to kilka centów, plan tygodnia do
+   * ~$0,40 (szacunek z benchmarków 24.09, stary tryb). $0,25 nie zjada
+   * dobowego sufitu domu ($1,50) samotnej turze — rezerwacja liczy się tylko
+   * za INNE tury w biegu — a dwie równoległe tuż pod sufitem już zatrzymuje.
+   */
+  turnCostReserveUsd: 0.25,
+  shutdownGraceMs: 8_000,
 } as const;
 
 /**
@@ -579,7 +601,30 @@ export function readAgentEnv(
       AGENT_ENV_DEFAULTS.cacheWarmHours,
       { min: 0 },
     ),
+    turnCostReserveUsd: readNonNegativeUsd(
+      env,
+      'AI_TURN_COST_RESERVE_USD',
+      AGENT_ENV_DEFAULTS.turnCostReserveUsd,
+    ),
+    shutdownGraceMs: readNumber(
+      env,
+      'AI_SHUTDOWN_GRACE_MS',
+      AGENT_ENV_DEFAULTS.shutdownGraceMs,
+      { min: 0 },
+    ),
   };
+}
+
+/** Kwota ≥ 0 (zero jest legalne i znaczy „wyłączone"); śmieci = domyślna. */
+function readNonNegativeUsd(
+  env: NodeJS.ProcessEnv,
+  key: string,
+  fallback: number,
+): number {
+  const raw = (env[key] ?? '').trim();
+  if (!raw) return fallback;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
 /** Ścisły parser trybu katalogu — env (literówka = `search`) i panel (400). */
