@@ -63,6 +63,55 @@ export function billingRange(now: Date, anchorAt: Date | null) {
   };
 }
 
+/** Zakres zapytania o własną księgę kosztu: 31 dób albo od początku miesiąca UTC — co wcześniej. */
+export function ledgerRange(now: Date): { from: Date; to: Date } {
+  const today = utcDay(now);
+  return {
+    from: new Date(
+      Math.min(
+        monthStart(now).getTime(),
+        addDays(today, -(DAILY_DAYS - 1)).getTime(),
+      ),
+    ),
+    to: addDays(today, 1),
+  };
+}
+
+/** Wiersz księgi: doba UTC `YYYY-MM-DD` i suma `AiUsage.costMicroUsd`. */
+export type LedgerRow = { day: string; microUsd: number };
+
+/**
+ * Koszt asystenta z własnej księgi (`AiUsage`) w tych samych dobach UTC co
+ * wydatki z Anthropic — `last7Usd` to dziś i 6 poprzednich dób, miesiąc UTC.
+ */
+export function buildLedger(
+  rows: LedgerRow[],
+  now: Date,
+): NonNullable<AnthropicBilling['ledger']> {
+  const today = utcDay(now);
+  const byDay = new Map<string, number>();
+  for (const r of rows) {
+    byDay.set(r.day, (byDay.get(r.day) ?? 0) + r.microUsd / 1_000_000);
+  }
+  const usdOn = (d: Date) => byDay.get(dayKey(d)) ?? 0;
+  let last7 = 0;
+  for (let i = 0; i <= 6; i++) last7 += usdOn(addDays(today, -i));
+  const monthKey = dayKey(today).slice(0, 7);
+  const month = [...byDay].reduce(
+    (s, [k, usd]) => (k.startsWith(monthKey) ? s + usd : s),
+    0,
+  );
+  return {
+    todayUsd: round2(usdOn(today)),
+    last7Usd: round2(last7),
+    monthUsd: round2(month),
+    daily: Array.from({ length: DAILY_DAYS }, (_, i) => {
+      const date = addDays(today, i - (DAILY_DAYS - 1));
+      return { date: dayKey(date), usd: round2(usdOn(date)) };
+    }),
+  };
+}
+
 /** Koszt bez modelu (wyszukiwanie, kod) — pod swoim rodzajem. */
 export const costKey = (r: CostResult): string =>
   r.model ?? r.cost_type ?? r.description ?? 'inne';
@@ -179,6 +228,8 @@ export function buildBilling(input: {
   lowBalanceUsd: number;
   now: Date;
   fetchedAt: Date;
+  /** własna księga kosztu — niezależna od klucza Anthropic */
+  ledger?: AnthropicBilling['ledger'];
 }): AnthropicBilling {
   const { raw, anchors, now } = input;
   const today = utcDay(now);
@@ -321,5 +372,6 @@ export function buildBilling(input: {
       note: a.note,
       by: a.createdBy,
     })),
+    ledger: input.ledger ?? null,
   };
 }

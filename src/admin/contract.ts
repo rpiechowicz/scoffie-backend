@@ -1647,6 +1647,35 @@ export interface AnthropicBilling {
     note: string | null;
     by: string | null;
   }[];
+  /** koszt asystenta z własnej księgi backendu (per wywołanie modelu), te same doby UTC co `daily` i `spend` — do porównania z rachunkiem Anthropic */
+  ledger: {
+    todayUsd: number;
+    last7Usd: number;
+    monthUsd: number;
+    daily: { date: string; usd: number }[];
+  } | null;
+}
+
+/**
+ * `GET /admin/badges` — liczniki paska bocznego panelu. Same `COUNT`-y
+ * z bazy i ostatni znany stan Railwaya z pamięci procesu, bez zewnętrznych
+ * API. `null` przy polu, do którego rola nie ma uprawnienia odczytu.
+ */
+export interface AdminBadges {
+  /** AgentReport NEW (jak licznik w ReportsScreen: status NEW) */
+  reports: number | null;
+  /** otwarte AdminAlert; critical — z poziomem krytycznym */
+  alerts: { open: number; critical: number } | null;
+  /** MailMessage FAILED — ta sama definicja co attention.mailsFailed w /dashboard */
+  mailsFailed: number | null;
+  /** Subscription GRACE — jak attention.subsInGrace */
+  subsInGrace: number | null;
+  /** otwarte wnioski RODO: po terminie / termin < 7 dni — jak stats w /gdpr */
+  gdpr: { overdue: number; dueSoon: number } | null;
+  /** z ostatniego znanego stanu Railway w pamięci (DeployTracker / cache `railway`), bez pobierania; null gdy stanu jeszcze nie ma */
+  system: { down: number; deploying: boolean } | null;
+  /** otwarty alert `anthropic-balance-low` */
+  claudeLow: boolean | null;
 }
 
 /** `POST /admin/anthropic/anchors` — saldo z Console po doładowaniu albo kontrolnie. */

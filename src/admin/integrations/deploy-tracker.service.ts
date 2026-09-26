@@ -9,7 +9,7 @@ import {
   type LiveEvent,
   type LiveNotice,
 } from '../../common/live-events';
-import type { RailwayData } from '../contract';
+import type { RailwayData, RailwayService } from '../contract';
 import { IntegrationError } from './integration-fetch';
 import { readRailwayToken } from './integrations-env';
 import {
@@ -49,6 +49,12 @@ export const MAX_TRACK_MS = 30 * 60_000;
 const SCOPE_TTL_MS = 10 * 60_000;
 
 type Known = Map<string, { deployId: string | null; status: string | null }>;
+
+/** Usługa w ostatnim znanym stanie — tyle, ile potrzeba licznikom panelu. */
+export type KnownService = Pick<
+  RailwayService,
+  'id' | 'name' | 'cron' | 'runs' | 'deploys'
+>;
 
 /** Najnowsze wdrożenia z pełnego odczytu (`fetchRailway`). */
 export const latestOf = (data: RailwayData): LatestDeploy[] =>
@@ -138,6 +144,53 @@ export class DeployTrackerService
   private trackingSince: number | null = null;
   private readonly listeners = new Set<() => void>();
   private scope: { value: RailwayScope; at: number } | null = null;
+  /** Ostatni pełny odczyt Railwaya (ekran „System”, przebieg alertów) i chwila pobrania. */
+  private snapshot: { data: RailwayData; at: number } | null = null;
+  /** Ostatnie najnowsze wdrożenia z własnego odczytu albo `observe`. */
+  private latest: { list: LatestDeploy[]; at: number } | null = null;
+
+  /**
+   * Pełny odczyt Railwaya z innego miejsca — pamiętany dla liczników panelu
+   * (`GET /admin/badges`), żeby te nigdy nie pytały Railwaya. `at` — chwila
+   * pobrania (odczyt z pamięci na minutę ma starszą niż teraz); starszy od
+   * zapamiętanego nie nadpisuje.
+   */
+  remember(data: RailwayData, at: number = this.io.now()): void {
+    if (this.snapshot && this.snapshot.at > at) return;
+    this.snapshot = { data, at };
+  }
+
+  /**
+   * Ostatni znany stan usług bez pytania Railwaya: pełny odczyt z nałożonymi
+   * świeższymi wdrożeniami ze śledzenia. `null` — jeszcze nic (tuż po
+   * starcie procesu, zanim cokolwiek zapytało Railway).
+   */
+  lastKnown(): KnownService[] | null {
+    const latest = this.latest;
+    const snapshot = this.snapshot;
+    if (!snapshot) {
+      if (!latest) return null;
+      // Tylko śledzenie: bez historii cronów — liczy się samo wdrożenie.
+      return latest.list.map((s) => ({
+        id: s.serviceId,
+        name: s.serviceName,
+        cron: null,
+        runs: [],
+        deploys: s.deploy ? [s.deploy] : [],
+      }));
+    }
+    const fresher =
+      latest && latest.at >= snapshot.at
+        ? new Map(latest.list.map((s) => [s.serviceId, s.deploy]))
+        : null;
+    return snapshot.data.services.map((s) => {
+      const deploy = fresher?.get(s.id);
+      if (!deploy) return s;
+      const rest =
+        s.deploys[0]?.id === deploy.id ? s.deploys.slice(1) : s.deploys;
+      return { ...s, deploys: [deploy, ...rest] };
+    });
+  }
 
   /** Przebieg z wynikiem innym niż poprzedni — np. czyszczenie pamięci odczytu. */
   onChange(listener: () => void): () => void {
@@ -200,6 +253,7 @@ export class DeployTrackerService
   }
 
   private apply(list: LatestDeploy[]): void {
+    this.latest = { list, at: this.io.now() };
     const next = knownOf(list);
     const prev = this.known;
     this.known = next;
