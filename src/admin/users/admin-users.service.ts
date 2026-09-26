@@ -41,11 +41,24 @@ import type { AdminUserListQueryDto } from './admin-users.dto';
 import { isOwnerAccount } from './owner-account';
 import { refreshFamilies } from './refresh-families';
 import {
-  daysBefore,
+  addDays,
   sqlInstant,
   sqlWarsawDay,
+  warsawDateKey,
   warsawMonthDays,
 } from '../common/warsaw-calendar';
+
+/**
+ * „Aktywny w 7 dni” = osoba była w aplikacji w którejś z 7 ostatnich dób
+ * warszawskich (dziś i 6 poprzednich) — ten sam `UserActivityDay` i to samo
+ * okno co WAU na ekranie „Wzrost”. Nie `lastLoginAt`: pełne logowanie zdarza
+ * się rzadko, aplikacja odnawia sesję po cichu.
+ */
+function activeIn7Days(now: Date): Prisma.Sql {
+  const fromKey = addDays(warsawDateKey(now), -6);
+  return Prisma.sql`EXISTS (SELECT 1 FROM "UserActivityDay" a
+    WHERE a."userId" = u."id" AND a."date" >= ${fromKey}::date)`;
+}
 
 /** Sufit listy — panel filtruje i sortuje resztę po swojej stronie. */
 export const USER_LIST_LIMIT = 1000;
@@ -111,10 +124,10 @@ export class AdminUsersService {
 
       const rows = await tx.$queryRaw<UserRow[]>`
         SELECT u."id", u."displayName", u."email", u."avatarColor",
-               u."onboardingCompletedAt", u."lastLoginAt", u."createdAt"
+               u."onboardingCompletedAt", u."lastLoginAt", u."lastSeenAt", u."createdAt"
         FROM "User" u
         WHERE ${where}
-        ORDER BY u."lastLoginAt" DESC NULLS LAST, u."createdAt" DESC, u."id" ASC
+        ORDER BY u."lastSeenAt" DESC NULLS LAST, u."createdAt" DESC, u."id" ASC
         LIMIT ${USER_LIST_LIMIT}::int`;
       const [counted] = await tx.$queryRaw<{ total: number }[]>`
         SELECT COUNT(*)::int AS "total" FROM "User" u WHERE ${where}`;
@@ -161,12 +174,8 @@ export class AdminUsersService {
       );
     }
     if (filters.active7 !== undefined) {
-      const since = sqlInstant(daysBefore(now, 7));
-      conditions.push(
-        filters.active7
-          ? Prisma.sql`u."lastLoginAt" >= ${since}`
-          : Prisma.sql`(u."lastLoginAt" IS NULL OR u."lastLoginAt" < ${since})`,
-      );
+      const active = activeIn7Days(now);
+      conditions.push(filters.active7 ? active : Prisma.sql`NOT ${active}`);
     }
     if (filters.noHousehold !== undefined) {
       const member = Prisma.sql`EXISTS (SELECT 1 FROM "Membership" m WHERE m."userId" = u."id")`;
@@ -201,7 +210,7 @@ export class AdminUsersService {
         COUNT(*)::int AS "total",
         COUNT(*) FILTER (WHERE lower(trim(u."email")) LIKE ${APPLE_RELAY_SUFFIX})::int AS "hiddenEmail",
         COUNT(*) FILTER (WHERE u."onboardingCompletedAt" IS NOT NULL)::int AS "onboarded",
-        COUNT(*) FILTER (WHERE u."lastLoginAt" >= ${sqlInstant(daysBefore(now, 7))})::int AS "loggedIn7d",
+        COUNT(*) FILTER (WHERE ${activeIn7Days(now)})::int AS "loggedIn7d",
         (
           -- Zgoda „aktualna" = ostatnie zdarzenie osoby to GRANTED w wersji nie
           -- starszej niż minimalna — ta sama reguła co ConsentsService.isGranted.

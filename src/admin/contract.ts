@@ -101,7 +101,7 @@ export interface Production {
 }
 
 export interface DashboardData {
-  /** `User.lastLoginAt` dzisiaj */
+  /** w aplikacji dziś (doba warszawska, `UserActivityDay` — jak DAU we „Wzroście”); nazwa historyczna */
   loggedInToday: number;
   loggedInTrend: Trend;
   today: {
@@ -136,7 +136,10 @@ export interface UserListItem {
   /** adres z przekaźnika Apple (@privaterelay.appleid.com) */
   hiddenEmail: boolean;
   onboardingCompletedAt: IsoDate | null;
+  /** ostatnie PEŁNE logowanie (Apple/Google/e-mail) — aplikacja potem odnawia sesję po cichu */
   lastLoginAt: IsoDate | null;
+  /** ostatnio w aplikacji: ostatnie uwierzytelnione żądanie, z dokładnością do 5 min */
+  lastSeenAt: IsoDate | null;
   createdAt: IsoDate;
   householdId: string | null;
   householdName: string | null;
@@ -152,6 +155,7 @@ export interface UserListFilters {
   q?: string;
   onboarding?: boolean;
   subscribed?: boolean;
+  /** był w aplikacji w 7 ostatnich dobach warszawskich (`UserActivityDay`, jak WAU) */
   active7?: boolean;
   noHousehold?: boolean;
 }
@@ -163,6 +167,7 @@ export interface UserList {
     total: number;
     hiddenEmail: number;
     onboarded: number;
+    /** w aplikacji w 7 ostatnich dobach warszawskich (`UserActivityDay`, jak WAU) — nazwa historyczna */
     loggedIn7d: number;
     paying: number;
     aiConsent: number;
@@ -312,7 +317,10 @@ export interface HouseholdListItem {
   pool: Pool;
   /** `CookidooIntegration.status` */
   cookidoo: 'CONNECTED' | 'AUTH_FAILED' | null;
+  /** najpóźniejsze pełne logowanie domownika */
   lastLoginAt: IsoDate | null;
+  /** najpóźniej w aplikacji spośród domowników */
+  lastSeenAt: IsoDate | null;
   createdAt: IsoDate;
 }
 

@@ -28,6 +28,7 @@ export const USER_ROW_SELECT = {
   avatarColor: true,
   onboardingCompletedAt: true,
   lastLoginAt: true,
+  lastSeenAt: true,
   createdAt: true,
 } as const satisfies Prisma.UserSelect;
 
@@ -38,6 +39,7 @@ export type UserRow = {
   avatarColor: number | null;
   onboardingCompletedAt: Date | null;
   lastLoginAt: Date | null;
+  lastSeenAt: Date | null;
   createdAt: Date;
 };
 
@@ -50,6 +52,7 @@ export type RosterMember = {
   displayName: string;
   avatarColor: number;
   lastLoginAt: Date | null;
+  lastSeenAt: Date | null;
   identity: IdentityFields;
 };
 
@@ -113,6 +116,7 @@ export async function loadHouseholdRosters(
               displayName: true,
               avatarColor: true,
               lastLoginAt: true,
+              lastSeenAt: true,
               ...IDENTITY_SELECT,
             },
           },
@@ -134,6 +138,7 @@ export async function loadHouseholdRosters(
         avatarColor: membership.user.avatarColor,
       }),
       lastLoginAt: membership.user.lastLoginAt,
+      lastSeenAt: membership.user.lastSeenAt,
       identity: {
         identityHash: membership.user.identityHash,
         appleSub: membership.user.appleSub,
@@ -217,6 +222,7 @@ export function toUserListItem(
     hiddenEmail: user.email ? isAppleRelay(user.email) : false,
     onboardingCompletedAt: user.onboardingCompletedAt?.toISOString() ?? null,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    lastSeenAt: user.lastSeenAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
     householdId: household?.id ?? null,
     householdName: household?.name ?? null,
