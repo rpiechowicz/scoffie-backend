@@ -112,6 +112,13 @@ export class IntegrationCache {
   invalidate(key: string): void {
     this.entries.delete(key);
   }
+
+  /** Wszystkie klucze z przedrostkiem (np. `railway:` — strony usług we wszystkich okresach). */
+  invalidatePrefix(prefix: string): void {
+    for (const key of [...this.entries.keys()]) {
+      if (key.startsWith(prefix)) this.entries.delete(key);
+    }
+  }
 }
 
 async function toState<T>(

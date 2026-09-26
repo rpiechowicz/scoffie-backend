@@ -22,7 +22,10 @@ import {
   readSentryEnv,
 } from '../integrations/integrations-env';
 import { fetchRailway } from '../integrations/railway.client';
-import type { RailwayData } from '../contract';
+import {
+  DeployTrackerService,
+  latestOf,
+} from '../integrations/deploy-tracker.service';
 import { fetchResendDomains } from '../integrations/resend-domains.client';
 import { fetchSentry } from '../integrations/sentry.client';
 import {
@@ -83,12 +86,12 @@ export class AdminWatchService
   private first: NodeJS.Timeout | null = null;
   private running = false;
   private lastCheck: Date | null = null;
-  private deployFingerprint: string | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly outbox: MailOutboxService,
     private readonly ops: OpsAlertService,
+    private readonly deploys: DeployTrackerService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -110,28 +113,6 @@ export class AdminWatchService
     if (this.timer) clearInterval(this.timer);
     this.first = null;
     this.timer = null;
-  }
-
-  /**
-   * Kanał na żywo: stan wdrożeń Railway zmienił się od poprzedniego
-   * sprawdzenia (nowe wdrożenie, BUILDING → SUCCESS, …) → sygnał `ops`.
-   * Pierwsze sprawdzenie po starcie tylko zapamiętuje stan.
-   */
-  private noteDeploys(railway: RailwayData): void {
-    const fingerprint = railway.services
-      .map(
-        (s) =>
-          `${s.id}:${s.deploys[0]?.id ?? '-'}:${s.deploys[0]?.status ?? '-'}`,
-      )
-      .sort()
-      .join('|');
-    if (
-      this.deployFingerprint !== null &&
-      this.deployFingerprint !== fingerprint
-    ) {
-      emitLive({ topics: ['ops'] });
-    }
-    this.deployFingerprint = fingerprint;
   }
 
   lastCheckAt(): Date | null {
@@ -181,7 +162,9 @@ export class AdminWatchService
     if (railwayToken) {
       await attempt('Railway', async () => {
         const railway = await fetchRailway(railwayToken);
-        this.noteDeploys(railway);
+        // Zmiana stanu wdrożeń od ostatniego odczytu → sygnał `ops`
+        // (i śledzenie co 8 s, jeśli coś jest w toku).
+        this.deploys.observe(latestOf(railway));
         return [
           { kind: 'deploy-failed', problems: railwayAlerts(railway) },
           { kind: 'cron-failed', problems: cronAlerts(railway) },

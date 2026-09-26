@@ -11,6 +11,7 @@ import { finalize, tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
 import { RequestMetricsService } from './request-metrics.service';
 import { mapError } from '../common/error-contract';
+import { redactUrl } from '../common/redact-url';
 
 type RequestWithUser = Request & {
   user?: { id?: string };
@@ -73,7 +74,7 @@ export class RequestLoggingInterceptor implements NestInterceptor {
 
         this.metrics.record(routeKey, statusCode, durationMs);
 
-        const message = `${method} ${req.originalUrl || routePath} ${statusCode} ${durationMs.toFixed(1)}ms`;
+        const message = `${method} ${redactUrl(req.originalUrl || routePath)} ${statusCode} ${durationMs.toFixed(1)}ms`;
         const contextData = `requestId=${requestId} userId=${userId ?? '-'} ip=${req.ip ?? '-'} ua=${req.headers['user-agent'] ?? '-'}`;
 
         const level: 'error' | 'warn' | 'log' =
