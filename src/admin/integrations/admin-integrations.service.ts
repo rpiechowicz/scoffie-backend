@@ -18,6 +18,10 @@ import {
   fetchAppStore,
   respondToReview,
 } from './app-store-connect.client';
+import {
+  DeployTrackerService,
+  deployInProgress,
+} from './deploy-tracker.service';
 import { IntegrationCache, IntegrationError } from './integration-fetch';
 import {
   missingAsc,
@@ -48,7 +52,17 @@ const SERVICE_TTL_MS = 30_000;
 export class AdminIntegrationsService {
   private readonly cache = new IntegrationCache();
 
-  constructor(private readonly audit: AdminAuditService) {}
+  constructor(
+    private readonly audit: AdminAuditService,
+    private readonly deploys: DeployTrackerService,
+  ) {
+    // Stan wdrożeń zmienił się (webhook, śledzenie budowy) — następny odczyt
+    // „System” i stron usług idzie po świeże dane, a nie z pamięci na minutę.
+    this.deploys.onChange(() => {
+      this.cache.invalidate('railway');
+      this.cache.invalidatePrefix('railway:');
+    });
+  }
 
   async ops(): Promise<OpsData> {
     const sentryEnv = readSentryEnv();
@@ -64,6 +78,13 @@ export class AdminIntegrationsService {
           )
         : { status: 'off' as const, missing: ['ADMIN_RAILWAY_TOKEN'] },
     ]);
+    // Ekran widzi budowę w toku — śledzimy ją, póki się nie skończy.
+    if (
+      railway.status === 'ok' &&
+      railway.data.services.some((s) => deployInProgress(s.deploys[0]?.status))
+    ) {
+      this.deploys.poke();
+    }
     return { sentry, railway };
   }
 
@@ -169,17 +190,23 @@ export class AdminIntegrationsService {
     }
   }
 
-  service(id: string, range: OpsRange): Promise<RailwayServiceState> {
+  async service(id: string, range: OpsRange): Promise<RailwayServiceState> {
     const token = readRailwayToken();
     if (!token) {
-      return Promise.resolve({
-        status: 'off',
-        missing: ['ADMIN_RAILWAY_TOKEN'],
-      });
+      return { status: 'off', missing: ['ADMIN_RAILWAY_TOKEN'] };
     }
-    return this.cache.get(`railway:${id}:${range}`, SERVICE_TTL_MS, () =>
-      fetchRailwayService(token, id, range),
+    const state = await this.cache.get(
+      `railway:${id}:${range}`,
+      SERVICE_TTL_MS,
+      () => fetchRailwayService(token, id, range),
     );
+    if (
+      state.status === 'ok' &&
+      deployInProgress(state.data.deploys[0]?.status)
+    ) {
+      this.deploys.poke();
+    }
+    return state;
   }
 
   /**
