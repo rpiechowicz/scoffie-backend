@@ -175,6 +175,10 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   limit nie wymaga builda. Nowy kontroler ostrzejszy niż domyślny = `@Throttle({ default: { limit:
 () => readThrottleLimit('…') } })`; sondy = `@SkipThrottle({ default: true, ip: true })`.
   WebSocket ma własny limiter (`checkWsRateLimit` w `actorId`), bo guard omija ack.
+  `/auth/refresh` (od 26.09.2026) liczy się per SESJA — hasz przedstawionego refresh tokenu
+  (`refreshTokenTracker`, `THROTTLE_AUTH_REFRESH_LIMIT`=10) — z luźną siatką `ip` tylko dla tej trasy
+  (`THROTTLE_AUTH_REFRESH_IP_LIMIT`=600); logowanie zostaje 20/min po IP. Uwaga: domyślny
+  `generateKey` throttlera ma w kluczu klasę i handler, więc każdy licznik jest PER TRASA.
 - Zaproszenia: w bazie leży tylko `Invitation.tokenHash` (sha256 hex, bez peppera); surowy token
   istnieje wyłącznie w odpowiedzi `households:createInvitation`. Skrzynka oddaje w polu `token`
   uchwyt `inv_<id>`, ważny tylko dla adresata (`invitationLookup`). Kolumna `token` jest WYCOFYWANA
@@ -185,10 +189,30 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   Konfiguracja przez `AgentConfigService.assertEnabled()` (czyta env per wywołanie; `AI_ENABLED=false`
   = 503 `AI_DISABLED`). Kontrakt: `POST /agent/conversations/:id/messages` → 202 `{turnId,…}` +
   `Location`, klient odpytuje `GET /agent/turns/:id`. Kolejność odmów jest częścią kontraktu
-  (disabled → 404 → walidacja → idempotencja po `clientMessageId` → bezpiecznik → budżet →
-  [tx: lease 409 → kwota 429 → zapis]); kwota schodzi NA STARCIE tury i wraca przy porażce.
-  `AgentTurnRunner.run` nie rzuca nigdy i domyka turę warunkowo (`updateMany` po `status: 'RUNNING'`).
-  W logach asystenta nie ma treści wiadomości — tylko `turnId`, `requestId` i kod.
+  (disabled → 404 → walidacja → idempotencja po `clientMessageId` → bezpiecznik i zamykany proces
+  [503 `AI_UPSTREAM_PAUSED`] → sufity domu z samych wydanych [503] → budżet instalacji z rezerwacją
+  [503, NIEATOMOWO] → [tx SERIALIZABLE: lease 409 → semafor domu 409 → sufity domu z rezerwacją
+  503 → kwota 429 → zapis]); kwota schodzi NA STARCIE tury i wraca WYŁĄCZNIE za turę, która nic nie
+  kosztowała — na każdej ścieżce domknięcia (`AgentUsageLedger.refundIfFree`, warunek
+  `costMicroUsd: 0` w samym `updateMany`). `AgentTurnRunner.run` nie rzuca nigdy i domyka turę
+  warunkowo (`updateMany` po `status: 'RUNNING'`). W logach asystenta nie ma treści wiadomości —
+  tylko `turnId`, `requestId` i kod.
+- Księga kosztu asystenta (od 26.09.2026, workstream Etap 1): wiersz `AiUsage` na KAŻDE wywołanie
+  dostawcy, zapisany zaraz po nim przez `onUsage` → `AgentUsageLedger.record` (klucz idempotencji
+  `(turnId, callIndex)`, jedna transakcja: wiersz + przyrost tokenów/kosztu tury BEZ względu na
+  status + liczniki sufitów + cofnięcie zwrotu, gdy koszt dojechał do tury już zwróconej).
+  `finishDone`/`finishFailed` NIE piszą już kosztu ani liczników. Nowy dostawca MUSI meldować
+  wywołania (`onUsage`), inaczej runner zapisze jeden zbiorczy wiersz po turze i przerwanie z
+  zewnątrz zgubi koszt. Raporty liczą tury przez `COUNT(DISTINCT turnId)`, nie wiersze. Werdykt
+  księgi (`budgetExceeded`) kończy pętlę narzędzi ostatnim słowem (`stopReason: budget_ceiling`).
+  Rezerwacja przy przyjęciu tury: `AI_TURN_COST_RESERVE_USD` (0,25) × inne ŻYWE tury.
+- Życie tury (`src/agent/agent-turn-liveness.ts`): runner odświeża `AgentTurn.updatedAt` co 15 s;
+  tura RUNNING bez znaku życia od 60 s = osierocona (`AI_PROVIDER_ERROR`), po czasie tury +
+  margines = `AI_TIMEOUT`. Jedna definicja dla lease, semafora, leniwego timeoutu i
+  `AgentTurnSweeper` (start procesu + co minutę). Tura z mapy TEGO procesu nie jest osierocona
+  z powodu ciszy. SIGTERM (`beforeApplicationShutdown`): nowe tury 503, biegnące mają
+  `AI_SHUTDOWN_GRACE_MS` (8 s), potem przerwanie bez bezpiecznika — działa TYLKO z
+  `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` > 0 (domyślnie 0 = SIGKILL od razu).
 - Karty i propozycje (E2): `AgentMessage.kind` + `card Json` to KONTRAKT z telefonem — karta
   jest DODATKIEM do `text` (nieznany `kind` = klient rysuje sam tekst). Encja `AgentProposal`
   rozdziela INTENCJĘ (`action`, nigdy nie idzie na drut) od WIDOKU (`card`); klient przysyła
@@ -198,7 +222,13 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   - `clientCapabilities: ["cards.v1"]` w `PostMessageDto` → `resolveProposalMode`. **Lista narzędzi
     jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
     akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
-    jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie.
+    jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie
+    (kilka markerów = kolejne dni), `[[options:<id>,<id>]]`, `[[revise:<proposalId>:<DZIEŃ>:<PORA>:<id>]]`,
+    `[[cost:<µ$>]]` (koszt wywołania 0 przed `AI_STUB_DELAY_MS`).
+  - Historia dla modelu niesie karty z poprzednich tur jako zwięzły dopisek (`history-cards.ts`):
+    OPTIONS „1) R012 Tytuł; …", najnowsza propozycja planu z id, statusem Z BAZY i pozycjami,
+    starsze jedną linią. Poprawka jednej pozycji propozycji PENDING = `revise_proposal` (serwer bierze
+    `action.slots`, podmienia cały slot, liczy nową propozycję; starej nie oznacza).
 - Katalog dla asystenta (od 26.09.2026, `docs/plans/scoffie-ai-agent/wyszukiwarka-i-tempo-2026-09.md`):
   w prefiksie jest MAPA katalogu (liczby dań na pory i tagi, stały rozmiar), a dania model bierze
   z `find_recipes` (`src/agent/search/`): filtry twarde jedzących tymi samymi funkcjami co walidator
