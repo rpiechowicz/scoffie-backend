@@ -1,6 +1,6 @@
 # Stan workstreamu
 
-**Ostatnia aktualizacja:** 26.09.2026 (po Etapie 6 — finalny benchmark)  
+**Ostatnia aktualizacja:** 26.09.2026 (po Etapie 6.1 — naprawy regresji offline)  
 **Branch startowy:** `claude/admin-crm-planning-b0hmgo`
 
 ## Status
@@ -15,6 +15,7 @@
 | 4. Katalog / DB / API | **DONE (backend)** — log zmian katalogu z triggerów, snapshot + delta z tombstone'ami, granice cache'u, single-flight (popularność, zakupy), szkic 1 s, `getTurn` 1 zapytanie, indeks `AgentMessage(turnId)`. iOS (`claude/catalog-sync`, bez merge'a): kompilacja Xcode i `catalog-sync-check.sh` **DEFERRED / przed rolloutem** | `reports/04-catalog-db-api-scale.md` |
 | 5. Trwałe tury | **DONE** — `AgentTurn` jako zadanie z lease (fencing token, zegar bazy), worker w procesie API (przy starcie + co 3 s), dziennik efektów narzędzi w transakcji efektu, klucz wywołania dostawcy z numerem próby, trwały „Stop”, twardy termin tury, limit 3 prób; prawdziwy restart 2 instancji w e2e. Po review (Addendum A1): efekt odtwarzany tylko przy zgodnym narzędziu i kanonicznym wejściu, inaczej `AI_DURABLE_EFFECT_CONFLICT`; kursor efektów zamiast licznika | `reports/05-durable-turns.md` |
 | 6. Modele / routing | **DONE** — before/after na żywym API (anchor `22aa63c` ↔ HEAD): koszt/sukces −48%, p50 −49%, p95 −62%, wywołania −38%, ale pass rate 90,9% → 84,1% (5 stabilnych regresji); rekomendacja Sonnet 5 / low, bez routingu; Haiku odrzucony na jakości tekstu; koszt benchmarku $10,89 | `reports/06-model-evaluation.md` |
+| 6.1 Naprawa regresji | **DONE OFFLINE** — backend regressions fixed and deterministically verified; final live smoke deferred. 7/7 przyczyn potwierdzonych w kodzie (4 backend/kontrakt, 3 weryfikatory benchmarku), testy FAIL→PASS, 0 wywołań API ($0.00). Final effort decision: DEFERRED (prod: medium, kandydat: low) | `reports/06-1-regression-cleanup.md` |
 
 ## Aktualne polecenie dla wykonawcy
 
@@ -65,6 +66,14 @@ Po zakończeniu:
 - Kompresja WS (`perMessageDeflate` z progiem) i `statement_timeout` — po pomiarze (raport 04, §8).
 
 ## Ostatni raport
+
+`reports/06-1-regression-cleanup.md` (26.09.2026) — Etap 6.1 **DONE OFFLINE** (LIVE API CALLS: 0, $0.00):
+- `build_meal_plan.day_kcal_target` (cel dnia z prośby dla pytającego, profil bez zmian); twardy `max_prep_minutes` w planie i podmianie (`PREP_TIME` → NO_CANDIDATES z powodem słowami);
+- `propose_household_split` z `portions: []` = cały dom, porcje liczy serwer; opisy `suggest_meals`/`propose_household_split`/`update_recipe` rozdzielają drogi;
+- `update_recipe` na katalogu = wynik „tylko do odczytu” kończący turę zdaniem serwera; `suggest_meals` pomija dania pokazane na ten posiłek w rozmowie;
+- weryfikatory g8/g10/g13-zmiana poprawione (g13: backend był poprawny); harness zapisuje historię jak runner;
+- unit 3486/3486, e2e 619/624 (te same 3 środowiskowe), dry 44/44, prefiks narzędzi +3,8%;
+- **Final effort decision: DEFERRED. Current production: medium. Candidate for future validation: low.**
 
 `reports/06-model-evaluation.md` (26.09.2026) — Etap 6 **DONE**, workstream: pomiar zakończony wiarygodnie:
 - 332 przebiegi, $10,89; ten sam harness na obu commitach, 44 scenariusze (4 nowe), przeplot before/after;
@@ -152,7 +161,7 @@ Poprzednie: `reports/01-correctness-state-costs.md`, `reports/00-baseline.md` �
 do końcowego porównania: commit `22aa63c` (ten sam benchmark na anchorze i finalnym HEAD,
 tego samego dnia, na tej samej konfiguracji modelu).
 
-**Etap 6 zakończony — czeka na review. Kolejnego etapu nie ma w planie; naprawy regresji z raportu 06 §8 wymagają osobnej decyzji.**
+**Etap 6.1 zakończony offline — czeka na review. Workstream technicznie zakończony po review; decyzja `medium → low` DEFERRED do pomiaru live.**
 
 ### Warunek rolloutu synchronizacji katalogu (Etap 4)
 
