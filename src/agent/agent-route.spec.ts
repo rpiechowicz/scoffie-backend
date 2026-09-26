@@ -90,13 +90,13 @@ describe('resolveRoute', () => {
     // jednej linijki w diffie poza tą tabelą.
     const zapisujace = [
       'apply_week_plan',
-      'propose_week_plan',
       'propose_day_plan',
       'propose_swap',
       'propose_household_split',
+      'build_meal_plan',
+      'replace_plan_item',
       'create_recipe',
       'update_recipe',
-      'delete_recipe',
     ];
     for (const name of zapisujace) {
       expect(AGENT_TOOL_TIERS[name]).toBe('planner');

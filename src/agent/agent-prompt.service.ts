@@ -16,6 +16,7 @@ import {
   CatalogSnapshot,
 } from './search/agent-catalog.service';
 import { weekRangeLabel } from './cards/agent-cards';
+import { memoized, TURN_KEYS, TurnMemo } from './turn-memo';
 import {
   projectWeekPlanForModel,
   WeekPlanForModel,
@@ -95,14 +96,20 @@ export class AgentPromptService {
     dates: TurnDates,
     proposalMode: boolean,
     handoff = false,
+    /** Pamięć tury: te same odczyty domu użyją potem narzędzia i planer. */
+    memo?: TurnMemo,
   ): Promise<AgentPrompt> {
     const [snapshot, household, allMembers, rawPlan] = await Promise.all([
       this.catalog.snapshot(),
-      this.prisma.household.findUnique({
-        where: { id: householdId },
-        select: { name: true, enabledMealTypes: true },
-      }),
-      this.households.memberPreferences(userId, householdId),
+      memoized(memo, TURN_KEYS.household(householdId), () =>
+        this.prisma.household.findUnique({
+          where: { id: householdId },
+          select: { name: true, enabledMealTypes: true },
+        }),
+      ),
+      memoized(memo, TURN_KEYS.members(userId, householdId), () =>
+        this.households.memberPreferences(userId, householdId),
+      ),
       this.loadWeekPlan(userId, householdId, dates.weekStart),
     ]);
 
@@ -111,7 +118,11 @@ export class AgentPromptService {
     // zgoda jednej osoby nie obejmuje partnera. Ograniczenia pozostałych
     // pilnuje kod przy zapisie (`applyWeekPlan`), więc plan nadal ich nie
     // skrzywdzi; model po prostu o nich nie wie.
-    const { members, withheld } = await this.membersForModel(allMembers);
+    const { members, withheld } = await memoized(
+      memo,
+      TURN_KEYS.visible(userId, householdId),
+      () => this.membersForModel(allMembers),
+    );
     // Notatka „Kubie nie dawać orzechów" o Kubie bez zgody to ta sama dana, co
     // jego profil — nie idzie do modelu, dopóki Kuba nie kliknie. Filtr
     // dostaje TOŻSAMOŚCI, nie imiona: dopasowanie imienia w tekście nie działa

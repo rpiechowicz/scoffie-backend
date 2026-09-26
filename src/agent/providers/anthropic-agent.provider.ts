@@ -17,6 +17,7 @@ import {
   AgentCallTiming,
 } from './agent-provider';
 import { AgentToolDefinition } from '../tools/agent-tools';
+import { AgentToolResult } from '../tools/agent-tool-executor';
 import { fenceSafeDeep } from '../fence-safe';
 
 /**
@@ -220,12 +221,14 @@ export class AnthropicAgentProvider implements AgentProvider {
 
       let toolResults: Anthropic.ToolResultBlockParam[];
       let endsTurn = false;
+      let serverText = '';
       const toolsStartedAt = Date.now();
       try {
-        ({ blocks: toolResults, endsTurn } = await this.runTools(
-          request,
-          toolUses,
-        ));
+        ({
+          blocks: toolResults,
+          endsTurn,
+          turnText: serverText,
+        } = await this.runTools(request, toolUses, tools));
       } catch (error) {
         // Narzędzie przerwane sygnałem (timeout, Stop) — zużycie zostaje.
         throw this.withUsage(error, usage, phases);
@@ -239,7 +242,13 @@ export class AnthropicAgentProvider implements AgentProvider {
       // 24.09.2026: runda, w której model dopisywał 1–2 zdania po karcie, to
       // 18 % czasu tury i pełne ~2 s czekania na pierwszy token. Bez tekstu
       // (albo przy odmowie narzędzia) pętla idzie dalej jak dawniej.
-      const text = this.joinText(response.content);
+      //
+      // Etap 3.3: model nie napisał nic, a każda karta rundy ma zdanie
+      // serwera (`turnText`) — tura też kończy się tutaj, zdaniem serwera,
+      // zamiast płacić za rundę, w której model dopisałby „Oto propozycje".
+      // Karta bez zdania serwera (np. plan PARTIAL) = model dostaje głos.
+      const modelText = this.joinText(response.content);
+      const text = modelText.length > 0 ? modelText : serverText;
       if (endsTurn && text.length > 0) {
         return {
           text,
@@ -685,19 +694,43 @@ export class AnthropicAgentProvider implements AgentProvider {
   private async runTools(
     request: AgentProviderRequest,
     toolUses: Anthropic.ToolUseBlock[],
-  ): Promise<{ blocks: Anthropic.ToolResultBlockParam[]; endsTurn: boolean }> {
+    offered: readonly AgentToolDefinition[],
+  ): Promise<{
+    blocks: Anthropic.ToolResultBlockParam[];
+    endsTurn: boolean;
+    turnText: string;
+  }> {
     // Czy KAŻDE narzędzie tej rundy kończy turę — jedno „zwykłe" obok
     // (np. odczyt planu) znaczy, że model czeka na jego wynik.
     let endsTurn = toolUses.length > 0;
+    // Zdania serwera kart tej rundy; puste, gdy któraś karta go nie ma.
+    const turnTexts: string[] = [];
+    let everyCardSpeaks = true;
+    const allowed = new Set(offered.map((tool) => tool.name));
     // Równolegle: model prosi o kilka narzędzi naraz właśnie po to, żeby nie
     // czekać na nie po kolei.
     const blocks = await Promise.all(
       toolUses.map(async (toolUse) => {
-        const result = await request.executeTool(
-          toolUse.name,
-          (toolUse.input ?? {}) as Record<string, unknown>,
-        );
+        // Tylko narzędzia z listy wysłanej modelowi W TEJ fazie: executor zna
+        // też narzędzia wewnętrzne (Etap 3) i narzędzia planisty — nazwa
+        // zmyślona przez model albo spoza fazy nie ma prawa ich uruchomić.
+        const result: AgentToolResult = allowed.has(toolUse.name)
+          ? await request.executeTool(
+              toolUse.name,
+              (toolUse.input ?? {}) as Record<string, unknown>,
+            )
+          : {
+              ok: false,
+              error: {
+                code: 'BAD_REQUEST',
+                message: `Nie ma narzędzia o nazwie ${toolUse.name}.`,
+              },
+            };
         if (!(result.ok && result.endsTurn)) endsTurn = false;
+        if (result.ok && result.endsTurn) {
+          if (result.turnText) turnTexts.push(result.turnText);
+          else everyCardSpeaks = false;
+        }
         return {
           type: 'tool_result' as const,
           tool_use_id: toolUse.id,
@@ -728,7 +761,11 @@ export class AnthropicAgentProvider implements AgentProvider {
         };
       }),
     );
-    return { blocks, endsTurn };
+    return {
+      blocks,
+      endsTurn,
+      turnText: everyCardSpeaks ? turnTexts.join(' ') : '',
+    };
   }
 
   private joinText(content: Anthropic.ContentBlock[]): string {

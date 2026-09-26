@@ -93,7 +93,7 @@ describe('AgentToolExecutor — bramka trybu', () => {
       context(true),
     );
     if (refused.ok) throw new Error('oczekiwano odmowy');
-    expect(refused.error.message).toContain('propose_week_plan');
+    expect(refused.error.message).toContain('build_meal_plan');
 
     const other = await executor.execute(
       'propose_week_plan',

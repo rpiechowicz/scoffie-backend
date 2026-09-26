@@ -1,0 +1,157 @@
+{
+  "measuredAt": "2026-09-26T12:45:53.397Z",
+  "runs": 3,
+  "coldSnapshot": {
+    "queries": 5,
+    "dbMs": 10,
+    "wallMs": 118
+  },
+  "results": {
+    "prompt.build (search)": {
+      "samples": [
+        {
+          "queries": 16,
+          "dbMs": 5,
+          "wallMs": 13
+        },
+        {
+          "queries": 16,
+          "dbMs": 1,
+          "wallMs": 11
+        },
+        {
+          "queries": 16,
+          "dbMs": 1,
+          "wallMs": 10
+        }
+      ],
+      "median": {
+        "queries": 16,
+        "dbMs": 1,
+        "wallMs": 11
+      },
+      "promptChars": 15077
+    },
+    "prompt.build (digest)": {
+      "samples": [
+        {
+          "queries": 16,
+          "dbMs": 1,
+          "wallMs": 7
+        },
+        {
+          "queries": 16,
+          "dbMs": 0,
+          "wallMs": 7
+        },
+        {
+          "queries": 16,
+          "dbMs": 1,
+          "wallMs": 7
+        }
+      ],
+      "median": {
+        "queries": 16,
+        "dbMs": 1,
+        "wallMs": 7
+      },
+      "promptChars": 112707
+    },
+    "find_recipes": {
+      "samples": [
+        {
+          "queries": 12,
+          "dbMs": 1,
+          "wallMs": 14
+        },
+        {
+          "queries": 11,
+          "dbMs": 1,
+          "wallMs": 7
+        },
+        {
+          "queries": 11,
+          "dbMs": 1,
+          "wallMs": 6
+        }
+      ],
+      "median": {
+        "queries": 11,
+        "dbMs": 1,
+        "wallMs": 7
+      }
+    },
+    "start_planning": {
+      "samples": [
+        {
+          "queries": 0,
+          "dbMs": 0,
+          "wallMs": 0
+        },
+        {
+          "queries": 0,
+          "dbMs": 0,
+          "wallMs": 0
+        },
+        {
+          "queries": 0,
+          "dbMs": 0,
+          "wallMs": 0
+        }
+      ],
+      "median": {
+        "queries": 0,
+        "dbMs": 0,
+        "wallMs": 0
+      }
+    },
+    "getTurn RUNNING": {
+      "samples": [
+        {
+          "queries": 3,
+          "dbMs": 0,
+          "wallMs": 3
+        },
+        {
+          "queries": 3,
+          "dbMs": 0,
+          "wallMs": 2
+        },
+        {
+          "queries": 3,
+          "dbMs": 0,
+          "wallMs": 2
+        }
+      ],
+      "median": {
+        "queries": 3,
+        "dbMs": 0,
+        "wallMs": 2
+      }
+    },
+    "getTurn DONE": {
+      "samples": [
+        {
+          "queries": 4,
+          "dbMs": 0,
+          "wallMs": 3
+        },
+        {
+          "queries": 4,
+          "dbMs": 0,
+          "wallMs": 2
+        },
+        {
+          "queries": 4,
+          "dbMs": 0,
+          "wallMs": 3
+        }
+      ],
+      "median": {
+        "queries": 4,
+        "dbMs": 0,
+        "wallMs": 3
+      }
+    }
+  }
+}

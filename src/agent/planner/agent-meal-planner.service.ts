@@ -5,7 +5,12 @@ import { readAgentEnv } from '../../config/agent-env';
 import { normalizeText } from '../../common/normalize-text.util';
 import { HouseholdsService } from '../../households/households.service';
 import { MemberContext } from '../../households/member-context.util';
-import { evaluatePlan, planMeals } from '../../meal-planner/meal-plan-engine';
+import {
+  evaluatePlan,
+  planMeals,
+  SlotSuggestions,
+  suggestForSlot,
+} from '../../meal-planner/meal-plan-engine';
 import {
   eaterDayNutrition,
   normalizeParticipants,
@@ -24,7 +29,8 @@ import { autoPlannedServings } from '../../weekly-plans/utils/planned-servings.u
 import { WeeklyPlansService } from '../../weekly-plans/weekly-plans.service';
 import { AgentPromptService } from '../agent-prompt.service';
 import { AgentCatalogService } from '../search/agent-catalog.service';
-import { SearchableRecipe } from '../search/catalog-search';
+import { ingredientMatches, SearchableRecipe } from '../search/catalog-search';
+import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
 
 /** Miękkie i twarde życzenia z prośby — to, co model wyczytał ze zdania. */
 export type PlannerWishes = {
@@ -51,6 +57,8 @@ export type BuildPlanInput = {
   forUserIds: string[];
   wishes: PlannerWishes;
   seed: string;
+  /** Pamięć tury — domownicy i pory z tej samej tury, co prompt. */
+  memo?: TurnMemo;
 };
 
 export type ReplaceSlotInput = {
@@ -67,6 +75,32 @@ export type ReplaceSlotInput = {
   /** `auto` tam, gdzie ścieżka zapisu i tak liczy porcje z audytorium. */
   portionMode: 'auto' | 'tune';
   seed: string;
+  memo?: TurnMemo;
+};
+
+/** Kilka dań na jeden slot (`suggest_meals`) — nic nie zapisuje. */
+export type SuggestInput = {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  /** Puste = cały dom. */
+  forUserIds: string[];
+  wishes: PlannerWishes;
+  /** Składniki, które MUSZĄ być w daniu („mam dużo kurczaka"). */
+  includeIngredients: string[];
+  count: number;
+  seed: string;
+  memo?: TurnMemo;
+};
+
+export type SuggestOutcome = {
+  draft: SlotSuggestions;
+  consentedUserIds: ReadonlySet<string>;
+  titles: ReadonlyMap<string, string>;
+  /** Kcal na porcję — do powodu „dlaczego to" bez drugiego odczytu. */
+  recipes: ReadonlyMap<string, PlannerRecipe>;
 };
 
 export type PlannerOutcome = {
@@ -101,12 +135,9 @@ export class AgentMealPlannerService {
 
   /** Plan dni × pór od zera (to, co w tych slotach stoi, zostaje zastąpione). */
   async build(input: BuildPlanInput): Promise<PlannerOutcome> {
-    const members = await this.households.memberPreferences(
-      input.userId,
-      input.householdId,
-    );
+    const members = await this.members(input);
     assertMembers(input.forUserIds, members);
-    const enabled = await this.enabledMealTypes(input.householdId);
+    const enabled = await this.enabledMealTypes(input);
     const mealTypes =
       input.mealTypes.length > 0 ? [...new Set(input.mealTypes)] : enabled;
     const scope = scopeOf(mealTypes, enabled);
@@ -162,10 +193,7 @@ export class AgentMealPlannerService {
    * pozycja była dla całego domu — cały dom.
    */
   async replace(input: ReplaceSlotInput): Promise<PlannerOutcome> {
-    const members = await this.households.memberPreferences(
-      input.userId,
-      input.householdId,
-    );
+    const members = await this.members(input);
     const eaters = members.map(toEater);
     const inSlot = (slot: ApplyWeekSlotDto) =>
       slot.dayOfWeek === input.dayOfWeek && slot.mealType === input.mealType;
@@ -181,7 +209,7 @@ export class AgentMealPlannerService {
           );
 
     const context = await this.context(input, members, input.currentSlots);
-    const enabled = await this.enabledMealTypes(input.householdId);
+    const enabled = await this.enabledMealTypes(input);
     const slotKcalTargets: Record<string, number> = {};
     if (input.similarKcal && replaced.length > 0) {
       const perPerson = averagePersonKcal(
@@ -230,13 +258,10 @@ export class AgentMealPlannerService {
       slots: ApplyWeekSlotDto[];
     },
   ) {
-    const members = await this.households.memberPreferences(
-      input.userId,
-      input.householdId,
-    );
+    const members = await this.members(input);
     const eaters = members.map(toEater);
     const context = await this.context(input, members, input.slots);
-    const enabled = await this.enabledMealTypes(input.householdId);
+    const enabled = await this.enabledMealTypes(input);
     const mealTypes = input.mealTypes.length > 0 ? input.mealTypes : enabled;
     const request: PlanningRequest = {
       days: input.days,
@@ -269,8 +294,102 @@ export class AgentMealPlannerService {
     );
   }
 
+  /**
+   * Kilka zróżnicowanych dań na jeden slot (`suggest_meals`): filtry twarde
+   * wszystkich jedzących, życzenia z prośby, bilans osoby przy reszcie dnia
+   * z planu. Obecne danie tego slotu wypada z propozycji — pytanie „co na
+   * kolację?" przy zaplanowanej kolacji to pytanie o coś innego.
+   */
+  async suggest(input: SuggestInput): Promise<SuggestOutcome> {
+    const members = await this.members(input);
+    assertMembers(input.forUserIds, members);
+    const eaters = members.map(toEater);
+    const participantIds = normalizeParticipants(input.forUserIds, eaters);
+    const audience = new Set(participantIds);
+    const [enabled, baseline] = await Promise.all([
+      this.enabledMealTypes(input),
+      this.weeklyPlans.snapshotWeekAsSlots(
+        input.userId,
+        input.householdId,
+        input.weekStart,
+      ),
+    ]);
+    // To, co w tym slocie je (wyłącznie) audytorium — jak w `build`.
+    const inSlot = (slot: ApplyWeekSlotDto) =>
+      slot.dayOfWeek === input.dayOfWeek &&
+      slot.mealType === input.mealType &&
+      (participantIds.length === 0 ||
+        ((slot.participantIds ?? []).length > 0 &&
+          (slot.participantIds ?? []).every((id) => audience.has(id))));
+    const current = baseline.filter(inSlot);
+    const kept = baseline.filter((slot) => !inSlot(slot));
+    const context = await this.context(input, members, kept);
+    const wanted = input.includeIngredients
+      .map((name) => name.trim())
+      .filter(Boolean);
+    const allowed =
+      wanted.length > 0
+        ? new Set(
+            context.pool
+              .filter((recipe) =>
+                wanted.every((name) =>
+                  recipe.ingredients.some((ingredient) =>
+                    ingredientMatches(ingredient.name, name),
+                  ),
+                ),
+              )
+              .map((recipe) => recipe.id),
+          )
+        : undefined;
+    const request: PlanningRequest = {
+      days: [input.dayOfWeek],
+      mealTypes: [input.mealType],
+      scope: 'PARTIAL',
+      dayMealTypes: enabled,
+      members: eaters,
+      participantIds,
+      fixed: kept.map((slot) => toItem(slot, eaters.length)),
+      constraints: constraintsOf(
+        input.wishes,
+        current.map((slot) => slot.recipeId),
+      ),
+      preferences: { ...context.preferences, ...softOf(input.wishes) },
+      // Karta wyboru pokazuje kcal na porcję, a wybór idzie potem zwykłą
+      // podmianą z porcjami z audytorium — ranking liczy tak samo.
+      portionMode: 'auto',
+      seed: input.seed,
+    };
+    return {
+      draft: suggestForSlot(request, context.recipes, {
+        count: input.count,
+        ...(allowed ? { allowedRecipeIds: allowed } : {}),
+      }),
+      consentedUserIds: context.consented,
+      titles: context.titles,
+      recipes: context.lookup,
+    };
+  }
+
+  /** Domownicy z celami — raz na turę (`TurnMemo`). */
+  private members(input: {
+    userId: string;
+    householdId: string;
+    memo?: TurnMemo;
+  }): Promise<MemberContext[]> {
+    return memoized(
+      input.memo,
+      TURN_KEYS.members(input.userId, input.householdId),
+      () => this.households.memberPreferences(input.userId, input.householdId),
+    );
+  }
+
   private async context(
-    input: { householdId: string; weekStart: string },
+    input: {
+      userId: string;
+      householdId: string;
+      weekStart: string;
+      memo?: TurnMemo;
+    },
     members: MemberContext[],
     slotsInPlay: readonly ApplyWeekSlotDto[],
   ) {
@@ -280,7 +399,11 @@ export class AgentMealPlannerService {
           householdId: input.householdId,
           weekStart: input.weekStart,
         }),
-        this.prompts.membersForModel(members),
+        memoized(
+          input.memo,
+          TURN_KEYS.visible(input.userId, input.householdId),
+          () => this.prompts.membersForModel(members),
+        ),
       ]);
     const known = new Set(pool.map((recipe) => recipe.id));
     const missing = slotsInPlay
@@ -296,6 +419,7 @@ export class AgentMealPlannerService {
       ...extra.map((recipe) => toPlannerRecipe(recipe, false)),
     ];
     return {
+      pool,
       recipes,
       lookup: new Map(recipes.map((recipe) => [recipe.id, recipe])),
       titles: new Map(recipes.map((recipe) => [recipe.id, recipe.title])),
@@ -308,11 +432,20 @@ export class AgentMealPlannerService {
     };
   }
 
-  private async enabledMealTypes(householdId: string): Promise<MealType[]> {
-    const household = await this.prisma.household.findUnique({
-      where: { id: householdId },
-      select: { enabledMealTypes: true },
-    });
+  private async enabledMealTypes(input: {
+    householdId: string;
+    memo?: TurnMemo;
+  }): Promise<MealType[]> {
+    // Ten sam wiersz i ten sam klucz, co prompt tury (`TURN_KEYS.household`).
+    const household = await memoized(
+      input.memo,
+      TURN_KEYS.household(input.householdId),
+      () =>
+        this.prisma.household.findUnique({
+          where: { id: input.householdId },
+          select: { name: true, enabledMealTypes: true },
+        }),
+    );
     const enabled = household?.enabledMealTypes ?? [];
     return enabled.length > 0 ? enabled : ['BREAKFAST', 'LUNCH', 'DINNER'];
   }

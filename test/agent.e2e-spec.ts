@@ -557,7 +557,7 @@ describe('Agent E2E', () => {
       // mógł pokazać wyłącznie kręciołek przez pół minuty.
       expect(done.progress).toEqual([
         {
-          tool: 'get_household_context',
+          tool: 'get_week_plan',
           label: expect.any(String),
           at: expect.any(String),
           // Odczyt — klient nie ma po tej turze czego otwierać.

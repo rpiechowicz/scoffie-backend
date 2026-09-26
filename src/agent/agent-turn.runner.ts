@@ -43,6 +43,7 @@ import { historyTexts, planProposalIds } from './history-cards';
 import { AgentCard } from './cards/agent-cards';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
+import { createTurnMemo } from './turn-memo';
 import { createPlanScope } from './tools/plan-scope';
 import { UpstreamBreaker } from './upstream-breaker';
 import { emitLive } from '../common/live-events';
@@ -261,6 +262,9 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     // Zakres planowania CAŁEJ tury — wspólny dla obu faz (rozmowa → planista),
     // więc przekazanie pałeczki nie zeruje budżetu tygodnia.
     const planScope = createPlanScope();
+    // Pamięć tury (Etap 3.7): domownicy, zgody i pory czytane raz — prompt,
+    // narzędzia i planer tej tury biorą je stąd. Plus rezerwacja jednej karty.
+    const memo = createTurnMemo();
 
     try {
       // Pierwszy krok od razu: historia i prompt składają się 1–3 s, potem
@@ -278,6 +282,7 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
         input.dates,
         input.proposalMode,
         route.promptHandoff,
+        memo,
       );
       const messages = await this.loadHistory(input.conversationId, prompt);
       const provider = this.providers.resolve(input.env);
@@ -301,6 +306,7 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
             turnId: input.turnId,
             proposalMode: input.proposalMode,
             planScope,
+            memo,
             dates: {
               weekStart: input.dates.weekStart,
               clientToday: input.dates.clientToday,

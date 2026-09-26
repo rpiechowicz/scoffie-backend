@@ -272,10 +272,13 @@ function objectiveOf(scope: Scope, planned: readonly PlannedItem[]): number {
 function candidatesFor(
   scope: Scope,
   meal: MealType,
+  /** Tylko te przepisy (np. „z kurczakiem" w propozycjach); brak = wszystkie. */
+  allowed?: ReadonlySet<string>,
 ): { stats: CandidateStats; eligible: PlannerRecipe[] } {
   const removed: Partial<Record<HardFilterReason, number>> = {};
   const eligible: PlannerRecipe[] = [];
   for (const recipe of scope.lookup.values()) {
+    if (allowed && !allowed.has(recipe.id)) continue;
     const reason = hardFilterReason(
       recipe,
       meal,
@@ -327,6 +330,234 @@ function candidatesFor(
   };
 }
 
+// ── Porcje per osoba ───────────────────────────────────────────────────────
+
+function itemForSlot(
+  scope: Scope,
+  slot: Slot,
+  recipeId: string,
+  servings: number,
+): PlannedItem {
+  return {
+    dayOfWeek: slot.day,
+    mealType: slot.meal,
+    recipeId,
+    participantIds: scope.participantIds,
+    plannedServings: servings,
+  };
+}
+
+/**
+ * Pozycja z porcjami per osoba (Etap 2.2): każda osoba dostaje porcję, która
+ * domyka JEJ cel pór `targetTypes` przy tym, co już jest w dniu (bez tego
+ * slotu). Krok 0,05, widełki 0,5–1,5; suma > 12 porcji (dom > 8 osób na
+ * dużych porcjach) = `null`, bo zapis by ją odrzucił — wtedy równy podział.
+ */
+function perUserItemFor(
+  scope: Scope,
+  slot: Slot,
+  recipe: PlannerRecipe,
+  others: readonly PlannedItem[],
+  targetTypes: ReadonlySet<MealType>,
+): PlannedItem | null {
+  const kcalPerServing = recipe.perServing?.kcal ?? 0;
+  const dayItems = [...scope.request.fixed, ...others].filter(
+    (item) => item.dayOfWeek === slot.day,
+  );
+  const portions = scope.audience.map((eater) => {
+    const assessment = assess(scope, eater, dayItems, targetTypes);
+    const residual = assessment.target.kcal - assessment.evaluated.kcal;
+    return {
+      userId: eater.userId,
+      servings: portionFor(residual, kcalPerServing),
+    };
+  });
+  const total = portions.reduce((sum, portion) => sum + portion.servings, 0);
+  if (portions.length === 0 || total > 12) return null;
+  return {
+    ...itemForSlot(
+      scope,
+      slot,
+      recipe.id,
+      Math.min(12, Math.ceil(total - 1e-9)),
+    ),
+    portions,
+  };
+}
+
+// ── Propozycje na jeden slot (Etap 3) ─────────────────────────────────────
+
+/** Z ilu najlepszych dań wybieramy zróżnicowane propozycje. */
+export const SUGGESTION_POOL = 24;
+/**
+ * Kara różnorodności w PRZELICZENIU NA POZYCJE rankingu: każdy tag wspólny
+ * z już wybranym daniem przesuwa kandydata o tyle miejsc w dół. Ranking,
+ * a nie koszt, bo skala kosztu zależy od domu (cele, liczba osób) —
+ * pozycja nie.
+ */
+export const SUGGESTION_DIVERSITY_PENALTY = 4;
+
+export type SlotSuggestion = {
+  item: PlannedItem;
+  /** Kcal tego dania na osobę audytorium (z porcją osoby, gdy są porcje). */
+  perPerson: { userId: string; kcal: number }[];
+};
+
+export type SlotSuggestions = {
+  status: PlanStatus;
+  suggestions: SlotSuggestion[];
+  /** Ile dań przeszło filtry twarde. */
+  eligible: number;
+  candidates: CandidateStats;
+  /**
+   * Życzenia miękkie, których nie dało się utrzymać jako warunek (za mało
+   * dań) — wtedy dalej ważą w rankingu, ale nie zawężają listy.
+   */
+  relaxed: ('max_prep_minutes' | 'prefer_tags')[];
+  /** Ile kcal zostaje osobie na ten slot przy reszcie dnia (bez tego slotu). */
+  slotBudget: { userId: string; kcal: number }[];
+};
+
+/**
+ * Kilka ZRÓŻNICOWANYCH dań na jeden slot (dzień + pora) — serwerowa odpowiedź
+ * na „co na kolację?" (`suggest_meals`). Te same filtry twarde i ta sama
+ * funkcja kosztu dnia, co planer (alergeny, diety, wykluczenia, życzenia
+ * prośby, bilans osoby przy reszcie dnia, powtórki w tygodniu), plus:
+ *
+ * - życzenie miękkie („szybko" = `maxPrepMinutes`, `preferredTags`) zawęża
+ *   listę, gdy zostaje co najmniej `count` dań — użytkownik prosił o szybkie,
+ *   więc nie dostaje wolnego „bo lepiej trafia w kalorie";
+ * - wybór zachłanny z karą za tagi wspólne z już wybranymi (inne białko,
+ *   inny rodzaj dania) — trzy warianty tego samego to nie wybór.
+ *
+ * `request.days` i `request.mealTypes` — po jednym elemencie.
+ */
+export function suggestForSlot(
+  request: PlanningRequest,
+  recipes: readonly PlannerRecipe[],
+  options: { count: number; allowedRecipeIds?: ReadonlySet<string> },
+): SlotSuggestions {
+  const scope = scopeOf(request, recipes);
+  const slot: Slot = { day: request.days[0], meal: request.mealTypes[0] };
+  const { stats, eligible } = candidatesFor(
+    scope,
+    slot.meal,
+    options.allowedRecipeIds,
+  );
+  const count = Math.max(1, options.count);
+  const relaxed: SlotSuggestions['relaxed'] = [];
+  let pool = eligible;
+  const { maxPrepMinutes, preferredTags } = request.preferences;
+  if (maxPrepMinutes !== null) {
+    const quick = pool.filter(
+      (recipe) => recipe.prepTimeMinutes <= maxPrepMinutes,
+    );
+    if (quick.length >= count) pool = quick;
+    else relaxed.push('max_prep_minutes');
+  }
+  if (preferredTags.length > 0) {
+    const tagged = pool.filter((recipe) =>
+      recipe.tags.some((tag) => preferredTags.includes(tag)),
+    );
+    if (tagged.length >= count) pool = tagged;
+    else relaxed.push('prefer_tags');
+  }
+
+  const eaters = eaterCountOf(scope.participantIds, scope.members.length);
+  const perUser = request.portionMode === 'per_user';
+  const servings = allowedServings(
+    eaters,
+    request.portionMode === 'tune' ? 'tune' : 'auto',
+  );
+  const dayFixed = request.fixed.filter((item) => item.dayOfWeek === slot.day);
+  const types = scope.plannedTypes;
+  const costOf = (item: PlannedItem): number =>
+    dayCost(scope, slot.day, [...dayFixed, item], types) +
+    weekRelationCost([...request.fixed, item], scope.lookup) +
+    softCostOf(scope, [item]);
+
+  const ranked = pool
+    .map((recipe) => {
+      const options = perUser
+        ? [
+            perUserItemFor(scope, slot, recipe, [], types) ??
+              itemForSlot(scope, slot, recipe.id, servings[0]),
+          ]
+        : servings.map((option) => itemForSlot(scope, slot, recipe.id, option));
+      let best: { item: PlannedItem; cost: number } | null = null;
+      for (const item of options) {
+        const cost = costOf(item);
+        if (!best || cost < best.cost - EPSILON) best = { item, cost };
+      }
+      return { recipe, ...(best as { item: PlannedItem; cost: number }) };
+    })
+    .sort((a, b) => a.cost - b.cost || a.recipe.id.localeCompare(b.recipe.id))
+    .slice(0, SUGGESTION_POOL);
+
+  // Tagi, o które PROSZONO, nie są „podobieństwem" — mają być wspólne.
+  const wanted = new Set([
+    ...preferredTags,
+    ...request.constraints.requiredTags,
+  ]);
+  const picked: typeof ranked = [];
+  const remaining = ranked.map((entry, rank) => ({ entry, rank }));
+  while (picked.length < count && remaining.length > 0) {
+    let bestIndex = 0;
+    let bestScore = Infinity;
+    remaining.forEach(({ entry, rank }, index) => {
+      const overlap = entry.recipe.tags.filter(
+        (tag) =>
+          !wanted.has(tag) &&
+          picked.some((chosen) => chosen.recipe.tags.includes(tag)),
+      ).length;
+      const score = rank + SUGGESTION_DIVERSITY_PENALTY * overlap;
+      if (score < bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    });
+    picked.push(remaining.splice(bestIndex, 1)[0].entry);
+  }
+
+  const suggestions = picked.map(({ item }) => ({
+    item,
+    perPerson: scope.audience.map((eater) => ({
+      userId: eater.userId,
+      kcal: Math.round(
+        eaterDayNutrition(
+          [item],
+          eater.userId,
+          scope.members.length,
+          scope.lookup,
+        ).kcal,
+      ),
+    })),
+  }));
+  const slotBudget = scope.audience.map((eater) => {
+    const assessment = assess(scope, eater, dayFixed, types);
+    return {
+      userId: eater.userId,
+      kcal: Math.max(
+        0,
+        Math.round(assessment.target.kcal - assessment.evaluated.kcal),
+      ),
+    };
+  });
+  return {
+    status:
+      suggestions.length === 0
+        ? 'UNSAT'
+        : suggestions.length < count
+          ? 'PARTIAL'
+          : 'OK',
+    suggestions,
+    eligible: stats.eligible,
+    candidates: stats,
+    relaxed,
+    slotBudget,
+  };
+}
+
 // ── Silnik ─────────────────────────────────────────────────────────────────
 
 export function planMeals(
@@ -361,13 +592,7 @@ export function planMeals(
     slot: Slot,
     recipeId: string,
     servings: number,
-  ): PlannedItem => ({
-    dayOfWeek: slot.day,
-    mealType: slot.meal,
-    recipeId,
-    participantIds: scope.participantIds,
-    plannedServings: servings,
-  });
+  ): PlannedItem => itemForSlot(scope, slot, recipeId, servings);
 
   /**
    * Porcje per osoba dla przepisu w slocie (Etap 2.2): każda osoba dostaje
@@ -383,26 +608,8 @@ export function planMeals(
     recipe: PlannerRecipe,
     others: readonly PlannedItem[],
     targetTypes: ReadonlySet<MealType>,
-  ): PlannedItem | null => {
-    const kcalPerServing = recipe.perServing?.kcal ?? 0;
-    const dayItems = [...request.fixed, ...others].filter(
-      (item) => item.dayOfWeek === slot.day,
-    );
-    const portions = scope.audience.map((eater) => {
-      const assessment = assess(scope, eater, dayItems, targetTypes);
-      const residual = assessment.target.kcal - assessment.evaluated.kcal;
-      return {
-        userId: eater.userId,
-        servings: portionFor(residual, kcalPerServing),
-      };
-    });
-    const total = portions.reduce((sum, portion) => sum + portion.servings, 0);
-    if (portions.length === 0 || total > 12) return null;
-    return {
-      ...itemFor(slot, recipe.id, Math.min(12, Math.ceil(total - 1e-9))),
-      portions,
-    };
-  };
+  ): PlannedItem | null =>
+    perUserItemFor(scope, slot, recipe, others, targetTypes);
 
   /** Koszt planu zależny od slotu: jego dzień + relacje + miękkie. */
   const localCost = (

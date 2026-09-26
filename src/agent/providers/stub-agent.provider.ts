@@ -15,8 +15,8 @@ export const STUB_ERROR_MARKER = '[[error]]';
  *
  * Bez tego cała ścieżka postępu tury (`AgentTurn.progress`) była w e2e martwa:
  * stub odpowiadał od razu, więc nikt nigdy nie sprawdził, czy klient dostaje
- * kroki, których obiecuje mu kontrakt. `get_household_context` nie bierze
- * żadnych argumentów i niczego nie zapisuje.
+ * kroki, których obiecuje mu kontrakt. `get_week_plan` na planowanym
+ * tygodniu (z bloku gospodarstwa) niczego nie zapisuje.
  */
 export const STUB_TOOL_MARKER = '[[tool]]';
 /**
@@ -73,6 +73,14 @@ export const STUB_BUILD_PATTERN = /\[\[build:(\d{4}-\d{2}-\d{2}):([A-Z,]+)\]\]/;
 export const STUB_REPLACE_PATTERN =
   /\[\[replace:([0-9a-fA-F-]{36}|-):([A-Z]{3}):([A-Z_]+):([A-Z_]+)\]\]/;
 
+/**
+ * Wymusza DANIA DO WYBORU z serwera (Etap 3):
+ * `[[suggest:<DZIEŃ>:<PORA>:<quick|->]]` → `suggest_meals` na planowanym
+ * tygodniu, 3 dania, `quick` = „szybkie" (tag + 25 min).
+ */
+export const STUB_SUGGEST_PATTERN =
+  /\[\[suggest:([A-Z]{3}):([A-Z_]+):(quick|-)\]\]/;
+
 export const STUB_REVISE_PATTERN =
   /\[\[revise:([0-9a-fA-F-]{36}):([A-Z]{3}):([A-Z_]+):([0-9a-fA-F-]{36})\]\]/;
 
@@ -116,8 +124,32 @@ export class StubAgentProvider implements AgentProvider {
       throw new AgentProviderError('stub: symulowany błąd tury', false);
     }
 
+    // Planowany tydzień z bloku gospodarstwa — tak, jak widzi go model.
+    const plannedWeek =
+      /PLANOWANY TYDZIEŃ \(poniedziałek\): (\d{4}-\d{2}-\d{2})/.exec(
+        request.system.map((block) => block.text).join(' '),
+      )?.[1] ?? '1970-01-05';
+
     if (lastUserText.includes(STUB_TOOL_MARKER)) {
-      await request.executeTool('get_household_context', {});
+      await request.executeTool('get_week_plan', { week_start: plannedWeek });
+    }
+
+    const suggest = STUB_SUGGEST_PATTERN.exec(lastUserText);
+    if (suggest) {
+      const quick = suggest[3] === 'quick';
+      await request.executeTool('suggest_meals', {
+        week_start: plannedWeek,
+        day_of_week: suggest[1],
+        meal_type: suggest[2],
+        count: 3,
+        include_ingredients: [],
+        for_user_ids: [],
+        diet: 'NONE',
+        must_have_tags: [],
+        prefer_tags: quick ? ['quick'] : [],
+        avoid_ingredients: [],
+        max_prep_minutes: quick ? 25 : 0,
+      });
     }
 
     const proposed = [...lastUserText.matchAll(STUB_PROPOSE_ALL)].slice(0, 7);

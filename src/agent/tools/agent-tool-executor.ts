@@ -18,7 +18,8 @@ import { AgentMemoryService } from '../agent-memory.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../../recipes/dto/update-recipe.dto';
-import { AGENT_TOOL_NAMES } from './agent-tools';
+import { EXECUTABLE_TOOL_NAMES } from './agent-tools';
+import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
 import {
   checkPlanScope,
   PlanScope,
@@ -52,6 +53,8 @@ import {
 import {
   MacroGapBooster,
   MacroKey,
+  MEAL_LABELS,
+  DAY_LABELS,
   OptionsCardItem,
   SwapCardSide,
 } from '../cards/agent-cards';
@@ -76,7 +79,6 @@ import {
   AgentSearchResult,
 } from '../search/agent-catalog.service';
 import {
-  RecipeHit,
   RecipeSearchQuery,
   SEARCH_DEFAULT_LIMIT,
   SEARCH_MAX_LIMIT,
@@ -427,14 +429,29 @@ export function matchShoppingProduct(
  * dostawałby UUID i wpisywał go tam, gdzie kod spodziewa się indeksu — albo,
  * co gorsza, przepisywał go z pamięci z błędem.
  */
-export type RecipeHitForModel = RecipeHit;
+export type RecipeHitForModel = {
+  recipe: string;
+  title: string;
+  slots: MealType[];
+  tags: string[];
+  /** Kcal i białko NA PORCJĘ — do „lekkie"/„dużo białka", nie do bilansu. */
+  kcal: number | null;
+  protein: number | null;
+  prepMinutes: number;
+  why: string[];
+  household?: true;
+};
 
+/**
+ * Wynik `find_recipes` dla modelu — tylko to, po czym model WYBIERA (Etap 3.6).
+ * Bez tłuszczu, węgli, porcji przepisu, alergenów, tagów diety i składników:
+ * alergeny i diety nakłada serwer (te same reguły, co walidator), a skład
+ * i pełne makro daje `get_recipe_details`. Serwer dalej liczy na pełnym
+ * rekordzie — chudnie wyłącznie to, co idzie do modelu.
+ */
 export type FindRecipesForModel = Omit<AgentSearchResult, 'hits'> & {
   hits: RecipeHitForModel[];
 };
-
-/** Kandydatów na porę w wyniku `start_planning` — tyle, żeby wybrać, nie czytać. */
-export const PLANNING_CANDIDATES_PER_SLOT = 6;
 
 const MEAL_TYPES: readonly MealType[] = [
   'BREAKFAST',
@@ -455,6 +472,7 @@ const MEAL_TYPES: readonly MealType[] = [
 export const TURN_ENDING_TOOLS: ReadonlySet<string> = new Set([
   'ask_clarifying_question',
   'offer_options',
+  'suggest_meals',
   'propose_week_plan',
   'propose_day_plan',
   'propose_swap',
@@ -535,6 +553,12 @@ export type AgentToolContext = {
    */
   planScope?: PlanScope;
   dates?: PlanScopeDates;
+  /**
+   * Pamięć tury (`turn-memo.ts`): domownicy, zgody i pory czytane raz na
+   * turę oraz rezerwacja JEDNEJ karty. Runner podaje ją zawsze; opcjonalna
+   * dla wywołań spoza tury (testy, skrypty).
+   */
+  memo?: TurnMemo;
 };
 
 /**
@@ -565,6 +589,13 @@ export type AgentToolResult =
        * skończyć bez kolejnego wywołania modelu (patrz dostawca).
        */
       endsTurn?: true;
+      /**
+       * Zdanie serwera na koniec tury, gdy model nie napisał nic przed
+       * wywołaniem (karta mówi resztę). Bez niego dostawca wołałby model
+       * jeszcze raz tylko po jedno zdanie. Brak = model ma coś do
+       * wyjaśnienia (np. plan PARTIAL) i dostaje głos.
+       */
+      turnText?: string;
     }
   | { ok: false; error: { code: string; message: string; details?: string[] } };
 
@@ -607,12 +638,38 @@ export class AgentToolExecutor {
     input: Record<string, unknown>,
     context: AgentToolContext,
   ): Promise<AgentToolResult> {
-    if (!AGENT_TOOL_NAMES.includes(name)) {
+    if (!EXECUTABLE_TOOL_NAMES.includes(name)) {
       // Model wywołał narzędzie, którego nie ma na liście. Zdarza się rzadko,
       // ale odpowiedź musi być danymi — inaczej tura pada przez literówkę.
       return this.failure('BAD_REQUEST', `Nie ma narzędzia o nazwie ${name}.`);
     }
 
+    // Jedna karta na turę — rezerwacja SYNCHRONICZNIE, przed pierwszym
+    // `await`, więc z dwóch kart w jednej rundzie wygrywa dokładnie jedna
+    // (patrz `TurnMemo.claimCard`). Odmowa narzędzia zwalnia rezerwację.
+    const cardTool = TURN_ENDING_TOOLS.has(name);
+    if (cardTool && context.memo) {
+      const holder = context.memo.claimCard(name);
+      if (holder !== null) {
+        return this.failure(
+          'AI_ONE_CARD_PER_TURN',
+          `W tej odpowiedzi stoi już karta (${holder}) — wiadomość niesie jedną kartę. ` +
+            'Resztę powiedz słowami albo zaproponuj w następnej wiadomości.',
+        );
+      }
+    }
+    const result = await this.executeClaimed(name, input, context);
+    if (cardTool && !(result.ok && result.endsTurn)) {
+      context.memo?.releaseCard(name);
+    }
+    return result;
+  }
+
+  private async executeClaimed(
+    name: string,
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<AgentToolResult> {
     const refusal = this.refuseOutOfMode(name, context);
     if (refusal) return refusal;
 
@@ -634,10 +691,12 @@ export class AgentToolExecutor {
       const endsTurn =
         TURN_ENDING_TOOLS.has(name) &&
         (data as { proposed?: unknown } | null)?.proposed !== false;
+      const turnText = endsTurn ? turnTextFor(name, input, data) : null;
       return {
         ok: true,
         data,
         ...(endsTurn ? { endsTurn: true as const } : {}),
+        ...(turnText ? { turnText } : {}),
       };
     } catch (error) {
       const { contract } = mapError(error);
@@ -662,6 +721,28 @@ export class AgentToolExecutor {
 
   private failure(code: string, message: string): AgentToolResult {
     return { ok: false, error: { code, message } };
+  }
+
+  /** Domownicy z celami — raz na turę (`TurnMemo`), jak w prompcie. */
+  private members(context: AgentToolContext) {
+    return memoized(
+      context.memo,
+      TURN_KEYS.members(context.userId, context.householdId),
+      () =>
+        this.households.memberPreferences(context.userId, context.householdId),
+    );
+  }
+
+  /**
+   * Domownicy, których model może zobaczyć (zgoda) — ten sam filtr i ten
+   * sam wpis pamięci tury, co blok gospodarstwa w prompcie.
+   */
+  private visibleMembers(context: AgentToolContext) {
+    return memoized(
+      context.memo,
+      TURN_KEYS.visible(context.userId, context.householdId),
+      async () => this.prompts.membersForModel(await this.members(context)),
+    );
   }
 
   /**
@@ -762,8 +843,7 @@ export class AgentToolExecutor {
       );
     }
 
-    const all = await this.households.memberPreferences(userId, householdId);
-    const { members } = await this.prompts.membersForModel(all);
+    const { members } = await this.visibleMembers(context);
     if (!members.some((member) => member.userId === about)) {
       throw new AppException(
         'VALIDATION_ERROR',
@@ -813,8 +893,8 @@ export class AgentToolExecutor {
     if (name === 'apply_week_plan' && context.proposalMode) {
       return this.failure(
         'AI_TOOL_NOT_IN_MODE',
-        'W tym trybie nie zapisujesz planu sam. Podaj ten sam stan docelowy przez ' +
-          'propose_week_plan — użytkownik zatwierdzi go jednym kliknięciem w aplikacji.',
+        'W tym trybie nie zapisujesz planu sam. Plan dnia albo tygodnia ułóż przez ' +
+          'build_meal_plan — użytkownik zatwierdzi go jednym kliknięciem w aplikacji.',
       );
     }
     if (
@@ -846,14 +926,6 @@ export class AgentToolExecutor {
     const str = (key: string): string => asString(input[key]);
 
     switch (name) {
-      case 'get_household_context':
-        // Ten sam filtr zgód, co w prompcie: model widzi tylko domowników,
-        // którzy sami zgodzili się na asystenta.
-        return this.households
-          .memberPreferences(userId, householdId)
-          .then((all) => this.prompts.membersForModel(all))
-          .then((result) => result.members);
-
       case 'get_week_plan':
         return this.weekPlanForModel(context, str('week_start'));
 
@@ -865,6 +937,9 @@ export class AgentToolExecutor {
 
       case 'find_recipes':
         return this.findRecipes(input, context);
+
+      case 'suggest_meals':
+        return this.suggestMeals(input, context, str('week_start'));
 
       case 'search_ingredients':
         return this.ingredients
@@ -978,10 +1053,7 @@ export class AgentToolExecutor {
         // tu potwierdzenie, które planista przeczyta jako pierwsze, i od razu
         // kandydaci na pory domu — bez tego pierwszą rundą planisty byłoby
         // i tak szukanie dań.
-        return this.startPlanning(context);
-
-      case 'delete_recipe':
-        return this.recipes.remove(userId, str('recipe_id'), householdId);
+        return Promise.resolve(this.startPlanning());
 
       default:
         return Promise.resolve(null);
@@ -1159,6 +1231,7 @@ export class AgentToolExecutor {
       : [];
 
     return this.proposals.createSwapProposal({
+      memo: context.memo,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -1219,6 +1292,7 @@ export class AgentToolExecutor {
       : [];
 
     return this.proposals.createRemoveMealProposal({
+      memo: context.memo,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -1268,6 +1342,7 @@ export class AgentToolExecutor {
 
     const recipeId = this.resolveRecipeRef(ref, context);
     return this.proposals.createHouseholdSplitProposal({
+      memo: context.memo,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -1340,10 +1415,9 @@ export class AgentToolExecutor {
     refByRecipeId: Map<string, string>;
     visible: Set<string>;
   }> {
-    const visible = await this.households
-      .memberPreferences(context.userId, context.householdId)
-      .then((all) => this.prompts.membersForModel(all))
-      .then((result) => new Set(result.members.map((m) => m.userId)));
+    const visible = await this.visibleMembers(context).then(
+      (result) => new Set(result.members.map((m) => m.userId)),
+    );
     return {
       refByRecipeId: new Map(
         Object.entries(context.catalogIndex).map(([ref, id]) => [id, ref]),
@@ -1639,10 +1713,7 @@ export class AgentToolExecutor {
         weekStart,
         memberUserId || undefined,
       ),
-      this.households
-        .memberPreferences(context.userId, context.householdId)
-        .then((all) => this.prompts.membersForModel(all))
-        .then((result) => result.members),
+      this.visibleMembers(context).then((result) => result.members),
     ]);
     const member = members.find((entry) => entry.userId === targetUserId);
     if (!member) {
@@ -1816,11 +1887,16 @@ export class AgentToolExecutor {
 
   /** Kontekst wyszukiwania z tury — zgody tą samą regułą, co prompt. */
   private async searchContext(context: AgentToolContext, forUserIds: string[]) {
-    const memberships = await this.prisma.membership.findMany({
-      where: { householdId: context.householdId },
-      select: { userId: true },
-    });
-    const { members } = await this.prompts.membersForModel(memberships);
+    // W turze: domownicy ze zgodą z pamięci tury (prompt już ich przeczytał).
+    // Poza turą: sam skład domu — tańszy niż pełne profile.
+    const { members } = context.memo
+      ? await this.visibleMembers(context)
+      : await this.prompts.membersForModel(
+          await this.prisma.membership.findMany({
+            where: { householdId: context.householdId },
+            select: { userId: true },
+          }),
+        );
     return {
       userId: context.userId,
       householdId: context.householdId,
@@ -1844,76 +1920,36 @@ export class AgentToolExecutor {
     );
     return {
       ...result,
-      hits: result.hits.map(({ id, ...hit }) => ({
-        ...hit,
-        recipe: refById.get(id) ?? id,
+      hits: result.hits.map((hit) => ({
+        recipe: refById.get(hit.id) ?? hit.id,
+        title: hit.title,
+        slots: hit.slots,
+        tags: hit.tags,
+        kcal: hit.kcal,
+        protein: hit.protein,
+        prepMinutes: hit.prepMinutes,
+        why: hit.why,
+        ...(hit.household ? { household: true as const } : {}),
       })),
     };
   }
 
   /**
-   * Przekazanie planiście z kandydatami na każdą porę domu.
-   *
-   * Kandydaci dla CAŁEGO domu (filtry twarde wszystkich), bez tekstu, po
-   * rankingu z sygnałami planu — to samo, co `find_recipes` z pustymi
-   * kryteriami. Gdy prośba jest węższa („dla Ani", „bez ryżu"), planista
-   * zawoła `find_recipes` sam; te listy mają oszczędzić mu rundę w typowym
-   * przypadku, a nie zastąpić wyszukiwanie.
+   * Przekazanie planiście (`AI_MODEL_TOOLS`). Do Etapu 3 wynik niósł
+   * kandydatów na każdą porę domu (~7,7 tys. znaków) — po serwerowym
+   * planerze dania dobiera `build_meal_plan`/`replace_plan_item`/
+   * `suggest_meals`, więc planista ich nie czytał, a płacił za nie w każdej
+   * kolejnej rundzie tury.
    */
-  private async startPlanning(context: AgentToolContext): Promise<{
-    handoff: true;
-    note: string;
-    candidates: {
-      mealType: MealType;
-      total: number;
-      hits: RecipeHitForModel[];
-    }[];
-  }> {
-    const note =
-      'Od tej rundy prowadzisz turę jako planista i masz pełny zestaw narzędzi ' +
-      '(propose_*, apply_*). Kontekst zebrany wcześniej jest w historii — nie ' +
-      'powtarzaj tych wywołań. Niżej kandydaci na każdą porę domu dla CAŁEGO domu; ' +
-      'do węższej prośby (inne osoby, składnik, czas) wołaj find_recipes.';
-    let candidates: {
-      mealType: MealType;
-      total: number;
-      hits: RecipeHitForModel[];
-    }[] = [];
-    try {
-      const household = await this.prisma.household.findUnique({
-        where: { id: context.householdId },
-        select: { enabledMealTypes: true },
-      });
-      const searchContext = await this.searchContext(context, []);
-      candidates = await Promise.all(
-        (household?.enabledMealTypes ?? []).map(async (mealType) => {
-          const result = this.searchResultForModel(
-            await this.catalog.search(searchContext, {
-              text: '',
-              mealType,
-              tags: [],
-              includeIngredients: [],
-              excludeIngredients: [],
-              maxPrepMinutes: null,
-              maxKcalPerServing: null,
-              minProteinPerServing: null,
-              sort: 'BEST_FIT',
-              limit: PLANNING_CANDIDATES_PER_SLOT,
-            }),
-            context,
-          );
-          return { mealType, total: result.total, hits: result.hits };
-        }),
-      );
-    } catch (error) {
-      // Kandydaci są dodatkiem: bez nich planista szuka sam, jak dawniej.
-      this.logger.warn(
-        `kandydaci do planowania niedostępni (${
-          error instanceof Error ? error.name : 'nieznany błąd'
-        })`,
-      );
-    }
-    return { handoff: true, note, candidates };
+  private startPlanning(): { handoff: true; note: string } {
+    return {
+      handoff: true,
+      note:
+        'Od tej rundy prowadzisz turę jako planista i masz pełny zestaw narzędzi. ' +
+        'Kontekst zebrany wcześniej jest w historii — nie powtarzaj tych wywołań. ' +
+        'Plan dnia albo tygodnia: build_meal_plan; jedno danie: replace_plan_item; ' +
+        'dania do wyboru: suggest_meals.',
+    };
   }
 
   /**
@@ -1990,6 +2026,7 @@ export class AgentToolExecutor {
 
     const note = asString(input.note).trim();
     return this.proposals.createDayPlanProposal({
+      memo: context.memo,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -2014,11 +2051,7 @@ export class AgentToolExecutor {
       ? asString(input.member_user_id)
       : undefined;
     if (memberUserId && memberUserId !== context.userId) {
-      const all = await this.households.memberPreferences(
-        context.userId,
-        context.householdId,
-      );
-      const { members } = await this.prompts.membersForModel(all);
+      const { members } = await this.visibleMembers(context);
       if (!members.some((member) => member.userId === memberUserId)) {
         throw new AppException(
           'VALIDATION_ERROR',
@@ -2054,6 +2087,7 @@ export class AgentToolExecutor {
     const note = asString(input.note).trim();
     const removalReasons = this.toRemovalReasons(input.removals);
     return this.proposals.createWeekPlanProposal({
+      memo: context.memo,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -2104,6 +2138,7 @@ export class AgentToolExecutor {
       );
     }
     return this.proposals.reviseProposal({
+      memo: context.memo,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -2148,6 +2183,7 @@ export class AgentToolExecutor {
       forUserIds: stringList(input.for_user_ids),
       wishes: wishesOf(input),
       seed: context.turnId,
+      memo: context.memo,
     });
     const diagnostics = plannerResultForModel(outcome);
     if (outcome.draft.items.length === 0) {
@@ -2157,6 +2193,7 @@ export class AgentToolExecutor {
     const proposal =
       days.length === 1
         ? await this.proposals.createDayPlanProposal({
+            memo: context.memo,
             userId: context.userId,
             householdId: context.householdId,
             conversationId: context.conversationId,
@@ -2168,6 +2205,7 @@ export class AgentToolExecutor {
               .map(({ dayOfWeek: _day, ...slot }) => slot),
           })
         : await this.proposals.createWeekPlanProposal({
+            memo: context.memo,
             userId: context.userId,
             householdId: context.householdId,
             conversationId: context.conversationId,
@@ -2177,6 +2215,117 @@ export class AgentToolExecutor {
             ...(note ? { note } : {}),
           });
     return { ...proposal, planner: diagnostics };
+  }
+
+  /**
+   * Dania do wyboru z serwera (Etap 3) — „co na kolację?", „3 szybkie
+   * kolacje", „mam dużo kurczaka". Jedna operacja zamiast `find_recipes` →
+   * analiza modelu → `offer_options`: serwer filtruje (alergeny, diety,
+   * wykluczenia wszystkich jedzących), rankinguje wobec tego, co osobie
+   * zostaje na ten posiłek przy reszcie dnia, różnicuje i stawia TĘ SAMĄ
+   * kartę OPTIONS co `offer_options` — więc „wybieram drugą" działa bez zmian.
+   */
+  private async suggestMeals(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ) {
+    const [dayOfWeek] = enumList(
+      [input.day_of_week],
+      Object.values(DayOfWeek),
+      'day_of_week',
+    );
+    const [mealType] = enumList(
+      [input.meal_type],
+      Object.values(MealType),
+      'meal_type',
+    );
+    const rawCount =
+      typeof input.count === 'number' ? Math.round(input.count) : 3;
+    const count = Math.min(MAX_OPTIONS, Math.max(2, rawCount || 3));
+    const wishes = wishesOf(input);
+    const outcome = await this.planner.suggest({
+      userId: context.userId,
+      householdId: context.householdId,
+      weekStart,
+      dayOfWeek,
+      mealType,
+      forUserIds: stringList(input.for_user_ids),
+      wishes,
+      includeIngredients: stringList(input.include_ingredients).slice(0, 5),
+      count,
+      seed: context.turnId,
+      memo: context.memo,
+    });
+    const { draft } = outcome;
+    const budget = draft.slotBudget.find(
+      (entry) => entry.userId === context.userId,
+    );
+    const common = {
+      status: draft.status,
+      eligible: draft.eligible,
+      // Z PLANU (zaplanowane, nie odhaczone): ile kcal zostaje pytającemu
+      // na ten posiłek przy reszcie dnia.
+      ...(budget ? { remainingKcalForMeal: budget.kcal } : {}),
+      ...(draft.relaxed.length > 0 ? { relaxed: draft.relaxed } : {}),
+    };
+    if (draft.suggestions.length < 2) {
+      // Jedno danie to nie wybór — karty nie ma, model mówi, czego zabrakło.
+      return {
+        proposed: false as const,
+        offered: 0,
+        ...common,
+        hint: 'Za mało dań spełnia warunki. Zdejmij jedno życzenie (np. składnik albo tag) albo powiedz to użytkownikowi.',
+      };
+    }
+
+    const sides = await Promise.all(
+      draft.suggestions.map((entry) =>
+        this.recipeSide(entry.item.recipeId, context),
+      ),
+    );
+    const tags = optionTags(
+      sides.map((side) => ({
+        prep: side.prepTimeMinutes,
+        protein: side.proteinGrams ?? 0,
+      })),
+    );
+    const options: OptionsCardItem[] = sides.map((side, index) => ({
+      recipeId: side.recipeId,
+      title: side.title,
+      kcalPerServing: side.kcalPerServing,
+      prepTimeMinutes: side.prepTimeMinutes,
+      imageUrl: side.imageUrl,
+      description: side.description,
+      proteinGrams: side.proteinGrams,
+      carbsGrams: side.carbsGrams,
+      fatGrams: side.fatGrams,
+      ingredientCount: side.ingredientCount,
+      tag: tags[index],
+      prompt: optionPrompt(side.title),
+    }));
+    const quick =
+      wishes.maxPrepMinutes !== null || wishes.preferredTags.includes('quick');
+    context.collectCard(
+      buildOptionsCard({
+        title: `${NUMERALS[options.length] ?? options.length} ${quick ? 'szybkie ' : ''}propozycje`,
+        options,
+        slotLabel: `${MEAL_LABELS[mealType]} · ${DAY_LABELS[dayOfWeek].toLowerCase()}`,
+      }),
+    );
+    const refById = new Map(
+      Object.entries(context.catalogIndex).map(([ref, id]) => [id, ref]),
+    );
+    return {
+      offered: options.length,
+      ...common,
+      options: sides.map((side) => ({
+        recipe: refById.get(side.recipeId) ?? side.recipeId,
+        title: side.title,
+        kcal: side.kcalPerServing,
+        prepMinutes: side.prepTimeMinutes,
+      })),
+    };
   }
 
   /**
@@ -2228,12 +2377,14 @@ export class AgentToolExecutor {
       // Karta podmiany zapisuje porcje z audytorium — planer ma liczyć tak samo.
       portionMode: pending ? 'tune' : 'auto',
       seed: context.turnId,
+      memo: context.memo,
     });
     const diagnostics = plannerResultForModel(outcome);
     const [chosen] = outcome.draft.items;
     if (!chosen) return { proposed: false as const, planner: diagnostics };
     const proposal = pending
       ? await this.proposals.reviseProposal({
+          memo: context.memo,
           userId: context.userId,
           householdId: context.householdId,
           conversationId: context.conversationId,
@@ -2507,4 +2658,116 @@ function wishesOf(input: Record<string, unknown>): PlannerWishes {
     avoidIngredients: stringList(input.avoid_ingredients).slice(0, 10),
     maxPrepMinutes: maxPrep,
   };
+}
+
+const NUMERALS: Record<number, string> = { 2: 'Dwie', 3: 'Trzy', 4: 'Cztery' };
+
+/** „na kolację", „na drugie śniadanie" — do zdań serwera. */
+const MEAL_FOR: Record<MealType, string> = {
+  BREAKFAST: 'na śniadanie',
+  SECOND_BREAKFAST: 'na drugie śniadanie',
+  LUNCH: 'na obiad',
+  AFTERNOON_SNACK: 'na podwieczorek',
+  DINNER: 'na kolację',
+  SNACK: 'na przekąskę',
+};
+
+/** Biernik dnia: „w środę", „na sobotę". */
+const DAY_ACCUSATIVE: Record<DayOfWeek, string> = {
+  MON: 'poniedziałek',
+  TUE: 'wtorek',
+  WED: 'środę',
+  THU: 'czwartek',
+  FRI: 'piątek',
+  SAT: 'sobotę',
+  SUN: 'niedzielę',
+};
+
+/**
+ * Wyróżnik kafelka z danych, nie od modelu: pierwsze = najlepiej pasuje,
+ * potem najszybsze i najbardziej białkowe — każdy napis najwyżej raz.
+ */
+function optionTags(
+  sides: readonly { prep: number; protein: number }[],
+): (string | null)[] {
+  const tags: (string | null)[] = sides.map((_, index) =>
+    index === 0 ? 'Najlepiej pasuje' : null,
+  );
+  const pick = (score: (side: { prep: number; protein: number }) => number) => {
+    let best = -1;
+    sides.forEach((side, index) => {
+      if (tags[index] !== null) return;
+      if (best === -1 || score(side) > score(sides[best])) best = index;
+    });
+    return best;
+  };
+  const quickest = pick((side) => -side.prep);
+  if (quickest > 0 && sides[quickest].prep < sides[0].prep) {
+    tags[quickest] = 'Najszybsze';
+  }
+  const protein = pick((side) => side.protein);
+  if (protein > 0 && sides[protein].protein > sides[0].protein) {
+    tags[protein] = 'Najwięcej białka';
+  }
+  return tags;
+}
+
+/**
+ * Zdanie SERWERA kończące turę, gdy model nie napisał nic przed kartą
+ * (Etap 3.3). Karta pokazuje dania, liczby i przyciski, więc zdanie tylko
+ * nazywa, co widać, i co zrobić dalej. `null` = model ma coś do wyjaśnienia
+ * (plan PARTIAL, pytanie bez treści) i dostaje kolejną rundę jak dotąd.
+ */
+export function turnTextFor(
+  name: string,
+  input: Record<string, unknown>,
+  data: unknown,
+): string | null {
+  const result = (data ?? {}) as {
+    offered?: number;
+    planner?: { status?: string };
+  };
+  const day = DAY_ACCUSATIVE[asString(input.day_of_week) as DayOfWeek];
+  const meal = MEAL_FOR[asString(input.meal_type) as MealType];
+  switch (name) {
+    case 'suggest_meals': {
+      const count = NUMERALS[result.offered ?? 0];
+      if (!count || !meal) return null;
+      return `${count} propozycje ${meal}${day ? ` w ${day}` : ''} — wybierz jedną.`;
+    }
+    case 'offer_options':
+      return 'Wybierz jedno z dań.';
+    case 'build_meal_plan': {
+      if (result.planner?.status !== 'OK') return null;
+      const days = Array.isArray(input.days) ? input.days : [];
+      const only =
+        days.length === 1
+          ? DAY_ACCUSATIVE[asString(days[0]) as DayOfWeek]
+          : null;
+      return only
+        ? `Plan na ${only} gotowy — zatwierdzisz go jednym kliknięciem.`
+        : 'Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.';
+    }
+    case 'replace_plan_item':
+      return result.planner?.status === 'OK'
+        ? 'Nowe danie czeka na zatwierdzenie w karcie.'
+        : null;
+    case 'revise_proposal':
+      return 'Poprawiona propozycja czeka na zatwierdzenie.';
+    case 'propose_swap':
+      return 'Podmiana czeka na zatwierdzenie.';
+    case 'propose_remove_meal':
+      return 'Usunięcie czeka na zatwierdzenie.';
+    case 'propose_day_plan':
+    case 'propose_week_plan':
+      return 'Propozycja czeka na zatwierdzenie.';
+    case 'propose_household_split':
+      return 'Jedno danie dla wszystkich — jak podać je każdemu, masz w karcie.';
+    case 'ask_clarifying_question': {
+      const question = asString(input.question).trim();
+      return question.length > 0 ? question : null;
+    }
+    default:
+      return null;
+  }
 }

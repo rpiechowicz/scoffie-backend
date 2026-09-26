@@ -1,3 +1,4 @@
+import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AgentProposal, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -42,6 +43,8 @@ import type { MessageView } from '../agent-conversations.service';
 export type CreateWeekProposalInput = {
   userId: string;
   householdId: string;
+  /** Pamięć tury (Etap 3.7) — domownicy i pory czytane raz na turę. */
+  memo?: TurnMemo;
   conversationId: string;
   turnId: string;
   weekStart: string;
@@ -228,10 +231,14 @@ export class AgentProposalsService {
       targetKcalPerDay: await this.targetKcalFor(
         input.userId,
         input.householdId,
+        input.memo,
       ),
       expiresAt,
       forUserId: input.userId,
-      enabledMealTypes: await this.enabledMealTypesFor(input.householdId),
+      enabledMealTypes: await this.enabledMealTypesFor(
+        input.householdId,
+        input.memo,
+      ),
     });
 
     await this.prisma.agentProposal.create({
@@ -311,10 +318,14 @@ export class AgentProposalsService {
       targetKcalPerDay: await this.targetKcalFor(
         input.userId,
         input.householdId,
+        input.memo,
       ),
       expiresAt,
       forUserId: input.userId,
-      enabledMealTypes: await this.enabledMealTypesFor(input.householdId),
+      enabledMealTypes: await this.enabledMealTypesFor(
+        input.householdId,
+        input.memo,
+      ),
     });
 
     await this.prisma.agentProposal.create({
@@ -404,6 +415,7 @@ export class AgentProposalsService {
     const base = {
       userId: input.userId,
       householdId: input.householdId,
+      memo: input.memo,
       conversationId: input.conversationId,
       turnId: input.turnId,
       weekStart,
@@ -538,6 +550,7 @@ export class AgentProposalsService {
       const everyone = await this.householdMemberIds(
         input.userId,
         input.householdId,
+        input.memo,
       );
       const leaving = new Set(input.participantIds);
       const narrowed = standing
@@ -581,6 +594,7 @@ export class AgentProposalsService {
         input.userId,
         input.householdId,
         input.participantIds,
+        input.memo,
       ),
       proposalId,
       weekStart: input.weekStart,
@@ -657,6 +671,7 @@ export class AgentProposalsService {
       const everyone = await this.householdMemberIds(
         input.userId,
         input.householdId,
+        input.memo,
       );
       const leaving = new Set(input.participantIds);
       const narrowed = standing
@@ -690,6 +705,7 @@ export class AgentProposalsService {
         input.userId,
         input.householdId,
         input.participantIds,
+        input.memo,
       ),
       proposalId,
       weekStart: input.weekStart,
@@ -915,12 +931,17 @@ export class AgentProposalsService {
   private async householdMemberIds(
     userId: string,
     householdId: string,
+    memo?: TurnMemo,
   ): Promise<string[]> {
-    const members = await this.households.memberPreferences(
-      userId,
-      householdId,
-    );
+    const members = await this.members(userId, householdId, memo);
     return members.map((member) => member.userId);
+  }
+
+  /** Domownicy z celami — raz na turę, jak prompt i narzędzia (`TurnMemo`). */
+  private members(userId: string, householdId: string, memo?: TurnMemo) {
+    return memoized(memo, TURN_KEYS.members(userId, householdId), () =>
+      this.households.memberPreferences(userId, householdId),
+    );
   }
 
   /** Imiona do karty — „dla Rafała" czyta się, „dla 3fa85f64…" nie. */
@@ -928,13 +949,11 @@ export class AgentProposalsService {
     userId: string,
     householdId: string,
     ids: readonly string[],
+    memo?: TurnMemo,
   ): Promise<string[]> {
     if (ids.length === 0) return [];
     try {
-      const members = await this.households.memberPreferences(
-        userId,
-        householdId,
-      );
+      const members = await this.members(userId, householdId, memo);
       return members
         .filter((member) => ids.includes(member.userId))
         .map((member) => member.displayName);
@@ -944,12 +963,21 @@ export class AgentProposalsService {
   }
 
   /** Sloty, które ten dom planuje — nota celu ma sens tylko dla pełnego dnia. */
-  private async enabledMealTypesFor(householdId: string): Promise<string[]> {
+  private async enabledMealTypesFor(
+    householdId: string,
+    memo?: TurnMemo,
+  ): Promise<string[]> {
     try {
-      const household = await this.prisma.household.findUnique({
-        where: { id: householdId },
-        select: { enabledMealTypes: true },
-      });
+      // Ten sam wiersz i klucz, co prompt tury (`TURN_KEYS.household`).
+      const household = await memoized(
+        memo,
+        TURN_KEYS.household(householdId),
+        () =>
+          this.prisma.household.findUnique({
+            where: { id: householdId },
+            select: { name: true, enabledMealTypes: true },
+          }),
+      );
       return household?.enabledMealTypes ?? [];
     } catch {
       return [];
@@ -965,12 +993,10 @@ export class AgentProposalsService {
   private async targetKcalFor(
     userId: string,
     householdId: string,
+    memo?: TurnMemo,
   ): Promise<number | null> {
     try {
-      const members = await this.households.memberPreferences(
-        userId,
-        householdId,
-      );
+      const members = await this.members(userId, householdId, memo);
       const mine = members.find((member) => member.userId === userId);
       return mine?.targets.calorieGoal ?? null;
     } catch (error) {

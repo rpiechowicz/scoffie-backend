@@ -42,6 +42,7 @@ import { AgentMemoryService } from '../src/agent/agent-memory.service';
 import { AiEffort, AgentEnv, readAgentEnv } from '../src/config/agent-env';
 import { resolveRoute } from '../src/agent/agent-route';
 import { createPlanScope } from '../src/agent/tools/plan-scope';
+import { createTurnMemo } from '../src/agent/turn-memo';
 import {
   AgentCallTiming,
   AgentProviderError,
@@ -719,6 +720,9 @@ async function runOnce(
 
   try {
     for (const text of scenario.prompts) {
+      // Pamięć tury — jak w `AgentTurnRunner` (Etap 3): jedna na turę,
+      // wspólna dla promptu i narzędzi.
+      const memo = createTurnMemo();
       const prompt = await deps.prompts.build(
         built.ownerId,
         built.householdId,
@@ -729,6 +733,7 @@ async function runOnce(
         },
         proposalMode,
         route.promptHandoff,
+        memo,
       );
       messages.push({ role: 'USER', text });
       // Zakres planowania TURY — tak jak w `AgentTurnRunner`: jeden na turę,
@@ -759,6 +764,7 @@ async function runOnce(
               turnId: randomUUID(),
               proposalMode,
               planScope,
+              memo,
               dates: { weekStart: WEEK_START, clientToday: WEEK_START },
               collectCard: (card: AgentCard) =>
                 cards.push({

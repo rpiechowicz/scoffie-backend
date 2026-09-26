@@ -200,7 +200,11 @@ export const WRITING_TOOLS = [
   'propose_week_plan',
   'propose_day_plan',
   'propose_swap',
+  'propose_remove_meal',
   'propose_household_split',
+  'build_meal_plan',
+  'replace_plan_item',
+  'revise_proposal',
   'create_recipe',
   'update_recipe',
   'delete_recipe',
@@ -468,7 +472,7 @@ const GROUP_2: Scenario[] = [
     // `ask_clarifying_question` („na kiedy?") i scenariusz mierzył
     // dopytywanie, a nie dobór dania.
     prompts: ['Co na kolację w poniedziałek?'],
-    expectedTools: ['offer_options'],
+    expectedTools: ['offer_options', 'suggest_meals'],
     forbiddenTools: WRITING_TOOLS,
     maxRounds: 3,
     verify: (v) => {
@@ -487,7 +491,7 @@ const GROUP_2: Scenario[] = [
     pyta: 'Czy „szybko" filtruje po czasie z katalogu, a nie po wrażeniu?',
     members: SOLO,
     prompts: ['Chcę coś szybkiego na kolację w poniedziałek — mam mało czasu.'],
-    expectedTools: ['offer_options'],
+    expectedTools: ['offer_options', 'suggest_meals'],
     forbiddenTools: WRITING_TOOLS,
     maxRounds: 3,
     verify: (v) => {
@@ -512,7 +516,7 @@ const GROUP_2: Scenario[] = [
     pyta: 'Czy „lekko" znaczy mniej kalorii z katalogu?',
     members: SOLO,
     prompts: ['Chciałbym coś lekkiego na kolację w poniedziałek.'],
-    expectedTools: ['offer_options'],
+    expectedTools: ['offer_options', 'suggest_meals'],
     forbiddenTools: WRITING_TOOLS,
     maxRounds: 3,
     verify: (v) => {
@@ -591,6 +595,9 @@ const GROUP_3: Scenario[] = [
       'apply_week_plan',
       'propose_week_plan',
       'offer_options',
+      'suggest_meals',
+      'build_meal_plan',
+      'replace_plan_item',
     ],
     maxRounds: 6,
     verify: (v) => {
@@ -618,6 +625,9 @@ const GROUP_3: Scenario[] = [
       'apply_week_plan',
       'propose_week_plan',
       'offer_options',
+      'suggest_meals',
+      'build_meal_plan',
+      'replace_plan_item',
     ],
     maxRounds: 7,
     verify: (v) => {
@@ -677,6 +687,9 @@ const GROUP_3: Scenario[] = [
       'apply_week_plan',
       'propose_week_plan',
       'offer_options',
+      'suggest_meals',
+      'build_meal_plan',
+      'replace_plan_item',
     ],
     maxRounds: 6,
     verify: (v) => {
@@ -733,7 +746,12 @@ const GROUP_4: Scenario[] = [
     seed: (world) =>
       fullWeekSeed(world).filter((slot) => slot.dayOfWeek !== 'FRI'),
     prompts: ['Zaplanuj mi piątek.'],
-    expectedTools: ['propose_day_plan', 'apply_week_plan', 'propose_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'apply_week_plan',
+      'propose_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 6,
     verify: (v) => {
       const issues: string[] = [];
@@ -752,7 +770,12 @@ const GROUP_4: Scenario[] = [
     members: SOLO,
     enabledMealTypes: ['BREAKFAST', 'LUNCH', 'DINNER'],
     prompts: ['Zaplanuj mi sobotę — wszystkie posiłki dnia.'],
-    expectedTools: ['propose_day_plan', 'apply_week_plan', 'propose_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'apply_week_plan',
+      'propose_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 6,
     verify: (v) => {
       const issues: string[] = [];
@@ -777,7 +800,12 @@ const GROUP_4: Scenario[] = [
     pyta: 'Czy podany w rozmowie limit kalorii przekłada się na dobór dań?',
     members: SOLO,
     prompts: ['Zaplanuj środę tak, żeby zmieścić się w 1800 kcal.'],
-    expectedTools: ['propose_day_plan', 'apply_week_plan', 'propose_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'apply_week_plan',
+      'propose_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 7,
     verify: (v) => {
       const issues: string[] = [];
@@ -813,7 +841,12 @@ const GROUP_5: Scenario[] = [
     prompts: [
       'Zaplanuj obiady i kolacje na poniedziałek, wtorek i środę. Zapisz plan.',
     ],
-    expectedTools: ['propose_day_plan', 'propose_week_plan', 'apply_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'propose_week_plan',
+      'apply_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 5,
     verify: (v) => {
       const issues: string[] = [];
@@ -840,7 +873,12 @@ const GROUP_5: Scenario[] = [
     prompts: [
       'Zaplanuj obiady na poniedziałek, wtorek i środę — każdego dnia coś innego. Zapisz plan.',
     ],
-    expectedTools: ['propose_day_plan', 'propose_week_plan', 'apply_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'propose_week_plan',
+      'apply_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 5,
     verify: (v) => {
       const issues: string[] = [];
@@ -874,7 +912,12 @@ const GROUP_5: Scenario[] = [
     prompts: [
       'Zaplanuj mi śniadania, obiady i kolacje na czwartek, piątek i sobotę, blisko mojego celu kalorycznego. Zapisz plan.',
     ],
-    expectedTools: ['propose_day_plan', 'propose_week_plan', 'apply_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'propose_week_plan',
+      'apply_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 6,
     verify: (v) => {
       const issues: string[] = [];
@@ -909,7 +952,7 @@ const GROUP_6: Scenario[] = [
     prompts: [
       'Zaplanuj mi cały tydzień: śniadania, obiady i kolacje na wszystkie siedem dni. Zapisz plan.',
     ],
-    expectedTools: ['propose_week_plan', 'apply_week_plan'],
+    expectedTools: ['propose_week_plan', 'apply_week_plan', 'build_meal_plan'],
     maxRounds: 8,
     verify: (v) => {
       const issues: string[] = [];
@@ -937,7 +980,7 @@ const GROUP_6: Scenario[] = [
     prompts: [
       'Zaplanuj cały tydzień dla nas dwojga — obiady i kolacje na siedem dni. Zapisz plan.',
     ],
-    expectedTools: ['propose_week_plan', 'apply_week_plan'],
+    expectedTools: ['propose_week_plan', 'apply_week_plan', 'build_meal_plan'],
     maxRounds: 9,
     verify: (v) => {
       const issues: string[] = [];
@@ -959,7 +1002,7 @@ const GROUP_6: Scenario[] = [
     prompts: [
       'Zaplanuj obiady i kolacje na cały tydzień, ale w dni robocze nic, co zajmuje więcej niż 35 minut. Zapisz plan.',
     ],
-    expectedTools: ['propose_week_plan', 'apply_week_plan'],
+    expectedTools: ['propose_week_plan', 'apply_week_plan', 'build_meal_plan'],
     maxRounds: 9,
     verify: (v) => {
       const issues: string[] = [];
@@ -1186,6 +1229,7 @@ const GROUP_8: Scenario[] = [
       'propose_day_plan',
       'propose_household_split',
       'apply_week_plan',
+      'build_meal_plan',
     ],
     maxRounds: 8,
     verify: (v) => {
@@ -1222,6 +1266,8 @@ const GROUP_8: Scenario[] = [
       'propose_swap',
       'apply_week_plan',
       'propose_week_plan',
+      'build_meal_plan',
+      'replace_plan_item',
     ],
     maxRounds: 8,
     verify: (v) => {
@@ -1257,6 +1303,9 @@ const GROUP_8: Scenario[] = [
       'apply_week_plan',
       'propose_week_plan',
       'offer_options',
+      'suggest_meals',
+      'build_meal_plan',
+      'replace_plan_item',
     ],
     maxRounds: 7,
     verify: (v) => {

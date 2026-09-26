@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { AGENT_TOOLS, START_PLANNING_TOOL } from '../tools/agent-tools';
 import { AgentProviderError, AgentProviderRequest } from './agent-provider';
 import {
   AnthropicAgentProvider,
@@ -78,7 +79,8 @@ describe('AnthropicAgentProvider', () => {
     effort: 'medium',
     system: [{ type: 'text', text: 'instrukcje' }],
     messages: [{ role: 'USER', text: 'Co na kolację?' }],
-    tools: [],
+    // Pełna lista modelu: dostawca wykonuje tylko narzędzia z listy fazy.
+    tools: [...AGENT_TOOLS, START_PLANNING_TOOL],
     executeTool,
     signal: new AbortController().signal,
     maxTurnCostUsd: null,
@@ -157,6 +159,158 @@ describe('AnthropicAgentProvider', () => {
 
       expect(create).toHaveBeenCalledTimes(2);
       expect(result.text).toBe('gotowe');
+    });
+  });
+
+  describe('Etap 3: tura bez rundy „po karcie" i jedna karta na wiadomość', () => {
+    const silentTool = (name: string, id = 'tu-1') => ({
+      stop_reason: 'tool_use',
+      content: [{ type: 'tool_use', id, name, input: {} }],
+      usage: usage(),
+    });
+
+    it('4. karta ze zdaniem serwera kończy turę JEDNYM wywołaniem, nawet gdy model nic nie napisał', async () => {
+      executeTool.mockResolvedValue({
+        ok: true,
+        data: { offered: 3 },
+        endsTurn: true,
+        turnText: 'Trzy propozycje na kolację w środę — wybierz jedną.',
+      });
+      create.mockResolvedValueOnce(silentTool('suggest_meals'));
+
+      const result = await provider.run(request());
+
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(result.apiCalls).toBe(1);
+      expect(result.stopReason).toBe(TOOL_ENDED_TURN);
+      expect(result.text).toBe(
+        'Trzy propozycje na kolację w środę — wybierz jedną.',
+      );
+    });
+
+    it('zdanie modelu ma pierwszeństwo przed zdaniem serwera', async () => {
+      executeTool.mockResolvedValue({
+        ok: true,
+        data: {},
+        endsTurn: true,
+        turnText: 'zdanie serwera',
+      });
+      create.mockResolvedValueOnce({
+        stop_reason: 'tool_use',
+        content: [
+          { type: 'text', text: 'Na dziś coś lekkiego:' },
+          { type: 'tool_use', id: 'tu-1', name: 'suggest_meals', input: {} },
+        ],
+        usage: usage(),
+      });
+
+      const result = await provider.run(request());
+
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(result.text).toBe('Na dziś coś lekkiego:');
+    });
+
+    it('karta BEZ zdania serwera (np. plan PARTIAL) i bez tekstu modelu — model dostaje głos', async () => {
+      executeTool.mockResolvedValue({ ok: true, data: {}, endsTurn: true });
+      create
+        .mockResolvedValueOnce(silentTool('build_meal_plan'))
+        .mockResolvedValueOnce(
+          textMessage('Zabrakło dań bez glutenu na obiad.'),
+        );
+
+      const result = await provider.run(request());
+
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(result.text).toBe('Zabrakło dań bez glutenu na obiad.');
+    });
+
+    it('12. dwie karty w jednej rundzie: druga odmówiona → tura NIE kończy się przed przetworzeniem wyników', async () => {
+      executeTool
+        .mockResolvedValueOnce({
+          ok: true,
+          data: {},
+          endsTurn: true,
+          turnText: 'zdanie serwera',
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          error: { code: 'AI_ONE_CARD_PER_TURN', message: 'jedna karta' },
+        });
+      create
+        .mockResolvedValueOnce({
+          stop_reason: 'tool_use',
+          content: [
+            { type: 'tool_use', id: 'a', name: 'suggest_meals', input: {} },
+            { type: 'tool_use', id: 'b', name: 'offer_options', input: {} },
+          ],
+          usage: usage(),
+        })
+        .mockResolvedValueOnce(textMessage('Pokazuję trzy kolacje.'));
+
+      const result = await provider.run(request());
+
+      expect(executeTool).toHaveBeenCalledTimes(2);
+      expect(create).toHaveBeenCalledTimes(2);
+      // Model widzi odmowę drugiej karty jako błąd narzędzia.
+      const second = create.mock.calls[1][0] as {
+        messages: { role: string; content: unknown }[];
+      };
+      const results = second.messages.at(-1)?.content as {
+        tool_use_id: string;
+        is_error?: boolean;
+      }[];
+      expect(results.find((block) => block.tool_use_id === 'b')?.is_error).toBe(
+        true,
+      );
+      expect(result.text).toBe('Pokazuję trzy kolacje.');
+    });
+
+    it('dwie udane karty ze zdaniami serwera w jednej rundzie — oba zdania, jedno wywołanie', async () => {
+      executeTool
+        .mockResolvedValueOnce({
+          ok: true,
+          data: {},
+          endsTurn: true,
+          turnText: 'Pierwsze.',
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          data: {},
+          endsTurn: true,
+          turnText: 'Drugie.',
+        });
+      create.mockResolvedValueOnce({
+        stop_reason: 'tool_use',
+        content: [
+          { type: 'tool_use', id: 'a', name: 'propose_swap', input: {} },
+          { type: 'tool_use', id: 'b', name: 'propose_remove_meal', input: {} },
+        ],
+        usage: usage(),
+      });
+
+      const result = await provider.run(request());
+
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(result.text).toBe('Pierwsze. Drugie.');
+    });
+
+    it('narzędzie spoza listy fazy (wewnętrzne albo planisty) NIE trafia do executora', async () => {
+      create
+        .mockResolvedValueOnce(silentTool('propose_week_plan'))
+        .mockResolvedValueOnce(textMessage('ok'));
+
+      await provider.run(request());
+
+      expect(executeTool).not.toHaveBeenCalled();
+      const second = create.mock.calls[1][0] as {
+        messages: { role: string; content: unknown }[];
+      };
+      const [block] = second.messages.at(-1)?.content as {
+        is_error?: boolean;
+        content: { text: string }[];
+      }[];
+      expect(block.is_error).toBe(true);
+      expect(block.content[1].text).toContain('Nie ma narzędzia');
     });
   });
 

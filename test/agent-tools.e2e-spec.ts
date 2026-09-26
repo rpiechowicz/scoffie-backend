@@ -179,18 +179,33 @@ describe('Narzędzia asystenta E2E', () => {
     expect(result).toMatchObject({ ok: false, error: { code: 'BAD_REQUEST' } });
   });
 
-  it('get_household_context oddaje domowników z celami', async () => {
-    const members = data<{ userId: string; targets: unknown }[]>(
-      await run('get_household_context'),
+  it('get_household_context zdjęte z modelu (Etap 3): domownicy z celami są w bloku gospodarstwa', async () => {
+    // Narzędzie było drugim odczytem tego samego — executor już go nie zna.
+    expect(await run('get_household_context')).toMatchObject({
+      ok: false,
+      error: { code: 'BAD_REQUEST' },
+    });
+    const prompt = await prompts.build(
+      context.userId,
+      context.householdId,
+      {
+        weekStart: WEEK_START,
+        clientToday: WEEK_START,
+        timeZone: 'Europe/Warsaw',
+      },
+      true,
     );
-    expect(members).toHaveLength(1);
-    expect(members[0]).toHaveProperty('targets');
+    const household = prompt.system[prompt.system.length - 1].text;
+    const members = household.slice(
+      household.indexOf('<domownicy>'),
+      household.indexOf('</domownicy>'),
+    );
+    expect(members).toContain(context.userId);
+    expect(members).toContain('"targets"');
     // Sylwetka (płeć, wzrost, waga, rok urodzenia) nie ma prawa wyjść do
     // modelu — to dane o zdrowiu domowników, a cele są już policzone.
-    expect(members[0]).not.toHaveProperty('body');
-    const serialized = JSON.stringify(members);
     for (const field of ['sex', 'heightCm', 'weightKg', 'yearOfBirth']) {
-      expect(serialized).not.toContain(`"${field}"`);
+      expect(members).not.toContain(`"${field}"`);
     }
   });
 
@@ -374,11 +389,15 @@ describe('Narzędzia asystenta E2E', () => {
       expect(updated.title).toBe('Danie asystenta, poprawione');
     });
 
-    it('delete_recipe wycofuje przepis', async () => {
-      const result = data<{ isActive: boolean }>(
-        await run('delete_recipe', { recipe_id: recipeId }),
+    it('delete_recipe zdjęte z modelu (Etap 3): executor odmawia, przepis zostaje', async () => {
+      expect(await run('delete_recipe', { recipe_id: recipeId })).toMatchObject(
+        { ok: false, error: { code: 'BAD_REQUEST' } },
       );
-      expect(result.isActive).toBe(false);
+      const recipe = await prisma.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        select: { isActive: true },
+      });
+      expect(recipe.isActive).toBe(true);
     });
 
     it('edycja przepisu z katalogu wraca jako błąd z kodem', async () => {
@@ -709,7 +728,7 @@ describe('Narzędzia asystenta E2E', () => {
         error: { code: 'AI_TOOL_NOT_IN_MODE' },
       });
       if (result.ok) throw new Error('nieosiągalne');
-      expect(result.error.message).toContain('propose_week_plan');
+      expect(result.error.message).toContain('build_meal_plan');
     });
 
     it('propozycja niczego nie zapisuje ani nie zjada kwoty planów', async () => {
@@ -1088,7 +1107,6 @@ describe('Narzędzia asystenta E2E', () => {
         title: string;
         slots: string[];
         kcal: number | null;
-        allergens: string[];
         tags: string[];
       }[];
       textIgnored: boolean;
@@ -1159,8 +1177,18 @@ describe('Narzędzia asystenta E2E', () => {
       expect(found.hits.map((hit) => hit.title)).not.toContain(
         withAllergen.title,
       );
-      for (const hit of found.hits) {
-        expect(hit.allergens).not.toContain(withAllergen.allergens[0]);
+      // Model nie dostaje już alergenów w wyniku (Etap 3.6) — filtr sprawdzamy
+      // w bazie, po referencjach, które oddał serwer.
+      const ids = found.hits.map(
+        (hit) => context.catalogIndex[hit.recipe] ?? hit.recipe,
+      );
+      const rows = await prisma.recipe.findMany({
+        where: { id: { in: ids } },
+        select: { allergens: true },
+      });
+      expect(rows).toHaveLength(ids.length);
+      for (const row of rows) {
+        expect(row.allergens).not.toContain(withAllergen.allergens[0]);
       }
     });
 
@@ -1172,22 +1200,14 @@ describe('Narzędzia asystenta E2E', () => {
       });
     });
 
-    it('start_planning niesie kandydatów na pory domu', async () => {
-      const handoff = data<{
-        handoff: boolean;
-        candidates: { mealType: string; hits: { recipe: string }[] }[];
-      }>(await run('start_planning', { reason: 'tydzień' }));
+    it('start_planning to samo przekazanie — bez kandydatów na pory (Etap 3)', async () => {
+      const result = await run('start_planning', { reason: 'tydzień' });
+      const handoff = data<{ handoff: boolean; candidates?: unknown }>(result);
       expect(handoff.handoff).toBe(true);
-      const household = await prisma.household.findUniqueOrThrow({
-        where: { id: context.householdId },
-        select: { enabledMealTypes: true },
-      });
-      expect(handoff.candidates.map((entry) => entry.mealType).sort()).toEqual(
-        [...household.enabledMealTypes].sort(),
-      );
-      expect(handoff.candidates.every((entry) => entry.hits.length > 0)).toBe(
-        true,
-      );
+      // Dania dobiera planer serwera; lista kandydatów kosztowała ~7,7 tys.
+      // znaków w każdej kolejnej rundzie tury i nikt jej nie czytał.
+      expect(handoff.candidates).toBeUndefined();
+      expect(JSON.stringify(handoff).length).toBeLessThan(600);
     });
 
     it('prompt w trybie search niesie mapę katalogu, a nie listę dań', async () => {
@@ -1477,14 +1497,20 @@ describe('Narzędzia asystenta E2E', () => {
       process.env.AI_CONSENT_REQUIRED = 'false';
     });
 
-    it('domownik bez zgody NIE jest widoczny w get_household_context', async () => {
+    it('domownik bez zgody NIE jest widoczny w bloku gospodarstwa', async () => {
       // Warunek wstępny: gdyby był, cały ten opis niczego by nie dowodził.
-      const members = data<{ userId: string }[]>(
-        await executor.execute('get_household_context', {}, konfliktowyContext),
+      const prompt = await prompts.build(
+        konfliktowyContext.userId,
+        konfliktowyContext.householdId,
+        {
+          weekStart: CONFLICT_WEEK,
+          clientToday: CONFLICT_WEEK,
+          timeZone: 'Europe/Warsaw',
+        },
+        true,
       );
-      expect(members.map((member) => member.userId)).not.toContain(
-        bezZgodyUserId,
-      );
+      const household = prompt.system[prompt.system.length - 1].text;
+      expect(household).not.toContain(bezZgodyUserId);
     });
 
     it('bramka WIDZI konflikt — ochrona nie osłabła', async () => {
