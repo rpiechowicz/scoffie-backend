@@ -62,7 +62,10 @@ Dla asystenta mierzymy co najmniej:
 - trafienie w cele kcal/makro w zdefiniowanej tolerancji,
 - liczbę zapytań DB na kluczowych ścieżkach, gdy jest to przedmiotem etapu.
 
-**Płatnego benchmarku na żywym modelu nie uruchamiać bez jawnej zgody Rafała.**
+**Płatnego benchmarku na żywym modelu nie uruchamiać przed Etapem 6 bez jawnej zgody Rafała.**
+Aktualna decyzja: płatne porównanie odkładamy na finał. Anchor stanu „przed” to
+commit `22aa63c`; na końcu benchmarkujemy anchor i finalny HEAD w tych samych
+warunkach.
 
 ## Granice na ten workstream
 
