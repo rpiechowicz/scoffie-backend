@@ -13,6 +13,7 @@ import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { AgentToolContext, AgentToolExecutor } from './agent-tool-executor';
 import { AgentPromptService } from '../agent-prompt.service';
 import { AgentCatalogService } from '../search/agent-catalog.service';
+import { AgentMealPlannerService } from '../planner/agent-meal-planner.service';
 import { AGENT_TOOLS } from './agent-tools';
 
 // Bramka trybu jest DRUGA po prompcie i jedyna, która nie zależy od tego, czy
@@ -58,6 +59,7 @@ describe('AgentToolExecutor — bramka trybu', () => {
         { provide: ShoppingListService, useValue: {} },
         { provide: WeeklyPlansGateway, useValue: {} },
         { provide: AgentCatalogService, useValue: {} },
+        { provide: AgentMealPlannerService, useValue: {} },
         {
           provide: AgentPromptService,
           useValue: {

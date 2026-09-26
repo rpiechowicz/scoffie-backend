@@ -29,6 +29,7 @@ import { AgentCatalogService } from './search/agent-catalog.service';
 import { AgentCacheWarmer } from './agent-cache-warmer.service';
 import { AgentUsageLedger } from './agent-usage-ledger.service';
 import { AgentTurnSweeper } from './agent-turn-sweeper.service';
+import { AgentMealPlannerService } from './planner/agent-meal-planner.service';
 
 /**
  * Asystent AI — szkielet Fazy 0.
@@ -77,6 +78,8 @@ import { AgentTurnSweeper } from './agent-turn-sweeper.service';
     AgentPromptService,
     // Indeks katalogu w pamięci + wyszukiwarka dań (`find_recipes`).
     AgentCatalogService,
+    // Serwerowy planer posiłków (Etap 2) — adapter czystego silnika.
+    AgentMealPlannerService,
     // Ping co 55 min trzyma cache prefiksu ciepłym przy ruchu.
     AgentCacheWarmer,
     AgentRetentionService,

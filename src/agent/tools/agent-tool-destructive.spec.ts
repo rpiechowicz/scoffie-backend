@@ -14,6 +14,7 @@ import { AgentToolContext, AgentToolExecutor } from './agent-tool-executor';
 import { createPlanScope } from './plan-scope';
 import { AgentPromptService } from '../agent-prompt.service';
 import { AgentCatalogService } from '../search/agent-catalog.service';
+import { AgentMealPlannerService } from '../planner/agent-meal-planner.service';
 
 // AUDYT 12.09.2026 (P0.3). `apply_week_plan` przyjmuje STAN DOCELOWY: czego
 // nie ma na liście, tego nie ma w planie. Pusta lista slotów przechodziła
@@ -98,6 +99,7 @@ describe('AgentToolExecutor — bramka destrukcyjnego zapisu planu', () => {
         { provide: ShoppingListService, useValue: {} },
         { provide: WeeklyPlansGateway, useValue: {} },
         { provide: AgentCatalogService, useValue: {} },
+        { provide: AgentMealPlannerService, useValue: {} },
         {
           provide: AgentPromptService,
           useValue: {

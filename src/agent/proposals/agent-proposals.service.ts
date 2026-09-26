@@ -70,6 +70,22 @@ export type ReviseProposalInput = Omit<
   dayOfWeek: DayOfWeek;
   mealType: MealType;
   recipeId: string;
+  /**
+   * Porcje łączne nowego dania — gdy dobrał je serwerowy planer
+   * (`replace_plan_item`). Brak = jak dotąd: porcje zostają przy podmianie
+   * jednej pozycji, przy scaleniu kilku liczy je audytorium.
+   */
+  plannedServings?: number;
+};
+
+/** Propozycja planu, która czeka na zatwierdzenie — do poprawek jednego slotu. */
+export type PendingPlanProposal = {
+  kind: 'PLAN_WEEK' | 'PLAN_DAY';
+  weekStart: string;
+  /** Stan docelowy tygodnia (`action.slots`). */
+  slots: ApplyWeekSlotDto[];
+  /** Dzień propozycji dnia; `null` przy tygodniu. */
+  day: DayOfWeek | null;
 };
 
 export type CreateSwapProposalInput = Omit<
@@ -349,6 +365,75 @@ export class AgentProposalsService {
   async reviseProposal(
     input: ReviseProposalInput,
   ): Promise<CreateWeekProposalResult> {
+    const pending = await this.loadPendingPlanProposal(input);
+    const { weekStart, slots } = pending;
+    const isTarget = (slot: ApplyWeekSlotDto) =>
+      slot.dayOfWeek === input.dayOfWeek && slot.mealType === input.mealType;
+    const replaced = slots.filter(isTarget);
+    const wholeHouse =
+      replaced.length === 0 ||
+      replaced.some((slot) => !slot.participantIds?.length);
+    const participantIds = wholeHouse
+      ? []
+      : [...new Set(replaced.flatMap((slot) => slot.participantIds ?? []))];
+    const keptServings =
+      input.plannedServings ??
+      (replaced.length === 1 ? replaced[0].plannedServings : undefined);
+    const next: ApplyWeekSlotDto = {
+      dayOfWeek: input.dayOfWeek,
+      mealType: input.mealType,
+      recipeId: input.recipeId,
+      ...(participantIds.length > 0 ? { participantIds } : {}),
+      ...(keptServings !== undefined ? { plannedServings: keptServings } : {}),
+    };
+    // Nowa pozycja w miejscu pierwszej podmienionej — karta i odcisk nie
+    // zależą od kolejności, ale czytelny zapis intencji tak.
+    const revised: ApplyWeekSlotDto[] = [];
+    for (const slot of slots) {
+      if (!isTarget(slot)) revised.push(slot);
+      else if (!revised.includes(next)) revised.push(next);
+    }
+    if (!revised.includes(next)) revised.push(next);
+
+    const base = {
+      userId: input.userId,
+      householdId: input.householdId,
+      conversationId: input.conversationId,
+      turnId: input.turnId,
+      weekStart,
+    };
+    if (pending.kind === 'PLAN_DAY') {
+      const day = pending.day;
+      if (!day || day !== input.dayOfWeek) {
+        throw new AppException(
+          'VALIDATION_ERROR',
+          `Ta propozycja dotyczy jednego dnia (${day ?? '?'}) — poprawiasz w niej tylko ten dzień.`,
+          HttpStatus.BAD_REQUEST,
+          ['day_of_week'],
+        );
+      }
+      return this.createDayPlanProposal({
+        ...base,
+        dayOfWeek: day,
+        slots: revised
+          .filter((slot) => slot.dayOfWeek === day)
+          .map(({ dayOfWeek: _day, ...slot }) => slot),
+      });
+    }
+    return this.createWeekPlanProposal({ ...base, slots: revised });
+  }
+
+  /**
+   * Propozycja planu (tydzień albo dzień) z TEJ rozmowy i TEGO domu, która
+   * czeka na zatwierdzenie — wspólny odczyt dla `revise_proposal`
+   * i `replace_plan_item`. Cudza, obca rozmowa, zła forma numeru: NOT_FOUND;
+   * zatwierdzona/nieaktualna: STALE; po terminie: EXPIRED.
+   */
+  async loadPendingPlanProposal(input: {
+    proposalId: string;
+    conversationId: string;
+    householdId: string;
+  }): Promise<PendingPlanProposal> {
     const notFound = () =>
       new AppException(
         'AI_PROPOSAL_NOT_FOUND',
@@ -391,62 +476,16 @@ export class AgentProposalsService {
         HttpStatus.CONFLICT,
       );
     }
-
     const weekStart = source.weekStart.toISOString().slice(0, 10);
-    const slots = actionSlots(source.action);
-    const isTarget = (slot: ApplyWeekSlotDto) =>
-      slot.dayOfWeek === input.dayOfWeek && slot.mealType === input.mealType;
-    const replaced = slots.filter(isTarget);
-    const wholeHouse =
-      replaced.length === 0 ||
-      replaced.some((slot) => !slot.participantIds?.length);
-    const participantIds = wholeHouse
-      ? []
-      : [...new Set(replaced.flatMap((slot) => slot.participantIds ?? []))];
-    const keptServings =
-      replaced.length === 1 ? replaced[0].plannedServings : undefined;
-    const next: ApplyWeekSlotDto = {
-      dayOfWeek: input.dayOfWeek,
-      mealType: input.mealType,
-      recipeId: input.recipeId,
-      ...(participantIds.length > 0 ? { participantIds } : {}),
-      ...(keptServings !== undefined ? { plannedServings: keptServings } : {}),
-    };
-    // Nowa pozycja w miejscu pierwszej podmienionej — karta i odcisk nie
-    // zależą od kolejności, ale czytelny zapis intencji tak.
-    const revised: ApplyWeekSlotDto[] = [];
-    for (const slot of slots) {
-      if (!isTarget(slot)) revised.push(slot);
-      else if (!revised.includes(next)) revised.push(next);
-    }
-    if (!revised.includes(next)) revised.push(next);
-
-    const base = {
-      userId: input.userId,
-      householdId: input.householdId,
-      conversationId: input.conversationId,
-      turnId: input.turnId,
+    return {
+      kind: source.kind,
       weekStart,
+      slots: actionSlots(source.action),
+      day:
+        source.kind === 'PLAN_DAY'
+          ? dayOfDayCard(source.card, weekStart)
+          : null,
     };
-    if (source.kind === 'PLAN_DAY') {
-      const day = dayOfDayCard(source.card, weekStart);
-      if (!day || day !== input.dayOfWeek) {
-        throw new AppException(
-          'VALIDATION_ERROR',
-          `Ta propozycja dotyczy jednego dnia (${day ?? '?'}) — poprawiasz w niej tylko ten dzień.`,
-          HttpStatus.BAD_REQUEST,
-          ['day_of_week'],
-        );
-      }
-      return this.createDayPlanProposal({
-        ...base,
-        dayOfWeek: day,
-        slots: revised
-          .filter((slot) => slot.dayOfWeek === day)
-          .map(({ dayOfWeek: _day, ...slot }) => slot),
-      });
-    }
-    return this.createWeekPlanProposal({ ...base, slots: revised });
   }
 
   /**

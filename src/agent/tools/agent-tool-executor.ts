@@ -62,7 +62,12 @@ import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { SetMealEatenDto } from '../../weekly-plans/dto/set-meal-eaten.dto';
 import { UpdateShoppingItemCheckDto } from '../../weekly-plans/dto/update-shopping-item-check.dto';
 import { ShoppingDepartment } from '../../weekly-plans/types/shopping-department.enum';
-import { DayOfWeek, MealType } from '@prisma/client';
+import { DayOfWeek, DietPreferenceValue, MealType } from '@prisma/client';
+import {
+  AgentMealPlannerService,
+  plannerResultForModel,
+  PlannerWishes,
+} from '../planner/agent-meal-planner.service';
 import { normalizeText } from '../../common/normalize-text.util';
 import { searchStem } from '../../recipes/ingredient-search.util';
 import { isRecipeSearchTag } from '../../recipes/recipe-facets.util';
@@ -456,6 +461,8 @@ export const TURN_ENDING_TOOLS: ReadonlySet<string> = new Set([
   'propose_remove_meal',
   'propose_household_split',
   'revise_proposal',
+  'build_meal_plan',
+  'replace_plan_item',
 ]);
 
 /**
@@ -591,6 +598,8 @@ export class AgentToolExecutor {
     private readonly prompts: AgentPromptService,
     // Indeks katalogu w pamięci i wyszukiwarka dań (`find_recipes`).
     private readonly catalog: AgentCatalogService,
+    // Serwerowy planer (Etap 2): `build_meal_plan`, `replace_plan_item`.
+    private readonly planner: AgentMealPlannerService,
   ) {}
 
   async execute(
@@ -814,7 +823,9 @@ export class AgentToolExecutor {
         name === 'propose_swap' ||
         name === 'propose_remove_meal' ||
         name === 'propose_household_split' ||
-        name === 'revise_proposal') &&
+        name === 'revise_proposal' ||
+        name === 'build_meal_plan' ||
+        name === 'replace_plan_item') &&
       !context.proposalMode
     ) {
       return this.failure(
@@ -902,6 +913,12 @@ export class AgentToolExecutor {
 
       case 'revise_proposal':
         return this.reviseProposal(input, context);
+
+      case 'build_meal_plan':
+        return this.buildMealPlan(input, context, str('week_start'));
+
+      case 'replace_plan_item':
+        return this.replacePlanItem(input, context, str('week_start'));
 
       case 'apply_week_plan':
         return this.applyWeekPlan(input, context, str('week_start'));
@@ -2095,6 +2112,147 @@ export class AgentToolExecutor {
     });
   }
 
+  /**
+   * Serwerowy planer — plan dni × pór (Etap 2E). Model podaje zakres
+   * i życzenia, dania, porcje i bilans liczy serwer; wynik idzie tą samą
+   * ścieżką propozycji, co `propose_week_plan`/`propose_day_plan` (walidacja
+   * zapisu, karta, odcisk planu, kliknięcie człowieka).
+   */
+  private async buildMealPlan(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ) {
+    const days = enumList(input.days, Object.values(DayOfWeek), 'days');
+    if (days.length === 0) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'days: podaj co najmniej jeden dzień (MON…SUN).',
+        HttpStatus.BAD_REQUEST,
+        ['days'],
+      );
+    }
+    const outcome = await this.planner.build({
+      userId: context.userId,
+      householdId: context.householdId,
+      weekStart,
+      days,
+      mealTypes: enumList(
+        input.meal_types,
+        Object.values(MealType),
+        'meal_types',
+      ),
+      forUserIds: stringList(input.for_user_ids),
+      wishes: wishesOf(input),
+      seed: context.turnId,
+    });
+    const diagnostics = plannerResultForModel(outcome);
+    if (outcome.draft.items.length === 0) {
+      return { proposed: false as const, planner: diagnostics };
+    }
+    const note = '';
+    const proposal =
+      days.length === 1
+        ? await this.proposals.createDayPlanProposal({
+            userId: context.userId,
+            householdId: context.householdId,
+            conversationId: context.conversationId,
+            turnId: context.turnId,
+            weekStart,
+            dayOfWeek: days[0],
+            slots: outcome.targetSlots
+              .filter((slot) => slot.dayOfWeek === days[0])
+              .map(({ dayOfWeek: _day, ...slot }) => slot),
+          })
+        : await this.proposals.createWeekPlanProposal({
+            userId: context.userId,
+            householdId: context.householdId,
+            conversationId: context.conversationId,
+            turnId: context.turnId,
+            weekStart,
+            slots: outcome.targetSlots,
+            ...(note ? { note } : {}),
+          });
+    return { ...proposal, planner: diagnostics };
+  }
+
+  /**
+   * Serwerowy planer — jedno danie (Etap 2D). W propozycji PENDING idzie
+   * przez `reviseProposal` (reszta z intencji propozycji, porcje z planera),
+   * w zapisanym planie — przez kartę podmiany (`proposeSwap`), która pokazuje
+   * „przed/po". Planer dostaje całą resztę tygodnia jako `fixed`.
+   */
+  private async replacePlanItem(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ) {
+    const [dayOfWeek] = enumList(
+      [input.day_of_week],
+      Object.values(DayOfWeek),
+      'day_of_week',
+    );
+    const [mealType] = enumList(
+      [input.meal_type],
+      Object.values(MealType),
+      'meal_type',
+    );
+    const proposalId = asString(input.proposal_id).trim();
+    const pending = proposalId
+      ? await this.proposals.loadPendingPlanProposal({
+          proposalId,
+          conversationId: context.conversationId,
+          householdId: context.householdId,
+        })
+      : null;
+    const week = pending?.weekStart ?? weekStart;
+    const currentSlots =
+      pending?.slots ??
+      (await this.weeklyPlans.snapshotWeekAsSlots(
+        context.userId,
+        context.householdId,
+        week,
+      ));
+    const outcome = await this.planner.replace({
+      userId: context.userId,
+      householdId: context.householdId,
+      weekStart: week,
+      dayOfWeek,
+      mealType,
+      currentSlots,
+      wishes: wishesOf(input),
+      similarKcal: input.similar_kcal === true,
+      // Karta podmiany zapisuje porcje z audytorium — planer ma liczyć tak samo.
+      portionMode: pending ? 'tune' : 'auto',
+      seed: context.turnId,
+    });
+    const diagnostics = plannerResultForModel(outcome);
+    const [chosen] = outcome.draft.items;
+    if (!chosen) return { proposed: false as const, planner: diagnostics };
+    const proposal = pending
+      ? await this.proposals.reviseProposal({
+          userId: context.userId,
+          householdId: context.householdId,
+          conversationId: context.conversationId,
+          turnId: context.turnId,
+          proposalId,
+          dayOfWeek,
+          mealType,
+          recipeId: chosen.recipeId,
+          plannedServings: chosen.plannedServings,
+        })
+      : await this.proposeSwap(
+          {
+            day_of_week: dayOfWeek,
+            meal_type: mealType,
+            recipe: chosen.recipeId,
+          },
+          context,
+          week,
+        );
+    return { ...proposal, planner: diagnostics };
+  }
+
   /** Powody usunięć od modelu — bez walidacji slotów, dopasowanie robi karta. */
   private toRemovalReasons(raw: unknown): PlanRemovalReason[] {
     if (!Array.isArray(raw)) return [];
@@ -2281,4 +2439,67 @@ export class AgentToolExecutor {
       text: asString((raw as Record<string, unknown>)?.text),
     }));
   }
+}
+
+/**
+ * Lista wartości z enuma; nieznana wartość = błąd dla modelu (schemat bez
+ * `strict`, więc sprawdzamy tutaj). Duplikaty znikają.
+ */
+function enumList<T extends string>(
+  raw: unknown,
+  allowed: readonly T[],
+  field: string,
+): T[] {
+  const values = Array.isArray(raw) ? raw : [];
+  const bad = values.filter(
+    (value) => typeof value !== 'string' || !allowed.includes(value as T),
+  );
+  if (bad.length > 0) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      `${field}: dozwolone ${allowed.join(', ')}.`,
+      HttpStatus.BAD_REQUEST,
+      [field],
+    );
+  }
+  return [...new Set(values as T[])];
+}
+
+function stringList(raw: unknown): string[] {
+  return Array.isArray(raw)
+    ? raw.filter((value): value is string => typeof value === 'string')
+    : [];
+}
+
+/** Życzenia planera z wejścia narzędzia — „brak" to [], NONE albo 0. */
+function wishesOf(input: Record<string, unknown>): PlannerWishes {
+  const diet = enumList(
+    input.diet === undefined ? [] : [input.diet],
+    Object.values(DietPreferenceValue),
+    'diet',
+  )[0];
+  const tags = (raw: unknown, field: string) => {
+    const values = stringList(raw);
+    const bad = values.filter((value) => !isRecipeSearchTag(value));
+    if (bad.length > 0) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        `${field}: nieznane tagi ${bad.join(', ')}.`,
+        HttpStatus.BAD_REQUEST,
+        [field],
+      );
+    }
+    return values;
+  };
+  const maxPrep =
+    typeof input.max_prep_minutes === 'number' && input.max_prep_minutes > 0
+      ? Math.round(input.max_prep_minutes)
+      : null;
+  return {
+    diet: diet && diet !== 'NONE' ? diet : null,
+    requiredTags: tags(input.must_have_tags, 'must_have_tags'),
+    preferredTags: tags(input.prefer_tags, 'prefer_tags'),
+    avoidIngredients: stringList(input.avoid_ingredients).slice(0, 10),
+    maxPrepMinutes: maxPrep,
+  };
 }

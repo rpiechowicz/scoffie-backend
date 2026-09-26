@@ -139,6 +139,11 @@ const LABELS: Record<string, readonly string[]> = {
     'Poprawiam propozycję',
     'Zmieniam jedno danie w propozycji',
   ],
+  build_meal_plan: [
+    'Układam plan pod Wasze cele',
+    'Dobieram dania, porcje i kalorie',
+  ],
+  replace_plan_item: ['Szukam zamiennika', 'Dobieram danie na to miejsce'],
   propose_remove_meal: [
     'Wyjmuję to z planu',
     'Sprawdzam, co zostanie po usunięciu',

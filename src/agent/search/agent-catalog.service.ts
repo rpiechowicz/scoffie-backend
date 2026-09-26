@@ -306,6 +306,52 @@ export class AgentCatalogService {
   }
 
   /**
+   * Pula i sygnały dla serwerowego planera (Etap 2): katalog z pamięci,
+   * przepisy WŁASNE domu (świeże) i sygnały rankingu — te same, co w
+   * wyszukiwarce. Stała liczba zapytań niezależnie od wielkości katalogu:
+   * odcisk wersji (2 agregaty, katalog z pamięci), przepisy domu, plan tego
+   * i zeszłego tygodnia, ulubione, popularność (pamięć pół godziny).
+   */
+  async planningPool(context: {
+    householdId: string;
+    weekStart: string;
+  }): Promise<{ recipes: SearchableRecipe[]; signals: SearchSignals }> {
+    const snapshot = await this.snapshot();
+    const searchContext: SearchContext = {
+      userId: '',
+      householdId: context.householdId,
+      weekStart: context.weekStart,
+      forUserIds: [],
+      consentedUserIds: new Set(),
+    };
+    const [own, signals] = await Promise.all([
+      this.householdRecipes(context.householdId),
+      this.signals(searchContext, snapshot),
+    ]);
+    return { recipes: [...snapshot.recipes, ...own], signals };
+  }
+
+  /**
+   * Przepisy spoza puli po id — do bilansu pozycji, które już stoją w planie
+   * (przepis wycofany z katalogu dalej ma kalorie). Jedno zapytanie; widoczność
+   * jak wszędzie: katalog albo przepis tego domu.
+   */
+  async searchablesByIds(
+    householdId: string,
+    ids: readonly string[],
+  ): Promise<SearchableRecipe[]> {
+    if (ids.length === 0) return [];
+    const rows = (await this.prisma.recipe.findMany({
+      where: {
+        id: { in: [...new Set(ids)] },
+        OR: [{ isCatalog: true }, { householdId }],
+      },
+      select: RECIPE_SELECT,
+    })) as unknown as LoadedRow[];
+    return rows.map((row) => toSearchable(toSource(row), row.id, true));
+  }
+
+  /**
    * Ograniczenia jedzących — WSZYSTKICH, także tych bez zgody na asystenta:
    * ich alergeny i tak pilnuje walidator przy zapisie, więc wyszukiwarka,
    * która by je pomijała, podsuwałaby dania skazane na odmowę. Imiona i

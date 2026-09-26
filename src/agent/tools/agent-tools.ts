@@ -70,6 +70,51 @@ const DAY = {
   enum: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
 };
 
+/**
+ * Życzenia z prośby dla serwerowego planera — WSZYSTKIE pola wymagane, bo
+ * budżet pól nieobowiązkowych jest wyczerpany (24/24). „Brak" wyraża pusta
+ * lista, `NONE` albo 0 — tak mówią opisy.
+ */
+const PLANNER_WISHES = {
+  diet: {
+    type: 'string',
+    enum: [
+      'NONE',
+      'VEGETARIAN',
+      'VEGAN',
+      'PESCATARIAN',
+      'KETO',
+      'PALEO',
+      'HIGH_PROTEIN',
+    ],
+    description:
+      'Dieta dla TEJ prośby („wege obiady") — twarda. NONE = bez dodatkowej; diety domowników serwer i tak stosuje.',
+  },
+  must_have_tags: {
+    type: 'array',
+    items: { type: 'string', enum: [...RECIPE_SEARCH_TAGS] },
+    description:
+      'Tagi, które KAŻDE danie musi mieć (twarde), np. ["soup"] dla „same zupy". Zwykle [].',
+  },
+  prefer_tags: {
+    type: 'array',
+    items: { type: 'string', enum: [...RECIPE_SEARCH_TAGS] },
+    description:
+      'Tagi mile widziane (miękkie), np. ["quick"] dla „coś szybkiego", ["light"] dla „lekko". [] = bez.',
+  },
+  avoid_ingredients: {
+    type: 'array',
+    items: { type: 'string' },
+    description:
+      'Składniki, których ma nie być w TEJ prośbie (twarde), po polsku, np. ["ryba"]. [] = bez.',
+  },
+  max_prep_minutes: {
+    type: 'integer',
+    description:
+      'Podpowiedź czasu gotowania w minutach (miękka). 0 = bez podpowiedzi.',
+  },
+};
+
 const MEAL = {
   type: 'string',
   enum: [
@@ -639,6 +684,90 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     ),
   },
   {
+    name: 'build_meal_plan',
+    description:
+      'UŁÓŻ plan dni × pór PO STRONIE SERWERA i pokaż go jako propozycję do zatwierdzenia. ' +
+      'Serwer sam dobiera dania z katalogu (alergeny, diety i wykluczenia wszystkich jedzących ' +
+      'są twarde), porcje, kcal i makro wobec celów domowników i pilnuje różnorodności. Ty ' +
+      'podajesz tylko ZAKRES i ŻYCZENIA ze zdania użytkownika — nie wybierasz dań i nie liczysz ' +
+      'kalorii. Jeden dzień w days = karta dnia, więcej dni = karta tygodnia. To, co stoi ' +
+      'w tych dniach i porach, zostanie zastąpione; reszta planu zostaje. Wynik ma status: OK, ' +
+      'PARTIAL (coś nie wyszło — powody w issues) albo UNSAT (nic się nie da, karty nie ma). ' +
+      'Przy PARTIAL i UNSAT powiedz jednym zdaniem, czego zabrakło. TY NIE ZAPISUJESZ.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        days: {
+          type: 'array',
+          items: DAY,
+          description: 'Dni do ułożenia, 1–7; cały tydzień = wszystkie siedem.',
+        },
+        meal_types: {
+          type: 'array',
+          items: MEAL,
+          description:
+            'Pory do ułożenia. [] = pory włączone w domu (zwykle tak).',
+        },
+        for_user_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Dla kogo. [] = cały dom (zwykle tak).',
+        },
+        ...PLANNER_WISHES,
+      },
+      [
+        'week_start',
+        'days',
+        'meal_types',
+        'for_user_ids',
+        'diet',
+        'must_have_tags',
+        'prefer_tags',
+        'avoid_ingredients',
+        'max_prep_minutes',
+      ],
+    ),
+  },
+  {
+    name: 'replace_plan_item',
+    description:
+      'Wymień JEDNO danie (dzień + pora) PO STRONIE SERWERA: w propozycji, która czeka na ' +
+      'zatwierdzenie (proposal_id z dopisku [Propozycja …] w historii), albo w zapisanym planie ' +
+      '(proposal_id = ""). Serwer znajdzie danie spełniające ograniczenia jedzących i życzenia ' +
+      '(„wegetariańska", „szybsza", „bez ryb"), dobierze porcję i złoży nową kartę; reszta planu ' +
+      'zostaje bez zmian. similar_kcal=true = kcal na osobę blisko obecnego dania. Gdy ' +
+      'użytkownik wskazał KONKRETNE danie — revise_proposal albo propose_swap. TY NIE ZAPISUJESZ.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        day_of_week: DAY,
+        meal_type: MEAL,
+        proposal_id: {
+          type: 'string',
+          description:
+            'Numer propozycji z dopisku [Propozycja …]; "" = zmiana w zapisanym planie.',
+        },
+        similar_kcal: {
+          type: 'boolean',
+          description: 'Czy nowe danie ma mieć podobne kcal na osobę.',
+        },
+        ...PLANNER_WISHES,
+      },
+      [
+        'week_start',
+        'day_of_week',
+        'meal_type',
+        'proposal_id',
+        'similar_kcal',
+        'diet',
+        'must_have_tags',
+        'prefer_tags',
+        'avoid_ingredients',
+        'max_prep_minutes',
+      ],
+    ),
+  },
+  {
     name: 'revise_proposal',
     description:
       'Popraw JEDNĄ pozycję (dzień + posiłek) w propozycji planu z tej rozmowy, która czeka na ' +
@@ -930,6 +1059,11 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   propose_household_split: 'planner',
   // Poprawka propozycji to dobór dania pod ograniczenia domu — jak podmiana.
   revise_proposal: 'planner',
+  // Serwerowy planer (Etap 2): model podaje zakres i życzenia, dania dobiera
+  // serwer. Zostają u planisty do czasu pomiaru (Etap 3/6), czy tani model
+  // wystarczy — to jest dokładnie ta dźwignia.
+  build_meal_plan: 'planner',
+  replace_plan_item: 'planner',
   apply_week_plan: 'planner',
   create_recipe: 'planner',
   update_recipe: 'planner',

@@ -59,6 +59,20 @@ export const STUB_OPTIONS_PATTERN = /\[\[options:([0-9a-fA-F,-]{36,})\]\]/;
  * Wymusza POPRAWKĘ propozycji:
  * `[[revise:<proposalId>:<DZIEŃ>:<PORA>:<recipeId>]]` → `revise_proposal`.
  */
+/**
+ * Wymusza SERWEROWY PLAN: `[[build:<YYYY-MM-DD>:<DNI po przecinku>]]` →
+ * `build_meal_plan` dla tych dni, pór domu i całego domu, bez życzeń.
+ */
+export const STUB_BUILD_PATTERN = /\[\[build:(\d{4}-\d{2}-\d{2}):([A-Z,]+)\]\]/;
+
+/**
+ * Wymusza ZAMIENNIK od planera:
+ * `[[replace:<proposalId albo ->:<DZIEŃ>:<PORA>:<DIETA>]]` → `replace_plan_item`
+ * z `similar_kcal: true` (`-` = zapisany plan).
+ */
+export const STUB_REPLACE_PATTERN =
+  /\[\[replace:([0-9a-fA-F-]{36}|-):([A-Z]{3}):([A-Z_]+):([A-Z_]+)\]\]/;
+
 export const STUB_REVISE_PATTERN =
   /\[\[revise:([0-9a-fA-F-]{36}):([A-Z]{3}):([A-Z_]+):([0-9a-fA-F-]{36})\]\]/;
 
@@ -127,6 +141,39 @@ export class StubAgentProvider implements AgentProvider {
           .split(',')
           .filter(Boolean)
           .map((recipe) => ({ recipe })),
+      });
+    }
+
+    const wishes = {
+      must_have_tags: [],
+      prefer_tags: [],
+      avoid_ingredients: [],
+      max_prep_minutes: 0,
+    };
+    const build = STUB_BUILD_PATTERN.exec(lastUserText);
+    if (build) {
+      await request.executeTool('build_meal_plan', {
+        week_start: build[1],
+        days: build[2].split(',').filter(Boolean),
+        meal_types: [],
+        for_user_ids: [],
+        diet: 'NONE',
+        ...wishes,
+      });
+    }
+
+    const replace = STUB_REPLACE_PATTERN.exec(lastUserText);
+    if (replace) {
+      const weekStart =
+        /\d{4}-\d{2}-\d{2}/.exec(lastUserText)?.[0] ?? '1970-01-05';
+      await request.executeTool('replace_plan_item', {
+        week_start: weekStart,
+        day_of_week: replace[2],
+        meal_type: replace[3],
+        proposal_id: replace[1] === '-' ? '' : replace[1],
+        similar_kcal: true,
+        diet: replace[4],
+        ...wishes,
       });
     }
 
