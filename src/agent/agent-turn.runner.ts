@@ -34,7 +34,12 @@ import {
   THINK_STEP_TOOL,
 } from './agent-progress';
 import { formatTurnTiming } from './agent-timing';
-import { AgentPromptService, TurnDates } from './agent-prompt.service';
+import {
+  AgentPrompt,
+  AgentPromptService,
+  TurnDates,
+} from './agent-prompt.service';
+import { historyTexts, planProposalIds } from './history-cards';
 import { AgentCard } from './cards/agent-cards';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
@@ -262,10 +267,11 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
       // model myśli — bez tego wpisu telefon widział pustą listę kroków
       // i własne „Zastanawiam się…" aż do pierwszego narzędzia.
       await this.publishProgress(input.turnId, progress, READ_STEP_TOOL, {});
-      const messages = await this.loadHistory(input.conversationId);
       // Trasa tury (faza CHAT → faza PLANNER) — czysta funkcja konfiguracji,
       // liczona raz, przed pierwszym wywołaniem modelu.
       const route = resolveRoute(input.env);
+      // Prompt PRZED historią: indeks katalogu tury i domownicy ze zgodą
+      // tłumaczą karty z poprzednich tur na referencje, którymi model mówi.
       const prompt = await this.prompts.build(
         input.userId,
         input.householdId,
@@ -273,6 +279,7 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
         input.proposalMode,
         route.promptHandoff,
       );
+      const messages = await this.loadHistory(input.conversationId, prompt);
       const provider = this.providers.resolve(input.env);
       const prepMs = Date.now() - startedAt;
       const result = await provider.run({
@@ -481,8 +488,15 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     }
   }
 
+  /**
+   * Historia rozmowy dla modelu: tekst wiadomości, a przy wiadomości
+   * asystenta z kartą — zwięzły dopisek (opcje do wyboru, pozycje i stan
+   * propozycji), patrz `history-cards.ts`. Stan propozycji z BAZY, jednym
+   * zapytaniem, tylko gdy w oknie jest jakaś karta planu.
+   */
   private async loadHistory(
     conversationId: string,
+    prompt: Pick<AgentPrompt, 'catalogIndex' | 'visibleUserIds'>,
   ): Promise<AgentProviderMessage[]> {
     const rows = await this.prisma.agentMessage.findMany({
       // Poprawione pytanie i wszystko, co po nim, znika także z historii dla
@@ -492,16 +506,32 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
       where: { conversationId, hiddenAt: null },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: HISTORY_WINDOW,
-      select: { role: true, text: true },
+      select: { role: true, kind: true, text: true, card: true },
     });
-    return rows
+    const chronological = rows
       .reverse()
-      .filter((row) => row.role === 'USER' || row.role === 'ASSISTANT')
-      .map((row) => ({
-        role:
-          row.role === 'ASSISTANT' ? ('ASSISTANT' as const) : ('USER' as const),
-        text: row.text,
-      }));
+      .filter((row) => row.role === 'USER' || row.role === 'ASSISTANT');
+    const proposalIds = planProposalIds(chronological);
+    const proposals =
+      proposalIds.length > 0
+        ? await this.prisma.agentProposal.findMany({
+            where: { id: { in: proposalIds }, conversationId },
+            select: { id: true, status: true, expiresAt: true },
+          })
+        : [];
+    const texts = historyTexts(chronological, {
+      refByRecipeId: new Map(
+        Object.entries(prompt.catalogIndex).map(([ref, id]) => [id, ref]),
+      ),
+      visibleUserIds: new Set(prompt.visibleUserIds ?? []),
+      proposals: new Map(proposals.map((row) => [row.id, row])),
+      now: new Date(),
+    });
+    return chronological.map((row, index) => ({
+      role:
+        row.role === 'ASSISTANT' ? ('ASSISTANT' as const) : ('USER' as const),
+      text: texts[index],
+    }));
   }
 
   private async finishDone(

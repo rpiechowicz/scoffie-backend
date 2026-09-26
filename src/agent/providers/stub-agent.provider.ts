@@ -42,6 +42,27 @@ export const STUB_PROPOSE_PATTERN =
   /\[\[propose:([0-9a-fA-F-]{36}):(\d{4}-\d{2}-\d{2})\]\]/;
 
 /**
+ * Kolejne markery `[[propose:…]]` w jednej wiadomości to kolejne dni tego
+ * samego tygodnia (MON, TUE, …), zawsze na kolację — tak e2e dostaje
+ * propozycję z kilkoma pozycjami (np. „zamień tylko wtorek").
+ */
+const STUB_PROPOSE_ALL = new RegExp(STUB_PROPOSE_PATTERN.source, 'g');
+const STUB_PROPOSE_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+/**
+ * Wymusza kartę WYBORU: `[[options:<recipeId>,<recipeId>…]]` →
+ * `offer_options` z tymi daniami w tej kolejności (kafelki 1, 2, …).
+ */
+export const STUB_OPTIONS_PATTERN = /\[\[options:([0-9a-fA-F,-]{36,})\]\]/;
+
+/**
+ * Wymusza POPRAWKĘ propozycji:
+ * `[[revise:<proposalId>:<DZIEŃ>:<PORA>:<recipeId>]]` → `revise_proposal`.
+ */
+export const STUB_REVISE_PATTERN =
+  /\[\[revise:([0-9a-fA-F-]{36}):([A-Z]{3}):([A-Z_]+):([0-9a-fA-F-]{36})\]\]/;
+
+/**
  * Dostawca `stub` (`AI_PROVIDER=stub`) — cały tor tury bez ani jednego
  * wywołania modelu: 202, polling, lease, kwota, bezpiecznik, księga użycia.
  *
@@ -85,13 +106,37 @@ export class StubAgentProvider implements AgentProvider {
       await request.executeTool('get_household_context', {});
     }
 
-    const propose = STUB_PROPOSE_PATTERN.exec(lastUserText);
-    if (propose) {
+    const proposed = [...lastUserText.matchAll(STUB_PROPOSE_ALL)].slice(0, 7);
+    if (proposed.length > 0) {
       await request.executeTool('propose_week_plan', {
-        week_start: propose[2],
-        slots: [
-          { day_of_week: 'MON', meal_type: 'DINNER', recipe: propose[1] },
-        ],
+        week_start: proposed[0][2],
+        slots: proposed.map((match, index) => ({
+          day_of_week: STUB_PROPOSE_DAYS[index],
+          meal_type: 'DINNER',
+          recipe: match[1],
+        })),
+      });
+    }
+
+    const options = STUB_OPTIONS_PATTERN.exec(lastUserText);
+    if (options) {
+      await request.executeTool('offer_options', {
+        title: 'Do wyboru',
+        slot_label: 'Kolacja · wtorek',
+        options: options[1]
+          .split(',')
+          .filter(Boolean)
+          .map((recipe) => ({ recipe })),
+      });
+    }
+
+    const revise = STUB_REVISE_PATTERN.exec(lastUserText);
+    if (revise) {
+      await request.executeTool('revise_proposal', {
+        proposal_id: revise[1],
+        day_of_week: revise[2],
+        meal_type: revise[3],
+        recipe: revise[4],
       });
     }
 

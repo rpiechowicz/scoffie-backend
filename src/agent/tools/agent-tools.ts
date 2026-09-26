@@ -639,6 +639,29 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     ),
   },
   {
+    name: 'revise_proposal',
+    description:
+      'Popraw JEDNĄ pozycję (dzień + posiłek) w propozycji planu z tej rozmowy, która czeka na ' +
+      'zatwierdzenie (status=PENDING w dopisku [Propozycja …] w historii) — „zamień tylko wtorkowy ' +
+      'obiad", „Wybieram: …" po zamiennikach. Serwer bierze pozycje tamtej propozycji, wymienia ' +
+      'CAŁY slot na jedno danie dla tych samych osób, sprawdza plan i składa nową kartę; reszta ' +
+      'zostaje bez zmian. NIE odtwarzaj tygodnia przez propose_week_plan. Propozycja zapisana albo ' +
+      'nieaktualna — wtedy propose_swap na planie. TY NIE ZAPISUJESZ.',
+    input_schema: object(
+      {
+        proposal_id: {
+          type: 'string',
+          description:
+            'Numer propozycji DOKŁADNIE z dopisku [Propozycja PLAN_… <numer> …] w historii.',
+        },
+        day_of_week: DAY,
+        meal_type: MEAL,
+        recipe: RECIPE_REF,
+      },
+      ['proposal_id', 'day_of_week', 'meal_type', 'recipe'],
+    ),
+  },
+  {
     name: 'apply_week_plan',
     description:
       'Zapisz CAŁY tydzień naraz. Lista slots to stan docelowy: czego na niej nie ma, tego nie ' +
@@ -905,6 +928,8 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   propose_swap: 'planner',
   propose_remove_meal: 'planner',
   propose_household_split: 'planner',
+  // Poprawka propozycji to dobór dania pod ograniczenia domu — jak podmiana.
+  revise_proposal: 'planner',
   apply_week_plan: 'planner',
   create_recipe: 'planner',
   update_recipe: 'planner',

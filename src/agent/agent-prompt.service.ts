@@ -38,6 +38,12 @@ export type AgentPrompt = {
   /** `R07` → `recipeId`; narzędzia rozwiązują po nim odpowiedzi modelu. */
   catalogIndex: Record<string, string>;
   catalogVersion: string;
+  /**
+   * Domownicy, których model może zobaczyć po identyfikatorze (zgoda
+   * `AI_ASSISTANT`) — ten sam filtr dla bloku gospodarstwa, planu w prompcie
+   * i kart z poprzednich tur w historii.
+   */
+  visibleUserIds: string[];
 };
 
 /**
@@ -161,6 +167,7 @@ export class AgentPromptService {
       usedContext,
       catalogIndex: snapshot.digest.index,
       catalogVersion: snapshot.digest.catalogVersion,
+      visibleUserIds: members.map((member) => member.userId),
     };
   }
 

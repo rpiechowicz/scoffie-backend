@@ -455,6 +455,7 @@ export const TURN_ENDING_TOOLS: ReadonlySet<string> = new Set([
   'propose_swap',
   'propose_remove_meal',
   'propose_household_split',
+  'revise_proposal',
 ]);
 
 /**
@@ -812,7 +813,8 @@ export class AgentToolExecutor {
         name === 'propose_day_plan' ||
         name === 'propose_swap' ||
         name === 'propose_remove_meal' ||
-        name === 'propose_household_split') &&
+        name === 'propose_household_split' ||
+        name === 'revise_proposal') &&
       !context.proposalMode
     ) {
       return this.failure(
@@ -897,6 +899,9 @@ export class AgentToolExecutor {
 
       case 'propose_week_plan':
         return this.proposeWeekPlan(input, context, str('week_start'));
+
+      case 'revise_proposal':
+        return this.reviseProposal(input, context);
 
       case 'apply_week_plan':
         return this.applyWeekPlan(input, context, str('week_start'));
@@ -2040,6 +2045,53 @@ export class AgentToolExecutor {
       ) as unknown as ApplyWeekSlotDto[],
       ...(note ? { note } : {}),
       ...(removalReasons.length > 0 ? { removalReasons } : {}),
+    });
+  }
+
+  /**
+   * Poprawka jednego slotu w propozycji, która czeka na zatwierdzenie.
+   *
+   * Model podaje numer propozycji (z dopisku w historii), slot i danie —
+   * resztę tygodnia bierze serwis z INTENCJI tamtej propozycji
+   * (`action.slots`), więc model nie ma jak zgubić pozycji, których nie
+   * wypisał. Schemat bez `strict` (budżet pól 24/24 i gramatyka), więc
+   * dzień i porę sprawdzamy tutaj.
+   */
+  private async reviseProposal(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<CreateWeekProposalResult> {
+    const dayOfWeek = asString(input.day_of_week);
+    const mealType = asString(input.meal_type);
+    if (
+      !(Object.values(DayOfWeek) as string[]).includes(dayOfWeek) ||
+      !(Object.values(MealType) as string[]).includes(mealType)
+    ) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'day_of_week to MON…SUN, a meal_type to jedna z pór z listy.',
+        HttpStatus.BAD_REQUEST,
+        ['day_of_week', 'meal_type'],
+      );
+    }
+    const unknownRefs = this.unknownCatalogRefs([input], context);
+    if (unknownRefs.length > 0) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takich przepisów w katalogu: ${unknownRefs.join(', ')}. Użyj indeksów z listy katalogu.`,
+        HttpStatus.NOT_FOUND,
+        unknownRefs,
+      );
+    }
+    return this.proposals.reviseProposal({
+      userId: context.userId,
+      householdId: context.householdId,
+      conversationId: context.conversationId,
+      turnId: context.turnId,
+      proposalId: asString(input.proposal_id).trim(),
+      dayOfWeek: dayOfWeek as DayOfWeek,
+      mealType: mealType as MealType,
+      recipeId: this.resolveRecipeRef(asString(input.recipe), context),
     });
   }
 

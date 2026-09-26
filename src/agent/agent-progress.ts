@@ -135,6 +135,10 @@ const LABELS: Record<string, readonly string[]> = {
   ],
   propose_day_plan: ['Układam ten dzień', 'Dobieram posiłki na jeden dzień'],
   propose_swap: ['Szukam czegoś w zamian', 'Dobieram danie na podmianę'],
+  revise_proposal: [
+    'Poprawiam propozycję',
+    'Zmieniam jedno danie w propozycji',
+  ],
   propose_remove_meal: [
     'Wyjmuję to z planu',
     'Sprawdzam, co zostanie po usunięciu',

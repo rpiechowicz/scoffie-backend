@@ -12,7 +12,7 @@ import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { ApplyWeekSlotDto } from '../../weekly-plans/dto/apply-week-plan.dto';
 import { ensureMembership } from '../../weekly-plans/utils/auth-checks.util';
 import { AppException } from '../../common/app-exception';
-import { assertUuid } from '../../common/uuid';
+import { assertUuid, isUuid } from '../../common/uuid';
 import { readAgentEnv } from '../../config/agent-env';
 import { AgentCardState, PlanRemovalReason } from '../cards/agent-cards';
 import {
@@ -56,6 +56,20 @@ export type CreateDayProposalInput = Omit<CreateWeekProposalInput, 'slots'> & {
   dayOfWeek: DayOfWeek;
   /** Stan docelowy WYŁĄCZNIE tego dnia; `dayOfWeek` dokłada serwis. */
   slots: Omit<ApplyWeekSlotDto, 'dayOfWeek'>[];
+};
+
+/**
+ * Poprawka JEDNEGO slotu w propozycji planu z tej rozmowy (`revise_proposal`).
+ * Tydzień, dzień propozycji i pozostałe pozycje bierze serwis z propozycji.
+ */
+export type ReviseProposalInput = Omit<
+  CreateWeekProposalInput,
+  'slots' | 'note' | 'weekStart' | 'removalReasons'
+> & {
+  proposalId: string;
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  recipeId: string;
 };
 
 export type CreateSwapProposalInput = Omit<
@@ -311,6 +325,128 @@ export class AgentProposalsService {
         targetKcalPerDay: card.summary.targetKcalPerDay,
       },
     };
+  }
+
+  /**
+   * Poprawka jednej pozycji w propozycji planu, która czeka na zatwierdzenie
+   * („zamień tylko wtorkowy obiad", „Wybieram: …" po zamiennikach).
+   *
+   * Do 26.09.2026 jedyną drogą była NOWA propozycja od zera: model musiał
+   * odtworzyć cały tydzień z pamięci, żeby zmienić jedno danie, a każda
+   * pozycja, której nie przepisał dokładnie, zmieniała się po cichu. Teraz
+   * resztę bierzemy z INTENCJI tamtej propozycji (`action.slots` — stan
+   * docelowy zapisany przez serwer), podmieniamy CAŁY slot (dzień + posiłek)
+   * na jedno danie i liczymy nową propozycję tą samą ścieżką, co zwykle:
+   * walidacja alergenów, karta, odcisk planu. Uczestnicy nowego dania to suma
+   * uczestników podmienionych pozycji, a gdy którakolwiek była dla całego
+   * domu — cały dom; porcje zostają tylko przy podmianie jednej pozycji
+   * (przy scaleniu kilku liczy je audytorium).
+   *
+   * Starej propozycji nie oznaczamy: obie mają odcisk planu z chwili
+   * powstania, więc zatwierdzenie jednej robi z drugiej STALE samo z siebie.
+   * Propozycja dnia zostaje propozycją dnia i poprawia się tylko w swoim dniu.
+   */
+  async reviseProposal(
+    input: ReviseProposalInput,
+  ): Promise<CreateWeekProposalResult> {
+    const notFound = () =>
+      new AppException(
+        'AI_PROPOSAL_NOT_FOUND',
+        'Nie ma takiej propozycji planu w tej rozmowie. Numer weź z dopisku [Propozycja …] w historii.',
+        HttpStatus.NOT_FOUND,
+      );
+    if (!isUuid(input.proposalId)) throw notFound();
+    const source = await this.prisma.agentProposal.findFirst({
+      where: {
+        id: input.proposalId,
+        conversationId: input.conversationId,
+        householdId: input.householdId,
+      },
+      select: {
+        kind: true,
+        status: true,
+        expiresAt: true,
+        weekStart: true,
+        action: true,
+        card: true,
+      },
+    });
+    if (
+      !source ||
+      (source.kind !== 'PLAN_WEEK' && source.kind !== 'PLAN_DAY')
+    ) {
+      throw notFound();
+    }
+    if (source.status !== 'PENDING') {
+      throw new AppException(
+        'AI_PROPOSAL_STALE',
+        `Ta propozycja nie czeka już na zatwierdzenie (${source.status}). Zmianę w zapisanym planie pokaż przez propose_swap.`,
+        HttpStatus.CONFLICT,
+      );
+    }
+    if (source.expiresAt && source.expiresAt.getTime() <= Date.now()) {
+      throw new AppException(
+        'AI_PROPOSAL_EXPIRED',
+        'Ta propozycja wygasła. Ułóż nową.',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    const weekStart = source.weekStart.toISOString().slice(0, 10);
+    const slots = actionSlots(source.action);
+    const isTarget = (slot: ApplyWeekSlotDto) =>
+      slot.dayOfWeek === input.dayOfWeek && slot.mealType === input.mealType;
+    const replaced = slots.filter(isTarget);
+    const wholeHouse =
+      replaced.length === 0 ||
+      replaced.some((slot) => !slot.participantIds?.length);
+    const participantIds = wholeHouse
+      ? []
+      : [...new Set(replaced.flatMap((slot) => slot.participantIds ?? []))];
+    const keptServings =
+      replaced.length === 1 ? replaced[0].plannedServings : undefined;
+    const next: ApplyWeekSlotDto = {
+      dayOfWeek: input.dayOfWeek,
+      mealType: input.mealType,
+      recipeId: input.recipeId,
+      ...(participantIds.length > 0 ? { participantIds } : {}),
+      ...(keptServings !== undefined ? { plannedServings: keptServings } : {}),
+    };
+    // Nowa pozycja w miejscu pierwszej podmienionej — karta i odcisk nie
+    // zależą od kolejności, ale czytelny zapis intencji tak.
+    const revised: ApplyWeekSlotDto[] = [];
+    for (const slot of slots) {
+      if (!isTarget(slot)) revised.push(slot);
+      else if (!revised.includes(next)) revised.push(next);
+    }
+    if (!revised.includes(next)) revised.push(next);
+
+    const base = {
+      userId: input.userId,
+      householdId: input.householdId,
+      conversationId: input.conversationId,
+      turnId: input.turnId,
+      weekStart,
+    };
+    if (source.kind === 'PLAN_DAY') {
+      const day = dayOfDayCard(source.card, weekStart);
+      if (!day || day !== input.dayOfWeek) {
+        throw new AppException(
+          'VALIDATION_ERROR',
+          `Ta propozycja dotyczy jednego dnia (${day ?? '?'}) — poprawiasz w niej tylko ten dzień.`,
+          HttpStatus.BAD_REQUEST,
+          ['day_of_week'],
+        );
+      }
+      return this.createDayPlanProposal({
+        ...base,
+        dayOfWeek: day,
+        slots: revised
+          .filter((slot) => slot.dayOfWeek === day)
+          .map(({ dayOfWeek: _day, ...slot }) => slot),
+      });
+    }
+    return this.createWeekPlanProposal({ ...base, slots: revised });
   }
 
   /**
@@ -1594,4 +1730,33 @@ export function cardState(
     canUndo: false,
     until: reapplicable ? proposal.expiresAt.toISOString() : null,
   };
+}
+
+/**
+ * Stan docelowy propozycji tygodnia/dnia z `action` (zapisuje go serwer, nie
+ * model). Wiersz bez listy — pusta, czyli „w propozycji nic nie ma".
+ */
+function actionSlots(action: Prisma.JsonValue): ApplyWeekSlotDto[] {
+  const slots =
+    action && typeof action === 'object' && !Array.isArray(action)
+      ? (action as { slots?: unknown }).slots
+      : undefined;
+  return Array.isArray(slots) ? (slots as ApplyWeekSlotDto[]) : [];
+}
+
+/** Dzień propozycji dnia z daty w karcie (`YYYY-MM-DD` w tygodniu `weekStart`). */
+function dayOfDayCard(
+  card: Prisma.JsonValue,
+  weekStart: string,
+): DayOfWeek | null {
+  const date =
+    card && typeof card === 'object' && !Array.isArray(card)
+      ? (card as { date?: unknown }).date
+      : undefined;
+  if (typeof date !== 'string') return null;
+  return (
+    Object.values(DayOfWeek).find(
+      (day) => dateForDay(weekStart, day) === date,
+    ) ?? null
+  );
 }
