@@ -1655,6 +1655,16 @@ export class WeeklyPlansService {
     householdId: string,
     weekStart: string,
     input: SetMealEatenDto,
+    /**
+     * W transakcji odhaczenia, po nim (asystent: dziennik efektów tury,
+     * workstream Etap 5, Addendum A1). Domena nie wie, kto go podaje.
+     */
+    options: {
+      inTransaction?: (
+        tx: Prisma.TransactionClient,
+        planItemId: string,
+      ) => Promise<void>;
+    } = {},
   ) {
     const dto = await validateDto(SetMealEatenDto, input);
     await ensureMembership(this.prisma, userId, householdId);
@@ -1696,18 +1706,29 @@ export class WeeklyPlansService {
       );
     }
 
-    if (dto.isEaten === true) {
-      await this.prisma.planItemConsumption.upsert({
-        where: {
-          planItemId_userId: { planItemId: planItem.id, userId },
-        },
-        update: {},
-        create: { planItemId: planItem.id, userId },
+    const write = async (client: Prisma.TransactionClient) => {
+      if (dto.isEaten === true) {
+        await client.planItemConsumption.upsert({
+          where: {
+            planItemId_userId: { planItemId: planItem.id, userId },
+          },
+          update: {},
+          create: { planItemId: planItem.id, userId },
+        });
+      } else {
+        await client.planItemConsumption.deleteMany({
+          where: { planItemId: planItem.id, userId },
+        });
+      }
+    };
+    const { inTransaction } = options;
+    if (inTransaction) {
+      await this.prisma.$transaction(async (tx) => {
+        await write(tx);
+        await inTransaction(tx, planItem.id);
       });
     } else {
-      await this.prisma.planItemConsumption.deleteMany({
-        where: { planItemId: planItem.id, userId },
-      });
+      await write(this.prisma);
     }
 
     const updated = await this.prisma.planItem.findUniqueOrThrow({

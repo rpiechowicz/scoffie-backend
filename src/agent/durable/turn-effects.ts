@@ -13,10 +13,12 @@ import { AgentTurnQueue } from './agent-turn-queue.service';
  *   wiersz po wykonaniu — nie ma efektu, który mógłby się zdublować, a zapis
  *   pozwala domknąć odzyskaną turę tą samą kartą bez wołania modelu.
  * - `keyed` — efekt wymagający klucza idempotencji (przepis, notatka, zapis
- *   planu). Klucz `<narzędzie>#<n>`, wiersz W TRANSAKCJI efektu.
- * - `natural` — efekt idempotentny z natury: ustawienie wartości („zjedzone",
- *   „kupione"). Klucz `<narzędzie>#<n>`, wiersz po wykonaniu; powtórka po
- *   padzie między commitem a dziennikiem ustawia tę samą wartość jeszcze raz.
+ *   planu, „zjedzone"). Klucz `<narzędzie>#<n>`, wiersz W TRANSAKCJI efektu.
+ * - `natural` — `check_shopping_items`: kilka zapisów „kupione" w osobnych
+ *   transakcjach (po jednej na produkt), więc wiersz dziennika idzie po
+ *   wykonaniu. Powtórka po padzie między commitem a dziennikiem ustawia tę
+ *   samą wartość jeszcze raz (raport 05, Addendum A1 — świadomie słabsza
+ *   gwarancja).
  */
 export type EffectKind =
   | 'read'
@@ -44,8 +46,9 @@ const KEYED_TOOLS = new Set([
   'create_recipe',
   'update_recipe',
   'remember_note',
+  'mark_meal_eaten',
 ]);
-const NATURAL_TOOLS = new Set(['mark_meal_eaten', 'check_shopping_items']);
+const NATURAL_TOOLS = new Set(['check_shopping_items']);
 
 export function effectKind(
   name: string,
@@ -59,6 +62,49 @@ export function effectKind(
   }
   if (NATURAL_TOOLS.has(name)) return 'natural';
   return 'read';
+}
+
+/**
+ * Kanoniczny JSON wejścia narzędzia (Addendum A1): klucze obiektów
+ * posortowane, kolejność tablic ZACHOWANA, `null` ≠ brak pola, typy bez
+ * zmian (`1` ≠ `"1"`). Brak pola i `undefined` to jedno (tak zapisuje je
+ * JSONB), `NaN`/`Infinity` — `null` (jak `JSON.stringify`).
+ */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(canonicalValue(value)) ?? 'null';
+}
+
+function canonicalValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      item === undefined ? null : canonicalValue(item),
+    );
+  }
+  if (value && typeof value === 'object') {
+    const source = value as Record<string, unknown>;
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(source).sort()) {
+      if (source[key] === undefined) continue;
+      sorted[key] = canonicalValue(source[key]);
+    }
+    return sorted;
+  }
+  return value;
+}
+
+/**
+ * Czy bieżące wywołanie to TA SAMA operacja, co zapisany efekt: to samo
+ * narzędzie i kanonicznie równe wejście. Tylko wtedy wolno oddać zapisany
+ * wynik jako wynik tego wywołania.
+ */
+export function isSameOperation(
+  stored: Pick<StoredEffect, 'tool' | 'input'>,
+  name: string,
+  input: Record<string, unknown>,
+): boolean {
+  return (
+    stored.tool === name && canonicalJson(stored.input) === canonicalJson(input)
+  );
 }
 
 /** Zapis w dzienniku: wynik narzędzia w kształcie `AgentToolResult`. */
@@ -98,11 +144,17 @@ export type EffectCommit = (
  * turze. Model w odzyskanej próbie nie ma tych samych identyfikatorów
  * `tool_use` co w pierwszej (to nowe wywołanie API), więc klucz z nich nie
  * dałby niczego; losowe UUID też nie — powstałoby nowe przy każdej próbie.
- * N-te wywołanie `create_recipe` w turze to ta sama operacja w każdej próbie:
- * po odzyskaniu dostaje zapisany wynik zamiast drugiego przepisu.
+ *
+ * KURSOR, nie licznik wywołań (Addendum A1): `n` przesuwa się dopiero po
+ * udanym odtworzeniu zapisanego efektu albo po zatwierdzeniu nowego. Wywołanie
+ * z innym wejściem niż zapisany efekt `#n` to konflikt odzyskiwania — kursor
+ * stoi, więc kolejne wywołanie znowu trafia na `#n` i nie przeskoczy do
+ * `#n+1` (drugiego przepisu). Wywołania jednego narzędzia w próbie idą po
+ * kolei (`exclusive`), żeby dwa równoległe nie dostały tego samego `#n`.
  */
 export class TurnEffects {
-  private readonly counters = new Map<string, number>();
+  private readonly cursor = new Map<string, number>();
+  private readonly lanes = new Map<string, Promise<unknown>>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -112,11 +164,27 @@ export class TurnEffects {
     private readonly leaseToken: string | null,
   ) {}
 
+  /** Klucz NASTĘPNEGO efektu tego narzędzia — bez przesuwania kursora. */
   keyFor(name: string, kind: EffectKind): string {
     if (kind === 'card-db' || kind === 'card-memory') return 'card';
-    const next = (this.counters.get(name) ?? 0) + 1;
-    this.counters.set(name, next);
-    return `${name}#${next}`;
+    return `${name}#${(this.cursor.get(name) ?? 0) + 1}`;
+  }
+
+  /** Efekt `#n` rozpoznany (odtworzony) albo zatwierdzony — dalej `#n+1`. */
+  advance(name: string, kind: EffectKind): void {
+    if (kind === 'card-db' || kind === 'card-memory') return;
+    this.cursor.set(name, (this.cursor.get(name) ?? 0) + 1);
+  }
+
+  /** Wywołania jednego „pasa" (narzędzie albo karta) po kolei. */
+  exclusive<T>(lane: string, work: () => Promise<T>): Promise<T> {
+    const previous = this.lanes.get(lane) ?? Promise.resolve();
+    const next = previous.then(work, work);
+    this.lanes.set(
+      lane,
+      next.catch(() => undefined),
+    );
+    return next;
   }
 
   async load(key: string): Promise<StoredEffect | null> {

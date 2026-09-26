@@ -53,7 +53,7 @@ import {
   LeaseLostError,
   readTurnLeaseConfig,
 } from './durable/turn-lease-config';
-import { turnTextFor } from './tools/agent-tool-executor';
+import { effectLabel, turnTextFor } from './tools/agent-tool-executor';
 import { TOOL_ENDED_TURN } from './providers/anthropic-agent.provider';
 
 export type RunTurnInput = {
@@ -286,9 +286,26 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     }
   }
 
+  /**
+   * Worker przejął turę — rejestracja OD RAZU, zanim `run` wystartuje
+   * (odczyt tury z bazy trwa). Bez tego zamykanie procesu w tym oknie nie
+   * widziało tury: nie oddawało lease, a tura zaczynała się mimo SIGTERM.
+   */
+  reserve(turnId: string): void {
+    if (!this.running.has(turnId)) {
+      this.running.set(turnId, new AbortController());
+    }
+  }
+
+  /** Rezerwacja bez wykonania (tura zniknęła między przejęciem a odczytem). */
+  forget(turnId: string): void {
+    this.running.delete(turnId);
+  }
+
   async run(input: RunTurnInput): Promise<void> {
     const startedAt = Date.now();
-    const controller = new AbortController();
+    // Rezerwacja workera (jeśli była) niesie sygnał zamykania procesu.
+    const controller = this.running.get(input.turnId) ?? new AbortController();
     this.running.set(input.turnId, controller);
     const lease = input.lease ?? null;
     const leaseConfig = readTurnLeaseConfig();
@@ -345,6 +362,10 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     const memo = createTurnMemo();
 
     try {
+      // Proces zaczął się zamykać między przejęciem a startem — oddaj turę.
+      if (controller.signal.aborted) {
+        throw new Error('tura przerwana przed startem');
+      }
       // Pierwszy krok od razu: historia i prompt składają się 1–3 s, potem
       // model myśli — bez tego wpisu telefon widział pustą listę kroków
       // i własne „Zastanawiam się…" aż do pierwszego narzędzia.
@@ -389,6 +410,12 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
         memo,
       );
       const messages = await this.loadHistory(input.conversationId, prompt);
+      // Odzyskana próba (Addendum A1): model wie od serwera, co przed
+      // restartem już się zapisało — żeby nie próbował tego powtarzać
+      // (a gdyby spróbował inaczej, dziennik i tak odmówi).
+      if (lease && lease.attempt > 1) {
+        await this.appendRecoveryNote(input.turnId, messages);
+      }
       const provider = this.providers.resolve(input.env);
       const prepMs = Date.now() - startedAt;
       // „Stop" albo utrata lease w trakcie składania promptu — nie wołamy
@@ -676,6 +703,56 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     if (state.cancelRequested) {
       if (!controller.signal.aborted) controller.abort(ABORT_REASON_CANCELLED);
       throw new Error('tura zatrzymana przez użytkownika');
+    }
+  }
+
+  /**
+   * Krótki blok SERWERA przy ostatnim pytaniu: które efekty tej tury są już
+   * zapisane (nazwa operacji, przy przepisie jego id). Bez wejść i wyników
+   * narzędzi — tylko tyle, żeby model nie zaczynał zadania od zera.
+   */
+  private async appendRecoveryNote(
+    turnId: string,
+    messages: AgentProviderMessage[],
+  ): Promise<void> {
+    const effects = await this.prisma.agentTurnEffect.findMany({
+      where: { turnId },
+      orderBy: { createdAt: 'asc' },
+      select: { key: true, tool: true, result: true },
+    });
+    const lines = effects
+      .map((effect) => {
+        const result = effect.result as { ok?: boolean; data?: unknown };
+        if (result?.ok !== true) return null;
+        if (effect.key === 'card') {
+          return `karta odpowiedzi (${effect.tool}) — przygotowana`;
+        }
+        const data = (result.data ?? {}) as {
+          recipeId?: unknown;
+          id?: unknown;
+        };
+        const recipeId =
+          effect.tool === 'create_recipe' || effect.tool === 'update_recipe'
+            ? (typeof data.recipeId === 'string' && data.recipeId) ||
+              (typeof data.id === 'string' && data.id) ||
+              null
+            : null;
+        return `${effectLabel(effect.tool)} (${effect.tool}) — zapisane${
+          recipeId ? `, id przepisu ${recipeId}` : ''
+        }`;
+      })
+      .filter((line): line is string => line !== null);
+    if (lines.length === 0) return;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].role !== 'USER') continue;
+      messages[index] = {
+        ...messages[index],
+        text:
+          `${messages[index].text}\n\n[Informacja serwera, nie od użytkownika: ` +
+          'to wznowienie tej odpowiedzi po restarcie serwera. Przed restartem ' +
+          `zapisano już: ${lines.join('; ')}. Nie powtarzaj tych operacji.]`,
+      };
+      return;
     }
   }
 

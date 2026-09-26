@@ -1,7 +1,12 @@
 import { TURN_TIMEOUT_GRACE_MS } from '../../config/agent-env';
 import { TURN_ORPHAN_AFTER_MS, turnCloseVerdict } from '../agent-turn-liveness';
 import { usageCallKey } from '../agent-usage-ledger.service';
-import { effectKind, TurnEffects } from './turn-effects';
+import {
+  canonicalJson,
+  effectKind,
+  isSameOperation,
+  TurnEffects,
+} from './turn-effects';
 import { parseTurnExecution, readTurnLeaseConfig } from './turn-lease-config';
 
 const NOW = Date.parse('2026-09-27T10:00:00Z');
@@ -118,30 +123,86 @@ describe('trwałe tury (Etap 5) — reguły czyste', () => {
       expect(effectKind('remember_note', {})).toBe('keyed');
       expect(effectKind('apply_week_plan', { dry_run: false })).toBe('keyed');
       expect(effectKind('apply_week_plan', { dry_run: true })).toBe('read');
-      expect(effectKind('mark_meal_eaten', {})).toBe('natural');
+      // Od Addendum A1 odhaczenie posiłku ma dziennik w swojej transakcji.
+      expect(effectKind('mark_meal_eaten', {})).toBe('keyed');
       expect(effectKind('check_shopping_items', {})).toBe('natural');
       expect(effectKind('find_recipes', {})).toBe('read');
       expect(effectKind('get_week_plan', {})).toBe('read');
     });
 
-    it('klucz = „card" albo n-te wywołanie narzędzia w turze — deterministyczny w każdej próbie', () => {
-      const keys = (effects: TurnEffects) => [
-        effects.keyFor('create_recipe', 'keyed'),
-        effects.keyFor('remember_note', 'keyed'),
-        effects.keyFor('create_recipe', 'keyed'),
-        effects.keyFor('suggest_meals', 'card-memory'),
-        effects.keyFor('build_meal_plan', 'card-db'),
-      ];
-      const first = keys(new TurnEffects({} as never, 't', 1, 'a'));
-      const second = keys(new TurnEffects({} as never, 't', 2, 'b'));
-      expect(first).toEqual([
-        'create_recipe#1',
-        'remember_note#1',
-        'create_recipe#2',
-        'card',
-        'card',
-      ]);
-      expect(second).toEqual(first);
+    it('klucz = „card" albo KURSOR narzędzia: przesuwa się tylko po rozpoznaniu/commicie (A1)', () => {
+      const effects = new TurnEffects({} as never, 't', 2, 'b');
+      expect(effects.keyFor('create_recipe', 'keyed')).toBe('create_recipe#1');
+      // Samo wejście do narzędzia (np. konflikt) NIE konsumuje `#1`.
+      expect(effects.keyFor('create_recipe', 'keyed')).toBe('create_recipe#1');
+      effects.advance('create_recipe', 'keyed');
+      expect(effects.keyFor('create_recipe', 'keyed')).toBe('create_recipe#2');
+      // Kursory narzędzi są rozłączne.
+      expect(effects.keyFor('remember_note', 'keyed')).toBe('remember_note#1');
+      // Karta ma jeden klucz na turę.
+      effects.advance('suggest_meals', 'card-memory');
+      expect(effects.keyFor('suggest_meals', 'card-memory')).toBe('card');
+      expect(effects.keyFor('build_meal_plan', 'card-db')).toBe('card');
+    });
+
+    it('wywołania jednego pasa idą po kolei', async () => {
+      const effects = new TurnEffects({} as never, 't', 1, 'a');
+      const order: string[] = [];
+      const slow = effects.exclusive('create_recipe', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        order.push('pierwsze');
+      });
+      const fast = effects.exclusive('create_recipe', () => {
+        order.push('drugie');
+        return Promise.resolve();
+      });
+      await Promise.all([slow, fast]);
+      expect(order).toEqual(['pierwsze', 'drugie']);
+    });
+  });
+
+  describe('kanoniczna tożsamość wejścia (A1)', () => {
+    it('kolejność kluczy bez znaczenia, kolejność tablic ma znaczenie', () => {
+      expect(canonicalJson({ b: 1, a: { d: [1, 2], c: 'x' } })).toBe(
+        canonicalJson({ a: { c: 'x', d: [1, 2] }, b: 1 }),
+      );
+      expect(canonicalJson({ a: [1, 2] })).not.toBe(
+        canonicalJson({ a: [2, 1] }),
+      );
+    });
+
+    it('null ≠ brak pola, typy zachowane; undefined = brak (jak JSONB)', () => {
+      expect(canonicalJson({ a: null })).not.toBe(canonicalJson({}));
+      expect(canonicalJson({ a: 1 })).not.toBe(canonicalJson({ a: '1' }));
+      expect(canonicalJson({ a: true })).not.toBe(canonicalJson({ a: 'true' }));
+      expect(canonicalJson({ a: undefined, b: 2 })).toBe(
+        canonicalJson({ b: 2 }),
+      );
+    });
+
+    it('ta sama operacja = to samo narzędzie i to samo wejście', () => {
+      const stored = {
+        tool: 'create_recipe',
+        input: { title: 'Kurczak curry', servings: 2 },
+      };
+      expect(
+        isSameOperation(stored, 'create_recipe', {
+          servings: 2,
+          title: 'Kurczak curry',
+        }),
+      ).toBe(true);
+      expect(
+        isSameOperation(stored, 'create_recipe', {
+          title: 'Kurczak tikka masala',
+          servings: 2,
+        }),
+      ).toBe(false);
+      expect(
+        isSameOperation(stored, 'update_recipe', {
+          title: 'Kurczak curry',
+          servings: 2,
+        }),
+      ).toBe(false);
     });
   });
 

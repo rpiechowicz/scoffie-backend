@@ -25,6 +25,7 @@ import {
   EffectCommit,
   EffectKind,
   effectKind,
+  isSameOperation,
   StoredEffect,
   TurnEffects,
 } from '../durable/turn-effects';
@@ -527,6 +528,33 @@ export function projectIngredientsForModel(
   }));
 }
 
+/**
+ * Konflikt odzyskiwania (Addendum A1 do Etapu 5): wywołanie narzędzia
+ * w odzyskanej próbie ma inne wejście niż efekt, który ta tura zapisała przed
+ * restartem. Kod wewnętrzny — trafia do modelu jako dane, nie do telefonu.
+ */
+export const DURABLE_EFFECT_CONFLICT = 'AI_DURABLE_EFFECT_CONFLICT';
+
+/** Nazwa efektu dla modelu i bloku odzyskiwania — bez treści wejścia. */
+export function effectLabel(tool: string): string {
+  switch (tool) {
+    case 'create_recipe':
+      return 'nowy przepis';
+    case 'update_recipe':
+      return 'zmiana przepisu';
+    case 'remember_note':
+      return 'notatka';
+    case 'apply_week_plan':
+      return 'zapis planu';
+    case 'mark_meal_eaten':
+      return 'odhaczenie posiłku';
+    case 'check_shopping_items':
+      return 'odhaczenie zakupów';
+    default:
+      return 'ta operacja';
+  }
+}
+
 export type AgentToolContext = {
   userId: string;
   householdId: string;
@@ -670,28 +698,6 @@ export class AgentToolExecutor {
       return this.failure('BAD_REQUEST', `Nie ma narzędzia o nazwie ${name}.`);
     }
 
-    // Trwałe wykonanie (Etap 5): efekt, który ta tura już zapisała (w tej
-    // albo w poprzedniej próbie, przed padem procesu), wraca z dziennika
-    // zamiast wykonać się drugi raz. Klucz nadajemy PRZED jakimkolwiek
-    // `await`, więc kolejność wywołań w próbie jest deterministyczna.
-    const durable = context.durable;
-    const kind: EffectKind = durable ? effectKind(name, input) : 'read';
-    const key =
-      durable && kind !== 'read' ? durable.effects.keyFor(name, kind) : null;
-    if (durable && key) {
-      const stored = await durable.effects.load(key);
-      if (stored) return this.replayEffect(stored, context);
-      // Lease i „Stop" z bazy PRZED zapisem — nie po nim.
-      try {
-        await durable.checkpoint();
-      } catch {
-        return this.failure(
-          'AI_TURN_INTERRUPTED',
-          'Tura została przerwana — nie wykonuję zapisu.',
-        );
-      }
-    }
-
     // Jedna karta na turę — rezerwacja SYNCHRONICZNIE, przed pierwszym
     // `await`, więc z dwóch kart w jednej rundzie wygrywa dokładnie jedna
     // (patrz `TurnMemo.claimCard`). Odmowa narzędzia zwalnia rezerwację.
@@ -707,40 +713,95 @@ export class AgentToolExecutor {
       }
     }
 
+    const durable = context.durable;
+    const kind: EffectKind = durable ? effectKind(name, input) : 'read';
+    let result: AgentToolResult;
+    if (!durable || kind === 'read') {
+      result = await this.executeClaimed(name, input, context);
+    } else if (kind === 'card-db' || kind === 'card-memory') {
+      result = await this.executeDurable(name, input, context, durable, kind);
+    } else {
+      // Wywołania jednego narzędzia z efektem idą w próbie PO KOLEI: dwa
+      // równoległe `create_recipe` nie mogą dostać tego samego `#n`.
+      result = await durable.effects.exclusive(name, () =>
+        this.executeDurable(name, input, context, durable, kind),
+      );
+    }
+    if (
+      cardTool &&
+      !(result.ok && result.endsTurn) &&
+      !(!result.ok && result.error.code === DURABLE_EFFECT_CONFLICT)
+    ) {
+      context.memo?.releaseCard(name);
+    }
+    return result;
+  }
+
+  /**
+   * Narzędzie z efektem pod trwałym wykonaniem (Etap 5 + Addendum A1).
+   *
+   * 1. Efekt `#n` (albo `card`) już w dzienniku:
+   *    - to samo narzędzie i KANONICZNIE to samo wejście — wynik z dziennika,
+   *      kursor dalej (efekt nie powtarza się);
+   *    - cokolwiek innego — KONFLIKT ODZYSKIWANIA: ani nowy zapis, ani cudzy
+   *      wynik jako „sukces" tego wejścia; kursor STOI, więc kolejne
+   *      wywołanie znowu trafi na `#n`, a nie przeskoczy do `#n+1`.
+   * 2. Brak: lease i „Stop" z bazy, wykonanie z wierszem dziennika w
+   *    transakcji efektu, kursor dalej dopiero po commicie. Odmowa narzędzia
+   *    (brak efektu) niczego nie zapisuje i kursora nie rusza.
+   */
+  private async executeDurable(
+    name: string,
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    durable: NonNullable<AgentToolContext['durable']>,
+    kind: EffectKind,
+  ): Promise<AgentToolResult> {
+    const effects = durable.effects;
+    const key = effects.keyFor(name, kind);
+    const stored = await effects.load(key);
+    if (stored) return this.recognize(stored, name, input, kind, context);
+
+    // Lease i „Stop" z bazy PRZED zapisem — nie po nim.
+    try {
+      await durable.checkpoint();
+    } catch {
+      return this.failure(
+        'AI_TURN_INTERRUPTED',
+        'Tura została przerwana — nie wykonuję zapisu.',
+      );
+    }
+
     let committed = false;
     let captured: AgentCard | null = null;
     const commit =
-      durable && key && (kind === 'card-db' || kind === 'keyed')
-        ? durable.effects.commitFor(key, name, input)
+      kind === 'card-db' || kind === 'keyed'
+        ? effects.commitFor(key, name, input)
         : undefined;
-    const callContext: AgentToolContext =
-      durable && key
-        ? {
-            ...context,
-            effectCommit: commit
-              ? async (tx, data) => {
-                  await commit(tx, data);
-                  committed = true;
-                }
-              : undefined,
-            collectCard: (card) => {
-              captured = card;
-              context.collectCard(card);
-            },
+    const callContext: AgentToolContext = {
+      ...context,
+      effectCommit: commit
+        ? async (tx, data) => {
+            await commit(tx, data);
+            committed = true;
           }
-        : context;
+        : undefined,
+      collectCard: (card) => {
+        captured = card;
+        context.collectCard(card);
+      },
+    };
 
     let result: AgentToolResult;
     try {
       result = await this.executeClaimed(name, input, callContext);
     } catch (error) {
-      if (cardTool) context.memo?.releaseCard(name);
-      // Wyścig z inną próbą tej samej tury: efekt już jest — oddaj go.
-      if (error instanceof EffectAlreadyCommittedError && durable && key) {
-        const stored = await durable.effects.load(key);
-        if (stored) return this.replayEffect(stored, context);
+      // Wyścig z inną próbą tej samej tury: efekt już jest — rozpoznaj go.
+      if (error instanceof EffectAlreadyCommittedError) {
+        const raced = await effects.load(key);
+        if (raced) return this.recognize(raced, name, input, kind, context);
       }
-      if (error instanceof LeaseLostError && durable) {
+      if (error instanceof LeaseLostError) {
         durable.onLeaseLost();
         return this.failure(
           'AI_TURN_INTERRUPTED',
@@ -749,33 +810,78 @@ export class AgentToolExecutor {
       }
       throw error;
     }
-    if (cardTool && !(result.ok && result.endsTurn)) {
-      context.memo?.releaseCard(name);
-    }
-    if (durable && key) {
-      await this.journal(durable, key, kind, name, input, result, {
-        committed,
-        card: captured,
-      });
+
+    try {
+      if (result.ok && committed) {
+        effects.advance(name, kind);
+        await effects.complete(key, result.data);
+      } else if (result.ok && kind === 'natural') {
+        await effects.record(key, name, input, { ok: true, data: result.data });
+        effects.advance(name, kind);
+      } else if (result.ok && result.endsTurn && kind === 'card-memory') {
+        await effects.record(
+          key,
+          name,
+          input,
+          { ok: true, data: result.data },
+          captured,
+        );
+      }
+    } catch (error) {
+      if (error instanceof LeaseLostError) {
+        durable.onLeaseLost();
+      } else {
+        this.logger.warn(
+          `dziennik efektu ${key} nie zapisany: ${
+            error instanceof Error ? error.message : 'nieznany błąd'
+          }`,
+        );
+      }
     }
     return result;
   }
 
   /**
-   * Wynik z dziennika zamiast drugiego wykonania. Karta tury wraca jako
-   * karta (kończy turę tym samym zdaniem serwera), efekt z kluczem — z
-   * `alreadyDone`, żeby model wiedział, że to już się stało.
+   * Zapisany efekt vs bieżące wywołanie. Zgodne — wynik z dziennika (karta
+   * tury wraca jako karta ze zdaniem serwera, efekt z kluczem z
+   * `alreadyDone`). Niezgodne — konflikt; dla karty z jawną regułą: karta
+   * zapisana przed restartem jest kartą TEJ TURY (zostaje na odpowiedzi),
+   * a bieżące wywołanie dostaje odmowę, nie jej wynik.
    */
-  private replayEffect(
+  private recognize(
     stored: StoredEffect,
+    name: string,
+    input: Record<string, unknown>,
+    kind: EffectKind,
     context: AgentToolContext,
   ): AgentToolResult {
+    const isCard = stored.key === 'card';
+    if (!isSameOperation(stored, name, input)) {
+      if (isCard && stored.card) context.collectCard(stored.card);
+      this.metrics.recordJobEffectConflict();
+      this.logger.warn(
+        `tura ${context.turnId}: konflikt odzyskiwania efektu ${stored.key} (zapisane: ${stored.tool}, wywołane: ${name}) — bez zapisu`,
+      );
+      return {
+        ok: false,
+        error: {
+          code: DURABLE_EFFECT_CONFLICT,
+          message: isCard
+            ? `Karta tej odpowiedzi (${stored.tool}) została już przygotowana przed restartem serwera. ` +
+              'Nie tworzę innej karty podczas odzyskiwania — zakończ odpowiedź jednym zdaniem bez narzędzi.'
+            : `W poprzedniej próbie tej odpowiedzi (przed restartem serwera) ${effectLabel(stored.tool)} ` +
+              'zostało już zapisane. Nie wykonuję innej wersji tej samej operacji podczas ' +
+              'odzyskiwania — powiedz użytkownikowi, co zostało zapisane, i nie próbuj ponownie.',
+          details: [`tool:${stored.tool}`],
+        },
+      };
+    }
     if (!stored.result.ok) {
       return { ok: false, error: stored.result.error };
     }
+    context.durable?.effects.advance(name, kind);
     const data = stored.result.data;
-    if (stored.key === 'card') {
-      context.memo?.claimCard(stored.tool);
+    if (isCard) {
       if (stored.card) context.collectCard(stored.card);
       const turnText = turnTextFor(stored.tool, stored.input, data);
       return {
@@ -792,59 +898,6 @@ export class AgentToolExecutor {
           ? { ...(data as Record<string, unknown>), alreadyDone: true }
           : { result: data, alreadyDone: true },
     };
-  }
-
-  /**
-   * Wpis do dziennika po wykonaniu. Efekt zapisany w transakcji dostaje
-   * pełny wynik (`complete`); karta bez skutków i efekt „z natury" — wiersz
-   * teraz; odmowa narzędzia z kluczem `<narzędzie>#<n>` — też, żeby n-te
-   * wywołanie w odzyskanej próbie dostało tę samą odmowę, a nie wykonało się
-   * jako „pierwsze udane". Nieudana karta NIE zajmuje klucza `card`.
-   */
-  private async journal(
-    durable: NonNullable<AgentToolContext['durable']>,
-    key: string,
-    kind: EffectKind,
-    name: string,
-    input: Record<string, unknown>,
-    result: AgentToolResult,
-    outcome: { committed: boolean; card: AgentCard | null },
-  ): Promise<void> {
-    try {
-      if (result.ok && outcome.committed) {
-        await durable.effects.complete(key, result.data);
-        return;
-      }
-      if (kind === 'card-db' || kind === 'card-memory') {
-        if (kind === 'card-db' || !(result.ok && result.endsTurn)) return;
-        await durable.effects.record(
-          key,
-          name,
-          input,
-          { ok: true, data: result.data },
-          outcome.card,
-        );
-        return;
-      }
-      await durable.effects.record(
-        key,
-        name,
-        input,
-        result.ok
-          ? { ok: true, data: result.data }
-          : { ok: false, error: result.error },
-      );
-    } catch (error) {
-      if (error instanceof LeaseLostError) {
-        durable.onLeaseLost();
-        return;
-      }
-      this.logger.warn(
-        `dziennik efektu ${key} nie zapisany: ${
-          error instanceof Error ? error.message : 'nieznany błąd'
-        }`,
-      );
-    }
   }
 
   private async executeClaimed(
@@ -1793,6 +1846,7 @@ export class AgentToolExecutor {
       );
     }
 
+    const commit = context.effectCommit;
     await this.weeklyPlans.setMealEaten(
       context.userId,
       context.householdId,
@@ -1803,6 +1857,12 @@ export class AgentToolExecutor {
         recipeId: standing.recipeId,
         isEaten,
       } as unknown as SetMealEatenDto,
+      {
+        // Dziennik efektu tury w transakcji odhaczenia (Addendum A1).
+        inTransaction: commit
+          ? (tx) => commit(tx, { dayOfWeek, mealType, eaten: isEaten })
+          : undefined,
+      },
     );
     this.plansGateway.broadcastMealEaten({
       householdId: context.householdId,

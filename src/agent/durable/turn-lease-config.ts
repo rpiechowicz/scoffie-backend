@@ -73,7 +73,7 @@ export function readTurnLeaseConfig(
       'AI_TURN_WORKER_POLL_MS',
       TURN_LEASE_DEFAULTS.pollMs,
       100,
-      60_000,
+      600_000,
     ),
     concurrency: readInt(
       env,

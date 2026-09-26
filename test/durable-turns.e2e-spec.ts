@@ -12,6 +12,14 @@ import { AgentTurnWorker } from '../src/agent/durable/agent-turn-worker.service'
 import { AgentTurnQueue } from '../src/agent/durable/agent-turn-queue.service';
 import { AgentUsageLedger } from '../src/agent/agent-usage-ledger.service';
 import { readAgentEnv } from '../src/config/agent-env';
+import {
+  AgentToolContext,
+  AgentToolExecutor,
+  AgentToolResult,
+  DURABLE_EFFECT_CONFLICT,
+} from '../src/agent/tools/agent-tool-executor';
+import { TurnEffects } from '../src/agent/durable/turn-effects';
+import { AgentCard } from '../src/agent/cards/agent-cards';
 
 /**
  * Trwałe wykonywanie tur (workstream, Etap 5) na żywej bazie, bez modelu.
@@ -61,6 +69,7 @@ describe('Trwałe tury asystenta E2E (Etap 5)', () => {
     // Odpytywanie wołamy jawnie — interwał nie może wejść testowi w drogę.
     AI_TURN_WORKER_POLL_MS: '600000',
     AI_SHUTDOWN_GRACE_MS: '8000',
+    AI_STUB_VARIANT: '',
     THROTTLE_DEFAULT_LIMIT: '10000',
     THROTTLE_IP_LIMIT: '10000',
     THROTTLE_AUTH_LIMIT: '10000',
@@ -226,6 +235,7 @@ describe('Trwałe tury asystenta E2E (Etap 5)', () => {
     process.env.AI_STUB_DELAY_MS = '0';
     process.env.AI_TURN_WORKER = 'on';
     process.env.AI_SHUTDOWN_GRACE_MS = '8000';
+    process.env.AI_STUB_VARIANT = '';
     // „Procesy" jednego testu — survivor żyje do końca.
     for (const app of spawned.splice(1)) {
       await kill(app);
@@ -748,5 +758,325 @@ describe('Trwałe tury asystenta E2E (Etap 5)', () => {
       .jobs;
     expect(jobs.attempts).toBeGreaterThan(0);
     expect(jobs.recovered).toBeGreaterThan(0);
+  });
+
+  /**
+   * Addendum A1: model w odzyskanej próbie NIE jest bitowo deterministyczny.
+   * Narzędzie wołamy tak, jak woła je runner (`AgentToolExecutor.execute`
+   * z dziennikiem próby i prawdziwym lease), na żywej bazie. „Pad" = próba 1
+   * znika, lease wygasa, próba 2 przejmuje turę z NOWYM tokenem i pustym
+   * kursorem — jak nowy proces.
+   */
+  describe('Addendum A1 — tożsamość efektu przy niedeterministycznym modelu', () => {
+    type Attempt = {
+      context: AgentToolContext;
+      cards: AgentCard[];
+      run: (
+        name: string,
+        input: Record<string, unknown>,
+      ) => Promise<AgentToolResult>;
+    };
+
+    const leasedTurn = async (label: string) => {
+      const who = await household(label);
+      process.env.AI_TURN_WORKER = 'off';
+      const turnId = await post(survivor, who, 'Narzędzia wprost');
+      process.env.AI_TURN_WORKER = 'on';
+      return { who, turnId };
+    };
+
+    /** Nowa próba: przejęcie (nowy token), pusty kursor, kontekst jak w runnerze. */
+    const attempt = async (
+      turn: Awaited<ReturnType<typeof leasedTurn>>,
+      proposalMode = false,
+    ): Promise<Attempt> => {
+      await expireLease(turn.turnId);
+      const [claim] = await survivor.get(AgentTurnQueue).claim({
+        workerId: `test-${randomUUID().slice(0, 6)}`,
+        leaseMs: 60_000,
+        maxAttempts: 10,
+        limit: 1,
+        turnId: turn.turnId,
+      });
+      expect(claim).toBeDefined();
+      const cards: AgentCard[] = [];
+      const context: AgentToolContext = {
+        userId: turn.who.session.user.id,
+        householdId: turn.who.householdId,
+        catalogIndex: {},
+        conversationId: turn.who.conversationId,
+        turnId: turn.turnId,
+        proposalMode,
+        collectCard: (card) => cards.push(card),
+        durable: {
+          effects: new TurnEffects(
+            prisma,
+            turn.turnId,
+            claim.attempt,
+            claim.leaseToken,
+          ),
+          checkpoint: () => Promise.resolve(),
+          onLeaseLost: () => undefined,
+        },
+      };
+      const executor = survivor.get(AgentToolExecutor);
+      return {
+        context,
+        cards,
+        run: (name, input) => executor.execute(name, input, context),
+      };
+    };
+
+    const conflictOf = (result: AgentToolResult) =>
+      result.ok ? null : result.error.code;
+
+    const effectKeys = async (turnId: string) =>
+      (
+        await prisma.agentTurnEffect.findMany({
+          where: { turnId },
+          orderBy: { createdAt: 'asc' },
+        })
+      ).map((row) => row.key);
+
+    const notes = (householdId: string, text: string) =>
+      prisma.agentMemory.count({ where: { householdId, text } });
+
+    it('A1.1/4/5/6/7 remember_note: inne wejście po restarcie = konflikt (bez B, bez cudzego sukcesu), kursor stoi; to samo wejście (inna kolejność kluczy) = odtworzenie; potem nowy efekt działa', async () => {
+      const turn = await leasedTurn('A1Notatka');
+      const stamp = randomUUID().slice(0, 8);
+      const textA = `Lubimy pikantne ${stamp}`;
+      const textB = `Lubimy ostre ${stamp}`;
+
+      const first = await attempt(turn);
+      const created = await first.run('remember_note', {
+        text: textA,
+        kind: 'PREFERENCE',
+      });
+      expect(created.ok).toBe(true);
+
+      // PAD → próba 2, model pisze to samo innymi słowami.
+      const second = await attempt(turn);
+      const mismatch = await second.run('remember_note', {
+        text: textB,
+        kind: 'PREFERENCE',
+      });
+      expect(conflictOf(mismatch)).toBe(DURABLE_EFFECT_CONFLICT);
+      // B nie dostaje wyniku A jako swojego: żadnych danych notatki.
+      expect(JSON.stringify(mismatch)).not.toContain(textA);
+      expect(await notes(turn.who.householdId, textA)).toBe(1);
+      expect(await notes(turn.who.householdId, textB)).toBe(0);
+
+      // 4. Drugie wywołanie NIE przechodzi jako #2 — znowu konflikt.
+      const retry = await second.run('remember_note', {
+        text: textB,
+        kind: 'PREFERENCE',
+      });
+      expect(conflictOf(retry)).toBe(DURABLE_EFFECT_CONFLICT);
+      expect(await notes(turn.who.householdId, textB)).toBe(0);
+      expect(await effectKeys(turn.turnId)).toEqual(['remember_note#1']);
+
+      // 5./6. To samo wejście w innej kolejności kluczy — odtworzenie, raz.
+      const replay = await second.run('remember_note', {
+        kind: 'PREFERENCE',
+        text: textA,
+      });
+      expect(replay).toMatchObject({ ok: true, data: { alreadyDone: true } });
+      expect(await notes(turn.who.householdId, textA)).toBe(1);
+
+      // 7. Po rozpoznaniu #1 kolejny PRAWDZIWY efekt przechodzi jako #2.
+      const textC = `Nie jemy grzybów ${stamp}`;
+      const next = await second.run('remember_note', {
+        text: textC,
+        kind: 'CONSTRAINT',
+      });
+      expect(next.ok).toBe(true);
+      expect(await notes(turn.who.householdId, textC)).toBe(1);
+      expect(await effectKeys(turn.turnId)).toEqual([
+        'remember_note#1',
+        'remember_note#2',
+      ]);
+    });
+
+    it('A1.2/8 create_recipe: „Kurczak curry" → pad → „Kurczak tikka masala" = konflikt, jeden przepis; inne narzędzie po odzyskaniu nie myli się z nim', async () => {
+      const turn = await leasedTurn('A1Przepis');
+      const ingredient = await prisma.recipeIngredient.findFirstOrThrow({
+        where: { recipe: { isCatalog: true, isActive: true } },
+        select: { ingredientId: true, amount: true, unit: true },
+      });
+      const recipeInput = (title: string) => ({
+        title,
+        meal_type: 'DINNER',
+        prep_time_minutes: 25,
+        servings: 2,
+        ingredients: [
+          {
+            ingredient_id: ingredient.ingredientId,
+            amount: Number(ingredient.amount),
+            unit: ingredient.unit,
+          },
+        ],
+      });
+
+      const first = await attempt(turn);
+      const curry = await first.run(
+        'create_recipe',
+        recipeInput('Kurczak curry'),
+      );
+      expect(curry.ok).toBe(true);
+
+      const second = await attempt(turn);
+      const tikka = await second.run(
+        'create_recipe',
+        recipeInput('Kurczak tikka masala'),
+      );
+      expect(conflictOf(tikka)).toBe(DURABLE_EFFECT_CONFLICT);
+      expect(JSON.stringify(tikka)).not.toContain('Kurczak curry');
+      const recipes = await prisma.recipe.findMany({
+        where: { householdId: turn.who.householdId },
+        select: { title: true },
+      });
+      expect(recipes.map((row) => row.title)).toEqual(['Kurczak curry']);
+
+      // 8. Inne narzędzie z efektem — własny kursor, własny efekt.
+      const note = await second.run('remember_note', {
+        text: `Po odzyskaniu ${randomUUID().slice(0, 6)}`,
+        kind: 'HABIT',
+      });
+      expect(note.ok).toBe(true);
+      // I zapisany przepis dalej rozpoznawalny TYLKO swoim wejściem.
+      const again = await second.run(
+        'create_recipe',
+        recipeInput('Kurczak curry'),
+      );
+      expect(again).toMatchObject({ ok: true, data: { alreadyDone: true } });
+      expect(await effectKeys(turn.turnId)).toEqual([
+        'create_recipe#1',
+        'remember_note#1',
+      ]);
+    });
+
+    it('A1.3 apply_week_plan: inny stan docelowy po restarcie = konflikt; plan i kwota planu bez drugiego zapisu', async () => {
+      const turn = await leasedTurn('A1Plan');
+      const [dishA, dishB] = await prisma.recipe.findMany({
+        where: {
+          isCatalog: true,
+          isActive: true,
+          suitableMealTypes: { has: 'DINNER' },
+          allergens: { isEmpty: true },
+        },
+        orderBy: { id: 'asc' },
+        take: 2,
+        select: { id: true },
+      });
+      const applyInput = (recipe: string) => ({
+        week_start: WEEK_START,
+        dry_run: false,
+        slots: [{ day_of_week: 'TUE', meal_type: 'DINNER', recipe }],
+      });
+
+      const first = await attempt(turn);
+      expect(
+        (await first.run('apply_week_plan', applyInput(dishA.id))).ok,
+      ).toBe(true);
+
+      const second = await attempt(turn);
+      const other = await second.run('apply_week_plan', applyInput(dishB.id));
+      expect(conflictOf(other)).toBe(DURABLE_EFFECT_CONFLICT);
+
+      const items = await prisma.planItem.findMany({
+        where: { weeklyPlan: { householdId: turn.who.householdId } },
+        select: { recipeId: true },
+      });
+      expect(items.map((row) => row.recipeId)).toEqual([dishA.id]);
+      const plans = await prisma.aiUsageCounter.findMany({
+        where: { kind: 'plans', scopeId: turn.who.householdId },
+      });
+      expect(plans.reduce((sum, row) => sum + row.value, 0)).toBe(1);
+    });
+
+    it('A1.6 karta: ta sama karta = odtworzenie ze zdaniem serwera; inna (tu: inna kolejność dań) = konflikt, karta tury zostaje', async () => {
+      const turn = await leasedTurn('A1Karta');
+      const [first3, second3] = await prisma.recipe.findMany({
+        where: { isCatalog: true, isActive: true },
+        orderBy: { id: 'asc' },
+        take: 2,
+        select: { id: true },
+      });
+      const options = (ids: string[]) => ({
+        title: 'Do wyboru',
+        slot_label: 'Kolacja · wtorek',
+        options: ids.map((recipe) => ({ recipe })),
+      });
+
+      const before = await attempt(turn, true);
+      const card = await before.run(
+        'offer_options',
+        options([first3.id, second3.id]),
+      );
+      expect(card).toMatchObject({ ok: true, endsTurn: true });
+      const stored = before.cards[0];
+
+      const other = await attempt(turn, true);
+      const reordered = await other.run(
+        'offer_options',
+        options([second3.id, first3.id]),
+      );
+      expect(conflictOf(reordered)).toBe(DURABLE_EFFECT_CONFLICT);
+      // Reguła jawna: karta zapisana przed restartem jest kartą TEJ TURY.
+      expect(other.cards).toEqual([stored]);
+
+      const same = await attempt(turn, true);
+      const replayed = await same.run(
+        'offer_options',
+        options([first3.id, second3.id]),
+      );
+      expect(replayed).toMatchObject({
+        ok: true,
+        endsTurn: true,
+        turnText: 'Wybierz jedno z dań.',
+      });
+      expect(await effectKeys(turn.turnId)).toEqual(['card']);
+    });
+
+    it('A1 PRAWDZIWY RESTART z niedeterministycznym modelem: notatka innymi słowami po restarcie nie powstaje, tura kończy się jedną odpowiedzią, model dostaje blok odzyskiwania', async () => {
+      const who = await household('A1Restart');
+      const text = `Lubimy łagodne ${randomUUID().slice(0, 8)}`;
+      const doomed = await spawn();
+      process.env.AI_STUB_DELAY_MS = '10000';
+      const turnId = await post(
+        doomed,
+        who,
+        `Zapamiętaj [[note:${text}]] [[hold]]`,
+      );
+      await waitEffect(turnId, 'remember_note#1');
+      await kill(doomed);
+
+      await expireLease(turnId);
+      process.env.AI_STUB_DELAY_MS = '0';
+      process.env.AI_STUB_VARIANT = ' (inaczej)';
+      const heir = await spawn();
+      expect(await waitClosed(turnId)).toMatchObject({
+        status: 'DONE',
+        attempt: 2,
+      });
+
+      expect(await notes(who.householdId, text)).toBe(1);
+      expect(await notes(who.householdId, `${text} (inaczej)`)).toBe(0);
+      expect(await effectKeys(turnId)).toEqual(['remember_note#1']);
+      const [answer] = await answers(turnId);
+      expect(answer.text).toContain(
+        'zapisano już: notatka (remember_note) — zapisane',
+      );
+      const metrics = await request(heir.getHttpServer())
+        .get('/ops/metrics')
+        .set(
+          process.env.OPS_TOKEN ? { 'x-ops-token': process.env.OPS_TOKEN } : {},
+        )
+        .expect(200);
+      expect(
+        (metrics.body as { agent: { jobs: { effectConflicts: number } } }).agent
+          .jobs.effectConflicts,
+      ).toBeGreaterThanOrEqual(1);
+    });
   });
 });

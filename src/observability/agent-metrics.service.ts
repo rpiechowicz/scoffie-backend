@@ -77,6 +77,7 @@ export class AgentMetricsService {
     leaseLost: 0,
     failed: 0,
     cancelled: 0,
+    effectConflicts: 0,
   };
 
   recordTurnStarted(): void {
@@ -141,6 +142,12 @@ export class AgentMetricsService {
         attributes: { attempt: String(attempt) },
       });
     }
+  }
+
+  /** Konflikt odzyskiwania efektu narzędzia (Addendum A1) — bez zapisu. */
+  recordJobEffectConflict(): void {
+    this.jobs.effectConflicts += 1;
+    Sentry.metrics.count('scoffie.agent.job.effect_conflict', 1);
   }
 
   recordJobLeaseLost(): void {

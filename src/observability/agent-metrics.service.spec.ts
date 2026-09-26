@@ -14,6 +14,7 @@ describe('AgentMetricsService', () => {
         leaseLost: 0,
         failed: 0,
         cancelled: 0,
+        effectConflicts: 0,
       },
       rejected: {
         disabled: 0,
@@ -65,6 +66,7 @@ describe('AgentMetricsService', () => {
         leaseLost: 0,
         failed: 0,
         cancelled: 0,
+        effectConflicts: 0,
       },
       rejected: {
         disabled: 1,

@@ -253,7 +253,9 @@ export class StubAgentProvider implements AgentProvider {
     const note = STUB_NOTE_PATTERN.exec(lastUserText);
     if (note) {
       await request.executeTool('remember_note', {
-        text: note[1],
+        // `AI_STUB_VARIANT` (tylko e2e): model niedeterministyczny — w
+        // odzyskanej próbie pisze tę samą notatkę INNYMI słowami (Addendum A1).
+        text: `${note[1]}${process.env.AI_STUB_VARIANT ?? ''}`,
         kind: 'PREFERENCE',
       });
     }

@@ -130,6 +130,8 @@ export class AgentTurnWorker
           `turn ${claim.turnId}: przejęta po utracie procesu (próba ${claim.attempt}/${maxAttempts}, poprzedni właściciel ${claim.previousOwner ?? 'brak'})`,
         );
       }
+      // Rezerwacja synchronicznie: zamykanie procesu widzi turę od razu.
+      this.runner.reserve(claim.turnId);
       void this.execute(claim);
     }
     return claimed.length;
@@ -159,6 +161,7 @@ export class AgentTurnWorker
       if (!turn || !execution || !turn.deadlineAt) {
         // Rozmowa skasowana między przejęciem a odczytem albo wejście
         // nieczytelne — nie ma czego wykonać; lease wygaśnie sam.
+        this.runner.forget(claim.turnId);
         await this.queue.release(claim.turnId, claim.leaseToken);
         return;
       }
@@ -180,6 +183,7 @@ export class AgentTurnWorker
         },
       });
     } catch (error) {
+      this.runner.forget(claim.turnId);
       // `run` nie rzuca; tu tylko odczyt tury. Lease wygaśnie i turę
       // przejmie następne odpytanie (w granicach limitu prób).
       this.logger.error(
