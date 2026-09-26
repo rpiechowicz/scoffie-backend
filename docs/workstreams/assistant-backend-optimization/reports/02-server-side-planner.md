@@ -1,7 +1,8 @@
 # Raport etapu 02 — Serwerowy silnik planowania posiłków
 
 **Data:** 2026-09-26  
-**Status:** DONE (2A–2E); jedna decyzja produktowa/danych czeka — §9  
+**Status:** DONE (2A–2E) po poprawce semantyki celu kcal (Addendum A1, 26.09.2026);
+decyzje produktowe/danych — §9  
 **Branch:** `claude/admin-crm-planning-b0hmgo` (HEAD kodu: `c2908a6`)  
 **Zakres z TASKS.md:** Etap 2 — 2A audyt domeny, 2B planer dnia, 2C planer tygodnia,
 2D lokalna zmiana, 2E API dla agenta. Bez płatnych benchmarków, bez zmiany modelu.
@@ -97,10 +98,9 @@ z sufitem 5), ziarno remisów.
    suma niezależnych dni” pokazuje różnicę: 7 niezależnych planów dnia powtarza dania,
    tydzień — nie, przy niższej funkcji celu.
 
-**Cel dnia:** `kcalTarget × pokrycie`, gdzie pokrycie = suma udziałów planowanych pór
-(śniadanie 0,25, II śniadanie 0,10, obiad 0,35, podwieczorek 0,10, kolacja 0,20,
-przekąska 0,10; ≤ 1). Domyślne pory domu (śniadanie, obiad, kolacja) = 80 % celu —
-resztę się je poza planem i planer nie udaje, że trzy posiłki dowiozą 100 %.
+**Cel dnia:** ~~`kcalTarget × pokrycie` (pory domu = 80 % celu)~~ — **BŁĄD znaleziony
+w review, poprawiony w Addendum A1**: pełny dzień celuje w 100 % celu, a cel osoby
+wynika wyłącznie z posiłków, które ona je.
 
 **Funkcja celu** (mniej = lepiej): na osobo-dzień `10·Δkcal² + 3·Δbiałko² + 1,5·Δtł² +
 1,5·Δwęgl²` (Δ względne; makra tylko przy znanych celach), średnio po audytorium; +
@@ -173,6 +173,9 @@ Lista obowiązkowa → gdzie:
 Regresja propozycji: dotychczasowe `agent-proposals.revise.spec` i `agent-card-state.e2e` zielone po wydzieleniu `loadPendingPlanProposal`.
 
 ## 8. Pomiary (bez modelu)
+
+> **NIEAKTUALNE (przed poprawką A1):** poniższe odchylenia liczono względem 80 % celu
+> dnia, więc NIE są odchyleniem od dziennego `calorieGoal`. Aktualne wyniki — Addendum A1.
 
 `pnpm planner:eval --runs 3` na lokalnym katalogu dev (≈500 przepisów), osoby z sylwetką
 (makra liczone), pory domyślne (śniadanie, obiad, kolacja) — **MEASURED**, ostatni przebieg:
@@ -255,3 +258,113 @@ modelu zamiast ~1,5–3 tys. dla 21 pozycji `propose_week_plan`, i bez rund `fin
 - `51e7269` — feat(planer): serwerowy silnik planowania posiłków (dzień, tydzień, slot)
 - `c2908a6` — feat(agent): build_meal_plan i replace_plan_item — asystent na serwerowym planerze
 - (następny) — docs: raport Etapu 2, STATE.md, CLAUDE.md
+
+## Addendum A1 — 2026-09-26, po review: semantyka celu kcal
+
+### Przyczyny obu błędów
+
+1. **Pełny dzień celował w 80 % celu.** `MEAL_KCAL_SHARE` były sztywnymi udziałami
+   (śniadanie 0,25 + obiad 0,35 + kolacja 0,20 = 0,80) i nikt ich nie normalizował.
+   Planer uznawał 1600 kcal za trafienie przy `calorieGoal = 2000`. Tymczasem aplikacja
+   porównuje dzienną sumę z PEŁNYM celem (`WeeklyPlanView` × `DailyNutritionTargets`,
+   cel domownika zawsze pełny — `DailyNutritionTargets.forMember`), a te trzy pory to
+   domyślne, obowiązkowe `Household.enabledMealTypes`. Kontraktu „resztę zjesz poza
+   planem” nie ma.
+2. **Cel osoby rósł od posiłku innej osoby.** `fullTargetTypes()` liczył pokrycie ze
+   wszystkich pór pozycji stałych danego dnia, a bilans (`eaterDayNutrition`) poprawnie
+   szanował `visibleToMember`. Osobisty obiad Marka podnosił więc cel Ani z 400 do
+   1100 kcal, choć w jej bilansie był tylko obiad… którego nie jadła (test czerwony
+   na `17c4133`: „Expected 400, Received 1100”).
+
+### Nowe zasady liczenia celu (`assessEaterDay`, `PlanningRequest.scope`)
+
+- **Wagi, nie udziały:** `MEAL_KCAL_WEIGHT` (25 : 10 : 35 : 10 : 20 : 10) dzielą cel
+  między pory i zawsze się normalizują. Dla śniadania, obiadu i kolacji daje to
+  31,25 / 43,75 / 25 % = 100 %. `calorieGoal` bez zmian.
+- **Zakres `FULL_DAY`** — planowane pory są całym dniem. Razem mają dowieźć 100 %
+  celu osoby minus to, co osoba je poza nimi (np. ręcznie dodana przekąska).
+  Odchylenie liczy się względem PEŁNEGO dziennego celu.
+- **Zakres `PARTIAL`** — część dnia:
+  `budżet = cel dnia − to, co TA osoba rzeczywiście je poza planowanymi porami`,
+  `cel planowanych pór = budżet × waga(planowane) / waga(pory niepokryte)`.
+  Pory niepokryte to struktura dnia domu (`enabledMealTypes` ∪ planowane) bez pór,
+  które osoba już je. Odchylenie zakresu liczy się względem tego celu.
+- **Tylko to, co osoba je:** pozycje stałe wchodzą przez jej budżet (`visibleToMember`),
+  a nie przez listę pór dnia. Osobisty posiłek innego domownika na nią nie wpływa.
+  Wspólny posiłek wpływa na każdego, kto go je (jego udziałem porcji). Własny osobisty —
+  tylko na jej budżet.
+- **Kontrakt narzędzi:** `build_meal_plan` z pustym `meal_types` (= pory domu) albo
+  z jawną listą obejmującą wszystkie pory domu = `FULL_DAY`; podzbiór pór = `PARTIAL`
+  (istniejący kontrakt nie mówi inaczej). `replace_plan_item` = zawsze `PARTIAL`.
+- Waga celu slotu („podobnie kalorycznie”) podniesiona z 10 do 20: jawna prośba
+  użytkownika ma przeważać nad domykaniem bilansu dnia. Test regresji nie zmierzył
+  tu różnicy (najbliższe danie wege stało już w tygodniu i planer słusznie unikał
+  powtórki), więc to decyzja projektowa, nie wynik pomiaru.
+- Nowa metryka `dayKcalDeviationPct` (cały dzień osoby wobec pełnego celu, w każdym
+  zakresie) obok `kcalDeviationPct` (odchylenie zakresu). Przy `PARTIAL` mały budżet
+  slotu daje duże procenty zakresu — dzień mówi, jak to wygląda na ekranie aplikacji.
+
+### Testy (dodane / zmienione)
+
+| Test | Wynik |
+|---|---|
+| czerwony: osobisty obiad Marka a cel Ani (`17c4133`) | Expected 400, Received 1100 → po fixie zielony |
+| czerwony: pełne B/L/D → cel 2000 (test „1.” przypinał błędne 1600) | → zielony |
+| 1. cel 2000 + pełne B/L/D → cel dnia 2000, dzień w ±10 % | zielony |
+| 2. pięć podstawowych pór → 2000, bez podwójnego skalowania | zielony |
+| 3. plan częściowy: posiłki osoby odejmują się od celu | zielony (cel = 2000 − śniadanie − obiad) |
+| 4. osobisty posiłek innego domownika nie zmienia celu | zielony (500 z i bez obiadu Marka) |
+| 5. wspólny stały posiłek wpływa na każdego, kto go je | zielony (1600/2600 − obiad, × 0,20/0,45) |
+| 6. osobisty stały posiłek osoby — tylko jej budżet | zielony (Ania pomniejszona, Marek 500) |
+| 7. podmiana: reszta dnia bez zmian, cel slotu = rzeczywisty bilans | zielony (cel = 2000 − reszta dnia) |
+| 8. regresja „podobnie kalorycznie” | zielony; test porównuje z najbliższym MOŻLIWYM zamiennikiem (wege, bez powtórki), a nie ze sztywnym ±15 % |
+
+Komendy: `pnpm typecheck` — 0 błędów; `pnpm lint:check` — 0 błędów (42 ostrzeżenia
+w plikach nieruszanych); `pnpm test` — **184/184, 3353/3353**; e2e `meal-planner`,
+`agent`, `agent-card-state`, `apply-week-plan`, `agent-tools`, `agent-accounting` —
+zielone (78 + 69); `pnpm openapi:check` — aktualne.
+
+### `planner:eval` przed i po (MEASURED, katalog dev, 3 przebiegi, ostatni)
+
+„Przed” = odchylenie względem 80 % celu (nieważne jako odchylenie od `calorieGoal`).
+„Po” = odchylenie względem PEŁNEGO celu (`FULL_DAY`).
+
+| Dom | Operacja | Przed: status, kcal śr./maks. % (vs 80 %) | Po: status, kcal śr./maks. % (vs 100 %) | Po: białko % |
+|---|---|---|---|---|
+| solo 2000 | tydzień | OK, 1,6 / 3,8 | OK, **1,6 / 3,1** | 3,3 |
+| solo 2000 | dzień | OK, 0,7 / 0,7 | OK, **1,3 / 1,3** | 0,5 |
+| para 1600/2600 | tydzień | PARTIAL, 23,5 / 26,8 | PARTIAL, **23,0 / 27,2** | 20,4 |
+| para 1600/2600 | dzień | PARTIAL, 24,0 / 24,9 | PARTIAL, **22,5 / 27,9** | 20,2 |
+| rodzina 4 | tydzień | PARTIAL, 13,8 / 27,4 | PARTIAL, **13,7 / 27,7** | 23,3 |
+| rodzina 4 | dzień | PARTIAL, 13,7 / 25,8 | PARTIAL, **13,5 / 26,9** | 23,4 |
+| wege + bez glutenu | tydzień | PARTIAL, 2,6 / 6,8 | PARTIAL, **11,2 / 19,0** | 30,4 |
+| wege + bez glutenu | dzień | OK, 0,9 | OK, **2,8** | 9,0 |
+
+Podmiana środowej kolacji (wege, podobne kcal), zakres `PARTIAL` — po poprawce:
+solo: zakres 0,4 %, dzień 0,1 % (OK); para: zakres 80,9 %, **dzień 21,4 % / 31,6 %**;
+wege: zakres 19,9 %, dzień 7,4 %; rodzina: zakres 65,5 %, **dzień 16,0 % / 33,3 %**.
+Duże procenty zakresu u pary i rodziny wynikają z tego samego ograniczenia co wyżej.
+Ania (1600) po wspólnym śniadaniu i obiedzie ma na kolację mały budżet, a wspólna
+kolacja w równym udziale musi też wykarmić Marka (2600).
+
+Wnioski:
+- **solo:** trafia w pełne 2000 kcal (1,3–1,6 %).
+- **para i rodzina:** wynik się nie zmienił. Ich odchylenie to granica równego podziału
+  porcji (CALCULATED, niezależne od skali celu): para śr. 22,5 % / maks. 27,9 %, rodzina
+  13,4 % / 27,8 %. Planer do niej dochodzi. Porcje per osoba (wariant C) — osobna
+  decyzja architektoniczna, bez zmian w tej poprawce; `plannedServings` dzieli się równo.
+- **wege + bez glutenu:** tydzień pogorszył się względem pełnego celu (2,6 → 11,2 %).
+  Po filtrach zostały 63 dania na trzy pory, są lżejsze, a osoba jedząca sama dostaje
+  zawsze 1 porcję. 80 % celu było osiągalne, 100 % na siedem dni bez powtórek — już
+  nie. To prawdziwa luka katalogu/porcji, dotąd ukryta przez błędny cel. Planer zgłasza
+  ją jako PARTIAL.
+
+### Status
+
+Testy potwierdzają poprawioną semantykę celu → Etap 2 **DONE**, Etap 3 **READY**.
+Porcje per osoba (wariant C) — osobna decyzja architektoniczna.
+
+Commity poprawki:
+- `17c4133` — test(planer): cel dnia = 80 % celu i cel zależny od posiłku innej osoby (CZERWONE)
+- `6d6bcfc` — fix(planer): cel kcal z jawnego zakresu — pełny dzień 100 %, cel osoby tylko z tego, co ona je
+- (następny) — docs: addendum raportu 02, STATE.md

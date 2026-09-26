@@ -9,8 +9,8 @@
 |---|---|---|
 | 0. Baseline | **DONE** — harness i lokalny baseline gotowe; płatny live benchmark świadomie odłożony na finał | `reports/00-baseline.md` |
 | 1. Poprawność, stan, koszty | **DONE** — po review + addendum (klucz idempotencji księgi) | `reports/01-correctness-state-costs.md` |
-| 2. Server-side planner | **PARTIAL** — review: błędy semantyki celu kcal (80 % dnia, cel z posiłku innej osoby); poprawka w toku | `reports/02-server-side-planner.md` |
-| 3. Odchudzenie agenta | WAITING | `reports/03-agent-thinning.md` |
+| 2. Server-side planner | **DONE** — po poprawce semantyki celu kcal (raport 02, Addendum A1) | `reports/02-server-side-planner.md` |
+| 3. Odchudzenie agenta | **READY** | `reports/03-agent-thinning.md` |
 | 4. Katalog / DB / API | WAITING | `reports/04-catalog-db-api-scale.md` |
 | 5. Trwałe tury | WAITING | `reports/05-durable-turns.md` |
 | 6. Modele / routing | WAITING | `reports/06-model-evaluation.md` |
@@ -52,13 +52,13 @@ Po zakończeniu:
 - Backlog (świadomie odłożone): limit `/auth/refresh` per rodzina tokenów (dziś hasz
   tokenu + bezpiecznik IP); atomowy budżet instalacji przy wielu równoczesnych startach
   / wielu instancjach (dziś nieatomowy odczyt + sufit w trakcie tury, raport 01 A2).
-- Porcje dla domowników o różnych celach (audyt 2A: model danych zna tylko RÓWNY
-  udział — para 1600/2600 przy wspólnych daniach ma ~23 % odchylenia): A zostaje /
-  B osobne dania przy rozbieżności / C porcje per osoba (migracja cross-repo).
-  Raport 02, §9.1.
+- Porcje per osoba (wariant C) — osobna decyzja architektoniczna po Etapie 2
+  (kierunek: C). Dziś `plannedServings` dzieli się RÓWNO; para 1600/2600 przy
+  wspólnych daniach ma ~23 % odchylenia dnia (granica modelu, raport 02 §9.1, A1).
 - Dieta w walidatorze zapisu `applyWeekPlan` (planer ją egzekwuje, walidator nie).
-- Tolerancje planera przyjęte roboczo: kcal ±10 %, białko ±20 %, tłuszcz/węgle ±25 %,
-  powtórki 0 poza wymuszonymi — do potwierdzenia po benchmarku.
+- Tolerancje planera przyjęte roboczo: kcal ±10 % PEŁNEGO celu dnia (`FULL_DAY`) albo
+  celu zakresu (`PARTIAL`), białko ±20 %, tłuszcz/węgle ±25 %, powtórki 0 poza
+  wymuszonymi — do potwierdzenia po benchmarku.
 - Kandydaci do benchmarku modeli w Etapie 6.
 
 ## Ostatni raport
@@ -71,11 +71,16 @@ Po zakończeniu:
   scoringiem; kandydaci → zachłannie → lokalna poprawa; UNSAT/PARTIAL z powodami;
   `evaluatePlan` — metryki dla dowolnego planu, także modelu, pod Etap 6);
 - narzędzia `build_meal_plan` i `replace_plan_item` przez istniejące propozycje;
-- testy: unit 3345/3345, e2e planera 7/7, regresja 173/173; `pnpm planner:eval`:
-  solo 1,6 % odchylenia kcal, 0 złamań, 12 zapytań DB na plan, 5100 przepisów w 358 ms.
+- poprawka po review (Addendum A1): zakres `FULL_DAY` (pory domu = 100 % celu, wagi
+  normalizowane) / `PARTIAL` (cel osoby minus to, co ONA je poza planowanymi porami);
+  pozycje innych domowników nie zmieniają celu osoby;
+- testy: unit 3353/3353, e2e planera i regresja zielone; `pnpm planner:eval` (względem
+  PEŁNEGO celu): solo 1,6 %, para 23 % i rodzina 13,7 % (granica równego udziału),
+  0 złamań, 12 zapytań DB na plan, 5100 przepisów w 358 ms.
 
 Poprzednie: `reports/01-correctness-state-costs.md`, `reports/00-baseline.md` — anchor
 do końcowego porównania: commit `22aa63c` (ten sam benchmark na anchorze i finalnym HEAD,
 tego samego dnia, na tej samej konfiguracji modelu).
 
-**Etap 2 zakończony. Wykonawca czeka na review — Etapu 3 nie rozpoczynać.**
+**Etap 2 zakończony (po poprawce semantyki celu). Etap 3 READY — wykonawca czeka na
+polecenie startu.**
