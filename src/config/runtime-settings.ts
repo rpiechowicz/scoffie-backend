@@ -45,6 +45,8 @@ export const RUNTIME_SETTING_KEYS = [
   'THROTTLE_DEFAULT_LIMIT',
   'THROTTLE_IP_LIMIT',
   'THROTTLE_AUTH_LIMIT',
+  'THROTTLE_AUTH_REFRESH_LIMIT',
+  'THROTTLE_AUTH_REFRESH_IP_LIMIT',
   'THROTTLE_AGENT_MESSAGE_LIMIT',
   'THROTTLE_AGENT_POLL_LIMIT',
 ] as const;
@@ -229,6 +231,14 @@ export const RUNTIME_SETTINGS: Record<RuntimeSettingKey, RuntimeSettingSpec> = {
   THROTTLE_AUTH_LIMIT: throttle(
     'THROTTLE_AUTH_LIMIT',
     'Logowania na minutę na IP',
+  ),
+  THROTTLE_AUTH_REFRESH_LIMIT: throttle(
+    'THROTTLE_AUTH_REFRESH_LIMIT',
+    'Odświeżenia sesji na minutę na sesję',
+  ),
+  THROTTLE_AUTH_REFRESH_IP_LIMIT: throttle(
+    'THROTTLE_AUTH_REFRESH_IP_LIMIT',
+    'Odświeżenia sesji na minutę na IP',
   ),
   THROTTLE_AGENT_MESSAGE_LIMIT: throttle(
     'THROTTLE_AGENT_MESSAGE_LIMIT',

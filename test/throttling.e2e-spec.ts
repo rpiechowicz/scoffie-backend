@@ -149,7 +149,8 @@ describe('Throttling E2E', () => {
       // Więcej niż THROTTLE_AUTH_LIMIT (3) — dawniej czwarta dostawała 429.
       for (const session of sessions) {
         const res = await refresh(session.refreshToken);
-        expect(res.status).toBe(200);
+        // `POST` bez `@HttpCode` — kontrakt `/auth/refresh` to 201.
+        expect(res.status).toBe(201);
       }
     });
 

@@ -9,6 +9,7 @@ import {
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { readThrottleLimit } from '../common/throttle/throttle-env';
+import { refreshTokenTracker } from '../common/throttle/refresh-token-tracker';
 import { AuthService } from './auth.service';
 import { CurrentUserId } from './current-user-id.decorator';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -18,11 +19,10 @@ import { GoogleSignInDto } from './dto/google-sign-in.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('auth')
-// Logowanie i odświeżanie tokenu limitujemy ostrzej niż resztę i zawsze po
-// IP: żądanie jest z natury bez tokenu, więc tracker throttlera i tak nie ma
-// tożsamości. To bariera na zgadywanie (`/auth/apple`, `/auth/google`,
-// `/auth/refresh`), nie
-// na pętlę w kliencie.
+// Logowanie limitujemy ostrzej niż resztę i po IP: żądanie jest z natury bez
+// tokenu, więc tracker throttlera i tak nie ma tożsamości. To bariera na
+// zgadywanie (`/auth/apple`, `/auth/google`), nie na pętlę w kliencie.
+// `/auth/refresh` ma własne limity — per sesja i luźny bezpiecznik IP.
 @Throttle({
   default: { limit: () => readThrottleLimit('THROTTLE_AUTH_LIMIT') },
 })
@@ -117,6 +117,16 @@ export class AuthController {
   }
 
   @Post('refresh')
+  // Per SESJA (hasz refresh tokenu), nie per IP: za NAT-em setki telefonów
+  // mają jeden adres, a nieudane odświeżenie wylogowuje. Siatkę `ip` dla tej
+  // trasy luzujemy do własnego bezpiecznika — patrz `refreshTokenTracker`.
+  @Throttle({
+    default: {
+      limit: () => readThrottleLimit('THROTTLE_AUTH_REFRESH_LIMIT'),
+      getTracker: refreshTokenTracker,
+    },
+    ip: { limit: () => readThrottleLimit('THROTTLE_AUTH_REFRESH_IP_LIMIT') },
+  })
   @ApiOkResponse({
     schema: {
       example: {

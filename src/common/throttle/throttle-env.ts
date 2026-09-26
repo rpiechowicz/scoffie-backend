@@ -22,6 +22,8 @@ export const THROTTLE_KEYS = [
   'THROTTLE_DEFAULT_LIMIT',
   'THROTTLE_IP_LIMIT',
   'THROTTLE_AUTH_LIMIT',
+  'THROTTLE_AUTH_REFRESH_LIMIT',
+  'THROTTLE_AUTH_REFRESH_IP_LIMIT',
   'THROTTLE_AGENT_MESSAGE_LIMIT',
   'THROTTLE_AGENT_POLL_LIMIT',
   'THROTTLE_ADMIN_LIMIT',
@@ -41,6 +43,16 @@ export const THROTTLE_DEFAULTS: Readonly<Record<ThrottleKey, number>> = {
   // `/auth/*` per IP — tu bronimy się przed zgadywaniem, nie przed pętlą.
   // e2e `ws-auth` robi 13 dev-loginów w kilka sekund; domyślna musi to przeżyć.
   THROTTLE_AUTH_LIMIT: 20,
+  // `/auth/refresh` per SESJA (hasz przedstawionego refresh tokenu): token
+  // rotuje przy każdym odświeżeniu, więc poprawny klient używa go raz, plus
+  // kilka ponowień po zerwanej sieci. 10 łapie pętlę jednego klienta, a nie
+  // karze sąsiadów za NAT-em (dawniej 20/min na CAŁE IP, razem z logowaniem).
+  THROTTLE_AUTH_REFRESH_LIMIT: 10,
+  // …i luźny bezpiecznik na IP tylko dla odświeżania: token dostępu żyje
+  // godzinę, więc 600/min to ~600 urządzeń za jednym CGNAT-em odświeżających
+  // się w tej samej minucie (np. po awarii). Chroni bazę przed zalewem
+  // losowych tokenów z jednego adresu (każdy to nowy klucz sesji).
+  THROTTLE_AUTH_REFRESH_IP_LIMIT: 600,
   // Asystent: wysyłka wiadomości jest droga (tura woła model), polling tani.
   THROTTLE_AGENT_MESSAGE_LIMIT: 20,
   THROTTLE_AGENT_POLL_LIMIT: 120,

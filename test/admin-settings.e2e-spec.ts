@@ -126,6 +126,8 @@ describe('Panel — sterowanie (/admin/settings) i odpowiedzi na recenzje', () =
       'THROTTLE_DEFAULT_LIMIT',
       'THROTTLE_IP_LIMIT',
       'THROTTLE_AUTH_LIMIT',
+      'THROTTLE_AUTH_REFRESH_LIMIT',
+      'THROTTLE_AUTH_REFRESH_IP_LIMIT',
       'THROTTLE_AGENT_MESSAGE_LIMIT',
       'THROTTLE_AGENT_POLL_LIMIT',
     ]);
