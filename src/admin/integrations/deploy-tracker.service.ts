@@ -160,6 +160,11 @@ export class DeployTrackerService
     this.snapshot = { data, at };
   }
 
+  /** Ostatni pełny odczyt Railwaya i chwila pobrania — zasiewa pamięć ekranu „System”. */
+  fullSnapshot(): { data: RailwayData; at: number } | null {
+    return this.snapshot;
+  }
+
   /**
    * Ostatni znany stan usług bez pytania Railwaya: pełny odczyt z nałożonymi
    * świeższymi wdrożeniami ze śledzenia. `null` — jeszcze nic (tuż po
