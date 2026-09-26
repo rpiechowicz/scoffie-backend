@@ -297,7 +297,7 @@ async function main(): Promise<void> {
     'scenariusz'.padEnd(20),
     'operacja'.padEnd(32),
     'status'.padEnd(8),
-    'kcal% max% białko% złamań powt. miękkie kand. ms zapytań',
+    'zakres: kcal% max% | dzień: kcal% max% | białko% złamań powt. miękkie kand. ms zapytań',
   );
   for (const row of rows.filter((entry) => entry.run === runs - 1)) {
     const m = row.metrics;
@@ -308,6 +308,10 @@ async function main(): Promise<void> {
       [
         m.kcalDeviationPct,
         m.maxKcalDeviationPct,
+        '|',
+        m.dayKcalDeviationPct,
+        m.maxDayKcalDeviationPct,
+        '|',
         m.proteinDeviationPct ?? '-',
         m.hardViolations,
         m.repeats,

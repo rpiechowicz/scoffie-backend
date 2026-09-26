@@ -15,6 +15,7 @@ import {
   PlannerNutrition,
   PlannerRecipe,
   PlanningRequest,
+  PlanningScope,
 } from './meal-planner.types';
 
 /**
@@ -25,13 +26,15 @@ import {
  */
 
 /**
- * Udział pory w dziennym celu kcal. Suma dla pełnego dnia (śniadanie, obiad,
- * kolacja + dwie przekąski) to 1,0; `SNACK` jest dodatkowy. Dom, który
- * planuje tylko śniadanie, obiad i kolację (domyślne `enabledMealTypes`),
- * pokrywa planem 80 % celu — resztę je poza planem i planer nie udaje, że
- * trzy posiłki mają dowieźć 100 %.
+ * WAGI pór przy dzieleniu dziennego celu między sloty — nie udziały „na
+ * sztywno". Pełny dzień (wszystkie pory domu) dostaje 100 % celu, a wagi się
+ * normalizują: śniadanie/obiad/kolacja (25 : 35 : 20) = 31,25 / 43,75 / 25 %.
+ * Pięć podstawowych pór sumuje się do 1,0, `SNACK` jest dodatkowy — ale po
+ * normalizacji żadna kombinacja nie daje ani mniej, ani więcej niż cel.
+ * (Do review Etapu 2 wagi były udziałami bez normalizacji i trzy pory
+ * celowały w 80 % celu — niespójnie z aplikacją.)
  */
-export const MEAL_KCAL_SHARE: Readonly<Record<MealType, number>> = {
+export const MEAL_KCAL_WEIGHT: Readonly<Record<MealType, number>> = {
   BREAKFAST: 0.25,
   SECOND_BREAKFAST: 0.1,
   LUNCH: 0.35,
@@ -62,8 +65,11 @@ export const WEIGHTS = {
   protein: 3,
   fat: 1.5,
   carbs: 1.5,
-  /** Cel kcal konkretnego slotu („podobnie kalorycznie"). */
-  slotKcal: 10,
+  /**
+   * Cel kcal konkretnego slotu („podobnie kalorycznie") — jawna prośba
+   * użytkownika, więc 2× mocniej niż domykanie bilansu dnia.
+   */
+  slotKcal: 20,
   /** Każde wystąpienie przepisu ponad pierwsze w tygodniu. */
   repeat: 1,
   /** To samo mięso/ryba w tej samej porze dzień po dniu. */
@@ -284,16 +290,6 @@ export function eaterDayNutrition(
   return total;
 }
 
-/** Jaką część dnia pokrywają te pory (≤ 1). */
-export function coverageOf(mealTypes: Iterable<MealType>): {
-  coverage: number;
-  shareSum: number;
-} {
-  let shareSum = 0;
-  for (const meal of new Set(mealTypes)) shareSum += MEAL_KCAL_SHARE[meal];
-  return { coverage: Math.min(1, shareSum), shareSum };
-}
-
 export type DayTarget = {
   kcal: number;
   protein: number | null;
@@ -301,12 +297,122 @@ export type DayTarget = {
   carbs: number | null;
 };
 
-export function dayTargetFor(eater: PlannerEater, coverage: number): DayTarget {
+const weightOf = (types: Iterable<MealType>): number => {
+  let sum = 0;
+  for (const meal of new Set(types)) sum += MEAL_KCAL_WEIGHT[meal];
+  return sum;
+};
+
+/** Pory, między które dzieli się cel dnia — przy `FULL_DAY` same planowane. */
+export function dayStructure(
+  scope: PlanningScope,
+  plannedTypes: Iterable<MealType>,
+  dayMealTypes: Iterable<MealType>,
+): Set<MealType> {
+  return scope === 'FULL_DAY'
+    ? new Set(plannedTypes)
+    : new Set([...dayMealTypes, ...plannedTypes]);
+}
+
+/** Część celu przypadająca na porę przy danej strukturze dnia (wagi → 1,0). */
+export function mealShare(
+  meal: MealType,
+  structure: Iterable<MealType>,
+): number {
+  const total = weightOf(structure);
+  return total > 0 ? MEAL_KCAL_WEIGHT[meal] / total : 0;
+}
+
+export type EaterDayAssessment = {
+  /** Co osoba je w ZAKRESIE (planowane pory; przy `FULL_DAY` = cały dzień). */
+  evaluated: PlannerNutrition;
+  /** Cel zakresu. */
+  target: DayTarget;
+  /** Cały dzień osoby (zakres + to, co je poza nim). */
+  day: PlannerNutrition;
+  /** Pełny dzienny cel kcal. */
+  goalKcal: number;
+  /** Mianownik odchylenia względnego kcal. */
+  kcalBase: number;
+};
+
+/**
+ * Bilans i cel JEDNEJ osoby w jednym dniu.
+ *
+ * Cel wynika wyłącznie z (1) pełnego dziennego celu osoby, (2) posiłków,
+ * które ta osoba RZECZYWIŚCIE je (`visibleToMember` — osobisty obiad innego
+ * domownika jej nie dotyczy), (3) zakresu planowania:
+ *
+ *   budżet  = cel dnia − to, co osoba je poza planowanymi porami
+ *   cel     = budżet × waga(pory celu) / waga(pory niepokryte)
+ *
+ * gdzie pory niepokryte = struktura dnia bez tych, które osoba już je poza
+ * planowanymi. `FULL_DAY`: struktura = planowane pory, więc całe planowane
+ * pory dostają cały budżet (zwykle 100 % celu). `targetTypes` pozwala liczyć
+ * cel części planowanych pór (zachłanny wybór: tylko już wypełnione).
+ */
+export function assessEaterDay(input: {
+  eater: PlannerEater;
+  memberCount: number;
+  recipes: RecipeLookup;
+  dayItems: readonly PlannedItem[];
+  plannedTypes: ReadonlySet<MealType>;
+  targetTypes: ReadonlySet<MealType>;
+  dayMealTypes: readonly MealType[];
+  scope: PlanningScope;
+}): EaterDayAssessment {
+  const { eater, memberCount, recipes, plannedTypes } = input;
+  const inScope = input.dayItems.filter((item) =>
+    plannedTypes.has(item.mealType),
+  );
+  const outside = input.dayItems.filter(
+    (item) => !plannedTypes.has(item.mealType),
+  );
+  const evaluated = eaterDayNutrition(
+    inScope,
+    eater.userId,
+    memberCount,
+    recipes,
+  );
+  const fixed = eaterDayNutrition(outside, eater.userId, memberCount, recipes);
+  const eatenOutside = new Set<MealType>();
+  for (const meal of new Set(outside.map((item) => item.mealType))) {
+    const slot = outside.filter((item) => item.mealType === meal);
+    if (visibleToMember(slot, eater.userId).length > 0) eatenOutside.add(meal);
+  }
+  const uncovered = [
+    ...dayStructure(input.scope, plannedTypes, input.dayMealTypes),
+  ].filter((meal) => !eatenOutside.has(meal));
+  const totalWeight = weightOf(uncovered);
+  const share =
+    totalWeight > 0
+      ? weightOf([...input.targetTypes].filter((m) => uncovered.includes(m))) /
+        totalWeight
+      : 0;
+  const budget = (goal: number, eaten: number) =>
+    Math.max(0, goal - eaten) * share;
+  const target: DayTarget = {
+    kcal: budget(eater.kcalTarget, fixed.kcal),
+    protein: eater.macros ? budget(eater.macros.proteinG, fixed.protein) : null,
+    fat: eater.macros ? budget(eater.macros.fatG, fixed.fat) : null,
+    carbs: eater.macros ? budget(eater.macros.carbsG, fixed.carbs) : null,
+  };
   return {
-    kcal: eater.kcalTarget * coverage,
-    protein: eater.macros ? eater.macros.proteinG * coverage : null,
-    fat: eater.macros ? eater.macros.fatG * coverage : null,
-    carbs: eater.macros ? eater.macros.carbsG * coverage : null,
+    evaluated,
+    target,
+    day: {
+      kcal: evaluated.kcal + fixed.kcal,
+      protein: evaluated.protein + fixed.protein,
+      fat: evaluated.fat + fixed.fat,
+      carbs: evaluated.carbs + fixed.carbs,
+    },
+    goalKcal: eater.kcalTarget,
+    // Pełny dzień: odchylenie względem PEŁNEGO celu. Część dnia: względem
+    // celu zakresu (z podłogą, żeby pusty budżet nie dzielił przez zero).
+    kcalBase:
+      input.scope === 'FULL_DAY'
+        ? Math.max(1, eater.kcalTarget)
+        : Math.max(target.kcal, 0.05 * eater.kcalTarget, 1),
   };
 }
 
@@ -314,11 +420,9 @@ const rel = (planned: number, target: number | null): number | null =>
   target && target > 0 ? (planned - target) / target : null;
 
 /** Koszt dnia JEDNEJ osoby: kwadraty względnych odchyleń, ważone. */
-export function eaterDayCost(
-  planned: PlannerNutrition,
-  target: DayTarget,
-): number {
-  const kcal = rel(planned.kcal, target.kcal) ?? 0;
+export function eaterDayCost(assessment: EaterDayAssessment): number {
+  const { evaluated: planned, target } = assessment;
+  const kcal = (planned.kcal - target.kcal) / assessment.kcalBase;
   let cost = WEIGHTS.kcal * kcal * kcal;
   const protein = rel(planned.protein, target.protein);
   const fat = rel(planned.fat, target.fat);

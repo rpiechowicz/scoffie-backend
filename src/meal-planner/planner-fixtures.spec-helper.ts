@@ -142,6 +142,7 @@ export function request(over: Partial<PlanningRequest> = {}): PlanningRequest {
   return {
     days: ['MON'],
     mealTypes: ['BREAKFAST', 'LUNCH', 'DINNER'],
+    scope: 'FULL_DAY',
     members: [eater('ania')],
     participantIds: [],
     fixed: [],

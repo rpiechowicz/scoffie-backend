@@ -15,6 +15,7 @@ import {
   PlannerEater,
   PlannerRecipe,
   PlanningRequest,
+  PlanningScope,
 } from '../../meal-planner/meal-planner.types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ApplyWeekSlotDto } from '../../weekly-plans/dto/apply-week-plan.dto';
@@ -104,10 +105,10 @@ export class AgentMealPlannerService {
       input.householdId,
     );
     assertMembers(input.forUserIds, members);
+    const enabled = await this.enabledMealTypes(input.householdId);
     const mealTypes =
-      input.mealTypes.length > 0
-        ? [...new Set(input.mealTypes)]
-        : await this.enabledMealTypes(input.householdId);
+      input.mealTypes.length > 0 ? [...new Set(input.mealTypes)] : enabled;
+    const scope = scopeOf(mealTypes, enabled);
     const baseline = await this.weeklyPlans.snapshotWeekAsSlots(
       input.userId,
       input.householdId,
@@ -133,6 +134,8 @@ export class AgentMealPlannerService {
     const request: PlanningRequest = {
       days: [...days],
       mealTypes,
+      scope,
+      dayMealTypes: enabled,
       members: eaters,
       participantIds,
       fixed: kept.map((slot) => toItem(slot, eaters.length)),
@@ -176,6 +179,7 @@ export class AgentMealPlannerService {
           );
 
     const context = await this.context(input, members, input.currentSlots);
+    const enabled = await this.enabledMealTypes(input.householdId);
     const slotKcalTargets: Record<string, number> = {};
     if (input.similarKcal && replaced.length > 0) {
       const perPerson = averagePersonKcal(
@@ -191,6 +195,10 @@ export class AgentMealPlannerService {
     const request: PlanningRequest = {
       days: [input.dayOfWeek],
       mealTypes: [input.mealType],
+      // Podmiana to zawsze CZĘŚĆ dnia: reszta dnia osoby zostaje i odejmuje
+      // się od jej celu (tylko to, co ona rzeczywiście je).
+      scope: 'PARTIAL',
+      dayMealTypes: enabled,
       members: eaters,
       participantIds,
       fixed: kept.map((slot) => toItem(slot, eaters.length)),
@@ -224,13 +232,13 @@ export class AgentMealPlannerService {
     );
     const eaters = members.map(toEater);
     const context = await this.context(input, members, input.slots);
-    const mealTypes =
-      input.mealTypes.length > 0
-        ? input.mealTypes
-        : await this.enabledMealTypes(input.householdId);
+    const enabled = await this.enabledMealTypes(input.householdId);
+    const mealTypes = input.mealTypes.length > 0 ? input.mealTypes : enabled;
     const request: PlanningRequest = {
       days: input.days,
       mealTypes,
+      scope: scopeOf(mealTypes, enabled),
+      dayMealTypes: enabled,
       members: eaters,
       participantIds: normalizeParticipants(input.forUserIds, eaters),
       fixed: [],
@@ -344,6 +352,9 @@ export function plannerResultForModel(outcome: PlannerOutcome) {
   }
   return {
     status: draft.status,
+    // `FULL_DAY`: kcal osób = cały dzień wobec pełnego celu; `PARTIAL`: tylko
+    // planowane pory wobec ich części pozostałego celu dnia.
+    scope: draft.diagnostics.days[0]?.scope ?? null,
     filled: `${metrics.slotsFilled}/${metrics.slotsRequested}`,
     kcalDeviationPct: metrics.kcalDeviationPct,
     proteinDeviationPct: metrics.proteinDeviationPct,
@@ -355,6 +366,22 @@ export function plannerResultForModel(outcome: PlannerOutcome) {
     })),
     issues,
   };
+}
+
+/**
+ * Zakres planu z kontraktu `build_meal_plan`: puste `meal_types` = pory domu
+ * (`enabledMealTypes`) = pełny dzień; jawny wybór obejmujący wszystkie pory
+ * domu — też pełny dzień; podzbiór — część dnia. Aplikacja porównuje dzień
+ * z PEŁNYM celem (`WeeklyPlanView` × `DailyNutritionTargets`), a pory domu
+ * są jej obowiązkowymi slotami — stąd pełny dzień = 100 % celu.
+ */
+function scopeOf(
+  mealTypes: readonly MealType[],
+  enabled: readonly MealType[],
+): PlanningScope {
+  return enabled.every((meal) => mealTypes.includes(meal))
+    ? 'FULL_DAY'
+    : 'PARTIAL';
 }
 
 function assertMembers(

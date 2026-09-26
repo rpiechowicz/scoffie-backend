@@ -96,11 +96,32 @@ export type PlanningPreferences = {
   popularity: Record<string, number>;
 };
 
+/**
+ * Zakres planowania — decyduje, wobec czego liczy się cel osoby.
+ *
+ * `FULL_DAY` — planowane pory SĄ całym dniem (wszystkie pory domu): razem
+ * mają dowieźć 100 % dziennego celu osoby, jak porównuje aplikacja
+ * (`WeeklyPlanView` × pełne `DailyNutritionTargets`). Wagi pór dzielą cel
+ * między sloty, normalizowane do 1,0.
+ *
+ * `PARTIAL` — część dnia (wybrane pory, podmiana slotu): z celu osoby
+ * odejmuje się to, co ONA rzeczywiście je poza planowanymi porami, a resztę
+ * dzieli się wagami między pory jeszcze niepokryte (`dayMealTypes`) —
+ * planowane dostają swoją część.
+ */
+export type PlanningScope = 'FULL_DAY' | 'PARTIAL';
+
 export type PlanningRequest = {
   /** Dni do zaplanowania (kolejność bez znaczenia). */
   days: DayOfWeek[];
   /** Pory do zaplanowania każdego z tych dni. */
   mealTypes: MealType[];
+  scope: PlanningScope;
+  /**
+   * Struktura dnia domu (`Household.enabledMealTypes`) — przy `PARTIAL`
+   * mówi, między które pory dzieli się pozostały cel. Brak = `mealTypes`.
+   */
+  dayMealTypes?: MealType[];
   /** Wszyscy domownicy (profile) — twarde ograniczenia i cele. */
   members: PlannerEater[];
   /** Dla kogo planujemy; puste = cały dom. */
@@ -175,12 +196,20 @@ export type CandidateStats = {
   removed: Partial<Record<HardFilterReason, number>>;
 };
 
+/**
+ * Bilans osobo-dnia. `kcal`/`kcalTarget` (i makra) dotyczą ZAKRESU:
+ * przy `FULL_DAY` całego dnia wobec pełnego celu, przy `PARTIAL` samych
+ * planowanych pór wobec ich części pozostałego celu. `dayKcal` i `kcalGoal`
+ * to zawsze cały dzień osoby i jej pełny dzienny cel.
+ */
 export type EaterDayDiagnostics = {
   userId: string;
   kcal: number;
   kcalTarget: number;
-  /** Odchylenie względne, znak: + ponad cel. */
+  /** Odchylenie względne zakresu, znak: + ponad cel. */
   kcalDeviation: number;
+  dayKcal: number;
+  kcalGoal: number;
   protein: number;
   proteinTarget: number | null;
   fat: number;
@@ -191,15 +220,21 @@ export type EaterDayDiagnostics = {
 
 export type DayDiagnostics = {
   dayOfWeek: DayOfWeek;
-  /** Jaką część dziennego celu pokrywają planowane pory (np. 0,8). */
-  coverage: number;
+  scope: PlanningScope;
   eaters: EaterDayDiagnostics[];
 };
 
 export type PlanMetrics = {
-  /** Średnie |odchylenie kcal| po osobo-dniach, w procentach. */
+  /**
+   * Średnie |odchylenie kcal| ZAKRESU po osobo-dniach, w %: przy `FULL_DAY`
+   * cały dzień wobec pełnego celu, przy `PARTIAL` planowane pory wobec ich
+   * części pozostałego celu (mały budżet = duże procenty).
+   */
   kcalDeviationPct: number;
   maxKcalDeviationPct: number;
+  /** Cały dzień osoby wobec PEŁNEGO dziennego celu, w % — w każdym zakresie. */
+  dayKcalDeviationPct: number;
+  maxDayKcalDeviationPct: number;
   /** Średnie |odchylenie| makro w %; `null` = brak celów makro. */
   proteinDeviationPct: number | null;
   fatDeviationPct: number | null;

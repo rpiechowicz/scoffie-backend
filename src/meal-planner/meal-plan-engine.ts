@@ -14,18 +14,19 @@ import {
 } from './meal-planner.types';
 import {
   allowedServings,
+  assessEaterDay,
   audienceOf,
-  coverageOf,
   DAY_ORDER,
-  dayTargetFor,
+  dayStructure,
   eaterCountOf,
   eaterDayCost,
   eaterDayNutrition,
+  mealShare,
   FAT_CARBS_DAY_TOLERANCE,
   hardFilterReason,
   itemSoftCost,
   KCAL_DAY_TOLERANCE,
-  MEAL_KCAL_SHARE,
+  MEAL_KCAL_WEIGHT,
   normalizeParticipants,
   PROTEIN_DAY_TOLERANCE,
   RecipeLookup,
@@ -75,6 +76,8 @@ type Scope = {
   soft: SoftContext;
   /** Koszt miękki pozycji zależy tylko od (przepis, udział) — liczony raz. */
   softCache: Map<string, number>;
+  /** Pory planowane w tej prośbie. */
+  plannedTypes: ReadonlySet<MealType>;
 };
 
 function softContextOf(request: PlanningRequest): SoftContext {
@@ -104,15 +107,16 @@ function scopeOf(
     participantIds,
     soft: softContextOf(request),
     softCache: new Map(),
+    plannedTypes: new Set(request.mealTypes),
   };
 }
 
 function orderedMealTypes(mealTypes: readonly MealType[]): MealType[] {
   return [...new Set(mealTypes)].sort(
     (a, b) =>
-      MEAL_KCAL_SHARE[b] - MEAL_KCAL_SHARE[a] ||
-      Object.keys(MEAL_KCAL_SHARE).indexOf(a) -
-        Object.keys(MEAL_KCAL_SHARE).indexOf(b),
+      MEAL_KCAL_WEIGHT[b] - MEAL_KCAL_WEIGHT[a] ||
+      Object.keys(MEAL_KCAL_WEIGHT).indexOf(a) -
+        Object.keys(MEAL_KCAL_WEIGHT).indexOf(b),
   );
 }
 
@@ -123,24 +127,36 @@ function orderedDays(days: readonly DayOfWeek[]): DayOfWeek[] {
 
 // ── Koszt ──────────────────────────────────────────────────────────────────
 
-/** Koszt dnia dla audytorium; cel liczony z pór `targetTypes`. */
+/** Ocena osobo-dnia w zakresie prośby — patrz `assessEaterDay`. */
+function assess(
+  scope: Scope,
+  eater: PlannerEater,
+  dayItems: readonly PlannedItem[],
+  targetTypes: ReadonlySet<MealType>,
+) {
+  return assessEaterDay({
+    eater,
+    memberCount: scope.members.length,
+    recipes: scope.lookup,
+    dayItems,
+    plannedTypes: scope.plannedTypes,
+    targetTypes,
+    dayMealTypes: scope.request.dayMealTypes ?? scope.request.mealTypes,
+    scope: scope.request.scope,
+  });
+}
+
+/** Koszt dnia dla audytorium; cel liczony dla pór `targetTypes`. */
 function dayCost(
   scope: Scope,
   day: DayOfWeek,
   dayItems: readonly PlannedItem[],
-  targetTypes: Iterable<MealType>,
+  targetTypes: ReadonlySet<MealType>,
 ): number {
-  const { coverage } = coverageOf(targetTypes);
-  if (scope.audience.length === 0 || coverage <= 0) return 0;
+  if (scope.audience.length === 0 || targetTypes.size === 0) return 0;
   let cost = 0;
   for (const eater of scope.audience) {
-    const planned = eaterDayNutrition(
-      dayItems,
-      eater.userId,
-      scope.members.length,
-      scope.lookup,
-    );
-    cost += eaterDayCost(planned, dayTargetFor(eater, coverage));
+    cost += eaterDayCost(assess(scope, eater, dayItems, targetTypes));
   }
   cost /= scope.audience.length;
   // „Podobnie kalorycznie": cel konkretnego slotu, NA OSOBĘ.
@@ -184,18 +200,6 @@ function softCostOf(scope: Scope, items: readonly PlannedItem[]): number {
   return cost;
 }
 
-/** Pory, wobec których liczy się cel dnia: planowane + to, co już stoi. */
-function fullTargetTypes(
-  scope: Scope,
-  day: DayOfWeek,
-  fixed: readonly PlannedItem[],
-): Set<MealType> {
-  return new Set([
-    ...scope.request.mealTypes,
-    ...fixed.filter((item) => item.dayOfWeek === day).map((i) => i.mealType),
-  ]);
-}
-
 /** Pełna funkcja celu planu (mniej = lepiej) — ta sama w silniku i w ocenie. */
 export function planObjective(
   request: PlanningRequest,
@@ -218,7 +222,7 @@ function objectiveOf(scope: Scope, planned: readonly PlannedItem[]): number {
       scope,
       day,
       all.filter((item) => item.dayOfWeek === day),
-      fullTargetTypes(scope, day, scope.request.fixed),
+      scope.plannedTypes,
     );
   }
   return (
@@ -254,13 +258,17 @@ function candidatesFor(
   ).length;
 
   // Ranking wstępny: kcal porcji wobec średniego celu slotu + miękkie.
-  const { coverage, shareSum } = coverageOf(scope.request.mealTypes);
-  const factor = shareSum > 0 ? coverage / shareSum : 0;
+  const share = mealShare(
+    meal,
+    dayStructure(
+      scope.request.scope,
+      scope.plannedTypes,
+      scope.request.dayMealTypes ?? scope.request.mealTypes,
+    ),
+  );
   const slotTarget =
-    scope.audience.reduce(
-      (sum, eater) => sum + eater.kcalTarget * MEAL_KCAL_SHARE[meal] * factor,
-      0,
-    ) / Math.max(1, scope.audience.length);
+    scope.audience.reduce((sum, eater) => sum + eater.kcalTarget * share, 0) /
+    Math.max(1, scope.audience.length);
   const pre = (recipe: PlannerRecipe): number =>
     (slotTarget > 0
       ? Math.abs((recipe.perServing?.kcal ?? 0) - slotTarget) / slotTarget
@@ -323,7 +331,7 @@ export function planMeals(
   const localCost = (
     slot: Slot,
     items: readonly PlannedItem[],
-    targetTypes: Iterable<MealType>,
+    targetTypes: ReadonlySet<MealType>,
   ): number => {
     const all = [...request.fixed, ...items];
     return (
@@ -340,7 +348,7 @@ export function planMeals(
 
   const bestFor = (
     slot: Slot,
-    targetTypes: () => Iterable<MealType>,
+    targetTypes: () => ReadonlySet<MealType>,
   ): { item: PlannedItem; cost: number } | null => {
     const key = slotKey(slot.day, slot.meal);
     let best: { item: PlannedItem; cost: number } | null = null;
@@ -356,15 +364,14 @@ export function planMeals(
     return best;
   };
 
-  // 2. Zachłannie — cel dnia z pór JUŻ wypełnionych (+ stałych).
+  // 2. Zachłannie — cel liczony dla planowanych pór JUŻ wypełnionych tego
+  // dnia (i bieżącej). Pozycje stałe wchodzą przez budżet osoby, nie przez
+  // listę pór — tylko te, które ona rzeczywiście je.
   for (const slot of slots) {
     const best = bestFor(
       slot,
       () =>
         new Set([
-          ...request.fixed
-            .filter((item) => item.dayOfWeek === slot.day)
-            .map((item) => item.mealType),
           ...planned()
             .filter((item) => item.dayOfWeek === slot.day)
             .map((item) => item.mealType),
@@ -381,7 +388,7 @@ export function planMeals(
       const key = slotKey(slot.day, slot.meal);
       const current = chosen.get(key);
       if (!current) continue;
-      const types = () => fullTargetTypes(scope, slot.day, request.fixed);
+      const types = () => scope.plannedTypes;
       const currentCost = localCost(slot, planned(), types());
       const best = bestFor(slot, types);
       if (best && best.cost < currentCost - EPSILON) {
@@ -486,6 +493,7 @@ export function evaluatePlan(
   const issues: PlanIssue[] = [];
   const days: DayDiagnostics[] = [];
   const kcalDeviations: number[] = [];
+  const dayDeviations: number[] = [];
   const macroDeviations = { protein: [], fat: [], carbs: [] } as Record<
     'protein' | 'fat' | 'carbs',
     number[]
@@ -493,19 +501,18 @@ export function evaluatePlan(
 
   for (const day of orderedDays(request.days)) {
     const dayItems = all.filter((item) => item.dayOfWeek === day);
-    const { coverage } = coverageOf(fullTargetTypes(scope, day, request.fixed));
     const eaters = scope.audience.map((eater) => {
-      const planned = eaterDayNutrition(
-        dayItems,
-        eater.userId,
-        scope.members.length,
-        scope.lookup,
-      );
-      const target = dayTargetFor(eater, coverage);
-      const kcalDeviation =
-        target.kcal > 0 ? (planned.kcal - target.kcal) / target.kcal : 0;
+      const assessment = assess(scope, eater, dayItems, scope.plannedTypes);
+      const planned = assessment.evaluated;
+      const target = assessment.target;
+      const kcalDeviation = (planned.kcal - target.kcal) / assessment.kcalBase;
       kcalDeviations.push(Math.abs(kcalDeviation));
+      dayDeviations.push(
+        Math.abs(assessment.day.kcal - assessment.goalKcal) /
+          Math.max(1, assessment.goalKcal),
+      );
       if (Math.abs(kcalDeviation) > KCAL_DAY_TOLERANCE) {
+        const whole = request.scope === 'FULL_DAY';
         issues.push({
           code: 'KCAL_OUT_OF_TOLERANCE',
           severity: 'warning',
@@ -513,7 +520,9 @@ export function evaluatePlan(
           userId: eater.userId,
           planned: Math.round(planned.kcal),
           target: Math.round(target.kcal),
-          message: `${Math.round(planned.kcal)} kcal wobec celu ${Math.round(target.kcal)} (${signedPct(kcalDeviation)}).`,
+          message: whole
+            ? `${Math.round(assessment.day.kcal)} kcal w dniu wobec celu ${Math.round(assessment.goalKcal)} (${signedPct(kcalDeviation)}).`
+            : `planowane pory: ${Math.round(planned.kcal)} kcal wobec ${Math.round(target.kcal)} z pozostałego celu dnia (${signedPct(kcalDeviation)}).`,
         });
       }
       for (const macro of ['protein', 'fat', 'carbs'] as const) {
@@ -543,6 +552,8 @@ export function evaluatePlan(
         kcal: Math.round(planned.kcal),
         kcalTarget: Math.round(target.kcal),
         kcalDeviation: round3(kcalDeviation),
+        dayKcal: Math.round(assessment.day.kcal),
+        kcalGoal: Math.round(assessment.goalKcal),
         protein: Math.round(planned.protein),
         proteinTarget: roundOrNull(target.protein),
         fat: Math.round(planned.fat),
@@ -551,7 +562,7 @@ export function evaluatePlan(
         carbsTarget: roundOrNull(target.carbs),
       };
     });
-    days.push({ dayOfWeek: day, coverage: round3(coverage), eaters });
+    days.push({ dayOfWeek: day, scope: request.scope, eaters });
   }
 
   let hardViolations = 0;
@@ -614,6 +625,8 @@ export function evaluatePlan(
     metrics: {
       kcalDeviationPct: pct(mean(kcalDeviations)),
       maxKcalDeviationPct: pct(Math.max(0, ...kcalDeviations)),
+      dayKcalDeviationPct: pct(mean(dayDeviations)),
+      maxDayKcalDeviationPct: pct(Math.max(0, ...dayDeviations)),
       proteinDeviationPct: meanPctOrNull(macroDeviations.protein),
       fatDeviationPct: meanPctOrNull(macroDeviations.fat),
       carbsDeviationPct: meanPctOrNull(macroDeviations.carbs),

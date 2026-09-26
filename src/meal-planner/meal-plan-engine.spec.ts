@@ -359,7 +359,9 @@ describe('cel osoby a pozycje innych domowników', () => {
         recipes,
       );
     const anja = (draft: ReturnType<typeof planMeals>) =>
-      draft.diagnostics.days[0].eaters.find((entry) => entry.userId === 'ania')!;
+      draft.diagnostics.days[0].eaters.find(
+        (entry) => entry.userId === 'ania',
+      )!;
 
     const without = anja(plan([]));
     const withMarkLunch = anja(
@@ -375,6 +377,179 @@ describe('cel osoby a pozycje innych domowników', () => {
     );
     expect(withMarkLunch.kcalTarget).toBe(without.kcalTarget);
     expect(withMarkLunch.kcal).toBe(without.kcal);
+  });
+});
+
+/**
+ * Semantyka celu po review Etapu 2 (testy obowiązkowe 1–8 z poprawki).
+ * `FULL_DAY` = planowane pory to cały dzień, razem 100 % celu; `PARTIAL` =
+ * cel osoby minus to, co ONA je poza planowanymi porami, podzielony wagami.
+ */
+describe('semantyka celu kcal (FULL_DAY / PARTIAL)', () => {
+  const recipes = catalog({
+    meals: [
+      'BREAKFAST',
+      'SECOND_BREAKFAST',
+      'LUNCH',
+      'AFTERNOON_SNACK',
+      'DINNER',
+    ],
+  });
+  const kcalOf = (id: string) =>
+    recipes.find((entry) => entry.id === id)!.perServing!.kcal;
+  const item = (
+    mealType: PlannedItem['mealType'],
+    recipeId: string,
+    participantIds: string[] = [],
+    plannedServings = 1,
+  ): PlannedItem => ({
+    dayOfWeek: 'MON',
+    mealType,
+    recipeId,
+    participantIds,
+    plannedServings,
+  });
+  const targetOf = (draft: ReturnType<typeof planMeals>, userId: string) =>
+    draft.diagnostics.days[0].eaters.find((e) => e.userId === userId)!;
+  const partial = {
+    scope: 'PARTIAL' as const,
+    dayMealTypes: ['BREAKFAST', 'LUNCH', 'DINNER'] as PlannedItem['mealType'][],
+  };
+
+  it('1. cel 2000 + pełne śniadanie/obiad/kolacja → cel dnia 2000, nie 1600', () => {
+    const draft = planMeals(request(), recipes);
+    const ania = targetOf(draft, 'ania');
+    expect(ania.kcalTarget).toBe(2000);
+    expect(ania.kcalGoal).toBe(2000);
+    expect(Math.abs(ania.dayKcal - 2000) / 2000).toBeLessThanOrEqual(
+      KCAL_DAY_TOLERANCE,
+    );
+  });
+
+  it('2. pięć podstawowych pór → nadal 100 % celu, bez podwójnego skalowania', () => {
+    const draft = planMeals(
+      request({
+        mealTypes: [
+          'BREAKFAST',
+          'SECOND_BREAKFAST',
+          'LUNCH',
+          'AFTERNOON_SNACK',
+          'DINNER',
+        ],
+      }),
+      recipes,
+    );
+    expect(targetOf(draft, 'ania').kcalTarget).toBe(2000);
+    expect(draft.items).toHaveLength(5);
+  });
+
+  it('3. plan częściowy: posiłki osoby odejmują się od pozostałego celu', () => {
+    const fixed = [
+      item('BREAKFAST', 'breakfast-005'),
+      item('LUNCH', 'lunch-010'),
+    ];
+    const draft = planMeals(
+      request({ ...partial, mealTypes: ['DINNER'], fixed }),
+      recipes,
+    );
+    const ania = targetOf(draft, 'ania');
+    const eaten = kcalOf('breakfast-005') + kcalOf('lunch-010');
+    expect(ania.kcalTarget).toBe(Math.round(2000 - eaten));
+    expect(ania.dayKcal).toBe(Math.round(eaten + ania.kcal));
+  });
+
+  it('4. osobisty posiłek INNEGO domownika nie zmienia celu planowanej osoby', () => {
+    const members = [eater('ania'), eater('marek')];
+    const plan = (fixed: PlannedItem[]) =>
+      planMeals(
+        request({
+          ...partial,
+          members,
+          participantIds: ['ania'],
+          mealTypes: ['DINNER'],
+          fixed,
+        }),
+        recipes,
+      );
+    const without = targetOf(plan([]), 'ania');
+    const withMark = targetOf(
+      plan([item('LUNCH', 'lunch-010', ['marek'])]),
+      'ania',
+    );
+    // Ania nie je nic stałego: cel kolacji = 2000 × 0,20 / (0,25+0,35+0,20).
+    expect(without.kcalTarget).toBe(500);
+    expect(withMark.kcalTarget).toBe(500);
+  });
+
+  it('5. wspólny stały posiłek wpływa na cel KAŻDEGO, kto go je', () => {
+    const members = [
+      eater('ania', { kcalTarget: 1600 }),
+      eater('marek', { kcalTarget: 2600 }),
+    ];
+    const draft = planMeals(
+      request({
+        ...partial,
+        members,
+        mealTypes: ['DINNER'],
+        fixed: [item('LUNCH', 'lunch-010', [], 2)],
+      }),
+      recipes,
+    );
+    // Obiad wspólny: 2 porcje na 2 osoby = 1 porcja każdemu. Zostają pory
+    // niepokryte: śniadanie i kolacja (0,25 + 0,20); kolacja ma 0,20 z nich.
+    const lunch = kcalOf('lunch-010');
+    const share = 0.2 / 0.45;
+    expect(targetOf(draft, 'ania').kcalTarget).toBe(
+      Math.round((1600 - lunch) * share),
+    );
+    expect(targetOf(draft, 'marek').kcalTarget).toBe(
+      Math.round((2600 - lunch) * share),
+    );
+  });
+
+  it('6. osobisty stały posiłek osoby wpływa TYLKO na jej pozostały cel', () => {
+    const members = [eater('ania'), eater('marek')];
+    const draft = planMeals(
+      request({
+        ...partial,
+        members,
+        mealTypes: ['DINNER'],
+        fixed: [item('LUNCH', 'lunch-010', ['ania'])],
+      }),
+      recipes,
+    );
+    const lunch = kcalOf('lunch-010');
+    expect(targetOf(draft, 'ania').kcalTarget).toBe(
+      Math.round((2000 - lunch) * (0.2 / 0.45)),
+    );
+    expect(targetOf(draft, 'marek').kcalTarget).toBe(500);
+  });
+
+  it('7. podmiana slotu: reszta dnia bez zmian, cel slotu = rzeczywisty bilans osoby', () => {
+    const base = planMeals(request(), recipes);
+    const dinner = base.items.find((entry) => entry.mealType === 'DINNER')!;
+    const rest = base.items.filter((entry) => entry !== dinner);
+    const draft = planMeals(
+      request({
+        ...partial,
+        mealTypes: ['DINNER'],
+        fixed: rest,
+        constraints: {
+          diet: null,
+          requiredTags: [],
+          avoidIngredients: [],
+          excludeRecipeIds: [dinner.recipeId],
+        },
+      }),
+      recipes,
+    );
+    expect(draft.items).toHaveLength(1);
+    expect(draft.items[0].mealType).toBe('DINNER');
+    const eaten = rest.reduce(
+      (sum, entry) => sum + kcalOf(entry.recipeId) * entry.plannedServings,
+      0,
+    );
+    expect(targetOf(draft, 'ania').kcalTarget).toBe(Math.round(2000 - eaten));
   });
 });
 
@@ -429,15 +604,32 @@ describe('planMeals — podmiana jednego slotu (2D)', () => {
         },
         slotKcalTargets: { 'WED|DINNER': originalKcal },
         portionMode: 'auto',
+        scope: 'PARTIAL',
+        dayMealTypes: ['BREAKFAST', 'LUNCH', 'DINNER'],
       }),
       recipes,
     );
     const chosen = lookup.get(draft.items[0].recipeId)!;
     expect(chosen.dietTags).not.toContain('MEAT');
     expect(chosen.dietTags).not.toContain('FISH');
-    expect(
-      Math.abs(chosen.perServing!.kcal - originalKcal) / originalKcal,
-    ).toBeLessThanOrEqual(0.15);
+    // Najbliższy MOŻLIWY zamiennik: wegetariański, na kolację, bez powtórki
+    // z resztą tygodnia (powtórka kosztuje więcej niż kilka % kcal).
+    const used = new Set(rest.map((item) => item.recipeId));
+    const deviation = (kcal: number) =>
+      Math.abs(kcal - originalKcal) / originalKcal;
+    const best = Math.min(
+      ...recipes
+        .filter(
+          (entry) =>
+            entry.slots.includes('DINNER') &&
+            entry.dietTags.length === 0 &&
+            entry.id !== wednesday.recipeId &&
+            !used.has(entry.id),
+        )
+        .map((entry) => deviation(entry.perServing!.kcal)),
+    );
+    expect(deviation(chosen.perServing!.kcal)).toBeLessThanOrEqual(best + 0.02);
+    expect(used.has(chosen.id)).toBe(false);
     expect(draft.items[0].plannedServings).toBe(1);
   });
 });
