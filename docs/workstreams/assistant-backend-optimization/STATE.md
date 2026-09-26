@@ -1,6 +1,6 @@
 # Stan workstreamu
 
-**Ostatnia aktualizacja:** 26.09.2026 (po Etapie 3)  
+**Ostatnia aktualizacja:** 26.09.2026 (po Etapie 4)  
 **Branch startowy:** `claude/admin-crm-planning-b0hmgo`
 
 ## Status
@@ -12,8 +12,8 @@
 | 2. Server-side planner | **DONE** — po poprawce semantyki celu kcal (raport 02, Addendum A1) | `reports/02-server-side-planner.md` |
 | 2.2 Porcje per osoba | **DONE (backend)** — zaakceptowany. iOS compile verification: **DEFERRED / przed rolloutem** (gałąź `claude/per-user-portions` bez zmian i bez merge'a; nie blokuje kolejnych etapów) | `reports/02-2-per-user-portions.md` |
 | 3. Odchudzenie agenta | **DONE** — po review (Addendum A1: autorytatywne zdanie serwera, porcje per osoba przez wybór z karty); `suggest_meals`, jedna karta na turę, pamięć tury, 3 narzędzia zdjęte ze schematu modelu; zachowanie modelu do potwierdzenia w końcowym live benchmarku | `reports/03-agent-thinning.md` |
-| 4. Katalog / DB / API | **READY** (czeka na akceptację Rafała) | `reports/04-catalog-db-api-scale.md` |
-| 5. Trwałe tury | WAITING | `reports/05-durable-turns.md` |
+| 4. Katalog / DB / API | **DONE (backend)** — log zmian katalogu z triggerów, snapshot + delta z tombstone'ami, granice cache'u, single-flight (popularność, zakupy), szkic 1 s, `getTurn` 1 zapytanie, indeks `AgentMessage(turnId)`. iOS (`claude/catalog-sync`, bez merge'a): kompilacja Xcode i `catalog-sync-check.sh` **DEFERRED / przed rolloutem** | `reports/04-catalog-db-api-scale.md` |
+| 5. Trwałe tury | **READY** (czeka na akceptację Rafała) | `reports/05-durable-turns.md` |
 | 6. Modele / routing | WAITING | `reports/06-model-evaluation.md` |
 
 ## Aktualne polecenie dla wykonawcy
@@ -58,8 +58,25 @@ Po zakończeniu:
   celu zakresu (`PARTIAL`), białko ±20 %, tłuszcz/węgle ±25 %, powtórki 0 poza
   wymuszonymi — do potwierdzenia po benchmarku.
 - Kandydaci do benchmarku modeli w Etapie 6.
+- `connection_limit` w `DATABASE_URL` prod — po deployu odczyt linii `pula Prisma:` z logu
+  i `SHOW max_connections`, wartość po odjęciu innych usług (raport 04, §9). Limitu nie zgadujemy.
+- Kompresja WS (`perMessageDeflate` z progiem) i `statement_timeout` — po pomiarze (raport 04, §8).
 
 ## Ostatni raport
+
+`reports/04-catalog-db-api-scale.md` (26.09.2026) — Etap 4 **DONE (backend)**:
+- katalog na telefon: trwały log `CatalogChange` (triggery na `Recipe`/`RecipeIngredient`,
+  bez przepisów domów i ulubionych), `catalog:snapshot` + `catalog:changes` (upserty,
+  tombstone'y, `RESET_REQUIRED`), `recipes:householdState`; stary `recipes:findAll` bez zmian;
+- 10k (MEASURED): pełne pobranie 605 → 60 zapytań, 2,8 → 1,0 s, 4 000 → 10 000 widocznych;
+  reconnect 17,7 MB → 179 B; zmiana jednego przepisu = 1,9 kB;
+- hot paths (10k): `offer_options` 15 → 3, `suggest_meals` 21 → 11, `find_recipes` 9 → 7,
+  popularność ×10 → 1, lista zakupów 20 nieświeżych odczytów 20 → 1 przebudowa (447 → 110
+  zapytań), `getTurn` RUNNING 3 → 1; szkic ~23 → ~9 zapisów/8 s (CALCULATED);
+- indeks `AgentMessage(turnId)` (seq scan 11,5 ms → 0,14 ms); `Invitation.householdId`
+  i `Recipe.authorId` świadomie bez indeksu; pula logowana przy starcie, bez zmiany wartości;
+- testy: unit 3450/3450, e2e nowe + regresja 68/68, typecheck/lint/openapi OK; iOS: składnia
+  OK, kompilacja DEFERRED.
 
 `reports/03-agent-thinning.md` (26.09.2026) — Etap 3 **DONE**:
 - nowa operacja `suggest_meals` (silnik `suggestForSlot`: filtry twarde planera, bilans dnia,
@@ -107,7 +124,14 @@ Poprzednie: `reports/01-correctness-state-costs.md`, `reports/00-baseline.md` �
 do końcowego porównania: commit `22aa63c` (ten sam benchmark na anchorze i finalnym HEAD,
 tego samego dnia, na tej samej konfiguracji modelu).
 
-**Etap 3 zakończony (po review, Addendum A1) — czeka na akceptację. Etap 4 READY (nie zaczynać bez akceptacji Rafała).**
+**Etap 4 zakończony (backend) — czeka na review. Etap 5 READY (nie zaczynać bez akceptacji Rafała).**
+
+### Warunek rolloutu synchronizacji katalogu (Etap 4)
+
+Backend (migracja addytywna) może iść pierwszy — stare buildy dalej używają
+`recipes:findAll`. Build iOS z gałęzi `claude/catalog-sync` dopiero po: build Xcode,
+`sh Scripts/catalog-sync-check.sh`, próba na urządzeniu (snapshot, reconnect = delta),
+TestFlight. Starego `recipes:findAll` nie usuwać w tym samym deployu.
 
 ### Warunek rolloutu porcji per osoba (Etap 2.2)
 

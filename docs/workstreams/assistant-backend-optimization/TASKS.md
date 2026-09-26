@@ -218,51 +218,51 @@ a wynik nadal przechodzi te same walidatory domenowe. Raport:
 ## Etap 4 — katalog, baza i API pod tysiące przepisów
 
 ### 4A — synchronizacja katalogu backend ↔ iOS
-- [ ] Usunąć limit iOS powodujący zakończenie pełnego pobierania po 40×100 =
+- [x] Usunąć limit iOS powodujący zakończenie pełnego pobierania po 40×100 =
       4000 przepisów.
-- [ ] Zaprojektować trwałą rewizję katalogu, której zmiana obejmuje create,
+- [x] Zaprojektować trwałą rewizję katalogu, której zmiana obejmuje create,
       update, deactivate/delete i istotne zmiany składników/tagów.
-- [ ] Sync przyrostowy: klient podaje znaną rewizję, backend zwraca zmiany od
+- [x] Sync przyrostowy: klient podaje znaną rewizję, backend zwraca zmiany od
       niej.
-- [ ] Obsłużyć tombstones/dezaktywacje, nie tylko rekordy dodane/zmienione.
-- [ ] Snapshot fallback, gdy klient jest za stary lub brakuje historii delt.
+- [x] Obsłużyć tombstones/dezaktywacje, nie tylko rekordy dodane/zmienione.
+- [x] Snapshot fallback, gdy klient jest za stary lub brakuje historii delt.
 - [ ] Kompresja transportu; ETag tylko tam, gdzie faktycznie używany jest HTTP.
-      Dla WebSocket użyć własnego kontraktu rewizji.
-- [ ] Po reconnect nie wysyłać pełnego katalogu bez powodu.
-- [ ] Wspólny słownik/semantyka facetów/tagów między backendem i iOS.
-- [ ] Test katalogu > 5000 przepisów, w tym aktualizacja i usunięcie/deaktywacja.
+      Dla WebSocket użyć własnego kontraktu rewizji. — **nie włączona** (raport 04 §8: decyzja po pomiarze pamięci)
+- [x] Po reconnect nie wysyłać pełnego katalogu bez powodu.
+- [x] Wspólny słownik/semantyka facetów/tagów między backendem i iOS. — bez nowego artefaktu, parytet reguł `recipe-facets.util.ts` (raport 04 §8)
+- [x] Test katalogu > 5000 przepisów, w tym aktualizacja i usunięcie/deaktywacja.
 
 ### 4B — cache i zapytania
-- [ ] Oddzielić cache publicznego katalogu od danych zależnych od gospodarstwa.
-- [ ] Polubienie przepisu nie może czyścić całego publicznego cache.
-- [ ] LRU wprowadzać tylko jeśli daje realną korzyść; ważniejszy jest poprawny
-      klucz i invalidacja.
-- [ ] Popularności nie liczyć zapytaniem per przepis. Preferować jedno
+- [x] Oddzielić cache publicznego katalogu od danych zależnych od gospodarstwa.
+- [x] Polubienie przepisu nie może czyścić całego publicznego cache.
+- [x] LRU wprowadzać tylko jeśli daje realną korzyść; ważniejszy jest poprawny
+      klucz i invalidacja. — LRU bez zmian; poprawiony klucz i unieważnianie
+- [x] Popularności nie liczyć zapytaniem per przepis. Preferować jedno
       agregowanie zbiorcze + cache/single-flight; materializację dopiero, gdy
       pomiary jej wymagają.
-- [ ] Odcisk/rewizję katalogu liczyć raz na odpowiedni zakres (np. tura), nie
+- [x] Odcisk/rewizję katalogu liczyć raz na odpowiedni zakres (np. tura), nie
       przy każdym wyszukiwaniu.
-- [ ] Odcisk nie może opierać się wyłącznie na count + max(updatedAt), jeśli
+- [x] Odcisk nie może opierać się wyłącznie na count + max(updatedAt), jeśli
       może ominąć zmianę danych.
 
 ### 4C — lista zakupów i polling tury
-- [ ] Odczyt listy zakupów nie powinien bez potrzeby przebudowywać stanu.
+- [x] Odczyt listy zakupów nie powinien bez potrzeby przebudowywać stanu.
       Jeśli rebuild jest konieczny, zrobić go raz z blokadą/single-flight +
       recheck albo przesunąć na moment mutacji.
-- [ ] Ograniczyć zapis całego `draftText` co ~350 ms; rozważyć batching ok.
+- [x] Ograniczyć zapis całego `draftText` co ~350 ms; rozważyć batching ok.
       1 s albo model przyrostowy.
-- [ ] Polling tury nie powinien powodować nieproporcjonalnej liczby zapytań DB.
+- [x] Polling tury nie powinien powodować nieproporcjonalnej liczby zapytań DB.
 
 ### 4D — Postgres/Prisma
-- [ ] Zweryfikować brakujące indeksy na realnych zapytaniach, w tym
+- [x] Zweryfikować brakujące indeksy na realnych zapytaniach, w tym
       `AgentMessage.turnId`, `Invitation.householdId`, `Recipe.authorId`.
-- [ ] Nie dodawać indeksów „bo kolumna istnieje”; użyć planu zapytania / ścieżki
+- [x] Nie dodawać indeksów „bo kolumna istnieje”; użyć planu zapytania / ścieżki
       hot path jako uzasadnienia.
-- [ ] Jawnie skonfigurować pool i timeouty adekwatne do limitu Railway/Postgresa;
-      nie zwiększać puli bez pomiaru.
+- [x] Jawnie skonfigurować pool i timeouty adekwatne do limitu Railway/Postgresa;
+      nie zwiększać puli bez pomiaru. — log puli przy starcie, wartość po odczycie `max_connections` (raport 04 §9)
 - [ ] `statement_timeout` i timeout transakcji dobrać tak, by nie ubijać
-      legalnych operacji wsadowych.
-- [ ] Zachować retry dla konfliktów serializable i istniejącą kolejność blokad.
+      legalnych operacji wsadowych. — **nie ustawiony** bez pomiaru najdłuższych operacji (raport 04 §8)
+- [x] Zachować retry dla konfliktów serializable i istniejącą kolejność blokad.
 
 ### Kryterium zakończenia
 Katalog >5000 działa bez pełnego transferu przy zwykłej zmianie; nie ma limitu

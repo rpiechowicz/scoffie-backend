@@ -283,6 +283,22 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   (`RETIRED_MODEL_TOOLS`): `get_household_context` (domownicy są w bloku gospodarstwa),
   `propose_week_plan`, `delete_recipe`. `find_recipes` oddaje modelowi chudy wynik (bez składu,
   alergenów, tłuszczu, węgli, porcji); `start_planning` bez kandydatów.
+- Katalog / baza pod skalę (od 26.09.2026, workstream Etap 4, raport `reports/04-catalog-db-api-scale.md`):
+  publiczny katalog idzie na telefon przez `catalog:snapshot` (keyset po `id`, znacznik rewizji
+  z 1. strony) i `catalog:changes` (upserty + tombstone'y od rewizji; `RESET_REQUIRED` =
+  snapshot), `src/recipes/catalog-sync.service.ts`. Rewizję przesuwają TRIGGERY na `Recipe`
+  i `RecipeIngredient` (tabela `CatalogChange`, epoka w `CatalogSyncState`) — każda ścieżka
+  zapisu katalogu, bez kodu aplikacji; przepisy domów i ulubione NIE wchodzą (`recipes:householdState`).
+  Wymuszenie snapshotu u wszystkich = nowa epoka (`UPDATE "CatalogSyncState" SET epoch =
+  gen_random_uuid()`). Stary `recipes:findAll` zostaje dla starych buildów. Odcisk katalogu
+  asystenta = głowa logu, RAZ na turę (`TurnMemo`, klucz `catalog:snapshot`); strony dań kart
+  wsadowo `RecipesService.cardSides` (kolejność wejścia) — nie `findById` w pętli. Ulubione
+  i przepis domu nie czyszczą wspólnego cache'u listy (`invalidateRecipesList(householdId)`).
+  Single-flight: popularność, odczyt nieświeżej listy zakupów (tylko poza transakcją). Szkic
+  tury co ~1 s (`DraftPublisher`, domknięcie czeka na `settle()`); `getTurn` RUNNING = 1 zapytanie.
+  Pula: `src/prisma/database-config.ts` loguje `pula Prisma:` przy starcie — limitu Railwaya
+  nie zgadywać, `connection_limit` ustawia się w `DATABASE_URL`. Pomiar skali: `pnpm
+  catalog:scale-probe` na bazie `*_scale` (`SCALE_DATABASE_URL`), wyniki w `benchmark/`.
 - Postęp tury (`AgentTurn.progress`, `src/agent/agent-progress.ts`): kroki narzędzi plus kroki
   PRZEJŚCIOWE (`transient: true`) — `read` (start tury), `reason` (blok myślenia w strumieniu),
   `write` (pierwszy fragment tekstu), `think` (cisza po narzędziach). Dostawca melduje je przez
