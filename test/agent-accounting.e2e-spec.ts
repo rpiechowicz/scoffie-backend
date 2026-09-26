@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AiUsageCountersService } from '../src/agent/ai-usage-counters.service';
+import { AgentUsageLedger } from '../src/agent/agent-usage-ledger.service';
 
 /**
  * Księgowanie kosztu asystenta pod anulowaniem, timeoutem, restartem
@@ -169,6 +170,10 @@ describe('Asystent: księgowanie kosztu E2E', () => {
   });
 
   afterAll(async () => {
+    // Wiersze księgi po skasowanych rozmowach nie mają tury — po domu.
+    await prisma.aiUsage.deleteMany({
+      where: { householdId: { in: createdHouseholdIds } },
+    });
     await prisma.aiUsageCounter.deleteMany({
       where: { scopeId: { in: createdHouseholdIds } },
     });
@@ -327,6 +332,105 @@ describe('Asystent: księgowanie kosztu E2E', () => {
     expect(closed.status).toBe('FAILED');
     // Koszt naliczony przed padem zostaje; wiadomość nie wraca.
     expect(closed.quotaRefunded).toBe(false);
+  });
+
+  /**
+   * Idempotencja księgi po usunięciu tury (review Etapu 1). Rozmowa skasowana
+   * w trakcie tury (ścieżka RODO) zabiera turę; koszt i tak ma zostać
+   * w księdze — ale ponowienie tego samego zapisu nie może go naliczyć drugi
+   * raz. Klucz `(turnId, callIndex)` przestaje wtedy działać: po usunięciu tury
+   * oba pola są NULL, a w Postgresie NULL-e nie kolidują w indeksie unikalnym.
+   */
+  describe('idempotencja księgi po usunięciu tury', () => {
+    const call = (costMicroUsd: number) => ({
+      callIndex: 0,
+      model: 'claude-sonnet-5',
+      effort: 'medium' as const,
+      usage: {
+        inputTokens: 10,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 5,
+        costMicroUsd,
+      },
+      stopReason: 'tool_use',
+      latencyMs: 1,
+    });
+
+    const orphanTurn = async (label: string) => {
+      const { session, householdId } = await freshHousehold(label);
+      const conversationId = await createConversation(
+        session.accessToken,
+        householdId,
+      );
+      const question = await prisma.agentMessage.create({
+        data: { conversationId, role: 'USER', text: 'pytanie' },
+      });
+      const turn = await prisma.agentTurn.create({
+        data: {
+          conversationId,
+          userId: session.user.id,
+          userMessageId: question.id,
+          requestId: `ledger-${label}`,
+          quotaScopeId: householdId,
+          quotaPeriodKey: counters.monthKey(),
+        },
+      });
+      const ledgerTurn = {
+        turnId: turn.id,
+        userId: session.user.id,
+        householdId,
+        provider: 'stub',
+        env: {
+          householdDailyCostUsd: null,
+          householdMonthlyCostUsd: null,
+          globalDailyBudgetUsd: null,
+        },
+      };
+      // RODO: skasowanie rozmowy zabiera turę (kaskada), wiersze księgi
+      // zostają z `turnId = NULL`.
+      const erase = () =>
+        prisma.agentConversation.delete({ where: { id: conversationId } });
+      return { householdId, ledgerTurn, erase };
+    };
+
+    const householdLedger = async (householdId: string) => ({
+      rows: await prisma.aiUsage.count({ where: { householdId } }),
+      cost:
+        (
+          await prisma.aiUsage.aggregate({
+            where: { householdId },
+            _sum: { costMicroUsd: true },
+          })
+        )._sum.costMicroUsd ?? 0,
+      day: await dayCost(householdId),
+    });
+
+    it('tura usunięta przed zapisem: ponowienie nie dubluje kosztu', async () => {
+      const { householdId, ledgerTurn, erase } = await orphanTurn('LedgerA');
+      await erase();
+      const ledger = app.get(AgentUsageLedger);
+      await ledger.record(ledgerTurn, call(5000));
+      await ledger.record(ledgerTurn, call(5000));
+      expect(await householdLedger(householdId)).toEqual({
+        rows: 1,
+        cost: 5000,
+        day: 5000,
+      });
+    });
+
+    it('zapis przy żywej turze, potem usunięcie i ponowienie: nadal jeden wiersz', async () => {
+      const { householdId, ledgerTurn, erase } = await orphanTurn('LedgerB');
+      const ledger = app.get(AgentUsageLedger);
+      await ledger.record(ledgerTurn, call(4000));
+      await erase();
+      await ledger.record(ledgerTurn, call(4000));
+      expect(await householdLedger(householdId)).toEqual({
+        rows: 1,
+        cost: 4000,
+        day: 4000,
+      });
+    });
   });
 
   it('dwa równoległe starty jednego domu nie przechodzą przez dobowy sufit', async () => {
