@@ -40,6 +40,15 @@ import { AgentQuotaMailService } from '../agent-quota-mail.service';
 import { weekBaselineHash } from './proposal-baseline';
 import type { MessageView } from '../agent-conversations.service';
 
+/**
+ * Kcal talerza w karcie podziału dania (Etap 6.1.1): z porcji osoby, nie
+ * z proporcji celów — ta sama liczba, którą po zapisie policzy bilans.
+ * Zaokrąglenie do 10 kcal, bo dokładniej i tak nikt nie nakłada.
+ */
+export function splitPlateKcal(kcalPerServing: number, servings: number) {
+  return Math.max(10, Math.round((kcalPerServing * servings) / 10) * 10);
+}
+
 export type ProposalEffect = (
   tx: Prisma.TransactionClient,
   result: CreateWeekProposalResult,
@@ -55,6 +64,12 @@ export type CreateWeekProposalInput = {
    * fencing lease i wiersz dziennika z tym samym commitem.
    */
   effect?: ProposalEffect;
+  /**
+   * Cel kcal dnia, pod który planer liczył TEN plan (`day_kcal_target` z
+   * prośby, Etap 6.1.1). Karta pokazuje ten sam cel co planer; brak = cel
+   * z profilu. Profilu nie zmienia.
+   */
+  targetKcalPerDayOverride?: number | null;
   conversationId: string;
   turnId: string;
   weekStart: string;
@@ -148,6 +163,11 @@ export type CreateSplitProposalInput = Omit<
   CreateWeekProposalInput,
   'slots' | 'note'
 > & {
+  /**
+   * Porcje per osoba policzone przez serwer (`portionsForChoice`) — tylko
+   * przy `AI_PLANNER_PER_USER_PORTIONS=true`. Brak = równy podział.
+   */
+  servings?: { userId: string; servings: number }[];
   dayOfWeek: DayOfWeek;
   mealType: MealType;
   recipeId: string;
@@ -259,11 +279,9 @@ export class AgentProposalsService {
       preview,
       note: input.note,
       removalReasons: input.removalReasons,
-      targetKcalPerDay: await this.targetKcalFor(
-        input.userId,
-        input.householdId,
-        input.memo,
-      ),
+      targetKcalPerDay:
+        input.targetKcalPerDayOverride ??
+        (await this.targetKcalFor(input.userId, input.householdId, input.memo)),
       expiresAt,
       forUserId: input.userId,
       enabledMealTypes: await this.enabledMealTypesFor(
@@ -348,11 +366,9 @@ export class AgentProposalsService {
       preview,
       note: input.note,
       removalReasons: input.removalReasons,
-      targetKcalPerDay: await this.targetKcalFor(
-        input.userId,
-        input.householdId,
-        input.memo,
-      ),
+      targetKcalPerDay:
+        input.targetKcalPerDayOverride ??
+        (await this.targetKcalFor(input.userId, input.householdId, input.memo)),
       expiresAt,
       forUserId: input.userId,
       enabledMealTypes: await this.enabledMealTypesFor(
@@ -853,6 +869,12 @@ export class AgentProposalsService {
     }
 
     const participantIds = input.portions.map((portion) => portion.userId);
+    // Porcje per osoba policzone przez SERWER (planer, krok 0,05 — Etap 2.2),
+    // gdy rollout porcji jest włączony. Jedno źródło prawdy (Etap 6.1.1):
+    // te porcje idą do stanu docelowego propozycji, a kcal na karcie liczą
+    // się Z NICH. Bez nich (flaga wyłączona) nic się nie alokuje i karta nie
+    // udaje różnych talerzy — plan i tak rozliczy wszystkich po równo.
+    const servings = input.servings?.length ? input.servings : null;
     const baseline = await this.weeklyPlans.snapshotWeekAsSlots(
       input.userId,
       input.householdId,
@@ -869,6 +891,7 @@ export class AgentProposalsService {
         mealType: input.mealType,
         recipeId: input.recipeId,
         participantIds,
+        ...(servings ? { portions: servings } : {}),
       } as ApplyWeekSlotDto,
     ];
 
@@ -886,30 +909,17 @@ export class AgentProposalsService {
     const proposalId = randomUUID();
     const expiresAt = new Date(Date.now() + env.proposalTtlMs);
 
-    // Porcja skalowana CELEM: przy 2 100 i 1 200 kcal ten sam gulasz to nie
-    // te same talerze. Średnia celów = jedna porcja z przepisu; kto ma cel
-    // wyżej, dostaje proporcjonalnie więcej. Zaokrąglenie do 10 kcal, bo
-    // dokładniej i tak nikt nie nakłada.
-    const goals = input.portions.map(
-      (portion) => known.get(portion.userId)!.targets.calorieGoal,
+    // Kcal talerza = kcal porcji przepisu × porcja osoby. Z alokacją — jej
+    // porcje (te same, które zapisze kliknięcie); bez — po jednej porcji.
+    const servingsOf = new Map(
+      (servings ?? []).map((portion) => [portion.userId, portion.servings]),
     );
-    const meanGoal =
-      goals.length > 0 && goals.every((goal) => goal > 0)
-        ? goals.reduce((sum, goal) => sum + goal, 0) / goals.length
-        : 0;
     const portions: HouseholdSplitPortion[] = input.portions.map((portion) => {
       const member = known.get(portion.userId)!;
-      const kcal =
-        meanGoal > 0
-          ? Math.max(
-              10,
-              Math.round(
-                (input.dish.kcalPerServing * member.targets.calorieGoal) /
-                  meanGoal /
-                  10,
-              ) * 10,
-            )
-          : input.dish.kcalPerServing;
+      const kcal = splitPlateKcal(
+        input.dish.kcalPerServing,
+        servingsOf.get(portion.userId) ?? 1,
+      );
       return {
         userId: member.userId,
         displayName: member.displayName,

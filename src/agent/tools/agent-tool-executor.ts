@@ -926,7 +926,8 @@ export class AgentToolExecutor {
       const endsTurn =
         (TURN_ENDING_TOOLS.has(name) &&
           (data as { proposed?: unknown } | null)?.proposed !== false) ||
-        isReadOnlyRecipeResult(name, data);
+        isReadOnlyRecipeResult(name, data) ||
+        isExhaustedSuggestion(name, data);
       const turnText = endsTurn ? turnTextFor(name, input, data) : null;
       return {
         ok: true,
@@ -1646,6 +1647,25 @@ export class AgentToolExecutor {
     }
 
     const recipeId = this.resolveRecipeRef(ref, context);
+    const dayOfWeek = asString(input.day_of_week) as DayOfWeek;
+    const mealType = asString(input.meal_type) as MealType;
+    // Porcje każdej osoby liczy PLANER (krok 0,05, Etap 2.2) — i tylko przy
+    // włączonym rolloucie porcji (`portionsForChoice` zwraca wtedy porcje,
+    // inaczej `undefined`). Stary iOS przy pozycji z alokacją pokazuje równy
+    // podział i zdejmuje alokację stepperem (raport 02-2), więc bez flagi
+    // nic się nie alokuje — Etap 6.1.1.
+    const servings = await this.portionsForChoice(context, {
+      weekStart,
+      dayOfWeek,
+      mealType,
+      recipeId,
+      participantIds: portions.map((portion) => portion.userId),
+      currentSlots: await this.weeklyPlans.snapshotWeekAsSlots(
+        context.userId,
+        context.householdId,
+        weekStart,
+      ),
+    });
     return this.proposals.createHouseholdSplitProposal({
       memo: context.memo,
       effect: context.effectCommit,
@@ -1654,11 +1674,12 @@ export class AgentToolExecutor {
       conversationId: context.conversationId,
       turnId: context.turnId,
       weekStart,
-      dayOfWeek: asString(input.day_of_week) as DayOfWeek,
-      mealType: asString(input.meal_type) as MealType,
+      dayOfWeek,
+      mealType,
       recipeId,
       dish: await this.recipeSide(recipeId, context),
       portions,
+      ...(servings?.length ? { servings } : {}),
     });
   }
 
@@ -2537,6 +2558,7 @@ export class AgentToolExecutor {
         ['days'],
       );
     }
+    const wishes = wishesOf(input);
     const outcome = await this.planner.build({
       userId: context.userId,
       householdId: context.householdId,
@@ -2548,7 +2570,7 @@ export class AgentToolExecutor {
         'meal_types',
       ),
       forUserIds: stringList(input.for_user_ids),
-      wishes: wishesOf(input),
+      wishes,
       seed: context.turnId,
       memo: context.memo,
     });
@@ -2568,6 +2590,7 @@ export class AgentToolExecutor {
             turnId: context.turnId,
             weekStart,
             dayOfWeek: days[0],
+            targetKcalPerDayOverride: wishes.dayKcalTarget ?? null,
             slots: outcome.targetSlots
               .filter((slot) => slot.dayOfWeek === days[0])
               .map(({ dayOfWeek: _day, ...slot }) => slot),
@@ -2580,6 +2603,7 @@ export class AgentToolExecutor {
             conversationId: context.conversationId,
             turnId: context.turnId,
             weekStart,
+            targetKcalPerDayOverride: wishes.dayKcalTarget ?? null,
             slots: outcome.targetSlots,
             ...(note ? { note } : {}),
           });
@@ -2634,12 +2658,7 @@ export class AgentToolExecutor {
         memo: context.memo,
         excludeRecipeIds,
       });
-    let outcome = await ask(shown);
-    let repeatedShown = false;
-    if (shown.length > 0 && outcome.draft.suggestions.length < 2) {
-      outcome = await ask([]);
-      repeatedShown = true;
-    }
+    const outcome = await ask(shown);
     const { draft } = outcome;
     const budget = draft.slotBudget.find(
       (entry) => entry.userId === context.userId,
@@ -2651,11 +2670,23 @@ export class AgentToolExecutor {
       // na ten posiłek przy reszcie dnia.
       ...(budget ? { remainingKcalForMeal: budget.kcal } : {}),
       ...(draft.relaxed.length > 0 ? { relaxed: draft.relaxed } : {}),
-      ...(shown.length > 0 && !repeatedShown
-        ? { skippedShown: shown.length }
-        : {}),
-      ...(repeatedShown ? { repeatedShown: true } : {}),
+      ...(shown.length > 0 ? { skippedShown: shown.length } : {}),
     };
+    if (draft.suggestions.length < 2 && shown.length > 0) {
+      // „Pokaż inne" przy wyczerpanej puli (Etap 6.1.1): NIE pokazujemy
+      // starych dań jako nowych. Karty nie ma, a serwer sam mówi prawdę
+      // (zdanie kończące turę, bez kolejnej rundy modelu).
+      const left = draft.suggestions[0]?.item.recipeId;
+      return {
+        proposed: false as const,
+        exhausted: true as const,
+        offered: 0,
+        ...common,
+        ...(left
+          ? { lastNew: (await this.recipeSides([left], context))[0]?.title }
+          : {}),
+      };
+    }
     if (draft.suggestions.length < 2) {
       // Jedno danie to nie wybór — karty nie ma, model mówi, czego zabrakło.
       return {
@@ -3152,6 +3183,14 @@ const SHOWN_OPTIONS_LOOKBACK = 5;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** „Pokaż inne" przy wyczerpanej puli nowych dań (Etap 6.1.1). */
+function isExhaustedSuggestion(name: string, data: unknown): boolean {
+  return (
+    name === 'suggest_meals' &&
+    (data as { exhausted?: unknown } | null)?.exhausted === true
+  );
+}
+
 /** Wynik `update_recipe` dla przepisu z katalogu (Etap 6.1). */
 function isReadOnlyRecipeResult(name: string, data: unknown): boolean {
   return (
@@ -3233,6 +3272,15 @@ export function turnTextFor(
   const meal = MEAL_FOR[asString(input.meal_type) as MealType];
   switch (name) {
     case 'suggest_meals': {
+      if (isExhaustedSuggestion(name, data)) {
+        const lastNew = (data as { lastNew?: string }).lastNew;
+        return (
+          `Nie mam już nowych propozycji ${meal ?? 'na ten posiłek'}${day ? ` w ${day}` : ''} — ` +
+          'pokazałem wszystkie dania, które pasują do Waszych ograniczeń i życzeń' +
+          (lastNew ? `; zostało jeszcze jedno: ${lastNew}` : '') +
+          '. Możesz wybrać jedno z poprzednich albo zmienić życzenie (składnik, czas, rodzaj dania).'
+        );
+      }
       const count = NUMERALS[result.offered ?? 0];
       if (!count || !meal) return null;
       return `${count} propozycje ${meal}${day ? ` w ${day}` : ''} — wybierz jedną.`;

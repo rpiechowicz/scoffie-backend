@@ -15,7 +15,7 @@
 | 4. Katalog / DB / API | **DONE (backend)** — log zmian katalogu z triggerów, snapshot + delta z tombstone'ami, granice cache'u, single-flight (popularność, zakupy), szkic 1 s, `getTurn` 1 zapytanie, indeks `AgentMessage(turnId)`. iOS (`claude/catalog-sync`, bez merge'a): kompilacja Xcode i `catalog-sync-check.sh` **DEFERRED / przed rolloutem** | `reports/04-catalog-db-api-scale.md` |
 | 5. Trwałe tury | **DONE** — `AgentTurn` jako zadanie z lease (fencing token, zegar bazy), worker w procesie API (przy starcie + co 3 s), dziennik efektów narzędzi w transakcji efektu, klucz wywołania dostawcy z numerem próby, trwały „Stop”, twardy termin tury, limit 3 prób; prawdziwy restart 2 instancji w e2e. Po review (Addendum A1): efekt odtwarzany tylko przy zgodnym narzędziu i kanonicznym wejściu, inaczej `AI_DURABLE_EFFECT_CONFLICT`; kursor efektów zamiast licznika | `reports/05-durable-turns.md` |
 | 6. Modele / routing | **DONE** — before/after na żywym API (anchor `22aa63c` ↔ HEAD): koszt/sukces −48%, p50 −49%, p95 −62%, wywołania −38%, ale pass rate 90,9% → 84,1% (5 stabilnych regresji); rekomendacja Sonnet 5 / low, bez routingu; Haiku odrzucony na jakości tekstu; koszt benchmarku $10,89 | `reports/06-model-evaluation.md` |
-| 6.1 Naprawa regresji | **DONE OFFLINE** — backend regressions fixed and deterministically verified; final live smoke deferred. 7/7 przyczyn potwierdzonych w kodzie (4 backend/kontrakt, 3 weryfikatory benchmarku), testy FAIL→PASS, 0 wywołań API ($0.00). Final effort decision: DEFERRED (prod: medium, kandydat: low) | `reports/06-1-regression-cleanup.md` |
+| 6.1 Naprawa regresji | **DONE OFFLINE** — backend regressions fixed and deterministically verified; final live smoke deferred. 7/7 przyczyn potwierdzonych w kodzie (4 backend/kontrakt, 3 weryfikatory benchmarku), testy FAIL→PASS, 0 wywołań API ($0.00). Po review (Addendum A1 / 6.1.1): cel karty = cel planera; HOUSEHOLD_SPLIT jedno źródło prawdy za flagą (g8 DEFERRED do rolloutu porcji per osoba); wyczerpane „pokaż inne” mówi prawdę. Final effort decision: DEFERRED (prod: medium, kandydat: low) | `reports/06-1-regression-cleanup.md` |
 
 ## Aktualne polecenie dla wykonawcy
 
@@ -67,7 +67,8 @@ Po zakończeniu:
 
 ## Ostatni raport
 
-`reports/06-1-regression-cleanup.md` (26.09.2026) — Etap 6.1 **DONE OFFLINE** (LIVE API CALLS: 0, $0.00):
+`reports/06-1-regression-cleanup.md` (26.09.2026) — Etap 6.1 **DONE OFFLINE** po Addendum A1 (6.1.1) (LIVE API CALLS: 0, $0.00):
+- A1: karta planu pokazuje cel z prośby (`targetKcalPerDayOverride`); podział dania: porcje serwera → stan propozycji → karta, za `AI_PLANNER_PER_USER_PORTIONS` (przy `false` równe talerze, bez alokacji) — **g8 DEFERRED do rolloutu porcji**; „pokaż inne” przy wyczerpanej puli = brak karty + zdanie serwera, zero powtórek jako nowych; e2e regression 8/8, unit 3486/3486;
 - `build_meal_plan.day_kcal_target` (cel dnia z prośby dla pytającego, profil bez zmian); twardy `max_prep_minutes` w planie i podmianie (`PREP_TIME` → NO_CANDIDATES z powodem słowami);
 - `propose_household_split` z `portions: []` = cały dom, porcje liczy serwer; opisy `suggest_meals`/`propose_household_split`/`update_recipe` rozdzielają drogi;
 - `update_recipe` na katalogu = wynik „tylko do odczytu” kończący turę zdaniem serwera; `suggest_meals` pomija dania pokazane na ten posiłek w rozmowie;

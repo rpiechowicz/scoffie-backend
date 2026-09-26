@@ -200,3 +200,91 @@ bez ponownego pomiaru live po 6.1 produkcji nie zmieniamy.
 
 - `8986b15` — fix(asystent): regresje z finalnego benchmarku naprawione deterministycznie (Etap 6.1)
 - commit raportu i STATE — następny po `8986b15`
+
+---
+
+## Addendum A1 — domknięcie review 6.1 (Etap 6.1.1, offline)
+
+```
+LIVE API CALLS DURING 6.1.1: 0
+LIVE API COST: $0.00
+```
+
+### A1.1 Cel planera vs cel karty (g4)
+
+**Problem:** planer liczył pod `day_kcal_target` (1800), a `createDay/WeekPlanProposal`
+brały `targetKcalPerDay` karty ponownie z profilu (`targetKcalFor` → 2200). Dwa źródła
+prawdy na jednej karcie.
+
+**Poprawka:** `CreateWeekProposalInput.targetKcalPerDayOverride` (dziedziczy go wejście
+dnia). `build_meal_plan` przekazuje ten sam cel, który dostał planer; karta używa override,
+a bez niego — jak dotąd celu z profilu. Profil nietknięty.
+
+**Test:** profil 2200, `day_kcal_target` 1800 → planer `avgTargetKcal` 1800, karta
+`summary.targetKcalPerDay` 1800, profil po operacji 2200; bez override → karta 2200.
+
+### A1.2 HOUSEHOLD_SPLIT: karta vs zapisane porcje (g8)
+
+**Problem:** karta liczyła różne kcal osób z PROPORCJI CELÓW, a `action.slots` zapisywał
+tylko `recipeId + participantIds` — po zatwierdzeniu plan nie miał `PlanItemPortion` i
+domena rozliczała równy podział. Karta obiecywała większy talerz, plan liczył po równo.
+
+**Kompatybilność (sprawdzona w kodzie i raporcie 02-2, nie założona):** stary iOS przy
+pozycji Z alokacją pokazuje równy podział `ceil(Σ)` (zawyżone kcal), a jego stepper porcji
+zapisuje slot bez `portions` i zdejmuje alokację. To dokładnie powód istnienia
+`AI_PLANNER_PER_USER_PORTIONS` (domyślnie `false` do wydania iOS). Zapis alokacji przy
+wyłączonej fladze NIE jest bezpieczny dla starego klienta — nie obchodzę tego.
+
+**Poprawka — jedno źródło prawdy, za flagą:**
+- `AI_PLANNER_PER_USER_PORTIONS=true`: porcje każdej osoby liczy PLANER
+  (`portionsForChoice`, krok 0,05, istniejący model z Etapu 2.2) → `action.slots[].portions`
+  → kcal karty = `splitPlateKcal(kcal porcji przepisu, porcja osoby)`. Kierunek: porcje
+  serwera → stan propozycji → karta. Nie odwrotnie; drugiego systemu porcji z `kcal` brak.
+- `false` (produkcja): nic się nie alokuje, a karta pokazuje RÓWNE talerze (po porcji
+  przepisu) — bez fałszywej precyzji; plan i tak rozliczy wszystkich po równo.
+- Usunięte liczenie kcal talerza z proporcji celów.
+
+**Status g8: DEFERRED do rolloutu porcji per osoba** (flaga + wydanie iOS czytającego
+porcje, warunek z raportu 02-2). Przy fladze wyłączonej ścieżka jest spójna (równe
+talerze = równy plan), ale różnych talerzy nie pokazuje; weryfikator benchmarku g8 dalej
+wymaga różnych porcji, więc g8 nie jest „fixed” do czasu rolloutu.
+
+**Test po APPLY (flaga włączona tylko w procesie testu):** osoby 1800 i 2600 → jeden
+`recipeId`, `action.slots[].portions` dla obu, porcja B > A → kcal karty = porcje ×
+kcal porcji przepisu → przypięcie do wiadomości (jak `finishDone`) → `POST
+/agent/proposals/:id/apply` 200 → `PlanItemPortion` dla A i B, `units` = porcja × 20, B > A →
+`weeklyBalance` czwartku dla A i B = kcal karty (±5 kcal zaokrąglenia). Test przy fladze
+wyłączonej: brak `portions` w slocie, równe kcal obu talerzy.
+
+### A1.3 Wyczerpane „pokaż inne” (g13-pokaz-inne)
+
+**Problem:** gdy po wykluczeniu pokazanych dań zostawało < 2, executor pytał drugi raz bez
+wykluczeń (`repeatedShown`), karta niosła STARE dania, a zdanie serwera kończące turę
+mówiło zwykłe „Trzy propozycje…” — powtórki podane jako nowe, bez szansy na wyjaśnienie.
+
+**Poprawka:** bez drugiego zapytania bez wykluczeń. Przy wyczerpanej puli (pokazane > 0 i
+nowych < 2): brak karty, wynik `{ proposed: false, exhausted: true, lastNew? }`, a tura
+kończy się zdaniem serwera (bez kolejnej rundy modelu): „Nie mam już nowych propozycji na
+kolację we wtorek — pokazałem wszystkie dania, które pasują do Waszych ograniczeń i
+życzeń[; zostało jeszcze jedno: X]. Możesz wybrać jedno z poprzednich albo zmienić
+życzenie (składnik, czas, rodzaj dania).” Przy wystarczającej liczbie nowych — bez zmian,
+zero powtórek.
+
+**Test małej puli:** kolejne „pokaż inne” na zawężonej puli (karty zapisywane w historii
+jak w runnerze) — żadne danie nie wraca w kolejnej karcie; na końcu brak karty,
+`endsTurn`, zdanie „Nie mam już nowych propozycji…”.
+
+### A1.4 Testy (MEASURED, offline)
+
+| Komenda | Wynik |
+|---|---|
+| `test/regression-6-1.e2e-spec.ts` | **8/8** (przed 6.1.1: 4 FAIL — cel karty, oba warianty g8, mała pula; `benchmark/regression-6-1/tests-before-fix-6-1-1.txt`) |
+| e2e: agent, agent-card-state (propozycje/apply), per-user-portions, weekly-balance, agent-thinning, durable-turns, agent-choice-portions, agent-tools, meal-planner, apply-week-plan | **195/195** razem z regression-6-1 |
+| `pnpm test` | **195/195 suites, 3486/3486** |
+| `pnpm typecheck` / `lint:check` / `openapi:check` | OK / 0 błędów / OK |
+
+### A1.5 Status
+
+**6.1 = DONE OFFLINE** — backend regressions fixed and deterministically verified; final
+live smoke deferred. **g8 = DEFERRED do rolloutu porcji per osoba** (za flagą, spójne
+przy obu jej wartościach). Final effort decision: DEFERRED (prod: medium, kandydat: low).

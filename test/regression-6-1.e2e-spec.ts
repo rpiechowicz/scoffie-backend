@@ -14,6 +14,7 @@ import {
 import { AgentCard } from '../src/agent/cards/agent-cards';
 import { WeeklyPlansService } from '../src/weekly-plans/weekly-plans.service';
 import { satisfiesDiet } from '../src/recipes/diet-rules.util';
+import { splitPlateKcal } from '../src/agent/proposals/agent-proposals.service';
 
 /**
  * Etap 6.1 — regresje z finalnego benchmarku, sprawdzone DETERMINISTYCZNIE:
@@ -285,6 +286,15 @@ describe('Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1)', () => {
     expect(me.avgTargetKcal).toBe(1800);
     expect(Math.abs(me.avgKcal - 1800) / 1800).toBeLessThanOrEqual(0.15);
 
+    // A1 (6.1.1): karta pokazuje TEN SAM cel, pod który liczył planer.
+    const cardTarget = async (proposalId: string | undefined) =>
+      (
+        (await proposalSlots(proposalId!)).card as {
+          summary: { targetKcalPerDay: number | null };
+        }
+      ).summary.targetKcalPerDay;
+    expect(await cardTarget(limited.proposalId)).toBe(1800);
+
     const fromProfile = dataOf<PlannerData>(
       await run('build_meal_plan', buildInput(['WED'])),
     );
@@ -292,6 +302,7 @@ describe('Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1)', () => {
       fromProfile.planner!.perPersonDaily.find((p) => p.userId === home.userId)!
         .avgTargetKcal,
     ).toBe(2200);
+    expect(await cardTarget(fromProfile.proposalId)).toBe(2200);
 
     const profile = await prisma.userPreference.findUniqueOrThrow({
       where: { userId: home.userId },
@@ -299,7 +310,7 @@ describe('Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1)', () => {
     expect(profile.calorieGoal).toBe(2200);
   });
 
-  it('g8: jedno danie dla dwóch osób o różnych celach — jeden przepis, porcje liczy serwer, model nie podaje liczb ani osób', async () => {
+  it('g8 (rollout porcji WYŁĄCZONY): jedno danie, bez alokacji — karta nie udaje różnych talerzy', async () => {
     const home = await household('Podzial', 1800, { calorieGoal: 2600 });
     const dish = await prisma.recipe.findFirstOrThrow({
       where: {
@@ -336,9 +347,134 @@ describe('Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1)', () => {
     expect(portions.map((p) => p.userId).sort()).toEqual(
       [home.userId, home.partnerId].sort(),
     );
+    // Stan docelowy bez alokacji = plan rozliczy obie osoby po równo, więc
+    // karta też pokazuje równe talerze (A1 w 6.1.1: jedno źródło prawdy).
+    const slot = thu[0] as { portions?: unknown };
+    expect(slot.portions).toBeUndefined();
     const mine = portions.find((p) => p.userId === home.userId)!;
     const partner = portions.find((p) => p.userId === home.partnerId)!;
-    expect(partner.kcal).toBeGreaterThan(mine.kcal);
+    expect(partner.kcal).toBe(mine.kcal);
+  });
+
+  it('g8 (rollout porcji WŁĄCZONY): porcje serwera → stan propozycji → APPLY → PlanItemPortion i bilans = karta', async () => {
+    const previous = process.env.AI_PLANNER_PER_USER_PORTIONS;
+    process.env.AI_PLANNER_PER_USER_PORTIONS = 'true';
+    try {
+      const home = await household('PodzialPorcje', 1800, {
+        calorieGoal: 2600,
+      });
+      const dish = await prisma.recipe.findFirstOrThrow({
+        where: {
+          isCatalog: true,
+          isActive: true,
+          suitableMealTypes: { has: 'DINNER' },
+          allergens: { isEmpty: true },
+          nutritionKcal: { gt: 300 },
+        },
+        orderBy: { id: 'asc' },
+        select: { id: true, servings: true, nutritionKcal: true },
+      });
+      const kcalPerServing = Math.round(
+        (dish.nutritionKcal ?? 0) / Math.max(1, dish.servings ?? 1),
+      );
+      const { run } = tools(home);
+      const result = dataOf<{ proposed: boolean; proposalId: string }>(
+        await run('propose_household_split', {
+          week_start: WEEK_START,
+          day_of_week: 'THU',
+          meal_type: 'DINNER',
+          recipe: dish.id,
+          portions: [],
+        }),
+      );
+      const proposal = await proposalSlots(result.proposalId);
+      const [slot] = proposal.slots.filter(
+        (s) => s.dayOfWeek === 'THU' && s.mealType === 'DINNER',
+      ) as {
+        recipeId: string;
+        portions?: { userId: string; servings: number }[];
+      }[];
+      // Jedno danie, porcje per osoba W STANIE PROPOZYCJI.
+      expect(slot.recipeId).toBe(dish.id);
+      const servingsOf = new Map(
+        (slot.portions ?? []).map((p) => [p.userId, p.servings]),
+      );
+      expect([...servingsOf.keys()].sort()).toEqual(
+        [home.userId, home.partnerId].sort(),
+      );
+      const mineServings = servingsOf.get(home.userId)!;
+      const partnerServings = servingsOf.get(home.partnerId!)!;
+      expect(partnerServings).toBeGreaterThan(mineServings);
+      // Karta WYLICZONA z tych porcji — nie z proporcji celów.
+      const plates = (
+        proposal.card as { portions: { userId: string; kcal: number }[] }
+      ).portions;
+      for (const plate of plates) {
+        expect(plate.kcal).toBe(
+          splitPlateKcal(kcalPerServing, servingsOf.get(plate.userId)!),
+        );
+      }
+
+      // Jak `finishDone` w runnerze: propozycja przypięta do odpowiedzi —
+      // dopiero taka jest „na ekranie" i da się ją zatwierdzić.
+      const message = await prisma.agentMessage.create({
+        data: {
+          conversationId: home.conversationId,
+          role: 'ASSISTANT',
+          kind: 'HOUSEHOLD_SPLIT',
+          text: 'karta',
+          card: proposal.card as never,
+        },
+      });
+      await prisma.agentProposal.update({
+        where: { id: result.proposalId },
+        data: { messageId: message.id },
+      });
+
+      // Klik „Zatwierdź" — plan zapisany z alokacją.
+      await request(app.getHttpServer())
+        .post(`/agent/proposals/${result.proposalId}/apply`)
+        .set(auth(home.session.accessToken))
+        .send({})
+        .expect(200);
+      const stored = await prisma.planItemPortion.findMany({
+        where: {
+          planItem: {
+            weeklyPlan: { householdId: home.householdId },
+            dayOfWeek: 'THU',
+            mealType: 'DINNER',
+          },
+        },
+        select: { userId: true, units: true },
+      });
+      const units = new Map(stored.map((row) => [row.userId, row.units]));
+      expect(units.get(home.userId)).toBe(Math.round(mineServings * 20));
+      expect(units.get(home.partnerId!)).toBe(Math.round(partnerServings * 20));
+      expect(units.get(home.partnerId!)!).toBeGreaterThan(
+        units.get(home.userId)!,
+      );
+
+      // Bilans po zapisie widzi te same porcje, co karta (±5 kcal zaokrąglenia).
+      const weeklyPlans = app.get(WeeklyPlansService);
+      const thuKcal = async (memberId: string) =>
+        (
+          await weeklyPlans.weeklyBalance(
+            home.userId,
+            home.householdId,
+            WEEK_START,
+            memberId,
+          )
+        ).days.find((day) => day.dayOfWeek === 'THU')!.planned.kcal;
+      for (const plate of plates) {
+        expect(
+          Math.abs((await thuKcal(plate.userId)) - plate.kcal),
+        ).toBeLessThanOrEqual(5);
+      }
+    } finally {
+      if (previous === undefined)
+        delete process.env.AI_PLANNER_PER_USER_PORTIONS;
+      else process.env.AI_PLANNER_PER_USER_PORTIONS = previous;
+    }
   });
 
   it('g9: twardy limit 5 min — żadne dłuższe danie w propozycji, status PARTIAL/UNSAT z jednoznacznym powodem', async () => {
@@ -426,6 +562,73 @@ describe('Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1)', () => {
     expect(a.length).toBeGreaterThanOrEqual(2);
     expect(b.length).toBeGreaterThanOrEqual(2);
     expect(b.filter((id) => a.includes(id))).toEqual([]);
+  });
+
+  it('g13-pokaz-inne przy MAŁEJ puli: bez powtórek podanych jako nowe, na końcu jawne „nowych propozycji zabrakło"', async () => {
+    const home = await household('MalaPula', 2200);
+    const { run, cards } = tools(home);
+    // Zawężenie do małej puli: pierwszy zestaw życzeń, który daje kartę
+    // i wyczerpuje się w oknie historii (5 kart).
+    const attempts: Record<string, unknown>[] = [
+      { include_ingredients: ['łosoś'] },
+      { include_ingredients: ['krewetki'] },
+      { include_ingredients: ['tofu'] },
+      { include_ingredients: ['dorsz'] },
+      { include_ingredients: ['kurczak'], must_have_tags: ['soup'] },
+    ];
+    let verified = false;
+    for (const extra of attempts) {
+      const input = {
+        week_start: WEEK_START,
+        day_of_week: 'TUE',
+        meal_type: 'DINNER',
+        count: 3,
+        for_user_ids: [],
+        include_ingredients: [],
+        ...wishes,
+        ...extra,
+      };
+      const seen: string[] = [];
+      let exhausted: AgentToolResult | null = null;
+      for (let round = 0; round < 5 && !exhausted; round += 1) {
+        const before = cards.length;
+        const result = await run('suggest_meals', input);
+        const data = result.ok
+          ? (result.data as { exhausted?: boolean; proposed?: boolean })
+          : null;
+        if (data?.exhausted) {
+          exhausted = result;
+          expect(cards.length).toBe(before); // żadnej karty ze starymi daniami
+          break;
+        }
+        if (!result.ok || data?.proposed === false) break; // pula za mała od początku
+        const card = cards[cards.length - 1] as unknown as {
+          eyebrow: string;
+          options: { recipeId: string }[];
+        };
+        const ids = card.options.map((option) => option.recipeId);
+        expect(ids.filter((id) => seen.includes(id))).toEqual([]);
+        seen.push(...ids);
+        // Jak runner: karta w historii rozmowy.
+        await prisma.agentMessage.create({
+          data: {
+            conversationId: home.conversationId,
+            role: 'ASSISTANT',
+            kind: 'OPTIONS',
+            text: 'karta',
+            card: card as never,
+          },
+        });
+      }
+      if (!exhausted || seen.length === 0) continue;
+      expect(exhausted).toMatchObject({ ok: true, endsTurn: true });
+      expect(exhausted.ok && exhausted.turnText).toMatch(
+        /Nie mam już nowych propozycji/,
+      );
+      verified = true;
+      break;
+    }
+    expect(verified).toBe(true);
   });
 
   it('g13-zmiana-w-propozycji: „tylko kolacja wegetariańska" — B1 i L1 zostają, D2 spełnia dietę', async () => {
