@@ -14,7 +14,9 @@ import type {
 import {
   billingRange,
   buildBilling,
+  buildLedger,
   centsToUsd,
+  ledgerRange,
   costByDay,
   runwayDays,
   shareAfter,
@@ -357,6 +359,40 @@ describe('kredyty Claude — alert', () => {
   });
 });
 
+describe('kredyty Claude — własna księga kosztu', () => {
+  it('zakres: 31 dób albo od początku miesiąca UTC, do jutra wyłącznie', () => {
+    expect(ledgerRange(NOW)).toEqual({
+      from: new Date('2026-08-27T00:00:00Z'),
+      to: new Date('2026-09-27T00:00:00Z'),
+    });
+    // 3 dnia miesiąca: początek miesiąca jest później niż 30 dób wstecz
+    expect(ledgerRange(new Date('2026-10-03T08:00:00Z')).from).toEqual(
+      new Date('2026-09-03T00:00:00Z'),
+    );
+  });
+
+  it('doby UTC jak wydatki Anthropic: dziś, 7 dób, miesiąc, 31 dób z zerami', () => {
+    const ledger = buildLedger(
+      [
+        { day: '2026-09-26', microUsd: 1_250_000 },
+        { day: '2026-09-20', microUsd: 2_000_000 },
+        // 7 dób wstecz od dziś (19 wrz) już poza tygodniem
+        { day: '2026-09-19', microUsd: 5_000_000 },
+        // poprzedni miesiąc — w dobach, nie w miesiącu
+        { day: '2026-08-31', microUsd: 3_000_000 },
+      ],
+      NOW,
+    );
+    expect(ledger.todayUsd).toBe(1.25);
+    expect(ledger.last7Usd).toBe(3.25);
+    expect(ledger.monthUsd).toBe(8.25);
+    expect(ledger.daily).toHaveLength(31);
+    expect(ledger.daily[0]).toEqual({ date: '2026-08-27', usd: 0 });
+    expect(ledger.daily[4]).toEqual({ date: '2026-08-31', usd: 3 });
+    expect(ledger.daily[30]).toEqual({ date: '2026-09-26', usd: 1.25 });
+  });
+});
+
 describe('AdminAnthropicService', () => {
   const prisma = {
     anthropicCreditAnchor: {
@@ -365,6 +401,9 @@ describe('AdminAnthropicService', () => {
     anthropicBillingSetting: {
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    $queryRaw: jest
+      .fn()
+      .mockResolvedValue([{ day: '2026-09-26', cost: BigInt(500_000) }]),
   };
   const saved = process.env.ANTHROPIC_ADMIN_KEY;
   afterEach(() => {
@@ -381,6 +420,20 @@ describe('AdminAnthropicService', () => {
     expect(b.lowBalanceUsd).toBe(5);
     expect(b.balance).toBeNull();
     expect(fetchImpl).not.toHaveBeenCalled();
+    // księga nie zależy od klucza Anthropic
+    expect(b.ledger?.todayUsd).toBe(0.5);
+  });
+
+  it('błąd bazy przy księdze — ledger null, reszta ekranu bez zmian', async () => {
+    delete process.env.ANTHROPIC_ADMIN_KEY;
+    const broken = {
+      ...prisma,
+      $queryRaw: jest.fn().mockRejectedValue(new Error('baza')),
+    };
+    const service = new AdminAnthropicService(broken as never, {} as never);
+    const b = await service.billing(NOW, jest.fn() as never);
+    expect(b.ledger).toBeNull();
+    expect(b.lowBalanceUsd).toBe(5);
   });
 
   it('z kluczem — pyta raporty z nagłówkami i pamięta wynik', async () => {
