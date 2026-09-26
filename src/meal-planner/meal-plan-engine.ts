@@ -1,0 +1,646 @@
+import { DayOfWeek, MealType } from '@prisma/client';
+import {
+  CandidateStats,
+  DayDiagnostics,
+  HardFilterReason,
+  PlanDraft,
+  PlanIssue,
+  PlanMetrics,
+  PlannedItem,
+  PlannerEater,
+  PlannerRecipe,
+  PlanningRequest,
+  PlanStatus,
+} from './meal-planner.types';
+import {
+  allowedServings,
+  audienceOf,
+  coverageOf,
+  DAY_ORDER,
+  dayTargetFor,
+  eaterCountOf,
+  eaterDayCost,
+  eaterDayNutrition,
+  FAT_CARBS_DAY_TOLERANCE,
+  hardFilterReason,
+  itemSoftCost,
+  KCAL_DAY_TOLERANCE,
+  MEAL_KCAL_SHARE,
+  normalizeParticipants,
+  PROTEIN_DAY_TOLERANCE,
+  RecipeLookup,
+  slotKey,
+  SoftContext,
+  WEIGHTS,
+  weekRelationCost,
+} from './meal-plan-scoring';
+
+/**
+ * Serwerowy planer posiłków — jeden silnik dla dnia, tygodnia i podmiany
+ * jednego slotu (workstream, Etap 2). Dzień to tydzień z jednym dniem,
+ * podmiana to plan jednego slotu z resztą tygodnia jako `fixed`.
+ *
+ * Algorytm (prosty, przewidywalny, bez solvera):
+ * 1. Kandydaci: dla każdej pory filtry TWARDE (`hardFilterReason`: aktywność,
+ *    pora, alergeny, wykluczenia i dieta KAŻDEGO jedzącego, wymagania prośby,
+ *    makra), potem tani ranking wstępny (kcal porcji wobec celu slotu +
+ *    preferencje) i obcięcie do `CANDIDATES_PER_MEAL_TYPE`. To jedyne
+ *    miejsce, które widzi całą pulę — koszt reszty nie rośnie z katalogiem.
+ * 2. Zachłannie: dzień po dniu, pory od największego udziału kcal; w slocie
+ *    wygrywa para (przepis, porcje) o najniższym koszcie planu z tym, co już
+ *    wybrane (bilans dnia wobec celu WYPEŁNIONYCH pór, powtórki, preferencje).
+ * 3. Lokalna poprawa: kilka przejść, w których każdy slot może zmienić danie,
+ *    jeśli obniża to koszt CAŁEGO tygodnia (pełne cele dni, powtórki,
+ *    monotonia, wspólne składniki) — dzięki temu tydzień nie jest sumą
+ *    niezależnie optymalnych dni.
+ * Remisy rozstrzyga ziarno (`seed`) — ten sam seed i dane dają ten sam plan.
+ * Filtry twarde są PRZED scoringiem, więc żaden koszt nie „kupi" alergenu.
+ */
+
+/** Ilu kandydatów na porę trafia do właściwego doboru. */
+export const CANDIDATES_PER_MEAL_TYPE = 60;
+/** Ile przejść lokalnej poprawy najwyżej. */
+export const IMPROVEMENT_PASSES = 3;
+
+const EPSILON = 1e-9;
+
+type Slot = { day: DayOfWeek; meal: MealType };
+
+type Scope = {
+  request: PlanningRequest;
+  lookup: RecipeLookup;
+  members: readonly PlannerEater[];
+  audience: PlannerEater[];
+  participantIds: string[];
+  soft: SoftContext;
+  /** Koszt miękki pozycji zależy tylko od (przepis, udział) — liczony raz. */
+  softCache: Map<string, number>;
+};
+
+function softContextOf(request: PlanningRequest): SoftContext {
+  return {
+    preferredTags: new Set(request.preferences.preferredTags),
+    maxPrepMinutes: request.preferences.maxPrepMinutes,
+    favorites: new Set(request.preferences.favoriteRecipeIds),
+    recent: new Set(request.preferences.recentRecipeIds),
+    popularity: request.preferences.popularity,
+    seed: request.seed ?? '',
+  };
+}
+
+function scopeOf(
+  request: PlanningRequest,
+  recipes: readonly PlannerRecipe[],
+): Scope {
+  const participantIds = normalizeParticipants(
+    request.participantIds,
+    request.members,
+  );
+  return {
+    request,
+    lookup: new Map(recipes.map((recipe) => [recipe.id, recipe])),
+    members: request.members,
+    audience: audienceOf(participantIds, request.members),
+    participantIds,
+    soft: softContextOf(request),
+    softCache: new Map(),
+  };
+}
+
+function orderedMealTypes(mealTypes: readonly MealType[]): MealType[] {
+  return [...new Set(mealTypes)].sort(
+    (a, b) =>
+      MEAL_KCAL_SHARE[b] - MEAL_KCAL_SHARE[a] ||
+      Object.keys(MEAL_KCAL_SHARE).indexOf(a) -
+        Object.keys(MEAL_KCAL_SHARE).indexOf(b),
+  );
+}
+
+function orderedDays(days: readonly DayOfWeek[]): DayOfWeek[] {
+  const wanted = new Set(days);
+  return DAY_ORDER.filter((day) => wanted.has(day));
+}
+
+// ── Koszt ──────────────────────────────────────────────────────────────────
+
+/** Koszt dnia dla audytorium; cel liczony z pór `targetTypes`. */
+function dayCost(
+  scope: Scope,
+  day: DayOfWeek,
+  dayItems: readonly PlannedItem[],
+  targetTypes: Iterable<MealType>,
+): number {
+  const { coverage } = coverageOf(targetTypes);
+  if (scope.audience.length === 0 || coverage <= 0) return 0;
+  let cost = 0;
+  for (const eater of scope.audience) {
+    const planned = eaterDayNutrition(
+      dayItems,
+      eater.userId,
+      scope.members.length,
+      scope.lookup,
+    );
+    cost += eaterDayCost(planned, dayTargetFor(eater, coverage));
+  }
+  cost /= scope.audience.length;
+  // „Podobnie kalorycznie": cel konkretnego slotu, NA OSOBĘ.
+  for (const [key, target] of Object.entries(
+    scope.request.slotKcalTargets ?? {},
+  )) {
+    const [targetDay, meal] = key.split('|') as [DayOfWeek, MealType];
+    if (targetDay !== day || target <= 0) continue;
+    const slotItems = dayItems.filter((item) => item.mealType === meal);
+    let slotCost = 0;
+    for (const eater of scope.audience) {
+      const kcal = eaterDayNutrition(
+        slotItems,
+        eater.userId,
+        scope.members.length,
+        scope.lookup,
+      ).kcal;
+      const deviation = (kcal - target) / target;
+      slotCost += WEIGHTS.slotKcal * deviation * deviation;
+    }
+    cost += slotCost / scope.audience.length;
+  }
+  return cost;
+}
+
+function softCostOf(scope: Scope, items: readonly PlannedItem[]): number {
+  let cost = 0;
+  const eaters = eaterCountOf(scope.participantIds, scope.members.length);
+  for (const item of items) {
+    const recipe = scope.lookup.get(item.recipeId);
+    if (!recipe) continue;
+    const share = item.plannedServings / eaters;
+    const key = `${recipe.id}|${share}`;
+    let value = scope.softCache.get(key);
+    if (value === undefined) {
+      value = itemSoftCost(recipe, share, scope.soft);
+      scope.softCache.set(key, value);
+    }
+    cost += value;
+  }
+  return cost;
+}
+
+/** Pory, wobec których liczy się cel dnia: planowane + to, co już stoi. */
+function fullTargetTypes(
+  scope: Scope,
+  day: DayOfWeek,
+  fixed: readonly PlannedItem[],
+): Set<MealType> {
+  return new Set([
+    ...scope.request.mealTypes,
+    ...fixed.filter((item) => item.dayOfWeek === day).map((i) => i.mealType),
+  ]);
+}
+
+/** Pełna funkcja celu planu (mniej = lepiej) — ta sama w silniku i w ocenie. */
+export function planObjective(
+  request: PlanningRequest,
+  recipes: readonly PlannerRecipe[],
+  planned: readonly PlannedItem[],
+): number {
+  const scope = scopeOf(request, recipes);
+  return objectiveOf(scope, planned);
+}
+
+function objectiveOf(scope: Scope, planned: readonly PlannedItem[]): number {
+  const all = [...scope.request.fixed, ...planned];
+  const days = new Set([
+    ...scope.request.days,
+    ...planned.map((item) => item.dayOfWeek),
+  ]);
+  let cost = 0;
+  for (const day of days) {
+    cost += dayCost(
+      scope,
+      day,
+      all.filter((item) => item.dayOfWeek === day),
+      fullTargetTypes(scope, day, scope.request.fixed),
+    );
+  }
+  return (
+    cost + softCostOf(scope, planned) + weekRelationCost(all, scope.lookup)
+  );
+}
+
+// ── Kandydaci ──────────────────────────────────────────────────────────────
+
+function candidatesFor(
+  scope: Scope,
+  meal: MealType,
+): { stats: CandidateStats; eligible: PlannerRecipe[] } {
+  const removed: Partial<Record<HardFilterReason, number>> = {};
+  const eligible: PlannerRecipe[] = [];
+  for (const recipe of scope.lookup.values()) {
+    const reason = hardFilterReason(
+      recipe,
+      meal,
+      scope.audience,
+      scope.request,
+    );
+    if (reason) {
+      if (reason !== 'MEAL_TYPE' && reason !== 'INACTIVE') {
+        removed[reason] = (removed[reason] ?? 0) + 1;
+      }
+      continue;
+    }
+    eligible.push(recipe);
+  }
+  const suitable = [...scope.lookup.values()].filter(
+    (recipe) => recipe.active && recipe.slots.includes(meal),
+  ).length;
+
+  // Ranking wstępny: kcal porcji wobec średniego celu slotu + miękkie.
+  const { coverage, shareSum } = coverageOf(scope.request.mealTypes);
+  const factor = shareSum > 0 ? coverage / shareSum : 0;
+  const slotTarget =
+    scope.audience.reduce(
+      (sum, eater) => sum + eater.kcalTarget * MEAL_KCAL_SHARE[meal] * factor,
+      0,
+    ) / Math.max(1, scope.audience.length);
+  const pre = (recipe: PlannerRecipe): number =>
+    (slotTarget > 0
+      ? Math.abs((recipe.perServing?.kcal ?? 0) - slotTarget) / slotTarget
+      : 0) + itemSoftCost(recipe, 1, scope.soft);
+  const ranked = eligible
+    .map((recipe) => ({ recipe, score: pre(recipe) }))
+    .sort((a, b) => a.score - b.score || a.recipe.id.localeCompare(b.recipe.id))
+    .slice(0, CANDIDATES_PER_MEAL_TYPE)
+    .map((entry) => entry.recipe);
+
+  return {
+    stats: {
+      mealType: meal,
+      total: suitable,
+      eligible: eligible.length,
+      removed,
+    },
+    eligible: ranked,
+  };
+}
+
+// ── Silnik ─────────────────────────────────────────────────────────────────
+
+export function planMeals(
+  request: PlanningRequest,
+  recipes: readonly PlannerRecipe[],
+): PlanDraft {
+  const startedAt = Date.now();
+  const scope = scopeOf(request, recipes);
+  const meals = orderedMealTypes(request.mealTypes);
+  const days = orderedDays(request.days);
+  const eaters = eaterCountOf(scope.participantIds, scope.members.length);
+  const servingsOptions = allowedServings(
+    eaters,
+    request.portionMode ?? 'tune',
+  );
+
+  const pools = new Map<MealType, PlannerRecipe[]>();
+  const stats: CandidateStats[] = [];
+  for (const meal of meals) {
+    const { stats: mealStats, eligible } = candidatesFor(scope, meal);
+    pools.set(meal, eligible);
+    stats.push(mealStats);
+  }
+
+  const slots: Slot[] = days.flatMap((day) =>
+    meals.map((meal) => ({ day, meal })),
+  );
+  const chosen = new Map<string, PlannedItem>();
+  const planned = () => [...chosen.values()];
+  const itemFor = (slot: Slot, recipeId: string, servings: number) => ({
+    dayOfWeek: slot.day,
+    mealType: slot.meal,
+    recipeId,
+    participantIds: scope.participantIds,
+    plannedServings: servings,
+  });
+
+  /** Koszt planu zależny od slotu: jego dzień + relacje + miękkie. */
+  const localCost = (
+    slot: Slot,
+    items: readonly PlannedItem[],
+    targetTypes: Iterable<MealType>,
+  ): number => {
+    const all = [...request.fixed, ...items];
+    return (
+      dayCost(
+        scope,
+        slot.day,
+        all.filter((item) => item.dayOfWeek === slot.day),
+        targetTypes,
+      ) +
+      weekRelationCost(all, scope.lookup) +
+      softCostOf(scope, items)
+    );
+  };
+
+  const bestFor = (
+    slot: Slot,
+    targetTypes: () => Iterable<MealType>,
+  ): { item: PlannedItem; cost: number } | null => {
+    const key = slotKey(slot.day, slot.meal);
+    let best: { item: PlannedItem; cost: number } | null = null;
+    for (const recipe of pools.get(slot.meal) ?? []) {
+      for (const servings of servingsOptions) {
+        const item = itemFor(slot, recipe.id, servings);
+        const trial = new Map(chosen);
+        trial.set(key, item);
+        const cost = localCost(slot, [...trial.values()], targetTypes());
+        if (!best || cost < best.cost - EPSILON) best = { item, cost };
+      }
+    }
+    return best;
+  };
+
+  // 2. Zachłannie — cel dnia z pór JUŻ wypełnionych (+ stałych).
+  for (const slot of slots) {
+    const best = bestFor(
+      slot,
+      () =>
+        new Set([
+          ...request.fixed
+            .filter((item) => item.dayOfWeek === slot.day)
+            .map((item) => item.mealType),
+          ...planned()
+            .filter((item) => item.dayOfWeek === slot.day)
+            .map((item) => item.mealType),
+          slot.meal,
+        ]),
+    );
+    if (best) chosen.set(slotKey(slot.day, slot.meal), best.item);
+  }
+
+  // 3. Lokalna poprawa — pełne cele dni, koszt całego tygodnia.
+  for (let pass = 0; pass < IMPROVEMENT_PASSES; pass += 1) {
+    let improved = false;
+    for (const slot of slots) {
+      const key = slotKey(slot.day, slot.meal);
+      const current = chosen.get(key);
+      if (!current) continue;
+      const types = () => fullTargetTypes(scope, slot.day, request.fixed);
+      const currentCost = localCost(slot, planned(), types());
+      const best = bestFor(slot, types);
+      if (best && best.cost < currentCost - EPSILON) {
+        chosen.set(key, best.item);
+        improved = true;
+      }
+    }
+    if (!improved) break;
+  }
+
+  const items = slots
+    .map((slot) => chosen.get(slotKey(slot.day, slot.meal)))
+    .filter((item): item is PlannedItem => item !== undefined);
+
+  const evaluation = evaluatePlan(request, recipes, items, {
+    candidates: stats,
+    slotsRequested: slots.length,
+    durationMs: Date.now() - startedAt,
+  });
+
+  const issues: PlanIssue[] = [];
+  for (const meal of meals) {
+    const mealStats = stats.find((entry) => entry.mealType === meal);
+    const pool = pools.get(meal) ?? [];
+    if (pool.length === 0) {
+      issues.push({
+        code: 'NO_CANDIDATES',
+        severity: 'error',
+        mealType: meal,
+        message: `Brak dania na tę porę, które spełnia ograniczenia jedzących i prośby (w puli ${mealStats?.total ?? 0}, odpadły: ${describeRemoved(mealStats?.removed ?? {})}).`,
+      });
+      continue;
+    }
+    const needed = days.length;
+    if (mealStats && mealStats.eligible < needed) {
+      issues.push({
+        code: 'REPEAT_FORCED',
+        severity: 'info',
+        mealType: meal,
+        message: `Tylko ${mealStats.eligible} dań spełnia ograniczenia na ${needed} dni — powtórki są nieuniknione.`,
+      });
+    }
+  }
+  issues.push(...evaluation.issues);
+
+  return {
+    status: statusOf(items.length, slots.length, issues),
+    items,
+    diagnostics: {
+      issues,
+      days: evaluation.days,
+      candidates: stats,
+      metrics: evaluation.metrics,
+    },
+  };
+}
+
+function describeRemoved(
+  removed: Partial<Record<HardFilterReason, number>>,
+): string {
+  const entries = Object.entries(removed).filter(([, count]) => count);
+  return entries.length > 0
+    ? entries.map(([reason, count]) => `${reason}×${count}`).join(', ')
+    : 'brak dań na tę porę';
+}
+
+function statusOf(
+  filled: number,
+  requested: number,
+  issues: readonly PlanIssue[],
+): PlanStatus {
+  if (requested > 0 && filled === 0) return 'UNSAT';
+  if (filled < requested) return 'PARTIAL';
+  const missed = issues.some(
+    (issue) =>
+      issue.code === 'KCAL_OUT_OF_TOLERANCE' ||
+      issue.code === 'PROTEIN_OUT_OF_TOLERANCE',
+  );
+  return missed ? 'PARTIAL' : 'OK';
+}
+
+// ── Ocena dowolnego planu ──────────────────────────────────────────────────
+
+/**
+ * Ocena planu NIEZALEŻNA od tego, kto go ułożył — planer albo model.
+ * `items` = pozycje do oceny (planowane), `request.fixed` = reszta tygodnia.
+ * Te same reguły co funkcja celu silnika; do tego ponowne sprawdzenie
+ * filtrów twardych (`hardViolations` — dla planu z planera zawsze 0).
+ */
+export function evaluatePlan(
+  request: PlanningRequest,
+  recipes: readonly PlannerRecipe[],
+  items: readonly PlannedItem[],
+  extra: {
+    candidates?: CandidateStats[];
+    slotsRequested?: number;
+    durationMs?: number;
+  } = {},
+): { days: DayDiagnostics[]; issues: PlanIssue[]; metrics: PlanMetrics } {
+  const scope = scopeOf(request, recipes);
+  const all = [...request.fixed, ...items];
+  const issues: PlanIssue[] = [];
+  const days: DayDiagnostics[] = [];
+  const kcalDeviations: number[] = [];
+  const macroDeviations = { protein: [], fat: [], carbs: [] } as Record<
+    'protein' | 'fat' | 'carbs',
+    number[]
+  >;
+
+  for (const day of orderedDays(request.days)) {
+    const dayItems = all.filter((item) => item.dayOfWeek === day);
+    const { coverage } = coverageOf(fullTargetTypes(scope, day, request.fixed));
+    const eaters = scope.audience.map((eater) => {
+      const planned = eaterDayNutrition(
+        dayItems,
+        eater.userId,
+        scope.members.length,
+        scope.lookup,
+      );
+      const target = dayTargetFor(eater, coverage);
+      const kcalDeviation =
+        target.kcal > 0 ? (planned.kcal - target.kcal) / target.kcal : 0;
+      kcalDeviations.push(Math.abs(kcalDeviation));
+      if (Math.abs(kcalDeviation) > KCAL_DAY_TOLERANCE) {
+        issues.push({
+          code: 'KCAL_OUT_OF_TOLERANCE',
+          severity: 'warning',
+          dayOfWeek: day,
+          userId: eater.userId,
+          planned: Math.round(planned.kcal),
+          target: Math.round(target.kcal),
+          message: `${Math.round(planned.kcal)} kcal wobec celu ${Math.round(target.kcal)} (${signedPct(kcalDeviation)}).`,
+        });
+      }
+      for (const macro of ['protein', 'fat', 'carbs'] as const) {
+        const macroTarget = target[macro];
+        if (!macroTarget) continue;
+        const deviation = (planned[macro] - macroTarget) / macroTarget;
+        macroDeviations[macro].push(Math.abs(deviation));
+        const tolerance =
+          macro === 'protein' ? PROTEIN_DAY_TOLERANCE : FAT_CARBS_DAY_TOLERANCE;
+        if (Math.abs(deviation) > tolerance) {
+          issues.push({
+            code:
+              macro === 'protein'
+                ? 'PROTEIN_OUT_OF_TOLERANCE'
+                : 'MACRO_OUT_OF_TOLERANCE',
+            severity: macro === 'protein' ? 'warning' : 'info',
+            dayOfWeek: day,
+            userId: eater.userId,
+            planned: Math.round(planned[macro]),
+            target: Math.round(macroTarget),
+            message: `${macro}: ${Math.round(planned[macro])} g wobec ${Math.round(macroTarget)} g (${signedPct(deviation)}).`,
+          });
+        }
+      }
+      return {
+        userId: eater.userId,
+        kcal: Math.round(planned.kcal),
+        kcalTarget: Math.round(target.kcal),
+        kcalDeviation: round3(kcalDeviation),
+        protein: Math.round(planned.protein),
+        proteinTarget: roundOrNull(target.protein),
+        fat: Math.round(planned.fat),
+        fatTarget: roundOrNull(target.fat),
+        carbs: Math.round(planned.carbs),
+        carbsTarget: roundOrNull(target.carbs),
+      };
+    });
+    days.push({ dayOfWeek: day, coverage: round3(coverage), eaters });
+  }
+
+  let hardViolations = 0;
+  let softUnmet = 0;
+  for (const item of items) {
+    const recipe = scope.lookup.get(item.recipeId);
+    const audience = audienceOf(item.participantIds, scope.members);
+    const reason = recipe
+      ? hardFilterReason(recipe, item.mealType, audience, request)
+      : 'INACTIVE';
+    if (reason && reason !== 'NO_NUTRITION') hardViolations += 1;
+    if (!recipe) continue;
+    const { maxPrepMinutes, preferredTags } = request.preferences;
+    if (maxPrepMinutes !== null && recipe.prepTimeMinutes > maxPrepMinutes) {
+      softUnmet += 1;
+      issues.push({
+        code: 'PREP_TIME_EXCEEDED',
+        severity: 'info',
+        dayOfWeek: item.dayOfWeek,
+        mealType: item.mealType,
+        message: `${recipe.title}: ${recipe.prepTimeMinutes} min (podpowiedź: ${maxPrepMinutes}).`,
+      });
+    }
+    if (
+      preferredTags.length > 0 &&
+      !recipe.tags.some((tag) => preferredTags.includes(tag))
+    ) {
+      softUnmet += 1;
+      issues.push({
+        code: 'PREFERENCE_UNMET',
+        severity: 'info',
+        dayOfWeek: item.dayOfWeek,
+        mealType: item.mealType,
+        message: `${recipe.title}: bez żadnego z tagów ${preferredTags.join(', ')}.`,
+      });
+    }
+  }
+
+  const uses = new Map<string, number>();
+  for (const item of all) {
+    uses.set(item.recipeId, (uses.get(item.recipeId) ?? 0) + 1);
+  }
+  let repeats = 0;
+  for (const count of uses.values()) repeats += Math.max(0, count - 1);
+
+  const requestedSlots = new Set(
+    orderedDays(request.days).flatMap((day) =>
+      request.mealTypes.map((meal) => slotKey(day, meal)),
+    ),
+  );
+  const filled = new Set(
+    items
+      .map((item) => slotKey(item.dayOfWeek, item.mealType))
+      .filter((key) => requestedSlots.has(key)),
+  );
+
+  return {
+    days,
+    issues,
+    metrics: {
+      kcalDeviationPct: pct(mean(kcalDeviations)),
+      maxKcalDeviationPct: pct(Math.max(0, ...kcalDeviations)),
+      proteinDeviationPct: meanPctOrNull(macroDeviations.protein),
+      fatDeviationPct: meanPctOrNull(macroDeviations.fat),
+      carbsDeviationPct: meanPctOrNull(macroDeviations.carbs),
+      hardViolations,
+      repeats,
+      softUnmet,
+      objective: round3(objectiveOf(scope, items)),
+      slotsRequested: extra.slotsRequested ?? requestedSlots.size,
+      slotsFilled: filled.size,
+      candidatesConsidered: (extra.candidates ?? []).reduce(
+        (sum, entry) => sum + entry.eligible,
+        0,
+      ),
+      durationMs: extra.durationMs ?? 0,
+    },
+  };
+}
+
+const mean = (values: readonly number[]): number =>
+  values.length === 0
+    ? 0
+    : values.reduce((sum, value) => sum + value, 0) / values.length;
+const pct = (fraction: number): number => Math.round(fraction * 1000) / 10;
+const meanPctOrNull = (values: readonly number[]): number | null =>
+  values.length === 0 ? null : pct(mean(values));
+const round3 = (value: number): number => Math.round(value * 1000) / 1000;
+const roundOrNull = (value: number | null): number | null =>
+  value === null ? null : Math.round(value);
+const signedPct = (fraction: number): string =>
+  `${fraction >= 0 ? '+' : '−'}${Math.round(Math.abs(fraction) * 100)} %`;
