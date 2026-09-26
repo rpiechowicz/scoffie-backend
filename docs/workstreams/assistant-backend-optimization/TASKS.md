@@ -185,27 +185,27 @@ twarde ograniczenia = 0, legacy działa bez zmian. Raport: `reports/02-2-per-use
 Po przeniesieniu domeny na serwer uprościć rolę modelu.
 
 ### Zadania
-- [ ] Typowe „co na kolację?” powinno kończyć się jedną rundą modelu, jeżeli
+- [x] Typowe „co na kolację?” powinno kończyć się jedną rundą modelu, jeżeli
       intencja jest jednoznaczna.
-- [ ] Narzędzie wysokiego poziomu może samo wyszukać i przygotować 3 różne
+- [x] Narzędzie wysokiego poziomu może samo wyszukać i przygotować 3 różne
       opcje; model nie musi najpierw osobno sterować `find_recipes`.
-- [ ] Bilans dnia/tygodnia dołączać selektywnie do potrzebnego kontekstu;
+- [x] Bilans dnia/tygodnia dołączać selektywnie do potrzebnego kontekstu;
       rozróżniać „zaplanowane” i „zjedzone”. Nie wysyłać zawsze całego
       gospodarstwa i całego tygodnia.
-- [ ] Gdy terminalna karta została poprawnie utworzona, backend może dopisać
+- [x] Gdy terminalna karta została poprawnie utworzona, backend może dopisać
       krótkie deterministyczne zdanie zamiast płacić za kolejną rundę.
-- [ ] Rozszerzyć mechanizm terminal cards tylko po sprawdzeniu sytuacji z
+- [x] Rozszerzyć mechanizm terminal cards tylko po sprawdzeniu sytuacji z
       kilkoma narzędziami kończącymi w jednej odpowiedzi.
-- [ ] Usunąć sprzeczność wokół `get_household_context`, jeśli wymagany kontekst
+- [x] Usunąć sprzeczność wokół `get_household_context`, jeśli wymagany kontekst
       faktycznie jest już dostarczony.
-- [ ] `apply_week_plan` usunąć z narzędzi modelu tylko po sprawdzeniu realnych
+- [x] (sprawdzone — zostaje, DEPRECATE z trybem bezpośrednim) `apply_week_plan` usunąć z narzędzi modelu tylko po sprawdzeniu realnych
       call-sites/trybów kompatybilności.
-- [ ] Narzędzia create/update/delete recipe nie powinny być eksponowane modelowi
+- [x] (delete zdjęte; create/update zostają do live benchmarku) Narzędzia create/update/delete recipe nie powinny być eksponowane modelowi
       bez uzasadnionego scenariusza.
-- [ ] Odchudzić odpowiedź `find_recipes`: zwracać minimalne dane potrzebne do
+- [x] Odchudzić odpowiedź `find_recipes`: zwracać minimalne dane potrzebne do
       decyzji, a szczegóły dociągać na żądanie. Nie usuwać informacji, które są
       potrzebne do wyjaśnienia „dlaczego to pasuje”.
-- [ ] Niższy effort testować dopiero po stabilizacji serwerowego planera.
+- [ ] (Etap 6 — effort bez zmian w Etapie 3) Niższy effort testować dopiero po stabilizacji serwerowego planera.
       Nie przyjmować założenia „low wszędzie”.
 
 ### Kryterium zakończenia

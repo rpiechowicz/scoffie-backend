@@ -224,8 +224,9 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
     jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
     akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
     jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie
-    (kilka markerów = kolejne dni), `[[options:<id>,<id>]]`, `[[revise:<proposalId>:<DZIEŃ>:<PORA>:<id>]]`,
-    `[[cost:<µ$>]]` (koszt wywołania 0 przed `AI_STUB_DELAY_MS`).
+    (kilka markerów = kolejne dni; idzie WEWNĘTRZNYM `propose_week_plan`), `[[options:<id>,<id>]]`,
+    `[[revise:<proposalId>:<DZIEŃ>:<PORA>:<id>]]`, `[[suggest:<DZIEŃ>:<PORA>:<quick|->]]`,
+    `[[tool]]` (`get_week_plan`), `[[cost:<µ$>]]` (koszt wywołania 0 przed `AI_STUB_DELAY_MS`).
   - Historia dla modelu niesie karty z poprzednich tur jako zwięzły dopisek (`history-cards.ts`):
     OPTIONS „1) R012 Tytuł; …", najnowsza propozycja planu z id, statusem Z BAZY i pozycjami,
     starsze jedną linią. Poprawka jednej pozycji propozycji PENDING = `revise_proposal` (serwer bierze
@@ -265,6 +266,21 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   domownik dostaje 1,0, wychodzący znika z alokacji (`plan-roster.util.ts`). Reguły w
   `src/weekly-plans/utils/plan-portions.util.ts`; nowa ścieżka zapisu planu MUSI przejść przez
   `portionsProblem`, a zawężenie audytorium — zdjąć porcje osób, które wychodzą (`narrowSlot`).
+- Odchudzony asystent (od 26.09.2026, workstream Etap 3, raport `reports/03-agent-thinning.md`):
+  model rozumie prośbę i wybiera JEDNĄ operację serwera, serwer szuka, filtruje, planuje, liczy
+  i buduje kartę. „Co na kolację?"/„3 szybkie"/„mam kurczaka" = `suggest_meals` (silnik
+  `suggestForSlot`: filtry twarde planera, bilans dnia osoby, zawężenie życzeniem miękkim,
+  różnorodność; ta sama karta OPTIONS co `offer_options`). Narzędzie z kartą kończy turę także bez
+  tekstu modelu — `AgentToolResult.turnText` (zdanie serwera, `turnTextFor`); `null` = model ma
+  coś do wyjaśnienia (np. plan PARTIAL) i dostaje rundę. JEDNA karta na turę: `TurnMemo.claimCard`
+  (synchronicznie, przed pierwszym `await`), druga = `AI_ONE_CARD_PER_TURN`, odmowa zwalnia kartę.
+  Pamięć tury `src/agent/turn-memo.ts` (`TURN_KEYS`): domownicy, zgody i wiersz domu czytane RAZ
+  na turę przez prompt, executor, planer i propozycje — planu tygodnia tam NIE ma (zapis go
+  zmienia). Dostawca wykonuje WYŁĄCZNIE narzędzia z listy wysłanej modelowi w tej fazie; executor
+  zna dodatkowo `INTERNAL_AGENT_TOOLS` (`propose_week_plan` dla stuba i harnessu). Z modelu zdjęte
+  (`RETIRED_MODEL_TOOLS`): `get_household_context` (domownicy są w bloku gospodarstwa),
+  `propose_week_plan`, `delete_recipe`. `find_recipes` oddaje modelowi chudy wynik (bez składu,
+  alergenów, tłuszczu, węgli, porcji); `start_planning` bez kandydatów.
 - Postęp tury (`AgentTurn.progress`, `src/agent/agent-progress.ts`): kroki narzędzi plus kroki
   PRZEJŚCIOWE (`transient: true`) — `read` (start tury), `reason` (blok myślenia w strumieniu),
   `write` (pierwszy fragment tekstu), `think` (cisza po narzędziach). Dostawca melduje je przez
@@ -278,9 +294,9 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   DTO i tak sprawdza to samo). Oba limity pilnują spec-i w `agent-tools.spec.ts`, ale jedyny
   pewny sprawdzian to `pnpm exec tsx scripts/agent-tools-smoke.ts` — jedno żądanie do API za
   grosze. Dostawca `stub` schematów NIE OGLĄDA, więc pełna suita bywa zielona przy schematach,
-  które padają u każdego użytkownika. **Budżet pól nieobowiązkowych jest WYCZERPANY: 24/24**
-  (stan 18.09.2026), więc nowe narzędzie może mieć wyłącznie pola wymagane — albo trzeba
-  najpierw zwolnić miejsce w istniejących. Jak liczyć: spec „pól nieobowiązkowych mieści się
+  które padają u każdego użytkownika. **Budżet pól nieobowiązkowych: 20/24** (od 26.09.2026 —
+  Etap 3 zdjął z modelu `propose_week_plan`); nowe narzędzie i tak dawaj z samymi polami
+  wymaganymi („brak" = [], NONE, 0, „") — zapas jest na naprawy, nie na wygodę. Jak liczyć: spec „pól nieobowiązkowych mieści się
   w limicie (24)” w `agent-tools.spec.ts`.
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
