@@ -1,0 +1,187 @@
+{
+  "label": "cand-E-g5-trzy-dni",
+  "startedAt": "2026-09-26T17:17:46.519Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.011039,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.011039,
+      "p95CostUsd": 0.011039,
+      "medianLatencyMs": 12668,
+      "latencySplit": {
+        "wait": 0.16932428165456267,
+        "thinking": 0.8245974107988633,
+        "toolInput": 0.0014998421218819073,
+        "text": 0,
+        "toolsRun": 0.0040258920113672245,
+        "other": 0.0005525734133249131
+      },
+      "medianFirstBlockMs": 2145,
+      "cacheHitRatio": 0.9305131945365336,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 5,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.011039
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g5-trzy-dni",
+      "group": 5,
+      "pyta": "Czy trzy dni to trzy dni — i czy mieszczą się w rozsądnej liczbie rund?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "40e4163d-9cca-49ec-8249-7a388fb2ea9d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 619
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "fad151de-b3aa-4fbd-b666-876d3dc94cd0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 838
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "2e500ad6-49fc-4d15-bc65-096f072f0c40",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 612
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "d0b4e5af-96cf-4dfc-bd16-7b7eab32e01e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 594
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "80918f83-9674-42d0-90dc-f79c7a62ef78",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 12668,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 12616,
+          "firstBlockMs": 2145,
+          "thinkingMs": 10446,
+          "toolInputMs": 19,
+          "textMs": 0,
+          "outputTokens": 1160,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 51
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 1160,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1562,
+      "cacheHitRatio": 0.9305131945365336,
+      "costMicroUsd": 11039,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

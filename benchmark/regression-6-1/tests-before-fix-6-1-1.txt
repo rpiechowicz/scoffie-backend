@@ -1,0 +1,9 @@
+[przed 6.1.1]     × g4: limit kcal z ROZMOWY trafia do planera jako cel dnia — profil bez zmian (255 ms)
+[przed 6.1.1]     × g8 (rollout porcji WYŁĄCZONY): jedno danie, bez alokacji — karta nie udaje różnych talerzy (62 ms)
+[przed 6.1.1]     × g8 (rollout porcji WŁĄCZONY): porcje serwera → stan propozycji → APPLY → PlanItemPortion i bilans = karta (67 ms)
+[przed 6.1.1]     √ g9: twardy limit 5 min — żadne dłuższe danie w propozycji, status PARTIAL/UNSAT z jednoznacznym powodem (51 ms)
+[przed 6.1.1]     √ g11: edycja przepisu KATALOGOWEGO — jawny wynik „tylko do odczytu", tura kończy się wyjaśnieniem serwera, bez kopii i bez zmiany planu (197 ms)
+[przed 6.1.1]     √ g13-pokaz-inne: druga prośba o dania na TEN SAM posiłek daje nowe dania — serwer pamięta poprzednią kartę (275 ms)
+[przed 6.1.1]     × g13-pokaz-inne przy MAŁEJ puli: bez powtórek podanych jako nowe, na końcu jawne „nowych propozycji zabrakło" (82 ms)
+[przed 6.1.1]     √ g13-zmiana-w-propozycji: „tylko kolacja wegetariańska" — B1 i L1 zostają, D2 spełnia dietę (82 ms)
+[przed 6.1.1] Tests:       4 failed, 4 passed, 8 total

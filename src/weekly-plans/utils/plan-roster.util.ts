@@ -1,5 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { autoPlannedServings } from './planned-servings.util';
+import {
+  derivedPlannedServings,
+  PORTION_UNITS_PER_SERVING,
+  toPortionViews,
+} from './plan-portions.util';
 import { currentWeekStart, formatWeekStart } from './week-formatting.util';
 import { lockWeeksForWriteFrom } from './week-write-lock.util';
 
@@ -91,12 +96,81 @@ async function reDeriveSharedServings(
       // z długości listy, nie z liczby domowników, więc zmiana składu ich nie
       // dotyczy.
       participants: { none: {} },
+      // Pozycje z porcjami per osoba mają własną regułę (Etap 2.2) — ich
+      // `plannedServings` to pochodna sumy porcji, nie reguła auto.
+      portions: { none: {} },
       weeklyPlan: { householdId, weekStart: { gte: monday } },
     },
     data: { plannedServings: nextAuto },
   });
 
   return updated.count;
+}
+
+/// „Wspólne" z porcjami per osoba od bieżącego tygodnia: nowy domownik je je
+/// tak samo jak każdy (pusty zbiór uczestników = cały dom), więc dostaje
+/// porcję 1,0 — tę samą, którą dałaby mu reguła auto — a łączna liczba porcji
+/// rośnie razem z listą zakupów. Bez tego bilans nowej osoby liczyłby się
+/// z porcji, której nikt nie ugotował.
+async function addJoinedPortions(
+  tx: PrismaLike,
+  householdId: string,
+  userId: string,
+  monday: Date,
+): Promise<number> {
+  const items = await tx.planItem.findMany({
+    where: {
+      participants: { none: {} },
+      portions: { some: {} },
+      weeklyPlan: { householdId, weekStart: { gte: monday } },
+    },
+    select: { id: true, portions: { select: { userId: true, units: true } } },
+  });
+  let touched = 0;
+  for (const item of items) {
+    if (item.portions.some((portion) => portion.userId === userId)) continue;
+    const next = [
+      ...item.portions,
+      { userId, units: PORTION_UNITS_PER_SERVING },
+    ];
+    await tx.planItem.update({
+      where: { id: item.id },
+      data: {
+        plannedServings: derivedPlannedServings(toPortionViews(next)),
+        portions: {
+          create: [{ userId, units: PORTION_UNITS_PER_SERVING }],
+        },
+      },
+    });
+    touched += 1;
+  }
+  return touched;
+}
+
+/// Porcje odchodzącego znikają z przyszłych tygodni, a `plannedServings`
+/// pozycji, w których zostały porcje innych, liczy się od nowa z ich sumy —
+/// lista zakupów przestaje kupować dla kogoś, kogo już nie ma (Etap 2.2).
+async function removeLeavingPortions(
+  tx: PrismaLike,
+  userId: string,
+  weekScope: { householdId: string; weekStart: { gte: Date } },
+): Promise<void> {
+  const items = await tx.planItem.findMany({
+    where: { weeklyPlan: weekScope, portions: { some: { userId } } },
+    select: { id: true, portions: { select: { userId: true, units: true } } },
+  });
+  if (items.length === 0) return;
+  await tx.planItemPortion.deleteMany({
+    where: { userId, planItemId: { in: items.map((item) => item.id) } },
+  });
+  for (const item of items) {
+    const rest = item.portions.filter((portion) => portion.userId !== userId);
+    if (rest.length === 0) continue;
+    await tx.planItem.update({
+      where: { id: item.id },
+      data: { plannedServings: derivedPlannedServings(toPortionViews(rest)) },
+    });
+  }
 }
 
 /// Zmiana składu gospodarstwa BEZ odejścia konkretnej osoby (ktoś dołączył).
@@ -108,19 +182,25 @@ export async function onRosterChanged(
   oldMemberCount: number,
   newMemberCount: number,
   now: Date = new Date(),
+  /** Kto dołączył — dostaje porcję 1,0 we „Wspólnych" z alokacją (Etap 2.2). */
+  joinedUserId?: string,
 ): Promise<RosterChangeOutcome> {
   if (oldMemberCount === newMemberCount) {
     return { touchedWeekStarts: [], reDerivedItemCount: 0 };
   }
   const monday = currentWeekStart(now);
   await lockWeeksForWriteFrom(tx, householdId, monday);
-  const reDerivedItemCount = await reDeriveSharedServings(
-    tx,
-    householdId,
-    oldMemberCount,
-    newMemberCount,
-    monday,
-  );
+  const reDerivedItemCount =
+    (await reDeriveSharedServings(
+      tx,
+      householdId,
+      oldMemberCount,
+      newMemberCount,
+      monday,
+    )) +
+    (joinedUserId
+      ? await addJoinedPortions(tx, householdId, joinedUserId, monday)
+      : 0);
   if (reDerivedItemCount === 0) {
     return { touchedWeekStarts: [], reDerivedItemCount };
   }
@@ -168,6 +248,7 @@ export async function onMemberLeft(
       id: true,
       plannedServings: true,
       participants: { select: { userId: true } },
+      portions: { select: { userId: true } },
     },
   });
   const deletedItemIds = affected
@@ -179,6 +260,8 @@ export async function onMemberLeft(
   // liczbę porcji (inną niż auto) zostawiamy.
   for (const item of affected) {
     if (item.participants.length < 2) continue;
+    // Porcje per osoba liczą się niżej, z sumy tych, które zostają.
+    if ((item.portions ?? []).length > 0) continue;
     if (item.plannedServings !== item.participants.length) continue;
     await tx.planItem.update({
       where: { id: item.id },
@@ -195,6 +278,7 @@ export async function onMemberLeft(
   await tx.planItemParticipant.deleteMany({
     where: { userId, planItem: { weeklyPlan: weekScope } },
   });
+  await removeLeavingPortions(tx, userId, weekScope);
   await tx.planItemConsumption.deleteMany({
     where: { userId, planItem: { weeklyPlan: weekScope } },
   });

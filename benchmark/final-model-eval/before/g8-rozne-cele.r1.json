@@ -1,0 +1,236 @@
+{
+  "label": "before-g8-rozne-cele",
+  "startedAt": "2026-09-26T16:20:48.325Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.09057,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.09057,
+      "p95CostUsd": 0.09057,
+      "medianLatencyMs": 43398,
+      "latencySplit": {
+        "wait": 0.14767961657219228,
+        "thinking": 0.6611595004378082,
+        "toolInput": 0.14539840545647265,
+        "text": 0.044379925342181666,
+        "toolsRun": 0.0011751693626434398,
+        "other": 0.00020738282870178348
+      },
+      "medianFirstBlockMs": 2069,
+      "cacheHitRatio": 0.8734854233471226,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 8,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.09057
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g8-rozne-cele",
+      "group": 8,
+      "pyta": "Czy trzy różne cele w jednym domu dają kompletny plan?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes",
+        "propose_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_week_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "07bbe3de-c13f-4825-bd5b-59753673344c",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 487
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "3f020f86-3ce8-43b9-8782-1aaa4a51806d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 325
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "0f921aec-4f63-4beb-ac00-fd8f9b9893c4",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 583
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 661
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "274498e4-43c2-44c4-9fbc-3ec2c96b0d9e",
+          "calorieGoal": 2600
+        },
+        {
+          "key": "ania",
+          "userId": "818dcadd-a9fb-4be4-833b-d45b668ae5c8",
+          "calorieGoal": 1700
+        },
+        {
+          "key": "olek",
+          "userId": "a387b18a-c6c4-4f13-9ed8-938346048dbc",
+          "calorieGoal": 2100
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 43398,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 24308,
+          "firstBlockMs": 2069,
+          "thinkingMs": 18378,
+          "toolInputMs": 3858,
+          "textMs": 0,
+          "outputTokens": 2174,
+          "tools": [
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 25
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 15175,
+          "firstBlockMs": 2407,
+          "thinkingMs": 10315,
+          "toolInputMs": 2452,
+          "textMs": 0,
+          "outputTokens": 1197,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 26
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3862,
+          "firstBlockMs": 1933,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1926,
+          "outputTokens": 125,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 3496,
+      "cacheReadTokens": 71369,
+      "cacheWriteTokens": 10331,
+      "cacheHitRatio": 0.8734854233471226,
+      "costMicroUsd": 90570,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan gotowy — obiady i kolacje na poniedziałek, wtorek i środę, z rozpiętością kalorii, żeby Rafal, Ania i Olek mogli dobrać porcje pod swoje cele. Warto przy każdym posiłku dopasować wielkość porcji indywidualnie, bo dania są wspólne dla całego domu.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+{
+  "label": "cand-E-g12-chwilowa-niechec",
+  "startedAt": "2026-09-26T17:23:52.148Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.011167,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.011167,
+      "p95CostUsd": 0.011167,
+      "medianLatencyMs": 21669,
+      "latencySplit": {
+        "wait": 0.11629516821265402,
+        "thinking": 0.8832433430245974,
+        "toolInput": 0,
+        "text": 0.00023074438137431354,
+        "toolsRun": 0,
+        "other": 0.00023074438137431354
+      },
+      "medianFirstBlockMs": 2520,
+      "cacheHitRatio": 0.9309658588360162,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 12,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.011167
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g12-chwilowa-niechec",
+      "group": 12,
+      "pyta": "Czy „dzisiaj nie mam ochoty\" NIE zostaje w pamięci na zawsze?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "01268443-565c-4e12-b4bb-06f85f6617ad",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 21669,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 21667,
+          "firstBlockMs": 2520,
+          "thinkingMs": 19139,
+          "toolInputMs": 0,
+          "textMs": 5,
+          "outputTokens": 1190,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 1190,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1551,
+      "cacheHitRatio": 0.9309658588360162,
+      "costMicroUsd": 11167,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Zapamiętam — żadnej ryby dzisiaj. Chcesz, żebym zaproponował ci coś na kolację bez ryb, czy czekasz z resztą planu?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

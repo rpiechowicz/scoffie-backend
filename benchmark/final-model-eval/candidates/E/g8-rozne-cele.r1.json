@@ -1,0 +1,208 @@
+{
+  "label": "cand-E-g8-rozne-cele",
+  "startedAt": "2026-09-26T17:20:08.481Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.017955,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.017955,
+      "p95CostUsd": 0.017955,
+      "medianLatencyMs": 15396,
+      "latencySplit": {
+        "wait": 0.1685502727981294,
+        "thinking": 0.6311379579111458,
+        "toolInput": 0.0002598077422707197,
+        "text": 0.19440114315406598,
+        "toolsRun": 0.005131202909846713,
+        "other": 0.0005196154845414394
+      },
+      "medianFirstBlockMs": 1218,
+      "cacheHitRatio": 0.922298503075728,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 8,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.017955
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g8-rozne-cele",
+      "group": 8,
+      "pyta": "Czy trzy różne cele w jednym domu dają kompletny plan?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "PARTIAL"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 3,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "6cd87ab9-dd7d-47b0-8c04-3f198aad0ef3",
+          "participantIds": [],
+          "plannedServings": 3,
+          "kcalPerServing": 534
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "feec4508-9e76-47c5-bffd-ccf5c50e0291",
+          "participantIds": [],
+          "plannedServings": 3,
+          "kcalPerServing": 855
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "778b7022-97a0-472f-8636-0943720ac46c",
+          "participantIds": [],
+          "plannedServings": 3,
+          "kcalPerServing": 576
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 3,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "16f154b3-dd15-4292-9fa9-bf4014aa05c9",
+          "participantIds": [],
+          "plannedServings": 3,
+          "kcalPerServing": 511
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "94d2a442-8bc2-492b-a0d0-2446200c8743",
+          "calorieGoal": 2600
+        },
+        {
+          "key": "ania",
+          "userId": "ea901250-46c4-4b62-b8fa-46dad7e523bb",
+          "calorieGoal": 1700
+        },
+        {
+          "key": "olek",
+          "userId": "e751a5e4-cc04-422d-a4db-bd32390a7d45",
+          "calorieGoal": 2100
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 15396,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 11101,
+          "firstBlockMs": 1377,
+          "thinkingMs": 9717,
+          "toolInputMs": 4,
+          "textMs": 0,
+          "outputTokens": 1038,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 79
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 4214,
+          "firstBlockMs": 1218,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2993,
+          "outputTokens": 197,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 15,
+      "outputTokens": 1235,
+      "cacheReadTokens": 43930,
+      "cacheWriteTokens": 3686,
+      "cacheHitRatio": 0.922298503075728,
+      "costMicroUsd": 17955,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan dla trzech dni jest gotów, ale w tym domu z bardzo różnymi celami pojawił się problem: jedno wspólne danie źle mapuje się na cele Ani (ma najmniej kalorii, a posiłki wychodzą zawyżone) i Rafała (ma więcej kalorii, a mu brakuje). Porcje dla wszystkich musiałyby być różne, żeby każdy trafił w swój cel.\n\nChcecie propozycji jako teraz (każdy je to samo, ale porcje każdy dostosuje sam), czy mogę zamiast tego zaproponować osobne dania dla kogoś z innym celem — powiedzmy, że Ania na niektórych posiłkach dostanie coś lżejszego?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

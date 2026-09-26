@@ -1,0 +1,318 @@
+{
+  "label": "cand-D-g9-nierealny-czas",
+  "startedAt": "2026-09-26T17:06:16.110Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "D",
+      "label": "Haiku / low (wszystko)",
+      "model": "claude-haiku-4-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.012266,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "D",
+      "configLabel": "Haiku / low (wszystko)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.012266,
+      "p95CostUsd": 0.012266,
+      "medianLatencyMs": 7224,
+      "latencySplit": {
+        "wait": 0.349390919158361,
+        "thinking": 0,
+        "toolInput": 0.2033499446290144,
+        "text": 0.42967884828349945,
+        "toolsRun": 0.015780730897009966,
+        "other": 0.0017995570321151717
+      },
+      "medianFirstBlockMs": 1254,
+      "cacheHitRatio": 0.9402907915993538,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 9,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.012266
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g9-nierealny-czas",
+      "group": 9,
+      "pyta": "Czy niewykonalne ograniczenie daje jasną odmowę zamiast pętli narzędzi?",
+      "config": "D",
+      "configLabel": "Haiku / low (wszystko)",
+      "model": "claude-haiku-4-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "PARTIAL"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "58e5f54d-d27b-4a50-8e5e-949aa9eb90e6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 619
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "5d3f3b54-08b0-4c43-9d3c-622c8494d9d6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 437
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "136432dd-0504-4955-87d6-4d7b7d3a9cfb",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 685
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "d2686e3d-2468-4697-8b9a-45e396dd4980",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 792
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "BREAKFAST",
+          "recipeId": "890b5afa-b931-4a85-b95c-446632c1efcf",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 402
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "3372daf0-cdae-45b7-a559-5804e2f92db1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 663
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "e68a1283-2074-4c60-a64f-75e8965c5207",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 650
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "170900af-73fa-4b13-950c-6b225e662f09",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 477
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "b078764b-99b2-4fe4-b420-afee1bd92334",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 744
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "af34c689-8cc5-4c4b-b5f0-50b1b987e07e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 454
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "2162e370-7431-431e-847e-17b1aa344d42",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 457
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "7b670143-98f1-4806-aa76-14194012a60a",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 657
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "4e7bf9c8-4672-4aca-812c-03f0159ce3aa",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 506
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "5dc003f2-3496-4bc1-aa46-27e310c3eb6e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 558
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "18e52098-3fc4-4a21-97df-c98d6864af18",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 686
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "8dc245ab-82f3-4a20-90d8-d8afa6c2c03b",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 836
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "83c46d0b-9e39-460d-ba24-ccf57b1c52df",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 526
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "b5ad3ca5-008a-4179-816d-0c7976f2c18f",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 553
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "8dc245ab-82f3-4a20-90d8-d8afa6c2c03b",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 836
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "BREAKFAST",
+          "recipeId": "386586d2-b4f8-41f0-9641-cce2b7c20dd7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 336
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "d41eb506-b69d-4d59-b5a7-2adcb2e01bbe",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 620
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "c2d83f6d-f42d-4548-92a4-b2f082267a73",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 7224,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3205,
+          "firstBlockMs": 1254,
+          "thinkingMs": 0,
+          "toolInputMs": 1469,
+          "textMs": 476,
+          "outputTokens": 283,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 114
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3904,
+          "firstBlockMs": 1270,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2628,
+          "outputTokens": 190,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 8,
+      "outputTokens": 473,
+      "cacheReadTokens": 43653,
+      "cacheWriteTokens": 2764,
+      "cacheHitRatio": 0.9402907915993538,
+      "costMicroUsd": 12266,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan się nie domyka — szybkie dania to głównie przekąski i lekkie posiłki, a Twoim celem są 2200 kcal dziennie z 110 g białka. Ograniczenie do 5 minut sprawia, że planer nie może dobić tej kaloriyczności ani białka. Plan ma status PARTIAL (brakuje 415 kcal dziennie i 27 g białka na średnią).\n\nMogę:\n1. Rozluźnić limit czasu — wtedy będzie więcej dań i lepiej dopasowanie do celu.\n2. Zaplanować tydzień szybkich dań i zaakceptować, że nie osiągniesz wszystkich celów.\n\nKtóra opcja?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,185 @@
+{
+  "label": "before-g11-nowy-przepis",
+  "startedAt": "2026-09-26T16:25:46.151Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.037438,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.037438,
+      "p95CostUsd": 0.037438,
+      "medianLatencyMs": 12524,
+      "latencySplit": {
+        "wait": 0.47229319706164163,
+        "thinking": 0.049345257106355796,
+        "toolInput": 0.3907697221335037,
+        "text": 0.084797189396359,
+        "toolsRun": 0.002235707441711913,
+        "other": 0.0005589268604279783
+      },
+      "medianFirstBlockMs": 2033,
+      "cacheHitRatio": 0.9401963316972358,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 11,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.037438
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g11-nowy-przepis",
+      "group": 11,
+      "pyta": "Czy nowy przepis dostaje makra policzone przez serwer, a nie zgadnięte?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "create_recipe"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "create_recipe",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "decbf7c0-3e32-49d4-99a5-231d38b05d26",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 12524,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3675,
+          "firstBlockMs": 2033,
+          "thinkingMs": 473,
+          "toolInputMs": 1166,
+          "textMs": 0,
+          "outputTokens": 265,
+          "tools": [
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients"
+          ],
+          "toolsRunMs": 7
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5992,
+          "firstBlockMs": 2118,
+          "thinkingMs": 145,
+          "toolInputMs": 3728,
+          "textMs": 0,
+          "outputTokens": 430,
+          "tools": [
+            "create_recipe"
+          ],
+          "toolsRunMs": 21
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2828,
+          "firstBlockMs": 1764,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1062,
+          "outputTokens": 73,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 768,
+      "cacheReadTokens": 65511,
+      "cacheWriteTokens": 4161,
+      "cacheHitRatio": 0.9401963316972358,
+      "costMicroUsd": 37438,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Zapisano przepis „Jajecznica Rafała” — 488 kcal na porcję, śniadanie, 10 minut. Zawiera alergeny: jajka, gluten, laktoza/mleko.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

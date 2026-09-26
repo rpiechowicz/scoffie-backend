@@ -30,6 +30,7 @@ export type UsageResult = {
     ephemeral_1h_input_tokens?: number;
   } | null;
   output_tokens: number;
+  server_tool_use?: { web_search_requests?: number } | null;
   model?: string | null;
 };
 

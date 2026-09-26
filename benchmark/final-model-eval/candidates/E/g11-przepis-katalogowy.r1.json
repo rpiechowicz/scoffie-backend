@@ -1,0 +1,314 @@
+{
+  "label": "cand-E-g11-przepis-katalogowy",
+  "startedAt": "2026-09-26T17:23:13.779Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.051819,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 5,
+      "p95Rounds": 5,
+      "maxRounds": 5,
+      "medianCostUsd": 0.051819,
+      "p95CostUsd": 0.051819,
+      "medianLatencyMs": 33680,
+      "latencySplit": {
+        "wait": 0.23479809976247032,
+        "thinking": 0.06048099762470309,
+        "toolInput": 0.6254750593824228,
+        "text": 0.07651425178147268,
+        "toolsRun": 0.0021971496437054633,
+        "other": 0.0005344418052256532
+      },
+      "medianFirstBlockMs": 1572,
+      "cacheHitRatio": 0.9132221398748156,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 11,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 5,
+          "medianCostUsd": 0.051819
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g11-przepis-katalogowy",
+      "group": 11,
+      "pyta": "Czy próba edycji przepisu KATALOGOWEGO kończy się odmową?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_recipe_details",
+        "create_recipe",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "create_recipe"
+      ],
+      "handoff": false,
+      "apiCalls": 5,
+      "turnApiCalls": [
+        5
+      ],
+      "toolCalls": [
+        {
+          "name": "get_recipe_details",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "create_recipe",
+          "ok": false,
+          "errorCode": "VALIDATION_ERROR",
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "create_recipe",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 661
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "a3c3f84e-0a8b-453a-a959-70d580d87579",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 33680,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3807,
+          "firstBlockMs": 1572,
+          "thinkingMs": 2037,
+          "toolInputMs": 195,
+          "textMs": 0,
+          "outputTokens": 268,
+          "tools": [
+            "get_recipe_details"
+          ],
+          "toolsRunMs": 8
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 6343,
+          "firstBlockMs": 1827,
+          "thinkingMs": 0,
+          "toolInputMs": 3487,
+          "textMs": 1029,
+          "outputTokens": 784,
+          "tools": [
+            "create_recipe"
+          ],
+          "toolsRunMs": 5
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 6390,
+          "firstBlockMs": 1679,
+          "thinkingMs": 0,
+          "toolInputMs": 4271,
+          "textMs": 432,
+          "outputTokens": 839,
+          "tools": [
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients"
+          ],
+          "toolsRunMs": 38
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 14972,
+          "firstBlockMs": 1437,
+          "thinkingMs": 0,
+          "toolInputMs": 13113,
+          "textMs": 422,
+          "outputTokens": 1208,
+          "tools": [
+            "create_recipe"
+          ],
+          "toolsRunMs": 23
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 2093,
+          "firstBlockMs": 1393,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 694,
+          "outputTokens": 52,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 34,
+      "outputTokens": 3151,
+      "cacheReadTokens": 124453,
+      "cacheWriteTokens": 11792,
+      "cacheHitRatio": 0.9132221398748156,
+      "costMicroUsd": 51819,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Gotowo. Utworzyłem własny przepis na 8 porcji — możesz go teraz użyć w poniedziałkowej kolacji zamiast wersji katalogowej.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

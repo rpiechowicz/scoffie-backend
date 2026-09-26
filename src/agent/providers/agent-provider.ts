@@ -41,6 +41,41 @@ export type AgentPhaseUsage = {
 /** Faza strumienia z modelu, o której warto powiedzieć telefonowi. */
 export type AgentStreamActivity = 'reasoning' | 'writing';
 
+/**
+ * Zużycie JEDNEGO wywołania API, meldowane zaraz po nim (`onUsage`).
+ *
+ * Od 26.09.2026 księga `AiUsage` ma wiersz na wywołanie, a nie na turę: koszt
+ * trafia do bazy w chwili, w której powstał, więc przeżywa timeout, „Stop"
+ * spoza procesu, restart i domknięcie tury przez kogoś innego. `callIndex`
+ * (0, 1, …) jest kluczem idempotencji — ten sam numer zapisany dwa razy nie
+ * dubluje kosztu.
+ */
+export type AgentProviderCall = {
+  callIndex: number;
+  model: string;
+  effort: AiEffort;
+  usage: AgentProviderUsage;
+  /** `stop_reason` tego wywołania z API (`tool_use`, `end_turn`, …). */
+  stopReason: string | null;
+  latencyMs: number | null;
+  /**
+   * Ile żądań złożyło się na wiersz — przy prawdziwym wywołaniu zawsze 1
+   * (brak pola = 1). Większe tylko w zapisie zastępczym runnera dla
+   * dostawcy, który nie melduje wywołań.
+   */
+  apiCalls?: number | null;
+};
+
+/** Odpowiedź księgi na zameldowane wywołanie. */
+export type AgentUsageVerdict = {
+  /**
+   * Któryś sufit kosztu (dom: doba/miesiąc, instalacja: doba) jest już
+   * osiągnięty. Dostawca kończy wtedy pętlę narzędzi ostatnim słowem bez
+   * narzędzi (`stopReason: budget_ceiling`) zamiast wydawać dalej.
+   */
+  budgetExceeded: boolean;
+};
+
 export type AgentProviderRequest = {
   model: string;
   effort: AiEffort;
@@ -84,6 +119,14 @@ export type AgentProviderRequest = {
    * dławienie i zapis to sprawa runnera. Opcjonalne, best-effort.
    */
   onDraft?: (text: string) => void;
+  /**
+   * Zużycie każdego wywołania API, zaraz po nim — także tego, po którym
+   * tura padnie (odmowa modelu, błąd następnej rundy). Dostawca czeka na
+   * odpowiedź, bo niesie ona werdykt budżetu. Implementacja runnera nie
+   * rzuca; dostawca bez tego pola zostawia runnerowi zapis zastępczy
+   * (jeden zbiorczy wiersz po turze).
+   */
+  onUsage?: (call: AgentProviderCall) => Promise<AgentUsageVerdict>;
   /** Przerwanie tury po `AI_TURN_TIMEOUT_MS` — dostawca MUSI go respektować. */
   signal: AbortSignal;
   /**

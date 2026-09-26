@@ -1,0 +1,218 @@
+{
+  "label": "cand-B-g11-zmiana-przepisu",
+  "startedAt": "2026-09-26T17:12:35.723Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "B",
+      "label": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.046871,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 5,
+      "p95Rounds": 5,
+      "maxRounds": 5,
+      "medianCostUsd": 0.046871,
+      "p95CostUsd": 0.046871,
+      "medianLatencyMs": 16067,
+      "latencySplit": {
+        "wait": 0.7276405053837057,
+        "thinking": 0.08358747743822742,
+        "toolInput": 0.14371071139602912,
+        "text": 0.040953507188647535,
+        "toolsRun": 0.0026140536503392047,
+        "other": 0.001493744943050974
+      },
+      "medianFirstBlockMs": 1890,
+      "cacheHitRatio": 0.9722295489656732,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 11,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 5,
+          "medianCostUsd": 0.046871
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g11-zmiana-przepisu",
+      "group": 11,
+      "pyta": "Czy edycja własnego przepisu z planu działa — i czy jego referencja daje się rozwiązać?",
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_recipe_details",
+        "update_recipe",
+        "search_ingredients",
+        "update_recipe"
+      ],
+      "handoff": false,
+      "apiCalls": 5,
+      "turnApiCalls": [
+        5
+      ],
+      "toolCalls": [
+        {
+          "name": "get_recipe_details",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "update_recipe",
+          "ok": false,
+          "errorCode": "VALIDATION_ERROR",
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "update_recipe",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "50febcb9-2a06-45e6-9db3-86fbebc94685",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 143
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "74c2bf45-bc53-4fcb-af05-3fba8d73134e",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 16067,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2731,
+          "firstBlockMs": 1890,
+          "thinkingMs": 833,
+          "toolInputMs": 1,
+          "textMs": 0,
+          "outputTokens": 104,
+          "tools": [
+            "get_recipe_details"
+          ],
+          "toolsRunMs": 6
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4224,
+          "firstBlockMs": 2672,
+          "thinkingMs": 510,
+          "toolInputMs": 1036,
+          "textMs": 0,
+          "outputTokens": 220,
+          "tools": [
+            "update_recipe"
+          ],
+          "toolsRunMs": 6
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4227,
+          "firstBlockMs": 3854,
+          "thinkingMs": 0,
+          "toolInputMs": 371,
+          "textMs": 0,
+          "outputTokens": 80,
+          "tools": [
+            "search_ingredients"
+          ],
+          "toolsRunMs": 8
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2531,
+          "firstBlockMs": 1628,
+          "thinkingMs": 0,
+          "toolInputMs": 901,
+          "textMs": 0,
+          "outputTokens": 178,
+          "tools": [
+            "update_recipe"
+          ],
+          "toolsRunMs": 22
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2309,
+          "firstBlockMs": 1647,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 658,
+          "outputTokens": 53,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 635,
+      "cacheReadTokens": 129010,
+      "cacheWriteTokens": 3675,
+      "cacheHitRatio": 0.9722295489656732,
+      "costMicroUsd": 46871,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Zrobione — przepis „Owsianka Rafala” jest teraz na 4 porcje (8 jajek), po 143 kcal na porcję.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

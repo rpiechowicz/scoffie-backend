@@ -59,6 +59,8 @@ export function billingRange(now: Date, anchorAt: Date | null) {
     ),
     hourlyFrom: new Date(hourNow.getTime() - 23 * HOUR_MS),
     hourlyTo: new Date(hourNow.getTime() + HOUR_MS),
+    /** od wczoraj: tuż po północy UTC Cost API może jeszcze nie mieć minionej doby */
+    recentFrom: addDays(today, -1),
     anchorDay,
   };
 }
@@ -177,15 +179,133 @@ export function shareAfter(buckets: Bucket<UsageResult>[], at: Date): number {
   return Math.min(1, Math.max(0, (dayEnd - at.getTime()) / DAY_MS));
 }
 
-/** Wydatki od chwili kotwicy: pełne doby po dobie kotwicy + część doby kotwicy. */
+/**
+ * Cennik Anthropic w $/MTok — TYLKO do szacunku doby, której Cost API
+ * jeszcze nie rozliczył. Zapis do cache: 1,25× (5 min) i 2× (1 h) ceny
+ * wejścia; odczyt z cache ma własną cenę (Fable 5.1 i Opus 5.5 nie trzymają
+ * się 0,1×). Prefiksy od najdłuższego; identyfikatory z datą
+ * (`claude-haiku-4-5-20251001`) łapie prefiks. Stan z 26.09.2026, zgodny
+ * z rachunkiem (Sonnet 5 z Cost API co do centa).
+ */
+type Price = { input: number; output: number; cacheRead: number };
+const price = (input: number, output: number, cacheRead = input / 10) => ({
+  input,
+  output,
+  cacheRead,
+});
+const PRICES: [prefix: string, price: Price][] = [
+  ['claude-fable-5-1', price(10, 50, 0.25)],
+  ['claude-mythos-5-1', price(10, 50, 0.25)],
+  ['claude-fable-5', price(10, 50)],
+  ['claude-mythos', price(10, 50)],
+  ['claude-opus-5-5', price(4, 20, 0.2)],
+  ['claude-opus-5', price(5, 25)],
+  ['claude-opus-4-8', price(5, 25)],
+  ['claude-opus-4-7', price(5, 25)],
+  ['claude-opus-4-6', price(5, 25)],
+  ['claude-opus-4-5', price(5, 25)],
+  ['claude-opus-4', price(15, 75)],
+  ['claude-sonnet-5', price(2, 10)],
+  ['claude-sonnet-4', price(3, 15)],
+  ['claude-3-7-sonnet', price(3, 15)],
+  ['claude-haiku-4-5', price(1, 5)],
+  ['claude-3-5-haiku', price(0.8, 4)],
+  ['claude-3-haiku', price(0.25, 1.25)],
+];
+/** Model spoza cennika liczymy po najdroższej stawce — szacunek salda ma raczej zaniżać, niż zawyżać. */
+const UNKNOWN_PRICE = price(10, 50);
+/** Wyszukiwanie w sieci: $10 za 1000 zapytań. */
+const WEB_SEARCH_USD = 0.01;
+
+export function priceFor(model: string | null | undefined): Price {
+  const id = model ?? '';
+  return PRICES.find(([prefix]) => id.startsWith(prefix))?.[1] ?? UNKNOWN_PRICE;
+}
+
+/** Koszt wiersza Usage API wg cennika, USD. */
+export function usageUsd(r: UsageResult): number {
+  const p = priceFor(r.model);
+  const mtok =
+    (r.uncached_input_tokens ?? 0) * p.input +
+    (r.output_tokens ?? 0) * p.output +
+    (r.cache_read_input_tokens ?? 0) * p.cacheRead +
+    (r.cache_creation?.ephemeral_5m_input_tokens ?? 0) * p.input * 1.25 +
+    (r.cache_creation?.ephemeral_1h_input_tokens ?? 0) * p.input * 2;
+  return (
+    mtok / 1_000_000 +
+    (r.server_tool_use?.web_search_requests ?? 0) * WEB_SEARCH_USD
+  );
+}
+
+/**
+ * Cost API oddaje dobę dopiero po jej zamknięciu (26.09.2026: o 20 UTC
+ * brak kubełka z tego dnia, choć Usage API miał już tokeny) — bez tego
+ * saldo stało w miejscu do następnego dnia. Doby z `recent` (tokeny
+ * godzinowe po modelu), których w kosztach nie ma, dopisujemy jako szacunek
+ * z cennika. Zwraca klucze dób oszacowanych; `days` uzupełnia w miejscu.
+ */
+export function estimateMissingDays(
+  days: Map<string, DayCost>,
+  recent: Bucket<UsageResult>[],
+): Set<string> {
+  const estimated = new Set<string>();
+  for (const bucket of recent) {
+    const key = bucket.starting_at.slice(0, 10);
+    if (days.has(key) && !estimated.has(key)) continue;
+    const day = days.get(key) ?? { usd: 0, byModel: new Map() };
+    for (const r of bucket.results ?? []) {
+      const usd = usageUsd(r);
+      const model = r.model ?? 'inne';
+      day.usd += usd;
+      day.byModel.set(model, (day.byModel.get(model) ?? 0) + usd);
+    }
+    days.set(key, day);
+    estimated.add(key);
+  }
+  return estimated;
+}
+
+/** Koszt z cennika w godzinach po `at` (godzina przecięta — proporcjonalnie). */
+export function usdAfter(buckets: Bucket<UsageResult>[], at: Date): number {
+  let usd = 0;
+  for (const bucket of buckets) {
+    const start = Date.parse(bucket.starting_at);
+    const end = Date.parse(bucket.ending_at);
+    if (!(end > start)) continue;
+    const fraction = Math.min(
+      1,
+      Math.max(0, (end - Math.max(at.getTime(), start)) / (end - start)),
+    );
+    if (fraction === 0) continue;
+    for (const r of bucket.results ?? []) usd += usageUsd(r) * fraction;
+  }
+  return usd;
+}
+
+/**
+ * Wydatki od chwili kotwicy: pełne doby po dobie kotwicy + część doby
+ * kotwicy. Doba kotwicy oszacowana z tokenów (`recent`) liczy się godzinami
+ * z cennika, rozliczona — udziałem ważonych tokenów w jej koszcie.
+ */
 export function spentSince(
   days: Map<string, DayCost>,
   at: Date,
   anchorDayUsage: Bucket<UsageResult>[],
+  estimated: Set<string> = new Set(),
+  recent: Bucket<UsageResult>[] = [],
 ): number {
   const anchorKey = dayKey(at);
   let spent = 0;
   for (const [key, day] of days) if (key > anchorKey) spent += day.usd;
+  if (estimated.has(anchorKey)) {
+    return (
+      spent +
+      usdAfter(
+        recent.filter((b) => b.starting_at.startsWith(anchorKey)),
+        at,
+      )
+    );
+  }
   const anchorDay = days.get(anchorKey);
   if (anchorDay) spent += anchorDay.usd * shareAfter(anchorDayUsage, at);
   return spent;
@@ -217,6 +337,8 @@ export type BillingRaw = {
   hourly: Bucket<UsageResult>[];
   /** kubełki `1h` doby kotwicy */
   anchorDay: Bucket<UsageResult>[];
+  /** kubełki `1h` po modelu od wczoraj 00:00 UTC — szacunek dób, których Cost API jeszcze nie oddał */
+  recent: Bucket<UsageResult>[];
 };
 
 export function buildBilling(input: {
@@ -236,6 +358,8 @@ export function buildBilling(input: {
   const { raw, anchors, now } = input;
   const today = utcDay(now);
   const days = costByDay(raw?.cost ?? []);
+  const recent = raw?.recent ?? [];
+  const estimated = estimateMissingDays(days, recent);
   const usdOn = (d: Date) => days.get(dayKey(d))?.usd ?? 0;
   const sumDays = (from: number, to: number) => {
     let s = 0;
@@ -253,6 +377,7 @@ export function buildBilling(input: {
     return {
       date: dayKey(date),
       usd: round2(day?.usd ?? 0),
+      estimated: estimated.has(dayKey(date)),
       byModel: Object.fromEntries(
         [...(day?.byModel ?? [])].map(([m, usd]) => [m, round2(usd)]),
       ),
@@ -283,7 +408,12 @@ export function buildBilling(input: {
   let inputAll = 0;
   let cacheReadAll = 0;
   const weekFrom = dayKey(addDays(today, -6));
-  for (const bucket of raw?.usageDaily ?? []) {
+  // Doby oszacowane nie mają kubełka dobowego — ich tokeny z godzinowych.
+  const usageBuckets = [
+    ...(raw?.usageDaily ?? []),
+    ...recent.filter((b) => estimated.has(b.starting_at.slice(0, 10))),
+  ];
+  for (const bucket of usageBuckets) {
     const key = bucket.starting_at.slice(0, 10);
     for (const r of bucket.results ?? []) {
       if (key.startsWith(monthKey)) {
@@ -334,7 +464,9 @@ export function buildBilling(input: {
   const balance =
     anchor && raw && input.configured && !input.error
       ? (() => {
-          const spent = round2(spentSince(days, anchor.at, raw.anchorDay));
+          const spent = round2(
+            spentSince(days, anchor.at, raw.anchorDay, estimated, recent),
+          );
           return {
             anchorUsd: round2(anchor.balanceUsd),
             anchorAt: anchor.at.toISOString(),
@@ -360,6 +492,7 @@ export function buildBilling(input: {
       prevMonthUsd: round2(sumMonth(prevMonthKey)),
     },
     daily,
+    estimatedDays: [...estimated].sort(),
     byModel,
     hourly,
     tokens: {

@@ -1,0 +1,211 @@
+{
+  "label": "cand-E-g5-trzy-dni-w-celu",
+  "startedAt": "2026-09-26T17:18:31.041Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.009557,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.009557,
+      "p95CostUsd": 0.009557,
+      "medianLatencyMs": 13736,
+      "latencySplit": {
+        "wait": 0.36357018054746654,
+        "thinking": 0.630387303436226,
+        "toolInput": 0.0006552125800815376,
+        "text": 0,
+        "toolsRun": 0.005096097845078625,
+        "other": 0.00029120559114735004
+      },
+      "medianFirstBlockMs": 4994,
+      "cacheHitRatio": 0.9297323557989577,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 5,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.009557
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g5-trzy-dni-w-celu",
+      "group": 5,
+      "pyta": "Czy cel kaloryczny z profilu przekłada się na trzy dni planu?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "8c6f5576-9551-413f-9f4b-e60dafa5ad79",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 775
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "d8b6886f-1099-4ca2-a8d2-43416e75c2a6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 630
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "4bec001d-9911-40a4-914c-c2d471a8b8f7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 502
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "fad151de-b3aa-4fbd-b666-876d3dc94cd0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 838
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "2f19c217-589e-4121-9134-f6942e5ab432",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 596
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "fbfe4605-43a0-488d-9259-3ac3a1a72186",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 483
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "85725c62-604e-44ba-aae7-6448b8c1de3c",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 761
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "cec993ab-e8ec-45e5-957e-a1b7dbf0cd54",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 604
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "6a577570-6d4c-408f-9f58-4a69deabe6a1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 557
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "544f1df6-08f4-42e2-be14-485ef905422b",
+          "calorieGoal": 1900
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 13736,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 13665,
+          "firstBlockMs": 4994,
+          "thinkingMs": 8659,
+          "toolInputMs": 9,
+          "textMs": 0,
+          "outputTokens": 856,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 70
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 856,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1581,
+      "cacheHitRatio": 0.9297323557989577,
+      "costMicroUsd": 9557,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

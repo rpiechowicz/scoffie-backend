@@ -2,6 +2,15 @@ import { ApiProperty } from '@nestjs/swagger';
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 import { RecipeDto } from '../../recipes/dto/recipe.dto';
 
+export class PlanItemPortionDto {
+  @ApiProperty()
+  userId: string;
+
+  /** Porcja tej osoby w porcjach przepisu, wielokrotność 0,05. */
+  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6 })
+  servings: number;
+}
+
 export class PlanItemDto {
   @ApiProperty()
   id: string;
@@ -39,6 +48,15 @@ export class PlanItemDto {
    */
   @ApiProperty({ example: 2, minimum: 1, maximum: 12 })
   plannedServings: number;
+
+  /**
+   * Porcje per osoba (Etap 2.2). Puste = równy podział `plannedServings`
+   * między jedzących (pozycje sprzed alokacji). Niepuste = źródło prawdy:
+   * każda osoba z audytorium ma dokładnie jeden wpis (wielokrotność 0,05),
+   * gotujemy Σ porcji, a `plannedServings` jest pochodną `ceil(Σ)`.
+   */
+  @ApiProperty({ type: [PlanItemPortionDto] })
+  portions: PlanItemPortionDto[];
 
   @ApiProperty()
   createdAt: Date;

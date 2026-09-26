@@ -8,6 +8,7 @@ import {
 } from '../../config/model-capabilities';
 import {
   AgentProvider,
+  AgentProviderCall,
   AgentProviderError,
   AgentProviderRequest,
   AgentProviderResult,
@@ -16,6 +17,7 @@ import {
   AgentCallTiming,
 } from './agent-provider';
 import { AgentToolDefinition } from '../tools/agent-tools';
+import { AgentToolResult } from '../tools/agent-tool-executor';
 import { fenceSafeDeep } from '../fence-safe';
 
 /**
@@ -28,6 +30,13 @@ import { fenceSafeDeep } from '../fence-safe';
  * rundę.
  */
 export const MAX_TOOL_ROUNDS = 12;
+
+/**
+ * Powód zatrzymania, gdy turę zamknęła karta, a nie ostatnie słowo modelu —
+ * zapisany w księdze `AiUsage.stopReason`, żeby raport widział, ile rund
+ * oszczędza (patrz `TURN_ENDING_TOOLS`).
+ */
+export const TOOL_ENDED_TURN = 'tool_ended_turn';
 
 const MAX_TOKENS = 16_000;
 
@@ -136,6 +145,9 @@ export class AnthropicAgentProvider implements AgentProvider {
     // a historia rozmowy w `messages` zawyżałaby każdą inną metodę.
     let calls = 0;
     const timings: AgentCallTiming[] = [];
+    // Werdykt księgi po OSTATNIM wywołaniu: któryś sufit kosztu (dom,
+    // instalacja) jest już osiągnięty — patrz `budget_ceiling` niżej.
+    let budgetExceeded = false;
 
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
       let response: Anthropic.Message;
@@ -159,7 +171,23 @@ export class AnthropicAgentProvider implements AgentProvider {
         throw this.withUsage(error, usage, phases);
       }
       calls += 1;
-      this.accumulate(usage, phases, model, effort, response.usage);
+      const callUsage = this.accumulate(
+        usage,
+        phases,
+        model,
+        effort,
+        response.usage,
+      );
+      // Zapis kosztu ZARAZ po wywołaniu, przed czymkolwiek, co może jeszcze
+      // wywrócić turę (odmowa niżej, narzędzie, timeout następnej rundy).
+      budgetExceeded = await this.reportUsage(request, {
+        callIndex: calls - 1,
+        model,
+        effort,
+        usage: callUsage,
+        stopReason: response.stop_reason,
+        latencyMs: timings[timings.length - 1]?.totalMs ?? null,
+      });
 
       // `stop_reason` PRZED czytaniem treści: przy odmowie `content` bywa puste,
       // a ślepe sięganie po tekst dałoby pustą odpowiedź zamiast wyjaśnienia.
@@ -192,15 +220,43 @@ export class AnthropicAgentProvider implements AgentProvider {
       }
 
       let toolResults: Anthropic.ToolResultBlockParam[];
+      let endsTurn = false;
+      let serverText = '';
       const toolsStartedAt = Date.now();
       try {
-        toolResults = await this.runTools(request, toolUses);
+        ({
+          blocks: toolResults,
+          endsTurn,
+          turnText: serverText,
+        } = await this.runTools(request, toolUses, tools));
       } catch (error) {
         // Narzędzie przerwane sygnałem (timeout, Stop) — zużycie zostaje.
         throw this.withUsage(error, usage, phases);
       }
       const lastTiming = timings[timings.length - 1];
       if (lastTiming) lastTiming.toolsRunMs = Date.now() - toolsStartedAt;
+
+      // Tura skończona BEZ kolejnego wywołania — WYŁĄCZNIE zdaniem SERWERA.
+      // Każde narzędzie tej rundy postawiło kartę, która kończy turę, i każde
+      // oddało `turnText` — zdanie z FAKTYCZNEGO wyniku domeny („Dwie
+      // propozycje…", gdy znalazły się dwie). Tekst, który model napisał
+      // PRZED wywołaniem, powstał w ciemno („Plan gotowy." przed planem
+      // PARTIAL) i nie ma prawa wygrać z wynikiem serwera (review Etapu 3).
+      // Karta bez zdania serwera (plan PARTIAL, zamiennik nie-OK) albo odmowa
+      // narzędzia = model dostaje wynik i kolejną rundę, bez względu na to,
+      // czy coś napisał wcześniej.
+      if (endsTurn && serverText.length > 0) {
+        return {
+          text: serverText,
+          stopReason: TOOL_ENDED_TURN,
+          usage,
+          model,
+          apiCalls: calls,
+          phases: [...phases.values()],
+          timings,
+        };
+      }
+
       messages.push({ role: 'user', content: toolResults });
       // Od tej chwili do następnej odpowiedzi API model „myśli" — najdłuższy
       // cichy odcinek tury. Runner zapisuje krok, po którym telefon wie, że
@@ -248,6 +304,30 @@ export class AnthropicAgentProvider implements AgentProvider {
           'cost_ceiling',
         );
       }
+
+      // Sufit kosztu DOMU albo INSTALACJI osiągnięty w trakcie tury (werdykt
+      // księgi po ostatnim wywołaniu). Przyjęcie tury widzi tylko wydane
+      // pieniądze i rezerwację, więc tura, która ruszyła tuż pod sufitem,
+      // przekroczyłaby go dowolnie wieloma rundami. Stąd ostatnie słowo bez
+      // narzędzi: przekroczenie to najwyżej jedno wywołanie na turę w biegu.
+      if (budgetExceeded) {
+        this.logger.warn(
+          `sufit budżetu osiągnięty w trakcie tury po ${round + 1} wywołaniach — ostatnie słowo bez narzędzi`,
+        );
+        return this.finalAnswerWithoutTools(
+          client,
+          request,
+          messages,
+          usage,
+          phases,
+          model,
+          effort,
+          tools,
+          calls,
+          timings,
+          'budget_ceiling',
+        );
+      }
     }
 
     // Sufit rund osiągnięty. Zamiast wywracać turę, prosimy o odpowiedź BEZ
@@ -269,6 +349,31 @@ export class AnthropicAgentProvider implements AgentProvider {
   }
 
   /**
+   * Podgrzanie cache prefiksu: jedno żądanie z tym samym `system` i `tools`,
+   * co tura, i jednym tokenem wyjścia. Trafienie w cache odnawia jego życie
+   * (TTL godzina), więc pierwsza tura po ciszy nie płaci zapisu prefiksu
+   * i nie czeka na niego (~5 s, pomiar 24.09.2026). Bez myślenia — ustawienia
+   * myślenia nie wchodzą do klucza cache narzędzi i systemu.
+   */
+  async warmCache(params: {
+    model: string;
+    system: AgentProviderRequest['system'];
+    tools: readonly AgentToolDefinition[];
+  }): Promise<AgentProviderUsage> {
+    const client = this.getClient();
+    const response = await client.messages.create({
+      model: params.model,
+      max_tokens: 1,
+      system: params.system,
+      tools: params.tools as unknown as Anthropic.ToolUnion[],
+      messages: [{ role: 'user', content: '.' }],
+    });
+    const usage: AgentProviderUsage = { ...ZERO_USAGE };
+    this.accumulate(usage, new Map(), params.model, 'low', response.usage);
+    return usage;
+  }
+
+  /**
    * Ostatnie słowo modelu, bez narzędzi.
    *
    * `tool_choice: none` odcina pętlę: model musi odpowiedzieć tekstem. Używamy
@@ -286,7 +391,10 @@ export class AnthropicAgentProvider implements AgentProvider {
     tools: readonly AgentToolDefinition[],
     callsSoFar: number,
     timings: AgentCallTiming[],
-    reason: 'tool_rounds_exhausted' | 'cost_ceiling' = 'tool_rounds_exhausted',
+    reason:
+      | 'tool_rounds_exhausted'
+      | 'cost_ceiling'
+      | 'budget_ceiling' = 'tool_rounds_exhausted',
   ): Promise<AgentProviderResult> {
     // Prośba jako blok TEKSTOWY w TEJ SAMEJ wiadomości użytkownika, co
     // wyniki narzędzi — dwie wiadomości `user` pod rząd to niepoprawna
@@ -321,7 +429,21 @@ export class AnthropicAgentProvider implements AgentProvider {
         },
         timings,
       );
-      this.accumulate(usage, phases, model, effort, response.usage);
+      const callUsage = this.accumulate(
+        usage,
+        phases,
+        model,
+        effort,
+        response.usage,
+      );
+      await this.reportUsage(request, {
+        callIndex: callsSoFar,
+        model,
+        effort,
+        usage: callUsage,
+        stopReason: response.stop_reason,
+        latencyMs: timings[timings.length - 1]?.totalMs ?? null,
+      });
       return {
         text: this.joinText(response.content),
         stopReason: reason,
@@ -468,6 +590,29 @@ export class AnthropicAgentProvider implements AgentProvider {
     );
   }
 
+  /**
+   * Melduje wywołanie księdze runnera i oddaje werdykt budżetu. Księga nie
+   * rzuca (runner łapie błąd zapisu i ponawia go przy domknięciu), ale
+   * dostawca i tak się zabezpiecza: zapis kosztu nie ma prawa wywrócić tury,
+   * za którą użytkownik już zapłacił.
+   */
+  private async reportUsage(
+    request: AgentProviderRequest,
+    call: AgentProviderCall,
+  ): Promise<boolean> {
+    if (!request.onUsage) return false;
+    try {
+      return (await request.onUsage(call)).budgetExceeded;
+    } catch (error) {
+      this.logger.warn(
+        `księga odrzuciła wywołanie ${call.callIndex}: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
+      return false;
+    }
+  }
+
   private assertNotAborted(signal: AbortSignal): void {
     if (signal.aborted) {
       throw new AgentProviderError('Tura przerwana przez limit czasu.', true);
@@ -545,15 +690,43 @@ export class AnthropicAgentProvider implements AgentProvider {
   private async runTools(
     request: AgentProviderRequest,
     toolUses: Anthropic.ToolUseBlock[],
-  ): Promise<Anthropic.ToolResultBlockParam[]> {
+    offered: readonly AgentToolDefinition[],
+  ): Promise<{
+    blocks: Anthropic.ToolResultBlockParam[];
+    endsTurn: boolean;
+    turnText: string;
+  }> {
+    // Czy KAŻDE narzędzie tej rundy kończy turę — jedno „zwykłe" obok
+    // (np. odczyt planu) znaczy, że model czeka na jego wynik.
+    let endsTurn = toolUses.length > 0;
+    // Zdania serwera kart tej rundy; puste, gdy któraś karta go nie ma.
+    const turnTexts: string[] = [];
+    let everyCardSpeaks = true;
+    const allowed = new Set(offered.map((tool) => tool.name));
     // Równolegle: model prosi o kilka narzędzi naraz właśnie po to, żeby nie
     // czekać na nie po kolei.
-    return Promise.all(
+    const blocks = await Promise.all(
       toolUses.map(async (toolUse) => {
-        const result = await request.executeTool(
-          toolUse.name,
-          (toolUse.input ?? {}) as Record<string, unknown>,
-        );
+        // Tylko narzędzia z listy wysłanej modelowi W TEJ fazie: executor zna
+        // też narzędzia wewnętrzne (Etap 3) i narzędzia planisty — nazwa
+        // zmyślona przez model albo spoza fazy nie ma prawa ich uruchomić.
+        const result: AgentToolResult = allowed.has(toolUse.name)
+          ? await request.executeTool(
+              toolUse.name,
+              (toolUse.input ?? {}) as Record<string, unknown>,
+            )
+          : {
+              ok: false,
+              error: {
+                code: 'BAD_REQUEST',
+                message: `Nie ma narzędzia o nazwie ${toolUse.name}.`,
+              },
+            };
+        if (!(result.ok && result.endsTurn)) endsTurn = false;
+        if (result.ok && result.endsTurn) {
+          if (result.turnText) turnTexts.push(result.turnText);
+          else everyCardSpeaks = false;
+        }
         return {
           type: 'tool_result' as const,
           tool_use_id: toolUse.id,
@@ -584,6 +757,11 @@ export class AnthropicAgentProvider implements AgentProvider {
         };
       }),
     );
+    return {
+      blocks,
+      endsTurn,
+      turnText: everyCardSpeaks ? turnTexts.join(' ') : '',
+    };
   }
 
   private joinText(content: Anthropic.ContentBlock[]): string {
@@ -600,7 +778,7 @@ export class AnthropicAgentProvider implements AgentProvider {
     model: string,
     effort: AiEffort,
     usage: Anthropic.Usage,
-  ): void {
+  ): AgentProviderUsage {
     const input = usage.input_tokens;
     const output = usage.output_tokens;
     const cacheRead = usage.cache_read_input_tokens ?? 0;
@@ -647,6 +825,13 @@ export class AnthropicAgentProvider implements AgentProvider {
     phase.usage.cacheWriteTokens += cacheWrite;
     phase.usage.costMicroUsd += costMicroUsd;
     phases.set(key, phase);
+    return {
+      inputTokens: input,
+      cacheReadTokens: cacheRead,
+      cacheWriteTokens: cacheWrite,
+      outputTokens: output,
+      costMicroUsd,
+    };
   }
 }
 

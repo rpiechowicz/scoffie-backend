@@ -1609,7 +1609,7 @@ export interface AnthropicBilling {
   balance: {
     anchorUsd: number;
     anchorAt: IsoDate;
-    /** szacunek: pełne doby po dobie kotwicy + część doby kotwicy wg tokenów po `anchorAt` */
+    /** szacunek: pełne doby po dobie kotwicy + część doby kotwicy wg tokenów po `anchorAt`; doby z `estimatedDays` wg cennika */
     spentSinceUsd: number;
     estimatedUsd: number;
   } | null;
@@ -1617,7 +1617,7 @@ export interface AnthropicBilling {
   /** dni do zera przy średnim dziennym wydatku z 7 pełnych dni; null gdy brak salda albo wydatków */
   runwayDays: number | null;
   spend: {
-    /** doba UTC w toku (dane z opóźnieniem ~5 min) */
+    /** doba UTC w toku — zwykle szacunek z tokenów (zob. `estimatedDays`), opóźnienie ~5 min */
     todayUsd: number;
     yesterdayUsd: number;
     /** dziś i 6 poprzednich dób */
@@ -1627,7 +1627,19 @@ export interface AnthropicBilling {
     prevMonthUsd: number;
   };
   /** ostatnie 31 dób UTC (także z zerem), najstarsza pierwsza; `date` = `YYYY-MM-DD` */
-  daily: { date: string; usd: number; byModel: Record<string, number> }[];
+  daily: {
+    date: string;
+    usd: number;
+    /** koszt z tokenów × cennik, bo Anthropic jeszcze tej doby nie rozliczył */
+    estimated: boolean;
+    byModel: Record<string, number>;
+  }[];
+  /**
+   * Doby UTC (`YYYY-MM-DD`, rosnąco), których kosztu Cost API jeszcze nie
+   * oddał — zwykle dziś, tuż po północy UTC także wczoraj. Ich kwoty (w
+   * `spend`, `daily`, `byModel`, saldzie) to tokeny z Usage API × cennik.
+   */
+  estimatedDays: string[];
   /**
    * Bieżący miesiąc UTC, od najdroższego. Koszty bez modelu (wyszukiwanie,
    * wykonywanie kodu) pod swoim rodzajem (`web_search`, `code_execution`, …).

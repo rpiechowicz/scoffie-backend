@@ -11,6 +11,7 @@ import {
   TURN_TIMEOUT_GRACE_MS,
 } from './agent-turns.service';
 import { AiUsageCountersService } from './ai-usage-counters.service';
+import { AgentUsageLedger } from './agent-usage-ledger.service';
 import { PostMessageDto } from './dto/post-message.dto';
 import { UpstreamBreaker } from './upstream-breaker';
 
@@ -48,6 +49,11 @@ const ENV: AgentEnv = {
   conversationRetentionDays: 90,
   maxTurnCostUsd: 1,
   toolsModel: null,
+  catalogMode: 'search',
+  cacheWarmHours: 0,
+  turnCostReserveUsd: 0.25,
+  shutdownGraceMs: 8_000,
+  plannerPerUserPortions: false,
 };
 
 const validDto = (): PostMessageDto => ({
@@ -76,10 +82,16 @@ describe('AgentTurnsService', () => {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       updateMany: jest.fn(),
+      // Żywe tury instalacji — rezerwacja budżetu globalnego.
+      count: jest.fn().mockResolvedValue(0),
     },
     // Bramka członkostwa w `loadOwnedTurn` — domyślnie pytający jest w domu.
     membership: {
       findUnique: jest.fn().mockResolvedValue({ userId: USER }),
+    },
+    // Dom rozmowy przy leniwym domknięciu osieroconej tury (`getTurn`).
+    agentConversation: {
+      findUnique: jest.fn().mockResolvedValue({ householdId: HOUSEHOLD }),
     },
     $transaction: jest.fn(),
   };
@@ -111,7 +123,20 @@ describe('AgentTurnsService', () => {
     add: jest.fn(),
     quotaDetails: jest.fn().mockReturnValue(['kind:messages']),
   };
-  const runner = { run: jest.fn() };
+  const runner = {
+    run: jest.fn(),
+    cancel: jest.fn().mockReturnValue(false),
+    isRunning: jest.fn().mockReturnValue(false),
+    isDraining: jest.fn().mockReturnValue(false),
+  };
+  // Worker (Etap 5): przyjęcie tury tylko go szturcha — wykonanie jest jego.
+  const worker = { kick: jest.fn() };
+  // Domknięcie z zewnątrz i zwrot za darmową turę żyją w księdze
+  // (`agent-usage-ledger.service.spec.ts`); tu sprawdzamy, KIEDY je woła.
+  const ledger = {
+    closeTurn: jest.fn(),
+    refundIfFree: jest.fn(),
+  };
   let breaker: UpstreamBreaker;
   let metrics: AgentMetricsService;
   let service: AgentTurnsService;
@@ -131,6 +156,8 @@ describe('AgentTurnsService', () => {
       runner as unknown as AgentTurnRunner,
       { withCardState: (messages: unknown) => messages } as never,
       { notify: jest.fn().mockResolvedValue(false) } as never,
+      ledger as unknown as AgentUsageLedger,
+      worker as never,
     );
   };
 
@@ -168,6 +195,11 @@ describe('AgentTurnsService', () => {
       createdAt: new Date('2026-08-31T10:00:00.000Z'),
     });
     tx.agentTurn.create.mockResolvedValue({ id: TURN });
+    prisma.agentTurn.count.mockResolvedValue(0);
+    runner.isRunning.mockReturnValue(false);
+    runner.isDraining.mockReturnValue(false);
+    runner.cancel.mockReturnValue(false);
+    ledger.closeTurn.mockResolvedValue(true);
     build();
   });
 
@@ -264,6 +296,33 @@ describe('AgentTurnsService', () => {
       expect(await codeOf(post())).toBe('AI_BUDGET_PAUSED');
       expect(metrics.snapshot().rejected.budget).toBe(1);
       expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('zamykany proces (SIGTERM): tura PRZYJĘTA — trwała, wykona ją nowa instancja (Etap 5)', async () => {
+      runner.isDraining.mockReturnValue(true);
+      await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+      // Przejęcie rozstrzyga worker (w trakcie zamykania nie przejmuje).
+      expect(worker.kick).toHaveBeenCalledWith(TURN);
+    });
+
+    it('budżet globalny liczy rezerwację za każdą żywą turę instalacji', async () => {
+      config.assertEnabled.mockReturnValue({
+        ...ENV,
+        globalDailyBudgetUsd: 1,
+        turnCostReserveUsd: 0.3,
+      });
+      // Wydane $0,80 + jedna żywa tura × $0,30 ≥ $1,00.
+      counters.read.mockResolvedValue(800_000);
+      prisma.agentTurn.count.mockResolvedValue(1);
+      expect(await codeOf(post())).toBe('AI_BUDGET_PAUSED');
+      expect(prisma.agentTurn.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({ status: 'RUNNING' }),
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+
+      // Bez żywych tur te same pieniądze mieszczą się pod sufitem.
+      prisma.agentTurn.count.mockResolvedValue(0);
+      await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
     });
 
     it('budżet niewyczerpany przepuszcza turę', async () => {
@@ -364,32 +423,141 @@ describe('AgentTurnsService', () => {
       expect(metrics.snapshot().rejected.inProgress).toBe(1);
     });
 
-    it('martwa tura jest ZAMYKANA i oddaje kwotę, a nie tylko pomijana', async () => {
+    it('martwa tura jest ZAMYKANA (ze zwrotem za darmową), a nie tylko pomijana', async () => {
       // Sedno: samo pominięcie odblokowałoby rozmowę, ale zostawiłoby wiersz
-      // RUNNING, którego nikt nie odpyta — a to odpytanie jest jedynym
-      // mechanizmem zwrotu kwoty. Zombie znaczyłby trwale spaloną wiadomość.
+      // RUNNING, którego nikt nie domknie. Zombie znaczyłby trwale spaloną
+      // wiadomość. Zwrot (tylko za turę bez kosztu) robi `closeTurn` w tx.
       const startedAt = new Date(Date.now() - 10 * 60 * 1000);
-      tx.agentTurn.findMany.mockResolvedValue([{ id: 'zombie-1', startedAt }]);
-      tx.agentTurn.updateMany.mockResolvedValue({ count: 1 });
+      tx.agentTurn.findMany.mockResolvedValue([
+        { id: 'zombie-1', startedAt, updatedAt: startedAt },
+      ]);
       tx.agentTurn.count.mockResolvedValue(0);
 
       await post();
 
-      expect(tx.agentTurn.updateMany).toHaveBeenCalledWith({
-        where: { id: 'zombie-1', status: 'RUNNING' },
-        data: expect.objectContaining({
-          status: 'FAILED',
-          errorCode: 'AI_TIMEOUT',
-        }),
-      });
-      expect(counters.add).toHaveBeenCalledWith(
+      expect(ledger.closeTurn).toHaveBeenCalledWith(
         tx,
-        HOUSEHOLD,
-        expect.any(String),
-        'messages',
-        -1,
+        expect.objectContaining({
+          turnId: 'zombie-1',
+          errorCode: 'AI_TIMEOUT',
+          fallbackScopeId: HOUSEHOLD,
+        }),
       );
       expect(metrics.snapshot().turns.timeout).toBe(1);
+    });
+
+    it('tura bez znaku życia od minuty to pad procesu: AI_PROVIDER_ERROR, bez czekania na timeout', async () => {
+      const ago = new Date(Date.now() - 90 * 1000);
+      tx.agentTurn.findMany.mockResolvedValue([
+        { id: 'orphan-1', startedAt: ago, updatedAt: ago },
+      ]);
+
+      await post();
+
+      expect(ledger.closeTurn).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({
+          turnId: 'orphan-1',
+          errorCode: 'AI_PROVIDER_ERROR',
+          failureDetail: 'AI_TURN_LEGACY_ORPHAN',
+          fallbackScopeId: HOUSEHOLD,
+        }),
+      );
+      expect(metrics.snapshot().turns.failed).toBe(1);
+    });
+
+    it('tura z trwałym wykonaniem i wygasłym lease NIE jest martwa — blokuje rozmowę, worker ją dokończy', async () => {
+      const ago = new Date(Date.now() - 90 * 1000);
+      tx.agentTurn.findMany.mockResolvedValue([
+        {
+          id: 'reclaimable-1',
+          startedAt: ago,
+          updatedAt: ago,
+          deadlineAt: new Date(Date.now() + 120_000),
+          attempt: 1,
+          leaseExpiresAt: new Date(Date.now() - 30_000),
+          cancelRequestedAt: null,
+        },
+      ]);
+      tx.agentTurn.count.mockResolvedValue(1);
+
+      expect(await codeOf(post())).toBe('AI_TURN_IN_PROGRESS');
+      expect(ledger.closeTurn).not.toHaveBeenCalled();
+    });
+
+    it('cicha tura prowadzona przez TEN proces żyje — nie zamykamy jej', async () => {
+      const ago = new Date(Date.now() - 90 * 1000);
+      tx.agentTurn.findMany.mockResolvedValue([
+        { id: 'busy-1', startedAt: ago, updatedAt: ago },
+      ]);
+      runner.isRunning.mockReturnValue(true);
+      tx.agentTurn.count.mockResolvedValue(1);
+
+      expect(await codeOf(post())).toBe('AI_TURN_IN_PROGRESS');
+      expect(ledger.closeTurn).not.toHaveBeenCalled();
+    });
+
+    it('sufit dobowy domu z REZERWACJĄ w transakcji: druga równoległa tura dostaje 503', async () => {
+      config.assertEnabled.mockReturnValue({
+        ...ENV,
+        householdDailyCostUsd: 1,
+        turnCostReserveUsd: 0.3,
+      });
+      // Wydane $0,80 < $1 (szybka odmowa przed transakcją przepuszcza),
+      // ale w domu biegnie już jedna tura: $0,80 + $0,30 ≥ $1.
+      counters.read.mockResolvedValue(800_000);
+      tx.agentTurn.count.mockImplementation(
+        (args: { where: { conversationId?: string } }) =>
+          Promise.resolve(args.where.conversationId ? 0 : 1),
+      );
+
+      try {
+        await post();
+        throw new Error('oczekiwano odmowy');
+      } catch (error) {
+        const exception = error as AppException;
+        expect(exception.code).toBe('AI_BUDGET_PAUSED');
+        expect(exception.getStatus()).toBe(503);
+        expect(exception.details).toEqual([
+          'resetsAt:2026-09-01T00:00:00.000Z',
+        ]);
+      }
+      // Budżet PRZED kwotą: odmowa nie zjada wiadomości.
+      expect(counters.tryConsume).not.toHaveBeenCalled();
+      expect(counters.read).toHaveBeenCalledWith(
+        HOUSEHOLD,
+        '2026-08-31',
+        'costMicroUsd',
+        tx,
+      );
+    });
+
+    it('sufit domu bez żywych tur przepuszcza te same pieniądze', async () => {
+      config.assertEnabled.mockReturnValue({
+        ...ENV,
+        householdDailyCostUsd: 1,
+        turnCostReserveUsd: 0.3,
+      });
+      counters.read.mockResolvedValue(800_000);
+      tx.agentTurn.count.mockResolvedValue(0);
+      await expect(post()).resolves.toMatchObject({ status: 'RUNNING' });
+    });
+
+    it('semafor domu liczy tylko ŻYWE tury (przed terminem albo ze znakiem życia)', async () => {
+      await post();
+      expect(tx.agentTurn.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          conversation: { householdId: HOUSEHOLD },
+          status: 'RUNNING',
+          OR: [
+            { deadlineAt: { gt: expect.any(Date) } },
+            expect.objectContaining({
+              deadlineAt: null,
+              updatedAt: { gt: expect.any(Date) },
+            }),
+          ],
+        }),
+      });
     });
 
     it('6. wyczerpana kwota: AI_QUOTA_EXCEEDED (429), tura nie powstaje', async () => {
@@ -407,7 +575,7 @@ describe('AgentTurnsService', () => {
   });
 
   describe('postMessage — przyjęcie tury', () => {
-    it('oddaje 202 i uruchamia runnera z okresem kwoty', async () => {
+    it('oddaje 202, zapisuje trwałe wejście tury i szturcha workera', async () => {
       await expect(post()).resolves.toEqual({
         turnId: TURN,
         messageId: MESSAGE,
@@ -430,16 +598,22 @@ describe('AgentTurnsService', () => {
           requestId: REQUEST_ID,
           provider: 'stub',
           model: 'claude-sonnet-5',
+          quotaPeriodKey: '2026-08',
+          // Wszystko, czego nowy worker potrzebuje po padzie tego procesu.
+          execution: {
+            dates: {
+              weekStart: '2026-08-31',
+              clientToday: '2026-09-02',
+              timeZone: 'Europe/Warsaw',
+            },
+            proposalMode: expect.any(Boolean),
+          },
+          deadlineAt: expect.any(Date),
         }),
       });
-      expect(runner.run).toHaveBeenCalledWith(
-        expect.objectContaining({
-          turnId: TURN,
-          householdId: HOUSEHOLD,
-          periodKey: '2026-08',
-          requestId: REQUEST_ID,
-        }),
-      );
+      // Wykonanie nie jest już obietnicą w pamięci tego procesu.
+      expect(runner.run).not.toHaveBeenCalled();
+      expect(worker.kick).toHaveBeenCalledWith(TURN);
       expect(metrics.snapshot().turns.started).toBe(1);
     });
 
@@ -459,7 +633,7 @@ describe('AgentTurnsService', () => {
       });
 
       await expect(post()).resolves.toMatchObject({ turnId: TURN });
-      expect(runner.run).not.toHaveBeenCalled();
+      expect(worker.kick).not.toHaveBeenCalled();
     });
   });
 
@@ -474,6 +648,7 @@ describe('AgentTurnsService', () => {
       outputTokens: 20,
       costMicroUsd: 300,
       startedAt: new Date(),
+      updatedAt: new Date(),
       finishedAt: null,
       conversation: { householdId: HOUSEHOLD },
       ...overrides,
@@ -484,8 +659,17 @@ describe('AgentTurnsService', () => {
       expect(await codeOf(service.getTurn(USER, TURN))).toBe(
         'AI_TURN_NOT_FOUND',
       );
+      // Etap 4C: jedno zapytanie — własność i dzisiejsze członkostwo w warunku.
       expect(prisma.agentTurn.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: TURN, userId: USER } }),
+        expect.objectContaining({
+          where: {
+            id: TURN,
+            userId: USER,
+            conversation: {
+              household: { memberships: { some: { userId: USER } } },
+            },
+          },
+        }),
       );
     });
 
@@ -497,18 +681,19 @@ describe('AgentTurnsService', () => {
     });
 
     it('własna tura po wyjściu z domu to też 404 — liczy się członkostwo dziś', async () => {
-      prisma.agentTurn.findFirst.mockResolvedValue(turnRow());
-      prisma.membership.findUnique.mockResolvedValueOnce(null);
+      // Członkostwo jest w samym warunku zapytania (Etap 4C): baza nie oddaje
+      // tury domu, z którego pytający wyszedł — dowód na żywej bazie w e2e.
+      prisma.agentTurn.findFirst.mockResolvedValue(null);
       expect(await codeOf(service.getTurn(USER, TURN))).toBe(
         'AI_TURN_NOT_FOUND',
       );
-      expect(prisma.membership.findUnique).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            userId_householdId: { userId: USER, householdId: HOUSEHOLD },
-          },
-        }),
-      );
+      const [[query]] = prisma.agentTurn.findFirst.mock.calls as [
+        [{ where: { conversation: unknown } }],
+      ];
+      expect(query.where.conversation).toEqual({
+        household: { memberships: { some: { userId: USER } } },
+      });
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
       expect(prisma.agentMessage.findMany).not.toHaveBeenCalled();
     });
 
@@ -549,13 +734,11 @@ describe('AgentTurnsService', () => {
       expect(view.usage).toBeUndefined();
     });
 
-    it('tura po padzie procesu domykana leniwie jako AI_TIMEOUT ze zwrotem kwoty', async () => {
+    it('tura po czasie domykana leniwie jako AI_TIMEOUT (zwrot tylko za darmową)', async () => {
       const startedAt = new Date(
         Date.now() - (ENV.turnTimeoutMs + TURN_TIMEOUT_GRACE_MS + 1_000),
       );
-      counters.monthKey.mockReturnValue('2026-07');
       prisma.agentTurn.findFirst.mockResolvedValue(turnRow({ startedAt }));
-      prisma.agentTurn.updateMany.mockResolvedValue({ count: 1 });
       prisma.agentTurn.findUnique.mockResolvedValue(
         turnRow({
           status: 'FAILED',
@@ -568,29 +751,53 @@ describe('AgentTurnsService', () => {
       const view = await service.getTurn(USER, TURN);
       expect(view.status).toBe('FAILED');
       expect(view.errorCode).toBe('AI_TIMEOUT');
-      expect(prisma.agentTurn.updateMany).toHaveBeenCalledWith(
+      // Tura żyje w tym procesie? Po czasie nie ma to znaczenia — i tak ją
+      // zamykamy. Koszt zostaje (dopisała go księga), zwrot decyduje baza.
+      expect(ledger.closeTurn).toHaveBeenCalledWith(
+        tx,
         expect.objectContaining({
-          where: { id: TURN, status: 'RUNNING' },
+          turnId: TURN,
+          errorCode: 'AI_TIMEOUT',
+          fallbackScopeId: HOUSEHOLD,
         }),
       );
-      // Zwrot trafia do okresu, z którego kwota zeszła.
-      expect(counters.monthKey).toHaveBeenCalledWith(startedAt);
-      expect(counters.add).toHaveBeenCalledWith(
-        prisma,
-        HOUSEHOLD,
-        '2026-07',
-        'messages',
-        -1,
-      );
       expect(metrics.snapshot().turns.timeout).toBe(1);
+    });
+
+    it('tura bez znaku życia z innego procesu: AI_PROVIDER_ERROR po minucie', async () => {
+      const ago = new Date(Date.now() - 61_000);
+      prisma.agentTurn.findFirst.mockResolvedValue(
+        turnRow({ startedAt: ago, updatedAt: ago }),
+      );
+      prisma.agentTurn.findUnique.mockResolvedValue(
+        turnRow({ status: 'FAILED', errorCode: 'AI_PROVIDER_ERROR' }),
+      );
+
+      const view = await service.getTurn(USER, TURN);
+      expect(view.errorCode).toBe('AI_PROVIDER_ERROR');
+      expect(ledger.closeTurn).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ errorCode: 'AI_PROVIDER_ERROR' }),
+      );
+    });
+
+    it('cicha tura z TEGO procesu przed czasem żyje', async () => {
+      const ago = new Date(Date.now() - 61_000);
+      runner.isRunning.mockReturnValue(true);
+      prisma.agentTurn.findFirst.mockResolvedValue(
+        turnRow({ startedAt: ago, updatedAt: ago }),
+      );
+      const view = await service.getTurn(USER, TURN);
+      expect(view.status).toBe('RUNNING');
+      expect(ledger.closeTurn).not.toHaveBeenCalled();
     });
 
     it('nie domyka tury, którą runner właśnie zamknął (count = 0)', async () => {
       const startedAt = new Date(
         Date.now() - (ENV.turnTimeoutMs + TURN_TIMEOUT_GRACE_MS + 1_000),
       );
+      ledger.closeTurn.mockResolvedValue(false);
       prisma.agentTurn.findFirst.mockResolvedValue(turnRow({ startedAt }));
-      prisma.agentTurn.updateMany.mockResolvedValue({ count: 0 });
       prisma.agentTurn.findUnique.mockResolvedValue(
         turnRow({ status: 'DONE', startedAt, finishedAt: new Date() }),
       );
@@ -598,8 +805,48 @@ describe('AgentTurnsService', () => {
 
       const view = await service.getTurn(USER, TURN);
       expect(view.status).toBe('DONE');
-      expect(counters.add).not.toHaveBeenCalled();
       expect(metrics.snapshot().turns.timeout).toBe(0);
+    });
+  });
+
+  describe('cancelTurn', () => {
+    it('tura spoza procesu: domknięcie AI_CANCELLED przez księgę (zwrot tylko za darmową)', async () => {
+      prisma.agentTurn.findFirst
+        .mockResolvedValueOnce({
+          id: TURN,
+          status: 'RUNNING',
+          conversation: { householdId: HOUSEHOLD },
+        })
+        .mockResolvedValue({
+          id: TURN,
+          conversationId: CONVERSATION,
+          status: 'FAILED',
+          errorCode: 'AI_CANCELLED',
+          progress: [],
+          startedAt: new Date(),
+          updatedAt: new Date(),
+          finishedAt: new Date(),
+          conversation: { householdId: HOUSEHOLD },
+        });
+
+      prisma.agentTurn.updateMany.mockResolvedValue({ count: 1 });
+      const view = await service.cancelTurn(USER, TURN);
+      // „Stop" najpierw TRWALE w bazie (Etap 5), potem sygnał lokalny.
+      expect(prisma.agentTurn.updateMany).toHaveBeenCalledWith({
+        where: { id: TURN, status: 'RUNNING', cancelRequestedAt: null },
+        data: { cancelRequestedAt: expect.any(Date) },
+      });
+      expect(runner.cancel).toHaveBeenCalledWith(TURN);
+      expect(ledger.closeTurn).toHaveBeenCalledWith(tx, {
+        turnId: TURN,
+        errorCode: 'AI_CANCELLED',
+        failureDetail: 'AI_TURN_CANCEL_REQUESTED',
+        fallbackScopeId: HOUSEHOLD,
+        // Z żywym lease w innym procesie nie domykamy — tamten worker to zrobi.
+        onlyIfUnleased: true,
+      });
+      expect(view.errorCode).toBe('AI_CANCELLED');
+      expect(metrics.snapshot().turns.failed).toBe(1);
     });
   });
 });

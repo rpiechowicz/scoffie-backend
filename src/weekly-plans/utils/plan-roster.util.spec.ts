@@ -67,6 +67,8 @@ const makeTx = (params: { items?: StoredItem[]; memberCount?: number }) => {
     },
     planItem: {
       findMany: jest.fn().mockImplementation(({ where }: any) => {
+        // Pozycje w tych fikstutach nie mają porcji per osoba (Etap 2.2).
+        if (where?.portions?.some) return Promise.resolve([]);
         const someUser: string | undefined = where?.participants?.some?.userId;
         return Promise.resolve(
           items
@@ -77,6 +79,7 @@ const makeTx = (params: { items?: StoredItem[]; memberCount?: number }) => {
             .map((i) => ({
               id: i.id,
               participants: i.participants.map((userId) => ({ userId })),
+              portions: [],
             })),
         );
       }),

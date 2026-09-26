@@ -7,7 +7,16 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { WS_GATEWAY_OPTIONS } from '../common/ws-gateway-options';
 import { wsRespond } from '../common/ws-response';
 import { actorId } from '../common/ws-socket';
@@ -15,6 +24,10 @@ import type { AppSocket } from '../common/ws-socket';
 import { broadcastToHousehold } from '../common/ws-rooms';
 import { validateWsPayload } from '../common/validate-dto';
 import { RecipesService } from './recipes.service';
+import {
+  CATALOG_SYNC_MAX_LIMIT,
+  CatalogSyncService,
+} from './catalog-sync.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeFavoriteDto } from './dto/update-recipe-favorite.dto';
 import { FindRecipesDto } from './dto/find-recipes.dto';
@@ -41,6 +54,71 @@ class RecipesFindAllPayload {
   @IsOptional()
   @IsObject()
   filters?: FindRecipesDto;
+}
+
+/** `catalog:snapshot` — cały publiczny katalog stronami (Etap 4A). */
+class CatalogSnapshotPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  /** Znacznik z PIERWSZEJ strony tego przebiegu; brak = nowy przebieg. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  revision?: string;
+
+  /** `nextCursor` z poprzedniej strony. */
+  @IsOptional()
+  @IsUUID()
+  cursor?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(CATALOG_SYNC_MAX_LIMIT)
+  limit?: number;
+}
+
+/** `catalog:changes` — zmiany katalogu od rewizji klienta (Etap 4A). */
+class CatalogChangesPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  /** Rewizja, którą klient ma w całości zastosowaną. */
+  @IsString()
+  @MaxLength(64)
+  sinceRevision: string;
+
+  /** `revision` z PIERWSZEJ strony tego przebiegu delty. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  untilRevision?: string;
+
+  @IsOptional()
+  @IsUUID()
+  cursor?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(CATALOG_SYNC_MAX_LIMIT)
+  limit?: number;
+}
+
+/** `recipes:householdState` — przepisy gospodarstwa i ulubione (Etap 4A). */
+class RecipesHouseholdStatePayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsUUID()
+  householdId: string;
 }
 
 class IngredientsSearchPayload {
@@ -123,6 +201,7 @@ export class RecipesGateway
 
   constructor(
     private readonly recipesService: RecipesService,
+    private readonly catalogSync: CatalogSyncService,
     private readonly ingredientsService: IngredientsService,
     private readonly wsTelemetry: WsTelemetryService,
   ) {}
@@ -149,6 +228,66 @@ export class RecipesGateway
       // Koperta ma same pola opcjonalne, więc `payload === undefined` przechodzi
       // walidację — `?.` zamiast TypeError → INTERNAL_ERROR.
       return this.recipesService.findAll(userId, payload?.filters);
+    });
+  }
+
+  /**
+   * Snapshot PUBLICZNEGO katalogu (Etap 4A): strony po `id` z rewizją
+   * ustaloną na pierwszej stronie. Bez gospodarstwa — katalog jest wspólny,
+   * wystarczy zalogowany socket. `recipes:findAll` zostaje dla starszych
+   * buildów iOS.
+   */
+  @SubscribeMessage('catalog:snapshot')
+  catalogSnapshot(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: CatalogSnapshotPayload,
+  ) {
+    return wsRespond(async () => {
+      actorId(client, payload);
+      const envelope = await validateWsPayload(CatalogSnapshotPayload, payload);
+      // Same pola protokołu — legacy `userId` z koperty nie idzie dalej.
+      return this.catalogSync.snapshot({
+        revision: envelope.revision,
+        cursor: envelope.cursor,
+        limit: envelope.limit,
+      });
+    });
+  }
+
+  /**
+   * Zmiany katalogu od rewizji klienta (Etap 4A): upserty i tombstone'y
+   * albo `RESET_REQUIRED`, gdy delty nie da się uczciwie odtworzyć.
+   */
+  @SubscribeMessage('catalog:changes')
+  catalogChanges(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: CatalogChangesPayload,
+  ) {
+    return wsRespond(async () => {
+      actorId(client, payload);
+      const envelope = await validateWsPayload(CatalogChangesPayload, payload);
+      return this.catalogSync.changes({
+        sinceRevision: envelope.sinceRevision,
+        untilRevision: envelope.untilRevision,
+        cursor: envelope.cursor,
+        limit: envelope.limit,
+      });
+    });
+  }
+
+  /**
+   * Przepisy gospodarstwa i ulubione — obok publicznego katalogu, bo do
+   * jego logu synchronizacji nie wchodzą (Etap 4A).
+   */
+  @SubscribeMessage('recipes:householdState')
+  householdState(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesHouseholdStatePayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesHouseholdStatePayload, payload);
+      return this.recipesService.householdState(userId, payload.householdId);
     });
   }
 

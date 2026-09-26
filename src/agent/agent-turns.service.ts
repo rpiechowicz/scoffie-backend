@@ -8,7 +8,7 @@ import { AgentMetricsService } from '../observability/agent-metrics.service';
 import { OpsAlertService } from '../observability/ops-alert.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { runSerializable } from '../weekly-plans/utils/transaction-runner.util';
-import { TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
+import { AgentEnv, TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
 import {
   conversationTitleFrom,
@@ -27,6 +27,30 @@ import {
 import { EditMessageDto, PostMessageDto } from './dto/post-message.dto';
 import { resolveProposalMode } from './cards/agent-cards';
 import { UpstreamBreaker } from './upstream-breaker';
+import { AgentUsageLedger } from './agent-usage-ledger.service';
+import {
+  closeCandidatesWhere,
+  liveTurnWhere,
+  TURN_FAILURE_DETAIL,
+  TurnCloseVerdict,
+  turnCloseVerdict,
+  TurnLivenessRow,
+} from './agent-turn-liveness';
+import { AgentTurnWorker } from './durable/agent-turn-worker.service';
+import {
+  readTurnLeaseConfig,
+  TurnExecutionInput,
+} from './durable/turn-lease-config';
+
+/** Kolumny werdyktu żywotności (`turnCloseVerdict`). */
+const TURN_LIVENESS_SELECT_LOCAL = {
+  startedAt: true,
+  updatedAt: true,
+  deadlineAt: true,
+  attempt: true,
+  leaseExpiresAt: true,
+  cancelRequestedAt: true,
+} as const;
 
 export const TURN_STATUSES = ['RUNNING', 'DONE', 'FAILED', 'LIMITED'] as const;
 export type TurnStatus = (typeof TURN_STATUSES)[number];
@@ -100,8 +124,12 @@ export { TURN_TIMEOUT_GRACE_MS };
  * 4. idempotencja — powtórzone żądanie oddaje starą turę, ZANIM ktokolwiek
  *    sprawdzi limity; inaczej ponowienie po zerwanej sieci trafiałoby na
  *    409 („moja własna tura jeszcze biegnie") zamiast dostać jej id.
- * 5. bezpiecznik dostawcy i budżet dobowy — odmowy globalne, bez kosztu.
- * 6. transakcja: lease rozmowy (409) → kwota (429) → wiadomość + tura.
+ * 5. bezpiecznik dostawcy i zamykanie procesu (503 `AI_UPSTREAM_PAUSED`),
+ *    potem budżet: sufity domu (szybka odmowa z samych wydanych pieniędzy),
+ *    a po nich instalacji — z rezerwacją za tury w biegu, NIEATOMOWO (patrz
+ *    niżej). Odmowy bez kosztu.
+ * 6. transakcja: lease rozmowy (409) → semafor domu (409) → sufity domu
+ *    z rezerwacją za jego tury w biegu (503) → kwota (429) → wiadomość + tura.
  *
  * Kwota schodzi NA STARCIE, nie po odpowiedzi modelu: inaczej wystarczyłoby
  * zrywać połączenie, żeby dostać nielimitowanego asystenta. Nieudana tura
@@ -122,6 +150,8 @@ export class AgentTurnsService {
     private readonly runner: AgentTurnRunner,
     private readonly proposals: AgentProposalsService,
     private readonly alerts: OpsAlertService,
+    private readonly ledger: AgentUsageLedger,
+    private readonly worker: AgentTurnWorker,
   ) {}
 
   /**
@@ -247,6 +277,10 @@ export class AgentTurnsService {
       );
     }
 
+    // Proces się zamyka (SIGTERM po deployu): od Etapu 5 tura i tak jest
+    // trwała — przyjmujemy ją, a wykona ją nowa instancja (ten proces jej
+    // nie przejmuje, patrz `AgentTurnWorker.kick`). Wcześniej: 503.
+
     // Sufit kosztu domu na DOBĘ — sprawdzany PRZED globalnym, bo ma odmówić
     // sprawcy, zanim sprawca odmówi wszystkim. Kolejność jest tu całą
     // poprawką: budżet globalny to bezpiecznik na rachunek infrastruktury,
@@ -272,13 +306,29 @@ export class AgentTurnsService {
       }
     }
 
+    // Budżet instalacji: wydane PLUS rezerwacja za każdą żywą turę. NIEATOMOWO
+    // — liczenie tur całej instalacji w transakcji SERIALIZABLE kłóciłoby się
+    // z każdą równoległą turą w każdym domu. Wyścig kosztuje najwyżej tyle
+    // tur ponad sufit, ile startów zmieści się między odczytem a zapisem,
+    // a w trakcie tury i tak pilnuje go werdykt księgi (`budget_ceiling`).
     if (env.globalDailyBudgetUsd !== null) {
       const spentMicroUsd = await this.counters.read(
         GLOBAL_SCOPE,
         this.counters.dayKey(),
         'costMicroUsd',
       );
-      if (spentMicroUsd >= env.globalDailyBudgetUsd * 1_000_000) {
+      const reservedMicroUsd =
+        env.turnCostReserveUsd > 0
+          ? (await this.prisma.agentTurn.count({
+              where: liveTurnWhere(env.turnTimeoutMs),
+            })) *
+            env.turnCostReserveUsd *
+            1_000_000
+          : 0;
+      if (
+        spentMicroUsd + reservedMicroUsd >=
+        env.globalDailyBudgetUsd * 1_000_000
+      ) {
         this.metrics.recordRejected('budget');
         // Operator ma się dowiedzieć PRZED użytkownikami — raz na dobę.
         void this.alerts.notify(
@@ -343,52 +393,33 @@ export class AgentTurnsService {
         // instancji i krótkiej transakcji to wystarcza (kolejny wyścig i tak
         // zatrzyma unikat na `clientMessageId`).
         //
-        // Tury po padzie procesu (deploy, OOM) ZAMYKAMY tutaj, zamiast je
-        // pomijać przy liczeniu.
-        //
-        // Samo pominięcie wystarczyłoby, żeby odblokować rozmowę, ale
-        // zostawiałoby w bazie wiersz RUNNING, którego nikt już nie odpyta —
-        // a to właśnie odpytanie (`expireIfStale`) jest jedynym mechanizmem
-        // zwrotu kwoty. Zombie obok żywej tury znaczyłby więc trwale spaloną
-        // wiadomość z miesięcznego limitu. Ten sam próg co w `expireIfStale`,
-        // bo to ta sama definicja „tura już nie żyje".
-        const staleBefore = new Date(
-          Date.now() - env.turnTimeoutMs - TURN_TIMEOUT_GRACE_MS,
-        );
+        // Tury, których NIKT już nie dokończy, ZAMYKAMY tutaj, zamiast je
+        // pomijać przy liczeniu — zombie obok żywej tury znaczyłby trwale
+        // spaloną wiadomość. Definicja jest jedna dla wszystkich ścieżek
+        // (`turnCloseVerdict`): po terminie tury, stara tura bez znaku życia,
+        // wyczerpane próby, „Stop" bez workera. Od Etapu 5 tura z wygasłym
+        // lease NIE jest martwa — worker ją dokończy, więc blokuje rozmowę
+        // dalej (409), jak każda tura w biegu.
+        const { maxAttempts } = readTurnLeaseConfig();
         const stale = await tx.agentTurn.findMany({
           where: {
             conversationId,
-            status: 'RUNNING',
-            startedAt: { lte: staleBefore },
+            ...closeCandidatesWhere(env.turnTimeoutMs, maxAttempts),
           },
-          select: {
-            id: true,
-            startedAt: true,
-            quotaPeriodKey: true,
-            quotaScopeId: true,
-          },
+          select: { id: true, ...TURN_LIVENESS_SELECT_LOCAL },
         });
         for (const dead of stale) {
-          const closed = await tx.agentTurn.updateMany({
-            where: { id: dead.id, status: 'RUNNING' },
-            data: {
-              status: 'FAILED',
-              errorCode: 'AI_TIMEOUT',
-              finishedAt: new Date(),
-              quotaRefunded: true,
-            },
+          const verdict = this.closeVerdictFor(dead, env, maxAttempts);
+          if (!verdict) continue;
+          const closed = await this.ledger.closeTurn(tx, {
+            turnId: dead.id,
+            errorCode: verdict.errorCode,
+            failureDetail: verdict.detail,
+            fallbackScopeId: conversation.householdId,
+            onlyIfUnleased: verdict.detail !== TURN_FAILURE_DETAIL.deadline,
           });
-          if (closed.count === 0) continue;
-          this.metrics.recordTurnFinished('timeout');
-          // Kwota wraca do okresu, z którego zeszła — tura zaczęta 31. o 23:59
-          // oddaje ją tam, a nie do nowego miesiąca.
-          await this.counters.add(
-            tx,
-            dead.quotaScopeId ?? conversation.householdId,
-            dead.quotaPeriodKey ?? this.counters.monthKey(dead.startedAt),
-            'messages',
-            -1,
-          );
+          if (!closed) continue;
+          this.metrics.recordTurnFinished(verdict.outcome);
         }
 
         const running = await tx.agentTurn.count({
@@ -403,19 +434,26 @@ export class AgentTurnsService {
           );
         }
 
+        // Żywe tury domu (bez osieroconych — te nie zjadają miejsca, zanim
+        // ktoś je posprząta). Liczone raz, dla semafora i dla rezerwacji.
+        const householdLive =
+          env.maxConcurrentTurnsPerHousehold > 0 ||
+          env.householdDailyCostUsd !== null ||
+          env.householdMonthlyCostUsd !== null
+            ? await tx.agentTurn.count({
+                where: {
+                  conversation: { householdId: conversation.householdId },
+                  ...liveTurnWhere(env.turnTimeoutMs),
+                },
+              })
+            : 0;
+
         // Lease per rozmowa nie ogranicza tur w WIELU rozmowach naraz —
         // budżet dobowy jest sprawdzany przed startem, a koszt dopisywany po
         // turze, więc burst 30 rozmów potrafił wydać 30× więcej, niż wolno.
         // Semafor per gospodarstwo domyka tę lukę; próg z env.
         if (env.maxConcurrentTurnsPerHousehold > 0) {
-          const householdRunning = await tx.agentTurn.count({
-            where: {
-              conversation: { householdId: conversation.householdId },
-              status: 'RUNNING',
-              startedAt: { gt: staleBefore },
-            },
-          });
-          if (householdRunning >= env.maxConcurrentTurnsPerHousehold) {
+          if (householdLive >= env.maxConcurrentTurnsPerHousehold) {
             this.metrics.recordRejected('inProgress');
             throw new AppException(
               'AI_TURN_IN_PROGRESS',
@@ -424,6 +462,19 @@ export class AgentTurnsService {
             );
           }
         }
+
+        // Sufity domu Z REZERWACJĄ, w tej samej transakcji co semafor: wydane
+        // pieniądze plus `AI_TURN_COST_RESERVE_USD` za każdą INNĄ żywą turę
+        // domu. Sprawdzenie przed transakcją widziało tylko wydane — koszt
+        // tury w biegu dopisuje się dopiero po jej wywołaniach — więc dwa
+        // równoległe starty tuż pod sufitem przechodziły oba. SERIALIZABLE
+        // szereguje je jak lease: drugi widzi już turę pierwszego.
+        await this.assertHouseholdBudget(
+          tx,
+          env,
+          conversation.householdId,
+          householdLive,
+        );
 
         const consumed = await this.counters.tryConsume(
           tx,
@@ -456,6 +507,21 @@ export class AgentTurnsService {
             clientMessageId: data.clientMessageId,
           },
         });
+        // Trwałe wejście tury (Etap 5): wszystko, czego nowy worker
+        // potrzebuje, żeby ją wykonać, gdyby ten proces padł 1 ms po 202.
+        // Tryb rozstrzyga się TU, raz na turę: env mówi, co jest włączone,
+        // klient — czy w ogóle umie pokazać kartę.
+        const execution: TurnExecutionInput = {
+          dates: {
+            weekStart: data.weekStart,
+            clientToday: data.clientToday,
+            timeZone: data.timeZone,
+          },
+          proposalMode: resolveProposalMode(
+            env.cardsMode,
+            data.clientCapabilities,
+          ),
+        };
         const turn = await tx.agentTurn.create({
           data: {
             conversationId,
@@ -468,6 +534,9 @@ export class AgentTurnsService {
             model: resolveRoute(env).model,
             quotaPeriodKey: periodKey,
             quotaScopeId: scopeId,
+            execution: execution as unknown as Prisma.InputJsonValue,
+            // Twardy termin CAŁEJ tury — kolejne próby go nie przesuwają.
+            deadlineAt: new Date(Date.now() + env.turnTimeoutMs),
           },
         });
         await tx.agentMessage.update({
@@ -516,27 +585,10 @@ export class AgentTurnsService {
     }
 
     this.metrics.recordTurnStarted();
-    // Tura biegnie in-process, poza cyklem żądania — klient ma już 202
-    // i odpytuje `GET /agent/turns/:id`. Runner łapie wszystko sam.
-    void this.runner.run({
-      turnId: accepted.turnId,
-      conversationId,
-      userId,
-      householdId: conversation.householdId,
-      periodKey,
-      quotaScopeId: scopeId,
-      env,
-      requestId,
-      dates: {
-        weekStart: data.weekStart,
-        clientToday: data.clientToday,
-        timeZone: data.timeZone,
-      },
-      // Tryb rozstrzyga się TU, raz na turę: env mówi, co jest włączone,
-      // klient — czy w ogóle umie pokazać kartę. Runner dostaje gotową
-      // odpowiedź, żeby prompt i bramka narzędzi nie mogły się rozjechać.
-      proposalMode: resolveProposalMode(env.cardsMode, data.clientCapabilities),
-    });
+    // Tura jest w bazie razem z wejściem (Etap 5) — 202 może wrócić. Ten
+    // proces próbuje ją przejąć od razu; jeśli nie zdąży (pad, deploy,
+    // `AI_TURN_WORKER=off`), przejmie ją odpytywanie dowolnej instancji.
+    this.worker.kick(accepted.turnId);
 
     return accepted;
   }
@@ -545,7 +597,7 @@ export class AgentTurnsService {
     this.config.assertEnabled();
     assertUuid(turnId, 'turnId');
 
-    let turn = await this.loadOwnedTurn(userId, turnId);
+    let turn = await this.loadPolledTurn(userId, turnId);
     turn = await this.expireIfStale(turn);
 
     const view: TurnView = {
@@ -605,9 +657,10 @@ export class AgentTurnsService {
    * „Stop" z telefonu.
    *
    * Tura w tym procesie dostaje sygnał i domyka się sama (`AI_CANCELLED`,
-   * księga zużycia, zwrot kwoty) — czekamy na to chwilę, żeby odpowiedź już
-   * niosła stan końcowy. Tura z innego procesu (po deployu) nie ma kto jej
-   * przerwać, więc zamykamy ją tu bezpośrednio, tak jak leniwy timeout.
+   * zwrot kwoty za turę bez kosztu) — czekamy na to chwilę, żeby odpowiedź
+   * już niosła stan końcowy. Tura z innego procesu (po deployu) nie ma kto
+   * jej przerwać, więc zamykamy ją tu bezpośrednio, tak jak leniwy timeout;
+   * koszt, który zdążyła naliczyć, jest już w księdze.
    * Tura już domknięta wraca bez zmian: drugie kliknięcie nie jest błędem.
    */
   async cancelTurn(userId: string, turnId: string): Promise<TurnView> {
@@ -615,31 +668,42 @@ export class AgentTurnsService {
     const turn = await this.loadOwnedTurn(userId, turnId);
     if (turn.status !== 'RUNNING') return this.getTurn(userId, turnId);
 
-    if (this.runner.cancel(turn.id)) {
-      await this.waitUntilClosed(turn.id);
-      const view = await this.getTurn(userId, turnId);
-      // Narzędzie potrafi trwać dłużej niż okno czekania — tura jest już
-      // przerywana, ale jeszcze nie domknięta. Klient ma to wiedzieć, zamiast
-      // dostać RUNNING bez słowa.
-      return view.status === 'RUNNING'
-        ? { ...view, stopRequested: true }
-        : view;
+    // „Stop" jest TRWAŁY (Etap 5): zapis w bazie przeżywa pad procesu —
+    // żaden worker nie przejmie już tej tury, a ten, który ją prowadzi,
+    // zobaczy żądanie przy najbliższym odnowieniu lease albo przed kolejnym
+    // wywołaniem modelu czy zapisem narzędzia.
+    await this.prisma.agentTurn.updateMany({
+      where: { id: turn.id, status: 'RUNNING', cancelRequestedAt: null },
+      data: { cancelRequestedAt: new Date() },
+    });
+
+    // Tura w TYM procesie — sygnał od razu, bez czekania na odnowienie.
+    const local = this.runner.cancel(turn.id);
+    if (!local) {
+      // Tura bez żywego lease (proces padł, nikt jej jeszcze nie przejął)
+      // albo sprzed Etapu 5: domykamy tu. Z żywym lease w innym procesie —
+      // nie; tamten worker domknie ją sam (`AI_CANCELLED`, księga, zwrot).
+      const closed = await this.prisma.$transaction((tx) =>
+        this.ledger.closeTurn(tx, {
+          turnId: turn.id,
+          errorCode: 'AI_CANCELLED',
+          failureDetail: TURN_FAILURE_DETAIL.cancelRequested,
+          fallbackScopeId: turn.conversation.householdId,
+          onlyIfUnleased: true,
+        }),
+      );
+      if (closed) {
+        this.metrics.recordTurnFinished('failed');
+        return this.getTurn(userId, turnId);
+      }
     }
 
-    const closed = await this.prisma.agentTurn.updateMany({
-      where: { id: turn.id, status: 'RUNNING' },
-      data: {
-        status: 'FAILED',
-        errorCode: 'AI_CANCELLED',
-        finishedAt: new Date(),
-        quotaRefunded: true,
-      },
-    });
-    if (closed.count > 0) {
-      this.metrics.recordTurnFinished('failed');
-      await this.refundQuota(turn.conversation.householdId, turn);
-    }
-    return this.getTurn(userId, turnId);
+    await this.waitUntilClosed(turn.id);
+    const view = await this.getTurn(userId, turnId);
+    // Narzędzie potrafi trwać dłużej niż okno czekania — tura jest już
+    // przerywana, ale jeszcze nie domknięta. Klient ma to wiedzieć, zamiast
+    // dostać RUNNING bez słowa.
+    return view.status === 'RUNNING' ? { ...view, stopRequested: true } : view;
   }
 
   /** Krótkie oczekiwanie na domknięcie tury przez runner po sygnale. */
@@ -678,6 +742,32 @@ export class AgentTurnsService {
     };
   }
 
+  /**
+   * Tura do odpytywania (`getTurn`, telefon co ~1 s) — JEDNO zapytanie
+   * (Etap 4C): własność i DZISIEJSZE członkostwo w domu rozmowy w samym
+   * warunku, bez dociągania rozmowy (dom potrzebny tylko przy leniwym
+   * domknięciu osieroconej tury — wtedy czyta go `expireIfStale`). Było
+   * 3 zapytania: tura, rozmowa, członkostwo. Ta sama odpowiedź 404 dla
+   * cudzej tury i tury domu, z którego ktoś wyszedł.
+   */
+  private async loadPolledTurn(userId: string, turnId: string) {
+    const turn = await this.prisma.agentTurn.findFirst({
+      where: {
+        id: turnId,
+        userId,
+        conversation: { household: { memberships: { some: { userId } } } },
+      },
+    });
+    if (!turn) {
+      throw new AppException(
+        'AI_TURN_NOT_FOUND',
+        'Nie znaleziono tej tury.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return turn;
+  }
+
   private async loadOwnedTurn(userId: string, turnId: string) {
     const turn = await this.prisma.agentTurn.findFirst({
       where: { id: turnId, userId },
@@ -713,47 +803,66 @@ export class AgentTurnsService {
   }
 
   /**
-   * Tura RUNNING starsza niż timeout + margines to tura po padzie procesu —
-   * nikt jej już nie domknie, a klient odpytywałby ją w nieskończoność.
-   * Domknięcie jest warunkowe (`updateMany` po `status: 'RUNNING'`), żeby nie
-   * przykryć wyniku runnera, który akurat kończy.
+   * Tura bez znaku życia od minuty (proces padł) albo po czasie tury
+   * z marginesem — nikt jej już nie domknie, a klient odpytywałby ją
+   * w nieskończoność. Domknięcie jest warunkowe (`updateMany` po
+   * `status: 'RUNNING'`), żeby nie przykryć wyniku runnera, który akurat
+   * kończy, i NIE dotyka kosztu — ten dopisuje księga po każdym wywołaniu,
+   * także gdy runner dojedzie po domknięciu. Wiadomość wraca tylko za turę,
+   * która nic nie wydała.
    */
   private async expireIfStale<
-    T extends {
+    T extends TurnLivenessRow & {
       id: string;
+      conversationId: string;
       status: string;
-      startedAt: Date;
-      conversation: { householdId: string };
     },
   >(turn: T): Promise<T> {
+    if (turn.status !== 'RUNNING') return turn;
     const env = this.config.read();
-    const staleAfterMs = env.turnTimeoutMs + TURN_TIMEOUT_GRACE_MS;
-    if (
-      turn.status !== 'RUNNING' ||
-      Date.now() - turn.startedAt.getTime() < staleAfterMs
-    ) {
-      return turn;
-    }
+    const verdict = this.closeVerdictFor(
+      turn,
+      env,
+      readTurnLeaseConfig().maxAttempts,
+    );
+    if (!verdict) return turn;
 
-    const closed = await this.prisma.agentTurn.updateMany({
-      where: { id: turn.id, status: 'RUNNING' },
-      data: {
-        status: 'FAILED',
-        errorCode: 'AI_TIMEOUT',
-        finishedAt: new Date(),
-        quotaRefunded: true,
-      },
+    // Dom rozmowy tylko tutaj (rzadka ścieżka) — odpytywanie go nie czyta.
+    const conversation = await this.prisma.agentConversation.findUnique({
+      where: { id: turn.conversationId },
+      select: { householdId: true },
     });
-    if (closed.count === 0) {
+    const closed = await this.prisma.$transaction((tx) =>
+      this.ledger.closeTurn(tx, {
+        turnId: turn.id,
+        errorCode: verdict.errorCode,
+        failureDetail: verdict.detail,
+        fallbackScopeId: conversation?.householdId ?? turn.conversationId,
+        onlyIfUnleased: verdict.detail !== TURN_FAILURE_DETAIL.deadline,
+      }),
+    );
+    if (!closed) {
       return this.loadOwnedTurnById(turn);
     }
 
-    this.metrics.recordTurnFinished('timeout');
-    await this.refundQuota(turn.conversation.householdId, turn);
+    this.metrics.recordTurnFinished(verdict.outcome);
     this.logger.warn(
-      `turn ${turn.id} domknięta leniwie jako AI_TIMEOUT (proces nie dokończył tury)`,
+      `turn ${turn.id} domknięta leniwie jako ${verdict.errorCode} (${verdict.detail})`,
     );
     return this.loadOwnedTurnById(turn);
+  }
+
+  /** Werdykt żywotności z mapą runnera tego procesu. */
+  private closeVerdictFor(
+    turn: TurnLivenessRow & { id: string },
+    env: AgentEnv,
+    maxAttempts: number,
+  ): TurnCloseVerdict | null {
+    return turnCloseVerdict(turn, {
+      turnTimeoutMs: env.turnTimeoutMs,
+      maxAttempts,
+      inProcess: this.runner.isRunning(turn.id),
+    });
   }
 
   private async loadOwnedTurnById<T extends { id: string }>(
@@ -761,33 +870,61 @@ export class AgentTurnsService {
   ): Promise<T> {
     const fresh = await this.prisma.agentTurn.findUnique({
       where: { id: turn.id },
-      include: { conversation: { select: { householdId: true } } },
     });
     return (fresh ?? turn) as T;
   }
 
   /**
-   * Zwrot kwoty do okresu, w którym tura RUSZYŁA. Tura zaczęta 31. o 23:59
-   * i zamknięta 1. o 0:01 musi oddać kwotę tam, skąd ją wzięła.
+   * Sufity kosztu domu (doba, miesiąc) z rezerwacją za jego żywe tury —
+   * w transakcji przyjęcia tury. `householdLive` to tury INNE niż ta, którą
+   * właśnie przyjmujemy (jeszcze jej nie ma).
    */
-  private async refundQuota(
+  private async assertHouseholdBudget(
+    tx: Prisma.TransactionClient,
+    env: AgentEnv,
     householdId: string,
-    turn: {
-      startedAt: Date;
-      quotaPeriodKey?: string | null;
-      quotaScopeId?: string | null;
-    },
-  ) {
-    await this.counters.add(
-      this.prisma,
-      // Zakres z CHWILI POBRANIA, nie z chwili zwrotu. Dom, który w
-      // międzyczasie stracił PRO (albo płatnik się wyprowadził), oddawałby
-      // inaczej kwotę do puli, z której nigdy jej nie wziął.
-      turn.quotaScopeId ?? householdId,
-      turn.quotaPeriodKey ?? this.counters.monthKey(turn.startedAt),
-      'messages',
-      -1,
-    );
+    householdLive: number,
+  ): Promise<void> {
+    const reservedMicroUsd = householdLive * env.turnCostReserveUsd * 1_000_000;
+    const ceilings = [
+      {
+        limitUsd: env.householdDailyCostUsd,
+        periodKey: this.counters.dayKey(),
+        daily: true,
+      },
+      {
+        limitUsd: env.householdMonthlyCostUsd,
+        periodKey: this.counters.monthKey(),
+        daily: false,
+      },
+    ];
+    for (const ceiling of ceilings) {
+      if (ceiling.limitUsd === null) continue;
+      const spent = await this.counters.read(
+        householdId,
+        ceiling.periodKey,
+        'costMicroUsd',
+        tx,
+      );
+      const limitMicroUsd = ceiling.limitUsd * 1_000_000;
+      if (spent + reservedMicroUsd < limitMicroUsd) continue;
+      this.metrics.recordRejected('budget');
+      // Sam koszt jest pod sufitem, a przelewa go dopiero rezerwacja: dom nie
+      // „wykorzystał asystenta", tylko czeka na własną odpowiedź w biegu.
+      const reservationOnly = spent < limitMicroUsd;
+      throw new AppException(
+        'AI_BUDGET_PAUSED',
+        reservationOnly
+          ? 'Limit Waszego domu jest prawie wykorzystany, a asystent jeszcze odpowiada na poprzednią wiadomość. Spróbuj, gdy skończy.'
+          : ceiling.daily
+            ? 'Wasz dom wykorzystał dziś asystenta do końca. Wróćcie jutro.'
+            : 'Asystent jest chwilowo niedostępny dla Waszego domu. Napisz do nas, jeśli to niespodzianka.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+        ceiling.daily
+          ? [`resetsAt:${this.counters.dayResetsAt().toISOString()}`]
+          : undefined,
+      );
+    }
   }
 
   private toTurnStatus(status: string): TurnStatus {

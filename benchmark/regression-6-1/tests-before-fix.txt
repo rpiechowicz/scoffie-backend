@@ -1,0 +1,21 @@
+  ● Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1) › g4: limit kcal z ROZMOWY trafia do planera jako cel dnia — profil bez zmian
+    Expected: 1800
+    Received: 2200
+  ● Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1) › g8: jedno danie dla dwóch osób o różnych celach — jeden przepis, porcje liczy serwer, model nie podaje liczb ani osób
+    narzędzie odmówiło: VALIDATION_ERROR Podaj, kto je to danie — bez tego karta nie ma o czym mówić.
+    [31m[1m>[22m[39m[90m 168 |[39m       [36mthrow[39m [36mnew[39m [33mError[39m([32m`narzędzie odmówiło: ${result.error.code} ${result.error.message}`[39m)[33m;[39m
+  ● Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1) › g9: twardy limit 5 min — żadne dłuższe danie w propozycji, status PARTIAL/UNSAT z jednoznacznym powodem
+    Expected pattern: /czas przygotowania|5 min/i
+    Received string:  "KCAL_OUT_OF_TOLERANCE MON — 74a3d15c-03a7-4adf-bac7-7ff162944a58: 1907 kcal w dniu wobec celu 2200 (−13 %). KCAL_OUT_OF_TOLERANCE TUE — 74a3d15c-03a7-4adf-bac7-7ff162944a58: 1886 kcal w dniu wobec celu 2200 (−14 %). KCAL_OUT_OF_TOLERANCE THU — 74a3d15c-03a7-4adf-bac7-7ff162944a58: 1864 kcal w dniu wobec celu 2200 (−15 %). KCAL_OUT_OF_TOLERANCE FRI — 74a3d15c-03a7-4adf-bac7-7ff162944a58: 1937 kcal w dniu wobec celu 2200 (−12 %). KCAL_OUT_OF_TOLERANCE SUN — 74a3d15c-03a7-4adf-bac7-7ff162944a58: 1922 kcal w dniu wobec celu 2200 (−13 %)."
+  ● Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1) › g11: edycja przepisu KATALOGOWEGO — jawny wynik „tylko do odczytu", tura kończy się wyjaśnieniem serwera, bez kopii i bez zmiany planu
+    - Expected  - 6
+    + Received  + 1
+    × g4: build_meal_plan ma cel dnia z prośby — wymagany, 0 = profil (2 ms)
+    × g8: podział dania — bez liczbowych porcji od modelu, [] = cały dom, opis obejmuje rozdzielenie posiłku (1 ms)
+    × g8/g13: suggest_meals nie jest drogą do rozdzielania posiłku ani zmiany dania; „pokaż inne" = to samo narzędzie
+    × g9: limit czasu w planie i podmianie jest TWARDY
+    × g11: update_recipe nie każe kopiować przepisu katalogowego — serwer sam wyjaśnia
+Tests:       5 failed, 5 total
+[przed]     × danie dłuższe niż limit odpada filtrem twardym PREP_TIME (3 ms)
+[przed]     × plan z limitem: zero dań ponad limit, pora bez takich dań = NO_CANDIDATES z powodem słowami (6 ms)
+[przed] Tests:       2 failed, 2 total

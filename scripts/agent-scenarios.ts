@@ -28,10 +28,11 @@
  *   pnpm agent:scenarios -- --list
  */
 import { NestFactory } from '@nestjs/core';
+import { execSync } from 'child_process';
 import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { DayOfWeek, MealType } from '@prisma/client';
+import { DayOfWeek, MealType, Prisma } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AgentPromptService } from '../src/agent/agent-prompt.service';
@@ -40,6 +41,7 @@ import { AnthropicAgentProvider } from '../src/agent/providers/anthropic-agent.p
 import { AgentMemoryService } from '../src/agent/agent-memory.service';
 import { AiEffort, AgentEnv, readAgentEnv } from '../src/config/agent-env';
 import { resolveRoute } from '../src/agent/agent-route';
+import { createPlanScope } from '../src/agent/tools/plan-scope';
 import {
   AgentCallTiming,
   AgentProviderError,
@@ -69,6 +71,45 @@ import {
   ToolCall,
   WEEK_START,
 } from './lib/agent-benchmark-scenarios';
+
+/**
+ * Moduły, których nie ma na każdym porównywanym commicie (Etap 6: anchor
+ * `22aa63c` vs HEAD). Ten sam plik harnessu biegnie na obu, a każdy commit
+ * dostaje DOKŁADNIE swoją produkcyjną ścieżkę: pamięć tury (Etap 3) i
+ * historię rozmowy z kartami (`history-cards`, Etap 1) tam, gdzie istnieją;
+ * na anchorze — historię samym tekstem, jak jego runner.
+ */
+function optionalModule<T>(path: string): T | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require(path) as T;
+  } catch {
+    return null;
+  }
+}
+
+type HistoryRow = {
+  role: 'USER' | 'ASSISTANT';
+  kind: string;
+  text: string;
+  card: unknown;
+};
+
+const turnMemoModule = optionalModule<{ createTurnMemo: () => unknown }>(
+  '../src/agent/turn-memo',
+);
+const historyCardsModule = optionalModule<{
+  historyTexts: (
+    rows: HistoryRow[],
+    options: {
+      refByRecipeId: Map<string, string>;
+      visibleUserIds: Set<string>;
+      proposals: Map<string, { id: string; status: string; expiresAt: Date }>;
+      now: Date;
+    },
+  ) => string[];
+  planProposalIds: (rows: HistoryRow[]) => string[];
+}>('../src/agent/history-cards');
 
 /** Scenariusze bywają dłuższe niż zwykła tura — to diagnostyka, nie produkcja. */
 const SCENARIO_TIMEOUT_MS = 300_000;
@@ -125,6 +166,16 @@ const CONFIGS: BenchConfig[] = [
     toolsModel: null,
     effortTools: 'low',
   },
+  {
+    // Etap 6: tańszy model z „rozsądnym" wysiłkiem. Haiku 4.5 nie ma
+    // `effort`; `medium` = myślenie z budżetem 2048 tokenów (low = bez).
+    id: 'E',
+    label: 'Haiku / medium (myślenie 2048)',
+    model: 'claude-haiku-4-5',
+    effort: 'medium',
+    toolsModel: null,
+    effortTools: 'low',
+  },
 ];
 
 type RunRecord = {
@@ -143,6 +194,26 @@ type RunRecord = {
   /** Czy tura przeszła na planistę (`start_planning`). */
   handoff: boolean;
   apiCalls: number;
+  /** Rundy modelu na TURĘ scenariusza (Etap 6). */
+  turnApiCalls: number[];
+  /** Wywołania narzędzi: wynik i status planera, bez treści (Etap 6). */
+  toolCalls: {
+    name: string;
+    ok: boolean;
+    errorCode: string | null;
+    plannerStatus: string | null;
+  }[];
+  /** Stan docelowy po scenariuszu (propozycja albo plan) — do jakości planu. */
+  target: {
+    dayOfWeek: string;
+    mealType: string;
+    recipeId: string;
+    participantIds: string[];
+    plannedServings: number;
+    kcalPerServing: number;
+  }[];
+  members: { key: string; userId: string; calorieGoal: number }[];
+  enabledMealTypes: string[] | null;
   latencyMs: number;
   inputTokens: number;
   outputTokens: number;
@@ -150,7 +221,13 @@ type RunRecord = {
   cacheWriteTokens: number;
   cacheHitRatio: number;
   costMicroUsd: number;
+  /** Powód zatrzymania OSTATNIEJ tury scenariusza. */
   stopReason: string | null;
+  /**
+   * Powód zatrzymania KAŻDEJ tury (scenariusz bywa rozmową). Od 26.09.2026
+   * `tool_ended_turn` znaczy, że karta zakończyła turę bez ostatniej rundy.
+   */
+  stopReasons: string[];
   /** Rozmiar wyniku `get_week_plan` w bajtach — do porównania BEFORE/AFTER. */
   weekPlanPayloadBytes: number | null;
   /** Czas każdego wywołania API: na co poszła latencja (myślenie, narzędzia, tekst). */
@@ -543,9 +620,21 @@ async function readProposalTarget(
   prisma: PrismaService,
   householdId: string,
 ): Promise<PlanRow[] | null> {
-  const proposal = await prisma.agentProposal.findFirst({
+  const latest = await prisma.agentProposal.findFirst({
     where: { householdId, status: 'PENDING' },
     orderBy: { createdAt: 'desc' },
+    select: { id: true },
+  });
+  if (!latest) return null;
+  return readProposalRows(prisma, { id: latest.id });
+}
+
+async function readProposalRows(
+  prisma: PrismaService,
+  where: { id: string },
+): Promise<PlanRow[] | null> {
+  const proposal = await prisma.agentProposal.findUnique({
+    where,
     select: { action: true },
   });
   if (!proposal) return null;
@@ -592,6 +681,55 @@ async function readProposalTarget(
     );
 }
 
+/** Cele wszystkich propozycji domu, od najstarszej (Etap 6). */
+async function readProposalHistory(
+  prisma: PrismaService,
+  householdId: string,
+): Promise<PlanRow[][]> {
+  const proposals = await prisma.agentProposal.findMany({
+    where: { householdId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+  const out: PlanRow[][] = [];
+  for (const proposal of proposals) {
+    out.push((await readProposalRows(prisma, { id: proposal.id })) ?? []);
+  }
+  return out;
+}
+
+/**
+ * Historia dla modelu TAK, jak składa ją runner danego commita: z kartami
+ * poprzednich tur (`history-cards`, gdy moduł istnieje) albo samym tekstem.
+ */
+async function historyForModel(
+  deps: Deps,
+  conversationId: string,
+  rows: HistoryRow[],
+  prompt: { catalogIndex: Record<string, string>; visibleUserIds?: string[] },
+): Promise<AgentProviderMessage[]> {
+  if (!historyCardsModule) {
+    return rows.map((row) => ({ role: row.role, text: row.text }));
+  }
+  const ids = historyCardsModule.planProposalIds(rows);
+  const proposals =
+    ids.length > 0
+      ? await deps.prisma.agentProposal.findMany({
+          where: { id: { in: ids }, conversationId },
+          select: { id: true, status: true, expiresAt: true },
+        })
+      : [];
+  const texts = historyCardsModule.historyTexts(rows, {
+    refByRecipeId: new Map(
+      Object.entries(prompt.catalogIndex).map(([ref, id]) => [id, ref]),
+    ),
+    visibleUserIds: new Set(prompt.visibleUserIds ?? []),
+    proposals: new Map(proposals.map((row) => [row.id, row])),
+    now: new Date(),
+  });
+  return rows.map((row, index) => ({ role: row.role, text: texts[index] }));
+}
+
 // ---------------------------------------------------------------------------
 // Przebieg na sucho
 // ---------------------------------------------------------------------------
@@ -616,12 +754,40 @@ function dryRun(request: AgentProviderRequest): Promise<AgentProviderResult> {
   // Jedno CZYTAJĄCE narzędzie, żeby przejść ścieżkę wykonania narzędzi bez
   // dotykania planu. `get_household_context` nie bierze argumentów i niczego
   // nie zapisuje — ta sama sztuczka, co w `STUB_TOOL_MARKER`.
-  const readOnly = request.tools.find(
-    (tool) => tool.name === 'get_household_context',
-  );
-  const run = readOnly
-    ? request.executeTool('get_household_context', {})
-    : Promise.resolve(null);
+  //
+  // Od 26.09.2026 także `find_recipes` (też tylko czyta): w trybie mapy
+  // katalogu to jedyna droga do dań, więc przebieg na sucho ma sprawdzić,
+  // że wyszukiwarka działa w świecie scenariusza (alergeny, dieta, pory).
+  const has = (name: string) =>
+    request.tools.some((tool) => tool.name === name);
+  // Odmowa narzędzia na sucho to zepsuty świat albo harness — ma być głośna,
+  // a nie cicho połknięta jak zwykły wynik dla modelu.
+  const call = async (name: string, input: Record<string, unknown>) => {
+    const outcome = await request.executeTool(name, input);
+    if (!outcome.ok) {
+      throw new Error(`harness: ${name} → ${outcome.error.code}`);
+    }
+  };
+  const run = (async () => {
+    if (has('get_household_context')) {
+      await call('get_household_context', {});
+    }
+    if (has('find_recipes')) {
+      await call('find_recipes', {
+        query: '',
+        meal_type: 'ANY',
+        tags: [],
+        include_ingredients: [],
+        exclude_ingredients: [],
+        max_prep_minutes: 0,
+        max_kcal_per_serving: 0,
+        min_protein_per_serving: 0,
+        for_user_ids: [],
+        sort: 'BEST_FIT',
+        limit: 8,
+      });
+    }
+  })();
   return run.then(() => ({
     text: '(przebieg na sucho — model nie był wołany)',
     stopReason: 'dry_run',
@@ -666,7 +832,8 @@ async function runOnce(
   const calls: ToolCall[] = [];
   const cards: { kind: string; payload: Record<string, unknown> }[] = [];
   const answers: string[] = [];
-  const messages: AgentProviderMessage[] = [];
+  const history: HistoryRow[] = [];
+  const turnApiCalls: number[] = [];
   let apiCalls = 0;
   let latencyMs = 0;
   const timings: AgentCallTiming[] = [];
@@ -676,12 +843,20 @@ async function runOnce(
   let cacheWriteTokens = 0;
   let costMicroUsd = 0;
   let stopReason: string | null = null;
+  const stopReasons: string[] = [];
   let error: string | null = null;
 
   const planBefore = await readPlan(deps.prisma, built.householdId);
 
   try {
     for (const text of scenario.prompts) {
+      // Pamięć tury — jak w `AgentTurnRunner` (Etap 3): jedna na turę,
+      // wspólna dla promptu i narzędzi. Na commicie bez niej — brak.
+      const memo = turnMemoModule?.createTurnMemo();
+      // Jedna tura = jeden identyfikator, jak w runnerze (propozycja tury
+      // i jej karta w historii kolejnej tury).
+      const turnId = randomUUID();
+      const cardsBefore = cards.length;
       const prompt = await deps.prompts.build(
         built.ownerId,
         built.householdId,
@@ -692,8 +867,33 @@ async function runOnce(
         },
         proposalMode,
         route.promptHandoff,
+        memo as never,
       );
-      messages.push({ role: 'USER', text });
+      history.push({ role: 'USER', kind: 'TEXT', text, card: null });
+      // Jak runner: pytanie w bazie PRZED turą — narzędzia czytające
+      // historię rozmowy (Etap 6.1: „pokaż inne") widzą to, co w produkcji.
+      await deps.prisma.agentMessage.create({
+        data: {
+          conversationId: built.conversationId,
+          role: 'USER',
+          kind: 'TEXT',
+          text,
+          turnId,
+        },
+      });
+      const messages = await historyForModel(
+        deps,
+        built.conversationId,
+        history,
+        prompt as unknown as {
+          catalogIndex: Record<string, string>;
+          visibleUserIds?: string[];
+        },
+      );
+      // Zakres planowania TURY — tak jak w `AgentTurnRunner`: jeden na turę,
+      // wspólny dla obu faz. Bez niego scenariusz omijał bramkę „najwyżej
+      // tydzień na prośbę", a `find_recipes` rankingu bez planu tygodnia.
+      const planScope = createPlanScope();
       const started = Date.now();
       let result: AgentProviderResult;
       const call: (
@@ -707,7 +907,7 @@ async function runOnce(
           effort: route.effort,
           handoff: route.handoff,
           system: prompt.system,
-          messages: [...messages],
+          messages,
           tools: route.tools,
           executeTool: async (name, input) => {
             const outcome = await deps.tools.execute(name, input, {
@@ -715,8 +915,11 @@ async function runOnce(
               householdId: built.householdId,
               catalogIndex: prompt.catalogIndex,
               conversationId: built.conversationId,
-              turnId: randomUUID(),
+              turnId,
               proposalMode,
+              planScope,
+              ...(memo ? { memo: memo as never } : {}),
+              dates: { weekStart: WEEK_START, clientToday: WEEK_START },
               collectCard: (card: AgentCard) =>
                 cards.push({
                   kind: card.kind,
@@ -740,6 +943,7 @@ async function runOnce(
         latencyMs += Date.now() - started;
       }
       apiCalls += result.apiCalls;
+      turnApiCalls.push(result.apiCalls);
       timings.push(...(result.timings ?? []));
       inputTokens += result.usage.inputTokens;
       outputTokens += result.usage.outputTokens;
@@ -747,8 +951,35 @@ async function runOnce(
       cacheWriteTokens += result.usage.cacheWriteTokens;
       costMicroUsd += result.usage.costMicroUsd;
       stopReason = result.stopReason;
+      stopReasons.push(result.stopReason ?? 'null');
       answers.push(result.text);
-      messages.push({ role: 'ASSISTANT', text: result.text });
+      // Karta odpowiedzi jak w `finishDone`: propozycja tury ma
+      // pierwszeństwo przed kartą bez skutków.
+      const proposal = await deps.prisma.agentProposal.findFirst({
+        where: { turnId },
+        orderBy: { createdAt: 'desc' },
+        select: { kind: true, card: true },
+      });
+      const memoryCard = cards.slice(cardsBefore).pop();
+      history.push({
+        role: 'ASSISTANT',
+        kind: proposal?.kind ?? memoryCard?.kind ?? 'TEXT',
+        text: result.text,
+        card: proposal?.card ?? memoryCard?.payload ?? null,
+      });
+      const answerCard = proposal?.card ?? memoryCard?.payload ?? null;
+      await deps.prisma.agentMessage.create({
+        data: {
+          conversationId: built.conversationId,
+          role: 'ASSISTANT',
+          kind: proposal?.kind ?? memoryCard?.kind ?? 'TEXT',
+          text: result.text,
+          turnId,
+          ...(answerCard
+            ? { card: answerCard as unknown as Prisma.InputJsonValue }
+            : {}),
+        },
+      });
     }
   } catch (caught) {
     error = caught instanceof Error ? caught.message : String(caught);
@@ -769,6 +1000,19 @@ async function runOnce(
   const proposalTarget = proposalMode
     ? await readProposalTarget(deps.prisma, built.householdId)
     : null;
+  const proposalHistory = proposalMode
+    ? await readProposalHistory(deps.prisma, built.householdId)
+    : [];
+  const proposalCards = (
+    await deps.prisma.agentProposal.findMany({
+      where: { householdId: built.householdId },
+      orderBy: { createdAt: 'asc' },
+      select: { kind: true, card: true },
+    })
+  ).map((row) => ({
+    kind: row.kind,
+    payload: (row.card ?? {}) as Record<string, unknown>,
+  }));
   const notes = (
     await deps.prisma.agentMemory.findMany({
       where: { householdId: built.householdId },
@@ -804,6 +1048,8 @@ async function runOnce(
           plan,
           target: proposalTarget ?? plan,
           proposed: proposalTarget !== null,
+          proposalHistory,
+          proposalCards,
           answer: answers[answers.length - 1] ?? '',
           answers,
           tools,
@@ -821,6 +1067,29 @@ async function runOnce(
     }
     issues.push(...contractIssues(scenario, tools, apiCalls));
   }
+
+  const finalTarget = proposalTarget ?? plan;
+  const kcalById = new Map(
+    deps.catalog.map((recipe) => [recipe.id, recipe.kcalPerServing]),
+  );
+  const toolCalls = calls.map((call) => {
+    let parsed: {
+      ok?: boolean;
+      error?: { code?: string };
+      data?: { planner?: { status?: string } };
+    } = {};
+    try {
+      parsed = JSON.parse(call.json) as typeof parsed;
+    } catch {
+      parsed = {};
+    }
+    return {
+      name: call.name,
+      ok: call.ok,
+      errorCode: parsed.error?.code ?? null,
+      plannerStatus: parsed.data?.planner?.status ?? null,
+    };
+  });
 
   await deps.prisma.household.deleteMany({ where: { id: built.householdId } });
   await deps.prisma.user.deleteMany({ where: { id: { in: built.userIds } } });
@@ -843,6 +1112,22 @@ async function runOnce(
     tools,
     handoff: tools.includes('start_planning'),
     apiCalls,
+    turnApiCalls,
+    toolCalls,
+    target: finalTarget.map((row) => ({
+      dayOfWeek: row.dayOfWeek,
+      mealType: row.mealType,
+      recipeId: row.recipeId,
+      participantIds: row.participantIds,
+      plannedServings: row.plannedServings,
+      kcalPerServing: kcalById.get(row.recipeId) ?? row.recipe.kcalPerServing,
+    })),
+    members: scenario.members.map((spec) => ({
+      key: spec.key,
+      userId: built.world.members[spec.key]?.userId ?? '',
+      calorieGoal: spec.calorieGoal ?? 2000,
+    })),
+    enabledMealTypes: scenario.enabledMealTypes ?? null,
     latencyMs,
     timings,
     inputTokens,
@@ -853,6 +1138,7 @@ async function runOnce(
       cacheDenominator > 0 ? cacheReadTokens / cacheDenominator : 0,
     costMicroUsd,
     stopReason,
+    stopReasons,
     weekPlanPayloadBytes: weekPlanCall
       ? Buffer.byteLength(weekPlanCall.json, 'utf8')
       : null,
@@ -1123,6 +1409,33 @@ function printSummary(records: RunRecord[]): void {
 // Wejście
 // ---------------------------------------------------------------------------
 
+/**
+ * Co trzeba wiedzieć, żeby porównać dwa przebiegi (BEFORE/AFTER): commit,
+ * tryb katalogu w prompcie i wielkość katalogu. Stare wyniki w `benchmark/`
+ * tego nie mają — patrz `benchmark/README.md`.
+ */
+function runMetadata(
+  env: AgentEnv,
+  catalogSize: number,
+): Record<string, unknown> {
+  const git = (command: string): string | null => {
+    try {
+      return execSync(command, { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString()
+        .trim();
+    } catch {
+      return null;
+    }
+  };
+  return {
+    commit: git('git rev-parse --short HEAD'),
+    worktreeDirty: (git('git status --porcelain') ?? '').length > 0,
+    catalogMode: env.catalogMode,
+    catalogSize,
+    cacheWarmHours: env.cacheWarmHours,
+  };
+}
+
 async function main(): Promise<void> {
   if (has('list')) {
     for (const scenario of SCENARIOS) {
@@ -1134,7 +1447,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (!(process.env.ANTHROPIC_API_KEY ?? '').trim()) {
+  // Przebieg na sucho (`--dry`) nie woła modelu, więc nie potrzebuje klucza —
+  // dzięki temu harness da się sprawdzić za darmo, także bez sekretów.
+  if (!has('dry') && !(process.env.ANTHROPIC_API_KEY ?? '').trim()) {
     console.error('Brak ANTHROPIC_API_KEY — ten skrypt woła prawdziwe API.');
     process.exit(1);
   }
@@ -1174,6 +1489,11 @@ async function main(): Promise<void> {
     | 'soft'
     | 'strict';
   const concurrency = Math.max(1, Number(flag('concurrency') ?? '3'));
+  // Twardy sufit kosztu przebiegu (Etap 6): po jego przekroczeniu żaden nowy
+  // scenariusz nie startuje; biegnące kończą się normalnie.
+  const maxCostUsd = flag('max-cost-usd') ? Number(flag('max-cost-usd')) : null;
+  let spentMicroUsd = 0;
+  let budgetStopped = false;
   // Przebieg na sucho: świat, narzędzia i `verify` bez modelu i bez rachunku.
   const dry = has('dry');
   const label = flag('label') ?? 'przebieg';
@@ -1220,6 +1540,10 @@ async function main(): Promise<void> {
   let cursor = 0;
   const worker = async (): Promise<void> => {
     for (;;) {
+      if (maxCostUsd !== null && spentMicroUsd >= maxCostUsd * 1_000_000) {
+        budgetStopped = true;
+        return;
+      }
       const index = cursor;
       cursor += 1;
       if (index >= jobs.length) return;
@@ -1255,6 +1579,11 @@ async function main(): Promise<void> {
           tools: [],
           handoff: false,
           apiCalls: 0,
+          turnApiCalls: [],
+          toolCalls: [],
+          target: [],
+          members: [],
+          enabledMealTypes: null,
           latencyMs: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -1263,6 +1592,7 @@ async function main(): Promise<void> {
           cacheHitRatio: 0,
           costMicroUsd: 0,
           stopReason: 'HARNESS_ERROR',
+          stopReasons: ['HARNESS_ERROR'],
           weekPlanPayloadBytes: null,
           timings: [],
           answer: '',
@@ -1271,12 +1601,13 @@ async function main(): Promise<void> {
         };
       }
       records.push(record);
+      spentMicroUsd += record.costMicroUsd;
       done += 1;
       if (dry) {
         // Na sucho zastrzeżenia są NORMĄ (nikt nie ułożył planu). Awarią jest
         // wywrócone `verify` albo zepsuty fixture — i tylko to pokazujemy.
         const zepsute = record.issues.filter((issue) =>
-          /^(harness:|fixture:|verify wywalilo sie)/.test(issue),
+          /^(harness:|fixture:|verify wywalilo sie|tura padla)/.test(issue),
         );
         console.log(
           `[${String(done).padStart(3)}/${jobs.length}] ${record.scenario.padEnd(28)} ` +
@@ -1299,10 +1630,26 @@ async function main(): Promise<void> {
     Array.from({ length: Math.min(concurrency, jobs.length) }, () => worker()),
   );
 
+  const meta = runMetadata(baseEnv, deps.catalog.length);
+
   if (dry) {
+    if (flag('out')) {
+      const dryPath = resolve(process.cwd(), out);
+      mkdirSync(dirname(dryPath), { recursive: true });
+      writeFileSync(
+        dryPath,
+        JSON.stringify(
+          { label, dry: true, ...meta, cardsMode, records },
+          null,
+          2,
+        ),
+        'utf8',
+      );
+      console.log(`Wyniki na sucho: ${dryPath}`);
+    }
     const zepsute = records.filter((record) =>
       record.issues.some((issue) =>
-        /^(harness:|fixture:|verify wywalilo sie)/.test(issue),
+        /^(harness:|fixture:|verify wywalilo sie|tura padla)/.test(issue),
       ),
     );
     console.log(
@@ -1336,11 +1683,22 @@ NA SUCHO: ${records.length - zepsute.length} z ${records.length} scenariuszy ma 
       {
         label,
         startedAt: new Date().toISOString(),
+        ...meta,
         cardsMode,
         weekStart: WEEK_START,
         scenarios: chosen.length,
         runsPerScenario: runs,
         configs: chosenConfigs,
+        concurrency,
+        budget: {
+          maxCostUsd,
+          spentUsd: spentMicroUsd / 1_000_000,
+          stopped: budgetStopped,
+        },
+        harness: {
+          turnMemo: turnMemoModule !== null,
+          historyCards: historyCardsModule !== null,
+        },
         aggregates: aggregate(records),
         records,
       },

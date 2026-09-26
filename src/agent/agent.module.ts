@@ -25,6 +25,13 @@ import { AgentProviderResolver } from './providers/agent-provider.resolver';
 import { AnthropicAgentProvider } from './providers/anthropic-agent.provider';
 import { StubAgentProvider } from './providers/stub-agent.provider';
 import { UpstreamBreaker } from './upstream-breaker';
+import { AgentCatalogService } from './search/agent-catalog.service';
+import { AgentCacheWarmer } from './agent-cache-warmer.service';
+import { AgentUsageLedger } from './agent-usage-ledger.service';
+import { AgentTurnSweeper } from './agent-turn-sweeper.service';
+import { AgentTurnQueue } from './durable/agent-turn-queue.service';
+import { AgentTurnWorker } from './durable/agent-turn-worker.service';
+import { AgentMealPlannerService } from './planner/agent-meal-planner.service';
 
 /**
  * Asystent AI — szkielet Fazy 0.
@@ -64,10 +71,21 @@ import { UpstreamBreaker } from './upstream-breaker';
     AgentConversationsService,
     AgentTurnsService,
     AgentTurnRunner,
+    // Księga kosztu per wywołanie dostawcy i sprzątanie osieroconych tur.
+    AgentUsageLedger,
+    AgentTurnSweeper,
+    AgentTurnQueue,
+    AgentTurnWorker,
     AgentProviderResolver,
     AgentToolExecutor,
     AgentProposalsService,
     AgentPromptService,
+    // Indeks katalogu w pamięci + wyszukiwarka dań (`find_recipes`).
+    AgentCatalogService,
+    // Serwerowy planer posiłków (Etap 2) — adapter czystego silnika.
+    AgentMealPlannerService,
+    // Ping co 55 min trzyma cache prefiksu ciepłym przy ruchu.
+    AgentCacheWarmer,
     AgentRetentionService,
     AgentReportsService,
     AgentUsageService,

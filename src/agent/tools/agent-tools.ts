@@ -11,10 +11,14 @@
  * `additionalProperties: false` gwarantuje, że wejście zgadza się ze
  * schematem, więc halucynowane pole zatrzymuje się przed naszym kodem.
  *
- * Identyfikatory przepisów z katalogu model podaje jako KRÓTKI INDEKS z digestu
- * (`R01`), nigdy jako UUID — patrz `src/agent/catalog-digest.ts`. UUID kosztuje
- * 20–25 tokenów i model i tak by go przekręcił.
+ * Identyfikatory przepisów z katalogu model podaje jako KRÓTKI INDEKS (`R01`),
+ * nigdy jako UUID — patrz `src/agent/catalog-digest.ts`. UUID kosztuje
+ * 20–25 tokenów i model i tak by go przekręcił. Indeksy dostaje z wyników
+ * `find_recipes` i z planu w prompcie (albo z digestu, gdy `AI_CATALOG_MODE=digest`).
  */
+import { RECIPE_SEARCH_TAGS } from '../../recipes/recipe-facets.util';
+import { SEARCH_SORTS } from '../search/catalog-search';
+
 export type AgentToolDefinition = {
   name: string;
   description: string;
@@ -57,13 +61,60 @@ const WEEK_START = {
 const RECIPE_REF = {
   type: 'string',
   description:
-    'Indeks przepisu DOKŁADNIE w formie z katalogu w prompcie (np. R07 albo R007 — tyle cyfr, ile w nagłówku katalogu) ' +
-    'albo identyfikator przepisu gospodarstwa zwrócony przez create_recipe.',
+    'Referencja przepisu DOKŁADNIE w formie z wyników find_recipes, planu albo katalogu (np. R007 — ' +
+    'tyle cyfr, ile tam) albo identyfikator przepisu gospodarstwa zwrócony przez create_recipe.',
 };
 
 const DAY = {
   type: 'string',
   enum: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+};
+
+/**
+ * Życzenia z prośby dla serwerowego planera — WSZYSTKIE pola wymagane, bo
+ * budżet pól nieobowiązkowych jest wyczerpany (24/24). „Brak" wyraża pusta
+ * lista, `NONE` albo 0 — tak mówią opisy.
+ */
+const PLANNER_WISHES = {
+  diet: {
+    type: 'string',
+    enum: [
+      'NONE',
+      'VEGETARIAN',
+      'VEGAN',
+      'PESCATARIAN',
+      'KETO',
+      'PALEO',
+      'HIGH_PROTEIN',
+    ],
+    description:
+      'Dieta dla TEJ prośby („wege obiady") — twarda. NONE = bez dodatkowej; diety domowników serwer i tak stosuje.',
+  },
+  must_have_tags: {
+    type: 'array',
+    items: { type: 'string', enum: [...RECIPE_SEARCH_TAGS] },
+    description:
+      'Tagi, które KAŻDE danie musi mieć (twarde), np. ["soup"] dla „same zupy". Zwykle [].',
+  },
+  prefer_tags: {
+    type: 'array',
+    items: { type: 'string', enum: [...RECIPE_SEARCH_TAGS] },
+    description:
+      'Tagi mile widziane (miękkie), np. ["quick"] dla „coś szybkiego", ["light"] dla „lekko". [] = bez.',
+  },
+  avoid_ingredients: {
+    type: 'array',
+    items: { type: 'string' },
+    description:
+      'Składniki, których ma nie być w TEJ prośbie (twarde), po polsku, np. ["ryba"]. [] = bez.',
+  },
+  max_prep_minutes: {
+    type: 'integer',
+    description:
+      'Najwyżej tyle minut przygotowania. 0 = bez limitu. W planie i podmianie to limit TWARDY ' +
+      '(dłuższe dania nie wejdą; gdy ich zabraknie — PARTIAL z powodem), w daniach do wyboru ' +
+      'serwer może go poluzować i powie to w `relaxed`.',
+  },
 };
 
 const MEAL = {
@@ -80,15 +131,6 @@ const MEAL = {
 
 export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
   {
-    name: 'get_household_context',
-    description:
-      'Kto mieszka w gospodarstwie: dieta, alergeny, cel kaloryczny i cele makro każdej osoby. ' +
-      'Wywołaj to ZANIM zaproponujesz cokolwiek do jedzenia — bez tego nie wiesz, czego ktoś nie je. ' +
-      'Gdy makra mają źródło UNAVAILABLE, trzymaj się samych kalorii i nie zgaduj gramów.',
-    input_schema: object({}),
-    strict: true,
-  },
-  {
     name: 'get_week_plan',
     description:
       'Co stoi w planie INNEGO tygodnia niż planowany — plan planowanego masz już w bloku ' +
@@ -97,7 +139,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       'Pole recipe każdej pozycji to gotowa referencja do innych narzędzi: indeks katalogu (R07) ' +
       'albo identyfikator przepisu tego domu. Brak participants znaczy „posiłek dla całego domu"; ' +
       'othersCount mówi, ILU jedzących nie ma na liście, i tych osób nie da się wskazać po imieniu. ' +
-      'Składów tu nie ma — masz je w katalogu.',
+      'Składów tu nie ma — skład daje get_recipe_details.',
     input_schema: object({ week_start: WEEK_START }, ['week_start']),
     strict: true,
   },
@@ -106,7 +148,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     description:
       'Bilans dnia po dniu dla jednej osoby: ile kalorii i makr przypada na nią z zaplanowanych ' +
       'posiłków (planned) i ile z tego odhaczyła jako zjedzone (eaten). Porównaj to z celami ' +
-      'z get_household_context, zanim powiesz, że plan jest dobry.',
+      'z bloku DOMOWNICY, zanim powiesz, że plan jest dobry.',
     input_schema: object(
       {
         week_start: WEEK_START,
@@ -123,10 +165,10 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     name: 'get_recipe_details',
     description:
       'Pełny przepis: WSZYSTKIE składniki z gramaturą i kroki przygotowania. ' +
-      'Katalog w prompcie pokazuje tylko pięć najcięższych składników i zero kroków, ' +
+      'Wyniki find_recipes i karty nie pokazują składu ani kroków, ' +
       'więc na pytania „jak to ugotować", „ile tam czego" i „czy jest w tym X" ' +
-      'odpowiadasz WYŁĄCZNIE po wywołaniu tego narzędzia. Nie zgaduj z nazwy dania ' +
-      'ani z tych pięciu składników — „dorsz z masłem" wygląda stamtąd na danie bez nabiału. ' +
+      'odpowiadasz WYŁĄCZNIE po wywołaniu tego narzędzia. Nie zgaduj z nazwy dania — ' +
+      '„dorsz z masłem" wygląda z samej nazwy na danie bez nabiału. ' +
       'Kroki przepisz swoimi słowami tylko wtedy, gdy użytkownik o nie prosi.',
     input_schema: object({ recipe: RECIPE_REF }, ['recipe']),
     // BEZ `strict` — to i cztery kolejne narzędzia z 18.09 weszły ze `strict`
@@ -137,23 +179,97 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     // `pnpm exec tsx scripts/agent-tools-smoke.ts`.
   },
   {
-    name: 'search_recipes_by_ingredient',
+    name: 'find_recipes',
     description:
-      'Znajdź dania, w których naprawdę JEST dany składnik — po całym składzie, ' +
-      'nie po nazwie dania. Używaj, gdy pytanie wychodzi od produktu („co zrobić ' +
-      'z bakłażanem", „mam pół kurczaka", „coś z soczewicą"): katalog w prompcie ' +
-      'niesie tylko pięć najcięższych składników każdego dania, więc sam go nie ' +
-      'przejrzysz pod tym kątem i przegapisz połowę trafień. ' +
-      'Odmiana nie przeszkadza („jajka" znajdzie „jajko"). ' +
-      'Wynik niesie gotowe referencje do propose_* — używaj ich dosłownie.',
+      'Wyszukiwarka dań z katalogu i przepisów tego domu — do PYTAŃ o dania („czy macie coś ' +
+      'z soczewicą?", „jakie są zupy?"). Dań DO WYBORU na posiłek nie szukasz tu, tylko przez ' +
+      'suggest_meals, a planu nie układasz z tych wyników — od tego jest build_meal_plan. ' +
+      'Podajesz KRYTERIA z prośby, a serwer oddaje dania z kcal i białkiem na porcję, czasem, ' +
+      'tagami i powodem („why"); składu i kroków tu nie ma — daje je get_recipe_details. ' +
+      'Alergeny, wykluczenia i dietę jedzących nakłada SAM (te same reguły, co walidator ' +
+      'planu) — nie przepisuj ich tutaj. Zero wyników = pole relaxations mówi, ile dań ' +
+      'byłoby bez danego kryterium. Wynik niesie gotowe referencje — używaj ich dosłownie. ' +
+      'Każde pole jest wymagane; „bez ograniczenia" to pusty napis, pusta lista albo 0.',
     input_schema: object(
       {
-        ingredient: {
+        query: {
           type: 'string',
-          description: 'Nazwa składnika albo jej fragment, po polsku.',
+          description:
+            'Słowa z prośby, które opisują danie: nazwa, składnik, charakter („zupa z soczewicy", ' +
+            '„coś z kurczakiem", „lekkie"). Pusty napis, gdy prośba to same kryteria. ' +
+            'Wykluczeń („bez mięsa") tu nie pisz — od tego są exclude_ingredients i tags.',
+        },
+        meal_type: {
+          ...MEAL,
+          enum: [...MEAL.enum, 'ANY'],
+          description: 'Pora, na którą danie ma pasować; ANY = dowolna.',
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string', enum: [...RECIPE_SEARCH_TAGS] },
+          description:
+            'Tagi z mapy katalogu (rodzaj dania, mięso, smak, quick/light/high_protein). ' +
+            'W grupie LUB, między grupami I. Pusta lista = bez zawężenia.',
+        },
+        include_ingredients: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Składniki, które MUSZĄ być w daniu (każdy), po polsku, np. „kurczak", „bakłażan". ' +
+            'Odmiana nie przeszkadza. Pusta lista = dowolne.',
+        },
+        exclude_ingredients: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Składniki, których w daniu NIE MA być („pieczarki", „kolendra") — z tej prośby. ' +
+            'Stałe niechęci domowników serwer nakłada sam. Pusta lista = żadnych.',
+        },
+        max_prep_minutes: {
+          type: 'integer',
+          description:
+            'Najdłuższy czas przygotowania w minutach; 0 = bez limitu.',
+        },
+        max_kcal_per_serving: {
+          type: 'integer',
+          description: 'Najwięcej kalorii na porcję; 0 = bez limitu.',
+        },
+        min_protein_per_serving: {
+          type: 'integer',
+          description: 'Najmniej gramów białka na porcję; 0 = bez limitu.',
+        },
+        for_user_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Kto będzie to jadł (user_id z bloku DOMOWNICY); pusta lista = cały dom.',
+        },
+        sort: {
+          type: 'string',
+          enum: [...SEARCH_SORTS],
+          description:
+            'BEST_FIT = najlepiej dopasowane (domyślnie); QUICKEST, HIGH_PROTEIN, LIGHTEST — gdy ' +
+            'prośba wprost o to pyta („najszybsze", „najwięcej białka", „najlżejsze").',
+        },
+        limit: {
+          type: 'integer',
+          description:
+            'Ile dań oddać, 1–15. Do wyboru 3 dań bierz 6–8, do planu kilku dni 10–15.',
         },
       },
-      ['ingredient'],
+      [
+        'query',
+        'meal_type',
+        'tags',
+        'include_ingredients',
+        'exclude_ingredients',
+        'max_prep_minutes',
+        'max_kcal_per_serving',
+        'min_protein_per_serving',
+        'for_user_ids',
+        'sort',
+        'limit',
+      ],
     ),
   },
   {
@@ -182,8 +298,8 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       'Zadaj JEDNO pytanie, gdy brakuje ci informacji, której nie da się rozsądnie założyć ' +
       '(np. alergia spoza profilu). Dnia, pory, osób i liczby dań NIE pytasz — zakładasz: ' +
       'dziś (albo jutro, gdy ta pora minęła), najbliższa pora, cały dom, trzy do wyboru. ' +
-      'Podaj 2–4 gotowe odpowiedzi — użytkownik wybiera jedną dotknięciem. NIE używaj tego zamiast sprawdzenia narzędziem: jeśli ' +
-      'odpowiedź jest w get_household_context albo w get_week_plan, po prostu ją sprawdź. ' +
+      'Podaj 2–4 gotowe odpowiedzi — użytkownik wybiera jedną dotknięciem. NIE pytaj o to, co ' +
+      'jest w bloku gospodarstwa (domownicy, plan) albo w get_week_plan. ' +
       'Po tym narzędziu KOŃCZYSZ turę — nie proponujesz planu w tej samej odpowiedzi.',
     input_schema: object(
       {
@@ -212,10 +328,10 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
   {
     name: 'propose_day_plan',
     description:
-      'Pokaż PROPOZYCJĘ jednego dnia. Tak jak propose_week_plan, ale lista slots opisuje stan ' +
-      'docelowy WYŁĄCZNIE tego dnia — reszta tygodnia zostaje nietknięta. Używaj, gdy rozmowa ' +
-      'dotyczy jednego dnia („co na jutro?"): karta dnia pokazuje posiłek po posiłku i sumę ' +
-      'wobec celu, czego karta tygodnia nie robi. TY NIE ZAPISUJESZ — zapisze użytkownik.',
+      'Pokaż PROPOZYCJĘ jednego dnia z DAŃ, KTÓRE PODAŁ UŻYTKOWNIK („na jutro: owsianka, ' +
+      'schabowy, sałatka") — przepisujesz je, nie dobierasz. Do UŁOŻENIA dnia służy ' +
+      'build_meal_plan. Lista slots to stan docelowy WYŁĄCZNIE tego dnia — reszta tygodnia ' +
+      'zostaje nietknięta. TY NIE ZAPISUJESZ — zapisze użytkownik.',
     input_schema: object(
       {
         week_start: WEEK_START,
@@ -254,11 +370,10 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
   {
     name: 'offer_options',
     description:
-      'Pokaż 2–4 DANIA DO WYBORU jako kafelki ze zdjęciem, kaloriami i czasem. ' +
-      'Używaj, gdy pytanie brzmi „co na kolację?" i sensownych odpowiedzi jest kilka — ' +
-      'wybór obrazkami jest szybszy niż lista w tekście. Dotknięcie kafelka wysyła zwykłą ' +
-      'wiadomość „Wybieram: …", więc po tym narzędziu KOŃCZYSZ turę i czekasz na wybór. ' +
-      'Nie używaj do pokazania planu — od tego są propose_week_plan i propose_day_plan.',
+      'Pokaż jako kafelki 2–4 KONKRETNE dania, które już masz (z find_recipes, z historii, ' +
+      'podane przez użytkownika). Zwykłe „co na kolację?" to suggest_meals — tam dania dobiera ' +
+      'serwer. Dotknięcie kafelka wysyła wiadomość „Wybieram: …", więc po tym narzędziu ' +
+      'KOŃCZYSZ turę. Nie używaj do pokazania planu — od tego jest build_meal_plan.',
     input_schema: object(
       {
         title: {
@@ -362,9 +477,10 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     description:
       'Zaproponuj JEDNO danie dla kilku osób naraz i powiedz, jak podać je każdej z nich. ' +
       'Używaj, gdy w domu są różne cele albo ograniczenia, a gotuje się jedno („co ugotować, ' +
-      'żeby każdy zjadł swoje"). Cele i alergeny karta bierze z profili — ty dokładasz sam ' +
-      'sposób podania (wielkość porcji, co odłożyć osobno, czego nie dosypywać). ' +
-      'TY NIE ZAPISUJESZ — zapisze użytkownik.',
+      'żeby każdy zjadł swoje"), także gdy użytkownik chce ROZDZIELIĆ zaplanowany posiłek ' +
+      'między osoby o różnych celach (redukcja / masa). Porcję każdej osoby (kcal) liczy ' +
+      'serwer z jej celu — ty dokładasz najwyżej sposób podania (co odłożyć osobno, czego nie ' +
+      'dosypywać). TY NIE ZAPISUJESZ — zapisze użytkownik.',
     input_schema: object(
       {
         week_start: WEEK_START,
@@ -373,12 +489,14 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         recipe: RECIPE_REF,
         portions: {
           type: 'array',
-          description: 'Po jednej pozycji na osobę, która to je.',
+          description:
+            'Kto je i jak podać (bez liczb — porcję każdej osoby liczy serwer z jej celu). ' +
+            '[] = cały dom.',
           items: object(
             {
               user_id: {
                 type: 'string',
-                description: 'Identyfikator domownika z get_household_context.',
+                description: 'Identyfikator domownika z bloku DOMOWNICY.',
               },
               note: {
                 type: 'string',
@@ -503,61 +621,169 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     strict: true,
   },
   {
-    name: 'propose_week_plan',
+    name: 'suggest_meals',
     description:
-      'Pokaż użytkownikowi PROPOZYCJĘ tygodnia. Lista slots to stan docelowy: czego na niej nie ma, ' +
-      'tego w planie nie będzie. TY NIE ZAPISUJESZ PLANU — zapisze go użytkownik jednym kliknięciem ' +
-      'w karcie, którą to narzędzie dla niego przygotuje. ' +
-      'Narzędzie samo sprawdza plan po stronie serwera i zwraca naruszenia (nieznany przepis, danie ' +
-      'nie do tego posiłku, ALERGEN domownika, obcy domownik) — popraw je i zawołaj ponownie. ' +
-      'W odpowiedzi NIE przepisuj planu dzień po dniu: użytkownik widzi go w karcie.',
+      'Pokaż 2–4 DANIA DO WYBORU na jeden posiłek, dobrane PO STRONIE SERWERA — odpowiedź na ' +
+      '„co na kolację?", „3 szybkie obiady", „mam dużo kurczaka, wykorzystaj go". Serwer sam ' +
+      'szuka, nakłada alergeny, diety i wykluczenia jedzących, dopasowuje dania do tego, co ' +
+      'osobie zostaje na ten posiłek przy reszcie dnia, różnicuje je i stawia kartę z kafelkami. ' +
+      'Ty podajesz tylko posiłek, dzień i życzenia ze zdania — bez find_recipes i bez wybierania ' +
+      'dań. Karta kończy turę: przed wywołaniem nic nie piszesz — zdanie dopisze serwer. ' +
+      'Po „Wybieram: …" wstawiasz danie przez propose_swap, a w propozycji, która czeka na ' +
+      'zatwierdzenie — przez revise_proposal. „Pokaż inne" = to samo narzędzie jeszcze raz: ' +
+      'serwer sam pominie dania już pokazane na ten posiłek. NIE do rozdzielania posiłku ' +
+      'między domowników (propose_household_split) ani do zmiany dania w propozycji lub planie ' +
+      '(replace_plan_item). TY NIE ZAPISUJESZ.',
     input_schema: object(
       {
         week_start: WEEK_START,
-        note: {
-          type: 'string',
-          description:
-            'Jedno zdanie, dlaczego akurat tak. Bez liczb i bez nazw dań — te są w karcie.',
+        day_of_week: DAY,
+        meal_type: MEAL,
+        count: {
+          type: 'integer',
+          description: 'Ile dań do wyboru, 2–4; zwykle 3.',
         },
-        removals: {
+        include_ingredients: {
           type: 'array',
+          items: { type: 'string' },
           description:
-            'Dla każdego dania z OBECNEGO planu, którego nie ma w slots: jedno-dwa słowa dlaczego ' +
-            '(„powtórka", „ponad cel", „bez ryb"). Karta pokaże to obok przekreślonego dania. Pomiń, gdy nic nie znika.',
-          items: object(
-            {
-              day_of_week: DAY,
-              meal_type: MEAL,
-              reason: { type: 'string', description: 'Najwyżej 3 słowa.' },
-            },
-            ['day_of_week', 'meal_type', 'reason'],
-          ),
+            'Składniki, które MUSZĄ być w daniu, po polsku („kurczak"). [] = dowolne.',
         },
-        slots: {
+        for_user_ids: {
           type: 'array',
-          description: 'Najwyżej 42 pozycje na tydzień.',
-          items: object(
-            {
-              day_of_week: DAY,
-              meal_type: MEAL,
-              recipe: RECIPE_REF,
-              participant_user_ids: {
-                type: 'array',
-                items: { type: 'string' },
-                description:
-                  'Kto to je. Pomiń albo zostaw puste, gdy danie jest dla całego domu.',
-              },
-              planned_servings: {
-                type: 'integer',
-                description:
-                  'Porcje ŁĄCZNE, 1–12. Pomiń, żeby policzyły się z audytorium — tak jest prawie zawsze dobrze.',
-              },
-            },
-            ['day_of_week', 'meal_type', 'recipe'],
-          ),
+          items: { type: 'string' },
+          description: 'Dla kogo (user_id z bloku DOMOWNICY). [] = cały dom.',
+        },
+        ...PLANNER_WISHES,
+      },
+      [
+        'week_start',
+        'day_of_week',
+        'meal_type',
+        'count',
+        'include_ingredients',
+        'for_user_ids',
+        'diet',
+        'must_have_tags',
+        'prefer_tags',
+        'avoid_ingredients',
+        'max_prep_minutes',
+      ],
+    ),
+  },
+  {
+    name: 'build_meal_plan',
+    description:
+      'UŁÓŻ plan dni × pór PO STRONIE SERWERA i pokaż go jako propozycję do zatwierdzenia. ' +
+      'Serwer sam dobiera dania z katalogu (alergeny, diety i wykluczenia wszystkich jedzących ' +
+      'są twarde), porcje, kcal i makro wobec celów domowników i pilnuje różnorodności. Ty ' +
+      'podajesz tylko ZAKRES i ŻYCZENIA ze zdania użytkownika — nie wybierasz dań i nie liczysz ' +
+      'kalorii. Jeden dzień w days = karta dnia, więcej dni = karta tygodnia. To, co stoi ' +
+      'w tych dniach i porach, zostanie zastąpione; reszta planu zostaje. Wynik ma status: OK, ' +
+      'PARTIAL (coś nie wyszło — powody w issues) albo UNSAT (nic się nie da, karty nie ma). ' +
+      'Przy PARTIAL i UNSAT powiedz jednym zdaniem, czego zabrakło. TY NIE ZAPISUJESZ.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        days: {
+          type: 'array',
+          items: DAY,
+          description: 'Dni do ułożenia, 1–7; cały tydzień = wszystkie siedem.',
+        },
+        meal_types: {
+          type: 'array',
+          items: MEAL,
+          description:
+            'Pory do ułożenia. [] = pory włączone w domu (zwykle tak).',
+        },
+        for_user_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Dla kogo. [] = cały dom (zwykle tak).',
+        },
+        ...PLANNER_WISHES,
+        day_kcal_target: {
+          type: 'integer',
+          description:
+            'Dzienny cel albo limit kcal podany W TEJ prośbie („zmieść się w 1800") — planer ' +
+            'celuje w niego zamiast w cel z profilu pytającego, tylko w tym planie (profil bez ' +
+            'zmian). 0 = cel z profilu (zwykle tak).',
         },
       },
-      ['week_start', 'slots'],
+      [
+        'week_start',
+        'days',
+        'meal_types',
+        'for_user_ids',
+        'diet',
+        'must_have_tags',
+        'prefer_tags',
+        'avoid_ingredients',
+        'max_prep_minutes',
+        'day_kcal_target',
+      ],
+    ),
+  },
+  {
+    name: 'replace_plan_item',
+    description:
+      'Wymień JEDNO danie (dzień + pora) PO STRONIE SERWERA: w propozycji, która czeka na ' +
+      'zatwierdzenie (proposal_id z dopisku [Propozycja …] w historii), albo w zapisanym planie ' +
+      '(proposal_id = ""). Serwer znajdzie danie spełniające ograniczenia jedzących i życzenia ' +
+      '(„wegetariańska", „szybsza", „bez ryb"), dobierze porcję i złoży nową kartę; reszta planu ' +
+      'zostaje bez zmian. similar_kcal=true = kcal na osobę blisko obecnego dania. Gdy ' +
+      'użytkownik wskazał KONKRETNE danie — revise_proposal albo propose_swap. TY NIE ZAPISUJESZ.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        day_of_week: DAY,
+        meal_type: MEAL,
+        proposal_id: {
+          type: 'string',
+          description:
+            'Numer propozycji z dopisku [Propozycja …]; "" = zmiana w zapisanym planie.',
+        },
+        similar_kcal: {
+          type: 'boolean',
+          description: 'Czy nowe danie ma mieć podobne kcal na osobę.',
+        },
+        ...PLANNER_WISHES,
+      },
+      [
+        'week_start',
+        'day_of_week',
+        'meal_type',
+        'proposal_id',
+        'similar_kcal',
+        'diet',
+        'must_have_tags',
+        'prefer_tags',
+        'avoid_ingredients',
+        'max_prep_minutes',
+      ],
+    ),
+  },
+  {
+    name: 'revise_proposal',
+    description:
+      'Popraw JEDNĄ pozycję (dzień + posiłek) w propozycji planu z tej rozmowy, która czeka na ' +
+      'zatwierdzenie (status=PENDING w dopisku [Propozycja …] w historii) — „zamień tylko wtorkowy ' +
+      'obiad", „Wybieram: …" po zamiennikach. Serwer bierze pozycje tamtej propozycji, wymienia ' +
+      'CAŁY slot na jedno danie dla tych samych osób, sprawdza plan i składa nową kartę; reszta ' +
+      'zostaje bez zmian. Propozycja zapisana albo nieaktualna — wtedy propose_swap na planie. ' +
+      'TY NIE ZAPISUJESZ.',
+    input_schema: object(
+      {
+        proposal_id: {
+          type: 'string',
+          description:
+            'Numer propozycji DOKŁADNIE z dopisku [Propozycja PLAN_… <numer> …] w historii.',
+        },
+        day_of_week: DAY,
+        meal_type: MEAL,
+        recipe: RECIPE_REF,
+      },
+      ['proposal_id', 'day_of_week', 'meal_type', 'recipe'],
     ),
   },
   {
@@ -658,13 +884,15 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     description:
       'Popraw przepis gospodarstwa. Podaj tylko to, co ma się zmienić. Uwaga: przysłane składniki ' +
       'albo kroki ZASTĘPUJĄ poprzednie w całości, więc wysyłaj pełną listę, nie różnicę. ' +
-      'Przepisów z katalogu nie da się zmienić — zrób własną kopię przez create_recipe.',
+      'Przepis z KATALOGU jest tylko do odczytu: wołaj to narzędzie i tak — serwer odmówi, sam ' +
+      'wyjaśni to użytkownikowi i zaproponuje, co można zrobić zamiast tego. Nie rób kopii ' +
+      '(create_recipe) ani nie zmieniaj planu, dopóki użytkownik wprost o to nie poprosi.',
     input_schema: object(
       {
         recipe_id: {
           type: 'string',
           description:
-            'Identyfikator przepisu gospodarstwa (nie indeks katalogu).',
+            'Przepis: identyfikator przepisu gospodarstwa albo indeks katalogu (R07).',
         },
         title: { type: 'string' },
         prep_time_minutes: { type: 'integer' },
@@ -723,7 +951,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
         about_user_id: {
           type: 'string',
           description:
-            'Jeżeli notatka jest o KONKRETNYM domowniku — jego user_id z get_household_context. ' +
+            'Jeżeli notatka jest o KONKRETNYM domowniku — jego user_id z bloku DOMOWNICY. ' +
             'Pomiń, gdy zdanie dotyczy całego domu. Notatka o osobie, której nie ma na tej ' +
             'liście, nie zostanie zapisana; notatka bez tego pola nie trafi do kolejnych rozmów, ' +
             'jeśli ktokolwiek w domu nie zgodził się na asystenta.',
@@ -731,14 +959,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       },
       ['text', 'kind'],
     ),
-    strict: true,
-  },
-  {
-    name: 'delete_recipe',
-    description:
-      'Wycofaj przepis gospodarstwa z użycia. Nie zadziała, gdy przepis stoi w jakimkolwiek planie — ' +
-      'najpierw usuń go z planu przez apply_week_plan.',
-    input_schema: object({ recipe_id: { type: 'string' } }, ['recipe_id']),
     strict: true,
   },
 ] as const;
@@ -761,8 +981,7 @@ export const START_PLANNING_TOOL: AgentToolDefinition = {
     'dania, porcje dla domu, nowy albo poprawiony przepis). Dopiero po tym wywołaniu ' +
     'dostaniesz narzędzia propose_* i apply_*. NIE wywołuj przy pytaniach o to, co jest ' +
     'w planie, o składniki, bilans czy listę zakupów — na nie odpowiadasz sam. ' +
-    'Wołaj OD RAZU, bez pobierania planu i domowników: planista sprawdzi sam, ' +
-    'co mu potrzebne, a to, co pobierzesz wcześniej, i tak przeczyta drugi raz.',
+    'Wołaj OD RAZU, bez pobierania planu: planista sprawdzi sam, co mu potrzebne.',
   input_schema: object({
     reason: {
       type: 'string',
@@ -789,7 +1008,6 @@ export type AgentToolTier = 'chat' | 'planner';
 
 export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   // Czytanie i pytania: dane są już policzone przez serwer.
-  get_household_context: 'chat',
   get_week_plan: 'chat',
   get_week_balance: 'chat',
   show_shopping_list: 'chat',
@@ -799,7 +1017,12 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   // pytanie o przepis kosztowałoby drugi, droższy model za nic. Planista ma
   // je też — lista `AGENT_TOOLS` jest dla niego pełna.
   get_recipe_details: 'chat',
-  search_recipes_by_ingredient: 'chat',
+  // Wyszukiwanie dań to odpowiedź na „co na kolację?" i „co zrobić
+  // z bakłażanem?" — najczęstsze pytania w ogóle. Planista ma je także.
+  find_recipes: 'chat',
+  // Dania do wyboru z serwera (Etap 3) — ta sama odpowiedź na „co na
+  // kolację?", co find_recipes + offer_options, tylko w jednej rundzie.
+  suggest_meals: 'chat',
   // Karty, które niczego nie zapisują.
   ask_clarifying_question: 'chat',
   offer_options: 'chat',
@@ -818,11 +1041,17 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   mark_meal_eaten: 'chat',
   check_shopping_items: 'chat',
   // Układanie i zapisywanie: dobór pod ograniczenia całego domu.
-  propose_week_plan: 'planner',
   propose_day_plan: 'planner',
   propose_swap: 'planner',
   propose_remove_meal: 'planner',
   propose_household_split: 'planner',
+  // Poprawka propozycji to dobór dania pod ograniczenia domu — jak podmiana.
+  revise_proposal: 'planner',
+  // Serwerowy planer (Etap 2): model podaje zakres i życzenia, dania dobiera
+  // serwer. Zostają u planisty do czasu pomiaru (Etap 3/6), czy tani model
+  // wystarczy — to jest dokładnie ta dźwignia.
+  build_meal_plan: 'planner',
+  replace_plan_item: 'planner',
   apply_week_plan: 'planner',
   create_recipe: 'planner',
   update_recipe: 'planner',
@@ -832,9 +1061,6 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   // ślepą uliczką: tani model mógł wyszukać składnik i nie mieć co z nim
   // zrobić, płacąc rundę za nic.
   search_ingredients: 'planner',
-  // Kasowanie przepisu jest jednym identyfikatorem, ale to ZAPIS — zostaje
-  // u planisty do czasu, aż raport pokaże, ile takich tur naprawdę jest.
-  delete_recipe: 'planner',
 };
 
 /** Narzędzia, których tańszy model NIE dostaje przed `start_planning`. */
@@ -853,3 +1079,97 @@ export const TRIAGE_TOOLS: readonly AgentToolDefinition[] = [
 export const AGENT_TOOL_NAMES = [...AGENT_TOOLS, START_PLANNING_TOOL].map(
   (tool) => tool.name,
 );
+
+/**
+ * Narzędzia WEWNĘTRZNE (Etap 3.5): executor je zna, model ich NIE widzi.
+ *
+ * `propose_week_plan` kazał modelowi ręcznie składać do 42 pozycji tygodnia —
+ * po serwerowym planerze tydzień układa `build_meal_plan`, a pojedyncze
+ * zmiany `replace_plan_item`/`propose_swap`/`revise_proposal`. Zostaje jako
+ * droga dla dostawcy `stub` (e2e: `[[propose:…]]`) i harnessu scenariuszy,
+ * bo propozycja z KONKRETNYMI daniami jest tam potrzebna. Dostawca prawdziwego
+ * modelu odmawia narzędzia spoza listy wysłanej modelowi (patrz
+ * `AnthropicAgentProvider.runTools`), więc nazwa zmyślona przez model nie
+ * trafi do executora.
+ */
+export const INTERNAL_AGENT_TOOLS: readonly AgentToolDefinition[] = [
+  {
+    name: 'propose_week_plan',
+    description:
+      'Pokaż użytkownikowi PROPOZYCJĘ tygodnia. Lista slots to stan docelowy: czego na niej nie ma, ' +
+      'tego w planie nie będzie. TY NIE ZAPISUJESZ PLANU — zapisze go użytkownik jednym kliknięciem ' +
+      'w karcie, którą to narzędzie dla niego przygotuje. ' +
+      'Narzędzie samo sprawdza plan po stronie serwera i zwraca naruszenia (nieznany przepis, danie ' +
+      'nie do tego posiłku, ALERGEN domownika, obcy domownik) — popraw je i zawołaj ponownie. ' +
+      'W odpowiedzi NIE przepisuj planu dzień po dniu: użytkownik widzi go w karcie.',
+    input_schema: object(
+      {
+        week_start: WEEK_START,
+        note: {
+          type: 'string',
+          description:
+            'Jedno zdanie, dlaczego akurat tak. Bez liczb i bez nazw dań — te są w karcie.',
+        },
+        removals: {
+          type: 'array',
+          description:
+            'Dla każdego dania z OBECNEGO planu, którego nie ma w slots: jedno-dwa słowa dlaczego ' +
+            '(„powtórka", „ponad cel", „bez ryb"). Karta pokaże to obok przekreślonego dania. Pomiń, gdy nic nie znika.',
+          items: object(
+            {
+              day_of_week: DAY,
+              meal_type: MEAL,
+              reason: { type: 'string', description: 'Najwyżej 3 słowa.' },
+            },
+            ['day_of_week', 'meal_type', 'reason'],
+          ),
+        },
+        slots: {
+          type: 'array',
+          description: 'Najwyżej 42 pozycje na tydzień.',
+          items: object(
+            {
+              day_of_week: DAY,
+              meal_type: MEAL,
+              recipe: RECIPE_REF,
+              participant_user_ids: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Kto to je. Pomiń albo zostaw puste, gdy danie jest dla całego domu.',
+              },
+              planned_servings: {
+                type: 'integer',
+                description:
+                  'Porcje ŁĄCZNE, 1–12. Pomiń, żeby policzyły się z audytorium — tak jest prawie zawsze dobrze.',
+              },
+            },
+            ['day_of_week', 'meal_type', 'recipe'],
+          ),
+        },
+      },
+      ['week_start', 'slots'],
+    ),
+  },
+];
+
+/** Wszystko, co executor wykona: narzędzia modelu, przekazanie i wewnętrzne. */
+export const EXECUTABLE_TOOL_NAMES = [
+  ...AGENT_TOOL_NAMES,
+  ...INTERNAL_AGENT_TOOLS.map((tool) => tool.name),
+];
+
+/**
+ * Narzędzia zdjęte z listy modelu w Etapie 3 — dla spec-ów i raportu.
+ * Implementacje domenowe zostają (np. `RecipesService.remove` dla REST
+ * i panelu); znika wyłącznie wejście modelu.
+ */
+export const RETIRED_MODEL_TOOLS = [
+  // Domownicy z dietą, alergenami i celami są w bloku gospodarstwa promptu
+  // (ten sam filtr zgód) — narzędzie było drugim odczytem tego samego.
+  'get_household_context',
+  // Ręczne składanie tygodnia — patrz `INTERNAL_AGENT_TOOLS`.
+  'propose_week_plan',
+  // Kasowanie przepisu bez scenariusza w rozmowie; aplikacja ma to w edytorze.
+  'delete_recipe',
+] as const;

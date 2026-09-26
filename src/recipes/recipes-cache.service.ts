@@ -88,10 +88,17 @@ export class RecipesCacheService {
     return `${this.recipesListPrefix}${input.userId}:${householdPart}:${mealTypePart}:${favoritePart}:${input.page}:${input.limit}`;
   }
 
-  invalidateRecipesList(): void {
+  /**
+   * Bez argumentu — cała lista (zmiana KATALOGU: panel, import). Z domem —
+   * tylko jego wpisy (zmiana przepisu gospodarstwa, Etap 4B): wspólne wpisy
+   * katalogu (`all-households`) i listy innych domów zostają.
+   */
+  invalidateRecipesList(householdId?: string): void {
     if (!this.enabled) return;
+    const marker = householdId ? `:${householdId}:` : null;
     for (const key of this.store.keys()) {
-      if (key.startsWith(this.recipesListPrefix)) {
+      if (!key.startsWith(this.recipesListPrefix)) continue;
+      if (marker === null || key.includes(marker)) {
         this.store.delete(key);
       }
     }

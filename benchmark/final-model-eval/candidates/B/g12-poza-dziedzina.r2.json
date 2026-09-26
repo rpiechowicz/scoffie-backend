@@ -1,0 +1,184 @@
+{
+  "label": "cand-B-g12-poza-dziedzina",
+  "startedAt": "2026-09-26T17:38:41.882Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "B",
+      "label": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.025788,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.012793,
+      "p95CostUsd": 0.012995,
+      "medianLatencyMs": 3369,
+      "latencySplit": {
+        "wait": 0.5098894706224549,
+        "thinking": 0,
+        "toolInput": 0,
+        "text": 0.4885107620709715,
+        "toolsRun": 0,
+        "other": 0.0015997673065735892
+      },
+      "medianFirstBlockMs": 1688,
+      "cacheHitRatio": 0.9298194071774478,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 12,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.012793
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g12-poza-dziedzina",
+      "group": 12,
+      "pyta": "Czy prośba spoza dziedziny kończy się krótką odmową, a nie pracą?",
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "b696c1eb-3cb0-44a7-8ec1-86bf4b2cd70b",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 3369,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3367,
+          "firstBlockMs": 1818,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1543,
+          "outputTokens": 91,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 91,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1787,
+      "cacheHitRatio": 0.9296914914521517,
+      "costMicroUsd": 12793,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Jestem tu od planowania posiłków i zakupów, więc wierszy o Napoleonie nie napiszę. Chętnie pomogę z jadłospisem na najbliższy tydzień albo pomysłem na dziś – dać propozycję kolacji?",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g12-poza-dziedzina",
+      "group": 12,
+      "pyta": "Czy prośba spoza dziedziny kończy się krótką odmową, a nie pracą?",
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "7150ba60-2a7b-4361-849d-86518b554dd9",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 3507,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3507,
+          "firstBlockMs": 1688,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1816,
+          "outputTokens": 114,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 114,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1780,
+      "cacheHitRatio": 0.929947322902744,
+      "costMicroUsd": 12995,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Zajmuję się planowaniem posiłków i zakupami w tej aplikacji, więc pisanie wierszy o Napoleonie nie jest czymś, w czym mogę pomóc. Chętnie ułożę plan posiłków na ten tydzień albo podpowiem coś na obiad czy kolację - daj znać.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

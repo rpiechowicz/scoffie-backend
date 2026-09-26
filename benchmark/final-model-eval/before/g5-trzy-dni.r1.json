@@ -1,0 +1,226 @@
+{
+  "label": "before-g5-trzy-dni",
+  "startedAt": "2026-09-26T16:12:43.707Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.068658,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.068658,
+      "p95CostUsd": 0.068658,
+      "medianLatencyMs": 24937,
+      "latencySplit": {
+        "wait": 0.2488671452059189,
+        "thinking": 0.4402293780326423,
+        "toolInput": 0.24401491759233268,
+        "text": 0.06408148534306453,
+        "toolsRun": 0.002486265388779725,
+        "other": 0.0003208084372619
+      },
+      "medianFirstBlockMs": 2201,
+      "cacheHitRatio": 0.8883309054665338,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 5,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.068658
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g5-trzy-dni",
+      "group": 5,
+      "pyta": "Czy trzy dni to trzy dni — i czy mieszczą się w rozsądnej liczbie rund?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes",
+        "propose_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_week_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "f6920a03-f097-4778-85c2-d76c0c76d1e6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 387
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "3f020f86-3ce8-43b9-8782-1aaa4a51806d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 325
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "3b9e3067-6745-4e6b-ac76-d941613649a7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 421
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "24c30dd8-f869-4549-a7b7-578304b43e63",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 379
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "3cd89a00-6393-4ae6-a3b9-b7c1fbce30cc",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 543
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "de90527e-309f-49b2-97ef-e5ea1a3de94d",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 24937,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 8260,
+          "firstBlockMs": 2201,
+          "thinkingMs": 2331,
+          "toolInputMs": 3726,
+          "textMs": 0,
+          "outputTokens": 846,
+          "tools": [
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 34
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 13217,
+          "firstBlockMs": 2209,
+          "thinkingMs": 8647,
+          "toolInputMs": 2359,
+          "textMs": 0,
+          "outputTokens": 1053,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 28
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3395,
+          "firstBlockMs": 1796,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1598,
+          "outputTokens": 82,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 1981,
+      "cacheReadTokens": 69519,
+      "cacheWriteTokens": 8733,
+      "cacheHitRatio": 0.8883309054665338,
+      "costMicroUsd": 68658,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Gotowe, propozycja na poniedziałek-środę czeka w karcie do zatwierdzenia. Postawiłem na drób i ryby w lekkich wariantach, żeby zostawić zapas kalorii na śniadania.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

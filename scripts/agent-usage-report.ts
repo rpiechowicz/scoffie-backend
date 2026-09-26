@@ -64,7 +64,7 @@ async function main() {
   });
 
   console.log(
-    `\nAsystent — zużycie za ${label}: ${rows.length} wierszy księgi (jeden na fazę tury)`,
+    `\nAsystent — zużycie za ${label}: ${rows.length} wierszy księgi (od 26.09.2026 jeden na wywołanie, wcześniej na fazę tury)`,
   );
   if (rows.length === 0) {
     console.log('Brak wpisów w księdze AiUsage w tym okresie.');
@@ -162,7 +162,7 @@ async function main() {
   );
 
   console.log(
-    `  faz na turę: średnia ${(rows.length / turnCosts.length).toFixed(2)}`,
+    `  wierszy księgi na turę: średnia ${(rows.length / turnCosts.length).toFixed(2)}`,
   );
 
   // RUNDY MODELU, nie wiersze księgi. Do 7.09.2026 ta linia liczyła wiersze

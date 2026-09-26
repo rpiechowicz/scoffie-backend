@@ -1,0 +1,564 @@
+{
+  "label": "cand-E-g8-podzial-posilku",
+  "startedAt": "2026-09-26T17:37:46.917Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.041653,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 2,
+      "passRate": 0,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.015353,
+      "p95CostUsd": 0.0263,
+      "medianLatencyMs": 18896,
+      "latencySplit": {
+        "wait": 0.04705823477405041,
+        "thinking": 0.9494887150316113,
+        "toolInput": 0.00040035364572038633,
+        "text": 0,
+        "toolsRun": 0.001034246918110998,
+        "other": 0.0020184496305069477
+      },
+      "medianFirstBlockMs": 1185,
+      "cacheHitRatio": 0.8705775318542139,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 8,
+          "runs": 2,
+          "passRate": 0,
+          "medianRounds": 1,
+          "medianCostUsd": 0.015353
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g8-podzial-posilku",
+      "group": 8,
+      "pyta": "Czy „jedno danie, dwa talerze\" ląduje w jednym slocie z właściwym audytorium?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": false,
+      "issues": [
+        "w slocie 1 dan, oczekiwano rozdzielenia"
+      ],
+      "tools": [
+        "propose_household_split"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "propose_household_split",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "ce2b8627-48bd-43fe-bf8d-8463c503a969",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 402
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "BREAKFAST",
+          "recipeId": "f83eed93-fb23-4171-91aa-c786aa330928",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 436
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "7929dc13-b09b-4a85-9579-97b95d90b687",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 503
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "df846c2a-d028-4340-ae0c-20845fe99eb1",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 422
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "a05eec66-03c4-4ffa-abb6-296a80a159a1",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 537
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "5fb6cc04-69be-4797-8610-0ad18ebe6934",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 475
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "BREAKFAST",
+          "recipeId": "2f19c217-589e-4121-9134-f6942e5ab432",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 596
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "00f5eab0-5920-407d-ac31-b3d97635dcff",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 496
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "ffa2a092-4309-402e-8dab-47f01c23f584",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 806
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "6e0e7983-fec7-4ab8-9823-0208f427b6b4",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 696
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 860
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "85c3d6b4-429f-42f0-a114-378e4429cdc1",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "b9a6ca36-e95d-433a-8361-368fda6237b8",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 661
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "beca5f9f-4331-4345-b181-46f2f1d6ae88",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 507
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "f8e2e53a-0bbe-41b6-aea5-c073830d9dc9",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 653
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "61aff6e8-8e63-4c45-9a69-4e198a1e8471",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 786
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "824c9104-1596-4f53-98a8-9e6eac641527",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 720
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "d54efddb-38d5-4d53-9d21-9f6f2075c0a4",
+          "participantIds": [
+            "fe29e666-cd43-4972-bedf-159c366c838d",
+            "fc1e3b6a-ada1-4452-9f2c-e0125302c1f7"
+          ],
+          "plannedServings": 1,
+          "kcalPerServing": 732
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "fe29e666-cd43-4972-bedf-159c366c838d",
+          "calorieGoal": 2400
+        },
+        {
+          "key": "ania",
+          "userId": "fc1e3b6a-ada1-4452-9f2c-e0125302c1f7",
+          "calorieGoal": 1800
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 18896,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 18860,
+          "firstBlockMs": 1636,
+          "thinkingMs": 17103,
+          "toolInputMs": 3,
+          "textMs": 0,
+          "outputTokens": 1400,
+          "tools": [
+            "propose_household_split"
+          ],
+          "toolsRunMs": 34
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 1400,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 3119,
+      "cacheHitRatio": 0.8705955334987593,
+      "costMicroUsd": 15353,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Jedno danie dla wszystkich — jak podać je każdemu, masz w karcie.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g8-podzial-posilku",
+      "group": 8,
+      "pyta": "Czy „jedno danie, dwa talerze\" ląduje w jednym slocie z właściwym audytorium?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": false,
+      "issues": [
+        "w slocie 1 dan, oczekiwano rozdzielenia"
+      ],
+      "tools": [
+        "propose_household_split"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "propose_household_split",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "ce2b8627-48bd-43fe-bf8d-8463c503a969",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 402
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "BREAKFAST",
+          "recipeId": "f83eed93-fb23-4171-91aa-c786aa330928",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 436
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "7929dc13-b09b-4a85-9579-97b95d90b687",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 503
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "df846c2a-d028-4340-ae0c-20845fe99eb1",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 422
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "a05eec66-03c4-4ffa-abb6-296a80a159a1",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 537
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "5fb6cc04-69be-4797-8610-0ad18ebe6934",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 475
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "BREAKFAST",
+          "recipeId": "2f19c217-589e-4121-9134-f6942e5ab432",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 596
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "00f5eab0-5920-407d-ac31-b3d97635dcff",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 496
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "ffa2a092-4309-402e-8dab-47f01c23f584",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 806
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "6e0e7983-fec7-4ab8-9823-0208f427b6b4",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 696
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 860
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "85c3d6b4-429f-42f0-a114-378e4429cdc1",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "b9a6ca36-e95d-433a-8361-368fda6237b8",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 661
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "beca5f9f-4331-4345-b181-46f2f1d6ae88",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 507
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "f8e2e53a-0bbe-41b6-aea5-c073830d9dc9",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 653
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "61aff6e8-8e63-4c45-9a69-4e198a1e8471",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 786
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "824c9104-1596-4f53-98a8-9e6eac641527",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 720
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "d54efddb-38d5-4d53-9d21-9f6f2075c0a4",
+          "participantIds": [
+            "619eb512-01ab-4745-a2d6-94433b6cc8de",
+            "e28ebc18-a9d3-407b-9a33-41b1739f12c3"
+          ],
+          "plannedServings": 1,
+          "kcalPerServing": 732
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "619eb512-01ab-4745-a2d6-94433b6cc8de",
+          "calorieGoal": 2400
+        },
+        {
+          "key": "ania",
+          "userId": "e28ebc18-a9d3-407b-9a33-41b1739f12c3",
+          "calorieGoal": 1800
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 41051,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 41023,
+          "firstBlockMs": 1185,
+          "thinkingMs": 39816,
+          "toolInputMs": 21,
+          "textMs": 0,
+          "outputTokens": 3589,
+          "tools": [
+            "propose_household_split"
+          ],
+          "toolsRunMs": 28
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 3589,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 3120,
+      "cacheHitRatio": 0.8705595302096687,
+      "costMicroUsd": 26300,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Jedno danie dla wszystkich — jak podać je każdemu, masz w karcie.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

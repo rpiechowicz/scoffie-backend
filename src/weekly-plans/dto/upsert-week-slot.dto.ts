@@ -9,7 +9,10 @@ import {
   IsUUID,
   Max,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { PlanPortionDto } from './apply-week-plan.dto';
 import { DayOfWeek, MealType } from '@prisma/client';
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 
@@ -61,6 +64,21 @@ export class UpsertWeekSlotDto {
   @Min(1)
   @Max(12)
   plannedServings?: number;
+
+  /**
+   * Porcje per osoba (Etap 2.2) — zbiór osób = audytorium slotu, każda
+   * porcja wielokrotnością 0,05. Podane = źródło prawdy (`plannedServings`
+   * liczy serwer). POMINIĘTE = pozycja bez alokacji: zapis ze starszego
+   * klienta albo zmiana łącznej liczby porcji stepperem wraca do równego
+   * podziału — świadomie, bo stare porcje osób nie pasowałyby już do sumy.
+   */
+  @ApiPropertyOptional({ type: [PlanPortionDto] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(32)
+  @ValidateNested({ each: true })
+  @Type(() => PlanPortionDto)
+  portions?: PlanPortionDto[];
 
   /**
    * Przepis, który ma zniknąć ze slotu w TEJ SAMEJ transakcji, w której wchodzi

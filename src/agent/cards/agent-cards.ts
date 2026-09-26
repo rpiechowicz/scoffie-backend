@@ -127,6 +127,11 @@ export type PlanWeekCardSlot = {
   imageUrl: string | null;
   /** Puste = całe gospodarstwo. */
   participantIds: string[];
+  /**
+   * Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy
+   * podział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.
+   */
+  portions?: { userId: string; servings: number }[];
   change: 'NEW' | 'KEPT';
 };
 
@@ -177,6 +182,7 @@ export function kcalForPerson(
     mealType: string;
     kcalPerServing: number;
     participantIds: readonly string[];
+    portions?: readonly { userId: string; servings: number }[];
   }[],
   forUserId: string | undefined,
 ): number {
@@ -189,8 +195,13 @@ export function kcalForPerson(
     if (!eats) continue;
     // Pierwsza pasująca pozycja posiłku wygrywa — imienna przed wspólną
     // byłaby dokładniejsza, ale w jednym slocie i tak zwykle jest jedna.
+    // Porcja TEJ osoby, gdy pozycja ma alokację (Etap 2.2); inaczej jedna
+    // porcja — udział przy regule auto.
+    const servings =
+      slot.portions?.find((portion) => portion.userId === forUserId)
+        ?.servings ?? 1;
     if (!byMeal.has(slot.mealType))
-      byMeal.set(slot.mealType, slot.kcalPerServing);
+      byMeal.set(slot.mealType, Math.round(slot.kcalPerServing * servings));
   }
   let total = 0;
   for (const kcal of byMeal.values()) total += kcal;

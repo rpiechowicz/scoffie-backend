@@ -78,6 +78,7 @@ export function buildPlanWeekCard(input: {
         prepTimeMinutes: slot.prepTimeMinutes,
         imageUrl: slot.imageUrl,
         participantIds: slot.participantIds,
+        ...(slot.portions ? { portions: slot.portions } : {}),
         change: slot.change,
       })),
       kcalTotal: kcalForPerson(daySlots, input.forUserId),

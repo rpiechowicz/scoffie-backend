@@ -1,0 +1,148 @@
+{
+  "label": "cand-D-g6-tydzien-dwa-cele",
+  "startedAt": "2026-09-26T17:05:29.601Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "D",
+      "label": "Haiku / low (wszystko)",
+      "model": "claude-haiku-4-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.006437,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "D",
+      "configLabel": "Haiku / low (wszystko)",
+      "runs": 1,
+      "passRate": 0,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.006437,
+      "p95CostUsd": 0.006437,
+      "medianLatencyMs": 3795,
+      "latencySplit": {
+        "wait": 0.3243741765480896,
+        "thinking": 0,
+        "toolInput": 0,
+        "text": 0.6729907773386035,
+        "toolsRun": 0,
+        "other": 0.002635046113306983
+      },
+      "medianFirstBlockMs": 1231,
+      "cacheHitRatio": 0.9264997139210422,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 6,
+          "runs": 1,
+          "passRate": 0,
+          "medianRounds": 1,
+          "medianCostUsd": 0.006437
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g6-tydzien-dwa-cele",
+      "group": 6,
+      "pyta": "Czy tydzień dla dwóch osób o różnych celach jest kompletny?",
+      "config": "D",
+      "configLabel": "Haiku / low (wszystko)",
+      "model": "claude-haiku-4-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": false,
+      "issues": [
+        "brak MON LUNCH",
+        "brak MON DINNER",
+        "brak TUE LUNCH",
+        "brak TUE DINNER",
+        "brak WED LUNCH",
+        "brak WED DINNER",
+        "brak THU LUNCH",
+        "brak THU DINNER",
+        "brak FRI LUNCH",
+        "brak FRI DINNER",
+        "brak SAT LUNCH",
+        "brak SAT DINNER",
+        "brak SUN LUNCH",
+        "brak SUN DINNER",
+        "nie uzyl zadnego z oczekiwanych narzedzi (propose_week_plan | apply_week_plan | build_meal_plan)"
+      ],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "629a196a-c42d-42de-9954-fd564ac953da",
+          "calorieGoal": 2600
+        },
+        {
+          "key": "ania",
+          "userId": "7c846770-68c4-4671-9bd8-46b8fea84522",
+          "calorieGoal": 1700
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 3795,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3793,
+          "firstBlockMs": 1231,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2554,
+          "outputTokens": 199,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 3,
+      "outputTokens": 199,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1667,
+      "cacheHitRatio": 0.9264997139210422,
+      "costMicroUsd": 6437,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Narzędzie odmówi, bo mam tylko dwa dni do planowania: ten (poniedziałek 5 października) i następny (12 października). Pozostałe pięć dni tygodnia nie jest na liście TYGODNIE DO PLANOWANIA.\n\nChcesz plan na cały tydzień od początku września? Tamte dni możemy dodać do harmonogramu. Na teraz mogę ułożyć obiad i kolację na każdy dzień od poniedziałku 5 do niedzieli 11 października, jeśli tamty tygodień (w którym jest niedziela 11) ma status do planowania. Albo układam plan na poniedziałek 5 i wtorek 12 — te dwie daty mam w systemie?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

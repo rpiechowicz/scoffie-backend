@@ -12,6 +12,8 @@ import { ShoppingListService } from '../../weekly-plans/services/shopping-list.s
 import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { AgentToolContext, AgentToolExecutor } from './agent-tool-executor';
 import { AgentPromptService } from '../agent-prompt.service';
+import { AgentCatalogService } from '../search/agent-catalog.service';
+import { AgentMealPlannerService } from '../planner/agent-meal-planner.service';
 import { AGENT_TOOLS } from './agent-tools';
 
 // Bramka trybu jest DRUGA po prompcie i jedyna, która nie zależy od tego, czy
@@ -23,6 +25,7 @@ describe('AgentToolExecutor — bramka trybu', () => {
   let executor: AgentToolExecutor;
   const applyWeekPlan = jest.fn();
   const createWeekPlanProposal = jest.fn();
+  const reviseProposal = jest.fn();
 
   const context = (proposalMode: boolean): AgentToolContext => ({
     userId: 'u-1',
@@ -51,10 +54,12 @@ describe('AgentToolExecutor — bramka trybu', () => {
         { provide: AgentMemoryService, useValue: {} },
         {
           provide: AgentProposalsService,
-          useValue: { createWeekPlanProposal },
+          useValue: { createWeekPlanProposal, reviseProposal },
         },
         { provide: ShoppingListService, useValue: {} },
         { provide: WeeklyPlansGateway, useValue: {} },
+        { provide: AgentCatalogService, useValue: {} },
+        { provide: AgentMealPlannerService, useValue: {} },
         {
           provide: AgentPromptService,
           useValue: {
@@ -88,7 +93,7 @@ describe('AgentToolExecutor — bramka trybu', () => {
       context(true),
     );
     if (refused.ok) throw new Error('oczekiwano odmowy');
-    expect(refused.error.message).toContain('propose_week_plan');
+    expect(refused.error.message).toContain('build_meal_plan');
 
     const other = await executor.execute(
       'propose_week_plan',
@@ -171,6 +176,98 @@ describe('AgentToolExecutor — bramka trybu', () => {
       slots: { participantIds?: string[] }[];
     };
     expect(passed.slots[0].participantIds).toBeUndefined();
+  });
+
+  // Karta, która stanęła, kończy turę bez kolejnego wywołania modelu
+  // (dostawca, `TURN_ENDING_TOOLS`) — ale TYLKO gdy propozycja powstała.
+  it('udana propozycja kończy turę, propozycja z naruszeniami — nie', async () => {
+    createWeekPlanProposal.mockResolvedValueOnce({
+      proposed: true,
+      proposalId: 'p-1',
+      summary: {},
+    });
+    const done = await executor.execute(
+      'propose_week_plan',
+      { week_start: '2026-08-31', slots },
+      context(true),
+    );
+    expect(done).toMatchObject({ ok: true, endsTurn: true });
+
+    createWeekPlanProposal.mockResolvedValueOnce({
+      proposed: false,
+      violations: [],
+    });
+    const rejected = await executor.execute(
+      'propose_week_plan',
+      { week_start: '2026-08-31', slots },
+      context(true),
+    );
+    expect(rejected.ok).toBe(true);
+    expect(rejected).not.toHaveProperty('endsTurn');
+  });
+
+  describe('revise_proposal', () => {
+    const revise = {
+      proposal_id: '44444444-4444-4444-8444-444444444444',
+      day_of_week: 'TUE',
+      meal_type: 'LUNCH',
+      recipe: 'R01',
+    };
+
+    it('w trybie zapisu odmawia — poprawiać można tylko propozycję', async () => {
+      const result = await executor.execute(
+        'revise_proposal',
+        revise,
+        context(false),
+      );
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'AI_TOOL_NOT_IN_MODE' },
+      });
+      expect(reviseProposal).not.toHaveBeenCalled();
+    });
+
+    it('w trybie propozycji: indeks katalogu na id, udana poprawka kończy turę', async () => {
+      reviseProposal.mockResolvedValue({ proposed: true, proposalId: 'p-2' });
+      const result = await executor.execute(
+        'revise_proposal',
+        revise,
+        context(true),
+      );
+      expect(reviseProposal).toHaveBeenCalledWith({
+        userId: 'u-1',
+        householdId: 'h-1',
+        conversationId: 'c-1',
+        turnId: 't-1',
+        proposalId: '44444444-4444-4444-8444-444444444444',
+        dayOfWeek: 'TUE',
+        mealType: 'LUNCH',
+        recipeId: 'r-1',
+      });
+      expect(result).toMatchObject({ ok: true, endsTurn: true });
+    });
+
+    it('zły dzień albo nieznany indeks wracają do modelu jako dane', async () => {
+      const badDay = await executor.execute(
+        'revise_proposal',
+        { ...revise, day_of_week: 'wtorek' },
+        context(true),
+      );
+      expect(badDay).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR' },
+      });
+      const badRef = await executor.execute(
+        'revise_proposal',
+        { ...revise, recipe: 'R99' },
+        context(true),
+      );
+      expect(badRef).toMatchObject({
+        ok: false,
+        error: { code: 'RECIPE_NOT_FOUND' },
+      });
+      expect(reviseProposal).not.toHaveBeenCalled();
+    });
   });
 
   it('bramka dotyczy WYŁĄCZNIE tych dwóch narzędzi', async () => {

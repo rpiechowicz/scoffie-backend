@@ -1,0 +1,184 @@
+{
+  "label": "cand-E-g12-poza-dziedzina",
+  "startedAt": "2026-09-26T17:28:10.693Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.013014,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.006435,
+      "p95CostUsd": 0.006579,
+      "medianLatencyMs": 4151,
+      "latencySplit": {
+        "wait": 0.27209803699080903,
+        "thinking": 0.395325087938273,
+        "toolInput": 0,
+        "text": 0.3315556564166572,
+        "toolsRun": 0,
+        "other": 0.0010212186542607512
+      },
+      "medianFirstBlockMs": 1168,
+      "cacheHitRatio": 0.9305543294640142,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 12,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.006435
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g12-poza-dziedzina",
+      "group": 12,
+      "pyta": "Czy prośba spoza dziedziny kończy się krótką odmową, a nie pracą?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "bd952387-e153-4eeb-abc1-bf826f2bd314",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 4151,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 4150,
+          "firstBlockMs": 1230,
+          "thinkingMs": 1680,
+          "toolInputMs": 0,
+          "textMs": 1235,
+          "outputTokens": 240,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 240,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1560,
+      "cacheHitRatio": 0.9305954643914947,
+      "costMicroUsd": 6435,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Dziękuję za pytanie, ale jestem asystentem planowania posiłków w Scoffie — zajmuję się jedzeniem, zakupami i planem tygodnia. Wiersze to nie moja domena.\n\nMogę natomiast zaproponować Ci coś do jedzenia. Co chciałbyś zjeść na kolację dziś wieczorem?",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g12-poza-dziedzina",
+      "group": 12,
+      "pyta": "Czy prośba spoza dziedziny kończy się krótką odmową, a nie pracą?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "25c891dd-a303-4022-bdc1-9afc97fe46cb",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 4662,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 4662,
+          "firstBlockMs": 1168,
+          "thinkingMs": 1804,
+          "toolInputMs": 0,
+          "textMs": 1687,
+          "outputTokens": 268,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 268,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1562,
+      "cacheHitRatio": 0.9305131945365336,
+      "costMicroUsd": 6579,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Dziękuję za prośbę, ale jestem asystentem planowania posiłków w aplikacji Scoffie. Pomagam w układaniu menu, szukaniu przepisów, planowaniu zakupów i śledzeniu makr — nie piszę wierszy ani nie udzielam pomocy spoza jedzenia.\n\nCzy chciałbyś, aby zaplanować Ci posiłki na ten tydzień, zmienić coś w planie, czy może szukasz konkretnego przepisu?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

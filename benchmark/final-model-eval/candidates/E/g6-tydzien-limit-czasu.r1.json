@@ -1,0 +1,238 @@
+{
+  "label": "cand-E-g6-tydzien-limit-czasu",
+  "startedAt": "2026-09-26T17:19:03.970Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.026553,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.026553,
+      "p95CostUsd": 0.026553,
+      "medianLatencyMs": 28372,
+      "latencySplit": {
+        "wait": 0.09245030311574792,
+        "thinking": 0.8629634851261807,
+        "toolInput": 0.0006696743268010714,
+        "text": 0.041273086141266034,
+        "toolsRun": 0.0023967291696038347,
+        "other": 0.00024672212040039473
+      },
+      "medianFirstBlockMs": 1304,
+      "cacheHitRatio": 0.9034893581814797,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 6,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.026553
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g6-tydzien-limit-czasu",
+      "group": 6,
+      "pyta": "Czy ograniczenie czasu trzyma się przez cały tydzień, nie tylko na początku?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan",
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": false,
+          "errorCode": "AI_ONE_CARD_PER_TURN",
+          "plannerStatus": null
+        },
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "PARTIAL"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "69f0c0b9-2be9-444b-85a8-99dca7cb16ff",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 814
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "f8e2e53a-0bbe-41b6-aea5-c073830d9dc9",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 653
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "10ad7ca1-2172-4e20-811c-0e95f2d53692",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 824
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "b04a8faf-dbac-498c-aac5-a23888c2ee82",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 662
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "a79981a7-7205-4ad6-9e4d-a3b0cf2f7cb6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 779
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "3372daf0-cdae-45b7-a559-5804e2f92db1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 663
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "8dc245ab-82f3-4a20-90d8-d8afa6c2c03b",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 836
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "fa7dd774-5e56-42f7-b2f7-efa22c5f702d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 626
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 860
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "67b535d3-866b-4e7d-8a84-7d8bfb17b2df",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 621
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "259d40fe-d862-4651-99da-acd14cd66869",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 28372,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 25823,
+          "firstBlockMs": 1319,
+          "thinkingMs": 24484,
+          "toolInputMs": 19,
+          "textMs": 0,
+          "outputTokens": 2488,
+          "tools": [
+            "build_meal_plan",
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 68
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 2478,
+          "firstBlockMs": 1304,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1171,
+          "outputTokens": 86,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 17,
+      "outputTokens": 2574,
+      "cacheReadTokens": 43681,
+      "cacheWriteTokens": 4649,
+      "cacheHitRatio": 0.9034893581814797,
+      "costMicroUsd": 26553,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Układam obiad i kolację na dni robocze z limitem 35 minut — większość dań wyszła, ale czwartkowy obiad jest nieco lżejszy w białku (60 g zamiast 76 g na dzień). Weekend zaproponuję w następnej wiadomości bez ograniczenia czasowego.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

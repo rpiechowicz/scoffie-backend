@@ -15,8 +15,8 @@ export const STUB_ERROR_MARKER = '[[error]]';
  *
  * Bez tego cała ścieżka postępu tury (`AgentTurn.progress`) była w e2e martwa:
  * stub odpowiadał od razu, więc nikt nigdy nie sprawdził, czy klient dostaje
- * kroki, których obiecuje mu kontrakt. `get_household_context` nie bierze
- * żadnych argumentów i niczego nie zapisuje.
+ * kroki, których obiecuje mu kontrakt. `get_week_plan` na planowanym
+ * tygodniu (z bloku gospodarstwa) niczego nie zapisuje.
  */
 export const STUB_TOOL_MARKER = '[[tool]]';
 /**
@@ -27,8 +27,97 @@ export const STUB_TOOL_MARKER = '[[tool]]';
  * przechodzi całą ścieżkę propozycji — narzędzie, kartę, wiadomość z `kind`
  * i przypięcie `messageId` — bez ani jednego wywołania modelu.
  */
+/**
+ * Wymusza KOSZT tury: `[[cost:<mikrodolary>]]`. Bez tego stub kosztował
+ * zawsze zero, więc e2e nie miało jak sprawdzić, czy wydane pieniądze
+ * przeżywają anulowanie, timeout i restart (workstream, Etap 1).
+ *
+ * Księga widzi wtedy DWA wywołania, jak u prawdziwego dostawcy: wywołanie 0
+ * (koszt N) melduje się przed opóźnieniem, wywołanie 1 (tokeny odpowiedzi,
+ * koszt 0) po nim. Bez markera jest jedno wywołanie, po opóźnieniu.
+ */
+export const STUB_COST_PATTERN = /\[\[cost:(\d{1,9})\]\]/;
+
 export const STUB_PROPOSE_PATTERN =
   /\[\[propose:([0-9a-fA-F-]{36}):(\d{4}-\d{2}-\d{2})\]\]/;
+
+/**
+ * Kolejne markery `[[propose:…]]` w jednej wiadomości to kolejne dni tego
+ * samego tygodnia (MON, TUE, …), zawsze na kolację — tak e2e dostaje
+ * propozycję z kilkoma pozycjami (np. „zamień tylko wtorek").
+ */
+const STUB_PROPOSE_ALL = new RegExp(STUB_PROPOSE_PATTERN.source, 'g');
+const STUB_PROPOSE_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+/**
+ * Wymusza kartę WYBORU: `[[options:<recipeId>,<recipeId>…]]` →
+ * `offer_options` z tymi daniami w tej kolejności (kafelki 1, 2, …).
+ */
+export const STUB_OPTIONS_PATTERN = /\[\[options:([0-9a-fA-F,-]{36,})\]\]/;
+
+/**
+ * Wymusza POPRAWKĘ propozycji:
+ * `[[revise:<proposalId>:<DZIEŃ>:<PORA>:<recipeId>]]` → `revise_proposal`.
+ */
+/**
+ * Wymusza SERWEROWY PLAN: `[[build:<YYYY-MM-DD>:<DNI po przecinku>]]` →
+ * `build_meal_plan` dla tych dni, pór domu i całego domu, bez życzeń.
+ */
+export const STUB_BUILD_PATTERN =
+  /\[\[build:(\d{4}-\d{2}-\d{2}):([A-Z,]+)(?::kcal=(\d{3,4}))?(?::prep=(\d{1,3}))?\]\]/;
+
+/**
+ * `[[update-recipe:<recipeId>:<porcje>]]` → `update_recipe` (Etap 6.1: przepis
+ * z katalogu ma skończyć turę jawnym „tylko do odczytu” od serwera).
+ */
+export const STUB_UPDATE_RECIPE_PATTERN =
+  /\[\[update-recipe:([0-9a-fA-F-]{36}):(\d{1,2})\]\]/;
+
+/**
+ * Wymusza ZAMIENNIK od planera:
+ * `[[replace:<proposalId albo ->:<DZIEŃ>:<PORA>:<DIETA>]]` → `replace_plan_item`
+ * z `similar_kcal: true` (`-` = zapisany plan).
+ */
+export const STUB_REPLACE_PATTERN =
+  /\[\[replace:([0-9a-fA-F-]{36}|-):([A-Z]{3}):([A-Z_]+):([A-Z_]+)\]\]/;
+
+/**
+ * Wymusza DANIA DO WYBORU z serwera (Etap 3):
+ * `[[suggest:<DZIEŃ>:<PORA>:<quick|->]]` → `suggest_meals` na planowanym
+ * tygodniu, 3 dania, `quick` = „szybkie" (tag + 25 min).
+ */
+export const STUB_SUGGEST_PATTERN =
+  /\[\[suggest:([A-Z]{3}):([A-Z_]+):(quick|-)\]\]/;
+
+/**
+ * Wymusza WYBÓR konkretnego dania do zapisanego planu (review Etapu 3):
+ * `[[swap:<DZIEŃ>:<PORA>:<recipeId>(:<userId>)?]]` → `propose_swap` na
+ * planowanym tygodniu; `userId` = tylko dla tej osoby. Porcji model nie
+ * podaje — liczy je serwer.
+ */
+export const STUB_SWAP_PATTERN =
+  /\[\[swap:([A-Z]{3}):([A-Z_]+):([0-9a-fA-F-]{36})(?::([0-9a-fA-F-]{36}))?\]\]/;
+
+/**
+ * Wstrzykiwanie awarii w e2e trwałych tur (workstream, Etap 5):
+ * `[[hold]]` przenosi opóźnienie `AI_STUB_DELAY_MS` ZA narzędzia — efekt
+ * narzędzia jest już zapisany, a tura jeszcze nie domknięta. W tym oknie
+ * test „zabija" proces i sprawdza, że odzyskanie nie powtórzy efektu.
+ */
+export const STUB_HOLD_MARKER = '[[hold]]';
+
+/** `[[note:<tekst>]]` → `remember_note` (efekt z kluczem idempotencji). */
+export const STUB_NOTE_PATTERN = /\[\[note:([^\]]{1,200})\]\]/;
+
+/**
+ * `[[apply:<recipeId>:<YYYY-MM-DD>]]` → `apply_week_plan` bez `dry_run`
+ * (tryb bez kart): kolacja we wtorek. Zapis planu z kwotą — efekt z kluczem.
+ */
+export const STUB_APPLY_PATTERN =
+  /\[\[apply:([0-9a-fA-F-]{36}):(\d{4}-\d{2}-\d{2})\]\]/;
+
+export const STUB_REVISE_PATTERN =
+  /\[\[revise:([0-9a-fA-F-]{36}):([A-Z]{3}):([A-Z_]+):([0-9a-fA-F-]{36})\]\]/;
 
 /**
  * Dostawca `stub` (`AI_PROVIDER=stub`) — cały tor tury bez ani jednego
@@ -51,7 +140,20 @@ export class StubAgentProvider implements AgentProvider {
       [...request.messages].reverse().find((m) => m.role === 'USER')?.text ??
       '';
 
-    await this.delay(readAgentEnv().stubDelayMs, request.signal);
+    // `[[cost:N]]` = pierwsze wywołanie modelu JUŻ się odbyło i kosztowało N,
+    // a opóźnienie to dalsza część tury (narzędzie, kolejna runda). Przerwanie
+    // w opóźnieniu niesie więc zużycie — dokładnie jak u prawdziwego dostawcy.
+    const cost = Number(STUB_COST_PATTERN.exec(lastUserText)?.[1] ?? 0);
+    const spent = cost > 0 ? this.usageOf(cost) : undefined;
+    let calls = 0;
+    if (spent) {
+      await this.report(request, calls, spent);
+      calls += 1;
+    }
+    const hold = lastUserText.includes(STUB_HOLD_MARKER);
+    if (!hold) {
+      await this.delay(readAgentEnv().stubDelayMs, request.signal, spent);
+    }
 
     if (lastUserText.includes(STUB_UPSTREAM_ERROR_MARKER)) {
       throw new AgentProviderError('stub: symulowany błąd dostawcy', true, 503);
@@ -60,18 +162,161 @@ export class StubAgentProvider implements AgentProvider {
       throw new AgentProviderError('stub: symulowany błąd tury', false);
     }
 
+    // Planowany tydzień z bloku gospodarstwa — tak, jak widzi go model.
+    const plannedWeek =
+      /PLANOWANY TYDZIEŃ \(poniedziałek\): (\d{4}-\d{2}-\d{2})/.exec(
+        request.system.map((block) => block.text).join(' '),
+      )?.[1] ?? '1970-01-05';
+
     if (lastUserText.includes(STUB_TOOL_MARKER)) {
-      await request.executeTool('get_household_context', {});
+      await request.executeTool('get_week_plan', { week_start: plannedWeek });
     }
 
-    const propose = STUB_PROPOSE_PATTERN.exec(lastUserText);
-    if (propose) {
-      await request.executeTool('propose_week_plan', {
-        week_start: propose[2],
-        slots: [
-          { day_of_week: 'MON', meal_type: 'DINNER', recipe: propose[1] },
-        ],
+    const swap = STUB_SWAP_PATTERN.exec(lastUserText);
+    if (swap) {
+      await request.executeTool('propose_swap', {
+        week_start: plannedWeek,
+        day_of_week: swap[1],
+        meal_type: swap[2],
+        recipe: swap[3],
+        ...(swap[4] ? { participant_user_ids: [swap[4]] } : {}),
       });
+    }
+
+    const suggest = STUB_SUGGEST_PATTERN.exec(lastUserText);
+    if (suggest) {
+      const quick = suggest[3] === 'quick';
+      await request.executeTool('suggest_meals', {
+        week_start: plannedWeek,
+        day_of_week: suggest[1],
+        meal_type: suggest[2],
+        count: 3,
+        include_ingredients: [],
+        for_user_ids: [],
+        diet: 'NONE',
+        must_have_tags: [],
+        prefer_tags: quick ? ['quick'] : [],
+        avoid_ingredients: [],
+        max_prep_minutes: quick ? 25 : 0,
+      });
+    }
+
+    const proposed = [...lastUserText.matchAll(STUB_PROPOSE_ALL)].slice(0, 7);
+    if (proposed.length > 0) {
+      await request.executeTool('propose_week_plan', {
+        week_start: proposed[0][2],
+        slots: proposed.map((match, index) => ({
+          day_of_week: STUB_PROPOSE_DAYS[index],
+          meal_type: 'DINNER',
+          recipe: match[1],
+        })),
+      });
+    }
+
+    const options = STUB_OPTIONS_PATTERN.exec(lastUserText);
+    if (options) {
+      await request.executeTool('offer_options', {
+        title: 'Do wyboru',
+        slot_label: 'Kolacja · wtorek',
+        options: options[1]
+          .split(',')
+          .filter(Boolean)
+          .map((recipe) => ({ recipe })),
+      });
+    }
+
+    const wishes = {
+      must_have_tags: [],
+      prefer_tags: [],
+      avoid_ingredients: [],
+      max_prep_minutes: 0,
+    };
+    const build = STUB_BUILD_PATTERN.exec(lastUserText);
+    if (build) {
+      await request.executeTool('build_meal_plan', {
+        week_start: build[1],
+        days: build[2].split(',').filter(Boolean),
+        meal_types: [],
+        for_user_ids: [],
+        diet: 'NONE',
+        ...wishes,
+        max_prep_minutes: build[4] ? Number(build[4]) : 0,
+        day_kcal_target: build[3] ? Number(build[3]) : 0,
+      });
+    }
+
+    const updateRecipe = STUB_UPDATE_RECIPE_PATTERN.exec(lastUserText);
+    if (updateRecipe) {
+      const outcome = await request.executeTool('update_recipe', {
+        recipe_id: updateRecipe[1],
+        servings: Number(updateRecipe[2]),
+      });
+      // Jak prawdziwy dostawca: wynik kończący turę ze zdaniem serwera =
+      // koniec tury bez kolejnej rundy (`tool_ended_turn`).
+      if (outcome.ok && outcome.endsTurn && outcome.turnText) {
+        return {
+          text: outcome.turnText,
+          stopReason: 'tool_ended_turn',
+          apiCalls: calls + 1,
+          usage: {
+            inputTokens: lastUserText.length,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            outputTokens: 0,
+            costMicroUsd: cost,
+          },
+          phases: [],
+        };
+      }
+    }
+
+    const replace = STUB_REPLACE_PATTERN.exec(lastUserText);
+    if (replace) {
+      const weekStart =
+        /\d{4}-\d{2}-\d{2}/.exec(lastUserText)?.[0] ?? '1970-01-05';
+      await request.executeTool('replace_plan_item', {
+        week_start: weekStart,
+        day_of_week: replace[2],
+        meal_type: replace[3],
+        proposal_id: replace[1] === '-' ? '' : replace[1],
+        similar_kcal: true,
+        diet: replace[4],
+        ...wishes,
+      });
+    }
+
+    const note = STUB_NOTE_PATTERN.exec(lastUserText);
+    if (note) {
+      await request.executeTool('remember_note', {
+        // `AI_STUB_VARIANT` (tylko e2e): model niedeterministyczny — w
+        // odzyskanej próbie pisze tę samą notatkę INNYMI słowami (Addendum A1).
+        text: `${note[1]}${process.env.AI_STUB_VARIANT ?? ''}`,
+        kind: 'PREFERENCE',
+      });
+    }
+
+    const apply = STUB_APPLY_PATTERN.exec(lastUserText);
+    if (apply) {
+      await request.executeTool('apply_week_plan', {
+        week_start: apply[2],
+        dry_run: false,
+        slots: [{ day_of_week: 'TUE', meal_type: 'DINNER', recipe: apply[1] }],
+      });
+    }
+
+    const revise = STUB_REVISE_PATTERN.exec(lastUserText);
+    if (revise) {
+      await request.executeTool('revise_proposal', {
+        proposal_id: revise[1],
+        day_of_week: revise[2],
+        meal_type: revise[3],
+        recipe: revise[4],
+      });
+    }
+
+    // Efekty narzędzi już w bazie, tura jeszcze nie — okno „pad po zapisie".
+    if (hold) {
+      await this.delay(readAgentEnv().stubDelayMs, request.signal, spent);
     }
 
     const text = `[stub] ${lastUserText}`.slice(0, 4000);
@@ -79,34 +324,71 @@ export class StubAgentProvider implements AgentProvider {
     // kolumnę `draftText` w ruchu.
     await request.onActivity?.('writing');
     request.onDraft?.(text);
-    const usage = {
-      // Prymitywne, ale niezerowe: e2e sprawdza, że księga użycia i licznik
-      // kosztu dostają realne liczby, a nie same zera.
+    // Prymitywne, ale niezerowe: e2e sprawdza, że księga użycia i licznik
+    // kosztu dostają realne liczby, a nie same zera.
+    const answer = {
       inputTokens: lastUserText.length,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       outputTokens: text.length,
       costMicroUsd: 0,
     };
+    await this.report(request, calls, answer);
+    calls += 1;
+    const usage = {
+      inputTokens: answer.inputTokens + (spent?.inputTokens ?? 0),
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: answer.outputTokens + (spent?.outputTokens ?? 0),
+      costMicroUsd: cost,
+    };
     return {
       text,
       stopReason: 'end_turn',
-      apiCalls: 1,
+      apiCalls: calls,
       usage,
-      // Jedna faza: stub nie przekazuje pałeczki, ale księga per faza ma
-      // dostać wiersz także tutaj (e2e sprawdza `AiUsage`).
+      // Jedna faza: stub nie przekazuje pałeczki.
       phases: [
         {
           model: request.model,
           effort: request.effort,
-          apiCalls: 1,
+          apiCalls: calls,
           usage,
         },
       ],
     };
   }
 
-  private delay(ms: number, signal: AbortSignal): Promise<void> {
+  private async report(
+    request: AgentProviderRequest,
+    callIndex: number,
+    usage: ReturnType<StubAgentProvider['usageOf']>,
+  ): Promise<void> {
+    await request.onUsage?.({
+      callIndex,
+      model: request.model,
+      effort: request.effort,
+      usage,
+      stopReason: 'end_turn',
+      latencyMs: 0,
+    });
+  }
+
+  private usageOf(costMicroUsd: number) {
+    return {
+      inputTokens: 1,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: 1,
+      costMicroUsd,
+    };
+  }
+
+  private delay(
+    ms: number,
+    signal: AbortSignal,
+    spent?: ReturnType<StubAgentProvider['usageOf']>,
+  ): Promise<void> {
     if (ms <= 0) return Promise.resolve();
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -115,7 +397,15 @@ export class StubAgentProvider implements AgentProvider {
       }, ms);
       const onAbort = () => {
         clearTimeout(timer);
-        reject(new AgentProviderError('stub: tura przerwana', true));
+        reject(
+          new AgentProviderError(
+            'stub: tura przerwana',
+            true,
+            undefined,
+            spent,
+            spent ? 1 : undefined,
+          ),
+        );
       };
       if (signal.aborted) {
         onAbort();

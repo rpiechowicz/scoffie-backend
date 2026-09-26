@@ -1,0 +1,158 @@
+{
+  "label": "cand-B-g11-przepis-katalogowy",
+  "startedAt": "2026-09-26T17:12:47.862Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "B",
+      "label": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.026225,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.026225,
+      "p95CostUsd": 0.026225,
+      "medianLatencyMs": 7218,
+      "latencySplit": {
+        "wait": 0.4976447769465226,
+        "thinking": 0.2623995566638958,
+        "toolInput": 0.031449154890551397,
+        "text": 0.2058742033804378,
+        "toolsRun": 0.0012468827930174563,
+        "other": 0.0013854253255749516
+      },
+      "medianFirstBlockMs": 1768,
+      "cacheHitRatio": 0.937278061563586,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 11,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.026225
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g11-przepis-katalogowy",
+      "group": 11,
+      "pyta": "Czy próba edycji przepisu KATALOGOWEGO kończy się odmową?",
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_recipe_details"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "get_recipe_details",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 661
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "1a11f2f0-107c-4139-b9c8-6277c3ee0759",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 7218,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3950,
+          "firstBlockMs": 1824,
+          "thinkingMs": 1894,
+          "toolInputMs": 227,
+          "textMs": 0,
+          "outputTokens": 216,
+          "tools": [
+            "get_recipe_details"
+          ],
+          "toolsRunMs": 9
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3258,
+          "firstBlockMs": 1768,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1486,
+          "outputTokens": 99,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 315,
+      "cacheReadTokens": 49358,
+      "cacheWriteTokens": 3299,
+      "cacheHitRatio": 0.937278061563586,
+      "costMicroUsd": 26225,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "To danie jest z katalogu — jego przepisu (w tym liczby porcji) nie da się edytować. Mogę za to zmienić liczbę porcji zaplanowanych na poniedziałkową kolację na 8 (bez zmiany samego przepisu) — chcesz tak?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

@@ -924,7 +924,9 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
       expect(result.recipe).toEqual(
         expect.objectContaining({ id: RECIPE_ID, isFavorite: true }),
       );
-      expect(cache.invalidateRecipesList).toHaveBeenCalledTimes(1);
+      // Etap 4B: ulubione NIE unieważniają listy — wpisy cache nie niosą
+      // flagi, dokłada ją każdy odczyt ze świeżej tabeli ulubionych.
+      expect(cache.invalidateRecipesList).not.toHaveBeenCalled();
     });
 
     it('false → deleteMany, bez upsertu', async () => {

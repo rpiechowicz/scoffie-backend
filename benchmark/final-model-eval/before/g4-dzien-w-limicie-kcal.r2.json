@@ -1,0 +1,350 @@
+{
+  "label": "before-g4-dzien-w-limicie-kcal",
+  "startedAt": "2026-09-26T16:54:10.014Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.135117,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.067293,
+      "p95CostUsd": 0.067824,
+      "medianLatencyMs": 20746,
+      "latencySplit": {
+        "wait": 0.2710071305401501,
+        "thinking": 0.2796756303304283,
+        "toolInput": 0.3723493498625157,
+        "text": 0.07442792561867922,
+        "toolsRun": 0.002073915272405276,
+        "other": 0.0004660483758214103
+      },
+      "medianFirstBlockMs": 1775,
+      "cacheHitRatio": 0.8893148074522816,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 4,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.067293
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g4-dzien-w-limicie-kcal",
+      "group": 4,
+      "pyta": "Czy podany w rozmowie limit kalorii przekłada się na dobór dań?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "propose_day_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_day_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "168d56ab-a650-4b99-9738-c4baf5ceee42",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 373
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "41100766-772a-4afd-a177-6e52452b0dab",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 368
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "24c30dd8-f869-4549-a7b7-578304b43e63",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 379
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "98241367-7c9d-4f96-846c-d7c948c2317f",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 22168,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 9278,
+          "firstBlockMs": 1840,
+          "thinkingMs": 1073,
+          "toolInputMs": 6361,
+          "textMs": 0,
+          "outputTokens": 1149,
+          "tools": [
+            "find_recipes",
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 29
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 9411,
+          "firstBlockMs": 2495,
+          "thinkingMs": 5266,
+          "toolInputMs": 1647,
+          "textMs": 0,
+          "outputTokens": 615,
+          "tools": [
+            "propose_day_plan"
+          ],
+          "toolsRunMs": 27
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3422,
+          "firstBlockMs": 1775,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1644,
+          "outputTokens": 92,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 1856,
+      "cacheReadTokens": 69926,
+      "cacheWriteTokens": 8684,
+      "cacheHitRatio": 0.8894627047929174,
+      "costMicroUsd": 67293,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Środa zmieści się w limicie z zapasem — cały dzień to około 1120 kcal, więc jest jeszcze margines na przekąskę, gdybyś miał ochotę. Wszystkie trzy dania są lekkie i wysokobiałkowe.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g4-dzien-w-limicie-kcal",
+      "group": 4,
+      "pyta": "Czy podany w rozmowie limit kalorii przekłada się na dobór dań?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "propose_day_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_day_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "168d56ab-a650-4b99-9738-c4baf5ceee42",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 373
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "f6920a03-f097-4778-85c2-d76c0c76d1e6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 387
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "24c30dd8-f869-4549-a7b7-578304b43e63",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 379
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "295b5615-e5ca-42eb-be0f-af1ac7f7deab",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 20746,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 9893,
+          "firstBlockMs": 1720,
+          "thinkingMs": 1881,
+          "toolInputMs": 6290,
+          "textMs": 0,
+          "outputTokens": 1222,
+          "tools": [
+            "find_recipes",
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 14
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 8034,
+          "firstBlockMs": 2568,
+          "thinkingMs": 3782,
+          "toolInputMs": 1681,
+          "textMs": 0,
+          "outputTokens": 572,
+          "tools": [
+            "propose_day_plan"
+          ],
+          "toolsRunMs": 19
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2786,
+          "firstBlockMs": 1232,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1550,
+          "outputTokens": 99,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 1893,
+      "cacheReadTokens": 70005,
+      "cacheWriteTokens": 8720,
+      "cacheHitRatio": 0.889166910111646,
+      "costMicroUsd": 67824,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Środa zamyka się na 1139 kcal, czyli z solidnym zapasem poniżej limitu 1800 — jest jeszcze miejsce na przekąskę, gdyby była potrzebna. Wszystkie trzy dania są lekkie i wysokobiałkowe.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

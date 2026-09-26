@@ -1,0 +1,184 @@
+{
+  "label": "after-g12-poza-dziedzina",
+  "startedAt": "2026-09-26T16:38:04.775Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.025546,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.012733,
+      "p95CostUsd": 0.012813,
+      "medianLatencyMs": 3389,
+      "latencySplit": {
+        "wait": 0.6501113585746102,
+        "thinking": 0,
+        "toolInput": 0,
+        "text": 0.3492204899777283,
+        "toolsRun": 0,
+        "other": 0.0006681514476614699
+      },
+      "medianFirstBlockMs": 1895,
+      "cacheHitRatio": 0.929874213836478,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 12,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.012733
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g12-poza-dziedzina",
+      "group": 12,
+      "pyta": "Czy prośba spoza dziedziny kończy się krótką odmową, a nie pracą?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "e82e61c4-7908-4a44-a2a6-a0c00beff093",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 3389,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3388,
+          "firstBlockMs": 1895,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1491,
+          "outputTokens": 87,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 87,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1782,
+      "cacheHitRatio": 0.929874213836478,
+      "costMicroUsd": 12733,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Niestety, to nie moja działka — pomagam wyłącznie w planowaniu posiłków i zakupów. Jeśli chcesz, chętnie ułożę plan na ten tydzień albo podpowiem coś na konkretny posiłek.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g12-poza-dziedzina",
+      "group": 12,
+      "pyta": "Czy prośba spoza dziedziny kończy się krótką odmową, a nie pracą?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "c84d0dc6-bae4-468e-b931-57ae591a01c4",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 5591,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5590,
+          "firstBlockMs": 3943,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1645,
+          "outputTokens": 95,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 95,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1782,
+      "cacheHitRatio": 0.929874213836478,
+      "costMicroUsd": 12813,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Nie napiszę wiersza o Napoleonie — pomagam wyłącznie przy planowaniu posiłków i zakupów. Chętnie pomogę ułożyć plan na ten tydzień albo znaleźć przepis, jeśli masz na to ochotę.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

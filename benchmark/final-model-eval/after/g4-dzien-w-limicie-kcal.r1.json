@@ -1,0 +1,165 @@
+{
+  "label": "after-g4-dzien-w-limicie-kcal",
+  "startedAt": "2026-09-26T16:12:13.954Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.017305,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 0,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.017305,
+      "p95CostUsd": 0.017305,
+      "medianLatencyMs": 6723,
+      "latencySplit": {
+        "wait": 0.2829094154395359,
+        "thinking": 0.49650453666517924,
+        "toolInput": 0.2131488918637513,
+        "text": 0,
+        "toolsRun": 0.006395954187118846,
+        "other": 0.0010412018444146958
+      },
+      "medianFirstBlockMs": 1902,
+      "cacheHitRatio": 0.9301301458734714,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 4,
+          "runs": 1,
+          "passRate": 0,
+          "medianRounds": 1,
+          "medianCostUsd": 0.017305
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g4-dzien-w-limicie-kcal",
+      "group": 4,
+      "pyta": "Czy podany w rozmowie limit kalorii przekłada się na dobór dań?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": false,
+      "issues": [
+        "sroda ma 2080 kcal przy limicie 1800"
+      ],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "fad151de-b3aa-4fbd-b666-876d3dc94cd0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 838
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "d8b6886f-1099-4ca2-a8d2-43416e75c2a6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 630
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "2e500ad6-49fc-4d15-bc65-096f072f0c40",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 612
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "4e027aed-e99e-44b0-880e-b41fdb7b6890",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 6723,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6679,
+          "firstBlockMs": 1902,
+          "thinkingMs": 3338,
+          "toolInputMs": 1433,
+          "textMs": 0,
+          "outputTokens": 547,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 43
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 547,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1775,
+      "cacheHitRatio": 0.9301301458734714,
+      "costMicroUsd": 17305,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan na środę gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

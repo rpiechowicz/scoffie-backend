@@ -120,7 +120,7 @@ describe('readRecipeSteps', () => {
 });
 
 describe('nowe narzędzia czytające', () => {
-  it.each(['get_recipe_details', 'search_recipes_by_ingredient'])(
+  it.each(['get_recipe_details', 'find_recipes'])(
     '%s jest w warstwie rozmowy, więc nie kosztuje przekazania planiście',
     (name) => {
       expect(AGENT_TOOL_TIERS[name]).toBe('chat');
@@ -132,7 +132,7 @@ describe('nowe narzędzia czytające', () => {
   it('nie dokładają ani jednego pola nieobowiązkowego', () => {
     // Limit API to 24 pola nieobowiązkowe W SUMIE i jest wyczerpany co do
     // jednego; przekroczenie to 400 na KAŻDEJ turze, niewidoczne w testach.
-    for (const name of ['get_recipe_details', 'search_recipes_by_ingredient']) {
+    for (const name of ['get_recipe_details', 'find_recipes']) {
       const tool = AGENT_TOOLS.find((entry) => entry.name === name);
       const properties = Object.keys(tool?.input_schema.properties ?? {});
       expect(tool?.input_schema.required).toEqual(properties);

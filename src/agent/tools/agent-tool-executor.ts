@@ -18,7 +18,19 @@ import { AgentMemoryService } from '../agent-memory.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
 import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../../recipes/dto/update-recipe.dto';
-import { AGENT_TOOL_NAMES } from './agent-tools';
+import { EXECUTABLE_TOOL_NAMES } from './agent-tools';
+import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
+import {
+  EffectAlreadyCommittedError,
+  EffectCommit,
+  EffectKind,
+  effectKind,
+  isSameOperation,
+  StoredEffect,
+  TurnEffects,
+} from '../durable/turn-effects';
+import { LeaseLostError } from '../durable/turn-lease-config';
+import { readAgentEnv } from '../../config/agent-env';
 import {
   checkPlanScope,
   PlanScope,
@@ -52,6 +64,8 @@ import {
 import {
   MacroGapBooster,
   MacroKey,
+  MEAL_LABELS,
+  DAY_LABELS,
   OptionsCardItem,
   SwapCardSide,
 } from '../cards/agent-cards';
@@ -62,9 +76,26 @@ import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { SetMealEatenDto } from '../../weekly-plans/dto/set-meal-eaten.dto';
 import { UpdateShoppingItemCheckDto } from '../../weekly-plans/dto/update-shopping-item-check.dto';
 import { ShoppingDepartment } from '../../weekly-plans/types/shopping-department.enum';
-import { DayOfWeek, MealType } from '@prisma/client';
+import { DayOfWeek, DietPreferenceValue, MealType } from '@prisma/client';
+import {
+  AgentMealPlannerService,
+  plannerResultForModel,
+  PlannerWishes,
+} from '../planner/agent-meal-planner.service';
 import { normalizeText } from '../../common/normalize-text.util';
 import { searchStem } from '../../recipes/ingredient-search.util';
+import { isRecipeSearchTag } from '../../recipes/recipe-facets.util';
+import {
+  AgentCatalogService,
+  AgentSearchResult,
+} from '../search/agent-catalog.service';
+import {
+  RecipeSearchQuery,
+  SEARCH_DEFAULT_LIMIT,
+  SEARCH_MAX_LIMIT,
+  SEARCH_SORTS,
+  SearchSort,
+} from '../search/catalog-search';
 
 /**
  * Kontekst tury: kto pyta i o które gospodarstwo.
@@ -402,22 +433,66 @@ export function matchShoppingProduct(
 }
 
 /**
- * Trafienie wyszukiwania po składniku.
+ * Trafienie `find_recipes` w kształcie dla modelu.
  *
  * `recipe` jest GOTOWĄ REFERENCJĄ dla kolejnych narzędzi — indeksem katalogu
- * (`R07`), gdy przepis jest w digeście tej tury, albo identyfikatorem przepisu
- * domu. Bez tego model dostawałby UUID i wpisywał go tam, gdzie kod spodziewa
- * się indeksu — albo, co gorsza, przepisywał go z pamięci z błędem.
+ * tej tury (`R007`) albo identyfikatorem przepisu domu. Bez tego model
+ * dostawałby UUID i wpisywał go tam, gdzie kod spodziewa się indeksu — albo,
+ * co gorsza, przepisywał go z pamięci z błędem.
  */
-export const RECIPE_HITS_LIMIT = 8;
-
 export type RecipeHitForModel = {
   recipe: string;
   title: string;
-  mealType: string;
-  kcalPerServing: number;
-  prepTimeMinutes: number;
+  slots: MealType[];
+  tags: string[];
+  /** Kcal i białko NA PORCJĘ — do „lekkie"/„dużo białka", nie do bilansu. */
+  kcal: number | null;
+  protein: number | null;
+  prepMinutes: number;
+  why: string[];
+  household?: true;
 };
+
+/**
+ * Wynik `find_recipes` dla modelu — tylko to, po czym model WYBIERA (Etap 3.6).
+ * Bez tłuszczu, węgli, porcji przepisu, alergenów, tagów diety i składników:
+ * alergeny i diety nakłada serwer (te same reguły, co walidator), a skład
+ * i pełne makro daje `get_recipe_details`. Serwer dalej liczy na pełnym
+ * rekordzie — chudnie wyłącznie to, co idzie do modelu.
+ */
+export type FindRecipesForModel = Omit<AgentSearchResult, 'hits'> & {
+  hits: RecipeHitForModel[];
+};
+
+const MEAL_TYPES: readonly MealType[] = [
+  'BREAKFAST',
+  'SECOND_BREAKFAST',
+  'LUNCH',
+  'AFTERNOON_SNACK',
+  'DINNER',
+  'SNACK',
+];
+
+/**
+ * Narzędzia, po których udanym wywołaniu tura jest SKOŃCZONA: karta stoi,
+ * a model i tak kończy turę (instrukcje: „po tym narzędziu kończysz turę",
+ * „najwyżej dwa zdania"). Dostawca nie woła wtedy modelu jeszcze raz tylko
+ * po to, żeby dopisał zdanie — napisał je w tej samej wiadomości, co
+ * wywołanie (pomiar 24.09.2026: ta ostatnia runda to 18 % czasu tury).
+ */
+export const TURN_ENDING_TOOLS: ReadonlySet<string> = new Set([
+  'ask_clarifying_question',
+  'offer_options',
+  'suggest_meals',
+  'propose_week_plan',
+  'propose_day_plan',
+  'propose_swap',
+  'propose_remove_meal',
+  'propose_household_split',
+  'revise_proposal',
+  'build_meal_plan',
+  'replace_plan_item',
+]);
 
 /**
  * Składnik z wyszukiwarki — tyle, ile trzeba do zbudowania przepisu.
@@ -451,6 +526,33 @@ export function projectIngredientsForModel(
     hasNutrition: row.hasNutrition,
     allergens: row.allergens,
   }));
+}
+
+/**
+ * Konflikt odzyskiwania (Addendum A1 do Etapu 5): wywołanie narzędzia
+ * w odzyskanej próbie ma inne wejście niż efekt, który ta tura zapisała przed
+ * restartem. Kod wewnętrzny — trafia do modelu jako dane, nie do telefonu.
+ */
+export const DURABLE_EFFECT_CONFLICT = 'AI_DURABLE_EFFECT_CONFLICT';
+
+/** Nazwa efektu dla modelu i bloku odzyskiwania — bez treści wejścia. */
+export function effectLabel(tool: string): string {
+  switch (tool) {
+    case 'create_recipe':
+      return 'nowy przepis';
+    case 'update_recipe':
+      return 'zmiana przepisu';
+    case 'remember_note':
+      return 'notatka';
+    case 'apply_week_plan':
+      return 'zapis planu';
+    case 'mark_meal_eaten':
+      return 'odhaczenie posiłku';
+    case 'check_shopping_items':
+      return 'odhaczenie zakupów';
+    default:
+      return 'ta operacja';
+  }
 }
 
 export type AgentToolContext = {
@@ -489,6 +591,28 @@ export type AgentToolContext = {
    */
   planScope?: PlanScope;
   dates?: PlanScopeDates;
+  /**
+   * Pamięć tury (`turn-memo.ts`): domownicy, zgody i pory czytane raz na
+   * turę oraz rezerwacja JEDNEJ karty. Runner podaje ją zawsze; opcjonalna
+   * dla wywołań spoza tury (testy, skrypty).
+   */
+  memo?: TurnMemo;
+  /**
+   * Trwałe wykonanie tury (Etap 5): dziennik efektów tej próby, sprawdzenie
+   * lease i „Stop" przed zapisem, sygnał utraty lease. Brak = wywołanie spoza
+   * workera (testy, skrypty) — narzędzia działają jak dotąd, bez dziennika.
+   */
+  durable?: {
+    effects: TurnEffects;
+    /** Rzuca, gdy tura nie jest już nasza albo użytkownik ją zatrzymał. */
+    checkpoint: () => Promise<void>;
+    onLeaseLost: () => void;
+  };
+  /**
+   * Hak do transakcji efektu TEGO wywołania (fencing + wiersz dziennika).
+   * Ustawia `execute` na czas jednego wywołania; narzędzie podaje go domenie.
+   */
+  effectCommit?: EffectCommit;
 };
 
 /**
@@ -511,7 +635,22 @@ function asString(value: unknown): string {
 }
 
 export type AgentToolResult =
-  | { ok: true; data: unknown }
+  | {
+      ok: true;
+      data: unknown;
+      /**
+       * Udane narzędzie z `TURN_ENDING_TOOLS`: karta powstała i tura może się
+       * skończyć bez kolejnego wywołania modelu (patrz dostawca).
+       */
+      endsTurn?: true;
+      /**
+       * Zdanie serwera na koniec tury, gdy model nie napisał nic przed
+       * wywołaniem (karta mówi resztę). Bez niego dostawca wołałby model
+       * jeszcze raz tylko po jedno zdanie. Brak = model ma coś do
+       * wyjaśnienia (np. plan PARTIAL) i dostaje głos.
+       */
+      turnText?: string;
+    }
   | { ok: false; error: { code: string; message: string; details?: string[] } };
 
 /**
@@ -542,6 +681,10 @@ export class AgentToolExecutor {
     private readonly plansGateway: WeeklyPlansGateway,
     // Filtr zgód domowników — ta sama reguła, co przy budowie promptu.
     private readonly prompts: AgentPromptService,
+    // Indeks katalogu w pamięci i wyszukiwarka dań (`find_recipes`).
+    private readonly catalog: AgentCatalogService,
+    // Serwerowy planer (Etap 2): `build_meal_plan`, `replace_plan_item`.
+    private readonly planner: AgentMealPlannerService,
   ) {}
 
   async execute(
@@ -549,12 +692,219 @@ export class AgentToolExecutor {
     input: Record<string, unknown>,
     context: AgentToolContext,
   ): Promise<AgentToolResult> {
-    if (!AGENT_TOOL_NAMES.includes(name)) {
+    if (!EXECUTABLE_TOOL_NAMES.includes(name)) {
       // Model wywołał narzędzie, którego nie ma na liście. Zdarza się rzadko,
       // ale odpowiedź musi być danymi — inaczej tura pada przez literówkę.
       return this.failure('BAD_REQUEST', `Nie ma narzędzia o nazwie ${name}.`);
     }
 
+    // Jedna karta na turę — rezerwacja SYNCHRONICZNIE, przed pierwszym
+    // `await`, więc z dwóch kart w jednej rundzie wygrywa dokładnie jedna
+    // (patrz `TurnMemo.claimCard`). Odmowa narzędzia zwalnia rezerwację.
+    const cardTool = TURN_ENDING_TOOLS.has(name);
+    if (cardTool && context.memo) {
+      const holder = context.memo.claimCard(name);
+      if (holder !== null) {
+        return this.failure(
+          'AI_ONE_CARD_PER_TURN',
+          `W tej odpowiedzi stoi już karta (${holder}) — wiadomość niesie jedną kartę. ` +
+            'Resztę powiedz słowami albo zaproponuj w następnej wiadomości.',
+        );
+      }
+    }
+
+    const durable = context.durable;
+    const kind: EffectKind = durable ? effectKind(name, input) : 'read';
+    let result: AgentToolResult;
+    if (!durable || kind === 'read') {
+      result = await this.executeClaimed(name, input, context);
+    } else if (kind === 'card-db' || kind === 'card-memory') {
+      result = await this.executeDurable(name, input, context, durable, kind);
+    } else {
+      // Wywołania jednego narzędzia z efektem idą w próbie PO KOLEI: dwa
+      // równoległe `create_recipe` nie mogą dostać tego samego `#n`.
+      result = await durable.effects.exclusive(name, () =>
+        this.executeDurable(name, input, context, durable, kind),
+      );
+    }
+    if (
+      cardTool &&
+      !(result.ok && result.endsTurn) &&
+      !(!result.ok && result.error.code === DURABLE_EFFECT_CONFLICT)
+    ) {
+      context.memo?.releaseCard(name);
+    }
+    return result;
+  }
+
+  /**
+   * Narzędzie z efektem pod trwałym wykonaniem (Etap 5 + Addendum A1).
+   *
+   * 1. Efekt `#n` (albo `card`) już w dzienniku:
+   *    - to samo narzędzie i KANONICZNIE to samo wejście — wynik z dziennika,
+   *      kursor dalej (efekt nie powtarza się);
+   *    - cokolwiek innego — KONFLIKT ODZYSKIWANIA: ani nowy zapis, ani cudzy
+   *      wynik jako „sukces" tego wejścia; kursor STOI, więc kolejne
+   *      wywołanie znowu trafi na `#n`, a nie przeskoczy do `#n+1`.
+   * 2. Brak: lease i „Stop" z bazy, wykonanie z wierszem dziennika w
+   *    transakcji efektu, kursor dalej dopiero po commicie. Odmowa narzędzia
+   *    (brak efektu) niczego nie zapisuje i kursora nie rusza.
+   */
+  private async executeDurable(
+    name: string,
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    durable: NonNullable<AgentToolContext['durable']>,
+    kind: EffectKind,
+  ): Promise<AgentToolResult> {
+    const effects = durable.effects;
+    const key = effects.keyFor(name, kind);
+    const stored = await effects.load(key);
+    if (stored) return this.recognize(stored, name, input, kind, context);
+
+    // Lease i „Stop" z bazy PRZED zapisem — nie po nim.
+    try {
+      await durable.checkpoint();
+    } catch {
+      return this.failure(
+        'AI_TURN_INTERRUPTED',
+        'Tura została przerwana — nie wykonuję zapisu.',
+      );
+    }
+
+    let committed = false;
+    let captured: AgentCard | null = null;
+    const commit =
+      kind === 'card-db' || kind === 'keyed'
+        ? effects.commitFor(key, name, input)
+        : undefined;
+    const callContext: AgentToolContext = {
+      ...context,
+      effectCommit: commit
+        ? async (tx, data) => {
+            await commit(tx, data);
+            committed = true;
+          }
+        : undefined,
+      collectCard: (card) => {
+        captured = card;
+        context.collectCard(card);
+      },
+    };
+
+    let result: AgentToolResult;
+    try {
+      result = await this.executeClaimed(name, input, callContext);
+    } catch (error) {
+      // Wyścig z inną próbą tej samej tury: efekt już jest — rozpoznaj go.
+      if (error instanceof EffectAlreadyCommittedError) {
+        const raced = await effects.load(key);
+        if (raced) return this.recognize(raced, name, input, kind, context);
+      }
+      if (error instanceof LeaseLostError) {
+        durable.onLeaseLost();
+        return this.failure(
+          'AI_TURN_INTERRUPTED',
+          'Tura została przerwana — zapis wycofany.',
+        );
+      }
+      throw error;
+    }
+
+    try {
+      if (result.ok && committed) {
+        effects.advance(name, kind);
+        await effects.complete(key, result.data);
+      } else if (result.ok && kind === 'natural') {
+        await effects.record(key, name, input, { ok: true, data: result.data });
+        effects.advance(name, kind);
+      } else if (result.ok && result.endsTurn && kind === 'card-memory') {
+        await effects.record(
+          key,
+          name,
+          input,
+          { ok: true, data: result.data },
+          captured,
+        );
+      }
+    } catch (error) {
+      if (error instanceof LeaseLostError) {
+        durable.onLeaseLost();
+      } else {
+        this.logger.warn(
+          `dziennik efektu ${key} nie zapisany: ${
+            error instanceof Error ? error.message : 'nieznany błąd'
+          }`,
+        );
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Zapisany efekt vs bieżące wywołanie. Zgodne — wynik z dziennika (karta
+   * tury wraca jako karta ze zdaniem serwera, efekt z kluczem z
+   * `alreadyDone`). Niezgodne — konflikt; dla karty z jawną regułą: karta
+   * zapisana przed restartem jest kartą TEJ TURY (zostaje na odpowiedzi),
+   * a bieżące wywołanie dostaje odmowę, nie jej wynik.
+   */
+  private recognize(
+    stored: StoredEffect,
+    name: string,
+    input: Record<string, unknown>,
+    kind: EffectKind,
+    context: AgentToolContext,
+  ): AgentToolResult {
+    const isCard = stored.key === 'card';
+    if (!isSameOperation(stored, name, input)) {
+      if (isCard && stored.card) context.collectCard(stored.card);
+      this.metrics.recordJobEffectConflict();
+      this.logger.warn(
+        `tura ${context.turnId}: konflikt odzyskiwania efektu ${stored.key} (zapisane: ${stored.tool}, wywołane: ${name}) — bez zapisu`,
+      );
+      return {
+        ok: false,
+        error: {
+          code: DURABLE_EFFECT_CONFLICT,
+          message: isCard
+            ? `Karta tej odpowiedzi (${stored.tool}) została już przygotowana przed restartem serwera. ` +
+              'Nie tworzę innej karty podczas odzyskiwania — zakończ odpowiedź jednym zdaniem bez narzędzi.'
+            : `W poprzedniej próbie tej odpowiedzi (przed restartem serwera) ${effectLabel(stored.tool)} ` +
+              'zostało już zapisane. Nie wykonuję innej wersji tej samej operacji podczas ' +
+              'odzyskiwania — powiedz użytkownikowi, co zostało zapisane, i nie próbuj ponownie.',
+          details: [`tool:${stored.tool}`],
+        },
+      };
+    }
+    if (!stored.result.ok) {
+      return { ok: false, error: stored.result.error };
+    }
+    context.durable?.effects.advance(name, kind);
+    const data = stored.result.data;
+    if (isCard) {
+      if (stored.card) context.collectCard(stored.card);
+      const turnText = turnTextFor(stored.tool, stored.input, data);
+      return {
+        ok: true,
+        data,
+        endsTurn: true,
+        ...(turnText ? { turnText } : {}),
+      };
+    }
+    return {
+      ok: true,
+      data:
+        data && typeof data === 'object' && !Array.isArray(data)
+          ? { ...(data as Record<string, unknown>), alreadyDone: true }
+          : { result: data, alreadyDone: true },
+    };
+  }
+
+  private async executeClaimed(
+    name: string,
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<AgentToolResult> {
     const refusal = this.refuseOutOfMode(name, context);
     if (refusal) return refusal;
 
@@ -571,8 +921,28 @@ export class AgentToolExecutor {
       if (context.planScope) {
         recordPlannedDays(name, input, context.planScope);
       }
-      return { ok: true, data };
+      // Propozycja z naruszeniami (`proposed: false`) NIE kończy tury:
+      // model musi poprawić dania i zawołać jeszcze raz.
+      const endsTurn =
+        (TURN_ENDING_TOOLS.has(name) &&
+          (data as { proposed?: unknown } | null)?.proposed !== false) ||
+        isReadOnlyRecipeResult(name, data) ||
+        isExhaustedSuggestion(name, data);
+      const turnText = endsTurn ? turnTextFor(name, input, data) : null;
+      return {
+        ok: true,
+        data,
+        ...(endsTurn ? { endsTurn: true as const } : {}),
+        ...(turnText ? { turnText } : {}),
+      };
     } catch (error) {
+      // Efekt już w dzienniku / lease stracony — decyduje `execute`, nie model.
+      if (
+        error instanceof EffectAlreadyCommittedError ||
+        error instanceof LeaseLostError
+      ) {
+        throw error;
+      }
       const { contract } = mapError(error);
       if (!(error instanceof AppException)) {
         // Nieznany błąd to nasza awaria, nie pomyłka modelu — w logu zostaje
@@ -595,6 +965,28 @@ export class AgentToolExecutor {
 
   private failure(code: string, message: string): AgentToolResult {
     return { ok: false, error: { code, message } };
+  }
+
+  /** Domownicy z celami — raz na turę (`TurnMemo`), jak w prompcie. */
+  private members(context: AgentToolContext) {
+    return memoized(
+      context.memo,
+      TURN_KEYS.members(context.userId, context.householdId),
+      () =>
+        this.households.memberPreferences(context.userId, context.householdId),
+    );
+  }
+
+  /**
+   * Domownicy, których model może zobaczyć (zgoda) — ten sam filtr i ten
+   * sam wpis pamięci tury, co blok gospodarstwa w prompcie.
+   */
+  private visibleMembers(context: AgentToolContext) {
+    return memoized(
+      context.memo,
+      TURN_KEYS.visible(context.userId, context.householdId),
+      async () => this.prompts.membersForModel(await this.members(context)),
+    );
   }
 
   /**
@@ -685,6 +1077,11 @@ export class AgentToolExecutor {
     context: AgentToolContext,
   ): Promise<unknown> {
     const { userId, householdId } = context;
+    const commit = context.effectCommit;
+    const inTransaction = commit
+      ? (tx: Parameters<EffectCommit>[0], noteId: string) =>
+          commit(tx, { noteId })
+      : undefined;
     const about = asString(input.about_user_id).trim();
     if (!about) {
       return this.memory.remember(
@@ -692,11 +1089,12 @@ export class AgentToolExecutor {
         userId,
         asString(input.text),
         asString(input.kind) || undefined,
+        null,
+        inTransaction,
       );
     }
 
-    const all = await this.households.memberPreferences(userId, householdId);
-    const { members } = await this.prompts.membersForModel(all);
+    const { members } = await this.visibleMembers(context);
     if (!members.some((member) => member.userId === about)) {
       throw new AppException(
         'VALIDATION_ERROR',
@@ -714,6 +1112,7 @@ export class AgentToolExecutor {
       asString(input.text),
       asString(input.kind) || undefined,
       about,
+      inTransaction,
     );
   }
 
@@ -746,8 +1145,8 @@ export class AgentToolExecutor {
     if (name === 'apply_week_plan' && context.proposalMode) {
       return this.failure(
         'AI_TOOL_NOT_IN_MODE',
-        'W tym trybie nie zapisujesz planu sam. Podaj ten sam stan docelowy przez ' +
-          'propose_week_plan — użytkownik zatwierdzi go jednym kliknięciem w aplikacji.',
+        'W tym trybie nie zapisujesz planu sam. Plan dnia albo tygodnia ułóż przez ' +
+          'build_meal_plan — użytkownik zatwierdzi go jednym kliknięciem w aplikacji.',
       );
     }
     if (
@@ -755,7 +1154,10 @@ export class AgentToolExecutor {
         name === 'propose_day_plan' ||
         name === 'propose_swap' ||
         name === 'propose_remove_meal' ||
-        name === 'propose_household_split') &&
+        name === 'propose_household_split' ||
+        name === 'revise_proposal' ||
+        name === 'build_meal_plan' ||
+        name === 'replace_plan_item') &&
       !context.proposalMode
     ) {
       return this.failure(
@@ -776,14 +1178,6 @@ export class AgentToolExecutor {
     const str = (key: string): string => asString(input[key]);
 
     switch (name) {
-      case 'get_household_context':
-        // Ten sam filtr zgód, co w prompcie: model widzi tylko domowników,
-        // którzy sami zgodzili się na asystenta.
-        return this.households
-          .memberPreferences(userId, householdId)
-          .then((all) => this.prompts.membersForModel(all))
-          .then((result) => result.members);
-
       case 'get_week_plan':
         return this.weekPlanForModel(context, str('week_start'));
 
@@ -793,8 +1187,11 @@ export class AgentToolExecutor {
       case 'get_recipe_details':
         return this.recipeDetails(input, context);
 
-      case 'search_recipes_by_ingredient':
-        return this.recipesByIngredient(input, context);
+      case 'find_recipes':
+        return this.findRecipes(input, context);
+
+      case 'suggest_meals':
+        return this.suggestMeals(input, context, str('week_start'));
 
       case 'search_ingredients':
         return this.ingredients
@@ -841,6 +1238,15 @@ export class AgentToolExecutor {
       case 'propose_week_plan':
         return this.proposeWeekPlan(input, context, str('week_start'));
 
+      case 'revise_proposal':
+        return this.reviseProposal(input, context);
+
+      case 'build_meal_plan':
+        return this.buildMealPlan(input, context, str('week_start'));
+
+      case 'replace_plan_item':
+        return this.replacePlanItem(input, context, str('week_start'));
+
       case 'apply_week_plan':
         return this.applyWeekPlan(input, context, str('week_start'));
 
@@ -865,48 +1271,28 @@ export class AgentToolExecutor {
           ingredients: this.toIngredients(input.ingredients),
           ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
         };
+        const commit = context.effectCommit;
         return this.recipes
-          .create(userId, payload as CreateRecipeDto)
+          .create(userId, payload as CreateRecipeDto, {
+            inTransaction: commit
+              ? (tx, recipeId) => commit(tx, { recipeId })
+              : undefined,
+          })
           .then(projectRecipeForModel);
       }
 
-      case 'update_recipe': {
-        const payload: unknown = {
-          householdId,
-          ...(input.title ? { title: str('title') } : {}),
-          ...(input.description ? { description: str('description') } : {}),
-          ...(input.prep_time_minutes !== undefined
-            ? { prepTimeMinutes: Number(input.prep_time_minutes) }
-            : {}),
-          ...(input.servings !== undefined
-            ? { servings: Number(input.servings) }
-            : {}),
-          ...(input.ingredients
-            ? { ingredients: this.toIngredients(input.ingredients) }
-            : {}),
-          ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
-        };
-        return this.recipes
-          .update(userId, str('recipe_id'), payload as UpdateRecipeDto)
-          .then(projectRecipeForModel);
-      }
+      case 'update_recipe':
+        return this.updateRecipe(input, context);
 
       case 'remember_note':
         return this.rememberNote(input, context);
 
       case 'start_planning':
         // Sama zmiana modelu dzieje się w dostawcy (patrz AgentProviderHandoff);
-        // tu wystarczy potwierdzenie, które planista przeczyta jako pierwsze.
-        return Promise.resolve({
-          handoff: true,
-          note:
-            'Od tej rundy prowadzisz turę jako planista i masz pełny zestaw narzędzi ' +
-            '(propose_*, apply_*). Kontekst zebrany wcześniej jest w historii — nie ' +
-            'powtarzaj tych wywołań.',
-        });
-
-      case 'delete_recipe':
-        return this.recipes.remove(userId, str('recipe_id'), householdId);
+        // tu potwierdzenie, które planista przeczyta jako pierwsze, i od razu
+        // kandydaci na pory domu — bez tego pierwszą rundą planisty byłoby
+        // i tak szukanie dań.
+        return Promise.resolve(this.startPlanning());
 
       default:
         return Promise.resolve(null);
@@ -1007,11 +1393,19 @@ export class AgentToolExecutor {
       );
     }
 
+    const entries = raw
+      .slice(0, MAX_OPTIONS)
+      .map((option) => (option ?? {}) as Record<string, unknown>);
+    const details = await this.recipeSides(
+      entries.map((entry) =>
+        this.resolveRecipeRef(asString(entry.recipe), context),
+      ),
+      context,
+    );
     const options: OptionsCardItem[] = [];
-    for (const option of raw.slice(0, MAX_OPTIONS)) {
-      const entry = (option ?? {}) as Record<string, unknown>;
-      const recipeId = this.resolveRecipeRef(asString(entry.recipe), context);
-      const detail = await this.recipeSide(recipeId, context);
+    for (const [index, entry] of entries.entries()) {
+      const detail = details[index];
+      const recipeId = detail.recipeId;
       const tag = asString(entry.tag).trim();
       options.push({
         recipeId,
@@ -1051,6 +1445,8 @@ export class AgentToolExecutor {
     input: Record<string, unknown>,
     context: AgentToolContext,
     weekStart: string,
+    /** Porcje per osoba z planera (Etap 2.2); brak = policzy je serwer tutaj. */
+    portions?: { userId: string; servings: number }[],
   ): Promise<CreateWeekProposalResult> {
     const dayOfWeek = asString(input.day_of_week) as DayOfWeek;
     const mealType = asString(input.meal_type) as MealType;
@@ -1080,8 +1476,22 @@ export class AgentToolExecutor {
     const participantIds = Array.isArray(input.participant_user_ids)
       ? (input.participant_user_ids as string[])
       : [];
+    // Danie WYBRANE (np. „Wybieram drugą" po suggest_meals): porcje każdej
+    // osoby liczy serwer, nie model (review Etapu 3).
+    const chosenPortions =
+      portions ??
+      (await this.portionsForChoice(context, {
+        weekStart,
+        dayOfWeek,
+        mealType,
+        recipeId,
+        participantIds,
+        currentSlots: current,
+      }));
 
     return this.proposals.createSwapProposal({
+      memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -1090,11 +1500,47 @@ export class AgentToolExecutor {
       dayOfWeek,
       mealType,
       recipeId,
-      to: await this.recipeSide(recipeId, context),
-      from: standing ? await this.recipeSide(standing.recipeId, context) : null,
+      ...(await this.swapSides(recipeId, standing?.recipeId ?? null, context)),
       participantIds,
       ...(reason ? { reason } : {}),
+      ...(chosenPortions?.length ? { portions: chosenPortions } : {}),
     });
+  }
+
+  /**
+   * Porcje per osoba dla dania wybranego przez użytkownika — tylko przy
+   * włączonym `AI_PLANNER_PER_USER_PORTIONS`; bez niego `undefined` (równy
+   * podział jak dotąd, żadnych nowych alokacji). Danie, które nie przechodzi
+   * filtrów twardych planera (także diety), to błąd dla modelu.
+   */
+  private async portionsForChoice(
+    context: AgentToolContext,
+    choice: {
+      weekStart: string;
+      dayOfWeek: DayOfWeek;
+      mealType: MealType;
+      recipeId: string;
+      participantIds: string[];
+      currentSlots: ApplyWeekSlotDto[];
+    },
+  ): Promise<{ userId: string; servings: number }[] | undefined> {
+    if (!readAgentEnv().plannerPerUserPortions) return undefined;
+    const outcome = await this.planner.portionsForChoice({
+      userId: context.userId,
+      householdId: context.householdId,
+      ...choice,
+      seed: context.turnId,
+      memo: context.memo,
+    });
+    if (!outcome.ok) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        `Tego dania nie da się tu wstawić: ${outcome.problem} Wybierz inne danie.`,
+        HttpStatus.BAD_REQUEST,
+        ['recipe'],
+      );
+    }
+    return outcome.portions;
   }
 
   /**
@@ -1141,6 +1587,8 @@ export class AgentToolExecutor {
       : [];
 
     return this.proposals.createRemoveMealProposal({
+      memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -1173,13 +1621,23 @@ export class AgentToolExecutor {
     }
 
     const raw = Array.isArray(input.portions) ? input.portions : [];
-    const portions = raw
+    let portions = raw
       .map((entry) => (entry ?? {}) as Record<string, unknown>)
       .map((entry) => ({
         userId: asString(entry.user_id),
         note: asString(entry.note).trim() || null,
       }))
       .filter((portion) => portion.userId.length > 0);
+    // Bez listy osób = cały dom (domownicy ze zgodą) — Etap 6.1: model nie
+    // musi przepisywać identyfikatorów, a porcje każdej osoby i tak liczy
+    // serwer z jej celu.
+    if (portions.length === 0) {
+      const { members } = await this.visibleMembers(context);
+      portions = members.map((member) => ({
+        userId: member.userId,
+        note: null,
+      }));
+    }
     if (portions.length === 0) {
       throw new AppException(
         'VALIDATION_ERROR',
@@ -1189,17 +1647,39 @@ export class AgentToolExecutor {
     }
 
     const recipeId = this.resolveRecipeRef(ref, context);
+    const dayOfWeek = asString(input.day_of_week) as DayOfWeek;
+    const mealType = asString(input.meal_type) as MealType;
+    // Porcje każdej osoby liczy PLANER (krok 0,05, Etap 2.2) — i tylko przy
+    // włączonym rolloucie porcji (`portionsForChoice` zwraca wtedy porcje,
+    // inaczej `undefined`). Stary iOS przy pozycji z alokacją pokazuje równy
+    // podział i zdejmuje alokację stepperem (raport 02-2), więc bez flagi
+    // nic się nie alokuje — Etap 6.1.1.
+    const servings = await this.portionsForChoice(context, {
+      weekStart,
+      dayOfWeek,
+      mealType,
+      recipeId,
+      participantIds: portions.map((portion) => portion.userId),
+      currentSlots: await this.weeklyPlans.snapshotWeekAsSlots(
+        context.userId,
+        context.householdId,
+        weekStart,
+      ),
+    });
     return this.proposals.createHouseholdSplitProposal({
+      memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
       turnId: context.turnId,
       weekStart,
-      dayOfWeek: asString(input.day_of_week) as DayOfWeek,
-      mealType: asString(input.meal_type) as MealType,
+      dayOfWeek,
+      mealType,
       recipeId,
       dish: await this.recipeSide(recipeId, context),
       portions,
+      ...(servings?.length ? { servings } : {}),
     });
   }
 
@@ -1262,10 +1742,9 @@ export class AgentToolExecutor {
     refByRecipeId: Map<string, string>;
     visible: Set<string>;
   }> {
-    const visible = await this.households
-      .memberPreferences(context.userId, context.householdId)
-      .then((all) => this.prompts.membersForModel(all))
-      .then((result) => new Set(result.members.map((m) => m.userId)));
+    const visible = await this.visibleMembers(context).then(
+      (result) => new Set(result.members.map((m) => m.userId)),
+    );
     return {
       refByRecipeId: new Map(
         Object.entries(context.catalogIndex).map(([ref, id]) => [id, ref]),
@@ -1376,6 +1855,7 @@ export class AgentToolExecutor {
       );
     }
 
+    const commit = context.effectCommit;
     await this.weeklyPlans.setMealEaten(
       context.userId,
       context.householdId,
@@ -1386,6 +1866,12 @@ export class AgentToolExecutor {
         recipeId: standing.recipeId,
         isEaten,
       } as unknown as SetMealEatenDto,
+      {
+        // Dziennik efektu tury w transakcji odhaczenia (Addendum A1).
+        inTransaction: commit
+          ? (tx) => commit(tx, { dayOfWeek, mealType, eaten: isEaten })
+          : undefined,
+      },
     );
     this.plansGateway.broadcastMealEaten({
       householdId: context.householdId,
@@ -1561,10 +2047,7 @@ export class AgentToolExecutor {
         weekStart,
         memberUserId || undefined,
       ),
-      this.households
-        .memberPreferences(context.userId, context.householdId)
-        .then((all) => this.prompts.membersForModel(all))
-        .then((result) => result.members),
+      this.visibleMembers(context).then((result) => result.members),
     ]);
     const member = members.find((entry) => entry.userId === targetUserId);
     if (!member) {
@@ -1664,82 +2147,143 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Dania po składniku — po SKŁADZIE z bazy, nie po nazwie dania.
+   * Wyszukiwanie dań — kryteria od modelu, reszta po stronie serwera.
    *
-   * Dwa kroki, bo model podaje nazwę („bakłażan"), a skład wiąże się przez
-   * `ingredientId`: najpierw ta sama wyszukiwarka składników, co przy
-   * budowaniu przepisu (łapie polską odmianę), potem przepisy z tymi
-   * składnikami. Bierzemy TRZY najlepsze dopasowania składnika, a nie jedno:
-   * „ser" to w katalogu kilka osobnych pozycji i jedno trafienie gubiłoby
-   * większość dań.
-   *
-   * Widoczność jest ta sama, co w każdym odczycie przepisów (CLAUDE.md):
-   * wspólny katalog ALBO przepisy tego domu. Bez tego filtra asystent
-   * pokazywałby dania z cudzych kuchni.
+   * Model nie widzi katalogu (w prompcie jest tylko jego mapa), więc to jest
+   * jedyna droga do dań. Filtry twarde jedzących nakłada serwis katalogu
+   * tymi samymi regułami, co walidator planu; model tylko zawęża prośbą.
+   * Widoczność ta sama, co w każdym odczycie przepisów: wspólny katalog
+   * ALBO przepisy tego domu.
    */
-  private async recipesByIngredient(
+  private async findRecipes(
     input: Record<string, unknown>,
     context: AgentToolContext,
-  ): Promise<{
-    ingredient: string;
-    matched: string[];
-    recipes: RecipeHitForModel[];
-    more: number;
-  }> {
-    const query = asString(input.ingredient).trim();
-    if (query.length === 0) {
+  ): Promise<FindRecipesForModel> {
+    const query = this.toSearchQuery(input);
+    const forUserIds = (
+      Array.isArray(input.for_user_ids) ? input.for_user_ids : []
+    )
+      .map((id) => asString(id).trim())
+      .filter((id) => id.length > 0);
+    const result = await this.catalog.search(
+      await this.searchContext(context, forUserIds),
+      query,
+    );
+    return this.searchResultForModel(result, context);
+  }
+
+  private toSearchQuery(input: Record<string, unknown>): RecipeSearchQuery {
+    const list = (value: unknown): string[] =>
+      (Array.isArray(value) ? value : [])
+        .map((entry) => asString(entry).trim())
+        .filter((entry) => entry.length > 0)
+        .slice(0, 10);
+    const limitOrNull = (value: unknown): number | null => {
+      const number = typeof value === 'number' ? Math.round(value) : 0;
+      return Number.isFinite(number) && number > 0 ? number : null;
+    };
+
+    const rawMeal = asString(input.meal_type);
+    const mealType = (MEAL_TYPES as readonly string[]).includes(rawMeal)
+      ? (rawMeal as MealType)
+      : null;
+    const rawTags = list(input.tags);
+    const unknownTags = rawTags.filter((tag) => !isRecipeSearchTag(tag));
+    if (unknownTags.length > 0) {
       throw new AppException(
         'VALIDATION_ERROR',
-        'Podaj nazwę składnika — bez niej nie ma czego szukać.',
+        `Nieznane tagi: ${unknownTags.join(', ')}. Dozwolone są tylko tagi z mapy katalogu.`,
         HttpStatus.BAD_REQUEST,
-        ['ingredient'],
+        unknownTags,
       );
     }
+    const rawSort = asString(input.sort);
+    const sort: SearchSort = (SEARCH_SORTS as readonly string[]).includes(
+      rawSort,
+    )
+      ? (rawSort as SearchSort)
+      : 'BEST_FIT';
+    const limit = limitOrNull(input.limit) ?? SEARCH_DEFAULT_LIMIT;
 
-    const hits = await this.ingredients.search({ query, limit: 3 });
-    if (hits.length === 0) {
-      return { ingredient: query, matched: [], recipes: [], more: 0 };
-    }
+    return {
+      text: asString(input.query).slice(0, 200),
+      mealType,
+      tags: rawTags.filter(isRecipeSearchTag),
+      includeIngredients: list(input.include_ingredients),
+      excludeIngredients: list(input.exclude_ingredients),
+      maxPrepMinutes: limitOrNull(input.max_prep_minutes),
+      maxKcalPerServing: limitOrNull(input.max_kcal_per_serving),
+      minProteinPerServing: limitOrNull(input.min_protein_per_serving),
+      sort,
+      limit: Math.min(SEARCH_MAX_LIMIT, limit),
+    };
+  }
 
-    const rows = await this.prisma.recipe.findMany({
-      where: {
-        isActive: true,
-        OR: [{ isCatalog: true }, { householdId: context.householdId }],
-        ingredients: {
-          some: { ingredientId: { in: hits.map((hit) => hit.id) } },
-        },
-      },
-      select: {
-        id: true,
-        title: true,
-        mealType: true,
-        servings: true,
-        prepTimeMinutes: true,
-        nutritionKcal: true,
-      },
-      orderBy: { title: 'asc' },
-      // O jeden więcej niż sufit: po tym poznajemy, że coś zostało za listą,
-      // i mówimy to modelowi wprost, zamiast udawać, że to cały wynik.
-      take: RECIPE_HITS_LIMIT + 1,
-    });
+  /** Kontekst wyszukiwania z tury — zgody tą samą regułą, co prompt. */
+  private async searchContext(context: AgentToolContext, forUserIds: string[]) {
+    // W turze: domownicy ze zgodą z pamięci tury (prompt już ich przeczytał).
+    // Poza turą: sam skład domu — tańszy niż pełne profile.
+    const { members } = context.memo
+      ? await this.visibleMembers(context)
+      : await this.prompts.membersForModel(
+          await this.prisma.membership.findMany({
+            where: { householdId: context.householdId },
+            select: { userId: true },
+          }),
+        );
+    return {
+      userId: context.userId,
+      householdId: context.householdId,
+      ...(context.dates ? { weekStart: context.dates.weekStart } : {}),
+      forUserIds,
+      consentedUserIds: new Set(members.map((member) => member.userId)),
+      ...(context.memo ? { memo: context.memo } : {}),
+    };
+  }
 
-    const refByRecipeId = new Map(
+  /**
+   * Referencje z indeksu TEJ tury, nie z pamięci katalogu: gdyby katalog
+   * zmienił się w trakcie tury, numeracja w pamięci mogłaby rozjechać się
+   * z tą, którą model zna z planu w prompcie.
+   */
+  private searchResultForModel(
+    result: AgentSearchResult,
+    context: AgentToolContext,
+  ): FindRecipesForModel {
+    const refById = new Map(
       Object.entries(context.catalogIndex).map(([ref, id]) => [id, ref]),
     );
     return {
-      ingredient: query,
-      matched: hits.map((hit) => hit.name),
-      recipes: rows.slice(0, RECIPE_HITS_LIMIT).map((row) => {
-        const servings = Math.max(1, row.servings ?? 1);
-        return {
-          recipe: refByRecipeId.get(row.id) ?? row.id,
-          title: row.title,
-          mealType: row.mealType,
-          kcalPerServing: Math.round((row.nutritionKcal ?? 0) / servings),
-          prepTimeMinutes: row.prepTimeMinutes ?? 0,
-        };
-      }),
-      more: Math.max(0, rows.length - RECIPE_HITS_LIMIT),
+      ...result,
+      hits: result.hits.map((hit) => ({
+        recipe: refById.get(hit.id) ?? hit.id,
+        title: hit.title,
+        slots: hit.slots,
+        tags: hit.tags,
+        kcal: hit.kcal,
+        protein: hit.protein,
+        prepMinutes: hit.prepMinutes,
+        why: hit.why,
+        ...(hit.household ? { household: true as const } : {}),
+      })),
+    };
+  }
+
+  /**
+   * Przekazanie planiście (`AI_MODEL_TOOLS`). Do Etapu 3 wynik niósł
+   * kandydatów na każdą porę domu (~7,7 tys. znaków) — po serwerowym
+   * planerze dania dobiera `build_meal_plan`/`replace_plan_item`/
+   * `suggest_meals`, więc planista ich nie czytał, a płacił za nie w każdej
+   * kolejnej rundzie tury.
+   */
+  private startPlanning(): { handoff: true; note: string } {
+    return {
+      handoff: true,
+      note:
+        'Od tej rundy prowadzisz turę jako planista i masz pełny zestaw narzędzi. ' +
+        'Kontekst zebrany wcześniej jest w historii — nie powtarzaj tych wywołań. ' +
+        'Plan dnia albo tygodnia: build_meal_plan; jedno danie: replace_plan_item; ' +
+        'dania do wyboru: suggest_meals.',
     };
   }
 
@@ -1752,39 +2296,59 @@ export class AgentToolExecutor {
   private async recipeSide(
     recipeId: string,
     context: AgentToolContext,
-  ): Promise<
-    SwapCardSide & {
-      imageUrl: string | null;
-      description: string | null;
-      proteinGrams: number | null;
-      carbsGrams: number | null;
-      fatGrams: number | null;
-      ingredientCount: number | null;
-    }
-  > {
-    const recipe = await this.recipes.findById(
+  ): Promise<RecipeSide> {
+    const [side] = await this.recipeSides([recipeId], context);
+    return side;
+  }
+
+  /** „Przed" i „po" podmiany jednym odczytem. */
+  private async swapSides(
+    toRecipeId: string,
+    fromRecipeId: string | null,
+    context: AgentToolContext,
+  ): Promise<{ to: RecipeSide; from: RecipeSide | null }> {
+    const sides = await this.recipeSides(
+      fromRecipeId ? [toRecipeId, fromRecipeId] : [toRecipeId],
+      context,
+    );
+    return { to: sides[0], from: fromRecipeId ? sides[1] : null };
+  }
+
+  /**
+   * Strony kilku dań naraz (Etap 4B): jedno sprawdzenie członkostwa i jedno
+   * zapytanie (`RecipesService.cardSides`) zamiast `findById` na danie —
+   * karta 3 dań: 15 zapytań → 2. Kolejność = kolejność `recipeIds`.
+   */
+  private async recipeSides(
+    recipeIds: readonly string[],
+    context: AgentToolContext,
+  ): Promise<RecipeSide[]> {
+    if (recipeIds.length === 0) return [];
+    const rows = await this.recipes.cardSides(
       context.userId,
-      recipeId,
+      recipeIds,
       context.householdId,
     );
-    const servings = Math.max(1, recipe.servings ?? 1);
-    const perServing = (value: number): number | null => {
-      if (!Number.isFinite(value) || value <= 0) return null;
-      return Math.round(value / servings);
-    };
-    return {
-      recipeId,
-      title: recipe.title,
-      kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
-      prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
-      imageUrl: recipe.imageUrl ?? null,
-      description: recipe.description?.trim() || null,
-      proteinGrams: perServing(recipe.nutritionProtein ?? 0),
-      carbsGrams: perServing(recipe.nutritionCarbs ?? 0),
-      fatGrams: perServing(recipe.nutritionFat ?? 0),
-      ingredientCount:
-        recipe.ingredients.length > 0 ? recipe.ingredients.length : null,
-    };
+    return rows.map((recipe) => {
+      const servings = Math.max(1, recipe.servings ?? 1);
+      const perServing = (value: number): number | null => {
+        if (!Number.isFinite(value) || value <= 0) return null;
+        return Math.round(value / servings);
+      };
+      return {
+        recipeId: recipe.id,
+        title: recipe.title,
+        kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
+        prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
+        imageUrl: recipe.imageUrl ?? null,
+        description: recipe.description?.trim() || null,
+        proteinGrams: perServing(recipe.nutritionProtein ?? 0),
+        carbsGrams: perServing(recipe.nutritionCarbs ?? 0),
+        fatGrams: perServing(recipe.nutritionFat ?? 0),
+        ingredientCount:
+          recipe.ingredientCount > 0 ? recipe.ingredientCount : null,
+      };
+    });
   }
 
   /**
@@ -1817,6 +2381,8 @@ export class AgentToolExecutor {
 
     const note = asString(input.note).trim();
     return this.proposals.createDayPlanProposal({
+      memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -1841,11 +2407,7 @@ export class AgentToolExecutor {
       ? asString(input.member_user_id)
       : undefined;
     if (memberUserId && memberUserId !== context.userId) {
-      const all = await this.households.memberPreferences(
-        context.userId,
-        context.householdId,
-      );
-      const { members } = await this.prompts.membersForModel(all);
+      const { members } = await this.visibleMembers(context);
       if (!members.some((member) => member.userId === memberUserId)) {
         throw new AppException(
           'VALIDATION_ERROR',
@@ -1881,6 +2443,8 @@ export class AgentToolExecutor {
     const note = asString(input.note).trim();
     const removalReasons = this.toRemovalReasons(input.removals);
     return this.proposals.createWeekPlanProposal({
+      memo: context.memo,
+      effect: context.effectCommit,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
@@ -1893,6 +2457,460 @@ export class AgentToolExecutor {
       ...(note ? { note } : {}),
       ...(removalReasons.length > 0 ? { removalReasons } : {}),
     });
+  }
+
+  /**
+   * Poprawka jednego slotu w propozycji, która czeka na zatwierdzenie.
+   *
+   * Model podaje numer propozycji (z dopisku w historii), slot i danie —
+   * resztę tygodnia bierze serwis z INTENCJI tamtej propozycji
+   * (`action.slots`), więc model nie ma jak zgubić pozycji, których nie
+   * wypisał. Schemat bez `strict` (budżet pól 24/24 i gramatyka), więc
+   * dzień i porę sprawdzamy tutaj.
+   */
+  private async reviseProposal(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<CreateWeekProposalResult> {
+    const dayOfWeek = asString(input.day_of_week);
+    const mealType = asString(input.meal_type);
+    if (
+      !(Object.values(DayOfWeek) as string[]).includes(dayOfWeek) ||
+      !(Object.values(MealType) as string[]).includes(mealType)
+    ) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'day_of_week to MON…SUN, a meal_type to jedna z pór z listy.',
+        HttpStatus.BAD_REQUEST,
+        ['day_of_week', 'meal_type'],
+      );
+    }
+    const unknownRefs = this.unknownCatalogRefs([input], context);
+    if (unknownRefs.length > 0) {
+      throw new AppException(
+        'RECIPE_NOT_FOUND',
+        `Nie ma takich przepisów w katalogu: ${unknownRefs.join(', ')}. Użyj indeksów z listy katalogu.`,
+        HttpStatus.NOT_FOUND,
+        unknownRefs,
+      );
+    }
+    const proposalId = asString(input.proposal_id).trim();
+    const recipeId = this.resolveRecipeRef(asString(input.recipe), context);
+    // Wybór z karty w propozycji, która czeka („pokaż inne" → „Wybieram…"):
+    // porcje wybranego dania liczy serwer dla tych samych osób, dla których
+    // stał slot — reszta propozycji zostaje nietknięta (review Etapu 3).
+    let portions: { userId: string; servings: number }[] | undefined;
+    if (readAgentEnv().plannerPerUserPortions) {
+      const pending = await this.proposals.loadPendingPlanProposal({
+        proposalId,
+        conversationId: context.conversationId,
+        householdId: context.householdId,
+      });
+      const replaced = pending.slots.filter(
+        (slot) => slot.dayOfWeek === dayOfWeek && slot.mealType === mealType,
+      );
+      const participantIds =
+        replaced.length === 0 ||
+        replaced.some((slot) => !slot.participantIds?.length)
+          ? []
+          : [...new Set(replaced.flatMap((slot) => slot.participantIds ?? []))];
+      portions = await this.portionsForChoice(context, {
+        weekStart: pending.weekStart,
+        dayOfWeek: dayOfWeek as DayOfWeek,
+        mealType: mealType as MealType,
+        recipeId,
+        participantIds,
+        currentSlots: pending.slots,
+      });
+    }
+    return this.proposals.reviseProposal({
+      memo: context.memo,
+      effect: context.effectCommit,
+      userId: context.userId,
+      householdId: context.householdId,
+      conversationId: context.conversationId,
+      turnId: context.turnId,
+      proposalId,
+      dayOfWeek: dayOfWeek as DayOfWeek,
+      mealType: mealType as MealType,
+      recipeId,
+      ...(portions?.length ? { portions } : {}),
+    });
+  }
+
+  /**
+   * Serwerowy planer — plan dni × pór (Etap 2E). Model podaje zakres
+   * i życzenia, dania, porcje i bilans liczy serwer; wynik idzie tą samą
+   * ścieżką propozycji, co `propose_week_plan`/`propose_day_plan` (walidacja
+   * zapisu, karta, odcisk planu, kliknięcie człowieka).
+   */
+  private async buildMealPlan(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ) {
+    const days = enumList(input.days, Object.values(DayOfWeek), 'days');
+    if (days.length === 0) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'days: podaj co najmniej jeden dzień (MON…SUN).',
+        HttpStatus.BAD_REQUEST,
+        ['days'],
+      );
+    }
+    const wishes = wishesOf(input);
+    const outcome = await this.planner.build({
+      userId: context.userId,
+      householdId: context.householdId,
+      weekStart,
+      days,
+      mealTypes: enumList(
+        input.meal_types,
+        Object.values(MealType),
+        'meal_types',
+      ),
+      forUserIds: stringList(input.for_user_ids),
+      wishes,
+      seed: context.turnId,
+      memo: context.memo,
+    });
+    const diagnostics = plannerResultForModel(outcome);
+    if (outcome.draft.items.length === 0) {
+      return { proposed: false as const, planner: diagnostics };
+    }
+    const note = '';
+    const proposal =
+      days.length === 1
+        ? await this.proposals.createDayPlanProposal({
+            memo: context.memo,
+            effect: context.effectCommit,
+            userId: context.userId,
+            householdId: context.householdId,
+            conversationId: context.conversationId,
+            turnId: context.turnId,
+            weekStart,
+            dayOfWeek: days[0],
+            targetKcalPerDayOverride: wishes.dayKcalTarget ?? null,
+            slots: outcome.targetSlots
+              .filter((slot) => slot.dayOfWeek === days[0])
+              .map(({ dayOfWeek: _day, ...slot }) => slot),
+          })
+        : await this.proposals.createWeekPlanProposal({
+            memo: context.memo,
+            effect: context.effectCommit,
+            userId: context.userId,
+            householdId: context.householdId,
+            conversationId: context.conversationId,
+            turnId: context.turnId,
+            weekStart,
+            targetKcalPerDayOverride: wishes.dayKcalTarget ?? null,
+            slots: outcome.targetSlots,
+            ...(note ? { note } : {}),
+          });
+    return { ...proposal, planner: diagnostics };
+  }
+
+  /**
+   * Dania do wyboru z serwera (Etap 3) — „co na kolację?", „3 szybkie
+   * kolacje", „mam dużo kurczaka". Jedna operacja zamiast `find_recipes` →
+   * analiza modelu → `offer_options`: serwer filtruje (alergeny, diety,
+   * wykluczenia wszystkich jedzących), rankinguje wobec tego, co osobie
+   * zostaje na ten posiłek przy reszcie dnia, różnicuje i stawia TĘ SAMĄ
+   * kartę OPTIONS co `offer_options` — więc „wybieram drugą" działa bez zmian.
+   */
+  private async suggestMeals(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ) {
+    const [dayOfWeek] = enumList(
+      [input.day_of_week],
+      Object.values(DayOfWeek),
+      'day_of_week',
+    );
+    const [mealType] = enumList(
+      [input.meal_type],
+      Object.values(MealType),
+      'meal_type',
+    );
+    const rawCount =
+      typeof input.count === 'number' ? Math.round(input.count) : 3;
+    const count = Math.min(MAX_OPTIONS, Math.max(2, rawCount || 3));
+    const wishes = wishesOf(input);
+    const slotLabel = `${MEAL_LABELS[mealType]} · ${DAY_LABELS[dayOfWeek].toLowerCase()}`;
+    // „Pokaż inne" (Etap 6.1): dania z kart wyboru na TEN posiłek w tej
+    // rozmowie wypadają — serwer czyta je z historii, model nie przenosi
+    // identyfikatorów. Gdy bez nich zostaje za mało dań, pokazujemy znowu
+    // całą pulę i mówimy to (`repeatedShown`).
+    const shown = await this.shownOptionIds(context.conversationId, slotLabel);
+    const ask = (excludeRecipeIds: string[]) =>
+      this.planner.suggest({
+        userId: context.userId,
+        householdId: context.householdId,
+        weekStart,
+        dayOfWeek,
+        mealType,
+        forUserIds: stringList(input.for_user_ids),
+        wishes,
+        includeIngredients: stringList(input.include_ingredients).slice(0, 5),
+        count,
+        seed: context.turnId,
+        memo: context.memo,
+        excludeRecipeIds,
+      });
+    const outcome = await ask(shown);
+    const { draft } = outcome;
+    const budget = draft.slotBudget.find(
+      (entry) => entry.userId === context.userId,
+    );
+    const common = {
+      status: draft.status,
+      eligible: draft.eligible,
+      // Z PLANU (zaplanowane, nie odhaczone): ile kcal zostaje pytającemu
+      // na ten posiłek przy reszcie dnia.
+      ...(budget ? { remainingKcalForMeal: budget.kcal } : {}),
+      ...(draft.relaxed.length > 0 ? { relaxed: draft.relaxed } : {}),
+      ...(shown.length > 0 ? { skippedShown: shown.length } : {}),
+    };
+    if (draft.suggestions.length < 2 && shown.length > 0) {
+      // „Pokaż inne" przy wyczerpanej puli (Etap 6.1.1): NIE pokazujemy
+      // starych dań jako nowych. Karty nie ma, a serwer sam mówi prawdę
+      // (zdanie kończące turę, bez kolejnej rundy modelu).
+      const left = draft.suggestions[0]?.item.recipeId;
+      return {
+        proposed: false as const,
+        exhausted: true as const,
+        offered: 0,
+        ...common,
+        ...(left
+          ? { lastNew: (await this.recipeSides([left], context))[0]?.title }
+          : {}),
+      };
+    }
+    if (draft.suggestions.length < 2) {
+      // Jedno danie to nie wybór — karty nie ma, model mówi, czego zabrakło.
+      return {
+        proposed: false as const,
+        offered: 0,
+        ...common,
+        hint: 'Za mało dań spełnia warunki. Zdejmij jedno życzenie (np. składnik albo tag) albo powiedz to użytkownikowi.',
+      };
+    }
+
+    const sides = await this.recipeSides(
+      draft.suggestions.map((entry) => entry.item.recipeId),
+      context,
+    );
+    const tags = optionTags(
+      sides.map((side) => ({
+        prep: side.prepTimeMinutes,
+        protein: side.proteinGrams ?? 0,
+      })),
+    );
+    const options: OptionsCardItem[] = sides.map((side, index) => ({
+      recipeId: side.recipeId,
+      title: side.title,
+      kcalPerServing: side.kcalPerServing,
+      prepTimeMinutes: side.prepTimeMinutes,
+      imageUrl: side.imageUrl,
+      description: side.description,
+      proteinGrams: side.proteinGrams,
+      carbsGrams: side.carbsGrams,
+      fatGrams: side.fatGrams,
+      ingredientCount: side.ingredientCount,
+      tag: tags[index],
+      prompt: optionPrompt(side.title),
+    }));
+    const quick =
+      wishes.maxPrepMinutes !== null || wishes.preferredTags.includes('quick');
+    context.collectCard(
+      buildOptionsCard({
+        title: `${NUMERALS[options.length] ?? options.length} ${quick ? 'szybkie ' : ''}propozycje`,
+        options,
+        slotLabel,
+      }),
+    );
+    const refById = new Map(
+      Object.entries(context.catalogIndex).map(([ref, id]) => [id, ref]),
+    );
+    return {
+      offered: options.length,
+      ...common,
+      options: sides.map((side) => ({
+        recipe: refById.get(side.recipeId) ?? side.recipeId,
+        title: side.title,
+        kcal: side.kcalPerServing,
+        prepMinutes: side.prepTimeMinutes,
+      })),
+    };
+  }
+
+  /**
+   * Serwerowy planer — jedno danie (Etap 2D). W propozycji PENDING idzie
+   * przez `reviseProposal` (reszta z intencji propozycji, porcje z planera),
+   * w zapisanym planie — przez kartę podmiany (`proposeSwap`), która pokazuje
+   * „przed/po". Planer dostaje całą resztę tygodnia jako `fixed`.
+   */
+  private async replacePlanItem(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+    weekStart: string,
+  ) {
+    const [dayOfWeek] = enumList(
+      [input.day_of_week],
+      Object.values(DayOfWeek),
+      'day_of_week',
+    );
+    const [mealType] = enumList(
+      [input.meal_type],
+      Object.values(MealType),
+      'meal_type',
+    );
+    const proposalId = asString(input.proposal_id).trim();
+    const pending = proposalId
+      ? await this.proposals.loadPendingPlanProposal({
+          proposalId,
+          conversationId: context.conversationId,
+          householdId: context.householdId,
+        })
+      : null;
+    const week = pending?.weekStart ?? weekStart;
+    const currentSlots =
+      pending?.slots ??
+      (await this.weeklyPlans.snapshotWeekAsSlots(
+        context.userId,
+        context.householdId,
+        week,
+      ));
+    const outcome = await this.planner.replace({
+      userId: context.userId,
+      householdId: context.householdId,
+      weekStart: week,
+      dayOfWeek,
+      mealType,
+      currentSlots,
+      wishes: wishesOf(input),
+      similarKcal: input.similar_kcal === true,
+      // Karta podmiany zapisuje porcje z audytorium — planer ma liczyć tak samo.
+      portionMode: pending ? 'tune' : 'auto',
+      seed: context.turnId,
+      memo: context.memo,
+    });
+    const diagnostics = plannerResultForModel(outcome);
+    const [chosen] = outcome.draft.items;
+    if (!chosen) return { proposed: false as const, planner: diagnostics };
+    const proposal = pending
+      ? await this.proposals.reviseProposal({
+          memo: context.memo,
+          effect: context.effectCommit,
+          userId: context.userId,
+          householdId: context.householdId,
+          conversationId: context.conversationId,
+          turnId: context.turnId,
+          proposalId,
+          dayOfWeek,
+          mealType,
+          recipeId: chosen.recipeId,
+          plannedServings: chosen.plannedServings,
+          ...(chosen.portions?.length ? { portions: chosen.portions } : {}),
+        })
+      : await this.proposeSwap(
+          {
+            day_of_week: dayOfWeek,
+            meal_type: mealType,
+            recipe: chosen.recipeId,
+            // Slot imienny zostaje imienny — porcje planera są dla TYCH osób.
+            ...(chosen.participantIds.length > 0
+              ? { participant_user_ids: chosen.participantIds }
+              : {}),
+          },
+          context,
+          week,
+          chosen.portions ?? [],
+        );
+    return { ...proposal, planner: diagnostics };
+  }
+
+  /**
+   * Zmiana przepisu. Przepis z KATALOGU jest tylko do odczytu (Etap 6.1):
+   * zamiast błędu, po którym model sam kombinował (kopia przez
+   * `create_recipe` po kilkunastu `search_ingredients` albo zmiana porcji
+   * w planie przez propozycję), serwer oddaje jawny wynik „tylko do odczytu"
+   * i sam kończy turę zdaniem, które wyjaśnia, co może zrobić zamiast tego.
+   */
+  private async updateRecipe(
+    input: Record<string, unknown>,
+    context: AgentToolContext,
+  ): Promise<unknown> {
+    const recipeId = this.resolveRecipeRef(asString(input.recipe_id), context);
+    if (UUID_PATTERN.test(recipeId)) {
+      const target = await this.prisma.recipe.findUnique({
+        where: { id: recipeId },
+        select: { isCatalog: true, title: true },
+      });
+      if (target?.isCatalog) {
+        return {
+          updated: false,
+          readOnly: true,
+          reason: 'CATALOG_RECIPE_READ_ONLY',
+          recipe: target.title,
+        };
+      }
+    }
+    const str = (key: string): string => asString(input[key]);
+    const payload: unknown = {
+      householdId: context.householdId,
+      ...(input.title ? { title: str('title') } : {}),
+      ...(input.description ? { description: str('description') } : {}),
+      ...(input.prep_time_minutes !== undefined
+        ? { prepTimeMinutes: Number(input.prep_time_minutes) }
+        : {}),
+      ...(input.servings !== undefined
+        ? { servings: Number(input.servings) }
+        : {}),
+      ...(input.ingredients
+        ? { ingredients: this.toIngredients(input.ingredients) }
+        : {}),
+      ...(input.steps ? { steps: this.toSteps(input.steps) } : {}),
+    };
+    const commit = context.effectCommit;
+    return this.recipes
+      .update(context.userId, recipeId, payload as UpdateRecipeDto, {
+        inTransaction: commit
+          ? (tx, id) => commit(tx, { recipeId: id })
+          : undefined,
+      })
+      .then(projectRecipeForModel);
+  }
+
+  /** Dania z ostatnich kart wyboru na ten posiłek w tej rozmowie. */
+  private async shownOptionIds(
+    conversationId: string,
+    slotLabel: string,
+  ): Promise<string[]> {
+    const rows = await this.prisma.agentMessage.findMany({
+      where: {
+        conversationId,
+        role: 'ASSISTANT',
+        kind: 'OPTIONS',
+        hiddenAt: null,
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: SHOWN_OPTIONS_LOOKBACK,
+      select: { card: true },
+    });
+    const ids = new Set<string>();
+    for (const row of rows) {
+      const card = (row.card ?? {}) as {
+        eyebrow?: string;
+        options?: { recipeId?: string }[];
+      };
+      if (card.eyebrow !== slotLabel) continue;
+      for (const option of card.options ?? []) {
+        if (typeof option.recipeId === 'string') ids.add(option.recipeId);
+      }
+    }
+    return [...ids];
   }
 
   /** Powody usunięć od modelu — bez walidacji slotów, dopasowanie robi karta. */
@@ -1957,54 +2975,50 @@ export class AgentToolExecutor {
     // dom z Solo miał osiem zapisów narzędziem I osiem kartą.
     const scopeId = plan.quotaScopeId;
     const limit = plan.plansLimit;
-    const consumed = await this.counters.tryConsume(
-      this.prisma,
-      scopeId,
-      periodKey,
-      'plans',
-      limit,
+    // Kwota schodzi W TRANSAKCJI zapisu (hak `settle`, Etap 5), razem
+    // z dziennikiem efektu tury — i tylko wtedy, gdy zapis coś zmienia.
+    // Wcześniej: `tryConsume` przed zapisem i zwrot po nim, czyli dwie
+    // transakcje, między którymi pad procesu zostawiał zjedzoną kwotę bez
+    // planu albo plan bez zwrotu. Zapis odrzucony przez naruszenia i zapis
+    // bez zmian (ten sam stan docelowy drugi raz) nadal nic nie kosztują;
+    // brak kwoty wycofuje cały zapis.
+    const commit = context.effectCommit;
+    const result = await this.weeklyPlans.applyWeekPlan(
+      context.userId,
+      context.householdId,
+      weekStart,
+      payload as ApplyWeekPlanDto,
+      {
+        settle: async (tx, changes) => {
+          if (changes.created + changes.updated + changes.deleted > 0) {
+            const consumed = await this.counters.tryConsume(
+              tx,
+              scopeId,
+              periodKey,
+              'plans',
+              limit,
+            );
+            if (!consumed) {
+              this.metrics.recordRejected('planQuota');
+              throw new AppException(
+                'AI_PLAN_QUOTA_EXCEEDED',
+                (plan.tier === 'TRIAL'
+                  ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. `
+                  : `Limit zapisanych planów w tym okresie (${limit}) został wyczerpany. `) +
+                  'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go' +
+                  (plan.tier === 'TRIAL'
+                    ? ' bez wybrania planu.'
+                    : ' do odnowienia planu.'),
+                HttpStatus.TOO_MANY_REQUESTS,
+                this.counters.quotaDetailsFor('plans', plan),
+              );
+            }
+          }
+          await commit?.(tx, { changes });
+        },
+      },
     );
-    if (!consumed) {
-      this.metrics.recordRejected('planQuota');
-      throw new AppException(
-        'AI_PLAN_QUOTA_EXCEEDED',
-        (plan.tier === 'TRIAL'
-          ? `Darmowy zapis planu na próbę (${limit}) jest wykorzystany. `
-          : `Limit zapisanych planów w tym okresie (${limit}) został wyczerpany. `) +
-          'Możesz jeszcze zaproponować plan i pokazać go w odpowiedzi, ale nie zapiszesz go' +
-          (plan.tier === 'TRIAL'
-            ? ' bez wybrania planu.'
-            : ' do odnowienia planu.'),
-        HttpStatus.TOO_MANY_REQUESTS,
-        this.counters.quotaDetailsFor('plans', plan),
-      );
-    }
-
-    try {
-      const result = await run();
-      const changed =
-        result.changes.created +
-        result.changes.updated +
-        result.changes.deleted;
-      if (!result.applied || changed === 0)
-        await this.refundPlan(scopeId, periodKey);
-      return this.applyResultForModel(result, context);
-    } catch (error) {
-      await this.refundPlan(scopeId, periodKey);
-      throw error;
-    }
-  }
-
-  /** Zwrot kwoty planu — nigdy nie wywraca narzędzia, bo to tylko księgowość. */
-  private async refundPlan(scopeId: string, periodKey: string): Promise<void> {
-    try {
-      await this.counters.add(this.prisma, scopeId, periodKey, 'plans', -1);
-    } catch (error) {
-      this.logger.error(
-        'nie udało się zwrócić kwoty planu',
-        error instanceof Error ? error.stack : undefined,
-      );
-    }
+    return this.applyResultForModel(result, context);
   }
 
   /**
@@ -2082,3 +3096,247 @@ export class AgentToolExecutor {
     }));
   }
 }
+
+/**
+ * Lista wartości z enuma; nieznana wartość = błąd dla modelu (schemat bez
+ * `strict`, więc sprawdzamy tutaj). Duplikaty znikają.
+ */
+function enumList<T extends string>(
+  raw: unknown,
+  allowed: readonly T[],
+  field: string,
+): T[] {
+  const values = Array.isArray(raw) ? raw : [];
+  const bad = values.filter(
+    (value) => typeof value !== 'string' || !allowed.includes(value as T),
+  );
+  if (bad.length > 0) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      `${field}: dozwolone ${allowed.join(', ')}.`,
+      HttpStatus.BAD_REQUEST,
+      [field],
+    );
+  }
+  return [...new Set(values as T[])];
+}
+
+function stringList(raw: unknown): string[] {
+  return Array.isArray(raw)
+    ? raw.filter((value): value is string => typeof value === 'string')
+    : [];
+}
+
+/** Życzenia planera z wejścia narzędzia — „brak" to [], NONE albo 0. */
+function wishesOf(input: Record<string, unknown>): PlannerWishes {
+  const diet = enumList(
+    input.diet === undefined ? [] : [input.diet],
+    Object.values(DietPreferenceValue),
+    'diet',
+  )[0];
+  const tags = (raw: unknown, field: string) => {
+    const values = stringList(raw);
+    const bad = values.filter((value) => !isRecipeSearchTag(value));
+    if (bad.length > 0) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        `${field}: nieznane tagi ${bad.join(', ')}.`,
+        HttpStatus.BAD_REQUEST,
+        [field],
+      );
+    }
+    return values;
+  };
+  const maxPrep =
+    typeof input.max_prep_minutes === 'number' && input.max_prep_minutes > 0
+      ? Math.round(input.max_prep_minutes)
+      : null;
+  // Cel dnia z prośby (Etap 6.1): 0/brak = profil; poza rozsądnym zakresem
+  // odmowa zamiast cichego planu pod zmyśloną liczbę.
+  const rawKcal =
+    typeof input.day_kcal_target === 'number'
+      ? Math.round(input.day_kcal_target)
+      : 0;
+  if (rawKcal !== 0 && (rawKcal < DAY_KCAL_MIN || rawKcal > DAY_KCAL_MAX)) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      `day_kcal_target: ${DAY_KCAL_MIN}–${DAY_KCAL_MAX} albo 0 (cel z profilu).`,
+      HttpStatus.BAD_REQUEST,
+      ['day_kcal_target'],
+    );
+  }
+  return {
+    diet: diet && diet !== 'NONE' ? diet : null,
+    requiredTags: tags(input.must_have_tags, 'must_have_tags'),
+    preferredTags: tags(input.prefer_tags, 'prefer_tags'),
+    avoidIngredients: stringList(input.avoid_ingredients).slice(0, 10),
+    maxPrepMinutes: maxPrep,
+    dayKcalTarget: rawKcal > 0 ? rawKcal : null,
+  };
+}
+
+const NUMERALS: Record<number, string> = { 2: 'Dwie', 3: 'Trzy', 4: 'Cztery' };
+
+/** Ile ostatnich kart wyboru rozmowy przeglądamy przy „pokaż inne". */
+const SHOWN_OPTIONS_LOOKBACK = 5;
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** „Pokaż inne" przy wyczerpanej puli nowych dań (Etap 6.1.1). */
+function isExhaustedSuggestion(name: string, data: unknown): boolean {
+  return (
+    name === 'suggest_meals' &&
+    (data as { exhausted?: unknown } | null)?.exhausted === true
+  );
+}
+
+/** Wynik `update_recipe` dla przepisu z katalogu (Etap 6.1). */
+function isReadOnlyRecipeResult(name: string, data: unknown): boolean {
+  return (
+    name === 'update_recipe' &&
+    (data as { readOnly?: unknown } | null)?.readOnly === true
+  );
+}
+
+/** Zakres celu dnia z prośby (`day_kcal_target`). */
+const DAY_KCAL_MIN = 800;
+const DAY_KCAL_MAX = 6000;
+
+/** „na kolację", „na drugie śniadanie" — do zdań serwera. */
+const MEAL_FOR: Record<MealType, string> = {
+  BREAKFAST: 'na śniadanie',
+  SECOND_BREAKFAST: 'na drugie śniadanie',
+  LUNCH: 'na obiad',
+  AFTERNOON_SNACK: 'na podwieczorek',
+  DINNER: 'na kolację',
+  SNACK: 'na przekąskę',
+};
+
+/** Biernik dnia: „w środę", „na sobotę". */
+const DAY_ACCUSATIVE: Record<DayOfWeek, string> = {
+  MON: 'poniedziałek',
+  TUE: 'wtorek',
+  WED: 'środę',
+  THU: 'czwartek',
+  FRI: 'piątek',
+  SAT: 'sobotę',
+  SUN: 'niedzielę',
+};
+
+/**
+ * Wyróżnik kafelka z danych, nie od modelu: pierwsze = najlepiej pasuje,
+ * potem najszybsze i najbardziej białkowe — każdy napis najwyżej raz.
+ */
+function optionTags(
+  sides: readonly { prep: number; protein: number }[],
+): (string | null)[] {
+  const tags: (string | null)[] = sides.map((_, index) =>
+    index === 0 ? 'Najlepiej pasuje' : null,
+  );
+  const pick = (score: (side: { prep: number; protein: number }) => number) => {
+    let best = -1;
+    sides.forEach((side, index) => {
+      if (tags[index] !== null) return;
+      if (best === -1 || score(side) > score(sides[best])) best = index;
+    });
+    return best;
+  };
+  const quickest = pick((side) => -side.prep);
+  if (quickest > 0 && sides[quickest].prep < sides[0].prep) {
+    tags[quickest] = 'Najszybsze';
+  }
+  const protein = pick((side) => side.protein);
+  if (protein > 0 && sides[protein].protein > sides[0].protein) {
+    tags[protein] = 'Najwięcej białka';
+  }
+  return tags;
+}
+
+/**
+ * Zdanie SERWERA kończące turę, gdy model nie napisał nic przed kartą
+ * (Etap 3.3). Karta pokazuje dania, liczby i przyciski, więc zdanie tylko
+ * nazywa, co widać, i co zrobić dalej. `null` = model ma coś do wyjaśnienia
+ * (plan PARTIAL, pytanie bez treści) i dostaje kolejną rundę jak dotąd.
+ */
+export function turnTextFor(
+  name: string,
+  input: Record<string, unknown>,
+  data: unknown,
+): string | null {
+  const result = (data ?? {}) as {
+    offered?: number;
+    planner?: { status?: string };
+  };
+  const day = DAY_ACCUSATIVE[asString(input.day_of_week) as DayOfWeek];
+  const meal = MEAL_FOR[asString(input.meal_type) as MealType];
+  switch (name) {
+    case 'suggest_meals': {
+      if (isExhaustedSuggestion(name, data)) {
+        const lastNew = (data as { lastNew?: string }).lastNew;
+        return (
+          `Nie mam już nowych propozycji ${meal ?? 'na ten posiłek'}${day ? ` w ${day}` : ''} — ` +
+          'pokazałem wszystkie dania, które pasują do Waszych ograniczeń i życzeń' +
+          (lastNew ? `; zostało jeszcze jedno: ${lastNew}` : '') +
+          '. Możesz wybrać jedno z poprzednich albo zmienić życzenie (składnik, czas, rodzaj dania).'
+        );
+      }
+      const count = NUMERALS[result.offered ?? 0];
+      if (!count || !meal) return null;
+      return `${count} propozycje ${meal}${day ? ` w ${day}` : ''} — wybierz jedną.`;
+    }
+    case 'offer_options':
+      return 'Wybierz jedno z dań.';
+    case 'build_meal_plan': {
+      if (result.planner?.status !== 'OK') return null;
+      const days = Array.isArray(input.days) ? input.days : [];
+      const only =
+        days.length === 1
+          ? DAY_ACCUSATIVE[asString(days[0]) as DayOfWeek]
+          : null;
+      return only
+        ? `Plan na ${only} gotowy — zatwierdzisz go jednym kliknięciem.`
+        : 'Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.';
+    }
+    case 'replace_plan_item':
+      return result.planner?.status === 'OK'
+        ? 'Nowe danie czeka na zatwierdzenie w karcie.'
+        : null;
+    case 'revise_proposal':
+      return 'Poprawiona propozycja czeka na zatwierdzenie.';
+    case 'propose_swap':
+      return 'Podmiana czeka na zatwierdzenie.';
+    case 'propose_remove_meal':
+      return 'Usunięcie czeka na zatwierdzenie.';
+    case 'propose_day_plan':
+    case 'propose_week_plan':
+      return 'Propozycja czeka na zatwierdzenie.';
+    case 'propose_household_split':
+      return 'Jedno danie dla wszystkich — jak podać je każdemu, masz w karcie.';
+    case 'ask_clarifying_question': {
+      const question = asString(input.question).trim();
+      return question.length > 0 ? question : null;
+    }
+    case 'update_recipe': {
+      if (!isReadOnlyRecipeResult(name, data)) return null;
+      const title = (data as { recipe?: string }).recipe;
+      return (
+        `${title ? `„${title}” to` : 'To'} przepis z katalogu Scoffie — takich przepisów nie da się ` +
+        'edytować, więc go nie zmieniłem. Mogę zmienić liczbę porcji tego posiłku w planie albo ' +
+        'przygotować Twoją własną wersję przepisu — powiedz, co wolisz.'
+      );
+    }
+    default:
+      return null;
+  }
+}
+
+/** Dane dania na kartę (tytuł, kcal na porcję, czas, zdjęcie, makro). */
+type RecipeSide = SwapCardSide & {
+  imageUrl: string | null;
+  description: string | null;
+  proteinGrams: number | null;
+  carbsGrams: number | null;
+  fatGrams: number | null;
+  ingredientCount: number | null;
+};
