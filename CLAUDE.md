@@ -197,7 +197,7 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   `AI_CATALOG_MODE=digest` (panel → Sterowanie) wraca do całego katalogu w prompcie bez deployu.
   Karta kończy turę bez ostatniej rundy (`TURN_ENDING_TOOLS`, `stopReason: tool_ended_turn`), gdy
   model napisał zdanie w tej samej wiadomości; `AgentCacheWarmer` pinguje prefiks co 55 min przy
-  ruchu w ostatnich `AI_CACHE_WARM_HOURS` (0 = wyłączone, koszt w `AiUsage` jako `cache_warm`).
+  ruchu w ostatnich `AI_CACHE_WARM_HOURS` (domyślnie 0 = wyłączone; koszt w `AiUsage` jako `cache_warm`).
 - Postęp tury (`AgentTurn.progress`, `src/agent/agent-progress.ts`): kroki narzędzi plus kroki
   PRZEJŚCIOWE (`transient: true`) — `read` (start tury), `reason` (blok myślenia w strumieniu),
   `write` (pierwszy fragment tekstu), `think` (cisza po narzędziach). Dostawca melduje je przez

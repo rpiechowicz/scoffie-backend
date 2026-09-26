@@ -148,8 +148,10 @@ tekstem = też 2 — wyszukiwarka nie dokłada rundy w najczęstszym przypadku.
 ### 3.7 Podgrzewanie cache — `AgentCacheWarmer`, `AI_CACHE_WARM_HOURS`
 
 Co 55 min jedno żądanie z tym samym prefiksem (`system` + `tools`, 1 token
-wyjścia), tylko gdy ostatnia tura była ≤ `AI_CACHE_WARM_HOURS` (domyślnie 3)
-godzin temu; `0` = wyłączone (też z panelu). Przy przekazaniu pałeczki
+wyjścia), tylko gdy ostatnia tura była ≤ `AI_CACHE_WARM_HOURS` godzin temu.
+**Domyślnie `0` = wyłączone** (decyzja 26.09: bez subskrybentów to wydatek bez
+zysku; prefiks jest wspólny dla wszystkich, więc przy dużym ruchu tury same
+trzymają cache ciepłym). Włączenie: panel → Sterowanie, np. `3`. Przy przekazaniu pałeczki
 podgrzewa oba prefiksy. Koszt → `AiUsage` (`stopReason: cache_warm`, bez osoby
 i domu) i budżet dobowy. Przy prefiksie ~25 tys. to ~$0,005 za ping, najwyżej
 ~$0,15 na dobę pełnego ruchu; w nocy bez rozmów — zero.
@@ -161,7 +163,7 @@ i domu) i budżet dobowy. Przy prefiksie ~25 tys. to ~$0,005 za ping, najwyżej
 | prefiks | ~83 tys. tok. | ~25 tys. | wysoka (znaki) |
 | odczyt prefiksu / wywołanie | ~$0,017 | ~$0,005 | wysoka |
 | koszt średniej tury | ~$0,08 | ~$0,05–0,06 | średnia |
-| pierwsza tura po ciszy | +5 s, +$0,31 | ~0 (przy ruchu) | wysoka |
+| pierwsza tura po ciszy | +5 s, +$0,31 | ~+2 s, ~$0,10 (mniejszy prefiks; podgrzewanie wyłączone) | średnia |
 | tura z kartą (propozycja, wybór) | N rund | N−1 | wysoka, gdy model napisze zdanie przed wywołaniem |
 | czekanie na pierwszy blok | ~2,1 s | mniej, ile — nie wiadomo | niska |
 | myślenie przy planowaniu | ~20 s | może mniej (krótka lista zamiast 500 linii) | niska |

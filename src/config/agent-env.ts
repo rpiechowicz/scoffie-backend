@@ -330,11 +330,14 @@ export const AGENT_ENV_DEFAULTS = {
    */
   maxTurnCostUsd: 0.8,
   /**
-   * Trzy godziny: rozmowy w ciągu dnia trzymają cache ciepły, noc nie kosztuje
-   * nic (brak tur = brak pingów). Ping przy prefiksie ~20 tys. tokenów to
-   * odczyt z cache za ~$0,005, czyli najwyżej ~$0,15 na dobę pełnego ruchu.
+   * Domyślnie WYŁĄCZONE (26.09.2026). Prefiks cache jest wspólny dla całej
+   * instalacji, więc przy dużym ruchu tury same trzymają go ciepłym, a przy
+   * zerowym ping nie ma czego oszczędzać. Zysk jest tylko w wąskim środku
+   * (rzadkie tury co 1–3 h): zimna tura to ~$0,10 zapisu prefiksu ~25 tys.
+   * tokenów i kilka sekund, ping ~$0,005. Włączać z panelu (np. 3), gdy
+   * raport pokaże dużo tur z `cacheWriteTokens` > 0.
    */
-  cacheWarmHours: 3,
+  cacheWarmHours: 0,
 } as const;
 
 /**
