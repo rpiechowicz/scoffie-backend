@@ -95,6 +95,30 @@ export type SuggestInput = {
   memo?: TurnMemo;
 };
 
+/**
+ * Konkretne danie WYBRANE przez użytkownika („Wybieram drugą") do jednego
+ * slotu — serwer sprawdza je filtrami twardymi i dobiera porcje, nie szuka
+ * innego (review Etapu 3: model nie liczy ani nie przenosi porcji).
+ */
+export type ChoiceInput = {
+  userId: string;
+  householdId: string;
+  weekStart: string;
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  recipeId: string;
+  /** Kto je nowe danie; [] = cały dom (podmiana całego slotu). */
+  participantIds: string[];
+  /** Stan docelowy tygodnia, w który wchodzi danie (plan albo propozycja). */
+  currentSlots: ApplyWeekSlotDto[];
+  seed: string;
+  memo?: TurnMemo;
+};
+
+export type ChoiceOutcome =
+  | { ok: true; portions?: { userId: string; servings: number }[] }
+  | { ok: false; problem: string };
+
 export type SuggestOutcome = {
   draft: SlotSuggestions;
   consentedUserIds: ReadonlySet<string>;
@@ -354,9 +378,10 @@ export class AgentMealPlannerService {
         current.map((slot) => slot.recipeId),
       ),
       preferences: { ...context.preferences, ...softOf(input.wishes) },
-      // Karta wyboru pokazuje kcal na porcję, a wybór idzie potem zwykłą
-      // podmianą z porcjami z audytorium — ranking liczy tak samo.
-      portionMode: 'auto',
+      // Porcje per osoba (Etap 2.2) za tym samym włącznikiem, co build/replace:
+      // przy włączonym danie ocenia się z porcją KAŻDEJ osoby, a wybór z karty
+      // dostaje potem te porcje od serwera (`portionsForChoice`).
+      portionMode: readAgentEnv().plannerPerUserPortions ? 'per_user' : 'auto',
       seed: input.seed,
     };
     return {
@@ -368,6 +393,65 @@ export class AgentMealPlannerService {
       titles: context.titles,
       recipes: context.lookup,
     };
+  }
+
+  /**
+   * Porcje per osoba dla dania WYBRANEGO przez użytkownika (review Etapu 3).
+   *
+   * Ten sam planer, zawężony do jednego przepisu (`onlyRecipeIds`): filtry
+   * twarde wszystkich jedzących (alergeny, wykluczenia, DIETA), bilans osoby
+   * przy reszcie dnia, porcja 0,5–1,5 co 0,05. Danie, które nie przechodzi
+   * filtrów, wraca jako `problem` — nie jako cicha podmiana na inne.
+   */
+  async portionsForChoice(input: ChoiceInput): Promise<ChoiceOutcome> {
+    const members = await this.members(input);
+    assertMembers(input.participantIds, members);
+    const eaters = members.map(toEater);
+    const participantIds = normalizeParticipants(input.participantIds, eaters);
+    const audience = new Set(participantIds);
+    // Z tego slotu znika to, co je (wyłącznie) audytorium nowego dania —
+    // jak w `build` i `suggest`; pozycje innych osób zostają.
+    const inSlot = (slot: ApplyWeekSlotDto) =>
+      slot.dayOfWeek === input.dayOfWeek &&
+      slot.mealType === input.mealType &&
+      (participantIds.length === 0 ||
+        ((slot.participantIds ?? []).length > 0 &&
+          (slot.participantIds ?? []).every((id) => audience.has(id))));
+    const kept = input.currentSlots.filter((slot) => !inSlot(slot));
+    const [enabled, context] = await Promise.all([
+      this.enabledMealTypes(input),
+      this.context(input, members, kept),
+    ]);
+    const request: PlanningRequest = {
+      days: [input.dayOfWeek],
+      mealTypes: [input.mealType],
+      scope: 'PARTIAL',
+      dayMealTypes: enabled,
+      members: eaters,
+      participantIds,
+      fixed: kept.map((slot) => toItem(slot, eaters.length)),
+      constraints: constraintsOf(NO_WISHES, []),
+      preferences: { ...context.preferences, ...softOf(NO_WISHES) },
+      portionMode: 'per_user',
+      onlyRecipeIds: [input.recipeId],
+      seed: input.seed,
+    };
+    const draft = planMeals(request, context.recipes);
+    const [item] = draft.items;
+    if (!item) {
+      const reason = draft.diagnostics.issues.find(
+        (issue) => issue.code === 'NO_CANDIDATES',
+      );
+      return {
+        ok: false,
+        problem:
+          reason?.message ??
+          'To danie nie pasuje do tego posiłku albo do ograniczeń jedzących.',
+      };
+    }
+    return item.portions?.length
+      ? { ok: true, portions: item.portions }
+      : { ok: true };
   }
 
   /** Domownicy z celami — raz na turę (`TurnMemo`). */
@@ -574,6 +658,15 @@ function toPlannerRecipe(
     active,
   };
 }
+
+/** Bez życzeń z prośby — wybór konkretnego dania ich nie niesie. */
+const NO_WISHES: PlannerWishes = {
+  diet: null,
+  requiredTags: [],
+  preferredTags: [],
+  avoidIngredients: [],
+  maxPrepMinutes: null,
+};
 
 function constraintsOf(wishes: PlannerWishes, excludeRecipeIds: string[]) {
   return {

@@ -147,6 +147,12 @@ export type PlanningRequest = {
    * (`PLANNER_PORTION_MIN..MAX`, krok `PLANNER_PORTION_STEP`) — Etap 2.2.
    */
   portionMode?: 'auto' | 'tune' | 'per_user';
+  /**
+   * Tylko te przepisy wolno wstawić (np. danie WYBRANE przez użytkownika —
+   * serwer ma je sprawdzić filtrami twardymi i dobrać porcje, a nie szukać
+   * innego). Brak = cała pula.
+   */
+  onlyRecipeIds?: string[];
   /** Ziarno rozstrzygania remisów — ten sam seed i dane = ten sam plan. */
   seed?: string;
 };

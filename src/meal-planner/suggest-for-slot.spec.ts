@@ -172,6 +172,27 @@ describe('suggestForSlot', () => {
     expect(result.candidates.removed.ALLERGEN).toBeGreaterThan(0);
   });
 
+  it('porcje per osoba (per_user): para 1600/2600 — każde danie z porcją każdej osoby', () => {
+    const result = suggestForSlot(
+      dinnerRequest({
+        portionMode: 'per_user',
+        members: [
+          eater('asia', { kcalTarget: 1600 }),
+          eater('rafal', { kcalTarget: 2600 }),
+        ],
+      }),
+      catalog(),
+      { count: 3 },
+    );
+    expect(result.suggestions).toHaveLength(3);
+    for (const entry of result.suggestions) {
+      const portions = Object.fromEntries(
+        (entry.item.portions ?? []).map((p) => [p.userId, p.servings]),
+      );
+      expect(portions.rafal).toBeGreaterThan(portions.asia);
+    }
+  });
+
   it('ten sam seed i dane → te same propozycje', () => {
     const recipes = catalog();
     const a = suggestForSlot(dinnerRequest(), recipes, { count: 3 });

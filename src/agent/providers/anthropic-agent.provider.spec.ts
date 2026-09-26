@@ -105,18 +105,20 @@ describe('AnthropicAgentProvider', () => {
   });
 
   describe('karta kończy turę bez ostatniej rundy', () => {
-    it('udane narzędzie kończące turę + tekst w tej samej wiadomości = koniec bez kolejnego wywołania', async () => {
+    it('udana karta ze zdaniem serwera = koniec bez kolejnego wywołania, tekstem SERWERA', async () => {
       executeTool.mockResolvedValue({
         ok: true,
         data: { offered: 3 },
         endsTurn: true,
+        turnText: 'Wybierz jedno z dań.',
       });
       create.mockResolvedValueOnce(toolMessage('offer_options'));
 
       const result = await provider.run(request());
 
       expect(create).toHaveBeenCalledTimes(1);
-      expect(result.text).toBe('sprawdzam');
+      // `toolMessage` niesie tekst modelu „sprawdzam" — przegrywa z serwerem.
+      expect(result.text).toBe('Wybierz jedno z dań.');
       expect(result.stopReason).toBe(TOOL_ENDED_TURN);
       expect(result.apiCalls).toBe(1);
     });
@@ -169,7 +171,7 @@ describe('AnthropicAgentProvider', () => {
       usage: usage(),
     });
 
-    it('4. karta ze zdaniem serwera kończy turę JEDNYM wywołaniem, nawet gdy model nic nie napisał', async () => {
+    it('5. karta OK bez tekstu modelu kończy turę JEDNYM wywołaniem', async () => {
       executeTool.mockResolvedValue({
         ok: true,
         data: { offered: 3 },
@@ -188,26 +190,110 @@ describe('AnthropicAgentProvider', () => {
       );
     });
 
-    it('zdanie modelu ma pierwszeństwo przed zdaniem serwera', async () => {
+    const prefaced = (text: string, name: string) => ({
+      stop_reason: 'tool_use',
+      content: [
+        { type: 'text', text },
+        { type: 'tool_use', id: 'tu-1', name, input: {} },
+      ],
+      usage: usage(),
+    });
+
+    it('4. karta OK: zdanie serwera wygrywa ze sprzecznym tekstem modelu sprzed wywołania', async () => {
       executeTool.mockResolvedValue({
         ok: true,
         data: {},
         endsTurn: true,
-        turnText: 'zdanie serwera',
+        turnText: 'Plan na sobotę gotowy — zatwierdzisz go jednym kliknięciem.',
       });
-      create.mockResolvedValueOnce({
-        stop_reason: 'tool_use',
-        content: [
-          { type: 'text', text: 'Na dziś coś lekkiego:' },
-          { type: 'tool_use', id: 'tu-1', name: 'suggest_meals', input: {} },
-        ],
-        usage: usage(),
-      });
+      create.mockResolvedValueOnce(
+        prefaced('Nie udało się ułożyć soboty.', 'build_meal_plan'),
+      );
 
       const result = await provider.run(request());
 
       expect(create).toHaveBeenCalledTimes(1);
-      expect(result.text).toBe('Na dziś coś lekkiego:');
+      expect(result.text).toBe(
+        'Plan na sobotę gotowy — zatwierdzisz go jednym kliknięciem.',
+      );
+    });
+
+    it('3. suggest_meals: model zapowiada trzy, serwer znalazł dwie → użytkownik dostaje tekst SERWERA', async () => {
+      executeTool.mockResolvedValue({
+        ok: true,
+        data: { offered: 2 },
+        endsTurn: true,
+        turnText: 'Dwie propozycje na kolację w środę — wybierz jedną.',
+      });
+      create.mockResolvedValueOnce(
+        prefaced('Trzy propozycje na kolację:', 'suggest_meals'),
+      );
+
+      const result = await provider.run(request());
+
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(result.text).toBe(
+        'Dwie propozycje na kolację w środę — wybierz jedną.',
+      );
+    });
+
+    it.each(['build_meal_plan', 'replace_plan_item'])(
+      '1./2. %s PARTIAL (karta bez zdania serwera) + tekst modelu sprzed wywołania → DWIE rundy, odpowiedź po tool_result',
+      async (name) => {
+        executeTool.mockResolvedValue({
+          ok: true,
+          data: { proposed: true, planner: { status: 'PARTIAL' } },
+          endsTurn: true,
+        });
+        create
+          .mockResolvedValueOnce(prefaced('Plan gotowy.', name))
+          .mockResolvedValueOnce(
+            textMessage('Plan jest, ale obiad wyszedł poniżej celu.'),
+          );
+
+        const result = await provider.run(request());
+
+        expect(create).toHaveBeenCalledTimes(2);
+        // Druga runda widzi wynik narzędzia (status PARTIAL).
+        const second = create.mock.calls[1][0] as {
+          messages: { role: string; content: unknown }[];
+        };
+        const [block] = second.messages.at(-1)?.content as {
+          type: string;
+          content: { text: string }[];
+        }[];
+        expect(block.type).toBe('tool_result');
+        expect(block.content[1].text).toContain('PARTIAL');
+        expect(result.text).toBe('Plan jest, ale obiad wyszedł poniżej celu.');
+        expect(result.text).not.toContain('Plan gotowy.');
+      },
+    );
+
+    it('6. zwykłe narzędzie (nie karta) — bez regresji: wynik wraca do modelu', async () => {
+      executeTool.mockResolvedValue({ ok: true, data: { plan: [] } });
+      create
+        .mockResolvedValueOnce(prefaced('Sprawdzam plan.', 'get_week_plan'))
+        .mockResolvedValueOnce(textMessage('W środę masz gulasz.'));
+
+      const result = await provider.run(request());
+
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(result.text).toBe('W środę masz gulasz.');
+    });
+
+    it('odmowa narzędzia kartowego — model widzi błąd i dostaje rundę', async () => {
+      executeTool.mockResolvedValue({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'zła pora' },
+      });
+      create
+        .mockResolvedValueOnce(prefaced('Oto propozycje.', 'suggest_meals'))
+        .mockResolvedValueOnce(textMessage('Poprawiam.'));
+
+      const result = await provider.run(request());
+
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(result.text).toBe('Poprawiam.');
     });
 
     it('karta BEZ zdania serwera (np. plan PARTIAL) i bez tekstu modelu — model dostaje głos', async () => {

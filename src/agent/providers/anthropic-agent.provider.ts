@@ -236,22 +236,18 @@ export class AnthropicAgentProvider implements AgentProvider {
       const lastTiming = timings[timings.length - 1];
       if (lastTiming) lastTiming.toolsRunMs = Date.now() - toolsStartedAt;
 
-      // Tura skończona BEZ kolejnego wywołania: każde narzędzie tej rundy
-      // postawiło kartę, która kończy turę (propozycja, wybór dań, pytanie),
-      // a model napisał już swoje zdanie w tej samej wiadomości. Pomiar
-      // 24.09.2026: runda, w której model dopisywał 1–2 zdania po karcie, to
-      // 18 % czasu tury i pełne ~2 s czekania na pierwszy token. Bez tekstu
-      // (albo przy odmowie narzędzia) pętla idzie dalej jak dawniej.
-      //
-      // Etap 3.3: model nie napisał nic, a każda karta rundy ma zdanie
-      // serwera (`turnText`) — tura też kończy się tutaj, zdaniem serwera,
-      // zamiast płacić za rundę, w której model dopisałby „Oto propozycje".
-      // Karta bez zdania serwera (np. plan PARTIAL) = model dostaje głos.
-      const modelText = this.joinText(response.content);
-      const text = modelText.length > 0 ? modelText : serverText;
-      if (endsTurn && text.length > 0) {
+      // Tura skończona BEZ kolejnego wywołania — WYŁĄCZNIE zdaniem SERWERA.
+      // Każde narzędzie tej rundy postawiło kartę, która kończy turę, i każde
+      // oddało `turnText` — zdanie z FAKTYCZNEGO wyniku domeny („Dwie
+      // propozycje…", gdy znalazły się dwie). Tekst, który model napisał
+      // PRZED wywołaniem, powstał w ciemno („Plan gotowy." przed planem
+      // PARTIAL) i nie ma prawa wygrać z wynikiem serwera (review Etapu 3).
+      // Karta bez zdania serwera (plan PARTIAL, zamiennik nie-OK) albo odmowa
+      // narzędzia = model dostaje wynik i kolejną rundę, bez względu na to,
+      // czy coś napisał wcześniej.
+      if (endsTurn && serverText.length > 0) {
         return {
-          text,
+          text: serverText,
           stopReason: TOOL_ENDED_TURN,
           usage,
           model,

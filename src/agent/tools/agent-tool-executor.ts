@@ -20,6 +20,7 @@ import { CreateRecipeDto } from '../../recipes/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../../recipes/dto/update-recipe.dto';
 import { EXECUTABLE_TOOL_NAMES } from './agent-tools';
 import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
+import { readAgentEnv } from '../../config/agent-env';
 import {
   checkPlanScope,
   PlanScope,
@@ -1198,7 +1199,7 @@ export class AgentToolExecutor {
     input: Record<string, unknown>,
     context: AgentToolContext,
     weekStart: string,
-    /** Porcje per osoba z planera (Etap 2.2) — tylko podmiana całego slotu. */
+    /** Porcje per osoba z planera (Etap 2.2); brak = policzy je serwer tutaj. */
     portions?: { userId: string; servings: number }[],
   ): Promise<CreateWeekProposalResult> {
     const dayOfWeek = asString(input.day_of_week) as DayOfWeek;
@@ -1229,6 +1230,18 @@ export class AgentToolExecutor {
     const participantIds = Array.isArray(input.participant_user_ids)
       ? (input.participant_user_ids as string[])
       : [];
+    // Danie WYBRANE (np. „Wybieram drugą" po suggest_meals): porcje każdej
+    // osoby liczy serwer, nie model (review Etapu 3).
+    const chosenPortions =
+      portions ??
+      (await this.portionsForChoice(context, {
+        weekStart,
+        dayOfWeek,
+        mealType,
+        recipeId,
+        participantIds,
+        currentSlots: current,
+      }));
 
     return this.proposals.createSwapProposal({
       memo: context.memo,
@@ -1244,8 +1257,44 @@ export class AgentToolExecutor {
       from: standing ? await this.recipeSide(standing.recipeId, context) : null,
       participantIds,
       ...(reason ? { reason } : {}),
-      ...(portions?.length && participantIds.length === 0 ? { portions } : {}),
+      ...(chosenPortions?.length ? { portions: chosenPortions } : {}),
     });
+  }
+
+  /**
+   * Porcje per osoba dla dania wybranego przez użytkownika — tylko przy
+   * włączonym `AI_PLANNER_PER_USER_PORTIONS`; bez niego `undefined` (równy
+   * podział jak dotąd, żadnych nowych alokacji). Danie, które nie przechodzi
+   * filtrów twardych planera (także diety), to błąd dla modelu.
+   */
+  private async portionsForChoice(
+    context: AgentToolContext,
+    choice: {
+      weekStart: string;
+      dayOfWeek: DayOfWeek;
+      mealType: MealType;
+      recipeId: string;
+      participantIds: string[];
+      currentSlots: ApplyWeekSlotDto[];
+    },
+  ): Promise<{ userId: string; servings: number }[] | undefined> {
+    if (!readAgentEnv().plannerPerUserPortions) return undefined;
+    const outcome = await this.planner.portionsForChoice({
+      userId: context.userId,
+      householdId: context.householdId,
+      ...choice,
+      seed: context.turnId,
+      memo: context.memo,
+    });
+    if (!outcome.ok) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        `Tego dania nie da się tu wstawić: ${outcome.problem} Wybierz inne danie.`,
+        HttpStatus.BAD_REQUEST,
+        ['recipe'],
+      );
+    }
+    return outcome.portions;
   }
 
   /**
@@ -2137,16 +2186,46 @@ export class AgentToolExecutor {
         unknownRefs,
       );
     }
+    const proposalId = asString(input.proposal_id).trim();
+    const recipeId = this.resolveRecipeRef(asString(input.recipe), context);
+    // Wybór z karty w propozycji, która czeka („pokaż inne" → „Wybieram…"):
+    // porcje wybranego dania liczy serwer dla tych samych osób, dla których
+    // stał slot — reszta propozycji zostaje nietknięta (review Etapu 3).
+    let portions: { userId: string; servings: number }[] | undefined;
+    if (readAgentEnv().plannerPerUserPortions) {
+      const pending = await this.proposals.loadPendingPlanProposal({
+        proposalId,
+        conversationId: context.conversationId,
+        householdId: context.householdId,
+      });
+      const replaced = pending.slots.filter(
+        (slot) => slot.dayOfWeek === dayOfWeek && slot.mealType === mealType,
+      );
+      const participantIds =
+        replaced.length === 0 ||
+        replaced.some((slot) => !slot.participantIds?.length)
+          ? []
+          : [...new Set(replaced.flatMap((slot) => slot.participantIds ?? []))];
+      portions = await this.portionsForChoice(context, {
+        weekStart: pending.weekStart,
+        dayOfWeek: dayOfWeek as DayOfWeek,
+        mealType: mealType as MealType,
+        recipeId,
+        participantIds,
+        currentSlots: pending.slots,
+      });
+    }
     return this.proposals.reviseProposal({
       memo: context.memo,
       userId: context.userId,
       householdId: context.householdId,
       conversationId: context.conversationId,
       turnId: context.turnId,
-      proposalId: asString(input.proposal_id).trim(),
+      proposalId,
       dayOfWeek: dayOfWeek as DayOfWeek,
       mealType: mealType as MealType,
-      recipeId: this.resolveRecipeRef(asString(input.recipe), context),
+      recipeId,
+      ...(portions?.length ? { portions } : {}),
     });
   }
 
@@ -2401,10 +2480,14 @@ export class AgentToolExecutor {
             day_of_week: dayOfWeek,
             meal_type: mealType,
             recipe: chosen.recipeId,
+            // Slot imienny zostaje imienny — porcje planera są dla TYCH osób.
+            ...(chosen.participantIds.length > 0
+              ? { participant_user_ids: chosen.participantIds }
+              : {}),
           },
           context,
           week,
-          chosen.portions,
+          chosen.portions ?? [],
         );
     return { ...proposal, planner: diagnostics };
   }

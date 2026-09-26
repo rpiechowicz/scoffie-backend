@@ -577,8 +577,11 @@ export function planMeals(
 
   const pools = new Map<MealType, PlannerRecipe[]>();
   const stats: CandidateStats[] = [];
+  const only = request.onlyRecipeIds
+    ? new Set(request.onlyRecipeIds)
+    : undefined;
   for (const meal of meals) {
-    const { stats: mealStats, eligible } = candidatesFor(scope, meal);
+    const { stats: mealStats, eligible } = candidatesFor(scope, meal, only);
     pools.set(meal, eligible);
     stats.push(mealStats);
   }

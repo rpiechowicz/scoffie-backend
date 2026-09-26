@@ -81,6 +81,15 @@ export const STUB_REPLACE_PATTERN =
 export const STUB_SUGGEST_PATTERN =
   /\[\[suggest:([A-Z]{3}):([A-Z_]+):(quick|-)\]\]/;
 
+/**
+ * Wymusza WYBÓR konkretnego dania do zapisanego planu (review Etapu 3):
+ * `[[swap:<DZIEŃ>:<PORA>:<recipeId>(:<userId>)?]]` → `propose_swap` na
+ * planowanym tygodniu; `userId` = tylko dla tej osoby. Porcji model nie
+ * podaje — liczy je serwer.
+ */
+export const STUB_SWAP_PATTERN =
+  /\[\[swap:([A-Z]{3}):([A-Z_]+):([0-9a-fA-F-]{36})(?::([0-9a-fA-F-]{36}))?\]\]/;
+
 export const STUB_REVISE_PATTERN =
   /\[\[revise:([0-9a-fA-F-]{36}):([A-Z]{3}):([A-Z_]+):([0-9a-fA-F-]{36})\]\]/;
 
@@ -132,6 +141,17 @@ export class StubAgentProvider implements AgentProvider {
 
     if (lastUserText.includes(STUB_TOOL_MARKER)) {
       await request.executeTool('get_week_plan', { week_start: plannedWeek });
+    }
+
+    const swap = STUB_SWAP_PATTERN.exec(lastUserText);
+    if (swap) {
+      await request.executeTool('propose_swap', {
+        week_start: plannedWeek,
+        day_of_week: swap[1],
+        meal_type: swap[2],
+        recipe: swap[3],
+        ...(swap[4] ? { participant_user_ids: [swap[4]] } : {}),
+      });
     }
 
     const suggest = STUB_SUGGEST_PATTERN.exec(lastUserText);

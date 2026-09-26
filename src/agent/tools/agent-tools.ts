@@ -623,7 +623,7 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
       'szuka, nakłada alergeny, diety i wykluczenia jedzących, dopasowuje dania do tego, co ' +
       'osobie zostaje na ten posiłek przy reszcie dnia, różnicuje je i stawia kartę z kafelkami. ' +
       'Ty podajesz tylko posiłek, dzień i życzenia ze zdania — bez find_recipes i bez wybierania ' +
-      'dań. Karta kończy turę: jedno krótkie zdanie piszesz PRZED wywołaniem (albo nic). ' +
+      'dań. Karta kończy turę: przed wywołaniem nic nie piszesz — zdanie dopisze serwer. ' +
       'Po „Wybieram: …" wstawiasz danie przez propose_swap, a w propozycji, która czeka na ' +
       'zatwierdzenie — przez revise_proposal. TY NIE ZAPISUJESZ.',
     input_schema: object(

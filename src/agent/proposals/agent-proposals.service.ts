@@ -113,7 +113,7 @@ export type CreateSwapProposalInput = Omit<
    * wydziela z niego jedną porcję — patrz `createSwapProposal`.
    */
   participantIds: string[];
-  /** Porcje per osoba nowego dania (Etap 2.2, tylko podmiana całego slotu). */
+  /** Porcje per osoba nowego dania (Etap 2.2) — dla audytorium podmiany. */
   portions?: { userId: string; servings: number }[];
 };
 
@@ -571,6 +571,9 @@ export class AgentProposalsService {
           mealType: input.mealType,
           recipeId: input.recipeId,
           participantIds: input.participantIds,
+          // Porcje per osoba wybranych osób (review Etapu 3) — policzone przez
+          // serwer dla tego audytorium.
+          ...(input.portions?.length ? { portions: input.portions } : {}),
         } as ApplyWeekSlotDto,
       ];
     }
