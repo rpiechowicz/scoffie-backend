@@ -5,6 +5,18 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 `docs/plans/scoffie-ai-agent/` (analiza asystenta AI, audyt, plastry A–D).
 **Zacznij od `docs/handover/2026-08-28-stan.md`.** Rozmawiamy po polsku, na „ty”.
 
+## Aktywny workstream: backend + asystent server-first (26.09.2026)
+
+Dla prac nad wydajnością bazy, katalogu i asystenta AI źródłem prawdy jest
+`docs/workstreams/assistant-backend-optimization/`.
+
+**Zanim zaczniesz taki zakres:** przeczytaj kolejno `README.md`, `STATE.md` i
+`TASKS.md` z tego folderu. Wykonuj wyłącznie etap oznaczony w `STATE.md` jako
+aktywny i zatwierdzony. Po zakończeniu etapu zapisz raport wg
+`REPORT_TEMPLATE.md`, zaktualizuj `STATE.md` i **zatrzymaj się** — nie zaczynaj
+następnego etapu bez akceptacji Rafała. To ma umożliwić niezależny review między
+etapami i mierzenie efektu zmian.
+
 ## Repozytoria i środowisko
 
 - Backend: to repo. iOS (SwiftUI): `rpiechowicz/scoffie-ios` — buduje się TYLKO na Macu
