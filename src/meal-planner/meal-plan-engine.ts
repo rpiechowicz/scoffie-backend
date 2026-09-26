@@ -28,6 +28,7 @@ import {
   KCAL_DAY_TOLERANCE,
   MEAL_KCAL_WEIGHT,
   normalizeParticipants,
+  portionFor,
   PROTEIN_DAY_TOLERANCE,
   RecipeLookup,
   slotKey,
@@ -166,14 +167,25 @@ function dayCost(
     const [targetDay, meal] = key.split('|') as [DayOfWeek, MealType];
     if (targetDay !== day || target <= 0) continue;
     const slotItems = dayItems.filter((item) => item.mealType === meal);
+    const kcals = scope.audience.map(
+      (eater) =>
+        eaterDayNutrition(
+          slotItems,
+          eater.userId,
+          scope.members.length,
+          scope.lookup,
+        ).kcal,
+    );
+    if (scope.request.portionMode === 'per_user') {
+      // Porcje per osoba (Etap 2.2): „podobnie kaloryczne" to DANIE — średnio
+      // na osobę; porcję każdej osoby dobiera jej własny bilans dnia.
+      const mean = kcals.reduce((sum, kcal) => sum + kcal, 0) / kcals.length;
+      const deviation = (mean - target) / target;
+      cost += WEIGHTS.slotKcal * deviation * deviation;
+      continue;
+    }
     let slotCost = 0;
-    for (const eater of scope.audience) {
-      const kcal = eaterDayNutrition(
-        slotItems,
-        eater.userId,
-        scope.members.length,
-        scope.lookup,
-      ).kcal;
+    for (const kcal of kcals) {
       const deviation = (kcal - target) / target;
       slotCost += WEIGHTS.slotKcal * deviation * deviation;
     }
@@ -188,6 +200,17 @@ function softCostOf(scope: Scope, items: readonly PlannedItem[]): number {
   for (const item of items) {
     const recipe = scope.lookup.get(item.recipeId);
     if (!recipe) continue;
+    if (item.portions && item.portions.length > 0) {
+      // Porcje per osoba: słaba kara za odejście od 1, bez kary „udziału".
+      const deviation =
+        item.portions.reduce(
+          (sum, portion) => sum + Math.abs(portion.servings - 1),
+          0,
+        ) / item.portions.length;
+      cost +=
+        softOfRecipe(scope, recipe, 1) + WEIGHTS.portionPerUser * deviation;
+      continue;
+    }
     const share = item.plannedServings / eaters;
     const key = `${recipe.id}|${share}`;
     let value = scope.softCache.get(key);
@@ -198,6 +221,20 @@ function softCostOf(scope: Scope, items: readonly PlannedItem[]): number {
     cost += value;
   }
   return cost;
+}
+
+function softOfRecipe(
+  scope: Scope,
+  recipe: PlannerRecipe,
+  share: number,
+): number {
+  const key = `${recipe.id}|${share}`;
+  let value = scope.softCache.get(key);
+  if (value === undefined) {
+    value = itemSoftCost(recipe, share, scope.soft);
+    scope.softCache.set(key, value);
+  }
+  return value;
 }
 
 /** Pełna funkcja celu planu (mniej = lepiej) — ta sama w silniku i w ocenie. */
@@ -301,9 +338,10 @@ export function planMeals(
   const meals = orderedMealTypes(request.mealTypes);
   const days = orderedDays(request.days);
   const eaters = eaterCountOf(scope.participantIds, scope.members.length);
+  const perUser = request.portionMode === 'per_user';
   const servingsOptions = allowedServings(
     eaters,
-    request.portionMode ?? 'tune',
+    request.portionMode === 'auto' ? 'auto' : 'tune',
   );
 
   const pools = new Map<MealType, PlannerRecipe[]>();
@@ -319,13 +357,52 @@ export function planMeals(
   );
   const chosen = new Map<string, PlannedItem>();
   const planned = () => [...chosen.values()];
-  const itemFor = (slot: Slot, recipeId: string, servings: number) => ({
+  const itemFor = (
+    slot: Slot,
+    recipeId: string,
+    servings: number,
+  ): PlannedItem => ({
     dayOfWeek: slot.day,
     mealType: slot.meal,
     recipeId,
     participantIds: scope.participantIds,
     plannedServings: servings,
   });
+
+  /**
+   * Porcje per osoba dla przepisu w slocie (Etap 2.2): każda osoba dostaje
+   * porcję, która domyka JEJ cel pór `targetTypes` przy tym, co już jest
+   * w dniu (bez tego slotu) — także przy „podobnie kalorycznie" (cel slotu
+   * waży wtedy tylko w wyborze DANIA; wspólna porcja dla 1600 i 2600 kcal
+   * rozjechałaby oba dni). Krok 0,05, widełki 0,5–1,5; suma > 12 porcji
+   * (dom > 8 osób na dużych porcjach) wraca do równego podziału, bo zapis by
+   * ją odrzucił.
+   */
+  const perUserItem = (
+    slot: Slot,
+    recipe: PlannerRecipe,
+    others: readonly PlannedItem[],
+    targetTypes: ReadonlySet<MealType>,
+  ): PlannedItem | null => {
+    const kcalPerServing = recipe.perServing?.kcal ?? 0;
+    const dayItems = [...request.fixed, ...others].filter(
+      (item) => item.dayOfWeek === slot.day,
+    );
+    const portions = scope.audience.map((eater) => {
+      const assessment = assess(scope, eater, dayItems, targetTypes);
+      const residual = assessment.target.kcal - assessment.evaluated.kcal;
+      return {
+        userId: eater.userId,
+        servings: portionFor(residual, kcalPerServing),
+      };
+    });
+    const total = portions.reduce((sum, portion) => sum + portion.servings, 0);
+    if (portions.length === 0 || total > 12) return null;
+    return {
+      ...itemFor(slot, recipe.id, Math.min(12, Math.ceil(total - 1e-9))),
+      portions,
+    };
+  };
 
   /** Koszt planu zależny od slotu: jego dzień + relacje + miękkie. */
   const localCost = (
@@ -352,12 +429,21 @@ export function planMeals(
   ): { item: PlannedItem; cost: number } | null => {
     const key = slotKey(slot.day, slot.meal);
     let best: { item: PlannedItem; cost: number } | null = null;
+    const types = targetTypes();
+    const others = [...chosen.entries()]
+      .filter(([otherKey]) => otherKey !== key)
+      .map(([, item]) => item);
     for (const recipe of pools.get(slot.meal) ?? []) {
-      for (const servings of servingsOptions) {
-        const item = itemFor(slot, recipe.id, servings);
+      const options = perUser
+        ? [
+            perUserItem(slot, recipe, others, types) ??
+              itemFor(slot, recipe.id, servingsOptions[0]),
+          ]
+        : servingsOptions.map((servings) => itemFor(slot, recipe.id, servings));
+      for (const item of options) {
         const trial = new Map(chosen);
         trial.set(key, item);
-        const cost = localCost(slot, [...trial.values()], targetTypes());
+        const cost = localCost(slot, [...trial.values()], types);
         if (!best || cost < best.cost - EPSILON) best = { item, cost };
       }
     }

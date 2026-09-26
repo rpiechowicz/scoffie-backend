@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { DayOfWeek, DietPreferenceValue, MealType } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
+import { readAgentEnv } from '../../config/agent-env';
 import { normalizeText } from '../../common/normalize-text.util';
 import { HouseholdsService } from '../../households/households.service';
 import { MemberContext } from '../../households/member-context.util';
@@ -141,7 +142,8 @@ export class AgentMealPlannerService {
       fixed: kept.map((slot) => toItem(slot, eaters.length)),
       constraints: constraintsOf(input.wishes, []),
       preferences: { ...context.preferences, ...softOf(input.wishes) },
-      portionMode: 'tune',
+      // Porcje per osoba (Etap 2.2) za włącznikiem rolloutu.
+      portionMode: readAgentEnv().plannerPerUserPortions ? 'per_user' : 'tune',
       seed: input.seed,
     };
     const draft = planMeals(request, context.recipes);
@@ -208,7 +210,9 @@ export class AgentMealPlannerService {
       ),
       preferences: { ...context.preferences, ...softOf(input.wishes) },
       slotKcalTargets,
-      portionMode: input.portionMode,
+      portionMode: readAgentEnv().plannerPerUserPortions
+        ? 'per_user'
+        : input.portionMode,
       seed: input.seed,
     };
     const draft = planMeals(request, context.recipes);
@@ -466,6 +470,8 @@ function toItem(slot: ApplyWeekSlotDto, memberCount: number): PlannedItem {
     plannedServings:
       slot.plannedServings ??
       autoPlannedServings(participantIds.length, memberCount),
+    // Porcje per osoba nietkniętych pozycji jadą dalej bez zmian (Etap 2.2).
+    ...(slot.portions?.length ? { portions: slot.portions } : {}),
   };
 }
 
@@ -477,8 +483,10 @@ function toSlot(item: PlannedItem): ApplyWeekSlotDto {
     ...(item.participantIds.length > 0
       ? { participantIds: item.participantIds }
       : {}),
-    plannedServings: item.plannedServings,
-  };
+    ...(item.portions?.length
+      ? { portions: item.portions }
+      : { plannedServings: item.plannedServings }),
+  } as ApplyWeekSlotDto;
 }
 
 /** Średnie kcal NA OSOBĘ z podmienianych pozycji — dla „podobnie kalorycznie". */

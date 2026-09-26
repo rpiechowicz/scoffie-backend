@@ -229,6 +229,13 @@ export type AgentEnv = {
    * Ma sens tylko, gdy platforma daje procesowi ten czas przed SIGKILL.
    */
   shutdownGraceMs: number;
+  /**
+   * Planer daje każdej osobie WŁASNĄ porcję wspólnego dania (Etap 2.2).
+   * Domyślnie `false`: iOS sprzed porcji per osoba liczy bilans z równego
+   * podziału `plannedServings` (tu pochodna `ceil(Σ)`), więc włączamy po
+   * wydaniu aplikacji, która czyta `PlanItem.portions`. `AI_PLANNER_PER_USER_PORTIONS=true`.
+   */
+  plannerPerUserPortions: boolean;
 };
 
 /**
@@ -607,6 +614,8 @@ export function readAgentEnv(
       'AI_TURN_COST_RESERVE_USD',
       AGENT_ENV_DEFAULTS.turnCostReserveUsd,
     ),
+    plannerPerUserPortions:
+      (env.AI_PLANNER_PER_USER_PORTIONS ?? '').trim().toLowerCase() === 'true',
     shutdownGraceMs: readNumber(
       env,
       'AI_SHUTDOWN_GRACE_MS',

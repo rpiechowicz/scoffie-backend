@@ -40,6 +40,11 @@ export type BalanceMeal = {
   eatenByUserIds: string[];
   /** Porcje ŁĄCZNE; `null` = policz z audytorium (reguła auto). */
   plannedServings: number | null;
+  /**
+   * Porcje per osoba (Etap 2.2). Puste/brak = równy podział jak dotąd.
+   * Podane = osoba je SWOJĄ porcję (niezależnie od `plannedServings`).
+   */
+  portions?: readonly { userId: string; servings: number }[];
   recipe: {
     servings: number;
     nutritionKcal: number;
@@ -87,23 +92,44 @@ export function effectiveServings(
   return Math.max(1, meal.plannedServings);
 }
 
-/** Udział jednej osoby w daniu, wyrażony w porcjach przepisu. */
+/**
+ * Udział osoby w daniu, wyrażony w porcjach przepisu.
+ *
+ * Z alokacją (Etap 2.2) — porcja TEJ osoby; osoba jedząca, która nie ma
+ * wiersza (alokacja sprzed jej dołączenia), dostaje 1 porcję jak reguła auto;
+ * bez wskazania osoby — średnia porcja jedzących. Bez alokacji — jak zawsze:
+ * porcje łączne / liczba jedzących (dla każdego tyle samo).
+ */
 export function servingsPerPerson(
-  meal: Pick<BalanceMeal, 'participantIds' | 'plannedServings'>,
+  meal: Pick<BalanceMeal, 'participantIds' | 'plannedServings' | 'portions'>,
   householdMemberCount: number,
+  memberId?: string,
 ): number {
+  const portions = meal.portions ?? [];
+  if (portions.length > 0) {
+    if (memberId === undefined) {
+      return (
+        portions.reduce((sum, portion) => sum + portion.servings, 0) /
+        portions.length
+      );
+    }
+    return (
+      portions.find((portion) => portion.userId === memberId)?.servings ?? 1
+    );
+  }
   return (
     effectiveServings(meal, householdMemberCount) /
     eaterCount(meal, householdMemberCount)
   );
 }
 
-/** Makra przypadające na jedną osobę — bez zaokrąglania. */
+/** Makra przypadające na osobę (`memberId`) — bez zaokrąglania. */
 export function nutritionPerPerson(
   meal: BalanceMeal,
   householdMemberCount: number,
+  memberId?: string,
 ): BalanceNutrition {
-  const share = servingsPerPerson(meal, householdMemberCount);
+  const share = servingsPerPerson(meal, householdMemberCount, memberId);
   // Makra w bazie opisują CAŁY przepis (patrz CLAUDE.md), więc najpierw na
   // porcję, potem razy udział.
   const perServing = 1 / Math.max(1, meal.recipe.servings);
@@ -193,7 +219,11 @@ export function weeklyBalanceForMember(
         memberId,
       );
       for (const meal of mine) {
-        const perPerson = nutritionPerPerson(meal, householdMemberCount);
+        const perPerson = nutritionPerPerson(
+          meal,
+          householdMemberCount,
+          memberId,
+        );
         addInto(planned, perPerson);
         counted += 1;
         if (meal.eatenByUserIds.includes(memberId)) {

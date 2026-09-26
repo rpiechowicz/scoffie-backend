@@ -1126,6 +1126,8 @@ export class AgentToolExecutor {
     input: Record<string, unknown>,
     context: AgentToolContext,
     weekStart: string,
+    /** Porcje per osoba z planera (Etap 2.2) — tylko podmiana całego slotu. */
+    portions?: { userId: string; servings: number }[],
   ): Promise<CreateWeekProposalResult> {
     const dayOfWeek = asString(input.day_of_week) as DayOfWeek;
     const mealType = asString(input.meal_type) as MealType;
@@ -1169,6 +1171,7 @@ export class AgentToolExecutor {
       from: standing ? await this.recipeSide(standing.recipeId, context) : null,
       participantIds,
       ...(reason ? { reason } : {}),
+      ...(portions?.length && participantIds.length === 0 ? { portions } : {}),
     });
   }
 
@@ -2240,6 +2243,7 @@ export class AgentToolExecutor {
           mealType,
           recipeId: chosen.recipeId,
           plannedServings: chosen.plannedServings,
+          ...(chosen.portions?.length ? { portions: chosen.portions } : {}),
         })
       : await this.proposeSwap(
           {
@@ -2249,6 +2253,7 @@ export class AgentToolExecutor {
           },
           context,
           week,
+          chosen.portions,
         );
     return { ...proposal, planner: diagnostics };
   }

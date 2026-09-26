@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import { unitsToServings } from '../weekly-plans/utils/plan-portions.util';
 
 /**
  * Paczka danych osoby — RODO art. 15 (dostęp) i art. 20 (przenoszenie).
@@ -56,6 +57,7 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
     invitationsReceived,
     recipes,
     participations,
+    portions,
     consumptions,
     dailySteps,
     conversations,
@@ -140,6 +142,23 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
             dayOfWeek: true,
             mealType: true,
             plannedServings: true,
+            weeklyPlan: { select: { householdId: true, weekStart: true } },
+            recipe: { select: { id: true, title: true } },
+          },
+        },
+      },
+    }),
+    // Porcje per osoba (Etap 2.2): ile TA osoba je z danej pozycji planu.
+    prisma.planItemPortion.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        units: true,
+        createdAt: true,
+        planItem: {
+          select: {
+            dayOfWeek: true,
+            mealType: true,
             weeklyPlan: { select: { householdId: true, weekStart: true } },
             recipe: { select: { id: true, title: true } },
           },
@@ -323,6 +342,15 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
         mealType: c.planItem.mealType,
         recipe: c.planItem.recipe,
         eatenAt: c.eatenAt,
+      })),
+      portions: portions.map((portion) => ({
+        householdId: portion.planItem.weeklyPlan.householdId,
+        weekStart: portion.planItem.weeklyPlan.weekStart,
+        dayOfWeek: portion.planItem.dayOfWeek,
+        mealType: portion.planItem.mealType,
+        recipe: portion.planItem.recipe,
+        servings: unitsToServings(portion.units),
+        addedAt: portion.createdAt,
       })),
     },
     dailySteps,

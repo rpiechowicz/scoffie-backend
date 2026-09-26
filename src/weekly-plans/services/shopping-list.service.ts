@@ -1,3 +1,4 @@
+import { cookedServings, toPortionViews } from '../utils/plan-portions.util';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
@@ -126,6 +127,8 @@ export class ShoppingListService {
           // z przepisu — a `include` przyjmuje wyłącznie relacje.
           select: {
             plannedServings: true,
+            // Porcje per osoba (Etap 2.2): gotujemy DOKŁADNIE Σ porcji osób.
+            portions: { select: { userId: true, units: true } },
             recipe: {
               select: {
                 servings: true,
@@ -159,10 +162,18 @@ export class ShoppingListService {
     // domowników. Waga pozycji jest ułamkiem, a nie krotnością: gotujemy
     // `plannedServings` porcji przepisu napisanego na `recipe.servings`,
     // więc posiłek solo z przepisu na dwie porcje kupuje połowę składników.
+    //
+    // Pozycja z porcjami per osoba (Etap 2.2) gotuje DOKŁADNIE sumę porcji
+    // osób — 0,8 + 1,3 = 2,1 porcji, nie 2 ani 3 (bez „resztek"): lista ma
+    // mówić to samo, co plan. `plannedServings` jest wtedy pochodną `ceil(Σ)`
+    // dla starszych klientów i nie wchodzi do rachunku.
     const ingredientSources = (weeklyPlan?.items ?? []).map((item) => ({
       recipe: item.recipe,
       portionFactor:
-        Math.max(1, item.plannedServings) / Math.max(1, item.recipe.servings),
+        cookedServings({
+          plannedServings: item.plannedServings,
+          portions: toPortionViews(item.portions ?? []),
+        }) / Math.max(1, item.recipe.servings),
     }));
 
     const aggregated = new Map<string, ShoppingAccumulator>();

@@ -27,6 +27,11 @@ export type WeekPlanItemForModel = {
   othersCount?: number;
   /** Ile osób odhaczyło ten posiłek jako zjedzony. */
   eatenCount?: number;
+  /**
+   * Porcje per osoba (Etap 2.2): `userId → porcje`, tylko osoby ze zgodą;
+   * brak pola = równy podział `plannedServings`.
+   */
+  portions?: Record<string, number>;
 };
 
 export type WeekPlanForModel = {
@@ -42,6 +47,7 @@ export type PlanItemForProjection = {
   plannedServings: number;
   participantIds: string[];
   eatenByUserIds: string[];
+  portions?: { userId: string; servings: number }[];
   recipe: {
     title: string;
     servings: number | null;
@@ -111,7 +117,25 @@ export function projectWeekPlanForModel(
         ...(widoczni.length > 0 ? { participants: widoczni } : {}),
         ...(ukryci > 0 ? { othersCount: ukryci } : {}),
         ...(eaten > 0 ? { eatenCount: eaten } : {}),
+        ...portionsFor(item.portions, visibleUserIds),
       };
     }),
   };
+}
+
+/** Porcje osób ze zgodą — domownik bez zgody nie pojawia się z identyfikatorem. */
+function portionsFor(
+  portions: PlanItemForProjection['portions'],
+  visibleUserIds: ReadonlySet<string>,
+): { portions?: Record<string, number> } {
+  const visible = (portions ?? []).filter((portion) =>
+    visibleUserIds.has(portion.userId),
+  );
+  return visible.length > 0
+    ? {
+        portions: Object.fromEntries(
+          visible.map((portion) => [portion.userId, portion.servings]),
+        ),
+      }
+    : {};
 }

@@ -55,6 +55,7 @@ const ENV: AgentEnv = {
   cacheWarmHours: 0,
   turnCostReserveUsd: 0.25,
   shutdownGraceMs: 8_000,
+  plannerPerUserPortions: false,
 };
 
 const RESULT: AgentProviderResult = {

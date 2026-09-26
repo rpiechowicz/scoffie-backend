@@ -59,6 +59,8 @@ describe('readAgentEnv', () => {
       // Rezerwacja za turę w biegu i łaska przy SIGTERM (Etap 1 workstreamu).
       turnCostReserveUsd: 0.25,
       shutdownGraceMs: 8_000,
+      // Porcje per osoba w planerze — włączane po wydaniu iOS (Etap 2.2).
+      plannerPerUserPortions: false,
     });
   });
 

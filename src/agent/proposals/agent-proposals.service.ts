@@ -76,6 +76,8 @@ export type ReviseProposalInput = Omit<
    * jednej pozycji, przy scaleniu kilku liczy je audytorium.
    */
   plannedServings?: number;
+  /** Porcje per osoba nowego dania (Etap 2.2) — gdy dobrał je planer. */
+  portions?: { userId: string; servings: number }[];
 };
 
 /** Propozycja planu, która czeka na zatwierdzenie — do poprawek jednego slotu. */
@@ -108,6 +110,8 @@ export type CreateSwapProposalInput = Omit<
    * wydziela z niego jedną porcję — patrz `createSwapProposal`.
    */
   participantIds: string[];
+  /** Porcje per osoba nowego dania (Etap 2.2, tylko podmiana całego slotu). */
+  portions?: { userId: string; servings: number }[];
 };
 
 export type CreateRemoveProposalInput = Omit<
@@ -385,6 +389,8 @@ export class AgentProposalsService {
       recipeId: input.recipeId,
       ...(participantIds.length > 0 ? { participantIds } : {}),
       ...(keptServings !== undefined ? { plannedServings: keptServings } : {}),
+      // Porcje per osoba z planera (Etap 2.2) — źródło prawdy nowej pozycji.
+      ...(input.portions?.length ? { portions: input.portions } : {}),
     };
     // Nowa pozycja w miejscu pierwszej podmienionej — karta i odcisk nie
     // zależą od kolejności, ale czytelny zapis intencji tak.
@@ -520,6 +526,7 @@ export class AgentProposalsService {
           dayOfWeek: input.dayOfWeek,
           mealType: input.mealType,
           recipeId: input.recipeId,
+          ...(input.portions?.length ? { portions: input.portions } : {}),
         } as ApplyWeekSlotDto,
       ];
     } else {
@@ -539,9 +546,7 @@ export class AgentProposalsService {
             ? slot.participantIds
             : everyone;
           const remaining = current.filter((userId) => !leaving.has(userId));
-          return remaining.length > 0
-            ? ({ ...slot, participantIds: remaining } as ApplyWeekSlotDto)
-            : null;
+          return narrowSlot(slot, remaining);
         })
         .filter((slot): slot is ApplyWeekSlotDto => slot !== null);
 
@@ -660,9 +665,7 @@ export class AgentProposalsService {
             ? slot.participantIds
             : everyone;
           const remaining = current.filter((userId) => !leaving.has(userId));
-          return remaining.length > 0
-            ? ({ ...slot, participantIds: remaining } as ApplyWeekSlotDto)
-            : null;
+          return narrowSlot(slot, remaining);
         })
         .filter((slot): slot is ApplyWeekSlotDto => slot !== null);
       merged = [...untouched, ...narrowed];
@@ -1798,4 +1801,26 @@ function dayOfDayCard(
       (day) => dateForDay(weekStart, day) === date,
     ) ?? null
   );
+}
+
+/**
+ * Pozycja zawężona do `remaining` (podmiana albo usunięcie dania części osób);
+ * `null`, gdy nikt nie zostaje. Porcje per osoba (Etap 2.2) idą za
+ * audytorium: kto wychodzi z pozycji, znika też z jej alokacji — inaczej zbiór
+ * porcji nie pasowałby do uczestników (`PLAN_PORTIONS_INVALID`).
+ */
+function narrowSlot(
+  slot: ApplyWeekSlotDto,
+  remaining: string[],
+): ApplyWeekSlotDto | null {
+  if (remaining.length === 0) return null;
+  const { portions, ...rest } = slot;
+  const kept = (portions ?? []).filter((portion) =>
+    remaining.includes(portion.userId),
+  );
+  return {
+    ...rest,
+    participantIds: remaining,
+    ...(kept.length > 0 ? { portions: kept } : {}),
+  } as ApplyWeekSlotDto;
 }

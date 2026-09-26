@@ -7,6 +7,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsUUID,
   Max,
@@ -21,6 +22,19 @@ import {
  * sprawdza `applyWeekPlan` i raportuje je jako naruszenia, nie wyjątek.
  */
 export const APPLY_WEEK_PLAN_MAX_SLOTS = 7 * 6 * 6;
+
+/** Porcja jednej osoby (Etap 2.2): wielokrotność 0,05 porcji przepisu. */
+export class PlanPortionDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  userId: string;
+
+  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6 })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.1)
+  @Max(6)
+  servings: number;
+}
 
 export class ApplyWeekSlotDto {
   @ApiProperty({ enum: DayOfWeek })
@@ -50,6 +64,19 @@ export class ApplyWeekSlotDto {
   @Min(1)
   @Max(12)
   plannedServings?: number;
+
+  /**
+   * Porcje per osoba (Etap 2.2). Podane = źródło prawdy: zbiór osób musi być
+   * audytorium pozycji, a `plannedServings` serwer liczy sam (`ceil(Σ)`).
+   * Pominięte albo puste = równy podział, jak dotąd.
+   */
+  @ApiPropertyOptional({ type: [PlanPortionDto] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(32)
+  @ValidateNested({ each: true })
+  @Type(() => PlanPortionDto)
+  portions?: PlanPortionDto[];
 }
 
 /**

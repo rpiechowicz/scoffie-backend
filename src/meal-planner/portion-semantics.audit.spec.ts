@@ -24,6 +24,8 @@ import {
  * Odpowiedź (raport 02, §1): TAK dla RÓWNEGO podziału porcji między
  * jedzących; NIE dla nierównych porcji tego samego dania — tego model nie
  * wyraża i planer tego nie udaje.
+ * Etap 2.2 dodał alokację per osoba (`PlanItemPortion`); te testy przypinają
+ * teraz semantykę pozycji BEZ alokacji (legacy), która się nie zmieniła.
  */
 const ANIA = 'ania';
 const MAREK = 'marek';
@@ -67,7 +69,9 @@ describe('Audyt 2A: semantyka porcji i celów', () => {
     expect(servingsPerPerson(meal({ plannedServings: null }), 3)).toBe(1);
   });
 
-  it('dwa RÓŻNE cele przy jednym daniu dostają TEN SAM udział — model nie ma porcji per osoba', () => {
+  it('pozycja BEZ alokacji porcji: dwa RÓŻNE cele przy jednym daniu dostają TEN SAM udział', () => {
+    // Od Etapu 2.2 pozycja może nieść porcje per osoba (`plan-portions.util.spec.ts`);
+    // pozycje bez nich zachowują się dokładnie tak, jak przypina ten test.
     // Ania (cel 1600) i Marek (cel 2800) jedzą wspólną kolację: obie osoby
     // dostają identyczną liczbę kcal, bo udział zależy tylko od porcji
     // łącznych i liczby jedzących — nie od celu osoby.

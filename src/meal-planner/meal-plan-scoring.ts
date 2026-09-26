@@ -56,6 +56,29 @@ export const FAT_CARBS_DAY_TOLERANCE = 0.25;
  */
 export const PORTION_SHARE_MIN = 0.75;
 export const PORTION_SHARE_MAX = 1.5;
+
+/**
+ * Porcje PER OSOBA (Etap 2.2, `portionMode: 'per_user'`): każda osoba dostaje
+ * własną porcję tego samego dania — 0,5–1,5 porcji przepisu (porcja =
+ * całość / `Recipe.servings`, 1..8), krok 0,05 (jednostka zapisu). Pół
+ * porcji to „mała porcja", półtorej — „duża"; poza tym zaczyna się inne danie,
+ * nie inna porcja. Nie „naprawiamy" kcal ćwiartką obiadu ani trzema kolacjami.
+ */
+export const PLANNER_PORTION_MIN = 0.5;
+export const PLANNER_PORTION_MAX = 1.5;
+export const PLANNER_PORTION_STEP = 0.05;
+
+/** Porcja osoby dla danego celu kcal: krok 0,05, widełki 0,5–1,5. */
+export function portionFor(targetKcal: number, kcalPerServing: number): number {
+  if (!(kcalPerServing > 0)) return 1;
+  const raw = targetKcal / kcalPerServing;
+  const stepped = Math.round(raw / PLANNER_PORTION_STEP) * PLANNER_PORTION_STEP;
+  const clamped = Math.min(
+    PLANNER_PORTION_MAX,
+    Math.max(PLANNER_PORTION_MIN, stepped),
+  );
+  return Math.round(clamped * 100) / 100;
+}
 const PLANNED_SERVINGS_MAX = 12;
 
 /** Wagi funkcji celu — mniej = lepiej. Kalibracja w raporcie 02, §5. */
@@ -84,8 +107,13 @@ export const WEIGHTS = {
   prepOver: 0.3,
   prepOverPerMinute: 0.01,
   prepOverCap: 0.6,
-  /** Odejście od udziału 1 porcji na osobę. */
+  /** Odejście od udziału 1 porcji na osobę (równy podział, `tune`). */
   portion: 0.2,
+  /**
+   * Odejście porcji osoby od 1 przy `per_user` — słabe: porcja jest tu
+   * narzędziem trafienia w cel osoby, a nie odstępstwem od reguły.
+   */
+  portionPerUser: 0.05,
   favorite: -0.05,
   popularity: -0.02,
   /** Za każdy składnik wspólny z innymi daniami tygodnia (najwyżej 5). */
@@ -250,6 +278,7 @@ function toBalanceMeal(
     participantIds: item.participantIds,
     eatenByUserIds: [],
     plannedServings: item.plannedServings,
+    portions: item.portions,
     recipe: {
       servings,
       nutritionKcal: recipe.perServing.kcal * servings,
@@ -280,7 +309,8 @@ export function eaterDayNutrition(
     for (const item of visibleToMember(items, eaterId)) {
       const meal = toBalanceMeal(item, recipes.get(item.recipeId));
       if (!meal) continue;
-      const part = nutritionPerPerson(meal, memberCount);
+      // Porcja TEJ osoby (Etap 2.2); bez alokacji — równy podział.
+      const part = nutritionPerPerson(meal, memberCount, eaterId);
       total.kcal += part.kcal;
       total.protein += part.protein;
       total.fat += part.fat;

@@ -1481,6 +1481,18 @@
                                     "type": "array",
                                     "items": { "type": "string" }
                                   },
+                                  "portions": {
+                                    "description": "Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy\npodział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "userId": { "type": "string" },
+                                        "servings": { "type": "number" }
+                                      },
+                                      "required": ["servings", "userId"]
+                                    }
+                                  },
                                   "change": {
                                     "enum": ["KEPT", "NEW"],
                                     "type": "string"
@@ -1709,6 +1721,18 @@
                               "description": "Puste = całe gospodarstwo.",
                               "type": "array",
                               "items": { "type": "string" }
+                            },
+                            "portions": {
+                              "description": "Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy\npodział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.",
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": { "type": "string" },
+                                  "servings": { "type": "number" }
+                                },
+                                "required": ["servings", "userId"]
+                              }
                             },
                             "change": {
                               "enum": ["KEPT", "NEW"],
@@ -2853,6 +2877,18 @@
                                       "type": "array",
                                       "items": { "type": "string" }
                                     },
+                                    "portions": {
+                                      "description": "Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy\npodział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "userId": { "type": "string" },
+                                          "servings": { "type": "number" }
+                                        },
+                                        "required": ["servings", "userId"]
+                                      }
+                                    },
                                     "change": {
                                       "enum": ["KEPT", "NEW"],
                                       "type": "string"
@@ -3081,6 +3117,18 @@
                                 "description": "Puste = całe gospodarstwo.",
                                 "type": "array",
                                 "items": { "type": "string" }
+                              },
+                              "portions": {
+                                "description": "Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy\npodział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.",
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "userId": { "type": "string" },
+                                    "servings": { "type": "number" }
+                                  },
+                                  "required": ["servings", "userId"]
+                                }
                               },
                               "change": {
                                 "enum": ["KEPT", "NEW"],
@@ -4324,6 +4372,18 @@
                                       "type": "array",
                                       "items": { "type": "string" }
                                     },
+                                    "portions": {
+                                      "description": "Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy\npodział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "userId": { "type": "string" },
+                                          "servings": { "type": "number" }
+                                        },
+                                        "required": ["servings", "userId"]
+                                      }
+                                    },
                                     "change": {
                                       "enum": ["KEPT", "NEW"],
                                       "type": "string"
@@ -4552,6 +4612,18 @@
                                 "description": "Puste = całe gospodarstwo.",
                                 "type": "array",
                                 "items": { "type": "string" }
+                              },
+                              "portions": {
+                                "description": "Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy\npodział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.",
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "userId": { "type": "string" },
+                                    "servings": { "type": "number" }
+                                  },
+                                  "required": ["servings", "userId"]
+                                }
                               },
                               "change": {
                                 "enum": ["KEPT", "NEW"],
@@ -5712,6 +5784,18 @@
                                       "type": "array",
                                       "items": { "type": "string" }
                                     },
+                                    "portions": {
+                                      "description": "Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy\npodział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "userId": { "type": "string" },
+                                          "servings": { "type": "number" }
+                                        },
+                                        "required": ["servings", "userId"]
+                                      }
+                                    },
                                     "change": {
                                       "enum": ["KEPT", "NEW"],
                                       "type": "string"
@@ -5940,6 +6024,18 @@
                                 "description": "Puste = całe gospodarstwo.",
                                 "type": "array",
                                 "items": { "type": "string" }
+                              },
+                              "portions": {
+                                "description": "Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy\npodział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.",
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "userId": { "type": "string" },
+                                    "servings": { "type": "number" }
+                                  },
+                                  "required": ["servings", "userId"]
+                                }
                               },
                               "change": {
                                 "enum": ["KEPT", "NEW"],
@@ -7048,6 +7144,18 @@
                                     "type": "array",
                                     "items": { "type": "string" }
                                   },
+                                  "portions": {
+                                    "description": "Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy\npodział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "userId": { "type": "string" },
+                                        "servings": { "type": "number" }
+                                      },
+                                      "required": ["servings", "userId"]
+                                    }
+                                  },
                                   "change": {
                                     "enum": ["KEPT", "NEW"],
                                     "type": "string"
@@ -7276,6 +7384,18 @@
                               "description": "Puste = całe gospodarstwo.",
                               "type": "array",
                               "items": { "type": "string" }
+                            },
+                            "portions": {
+                              "description": "Porcje per osoba (Etap 2.2, pole dodane w v1 — opcjonalne): brak = równy\npodział. `kcalPerServing` dalej opisuje JEDNĄ porcję przepisu.",
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": { "type": "string" },
+                                  "servings": { "type": "number" }
+                                },
+                                "required": ["servings", "userId"]
+                              }
                             },
                             "change": {
                               "enum": ["KEPT", "NEW"],
@@ -8463,6 +8583,7 @@
           "OWNER_REQUIRED",
           "PLAN_ITEM_NOT_FOUND",
           "PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD",
+          "PLAN_PORTIONS_INVALID",
           "PLAN_SLOT_DUPLICATE",
           "PLAN_SLOT_LIMIT_REACHED",
           "PLAN_SLOT_VARIANT_LIMIT_REACHED",
@@ -8560,6 +8681,11 @@
           "plannedServings": {
             "description": "Porcje ŁĄCZNE. Pominięte = policz z audytorium (jak w `upsertWeekSlot`).",
             "type": "number"
+          },
+          "portions": {
+            "description": "Porcje per osoba (Etap 2.2). Podane = źródło prawdy: zbiór osób musi być\naudytorium pozycji, a `plannedServings` serwer liczy sam (`ceil(Σ)`).\nPominięte albo puste = równy podział, jak dotąd.",
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PlanPortionDto" }
           }
         },
         "required": ["dayOfWeek", "mealType", "recipeId"]
@@ -9921,6 +10047,15 @@
         },
         "required": ["data"]
       },
+      "PlanPortionDto": {
+        "description": "Porcja jednej osoby (Etap 2.2): wielokrotność 0,05 porcji przepisu.",
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "servings": { "type": "number" }
+        },
+        "required": ["servings", "userId"]
+      },
       "PostMessageDto": {
         "type": "object",
         "properties": {
@@ -10434,6 +10569,11 @@
             "description": "Ile porcji gotujemy. Pominięte = policz z audytorium\n(`participantIds.length`, a dla „Wspólne\" liczba domowników).\nStarszy klient nie zna tego pola i dzięki temu dostaje policzoną wartość\nzamiast twardej jedynki.",
             "type": "number"
           },
+          "portions": {
+            "description": "Porcje per osoba (Etap 2.2) — zbiór osób = audytorium slotu, każda\nporcja wielokrotnością 0,05. Podane = źródło prawdy (`plannedServings`\nliczy serwer). POMINIĘTE = pozycja bez alokacji: zapis ze starszego\nklienta albo zmiana łącznej liczby porcji stepperem wraca do równego\npodziału — świadomie, bo stare porcje osób nie pasowałyby już do sumy.",
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PlanPortionDto" }
+          },
           "replaceRecipeId": {
             "description": "Przepis, który ma zniknąć ze slotu w TEJ SAMEJ transakcji, w której wchodzi\n`recipeId`. Tak wygląda „zmień danie\": klient nie woła już\n`removeWeekSlot` + `upsertWeekSlot`, między którymi slot stał pusty, a\ndrugi domownik dostawał dwa powiadomienia zamiast jednego.\n\nRówne `recipeId` znaczy „bez podmiany\" — arkusz edycji wysyła edytowany\nprzepis także wtedy, gdy użytkownik ruszył tylko audytorium albo porcje.\nPominięte `participantIds` przy podmianie przejmuje audytorium starego\ndania (po odsianiu byłych domowników); pominięte `plannedServings`\nzachowuje ręcznie wybraną liczbę porcji, a auto przelicza na nowo.\n\niOS wysyła to pole wyłącznie wtedy, gdy ma co podmienić (nigdy `\"\"` ani\n`null`), więc `@IsOptional()` + `@IsUUID()` opisuje dokładnie to, co\nprzychodzi.",
             "type": "string"
@@ -10763,6 +10903,7 @@
           "OWNER_REQUIRED",
           "PLAN_ITEM_NOT_FOUND",
           "PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD",
+          "PLAN_PORTIONS_INVALID",
           "PLAN_SLOT_DUPLICATE",
           "PLAN_SLOT_LIMIT_REACHED",
           "PLAN_SLOT_VARIANT_LIMIT_REACHED",
@@ -12014,6 +12155,17 @@
                       "type": "array",
                       "items": { "type": "string" }
                     },
+                    "portions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": { "type": "string" },
+                          "servings": { "type": "number" }
+                        },
+                        "required": ["servings", "userId"]
+                      }
+                    },
                     "id": { "type": "string" },
                     "createdAt": { "type": "string", "format": "date-time" },
                     "mealType": { "$ref": "#/components/schemas/MealType" },
@@ -12033,6 +12185,7 @@
                     "mealType",
                     "participantIds",
                     "plannedServings",
+                    "portions",
                     "recipe",
                     "recipeId",
                     "weeklyPlanId"
@@ -12239,6 +12392,17 @@
                   "type": "array",
                   "items": { "type": "string" }
                 },
+                "portions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "userId": { "type": "string" },
+                      "servings": { "type": "number" }
+                    },
+                    "required": ["servings", "userId"]
+                  }
+                },
                 "id": { "type": "string" },
                 "createdAt": { "type": "string", "format": "date-time" },
                 "mealType": { "$ref": "#/components/schemas/MealType" },
@@ -12258,6 +12422,7 @@
                 "mealType",
                 "participantIds",
                 "plannedServings",
+                "portions",
                 "recipe",
                 "recipeId",
                 "weeklyPlanId"
@@ -12433,6 +12598,17 @@
           },
           "participantIds": { "type": "array", "items": { "type": "string" } },
           "eatenByUserIds": { "type": "array", "items": { "type": "string" } },
+          "portions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": { "type": "string" },
+                "servings": { "type": "number" }
+              },
+              "required": ["servings", "userId"]
+            }
+          },
           "id": { "type": "string" },
           "createdAt": { "type": "string", "format": "date-time" },
           "mealType": { "$ref": "#/components/schemas/MealType" },
@@ -12452,6 +12628,7 @@
           "mealType",
           "participantIds",
           "plannedServings",
+          "portions",
           "recipe",
           "recipeId",
           "weeklyPlanId"

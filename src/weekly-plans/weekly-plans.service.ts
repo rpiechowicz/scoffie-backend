@@ -1,3 +1,11 @@
+import {
+  derivedPlannedServings,
+  PortionView,
+  portionsProblem,
+  samePortions,
+  toPortionRows,
+  toPortionViews,
+} from './utils/plan-portions.util';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
 import { assertUuid, isUuid } from '../common/uuid';
@@ -68,6 +76,7 @@ const PLAN_ITEM_INCLUDE = {
   },
   participants: { select: { userId: true } },
   consumptions: { select: { userId: true } },
+  portions: { select: { userId: true, units: true } },
 } satisfies Prisma.PlanItemInclude;
 
 /** Wiersz `PlanItem` dokładnie w kształcie `PLAN_ITEM_INCLUDE`. */
@@ -119,7 +128,7 @@ function parseReplaceRecipeId(value: unknown, recipeId: string): string | null {
  * znaczy „tylko slot bazowy", a klient nie musi znać tej reguły.
  */
 function withPlanItemRelationIds(item: PlanItemRow) {
-  const { participants, consumptions, recipe, ...rest } = item;
+  const { participants, consumptions, portions, recipe, ...rest } = item;
   return {
     ...rest,
     recipe: {
@@ -128,6 +137,8 @@ function withPlanItemRelationIds(item: PlanItemRow) {
     },
     participantIds: participants.map((p) => p.userId),
     eatenByUserIds: consumptions.map((c) => c.userId),
+    // Porcje per osoba (Etap 2.2) w porcjach; pusta lista = równy podział.
+    portions: toPortionViews(portions),
   };
 }
 
@@ -222,6 +233,8 @@ export type WeekPlanPreviewSlot = {
   imageUrl: string | null;
   /** Puste = całe gospodarstwo (ta sama konwencja co w `PlanItem`). */
   participantIds: string[];
+  /** Porcje per osoba (Etap 2.2); brak = równy podział. */
+  portions?: PortionView[];
   /** Czy ta pozycja jest w tygodniu nowa, czy stała tam już wcześniej. */
   change: 'NEW' | 'KEPT';
 };
@@ -381,6 +394,7 @@ export class WeeklyPlansService {
         plannedServings: true,
         participants: { select: { userId: true } },
         consumptions: { select: { userId: true } },
+        portions: { select: { userId: true, units: true } },
         recipe: {
           select: {
             servings: true,
@@ -401,6 +415,7 @@ export class WeeklyPlansService {
         participantIds: item.participants.map((p) => p.userId),
         eatenByUserIds: item.consumptions.map((c) => c.userId),
         plannedServings: item.plannedServings,
+        portions: toPortionViews(item.portions),
         recipe: item.recipe,
       })),
       {
@@ -599,20 +614,46 @@ export class WeeklyPlansService {
           id: true,
           plannedServings: true,
           participants: { select: { userId: true } },
+          portions: { select: { userId: true, units: true } },
         },
       });
+
+      // Porcje per osoba (Etap 2.2): podane = źródło prawdy dla audytorium
+      // tej pozycji; POMINIĘTE = pozycja bez alokacji (równy podział) —
+      // starszy klient i zmiana łącznej liczby stepperem wracają do reguły,
+      // którą znają, zamiast zostawić porcje niepasujące do nowej sumy.
+      const portions = normalizedPortions(dto.portions);
+      if (portions.length > 0) {
+        const audience = new Set(
+          effectiveParticipantIds.length > 0
+            ? effectiveParticipantIds
+            : memberIdsForGate,
+        );
+        const problem = portionsProblem(portions, audience);
+        if (problem) {
+          throw new AppException(
+            'PLAN_PORTIONS_INVALID',
+            problem,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
 
       if (existingItem) {
         const currentParticipantIds = existingItem.participants.map(
           (p) => p.userId,
         );
-        const plannedServingsForUpdate = this.resolveUpdatedPlannedServings({
-          currentPlannedServings: existingItem.plannedServings,
-          currentParticipantIds,
-          nextParticipantIds: effectiveParticipantIds,
-          memberCount,
-          requested: dto.plannedServings,
-        });
+        const currentPortions = toPortionViews(existingItem.portions);
+        const plannedServingsForUpdate =
+          portions.length > 0
+            ? derivedPlannedServings(portions)
+            : this.resolveUpdatedPlannedServings({
+                currentPlannedServings: existingItem.plannedServings,
+                currentParticipantIds,
+                nextParticipantIds: effectiveParticipantIds,
+                memberCount,
+                requested: dto.plannedServings,
+              });
 
         await tx.planItemParticipant.deleteMany({
           where: { planItemId: existingItem.id },
@@ -623,6 +664,10 @@ export class WeeklyPlansService {
             plannedServings: plannedServingsForUpdate,
             participants: {
               create: effectiveParticipantIds.map((id) => ({ userId: id })),
+            },
+            portions: {
+              deleteMany: {},
+              create: toPortionRows(portions),
             },
           },
           include: PLAN_ITEM_INCLUDE,
@@ -643,7 +688,8 @@ export class WeeklyPlansService {
         // zdarzeniem dla domownika: jedno danie zniknęło.
         const detailsChanged =
           plannedServingsForUpdate !== existingItem.plannedServings ||
-          !sameMemberSet(currentParticipantIds, effectiveParticipantIds);
+          !sameMemberSet(currentParticipantIds, effectiveParticipantIds) ||
+          !samePortions(currentPortions, portions);
 
         return {
           ...withPlanItemRelationIds(updatedItem),
@@ -705,15 +751,20 @@ export class WeeklyPlansService {
       // przelicza się z nowego audytorium. Bez tego „zmień danie" cofałoby
       // świadome „gotuję 4 porcje" do auto — dokładnie to, przed czym
       // `resolveUpdatedPlannedServings` broni stepper.
-      const plannedServings = replaced
-        ? this.resolveUpdatedPlannedServings({
-            currentPlannedServings: replaced.plannedServings,
-            currentParticipantIds: replaced.participants.map((p) => p.userId),
-            nextParticipantIds: effectiveParticipantIds,
-            memberCount,
-            requested: dto.plannedServings,
-          })
-        : plannedServingsForCreate;
+      const plannedServings =
+        portions.length > 0
+          ? derivedPlannedServings(portions)
+          : replaced
+            ? this.resolveUpdatedPlannedServings({
+                currentPlannedServings: replaced.plannedServings,
+                currentParticipantIds: replaced.participants.map(
+                  (p) => p.userId,
+                ),
+                nextParticipantIds: effectiveParticipantIds,
+                memberCount,
+                requested: dto.plannedServings,
+              })
+            : plannedServingsForCreate;
 
       const createdItem = await tx.planItem
         .create({
@@ -726,6 +777,9 @@ export class WeeklyPlansService {
             participants: {
               create: effectiveParticipantIds.map((id) => ({ userId: id })),
             },
+            ...(portions.length > 0
+              ? { portions: { create: toPortionRows(portions) } }
+              : {}),
           },
           include: PLAN_ITEM_INCLUDE,
         })
@@ -832,6 +886,7 @@ export class WeeklyPlansService {
       ...slot,
       key: planSlotKey(slot),
       ...this.normalizeParticipants(slot.participantIds, memberIds),
+      portions: normalizedPortions(slot.portions),
     }));
 
     if (dryRun) {
@@ -883,6 +938,7 @@ export class WeeklyPlansService {
           recipeId: true,
           plannedServings: true,
           participants: { select: { userId: true } },
+          portions: { select: { userId: true, units: true } },
         },
       });
       if (hooks.guard) {
@@ -894,6 +950,7 @@ export class WeeklyPlansService {
             recipeId: item.recipeId,
             participantIds: item.participants.map((p) => p.userId),
             plannedServings: item.plannedServings,
+            ...withPortions(toPortionViews(item.portions)),
           })),
         );
       }
@@ -923,14 +980,20 @@ export class WeeklyPlansService {
               dayOfWeek: slot.dayOfWeek,
               mealType: slot.mealType,
               recipeId: slot.recipeId,
-              plannedServings: this.resolvePlannedServings(
-                slot.participantIds,
-                memberIds.size,
-                slot.plannedServings,
-              ),
+              plannedServings:
+                slot.portions.length > 0
+                  ? derivedPlannedServings(slot.portions)
+                  : this.resolvePlannedServings(
+                      slot.participantIds,
+                      memberIds.size,
+                      slot.plannedServings,
+                    ),
               participants: {
                 create: slot.participantIds.map((id) => ({ userId: id })),
               },
+              ...(slot.portions.length > 0
+                ? { portions: { create: toPortionRows(slot.portions) } }
+                : {}),
             },
           });
           created += 1;
@@ -940,19 +1003,25 @@ export class WeeklyPlansService {
         const currentParticipantIds = existing.participants.map(
           (p) => p.userId,
         );
-        const plannedServings = this.resolveUpdatedPlannedServings({
-          currentPlannedServings: existing.plannedServings,
-          currentParticipantIds,
-          nextParticipantIds: slot.participantIds,
-          memberCount: memberIds.size,
-          requested: slot.plannedServings,
-        });
+        const currentPortions = toPortionViews(existing.portions);
+        const plannedServings =
+          slot.portions.length > 0
+            ? derivedPlannedServings(slot.portions)
+            : this.resolveUpdatedPlannedServings({
+                currentPlannedServings: existing.plannedServings,
+                currentParticipantIds,
+                nextParticipantIds: slot.participantIds,
+                memberCount: memberIds.size,
+                requested: slot.plannedServings,
+              });
         const participantsChanged = !sameIdSet(
           currentParticipantIds,
           slot.participantIds,
         );
+        const portionsChanged = !samePortions(currentPortions, slot.portions);
         if (
           !participantsChanged &&
+          !portionsChanged &&
           plannedServings === existing.plannedServings
         ) {
           // Slot bez zmian nie jest zapisywany — inaczej „przeplanuj tydzień"
@@ -969,6 +1038,14 @@ export class WeeklyPlansService {
                   participants: {
                     deleteMany: {},
                     create: slot.participantIds.map((id) => ({ userId: id })),
+                  },
+                }
+              : {}),
+            ...(portionsChanged
+              ? {
+                  portions: {
+                    deleteMany: {},
+                    create: toPortionRows(slot.portions),
                   },
                 }
               : {}),
@@ -1190,6 +1267,14 @@ export class WeeklyPlansService {
         );
       }
 
+      // Porcje per osoba (Etap 2.2): zbiór osób = audytorium, krok 0,05,
+      // widełki i suma — inaczej bilans i lista zakupów rozjechałyby się
+      // z tym, kto naprawdę je.
+      if ((slot.portions ?? []).length > 0) {
+        const problem = portionsProblem(slot.portions ?? [], new Set(audience));
+        if (problem) at('PLAN_PORTIONS_INVALID', problem);
+      }
+
       const slotKey = `${slot.dayOfWeek}|${slot.mealType}`;
       const inSlot = (perSlot.get(slotKey) ?? 0) + 1;
       perSlot.set(slotKey, inSlot);
@@ -1286,6 +1371,7 @@ export class WeeklyPlansService {
       ...slot,
       key: planSlotKey(slot),
       ...this.normalizeParticipants(slot.participantIds, memberIds),
+      portions: normalizedPortions(slot.portions),
     }));
     const changes = await this.previewWeekPlanChanges(
       householdId,
@@ -1335,6 +1421,7 @@ export class WeeklyPlansService {
         prepTimeMinutes: detail?.prepTimeMinutes ?? 0,
         imageUrl: detail?.imageUrl?.trim() ? detail.imageUrl : null,
         participantIds: slot.participantIds,
+        ...withPortions(slot.portions),
         change: currentKeys.has(slot.key) ? 'KEPT' : 'NEW',
       };
     });
@@ -1382,6 +1469,7 @@ export class WeeklyPlansService {
         recipeId: true,
         plannedServings: true,
         participants: { select: { userId: true } },
+        portions: { select: { userId: true, units: true } },
       },
       orderBy: [{ mealType: 'asc' }, { createdAt: 'asc' }],
     });
@@ -1394,6 +1482,9 @@ export class WeeklyPlansService {
         (participant) => participant.userId,
       ),
       plannedServings: item.plannedServings,
+      // Porcje per osoba przeżywają migawkę: „Cofnij", baseline propozycji
+      // i planer widzą je tak samo, jak zapis (Etap 2.2).
+      ...withPortions(toPortionViews(item.portions)),
     }));
   }
 
@@ -1405,6 +1496,7 @@ export class WeeklyPlansService {
       key: string;
       participantIds: string[];
       plannedServings?: number;
+      portions: PortionView[];
     }[],
   ): Promise<{ created: number; updated: number; deleted: number }> {
     const plan = await this.prisma.weeklyPlan.findUnique({
@@ -1425,6 +1517,7 @@ export class WeeklyPlansService {
           recipeId: true,
           plannedServings: true,
           participants: { select: { userId: true } },
+          portions: { select: { userId: true, units: true } },
         },
       }),
       this.prisma.membership.count({ where: { householdId } }),
@@ -1449,14 +1542,19 @@ export class WeeklyPlansService {
       );
       // Ta sama reguła porcji, co przy zapisie — inaczej karta propozycji
       // obiecywała inną liczbę zmian niż potem wykonał zapis.
-      const plannedServings = this.resolveUpdatedPlannedServings({
-        currentPlannedServings: existing.plannedServings,
-        currentParticipantIds,
-        nextParticipantIds: slot.participantIds,
-        memberCount,
-        requested: slot.plannedServings,
-      });
-      const servingsChanged = plannedServings !== existing.plannedServings;
+      const plannedServings =
+        slot.portions.length > 0
+          ? derivedPlannedServings(slot.portions)
+          : this.resolveUpdatedPlannedServings({
+              currentPlannedServings: existing.plannedServings,
+              currentParticipantIds,
+              nextParticipantIds: slot.participantIds,
+              memberCount,
+              requested: slot.plannedServings,
+            });
+      const servingsChanged =
+        plannedServings !== existing.plannedServings ||
+        !samePortions(toPortionViews(existing.portions), slot.portions);
       if (participantsChanged || servingsChanged) updated += 1;
     }
 
@@ -1855,4 +1953,19 @@ export class WeeklyPlansService {
     });
     return user?.displayName ?? null;
   }
+}
+
+/** Porcje z DTO jako widok (pusta lista = bez alokacji). */
+function normalizedPortions(
+  portions: readonly { userId: string; servings: number }[] | undefined,
+): PortionView[] {
+  return (portions ?? []).map((portion) => ({
+    userId: portion.userId,
+    servings: portion.servings,
+  }));
+}
+
+/** `portions` do slotu tylko wtedy, gdy są — stary kształt zostaje bez klucza. */
+function withPortions(portions: PortionView[]): { portions?: PortionView[] } {
+  return portions.length > 0 ? { portions } : {};
 }

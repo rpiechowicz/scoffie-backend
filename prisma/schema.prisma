@@ -64,6 +64,7 @@ model User {
   preferences     UserPreference?
 
   planParticipations PlanItemParticipant[]
+  planItemPortions   PlanItemPortion[]
   mealConsumptions   PlanItemConsumption[]
 
   cookidooIntegrations CookidooIntegration[] @relation("CookidooIntegrationConnector")
@@ -736,6 +737,11 @@ model PlanItem {
   recipe       Recipe                @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   participants PlanItemParticipant[]
   consumptions PlanItemConsumption[]
+  /// Porcje per osoba (Etap 2.2). Brak wierszy = równy podział
+  /// `plannedServings / liczba jedzących`, jak zawsze. Są wiersze = źródło
+  /// prawdy: osoba je SWOJĄ porcję, gotujemy Σ, a `plannedServings` to
+  /// pochodna `ceil(Σ)` dla klientów, które alokacji nie znają.
+  portions     PlanItemPortion[]
 
   // A (day, mealType) slot can hold several items — one per recipe — so the
   // household can split a meal ("Ania eats a salad, Marek a schnitzel").
@@ -771,6 +777,24 @@ model PlanItemParticipant {
 /// Per-user rather than a flag on PlanItem: a shared item („Wspólne", no
 /// participant rows) is eaten by each member on their own schedule, so one
 /// boolean could not answer „did *I* eat this?". Row present = eaten.
+/// Porcja JEDNEJ osoby we wspólnym (albo imiennym) daniu — workstream,
+/// Etap 2.2. `units` w 1/20 porcji (0,05): liczba całkowita zamiast Float
+/// i zamiast `Decimal`, żeby baza, Prisma, JSON i Swift liczyły tak samo.
+/// Zbiór osób = audytorium pozycji (imienni uczestnicy albo cały dom przy
+/// „Wspólnym") — pilnuje tego zapis planu (`PLAN_PORTIONS_INVALID`).
+model PlanItemPortion {
+  planItemId String   @db.Uuid
+  userId     String   @db.Uuid
+  units      Int
+  createdAt  DateTime @default(now())
+
+  planItem PlanItem @relation(fields: [planItemId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([planItemId, userId])
+  @@index([userId])
+}
+
 model PlanItemConsumption {
   planItemId String   @db.Uuid
   userId     String   @db.Uuid

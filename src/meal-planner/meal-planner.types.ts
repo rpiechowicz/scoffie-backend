@@ -64,8 +64,13 @@ export type PlannedItem = {
   recipeId: string;
   /** Puste = cały dom. */
   participantIds: string[];
-  /** Porcje ŁĄCZNE. */
+  /** Porcje ŁĄCZNE (przy `portions` — pochodna `ceil(Σ)`). */
   plannedServings: number;
+  /**
+   * Porcje per osoba (Etap 2.2); brak = równy podział `plannedServings`.
+   * Zbiór osób = audytorium pozycji.
+   */
+  portions?: { userId: string; servings: number }[];
 };
 
 /**
@@ -137,9 +142,11 @@ export type PlanningRequest = {
   slotKcalTargets?: Record<string, number>;
   /**
    * `auto` = porcji tyle, ilu jedzących (udział 1); `tune` = planer może
-   * dobrać porcje w widełkach `PORTION_SHARE_MIN..MAX`.
+   * dobrać porcje łączne (równy podział) w widełkach `PORTION_SHARE_MIN..MAX`;
+   * `per_user` = każda osoba dostaje WŁASNĄ porcję tego samego dania
+   * (`PLANNER_PORTION_MIN..MAX`, krok `PLANNER_PORTION_STEP`) — Etap 2.2.
    */
-  portionMode?: 'auto' | 'tune';
+  portionMode?: 'auto' | 'tune' | 'per_user';
   /** Ziarno rozstrzygania remisów — ten sam seed i dane = ten sam plan. */
   seed?: string;
 };
