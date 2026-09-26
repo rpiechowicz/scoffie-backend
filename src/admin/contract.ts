@@ -1701,3 +1701,113 @@ export interface AnnouncementCreate {
   dismissible: boolean;
   reason: string;
 }
+
+// ——— Kanał na żywo (WebSocket `/admin/ws`, w panelu `/api/ws`) ———
+// REST zostaje jedynym źródłem danych: kanał niesie tylko sygnały „to się
+// zmieniło” (`invalidate`), krótkie powiadomienia (`notice`), stan sesji i
+// strumień logów Railway. Jedna wiadomość JSON na ramkę tekstową.
+
+/** Tematy sygnałów. Sesja dostaje tylko tematy, do których ma uprawnienie. */
+export type LiveTopic =
+  /** pulpit: nowe konto, tura asystenta, danie w planie, koszt AI */
+  | 'dashboard'
+  /** lista/karta osób: nowe konto, usunięte konto, wylogowanie zewsząd */
+  | 'users'
+  | 'households'
+  /** tury, koszt, pule (Rentowność, „Asystent dziś”) */
+  | 'assistant'
+  /** zgłoszenia odpowiedzi asystenta (badge w menu) */
+  | 'reports'
+  /** stan subskrypcji, powiadomienia Apple */
+  | 'subscriptions'
+  /** skrzynka nadawcza, kolejka, wykluczenia */
+  | 'mail'
+  /** centrum alertów (badge w menu) */
+  | 'alerts'
+  /** wdrożenia Railway wykryte przy sprawdzeniu, Sentry */
+  | 'ops'
+  /** nowy wpis dziennika */
+  | 'audit'
+  /** Sterowanie (nadpisania), flagi, komunikaty */
+  | 'settings'
+  | 'gdpr'
+  /** sesje panelu (Bezpieczeństwo) — tylko własne sesje admina */
+  | 'admin-sessions';
+
+export type LiveNoticeLevel = 'info' | 'success' | 'warning' | 'error';
+
+/** Krótkie powiadomienie (toast) — bez e-maili i danych o zdrowiu. */
+export interface LiveNotice {
+  level: LiveNoticeLevel;
+  /** ≤ 120 znaków */
+  title: string;
+  /** ≤ 300 znaków */
+  body?: string;
+  /** ścieżka w panelu, np. `/users/<id>` */
+  link?: string;
+  topic?: LiveTopic;
+}
+
+export type LiveSessionEvent = 'revoked' | 'expired' | 'step-up-expired';
+
+/** Kody `error` od serwera. */
+export type LiveErrorCode =
+  | 'BAD_MESSAGE'
+  | 'TOO_LARGE'
+  | 'FORBIDDEN'
+  | 'TOO_MANY_SUBSCRIPTIONS'
+  | 'LOGS_UNAVAILABLE'
+  | 'LOGS_FAILED'
+  /** subskrypcja logów wygasła (15 min bez odświeżenia) — wyślij `logs.subscribe` ponownie */
+  | 'LOGS_EXPIRED'
+  | 'RATE_LIMITED';
+
+export type LiveServerMessage =
+  | {
+      type: 'hello';
+      serverTime: IsoDate;
+      sessionExpiresAt: IsoDate;
+      /** tematy dostępne tej sesji (po uprawnieniach) */
+      topics: LiveTopic[];
+    }
+  /** odśwież te dane przez REST; łączone po stronie serwera (~1 s) */
+  | { type: 'invalidate'; topics: LiveTopic[]; at: IsoDate }
+  | ({ type: 'notice' } & LiveNotice)
+  /** `revoked`/`expired` — serwer zaraz zamyka kanał kodem 4401 */
+  | { type: 'session'; event: LiveSessionEvent }
+  /** same NOWE linie (bez powtórek), rosnąco po czasie */
+  | { type: 'logs'; subscriptionId: string; lines: RailwayLogLine[] }
+  /** `subscriptionId` — przy błędzie konkretnej subskrypcji logów */
+  | {
+      type: 'error';
+      code: LiveErrorCode;
+      message: string;
+      subscriptionId?: string;
+    }
+  | { type: 'pong' };
+
+export type LiveClientMessage =
+  /** co 25 s; serwer odpowiada `pong` */
+  | { type: 'ping' }
+  /**
+   * Uprawnienie `ops.logs`. Serwer co 5 s dosyła nowe linie; max 2 na
+   * połączenie; ponowne `logs.subscribe` z tym samym `subscriptionId`
+   * odświeża subskrypcję (wygasa po 15 min bez odświeżenia).
+   * `subscriptionId`: 1–64 znaki `[A-Za-z0-9_-]`.
+   */
+  | {
+      type: 'logs.subscribe';
+      subscriptionId: string;
+      serviceId: string;
+      deploymentId?: string;
+      kind: 'deploy' | 'build';
+    }
+  | { type: 'logs.unsubscribe'; subscriptionId: string };
+
+/**
+ * Kody zamknięcia kanału (poza standardowymi 1000/1001/1006/1012):
+ * 4401 — sesja odwołana / wygasła / bezczynna (ekran logowania, bez ponawiania),
+ * 4400 — powtarzające się złe wiadomości, 4429 — limit połączeń sesji
+ * (zamknięte najstarsze), 1012 — restart serwera (połącz ponownie).
+ */
+export type LiveCloseCode = 4400 | 4401 | 4429;

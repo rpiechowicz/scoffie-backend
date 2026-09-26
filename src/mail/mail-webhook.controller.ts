@@ -13,6 +13,7 @@ import type { RawBodyRequest } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { emitLive } from '../common/live-events';
 import { OpsAlertService } from '../observability/ops-alert.service';
 import { readMailEnv } from './mail-env';
 import { isAppleRelay, normalizeEmail } from './mail-eligibility';
@@ -116,6 +117,7 @@ export class MailWebhookController {
         update: {},
       });
       this.logger.log(`wykluczony adres (${outcome.reason})`);
+      emitLive({ topics: ['mail'] });
 
       if (isAppleRelay(email)) {
         // Aliasy Apple odbijają się WSZYSTKIE naraz, gdy domena nadawcza
@@ -141,6 +143,7 @@ export class MailWebhookController {
           ),
         },
       });
+      emitLive({ topics: ['mail'] });
     }
   }
 }

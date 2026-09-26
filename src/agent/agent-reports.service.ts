@@ -2,6 +2,7 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AppException } from '../common/app-exception';
 import { assertUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
+import { emitLive } from '../common/live-events';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportMessageDto } from './dto/report-message.dto';
 
@@ -17,6 +18,13 @@ const SNAPSHOT_LIMIT = 4000;
  * a zgłoszenie bez treści nie da się rozpatrzyć. Do logów idą tylko
  * identyfikatory i powód — nie treść.
  */
+const REPORT_REASON_LABELS: Record<string, string> = {
+  WRONG: 'Powód: błąd merytoryczny',
+  UNSAFE: 'Powód: szkodliwa dla zdrowia',
+  OFFENSIVE: 'Powód: obraźliwa lub nie na temat',
+  OTHER: 'Powód: inny',
+};
+
 @Injectable()
 export class AgentReportsService {
   private readonly logger = new Logger(AgentReportsService.name);
@@ -65,6 +73,18 @@ export class AgentReportsService {
     this.logger.warn(
       `zgłoszenie odpowiedzi asystenta: report=${report.id} message=${message.id} turn=${message.turnId ?? '-'} powód=${dto.reason}`,
     );
+    // Panel: badge zgłoszeń + powiadomienie. Sam powód — bez treści
+    // odpowiedzi i komentarza (te panel pobierze REST-em).
+    emitLive({
+      topics: ['reports'],
+      notice: {
+        level: dto.reason === 'UNSAFE' ? 'error' : 'warning',
+        title: 'Nowe zgłoszenie odpowiedzi asystenta',
+        body: REPORT_REASON_LABELS[dto.reason] ?? dto.reason,
+        link: '/reports',
+        topic: 'reports',
+      },
+    });
     return { id: report.id, createdAt: report.createdAt.toISOString() };
   }
 }

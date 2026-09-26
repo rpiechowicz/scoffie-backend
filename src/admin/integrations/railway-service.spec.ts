@@ -1,4 +1,5 @@
 import {
+  fetchRailwayLogLinesSince,
   fetchRailwayLogs,
   fetchRailwayService,
   groupByStatusClass,
@@ -377,5 +378,69 @@ describe('groupByStatusClass', () => {
       { ts: 1, ok: 0, redirect: 0, clientError: 3, serverError: 0 },
       { ts: 2, ok: 5, redirect: 1, clientError: 1, serverError: 0 },
     ]);
+  });
+});
+
+describe('fetchRailwayLogLinesSince (kanał na żywo)', () => {
+  const since = new Date('2026-09-25T10:00:00.000Z');
+
+  it('pyta o linie od chwili `startDate`, rosnąco', async () => {
+    const { impl, bodies } = fakeRailway(() => ({
+      data: {
+        logs: [
+          {
+            timestamp: '2026-09-25T10:00:02Z',
+            severity: 'ERROR',
+            message: 'b',
+          },
+          { timestamp: '2026-09-25T10:00:01Z', severity: null, message: 'a' },
+        ],
+      },
+    }));
+    const lines = await fetchRailwayLogLinesSince(
+      'tok',
+      'd1',
+      'deploy',
+      since,
+      impl,
+    );
+    expect(lines.map((l) => l.message)).toEqual(['a', 'b']);
+    expect(lines[1].severity).toBe('error');
+    expect(bodies[0].query).toContain('deploymentLogs(');
+    expect(bodies[0].query).toContain('startDate: $start');
+    expect(bodies[0].variables).toMatchObject({
+      id: 'd1',
+      start: since.toISOString(),
+    });
+  });
+
+  it('Railway odrzuca `startDate` → ostatnie linie bez filtra czasu', async () => {
+    const { impl, bodies } = fakeRailway((b) =>
+      b.query.includes('startDate')
+        ? { errors: [{ message: 'Unknown argument "startDate"' }] }
+        : {
+            data: {
+              logs: [{ timestamp: 't', severity: 'info', message: 'x' }],
+            },
+          },
+    );
+    const lines = await fetchRailwayLogLinesSince(
+      'tok',
+      'd1',
+      'build',
+      since,
+      impl,
+    );
+    expect(lines).toHaveLength(1);
+    expect(bodies[1].query).toContain('buildLogs(');
+  });
+
+  it('inny błąd Railwaya leci dalej', async () => {
+    const { impl } = fakeRailway(() => ({
+      errors: [{ message: 'Not Authorized' }],
+    }));
+    await expect(
+      fetchRailwayLogLinesSince('tok', 'd1', 'deploy', since, impl),
+    ).rejects.toThrow(/Not Authorized/);
   });
 });

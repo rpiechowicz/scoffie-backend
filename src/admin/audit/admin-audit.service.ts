@@ -2,6 +2,7 @@ import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
 import { PrismaService } from '../../prisma/prisma.service';
+import { emitLive, type LiveTopic } from '../../common/live-events';
 import type { AdminAccessContext } from '../admin-request';
 import { AdminAuthException } from '../auth/admin-auth.errors';
 import type { ResolvedAdminSession } from '../auth/admin-sessions.service';
@@ -89,6 +90,7 @@ export class AdminAuditService {
         result: 'FAILED',
         errorCode: auditErrorCode(error),
       });
+      emitLive({ topics: ['audit'] });
       throw error;
     }
     const outcome = summarize?.(result) ?? null;
@@ -98,6 +100,7 @@ export class AdminAuditService {
         ? { details: asJson({ ...(entry.details ?? {}), ...outcome }) }
         : {}),
     });
+    emitLive({ topics: ['audit', ...auditLiveTopics(entry.action)] });
     return result;
   }
 
@@ -116,6 +119,12 @@ export class AdminAuditService {
         errorCode: entry.errorCode ?? null,
         finishedAt: new Date(),
       },
+    });
+    emitLive({
+      topics: [
+        'audit',
+        ...(entry.result === 'SUCCESS' ? auditLiveTopics(entry.action) : []),
+      ],
     });
   }
 
@@ -158,4 +167,33 @@ export class AdminAuditService {
       );
     }
   }
+}
+
+/**
+ * Tematy kanału na żywo, których dane zmienia udana akcja panelu — po
+ * przedrostku nazwy akcji. Każda akcja z `run` przechodzi tędy, więc nowy
+ * ekran z nową akcją dostaje sygnał bez szukania punktów emisji; brak
+ * dopasowania = sam `audit`.
+ */
+const AUDIT_TOPIC_PREFIXES: readonly [string, readonly LiveTopic[]][] = [
+  ['settings.', ['settings']],
+  ['flags.', ['settings']],
+  ['announcements.', ['settings']],
+  ['gdpr.', ['gdpr']],
+  ['user.delete', ['users', 'households', 'dashboard']],
+  ['user.logout-everywhere', ['users']],
+  ['household.', ['households', 'assistant', 'subscriptions']],
+  ['mail.', ['mail']],
+  ['alert.', ['alerts']],
+  ['report.', ['reports']],
+  ['subscription.', ['subscriptions']],
+  ['recipe.', []],
+  ['auth.', ['admin-sessions']],
+];
+
+export function auditLiveTopics(action: string): LiveTopic[] {
+  for (const [prefix, topics] of AUDIT_TOPIC_PREFIXES) {
+    if (action.startsWith(prefix)) return [...topics];
+  }
+  return [];
 }

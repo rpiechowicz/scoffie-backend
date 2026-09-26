@@ -111,6 +111,9 @@ importers:
       swagger-ui-express:
         specifier: ^5.0.1
         version: 5.0.1(express@5.2.1)
+      ws:
+        specifier: '>=8.21.0'
+        version: 8.21.3
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0
@@ -139,6 +142,9 @@ importers:
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.3
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
