@@ -27,6 +27,13 @@ export const STUB_TOOL_MARKER = '[[tool]]';
  * przechodzi całą ścieżkę propozycji — narzędzie, kartę, wiadomość z `kind`
  * i przypięcie `messageId` — bez ani jednego wywołania modelu.
  */
+/**
+ * Wymusza KOSZT tury: `[[cost:<mikrodolary>]]`. Bez tego stub kosztował
+ * zawsze zero, więc e2e nie miało jak sprawdzić, czy wydane pieniądze
+ * przeżywają anulowanie, timeout i restart (workstream, Etap 1).
+ */
+export const STUB_COST_PATTERN = /\[\[cost:(\d{1,9})\]\]/;
+
 export const STUB_PROPOSE_PATTERN =
   /\[\[propose:([0-9a-fA-F-]{36}):(\d{4}-\d{2}-\d{2})\]\]/;
 
@@ -51,7 +58,12 @@ export class StubAgentProvider implements AgentProvider {
       [...request.messages].reverse().find((m) => m.role === 'USER')?.text ??
       '';
 
-    await this.delay(readAgentEnv().stubDelayMs, request.signal);
+    // `[[cost:N]]` = pierwsze wywołanie modelu JUŻ się odbyło i kosztowało N,
+    // a opóźnienie to dalsza część tury (narzędzie, kolejna runda). Przerwanie
+    // w opóźnieniu niesie więc zużycie — dokładnie jak u prawdziwego dostawcy.
+    const cost = Number(STUB_COST_PATTERN.exec(lastUserText)?.[1] ?? 0);
+    const spent = cost > 0 ? this.usageOf(cost) : undefined;
+    await this.delay(readAgentEnv().stubDelayMs, request.signal, spent);
 
     if (lastUserText.includes(STUB_UPSTREAM_ERROR_MARKER)) {
       throw new AgentProviderError('stub: symulowany błąd dostawcy', true, 503);
@@ -86,7 +98,7 @@ export class StubAgentProvider implements AgentProvider {
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       outputTokens: text.length,
-      costMicroUsd: 0,
+      costMicroUsd: cost,
     };
     return {
       text,
@@ -106,7 +118,21 @@ export class StubAgentProvider implements AgentProvider {
     };
   }
 
-  private delay(ms: number, signal: AbortSignal): Promise<void> {
+  private usageOf(costMicroUsd: number) {
+    return {
+      inputTokens: 1,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: 1,
+      costMicroUsd,
+    };
+  }
+
+  private delay(
+    ms: number,
+    signal: AbortSignal,
+    spent?: ReturnType<StubAgentProvider['usageOf']>,
+  ): Promise<void> {
     if (ms <= 0) return Promise.resolve();
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -115,7 +141,15 @@ export class StubAgentProvider implements AgentProvider {
       }, ms);
       const onAbort = () => {
         clearTimeout(timer);
-        reject(new AgentProviderError('stub: tura przerwana', true));
+        reject(
+          new AgentProviderError(
+            'stub: tura przerwana',
+            true,
+            undefined,
+            spent,
+            spent ? 1 : undefined,
+          ),
+        );
       };
       if (signal.aborted) {
         onAbort();
