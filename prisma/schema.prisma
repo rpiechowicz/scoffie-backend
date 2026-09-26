@@ -42,7 +42,13 @@ model User {
   // dwie osoby w jednym gospodarstwie potrafiłyby wylosować to samo.
   avatarColor           Int?
   onboardingCompletedAt DateTime?
+  /// Ostatnie PEŁNE logowanie (Apple/Google/e-mail). Aplikacja potem po cichu
+  /// odnawia sesję refresh tokenem, więc to NIE jest „ostatnio w aplikacji”.
   lastLoginAt           DateTime?
+  /// Ostatnio w aplikacji: ostatnie uwierzytelnione żądanie REST albo
+  /// połączenie socketu (`UserActivityService`), zapisywane najwyżej raz na
+  /// 5 minut na osobę. To pokazuje panel jako „ostatnio w aplikacji”.
+  lastSeenAt            DateTime?
   /// Wersja tokenów dostępu. Podbicie unieważnia WSZYSTKIE wydane JWT tej
   /// osoby (wykrycie ponownego użycia refresh tokenu, wylogowanie zewsząd) —
   /// bez tego skradziony token dostępu żył do końca swojego TTL.
@@ -82,8 +88,9 @@ model User {
   gdprRequests       GdprRequest[]
 
   @@index([identityHash])
-  /// Panel: „zalogowani dziś” na pulpicie i sortowanie listy osób i domów.
   @@index([lastLoginAt])
+  /// Panel: sortowanie listy osób i domów po „ostatnio w aplikacji”.
+  @@index([lastSeenAt])
   /// Panel: kohorty rejestracji (lejek, retencja — ekran „Wzrost”).
   @@index([createdAt])
 }

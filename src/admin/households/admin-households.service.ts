@@ -46,6 +46,7 @@ const MEMBERSHIP_SELECT = {
       displayName: true,
       avatarColor: true,
       lastLoginAt: true,
+      lastSeenAt: true,
       identityHash: true,
       appleSub: true,
       googleId: true,
@@ -181,8 +182,9 @@ export class AdminHouseholdsService {
       const total = await tx.household.count({
         where: { id: { not: catalog } },
       });
-      // Kolejność liczy baza: „najnowsza aktywność" to najpóźniejsze
-      // logowanie któregokolwiek domownika. Sortowanie w pamięci po `take`
+      // Kolejność liczy baza: „najnowsza aktywność" to najpóźniejsza obecność
+      // w aplikacji któregokolwiek domownika (`lastSeenAt`, nie pełne
+      // logowanie — sesja odnawia się po cichu). Sortowanie w pamięci po `take`
       // pokazywałoby przy >1000 domów przypadkowy tysiąc, nie najświeższy.
       const order = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
         SELECT h.id
@@ -191,7 +193,7 @@ export class AdminHouseholdsService {
         LEFT JOIN "User" u ON u.id = m."userId"
         WHERE h.id <> ${catalog}::uuid
         GROUP BY h.id
-        ORDER BY MAX(u."lastLoginAt") DESC NULLS LAST, h."createdAt" DESC, h.id
+        ORDER BY MAX(u."lastSeenAt") DESC NULLS LAST, h."createdAt" DESC, h.id
         LIMIT ${HOUSEHOLDS_LIST_LIMIT}
       `);
       const ids = order.map((row) => row.id);
@@ -488,6 +490,9 @@ export class AdminHouseholdsService {
       cookidoo: cookidooStatus(row.cookidooIntegration?.status),
       lastLoginAt: iso(
         latest(members.map((membership) => membership.user.lastLoginAt)),
+      ),
+      lastSeenAt: iso(
+        latest(members.map((membership) => membership.user.lastSeenAt)),
       ),
       createdAt: row.createdAt.toISOString(),
     };

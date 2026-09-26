@@ -92,6 +92,8 @@ describe('Panel — gospodarstwa (/admin/households)', () => {
         appleSub,
         identityHash: hash,
         lastLoginAt: options.lastLoginAt ?? null,
+        // Lista domów sortuje po „ostatnio w aplikacji”; w teście oba razem.
+        lastSeenAt: options.lastLoginAt ?? null,
         avatarColor: options.avatarColor ?? null,
       },
       select: { id: true },
