@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { anthropicBalanceAlerts } from '../alerts/alert-rules';
 import { AdminAnthropicService } from './admin-anthropic.service';
+import { IntegrationCache } from '../integrations/integration-fetch';
 import {
   AdminAnthropicAnchorDto,
   AdminAnthropicSettingsDto,
@@ -475,5 +476,96 @@ describe('AdminAnthropicService', () => {
     const b = await service.billing(NOW, fetchImpl as never);
     expect(b.error).toContain('HTTP 401');
     expect(b.daily).toHaveLength(31);
+  });
+
+  describe('chwilowa przerwa Anthropic — ostatni udany odczyt', () => {
+    const okFetch = () =>
+      jest.fn().mockImplementation((url: string) =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify(
+              url.includes('cost_report')
+                ? {
+                    data: [
+                      {
+                        starting_at: '2026-09-25T00:00:00Z',
+                        ending_at: '2026-09-26T00:00:00Z',
+                        results: [
+                          {
+                            amount: '1234',
+                            model: 'claude-sonnet-5',
+                            description: 'x',
+                          },
+                        ],
+                      },
+                    ],
+                    has_more: false,
+                    next_page: null,
+                  }
+                : { data: [], has_more: false, next_page: null },
+            ),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        ),
+      );
+    const withClock = (
+      service: AdminAnthropicService,
+      clock: { t: number },
+    ) => {
+      (service as unknown as { cache: IntegrationCache }).cache =
+        new IntegrationCache(() => clock.t);
+      return service;
+    };
+
+    it('timeout po udanym odczycie — stare dane, stale:true, fetchedAt z tamtego odczytu', async () => {
+      process.env.ANTHROPIC_ADMIN_KEY = 'sk-ant-admin01-test';
+      const clock = { t: 0 };
+      const service = withClock(
+        new AdminAnthropicService(prisma as never, {} as never),
+        clock,
+      );
+      const good = await service.billing(NOW, okFetch() as never);
+      expect(good).toMatchObject({ stale: false, error: null });
+      expect(good.spend.yesterdayUsd).toBeGreaterThan(0);
+
+      clock.t = 6 * 60_000;
+      const down = jest.fn().mockRejectedValue(new TypeError('fetch failed'));
+      const b = await service.billing(NOW, down as never);
+      expect(b.stale).toBe(true);
+      expect(b.error).toContain('nie odpowiada');
+      expect(b.fetchedAt).toBe(good.fetchedAt);
+      expect(b.spend.yesterdayUsd).toBe(good.spend.yesterdayUsd);
+    });
+
+    it('401 po udanym odczycie — bez starych danych (zły klucz to nie przerwa)', async () => {
+      process.env.ANTHROPIC_ADMIN_KEY = 'sk-ant-admin01-test';
+      const clock = { t: 0 };
+      const service = withClock(
+        new AdminAnthropicService(prisma as never, {} as never),
+        clock,
+      );
+      await service.billing(NOW, okFetch() as never);
+      clock.t = 6 * 60_000;
+      const rejected = jest
+        .fn()
+        .mockImplementation(() =>
+          Promise.resolve(new Response('{}', { status: 401 })),
+        );
+      const b = await service.billing(NOW, rejected as never);
+      expect(b.stale).toBe(false);
+      expect(b.error).toContain('HTTP 401');
+      expect(b.spend.yesterdayUsd).toBe(0);
+    });
+
+    it('przerwa bez wcześniejszego odczytu — zera i stale:false', async () => {
+      process.env.ANTHROPIC_ADMIN_KEY = 'sk-ant-admin01-test';
+      const service = new AdminAnthropicService(prisma as never, {} as never);
+      const b = await service.billing(
+        NOW,
+        jest.fn().mockRejectedValue(new TypeError('x')) as never,
+      );
+      expect(b).toMatchObject({ stale: false });
+      expect(b.error).toContain('nie odpowiada');
+    });
   });
 });

@@ -36,6 +36,11 @@ import {
 } from './railway-service.client';
 import { fetchRailway } from './railway.client';
 import { fetchSentry } from './sentry.client';
+import { SentrySnapshotService } from './sentry-snapshot.service';
+import { emitLive } from '../../common/live-events';
+
+/** Odświeżenie w tle przyniosło inne dane — panel dociąga ekran „System”. */
+const refreshed = () => emitLive({ topics: ['ops'] });
 
 /** Panel odświeża „System” co minutę; ASC zmienia się rzadko, a limit ma niski. */
 const OPS_TTL_MS = 60_000;
@@ -55,6 +60,7 @@ export class AdminIntegrationsService {
   constructor(
     private readonly audit: AdminAuditService,
     private readonly deploys: DeployTrackerService,
+    private readonly sentrySnapshot: SentrySnapshotService,
   ) {
     // Stan wdrożeń zmienił się (webhook, śledzenie budowy) — następny odczyt
     // „System” i stron usług idzie po świeże dane, a nie z pamięci na minutę.
@@ -64,6 +70,12 @@ export class AdminIntegrationsService {
     });
   }
 
+  /**
+   * Stabilność: ostatni znany stan od razu (stale-while-revalidate), świeży
+   * w tle; pusty klucz po starcie procesu zasiewa ostatni odczyt z przebiegu
+   * alertów. Gdy świeży odczyt różni się od podanego — sygnał `ops`, panel
+   * dociąga sam. `fetchedAt` zawsze mówi, z kiedy są dane.
+   */
   async ops(): Promise<OpsData> {
     const sentryEnv = readSentryEnv();
     const railwayToken = readRailwayToken();
@@ -71,10 +83,35 @@ export class AdminIntegrationsService {
     const [sentry, railway] = await Promise.all([
       missing.length > 0
         ? { status: 'off' as const, missing }
-        : this.cache.get('sentry', OPS_TTL_MS, () => fetchSentry(sentryEnv)),
+        : this.cache.getOrStale(
+            'sentry',
+            OPS_TTL_MS,
+            () => fetchSentry(sentryEnv),
+            {
+              seed: this.sentrySnapshot.last(),
+              onRefresh: (next) => {
+                if (next.status === 'ok')
+                  this.sentrySnapshot.remember(
+                    next.data,
+                    Date.parse(next.fetchedAt),
+                  );
+                refreshed();
+              },
+            },
+          ),
       railwayToken
-        ? this.cache.get('railway', OPS_TTL_MS, () =>
-            fetchRailway(railwayToken),
+        ? this.cache.getOrStale(
+            'railway',
+            OPS_TTL_MS,
+            () => fetchRailway(railwayToken),
+            {
+              seed: this.deploys.fullSnapshot(),
+              onRefresh: (next) => {
+                if (next.status === 'ok')
+                  this.deploys.remember(next.data, Date.parse(next.fetchedAt));
+                refreshed();
+              },
+            },
           )
         : { status: 'off' as const, missing: ['ADMIN_RAILWAY_TOKEN'] },
     ]);
@@ -198,10 +235,12 @@ export class AdminIntegrationsService {
     if (!token) {
       return { status: 'off', missing: ['ADMIN_RAILWAY_TOKEN'] };
     }
-    const state = await this.cache.get(
+    // Jak „System”: ostatni odczyt strony usługi od razu, świeży w tle.
+    const state = await this.cache.getOrStale(
       `railway:${id}:${range}`,
       SERVICE_TTL_MS,
       () => fetchRailwayService(token, id, range),
+      { onRefresh: refreshed },
     );
     if (
       state.status === 'ok' &&

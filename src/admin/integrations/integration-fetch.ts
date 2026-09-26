@@ -71,7 +71,17 @@ export function normalizePrivateKey(raw: string | undefined): string {
 
 const MAX_CACHE_ENTRIES = 500;
 
-type CacheEntry = { at: number; value: Promise<IntegrationState<unknown>> };
+type CacheEntry = {
+  at: number;
+  value: Promise<IntegrationState<unknown>>;
+  /** wynik po rozstrzygnięciu obietnicy — do trybu „ostatni znany stan” */
+  settled?: IntegrationState<unknown>;
+  /** trwa odświeżanie w tle (najwyżej jedno na klucz) */
+  refreshing?: boolean;
+};
+
+/** Pełny odczyt spoza pamięci (np. przebieg alertów) — do zasiania pustego klucza. */
+export type IntegrationSeed<T> = { data: T; at: number } | null | undefined;
 
 /**
  * Pamięć odpowiedzi na kilkadziesiąt sekund: panel odświeża się co minutę,
@@ -97,6 +107,74 @@ export class IntegrationCache {
       return hit.value as Promise<IntegrationState<T>>;
     }
     const value = toState(load);
+    this.put(key, { at: this.now(), value });
+    return value;
+  }
+
+  /**
+   * Ostatni znany stan (stale-while-revalidate): przeterminowany, ale udany
+   * odczyt wraca od razu, a świeży pobiera się w tle — najwyżej jeden naraz
+   * na klucz. Nieudane odświeżenie zostawia stary odczyt (`fetchedAt` dalej
+   * mówi, z kiedy jest) i następna próba idzie dopiero po `ttlMs`. Pusty klucz
+   * można zasiać odczytem spoza pamięci (`seed`); bez niego — czekamy jak
+   * w `get`. `onRefresh` — tylko gdy odświeżenie w tle przyniosło inne dane.
+   */
+  getOrStale<T>(
+    key: string,
+    ttlMs: number,
+    load: () => Promise<T>,
+    options: {
+      seed?: IntegrationSeed<T>;
+      onRefresh?: (next: IntegrationState<T>) => void;
+    } = {},
+  ): Promise<IntegrationState<T>> {
+    let hit = this.entries.get(key);
+    if (!hit && options.seed) {
+      const state: IntegrationState<T> = {
+        status: 'ok',
+        data: options.seed.data,
+        fetchedAt: new Date(options.seed.at).toISOString(),
+      };
+      hit = {
+        at: options.seed.at,
+        value: Promise.resolve(state),
+        settled: state,
+      };
+      this.put(key, hit);
+    }
+    if (!hit) return this.get(key, ttlMs, load);
+    if (this.now() - hit.at < ttlMs) {
+      return hit.value as Promise<IntegrationState<T>>;
+    }
+    // W toku pierwsze pobranie — czekamy na nie; poprzedni błąd — pytamy od nowa.
+    if (!hit.settled) return hit.value as Promise<IntegrationState<T>>;
+    if (hit.settled.status !== 'ok') return this.get(key, ttlMs, load);
+    const entry = hit;
+    if (!entry.refreshing) {
+      entry.refreshing = true;
+      const previous = entry.settled as IntegrationState<T> & { status: 'ok' };
+      void toState(load).then((next) => {
+        entry.refreshing = false;
+        if (this.entries.get(key) !== entry) return;
+        if (next.status !== 'ok') {
+          // Dostawca nie odpowiada — stary odczyt zostaje, próba za `ttlMs`.
+          entry.at = this.now();
+          return;
+        }
+        this.put(key, {
+          at: this.now(),
+          value: Promise.resolve(next),
+          settled: next,
+        });
+        if (JSON.stringify(next.data) !== JSON.stringify(previous.data)) {
+          options.onRefresh?.(next);
+        }
+      });
+    }
+    return entry.value as Promise<IntegrationState<T>>;
+  }
+
+  private put(key: string, entry: CacheEntry): void {
     // Klucze per osoba (błędy Sentry na karcie) rosną z każdą otwartą
     // kartą — powyżej sufitu wypada najstarszy wpis (Map trzyma kolejność).
     this.entries.delete(key);
@@ -104,8 +182,12 @@ export class IntegrationCache {
       const [oldest] = this.entries.keys();
       if (oldest !== undefined) this.entries.delete(oldest);
     }
-    this.entries.set(key, { at: this.now(), value });
-    return value;
+    if (!entry.settled) {
+      void entry.value.then((state) => {
+        entry.settled = state;
+      });
+    }
+    this.entries.set(key, entry);
   }
 
   /** Po zapisie u dostawcy — następny odczyt idzie po świeże dane. */

@@ -28,6 +28,7 @@ import {
 } from '../integrations/deploy-tracker.service';
 import { fetchResendDomains } from '../integrations/resend-domains.client';
 import { fetchSentry } from '../integrations/sentry.client';
+import { SentrySnapshotService } from '../integrations/sentry-snapshot.service';
 import { AdminAnthropicService } from '../anthropic/admin-anthropic.service';
 import { readAnthropicAdminKey } from '../anthropic/anthropic-billing.client';
 import {
@@ -95,6 +96,7 @@ export class AdminWatchService
     private readonly outbox: MailOutboxService,
     private readonly ops: OpsAlertService,
     private readonly deploys: DeployTrackerService,
+    private readonly sentrySnapshot: SentrySnapshotService,
     private readonly anthropic: AdminAnthropicService,
   ) {}
 
@@ -181,6 +183,8 @@ export class AdminWatchService
     if (missingSentry(sentryEnv).length === 0) {
       await attempt('Sentry', async () => {
         const sentry = await fetchSentry(sentryEnv);
+        // Ekran „System” po starcie procesu nie czeka na Sentry.
+        this.sentrySnapshot.remember(sentry);
         return [
           { kind: 'crash-free', problems: crashFreeAlerts(sentry) },
           { kind: 'sentry-fatal', problems: sentryFatalAlerts(sentry, now) },
