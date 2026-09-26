@@ -23,8 +23,9 @@ blokowania oczywistych napraw poprawności lub bezpieczeństwa.
       benchmark statystyczny.
 
 ### Kryterium zakończenia
-Mamy reprodukowalny baseline albo raport jasno mówi, że płatny przebieg nie
-został zatwierdzony. Raport: `reports/00-baseline.md`.
+Mamy reprodukowalny harness i lokalny baseline. Płatny live benchmark może być
+świadomie odłożony do Etapu 6. Anchor porównawczy dla stanu „przed”:
+`22aa63c`. Raport: `reports/00-baseline.md`.
 
 ---
 
@@ -276,19 +277,33 @@ podwaja zapisu planu i nie gubi znanego kosztu. Raport:
 
 ---
 
-## Etap 6 — dobór modelu i routingu
+## Etap 6 — końcowy benchmark, dobór modelu i routing
 
 ### Cel
-Wybrać modele dopiero dla uproszczonego, stabilnego przepływu server-first.
+Najpierw zmierzyć finalny przepływ server-first i porównać go z zamrożonym
+stanem „przed”, a następnie dobrać model/routing dla ustabilizowanej architektury.
 
-### Dataset
+### 6A — końcowy benchmark przed/po
+- [ ] Uruchomić ten sam reprezentatywny zestaw scenariuszy na anchorze `22aa63c`
+      i na finalnym HEAD.
+- [ ] Oba przebiegi wykonać możliwie tego samego dnia, na tym samym modelu,
+      effort, ustawieniach kart, katalogu i środowisku.
+- [ ] Preferować `concurrency=1` dla porównania latency/kosztu.
+- [ ] Zachować surowe JSON-y obu przebiegów.
+- [ ] Porównać koszt poprawnie zakończonego zadania, latency, rundy, tokeny,
+      tool calls, stop reasons i correctness.
+- [ ] Stare pomiary digest traktować jako historyczny kontekst, nie jako jedyne
+      źródło „przed”.
+
+### 6B — dataset do oceny modeli
+
 - [ ] 20–30 reprezentatywnych rozmów z własnych scenariuszy Scoffie.
 - [ ] Zawierać: prostą sugestię, plan dnia, plan tygodnia, modyfikację jednej
       pozycji, niejasne wymaganie, konflikt ograniczeń, pytanie o bilans,
       kontynuację po karcie.
 - [ ] Dla części przypadków mieć automatyczne asercje, nie tylko ocenę opisową.
 
-### Metryki
+### 6C — metryki modeli
 - koszt poprawnie zakończonego zadania,
 - czas p50/p95,
 - liczba rund,
@@ -298,7 +313,7 @@ Wybrać modele dopiero dla uproszczonego, stabilnego przepływu server-first.
 - poprawność modyfikacji częściowej,
 - jakość języka jako osobna metryka.
 
-### Strategia
+### 6D — strategia routingu
 - Jeden „asystent” produktowo nie musi oznaczać jednego modelu technicznie.
 - Najpierw sprawdzić prosty routing po typie zadania/ryzyku.
 - Operacje deterministyczne nadal mają być bez LLM.
