@@ -207,12 +207,12 @@ export class AgentCatalogService {
     try {
       const [recipes, ingredients] = await Promise.all([
         this.prisma.recipe.aggregate({
-          where: { householdId },
+          where: { householdId, isCatalog: true },
           _count: { _all: true },
           _max: { updatedAt: true },
         }),
         this.prisma.recipeIngredient.aggregate({
-          where: { recipe: { householdId } },
+          where: { recipe: { householdId, isCatalog: true } },
           _max: { updatedAt: true },
         }),
       ]);
@@ -229,8 +229,11 @@ export class AgentCatalogService {
   private async build(householdId: string): Promise<CatalogSnapshot> {
     // Ta sama kolejność co `loadDigestRecipes` (tytuł, id) — numeracja
     // `R007` musi być identyczna niezależnie od tego, kto ją liczy.
+    // `isCatalog: true` JAWNIE, nie sam właściciel: prywatny przepis konta
+    // katalogowego (`isCatalog: false`) nie jest katalogiem i nie ma prawa
+    // dostać numeru `R…` ani wyjść w wyszukiwarce obcemu domowi.
     const rows = (await this.prisma.recipe.findMany({
-      where: { householdId, isActive: true },
+      where: { householdId, isCatalog: true, isActive: true },
       orderBy: [{ title: 'asc' }, { id: 'asc' }],
       select: RECIPE_SELECT,
     })) as unknown as LoadedRow[];
@@ -283,9 +286,9 @@ export class AgentCatalogService {
   ): Promise<AgentSearchResult> {
     const snapshot = await this.snapshot();
     const [own, { audience, applied }, signals] = await Promise.all([
-      context.householdId === catalogHouseholdId()
-        ? Promise.resolve([] as SearchableRecipe[])
-        : this.householdRecipes(context.householdId),
+      // Także dla konta katalogowego: jego prywatne przepisy nie są w
+      // indeksie, więc przychodzą tędy — jako własne, z id zamiast `R…`.
+      this.householdRecipes(context.householdId),
       this.audience(context),
       this.signals(context, snapshot),
     ]);
