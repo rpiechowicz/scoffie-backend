@@ -25,10 +25,10 @@ describe('planMeals — dzień', () => {
     const draft = planMeals(request(), catalog());
     expect(draft.status).toBe('OK');
     expect(draft.items).toHaveLength(3);
-    // Śniadanie + obiad + kolacja pokrywają 80 % celu 2000 kcal.
+    // Pełny dzień (pory domu) = 100 % celu 2000 kcal — tak, jak porównuje
+    // aplikacja (`WeeklyPlanView` × `DailyNutritionTargets`), nie 80 %.
     const [day] = draft.diagnostics.days;
-    expect(day.coverage).toBe(0.8);
-    expect(day.eaters[0].kcalTarget).toBe(1600);
+    expect(day.eaters[0].kcalTarget).toBe(2000);
     expect(Math.abs(day.eaters[0].kcalDeviation)).toBeLessThanOrEqual(
       KCAL_DAY_TOLERANCE,
     );
@@ -336,6 +336,45 @@ describe('planMeals — tydzień', () => {
     );
     expect(draft.items.map((item) => item.recipeId)).toEqual(['only']);
     expect(draft.diagnostics.metrics.softUnmet).toBe(2);
+  });
+});
+
+/**
+ * Review Etapu 2: cel osoby nie może zależeć od posiłku, którego ona NIE je.
+ * `eaterDayNutrition` szanuje `visibleToMember`, a cel liczył pokrycie ze
+ * WSZYSTKICH pór stałych pozycji dnia — także osobistego obiadu Marka.
+ */
+describe('cel osoby a pozycje innych domowników', () => {
+  it('osobisty obiad Marka NIE zmienia celu Ani, dla której planujemy kolację', () => {
+    const recipes = catalog();
+    const members = [eater('ania'), eater('marek')];
+    const plan = (fixed: PlannedItem[]) =>
+      planMeals(
+        request({
+          members,
+          participantIds: ['ania'],
+          mealTypes: ['DINNER'],
+          fixed,
+        }),
+        recipes,
+      );
+    const anja = (draft: ReturnType<typeof planMeals>) =>
+      draft.diagnostics.days[0].eaters.find((entry) => entry.userId === 'ania')!;
+
+    const without = anja(plan([]));
+    const withMarkLunch = anja(
+      plan([
+        {
+          dayOfWeek: 'MON',
+          mealType: 'LUNCH',
+          recipeId: 'lunch-010',
+          participantIds: ['marek'],
+          plannedServings: 1,
+        },
+      ]),
+    );
+    expect(withMarkLunch.kcalTarget).toBe(without.kcalTarget);
+    expect(withMarkLunch.kcal).toBe(without.kcal);
   });
 });
 

@@ -9,8 +9,8 @@
 |---|---|---|
 | 0. Baseline | **DONE** — harness i lokalny baseline gotowe; płatny live benchmark świadomie odłożony na finał | `reports/00-baseline.md` |
 | 1. Poprawność, stan, koszty | **DONE** — po review + addendum (klucz idempotencji księgi) | `reports/01-correctness-state-costs.md` |
-| 2. Server-side planner | **DONE** — czeka na review; decyzja o porcjach per osoba (raport 02, §9) | `reports/02-server-side-planner.md` |
-| 3. Odchudzenie agenta | **READY** (start dopiero po akceptacji Etapu 2) | `reports/03-agent-thinning.md` |
+| 2. Server-side planner | **PARTIAL** — review: błędy semantyki celu kcal (80 % dnia, cel z posiłku innej osoby); poprawka w toku | `reports/02-server-side-planner.md` |
+| 3. Odchudzenie agenta | WAITING | `reports/03-agent-thinning.md` |
 | 4. Katalog / DB / API | WAITING | `reports/04-catalog-db-api-scale.md` |
 | 5. Trwałe tury | WAITING | `reports/05-durable-turns.md` |
 | 6. Modele / routing | WAITING | `reports/06-model-evaluation.md` |
