@@ -9188,6 +9188,11 @@
                 "format": "date-time",
                 "nullable": true
               },
+              "lastSeenAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
               "createdAt": { "type": "string", "format": "date-time" },
               "updatedAt": { "type": "string", "format": "date-time" }
             },
@@ -9201,6 +9206,7 @@
               "heightCm",
               "id",
               "lastLoginAt",
+              "lastSeenAt",
               "onboardingCompletedAt",
               "sex",
               "updatedAt",
@@ -9700,11 +9706,11 @@
               "type": "object",
               "properties": {
                 "platform": { "type": "string", "enum": ["IOS"] },
+                "lastSeenAt": { "type": "string", "format": "date-time" },
                 "createdAt": { "type": "string", "format": "date-time" },
                 "isActive": { "type": "boolean" },
                 "appBundleId": { "type": "string" },
-                "apnsEnvironment": { "type": "string", "nullable": true },
-                "lastSeenAt": { "type": "string", "format": "date-time" }
+                "apnsEnvironment": { "type": "string", "nullable": true }
               },
               "required": [
                 "apnsEnvironment",

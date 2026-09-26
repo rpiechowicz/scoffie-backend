@@ -1,5 +1,6 @@
 import type {
   AlertSeverity,
+  AnthropicBilling,
   MailDomain,
   RailwayData,
   SentryData,
@@ -33,7 +34,8 @@ export type AlertKind =
   | 'mail-failed'
   | 'mail-domain'
   | 'gdpr-due'
-  | 'apple-reports';
+  | 'apple-reports'
+  | 'anthropic-balance-low';
 
 export type DetectedAlert = {
   key: string;
@@ -266,6 +268,45 @@ export function appleReportAlerts(
           : 'Raporty sprzedaży Apple się nie pobierają',
       detail: (state.lastError ?? '').slice(0, 300),
     }));
+}
+
+/** Przy tylu dniach zapasu (albo mniej) — alert mimo salda powyżej progu. */
+export const ANTHROPIC_RUNWAY_DAYS = 3;
+
+const usd = (x: number) => `$${x.toFixed(2)}`;
+
+/**
+ * 6. Kończą się kredyty Claude: szacowane saldo (kotwica z panelu minus
+ * wydatki z Anthropic) poniżej progu albo zapasu na mniej niż 3 dni.
+ * Bez kotwicy reguła nic nie wie o saldzie — milczy (i zamyka stary alert,
+ * bo kotwica mogła zostać usunięta jako pomyłka).
+ */
+export function anthropicBalanceAlerts(
+  billing: Pick<AnthropicBilling, 'balance' | 'lowBalanceUsd' | 'runwayDays'>,
+): DetectedAlert[] {
+  const balance = billing.balance;
+  if (!balance) return [];
+  const runway = billing.runwayDays;
+  const low = balance.estimatedUsd < billing.lowBalanceUsd;
+  const short = runway !== null && runway < ANTHROPIC_RUNWAY_DAYS;
+  if (!low && !short) return [];
+  const critical = balance.estimatedUsd <= 0 || (runway !== null && runway < 1);
+  const left =
+    runway === null
+      ? ''
+      : ` Przy obecnym tempie starczy na ok. ${runway.toFixed(1).replace('.', ',')} dnia.`;
+  return [
+    {
+      key: 'anthropic-balance-low',
+      kind: 'anthropic-balance-low',
+      severity: critical ? 'critical' : 'warning',
+      title:
+        balance.estimatedUsd <= 0
+          ? 'Kredyty Claude się skończyły'
+          : 'Kończą się kredyty Claude',
+      detail: `Szacowane saldo ${usd(balance.estimatedUsd)} (próg ${usd(billing.lowBalanceUsd)}).${left} Doładuj w Claude Console i wpisz saldo w panelu.`,
+    },
+  ];
 }
 
 /* ── uzgadnianie z bazą ─────────────────────────────────────────────────── */

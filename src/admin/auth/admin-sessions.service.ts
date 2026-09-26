@@ -8,8 +8,8 @@ import { emitLive } from '../../common/live-events';
 
 /** Ciasteczko sesji: `__Host-` wymusza Secure, Path=/ i brak Domain. */
 export const ADMIN_SESSION_COOKIE = '__Host-scoffie_admin';
-/** Bezczynność, po której sesja umiera (ROADMAPA §4). */
-export const ADMIN_SESSION_IDLE_MS = 30 * 60_000;
+/** Bezczynność, po której sesja umiera (ROADMAPA §4). 2 h od 26.09.2026 — 30 min wyrzucało z panelu kilka razy dziennie. */
+export const ADMIN_SESSION_IDLE_MS = 2 * 60 * 60_000;
 /** Twardy koniec sesji od jej otwarcia. */
 export const ADMIN_SESSION_MAX_MS = 12 * 60 * 60_000;
 /** Ważność ponownego potwierdzenia (step-up). */
@@ -104,7 +104,7 @@ export function clearSessionCookie(res: Response): void {
 }
 
 /**
- * Sesje panelu: w bazie hasz tokenu, w ciasteczku token. 30 minut
+ * Sesje panelu: w bazie hasz tokenu, w ciasteczku token. 2 godziny
  * bezczynności, 12 godzin twardo, związane z adresem z bramki Access —
  * ciasteczko przeniesione do przeglądarki zalogowanej w Access innym kontem
  * nie otwiera niczego.

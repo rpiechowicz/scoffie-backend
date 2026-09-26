@@ -42,7 +42,13 @@ model User {
   // dwie osoby w jednym gospodarstwie potrafiłyby wylosować to samo.
   avatarColor           Int?
   onboardingCompletedAt DateTime?
+  /// Ostatnie PEŁNE logowanie (Apple/Google/e-mail). Aplikacja potem po cichu
+  /// odnawia sesję refresh tokenem, więc to NIE jest „ostatnio w aplikacji”.
   lastLoginAt           DateTime?
+  /// Ostatnio w aplikacji: ostatnie uwierzytelnione żądanie REST albo
+  /// połączenie socketu (`UserActivityService`), zapisywane najwyżej raz na
+  /// 5 minut na osobę. To pokazuje panel jako „ostatnio w aplikacji”.
+  lastSeenAt            DateTime?
   /// Wersja tokenów dostępu. Podbicie unieważnia WSZYSTKIE wydane JWT tej
   /// osoby (wykrycie ponownego użycia refresh tokenu, wylogowanie zewsząd) —
   /// bez tego skradziony token dostępu żył do końca swojego TTL.
@@ -69,7 +75,7 @@ model User {
 
   cookidooIntegrations CookidooIntegration[] @relation("CookidooIntegrationConnector")
 
-  dailySteps DailyStepCount[]
+  dailySteps   DailyStepCount[]
   activityDays UserActivityDay[]
 
   agentConversations AgentConversation[]
@@ -83,8 +89,9 @@ model User {
   gdprRequests       GdprRequest[]
 
   @@index([identityHash])
-  /// Panel: „zalogowani dziś” na pulpicie i sortowanie listy osób i domów.
   @@index([lastLoginAt])
+  /// Panel: sortowanie listy osób i domów po „ostatnio w aplikacji”.
+  @@index([lastSeenAt])
   /// Panel: kohorty rejestracji (lejek, retencja — ekran „Wzrost”).
   @@index([createdAt])
 }
@@ -99,15 +106,15 @@ model AgentReport {
   /// `dbgenerated`, nie `uuid()`: migracja tej tabeli była pisana ręcznie
   /// z `DEFAULT gen_random_uuid()` i tak stoi na produkcji. Schema musi mówić
   /// to samo, co baza — inaczej `migrate dev` widzi rozjazd i żąda resetu.
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId         String   @db.Uuid
-  conversationId String?  @db.Uuid
-  messageId      String?  @db.Uuid
-  turnId         String?  @db.Uuid
-  reason         String
-  comment        String?
-  messageText    String
-  createdAt      DateTime @default(now())
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @db.Uuid
+  conversationId    String?   @db.Uuid
+  messageId         String?   @db.Uuid
+  turnId            String?   @db.Uuid
+  reason            String
+  comment           String?
+  messageText       String
+  createdAt         DateTime  @default(now())
   /// Decyzja z panelu administratora (ROADMAPA §5.5): NEW | REVIEWED |
   /// DISMISSED. Tekst, nie enum — ta sama defensywna konwencja migracji co
   /// przy `CookidooIntegration.status`; wartości pilnuje panel.
@@ -215,17 +222,17 @@ model UserPreference {
 }
 
 model RefreshToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  tokenHash String    @unique
-  userId    String    @db.Uuid
-  expiresAt DateTime
-  createdAt DateTime  @default(now())
-  revokedAt DateTime?
+  id             String    @id @default(uuid()) @db.Uuid
+  tokenHash      String    @unique
+  userId         String    @db.Uuid
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+  revokedAt      DateTime?
   /// Dlaczego token przestał być ważny: ROTATED | LOGOUT | REUSE | RECOVERED.
   /// Bez tego każde ponowne użycie wygląda tak samo, a to dwie różne
   /// sytuacje: klient, ktory zgubil odpowiedz z rotacji, i cudza kopia
   /// starego tokenu.
-  revokedReason String?
+  revokedReason  String?
   /// Hash nastepcy wydanego przy rotacji tego tokenu. Pozwala rozpoznac
   /// telefon, do ktorego nowa para nigdy nie dojechala (iOS uspil proces
   /// w polowie zadania), i oddac mu swieza pare zamiast kasowac cala
@@ -310,11 +317,11 @@ model Recipe {
   householdId String    @db.Uuid
   household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
-  planItems   PlanItem[]
-  ingredients RecipeIngredient[]
+  planItems          PlanItem[]
+  ingredients        RecipeIngredient[]
   /// Składniki dopisane z tego przepisu do list zakupów („brakuje mi").
   shoppingListExtras ShoppingListExtra[]
-  favorites   RecipeFavorite[]
+  favorites          RecipeFavorite[]
 
   // Druga gałąź filtru widoczności (`isCatalog = true OR householdId = …`).
   // Sam `isCatalog` indeksu nie dostaje — jest niskoselektywny.
@@ -1980,4 +1987,31 @@ model CatalogSyncState {
   epoch       String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   minRevision BigInt   @default(0)
   updatedAt   DateTime @default(now())
+}
+
+/// Kredyty Claude (Anthropic Console) — kotwica salda. API Anthropic nie
+/// podaje salda ani doładowań, więc po doładowaniu admin wpisuje w panelu
+/// saldo widoczne w Console; panel szacuje bieżące = kotwica − wydatki od
+/// `at` (Usage & Cost Admin API). Najnowsza kotwica wygrywa.
+model AnthropicCreditAnchor {
+  id         String   @id @default(uuid()) @db.Uuid
+  at         DateTime @default(now())
+  /// Saldo z Console w chwili `at`, USD.
+  balanceUsd Decimal  @db.Decimal(12, 2)
+  /// Kwota doładowania, gdy kotwica to doładowanie; `null` — samo saldo.
+  amountUsd  Decimal? @db.Decimal(12, 2)
+  note       String?
+  /// Adres admina z panelu — kopia, jak `AdminAuditLog.adminEmail`.
+  createdBy  String
+
+  @@index([at])
+}
+
+/// Ustawienia kredytów Claude — jeden wiersz (`id = "default"`).
+model AnthropicBillingSetting {
+  id            String   @id @default("default")
+  /// Próg alertu „kończą się kredyty”, USD.
+  lowBalanceUsd Decimal  @default(5) @db.Decimal(12, 2)
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?
 }

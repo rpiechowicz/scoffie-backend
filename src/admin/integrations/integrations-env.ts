@@ -61,6 +61,16 @@ export function readRailwayToken(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 /**
+ * Sekret webhooka Railway (`/webhooks/railway?token=…`). Pusty — trasy nie ma
+ * (404), a wdrożenia śledzi tylko przebieg alertów i otwarty ekran „System”.
+ */
+export function readRailwayWebhookToken(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return text(env.RAILWAY_WEBHOOK_TOKEN);
+}
+
+/**
  * Klucz App Store Connect API — INNY niż `APPLE_BILLING_KEY_ID` (tamten to
  * klucz In-App Purchase do App Store Server API). Issuer ID jest jeden na
  * zespół, więc domyślnie ten sam `APPLE_ISSUER_ID`.

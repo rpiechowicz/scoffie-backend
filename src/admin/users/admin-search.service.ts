@@ -67,13 +67,13 @@ export class AdminSearchService {
     return readOnlyQuery(this.prisma, async (tx) => {
       const users = await tx.$queryRaw<UserRow[]>`
         SELECT u."id", u."displayName", u."email", u."avatarColor",
-               u."onboardingCompletedAt", u."lastLoginAt", u."createdAt"
+               u."onboardingCompletedAt", u."lastLoginAt", u."lastSeenAt", u."createdAt"
         FROM "User" u
         WHERE u."id" <> ${catalogOwnerUserId()}::uuid
           AND (${sqlFoldedContains(Prisma.sql`u."displayName"`, q)}
             OR ${sqlFoldedContains(Prisma.sql`COALESCE(u."email", '')`, q)}
             OR ${sqlIdContains(Prisma.sql`u."id"`, q)})
-        ORDER BY u."lastLoginAt" DESC NULLS LAST, u."createdAt" DESC, u."id" ASC
+        ORDER BY u."lastSeenAt" DESC NULLS LAST, u."createdAt" DESC, u."id" ASC
         LIMIT ${SEARCH_LIMIT}::int`;
 
       const householdIds = await tx.$queryRaw<{ id: string }[]>`
@@ -190,13 +190,15 @@ function toHouseholdListItem(
   household: HouseholdInfo,
   cookidoo: HouseholdListItem['cookidoo'] | undefined,
 ): HouseholdListItem {
-  const lastLogin = household.members.reduce<Date | null>(
-    (latest, member) =>
-      member.lastLoginAt && (!latest || member.lastLoginAt > latest)
-        ? member.lastLoginAt
-        : latest,
-    null,
-  );
+  const latestOf = (
+    pick: (m: HouseholdInfo['members'][number]) => Date | null,
+  ) =>
+    household.members.reduce<Date | null>((latest, member) => {
+      const at = pick(member);
+      return at && (!latest || at > latest) ? at : latest;
+    }, null);
+  const lastLogin = latestOf((m) => m.lastLoginAt);
+  const lastSeen = latestOf((m) => m.lastSeenAt);
   return {
     id: household.id,
     name: household.name,
@@ -210,6 +212,7 @@ function toHouseholdListItem(
     pool: SEARCH_POOL,
     cookidoo: cookidoo ?? null,
     lastLoginAt: lastLogin?.toISOString() ?? null,
+    lastSeenAt: lastSeen?.toISOString() ?? null,
     createdAt: household.createdAt.toISOString(),
   };
 }

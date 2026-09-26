@@ -237,7 +237,7 @@ więcej dwa razy dziennie.
 ### Sesje
 
 - `AdminSession` w bazie; ciasteczko `__Host-scoffie_admin`, `HttpOnly`,
-  `Secure`, `SameSite=Strict`; 30 min bezczynności, 12 h twardo.
+  `Secure`, `SameSite=Strict`; 2 h bezczynności (do 26.09.2026: 30 min), 12 h twardo.
 - Lista aktywnych sesji w panelu (urządzenie, IP, kraj z Cloudflare, ostatnia
   aktywność) i „wyloguj tę / wszystkie".
 - **Step-up** — ponowne potwierdzenie passkeyem albo TOTP przed akcjami, które

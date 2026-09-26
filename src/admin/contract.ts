@@ -101,7 +101,7 @@ export interface Production {
 }
 
 export interface DashboardData {
-  /** `User.lastLoginAt` dzisiaj */
+  /** w aplikacji dziś (doba warszawska, `UserActivityDay` — jak DAU we „Wzroście”); nazwa historyczna */
   loggedInToday: number;
   loggedInTrend: Trend;
   today: {
@@ -136,7 +136,10 @@ export interface UserListItem {
   /** adres z przekaźnika Apple (@privaterelay.appleid.com) */
   hiddenEmail: boolean;
   onboardingCompletedAt: IsoDate | null;
+  /** ostatnie PEŁNE logowanie (Apple/Google/e-mail) — aplikacja potem odnawia sesję po cichu */
   lastLoginAt: IsoDate | null;
+  /** ostatnio w aplikacji: ostatnie uwierzytelnione żądanie, z dokładnością do 5 min */
+  lastSeenAt: IsoDate | null;
   createdAt: IsoDate;
   householdId: string | null;
   householdName: string | null;
@@ -152,6 +155,7 @@ export interface UserListFilters {
   q?: string;
   onboarding?: boolean;
   subscribed?: boolean;
+  /** był w aplikacji w 7 ostatnich dobach warszawskich (`UserActivityDay`, jak WAU) */
   active7?: boolean;
   noHousehold?: boolean;
 }
@@ -163,6 +167,7 @@ export interface UserList {
     total: number;
     hiddenEmail: number;
     onboarded: number;
+    /** w aplikacji w 7 ostatnich dobach warszawskich (`UserActivityDay`, jak WAU) — nazwa historyczna */
     loggedIn7d: number;
     paying: number;
     aiConsent: number;
@@ -312,7 +317,10 @@ export interface HouseholdListItem {
   pool: Pool;
   /** `CookidooIntegration.status` */
   cookidoo: 'CONNECTED' | 'AUTH_FAILED' | null;
+  /** najpóźniejsze pełne logowanie domownika */
   lastLoginAt: IsoDate | null;
+  /** najpóźniej w aplikacji spośród domowników */
+  lastSeenAt: IsoDate | null;
   createdAt: IsoDate;
 }
 
@@ -1044,7 +1052,7 @@ export interface AdminAlertRow {
   id: string;
   /** np. `deploy-failed:<serviceId>:<deployId>`, `crash-free:scoffie-ios` */
   key: string;
-  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain`, `gdpr-due` */
+  /** `deploy-failed`, `cron-failed`, `crash-free`, `sentry-fatal`, `mail-queue`, `mail-failed`, `mail-domain`, `gdpr-due`, `apple-reports`, `anthropic-balance-low` */
   kind: string;
   severity: AlertSeverity;
   title: string;
@@ -1575,6 +1583,140 @@ export interface TrafficData {
 }
 
 export type TrafficState = IntegrationState<TrafficData>;
+
+// ——— Kredyty Claude (Anthropic Console) ———
+
+/**
+ * `GET /admin/anthropic` — wydatki z Usage & Cost Admin API i szacowane
+ * saldo. API Anthropic nie podaje salda ani doładowań: saldo to ostatnia
+ * kotwica wpisana w panelu minus wydatki od jej chwili. Dni kosztów to doby
+ * UTC (tak liczy Anthropic, także „ten miesiąc” w Console) — nie Warszawa.
+ */
+export interface AnthropicBilling {
+  /** jest `ANTHROPIC_ADMIN_KEY` */
+  configured: boolean;
+  /** błąd pobrania z Anthropic (np. 401 zły klucz) — reszta pól może być pusta */
+  error: string | null;
+  /**
+   * `true` — Anthropic chwilowo nie odpowiedział (timeout, 5xx, sieć), a dane
+   * są z ostatniego udanego odczytu (`fetchedAt` = jego chwila, `error` = co
+   * się stało teraz). Przy 401/403 zawsze `false` — zły klucz to nie chwilowa
+   * przerwa, starych danych nie podajemy.
+   */
+  stale: boolean;
+  fetchedAt: IsoDate;
+  /** `null` — brak kotwicy */
+  balance: {
+    anchorUsd: number;
+    anchorAt: IsoDate;
+    /** szacunek: pełne doby po dobie kotwicy + część doby kotwicy wg tokenów po `anchorAt`; doby z `estimatedDays` wg cennika */
+    spentSinceUsd: number;
+    estimatedUsd: number;
+  } | null;
+  lowBalanceUsd: number;
+  /** dni do zera przy średnim dziennym wydatku z 7 pełnych dni; null gdy brak salda albo wydatków */
+  runwayDays: number | null;
+  spend: {
+    /** doba UTC w toku — zwykle szacunek z tokenów (zob. `estimatedDays`), opóźnienie ~5 min */
+    todayUsd: number;
+    yesterdayUsd: number;
+    /** dziś i 6 poprzednich dób */
+    last7Usd: number;
+    /** miesiąc kalendarzowy UTC w toku */
+    monthUsd: number;
+    prevMonthUsd: number;
+  };
+  /** ostatnie 31 dób UTC (także z zerem), najstarsza pierwsza; `date` = `YYYY-MM-DD` */
+  daily: {
+    date: string;
+    usd: number;
+    /** koszt z tokenów × cennik, bo Anthropic jeszcze tej doby nie rozliczył */
+    estimated: boolean;
+    byModel: Record<string, number>;
+  }[];
+  /**
+   * Doby UTC (`YYYY-MM-DD`, rosnąco), których kosztu Cost API jeszcze nie
+   * oddał — zwykle dziś, tuż po północy UTC także wczoraj. Ich kwoty (w
+   * `spend`, `daily`, `byModel`, saldzie) to tokeny z Usage API × cennik.
+   */
+  estimatedDays: string[];
+  /**
+   * Bieżący miesiąc UTC, od najdroższego. Koszty bez modelu (wyszukiwanie,
+   * wykonywanie kodu) pod swoim rodzajem (`web_search`, `code_execution`, …).
+   */
+  byModel: {
+    model: string;
+    usd: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+  }[];
+  /** ostatnie 24 h, kubełki godzinowe (ostatni w toku), najstarszy pierwszy */
+  hourly: {
+    at: IsoDate;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+  }[];
+  tokens: {
+    /** wszystkie tokeny (wejście, cache, wyjście) — dziś i 6 poprzednich dób */
+    last7: number;
+    /** udział odczytu z cache we wszystkich tokenach wejścia, 0–1 */
+    cacheReadShare: number;
+  };
+  /** najnowsze pierwsze, do 20 */
+  anchors: {
+    id: string;
+    at: IsoDate;
+    balanceUsd: number;
+    amountUsd: number | null;
+    note: string | null;
+    by: string | null;
+  }[];
+  /** koszt asystenta z własnej księgi backendu (per wywołanie modelu), te same doby UTC co `daily` i `spend` — do porównania z rachunkiem Anthropic */
+  ledger: {
+    todayUsd: number;
+    last7Usd: number;
+    monthUsd: number;
+    daily: { date: string; usd: number }[];
+  } | null;
+}
+
+/**
+ * `GET /admin/badges` — liczniki paska bocznego panelu. Same `COUNT`-y
+ * z bazy i ostatni znany stan Railwaya z pamięci procesu, bez zewnętrznych
+ * API. `null` przy polu, do którego rola nie ma uprawnienia odczytu.
+ */
+export interface AdminBadges {
+  /** AgentReport NEW (jak licznik w ReportsScreen: status NEW) */
+  reports: number | null;
+  /** otwarte AdminAlert; critical — z poziomem krytycznym */
+  alerts: { open: number; critical: number } | null;
+  /** MailMessage FAILED — ta sama definicja co attention.mailsFailed w /dashboard */
+  mailsFailed: number | null;
+  /** Subscription GRACE — jak attention.subsInGrace */
+  subsInGrace: number | null;
+  /** otwarte wnioski RODO: po terminie / termin < 7 dni — jak stats w /gdpr */
+  gdpr: { overdue: number; dueSoon: number } | null;
+  /** z ostatniego znanego stanu Railway w pamięci (DeployTracker / cache `railway`), bez pobierania; null gdy stanu jeszcze nie ma */
+  system: { down: number; deploying: boolean } | null;
+  /** otwarty alert `anthropic-balance-low` */
+  claudeLow: boolean | null;
+}
+
+/** `POST /admin/anthropic/anchors` — saldo z Console po doładowaniu albo kontrolnie. */
+export interface AnthropicAnchorCreate {
+  balanceUsd: number;
+  /** kwota doładowania, jeśli kotwica to doładowanie */
+  amountUsd?: number;
+  note?: string;
+}
+
+/** `PUT /admin/anthropic/settings` */
+export interface AnthropicBillingSettings {
+  lowBalanceUsd: number;
+}
 
 /** `GET /admin/settings/changes?days=` — z dziennika audytu, od najstarszej. */
 export interface RuntimeSettingChange {

@@ -52,7 +52,6 @@ type SeriesRow = {
 };
 
 type Counters = {
-  loggedInToday: number;
   households: number;
   plannedHouseholds: number;
   turnsDone: number;
@@ -106,6 +105,7 @@ export class AdminDashboardService {
     return readOnlyQuery(this.prisma, async (tx) => {
       const series = await this.dailySeries(tx, days);
       const counters = await this.counters(tx, now, today.start, weekStart);
+      const inApp = await this.inAppSeries(tx, days.slice(-8));
       const subscriptions = await this.subscriptionHistory(
         tx,
         now,
@@ -119,15 +119,12 @@ export class AdminDashboardService {
       const todayStat = series[series.length - 1];
 
       return {
-        loggedInToday: counters.loggedInToday,
-        // `lastLoginAt` trzyma wyłącznie OSTATNIE logowanie: kto logował się
-        // wczoraj i dziś, wczoraj już „nie istnieje". Wczorajszej liczby nie
-        // da się rzetelnie odtworzyć, więc trendu nie zmyślamy — 0 i bez
-        // `d7`, dopóki nie powstanie dzienna tabela aktywności
-        // (`UserActivityDay`, ROADMAPA §6). Rodziny refresh tokenów też jej
-        // nie zastąpią: ratunek zgubionej rotacji zakłada rodzinę tak samo
-        // jak logowanie.
-        loggedInTrend: { d1: 0 },
+        // „W aplikacji dziś” — osoby z wpisem `UserActivityDay` w dzisiejszej
+        // dobie warszawskiej (jak DAU na ekranie „Wzrost”). Nie `lastLoginAt`:
+        // pełne logowanie zdarza się rzadko, aplikacja odnawia sesję po cichu.
+        // Dzienna tabela ma też wczoraj i tydzień temu, więc trend jest prawdziwy.
+        loggedInToday: inApp[inApp.length - 1] ?? 0,
+        loggedInTrend: trendOfSeries(inApp),
         today: {
           newUsers: todayStat.newUsers,
           turns: todayStat.turns,
@@ -233,6 +230,22 @@ export class AdminDashboardService {
     });
   }
 
+  /** Osoby w aplikacji w każdej z podanych dób (bez bota katalogu), najstarsza pierwsza. */
+  private async inAppSeries(
+    tx: Prisma.TransactionClient,
+    days: readonly PanelDay[],
+  ): Promise<number[]> {
+    if (days.length === 0) return [];
+    const rows = await tx.$queryRaw<{ day: string; n: number }[]>`
+      SELECT to_char(a."date", 'YYYY-MM-DD') AS "day", COUNT(*)::int AS "n"
+      FROM "UserActivityDay" a
+      WHERE a."date" BETWEEN ${days[0].key}::date AND ${days[days.length - 1].key}::date
+        AND a."userId" <> ${catalogOwnerUserId()}::uuid
+      GROUP BY a."date"`;
+    const byDay = new Map(rows.map((row) => [row.day, row.n]));
+    return days.map((day) => byDay.get(day.key) ?? 0);
+  }
+
   private async counters(
     tx: Prisma.TransactionClient,
     now: Date,
@@ -243,9 +256,6 @@ export class AdminDashboardService {
     const catalogHousehold = catalogHouseholdId();
     const [row] = await tx.$queryRaw<Counters[]>`
       SELECT
-        (SELECT COUNT(*) FROM "User"
-          WHERE "id" <> ${catalogOwnerUserId()}::uuid
-            AND "lastLoginAt" >= ${today})::int AS "loggedInToday",
         (SELECT COUNT(*) FROM "Household"
           WHERE "id" <> ${catalogHousehold}::uuid)::int AS "households",
         -- Plan „na ten tydzień" = wiersz tygodnia, który ma choć jedno danie;

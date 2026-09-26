@@ -22,10 +22,17 @@ import {
   readSentryEnv,
 } from '../integrations/integrations-env';
 import { fetchRailway } from '../integrations/railway.client';
-import type { RailwayData } from '../contract';
+import {
+  DeployTrackerService,
+  latestOf,
+} from '../integrations/deploy-tracker.service';
 import { fetchResendDomains } from '../integrations/resend-domains.client';
 import { fetchSentry } from '../integrations/sentry.client';
+import { SentrySnapshotService } from '../integrations/sentry-snapshot.service';
+import { AdminAnthropicService } from '../anthropic/admin-anthropic.service';
+import { readAnthropicAdminKey } from '../anthropic/anthropic-billing.client';
 import {
+  anthropicBalanceAlerts,
   appleReportAlerts,
   cronAlerts,
   crashFreeAlerts,
@@ -83,12 +90,14 @@ export class AdminWatchService
   private first: NodeJS.Timeout | null = null;
   private running = false;
   private lastCheck: Date | null = null;
-  private deployFingerprint: string | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly outbox: MailOutboxService,
     private readonly ops: OpsAlertService,
+    private readonly deploys: DeployTrackerService,
+    private readonly sentrySnapshot: SentrySnapshotService,
+    private readonly anthropic: AdminAnthropicService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -110,28 +119,6 @@ export class AdminWatchService
     if (this.timer) clearInterval(this.timer);
     this.first = null;
     this.timer = null;
-  }
-
-  /**
-   * Kanał na żywo: stan wdrożeń Railway zmienił się od poprzedniego
-   * sprawdzenia (nowe wdrożenie, BUILDING → SUCCESS, …) → sygnał `ops`.
-   * Pierwsze sprawdzenie po starcie tylko zapamiętuje stan.
-   */
-  private noteDeploys(railway: RailwayData): void {
-    const fingerprint = railway.services
-      .map(
-        (s) =>
-          `${s.id}:${s.deploys[0]?.id ?? '-'}:${s.deploys[0]?.status ?? '-'}`,
-      )
-      .sort()
-      .join('|');
-    if (
-      this.deployFingerprint !== null &&
-      this.deployFingerprint !== fingerprint
-    ) {
-      emitLive({ topics: ['ops'] });
-    }
-    this.deployFingerprint = fingerprint;
   }
 
   lastCheckAt(): Date | null {
@@ -181,7 +168,10 @@ export class AdminWatchService
     if (railwayToken) {
       await attempt('Railway', async () => {
         const railway = await fetchRailway(railwayToken);
-        this.noteDeploys(railway);
+        // Zmiana stanu wdrożeń od ostatniego odczytu → sygnał `ops`
+        // (i śledzenie co 8 s, jeśli coś jest w toku).
+        this.deploys.remember(railway);
+        this.deploys.observe(latestOf(railway));
         return [
           { kind: 'deploy-failed', problems: railwayAlerts(railway) },
           { kind: 'cron-failed', problems: cronAlerts(railway) },
@@ -193,6 +183,8 @@ export class AdminWatchService
     if (missingSentry(sentryEnv).length === 0) {
       await attempt('Sentry', async () => {
         const sentry = await fetchSentry(sentryEnv);
+        // Ekran „System” po starcie procesu nie czeka na Sentry.
+        this.sentrySnapshot.remember(sentry);
         return [
           { kind: 'crash-free', problems: crashFreeAlerts(sentry) },
           { kind: 'sentry-fatal', problems: sentryFatalAlerts(sentry, now) },
@@ -268,6 +260,21 @@ export class AdminWatchService
           ),
         },
       ]);
+    }
+
+    // Kredyty Claude: saldo z kotwicy w panelu minus wydatki z Anthropic.
+    // Błąd pobrania to „nie wiem” — rzucamy, żeby alert nie zniknął.
+    if (readAnthropicAdminKey()) {
+      await attempt('Anthropic', async () => {
+        const billing = await this.anthropic.billing(now);
+        if (billing.error) throw new IntegrationError(billing.error);
+        return [
+          {
+            kind: 'anthropic-balance-low',
+            problems: anthropicBalanceAlerts(billing),
+          },
+        ];
+      });
     }
 
     return detections;
