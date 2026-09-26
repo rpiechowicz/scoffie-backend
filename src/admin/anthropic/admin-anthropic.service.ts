@@ -26,7 +26,11 @@ import {
   type BillingRaw,
 } from './anthropic-billing';
 
-/** Anthropic zaleca najwyżej zapytanie na minutę; dane i tak mają ~5 min opóźnienia. */
+/**
+ * Anthropic zaleca najwyżej zapytanie na minutę. Tokeny mają ~5 min
+ * opóźnienia; koszt doby dopiero po jej zamknięciu (UTC) — do tego czasu
+ * szacujemy go z tokenów (`estimateMissingDays`).
+ */
 export const ANTHROPIC_TTL_MS = 5 * 60_000;
 export const DEFAULT_LOW_BALANCE_USD = 5;
 
@@ -166,31 +170,43 @@ export class AdminAnthropicService {
     fetchImpl: typeof fetch,
   ): Promise<BillingRaw> {
     const anchorDay = range.anchorDay;
-    const [cost, usageDaily, hourly, anchorDayUsage] = await Promise.all([
-      fetchCostReport(key, range.costFrom, range.to, fetchImpl),
-      fetchUsageReport(key, range.usageFrom, range.to, '1d', true, fetchImpl),
-      fetchUsageReport(
-        key,
-        range.hourlyFrom,
-        range.hourlyTo,
-        '1h',
-        false,
-        fetchImpl,
-      ),
-      anchorDay
-        ? fetchUsageReport(
-            key,
-            anchorDay,
-            new Date(
-              Math.min(anchorDay.getTime() + DAY_MS, range.hourlyTo.getTime()),
-            ),
-            '1h',
-            false,
-            fetchImpl,
-          )
-        : Promise.resolve([]),
-    ]);
-    return { cost, usageDaily, hourly, anchorDay: anchorDayUsage };
+    const [cost, usageDaily, hourly, anchorDayUsage, recent] =
+      await Promise.all([
+        fetchCostReport(key, range.costFrom, range.to, fetchImpl),
+        fetchUsageReport(key, range.usageFrom, range.to, '1d', true, fetchImpl),
+        fetchUsageReport(
+          key,
+          range.hourlyFrom,
+          range.hourlyTo,
+          '1h',
+          false,
+          fetchImpl,
+        ),
+        anchorDay
+          ? fetchUsageReport(
+              key,
+              anchorDay,
+              new Date(
+                Math.min(
+                  anchorDay.getTime() + DAY_MS,
+                  range.hourlyTo.getTime(),
+                ),
+              ),
+              '1h',
+              false,
+              fetchImpl,
+            )
+          : Promise.resolve([]),
+        fetchUsageReport(
+          key,
+          range.recentFrom,
+          range.hourlyTo,
+          '1h',
+          true,
+          fetchImpl,
+        ),
+      ]);
+    return { cost, usageDaily, hourly, anchorDay: anchorDayUsage, recent };
   }
 
   async createAnchor(

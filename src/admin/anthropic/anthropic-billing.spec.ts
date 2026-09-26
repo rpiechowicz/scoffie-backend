@@ -19,9 +19,12 @@ import {
   centsToUsd,
   ledgerRange,
   costByDay,
+  estimateMissingDays,
+  priceFor,
   runwayDays,
   shareAfter,
   spentSince,
+  usageUsd,
   type AnchorRow,
 } from './anthropic-billing';
 
@@ -184,6 +187,7 @@ describe('kredyty Claude — arytmetyka', () => {
       ],
       hourly: [hour('2026-09-26T10:00:00Z', [usage(10, 5)])],
       anchorDay: [],
+      recent: [],
     };
     const b = buildBilling({
       configured: true,
@@ -205,6 +209,7 @@ describe('kredyty Claude — arytmetyka', () => {
     expect(b.daily[30]).toEqual({
       date: '2026-09-26',
       usd: 0.6,
+      estimated: false,
       byModel: { 'claude-opus-5-5': 0.5, 'claude-haiku-4-5': 0.1 },
     });
     expect(b.daily[0].date).toBe('2026-08-27');
@@ -234,6 +239,100 @@ describe('kredyty Claude — arytmetyka', () => {
       },
     ]);
     expect(b.anchors[0].by).toBe('admin@scoffie.app');
+  });
+
+  it('cennik: stawki jak na rachunku (Sonnet 5, 21.09.2026 — co do centa)', () => {
+    // Cost API tego dnia: 0,01 + 11,843 + 14,36378 + 6,05625 + 51,8592 centa
+    const usd = usageUsd({
+      model: 'claude-sonnet-5',
+      uncached_input_tokens: 50,
+      output_tokens: 11_843,
+      cache_read_input_tokens: 718_189,
+      cache_creation: {
+        ephemeral_5m_input_tokens: 24_225,
+        ephemeral_1h_input_tokens: 129_648,
+      },
+    });
+    expect(usd).toBeCloseTo(0.8413223, 7);
+    expect(priceFor('claude-haiku-4-5-20251001')).toEqual(
+      priceFor('claude-haiku-4-5'),
+    );
+    expect(priceFor('claude-opus-5-5').cacheRead).toBe(0.2);
+    expect(priceFor('claude-opus-5').input).toBe(5);
+    // spoza cennika — najdroższa stawka, saldo raczej zaniżone niż zawyżone
+    expect(priceFor('claude-nowy-7').output).toBe(50);
+    expect(
+      usageUsd({ ...usage(0), server_tool_use: { web_search_requests: 3 } }),
+    ).toBeCloseTo(0.03);
+  });
+
+  it('doby bez kosztu w Cost API — szacunek z tokenów; rozliczonej nie rusza', () => {
+    const days = costByDay([cost('2026-09-25', [['claude-sonnet-5', '100']])]);
+    const estimated = estimateMissingDays(days, [
+      hour('2026-09-25T23:00:00Z', [
+        usage(1_000_000, 0, { model: 'claude-sonnet-5' }),
+      ]),
+      hour('2026-09-26T16:00:00Z', [
+        usage(1_000_000, 0, { model: 'claude-sonnet-5' }),
+      ]),
+      hour('2026-09-26T17:00:00Z', [
+        usage(0, 100_000, { model: 'claude-haiku-4-5-20251001' }),
+      ]),
+    ]);
+    expect([...estimated]).toEqual(['2026-09-26']);
+    expect(days.get('2026-09-25')?.usd).toBe(1);
+    expect(days.get('2026-09-26')?.usd).toBeCloseTo(2.5);
+    expect(
+      days.get('2026-09-26')?.byModel.get('claude-haiku-4-5-20251001'),
+    ).toBeCloseTo(0.5);
+  });
+
+  it('wydatek w dobie w toku schodzi z salda od razu, nie po jej zamknięciu', () => {
+    const now = new Date('2026-09-26T20:12:00Z');
+    const b = buildBilling({
+      configured: true,
+      error: null,
+      raw: {
+        // Cost API: doby do wczoraj, dzisiejszej brak
+        cost: [cost('2026-09-25', [])],
+        usageDaily: [],
+        hourly: [],
+        anchorDay: [],
+        recent: [
+          hour('2026-09-26T09:00:00Z', [
+            usage(1_000_000, 0, { model: 'claude-sonnet-5' }),
+          ]),
+          hour('2026-09-26T16:00:00Z', [
+            usage(0, 500_000, {
+              model: 'claude-sonnet-5',
+              cache_read_input_tokens: 10_000_000,
+            }),
+          ]),
+        ],
+      },
+      anchors: [anchor('2026-09-26T12:00:00Z', 20.58)],
+      lowBalanceUsd: 5,
+      now,
+      fetchedAt: now,
+    });
+    // przed kotwicą (9 UTC) 2 USD, po niej (16 UTC) 5 + 2 USD
+    expect(b.spend.todayUsd).toBe(9);
+    expect(b.spend.monthUsd).toBe(9);
+    expect(b.estimatedDays).toEqual(['2026-09-26']);
+    expect(b.daily[30]).toMatchObject({
+      date: '2026-09-26',
+      usd: 9,
+      estimated: true,
+    });
+    expect(b.daily[29].estimated).toBe(false);
+    expect(b.balance).toMatchObject({ spentSinceUsd: 7, estimatedUsd: 13.58 });
+    expect(b.byModel[0]).toMatchObject({
+      model: 'claude-sonnet-5',
+      usd: 9,
+      inputTokens: 1_000_000,
+      outputTokens: 500_000,
+      cacheReadTokens: 10_000_000,
+    });
   });
 
   it('błąd Anthropic albo brak danych — bez szacunku salda', () => {
@@ -452,8 +551,9 @@ describe('AdminAnthropicService', () => {
     const service = new AdminAnthropicService(prisma as never, {} as never);
     const b = await service.billing(NOW, fetchImpl as never);
     expect(b).toMatchObject({ configured: true, error: null });
-    // koszty, tokeny dobowe, tokeny godzinowe (bez kotwicy — bez czwartego)
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    // koszty, tokeny dobowe, tokeny godzinowe, godzinowe po modelu od
+    // wczoraj (szacunek doby w toku); bez kotwicy — bez godzin jej doby
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/v1/organizations/cost_report?');
     expect(url).toContain('group_by%5B%5D=description');
@@ -462,7 +562,7 @@ describe('AdminAnthropicService', () => {
       'anthropic-version': '2023-06-01',
     });
     await service.billing(NOW, fetchImpl as never);
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 
   it('401 z Anthropic — błąd w odpowiedzi, nie wyjątek', async () => {
