@@ -13,6 +13,7 @@ import { AdminCatalogModule } from './catalog/admin-catalog.module';
 import { AdminGdprModule } from './gdpr/admin-gdpr.module';
 import { AdminDatabaseModule } from './database/admin-database.module';
 import { AdminTrafficModule } from './traffic/admin-traffic.module';
+import { AdminAnthropicModule } from './anthropic/admin-anthropic.module';
 import {
   AdminAuthController,
   AdminSessionController,
@@ -62,6 +63,7 @@ import { AdminLiveModule } from './live/admin-live.module';
     AdminRevenueModule,
     AdminDatabaseModule,
     AdminTrafficModule,
+    AdminAnthropicModule,
     AdminFlagsModule,
     AdminAnnouncementsModule,
     AdminLiveModule,

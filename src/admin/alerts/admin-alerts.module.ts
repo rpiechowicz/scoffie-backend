@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MailModule } from '../../mail/mail.module';
 import { AdminCoreModule } from '../admin-core.module';
 import { DeployTrackerModule } from '../integrations/deploy-tracker.module';
+import { AdminAnthropicModule } from '../anthropic/admin-anthropic.module';
 import { AdminFxModule } from '../revenue/admin-fx.module';
 import { AdminUsersModule } from '../users/admin-users.module';
 import {
@@ -25,6 +26,7 @@ import { AdminWatchService } from './admin-watch.service';
     AdminUsersModule,
     AdminFxModule,
     DeployTrackerModule,
+    AdminAnthropicModule,
   ],
   controllers: [AdminAlertsController, AdminDailyReportController],
   providers: [AdminWatchService, AdminDailyReportService, AdminAlertsService],

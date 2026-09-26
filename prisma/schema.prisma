@@ -1856,3 +1856,30 @@ model AppAnnouncement {
 
   @@index([startsAt, endsAt])
 }
+
+/// Kredyty Claude (Anthropic Console) — kotwica salda. API Anthropic nie
+/// podaje salda ani doładowań, więc po doładowaniu admin wpisuje w panelu
+/// saldo widoczne w Console; panel szacuje bieżące = kotwica − wydatki od
+/// `at` (Usage & Cost Admin API). Najnowsza kotwica wygrywa.
+model AnthropicCreditAnchor {
+  id         String   @id @default(uuid()) @db.Uuid
+  at         DateTime @default(now())
+  /// Saldo z Console w chwili `at`, USD.
+  balanceUsd Decimal  @db.Decimal(12, 2)
+  /// Kwota doładowania, gdy kotwica to doładowanie; `null` — samo saldo.
+  amountUsd  Decimal? @db.Decimal(12, 2)
+  note       String?
+  /// Adres admina z panelu — kopia, jak `AdminAuditLog.adminEmail`.
+  createdBy  String
+
+  @@index([at])
+}
+
+/// Ustawienia kredytów Claude — jeden wiersz (`id = "default"`).
+model AnthropicBillingSetting {
+  id            String   @id @default("default")
+  /// Próg alertu „kończą się kredyty”, USD.
+  lowBalanceUsd Decimal  @default(5) @db.Decimal(12, 2)
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?
+}
