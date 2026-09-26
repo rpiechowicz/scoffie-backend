@@ -75,6 +75,101 @@ describe('IntegrationCache', () => {
     expect(state).toMatchObject({ status: 'error' });
     expect(JSON.stringify(state)).not.toContain('sekret');
   });
+
+  describe('getOrStale — ostatni znany stan', () => {
+    const flush = () => new Promise((r) => setImmediate(r));
+
+    it('bez wpisu — czeka na pobranie jak get', async () => {
+      const cache = new IntegrationCache(() => 0);
+      const load = jest.fn().mockResolvedValue({ v: 1 });
+      expect(await cache.getOrStale('k', 1000, load)).toMatchObject({
+        status: 'ok',
+        data: { v: 1 },
+      });
+      expect(load).toHaveBeenCalledTimes(1);
+    });
+
+    it('przeterminowany udany odczyt wraca od razu, świeży w tle — jeden naraz', async () => {
+      let now = 0;
+      const cache = new IntegrationCache(() => now);
+      const onRefresh = jest.fn();
+      const load = jest.fn().mockResolvedValueOnce({ v: 1 });
+      await cache.getOrStale('k', 1000, load, { onRefresh });
+
+      now = 2000;
+      let release!: (v: unknown) => void;
+      load.mockImplementationOnce(() => new Promise((r) => (release = r)));
+      const [a, b] = await Promise.all([
+        cache.getOrStale('k', 1000, load, { onRefresh }),
+        cache.getOrStale('k', 1000, load, { onRefresh }),
+      ]);
+      expect(a).toMatchObject({ data: { v: 1 } });
+      expect(b).toMatchObject({ data: { v: 1 } });
+      expect(load).toHaveBeenCalledTimes(2);
+
+      release({ v: 2 });
+      await flush();
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+      expect(
+        await cache.getOrStale('k', 1000, load, { onRefresh }),
+      ).toMatchObject({ data: { v: 2 } });
+      expect(load).toHaveBeenCalledTimes(2);
+    });
+
+    it('nieudane odświeżenie zostawia stary odczyt, bez sygnału; następna próba po oknie', async () => {
+      let now = 0;
+      const cache = new IntegrationCache(() => now);
+      const onRefresh = jest.fn();
+      const load = jest.fn().mockResolvedValueOnce({ v: 1 });
+      const first = await cache.getOrStale('k', 1000, load, { onRefresh });
+
+      now = 2000;
+      load.mockRejectedValueOnce(new IntegrationError('Railway nie odpowiada'));
+      expect(
+        await cache.getOrStale('k', 1000, load, { onRefresh }),
+      ).toMatchObject({
+        status: 'ok',
+        data: { v: 1 },
+        fetchedAt: (first as { fetchedAt: string }).fetchedAt,
+      });
+      await flush();
+      expect(onRefresh).not.toHaveBeenCalled();
+
+      now = 2500;
+      expect(
+        await cache.getOrStale('k', 1000, load, { onRefresh }),
+      ).toMatchObject({ data: { v: 1 } });
+      expect(load).toHaveBeenCalledTimes(2);
+    });
+
+    it('bez zmiany danych — bez sygnału', async () => {
+      let now = 0;
+      const cache = new IntegrationCache(() => now);
+      const onRefresh = jest.fn();
+      const load = jest.fn().mockResolvedValue({ v: 1 });
+      await cache.getOrStale('k', 1000, load, { onRefresh });
+      now = 2000;
+      await cache.getOrStale('k', 1000, load, { onRefresh });
+      await flush();
+      expect(load).toHaveBeenCalledTimes(2);
+      expect(onRefresh).not.toHaveBeenCalled();
+    });
+
+    it('pusty klucz zasiany odczytem z przebiegu alertów — od razu, z jego chwilą', async () => {
+      const cache = new IntegrationCache(() => 5000);
+      const load = jest.fn().mockResolvedValue({ v: 9 });
+      const state = await cache.getOrStale('k', 1000, load, {
+        seed: { data: { v: 7 }, at: 1000 },
+      });
+      expect(state).toMatchObject({
+        status: 'ok',
+        data: { v: 7 },
+        fetchedAt: new Date(1000).toISOString(),
+      });
+      // zasiany odczyt jest przeterminowany — świeży już idzie w tle
+      expect(load).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 describe('Sentry', () => {

@@ -29,6 +29,9 @@ import {
 /** Anthropic zaleca najwyżej zapytanie na minutę; dane i tak mają ~5 min opóźnienia. */
 export const ANTHROPIC_TTL_MS = 5 * 60_000;
 export const DEFAULT_LOW_BALANCE_USD = 5;
+
+/** 401/403 — zły albo cofnięty klucz: nie chwilowa przerwa, starych danych nie podajemy. */
+export const isKeyRejected = (message: string) => /HTTP 40[13]\b/.test(message);
 const SETTINGS_ID = 'default';
 const DAY_MS = 24 * 60 * 60_000;
 
@@ -51,6 +54,18 @@ const toAnchor = (row: AnthropicCreditAnchor): AnchorRow => ({
 @Injectable()
 export class AdminAnthropicService {
   private cache = new IntegrationCache();
+  /**
+   * Ostatni udany odczyt z Anthropic — pokazywany, gdy bieżący padnie na
+   * chwilowej przerwie (timeout, 5xx, sieć), zamiast zer, które wyglądają
+   * jak „nic nie wydano”. Tylko dla tej samej doby kotwicy (od niej zależy
+   * część doby liczona w saldzie). Pamięć procesu — jedna instancja Railway;
+   * po restarcie do pierwszego udanego odczytu jest po staremu.
+   */
+  private lastGood: {
+    anchorDay: string;
+    raw: BillingRaw;
+    fetchedAt: string;
+  } | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -84,19 +99,37 @@ export class AdminAnthropicService {
       });
     }
     const range = billingRange(now, anchors[0]?.at ?? null);
+    const anchorDay = range.anchorDay ? dayKey(range.anchorDay) : '-';
     const state = await this.cache.get(
-      `anthropic:${dayKey(range.costFrom)}:${range.anchorDay ? dayKey(range.anchorDay) : '-'}`,
+      `anthropic:${dayKey(range.costFrom)}:${anchorDay}`,
       ANTHROPIC_TTL_MS,
       () => this.load(key, range, fetchImpl),
     );
+    if (state.status === 'ok') {
+      this.lastGood = {
+        anchorDay,
+        raw: state.data,
+        fetchedAt: state.fetchedAt,
+      };
+    }
+    const fallback =
+      state.status === 'error' &&
+      !isKeyRejected(state.message) &&
+      this.lastGood?.anchorDay === anchorDay
+        ? this.lastGood
+        : null;
     return buildBilling({
       configured: true,
       error: state.status === 'error' ? state.message : null,
-      raw: state.status === 'ok' ? state.data : null,
+      stale: fallback !== null,
+      raw: state.status === 'ok' ? state.data : (fallback?.raw ?? null),
       anchors,
       lowBalanceUsd,
       now,
-      fetchedAt: state.status === 'off' ? now : new Date(state.fetchedAt),
+      fetchedAt:
+        state.status === 'off'
+          ? now
+          : new Date(fallback?.fetchedAt ?? state.fetchedAt),
       ledger,
     });
   }

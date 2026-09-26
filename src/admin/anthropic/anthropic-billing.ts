@@ -222,6 +222,8 @@ export type BillingRaw = {
 export function buildBilling(input: {
   configured: boolean;
   error: string | null;
+  /** dane z ostatniego udanego odczytu, bo bieżący się nie udał */
+  stale?: boolean;
   raw: BillingRaw | null;
   /** najnowsze pierwsze */
   anchors: AnchorRow[];
@@ -345,6 +347,7 @@ export function buildBilling(input: {
   return {
     configured: input.configured,
     error: input.error,
+    stale: input.stale ?? false,
     fetchedAt: input.fetchedAt.toISOString(),
     balance,
     lowBalanceUsd: round2(input.lowBalanceUsd),
