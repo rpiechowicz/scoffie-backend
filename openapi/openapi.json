@@ -9387,9 +9387,40 @@
                     "weekStart"
                   ]
                 }
+              },
+              "portions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "householdId": { "type": "string" },
+                    "weekStart": { "type": "string", "format": "date-time" },
+                    "dayOfWeek": { "$ref": "#/components/schemas/DayOfWeek" },
+                    "mealType": { "$ref": "#/components/schemas/MealType" },
+                    "recipe": {
+                      "type": "object",
+                      "properties": {
+                        "title": { "type": "string" },
+                        "id": { "type": "string" }
+                      },
+                      "required": ["id", "title"]
+                    },
+                    "servings": { "type": "number" },
+                    "addedAt": { "type": "string", "format": "date-time" }
+                  },
+                  "required": [
+                    "addedAt",
+                    "dayOfWeek",
+                    "householdId",
+                    "mealType",
+                    "recipe",
+                    "servings",
+                    "weekStart"
+                  ]
+                }
               }
             },
-            "required": ["eaten", "planned"]
+            "required": ["eaten", "planned", "portions"]
           },
           "dailySteps": {
             "type": "array",
