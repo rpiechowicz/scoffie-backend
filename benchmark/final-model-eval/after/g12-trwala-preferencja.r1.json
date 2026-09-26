@@ -1,0 +1,149 @@
+{
+  "label": "after-g12-trwala-preferencja",
+  "startedAt": "2026-09-26T16:27:56.252Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.020294,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.020294,
+      "p95CostUsd": 0.020294,
+      "medianLatencyMs": 5279,
+      "latencySplit": {
+        "wait": 0.7236218980867588,
+        "thinking": 0,
+        "toolInput": 0.14529266906611102,
+        "text": 0.1288122750520932,
+        "toolsRun": 0.0015154385300246258,
+        "other": 0.0007577192650123129
+      },
+      "medianFirstBlockMs": 1769,
+      "cacheHitRatio": 0.9571161121728616,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 12,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.020294
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g12-trwala-preferencja",
+      "group": 12,
+      "pyta": "Czy trwała preferencja ląduje w pamięci domu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "remember_note"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "remember_note",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "b02559bb-7281-490d-9089-ecbef435e7b9",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 5279,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2818,
+          "firstBlockMs": 2051,
+          "thinkingMs": 0,
+          "toolInputMs": 767,
+          "textMs": 0,
+          "outputTokens": 136,
+          "tools": [
+            "remember_note"
+          ],
+          "toolsRunMs": 8
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2451,
+          "firstBlockMs": 1769,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 680,
+          "outputTokens": 33,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 169,
+      "cacheReadTokens": 49079,
+      "cacheWriteTokens": 2195,
+      "cacheHitRatio": 0.9571161121728616,
+      "costMicroUsd": 20294,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Zapamiętane — grzyby wykluczone z Twoich posiłków na stałe.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,375 @@
+{
+  "label": "before-g9-nierealny-czas",
+  "startedAt": "2026-09-26T16:48:26.214Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.123644,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.054241,
+      "p95CostUsd": 0.069403,
+      "medianLatencyMs": 21142,
+      "latencySplit": {
+        "wait": 0.2288288645880882,
+        "thinking": 0.37898664338023696,
+        "toolInput": 0.3282195804473376,
+        "text": 0.061960426300434635,
+        "toolsRun": 0.0014487863933157362,
+        "other": 0.0005556988905868577
+      },
+      "medianFirstBlockMs": 1625,
+      "cacheHitRatio": 0.9131485274045135,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 9,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.054241
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g9-nierealny-czas",
+      "group": 9,
+      "pyta": "Czy niewykonalne ograniczenie daje jasną odmowę zamiast pętli narzędzi?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "ask_clarifying_question"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "ask_clarifying_question",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "8a9c3cdf-f47b-4b7f-a53c-fdb0ea2bde41",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 21142,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 9871,
+          "firstBlockMs": 1624,
+          "thinkingMs": 2872,
+          "toolInputMs": 5362,
+          "textMs": 0,
+          "outputTokens": 1209,
+          "tools": [
+            "find_recipes",
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 25
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 8585,
+          "firstBlockMs": 2202,
+          "thinkingMs": 4243,
+          "toolInputMs": 2137,
+          "textMs": 0,
+          "outputTokens": 651,
+          "tools": [
+            "ask_clarifying_question"
+          ],
+          "toolsRunMs": 1
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2658,
+          "firstBlockMs": 1625,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1032,
+          "outputTokens": 78,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 1938,
+      "cacheReadTokens": 66666,
+      "cacheWriteTokens": 5379,
+      "cacheHitRatio": 0.9252612732647708,
+      "costMicroUsd": 54241,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "W katalogu nie ma obiadów ani kolacji do 5 minut — mam tylko 4 takie śniadania. Napisz, jak podejść do obiadów i kolacji, a ułożę resztę tygodnia.",
+      "cards": [
+        {
+          "kind": "CLARIFY",
+          "payload": {
+            "kind": "CLARIFY",
+            "v": 1,
+            "question": "W katalogu nie ma żadnych obiadów ani kolacji, które robi się w 5 minut — tylko 4 śniadania. Jak mam podejść do obiadów i kolacji?",
+            "hint": null,
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Śniadania do 5 minut, obiady i kolacje bez limitu czasu",
+                "style": "PRIMARY",
+                "prompt": "Śniadania do 5 minut, obiady i kolacje bez limitu czasu"
+              },
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Podnieś limit do 15 minut dla obiadów i kolacji",
+                "style": "SECONDARY",
+                "prompt": "Podnieś limit do 15 minut dla obiadów i kolacji"
+              },
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Zaplanuj tylko śniadania na 5 minut, resztę pomiń",
+                "style": "SECONDARY",
+                "prompt": "Zaplanuj tylko śniadania na 5 minut, resztę pomiń"
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "scenario": "g9-nierealny-czas",
+      "group": 9,
+      "pyta": "Czy niewykonalne ograniczenie daje jasną odmowę zamiast pętli narzędzi?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "ask_clarifying_question"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "ask_clarifying_question",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "40d06b6a-1713-4527-b57a-358adf5c4f73",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 29245,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 14156,
+          "firstBlockMs": 1592,
+          "thinkingMs": 7110,
+          "toolInputMs": 5453,
+          "textMs": 0,
+          "outputTokens": 1540,
+          "tools": [
+            "find_recipes",
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 36
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6908,
+          "firstBlockMs": 2301,
+          "thinkingMs": 2777,
+          "toolInputMs": 1822,
+          "textMs": 0,
+          "outputTokens": 568,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 11
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 8134,
+          "firstBlockMs": 2186,
+          "thinkingMs": 2094,
+          "toolInputMs": 1764,
+          "textMs": 2090,
+          "outputTokens": 551,
+          "tools": [
+            "ask_clarifying_question"
+          ],
+          "toolsRunMs": 0
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 2659,
+      "cacheReadTokens": 66983,
+      "cacheWriteTokens": 7351,
+      "cacheHitRatio": 0.9010357815442561,
+      "costMicroUsd": 69403,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "W całym katalogu nie ma ani jednego przepisu na obiad ani na kolację z czasem przygotowania do 5 minut — takie tempo mają tylko dania śniadaniowe/przekąskowe (np. serki, koktajle, tosty). Bez zmiany limitu dla obiadu i kolacji nie da się ułożyć tygodnia.",
+      "cards": [
+        {
+          "kind": "CLARIFY",
+          "payload": {
+            "kind": "CLARIFY",
+            "v": 1,
+            "question": "Dla obiadów i kolacji nie ma w katalogu dań do 5 minut — jak podejść do tych pór?",
+            "hint": null,
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Śniadania do 5 min, obiady i kolacje do 20 min (quick)",
+                "style": "PRIMARY",
+                "prompt": "Śniadania do 5 min, obiady i kolacje do 20 min (quick)"
+              },
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Śniadania do 5 min, obiady i kolacje bez limitu czasu",
+                "style": "SECONDARY",
+                "prompt": "Śniadania do 5 min, obiady i kolacje bez limitu czasu"
+              },
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Cały tydzień tylko z dań do 5 min (śniadania, powtórki)",
+                "style": "SECONDARY",
+                "prompt": "Cały tydzień tylko z dań do 5 min (śniadania, powtórki)"
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,167 @@
+{
+  "label": "cand-E-g4-tylko-wlaczone-posilki",
+  "startedAt": "2026-09-26T17:17:03.990Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.008168,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.008168,
+      "p95CostUsd": 0.008168,
+      "medianLatencyMs": 6430,
+      "latencySplit": {
+        "wait": 0.2474339035769829,
+        "thinking": 0.58149300155521,
+        "toolInput": 0.16189735614307932,
+        "text": 0,
+        "toolsRun": 0.008242612752721618,
+        "other": 0.0009331259720062209
+      },
+      "medianFirstBlockMs": 1591,
+      "cacheHitRatio": 0.9306366047745358,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 4,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.008168
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g4-tylko-wlaczone-posilki",
+      "group": 4,
+      "pyta": "Czy plan dnia respektuje sloty włączone w gospodarstwie?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "d8b6886f-1099-4ca2-a8d2-43416e75c2a6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 630
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "40e4163d-9cca-49ec-8249-7a388fb2ea9d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 619
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "f0eee3af-f986-40b1-80b5-9625cc120eae",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": [
+        "BREAKFAST",
+        "LUNCH",
+        "DINNER"
+      ],
+      "latencyMs": 6430,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 6375,
+          "firstBlockMs": 1591,
+          "thinkingMs": 3739,
+          "toolInputMs": 1041,
+          "textMs": 0,
+          "outputTokens": 587,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 53
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 587,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1559,
+      "cacheHitRatio": 0.9306366047745358,
+      "costMicroUsd": 8168,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan na sobotę gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

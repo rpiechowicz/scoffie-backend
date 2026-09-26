@@ -1,0 +1,77 @@
+{
+  "measuredAt": "2026-09-26T12:20:58.130Z",
+  "modelTools": 26,
+  "modelToolNames": [
+    "get_household_context",
+    "get_week_plan",
+    "get_week_balance",
+    "get_recipe_details",
+    "find_recipes",
+    "search_ingredients",
+    "ask_clarifying_question",
+    "propose_day_plan",
+    "offer_options",
+    "propose_swap",
+    "propose_remove_meal",
+    "propose_household_split",
+    "show_macro_gap",
+    "show_shopping_list",
+    "mark_meal_eaten",
+    "check_shopping_items",
+    "check_plan_conflicts",
+    "propose_week_plan",
+    "build_meal_plan",
+    "replace_plan_item",
+    "revise_proposal",
+    "apply_week_plan",
+    "create_recipe",
+    "update_recipe",
+    "remember_note",
+    "delete_recipe"
+  ],
+  "triageTools": 14,
+  "toolSchemaChars": 35170,
+  "topLevelOptionalFields": 16,
+  "instructionsChars": 10052,
+  "proposalModeBlockChars": 2146,
+  "flows": {
+    "kolacja: household + find + offer (przed)": {
+      "dbQueries": 46,
+      "promptQueries": 17,
+      "memberPreferencesReads": 2,
+      "toolResultChars": {
+        "get_household_context": 614,
+        "find_recipes": 3460,
+        "offer_options": 13
+      }
+    },
+    "kolacja: suggest_meals (po)": {
+      "skipped": "narzędzia nie ma w tej wersji kodu"
+    },
+    "dzień: household + build_meal_plan": {
+      "dbQueries": 45,
+      "promptQueries": 10,
+      "memberPreferencesReads": 4,
+      "toolResultChars": {
+        "get_household_context": 614,
+        "build_meal_plan": 726
+      }
+    },
+    "dzień: build_meal_plan": {
+      "dbQueries": 41,
+      "promptQueries": 10,
+      "memberPreferencesReads": 3,
+      "toolResultChars": {
+        "build_meal_plan": 726
+      }
+    },
+    "start_planning (handoff)": {
+      "dbQueries": 36,
+      "promptQueries": 10,
+      "memberPreferencesReads": 1,
+      "toolResultChars": {
+        "start_planning": 7750
+      }
+    }
+  }
+}

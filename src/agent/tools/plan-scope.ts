@@ -32,6 +32,7 @@ export const PLANNING_TOOLS: ReadonlySet<string> = new Set([
   'propose_week_plan',
   'apply_week_plan',
   'propose_day_plan',
+  'build_meal_plan',
 ]);
 
 /** Stan tury — tworzony raz przez runner, żyje tyle, co tura. */
@@ -87,6 +88,18 @@ export function plannedDaysOf(
     typeof input.week_start === 'string' ? input.week_start.trim() : '';
   if (!parseUtc(weekStart)) return null;
 
+  if (name === 'build_meal_plan') {
+    // Serwerowy planer: dotyka dokładnie tych dni, o które poproszono.
+    const days = Array.isArray(input.days)
+      ? input.days
+          .map((day) =>
+            typeof day === 'string' ? day.trim().toUpperCase() : '',
+          )
+          .filter((day) => (WEEK_DAYS as readonly string[]).includes(day))
+      : [];
+    if (days.length === 0) return null;
+    return [...new Set(days)].map((day) => `${weekStart}:${day}`);
+  }
   if (name === 'propose_day_plan') {
     const day =
       typeof input.day_of_week === 'string'

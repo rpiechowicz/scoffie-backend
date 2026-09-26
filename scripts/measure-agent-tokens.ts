@@ -30,6 +30,8 @@ import {
 } from '../src/agent/catalog-digest';
 import { AGENT_TOOLS } from '../src/agent/tools/agent-tools';
 import { AGENT_INSTRUCTIONS } from '../src/agent/agent-system-prompt';
+import { AgentCatalogService } from '../src/agent/search/agent-catalog.service';
+import { PrismaService } from '../src/prisma/prisma.service';
 
 const prisma = new PrismaClient();
 
@@ -157,7 +159,23 @@ async function main(): Promise<void> {
     instructions: number;
   }[] = [];
 
+  // Mapa katalogu (AI_CATALOG_MODE=search, domyślnie od 26.09.2026) — to ona
+  // jedzie dziś w prefiksie; digest zostaje w pomiarze jako tryb awaryjny.
+  const previousCatalogHousehold = process.env.RECIPE_IMPORT_HOUSEHOLD_ID;
+  process.env.RECIPE_IMPORT_HOUSEHOLD_ID = householdId;
+  const snapshot = await new AgentCatalogService(
+    prisma as unknown as PrismaService,
+  ).snapshot();
+  if (previousCatalogHousehold === undefined) {
+    delete process.env.RECIPE_IMPORT_HOUSEHOLD_ID;
+  } else {
+    process.env.RECIPE_IMPORT_HOUSEHOLD_ID = previousCatalogHousehold;
+  }
+  console.log(`Mapa katalogu (tryb search): ${snapshot.map.length} znaków\n`);
+  const mapTokens: Record<string, number> = {};
+
   for (const model of models) {
+    mapTokens[model] = await countContent(client, model, snapshot.map);
     const header = await countContent(client, model, DIGEST_HEADER);
     const total = await countContent(client, model, digest.text);
     const tools = await countTools(client, model);
@@ -204,6 +222,15 @@ async function main(): Promise<void> {
       `  ${row.model.padEnd(20)} ${String(prefix).padStart(6)} tok = ` +
         `digest ${row.total} + narzędzia ${row.tools} + instrukcje ${row.instructions} ` +
         `(${share.toFixed(0)}% szacunku ${ASSUMED_PREFIX_TOKENS})`,
+    );
+  }
+
+  console.log('\nSTAŁY PREFIKS w trybie search (mapa zamiast digestu):');
+  for (const row of rows) {
+    const map = mapTokens[row.model] ?? 0;
+    console.log(
+      `  ${row.model.padEnd(20)} ${String(map + row.tools + row.instructions).padStart(6)} tok = ` +
+        `mapa ${map} + narzędzia ${row.tools} + instrukcje ${row.instructions}`,
     );
   }
 

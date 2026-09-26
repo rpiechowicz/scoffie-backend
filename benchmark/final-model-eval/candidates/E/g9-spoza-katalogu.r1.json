@@ -1,0 +1,149 @@
+{
+  "label": "cand-E-g9-spoza-katalogu",
+  "startedAt": "2026-09-26T17:21:24.260Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.015043,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.015043,
+      "p95CostUsd": 0.015043,
+      "medianLatencyMs": 14124,
+      "latencySplit": {
+        "wait": 0.201571792693288,
+        "thinking": 0.6592325120362503,
+        "toolInput": 0.0004248088360237893,
+        "text": 0.13657604078164826,
+        "toolsRun": 0.0016992353440951572,
+        "other": 0.0004956103086944209
+      },
+      "medianFirstBlockMs": 1336,
+      "cacheHitRatio": 0.9421890504335821,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 9,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.015043
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g9-spoza-katalogu",
+      "group": 9,
+      "pyta": "Czy danie spoza katalogu kończy się odmową, a nie wymyślonym przepisem?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "36c13656-52b5-4c65-a634-37b7ebe80a5e",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 14124,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 10832,
+          "firstBlockMs": 1511,
+          "thinkingMs": 9311,
+          "toolInputMs": 6,
+          "textMs": 0,
+          "outputTokens": 918,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 24
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3265,
+          "firstBlockMs": 1336,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1929,
+          "outputTokens": 148,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 15,
+      "outputTokens": 1066,
+      "cacheReadTokens": 43678,
+      "cacheWriteTokens": 2665,
+      "cacheHitRatio": 0.9421890504335821,
+      "costMicroUsd": 15043,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "W katalogu nie mam sushi z tuńczykiem i awokado na obiad. Bez kombinacji tych składników na obiad mam 166 dań, ale bez dokładnie tej, którą opisałeś.\n\nMogę ci zaproponować:\n- szukać na inne pory (sushi też trafia na kolację albo podwieczorek),\n- wybrać inny obiad z tuńczykiem i awokado, jeśli taki będzie,\n- stworzyć własny przepis tego sushi i dodać go do domu.\n\nKtóra opcja?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

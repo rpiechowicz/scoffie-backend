@@ -1,0 +1,191 @@
+{
+  "label": "cand-D-g13-zmiana-w-propozycji",
+  "startedAt": "2026-09-26T17:06:26.916Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "D",
+      "label": "Haiku / low (wszystko)",
+      "model": "claude-haiku-4-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.010351,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "D",
+      "configLabel": "Haiku / low (wszystko)",
+      "runs": 1,
+      "passRate": 0,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.010351,
+      "p95CostUsd": 0.010351,
+      "medianLatencyMs": 6212,
+      "latencySplit": {
+        "wait": 0.45009658725048296,
+        "thinking": 0,
+        "toolInput": 0.46957501609787505,
+        "text": 0.06712813908564069,
+        "toolsRun": 0.012395363811976819,
+        "other": 0.0008048937540244687
+      },
+      "medianFirstBlockMs": 1371,
+      "cacheHitRatio": 0.9622050716648292,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 13,
+          "runs": 1,
+          "passRate": 0,
+          "medianRounds": 2,
+          "medianCostUsd": 0.010351
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g13-zmiana-w-propozycji",
+      "group": 13,
+      "pyta": "Czy „w tej propozycji zamień kolację\" zmienia jeden slot propozycji, a resztę zostawia?",
+      "config": "D",
+      "configLabel": "Haiku / low (wszystko)",
+      "model": "claude-haiku-4-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": false,
+      "issues": [
+        "kolacja po poprawce nie jest wegetariańska"
+      ],
+      "tools": [
+        "build_meal_plan",
+        "replace_plan_item"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        1,
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        },
+        {
+          "name": "replace_plan_item",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "d8b6886f-1099-4ca2-a8d2-43416e75c2a6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 630
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "f8e2e53a-0bbe-41b6-aea5-c073830d9dc9",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 653
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "422e9981-dc00-42ce-b16b-e23ca7262ad9",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": [
+        "BREAKFAST",
+        "LUNCH",
+        "DINNER"
+      ],
+      "latencyMs": 6212,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 2726,
+          "firstBlockMs": 1371,
+          "thinkingMs": 0,
+          "toolInputMs": 1351,
+          "textMs": 0,
+          "outputTokens": 232,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 46
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3408,
+          "firstBlockMs": 1425,
+          "thinkingMs": 0,
+          "toolInputMs": 1566,
+          "textMs": 417,
+          "outputTokens": 281,
+          "tools": [
+            "replace_plan_item"
+          ],
+          "toolsRunMs": 31
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 513,
+      "cacheReadTokens": 43636,
+      "cacheWriteTokens": 1708,
+      "cacheHitRatio": 0.9622050716648292,
+      "costMicroUsd": 10351,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn",
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Nowe danie czeka na zatwierdzenie w karcie.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

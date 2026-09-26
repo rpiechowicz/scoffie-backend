@@ -1,3 +1,4 @@
+import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AgentProposal, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -12,7 +13,7 @@ import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
 import { ApplyWeekSlotDto } from '../../weekly-plans/dto/apply-week-plan.dto';
 import { ensureMembership } from '../../weekly-plans/utils/auth-checks.util';
 import { AppException } from '../../common/app-exception';
-import { assertUuid } from '../../common/uuid';
+import { assertUuid, isUuid } from '../../common/uuid';
 import { readAgentEnv } from '../../config/agent-env';
 import { AgentCardState, PlanRemovalReason } from '../cards/agent-cards';
 import {
@@ -39,9 +40,36 @@ import { AgentQuotaMailService } from '../agent-quota-mail.service';
 import { weekBaselineHash } from './proposal-baseline';
 import type { MessageView } from '../agent-conversations.service';
 
+/**
+ * Kcal talerza w karcie podziału dania (Etap 6.1.1): z porcji osoby, nie
+ * z proporcji celów — ta sama liczba, którą po zapisie policzy bilans.
+ * Zaokrąglenie do 10 kcal, bo dokładniej i tak nikt nie nakłada.
+ */
+export function splitPlateKcal(kcalPerServing: number, servings: number) {
+  return Math.max(10, Math.round((kcalPerServing * servings) / 10) * 10);
+}
+
+export type ProposalEffect = (
+  tx: Prisma.TransactionClient,
+  result: CreateWeekProposalResult,
+) => Promise<void>;
+
 export type CreateWeekProposalInput = {
   userId: string;
   householdId: string;
+  /** Pamięć tury (Etap 3.7) — domownicy i pory czytane raz na turę. */
+  memo?: TurnMemo;
+  /**
+   * Hak w transakcji zapisu propozycji (dziennik efektów tury, Etap 5):
+   * fencing lease i wiersz dziennika z tym samym commitem.
+   */
+  effect?: ProposalEffect;
+  /**
+   * Cel kcal dnia, pod który planer liczył TEN plan (`day_kcal_target` z
+   * prośby, Etap 6.1.1). Karta pokazuje ten sam cel co planer; brak = cel
+   * z profilu. Profilu nie zmienia.
+   */
+  targetKcalPerDayOverride?: number | null;
   conversationId: string;
   turnId: string;
   weekStart: string;
@@ -56,6 +84,38 @@ export type CreateDayProposalInput = Omit<CreateWeekProposalInput, 'slots'> & {
   dayOfWeek: DayOfWeek;
   /** Stan docelowy WYŁĄCZNIE tego dnia; `dayOfWeek` dokłada serwis. */
   slots: Omit<ApplyWeekSlotDto, 'dayOfWeek'>[];
+};
+
+/**
+ * Poprawka JEDNEGO slotu w propozycji planu z tej rozmowy (`revise_proposal`).
+ * Tydzień, dzień propozycji i pozostałe pozycje bierze serwis z propozycji.
+ */
+export type ReviseProposalInput = Omit<
+  CreateWeekProposalInput,
+  'slots' | 'note' | 'weekStart' | 'removalReasons'
+> & {
+  proposalId: string;
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  recipeId: string;
+  /**
+   * Porcje łączne nowego dania — gdy dobrał je serwerowy planer
+   * (`replace_plan_item`). Brak = jak dotąd: porcje zostają przy podmianie
+   * jednej pozycji, przy scaleniu kilku liczy je audytorium.
+   */
+  plannedServings?: number;
+  /** Porcje per osoba nowego dania (Etap 2.2) — gdy dobrał je planer. */
+  portions?: { userId: string; servings: number }[];
+};
+
+/** Propozycja planu, która czeka na zatwierdzenie — do poprawek jednego slotu. */
+export type PendingPlanProposal = {
+  kind: 'PLAN_WEEK' | 'PLAN_DAY';
+  weekStart: string;
+  /** Stan docelowy tygodnia (`action.slots`). */
+  slots: ApplyWeekSlotDto[];
+  /** Dzień propozycji dnia; `null` przy tygodniu. */
+  day: DayOfWeek | null;
 };
 
 export type CreateSwapProposalInput = Omit<
@@ -78,6 +138,8 @@ export type CreateSwapProposalInput = Omit<
    * wydziela z niego jedną porcję — patrz `createSwapProposal`.
    */
   participantIds: string[];
+  /** Porcje per osoba nowego dania (Etap 2.2) — dla audytorium podmiany. */
+  portions?: { userId: string; servings: number }[];
 };
 
 export type CreateRemoveProposalInput = Omit<
@@ -101,6 +163,11 @@ export type CreateSplitProposalInput = Omit<
   CreateWeekProposalInput,
   'slots' | 'note'
 > & {
+  /**
+   * Porcje per osoba policzone przez serwer (`portionsForChoice`) — tylko
+   * przy `AI_PLANNER_PER_USER_PORTIONS=true`. Brak = równy podział.
+   */
+  servings?: { userId: string; servings: number }[];
   dayOfWeek: DayOfWeek;
   mealType: MealType;
   recipeId: string;
@@ -155,6 +222,27 @@ export class AgentProposalsService {
   ) {}
 
   /**
+   * Zapis propozycji. Z hakiem `effect` (asystent, Etap 5) propozycja
+   * i wiersz dziennika efektów tury idą JEDNĄ transakcją: odzyskana tura nie
+   * zapisze drugiej propozycji, a worker bez lease nie zapisze żadnej.
+   */
+  private async insertProposal<T extends CreateWeekProposalResult>(
+    args: Prisma.AgentProposalCreateArgs,
+    effect: ProposalEffect | undefined,
+    result: T,
+  ): Promise<T> {
+    if (!effect) {
+      await this.prisma.agentProposal.create(args);
+      return result;
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.agentProposal.create(args);
+      await effect(tx, result);
+    });
+    return result;
+  }
+
+  /**
    * Policz tydzień, złóż kartę i odłóż propozycję.
    *
    * Walidację robi domena tą samą ścieżką co zapis, więc alergen domownika
@@ -191,39 +279,43 @@ export class AgentProposalsService {
       preview,
       note: input.note,
       removalReasons: input.removalReasons,
-      targetKcalPerDay: await this.targetKcalFor(
-        input.userId,
-        input.householdId,
-      ),
+      targetKcalPerDay:
+        input.targetKcalPerDayOverride ??
+        (await this.targetKcalFor(input.userId, input.householdId, input.memo)),
       expiresAt,
       forUserId: input.userId,
-      enabledMealTypes: await this.enabledMealTypesFor(input.householdId),
+      enabledMealTypes: await this.enabledMealTypesFor(
+        input.householdId,
+        input.memo,
+      ),
     });
 
-    await this.prisma.agentProposal.create({
-      data: {
-        id: proposalId,
-        conversationId: input.conversationId,
-        turnId: input.turnId,
-        userId: input.userId,
-        householdId: input.householdId,
-        kind: 'PLAN_WEEK',
-        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-        // Stan docelowy zostaje po stronie serwera. Klient przysyła sam
-        // identyfikator propozycji, więc nie ma jak podmienić tego, co się
-        // zapisze — nawet gdyby ktoś ruszył ruch w locie.
-        action: { slots: input.slots } as unknown as Prisma.InputJsonValue,
-        card: card as unknown as Prisma.InputJsonValue,
-        baselineHash: weekBaselineHash(baseline),
-        expiresAt,
+    return this.insertProposal(
+      {
+        data: {
+          id: proposalId,
+          conversationId: input.conversationId,
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          kind: 'PLAN_WEEK',
+          weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+          // Stan docelowy zostaje po stronie serwera. Klient przysyła sam
+          // identyfikator propozycji, więc nie ma jak podmienić tego, co się
+          // zapisze — nawet gdyby ktoś ruszył ruch w locie.
+          action: { slots: input.slots } as unknown as Prisma.InputJsonValue,
+          card: card as unknown as Prisma.InputJsonValue,
+          baselineHash: weekBaselineHash(baseline),
+          expiresAt,
+        },
       },
-    });
-
-    return {
-      proposed: true,
-      proposalId,
-      summary: card.summary,
-    };
+      input.effect,
+      {
+        proposed: true,
+        proposalId,
+        summary: card.summary,
+      },
+    );
   }
 
   /**
@@ -274,42 +366,195 @@ export class AgentProposalsService {
       preview,
       note: input.note,
       removalReasons: input.removalReasons,
-      targetKcalPerDay: await this.targetKcalFor(
-        input.userId,
-        input.householdId,
-      ),
+      targetKcalPerDay:
+        input.targetKcalPerDayOverride ??
+        (await this.targetKcalFor(input.userId, input.householdId, input.memo)),
       expiresAt,
       forUserId: input.userId,
-      enabledMealTypes: await this.enabledMealTypesFor(input.householdId),
+      enabledMealTypes: await this.enabledMealTypesFor(
+        input.householdId,
+        input.memo,
+      ),
     });
 
-    await this.prisma.agentProposal.create({
-      data: {
-        id: proposalId,
+    return this.insertProposal(
+      {
+        data: {
+          id: proposalId,
+          conversationId: input.conversationId,
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          kind: 'PLAN_DAY',
+          weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+          action: { slots: merged } as unknown as Prisma.InputJsonValue,
+          card: card as unknown as Prisma.InputJsonValue,
+          baselineHash: weekBaselineHash(baseline),
+          expiresAt,
+        },
+      },
+      input.effect,
+      {
+        proposed: true,
+        proposalId,
+        summary: {
+          meals: card.summary.meals,
+          created: preview.changes.created,
+          updated: preview.changes.updated,
+          removed: preview.changes.deleted,
+          averageKcalPerDay: card.summary.kcalTotal,
+          targetKcalPerDay: card.summary.targetKcalPerDay,
+        },
+      },
+    );
+  }
+
+  /**
+   * Poprawka jednej pozycji w propozycji planu, która czeka na zatwierdzenie
+   * („zamień tylko wtorkowy obiad", „Wybieram: …" po zamiennikach).
+   *
+   * Do 26.09.2026 jedyną drogą była NOWA propozycja od zera: model musiał
+   * odtworzyć cały tydzień z pamięci, żeby zmienić jedno danie, a każda
+   * pozycja, której nie przepisał dokładnie, zmieniała się po cichu. Teraz
+   * resztę bierzemy z INTENCJI tamtej propozycji (`action.slots` — stan
+   * docelowy zapisany przez serwer), podmieniamy CAŁY slot (dzień + posiłek)
+   * na jedno danie i liczymy nową propozycję tą samą ścieżką, co zwykle:
+   * walidacja alergenów, karta, odcisk planu. Uczestnicy nowego dania to suma
+   * uczestników podmienionych pozycji, a gdy którakolwiek była dla całego
+   * domu — cały dom; porcje zostają tylko przy podmianie jednej pozycji
+   * (przy scaleniu kilku liczy je audytorium).
+   *
+   * Starej propozycji nie oznaczamy: obie mają odcisk planu z chwili
+   * powstania, więc zatwierdzenie jednej robi z drugiej STALE samo z siebie.
+   * Propozycja dnia zostaje propozycją dnia i poprawia się tylko w swoim dniu.
+   */
+  async reviseProposal(
+    input: ReviseProposalInput,
+  ): Promise<CreateWeekProposalResult> {
+    const pending = await this.loadPendingPlanProposal(input);
+    const { weekStart, slots } = pending;
+    const isTarget = (slot: ApplyWeekSlotDto) =>
+      slot.dayOfWeek === input.dayOfWeek && slot.mealType === input.mealType;
+    const replaced = slots.filter(isTarget);
+    const wholeHouse =
+      replaced.length === 0 ||
+      replaced.some((slot) => !slot.participantIds?.length);
+    const participantIds = wholeHouse
+      ? []
+      : [...new Set(replaced.flatMap((slot) => slot.participantIds ?? []))];
+    const keptServings =
+      input.plannedServings ??
+      (replaced.length === 1 ? replaced[0].plannedServings : undefined);
+    const next: ApplyWeekSlotDto = {
+      dayOfWeek: input.dayOfWeek,
+      mealType: input.mealType,
+      recipeId: input.recipeId,
+      ...(participantIds.length > 0 ? { participantIds } : {}),
+      ...(keptServings !== undefined ? { plannedServings: keptServings } : {}),
+      // Porcje per osoba z planera (Etap 2.2) — źródło prawdy nowej pozycji.
+      ...(input.portions?.length ? { portions: input.portions } : {}),
+    };
+    // Nowa pozycja w miejscu pierwszej podmienionej — karta i odcisk nie
+    // zależą od kolejności, ale czytelny zapis intencji tak.
+    const revised: ApplyWeekSlotDto[] = [];
+    for (const slot of slots) {
+      if (!isTarget(slot)) revised.push(slot);
+      else if (!revised.includes(next)) revised.push(next);
+    }
+    if (!revised.includes(next)) revised.push(next);
+
+    const base = {
+      userId: input.userId,
+      householdId: input.householdId,
+      memo: input.memo,
+      effect: input.effect,
+      conversationId: input.conversationId,
+      turnId: input.turnId,
+      weekStart,
+    };
+    if (pending.kind === 'PLAN_DAY') {
+      const day = pending.day;
+      if (!day || day !== input.dayOfWeek) {
+        throw new AppException(
+          'VALIDATION_ERROR',
+          `Ta propozycja dotyczy jednego dnia (${day ?? '?'}) — poprawiasz w niej tylko ten dzień.`,
+          HttpStatus.BAD_REQUEST,
+          ['day_of_week'],
+        );
+      }
+      return this.createDayPlanProposal({
+        ...base,
+        dayOfWeek: day,
+        slots: revised
+          .filter((slot) => slot.dayOfWeek === day)
+          .map(({ dayOfWeek: _day, ...slot }) => slot),
+      });
+    }
+    return this.createWeekPlanProposal({ ...base, slots: revised });
+  }
+
+  /**
+   * Propozycja planu (tydzień albo dzień) z TEJ rozmowy i TEGO domu, która
+   * czeka na zatwierdzenie — wspólny odczyt dla `revise_proposal`
+   * i `replace_plan_item`. Cudza, obca rozmowa, zła forma numeru: NOT_FOUND;
+   * zatwierdzona/nieaktualna: STALE; po terminie: EXPIRED.
+   */
+  async loadPendingPlanProposal(input: {
+    proposalId: string;
+    conversationId: string;
+    householdId: string;
+  }): Promise<PendingPlanProposal> {
+    const notFound = () =>
+      new AppException(
+        'AI_PROPOSAL_NOT_FOUND',
+        'Nie ma takiej propozycji planu w tej rozmowie. Numer weź z dopisku [Propozycja …] w historii.',
+        HttpStatus.NOT_FOUND,
+      );
+    if (!isUuid(input.proposalId)) throw notFound();
+    const source = await this.prisma.agentProposal.findFirst({
+      where: {
+        id: input.proposalId,
         conversationId: input.conversationId,
-        turnId: input.turnId,
-        userId: input.userId,
         householdId: input.householdId,
-        kind: 'PLAN_DAY',
-        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-        action: { slots: merged } as unknown as Prisma.InputJsonValue,
-        card: card as unknown as Prisma.InputJsonValue,
-        baselineHash: weekBaselineHash(baseline),
-        expiresAt,
+      },
+      select: {
+        kind: true,
+        status: true,
+        expiresAt: true,
+        weekStart: true,
+        action: true,
+        card: true,
       },
     });
-
+    if (
+      !source ||
+      (source.kind !== 'PLAN_WEEK' && source.kind !== 'PLAN_DAY')
+    ) {
+      throw notFound();
+    }
+    if (source.status !== 'PENDING') {
+      throw new AppException(
+        'AI_PROPOSAL_STALE',
+        `Ta propozycja nie czeka już na zatwierdzenie (${source.status}). Zmianę w zapisanym planie pokaż przez propose_swap.`,
+        HttpStatus.CONFLICT,
+      );
+    }
+    if (source.expiresAt && source.expiresAt.getTime() <= Date.now()) {
+      throw new AppException(
+        'AI_PROPOSAL_EXPIRED',
+        'Ta propozycja wygasła. Ułóż nową.',
+        HttpStatus.CONFLICT,
+      );
+    }
+    const weekStart = source.weekStart.toISOString().slice(0, 10);
     return {
-      proposed: true,
-      proposalId,
-      summary: {
-        meals: card.summary.meals,
-        created: preview.changes.created,
-        updated: preview.changes.updated,
-        removed: preview.changes.deleted,
-        averageKcalPerDay: card.summary.kcalTotal,
-        targetKcalPerDay: card.summary.targetKcalPerDay,
-      },
+      kind: source.kind,
+      weekStart,
+      slots: actionSlots(source.action),
+      day:
+        source.kind === 'PLAN_DAY'
+          ? dayOfDayCard(source.card, weekStart)
+          : null,
     };
   }
 
@@ -345,6 +590,7 @@ export class AgentProposalsService {
           dayOfWeek: input.dayOfWeek,
           mealType: input.mealType,
           recipeId: input.recipeId,
+          ...(input.portions?.length ? { portions: input.portions } : {}),
         } as ApplyWeekSlotDto,
       ];
     } else {
@@ -356,6 +602,7 @@ export class AgentProposalsService {
       const everyone = await this.householdMemberIds(
         input.userId,
         input.householdId,
+        input.memo,
       );
       const leaving = new Set(input.participantIds);
       const narrowed = standing
@@ -364,9 +611,7 @@ export class AgentProposalsService {
             ? slot.participantIds
             : everyone;
           const remaining = current.filter((userId) => !leaving.has(userId));
-          return remaining.length > 0
-            ? ({ ...slot, participantIds: remaining } as ApplyWeekSlotDto)
-            : null;
+          return narrowSlot(slot, remaining);
         })
         .filter((slot): slot is ApplyWeekSlotDto => slot !== null);
 
@@ -378,6 +623,9 @@ export class AgentProposalsService {
           mealType: input.mealType,
           recipeId: input.recipeId,
           participantIds: input.participantIds,
+          // Porcje per osoba wybranych osób (review Etapu 3) — policzone przez
+          // serwer dla tego audytorium.
+          ...(input.portions?.length ? { portions: input.portions } : {}),
         } as ApplyWeekSlotDto,
       ];
     }
@@ -401,6 +649,7 @@ export class AgentProposalsService {
         input.userId,
         input.householdId,
         input.participantIds,
+        input.memo,
       ),
       proposalId,
       weekStart: input.weekStart,
@@ -413,34 +662,36 @@ export class AgentProposalsService {
       expiresAt,
     });
 
-    await this.prisma.agentProposal.create({
-      data: {
-        id: proposalId,
-        conversationId: input.conversationId,
-        turnId: input.turnId,
-        userId: input.userId,
-        householdId: input.householdId,
-        kind: 'SWAP',
-        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-        action: { slots: merged } as unknown as Prisma.InputJsonValue,
-        card: card as unknown as Prisma.InputJsonValue,
-        baselineHash: weekBaselineHash(baseline),
-        expiresAt,
+    return this.insertProposal(
+      {
+        data: {
+          id: proposalId,
+          conversationId: input.conversationId,
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          kind: 'SWAP',
+          weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+          action: { slots: merged } as unknown as Prisma.InputJsonValue,
+          card: card as unknown as Prisma.InputJsonValue,
+          baselineHash: weekBaselineHash(baseline),
+          expiresAt,
+        },
       },
-    });
-
-    return {
-      proposed: true,
-      proposalId,
-      summary: {
-        meals: 1,
-        created: preview.changes.created,
-        updated: preview.changes.updated,
-        removed: preview.changes.deleted,
-        averageKcalPerDay: input.to.kcalPerServing,
-        targetKcalPerDay: null,
+      input.effect,
+      {
+        proposed: true,
+        proposalId,
+        summary: {
+          meals: 1,
+          created: preview.changes.created,
+          updated: preview.changes.updated,
+          removed: preview.changes.deleted,
+          averageKcalPerDay: input.to.kcalPerServing,
+          targetKcalPerDay: null,
+        },
       },
-    };
+    );
   }
 
   /**
@@ -477,6 +728,7 @@ export class AgentProposalsService {
       const everyone = await this.householdMemberIds(
         input.userId,
         input.householdId,
+        input.memo,
       );
       const leaving = new Set(input.participantIds);
       const narrowed = standing
@@ -485,9 +737,7 @@ export class AgentProposalsService {
             ? slot.participantIds
             : everyone;
           const remaining = current.filter((userId) => !leaving.has(userId));
-          return remaining.length > 0
-            ? ({ ...slot, participantIds: remaining } as ApplyWeekSlotDto)
-            : null;
+          return narrowSlot(slot, remaining);
         })
         .filter((slot): slot is ApplyWeekSlotDto => slot !== null);
       merged = [...untouched, ...narrowed];
@@ -512,6 +762,7 @@ export class AgentProposalsService {
         input.userId,
         input.householdId,
         input.participantIds,
+        input.memo,
       ),
       proposalId,
       weekStart: input.weekStart,
@@ -523,37 +774,39 @@ export class AgentProposalsService {
       expiresAt,
     });
 
-    await this.prisma.agentProposal.create({
-      data: {
-        id: proposalId,
-        conversationId: input.conversationId,
-        turnId: input.turnId,
-        userId: input.userId,
-        householdId: input.householdId,
-        kind: 'REMOVE_MEAL',
-        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-        action: { slots: merged } as unknown as Prisma.InputJsonValue,
-        card: card as unknown as Prisma.InputJsonValue,
-        baselineHash: weekBaselineHash(baseline),
-        expiresAt,
+    return this.insertProposal(
+      {
+        data: {
+          id: proposalId,
+          conversationId: input.conversationId,
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          kind: 'REMOVE_MEAL',
+          weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+          action: { slots: merged } as unknown as Prisma.InputJsonValue,
+          card: card as unknown as Prisma.InputJsonValue,
+          baselineHash: weekBaselineHash(baseline),
+          expiresAt,
+        },
       },
-    });
-
-    return {
-      proposed: true,
-      proposalId,
-      summary: {
-        meals: 0,
-        created: preview.changes.created,
-        updated: preview.changes.updated,
-        removed: preview.changes.deleted,
-        // Ta karta nie mówi o kaloriach dnia i model nie ma czego tu cytować:
-        // po usunięciu jednej pozycji średnia tygodnia jest liczbą o czymś
-        // innym niż pytanie, które padło.
-        averageKcalPerDay: 0,
-        targetKcalPerDay: null,
+      input.effect,
+      {
+        proposed: true,
+        proposalId,
+        summary: {
+          meals: 0,
+          created: preview.changes.created,
+          updated: preview.changes.updated,
+          removed: preview.changes.deleted,
+          // Ta karta nie mówi o kaloriach dnia i model nie ma czego tu cytować:
+          // po usunięciu jednej pozycji średnia tygodnia jest liczbą o czymś
+          // innym niż pytanie, które padło.
+          averageKcalPerDay: 0,
+          targetKcalPerDay: null,
+        },
       },
-    };
+    );
   }
 
   /**
@@ -616,6 +869,12 @@ export class AgentProposalsService {
     }
 
     const participantIds = input.portions.map((portion) => portion.userId);
+    // Porcje per osoba policzone przez SERWER (planer, krok 0,05 — Etap 2.2),
+    // gdy rollout porcji jest włączony. Jedno źródło prawdy (Etap 6.1.1):
+    // te porcje idą do stanu docelowego propozycji, a kcal na karcie liczą
+    // się Z NICH. Bez nich (flaga wyłączona) nic się nie alokuje i karta nie
+    // udaje różnych talerzy — plan i tak rozliczy wszystkich po równo.
+    const servings = input.servings?.length ? input.servings : null;
     const baseline = await this.weeklyPlans.snapshotWeekAsSlots(
       input.userId,
       input.householdId,
@@ -632,6 +891,7 @@ export class AgentProposalsService {
         mealType: input.mealType,
         recipeId: input.recipeId,
         participantIds,
+        ...(servings ? { portions: servings } : {}),
       } as ApplyWeekSlotDto,
     ];
 
@@ -649,30 +909,17 @@ export class AgentProposalsService {
     const proposalId = randomUUID();
     const expiresAt = new Date(Date.now() + env.proposalTtlMs);
 
-    // Porcja skalowana CELEM: przy 2 100 i 1 200 kcal ten sam gulasz to nie
-    // te same talerze. Średnia celów = jedna porcja z przepisu; kto ma cel
-    // wyżej, dostaje proporcjonalnie więcej. Zaokrąglenie do 10 kcal, bo
-    // dokładniej i tak nikt nie nakłada.
-    const goals = input.portions.map(
-      (portion) => known.get(portion.userId)!.targets.calorieGoal,
+    // Kcal talerza = kcal porcji przepisu × porcja osoby. Z alokacją — jej
+    // porcje (te same, które zapisze kliknięcie); bez — po jednej porcji.
+    const servingsOf = new Map(
+      (servings ?? []).map((portion) => [portion.userId, portion.servings]),
     );
-    const meanGoal =
-      goals.length > 0 && goals.every((goal) => goal > 0)
-        ? goals.reduce((sum, goal) => sum + goal, 0) / goals.length
-        : 0;
     const portions: HouseholdSplitPortion[] = input.portions.map((portion) => {
       const member = known.get(portion.userId)!;
-      const kcal =
-        meanGoal > 0
-          ? Math.max(
-              10,
-              Math.round(
-                (input.dish.kcalPerServing * member.targets.calorieGoal) /
-                  meanGoal /
-                  10,
-              ) * 10,
-            )
-          : input.dish.kcalPerServing;
+      const kcal = splitPlateKcal(
+        input.dish.kcalPerServing,
+        servingsOf.get(portion.userId) ?? 1,
+      );
       return {
         userId: member.userId,
         displayName: member.displayName,
@@ -698,34 +945,36 @@ export class AgentProposalsService {
       expiresAt,
     });
 
-    await this.prisma.agentProposal.create({
-      data: {
-        id: proposalId,
-        conversationId: input.conversationId,
-        turnId: input.turnId,
-        userId: input.userId,
-        householdId: input.householdId,
-        kind: 'HOUSEHOLD_SPLIT',
-        weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-        action: { slots: merged } as unknown as Prisma.InputJsonValue,
-        card: card as unknown as Prisma.InputJsonValue,
-        baselineHash: weekBaselineHash(baseline),
-        expiresAt,
+    return this.insertProposal(
+      {
+        data: {
+          id: proposalId,
+          conversationId: input.conversationId,
+          turnId: input.turnId,
+          userId: input.userId,
+          householdId: input.householdId,
+          kind: 'HOUSEHOLD_SPLIT',
+          weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
+          action: { slots: merged } as unknown as Prisma.InputJsonValue,
+          card: card as unknown as Prisma.InputJsonValue,
+          baselineHash: weekBaselineHash(baseline),
+          expiresAt,
+        },
       },
-    });
-
-    return {
-      proposed: true,
-      proposalId,
-      summary: {
-        meals: 1,
-        created: preview.changes.created,
-        updated: preview.changes.updated,
-        removed: preview.changes.deleted,
-        averageKcalPerDay: input.dish.kcalPerServing,
-        targetKcalPerDay: null,
+      input.effect,
+      {
+        proposed: true,
+        proposalId,
+        summary: {
+          meals: 1,
+          created: preview.changes.created,
+          updated: preview.changes.updated,
+          removed: preview.changes.deleted,
+          averageKcalPerDay: input.dish.kcalPerServing,
+          targetKcalPerDay: null,
+        },
       },
-    };
+    );
   }
 
   /**
@@ -737,12 +986,17 @@ export class AgentProposalsService {
   private async householdMemberIds(
     userId: string,
     householdId: string,
+    memo?: TurnMemo,
   ): Promise<string[]> {
-    const members = await this.households.memberPreferences(
-      userId,
-      householdId,
-    );
+    const members = await this.members(userId, householdId, memo);
     return members.map((member) => member.userId);
+  }
+
+  /** Domownicy z celami — raz na turę, jak prompt i narzędzia (`TurnMemo`). */
+  private members(userId: string, householdId: string, memo?: TurnMemo) {
+    return memoized(memo, TURN_KEYS.members(userId, householdId), () =>
+      this.households.memberPreferences(userId, householdId),
+    );
   }
 
   /** Imiona do karty — „dla Rafała" czyta się, „dla 3fa85f64…" nie. */
@@ -750,13 +1004,11 @@ export class AgentProposalsService {
     userId: string,
     householdId: string,
     ids: readonly string[],
+    memo?: TurnMemo,
   ): Promise<string[]> {
     if (ids.length === 0) return [];
     try {
-      const members = await this.households.memberPreferences(
-        userId,
-        householdId,
-      );
+      const members = await this.members(userId, householdId, memo);
       return members
         .filter((member) => ids.includes(member.userId))
         .map((member) => member.displayName);
@@ -766,12 +1018,21 @@ export class AgentProposalsService {
   }
 
   /** Sloty, które ten dom planuje — nota celu ma sens tylko dla pełnego dnia. */
-  private async enabledMealTypesFor(householdId: string): Promise<string[]> {
+  private async enabledMealTypesFor(
+    householdId: string,
+    memo?: TurnMemo,
+  ): Promise<string[]> {
     try {
-      const household = await this.prisma.household.findUnique({
-        where: { id: householdId },
-        select: { enabledMealTypes: true },
-      });
+      // Ten sam wiersz i klucz, co prompt tury (`TURN_KEYS.household`).
+      const household = await memoized(
+        memo,
+        TURN_KEYS.household(householdId),
+        () =>
+          this.prisma.household.findUnique({
+            where: { id: householdId },
+            select: { name: true, enabledMealTypes: true },
+          }),
+      );
       return household?.enabledMealTypes ?? [];
     } catch {
       return [];
@@ -787,12 +1048,10 @@ export class AgentProposalsService {
   private async targetKcalFor(
     userId: string,
     householdId: string,
+    memo?: TurnMemo,
   ): Promise<number | null> {
     try {
-      const members = await this.households.memberPreferences(
-        userId,
-        householdId,
-      );
+      const members = await this.members(userId, householdId, memo);
       const mine = members.find((member) => member.userId === userId);
       return mine?.targets.calorieGoal ?? null;
     } catch (error) {
@@ -1594,4 +1853,55 @@ export function cardState(
     canUndo: false,
     until: reapplicable ? proposal.expiresAt.toISOString() : null,
   };
+}
+
+/**
+ * Stan docelowy propozycji tygodnia/dnia z `action` (zapisuje go serwer, nie
+ * model). Wiersz bez listy — pusta, czyli „w propozycji nic nie ma".
+ */
+function actionSlots(action: Prisma.JsonValue): ApplyWeekSlotDto[] {
+  const slots =
+    action && typeof action === 'object' && !Array.isArray(action)
+      ? (action as { slots?: unknown }).slots
+      : undefined;
+  return Array.isArray(slots) ? (slots as ApplyWeekSlotDto[]) : [];
+}
+
+/** Dzień propozycji dnia z daty w karcie (`YYYY-MM-DD` w tygodniu `weekStart`). */
+function dayOfDayCard(
+  card: Prisma.JsonValue,
+  weekStart: string,
+): DayOfWeek | null {
+  const date =
+    card && typeof card === 'object' && !Array.isArray(card)
+      ? (card as { date?: unknown }).date
+      : undefined;
+  if (typeof date !== 'string') return null;
+  return (
+    Object.values(DayOfWeek).find(
+      (day) => dateForDay(weekStart, day) === date,
+    ) ?? null
+  );
+}
+
+/**
+ * Pozycja zawężona do `remaining` (podmiana albo usunięcie dania części osób);
+ * `null`, gdy nikt nie zostaje. Porcje per osoba (Etap 2.2) idą za
+ * audytorium: kto wychodzi z pozycji, znika też z jej alokacji — inaczej zbiór
+ * porcji nie pasowałby do uczestników (`PLAN_PORTIONS_INVALID`).
+ */
+function narrowSlot(
+  slot: ApplyWeekSlotDto,
+  remaining: string[],
+): ApplyWeekSlotDto | null {
+  if (remaining.length === 0) return null;
+  const { portions, ...rest } = slot;
+  const kept = (portions ?? []).filter((portion) =>
+    remaining.includes(portion.userId),
+  );
+  return {
+    ...rest,
+    participantIds: remaining,
+    ...(kept.length > 0 ? { portions: kept } : {}),
+  } as ApplyWeekSlotDto;
 }

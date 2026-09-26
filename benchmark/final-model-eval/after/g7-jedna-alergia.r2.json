@@ -1,0 +1,304 @@
+{
+  "label": "after-g7-jedna-alergia",
+  "startedAt": "2026-09-26T16:47:30.935Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.031506,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.015677,
+      "p95CostUsd": 0.015829,
+      "medianLatencyMs": 4498,
+      "latencySplit": {
+        "wait": 0.38554857933382997,
+        "thinking": 0.2656166861764393,
+        "toolInput": 0.33798020644886667,
+        "text": 0,
+        "toolsRun": 0.010535277216132809,
+        "other": 0.00031925082473129723
+      },
+      "medianFirstBlockMs": 1811,
+      "cacheHitRatio": 0.9298742152732571,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 7,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.015677
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g7-jedna-alergia",
+      "group": 7,
+      "pyta": "Czy alergen z profilu naprawdę nie trafia do planu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "fbfe4605-43a0-488d-9259-3ac3a1a72186",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 483
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "14f2eaef-68a1-435e-ab1f-a140db70ebcc",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 465
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "743db996-f0fd-4089-a293-97dd02734809",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 765
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "67b535d3-866b-4e7d-8a84-7d8bfb17b2df",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 621
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "7c26eb36-26d4-4fa1-90c7-83774af18e9c",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 4498,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4425,
+          "firstBlockMs": 1812,
+          "thinkingMs": 1021,
+          "toolInputMs": 1591,
+          "textMs": 0,
+          "outputTokens": 381,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 72
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 381,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1783,
+      "cacheHitRatio": 0.9298376636138517,
+      "costMicroUsd": 15677,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g7-jedna-alergia",
+      "group": 7,
+      "pyta": "Czy alergen z profilu naprawdę nie trafia do planu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "fbfe4605-43a0-488d-9259-3ac3a1a72186",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 483
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "14f2eaef-68a1-435e-ab1f-a140db70ebcc",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 465
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "743db996-f0fd-4089-a293-97dd02734809",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 765
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "67b535d3-866b-4e7d-8a84-7d8bfb17b2df",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 621
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "e688ed6d-50e6-4679-996e-1a3268df30b5",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 4899,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4872,
+          "firstBlockMs": 1811,
+          "thinkingMs": 1475,
+          "toolInputMs": 1585,
+          "textMs": 0,
+          "outputTokens": 397,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 27
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 397,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1781,
+      "cacheHitRatio": 0.9299107669326625,
+      "costMicroUsd": 15829,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

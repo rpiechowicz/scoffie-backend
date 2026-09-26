@@ -1,0 +1,77 @@
+{
+  "frozenAt": "2026-09-26T15:58:45.592Z",
+  "anchor": "22aa63c",
+  "head": "45ddb61",
+  "harness": {
+    "file": "scripts/agent-scenarios.ts + scripts/lib/agent-benchmark-scenarios.ts",
+    "sameFileOnBothCommits": true,
+    "note": "Plik harnessu z HEAD skopiowany do worktree anchora (anchor: worktreeDirty=true tylko przez harness). Moduły turn-memo/history-cards ładowane opcjonalnie: każdy commit dostaje swoją produkcyjną ścieżkę historii i pamięci tury.",
+    "scenarios": 44,
+    "newInStage6": [
+      "g13-mam-kurczaka",
+      "g13-wybieram-druga",
+      "g13-pokaz-inne",
+      "g13-zmiana-w-propozycji"
+    ]
+  },
+  "provider": "anthropic (AnthropicAgentProvider wprost, bez runnera tury)",
+  "baselineConfig": {
+    "id": "A",
+    "model": "claude-sonnet-5",
+    "effort": "medium",
+    "effortTools": "low",
+    "toolsModel": null
+  },
+  "cardsMode": "strict",
+  "catalogMode": "search (domyślne na obu commitach)",
+  "cacheWarmHours": 0,
+  "aiEnvInDotenv": "brak zmiennych AI_* w .env — wszystkie domyślne; AI_TIER_OVERRIDE=PRO ustawia harness w swoim procesie",
+  "concurrency": 1,
+  "scenarioTimeoutMs": 300000,
+  "maxTurnCostUsd": null,
+  "fixture": {
+    "database": "lokalny Postgres 16 (docker compose, baza scoffie), schemat HEAD",
+    "catalogRecipes": 500,
+    "ingredients": 476,
+    "worlds": "syntetyczne gospodarstwa tworzone i kasowane przez harness per scenariusz",
+    "weekStart": "2026-10-05"
+  },
+  "prices": "src/config/model-prices.ts — identyczne na obu commitach (sonnet-5 2/10, haiku-4-5 1/5 USD za MTok)",
+  "budget": {
+    "plan": [
+      {
+        "phase": "1 before/after",
+        "runs": "44 scen. x 2 commity x 1",
+        "estUsd": 6
+      },
+      {
+        "phase": "1b powtórzenia",
+        "runs": "12 scen. x 2 commity x 2",
+        "estUsd": 3.5
+      },
+      {
+        "phase": "2 screening",
+        "runs": "12 scen. x 3 kandydatów (B,D,E) x 1",
+        "estUsd": 2
+      },
+      {
+        "phase": "3 pełny zestaw",
+        "runs": "44 scen. x <=2 kandydatów",
+        "estUsd": 4
+      },
+      {
+        "phase": "4 powtórzenia finalistów",
+        "runs": "12 scen. x 2 x <=3 konf.",
+        "estUsd": 4
+      },
+      {
+        "phase": "5 finał wybranej konfiguracji (jeśli zmiana)",
+        "runs": "44 x 1 + 12 x 2",
+        "estUsd": 4
+      }
+    ],
+    "estimateUsd": 23.5,
+    "hardCapUsd": 40,
+    "stopRule": "--max-cost-usd na wywołanie + suma wszystkich JSON w benchmark/final-model-eval; > 40 USD = STOP i opis"
+  }
+}

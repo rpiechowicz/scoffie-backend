@@ -1,0 +1,169 @@
+{
+  "label": "after-g9-spoza-katalogu",
+  "startedAt": "2026-09-26T16:23:32.701Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.040764,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.040764,
+      "p95CostUsd": 0.040764,
+      "medianLatencyMs": 13765,
+      "latencySplit": {
+        "wait": 0.3995641118779513,
+        "thinking": 0.05550308754086451,
+        "toolInput": 0.26698147475481293,
+        "text": 0.2747548129313476,
+        "toolsRun": 0.0022520886305848167,
+        "other": 0.000944424264438794
+      },
+      "medianFirstBlockMs": 1833,
+      "cacheHitRatio": 0.9502983866889192,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 9,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.040764
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g9-spoza-katalogu",
+      "group": 9,
+      "pyta": "Czy danie spoza katalogu kończy się odmową, a nie wymyślonym przepisem?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "2cd5b5dc-051a-440f-b463-8a37fdbcebba",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 13765,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4349,
+          "firstBlockMs": 1833,
+          "thinkingMs": 581,
+          "toolInputMs": 1932,
+          "textMs": 0,
+          "outputTokens": 397,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 23
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4602,
+          "firstBlockMs": 1705,
+          "thinkingMs": 0,
+          "toolInputMs": 1743,
+          "textMs": 1151,
+          "outputTokens": 392,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 8
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4779,
+          "firstBlockMs": 1962,
+          "thinkingMs": 183,
+          "toolInputMs": 0,
+          "textMs": 2631,
+          "outputTokens": 213,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 1002,
+      "cacheReadTokens": 75161,
+      "cacheWriteTokens": 3925,
+      "cacheHitRatio": 0.9502983866889192,
+      "costMicroUsd": 40764,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "W katalogu nie ma sushi w ogóle — wyszukiwarka nie znalazła dania pasującego do zapytania, tylko zwróciła losowe wyniki niezwiązane z sushi. Nie mogę więc zapisać dokładnie tego dania, bo go po prostu nie ma.\n\nMogę zaproponować obiad na wtorek z tuńczykiem i awokado z tego, co jest dostępne — chcesz, żebym poszukał czegoś takiego?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

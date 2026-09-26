@@ -61,6 +61,8 @@ export const APP_ERROR_CODES = [
   'PLAN_TOTAL_LIMIT_REACHED',
   // Ten sam przepis już stoi w tym slocie (wyścig dwóch telefonów).
   'PLAN_SLOT_DUPLICATE',
+  // Porcje per osoba niezgodne z audytorium, krokiem 0,05 albo widełkami.
+  'PLAN_PORTIONS_INVALID',
   // Danie wstawiane do slotu, do którego się nie nadaje (`suitableMealTypes`).
   // Do Fazy 1 zapis slotu tego nie sprawdzał — asystent mógł wstawić zupę na
   // śniadanie i nikt go nie poprawiał.

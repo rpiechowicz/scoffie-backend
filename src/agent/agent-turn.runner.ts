@@ -1,20 +1,25 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  BeforeApplicationShutdown,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { stripClickableLinks } from './answer-links';
 import { Prisma } from '@prisma/client';
-import { AgentEnv } from '../config/agent-env';
+import { AgentEnv, readAgentEnv } from '../config/agent-env';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
 import { OpsAlertService } from '../observability/ops-alert.service';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  AiUsageCountersService,
-  GLOBAL_SCOPE,
-} from './ai-usage-counters.service';
+import { AgentUsageLedger, LedgerTurn } from './agent-usage-ledger.service';
+import { TURN_HEARTBEAT_MS } from './agent-turn-liveness';
 import {
   AgentPhaseUsage,
+  AgentProviderCall,
   AgentProviderError,
   AgentProviderMessage,
   AgentProviderResult,
   AgentProviderUsage,
+  AgentUsageVerdict,
 } from './providers/agent-provider';
 import { resolveRoute } from './agent-route';
 import { AgentProviderResolver } from './providers/agent-provider.resolver';
@@ -29,13 +34,27 @@ import {
   THINK_STEP_TOOL,
 } from './agent-progress';
 import { formatTurnTiming } from './agent-timing';
-import { AgentPromptService, TurnDates } from './agent-prompt.service';
+import {
+  AgentPrompt,
+  AgentPromptService,
+  TurnDates,
+} from './agent-prompt.service';
+import { historyTexts, planProposalIds } from './history-cards';
 import { AgentCard } from './cards/agent-cards';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AgentToolExecutor } from './tools/agent-tool-executor';
+import { createTurnMemo } from './turn-memo';
 import { createPlanScope } from './tools/plan-scope';
 import { UpstreamBreaker } from './upstream-breaker';
 import { emitLive } from '../common/live-events';
+import { AgentTurnQueue } from './durable/agent-turn-queue.service';
+import { TurnEffects, toStored } from './durable/turn-effects';
+import {
+  LeaseLostError,
+  readTurnLeaseConfig,
+} from './durable/turn-lease-config';
+import { effectLabel, turnTextFor } from './tools/agent-tool-executor';
+import { TOOL_ENDED_TURN } from './providers/anthropic-agent.provider';
 
 export type RunTurnInput = {
   turnId: string;
@@ -71,13 +90,61 @@ export type RunTurnInput = {
    * przyjmowałby zapisy.
    */
   proposalMode: boolean;
+  /**
+   * Lease workera (workstream, Etap 5): fencing token, numer próby i twardy
+   * termin tury. Brak = wykonanie poza kolejką (testy jednostkowe) — bez
+   * dziennika efektów i bez fencingu, jak przed Etapem 5.
+   */
+  lease?: TurnLease;
 };
+
+export type TurnLease = {
+  token: string;
+  attempt: number;
+  /** Koniec CAŁEJ tury — odzyskana próba dostaje tylko resztę czasu. */
+  deadlineAt: Date;
+};
+
+/** Klucz wyjścia odpowiedzi asystenta (`AgentMessage.outputKey`). */
+export const FINAL_OUTPUT_KEY = 'final';
 
 /** Ile ostatnich wiadomości rozmowy idzie do modelu jako kontekst. */
 export const HISTORY_WINDOW = 40;
 
 /** Powód przerwania podany do `AbortController.abort()` przy „Stop" z telefonu. */
 export const ABORT_REASON_CANCELLED = 'cancelled';
+
+/**
+ * Powód przerwania przy zamykaniu procesu (SIGTERM po deployu), gdy tura nie
+ * zdążyła domknąć się sama w `AI_SHUTDOWN_GRACE_MS`.
+ */
+export const ABORT_REASON_SHUTDOWN = 'shutdown';
+
+/**
+ * Powód przerwania, gdy turę domknął już ktoś inny (leniwy timeout z odczytu,
+ * sprzątanie osieroconych tur, rozmowa skasowana) — kolejne rundy byłyby
+ * pieniędzmi wydanymi na odpowiedź, której nikt nie zobaczy.
+ */
+export const ABORT_REASON_CLOSED = 'closed';
+
+/**
+ * Lease tury przejął inny worker (albo tura została domknięta) — ten proces
+ * przerywa pracę i NICZEGO już nie zapisuje (Etap 5). Koszt wywołań, które
+ * zdążył zrobić, zostaje w księdze pod kluczami swojej próby.
+ */
+export const ABORT_REASON_LEASE_LOST = 'lease_lost';
+
+/**
+ * Tylko testy: symulacja utraty procesu (SIGKILL) — runner znika bez
+ * jednego zapisu, jakby pamięć procesu przestała istnieć.
+ */
+export const ABORT_REASON_VANISH = 'vanish';
+
+/**
+ * Ile ms po przerwaniu tur przy zamykaniu procesu czekamy jeszcze na ich
+ * domknięcie (zapis FAILED, zwrot kwoty) — to są zapytania do bazy, nie model.
+ */
+const SHUTDOWN_CLOSE_MS = 2_000;
 
 type FailureVerdict = {
   errorCode:
@@ -110,7 +177,7 @@ type FailureVerdict = {
  * logi Railway nie są miejscem na listę zakupów ani na cele wagowe.
  */
 @Injectable()
-export class AgentTurnRunner {
+export class AgentTurnRunner implements BeforeApplicationShutdown {
   private readonly logger = new Logger(AgentTurnRunner.name);
   /**
    * Tury biegnące W TYM procesie — po to, żeby „Stop" z telefonu miał co
@@ -119,20 +186,45 @@ export class AgentTurnRunner {
    * bezpośrednio `AgentTurnsService.cancelTurn`.
    */
   private readonly running = new Map<string, AbortController>();
+  /**
+   * Proces dostał SIGTERM: nowe tury dostają 503 (`isDraining`), biegnące
+   * mają `AI_SHUTDOWN_GRACE_MS` na domknięcie się same.
+   */
+  private draining = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly providers: AgentProviderResolver,
     private readonly prompts: AgentPromptService,
     private readonly tools: AgentToolExecutor,
-    private readonly counters: AiUsageCountersService,
+    private readonly ledger: AgentUsageLedger,
     private readonly breaker: UpstreamBreaker,
     private readonly metrics: AgentMetricsService,
     private readonly alerts: OpsAlertService,
     // Opcjonalnie: testy jednostkowe runnera nie stawiają modułu powiadomień,
     // a push po turze jest udogodnieniem, nie częścią kontraktu tury.
     @Optional() private readonly notifications?: NotificationsService,
+    // Kolejka tur (Etap 5) — lease, odnowienia, zwolnienie. Opcjonalna tylko
+    // dla testów jednostkowych, które uruchamiają `run` bez lease.
+    @Optional() private readonly queue?: AgentTurnQueue,
   ) {}
+
+  /** Liczba tur w biegu w tym procesie (limit współbieżności workera). */
+  runningCount(): number {
+    return this.running.size;
+  }
+
+  /**
+   * TYLKO TESTY: symulacja SIGKILL. Każda tura w biegu przerywa się bez
+   * żadnego zapisu (bez domknięcia, bez zwolnienia lease, bez odnowień) —
+   * dokładnie to, co zostaje w bazie po nagłej śmierci procesu.
+   */
+  vanishForTests(): void {
+    this.draining = true;
+    for (const controller of this.running.values()) {
+      controller.abort(ABORT_REASON_VANISH);
+    }
+  }
 
   /**
    * Przerwanie biegnącej tury na życzenie użytkownika. `true` = tura była
@@ -146,17 +238,118 @@ export class AgentTurnRunner {
     return true;
   }
 
+  /** Czy tę turę prowadzi TEN proces (wtedy żyje, nawet gdy chwilę milczy). */
+  isRunning(turnId: string): boolean {
+    return this.running.has(turnId);
+  }
+
+  /** Proces się zamyka — nowych tur nie przyjmujemy. */
+  isDraining(): boolean {
+    return this.draining;
+  }
+
+  /**
+   * Łagodne zamknięcie procesu (SIGTERM po deployu, `app.close()`).
+   *
+   * Do 26.09.2026 proces gasł w pół tury: wiersz zostawał RUNNING, rozmowa
+   * stała zablokowana do `AI_TURN_TIMEOUT_MS`, a koszt, który dostawca już
+   * naliczył, ginął. Teraz: przestajemy przyjmować tury, dajemy biegnącym
+   * `AI_SHUTDOWN_GRACE_MS` na domknięcie się same, a resztę przerywamy
+   * (`AI_PROVIDER_ERROR`, zwrot wiadomości tylko za turę bez kosztu, bez
+   * bezpiecznika — to nie awaria dostawcy). Koszt już jest w księdze, bo
+   * zapisuje się po każdym wywołaniu. Działa tylko wtedy, gdy platforma daje
+   * procesowi czas między SIGTERM a SIGKILL — czego nie domkniemy tutaj,
+   * domknie sprzątanie osieroconych tur (`AgentTurnSweeper`) w nowym procesie.
+   */
+  async beforeApplicationShutdown(): Promise<void> {
+    this.draining = true;
+    if (this.running.size === 0) return;
+    const graceMs = readAgentEnv().shutdownGraceMs;
+    this.logger.warn(
+      `zamykanie procesu: ${this.running.size} tur w biegu, czekam do ${graceMs} ms`,
+    );
+    await this.waitForIdle(graceMs);
+    if (this.running.size === 0) return;
+    this.logger.warn(
+      `zamykanie procesu: przerywam ${this.running.size} tur — lease wraca do kolejki`,
+    );
+    for (const controller of this.running.values()) {
+      controller.abort(ABORT_REASON_SHUTDOWN);
+    }
+    await this.waitForIdle(SHUTDOWN_CLOSE_MS);
+  }
+
+  private async waitForIdle(timeoutMs: number): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (this.running.size > 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
+  /**
+   * Worker przejął turę — rejestracja OD RAZU, zanim `run` wystartuje
+   * (odczyt tury z bazy trwa). Bez tego zamykanie procesu w tym oknie nie
+   * widziało tury: nie oddawało lease, a tura zaczynała się mimo SIGTERM.
+   */
+  reserve(turnId: string): void {
+    if (!this.running.has(turnId)) {
+      this.running.set(turnId, new AbortController());
+    }
+  }
+
+  /** Rezerwacja bez wykonania (tura zniknęła między przejęciem a odczytem). */
+  forget(turnId: string): void {
+    this.running.delete(turnId);
+  }
+
   async run(input: RunTurnInput): Promise<void> {
     const startedAt = Date.now();
-    const controller = new AbortController();
+    // Rezerwacja workera (jeśli była) niesie sygnał zamykania procesu.
+    const controller = this.running.get(input.turnId) ?? new AbortController();
     this.running.set(input.turnId, controller);
+    const lease = input.lease ?? null;
+    const leaseConfig = readTurnLeaseConfig();
+    // Termin CAŁEJ tury (Etap 5): odzyskana próba dostaje resztę czasu od
+    // `deadlineAt`, a nie świeże `AI_TURN_TIMEOUT_MS` — wygasły lease to nie
+    // timeout, ale też nie powód, żeby tura żyła dłużej niż obiecaliśmy.
     const timeout = setTimeout(
       () => controller.abort(),
-      input.env.turnTimeoutMs,
+      lease
+        ? Math.max(0, lease.deadlineAt.getTime() - Date.now())
+        : input.env.turnTimeoutMs,
     );
+    // Znak życia. Z lease: odnowienie co ⅓ ważności — nieudane = tura nie
+    // jest już nasza (przerwij, nic nie zapisuj), trwały „Stop" = przerwij.
+    // Bez lease (testy, stare wywołania): `updatedAt` co 15 s jak dotąd.
+    const liveness = { lastRenewedAt: Date.now() };
+    const heartbeat = setInterval(
+      () =>
+        void (lease
+          ? this.renewLease(input, lease, controller, liveness)
+          : this.heartbeat(input, controller)),
+      lease ? leaseConfig.renewMs : TURN_HEARTBEAT_MS,
+    );
+    heartbeat.unref?.();
+    const turnLedger = new TurnLedger(this.ledger, this.logger, {
+      turnId: input.turnId,
+      userId: input.userId,
+      householdId: input.householdId,
+      provider: input.env.provider,
+      attempt: lease?.attempt ?? 1,
+      env: input.env,
+    });
 
     const progress: AgentProgressStep[] = [];
-    const draft = new DraftPublisher(this.prisma, this.logger, input.turnId);
+    const draft = new DraftPublisher(
+      this.prisma,
+      this.logger,
+      input.turnId,
+      lease?.token,
+    );
+    // Dziennik efektów narzędzi tej próby (Etap 5) — tylko pod lease.
+    const effects = lease
+      ? new TurnEffects(this.prisma, input.turnId, lease.attempt, lease.token)
+      : null;
     // Karta bez skutków ubocznych (pytanie, zestawienie) żyje w pamięci tury.
     // Propozycje idą przez bazę, bo muszą przeżyć pad procesu — ta nie ma
     // czego przeżywać: bez domkniętej tury nie powstaje żadna wiadomość.
@@ -164,25 +357,72 @@ export class AgentTurnRunner {
     // Zakres planowania CAŁEJ tury — wspólny dla obu faz (rozmowa → planista),
     // więc przekazanie pałeczki nie zeruje budżetu tygodnia.
     const planScope = createPlanScope();
+    // Pamięć tury (Etap 3.7): domownicy, zgody i pory czytane raz — prompt,
+    // narzędzia i planer tej tury biorą je stąd. Plus rezerwacja jednej karty.
+    const memo = createTurnMemo();
 
     try {
+      // Proces zaczął się zamykać między przejęciem a startem — oddaj turę.
+      if (controller.signal.aborted) {
+        throw new Error('tura przerwana przed startem');
+      }
       // Pierwszy krok od razu: historia i prompt składają się 1–3 s, potem
       // model myśli — bez tego wpisu telefon widział pustą listę kroków
       // i własne „Zastanawiam się…" aż do pierwszego narzędzia.
-      await this.publishProgress(input.turnId, progress, READ_STEP_TOOL, {});
-      const messages = await this.loadHistory(input.conversationId);
+      await this.publishProgress(
+        input.turnId,
+        progress,
+        READ_STEP_TOOL,
+        {},
+        lease?.token,
+      );
+      // Odzyskana tura, której poprzednia próba zdążyła postawić kartę
+      // kończącą turę (propozycja, wybór, pytanie) ze zdaniem serwera: to jest
+      // DOKŁADNIE to, co dostawca by oddał (`tool_ended_turn`), więc domykamy
+      // bez ani jednego wywołania modelu — bez kosztu i bez drugiej karty.
+      if (lease && lease.attempt > 1) {
+        const replay = await this.replayTerminalCard(input.turnId);
+        if (replay) {
+          await this.finishDone(
+            input,
+            replay.result,
+            Date.now() - startedAt,
+            replay.card,
+            [],
+            progress,
+            false,
+          );
+          return;
+        }
+      }
+      if (lease) await this.leaseCheckpoint(input, lease, controller);
       // Trasa tury (faza CHAT → faza PLANNER) — czysta funkcja konfiguracji,
       // liczona raz, przed pierwszym wywołaniem modelu.
       const route = resolveRoute(input.env);
+      // Prompt PRZED historią: indeks katalogu tury i domownicy ze zgodą
+      // tłumaczą karty z poprzednich tur na referencje, którymi model mówi.
       const prompt = await this.prompts.build(
         input.userId,
         input.householdId,
         input.dates,
         input.proposalMode,
         route.promptHandoff,
+        memo,
       );
+      const messages = await this.loadHistory(input.conversationId, prompt);
+      // Odzyskana próba (Addendum A1): model wie od serwera, co przed
+      // restartem już się zapisało — żeby nie próbował tego powtarzać
+      // (a gdyby spróbował inaczej, dziennik i tak odmówi).
+      if (lease && lease.attempt > 1) {
+        await this.appendRecoveryNote(input.turnId, messages);
+      }
       const provider = this.providers.resolve(input.env);
       const prepMs = Date.now() - startedAt;
+      // „Stop" albo utrata lease w trakcie składania promptu — nie wołamy
+      // modelu wcale (dostawca bez opóźnienia nie zajrzałby do sygnału).
+      if (controller.signal.aborted) {
+        throw new Error('tura przerwana przed wywołaniem modelu');
+      }
       const result = await provider.run({
         model: route.model,
         effort: route.effort,
@@ -193,7 +433,13 @@ export class AgentTurnRunner {
         // Domknięcie z tożsamością tury: dostawca nie zna ani użytkownika, ani
         // gospodarstwa, więc nie ma jak sięgnąć do bazy z pominięciem bramek.
         executeTool: async (name, toolInput) => {
-          await this.publishProgress(input.turnId, progress, name, toolInput);
+          await this.publishProgress(
+            input.turnId,
+            progress,
+            name,
+            toolInput,
+            lease?.token,
+          );
           return this.tools.execute(name, toolInput, {
             userId: input.userId,
             householdId: input.householdId,
@@ -202,6 +448,7 @@ export class AgentTurnRunner {
             turnId: input.turnId,
             proposalMode: input.proposalMode,
             planScope,
+            memo,
             dates: {
               weekStart: input.dates.weekStart,
               clientToday: input.dates.clientToday,
@@ -209,11 +456,39 @@ export class AgentTurnRunner {
             collectCard: (card) => {
               pendingCard = card;
             },
+            ...(lease && effects
+              ? {
+                  durable: {
+                    effects,
+                    checkpoint: () =>
+                      this.leaseCheckpoint(input, lease, controller),
+                    onLeaseLost: () => {
+                      if (!controller.signal.aborted) {
+                        controller.abort(ABORT_REASON_LEASE_LOST);
+                      }
+                    },
+                  },
+                }
+              : {}),
           });
         },
         // Cisza po narzędziach też jest krokiem — patrz `THINK_STEP_TOOL`.
-        onThinking: () =>
-          this.publishProgress(input.turnId, progress, THINK_STEP_TOOL, {}),
+        // Pod lease to też moment PRZED kolejnym wywołaniem modelu: trwały
+        // „Stop" i utrata lease przerywają turę, zanim wydamy na nią więcej.
+        onThinking: async () => {
+          await this.publishProgress(
+            input.turnId,
+            progress,
+            THINK_STEP_TOOL,
+            {},
+            lease?.token,
+          );
+          if (lease) {
+            await this.leaseCheckpoint(input, lease, controller).catch(
+              () => undefined,
+            );
+          }
+        },
         // Myślenie i pisanie z samego strumienia — to jedyne, co dzieje się
         // w turze bez narzędzi, i jedyne, po czym telefon poznaje, że model
         // żyje przez pierwsze pół minuty.
@@ -223,11 +498,16 @@ export class AgentTurnRunner {
             progress,
             activity === 'reasoning' ? REASON_STEP_TOOL : WRITE_STEP_TOOL,
             {},
+            lease?.token,
           ),
         onDraft: (text) => draft.push(text),
+        // Księga po każdym wywołaniu — patrz `AgentUsageLedger`.
+        onUsage: (call) => turnLedger.record(call),
         signal: controller.signal,
         maxTurnCostUsd: input.env.maxTurnCostUsd,
       });
+      // Końcówka szkicu dojeżdża, zanim tura przestanie być RUNNING.
+      await draft.settle();
       if (result.timings) {
         this.logger.log(
           formatTurnTiming(
@@ -238,6 +518,16 @@ export class AgentTurnRunner {
           ),
         );
       }
+      // Księga PRZED domknięciem: telefon czyta zużycie tury razem z DONE.
+      await turnLedger.settle({
+        usage: result.usage,
+        phases: result.phases,
+        apiCalls: result.apiCalls,
+        model: result.model ?? route.model,
+        effort: route.effort,
+        stopReason: result.stopReason,
+        requireCost: false,
+      });
       await this.finishDone(
         input,
         result,
@@ -245,21 +535,286 @@ export class AgentTurnRunner {
         pendingCard,
         prompt.usedContext,
         progress,
+        turnLedger.spentMicroUsd === 0,
       );
       this.breaker.recordSuccess();
     } catch (error) {
+      const abortReason = controller.signal.aborted
+        ? (controller.signal.reason as unknown)
+        : undefined;
+      // Symulowany SIGKILL (testy): proces „nie istnieje" — zero zapisów.
+      if (abortReason === ABORT_REASON_VANISH) return;
+      // Tura nie jest już nasza (Etap 5): ktoś ją przejął albo domknął.
+      // Koszt wywołań tej próby zostaje w księdze (klucze próby), a poza tym
+      // NIC — ani szkic, ani domknięcie, ani zwrot kwoty.
+      if (abortReason === ABORT_REASON_LEASE_LOST) {
+        draft.stop();
+        await this.settleLedgerAfterError(
+          input,
+          turnLedger,
+          error,
+          'lease_lost',
+        );
+        this.metrics.recordJobLeaseLost();
+        this.logger.warn(
+          `turn ${input.turnId} requestId=${input.requestId}: lease utracony w próbie ${lease?.attempt ?? 1} — przerywam bez zapisu`,
+        );
+        return;
+      }
+      // Zamykanie procesu pod lease: nie FAILED, tylko oddanie tury do
+      // kolejki — nowa instancja przejmie ją od razu (Etap 5, §5.15).
+      if (abortReason === ABORT_REASON_SHUTDOWN && lease && this.queue) {
+        draft.stop();
+        await this.settleLedgerAfterError(input, turnLedger, error, 'shutdown');
+        const released = await this.queue
+          .release(input.turnId, lease.token)
+          .catch(() => false);
+        this.logger.warn(
+          `turn ${input.turnId} requestId=${input.requestId}: zamykanie procesu — lease ${
+            released ? 'oddany' : 'już nie nasz'
+          } (próba ${lease.attempt})`,
+        );
+        return;
+      }
+      // Także przy błędzie i anulowaniu: szkic to jedyny ślad tego, co model
+      // zdążył napisać (warunkowy zapis — tylko póki tura jest RUNNING).
+      await draft.settle();
+      const verdict = this.classify(
+        error,
+        controller.signal.aborted,
+        controller.signal.reason,
+      );
+      const spent =
+        error instanceof AgentProviderError ? error.usage : undefined;
+      if (spent && error instanceof AgentProviderError) {
+        const route = resolveRoute(input.env);
+        await turnLedger.settle({
+          usage: spent,
+          phases: error.phases,
+          apiCalls: error.apiCalls,
+          // Bez rozbicia z dostawcy: model STARTOWY tury, nie `AI_MODEL`.
+          model: route.model,
+          effort: route.effort,
+          stopReason: verdict.errorCode,
+          // Porażka bez wydanych pieniędzy nie zostawia pustego wiersza.
+          requireCost: true,
+        });
+      } else {
+        await turnLedger.settle();
+      }
       await this.finishFailed(
         input,
         error,
+        verdict,
         Date.now() - startedAt,
-        controller.signal.aborted,
-        controller.signal.reason === ABORT_REASON_CANCELLED,
         progress,
+        turnLedger.spentMicroUsd > 0,
       );
     } finally {
       draft.stop();
       clearTimeout(timeout);
+      clearInterval(heartbeat);
       this.running.delete(input.turnId);
+    }
+  }
+
+  /** Księga po przerwaniu bez domknięcia (utrata lease, zamykanie procesu). */
+  private async settleLedgerAfterError(
+    input: RunTurnInput,
+    turnLedger: TurnLedger,
+    error: unknown,
+    stopReason: string,
+  ): Promise<void> {
+    if (error instanceof AgentProviderError && error.usage) {
+      const route = resolveRoute(input.env);
+      await turnLedger.settle({
+        usage: error.usage,
+        phases: error.phases,
+        apiCalls: error.apiCalls,
+        model: route.model,
+        effort: route.effort,
+        stopReason,
+        requireCost: true,
+      });
+      return;
+    }
+    await turnLedger.settle();
+  }
+
+  /**
+   * Odnowienie lease (Etap 5). Nieudane (`held: false`) = turę przejął ktoś
+   * inny albo ją domknął — przerywamy. Błąd bazy: próbujemy dalej, ale gdy od
+   * ostatniego udanego odnowienia minęła cała ważność lease, inny worker
+   * mógł już turę przejąć — przerywamy też, bo nie wiemy, czy wolno pisać.
+   */
+  private async renewLease(
+    input: RunTurnInput,
+    lease: TurnLease,
+    controller: AbortController,
+    liveness: { lastRenewedAt: number },
+  ): Promise<void> {
+    if (!this.queue || controller.signal.aborted) return;
+    const { leaseMs } = readTurnLeaseConfig();
+    try {
+      const state = await this.queue.renew(input.turnId, lease.token, leaseMs);
+      if (!state.held) {
+        if (!controller.signal.aborted) {
+          controller.abort(ABORT_REASON_LEASE_LOST);
+        }
+        return;
+      }
+      liveness.lastRenewedAt = Date.now();
+      if (state.cancelRequested && !controller.signal.aborted) {
+        controller.abort(ABORT_REASON_CANCELLED);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `turn ${input.turnId}: lease nie odnowiony: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
+      if (
+        Date.now() - liveness.lastRenewedAt >= leaseMs &&
+        !controller.signal.aborted
+      ) {
+        controller.abort(ABORT_REASON_LEASE_LOST);
+      }
+    }
+  }
+
+  /**
+   * Sprawdzenie z bazy przed kosztowną albo zapisującą czynnością (wywołanie
+   * modelu, narzędzie z efektem): lease nadal nasz i bez „Stop". Rzuca po
+   * ustawieniu przyczyny przerwania — dostawca i tak zobaczy sygnał.
+   */
+  private async leaseCheckpoint(
+    input: RunTurnInput,
+    lease: TurnLease,
+    controller: AbortController,
+  ): Promise<void> {
+    if (!this.queue) return;
+    const state = await this.queue.check(input.turnId, lease.token);
+    if (!state.held) {
+      if (!controller.signal.aborted) {
+        controller.abort(ABORT_REASON_LEASE_LOST);
+      }
+      throw new LeaseLostError(input.turnId);
+    }
+    if (state.cancelRequested) {
+      if (!controller.signal.aborted) controller.abort(ABORT_REASON_CANCELLED);
+      throw new Error('tura zatrzymana przez użytkownika');
+    }
+  }
+
+  /**
+   * Krótki blok SERWERA przy ostatnim pytaniu: które efekty tej tury są już
+   * zapisane (nazwa operacji, przy przepisie jego id). Bez wejść i wyników
+   * narzędzi — tylko tyle, żeby model nie zaczynał zadania od zera.
+   */
+  private async appendRecoveryNote(
+    turnId: string,
+    messages: AgentProviderMessage[],
+  ): Promise<void> {
+    const effects = await this.prisma.agentTurnEffect.findMany({
+      where: { turnId },
+      orderBy: { createdAt: 'asc' },
+      select: { key: true, tool: true, result: true },
+    });
+    const lines = effects
+      .map((effect) => {
+        const result = effect.result as { ok?: boolean; data?: unknown };
+        if (result?.ok !== true) return null;
+        if (effect.key === 'card') {
+          return `karta odpowiedzi (${effect.tool}) — przygotowana`;
+        }
+        const data = (result.data ?? {}) as {
+          recipeId?: unknown;
+          id?: unknown;
+        };
+        const recipeId =
+          effect.tool === 'create_recipe' || effect.tool === 'update_recipe'
+            ? (typeof data.recipeId === 'string' && data.recipeId) ||
+              (typeof data.id === 'string' && data.id) ||
+              null
+            : null;
+        return `${effectLabel(effect.tool)} (${effect.tool}) — zapisane${
+          recipeId ? `, id przepisu ${recipeId}` : ''
+        }`;
+      })
+      .filter((line): line is string => line !== null);
+    if (lines.length === 0) return;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].role !== 'USER') continue;
+      messages[index] = {
+        ...messages[index],
+        text:
+          `${messages[index].text}\n\n[Informacja serwera, nie od użytkownika: ` +
+          'to wznowienie tej odpowiedzi po restarcie serwera. Przed restartem ' +
+          `zapisano już: ${lines.join('; ')}. Nie powtarzaj tych operacji.]`,
+      };
+      return;
+    }
+  }
+
+  /**
+   * Karta kończąca turę, zapisana w dzienniku przez wcześniejszą próbę,
+   * razem ze zdaniem serwera (`turnTextFor`). `null` = nie ma albo karta
+   * wymaga słowa modelu (plan PARTIAL) — wtedy próba biegnie normalnie,
+   * a narzędzie i tak odda wynik z dziennika.
+   */
+  private async replayTerminalCard(
+    turnId: string,
+  ): Promise<{ result: AgentProviderResult; card: AgentCard | null } | null> {
+    const row = await this.prisma.agentTurnEffect.findUnique({
+      where: { turnId_key: { turnId, key: 'card' } },
+    });
+    if (!row) return null;
+    const stored = toStored(row);
+    if (!stored.result.ok) return null;
+    const text = turnTextFor(stored.tool, stored.input, stored.result.data);
+    if (!text) return null;
+    return {
+      result: {
+        text,
+        stopReason: TOOL_ENDED_TURN,
+        usage: {
+          inputTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: 0,
+          costMicroUsd: 0,
+        },
+        apiCalls: 0,
+        phases: [],
+      },
+      card: stored.card,
+    };
+  }
+
+  /**
+   * Znak życia tury. `count === 0` znaczy, że turę domknął już ktoś inny
+   * (leniwy timeout, sprzątanie, rozmowa skasowana) — przerywamy ją, zamiast
+   * płacić za kolejne rundy odpowiedzi, której nikt nie zobaczy. Błąd bazy
+   * jest połykany: brak jednego uderzenia nie zabija tury (próg to minuta).
+   */
+  private async heartbeat(
+    input: RunTurnInput,
+    controller: AbortController,
+  ): Promise<void> {
+    try {
+      const alive = await this.prisma.agentTurn.updateMany({
+        where: { id: input.turnId, status: 'RUNNING' },
+        data: { updatedAt: new Date() },
+      });
+      if (alive.count === 0 && !controller.signal.aborted) {
+        controller.abort(ABORT_REASON_CLOSED);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `turn ${input.turnId}: znak życia nie zapisany: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
     }
   }
 
@@ -305,6 +860,8 @@ export class AgentTurnRunner {
     steps: AgentProgressStep[],
     tool: string,
     input: Record<string, unknown>,
+    /** Fencing (Etap 5): worker bez lease nie nadpisze postępu następcy. */
+    leaseToken?: string,
   ): Promise<void> {
     // Ziarno z tury: dwie tury opisują tę samą pracę innymi słowami, a jedna
     // tura nigdy nie podmienia tekstu pod ręką użytkownika.
@@ -313,7 +870,11 @@ export class AgentTurnRunner {
     }
     try {
       await this.prisma.agentTurn.updateMany({
-        where: { id: turnId, status: 'RUNNING' },
+        where: {
+          id: turnId,
+          status: 'RUNNING',
+          ...(leaseToken ? { leaseToken } : {}),
+        },
         data: { progress: steps as unknown as Prisma.InputJsonValue },
       });
     } catch (error) {
@@ -326,115 +887,14 @@ export class AgentTurnRunner {
   }
 
   /**
-   * Księga użycia dla nieudanej tury.
-   *
-   * Osobno od `updateMany`, które domyka turę, i po nim: wiersz księgi ma
-   * powstać tylko wtedy, gdy to MY domknęliśmy turę (inaczej leniwy timeout
-   * i runner dopisaliby dwa wiersze za to samo). Błąd zapisu nie może
-   * przesłonić błędu, który tu nas przywiódł — stąd log, nie rzut.
+   * Historia rozmowy dla modelu: tekst wiadomości, a przy wiadomości
+   * asystenta z kartą — zwięzły dopisek (opcje do wyboru, pozycje i stan
+   * propozycji), patrz `history-cards.ts`. Stan propozycji z BAZY, jednym
+   * zapytaniem, tylko gdy w oknie jest jakaś karta planu.
    */
-  /**
-   * Wiersze księgi `AiUsage` dla tury: jeden na FAZĘ, a gdy dostawca nie
-   * rozróżnia faz (stary stub, błąd bez rozbicia) — jeden zbiorczy.
-   *
-   * Suma kosztu wierszy jest zawsze równa kosztowi tury, bo fazy powstają
-   * z tych samych wywołań, które składają się na `usage` — budżet dobowy i
-   * metryki liczą dalej z sumy, nie stąd.
-   *
-   * `apiCalls` idzie do księgi razem z kosztem, bo bez niego wiersz nie mówi,
-   * ILE żądań się na niego złożyło — a to jedyna droga do mediany i ogona
-   * rund liczonych z PRODUKCJI, nie z benchmarku. Przy fazach bierzemy
-   * `phase.apiCalls` (każda faza liczy własne żądania), bez faz —
-   * `params.apiCalls`, czyli licznik całej tury. Gdy dostawca nie podał
-   * liczby (błąd przed pierwszym żądaniem), zostaje `null`: „nie wiadomo",
-   * a nie „zero".
-   */
-  private usageRows(
-    input: RunTurnInput,
-    params: {
-      phases?: AgentPhaseUsage[];
-      fallbackModel: string;
-      fallbackEffort: string;
-      usage: AgentProviderUsage;
-      /** Żądania CAŁEJ tury — używane tylko w wariancie bez faz. */
-      apiCalls?: number;
-      stopReason: string | null;
-      durationMs: number;
-    },
-  ): Prisma.AiUsageCreateManyInput[] {
-    const base = {
-      turnId: input.turnId,
-      userId: input.userId,
-      householdId: input.householdId,
-      provider: input.env.provider,
-      stopReason: params.stopReason,
-      latencyMs: params.durationMs,
-    };
-    const phases = params.phases ?? [];
-    if (phases.length === 0) {
-      return [
-        {
-          ...base,
-          model: params.fallbackModel,
-          // Bez `effort` księga nie da się skalibrować: ta sama tura na
-          // `medium` i na `high` to dwa różne rachunki.
-          effort: params.fallbackEffort,
-          inputTokens: params.usage.inputTokens,
-          cacheReadTokens: params.usage.cacheReadTokens,
-          cacheWriteTokens: params.usage.cacheWriteTokens,
-          outputTokens: params.usage.outputTokens,
-          costMicroUsd: params.usage.costMicroUsd,
-          apiCalls: params.apiCalls ?? null,
-        },
-      ];
-    }
-    return phases.map((phase) => ({
-      ...base,
-      model: phase.model,
-      effort: phase.effort,
-      inputTokens: phase.usage.inputTokens,
-      cacheReadTokens: phase.usage.cacheReadTokens,
-      cacheWriteTokens: phase.usage.cacheWriteTokens,
-      outputTokens: phase.usage.outputTokens,
-      costMicroUsd: phase.usage.costMicroUsd,
-      apiCalls: phase.apiCalls,
-    }));
-  }
-
-  private async recordFailedUsage(
-    input: RunTurnInput,
-    spent: AgentProviderUsage,
-    verdict: FailureVerdict,
-    durationMs: number,
-    phases?: AgentPhaseUsage[],
-    apiCalls?: number,
-  ): Promise<void> {
-    try {
-      await this.prisma.aiUsage.createMany({
-        data: this.usageRows(input, {
-          phases,
-          // Bez rozbicia z dostawcy: model STARTOWY tury, nie `AI_MODEL` —
-          // tura, która padła jeszcze na tanim modelu, księgowała się dotąd
-          // pod planistą, który nigdy jej nie dotknął.
-          fallbackModel: resolveRoute(input.env).model,
-          fallbackEffort: resolveRoute(input.env).effort,
-          usage: spent,
-          ...(apiCalls === undefined ? {} : { apiCalls }),
-          stopReason: verdict.errorCode,
-          durationMs,
-        }),
-      });
-    } catch (error) {
-      this.logger.warn(
-        `turn ${input.turnId}: nie udało się dopisać księgi nieudanej tury: ${
-          error instanceof Error ? error.message : 'nieznany błąd'
-        }`,
-      );
-    }
-  }
-
   private async loadHistory(
     conversationId: string,
+    prompt: Pick<AgentPrompt, 'catalogIndex' | 'visibleUserIds'>,
   ): Promise<AgentProviderMessage[]> {
     const rows = await this.prisma.agentMessage.findMany({
       // Poprawione pytanie i wszystko, co po nim, znika także z historii dla
@@ -444,16 +904,32 @@ export class AgentTurnRunner {
       where: { conversationId, hiddenAt: null },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: HISTORY_WINDOW,
-      select: { role: true, text: true },
+      select: { role: true, kind: true, text: true, card: true },
     });
-    return rows
+    const chronological = rows
       .reverse()
-      .filter((row) => row.role === 'USER' || row.role === 'ASSISTANT')
-      .map((row) => ({
-        role:
-          row.role === 'ASSISTANT' ? ('ASSISTANT' as const) : ('USER' as const),
-        text: row.text,
-      }));
+      .filter((row) => row.role === 'USER' || row.role === 'ASSISTANT');
+    const proposalIds = planProposalIds(chronological);
+    const proposals =
+      proposalIds.length > 0
+        ? await this.prisma.agentProposal.findMany({
+            where: { id: { in: proposalIds }, conversationId },
+            select: { id: true, status: true, expiresAt: true },
+          })
+        : [];
+    const texts = historyTexts(chronological, {
+      refByRecipeId: new Map(
+        Object.entries(prompt.catalogIndex).map(([ref, id]) => [id, ref]),
+      ),
+      visibleUserIds: new Set(prompt.visibleUserIds ?? []),
+      proposals: new Map(proposals.map((row) => [row.id, row])),
+      now: new Date(),
+    });
+    return chronological.map((row, index) => ({
+      role:
+        row.role === 'ASSISTANT' ? ('ASSISTANT' as const) : ('USER' as const),
+      text: texts[index],
+    }));
   }
 
   private async finishDone(
@@ -463,6 +939,8 @@ export class AgentTurnRunner {
     pendingCard: AgentCard | null,
     usedContext: string[] = [],
     progress: readonly AgentProgressStep[] = [],
+    /** Czy tura nic nie wydała (wszystkie wywołania za 0 — w pamięci). */
+    free = false,
   ): Promise<void> {
     const { usage } = result;
     let closed = false;
@@ -470,9 +948,16 @@ export class AgentTurnRunner {
     try {
       closed = await this.prisma.$transaction(async (tx) => {
         const update = await tx.agentTurn.updateMany({
-          where: { id: input.turnId, status: 'RUNNING' },
+          // Fencing (Etap 5): domyka WYŁĄCZNIE właściciel aktualnego lease.
+          // Worker, który stracił lease i „odżył", trafia tu w `count === 0`.
+          where: {
+            id: input.turnId,
+            status: 'RUNNING',
+            ...(input.lease ? { leaseToken: input.lease.token } : {}),
+          },
           data: {
             status: 'DONE',
+            leaseExpiresAt: null,
             finishedAt: new Date(),
             // Prawdą jest teraz `AgentMessage`; szkic zostawiony tu myliłby
             // odczyt tury sprzed domknięcia.
@@ -483,9 +968,8 @@ export class AgentTurnRunner {
               progress,
             ) as unknown as Prisma.InputJsonValue,
             durationMs,
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            costMicroUsd: usage.costMicroUsd,
+            // Tokenów i kosztu NIE nadpisujemy: dopisuje je księga po każdym
+            // wywołaniu (`AgentUsageLedger`), także po domknięciu tury.
           },
         });
         if (update.count === 0) return false;
@@ -525,6 +1009,9 @@ export class AgentTurnRunner {
               ? { context: { used: usedContext } as Prisma.InputJsonValue }
               : {}),
             turnId: input.turnId,
+            // Klucz wyjścia (Etap 5): druga odpowiedź tej tury — z odzyskanej
+            // próby albo ponowionego domknięcia — trafia w unikat.
+            outputKey: FINAL_OUTPUT_KEY,
           },
         });
 
@@ -534,10 +1021,11 @@ export class AgentTurnRunner {
             data: { messageId: message.id },
           });
         }
-        // Turę uciął NASZ sufit kosztu (`AI_MAX_TURN_COST_USD`), a nie
-        // wyczerpane rundy. Wiadomość wraca do puli TYLKO wtedy, gdy tura nic
-        // nie kosztowała — przy `cost_ceiling` z definicji kosztowała, więc
-        // w praktyce nie wraca.
+        // Turę uciął NASZ sufit kosztu (`AI_MAX_TURN_COST_USD`, sufit domu
+        // albo instalacji), a nie wyczerpane rundy. Wiadomość wraca do puli
+        // TYLKO wtedy, gdy tura nic nie kosztowała — przy sufitach z definicji
+        // kosztowała, więc w praktyce nie wraca. Warunek „za darmo" sprawdza
+        // baza (`refundIfFree`), bo koszt dopisuje księga.
         //
         // DLACZEGO ZMIANA (12.09.2026): zwrot bezwarunkowy dawał licznik, który
         // oscylował i nigdy nie dobijał do limitu. Konto z pulą próbną pięciu
@@ -546,54 +1034,18 @@ export class AgentTurnRunner {
         // Przy `cost_ceiling` użytkownik dostaje skróconą, ale prawdziwą
         // odpowiedź („ostatnie słowo"), więc zapłata jedną wiadomością jest
         // uczciwa. Tura, która nie zdążyła nic wydać, nadal wraca za darmo.
-        if (result.stopReason === 'cost_ceiling' && usage.costMicroUsd === 0) {
-          await this.counters.add(
-            tx,
-            input.quotaScopeId,
-            input.periodKey,
-            'messages',
-            -1,
-          );
-          await tx.agentTurn.updateMany({
-            where: { id: input.turnId },
-            data: { quotaRefunded: true },
-          });
+        if (
+          free &&
+          (result.stopReason === 'cost_ceiling' ||
+            result.stopReason === 'budget_ceiling')
+        ) {
+          await this.ledger.refundIfFree(tx, input.turnId, input.quotaScopeId);
         }
 
-        // Jeden wiersz NA FAZĘ (model + wysiłek), nie na turę: po
-        // przekazaniu pałeczki tura ma dwa rachunki po dwóch różnych
-        // stawkach, a jeden wiersz zapisywał je oba pod planistą — czyli
-        // raport pokazywałby, że tani model niczego nie oszczędza.
-        await tx.aiUsage.createMany({
-          data: this.usageRows(input, {
-            phases: result.phases,
-            fallbackModel: result.model ?? input.env.model,
-            fallbackEffort: input.env.effort,
-            usage,
-            apiCalls: result.apiCalls,
-            stopReason: result.stopReason,
-            durationMs,
-          }),
-        });
         await tx.agentConversation.update({
           where: { id: input.conversationId },
           data: { lastMessageAt: message.createdAt },
         });
-        // Dwa liczniki kosztu: dobowy na CAŁĄ instalację (bezpiecznik na
-        // rachunek) i miesięczny NA GOSPODARSTWO (żeby jeden dom w pętli
-        // błędów nie wyłączył asystenta wszystkim).
-        await this.counters.addHouseholdCost(
-          tx,
-          input.householdId,
-          usage.costMicroUsd,
-        );
-        await this.counters.add(
-          tx,
-          GLOBAL_SCOPE,
-          this.counters.dayKey(),
-          'costMicroUsd',
-          usage.costMicroUsd,
-        );
         return true;
       });
     } catch (error) {
@@ -605,7 +1057,13 @@ export class AgentTurnRunner {
         );
         return;
       }
-      throw error;
+      // Odpowiedź tej tury już jest (klucz `final`) — domknij turę na niej,
+      // bez drugiej wiadomości.
+      if (this.isFinalOutputConflict(error)) {
+        closed = await this.closeOnExistingAnswer(input);
+      } else {
+        throw error;
+      }
     }
 
     if (!closed) {
@@ -628,39 +1086,82 @@ export class AgentTurnRunner {
     this.notifyFinished(input, { ok: true, text: result.text });
   }
 
+  /**
+   * Domknięcie tury, której odpowiedź (`outputKey = final`) już istnieje —
+   * np. zapisana przez wcześniejszą próbę, która padła przed zmianą statusu.
+   * Status DONE i przypięcie propozycji, bez nowej wiadomości; fencing jak
+   * przy zwykłym domknięciu.
+   */
+  private async closeOnExistingAnswer(input: RunTurnInput): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const update = await tx.agentTurn.updateMany({
+        where: {
+          id: input.turnId,
+          status: 'RUNNING',
+          ...(input.lease ? { leaseToken: input.lease.token } : {}),
+        },
+        data: {
+          status: 'DONE',
+          leaseExpiresAt: null,
+          finishedAt: new Date(),
+          draftText: null,
+        },
+      });
+      if (update.count === 0) return false;
+      const answer = await tx.agentMessage.findFirst({
+        where: { turnId: input.turnId, outputKey: FINAL_OUTPUT_KEY },
+        select: { id: true, createdAt: true },
+      });
+      if (answer) {
+        await tx.agentProposal.updateMany({
+          where: { turnId: input.turnId, messageId: null },
+          data: { messageId: answer.id },
+        });
+      }
+      return true;
+    });
+  }
+
+  private isFinalOutputConflict(error: unknown): boolean {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== 'P2002'
+    ) {
+      return false;
+    }
+    const target = (error.meta as { target?: unknown } | undefined)?.target;
+    const fields = Array.isArray(target)
+      ? target.map(String)
+      : [String(target)];
+    return fields.some((field) => field.includes('outputKey'));
+  }
+
   private async finishFailed(
     input: RunTurnInput,
     error: unknown,
+    verdict: FailureVerdict,
     durationMs: number,
-    aborted: boolean,
-    cancelled = false,
     progress: readonly AgentProgressStep[] = [],
+    /** Czy tura wydała cokolwiek (w pamięci — także gdy zapis księgi padł). */
+    spentAnything = false,
   ): Promise<void> {
-    const verdict = this.classify(error, aborted, cancelled);
-
     try {
-      // Zużycie sprzed błędu: tura, która padła po pięciu rundach narzędzi,
-      // kosztowała tyle samo co udana. Bez tego księga i budżet dobowy
-      // pokazywałyby zero wydanych pieniędzy.
-      const spent =
-        error instanceof AgentProviderError ? error.usage : undefined;
       const closed = await this.prisma.agentTurn.updateMany({
-        where: { id: input.turnId, status: 'RUNNING' },
+        where: {
+          id: input.turnId,
+          status: 'RUNNING',
+          ...(input.lease ? { leaseToken: input.lease.token } : {}),
+        },
         data: {
           status: 'FAILED',
+          leaseExpiresAt: null,
           errorCode: verdict.errorCode,
           finishedAt: new Date(),
           durationMs,
           progress: settledProgress(
             progress,
           ) as unknown as Prisma.InputJsonValue,
-          ...(spent
-            ? {
-                inputTokens: spent.inputTokens,
-                outputTokens: spent.outputTokens,
-                costMicroUsd: spent.costMicroUsd,
-              }
-            : {}),
+          // Tokeny i koszt dopisała już księga — nie nadpisujemy ich tu.
         },
       });
       if (closed.count === 0) {
@@ -670,37 +1171,12 @@ export class AgentTurnRunner {
         return;
       }
 
-      if (spent && spent.costMicroUsd > 0) {
-        // Wiersz w księdze także dla PORAŻKI. `AiUsage` to surowiec do
-        // kalibracji modelu kosztów („jeden wiersz na żądanie do dostawcy"),
-        // a tura, która padła w piątej rundzie, wysłała ich pięć. Bez tego
-        // księga pokazywałaby wyłącznie tury udane — czyli rachunek niższy
-        // od prawdziwego, i to systematycznie.
-        await this.recordFailedUsage(
-          input,
-          spent,
-          verdict,
-          durationMs,
-          error instanceof AgentProviderError ? error.phases : undefined,
-          error instanceof AgentProviderError ? error.apiCalls : undefined,
-        );
-        await this.counters.addHouseholdCost(
-          this.prisma,
-          input.householdId,
-          spent.costMicroUsd,
-        );
-        await this.counters.add(
-          this.prisma,
-          GLOBAL_SCOPE,
-          this.counters.dayKey(),
-          'costMicroUsd',
-          spent.costMicroUsd,
-        );
-      }
-
+      // Zużycie sprzed błędu — metryki widzą koszt także nieudanych tur,
+      // inaczej `/ops/metrics` pokazywał systematycznie mniej niż licznik
+      // budżetu. Księga i liczniki sufitów mają go już z `onUsage`.
+      const spent =
+        error instanceof AgentProviderError ? error.usage : undefined;
       if (spent) {
-        // Metryki widzą koszt także nieudanych tur — inaczej `/ops/metrics`
-        // pokazywał systematycznie mniej niż licznik budżetu.
         this.metrics.recordProviderUsage(
           {
             inputTokens: spent.inputTokens,
@@ -720,24 +1196,14 @@ export class AgentTurnRunner {
       // wiadomość niezależnie od tego, ile pieniędzy poszło. Skutek: licznik
       // wiadomości oscylował wokół zera, a jedno konto mogło zrobić dowolnie
       // wiele PŁATNYCH tur w granicach pięciowiadomościowej puli próbnej.
-      // Reguła jest teraz jedna dla wszystkich powodów porażki i łatwa do
-      // wytłumaczenia: nie wydaliśmy Twoich pieniędzy — nie bierzemy
-      // wiadomości.
-      const spentAnything =
-        spent !== undefined && spent !== null && spent.costMicroUsd > 0;
-      const refund = verdict.refund && !spentAnything;
-      if (refund) {
-        await this.counters.add(
-          this.prisma,
-          input.quotaScopeId,
-          input.periodKey,
-          'messages',
-          -1,
+      // Reguła jest jedna dla wszystkich powodów porażki i wszystkich ścieżek
+      // domknięcia: nie wydaliśmy Twoich pieniędzy — nie bierzemy wiadomości.
+      // Sprawdzają ją DWA źródła: pamięć tury (koszt, którego zapis do księgi
+      // mógł paść) i baza (`refundIfFree` warunkiem `costMicroUsd: 0`).
+      if (verdict.refund && !spentAnything) {
+        await this.prisma.$transaction((tx) =>
+          this.ledger.refundIfFree(tx, input.turnId, input.quotaScopeId),
         );
-        await this.prisma.agentTurn.updateMany({
-          where: { id: input.turnId },
-          data: { quotaRefunded: true },
-        });
       }
     } catch (closeError) {
       if (this.isMissingRecord(closeError)) {
@@ -746,8 +1212,8 @@ export class AgentTurnRunner {
         );
         return;
       }
-      // Awaria bazy przy domykaniu tury: leniwy timeout w odczycie i tak
-      // zamknie ją jako AI_TIMEOUT — logujemy i nie wywracamy procesu.
+      // Awaria bazy przy domykaniu tury: sprzątanie osieroconych tur i leniwy
+      // timeout w odczycie i tak ją zamkną — logujemy i nie wywracamy procesu.
       this.logger.error(
         `turn ${input.turnId} requestId=${input.requestId}: nie udało się domknąć tury`,
         closeError instanceof Error ? closeError.stack : undefined,
@@ -784,14 +1250,15 @@ export class AgentTurnRunner {
   private classify(
     error: unknown,
     aborted: boolean,
-    cancelled: boolean,
+    abortReason: unknown,
   ): FailureVerdict {
     // Przerwanie sprawdzamy PRZED typem błędu: dostawca dostaje `AbortSignal`
     // i zgłosi to po swojemu (u nas `AgentProviderError`), ale przyczyną jest
-    // nasz timeout albo „Stop" użytkownika, nie awaria po jego stronie —
-    // bezpiecznik ma to zignorować. Kwota wraca w obu przypadkach: za
-    // przerwaną turę nikt nie dostał odpowiedzi.
-    if (aborted && cancelled) {
+    // nasz timeout, „Stop" użytkownika albo zamykanie procesu, nie awaria po
+    // jego stronie — bezpiecznik ma to zignorować. Kwota wraca we wszystkich
+    // (o ile tura nic nie kosztowała): za przerwaną turę nikt nie dostał
+    // odpowiedzi.
+    if (aborted && abortReason === ABORT_REASON_CANCELLED) {
       return {
         errorCode: 'AI_CANCELLED',
         outcome: 'failed',
@@ -799,7 +1266,17 @@ export class AgentTurnRunner {
         countsToBreaker: false,
       };
     }
+    if (aborted && abortReason === ABORT_REASON_SHUTDOWN) {
+      return {
+        errorCode: 'AI_PROVIDER_ERROR',
+        outcome: 'failed',
+        refund: true,
+        countsToBreaker: false,
+      };
+    }
     if (aborted) {
+      // Nasz zegar albo tura domknięta z zewnątrz (`ABORT_REASON_CLOSED` —
+      // wtedy domknięcie i tak znajdzie `count = 0` i nic nie zapisze).
       return {
         errorCode: 'AI_TIMEOUT',
         outcome: 'timeout',
@@ -831,6 +1308,119 @@ export class AgentTurnRunner {
   }
 }
 
+/** Podsumowanie tury od dostawcy — surowiec zapisu zastępczego księgi. */
+type LedgerSummary = {
+  usage: AgentProviderUsage;
+  phases?: AgentPhaseUsage[];
+  apiCalls?: number;
+  model: string;
+  effort: AgentProviderCall['effort'];
+  stopReason: string | null;
+  /** Zapis zastępczy tylko przy niezerowym koszcie (porażka). */
+  requireCost: boolean;
+};
+
+/**
+ * Księga JEDNEJ tury po stronie runnera: przekazuje wywołania do
+ * `AgentUsageLedger`, pamięta te, których zapis padł, i ponawia je przy
+ * domknięciu (idempotentnie — klucz `(turnId, callIndex)`).
+ *
+ * Suma kosztu w pamięci jest drugim źródłem prawdy dla zwrotu kwoty: gdy
+ * baza odrzuciła zapis dwa razy, księga pokazuje zero, ale pieniądze poszły —
+ * i wiadomość nie może wtedy wrócić.
+ */
+class TurnLedger {
+  private reported = 0;
+  private spent = 0;
+  private settled = false;
+  private readonly failed: AgentProviderCall[] = [];
+
+  constructor(
+    private readonly ledger: AgentUsageLedger,
+    private readonly logger: Logger,
+    private readonly turn: LedgerTurn,
+  ) {}
+
+  get spentMicroUsd(): number {
+    return this.spent;
+  }
+
+  async record(call: AgentProviderCall): Promise<AgentUsageVerdict> {
+    this.reported += 1;
+    this.spent += call.usage.costMicroUsd;
+    try {
+      return await this.ledger.record(this.turn, call);
+    } catch (error) {
+      this.failed.push(call);
+      this.logger.warn(
+        `turn ${this.turn.turnId}: zapis wywołania ${call.callIndex} do księgi nie wyszedł, ponowię przy domknięciu: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
+      return { budgetExceeded: false };
+    }
+  }
+
+  /**
+   * Przed domknięciem tury: zapis zastępczy dla dostawcy, który nie melduje
+   * wywołań (jeden wiersz na fazę albo zbiorczy), i ponowienie zapisów,
+   * które padły. Raz na turę; nie rzuca.
+   */
+  async settle(summary?: LedgerSummary): Promise<void> {
+    if (this.settled) return;
+    this.settled = true;
+    if (
+      this.reported === 0 &&
+      summary &&
+      (!summary.requireCost || summary.usage.costMicroUsd > 0)
+    ) {
+      for (const call of fallbackCalls(summary)) await this.record(call);
+    }
+    for (const call of this.failed.splice(0)) {
+      try {
+        await this.ledger.record(this.turn, call);
+      } catch (error) {
+        this.logger.error(
+          `turn ${this.turn.turnId}: wywołanie ${call.callIndex} (${call.usage.costMicroUsd} µ$) poza księgą — zapis padł dwa razy: ${
+            error instanceof Error ? error.message : 'nieznany błąd'
+          }`,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Wiersze zastępcze: jeden na FAZĘ (model + wysiłek), a gdy dostawca nie
+ * rozróżnia faz — jeden zbiorczy z `apiCalls` całej tury (`null` = „nie
+ * wiadomo", nie „zero").
+ */
+function fallbackCalls(summary: LedgerSummary): AgentProviderCall[] {
+  const phases = summary.phases ?? [];
+  if (phases.length === 0) {
+    return [
+      {
+        callIndex: 0,
+        model: summary.model,
+        effort: summary.effort,
+        usage: summary.usage,
+        stopReason: summary.stopReason,
+        latencyMs: null,
+        apiCalls: summary.apiCalls ?? null,
+      },
+    ];
+  }
+  return phases.map((phase, index) => ({
+    callIndex: index,
+    model: phase.model,
+    effort: phase.effort,
+    usage: phase.usage,
+    stopReason: summary.stopReason,
+    latencyMs: null,
+    apiCalls: phase.apiCalls,
+  }));
+}
+
 /**
  * Szkic odpowiedzi do bazy — z dławieniem, bo model oddaje kilkadziesiąt
  * fragmentów na sekundę, a telefon i tak odpytuje co sekundę.
@@ -840,30 +1430,59 @@ export class AgentTurnRunner {
  * jak przy postępie: tura domknięta przez timeout nie ma prawa dostać
  * spóźnionego szkicu. Błąd zapisu jest połykany — szkic to udogodnienie.
  */
-class DraftPublisher {
-  /** Najwyżej jeden zapis na tyle ms; ostatni fragment zawsze dojeżdża. */
-  private static readonly intervalMs = 350;
+export class DraftPublisher {
+  /**
+   * Najwyżej jeden zapis na sekundę (Etap 4C; było 350 ms). Pierwszy fragment
+   * idzie OD RAZU (telefon widzi, że odpowiedź powstaje), kolejne zbierają
+   * się w jeden zapis na okno, a `settle()` dopisuje końcówkę przed
+   * domknięciem tury. Zapisy biegną po kolei — starszy tekst nigdy nie
+   * nadpisze nowszego.
+   */
+  static readonly intervalMs = 1000;
   private pending: string | null = null;
   private timer: NodeJS.Timeout | null = null;
   private stopped = false;
+  private lastFlushAt = 0;
+  private writing: Promise<void> = Promise.resolve();
+  /** Liczba zapisów — do pomiaru (sonda, testy). */
+  writes = 0;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: Logger,
     private readonly turnId: string,
+    /** Fencing (Etap 5): szkic pisze tylko właściciel lease. */
+    private readonly leaseToken?: string,
   ) {}
 
   push(text: string): void {
     if (this.stopped) return;
     this.pending = text;
     if (this.timer) return;
+    const wait = this.lastFlushAt + DraftPublisher.intervalMs - Date.now();
+    if (wait <= 0) {
+      this.flush();
+      return;
+    }
     this.timer = setTimeout(() => {
       this.timer = null;
-      void this.flush();
-    }, DraftPublisher.intervalMs);
+      this.flush();
+    }, wait);
   }
 
-  /** Koniec tury: nic więcej nie zapisujemy, także z zegara w locie. */
+  /** Koniec tury: dopisz to, co czeka, i nic więcej. */
+  async settle(): Promise<void> {
+    if (this.stopped) return;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.pending !== null) this.flush();
+    this.stopped = true;
+    await this.writing;
+  }
+
+  /** Twarde zatrzymanie (sprzątanie w `finally`) — bez dopisywania. */
   stop(): void {
     this.stopped = true;
     if (this.timer) {
@@ -872,13 +1491,23 @@ class DraftPublisher {
     }
   }
 
-  private async flush(): Promise<void> {
+  private flush(): void {
     const text = this.pending;
     this.pending = null;
-    if (text === null || this.stopped) return;
+    if (text === null) return;
+    this.lastFlushAt = Date.now();
+    this.writes += 1;
+    this.writing = this.writing.then(() => this.write(text));
+  }
+
+  private async write(text: string): Promise<void> {
     try {
       await this.prisma.agentTurn.updateMany({
-        where: { id: this.turnId, status: 'RUNNING' },
+        where: {
+          id: this.turnId,
+          status: 'RUNNING',
+          ...(this.leaseToken ? { leaseToken: this.leaseToken } : {}),
+        },
         data: { draftText: text },
       });
     } catch (error) {

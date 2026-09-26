@@ -1,0 +1,226 @@
+{
+  "label": "before-g7-dwie-alergie",
+  "startedAt": "2026-09-26T16:18:47.476Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.054171,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.054171,
+      "p95CostUsd": 0.054171,
+      "medianLatencyMs": 22182,
+      "latencySplit": {
+        "wait": 0.30673519069515826,
+        "thinking": 0.37679199350824993,
+        "toolInput": 0.21896131998918042,
+        "text": 0.0948516815435939,
+        "toolsRun": 0.0022089982868992875,
+        "other": 0.00045081597691822196
+      },
+      "medianFirstBlockMs": 2464,
+      "cacheHitRatio": 0.9137692370328149,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 7,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.054171
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g7-dwie-alergie",
+      "group": 7,
+      "pyta": "Czy dwie alergie naraz nadal zawężają katalog poprawnie?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "propose_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_week_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "f6920a03-f097-4778-85c2-d76c0c76d1e6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 387
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "07bbe3de-c13f-4825-bd5b-59753673344c",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 487
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "5d30be7d-72f4-44d8-8155-134a6ea335ce",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 417
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "2f867937-dc64-482b-86c8-46694293ff23",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 497
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "8b3639c5-a768-4b91-875b-1414d44855f8",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 643
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "7edc1d62-088b-4bc2-9015-5a47c511988a",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 583
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "12d70f10-ce2d-49ef-b189-ccf4669d1969",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 22182,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6253,
+          "firstBlockMs": 1785,
+          "thinkingMs": 2431,
+          "toolInputMs": 2033,
+          "textMs": 0,
+          "outputTokens": 548,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 17
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 11218,
+          "firstBlockMs": 2464,
+          "thinkingMs": 5927,
+          "toolInputMs": 2824,
+          "textMs": 0,
+          "outputTokens": 846,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 32
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4660,
+          "firstBlockMs": 2555,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2104,
+          "outputTokens": 136,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 1530,
+      "cacheReadTokens": 67332,
+      "cacheWriteTokens": 6348,
+      "cacheHitRatio": 0.9137692370328149,
+      "costMicroUsd": 54171,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Obiady na cały tydzień gotowe do zatwierdzenia — bez glutenu i laktozy, z rybą, wołowiną, drobiem i jedną wersją bezmięsną dla urozmaicenia. Sobotni obiad jest kalorycznie cięższy niż reszta, więc jeśli wolisz coś lżejszego na weekend, daj znać, a podmienię.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+{
+  "label": "cand-E-g12-poza-dziedzina",
+  "startedAt": "2026-09-26T17:01:26.480Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.04637,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.04637,
+      "p95CostUsd": 0.04637,
+      "medianLatencyMs": 53005,
+      "latencySplit": {
+        "wait": 0.9471936609753797,
+        "thinking": 0.02860107537024809,
+        "toolInput": 0,
+        "text": 0.02412979907555891,
+        "toolsRun": 0,
+        "other": 0.0000754645788133195
+      },
+      "medianFirstBlockMs": 50206,
+      "cacheHitRatio": 0,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 12,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.04637
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g12-poza-dziedzina",
+      "group": 12,
+      "pyta": "Czy prośba spoza dziedziny kończy się krótką odmową, a nie pracą?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "72161bab-01fa-4fc0-ab8b-6129f7efeaff",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 53005,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 53004,
+          "firstBlockMs": 50206,
+          "thinkingMs": 1516,
+          "toolInputMs": 0,
+          "textMs": 1279,
+          "outputTokens": 226,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 226,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 22615,
+      "cacheHitRatio": 0,
+      "costMicroUsd": 46370,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Dziękuję za prośbę, ale zajmuję się wyłącznie planowaniem posiłków, zakupami i doborem dań dla Twojego domu. Wiersze to nie moja działka.\n\nJeśli chcesz coś zaplanować do jedzenia — mogę Ci pomóc. Co powiesz na wymyślenie menu na ten tydzień?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

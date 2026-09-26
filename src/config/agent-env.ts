@@ -54,6 +54,18 @@ export const AI_MODEL_DEFAULT = 'claude-sonnet-5';
 export const AI_CARDS_MODES = ['off', 'soft', 'strict'] as const;
 export type AiCardsMode = (typeof AI_CARDS_MODES)[number];
 
+/**
+ * Skąd model zna katalog przepisów.
+ *
+ * `search` (domyślnie, od 26.09.2026): w prompcie tylko MAPA katalogu (stały
+ * rozmiar), dania model bierze z `find_recipes`. `digest`: cały katalog
+ * linia po linii w prompcie, jak przed 26.09 — furtka powrotu z panelu bez
+ * deployu, gdyby wyszukiwarka zawiodła na produkcji. Lista narzędzi jest
+ * w obu trybach TA SAMA (prefiks cache); różni się tylko blok katalogu.
+ */
+export const AI_CATALOG_MODES = ['search', 'digest'] as const;
+export type AiCatalogMode = (typeof AI_CATALOG_MODES)[number];
+
 export const AI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type AiEffort = (typeof AI_EFFORTS)[number];
 export const AI_EFFORT_DEFAULT: AiEffort = 'medium';
@@ -194,6 +206,36 @@ export type AgentEnv = {
    * dostawca kończy pętlę narzędzi odpowiedzią tekstową.
    */
   maxTurnCostUsd: number | null;
+  /** Katalog w prompcie: mapa + wyszukiwarka albo cały digest — patrz `AI_CATALOG_MODES`. */
+  catalogMode: AiCatalogMode;
+  /**
+   * Podgrzewanie cache prefiksu (`AgentCacheWarmer`): co ~55 min jedno tanie
+   * żądanie z tym samym prefiksem, ale TYLKO gdy ostatnia tura była najwyżej
+   * tyle godzin temu; `0` = wyłączone. Zdejmuje +5 s i zapis cache z pierwszej
+   * tury po godzinie ciszy (pomiar 24.09.2026).
+   */
+  cacheWarmHours: number;
+  /**
+   * Rezerwacja budżetu na turę W BIEGU (USD), liczona przy przyjęciu nowej
+   * tury: sufit domu (doba, miesiąc) i instalacji widzi wydane pieniądze PLUS
+   * tyle za każdą inną żywą turę. Bez tego dwa równoległe starty tuż pod
+   * sufitem przechodziły oba, bo koszt dopisywał się dopiero po turze.
+   * `0` = bez rezerwacji (samo „wydane < sufit", jak przed 26.09.2026).
+   */
+  turnCostReserveUsd: number;
+  /**
+   * Ile ms po SIGTERM czekamy, aż tury w biegu domkną się same, zanim
+   * przerwiemy resztę (`AI_PROVIDER_ERROR`, koszt zostaje w księdze).
+   * Ma sens tylko, gdy platforma daje procesowi ten czas przed SIGKILL.
+   */
+  shutdownGraceMs: number;
+  /**
+   * Planer daje każdej osobie WŁASNĄ porcję wspólnego dania (Etap 2.2).
+   * Domyślnie `false`: iOS sprzed porcji per osoba liczy bilans z równego
+   * podziału `plannedServings` (tu pochodna `ceil(Σ)`), więc włączamy po
+   * wydaniu aplikacji, która czyta `PlanItem.portions`. `AI_PLANNER_PER_USER_PORTIONS=true`.
+   */
+  plannerPerUserPortions: boolean;
 };
 
 /**
@@ -308,6 +350,23 @@ export const AGENT_ENV_DEFAULTS = {
    * i dłuższe tytuły), a ucieczkę na dwunastu rundach tnie o piątą część.
    */
   maxTurnCostUsd: 0.8,
+  /**
+   * Domyślnie WYŁĄCZONE (26.09.2026). Prefiks cache jest wspólny dla całej
+   * instalacji, więc przy dużym ruchu tury same trzymają go ciepłym, a przy
+   * zerowym ping nie ma czego oszczędzać. Zysk jest tylko w wąskim środku
+   * (rzadkie tury co 1–3 h): zimna tura to ~$0,10 zapisu prefiksu ~25 tys.
+   * tokenów i kilka sekund, ping ~$0,005. Włączać z panelu (np. 3), gdy
+   * raport pokaże dużo tur z `cacheWriteTokens` > 0.
+   */
+  cacheWarmHours: 0,
+  /**
+   * Typowa tura w trybie wyszukiwarki to kilka centów, plan tygodnia do
+   * ~$0,40 (szacunek z benchmarków 24.09, stary tryb). $0,25 nie zjada
+   * dobowego sufitu domu ($1,50) samotnej turze — rezerwacja liczy się tylko
+   * za INNE tury w biegu — a dwie równoległe tuż pod sufitem już zatrzymuje.
+   */
+  turnCostReserveUsd: 0.25,
+  shutdownGraceMs: 8_000,
 } as const;
 
 /**
@@ -339,7 +398,9 @@ type NumericKey =
   | 'AI_STUB_DELAY_MS'
   | 'AI_PROPOSAL_TTL_MS'
   | 'AI_PROPOSAL_UNDO_WINDOW_MS'
-  | 'AI_CONVERSATION_RETENTION_DAYS';
+  | 'AI_CONVERSATION_RETENTION_DAYS'
+  | 'AI_CACHE_WARM_HOURS'
+  | 'AI_SHUTDOWN_GRACE_MS';
 
 function readNumber(
   env: NodeJS.ProcessEnv,
@@ -541,7 +602,47 @@ export function readAgentEnv(
       { min: 0 },
     ),
     maxTurnCostUsd: readMaxTurnCostUsd(env),
+    catalogMode: parseCatalogModeStrict(env.AI_CATALOG_MODE ?? '') ?? 'search',
+    cacheWarmHours: readNumber(
+      env,
+      'AI_CACHE_WARM_HOURS',
+      AGENT_ENV_DEFAULTS.cacheWarmHours,
+      { min: 0 },
+    ),
+    turnCostReserveUsd: readNonNegativeUsd(
+      env,
+      'AI_TURN_COST_RESERVE_USD',
+      AGENT_ENV_DEFAULTS.turnCostReserveUsd,
+    ),
+    plannerPerUserPortions:
+      (env.AI_PLANNER_PER_USER_PORTIONS ?? '').trim().toLowerCase() === 'true',
+    shutdownGraceMs: readNumber(
+      env,
+      'AI_SHUTDOWN_GRACE_MS',
+      AGENT_ENV_DEFAULTS.shutdownGraceMs,
+      { min: 0 },
+    ),
   };
+}
+
+/** Kwota ≥ 0 (zero jest legalne i znaczy „wyłączone"); śmieci = domyślna. */
+function readNonNegativeUsd(
+  env: NodeJS.ProcessEnv,
+  key: string,
+  fallback: number,
+): number {
+  const raw = (env[key] ?? '').trim();
+  if (!raw) return fallback;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+/** Ścisły parser trybu katalogu — env (literówka = `search`) i panel (400). */
+export function parseCatalogModeStrict(raw: string): AiCatalogMode | undefined {
+  const value = raw.trim().toLowerCase();
+  return (AI_CATALOG_MODES as readonly string[]).includes(value)
+    ? (value as AiCatalogMode)
+    : undefined;
 }
 
 /** Jak budżet dobowy: liczba ≥ 0, `off` = bez sufitu, śmieci = domyślne. */
@@ -638,6 +739,12 @@ export function agentEnvProblems(
       `AI_CARDS_MODE=${cardsRaw} — dozwolone: ${AI_CARDS_MODES.join(', ')} (przy złej wartości działa strict, czyli model nie zapisze planu sam)`,
     );
   }
+  const catalogRaw = (env.AI_CATALOG_MODE ?? '').trim();
+  if (catalogRaw && parseCatalogModeStrict(catalogRaw) === undefined) {
+    problems.push(
+      `AI_CATALOG_MODE=${catalogRaw} — dozwolone: ${AI_CATALOG_MODES.join(', ')} (przy złej wartości działa search)`,
+    );
+  }
   const numeric: Array<[NumericKey, { min: number; integer: boolean }]> = [
     ['AI_TURN_TIMEOUT_MS', { min: 1, integer: true }],
     ['AI_LIMIT_MESSAGES_PER_MONTH', { min: 0, integer: true }],
@@ -646,6 +753,8 @@ export function agentEnvProblems(
     ['AI_PROPOSAL_TTL_MS', { min: 1, integer: true }],
     ['AI_PROPOSAL_UNDO_WINDOW_MS', { min: 0, integer: true }],
     ['AI_CONVERSATION_RETENTION_DAYS', { min: 0, integer: true }],
+    ['AI_CACHE_WARM_HOURS', { min: 0, integer: true }],
+    ['AI_SHUTDOWN_GRACE_MS', { min: 0, integer: true }],
   ];
   for (const [key, opts] of numeric) {
     const raw = (env[key] ?? '').trim();

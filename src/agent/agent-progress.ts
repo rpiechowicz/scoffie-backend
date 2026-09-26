@@ -117,9 +117,10 @@ const LABELS: Record<string, readonly string[]> = {
     'Sprawdzam skład i kroki',
     'Zaglądam do przepisu',
   ],
-  search_recipes_by_ingredient: [
-    'Szukam dań z tym składnikiem',
-    'Przeglądam składy przepisów',
+  find_recipes: [
+    'Szukam pasujących dań',
+    'Przeglądam katalog przepisów',
+    'Dobieram dania do Waszych ograniczeń',
   ],
   search_ingredients: [
     'Szukam składników',
@@ -134,6 +135,15 @@ const LABELS: Record<string, readonly string[]> = {
   ],
   propose_day_plan: ['Układam ten dzień', 'Dobieram posiłki na jeden dzień'],
   propose_swap: ['Szukam czegoś w zamian', 'Dobieram danie na podmianę'],
+  revise_proposal: [
+    'Poprawiam propozycję',
+    'Zmieniam jedno danie w propozycji',
+  ],
+  build_meal_plan: [
+    'Układam plan pod Wasze cele',
+    'Dobieram dania, porcje i kalorie',
+  ],
+  replace_plan_item: ['Szukam zamiennika', 'Dobieram danie na to miejsce'],
   propose_remove_meal: [
     'Wyjmuję to z planu',
     'Sprawdzam, co zostanie po usunięciu',

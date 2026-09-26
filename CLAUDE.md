@@ -5,6 +5,18 @@ i historia prac leżą w `docs/handover/` (notatki pamięci + snapshot stanu) i
 `docs/plans/scoffie-ai-agent/` (analiza asystenta AI, audyt, plastry A–D).
 **Zacznij od `docs/handover/2026-08-28-stan.md`.** Rozmawiamy po polsku, na „ty”.
 
+## Aktywny workstream: backend + asystent server-first (26.09.2026)
+
+Dla prac nad wydajnością bazy, katalogu i asystenta AI źródłem prawdy jest
+`docs/workstreams/assistant-backend-optimization/`.
+
+**Zanim zaczniesz taki zakres:** przeczytaj kolejno `README.md`, `STATE.md` i
+`TASKS.md` z tego folderu. Wykonuj wyłącznie etap oznaczony w `STATE.md` jako
+aktywny i zatwierdzony. Po zakończeniu etapu zapisz raport wg
+`REPORT_TEMPLATE.md`, zaktualizuj `STATE.md` i **zatrzymaj się** — nie zaczynaj
+następnego etapu bez akceptacji Rafała. To ma umożliwić niezależny review między
+etapami i mierzenie efektu zmian.
+
 ## Repozytoria i środowisko
 
 - Backend: to repo. iOS (SwiftUI): `rpiechowicz/scoffie-ios` — buduje się TYLKO na Macu
@@ -163,6 +175,10 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   limit nie wymaga builda. Nowy kontroler ostrzejszy niż domyślny = `@Throttle({ default: { limit:
 () => readThrottleLimit('…') } })`; sondy = `@SkipThrottle({ default: true, ip: true })`.
   WebSocket ma własny limiter (`checkWsRateLimit` w `actorId`), bo guard omija ack.
+  `/auth/refresh` (od 26.09.2026) liczy się per SESJA — hasz przedstawionego refresh tokenu
+  (`refreshTokenTracker`, `THROTTLE_AUTH_REFRESH_LIMIT`=10) — z luźną siatką `ip` tylko dla tej trasy
+  (`THROTTLE_AUTH_REFRESH_IP_LIMIT`=600); logowanie zostaje 20/min po IP. Uwaga: domyślny
+  `generateKey` throttlera ma w kluczu klasę i handler, więc każdy licznik jest PER TRASA.
 - Zaproszenia: w bazie leży tylko `Invitation.tokenHash` (sha256 hex, bez peppera); surowy token
   istnieje wyłącznie w odpowiedzi `households:createInvitation`. Skrzynka oddaje w polu `token`
   uchwyt `inv_<id>`, ważny tylko dla adresata (`invitationLookup`). Kolumna `token` jest WYCOFYWANA
@@ -173,10 +189,32 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   Konfiguracja przez `AgentConfigService.assertEnabled()` (czyta env per wywołanie; `AI_ENABLED=false`
   = 503 `AI_DISABLED`). Kontrakt: `POST /agent/conversations/:id/messages` → 202 `{turnId,…}` +
   `Location`, klient odpytuje `GET /agent/turns/:id`. Kolejność odmów jest częścią kontraktu
-  (disabled → 404 → walidacja → idempotencja po `clientMessageId` → bezpiecznik → budżet →
-  [tx: lease 409 → kwota 429 → zapis]); kwota schodzi NA STARCIE tury i wraca przy porażce.
-  `AgentTurnRunner.run` nie rzuca nigdy i domyka turę warunkowo (`updateMany` po `status: 'RUNNING'`).
-  W logach asystenta nie ma treści wiadomości — tylko `turnId`, `requestId` i kod.
+  (disabled → 404 → walidacja → idempotencja po `clientMessageId` → bezpiecznik i zamykany proces
+  [503 `AI_UPSTREAM_PAUSED`] → sufity domu z samych wydanych [503] → budżet instalacji z rezerwacją
+  [503, NIEATOMOWO] → [tx SERIALIZABLE: lease 409 → semafor domu 409 → sufity domu z rezerwacją
+  503 → kwota 429 → zapis]); kwota schodzi NA STARCIE tury i wraca WYŁĄCZNIE za turę, która nic nie
+  kosztowała — na każdej ścieżce domknięcia (`AgentUsageLedger.refundIfFree`, warunek
+  `costMicroUsd: 0` w samym `updateMany`). `AgentTurnRunner.run` nie rzuca nigdy i domyka turę
+  warunkowo (`updateMany` po `status: 'RUNNING'`). W logach asystenta nie ma treści wiadomości —
+  tylko `turnId`, `requestId` i kod.
+- Księga kosztu asystenta (od 26.09.2026, workstream Etap 1): wiersz `AiUsage` na KAŻDE wywołanie
+  dostawcy, zapisany zaraz po nim przez `onUsage` → `AgentUsageLedger.record` (klucz idempotencji
+  `AiUsage.callKey` = `turn:<turnId>:<callIndex>`, NOT NULL UNIQUE i niezależny od FK — działa też po
+  skasowaniu tury; NIE opierać idempotencji na unikacie z kolumn nullable), jedna transakcja: wiersz + przyrost tokenów/kosztu tury BEZ względu na
+  status + liczniki sufitów + cofnięcie zwrotu, gdy koszt dojechał do tury już zwróconej).
+  `finishDone`/`finishFailed` NIE piszą już kosztu ani liczników. Nowy dostawca MUSI meldować
+  wywołania (`onUsage`), inaczej runner zapisze jeden zbiorczy wiersz po turze i przerwanie z
+  zewnątrz zgubi koszt. Raporty liczą tury przez `COUNT(DISTINCT turnId)`, nie wiersze. Werdykt
+  księgi (`budgetExceeded`) kończy pętlę narzędzi ostatnim słowem (`stopReason: budget_ceiling`).
+  Rezerwacja przy przyjęciu tury: `AI_TURN_COST_RESERVE_USD` (0,25) × inne ŻYWE tury.
+- Życie tury (`src/agent/agent-turn-liveness.ts`, od Etapu 5 `turnCloseVerdict`): tura z lease
+  żyje do `deadlineAt`; po padzie procesu czeka na przejęcie, nie na FAILED. Tylko tury sprzed
+  Etapu 5 (bez `execution`) po 60 s ciszy = `AI_PROVIDER_ERROR`. Jedna definicja dla lease
+  rozmowy, semafora, leniwego timeoutu i `AgentTurnSweeper` (start procesu + co minutę).
+  SIGTERM (`beforeApplicationShutdown`): worker przestaje przejmować, biegnące mają
+  `AI_SHUTDOWN_GRACE_MS` (8 s), potem lease wraca do kolejki — natychmiastowe przejęcie przez nową
+  instancję działa TYLKO z `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` > 0 (domyślnie 0 = SIGKILL,
+  przejęcie po wygaśnięciu lease ≤30 s).
 - Karty i propozycje (E2): `AgentMessage.kind` + `card Json` to KONTRAKT z telefonem — karta
   jest DODATKIEM do `text` (nieznany `kind` = klient rysuje sam tekst). Encja `AgentProposal`
   rozdziela INTENCJĘ (`action`, nigdy nie idzie na drut) od WIDOKU (`card`); klient przysyła
@@ -186,7 +224,100 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   - `clientCapabilities: ["cards.v1"]` w `PostMessageDto` → `resolveProposalMode`. **Lista narzędzi
     jest IDENTYCZNA w obu trybach** (liczy się do prefiksu cache, ~8 tys. tokenów); tryb przełącza
     akapit `modeBlock` w bloku gospodarstwa, a bramką jest kod (`refuseOutOfMode` → `AI_TOOL_NOT_IN_MODE`
-    jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie.
+    jako DANE dla modelu). e2e bez modelu: marker `[[propose:<recipeId>:<YYYY-MM-DD>]]` w stubie
+    (kilka markerów = kolejne dni; idzie WEWNĘTRZNYM `propose_week_plan`), `[[options:<id>,<id>]]`,
+    `[[revise:<proposalId>:<DZIEŃ>:<PORA>:<id>]]`, `[[suggest:<DZIEŃ>:<PORA>:<quick|->]]`,
+    `[[tool]]` (`get_week_plan`), `[[cost:<µ$>]]` (koszt wywołania 0 przed `AI_STUB_DELAY_MS`).
+  - Historia dla modelu niesie karty z poprzednich tur jako zwięzły dopisek (`history-cards.ts`):
+    OPTIONS „1) R012 Tytuł; …", najnowsza propozycja planu z id, statusem Z BAZY i pozycjami,
+    starsze jedną linią. Poprawka jednej pozycji propozycji PENDING = `revise_proposal` (serwer bierze
+    `action.slots`, podmienia cały slot, liczy nową propozycję; starej nie oznacza).
+- Katalog dla asystenta (od 26.09.2026, `docs/plans/scoffie-ai-agent/wyszukiwarka-i-tempo-2026-09.md`):
+  w prefiksie jest MAPA katalogu (liczby dań na pory i tagi, stały rozmiar), a dania model bierze
+  z `find_recipes` (`src/agent/search/`): filtry twarde jedzących tymi samymi funkcjami co walidator
+  planu (`diet-rules.util`), kryteria z prośby, ranking (plan tygodnia, ulubione, składniki wspólne
+  z planem, popularność), dywersyfikacja. Indeks żyje w pamięci (`AgentCatalogService`, odcisk
+  wersji + 10 min), numeracja `R001` = ta sama co digestu. Tagi (rodzaj dania, mięso, smak,
+  quick/light/high_protein) liczy `src/recipes/recipe-facets.util.ts` regułami z iOS.
+  `AI_CATALOG_MODE=digest` (panel → Sterowanie) wraca do całego katalogu w prompcie bez deployu.
+  Karta kończy turę bez ostatniej rundy (`TURN_ENDING_TOOLS`, `stopReason: tool_ended_turn`), gdy
+  model napisał zdanie w tej samej wiadomości; `AgentCacheWarmer` pinguje prefiks co 55 min przy
+  ruchu w ostatnich `AI_CACHE_WARM_HOURS` (domyślnie 0 = wyłączone; koszt w `AiUsage` jako `cache_warm`).
+- Serwerowy planer posiłków (od 26.09.2026, workstream Etap 2): czysty silnik `src/meal-planner/`
+  (bez bazy i modelu; `planMeals` dla dnia/tygodnia/slotu, `evaluatePlan` = te same metryki dla
+  dowolnego planu) + adapter `src/agent/planner/agent-meal-planner.service.ts`. Filtry twarde
+  (alergie, wykluczenia i DIETA każdego jedzącego, pora, aktywność, wymagania prośby) idą PRZED
+  scoringiem; walidator `applyWeekPlan` diet nie sprawdza. Porcje: tryb `tune` = udział
+  0,75–1,5 na osobę, porcje łączne całkowite (równy podział); tryb `per_user` (włącznik
+  `AI_PLANNER_PER_USER_PORTIONS`, domyślnie `false` do wydania iOS, który czyta porcje) = to samo
+  danie, WŁASNA porcja każdej osoby 0,5–1,5 co 0,05, domykająca JEJ dzień.
+  Cel kcal: `scope` `FULL_DAY` (pory domu = 100 % celu, wagi pór normalizowane — jak porównuje aplikacja) albo `PARTIAL` (cel osoby minus to, co ONA je poza
+  planowanymi porami, wagami między pory niepokryte); posiłek innej osoby nie zmienia celu
+  (`assessEaterDay`). Asystent: `build_meal_plan` (plan dni × pór) i
+  `replace_plan_item` (jeden slot w propozycji PENDING albo w planie) — tylko pola wymagane,
+  zapis przez propozycje. `pnpm planner:eval` = bezpłatne metryki na lokalnym katalogu.
+- Porcje per osoba (od 26.09.2026, workstream Etap 2.2): `PlanItemPortion(planItemId, userId,
+  units)`, 1 jednostka = 0,05 porcji (INT, CHECK 2..120), na drucie `PlanItem.portions:
+  {userId, servings}[]`. Pozycja BEZ wierszy = jak zawsze (`plannedServings / jedzący`), więc
+  żadnego backfillu. Pozycja Z alokacją: alokacja jest źródłem prawdy (bilans osoby = jej porcja,
+  brak wpisu = 1,0), lista zakupów gotuje DOKŁADNIE Σ porcji (ułamkowo), a `plannedServings` to
+  pochodna `ceil(Σ)` liczona przez serwer — tylko dla starych klientów (`Int` w ich dekoderze).
+  Zbiór osób alokacji = audytorium pozycji (inaczej `PLAN_PORTIONS_INVALID`); zapis slotu BEZ
+  `portions` (stary iOS, stepper porcji łącznych) wraca do równego podziału. Skład domu: nowy
+  domownik dostaje 1,0, wychodzący znika z alokacji (`plan-roster.util.ts`). Reguły w
+  `src/weekly-plans/utils/plan-portions.util.ts`; nowa ścieżka zapisu planu MUSI przejść przez
+  `portionsProblem`, a zawężenie audytorium — zdjąć porcje osób, które wychodzą (`narrowSlot`).
+- Odchudzony asystent (od 26.09.2026, workstream Etap 3, raport `reports/03-agent-thinning.md`):
+  model rozumie prośbę i wybiera JEDNĄ operację serwera, serwer szuka, filtruje, planuje, liczy
+  i buduje kartę. „Co na kolację?"/„3 szybkie"/„mam kurczaka" = `suggest_meals` (silnik
+  `suggestForSlot`: filtry twarde planera, bilans dnia osoby, zawężenie życzeniem miękkim,
+  różnorodność; ta sama karta OPTIONS co `offer_options`). Turę po karcie kończy WYŁĄCZNIE
+  autorytatywne zdanie serwera (`AgentToolResult.turnText`, `turnTextFor`) — tekst modelu sprzed
+  wywołania nigdy nie wygrywa; `null` (plan/zamiennik PARTIAL) = model dostaje wynik i rundę.
+  Porcje per osoba dania WYBRANEGO z karty (`propose_swap`, `revise_proposal`) liczy serwer
+  (`portionsForChoice`, planer zawężony `onlyRecipeIds`) — model podaje tylko przepis. JEDNA karta na turę: `TurnMemo.claimCard`
+  (synchronicznie, przed pierwszym `await`), druga = `AI_ONE_CARD_PER_TURN`, odmowa zwalnia kartę.
+  Pamięć tury `src/agent/turn-memo.ts` (`TURN_KEYS`): domownicy, zgody i wiersz domu czytane RAZ
+  na turę przez prompt, executor, planer i propozycje — planu tygodnia tam NIE ma (zapis go
+  zmienia). Dostawca wykonuje WYŁĄCZNIE narzędzia z listy wysłanej modelowi w tej fazie; executor
+  zna dodatkowo `INTERNAL_AGENT_TOOLS` (`propose_week_plan` dla stuba i harnessu). Z modelu zdjęte
+  (`RETIRED_MODEL_TOOLS`): `get_household_context` (domownicy są w bloku gospodarstwa),
+  `propose_week_plan`, `delete_recipe`. `find_recipes` oddaje modelowi chudy wynik (bez składu,
+  alergenów, tłuszczu, węgli, porcji); `start_planning` bez kandydatów.
+- Katalog / baza pod skalę (od 26.09.2026, workstream Etap 4, raport `reports/04-catalog-db-api-scale.md`):
+  publiczny katalog idzie na telefon przez `catalog:snapshot` (keyset po `id`, znacznik rewizji
+  z 1. strony) i `catalog:changes` (upserty + tombstone'y od rewizji; `RESET_REQUIRED` =
+  snapshot), `src/recipes/catalog-sync.service.ts`. Rewizję przesuwają TRIGGERY na `Recipe`
+  i `RecipeIngredient` (tabela `CatalogChange`, epoka w `CatalogSyncState`) — każda ścieżka
+  zapisu katalogu, bez kodu aplikacji; przepisy domów i ulubione NIE wchodzą (`recipes:householdState`).
+  Wymuszenie snapshotu u wszystkich = nowa epoka (`UPDATE "CatalogSyncState" SET epoch =
+  gen_random_uuid()`). Stary `recipes:findAll` zostaje dla starych buildów. Odcisk katalogu
+  asystenta = głowa logu, RAZ na turę (`TurnMemo`, klucz `catalog:snapshot`); strony dań kart
+  wsadowo `RecipesService.cardSides` (kolejność wejścia) — nie `findById` w pętli. Ulubione
+  i przepis domu nie czyszczą wspólnego cache'u listy (`invalidateRecipesList(householdId)`).
+  Single-flight: popularność, odczyt nieświeżej listy zakupów (tylko poza transakcją). Szkic
+  tury co ~1 s (`DraftPublisher`, domknięcie czeka na `settle()`); `getTurn` RUNNING = 1 zapytanie.
+  Pula: `src/prisma/database-config.ts` loguje `pula Prisma:` przy starcie — limitu Railwaya
+  nie zgadywać, `connection_limit` ustawia się w `DATABASE_URL`. Pomiar skali: `pnpm
+  catalog:scale-probe` na bazie `*_scale` (`SCALE_DATABASE_URL`), wyniki w `benchmark/`.
+- Trwałe tury (od 27.09.2026, workstream Etap 5, raport `reports/05-durable-turns.md`): wykonanie
+  tury NIE żyje w pamięci procesu. `POST /messages` zapisuje wejście (`AgentTurn.execution`,
+  `deadlineAt`) i tylko szturcha `AgentTurnWorker.kick`; worker (`src/agent/durable/`) przejmuje
+  tury jednym `UPDATE … FOR UPDATE SKIP LOCKED` (nowy `leaseToken` = fencing, `attempt += 1`,
+  zegar BAZY), przy starcie i co `AI_TURN_WORKER_POLL_MS`. KAŻDE domknięcie tury i KAŻDY zapis
+  z tury (postęp, szkic, odpowiedź) ma `leaseToken` w warunku; efekt narzędzia woła
+  `AgentTurnQueue.fence` W SWOJEJ transakcji i dopisuje wiersz `AgentTurnEffect` (klucz `card`
+  albo `<narzędzie>#<n>`) — nowe narzędzie z efektem MUSI dostać klasę w `effectKind`
+  (`turn-effects.ts`) i hak transakcji w domenie (`inTransaction`/`effect`/`settle`), inaczej
+  odzyskana tura zrobi efekt drugi raz. Odtworzenie tylko przy zgodnym narzędziu i
+  kanonicznym wejściu (`isSameOperation`); inne wejście = `AI_DURABLE_EFFECT_CONFLICT`,
+  `#n` to kursor przesuwany dopiero po rozpoznaniu/commicie (Addendum A1). Wygasły lease ≠ porażka: sprzątanie domyka tylko
+  po `deadlineAt`, wyczerpane próby (`AI_TURN_MAX_ATTEMPTS`), trwały „Stop” (`cancelRequestedAt`)
+  bez workera i stare tury bez `execution` (`turnCloseVerdict`). Klucz księgi od próby 2:
+  `turn:<id>:a<próba>:<n>`. Odpowiedź ma `outputKey='final'` (unikat z `turnId`). SIGTERM oddaje
+  lease (bez FAILED), a wiadomości w trakcie zamykania są przyjmowane (202). e2e restartu:
+  `test/durable-turns.e2e-spec.ts` (dwie instancje `AppModule`, `vanishForTests()` = SIGKILL);
+  stub: `[[hold]]` (opóźnienie ZA narzędziami), `[[note:…]]`, `[[apply:<id>:<data>]]`.
 - Postęp tury (`AgentTurn.progress`, `src/agent/agent-progress.ts`): kroki narzędzi plus kroki
   PRZEJŚCIOWE (`transient: true`) — `read` (start tury), `reason` (blok myślenia w strumieniu),
   `write` (pierwszy fragment tekstu), `think` (cisza po narzędziach). Dostawca melduje je przez
@@ -200,9 +331,9 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   DTO i tak sprawdza to samo). Oba limity pilnują spec-i w `agent-tools.spec.ts`, ale jedyny
   pewny sprawdzian to `pnpm exec tsx scripts/agent-tools-smoke.ts` — jedno żądanie do API za
   grosze. Dostawca `stub` schematów NIE OGLĄDA, więc pełna suita bywa zielona przy schematach,
-  które padają u każdego użytkownika. **Budżet pól nieobowiązkowych jest WYCZERPANY: 24/24**
-  (stan 18.09.2026), więc nowe narzędzie może mieć wyłącznie pola wymagane — albo trzeba
-  najpierw zwolnić miejsce w istniejących. Jak liczyć: spec „pól nieobowiązkowych mieści się
+  które padają u każdego użytkownika. **Budżet pól nieobowiązkowych: 20/24** (od 26.09.2026 —
+  Etap 3 zdjął z modelu `propose_week_plan`); nowe narzędzie i tak dawaj z samymi polami
+  wymaganymi („brak" = [], NONE, 0, „") — zapas jest na naprawy, nie na wygodę. Jak liczyć: spec „pól nieobowiązkowych mieści się
   w limicie (24)” w `agent-tools.spec.ts`.
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).

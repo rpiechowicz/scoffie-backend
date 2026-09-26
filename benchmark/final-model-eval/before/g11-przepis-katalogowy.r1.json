@@ -1,0 +1,314 @@
+{
+  "label": "before-g11-przepis-katalogowy",
+  "startedAt": "2026-09-26T16:27:24.755Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.109569,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 5,
+      "p95Rounds": 5,
+      "maxRounds": 5,
+      "medianCostUsd": 0.109569,
+      "p95CostUsd": 0.109569,
+      "medianLatencyMs": 41130,
+      "latencySplit": {
+        "wait": 0.261998541210795,
+        "thinking": 0.07469000729394602,
+        "toolInput": 0.5754923413566739,
+        "text": 0.08509603695599319,
+        "toolsRun": 0.0022854364211038172,
+        "other": 0.000437636761487965
+      },
+      "medianFirstBlockMs": 1842,
+      "cacheHitRatio": 0.9070604180639392,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 11,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 5,
+          "medianCostUsd": 0.109569
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g11-przepis-katalogowy",
+      "group": 11,
+      "pyta": "Czy próba edycji przepisu KATALOGOWEGO kończy się odmową?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_recipe_details",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "create_recipe",
+        "propose_swap"
+      ],
+      "handoff": false,
+      "apiCalls": 5,
+      "turnApiCalls": [
+        5
+      ],
+      "toolCalls": [
+        {
+          "name": "get_recipe_details",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "create_recipe",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_swap",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "239adb69-a3d5-4202-8c1a-208a5d65970d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 661
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "381c3d17-3732-4716-a7d3-9c333ba42b5a",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 41130,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4389,
+          "firstBlockMs": 1711,
+          "thinkingMs": 2464,
+          "toolInputMs": 212,
+          "textMs": 0,
+          "outputTokens": 245,
+          "tools": [
+            "get_recipe_details"
+          ],
+          "toolsRunMs": 8
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 11171,
+          "firstBlockMs": 3551,
+          "thinkingMs": 608,
+          "toolInputMs": 5870,
+          "textMs": 1134,
+          "outputTokens": 1209,
+          "tools": [
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients"
+          ],
+          "toolsRunMs": 28
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 19193,
+          "firstBlockMs": 1842,
+          "thinkingMs": 0,
+          "toolInputMs": 16493,
+          "textMs": 857,
+          "outputTokens": 1306,
+          "tools": [
+            "create_recipe"
+          ],
+          "toolsRunMs": 26
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3137,
+          "firstBlockMs": 2039,
+          "thinkingMs": 0,
+          "toolInputMs": 1095,
+          "textMs": 0,
+          "outputTokens": 190,
+          "tools": [
+            "propose_swap"
+          ],
+          "toolsRunMs": 32
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3145,
+          "firstBlockMs": 1633,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1509,
+          "outputTokens": 91,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 3041,
+      "cacheReadTokens": 129833,
+      "cacheWriteTokens": 13293,
+      "cacheHitRatio": 0.9070604180639392,
+      "costMicroUsd": 109569,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Zrobiłem kopię przepisu na 8 porcji (składniki x4, ta sama receptura) i podmieniłem ją w poniedziałkowej kolacji, bo oryginał jest z katalogu i nie da się go edytować bezpośrednio.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

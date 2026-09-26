@@ -1,0 +1,1679 @@
+{
+  "generatedAt": "2026-09-26T16:57:57.875Z",
+  "tag": null,
+  "sets": {
+    "before": {
+      "commit": [
+        "22aa63c"
+      ],
+      "config": [
+        "A claude-sonnet-5/medium"
+      ],
+      "overall": {
+        "runs": 80,
+        "passRate": 0.8125,
+        "successes": 65,
+        "totalCostUsd": 4.926611999999998,
+        "tokenCostCheckUsd": 4.9265989999999995,
+        "avgCostUsd": 0.061582649999999975,
+        "costPerSuccessUsd": 0.07579403076923073,
+        "medianCostUsd": 0.048565,
+        "p50LatencyS": 15.486,
+        "p95LatencyS": 45.904,
+        "p50CallLatencyS": 4.796,
+        "p95CallLatencyS": 17.551,
+        "avgApiCalls": 3,
+        "avgRoundsPerTurn": 2.3300970873786406,
+        "avgToolCalls": 3.3625,
+        "avgInputTokens": 6,
+        "avgOutputTokens": 1774,
+        "avgCacheRead": 67608.9375,
+        "avgCacheWrite": 7577.175,
+        "errors": 0
+      },
+      "byCategory": {
+        "chat/discovery": {
+          "runs": 17,
+          "passRate": 0.8823529411764706,
+          "successes": 15,
+          "totalCostUsd": 0.45017799999999997,
+          "tokenCostCheckUsd": 0.4501758,
+          "avgCostUsd": 0.02648105882352941,
+          "costPerSuccessUsd": 0.030011866666666664,
+          "medianCostUsd": 0.023039,
+          "p50LatencyS": 5.456,
+          "p95LatencyS": 22.873,
+          "p50CallLatencyS": 3.329,
+          "p95CallLatencyS": 8.088,
+          "avgApiCalls": 1.5294117647058822,
+          "avgRoundsPerTurn": 1.5294117647058822,
+          "avgToolCalls": 0.7058823529411765,
+          "avgInputTokens": 3.0588235294117645,
+          "avgOutputTokens": 261.29411764705884,
+          "avgCacheRead": 31127,
+          "avgCacheWrite": 4409.117647058823,
+          "errors": 0
+        },
+        "editing": {
+          "runs": 10,
+          "passRate": 0.9,
+          "successes": 9,
+          "totalCostUsd": 0.44622200000000006,
+          "tokenCostCheckUsd": 0.4462198,
+          "avgCostUsd": 0.04462220000000001,
+          "costPerSuccessUsd": 0.04958022222222223,
+          "medianCostUsd": 0.038032,
+          "p50LatencyS": 9.544,
+          "p95LatencyS": 41.13,
+          "p50CallLatencyS": 4.257,
+          "p95CallLatencyS": 11.171,
+          "avgApiCalls": 2.7,
+          "avgRoundsPerTurn": 2.7,
+          "avgToolCalls": 3.5,
+          "avgInputTokens": 5.4,
+          "avgOutputTokens": 948.2,
+          "avgCacheRead": 61465.9,
+          "avgCacheWrite": 5709,
+          "errors": 0
+        },
+        "follow-up": {
+          "runs": 7,
+          "passRate": 0.14285714285714285,
+          "successes": 1,
+          "totalCostUsd": 0.981953,
+          "tokenCostCheckUsd": 0.9819544000000001,
+          "avgCostUsd": 0.140279,
+          "costPerSuccessUsd": 0.981953,
+          "medianCostUsd": 0.084681,
+          "p50LatencyS": 27.386,
+          "p95LatencyS": 192.319,
+          "p50CallLatencyS": 4.941,
+          "p95CallLatencyS": 11.033,
+          "avgApiCalls": 8.857142857142858,
+          "avgRoundsPerTurn": 2.2962962962962963,
+          "avgToolCalls": 7.857142857142857,
+          "avgInputTokens": 17.714285714285715,
+          "avgOutputTokens": 3943.4285714285716,
+          "avgCacheRead": 202704.57142857142,
+          "avgCacheWrite": 15067.142857142857,
+          "errors": 0
+        },
+        "suggestion": {
+          "runs": 11,
+          "passRate": 0.7272727272727273,
+          "successes": 8,
+          "totalCostUsd": 0.403339,
+          "tokenCostCheckUsd": 0.40333880000000005,
+          "avgCostUsd": 0.03666718181818182,
+          "costPerSuccessUsd": 0.050417375,
+          "medianCostUsd": 0.029105,
+          "p50LatencyS": 8.7,
+          "p95LatencyS": 21.249,
+          "p50CallLatencyS": 3.982,
+          "p95CallLatencyS": 7.52,
+          "avgApiCalls": 2.727272727272727,
+          "avgRoundsPerTurn": 2.142857142857143,
+          "avgToolCalls": 2.5454545454545454,
+          "avgInputTokens": 5.454545454545454,
+          "avgOutputTokens": 792.7272727272727,
+          "avgCacheRead": 58286.72727272727,
+          "avgCacheWrite": 4267.909090909091,
+          "errors": 0
+        },
+        "planning": {
+          "runs": 35,
+          "passRate": 0.9142857142857143,
+          "successes": 32,
+          "totalCostUsd": 2.6449200000000004,
+          "tokenCostCheckUsd": 2.6449102,
+          "avgCostUsd": 0.07556914285714286,
+          "costPerSuccessUsd": 0.08265375000000001,
+          "medianCostUsd": 0.068658,
+          "p50LatencyS": 24.686,
+          "p95LatencyS": 71.646,
+          "p50CallLatencyS": 8.772,
+          "p95CallLatencyS": 28.551,
+          "avgApiCalls": 2.7142857142857144,
+          "avgRoundsPerTurn": 2.7142857142857144,
+          "avgToolCalls": 3.9714285714285715,
+          "avgInputTokens": 5.428571428571429,
+          "avgOutputTokens": 2619.2,
+          "avgCacheRead": 62994.6,
+          "avgCacheWrite": 9191.771428571428,
+          "errors": 0
+        }
+      },
+      "byLetter": {
+        "F proste pytania": {
+          "runs": 15,
+          "passRate": 0.8666666666666667,
+          "successes": 13,
+          "totalCostUsd": 0.399897,
+          "tokenCostCheckUsd": 0.399895,
+          "avgCostUsd": 0.0266598,
+          "costPerSuccessUsd": 0.030761307692307692,
+          "medianCostUsd": 0.023039,
+          "p50LatencyS": 5.456,
+          "p95LatencyS": 22.873,
+          "p50CallLatencyS": 3.329,
+          "p95CallLatencyS": 8.088,
+          "avgApiCalls": 1.4666666666666666,
+          "avgRoundsPerTurn": 1.4666666666666666,
+          "avgToolCalls": 0.6,
+          "avgInputTokens": 2.933333333333333,
+          "avgOutputTokens": 230.73333333333332,
+          "avgCacheRead": 29681.666666666668,
+          "avgCacheWrite": 4602.533333333334,
+          "errors": 0
+        },
+        "C edycja": {
+          "runs": 14,
+          "passRate": 0.7142857142857143,
+          "successes": 10,
+          "totalCostUsd": 0.66394,
+          "tokenCostCheckUsd": 0.6639394000000001,
+          "avgCostUsd": 0.04742428571428571,
+          "costPerSuccessUsd": 0.066394,
+          "medianCostUsd": 0.039595,
+          "p50LatencyS": 10.722,
+          "p95LatencyS": 41.13,
+          "p50CallLatencyS": 4.148,
+          "p95CallLatencyS": 9.165,
+          "avgApiCalls": 3.0714285714285716,
+          "avgRoundsPerTurn": 2.5294117647058822,
+          "avgToolCalls": 3.5,
+          "avgInputTokens": 6.142857142857143,
+          "avgOutputTokens": 1016.9285714285714,
+          "avgCacheRead": 68873.35714285714,
+          "avgCacheWrite": 5867,
+          "errors": 0
+        },
+        "E state/follow-up": {
+          "runs": 9,
+          "passRate": 0.3333333333333333,
+          "successes": 3,
+          "totalCostUsd": 1.0322339999999999,
+          "tokenCostCheckUsd": 1.0322352000000001,
+          "avgCostUsd": 0.11469266666666665,
+          "costPerSuccessUsd": 0.34407799999999994,
+          "medianCostUsd": 0.066707,
+          "p50LatencyS": 24.2,
+          "p95LatencyS": 192.319,
+          "p50CallLatencyS": 4.574,
+          "p95CallLatencyS": 11.033,
+          "avgApiCalls": 7.333333333333333,
+          "avgRoundsPerTurn": 2.2758620689655173,
+          "avgToolCalls": 6.444444444444445,
+          "avgInputTokens": 14.666666666666666,
+          "avgOutputTokens": 3176.1111111111113,
+          "avgCacheRead": 166985.11111111112,
+          "avgCacheWrite": 12376.333333333334,
+          "errors": 0
+        },
+        "A chat/discovery": {
+          "runs": 8,
+          "passRate": 1,
+          "successes": 8,
+          "totalCostUsd": 0.227402,
+          "tokenCostCheckUsd": 0.22740020000000005,
+          "avgCostUsd": 0.02842525,
+          "costPerSuccessUsd": 0.02842525,
+          "medianCostUsd": 0.028525,
+          "p50LatencyS": 8.522,
+          "p95LatencyS": 8.994,
+          "p50CallLatencyS": 4.038,
+          "p95CallLatencyS": 4.717,
+          "avgApiCalls": 2,
+          "avgRoundsPerTurn": 2,
+          "avgToolCalls": 2,
+          "avgInputTokens": 4,
+          "avgOutputTokens": 582.875,
+          "avgCacheRead": 41968.875,
+          "avgCacheWrite": 3548.625,
+          "errors": 0
+        },
+        "B planowanie": {
+          "runs": 21,
+          "passRate": 1,
+          "successes": 21,
+          "totalCostUsd": 1.7332390000000002,
+          "tokenCostCheckUsd": 1.7332342000000003,
+          "avgCostUsd": 0.08253519047619048,
+          "costPerSuccessUsd": 0.08253519047619048,
+          "medianCostUsd": 0.071721,
+          "p50LatencyS": 24.686,
+          "p95LatencyS": 71.646,
+          "p50CallLatencyS": 9.414,
+          "p95CallLatencyS": 31.12,
+          "avgApiCalls": 2.619047619047619,
+          "avgRoundsPerTurn": 2.619047619047619,
+          "avgToolCalls": 4.190476190476191,
+          "avgInputTokens": 5.238095238095238,
+          "avgOutputTokens": 2838.714285714286,
+          "avgCacheRead": 61722.90476190476,
+          "avgCacheWrite": 10448.190476190477,
+          "errors": 0
+        },
+        "D ograniczenia": {
+          "runs": 13,
+          "passRate": 0.7692307692307693,
+          "successes": 10,
+          "totalCostUsd": 0.8699,
+          "tokenCostCheckUsd": 0.8698950000000001,
+          "avgCostUsd": 0.06691538461538461,
+          "costPerSuccessUsd": 0.08699,
+          "medianCostUsd": 0.065984,
+          "p50LatencyS": 25.774,
+          "p95LatencyS": 55.692,
+          "p50CallLatencyS": 7.941,
+          "p95CallLatencyS": 20.818,
+          "avgApiCalls": 2.923076923076923,
+          "avgRoundsPerTurn": 2.923076923076923,
+          "avgToolCalls": 3.769230769230769,
+          "avgInputTokens": 5.846153846153846,
+          "avgOutputTokens": 2412.3846153846152,
+          "avgCacheRead": 66497.30769230769,
+          "avgCacheWrite": 7370,
+          "errors": 0
+        }
+      },
+      "routing": {
+        "suggestion": {
+          "runs": 8,
+          "suggestMealsShare": 0,
+          "findRecipesShare": 1,
+          "avgApiCalls": 2
+        },
+        "planning": {
+          "runs": 18,
+          "buildMealPlanShare": 0,
+          "manualProposeShare": 1,
+          "startPlanningShare": 0,
+          "avgApiCalls": 2.7222222222222223,
+          "plannerStatus": {}
+        },
+        "editing": {
+          "runs": 5,
+          "replacePlanItemShare": 0,
+          "proposeSwapShare": 0.8
+        },
+        "terminalCards": {
+          "turns": 103,
+          "toolEndedTurnShare": 0.39805825242718446
+        }
+      },
+      "plannerQuality": {
+        "fullDays": 49,
+        "meanAbsDayKcalDevPct": 18.959330143540672,
+        "p95AbsDayKcalDevPct": 48.22727272727273,
+        "maxAbsDayKcalDevPct": 51.54545454545455,
+        "within10Pct": 0.2653061224489796
+      },
+      "perScenario": {
+        "g1-kcal-sroda": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.029446,
+          "avgLatencyS": 5.428,
+          "avgApiCalls": 2,
+          "tools": [
+            "get_week_balance"
+          ],
+          "issues": []
+        },
+        "g1-weekend": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.023039,
+          "avgLatencyS": 6.237,
+          "avgApiCalls": 1,
+          "tools": [],
+          "issues": []
+        },
+        "g1-wtorek-obiad": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.04498133333333334,
+          "avgLatencyS": 9.618666666666666,
+          "avgApiCalls": 1,
+          "tools": [],
+          "issues": []
+        },
+        "g10-konflikty-planu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.020081,
+          "avgLatencyS": 7.097,
+          "avgApiCalls": 2,
+          "tools": [
+            "check_plan_conflicts"
+          ],
+          "issues": []
+        },
+        "g10-lista-zakupow": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.025906,
+          "avgLatencyS": 5.456,
+          "avgApiCalls": 2,
+          "tools": [
+            "show_shopping_list"
+          ],
+          "issues": []
+        },
+        "g10-luka-makro": {
+          "runs": 3,
+          "pass": 1,
+          "avgCostUsd": 0.028212666666666667,
+          "avgLatencyS": 7.358666666666667,
+          "avgApiCalls": 2,
+          "tools": [
+            "show_macro_gap",
+            "ask_clarifying_question"
+          ],
+          "issues": [
+            "odpowiedz nie cytuje zadnej z liczb karty"
+          ]
+        },
+        "g11-nowy-przepis": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.037438,
+          "avgLatencyS": 12.524,
+          "avgApiCalls": 3,
+          "tools": [
+            "search_ingredients",
+            "create_recipe"
+          ],
+          "issues": []
+        },
+        "g11-przepis-katalogowy": {
+          "runs": 3,
+          "pass": 2,
+          "avgCostUsd": 0.054479,
+          "avgLatencyS": 19.916666666666668,
+          "avgApiCalls": 3,
+          "tools": [
+            "get_recipe_details",
+            "search_ingredients",
+            "create_recipe",
+            "propose_swap",
+            "propose_day_plan"
+          ],
+          "issues": [
+            "nie wyjasnil, dlaczego nie da sie zmienic przepisu katalogowego"
+          ]
+        },
+        "g11-zmiana-przepisu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.040701,
+          "avgLatencyS": 14.841,
+          "avgApiCalls": 4,
+          "tools": [
+            "get_recipe_details",
+            "search_ingredients",
+            "update_recipe"
+          ],
+          "issues": []
+        },
+        "g12-chwilowa-niechec": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.031433,
+          "avgLatencyS": 11.123,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "offer_options"
+          ],
+          "issues": []
+        },
+        "g12-dluga-rozmowa": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.469278,
+          "avgLatencyS": 192.319,
+          "avgApiCalls": 32,
+          "tools": [
+            "get_household_context",
+            "find_recipes",
+            "propose_week_plan",
+            "propose_day_plan",
+            "propose_swap",
+            "get_week_plan",
+            "ask_clarifying_question"
+          ],
+          "issues": []
+        },
+        "g12-injection-nazwa-domu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.013487,
+          "avgLatencyS": 5.304,
+          "avgApiCalls": 1,
+          "tools": [],
+          "issues": []
+        },
+        "g12-injection-notatka": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.032593,
+          "avgLatencyS": 12.179,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "offer_options"
+          ],
+          "issues": []
+        },
+        "g12-poza-dziedzina": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.011921000000000001,
+          "avgLatencyS": 3.316333333333333,
+          "avgApiCalls": 1,
+          "tools": [],
+          "issues": []
+        },
+        "g12-trwala-preferencja": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.018848,
+          "avgLatencyS": 5.048,
+          "avgApiCalls": 2,
+          "tools": [
+            "remember_note"
+          ],
+          "issues": []
+        },
+        "g13-mam-kurczaka": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.02799233333333333,
+          "avgLatencyS": 8.241999999999999,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "offer_options"
+          ],
+          "issues": []
+        },
+        "g13-pokaz-inne": {
+          "runs": 3,
+          "pass": 0,
+          "avgCostUsd": 0.05864566666666667,
+          "avgLatencyS": 20.035666666666668,
+          "avgApiCalls": 4.666666666666667,
+          "tools": [
+            "find_recipes",
+            "offer_options"
+          ],
+          "issues": [
+            "powtórzone dania: 2",
+            "powtórzone dania: 1"
+          ]
+        },
+        "g13-wybieram-druga": {
+          "runs": 3,
+          "pass": 0,
+          "avgCostUsd": 0.062373333333333336,
+          "avgLatencyS": 24.164,
+          "avgApiCalls": 4.666666666666667,
+          "tools": [
+            "find_recipes",
+            "offer_options",
+            "propose_day_plan",
+            "propose_swap"
+          ],
+          "issues": [
+            "w planie nie jest DRUGIE danie z karty",
+            "kolacji w poniedziałek: 0, oczekiwano 1",
+            "pozycji w planie/propozycji: 0, oczekiwano 1",
+            "nie uzyl zadnego z oczekiwanych narzedzi (propose_swap | propose_day_plan | propose_week_plan | apply_week_plan | build_meal_plan | replace_plan_item | revise_proposal)"
+          ]
+        },
+        "g13-zmiana-w-propozycji": {
+          "runs": 3,
+          "pass": 0,
+          "avgCostUsd": 0.10851833333333333,
+          "avgLatencyS": 34.964666666666666,
+          "avgApiCalls": 5.333333333333333,
+          "tools": [
+            "find_recipes",
+            "propose_day_plan",
+            "propose_swap"
+          ],
+          "issues": [
+            "kolacja po poprawce nie jest wegetariańska",
+            "BREAKFAST zmienione mimo „resztę zostaw\"",
+            "brak BREAKFAST w środę po poprawce",
+            "LUNCH zmienione mimo „resztę zostaw\"",
+            "brak LUNCH w środę po poprawce"
+          ]
+        },
+        "g2-co-na-kolacje": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.028525,
+          "avgLatencyS": 8.994,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "offer_options"
+          ],
+          "issues": []
+        },
+        "g2-cos-lekkiego": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.028465,
+          "avgLatencyS": 8.7,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "offer_options"
+          ],
+          "issues": []
+        },
+        "g2-cos-szybkiego": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.028811666666666666,
+          "avgLatencyS": 8.114333333333333,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "offer_options"
+          ],
+          "issues": []
+        },
+        "g3-bez-ryby": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.037988,
+          "avgLatencyS": 8.911,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "propose_swap"
+          ],
+          "issues": []
+        },
+        "g3-podmien-dla-osoby": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.05097,
+          "avgLatencyS": 16.123,
+          "avgApiCalls": 3,
+          "tools": [
+            "find_recipes",
+            "offer_options"
+          ],
+          "issues": []
+        },
+        "g3-podmien-kolacje": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.03856266666666667,
+          "avgLatencyS": 9.438666666666668,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "propose_swap"
+          ],
+          "issues": []
+        },
+        "g4-dzien-w-limicie-kcal": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.068946,
+          "avgLatencyS": 22.53333333333333,
+          "avgApiCalls": 3,
+          "tools": [
+            "find_recipes",
+            "propose_day_plan"
+          ],
+          "issues": []
+        },
+        "g4-tylko-wlaczone-posilki": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.062673,
+          "avgLatencyS": 21.285,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "propose_day_plan"
+          ],
+          "issues": []
+        },
+        "g4-zaplanuj-piatek": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.06516866666666667,
+          "avgLatencyS": 17.578333333333333,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "propose_day_plan"
+          ],
+          "issues": []
+        },
+        "g5-trzy-dni-bez-powtorzen": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.034273,
+          "avgLatencyS": 10.738,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": []
+        },
+        "g5-trzy-dni-w-celu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.091446,
+          "avgLatencyS": 30.694,
+          "avgApiCalls": 3,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": []
+        },
+        "g5-trzy-dni": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.068658,
+          "avgLatencyS": 24.937,
+          "avgApiCalls": 3,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": []
+        },
+        "g6-pelny-tydzien": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.12165933333333333,
+          "avgLatencyS": 51.74733333333333,
+          "avgApiCalls": 3,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": []
+        },
+        "g6-tydzien-dwa-cele": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.12915766666666664,
+          "avgLatencyS": 50.052,
+          "avgApiCalls": 3.3333333333333335,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": []
+        },
+        "g6-tydzien-limit-czasu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.096125,
+          "avgLatencyS": 43.612,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": []
+        },
+        "g7-domownik-bez-zgody": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.020047,
+          "avgLatencyS": 5.95,
+          "avgApiCalls": 2,
+          "tools": [
+            "check_plan_conflicts"
+          ],
+          "issues": []
+        },
+        "g7-dwie-alergie": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.054171,
+          "avgLatencyS": 22.182,
+          "avgApiCalls": 3,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": []
+        },
+        "g7-jedna-alergia": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.07965766666666667,
+          "avgLatencyS": 27.089333333333332,
+          "avgApiCalls": 2.6666666666666665,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": []
+        },
+        "g7-wykluczenia": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.065984,
+          "avgLatencyS": 22.41,
+          "avgApiCalls": 3,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": []
+        },
+        "g8-podzial-posilku": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.044899666666666664,
+          "avgLatencyS": 14.732333333333331,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "propose_swap"
+          ],
+          "issues": []
+        },
+        "g8-rozne-cele": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.09057,
+          "avgLatencyS": 43.398,
+          "avgApiCalls": 3,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": []
+        },
+        "g8-zakres-pytania": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.041781,
+          "avgLatencyS": 10.722,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes",
+            "propose_swap"
+          ],
+          "issues": []
+        },
+        "g9-nierealny-czas": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.06285433333333333,
+          "avgLatencyS": 25.387,
+          "avgApiCalls": 3,
+          "tools": [
+            "find_recipes",
+            "ask_clarifying_question"
+          ],
+          "issues": []
+        },
+        "g9-spoza-katalogu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.022567,
+          "avgLatencyS": 7.553,
+          "avgApiCalls": 2,
+          "tools": [
+            "find_recipes"
+          ],
+          "issues": []
+        },
+        "g9-uboga-pula-wegan": {
+          "runs": 3,
+          "pass": 0,
+          "avgCostUsd": 0.09319833333333333,
+          "avgLatencyS": 44.258,
+          "avgApiCalls": 3.6666666666666665,
+          "tools": [
+            "find_recipes",
+            "propose_week_plan"
+          ],
+          "issues": [
+            "nie przyznal sie do ubogiej puli, a zapelnil tydzien"
+          ]
+        }
+      }
+    },
+    "after": {
+      "commit": [
+        "92e837c"
+      ],
+      "config": [
+        "A claude-sonnet-5/medium"
+      ],
+      "overall": {
+        "runs": 80,
+        "passRate": 0.7375,
+        "successes": 59,
+        "totalCostUsd": 2.250672,
+        "tokenCostCheckUsd": 2.2506901999999993,
+        "avgCostUsd": 0.028133399999999996,
+        "costPerSuccessUsd": 0.038146983050847454,
+        "medianCostUsd": 0.024458,
+        "p50LatencyS": 7.576,
+        "p95LatencyS": 15.599,
+        "p50CallLatencyS": 4.35,
+        "p95CallLatencyS": 9.308,
+        "avgApiCalls": 1.8,
+        "avgRoundsPerTurn": 1.3980582524271845,
+        "avgToolCalls": 1.45,
+        "avgInputTokens": 3.6,
+        "avgOutputTokens": 581.725,
+        "avgCacheRead": 44376.8875,
+        "avgCacheWrite": 3358.45,
+        "errors": 0
+      },
+      "byCategory": {
+        "chat/discovery": {
+          "runs": 17,
+          "passRate": 0.8235294117647058,
+          "successes": 14,
+          "totalCostUsd": 0.467716,
+          "tokenCostCheckUsd": 0.4677190000000001,
+          "avgCostUsd": 0.027512705882352943,
+          "costPerSuccessUsd": 0.03340828571428572,
+          "medianCostUsd": 0.020294,
+          "p50LatencyS": 5.575,
+          "p95LatencyS": 17.521,
+          "p50CallLatencyS": 2.948,
+          "p95CallLatencyS": 6.932,
+          "avgApiCalls": 1.5294117647058822,
+          "avgRoundsPerTurn": 1.5294117647058822,
+          "avgToolCalls": 0.6470588235294118,
+          "avgInputTokens": 3.0588235294117645,
+          "avgOutputTokens": 224,
+          "avgCacheRead": 36605.58823529412,
+          "avgCacheWrite": 4486.411764705882,
+          "errors": 0
+        },
+        "editing": {
+          "runs": 10,
+          "passRate": 0.7,
+          "successes": 7,
+          "totalCostUsd": 0.4135740000000001,
+          "tokenCostCheckUsd": 0.41357659999999996,
+          "avgCostUsd": 0.04135740000000001,
+          "costPerSuccessUsd": 0.059082000000000016,
+          "medianCostUsd": 0.033011,
+          "p50LatencyS": 10.107,
+          "p95LatencyS": 37.887,
+          "p50CallLatencyS": 3.761,
+          "p95CallLatencyS": 12.547,
+          "avgApiCalls": 2.4,
+          "avgRoundsPerTurn": 2.4,
+          "avgToolCalls": 3.1,
+          "avgInputTokens": 4.8,
+          "avgOutputTokens": 923.5,
+          "avgCacheRead": 62083.3,
+          "avgCacheWrite": 4924.1,
+          "errors": 0
+        },
+        "follow-up": {
+          "runs": 7,
+          "passRate": 0.5714285714285714,
+          "successes": 4,
+          "totalCostUsd": 0.31329899999999994,
+          "tokenCostCheckUsd": 0.3133016,
+          "avgCostUsd": 0.04475699999999999,
+          "costPerSuccessUsd": 0.07832474999999998,
+          "medianCostUsd": 0.025032,
+          "p50LatencyS": 8.997,
+          "p95LatencyS": 71.098,
+          "p50CallLatencyS": 4.458,
+          "p95CallLatencyS": 7.276,
+          "avgApiCalls": 3.857142857142857,
+          "avgRoundsPerTurn": 1,
+          "avgToolCalls": 3.142857142857143,
+          "avgInputTokens": 7.714285714285714,
+          "avgOutputTokens": 1279.7142857142858,
+          "avgCacheRead": 97306.85714285714,
+          "avgCacheWrite": 3120.8571428571427,
+          "errors": 0
+        },
+        "suggestion": {
+          "runs": 11,
+          "passRate": 0.7272727272727273,
+          "successes": 8,
+          "totalCostUsd": 0.195782,
+          "tokenCostCheckUsd": 0.19578420000000005,
+          "avgCostUsd": 0.017798363636363636,
+          "costPerSuccessUsd": 0.02447275,
+          "medianCostUsd": 0.015409,
+          "p50LatencyS": 4.183,
+          "p95LatencyS": 8.261,
+          "p50CallLatencyS": 4.04,
+          "p95CallLatencyS": 4.687,
+          "avgApiCalls": 1.2727272727272727,
+          "avgRoundsPerTurn": 1,
+          "avgToolCalls": 1.2727272727272727,
+          "avgInputTokens": 2.5454545454545454,
+          "avgOutputTokens": 444.3636363636364,
+          "avgCacheRead": 30585.545454545456,
+          "avgCacheWrite": 1808.1818181818182,
+          "errors": 0
+        },
+        "planning": {
+          "runs": 35,
+          "passRate": 0.7428571428571429,
+          "successes": 26,
+          "totalCostUsd": 0.8603010000000001,
+          "tokenCostCheckUsd": 0.8603087999999998,
+          "avgCostUsd": 0.024580028571428575,
+          "costPerSuccessUsd": 0.03308850000000001,
+          "medianCostUsd": 0.026487,
+          "p50LatencyS": 8.933,
+          "p95LatencyS": 13.765,
+          "p50CallLatencyS": 4.834,
+          "p95CallLatencyS": 9.147,
+          "avgApiCalls": 1.5142857142857142,
+          "avgRoundsPerTurn": 1.5142857142857142,
+          "avgToolCalls": 1.0857142857142856,
+          "avgInputTokens": 3.0285714285714285,
+          "avgOutputTokens": 561.4,
+          "avgCacheRead": 36840.97142857143,
+          "avgCacheWrite": 2898,
+          "errors": 0
+        }
+      },
+      "byLetter": {
+        "F proste pytania": {
+          "runs": 15,
+          "passRate": 0.8,
+          "successes": 12,
+          "totalCostUsd": 0.43042700000000006,
+          "tokenCostCheckUsd": 0.4304300000000001,
+          "avgCostUsd": 0.028695133333333338,
+          "costPerSuccessUsd": 0.035868916666666674,
+          "medianCostUsd": 0.021492,
+          "p50LatencyS": 5.575,
+          "p95LatencyS": 17.521,
+          "p50CallLatencyS": 2.952,
+          "p95CallLatencyS": 6.932,
+          "avgApiCalls": 1.5333333333333334,
+          "avgRoundsPerTurn": 1.5333333333333334,
+          "avgToolCalls": 0.6,
+          "avgInputTokens": 3.066666666666667,
+          "avgOutputTokens": 207.8,
+          "avgCacheRead": 36637.333333333336,
+          "avgCacheWrite": 4820.933333333333,
+          "errors": 0
+        },
+        "C edycja": {
+          "runs": 14,
+          "passRate": 0.5714285714285714,
+          "successes": 8,
+          "totalCostUsd": 0.515363,
+          "tokenCostCheckUsd": 0.5153664,
+          "avgCostUsd": 0.036811642857142855,
+          "costPerSuccessUsd": 0.064420375,
+          "medianCostUsd": 0.032853,
+          "p50LatencyS": 8.261,
+          "p95LatencyS": 37.887,
+          "p50CallLatencyS": 4.084,
+          "p95CallLatencyS": 12.547,
+          "avgApiCalls": 2.2142857142857144,
+          "avgRoundsPerTurn": 1.8235294117647058,
+          "avgToolCalls": 2.7142857142857144,
+          "avgInputTokens": 4.428571428571429,
+          "avgOutputTokens": 865.6428571428571,
+          "avgCacheRead": 56548.71428571428,
+          "avgCacheWrite": 4209.214285714285,
+          "errors": 0
+        },
+        "E state/follow-up": {
+          "runs": 9,
+          "passRate": 0.6666666666666666,
+          "successes": 6,
+          "totalCostUsd": 0.350588,
+          "tokenCostCheckUsd": 0.35059060000000003,
+          "avgCostUsd": 0.03895422222222222,
+          "costPerSuccessUsd": 0.058431333333333335,
+          "medianCostUsd": 0.024675,
+          "p50LatencyS": 8.445,
+          "p95LatencyS": 71.098,
+          "p50CallLatencyS": 4.405,
+          "p95CallLatencyS": 7.276,
+          "avgApiCalls": 3.3333333333333335,
+          "avgRoundsPerTurn": 1.0344827586206897,
+          "avgToolCalls": 2.6666666666666665,
+          "avgInputTokens": 6.666666666666667,
+          "avgOutputTokens": 1072.111111111111,
+          "avgCacheRead": 83764.77777777778,
+          "avgCacheWrite": 2866.777777777778,
+          "errors": 0
+        },
+        "A chat/discovery": {
+          "runs": 8,
+          "passRate": 1,
+          "successes": 8,
+          "totalCostUsd": 0.12209600000000001,
+          "tokenCostCheckUsd": 0.12209759999999999,
+          "avgCostUsd": 0.015262000000000001,
+          "costPerSuccessUsd": 0.015262000000000001,
+          "medianCostUsd": 0.015087,
+          "p50LatencyS": 3.915,
+          "p95LatencyS": 4.269,
+          "p50CallLatencyS": 3.876,
+          "p95CallLatencyS": 4.242,
+          "avgApiCalls": 1,
+          "avgRoundsPerTurn": 1,
+          "avgToolCalls": 1,
+          "avgInputTokens": 2,
+          "avgOutputTokens": 344.75,
+          "avgCacheRead": 23656,
+          "avgCacheWrite": 1769.875,
+          "errors": 0
+        },
+        "B planowanie": {
+          "runs": 21,
+          "passRate": 0.7142857142857143,
+          "successes": 15,
+          "totalCostUsd": 0.5069880000000001,
+          "tokenCostCheckUsd": 0.5069932,
+          "avgCostUsd": 0.02414228571428572,
+          "costPerSuccessUsd": 0.03379920000000001,
+          "medianCostUsd": 0.022429,
+          "p50LatencyS": 8.091,
+          "p95LatencyS": 11.93,
+          "p50CallLatencyS": 4.834,
+          "p95CallLatencyS": 10.041,
+          "avgApiCalls": 1.380952380952381,
+          "avgRoundsPerTurn": 1.380952380952381,
+          "avgToolCalls": 1.0952380952380953,
+          "avgInputTokens": 2.761904761904762,
+          "avgOutputTokens": 577.2380952380952,
+          "avgCacheRead": 33468.857142857145,
+          "avgCacheWrite": 2917.714285714286,
+          "errors": 0
+        },
+        "D ograniczenia": {
+          "runs": 13,
+          "passRate": 0.7692307692307693,
+          "successes": 10,
+          "totalCostUsd": 0.32520999999999994,
+          "tokenCostCheckUsd": 0.3252124,
+          "avgCostUsd": 0.02501615384615384,
+          "costPerSuccessUsd": 0.032520999999999994,
+          "medianCostUsd": 0.027851,
+          "p50LatencyS": 9.568,
+          "p95LatencyS": 13.765,
+          "p50CallLatencyS": 4.779,
+          "p95CallLatencyS": 5.678,
+          "avgApiCalls": 1.7692307692307692,
+          "avgRoundsPerTurn": 1.7692307692307692,
+          "avgToolCalls": 1.0769230769230769,
+          "avgInputTokens": 3.5384615384615383,
+          "avgOutputTokens": 521,
+          "avgCacheRead": 43302.46153846154,
+          "avgCacheWrite": 2784.6923076923076,
+          "errors": 0
+        }
+      },
+      "routing": {
+        "suggestion": {
+          "runs": 8,
+          "suggestMealsShare": 1,
+          "findRecipesShare": 0,
+          "avgApiCalls": 1
+        },
+        "planning": {
+          "runs": 18,
+          "buildMealPlanShare": 1,
+          "manualProposeShare": 0,
+          "startPlanningShare": 0,
+          "avgApiCalls": 1.4444444444444444,
+          "plannerStatus": {
+            "OK": 11,
+            "PARTIAL": 7
+          }
+        },
+        "editing": {
+          "runs": 5,
+          "replacePlanItemShare": 1,
+          "proposeSwapShare": 0
+        },
+        "terminalCards": {
+          "turns": 103,
+          "toolEndedTurnShare": 0.5825242718446602
+        }
+      },
+      "plannerQuality": {
+        "fullDays": 49,
+        "meanAbsDayKcalDevPct": 9.377355726979784,
+        "p95AbsDayKcalDevPct": 29.136363636363637,
+        "maxAbsDayKcalDevPct": 29.136363636363637,
+        "within10Pct": 0.7346938775510204
+      },
+      "perScenario": {
+        "g1-kcal-sroda": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.030823,
+          "avgLatencyS": 5.202,
+          "avgApiCalls": 2,
+          "tools": [
+            "get_week_balance"
+          ],
+          "issues": []
+        },
+        "g1-weekend": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.022189,
+          "avgLatencyS": 4.429,
+          "avgApiCalls": 1,
+          "tools": [],
+          "issues": []
+        },
+        "g1-wtorek-obiad": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.050174666666666666,
+          "avgLatencyS": 7.442333333333334,
+          "avgApiCalls": 1,
+          "tools": [],
+          "issues": []
+        },
+        "g10-konflikty-planu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.021492,
+          "avgLatencyS": 5.943,
+          "avgApiCalls": 2,
+          "tools": [
+            "check_plan_conflicts"
+          ],
+          "issues": []
+        },
+        "g10-lista-zakupow": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.027256,
+          "avgLatencyS": 5.221,
+          "avgApiCalls": 2,
+          "tools": [
+            "show_shopping_list"
+          ],
+          "issues": []
+        },
+        "g10-luka-makro": {
+          "runs": 3,
+          "pass": 0,
+          "avgCostUsd": 0.035898,
+          "avgLatencyS": 9.551333333333332,
+          "avgApiCalls": 2.6666666666666665,
+          "tools": [
+            "show_macro_gap"
+          ],
+          "issues": [
+            "odpowiedz nie cytuje zadnej z liczb karty"
+          ]
+        },
+        "g11-nowy-przepis": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.040217,
+          "avgLatencyS": 13.46,
+          "avgApiCalls": 3,
+          "tools": [
+            "search_ingredients",
+            "create_recipe"
+          ],
+          "issues": []
+        },
+        "g11-przepis-katalogowy": {
+          "runs": 3,
+          "pass": 0,
+          "avgCostUsd": 0.049111666666666665,
+          "avgLatencyS": 18.823,
+          "avgApiCalls": 2,
+          "tools": [
+            "propose_day_plan",
+            "get_recipe_details",
+            "search_ingredients",
+            "create_recipe",
+            "propose_swap"
+          ],
+          "issues": [
+            "nie wyjasnil, dlaczego nie da sie zmienic przepisu katalogowego"
+          ]
+        },
+        "g11-zmiana-przepisu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.037889,
+          "avgLatencyS": 10.422,
+          "avgApiCalls": 4,
+          "tools": [
+            "get_recipe_details",
+            "search_ingredients",
+            "update_recipe"
+          ],
+          "issues": []
+        },
+        "g12-chwilowa-niechec": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.016995,
+          "avgLatencyS": 5.914,
+          "avgApiCalls": 1,
+          "tools": [
+            "suggest_meals"
+          ],
+          "issues": []
+        },
+        "g12-dluga-rozmowa": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.153301,
+          "avgLatencyS": 71.098,
+          "avgApiCalls": 15,
+          "tools": [
+            "suggest_meals",
+            "build_meal_plan",
+            "ask_clarifying_question",
+            "replace_plan_item"
+          ],
+          "issues": []
+        },
+        "g12-injection-nazwa-domu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.014321,
+          "avgLatencyS": 5.575,
+          "avgApiCalls": 1,
+          "tools": [],
+          "issues": []
+        },
+        "g12-injection-notatka": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.017893,
+          "avgLatencyS": 6.957,
+          "avgApiCalls": 1,
+          "tools": [
+            "suggest_meals"
+          ],
+          "issues": []
+        },
+        "g12-poza-dziedzina": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.012745,
+          "avgLatencyS": 3.9776666666666665,
+          "avgApiCalls": 1,
+          "tools": [],
+          "issues": []
+        },
+        "g12-trwala-preferencja": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.020294,
+          "avgLatencyS": 5.279,
+          "avgApiCalls": 2,
+          "tools": [
+            "remember_note"
+          ],
+          "issues": []
+        },
+        "g13-mam-kurczaka": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.015182333333333334,
+          "avgLatencyS": 3.8233333333333337,
+          "avgApiCalls": 1,
+          "tools": [
+            "suggest_meals"
+          ],
+          "issues": []
+        },
+        "g13-pokaz-inne": {
+          "runs": 3,
+          "pass": 0,
+          "avgCostUsd": 0.024562,
+          "avgLatencyS": 8.195333333333332,
+          "avgApiCalls": 2,
+          "tools": [
+            "suggest_meals"
+          ],
+          "issues": [
+            "powtórzone dania: 3"
+          ]
+        },
+        "g13-wybieram-druga": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.025868,
+          "avgLatencyS": 8.584999999999999,
+          "avgApiCalls": 2,
+          "tools": [
+            "suggest_meals",
+            "propose_swap"
+          ],
+          "issues": []
+        },
+        "g13-zmiana-w-propozycji": {
+          "runs": 3,
+          "pass": 0,
+          "avgCostUsd": 0.027464666666666665,
+          "avgLatencyS": 8.904333333333334,
+          "avgApiCalls": 2,
+          "tools": [
+            "build_meal_plan",
+            "replace_plan_item",
+            "suggest_meals"
+          ],
+          "issues": [
+            "kolacja po poprawce nie jest wegetariańska",
+            "propozycji: 1, oczekiwano 2 (plan + poprawka)"
+          ]
+        },
+        "g2-co-na-kolacje": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.015547,
+          "avgLatencyS": 4.183,
+          "avgApiCalls": 1,
+          "tools": [
+            "suggest_meals"
+          ],
+          "issues": []
+        },
+        "g2-cos-lekkiego": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.015441,
+          "avgLatencyS": 4.269,
+          "avgApiCalls": 1,
+          "tools": [
+            "suggest_meals"
+          ],
+          "issues": []
+        },
+        "g2-cos-szybkiego": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.015186999999999999,
+          "avgLatencyS": 3.9453333333333336,
+          "avgApiCalls": 1,
+          "tools": [
+            "suggest_meals"
+          ],
+          "issues": []
+        },
+        "g3-bez-ryby": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.033189,
+          "avgLatencyS": 10.107,
+          "avgApiCalls": 2,
+          "tools": [
+            "replace_plan_item"
+          ],
+          "issues": []
+        },
+        "g3-podmien-dla-osoby": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.056163,
+          "avgLatencyS": 20.44,
+          "avgApiCalls": 3,
+          "tools": [
+            "replace_plan_item",
+            "suggest_meals"
+          ],
+          "issues": []
+        },
+        "g3-podmien-kolacje": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.032927000000000005,
+          "avgLatencyS": 7.804333333333333,
+          "avgApiCalls": 2,
+          "tools": [
+            "replace_plan_item"
+          ],
+          "issues": []
+        },
+        "g4-dzien-w-limicie-kcal": {
+          "runs": 3,
+          "pass": 0,
+          "avgCostUsd": 0.017857,
+          "avgLatencyS": 7.199000000000001,
+          "avgApiCalls": 1,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": [
+            "sroda ma 2080 kcal przy limicie 1800"
+          ]
+        },
+        "g4-tylko-wlaczone-posilki": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.014731,
+          "avgLatencyS": 3.667,
+          "avgApiCalls": 1,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g4-zaplanuj-piatek": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.022196333333333335,
+          "avgLatencyS": 4.224666666666667,
+          "avgApiCalls": 1,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g5-trzy-dni-bez-powtorzen": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.026487,
+          "avgLatencyS": 8.933,
+          "avgApiCalls": 2,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g5-trzy-dni-w-celu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.015859,
+          "avgLatencyS": 4.634,
+          "avgApiCalls": 1,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g5-trzy-dni": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.015301,
+          "avgLatencyS": 4.652,
+          "avgApiCalls": 1,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g6-pelny-tydzien": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.019011,
+          "avgLatencyS": 6.018000000000001,
+          "avgApiCalls": 1.3333333333333333,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g6-tydzien-dwa-cele": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.031059000000000003,
+          "avgLatencyS": 10.705666666666668,
+          "avgApiCalls": 2,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g6-tydzien-limit-czasu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.043309,
+          "avgLatencyS": 15.599,
+          "avgApiCalls": 3,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g7-domownik-bez-zgody": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.021299,
+          "avgLatencyS": 5.184,
+          "avgApiCalls": 2,
+          "tools": [
+            "check_plan_conflicts"
+          ],
+          "issues": []
+        },
+        "g7-dwie-alergie": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.027317,
+          "avgLatencyS": 10.95,
+          "avgApiCalls": 2,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g7-jedna-alergia": {
+          "runs": 3,
+          "pass": 3,
+          "avgCostUsd": 0.01592033333333333,
+          "avgLatencyS": 4.906,
+          "avgApiCalls": 1,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g7-wykluczenia": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.015631,
+          "avgLatencyS": 4.581,
+          "avgApiCalls": 1,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g8-podzial-posilku": {
+          "runs": 3,
+          "pass": 0,
+          "avgCostUsd": 0.029456999999999997,
+          "avgLatencyS": 10.358333333333333,
+          "avgApiCalls": 1,
+          "tools": [
+            "suggest_meals"
+          ],
+          "issues": [
+            "w slocie 1 dan, oczekiwano rozdzielenia",
+            "nie uzyl zadnego z oczekiwanych narzedzi (propose_household_split | propose_swap | apply_week_plan | propose_week_plan | build_meal_plan | replace_plan_item)"
+          ]
+        },
+        "g8-rozne-cele": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.03256,
+          "avgLatencyS": 11.835,
+          "avgApiCalls": 2,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": []
+        },
+        "g8-zakres-pytania": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.028103,
+          "avgLatencyS": 9.181,
+          "avgApiCalls": 1,
+          "tools": [
+            "suggest_meals"
+          ],
+          "issues": []
+        },
+        "g9-nierealny-czas": {
+          "runs": 3,
+          "pass": 1,
+          "avgCostUsd": 0.028197,
+          "avgLatencyS": 9.846333333333332,
+          "avgApiCalls": 2,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": [
+            "zapisal 17 dan ponad 5 min bez slowa o ograniczeniu"
+          ]
+        },
+        "g9-spoza-katalogu": {
+          "runs": 1,
+          "pass": 1,
+          "avgCostUsd": 0.040764,
+          "avgLatencyS": 13.765,
+          "avgApiCalls": 3,
+          "tools": [
+            "find_recipes"
+          ],
+          "issues": []
+        },
+        "g9-uboga-pula-wegan": {
+          "runs": 3,
+          "pass": 2,
+          "avgCostUsd": 0.02928233333333333,
+          "avgLatencyS": 9.987333333333334,
+          "avgApiCalls": 2,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "issues": [
+            "nie przyznal sie do ubogiej puli, a zapelnil tydzien"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,736 @@
+{
+  "label": "before-g12-dluga-rozmowa",
+  "startedAt": "2026-09-26T16:31:40.155Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.469278,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 32,
+      "p95Rounds": 32,
+      "maxRounds": 32,
+      "medianCostUsd": 0.469278,
+      "p95CostUsd": 0.469278,
+      "medianLatencyMs": 192319,
+      "latencySplit": {
+        "wait": 0.31718654943089347,
+        "thinking": 0.25678170123596733,
+        "toolInput": 0.20862733271283648,
+        "text": 0.21570411659794403,
+        "toolsRun": 0.0012271278448827208,
+        "other": 0.00047317217747596443
+      },
+      "medianFirstBlockMs": 1750,
+      "cacheHitRatio": 0.9437332450149037,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 12,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 32,
+          "medianCostUsd": 0.469278
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g12-dluga-rozmowa",
+      "group": 12,
+      "pyta": "Czy ograniczenie z pierwszej tury trzyma się po piętnastu turach?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "get_household_context",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "propose_week_plan",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "propose_day_plan",
+        "find_recipes",
+        "propose_swap",
+        "get_week_plan",
+        "find_recipes",
+        "ask_clarifying_question",
+        "find_recipes",
+        "find_recipes",
+        "propose_day_plan",
+        "propose_day_plan",
+        "find_recipes",
+        "propose_day_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 32,
+      "turnApiCalls": [
+        4,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        1,
+        2,
+        2,
+        3,
+        2,
+        2,
+        2,
+        4
+      ],
+      "toolCalls": [
+        {
+          "name": "get_household_context",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_week_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_day_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_swap",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "get_week_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "ask_clarifying_question",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_day_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_day_plan",
+          "ok": false,
+          "errorCode": "VALIDATION_ERROR",
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_day_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "81ccd206-2a3b-4549-a190-3a76771acd5f",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 589
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "4a08f672-93b0-4227-ab47-b5737a626218",
+          "calorieGoal": 2100
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 192319,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3051,
+          "firstBlockMs": 1750,
+          "thinkingMs": 1237,
+          "toolInputMs": 59,
+          "textMs": 0,
+          "outputTokens": 106,
+          "tools": [
+            "get_household_context"
+          ],
+          "toolsRunMs": 7
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 11033,
+          "firstBlockMs": 2150,
+          "thinkingMs": 0,
+          "toolInputMs": 5983,
+          "textMs": 2899,
+          "outputTokens": 1188,
+          "tools": [
+            "find_recipes",
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 23
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 27823,
+          "firstBlockMs": 2180,
+          "thinkingMs": 20285,
+          "toolInputMs": 5358,
+          "textMs": 0,
+          "outputTokens": 2755,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 28
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3955,
+          "firstBlockMs": 1711,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2240,
+          "outputTokens": 131,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3599,
+          "firstBlockMs": 1692,
+          "thinkingMs": 0,
+          "toolInputMs": 1904,
+          "textMs": 0,
+          "outputTokens": 350,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 11
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6958,
+          "firstBlockMs": 1916,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 5038,
+          "outputTokens": 408,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4001,
+          "firstBlockMs": 1568,
+          "thinkingMs": 465,
+          "toolInputMs": 1963,
+          "textMs": 0,
+          "outputTokens": 366,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 8
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6708,
+          "firstBlockMs": 1816,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 4892,
+          "outputTokens": 398,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2668,
+          "firstBlockMs": 1720,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 947,
+          "outputTokens": 58,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4216,
+          "firstBlockMs": 1699,
+          "thinkingMs": 416,
+          "toolInputMs": 2097,
+          "textMs": 0,
+          "outputTokens": 360,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 7
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6712,
+          "firstBlockMs": 1598,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 5112,
+          "outputTokens": 415,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 8117,
+          "firstBlockMs": 1686,
+          "thinkingMs": 1024,
+          "toolInputMs": 5405,
+          "textMs": 0,
+          "outputTokens": 1045,
+          "tools": [
+            "find_recipes",
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 11
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 8429,
+          "firstBlockMs": 1767,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 6658,
+          "outputTokens": 564,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4021,
+          "firstBlockMs": 1734,
+          "thinkingMs": 322,
+          "toolInputMs": 0,
+          "textMs": 1963,
+          "outputTokens": 150,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3316,
+          "firstBlockMs": 1667,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1648,
+          "outputTokens": 134,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 9039,
+          "firstBlockMs": 3168,
+          "thinkingMs": 4836,
+          "toolInputMs": 1034,
+          "textMs": 0,
+          "outputTokens": 496,
+          "tools": [
+            "propose_day_plan"
+          ],
+          "toolsRunMs": 22
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 7198,
+          "firstBlockMs": 2005,
+          "thinkingMs": 3957,
+          "toolInputMs": 0,
+          "textMs": 1234,
+          "outputTokens": 424,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5018,
+          "firstBlockMs": 2107,
+          "thinkingMs": 557,
+          "toolInputMs": 2352,
+          "textMs": 0,
+          "outputTokens": 384,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 10
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4030,
+          "firstBlockMs": 1816,
+          "thinkingMs": 0,
+          "toolInputMs": 948,
+          "textMs": 1258,
+          "outputTokens": 256,
+          "tools": [
+            "propose_swap"
+          ],
+          "toolsRunMs": 21
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6587,
+          "firstBlockMs": 1923,
+          "thinkingMs": 4363,
+          "toolInputMs": 299,
+          "textMs": 0,
+          "outputTokens": 450,
+          "tools": [
+            "get_week_plan"
+          ],
+          "toolsRunMs": 5
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6201,
+          "firstBlockMs": 2288,
+          "thinkingMs": 1365,
+          "toolInputMs": 2546,
+          "textMs": 0,
+          "outputTokens": 491,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 5
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5553,
+          "firstBlockMs": 3748,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1802,
+          "outputTokens": 103,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 7864,
+          "firstBlockMs": 1952,
+          "thinkingMs": 4610,
+          "toolInputMs": 1295,
+          "textMs": 0,
+          "outputTokens": 477,
+          "tools": [
+            "ask_clarifying_question"
+          ],
+          "toolsRunMs": 1
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2697,
+          "firstBlockMs": 1999,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 691,
+          "outputTokens": 56,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4096,
+          "firstBlockMs": 1080,
+          "thinkingMs": 1160,
+          "toolInputMs": 1852,
+          "textMs": 0,
+          "outputTokens": 406,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 12
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3951,
+          "firstBlockMs": 1705,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2245,
+          "outputTokens": 122,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 6875,
+          "firstBlockMs": 1638,
+          "thinkingMs": 3148,
+          "toolInputMs": 2087,
+          "textMs": 0,
+          "outputTokens": 612,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 8
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3964,
+          "firstBlockMs": 2042,
+          "thinkingMs": 0,
+          "toolInputMs": 1090,
+          "textMs": 829,
+          "outputTokens": 214,
+          "tools": [
+            "propose_day_plan"
+          ],
+          "toolsRunMs": 24
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5282,
+          "firstBlockMs": 1648,
+          "thinkingMs": 1329,
+          "toolInputMs": 1249,
+          "textMs": 1055,
+          "outputTokens": 341,
+          "tools": [
+            "propose_day_plan"
+          ],
+          "toolsRunMs": 4
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4205,
+          "firstBlockMs": 1975,
+          "thinkingMs": 310,
+          "toolInputMs": 1920,
+          "textMs": 0,
+          "outputTokens": 377,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 14
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2367,
+          "firstBlockMs": 1685,
+          "thinkingMs": 0,
+          "toolInputMs": 682,
+          "textMs": 0,
+          "outputTokens": 131,
+          "tools": [
+            "propose_day_plan"
+          ],
+          "toolsRunMs": 15
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2544,
+          "firstBlockMs": 1568,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 973,
+          "outputTokens": 62,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 64,
+      "outputTokens": 13830,
+      "cacheReadTokens": 755114,
+      "cacheWriteTokens": 44957,
+      "cacheHitRatio": 0.9437332450149037,
+      "costMicroUsd": 469278,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "tool_ended_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "tool_ended_turn",
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": 56,
+      "answer": "Czwartkowy obiad gotowy do zatwierdzenia — makaron udon z wołowiną, sycący i wysokobiałkowy, bez powtarzania penne.",
+      "cards": [
+        {
+          "kind": "CLARIFY",
+          "payload": {
+            "kind": "CLARIFY",
+            "v": 1,
+            "question": "Czy mam zostawić powtórkę makaronu penne na środę, czy poluzować limit czasu i poszukać czegoś innego?",
+            "hint": null,
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Zostaw powtórkę makaronu",
+                "style": "PRIMARY",
+                "prompt": "Zostaw powtórkę makaronu"
+              },
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Poszukaj czegoś innego (do 30 min)",
+                "style": "SECONDARY",
+                "prompt": "Poszukaj czegoś innego (do 30 min)"
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ]
+}

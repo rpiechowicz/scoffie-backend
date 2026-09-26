@@ -165,7 +165,11 @@ describe('domownicy w bloku gospodarstwa', () => {
 describe('modeBlock', () => {
   it('w trybie propozycji zabrania zapisu i wypisywania planu', () => {
     const text = modeBlock(true);
-    expect(text).toContain('propose_week_plan');
+    // Plan układa serwer (build_meal_plan); ręczne propose_day_plan tylko dla
+    // dań podanych przez użytkownika. propose_week_plan zniknął z modelu (Etap 3).
+    expect(text).toContain('build_meal_plan');
+    expect(text).toContain('propose_day_plan tylko wtedy');
+    expect(text).not.toContain('propose_week_plan');
     expect(text).toContain('apply_week_plan jest w tym trybie wyłączone');
     // Karta pokazuje tydzień — powtórzenie go w tekście to podwójny koszt
     // i drugie miejsce, w którym liczby mogą się rozjechać.
@@ -175,7 +179,9 @@ describe('modeBlock', () => {
   it('w trybie zapisu wymaga dry_run i zabrania propozycji', () => {
     const text = modeBlock(false);
     expect(text).toContain('dry_run=true');
-    expect(text).toContain('propose_week_plan jest w tym trybie wyłączone');
+    expect(text).toContain(
+      'propozycji (build_meal_plan, propose_*, replace_plan_item)',
+    );
   });
 
   it('oba tryby mówią o zapisie jednym zdaniem — bez „może"', () => {
@@ -231,7 +237,7 @@ describe('plan tygodnia w bloku gospodarstwa', () => {
   });
 
   it('instrukcje odsyłają do planu w bloku, a get_week_plan tylko po inny tydzień', () => {
-    expect(AGENT_INSTRUCTIONS).toContain('pobierasz go drugi raz');
+    expect(AGENT_INSTRUCTIONS).toContain('nie pobierasz');
     expect(AGENT_INSTRUCTIONS).toContain(
       'get_week_plan wołasz wyłącznie po INNY tydzień',
     );

@@ -47,7 +47,8 @@ plan w tekście) jest niewidoczna do skargi użytkownika.
 **Zakres.**
 - Dopisać scenariusze dla narzędzi z 18.09: `get_recipe_details` („jak to
   ugotować”, „czy jest w tym masło” — model NIE może odpowiadać z pamięci),
-  `search_recipes_by_ingredient`, `propose_remove_meal` (nie przez
+  `search_recipes_by_ingredient` (od 26.09.2026 `find_recipes` z
+  `include_ingredients`), `propose_remove_meal` (nie przez
   `apply_week_plan`), `mark_meal_eaten`, `check_shopping_items` (w tym
   wieloznaczne „ser” → dopytanie, nie zgadywanie).
 - Nowe metryki w JSON-ie: czas do pierwszego znaku szkicu (streaming),
@@ -202,7 +203,7 @@ screenshot; „co z tego ugotować?” + zdjęcie lodówki albo zakupów.
   zostaje miniatura 64 px albo nic).
 - Narzędzia (pola wymagane, A6 wcześniej): `import_recipe_from_image` →
   `create_recipe` po `search_ingredients` (istniejąca ścieżka planisty);
-  `recognize_ingredients` → lista nazw → `search_recipes_by_ingredient`.
+  `recognize_ingredients` → lista nazw → `find_recipes` (`include_ingredients`).
 - Prywatność: zdjęcie lodówki może zawierać twarze/etykiety leków —
   instrukcja modelowi: opisuj wyłącznie jedzenie; test adwersaryjny w A1.
 

@@ -193,7 +193,8 @@ export async function loadDigestRecipes(
   householdId: string,
 ): Promise<DigestRecipe[]> {
   const recipes = await prisma.recipe.findMany({
-    where: { householdId, isActive: true },
+    // Tylko KATALOG — prywatny przepis konta katalogowego to nie katalog.
+    where: { householdId, isCatalog: true, isActive: true },
     orderBy: [{ title: 'asc' }, { id: 'asc' }],
     select: {
       id: true,

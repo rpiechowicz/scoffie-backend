@@ -20,6 +20,8 @@ export type BaselineSlot = {
   recipeId: string;
   participantIds?: string[];
   plannedServings?: number | null;
+  /** Porcje per osoba (Etap 2.2) — zmiana porcji też jest zmianą planu. */
+  portions?: readonly { userId: string; servings: number }[];
 };
 
 export function weekBaselineHash(slots: readonly BaselineSlot[]): string {
@@ -27,7 +29,14 @@ export function weekBaselineHash(slots: readonly BaselineSlot[]): string {
     .map((slot) => {
       const participants = [...(slot.participantIds ?? [])].sort().join(',');
       const servings = slot.plannedServings ?? '';
-      return `${slot.dayOfWeek}|${slot.mealType}|${slot.recipeId}|${participants}|${servings}`;
+      // Porcje osób dopisujemy TYLKO, gdy są: odcisk pozycji bez alokacji
+      // zostaje bajt w bajt taki jak przed Etapem 2.2, więc propozycje
+      // czekające na kliknięcie nie stają się nagle nieaktualne.
+      const portions = (slot.portions ?? [])
+        .map((portion) => `${portion.userId}:${portion.servings}`)
+        .sort()
+        .join(',');
+      return `${slot.dayOfWeek}|${slot.mealType}|${slot.recipeId}|${participants}|${servings}${portions ? `|${portions}` : ''}`;
     })
     .sort();
 

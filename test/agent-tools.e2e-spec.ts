@@ -179,18 +179,33 @@ describe('Narzędzia asystenta E2E', () => {
     expect(result).toMatchObject({ ok: false, error: { code: 'BAD_REQUEST' } });
   });
 
-  it('get_household_context oddaje domowników z celami', async () => {
-    const members = data<{ userId: string; targets: unknown }[]>(
-      await run('get_household_context'),
+  it('get_household_context zdjęte z modelu (Etap 3): domownicy z celami są w bloku gospodarstwa', async () => {
+    // Narzędzie było drugim odczytem tego samego — executor już go nie zna.
+    expect(await run('get_household_context')).toMatchObject({
+      ok: false,
+      error: { code: 'BAD_REQUEST' },
+    });
+    const prompt = await prompts.build(
+      context.userId,
+      context.householdId,
+      {
+        weekStart: WEEK_START,
+        clientToday: WEEK_START,
+        timeZone: 'Europe/Warsaw',
+      },
+      true,
     );
-    expect(members).toHaveLength(1);
-    expect(members[0]).toHaveProperty('targets');
+    const household = prompt.system[prompt.system.length - 1].text;
+    const members = household.slice(
+      household.indexOf('<domownicy>'),
+      household.indexOf('</domownicy>'),
+    );
+    expect(members).toContain(context.userId);
+    expect(members).toContain('"targets"');
     // Sylwetka (płeć, wzrost, waga, rok urodzenia) nie ma prawa wyjść do
     // modelu — to dane o zdrowiu domowników, a cele są już policzone.
-    expect(members[0]).not.toHaveProperty('body');
-    const serialized = JSON.stringify(members);
     for (const field of ['sex', 'heightCm', 'weightKg', 'yearOfBirth']) {
-      expect(serialized).not.toContain(`"${field}"`);
+      expect(members).not.toContain(`"${field}"`);
     }
   });
 
@@ -374,23 +389,44 @@ describe('Narzędzia asystenta E2E', () => {
       expect(updated.title).toBe('Danie asystenta, poprawione');
     });
 
-    it('delete_recipe wycofuje przepis', async () => {
-      const result = data<{ isActive: boolean }>(
-        await run('delete_recipe', { recipe_id: recipeId }),
+    it('delete_recipe zdjęte z modelu (Etap 3): executor odmawia, przepis zostaje', async () => {
+      expect(await run('delete_recipe', { recipe_id: recipeId })).toMatchObject(
+        { ok: false, error: { code: 'BAD_REQUEST' } },
       );
-      expect(result.isActive).toBe(false);
+      const recipe = await prisma.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        select: { isActive: true },
+      });
+      expect(recipe.isActive).toBe(true);
     });
 
-    it('edycja przepisu z katalogu wraca jako błąd z kodem', async () => {
+    // Etap 6.1: zamiast błędu (po którym model sam robił kopię przez
+    // create_recipe albo zmieniał plan) — jawny wynik „tylko do odczytu",
+    // który kończy turę zdaniem serwera. Katalog dalej nietknięty.
+    it('edycja przepisu z katalogu: jawny wynik „tylko do odczytu", katalog nietknięty', async () => {
       const catalogRecipeId = context.catalogIndex[firstCatalogIndex];
+      const before = await prisma.recipe.findUniqueOrThrow({
+        where: { id: catalogRecipeId },
+        select: { title: true },
+      });
       const result = await run('update_recipe', {
         recipe_id: catalogRecipeId,
         title: 'Podmiana katalogu',
       });
       expect(result).toMatchObject({
-        ok: false,
-        error: { code: 'RECIPE_NOT_EDITABLE' },
+        ok: true,
+        endsTurn: true,
+        data: {
+          updated: false,
+          readOnly: true,
+          reason: 'CATALOG_RECIPE_READ_ONLY',
+        },
       });
+      const after = await prisma.recipe.findUniqueOrThrow({
+        where: { id: catalogRecipeId },
+        select: { title: true },
+      });
+      expect(after.title).toBe(before.title);
     });
   });
 
@@ -709,7 +745,7 @@ describe('Narzędzia asystenta E2E', () => {
         error: { code: 'AI_TOOL_NOT_IN_MODE' },
       });
       if (result.ok) throw new Error('nieosiągalne');
-      expect(result.error.message).toContain('propose_week_plan');
+      expect(result.error.message).toContain('build_meal_plan');
     });
 
     it('propozycja niczego nie zapisuje ani nie zjada kwoty planów', async () => {
@@ -1080,6 +1116,140 @@ describe('Narzędzia asystenta E2E', () => {
    * chodzi o pełną drogę: PRAWDZIWY plan z bazy, przez serwis, przez
    * executor, do kształtu, który zobaczy model.
    */
+  describe('find_recipes na żywym katalogu', () => {
+    type Found = {
+      total: number;
+      hits: {
+        recipe: string;
+        title: string;
+        slots: string[];
+        kcal: number | null;
+        tags: string[];
+      }[];
+      textIgnored: boolean;
+      appliedForAudience: string[];
+    };
+    const criteria = (over: Record<string, unknown> = {}) => ({
+      query: '',
+      meal_type: 'ANY',
+      tags: [],
+      include_ingredients: [],
+      exclude_ingredients: [],
+      max_prep_minutes: 0,
+      max_kcal_per_serving: 0,
+      min_protein_per_serving: 0,
+      for_user_ids: [],
+      sort: 'BEST_FIT',
+      limit: 8,
+      ...over,
+    });
+
+    afterEach(async () => {
+      await prisma.userPreference.deleteMany({
+        where: { userId: context.userId },
+      });
+    });
+
+    it('oddaje dania na porę z referencjami, które przyjmą kolejne narzędzia', async () => {
+      const found = data<Found>(
+        await run('find_recipes', criteria({ meal_type: 'DINNER', limit: 5 })),
+      );
+      expect(found.total).toBeGreaterThan(0);
+      expect(found.hits.length).toBeGreaterThan(0);
+      for (const hit of found.hits) {
+        expect(hit.slots).toContain('DINNER');
+        // Referencja z indeksu TEJ tury — nie UUID.
+        expect(context.catalogIndex[hit.recipe]).toBeDefined();
+      }
+      // I da się jej użyć od razu, bez przepisywania.
+      const details = await run('get_recipe_details', {
+        recipe: found.hits[0].recipe,
+      });
+      expect(details.ok).toBe(true);
+    });
+
+    it('alergen domownika wycina danie, nawet gdy prośba wprost go wymienia', async () => {
+      const withAllergen = await prisma.recipe.findFirst({
+        where: {
+          householdId: CATALOG_HOUSEHOLD,
+          isActive: true,
+          NOT: { allergens: { isEmpty: true } },
+        },
+        select: { title: true, allergens: true },
+      });
+      if (!withAllergen) throw new Error('katalog nie ma dania z alergenem');
+      await prisma.userPreference.create({
+        data: {
+          userId: context.userId,
+          allergens: [withAllergen.allergens[0]],
+        },
+      });
+
+      const found = data<Found>(
+        await run(
+          'find_recipes',
+          criteria({ query: withAllergen.title, limit: 15 }),
+        ),
+      );
+      expect(found.hits.map((hit) => hit.title)).not.toContain(
+        withAllergen.title,
+      );
+      // Model nie dostaje już alergenów w wyniku (Etap 3.6) — filtr sprawdzamy
+      // w bazie, po referencjach, które oddał serwer.
+      const ids = found.hits.map(
+        (hit) => context.catalogIndex[hit.recipe] ?? hit.recipe,
+      );
+      const rows = await prisma.recipe.findMany({
+        where: { id: { in: ids } },
+        select: { allergens: true },
+      });
+      expect(rows).toHaveLength(ids.length);
+      for (const row of rows) {
+        expect(row.allergens).not.toContain(withAllergen.allergens[0]);
+      }
+    });
+
+    it('nieznany tag wraca jako błąd z kodem, nie jako pusta lista', async () => {
+      const result = await run('find_recipes', criteria({ tags: ['zupki'] }));
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR' },
+      });
+    });
+
+    it('start_planning to samo przekazanie — bez kandydatów na pory (Etap 3)', async () => {
+      const result = await run('start_planning', { reason: 'tydzień' });
+      const handoff = data<{ handoff: boolean; candidates?: unknown }>(result);
+      expect(handoff.handoff).toBe(true);
+      // Dania dobiera planer serwera; lista kandydatów kosztowała ~7,7 tys.
+      // znaków w każdej kolejnej rundzie tury i nikt jej nie czytał.
+      expect(handoff.candidates).toBeUndefined();
+      expect(JSON.stringify(handoff).length).toBeLessThan(600);
+    });
+
+    it('prompt w trybie search niesie mapę katalogu, a nie listę dań', async () => {
+      const prompt = await prompts.build(
+        context.userId,
+        context.householdId,
+        {
+          weekStart: WEEK_START,
+          clientToday: '2026-09-29',
+          timeZone: 'Europe/Warsaw',
+        },
+        true,
+      );
+      const catalogBlock = prompt.system[1].text;
+      expect(catalogBlock).toContain('KATALOG PRZEPISÓW — MAPA');
+      const anyTitle = await prisma.recipe.findFirstOrThrow({
+        where: { householdId: CATALOG_HOUSEHOLD, isActive: true },
+        select: { title: true },
+      });
+      expect(catalogBlock).not.toContain(anyTitle.title);
+      // Indeks tury dalej obejmuje cały katalog — referencje z planu działają.
+      expect(Object.keys(prompt.catalogIndex).length).toBeGreaterThan(0);
+    });
+  });
+
   describe('get_week_plan dla modelu', () => {
     const SLIM_WEEK = '2026-11-02';
 
@@ -1344,14 +1514,20 @@ describe('Narzędzia asystenta E2E', () => {
       process.env.AI_CONSENT_REQUIRED = 'false';
     });
 
-    it('domownik bez zgody NIE jest widoczny w get_household_context', async () => {
+    it('domownik bez zgody NIE jest widoczny w bloku gospodarstwa', async () => {
       // Warunek wstępny: gdyby był, cały ten opis niczego by nie dowodził.
-      const members = data<{ userId: string }[]>(
-        await executor.execute('get_household_context', {}, konfliktowyContext),
+      const prompt = await prompts.build(
+        konfliktowyContext.userId,
+        konfliktowyContext.householdId,
+        {
+          weekStart: CONFLICT_WEEK,
+          clientToday: CONFLICT_WEEK,
+          timeZone: 'Europe/Warsaw',
+        },
+        true,
       );
-      expect(members.map((member) => member.userId)).not.toContain(
-        bezZgodyUserId,
-      );
+      const household = prompt.system[prompt.system.length - 1].text;
+      expect(household).not.toContain(bezZgodyUserId);
     });
 
     it('bramka WIDZI konflikt — ochrona nie osłabła', async () => {

@@ -92,6 +92,14 @@ export class AgentMemoryService {
      * odczyt (`promptBlock`) nie musiał zgadywać z tekstu.
      */
     aboutUserId?: string | null,
+    /**
+     * W transakcji zapisu NOWEJ notatki (dziennik efektów tury, Etap 5).
+     * Notatka, która już była (P2002), nie jest nowym efektem — hak nie biegnie.
+     */
+    inTransaction?: (
+      tx: Prisma.TransactionClient,
+      noteId: string,
+    ) => Promise<void>,
   ): Promise<MemoryNoteView> {
     const kind = toMemoryKind(rawKind);
     await ensureMembership(this.prisma, userId, householdId);
@@ -117,16 +125,21 @@ export class AgentMemoryService {
 
     const textNormalized = text.toLowerCase();
     try {
-      const note = await this.prisma.agentMemory.create({
-        data: {
-          householdId,
-          text,
-          textNormalized,
-          kind,
-          createdByUserId: userId,
-          aboutUserId: aboutUserId ?? null,
-        },
-      });
+      const noteData = {
+        householdId,
+        text,
+        textNormalized,
+        kind,
+        createdByUserId: userId,
+        aboutUserId: aboutUserId ?? null,
+      };
+      const note = inTransaction
+        ? await this.prisma.$transaction(async (tx) => {
+            const row = await tx.agentMemory.create({ data: noteData });
+            await inTransaction(tx, row.id);
+            return row;
+          })
+        : await this.prisma.agentMemory.create({ data: noteData });
       await this.trim(householdId);
       return this.toView(note);
     } catch (error) {

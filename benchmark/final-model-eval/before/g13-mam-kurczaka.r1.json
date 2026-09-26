@@ -1,0 +1,221 @@
+{
+  "label": "before-g13-mam-kurczaka",
+  "startedAt": "2026-09-26T16:34:13.064Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.029145,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.029145,
+      "p95CostUsd": 0.029145,
+      "medianLatencyMs": 8522,
+      "latencySplit": {
+        "wait": 0.45353203473363063,
+        "thinking": 0.10842525228819526,
+        "toolInput": 0.3515606665102089,
+        "text": 0.08237502933583665,
+        "toolsRun": 0.0035203003989673787,
+        "other": 0.0005867167331612298
+      },
+      "medianFirstBlockMs": 1900,
+      "cacheHitRatio": 0.9192492170218358,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 13,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.029145
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g13-mam-kurczaka",
+      "group": 13,
+      "pyta": "Czy „mam dużo kurczaka\" daje dania z kurczakiem, a nie przypadkowe?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "offer_options"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "offer_options",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "36853c70-5c97-4965-a611-d77dda1cb1ab",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 8522,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4717,
+          "firstBlockMs": 1965,
+          "thinkingMs": 924,
+          "toolInputMs": 1825,
+          "textMs": 0,
+          "outputTokens": 388,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 16
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3774,
+          "firstBlockMs": 1900,
+          "thinkingMs": 0,
+          "toolInputMs": 1171,
+          "textMs": 702,
+          "outputTokens": 213,
+          "tools": [
+            "offer_options"
+          ],
+          "toolsRunMs": 14
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 601,
+      "cacheReadTokens": 41972,
+      "cacheWriteTokens": 3683,
+      "cacheHitRatio": 0.9192492170218358,
+      "costMicroUsd": 29145,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Na kolację w poniedziałek - trzy pomysły z kurczaka do wyboru.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Kolacja · poniedziałek",
+            "title": "Kolacja z kurczaka",
+            "options": [
+              {
+                "recipeId": "6211faf6-421b-4abd-81e5-b11d1f3fa112",
+                "title": "Kurczak cajun z kolbą kukurydzy",
+                "kcalPerServing": 479,
+                "prepTimeMinutes": 35,
+                "imageUrl": "https://img.scoffie.app/recipe-images/6211faf6-421b-4abd-81e5-b11d1f3fa112-f57c37947c.webp",
+                "description": "Filet z kurczaka w pikantnej, wędzonej mieszance przypraw w stylu cajun, zrumieniony na patelni i podany z gotowaną kolbą kukurydzy w maśle i limonce. Kolacja w klimacie amerykańskiego Południa.",
+                "proteinGrams": 46,
+                "carbsGrams": 29,
+                "fatGrams": 21,
+                "ingredientCount": 12,
+                "tag": "Lekkie",
+                "prompt": "Wybieram: Kurczak cajun z kolbą kukurydzy"
+              },
+              {
+                "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+                "title": "Bowl z kurczakiem, kaszą gryczaną i jajkiem",
+                "kcalPerServing": 588,
+                "prepTimeMinutes": 35,
+                "imageUrl": "https://img.scoffie.app/recipe-images/8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7-2ea31fabb3.webp",
+                "description": "Pożywna miska z kaszą gryczaną, grillowanym kurczakiem, jajkiem na półmiękko i świeżymi warzywami, podana z sosem jogurtowo-czosnkowym. Prosty, domowy obiad, który sprawdzi się też na drugi dzień.",
+                "proteinGrams": 58,
+                "carbsGrams": 46,
+                "fatGrams": 19,
+                "ingredientCount": 11,
+                "tag": "Najwięcej białka",
+                "prompt": "Wybieram: Bowl z kurczakiem, kaszą gryczaną i jajkiem"
+              },
+              {
+                "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+                "title": "Batat faszerowany kurczakiem i fasolą",
+                "kcalPerServing": 661,
+                "prepTimeMinutes": 60,
+                "imageUrl": "https://img.scoffie.app/recipe-images/33095f72-9070-4302-9a54-1c7f6da3314e-795d93e24d.webp",
+                "description": "Słodki, pieczony batat wypełniony pikantnym kurczakiem z czerwoną fasolą i kukurydzą, zapieczony z cheddarem i podany z jogurtem. Kolorowe, sycące danie w stylu tex-mex.",
+                "proteinGrams": 42,
+                "carbsGrams": 75,
+                "fatGrams": 16,
+                "ingredientCount": 13,
+                "tag": "Sycące",
+                "prompt": "Wybieram: Batat faszerowany kurczakiem i fasolą"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ]
+}

@@ -421,6 +421,7 @@ export class HouseholdsService {
         memberCountBefore,
         memberCountAfter,
         now,
+        userId,
       );
       for (const weekStart of joined.touchedWeekStarts) {
         touchedWeeks.push({ householdId: invitation.householdId, weekStart });

@@ -1,0 +1,189 @@
+{
+  "measuredAt": "2026-09-26T13:33:57.568Z",
+  "commit": "00f5a50",
+  "households": 300,
+  "weeks": 4,
+  "note": "MEASURED lokalnie (Docker Postgres 16, jeden proces). Liczby zapytań są przenośne, czasy nie.",
+  "results": {
+    "5000": {
+      "seedMs": 8328,
+      "planItems": 25200,
+      "legacyFullCatalog": {
+        "queries": 305,
+        "ms": 931,
+        "pages": 51,
+        "rows": 5000,
+        "bytes": 8842330,
+        "iosCapRows": 4000
+      },
+      "agent": {
+        "catalogIndexCold": {
+          "queries": 5,
+          "ms": 1073
+        },
+        "prompt.cold": {
+          "queries": 15,
+          "ms": 35
+        },
+        "find_recipes.cold": {
+          "queries": 10,
+          "ms": 30,
+          "bytes": 1903
+        },
+        "suggest_meals.cold": {
+          "queries": 21,
+          "ms": 64,
+          "bytes": 288
+        },
+        "offer_options_3.cold": {
+          "queries": 15,
+          "ms": 11,
+          "bytes": 13
+        },
+        "build_meal_plan_day.cold": {
+          "queries": 29,
+          "ms": 90,
+          "bytes": 501
+        },
+        "prompt.warm": {
+          "queries": 15,
+          "ms": 14
+        },
+        "find_recipes.warm": {
+          "queries": 9,
+          "ms": 14,
+          "bytes": 1903
+        },
+        "suggest_meals.warm": {
+          "queries": 21,
+          "ms": 46,
+          "bytes": 288
+        },
+        "offer_options_3.warm": {
+          "queries": 15,
+          "ms": 11,
+          "bytes": 13
+        },
+        "build_meal_plan_day.warm": {
+          "queries": 29,
+          "ms": 88,
+          "bytes": 501
+        }
+      },
+      "popularity": {
+        "queries": 1,
+        "ms": 15,
+        "recipes": 3746
+      },
+      "popularityBurst10": {
+        "queries": 10,
+        "ms": 37
+      },
+      "shoppingStale20": {
+        "queries": 424,
+        "ms": 376,
+        "rebuilds": 20
+      },
+      "getTurnRunning": {
+        "queries": 3,
+        "ms": 5,
+        "bytes": 240
+      },
+      "getTurnDone": {
+        "queries": 4,
+        "ms": 6,
+        "bytes": 518
+      }
+    },
+    "10000": {
+      "seedMs": 11312,
+      "planItems": 25200,
+      "legacyFullCatalog": {
+        "queries": 605,
+        "ms": 2821,
+        "pages": 101,
+        "rows": 10000,
+        "bytes": 17697068,
+        "iosCapRows": 4000
+      },
+      "agent": {
+        "catalogIndexCold": {
+          "queries": 5,
+          "ms": 2399
+        },
+        "prompt.cold": {
+          "queries": 19,
+          "ms": 18
+        },
+        "find_recipes.cold": {
+          "queries": 11,
+          "ms": 47,
+          "bytes": 1895
+        },
+        "suggest_meals.cold": {
+          "queries": 21,
+          "ms": 105,
+          "bytes": 291
+        },
+        "offer_options_3.cold": {
+          "queries": 15,
+          "ms": 14,
+          "bytes": 13
+        },
+        "build_meal_plan_day.cold": {
+          "queries": 29,
+          "ms": 136,
+          "bytes": 501
+        },
+        "prompt.warm": {
+          "queries": 15,
+          "ms": 17
+        },
+        "find_recipes.warm": {
+          "queries": 9,
+          "ms": 24,
+          "bytes": 1895
+        },
+        "suggest_meals.warm": {
+          "queries": 21,
+          "ms": 79,
+          "bytes": 291
+        },
+        "offer_options_3.warm": {
+          "queries": 15,
+          "ms": 11,
+          "bytes": 13
+        },
+        "build_meal_plan_day.warm": {
+          "queries": 29,
+          "ms": 112,
+          "bytes": 501
+        }
+      },
+      "popularity": {
+        "queries": 1,
+        "ms": 21,
+        "recipes": 7240
+      },
+      "popularityBurst10": {
+        "queries": 15,
+        "ms": 68
+      },
+      "shoppingStale20": {
+        "queries": 447,
+        "ms": 463,
+        "rebuilds": 20
+      },
+      "getTurnRunning": {
+        "queries": 3,
+        "ms": 3,
+        "bytes": 240
+      },
+      "getTurnDone": {
+        "queries": 4,
+        "ms": 3,
+        "bytes": 518
+      }
+    }
+  }
+}

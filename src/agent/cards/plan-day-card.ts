@@ -109,6 +109,7 @@ function cardSlot(slot: WeekPlanPreviewSlot) {
     prepTimeMinutes: slot.prepTimeMinutes,
     imageUrl: slot.imageUrl,
     participantIds: slot.participantIds,
+    ...(slot.portions ? { portions: slot.portions } : {}),
     change: slot.change,
   };
 }

@@ -1,0 +1,187 @@
+{
+  "label": "cand-B-g7-wykluczenia",
+  "startedAt": "2026-09-26T17:09:57.780Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "B",
+      "label": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.014883,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.014883,
+      "p95CostUsd": 0.014883,
+      "medianLatencyMs": 3453,
+      "latencySplit": {
+        "wait": 0.5340283811178685,
+        "thinking": 0,
+        "toolInput": 0.4445409788589632,
+        "text": 0,
+        "toolsRun": 0.01998262380538662,
+        "other": 0.0014480162177816392
+      },
+      "medianFirstBlockMs": 1844,
+      "cacheHitRatio": 0.9285966633954857,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 7,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.014883
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g7-wykluczenia",
+      "group": 7,
+      "pyta": "Czy wykluczony składnik działa tak samo twardo jak alergen?",
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "fad151de-b3aa-4fbd-b666-876d3dc94cd0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 838
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "88c14619-0a60-4993-abc4-11eded26695d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 556
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "fbfe4605-43a0-488d-9259-3ac3a1a72186",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 483
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "4bec001d-9911-40a4-914c-c2d471a8b8f7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 502
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "6a53d8c3-82a5-4354-a93b-536143e08701",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 3453,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3382,
+          "firstBlockMs": 1844,
+          "thinkingMs": 0,
+          "toolInputMs": 1535,
+          "textMs": 0,
+          "outputTokens": 288,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 69
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 288,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1817,
+      "cacheHitRatio": 0.9285966633954857,
+      "costMicroUsd": 14883,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

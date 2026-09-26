@@ -1,0 +1,206 @@
+{
+  "label": "cand-E-g7-dwie-alergie",
+  "startedAt": "2026-09-26T17:19:19.637Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.014851,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.014851,
+      "p95CostUsd": 0.014851,
+      "medianLatencyMs": 11076,
+      "latencySplit": {
+        "wait": 0.29703864210906467,
+        "thinking": 0.4576561935716865,
+        "toolInput": 0.09263271939328277,
+        "text": 0.14779703864210905,
+        "toolsRun": 0.004423979776092452,
+        "other": 0.0004514265077645359
+      },
+      "medianFirstBlockMs": 1550,
+      "cacheHitRatio": 0.9349078217673383,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 7,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.014851
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g7-dwie-alergie",
+      "group": 7,
+      "pyta": "Czy dwie alergie naraz nadal zawężają katalog poprawnie?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "PARTIAL"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "69f0c0b9-2be9-444b-85a8-99dca7cb16ff",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 814
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "c49e6312-f138-4ae5-909b-66bc202b411a",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 753
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "c2fd5ece-4092-46ce-9513-60367c712be3",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 718
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "e51e387d-cff6-4986-a724-58882378a019",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 758
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "4c0cdb3c-ce90-4716-bb6b-60909b78112c",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 789
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "a4ad7797-dfee-4f5f-9b3d-ca82a2975a1e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 749
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "decf85b8-780a-46da-a2f6-708a05e0873f",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 11076,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 7836,
+          "firstBlockMs": 1740,
+          "thinkingMs": 5069,
+          "toolInputMs": 1026,
+          "textMs": 0,
+          "outputTokens": 772,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 49
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3190,
+          "firstBlockMs": 1550,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1637,
+          "outputTokens": 112,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 15,
+      "outputTokens": 884,
+      "cacheReadTokens": 43663,
+      "cacheWriteTokens": 3025,
+      "cacheHitRatio": 0.9349078217673383,
+      "costMicroUsd": 14851,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Ułożyłem obiady na cały tydzień — kilka dni jest poniżej celu kalorii, szczególnie piątek i niedziela w białkach. Karta pokazuje każdy dzień; gdy chcesz podnieść wartości, mogę wymienić jedno danie.\n\nAby zatwierdzić plan i dodać go do kalendarza, kliknij przycisk na karcie poniżej.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

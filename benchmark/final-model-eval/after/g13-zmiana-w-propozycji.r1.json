@@ -1,0 +1,191 @@
+{
+  "label": "after-g13-zmiana-w-propozycji",
+  "startedAt": "2026-09-26T16:36:43.733Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.025032,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 0,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.025032,
+      "p95CostUsd": 0.025032,
+      "medianLatencyMs": 8445,
+      "latencySplit": {
+        "wait": 0.40130254588513914,
+        "thinking": 0.19147424511545294,
+        "toolInput": 0.39869745411486085,
+        "text": 0,
+        "toolsRun": 0.007815275310834813,
+        "other": 0.0007104795737122557
+      },
+      "medianFirstBlockMs": 1623,
+      "cacheHitRatio": 0.9609232757101744,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 13,
+          "runs": 1,
+          "passRate": 0,
+          "medianRounds": 2,
+          "medianCostUsd": 0.025032
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g13-zmiana-w-propozycji",
+      "group": 13,
+      "pyta": "Czy „w tej propozycji zamień kolację\" zmienia jeden slot propozycji, a resztę zostawia?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": false,
+      "issues": [
+        "kolacja po poprawce nie jest wegetariańska"
+      ],
+      "tools": [
+        "build_meal_plan",
+        "replace_plan_item"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        1,
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        },
+        {
+          "name": "replace_plan_item",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "d8b6886f-1099-4ca2-a8d2-43416e75c2a6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 630
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "f8e2e53a-0bbe-41b6-aea5-c073830d9dc9",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 653
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "9f6f9536-ab09-42f9-bf5c-adac03e68dd7",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": [
+        "BREAKFAST",
+        "LUNCH",
+        "DINNER"
+      ],
+      "latencyMs": 8445,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3734,
+          "firstBlockMs": 1623,
+          "thinkingMs": 552,
+          "toolInputMs": 1555,
+          "textMs": 0,
+          "outputTokens": 317,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 44
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4644,
+          "firstBlockMs": 1766,
+          "thinkingMs": 1065,
+          "toolInputMs": 1812,
+          "textMs": 0,
+          "outputTokens": 407,
+          "tools": [
+            "replace_plan_item"
+          ],
+          "toolsRunMs": 22
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 724,
+      "cacheReadTokens": 49083,
+      "cacheWriteTokens": 1992,
+      "cacheHitRatio": 0.9609232757101744,
+      "costMicroUsd": 25032,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn",
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Nowe danie czeka na zatwierdzenie w karcie.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

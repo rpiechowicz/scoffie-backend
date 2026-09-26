@@ -15,6 +15,7 @@
  * mówi o danych, które dostał, czy o tych, które pamięta.
  */
 import { DayOfWeek, DietPreferenceValue, MealType } from '@prisma/client';
+import { satisfiesDiet } from '../../src/recipes/diet-rules.util';
 
 /** Poniedziałek. Wszystkie scenariusze planują ten sam tydzień. */
 export const WEEK_START = '2026-10-05';
@@ -136,6 +137,16 @@ export type Verdict = {
   target: PlanRow[];
   /** Czy tura skończyła się propozycją (karta do kliknięcia). */
   proposed: boolean;
+  /**
+   * Cele WSZYSTKICH propozycji domu w kolejności powstania (Etap 6) — do
+   * scenariuszy „zmień w tej propozycji", które sprawdzają, że reszta została.
+   */
+  proposalHistory?: PlanRow[][];
+  /**
+   * Karty propozycji domu (rodzaj + treść) — te idą przez bazę, nie przez
+   * `cards` (Etap 6.1: np. podział dania z porcjami osób od serwera).
+   */
+  proposalCards?: { kind: string; payload: Record<string, unknown> }[];
   answer: string;
   answers: string[];
   tools: string[];
@@ -200,7 +211,11 @@ export const WRITING_TOOLS = [
   'propose_week_plan',
   'propose_day_plan',
   'propose_swap',
+  'propose_remove_meal',
   'propose_household_split',
+  'build_meal_plan',
+  'replace_plan_item',
+  'revise_proposal',
   'create_recipe',
   'update_recipe',
   'delete_recipe',
@@ -468,7 +483,7 @@ const GROUP_2: Scenario[] = [
     // `ask_clarifying_question` („na kiedy?") i scenariusz mierzył
     // dopytywanie, a nie dobór dania.
     prompts: ['Co na kolację w poniedziałek?'],
-    expectedTools: ['offer_options'],
+    expectedTools: ['offer_options', 'suggest_meals'],
     forbiddenTools: WRITING_TOOLS,
     maxRounds: 3,
     verify: (v) => {
@@ -487,7 +502,7 @@ const GROUP_2: Scenario[] = [
     pyta: 'Czy „szybko" filtruje po czasie z katalogu, a nie po wrażeniu?',
     members: SOLO,
     prompts: ['Chcę coś szybkiego na kolację w poniedziałek — mam mało czasu.'],
-    expectedTools: ['offer_options'],
+    expectedTools: ['offer_options', 'suggest_meals'],
     forbiddenTools: WRITING_TOOLS,
     maxRounds: 3,
     verify: (v) => {
@@ -512,7 +527,7 @@ const GROUP_2: Scenario[] = [
     pyta: 'Czy „lekko" znaczy mniej kalorii z katalogu?',
     members: SOLO,
     prompts: ['Chciałbym coś lekkiego na kolację w poniedziałek.'],
-    expectedTools: ['offer_options'],
+    expectedTools: ['offer_options', 'suggest_meals'],
     forbiddenTools: WRITING_TOOLS,
     maxRounds: 3,
     verify: (v) => {
@@ -591,6 +606,9 @@ const GROUP_3: Scenario[] = [
       'apply_week_plan',
       'propose_week_plan',
       'offer_options',
+      'suggest_meals',
+      'build_meal_plan',
+      'replace_plan_item',
     ],
     maxRounds: 6,
     verify: (v) => {
@@ -618,6 +636,9 @@ const GROUP_3: Scenario[] = [
       'apply_week_plan',
       'propose_week_plan',
       'offer_options',
+      'suggest_meals',
+      'build_meal_plan',
+      'replace_plan_item',
     ],
     maxRounds: 7,
     verify: (v) => {
@@ -677,6 +698,9 @@ const GROUP_3: Scenario[] = [
       'apply_week_plan',
       'propose_week_plan',
       'offer_options',
+      'suggest_meals',
+      'build_meal_plan',
+      'replace_plan_item',
     ],
     maxRounds: 6,
     verify: (v) => {
@@ -733,7 +757,12 @@ const GROUP_4: Scenario[] = [
     seed: (world) =>
       fullWeekSeed(world).filter((slot) => slot.dayOfWeek !== 'FRI'),
     prompts: ['Zaplanuj mi piątek.'],
-    expectedTools: ['propose_day_plan', 'apply_week_plan', 'propose_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'apply_week_plan',
+      'propose_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 6,
     verify: (v) => {
       const issues: string[] = [];
@@ -752,7 +781,12 @@ const GROUP_4: Scenario[] = [
     members: SOLO,
     enabledMealTypes: ['BREAKFAST', 'LUNCH', 'DINNER'],
     prompts: ['Zaplanuj mi sobotę — wszystkie posiłki dnia.'],
-    expectedTools: ['propose_day_plan', 'apply_week_plan', 'propose_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'apply_week_plan',
+      'propose_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 6,
     verify: (v) => {
       const issues: string[] = [];
@@ -777,7 +811,12 @@ const GROUP_4: Scenario[] = [
     pyta: 'Czy podany w rozmowie limit kalorii przekłada się na dobór dań?',
     members: SOLO,
     prompts: ['Zaplanuj środę tak, żeby zmieścić się w 1800 kcal.'],
-    expectedTools: ['propose_day_plan', 'apply_week_plan', 'propose_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'apply_week_plan',
+      'propose_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 7,
     verify: (v) => {
       const issues: string[] = [];
@@ -813,7 +852,12 @@ const GROUP_5: Scenario[] = [
     prompts: [
       'Zaplanuj obiady i kolacje na poniedziałek, wtorek i środę. Zapisz plan.',
     ],
-    expectedTools: ['propose_day_plan', 'propose_week_plan', 'apply_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'propose_week_plan',
+      'apply_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 5,
     verify: (v) => {
       const issues: string[] = [];
@@ -840,7 +884,12 @@ const GROUP_5: Scenario[] = [
     prompts: [
       'Zaplanuj obiady na poniedziałek, wtorek i środę — każdego dnia coś innego. Zapisz plan.',
     ],
-    expectedTools: ['propose_day_plan', 'propose_week_plan', 'apply_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'propose_week_plan',
+      'apply_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 5,
     verify: (v) => {
       const issues: string[] = [];
@@ -874,7 +923,12 @@ const GROUP_5: Scenario[] = [
     prompts: [
       'Zaplanuj mi śniadania, obiady i kolacje na czwartek, piątek i sobotę, blisko mojego celu kalorycznego. Zapisz plan.',
     ],
-    expectedTools: ['propose_day_plan', 'propose_week_plan', 'apply_week_plan'],
+    expectedTools: [
+      'propose_day_plan',
+      'propose_week_plan',
+      'apply_week_plan',
+      'build_meal_plan',
+    ],
     maxRounds: 6,
     verify: (v) => {
       const issues: string[] = [];
@@ -909,7 +963,7 @@ const GROUP_6: Scenario[] = [
     prompts: [
       'Zaplanuj mi cały tydzień: śniadania, obiady i kolacje na wszystkie siedem dni. Zapisz plan.',
     ],
-    expectedTools: ['propose_week_plan', 'apply_week_plan'],
+    expectedTools: ['propose_week_plan', 'apply_week_plan', 'build_meal_plan'],
     maxRounds: 8,
     verify: (v) => {
       const issues: string[] = [];
@@ -937,7 +991,7 @@ const GROUP_6: Scenario[] = [
     prompts: [
       'Zaplanuj cały tydzień dla nas dwojga — obiady i kolacje na siedem dni. Zapisz plan.',
     ],
-    expectedTools: ['propose_week_plan', 'apply_week_plan'],
+    expectedTools: ['propose_week_plan', 'apply_week_plan', 'build_meal_plan'],
     maxRounds: 9,
     verify: (v) => {
       const issues: string[] = [];
@@ -959,7 +1013,7 @@ const GROUP_6: Scenario[] = [
     prompts: [
       'Zaplanuj obiady i kolacje na cały tydzień, ale w dni robocze nic, co zajmuje więcej niż 35 minut. Zapisz plan.',
     ],
-    expectedTools: ['propose_week_plan', 'apply_week_plan'],
+    expectedTools: ['propose_week_plan', 'apply_week_plan', 'build_meal_plan'],
     maxRounds: 9,
     verify: (v) => {
       const issues: string[] = [];
@@ -1186,6 +1240,7 @@ const GROUP_8: Scenario[] = [
       'propose_day_plan',
       'propose_household_split',
       'apply_week_plan',
+      'build_meal_plan',
     ],
     maxRounds: 8,
     verify: (v) => {
@@ -1222,12 +1277,33 @@ const GROUP_8: Scenario[] = [
       'propose_swap',
       'apply_week_plan',
       'propose_week_plan',
+      'build_meal_plan',
+      'replace_plan_item',
     ],
     maxRounds: 8,
     verify: (v) => {
       const issues: string[] = [];
       const sloty = slotOf(v.target, 'THU', 'DINNER');
-      if (sloty.length < 2) {
+      // Dwie drogi do tego samego celu (Etap 6.1): dwa dania z imiennym
+      // audytorium ALBO jedno danie z porcjami osób policzonymi przez
+      // serwer (karta HOUSEHOLD_SPLIT dla tego slotu, różne kcal osób).
+      const split = (v.proposalCards ?? []).find(
+        (card) =>
+          card.kind === 'HOUSEHOLD_SPLIT' &&
+          card.payload.dayOfWeek === 'THU' &&
+          card.payload.mealType === 'DINNER',
+      );
+      const splitPortions = (split?.payload.portions ?? []) as {
+        kcal?: number;
+      }[];
+      const oneDishSplit =
+        split !== undefined &&
+        sloty.length === 1 &&
+        splitPortions.length >= 2 &&
+        new Set(splitPortions.map((portion) => portion.kcal)).size > 1;
+      if (oneDishSplit) {
+        // jedno danie, porcje od serwera — rozdzielone
+      } else if (sloty.length < 2) {
         issues.push(`w slocie ${sloty.length} dan, oczekiwano rozdzielenia`);
       } else {
         const zAudytorium = sloty.filter(
@@ -1257,6 +1333,9 @@ const GROUP_8: Scenario[] = [
       'apply_week_plan',
       'propose_week_plan',
       'offer_options',
+      'suggest_meals',
+      'build_meal_plan',
+      'replace_plan_item',
     ],
     maxRounds: 7,
     verify: (v) => {
@@ -1427,13 +1506,13 @@ const GROUP_10: Scenario[] = [
         ) {
           issues.push('karta i wynik narzedzia mowia rozne liczby');
         }
-        if (
-          typeof payload.current === 'number' &&
-          !mentionsNumber(v.answer, payload.current, 0.05) &&
-          typeof payload.target === 'number' &&
-          !mentionsNumber(v.answer, payload.target, 0.05)
-        ) {
-          issues.push('odpowiedz nie cytuje zadnej z liczb karty');
+        // Źródłem prawdy są karta i wynik narzędzia (Etap 6.1) — zdanie nie
+        // musi przepisywać liczb. Ale liczba kcal, której NIE MA w żadnym
+        // wyniku narzędzia, to liczba zmyślona albo policzona przez model.
+        for (const said of kcalNumbersIn(v.answer)) {
+          if (!v.modelSaw.includes(String(said))) {
+            issues.push(`liczba ${said} kcal nie pochodzi z serwera`);
+          }
         }
       }
       issues.push(...changedOutside(v.planBefore, v.plan, []));
@@ -1822,6 +1901,171 @@ const GROUP_12: Scenario[] = [
   },
 ];
 
+/**
+ * Etap 6 — kontynuacje po karcie i odkrywanie, których 40 scenariuszy nie
+ * miało. Te same na anchorze `22aa63c` i na HEAD (anchor nie ma
+ * `suggest_meals`, więc `expectedTools` wymienia obie drogi).
+ */
+const optionIds = (card: { payload: Record<string, unknown> } | undefined) =>
+  ((card?.payload?.options ?? []) as { recipeId?: string }[])
+    .map((option) => option.recipeId)
+    .filter((id): id is string => typeof id === 'string');
+
+/** Liczby podane w zdaniu jako kcal („1 907 kcal", „293 kcal"). */
+function kcalNumbersIn(text: string): number[] {
+  const out: number[] = [];
+  for (const match of text.matchAll(/(\d[\d\s]{0,6}\d|\d)\s*kcal/gi)) {
+    out.push(Number(match[1].replace(/\s/g, '')));
+  }
+  return out;
+}
+
+const PROPOSAL_OR_WRITE = [
+  'propose_swap',
+  'propose_day_plan',
+  'propose_week_plan',
+  'apply_week_plan',
+  'build_meal_plan',
+  'replace_plan_item',
+  'revise_proposal',
+];
+
+const GROUP_13: Scenario[] = [
+  {
+    name: 'g13-mam-kurczaka',
+    group: 13,
+    pyta: 'Czy „mam dużo kurczaka" daje dania z kurczakiem, a nie przypadkowe?',
+    members: SOLO,
+    prompts: [
+      'Mam dużo kurczaka — co z niego zrobić na kolację w poniedziałek?',
+    ],
+    expectedTools: ['offer_options', 'suggest_meals'],
+    forbiddenTools: WRITING_TOOLS,
+    maxRounds: 3,
+    verify: (v) => {
+      const issues: string[] = [];
+      const ids = optionIds(v.cards.find((card) => card.kind === 'OPTIONS'));
+      if (ids.length < 2) issues.push(`propozycji: ${ids.length}`);
+      const withChicken = ids.filter((id) =>
+        v.world.catalog
+          .find((recipe) => recipe.id === id)
+          ?.ingredientNames.some((name) => /kurczak/i.test(name)),
+      ).length;
+      if (ids.length > 0 && withChicken < Math.min(2, ids.length)) {
+        issues.push(`z kurczakiem: ${withChicken} z ${ids.length}`);
+      }
+      if (v.plan.length > 0) issues.push('plan zmieniony mimo pytania o wybór');
+      return issues;
+    },
+  },
+  {
+    name: 'g13-wybieram-druga',
+    group: 13,
+    pyta: 'Czy „Wybieram drugą" po karcie wyboru bierze DRUGIE danie z karty?',
+    members: SOLO,
+    prompts: ['Co na kolację w poniedziałek?', 'Wybieram drugą.'],
+    expectedTools: PROPOSAL_OR_WRITE,
+    maxRounds: 6,
+    verify: (v) => {
+      const issues: string[] = [];
+      const ids = optionIds(v.cards.find((card) => card.kind === 'OPTIONS'));
+      if (ids.length < 2) {
+        issues.push(`pierwsza tura bez karty wyboru (${ids.length} dań)`);
+        return issues;
+      }
+      const monDinner = v.target.filter(
+        (row) => row.dayOfWeek === 'MON' && row.mealType === 'DINNER',
+      );
+      if (monDinner.length !== 1) {
+        issues.push(
+          `kolacji w poniedziałek: ${monDinner.length}, oczekiwano 1`,
+        );
+      } else if (monDinner[0].recipeId !== ids[1]) {
+        issues.push('w planie nie jest DRUGIE danie z karty');
+      }
+      if (v.target.length !== 1) {
+        issues.push(
+          `pozycji w planie/propozycji: ${v.target.length}, oczekiwano 1`,
+        );
+      }
+      return issues;
+    },
+  },
+  {
+    name: 'g13-pokaz-inne',
+    group: 13,
+    pyta: 'Czy „Pokaż inne" daje NOWE dania, a nie te same?',
+    members: SOLO,
+    prompts: ['Co na kolację w poniedziałek?', 'Pokaż inne.'],
+    expectedTools: ['offer_options', 'suggest_meals'],
+    forbiddenTools: WRITING_TOOLS,
+    maxRounds: 6,
+    verify: (v) => {
+      const issues: string[] = [];
+      const options = v.cards.filter((card) => card.kind === 'OPTIONS');
+      if (options.length < 2) {
+        issues.push(`kart wyboru: ${options.length}, oczekiwano 2`);
+        return issues;
+      }
+      const first = new Set(optionIds(options[0]));
+      const second = optionIds(options[options.length - 1]);
+      if (second.length < 2) issues.push(`nowych propozycji: ${second.length}`);
+      const repeated = second.filter((id) => first.has(id)).length;
+      if (repeated > 0) issues.push(`powtórzone dania: ${repeated}`);
+      if (v.plan.length > 0) issues.push('plan zmieniony mimo pytania o wybór');
+      return issues;
+    },
+  },
+  {
+    name: 'g13-zmiana-w-propozycji',
+    group: 13,
+    pyta: 'Czy „w tej propozycji zamień kolację" zmienia jeden slot propozycji, a resztę zostawia?',
+    members: SOLO,
+    enabledMealTypes: ['BREAKFAST', 'LUNCH', 'DINNER'],
+    prompts: [
+      'Zaplanuj mi środę — śniadanie, obiad i kolację.',
+      'W tej propozycji zamień kolację na coś wegetariańskiego, resztę zostaw.',
+    ],
+    expectedTools: PROPOSAL_OR_WRITE,
+    maxRounds: 9,
+    verify: (v) => {
+      const issues: string[] = [];
+      const history = v.proposalHistory ?? [];
+      if (!v.proposed || history.length < 2) {
+        issues.push(
+          `propozycji: ${history.length}, oczekiwano 2 (plan + poprawka)`,
+        );
+        return issues;
+      }
+      const wed = (rows: PlanRow[], meal: MealType) =>
+        rows.find((row) => row.dayOfWeek === 'WED' && row.mealType === meal);
+      const before = history[0];
+      const after = v.target;
+      const dinner = wed(after, 'DINNER');
+      if (!dinner) issues.push('brak kolacji w środę po poprawce');
+      else if (
+        // `dietTags` to KATEGORIE składników (MEAT, DAIRY, LEGUME…), nie
+        // etykiety diet — wegetariańskość liczy ta sama reguła, co planer.
+        !satisfiesDiet('VEGETARIAN', {
+          dietTags: dinner.recipe.dietTags,
+          hasIngredientData: dinner.recipe.ingredientIds.length > 0,
+          perServing: null,
+        })
+      ) {
+        issues.push('kolacja po poprawce nie jest wegetariańska');
+      }
+      for (const meal of ['BREAKFAST', 'LUNCH'] as MealType[]) {
+        const was = wed(before, meal)?.recipeId;
+        const is = wed(after, meal)?.recipeId;
+        if (was && was !== is)
+          issues.push(`${meal} zmienione mimo „resztę zostaw"`);
+        if (!is) issues.push(`brak ${meal} w środę po poprawce`);
+      }
+      return issues;
+    },
+  },
+];
+
 export const SCENARIOS: Scenario[] = [
   ...GROUP_1,
   ...GROUP_2,
@@ -1835,6 +2079,7 @@ export const SCENARIOS: Scenario[] = [
   ...GROUP_10,
   ...GROUP_11,
   ...GROUP_12,
+  ...GROUP_13,
 ];
 
 /**

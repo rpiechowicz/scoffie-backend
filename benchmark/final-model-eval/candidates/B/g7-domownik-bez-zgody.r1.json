@@ -1,0 +1,163 @@
+{
+  "label": "cand-B-g7-domownik-bez-zgody",
+  "startedAt": "2026-09-26T17:10:06.969Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "B",
+      "label": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.021078,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.021078,
+      "p95CostUsd": 0.021078,
+      "medianLatencyMs": 4636,
+      "latencySplit": {
+        "wait": 0.7405090595340811,
+        "thinking": 0,
+        "toolInput": 0.10181190681622088,
+        "text": 0.15314926660914582,
+        "toolsRun": 0.0028041415012942193,
+        "other": 0.001725625539257981
+      },
+      "medianFirstBlockMs": 1599,
+      "cacheHitRatio": 0.9524176310874044,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 7,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.021078
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g7-domownik-bez-zgody",
+      "group": 7,
+      "pyta": "P0: czy konflikt alergenowy wraca do modelu BEZ kodu alergenu i bez danych osoby bez zgody?",
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "check_plan_conflicts"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "check_plan_conflicts",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "f83eed93-fb23-4171-91aa-c786aa330928",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 436
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "9cc9b335-b66d-43fc-8ea5-63bfbbd018e0",
+          "calorieGoal": 2200
+        },
+        {
+          "key": "kuba",
+          "userId": "ae91f391-a2dd-464b-ae34-7d631ae94bda",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 4636,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2310,
+          "firstBlockMs": 1834,
+          "thinkingMs": 0,
+          "toolInputMs": 472,
+          "textMs": 0,
+          "outputTokens": 60,
+          "tools": [
+            "check_plan_conflicts"
+          ],
+          "toolsRunMs": 13
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2311,
+          "firstBlockMs": 1599,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 710,
+          "outputTokens": 71,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 131,
+      "cacheReadTokens": 49460,
+      "cacheWriteTokens": 2467,
+      "cacheHitRatio": 0.9524176310874044,
+      "costMicroUsd": 21078,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Nie – środowa kolacja (bułeczki z pastą jajeczną i rzodkiewką) koliduje z alergenem jednego z domowników. Trzeba ją zamienić na inne danie.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}
