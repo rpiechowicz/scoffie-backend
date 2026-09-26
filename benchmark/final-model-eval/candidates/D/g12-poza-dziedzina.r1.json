@@ -1,0 +1,127 @@
+{
+  "label": "cand-D-g12-poza-dziedzina",
+  "startedAt": "2026-09-26T17:04:46.773Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "D",
+      "label": "Haiku / low (wszystko)",
+      "model": "claude-haiku-4-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.005757,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "D",
+      "configLabel": "Haiku / low (wszystko)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.005757,
+      "p95CostUsd": 0.005757,
+      "medianLatencyMs": 3041,
+      "latencySplit": {
+        "wait": 0.47944755014797763,
+        "thinking": 0,
+        "toolInput": 0,
+        "text": 0.5182505754685959,
+        "toolsRun": 0,
+        "other": 0.0023018743834265043
+      },
+      "medianFirstBlockMs": 1458,
+      "cacheHitRatio": 0.9318312602363773,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 12,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.005757
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g12-poza-dziedzina",
+      "group": 12,
+      "pyta": "Czy prośba spoza dziedziny kończy się krótką odmową, a nie pracą?",
+      "config": "D",
+      "configLabel": "Haiku / low (wszystko)",
+      "model": "claude-haiku-4-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "7003233a-c450-4105-85f3-56397301f410",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 3041,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3040,
+          "firstBlockMs": 1458,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1576,
+          "outputTokens": 115,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 3,
+      "outputTokens": 115,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1537,
+      "cacheHitRatio": 0.9318312602363773,
+      "costMicroUsd": 5757,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Jestem asystentem planowania posiłków w Scoffie — pomagam układać tygodniowe menu, szukać przepisów i robić listy zakupów.\n\nWiersz o Napoleonie to poza moimi możliwościami. Jeśli chcesz coś związanego z jedzeniem — pomysł na kolację, plan na tydzień, listę do sklepu — chętnie się przydadzę!",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

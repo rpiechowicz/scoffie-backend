@@ -1,0 +1,446 @@
+{
+  "label": "before-g7-jedna-alergia",
+  "startedAt": "2026-09-26T16:47:16.947Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.190408,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.094201,
+      "p95CostUsd": 0.096207,
+      "medianLatencyMs": 32099,
+      "latencySplit": {
+        "wait": 0.15301660462093009,
+        "thinking": 0.3408674584884477,
+        "toolInput": 0.43567925308751404,
+        "text": 0.06844235655616616,
+        "toolsRun": 0.0016693257696625895,
+        "other": 0.0003250014772794422
+      },
+      "medianFirstBlockMs": 1695,
+      "cacheHitRatio": 0.8656351813541708,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 7,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.094201
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g7-jedna-alergia",
+      "group": 7,
+      "pyta": "Czy alergen z profilu naprawdę nie trafia do planu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "propose_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_week_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "f6920a03-f097-4778-85c2-d76c0c76d1e6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 387
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "14f2eaef-68a1-435e-ab1f-a140db70ebcc",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 465
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "2f867937-dc64-482b-86c8-46694293ff23",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 497
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "40aa535b-f460-4449-ab27-cb821ab1f2fc",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 465
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "8b3639c5-a768-4b91-875b-1414d44855f8",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 643
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "3f020f86-3ce8-43b9-8782-1aaa4a51806d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 325
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "322ee884-121d-456f-9fa6-73fdc7727a2a",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 35593,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 17053,
+          "firstBlockMs": 1526,
+          "thinkingMs": 3192,
+          "toolInputMs": 12328,
+          "textMs": 0,
+          "outputTokens": 2368,
+          "tools": [
+            "find_recipes",
+            "find_recipes",
+            "find_recipes",
+            "find_recipes",
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 32
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 13937,
+          "firstBlockMs": 2228,
+          "thinkingMs": 9604,
+          "toolInputMs": 2100,
+          "textMs": 0,
+          "outputTokens": 1189,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 27
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4542,
+          "firstBlockMs": 1873,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2667,
+          "outputTokens": 169,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 3726,
+      "cacheReadTokens": 71320,
+      "cacheWriteTokens": 10666,
+      "cacheHitRatio": 0.8698409600936676,
+      "costMicroUsd": 94201,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Gotowe — propozycja obiadów i kolacji na poniedziałek, wtorek i środę czeka na zatwierdzenie w karcie. Sam plan zapisujesz kliknięciem, bo w tym trybie ja tylko proponuję.\n\nZwróć uwagę, że to same obiady i kolacje dają średnio ok. 930 kcal dziennie — jeśli doliczysz śniadanie, powinno się to domknąć do Twojego celu 2000 kcal.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g7-jedna-alergia",
+      "group": 7,
+      "pyta": "Czy alergen z profilu naprawdę nie trafia do planu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "propose_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_week_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "f6920a03-f097-4778-85c2-d76c0c76d1e6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 387
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "3f020f86-3ce8-43b9-8782-1aaa4a51806d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 325
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "10b0fe6a-af7b-4f15-b853-ce9e833bc3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 515
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "be1c9e29-6084-4109-9f17-6d47a955f90d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 431
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "88c14619-0a60-4993-abc4-11eded26695d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 556
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "24c30dd8-f869-4549-a7b7-578304b43e63",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 379
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "fa155794-b36c-4ae9-9017-a00348beac36",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 32099,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 17551,
+          "firstBlockMs": 1695,
+          "thinkingMs": 3076,
+          "toolInputMs": 12779,
+          "textMs": 0,
+          "outputTokens": 2429,
+          "tools": [
+            "find_recipes",
+            "find_recipes",
+            "find_recipes",
+            "find_recipes",
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 31
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 11600,
+          "firstBlockMs": 2111,
+          "thinkingMs": 7202,
+          "toolInputMs": 2285,
+          "textMs": 0,
+          "outputTokens": 964,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 23
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2894,
+          "firstBlockMs": 925,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1966,
+          "outputTokens": 110,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 3503,
+      "cacheReadTokens": 72547,
+      "cacheWriteTokens": 11664,
+      "cacheHitRatio": 0.861429402614674,
+      "costMicroUsd": 96207,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Gotowe — propozycja obiadów i kolacji na poniedziałek, wtorek i środę czeka w karcie do zatwierdzenia. Środowy obiad z tofu zawiera gluten, sezam i soję, więc jeśli dojdą kolejne osoby do diety, warto to zweryfikować.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+{
+  "label": "before-g5-trzy-dni-w-celu",
+  "startedAt": "2026-09-26T16:13:57.666Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.091446,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.091446,
+      "p95CostUsd": 0.091446,
+      "medianLatencyMs": 30694,
+      "latencySplit": {
+        "wait": 0.18684433439760215,
+        "thinking": 0.44663452140483484,
+        "toolInput": 0.29761516908842117,
+        "text": 0.06682087704437349,
+        "toolsRun": 0.001726721834886297,
+        "other": 0.0003583762298820616
+      },
+      "medianFirstBlockMs": 1839,
+      "cacheHitRatio": 0.8589840788476119,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 5,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.091446
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g5-trzy-dni-w-celu",
+      "group": 5,
+      "pyta": "Czy cel kaloryczny z profilu przekłada się na trzy dni planu?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "propose_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_week_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "bc27ded2-ca00-4797-8f26-767f7959b9e7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 472
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "6e0e7983-fec7-4ab8-9823-0208f427b6b4",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 696
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "b5d90918-ad87-437d-a690-7098311b9803",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 575
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "12d0bc48-0305-49f9-9e3b-9f308c25547d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 456
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "83c6b39c-c05a-4fef-bbe6-119599e6e9a1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 672
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "9b0eca16-1d87-4df9-a2ad-1c721346d68a",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 630
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "6ecdb79a-a31a-4039-94b8-e99bf4a0965a",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 432
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "552ed30e-f33c-4068-af4b-f7ccbfe7eb28",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 684
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "fa7dd774-5e56-42f7-b2f7-efa22c5f702d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 626
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "10c849b0-e5e4-48fd-a35a-e74fb90c8969",
+          "calorieGoal": 1900
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 30694,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 14056,
+          "firstBlockMs": 1839,
+          "thinkingMs": 6109,
+          "toolInputMs": 6102,
+          "textMs": 0,
+          "outputTokens": 1582,
+          "tools": [
+            "find_recipes",
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 26
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 12799,
+          "firstBlockMs": 2164,
+          "thinkingMs": 7600,
+          "toolInputMs": 3033,
+          "textMs": 0,
+          "outputTokens": 1237,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 27
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3785,
+          "firstBlockMs": 1732,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2051,
+          "outputTokens": 115,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 2934,
+      "cacheReadTokens": 72512,
+      "cacheWriteTokens": 11898,
+      "cacheHitRatio": 0.8589840788476119,
+      "costMicroUsd": 91446,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan na czwartek, piątek i sobotę gotowy — każdy dzień wychodzi około 150 kcal poniżej twojego celu, więc jeśli chcesz dobić bliżej 1900, mogę dorzucić coś do jednego z posiłków. Zatwierdzasz kartę jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

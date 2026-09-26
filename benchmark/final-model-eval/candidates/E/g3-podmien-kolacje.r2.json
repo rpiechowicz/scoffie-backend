@@ -1,0 +1,586 @@
+{
+  "label": "cand-E-g3-podmien-kolacje",
+  "startedAt": "2026-09-26T17:30:35.984Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.036785,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.015624,
+      "p95CostUsd": 0.021161,
+      "medianLatencyMs": 8305,
+      "latencySplit": {
+        "wait": 0.30648170294187993,
+        "thinking": 0.42970581200669694,
+        "toolInput": 0.13733556565414973,
+        "text": 0.11896675436498445,
+        "toolsRun": 0.0056924180817986125,
+        "other": 0.0018177469504903133
+      },
+      "medianFirstBlockMs": 1275,
+      "cacheHitRatio": 0.9296143423464278,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 3,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.015624
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g3-podmien-kolacje",
+      "group": 3,
+      "pyta": "Czy podmiana rusza dokładnie jeden slot?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "replace_plan_item",
+        "replace_plan_item"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "replace_plan_item",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "PARTIAL"
+        },
+        {
+          "name": "replace_plan_item",
+          "ok": false,
+          "errorCode": "AI_ONE_CARD_PER_TURN",
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "ce2b8627-48bd-43fe-bf8d-8463c503a969",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 402
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "BREAKFAST",
+          "recipeId": "f83eed93-fb23-4171-91aa-c786aa330928",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 436
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "7929dc13-b09b-4a85-9579-97b95d90b687",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 503
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "df846c2a-d028-4340-ae0c-20845fe99eb1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 422
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "a05eec66-03c4-4ffa-abb6-296a80a159a1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 537
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "5fb6cc04-69be-4797-8610-0ad18ebe6934",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 475
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "BREAKFAST",
+          "recipeId": "2f19c217-589e-4121-9134-f6942e5ab432",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 596
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "00f5eab0-5920-407d-ac31-b3d97635dcff",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 496
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "ffa2a092-4309-402e-8dab-47f01c23f584",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 806
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "6e0e7983-fec7-4ab8-9823-0208f427b6b4",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 696
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 860
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "85c3d6b4-429f-42f0-a114-378e4429cdc1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "b9a6ca36-e95d-433a-8361-368fda6237b8",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 661
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "beca5f9f-4331-4345-b181-46f2f1d6ae88",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 507
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "d54efddb-38d5-4d53-9d21-9f6f2075c0a4",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 732
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "61aff6e8-8e63-4c45-9a69-4e198a1e8471",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 786
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "824c9104-1596-4f53-98a8-9e6eac641527",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 720
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "2e500ad6-49fc-4d15-bc65-096f072f0c40",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 612
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "fdf4d2d5-4367-4561-9bea-d1f30a62fad6",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 12600,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 6979,
+          "firstBlockMs": 1298,
+          "thinkingMs": 4878,
+          "toolInputMs": 802,
+          "textMs": 0,
+          "outputTokens": 641,
+          "tools": [
+            "replace_plan_item"
+          ],
+          "toolsRunMs": 77
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3172,
+          "firstBlockMs": 1410,
+          "thinkingMs": 0,
+          "toolInputMs": 1091,
+          "textMs": 660,
+          "outputTokens": 310,
+          "tools": [
+            "replace_plan_item"
+          ],
+          "toolsRunMs": 0
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 2369,
+          "firstBlockMs": 1275,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1092,
+          "outputTokens": 79,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 22,
+      "outputTokens": 1030,
+      "cacheReadTokens": 70111,
+      "cacheWriteTokens": 4489,
+      "cacheHitRatio": 0.9395486585725389,
+      "costMicroUsd": 21161,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Serwer dobrał danie na środową kolację, ale ma mniej kalorii niż zwykle pasuje do tego dnia. Pokaż kartę — możesz ją zatwierdzić i wstawić, albo w następnej wiadomości polecę coś bardziej kaloryjnego.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g3-podmien-kolacje",
+      "group": 3,
+      "pyta": "Czy podmiana rusza dokładnie jeden slot?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "replace_plan_item"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "replace_plan_item",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "PARTIAL"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "ce2b8627-48bd-43fe-bf8d-8463c503a969",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 402
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "BREAKFAST",
+          "recipeId": "f83eed93-fb23-4171-91aa-c786aa330928",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 436
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "7929dc13-b09b-4a85-9579-97b95d90b687",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 503
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "df846c2a-d028-4340-ae0c-20845fe99eb1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 422
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "a05eec66-03c4-4ffa-abb6-296a80a159a1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 537
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "5fb6cc04-69be-4797-8610-0ad18ebe6934",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 475
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "BREAKFAST",
+          "recipeId": "2f19c217-589e-4121-9134-f6942e5ab432",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 596
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "00f5eab0-5920-407d-ac31-b3d97635dcff",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 496
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "ffa2a092-4309-402e-8dab-47f01c23f584",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 806
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "6e0e7983-fec7-4ab8-9823-0208f427b6b4",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 696
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 860
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "85c3d6b4-429f-42f0-a114-378e4429cdc1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "b9a6ca36-e95d-433a-8361-368fda6237b8",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 661
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "beca5f9f-4331-4345-b181-46f2f1d6ae88",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 507
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "d54efddb-38d5-4d53-9d21-9f6f2075c0a4",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 732
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "61aff6e8-8e63-4c45-9a69-4e198a1e8471",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 786
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "824c9104-1596-4f53-98a8-9e6eac641527",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 720
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "2e500ad6-49fc-4d15-bc65-096f072f0c40",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 612
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "fdc87515-cd5b-404a-aaba-04f8f300f56d",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 8305,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 6313,
+          "firstBlockMs": 1212,
+          "thinkingMs": 4105,
+          "toolInputMs": 978,
+          "textMs": 0,
+          "outputTokens": 592,
+          "tools": [
+            "replace_plan_item"
+          ],
+          "toolsRunMs": 42
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 1950,
+          "firstBlockMs": 1212,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 735,
+          "outputTokens": 60,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 15,
+      "outputTokens": 652,
+      "cacheReadTokens": 45068,
+      "cacheWriteTokens": 3921,
+      "cacheHitRatio": 0.9196800261203167,
+      "costMicroUsd": 15624,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Środową kolację zamieniłem, ale nowe danie ma mniej kalorii niż poprzednie. Jeśli chcesz coś bardziej kalorycznego albo konkretny typ dania, dam ci wybór.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

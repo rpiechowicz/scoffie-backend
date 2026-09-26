@@ -1,0 +1,384 @@
+{
+  "label": "cand-E-g11-przepis-katalogowy",
+  "startedAt": "2026-09-26T17:35:23.825Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.064074,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 2,
+      "passRate": 0,
+      "medianRounds": 1,
+      "p95Rounds": 4,
+      "maxRounds": 4,
+      "medianCostUsd": 0.010779,
+      "p95CostUsd": 0.053295,
+      "medianLatencyMs": 13388,
+      "latencySplit": {
+        "wait": 0.14460083959501888,
+        "thinking": 0.24648110911207535,
+        "toolInput": 0.28637951105937137,
+        "text": 0.3202808057290013,
+        "toolsRun": 0.0017814936324831551,
+        "other": 0.0004762408720499524
+      },
+      "medianFirstBlockMs": 1616,
+      "cacheHitRatio": 0.9076723986237893,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 11,
+          "runs": 2,
+          "passRate": 0,
+          "medianRounds": 1,
+          "medianCostUsd": 0.010779
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g11-przepis-katalogowy",
+      "group": 11,
+      "pyta": "Czy próba edycji przepisu KATALOGOWEGO kończy się odmową?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": false,
+      "issues": [
+        "nie wyjasnil, dlaczego nie da sie zmienic przepisu katalogowego"
+      ],
+      "tools": [
+        "get_recipe_details",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "create_recipe",
+        "propose_swap"
+      ],
+      "handoff": false,
+      "apiCalls": 4,
+      "turnApiCalls": [
+        4
+      ],
+      "toolCalls": [
+        {
+          "name": "get_recipe_details",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "create_recipe",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_swap",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "6989c6d4-fbf9-4e25-b974-37605f830f5c",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 661
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "4ef3635b-fb46-44e6-bd55-0b7f1c4f203a",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 43306,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 4346,
+          "firstBlockMs": 1954,
+          "thinkingMs": 2230,
+          "toolInputMs": 152,
+          "textMs": 0,
+          "outputTokens": 270,
+          "tools": [
+            "get_recipe_details"
+          ],
+          "toolsRunMs": 7
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 21683,
+          "firstBlockMs": 2089,
+          "thinkingMs": 0,
+          "toolInputMs": 3537,
+          "textMs": 16050,
+          "outputTokens": 2298,
+          "tools": [
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients"
+          ],
+          "toolsRunMs": 22
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 13964,
+          "firstBlockMs": 1237,
+          "thinkingMs": 0,
+          "toolInputMs": 11883,
+          "textMs": 843,
+          "outputTokens": 1115,
+          "tools": [
+            "create_recipe"
+          ],
+          "toolsRunMs": 22
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3229,
+          "firstBlockMs": 1302,
+          "thinkingMs": 0,
+          "toolInputMs": 657,
+          "textMs": 1265,
+          "outputTokens": 244,
+          "tools": [
+            "propose_swap"
+          ],
+          "toolsRunMs": 32
+        }
+      ],
+      "inputTokens": 27,
+      "outputTokens": 3927,
+      "cacheReadTokens": 99175,
+      "cacheWriteTokens": 11858,
+      "cacheHitRatio": 0.8929857734557897,
+      "costMicroUsd": 53295,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Podmiana czeka na zatwierdzenie.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g11-przepis-katalogowy",
+      "group": 11,
+      "pyta": "Czy próba edycji przepisu KATALOGOWEGO kończy się odmową?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": false,
+      "issues": [
+        "nie wyjasnil, dlaczego nie da sie zmienic przepisu katalogowego"
+      ],
+      "tools": [
+        "propose_day_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "propose_day_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 8,
+          "kcalPerServing": 661
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "62646225-4e42-404b-abbb-947023bb9a04",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 13388,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 13369,
+          "firstBlockMs": 1616,
+          "thinkingMs": 11744,
+          "toolInputMs": 7,
+          "textMs": 0,
+          "outputTokens": 1028,
+          "tools": [
+            "propose_day_plan"
+          ],
+          "toolsRunMs": 18
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 1028,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1762,
+      "cacheHitRatio": 0.922359023791789,
+      "costMicroUsd": 10779,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Propozycja czeka na zatwierdzenie.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

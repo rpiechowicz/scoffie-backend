@@ -1,0 +1,262 @@
+{
+  "label": "after-g9-uboga-pula-wegan",
+  "startedAt": "2026-09-26T16:23:01.946Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.029659,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.029659,
+      "p95CostUsd": 0.029659,
+      "medianLatencyMs": 11077,
+      "latencySplit": {
+        "wait": 0.34955312810327704,
+        "thinking": 0.1656585718154735,
+        "toolInput": 0.15130450482982757,
+        "text": 0.32689356323914415,
+        "toolsRun": 0.005958291956305859,
+        "other": 0.0006319400559718335
+      },
+      "medianFirstBlockMs": 1733,
+      "cacheHitRatio": 0.9344599223567024,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 9,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.029659
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g9-uboga-pula-wegan",
+      "group": 9,
+      "pyta": "Czy asystent przyznaje się do ubogiej puli, zamiast zmyślać?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "PARTIAL"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "7edc1d62-088b-4bc2-9015-5a47c511988a",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 583
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "2e500ad6-49fc-4d15-bc65-096f072f0c40",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 612
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "375c0ced-8c7e-4457-b3d6-34c375745c63",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 606
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "fa7dd774-5e56-42f7-b2f7-efa22c5f702d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 626
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "d37af86c-e539-4e6f-9a90-01ca3f5100a3",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 540
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "88c14619-0a60-4993-abc4-11eded26695d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 556
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "326d6a8a-b62c-4be7-90a3-0050dc96a637",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 624
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "67b535d3-866b-4e7d-8a84-7d8bfb17b2df",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 621
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "a4ad7797-dfee-4f5f-9b3d-ca82a2975a1e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 749
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "be1c9e29-6084-4109-9f17-6d47a955f90d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 431
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "4e7bf9c8-4672-4aca-812c-03f0159ce3aa",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 506
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "5910695e-5fb4-418f-90fd-32d059917376",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 679
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "a4ad7797-dfee-4f5f-9b3d-ca82a2975a1e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 749
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "73b9e066-e6e1-464b-bd9d-83bc42198dbe",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 538
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "e0a16b3e-3147-4470-9873-8c0dd22cf058",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 11077,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5653,
+          "firstBlockMs": 2139,
+          "thinkingMs": 1835,
+          "toolInputMs": 1676,
+          "textMs": 0,
+          "outputTokens": 451,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 66
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5356,
+          "firstBlockMs": 1733,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 3621,
+          "outputTokens": 156,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 607,
+      "cacheReadTokens": 49104,
+      "cacheWriteTokens": 3440,
+      "cacheHitRatio": 0.9344599223567024,
+      "costMicroUsd": 29659,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan na obiady i kolacje gotowy, ale wychodzi poniżej celu — kalorii brakuje średnio kilkanaście procent, a białka nawet do połowy dziennego celu, głównie przez ubogą pulę wegańskich dań w katalogu z wysokim białkiem. Warto po zatwierdzeniu dobrać wysokobiałkowe przekąski albo drugie śniadanie, żeby domknąć dzień.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

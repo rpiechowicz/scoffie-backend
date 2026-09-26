@@ -1,0 +1,167 @@
+{
+  "label": "after-g4-tylko-wlaczone-posilki",
+  "startedAt": "2026-09-26T16:11:33.077Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.014731,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.014731,
+      "p95CostUsd": 0.014731,
+      "medianLatencyMs": 3667,
+      "latencySplit": {
+        "wait": 0.5396782110717208,
+        "thinking": 0,
+        "toolInput": 0.44477774747750204,
+        "text": 0,
+        "toolsRun": 0.014453231524406873,
+        "other": 0.00109080992637033
+      },
+      "medianFirstBlockMs": 1979,
+      "cacheHitRatio": 0.9301667190940547,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 4,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.014731
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g4-tylko-wlaczone-posilki",
+      "group": 4,
+      "pyta": "Czy plan dnia respektuje sloty włączone w gospodarstwie?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "d8b6886f-1099-4ca2-a8d2-43416e75c2a6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 630
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "40e4163d-9cca-49ec-8249-7a388fb2ea9d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 619
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "44edddb2-76ec-43a8-ba2a-6a6790d3ec54",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": [
+        "BREAKFAST",
+        "LUNCH",
+        "DINNER"
+      ],
+      "latencyMs": 3667,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3613,
+          "firstBlockMs": 1979,
+          "thinkingMs": 0,
+          "toolInputMs": 1631,
+          "textMs": 0,
+          "outputTokens": 290,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 53
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 290,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1774,
+      "cacheHitRatio": 0.9301667190940547,
+      "costMicroUsd": 14731,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan na sobotę gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

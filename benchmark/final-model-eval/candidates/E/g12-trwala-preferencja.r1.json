@@ -1,0 +1,149 @@
+{
+  "label": "cand-E-g12-trwala-preferencja",
+  "startedAt": "2026-09-26T17:23:25.888Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.01085,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.01085,
+      "p95CostUsd": 0.01085,
+      "medianLatencyMs": 7556,
+      "latencySplit": {
+        "wait": 0.4392535733192165,
+        "thinking": 0.4310481736368449,
+        "toolInput": 0.09356802541026998,
+        "text": 0.034542085759661195,
+        "toolsRun": 0.0009264160931709899,
+        "other": 0.0006617257808364214
+      },
+      "medianFirstBlockMs": 786,
+      "cacheHitRatio": 0.9518847151671064,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 12,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.01085
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g12-trwala-preferencja",
+      "group": 12,
+      "pyta": "Czy trwała preferencja ląduje w pamięci domu?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "remember_note"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "remember_note",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "9f265cd2-bc6e-4d17-9788-c665523a2173",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 7556,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 6501,
+          "firstBlockMs": 2533,
+          "thinkingMs": 3257,
+          "toolInputMs": 707,
+          "textMs": 0,
+          "outputTokens": 393,
+          "tools": [
+            "remember_note"
+          ],
+          "toolsRunMs": 7
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 1047,
+          "firstBlockMs": 786,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 261,
+          "outputTokens": 24,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 15,
+      "outputTokens": 417,
+      "cacheReadTokens": 43662,
+      "cacheWriteTokens": 2192,
+      "cacheHitRatio": 0.9518847151671064,
+      "costMicroUsd": 10850,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Zapamiętane. Żadne grzyby w twoim planie.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

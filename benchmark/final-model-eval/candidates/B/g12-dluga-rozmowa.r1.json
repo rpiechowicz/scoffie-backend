@@ -1,0 +1,474 @@
+{
+  "label": "cand-B-g12-dluga-rozmowa",
+  "startedAt": "2026-09-26T17:14:37.663Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "B",
+      "label": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.248091,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 20,
+      "p95Rounds": 20,
+      "maxRounds": 20,
+      "medianCostUsd": 0.248091,
+      "p95CostUsd": 0.248091,
+      "medianLatencyMs": 85553,
+      "latencySplit": {
+        "wait": 0.4252568583217421,
+        "thinking": 0.12413357801596671,
+        "toolInput": 0.21287389103830373,
+        "text": 0.23339917945600971,
+        "toolsRun": 0.003494909588208479,
+        "other": 0.0008415835797692658
+      },
+      "medianFirstBlockMs": 1815,
+      "cacheHitRatio": 0.9574175119932617,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 12,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 20,
+          "medianCostUsd": 0.248091
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g12-dluga-rozmowa",
+      "group": 12,
+      "pyta": "Czy ograniczenie z pierwszej tury trzyma się po piętnastu turach?",
+      "config": "B",
+      "configLabel": "Sonnet / low",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "find_recipes",
+        "build_meal_plan",
+        "build_meal_plan",
+        "build_meal_plan",
+        "get_recipe_details",
+        "replace_plan_item",
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 20,
+      "turnApiCalls": [
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        1,
+        1,
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        },
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        },
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        },
+        {
+          "name": "get_recipe_details",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "replace_plan_item",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        },
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "49e415f2-cd28-4bd5-b964-27f9959728a4",
+          "calorieGoal": 2100
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 85553,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5358,
+          "firstBlockMs": 1627,
+          "thinkingMs": 913,
+          "toolInputMs": 1769,
+          "textMs": 1047,
+          "outputTokens": 439,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 120
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4167,
+          "firstBlockMs": 1692,
+          "thinkingMs": 698,
+          "toolInputMs": 1774,
+          "textMs": 0,
+          "outputTokens": 364,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 9
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4917,
+          "firstBlockMs": 1871,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 3042,
+          "outputTokens": 194,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5231,
+          "firstBlockMs": 1677,
+          "thinkingMs": 1110,
+          "toolInputMs": 2442,
+          "textMs": 0,
+          "outputTokens": 413,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 6
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5543,
+          "firstBlockMs": 1980,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 3561,
+          "outputTokens": 221,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2923,
+          "firstBlockMs": 1885,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1036,
+          "outputTokens": 59,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4609,
+          "firstBlockMs": 1815,
+          "thinkingMs": 467,
+          "toolInputMs": 2324,
+          "textMs": 0,
+          "outputTokens": 368,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 7
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5045,
+          "firstBlockMs": 1951,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 3090,
+          "outputTokens": 220,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5586,
+          "firstBlockMs": 2285,
+          "thinkingMs": 1473,
+          "toolInputMs": 1821,
+          "textMs": 0,
+          "outputTokens": 427,
+          "tools": [
+            "find_recipes"
+          ],
+          "toolsRunMs": 7
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4274,
+          "firstBlockMs": 1578,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 2694,
+          "outputTokens": 160,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5957,
+          "firstBlockMs": 1831,
+          "thinkingMs": 1985,
+          "toolInputMs": 0,
+          "textMs": 2135,
+          "outputTokens": 285,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2731,
+          "firstBlockMs": 1168,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1561,
+          "outputTokens": 113,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3845,
+          "firstBlockMs": 1776,
+          "thinkingMs": 470,
+          "toolInputMs": 1599,
+          "textMs": 0,
+          "outputTokens": 301,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 29
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3801,
+          "firstBlockMs": 1825,
+          "thinkingMs": 420,
+          "toolInputMs": 1554,
+          "textMs": 0,
+          "outputTokens": 294,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 29
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4347,
+          "firstBlockMs": 1721,
+          "thinkingMs": 1112,
+          "toolInputMs": 1513,
+          "textMs": 0,
+          "outputTokens": 354,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 23
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2496,
+          "firstBlockMs": 1673,
+          "thinkingMs": 815,
+          "toolInputMs": 5,
+          "textMs": 0,
+          "outputTokens": 89,
+          "tools": [
+            "get_recipe_details"
+          ],
+          "toolsRunMs": 8
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2891,
+          "firstBlockMs": 1816,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1072,
+          "outputTokens": 52,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5373,
+          "firstBlockMs": 2401,
+          "thinkingMs": 1157,
+          "toolInputMs": 1813,
+          "textMs": 0,
+          "outputTokens": 401,
+          "tools": [
+            "replace_plan_item"
+          ],
+          "toolsRunMs": 26
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2367,
+          "firstBlockMs": 1635,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 730,
+          "outputTokens": 27,
+          "tools": [],
+          "toolsRunMs": null
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3788,
+          "firstBlockMs": 2175,
+          "thinkingMs": 0,
+          "toolInputMs": 1598,
+          "textMs": 0,
+          "outputTokens": 276,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 35
+        }
+      ],
+      "inputTokens": 40,
+      "outputTokens": 5057,
+      "cacheReadTokens": 522884,
+      "cacheWriteTokens": 23216,
+      "cacheHitRatio": 0.9574175119932617,
+      "costMicroUsd": 248091,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "end_turn",
+        "tool_ended_turn",
+        "tool_ended_turn",
+        "tool_ended_turn",
+        "end_turn",
+        "tool_ended_turn",
+        "end_turn",
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan na czwartek gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

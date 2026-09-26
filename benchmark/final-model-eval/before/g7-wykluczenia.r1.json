@@ -1,0 +1,226 @@
+{
+  "label": "before-g7-wykluczenia",
+  "startedAt": "2026-09-26T16:19:30.219Z",
+  "commit": "22aa63c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.065984,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": false,
+    "historyCards": false
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 3,
+      "p95Rounds": 3,
+      "maxRounds": 3,
+      "medianCostUsd": 0.065984,
+      "p95CostUsd": 0.065984,
+      "medianLatencyMs": 22410,
+      "latencySplit": {
+        "wait": 0.2643462739848282,
+        "thinking": 0.38670236501561805,
+        "toolInput": 0.27643908969210174,
+        "text": 0.06898705934850513,
+        "toolsRun": 0.002677376171352075,
+        "other": 0.0008478357875948237
+      },
+      "medianFirstBlockMs": 1832,
+      "cacheHitRatio": 0.8925728080538292,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 7,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 3,
+          "medianCostUsd": 0.065984
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g7-wykluczenia",
+      "group": 7,
+      "pyta": "Czy wykluczony składnik działa tak samo twardo jak alergen?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "find_recipes",
+        "find_recipes",
+        "propose_week_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 3,
+      "turnApiCalls": [
+        3
+      ],
+      "toolCalls": [
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "find_recipes",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_week_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "07bbe3de-c13f-4825-bd5b-59753673344c",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 487
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "3f020f86-3ce8-43b9-8782-1aaa4a51806d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 325
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "6cd87ab9-dd7d-47b0-8c04-3f198aad0ef3",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 534
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "552ed30e-f33c-4068-af4b-f7ccbfe7eb28",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 684
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "0e618c51-f8a1-4706-9f27-570a823f56d7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 614
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "ad001586-bd3a-4de4-abfe-a44b19293064",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 22410,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 9521,
+          "firstBlockMs": 1830,
+          "thinkingMs": 3715,
+          "toolInputMs": 3971,
+          "textMs": 0,
+          "outputTokens": 1026,
+          "tools": [
+            "find_recipes",
+            "find_recipes"
+          ],
+          "toolsRunMs": 31
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 9442,
+          "firstBlockMs": 2262,
+          "thinkingMs": 4951,
+          "toolInputMs": 2224,
+          "textMs": 0,
+          "outputTokens": 726,
+          "tools": [
+            "propose_week_plan"
+          ],
+          "toolsRunMs": 29
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3385,
+          "firstBlockMs": 1832,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1546,
+          "outputTokens": 111,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 6,
+      "outputTokens": 1863,
+      "cacheReadTokens": 69510,
+      "cacheWriteTokens": 8360,
+      "cacheHitRatio": 0.8925728080538292,
+      "costMicroUsd": 65984,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Gotowe — propozycja obiadów i kolacji na poniedziałek, wtorek i środę czeka na Twoje zatwierdzenie w karcie. Środowy obiad z zapiekaną cukinią jest kalorycznie najcięższy, więc warto lekko doważyć śniadanie tego dnia.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

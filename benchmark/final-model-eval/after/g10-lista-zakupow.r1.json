@@ -1,0 +1,817 @@
+{
+  "label": "after-g10-lista-zakupow",
+  "startedAt": "2026-09-26T16:25:06.242Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.027256,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.027256,
+      "p95CostUsd": 0.027256,
+      "medianLatencyMs": 5221,
+      "latencySplit": {
+        "wait": 0.769392836621337,
+        "thinking": 0,
+        "toolInput": 0.08963800038306838,
+        "text": 0.13235012449722275,
+        "toolsRun": 0.006320628232139437,
+        "other": 0.0022984102662325224
+      },
+      "medianFirstBlockMs": 1807,
+      "cacheHitRatio": 0.9273268476840424,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 10,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.027256
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g10-lista-zakupow",
+      "group": 10,
+      "pyta": "Czy lista zakupów jest kartą, a nie listą przepisaną w odpowiedzi?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "show_shopping_list"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "show_shopping_list",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "ce2b8627-48bd-43fe-bf8d-8463c503a969",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 402
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "BREAKFAST",
+          "recipeId": "f83eed93-fb23-4171-91aa-c786aa330928",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 436
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "7929dc13-b09b-4a85-9579-97b95d90b687",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 503
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "df846c2a-d028-4340-ae0c-20845fe99eb1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 422
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "a05eec66-03c4-4ffa-abb6-296a80a159a1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 537
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "5fb6cc04-69be-4797-8610-0ad18ebe6934",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 475
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "BREAKFAST",
+          "recipeId": "2f19c217-589e-4121-9134-f6942e5ab432",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 596
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "00f5eab0-5920-407d-ac31-b3d97635dcff",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 496
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "ffa2a092-4309-402e-8dab-47f01c23f584",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 806
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "6e0e7983-fec7-4ab8-9823-0208f427b6b4",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 696
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 860
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "85c3d6b4-429f-42f0-a114-378e4429cdc1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "b9a6ca36-e95d-433a-8361-368fda6237b8",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 661
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "beca5f9f-4331-4345-b181-46f2f1d6ae88",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 507
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "f8e2e53a-0bbe-41b6-aea5-c073830d9dc9",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 653
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "d54efddb-38d5-4d53-9d21-9f6f2075c0a4",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 732
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "61aff6e8-8e63-4c45-9a69-4e198a1e8471",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 786
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "824c9104-1596-4f53-98a8-9e6eac641527",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 720
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "45920fd9-f561-4be6-a017-11c8f3d2a9a2",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 5221,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2686,
+          "firstBlockMs": 2210,
+          "thinkingMs": 0,
+          "toolInputMs": 468,
+          "textMs": 0,
+          "outputTokens": 58,
+          "tools": [
+            "show_shopping_list"
+          ],
+          "toolsRunMs": 33
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 2500,
+          "firstBlockMs": 1807,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 691,
+          "outputTokens": 45,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 103,
+      "cacheReadTokens": 51092,
+      "cacheWriteTokens": 4000,
+      "cacheHitRatio": 0.9273268476840424,
+      "costMicroUsd": 27256,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Oto lista zakupów na ten tydzień — pogrupowana po działach sklepu, widoczna w karcie niżej.",
+      "cards": [
+        {
+          "kind": "SHOPPING_LIST",
+          "payload": {
+            "kind": "SHOPPING_LIST",
+            "v": 1,
+            "weekStart": "2026-10-05",
+            "eyebrow": "Lista zakupów · 5–11 października",
+            "title": "103 rzeczy do kupienia",
+            "groups": [
+              {
+                "department": "Warzywa",
+                "departmentKey": "VEGETABLES",
+                "items": [
+                  "Batat 350 g",
+                  "Bazylia 7,5 g",
+                  "Brokuł 125 g",
+                  "Burak 150 g",
+                  "Cebula 4,5 szt",
+                  "Cebula czerwona 1 szt"
+                ],
+                "entries": [
+                  {
+                    "label": "Batat 350 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bazylia 7,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Brokuł 125 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Burak 150 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cebula 4,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cebula czerwona 1 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Czosnek 6,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Grzyb suszony 5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kapusta biała 300 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kolendra 2,5 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 17
+              },
+              {
+                "department": "Owoce",
+                "departmentKey": "FRUITS",
+                "items": [
+                  "Awokado 0,5 szt",
+                  "Borówka 70 g",
+                  "Limonka 0,5 szt",
+                  "Truskawka 150 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Awokado 0,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Borówka 70 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Limonka 0,5 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Truskawka 150 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Mięso",
+                "departmentKey": "MEAT",
+                "items": [
+                  "Boczek 25 g",
+                  "Filet z indyka 150 g",
+                  "Filet z kurczaka 425 g",
+                  "Indyk mielony 550 g",
+                  "Kiełbasa wędzona 60 g",
+                  "Łopatka wieprzowa 75 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Boczek 25 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Filet z indyka 150 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Filet z kurczaka 425 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Indyk mielony 550 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kiełbasa wędzona 60 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Łopatka wieprzowa 75 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Szynka 100 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Wołowina 250 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Wołowina mielona 100 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 3
+              },
+              {
+                "department": "Nabiał",
+                "departmentKey": "DAIRY",
+                "items": [
+                  "Jajko 13 szt",
+                  "Jogurt grecki 135 g",
+                  "Jogurt naturalny 250 g",
+                  "Masło 12,5 g",
+                  "Mleko 90 ml",
+                  "Mozzarella 50 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Jajko 13 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Jogurt grecki 135 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Jogurt naturalny 250 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Masło 12,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mleko 90 ml",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mozzarella 50 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mozzarella tarta 40 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ser cheddar 60 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ser feta 40 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ser gouda 20 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 7
+              },
+              {
+                "department": "Piekarnia",
+                "departmentKey": "BAKERY",
+                "items": [
+                  "Bagietka 125 g",
+                  "Bajgiel 1 szt",
+                  "Bułka 150 g",
+                  "Bułka do hamburgera 2 szt",
+                  "Bułka tarta 55 g",
+                  "Chleb 130 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Bagietka 125 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bajgiel 1 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bułka 150 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bułka do hamburgera 2 szt",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Bułka tarta 55 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Chleb 130 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Tortilla pszenna 1 szt",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 1
+              },
+              {
+                "department": "Zboża i makarony",
+                "departmentKey": "GRAINS",
+                "items": [
+                  "Kasza gryczana 60 g",
+                  "Makaron cannelloni 75 g",
+                  "Mąka pszenna 190 g",
+                  "Płatki owsiane 40 g",
+                  "Ryż biały 160 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Kasza gryczana 60 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Makaron cannelloni 75 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Mąka pszenna 190 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Płatki owsiane 40 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ryż biały 160 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Konserwy",
+                "departmentKey": "CANNED",
+                "items": [
+                  "Bulion warzywny 400 ml",
+                  "Fasola biała z puszki 100 g",
+                  "Fasola czerwona z puszki 505 g",
+                  "Fasola w sosie pomidorowym 200 g",
+                  "Kapusta kiszona 200 g",
+                  "Koncentrat pomidorowy 45 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Bulion warzywny 400 ml",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Fasola biała z puszki 100 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Fasola czerwona z puszki 505 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Fasola w sosie pomidorowym 200 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kapusta kiszona 200 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Koncentrat pomidorowy 45 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kukurydza z puszki 185 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ogórek kiszony 75 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ogórek konserwowy 20 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Passata pomidorowa 250 ml",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 5
+              },
+              {
+                "department": "Przyprawy i sosy",
+                "departmentKey": "SPICES",
+                "items": [
+                  "Bazylia suszona 0,5 g",
+                  "Cukier 9 g",
+                  "Cynamon 0,5 g",
+                  "Czosnek granulowany 0,5 g",
+                  "Gałka muszkatołowa 0,3 g",
+                  "Ketchup 25 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Bazylia suszona 0,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cukier 9 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Cynamon 0,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Czosnek granulowany 0,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Gałka muszkatołowa 0,3 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Ketchup 25 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Kmin rzymski 5,3 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Liść laurowy 0,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Majeranek 1 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Majonez 25 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 15
+              },
+              {
+                "department": "Olej i tłuszcze",
+                "departmentKey": "OILS",
+                "items": [
+                  "Olej kokosowy 7,5 g",
+                  "Olej rzepakowy 90 ml",
+                  "Oliwa z oliwek 47,5 ml"
+                ],
+                "entries": [
+                  {
+                    "label": "Olej kokosowy 7,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Olej rzepakowy 90 ml",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Oliwa z oliwek 47,5 ml",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Przekąski i słodycze",
+                "departmentKey": "SNACKS",
+                "items": [
+                  "Orzech laskowy 10 g",
+                  "Pestki dyni 7,5 g",
+                  "Śliwka suszona 20 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Orzech laskowy 10 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Pestki dyni 7,5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Śliwka suszona 20 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Mrożonki",
+                "departmentKey": "FROZEN",
+                "items": [
+                  "Szpinak mrożony 125 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Szpinak mrożony 125 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Cukiernia",
+                "departmentKey": "CONFECTIONERY",
+                "items": [
+                  "Drożdże 5 g",
+                  "Proszek do pieczenia 2,5 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Drożdże 5 g",
+                    "isChecked": false
+                  },
+                  {
+                    "label": "Proszek do pieczenia 2,5 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              },
+              {
+                "department": "Inne",
+                "departmentKey": "OTHER",
+                "items": [
+                  "Miód 20 g"
+                ],
+                "entries": [
+                  {
+                    "label": "Miód 20 g",
+                    "isChecked": false
+                  }
+                ],
+                "hidden": 0
+              }
+            ],
+            "summary": {
+              "remaining": 103,
+              "checked": 0
+            },
+            "emptyDepartments": 4,
+            "checkedNote": null,
+            "actions": [
+              {
+                "type": "OPEN_SHOPPING",
+                "proposalId": null,
+                "label": "Otwórz listę zakupów",
+                "style": "PRIMARY"
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ]
+}

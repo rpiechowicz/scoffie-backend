@@ -15,7 +15,7 @@ CAP_USD="${CAP_USD:-40}"
 PER_CALL_CAP="${PER_CALL_CAP:-1.5}"
 export DATABASE_URL='postgresql://scoffie:scoffie@localhost:5432/scoffie?schema=public'
 export TS_NODE_TRANSPILE_ONLY=true
-ANTHROPIC_API_KEY="$(grep '^ANTHROPIC_API_KEY=' "$HEAD_DIR/.env" | cut -d= -f2- | tr -d '"')"
+ANTHROPIC_API_KEY="$(grep '^ANTHROPIC_API_KEY=' "$HEAD_DIR/.env" | cut -d= -f2- | tr -d '"' | tr -d '')"
 export ANTHROPIC_API_KEY
 
 spent() {

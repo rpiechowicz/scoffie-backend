@@ -1,0 +1,555 @@
+{
+  "label": "after-g6-pelny-tydzien",
+  "startedAt": "2026-09-26T16:41:46.825Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.041356,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.015849,
+      "p95CostUsd": 0.025507,
+      "medianLatencyMs": 4987,
+      "latencySplit": {
+        "wait": 0.4121425294387521,
+        "thinking": 0.17969108426364888,
+        "toolInput": 0.2624254473161034,
+        "text": 0.12654840189631442,
+        "toolsRun": 0.01819850129989295,
+        "other": 0.0009940357852882703
+      },
+      "medianFirstBlockMs": 1832,
+      "cacheHitRatio": 0.9390697128225316,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 6,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.015849
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g6-pelny-tydzien",
+      "group": 6,
+      "pyta": "Czy asystent układa cały tydzień i naprawdę go zapisuje?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "fad151de-b3aa-4fbd-b666-876d3dc94cd0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 838
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "d8b6886f-1099-4ca2-a8d2-43416e75c2a6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 630
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "40e4163d-9cca-49ec-8249-7a388fb2ea9d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 619
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "BREAKFAST",
+          "recipeId": "cec993ab-e8ec-45e5-957e-a1b7dbf0cd54",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 604
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "67b535d3-866b-4e7d-8a84-7d8bfb17b2df",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 621
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "2f19c217-589e-4121-9134-f6942e5ab432",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 596
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "2e500ad6-49fc-4d15-bc65-096f072f0c40",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 612
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "0757d316-fa6b-4659-9d10-b34e295b724b",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 935
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "dfc56004-caed-4202-b92b-3c01122b694c",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "2b63c5bd-e52b-4fe1-af0f-7883ef6b9066",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 587
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "ee665502-f7f0-4c18-a46b-07d2687ec5b0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 876
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "dbdee608-4b27-4e26-8894-d9172b2772f4",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 559
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "0e618c51-f8a1-4706-9f27-570a823f56d7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 614
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 860
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "d5a639e6-1f6a-4d05-86dd-424808ef5299",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 592
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "d0b4e5af-96cf-4dfc-bd16-7b7eab32e01e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 594
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "e467a224-f393-41cd-82a2-b197cab26543",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 879
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "BREAKFAST",
+          "recipeId": "58fc2158-1d2b-4704-8a54-ca0628c1b76f",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 611
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 588
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "07c99180-6129-48c8-9917-266cb5ae174b",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 4987,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4834,
+          "firstBlockMs": 1832,
+          "thinkingMs": 1281,
+          "toolInputMs": 1716,
+          "textMs": 0,
+          "outputTokens": 397,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 151
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 397,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1786,
+      "cacheHitRatio": 0.9297280301839334,
+      "costMicroUsd": 15849,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g6-pelny-tydzien",
+      "group": 6,
+      "pyta": "Czy asystent układa cały tydzień i naprawdę go zapisuje?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "PARTIAL"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "d8b6886f-1099-4ca2-a8d2-43416e75c2a6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 630
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "40e4163d-9cca-49ec-8249-7a388fb2ea9d",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 619
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "fad151de-b3aa-4fbd-b666-876d3dc94cd0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 838
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "BREAKFAST",
+          "recipeId": "cec993ab-e8ec-45e5-957e-a1b7dbf0cd54",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 604
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "d0b4e5af-96cf-4dfc-bd16-7b7eab32e01e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 594
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "2f19c217-589e-4121-9134-f6942e5ab432",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 596
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "2e500ad6-49fc-4d15-bc65-096f072f0c40",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 612
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "0757d316-fa6b-4659-9d10-b34e295b724b",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 935
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "dfc56004-caed-4202-b92b-3c01122b694c",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "2b63c5bd-e52b-4fe1-af0f-7883ef6b9066",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 587
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 860
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "d5a639e6-1f6a-4d05-86dd-424808ef5299",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 592
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "6a577570-6d4c-408f-9f58-4a69deabe6a1",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 557
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "ee665502-f7f0-4c18-a46b-07d2687ec5b0",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 876
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "dbdee608-4b27-4e26-8894-d9172b2772f4",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 559
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "0e618c51-f8a1-4706-9f27-570a823f56d7",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 614
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "91de45fa-af8d-41b7-9653-fcc88d489b8e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 812
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "BREAKFAST",
+          "recipeId": "58fc2158-1d2b-4704-8a54-ca0628c1b76f",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 611
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "b5ad3ca5-008a-4179-816d-0c7976f2c18f",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 553
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "c4275dc0-d3e1-4865-b4ef-b3e93b965d9b",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 8091,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 4482,
+          "firstBlockMs": 1695,
+          "thinkingMs": 1069,
+          "toolInputMs": 1716,
+          "textMs": 0,
+          "outputTokens": 382,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 87
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3522,
+          "firstBlockMs": 1863,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1655,
+          "outputTokens": 119,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 501,
+      "cacheReadTokens": 49104,
+      "cacheWriteTokens": 2667,
+      "cacheHitRatio": 0.9484113954611298,
+      "costMicroUsd": 25507,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Propozycja całego tygodnia gotowa — 21 posiłków, lekko poniżej celu kalorycznego (średnio 144 kcal dziennie), najbardziej w niedzielę. Zapisz plan przyciskiem w karcie, a jeśli chcesz, dobiorę niedzieli coś kaloryczniejszego.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

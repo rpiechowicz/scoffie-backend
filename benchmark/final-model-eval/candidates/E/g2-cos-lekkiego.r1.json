@@ -1,0 +1,201 @@
+{
+  "label": "cand-E-g2-cos-lekkiego",
+  "startedAt": "2026-09-26T17:16:03.992Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.008802,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.008802,
+      "p95CostUsd": 0.008802,
+      "medianLatencyMs": 7721,
+      "latencySplit": {
+        "wait": 0.1881880585416397,
+        "thinking": 0.6716746535422873,
+        "toolInput": 0.1362517808574019,
+        "text": 0,
+        "toolsRun": 0.0032379225488926304,
+        "other": 0.0006475845097785261
+      },
+      "medianFirstBlockMs": 1453,
+      "cacheHitRatio": 0.9307600477516912,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 2,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.008802
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g2-cos-lekkiego",
+      "group": 2,
+      "pyta": "Czy „lekko\" znaczy mniej kalorii z katalogu?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "suggest_meals"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "suggest_meals",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "c6d1f793-393c-478d-a04a-6040d9626149",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 7721,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 7694,
+          "firstBlockMs": 1453,
+          "thinkingMs": 5186,
+          "toolInputMs": 1052,
+          "textMs": 0,
+          "outputTokens": 715,
+          "tools": [
+            "suggest_meals"
+          ],
+          "toolsRunMs": 25
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 715,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1556,
+      "cacheHitRatio": 0.9307600477516912,
+      "costMicroUsd": 8802,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Trzy propozycje na kolację w poniedziałek — wybierz jedną.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Kolacja · poniedziałek",
+            "title": "Trzy propozycje",
+            "options": [
+              {
+                "recipeId": "fb9b74ae-ba40-4376-a19a-70f1bf68fc1d",
+                "title": "Pasta z tuńczyka z ogórkiem kiszonym",
+                "kcalPerServing": 380,
+                "prepTimeMinutes": 10,
+                "imageUrl": "https://img.scoffie.app/recipe-images/fb9b74ae-ba40-4376-a19a-70f1bf68fc1d-4e0a6cd2c0.webp",
+                "description": "Szybka pasta z tuńczyka z chrupiącym ogórkiem kiszonym i szczypiorkiem. Idealna na kanapki do pracy albo lekką kolację.",
+                "proteinGrams": 29,
+                "carbsGrams": 30,
+                "fatGrams": 15,
+                "ingredientCount": 8,
+                "tag": "Najlepiej pasuje",
+                "prompt": "Wybieram: Pasta z tuńczyka z ogórkiem kiszonym"
+              },
+              {
+                "recipeId": "4114372b-e408-457d-856a-ac3a20525d21",
+                "title": "Krem z dyni z prażonymi pestkami",
+                "kcalPerServing": 399,
+                "prepTimeMinutes": 45,
+                "imageUrl": "https://img.scoffie.app/recipe-images/4114372b-e408-457d-856a-ac3a20525d21-28d1b39772.webp",
+                "description": "Aksamitny krem z dyni z nutą czosnku, podany ze śmietaną i chrupiącymi prażonymi pestkami. Rozgrzewająca zupa idealna na jesienny obiad.",
+                "proteinGrams": 12,
+                "carbsGrams": 39,
+                "fatGrams": 23,
+                "ingredientCount": 10,
+                "tag": null,
+                "prompt": "Wybieram: Krem z dyni z prażonymi pestkami"
+              },
+              {
+                "recipeId": "e6542205-04d4-4a6e-9793-9ed04704be42",
+                "title": "Zupa ogórkowa z ziemniakami",
+                "kcalPerServing": 391,
+                "prepTimeMinutes": 40,
+                "imageUrl": "https://img.scoffie.app/recipe-images/e6542205-04d4-4a6e-9793-9ed04704be42-990814ec0e.webp",
+                "description": "Kwaśna, sycąca zupa ogórkowa na bulionie drobiowym, z ziemniakami i śmietaną. Klasyk domowego obiadu, który smakuje jeszcze lepiej następnego dnia.",
+                "proteinGrams": 10,
+                "carbsGrams": 40,
+                "fatGrams": 19,
+                "ingredientCount": 9,
+                "tag": null,
+                "prompt": "Wybieram: Zupa ogórkowa z ziemniakami"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ]
+}

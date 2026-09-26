@@ -1,0 +1,158 @@
+{
+  "label": "cand-E-g11-zmiana-przepisu",
+  "startedAt": "2026-09-26T17:22:35.489Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.011682,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.011682,
+      "p95CostUsd": 0.011682,
+      "medianLatencyMs": 7265,
+      "latencySplit": {
+        "wait": 0.35609084652443224,
+        "thinking": 0.518100481761872,
+        "toolInput": 0.049002064693737094,
+        "text": 0.07336545079146593,
+        "toolsRun": 0.0028905712319339297,
+        "other": 0.0005505849965588438
+      },
+      "medianFirstBlockMs": 1204,
+      "cacheHitRatio": 0.9472196448223033,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 11,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.011682
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g11-zmiana-przepisu",
+      "group": 11,
+      "pyta": "Czy edycja własnego przepisu z planu działa — i czy jego referencja daje się rozwiązać?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "update_recipe"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "update_recipe",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "2f12d34f-1faa-45c3-8cae-a6687b564beb",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 0
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "cbc71f2a-66a1-42a1-b726-2fac4292219d",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 7265,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 5505,
+          "firstBlockMs": 1383,
+          "thinkingMs": 3764,
+          "toolInputMs": 356,
+          "textMs": 0,
+          "outputTokens": 435,
+          "tools": [
+            "update_recipe"
+          ],
+          "toolsRunMs": 21
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 1738,
+          "firstBlockMs": 1204,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 533,
+          "outputTokens": 48,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 15,
+      "outputTokens": 483,
+      "cacheReadTokens": 43897,
+      "cacheWriteTokens": 2431,
+      "cacheHitRatio": 0.9472196448223033,
+      "costMicroUsd": 11682,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Gotowe — przepis teraz robi 4 porcje zamiast jednej. Porcje w poniedziałkowym śniadaniu się dostosują automatycznie.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

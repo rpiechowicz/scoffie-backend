@@ -1,6 +1,6 @@
 # Stan workstreamu
 
-**Ostatnia aktualizacja:** 27.09.2026 (po Etapie 5 i jego Addendum A1)  
+**Ostatnia aktualizacja:** 26.09.2026 (po Etapie 6 — finalny benchmark)  
 **Branch startowy:** `claude/admin-crm-planning-b0hmgo`
 
 ## Status
@@ -14,7 +14,7 @@
 | 3. Odchudzenie agenta | **DONE** — po review (Addendum A1: autorytatywne zdanie serwera, porcje per osoba przez wybór z karty); `suggest_meals`, jedna karta na turę, pamięć tury, 3 narzędzia zdjęte ze schematu modelu; zachowanie modelu do potwierdzenia w końcowym live benchmarku | `reports/03-agent-thinning.md` |
 | 4. Katalog / DB / API | **DONE (backend)** — log zmian katalogu z triggerów, snapshot + delta z tombstone'ami, granice cache'u, single-flight (popularność, zakupy), szkic 1 s, `getTurn` 1 zapytanie, indeks `AgentMessage(turnId)`. iOS (`claude/catalog-sync`, bez merge'a): kompilacja Xcode i `catalog-sync-check.sh` **DEFERRED / przed rolloutem** | `reports/04-catalog-db-api-scale.md` |
 | 5. Trwałe tury | **DONE** — `AgentTurn` jako zadanie z lease (fencing token, zegar bazy), worker w procesie API (przy starcie + co 3 s), dziennik efektów narzędzi w transakcji efektu, klucz wywołania dostawcy z numerem próby, trwały „Stop”, twardy termin tury, limit 3 prób; prawdziwy restart 2 instancji w e2e. Po review (Addendum A1): efekt odtwarzany tylko przy zgodnym narzędziu i kanonicznym wejściu, inaczej `AI_DURABLE_EFFECT_CONFLICT`; kursor efektów zamiast licznika | `reports/05-durable-turns.md` |
-| 6. Modele / routing | **READY** (czeka na akceptację Rafała) | `reports/06-model-evaluation.md` |
+| 6. Modele / routing | **DONE** — before/after na żywym API (anchor `22aa63c` ↔ HEAD): koszt/sukces −48%, p50 −49%, p95 −62%, wywołania −38%, ale pass rate 90,9% → 84,1% (5 stabilnych regresji); rekomendacja Sonnet 5 / low, bez routingu; Haiku odrzucony na jakości tekstu; koszt benchmarku $10,89 | `reports/06-model-evaluation.md` |
 
 ## Aktualne polecenie dla wykonawcy
 
@@ -65,6 +65,12 @@ Po zakończeniu:
 - Kompresja WS (`perMessageDeflate` z progiem) i `statement_timeout` — po pomiarze (raport 04, §8).
 
 ## Ostatni raport
+
+`reports/06-model-evaluation.md` (26.09.2026) — Etap 6 **DONE**, workstream: pomiar zakończony wiarygodnie:
+- 332 przebiegi, $10,89; ten sam harness na obu commitach, 44 scenariusze (4 nowe), przeplot before/after;
+- koszt/sukces $0,069 → $0,036, p50 13,6 → 7,0 s, p95 45,9 → 17,5 s, wywołania 3,18 → 1,98; `suggest_meals`/`build_meal_plan`/`replace_plan_item` używane w 100%;
+- jakość: 40/44 → 37/44; stabilne regresje: limit kcal z rozmowy, podział dania, fałszywe „wszystkie do 5 min”, zdanie serwera zamiast wyjaśnienia (przepis katalogowy), luka makro;
+- rekomendacja: `claude-sonnet-5` + `low`, bez routingu (decyzja o env na prod — Rafał); naprawy regresji — nowy etap po decyzji.
 
 `reports/05-durable-turns.md` (27.09.2026) — Etap 5 **DONE** (po review, Addendum A1):
 - A1: odtworzenie efektu wymaga zgodnego narzędzia i kanonicznego wejścia; niezgodne =
@@ -146,7 +152,7 @@ Poprzednie: `reports/01-correctness-state-costs.md`, `reports/00-baseline.md` �
 do końcowego porównania: commit `22aa63c` (ten sam benchmark na anchorze i finalnym HEAD,
 tego samego dnia, na tej samej konfiguracji modelu).
 
-**Etap 5 zakończony (po review, Addendum A1) — czeka na akceptację. Etap 6 READY (nie zaczynać bez akceptacji Rafała).**
+**Etap 6 zakończony — czeka na review. Kolejnego etapu nie ma w planie; naprawy regresji z raportu 06 §8 wymagają osobnej decyzji.**
 
 ### Warunek rolloutu synchronizacji katalogu (Etap 4)
 

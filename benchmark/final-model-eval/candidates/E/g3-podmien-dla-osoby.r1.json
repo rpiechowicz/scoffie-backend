@@ -1,0 +1,375 @@
+{
+  "label": "cand-E-g3-podmien-dla-osoby",
+  "startedAt": "2026-09-26T17:16:33.015Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.017438,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.017438,
+      "p95CostUsd": 0.017438,
+      "medianLatencyMs": 24358,
+      "latencySplit": {
+        "wait": 0.10456523524098858,
+        "thinking": 0.8939157566302652,
+        "toolInput": 0.00016421709499958947,
+        "text": 0,
+        "toolsRun": 0.001231628212496921,
+        "other": 0.0001231628212496921
+      },
+      "medianFirstBlockMs": 2547,
+      "cacheHitRatio": 0.871316225165563,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 3,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.017438
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g3-podmien-dla-osoby",
+      "group": 3,
+      "pyta": "Czy podmiana „dla Ani\" nie zabiera jedzenia reszcie domu?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "suggest_meals"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "suggest_meals",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "BREAKFAST",
+          "recipeId": "ce2b8627-48bd-43fe-bf8d-8463c503a969",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 402
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "BREAKFAST",
+          "recipeId": "f83eed93-fb23-4171-91aa-c786aa330928",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 436
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "7929dc13-b09b-4a85-9579-97b95d90b687",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 503
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "BREAKFAST",
+          "recipeId": "df846c2a-d028-4340-ae0c-20845fe99eb1",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 422
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "BREAKFAST",
+          "recipeId": "a05eec66-03c4-4ffa-abb6-296a80a159a1",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 537
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "BREAKFAST",
+          "recipeId": "5fb6cc04-69be-4797-8610-0ad18ebe6934",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 475
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "BREAKFAST",
+          "recipeId": "2f19c217-589e-4121-9134-f6942e5ab432",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 596
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "00f5eab0-5920-407d-ac31-b3d97635dcff",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 496
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "ffa2a092-4309-402e-8dab-47f01c23f584",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 806
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "6e0e7983-fec7-4ab8-9823-0208f427b6b4",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 696
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "8ea632a7-848a-4cf2-a8b3-2dc83ec4f7c7",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 588
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "f84842de-6bd5-4d47-adb7-ebbdab0126c0",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 860
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "85c3d6b4-429f-42f0-a114-378e4429cdc1",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "b9a6ca36-e95d-433a-8361-368fda6237b8",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 661
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "beca5f9f-4331-4345-b181-46f2f1d6ae88",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 507
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "f8e2e53a-0bbe-41b6-aea5-c073830d9dc9",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 653
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "d54efddb-38d5-4d53-9d21-9f6f2075c0a4",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 732
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "61aff6e8-8e63-4c45-9a69-4e198a1e8471",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 786
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "824c9104-1596-4f53-98a8-9e6eac641527",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 720
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 890
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "16e1cfb7-5444-42f3-bce1-af75ab630ede",
+          "calorieGoal": 2400
+        },
+        {
+          "key": "ania",
+          "userId": "0df5a7aa-c4e6-4929-8a69-1b0031fda581",
+          "calorieGoal": 1800
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 24358,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 24326,
+          "firstBlockMs": 2547,
+          "thinkingMs": 21774,
+          "toolInputMs": 4,
+          "textMs": 0,
+          "outputTokens": 1825,
+          "tools": [
+            "suggest_meals"
+          ],
+          "toolsRunMs": 30
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 1825,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 3099,
+      "cacheHitRatio": 0.871316225165563,
+      "costMicroUsd": 17438,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Trzy propozycje na kolację w wtorek — wybierz jedną.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Kolacja · wtorek",
+            "title": "Trzy propozycje",
+            "options": [
+              {
+                "recipeId": "b85bb6ba-c1ff-48c5-b878-3ea2f704d1b8",
+                "title": "Makaron z tuńczykiem i passatą pomidorową",
+                "kcalPerServing": 548,
+                "prepTimeMinutes": 24,
+                "imageUrl": "https://img.scoffie.app/recipe-images/b85bb6ba-c1ff-48c5-b878-3ea2f704d1b8-ad42db3b91.webp",
+                "description": "Makaron z tuńczykiem w lekkim sosie pomidorowym to szybka i wygodna kolacja. Danie jest proste, a jednocześnie sycące.",
+                "proteinGrams": 38,
+                "carbsGrams": 75,
+                "fatGrams": 7,
+                "ingredientCount": 8,
+                "tag": "Najlepiej pasuje",
+                "prompt": "Wybieram: Makaron z tuńczykiem i passatą pomidorową"
+              },
+              {
+                "recipeId": "fc96dbe8-ad03-478b-be5a-d08b1f41b1c5",
+                "title": "Kurczak z grilla z sałatką pomidorową",
+                "kcalPerServing": 501,
+                "prepTimeMinutes": 40,
+                "imageUrl": "https://img.scoffie.app/recipe-images/fc96dbe8-ad03-478b-be5a-d08b1f41b1c5-adbf83ffaa.webp",
+                "description": "Soczysta pierś kurczaka marynowana w oliwie, czosnku i oregano, grillowana na patelni i podana z sałatką z pomidorów, ogórka i czerwonej cebuli. Lekka kolacja z chrupiącą bagietką do sosu.",
+                "proteinGrams": 48,
+                "carbsGrams": 39,
+                "fatGrams": 16,
+                "ingredientCount": 13,
+                "tag": "Najwięcej białka",
+                "prompt": "Wybieram: Kurczak z grilla z sałatką pomidorową"
+              },
+              {
+                "recipeId": "6cd87ab9-dd7d-47b0-8c04-3f198aad0ef3",
+                "title": "Chłodnik litewski z jajkiem i młodymi ziemniakami",
+                "kcalPerServing": 534,
+                "prepTimeMinutes": 90,
+                "imageUrl": "https://img.scoffie.app/recipe-images/6cd87ab9-dd7d-47b0-8c04-3f198aad0ef3-5613d5c59b.webp",
+                "description": "Różowy chłodnik z botwinki, kefiru i maślanki z chrupiącym ogórkiem, rzodkiewką i mnóstwem koperku, podany z jajkiem na twardo i młodymi ziemniakami. Orzeźwiająca kolacja na upalne dni.",
+                "proteinGrams": 35,
+                "carbsGrams": 55,
+                "fatGrams": 17,
+                "ingredientCount": 14,
+                "tag": null,
+                "prompt": "Wybieram: Chłodnik litewski z jajkiem i młodymi ziemniakami"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ]
+}

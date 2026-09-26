@@ -1,0 +1,332 @@
+{
+  "label": "after-g13-mam-kurczaka",
+  "startedAt": "2026-09-26T16:39:12.027Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.030138,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.015069,
+      "p95CostUsd": 0.015069,
+      "medianLatencyMs": 3690,
+      "latencySplit": {
+        "wait": 0.5115244642135058,
+        "thinking": 0,
+        "toolInput": 0.48119692680954307,
+        "text": 0,
+        "toolsRun": 0.0067394527564361775,
+        "other": 0.0005391562205148942
+      },
+      "medianFirstBlockMs": 1894,
+      "cacheHitRatio": 0.9302764560147863,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 13,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.015069
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g13-mam-kurczaka",
+      "group": 13,
+      "pyta": "Czy „mam dużo kurczaka\" daje dania z kurczakiem, a nie przypadkowe?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "suggest_meals"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "suggest_meals",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "d3e40291-69f4-40a3-b082-a37c55bcee48",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 3729,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3697,
+          "firstBlockMs": 1894,
+          "thinkingMs": 0,
+          "toolInputMs": 1801,
+          "textMs": 0,
+          "outputTokens": 325,
+          "tools": [
+            "suggest_meals"
+          ],
+          "toolsRunMs": 31
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 325,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1771,
+      "cacheHitRatio": 0.9302764560147863,
+      "costMicroUsd": 15069,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Trzy propozycje na kolację w poniedziałek — wybierz jedną.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Kolacja · poniedziałek",
+            "title": "Trzy propozycje",
+            "options": [
+              {
+                "recipeId": "01b9aad4-630e-4220-9637-89e0cb6b10cc",
+                "title": "Pieczone sajgonki z kurczakiem i warzywami",
+                "kcalPerServing": 554,
+                "prepTimeMinutes": 60,
+                "imageUrl": "https://img.scoffie.app/recipe-images/01b9aad4-630e-4220-9637-89e0cb6b10cc-d539013ccf.webp",
+                "description": "Chrupiące sajgonki z papieru ryżowego z farszem z mielonego kurczaka, makaronu ryżowego, marchewki i kapusty pekińskiej, pieczone zamiast smażone w głębokim tłuszczu. Maczane w słodkim sosie chili znikają w mgnieniu oka.",
+                "proteinGrams": 27,
+                "carbsGrams": 65,
+                "fatGrams": 20,
+                "ingredientCount": 11,
+                "tag": "Najlepiej pasuje",
+                "prompt": "Wybieram: Pieczone sajgonki z kurczakiem i warzywami"
+              },
+              {
+                "recipeId": "fbfe4605-43a0-488d-9259-3ac3a1a72186",
+                "title": "Makaron sojowy z kurczakiem i warzywami",
+                "kcalPerServing": 483,
+                "prepTimeMinutes": 25,
+                "imageUrl": "https://img.scoffie.app/recipe-images/fbfe4605-43a0-488d-9259-3ac3a1a72186-c439cacaeb.webp",
+                "description": "Szklisty makaron sojowy wymieszany z kurczakiem i chrupiącymi warzywami, w sosie sojowym z czosnkiem, imbirem i olejem sezamowym. Kolacja w stylu azjatyckim w 25 minut, z jednej patelni.",
+                "proteinGrams": 33,
+                "carbsGrams": 54,
+                "fatGrams": 14,
+                "ingredientCount": 12,
+                "tag": "Najszybsze",
+                "prompt": "Wybieram: Makaron sojowy z kurczakiem i warzywami"
+              },
+              {
+                "recipeId": "b04a8faf-dbac-498c-aac5-a23888c2ee82",
+                "title": "Sałatka ryżowa z kurczakiem curry",
+                "kcalPerServing": 662,
+                "prepTimeMinutes": 30,
+                "imageUrl": "https://img.scoffie.app/recipe-images/b04a8faf-dbac-498c-aac5-a23888c2ee82-9103c7b6f1.webp",
+                "description": "Złoty ryż basmati z kurczakiem w curry, ananasem, kukurydzą, papryką i dymką, połączony lekkim sosem jogurtowym. Sprawdza się na kolację, na imprezę i do pudełka — im dłużej postoi, tym lepsza.",
+                "proteinGrams": 39,
+                "carbsGrams": 73,
+                "fatGrams": 22,
+                "ingredientCount": 12,
+                "tag": "Najwięcej białka",
+                "prompt": "Wybieram: Sałatka ryżowa z kurczakiem curry"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "scenario": "g13-mam-kurczaka",
+      "group": 13,
+      "pyta": "Czy „mam dużo kurczaka\" daje dania z kurczakiem, a nie przypadkowe?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "suggest_meals"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "suggest_meals",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "2e53985b-1430-40e3-bd3e-249b3166f88a",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 3690,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3671,
+          "firstBlockMs": 1901,
+          "thinkingMs": 0,
+          "toolInputMs": 1769,
+          "textMs": 0,
+          "outputTokens": 325,
+          "tools": [
+            "suggest_meals"
+          ],
+          "toolsRunMs": 19
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 325,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 1771,
+      "cacheHitRatio": 0.9302764560147863,
+      "costMicroUsd": 15069,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Trzy propozycje na kolację w poniedziałek — wybierz jedną.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Kolacja · poniedziałek",
+            "title": "Trzy propozycje",
+            "options": [
+              {
+                "recipeId": "01b9aad4-630e-4220-9637-89e0cb6b10cc",
+                "title": "Pieczone sajgonki z kurczakiem i warzywami",
+                "kcalPerServing": 554,
+                "prepTimeMinutes": 60,
+                "imageUrl": "https://img.scoffie.app/recipe-images/01b9aad4-630e-4220-9637-89e0cb6b10cc-d539013ccf.webp",
+                "description": "Chrupiące sajgonki z papieru ryżowego z farszem z mielonego kurczaka, makaronu ryżowego, marchewki i kapusty pekińskiej, pieczone zamiast smażone w głębokim tłuszczu. Maczane w słodkim sosie chili znikają w mgnieniu oka.",
+                "proteinGrams": 27,
+                "carbsGrams": 65,
+                "fatGrams": 20,
+                "ingredientCount": 11,
+                "tag": "Najlepiej pasuje",
+                "prompt": "Wybieram: Pieczone sajgonki z kurczakiem i warzywami"
+              },
+              {
+                "recipeId": "fbfe4605-43a0-488d-9259-3ac3a1a72186",
+                "title": "Makaron sojowy z kurczakiem i warzywami",
+                "kcalPerServing": 483,
+                "prepTimeMinutes": 25,
+                "imageUrl": "https://img.scoffie.app/recipe-images/fbfe4605-43a0-488d-9259-3ac3a1a72186-c439cacaeb.webp",
+                "description": "Szklisty makaron sojowy wymieszany z kurczakiem i chrupiącymi warzywami, w sosie sojowym z czosnkiem, imbirem i olejem sezamowym. Kolacja w stylu azjatyckim w 25 minut, z jednej patelni.",
+                "proteinGrams": 33,
+                "carbsGrams": 54,
+                "fatGrams": 14,
+                "ingredientCount": 12,
+                "tag": "Najszybsze",
+                "prompt": "Wybieram: Makaron sojowy z kurczakiem i warzywami"
+              },
+              {
+                "recipeId": "b04a8faf-dbac-498c-aac5-a23888c2ee82",
+                "title": "Sałatka ryżowa z kurczakiem curry",
+                "kcalPerServing": 662,
+                "prepTimeMinutes": 30,
+                "imageUrl": "https://img.scoffie.app/recipe-images/b04a8faf-dbac-498c-aac5-a23888c2ee82-9103c7b6f1.webp",
+                "description": "Złoty ryż basmati z kurczakiem w curry, ananasem, kukurydzą, papryką i dymką, połączony lekkim sosem jogurtowym. Sprawdza się na kolację, na imprezę i do pudełka — im dłużej postoi, tym lepsza.",
+                "proteinGrams": 39,
+                "carbsGrams": 73,
+                "fatGrams": 22,
+                "ingredientCount": 12,
+                "tag": "Najwięcej białka",
+                "prompt": "Wybieram: Sałatka ryżowa z kurczakiem curry"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ]
+}

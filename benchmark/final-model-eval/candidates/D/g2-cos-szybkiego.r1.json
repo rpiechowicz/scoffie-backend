@@ -1,0 +1,201 @@
+{
+  "label": "cand-D-g2-cos-szybkiego",
+  "startedAt": "2026-09-26T17:04:55.484Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "D",
+      "label": "Haiku / low (wszystko)",
+      "model": "claude-haiku-4-5",
+      "effort": "low",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.006494,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "D",
+      "configLabel": "Haiku / low (wszystko)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.006494,
+      "p95CostUsd": 0.006494,
+      "medianLatencyMs": 3780,
+      "latencySplit": {
+        "wait": 0.5952380952380952,
+        "thinking": 0,
+        "toolInput": 0.3952380952380952,
+        "text": 0,
+        "toolsRun": 0.008465608465608466,
+        "other": 0.0010582010582010583
+      },
+      "medianFirstBlockMs": 2250,
+      "cacheHitRatio": 0.931583838562641,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 2,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.006494
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g2-cos-szybkiego",
+      "group": 2,
+      "pyta": "Czy „szybko\" filtruje po czasie z katalogu, a nie po wrażeniu?",
+      "config": "D",
+      "configLabel": "Haiku / low (wszystko)",
+      "model": "claude-haiku-4-5",
+      "effort": "low",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "suggest_meals"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "suggest_meals",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "a7353615-a9b5-4d57-a5e6-ff28256d1b03",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 3780,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 3746,
+          "firstBlockMs": 2250,
+          "thinkingMs": 0,
+          "toolInputMs": 1494,
+          "textMs": 0,
+          "outputTokens": 260,
+          "tools": [
+            "suggest_meals"
+          ],
+          "toolsRunMs": 32
+        }
+      ],
+      "inputTokens": 3,
+      "outputTokens": 260,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1543,
+      "cacheHitRatio": 0.931583838562641,
+      "costMicroUsd": 6494,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Trzy propozycje na kolację w poniedziałek — wybierz jedną.",
+      "cards": [
+        {
+          "kind": "OPTIONS",
+          "payload": {
+            "kind": "OPTIONS",
+            "v": 1,
+            "eyebrow": "Kolacja · poniedziałek",
+            "title": "Trzy szybkie propozycje",
+            "options": [
+              {
+                "recipeId": "c7b43906-34bc-49e1-b847-f391472f6b0a",
+                "title": "Domowe hot dogi z ogórkiem i prażoną cebulką",
+                "kcalPerServing": 592,
+                "prepTimeMinutes": 15,
+                "imageUrl": "https://img.scoffie.app/recipe-images/c7b43906-34bc-49e1-b847-f391472f6b0a-6e630acdf9.webp",
+                "description": "Gorące parówki w chrupiących bułkach z ketchupem, musztardą, ogórkiem konserwowym i prażoną cebulką. Kolacja na szybko, którą uwielbiają dzieci, a dorośli po cichu też.",
+                "proteinGrams": 21,
+                "carbsGrams": 69,
+                "fatGrams": 25,
+                "ingredientCount": 7,
+                "tag": "Najlepiej pasuje",
+                "prompt": "Wybieram: Domowe hot dogi z ogórkiem i prażoną cebulką"
+              },
+              {
+                "recipeId": "ff5707a0-1f73-4beb-89cc-30f14f49e490",
+                "title": "Sałatka z tortellini i pomidorkami",
+                "kcalPerServing": 542,
+                "prepTimeMinutes": 20,
+                "imageUrl": "https://img.scoffie.app/recipe-images/ff5707a0-1f73-4beb-89cc-30f14f49e490-e6a59640ab.webp",
+                "description": "Tortellini z serem wymieszane z pomidorkami koktajlowymi, ogórkiem, zielonymi oliwkami i rukolą, skropione balsamicznym winegretem i posypane parmezanem. Szybka kolacja w śródziemnomorskim klimacie.",
+                "proteinGrams": 19,
+                "carbsGrams": 61,
+                "fatGrams": 24,
+                "ingredientCount": 12,
+                "tag": null,
+                "prompt": "Wybieram: Sałatka z tortellini i pomidorkami"
+              },
+              {
+                "recipeId": "b083624b-6777-4630-aad2-d76b8b736327",
+                "title": "Wrap z indykiem, hummusem i warzywami",
+                "kcalPerServing": 458,
+                "prepTimeMinutes": 10,
+                "imageUrl": "https://img.scoffie.app/recipe-images/b083624b-6777-4630-aad2-d76b8b736327-a29ccbce98.webp",
+                "description": "Szybki wrap na wynos bez gotowania. Tortilla z hummusem, wędliną drobiową i chrupiącymi warzywami, ciasno zwinięta i przekrojona na pół.",
+                "proteinGrams": 21,
+                "carbsGrams": 47,
+                "fatGrams": 19,
+                "ingredientCount": 6,
+                "tag": "Najszybsze",
+                "prompt": "Wybieram: Wrap z indykiem, hummusem i warzywami"
+              }
+            ],
+            "actions": [
+              {
+                "type": "ASK",
+                "proposalId": null,
+                "label": "Coś innego",
+                "style": "SECONDARY",
+                "prompt": "Żadne z tych mi nie pasuje. Zaproponuj coś innego."
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ]
+}

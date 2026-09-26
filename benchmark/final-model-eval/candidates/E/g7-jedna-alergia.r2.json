@@ -1,0 +1,304 @@
+{
+  "label": "cand-E-g7-jedna-alergia",
+  "startedAt": "2026-09-26T17:32:25.333Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.019877,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 2,
+      "passRate": 1,
+      "medianRounds": 1,
+      "p95Rounds": 1,
+      "maxRounds": 1,
+      "medianCostUsd": 0.009291,
+      "p95CostUsd": 0.010586,
+      "medianLatencyMs": 9394,
+      "latencySplit": {
+        "wait": 0.15008311564948942,
+        "thinking": 0.8415578247447162,
+        "toolInput": 0.0033246259795772976,
+        "text": 0,
+        "toolsRun": 0.004417003087152696,
+        "other": 0.0006174305390643553
+      },
+      "medianFirstBlockMs": 1328,
+      "cacheHitRatio": 0.9302664722259049,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 7,
+          "runs": 2,
+          "passRate": 1,
+          "medianRounds": 1,
+          "medianCostUsd": 0.009291
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g7-jedna-alergia",
+      "group": 7,
+      "pyta": "Czy alergen z profilu naprawdę nie trafia do planu?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "fbfe4605-43a0-488d-9259-3ac3a1a72186",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 483
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "14f2eaef-68a1-435e-ab1f-a140db70ebcc",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 465
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "743db996-f0fd-4089-a293-97dd02734809",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 765
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "67b535d3-866b-4e7d-8a84-7d8bfb17b2df",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 621
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "83df90f0-82f1-4da9-9681-d09d6a45b903",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 11661,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 11606,
+          "firstBlockMs": 1832,
+          "thinkingMs": 9708,
+          "toolInputMs": 60,
+          "textMs": 0,
+          "outputTokens": 1067,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 53
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 1067,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1568,
+      "cacheHitRatio": 0.9302664722259049,
+      "costMicroUsd": 10586,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g7-jedna-alergia",
+      "group": 7,
+      "pyta": "Czy alergen z profilu naprawdę nie trafia do planu?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "OK"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "fbfe4605-43a0-488d-9259-3ac3a1a72186",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 483
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "14f2eaef-68a1-435e-ab1f-a140db70ebcc",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 465
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "743db996-f0fd-4089-a293-97dd02734809",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 765
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "67b535d3-866b-4e7d-8a84-7d8bfb17b2df",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 621
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "64f5d9f4-482d-406e-b8a4-336acd789aef",
+          "calorieGoal": 2000
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 9394,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 9354,
+          "firstBlockMs": 1328,
+          "thinkingMs": 8011,
+          "toolInputMs": 10,
+          "textMs": 0,
+          "outputTokens": 808,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 40
+        }
+      ],
+      "inputTokens": 10,
+      "outputTokens": 808,
+      "cacheReadTokens": 21051,
+      "cacheWriteTokens": 1568,
+      "cacheHitRatio": 0.9302664722259049,
+      "costMicroUsd": 9291,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

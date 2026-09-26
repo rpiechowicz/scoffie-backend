@@ -1,0 +1,267 @@
+{
+  "label": "after-g6-tydzien-dwa-cele",
+  "startedAt": "2026-09-26T16:16:43.378Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.031352,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.031352,
+      "p95CostUsd": 0.031352,
+      "medianLatencyMs": 11271,
+      "latencySplit": {
+        "wait": 0.3456658681572176,
+        "thinking": 0.17859994676603674,
+        "toolInput": 0.15570934256055363,
+        "text": 0.30387720699139387,
+        "toolsRun": 0.014195723538284091,
+        "other": 0.0019519119865140627
+      },
+      "medianFirstBlockMs": 1789,
+      "cacheHitRatio": 0.9293580749792563,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 6,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.031352
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g6-tydzien-dwa-cele",
+      "group": 6,
+      "pyta": "Czy tydzień dla dwóch osób o różnych celach jest kompletny?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "PARTIAL"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "LUNCH",
+          "recipeId": "fad151de-b3aa-4fbd-b666-876d3dc94cd0",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 838
+        },
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "6cd87ab9-dd7d-47b0-8c04-3f198aad0ef3",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 534
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "LUNCH",
+          "recipeId": "131647ec-995c-4749-9f75-e7bc9d7d0593",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 864
+        },
+        {
+          "dayOfWeek": "TUE",
+          "mealType": "DINNER",
+          "recipeId": "fbfe4605-43a0-488d-9259-3ac3a1a72186",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 483
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "743db996-f0fd-4089-a293-97dd02734809",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 765
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "2b63c5bd-e52b-4fe1-af0f-7883ef6b9066",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 587
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "LUNCH",
+          "recipeId": "095ebe70-4cc1-4502-840e-cec6cec4f3ea",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 890
+        },
+        {
+          "dayOfWeek": "THU",
+          "mealType": "DINNER",
+          "recipeId": "16f154b3-dd15-4292-9fa9-bf4014aa05c9",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 511
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "LUNCH",
+          "recipeId": "2ad8d9cf-b6c3-4045-b3d9-c0f465e12e8b",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 715
+        },
+        {
+          "dayOfWeek": "FRI",
+          "mealType": "DINNER",
+          "recipeId": "01b9aad4-630e-4220-9637-89e0cb6b10cc",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 554
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "LUNCH",
+          "recipeId": "85c3d6b4-429f-42f0-a114-378e4429cdc1",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 793
+        },
+        {
+          "dayOfWeek": "SAT",
+          "mealType": "DINNER",
+          "recipeId": "73b9e066-e6e1-464b-bd9d-83bc42198dbe",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 538
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "LUNCH",
+          "recipeId": "feec4508-9e76-47c5-bffd-ccf5c50e0291",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 855
+        },
+        {
+          "dayOfWeek": "SUN",
+          "mealType": "DINNER",
+          "recipeId": "fc96dbe8-ad03-478b-be5a-d08b1f41b1c5",
+          "participantIds": [],
+          "plannedServings": 2,
+          "kcalPerServing": 501
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "590a557f-4118-4194-b214-2f2fbf5a4976",
+          "calorieGoal": 2600
+        },
+        {
+          "key": "ania",
+          "userId": "53cfca83-7faa-4f1e-99fc-f9393bb440ac",
+          "calorieGoal": 1700
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 11271,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5894,
+          "firstBlockMs": 2107,
+          "thinkingMs": 2013,
+          "toolInputMs": 1755,
+          "textMs": 0,
+          "outputTokens": 450,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 160
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 5216,
+          "firstBlockMs": 1789,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 3425,
+          "outputTokens": 202,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 4,
+      "outputTokens": 652,
+      "cacheReadTokens": 49282,
+      "cacheWriteTokens": 3742,
+      "cacheHitRatio": 0.9293580749792563,
+      "costMicroUsd": 31352,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan na 7 dni z obiadami i kolacjami jest gotowy w propozycji do zatwierdzenia — zapisujesz go sam jednym kliknięciem, ja tego nie robię automatycznie.\n\nRafal i Ania mają bardzo różne cele kaloryczne (2600 vs 1700 kcal), więc te same porcje wychodzą za małe dla niego, a za duże dla niej niemal codziennie — warto rozważyć osobne porcje albo dorzucić Rafałowi coś dodatkowego, żeby domknąć jego dzienny cel.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

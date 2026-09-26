@@ -1,0 +1,174 @@
+{
+  "label": "cand-E-g4-dzien-w-limicie-kcal",
+  "startedAt": "2026-09-26T17:17:29.271Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 1,
+  "configs": [
+    {
+      "id": "E",
+      "label": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.019637,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "runs": 1,
+      "passRate": 1,
+      "medianRounds": 2,
+      "p95Rounds": 2,
+      "maxRounds": 2,
+      "medianCostUsd": 0.019637,
+      "p95CostUsd": 0.019637,
+      "medianLatencyMs": 20654,
+      "latencySplit": {
+        "wait": 0.127578193086085,
+        "thinking": 0.7952454730318582,
+        "toolInput": 0.00009683354313934346,
+        "text": 0.07436816113101578,
+        "toolsRun": 0.002130337949065556,
+        "other": 0.0005810012588360608
+      },
+      "medianFirstBlockMs": 1267,
+      "cacheHitRatio": 0.9253051364638074,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 4,
+          "runs": 1,
+          "passRate": 1,
+          "medianRounds": 2,
+          "medianCostUsd": 0.019637
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g4-dzien-w-limicie-kcal",
+      "group": 4,
+      "pyta": "Czy podany w rozmowie limit kalorii przekłada się na dobór dań?",
+      "config": "E",
+      "configLabel": "Haiku / medium (myślenie 2048)",
+      "model": "claude-haiku-4-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": true,
+      "issues": [],
+      "tools": [
+        "build_meal_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 2,
+      "turnApiCalls": [
+        2
+      ],
+      "toolCalls": [
+        {
+          "name": "build_meal_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": "PARTIAL"
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "WED",
+          "mealType": "LUNCH",
+          "recipeId": "f6920a03-f097-4778-85c2-d76c0c76d1e6",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 387
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "BREAKFAST",
+          "recipeId": "1a66ef3b-f1dc-4427-b6b3-3ca5d6986e80",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 393
+        },
+        {
+          "dayOfWeek": "WED",
+          "mealType": "DINNER",
+          "recipeId": "4114372b-e408-457d-856a-ac3a20525d21",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 399
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "1ebafb3e-03d0-49cb-ac52-aeac29185762",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 20654,
+      "timings": [
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 17802,
+          "firstBlockMs": 1368,
+          "thinkingMs": 16425,
+          "toolInputMs": 2,
+          "textMs": 0,
+          "outputTokens": 1524,
+          "tools": [
+            "build_meal_plan"
+          ],
+          "toolsRunMs": 44
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "totalMs": 2807,
+          "firstBlockMs": 1267,
+          "thinkingMs": 0,
+          "toolInputMs": 0,
+          "textMs": 1536,
+          "outputTokens": 123,
+          "tools": [],
+          "toolsRunMs": null
+        }
+      ],
+      "inputTokens": 15,
+      "outputTokens": 1647,
+      "cacheReadTokens": 43667,
+      "cacheWriteTokens": 3510,
+      "cacheHitRatio": 0.9253051364638074,
+      "costMicroUsd": 19637,
+      "stopReason": "end_turn",
+      "stopReasons": [
+        "end_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Plan znalazł się, ale serwer sygnalizuje, że lekkie dania dały 1179 kcal — jest to poniżej twojego celu 2200, a nawet poniżej 1800, które chciałeś. To dobrze wpisuje się w limit, ale mniej białka niż masz w celu.\n\nChcesz tak zostawić, czy poprawić jedną porę, żeby doać białka i kalorii?",
+      "cards": [],
+      "error": null
+    }
+  ]
+}

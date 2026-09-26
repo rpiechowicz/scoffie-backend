@@ -1,0 +1,384 @@
+{
+  "label": "after-g11-przepis-katalogowy",
+  "startedAt": "2026-09-26T16:52:16.918Z",
+  "commit": "92e837c",
+  "worktreeDirty": true,
+  "catalogMode": "search",
+  "catalogSize": 500,
+  "cacheWarmHours": 0,
+  "cardsMode": "strict",
+  "weekStart": "2026-10-05",
+  "scenarios": 1,
+  "runsPerScenario": 2,
+  "configs": [
+    {
+      "id": "A",
+      "label": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "effortTools": "low"
+    }
+  ],
+  "concurrency": 1,
+  "budget": {
+    "maxCostUsd": 1.5,
+    "spentUsd": 0.12846,
+    "stopped": false
+  },
+  "harness": {
+    "turnMemo": true,
+    "historyCards": true
+  },
+  "aggregates": [
+    {
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "runs": 2,
+      "passRate": 0,
+      "medianRounds": 1,
+      "p95Rounds": 4,
+      "maxRounds": 4,
+      "medianCostUsd": 0.023245,
+      "p95CostUsd": 0.105215,
+      "medianLatencyMs": 11248,
+      "latencySplit": {
+        "wait": 0.20687900681795054,
+        "thinking": 0.25839014958787015,
+        "toolInput": 0.4930904650452834,
+        "text": 0.03883178996641905,
+        "toolsRun": 0.002238730029510532,
+        "other": 0.0005698585529663173
+      },
+      "medianFirstBlockMs": 2003,
+      "cacheHitRatio": 0.9076877672902682,
+      "unnecessaryHandoffRate": null,
+      "missedHandoffRate": null,
+      "byGroup": [
+        {
+          "group": 11,
+          "runs": 2,
+          "passRate": 0,
+          "medianRounds": 1,
+          "medianCostUsd": 0.023245
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "g11-przepis-katalogowy",
+      "group": 11,
+      "pyta": "Czy próba edycji przepisu KATALOGOWEGO kończy się odmową?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 1,
+      "pass": false,
+      "issues": [
+        "nie wyjasnil, dlaczego nie da sie zmienic przepisu katalogowego"
+      ],
+      "tools": [
+        "propose_day_plan"
+      ],
+      "handoff": false,
+      "apiCalls": 1,
+      "turnApiCalls": [
+        1
+      ],
+      "toolCalls": [
+        {
+          "name": "propose_day_plan",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "33095f72-9070-4302-9a54-1c7f6da3314e",
+          "participantIds": [],
+          "plannedServings": 8,
+          "kcalPerServing": 661
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "8ab4cbce-2a8a-4dae-9239-5e532e525339",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 11248,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 11225,
+          "firstBlockMs": 1758,
+          "thinkingMs": 8443,
+          "toolInputMs": 1023,
+          "textMs": 0,
+          "outputTokens": 1033,
+          "tools": [
+            "propose_day_plan"
+          ],
+          "toolsRunMs": 21
+        }
+      ],
+      "inputTokens": 2,
+      "outputTokens": 1033,
+      "cacheReadTokens": 23656,
+      "cacheWriteTokens": 2045,
+      "cacheHitRatio": 0.9203594911099872,
+      "costMicroUsd": 23245,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Propozycja czeka na zatwierdzenie.",
+      "cards": [],
+      "error": null
+    },
+    {
+      "scenario": "g11-przepis-katalogowy",
+      "group": 11,
+      "pyta": "Czy próba edycji przepisu KATALOGOWEGO kończy się odmową?",
+      "config": "A",
+      "configLabel": "Sonnet / medium (obecna produkcja)",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "toolsModel": null,
+      "run": 2,
+      "pass": false,
+      "issues": [
+        "nie wyjasnil, dlaczego nie da sie zmienic przepisu katalogowego"
+      ],
+      "tools": [
+        "get_recipe_details",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "search_ingredients",
+        "create_recipe",
+        "propose_swap"
+      ],
+      "handoff": false,
+      "apiCalls": 4,
+      "turnApiCalls": [
+        4
+      ],
+      "toolCalls": [
+        {
+          "name": "get_recipe_details",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "search_ingredients",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "create_recipe",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        },
+        {
+          "name": "propose_swap",
+          "ok": true,
+          "errorCode": null,
+          "plannerStatus": null
+        }
+      ],
+      "target": [
+        {
+          "dayOfWeek": "MON",
+          "mealType": "DINNER",
+          "recipeId": "f0223f88-a826-4805-9096-9d2eb2d2323e",
+          "participantIds": [],
+          "plannedServings": 1,
+          "kcalPerServing": 661
+        }
+      ],
+      "members": [
+        {
+          "key": "owner",
+          "userId": "a5bdac02-89fc-4a10-87ca-07effaf17f21",
+          "calorieGoal": 2200
+        }
+      ],
+      "enabledMealTypes": null,
+      "latencyMs": 37887,
+      "timings": [
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3781,
+          "firstBlockMs": 2003,
+          "thinkingMs": 1525,
+          "toolInputMs": 249,
+          "textMs": 0,
+          "outputTokens": 203,
+          "tools": [
+            "get_recipe_details"
+          ],
+          "toolsRunMs": 7
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 9499,
+          "firstBlockMs": 2028,
+          "thinkingMs": 556,
+          "toolInputMs": 5912,
+          "textMs": 991,
+          "outputTokens": 1197,
+          "tools": [
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients",
+            "search_ingredients"
+          ],
+          "toolsRunMs": 31
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 20757,
+          "firstBlockMs": 2687,
+          "thinkingMs": 2172,
+          "toolInputMs": 15897,
+          "textMs": 0,
+          "outputTokens": 1469,
+          "tools": [
+            "create_recipe"
+          ],
+          "toolsRunMs": 24
+        },
+        {
+          "model": "claude-sonnet-5",
+          "totalMs": 3761,
+          "firstBlockMs": 1689,
+          "thinkingMs": 0,
+          "toolInputMs": 1147,
+          "textMs": 917,
+          "outputTokens": 225,
+          "tools": [
+            "propose_swap"
+          ],
+          "toolsRunMs": 27
+        }
+      ],
+      "inputTokens": 8,
+      "outputTokens": 3094,
+      "cacheReadTokens": 111016,
+      "cacheWriteTokens": 13014,
+      "cacheHitRatio": 0.8950160434705493,
+      "costMicroUsd": 105215,
+      "stopReason": "tool_ended_turn",
+      "stopReasons": [
+        "tool_ended_turn"
+      ],
+      "weekPlanPayloadBytes": null,
+      "answer": "Podmiana czeka na zatwierdzenie.",
+      "cards": [],
+      "error": null
+    }
+  ]
+}
