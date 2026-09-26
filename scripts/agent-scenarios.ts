@@ -42,7 +42,6 @@ import { AgentMemoryService } from '../src/agent/agent-memory.service';
 import { AiEffort, AgentEnv, readAgentEnv } from '../src/config/agent-env';
 import { resolveRoute } from '../src/agent/agent-route';
 import { createPlanScope } from '../src/agent/tools/plan-scope';
-import { createTurnMemo } from '../src/agent/turn-memo';
 import {
   AgentCallTiming,
   AgentProviderError,
@@ -72,6 +71,45 @@ import {
   ToolCall,
   WEEK_START,
 } from './lib/agent-benchmark-scenarios';
+
+/**
+ * Moduły, których nie ma na każdym porównywanym commicie (Etap 6: anchor
+ * `22aa63c` vs HEAD). Ten sam plik harnessu biegnie na obu, a każdy commit
+ * dostaje DOKŁADNIE swoją produkcyjną ścieżkę: pamięć tury (Etap 3) i
+ * historię rozmowy z kartami (`history-cards`, Etap 1) tam, gdzie istnieją;
+ * na anchorze — historię samym tekstem, jak jego runner.
+ */
+function optionalModule<T>(path: string): T | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require(path) as T;
+  } catch {
+    return null;
+  }
+}
+
+type HistoryRow = {
+  role: 'USER' | 'ASSISTANT';
+  kind: string;
+  text: string;
+  card: unknown;
+};
+
+const turnMemoModule = optionalModule<{ createTurnMemo: () => unknown }>(
+  '../src/agent/turn-memo',
+);
+const historyCardsModule = optionalModule<{
+  historyTexts: (
+    rows: HistoryRow[],
+    options: {
+      refByRecipeId: Map<string, string>;
+      visibleUserIds: Set<string>;
+      proposals: Map<string, { id: string; status: string; expiresAt: Date }>;
+      now: Date;
+    },
+  ) => string[];
+  planProposalIds: (rows: HistoryRow[]) => string[];
+}>('../src/agent/history-cards');
 
 /** Scenariusze bywają dłuższe niż zwykła tura — to diagnostyka, nie produkcja. */
 const SCENARIO_TIMEOUT_MS = 300_000;
@@ -128,6 +166,16 @@ const CONFIGS: BenchConfig[] = [
     toolsModel: null,
     effortTools: 'low',
   },
+  {
+    // Etap 6: tańszy model z „rozsądnym" wysiłkiem. Haiku 4.5 nie ma
+    // `effort`; `medium` = myślenie z budżetem 2048 tokenów (low = bez).
+    id: 'E',
+    label: 'Haiku / medium (myślenie 2048)',
+    model: 'claude-haiku-4-5',
+    effort: 'medium',
+    toolsModel: null,
+    effortTools: 'low',
+  },
 ];
 
 type RunRecord = {
@@ -146,6 +194,26 @@ type RunRecord = {
   /** Czy tura przeszła na planistę (`start_planning`). */
   handoff: boolean;
   apiCalls: number;
+  /** Rundy modelu na TURĘ scenariusza (Etap 6). */
+  turnApiCalls: number[];
+  /** Wywołania narzędzi: wynik i status planera, bez treści (Etap 6). */
+  toolCalls: {
+    name: string;
+    ok: boolean;
+    errorCode: string | null;
+    plannerStatus: string | null;
+  }[];
+  /** Stan docelowy po scenariuszu (propozycja albo plan) — do jakości planu. */
+  target: {
+    dayOfWeek: string;
+    mealType: string;
+    recipeId: string;
+    participantIds: string[];
+    plannedServings: number;
+    kcalPerServing: number;
+  }[];
+  members: { key: string; userId: string; calorieGoal: number }[];
+  enabledMealTypes: string[] | null;
   latencyMs: number;
   inputTokens: number;
   outputTokens: number;
@@ -552,9 +620,21 @@ async function readProposalTarget(
   prisma: PrismaService,
   householdId: string,
 ): Promise<PlanRow[] | null> {
-  const proposal = await prisma.agentProposal.findFirst({
+  const latest = await prisma.agentProposal.findFirst({
     where: { householdId, status: 'PENDING' },
     orderBy: { createdAt: 'desc' },
+    select: { id: true },
+  });
+  if (!latest) return null;
+  return readProposalRows(prisma, { id: latest.id });
+}
+
+async function readProposalRows(
+  prisma: PrismaService,
+  where: { id: string },
+): Promise<PlanRow[] | null> {
+  const proposal = await prisma.agentProposal.findUnique({
+    where,
     select: { action: true },
   });
   if (!proposal) return null;
@@ -599,6 +679,55 @@ async function readProposalTarget(
         recipe: byId.get(slot.recipeId) as RecipeShape,
       }),
     );
+}
+
+/** Cele wszystkich propozycji domu, od najstarszej (Etap 6). */
+async function readProposalHistory(
+  prisma: PrismaService,
+  householdId: string,
+): Promise<PlanRow[][]> {
+  const proposals = await prisma.agentProposal.findMany({
+    where: { householdId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+  const out: PlanRow[][] = [];
+  for (const proposal of proposals) {
+    out.push((await readProposalRows(prisma, { id: proposal.id })) ?? []);
+  }
+  return out;
+}
+
+/**
+ * Historia dla modelu TAK, jak składa ją runner danego commita: z kartami
+ * poprzednich tur (`history-cards`, gdy moduł istnieje) albo samym tekstem.
+ */
+async function historyForModel(
+  deps: Deps,
+  conversationId: string,
+  rows: HistoryRow[],
+  prompt: { catalogIndex: Record<string, string>; visibleUserIds?: string[] },
+): Promise<AgentProviderMessage[]> {
+  if (!historyCardsModule) {
+    return rows.map((row) => ({ role: row.role, text: row.text }));
+  }
+  const ids = historyCardsModule.planProposalIds(rows);
+  const proposals =
+    ids.length > 0
+      ? await deps.prisma.agentProposal.findMany({
+          where: { id: { in: ids }, conversationId },
+          select: { id: true, status: true, expiresAt: true },
+        })
+      : [];
+  const texts = historyCardsModule.historyTexts(rows, {
+    refByRecipeId: new Map(
+      Object.entries(prompt.catalogIndex).map(([ref, id]) => [id, ref]),
+    ),
+    visibleUserIds: new Set(prompt.visibleUserIds ?? []),
+    proposals: new Map(proposals.map((row) => [row.id, row])),
+    now: new Date(),
+  });
+  return rows.map((row, index) => ({ role: row.role, text: texts[index] }));
 }
 
 // ---------------------------------------------------------------------------
@@ -703,7 +832,8 @@ async function runOnce(
   const calls: ToolCall[] = [];
   const cards: { kind: string; payload: Record<string, unknown> }[] = [];
   const answers: string[] = [];
-  const messages: AgentProviderMessage[] = [];
+  const history: HistoryRow[] = [];
+  const turnApiCalls: number[] = [];
   let apiCalls = 0;
   let latencyMs = 0;
   const timings: AgentCallTiming[] = [];
@@ -721,8 +851,12 @@ async function runOnce(
   try {
     for (const text of scenario.prompts) {
       // Pamięć tury — jak w `AgentTurnRunner` (Etap 3): jedna na turę,
-      // wspólna dla promptu i narzędzi.
-      const memo = createTurnMemo();
+      // wspólna dla promptu i narzędzi. Na commicie bez niej — brak.
+      const memo = turnMemoModule?.createTurnMemo();
+      // Jedna tura = jeden identyfikator, jak w runnerze (propozycja tury
+      // i jej karta w historii kolejnej tury).
+      const turnId = randomUUID();
+      const cardsBefore = cards.length;
       const prompt = await deps.prompts.build(
         built.ownerId,
         built.householdId,
@@ -733,9 +867,18 @@ async function runOnce(
         },
         proposalMode,
         route.promptHandoff,
-        memo,
+        memo as never,
       );
-      messages.push({ role: 'USER', text });
+      history.push({ role: 'USER', kind: 'TEXT', text, card: null });
+      const messages = await historyForModel(
+        deps,
+        built.conversationId,
+        history,
+        prompt as unknown as {
+          catalogIndex: Record<string, string>;
+          visibleUserIds?: string[];
+        },
+      );
       // Zakres planowania TURY — tak jak w `AgentTurnRunner`: jeden na turę,
       // wspólny dla obu faz. Bez niego scenariusz omijał bramkę „najwyżej
       // tydzień na prośbę", a `find_recipes` rankingu bez planu tygodnia.
@@ -753,7 +896,7 @@ async function runOnce(
           effort: route.effort,
           handoff: route.handoff,
           system: prompt.system,
-          messages: [...messages],
+          messages,
           tools: route.tools,
           executeTool: async (name, input) => {
             const outcome = await deps.tools.execute(name, input, {
@@ -761,10 +904,10 @@ async function runOnce(
               householdId: built.householdId,
               catalogIndex: prompt.catalogIndex,
               conversationId: built.conversationId,
-              turnId: randomUUID(),
+              turnId,
               proposalMode,
               planScope,
-              memo,
+              ...(memo ? { memo: memo as never } : {}),
               dates: { weekStart: WEEK_START, clientToday: WEEK_START },
               collectCard: (card: AgentCard) =>
                 cards.push({
@@ -789,6 +932,7 @@ async function runOnce(
         latencyMs += Date.now() - started;
       }
       apiCalls += result.apiCalls;
+      turnApiCalls.push(result.apiCalls);
       timings.push(...(result.timings ?? []));
       inputTokens += result.usage.inputTokens;
       outputTokens += result.usage.outputTokens;
@@ -798,7 +942,20 @@ async function runOnce(
       stopReason = result.stopReason;
       stopReasons.push(result.stopReason ?? 'null');
       answers.push(result.text);
-      messages.push({ role: 'ASSISTANT', text: result.text });
+      // Karta odpowiedzi jak w `finishDone`: propozycja tury ma
+      // pierwszeństwo przed kartą bez skutków.
+      const proposal = await deps.prisma.agentProposal.findFirst({
+        where: { turnId },
+        orderBy: { createdAt: 'desc' },
+        select: { kind: true, card: true },
+      });
+      const memoryCard = cards.slice(cardsBefore).pop();
+      history.push({
+        role: 'ASSISTANT',
+        kind: proposal?.kind ?? memoryCard?.kind ?? 'TEXT',
+        text: result.text,
+        card: proposal?.card ?? memoryCard?.payload ?? null,
+      });
     }
   } catch (caught) {
     error = caught instanceof Error ? caught.message : String(caught);
@@ -819,6 +976,9 @@ async function runOnce(
   const proposalTarget = proposalMode
     ? await readProposalTarget(deps.prisma, built.householdId)
     : null;
+  const proposalHistory = proposalMode
+    ? await readProposalHistory(deps.prisma, built.householdId)
+    : [];
   const notes = (
     await deps.prisma.agentMemory.findMany({
       where: { householdId: built.householdId },
@@ -854,6 +1014,7 @@ async function runOnce(
           plan,
           target: proposalTarget ?? plan,
           proposed: proposalTarget !== null,
+          proposalHistory,
           answer: answers[answers.length - 1] ?? '',
           answers,
           tools,
@@ -871,6 +1032,29 @@ async function runOnce(
     }
     issues.push(...contractIssues(scenario, tools, apiCalls));
   }
+
+  const finalTarget = proposalTarget ?? plan;
+  const kcalById = new Map(
+    deps.catalog.map((recipe) => [recipe.id, recipe.kcalPerServing]),
+  );
+  const toolCalls = calls.map((call) => {
+    let parsed: {
+      ok?: boolean;
+      error?: { code?: string };
+      data?: { planner?: { status?: string } };
+    } = {};
+    try {
+      parsed = JSON.parse(call.json) as typeof parsed;
+    } catch {
+      parsed = {};
+    }
+    return {
+      name: call.name,
+      ok: call.ok,
+      errorCode: parsed.error?.code ?? null,
+      plannerStatus: parsed.data?.planner?.status ?? null,
+    };
+  });
 
   await deps.prisma.household.deleteMany({ where: { id: built.householdId } });
   await deps.prisma.user.deleteMany({ where: { id: { in: built.userIds } } });
@@ -893,6 +1077,22 @@ async function runOnce(
     tools,
     handoff: tools.includes('start_planning'),
     apiCalls,
+    turnApiCalls,
+    toolCalls,
+    target: finalTarget.map((row) => ({
+      dayOfWeek: row.dayOfWeek,
+      mealType: row.mealType,
+      recipeId: row.recipeId,
+      participantIds: row.participantIds,
+      plannedServings: row.plannedServings,
+      kcalPerServing: kcalById.get(row.recipeId) ?? row.recipe.kcalPerServing,
+    })),
+    members: scenario.members.map((spec) => ({
+      key: spec.key,
+      userId: built.world.members[spec.key]?.userId ?? '',
+      calorieGoal: spec.calorieGoal ?? 2000,
+    })),
+    enabledMealTypes: scenario.enabledMealTypes ?? null,
     latencyMs,
     timings,
     inputTokens,
@@ -1254,6 +1454,11 @@ async function main(): Promise<void> {
     | 'soft'
     | 'strict';
   const concurrency = Math.max(1, Number(flag('concurrency') ?? '3'));
+  // Twardy sufit kosztu przebiegu (Etap 6): po jego przekroczeniu żaden nowy
+  // scenariusz nie startuje; biegnące kończą się normalnie.
+  const maxCostUsd = flag('max-cost-usd') ? Number(flag('max-cost-usd')) : null;
+  let spentMicroUsd = 0;
+  let budgetStopped = false;
   // Przebieg na sucho: świat, narzędzia i `verify` bez modelu i bez rachunku.
   const dry = has('dry');
   const label = flag('label') ?? 'przebieg';
@@ -1300,6 +1505,10 @@ async function main(): Promise<void> {
   let cursor = 0;
   const worker = async (): Promise<void> => {
     for (;;) {
+      if (maxCostUsd !== null && spentMicroUsd >= maxCostUsd * 1_000_000) {
+        budgetStopped = true;
+        return;
+      }
       const index = cursor;
       cursor += 1;
       if (index >= jobs.length) return;
@@ -1335,6 +1544,11 @@ async function main(): Promise<void> {
           tools: [],
           handoff: false,
           apiCalls: 0,
+          turnApiCalls: [],
+          toolCalls: [],
+          target: [],
+          members: [],
+          enabledMealTypes: null,
           latencyMs: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -1352,6 +1566,7 @@ async function main(): Promise<void> {
         };
       }
       records.push(record);
+      spentMicroUsd += record.costMicroUsd;
       done += 1;
       if (dry) {
         // Na sucho zastrzeżenia są NORMĄ (nikt nie ułożył planu). Awarią jest
@@ -1439,6 +1654,16 @@ NA SUCHO: ${records.length - zepsute.length} z ${records.length} scenariuszy ma 
         scenarios: chosen.length,
         runsPerScenario: runs,
         configs: chosenConfigs,
+        concurrency,
+        budget: {
+          maxCostUsd,
+          spentUsd: spentMicroUsd / 1_000_000,
+          stopped: budgetStopped,
+        },
+        harness: {
+          turnMemo: turnMemoModule !== null,
+          historyCards: historyCardsModule !== null,
+        },
         aggregates: aggregate(records),
         records,
       },

@@ -136,6 +136,11 @@ export type Verdict = {
   target: PlanRow[];
   /** Czy tura skończyła się propozycją (karta do kliknięcia). */
   proposed: boolean;
+  /**
+   * Cele WSZYSTKICH propozycji domu w kolejności powstania (Etap 6) — do
+   * scenariuszy „zmień w tej propozycji", które sprawdzają, że reszta została.
+   */
+  proposalHistory?: PlanRow[][];
   answer: string;
   answers: string[];
   tools: string[];
@@ -1871,6 +1876,158 @@ const GROUP_12: Scenario[] = [
   },
 ];
 
+/**
+ * Etap 6 — kontynuacje po karcie i odkrywanie, których 40 scenariuszy nie
+ * miało. Te same na anchorze `22aa63c` i na HEAD (anchor nie ma
+ * `suggest_meals`, więc `expectedTools` wymienia obie drogi).
+ */
+const optionIds = (card: { payload: Record<string, unknown> } | undefined) =>
+  ((card?.payload?.options ?? []) as { recipeId?: string }[])
+    .map((option) => option.recipeId)
+    .filter((id): id is string => typeof id === 'string');
+
+const PROPOSAL_OR_WRITE = [
+  'propose_swap',
+  'propose_day_plan',
+  'propose_week_plan',
+  'apply_week_plan',
+  'build_meal_plan',
+  'replace_plan_item',
+  'revise_proposal',
+];
+
+const GROUP_13: Scenario[] = [
+  {
+    name: 'g13-mam-kurczaka',
+    group: 13,
+    pyta: 'Czy „mam dużo kurczaka" daje dania z kurczakiem, a nie przypadkowe?',
+    members: SOLO,
+    prompts: [
+      'Mam dużo kurczaka — co z niego zrobić na kolację w poniedziałek?',
+    ],
+    expectedTools: ['offer_options', 'suggest_meals'],
+    forbiddenTools: WRITING_TOOLS,
+    maxRounds: 3,
+    verify: (v) => {
+      const issues: string[] = [];
+      const ids = optionIds(v.cards.find((card) => card.kind === 'OPTIONS'));
+      if (ids.length < 2) issues.push(`propozycji: ${ids.length}`);
+      const withChicken = ids.filter((id) =>
+        v.world.catalog
+          .find((recipe) => recipe.id === id)
+          ?.ingredientNames.some((name) => /kurczak/i.test(name)),
+      ).length;
+      if (ids.length > 0 && withChicken < Math.min(2, ids.length)) {
+        issues.push(`z kurczakiem: ${withChicken} z ${ids.length}`);
+      }
+      if (v.plan.length > 0) issues.push('plan zmieniony mimo pytania o wybór');
+      return issues;
+    },
+  },
+  {
+    name: 'g13-wybieram-druga',
+    group: 13,
+    pyta: 'Czy „Wybieram drugą" po karcie wyboru bierze DRUGIE danie z karty?',
+    members: SOLO,
+    prompts: ['Co na kolację w poniedziałek?', 'Wybieram drugą.'],
+    expectedTools: PROPOSAL_OR_WRITE,
+    maxRounds: 6,
+    verify: (v) => {
+      const issues: string[] = [];
+      const ids = optionIds(v.cards.find((card) => card.kind === 'OPTIONS'));
+      if (ids.length < 2) {
+        issues.push(`pierwsza tura bez karty wyboru (${ids.length} dań)`);
+        return issues;
+      }
+      const monDinner = v.target.filter(
+        (row) => row.dayOfWeek === 'MON' && row.mealType === 'DINNER',
+      );
+      if (monDinner.length !== 1) {
+        issues.push(
+          `kolacji w poniedziałek: ${monDinner.length}, oczekiwano 1`,
+        );
+      } else if (monDinner[0].recipeId !== ids[1]) {
+        issues.push('w planie nie jest DRUGIE danie z karty');
+      }
+      if (v.target.length !== 1) {
+        issues.push(
+          `pozycji w planie/propozycji: ${v.target.length}, oczekiwano 1`,
+        );
+      }
+      return issues;
+    },
+  },
+  {
+    name: 'g13-pokaz-inne',
+    group: 13,
+    pyta: 'Czy „Pokaż inne" daje NOWE dania, a nie te same?',
+    members: SOLO,
+    prompts: ['Co na kolację w poniedziałek?', 'Pokaż inne.'],
+    expectedTools: ['offer_options', 'suggest_meals'],
+    forbiddenTools: WRITING_TOOLS,
+    maxRounds: 6,
+    verify: (v) => {
+      const issues: string[] = [];
+      const options = v.cards.filter((card) => card.kind === 'OPTIONS');
+      if (options.length < 2) {
+        issues.push(`kart wyboru: ${options.length}, oczekiwano 2`);
+        return issues;
+      }
+      const first = new Set(optionIds(options[0]));
+      const second = optionIds(options[options.length - 1]);
+      if (second.length < 2) issues.push(`nowych propozycji: ${second.length}`);
+      const repeated = second.filter((id) => first.has(id)).length;
+      if (repeated > 0) issues.push(`powtórzone dania: ${repeated}`);
+      if (v.plan.length > 0) issues.push('plan zmieniony mimo pytania o wybór');
+      return issues;
+    },
+  },
+  {
+    name: 'g13-zmiana-w-propozycji',
+    group: 13,
+    pyta: 'Czy „w tej propozycji zamień kolację" zmienia jeden slot propozycji, a resztę zostawia?',
+    members: SOLO,
+    enabledMealTypes: ['BREAKFAST', 'LUNCH', 'DINNER'],
+    prompts: [
+      'Zaplanuj mi środę — śniadanie, obiad i kolację.',
+      'W tej propozycji zamień kolację na coś wegetariańskiego, resztę zostaw.',
+    ],
+    expectedTools: PROPOSAL_OR_WRITE,
+    maxRounds: 9,
+    verify: (v) => {
+      const issues: string[] = [];
+      const history = v.proposalHistory ?? [];
+      if (!v.proposed || history.length < 2) {
+        issues.push(
+          `propozycji: ${history.length}, oczekiwano 2 (plan + poprawka)`,
+        );
+        return issues;
+      }
+      const wed = (rows: PlanRow[], meal: MealType) =>
+        rows.find((row) => row.dayOfWeek === 'WED' && row.mealType === meal);
+      const before = history[0];
+      const after = v.target;
+      const dinner = wed(after, 'DINNER');
+      if (!dinner) issues.push('brak kolacji w środę po poprawce');
+      else if (
+        !dinner.recipe.dietTags.some((tag) =>
+          ['VEGETARIAN', 'VEGAN'].includes(tag),
+        )
+      ) {
+        issues.push('kolacja po poprawce nie jest wegetariańska');
+      }
+      for (const meal of ['BREAKFAST', 'LUNCH'] as MealType[]) {
+        const was = wed(before, meal)?.recipeId;
+        const is = wed(after, meal)?.recipeId;
+        if (was && was !== is)
+          issues.push(`${meal} zmienione mimo „resztę zostaw"`);
+        if (!is) issues.push(`brak ${meal} w środę po poprawce`);
+      }
+      return issues;
+    },
+  },
+];
+
 export const SCENARIOS: Scenario[] = [
   ...GROUP_1,
   ...GROUP_2,
@@ -1884,6 +2041,7 @@ export const SCENARIOS: Scenario[] = [
   ...GROUP_10,
   ...GROUP_11,
   ...GROUP_12,
+  ...GROUP_13,
 ];
 
 /**
