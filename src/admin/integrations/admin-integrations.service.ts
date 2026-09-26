@@ -78,6 +78,9 @@ export class AdminIntegrationsService {
           )
         : { status: 'off' as const, missing: ['ADMIN_RAILWAY_TOKEN'] },
     ]);
+    if (railway.status === 'ok') {
+      this.deploys.remember(railway.data, Date.parse(railway.fetchedAt));
+    }
     // Ekran widzi budowę w toku — śledzimy ją, póki się nie skończy.
     if (
       railway.status === 'ok' &&

@@ -168,6 +168,7 @@ export class AdminWatchService
         const railway = await fetchRailway(railwayToken);
         // Zmiana stanu wdrożeń od ostatniego odczytu → sygnał `ops`
         // (i śledzenie co 8 s, jeśli coś jest w toku).
+        this.deploys.remember(railway);
         this.deploys.observe(latestOf(railway));
         return [
           { kind: 'deploy-failed', problems: railwayAlerts(railway) },
