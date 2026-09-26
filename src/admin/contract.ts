@@ -1597,6 +1597,13 @@ export interface AnthropicBilling {
   configured: boolean;
   /** błąd pobrania z Anthropic (np. 401 zły klucz) — reszta pól może być pusta */
   error: string | null;
+  /**
+   * `true` — Anthropic chwilowo nie odpowiedział (timeout, 5xx, sieć), a dane
+   * są z ostatniego udanego odczytu (`fetchedAt` = jego chwila, `error` = co
+   * się stało teraz). Przy 401/403 zawsze `false` — zły klucz to nie chwilowa
+   * przerwa, starych danych nie podajemy.
+   */
+  stale: boolean;
   fetchedAt: IsoDate;
   /** `null` — brak kotwicy */
   balance: {
