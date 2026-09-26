@@ -8838,6 +8838,143 @@
         },
         "required": ["environment", "purchasesEnabled", "subscriptions"]
       },
+      "CatalogChangesPage": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "mode": { "type": "string", "enum": ["RESET_REQUIRED"] },
+              "snapshotRequired": { "type": "boolean", "enum": [true] },
+              "revision": {
+                "description": "Aktualna rewizja — informacyjnie; klient zaczyna snapshot od zera.",
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "FUTURE_REVISION",
+                  "REVISION_PRUNED",
+                  "UNKNOWN_REVISION"
+                ],
+                "type": "string"
+              }
+            },
+            "required": ["mode", "reason", "revision", "snapshotRequired"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "mode": { "type": "string", "enum": ["DELTA"] },
+              "fromRevision": { "type": "string" },
+              "revision": {
+                "description": "Rewizja, do której klient jest po zastosowaniu WSZYSTKICH stron.",
+                "type": "string"
+              },
+              "upserts": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/RecipeListItem" }
+              },
+              "tombstones": {
+                "description": "Identyfikatory przepisów, które klient ma usunąć (albo ukryć).",
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "nextCursor": { "type": "string", "nullable": true }
+            },
+            "required": [
+              "fromRevision",
+              "mode",
+              "nextCursor",
+              "revision",
+              "tombstones",
+              "upserts"
+            ]
+          }
+        ]
+      },
+      "CatalogChangesPayload": {
+        "description": "`catalog:changes` — zmiany katalogu od rewizji klienta (Etap 4A).",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "sinceRevision": {
+            "description": "Rewizja, którą klient ma w całości zastosowaną.",
+            "type": "string"
+          },
+          "untilRevision": {
+            "description": "`revision` z PIERWSZEJ strony tego przebiegu delty.",
+            "type": "string"
+          },
+          "cursor": { "type": "string" },
+          "limit": { "type": "number" }
+        },
+        "required": ["sinceRevision"]
+      },
+      "CatalogSnapshotPage": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "mode": { "type": "string", "enum": ["SNAPSHOT"] },
+              "revision": {
+                "description": "Znacznik snapshotu — ten sam na każdej stronie jednego przebiegu.",
+                "type": "string"
+              },
+              "items": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/RecipeListItem" }
+              },
+              "nextCursor": {
+                "description": "`null` = ostatnia strona.",
+                "type": "string",
+                "nullable": true
+              }
+            },
+            "required": ["items", "mode", "nextCursor", "revision"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "mode": { "type": "string", "enum": ["RESET_REQUIRED"] },
+              "snapshotRequired": { "type": "boolean", "enum": [true] },
+              "revision": {
+                "description": "Aktualna rewizja — informacyjnie; klient zaczyna snapshot od zera.",
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "FUTURE_REVISION",
+                  "REVISION_PRUNED",
+                  "UNKNOWN_REVISION"
+                ],
+                "type": "string"
+              }
+            },
+            "required": ["mode", "reason", "revision", "snapshotRequired"]
+          }
+        ]
+      },
+      "CatalogSnapshotPayload": {
+        "description": "`catalog:snapshot` — cały publiczny katalog stronami (Etap 4A).",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "revision": {
+            "description": "Znacznik z PIERWSZEJ strony tego przebiegu; brak = nowy przebieg.",
+            "type": "string"
+          },
+          "cursor": {
+            "description": "`nextCursor` z poprzedniej strony.",
+            "type": "string"
+          },
+          "limit": { "type": "number" }
+        }
+      },
       "ConnectCookidooDto": {
         "type": "object",
         "properties": {
@@ -10123,6 +10260,80 @@
           "timeZone"
         ]
       },
+      "RecipeListItem": {
+        "description": "Wiersz listy przepisów dla klienta — bez `sourceMeta`, bez ulubionych.",
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "id": { "type": "string" },
+          "allergens": { "type": "array", "items": { "type": "string" } },
+          "sourceProvider": { "type": "string", "nullable": true },
+          "sourceRecipeId": { "type": "string", "nullable": true },
+          "mealType": { "$ref": "#/components/schemas/MealType" },
+          "suitableMealTypes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MealType" }
+          },
+          "difficulty": { "$ref": "#/components/schemas/Difficulty" },
+          "prepTimeMinutes": { "type": "number" },
+          "servings": { "type": "number" },
+          "imageUrl": { "type": "string" },
+          "nutritionKcal": { "type": "number" },
+          "nutritionProtein": { "type": "number" },
+          "nutritionFat": { "type": "number" },
+          "nutritionCarbs": { "type": "number" },
+          "nutritionFiber": { "type": "number" },
+          "nutritionSalt": { "type": "number" },
+          "isActive": { "type": "boolean" },
+          "dietTags": { "type": "array", "items": { "type": "string" } },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "unit": { "type": "string" },
+                "name": { "type": "string" },
+                "id": { "type": "string" },
+                "recipeId": { "type": "string" },
+                "amount": { "type": "number" },
+                "department": { "type": "string" }
+              },
+              "required": [
+                "amount",
+                "department",
+                "id",
+                "name",
+                "recipeId",
+                "unit"
+              ]
+            }
+          }
+        },
+        "required": [
+          "allergens",
+          "description",
+          "dietTags",
+          "difficulty",
+          "id",
+          "imageUrl",
+          "ingredients",
+          "isActive",
+          "mealType",
+          "nutritionCarbs",
+          "nutritionFat",
+          "nutritionFiber",
+          "nutritionKcal",
+          "nutritionProtein",
+          "nutritionSalt",
+          "prepTimeMinutes",
+          "servings",
+          "sourceProvider",
+          "sourceRecipeId",
+          "suitableMealTypes",
+          "title"
+        ]
+      },
       "RecipesCreatePayload": {
         "type": "object",
         "properties": {
@@ -10168,6 +10379,18 @@
           "householdId": { "type": "string" }
         },
         "required": ["id"]
+      },
+      "RecipesHouseholdStatePayload": {
+        "description": "`recipes:householdState` — przepisy gospodarstwa i ulubione (Etap 4A).",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "householdId": { "type": "string" }
+        },
+        "required": ["householdId"]
       },
       "RecipesSetFavoritePayload": {
         "type": "object",
@@ -11598,11 +11821,6 @@
       "WsRecipesFindAllDataItem": {
         "type": "object",
         "properties": {
-          "suitableMealTypes": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/MealType" }
-          },
-          "imageUrl": { "type": "string" },
           "isFavorite": { "type": "boolean" },
           "title": { "type": "string" },
           "description": { "type": "string", "nullable": true },
@@ -11611,9 +11829,14 @@
           "sourceProvider": { "type": "string", "nullable": true },
           "sourceRecipeId": { "type": "string", "nullable": true },
           "mealType": { "$ref": "#/components/schemas/MealType" },
+          "suitableMealTypes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MealType" }
+          },
           "difficulty": { "$ref": "#/components/schemas/Difficulty" },
           "prepTimeMinutes": { "type": "number" },
           "servings": { "type": "number" },
+          "imageUrl": { "type": "string" },
           "nutritionKcal": { "type": "number" },
           "nutritionProtein": { "type": "number" },
           "nutritionFat": { "type": "number" },
@@ -11756,6 +11979,95 @@
           "suitableMealTypes",
           "title"
         ]
+      },
+      "WsRecipesHouseholdStateData": {
+        "type": "object",
+        "properties": {
+          "householdId": { "type": "string" },
+          "recipes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "isFavorite": { "type": "boolean" },
+                "title": { "type": "string" },
+                "description": { "type": "string", "nullable": true },
+                "id": { "type": "string" },
+                "allergens": { "type": "array", "items": { "type": "string" } },
+                "sourceProvider": { "type": "string", "nullable": true },
+                "sourceRecipeId": { "type": "string", "nullable": true },
+                "mealType": { "$ref": "#/components/schemas/MealType" },
+                "suitableMealTypes": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/MealType" }
+                },
+                "difficulty": { "$ref": "#/components/schemas/Difficulty" },
+                "prepTimeMinutes": { "type": "number" },
+                "servings": { "type": "number" },
+                "imageUrl": { "type": "string" },
+                "nutritionKcal": { "type": "number" },
+                "nutritionProtein": { "type": "number" },
+                "nutritionFat": { "type": "number" },
+                "nutritionCarbs": { "type": "number" },
+                "nutritionFiber": { "type": "number" },
+                "nutritionSalt": { "type": "number" },
+                "isActive": { "type": "boolean" },
+                "dietTags": { "type": "array", "items": { "type": "string" } },
+                "ingredients": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "unit": { "type": "string" },
+                      "name": { "type": "string" },
+                      "id": { "type": "string" },
+                      "recipeId": { "type": "string" },
+                      "amount": { "type": "number" },
+                      "department": { "type": "string" }
+                    },
+                    "required": [
+                      "amount",
+                      "department",
+                      "id",
+                      "name",
+                      "recipeId",
+                      "unit"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "allergens",
+                "description",
+                "dietTags",
+                "difficulty",
+                "id",
+                "imageUrl",
+                "ingredients",
+                "isActive",
+                "isFavorite",
+                "mealType",
+                "nutritionCarbs",
+                "nutritionFat",
+                "nutritionFiber",
+                "nutritionKcal",
+                "nutritionProtein",
+                "nutritionSalt",
+                "prepTimeMinutes",
+                "servings",
+                "sourceProvider",
+                "sourceRecipeId",
+                "suitableMealTypes",
+                "title"
+              ]
+            }
+          },
+          "favoriteRecipeIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["favoriteRecipeIds", "householdId", "recipes"]
       },
       "WsRecipesSetFavoriteData": {
         "type": "object",

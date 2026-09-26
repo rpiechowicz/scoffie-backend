@@ -923,6 +923,7 @@ model AgentMessage {
 
   @@unique([conversationId, clientMessageId])
   @@index([conversationId, createdAt])
+  @@index([turnId])
 }
 
 /// Propozycja asystenta czekająca na klik użytkownika.
@@ -1894,4 +1895,28 @@ model AppAnnouncement {
   updatedAt    DateTime             @updatedAt
 
   @@index([startsAt, endsAt])
+}
+
+/// Log synchronizacji PUBLICZNEGO katalogu (workstream, Etap 4A). Wypełniają
+/// go triggery bazy na "Recipe" i "RecipeIngredient" (migracja
+/// `20260926200000_catalog_sync_log`) — każda ścieżka zapisu katalogu (panel,
+/// import, loader tagów, skrypty) przesuwa rewizję. Przepisy gospodarstw
+/// i ulubione tu NIE trafiają. Kod aplikacji tylko czyta.
+model CatalogChange {
+  revision  BigInt   @id @default(autoincrement())
+  recipeId  String   @db.Uuid
+  /// `UPSERT` albo `DELETE` (wycofanie, usunięcie, wyjście z katalogu).
+  kind      String
+  changedAt DateTime @default(now())
+
+  @@index([recipeId, revision])
+}
+
+/// Jeden wiersz (`id = 1`): epoka logu (nowa = klienci robią snapshot) i
+/// najniższa rewizja, od której delta jest kompletna.
+model CatalogSyncState {
+  id          Int      @id @default(1)
+  epoch       String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  minRevision BigInt   @default(0)
+  updatedAt   DateTime @default(now())
 }

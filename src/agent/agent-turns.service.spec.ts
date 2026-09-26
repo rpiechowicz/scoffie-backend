@@ -89,6 +89,10 @@ describe('AgentTurnsService', () => {
     membership: {
       findUnique: jest.fn().mockResolvedValue({ userId: USER }),
     },
+    // Dom rozmowy przy leniwym domknięciu osieroconej tury (`getTurn`).
+    agentConversation: {
+      findUnique: jest.fn().mockResolvedValue({ householdId: HOUSEHOLD }),
+    },
     $transaction: jest.fn(),
   };
   const config = {
@@ -621,8 +625,17 @@ describe('AgentTurnsService', () => {
       expect(await codeOf(service.getTurn(USER, TURN))).toBe(
         'AI_TURN_NOT_FOUND',
       );
+      // Etap 4C: jedno zapytanie — własność i dzisiejsze członkostwo w warunku.
       expect(prisma.agentTurn.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: TURN, userId: USER } }),
+        expect.objectContaining({
+          where: {
+            id: TURN,
+            userId: USER,
+            conversation: {
+              household: { memberships: { some: { userId: USER } } },
+            },
+          },
+        }),
       );
     });
 
@@ -634,18 +647,19 @@ describe('AgentTurnsService', () => {
     });
 
     it('własna tura po wyjściu z domu to też 404 — liczy się członkostwo dziś', async () => {
-      prisma.agentTurn.findFirst.mockResolvedValue(turnRow());
-      prisma.membership.findUnique.mockResolvedValueOnce(null);
+      // Członkostwo jest w samym warunku zapytania (Etap 4C): baza nie oddaje
+      // tury domu, z którego pytający wyszedł — dowód na żywej bazie w e2e.
+      prisma.agentTurn.findFirst.mockResolvedValue(null);
       expect(await codeOf(service.getTurn(USER, TURN))).toBe(
         'AI_TURN_NOT_FOUND',
       );
-      expect(prisma.membership.findUnique).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            userId_householdId: { userId: USER, householdId: HOUSEHOLD },
-          },
-        }),
-      );
+      const [[query]] = prisma.agentTurn.findFirst.mock.calls as [
+        [{ where: { conversation: unknown } }],
+      ];
+      expect(query.where.conversation).toEqual({
+        household: { memberships: { some: { userId: USER } } },
+      });
+      expect(prisma.membership.findUnique).not.toHaveBeenCalled();
       expect(prisma.agentMessage.findMany).not.toHaveBeenCalled();
     });
 

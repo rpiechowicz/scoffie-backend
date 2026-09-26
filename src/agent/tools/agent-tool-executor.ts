@@ -1155,11 +1155,19 @@ export class AgentToolExecutor {
       );
     }
 
+    const entries = raw
+      .slice(0, MAX_OPTIONS)
+      .map((option) => (option ?? {}) as Record<string, unknown>);
+    const details = await this.recipeSides(
+      entries.map((entry) =>
+        this.resolveRecipeRef(asString(entry.recipe), context),
+      ),
+      context,
+    );
     const options: OptionsCardItem[] = [];
-    for (const option of raw.slice(0, MAX_OPTIONS)) {
-      const entry = (option ?? {}) as Record<string, unknown>;
-      const recipeId = this.resolveRecipeRef(asString(entry.recipe), context);
-      const detail = await this.recipeSide(recipeId, context);
+    for (const [index, entry] of entries.entries()) {
+      const detail = details[index];
+      const recipeId = detail.recipeId;
       const tag = asString(entry.tag).trim();
       options.push({
         recipeId,
@@ -1253,8 +1261,7 @@ export class AgentToolExecutor {
       dayOfWeek,
       mealType,
       recipeId,
-      to: await this.recipeSide(recipeId, context),
-      from: standing ? await this.recipeSide(standing.recipeId, context) : null,
+      ...(await this.swapSides(recipeId, standing?.recipeId ?? null, context)),
       participantIds,
       ...(reason ? { reason } : {}),
       ...(chosenPortions?.length ? { portions: chosenPortions } : {}),
@@ -1952,6 +1959,7 @@ export class AgentToolExecutor {
       ...(context.dates ? { weekStart: context.dates.weekStart } : {}),
       forUserIds,
       consentedUserIds: new Set(members.map((member) => member.userId)),
+      ...(context.memo ? { memo: context.memo } : {}),
     };
   }
 
@@ -2010,39 +2018,59 @@ export class AgentToolExecutor {
   private async recipeSide(
     recipeId: string,
     context: AgentToolContext,
-  ): Promise<
-    SwapCardSide & {
-      imageUrl: string | null;
-      description: string | null;
-      proteinGrams: number | null;
-      carbsGrams: number | null;
-      fatGrams: number | null;
-      ingredientCount: number | null;
-    }
-  > {
-    const recipe = await this.recipes.findById(
+  ): Promise<RecipeSide> {
+    const [side] = await this.recipeSides([recipeId], context);
+    return side;
+  }
+
+  /** „Przed" i „po" podmiany jednym odczytem. */
+  private async swapSides(
+    toRecipeId: string,
+    fromRecipeId: string | null,
+    context: AgentToolContext,
+  ): Promise<{ to: RecipeSide; from: RecipeSide | null }> {
+    const sides = await this.recipeSides(
+      fromRecipeId ? [toRecipeId, fromRecipeId] : [toRecipeId],
+      context,
+    );
+    return { to: sides[0], from: fromRecipeId ? sides[1] : null };
+  }
+
+  /**
+   * Strony kilku dań naraz (Etap 4B): jedno sprawdzenie członkostwa i jedno
+   * zapytanie (`RecipesService.cardSides`) zamiast `findById` na danie —
+   * karta 3 dań: 15 zapytań → 2. Kolejność = kolejność `recipeIds`.
+   */
+  private async recipeSides(
+    recipeIds: readonly string[],
+    context: AgentToolContext,
+  ): Promise<RecipeSide[]> {
+    if (recipeIds.length === 0) return [];
+    const rows = await this.recipes.cardSides(
       context.userId,
-      recipeId,
+      recipeIds,
       context.householdId,
     );
-    const servings = Math.max(1, recipe.servings ?? 1);
-    const perServing = (value: number): number | null => {
-      if (!Number.isFinite(value) || value <= 0) return null;
-      return Math.round(value / servings);
-    };
-    return {
-      recipeId,
-      title: recipe.title,
-      kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
-      prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
-      imageUrl: recipe.imageUrl ?? null,
-      description: recipe.description?.trim() || null,
-      proteinGrams: perServing(recipe.nutritionProtein ?? 0),
-      carbsGrams: perServing(recipe.nutritionCarbs ?? 0),
-      fatGrams: perServing(recipe.nutritionFat ?? 0),
-      ingredientCount:
-        recipe.ingredients.length > 0 ? recipe.ingredients.length : null,
-    };
+    return rows.map((recipe) => {
+      const servings = Math.max(1, recipe.servings ?? 1);
+      const perServing = (value: number): number | null => {
+        if (!Number.isFinite(value) || value <= 0) return null;
+        return Math.round(value / servings);
+      };
+      return {
+        recipeId: recipe.id,
+        title: recipe.title,
+        kcalPerServing: Math.round((recipe.nutritionKcal ?? 0) / servings),
+        prepTimeMinutes: recipe.prepTimeMinutes ?? 0,
+        imageUrl: recipe.imageUrl ?? null,
+        description: recipe.description?.trim() || null,
+        proteinGrams: perServing(recipe.nutritionProtein ?? 0),
+        carbsGrams: perServing(recipe.nutritionCarbs ?? 0),
+        fatGrams: perServing(recipe.nutritionFat ?? 0),
+        ingredientCount:
+          recipe.ingredientCount > 0 ? recipe.ingredientCount : null,
+      };
+    });
   }
 
   /**
@@ -2358,10 +2386,9 @@ export class AgentToolExecutor {
       };
     }
 
-    const sides = await Promise.all(
-      draft.suggestions.map((entry) =>
-        this.recipeSide(entry.item.recipeId, context),
-      ),
+    const sides = await this.recipeSides(
+      draft.suggestions.map((entry) => entry.item.recipeId),
+      context,
     );
     const tags = optionTags(
       sides.map((side) => ({
@@ -2854,3 +2881,13 @@ export function turnTextFor(
       return null;
   }
 }
+
+/** Dane dania na kartę (tytuł, kcal na porcję, czas, zdjęcie, makro). */
+type RecipeSide = SwapCardSide & {
+  imageUrl: string | null;
+  description: string | null;
+  proteinGrams: number | null;
+  carbsGrams: number | null;
+  fatGrams: number | null;
+  ingredientCount: number | null;
+};

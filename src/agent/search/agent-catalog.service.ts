@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { DietPreferenceValue, MealType } from '@prisma/client';
+import { DietPreferenceValue, MealType, Prisma } from '@prisma/client';
+import { memoized, TurnMemo } from '../turn-memo';
 import { AppException } from '../../common/app-exception';
 import { PrismaService } from '../../prisma/prisma.service';
 import { parseWeekStart } from '../../weekly-plans/utils/week-formatting.util';
@@ -59,6 +60,8 @@ export type SearchContext = {
   forUserIds: string[];
   /** Domownicy ze zgodą na asystenta — tylko ich ograniczenia mają imiona w wyniku. */
   consentedUserIds: ReadonlySet<string>;
+  /** Pamięć tury: indeks katalogu sprawdzany raz na turę (Etap 4B). */
+  memo?: TurnMemo;
 };
 
 /** Trafienie z identyfikatorem — executor zamienia go na referencję tury. */
@@ -173,11 +176,21 @@ export class AgentCatalogService {
   } | null = null;
   private building: Promise<CatalogSnapshot> | null = null;
   private popularity: { at: number; counts: Map<string, number> } | null = null;
+  /** Jedno liczenie popularności naraz (Etap 4B) — równoległe chybienia czekają. */
+  private popularityLoading: Promise<Map<string, number>> | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Aktualny indeks katalogu — z pamięci, gdy katalog się nie zmienił. */
-  async snapshot(): Promise<CatalogSnapshot> {
+  /**
+   * Aktualny indeks katalogu — z pamięci, gdy katalog się nie zmienił.
+   * Z pamięcią tury rewizję sprawdzamy RAZ na turę (prompt, wyszukiwanie
+   * i planer tej tury dostają ten sam indeks — Etap 4B).
+   */
+  snapshot(memo?: TurnMemo): Promise<CatalogSnapshot> {
+    return memoized(memo, 'catalog:snapshot', () => this.freshSnapshot());
+  }
+
+  private async freshSnapshot(): Promise<CatalogSnapshot> {
     const householdId = catalogHouseholdId();
     const key = await this.versionKey(householdId);
     const now = Date.now();
@@ -202,25 +215,26 @@ export class AgentCatalogService {
   /**
    * Odcisk wersji katalogu; `null` = nie da się go policzyć (wtedy bez
    * pamięci, budowa przy każdej turze — dokładnie jak przed zmianą).
+   *
+   * Od Etapu 4 to rewizja trwałego logu `CatalogChange` (epoka + numer):
+   * JEDNO zapytanie po kluczu głównym zamiast dwóch agregatów po `Recipe`
+   * i `RecipeIngredient` przy każdym wyszukiwaniu i planie. Log łapie każdą
+   * zmianę przepisu katalogu i jego składników (triggery), także z panelu,
+   * importu i loadera tagów — pewniej niż `count + max(updatedAt)`. Zmian
+   * samego SKŁADNIKA (gramatura sztuki) log nie widzi — pilnuje ich
+   * `SNAPSHOT_MAX_AGE_MS`, jak dotąd.
    */
-  private async versionKey(householdId: string): Promise<string | null> {
+  private async versionKey(_householdId: string): Promise<string | null> {
     try {
-      const [recipes, ingredients] = await Promise.all([
-        this.prisma.recipe.aggregate({
-          where: { householdId, isCatalog: true },
-          _count: { _all: true },
-          _max: { updatedAt: true },
-        }),
-        this.prisma.recipeIngredient.aggregate({
-          where: { recipe: { householdId, isCatalog: true } },
-          _max: { updatedAt: true },
-        }),
-      ]);
-      return [
-        recipes._count._all,
-        recipes._max.updatedAt?.toISOString() ?? '-',
-        ingredients._max.updatedAt?.toISOString() ?? '-',
-      ].join('|');
+      const [row] = await this.prisma.$queryRaw<
+        { epoch: string; head: bigint }[]
+      >(Prisma.sql`
+        SELECT s."epoch"::text AS "epoch",
+               COALESCE((SELECT MAX("revision") FROM "CatalogChange"), 0)::bigint AS "head"
+        FROM "CatalogSyncState" s
+        WHERE s."id" = 1
+      `);
+      return row ? `${row.epoch}.${row.head.toString()}` : null;
     } catch {
       return null;
     }
@@ -284,7 +298,7 @@ export class AgentCatalogService {
     context: SearchContext,
     query: RecipeSearchQuery,
   ): Promise<AgentSearchResult> {
-    const snapshot = await this.snapshot();
+    const snapshot = await this.snapshot(context.memo);
     const [own, { audience, applied }, signals] = await Promise.all([
       // Także dla konta katalogowego: jego prywatne przepisy nie są w
       // indeksie, więc przychodzą tędy — jako własne, z id zamiast `R…`.
@@ -309,14 +323,15 @@ export class AgentCatalogService {
    * Pula i sygnały dla serwerowego planera (Etap 2): katalog z pamięci,
    * przepisy WŁASNE domu (świeże) i sygnały rankingu — te same, co w
    * wyszukiwarce. Stała liczba zapytań niezależnie od wielkości katalogu:
-   * odcisk wersji (2 agregaty, katalog z pamięci), przepisy domu, plan tego
+   * rewizja katalogu (raz na turę, katalog z pamięci), przepisy domu, plan tego
    * i zeszłego tygodnia, ulubione, popularność (pamięć pół godziny).
    */
   async planningPool(context: {
     householdId: string;
     weekStart: string;
+    memo?: TurnMemo;
   }): Promise<{ recipes: SearchableRecipe[]; signals: SearchSignals }> {
-    const snapshot = await this.snapshot();
+    const snapshot = await this.snapshot(context.memo);
     const searchContext: SearchContext = {
       userId: '',
       householdId: context.householdId,
@@ -515,6 +530,15 @@ export class AgentCatalogService {
     if (this.popularity && now - this.popularity.at < POPULARITY_MAX_AGE_MS) {
       return this.popularity.counts;
     }
+    // Single-flight: po wygaśnięciu pamięci kilka równoczesnych tur liczyło
+    // ten sam `groupBy` kilka razy (sonda: 10 odczytów = 10–15 zapytań).
+    this.popularityLoading ??= this.loadPopularity(now).finally(() => {
+      this.popularityLoading = null;
+    });
+    return this.popularityLoading;
+  }
+
+  private async loadPopularity(now: number): Promise<Map<string, number>> {
     try {
       const rows = await this.prisma.planItem.groupBy({
         by: ['recipeId'],

@@ -1,4 +1,5 @@
 import { PrismaService } from '../../prisma/prisma.service';
+import { createTurnMemo } from '../turn-memo';
 import { AgentCatalogService, SearchContext } from './agent-catalog.service';
 import { RecipeSearchQuery } from './catalog-search';
 
@@ -58,6 +59,8 @@ describe('AgentCatalogService', () => {
   const original = process.env.RECIPE_IMPORT_HOUSEHOLD_ID;
   let findMany: jest.Mock;
   let recipeAggregate: jest.Mock;
+  /** Rewizja logu synchronizacji katalogu (Etap 4) — odcisk wersji indeksu. */
+  let revisionQuery: jest.Mock;
   let memberships: jest.Mock;
   let service: AgentCatalogService;
 
@@ -110,7 +113,11 @@ describe('AgentCatalogService', () => {
         },
       },
     ]);
+    revisionQuery = jest
+      .fn()
+      .mockResolvedValue([{ epoch: 'epoka', head: BigInt(7) }]);
     const prisma = {
+      $queryRaw: revisionQuery,
       recipe: { findMany, aggregate: recipeAggregate },
       recipeIngredient: {
         aggregate: jest.fn().mockResolvedValue({
@@ -132,16 +139,15 @@ describe('AgentCatalogService', () => {
     else process.env.RECIPE_IMPORT_HOUSEHOLD_ID = original;
   });
 
-  it('indeks katalogu żyje w pamięci, dopóki odcisk wersji się nie zmieni', async () => {
+  it('indeks katalogu żyje w pamięci, dopóki rewizja katalogu się nie zmieni', async () => {
     const first = await service.snapshot();
     const second = await service.snapshot();
     expect(second).toBe(first);
     expect(findMany).toHaveBeenCalledTimes(1);
 
-    recipeAggregate.mockResolvedValue({
-      _count: { _all: 4 },
-      _max: { updatedAt: new Date('2026-09-21T10:00:00Z') },
-    });
+    // Etap 4: jedno zapytanie o rewizję logu zamiast dwóch agregatów.
+    expect(recipeAggregate).not.toHaveBeenCalled();
+    revisionQuery.mockResolvedValue([{ epoch: 'epoka', head: BigInt(8) }]);
     const third = await service.snapshot();
     expect(third).not.toBe(first);
     expect(findMany).toHaveBeenCalledTimes(2);
@@ -204,5 +210,17 @@ describe('AgentCatalogService', () => {
         household: true,
       }),
     ]);
+  });
+
+  it('z pamięcią tury rewizję sprawdza RAZ na turę (Etap 4B)', async () => {
+    const memo = createTurnMemo();
+    await service.snapshot(memo);
+    await service.search(context({ memo }), query());
+    await service.planningPool({
+      householdId: HOME,
+      weekStart: '2026-08-31',
+      memo,
+    });
+    expect(revisionQuery).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,0 +1,247 @@
+{
+  "measuredAt": "2026-09-26T14:11:30.686Z",
+  "commit": "00f5a50",
+  "households": 300,
+  "weeks": 4,
+  "note": "MEASURED lokalnie (Docker Postgres 16, jeden proces). Liczby zapytań są przenośne, czasy nie.",
+  "results": {
+    "5000": {
+      "seedMs": 7542,
+      "planItems": 25200,
+      "legacyFullCatalog": {
+        "queries": 305,
+        "ms": 786,
+        "pages": 51,
+        "rows": 5000,
+        "bytes": 8842330,
+        "iosCapRows": 4000
+      },
+      "syncSnapshot": {
+        "queries": 30,
+        "ms": 511,
+        "pages": 10,
+        "rows": 5000,
+        "unique": 5000,
+        "bytes": 8748614,
+        "gzipBytes": 1501704,
+        "revision": "8adc8325-2ce5-4870-9fdc-0b308eb80e60.42377"
+      },
+      "syncDeltaNoChanges": {
+        "queries": 1,
+        "ms": 2,
+        "bytes": 179
+      },
+      "syncDeltaOneUpdate": {
+        "queries": 4,
+        "ms": 4,
+        "bytes": 1861,
+        "upserts": 1,
+        "tombstones": 0
+      },
+      "syncDeltaDeactivate": {
+        "queries": 4,
+        "ms": 2,
+        "bytes": 217,
+        "upserts": 0,
+        "tombstones": 1
+      },
+      "agent": {
+        "catalogIndexCold": {
+          "queries": 4,
+          "ms": 979
+        },
+        "prompt.cold": {
+          "queries": 14,
+          "ms": 26
+        },
+        "find_recipes.cold": {
+          "queries": 8,
+          "ms": 30,
+          "bytes": 1903
+        },
+        "suggest_meals.cold": {
+          "queries": 11,
+          "ms": 59,
+          "bytes": 288
+        },
+        "offer_options_3.cold": {
+          "queries": 3,
+          "ms": 7,
+          "bytes": 13
+        },
+        "build_meal_plan_day.cold": {
+          "queries": 27,
+          "ms": 83,
+          "bytes": 501
+        },
+        "prompt.warm": {
+          "queries": 14,
+          "ms": 13
+        },
+        "find_recipes.warm": {
+          "queries": 7,
+          "ms": 9,
+          "bytes": 1903
+        },
+        "suggest_meals.warm": {
+          "queries": 11,
+          "ms": 45,
+          "bytes": 288
+        },
+        "offer_options_3.warm": {
+          "queries": 3,
+          "ms": 6,
+          "bytes": 13
+        },
+        "build_meal_plan_day.warm": {
+          "queries": 27,
+          "ms": 71,
+          "bytes": 501
+        }
+      },
+      "popularity": {
+        "queries": 1,
+        "ms": 11,
+        "recipes": 3746
+      },
+      "popularityBurst10": {
+        "queries": 1,
+        "ms": 11
+      },
+      "shoppingStale20": {
+        "queries": 82,
+        "ms": 54,
+        "rebuilds": 1
+      },
+      "getTurnRunning": {
+        "queries": 1,
+        "ms": 3,
+        "bytes": 240
+      },
+      "getTurnDone": {
+        "queries": 2,
+        "ms": 3,
+        "bytes": 518
+      }
+    },
+    "10000": {
+      "seedMs": 11212,
+      "planItems": 25200,
+      "legacyFullCatalog": {
+        "queries": 605,
+        "ms": 2163,
+        "pages": 101,
+        "rows": 10000,
+        "bytes": 17697068,
+        "iosCapRows": 4000
+      },
+      "syncSnapshot": {
+        "queries": 60,
+        "ms": 1045,
+        "pages": 20,
+        "rows": 10000,
+        "unique": 10000,
+        "bytes": 17509672,
+        "gzipBytes": 3007192,
+        "revision": "a6c0255a-7c9f-486e-a00c-f75025e1d2cf.84809"
+      },
+      "syncDeltaNoChanges": {
+        "queries": 1,
+        "ms": 2,
+        "bytes": 179
+      },
+      "syncDeltaOneUpdate": {
+        "queries": 4,
+        "ms": 4,
+        "bytes": 1861,
+        "upserts": 1,
+        "tombstones": 0
+      },
+      "syncDeltaDeactivate": {
+        "queries": 4,
+        "ms": 3,
+        "bytes": 217,
+        "upserts": 0,
+        "tombstones": 1
+      },
+      "agent": {
+        "catalogIndexCold": {
+          "queries": 4,
+          "ms": 2306
+        },
+        "prompt.cold": {
+          "queries": 17,
+          "ms": 18
+        },
+        "find_recipes.cold": {
+          "queries": 10,
+          "ms": 33,
+          "bytes": 1887
+        },
+        "suggest_meals.cold": {
+          "queries": 11,
+          "ms": 88,
+          "bytes": 288
+        },
+        "offer_options_3.cold": {
+          "queries": 3,
+          "ms": 11,
+          "bytes": 13
+        },
+        "build_meal_plan_day.cold": {
+          "queries": 27,
+          "ms": 115,
+          "bytes": 501
+        },
+        "prompt.warm": {
+          "queries": 14,
+          "ms": 16
+        },
+        "find_recipes.warm": {
+          "queries": 7,
+          "ms": 15,
+          "bytes": 1887
+        },
+        "suggest_meals.warm": {
+          "queries": 11,
+          "ms": 80,
+          "bytes": 288
+        },
+        "offer_options_3.warm": {
+          "queries": 3,
+          "ms": 11,
+          "bytes": 13
+        },
+        "build_meal_plan_day.warm": {
+          "queries": 27,
+          "ms": 128,
+          "bytes": 501
+        }
+      },
+      "popularity": {
+        "queries": 1,
+        "ms": 19,
+        "recipes": 7240
+      },
+      "popularityBurst10": {
+        "queries": 1,
+        "ms": 19
+      },
+      "shoppingStale20": {
+        "queries": 110,
+        "ms": 44,
+        "rebuilds": 1
+      },
+      "getTurnRunning": {
+        "queries": 1,
+        "ms": 3,
+        "bytes": 240
+      },
+      "getTurnDone": {
+        "queries": 2,
+        "ms": 3,
+        "bytes": 518
+      }
+    }
+  }
+}

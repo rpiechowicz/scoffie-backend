@@ -31,6 +31,7 @@
     "accounts:delete": "tsx scripts/delete-user-account.ts",
     "accounts:reset": "tsx scripts/reset-accounts.ts",
     "agent:scenarios": "ts-node -r tsconfig-paths/register scripts/agent-scenarios.ts",
+    "catalog:scale-probe": "ts-node --transpile-only -r tsconfig-paths/register scripts/catalog-scale-probe.ts",
     "planner:eval": "ts-node -r tsconfig-paths/register scripts/planner-eval.ts",
     "agent:smoke": "ts-node -r tsconfig-paths/register scripts/agent-smoke.ts",
     "agent:measure:tokens": "tsx scripts/measure-agent-tokens.ts",

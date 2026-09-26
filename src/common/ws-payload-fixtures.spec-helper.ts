@@ -58,6 +58,9 @@ export const HANDLERS_WITHOUT_SERVICE: ReadonlySet<string> = new Set([
 export const HANDLERS_WITHOUT_IDENTITY_ARG: ReadonlySet<string> = new Set([
   // Katalog składników jest jeden dla wszystkich gospodarstw.
   'ingredients:search',
+  // Publiczny katalog przepisów (Etap 4A) — ten sam dla każdego domu.
+  'catalog:snapshot',
+  'catalog:changes',
 ]);
 
 export type InvalidCase = {
@@ -119,6 +122,12 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
     },
   },
   'recipes:findById': { id: RECIPE, householdId: HH },
+  'catalog:snapshot': { limit: 200 },
+  'catalog:changes': {
+    sinceRevision: '11111111-1111-4111-8111-111111111111.0',
+    limit: 200,
+  },
+  'recipes:householdState': { householdId: HH },
   'ingredients:search': { filters: { query: 'kurczak', limit: 5 } },
   'recipes:create': {
     data: {
@@ -296,6 +305,37 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
       name: 'filters jako napis',
       payload: { filters: 'all' },
       detail: 'filters must be an object',
+    },
+  ],
+  'catalog:snapshot': [
+    {
+      name: 'cursor nie-UUID',
+      payload: { cursor: 'strona-2' },
+      detail: 'cursor must be a UUID',
+    },
+    {
+      name: 'limit ponad sufit',
+      payload: { limit: 5000 },
+      detail: 'limit must not be greater than 500',
+    },
+  ],
+  'catalog:changes': [
+    {
+      name: 'brak sinceRevision',
+      payload: {},
+      detail: 'sinceRevision must be a string',
+    },
+    {
+      name: 'limit zero',
+      payload: { sinceRevision: 'x.1', limit: 0 },
+      detail: 'limit must not be less than 1',
+    },
+  ],
+  'recipes:householdState': [
+    {
+      name: 'brak householdId',
+      payload: {},
+      detail: 'householdId must be a UUID',
     },
   ],
   'recipes:findById': [

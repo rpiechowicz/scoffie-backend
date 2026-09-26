@@ -528,6 +528,9 @@ export class ShoppingListService {
     weekStartDate: Date,
     tx: Prisma.TransactionClient,
   ): Promise<void> {
+    // Odczyt, który trwa, zaczął się PRZED tą zmianą — kolejni czytający mają
+    // zacząć od nowa, a nie dołączyć do niego (Etap 4C).
+    this.snapshotReads.delete(`${householdId}:${weekStartDate.toISOString()}`);
     await tx.shoppingList.upsert({
       where: {
         householdId_weekStart: {
@@ -548,7 +551,44 @@ export class ShoppingListService {
     });
   }
 
-  private async getShoppingListSnapshot(
+  /**
+   * Odczyt listy spoza transakcji: JEDEN naraz na dom i tydzień (Etap 4C).
+   *
+   * Po zmianie planu lista jest nieaktualna, a każdy klient domu (i każde
+   * odświeżenie) czytał ją równolegle — każdy odczyt przebudowywał snapshot
+   * od nowa (sonda: 20 odczytów = 20 przebudów, ~430 zapytań). Teraz
+   * pierwszy odczyt sprawdza stan i najwyżej raz przebudowuje, a pozostałe
+   * czekają na tę samą obietnicę i dostają ten sam świeży snapshot. W obrębie
+   * procesu — przy jednej instancji to wystarcza; wiele instancji to Etap 5.
+   * Odczyt W transakcji (archiwizacja) idzie jak dotąd, bez tej pamięci.
+   */
+  private readonly snapshotReads = new Map<
+    string,
+    Promise<ShoppingListItem[]>
+  >();
+
+  private getShoppingListSnapshot(
+    householdId: string,
+    weekStartDate: Date,
+    client: PrismaReadClient = this.prisma,
+  ): Promise<ShoppingListItem[]> {
+    if (client !== this.prisma) {
+      return this.readShoppingListSnapshot(householdId, weekStartDate, client);
+    }
+    const key = `${householdId}:${weekStartDate.toISOString()}`;
+    const running = this.snapshotReads.get(key);
+    if (running) return running;
+    const read = this.readShoppingListSnapshot(
+      householdId,
+      weekStartDate,
+    ).finally(() => {
+      if (this.snapshotReads.get(key) === read) this.snapshotReads.delete(key);
+    });
+    this.snapshotReads.set(key, read);
+    return read;
+  }
+
+  private async readShoppingListSnapshot(
     householdId: string,
     weekStartDate: Date,
     client: PrismaReadClient = this.prisma,

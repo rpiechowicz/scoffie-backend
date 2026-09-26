@@ -1,3 +1,4 @@
+import { CatalogSyncService } from './catalog-sync.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RecipesGateway } from './recipes.gateway';
 import { RecipesService } from './recipes.service';
@@ -58,6 +59,7 @@ describe('RecipesGateway', () => {
       providers: [
         RecipesGateway,
         { provide: RecipesService, useValue: recipesService },
+        { provide: CatalogSyncService, useValue: {} },
         {
           provide: IngredientsService,
           useValue: { search: jest.fn().mockResolvedValue([]) },

@@ -191,8 +191,9 @@ tura „co na kolację" czyta domowników **raz**.
 
 - **Zachowanie modelu niezmierzone.** Rundy są policzone z kodu i promptu; czy model faktycznie
   sięga po `suggest_meals` zamiast `find_recipes` + `offer_options` — pokaże live benchmark (§12).
-- Model pisze zdanie PRZED wynikiem `suggest_meals`/`build_meal_plan` — nie wie, czy wyszło
-  PARTIAL (to było już po Etapie 2). Przy PARTIAL bez tekstu modelu tura i tak trwa dalej.
+- ~~Model pisze zdanie PRZED wynikiem `suggest_meals`/`build_meal_plan` — nie wie, czy wyszło
+  PARTIAL.~~ **ROZWIĄZANE w Addendum A1:** turę po karcie kończy wyłącznie zdanie serwera,
+  a przy PARTIAL model dostaje wynik i kolejną rundę.
 - Zawężenie „szybko" może ukryć danie lepsze kalorycznie — świadomie: użytkownik prosił o szybkie.
 - `AI_ONE_CARD_PER_TURN` zmienia zachowanie prośby „ułóż środę i pokaż 3 kolacje na czwartek" —
   druga karta idzie do następnej wiadomości (dotąd jedna z nich i tak ginęła).

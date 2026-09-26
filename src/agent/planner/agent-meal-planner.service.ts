@@ -482,6 +482,7 @@ export class AgentMealPlannerService {
         this.catalog.planningPool({
           householdId: input.householdId,
           weekStart: input.weekStart,
+          memo: input.memo,
         }),
         memoized(
           input.memo,

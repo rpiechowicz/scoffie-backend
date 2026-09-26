@@ -335,6 +335,8 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
         signal: controller.signal,
         maxTurnCostUsd: input.env.maxTurnCostUsd,
       });
+      // Końcówka szkicu dojeżdża, zanim tura przestanie być RUNNING.
+      await draft.settle();
       if (result.timings) {
         this.logger.log(
           formatTurnTiming(
@@ -366,6 +368,9 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
       );
       this.breaker.recordSuccess();
     } catch (error) {
+      // Także przy błędzie i anulowaniu: szkic to jedyny ślad tego, co model
+      // zdążył napisać (warunkowy zapis — tylko póki tura jest RUNNING).
+      await draft.settle();
       const verdict = this.classify(
         error,
         controller.signal.aborted,
@@ -967,12 +972,22 @@ function fallbackCalls(summary: LedgerSummary): AgentProviderCall[] {
  * jak przy postępie: tura domknięta przez timeout nie ma prawa dostać
  * spóźnionego szkicu. Błąd zapisu jest połykany — szkic to udogodnienie.
  */
-class DraftPublisher {
-  /** Najwyżej jeden zapis na tyle ms; ostatni fragment zawsze dojeżdża. */
-  private static readonly intervalMs = 350;
+export class DraftPublisher {
+  /**
+   * Najwyżej jeden zapis na sekundę (Etap 4C; było 350 ms). Pierwszy fragment
+   * idzie OD RAZU (telefon widzi, że odpowiedź powstaje), kolejne zbierają
+   * się w jeden zapis na okno, a `settle()` dopisuje końcówkę przed
+   * domknięciem tury. Zapisy biegną po kolei — starszy tekst nigdy nie
+   * nadpisze nowszego.
+   */
+  static readonly intervalMs = 1000;
   private pending: string | null = null;
   private timer: NodeJS.Timeout | null = null;
   private stopped = false;
+  private lastFlushAt = 0;
+  private writing: Promise<void> = Promise.resolve();
+  /** Liczba zapisów — do pomiaru (sonda, testy). */
+  writes = 0;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -984,13 +999,30 @@ class DraftPublisher {
     if (this.stopped) return;
     this.pending = text;
     if (this.timer) return;
+    const wait = this.lastFlushAt + DraftPublisher.intervalMs - Date.now();
+    if (wait <= 0) {
+      this.flush();
+      return;
+    }
     this.timer = setTimeout(() => {
       this.timer = null;
-      void this.flush();
-    }, DraftPublisher.intervalMs);
+      this.flush();
+    }, wait);
   }
 
-  /** Koniec tury: nic więcej nie zapisujemy, także z zegara w locie. */
+  /** Koniec tury: dopisz to, co czeka, i nic więcej. */
+  async settle(): Promise<void> {
+    if (this.stopped) return;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.pending !== null) this.flush();
+    this.stopped = true;
+    await this.writing;
+  }
+
+  /** Twarde zatrzymanie (sprzątanie w `finally`) — bez dopisywania. */
   stop(): void {
     this.stopped = true;
     if (this.timer) {
@@ -999,10 +1031,16 @@ class DraftPublisher {
     }
   }
 
-  private async flush(): Promise<void> {
+  private flush(): void {
     const text = this.pending;
     this.pending = null;
-    if (text === null || this.stopped) return;
+    if (text === null) return;
+    this.lastFlushAt = Date.now();
+    this.writes += 1;
+    this.writing = this.writing.then(() => this.write(text));
+  }
+
+  private async write(text: string): Promise<void> {
     try {
       await this.prisma.agentTurn.updateMany({
         where: { id: this.turnId, status: 'RUNNING' },

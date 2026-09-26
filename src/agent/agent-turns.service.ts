@@ -598,7 +598,7 @@ export class AgentTurnsService {
     this.config.assertEnabled();
     assertUuid(turnId, 'turnId');
 
-    let turn = await this.loadOwnedTurn(userId, turnId);
+    let turn = await this.loadPolledTurn(userId, turnId);
     turn = await this.expireIfStale(turn);
 
     const view: TurnView = {
@@ -727,6 +727,32 @@ export class AgentTurnsService {
     };
   }
 
+  /**
+   * Tura do odpytywania (`getTurn`, telefon co ~1 s) — JEDNO zapytanie
+   * (Etap 4C): własność i DZISIEJSZE członkostwo w domu rozmowy w samym
+   * warunku, bez dociągania rozmowy (dom potrzebny tylko przy leniwym
+   * domknięciu osieroconej tury — wtedy czyta go `expireIfStale`). Było
+   * 3 zapytania: tura, rozmowa, członkostwo. Ta sama odpowiedź 404 dla
+   * cudzej tury i tury domu, z którego ktoś wyszedł.
+   */
+  private async loadPolledTurn(userId: string, turnId: string) {
+    const turn = await this.prisma.agentTurn.findFirst({
+      where: {
+        id: turnId,
+        userId,
+        conversation: { household: { memberships: { some: { userId } } } },
+      },
+    });
+    if (!turn) {
+      throw new AppException(
+        'AI_TURN_NOT_FOUND',
+        'Nie znaleziono tej tury.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return turn;
+  }
+
   private async loadOwnedTurn(userId: string, turnId: string) {
     const turn = await this.prisma.agentTurn.findFirst({
       where: { id: turnId, userId },
@@ -773,10 +799,10 @@ export class AgentTurnsService {
   private async expireIfStale<
     T extends {
       id: string;
+      conversationId: string;
       status: string;
       startedAt: Date;
       updatedAt: Date;
-      conversation: { householdId: string };
     },
   >(turn: T): Promise<T> {
     if (turn.status !== 'RUNNING') return turn;
@@ -788,11 +814,16 @@ export class AgentTurnsService {
     );
     if (!reason) return turn;
 
+    // Dom rozmowy tylko tutaj (rzadka ścieżka) — odpytywanie go nie czyta.
+    const conversation = await this.prisma.agentConversation.findUnique({
+      where: { id: turn.conversationId },
+      select: { householdId: true },
+    });
     const closed = await this.prisma.$transaction((tx) =>
       this.ledger.closeTurn(tx, {
         turnId: turn.id,
         errorCode: orphanErrorCode(reason),
-        fallbackScopeId: turn.conversation.householdId,
+        fallbackScopeId: conversation?.householdId ?? turn.conversationId,
       }),
     );
     if (!closed) {
@@ -813,7 +844,6 @@ export class AgentTurnsService {
   ): Promise<T> {
     const fresh = await this.prisma.agentTurn.findUnique({
       where: { id: turn.id },
-      include: { conversation: { select: { householdId: true } } },
     });
     return (fresh ?? turn) as T;
   }

@@ -30,7 +30,7 @@ import { resolveSuitableMealTypes } from './suitable-meal-types.util';
 import { normalizeRecipeSteps } from './recipe-steps.util';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
 
-const recipeListSelect = {
+export const recipeListSelect = {
   id: true,
   title: true,
   description: true,
@@ -76,9 +76,14 @@ const recipeListSelect = {
   },
 } as const;
 
-type RecipeListRow = Prisma.RecipeGetPayload<{
+export type RecipeListRow = Prisma.RecipeGetPayload<{
   select: typeof recipeListSelect;
 }>;
+
+/** Wiersz listy przepisów dla klienta — bez `sourceMeta`, bez ulubionych. */
+export type RecipeListItem = Omit<RecipeListRow, 'sourceMeta'> & {
+  imageUrl: string;
+};
 
 /**
  * Wiersz `RecipeIngredient` gotowy do zapisu plus makra źródła (na 100 g/ml),
@@ -613,20 +618,117 @@ export class RecipesService {
       }
     }
 
-    const mapped = (recipes ?? []).map((recipe) => {
-      const { sourceMeta, ...base } = recipe;
-      return {
-        ...base,
-        // Nigdy nie wypuszczamy pustej listy slotów — klient nie musi znać
-        // reguły „puste znaczy tyle, co slot bazowy". Normalizacja jest tu,
-        // a nie w zapytaniu, bo dotyczy też wierszy z cache'u.
-        suitableMealTypes: effectiveSuitableMealTypes(recipe),
-        imageUrl: this.resolveRecipeImageUrl(recipe),
-        isFavorite: favoriteRecipeIds.has(recipe.id),
-      };
-    });
+    const mapped = (recipes ?? []).map((recipe) => ({
+      ...this.toListItem(recipe),
+      isFavorite: favoriteRecipeIds.has(recipe.id),
+    }));
 
     return mapped;
+  }
+
+  /**
+   * Wiersz listy → kształt dla klienta. Jedna definicja dla `recipes:findAll`
+   * i synchronizacji katalogu (`catalog:snapshot`/`catalog:changes`), żeby
+   * telefon dostawał ten sam przepis niezależnie od ścieżki.
+   */
+  toListItem(recipe: RecipeListRow): RecipeListItem {
+    const { sourceMeta: _sourceMeta, ...base } = recipe;
+    return {
+      ...base,
+      // Nigdy nie wypuszczamy pustej listy slotów — klient nie musi znać
+      // reguły „puste znaczy tyle, co slot bazowy". Normalizacja jest tu,
+      // a nie w zapytaniu, bo dotyczy też wierszy z cache'u.
+      suitableMealTypes: effectiveSuitableMealTypes(recipe),
+      imageUrl: this.resolveRecipeImageUrl(recipe),
+    };
+  }
+
+  /**
+   * Stan DOMU obok publicznego katalogu (Etap 4A): przepisy gospodarstwa
+   * (nie wchodzą do publicznego logu synchronizacji) i ulubione. Mało
+   * wierszy, więc zawsze w całości — dwa zapytania plus członkostwo.
+   */
+  async householdState(userIdentifier: string, householdId: string) {
+    assertUuid(householdId, 'householdId');
+    const userId = await this.resolveUserId(userIdentifier);
+    await this.ensureMembership(userId, householdId);
+    const [rows, favorites] = await Promise.all([
+      this.prisma.recipe.findMany({
+        where: { householdId, isCatalog: false, isActive: true },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: this.listSelect,
+      }),
+      this.prisma.recipeFavorite.findMany({
+        where: { householdId },
+        select: { recipeId: true },
+        orderBy: { recipeId: 'asc' },
+      }),
+    ]);
+    const favoriteIds = new Set(favorites.map((row) => row.recipeId));
+    return {
+      householdId,
+      recipes: rows.map((row) => ({
+        ...this.toListItem(row),
+        isFavorite: favoriteIds.has(row.id),
+      })),
+      favoriteRecipeIds: [...favoriteIds],
+    };
+  }
+
+  /**
+   * Kilka przepisów do KARTY naraz (Etap 4B) — jedno sprawdzenie członkostwa
+   * i jedno zapytanie zamiast `findById` na każde danie (karta 3 dań: 15
+   * zapytań → 2). Ta sama bramka co `findById`: tylko aktywne, katalog albo
+   * przepis TEGO domu; brak któregokolwiek = `RECIPE_NOT_FOUND` (404, nie
+   * 403 — cudzy przepis nie potwierdza istnienia). Kolejność = kolejność `ids`.
+   */
+  async cardSides(
+    userIdentifier: string,
+    ids: readonly string[],
+    householdId: string,
+  ) {
+    ids.forEach((id) => assertUuid(id, 'id'));
+    assertUuid(householdId, 'householdId');
+    await this.ensureMembership(userIdentifier, householdId);
+    const unique = [...new Set(ids)];
+    const rows = await this.prisma.recipe.findMany({
+      where: {
+        id: { in: unique },
+        isActive: true,
+        OR: [{ isCatalog: true }, { householdId }],
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        servings: true,
+        prepTimeMinutes: true,
+        imageUrl: true,
+        sourceMeta: true,
+        nutritionKcal: true,
+        nutritionProtein: true,
+        nutritionCarbs: true,
+        nutritionFat: true,
+        _count: { select: { ingredients: true } },
+      },
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return ids.map((id) => {
+      const row = byId.get(id);
+      if (!row) {
+        throw new AppException(
+          'RECIPE_NOT_FOUND',
+          'Nie znaleziono przepisu.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      const { sourceMeta: _sourceMeta, _count, ...base } = row;
+      return {
+        ...base,
+        imageUrl: this.resolveRecipeImageUrl(row),
+        ingredientCount: _count.ingredients,
+      };
+    });
   }
 
   async findById(userIdentifier: string, id: string, householdId?: string) {
@@ -756,7 +858,9 @@ export class RecipesService {
         },
       },
     });
-    this.recipesCache.invalidateRecipesList();
+    // Przepis GOSPODARSTWA: tylko wpisy listy tego domu (Etap 4B) — wspólny
+    // katalog i listy innych domów zostają w pamięci.
+    this.recipesCache.invalidateRecipesList(data.householdId);
     return created;
   }
 
@@ -853,7 +957,9 @@ export class RecipesService {
       });
     });
 
-    this.recipesCache.invalidateRecipesList();
+    // Przepis GOSPODARSTWA: tylko wpisy listy tego domu (Etap 4B) — wspólny
+    // katalog i listy innych domów zostają w pamięci.
+    this.recipesCache.invalidateRecipesList(data.householdId);
     return this.findById(userIdentifier, recipeId, data.householdId);
   }
 
@@ -891,7 +997,9 @@ export class RecipesService {
       where: { id: recipeId },
       data: { isActive: false },
     });
-    this.recipesCache.invalidateRecipesList();
+    // Przepis GOSPODARSTWA: tylko wpisy listy tego domu (Etap 4B) — wspólny
+    // katalog i listy innych domów zostają w pamięci.
+    this.recipesCache.invalidateRecipesList(householdId);
     return { id: recipeId, isActive: false };
   }
 
@@ -1002,7 +1110,8 @@ export class RecipesService {
       });
     }
 
-    this.recipesCache.invalidateRecipesList();
+    // Ulubione NIE unieważniają listy (Etap 4B): wpisy cache nie niosą
+    // `isFavorite` — flagę dokłada każdy odczyt z świeżej tabeli ulubionych.
     const detail = await this.findById(
       userIdentifier,
       data.recipeId,

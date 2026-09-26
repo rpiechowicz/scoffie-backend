@@ -100,7 +100,7 @@ export class AgentPromptService {
     memo?: TurnMemo,
   ): Promise<AgentPrompt> {
     const [snapshot, household, allMembers, rawPlan] = await Promise.all([
-      this.catalog.snapshot(),
+      this.catalog.snapshot(memo),
       memoized(memo, TURN_KEYS.household(householdId), () =>
         this.prisma.household.findUnique({
           where: { id: householdId },

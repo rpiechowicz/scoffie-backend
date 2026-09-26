@@ -44,6 +44,9 @@ const EXPECTED_EVENTS: readonly string[] = [
   'users:onboarding:complete',
   // RecipesGateway
   'recipes:findAll',
+  'catalog:snapshot',
+  'catalog:changes',
+  'recipes:householdState',
   'recipes:findById',
   'ingredients:search',
   'recipes:create',
@@ -89,7 +92,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'households:removeMember',
   'households:leave',
 ];
-const EXPECTED_HANDLER_COUNT = 48;
+const EXPECTED_HANDLER_COUNT = 51;
 
 // ---------------------------------------------------------------------------
 // Sockety i payload
