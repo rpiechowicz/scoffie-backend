@@ -11,6 +11,7 @@ import type {
   UserList,
   UserListItem,
 } from '../src/admin/contract';
+import { activityDayKey } from '../src/auth/user-activity.service';
 import { SUBSCRIPTION_PRODUCTS } from '../src/config/subscription-products';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
@@ -99,7 +100,8 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
         authProvider: 'DEV',
         identityHash,
         onboardingCompletedAt: new Date(now - DAY),
-        lastLoginAt: new Date(now),
+        lastLoginAt: new Date(now - 2 * DAY),
+        lastSeenAt: new Date(now),
         yearOfBirth: 1990,
         weightKg: 64.5,
       },
@@ -111,10 +113,22 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
         displayName: `Domownik ${stamp}`,
         authProvider: 'DEV',
         lastLoginAt: new Date(now - 10 * DAY),
+        lastSeenAt: new Date(now - 10 * DAY),
       },
       select: { id: true },
     });
     ids.member = member.id;
+    // Aktywność liczy się z dób w aplikacji (`UserActivityDay`), nie z
+    // `lastLoginAt`: właścicielka była dziś (logowała się 2 dni temu),
+    // domownik — 10 dni temu.
+    const activityDay = (at: number) =>
+      new Date(`${activityDayKey(new Date(at))}T00:00:00.000Z`);
+    await prisma.userActivityDay.createMany({
+      data: [
+        { userId: owner.id, date: activityDay(now) },
+        { userId: member.id, date: activityDay(now - 10 * DAY) },
+      ],
+    });
     const loner = await prisma.user.create({
       data: {
         displayName: `Żółć ${stamp}`,
@@ -279,7 +293,10 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
     expect(after.today.newUsers).toBe(after.days[29].newUsers);
     expect(after.today.newUsers).toBeGreaterThanOrEqual(3);
     expect(after.loggedInToday).toBeGreaterThanOrEqual(1);
-    expect(after.loggedInTrend).toEqual({ d1: 0 });
+    // Trend z dób aktywności całej bazy testowej — liczba, bez stałej wartości.
+    expect(after.loggedInTrend).toEqual(
+      expect.objectContaining({ d1: expect.any(Number) }),
+    );
     expect(after.households).toBeGreaterThanOrEqual(1);
     expect(after.attention.mailsFailed).toBeGreaterThanOrEqual(1);
     expect(after.mrrSpark).toHaveLength(14);
@@ -344,6 +361,15 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
     expect(await only('subscribed=true')).toEqual([ids.owner]);
     expect(await only('onboarding=true')).toEqual([ids.owner]);
     expect(await only('active7=true')).toEqual([ids.owner]);
+    // „Ostatnio w aplikacji” obok ostatniego pełnego logowania.
+    const list = (await get(`/admin/users?q=${stamp}`).expect(200))
+      .body as UserList;
+    const ownerItem = list.items.find((item) => item.id === ids.owner);
+    expect(ownerItem?.lastSeenAt).not.toBeNull();
+    expect(Date.parse(ownerItem!.lastSeenAt!)).toBeGreaterThan(
+      Date.parse(ownerItem!.lastLoginAt!),
+    );
+    expect(list.items[0].id).toBe(ids.owner);
     expect((await only('active7=false')).sort()).toEqual(
       [ids.member, ids.loner].sort(),
     );

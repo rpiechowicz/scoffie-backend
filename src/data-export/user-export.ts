@@ -40,6 +40,7 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
       sex: true,
       onboardingCompletedAt: true,
       lastLoginAt: true,
+      lastSeenAt: true,
       createdAt: true,
       updatedAt: true,
       preferences: true,
