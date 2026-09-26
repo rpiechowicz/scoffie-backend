@@ -7,6 +7,7 @@ import {
 } from '../src/agent/search/agent-catalog.service';
 import { loadDigestRecipes } from '../src/agent/catalog-digest';
 import { RecipeSearchQuery } from '../src/agent/search/catalog-search';
+import { catalogOwnerUserId } from '../src/common/catalog-owner';
 
 /**
  * Granica katalogu dla asystenta (workstream, Etap 1) na żywej bazie.
@@ -59,7 +60,7 @@ describe('Asystent: granica katalogu E2E', () => {
         title: TITLE,
         householdId: catalogHouseholdId(),
         // Autor = właściciel konta katalogowego (to samo, co przy imporcie).
-        authorId: catalogHousehold.createdById,
+        authorId: catalogHousehold.createdById ?? catalogOwnerUserId(),
         isCatalog: false,
         mealType: 'DINNER',
         suitableMealTypes: ['DINNER'],

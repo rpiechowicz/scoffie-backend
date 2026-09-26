@@ -27,6 +27,8 @@ import { StubAgentProvider } from './providers/stub-agent.provider';
 import { UpstreamBreaker } from './upstream-breaker';
 import { AgentCatalogService } from './search/agent-catalog.service';
 import { AgentCacheWarmer } from './agent-cache-warmer.service';
+import { AgentUsageLedger } from './agent-usage-ledger.service';
+import { AgentTurnSweeper } from './agent-turn-sweeper.service';
 
 /**
  * Asystent AI — szkielet Fazy 0.
@@ -66,6 +68,9 @@ import { AgentCacheWarmer } from './agent-cache-warmer.service';
     AgentConversationsService,
     AgentTurnsService,
     AgentTurnRunner,
+    // Księga kosztu per wywołanie dostawcy i sprzątanie osieroconych tur.
+    AgentUsageLedger,
+    AgentTurnSweeper,
     AgentProviderResolver,
     AgentToolExecutor,
     AgentProposalsService,

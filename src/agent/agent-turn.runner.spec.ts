@@ -2,11 +2,17 @@ import { Prisma } from '@prisma/client';
 import { AgentEnv } from '../config/agent-env';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { AgentTurnRunner, RunTurnInput } from './agent-turn.runner';
-import { AiUsageCountersService } from './ai-usage-counters.service';
+import {
+  ABORT_REASON_CLOSED,
+  ABORT_REASON_SHUTDOWN,
+  AgentTurnRunner,
+  RunTurnInput,
+} from './agent-turn.runner';
+import { AgentUsageLedger } from './agent-usage-ledger.service';
 import {
   AgentProvider,
   AgentProviderError,
+  AgentProviderRequest,
   AgentProviderResult,
 } from './providers/agent-provider';
 import { AgentProviderResolver } from './providers/agent-provider.resolver';
@@ -47,6 +53,8 @@ const ENV: AgentEnv = {
   toolsModel: null,
   catalogMode: 'search',
   cacheWarmHours: 0,
+  turnCostReserveUsd: 0.25,
+  shutdownGraceMs: 8_000,
 };
 
 const RESULT: AgentProviderResult = {
@@ -78,10 +86,11 @@ describe('AgentTurnRunner', () => {
     aiUsage: { create: jest.fn(), createMany: jest.fn() },
     $transaction: jest.fn(),
   };
-  const counters = {
-    add: jest.fn(),
-    addHouseholdCost: jest.fn(),
-    dayKey: jest.fn(),
+  // Księga per wywołanie: koszt, liczniki sufitów i zwrot kwoty żyją w niej
+  // (`agent-usage-ledger.service.spec.ts`); runner tylko ją woła.
+  const ledger = {
+    record: jest.fn(),
+    refundIfFree: jest.fn(),
   };
   const run = jest.fn();
   const provider: AgentProvider = { name: 'stub', run };
@@ -136,7 +145,8 @@ describe('AgentTurnRunner', () => {
       id: 'msg',
       createdAt: new Date('2026-08-31T10:00:05.000Z'),
     });
-    counters.dayKey.mockReturnValue('2026-08-31');
+    ledger.record.mockResolvedValue({ budgetExceeded: false });
+    ledger.refundIfFree.mockResolvedValue(true);
     run.mockResolvedValue(RESULT);
 
     breaker = new UpstreamBreaker();
@@ -146,7 +156,7 @@ describe('AgentTurnRunner', () => {
       resolver as unknown as AgentProviderResolver,
       prompts as unknown as AgentPromptService,
       toolExecutor as unknown as AgentToolExecutor,
-      counters as unknown as AiUsageCountersService,
+      ledger as unknown as AgentUsageLedger,
       breaker,
       metrics,
       { notify: jest.fn().mockResolvedValue(false) } as never,
@@ -154,39 +164,40 @@ describe('AgentTurnRunner', () => {
   });
 
   describe('tura udana', () => {
-    it('domyka turę, dopisuje odpowiedź, księgę użycia i koszt do budżetu', async () => {
+    it('domyka turę, dopisuje odpowiedź i księgę użycia', async () => {
       await runner.run(input());
 
-      expect(tx.agentTurn.updateMany).toHaveBeenCalledWith({
-        where: { id: TURN, status: 'RUNNING' },
-        data: expect.objectContaining({
-          status: 'DONE',
-          inputTokens: 100,
-          outputTokens: 50,
-          costMicroUsd: 4200,
-        }),
-      });
+      const closing = tx.agentTurn.updateMany.mock.calls[0] as [
+        { where: unknown; data: Record<string, unknown> },
+      ];
+      expect(closing[0].where).toEqual({ id: TURN, status: 'RUNNING' });
+      expect(closing[0].data).toMatchObject({ status: 'DONE' });
+      // Tokenów i kosztu domknięcie NIE nadpisuje — dopisuje je księga.
+      expect(closing[0].data).not.toHaveProperty('costMicroUsd');
+      expect(closing[0].data).not.toHaveProperty('inputTokens');
       expect(tx.agentMessage.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ role: 'ASSISTANT', text: 'gotowe' }),
       });
-      // Jeden wiersz na fazę; bez przekazania pałeczki faza jest jedna.
-      expect(tx.aiUsage.createMany).toHaveBeenCalledWith({
-        data: [
-          expect.objectContaining({
-            turnId: TURN,
-            householdId: HOUSEHOLD,
+      // Dostawca bez `onUsage` (ta atrapa): jeden zbiorczy wiersz zastępczy,
+      // PRZED domknięciem, z tożsamością tury.
+      expect(ledger.record).toHaveBeenCalledTimes(1);
+      expect(ledger.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          turnId: TURN,
+          householdId: HOUSEHOLD,
+          userId: USER,
+          provider: 'stub',
+        }),
+        expect.objectContaining({
+          callIndex: 0,
+          stopReason: 'end_turn',
+          usage: expect.objectContaining({
             cacheReadTokens: 5,
-            stopReason: 'end_turn',
+            costMicroUsd: 4200,
           }),
-        ],
-      });
-      expect(counters.add).toHaveBeenCalledWith(
-        tx,
-        'global',
-        '2026-08-31',
-        'costMicroUsd',
-        4200,
+        }),
       );
+      expect(tx.aiUsage.createMany).not.toHaveBeenCalled();
 
       const snapshot = metrics.snapshot();
       expect(snapshot.turns.done).toBe(1);
@@ -234,25 +245,22 @@ describe('AgentTurnRunner', () => {
           errorCode: 'AI_PROVIDER_ERROR',
         }),
       });
-      expect(counters.add).toHaveBeenCalledWith(
-        prisma,
-        // ZWROT WRACA TAM, SKĄD KWOTA ZESZŁA. Nie do gospodarstwa — do zakresu
-        // z chwili pobrania (`sub:<id>` przy subskrypcji, `trial:<hasz>` na
-        // próbie). Poprzednia wersja oddawała na `householdId`, więc każdy
-        // zwrot przy subskrypcji i przy próbie trafiał w pusty licznik.
+      // ZWROT WRACA TAM, SKĄD KWOTA ZESZŁA. Nie do gospodarstwa — do zakresu
+      // z chwili pobrania (`sub:<id>` przy subskrypcji, `trial:<hasz>` na
+      // próbie). Warunek „za darmo" sprawdza baza w `refundIfFree`.
+      expect(ledger.refundIfFree).toHaveBeenCalledWith(
+        tx,
+        TURN,
         `sub:${HOUSEHOLD}`,
-        '2026-08',
-        'messages',
-        -1,
       );
       expect(metrics.snapshot().upstream.total).toBe(1);
       expect(metrics.snapshot().turns.failed).toBe(1);
     });
 
     it('tura spalona po kilku rundach trafia do KSIĘGI, nie tylko na turę', async () => {
-      // `AiUsage` to surowiec do kalibracji kosztów („jeden wiersz na żądanie
-      // do dostawcy"). Bez wiersza dla porażki księga pokazywałaby wyłącznie
-      // tury udane — czyli rachunek systematycznie niższy od prawdziwego.
+      // `AiUsage` to surowiec do kalibracji kosztów. Bez wiersza dla porażki
+      // księga pokazywałaby wyłącznie tury udane — czyli rachunek
+      // systematycznie niższy od prawdziwego (i ślepe sufity kosztu).
       run.mockRejectedValue(
         new AgentProviderError('503 po czterech rundach', true, 503, {
           inputTokens: 18_000,
@@ -264,26 +272,22 @@ describe('AgentTurnRunner', () => {
       );
       await runner.run(input());
 
-      expect(prisma.aiUsage.createMany).toHaveBeenCalledWith({
-        data: [
-          expect.objectContaining({
-            turnId: TURN,
-            stopReason: 'AI_PROVIDER_ERROR',
+      expect(ledger.record).toHaveBeenCalledWith(
+        expect.objectContaining({ turnId: TURN }),
+        expect.objectContaining({
+          callIndex: 0,
+          stopReason: 'AI_PROVIDER_ERROR',
+          usage: {
             inputTokens: 18_000,
             cacheReadTokens: 16_000,
+            cacheWriteTokens: 0,
             outputTokens: 900,
             costMicroUsd: 41_000,
-          }),
-        ],
-      });
-      // …i ten sam koszt musi obciążyć budżet dobowy.
-      expect(counters.add).toHaveBeenCalledWith(
-        prisma,
-        'global',
-        expect.any(String),
-        'costMicroUsd',
-        41_000,
+          },
+        }),
       );
+      // Pieniądze wydane — wiadomość nie wraca.
+      expect(ledger.refundIfFree).not.toHaveBeenCalled();
     });
 
     it('błąd bez zużycia nie dopisuje pustego wiersza do księgi', async () => {
@@ -291,13 +295,13 @@ describe('AgentTurnRunner', () => {
         new AgentProviderError('padło przed pierwszym wywołaniem', true),
       );
       await runner.run(input());
-      expect(prisma.aiUsage.createMany).not.toHaveBeenCalled();
+      expect(ledger.record).not.toHaveBeenCalled();
     });
 
     it('błąd nie-retryable: bez zwrotu kwoty i bez bezpiecznika', async () => {
       run.mockRejectedValue(new AgentProviderError('zły prompt', false));
       await runner.run(input());
-      expect(counters.add).not.toHaveBeenCalled();
+      expect(ledger.refundIfFree).not.toHaveBeenCalled();
       expect(metrics.snapshot().upstream.total).toBe(0);
     });
 
@@ -324,16 +328,10 @@ describe('AgentTurnRunner', () => {
         where: { id: TURN, status: 'RUNNING' },
         data: expect.objectContaining({ errorCode: 'AI_TIMEOUT' }),
       });
-      expect(counters.add).toHaveBeenCalledWith(
-        prisma,
-        // ZWROT WRACA TAM, SKĄD KWOTA ZESZŁA. Nie do gospodarstwa — do zakresu
-        // z chwili pobrania (`sub:<id>` przy subskrypcji, `trial:<hasz>` na
-        // próbie). Poprzednia wersja oddawała na `householdId`, więc każdy
-        // zwrot przy subskrypcji i przy próbie trafiał w pusty licznik.
+      expect(ledger.refundIfFree).toHaveBeenCalledWith(
+        tx,
+        TURN,
         `sub:${HOUSEHOLD}`,
-        '2026-08',
-        'messages',
-        -1,
       );
       // Nasz timeout to nie awaria dostawcy.
       expect(metrics.snapshot().upstream.total).toBe(0);
@@ -364,19 +362,14 @@ describe('AgentTurnRunner', () => {
 
       await runner.run(input({ env: { ...ENV, turnTimeoutMs: 10 } }));
 
-      expect(counters.add).not.toHaveBeenCalledWith(
-        prisma,
-        `sub:${HOUSEHOLD}`,
-        '2026-08',
-        'messages',
-        -1,
-      );
-      // Pieniądze i tak muszą trafić do liczników kosztu — inaczej sufity
-      // dobowy i miesięczny nie widziałyby wydatku nieudanej tury.
-      expect(counters.addHouseholdCost).toHaveBeenCalledWith(
-        prisma,
-        HOUSEHOLD,
-        620_000,
+      expect(ledger.refundIfFree).not.toHaveBeenCalled();
+      // Pieniądze i tak muszą trafić do księgi (a z nią do liczników
+      // sufitów) — inaczej sufity nie widziałyby wydatku nieudanej tury.
+      expect(ledger.record).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          usage: expect.objectContaining({ costMicroUsd: 620_000 }),
+        }),
       );
     });
 
@@ -393,13 +386,7 @@ describe('AgentTurnRunner', () => {
 
       await runner.run(input());
 
-      expect(counters.add).not.toHaveBeenCalledWith(
-        prisma,
-        expect.anything(),
-        expect.anything(),
-        'messages',
-        -1,
-      );
+      expect(ledger.refundIfFree).not.toHaveBeenCalled();
     });
 
     it('nieoczekiwany błąd (nie od dostawcy) daje INTERNAL_ERROR ze zwrotem', async () => {
@@ -410,28 +397,203 @@ describe('AgentTurnRunner', () => {
           data: expect.objectContaining({ errorCode: 'INTERNAL_ERROR' }),
         }),
       );
-      expect(counters.add).toHaveBeenCalled();
+      expect(ledger.refundIfFree).toHaveBeenCalled();
     });
   });
 
   /**
-   * `AiUsage.apiCalls` — ile ŻĄDAŃ do modelu złożyło się na wiersz księgi.
-   *
-   * Wiersz księgi to FAZA, nie żądanie: bez tej kolumny tura po dwunastu
-   * rundach wyglądała w produkcji tak samo jak tura po jednej, więc mediany
-   * ani ogona rund nie dawało się policzyć inaczej niż benchmarkiem.
+   * Księga per wywołanie (workstream, Etap 1): dostawca melduje KAŻDE
+   * wywołanie przez `onUsage`, runner przekazuje je do `AgentUsageLedger`
+   * i nie pisze już kosztu przy domknięciu.
    */
-  describe('księga: apiCalls', () => {
+  describe('księga per wywołanie', () => {
+    const call = (callIndex: number, costMicroUsd: number) => ({
+      callIndex,
+      model: 'claude-sonnet-5',
+      effort: 'medium' as const,
+      usage: {
+        inputTokens: 10,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 5,
+        costMicroUsd,
+      },
+      stopReason: 'tool_use',
+      latencyMs: 1200,
+    });
+
+    it('wywołania z dostawcy idą do księgi, bez zapisu zastępczego', async () => {
+      run.mockImplementation(async (request: AgentProviderRequest) => {
+        await request.onUsage?.(call(0, 300));
+        await request.onUsage?.(call(1, 200));
+        return RESULT;
+      });
+      await runner.run(input());
+
+      expect(ledger.record).toHaveBeenCalledTimes(2);
+      expect(ledger.record).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ turnId: TURN }),
+        expect.objectContaining({ callIndex: 0 }),
+      );
+      expect(ledger.record).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        expect.objectContaining({ callIndex: 1 }),
+      );
+    });
+
+    it('werdykt budżetu z księgi wraca do dostawcy', async () => {
+      ledger.record.mockResolvedValue({ budgetExceeded: true });
+      let verdict: unknown;
+      run.mockImplementation(async (request: AgentProviderRequest) => {
+        verdict = await request.onUsage?.(call(0, 300));
+        return RESULT;
+      });
+      await runner.run(input());
+      expect(verdict).toEqual({ budgetExceeded: true });
+    });
+
+    it('zapis, który padł, jest ponawiany przed domknięciem tury', async () => {
+      ledger.record
+        .mockRejectedValueOnce(new Error('baza chwilowo padła'))
+        .mockResolvedValue({ budgetExceeded: false });
+      let verdict: unknown;
+      run.mockImplementation(async (request: AgentProviderRequest) => {
+        verdict = await request.onUsage?.(call(0, 300));
+        return RESULT;
+      });
+      await runner.run(input());
+
+      // Błąd księgi nie przerywa tury i nie zatrzymuje dostawcy.
+      expect(verdict).toEqual({ budgetExceeded: false });
+      expect(ledger.record).toHaveBeenCalledTimes(2);
+      expect(ledger.record).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({ callIndex: 0 }),
+      );
+      expect(metrics.snapshot().turns.done).toBe(1);
+    });
+
+    it('koszt poza księgą (zapis padł dwa razy) i tak blokuje zwrot', async () => {
+      ledger.record.mockRejectedValue(new Error('baza leży'));
+      run.mockImplementation(async (request: AgentProviderRequest) => {
+        await request.onUsage?.(call(0, 300));
+        throw new AgentProviderError('503 w drugiej rundzie', true);
+      });
+      await runner.run(input());
+      expect(ledger.refundIfFree).not.toHaveBeenCalled();
+    });
+
+    it.each(['cost_ceiling', 'budget_ceiling'])(
+      'tura DONE ucięta sufitem (%s) bez kosztu oddaje wiadomość',
+      async (stopReason) => {
+        run.mockResolvedValue({
+          ...RESULT,
+          stopReason,
+          usage: { ...RESULT.usage, costMicroUsd: 0 },
+        });
+        await runner.run(input());
+        expect(ledger.refundIfFree).toHaveBeenCalledWith(
+          tx,
+          TURN,
+          `sub:${HOUSEHOLD}`,
+        );
+      },
+    );
+
+    it('zwykła tura DONE wiadomości nie oddaje', async () => {
+      await runner.run(input());
+      expect(ledger.refundIfFree).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('znak życia i zamykanie procesu', () => {
+    const hanging = () => {
+      let seen: AbortSignal | undefined;
+      run.mockImplementation(
+        (request: AgentProviderRequest) =>
+          new Promise((_resolve, reject) => {
+            seen = request.signal;
+            request.signal.addEventListener('abort', () =>
+              reject(new AgentProviderError('przerwane', true)),
+            );
+          }),
+      );
+      return () => seen;
+    };
+
+    afterEach(() => {
+      jest.useRealTimers();
+      delete process.env.AI_SHUTDOWN_GRACE_MS;
+    });
+
+    it('odświeża updatedAt co 15 s, a turę domkniętą z zewnątrz przerywa', async () => {
+      jest.useFakeTimers();
+      const signal = hanging();
+      const running = runner.run(input());
+      await jest.advanceTimersByTimeAsync(0);
+
+      // Pierwsze uderzenie: tura żyje.
+      await jest.advanceTimersByTimeAsync(15_000);
+      expect(prisma.agentTurn.updateMany).toHaveBeenCalledWith({
+        where: { id: TURN, status: 'RUNNING' },
+        data: { updatedAt: expect.any(Date) },
+      });
+      expect(signal()?.aborted).toBe(false);
+
+      // Drugie: turę domknął już ktoś inny — dalsze rundy to strata pieniędzy.
+      prisma.agentTurn.updateMany.mockResolvedValue({ count: 0 });
+      await jest.advanceTimersByTimeAsync(15_000);
+      await running;
+      expect(signal()?.reason).toBe(ABORT_REASON_CLOSED);
+      expect(ledger.refundIfFree).not.toHaveBeenCalled();
+    });
+
+    it('SIGTERM: nowe tury odmawiane, wiszące przerwane po łasce jako AI_PROVIDER_ERROR bez bezpiecznika', async () => {
+      process.env.AI_SHUTDOWN_GRACE_MS = '30';
+      const signal = hanging();
+      const running = runner.run(input());
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(runner.isRunning(TURN)).toBe(true);
+
+      await runner.beforeApplicationShutdown();
+      await running;
+
+      expect(runner.isDraining()).toBe(true);
+      expect(signal()?.reason).toBe(ABORT_REASON_SHUTDOWN);
+      expect(prisma.agentTurn.updateMany).toHaveBeenCalledWith({
+        where: { id: TURN, status: 'RUNNING' },
+        data: expect.objectContaining({ errorCode: 'AI_PROVIDER_ERROR' }),
+      });
+      expect(ledger.refundIfFree).toHaveBeenCalled();
+      expect(metrics.snapshot().upstream.total).toBe(0);
+      expect(runner.isRunning(TURN)).toBe(false);
+    });
+
+    it('SIGTERM bez tur w biegu kończy się od razu', async () => {
+      await expect(runner.beforeApplicationShutdown()).resolves.toBeUndefined();
+      expect(runner.isDraining()).toBe(true);
+    });
+  });
+
+  /**
+   * `AiUsage.apiCalls` w zapisie ZASTĘPCZYM — dla dostawcy, który nie melduje
+   * wywołań przez `onUsage`. Wiersz to wtedy faza albo cała tura, więc musi
+   * powiedzieć, ile żądań się na niego złożyło.
+   */
+  describe('księga: zapis zastępczy i apiCalls', () => {
     it('wariant bez faz zapisuje apiCalls całej tury', async () => {
       run.mockResolvedValue({ ...RESULT, apiCalls: 7 });
       await runner.run(input());
 
-      expect(tx.aiUsage.createMany).toHaveBeenCalledWith({
-        data: [expect.objectContaining({ apiCalls: 7 })],
-      });
+      expect(ledger.record).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ callIndex: 0, apiCalls: 7 }),
+      );
     });
 
-    it('każda faza zapisuje SWOJE apiCalls, nie sumę tury', async () => {
+    it('każda faza zapisuje SWOJE apiCalls, pod kolejnym callIndex', async () => {
       run.mockResolvedValue({
         ...RESULT,
         apiCalls: 9,
@@ -464,12 +626,25 @@ describe('AgentTurnRunner', () => {
       });
       await runner.run(input());
 
-      expect(tx.aiUsage.createMany).toHaveBeenCalledWith({
-        data: [
-          expect.objectContaining({ model: 'claude-haiku-4-5', apiCalls: 3 }),
-          expect.objectContaining({ model: 'claude-sonnet-5', apiCalls: 6 }),
-        ],
-      });
+      expect(ledger.record).toHaveBeenCalledTimes(2);
+      expect(ledger.record).toHaveBeenNthCalledWith(
+        1,
+        expect.anything(),
+        expect.objectContaining({
+          callIndex: 0,
+          model: 'claude-haiku-4-5',
+          apiCalls: 3,
+        }),
+      );
+      expect(ledger.record).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        expect.objectContaining({
+          callIndex: 1,
+          model: 'claude-sonnet-5',
+          apiCalls: 6,
+        }),
+      );
     });
 
     it('nieudana tura księguje żądania, które zdążyły pójść', async () => {
@@ -490,9 +665,10 @@ describe('AgentTurnRunner', () => {
       );
       await runner.run(input());
 
-      expect(prisma.aiUsage.createMany).toHaveBeenCalledWith({
-        data: [expect.objectContaining({ apiCalls: 4 })],
-      });
+      expect(ledger.record).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ apiCalls: 4 }),
+      );
     });
 
     it('brak pomiaru zapisuje NULL, a nie zero — „nie wiadomo" to nie „zero żądań"', async () => {
@@ -507,37 +683,33 @@ describe('AgentTurnRunner', () => {
       );
       await runner.run(input());
 
-      expect(prisma.aiUsage.createMany).toHaveBeenCalledWith({
-        data: [expect.objectContaining({ apiCalls: null })],
-      });
+      expect(ledger.record).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ apiCalls: null }),
+      );
     });
 
-    it('księga kosztów nie zmienia się poza nową kolumną', async () => {
+    it('wiersz zastępczy niesie model startowy i wysiłek tury', async () => {
       run.mockResolvedValue({ ...RESULT, apiCalls: 3 });
       await runner.run(input());
 
-      expect(tx.aiUsage.createMany).toHaveBeenCalledWith({
-        data: [
-          expect.objectContaining({
-            turnId: TURN,
-            userId: USER,
-            householdId: HOUSEHOLD,
-            provider: 'stub',
-            model: 'claude-sonnet-5',
-            effort: 'medium',
-            inputTokens: 100,
-            cacheReadTokens: 5,
-            cacheWriteTokens: 2,
-            outputTokens: 50,
-            costMicroUsd: 4200,
-            stopReason: 'end_turn',
-          }),
-        ],
-      });
-      expect(counters.addHouseholdCost).toHaveBeenCalledWith(
-        tx,
-        HOUSEHOLD,
-        4200,
+      expect(ledger.record).toHaveBeenCalledWith(
+        {
+          turnId: TURN,
+          userId: USER,
+          householdId: HOUSEHOLD,
+          provider: 'stub',
+          env: ENV,
+        },
+        {
+          callIndex: 0,
+          model: 'claude-sonnet-5',
+          effort: 'medium',
+          usage: RESULT.usage,
+          stopReason: 'end_turn',
+          latencyMs: null,
+          apiCalls: 3,
+        },
       );
     });
   });

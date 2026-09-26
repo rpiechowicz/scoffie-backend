@@ -31,6 +31,10 @@ export const STUB_TOOL_MARKER = '[[tool]]';
  * Wymusza KOSZT tury: `[[cost:<mikrodolary>]]`. Bez tego stub kosztował
  * zawsze zero, więc e2e nie miało jak sprawdzić, czy wydane pieniądze
  * przeżywają anulowanie, timeout i restart (workstream, Etap 1).
+ *
+ * Księga widzi wtedy DWA wywołania, jak u prawdziwego dostawcy: wywołanie 0
+ * (koszt N) melduje się przed opóźnieniem, wywołanie 1 (tokeny odpowiedzi,
+ * koszt 0) po nim. Bez markera jest jedno wywołanie, po opóźnieniu.
  */
 export const STUB_COST_PATTERN = /\[\[cost:(\d{1,9})\]\]/;
 
@@ -63,6 +67,11 @@ export class StubAgentProvider implements AgentProvider {
     // w opóźnieniu niesie więc zużycie — dokładnie jak u prawdziwego dostawcy.
     const cost = Number(STUB_COST_PATTERN.exec(lastUserText)?.[1] ?? 0);
     const spent = cost > 0 ? this.usageOf(cost) : undefined;
+    let calls = 0;
+    if (spent) {
+      await this.report(request, calls, spent);
+      calls += 1;
+    }
     await this.delay(readAgentEnv().stubDelayMs, request.signal, spent);
 
     if (lastUserText.includes(STUB_UPSTREAM_ERROR_MARKER)) {
@@ -91,31 +100,54 @@ export class StubAgentProvider implements AgentProvider {
     // kolumnę `draftText` w ruchu.
     await request.onActivity?.('writing');
     request.onDraft?.(text);
-    const usage = {
-      // Prymitywne, ale niezerowe: e2e sprawdza, że księga użycia i licznik
-      // kosztu dostają realne liczby, a nie same zera.
+    // Prymitywne, ale niezerowe: e2e sprawdza, że księga użycia i licznik
+    // kosztu dostają realne liczby, a nie same zera.
+    const answer = {
       inputTokens: lastUserText.length,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       outputTokens: text.length,
+      costMicroUsd: 0,
+    };
+    await this.report(request, calls, answer);
+    calls += 1;
+    const usage = {
+      inputTokens: answer.inputTokens + (spent?.inputTokens ?? 0),
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: answer.outputTokens + (spent?.outputTokens ?? 0),
       costMicroUsd: cost,
     };
     return {
       text,
       stopReason: 'end_turn',
-      apiCalls: 1,
+      apiCalls: calls,
       usage,
-      // Jedna faza: stub nie przekazuje pałeczki, ale księga per faza ma
-      // dostać wiersz także tutaj (e2e sprawdza `AiUsage`).
+      // Jedna faza: stub nie przekazuje pałeczki.
       phases: [
         {
           model: request.model,
           effort: request.effort,
-          apiCalls: 1,
+          apiCalls: calls,
           usage,
         },
       ],
     };
+  }
+
+  private async report(
+    request: AgentProviderRequest,
+    callIndex: number,
+    usage: ReturnType<StubAgentProvider['usageOf']>,
+  ): Promise<void> {
+    await request.onUsage?.({
+      callIndex,
+      model: request.model,
+      effort: request.effort,
+      usage,
+      stopReason: 'end_turn',
+      latencyMs: 0,
+    });
   }
 
   private usageOf(costMicroUsd: number) {

@@ -8,6 +8,7 @@ import {
 } from '../../config/model-capabilities';
 import {
   AgentProvider,
+  AgentProviderCall,
   AgentProviderError,
   AgentProviderRequest,
   AgentProviderResult,
@@ -143,6 +144,9 @@ export class AnthropicAgentProvider implements AgentProvider {
     // a historia rozmowy w `messages` zawyżałaby każdą inną metodę.
     let calls = 0;
     const timings: AgentCallTiming[] = [];
+    // Werdykt księgi po OSTATNIM wywołaniu: któryś sufit kosztu (dom,
+    // instalacja) jest już osiągnięty — patrz `budget_ceiling` niżej.
+    let budgetExceeded = false;
 
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
       let response: Anthropic.Message;
@@ -166,7 +170,23 @@ export class AnthropicAgentProvider implements AgentProvider {
         throw this.withUsage(error, usage, phases);
       }
       calls += 1;
-      this.accumulate(usage, phases, model, effort, response.usage);
+      const callUsage = this.accumulate(
+        usage,
+        phases,
+        model,
+        effort,
+        response.usage,
+      );
+      // Zapis kosztu ZARAZ po wywołaniu, przed czymkolwiek, co może jeszcze
+      // wywrócić turę (odmowa niżej, narzędzie, timeout następnej rundy).
+      budgetExceeded = await this.reportUsage(request, {
+        callIndex: calls - 1,
+        model,
+        effort,
+        usage: callUsage,
+        stopReason: response.stop_reason,
+        latencyMs: timings[timings.length - 1]?.totalMs ?? null,
+      });
 
       // `stop_reason` PRZED czytaniem treści: przy odmowie `content` bywa puste,
       // a ślepe sięganie po tekst dałoby pustą odpowiedź zamiast wyjaśnienia.
@@ -279,6 +299,30 @@ export class AnthropicAgentProvider implements AgentProvider {
           'cost_ceiling',
         );
       }
+
+      // Sufit kosztu DOMU albo INSTALACJI osiągnięty w trakcie tury (werdykt
+      // księgi po ostatnim wywołaniu). Przyjęcie tury widzi tylko wydane
+      // pieniądze i rezerwację, więc tura, która ruszyła tuż pod sufitem,
+      // przekroczyłaby go dowolnie wieloma rundami. Stąd ostatnie słowo bez
+      // narzędzi: przekroczenie to najwyżej jedno wywołanie na turę w biegu.
+      if (budgetExceeded) {
+        this.logger.warn(
+          `sufit budżetu osiągnięty w trakcie tury po ${round + 1} wywołaniach — ostatnie słowo bez narzędzi`,
+        );
+        return this.finalAnswerWithoutTools(
+          client,
+          request,
+          messages,
+          usage,
+          phases,
+          model,
+          effort,
+          tools,
+          calls,
+          timings,
+          'budget_ceiling',
+        );
+      }
     }
 
     // Sufit rund osiągnięty. Zamiast wywracać turę, prosimy o odpowiedź BEZ
@@ -342,7 +386,10 @@ export class AnthropicAgentProvider implements AgentProvider {
     tools: readonly AgentToolDefinition[],
     callsSoFar: number,
     timings: AgentCallTiming[],
-    reason: 'tool_rounds_exhausted' | 'cost_ceiling' = 'tool_rounds_exhausted',
+    reason:
+      | 'tool_rounds_exhausted'
+      | 'cost_ceiling'
+      | 'budget_ceiling' = 'tool_rounds_exhausted',
   ): Promise<AgentProviderResult> {
     // Prośba jako blok TEKSTOWY w TEJ SAMEJ wiadomości użytkownika, co
     // wyniki narzędzi — dwie wiadomości `user` pod rząd to niepoprawna
@@ -377,7 +424,21 @@ export class AnthropicAgentProvider implements AgentProvider {
         },
         timings,
       );
-      this.accumulate(usage, phases, model, effort, response.usage);
+      const callUsage = this.accumulate(
+        usage,
+        phases,
+        model,
+        effort,
+        response.usage,
+      );
+      await this.reportUsage(request, {
+        callIndex: callsSoFar,
+        model,
+        effort,
+        usage: callUsage,
+        stopReason: response.stop_reason,
+        latencyMs: timings[timings.length - 1]?.totalMs ?? null,
+      });
       return {
         text: this.joinText(response.content),
         stopReason: reason,
@@ -524,6 +585,29 @@ export class AnthropicAgentProvider implements AgentProvider {
     );
   }
 
+  /**
+   * Melduje wywołanie księdze runnera i oddaje werdykt budżetu. Księga nie
+   * rzuca (runner łapie błąd zapisu i ponawia go przy domknięciu), ale
+   * dostawca i tak się zabezpiecza: zapis kosztu nie ma prawa wywrócić tury,
+   * za którą użytkownik już zapłacił.
+   */
+  private async reportUsage(
+    request: AgentProviderRequest,
+    call: AgentProviderCall,
+  ): Promise<boolean> {
+    if (!request.onUsage) return false;
+    try {
+      return (await request.onUsage(call)).budgetExceeded;
+    } catch (error) {
+      this.logger.warn(
+        `księga odrzuciła wywołanie ${call.callIndex}: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
+      return false;
+    }
+  }
+
   private assertNotAborted(signal: AbortSignal): void {
     if (signal.aborted) {
       throw new AgentProviderError('Tura przerwana przez limit czasu.', true);
@@ -661,7 +745,7 @@ export class AnthropicAgentProvider implements AgentProvider {
     model: string,
     effort: AiEffort,
     usage: Anthropic.Usage,
-  ): void {
+  ): AgentProviderUsage {
     const input = usage.input_tokens;
     const output = usage.output_tokens;
     const cacheRead = usage.cache_read_input_tokens ?? 0;
@@ -708,6 +792,13 @@ export class AnthropicAgentProvider implements AgentProvider {
     phase.usage.cacheWriteTokens += cacheWrite;
     phase.usage.costMicroUsd += costMicroUsd;
     phases.set(key, phase);
+    return {
+      inputTokens: input,
+      cacheReadTokens: cacheRead,
+      cacheWriteTokens: cacheWrite,
+      outputTokens: output,
+      costMicroUsd,
+    };
   }
 }
 

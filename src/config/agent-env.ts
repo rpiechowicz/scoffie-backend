@@ -392,7 +392,8 @@ type NumericKey =
   | 'AI_PROPOSAL_TTL_MS'
   | 'AI_PROPOSAL_UNDO_WINDOW_MS'
   | 'AI_CONVERSATION_RETENTION_DAYS'
-  | 'AI_CACHE_WARM_HOURS';
+  | 'AI_CACHE_WARM_HOURS'
+  | 'AI_SHUTDOWN_GRACE_MS';
 
 function readNumber(
   env: NodeJS.ProcessEnv,
@@ -744,6 +745,7 @@ export function agentEnvProblems(
     ['AI_PROPOSAL_UNDO_WINDOW_MS', { min: 0, integer: true }],
     ['AI_CONVERSATION_RETENTION_DAYS', { min: 0, integer: true }],
     ['AI_CACHE_WARM_HOURS', { min: 0, integer: true }],
+    ['AI_SHUTDOWN_GRACE_MS', { min: 0, integer: true }],
   ];
   for (const [key, opts] of numeric) {
     const raw = (env[key] ?? '').trim();

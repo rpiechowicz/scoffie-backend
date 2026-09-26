@@ -63,6 +63,7 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
     devices,
     cookidoo,
     aiUsage,
+    aiTurns,
     memoryNotes,
     subscriptions,
     activityDays,
@@ -221,11 +222,18 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
     }),
     prisma.aiUsage.aggregate({
       where: { userId },
-      _count: { _all: true },
       _sum: { inputTokens: true, outputTokens: true, costMicroUsd: true },
       _min: { createdAt: true },
       _max: { createdAt: true },
     }),
+    // TURY, nie wiersze: od 26.09.2026 księga ma wiersz na WYWOŁANIE modelu,
+    // więc `_count` wierszy mówiłby „30 tur" o trzech rozmowach po dziesięć
+    // rund. Wiersz bez tury (rozmowa skasowana, zapis sprzed kolumny) liczy
+    // się jako jedna tura, jak dotąd.
+    prisma.$queryRaw<{ turns: number }[]>`
+      SELECT (COUNT(DISTINCT "turnId") + COUNT(*) FILTER (WHERE "turnId" IS NULL))::int AS turns
+        FROM "AiUsage"
+       WHERE "userId" = ${userId}::uuid`,
     // Notatka O TEJ OSOBIE jest jej danymi (art. 15), nawet jeśli napisał ją
     // ktoś inny — a filtr szedł wyłącznie po autorze (audyt 12.09.2026, P1.11).
     // `aboutUserId` w wyniku zostaje, żeby w paczce dało się odróżnić „to
@@ -330,7 +338,7 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
       // Polityka §2: „dane o użyciu" są danymi osobowymi — sumy, nie wiersze
       // (pojedynczy wiersz nie mówi o osobie nic ponad to).
       usage: {
-        turns: aiUsage._count._all,
+        turns: aiTurns[0]?.turns ?? 0,
         inputTokens: aiUsage._sum.inputTokens ?? 0,
         outputTokens: aiUsage._sum.outputTokens ?? 0,
         costMicroUsd: aiUsage._sum.costMicroUsd ?? 0,

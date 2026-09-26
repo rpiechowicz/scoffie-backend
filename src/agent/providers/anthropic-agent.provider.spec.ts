@@ -335,6 +335,86 @@ describe('AnthropicAgentProvider', () => {
       expect(result.apiCalls).toBe(4);
     });
 
+    it('każde wywołanie melduje się księdze ZARAZ po nim, z kolejnym callIndex i kosztem tego wywołania', async () => {
+      const onUsage = jest.fn().mockResolvedValue({ budgetExceeded: false });
+      create
+        .mockResolvedValueOnce(toolMessage('get_week_plan', 'a'))
+        .mockResolvedValueOnce(textMessage('gotowe'));
+
+      await provider.run(request({ onUsage }));
+
+      expect(onUsage).toHaveBeenCalledTimes(2);
+      // 1000 wejścia × 2 $/MTok + 100 wyjścia × 10 $/MTok = 3000 µ$.
+      expect(onUsage).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          callIndex: 0,
+          model: 'claude-sonnet-5',
+          effort: 'medium',
+          stopReason: 'tool_use',
+          usage: expect.objectContaining({
+            inputTokens: 1000,
+            costMicroUsd: 3000,
+          }),
+        }),
+      );
+      expect(onUsage).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ callIndex: 1, stopReason: 'end_turn' }),
+      );
+      // Zameldowane PRZED wykonaniem narzędzia z tego wywołania.
+      expect(onUsage.mock.invocationCallOrder[0]).toBeLessThan(
+        executeTool.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('wywołanie, po którym tura pada (odmowa), też trafia do księgi', async () => {
+      const onUsage = jest.fn().mockResolvedValue({ budgetExceeded: false });
+      create.mockResolvedValueOnce({
+        stop_reason: 'refusal',
+        content: [],
+        usage: usage(),
+      });
+      await expect(provider.run(request({ onUsage }))).rejects.toMatchObject({
+        retryable: false,
+      });
+      expect(onUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ callIndex: 0, stopReason: 'refusal' }),
+      );
+    });
+
+    it('sufit budżetu z księgi: ostatnie słowo bez narzędzi (budget_ceiling), też zameldowane', async () => {
+      const onUsage = jest
+        .fn()
+        .mockResolvedValueOnce({ budgetExceeded: true })
+        .mockResolvedValue({ budgetExceeded: true });
+      create
+        .mockResolvedValueOnce(toolMessage('get_week_plan', 'a'))
+        .mockResolvedValueOnce(textMessage('więcej dziś nie zdziałam'));
+
+      const result = await provider.run(request({ onUsage }));
+
+      // Narzędzie z pierwszej rundy wykonało się (model czeka na jego wynik),
+      // ale kolejnej rundy z narzędziami już nie ma.
+      expect(executeTool).toHaveBeenCalledTimes(1);
+      expect(create).toHaveBeenCalledTimes(2);
+      const last = create.mock.calls.at(-1)?.[0] as { tool_choice?: unknown };
+      expect(last.tool_choice).toEqual({ type: 'none' });
+      expect(result.stopReason).toBe('budget_ceiling');
+      expect(result.text).toBe('więcej dziś nie zdziałam');
+      expect(onUsage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ callIndex: 1 }),
+      );
+    });
+
+    it('błąd księgi nie wywraca tury', async () => {
+      const onUsage = jest.fn().mockRejectedValue(new Error('baza padła'));
+      create.mockResolvedValueOnce(textMessage('gotowe'));
+      await expect(provider.run(request({ onUsage }))).resolves.toMatchObject({
+        text: 'gotowe',
+      });
+    });
+
     it('odmowa modelu (refusal) = błąd nie do ponowienia, z dotychczasowym zużyciem', async () => {
       create.mockResolvedValueOnce({
         stop_reason: 'refusal',

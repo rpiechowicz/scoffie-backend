@@ -1,20 +1,25 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  BeforeApplicationShutdown,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { stripClickableLinks } from './answer-links';
 import { Prisma } from '@prisma/client';
-import { AgentEnv } from '../config/agent-env';
+import { AgentEnv, readAgentEnv } from '../config/agent-env';
 import { AgentMetricsService } from '../observability/agent-metrics.service';
 import { OpsAlertService } from '../observability/ops-alert.service';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  AiUsageCountersService,
-  GLOBAL_SCOPE,
-} from './ai-usage-counters.service';
+import { AgentUsageLedger, LedgerTurn } from './agent-usage-ledger.service';
+import { TURN_HEARTBEAT_MS } from './agent-turn-liveness';
 import {
   AgentPhaseUsage,
+  AgentProviderCall,
   AgentProviderError,
   AgentProviderMessage,
   AgentProviderResult,
   AgentProviderUsage,
+  AgentUsageVerdict,
 } from './providers/agent-provider';
 import { resolveRoute } from './agent-route';
 import { AgentProviderResolver } from './providers/agent-provider.resolver';
@@ -79,6 +84,25 @@ export const HISTORY_WINDOW = 40;
 /** Powód przerwania podany do `AbortController.abort()` przy „Stop" z telefonu. */
 export const ABORT_REASON_CANCELLED = 'cancelled';
 
+/**
+ * Powód przerwania przy zamykaniu procesu (SIGTERM po deployu), gdy tura nie
+ * zdążyła domknąć się sama w `AI_SHUTDOWN_GRACE_MS`.
+ */
+export const ABORT_REASON_SHUTDOWN = 'shutdown';
+
+/**
+ * Powód przerwania, gdy turę domknął już ktoś inny (leniwy timeout z odczytu,
+ * sprzątanie osieroconych tur, rozmowa skasowana) — kolejne rundy byłyby
+ * pieniędzmi wydanymi na odpowiedź, której nikt nie zobaczy.
+ */
+export const ABORT_REASON_CLOSED = 'closed';
+
+/**
+ * Ile ms po przerwaniu tur przy zamykaniu procesu czekamy jeszcze na ich
+ * domknięcie (zapis FAILED, zwrot kwoty) — to są zapytania do bazy, nie model.
+ */
+const SHUTDOWN_CLOSE_MS = 2_000;
+
 type FailureVerdict = {
   errorCode:
     | 'AI_TIMEOUT'
@@ -110,7 +134,7 @@ type FailureVerdict = {
  * logi Railway nie są miejscem na listę zakupów ani na cele wagowe.
  */
 @Injectable()
-export class AgentTurnRunner {
+export class AgentTurnRunner implements BeforeApplicationShutdown {
   private readonly logger = new Logger(AgentTurnRunner.name);
   /**
    * Tury biegnące W TYM procesie — po to, żeby „Stop" z telefonu miał co
@@ -119,13 +143,18 @@ export class AgentTurnRunner {
    * bezpośrednio `AgentTurnsService.cancelTurn`.
    */
   private readonly running = new Map<string, AbortController>();
+  /**
+   * Proces dostał SIGTERM: nowe tury dostają 503 (`isDraining`), biegnące
+   * mają `AI_SHUTDOWN_GRACE_MS` na domknięcie się same.
+   */
+  private draining = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly providers: AgentProviderResolver,
     private readonly prompts: AgentPromptService,
     private readonly tools: AgentToolExecutor,
-    private readonly counters: AiUsageCountersService,
+    private readonly ledger: AgentUsageLedger,
     private readonly breaker: UpstreamBreaker,
     private readonly metrics: AgentMetricsService,
     private readonly alerts: OpsAlertService,
@@ -146,6 +175,54 @@ export class AgentTurnRunner {
     return true;
   }
 
+  /** Czy tę turę prowadzi TEN proces (wtedy żyje, nawet gdy chwilę milczy). */
+  isRunning(turnId: string): boolean {
+    return this.running.has(turnId);
+  }
+
+  /** Proces się zamyka — nowych tur nie przyjmujemy. */
+  isDraining(): boolean {
+    return this.draining;
+  }
+
+  /**
+   * Łagodne zamknięcie procesu (SIGTERM po deployu, `app.close()`).
+   *
+   * Do 26.09.2026 proces gasł w pół tury: wiersz zostawał RUNNING, rozmowa
+   * stała zablokowana do `AI_TURN_TIMEOUT_MS`, a koszt, który dostawca już
+   * naliczył, ginął. Teraz: przestajemy przyjmować tury, dajemy biegnącym
+   * `AI_SHUTDOWN_GRACE_MS` na domknięcie się same, a resztę przerywamy
+   * (`AI_PROVIDER_ERROR`, zwrot wiadomości tylko za turę bez kosztu, bez
+   * bezpiecznika — to nie awaria dostawcy). Koszt już jest w księdze, bo
+   * zapisuje się po każdym wywołaniu. Działa tylko wtedy, gdy platforma daje
+   * procesowi czas między SIGTERM a SIGKILL — czego nie domkniemy tutaj,
+   * domknie sprzątanie osieroconych tur (`AgentTurnSweeper`) w nowym procesie.
+   */
+  async beforeApplicationShutdown(): Promise<void> {
+    this.draining = true;
+    if (this.running.size === 0) return;
+    const graceMs = readAgentEnv().shutdownGraceMs;
+    this.logger.warn(
+      `zamykanie procesu: ${this.running.size} tur w biegu, czekam do ${graceMs} ms`,
+    );
+    await this.waitForIdle(graceMs);
+    if (this.running.size === 0) return;
+    this.logger.warn(
+      `zamykanie procesu: przerywam ${this.running.size} tur (AI_PROVIDER_ERROR)`,
+    );
+    for (const controller of this.running.values()) {
+      controller.abort(ABORT_REASON_SHUTDOWN);
+    }
+    await this.waitForIdle(SHUTDOWN_CLOSE_MS);
+  }
+
+  private async waitForIdle(timeoutMs: number): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (this.running.size > 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
   async run(input: RunTurnInput): Promise<void> {
     const startedAt = Date.now();
     const controller = new AbortController();
@@ -154,6 +231,21 @@ export class AgentTurnRunner {
       () => controller.abort(),
       input.env.turnTimeoutMs,
     );
+    // Znak życia: `updatedAt` odświeżane co 15 s. Po nim lease rozmowy,
+    // semafor domu i sprzątanie poznają turę osieroconą przez pad procesu
+    // w minutę, a nie dopiero po `AI_TURN_TIMEOUT_MS`.
+    const heartbeat = setInterval(
+      () => void this.heartbeat(input, controller),
+      TURN_HEARTBEAT_MS,
+    );
+    heartbeat.unref?.();
+    const turnLedger = new TurnLedger(this.ledger, this.logger, {
+      turnId: input.turnId,
+      userId: input.userId,
+      householdId: input.householdId,
+      provider: input.env.provider,
+      env: input.env,
+    });
 
     const progress: AgentProgressStep[] = [];
     const draft = new DraftPublisher(this.prisma, this.logger, input.turnId);
@@ -225,6 +317,8 @@ export class AgentTurnRunner {
             {},
           ),
         onDraft: (text) => draft.push(text),
+        // Księga po każdym wywołaniu — patrz `AgentUsageLedger`.
+        onUsage: (call) => turnLedger.record(call),
         signal: controller.signal,
         maxTurnCostUsd: input.env.maxTurnCostUsd,
       });
@@ -238,6 +332,16 @@ export class AgentTurnRunner {
           ),
         );
       }
+      // Księga PRZED domknięciem: telefon czyta zużycie tury razem z DONE.
+      await turnLedger.settle({
+        usage: result.usage,
+        phases: result.phases,
+        apiCalls: result.apiCalls,
+        model: result.model ?? route.model,
+        effort: route.effort,
+        stopReason: result.stopReason,
+        requireCost: false,
+      });
       await this.finishDone(
         input,
         result,
@@ -245,21 +349,73 @@ export class AgentTurnRunner {
         pendingCard,
         prompt.usedContext,
         progress,
+        turnLedger.spentMicroUsd === 0,
       );
       this.breaker.recordSuccess();
     } catch (error) {
+      const verdict = this.classify(
+        error,
+        controller.signal.aborted,
+        controller.signal.reason,
+      );
+      const spent =
+        error instanceof AgentProviderError ? error.usage : undefined;
+      if (spent && error instanceof AgentProviderError) {
+        const route = resolveRoute(input.env);
+        await turnLedger.settle({
+          usage: spent,
+          phases: error.phases,
+          apiCalls: error.apiCalls,
+          // Bez rozbicia z dostawcy: model STARTOWY tury, nie `AI_MODEL`.
+          model: route.model,
+          effort: route.effort,
+          stopReason: verdict.errorCode,
+          // Porażka bez wydanych pieniędzy nie zostawia pustego wiersza.
+          requireCost: true,
+        });
+      } else {
+        await turnLedger.settle();
+      }
       await this.finishFailed(
         input,
         error,
+        verdict,
         Date.now() - startedAt,
-        controller.signal.aborted,
-        controller.signal.reason === ABORT_REASON_CANCELLED,
         progress,
+        turnLedger.spentMicroUsd > 0,
       );
     } finally {
       draft.stop();
       clearTimeout(timeout);
+      clearInterval(heartbeat);
       this.running.delete(input.turnId);
+    }
+  }
+
+  /**
+   * Znak życia tury. `count === 0` znaczy, że turę domknął już ktoś inny
+   * (leniwy timeout, sprzątanie, rozmowa skasowana) — przerywamy ją, zamiast
+   * płacić za kolejne rundy odpowiedzi, której nikt nie zobaczy. Błąd bazy
+   * jest połykany: brak jednego uderzenia nie zabija tury (próg to minuta).
+   */
+  private async heartbeat(
+    input: RunTurnInput,
+    controller: AbortController,
+  ): Promise<void> {
+    try {
+      const alive = await this.prisma.agentTurn.updateMany({
+        where: { id: input.turnId, status: 'RUNNING' },
+        data: { updatedAt: new Date() },
+      });
+      if (alive.count === 0 && !controller.signal.aborted) {
+        controller.abort(ABORT_REASON_CLOSED);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `turn ${input.turnId}: znak życia nie zapisany: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
     }
   }
 
@@ -325,114 +481,6 @@ export class AgentTurnRunner {
     }
   }
 
-  /**
-   * Księga użycia dla nieudanej tury.
-   *
-   * Osobno od `updateMany`, które domyka turę, i po nim: wiersz księgi ma
-   * powstać tylko wtedy, gdy to MY domknęliśmy turę (inaczej leniwy timeout
-   * i runner dopisaliby dwa wiersze za to samo). Błąd zapisu nie może
-   * przesłonić błędu, który tu nas przywiódł — stąd log, nie rzut.
-   */
-  /**
-   * Wiersze księgi `AiUsage` dla tury: jeden na FAZĘ, a gdy dostawca nie
-   * rozróżnia faz (stary stub, błąd bez rozbicia) — jeden zbiorczy.
-   *
-   * Suma kosztu wierszy jest zawsze równa kosztowi tury, bo fazy powstają
-   * z tych samych wywołań, które składają się na `usage` — budżet dobowy i
-   * metryki liczą dalej z sumy, nie stąd.
-   *
-   * `apiCalls` idzie do księgi razem z kosztem, bo bez niego wiersz nie mówi,
-   * ILE żądań się na niego złożyło — a to jedyna droga do mediany i ogona
-   * rund liczonych z PRODUKCJI, nie z benchmarku. Przy fazach bierzemy
-   * `phase.apiCalls` (każda faza liczy własne żądania), bez faz —
-   * `params.apiCalls`, czyli licznik całej tury. Gdy dostawca nie podał
-   * liczby (błąd przed pierwszym żądaniem), zostaje `null`: „nie wiadomo",
-   * a nie „zero".
-   */
-  private usageRows(
-    input: RunTurnInput,
-    params: {
-      phases?: AgentPhaseUsage[];
-      fallbackModel: string;
-      fallbackEffort: string;
-      usage: AgentProviderUsage;
-      /** Żądania CAŁEJ tury — używane tylko w wariancie bez faz. */
-      apiCalls?: number;
-      stopReason: string | null;
-      durationMs: number;
-    },
-  ): Prisma.AiUsageCreateManyInput[] {
-    const base = {
-      turnId: input.turnId,
-      userId: input.userId,
-      householdId: input.householdId,
-      provider: input.env.provider,
-      stopReason: params.stopReason,
-      latencyMs: params.durationMs,
-    };
-    const phases = params.phases ?? [];
-    if (phases.length === 0) {
-      return [
-        {
-          ...base,
-          model: params.fallbackModel,
-          // Bez `effort` księga nie da się skalibrować: ta sama tura na
-          // `medium` i na `high` to dwa różne rachunki.
-          effort: params.fallbackEffort,
-          inputTokens: params.usage.inputTokens,
-          cacheReadTokens: params.usage.cacheReadTokens,
-          cacheWriteTokens: params.usage.cacheWriteTokens,
-          outputTokens: params.usage.outputTokens,
-          costMicroUsd: params.usage.costMicroUsd,
-          apiCalls: params.apiCalls ?? null,
-        },
-      ];
-    }
-    return phases.map((phase) => ({
-      ...base,
-      model: phase.model,
-      effort: phase.effort,
-      inputTokens: phase.usage.inputTokens,
-      cacheReadTokens: phase.usage.cacheReadTokens,
-      cacheWriteTokens: phase.usage.cacheWriteTokens,
-      outputTokens: phase.usage.outputTokens,
-      costMicroUsd: phase.usage.costMicroUsd,
-      apiCalls: phase.apiCalls,
-    }));
-  }
-
-  private async recordFailedUsage(
-    input: RunTurnInput,
-    spent: AgentProviderUsage,
-    verdict: FailureVerdict,
-    durationMs: number,
-    phases?: AgentPhaseUsage[],
-    apiCalls?: number,
-  ): Promise<void> {
-    try {
-      await this.prisma.aiUsage.createMany({
-        data: this.usageRows(input, {
-          phases,
-          // Bez rozbicia z dostawcy: model STARTOWY tury, nie `AI_MODEL` —
-          // tura, która padła jeszcze na tanim modelu, księgowała się dotąd
-          // pod planistą, który nigdy jej nie dotknął.
-          fallbackModel: resolveRoute(input.env).model,
-          fallbackEffort: resolveRoute(input.env).effort,
-          usage: spent,
-          ...(apiCalls === undefined ? {} : { apiCalls }),
-          stopReason: verdict.errorCode,
-          durationMs,
-        }),
-      });
-    } catch (error) {
-      this.logger.warn(
-        `turn ${input.turnId}: nie udało się dopisać księgi nieudanej tury: ${
-          error instanceof Error ? error.message : 'nieznany błąd'
-        }`,
-      );
-    }
-  }
-
   private async loadHistory(
     conversationId: string,
   ): Promise<AgentProviderMessage[]> {
@@ -463,6 +511,8 @@ export class AgentTurnRunner {
     pendingCard: AgentCard | null,
     usedContext: string[] = [],
     progress: readonly AgentProgressStep[] = [],
+    /** Czy tura nic nie wydała (wszystkie wywołania za 0 — w pamięci). */
+    free = false,
   ): Promise<void> {
     const { usage } = result;
     let closed = false;
@@ -483,9 +533,8 @@ export class AgentTurnRunner {
               progress,
             ) as unknown as Prisma.InputJsonValue,
             durationMs,
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            costMicroUsd: usage.costMicroUsd,
+            // Tokenów i kosztu NIE nadpisujemy: dopisuje je księga po każdym
+            // wywołaniu (`AgentUsageLedger`), także po domknięciu tury.
           },
         });
         if (update.count === 0) return false;
@@ -534,10 +583,11 @@ export class AgentTurnRunner {
             data: { messageId: message.id },
           });
         }
-        // Turę uciął NASZ sufit kosztu (`AI_MAX_TURN_COST_USD`), a nie
-        // wyczerpane rundy. Wiadomość wraca do puli TYLKO wtedy, gdy tura nic
-        // nie kosztowała — przy `cost_ceiling` z definicji kosztowała, więc
-        // w praktyce nie wraca.
+        // Turę uciął NASZ sufit kosztu (`AI_MAX_TURN_COST_USD`, sufit domu
+        // albo instalacji), a nie wyczerpane rundy. Wiadomość wraca do puli
+        // TYLKO wtedy, gdy tura nic nie kosztowała — przy sufitach z definicji
+        // kosztowała, więc w praktyce nie wraca. Warunek „za darmo" sprawdza
+        // baza (`refundIfFree`), bo koszt dopisuje księga.
         //
         // DLACZEGO ZMIANA (12.09.2026): zwrot bezwarunkowy dawał licznik, który
         // oscylował i nigdy nie dobijał do limitu. Konto z pulą próbną pięciu
@@ -546,54 +596,18 @@ export class AgentTurnRunner {
         // Przy `cost_ceiling` użytkownik dostaje skróconą, ale prawdziwą
         // odpowiedź („ostatnie słowo"), więc zapłata jedną wiadomością jest
         // uczciwa. Tura, która nie zdążyła nic wydać, nadal wraca za darmo.
-        if (result.stopReason === 'cost_ceiling' && usage.costMicroUsd === 0) {
-          await this.counters.add(
-            tx,
-            input.quotaScopeId,
-            input.periodKey,
-            'messages',
-            -1,
-          );
-          await tx.agentTurn.updateMany({
-            where: { id: input.turnId },
-            data: { quotaRefunded: true },
-          });
+        if (
+          free &&
+          (result.stopReason === 'cost_ceiling' ||
+            result.stopReason === 'budget_ceiling')
+        ) {
+          await this.ledger.refundIfFree(tx, input.turnId, input.quotaScopeId);
         }
 
-        // Jeden wiersz NA FAZĘ (model + wysiłek), nie na turę: po
-        // przekazaniu pałeczki tura ma dwa rachunki po dwóch różnych
-        // stawkach, a jeden wiersz zapisywał je oba pod planistą — czyli
-        // raport pokazywałby, że tani model niczego nie oszczędza.
-        await tx.aiUsage.createMany({
-          data: this.usageRows(input, {
-            phases: result.phases,
-            fallbackModel: result.model ?? input.env.model,
-            fallbackEffort: input.env.effort,
-            usage,
-            apiCalls: result.apiCalls,
-            stopReason: result.stopReason,
-            durationMs,
-          }),
-        });
         await tx.agentConversation.update({
           where: { id: input.conversationId },
           data: { lastMessageAt: message.createdAt },
         });
-        // Dwa liczniki kosztu: dobowy na CAŁĄ instalację (bezpiecznik na
-        // rachunek) i miesięczny NA GOSPODARSTWO (żeby jeden dom w pętli
-        // błędów nie wyłączył asystenta wszystkim).
-        await this.counters.addHouseholdCost(
-          tx,
-          input.householdId,
-          usage.costMicroUsd,
-        );
-        await this.counters.add(
-          tx,
-          GLOBAL_SCOPE,
-          this.counters.dayKey(),
-          'costMicroUsd',
-          usage.costMicroUsd,
-        );
         return true;
       });
     } catch (error) {
@@ -631,19 +645,13 @@ export class AgentTurnRunner {
   private async finishFailed(
     input: RunTurnInput,
     error: unknown,
+    verdict: FailureVerdict,
     durationMs: number,
-    aborted: boolean,
-    cancelled = false,
     progress: readonly AgentProgressStep[] = [],
+    /** Czy tura wydała cokolwiek (w pamięci — także gdy zapis księgi padł). */
+    spentAnything = false,
   ): Promise<void> {
-    const verdict = this.classify(error, aborted, cancelled);
-
     try {
-      // Zużycie sprzed błędu: tura, która padła po pięciu rundach narzędzi,
-      // kosztowała tyle samo co udana. Bez tego księga i budżet dobowy
-      // pokazywałyby zero wydanych pieniędzy.
-      const spent =
-        error instanceof AgentProviderError ? error.usage : undefined;
       const closed = await this.prisma.agentTurn.updateMany({
         where: { id: input.turnId, status: 'RUNNING' },
         data: {
@@ -654,13 +662,7 @@ export class AgentTurnRunner {
           progress: settledProgress(
             progress,
           ) as unknown as Prisma.InputJsonValue,
-          ...(spent
-            ? {
-                inputTokens: spent.inputTokens,
-                outputTokens: spent.outputTokens,
-                costMicroUsd: spent.costMicroUsd,
-              }
-            : {}),
+          // Tokeny i koszt dopisała już księga — nie nadpisujemy ich tu.
         },
       });
       if (closed.count === 0) {
@@ -670,37 +672,12 @@ export class AgentTurnRunner {
         return;
       }
 
-      if (spent && spent.costMicroUsd > 0) {
-        // Wiersz w księdze także dla PORAŻKI. `AiUsage` to surowiec do
-        // kalibracji modelu kosztów („jeden wiersz na żądanie do dostawcy"),
-        // a tura, która padła w piątej rundzie, wysłała ich pięć. Bez tego
-        // księga pokazywałaby wyłącznie tury udane — czyli rachunek niższy
-        // od prawdziwego, i to systematycznie.
-        await this.recordFailedUsage(
-          input,
-          spent,
-          verdict,
-          durationMs,
-          error instanceof AgentProviderError ? error.phases : undefined,
-          error instanceof AgentProviderError ? error.apiCalls : undefined,
-        );
-        await this.counters.addHouseholdCost(
-          this.prisma,
-          input.householdId,
-          spent.costMicroUsd,
-        );
-        await this.counters.add(
-          this.prisma,
-          GLOBAL_SCOPE,
-          this.counters.dayKey(),
-          'costMicroUsd',
-          spent.costMicroUsd,
-        );
-      }
-
+      // Zużycie sprzed błędu — metryki widzą koszt także nieudanych tur,
+      // inaczej `/ops/metrics` pokazywał systematycznie mniej niż licznik
+      // budżetu. Księga i liczniki sufitów mają go już z `onUsage`.
+      const spent =
+        error instanceof AgentProviderError ? error.usage : undefined;
       if (spent) {
-        // Metryki widzą koszt także nieudanych tur — inaczej `/ops/metrics`
-        // pokazywał systematycznie mniej niż licznik budżetu.
         this.metrics.recordProviderUsage(
           {
             inputTokens: spent.inputTokens,
@@ -720,24 +697,14 @@ export class AgentTurnRunner {
       // wiadomość niezależnie od tego, ile pieniędzy poszło. Skutek: licznik
       // wiadomości oscylował wokół zera, a jedno konto mogło zrobić dowolnie
       // wiele PŁATNYCH tur w granicach pięciowiadomościowej puli próbnej.
-      // Reguła jest teraz jedna dla wszystkich powodów porażki i łatwa do
-      // wytłumaczenia: nie wydaliśmy Twoich pieniędzy — nie bierzemy
-      // wiadomości.
-      const spentAnything =
-        spent !== undefined && spent !== null && spent.costMicroUsd > 0;
-      const refund = verdict.refund && !spentAnything;
-      if (refund) {
-        await this.counters.add(
-          this.prisma,
-          input.quotaScopeId,
-          input.periodKey,
-          'messages',
-          -1,
+      // Reguła jest jedna dla wszystkich powodów porażki i wszystkich ścieżek
+      // domknięcia: nie wydaliśmy Twoich pieniędzy — nie bierzemy wiadomości.
+      // Sprawdzają ją DWA źródła: pamięć tury (koszt, którego zapis do księgi
+      // mógł paść) i baza (`refundIfFree` warunkiem `costMicroUsd: 0`).
+      if (verdict.refund && !spentAnything) {
+        await this.prisma.$transaction((tx) =>
+          this.ledger.refundIfFree(tx, input.turnId, input.quotaScopeId),
         );
-        await this.prisma.agentTurn.updateMany({
-          where: { id: input.turnId },
-          data: { quotaRefunded: true },
-        });
       }
     } catch (closeError) {
       if (this.isMissingRecord(closeError)) {
@@ -746,8 +713,8 @@ export class AgentTurnRunner {
         );
         return;
       }
-      // Awaria bazy przy domykaniu tury: leniwy timeout w odczycie i tak
-      // zamknie ją jako AI_TIMEOUT — logujemy i nie wywracamy procesu.
+      // Awaria bazy przy domykaniu tury: sprzątanie osieroconych tur i leniwy
+      // timeout w odczycie i tak ją zamkną — logujemy i nie wywracamy procesu.
       this.logger.error(
         `turn ${input.turnId} requestId=${input.requestId}: nie udało się domknąć tury`,
         closeError instanceof Error ? closeError.stack : undefined,
@@ -784,14 +751,15 @@ export class AgentTurnRunner {
   private classify(
     error: unknown,
     aborted: boolean,
-    cancelled: boolean,
+    abortReason: unknown,
   ): FailureVerdict {
     // Przerwanie sprawdzamy PRZED typem błędu: dostawca dostaje `AbortSignal`
     // i zgłosi to po swojemu (u nas `AgentProviderError`), ale przyczyną jest
-    // nasz timeout albo „Stop" użytkownika, nie awaria po jego stronie —
-    // bezpiecznik ma to zignorować. Kwota wraca w obu przypadkach: za
-    // przerwaną turę nikt nie dostał odpowiedzi.
-    if (aborted && cancelled) {
+    // nasz timeout, „Stop" użytkownika albo zamykanie procesu, nie awaria po
+    // jego stronie — bezpiecznik ma to zignorować. Kwota wraca we wszystkich
+    // (o ile tura nic nie kosztowała): za przerwaną turę nikt nie dostał
+    // odpowiedzi.
+    if (aborted && abortReason === ABORT_REASON_CANCELLED) {
       return {
         errorCode: 'AI_CANCELLED',
         outcome: 'failed',
@@ -799,7 +767,17 @@ export class AgentTurnRunner {
         countsToBreaker: false,
       };
     }
+    if (aborted && abortReason === ABORT_REASON_SHUTDOWN) {
+      return {
+        errorCode: 'AI_PROVIDER_ERROR',
+        outcome: 'failed',
+        refund: true,
+        countsToBreaker: false,
+      };
+    }
     if (aborted) {
+      // Nasz zegar albo tura domknięta z zewnątrz (`ABORT_REASON_CLOSED` —
+      // wtedy domknięcie i tak znajdzie `count = 0` i nic nie zapisze).
       return {
         errorCode: 'AI_TIMEOUT',
         outcome: 'timeout',
@@ -829,6 +807,119 @@ export class AgentTurnRunner {
       error.code === 'P2025'
     );
   }
+}
+
+/** Podsumowanie tury od dostawcy — surowiec zapisu zastępczego księgi. */
+type LedgerSummary = {
+  usage: AgentProviderUsage;
+  phases?: AgentPhaseUsage[];
+  apiCalls?: number;
+  model: string;
+  effort: AgentProviderCall['effort'];
+  stopReason: string | null;
+  /** Zapis zastępczy tylko przy niezerowym koszcie (porażka). */
+  requireCost: boolean;
+};
+
+/**
+ * Księga JEDNEJ tury po stronie runnera: przekazuje wywołania do
+ * `AgentUsageLedger`, pamięta te, których zapis padł, i ponawia je przy
+ * domknięciu (idempotentnie — klucz `(turnId, callIndex)`).
+ *
+ * Suma kosztu w pamięci jest drugim źródłem prawdy dla zwrotu kwoty: gdy
+ * baza odrzuciła zapis dwa razy, księga pokazuje zero, ale pieniądze poszły —
+ * i wiadomość nie może wtedy wrócić.
+ */
+class TurnLedger {
+  private reported = 0;
+  private spent = 0;
+  private settled = false;
+  private readonly failed: AgentProviderCall[] = [];
+
+  constructor(
+    private readonly ledger: AgentUsageLedger,
+    private readonly logger: Logger,
+    private readonly turn: LedgerTurn,
+  ) {}
+
+  get spentMicroUsd(): number {
+    return this.spent;
+  }
+
+  async record(call: AgentProviderCall): Promise<AgentUsageVerdict> {
+    this.reported += 1;
+    this.spent += call.usage.costMicroUsd;
+    try {
+      return await this.ledger.record(this.turn, call);
+    } catch (error) {
+      this.failed.push(call);
+      this.logger.warn(
+        `turn ${this.turn.turnId}: zapis wywołania ${call.callIndex} do księgi nie wyszedł, ponowię przy domknięciu: ${
+          error instanceof Error ? error.message : 'nieznany błąd'
+        }`,
+      );
+      return { budgetExceeded: false };
+    }
+  }
+
+  /**
+   * Przed domknięciem tury: zapis zastępczy dla dostawcy, który nie melduje
+   * wywołań (jeden wiersz na fazę albo zbiorczy), i ponowienie zapisów,
+   * które padły. Raz na turę; nie rzuca.
+   */
+  async settle(summary?: LedgerSummary): Promise<void> {
+    if (this.settled) return;
+    this.settled = true;
+    if (
+      this.reported === 0 &&
+      summary &&
+      (!summary.requireCost || summary.usage.costMicroUsd > 0)
+    ) {
+      for (const call of fallbackCalls(summary)) await this.record(call);
+    }
+    for (const call of this.failed.splice(0)) {
+      try {
+        await this.ledger.record(this.turn, call);
+      } catch (error) {
+        this.logger.error(
+          `turn ${this.turn.turnId}: wywołanie ${call.callIndex} (${call.usage.costMicroUsd} µ$) poza księgą — zapis padł dwa razy: ${
+            error instanceof Error ? error.message : 'nieznany błąd'
+          }`,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Wiersze zastępcze: jeden na FAZĘ (model + wysiłek), a gdy dostawca nie
+ * rozróżnia faz — jeden zbiorczy z `apiCalls` całej tury (`null` = „nie
+ * wiadomo", nie „zero").
+ */
+function fallbackCalls(summary: LedgerSummary): AgentProviderCall[] {
+  const phases = summary.phases ?? [];
+  if (phases.length === 0) {
+    return [
+      {
+        callIndex: 0,
+        model: summary.model,
+        effort: summary.effort,
+        usage: summary.usage,
+        stopReason: summary.stopReason,
+        latencyMs: null,
+        apiCalls: summary.apiCalls ?? null,
+      },
+    ];
+  }
+  return phases.map((phase, index) => ({
+    callIndex: index,
+    model: phase.model,
+    effort: phase.effort,
+    usage: phase.usage,
+    stopReason: summary.stopReason,
+    latencyMs: null,
+    apiCalls: phase.apiCalls,
+  }));
 }
 
 /**
