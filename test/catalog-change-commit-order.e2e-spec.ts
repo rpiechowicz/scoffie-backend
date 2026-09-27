@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { OpsController } from '../src/observability/ops.controller';
 import {
@@ -30,6 +30,22 @@ describe('CatalogChange — kolejność rewizji = kolejność commitów (N2-1)',
   let authorId: string;
   let householdId: string;
   const recipes: string[] = [];
+
+  /**
+   * Osobna pula na transakcje trzymane otwarte (`hold`). Testy 4/9 i 4b
+   * trzymają 10 naraz, a czytelnik (delta, `pg_stat_activity`) potrzebuje
+   * połączenia z puli aplikacji. Domyślna pula Prismy to 2 × CPU + 1 — na
+   * runnerze CI (4 CPU) 9 połączeń: dziesiąta transakcja czekała na
+   * połączenie, a test na nią, do timeoutu 60 s. Jawny limit uniezależnia
+   * test od liczby rdzeni maszyny.
+   */
+  const WRITER_POOL = 12;
+  let writers: PrismaClient;
+  const withConnectionLimit = (raw: string, limit: number) => {
+    const url = new URL(raw);
+    url.searchParams.set('connection_limit', String(limit));
+    return url.toString();
+  };
 
   const latch = () => {
     let open!: () => void;
@@ -69,7 +85,7 @@ describe('CatalogChange — kolejność rewizji = kolejność commitów (N2-1)',
     let decide!: (how: 'commit' | 'rollback') => void;
     const decision = new Promise<'commit' | 'rollback'>((r) => (decide = r));
     let settled = false;
-    const result = prisma
+    const result = writers
       .$transaction(
         async (tx) => {
           await body(tx);
@@ -163,6 +179,12 @@ describe('CatalogChange — kolejność rewizji = kolejność commitów (N2-1)',
     await moduleRef.init();
     prisma = moduleRef.get(PrismaService);
     sync = moduleRef.get(CatalogSyncService);
+    writers = new PrismaClient({
+      datasourceUrl: withConnectionLimit(
+        process.env.DATABASE_URL!,
+        WRITER_POOL,
+      ),
+    });
     const stamp = `${Date.now()}-${randomUUID().slice(0, 6)}`;
     authorId = (
       await prisma.user.create({
@@ -186,6 +208,7 @@ describe('CatalogChange — kolejność rewizji = kolejność commitów (N2-1)',
     await prisma.recipe.deleteMany({ where: { householdId } });
     await prisma.household.deleteMany({ where: { id: householdId } });
     await prisma.user.deleteMany({ where: { id: authorId } });
+    await writers.$disconnect();
     await moduleRef.close();
   });
 

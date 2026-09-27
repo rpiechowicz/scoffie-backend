@@ -256,3 +256,19 @@ udowodnione. Gałąź nie dotyka `src/admin` ani tego testu; poprawka (`orderBy`
 osobny PR.
 
 SHA review patcha: podany w odpowiedzi (commit zawierający ten Addendum, nad `df82951`).
+
+## Addendum 2 (CI PR #208, 2026-09-27)
+
+CI PR #208: `build-and-test` FAIL — testy 4/9 i 4b timeout 60 s. Przyczyna (odtworzona lokalnie): oba trzymają
+10 transakcji otwartych naraz, a czytelnik potrzebuje połączenia z tej samej puli; domyślna pula Prismy to
+2 × CPU + 1 — na runnerze CI (4 CPU) `connection_limit=domyślne(9)` (log CI), lokalnie (24 CPU) 49. Dziesiąta
+transakcja czekała na połączenie, test na nią. Lokalnie z `connection_limit=9`: te same 2 FAIL.
+
+Poprawka tylko w teście: transakcje `hold()` na osobnym `PrismaClient` z jawnym `connection_limit=12`
+(odłączany w `afterAll`). Runtime, migracja, triggery i zamek — bez zmian.
+
+| Komenda (z `connection_limit=9`, jak CI) | Wynik |
+|---|---|
+| `catalog-change-commit-order.e2e` + `catalog-sync.e2e` | 27/27 |
+| `pnpm test:e2e:ci` (świeża baza: migracje + bootstrap) | 57/57 suit, 644/644 |
+| typecheck / lint:check | OK / 0 błędów (42 ostrzeżenia jak na develop) |
