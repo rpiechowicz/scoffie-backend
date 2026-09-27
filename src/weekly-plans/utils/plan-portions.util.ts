@@ -4,12 +4,15 @@ import { PLANNED_SERVINGS_MAX } from './planned-servings.util';
  * Porcje per osoba (workstream, Etap 2.2) — jedna definicja jednostek
  * i reguł dla zapisu planu, bilansu, listy zakupów, planera i drutu.
  *
- * Porcja osoby jest liczona w JEDNOSTKACH: 1 jednostka = 1/20 porcji (0,05).
+ * Porcja osoby jest liczona w JEDNOSTKACH: 1 jednostka = 1/20 porcji.
  * Liczba całkowita w Postgresie, Prismie, JSON-ie i Swifcie — bez binarnego
  * Float w bazie i bez `Decimal` (Prisma oddaje go jako obiekt, Swift i tak
- * dekoduje liczby JSON jako `Double`). 0,05 porcji to ~25 kcal przy typowym
- * daniu, czyli poniżej sensownej precyzji planu. Na drut idzie `servings`
- * w porcjach (wielokrotność 0,05), bo tym językiem mówi reszta kontraktu.
+ * dekoduje liczby JSON jako `Double`).
+ *
+ * KROK porcji to 0,5 (10 jednostek) — od 27.09.2026: 0,8 porcji to nie jest
+ * coś, co ktoś nakłada na talerz; pół, jedna, półtorej — tak. Jednostka 1/20
+ * zostaje w bazie (bez migracji schematu), a krok pilnuje walidacja zapisu
+ * i planer. Na drut idzie `servings` w porcjach (wielokrotność 0,5).
  *
  * Semantyka (raport 02.2):
  * - pozycja BEZ alokacji — jak zawsze: `plannedServings / liczba jedzących`;
@@ -18,30 +21,33 @@ import { PLANNED_SERVINGS_MAX } from './planned-servings.util';
  *   klientów (nikt nowy go wtedy nie czyta).
  */
 export const PORTION_UNITS_PER_SERVING = 20;
-export const PORTION_STEP = 1 / PORTION_UNITS_PER_SERVING;
+/** Krok porcji osoby: 0,5 porcji = 10 jednostek. */
+export const PORTION_STEP = 0.5;
+export const PORTION_STEP_UNITS = PORTION_STEP * PORTION_UNITS_PER_SERVING;
 /** Widełki porcji JEDNEJ osoby przy zapisie (poza planerem, np. ręcznie). */
-export const PORTION_WRITE_MIN = 0.1;
+export const PORTION_WRITE_MIN = 0.5;
 export const PORTION_WRITE_MAX = 6;
 
 export type PortionView = {
   userId: string;
   /**
    * Porcja osoby w porcjach przepisu (kontrakt OpenAPI).
-   * @minimum 0.1
+   * @minimum 0.5
    * @maximum 6
-   * @multipleOf 0.05
+   * @multipleOf 0.5
    */
   servings: number;
 };
 export type PortionRow = { userId: string; units: number };
 
-/** Porcja w jednostkach; `null` = nie wielokrotność 0,05 albo poza widełkami. */
+/** Porcja w jednostkach; `null` = nie wielokrotność 0,5 albo poza widełkami. */
 export function servingsToUnits(servings: number): number | null {
   if (!Number.isFinite(servings)) return null;
   const units = Math.round(servings * PORTION_UNITS_PER_SERVING);
   if (Math.abs(units - servings * PORTION_UNITS_PER_SERVING) > 1e-6) {
     return null;
   }
+  if (units % PORTION_STEP_UNITS !== 0) return null;
   if (
     units < PORTION_WRITE_MIN * PORTION_UNITS_PER_SERVING - 1e-9 ||
     units > PORTION_WRITE_MAX * PORTION_UNITS_PER_SERVING + 1e-9
@@ -126,7 +132,7 @@ export function portionsProblem(
   }
   for (const portion of portions) {
     if (servingsToUnits(portion.servings) === null) {
-      return `Porcja osoby to wielokrotność ${PORTION_STEP} w widełkach ${PORTION_WRITE_MIN}–${PORTION_WRITE_MAX}.`;
+      return `Porcja osoby to wielokrotność 0,5 (pół, jedna, półtorej…) w widełkach ${PORTION_WRITE_MIN}–${PORTION_WRITE_MAX}.`;
     }
   }
   if (portionsTotal(portions) > PLANNED_SERVINGS_MAX + 1e-9) {

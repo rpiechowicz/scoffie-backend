@@ -28,7 +28,7 @@ import {
  */
 export const APPLY_WEEK_PLAN_MAX_SLOTS = 7 * 6 * 6;
 
-/** Porcja jednej osoby (Etap 2.2): wielokrotność 0,05 porcji przepisu. */
+/** Porcja jednej osoby (Etap 2.2): wielokrotność 0,5 porcji przepisu. */
 export class PlanPortionDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
@@ -36,13 +36,13 @@ export class PlanPortionDto {
 
   /**
    * Porcja osoby w porcjach przepisu.
-   * @minimum 0.1
+   * @minimum 0.5
    * @maximum 6
-   * @multipleOf 0.05
+   * @multipleOf 0.5
    */
-  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6, multipleOf: 0.05 })
+  @ApiProperty({ example: 1.25, minimum: 0.5, maximum: 6, multipleOf: 0.5 })
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0.1)
+  @Min(0.5)
   @Max(6)
   servings: number;
 }

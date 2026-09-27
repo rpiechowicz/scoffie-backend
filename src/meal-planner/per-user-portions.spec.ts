@@ -52,16 +52,18 @@ function expectSaneAllocation(items: PlannedItem[], audience: string[]) {
 }
 
 describe('stałe domenowe porcji planera', () => {
-  it('porcja osoby 0,5–1,5 porcji przepisu, krok 0,05', () => {
+  it('porcja osoby 0,5–1,5 porcji przepisu, krok 0,5 (pół, jedna, półtorej)', () => {
     expect(PLANNER_PORTION_MIN).toBe(0.5);
     expect(PLANNER_PORTION_MAX).toBe(1.5);
-    expect(PLANNER_PORTION_STEP).toBe(0.05);
+    expect(PLANNER_PORTION_STEP).toBe(0.5);
   });
 
-  it('portionFor: zaokrągla do kroku i przycina do widełek', () => {
+  it('portionFor: zaokrągla do kroku 0,5 i przycina do widełek', () => {
     expect(portionFor(500, 500)).toBe(1);
-    expect(portionFor(640, 500)).toBe(1.3); // 1,28 → 1,3
-    expect(portionFor(410, 500)).toBe(0.8); // 0,82 → 0,8
+    expect(portionFor(640, 500)).toBe(1.5); // 1,28 → 1,5
+    expect(portionFor(600, 500)).toBe(1); // 1,2 → 1
+    expect(portionFor(410, 500)).toBe(1); // 0,82 → 1
+    expect(portionFor(350, 500)).toBe(0.5); // 0,7 → 0,5
     expect(portionFor(100, 500)).toBe(0.5); // za mało — nie ćwiartka obiadu
     expect(portionFor(2000, 500)).toBe(1.5); // za dużo — nie trzy kolacje
     expect(portionFor(-50, 500)).toBe(0.5);
@@ -226,11 +228,36 @@ describe('planMeals — porcje per osoba', () => {
     const portions = draft.items[0].portions!;
     const of = (id: string) => portions.find((p) => p.userId === id)!.servings;
     expect(of('rafal')).toBeGreaterThan(of('asia'));
-    for (const person of draft.diagnostics.days[0].eaters) {
-      expect(Math.abs(person.kcalDeviation)).toBeLessThanOrEqual(
-        KCAL_DAY_TOLERANCE,
+    // Krok 0,5 (27.09.2026) jest grubszy niż 0,05 — dzień osoby nie zawsze
+    // mieści się w ±10 %. Gwarancja, która zostaje: porcje per osoba nie są
+    // gorsze od równego podziału tego samego slotu.
+    const equal = planMeals(
+      request({
+        days: ['WED'],
+        mealTypes: ['DINNER'],
+        members: couple,
+        fixed: rest,
+        scope: 'PARTIAL',
+        dayMealTypes: ['BREAKFAST', 'LUNCH', 'DINNER'],
+        portionMode: 'tune',
+        constraints: {
+          diet: null,
+          requiredTags: [],
+          avoidIngredients: [],
+          excludeRecipeIds: [wednesday.recipeId],
+        },
+        slotKcalTargets: { 'WED|DINNER': 600 },
+      }),
+      recipes,
+    );
+    const worst = (plan: typeof draft) =>
+      Math.max(
+        ...plan.diagnostics.days[0].eaters.map((person) =>
+          Math.abs(person.kcalDeviation),
+        ),
       );
-    }
+    expect(worst(draft)).toBeLessThanOrEqual(worst(equal) + 1e-9);
+    expect(worst(draft)).toBeLessThanOrEqual(2 * KCAL_DAY_TOLERANCE);
   });
 
   it('pozycje stałe z porcjami liczą się w bilansie osoby — planer nie dubluje kcal', () => {

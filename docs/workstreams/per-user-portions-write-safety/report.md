@@ -31,7 +31,7 @@ panel. Po tym workstreamie:
 | `upsertWeekSlot` legacy                                    | KEEP/CONFLICT (#209)                            | bez zmian                                                               |
 | `upsertWeekSlot` z intencją                                | brak intencji                                   | `portionPolicy` PRESERVE / REPLACE / RESET                              |
 | zmiana audytorium z alokacją                               | klient musiał podać pełne porcje                | `PRESERVE` — serwer przelicza                                           |
-| zamiana dania z alokacją                                   | tylko jawne porcje + tokeny                     | `PRESERVE` (KEEP, para tokenów źródła/celu), `RESET`, `REPLACE`    |
+| zamiana dania z alokacją                                   | tylko jawne porcje + tokeny                     | `PRESERVE` (KEEP, para tokenów źródła/celu), `RESET`, `REPLACE`         |
 | `applyWeekPlan`                                            | KEEP/CONFLICT/REVISION_REQUIRED                 | + `portionPolicy` per slot; dryRun = podgląd = zapis                    |
 | propozycja tygodnia/dnia (model) zamienia danie z alokacją | **alokacja przepadała** (G1)                    | nowe danie przejmuje porcje osób                                        |
 | propozycja tygodnia/dnia (model) pomija pozycję z alokacją | **propozycja powstawała, zapis kasował** (G1b)  | odmowa `PLAN_PORTIONS_CONFLICT` (usunięcie tylko `propose_remove_meal`) |
@@ -95,12 +95,12 @@ na zamek i zobaczył alokację B). Pozycja bez alokacji — jak dotąd (test 3 +
 - w `upsertWeekSlot.data`;
 - w każdym slocie `applyWeekPlan.data.slots[]`.
 
-| Intencja           | `portions`                              | Pozycja BEZ alokacji | Pozycja Z alokacją                                                                               |
-| ------------------ | --------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------ |
-| brak pola (legacy) | niepuste = REPLACE, puste/brak = LEGACY | jak dotąd            | identyczny → KEEP; zmiana → `PLAN_PORTIONS_CONFLICT`                                             |
-| `PRESERVE`         | zabronione                              | jak dotąd            | zachowaj; audytorium przeliczone na serwerze (§7); `plannedServings` = ceil(Σ); zmiana audytorium/alokacji wymaga tokenu, prawdziwy NOOP nie wymaga       |
-| `REPLACE`          | wymagane                                | nowa alokacja        | zastąpienie tylko z tokenem (inaczej 428)                                                        |
-| `RESET`            | zabronione                              | jak dotąd            | równy podział tylko z tokenem (inaczej 428); `plannedServings` zachowane (regula ręcznej liczby) |
+| Intencja           | `portions`                              | Pozycja BEZ alokacji | Pozycja Z alokacją                                                                                                                                  |
+| ------------------ | --------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| brak pola (legacy) | niepuste = REPLACE, puste/brak = LEGACY | jak dotąd            | identyczny → KEEP; zmiana → `PLAN_PORTIONS_CONFLICT`                                                                                                |
+| `PRESERVE`         | zabronione                              | jak dotąd            | zachowaj; audytorium przeliczone na serwerze (§7); `plannedServings` = ceil(Σ); zmiana audytorium/alokacji wymaga tokenu, prawdziwy NOOP nie wymaga |
+| `REPLACE`          | wymagane                                | nowa alokacja        | zastąpienie tylko z tokenem (inaczej 428)                                                                                                           |
+| `RESET`            | zabronione                              | jak dotąd            | równy podział tylko z tokenem (inaczej 428); `plannedServings` zachowane (regula ręcznej liczby)                                                    |
 
 Błędy:
 
@@ -306,22 +306,22 @@ tolerancji (np. Ajv `multipleOfPrecision`). Serwer liczy w jednostkach 1/20 z to
 
 Mapowanie operacji iOS:
 
-| Operacja w UI                         | Wywołanie                                                                                                                                                                 |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| zmiana porcji jednej osoby (stepper)  | `setPortion` (bez zmian z #212)                                                                                                                                           |
+| Operacja w UI                         | Wywołanie                                                                                                                                                               |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| zmiana porcji jednej osoby (stepper)  | `setPortion` (bez zmian z #212)                                                                                                                                         |
 | zmiana „kto je” na pozycji z alokacją | `upsertWeekSlot` + `participantIds` + `portionPolicy: PRESERVE` + wymagany `expectedRevision` pozycji — BEZ `portions` i BEZ `plannedServings`; nowa osoba dostaje 1,00 |
-| zamiana dania, zachowanie porcji      | `upsertWeekSlot` + `replaceRecipeId` + `portionPolicy: PRESERVE` + wymagana para tokenów źródła/celu                                                                                |
-| zamiana dania, równy podział          | `portionPolicy: RESET` + `expectedRevision` (źródło) + `expectedTargetRevision`                                                                                           |
-| „wróć do równego podziału”            | `portionPolicy: RESET` + `expectedRevision`                                                                                                                               |
-| ustaw całą mapę                       | `portionPolicy: REPLACE` + `portions` + `expectedRevision`                                                                                                                |
+| zamiana dania, zachowanie porcji      | `upsertWeekSlot` + `replaceRecipeId` + `portionPolicy: PRESERVE` + wymagana para tokenów źródła/celu                                                                    |
+| zamiana dania, równy podział          | `portionPolicy: RESET` + `expectedRevision` (źródło) + `expectedTargetRevision`                                                                                         |
+| „wróć do równego podziału”            | `portionPolicy: RESET` + `expectedRevision`                                                                                                                             |
+| ustaw całą mapę                       | `portionPolicy: REPLACE` + `portions` + `expectedRevision`                                                                                                              |
 
 Nowe odpowiedzi błędów (reszta jak w `ios-contract.md` §6):
 
-| Kod                                             | Kiedy                                                              | Co robi klient                                                   |
-| ----------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| `VALIDATION_ERROR` 400, `details: ["portions"]` | REPLACE bez porcji; PRESERVE/RESET z porcjami                      | błąd klienta                                                     |
-| `PLAN_PORTIONS_INVALID` 400                     | PRESERVE z `plannedServings` ≠ ceil(Σ); suma po dodaniu osoby > 12 | nie wysyłaj `plannedServings` z PRESERVE; przy sumie — komunikat |
-| `PLAN_REVISION_REQUIRED` 428                    | RESET/REPLACE lub zmiana audytorium/alokacji PRESERVE bez tokenu; zamiana PRESERVE bez pary tokenów                     | dołóż tokeny ze świeżego odczytu                                            |
+| Kod                                             | Kiedy                                                                                               | Co robi klient                                                   |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `VALIDATION_ERROR` 400, `details: ["portions"]` | REPLACE bez porcji; PRESERVE/RESET z porcjami                                                       | błąd klienta                                                     |
+| `PLAN_PORTIONS_INVALID` 400                     | PRESERVE z `plannedServings` ≠ ceil(Σ); suma po dodaniu osoby > 12                                  | nie wysyłaj `plannedServings` z PRESERVE; przy sumie — komunikat |
+| `PLAN_REVISION_REQUIRED` 428                    | RESET/REPLACE lub zmiana audytorium/alokacji PRESERVE bez tokenu; zamiana PRESERVE bez pary tokenów | dołóż tokeny ze świeżego odczytu                                 |
 
 Pozostałe punkty kontraktu:
 
@@ -427,3 +427,18 @@ Ryzyko kompatybilności: klient używający nowego `PRESERVE` do zmiany uczestni
 lub zamiany dania musi przekazać tokeny ze świeżego odczytu. Legacy bez nowych
 pól pozostaje objęte istniejącymi testami. Bez zmian migracji, flag i algorytmu
 catalog sync. Commit poprawki identyfikuje historia tego addendum.
+
+## Addendum — krok porcji 0,5 (2026-09-27, decyzja właściciela)
+
+„0,8 porcji to nie jest coś, co ktoś nakłada na talerz” — porcja osoby ma krok **0,5** (0,5 / 1 / 1,5 / … / 6):
+
+- walidacja zapisu (`servingsToUnits`, `portionsProblem`, `SetPortionDto`, `PlanPortionDto`): wielokrotność 0,5,
+  widełki 0,5–6; jednostka w bazie bez zmian (1/20 porcji), krok = 10 jednostek;
+- planer (`portionFor`): 0,5 / 1 / 1,5 zamiast kroku 0,05;
+- migracja `20260928090000_portions_half_step`: istniejące porcje spoza kroku zaokrąglone do najbliższego 0,5
+  (połówki w górę, minimum 0,5), `plannedServings = ceil(Σ)` przeliczone, rewizje tygodnia/pozycji/porcji podbite
+  (stare tokeny nie przejdą); pozycje już w kroku nietknięte (sprawdzone na bazie testowej);
+- OpenAPI: `minimum 0.5`, `multipleOf 0.5` (wejście i odpowiedzi) — §13 wyżej opisuje stan sprzed tej zmiany.
+
+Koszt (zmierzony w teście planera 8): grubszy krok nie zawsze domyka dzień osoby w ±10 % (w scenariuszu testowym
+14 %). Gwarancja po zmianie: porcje per osoba nie gorsze od równego podziału tego samego slotu i odchylenie ≤ 20 %.

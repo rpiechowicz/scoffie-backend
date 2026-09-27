@@ -109,7 +109,7 @@ zostają, więc dwie osoby edytujące RÓŻNE porcje z tego samego odczytu nie k
 }
 ```
 
-- `servings`: 0,1–6, wielokrotność 0,05; suma porcji pozycji ≤ 12 (liczona pod zamkiem z porcjami innych osób);
+- `servings`: 0,5–6, wielokrotność 0,5 (od 27.09.2026 — pół, jedna, półtorej…; stepper w iOS co 0,5); suma porcji pozycji ≤ 12 (liczona pod zamkiem z porcjami innych osób);
 - `expectedRevision`: `items[].portions[].revision` TEJ osoby — wymagane;
 - zmieniać może każdy domownik (także cudzą porcję).
 
@@ -165,7 +165,7 @@ Reguły klienta:
 - osoba dodana — porcja podana jawnie; sugestia 1,00 (jak reguła serwera przy dołączeniu do domu);
 - osoba usunięta — znika z `portions`;
 - zbiór osób w `portions` = audytorium (przy `participantIds: []` — wszyscy domownicy);
-- Σ ≤ 12, krok 0,05, 0,1–6 na osobę — inaczej `PLAN_PORTIONS_INVALID`.
+- Σ ≤ 12, krok 0,5, 0,5–6 na osobę — inaczej `PLAN_PORTIONS_INVALID`.
 
 ## 4. Zamiana dania z alokacją
 
