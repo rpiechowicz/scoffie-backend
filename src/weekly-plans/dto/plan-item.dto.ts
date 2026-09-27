@@ -12,8 +12,9 @@ export class PlanItemPortionDto {
 
   /**
    * Stempel tej porcji — `expectedRevision` dla `weeklyPlans:setPortion`
-   * (ADR `plan-portions-safe-editing`). Klient przechowuje go bez
-   * interpretacji; 0 = porcja sprzed wdrożenia rewizji.
+   * (ADR `plan-portions-safe-editing`). 0 = porcja sprzed wdrożenia rewizji.
+   * Każdy pełny zapis pozycji (upsert/apply zmieniający ją) przestemplowuje
+   * porcje wszystkich osób; `setPortion` — tylko porcję swojej osoby.
    */
   @ApiProperty({ example: 7, minimum: 0 })
   revision: number;
@@ -68,9 +69,11 @@ export class PlanItemDto {
 
   /**
    * Stempel pozycji — `expectedRevision` dla `weeklyPlans:upsertWeekSlot`
-   * (przy `replaceRecipeId`: stempel pozycji źródłowej). Rośnie przy każdej
-   * zmianie pozycji, jej uczestników albo porcji; odtworzona pozycja dostaje
-   * nowy, wyższy stempel.
+   * (przy `replaceRecipeId`: stempel źródła; stempel pozycji celu idzie jako
+   * `expectedTargetRevision`). Rośnie przy każdej zmianie pozycji, jej
+   * uczestników albo porcji; odtworzona pozycja dostaje nowy, wyższy stempel.
+   * Stemple z jednego licznika — z dwóch wersji tej samej pozycji nowsza ma
+   * wyższy.
    */
   @ApiProperty({ example: 7, minimum: 0 })
   revision: number;

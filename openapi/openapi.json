@@ -10866,8 +10866,13 @@
             "type": "string"
           },
           "expectedRevision": {
-            "description": "Token pozycji z odczytu (`items[].revision`) — przy `replaceRecipeId`\npozycji ŹRÓDŁOWEJ. Niezgodny = `PLAN_REVISION_CONFLICT` (chyba że zapis\nnic by nie zmienił); pominięty = zapis bez weryfikacji (legacy), który\nnie może zastąpić ani usunąć porcji per osoba\n(ADR `plan-portions-safe-editing`).",
+            "description": "Token pozycji z odczytu (`items[].revision`) — przy `replaceRecipeId`\npozycji ŹRÓDŁOWEJ (wtedy wymaga pary `expectedTargetRevision`).\nNiezgodny = `PLAN_REVISION_CONFLICT` (chyba że zapis bez zamiany nic by\nnie zmienił); pominięty = zapis bez weryfikacji (legacy), który nie może\nzastąpić ani usunąć porcji per osoba (ADR `plan-portions-safe-editing`).",
             "type": "number"
+          },
+          "expectedTargetRevision": {
+            "description": "Tylko przy `replaceRecipeId`: token CELU zamiany — `items[].revision`\npozycji z przepisem `recipeId`, która już leży w tym slocie, albo `null`,\ngdy według odczytu klienta takiej pozycji w slocie NIE MA. Podawany razem\nz `expectedRevision` źródła (jedno bez drugiego = `PLAN_REVISION_REQUIRED`);\nniezgodny = `PLAN_REVISION_CONFLICT`, nic nie zmienione.",
+            "type": "number",
+            "nullable": true
           }
         },
         "required": ["dayOfWeek", "mealType", "recipeId"]
