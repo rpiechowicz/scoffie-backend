@@ -2645,7 +2645,11 @@ export class AgentToolExecutor {
     // rozmowie wypadają — serwer czyta je z historii, model nie przenosi
     // identyfikatorów. Gdy bez nich zostaje za mało dań, pokazujemy znowu
     // całą pulę i mówimy to (`repeatedShown`).
-    const shown = await this.shownOptionIds(context.conversationId, slotLabel);
+    const shown = await this.shownOptionIds(
+      context.conversationId,
+      slotLabel,
+      weekStart,
+    );
     const ask = (excludeRecipeIds: string[]) =>
       this.planner.suggest({
         userId: context.userId,
@@ -2731,6 +2735,7 @@ export class AgentToolExecutor {
         title: `${NUMERALS[options.length] ?? options.length} ${quick ? 'szybkie ' : ''}propozycje`,
         options,
         slotLabel,
+        weekStart,
       }),
     );
     const refById = new Map(
@@ -2886,10 +2891,17 @@ export class AgentToolExecutor {
       .then(projectRecipeForModel);
   }
 
-  /** Dania z ostatnich kart wyboru na ten posiłek w tej rozmowie. */
+  /**
+   * Dania z ostatnich kart wyboru na ten posiłek W TYM TYGODNIU w tej
+   * rozmowie. Etykieta („Kolacja · piątek”) nie niesie tygodnia, więc bez
+   * `weekStart` „pokaż inne” na piątek następnego tygodnia wycinało dania
+   * pokazane na piątek bieżącego (N8C C0). Karty bez tygodnia (starsze,
+   * `offer_options`) liczą się jak dotąd.
+   */
   private async shownOptionIds(
     conversationId: string,
     slotLabel: string,
+    weekStart: string,
   ): Promise<string[]> {
     const rows = await this.prisma.agentMessage.findMany({
       where: {
@@ -2906,9 +2918,13 @@ export class AgentToolExecutor {
     for (const row of rows) {
       const card = (row.card ?? {}) as {
         eyebrow?: string;
+        weekStart?: string;
         options?: { recipeId?: string }[];
       };
       if (card.eyebrow !== slotLabel) continue;
+      if (card.weekStart !== undefined && card.weekStart !== weekStart) {
+        continue;
+      }
       for (const option of card.options ?? []) {
         if (typeof option.recipeId === 'string') ids.add(option.recipeId);
       }
