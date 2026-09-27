@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   AgentFeedbackTag,
   AgentMessageRating,
+  feedbackTagsFor,
   RateMessageDto,
 } from './dto/rate-message.dto';
 
@@ -25,8 +26,9 @@ export type AgentFeedbackResult = {
  * zmienia (idempotentnie), `null` ją zdejmuje. Jak zgłoszenie — bez
  * `assertEnabled`: ocenić można to, co się już dostało.
  *
- * Kciuk w dół może nieść PODPOWIEDŹ (powody + zdanie) — wtedy ocena zabiera
- * migawkę odpowiedzi, bo użytkownik sam wysyła ją do wglądu (jak przy
+ * Ocena może nieść PODPOWIEDŹ (powody + zdanie) — w dół „co nie zagrało”,
+ * w górę „co było dobre” (każdy kierunek ma swoje powody). Wtedy ocena
+ * zabiera migawkę odpowiedzi, bo użytkownik sam wysyła ją do wglądu (jak przy
  * zgłoszeniu). Gołe kciuki treści nie niosą — tylko rodzaj odpowiedzi.
  */
 @Injectable()
@@ -69,20 +71,30 @@ export class AgentFeedbackService {
       return { messageId: message.id, rating: null, tags: [], comment: null };
     }
 
+    const rating = dto.rating;
     const note = noteFor(dto);
-    // Pochwała i zmiana na „w górę” czyszczą podpowiedź; kciuk w dół BEZ
-    // pól podpowiedzi zostawia tę, którą ktoś już napisał.
-    const noteData =
-      dto.rating === 'UP'
-        ? { tags: [], comment: null, messageText: null }
-        : note
-          ? {
-              tags: note.tags,
-              comment: note.comment,
-              messageText:
-                note.tags.length > 0 || note.comment ? message.text : null,
-            }
-          : undefined;
+    let noteData:
+      | { tags: string[]; comment: string | null; messageText: string | null }
+      | undefined;
+    if (note) {
+      const allowed = feedbackTagsFor(rating);
+      const tags = note.tags.filter((tag) => allowed.includes(tag));
+      noteData = {
+        tags,
+        comment: note.comment,
+        messageText: tags.length > 0 || note.comment ? message.text : null,
+      };
+    } else {
+      // Sam kciuk: podpowiedź zostaje przy tym samym kierunku, a przy zmianie
+      // kierunku znika — „co nie zagrało” nie może wisieć pod pochwałą.
+      const existing = await this.prisma.agentMessageFeedback.findUnique({
+        where: { userId_messageId: { userId, messageId: message.id } },
+        select: { rating: true },
+      });
+      if (existing && existing.rating !== rating) {
+        noteData = { tags: [], comment: null, messageText: null };
+      }
+    }
 
     const saved = await this.prisma.agentMessageFeedback.upsert({
       where: { userId_messageId: { userId, messageId: message.id } },
@@ -90,11 +102,11 @@ export class AgentFeedbackService {
         userId,
         messageId: message.id,
         turnId: message.turnId,
-        rating: dto.rating,
+        rating,
         messageKind: message.kind,
         ...(noteData ?? {}),
       },
-      update: { rating: dto.rating, ...(noteData ?? {}) },
+      update: { rating, ...(noteData ?? {}) },
       select: { rating: true, tags: true, comment: true },
     });
     this.log(

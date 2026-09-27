@@ -20,6 +20,10 @@ const FEEDBACK_TAGS: readonly FeedbackTag[] = [
   'BAD_DISHES',
   'TOO_SLOW',
   'OTHER',
+  'UNDERSTOOD',
+  'GOOD_DISHES',
+  'CONCISE',
+  'FAST',
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -164,11 +168,11 @@ export function summarize(
     kind[bucket] += 1;
     kinds.set(row.messageKind, kind);
 
-    if (rating === 'DOWN') {
-      const tags = tagsOf(row.tags);
-      if (tags.length > 0 || row.comment) totals.withNote += 1;
-      for (const tag of tags) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
-    }
+    // Podpowiedź w obu kierunkach: w dół „co nie zagrało”, w górę „co było
+    // dobre” — powody się nie pokrywają, więc jeden rozkład wystarcza.
+    const tags = tagsOf(row.tags);
+    if (tags.length > 0 || row.comment) totals.withNote += 1;
+    for (const tag of tags) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
   }
 
   return {

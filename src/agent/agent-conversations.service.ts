@@ -78,8 +78,8 @@ export type MessageView = {
   /** Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał. */
   feedback?: 'UP' | 'DOWN';
   /**
-   * Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do
-   * poprawienia. Brak = kciuk bez podpowiedzi (albo w górę).
+   * Podpowiedź do oceny (powody + zdanie; w dół „co nie zagrało”, w górę „co
+   * było dobre”) — telefon otwiera ją do poprawienia. Brak = sam kciuk.
    */
   feedbackNote?: { tags: string[]; comment: string | null };
   /**
@@ -91,6 +91,11 @@ export type MessageView = {
 
 export type MessageThinking = {
   durationMs: number | null;
+  /**
+   * Start tury (ISO) — od niego telefon liczy, w której sekundzie padł każdy
+   * krok i ile asystent myślał między nimi (arkusz „Jak pracowałem”).
+   */
+  startedAt: string;
   /** Kroki bez przejściowych („Piszę odpowiedź") — `settledProgress`. */
   steps: AgentProgressStep[];
 };
@@ -165,6 +170,7 @@ export async function withAnswerDetails(
     const elapsed = turn.finishedAt.getTime() - turn.startedAt.getTime();
     thinking.set(messageId, {
       durationMs: elapsed >= 0 ? elapsed : null,
+      startedAt: turn.startedAt.toISOString(),
       // Tura domknięta leniwie (`closeTurn`) ma jeszcze kroki przejściowe.
       steps: Array.isArray(turn.progress)
         ? settledProgress(turn.progress as unknown as AgentProgressStep[])
@@ -188,7 +194,7 @@ export async function withAnswerDetails(
     const feedback = rated?.rating;
     const report = reported.get(view.id);
     const note =
-      feedback === 'DOWN' && rated && (rated.tags.length > 0 || rated.comment)
+      rated && (rated.tags.length > 0 || rated.comment)
         ? { tags: rated.tags, comment: rated.comment }
         : undefined;
     return {

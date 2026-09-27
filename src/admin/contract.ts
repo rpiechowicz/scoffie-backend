@@ -433,13 +433,21 @@ export interface AgentReport {
 // ——— Oceny odpowiedzi asystenta ———
 
 export type FeedbackRating = 'UP' | 'DOWN';
-/** Powody podpowiedzi przy kciuku w dół — `AGENT_FEEDBACK_TAGS` w domenie asystenta. */
+/**
+ * Powody podpowiedzi — `AGENT_FEEDBACK_TAGS` w domenie asystenta. Przy 👎
+ * „co nie zagrało” (TOO_LONG…OTHER), przy 👍 „co było dobre” (UNDERSTOOD,
+ * GOOD_DISHES, CONCISE, FAST).
+ */
 export type FeedbackTag =
   | 'TOO_LONG'
   | 'NOT_WHAT_I_ASKED'
   | 'BAD_DISHES'
   | 'TOO_SLOW'
-  | 'OTHER';
+  | 'OTHER'
+  | 'UNDERSTOOD'
+  | 'GOOD_DISHES'
+  | 'CONCISE'
+  | 'FAST';
 export type FeedbackPeriod = '7' | '30' | '90';
 
 /** Jedna ocena (`AgentMessageFeedback`) + tura, która napisała odpowiedź. */
@@ -448,7 +456,7 @@ export interface AgentFeedbackItem {
   userId: string;
   userName: string;
   rating: FeedbackRating;
-  /** podpowiedź — tylko przy DOWN; pusta lista = bez powodów */
+  /** podpowiedź — powody tego kierunku oceny; pusta lista = bez powodów */
   tags: FeedbackTag[];
   comment: string | null;
   /** migawka odpowiedzi — tylko gdy użytkownik dopisał podpowiedź (sam wysłał ją do wglądu) */

@@ -22,14 +22,14 @@ describe('summarize (dział „Oceny”)', () => {
           comment: 'Krócej',
           updatedAt: new Date('2026-09-27T23:59:00.000Z'),
         }),
-        // Pochwała z pozostałością powodów (stary wiersz) nie jest podpowiedzią.
-        row({ tags: ['TOO_SLOW'] }),
+        // Pochwała z „co było dobre” też jest podpowiedzią.
+        row({ tags: ['CONCISE'] }),
       ],
       since,
       3,
     );
 
-    expect(result.totals).toEqual({ up: 2, down: 2, withNote: 2 });
+    expect(result.totals).toEqual({ up: 2, down: 2, withNote: 3 });
     expect(result.daily).toEqual([
       { date: '2026-09-25', up: 0, down: 0 },
       { date: '2026-09-26', up: 2, down: 1 },
@@ -39,7 +39,10 @@ describe('summarize (dział „Oceny”)', () => {
       { kind: 'TEXT', up: 2, down: 1 },
       { kind: 'PLAN_DAY', up: 0, down: 1 },
     ]);
-    expect(result.byTag).toEqual([{ tag: 'TOO_LONG', count: 1 }]);
+    expect(result.byTag).toEqual([
+      { tag: 'CONCISE', count: 1 },
+      { tag: 'TOO_LONG', count: 1 },
+    ]);
   });
 
   it('powód spoza kontraktu wypada, a nie psuje rozkładu', () => {

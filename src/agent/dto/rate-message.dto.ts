@@ -20,7 +20,7 @@ const RATING_VALUES: string[] = [...AGENT_MESSAGE_RATINGS];
  * podpowiedź mówi „co poprawić”, zgłoszenie „co jest nie tak i wymaga
  * decyzji”. Dlatego żyją osobno i trafiają do osobnego działu panelu.
  */
-export const AGENT_FEEDBACK_TAGS = [
+export const AGENT_FEEDBACK_DOWN_TAGS = [
   /** Odpowiedź za długa, za dużo tekstu. */
   'TOO_LONG',
   /** Asystent odpowiedział na inne pytanie. */
@@ -31,8 +31,36 @@ export const AGENT_FEEDBACK_TAGS = [
   'TOO_SLOW',
   'OTHER',
 ] as const;
+
+/**
+ * Powody przy kciuku W GÓRĘ — „co było dobre” (27.09.2026, analogicznie do
+ * podpowiedzi przy kciuku w dół). Lustro powodów w dół, żeby panel
+ * zestawiał je parami.
+ */
+export const AGENT_FEEDBACK_UP_TAGS = [
+  /** Zrozumiał, o co chodzi. */
+  'UNDERSTOOD',
+  /** Trafione dania. */
+  'GOOD_DISHES',
+  /** Krótko i konkretnie. */
+  'CONCISE',
+  /** Szybka odpowiedź. */
+  'FAST',
+] as const;
+
+export const AGENT_FEEDBACK_TAGS = [
+  ...AGENT_FEEDBACK_DOWN_TAGS,
+  ...AGENT_FEEDBACK_UP_TAGS,
+] as const;
 export type AgentFeedbackTag = (typeof AGENT_FEEDBACK_TAGS)[number];
 const TAG_VALUES: string[] = [...AGENT_FEEDBACK_TAGS];
+
+/** Powody, które pasują do kierunku oceny — reszta z żądania odpada. */
+export function feedbackTagsFor(
+  rating: AgentMessageRating,
+): readonly AgentFeedbackTag[] {
+  return rating === 'UP' ? AGENT_FEEDBACK_UP_TAGS : AGENT_FEEDBACK_DOWN_TAGS;
+}
 
 export class RateMessageDto {
   /**
@@ -46,9 +74,9 @@ export class RateMessageDto {
   rating: AgentMessageRating | null;
 
   /**
-   * Podpowiedź przy `DOWN`. Brak pola = podpowiedź bez zmian (sam kciuk nie
-   * kasuje tego, co ktoś napisał wcześniej); pusta lista = bez powodów.
-   * Przy `UP` i `null` pomijane.
+   * Podpowiedź do oceny — powody z listy TEGO kierunku (`feedbackTagsFor`;
+   * obce odpadają). Brak pola = podpowiedź bez zmian, chyba że kierunek oceny
+   * się zmienił (wtedy znika); pusta lista = bez powodów. Przy `null` pomijane.
    */
   @ApiPropertyOptional({ enum: TAG_VALUES, isArray: true })
   @IsOptional()

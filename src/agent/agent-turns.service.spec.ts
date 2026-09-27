@@ -747,7 +747,7 @@ describe('AgentTurnsService', () => {
         },
       ]);
       prisma.agentMessageFeedback.findMany.mockResolvedValueOnce([
-        { messageId: MESSAGE, rating: 'UP' },
+        { messageId: MESSAGE, rating: 'UP', tags: [], comment: null },
       ]);
 
       const view = await service.getTurn(USER, TURN);
