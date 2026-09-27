@@ -6,7 +6,10 @@ import {
   toPortionViews,
 } from './plan-portions.util';
 import { currentWeekStart, formatWeekStart } from './week-formatting.util';
-import { lockWeeksForWriteFrom } from './week-write-lock.util';
+import {
+  bumpWeeksRevisionFrom,
+  lockWeeksForWriteFrom,
+} from './week-write-lock.util';
 
 /// Klient Prismy albo transakcja — jak w `household-cleanup.util.ts`.
 /// Porządkowanie planu MUSI iść w tej samej transakcji co usunięcie
@@ -204,6 +207,7 @@ export async function onRosterChanged(
   if (reDerivedItemCount === 0) {
     return { touchedWeekStarts: [], reDerivedItemCount };
   }
+  await bumpWeeksRevisionFrom(tx, householdId, monday);
   await markFutureShoppingListsStale(tx, householdId, monday);
   return {
     touchedWeekStarts: await listWeekStartsFrom(tx, householdId, monday),
@@ -296,6 +300,7 @@ export async function onMemberLeft(
     monday,
   );
 
+  await bumpWeeksRevisionFrom(tx, householdId, monday);
   await markFutureShoppingListsStale(tx, householdId, monday);
 
   return { touchedWeekStarts, deletedItemIds, reDerivedItemCount };

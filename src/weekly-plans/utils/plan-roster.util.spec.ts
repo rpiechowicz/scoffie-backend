@@ -92,6 +92,9 @@ const makeTx = (params: { items?: StoredItem[]; memberCount?: number }) => {
         return Promise.resolve({ count: before - items.length });
       }),
       updateMany: jest.fn().mockImplementation(({ where, data }: any) => {
+        // Stemple rewizji (`bumpWeeksRevisionFrom`) poza tą fiksturą —
+        // sprawdza je `test/plan-portions-safe-editing.e2e-spec.ts`.
+        if ('revision' in data) return Promise.resolve({ count: 0 });
         let count = 0;
         for (const i of items) {
           if (!inScope(i, where)) continue;
@@ -121,6 +124,9 @@ const makeTx = (params: { items?: StoredItem[]; memberCount?: number }) => {
     },
     planItemConsumption: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    planItemPortion: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     membership: {
       count: jest.fn().mockResolvedValue(memberCount),
@@ -265,6 +271,17 @@ describe('onMemberLeft', () => {
     expect(mocks.shoppingList.updateMany).toHaveBeenCalledWith({
       where: { householdId: HOUSEHOLD, weekStart: { gte: MONDAY } },
       data: { isStale: true },
+    });
+  });
+
+  it('podbija rewizję tygodni od bieżącego poniedziałku (tokeny sprzed zmiany składu wygasają)', async () => {
+    const { tx, mocks } = makeTx({});
+
+    await onMemberLeft(tx, HOUSEHOLD, LEAVER, NOW);
+
+    expect(mocks.weeklyPlan.updateMany).toHaveBeenCalledWith({
+      where: { householdId: HOUSEHOLD, weekStart: { gte: MONDAY } },
+      data: { revision: { increment: 1 } },
     });
   });
 
