@@ -1,5 +1,6 @@
 import { DayOfWeek, MealType } from '@prisma/client';
 import { AiCardsMode } from '../../config/agent-env';
+import { MEAL_TYPES_IN_DAY_ORDER } from '../../common/meal-types';
 
 /**
  * Karty asystenta — kontrakt z TELEFONEM.
@@ -170,12 +171,17 @@ export type PlanRemovalReason = {
 };
 
 /**
- * Kalorie dnia NA OSOBĘ, nie suma pozycji.
+ * Kalorie dnia NA OSOBĘ, nie suma pozycji — tą samą regułą, co bilans dnia
+ * w aplikacji (`weeklyBalanceForMember`), bo karta obiecuje liczbę, którą
+ * bilans pokaże po „Zapisz” (noc 26/27.09, N5).
  *
  * Slot (dzień + posiłek) potrafi mieć kilka pozycji — „Ania sałatka, Marek
- * schabowy" — i suma wszystkich mówiłaby, że ktoś je dwie kolacje. Liczymy
- * dla `forUserId`: z każdego posiłku jedną pozycję, tę, którą ta osoba je
- * (wspólną albo imienną); posiłek bez niczego dla niej nie liczy się wcale.
+ * schabowy" — i suma wszystkich mówiłaby, że ktoś je dwie kolacje. Dla
+ * `forUserId` w każdym posiłku liczą się pozycje, które ta osoba NAPRAWDĘ je
+ * (`visibleToMember`): własne wygrywają ze wspólnymi, a kilka własnych (albo
+ * kilka wspólnych, gdy własnych brak) sumuje się jak w bilansie. Posiłek bez
+ * niczego dla niej nie liczy się wcale. Bez `forUserId` — pierwsza pozycja
+ * posiłku, jak dotąd.
  */
 export function kcalForPerson(
   slots: readonly {
@@ -183,28 +189,35 @@ export function kcalForPerson(
     kcalPerServing: number;
     participantIds: readonly string[];
     portions?: readonly { userId: string; servings: number }[];
+    /** Udział na osobę bez alokacji (`WeekPlanPreviewSlot.servingsPerPerson`). */
+    servingsPerPerson?: number;
   }[],
   forUserId: string | undefined,
 ): number {
-  const byMeal = new Map<string, number>();
+  // Porcja TEJ osoby, gdy pozycja ma alokację (Etap 2.2); inaczej udział
+  // z porcji łącznych (ta sama reguła co bilans), a bez niego jedna porcja.
+  const plate = (slot: (typeof slots)[number]) =>
+    slot.kcalPerServing *
+    (slot.portions?.find((portion) => portion.userId === forUserId)?.servings ??
+      slot.servingsPerPerson ??
+      1);
+  const byMeal = new Map<string, (typeof slots)[number][]>();
   for (const slot of slots) {
-    const eats =
-      !forUserId ||
-      slot.participantIds.length === 0 ||
-      slot.participantIds.includes(forUserId);
-    if (!eats) continue;
-    // Pierwsza pasująca pozycja posiłku wygrywa — imienna przed wspólną
-    // byłaby dokładniejsza, ale w jednym slocie i tak zwykle jest jedna.
-    // Porcja TEJ osoby, gdy pozycja ma alokację (Etap 2.2); inaczej jedna
-    // porcja — udział przy regule auto.
-    const servings =
-      slot.portions?.find((portion) => portion.userId === forUserId)
-        ?.servings ?? 1;
-    if (!byMeal.has(slot.mealType))
-      byMeal.set(slot.mealType, Math.round(slot.kcalPerServing * servings));
+    byMeal.set(slot.mealType, [...(byMeal.get(slot.mealType) ?? []), slot]);
   }
   let total = 0;
-  for (const kcal of byMeal.values()) total += kcal;
+  for (const meal of byMeal.values()) {
+    if (!forUserId) {
+      total += Math.round(plate(meal[0]));
+      continue;
+    }
+    const own = meal.filter((slot) => slot.participantIds.includes(forUserId));
+    const visible =
+      own.length > 0
+        ? own
+        : meal.filter((slot) => slot.participantIds.length === 0);
+    total += Math.round(visible.reduce((sum, slot) => sum + plate(slot), 0));
+  }
   return total;
 }
 
@@ -588,6 +601,33 @@ export const MEAL_LABELS: Record<MealType, string> = {
   SNACK: 'Przekąska',
 };
 
+/**
+ * „Obiad i kolacja”, „Śniadanie, II śniadanie i obiad” — pory w porządku
+ * dnia, od wielkiej litery; `null`, gdy nie ma żadnej.
+ *
+ * Wewnątrz zdania pora idzie małą literą, ale skrót „II” zostaje — samo
+ * `toLowerCase()` dawało „ii śniadanie”.
+ */
+export function mealListLabel(mealTypes: Iterable<MealType>): string | null {
+  const present = new Set(mealTypes);
+  const labels = MEAL_TYPES_IN_DAY_ORDER.filter((meal) =>
+    present.has(meal),
+  ).map((meal) => inSentence(MEAL_LABELS[meal]));
+  if (labels.length === 0) return null;
+
+  const head = labels.slice(0, -1).join(', ');
+  const tail = labels[labels.length - 1];
+  const list = head ? `${head} i ${tail}` : tail;
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)}`;
+}
+
+function inSentence(label: string): string {
+  const second = label.charAt(1);
+  return second && second === second.toUpperCase()
+    ? label
+    : `${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+}
+
 /** Nazwa dnia w mianowniku — „Poniedziałek”, nie „na poniedziałek”. */
 export const DAY_LABELS: Record<DayOfWeek, string> = {
   MON: 'Poniedziałek',
@@ -597,6 +637,21 @@ export const DAY_LABELS: Record<DayOfWeek, string> = {
   FRI: 'Piątek',
   SAT: 'Sobota',
   SUN: 'Niedziela',
+};
+
+/**
+ * Nazwa dnia w bierniku — „Zapisz środę”, „Zapisz niedzielę”, nie
+ * „Zapisz niedziela” (przycisk karty dnia do 27.09.2026 brał mianownik).
+ * Przycisk mówi zdaniem, a nie hasłem.
+ */
+export const DAY_ACCUSATIVE_LABELS: Record<DayOfWeek, string> = {
+  MON: 'poniedziałek',
+  TUE: 'wtorek',
+  WED: 'środę',
+  THU: 'czwartek',
+  FRI: 'piątek',
+  SAT: 'sobotę',
+  SUN: 'niedzielę',
 };
 
 /** Skrót dnia — „Pon”. Siedem wierszy musi zmieścić się w karcie. */

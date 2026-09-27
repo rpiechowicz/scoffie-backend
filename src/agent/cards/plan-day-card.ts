@@ -6,8 +6,10 @@ import {
 import { MEAL_TYPES_IN_DAY_ORDER } from '../../common/meal-types';
 import {
   AGENT_CARD_VERSION,
+  DAY_ACCUSATIVE_LABELS,
   DAY_LABELS,
   MEAL_LABELS,
+  mealListLabel,
   PlanDayCard,
   goalNote,
   longDateLabel,
@@ -58,7 +60,7 @@ export function buildPlanDayCard(input: {
     date: input.date,
     eyebrow: 'Propozycja dnia',
     eyebrowDetail: `${DAY_LABELS[input.dayOfWeek].toLowerCase()}, ${longDateLabel(input.date)}`,
-    title: dayTitle(kcalTotal, input.targetKcalPerDay),
+    title: dayTitle(slots, kcalTotal, input.targetKcalPerDay, wholeDay),
     subtitle: input.note?.trim() ? input.note.trim() : null,
     slots: slots.map((slot) => cardSlot(slot)),
     // Tylko usunięcia z TEGO dnia — propozycja dnia nie rusza reszty tygodnia,
@@ -86,7 +88,7 @@ export function buildPlanDayCard(input: {
       {
         type: 'APPLY',
         proposalId: input.proposalId,
-        label: `Zapisz ${DAY_LABELS[input.dayOfWeek].toLowerCase()}`,
+        label: `Zapisz ${DAY_ACCUSATIVE_LABELS[input.dayOfWeek]}`,
         style: 'PRIMARY',
       },
     ],
@@ -120,8 +122,22 @@ function cardSlot(slot: WeekPlanPreviewSlot) {
  * „Propozycja dnia” nie niesie żadnej informacji — użytkownik i tak widzi,
  * że to propozycja. Cel niesie: po nim od razu wiadomo, czy plan mieści się
  * w tym, o co go proszono.
+ *
+ * Tylko dla CAŁEGO dnia. Sama kolacja pod tytułem „Cały dzień, 650 kcal”
+ * (27.09.2026) kłamała dwa razy — to nie cały dzień i nie jego bilans —
+ * więc część dnia nazywa pory, które proponuje: „Obiad i kolacja”.
  */
-function dayTitle(kcalTotal: number, target: number | null): string {
+function dayTitle(
+  slots: readonly WeekPlanPreviewSlot[],
+  kcalTotal: number,
+  target: number | null,
+  wholeDay: boolean,
+): string {
+  if (!wholeDay) {
+    return (
+      mealListLabel(slots.map((slot) => slot.mealType)) ?? 'Propozycja dnia'
+    );
+  }
   if (target === null || target <= 0) return `Cały dzień, ${kcalTotal} kcal`;
   return kcalTotal <= target
     ? `Cały dzień pod cel ${target} kcal`

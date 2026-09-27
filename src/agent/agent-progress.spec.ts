@@ -9,6 +9,7 @@ import {
   WRITE_STEP_TOOL,
   settledProgress,
 } from './agent-progress';
+import { AGENT_TOOL_NAMES } from './tools/agent-tools';
 
 describe('progressStep', () => {
   it('tłumaczy nazwę narzędzia na zdanie dla człowieka', () => {
@@ -68,6 +69,17 @@ describe('progressStep', () => {
     ];
     for (const tool of tools) {
       expect(progressStep(tool).label).not.toBe(PROGRESS_FALLBACK);
+    }
+  });
+
+  // Lista wyżej żyje ręcznie i zdążyła się rozjechać z narzędziami modelu:
+  // `suggest_meals` (Etap 3) i `check_plan_conflicts` mówiły „Pracuję nad tym".
+  it('każde narzędzie, które widzi model, ma własne zdanie', () => {
+    for (const tool of AGENT_TOOL_NAMES) {
+      expect({ tool, label: progressStep(tool).label }).not.toEqual({
+        tool,
+        label: PROGRESS_FALLBACK,
+      });
     }
   });
 

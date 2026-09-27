@@ -122,6 +122,13 @@ export class AgentTurnWorker
       turnId: filter.turnId,
     });
     for (const claim of claimed) {
+      // SIGTERM przyszedł, gdy przejęcie było już w bazie: zamykanie nie
+      // widziało tej tury (jeszcze bez rezerwacji), więc nie odda jej lease.
+      // Oddajemy od razu — inaczej tura czekałaby na wygaśnięcie lease.
+      if (!this.canClaim()) {
+        await this.queue.release(claim.turnId, claim.leaseToken);
+        continue;
+      }
       this.metrics.recordJobClaimed(claim.attempt);
       if (claim.attempt > 1) {
         // „Czy ta tura była odzyskana?" — w bazie `attempt > 1`, tu ślad bez

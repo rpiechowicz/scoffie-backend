@@ -153,6 +153,17 @@ const LABELS: Record<string, readonly string[]> = {
     'Dopasowuję wielkość porcji do każdego',
   ],
   offer_options: ['Wybieram kilka propozycji', 'Zbieram dania do wyboru'],
+  // Główne narzędzie „co na kolację?" od Etapu 3 — do 27.09.2026 bez etykiety,
+  // więc najczęstszy krok w rozmowie mówił zapasowe „Pracuję nad tym".
+  suggest_meals: [
+    'Dobieram dania do wyboru',
+    'Szukam dań, które Wam pasują',
+    'Wybieram kilka dań na ten posiłek',
+  ],
+  check_plan_conflicts: [
+    'Sprawdzam alergeny w planie',
+    'Upewniam się, że plan jest bezpieczny',
+  ],
   show_macro_gap: ['Sprawdzam, czego brakuje', 'Porównuję plan z celami'],
   show_shopping_list: [
     'Składam listę zakupów',

@@ -17,6 +17,12 @@ const SNAPSHOT_LIMIT = 4000;
  * Zgłoszenie niesie MIGAWKĘ treści: retencja kasuje rozmowy po 90 dniach,
  * a zgłoszenie bez treści nie da się rozpatrzyć. Do logów idą tylko
  * identyfikatory i powód — nie treść.
+ *
+ * JEDNO zgłoszenie na osobę i odpowiedź (27.09.2026, Rafał: „jak ktoś
+ * zgłosił, to nie może wysłać drugiej, może edytować swoją”): drugie
+ * wysłanie POPRAWIA pierwsze (powód, komentarz) i wraca do panelu jako
+ * nowe — treść się zmieniła, więc stara decyzja admina już jej nie dotyczy.
+ * Historia rozmowy oddaje telefonowi własne zgłoszenie (`MessageView.report`).
  */
 const REPORT_REASON_LABELS: Record<string, string> = {
   WRONG: 'Powód: błąd merytoryczny',
@@ -35,7 +41,14 @@ export class AgentReportsService {
     userId: string,
     messageId: string,
     input: ReportMessageDto,
-  ): Promise<{ id: string; createdAt: string }> {
+  ): Promise<{
+    id: string;
+    createdAt: string;
+    reason: string;
+    comment: string | null;
+    /** `true` = poprawione istniejące zgłoszenie, nie nowe. */
+    updated: boolean;
+  }> {
     assertUuid(messageId, 'messageId');
     const dto = await validateDto(ReportMessageDto, input);
 
@@ -58,20 +71,40 @@ export class AgentReportsService {
       );
     }
 
-    const report = await this.prisma.agentReport.create({
-      data: {
-        userId,
-        conversationId: message.conversationId,
-        messageId: message.id,
-        turnId: message.turnId,
-        reason: dto.reason,
-        comment: dto.comment?.trim() || null,
-        messageText: message.text.slice(0, SNAPSHOT_LIMIT),
-      },
-      select: { id: true, createdAt: true },
+    const comment = dto.comment?.trim() || null;
+    // Najnowsze, gdyby w bazie zostały dublety sprzed tej zasady.
+    const existing = await this.prisma.agentReport.findFirst({
+      where: { userId, messageId: message.id },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
     });
+    const report = existing
+      ? await this.prisma.agentReport.update({
+          where: { id: existing.id },
+          data: {
+            reason: dto.reason,
+            comment,
+            messageText: message.text.slice(0, SNAPSHOT_LIMIT),
+            status: 'NEW',
+            reviewedAt: null,
+            reviewedByAdminId: null,
+          },
+          select: { id: true, createdAt: true },
+        })
+      : await this.prisma.agentReport.create({
+          data: {
+            userId,
+            conversationId: message.conversationId,
+            messageId: message.id,
+            turnId: message.turnId,
+            reason: dto.reason,
+            comment,
+            messageText: message.text.slice(0, SNAPSHOT_LIMIT),
+          },
+          select: { id: true, createdAt: true },
+        });
     this.logger.warn(
-      `zgłoszenie odpowiedzi asystenta: report=${report.id} message=${message.id} turn=${message.turnId ?? '-'} powód=${dto.reason}`,
+      `${existing ? 'poprawione zgłoszenie' : 'zgłoszenie'} odpowiedzi asystenta: report=${report.id} message=${message.id} turn=${message.turnId ?? '-'} powód=${dto.reason}`,
     );
     // Panel: badge zgłoszeń + powiadomienie. Sam powód — bez treści
     // odpowiedzi i komentarza (te panel pobierze REST-em).
@@ -79,12 +112,20 @@ export class AgentReportsService {
       topics: ['reports'],
       notice: {
         level: dto.reason === 'UNSAFE' ? 'error' : 'warning',
-        title: 'Nowe zgłoszenie odpowiedzi asystenta',
+        title: existing
+          ? 'Poprawione zgłoszenie odpowiedzi asystenta'
+          : 'Nowe zgłoszenie odpowiedzi asystenta',
         body: REPORT_REASON_LABELS[dto.reason] ?? dto.reason,
         link: '/reports',
         topic: 'reports',
       },
     });
-    return { id: report.id, createdAt: report.createdAt.toISOString() };
+    return {
+      id: report.id,
+      createdAt: report.createdAt.toISOString(),
+      reason: dto.reason,
+      comment,
+      updated: existing !== null,
+    };
   }
 }

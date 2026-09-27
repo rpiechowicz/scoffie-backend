@@ -1,6 +1,11 @@
 import { buildPlanDayCard } from './plan-day-card';
 import { buildClarifyCard } from './clarify-card';
-import { goalNote, shortDateLabel, weekRangeLabel } from './agent-cards';
+import {
+  goalNote,
+  mealListLabel,
+  shortDateLabel,
+  weekRangeLabel,
+} from './agent-cards';
 
 // Karta dnia i pytanie to dwie rzeczy, które użytkownik czyta ZANIM czegokolwiek
 // dotknie. Obie muszą dać się sprawdzić bez bazy, dostawcy i tury.
@@ -75,6 +80,33 @@ describe('buildPlanDayCard', () => {
     const card = build({ targetKcalPerDay: null });
     expect(card.summary.goalNote).toBeNull();
     expect(card.title).toBe('Cały dzień, 1067 kcal');
+  });
+
+  // 27.09.2026: sama kolacja stała pod tytułem „Cały dzień, 650 kcal”.
+  it('część dnia nazywa pory, a nie „cały dzień” z jego bilansem', () => {
+    const card = build({ enabledMealTypes: ['BREAKFAST', 'LUNCH', 'DINNER'] });
+    expect(card.title).toBe('Śniadanie i obiad');
+    expect(card.summary.goalNote).toBeNull();
+
+    const full = build({ enabledMealTypes: ['BREAKFAST', 'LUNCH'] });
+    expect(full.title).toBe('Cały dzień pod cel 2100 kcal');
+  });
+
+  it('lista pór zostawia „II” wielkimi literami', () => {
+    expect(mealListLabel(['SECOND_BREAKFAST', 'BREAKFAST', 'DINNER'])).toBe(
+      'Śniadanie, II śniadanie i kolacja',
+    );
+    expect(mealListLabel(['SECOND_BREAKFAST'])).toBe('II śniadanie');
+    expect(mealListLabel([])).toBeNull();
+  });
+
+  // 27.09.2026: na karcie niedzieli stało „Zapisz niedziela”.
+  it('przycisk mówi dzień w bierniku — „Zapisz niedzielę”, „Zapisz środę”', () => {
+    expect(build({ dayOfWeek: 'SUN' }).actions[0].label).toBe(
+      'Zapisz niedzielę',
+    );
+    expect(build({ dayOfWeek: 'WED' }).actions[0].label).toBe('Zapisz środę');
+    expect(build({ dayOfWeek: 'SAT' }).actions[0].label).toBe('Zapisz sobotę');
   });
 
   it('przekroczony cel mówi to wprost, a nie „zostaje −200”', () => {

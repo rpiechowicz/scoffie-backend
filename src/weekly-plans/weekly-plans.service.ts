@@ -34,7 +34,10 @@ import {
 } from './utils/auth-checks.util';
 import { runSerializable } from './utils/transaction-runner.util';
 import { lockWeekForWrite } from './utils/week-write-lock.util';
-import { weeklyBalanceForMember } from './utils/daily-balance.util';
+import {
+  servingsPerPerson,
+  weeklyBalanceForMember,
+} from './utils/daily-balance.util';
 import { ShoppingListService } from './services/shopping-list.service';
 
 /**
@@ -235,6 +238,13 @@ export type WeekPlanPreviewSlot = {
   participantIds: string[];
   /** Porcje per osoba (Etap 2.2); brak = równy podział. */
   portions?: PortionView[];
+  /**
+   * Bez `portions`: porcje przepisu na JEDNEGO jedzącego po zapisie
+   * (`plannedServings / jedzący`, reguła bilansu). Planer potrafi dać parze
+   * 3 porcje — karta, która liczy talerz jako 1 porcję, mówiłaby o innym
+   * dniu niż bilans po „Zapisz” (noc 26/27.09, N5).
+   */
+  servingsPerPerson?: number;
   /** Czy ta pozycja jest w tygodniu nowa, czy stała tam już wcześniej. */
   change: 'NEW' | 'KEPT';
 };
@@ -1422,6 +1432,17 @@ export class WeeklyPlansService {
         imageUrl: detail?.imageUrl?.trim() ? detail.imageUrl : null,
         participantIds: slot.participantIds,
         ...withPortions(slot.portions),
+        ...(slot.portions.length === 0
+          ? {
+              servingsPerPerson: servingsPerPerson(
+                {
+                  participantIds: slot.participantIds,
+                  plannedServings: slot.plannedServings ?? null,
+                },
+                memberIds.size,
+              ),
+            }
+          : {}),
         change: currentKeys.has(slot.key) ? 'KEPT' : 'NEW',
       };
     });

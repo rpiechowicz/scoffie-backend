@@ -510,8 +510,32 @@ describe('AgentTurnRunner', () => {
       expect(ledger.record).not.toHaveBeenCalled();
     });
 
-    it('błąd nie-retryable: bez zwrotu kwoty i bez bezpiecznika', async () => {
-      run.mockRejectedValue(new AgentProviderError('zły prompt', false));
+    // 27.09.2026: nieważny klucz API na lokalnym backendzie — tura padała
+    // na pierwszym wywołaniu (401), nic nie kosztowała, a każde „Spróbuj
+    // ponownie" zjadało wiadomość z puli. O zwrocie decyduje koszt.
+    it('błąd nie-retryable bez kosztu (401 zły klucz): kwota wraca, bezpiecznik stoi', async () => {
+      run.mockRejectedValue(
+        new AgentProviderError('401 API key is invalid', false, 401),
+      );
+      await runner.run(input());
+      expect(ledger.refundIfFree).toHaveBeenCalledWith(
+        tx,
+        TURN,
+        `sub:${HOUSEHOLD}`,
+      );
+      expect(metrics.snapshot().upstream.total).toBe(0);
+    });
+
+    it('błąd nie-retryable PO wydanych tokenach: wiadomość nie wraca', async () => {
+      run.mockRejectedValue(
+        new AgentProviderError('odmowa po rundzie narzędzi', false, 400, {
+          inputTokens: 9_000,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: 300,
+          costMicroUsd: 12_000,
+        }),
+      );
       await runner.run(input());
       expect(ledger.refundIfFree).not.toHaveBeenCalled();
       expect(metrics.snapshot().upstream.total).toBe(0);

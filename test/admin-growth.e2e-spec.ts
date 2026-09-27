@@ -58,6 +58,11 @@ describe('Panel administratora — wzrost (e2e)', () => {
         displayName: `${label} ${stamp}`,
         email: `${label.toLowerCase()}-${stamp}@growth.local`,
         authProvider: 'DEV',
+        // Jawnie, zegarem procesu testu. Domyślne `now()` nadaje silnik
+        // Prismy z zegara systemu, a lejek liczy „teraz” przez `new Date()`
+        // (zegar V8) — na Windows V8 bywa o kilka ms w tyle, więc osoba
+        // utworzona tuż przed odczytem wypadała z `createdAt <= now`.
+        createdAt: new Date(Date.now() - 1_000),
         ...extra,
       },
       select: { id: true },
