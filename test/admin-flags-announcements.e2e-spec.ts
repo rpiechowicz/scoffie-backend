@@ -220,13 +220,20 @@ describe('Flagi funkcji i komunikaty (/admin/flags, /admin/announcements, /me/*)
         overridesOn: 0,
         overridesOff: 0,
       });
-      const audit = await prisma.adminAuditLog.findFirst({
+      // Dwa wpisy dla tej flagi (utworzenie i odrzucony duplikat) potrafią mieć
+      // ten sam `createdAt` — `findFirst` bez rozróżnienia brał raz jeden, raz
+      // drugi (niestabilne w pełnym przebiegu, noc 26/27.09). Każdy po wyniku.
+      const audits = await prisma.adminAuditLog.findMany({
         where: { action: 'flags.create', targetId: FLAG },
+        select: { result: true, reason: true },
       });
-      expect(audit).toMatchObject({
-        result: 'SUCCESS',
-        reason: 'start bety planu',
-      });
+      expect(audits).toEqual(
+        expect.arrayContaining([
+          { result: 'SUCCESS', reason: 'start bety planu' },
+          { result: 'FAILED', reason: 'duplikat flagi' },
+        ]),
+      );
+      expect(audits).toHaveLength(2);
     });
 
     it('aplikacja: globalna włączona, beta wyłączona; osoba bez domu też dostaje globalne', async () => {
