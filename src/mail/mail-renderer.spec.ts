@@ -16,10 +16,7 @@ describe('każdy stan renderuje się do końca', () => {
   it.each(MAIL_FIXTURES.map((f) => [f.label, f] as const))(
     '%s',
     (_label, fixture) => {
-      const mail = render(
-        fixture.template,
-        fixture.payload as unknown as Record<string, unknown>,
-      );
+      const mail = render(fixture.template, fixture.payload);
 
       expect([...mail.subject].length).toBeLessThanOrEqual(45);
       expect(mail.subject.trim()).not.toBe('');
@@ -46,10 +43,7 @@ describe('każdy stan renderuje się do końca', () => {
 
   it('wersja tekstowa nie zawiera znaczników HTML', () => {
     for (const fixture of MAIL_FIXTURES) {
-      const mail = render(
-        fixture.template,
-        fixture.payload as unknown as Record<string, unknown>,
-      );
+      const mail = render(fixture.template, fixture.payload);
       expect(mail.text).not.toMatch(/<\/?(b|div|table|a|p)\b/i);
     }
   });
@@ -59,10 +53,7 @@ describe('adresy w treści', () => {
   it('wszystkie linki prowadzą pod skonfigurowaną domenę albo do App Store', () => {
     const dozwolone = [/^https:\/\/s\.test\//, /^https:\/\/apps\.apple\.com\//];
     for (const fixture of MAIL_FIXTURES) {
-      const mail = render(
-        fixture.template,
-        fixture.payload as unknown as Record<string, unknown>,
-      );
+      const mail = render(fixture.template, fixture.payload);
       const linki = [...mail.html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
       expect(linki.length).toBeGreaterThan(0);
       for (const link of linki) {

@@ -79,7 +79,7 @@ describe('AgentReportsService', () => {
 
   it('nieznany powód i nie-UUID = VALIDATION_ERROR przed odczytem bazy', async () => {
     await expect(
-      service.report(USER, MESSAGE, { reason: 'MEH' } as never),
+      service.report(USER, MESSAGE, { reason: 'MEH' }),
     ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
     await expect(
       service.report(USER, 'abc', { reason: 'OTHER' }),

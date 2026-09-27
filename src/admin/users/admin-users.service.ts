@@ -335,48 +335,42 @@ export class AdminUsersService {
         subscription: user.subscriptions[0]
           ? toSubscription(user.subscriptions[0])
           : null,
-        pushDevices: user.pushDevices.map(
-          (device): PushDevice => ({
-            id: device.id,
-            appBundleId: device.appBundleId,
-            // Urządzenie, które nie powiedziało, z jakiego buildu jest, dostaje
-            // środowisko domyślne — to samo, pod które NAPRAWDĘ idzie push.
-            apnsEnvironment:
-              device.apnsEnvironment === 'SANDBOX' ||
-              device.apnsEnvironment === 'PRODUCTION'
-                ? device.apnsEnvironment
-                : this.apns.defaultEnvironment,
-            isActive: device.isActive,
-            createdAt: device.createdAt.toISOString(),
-            lastSeenAt: device.lastSeenAt.toISOString(),
-          }),
-        ),
+        pushDevices: user.pushDevices.map((device): PushDevice => ({
+          id: device.id,
+          appBundleId: device.appBundleId,
+          // Urządzenie, które nie powiedziało, z jakiego buildu jest, dostaje
+          // środowisko domyślne — to samo, pod które NAPRAWDĘ idzie push.
+          apnsEnvironment:
+            device.apnsEnvironment === 'SANDBOX' ||
+            device.apnsEnvironment === 'PRODUCTION'
+              ? device.apnsEnvironment
+              : this.apns.defaultEnvironment,
+          isActive: device.isActive,
+          createdAt: device.createdAt.toISOString(),
+          lastSeenAt: device.lastSeenAt.toISOString(),
+        })),
         sessions: refreshFamilies(user.refreshTokens, now),
         consents: user.consentEvents
           .filter((event) =>
             (CONSENT_KINDS as readonly string[]).includes(event.kind),
           )
-          .map(
-            (event): ConsentEvent => ({
-              id: event.id,
-              kind: event.kind as ConsentKind,
-              action: event.action === 'REVOKED' ? 'REVOKED' : 'GRANTED',
-              documentVersion: event.documentVersion,
-              appVersion: event.appVersion,
-              createdAt: event.createdAt.toISOString(),
-            }),
-          ),
-        mails: user.mailMessages.map(
-          (mail): Mail => ({
-            id: mail.id,
-            template: mail.template as MailTemplate,
-            status: mail.status,
-            attempts: mail.attempts,
-            lastError: mail.lastError,
-            sentAt: mail.sentAt?.toISOString() ?? null,
-            createdAt: mail.createdAt.toISOString(),
-          }),
-        ),
+          .map((event): ConsentEvent => ({
+            id: event.id,
+            kind: event.kind as ConsentKind,
+            action: event.action === 'REVOKED' ? 'REVOKED' : 'GRANTED',
+            documentVersion: event.documentVersion,
+            appVersion: event.appVersion,
+            createdAt: event.createdAt.toISOString(),
+          })),
+        mails: user.mailMessages.map((mail): Mail => ({
+          id: mail.id,
+          template: mail.template as MailTemplate,
+          status: mail.status,
+          attempts: mail.attempts,
+          lastError: mail.lastError,
+          sentAt: mail.sentAt?.toISOString() ?? null,
+          createdAt: mail.createdAt.toISOString(),
+        })),
         stepsSource: toStepsSource(user.dailySteps[0]?.source),
         memoryNotes: await tx.agentMemory.count({ where: { aboutUserId: id } }),
         ownerAccount: isOwnerAccount(user.email),

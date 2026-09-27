@@ -47,7 +47,7 @@ function row(
       householdId: null,
       ...(overrides.recipe ?? {}),
     },
-  } as PlanRow;
+  };
 }
 
 function verdict(overrides: Partial<Verdict>): Verdict {
@@ -61,7 +61,7 @@ function verdict(overrides: Partial<Verdict>): Verdict {
       catalog: [],
       ownRecipeIds: {},
       ingredientId: () => null,
-    } as unknown as Verdict['world'],
+    },
     planBefore: [],
     plan: [],
     target: [],

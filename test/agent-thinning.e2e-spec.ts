@@ -125,7 +125,7 @@ describe('Odchudzony asystent E2E (Etap 3)', () => {
       })
       .expect(202);
     const turnId = (accepted.body as { turnId: string }).turnId;
-    for (const deadline = Date.now() + 15_000; ; ) {
+    for (const deadline = Date.now() + 15_000; ;) {
       const row = await prisma.agentTurn.findUniqueOrThrow({
         where: { id: turnId },
       });
@@ -438,13 +438,13 @@ describe('Odchudzony asystent E2E (Etap 3)', () => {
     const invalid = await executor.execute(
       'suggest_meals',
       { ...suggest('MON'), meal_type: 'OBIADOKOLACJA' },
-      fresh as never,
+      fresh,
     );
     expect(invalid.ok).toBe(false);
     const retry = await executor.execute(
       'suggest_meals',
       suggest('MON'),
-      fresh as never,
+      fresh,
     );
     expect(retry.ok).toBe(true);
     if (retry.ok) {

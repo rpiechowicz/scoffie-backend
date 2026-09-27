@@ -553,16 +553,14 @@ function summarize(
   if (schema.$ref) {
     const name = (schema.$ref as string).split('/').pop()!;
     const target = schemas[name];
-    const keys = target?.properties
-      ? Object.keys(target.properties as Schema)
-      : [];
+    const keys = target?.properties ? Object.keys(target.properties) : [];
     const shown = keys.slice(0, 6).join(', ');
     return `\`${name}\`${keys.length ? ` {${shown}${keys.length > 6 ? ', …' : ''}}` : ''}`;
   }
   if (schema.type === 'array')
     return `lista ${summarize(schema.items as Schema, schemas)}`;
   if (schema.properties) {
-    return `{${Object.keys(schema.properties as Schema).join(', ')}}`;
+    return `{${Object.keys(schema.properties).join(', ')}}`;
   }
   if (schema.nullable && schema.allOf) {
     return `${summarize((schema.allOf as Schema[])[0], schemas)} | null`;
@@ -703,11 +701,9 @@ async function main(): Promise<void> {
   const registry = new ComponentRegistry(schemas, definitions, swaggerOwned);
   const probeSchema = (alias: string): Schema => {
     const box = definitions[PROBE_PREFIX + alias] as
-      | { properties?: Record<string, unknown> }
-      | undefined;
+      { properties?: Record<string, unknown> } | undefined;
     const value = box?.properties?.value as
-      | { properties?: Record<string, unknown> }
-      | undefined;
+      { properties?: Record<string, unknown> } | undefined;
     if (value === undefined) return {};
     if (value.properties?.__noContent) return { 'x-no-content': true };
     return registry.convert(value);

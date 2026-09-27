@@ -209,8 +209,8 @@ export async function fetchRailwayService(
       memoryLimitGb: lastValue('MEMORY_LIMIT_GB'),
     },
     http,
-    deploys: main.deployments.edges.map(
-      ({ node }): RailwayDeployDetail => toDeploy(node),
+    deploys: main.deployments.edges.map(({ node }): RailwayDeployDetail =>
+      toDeploy(node),
     ),
     runs,
   };

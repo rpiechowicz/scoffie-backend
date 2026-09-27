@@ -885,10 +885,7 @@ async function runOnce(
         deps,
         built.conversationId,
         history,
-        prompt as unknown as {
-          catalogIndex: Record<string, string>;
-          visibleUserIds?: string[];
-        },
+        prompt,
       );
       // Zakres planowania TURY — tak jak w `AgentTurnRunner`: jeden na turę,
       // wspólny dla obu faz. Bez niego scenariusz omijał bramkę „najwyżej
@@ -923,7 +920,7 @@ async function runOnce(
               collectCard: (card: AgentCard) =>
                 cards.push({
                   kind: card.kind,
-                  payload: card as unknown as Record<string, unknown>,
+                  payload: card,
                 }),
             });
             calls.push({
@@ -1485,9 +1482,7 @@ async function main(): Promise<void> {
   const configIds = list('config') ?? ['A'];
   const modelOverride = flag('model');
   const cardsMode = (flag('cards') ?? baseEnv.cardsMode) as
-    | 'off'
-    | 'soft'
-    | 'strict';
+    'off' | 'soft' | 'strict';
   const concurrency = Math.max(1, Number(flag('concurrency') ?? '3'));
   // Twardy sufit kosztu przebiegu (Etap 6): po jego przekroczeniu żaden nowy
   // scenariusz nie startuje; biegnące kończą się normalnie.

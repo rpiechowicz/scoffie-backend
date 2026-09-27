@@ -268,18 +268,16 @@ export class AdminHouseholdsService {
         ...this.listItem(row, resolved),
         enabledMealTypes: orderMealTypes(row.enabledMealTypes),
         mealSlotTimes: parseMealSlotTimes(row.mealSlotTimes),
-        invitations: invitations.map(
-          (invitation): Invitation => ({
-            id: invitation.id,
-            createdByName: invitation.createdBy?.displayName ?? null,
-            invitedUserName: invitation.invitedUser?.displayName ?? null,
-            redeemedByName: invitation.redeemedBy?.displayName ?? null,
-            createdAt: invitation.createdAt.toISOString(),
-            expiresAt: invitation.expiresAt.toISOString(),
-            redeemedAt: iso(invitation.redeemedAt),
-            declinedAt: iso(invitation.declinedAt),
-          }),
-        ),
+        invitations: invitations.map((invitation): Invitation => ({
+          id: invitation.id,
+          createdByName: invitation.createdBy?.displayName ?? null,
+          invitedUserName: invitation.invitedUser?.displayName ?? null,
+          redeemedByName: invitation.redeemedBy?.displayName ?? null,
+          createdAt: invitation.createdAt.toISOString(),
+          expiresAt: invitation.expiresAt.toISOString(),
+          redeemedAt: iso(invitation.redeemedAt),
+          declinedAt: iso(invitation.declinedAt),
+        })),
         costMonthUsd: (cost?.value ?? 0) / 1_000_000,
         // `off` (jawny brak sufitu) nie ma liczby — kontrakt chce liczby,
         // więc 0 znaczy tu „sufit wyłączony", a nie „sufit zero dolarów".

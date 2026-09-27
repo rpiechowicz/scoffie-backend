@@ -20,7 +20,7 @@ describe('AccessJwtVerifier', () => {
   const env = readAdminEnv({
     ADMIN_ACCESS_TEAM_DOMAIN: `https://${TEAM}/`,
     ADMIN_ACCESS_AUD: AUD,
-  } as NodeJS.ProcessEnv);
+  });
 
   let privateKey: KeyLike;
   let strangerKey: KeyLike;
@@ -112,15 +112,13 @@ describe('AccessJwtVerifier', () => {
 
   it('bez konfiguracji bramki odmawia nawet poprawnego tokenu', async () => {
     const good = await token();
-    await expect(
-      verifier.verify(good, readAdminEnv({} as NodeJS.ProcessEnv)),
-    ).resolves.toBeNull();
+    await expect(verifier.verify(good, readAdminEnv({}))).resolves.toBeNull();
     await expect(
       verifier.verify(
         good,
         readAdminEnv({
           ADMIN_ACCESS_TEAM_DOMAIN: TEAM,
-        } as NodeJS.ProcessEnv),
+        }),
       ),
     ).resolves.toBeNull();
   });

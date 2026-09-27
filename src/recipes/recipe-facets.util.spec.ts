@@ -1,4 +1,3 @@
-import { MealType } from '@prisma/client';
 import {
   FacetRecipe,
   RECIPE_SEARCH_TAGS,
@@ -9,7 +8,7 @@ import {
 
 const recipe = (overrides: Partial<FacetRecipe>): FacetRecipe => ({
   title: 'Danie',
-  mealType: 'LUNCH' as MealType,
+  mealType: 'LUNCH',
   prepTimeMinutes: 30,
   perServing: { kcal: 500, protein: 20 },
   ingredients: [{ name: 'Cebula', department: 'Warzywa' }],

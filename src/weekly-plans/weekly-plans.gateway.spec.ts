@@ -690,7 +690,7 @@ describe('WeeklyPlansGateway', () => {
       const response = await gateway.upsertWeekSlot(tokenClient(USER), {
         ...base,
         data: { ...payload.data, dayOfWeek: 'MONDAY' },
-      } as any);
+      });
 
       expect(response).toEqual(expect.objectContaining({ ok: true }));
       expect(weeklyPlansService.upsertWeekSlot).toHaveBeenCalledWith(
@@ -705,7 +705,7 @@ describe('WeeklyPlansGateway', () => {
       const response = await gateway.getByWeek(tokenClient(USER), {
         householdId: HH.toUpperCase(),
         weekStart: WEEK,
-      } as any);
+      });
 
       expect(response).toEqual(expect.objectContaining({ ok: true }));
       expect(weeklyPlansService.getByHouseholdAndWeek).toHaveBeenCalledWith(
@@ -716,10 +716,10 @@ describe('WeeklyPlansGateway', () => {
     });
 
     it('getSavedPlan odpowiada pustą pulą, ale wciąż wymaga tożsamości', async () => {
-      const ok = await gateway.getSavedPlan(tokenClient(USER), base as any);
+      const ok = await gateway.getSavedPlan(tokenClient(USER), base);
       expect(ok).toEqual({ ok: true, data: { weekStart: WEEK, items: [] } });
 
-      const denied = await gateway.getSavedPlan(anonClient(), base as any);
+      const denied = await gateway.getSavedPlan(anonClient(), base);
       expect(denied).toEqual(
         expect.objectContaining({ ok: false, code: 'UNAUTHORIZED' }),
       );

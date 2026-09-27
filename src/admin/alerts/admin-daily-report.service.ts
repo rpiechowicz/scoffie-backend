@@ -167,10 +167,7 @@ export class AdminDailyReportService
   ): Promise<DailyReportPreview> {
     const day = this.resolveDay(rawDay, now);
     const payload = await this.payload(day, now);
-    const rendered = this.renderer.render(
-      'DAILY_REPORT',
-      payload as unknown as Record<string, unknown>,
-    );
+    const rendered = this.renderer.render('DAILY_REPORT', payload);
     return { day, subject: rendered.subject, html: rendered.html };
   }
 

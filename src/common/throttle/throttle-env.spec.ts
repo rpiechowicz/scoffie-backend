@@ -10,7 +10,7 @@ describe('throttle-env', () => {
       expect(
         readThrottleLimit('THROTTLE_AUTH_LIMIT', {
           THROTTLE_AUTH_LIMIT: '3',
-        } as NodeJS.ProcessEnv),
+        }),
       ).toBe(3);
     });
 
@@ -30,13 +30,13 @@ describe('throttle-env', () => {
 
   describe('throttleEnvProblems', () => {
     it('milczy przy pustym env — merge nie wymaga zmiennych na Railway', () => {
-      expect(throttleEnvProblems({} as NodeJS.ProcessEnv)).toEqual([]);
+      expect(throttleEnvProblems({})).toEqual([]);
     });
 
     it('zgłasza złą wartość limitu i podaje domyślną', () => {
       const problems = throttleEnvProblems({
         THROTTLE_DEFAULT_LIMIT: 'sto',
-      } as NodeJS.ProcessEnv);
+      });
       expect(problems).toHaveLength(1);
       expect(problems[0]).toContain('THROTTLE_DEFAULT_LIMIT=sto');
       expect(problems[0]).toContain(
@@ -48,12 +48,12 @@ describe('throttle-env', () => {
       expect(
         throttleEnvProblems({
           WS_RATE_LIMIT_PER_MIN: '0',
-        } as NodeJS.ProcessEnv),
+        }),
       ).toEqual([]);
       expect(
         throttleEnvProblems({
           WS_RATE_LIMIT_PER_MIN: '-5',
-        } as NodeJS.ProcessEnv),
+        }),
       ).toHaveLength(1);
     });
   });

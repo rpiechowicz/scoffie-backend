@@ -165,36 +165,33 @@ describe('Audyt cyklu życia sesji 21.09.2026 (e2e, żywa baza)', () => {
       options: unknown,
     ) => {
       if (typeof arg !== 'function') {
-        return originalTransaction(arg as never, options as never);
+        return originalTransaction(arg, options);
       }
       const run = arg as (tx: unknown) => Promise<unknown>;
-      return originalTransaction(
-        ((tx: Record<string, unknown>) => {
-          const proxied = new Proxy(tx, {
-            get(target, prop, receiver) {
-              if (prop !== 'refreshToken') {
-                return Reflect.get(target, prop, receiver);
-              }
-              const inner = target.refreshToken as Record<string, unknown>;
-              return new Proxy(inner, {
-                get(innerTarget, innerProp) {
-                  if (innerProp !== 'create') {
-                    return Reflect.get(innerTarget, innerProp);
-                  }
-                  return async (args: unknown) => {
-                    await fire();
-                    return (
-                      innerTarget.create as (a: unknown) => Promise<unknown>
-                    )(args);
-                  };
-                },
-              });
-            },
-          });
-          return run(proxied);
-        }) as never,
-        options as never,
-      );
+      return originalTransaction((tx: Record<string, unknown>) => {
+        const proxied = new Proxy(tx, {
+          get(target, prop, receiver) {
+            if (prop !== 'refreshToken') {
+              return Reflect.get(target, prop, receiver);
+            }
+            const inner = target.refreshToken as Record<string, unknown>;
+            return new Proxy(inner, {
+              get(innerTarget, innerProp) {
+                if (innerProp !== 'create') {
+                  return Reflect.get(innerTarget, innerProp);
+                }
+                return async (args: unknown) => {
+                  await fire();
+                  return (
+                    innerTarget.create as (a: unknown) => Promise<unknown>
+                  )(args);
+                };
+              },
+            });
+          },
+        });
+        return run(proxied);
+      }, options);
     }) as never);
 
     return {

@@ -43,7 +43,7 @@ describe('środowisko App Store', () => {
     const problems = billingEnvProblems({
       APPLE_ENVIRONMENT: 'Prodution',
       PURCHASE_IDENTITY_PEPPER: 'x'.repeat(40),
-    } as NodeJS.ProcessEnv);
+    });
     expect(problems.join(' | ')).toContain('Prodution');
   });
 
@@ -56,7 +56,7 @@ describe('środowisko App Store', () => {
       NODE_ENV: 'production',
       APPLE_ENVIRONMENT: 'Sandbox',
       PURCHASE_IDENTITY_PEPPER: 'x'.repeat(40),
-    } as NodeJS.ProcessEnv);
+    });
     expect(problems.join(' | ')).toContain('APPLE_ISSUER_ID');
     expect(problems.join(' | ')).toContain('APPLE_ENVIRONMENT != Production');
   });
@@ -65,7 +65,7 @@ describe('środowisko App Store', () => {
     const problems = billingEnvProblems({
       AI_TIER_OVERRIDE: 'PRO',
       PURCHASE_IDENTITY_PEPPER: 'x'.repeat(40),
-    } as NodeJS.ProcessEnv);
+    });
     expect(problems.join(' | ')).toContain('za darmo');
   });
 
@@ -78,7 +78,7 @@ describe('środowisko App Store', () => {
       APPLE_BILLING_KEY_ID: 'k',
       APPLE_BILLING_PRIVATE_KEY: 'p',
       PURCHASE_IDENTITY_PEPPER: 'x'.repeat(40),
-    } as NodeJS.ProcessEnv);
+    });
     expect(problems.join(' | ')).not.toContain('APPLE_ENVIRONMENT');
   });
 

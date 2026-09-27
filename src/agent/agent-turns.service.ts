@@ -227,7 +227,7 @@ export class AgentTurnsService {
       const accepted = await this.postMessage(
         userId,
         conversationId,
-        forwarded as PostMessageDto,
+        forwarded,
         requestId,
       );
       // Propozycje wiszące na wycofanych wiadomościach przestają być
@@ -535,7 +535,7 @@ export class AgentTurnsService {
             model: resolveRoute(env).model,
             quotaPeriodKey: periodKey,
             quotaScopeId: scopeId,
-            execution: execution as unknown as Prisma.InputJsonValue,
+            execution: execution,
             // Twardy termin CAŁEJ tury — kolejne próby go nie przesuwają.
             deadlineAt: new Date(Date.now() + env.turnTimeoutMs),
           },

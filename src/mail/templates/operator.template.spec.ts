@@ -16,10 +16,7 @@ describe('maile do operatora — każdy stan renderuje się do końca', () => {
   it.each(OPERATOR_MAIL_FIXTURES.map((f) => [f.label, f] as const))(
     '%s',
     (_label, fixture) => {
-      const mail = render(
-        fixture.template,
-        fixture.payload as unknown as Record<string, unknown>,
-      );
+      const mail = render(fixture.template, fixture.payload);
       expect([...mail.subject].length).toBeLessThanOrEqual(45);
       expect(mail.preheader.trim()).not.toBe('');
       expect(mail.html).toContain('<!DOCTYPE html>');
@@ -63,10 +60,7 @@ describe('maile do operatora — każdy stan renderuje się do końca', () => {
 
   it('raport pokazuje dobę po polsku, liczby i strzałki z kolorem', () => {
     const [, , report] = OPERATOR_MAIL_FIXTURES;
-    const mail = render(
-      report.template,
-      report.payload as unknown as Record<string, unknown>,
-    );
+    const mail = render(report.template, report.payload);
     expect(mail.subject).toBe('Scoffie wczoraj · 24 września');
     expect(mail.html).toContain('czwartek, 24 września');
     expect(mail.text).toContain('Nowe konta: 12 (▲ 3)');

@@ -416,8 +416,7 @@ describe('Agent E2E', () => {
       ).body as AcceptedTurn;
       const turn = await pollTurn(session.accessToken, accepted.turnId);
       const answer = turn.messages?.find((m) => m.role === 'ASSISTANT') as
-        | { id?: string }
-        | undefined;
+        { id?: string } | undefined;
       const messages = (
         await request(app.getHttpServer())
           .get(`/agent/conversations/${conversation.id}/messages`)

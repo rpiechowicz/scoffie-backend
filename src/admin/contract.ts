@@ -194,12 +194,7 @@ export interface PushDevice {
 }
 
 export type ConsentKind =
-  | 'TERMS'
-  | 'PRIVACY'
-  | 'AI_ASSISTANT'
-  | 'COOKIDOO'
-  | 'AGE_16'
-  | 'HEALTH_DATA';
+  'TERMS' | 'PRIVACY' | 'AI_ASSISTANT' | 'COOKIDOO' | 'AGE_16' | 'HEALTH_DATA';
 
 /** `ConsentEvent` — tylko dopisywane */
 export interface ConsentEvent {
@@ -375,12 +370,7 @@ export interface ProfitRow {
 }
 
 export type ProposalStatus =
-  | 'PENDING'
-  | 'APPLIED'
-  | 'UNDONE'
-  | 'STALE'
-  | 'EXPIRED'
-  | 'FAILED';
+  'PENDING' | 'APPLIED' | 'UNDONE' | 'STALE' | 'EXPIRED' | 'FAILED';
 
 export interface ProfitData {
   fxUsdPln: number;

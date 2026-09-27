@@ -144,7 +144,7 @@ describe('Porcje per osoba przez wybór z karty E2E (review Etapu 3)', () => {
       })
       .expect(202);
     const turnId = (accepted.body as { turnId: string }).turnId;
-    for (const deadline = Date.now() + 15_000; ; ) {
+    for (const deadline = Date.now() + 15_000; ;) {
       const row = await prisma.agentTurn.findUniqueOrThrow({
         where: { id: turnId },
       });

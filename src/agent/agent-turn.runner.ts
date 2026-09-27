@@ -149,10 +149,7 @@ const SHUTDOWN_CLOSE_MS = 2_000;
 
 type FailureVerdict = {
   errorCode:
-    | 'AI_TIMEOUT'
-    | 'AI_CANCELLED'
-    | 'AI_PROVIDER_ERROR'
-    | 'INTERNAL_ERROR';
+    'AI_TIMEOUT' | 'AI_CANCELLED' | 'AI_PROVIDER_ERROR' | 'INTERNAL_ERROR';
   outcome: 'timeout' | 'failed';
   /** Czy oddać kwotę — użytkownik nie płaci za to, że coś padło po naszej stronie. */
   refund: boolean;
@@ -888,7 +885,7 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
           status: 'RUNNING',
           ...(leaseToken ? { leaseToken } : {}),
         },
-        data: { progress: steps as unknown as Prisma.InputJsonValue },
+        data: { progress: steps },
       });
     } catch (error) {
       this.logger.warn(
@@ -978,9 +975,7 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
             draftText: null,
             // Bez kroków przejściowych („Już się tym zajmuję", „Piszę odpowiedź"):
             // po turze liczą się narzędzia i zapis, nie sygnały życia.
-            progress: settledProgress(
-              progress,
-            ) as unknown as Prisma.InputJsonValue,
+            progress: settledProgress(progress),
             durationMs,
             // Tokenów i kosztu NIE nadpisujemy: dopisuje je księga po każdym
             // wywołaniu (`AgentUsageLedger`), także po domknięciu tury.
@@ -1020,7 +1015,7 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
             text: stripClickableLinks(result.text),
             ...(card ? { card: card.payload as Prisma.InputJsonValue } : {}),
             ...(usedContext.length > 0
-              ? { context: { used: usedContext } as Prisma.InputJsonValue }
+              ? { context: { used: usedContext } }
               : {}),
             turnId: input.turnId,
             // Klucz wyjścia (Etap 5): druga odpowiedź tej tury — z odzyskanej
@@ -1172,9 +1167,7 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
           errorCode: verdict.errorCode,
           finishedAt: new Date(),
           durationMs,
-          progress: settledProgress(
-            progress,
-          ) as unknown as Prisma.InputJsonValue,
+          progress: settledProgress(progress),
           // Tokeny i koszt dopisała już księga — nie nadpisujemy ich tu.
         },
       });

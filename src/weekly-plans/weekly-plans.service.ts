@@ -750,7 +750,7 @@ export class WeeklyPlansService {
             mealType: dto.mealType,
             recipeId: dto.recipeId,
             participantIds: effectiveParticipantIds,
-          } as ApplyWeekSlotDto,
+          },
         ],
         plannableForGate,
         memberIdsForGate,

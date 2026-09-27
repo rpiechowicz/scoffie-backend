@@ -67,7 +67,7 @@ describe('actorId', () => {
   ])('%s → UNAUTHORIZED 401', (_label, data, payload) => {
     let thrown: unknown;
     try {
-      actorId(data === undefined ? undefined : client(data), payload as never);
+      actorId(data === undefined ? undefined : client(data), payload);
     } catch (error) {
       thrown = error;
     }

@@ -18,8 +18,7 @@ export type MailRefusal =
   | 'SUPPRESSED';
 
 export type MailEligibility =
-  | { ok: true; to: string }
-  | { ok: false; reason: MailRefusal };
+  { ok: true; to: string } | { ok: false; reason: MailRefusal };
 
 /**
  * Postać do PORÓWNAŃ (lista wykluczeń, deduplikacja). Do wysyłki idzie adres
