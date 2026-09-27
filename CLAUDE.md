@@ -352,6 +352,12 @@ catalog:scale-probe` na bazie `*_scale` (`SCALE_DATABASE_URL`), wyniki w `benchm
   Etap 3 zdjął z modelu `propose_week_plan`); nowe narzędzie i tak dawaj z samymi polami
   wymaganymi („brak" = [], NONE, 0, „") — zapas jest na naprawy, nie na wygodę. Jak liczyć: spec „pól nieobowiązkowych mieści się
   w limicie (24)” w `agent-tools.spec.ts`.
+- Kolejność rewizji `CatalogChange` (N2-1, ADR `docs/adr/catalog-change-commit-order.md`): numer nadaje
+  się przy COMMIT pod zamkiem doradczym, a brak zgubionych zmian i deadlocków trzyma się tylko, gdy:
+  (1) `Recipe_catalog_change` i `RecipeIngredient_catalog_change` zostają `DEFERRABLE INITIALLY DEFERRED`
+  (test 17 w `test/catalog-change-commit-order.e2e-spec.ts`); (2) nigdzie `SET CONSTRAINTS … IMMEDIATE`;
+  (3) żadnego DDL / `LOCK TABLE` / `TRUNCATE` na `Recipe`, `RecipeIngredient`, `CatalogChange` w tej samej
+  transakcji co DML katalogu; (4) bez 2PC (`PREPARE TRANSACTION`).
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
   Puste tagi są dla reguł diet faktem („czysto”), nie brakiem danych.
