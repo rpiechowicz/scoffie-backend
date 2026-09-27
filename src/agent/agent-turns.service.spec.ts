@@ -756,6 +756,7 @@ describe('AgentTurnsService', () => {
       // „Myślałem 5 s" i kciuk — ten sam kształt, co w historii rozmowy.
       expect(view.messages?.[0].thinking).toEqual({
         durationMs: 5000,
+        startedAt: '2026-08-31T10:00:00.000Z',
         steps: [step],
       });
       expect(view.messages?.[0].feedback).toBe('UP');
