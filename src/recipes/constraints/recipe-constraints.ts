@@ -171,20 +171,20 @@ const AVOIDED_CATEGORY_TAGS: readonly { root: string; tag: string }[] = [
 ];
 
 /**
- * Czy przepis zawiera to, czego prośba każe unikać: składnik po rdzeniu
- * słowa (`ingredientMatches`) albo kategorię po tagu diety. Jedna reguła dla
- * planera (`checkRecipe`) i wyszukiwarki (`exclude_ingredients`).
+ * Czy przepis ma składnik z prośby: po rdzeniu słowa (`ingredientMatches`)
+ * albo jako kategorię po tagu diety („ryba” → FISH). Jedna reguła dla „bez X”
+ * (planer `checkRecipe`, `exclude_ingredients`) i „z X” (`suggest_meals`,
+ * `include_ingredients`) — inaczej „co na kolację z rybą?” nie znajdowało
+ * żadnego z 30 dań rybnych.
  */
-export function containsAvoided(
+export function mentionsIngredient(
   subject: { ingredientNames: readonly string[]; dietTags: readonly string[] },
-  avoided: string,
+  phrase: string,
 ): boolean {
-  if (
-    subject.ingredientNames.some((name) => ingredientMatches(name, avoided))
-  ) {
+  if (subject.ingredientNames.some((name) => ingredientMatches(name, phrase))) {
     return true;
   }
-  const stems = queryStems(avoided);
+  const stems = queryStems(phrase);
   return AVOIDED_CATEGORY_TAGS.some(
     ({ root, tag }) =>
       subject.dietTags.includes(tag) &&
@@ -256,7 +256,7 @@ export function checkRecipe(
   }
   if (
     request.avoidIngredients.some((avoided) =>
-      containsAvoided(subject, avoided),
+      mentionsIngredient(subject, avoided),
     )
   ) {
     return 'AVOIDED_INGREDIENT';

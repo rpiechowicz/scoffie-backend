@@ -237,6 +237,18 @@ describe('searchRecipes — kryteria z prośby', () => {
     ).toEqual(['Placki ziemniaczane']);
   });
 
+  it('„z rybą” znajduje dania rybne po tagu diety, nie tylko po nazwie składnika (M12)', () => {
+    const recipes = [
+      doc('Dorsz pieczony', { dietTags: ['FISH'] }, [['Dorsz', 'Ryby']]),
+      doc('Schab pieczony', { dietTags: ['MEAT'] }, [['Schab', 'Mięso']]),
+    ];
+    expect(
+      titles(
+        searchRecipes(recipes, query({ includeIngredients: ['ryba'] }), NOBODY),
+      ),
+    ).toEqual(['Dorsz pieczony']);
+  });
+
   it('limit czasu nie przepuszcza dań bez czasu (0 = nie wiemy)', () => {
     const recipes = [
       doc('Szybkie', { prepTimeMinutes: 15 }),
