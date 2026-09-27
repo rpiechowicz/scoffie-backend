@@ -3,6 +3,8 @@ import { buildClarifyCard } from './clarify-card';
 import {
   goalNote,
   mealListLabel,
+  withAccusativeDay,
+  withAccusativeDayActions,
   shortDateLabel,
   weekRangeLabel,
 } from './agent-cards';
@@ -185,5 +187,32 @@ describe('etykiety dat', () => {
     expect(goalNote(1800, 2100)).toBe('300 kcal poniżej celu');
     expect(goalNote(2400, 2100)).toBe('300 kcal ponad cel');
     expect(goalNote(2400, null)).toBeNull();
+  });
+});
+
+describe('withAccusativeDay — karty z historii', () => {
+  it('„Zapisz niedziela” sprzed poprawki czyta się „Zapisz niedzielę”', () => {
+    expect(withAccusativeDay('Zapisz niedziela')).toBe('Zapisz niedzielę');
+    expect(withAccusativeDay('Zapisz na środa')).toBe('Zapisz na środę');
+    expect(withAccusativeDay('Zapisz Sobota')).toBe('Zapisz Sobotę');
+    // Poprawne i obce etykiety bez zmian.
+    expect(withAccusativeDay('Zapisz wtorek')).toBe('Zapisz wtorek');
+    expect(withAccusativeDay('Zapisz niedzielę')).toBe('Zapisz niedzielę');
+    expect(withAccusativeDay('Dodaj do planu')).toBe('Dodaj do planu');
+  });
+
+  it('przepisuje tylko akcje karty i nie tworzy kopii, gdy nie ma czego poprawiać', () => {
+    const old = {
+      kind: 'PLAN_DAY',
+      actions: [{ type: 'APPLY', label: 'Zapisz sobota' }],
+    };
+    expect(withAccusativeDayActions(old).actions[0].label).toBe(
+      'Zapisz sobotę',
+    );
+    const fresh = {
+      kind: 'PLAN_DAY',
+      actions: [{ type: 'APPLY', label: 'Zapisz sobotę' }],
+    };
+    expect(withAccusativeDayActions(fresh)).toBe(fresh);
   });
 });
