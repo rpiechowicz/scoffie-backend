@@ -78,6 +78,10 @@ async function main() {
     where: {
       plannedServings: MIN_SERVINGS,
       createdAt: { lt: MIGRATION_CUTOFF },
+      // Pozycje z porcjami per osoba mają `plannedServings = ceil(Σ porcji)`
+      // (workstream per-user-portions-write-safety) — reguła audytorium ich
+      // nie dotyczy, a nadpisanie rozjechałoby listę zakupów z alokacją.
+      portions: { none: {} },
     },
     select: {
       id: true,
