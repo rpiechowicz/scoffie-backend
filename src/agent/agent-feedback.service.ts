@@ -46,11 +46,14 @@ export class AgentFeedbackService {
     const dto = await validateDto(RateMessageDto, input);
 
     // Własność przez rozmowę, jak przy zgłoszeniu: cudza wiadomość = 404.
-    // Ocenia się tylko odpowiedzi asystenta.
+    // Ocenia się tylko odpowiedzi MODELU (z turą) — potwierdzenia zapisu
+    // i cofnięcia serwer pisze bez `turnId` i telefon nie daje pod nimi
+    // kciuków (27.09.2026: „nie pod każdą”).
     const message = await this.prisma.agentMessage.findFirst({
       where: {
         id: messageId,
         role: 'ASSISTANT',
+        turnId: { not: null },
         conversation: { userId },
       },
       select: { id: true, turnId: true, kind: true, text: true },
