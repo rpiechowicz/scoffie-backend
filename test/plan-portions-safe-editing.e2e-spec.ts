@@ -12,6 +12,7 @@ import {
   currentWeekStart,
   formatWeekStart,
 } from '../src/weekly-plans/utils/week-formatting.util';
+import { ShoppingListService } from '../src/weekly-plans/services/shopping-list.service';
 import { WeeklyPlansService } from '../src/weekly-plans/weekly-plans.service';
 
 /**
@@ -58,6 +59,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
   let prisma: PrismaService;
   let weeklyPlans: WeeklyPlansService;
   let households: HouseholdsService;
+  let shoppingLists: ShoppingListService;
   const createdUserIds: string[] = [];
   const createdHouseholdIds: string[] = [];
   let dinner: { id: string };
@@ -289,6 +291,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     prisma = app.get(PrismaService);
     weeklyPlans = app.get(WeeklyPlansService);
     households = app.get(HouseholdsService);
+    shoppingLists = app.get(ShoppingListService);
     const found = await prisma.recipe.findMany({
       where: {
         isCatalog: true,
@@ -429,6 +432,538 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       );
       expect([a, b]).toEqual(['OK', 'OK']);
       expect(byPerson(final.portions)).toEqual({ [asia]: 1, [rafal]: 1.5 });
+    });
+  });
+
+  describe('review patch — regresje', () => {
+    const nextWeek = () => {
+      const monday = currentWeekStart(new Date());
+      monday.setUTCDate(monday.getUTCDate() + 7);
+      return formatWeekStart(monday);
+    };
+    const readWeek = async (
+      userId: string,
+      householdId: string,
+      week: string,
+    ) =>
+      (await weeklyPlans.getByHouseholdAndWeek(
+        userId,
+        householdId,
+        week,
+      )) as unknown as Plan;
+    /** Pozycja z odczytu jako slot pełnego stanu (to, co klient trzyma lokalnie). */
+    const toSlot = (item: Item) => ({
+      dayOfWeek: item.dayOfWeek,
+      mealType: item.mealType,
+      recipeId: item.recipeId,
+      participantIds: item.participantIds,
+      ...(item.portions.length > 0
+        ? {
+            portions: item.portions.map(({ userId, servings }) => ({
+              userId,
+              servings,
+            })),
+          }
+        : {}),
+    });
+    const tuesdayOf = (portions: { userId: string; servings: number }[]) => ({
+      dayOfWeek: 'TUE',
+      mealType: 'DINNER',
+      recipeId: dinner.id,
+      portions,
+    });
+    const shoppingState = async (householdId: string) => ({
+      lists: await prisma.shoppingList.findMany({
+        where: { householdId },
+        select: { id: true, isStale: true, updatedAt: true },
+        orderBy: { id: 'asc' },
+      }),
+      archiveStates: await prisma.shoppingListArchiveState.findMany({
+        where: { householdId },
+      }),
+    });
+
+    it('R1. ack pojedynczej pozycji nie odświeża tokenu STAREGO pełnego snapshotu: pełny apply ze starej kopii → konflikt, pozycja B zostaje; dopiero pełny odczyt daje nowy token', async () => {
+      const { asia, rafal, householdId } = await couple('R1');
+      await allocated(asia, householdId, [
+        { userId: asia, servings: 0.8 },
+        { userId: rafal, servings: 1.25 },
+      ]);
+      const snapshotA = await readPlan(asia, householdId);
+      // B dodaje środę; A o tym nie wie.
+      await upsert(rafal, householdId, {
+        dayOfWeek: 'WED',
+        recipeId: dinnerB.id,
+      });
+      const tuesdayA = itemOf(snapshotA, dinner.id)!;
+      const ack = (await setPortion(asia, householdId, {
+        planItemId: tuesdayA.id,
+        userId: rafal,
+        servings: 1.5,
+        expectedRevision: portionToken(tuesdayA, rafal),
+      })) as Item & Record<string, unknown>;
+      // Model klienta z kontraktu sprzed poprawki: token tygodnia snapshotu
+      // podmieniany na `planRevision` z acka, pozycja — na tę z acka.
+      const weekToken =
+        (ack.planRevision as number | undefined) ?? snapshotA.revision;
+      const localItems = snapshotA.items.map((item) =>
+        item.id === ack.id ? ack : item,
+      );
+      const stale = await apply(asia, householdId, {
+        expectedRevision: weekToken,
+        slots: localItems.map(toSlot),
+      });
+      const after = await readPlan(asia, householdId);
+      console.log(
+        `[R1] ack.planRevision=${String(ack.planRevision)} snapshot=${snapshotA.revision} → apply ${stale.applied ? 'applied' : JSON.stringify(stale.violations.map((v) => v.code))} → środa ${itemOf(after, dinnerB.id, 'WED') ? 'jest' : 'USUNIĘTA'}`,
+      );
+      expect('planRevision' in ack).toBe(false);
+      expect(stale.applied).toBe(false);
+      expect(stale.violations.map((v) => v.code)).toEqual([
+        'PLAN_REVISION_CONFLICT',
+      ]);
+      expect(itemOf(after, dinnerB.id, 'WED')).toBeDefined();
+
+      // Poprawny przepływ: pełny odczyt obejmuje zmianę B i daje nowy token.
+      expect(after.revision!).toBeGreaterThan(snapshotA.revision!);
+      const ok = await apply(asia, householdId, {
+        expectedRevision: after.revision,
+        slots: after.items.map(toSlot),
+      });
+      expect(ok.applied).toBe(true);
+      expect(ok.changes).toEqual({ created: 0, updated: 0, deleted: 0 });
+      expect(
+        itemOf(await readPlan(asia, householdId), dinnerB.id, 'WED'),
+      ).toBeDefined();
+    });
+
+    it('R1b. odpowiedzi w odwrotnej kolejności: stemple rosną monotonicznie — klient zostawia WYŻSZY token pozycji i nowszy snapshot (wyższa plan.revision); starszy jest odrzucany', async () => {
+      const { asia, rafal, householdId } = await couple('R1b');
+      const seen = await allocated(asia, householdId, [
+        { userId: asia, servings: 0.8 },
+        { userId: rafal, servings: 1.25 },
+      ]);
+      const ack1 = await setPortionAck(asia, householdId, {
+        planItemId: seen.id,
+        userId: rafal,
+        servings: 1.5,
+        expectedRevision: portionToken(seen, rafal),
+      });
+      const ack2 = await setPortionAck(rafal, householdId, {
+        planItemId: seen.id,
+        userId: asia,
+        servings: 1,
+        expectedRevision: portionToken(seen, asia),
+      });
+      expect(ack2.revision!).toBeGreaterThan(ack1.revision!);
+      // Klient dostaje ack2, potem ack1: wyższy stempel wygrywa.
+      const kept = [ack2, ack1].reduce((best, ack) =>
+        ack.revision! > best.revision! ? ack : best,
+      );
+      expect(kept).toBe(ack2);
+      const full = (expectedRevision: number | undefined) =>
+        upsert(asia, householdId, {
+          recipeId: dinner.id,
+          portions: [
+            { userId: asia, servings: 1.1 },
+            { userId: rafal, servings: 1.5 },
+          ],
+          expectedRevision,
+        });
+      expect(await attempt(() => full(ack1.revision))).toBe(
+        'PLAN_REVISION_CONFLICT',
+      );
+      expect(await attempt(() => full(kept.revision))).toBe('OK');
+
+      const older = await readPlan(asia, householdId);
+      const now = itemOf(older, dinner.id)!;
+      await setPortion(rafal, householdId, {
+        planItemId: now.id,
+        userId: rafal,
+        servings: 1.3,
+        expectedRevision: portionToken(now, rafal),
+      });
+      const newer = await readPlan(asia, householdId);
+      expect(newer.revision!).toBeGreaterThan(older.revision!);
+      const staleApply = await apply(asia, householdId, {
+        expectedRevision: older.revision,
+        slots: older.items.map(toSlot),
+      });
+      expect(staleApply.violations.map((v) => v.code)).toEqual([
+        'PLAN_REVISION_CONFLICT',
+      ]);
+    });
+
+    it('R1c. odczyt tygodnia to jedna migawka: zapis zatwierdzony W TRAKCIE odczytu nie miesza rewizji z pozycjami', async () => {
+      const { asia, householdId } = await couple('Migawka');
+      await upsert(asia, householdId, { recipeId: dinner.id });
+      const before = await readPlan(asia, householdId);
+      const planId = (
+        await prisma.weeklyPlan.findFirstOrThrow({
+          where: { householdId },
+          select: { id: true },
+        })
+      ).id;
+      const held = latch();
+      const release = latch();
+      // Zapis domownika trzyma tabelę pozycji: odczyt przeczyta wiersz
+      // tygodnia i stanie dopiero na pozycjach (osobne zapytanie).
+      const writer = prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRawUnsafe(
+            'LOCK TABLE "PlanItem" IN ACCESS EXCLUSIVE MODE',
+          );
+          held.open();
+          await release.opened;
+          await tx.weeklyPlan.update({
+            where: { id: planId },
+            data: { revision: { increment: 1 } },
+          });
+          await tx.planItem.create({
+            data: {
+              weeklyPlanId: planId,
+              dayOfWeek: 'WED',
+              mealType: 'DINNER',
+              recipeId: dinnerB.id,
+              plannedServings: 2,
+              revision: before.revision! + 1,
+            },
+          });
+        },
+        { timeout: 30_000 },
+      );
+      await held.opened;
+      const reading = readPlan(asia, householdId);
+      const waited = await waitUntilWaiting(1);
+      release.open();
+      await writer;
+      const seen = await reading;
+      const hasWed = seen.items.some((item) => item.dayOfWeek === 'WED');
+      console.log(
+        `[R1c] odczyt czekał=${waited} → revision=${seen.revision} (przed ${before.revision}), środa=${hasWed}`,
+      );
+      expect(waited).toBe(true);
+      // Spójność: nowa pozycja widoczna ⇔ rewizja po zapisie.
+      expect(hasWed).toBe(seen.revision === before.revision! + 1);
+      const fresh = await readPlan(asia, householdId);
+      expect(fresh.revision).toBe(before.revision! + 1);
+      expect(fresh.items.some((item) => item.dayOfWeek === 'WED')).toBe(true);
+    });
+
+    it('R2. zamiana X→Y: cel Y zmieniony po odczycie NIE jest nadpisany — sam token źródła nie wystarcza (428), stary token celu = konflikt; X zostaje, Y i lista zakupów bez zmian', async () => {
+      const { asia, rafal, householdId } = await couple('R2');
+      await upsert(asia, householdId, { recipeId: dinner.id });
+      await upsert(asia, householdId, { recipeId: dinnerB.id });
+      const seen = await readPlan(asia, householdId);
+      const x = itemOf(seen, dinner.id)!;
+      const y = itemOf(seen, dinnerB.id)!;
+      // B: cel Y tylko dla Rafała.
+      await upsert(rafal, householdId, {
+        recipeId: dinnerB.id,
+        participantIds: [rafal],
+      });
+      await shoppingLists.getShoppingList(asia, householdId, WEEK_START);
+      const yAfterB = itemOf(await readPlan(asia, householdId), dinnerB.id)!;
+      const shoppingBefore = await shoppingState(householdId);
+
+      // A według kontraktu sprzed poprawki: token źródła, stara intencja wobec Y.
+      const sourceOnly = await attempt(() =>
+        upsert(asia, householdId, {
+          recipeId: dinnerB.id,
+          replaceRecipeId: dinner.id,
+          participantIds: [],
+          expectedRevision: x.revision,
+        }),
+      );
+      const staleTarget = await attempt(() =>
+        upsert(asia, householdId, {
+          recipeId: dinnerB.id,
+          replaceRecipeId: dinner.id,
+          participantIds: [],
+          expectedRevision: x.revision,
+          expectedTargetRevision: y.revision,
+        }),
+      );
+      const after = await readPlan(asia, householdId);
+      const yNow = itemOf(after, dinnerB.id)!;
+      console.log(
+        `[R2] tylko token źródła: ${sourceOnly}; stary token celu: ${staleTarget} → X ${itemOf(after, dinner.id) ? 'jest' : 'USUNIĘTY'}, Y uczestnicy=${JSON.stringify(yNow.participantIds)}`,
+      );
+      expect(sourceOnly).toBe('PLAN_REVISION_REQUIRED');
+      expect(staleTarget).toBe('PLAN_REVISION_CONFLICT');
+      expect(itemOf(after, dinner.id)).toBeDefined();
+      expect(yNow).toEqual(yAfterB);
+      expect(await shoppingState(householdId)).toEqual(shoppingBefore);
+    });
+
+    it('R2b. zamiana X→Y — warianty celu: z alokacją, powstały po odczycie, usunięty i odtworzony, nieistniejący (poprawna zamiana), legacy bez tokenów', async () => {
+      const portions = (a: string, r: string, sa: number, sr: number) => [
+        { userId: a, servings: sa },
+        { userId: r, servings: sr },
+      ];
+      const swap = (
+        actor: string,
+        householdId: string,
+        fields: Record<string, unknown>,
+      ) =>
+        attempt(() =>
+          upsert(actor, householdId, {
+            recipeId: dinnerB.id,
+            replaceRecipeId: dinner.id,
+            ...fields,
+          }),
+        );
+
+      // 1. Cel z alokacją, zmieniony porcją po odczycie.
+      {
+        const { asia, rafal, householdId } = await couple('R2Aloc');
+        await upsert(asia, householdId, { recipeId: dinner.id });
+        const yAlloc = await allocated(
+          asia,
+          householdId,
+          portions(asia, rafal, 0.8, 1.25),
+          dinnerB.id,
+        );
+        const seen = await readPlan(asia, householdId);
+        const x = itemOf(seen, dinner.id)!;
+        await setPortion(rafal, householdId, {
+          planItemId: yAlloc.id,
+          userId: rafal,
+          servings: 1.5,
+          expectedRevision: portionToken(yAlloc, rafal),
+        });
+        expect(
+          await swap(asia, householdId, {
+            portions: portions(asia, rafal, 1, 1),
+            expectedRevision: x.revision,
+            expectedTargetRevision: yAlloc.revision,
+          }),
+        ).toBe('PLAN_REVISION_CONFLICT');
+        const mid = await readPlan(asia, householdId);
+        expect(itemOf(mid, dinner.id)).toBeDefined();
+        expect(byPerson(itemOf(mid, dinnerB.id)!.portions)[rafal]).toBe(1.5);
+        // Z aktualnymi tokenami obu pozycji — jawne porcje celu wchodzą.
+        expect(
+          await swap(asia, householdId, {
+            portions: portions(asia, rafal, 1, 1),
+            expectedRevision: itemOf(mid, dinner.id)!.revision,
+            expectedTargetRevision: itemOf(mid, dinnerB.id)!.revision,
+          }),
+        ).toBe('OK');
+        const done = await readPlan(asia, householdId);
+        expect(done.items.map((i) => i.recipeId)).toEqual([dinnerB.id]);
+        expect(byPerson(done.items[0].portions)).toEqual({
+          [asia]: 1,
+          [rafal]: 1,
+        });
+      }
+
+      // 2. Cel powstał dopiero po odczycie A (A oczekiwał „celu nie ma”).
+      {
+        const { asia, rafal, householdId } = await couple('R2Nowy');
+        await upsert(asia, householdId, { recipeId: dinner.id });
+        const seen = await readPlan(asia, householdId);
+        await upsert(rafal, householdId, {
+          recipeId: dinnerB.id,
+          participantIds: [rafal],
+        });
+        expect(
+          await swap(asia, householdId, {
+            expectedRevision: itemOf(seen, dinner.id)!.revision,
+            expectedTargetRevision: null,
+          }),
+        ).toBe('PLAN_REVISION_CONFLICT');
+        const after = await readPlan(asia, householdId);
+        expect(itemOf(after, dinner.id)).toBeDefined();
+        expect(itemOf(after, dinnerB.id)!.participantIds).toEqual([rafal]);
+      }
+
+      // 3. Cel usunięty i odtworzony po odczycie (nowy stempel).
+      {
+        const { asia, rafal, householdId } = await couple('R2Odtw');
+        await upsert(asia, householdId, { recipeId: dinner.id });
+        await upsert(asia, householdId, { recipeId: dinnerB.id });
+        const seen = await readPlan(asia, householdId);
+        await weeklyPlans.removeWeekSlot(rafal, householdId, WEEK_START, {
+          dayOfWeek: 'TUE',
+          mealType: 'DINNER',
+          recipeId: dinnerB.id,
+        });
+        await upsert(rafal, householdId, { recipeId: dinnerB.id });
+        const recreated = itemOf(
+          await readPlan(asia, householdId),
+          dinnerB.id,
+        )!;
+        expect(recreated.revision!).toBeGreaterThan(
+          itemOf(seen, dinnerB.id)!.revision!,
+        );
+        expect(
+          await swap(asia, householdId, {
+            expectedRevision: itemOf(seen, dinner.id)!.revision,
+            expectedTargetRevision: itemOf(seen, dinnerB.id)!.revision,
+          }),
+        ).toBe('PLAN_REVISION_CONFLICT');
+        expect(
+          itemOf(await readPlan(asia, householdId), dinner.id),
+        ).toBeDefined();
+      }
+
+      // 4. Celu nie ma i nie powstał — zwykła zamiana przechodzi.
+      {
+        const { asia, householdId } = await couple('R2Zwykla');
+        await upsert(asia, householdId, { recipeId: dinner.id });
+        const seen = await readPlan(asia, householdId);
+        const ack = (await upsert(asia, householdId, {
+          recipeId: dinnerB.id,
+          replaceRecipeId: dinner.id,
+          expectedRevision: itemOf(seen, dinner.id)!.revision,
+          expectedTargetRevision: null,
+        })) as unknown as { changeKind: string };
+        expect(ack.changeKind).toBe('REPLACED');
+        expect(
+          (await readPlan(asia, householdId)).items.map((i) => i.recipeId),
+        ).toEqual([dinnerB.id]);
+      }
+
+      // 5. Legacy (bez żadnego tokenu) — zamiana jak dotąd; token celu bez
+      //    tokenu źródła i token celu bez zamiany — odmowa.
+      {
+        const { asia, householdId } = await couple('R2Legacy');
+        await upsert(asia, householdId, { recipeId: dinner.id });
+        const seen = await readPlan(asia, householdId);
+        expect(
+          await swap(asia, householdId, { expectedTargetRevision: null }),
+        ).toBe('PLAN_REVISION_REQUIRED');
+        expect(
+          await attempt(() =>
+            upsert(asia, householdId, {
+              recipeId: dinner.id,
+              expectedRevision: itemOf(seen, dinner.id)!.revision,
+              expectedTargetRevision: null,
+            }),
+          ),
+        ).toBe('VALIDATION_ERROR');
+        expect(await swap(asia, householdId, {})).toBe('OK');
+        expect(
+          (await readPlan(asia, householdId)).items.map((i) => i.recipeId),
+        ).toEqual([dinnerB.id]);
+      }
+    });
+
+    it.each(['apply', 'upsert'] as const)(
+      'R3 (%s). pełny zapis zmieniający audytorium (jawna lista wszystkich → „Wspólne”) przy identycznych porcjach unieważnia tokeny porcji; setPortion ze starym tokenem odmawia bez zmian',
+      async (writer) => {
+        const { asia, rafal, ola, householdId } = await trio(`R3${writer}`);
+        const week = nextWeek();
+        const values = [
+          { userId: asia, servings: 0.8 },
+          { userId: rafal, servings: 1.25 },
+        ];
+        await weeklyPlans.upsertWeekSlot(asia, householdId, week, {
+          dayOfWeek: 'TUE',
+          mealType: 'DINNER',
+          recipeId: dinner.id,
+          participantIds: [asia, rafal],
+          portions: values,
+        });
+        // Ola odchodzi — pozycja zostaje z jawną listą WSZYSTKICH domowników.
+        await households.leave(ola, householdId);
+        const seen = await readWeek(asia, householdId, week);
+        const item = seen.items[0];
+        expect([...item.participantIds].sort()).toEqual([asia, rafal].sort());
+
+        if (writer === 'apply') {
+          const result = await weeklyPlans.applyWeekPlan(
+            rafal,
+            householdId,
+            week,
+            {
+              expectedRevision: seen.revision,
+              slots: [
+                {
+                  dayOfWeek: 'TUE',
+                  mealType: 'DINNER',
+                  recipeId: dinner.id,
+                  participantIds: [],
+                  portions: values,
+                },
+              ],
+            },
+          );
+          expect(result.applied).toBe(true);
+          expect(result.changes).toEqual({
+            created: 0,
+            updated: 1,
+            deleted: 0,
+          });
+        } else {
+          await weeklyPlans.upsertWeekSlot(rafal, householdId, week, {
+            dayOfWeek: 'TUE',
+            mealType: 'DINNER',
+            recipeId: dinner.id,
+            participantIds: [],
+            portions: values,
+            expectedRevision: item.revision,
+          });
+        }
+        const refused = await refusal(() =>
+          weeklyPlans.setPortion(asia, householdId, week, {
+            planItemId: item.id,
+            userId: rafal,
+            servings: 1.5,
+            expectedRevision: portionToken(item, rafal),
+          }),
+        );
+        const after = (await readWeek(asia, householdId, week)).items[0];
+        console.log(
+          `[R3 ${writer}] uczestnicy ${JSON.stringify(item.participantIds.length)}→${JSON.stringify(after.participantIds)} stempel Rafała ${portionToken(item, rafal)}→${portionToken(after, rafal)} → setPortion: ${refused.code}`,
+        );
+        expect(after.participantIds).toEqual([]);
+        expect(refused.code).toBe('PLAN_REVISION_CONFLICT');
+        expect(byPerson(after.portions)).toEqual(byPerson(values));
+      },
+    );
+
+    it('R3b. „Wspólne” → jawna lista wszystkich domowników to ten sam stan po normalizacji: prawdziwy NOOP (apply i upsert) — bez nowej rewizji, tokeny ważne; setPortion jednej osoby nie unieważnia tokenu drugiej', async () => {
+      const { asia, rafal, householdId } = await couple('R3b');
+      const values = [
+        { userId: asia, servings: 0.8 },
+        { userId: rafal, servings: 1.25 },
+      ];
+      const seen = await allocated(asia, householdId, values);
+      const plan = await readPlan(asia, householdId);
+      const applied = await apply(rafal, householdId, {
+        expectedRevision: plan.revision,
+        slots: [{ ...tuesdayOf(values), participantIds: [asia, rafal] }],
+      });
+      expect(applied.applied).toBe(true);
+      expect(applied.changes).toEqual({ created: 0, updated: 0, deleted: 0 });
+      const ack = (await upsert(rafal, householdId, {
+        recipeId: dinner.id,
+        participantIds: [asia, rafal],
+        portions: values,
+        expectedRevision: seen.revision,
+      })) as unknown as { changeKind: string };
+      expect(ack.changeKind).toBe('NOOP');
+      expect((await readPlan(asia, householdId)).revision).toBe(plan.revision);
+
+      // Niezależność setPortion: zmiana porcji Asi nie rusza tokenu Rafała.
+      await setPortion(rafal, householdId, {
+        planItemId: seen.id,
+        userId: asia,
+        servings: 1,
+        expectedRevision: portionToken(seen, asia),
+      });
+      expect(
+        await attempt(() =>
+          setPortion(asia, householdId, {
+            planItemId: seen.id,
+            userId: rafal,
+            servings: 1.5,
+            expectedRevision: portionToken(seen, rafal),
+          }),
+        ),
+      ).toBe('OK');
     });
   });
 
