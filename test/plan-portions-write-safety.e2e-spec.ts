@@ -1108,7 +1108,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       });
     });
 
-    it('14. narzędzia AI (prawdziwy AgentToolExecutor, bez modelu) nie obchodzą zabezpieczenia: zmiana pozycji z alokacją = odmowa, identyczny slot ją zostawia', async () => {
+    it('14. narzędzia AI (prawdziwy AgentToolExecutor, bez modelu) nie obchodzą zabezpieczenia: bezpośredni zapis zmiany pozycji z alokacją = odmowa, identyczny slot ją zostawia; propozycja zachowuje alokację (PRESERVE, per-user-portions-write-safety)', async () => {
       const { asia, rafal, householdId } = await couple('Narzedzia');
       await allocate(
         asia,
@@ -1146,10 +1146,12 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         },
         context(true),
       );
-      expect(JSON.stringify(proposed)).toContain('PLAN_PORTIONS_CONFLICT');
-      expect(await prisma.agentProposal.count({ where: { householdId } })).toBe(
-        0,
-      );
+      // Od workstreamu per-user-portions-write-safety propozycja nie odmawia:
+      // serwer oznacza pozycję z alokacją `PRESERVE` i przelicza ją na nowe
+      // audytorium (Asia zachowuje 1,2, Rafał dostaje 1,0) — model niczego
+      // nie liczy. Propozycja niczego nie zapisuje.
+      expect(JSON.stringify(proposed)).not.toContain('PLAN_PORTIONS_CONFLICT');
+      expect(await readItems(asia, householdId)).toEqual(before);
 
       const applied = await executor.execute(
         'apply_week_plan',

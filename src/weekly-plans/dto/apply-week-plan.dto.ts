@@ -1,3 +1,7 @@
+import {
+  PORTION_POLICIES,
+  type PortionPolicy,
+} from '../utils/plan-portions.util';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DayOfWeek, MealType } from '@prisma/client';
 import { Type } from 'class-transformer';
@@ -6,6 +10,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -29,7 +34,13 @@ export class PlanPortionDto {
   @IsUUID()
   userId: string;
 
-  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6 })
+  /**
+   * Porcja osoby w porcjach przepisu.
+   * @minimum 0.1
+   * @maximum 6
+   * @multipleOf 0.05
+   */
+  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6, multipleOf: 0.05 })
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.1)
   @Max(6)
@@ -77,6 +88,15 @@ export class ApplyWeekSlotDto {
   @ValidateNested({ each: true })
   @Type(() => PlanPortionDto)
   portions?: PlanPortionDto[];
+
+  /**
+   * Jawna intencja wobec porcji per osoba — jak w `upsertWeekSlot`
+   * (`PRESERVE` / `REPLACE` / `RESET`). Pominięte = kontrakt legacy.
+   */
+  @ApiPropertyOptional({ enum: PORTION_POLICIES })
+  @IsOptional()
+  @IsIn(PORTION_POLICIES)
+  portionPolicy?: PortionPolicy;
 }
 
 /**

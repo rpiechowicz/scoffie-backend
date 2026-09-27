@@ -9109,6 +9109,11 @@
             "description": "Porcje per osoba (Etap 2.2). Podane = źródło prawdy: zbiór osób musi być\naudytorium pozycji, a `plannedServings` serwer liczy sam (`ceil(Σ)`).\nPominięte albo puste = równy podział, jak dotąd.",
             "type": "array",
             "items": { "$ref": "#/components/schemas/PlanPortionDto" }
+          },
+          "portionPolicy": {
+            "description": "Jawna intencja wobec porcji per osoba — jak w `upsertWeekSlot`\n(`PRESERVE` / `REPLACE` / `RESET`). Pominięte = kontrakt legacy.",
+            "enum": ["PRESERVE", "REPLACE", "RESET"],
+            "type": "string"
           }
         },
         "required": ["dayOfWeek", "mealType", "recipeId"]
@@ -10649,7 +10654,13 @@
         "type": "object",
         "properties": {
           "userId": { "type": "string" },
-          "servings": { "type": "number" }
+          "servings": {
+            "description": "Porcja osoby w porcjach przepisu.",
+            "minimum": 0.1,
+            "maximum": 6,
+            "multipleOf": 0.05,
+            "type": "number"
+          }
         },
         "required": ["servings", "userId"]
       },
@@ -11043,6 +11054,9 @@
           "userId": { "description": "Czyja porcja.", "type": "string" },
           "servings": {
             "description": "Nowa porcja tej osoby (wartość bezwzględna), wielokrotność 0,05.",
+            "minimum": 0.1,
+            "maximum": 6,
+            "multipleOf": 0.05,
             "type": "number"
           },
           "expectedRevision": {
@@ -11311,6 +11325,11 @@
           "expectedRevision": {
             "description": "Token pozycji z odczytu (`items[].revision`) — przy `replaceRecipeId`\npozycji ŹRÓDŁOWEJ (wtedy wymaga pary `expectedTargetRevision`).\nNiezgodny = `PLAN_REVISION_CONFLICT` (chyba że zapis bez zamiany nic by\nnie zmienił); pominięty = zapis bez weryfikacji (legacy), który nie może\nzastąpić ani usunąć porcji per osoba (ADR `plan-portions-safe-editing`).",
             "type": "number"
+          },
+          "portionPolicy": {
+            "description": "Jawna intencja wobec porcji per osoba:\n- `PRESERVE` — zachowaj (przy zmianie audytorium serwer przelicza:\n  zostający — swoja porcja, nowi — 1,00, usunięci — znikają; przy\n  zamianie dania porcje przechodzą na nowe danie); bez `portions`;\n- `REPLACE` — `portions` stają się alokacją (zastąpienie istniejącej\n  wymaga tokenu);\n- `RESET` — świadomy powrót do równego podziału (tylko z tokenem, gdy\n  pozycja ma alokację); bez `portions`.\nPominięte = kontrakt legacy: pozycja z alokacją bez `portions` —\nidentyczny zapis albo `PLAN_PORTIONS_CONFLICT`, nigdy cichy reset.",
+            "enum": ["PRESERVE", "REPLACE", "RESET"],
+            "type": "string"
           },
           "expectedTargetRevision": {
             "description": "Tylko przy `replaceRecipeId`: token CELU zamiany — `items[].revision`\npozycji z przepisem `recipeId`, która już leży w tym slocie, albo `null`,\ngdy według odczytu klienta takiej pozycji w slocie NIE MA. Podawany razem\nz `expectedRevision` źródła (jedno bez drugiego = `PLAN_REVISION_REQUIRED`);\nniezgodny = `PLAN_REVISION_CONFLICT`, nic nie zmienione.",
@@ -13012,7 +13031,13 @@
                         "properties": {
                           "revision": { "type": "number" },
                           "userId": { "type": "string" },
-                          "servings": { "type": "number" }
+                          "servings": {
+                            "description": "Porcja osoby w porcjach przepisu (kontrakt OpenAPI).",
+                            "minimum": 0.1,
+                            "maximum": 6,
+                            "multipleOf": 0.05,
+                            "type": "number"
+                          }
                         },
                         "required": ["revision", "servings", "userId"]
                       }
@@ -13260,7 +13285,13 @@
                     "properties": {
                       "revision": { "type": "number" },
                       "userId": { "type": "string" },
-                      "servings": { "type": "number" }
+                      "servings": {
+                        "description": "Porcja osoby w porcjach przepisu (kontrakt OpenAPI).",
+                        "minimum": 0.1,
+                        "maximum": 6,
+                        "multipleOf": 0.05,
+                        "type": "number"
+                      }
                     },
                     "required": ["revision", "servings", "userId"]
                   }
@@ -13477,7 +13508,13 @@
               "properties": {
                 "revision": { "type": "number" },
                 "userId": { "type": "string" },
-                "servings": { "type": "number" }
+                "servings": {
+                  "description": "Porcja osoby w porcjach przepisu (kontrakt OpenAPI).",
+                  "minimum": 0.1,
+                  "maximum": 6,
+                  "multipleOf": 0.05,
+                  "type": "number"
+                }
               },
               "required": ["revision", "servings", "userId"]
             }

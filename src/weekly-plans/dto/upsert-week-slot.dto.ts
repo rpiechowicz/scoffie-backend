@@ -15,6 +15,10 @@ import { Type } from 'class-transformer';
 import { PlanPortionDto } from './apply-week-plan.dto';
 import { DayOfWeek, MealType } from '@prisma/client';
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
+import {
+  PORTION_POLICIES,
+  type PortionPolicy,
+} from '../utils/plan-portions.util';
 
 /**
  * Dekoratory niżej są od Fazy 0 (krok 2) egzekwowane także na WebSockecie —
@@ -113,6 +117,23 @@ export class UpsertWeekSlotDto {
   @IsInt()
   @Min(0)
   expectedRevision?: number;
+
+  /**
+   * Jawna intencja wobec porcji per osoba:
+   * - `PRESERVE` — zachowaj (przy zmianie audytorium serwer przelicza:
+   *   zostający — swoja porcja, nowi — 1,00, usunięci — znikają; przy
+   *   zamianie dania porcje przechodzą na nowe danie); bez `portions`;
+   * - `REPLACE` — `portions` stają się alokacją (zastąpienie istniejącej
+   *   wymaga tokenu);
+   * - `RESET` — świadomy powrót do równego podziału (tylko z tokenem, gdy
+   *   pozycja ma alokację); bez `portions`.
+   * Pominięte = kontrakt legacy: pozycja z alokacją bez `portions` —
+   * identyczny zapis albo `PLAN_PORTIONS_CONFLICT`, nigdy cichy reset.
+   */
+  @ApiPropertyOptional({ enum: PORTION_POLICIES })
+  @IsOptional()
+  @IsIn(PORTION_POLICIES)
+  portionPolicy?: PortionPolicy;
 
   /**
    * Tylko przy `replaceRecipeId`: token CELU zamiany — `items[].revision`

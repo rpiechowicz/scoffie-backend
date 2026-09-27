@@ -2384,6 +2384,7 @@ export class AgentToolExecutor {
 
     const note = asString(input.note).trim();
     return this.proposals.createDayPlanProposal({
+      origin: 'model',
       memo: context.memo,
       effect: context.effectCommit,
       userId: context.userId,
@@ -2446,6 +2447,7 @@ export class AgentToolExecutor {
     const note = asString(input.note).trim();
     const removalReasons = this.toRemovalReasons(input.removals);
     return this.proposals.createWeekPlanProposal({
+      origin: 'model',
       memo: context.memo,
       effect: context.effectCommit,
       userId: context.userId,
