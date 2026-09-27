@@ -78,6 +78,11 @@ export type MessageView = {
   /** Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał. */
   feedback?: 'UP' | 'DOWN';
   /**
+   * Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do
+   * poprawienia. Brak = kciuk bez podpowiedzi (albo w górę).
+   */
+  feedbackNote?: { tags: string[]; comment: string | null };
+  /**
    * WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je
    * do poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.
    */
@@ -143,7 +148,7 @@ export async function withAnswerDetails(
       : Promise.resolve([]),
     prisma.agentMessageFeedback.findMany({
       where: { userId, messageId: { in: answerIds } },
-      select: { messageId: true, rating: true },
+      select: { messageId: true, rating: true, tags: true, comment: true },
     }),
     // Najnowsze pierwsze — stare dublety sprzed zasady „jedno na osobę”.
     prisma.agentReport.findMany({
@@ -166,7 +171,7 @@ export async function withAnswerDetails(
         : [],
     });
   }
-  const rating = new Map(ratings.map((row) => [row.messageId, row.rating]));
+  const rating = new Map(ratings.map((row) => [row.messageId, row]));
   const reported = new Map<
     string,
     { reason: string; comment: string | null }
@@ -179,12 +184,18 @@ export async function withAnswerDetails(
 
   return views.map((view) => {
     const summary = thinking.get(view.id);
-    const feedback = rating.get(view.id);
+    const rated = rating.get(view.id);
+    const feedback = rated?.rating;
     const report = reported.get(view.id);
+    const note =
+      feedback === 'DOWN' && rated && (rated.tags.length > 0 || rated.comment)
+        ? { tags: rated.tags, comment: rated.comment }
+        : undefined;
     return {
       ...view,
       ...(summary ? { thinking: summary } : {}),
       ...(feedback === 'UP' || feedback === 'DOWN' ? { feedback } : {}),
+      ...(note ? { feedbackNote: note } : {}),
       ...(report ? { report } : {}),
     };
   });

@@ -935,7 +935,7 @@ model AgentMessage {
   /// odpowiedzi. `NULL` = pytanie użytkownika albo wiadomość sprzed kolumny.
   outputKey       String?
 
-  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation AgentConversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   feedback     AgentMessageFeedback[]
 
   @@unique([conversationId, clientMessageId])
@@ -951,13 +951,23 @@ model AgentMessage {
 /// a retencja rozmów i „usuń moje rozmowy" mają zabrać ją razem z nią.
 /// `rating` tekstem (UP | DOWN), jak `AgentReport.status` — wartości pilnuje DTO.
 model AgentMessageFeedback {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  messageId String   @db.Uuid
-  turnId    String?  @db.Uuid
-  rating    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  messageId   String   @db.Uuid
+  turnId      String?  @db.Uuid
+  rating      String
+  /// Podpowiedź przy kciuku w dół — szybkie powody (`AGENT_FEEDBACK_TAGS`) i zdanie.
+  /// Przy `UP` puste: pochwała nie ma formularza.
+  tags        String[] @default([])
+  comment     String?
+  /// Migawka odpowiedzi — TYLKO gdy użytkownik dopisał podpowiedź (sam wysłał
+  /// ją do wglądu, jak zgłoszenie). Gołe kciuki treści nie niosą.
+  messageText String?
+  /// `AgentMessage.kind` w chwili oceny (TEXT, PLAN_DAY, OPTIONS…) — metadane
+  /// do panelu bez czytania rozmowy.
+  messageKind String   @default("TEXT")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   message AgentMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 

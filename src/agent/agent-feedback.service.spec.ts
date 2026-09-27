@@ -18,7 +18,20 @@ describe('AgentFeedbackService', () => {
     prisma.agentMessage.findFirst.mockResolvedValue({
       id: MESSAGE,
       turnId: TURN,
+      kind: 'PLAN_DAY',
+      text: 'Ułożyłem sobotę.',
     });
+    prisma.agentMessageFeedback.upsert.mockImplementation(
+      (args: {
+        create: { rating: string; tags?: string[]; comment?: string | null };
+        update: { rating: string; tags?: string[]; comment?: string | null };
+      }) =>
+        Promise.resolve({
+          rating: args.update.rating,
+          tags: args.update.tags ?? [],
+          comment: args.update.comment ?? null,
+        }),
+    );
   });
 
   const codeOf = async (promise: Promise<unknown>) => {
@@ -33,17 +46,94 @@ describe('AgentFeedbackService', () => {
 
   it('kciuk zapisuje ocenę — jedna na osobę i wiadomość (upsert)', async () => {
     const result = await service.rate(USER, MESSAGE, { rating: 'UP' });
-    expect(result).toEqual({ messageId: MESSAGE, rating: 'UP' });
+    expect(result).toEqual({
+      messageId: MESSAGE,
+      rating: 'UP',
+      tags: [],
+      comment: null,
+    });
+    // Pochwała czyści podpowiedź i nie zabiera treści — sam rodzaj odpowiedzi.
     expect(prisma.agentMessageFeedback.upsert).toHaveBeenCalledWith({
       where: { userId_messageId: { userId: USER, messageId: MESSAGE } },
-      create: { userId: USER, messageId: MESSAGE, turnId: TURN, rating: 'UP' },
-      update: { rating: 'UP' },
+      create: {
+        userId: USER,
+        messageId: MESSAGE,
+        turnId: TURN,
+        rating: 'UP',
+        messageKind: 'PLAN_DAY',
+        tags: [],
+        comment: null,
+        messageText: null,
+      },
+      update: { rating: 'UP', tags: [], comment: null, messageText: null },
+      select: { rating: true, tags: true, comment: true },
     });
+  });
+
+  it('kciuk w dół z podpowiedzią zabiera migawkę odpowiedzi', async () => {
+    const result = await service.rate(USER, MESSAGE, {
+      rating: 'DOWN',
+      tags: ['TOO_LONG', 'TOO_LONG', 'BAD_DISHES'],
+      comment: '  Wolę krócej.  ',
+    });
+    expect(result).toEqual({
+      messageId: MESSAGE,
+      rating: 'DOWN',
+      tags: ['TOO_LONG', 'BAD_DISHES'],
+      comment: 'Wolę krócej.',
+    });
+    expect(prisma.agentMessageFeedback.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: {
+          rating: 'DOWN',
+          tags: ['TOO_LONG', 'BAD_DISHES'],
+          comment: 'Wolę krócej.',
+          messageText: 'Ułożyłem sobotę.',
+        },
+      }),
+    );
+  });
+
+  it('sam kciuk w dół nie kasuje napisanej wcześniej podpowiedzi', async () => {
+    await service.rate(USER, MESSAGE, { rating: 'DOWN' });
+    expect(prisma.agentMessageFeedback.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { rating: 'DOWN' } }),
+    );
+  });
+
+  it('pusta podpowiedź nie zabiera treści', async () => {
+    await service.rate(USER, MESSAGE, {
+      rating: 'DOWN',
+      tags: [],
+      comment: ' ',
+    });
+    expect(prisma.agentMessageFeedback.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { rating: 'DOWN', tags: [], comment: null, messageText: null },
+      }),
+    );
+  });
+
+  it('powód spoza listy podpowiedzi jest błędem walidacji', async () => {
+    expect(
+      await codeOf(
+        service.rate(USER, MESSAGE, {
+          rating: 'DOWN',
+          tags: ['UNSAFE' as unknown as 'OTHER'],
+        }),
+      ),
+    ).not.toBeNull();
+    expect(prisma.agentMessageFeedback.upsert).not.toHaveBeenCalled();
   });
 
   it('`null` zdejmuje ocenę', async () => {
     const result = await service.rate(USER, MESSAGE, { rating: null });
-    expect(result).toEqual({ messageId: MESSAGE, rating: null });
+    expect(result).toEqual({
+      messageId: MESSAGE,
+      rating: null,
+      tags: [],
+      comment: null,
+    });
     expect(prisma.agentMessageFeedback.deleteMany).toHaveBeenCalledWith({
       where: { userId: USER, messageId: MESSAGE },
     });

@@ -307,7 +307,11 @@ catalog:scale-probe` na bazie `*_scale` (`SCALE_DATABASE_URL`), wyniki w `benchm
   (`POST …/report`) jest JEDNO na osobę i odpowiedź — drugie wysłanie POPRAWIA istniejące (powód,
   komentarz, migawka) i przestawia je na `NEW`. Historia i tura DONE oddają przy odpowiedzi asystenta
   `thinking {durationMs, steps}` (ostatnia odpowiedź zakończonej tury), `feedback` i własne `report`
-  (`withAnswerDetails` w `agent-conversations.service.ts`). Przyciski kart mówią dzień w bierniku
+  (`withAnswerDetails` w `agent-conversations.service.ts`). Kciuk w dół może nieść PODPOWIEDŹ
+  (`tags` z `AGENT_FEEDBACK_TAGS` + `comment`; brak pól = podpowiedź bez zmian, `UP` ją czyści) — wtedy
+  ocena zabiera migawkę `messageText`, gołe kciuki mają tylko `messageKind`; historia oddaje `feedbackNote`.
+  To NIE zgłoszenie: panel ma osobny dział „Oceny” (`GET /admin/assistant/feedback?period=7|30|90`,
+  `AdminFeedbackService`). Oceny odchodzą kaskadą z wiadomością (retencja 90 dni). Przyciski kart mówią dzień w bierniku
   (`DAY_ACCUSATIVE_LABELS`: „Zapisz niedzielę”).
 - Trwałe tury (od 27.09.2026, workstream Etap 5, raport `reports/05-durable-turns.md`): wykonanie
   tury NIE żyje w pamięci procesu. `POST /messages` zapisuje wejście (`AgentTurn.execution`,
