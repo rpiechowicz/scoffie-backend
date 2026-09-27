@@ -430,6 +430,50 @@ export interface AgentReport {
   testId: string | null;
 }
 
+// ——— Oceny odpowiedzi asystenta ———
+
+export type FeedbackRating = 'UP' | 'DOWN';
+/** Powody podpowiedzi przy kciuku w dół — `AGENT_FEEDBACK_TAGS` w domenie asystenta. */
+export type FeedbackTag =
+  | 'TOO_LONG'
+  | 'NOT_WHAT_I_ASKED'
+  | 'BAD_DISHES'
+  | 'TOO_SLOW'
+  | 'OTHER';
+export type FeedbackPeriod = '7' | '30' | '90';
+
+/** Jedna ocena (`AgentMessageFeedback`) + tura, która napisała odpowiedź. */
+export interface AgentFeedbackItem {
+  id: string;
+  userId: string;
+  userName: string;
+  rating: FeedbackRating;
+  /** podpowiedź — tylko przy DOWN; pusta lista = bez powodów */
+  tags: FeedbackTag[];
+  comment: string | null;
+  /** migawka odpowiedzi — tylko gdy użytkownik dopisał podpowiedź (sam wysłał ją do wglądu) */
+  messageText: string | null;
+  /** `AgentMessage.kind` w chwili oceny: TEXT, PLAN_DAY, PLAN_WEEK, OPTIONS… */
+  messageKind: string;
+  /** ostatnia zmiana oceny */
+  ratedAt: IsoDate;
+  turn: { model: string; durationMs: number | null } | null;
+}
+
+/** `GET /admin/assistant/feedback?period=7|30|90` (domyślnie 30). */
+export interface AgentFeedbackData {
+  period: FeedbackPeriod;
+  totals: { up: number; down: number; withNote: number };
+  /** dzień po dniu (UTC, `YYYY-MM-DD`), także dni bez ocen — zera */
+  daily: { date: string; up: number; down: number }[];
+  /** rozkład po rodzaju odpowiedzi, malejąco po liczbie ocen */
+  byKind: { kind: string; up: number; down: number }[];
+  /** rozkład powodów podpowiedzi, malejąco */
+  byTag: { tag: FeedbackTag; count: number }[];
+  /** najnowsze oceny z okresu (najwyżej 200), od najnowszej */
+  items: AgentFeedbackItem[];
+}
+
 // ——— Subskrypcje ———
 
 export interface AppleNotification {

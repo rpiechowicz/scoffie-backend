@@ -22,6 +22,9 @@ describe('AgentConversationsService', () => {
       deleteMany: jest.fn(),
     },
     agentMessage: { findMany: jest.fn(), findFirst: jest.fn() },
+    agentTurn: { findMany: jest.fn() },
+    agentMessageFeedback: { findMany: jest.fn() },
+    agentReport: { findMany: jest.fn() },
     membership: { findUnique: jest.fn() },
   };
   const config = {
@@ -54,6 +57,9 @@ describe('AgentConversationsService', () => {
     prisma.agentConversation.findFirst.mockResolvedValue(conversationRow);
     prisma.agentConversation.create.mockResolvedValue(conversationRow);
     prisma.agentMessage.findMany.mockResolvedValue([]);
+    prisma.agentTurn.findMany.mockResolvedValue([]);
+    prisma.agentMessageFeedback.findMany.mockResolvedValue([]);
+    prisma.agentReport.findMany.mockResolvedValue([]);
   });
 
   const codeOf = async (promise: Promise<unknown>) => {
@@ -194,6 +200,106 @@ describe('AgentConversationsService', () => {
           },
         }),
       );
+    });
+  });
+
+  describe('messages — czas myślenia i ocena (27.09.2026)', () => {
+    const TURN = '44444444-4444-4444-8444-444444444444';
+    const row = (id: string, role: string, second: number) => ({
+      id,
+      role,
+      kind: 'TEXT',
+      text: role === 'USER' ? 'co na obiad?' : 'proszę',
+      context: null,
+      card: null,
+      clientMessageId: null,
+      turnId: TURN,
+      createdAt: new Date(`2026-08-31T10:00:0${second}.000Z`),
+    });
+    const QUESTION = '55555555-5555-4555-8555-555555555555';
+    const FIRST = '66666666-6666-4666-8666-666666666666';
+    const LAST = '77777777-7777-4777-8777-777777777777';
+
+    it('„Myślałem” wraca z historią — przy OSTATNIEJ odpowiedzi tury, z oceną pytającego', async () => {
+      prisma.agentMessage.findMany.mockResolvedValue([
+        row(QUESTION, 'USER', 0),
+        row(FIRST, 'ASSISTANT', 4),
+        row(LAST, 'ASSISTANT', 5),
+      ]);
+      const step = {
+        tool: 'build_meal_plan',
+        label: 'Układam plan pod Wasze cele',
+        at: '2026-08-31T10:00:02.000Z',
+        writes: false,
+      };
+      prisma.agentTurn.findMany.mockResolvedValue([
+        {
+          id: TURN,
+          startedAt: new Date('2026-08-31T10:00:00.000Z'),
+          finishedAt: new Date('2026-08-31T10:00:42.000Z'),
+          progress: [step],
+        },
+      ]);
+      prisma.agentMessageFeedback.findMany.mockResolvedValue([
+        {
+          messageId: LAST,
+          rating: 'DOWN',
+          tags: ['TOO_LONG'],
+          comment: 'Krócej',
+        },
+        // Pochwała nie niesie podpowiedzi, nawet ze starą pozostałością.
+        { messageId: FIRST, rating: 'UP', tags: ['TOO_SLOW'], comment: null },
+      ]);
+      // Dwa zgłoszenia tej samej odpowiedzi (dublet sprzed zasady) — wygrywa
+      // najnowsze, bo baza oddaje je pierwsze.
+      prisma.agentReport.findMany.mockResolvedValue([
+        { messageId: LAST, reason: 'UNSAFE', comment: 'nowsze' },
+        { messageId: LAST, reason: 'WRONG', comment: null },
+      ]);
+
+      const { messages } = await service.messages(USER, CONVERSATION, {});
+      expect(messages.map((m) => m.report)).toEqual([
+        undefined,
+        undefined,
+        { reason: 'UNSAFE', comment: 'nowsze' },
+      ]);
+
+      expect(messages.map((m) => m.thinking)).toEqual([
+        undefined,
+        undefined,
+        { durationMs: 42_000, steps: [step] },
+      ]);
+      expect(messages.map((m) => m.feedback)).toEqual([
+        undefined,
+        'UP',
+        'DOWN',
+      ]);
+      expect(messages.map((m) => m.feedbackNote)).toEqual([
+        undefined,
+        undefined,
+        { tags: ['TOO_LONG'], comment: 'Krócej' },
+      ]);
+      // Tylko zakończone tury i tylko oceny TEGO użytkownika.
+      expect(prisma.agentTurn.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: [TURN] }, finishedAt: { not: null } },
+        }),
+      );
+      expect(prisma.agentMessageFeedback.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: USER, messageId: { in: [FIRST, LAST] } },
+        }),
+      );
+    });
+
+    it('rozmowa bez odpowiedzi asystenta nie pyta o tury ani oceny', async () => {
+      prisma.agentMessage.findMany.mockResolvedValue([
+        row(QUESTION, 'USER', 0),
+      ]);
+      await service.messages(USER, CONVERSATION, {});
+      expect(prisma.agentTurn.findMany).not.toHaveBeenCalled();
+      expect(prisma.agentMessageFeedback.findMany).not.toHaveBeenCalled();
+      expect(prisma.agentReport.findMany).not.toHaveBeenCalled();
     });
   });
 

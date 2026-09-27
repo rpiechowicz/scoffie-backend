@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   Query,
   Res,
   UseGuards,
@@ -21,10 +22,12 @@ import { readThrottleLimit } from '../common/throttle/throttle-env';
 import { AgentConversationsService } from './agent-conversations.service';
 import { AgentMemoryService } from './agent-memory.service';
 import { AgentReportsService } from './agent-reports.service';
+import { AgentFeedbackService } from './agent-feedback.service';
 import { AgentUsageService } from './agent-usage.service';
 import { MemoryQueryDto } from './dto/memory-query.dto';
 import { UsageQueryDto } from './dto/usage-query.dto';
 import { ReportMessageDto } from './dto/report-message.dto';
+import { RateMessageDto } from './dto/rate-message.dto';
 import { AgentTurnsService } from './agent-turns.service';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { ApplyProposalDto } from './dto/apply-proposal.dto';
@@ -53,6 +56,7 @@ export class AgentController {
     private readonly memory: AgentMemoryService,
     private readonly proposals: AgentProposalsService,
     private readonly reports: AgentReportsService,
+    private readonly feedback: AgentFeedbackService,
     private readonly usageService: AgentUsageService,
   ) {}
 
@@ -82,6 +86,21 @@ export class AgentController {
     @Body() dto: ReportMessageDto,
   ) {
     return this.reports.report(userId, messageId, dto);
+  }
+
+  /**
+   * Kciuk pod odpowiedzią — `{ rating: 'UP' | 'DOWN' | null }`, `null`
+   * zdejmuje ocenę. PUT, bo to stan, nie zdarzenie: powtórzone żądanie
+   * zostawia to samo. Bez `assertEnabled`, jak zgłoszenie.
+   */
+  @Put('messages/:id/feedback')
+  @HttpCode(HttpStatus.OK)
+  rateMessage(
+    @CurrentUserId() userId: string,
+    @Param('id') messageId: string,
+    @Body() dto: RateMessageDto,
+  ) {
+    return this.feedback.rate(userId, messageId, dto);
   }
 
   @Post('conversations')
