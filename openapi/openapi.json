@@ -12364,7 +12364,7 @@
               "type": "object",
               "properties": {
                 "index": {
-                  "description": "Pozycja w przysłanej liście `slots` — wołający wie, co poprawić.",
+                  "description": "Pozycja w przysłanej liście `slots` — wołający wie, co poprawić. `-1` =\npozycja SPOZA stanu docelowego, której zapis nie może usunąć (porcje per\nosoba przy zapisie propozycji z `force`).",
                   "type": "number"
                 },
                 "dayOfWeek": { "$ref": "#/components/schemas/DayOfWeek" },
