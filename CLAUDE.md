@@ -194,7 +194,9 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   [503, NIEATOMOWO] → [tx SERIALIZABLE: lease 409 → semafor domu 409 → sufity domu z rezerwacją
   503 → kwota 429 → zapis]); kwota schodzi NA STARCIE tury i wraca WYŁĄCZNIE za turę, która nic nie
   kosztowała — na każdej ścieżce domknięcia (`AgentUsageLedger.refundIfFree`, warunek
-  `costMicroUsd: 0` w samym `updateMany`). `AgentTurnRunner.run` nie rzuca nigdy i domyka turę
+  `costMicroUsd: 0` w samym `updateMany`) i BEZ WZGLĘDU na rodzaj błędu: od 27.09.2026 także
+  nie-ponawialny błąd dostawcy (401 nieważny klucz, 404 model, 400) oddaje wiadomość, gdy tura nic
+  nie kosztowała — `retryable` decyduje już tylko o bezpieczniku (`AgentTurnRunner.classify`). `AgentTurnRunner.run` nie rzuca nigdy i domyka turę
   warunkowo (`updateMany` po `status: 'RUNNING'`). W logach asystenta nie ma treści wiadomości —
   tylko `turnId`, `requestId` i kod.
 - Księga kosztu asystenta (od 26.09.2026, workstream Etap 1): wiersz `AiUsage` na KAŻDE wywołanie
@@ -257,8 +259,8 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   `replace_plan_item` (jeden slot w propozycji PENDING albo w planie) — tylko pola wymagane,
   zapis przez propozycje. `pnpm planner:eval` = bezpłatne metryki na lokalnym katalogu.
 - Porcje per osoba (od 26.09.2026, workstream Etap 2.2): `PlanItemPortion(planItemId, userId,
-  units)`, 1 jednostka = 0,05 porcji (INT, CHECK 2..120), na drucie `PlanItem.portions:
-  {userId, servings}[]`. Pozycja BEZ wierszy = jak zawsze (`plannedServings / jedzący`), więc
+units)`, 1 jednostka = 0,05 porcji (INT, CHECK 2..120), na drucie `PlanItem.portions:
+{userId, servings}[]`. Pozycja BEZ wierszy = jak zawsze (`plannedServings / jedzący`), więc
   żadnego backfillu. Pozycja Z alokacją: alokacja jest źródłem prawdy (bilans osoby = jej porcja,
   brak wpisu = 1,0), lista zakupów gotuje DOKŁADNIE Σ porcji (ułamkowo), a `plannedServings` to
   pochodna `ceil(Σ)` liczona przez serwer — tylko dla starych klientów (`Int` w ich dekoderze).
@@ -291,7 +293,7 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   i `RecipeIngredient` (tabela `CatalogChange`, epoka w `CatalogSyncState`) — każda ścieżka
   zapisu katalogu, bez kodu aplikacji; przepisy domów i ulubione NIE wchodzą (`recipes:householdState`).
   Wymuszenie snapshotu u wszystkich = nowa epoka (`UPDATE "CatalogSyncState" SET epoch =
-  gen_random_uuid()`). Stary `recipes:findAll` zostaje dla starych buildów. Odcisk katalogu
+gen_random_uuid()`). Stary `recipes:findAll` zostaje dla starych buildów. Odcisk katalogu
   asystenta = głowa logu, RAZ na turę (`TurnMemo`, klucz `catalog:snapshot`); strony dań kart
   wsadowo `RecipesService.cardSides` (kolejność wejścia) — nie `findById` w pętli. Ulubione
   i przepis domu nie czyszczą wspólnego cache'u listy (`invalidateRecipesList(householdId)`).
@@ -299,7 +301,18 @@ payload)` PO `actorId`), skalarne id przez `assertUuid` (`src/common/uuid.ts`) w
   tury co ~1 s (`DraftPublisher`, domknięcie czeka na `settle()`); `getTurn` RUNNING = 1 zapytanie.
   Pula: `src/prisma/database-config.ts` loguje `pula Prisma:` przy starcie — limitu Railwaya
   nie zgadywać, `connection_limit` ustawia się w `DATABASE_URL`. Pomiar skali: `pnpm
-  catalog:scale-probe` na bazie `*_scale` (`SCALE_DATABASE_URL`), wyniki w `benchmark/`.
+catalog:scale-probe` na bazie `*_scale` (`SCALE_DATABASE_URL`), wyniki w `benchmark/`.
+- Oceny i zgłoszenia odpowiedzi (27.09.2026): `PUT /agent/messages/:id/feedback {rating: UP|DOWN|null}`
+  (`AgentMessageFeedback`, jedna ocena na osobę i wiadomość, kaskada z wiadomością). Zgłoszenie
+  (`POST …/report`) jest JEDNO na osobę i odpowiedź — drugie wysłanie POPRAWIA istniejące (powód,
+  komentarz, migawka) i przestawia je na `NEW`. Historia i tura DONE oddają przy odpowiedzi asystenta
+  `thinking {durationMs, steps}` (ostatnia odpowiedź zakończonej tury), `feedback` i własne `report`
+  (`withAnswerDetails` w `agent-conversations.service.ts`). Kciuk w dół może nieść PODPOWIEDŹ
+  (`tags` z `AGENT_FEEDBACK_TAGS` + `comment`; brak pól = podpowiedź bez zmian, `UP` ją czyści) — wtedy
+  ocena zabiera migawkę `messageText`, gołe kciuki mają tylko `messageKind`; historia oddaje `feedbackNote`.
+  To NIE zgłoszenie: panel ma osobny dział „Oceny” (`GET /admin/assistant/feedback?period=7|30|90`,
+  `AdminFeedbackService`). Oceny odchodzą kaskadą z wiadomością (retencja 90 dni). Przyciski kart mówią dzień w bierniku
+  (`DAY_ACCUSATIVE_LABELS`: „Zapisz niedzielę”).
 - Trwałe tury (od 27.09.2026, workstream Etap 5, raport `reports/05-durable-turns.md`): wykonanie
   tury NIE żyje w pamięci procesu. `POST /messages` zapisuje wejście (`AgentTurn.execution`,
   `deadlineAt`) i tylko szturcha `AgentTurnWorker.kick`; worker (`src/agent/durable/`) przejmuje

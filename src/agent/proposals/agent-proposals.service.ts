@@ -15,7 +15,11 @@ import { ensureMembership } from '../../weekly-plans/utils/auth-checks.util';
 import { AppException } from '../../common/app-exception';
 import { assertUuid, isUuid } from '../../common/uuid';
 import { readAgentEnv } from '../../config/agent-env';
-import { AgentCardState, PlanRemovalReason } from '../cards/agent-cards';
+import {
+  AgentCardState,
+  PlanRemovalReason,
+  withAccusativeDayActions,
+} from '../cards/agent-cards';
 import {
   appliedMessageText,
   buildAppliedCard,
@@ -1561,12 +1565,14 @@ export class AgentProposalsService {
     const states = await this.cardStatesFor(
       withCards.map((message) => message.id),
     );
-    if (states.size === 0) return messages;
 
     return messages.map((message) => {
+      if (!message.card) return message;
+      // Stare karty w historii: „Zapisz niedziela” → „Zapisz niedzielę”.
+      const card = withAccusativeDayActions(message.card);
       const state = states.get(message.id);
-      if (!state || !message.card) return message;
-      return { ...message, card: { ...message.card, state } };
+      if (!state) return card === message.card ? message : { ...message, card };
+      return { ...message, card: { ...card, state } };
     });
   }
 

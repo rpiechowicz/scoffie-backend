@@ -128,6 +128,11 @@ model AgentReport {
 
   @@index([createdAt])
   @@index([status, createdAt])
+  /// Jedno zgłoszenie na osobę i odpowiedź (27.09.2026): drugie wysłanie
+  /// POPRAWIA pierwsze (`AgentReportsService.report`), a historia oddaje je
+  /// telefonowi do edycji. Indeks, nie unikat — stare dublety w bazie
+  /// zostają (zgłoszenie żyje 365 dni z migawką treści).
+  @@index([userId, messageId])
 }
 
 /// Zdarzenia zgód — TYLKO dopisywanie, nigdy nadpisywanie.
@@ -930,12 +935,45 @@ model AgentMessage {
   /// odpowiedzi. `NULL` = pytanie użytkownika albo wiadomość sprzed kolumny.
   outputKey       String?
 
-  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation AgentConversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback     AgentMessageFeedback[]
 
   @@unique([conversationId, clientMessageId])
   @@unique([turnId, outputKey])
   @@index([conversationId, createdAt])
   @@index([turnId])
+}
+
+/// Ocena odpowiedzi asystenta — kciuk w górę / w dół pod odpowiedzią na
+/// telefonie (27.09.2026). Jedna na osobę i wiadomość (`@@unique`): drugie
+/// stuknięcie zmienia ocenę, zdjęcie oceny kasuje wiersz. Inaczej niż
+/// `AgentReport` Z kaskadą z wiadomością: ocena bez treści nic nie mówi,
+/// a retencja rozmów i „usuń moje rozmowy" mają zabrać ją razem z nią.
+/// `rating` tekstem (UP | DOWN), jak `AgentReport.status` — wartości pilnuje DTO.
+model AgentMessageFeedback {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  messageId   String   @db.Uuid
+  turnId      String?  @db.Uuid
+  rating      String
+  /// Podpowiedź przy kciuku w dół — szybkie powody (`AGENT_FEEDBACK_TAGS`) i zdanie.
+  /// Przy `UP` puste: pochwała nie ma formularza.
+  tags        String[] @default([])
+  comment     String?
+  /// Migawka odpowiedzi — TYLKO gdy użytkownik dopisał podpowiedź (sam wysłał
+  /// ją do wglądu, jak zgłoszenie). Gołe kciuki treści nie niosą.
+  messageText String?
+  /// `AgentMessage.kind` w chwili oceny (TEXT, PLAN_DAY, OPTIONS…) — metadane
+  /// do panelu bez czytania rozmowy.
+  messageKind String   @default("TEXT")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  message AgentMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId])
+  @@index([messageId])
+  @@index([createdAt])
 }
 
 /// Propozycja asystenta czekająca na klik użytkownika.
