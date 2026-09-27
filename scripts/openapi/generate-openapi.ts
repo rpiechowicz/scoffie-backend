@@ -112,7 +112,13 @@ function loadPluginMetadata(): () => Promise<Record<string, any>> {
     (_m, literal: string) => {
       // Ścieżka bywa z ucieczkami (`Rafał`) — najpierw odkoduj literał.
       const spec = JSON.parse(`"${literal}"`) as string;
-      const target = spec.startsWith('./') ? `../src/${spec.slice(2)}` : spec;
+      // Nest CLI 12 dopisuje rozszerzenie ESM (`./auth/dto/x.dto.js`), a
+      // `require` pod ts-node szuka wtedy pliku .js, którego nie ma — obie
+      // wersje CLI dają ten sam moduł po zdjęciu końcówki.
+      const relative = spec.replace(/\.js$/, '');
+      const target = relative.startsWith('./')
+        ? `../src/${relative.slice(2)}`
+        : relative;
       return `Promise.resolve(require(${JSON.stringify(target)}))`;
     },
   );
