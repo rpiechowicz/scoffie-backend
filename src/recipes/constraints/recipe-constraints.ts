@@ -4,6 +4,7 @@ import {
   NutritionPerServing,
   satisfiesDiet,
 } from '../diet-rules.util';
+import { ingredientMatches } from '../ingredient-match.util';
 
 /**
  * Jedna definicja DOPUSZCZALNOŚCI przepisu (N8A, `ConstraintSet v1`).
@@ -15,11 +16,11 @@ import {
  * dopisywać trzy razy. Tu żyją reguły; silniki tylko budują zbiór i czytają
  * werdykt.
  *
- * Zakres v1 = DOKŁADNIE dzisiejsza semantyka planera (test równoważności
- * z zamrożoną kopią starego kodu: `recipe-constraints.equivalence.spec.ts`).
- * Różnice między silnikami, które zostają ŚWIADOMIE (pora z bazowym
- * `mealType` w zapisie, dieta w zapisie, „bez X” jako podciąg vs rdzeń,
- * tagi ORAZ vs grupy) — patrz testy charakteryzujące
+ * Zakres v1 = semantyka planera z 27.09.2026 (test równoważności z zamrożoną
+ * kopią starego kodu: `constraint-engine.equivalence.spec.ts`) z jedną
+ * świadomą zmianą: „bez X” po rdzeniu słowa, jak wyszukiwarka (S6).
+ * Różnice między silnikami, które zostają (pora z bazowym `mealType`
+ * w zapisie, dieta w zapisie, tagi ORAZ vs grupy) — patrz testy charakteryzujące
  * (`constraint-semantics.characterization.spec.ts`); każda to osobna decyzja.
  *
  * Moduł leży w `recipes/`, a nie w `meal-planner/`: planer importuje utile
@@ -76,8 +77,11 @@ export type RequestConstraints = {
   /** Tagi, które danie musi mieć — WSZYSTKIE (semantyka planera). */
   requiredTags: readonly string[];
   /**
-   * Fragmenty znormalizowanych nazw składników, których danie nie może mieć
-   * — PODCIĄG (semantyka planera: „ser” trafia też „serwatkę”).
+   * Składniki, których danie nie może mieć — po RDZENIU słowa, jak
+   * wyszukiwarka (`ingredientMatches`): „jajka” trafia „jajko”, „orzechy” —
+   * „orzech włoski”, „ser” — nie trafia „ogórka konserwowego”. Do 28.09.2026
+   * planer brał podciąg i „bez jajek” nie wykluczało ani jednego z 160 dań
+   * z jajkiem (N8A S6, raport M11).
    */
   avoidIngredients: readonly string[];
   /** Bez makr na porcję przepis odpada (planer nie policzy celu). */
@@ -214,7 +218,7 @@ export function checkRecipe(
   }
   if (
     request.avoidIngredients.some((avoided) =>
-      subject.ingredientNames.some((name) => name.includes(avoided)),
+      subject.ingredientNames.some((name) => ingredientMatches(name, avoided)),
     )
   ) {
     return 'AVOIDED_INGREDIENT';

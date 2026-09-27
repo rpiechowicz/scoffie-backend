@@ -158,10 +158,16 @@ describe('recipe-constraints', () => {
     ).toBeNull();
   });
 
-  it('„bez X” to podciąg znormalizowanej nazwy', () => {
-    expect(checkRecipe(subject(), set({ avoidIngredients: ['kurcz'] }))).toBe(
+  it('„bez X” po rdzeniu słowa: odmiana trafia, środek innego wyrazu nie', () => {
+    expect(checkRecipe(subject(), set({ avoidIngredients: ['kurczak'] }))).toBe(
       'AVOIDED_INGREDIENT',
     );
+    const eggs = subject({ ingredientNames: ['jajko', 'ogorek konserwowy'] });
+    expect(checkRecipe(eggs, set({ avoidIngredients: ['jajka'] }))).toBe(
+      'AVOIDED_INGREDIENT',
+    );
+    // „ser” nie siedzi w „konserwowym” — podciąg by go tam znalazł.
+    expect(checkRecipe(eggs, set({ avoidIngredients: ['ser'] }))).toBeNull();
     expect(
       checkRecipe(subject(), set({ avoidIngredients: ['wolowina'] })),
     ).toBeNull();

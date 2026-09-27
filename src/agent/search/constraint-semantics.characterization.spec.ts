@@ -109,7 +109,7 @@ describe('Semantyka ograniczeń — charakteryzacja (N8A)', () => {
     expect(satisfiesDiet('HIGH_PROTEIN', subject)).toBe(false);
   });
 
-  it('[RÓŻNICA] „bez X”: planer (A) = podciąg znormalizowanej nazwy („ser” trafia „serwatkę”), wyszukiwarka (C) = rdzeń słowa', () => {
+  it('„bez X” (S6, 28.09): planer (A) = wyszukiwarka (C) = rdzeń słowa — „ser” nie trafia „serwatki”, „jajka” trafia „jajko”', () => {
     const planner = recipe('x', {
       ingredientNames: [normalizeText('Serwatka')],
     });
@@ -121,12 +121,23 @@ describe('Semantyka ograniczeń — charakteryzacja (N8A)', () => {
         excludeRecipeIds: [],
       },
     });
-    expect(hardFilterReason(planner, 'DINNER', [eater('a')], req)).toBe(
-      'AVOIDED_INGREDIENT',
-    );
-    // C: rdzeń słowa — „ser” trafia „Ser żółty”, ale NIE „Serwatkę”.
+    // Do 28.09 planer brał podciąg i tu było AVOIDED_INGREDIENT.
+    expect(hardFilterReason(planner, 'DINNER', [eater('a')], req)).toBeNull();
     expect(ingredientMatches('Serwatka', 'ser')).toBe(false);
     expect(ingredientMatches('Ser żółty', 'ser')).toBe(true);
+    const eggs = recipe('x', { ingredientNames: [normalizeText('Jajko')] });
+    const noEggs = request({
+      constraints: {
+        diet: null,
+        requiredTags: [],
+        avoidIngredients: [normalizeText('jajka')],
+        excludeRecipeIds: [],
+      },
+    });
+    expect(hardFilterReason(eggs, 'DINNER', [eater('a')], noEggs)).toBe(
+      'AVOIDED_INGREDIENT',
+    );
+    expect(ingredientMatches('Jajko', 'jajka')).toBe(true);
   });
 
   it('[RÓŻNICA] czas: planer (A) przepuszcza prep=0 przy twardym limicie; wyszukiwarka (C) prep≤0 odrzuca (osobny test C)', () => {
