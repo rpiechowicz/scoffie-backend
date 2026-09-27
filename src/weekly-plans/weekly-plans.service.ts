@@ -915,6 +915,14 @@ export class WeeklyPlansService {
     input: ApplyWeekPlanDto,
     hooks: ApplyWeekPlanHooks = {},
   ): Promise<ApplyWeekPlanResult> {
+    // `authoritative` wyłącza ochronę porcji — wolno WYŁĄCZNIE z `guard`,
+    // który w tej samej transakcji sprawdza odcisk tygodnia (cofnięcie
+    // propozycji). Bez niego nic nie chroni alokacji: odmowa przed zapisem.
+    if (hooks.portionsPolicy === 'authoritative' && !hooks.guard) {
+      throw new Error(
+        'applyWeekPlan: portionsPolicy "authoritative" wymaga guarda sprawdzającego odcisk tygodnia w tej samej transakcji.',
+      );
+    }
     const dto = await validateDto(ApplyWeekPlanDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
