@@ -1,5 +1,6 @@
 import { DayOfWeek, MealType } from '@prisma/client';
 import { AiCardsMode } from '../../config/agent-env';
+import { MEAL_TYPES_IN_DAY_ORDER } from '../../common/meal-types';
 
 /**
  * Karty asystenta — kontrakt z TELEFONEM.
@@ -599,6 +600,33 @@ export const MEAL_LABELS: Record<MealType, string> = {
   DINNER: 'Kolacja',
   SNACK: 'Przekąska',
 };
+
+/**
+ * „Obiad i kolacja”, „Śniadanie, II śniadanie i obiad” — pory w porządku
+ * dnia, od wielkiej litery; `null`, gdy nie ma żadnej.
+ *
+ * Wewnątrz zdania pora idzie małą literą, ale skrót „II” zostaje — samo
+ * `toLowerCase()` dawało „ii śniadanie”.
+ */
+export function mealListLabel(mealTypes: Iterable<MealType>): string | null {
+  const present = new Set(mealTypes);
+  const labels = MEAL_TYPES_IN_DAY_ORDER.filter((meal) =>
+    present.has(meal),
+  ).map((meal) => inSentence(MEAL_LABELS[meal]));
+  if (labels.length === 0) return null;
+
+  const head = labels.slice(0, -1).join(', ');
+  const tail = labels[labels.length - 1];
+  const list = head ? `${head} i ${tail}` : tail;
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)}`;
+}
+
+function inSentence(label: string): string {
+  const second = label.charAt(1);
+  return second && second === second.toUpperCase()
+    ? label
+    : `${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+}
 
 /** Nazwa dnia w mianowniku — „Poniedziałek”, nie „na poniedziałek”. */
 export const DAY_LABELS: Record<DayOfWeek, string> = {
