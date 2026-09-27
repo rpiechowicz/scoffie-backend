@@ -241,3 +241,129 @@ export function portionsRemovalDecision(
   if (policy === 'verified' || policy === 'authoritative') return null;
   return policy === 'no-allocation-changes' ? 'CONFLICT' : 'REVISION_REQUIRED';
 }
+
+/**
+ * Jawna intencja zapisu wobec porcji per osoba (workstream
+ * `per-user-portions-write-safety`):
+ * - `PRESERVE` — zachowaj bieżącą alokację; przy zmianie audytorium serwer
+ *   przelicza ją sam (`remapPortions`); `plannedServings` = ceil(Σ);
+ * - `REPLACE` — podane `portions` stają się alokacją (zastąpienie istniejącej
+ *   wymaga zweryfikowanego zapisu — tokenu);
+ * - `RESET` — świadomy powrót do równego podziału (usunięcie istniejącej
+ *   alokacji wymaga zweryfikowanego zapisu — tokenu).
+ * Brak pola = `LEGACY`: niepuste `portions` = `REPLACE`, pominięte — pozycja
+ * bez alokacji jak dotąd, z alokacją: identyczny zapis zostawia ją nietkniętą,
+ * każda inna zmiana = `PLAN_PORTIONS_CONFLICT` (nigdy cichy `RESET`).
+ */
+export const PORTION_POLICIES = ['PRESERVE', 'REPLACE', 'RESET'] as const;
+export type PortionPolicy = (typeof PORTION_POLICIES)[number];
+export type PortionIntent = PortionPolicy | 'LEGACY';
+
+/** Porcja osoby, która dołącza do audytorium pozycji z alokacją. */
+export const JOINED_PORTION_SERVINGS = 1;
+
+export function portionIntentOf(
+  policy: PortionPolicy | undefined,
+  portions: readonly PortionView[],
+): PortionIntent {
+  if (policy) return policy;
+  return portions.length > 0 ? 'REPLACE' : 'LEGACY';
+}
+
+/**
+ * Alokacja dla NOWEGO audytorium z bieżącej: osoby, które zostają, zachowują
+ * swoją porcję; nowe dostają `JOINED_PORTION_SERVINGS`; usunięte znikają.
+ * `audience` = konkretne osoby (dla „Wspólne” — wszyscy domownicy).
+ */
+export function remapPortions(
+  current: readonly PortionView[],
+  audience: Iterable<string>,
+): PortionView[] {
+  const byUser = new Map(current.map((p) => [p.userId, p.servings]));
+  return [...new Set(audience)]
+    .sort((a, b) => a.localeCompare(b))
+    .map((userId) => ({
+      userId,
+      servings: byUser.get(userId) ?? JOINED_PORTION_SERVINGS,
+    }));
+}
+
+/**
+ * Wynik planowania porcji dla ISTNIEJĄCEJ pozycji: decyzja i alokacja, która
+ * ma zostać zapisana (`[]` = bez alokacji). `INVALID` = `PLAN_PORTIONS_INVALID`
+ * z `problem`. Ta sama funkcja liczy zapis, podgląd i `dryRun`.
+ */
+export type PortionsPlan = {
+  decision: PortionsWriteDecision | 'INVALID';
+  portions: PortionView[];
+  problem?: string;
+};
+
+export const PRESERVE_SERVINGS_PROBLEM =
+  'Przy porcjach per osoba łączna liczba porcji wynika z ich sumy — zmień porcje osób albo użyj RESET.';
+
+export function planPortionsForExisting(
+  current: {
+    participantIds: readonly string[];
+    plannedServings: number;
+    portions: readonly PortionView[];
+  },
+  requested: {
+    participantIds: readonly string[];
+    plannedServings?: number | null;
+    portions: readonly PortionView[];
+    intent: PortionIntent;
+    /** Osoby jedzące po zapisie (dla „Wspólne” — wszyscy domownicy). */
+    audience: readonly string[];
+  },
+  policy: PortionsWritePolicy,
+): PortionsPlan {
+  const allocated = current.portions.length > 0;
+  switch (requested.intent) {
+    case 'LEGACY':
+      return {
+        decision: portionsWriteDecision(
+          current,
+          { ...requested, portions: [] },
+          policy,
+        ),
+        portions: [],
+      };
+    case 'REPLACE':
+      return {
+        decision: portionsWriteDecision(current, requested, policy),
+        portions: [...requested.portions],
+      };
+    case 'RESET':
+      return {
+        decision: allocated ? resetDecision(policy) : 'WRITE',
+        portions: [],
+      };
+    case 'PRESERVE': {
+      if (!allocated) return { decision: 'WRITE', portions: [] };
+      const portions = remapPortions(current.portions, requested.audience);
+      const problem = portionsProblem(portions, new Set(requested.audience));
+      if (problem) return { decision: 'INVALID', portions, problem };
+      if (
+        requested.plannedServings != null &&
+        requested.plannedServings !== derivedPlannedServings(portions)
+      ) {
+        return {
+          decision: 'INVALID',
+          portions,
+          problem: PRESERVE_SERVINGS_PROBLEM,
+        };
+      }
+      const changed = !samePortions(current.portions, portions);
+      if (changed && policy === 'no-allocation-changes') {
+        return { decision: 'CONFLICT', portions };
+      }
+      return { decision: 'WRITE', portions };
+    }
+  }
+}
+
+/** `RESET` pozycji Z alokacją — usunięcie alokacji, jak usunięcie pozycji. */
+function resetDecision(policy: PortionsWritePolicy): PortionsWriteDecision {
+  return portionsRemovalDecision(policy) ?? 'WRITE';
+}

@@ -11,7 +11,12 @@ import {
   PORTION_UNITS_PER_SERVING,
   portionsProblem,
   portionsTotal,
+  planPortionsForExisting,
+  portionIntentOf,
+  type PortionIntent,
+  type PortionsWritePolicy,
   portionsRemovalDecision,
+  remapPortions,
   portionsWriteDecision,
   samePortions,
   servingsToUnits,
@@ -347,5 +352,120 @@ describe('portionsWriteDecision (ADR plan-portions-write-safety)', () => {
         'authoritative',
       ),
     ).toBe('WRITE');
+  });
+});
+
+describe('jawna intencja porcji (per-user-portions-write-safety)', () => {
+  const current = {
+    participantIds: [] as string[],
+    plannedServings: 3,
+    portions: [
+      { userId: 'a', servings: 0.8 },
+      { userId: 'b', servings: 1.25 },
+    ],
+  };
+  const request = (
+    intent: PortionIntent,
+    extra: Partial<{
+      participantIds: string[];
+      plannedServings: number;
+      portions: { userId: string; servings: number }[];
+      audience: string[];
+    }> = {},
+  ) => ({
+    participantIds: [] as string[],
+    portions: [] as { userId: string; servings: number }[],
+    audience: ['a', 'b'],
+    intent,
+    ...extra,
+  });
+
+  it('intencja z pola albo z kształtu (legacy: porcje = REPLACE, brak = LEGACY)', () => {
+    expect(portionIntentOf(undefined, [])).toBe('LEGACY');
+    expect(portionIntentOf(undefined, [{ userId: 'a', servings: 1 }])).toBe(
+      'REPLACE',
+    );
+    expect(portionIntentOf('RESET', [])).toBe('RESET');
+  });
+
+  it('remapPortions: zostający zachowują porcję, nowi 1,00, usunięci znikają', () => {
+    expect(remapPortions(current.portions, ['b', 'c'])).toEqual([
+      { userId: 'b', servings: 1.25 },
+      { userId: 'c', servings: 1 },
+    ]);
+  });
+
+  it('PRESERVE: zmiana audytorium przelicza alokację na serwerze, bez tokenu', () => {
+    expect(
+      planPortionsForExisting(
+        current,
+        request('PRESERVE', { participantIds: ['a'], audience: ['a'] }),
+        'strict',
+      ),
+    ).toEqual({
+      decision: 'WRITE',
+      portions: [{ userId: 'a', servings: 0.8 }],
+    });
+  });
+
+  it('PRESERVE: plannedServings inne niż ceil(Σ) i suma > 12 → INVALID; force nie zmienia alokacji', () => {
+    expect(
+      planPortionsForExisting(
+        current,
+        request('PRESERVE', { plannedServings: 5 }),
+        'strict',
+      ).decision,
+    ).toBe('INVALID');
+    expect(
+      planPortionsForExisting(
+        {
+          ...current,
+          portions: [
+            { userId: 'a', servings: 6 },
+            { userId: 'b', servings: 6 },
+          ],
+        },
+        request('PRESERVE', { audience: ['a', 'b', 'c'] }),
+        'strict',
+      ).decision,
+    ).toBe('INVALID');
+    expect(
+      planPortionsForExisting(
+        current,
+        request('PRESERVE', { participantIds: ['a'], audience: ['a'] }),
+        'no-allocation-changes',
+      ).decision,
+    ).toBe('CONFLICT');
+  });
+
+  it('RESET: pozycja z alokacją — token wymagany (strict), force odmawia, verified/undo zapisuje', () => {
+    const decide = (policy: PortionsWritePolicy) =>
+      planPortionsForExisting(current, request('RESET'), policy);
+    expect(decide('strict').decision).toBe('REVISION_REQUIRED');
+    expect(decide('no-allocation-changes').decision).toBe('CONFLICT');
+    expect(decide('verified')).toEqual({ decision: 'WRITE', portions: [] });
+    expect(decide('authoritative').decision).toBe('WRITE');
+  });
+
+  it('LEGACY na pozycji z alokacją nigdy nie jest cichym RESET: identyczny = KEEP, zmiana = CONFLICT', () => {
+    expect(
+      planPortionsForExisting(current, request('LEGACY'), 'strict').decision,
+    ).toBe('KEEP');
+    expect(
+      planPortionsForExisting(
+        current,
+        request('LEGACY', { participantIds: ['a'] }),
+        'verified',
+      ).decision,
+    ).toBe('CONFLICT');
+  });
+
+  it('pozycja BEZ alokacji: każda intencja poza REPLACE = zapis jak dotąd', () => {
+    const plain = { ...current, portions: [] };
+    for (const intent of ['LEGACY', 'PRESERVE', 'RESET'] as const) {
+      expect(planPortionsForExisting(plain, request(intent), 'strict')).toEqual(
+        { decision: 'WRITE', portions: [] },
+      );
+    }
   });
 });
