@@ -452,7 +452,7 @@ describe('Panel — katalog: jakość, baza danych, ruch, sterowanie', () => {
         }),
       );
     });
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
     try {
       const state = (await get('/admin/traffic').expect(200))
         .body as TrafficState;

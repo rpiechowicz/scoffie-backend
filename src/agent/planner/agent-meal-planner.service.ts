@@ -778,7 +778,7 @@ function toSlot(item: PlannedItem): ApplyWeekSlotDto {
     ...(item.portions?.length
       ? { portions: item.portions }
       : { plannedServings: item.plannedServings }),
-  } as ApplyWeekSlotDto;
+  };
 }
 
 /** Średnie kcal NA OSOBĘ z podmienianych pozycji — dla „podobnie kalorycznie". */

@@ -86,8 +86,7 @@ describe('liczniki panelu — reguła „padła”', () => {
 });
 
 describe('liczniki panelu — ostatni znany stan Railwaya', () => {
-  const full = (services: RailwayService[]): RailwayData =>
-    ({ services }) as unknown as RailwayData;
+  const full = (services: RailwayService[]): RailwayData => ({ services });
   const railwayService = (id: string, deploys: RailwayDeploy[]) =>
     ({
       id,

@@ -65,7 +65,7 @@ describe('NotificationsGateway', () => {
       const response = await gateway.registerDevice(anonClient(), {
         userId: ATTACKER,
         data: { deviceToken: DEVICE },
-      } as any);
+      });
 
       expect(response).toEqual(
         expect.objectContaining({
@@ -90,7 +90,7 @@ describe('NotificationsGateway', () => {
       const response = await gateway.registerDevice(tokenClient(VICTIM), {
         userId: ATTACKER,
         data: { deviceToken: DEVICE },
-      } as any);
+      });
 
       expect(response).toEqual(expect.objectContaining({ ok: true }));
       expect(notificationsService.registerDevice).toHaveBeenCalledWith(
@@ -103,7 +103,7 @@ describe('NotificationsGateway', () => {
       await gateway.registerDevice(legacyClient(), {
         userId: LEGACY_USER,
         data: { deviceToken: DEVICE },
-      } as any);
+      });
 
       expect(notificationsService.registerDevice).toHaveBeenCalledWith(
         LEGACY_USER,
@@ -114,7 +114,7 @@ describe('NotificationsGateway', () => {
     it('socket legacy bez payload.userId też dostaje UNAUTHORIZED', async () => {
       const response = await gateway.registerDevice(legacyClient(), {
         data: { deviceToken: DEVICE },
-      } as any);
+      });
 
       expect(response).toEqual(
         expect.objectContaining({ ok: false, code: 'UNAUTHORIZED' }),
@@ -230,7 +230,7 @@ describe('NotificationsGateway', () => {
 
       const response = await gateway.registerDevice(tokenClient(USER), {
         data: { deviceToken: DEVICE },
-      } as any);
+      });
 
       expect(response).toEqual(expect.objectContaining({ ok: false }));
     });
@@ -238,7 +238,7 @@ describe('NotificationsGateway', () => {
     it('rejestracja urządzenia niczego nie rozgłasza', async () => {
       await gateway.registerDevice(tokenClient(USER), {
         data: { deviceToken: DEVICE },
-      } as any);
+      });
 
       expect(emit).not.toHaveBeenCalled();
       expect(to).not.toHaveBeenCalled();

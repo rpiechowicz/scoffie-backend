@@ -64,11 +64,7 @@ async function main(): Promise<void> {
   let bledy = 0;
 
   for (const fixture of wybrane) {
-    const mail = renderer.renderWith(
-      c,
-      fixture.template,
-      fixture.payload as unknown as Record<string, unknown>,
-    );
+    const mail = renderer.renderWith(c, fixture.template, fixture.payload);
 
     const wynik = await client.send({
       from: env.from,

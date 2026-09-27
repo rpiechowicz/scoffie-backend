@@ -175,7 +175,7 @@ describe('Porcje per osoba E2E', () => {
       })
       .expect(202);
     const turnId = (accepted.body as { turnId: string }).turnId;
-    for (const deadline = Date.now() + 15_000; ; ) {
+    for (const deadline = Date.now() + 15_000; ;) {
       const row = await prisma.agentTurn.findUniqueOrThrow({
         where: { id: turnId },
       });

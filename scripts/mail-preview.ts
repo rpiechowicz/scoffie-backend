@@ -38,11 +38,7 @@ async function main(): Promise<void> {
         assetBase: env.assetBaseUrl,
         site: env.siteUrl,
       });
-      const mail = renderer.renderWith(
-        c,
-        fixture.template,
-        fixture.payload as unknown as Record<string, unknown>,
-      );
+      const mail = renderer.renderWith(c, fixture.template, fixture.payload);
       const name = `${fixture.key}-${width}`;
       await writeFile(join(outDir, `${name}.html`), mail.html, 'utf8');
 

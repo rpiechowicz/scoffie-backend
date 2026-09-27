@@ -12,7 +12,7 @@ describe('AppThrottlerGuard', () => {
   const buildGuard = () =>
     new AppThrottlerGuard(
       { throttlers: [] },
-      { increment: jest.fn() } as never,
+      { increment: jest.fn() },
       new Reflector(),
       { verifyAsync } as unknown as JwtService,
       { recordThrottled } as never,
@@ -81,18 +81,17 @@ describe('AppThrottlerGuard', () => {
   describe('throwThrottlingException', () => {
     const detail = (
       overrides: Partial<ThrottlerLimitDetail>,
-    ): ThrottlerLimitDetail =>
-      ({
-        limit: 5,
-        ttl: 60,
-        key: 'k',
-        tracker: 't',
-        totalHits: 6,
-        timeToExpire: 30,
-        isBlocked: true,
-        timeToBlockExpire: 12,
-        ...overrides,
-      }) as ThrottlerLimitDetail;
+    ): ThrottlerLimitDetail => ({
+      limit: 5,
+      ttl: 60,
+      key: 'k',
+      tracker: 't',
+      totalHits: 6,
+      timeToExpire: 30,
+      isBlocked: true,
+      timeToBlockExpire: 12,
+      ...overrides,
+    });
 
     it('oddaje kontrakt aplikacji zamiast ThrottlerException', async () => {
       const guard = buildGuard();

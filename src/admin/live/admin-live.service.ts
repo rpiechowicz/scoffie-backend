@@ -177,8 +177,7 @@ export class AdminLiveService
 
   onApplicationBootstrap(): void {
     const server = this.adapterHost.httpAdapter?.getHttpServer?.() as
-      | HttpServer
-      | undefined;
+      HttpServer | undefined;
     if (!server || typeof server.listeners !== 'function') return;
     this.server = server;
     this.previousUpgrade = server.listeners('upgrade') as ((

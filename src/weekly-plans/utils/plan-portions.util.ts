@@ -177,10 +177,7 @@ export function samePortions(
  *   sprawdzonym w tej samej transakcji.
  */
 export type PortionsWritePolicy =
-  | 'strict'
-  | 'verified'
-  | 'no-allocation-changes'
-  | 'authoritative';
+  'strict' | 'verified' | 'no-allocation-changes' | 'authoritative';
 
 /**
  * - `WRITE` — zapis jak dotąd;
@@ -192,10 +189,7 @@ export type PortionsWritePolicy =
  *   (`PLAN_REVISION_REQUIRED`).
  */
 export type PortionsWriteDecision =
-  | 'WRITE'
-  | 'KEEP'
-  | 'CONFLICT'
-  | 'REVISION_REQUIRED';
+  'WRITE' | 'KEEP' | 'CONFLICT' | 'REVISION_REQUIRED';
 
 export const PORTIONS_CONFLICT_MESSAGE =
   'To danie ma porcje ustawione osobno dla każdej osoby, a ten zapis by je skasował. Odśwież plan i spróbuj ponownie.';

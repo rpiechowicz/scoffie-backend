@@ -609,7 +609,7 @@ export class AgentProposalsService {
           mealType: input.mealType,
           recipeId: input.recipeId,
           ...(input.portions?.length ? { portions: input.portions } : {}),
-        } as ApplyWeekSlotDto,
+        },
       ];
     } else {
       // Podmiana DLA KOGOŚ nie ma prawa zabrać jedzenia reszcie domu.
@@ -644,7 +644,7 @@ export class AgentProposalsService {
           // Porcje per osoba wybranych osób (review Etapu 3) — policzone przez
           // serwer dla tego audytorium.
           ...(input.portions?.length ? { portions: input.portions } : {}),
-        } as ApplyWeekSlotDto,
+        },
       ];
     }
 
@@ -918,7 +918,7 @@ export class AgentProposalsService {
         recipeId: input.recipeId,
         participantIds,
         ...(servings ? { portions: servings } : {}),
-      } as ApplyWeekSlotDto,
+      },
     ];
     // Osoby z podziału zachowują swoje porcje per osoba z dania, które było
     // w tym posiłku (bez planera nie ma innego źródła) — nie równy podział.
@@ -1739,7 +1739,7 @@ export class AgentProposalsService {
         text: input.text,
         // `turnId` celowo puste: to nie jest odpowiedź modelu, więc klient
         // odpytujący starą turę nie ma nagle dostawać drugiej wiadomości.
-        ...(input.card ? { card: input.card as Prisma.InputJsonValue } : {}),
+        ...(input.card ? { card: input.card } : {}),
       },
     });
     await client.agentConversation.update({
@@ -2001,5 +2001,5 @@ function narrowSlot(
     ...rest,
     participantIds: remaining,
     ...(kept.length > 0 ? { portions: kept } : {}),
-  } as ApplyWeekSlotDto;
+  };
 }

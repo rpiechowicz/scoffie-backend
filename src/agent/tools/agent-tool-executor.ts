@@ -74,8 +74,6 @@ import { buildMacroGapCard, MAX_BOOSTERS } from '../cards/macro-gap-card';
 import { buildShoppingListCard } from '../cards/shopping-list-card';
 import { ShoppingListService } from '../../weekly-plans/services/shopping-list.service';
 import { WeeklyPlansGateway } from '../../weekly-plans/weekly-plans.gateway';
-import { SetMealEatenDto } from '../../weekly-plans/dto/set-meal-eaten.dto';
-import { UpdateShoppingItemCheckDto } from '../../weekly-plans/dto/update-shopping-item-check.dto';
 import { ShoppingDepartment } from '../../weekly-plans/types/shopping-department.enum';
 import { DayOfWeek, DietPreferenceValue, MealType } from '@prisma/client';
 import {
@@ -1868,7 +1866,7 @@ export class AgentToolExecutor {
         mealType,
         recipeId: standing.recipeId,
         isEaten,
-      } as unknown as SetMealEatenDto,
+      },
       {
         // Dziennik efektu tury w transakcji odhaczenia (Addendum A1).
         inTransaction: commit
@@ -1955,7 +1953,7 @@ export class AgentToolExecutor {
         {
           productKey: matched.productKey,
           isChecked,
-        } as unknown as UpdateShoppingItemCheckDto,
+        },
       );
       this.plansGateway.broadcastShoppingItemChecked({
         householdId: context.householdId,

@@ -67,10 +67,10 @@ describe('ruch z Cloudflare', () => {
 
   it('dni bez dziur, ścieżki, kraje i zaproszenia; token w nagłówku', async () => {
     const calls: { url: string; init: RequestInit }[] = [];
-    const fetchImpl = ((url: string, init: RequestInit) => {
+    const fetchImpl = (url: string, init: RequestInit) => {
       calls.push({ url, init });
       return Promise.resolve(json(calls.length === 1 ? daily : adaptive));
-    }) as unknown as typeof fetch;
+    };
 
     const data = await fetchTraffic(env, NOW, fetchImpl);
 

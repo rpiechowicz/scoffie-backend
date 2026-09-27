@@ -17,8 +17,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
  * a to ona decyduje, czy ktoś nie dostanie dwóch obiadów do jednego celu.
  */
 type WsEnvelope<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string; code: string };
+  { ok: true; data: T } | { ok: false; error: string; code: string };
 
 type DayBalance = {
   dayOfWeek: string;

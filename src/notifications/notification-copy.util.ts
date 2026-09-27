@@ -8,10 +8,7 @@ import { DEFAULT_TIME_ZONE } from './quiet-hours.util';
  */
 
 export type PlanChangeAction =
-  | 'UPSERT_SLOT'
-  | 'REMOVE_SLOT'
-  | 'CLEAR_PLAN'
-  | (string & {});
+  'UPSERT_SLOT' | 'REMOVE_SLOT' | 'CLEAR_PLAN' | (string & {});
 
 export interface PlanChangeEvent {
   action: PlanChangeAction;

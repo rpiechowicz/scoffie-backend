@@ -19,8 +19,7 @@ import { SHOPPING_LIST_RULES_VERSION } from '../src/weekly-plans/services/shoppi
  * zbudowana według starszych reguł przelicza się przy odczycie.
  */
 type WsEnvelope<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string; code: string };
+  { ok: true; data: T } | { ok: false; error: string; code: string };
 
 type StateItem = {
   productKey: string;

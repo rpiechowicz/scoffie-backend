@@ -52,7 +52,7 @@ export function toAuditEntry(r: AdminAuditLog): AuditEntry {
     errorCode: r.errorCode,
     details:
       r.details && typeof r.details === 'object' && !Array.isArray(r.details)
-        ? (r.details as Record<string, unknown>)
+        ? r.details
         : null,
     ip: r.ip,
     country: r.country,

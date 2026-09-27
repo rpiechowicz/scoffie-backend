@@ -165,7 +165,7 @@ describe('Trwałe tury asystenta E2E (Etap 5)', () => {
     probe: () => Promise<T | null | undefined | false>,
     timeoutMs = 15_000,
   ): Promise<T> => {
-    for (const deadline = Date.now() + timeoutMs; ; ) {
+    for (const deadline = Date.now() + timeoutMs; ;) {
       const value = await probe();
       if (value) return value;
       if (Date.now() > deadline) throw new Error(`nie doczekano: ${what}`);
