@@ -329,11 +329,19 @@ describe('Porcje per osoba E2E', () => {
         },
       );
       expect(again.changes).toEqual({ created: 0, updated: 0, deleted: 0 });
+      // Zastąpienie istniejącej alokacji — z tokenem tygodnia z odczytu
+      // (ADR `plan-portions-safe-editing`).
+      const { revision } = (await weeklyPlans.getByHouseholdAndWeek(
+        asia,
+        householdId,
+        WEEK_START,
+      )) as unknown as { revision: number };
       const changed = await weeklyPlans.applyWeekPlan(
         asia,
         householdId,
         WEEK_START,
         {
+          expectedRevision: revision,
           slots: [
             {
               dayOfWeek: 'MON',

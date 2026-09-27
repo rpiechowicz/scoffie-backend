@@ -36,6 +36,7 @@ type Item = {
   participantIds: string[];
   plannedServings: number;
   portions: Portion[];
+  revision: number;
 };
 
 const WEEK_START = '2026-08-31';
@@ -172,6 +173,26 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
 
   const itemOf = (items: Item[], recipeId: string, day = 'TUE') =>
     items.find((item) => item.recipeId === recipeId && item.dayOfWeek === day);
+
+  /**
+   * Zastąpienie ISTNIEJĄCEJ alokacji przez klienta, który przed chwilą ją
+   * przeczytał — z tokenem pozycji (ADR `plan-portions-safe-editing`).
+   */
+  const reallocate = async (
+    userId: string,
+    householdId: string,
+    recipeId: string,
+    portions: Portion[],
+  ) => {
+    const seen = itemOf(await readItems(userId, householdId), recipeId)!;
+    return weeklyPlans.upsertWeekSlot(userId, householdId, WEEK_START, {
+      dayOfWeek: 'TUE',
+      mealType: 'DINNER',
+      recipeId,
+      portions,
+      expectedRevision: seen.revision,
+    });
+  };
 
   /** Dom dwojga z sesją HTTP Asi (tury asystenta, propozycje). */
   const sessionCouple = async (label: string) => {
@@ -515,13 +536,24 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       expect(item.participantIds).toEqual([]);
     });
 
-    it('3. jawne `portions` nadal zastępują alokację (świadomy klient, bez CAS)', async () => {
+    it('3. jawne `portions` zastępują alokację tylko z tokenem pozycji (bez tokenu → PLAN_REVISION_REQUIRED, nic nie zmienione)', async () => {
       const { asia, rafal, householdId } = await couple('Jawne');
       await allocate(asia, householdId, dinner.id, [
         { userId: asia, servings: 0.9 },
         { userId: rafal, servings: 1.3 },
       ]);
-      await allocate(asia, householdId, dinner.id, [
+      expect(
+        await code(
+          allocate(asia, householdId, dinner.id, [
+            { userId: asia, servings: 1 },
+            { userId: rafal, servings: 1.5 },
+          ]),
+        ),
+      ).toBe('PLAN_REVISION_REQUIRED');
+      expect(
+        byPerson((await readItems(asia, householdId))[0].portions),
+      ).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
+      await reallocate(asia, householdId, dinner.id, [
         { userId: asia, servings: 1 },
         { userId: rafal, servings: 1.5 },
       ]);
@@ -554,26 +586,33 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       });
     });
 
-    it('4b. replaceRecipeId: źródło z alokacją i JAWNE porcje nowego dania → zamiana przechodzi', async () => {
+    it('4b. replaceRecipeId: źródło z alokacją i JAWNE porcje nowego dania → zamiana przechodzi z tokenem źródła (bez → PLAN_REVISION_REQUIRED)', async () => {
       const { asia, rafal, householdId } = await couple('ZamianaJawna');
       await allocate(asia, householdId, dinner.id, [
         { userId: asia, servings: 0.9 },
         { userId: rafal, servings: 1.3 },
       ]);
+      const swap = {
+        dayOfWeek: 'TUE' as const,
+        mealType: 'DINNER' as const,
+        recipeId: dinnerB.id,
+        replaceRecipeId: dinner.id,
+        portions: [
+          { userId: asia, servings: 1 },
+          { userId: rafal, servings: 1.2 },
+        ],
+      };
+      expect(
+        await code(
+          weeklyPlans.upsertWeekSlot(asia, householdId, WEEK_START, swap),
+        ),
+      ).toBe('PLAN_REVISION_REQUIRED');
+      const source = itemOf(await readItems(asia, householdId), dinner.id)!;
       const result = await weeklyPlans.upsertWeekSlot(
         asia,
         householdId,
         WEEK_START,
-        {
-          dayOfWeek: 'TUE',
-          mealType: 'DINNER',
-          recipeId: dinnerB.id,
-          replaceRecipeId: dinner.id,
-          portions: [
-            { userId: asia, servings: 1 },
-            { userId: rafal, servings: 1.2 },
-          ],
-        },
+        { ...swap, expectedRevision: source.revision },
       );
       expect(result.changeKind).toBe('REPLACED');
       const items = await readItems(asia, householdId);
@@ -1042,7 +1081,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         .set(auth(session.accessToken))
         .send({})
         .expect(200);
-      await allocate(asia, householdId, dinner.id, [
+      await reallocate(asia, householdId, dinner.id, [
         { userId: asia, servings: 1 },
         { userId: rafal, servings: 1.5 },
       ]);
@@ -1267,21 +1306,45 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       expect(after.applied).toBe(0);
     });
 
-    it('16b. surowy applyWeekPlan (strict) nadal usuwa pozycję spoza stanu docelowego — znany API GAP, kontrakt bez zmian', async () => {
+    it('16b. surowy applyWeekPlan bez tokenu NIE usuwa pozycji z alokacją spoza stanu docelowego (PLAN_REVISION_REQUIRED); z tokenem tygodnia — usuwa (ADR plan-portions-safe-editing, domknięty API GAP)', async () => {
       const { asia, rafal, householdId } = await couple('StrictUsun');
       await allocate(asia, householdId, dinner.id, [
         { userId: asia, servings: 0.8 },
         { userId: rafal, servings: 1.25 },
       ]);
+      const target = {
+        slots: [
+          {
+            dayOfWeek: 'MON' as const,
+            mealType: 'DINNER' as const,
+            recipeId: dinnerB.id,
+          },
+        ],
+      };
+      const refused = await weeklyPlans.applyWeekPlan(
+        asia,
+        householdId,
+        WEEK_START,
+        target,
+      );
+      expect(refused.applied).toBe(false);
+      expect(
+        refused.violations.map((v) => [v.index, v.code, v.recipeId]),
+      ).toEqual([[-1, 'PLAN_REVISION_REQUIRED', dinner.id]]);
+      expect(
+        (await readItems(asia, householdId)).map((item) => item.recipeId),
+      ).toEqual([dinner.id]);
+
+      const { revision } = (await weeklyPlans.getByHouseholdAndWeek(
+        asia,
+        householdId,
+        WEEK_START,
+      )) as unknown as { revision: number };
       const result = await weeklyPlans.applyWeekPlan(
         asia,
         householdId,
         WEEK_START,
-        {
-          slots: [
-            { dayOfWeek: 'MON', mealType: 'DINNER', recipeId: dinnerB.id },
-          ],
-        },
+        { ...target, expectedRevision: revision },
       );
       expect(result.applied).toBe(true);
       expect(result.changes).toEqual({ created: 1, updated: 0, deleted: 1 });
