@@ -1167,6 +1167,12 @@ export class AgentProposalsService {
         weekStart,
         { slots: readSlots(proposal.action) },
         {
+          // Porcje per osoba (ADR `plan-portions-write-safety`): bez `force`
+          // odcisk tygodnia (z porcjami) sprawdzany pod zamkiem gwarantuje, że
+          // jawne porcje propozycji liczono na bieżącej alokacji. Z `force`
+          // odcisk jest pominięty, więc propozycja nie może zmienić istniejącej
+          // alokacji — ani pominiętym polem, ani starszymi porcjami.
+          portionsPolicy: options.force ? 'no-allocation-changes' : 'strict',
           guard: async (tx, current) => {
             const claimed = await tx.agentProposal.updateMany({
               where: { id: proposal.id, status: statusBefore },
@@ -1316,8 +1322,9 @@ export class AgentProposalsService {
     }
 
     if (!result.applied || !message) {
-      // Naruszenia domeny zapadają PRZED transakcją, więc haki nie biegły:
-      // nic nie zostało przejęte ani zdjęte.
+      // Naruszenia domeny zapadają PRZED transakcją (haki nie biegły) albo —
+      // porcje per osoba — W niej, po `guard`, i wtedy cała transakcja jest
+      // wycofana. W obu razach nic nie zostało przejęte ani zdjęte.
       await this.markStatusFrom(proposal.id, statusBefore, 'STALE');
       throw new AppException(
         'AI_PROPOSAL_STALE',
@@ -1424,6 +1431,11 @@ export class AgentProposalsService {
         weekStart,
         { slots: readSlots(proposal.undoSnapshot, 'slots-array') },
         {
+          // Migawka „przed” jest dokładna (z porcjami), a `guard` niżej
+          // wymaga pod zamkiem, żeby tydzień był dokładnie stanem po zapisie —
+          // cofnięcie jest więc intencją chronioną odciskiem, także gdy
+          // przywraca pozycję BEZ alokacji (ADR `plan-portions-write-safety`).
+          portionsPolicy: 'authoritative',
           guard: async (tx, current) => {
             const claimed = await tx.agentProposal.updateMany({
               where: { id: proposal.id, status: 'APPLIED', appliedAt },
@@ -1491,8 +1503,9 @@ export class AgentProposalsService {
     }
 
     if (!result.applied || !message) {
-      // Odmowa domeny zapada PRZED transakcją, więc haki nie biegły:
-      // propozycja zostaje APPLIED — bo plan nadal jest taki, jak go zapisała.
+      // Odmowa domeny zapada PRZED transakcją (haki nie biegły) albo w niej,
+      // z wycofaniem całości: propozycja zostaje APPLIED — bo plan nadal
+      // jest taki, jak go zapisała.
       throw new AppException(
         'AI_PROPOSAL_STALE',
         'Nie da się już przywrócić poprzedniego planu — preferencje domowników albo przepisy zmieniły się od zapisu. Popraw plan ręcznie.',

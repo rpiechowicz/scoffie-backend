@@ -147,3 +147,70 @@ export function samePortions(
       Math.abs((left.get(portion.userId) ?? 0) - portion.servings) < 1e-9,
   );
 }
+
+/**
+ * Jak zapis traktuje alokację, którą pozycja JUŻ ma
+ * (`docs/adr/plan-portions-write-safety.md`):
+ * - `strict` — jawne `portions` zastępują alokację; brak pola albo `[]` nie
+ *   może jej ani usunąć, ani zmienić;
+ * - `no-allocation-changes` — jak `strict`, ale jawne `portions` też nie mogą
+ *   jej zmienić (zapis propozycji z `force`: odcisk tygodnia pominięty, więc
+ *   porcje w propozycji mogą być starsze niż stan);
+ * - `authoritative` — stan docelowy to intencja chroniona odciskiem tygodnia
+ *   sprawdzonym w tej samej transakcji (cofnięcie propozycji).
+ */
+export type PortionsWritePolicy =
+  | 'strict'
+  | 'no-allocation-changes'
+  | 'authoritative';
+
+/**
+ * - `WRITE` — zapis jak dotąd;
+ * - `KEEP` — zapis bez intencji co do porcji, który niczego w pozycji nie
+ *   zmienia: pozycja zostaje nietknięta (nic nie jest przenoszone ani
+ *   przeliczane);
+ * - `CONFLICT` — odmowa `PLAN_PORTIONS_CONFLICT`.
+ */
+export type PortionsWriteDecision = 'WRITE' | 'KEEP' | 'CONFLICT';
+
+export const PORTIONS_CONFLICT_MESSAGE =
+  'To danie ma porcje ustawione osobno dla każdej osoby, a ten zapis by je skasował. Odśwież plan i spróbuj ponownie.';
+
+/**
+ * Decyzja dla ISTNIEJĄCEJ pozycji (`current`, odczytanej pod zamkiem tygodnia
+ * w transakcji zapisu) i zapisu, który w nią trafia (`requested`).
+ * `participantIds` obu stron w postaci znormalizowanej (pusta = „Wspólne”).
+ * `[]` w `requested.portions` znaczy to samo co brak pola.
+ */
+export function portionsWriteDecision(
+  current: {
+    participantIds: readonly string[];
+    plannedServings: number;
+    portions: readonly PortionView[];
+  },
+  requested: {
+    participantIds: readonly string[];
+    plannedServings?: number | null;
+    portions: readonly PortionView[];
+  },
+  policy: PortionsWritePolicy = 'strict',
+): PortionsWriteDecision {
+  if (current.portions.length === 0 || policy === 'authoritative') {
+    return 'WRITE';
+  }
+  if (requested.portions.length > 0) {
+    return policy === 'no-allocation-changes' &&
+      !samePortions(current.portions, requested.portions)
+      ? 'CONFLICT'
+      : 'WRITE';
+  }
+  const sameAudience =
+    new Set(current.participantIds).size ===
+      new Set(requested.participantIds).size &&
+    requested.participantIds.every((id) => current.participantIds.includes(id));
+  const sameServings =
+    requested.plannedServings === undefined ||
+    requested.plannedServings === null ||
+    requested.plannedServings === current.plannedServings;
+  return sameAudience && sameServings ? 'KEEP' : 'CONFLICT';
+}

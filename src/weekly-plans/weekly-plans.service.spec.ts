@@ -661,6 +661,8 @@ describe('WeeklyPlansService', () => {
                   participants: params.replaced.participantIds.map(
                     (userId) => ({ userId }),
                   ),
+                  // Jak `select` w serwisie: pozycja bez alokacji porcji.
+                  portions: [],
                 }
               : null,
           );
@@ -674,6 +676,7 @@ describe('WeeklyPlansService', () => {
                   participants: params.existing.participantIds.map(
                     (userId) => ({ userId }),
                   ),
+                  portions: [],
                 }
               : null,
           );
