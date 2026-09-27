@@ -8585,6 +8585,8 @@
           "PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD",
           "PLAN_PORTIONS_CONFLICT",
           "PLAN_PORTIONS_INVALID",
+          "PLAN_REVISION_CONFLICT",
+          "PLAN_REVISION_REQUIRED",
           "PLAN_SLOT_DUPLICATE",
           "PLAN_SLOT_LIMIT_REACHED",
           "PLAN_SLOT_VARIANT_LIMIT_REACHED",
@@ -8664,6 +8666,10 @@
           "dryRun": {
             "description": "`true` = policz i sprawdź wszystko, ale NIC nie zapisuj.\n\nTo jest właściwy tryb dla asystenta: zanim zaproponuje tydzień\nużytkownikowi, dostaje pełną listę naruszeń (nieznany przepis, danie nie\ndo tego slotu, obcy domownik w audytorium) i może poprawić plan, zamiast\nzapisać połowę i utknąć.",
             "type": "boolean"
+          },
+          "expectedRevision": {
+            "description": "Token tygodnia z odczytu (`plan.revision`). Zgodny = stan docelowy\nzweryfikowany (wolno zastąpić i usunąć porcje per osoba); niezgodny =\n`applied: false` z naruszeniem `PLAN_REVISION_CONFLICT` (`index: -1`),\nnic nie wchodzi. Pominięty = kontrakt legacy — pozycje bez alokacji spoza\nstanu są usuwane, także te, których klient nie widział\n(ADR `plan-portions-safe-editing`).",
+            "type": "number"
           }
         },
         "required": ["slots"]
@@ -10583,6 +10589,26 @@
         },
         "required": ["dayOfWeek", "isEaten", "mealType", "recipeId"]
       },
+      "SetPortionDto": {
+        "description": "`weeklyPlans:setPortion` — porcja JEDNEJ osoby w pozycji z alokacją\n(ADR `plan-portions-safe-editing`). Porcje innych osób nie są zapisywane,\nwięc edycje różnych osób nie kolidują; nadpisanie tej samej osoby chroni\n`expectedRevision` (stempel JEJ porcji z odczytu).",
+        "type": "object",
+        "properties": {
+          "planItemId": {
+            "description": "`items[].id` z odczytu tygodnia.",
+            "type": "string"
+          },
+          "userId": { "description": "Czyja porcja.", "type": "string" },
+          "servings": {
+            "description": "Nowa porcja tej osoby (wartość bezwzględna), wielokrotność 0,05.",
+            "type": "number"
+          },
+          "expectedRevision": {
+            "description": "`items[].portions[].revision` tej osoby z odczytu.",
+            "type": "number"
+          }
+        },
+        "required": ["expectedRevision", "planItemId", "servings", "userId"]
+      },
       "ShoppingListItem": {
         "type": "object",
         "properties": {
@@ -10831,13 +10857,17 @@
             "type": "number"
           },
           "portions": {
-            "description": "Porcje per osoba (Etap 2.2) — zbiór osób = audytorium slotu, każda\nporcja wielokrotnością 0,05. Podane = źródło prawdy (`plannedServings`\nliczy serwer). POMINIĘTE = pozycja bez alokacji: zapis ze starszego\nklienta albo zmiana łącznej liczby porcji stepperem wraca do równego\npodziału — świadomie, bo stare porcje osób nie pasowałyby już do sumy.",
+            "description": "Porcje per osoba (Etap 2.2) — zbiór osób = audytorium slotu, każda\nporcja wielokrotnością 0,05. Podane = źródło prawdy (`plannedServings`\nliczy serwer); zastąpienie ISTNIEJĄCEJ alokacji wymaga `expectedRevision`.\nPOMINIĘTE (albo `[]`) nie kasują alokacji, którą pozycja ma (ADR\n`plan-portions-write-safety`).",
             "type": "array",
             "items": { "$ref": "#/components/schemas/PlanPortionDto" }
           },
           "replaceRecipeId": {
             "description": "Przepis, który ma zniknąć ze slotu w TEJ SAMEJ transakcji, w której wchodzi\n`recipeId`. Tak wygląda „zmień danie\": klient nie woła już\n`removeWeekSlot` + `upsertWeekSlot`, między którymi slot stał pusty, a\ndrugi domownik dostawał dwa powiadomienia zamiast jednego.\n\nRówne `recipeId` znaczy „bez podmiany\" — arkusz edycji wysyła edytowany\nprzepis także wtedy, gdy użytkownik ruszył tylko audytorium albo porcje.\nPominięte `participantIds` przy podmianie przejmuje audytorium starego\ndania (po odsianiu byłych domowników); pominięte `plannedServings`\nzachowuje ręcznie wybraną liczbę porcji, a auto przelicza na nowo.\n\niOS wysyła to pole wyłącznie wtedy, gdy ma co podmienić (nigdy `\"\"` ani\n`null`), więc `@IsOptional()` + `@IsUUID()` opisuje dokładnie to, co\nprzychodzi.",
             "type": "string"
+          },
+          "expectedRevision": {
+            "description": "Token pozycji z odczytu (`items[].revision`) — przy `replaceRecipeId`\npozycji ŹRÓDŁOWEJ. Niezgodny = `PLAN_REVISION_CONFLICT` (chyba że zapis\nnic by nie zmienił); pominięty = zapis bez weryfikacji (legacy), który\nnie może zastąpić ani usunąć porcji per osoba\n(ADR `plan-portions-safe-editing`).",
+            "type": "number"
           }
         },
         "required": ["dayOfWeek", "mealType", "recipeId"]
@@ -11066,6 +11096,19 @@
         },
         "required": ["data", "householdId", "weekStart"]
       },
+      "WeeklyPlansSetPortionPayload": {
+        "type": "object",
+        "properties": {
+          "data": { "$ref": "#/components/schemas/SetPortionDto" },
+          "weekStart": { "type": "string" },
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "householdId": { "type": "string" }
+        },
+        "required": ["data", "householdId", "weekStart"]
+      },
       "WeeklyPlansSetShoppingItemCheckedPayload": {
         "type": "object",
         "properties": {
@@ -11166,6 +11209,8 @@
           "PLAN_PARTICIPANT_NOT_IN_HOUSEHOLD",
           "PLAN_PORTIONS_CONFLICT",
           "PLAN_PORTIONS_INVALID",
+          "PLAN_REVISION_CONFLICT",
+          "PLAN_REVISION_REQUIRED",
           "PLAN_SLOT_DUPLICATE",
           "PLAN_SLOT_LIMIT_REACHED",
           "PLAN_SLOT_VARIANT_LIMIT_REACHED",
@@ -12364,23 +12409,29 @@
               "type": "object",
               "properties": {
                 "index": {
-                  "description": "Pozycja w przysłanej liście `slots` — wołający wie, co poprawić. `-1` =\npozycja SPOZA stanu docelowego, której zapis nie może usunąć (porcje per\nosoba przy zapisie propozycji z `force`).",
+                  "description": "Pozycja w przysłanej liście `slots` — wołający wie, co poprawić. `-1` =\npozycja SPOZA stanu docelowego, której zapis nie może usunąć (porcje per\nosoba), albo cały tydzień (`PLAN_REVISION_CONFLICT` — wtedy bez\n`dayOfWeek`/`mealType`/`recipeId`).",
                   "type": "number"
                 },
-                "dayOfWeek": { "$ref": "#/components/schemas/DayOfWeek" },
-                "mealType": { "$ref": "#/components/schemas/MealType" },
+                "dayOfWeek": {
+                  "enum": ["FRI", "MON", "SAT", "SUN", "THU", "TUE", "WED"],
+                  "type": "string"
+                },
+                "mealType": {
+                  "enum": [
+                    "AFTERNOON_SNACK",
+                    "BREAKFAST",
+                    "DINNER",
+                    "LUNCH",
+                    "SECOND_BREAKFAST",
+                    "SNACK"
+                  ],
+                  "type": "string"
+                },
                 "recipeId": { "type": "string" },
                 "code": { "$ref": "#/components/schemas/AppErrorCode" },
                 "message": { "type": "string" }
               },
-              "required": [
-                "code",
-                "dayOfWeek",
-                "index",
-                "mealType",
-                "message",
-                "recipeId"
-              ]
+              "required": ["code", "index", "message"]
             }
           },
           "changes": {
@@ -12511,16 +12562,21 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "revision": { "type": "number" },
                           "userId": { "type": "string" },
                           "servings": { "type": "number" }
                         },
-                        "required": ["servings", "userId"]
+                        "required": ["revision", "servings", "userId"]
                       }
                     },
                     "id": { "type": "string" },
                     "createdAt": { "type": "string", "format": "date-time" },
                     "mealType": { "$ref": "#/components/schemas/MealType" },
                     "recipeId": { "type": "string" },
+                    "revision": {
+                      "description": "`WeeklyPlan.revision` z chwili ostatniej zmiany pozycji (uczestnicy,\nporcje, `plannedServings`) — token `upsertWeekSlot` (ADR\n`plan-portions-safe-editing`). Nowa pozycja = nowa, wyższa wartość, więc\nstary token nie trafia w pozycję odtworzoną pod tym samym kluczem.",
+                      "type": "number"
+                    },
                     "weeklyPlanId": { "type": "string" },
                     "dayOfWeek": { "$ref": "#/components/schemas/DayOfWeek" },
                     "plannedServings": {
@@ -12539,6 +12595,7 @@
                     "portions",
                     "recipe",
                     "recipeId",
+                    "revision",
                     "weeklyPlanId"
                   ]
                 }
@@ -12546,13 +12603,18 @@
               "id": { "type": "string" },
               "createdAt": { "type": "string", "format": "date-time" },
               "updatedAt": { "type": "string", "format": "date-time" },
-              "householdId": { "type": "string" }
+              "householdId": { "type": "string" },
+              "revision": {
+                "description": "Rewizja treści tygodnia: +1 w każdej transakcji, która zmienia pozycje,\nuczestników, porcje albo `plannedServings` (nie „zjedzone”). Token\npełnego stanu `applyWeekPlan` i źródło stempli `PlanItem.revision` /\n`PlanItemPortion.revision` (ADR `plan-portions-safe-editing`).",
+                "type": "number"
+              }
             },
             "required": [
               "createdAt",
               "householdId",
               "id",
               "items",
+              "revision",
               "updatedAt",
               "weekStart"
             ],
@@ -12748,16 +12810,21 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "revision": { "type": "number" },
                       "userId": { "type": "string" },
                       "servings": { "type": "number" }
                     },
-                    "required": ["servings", "userId"]
+                    "required": ["revision", "servings", "userId"]
                   }
                 },
                 "id": { "type": "string" },
                 "createdAt": { "type": "string", "format": "date-time" },
                 "mealType": { "$ref": "#/components/schemas/MealType" },
                 "recipeId": { "type": "string" },
+                "revision": {
+                  "description": "`WeeklyPlan.revision` z chwili ostatniej zmiany pozycji (uczestnicy,\nporcje, `plannedServings`) — token `upsertWeekSlot` (ADR\n`plan-portions-safe-editing`). Nowa pozycja = nowa, wyższa wartość, więc\nstary token nie trafia w pozycję odtworzoną pod tym samym kluczem.",
+                  "type": "number"
+                },
                 "weeklyPlanId": { "type": "string" },
                 "dayOfWeek": { "$ref": "#/components/schemas/DayOfWeek" },
                 "plannedServings": {
@@ -12776,6 +12843,7 @@
                 "portions",
                 "recipe",
                 "recipeId",
+                "revision",
                 "weeklyPlanId"
               ]
             }
@@ -12783,13 +12851,18 @@
           "id": { "type": "string" },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" },
-          "householdId": { "type": "string" }
+          "householdId": { "type": "string" },
+          "revision": {
+            "description": "Rewizja treści tygodnia: +1 w każdej transakcji, która zmienia pozycje,\nuczestników, porcje albo `plannedServings` (nie „zjedzone”). Token\npełnego stanu `applyWeekPlan` i źródło stempli `PlanItem.revision` /\n`PlanItemPortion.revision` (ADR `plan-portions-safe-editing`).",
+            "type": "number"
+          }
         },
         "required": [
           "createdAt",
           "householdId",
           "id",
           "items",
+          "revision",
           "updatedAt",
           "weekStart"
         ]
@@ -12954,16 +13027,21 @@
             "items": {
               "type": "object",
               "properties": {
+                "revision": { "type": "number" },
                 "userId": { "type": "string" },
                 "servings": { "type": "number" }
               },
-              "required": ["servings", "userId"]
+              "required": ["revision", "servings", "userId"]
             }
           },
           "id": { "type": "string" },
           "createdAt": { "type": "string", "format": "date-time" },
           "mealType": { "$ref": "#/components/schemas/MealType" },
           "recipeId": { "type": "string" },
+          "revision": {
+            "description": "`WeeklyPlan.revision` z chwili ostatniej zmiany pozycji (uczestnicy,\nporcje, `plannedServings`) — token `upsertWeekSlot` (ADR\n`plan-portions-safe-editing`). Nowa pozycja = nowa, wyższa wartość, więc\nstary token nie trafia w pozycję odtworzoną pod tym samym kluczem.",
+            "type": "number"
+          },
           "weeklyPlanId": { "type": "string" },
           "dayOfWeek": { "$ref": "#/components/schemas/DayOfWeek" },
           "plannedServings": {
@@ -12982,6 +13060,7 @@
           "portions",
           "recipe",
           "recipeId",
+          "revision",
           "weeklyPlanId"
         ]
       },

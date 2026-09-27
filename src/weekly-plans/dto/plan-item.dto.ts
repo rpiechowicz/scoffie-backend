@@ -9,6 +9,14 @@ export class PlanItemPortionDto {
   /** Porcja tej osoby w porcjach przepisu, wielokrotność 0,05. */
   @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6 })
   servings: number;
+
+  /**
+   * Stempel tej porcji — `expectedRevision` dla `weeklyPlans:setPortion`
+   * (ADR `plan-portions-safe-editing`). Klient przechowuje go bez
+   * interpretacji; 0 = porcja sprzed wdrożenia rewizji.
+   */
+  @ApiProperty({ example: 7, minimum: 0 })
+  revision: number;
 }
 
 export class PlanItemDto {
@@ -57,6 +65,15 @@ export class PlanItemDto {
    */
   @ApiProperty({ type: [PlanItemPortionDto] })
   portions: PlanItemPortionDto[];
+
+  /**
+   * Stempel pozycji — `expectedRevision` dla `weeklyPlans:upsertWeekSlot`
+   * (przy `replaceRecipeId`: stempel pozycji źródłowej). Rośnie przy każdej
+   * zmianie pozycji, jej uczestników albo porcji; odtworzona pozycja dostaje
+   * nowy, wyższy stempel.
+   */
+  @ApiProperty({ example: 7, minimum: 0 })
+  revision: number;
 
   @ApiProperty()
   createdAt: Date;
