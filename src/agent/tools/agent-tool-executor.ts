@@ -12,7 +12,11 @@ import {
   ApplyWeekPlanResult,
   WeeklyPlansService,
 } from '../../weekly-plans/weekly-plans.service';
-import { AgentMetricsService } from '../../observability/agent-metrics.service';
+import {
+  AgentMetricsService,
+  PLANNER_METRIC_STATUSES,
+  PLANNER_METRIC_TOOLS,
+} from '../../observability/agent-metrics.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AgentMemoryService } from '../agent-memory.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
@@ -920,6 +924,7 @@ export class AgentToolExecutor {
       if (context.planScope) {
         recordPlannedDays(name, input, context.planScope);
       }
+      this.recordOutcome(name, data);
       // Propozycja z naruszeniami (`proposed: false`) NIE kończy tury:
       // model musi poprawić dania i zawołać jeszcze raz.
       const endsTurn =
@@ -943,6 +948,13 @@ export class AgentToolExecutor {
         throw error;
       }
       const { contract } = mapError(error);
+      if (
+        (name === 'revise_proposal' || name === 'replace_plan_item') &&
+        (contract.code === 'NOT_FOUND' ||
+          contract.code.startsWith('AI_PROPOSAL_'))
+      ) {
+        this.metrics.recordProposalRefError(name);
+      }
       if (!(error instanceof AppException)) {
         // Nieznany błąd to nasza awaria, nie pomyłka modelu — w logu zostaje
         // ślad, do modelu idzie tylko tyle, żeby wiedział, że ma odpuścić.
@@ -959,6 +971,33 @@ export class AgentToolExecutor {
           ...(contract.details ? { details: contract.details } : {}),
         },
       };
+    }
+  }
+
+  /**
+   * Liczniki wyniku planera i „pokaż inne” (N8C §9). Tylko tu, po udanym
+   * wykonaniu — odtworzenie z dziennika efektów (`recognize`) nie liczy
+   * drugi raz.
+   */
+  private recordOutcome(name: string, data: unknown): void {
+    const result = (data ?? {}) as {
+      status?: unknown;
+      planner?: { status?: unknown };
+      skippedShown?: unknown;
+      exhausted?: unknown;
+    };
+    const tool = PLANNER_METRIC_TOOLS.find((known) => known === name);
+    if (!tool) return;
+    const status =
+      tool === 'suggest_meals' ? result.status : result.planner?.status;
+    const known = PLANNER_METRIC_STATUSES.find((value) => value === status);
+    if (known) this.metrics.recordPlannerOutcome(tool, known);
+    if (
+      tool === 'suggest_meals' &&
+      (result.exhausted === true ||
+        (typeof result.skippedShown === 'number' && result.skippedShown > 0))
+    ) {
+      this.metrics.recordShowOthers(result.exhausted === true);
     }
   }
 

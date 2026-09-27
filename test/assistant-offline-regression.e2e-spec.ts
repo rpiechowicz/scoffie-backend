@@ -15,6 +15,7 @@ import {
 } from '../src/agent/tools/agent-tools';
 import { AgentCard } from '../src/agent/cards/agent-cards';
 import { createTurnMemo } from '../src/agent/turn-memo';
+import { AgentMetricsService } from '../src/observability/agent-metrics.service';
 
 /**
  * Regresja asystenta OFFLINE — reguły ogólne (noc 26/27.09, N6).
@@ -575,6 +576,85 @@ describe('Asystent — regresja offline, reguły ogólne (N6)', () => {
       expect(read.ok && read.endsTurn).toBeFalsy();
       const card = await executor.execute('suggest_meals', suggest, ctx);
       expect(card.ok && card.endsTurn).toBe(true);
+    });
+  });
+
+  // ── N8C §9: liczniki planera i odwołań do propozycji ──────────────────
+  describe('metryki planera (N8C §9)', () => {
+    it('suggest_meals i build_meal_plan liczą status planera; nieznana propozycja — błąd odwołania', async () => {
+      const metrics = moduleRef.get(AgentMetricsService);
+      const total = (tool: 'build_meal_plan' | 'suggest_meals') =>
+        Object.values(metrics.snapshot().planner[tool]).reduce(
+          (sum, count) => sum + count,
+          0,
+        );
+      const before = {
+        suggest: total('suggest_meals'),
+        build: total('build_meal_plan'),
+        revise: metrics.snapshot().proposalRefErrors.revise_proposal,
+      };
+
+      const suggested = await executor.execute(
+        'suggest_meals',
+        {
+          week_start: WEEK_START,
+          day_of_week: 'THU',
+          meal_type: 'DINNER',
+          count: 3,
+          include_ingredients: [],
+          for_user_ids: [],
+          diet: 'NONE',
+          must_have_tags: [],
+          prefer_tags: [],
+          avoid_ingredients: [],
+          max_prep_minutes: 0,
+        },
+        context(home, { memo: createTurnMemo() }),
+      );
+      expect(suggested.ok).toBe(true);
+      expect(total('suggest_meals')).toBe(before.suggest + 1);
+
+      const built = await executor.execute(
+        'build_meal_plan',
+        {
+          week_start: WEEK_START,
+          days: ['THU'],
+          meal_types: [],
+          for_user_ids: [],
+          diet: 'NONE',
+          must_have_tags: [],
+          prefer_tags: [],
+          avoid_ingredients: [],
+          max_prep_minutes: 0,
+          day_kcal_target: 0,
+        },
+        context(home, { memo: createTurnMemo() }),
+      );
+      expect(built.ok).toBe(true);
+      expect(total('build_meal_plan')).toBe(before.build + 1);
+
+      const dinner = await prisma.recipe.findFirstOrThrow({
+        where: { isCatalog: true, isActive: true },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      });
+      const revised = await executor.execute(
+        'revise_proposal',
+        {
+          proposal_id: randomUUID(),
+          day_of_week: 'THU',
+          meal_type: 'DINNER',
+          recipe: dinner.id,
+        },
+        context(home, { memo: createTurnMemo() }),
+      );
+      expect(revised.ok).toBe(false);
+      expect(!revised.ok && revised.error.code).toMatch(
+        /^(AI_PROPOSAL_|NOT_FOUND$)/,
+      );
+      expect(metrics.snapshot().proposalRefErrors.revise_proposal).toBe(
+        before.revise + 1,
+      );
     });
   });
 
