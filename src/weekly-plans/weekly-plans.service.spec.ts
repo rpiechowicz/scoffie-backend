@@ -1337,6 +1337,11 @@ describe('WeeklyPlansService', () => {
 
       expect(prisma.membership.findUnique).toHaveBeenCalled();
       expect(prisma.weeklyPlan.create).not.toHaveBeenCalled();
+      // Tydzień, pozycje i porcje to osobne zapytania Prismy — czytane w jednej
+      // migawce (ADR `plan-portions-safe-editing`, token tygodnia = ten stan).
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        isolationLevel: 'RepeatableRead',
+      });
       // Jeden format tygodnia na drucie — ten sam, co w kopercie i w
       // broadcastach; dotąd szedł tu ISO datetime z Prismy.
       expect(result.weekStart).toBe(mockWeekStart);
@@ -1381,13 +1386,15 @@ describe('WeeklyPlansService', () => {
       // iOS dekoduje `id` i `weekStart` jako wymagane, a asystent nie może
       // dostawać 404 za „jeszcze nic nie zaplanowano" — wiersz zakładamy
       // przy odczycie (precedens: `clearWeekPlan` zostawia pusty wiersz).
-      prisma.weeklyPlan.findUnique.mockResolvedValue(null);
-      prisma.weeklyPlan.create.mockResolvedValue({
-        id: 'plan-new',
-        householdId: mockHouseholdId,
-        weekStart: new Date(mockWeekStart),
-        items: [],
-      });
+      prisma.weeklyPlan.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 'plan-new',
+          householdId: mockHouseholdId,
+          weekStart: new Date(mockWeekStart),
+          items: [],
+        });
+      prisma.weeklyPlan.create.mockResolvedValue({ id: 'plan-new' });
 
       const result = await service.getByHouseholdAndWeek(
         mockUserId,
@@ -1414,17 +1421,18 @@ describe('WeeklyPlansService', () => {
     });
 
     it('wyścig dwóch telefonów o pusty tydzień (P2002) → ponowny odczyt, nie CONFLICT', async () => {
-      prisma.weeklyPlan.findUnique.mockResolvedValue(null);
+      prisma.weeklyPlan.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          ...mockWeeklyPlan,
+          id: 'plan-from-other-phone',
+        });
       prisma.weeklyPlan.create.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError('duplicate', {
           code: 'P2002',
           clientVersion: 'test',
         }),
       );
-      prisma.weeklyPlan.findUniqueOrThrow.mockResolvedValue({
-        ...mockWeeklyPlan,
-        id: 'plan-from-other-phone',
-      });
 
       const result = await service.getByHouseholdAndWeek(
         mockUserId,
@@ -1432,7 +1440,8 @@ describe('WeeklyPlansService', () => {
         mockWeekStart,
       );
 
-      expect(prisma.weeklyPlan.findUniqueOrThrow).toHaveBeenCalledTimes(1);
+      // Ponowny odczyt tą samą migawkową ścieżką (drugi `findUnique`).
+      expect(prisma.weeklyPlan.findUnique).toHaveBeenCalledTimes(2);
       expect(result).toEqual(
         expect.objectContaining({
           id: 'plan-from-other-phone',

@@ -365,19 +365,38 @@ export class WeeklyPlansService {
       },
     } satisfies Prisma.WeeklyPlanInclude;
 
-    let plan = await this.prisma.weeklyPlan.findUnique({ where, include });
+    // Prisma czyta `include` OSOBNYMI zapytaniami (tydzień, pozycje, każda
+    // relacja), a bez transakcji każde widzi inny stan (READ COMMITTED) —
+    // zapis zatwierdzony w trakcie dawał `revision` sprzed zmiany z pozycjami
+    // po niej. Token tygodnia musi opisywać DOKŁADNIE zwrócony stan, więc
+    // odczyt idzie w jednej migawce (REPEATABLE READ: wszystkie zapytania
+    // transakcji widzą stan z chwili pierwszego). Transakcja INTERAKTYWNA:
+    // jednoelementowy `$transaction([...])` Prisma wysyła bez BEGIN (zmierzone
+    // w logu Postgresa) i nic nie chroni.
+    const readSnapshot = () =>
+      this.prisma.$transaction(
+        (tx) => tx.weeklyPlan.findUnique({ where, include }),
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+      );
+
+    let plan = await readSnapshot();
     if (!plan) {
-      plan = await this.prisma.weeklyPlan
-        .create({ data: { householdId, weekStart: weekStartDate }, include })
-        .catch(async (error: unknown) => {
+      await this.prisma.weeklyPlan
+        .create({
+          data: { householdId, weekStart: weekStartDate },
+          select: { id: true },
+        })
+        .catch((error: unknown) => {
           if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === 'P2002'
           ) {
-            return this.prisma.weeklyPlan.findUniqueOrThrow({ where, include });
+            return null;
           }
           throw error;
         });
+      plan = await readSnapshot();
+      if (!plan) throw new Error('weeklyPlan: brak wiersza tuż po założeniu');
     }
 
     return {
@@ -550,17 +569,18 @@ export class WeeklyPlansService {
         },
         select: { id: true },
       });
-      const lockedRevision = await lockWeekForWrite(tx, weeklyPlan.id);
+      await lockWeekForWrite(tx, weeklyPlan.id);
       // Członkostwo jeszcze raz, już pod zamkiem — patrz `ensureMembershipInTx`.
       await ensureMembershipInTx(tx, userId, householdId, participantIds);
       // Rewizja tygodnia +1 raz na transakcję, przy pierwszym zapisie treści;
-      // ta wartość stempluje zmienione pozycje i porcje.
+      // ta wartość stempluje zmienione pozycje i porcje. Ack NIE niesie
+      // rewizji tygodnia: token tygodnia wolno brać wyłącznie z pełnego
+      // odczytu (ADR `plan-portions-safe-editing`, decyzja 1).
       let stamp: number | null = null;
       const nextStamp = async (): Promise<number> => {
         if (stamp === null) stamp = await bumpWeekRevision(tx, weeklyPlan.id);
         return stamp;
       };
-      const planRevision = () => stamp ?? lockedRevision;
 
       await tx.shoppingListArchiveState.deleteMany({
         where: {
@@ -776,7 +796,6 @@ export class WeeklyPlansService {
             ...withPlanItemRelationIds(kept),
             replacedItemIds,
             changeKind: replaced ? ('REPLACED' as const) : ('NOOP' as const),
-            planRevision: planRevision(),
           };
         };
         if (decision === 'KEEP') return keepAsIs();
@@ -847,7 +866,6 @@ export class WeeklyPlansService {
           changeKind: replaced
             ? ('REPLACED' as const)
             : ('DETAILS_CHANGED' as const),
-          planRevision: planRevision(),
         };
       }
 
@@ -966,7 +984,6 @@ export class WeeklyPlansService {
         ...withPlanItemRelationIds(createdItem),
         replacedItemIds,
         changeKind: replaced ? ('REPLACED' as const) : ('CREATED' as const),
-        planRevision: planRevision(),
       };
     });
     // Panel (kanał na żywo): pulpit liczy dania w planach. Po commicie.
@@ -2086,7 +2103,7 @@ export class WeeklyPlansService {
         select: { id: true },
       });
       if (!weeklyPlan) throw planItemNotFound();
-      const lockedRevision = await lockWeekForWrite(tx, weeklyPlan.id);
+      await lockWeekForWrite(tx, weeklyPlan.id);
       await ensureMembershipInTx(tx, userId, householdId);
 
       // Pozycja szukana WYŁĄCZNIE w tym tygodniu tego domu: cudza pozycja
@@ -2113,7 +2130,6 @@ export class WeeklyPlansService {
         return {
           ...withPlanItemRelationIds(current),
           changeKind: 'NOOP' as const,
-          planRevision: lockedRevision,
         };
       };
       const requestedUnits = servingsToUnits(dto.servings);
@@ -2170,7 +2186,6 @@ export class WeeklyPlansService {
       return {
         ...withPlanItemRelationIds(updated),
         changeKind: 'DETAILS_CHANGED' as const,
-        planRevision: revision,
       };
     });
   }

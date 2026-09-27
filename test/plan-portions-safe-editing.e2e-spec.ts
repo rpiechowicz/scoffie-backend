@@ -278,7 +278,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     input: Parameters<SetPortionApi['setPortion']>[3],
   ) =>
     setPortion(actor, householdId, input) as Promise<
-      Item & { changeKind: string; planRevision: number }
+      Item & { changeKind: string }
     >;
 
   beforeAll(async () => {
@@ -968,7 +968,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
   });
 
   describe('macierz (ADR plan-portions-safe-editing)', () => {
-    type Ack = Item & { changeKind: string; planRevision: number };
+    type Ack = Item & { changeKind: string };
     const tuesday = (portions?: { userId: string; servings: number }[]) => ({
       dayOfWeek: 'TUE',
       mealType: 'DINNER',
@@ -1418,10 +1418,11 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
         'DETAILS_CHANGED',
         'NOOP',
       ]);
-      expect(retry.planRevision).toBe(first.planRevision);
-      expect((await readPlan(asia, householdId)).revision).toBe(
-        first.planRevision,
-      );
+      // Ponowienie nie podbija rewizji: stempel pozycji z acka = z odczytu.
+      expect(retry.revision).toBe(first.revision);
+      expect(
+        itemOf(await readPlan(asia, householdId), dinner.id)!.revision,
+      ).toBe(first.revision);
 
       let now = itemOf(await readPlan(asia, householdId), dinner.id)!;
       await setPortion(rafal, householdId, {
@@ -1451,7 +1452,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
         'DETAILS_CHANGED',
         'NOOP',
       ]);
-      expect(up2.planRevision).toBe(up1.planRevision);
+      expect(up2.revision).toBe(up1.revision);
       now = itemOf(await readPlan(asia, householdId), dinner.id)!;
       await setPortion(rafal, householdId, {
         planItemId: now.id,
@@ -1865,7 +1866,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       ).toEqual([[-1, 'PLAN_REVISION_CONFLICT']]);
     });
 
-    it('15. token w odczycie = token w odpowiedzi zapisu (upsertWeekSlot, setPortion, applyWeekPlan)', async () => {
+    it('15. token w odczycie = token w odpowiedzi zapisu (pozycja i porcje z acków upsertWeekSlot/setPortion, tydzień tylko z pełnego `plan` applyWeekPlan)', async () => {
       const { asia, rafal, householdId } = await couple('Tokeny');
       const created = (await upsert(asia, householdId, {
         recipeId: dinner.id,
@@ -1878,7 +1879,9 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       let item = itemOf(read, dinner.id)!;
       expect(created.revision).toBe(item.revision);
       expect(created.portions).toEqual(item.portions);
-      expect(created.planRevision).toBe(read.revision);
+      // Ack pozycji nie niesie tokenu tygodnia (decyzja 1: token tygodnia
+      // wyłącznie z pełnego snapshotu).
+      expect('planRevision' in created).toBe(false);
 
       const set = await setPortionAck(asia, householdId, {
         planItemId: item.id,
@@ -1890,7 +1893,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       item = itemOf(read, dinner.id)!;
       expect(set.revision).toBe(item.revision);
       expect(set.portions).toEqual(item.portions);
-      expect(set.planRevision).toBe(read.revision);
+      expect('planRevision' in set).toBe(false);
 
       const applied = await apply(asia, householdId, {
         expectedRevision: read.revision,

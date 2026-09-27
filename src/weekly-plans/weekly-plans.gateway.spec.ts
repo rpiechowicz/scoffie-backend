@@ -77,7 +77,7 @@ describe('WeeklyPlansGateway', () => {
         dayOfWeek: 'TUE',
         mealType: 'DINNER',
         changeKind: 'DETAILS_CHANGED',
-        planRevision: 4,
+        revision: 4,
       }),
       clearWeekPlan: jest.fn().mockResolvedValue({ removed: 3 }),
     };
@@ -271,7 +271,7 @@ describe('WeeklyPlansGateway', () => {
       expect(response).toEqual(
         expect.objectContaining({
           ok: true,
-          data: expect.objectContaining({ planRevision: 4 }),
+          data: expect.objectContaining({ revision: 4 }),
         }),
       );
       expect(weeklyPlansService.setPortion).toHaveBeenCalledWith(
@@ -304,7 +304,7 @@ describe('WeeklyPlansGateway', () => {
         dayOfWeek: 'TUE',
         mealType: 'DINNER',
         changeKind: 'NOOP',
-        planRevision: 4,
+        revision: 4,
       });
 
       const response = await gateway.setPortion(tokenClient(USER), body);
