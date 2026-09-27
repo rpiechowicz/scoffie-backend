@@ -85,7 +85,12 @@ describe('Kolejność blokad tygodnia (e2e, żywa baza)', () => {
     return cycle;
   };
 
-  /** Przezroczysty licznik prób transakcji; błędy nieudanych zostają w `failures`. */
+  /**
+   * Przezroczysty licznik prób transakcji ZAPISU; błędy nieudanych zostają
+   * w `failures`. Odczyt tygodnia (`getByHouseholdAndWeek`, np. `plan` w
+   * odpowiedzi `applyWeekPlan`) to migawkowa transakcja REPEATABLE READ bez
+   * blokad — nie jest próbą zapisu i nie wchodzi do licznika.
+   */
   const recordTransactions = () => {
     const failures: string[] = [];
     let attempts = 0;
@@ -95,7 +100,8 @@ describe('Kolejność blokad tygodnia (e2e, żywa baza)', () => {
     jest
       .spyOn(prisma, '$transaction')
       .mockImplementation((...args: unknown[]) => {
-        attempts += 1;
+        const options = args[1] as { isolationLevel?: string } | undefined;
+        if (options?.isolationLevel !== 'RepeatableRead') attempts += 1;
         return original(...args).catch((error: unknown) => {
           const known = error as { code?: string; message?: string };
           failures.push(`${known.code ?? '?'}: ${known.message ?? ''}`);
