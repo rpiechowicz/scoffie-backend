@@ -19,14 +19,14 @@ export class SetPortionDto {
   userId: string;
 
   /**
-   * Nowa porcja tej osoby (wartość bezwzględna), wielokrotność 0,05.
-   * @minimum 0.1
+   * Nowa porcja tej osoby (wartość bezwzględna), wielokrotność 0,5.
+   * @minimum 0.5
    * @maximum 6
-   * @multipleOf 0.05
+   * @multipleOf 0.5
    */
-  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6, multipleOf: 0.05 })
+  @ApiProperty({ example: 1.25, minimum: 0.5, maximum: 6, multipleOf: 0.5 })
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0.1)
+  @Min(0.5)
   @Max(6)
   servings: number;
 

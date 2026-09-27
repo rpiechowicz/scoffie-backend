@@ -60,15 +60,16 @@ export const PORTION_SHARE_MAX = 1.5;
 /**
  * Porcje PER OSOBA (Etap 2.2, `portionMode: 'per_user'`): każda osoba dostaje
  * własną porcję tego samego dania — 0,5–1,5 porcji przepisu (porcja =
- * całość / `Recipe.servings`, 1..8), krok 0,05 (jednostka zapisu). Pół
+ * całość / `Recipe.servings`, 1..8), krok 0,5 (od 27.09.2026: pół, jedna
+ * albo półtorej porcji — tak się nakłada na talerz; 0,85 nie). Pół
  * porcji to „mała porcja", półtorej — „duża"; poza tym zaczyna się inne danie,
  * nie inna porcja. Nie „naprawiamy" kcal ćwiartką obiadu ani trzema kolacjami.
  */
 export const PLANNER_PORTION_MIN = 0.5;
 export const PLANNER_PORTION_MAX = 1.5;
-export const PLANNER_PORTION_STEP = 0.05;
+export const PLANNER_PORTION_STEP = 0.5;
 
-/** Porcja osoby dla danego celu kcal: krok 0,05, widełki 0,5–1,5. */
+/** Porcja osoby dla danego celu kcal: krok 0,5, widełki 0,5–1,5. */
 export function portionFor(targetKcal: number, kcalPerServing: number): number {
   if (!(kcalPerServing > 0)) return 1;
   const raw = targetKcal / kcalPerServing;

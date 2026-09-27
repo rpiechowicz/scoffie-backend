@@ -10730,15 +10730,15 @@
         "required": ["data"]
       },
       "PlanPortionDto": {
-        "description": "Porcja jednej osoby (Etap 2.2): wielokrotność 0,05 porcji przepisu.",
+        "description": "Porcja jednej osoby (Etap 2.2): wielokrotność 0,5 porcji przepisu.",
         "type": "object",
         "properties": {
           "userId": { "type": "string" },
           "servings": {
             "description": "Porcja osoby w porcjach przepisu.",
-            "minimum": 0.1,
+            "minimum": 0.5,
             "maximum": 6,
-            "multipleOf": 0.05,
+            "multipleOf": 0.5,
             "type": "number"
           }
         },
@@ -11137,10 +11137,10 @@
           },
           "userId": { "description": "Czyja porcja.", "type": "string" },
           "servings": {
-            "description": "Nowa porcja tej osoby (wartość bezwzględna), wielokrotność 0,05.",
-            "minimum": 0.1,
+            "description": "Nowa porcja tej osoby (wartość bezwzględna), wielokrotność 0,5.",
+            "minimum": 0.5,
             "maximum": 6,
-            "multipleOf": 0.05,
+            "multipleOf": 0.5,
             "type": "number"
           },
           "expectedRevision": {
@@ -11398,7 +11398,7 @@
             "type": "number"
           },
           "portions": {
-            "description": "Porcje per osoba (Etap 2.2) — zbiór osób = audytorium slotu, każda\nporcja wielokrotnością 0,05. Podane = źródło prawdy (`plannedServings`\nliczy serwer); zastąpienie ISTNIEJĄCEJ alokacji wymaga `expectedRevision`.\nPOMINIĘTE (albo `[]`) nie kasują alokacji, którą pozycja ma (ADR\n`plan-portions-write-safety`).",
+            "description": "Porcje per osoba (Etap 2.2) — zbiór osób = audytorium slotu, każda\nporcja wielokrotnością 0,5. Podane = źródło prawdy (`plannedServings`\nliczy serwer); zastąpienie ISTNIEJĄCEJ alokacji wymaga `expectedRevision`.\nPOMINIĘTE (albo `[]`) nie kasują alokacji, którą pozycja ma (ADR\n`plan-portions-write-safety`).",
             "type": "array",
             "items": { "$ref": "#/components/schemas/PlanPortionDto" }
           },
@@ -13117,9 +13117,9 @@
                           "userId": { "type": "string" },
                           "servings": {
                             "description": "Porcja osoby w porcjach przepisu (kontrakt OpenAPI).",
-                            "minimum": 0.1,
+                            "minimum": 0.5,
                             "maximum": 6,
-                            "multipleOf": 0.05,
+                            "multipleOf": 0.5,
                             "type": "number"
                           }
                         },
@@ -13371,9 +13371,9 @@
                       "userId": { "type": "string" },
                       "servings": {
                         "description": "Porcja osoby w porcjach przepisu (kontrakt OpenAPI).",
-                        "minimum": 0.1,
+                        "minimum": 0.5,
                         "maximum": 6,
-                        "multipleOf": 0.05,
+                        "multipleOf": 0.5,
                         "type": "number"
                       }
                     },
@@ -13594,9 +13594,9 @@
                 "userId": { "type": "string" },
                 "servings": {
                   "description": "Porcja osoby w porcjach przepisu (kontrakt OpenAPI).",
-                  "minimum": 0.1,
+                  "minimum": 0.5,
                   "maximum": 6,
-                  "multipleOf": 0.05,
+                  "multipleOf": 0.5,
                   "type": "number"
                 }
               },

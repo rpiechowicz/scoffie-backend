@@ -53,22 +53,25 @@ const meal = (over: Partial<BalanceMeal> = {}): BalanceMeal => ({
 });
 
 describe('jednostki porcji', () => {
-  it('1 jednostka = 0,05 porcji; zapis w liczbach całkowitych', () => {
+  it('jednostka 1/20 porcji, krok zapisu 0,5 (10 jednostek); liczby całkowite', () => {
     expect(PORTION_UNITS_PER_SERVING).toBe(20);
-    expect(PORTION_STEP).toBeCloseTo(0.05);
+    expect(PORTION_STEP).toBe(0.5);
     expect(servingsToUnits(1)).toBe(20);
-    expect(servingsToUnits(0.8)).toBe(16);
-    expect(servingsToUnits(1.35)).toBe(27);
+    expect(servingsToUnits(0.5)).toBe(10);
+    expect(servingsToUnits(1.5)).toBe(30);
+    expect(unitsToServings(30)).toBe(1.5);
+    // Odczyt wierszy sprzed kroku 0,5 nadal dokładny (migracja je zaokrągla).
     expect(unitsToServings(27)).toBe(1.35);
-    expect(unitsToServings(16)).toBe(0.8);
   });
 
-  it('odrzuca porcje spoza kroku 0,05 i spoza widełek zapisu 0,1–6', () => {
+  it('odrzuca porcje spoza kroku 0,5 i spoza widełek zapisu 0,5–6', () => {
+    expect(servingsToUnits(0.8)).toBeNull();
+    expect(servingsToUnits(1.25)).toBeNull();
     expect(servingsToUnits(0.33)).toBeNull();
-    expect(servingsToUnits(0.05)).toBeNull();
-    expect(servingsToUnits(0.1)).toBe(2);
+    expect(servingsToUnits(0.1)).toBeNull();
+    expect(servingsToUnits(0)).toBeNull();
     expect(servingsToUnits(6)).toBe(120);
-    expect(servingsToUnits(6.05)).toBeNull();
+    expect(servingsToUnits(6.5)).toBeNull();
     expect(servingsToUnits(Number.NaN)).toBeNull();
   });
 
@@ -88,22 +91,22 @@ describe('jednostki porcji', () => {
     expect(toPortionViews(undefined)).toEqual([]);
     expect(toPortionViews(null)).toEqual([]);
     const views = toPortionViews([
-      { userId: RAFAL, units: 26 },
-      { userId: ASIA, units: 16 },
+      { userId: RAFAL, units: 30 },
+      { userId: ASIA, units: 20 },
     ]);
     expect(views).toEqual([
-      { userId: ASIA, servings: 0.8 },
-      { userId: RAFAL, servings: 1.3 },
+      { userId: ASIA, servings: 1 },
+      { userId: RAFAL, servings: 1.5 },
     ]);
     expect(toPortionRows(views)).toEqual([
-      { userId: ASIA, units: 16 },
-      { userId: RAFAL, units: 26 },
+      { userId: ASIA, units: 20 },
+      { userId: RAFAL, units: 30 },
     ]);
     expect(samePortions(views, [...views].reverse())).toBe(true);
     expect(
       samePortions(views, [
-        { userId: ASIA, servings: 0.85 },
-        { userId: RAFAL, servings: 1.3 },
+        { userId: ASIA, servings: 1.5 },
+        { userId: RAFAL, servings: 1.5 },
       ]),
     ).toBe(false);
   });
@@ -112,7 +115,16 @@ describe('jednostki porcji', () => {
 describe('walidacja alokacji (PLAN_PORTIONS_INVALID)', () => {
   const both = new Set([ASIA, RAFAL]);
 
-  it('poprawna: dokładnie audytorium, krok 0,05', () => {
+  it('poprawna: dokładnie audytorium, krok 0,5', () => {
+    expect(
+      portionsProblem(
+        [
+          { userId: ASIA, servings: 1 },
+          { userId: RAFAL, servings: 1.5 },
+        ],
+        both,
+      ),
+    ).toBeNull();
     expect(
       portionsProblem(
         [
@@ -121,7 +133,7 @@ describe('walidacja alokacji (PLAN_PORTIONS_INVALID)', () => {
         ],
         both,
       ),
-    ).toBeNull();
+    ).toMatch(/wielokrotność 0,5/);
   });
 
   it('brak osoby z audytorium, obca osoba albo duplikat = błąd', () => {
@@ -360,8 +372,8 @@ describe('jawna intencja porcji (per-user-portions-write-safety)', () => {
     participantIds: [] as string[],
     plannedServings: 3,
     portions: [
-      { userId: 'a', servings: 0.8 },
-      { userId: 'b', servings: 1.25 },
+      { userId: 'a', servings: 1 },
+      { userId: 'b', servings: 1.5 },
     ],
   };
   const request = (
@@ -390,7 +402,7 @@ describe('jawna intencja porcji (per-user-portions-write-safety)', () => {
 
   it('remapPortions: zostający zachowują porcję, nowi 1,00, usunięci znikają', () => {
     expect(remapPortions(current.portions, ['b', 'c'])).toEqual([
-      { userId: 'b', servings: 1.25 },
+      { userId: 'b', servings: 1.5 },
       { userId: 'c', servings: 1 },
     ]);
   });
@@ -404,7 +416,7 @@ describe('jawna intencja porcji (per-user-portions-write-safety)', () => {
       ),
     ).toEqual({
       decision: 'REVISION_REQUIRED',
-      portions: [{ userId: 'a', servings: 0.8 }],
+      portions: [{ userId: 'a', servings: 1 }],
     });
   });
 
