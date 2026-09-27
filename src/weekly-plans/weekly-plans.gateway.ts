@@ -29,6 +29,7 @@ import { ApplyWeekPlanDto } from './dto/apply-week-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
+import { SetPortionDto } from './dto/set-portion.dto';
 import { Server, Socket } from 'socket.io';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
@@ -114,6 +115,11 @@ class WeeklyPlansRemoveWeekSlotPayload extends WeeklyPlansHouseholdWeekPayload {
 class WeeklyPlansSetMealEatenPayload extends WeeklyPlansHouseholdWeekPayload {
   @IsObject()
   data: SetMealEatenDto;
+}
+
+class WeeklyPlansSetPortionPayload extends WeeklyPlansHouseholdWeekPayload {
+  @IsObject()
+  data: SetPortionDto;
 }
 
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
@@ -777,6 +783,57 @@ export class WeeklyPlansGateway
         },
       );
 
+      return result;
+    });
+  }
+
+  /**
+   * Porcja jednej osoby (ADR `plan-portions-safe-editing`). Broadcast tylko
+   * po faktycznej zmianie — ponowienie, które nic nie zmieniło, i każda
+   * odmowa (konflikt, walidacja) nie odświeżają innych telefonów. Bez pusha:
+   * porcja to ustawienie, nie nowe danie. Akcja `UPSERT_SLOT`, bo iOS zna
+   * tylko te nazwy.
+   */
+  @SubscribeMessage('weeklyPlans:setPortion')
+  setPortion(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: WeeklyPlansSetPortionPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(WeeklyPlansSetPortionPayload, payload);
+      const result = await this.weeklyPlansService.setPortion(
+        userId,
+        payload.householdId,
+        payload.weekStart,
+        payload.data,
+      );
+      if (result.changeKind === 'NOOP') return result;
+
+      const changedByDisplayName =
+        await this.weeklyPlansService.getUserDisplayName(userId);
+      broadcastToHousehold(
+        this.server,
+        payload.householdId,
+        'weeklyPlans:weekChanged',
+        {
+          householdId: payload.householdId,
+          weekStart: payload.weekStart,
+          action: 'UPSERT_SLOT',
+          changedByUserId: userId,
+          changedByDisplayName,
+          dayOfWeek: result.dayOfWeek,
+          mealType: result.mealType,
+          changeVersion: this.nextChangeVersion(),
+        },
+      );
+      this.emitShoppingListChanged({
+        householdId: payload.householdId,
+        weekStart: payload.weekStart,
+        action: 'UPSERT_SLOT',
+        changedByUserId: userId,
+        changedByDisplayName,
+      });
       return result;
     });
   }

@@ -236,6 +236,15 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
       isEaten: true,
     },
   },
+  'weeklyPlans:setPortion': {
+    ...hhWeek,
+    data: {
+      planItemId: RECIPE_2,
+      userId: MEMBER,
+      servings: 1.25,
+      expectedRevision: 3,
+    },
+  },
   'weeklyPlans:getSavedPlan': { ...hhWeek },
   'weeklyPlans:clearWeekPlan': { ...hhWeek },
   // HouseholdsGateway
@@ -499,6 +508,19 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
   'weeklyPlans:setMealEaten': [
     missingData(hhWeek),
     dataNotObject(hhWeek, null),
+  ],
+  'weeklyPlans:setPortion': [
+    missingData(hhWeek),
+    dataNotObject(hhWeek, 1.25),
+    badHouseholdId({
+      weekStart: WEEK_START,
+      data: {
+        planItemId: RECIPE_2,
+        userId: MEMBER,
+        servings: 1,
+        expectedRevision: 0,
+      },
+    }),
   ],
   'weeklyPlans:getSavedPlan': [
     badHouseholdId({ weekStart: WEEK_START }),
