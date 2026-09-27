@@ -830,7 +830,7 @@ describe('Per-user portions — write safety', () => {
       ]);
     });
 
-    it('4. PRESERVE: zmiana audytorium bez tokenu — serwer przelicza alokację; ten sam stan = NOOP; porcje w żądaniu = VALIDATION_ERROR', async () => {
+    it('4. PRESERVE: zmiana audytorium wymaga tokenu; ten sam stan = NOOP', async () => {
       const { asia, rafal, householdId } = await couple('Preserve');
       await allocate(asia, householdId, [
         { userId: asia, servings: 0.9 },
@@ -840,9 +840,19 @@ describe('Per-user portions — write safety', () => {
         portionPolicy: 'PRESERVE',
       })) as unknown as { changeKind: string };
       expect(same.changeKind).toBe('NOOP');
+      expect(
+        await attempt(() =>
+          upsert(rafal, householdId, {
+            portionPolicy: 'PRESERVE',
+            participantIds: [asia],
+          }),
+        ),
+      ).toBe('PLAN_REVISION_REQUIRED');
       await upsert(rafal, householdId, {
         portionPolicy: 'PRESERVE',
         participantIds: [asia],
+        expectedRevision: itemOf(await readPlan(asia, householdId), dinner.id)!
+          .revision,
       });
       const item = itemOf(await readPlan(asia, householdId), dinner.id)!;
       expect(item.participantIds).toEqual([asia]);
@@ -856,6 +866,57 @@ describe('Per-user portions — write safety', () => {
           }),
         ),
       ).toBe('VALIDATION_ERROR');
+    });
+
+    it('PRESERVE: stara lista nie usuwa osoby dodanej przez drugi telefon', async () => {
+      const { asia, rafal, ola, householdId } = await trio('StalePreserve');
+      const seen = await allocate(
+        asia,
+        householdId,
+        [
+          { userId: asia, servings: 0.9 },
+          { userId: rafal, servings: 1.3 },
+        ],
+        { participantIds: [asia, rafal] },
+      );
+      await upsert(rafal, householdId, {
+        participantIds: [],
+        portionPolicy: 'PRESERVE',
+        expectedRevision: seen.revision,
+      });
+      const before = itemOf(await readPlan(asia, householdId), dinner.id)!;
+      for (const token of [{}, { expectedRevision: seen.revision }]) {
+        expect(
+          await attempt(() =>
+            upsert(asia, householdId, {
+              participantIds: [asia, rafal],
+              portionPolicy: 'PRESERVE',
+              ...token,
+            }),
+          ),
+        ).toBe(
+          'expectedRevision' in token
+            ? 'PLAN_REVISION_CONFLICT'
+            : 'PLAN_REVISION_REQUIRED',
+        );
+        expect(itemOf(await readPlan(asia, householdId), dinner.id)).toEqual(
+          before,
+        );
+      }
+      expect(byPerson(before.portions)[ola]).toBe(1);
+      const fields = {
+        slots: [
+          tue({ participantIds: [asia, rafal], portionPolicy: 'PRESERVE' }),
+        ],
+      };
+      for (const dryRun of [true, false]) {
+        expect(
+          codes(await apply(asia, householdId, { ...fields, dryRun })),
+        ).toEqual(['PLAN_REVISION_REQUIRED']);
+      }
+      expect(itemOf(await readPlan(asia, householdId), dinner.id)).toEqual(
+        before,
+      );
     });
 
     it('5. RESET: bez tokenu → PLAN_REVISION_REQUIRED (nic nie zmienione); z tokenem → równy podział, plannedServings zachowane', async () => {
@@ -981,6 +1042,8 @@ describe('Per-user portions — write safety', () => {
       await upsert(asia, householdId, {
         portionPolicy: 'PRESERVE',
         participantIds: [],
+        expectedRevision: itemOf(await readPlan(asia, householdId), dinner.id)!
+          .revision,
       });
       let item = itemOf(await readPlan(asia, householdId), dinner.id)!;
       expect(item.participantIds).toEqual([]);
@@ -993,6 +1056,7 @@ describe('Per-user portions — write safety', () => {
       await upsert(asia, householdId, {
         portionPolicy: 'PRESERVE',
         participantIds: [asia, ola],
+        expectedRevision: item.revision,
       });
       item = itemOf(await readPlan(asia, householdId), dinner.id)!;
       expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [ola]: 1 });
@@ -1009,16 +1073,28 @@ describe('Per-user portions — write safety', () => {
       ).toBe('PLAN_PORTIONS_INVALID');
     });
 
-    it('13 + 14. zamiana dania: PRESERVE (KEEP) przenosi porcje osób bez tokenu; RESET wymaga tokenu źródła i daje równy podział', async () => {
+    it('13 + 14. zamiana dania: PRESERVE i RESET wymagają tokenów źródła i celu', async () => {
       const { asia, rafal, householdId } = await couple('Zamiana');
       await allocate(asia, householdId, [
         { userId: asia, servings: 0.9 },
         { userId: rafal, servings: 1.3 },
       ]);
+      expect(
+        await attempt(() =>
+          upsert(rafal, householdId, {
+            recipeId: dinnerB.id,
+            replaceRecipeId: dinner.id,
+            portionPolicy: 'PRESERVE',
+          }),
+        ),
+      ).toBe('PLAN_REVISION_REQUIRED');
       await upsert(rafal, householdId, {
         recipeId: dinnerB.id,
         replaceRecipeId: dinner.id,
         portionPolicy: 'PRESERVE',
+        expectedRevision: itemOf(await readPlan(asia, householdId), dinner.id)!
+          .revision,
+        expectedTargetRevision: null,
       });
       let plan = await readPlan(asia, householdId);
       expect(plan.items.map((i) => i.recipeId)).toEqual([dinnerB.id]);
@@ -1073,6 +1149,7 @@ describe('Per-user portions — write safety', () => {
 
       const preserve = {
         slots: [tue({ portionPolicy: 'PRESERVE', participantIds: [rafal] })],
+        expectedRevision: (await readPlan(asia, householdId)).revision,
       };
       const dry = await apply(asia, householdId, { ...preserve, dryRun: true });
       expect(dry.violations).toEqual([]);
@@ -1164,6 +1241,8 @@ describe('Per-user portions — write safety', () => {
       await upsert(asia, householdId, {
         portionPolicy: 'PRESERVE',
         participantIds: [],
+        expectedRevision: itemOf(await readPlan(asia, householdId), dinner.id)!
+          .revision,
       });
       const after = await amounts();
       // Σ porcji 2,2 → 3,2: każdy produkt rośnie w tej proporcji (co do

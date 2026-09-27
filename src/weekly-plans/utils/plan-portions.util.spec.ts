@@ -395,7 +395,7 @@ describe('jawna intencja porcji (per-user-portions-write-safety)', () => {
     ]);
   });
 
-  it('PRESERVE: zmiana audytorium przelicza alokację na serwerze, bez tokenu', () => {
+  it('PRESERVE: zmiana audytorium wymaga tokenu', () => {
     expect(
       planPortionsForExisting(
         current,
@@ -403,7 +403,7 @@ describe('jawna intencja porcji (per-user-portions-write-safety)', () => {
         'strict',
       ),
     ).toEqual({
-      decision: 'WRITE',
+      decision: 'REVISION_REQUIRED',
       portions: [{ userId: 'a', servings: 0.8 }],
     });
   });

@@ -656,6 +656,15 @@ export class WeeklyPlansService {
       // — klient zamienia stan, którego już nie ma: konflikt, nic nie zmienione.
       const expectedRevision = dto.expectedRevision;
       const expectedTargetRevision = dto.expectedTargetRevision;
+      // PRESERVE przenosi porcje, ale zamiana nadal usuwa źródło i może
+      // przepisać cel. Intencja musi dotyczyć obu odczytanych wersji.
+      if (
+        replaceRecipeId &&
+        dto.portionPolicy === 'PRESERVE' &&
+        expectedRevision === undefined
+      ) {
+        throw revisionRequired(replaced?.id ?? existingItem?.id ?? '');
+      }
       if (replaceRecipeId && expectedRevision !== undefined) {
         if (!replaced || replaced.revision !== expectedRevision) {
           throw revisionConflict(replaced);

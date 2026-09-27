@@ -31,7 +31,7 @@ panel. Po tym workstreamie:
 | `upsertWeekSlot` legacy                                    | KEEP/CONFLICT (#209)                            | bez zmian                                                               |
 | `upsertWeekSlot` z intencją                                | brak intencji                                   | `portionPolicy` PRESERVE / REPLACE / RESET                              |
 | zmiana audytorium z alokacją                               | klient musiał podać pełne porcje                | `PRESERVE` — serwer przelicza                                           |
-| zamiana dania z alokacją                                   | tylko jawne porcje + tokeny                     | `PRESERVE` (KEEP, bez tokenu), `RESET` (z tokenem źródła), `REPLACE`    |
+| zamiana dania z alokacją                                   | tylko jawne porcje + tokeny                     | `PRESERVE` (KEEP, para tokenów źródła/celu), `RESET`, `REPLACE`    |
 | `applyWeekPlan`                                            | KEEP/CONFLICT/REVISION_REQUIRED                 | + `portionPolicy` per slot; dryRun = podgląd = zapis                    |
 | propozycja tygodnia/dnia (model) zamienia danie z alokacją | **alokacja przepadała** (G1)                    | nowe danie przejmuje porcje osób                                        |
 | propozycja tygodnia/dnia (model) pomija pozycję z alokacją | **propozycja powstawała, zapis kasował** (G1b)  | odmowa `PLAN_PORTIONS_CONFLICT` (usunięcie tylko `propose_remove_meal`) |
@@ -98,7 +98,7 @@ na zamek i zobaczył alokację B). Pozycja bez alokacji — jak dotąd (test 3 +
 | Intencja           | `portions`                              | Pozycja BEZ alokacji | Pozycja Z alokacją                                                                               |
 | ------------------ | --------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------ |
 | brak pola (legacy) | niepuste = REPLACE, puste/brak = LEGACY | jak dotąd            | identyczny → KEEP; zmiana → `PLAN_PORTIONS_CONFLICT`                                             |
-| `PRESERVE`         | zabronione                              | jak dotąd            | zachowaj; audytorium przeliczone na serwerze (§7); `plannedServings` = ceil(Σ); bez tokenu       |
+| `PRESERVE`         | zabronione                              | jak dotąd            | zachowaj; audytorium przeliczone na serwerze (§7); `plannedServings` = ceil(Σ); zmiana audytorium/alokacji wymaga tokenu, prawdziwy NOOP nie wymaga       |
 | `REPLACE`          | wymagane                                | nowa alokacja        | zastąpienie tylko z tokenem (inaczej 428)                                                        |
 | `RESET`            | zabronione                              | jak dotąd            | równy podział tylko z tokenem (inaczej 428); `plannedServings` zachowane (regula ręcznej liczby) |
 
@@ -139,7 +139,7 @@ usuwa Rafała (2). iOS nie rekonstruuje mapy.
 `upsertWeekSlot` + `replaceRecipeId`:
 
 - `PRESERVE` (= KEEP): porcje osób ze źródła przechodzą na nowe danie, przeliczone na jego audytorium. Tokeny
-  opcjonalne; gdy podane — parą, jak w #212.
+  wymagane parą: `expectedRevision` źródła i `expectedTargetRevision` celu (`null`, jeśli celu nie było).
 - `RESET`: równy podział; wymaga tokenu źródła.
 - `REPLACE`: jawne porcje nowego dania (jak w #212).
 - Brak polityki (legacy), źródło z alokacją, bez porcji → `PLAN_PORTIONS_CONFLICT`.
@@ -309,8 +309,8 @@ Mapowanie operacji iOS:
 | Operacja w UI                         | Wywołanie                                                                                                                                                                 |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | zmiana porcji jednej osoby (stepper)  | `setPortion` (bez zmian z #212)                                                                                                                                           |
-| zmiana „kto je” na pozycji z alokacją | `upsertWeekSlot` + `participantIds` + `portionPolicy: PRESERVE` (+ `expectedRevision` pozycji zalecany) — BEZ `portions` i BEZ `plannedServings`; nowa osoba dostaje 1,00 |
-| zamiana dania, zachowanie porcji      | `upsertWeekSlot` + `replaceRecipeId` + `portionPolicy: PRESERVE` (+ para tokenów zalecana)                                                                                |
+| zmiana „kto je” na pozycji z alokacją | `upsertWeekSlot` + `participantIds` + `portionPolicy: PRESERVE` + wymagany `expectedRevision` pozycji — BEZ `portions` i BEZ `plannedServings`; nowa osoba dostaje 1,00 |
+| zamiana dania, zachowanie porcji      | `upsertWeekSlot` + `replaceRecipeId` + `portionPolicy: PRESERVE` + wymagana para tokenów źródła/celu                                                                                |
 | zamiana dania, równy podział          | `portionPolicy: RESET` + `expectedRevision` (źródło) + `expectedTargetRevision`                                                                                           |
 | „wróć do równego podziału”            | `portionPolicy: RESET` + `expectedRevision`                                                                                                                               |
 | ustaw całą mapę                       | `portionPolicy: REPLACE` + `portions` + `expectedRevision`                                                                                                                |
@@ -321,7 +321,7 @@ Nowe odpowiedzi błędów (reszta jak w `ios-contract.md` §6):
 | ----------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |
 | `VALIDATION_ERROR` 400, `details: ["portions"]` | REPLACE bez porcji; PRESERVE/RESET z porcjami                      | błąd klienta                                                     |
 | `PLAN_PORTIONS_INVALID` 400                     | PRESERVE z `plannedServings` ≠ ceil(Σ); suma po dodaniu osoby > 12 | nie wysyłaj `plannedServings` z PRESERVE; przy sumie — komunikat |
-| `PLAN_REVISION_REQUIRED` 428                    | RESET/REPLACE na pozycji z alokacją bez tokenu                     | dołóż token z odczytu                                            |
+| `PLAN_REVISION_REQUIRED` 428                    | RESET/REPLACE lub zmiana audytorium/alokacji PRESERVE bez tokenu; zamiana PRESERVE bez pary tokenów                     | dołóż tokeny ze świeżego odczytu                                            |
 
 Pozostałe punkty kontraktu:
 
@@ -357,7 +357,7 @@ Pozostałe punkty kontraktu:
    - Nie. Porcje różnych osób (`setPortion`) — obie zostają. Ta sama osoba — jedna wchodzi, druga dostaje
      konflikt.
    - Pełne zapisy z nieaktualnym tokenem → konflikt. Bez tokenu → nie mogą zastąpić ani zresetować alokacji (428).
-     PRESERVE czyta aktualne porcje pod zamkiem.
+     PRESERVE czyta aktualne porcje pod zamkiem, ale zmiana audytorium/alokacji wymaga tokenu; zamiana dania wymaga pary tokenów. Sam odczyt pod zamkiem nie chroni intencji starego klienta.
    - Wyjątki to jawne operacje: usunięcie osoby z audytorium (znika JEJ porcja) i usunięcie posiłku.
 3. **Czy AI może zgubić porcje nietkniętej pozycji?**
    - Nie. KEEP albo PRESERVE, identyczne sloty z migawki są no-opem, lista wszystkich domowników nie jest
@@ -398,3 +398,32 @@ Pozostałe punkty kontraktu:
 ## Werdykt
 
 **READY FOR REVIEW** — PR zależny od #212 (a ten od #209). Nie merge'owane, nie wdrożone. Flaga bez zmian.
+
+## Addendum — ostatni review przed integracją (2026-09-27)
+
+Znaleziono lukę w `PRESERVE`: odczyt bieżącej alokacji pod zamkiem nie chronił
+przed przysłaniem starej listy uczestników. Telefon B dodawał osobę, a telefon A
+mógł usunąć ją wraz z porcją, wysyłając stary zestaw bez rewizji.
+
+- Dowód przed poprawką: test utila wymagający `REVISION_REQUIRED` dla zmiany
+  audytorium FAIL (otrzymywał `WRITE`; 24 pozostałe testy PASS).
+- Minimalna poprawka: zmiana audytorium lub alokacji przez `PRESERVE` w trybie
+  `strict` wymaga rewizji. Prawdziwy NOOP bez tokenu pozostaje dozwolony.
+  Zamiana dania `PRESERVE` wymaga pary tokenów źródła i celu.
+- Regresja PostgreSQL: B dodaje trzecią osobę, A wysyła stary stan bez tokenu
+  albo ze starym tokenem; odmowa i stan pozycji bez zmian. Obejmuje także
+  `applyWeekPlan`, jego `dryRun` i zapis. Istniejące testy poprawnych zmian
+  przekazują teraz tokeny wymagane kontraktem.
+- Zaktualizowano powyższą instrukcję dla klienta: tokeny nie są już tylko zaleceniem.
+
+Zmierzona regresja lokalna: util 25/25, dedykowane e2e 24/24, pełne unit
+3621/3621 (203 suites), pełne e2e 701/701 (59 suites). Typecheck, OpenAPI
+i build PASS; lint 0 błędów / 42 ostrzeżenia. Testy na osobnej lokalnej bazie
+PostgreSQL po migracjach i bootstrapie; bez live AI. Log e2e zawiera ostrzeżenia
+o niedostępnym lokalnym Cookidoo, ale żadnego failing testu. Lokalny Node 24
+jest poza deklarowanym zakresem projektu; przed merge wymagane także CI Node 22.
+
+Ryzyko kompatybilności: klient używający nowego `PRESERVE` do zmiany uczestników
+lub zamiany dania musi przekazać tokeny ze świeżego odczytu. Legacy bez nowych
+pól pozostaje objęte istniejącymi testami. Bez zmian migracji, flag i algorytmu
+catalog sync. Commit poprawki identyfikuje historia tego addendum.

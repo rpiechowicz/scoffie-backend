@@ -364,6 +364,15 @@ export function planPortionsForExisting(
         };
       }
       const changed = !samePortions(current.portions, portions);
+      const audienceChanged =
+        new Set(current.participantIds).size !==
+          new Set(requested.participantIds).size ||
+        requested.participantIds.some(
+          (id) => !current.participantIds.includes(id),
+        );
+      if ((changed || audienceChanged) && policy === 'strict') {
+        return { decision: 'REVISION_REQUIRED', portions };
+      }
       if (changed && policy === 'no-allocation-changes') {
         return { decision: 'CONFLICT', portions };
       }
