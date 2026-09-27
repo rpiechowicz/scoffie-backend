@@ -611,6 +611,21 @@ export const DAY_LABELS: Record<DayOfWeek, string> = {
   SUN: 'Niedziela',
 };
 
+/**
+ * Nazwa dnia w bierniku — „Zapisz środę”, „Zapisz niedzielę”, nie
+ * „Zapisz niedziela” (przycisk karty dnia do 27.09.2026 brał mianownik).
+ * Przycisk mówi zdaniem, a nie hasłem.
+ */
+export const DAY_ACCUSATIVE_LABELS: Record<DayOfWeek, string> = {
+  MON: 'poniedziałek',
+  TUE: 'wtorek',
+  WED: 'środę',
+  THU: 'czwartek',
+  FRI: 'piątek',
+  SAT: 'sobotę',
+  SUN: 'niedzielę',
+};
+
 /** Skrót dnia — „Pon”. Siedem wierszy musi zmieścić się w karcie. */
 export const DAY_SHORT_LABELS: Record<DayOfWeek, string> = {
   MON: 'Pon',

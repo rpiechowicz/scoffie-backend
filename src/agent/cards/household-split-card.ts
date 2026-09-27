@@ -1,6 +1,7 @@
 import { DayOfWeek, MealType } from '@prisma/client';
 import {
   AGENT_CARD_VERSION,
+  DAY_ACCUSATIVE_LABELS,
   DAY_LABELS,
   HouseholdSplitCard,
   HouseholdSplitPortion,
@@ -40,7 +41,7 @@ export function buildHouseholdSplitCard(input: {
       {
         type: 'APPLY',
         proposalId: input.proposalId,
-        label: `Zapisz na ${accusativeDay(input.dayOfWeek)}`,
+        label: `Zapisz na ${DAY_ACCUSATIVE_LABELS[input.dayOfWeek]}`,
         style: 'PRIMARY',
       },
     ],
@@ -115,20 +116,6 @@ function portionsLabel(count: number): string {
     6: 'sześć porcji',
   };
   return words[count] ?? `${count} porcji`;
-}
-
-/** „środę”, nie „środa” — przycisk mówi zdaniem, a nie hasłem. */
-function accusativeDay(day: DayOfWeek): string {
-  const forms: Record<DayOfWeek, string> = {
-    MON: 'poniedziałek',
-    TUE: 'wtorek',
-    WED: 'środę',
-    THU: 'czwartek',
-    FRI: 'piątek',
-    SAT: 'sobotę',
-    SUN: 'niedzielę',
-  };
-  return forms[day] ?? DAY_LABELS[day].toLowerCase();
 }
 
 /** Etykieta slotu do nadtytułu — „Kolacja · środa”. */

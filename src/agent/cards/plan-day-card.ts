@@ -6,6 +6,7 @@ import {
 import { MEAL_TYPES_IN_DAY_ORDER } from '../../common/meal-types';
 import {
   AGENT_CARD_VERSION,
+  DAY_ACCUSATIVE_LABELS,
   DAY_LABELS,
   MEAL_LABELS,
   PlanDayCard,
@@ -86,7 +87,7 @@ export function buildPlanDayCard(input: {
       {
         type: 'APPLY',
         proposalId: input.proposalId,
-        label: `Zapisz ${DAY_LABELS[input.dayOfWeek].toLowerCase()}`,
+        label: `Zapisz ${DAY_ACCUSATIVE_LABELS[input.dayOfWeek]}`,
         style: 'PRIMARY',
       },
     ],

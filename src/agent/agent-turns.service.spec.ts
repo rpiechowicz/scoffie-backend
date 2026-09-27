@@ -78,7 +78,13 @@ describe('AgentTurnsService', () => {
   };
   const prisma = {
     agentMessage: { findUnique: jest.fn(), findMany: jest.fn() },
+    // Oceny odpowiedzi (kciuk) — dokładane do wiadomości tury DONE.
+    agentMessageFeedback: { findMany: jest.fn().mockResolvedValue([]) },
+    // Własne zgłoszenia odpowiedzi — też przy wiadomościach tury DONE.
+    agentReport: { findMany: jest.fn().mockResolvedValue([]) },
     agentTurn: {
+      // Czas i kroki tury przy odpowiedzi (`withAnswerDetails`).
+      findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       updateMany: jest.fn(),
@@ -716,9 +722,48 @@ describe('AgentTurnsService', () => {
         },
       ]);
 
+      const step = {
+        tool: 'suggest_meals',
+        label: 'Dobieram dania do wyboru',
+        at: '2026-08-31T10:00:02.000Z',
+        writes: false,
+      };
+      prisma.agentTurn.findMany.mockResolvedValueOnce([
+        {
+          id: TURN,
+          startedAt: new Date('2026-08-31T10:00:00.000Z'),
+          finishedAt: new Date('2026-08-31T10:00:05.000Z'),
+          // Przejściowy krok z leniwie domkniętej tury nie trafia do historii.
+          progress: [
+            step,
+            {
+              tool: 'write',
+              label: 'Piszę',
+              at: step.at,
+              writes: false,
+              transient: true,
+            },
+          ],
+        },
+      ]);
+      prisma.agentMessageFeedback.findMany.mockResolvedValueOnce([
+        { messageId: MESSAGE, rating: 'UP' },
+      ]);
+
       const view = await service.getTurn(USER, TURN);
       expect(view.status).toBe('DONE');
       expect(view.messages).toHaveLength(1);
+      // „Myślałem 5 s" i kciuk — ten sam kształt, co w historii rozmowy.
+      expect(view.messages?.[0].thinking).toEqual({
+        durationMs: 5000,
+        steps: [step],
+      });
+      expect(view.messages?.[0].feedback).toBe('UP');
+      expect(prisma.agentMessageFeedback.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: USER, messageId: { in: [MESSAGE] } },
+        }),
+      );
       expect(view.usage).toEqual({
         inputTokens: 10,
         outputTokens: 20,
