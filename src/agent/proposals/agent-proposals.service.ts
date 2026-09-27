@@ -1167,12 +1167,14 @@ export class AgentProposalsService {
         weekStart,
         { slots: readSlots(proposal.action) },
         {
-          // Porcje per osoba (ADR `plan-portions-write-safety`): bez `force`
-          // odcisk tygodnia (z porcjami) sprawdzany pod zamkiem gwarantuje, że
-          // jawne porcje propozycji liczono na bieżącej alokacji. Z `force`
-          // odcisk jest pominięty, więc propozycja nie może zmienić istniejącej
-          // alokacji — ani pominiętym polem, ani starszymi porcjami.
-          portionsPolicy: options.force ? 'no-allocation-changes' : 'strict',
+          // Porcje per osoba (ADR-y `plan-portions-write-safety`,
+          // `plan-portions-safe-editing`): bez `force` odcisk tygodnia
+          // (z porcjami) sprawdzany pod zamkiem gwarantuje, że jawne porcje
+          // propozycji liczono na bieżącej alokacji — zapis jest
+          // zweryfikowany (`verified`). Z `force` odcisk jest pominięty, więc
+          // propozycja nie może zmienić istniejącej alokacji — ani pominiętym
+          // polem, ani starszymi porcjami.
+          portionsPolicy: options.force ? 'no-allocation-changes' : 'verified',
           guard: async (tx, current) => {
             const claimed = await tx.agentProposal.updateMany({
               where: { id: proposal.id, status: statusBefore },

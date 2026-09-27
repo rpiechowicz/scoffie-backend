@@ -150,17 +150,20 @@ export function samePortions(
 
 /**
  * Jak zapis traktuje alokację, którą pozycja JUŻ ma
- * (`docs/adr/plan-portions-write-safety.md`):
- * - `strict` — jawne `portions` zastępują alokację; brak pola albo `[]` nie
- *   może jej ani usunąć, ani zmienić;
- * - `no-allocation-changes` — jak `strict`, ale jawne `portions` też nie mogą
- *   jej zmienić (zapis propozycji z `force`: odcisk tygodnia pominięty, więc
- *   porcje w propozycji mogą być starsze niż stan);
- * - `authoritative` — stan docelowy to intencja chroniona odciskiem tygodnia
- *   sprawdzonym w tej samej transakcji (cofnięcie propozycji).
+ * (`docs/adr/plan-portions-write-safety.md`, `plan-portions-safe-editing.md`):
+ * - `strict` — zapis bez zgodnego tokenu (WS bez `expectedRevision`, narzędzia
+ *   AI): brak pola albo `[]` nie może alokacji ani usunąć, ani zmienić, a jej
+ *   zastąpienie albo usunięcie pozycji wymaga tokenu (`REVISION_REQUIRED`);
+ * - `verified` — zgodny `expectedRevision` albo `guard` propozycji, który pod
+ *   zamkiem porównał odcisk tygodnia: jawne `portions` zastępują alokację;
+ * - `no-allocation-changes` — zapis propozycji z `force` (odcisk pominięty):
+ *   istniejącej alokacji nie wolno zmienić ani usunąć;
+ * - `authoritative` — cofnięcie propozycji; stan docelowy chroniony odciskiem
+ *   sprawdzonym w tej samej transakcji.
  */
 export type PortionsWritePolicy =
   | 'strict'
+  | 'verified'
   | 'no-allocation-changes'
   | 'authoritative';
 
@@ -169,12 +172,24 @@ export type PortionsWritePolicy =
  * - `KEEP` — zapis bez intencji co do porcji, który niczego w pozycji nie
  *   zmienia: pozycja zostaje nietknięta (nic nie jest przenoszone ani
  *   przeliczane);
- * - `CONFLICT` — odmowa `PLAN_PORTIONS_CONFLICT`.
+ * - `CONFLICT` — odmowa `PLAN_PORTIONS_CONFLICT`;
+ * - `REVISION_REQUIRED` — zapis zastąpiłby alokację bez tokenu
+ *   (`PLAN_REVISION_REQUIRED`).
  */
-export type PortionsWriteDecision = 'WRITE' | 'KEEP' | 'CONFLICT';
+export type PortionsWriteDecision =
+  | 'WRITE'
+  | 'KEEP'
+  | 'CONFLICT'
+  | 'REVISION_REQUIRED';
 
 export const PORTIONS_CONFLICT_MESSAGE =
   'To danie ma porcje ustawione osobno dla każdej osoby, a ten zapis by je skasował. Odśwież plan i spróbuj ponownie.';
+
+export const REVISION_REQUIRED_MESSAGE =
+  'Zmiana porcji ustawionych osobno dla każdej osoby wymaga aktualnej wersji planu. Odśwież plan i spróbuj ponownie.';
+
+export const REVISION_CONFLICT_MESSAGE =
+  'Plan zmienił się od ostatniego odczytu. Odśwież plan i spróbuj ponownie.';
 
 /**
  * Decyzja dla ISTNIEJĄCEJ pozycji (`current`, odczytanej pod zamkiem tygodnia
@@ -199,10 +214,11 @@ export function portionsWriteDecision(
     return 'WRITE';
   }
   if (requested.portions.length > 0) {
-    return policy === 'no-allocation-changes' &&
-      !samePortions(current.portions, requested.portions)
+    if (samePortions(current.portions, requested.portions)) return 'WRITE';
+    if (policy === 'verified') return 'WRITE';
+    return policy === 'no-allocation-changes'
       ? 'CONFLICT'
-      : 'WRITE';
+      : 'REVISION_REQUIRED';
   }
   const sameAudience =
     new Set(current.participantIds).size ===
@@ -213,4 +229,15 @@ export function portionsWriteDecision(
     requested.plannedServings === null ||
     requested.plannedServings === current.plannedServings;
   return sameAudience && sameServings ? 'KEEP' : 'CONFLICT';
+}
+
+/**
+ * Usunięcie pozycji Z alokacją, której nie ma w stanie docelowym
+ * `applyWeekPlan`. `null` = wolno usunąć.
+ */
+export function portionsRemovalDecision(
+  policy: PortionsWritePolicy,
+): 'CONFLICT' | 'REVISION_REQUIRED' | null {
+  if (policy === 'verified' || policy === 'authoritative') return null;
+  return policy === 'no-allocation-changes' ? 'CONFLICT' : 'REVISION_REQUIRED';
 }

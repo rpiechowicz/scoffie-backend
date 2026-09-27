@@ -11,6 +11,7 @@ import {
   PORTION_UNITS_PER_SERVING,
   portionsProblem,
   portionsTotal,
+  portionsRemovalDecision,
   portionsWriteDecision,
   samePortions,
   servingsToUnits,
@@ -292,7 +293,7 @@ describe('portionsWriteDecision (ADR plan-portions-write-safety)', () => {
     ).toBe('CONFLICT');
   });
 
-  it('jawne porcje: WRITE w `strict`; `no-allocation-changes` tylko bez zmiany', () => {
+  it('jawne porcje inne niż bieżące: `strict` wymaga tokenu, `verified` zapisuje, `no-allocation-changes` odmawia (ADR plan-portions-safe-editing)', () => {
     const other = {
       participantIds: [],
       portions: [
@@ -300,7 +301,15 @@ describe('portionsWriteDecision (ADR plan-portions-write-safety)', () => {
         { userId: 'b', servings: 1 },
       ],
     };
-    expect(portionsWriteDecision(allocated, other)).toBe('WRITE');
+    expect(portionsWriteDecision(allocated, other)).toBe('REVISION_REQUIRED');
+    expect(portionsWriteDecision(allocated, other, 'verified')).toBe('WRITE');
+    expect(
+      portionsWriteDecision(
+        allocated,
+        { participantIds: [], portions: allocated.portions },
+        'strict',
+      ),
+    ).toBe('WRITE');
     expect(
       portionsWriteDecision(allocated, other, 'no-allocation-changes'),
     ).toBe('CONFLICT');
@@ -311,6 +320,23 @@ describe('portionsWriteDecision (ADR plan-portions-write-safety)', () => {
         'no-allocation-changes',
       ),
     ).toBe('WRITE');
+  });
+
+  it('`verified` nie zdejmuje ochrony przed NIEJAWNĄ utratą (brak `portions`)', () => {
+    expect(
+      portionsWriteDecision(
+        allocated,
+        { participantIds: ['a'], portions: [] },
+        'verified',
+      ),
+    ).toBe('CONFLICT');
+  });
+
+  it('usunięcie pozycji z alokacją: token w `strict`, odmowa przy `force`, wolno w `verified`/`authoritative`', () => {
+    expect(portionsRemovalDecision('strict')).toBe('REVISION_REQUIRED');
+    expect(portionsRemovalDecision('no-allocation-changes')).toBe('CONFLICT');
+    expect(portionsRemovalDecision('verified')).toBeNull();
+    expect(portionsRemovalDecision('authoritative')).toBeNull();
   });
 
   it('`authoritative`: stan docelowy wygrywa (cofnięcie chronione odciskiem)', () => {

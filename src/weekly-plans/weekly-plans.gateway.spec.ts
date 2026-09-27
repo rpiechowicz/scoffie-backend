@@ -1,4 +1,6 @@
+import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AppException } from '../common/app-exception';
 import { WeeklyPlansGateway } from './weekly-plans.gateway';
 import { WeeklyPlansService } from './weekly-plans.service';
 import { ShoppingListService } from './services/shopping-list.service';
@@ -32,6 +34,14 @@ const payload = {
   },
 } as any;
 
+/** `weeklyPlans:setPortion` — porcja jednej osoby (ADR plan-portions-safe-editing). */
+const SET_PORTION = {
+  planItemId: '55555555-5555-4555-8555-555555555555',
+  userId: USER,
+  servings: 1.25,
+  expectedRevision: 3,
+};
+
 const tokenClient = (userId: string) =>
   ({ data: { userId, mode: 'token' } }) as any;
 const legacyClient = () => ({ data: { mode: 'legacy' } }) as any;
@@ -62,6 +72,13 @@ describe('WeeklyPlansGateway', () => {
       upsertWeekSlot: jest.fn(),
       removeWeekSlot: jest.fn().mockResolvedValue({ id: 'plan-item-1' }),
       setMealEaten: jest.fn().mockResolvedValue({ id: 'plan-item-1' }),
+      setPortion: jest.fn().mockResolvedValue({
+        id: 'plan-item-1',
+        dayOfWeek: 'TUE',
+        mealType: 'DINNER',
+        changeKind: 'DETAILS_CHANGED',
+        revision: 4,
+      }),
       clearWeekPlan: jest.fn().mockResolvedValue({ removed: 3 }),
     };
     shoppingListService = {
@@ -245,6 +262,81 @@ describe('WeeklyPlansGateway', () => {
     });
   });
 
+  describe('weeklyPlans:setPortion', () => {
+    const body = { householdId: HH, weekStart: WEEK, data: SET_PORTION };
+
+    it('zmiana porcji rozgłasza weekChanged (UPSERT_SLOT, dzień i posiłek z pozycji) i shoppingListChanged; bez powiadomienia', async () => {
+      const response = await gateway.setPortion(tokenClient(USER), body);
+
+      expect(response).toEqual(
+        expect.objectContaining({
+          ok: true,
+          data: expect.objectContaining({ revision: 4 }),
+        }),
+      );
+      expect(weeklyPlansService.setPortion).toHaveBeenCalledWith(
+        USER,
+        HH,
+        WEEK,
+        SET_PORTION,
+      );
+      expect(emit.mock.calls.map(([name]) => name)).toEqual([
+        'weeklyPlans:weekChanged',
+        'weeklyPlans:shoppingListChanged',
+      ]);
+      expect(emit).toHaveBeenCalledWith(
+        'weeklyPlans:weekChanged',
+        expect.objectContaining({
+          action: 'UPSERT_SLOT',
+          dayOfWeek: 'TUE',
+          mealType: 'DINNER',
+          changedByUserId: USER,
+        }),
+      );
+      expect(
+        notificationsService.enqueueWeeklyPlanChange,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('ponowienie bez zmiany (NOOP) odpowiada, ale niczego nie rozgłasza', async () => {
+      weeklyPlansService.setPortion.mockResolvedValue({
+        id: 'plan-item-1',
+        dayOfWeek: 'TUE',
+        mealType: 'DINNER',
+        changeKind: 'NOOP',
+        revision: 4,
+      });
+
+      const response = await gateway.setPortion(tokenClient(USER), body);
+
+      expect(response).toEqual(expect.objectContaining({ ok: true }));
+      expect(emit).not.toHaveBeenCalled();
+    });
+
+    it('konflikt z serwisu wraca jako ok:false z kodem i niczego nie rozgłasza', async () => {
+      weeklyPlansService.setPortion.mockRejectedValue(
+        new AppException(
+          'PLAN_REVISION_CONFLICT',
+          'Plan zmienił się',
+          HttpStatus.CONFLICT,
+          ['planItemId:x', 'currentRevision:5'],
+        ),
+      );
+
+      const response = await gateway.setPortion(tokenClient(USER), body);
+
+      expect(response).toEqual(
+        expect.objectContaining({
+          ok: false,
+          code: 'PLAN_REVISION_CONFLICT',
+          status: 409,
+          details: ['planItemId:x', 'currentRevision:5'],
+        }),
+      );
+      expect(emit).not.toHaveBeenCalled();
+    });
+  });
+
   describe('tożsamość z socketu (Faza 0)', () => {
     // Każdy handler: `svc` to mock, który ma dostać userId jako PIERWSZY
     // argument; `null` dla stubu `getSavedPlan`, który nie woła serwisu.
@@ -398,6 +490,17 @@ describe('WeeklyPlansGateway', () => {
         }),
       },
       {
+        event: 'weeklyPlans:setPortion',
+        call: (c, b) => gateway.setPortion(c, b),
+        body: { ...base, data: SET_PORTION },
+        svc: () => weeklyPlansService.setPortion,
+        broadcasts: [
+          'weeklyPlans:weekChanged',
+          'weeklyPlans:shoppingListChanged',
+        ],
+        invalid: invalidDataEnvelope(SET_PORTION),
+      },
+      {
         event: 'weeklyPlans:getSavedPlan',
         call: (c, b) => gateway.getSavedPlan(c, b),
         body: base,
@@ -419,8 +522,8 @@ describe('WeeklyPlansGateway', () => {
     ];
 
     it('tabela pokrywa wszystkie handlery gatewaya', () => {
-      expect(cases).toHaveLength(13);
-      expect(new Set(cases.map((c) => c.event)).size).toBe(13);
+      expect(cases).toHaveLength(14);
+      expect(new Set(cases.map((c) => c.event)).size).toBe(14);
     });
 
     describe.each(cases)(

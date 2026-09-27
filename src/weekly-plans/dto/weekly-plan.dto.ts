@@ -28,6 +28,18 @@ export class WeeklyPlanDto {
   @ApiProperty({ type: [PlanItemDto] })
   items: PlanItemDto[];
 
+  /**
+   * Rewizja treści tygodnia — `expectedRevision` dla
+   * `weeklyPlans:applyWeekPlan` (ADR `plan-portions-safe-editing`). +1 przy
+   * każdej zmianie pozycji, uczestników albo porcji; „zjedzone” jej nie
+   * zmienia. Opisuje DOKŁADNIE `items` tej odpowiedzi (jedna migawka bazy) —
+   * token tygodnia pochodzi wyłącznie z pełnego odczytu (`getByWeek`, `plan`
+   * w acku `applyWeekPlan`); acki pojedynczych pozycji go nie niosą i nie
+   * wolno nim oznaczać starszej lokalnej kopii tygodnia.
+   */
+  @ApiProperty({ example: 12, minimum: 0 })
+  revision: number;
+
   @ApiProperty()
   createdAt: Date;
 

@@ -717,6 +717,11 @@ model WeeklyPlan {
   weekStart   DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  /// Rewizja treści tygodnia: +1 w każdej transakcji, która zmienia pozycje,
+  /// uczestników, porcje albo `plannedServings` (nie „zjedzone”). Token
+  /// pełnego stanu `applyWeekPlan` i źródło stempli `PlanItem.revision` /
+  /// `PlanItemPortion.revision` (ADR `plan-portions-safe-editing`).
+  revision    Int      @default(0)
 
   household Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
   items     PlanItem[]
@@ -744,6 +749,12 @@ model PlanItem {
   /// `scripts/backfill-plan-item-servings.ts` został jako narzędzie naprawcze
   /// dla baz, które przeszły migrację bez tego kroku.
   plannedServings Int @default(1)
+
+  /// `WeeklyPlan.revision` z chwili ostatniej zmiany pozycji (uczestnicy,
+  /// porcje, `plannedServings`) — token `upsertWeekSlot` (ADR
+  /// `plan-portions-safe-editing`). Nowa pozycja = nowa, wyższa wartość, więc
+  /// stary token nie trafia w pozycję odtworzoną pod tym samym kluczem.
+  revision Int @default(0)
 
   weeklyPlan   WeeklyPlan            @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
   recipe       Recipe                @relation(fields: [recipeId], references: [id], onDelete: Cascade)
@@ -799,6 +810,9 @@ model PlanItemPortion {
   userId     String   @db.Uuid
   units      Int
   createdAt  DateTime @default(now())
+  /// `WeeklyPlan.revision` z chwili ostatniej zmiany TEJ porcji — token
+  /// `weeklyPlans:setPortion` (ADR `plan-portions-safe-editing`).
+  revision   Int      @default(0)
 
   planItem PlanItem @relation(fields: [planItemId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)

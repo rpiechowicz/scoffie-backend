@@ -184,6 +184,10 @@ const makePrismaMock = (state: MockState) => {
     planItemConsumption: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    // Stemple rewizji po zmianie składu (`bumpWeeksRevisionFrom`).
+    planItemPortion: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     shoppingList: {
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
