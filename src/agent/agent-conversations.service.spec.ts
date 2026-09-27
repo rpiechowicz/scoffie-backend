@@ -241,7 +241,14 @@ describe('AgentConversationsService', () => {
         },
       ]);
       prisma.agentMessageFeedback.findMany.mockResolvedValue([
-        { messageId: LAST, rating: 'DOWN' },
+        {
+          messageId: LAST,
+          rating: 'DOWN',
+          tags: ['TOO_LONG'],
+          comment: 'Krócej',
+        },
+        // Pochwała nie niesie podpowiedzi, nawet ze starą pozostałością.
+        { messageId: FIRST, rating: 'UP', tags: ['TOO_SLOW'], comment: null },
       ]);
       // Dwa zgłoszenia tej samej odpowiedzi (dublet sprzed zasady) — wygrywa
       // najnowsze, bo baza oddaje je pierwsze.
@@ -264,8 +271,13 @@ describe('AgentConversationsService', () => {
       ]);
       expect(messages.map((m) => m.feedback)).toEqual([
         undefined,
-        undefined,
+        'UP',
         'DOWN',
+      ]);
+      expect(messages.map((m) => m.feedbackNote)).toEqual([
+        undefined,
+        undefined,
+        { tags: ['TOO_LONG'], comment: 'Krócej' },
       ]);
       // Tylko zakończone tury i tylko oceny TEGO użytkownika.
       expect(prisma.agentTurn.findMany).toHaveBeenCalledWith(

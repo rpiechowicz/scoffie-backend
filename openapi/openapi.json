@@ -2802,6 +2802,15 @@
                 "enum": ["DOWN", "UP"],
                 "type": "string"
               },
+              "feedbackNote": {
+                "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                "type": "object",
+                "properties": {
+                  "tags": { "type": "array", "items": { "type": "string" } },
+                  "comment": { "type": "string", "nullable": true }
+                },
+                "required": ["comment", "tags"]
+              },
               "report": {
                 "description": "WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je\ndo poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.",
                 "type": "object",
@@ -4262,6 +4271,15 @@
                   "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
                   "enum": ["DOWN", "UP"],
                   "type": "string"
+                },
+                "feedbackNote": {
+                  "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                  "type": "object",
+                  "properties": {
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "comment": { "type": "string", "nullable": true }
+                  },
+                  "required": ["comment", "tags"]
                 },
                 "report": {
                   "description": "WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je\ndo poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.",
@@ -5817,6 +5835,15 @@
                   "enum": ["DOWN", "UP"],
                   "type": "string"
                 },
+                "feedbackNote": {
+                  "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                  "type": "object",
+                  "properties": {
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "comment": { "type": "string", "nullable": true }
+                  },
+                  "required": ["comment", "tags"]
+                },
                 "report": {
                   "description": "WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je\ndo poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.",
                   "type": "object",
@@ -7288,6 +7315,15 @@
                   "enum": ["DOWN", "UP"],
                   "type": "string"
                 },
+                "feedbackNote": {
+                  "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                  "type": "object",
+                  "properties": {
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "comment": { "type": "string", "nullable": true }
+                  },
+                  "required": ["comment", "tags"]
+                },
                 "report": {
                   "description": "WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je\ndo poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.",
                   "type": "object",
@@ -7330,9 +7366,23 @@
             "enum": ["DOWN", "UP"],
             "type": "string",
             "nullable": true
-          }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "BAD_DISHES",
+                "NOT_WHAT_I_ASKED",
+                "OTHER",
+                "TOO_LONG",
+                "TOO_SLOW"
+              ],
+              "type": "string"
+            }
+          },
+          "comment": { "type": "string", "nullable": true }
         },
-        "required": ["messageId", "rating"]
+        "required": ["comment", "messageId", "rating", "tags"]
       },
       "AgentReportMessageResponse": {
         "type": "object",
@@ -8718,6 +8768,15 @@
                 "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
                 "enum": ["DOWN", "UP"],
                 "type": "string"
+              },
+              "feedbackNote": {
+                "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                "type": "object",
+                "properties": {
+                  "tags": { "type": "array", "items": { "type": "string" } },
+                  "comment": { "type": "string", "nullable": true }
+                },
+                "required": ["comment", "tags"]
               },
               "report": {
                 "description": "WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je\ndo poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.",
@@ -10631,7 +10690,22 @@
             "description": "`null` zdejmuje ocenę (drugie stuknięcie w ten sam kciuk). Pole musi\npaść jawnie — brak pola to błąd, nie „zdejmij\", żeby literówka po\nstronie klienta nie kasowała ocen po cichu.",
             "enum": ["UP", "DOWN"],
             "type": "string"
-          }
+          },
+          "tags": {
+            "type": "array",
+            "description": "Podpowiedź przy `DOWN`. Brak pola = podpowiedź bez zmian (sam kciuk nie\nkasuje tego, co ktoś napisał wcześniej); pusta lista = bez powodów.\nPrzy `UP` i `null` pomijane.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "TOO_LONG",
+                "NOT_WHAT_I_ASKED",
+                "BAD_DISHES",
+                "TOO_SLOW",
+                "OTHER"
+              ]
+            }
+          },
+          "comment": { "type": "object", "nullable": true, "maxLength": 1000 }
         },
         "required": ["rating"]
       },
