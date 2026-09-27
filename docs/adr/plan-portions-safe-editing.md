@@ -14,25 +14,25 @@ Zależy od: `docs/adr/plan-portions-write-safety.md` (PR #209, niezmergowany) �
 
 ## Mapa zapisujących (wszystkie biorą `lockWeekForWrite` / `lockWeeksForWriteFrom` jako pierwszą blokadę)
 
-| Zapisujący | Co zmienia | Rewizja po tym ADR |
-|---|---|---|
-| `upsertWeekSlot` (+ `replaceRecipeId`) | tworzy/aktualizuje pozycję, usuwa źródło zamiany | +1 tydzień; pozycja i jej porcje = nowa rewizja |
-| `applyWeekPlan` (WS, narzędzia AI, apply/undo propozycji) | tworzy/aktualizuje/usuwa pozycje | +1 tydzień (gdy jest zmiana); zmienione pozycje/porcje = nowa rewizja |
-| `setPortion` (nowe) | porcja jednej osoby | +1 tydzień; pozycja i ta porcja = nowa rewizja |
-| `removeWeekSlot`, `clearWeekPlan` | usuwa pozycje | +1 tydzień (gdy coś usunięto) |
-| zmiana składu domu (`plan-roster.util`) | porcje/`plannedServings` pozycji tygodni od bieżącego | +1 każdy tydzień od poniedziałku; WSZYSTKIE pozycje i porcje tych tygodni = nowa rewizja tygodnia |
-| `setMealEaten` | znaczniki zjedzenia | bez rewizji (nie zmienia treści planu) |
+| Zapisujący                                                | Co zmienia                                            | Rewizja po tym ADR                                                                                |
+| --------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `upsertWeekSlot` (+ `replaceRecipeId`)                    | tworzy/aktualizuje pozycję, usuwa źródło zamiany      | +1 tydzień; pozycja i jej porcje = nowa rewizja                                                   |
+| `applyWeekPlan` (WS, narzędzia AI, apply/undo propozycji) | tworzy/aktualizuje/usuwa pozycje                      | +1 tydzień (gdy jest zmiana); zmienione pozycje/porcje = nowa rewizja                             |
+| `setPortion` (nowe)                                       | porcja jednej osoby                                   | +1 tydzień; pozycja i ta porcja = nowa rewizja                                                    |
+| `removeWeekSlot`, `clearWeekPlan`                         | usuwa pozycje                                         | +1 tydzień (gdy coś usunięto)                                                                     |
+| zmiana składu domu (`plan-roster.util`)                   | porcje/`plannedServings` pozycji tygodni od bieżącego | +1 każdy tydzień od poniedziałku; WSZYSTKIE pozycje i porcje tych tygodni = nowa rewizja tygodnia |
+| `setMealEaten`                                            | znaczniki zjedzenia                                   | bez rewizji (nie zmienia treści planu)                                                            |
 
 ## Decyzja 1 — kontrola konfliktów: rewizja tygodnia + rewizje pozycji i porcji z jednego licznika
 
 Rozważone:
 
-| Wariant | Pełny stan (`applyWeekPlan`) | Nowa pozycja, której klient nie widział | Edycja jednej pozycji | Edycje różnych osób |
-|---|---|---|---|---|
-| wersja pozycji | nie wykrywa nowej/usuniętej pozycji | nie | tak | konflikt (za gruby) |
-| wersja tygodnia | tak | tak | konflikt przy KAŻDEJ zmianie tygodnia (za gruba) | konflikt |
-| odcisk treści (jak propozycje) | tak | tak | tak | — ale ABA: ponowienie po cudzym „cofnięciu” wraca ze starym zapisem |
-| **licznik tygodnia + stemple** | **tak** | **tak** | **tak (stempel pozycji)** | **niezależne (stempel porcji)** |
+| Wariant                        | Pełny stan (`applyWeekPlan`)        | Nowa pozycja, której klient nie widział | Edycja jednej pozycji                            | Edycje różnych osób                                                 |
+| ------------------------------ | ----------------------------------- | --------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------- |
+| wersja pozycji                 | nie wykrywa nowej/usuniętej pozycji | nie                                     | tak                                              | konflikt (za gruby)                                                 |
+| wersja tygodnia                | tak                                 | tak                                     | konflikt przy KAŻDEJ zmianie tygodnia (za gruba) | konflikt                                                            |
+| odcisk treści (jak propozycje) | tak                                 | tak                                     | tak                                              | — ale ABA: ponowienie po cudzym „cofnięciu” wraca ze starym zapisem |
+| **licznik tygodnia + stemple** | **tak**                             | **tak**                                 | **tak (stempel pozycji)**                        | **niezależne (stempel porcji)**                                     |
 
 Wybór: jeden monotoniczny licznik `WeeklyPlan.revision` (INT) podbijany o 1 w każdej transakcji, która zmienia
 treść tygodnia. Pozycja i porcja dostają jako stempel wartość licznika z chwili swojej ostatniej zmiany
@@ -48,6 +48,7 @@ Sprawdzenie tokenu i zapis zachodzą w TEJ SAMEJ transakcji, po `lockWeekForWrit
 zamkiem (READ COMMITTED dla upsert/`setPortion`, SERIALIZABLE z ponowieniem dla `applyWeekPlan`).
 
 Tokeny w odczycie:
+
 - `weeklyPlans:getByWeek` → `plan.revision` (tydzień), `items[].revision`, `items[].portions[].revision`;
 - ta sama postać w ackach `upsertWeekSlot`, `setPortion` i w `plan` z `applyWeekPlan`.
 
@@ -61,6 +62,7 @@ data: { planItemId: UUID, userId: UUID, servings: number (0,1–6, krok 0,05), e
 ```
 
 Semantyka, pod zamkiem tygodnia:
+
 1. członkostwo wołającego (przed transakcją i pod zamkiem);
 2. pozycja o `planItemId` w TYM tygodniu TEGO domu — inaczej `PLAN_ITEM_NOT_FOUND` (także cudzy dom: bez
    wyroczni istnienia);
@@ -84,24 +86,26 @@ Autoryzacja jak przy każdym zapisie planu: dowolny członek domu (nie tylko „
 
 `upsertWeekSlot.data.expectedRevision` (opcjonalne) = stempel pozycji, którą zapis zmienia. Przy
 `replaceRecipeId` to stempel pozycji ŹRÓDŁOWEJ.
+
 - Podany i zgodny → zapis zweryfikowany.
 - Podany i niezgodny: gdy zapis nic by nie zmienił → sukces NOOP; inaczej `PLAN_REVISION_CONFLICT`.
 - Podany, a pozycji brak (usunięta, odtworzona) → `PLAN_REVISION_CONFLICT`.
 
 `applyWeekPlan.data.expectedRevision` (opcjonalne) = rewizja tygodnia.
+
 - Zgodny → zapis zweryfikowany.
 - Niezgodny → `applied: false`, `violations: [{ index: -1, code: 'PLAN_REVISION_CONFLICT' }]`, nic nie wchodzi.
   Ponowienie po utraconej odpowiedzi też dostaje konflikt: bezpieczne, klient odświeża.
 
 Polityka porcji (rozszerza ADR `plan-portions-write-safety`; `portionsWriteDecision`):
 
-| Zapis na pozycji Z alokacją | `strict` (bez tokenu: WS, narzędzia AI) | `verified` (token zgodny / guard propozycji) | `no-allocation-changes` (force) | `authoritative` (undo) |
-|---|---|---|---|---|
-| bez `portions`, bez zmiany | KEEP | KEEP | KEEP | WRITE |
-| bez `portions`, ze zmianą | CONFLICT | CONFLICT | CONFLICT | WRITE |
-| jawne `portions` = bieżące | WRITE (nic) | WRITE | WRITE | WRITE |
-| jawne `portions` ≠ bieżące | **REVISION_REQUIRED** | WRITE | CONFLICT | WRITE |
-| usunięcie (brak w stanie docelowym) | **REVISION_REQUIRED** | usunięcie | CONFLICT | usunięcie |
+| Zapis na pozycji Z alokacją         | `strict` (bez tokenu: WS, narzędzia AI) | `verified` (token zgodny / guard propozycji) | `no-allocation-changes` (force) | `authoritative` (undo) |
+| ----------------------------------- | --------------------------------------- | -------------------------------------------- | ------------------------------- | ---------------------- |
+| bez `portions`, bez zmiany          | KEEP                                    | KEEP                                         | KEEP                            | WRITE                  |
+| bez `portions`, ze zmianą           | CONFLICT                                | CONFLICT                                     | CONFLICT                        | WRITE                  |
+| jawne `portions` = bieżące          | WRITE (nic)                             | WRITE                                        | WRITE                           | WRITE                  |
+| jawne `portions` ≠ bieżące          | **REVISION_REQUIRED**                   | WRITE                                        | CONFLICT                        | WRITE                  |
+| usunięcie (brak w stanie docelowym) | **REVISION_REQUIRED**                   | usunięcie                                    | CONFLICT                        | usunięcie              |
 
 - Pozycje BEZ alokacji — bez zmian względem legacy we wszystkich politykach.
 - `verified` i `authoritative` wolno wyłącznie z `guard` (in-process). Z drutu `verified` powstaje tylko przez
@@ -110,6 +114,7 @@ Polityka porcji (rozszerza ADR `plan-portions-write-safety`; `portionsWriteDecis
 - Podgląd propozycji (`previewWeekPlan`, tylko in-process) liczy `verified`, bo tak zostanie zapisany.
 
 Kody:
+
 - `PLAN_REVISION_CONFLICT` 409 — nieaktualny token;
 - `PLAN_REVISION_REQUIRED` 428 — zapis, który zastąpiłby albo usunął alokację, wymaga tokenu;
 - `PLAN_PORTIONS_CONFLICT` 409 — niejawna utrata alokacji / `setPortion` na pozycji bez alokacji albo spoza
@@ -122,12 +127,14 @@ wycofana w całości (także przejęcie propozycji), brak broadcastu, brak kwoty
 
 Serwer niczego nie przenosi ani nie przelicza (bez planera i AI). Klient, który zmienia audytorium albo danie
 pozycji z alokacją, podaje JAWNIE pełne `portions` dla nowego audytorium/dania + token:
+
 - osoby pozostające: klient przepisuje ich bieżące porcje (albo nowe);
 - osoba dodana: klient podaje jej porcję — sugestia 1,00, jak reguła serwera przy dołączeniu do domu;
 - osoba usunięta: znika z `portions`;
 - Σ > 12 albo krok/widełki → `PLAN_PORTIONS_INVALID`.
 
 Zamiana dania z alokacją:
+
 - zachowanie = jawne `portions` nowego dania (np. te same wartości) + token źródła;
 - bez `portions` → `PLAN_PORTIONS_CONFLICT` — odmowa, bez niejawnego resetu;
 - jawnego „resetuj do równego podziału” nie wprowadzamy (OPEN DECISION).
@@ -135,6 +142,7 @@ Zamiana dania z alokacją:
 ## Decyzja 5 — ponowienia i idempotencja
 
 Bez klucza operacji. Stemple z jednego monotonicznego licznika wystarczają:
+
 - `setPortion` i `upsertWeekSlot`: ponowienie po sukcesie widzi niezgodny stempel. Gdy stan już jest żądanym →
   sukces; gdy ktoś zmienił go później → konflikt. Nigdy nie cofa nowszej zmiany.
 - `applyWeekPlan` z tokenem: ponowienie = konflikt (bezpieczne, bez cofania).
@@ -143,12 +151,12 @@ Brak tabeli kluczy = brak retencji i trwałego stanu do sprzątania.
 
 ## Zgodność wstecz
 
-| Klient | Zachowanie |
-|---|---|
-| starszy iOS | nie wysyła tokenu ani `portions`; pozycje bez alokacji — jak dotąd; pozycje z alokacją — KEEP/CONFLICT jak w ADR `write-safety` (bez zmian) |
+| Klient                               | Zachowanie                                                                                                                                                                                                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| starszy iOS                          | nie wysyła tokenu ani `portions`; pozycje bez alokacji — jak dotąd; pozycje z alokacją — KEEP/CONFLICT jak w ADR `write-safety` (bez zmian)                                                                                                                |
 | surowy WS `applyWeekPlan` bez tokenu | pozycje bez alokacji: kontrakt stanu docelowego bez zmian — usuwa pozycje spoza listy, TAKŻE takie, których klient nie widział (NIE chronimy starego stanu bez tokenu); pozycje z alokacją: usunięcie i jawna zmiana wymagają tokenu (`REVISION_REQUIRED`) |
-| narzędzia AI (bez tokenu, `strict`) | nie usuną ani nie zastąpią alokacji (naruszenie dla modelu); propozycje idą przez `verified` / `force` / undo — bez nowych wymaganych pól w narzędziach |
-| propozycje sprzed wdrożenia | odcisk treści bez zmian (rewizja nie wchodzi do odcisku) |
+| narzędzia AI (bez tokenu, `strict`)  | nie usuną ani nie zastąpią alokacji (naruszenie dla modelu); propozycje idą przez `verified` / `force` / undo — bez nowych wymaganych pól w narzędziach                                                                                                    |
+| propozycje sprzed wdrożenia          | odcisk treści bez zmian (rewizja nie wchodzi do odcisku)                                                                                                                                                                                                   |
 
 ## Migracja
 
@@ -156,6 +164,7 @@ Addytywna, forward-only: `revision INT NOT NULL DEFAULT 0` na `WeeklyPlan`, `Pla
 Istniejące plany startują od 0 — token 0 jest ważny, pierwszy zapis daje 1. Bez backfillu.
 
 Rollback:
+
 - kodu — stare wersje ignorują kolumny;
 - bazy — nową migracją korygującą (`DROP COLUMN`), nigdy ręczną edycją `_prisma_migrations`.
 
@@ -178,6 +187,7 @@ Rollback:
 
 `test/plan-portions-safe-editing.e2e-spec.ts` (PostgreSQL, prawdziwe serwisy, bariery bez zegarów, AI tylko
 stub):
+
 1. dwa pełne zapisy tej samej wersji (także równolegle);
 2. dwie osoby;
 3. ta sama osoba;
@@ -203,3 +213,14 @@ Plus poprzedni `plan-portions-write-safety.e2e`.
 - Zmiana składu domu unieważnia tokeny wszystkich pozycji tygodni od bieżącego (zgrubnie, bezpiecznie).
 - `setMealEaten` nie podbija rewizji.
 - Brak jawnego „resetu do równego podziału”.
+
+## Uzupełnienia z implementacji
+
+- `lockWeekForWrite` oddaje rewizję tygodnia odczytaną pod zamkiem; podbicie (`bumpWeekRevision`) zachodzi raz na
+  transakcję, przy pierwszym faktycznym zapisie — odmowa i zapis bez różnicy nie zmieniają rewizji.
+- `upsertWeekSlot`, który niczego by nie zmienił, nie zapisuje pozycji (wcześniej przepisywał ją identycznie) —
+  inaczej przestemplowałby porcje i unieważnił cudze tokeny bez zmiany treści.
+- Acki `upsertWeekSlot` i `setPortion` niosą `planRevision` (bieżąca rewizja tygodnia po zapisie).
+- Naruszenie całego tygodnia (`PLAN_REVISION_CONFLICT`, `index: -1`) nie ma `dayOfWeek`/`mealType`/`recipeId` —
+  te pola `PlanViolation` są opcjonalne.
+- Cel zamiany dania (przepis, który już leży w slocie) jest oceniany jako `strict` — token dotyczy źródła, nie celu.
