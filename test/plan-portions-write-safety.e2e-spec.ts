@@ -3,7 +3,11 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { CARDS_CAPABILITY_V1 } from '../src/agent/cards/agent-cards';
+import { Prisma } from '@prisma/client';
+import {
+  CARDS_CAPABILITY_V1,
+  kcalForPerson,
+} from '../src/agent/cards/agent-cards';
 import * as liveEvents from '../src/common/live-events';
 import { configureApp } from '../src/app.setup';
 import { AppException } from '../src/common/app-exception';
@@ -848,7 +852,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       expect(itemOf(items, dinnerB.id, 'MON')).toBeDefined();
     });
 
-    it('10. polityka `authoritative` (cofnięcie) przywraca pozycję BEZ alokacji; `no-allocation-changes` nie zmienia porcji', async () => {
+    it('10. `no-allocation-changes` nie zmienia porcji; `authoritative` BEZ guarda odrzucone przed zapisem (baza bez zmian)', async () => {
       const { asia, rafal, householdId } = await couple('Polityki');
       await allocate(asia, householdId, dinner.id, [
         { userId: asia, servings: 0.9 },
@@ -876,26 +880,31 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       expect(forced.violations.map((v) => v.code)).toEqual([
         'PLAN_PORTIONS_CONFLICT',
       ]);
-      const restored = await weeklyPlans.applyWeekPlan(
-        asia,
-        householdId,
-        WEEK_START,
-        {
-          slots: [
-            {
-              dayOfWeek: 'TUE',
-              mealType: 'DINNER',
-              recipeId: dinner.id,
-              plannedServings: 2,
-            },
-          ],
-        },
-        { portionsPolicy: 'authoritative' },
-      );
-      expect(restored.applied).toBe(true);
-      const [item] = await readItems(asia, householdId);
-      expect(item.portions).toEqual([]);
-      expect(item.plannedServings).toBe(2);
+      const before = await readItems(asia, householdId);
+      let refusal = 'BRAK_ODMOWY';
+      await weeklyPlans
+        .applyWeekPlan(
+          asia,
+          householdId,
+          WEEK_START,
+          {
+            slots: [
+              {
+                dayOfWeek: 'TUE',
+                mealType: 'DINNER',
+                recipeId: dinner.id,
+                plannedServings: 2,
+              },
+            ],
+          },
+          { portionsPolicy: 'authoritative' },
+        )
+        .catch((error: unknown) => {
+          refusal = String((error as Error).message);
+        });
+      console.log(`[authoritative bez guarda] ${refusal}`);
+      expect(refusal).not.toBe('BRAK_ODMOWY');
+      expect(await readItems(asia, householdId)).toEqual(before);
     });
   });
 
@@ -1127,6 +1136,431 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       const [item] = await readItems(asia, householdId);
       expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
       expect(item.plannedServings).toBe(3);
+    });
+  });
+
+  describe('review: force usuwa, podgląd KEEP, authoritative bez ochrony', () => {
+    /** Tydzień i stan propozycji — do porównania „nic się nie zmieniło”. */
+    const snapshot = async (
+      asia: string,
+      householdId: string,
+      proposalId: string,
+      conversationId: string,
+    ) => ({
+      items: await readItems(asia, householdId),
+      proposal: await prisma.agentProposal.findUniqueOrThrow({
+        where: { id: proposalId },
+        select: { status: true, appliedAt: true },
+      }),
+      quota: await plansQuota(householdId),
+      applied: await prisma.agentMessage.count({
+        where: { conversationId, kind: 'APPLIED' },
+      }),
+    });
+
+    it('15. force apply: propozycja POMIJA pozycję, która po jej utworzeniu dostała alokację → odmowa, pozycja zostaje', async () => {
+      const { session, asia, rafal, householdId } =
+        await sessionCouple('ForceUsun');
+      await weeklyPlans.upsertWeekSlot(asia, householdId, WEEK_START, {
+        dayOfWeek: 'TUE',
+        mealType: 'DINNER',
+        recipeId: dinner.id,
+      });
+      // Stan docelowy propozycji: sam poniedziałek — wtorek wypada.
+      const { answer, conversationId } = await turn(
+        session,
+        householdId,
+        `Propozycja [[propose:${dinnerB.id}:${WEEK_START}]]`,
+      );
+      const proposal = await proposalOf(answer);
+      await allocate(asia, householdId, dinner.id, [
+        { userId: asia, servings: 0.8 },
+        { userId: rafal, servings: 1.25 },
+      ]);
+
+      const plain = await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposal.id}/apply`)
+        .set(auth(session.accessToken))
+        .send({})
+        .expect(409);
+      expect((plain.body as { details: string[] }).details).toContain(
+        'reason:CHANGED',
+      );
+      const before = await snapshot(
+        asia,
+        householdId,
+        proposal.id,
+        conversationId,
+      );
+
+      const forced = await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposal.id}/apply`)
+        .set(auth(session.accessToken))
+        .send({ force: true });
+      const after = await snapshot(
+        asia,
+        householdId,
+        proposal.id,
+        conversationId,
+      );
+      console.log(
+        `[force-usun] status=${forced.status} details=${JSON.stringify((forced.body as { details?: unknown }).details)} items=${after.items.map((i) => `${i.dayOfWeek}:${i.portions.length}`).join(',')}`,
+      );
+      expect(forced.status).toBe(409);
+      expect((forced.body as { details: string[] }).details).toEqual([
+        'reason:VIOLATIONS',
+        'PLAN_PORTIONS_CONFLICT',
+      ]);
+      expect(after.items).toEqual(before.items);
+      expect(after.proposal.status).toBe('STALE');
+      expect(after.proposal.appliedAt).toBeNull();
+      expect(after.quota).toBe(0);
+      expect(after.applied).toBe(0);
+    });
+
+    it('16. force apply: zamiana dania jako usunięcie starego klucza slotu i nowy klucz → odmowa, stare danie z alokacją zostaje', async () => {
+      const { session, asia, rafal, householdId } =
+        await sessionCouple('ForceZamiana');
+      await weeklyPlans.upsertWeekSlot(asia, householdId, WEEK_START, {
+        dayOfWeek: 'TUE',
+        mealType: 'DINNER',
+        recipeId: dinner.id,
+      });
+      // MON B, TUE C — wtorkowa kolacja X wypada, wchodzi C (nowy klucz).
+      const { answer, conversationId } = await turn(
+        session,
+        householdId,
+        `Propozycja [[propose:${dinnerB.id}:${WEEK_START}]] [[propose:${dinnerC.id}:${WEEK_START}]]`,
+      );
+      const proposal = await proposalOf(answer);
+      await allocate(asia, householdId, dinner.id, [
+        { userId: asia, servings: 0.8 },
+        { userId: rafal, servings: 1.25 },
+      ]);
+      const before = await snapshot(
+        asia,
+        householdId,
+        proposal.id,
+        conversationId,
+      );
+      const forced = await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposal.id}/apply`)
+        .set(auth(session.accessToken))
+        .send({ force: true });
+      const after = await snapshot(
+        asia,
+        householdId,
+        proposal.id,
+        conversationId,
+      );
+      console.log(
+        `[force-zamiana] status=${forced.status} items=${after.items.map((i) => `${i.dayOfWeek}:${i.recipeId === dinner.id ? 'X' : 'inne'}:${i.portions.length}`).join(',')}`,
+      );
+      expect(forced.status).toBe(409);
+      expect((forced.body as { details: string[] }).details).toEqual([
+        'reason:VIOLATIONS',
+        'PLAN_PORTIONS_CONFLICT',
+      ]);
+      expect(after.items).toEqual(before.items);
+      expect(after.proposal.status).toBe('STALE');
+      expect(after.quota).toBe(0);
+      expect(after.applied).toBe(0);
+    });
+
+    it('16b. surowy applyWeekPlan (strict) nadal usuwa pozycję spoza stanu docelowego — znany API GAP, kontrakt bez zmian', async () => {
+      const { asia, rafal, householdId } = await couple('StrictUsun');
+      await allocate(asia, householdId, dinner.id, [
+        { userId: asia, servings: 0.8 },
+        { userId: rafal, servings: 1.25 },
+      ]);
+      const result = await weeklyPlans.applyWeekPlan(
+        asia,
+        householdId,
+        WEEK_START,
+        {
+          slots: [
+            { dayOfWeek: 'MON', mealType: 'DINNER', recipeId: dinnerB.id },
+          ],
+        },
+      );
+      expect(result.applied).toBe(true);
+      expect(result.changes).toEqual({ created: 1, updated: 0, deleted: 1 });
+      expect(
+        (await readItems(asia, householdId)).map((item) => item.recipeId),
+      ).toEqual([dinnerB.id]);
+    });
+
+    it('17. podgląd, dryRun, zapis i bilans są zgodne dla KEEP (pominięte i `[]`); WRITE i CONFLICT bez zmian', async () => {
+      for (const empty of [undefined, []] as const) {
+        const { asia, rafal, householdId } = await couple('PodgladKeep');
+        await allocate(asia, householdId, dinner.id, [
+          { userId: asia, servings: 0.8 },
+          { userId: rafal, servings: 1.25 },
+        ]);
+        const tuesday = {
+          dayOfWeek: 'TUE' as const,
+          mealType: 'DINNER' as const,
+          recipeId: dinner.id,
+          ...(empty ? { portions: [...empty] } : {}),
+        };
+        const slots = [
+          {
+            dayOfWeek: 'MON' as const,
+            mealType: 'DINNER' as const,
+            recipeId: dinnerB.id,
+          },
+          tuesday,
+        ];
+        const label = empty ? '[]' : 'pominięte';
+
+        const preview = await weeklyPlans.previewWeekPlan(
+          asia,
+          householdId,
+          WEEK_START,
+          { slots },
+        );
+        const dry = await weeklyPlans.applyWeekPlan(
+          asia,
+          householdId,
+          WEEK_START,
+          { slots, dryRun: true },
+        );
+        const previewTue = preview.slots!.find(
+          (slot) => slot.dayOfWeek === 'TUE',
+        )!;
+        const cardKcal = kcalForPerson(
+          preview.slots!.filter((slot) => slot.dayOfWeek === 'TUE'),
+          asia,
+        );
+        console.log(
+          `[podglad ${label}] preview.updated=${preview.changes.updated} dry.updated=${dry.changes.updated} previewTue.portions=${JSON.stringify(previewTue.portions)} servingsPerPerson=${previewTue.servingsPerPerson} kcalKarty(Asia)=${cardKcal}`,
+        );
+        expect(preview.changes).toEqual({ created: 1, updated: 0, deleted: 0 });
+        expect(dry.changes).toEqual({ created: 1, updated: 0, deleted: 0 });
+        expect(byPerson(previewTue.portions ?? [])).toEqual({
+          [asia]: 0.8,
+          [rafal]: 1.25,
+        });
+
+        const applied = await weeklyPlans.applyWeekPlan(
+          asia,
+          householdId,
+          WEEK_START,
+          { slots },
+        );
+        expect(applied.changes).toEqual({ created: 1, updated: 0, deleted: 0 });
+        const saved = itemOf(await readItems(asia, householdId), dinner.id)!;
+        expect(byPerson(saved.portions)).toEqual(
+          byPerson(previewTue.portions!),
+        );
+        const balance = await weeklyPlans.weeklyBalance(
+          asia,
+          householdId,
+          WEEK_START,
+          asia,
+        );
+        const tueKcal = balance.days.find((day) => day.dayOfWeek === 'TUE')!
+          .planned.kcal;
+        expect(Math.abs(cardKcal - tueKcal)).toBeLessThanOrEqual(1);
+      }
+
+      // WRITE: jawne inne porcje — podgląd liczy aktualizację i pokazuje nowe.
+      const { asia, rafal, householdId } = await couple('PodgladWrite');
+      await allocate(asia, householdId, dinner.id, [
+        { userId: asia, servings: 0.8 },
+        { userId: rafal, servings: 1.25 },
+      ]);
+      const write = await weeklyPlans.previewWeekPlan(
+        asia,
+        householdId,
+        WEEK_START,
+        {
+          slots: [
+            {
+              dayOfWeek: 'TUE',
+              mealType: 'DINNER',
+              recipeId: dinner.id,
+              portions: [
+                { userId: asia, servings: 1 },
+                { userId: rafal, servings: 1 },
+              ],
+            },
+          ],
+        },
+      );
+      expect(write.changes).toEqual({ created: 0, updated: 1, deleted: 0 });
+      expect(byPerson(write.slots![0].portions ?? [])).toEqual({
+        [asia]: 1,
+        [rafal]: 1,
+      });
+      // CONFLICT: zmiana audytorium bez porcji — naruszenie w podglądzie.
+      const conflict = await weeklyPlans.previewWeekPlan(
+        asia,
+        householdId,
+        WEEK_START,
+        {
+          slots: [
+            {
+              dayOfWeek: 'TUE',
+              mealType: 'DINNER',
+              recipeId: dinner.id,
+              participantIds: [asia],
+            },
+          ],
+        },
+      );
+      expect(conflict.violations.map((v) => v.code)).toEqual([
+        'PLAN_PORTIONS_CONFLICT',
+      ]);
+    });
+
+    it('18. karta propozycji (prawdziwa ścieżka propose_week_plan): pozycja KEEP pokazuje zachowaną alokację i kcal zgodne z bilansem po zapisie', async () => {
+      const { session, asia, rafal, householdId } =
+        await sessionCouple('Karta');
+      await allocate(asia, householdId, dinner.id, [
+        { userId: asia, servings: 0.8 },
+        { userId: rafal, servings: 1.25 },
+      ]);
+      const { answer } = await turn(
+        session,
+        householdId,
+        `Propozycja [[propose:${dinnerB.id}:${WEEK_START}]] [[propose:${dinner.id}:${WEEK_START}]]`,
+      );
+      const proposal = await proposalOf(answer);
+      // Akcja propozycji NIE niesie porcji — decyzja zapisu zapada pod zamkiem.
+      const tuesdayAction = (
+        proposal.action as {
+          slots: { dayOfWeek: string; portions?: unknown }[];
+        }
+      ).slots.find((slot) => slot.dayOfWeek === 'TUE')!;
+      expect(tuesdayAction.portions).toBeUndefined();
+
+      const card = proposal.card as {
+        days: {
+          dayOfWeek: string;
+          kcalTotal: number;
+          slots: { portions?: { userId: string; servings: number }[] }[];
+        }[];
+      };
+      const tueCard = card.days.find((day) => day.dayOfWeek === 'TUE')!;
+      console.log(
+        `[karta] TUE portions=${JSON.stringify(tueCard.slots[0].portions)} kcalTotal=${tueCard.kcalTotal}`,
+      );
+      expect(byPerson(tueCard.slots[0].portions ?? [])).toEqual({
+        [asia]: 0.8,
+        [rafal]: 1.25,
+      });
+
+      await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposal.id}/apply`)
+        .set(auth(session.accessToken))
+        .send({})
+        .expect(200);
+      const balance = await weeklyPlans.weeklyBalance(
+        asia,
+        householdId,
+        WEEK_START,
+        asia,
+      );
+      const tueKcal = balance.days.find((day) => day.dayOfWeek === 'TUE')!
+        .planned.kcal;
+      expect(Math.abs(tueCard.kcalTotal - tueKcal)).toBeLessThanOrEqual(1);
+      expect(
+        byPerson(
+          itemOf(await readItems(asia, householdId), dinner.id)!.portions,
+        ),
+      ).toEqual({ [asia]: 0.8, [rafal]: 1.25 });
+    });
+
+    it('19. prawdziwe undo z poprawnym odciskiem przywraca DOKŁADNY stan — także pozycję bez alokacji; po zmianie planu odmawia bez częściowego zapisu', async () => {
+      const { session, asia, rafal, householdId } =
+        await sessionCouple('UndoDokladne');
+      await weeklyPlans.upsertWeekSlot(asia, householdId, WEEK_START, {
+        dayOfWeek: 'TUE',
+        mealType: 'DINNER',
+        recipeId: dinner.id,
+      });
+      const beforeApply = await readItems(asia, householdId);
+      const { answer } = await turn(
+        session,
+        householdId,
+        `Propozycja [[propose:${dinnerB.id}:${WEEK_START}]] [[propose:${dinner.id}:${WEEK_START}]]`,
+      );
+      const proposal = await proposalOf(answer);
+      // Porcje w akcji — tak, jak liczy je planer przy włączonej fladze
+      // (stub nie umie ich wymusić na konkretnej pozycji). Odcisk bazowy
+      // i ścieżki apply/undo zostają prawdziwe.
+      const action = proposal.action as {
+        slots: Record<string, unknown>[];
+      };
+      await prisma.agentProposal.update({
+        where: { id: proposal.id },
+        data: {
+          action: {
+            slots: action.slots.map((slot) =>
+              slot.dayOfWeek === 'TUE'
+                ? {
+                    ...slot,
+                    portions: [
+                      { userId: asia, servings: 0.8 },
+                      { userId: rafal, servings: 1.25 },
+                    ],
+                  }
+                : slot,
+            ),
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+      await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposal.id}/apply`)
+        .set(auth(session.accessToken))
+        .send({})
+        .expect(200);
+      expect(
+        byPerson(
+          itemOf(await readItems(asia, householdId), dinner.id)!.portions,
+        ),
+      ).toEqual({ [asia]: 0.8, [rafal]: 1.25 });
+
+      await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposal.id}/undo`)
+        .set(auth(session.accessToken))
+        .send({})
+        .expect(200);
+      const restored = await readItems(asia, householdId);
+      expect(restored.map((item) => item.recipeId)).toEqual([dinner.id]);
+      expect(restored[0].portions).toEqual([]);
+      expect(restored[0].plannedServings).toBe(beforeApply[0].plannedServings);
+      expect(restored[0].participantIds).toEqual(beforeApply[0].participantIds);
+
+      // Ponowny zapis, potem zmiana planu (nowe danie) — undo odmawia, nic nie wchodzi.
+      await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposal.id}/apply`)
+        .set(auth(session.accessToken))
+        .send({})
+        .expect(200);
+      await weeklyPlans.upsertWeekSlot(asia, householdId, WEEK_START, {
+        dayOfWeek: 'WED',
+        mealType: 'DINNER',
+        recipeId: dinnerC.id,
+      });
+      const beforeUndo = await readItems(asia, householdId);
+      const refused = await request(app.getHttpServer())
+        .post(`/agent/proposals/${proposal.id}/undo`)
+        .set(auth(session.accessToken))
+        .send({})
+        .expect(409);
+      expect((refused.body as { details: string[] }).details).toEqual([
+        'reason:CHANGED_AFTER_APPLY',
+      ]);
+      expect(await readItems(asia, householdId)).toEqual(beforeUndo);
+      expect(
+        (
+          await prisma.agentProposal.findUniqueOrThrow({
+            where: { id: proposal.id },
+          })
+        ).status,
+      ).toBe('APPLIED');
     });
   });
 });
