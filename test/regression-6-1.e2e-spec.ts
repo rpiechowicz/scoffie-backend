@@ -363,7 +363,10 @@ describe('Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1)', () => {
       const home = await household('PodzialPorcje', 1800, {
         calorieGoal: 2600,
       });
-      const dish = await prisma.recipe.findFirstOrThrow({
+      // Porcje mają krok 0,5 (27.09.2026): przy bardzo sytym daniu obie osoby
+      // dostałyby po 0,5 niezależnie od celu. Danie umiarkowane na porcję
+      // pozwala sprawdzić, że różne cele dają różne porcje.
+      const dinners = await prisma.recipe.findMany({
         where: {
           isCatalog: true,
           isActive: true,
@@ -374,6 +377,12 @@ describe('Regresje Etapu 6 — naprawy deterministyczne (Etap 6.1)', () => {
         orderBy: { id: 'asc' },
         select: { id: true, servings: true, nutritionKcal: true },
       });
+      const perServing = (recipe: (typeof dinners)[number]) =>
+        (recipe.nutritionKcal ?? 0) / Math.max(1, recipe.servings ?? 1);
+      const dish = dinners.find(
+        (recipe) => perServing(recipe) >= 450 && perServing(recipe) <= 600,
+      );
+      if (!dish) throw new Error('katalog bez kolacji 450–600 kcal/porcję');
       const kcalPerServing = Math.round(
         (dish.nutritionKcal ?? 0) / Math.max(1, dish.servings ?? 1),
       );
