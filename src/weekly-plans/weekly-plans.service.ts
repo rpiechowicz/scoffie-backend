@@ -1323,14 +1323,15 @@ export class WeeklyPlansService {
                   },
                 }
               : {}),
-            ...(portionsChanged
-              ? {
-                  portions: {
-                    deleteMany: {},
-                    create: stampedPortionRows(slot.portions, revision),
-                  },
-                }
-              : {}),
+            // Każda zmiana pozycji przestemplowuje WSZYSTKIE jej porcje, jak
+            // w `upsertWeekSlot` — także zmiana samego audytorium przy tych
+            // samych wartościach (jawna lista wszystkich → „Wspólne”): pełny
+            // zapis struktury pozycji unieważnia tokeny porcji. Atomowa edycja
+            // jednej osoby to `setPortion`.
+            portions: {
+              deleteMany: {},
+              create: stampedPortionRows(slot.portions, revision),
+            },
           },
         });
         updated += 1;
