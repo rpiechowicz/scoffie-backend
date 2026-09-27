@@ -553,16 +553,6 @@ export const AGENT_TOOLS: readonly AgentToolDefinition[] = [
     ),
   },
   {
-    name: 'show_shopping_list',
-    description:
-      'Pokaż, co trzeba kupić na dany tydzień — po działach sklepu, z ilościami. ' +
-      'Listę liczy serwer z zaplanowanych posiłków, więc TY NIE WYPISUJESZ produktów ' +
-      'ani ilości w odpowiedzi; napisz jedno zdanie, a resztę pokaże karta. ' +
-      'Aplikacja nie wie, co użytkownik ma w domu — nie mów, czego mu „nie brakuje".',
-    input_schema: object({ week_start: WEEK_START }, ['week_start']),
-    strict: true,
-  },
-  {
     name: 'mark_meal_eaten',
     description:
       'Odhacz zaplanowany posiłek jako ZJEDZONY przez osobę, z którą rozmawiasz ' +
@@ -1010,7 +1000,6 @@ export const AGENT_TOOL_TIERS: Readonly<Record<string, AgentToolTier>> = {
   // Czytanie i pytania: dane są już policzone przez serwer.
   get_week_plan: 'chat',
   get_week_balance: 'chat',
-  show_shopping_list: 'chat',
   // Czytanie przepisu i szukanie po składniku zostaje w rozmowie CELOWO:
   // to są odpowiedzi na pytania („jak to ugotować", „co zrobić z bakłażanem"),
   // a nie układanie planu. Gdyby wymagały `start_planning`, najczęstsze
@@ -1093,6 +1082,18 @@ export const AGENT_TOOL_NAMES = [...AGENT_TOOLS, START_PLANNING_TOOL].map(
  * trafi do executora.
  */
 export const INTERNAL_AGENT_TOOLS: readonly AgentToolDefinition[] = [
+  // Wycofane z modelu 27.09.2026 (`RETIRED_MODEL_TOOLS`) — zostaje dla
+  // e2e i odtworzenia starych tur; karta listy żyje dalej w historii.
+  {
+    name: 'show_shopping_list',
+    description:
+      'Pokaż, co trzeba kupić na dany tydzień — po działach sklepu, z ilościami. ' +
+      'Listę liczy serwer z zaplanowanych posiłków, więc TY NIE WYPISUJESZ produktów ' +
+      'ani ilości w odpowiedzi; napisz jedno zdanie, a resztę pokaże karta. ' +
+      'Aplikacja nie wie, co użytkownik ma w domu — nie mów, czego mu „nie brakuje".',
+    input_schema: object({ week_start: WEEK_START }, ['week_start']),
+    strict: true,
+  },
   {
     name: 'propose_week_plan',
     description:
@@ -1172,4 +1173,9 @@ export const RETIRED_MODEL_TOOLS = [
   'propose_week_plan',
   // Kasowanie przepisu bez scenariusza w rozmowie; aplikacja ma to w edytorze.
   'delete_recipe',
+  // „Pokaż listę zakupów” — lista jest w aplikacji na jedno stuknięcie (Plan →
+  // Zakupy), a tura kosztuje i zjada wiadomość z puli (27.09.2026, Rafał:
+  // „bez sensu wywoływanie agenta, szkoda kasy i rozmów”). Model odsyła
+  // jednym zdaniem; telefon rozpoznaje takie pytanie sam, zanim je wyśle.
+  'show_shopping_list',
 ] as const;

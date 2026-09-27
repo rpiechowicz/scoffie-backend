@@ -7,12 +7,12 @@ export class PlanItemPortionDto {
   userId: string;
 
   /**
-   * Porcja tej osoby w porcjach przepisu, wielokrotność 0,05.
-   * @minimum 0.1
+   * Porcja tej osoby w porcjach przepisu, wielokrotność 0,5.
+   * @minimum 0.5
    * @maximum 6
-   * @multipleOf 0.05
+   * @multipleOf 0.5
    */
-  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6, multipleOf: 0.05 })
+  @ApiProperty({ example: 1.25, minimum: 0.5, maximum: 6, multipleOf: 0.5 })
   servings: number;
 
   /**
@@ -66,7 +66,7 @@ export class PlanItemDto {
   /**
    * Porcje per osoba (Etap 2.2). Puste = równy podział `plannedServings`
    * między jedzących (pozycje sprzed alokacji). Niepuste = źródło prawdy:
-   * każda osoba z audytorium ma dokładnie jeden wpis (wielokrotność 0,05),
+   * każda osoba z audytorium ma dokładnie jeden wpis (wielokrotność 0,5),
    * gotujemy Σ porcji, a `plannedServings` jest pochodną `ceil(Σ)`.
    */
   @ApiProperty({ type: [PlanItemPortionDto] })

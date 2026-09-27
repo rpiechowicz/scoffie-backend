@@ -231,7 +231,7 @@ describe('Per-user portions — write safety', () => {
   };
 
   /**
-   * „Transakcja B”: alokacja 0,9 + 1,3 zapisywana pod zamkiem tygodnia
+   * „Transakcja B”: alokacja 1 + 1,5 zapisywana pod zamkiem tygodnia
    * i trzymana otwarta do `commit()`.
    */
   const holdAllocation = (
@@ -249,8 +249,8 @@ describe('Per-user portions — write safety', () => {
         });
         await tx.planItemPortion.createMany({
           data: [
-            { planItemId: item.id, userId: people.asia, units: 18 },
-            { planItemId: item.id, userId: people.rafal, units: 26 },
+            { planItemId: item.id, userId: people.asia, units: 20 },
+            { planItemId: item.id, userId: people.rafal, units: 30 },
           ],
         });
         await tx.planItem.update({
@@ -430,7 +430,7 @@ describe('Per-user portions — write safety', () => {
       expect(ack).toEqual(
         expect.objectContaining({ ok: false, code: 'PLAN_PORTIONS_CONFLICT' }),
       );
-      expect(byPerson(after.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
+      expect(byPerson(after.portions)).toEqual({ [asia]: 1, [rafal]: 1.5 });
       expect(after.participantIds).toEqual([]);
       expect(after.plannedServings).toBe(3);
       expect(emitted).toEqual([]);
@@ -449,8 +449,8 @@ describe('Per-user portions — write safety', () => {
           recipeId: dinner.id,
         });
         await allocate(rafal, householdId, [
-          { userId: asia, servings: 0.9 },
-          { userId: rafal, servings: 1.3 },
+          { userId: asia, servings: 1 },
+          { userId: rafal, servings: 1.5 },
         ]);
         const before = itemOf(await readPlan(asia, householdId), dinner.id)!;
         const rowsBefore = await portionRows(before.id);
@@ -478,8 +478,8 @@ describe('Per-user portions — write safety', () => {
     it('Race 2. Stare danie ma porcje; nieaktualny klient podmienia przepis (replaceRecipeId) bez wiedzy o alokacji → konflikt; źródło i porcje zostają, nowe danie nie powstaje', async () => {
       const { asia, rafal, householdId } = await couple('Race2');
       const source = await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const rowsBefore = await portionRows(source.id);
       emitted.length = 0;
@@ -502,8 +502,8 @@ describe('Per-user portions — write safety', () => {
     it('Race 3. applyWeekPlan: istniejąca pozycja z porcjami, slot bez portions — ze zmianą audytorium → applied:false (zero częściowego zapisu, zero broadcastu); bez zmiany → porcje bit w bit', async () => {
       const { asia, rafal, householdId } = await couple('Race3');
       const item = await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const rowsBefore = await portionRows(item.id);
       emitted.length = 0;
@@ -547,8 +547,8 @@ describe('Per-user portions — write safety', () => {
     it('Race 4. Plan z porcjami; asystent (propozycja tygodnia, stub) zmienia INNĄ pozycję — nietknięta alokacja zostaje bit w bit', async () => {
       const { session, asia, rafal, householdId } = await sessionHome('Race4');
       const item = await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const rowsBefore = await portionRows(item.id);
       // MON = nowe danie, TUE = to samo danie co dziś (model nie zna porcji).
@@ -574,8 +574,8 @@ describe('Per-user portions — write safety', () => {
     const allocatedTuesday = async (label: string) => {
       const home = await sessionHome(label);
       const item = await allocate(home.asia, home.householdId, [
-        { userId: home.asia, servings: 0.9 },
-        { userId: home.rafal, servings: 1.3 },
+        { userId: home.asia, servings: 1 },
+        { userId: home.rafal, servings: 1.5 },
       ]);
       return { ...home, item };
     };
@@ -598,8 +598,8 @@ describe('Per-user portions — write safety', () => {
       );
       expect(itemOf(after, dinner.id)).toBeUndefined();
       expect(byPerson(swapped!.portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 1,
+        [rafal]: 1.5,
       });
     });
 
@@ -642,8 +642,8 @@ describe('Per-user portions — write safety', () => {
         `[G2] po zamianie: ${swapped ? JSON.stringify(byPerson(swapped.portions)) : 'brak'}`,
       );
       expect(byPerson(swapped!.portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 1,
+        [rafal]: 1.5,
       });
     });
 
@@ -671,8 +671,8 @@ describe('Per-user portions — write safety', () => {
         `[G3] po poprawce: ${swapped ? JSON.stringify(byPerson(swapped.portions)) : 'brak'}`,
       );
       expect(byPerson(swapped!.portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 1,
+        [rafal]: 1.5,
       });
     });
 
@@ -833,8 +833,8 @@ describe('Per-user portions — write safety', () => {
     it('4. PRESERVE: zmiana audytorium wymaga tokenu; ten sam stan = NOOP', async () => {
       const { asia, rafal, householdId } = await couple('Preserve');
       await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const same = (await upsert(asia, householdId, {
         portionPolicy: 'PRESERVE',
@@ -856,7 +856,7 @@ describe('Per-user portions — write safety', () => {
       });
       const item = itemOf(await readPlan(asia, householdId), dinner.id)!;
       expect(item.participantIds).toEqual([asia]);
-      expect(byPerson(item.portions)).toEqual({ [asia]: 0.9 });
+      expect(byPerson(item.portions)).toEqual({ [asia]: 1 });
       expect(item.plannedServings).toBe(1);
       expect(
         await attempt(() =>
@@ -874,8 +874,8 @@ describe('Per-user portions — write safety', () => {
         asia,
         householdId,
         [
-          { userId: asia, servings: 0.9 },
-          { userId: rafal, servings: 1.3 },
+          { userId: asia, servings: 1 },
+          { userId: rafal, servings: 1.5 },
         ],
         { participantIds: [asia, rafal] },
       );
@@ -922,8 +922,8 @@ describe('Per-user portions — write safety', () => {
     it('5. RESET: bez tokenu → PLAN_REVISION_REQUIRED (nic nie zmienione); z tokenem → równy podział, plannedServings zachowane', async () => {
       const { asia, rafal, householdId } = await couple('Reset');
       const seen = await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       expect(
         await attempt(() =>
@@ -942,12 +942,12 @@ describe('Per-user portions — write safety', () => {
     it('6. REPLACE: jawne porcje zastępują alokację tylko z tokenem; REPLACE bez porcji = VALIDATION_ERROR', async () => {
       const { asia, rafal, householdId } = await couple('Replace');
       const seen = await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
-      ]);
-      const next = [
         { userId: asia, servings: 1 },
         { userId: rafal, servings: 1.5 },
+      ]);
+      const next = [
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ];
       expect(
         await attempt(() =>
@@ -974,8 +974,8 @@ describe('Per-user portions — write safety', () => {
     it('7 + 8. token pozycji: zgodny → zapis; niezgodny → PLAN_REVISION_CONFLICT (409), nic nie zapisane', async () => {
       const { asia, rafal, householdId } = await couple('Token');
       const seen = await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       await upsert(rafal, householdId, {
         portionPolicy: 'PRESERVE',
@@ -983,7 +983,7 @@ describe('Per-user portions — write safety', () => {
         expectedRevision: seen.revision,
       });
       const mid = itemOf(await readPlan(asia, householdId), dinner.id)!;
-      expect(byPerson(mid.portions)).toEqual({ [rafal]: 1.3 });
+      expect(byPerson(mid.portions)).toEqual({ [rafal]: 1.5 });
       expect(
         await attempt(() =>
           upsert(asia, householdId, {
@@ -999,8 +999,8 @@ describe('Per-user portions — write safety', () => {
     it('9 + 10. setPortion równolegle (pod zamkiem): TA SAMA osoba → dokładnie jeden wchodzi; RÓŻNE osoby → obie zmiany zostają', async () => {
       const { asia, rafal, householdId } = await couple('Rownolegle');
       const seen = await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const set =
         (actor: string, userId: string, servings: number, item: Item) => () =>
@@ -1011,20 +1011,20 @@ describe('Per-user portions — write safety', () => {
             expectedRevision: portionToken(item, userId),
           });
       const same = await underWeekLock(householdId, [
-        set(asia, rafal, 1.5, seen),
-        set(rafal, rafal, 1.1, seen),
+        set(asia, rafal, 2.5, seen),
+        set(rafal, rafal, 3, seen),
       ]);
       expect([...same].sort()).toEqual(['OK', 'PLAN_REVISION_CONFLICT']);
       const mid = itemOf(await readPlan(asia, householdId), dinner.id)!;
-      expect(byPerson(mid.portions)[rafal]).toBe(same[0] === 'OK' ? 1.5 : 1.1);
+      expect(byPerson(mid.portions)[rafal]).toBe(same[0] === 'OK' ? 2.5 : 3);
 
       const different = await underWeekLock(householdId, [
-        set(asia, rafal, 1.25, mid),
-        set(rafal, asia, 1, mid),
+        set(asia, rafal, 2, mid),
+        set(rafal, asia, 0.5, mid),
       ]);
       expect(different).toEqual(['OK', 'OK']);
       const final = itemOf(await readPlan(asia, householdId), dinner.id)!;
-      expect(byPerson(final.portions)).toEqual({ [asia]: 1, [rafal]: 1.25 });
+      expect(byPerson(final.portions)).toEqual({ [asia]: 0.5, [rafal]: 2 });
       expect(final.plannedServings).toBe(3);
     });
 
@@ -1034,8 +1034,8 @@ describe('Per-user portions — write safety', () => {
         asia,
         householdId,
         [
-          { userId: asia, servings: 0.9 },
-          { userId: rafal, servings: 1.3 },
+          { userId: asia, servings: 1 },
+          { userId: rafal, servings: 1.5 },
         ],
         { participantIds: [asia, rafal] },
       );
@@ -1048,8 +1048,8 @@ describe('Per-user portions — write safety', () => {
       let item = itemOf(await readPlan(asia, householdId), dinner.id)!;
       expect(item.participantIds).toEqual([]);
       expect(byPerson(item.portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 1,
+        [rafal]: 1.5,
         [ola]: 1,
       });
       expect(item.plannedServings).toBe(4);
@@ -1059,7 +1059,7 @@ describe('Per-user portions — write safety', () => {
         expectedRevision: item.revision,
       });
       item = itemOf(await readPlan(asia, householdId), dinner.id)!;
-      expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [ola]: 1 });
+      expect(byPerson(item.portions)).toEqual({ [asia]: 1, [ola]: 1 });
       expect(item.plannedServings).toBe(2);
       // plannedServings sprzeczne z porcjami przy PRESERVE — jawna odmowa.
       expect(
@@ -1076,8 +1076,8 @@ describe('Per-user portions — write safety', () => {
     it('13 + 14. zamiana dania: PRESERVE i RESET wymagają tokenów źródła i celu', async () => {
       const { asia, rafal, householdId } = await couple('Zamiana');
       await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       expect(
         await attempt(() =>
@@ -1099,7 +1099,7 @@ describe('Per-user portions — write safety', () => {
       let plan = await readPlan(asia, householdId);
       expect(plan.items.map((i) => i.recipeId)).toEqual([dinnerB.id]);
       const kept = itemOf(plan, dinnerB.id)!;
-      expect(byPerson(kept.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
+      expect(byPerson(kept.portions)).toEqual({ [asia]: 1, [rafal]: 1.5 });
 
       expect(
         await attempt(() =>
@@ -1127,8 +1127,8 @@ describe('Per-user portions — write safety', () => {
     it('15 + 16. applyWeekPlan: PRESERVE per slot przelicza alokację; dryRun daje TE SAME naruszenia co zapis dla tego samego stanu', async () => {
       const { asia, rafal, householdId } = await couple('Apply');
       await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const cases: Record<string, unknown>[] = [
         { slots: [tue({ participantIds: [asia] })] },
@@ -1157,14 +1157,14 @@ describe('Per-user portions — write safety', () => {
       const real = await apply(asia, householdId, preserve);
       expect(real.applied).toBe(true);
       const item = itemOf(await readPlan(asia, householdId), dinner.id)!;
-      expect(byPerson(item.portions)).toEqual({ [rafal]: 1.3 });
+      expect(byPerson(item.portions)).toEqual({ [rafal]: 1.5 });
     });
 
     it('18. revise_proposal zmienia INNĄ pozycję — nietknięta alokacja zostaje bit w bit', async () => {
       const { session, asia, rafal, householdId } = await sessionHome('Revise');
       const item = await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const rowsBefore = await portionRows(item.id);
       const first = await turn(
@@ -1190,8 +1190,8 @@ describe('Per-user portions — write safety', () => {
     it('19. „Cofnij” po propozycji, która zamieniła danie z porcjami, przywraca dokładnie tamtą alokację', async () => {
       const { session, asia, rafal, householdId } = await sessionHome('Undo');
       await allocate(asia, householdId, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const answer = await turn(
         session,
@@ -1211,8 +1211,8 @@ describe('Per-user portions — write safety', () => {
       const restored = await readPlan(asia, householdId);
       expect(restored.items.map((i) => i.recipeId)).toEqual([dinner.id]);
       expect(byPerson(itemOf(restored, dinner.id)!.portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 1,
+        [rafal]: 1.5,
       });
     });
 
@@ -1222,8 +1222,8 @@ describe('Per-user portions — write safety', () => {
         asia,
         householdId,
         [
-          { userId: asia, servings: 0.9 },
-          { userId: rafal, servings: 1.3 },
+          { userId: asia, servings: 1 },
+          { userId: rafal, servings: 1.5 },
         ],
         { participantIds: [asia, rafal] },
       );
@@ -1245,13 +1245,13 @@ describe('Per-user portions — write safety', () => {
           .revision,
       });
       const after = await amounts();
-      // Σ porcji 2,2 → 3,2: każdy produkt rośnie w tej proporcji (co do
+      // Σ porcji 2,5 → 3,5: każdy produkt rośnie w tej proporcji (co do
       // zaokrąglenia jednostek sklepowych).
       const ratios = [...before]
         .filter(([, amount]) => amount >= 50)
         .map(([key, amount]) => after.get(key)! / amount);
       expect(ratios.length).toBeGreaterThan(0);
-      for (const ratio of ratios) expect(ratio).toBeCloseTo(3.2 / 2.2, 1);
+      for (const ratio of ratios) expect(ratio).toBeCloseTo(3.5 / 2.5, 1);
 
       const recipe = await prisma.recipe.findUniqueOrThrow({
         where: { id: dinner.id },

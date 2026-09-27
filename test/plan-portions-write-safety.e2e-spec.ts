@@ -289,7 +289,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     ).id;
 
   /**
-   * „Transakcja B”: alokacja 0,9 + 1,3 zapisywana pod zamkiem tygodnia —
+   * „Transakcja B”: alokacja 0,5 + 2 zapisywana pod zamkiem tygodnia —
    * tak jak zapis każdego klienta, który porcje zna. Trzymana otwarta do
    * `commit.open()`.
    */
@@ -308,8 +308,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         });
         await tx.planItemPortion.createMany({
           data: [
-            { planItemId: item.id, userId: people.asia, units: 18 },
-            { planItemId: item.id, userId: people.rafal, units: 26 },
+            { planItemId: item.id, userId: people.asia, units: 10 },
+            { planItemId: item.id, userId: people.rafal, units: 40 },
           ],
         });
         await tx.planItem.update({
@@ -403,7 +403,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       rafal,
     });
     await b.wrote;
-    log.push('B: alokacja 0,9/1,3 zapisana, zamek tygodnia trzymany');
+    log.push('B: alokacja 0,5/2 zapisana, zamek tygodnia trzymany');
 
     // 4. A zapisuje pozycję bez `portions` (zmiana „kto je”) — ze starego stanu.
     let aDone = false;
@@ -438,7 +438,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     console.log(`[race] ${log.join(' → ')}`);
 
     // Bezpieczeństwo: alokacja B nie została niejawnie usunięta ani zmieniona.
-    expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
+    expect(byPerson(item.portions)).toEqual({ [asia]: 0.5, [rafal]: 2 });
     expect(item.plannedServings).toBe(3);
     expect(item.participantIds).toEqual([]);
     expect(aResult).toBe('PLAN_PORTIONS_CONFLICT');
@@ -462,11 +462,11 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       mealType: 'DINNER',
       recipeId: dinner.id,
       portions: [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ],
     });
-    log.push('B: alokacja 0,9/1,3 zapisana i zatwierdzona');
+    log.push('B: alokacja 0,5/2 zapisana i zatwierdzona');
 
     // A: zapis ze starego stanu — stepper porcji łącznych, bez `portions`.
     const aResult = await weeklyPlans
@@ -488,7 +488,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     );
     console.log(`[sekwencyjnie] ${log.join(' → ')}`);
 
-    expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
+    expect(byPerson(item.portions)).toEqual({ [asia]: 0.5, [rafal]: 2 });
     expect(item.plannedServings).toBe(3);
     expect(aResult).toBe('PLAN_PORTIONS_CONFLICT');
   });
@@ -497,8 +497,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     it('2. `portions` pominięte i `[]`: identyczny zapis zostawia alokację (NOOP), zmiana = PLAN_PORTIONS_CONFLICT', async () => {
       const { asia, rafal, householdId } = await couple('Pusta');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const omitted = await weeklyPlans.upsertWeekSlot(
         asia,
@@ -531,7 +531,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         ),
       ).toBe('PLAN_PORTIONS_CONFLICT');
       const [item] = await readItems(asia, householdId);
-      expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
+      expect(byPerson(item.portions)).toEqual({ [asia]: 0.5, [rafal]: 2 });
       expect(item.plannedServings).toBe(3);
       expect(item.participantIds).toEqual([]);
     });
@@ -539,8 +539,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     it('3. jawne `portions` zastępują alokację tylko z tokenem pozycji (bez tokenu → PLAN_REVISION_REQUIRED, nic nie zmienione)', async () => {
       const { asia, rafal, householdId } = await couple('Jawne');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       expect(
         await code(
@@ -552,7 +552,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       ).toBe('PLAN_REVISION_REQUIRED');
       expect(
         byPerson((await readItems(asia, householdId))[0].portions),
-      ).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
+      ).toEqual({ [asia]: 0.5, [rafal]: 2 });
       await reallocate(asia, householdId, dinner.id, [
         { userId: asia, servings: 1 },
         { userId: rafal, servings: 1.5 },
@@ -565,8 +565,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     it('4. replaceRecipeId: źródło z alokacją bez porcji → odmowa, NIC nie zmienione (źródło zostaje, cel nie powstaje)', async () => {
       const { asia, rafal, householdId } = await couple('ZamianaZrodlo');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       expect(
         await code(
@@ -581,16 +581,16 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       const items = await readItems(asia, householdId);
       expect(items.map((item) => item.recipeId)).toEqual([dinner.id]);
       expect(byPerson(items[0].portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 0.5,
+        [rafal]: 2,
       });
     });
 
     it('4b. replaceRecipeId: źródło z alokacją i JAWNE porcje nowego dania → zamiana przechodzi z tokenem źródła (bez → PLAN_REVISION_REQUIRED)', async () => {
       const { asia, rafal, householdId } = await couple('ZamianaJawna');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const swap = {
         dayOfWeek: 'TUE' as const,
@@ -599,7 +599,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         replaceRecipeId: dinner.id,
         portions: [
           { userId: asia, servings: 1 },
-          { userId: rafal, servings: 1.2 },
+          { userId: rafal, servings: 1.5 },
         ],
       };
       expect(
@@ -621,7 +621,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       expect(result.changeKind).toBe('REPLACED');
       const items = await readItems(asia, householdId);
       expect(items.map((item) => item.recipeId)).toEqual([dinnerB.id]);
-      expect(byPerson(items[0].portions)).toEqual({ [asia]: 1, [rafal]: 1.2 });
+      expect(byPerson(items[0].portions)).toEqual({ [asia]: 1, [rafal]: 1.5 });
     });
 
     it('4c. replaceRecipeId: CEL już w slocie z alokacją — zmiana audytorium celu → odmowa, źródło NIE usunięte', async () => {
@@ -632,8 +632,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         recipeId: dinner.id,
       });
       await allocate(asia, householdId, dinnerB.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       expect(
         await code(
@@ -651,8 +651,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         [dinner.id, dinnerB.id].sort(),
       );
       expect(byPerson(itemOf(items, dinnerB.id)!.portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 0.5,
+        [rafal]: 2,
       });
 
       // Ten sam cel bez zmiany audytorium: źródło znika, cel nietknięty.
@@ -671,8 +671,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       const after = await readItems(asia, householdId);
       expect(after.map((item) => item.recipeId)).toEqual([dinnerB.id]);
       expect(byPerson(after[0].portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 0.5,
+        [rafal]: 2,
       });
     });
 
@@ -706,8 +706,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         householdId,
         dinnerB.id,
         [
-          { userId: asia, servings: 0.9 },
-          { userId: rafal, servings: 1.3 },
+          { userId: asia, servings: 0.5 },
+          { userId: rafal, servings: 2 },
         ],
         undefined,
         'WED',
@@ -726,8 +726,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       expect(created.changeKind).toBe('CREATED');
       const items = await readItems(asia, householdId);
       expect(byPerson(itemOf(items, dinnerB.id, 'WED')!.portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 0.5,
+        [rafal]: 2,
       });
       [item] = items.filter((row) => row.recipeId === dinnerC.id);
       expect(item.participantIds).toEqual([rafal]);
@@ -736,8 +736,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     it('6. jawne usunięcie i „zjedzone” działają na pozycji z alokacją', async () => {
       const { asia, rafal, householdId } = await couple('Usun');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       await weeklyPlans.setMealEaten(asia, householdId, WEEK_START, {
         dayOfWeek: 'TUE',
@@ -746,7 +746,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         isEaten: true,
       });
       let [item] = await readItems(asia, householdId);
-      expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
+      expect(byPerson(item.portions)).toEqual({ [asia]: 0.5, [rafal]: 2 });
       await weeklyPlans.removeWeekSlot(asia, householdId, WEEK_START, {
         dayOfWeek: 'TUE',
         mealType: 'DINNER',
@@ -755,8 +755,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       expect(await readItems(asia, householdId)).toEqual([]);
 
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       [item] = await readItems(asia, householdId);
       expect(item.portions).toHaveLength(2);
@@ -767,8 +767,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     it('7. odmowa nie emituje sukcesu i nie zmienia pozycji; obcy dostaje NOT_HOUSEHOLD_MEMBER przed porcjami', async () => {
       const { asia, rafal, householdId } = await couple('Odmowa');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const before = await readItems(asia, householdId);
       const live = jest.spyOn(liveEvents, 'emitLive');
@@ -822,8 +822,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     it('8. jedna konfliktująca pozycja → applied:false z naruszeniem, NIC nie zapisane (także nowe sloty)', async () => {
       const { asia, rafal, householdId } = await couple('Apply');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const before = await readItems(asia, householdId);
       const slots = [
@@ -865,8 +865,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     it('9. identyczne wymienienie pozycji z alokacją (bez porcji, także `[]`) zostawia ją; reszta stanu docelowego wchodzi', async () => {
       const { asia, rafal, householdId } = await couple('ApplyKeep');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const result = await weeklyPlans.applyWeekPlan(
         asia,
@@ -888,8 +888,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       expect(result.changes).toEqual({ created: 1, updated: 0, deleted: 0 });
       const items = await readItems(asia, householdId);
       expect(byPerson(itemOf(items, dinner.id)!.portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 0.5,
+        [rafal]: 2,
       });
       expect(itemOf(items, dinner.id)!.plannedServings).toBe(3);
       expect(itemOf(items, dinnerB.id, 'MON')).toBeDefined();
@@ -898,8 +898,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     it('10. `no-allocation-changes` nie zmienia porcji; `authoritative` BEZ guarda odrzucone przed zapisem (baza bez zmian)', async () => {
       const { asia, rafal, householdId } = await couple('Polityki');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const forced = await weeklyPlans.applyWeekPlan(
         asia,
@@ -975,7 +975,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         asia,
         householdId,
         dinner.id,
-        [{ userId: asia, servings: 1.2 }],
+        [{ userId: asia, servings: 1.5 }],
         [asia],
       );
       const before = await readItems(asia, householdId);
@@ -1027,8 +1027,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       );
       const proposal = await proposalOf(answer);
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       await request(app.getHttpServer())
         .post(`/agent/proposals/${proposal.id}/apply`)
@@ -1037,8 +1037,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         .expect(200);
       const items = await readItems(asia, householdId);
       expect(byPerson(itemOf(items, dinner.id)!.portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 0.5,
+        [rafal]: 2,
       });
       expect(itemOf(items, dinnerB.id, 'MON')).toBeDefined();
     });
@@ -1046,8 +1046,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     it('13. undo: alokacja dodana PO zapisie → odmowa (odcisk), status APPLIED, alokacja zostaje; bez zmian po zapisie → cofnięcie przywraca tydzień z porcjami', async () => {
       const { session, asia, rafal, householdId } = await sessionCouple('Undo');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const first = await turn(
         session,
@@ -1062,8 +1062,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         .expect(200);
       let items = await readItems(asia, householdId);
       expect(byPerson(itemOf(items, dinner.id)!.portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 0.5,
+        [rafal]: 2,
       });
 
       // Undo po zapisie bez zmian: tydzień wraca do stanu sprzed, porcje zostają.
@@ -1075,8 +1075,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       items = await readItems(asia, householdId);
       expect(items.map((item) => item.recipeId)).toEqual([dinner.id]);
       expect(byPerson(items[0].portions)).toEqual({
-        [asia]: 0.9,
-        [rafal]: 1.3,
+        [asia]: 0.5,
+        [rafal]: 2,
       });
 
       // Drugi zapis, potem zmiana alokacji — cofnięcie odmawia.
@@ -1114,7 +1114,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         asia,
         householdId,
         dinner.id,
-        [{ userId: asia, servings: 1.2 }],
+        [{ userId: asia, servings: 1.5 }],
         [asia],
       );
       const before = await readItems(asia, householdId);
@@ -1148,7 +1148,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       );
       // Od workstreamu per-user-portions-write-safety propozycja nie odmawia:
       // serwer oznacza pozycję z alokacją `PRESERVE` i przelicza ją na nowe
-      // audytorium (Asia zachowuje 1,2, Rafał dostaje 1,0) — model niczego
+      // audytorium (Asia zachowuje 1,5, Rafał dostaje 1,0) — model niczego
       // nie liczy. Propozycja niczego nie zapisuje.
       expect(JSON.stringify(proposed)).not.toContain('PLAN_PORTIONS_CONFLICT');
       expect(await readItems(asia, householdId)).toEqual(before);
@@ -1168,8 +1168,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         recipeId: dinner.id,
       });
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.9 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const kept = await executor.execute(
         'apply_week_plan',
@@ -1179,7 +1179,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       expect(JSON.stringify(kept)).not.toContain('PLAN_PORTIONS_CONFLICT');
       expect(kept.ok).toBe(true);
       const [item] = await readItems(asia, householdId);
-      expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
+      expect(byPerson(item.portions)).toEqual({ [asia]: 0.5, [rafal]: 2 });
       expect(item.plannedServings).toBe(3);
     });
   });
@@ -1219,8 +1219,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       );
       const proposal = await proposalOf(answer);
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 1.5 },
       ]);
 
       const plain = await request(app.getHttpServer())
@@ -1279,8 +1279,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       );
       const proposal = await proposalOf(answer);
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const before = await snapshot(
         asia,
@@ -1315,8 +1315,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
     it('16b. surowy applyWeekPlan bez tokenu NIE usuwa pozycji z alokacją spoza stanu docelowego (PLAN_REVISION_REQUIRED); z tokenem tygodnia — usuwa (ADR plan-portions-safe-editing, domknięty API GAP)', async () => {
       const { asia, rafal, householdId } = await couple('StrictUsun');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const target = {
         slots: [
@@ -1363,8 +1363,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       for (const empty of [undefined, []] as const) {
         const { asia, rafal, householdId } = await couple('PodgladKeep');
         await allocate(asia, householdId, dinner.id, [
-          { userId: asia, servings: 0.8 },
-          { userId: rafal, servings: 1.25 },
+          { userId: asia, servings: 0.5 },
+          { userId: rafal, servings: 1.5 },
         ]);
         const tuesday = {
           dayOfWeek: 'TUE' as const,
@@ -1407,8 +1407,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         expect(preview.changes).toEqual({ created: 1, updated: 0, deleted: 0 });
         expect(dry.changes).toEqual({ created: 1, updated: 0, deleted: 0 });
         expect(byPerson(previewTue.portions ?? [])).toEqual({
-          [asia]: 0.8,
-          [rafal]: 1.25,
+          [asia]: 0.5,
+          [rafal]: 1.5,
         });
 
         const applied = await weeklyPlans.applyWeekPlan(
@@ -1436,8 +1436,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       // WRITE: jawne inne porcje — podgląd liczy aktualizację i pokazuje nowe.
       const { asia, rafal, householdId } = await couple('PodgladWrite');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const write = await weeklyPlans.previewWeekPlan(
         asia,
@@ -1487,8 +1487,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
       const { session, asia, rafal, householdId } =
         await sessionCouple('Karta');
       await allocate(asia, householdId, dinner.id, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 1.5 },
       ]);
       const { answer } = await turn(
         session,
@@ -1516,8 +1516,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         `[karta] TUE portions=${JSON.stringify(tueCard.slots[0].portions)} kcalTotal=${tueCard.kcalTotal}`,
       );
       expect(byPerson(tueCard.slots[0].portions ?? [])).toEqual({
-        [asia]: 0.8,
-        [rafal]: 1.25,
+        [asia]: 0.5,
+        [rafal]: 1.5,
       });
 
       await request(app.getHttpServer())
@@ -1538,7 +1538,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         byPerson(
           itemOf(await readItems(asia, householdId), dinner.id)!.portions,
         ),
-      ).toEqual({ [asia]: 0.8, [rafal]: 1.25 });
+      ).toEqual({ [asia]: 0.5, [rafal]: 1.5 });
     });
 
     it('19. prawdziwe undo z poprawnym odciskiem przywraca DOKŁADNY stan — także pozycję bez alokacji; po zmianie planu odmawia bez częściowego zapisu', async () => {
@@ -1571,8 +1571,8 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
                 ? {
                     ...slot,
                     portions: [
-                      { userId: asia, servings: 0.8 },
-                      { userId: rafal, servings: 1.25 },
+                      { userId: asia, servings: 0.5 },
+                      { userId: rafal, servings: 1.5 },
                     ],
                   }
                 : slot,
@@ -1589,7 +1589,7 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         byPerson(
           itemOf(await readItems(asia, householdId), dinner.id)!.portions,
         ),
-      ).toEqual({ [asia]: 0.8, [rafal]: 1.25 });
+      ).toEqual({ [asia]: 0.5, [rafal]: 1.5 });
 
       await request(app.getHttpServer())
         .post(`/agent/proposals/${proposal.id}/undo`)

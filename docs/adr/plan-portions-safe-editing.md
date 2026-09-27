@@ -97,7 +97,7 @@ z nich operację jednorazową, więc ABA nie grozi.
 ## Decyzja 2 — `weeklyPlans:setPortion`
 
 ```
-data: { planItemId: UUID, userId: UUID, servings: number (0,1–6, krok 0,05), expectedRevision: int ≥ 0 }
+data: { planItemId: UUID, userId: UUID, servings: number (0,5–6, krok 0,5 — od 27.09.2026), expectedRevision: int ≥ 0 }
 ```
 
 Semantyka, pod zamkiem tygodnia:

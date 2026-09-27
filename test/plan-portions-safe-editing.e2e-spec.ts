@@ -324,8 +324,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       await upsert(asia, householdId, {
         recipeId: dinner.id,
         portions: [
-          { userId: asia, servings: 0.8 },
-          { userId: rafal, servings: 1.25 },
+          { userId: asia, servings: 0.5 },
+          { userId: rafal, servings: 2 },
         ],
       });
       const seenByA = itemOf(await readPlan(asia, householdId), dinner.id)!;
@@ -336,7 +336,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
           recipeId: dinner.id,
           ...token(seenByA.revision),
           portions: [
-            { userId: asia, servings: 0.8 },
+            { userId: asia, servings: 0.5 },
             { userId: rafal, servings: 1.5 },
           ],
         }),
@@ -348,7 +348,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
           ...token(seenByB.revision),
           portions: [
             { userId: asia, servings: 1 },
-            { userId: rafal, servings: 1.25 },
+            { userId: rafal, servings: 2 },
           ],
         }),
       );
@@ -358,7 +358,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       );
       expect(a).toBe('OK');
       expect(b).toBe('PLAN_REVISION_CONFLICT');
-      expect(byPerson(final.portions)).toEqual({ [asia]: 0.8, [rafal]: 1.5 });
+      expect(byPerson(final.portions)).toEqual({ [asia]: 0.5, [rafal]: 1.5 });
     });
 
     it('B. nieaktualny pełny stan applyWeekPlan nie usuwa pozycji DODANEJ ani nie cofa ZMIENIONEJ po odczycie', async () => {
@@ -402,8 +402,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       await upsert(asia, householdId, {
         recipeId: dinner.id,
         portions: [
-          { userId: asia, servings: 0.8 },
-          { userId: rafal, servings: 1.25 },
+          { userId: asia, servings: 0.5 },
+          { userId: rafal, servings: 2 },
         ],
       });
       const seen = itemOf(await readPlan(asia, householdId), dinner.id)!;
@@ -486,8 +486,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     it('R1. ack pojedynczej pozycji nie odświeża tokenu STAREGO pełnego snapshotu: pełny apply ze starej kopii → konflikt, pozycja B zostaje; dopiero pełny odczyt daje nowy token', async () => {
       const { asia, rafal, householdId } = await couple('R1');
       await allocated(asia, householdId, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const snapshotA = await readPlan(asia, householdId);
       // B dodaje środę; A o tym nie wie.
@@ -540,8 +540,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     it('R1b. odpowiedzi w odwrotnej kolejności: stemple rosną monotonicznie — klient zostawia WYŻSZY token pozycji i nowszy snapshot (wyższa plan.revision); starszy jest odrzucany', async () => {
       const { asia, rafal, householdId } = await couple('R1b');
       const seen = await allocated(asia, householdId, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const ack1 = await setPortionAck(asia, householdId, {
         planItemId: seen.id,
@@ -565,7 +565,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
         upsert(asia, householdId, {
           recipeId: dinner.id,
           portions: [
-            { userId: asia, servings: 1.1 },
+            { userId: asia, servings: 1.5 },
             { userId: rafal, servings: 1.5 },
           ],
           expectedRevision,
@@ -580,7 +580,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       await setPortion(rafal, householdId, {
         planItemId: now.id,
         userId: rafal,
-        servings: 1.3,
+        servings: 2,
         expectedRevision: portionToken(now, rafal),
       });
       const newer = await readPlan(asia, householdId);
@@ -721,7 +721,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
         const yAlloc = await allocated(
           asia,
           householdId,
-          portions(asia, rafal, 0.8, 1.25),
+          portions(asia, rafal, 0.5, 2),
           dinnerB.id,
         );
         const seen = await readPlan(asia, householdId);
@@ -856,8 +856,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
         const { asia, rafal, ola, householdId } = await trio(`R3${writer}`);
         const week = nextWeek();
         const values = [
-          { userId: asia, servings: 0.8 },
-          { userId: rafal, servings: 1.25 },
+          { userId: asia, servings: 0.5 },
+          { userId: rafal, servings: 2 },
         ];
         await weeklyPlans.upsertWeekSlot(asia, householdId, week, {
           dayOfWeek: 'TUE',
@@ -927,8 +927,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     it('R3b. „Wspólne” → jawna lista wszystkich domowników to ten sam stan po normalizacji: prawdziwy NOOP (apply i upsert) — bez nowej rewizji, tokeny ważne; setPortion jednej osoby nie unieważnia tokenu drugiej', async () => {
       const { asia, rafal, householdId } = await couple('R3b');
       const values = [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ];
       const seen = await allocated(asia, householdId, values);
       const plan = await readPlan(asia, householdId);
@@ -995,16 +995,16 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     it('1. dwa pełne zapisy tej samej wersji RÓWNOLEGLE (pod zamkiem tygodnia): wchodzi dokładnie jeden, drugi PLAN_REVISION_CONFLICT — dla upsertWeekSlot i applyWeekPlan', async () => {
       const { asia, rafal, householdId } = await couple('Rownolegle');
       const seen = await allocated(asia, householdId, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const writeA = [
-        { userId: asia, servings: 0.8 },
+        { userId: asia, servings: 0.5 },
         { userId: rafal, servings: 1.5 },
       ];
       const writeB = [
         { userId: asia, servings: 1 },
-        { userId: rafal, servings: 1.25 },
+        { userId: rafal, servings: 2 },
       ];
       const upserts = await underWeekLock(householdId, [
         () =>
@@ -1032,18 +1032,18 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       const plan = await readPlan(asia, householdId);
       const slotsWith = (rafalServings: number) => [
         tuesday([
-          { userId: asia, servings: 0.8 },
+          { userId: asia, servings: 0.5 },
           { userId: rafal, servings: rafalServings },
         ]),
       ];
       const applies = await underWeekLock(householdId, [
         applyOrThrow(asia, householdId, {
           expectedRevision: plan.revision,
-          slots: slotsWith(1.1),
+          slots: slotsWith(1),
         }),
         applyOrThrow(rafal, householdId, {
           expectedRevision: plan.revision,
-          slots: slotsWith(1.9),
+          slots: slotsWith(3),
         }),
       ]);
       console.log(
@@ -1056,15 +1056,15 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       ]);
       final = itemOf(await readPlan(asia, householdId), dinner.id)!;
       expect(byPerson(final.portions)[rafal]).toBe(
-        applies.results[0] === 'OK' ? 1.1 : 1.9,
+        applies.results[0] === 'OK' ? 1 : 3,
       );
     });
 
     it('2. porcje DWÓCH osób zmieniane równolegle z tego samego odczytu: obie zmiany zostają, plannedServings = ceil(Σ)', async () => {
       const { asia, rafal, householdId } = await couple('DwieOsoby');
       const seen = await allocated(asia, householdId, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const { allWaited, results } = await underWeekLock(householdId, [
         () =>
@@ -1094,8 +1094,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     it('3. porcja TEJ SAMEJ osoby z tego samego odczytu: drugi zapis PLAN_REVISION_CONFLICT (409, bieżący stempel w details); równolegle wchodzi dokładnie jeden', async () => {
       const { asia, rafal, householdId } = await couple('TaSamaOsoba');
       const seen = await allocated(asia, householdId, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const token = portionToken(seen, rafal);
       await setPortion(asia, householdId, {
@@ -1108,7 +1108,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
         setPortion(rafal, householdId, {
           planItemId: seen.id,
           userId: rafal,
-          servings: 1.1,
+          servings: 1,
           expectedRevision: token,
         }),
       );
@@ -1128,23 +1128,21 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
           setPortion(asia, householdId, {
             planItemId: seen.id,
             userId: rafal,
-            servings: 1.2,
+            servings: 2,
             expectedRevision: portionToken(now, rafal),
           }),
         () =>
           setPortion(rafal, householdId, {
             planItemId: seen.id,
             userId: rafal,
-            servings: 1.3,
+            servings: 2.5,
             expectedRevision: portionToken(now, rafal),
           }),
       ]);
       expect(allWaited).toBe(true);
       expect([...results].sort()).toEqual(['OK', 'PLAN_REVISION_CONFLICT']);
       now = itemOf(await readPlan(asia, householdId), dinner.id)!;
-      expect(byPerson(now.portions)[rafal]).toBe(
-        results[0] === 'OK' ? 1.2 : 1.3,
-      );
+      expect(byPerson(now.portions)[rafal]).toBe(results[0] === 'OK' ? 2 : 2.5);
     });
 
     it('4. współbieżne przekroczenie sumy (dom trojga): każda zmiana osobno mieści się w 12, razem nie — wchodzi jedna, druga PLAN_PORTIONS_INVALID', async () => {
@@ -1182,8 +1180,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     it('5. edycja porcji vs zmiana uczestników: zapis ze starego odczytu dostaje konflikt; zmiana uczestników wymaga jawnych porcji i tokenu (bez niejawnego resetu)', async () => {
       const { asia, rafal, householdId } = await couple('Uczestnicy');
       const seen = await allocated(asia, householdId, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       // Bez porcji — odmowa, nawet ze zgodnym tokenem.
       expect(
@@ -1201,7 +1199,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
           upsert(rafal, householdId, {
             recipeId: dinner.id,
             participantIds: [asia],
-            portions: [{ userId: asia, servings: 0.8 }],
+            portions: [{ userId: asia, servings: 0.5 }],
             expectedRevision: seen.revision,
           }),
         ),
@@ -1237,7 +1235,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       await setPortion(asia, householdId, {
         planItemId: solo.id,
         userId: asia,
-        servings: 1.1,
+        servings: 1.5,
         expectedRevision: portionToken(solo, asia),
       });
       expect(
@@ -1246,7 +1244,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
             recipeId: dinner.id,
             participantIds: [],
             portions: [
-              { userId: asia, servings: 0.8 },
+              { userId: asia, servings: 0.5 },
               { userId: rafal, servings: 1 },
             ],
             expectedRevision: solo.revision,
@@ -1259,21 +1257,21 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
         recipeId: dinner.id,
         participantIds: [],
         portions: [
-          { userId: asia, servings: 1.1 },
+          { userId: asia, servings: 1.5 },
           { userId: rafal, servings: 1 },
         ],
         expectedRevision: fresh.revision,
       });
       const final = itemOf(await readPlan(asia, householdId), dinner.id)!;
       expect(final.participantIds).toEqual([]);
-      expect(byPerson(final.portions)).toEqual({ [asia]: 1.1, [rafal]: 1 });
+      expect(byPerson(final.portions)).toEqual({ [asia]: 1.5, [rafal]: 1 });
     });
 
     it('6. edycja porcji vs zamiana i usunięcie dania: zamiana wymaga porcji i tokenów źródła i celu; stara pozycja → PLAN_ITEM_NOT_FOUND / PLAN_REVISION_CONFLICT', async () => {
       const { asia, rafal, householdId } = await couple('Zamiana');
       const portions = [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ];
       const seen = await allocated(asia, householdId, portions);
       expect(
@@ -1315,7 +1313,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
             recipeId: dinner.id,
             portions: [
               { userId: asia, servings: 1 },
-              { userId: rafal, servings: 1.25 },
+              { userId: rafal, servings: 2 },
             ],
             expectedRevision: seen.revision,
           }),
@@ -1360,8 +1358,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     it('7. usunięcie i odtworzenie tej samej pozycji: nowy, wyższy stempel — stary token nie trafia w nową pozycję (bez ABA)', async () => {
       const { asia, rafal, householdId } = await couple('Odtworzenie');
       const portions = [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ];
       const seen = await allocated(asia, householdId, portions);
       await weeklyPlans.removeWeekSlot(asia, householdId, WEEK_START, {
@@ -1381,7 +1379,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
             recipeId: dinner.id,
             portions: [
               { userId: asia, servings: 1 },
-              { userId: rafal, servings: 1.25 },
+              { userId: rafal, servings: 2 },
             ],
             expectedRevision: seen.revision,
           }),
@@ -1406,8 +1404,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     it('8. ponowienie po utraconej odpowiedzi: ten sam zapis drugi raz = sukces bez zmian (bez nowej rewizji); po późniejszej zmianie = konflikt, nowsza zmiana zostaje', async () => {
       const { asia, rafal, householdId } = await couple('Ponowienie');
       const seen = await allocated(asia, householdId, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const input = {
         planItemId: seen.id,
@@ -1431,21 +1429,21 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       await setPortion(rafal, householdId, {
         planItemId: seen.id,
         userId: rafal,
-        servings: 1.1,
+        servings: 1,
         expectedRevision: portionToken(now, rafal),
       });
       expect(
         (await refusal(() => setPortion(asia, householdId, input))).code,
       ).toBe('PLAN_REVISION_CONFLICT');
       now = itemOf(await readPlan(asia, householdId), dinner.id)!;
-      expect(byPerson(now.portions)[rafal]).toBe(1.1);
+      expect(byPerson(now.portions)[rafal]).toBe(1);
 
       // To samo dla pełnego zapisu pozycji.
       const full = {
         recipeId: dinner.id,
         portions: [
-          { userId: asia, servings: 0.9 },
-          { userId: rafal, servings: 1.1 },
+          { userId: asia, servings: 1.5 },
+          { userId: rafal, servings: 1 },
         ],
         expectedRevision: now.revision,
       };
@@ -1460,14 +1458,14 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       await setPortion(rafal, householdId, {
         planItemId: now.id,
         userId: rafal,
-        servings: 1.3,
+        servings: 2,
         expectedRevision: portionToken(now, rafal),
       });
       expect(await attempt(() => upsert(asia, householdId, full))).toBe(
         'PLAN_REVISION_CONFLICT',
       );
       now = itemOf(await readPlan(asia, householdId), dinner.id)!;
-      expect(byPerson(now.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.3 });
+      expect(byPerson(now.portions)).toEqual({ [asia]: 1.5, [rafal]: 2 });
     });
 
     it('9. applyWeekPlan: aktualny token = stan docelowy wchodzi; nieaktualny (także ponowienie po sukcesie i dryRun) = applied:false bez zmian', async () => {
@@ -1520,8 +1518,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
     it('10. polityki wewnętrzne: verified/authoritative bez guarda = błąd programisty; force odmawia mimo zgodnego tokenu; nieaktualny token odmawia PRZED guardem; verified z guardem zastępuje alokację; strict bez tokenu — PLAN_REVISION_REQUIRED', async () => {
       const { asia, rafal, householdId } = await couple('Polityki');
       await allocated(asia, householdId, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       const plan = await readPlan(asia, householdId);
       const slots = [
@@ -1592,8 +1590,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
         mealType: 'DINNER',
         recipeId: dinner.id,
         portions: [
-          { userId: asia, servings: 0.8 },
-          { userId: rafal, servings: 1.25 },
+          { userId: asia, servings: 0.5 },
+          { userId: rafal, servings: 2 },
           { userId: ola, servings: 1 },
         ],
       });
@@ -1676,8 +1674,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       });
 
       const seen = await allocated(asia, householdId, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       expect(
         await refusal(() =>
@@ -1685,7 +1683,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
             recipeId: dinner.id,
             portions: [
               { userId: asia, servings: 1 },
-              { userId: rafal, servings: 1.25 },
+              { userId: rafal, servings: 2 },
             ],
           }),
         ),
@@ -1700,7 +1698,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
             slots: [
               tuesday([
                 { userId: asia, servings: 1 },
-                { userId: rafal, servings: 1.25 },
+                { userId: rafal, servings: 2 },
               ]),
             ],
           }),
@@ -1733,13 +1731,13 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
             portionsPolicy: 'verified',
             portions: [
               { userId: asia, servings: 1 },
-              { userId: rafal, servings: 1.25 },
+              { userId: rafal, servings: 2 },
             ],
           }),
         ),
       ).toBe('VALIDATION_ERROR');
       const final = itemOf(await readPlan(asia, householdId), dinner.id)!;
-      expect(byPerson(final.portions)).toEqual({ [asia]: 0.8, [rafal]: 1.25 });
+      expect(byPerson(final.portions)).toEqual({ [asia]: 0.5, [rafal]: 2 });
     });
 
     it('13. autoryzacja: cudza pozycja wygląda jak nieistniejąca, nie-członek dostaje NOT_HOUSEHOLD_MEMBER, odmowy nie niosą danych innego domu; domownik może zmienić porcję innej osoby', async () => {
@@ -1747,13 +1745,13 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       const stranger = await couple('Obcy');
       const noWeek = await couple('ObcyBezTygodnia');
       const seen = await allocated(home.asia, home.householdId, [
-        { userId: home.asia, servings: 0.8 },
-        { userId: home.rafal, servings: 1.25 },
+        { userId: home.asia, servings: 0.5 },
+        { userId: home.rafal, servings: 2 },
       ]);
       const input = {
         planItemId: seen.id,
         userId: home.rafal,
-        servings: 2,
+        servings: 1.5,
         expectedRevision: portionToken(seen, home.rafal),
       };
       await readPlan(stranger.asia, stranger.householdId);
@@ -1787,7 +1785,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
         setPortion(home.rafal, home.householdId, {
           planItemId: seen.id,
           userId: home.asia,
-          servings: 1.2,
+          servings: 1.5,
           expectedRevision: portionToken(seen, home.asia),
         }),
       );
@@ -1800,7 +1798,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       )!;
       expect(byPerson(final.portions)).toEqual({
         [home.asia]: 1,
-        [home.rafal]: 1.25,
+        [home.rafal]: 2,
       });
       expect(
         (await readPlan(stranger.asia, stranger.householdId)).items,
@@ -1828,8 +1826,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
 
       const { asia, rafal, householdId } = await couple('Migracja');
       const seen = await allocated(asia, householdId, [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.25 },
+        { userId: asia, servings: 0.5 },
+        { userId: rafal, servings: 2 },
       ]);
       // Stan wiersza sprzed migracji: DEFAULT 0 wszędzie.
       await prisma.weeklyPlan.updateMany({
@@ -1874,8 +1872,8 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       const created = (await upsert(asia, householdId, {
         recipeId: dinner.id,
         portions: [
-          { userId: asia, servings: 0.8 },
-          { userId: rafal, servings: 1.25 },
+          { userId: asia, servings: 0.5 },
+          { userId: rafal, servings: 2 },
         ],
       })) as unknown as Ack;
       let read = await readPlan(asia, householdId);
