@@ -31,6 +31,7 @@ klient: delta (5267,…]={}                            → zmiana A ZGUBIONA
 
 **D: triggery odroczone do COMMIT + zamek doradczy w fazie commitu** (migracja
 `20260927090000_catalog_change_commit_order`, commit `f3d887c`):
+
 - `CREATE CONSTRAINT TRIGGER … DEFERRABLE INITIALLY DEFERRED FOR EACH ROW` na `Recipe` i `RecipeIngredient`
   z tymi samymi regułami „co logować”;
 - przed `INSERT INTO "CatalogChange"` funkcje wołają `catalog_change_revision_lock()` =
@@ -39,13 +40,13 @@ klient: delta (5267,…]={}                            → zmiana A ZGUBIONA
 Porównanie (sonda `benchmark/catalog-change-commit-order/lock-probe.ts`, świeże kopie bazy, 3 powtórzenia;
 wynik `lock-probe-results.tsv`):
 
-| Klasa | S1 wyścig | S2 cykl z polecenia | S3 wzorzec panelu (`FOR UPDATE`) | Zmiana API |
-|---|---|---|---|---|
-| dziś | **ZGUBIONA 3/3** | OK | OK | — |
-| A: zamek w triggerze wierszowym | OK | **DEADLOCK 3/3** | **DEADLOCK 3/3** | nie |
-| B: licznik‑singleton pod `FOR UPDATE` | OK | **DEADLOCK 3/3** | **DEADLOCK 3/3** | nie |
-| C: kursor po horyzoncie `xid` | poprawny (analiza) | brak blokad | brak blokad | **tak** |
-| **D** | **OK 3/3** | **OK 3/3** | **OK 3/3** | **nie** |
+| Klasa                                 | S1 wyścig          | S2 cykl z polecenia | S3 wzorzec panelu (`FOR UPDATE`) | Zmiana API |
+| ------------------------------------- | ------------------ | ------------------- | -------------------------------- | ---------- |
+| dziś                                  | **ZGUBIONA 3/3**   | OK                  | OK                               | —          |
+| A: zamek w triggerze wierszowym       | OK                 | **DEADLOCK 3/3**    | **DEADLOCK 3/3**                 | nie        |
+| B: licznik‑singleton pod `FOR UPDATE` | OK                 | **DEADLOCK 3/3**    | **DEADLOCK 3/3**                 | nie        |
+| C: kursor po horyzoncie `xid`         | poprawny (analiza) | brak blokad         | brak blokad                      | **tak**    |
+| **D**                                 | **OK 3/3**         | **OK 3/3**          | **OK 3/3**                       | **nie**    |
 
 A/B odrzucone — deadlock w zwykłym przepływie panelu admina (zmierzone). C odrzucone — poprawne, ale
 **zmierzono**, że horyzont `pg_snapshot_xmin` stoi, gdy DOWOLNA niezwiązana transakcja pisząca jest otwarta
@@ -55,8 +56,8 @@ niepoprawne (każdy skończony zapas da się przekroczyć; dziura po ROLLBACK ni
 
 ## Invariant proof
 
-Niezmiennik: *jeżeli klient otrzyma kursor C, żadna transakcja katalogowa, która później stanie się widoczna,
-nie może mieć rewizji <= C.*
+Niezmiennik: _jeżeli klient otrzyma kursor C, żadna transakcja katalogowa, która później stanie się widoczna,
+nie może mieć rewizji <= C._
 
 1. Każdy numer powstaje w funkcji triggera PO zdobyciu zamka G; sekwencji nie używa nic innego.
 2. Funkcje odroczone wykonują się w fazie commitu; G trzymany do końca transakcji. Postgres najpierw oznacza
@@ -90,16 +91,16 @@ Ten sam `MAX(revision)` w kluczu cache asystenta jest teraz poprawny bez zmiany 
 
 ## Transaction semantics
 
-| Przypadek | Zachowanie | Test |
-|---|---|---|
-| COMMIT | numery w fazie commitu, pod G, > każdego wcześniej wydanego kursora | 0, 1, 4 |
-| ROLLBACK T1 / T2 | brak wpisu, brak numeru, druga transakcja dostarczona | 2, 3 |
-| SAVEPOINT / ROLLBACK TO | zdarzenia wycofanej podtransakcji znikają z kolejki | 13 |
-| kilka przepisów + składnik w jednej transakcji | ciągły blok rewizji (bez przeplotu), całość dostarczona | 5/8, 4b |
-| update + delete | tombstone dostarczony po commicie | 6 |
-| bulk `createMany` 200 + `updateMany` | wszystkie 200 dostarczone | 7 |
-| abort po nadaniu numerów | dziura, nigdy widoczna — nie łamie niezmiennika | ADR §7 |
-| stan odczytywany przez funkcje | w chwili commitu (np. składnik przepisu, który w tej samej transakcji przestał być katalogowy) — świadoma zmiana | ADR §8 |
+| Przypadek                                      | Zachowanie                                                                                                       | Test    |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------- |
+| COMMIT                                         | numery w fazie commitu, pod G, > każdego wcześniej wydanego kursora                                              | 0, 1, 4 |
+| ROLLBACK T1 / T2                               | brak wpisu, brak numeru, druga transakcja dostarczona                                                            | 2, 3    |
+| SAVEPOINT / ROLLBACK TO                        | zdarzenia wycofanej podtransakcji znikają z kolejki                                                              | 13      |
+| kilka przepisów + składnik w jednej transakcji | ciągły blok rewizji (bez przeplotu), całość dostarczona                                                          | 5/8, 4b |
+| update + delete                                | tombstone dostarczony po commicie                                                                                | 6       |
+| bulk `createMany` 200 + `updateMany`           | wszystkie 200 dostarczone                                                                                        | 7       |
+| abort po nadaniu numerów                       | dziura, nigdy widoczna — nie łamie niezmiennika                                                                  | ADR §7  |
+| stan odczytywany przez funkcje                 | w chwili commitu (np. składnik przepisu, który w tej samej transakcji przestał być katalogowy) — świadoma zmiana | ADR §8  |
 
 ## API compatibility
 
@@ -112,20 +113,20 @@ kod czytelnika. `openapi:check` OK. Istniejące kursory ważne (numeracja ciąg�
 Benchmark `benchmark/catalog-change-commit-order/write-bench.ts`, świeża kopia bazy (500 przepisów katalogu +
 1000 testowych), 3 przebiegi, mediana (ms, o ile nie zaznaczono):
 
-| Pomiar | Przed | Po | Zmiana |
-|---|---|---|---|
-| `createMany` 1000 przepisów | 195,8 | 199,3 | +2 % |
-| pojedynczy UPDATE p50 / p95 | 1,39 / 1,84 | 1,42 / 1,74 | szum |
-| 100 przepisów jedną instrukcją p50 | 4,40 | 4,80 | +9 % |
-| 1000 przepisów jedną instrukcją p50 | 77,9 | 80,8 | +4 % |
-| przepis + 5 składników (jak panel) p50 / p95 | 3,67 / 4,31 | 3,56 / 4,42 | szum |
-| **10 równoległych zapisujących × 50 UPDATE**: przepustowość | **3 885 op/s** | **1 630 op/s** | **−58 %** |
-| — p50 / p95 / max operacji | 2,21 / 2,89 / 25,1 | 5,37 / 7,45 / 23,8 | +3,2 ms p50 |
-| **10 równoległych × transakcje po 20 wierszy**: przepustowość | **52 191 wierszy/s** | **16 397 wierszy/s** | **−69 %** |
-| — p50 / p95 transakcji | 3,38 / 5,22 | 10,99 / 13,68 | +7,6 ms p50 |
-| odczyt `head` p50 / p95 | 0,39 / 0,50 | 0,37 / 0,50 | bez zmian |
-| odczyt delta (500 rewizji) p50 / p95 | 0,59 / 0,72 | 0,56 / 0,68 | bez zmian |
-| dziury w logu | 0 | 0 | — |
+| Pomiar                                                        | Przed                | Po                   | Zmiana      |
+| ------------------------------------------------------------- | -------------------- | -------------------- | ----------- |
+| `createMany` 1000 przepisów                                   | 195,8                | 199,3                | +2 %        |
+| pojedynczy UPDATE p50 / p95                                   | 1,39 / 1,84          | 1,42 / 1,74          | szum        |
+| 100 przepisów jedną instrukcją p50                            | 4,40                 | 4,80                 | +9 %        |
+| 1000 przepisów jedną instrukcją p50                           | 77,9                 | 80,8                 | +4 %        |
+| przepis + 5 składników (jak panel) p50 / p95                  | 3,67 / 4,31          | 3,56 / 4,42          | szum        |
+| **10 równoległych zapisujących × 50 UPDATE**: przepustowość   | **3 885 op/s**       | **1 630 op/s**       | **−58 %**   |
+| — p50 / p95 / max operacji                                    | 2,21 / 2,89 / 25,1   | 5,37 / 7,45 / 23,8   | +3,2 ms p50 |
+| **10 równoległych × transakcje po 20 wierszy**: przepustowość | **52 191 wierszy/s** | **16 397 wierszy/s** | **−69 %**   |
+| — p50 / p95 transakcji                                        | 3,38 / 5,22          | 10,99 / 13,68        | +7,6 ms p50 |
+| odczyt `head` p50 / p95                                       | 0,39 / 0,50          | 0,37 / 0,50          | bez zmian   |
+| odczyt delta (500 rewizji) p50 / p95                          | 0,59 / 0,72          | 0,56 / 0,68          | bez zmian   |
+| dziury w logu                                                 | 0                    | 0                    | —           |
 
 Czas czekania na zamek G (zmierzony bezpośrednio, funkcja zapisująca każde oczekiwanie, cały benchmark):
 9 500 wywołań; p50 0,002 ms, p95 3,44 ms, p99 5,36 ms, max 10,54 ms; >1 ms: 540, >10 ms: 9 — wszystkie
@@ -141,20 +142,20 @@ przepustowość spada o 58–69 %, a pojedyncza operacja czeka średnio +3 do +8
 
 ## Tests
 
-| Komenda | Wynik |
-|---|---|
-| `catalog-change-commit-order.e2e` na `develop` (przed) | **9 FAIL / 6 PASS** (padają 0, 1, 4, 4b, 5/8, 6, 7, 10, 15; przechodzą rollback/savepoint/protokół/snapshot/brak zamka = brak cyklu) |
-| to samo po poprawce | **16/16**, ×3 bez flaków |
-| test 14 (konflikt blokad) na wariancie A | FAIL `t2: 40P01` (~1 s) — test łapie deadlock |
-| istniejące e2e katalogu (catalog-sync, admin-catalog, catalog-export, catalog-visibility, agent-catalog-boundary, recipe-edit) | 51/51 |
-| czysta instalacja 75 migracji + bootstrap | OK, 5 263 wpisy logu, 0 dziur |
-| upgrade `develop` → nowa migracja (baza z danymi) | OK |
-| procedura awaryjna `rollback.sql` na kopii (referencja DDL migracji korygującej) | triggery wracają do `AFTER … FOR EACH ROW`, reproducer znów FAIL (zgodnie z oczekiwaniem), catalog-sync 10/10 |
-| `prisma migrate diff` (dryf) | pusta migracja |
-| `pnpm test` | **200/200 suit, 3 554/3 554** |
-| `pnpm test:e2e:ci` (pełne, świeża baza z czystej instalacji) | **57/57 suit, 643/643** |
-| typecheck / lint:check / openapi:check / build | OK / 0 błędów (42 ostrzeżenia jak na develop) / OK / OK |
-| `catalog:scale-probe --sizes 5000,10000` | OK |
+| Komenda                                                                                                                        | Wynik                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `catalog-change-commit-order.e2e` na `develop` (przed)                                                                         | **9 FAIL / 6 PASS** (padają 0, 1, 4, 4b, 5/8, 6, 7, 10, 15; przechodzą rollback/savepoint/protokół/snapshot/brak zamka = brak cyklu) |
+| to samo po poprawce                                                                                                            | **16/16**, ×3 bez flaków                                                                                                             |
+| test 14 (konflikt blokad) na wariancie A                                                                                       | FAIL `t2: 40P01` (~1 s) — test łapie deadlock                                                                                        |
+| istniejące e2e katalogu (catalog-sync, admin-catalog, catalog-export, catalog-visibility, agent-catalog-boundary, recipe-edit) | 51/51                                                                                                                                |
+| czysta instalacja 75 migracji + bootstrap                                                                                      | OK, 5 263 wpisy logu, 0 dziur                                                                                                        |
+| upgrade `develop` → nowa migracja (baza z danymi)                                                                              | OK                                                                                                                                   |
+| procedura awaryjna `rollback.sql` na kopii (referencja DDL migracji korygującej)                                               | triggery wracają do `AFTER … FOR EACH ROW`, reproducer znów FAIL (zgodnie z oczekiwaniem), catalog-sync 10/10                        |
+| `prisma migrate diff` (dryf)                                                                                                   | pusta migracja                                                                                                                       |
+| `pnpm test`                                                                                                                    | **200/200 suit, 3 554/3 554**                                                                                                        |
+| `pnpm test:e2e:ci` (pełne, świeża baza z czystej instalacji)                                                                   | **57/57 suit, 643/643**                                                                                                              |
+| typecheck / lint:check / openapi:check / build                                                                                 | OK / 0 błędów (42 ostrzeżenia jak na develop) / OK / OK                                                                              |
+| `catalog:scale-probe --sizes 5000,10000`                                                                                       | OK                                                                                                                                   |
 
 ## Migration
 
@@ -206,12 +207,12 @@ nie edytujemy ręcznie. Dane logu bez zmian; rollback kodu aplikacji niepotrzebn
 
 ## SHA
 
-| Commit | Opis |
-|---|---|
-| `dd5c504` | test: reproducer N2-1 (FAIL na develop) |
-| `52a8892` | docs(adr): ADR + sonda porównawcza wariantów (dowody) |
-| `f3d887c` | fix(catalog): migracja (trigger odroczony + zamek), testy 16 scenariuszy, `/ops/metrics`, rollback SQL, benchmark |
-| (ten commit) | docs: raport |
+| Commit       | Opis                                                                                                              |
+| ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `dd5c504`    | test: reproducer N2-1 (FAIL na develop)                                                                           |
+| `52a8892`    | docs(adr): ADR + sonda porównawcza wariantów (dowody)                                                             |
+| `f3d887c`    | fix(catalog): migracja (trigger odroczony + zamek), testy 16 scenariuszy, `/ops/metrics`, rollback SQL, benchmark |
+| (ten commit) | docs: raport                                                                                                      |
 
 ## Status
 
@@ -238,13 +239,13 @@ wdrożona `migration.sql` nietknięta (suma kontrolna Prismy).
    `RecipeIngredient_catalog_change`. Sprawdzony mutacją: na kopii bazy po `rollback.sql` test 17 FAIL
    (`tginitdeferred: false` ×2).
 
-| Komenda | Wynik |
-|---|---|
-| `catalog-change-commit-order.e2e` + `catalog-sync.e2e` | **27/27** (17 + 10) |
-| test 17 na bazie po `rollback.sql` (mutacja) | FAIL zgodnie z oczekiwaniem |
-| `pnpm test` | **200/200 suit, 3 554/3 554** |
-| `pnpm test:e2e:ci` (świeża baza: 75 migracji + bootstrap, 5 263 wpisy logu, 0 dziur) | **57/57 suit, 644/644** |
-| typecheck / lint:check / openapi:check | OK / 0 błędów (42 ostrzeżenia jak na develop) / OK |
+| Komenda                                                                              | Wynik                                              |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| `catalog-change-commit-order.e2e` + `catalog-sync.e2e`                               | **27/27** (17 + 10)                                |
+| test 17 na bazie po `rollback.sql` (mutacja)                                         | FAIL zgodnie z oczekiwaniem                        |
+| `pnpm test`                                                                          | **200/200 suit, 3 554/3 554**                      |
+| `pnpm test:e2e:ci` (świeża baza: 75 migracji + bootstrap, 5 263 wpisy logu, 0 dziur) | **57/57 suit, 644/644**                            |
+| typecheck / lint:check / openapi:check                                               | OK / 0 błędów (42 ostrzeżenia jak na develop) / OK |
 
 Uwaga (poza zakresem, niezmienione): jeden wcześniejszy pełny bieg e2e dał 1 FAIL w
 `admin-flags-announcements.e2e` › „tworzenie, lista, duplikat 409, audyt” (odczytany wiersz audytu
@@ -267,8 +268,37 @@ transakcja czekała na połączenie, test na nią. Lokalnie z `connection_limit=
 Poprawka tylko w teście: transakcje `hold()` na osobnym `PrismaClient` z jawnym `connection_limit=12`
 (odłączany w `afterAll`). Runtime, migracja, triggery i zamek — bez zmian.
 
-| Komenda (z `connection_limit=9`, jak CI) | Wynik |
-|---|---|
-| `catalog-change-commit-order.e2e` + `catalog-sync.e2e` | 27/27 |
-| `pnpm test:e2e:ci` (świeża baza: migracje + bootstrap) | 57/57 suit, 644/644 |
-| typecheck / lint:check | OK / 0 błędów (42 ostrzeżenia jak na develop) |
+| Komenda (z `connection_limit=9`, jak CI)               | Wynik                                         |
+| ------------------------------------------------------ | --------------------------------------------- |
+| `catalog-change-commit-order.e2e` + `catalog-sync.e2e` | 27/27                                         |
+| `pnpm test:e2e:ci` (świeża baza: migracje + bootstrap) | 57/57 suit, 644/644                           |
+| typecheck / lint:check                                 | OK / 0 błędów (42 ostrzeżenia jak na develop) |
+
+## Addendum 3 (aktualizacja względem `develop`, 2026-09-27)
+
+`origin/develop` poszedł do przodu o 9 commitów (`31044a4` → `b77941c`: #210, #213, #214 — asystent: oceny
+odpowiedzi, zgłoszenia per wiadomość, karty dnia). Gałąź zaktualizowana MERGE'em `origin/develop` (`08156f4`,
+bez rebase i force-push — historia PR bez zmian). Konfliktów tekstowych: 0.
+
+Konflikt logiczny z N2-1: brak.
+
+- `develop` nie dotyka katalogu, `CatalogChange`, triggerów ani `ops.controller`. Zmienia agenta, panel
+  asystenta, `CLAUDE.md` (scalone automatycznie) i dodaje 3 migracje.
+- Te migracje (`20260927120000_agent_message_feedback`, `…130000_agent_report_per_message`,
+  `…180000_agent_message_feedback_note`) dotyczą wyłącznie tabel agenta.
+- Kolejność migracji: `20260927090000_catalog_change_commit_order` jest WCZEŚNIEJSZA niż migracje z `develop`.
+  Sprawdzone oba przebiegi:
+  - świeża baza: wszystkie po kolei;
+  - baza z migracjami `develop` już zastosowanymi, jak na środowisku, które dostanie `develop` przed #208:
+    `prisma migrate deploy` dokłada `…090000` bez błędu.
+- `prisma migrate diff` (migracje → schema): brak różnic.
+
+| Komenda (z `connection_limit=9`, jak CI)               | Wynik                                                   |
+| ------------------------------------------------------ | ------------------------------------------------------- |
+| `catalog-change-commit-order.e2e`                      | 17/17                                                   |
+| `catalog-sync.e2e`                                     | 10/10                                                   |
+| `pnpm test` (unit)                                     | 202 suity, 3575/3575                                    |
+| `pnpm test:e2e:ci` (świeża baza: migracje + bootstrap) | 57/57 suit, 644/644                                     |
+| typecheck / lint:check / openapi:check / build         | OK / 0 błędów (42 ostrzeżenia jak na develop) / OK / OK |
+
+Architektura N2-1 bez zmian. Nie zmergowane.
