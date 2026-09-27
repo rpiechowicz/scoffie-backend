@@ -219,15 +219,26 @@ catalog-sync.
 
 ## 15. Rollback
 
-Migracja odwrotna (SQL w raporcie): przywrócić funkcje bez zamka i zwykłe triggery `AFTER … FOR EACH
-ROW`. Dane logu nie wymagają zmian. Rollback samego kodu aplikacji niepotrzebny (kod się nie zmienia).
+Migracje produkcyjne są **forward-only**. Stan „Prisma: migracja zastosowana / obiekty bazy: ręcznie
+cofnięte” jest niedopuszczalny.
+- Standardowy rollback po deployu = NOWA migracja korygująca z późniejszym znacznikiem czasu (DDL
+  przywracający funkcje bez zamka i zwykłe triggery `AFTER … FOR EACH ROW`, usuwający
+  `catalog_change_revision_lock()`), wdrożona zwykłym deployem. Wdrożonej `migration.sql` nie edytujemy
+  (Prisma sprawdza sumę kontrolną).
+- `docs/workstreams/catalog-change-commit-order/rollback.sql` to procedura AWARYJNA / referencyjna (treść
+  DDL do migracji korygującej; ręcznie tylko w awarii, po której i tak wchodzi migracja korygująca). Nie
+  poprawiamy rozjazdu ręczną edycją `_prisma_migrations`.
+- Dane logu nie wymagają zmian. Rollback kodu aplikacji niepotrzebny (kod czytelnika się nie zmienia).
+  Po wycofaniu wraca wyścig N2-1.
 
 ## 16. Observability
 
 - W funkcji: czas oczekiwania na G; powyżej 100 ms `RAISE LOG` (log serwera Postgres: tylko liczba ms,
   bez danych przepisu).
-- W `/ops/metrics`: `catalogSync.head` (bieżąca rewizja) i `catalogSync.deadlocks` (licznik
-  `pg_stat_database.deadlocks` bieżącej bazy) — niskokardynalne, bez identyfikatorów.
+- W `/ops/metrics`: `catalogSync.head` (bieżąca rewizja) i `catalogSync.databaseDeadlocks` (licznik
+  `pg_stat_database.deadlocks` CAŁEJ bieżącej bazy — wszystkie tabele i transakcje) — niskokardynalne, bez
+  identyfikatorów. Wzrost po deployu to sygnał do analizy (log Postgresa: `deadlock detected` z
+  listą procesów), ale NIE dowodzi, że deadlock wyszedł z `CatalogChange`.
 
 ## 17. Test matrix
 
@@ -236,7 +247,12 @@ E2E `test/catalog-change-commit-order.e2e-spec.ts`: (0) wyścig z §2; rollback 
 bulk `createMany`/`updateMany`; wiele zmian w transakcji (ciągły blok); delta między commitami;
 „pruning” (`minRevision`) nie łamie gwarancji; znacznik snapshotu + późniejsza delta; RESET dla
 starego kursora; SAVEPOINT; celowy konflikt kolejności blokad (wzorzec z §6) bez 40P01; wykrycie
-cyklu przy naruszeniu reguły operacyjnej (DDL + DML katalogu). Istniejące `catalog-sync.e2e` bez zmian.
+cyklu przy naruszeniu reguły operacyjnej (DDL + DML katalogu); (17) strażnik: oba triggery w `pg_trigger`
+mają `tgdeferrable` i `tginitdeferred`. Istniejące `catalog-sync.e2e` bez zmian.
+
+Założenia poprawności (§6) — pilnowane regułą w `CLAUDE.md` („Kolejność rewizji `CatalogChange`”) i
+testem 17: triggery zostają `DEFERRABLE INITIALLY DEFERRED`; brak `SET CONSTRAINTS … IMMEDIATE`; brak
+DDL / `LOCK TABLE` / `TRUNCATE` na tabelach katalogu w transakcji z DML katalogu; 2PC nieobsługiwane.
 
 ## 18. Konsekwencje
 

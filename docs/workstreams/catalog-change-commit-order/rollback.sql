@@ -1,8 +1,19 @@
--- ROLLBACK migracji 20260927090000_catalog_change_commit_order (N2-1).
+-- PROCEDURA AWARYJNA / REFERENCYJNA dla 20260927090000_catalog_change_commit_order
+-- (N2-1). To NIE jest standardowy rollback produkcyjny.
+--
+-- Migracje produkcyjne są forward-only. Zwykłe wycofanie po deployu = NOWA
+-- migracja korygująca z późniejszym znacznikiem czasu (np. ten sam DDL co niżej
+-- w `prisma/migrations/<późniejszy_znacznik>_…/migration.sql`), wdrożona zwykłym
+-- deployem — Prisma i obiekty bazy zostają zgodne.
+--
+-- Ręczne uruchomienie tego pliku rozjeżdża stan: Prisma nadal widzi migrację
+-- jako zastosowaną, a triggery/funkcje w bazie są z poprzedniej wersji. Nie
+-- poprawiać tego edycją "_prisma_migrations". Tylko w awarii, gdy nie da się
+-- szybko wdrożyć migracji korygującej — a potem i tak ją wdrożyć.
+--
 -- Przywraca stan z 20260926200000_catalog_sync_log: funkcje bez zamka i zwykłe
 -- triggery AFTER ... FOR EACH ROW (numer w chwili DML — WRACA wyścig N2-1).
--- Uruchamiać ręcznie w jednej transakcji; dane logu bez zmian. Wiersz w
--- "_prisma_migrations" może zostać (stary kod: „No pending migrations”).
+-- Jedna transakcja; dane logu bez zmian.
 BEGIN;
 DROP TRIGGER "Recipe_catalog_change" ON "Recipe";
 DROP TRIGGER "RecipeIngredient_catalog_change" ON "RecipeIngredient";

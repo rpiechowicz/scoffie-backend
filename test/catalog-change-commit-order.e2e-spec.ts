@@ -652,11 +652,31 @@ describe('CatalogChange — kolejność rewizji = kolejność commitów (N2-1)',
     if (hResult === 'COMMIT') expect(d.ids.has(b)).toBe(true);
   });
 
-  it('16. obserwowalność: /ops/metrics ma catalogSync.head = bieżąca rewizja i licznik deadlocków bazy', async () => {
+  it('16. obserwowalność: /ops/metrics ma catalogSync.head = bieżąca rewizja i licznik deadlocków całej bazy', async () => {
     await createCatalogRecipe(`Metryki ${randomUUID()}`);
     const metrics = await moduleRef.get(OpsController).getMetrics();
     const head = await sync.currentRevision();
     expect(metrics.catalogSync.head).toBe(Number(revisionOf(head)));
-    expect(typeof metrics.catalogSync.deadlocks).toBe('number');
+    expect(typeof metrics.catalogSync.databaseDeadlocks).toBe('number');
+  });
+
+  it('17. strażnik założeń: oba triggery logu są DEFERRABLE INITIALLY DEFERRED', async () => {
+    const rows = await prisma.$queryRaw<
+      { tgname: string; tgdeferrable: boolean; tginitdeferred: boolean }[]
+    >`SELECT "tgname", "tgdeferrable", "tginitdeferred" FROM pg_trigger
+      WHERE "tgname" IN ('Recipe_catalog_change', 'RecipeIngredient_catalog_change')
+      ORDER BY "tgname"`;
+    expect(rows).toEqual([
+      {
+        tgname: 'RecipeIngredient_catalog_change',
+        tgdeferrable: true,
+        tginitdeferred: true,
+      },
+      {
+        tgname: 'Recipe_catalog_change',
+        tgdeferrable: true,
+        tginitdeferred: true,
+      },
+    ]);
   });
 });

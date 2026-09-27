@@ -149,7 +149,7 @@ przepustowość spada o 58–69 %, a pojedyncza operacja czeka średnio +3 do +8
 | istniejące e2e katalogu (catalog-sync, admin-catalog, catalog-export, catalog-visibility, agent-catalog-boundary, recipe-edit) | 51/51 |
 | czysta instalacja 75 migracji + bootstrap | OK, 5 263 wpisy logu, 0 dziur |
 | upgrade `develop` → nowa migracja (baza z danymi) | OK |
-| rollback SQL na kopii | triggery wracają do `AFTER … FOR EACH ROW`, reproducer znów FAIL (zgodnie z oczekiwaniem), catalog-sync 10/10 |
+| procedura awaryjna `rollback.sql` na kopii (referencja DDL migracji korygującej) | triggery wracają do `AFTER … FOR EACH ROW`, reproducer znów FAIL (zgodnie z oczekiwaniem), catalog-sync 10/10 |
 | `prisma migrate diff` (dryf) | pusta migracja |
 | `pnpm test` | **200/200 suit, 3 554/3 554** |
 | `pnpm test:e2e:ci` (pełne, świeża baza z czystej instalacji) | **57/57 suit, 643/643** |
@@ -167,15 +167,21 @@ na `Recipe`/`RecipeIngredient` (czeka na trwające transakcje).
 ## Rollout
 
 Zwykły deploy backendu (migracja przy starcie). Bez zależności od klienta. Zalecane **przed** wydaniem iOS
-catalog-sync. Po deployu: `/ops/metrics` → `catalogSync.head` rośnie przy edycji z panelu; `catalogSync.deadlocks`
-nie powinien rosnąć; w logu Postgresa brak `catalog_change: czekanie na zamek` powyżej 100 ms.
+catalog-sync. Po deployu: `/ops/metrics` → `catalogSync.head` rośnie przy edycji z panelu; w logu Postgresa brak
+`catalog_change: czekanie na zamek` powyżej 100 ms. `catalogSync.databaseDeadlocks` to licznik CAŁEJ bazy — jego
+wzrost po deployu jest sygnałem do analizy logu Postgresa, ale nie dowodzi, że deadlock wyszedł z `CatalogChange`.
 
 ## Rollback
 
-`docs/workstreams/catalog-change-commit-order/rollback.sql` (sprawdzony na kopii): przywraca funkcje bez zamka
-i zwykłe triggery, usuwa `catalog_change_revision_lock()`. Dane logu bez zmian; wiersz w `_prisma_migrations`
-może zostać. Rollback kodu aplikacji niepotrzebny (kod czytelnika się nie zmienił; `/ops/metrics` działa w obu
-stanach). Po rollbacku wraca wyścig N2-1.
+Migracje produkcyjne są **forward-only**. Standardowy rollback po deployu = NOWA migracja korygująca z późniejszym
+znacznikiem czasu (przywraca funkcje bez zamka i zwykłe triggery, usuwa `catalog_change_revision_lock()`), wdrożona
+zwykłym deployem — Prisma i obiekty bazy zostają zgodne. Wdrożonej `migration.sql` się nie edytuje (suma kontrolna).
+
+`docs/workstreams/catalog-change-commit-order/rollback.sql` (sprawdzony na kopii) to procedura AWARYJNA /
+referencyjna: gotowy DDL do migracji korygującej. Ręczne uruchomienie zostawia rozjazd (Prisma: migracja
+zastosowana, baza: stare triggery), więc tylko w awarii, a potem i tak wchodzi migracja korygująca. `_prisma_migrations`
+nie edytujemy ręcznie. Dane logu bez zmian; rollback kodu aplikacji niepotrzebny (kod czytelnika się nie zmienił;
+`/ops/metrics` działa w obu stanach). Po wycofaniu wraca wyścig N2-1.
 
 ## Known limitations
 
@@ -193,8 +199,8 @@ stanach). Po rollbacku wraca wyścig N2-1.
 
 1. Kiedy deploy (przed wydaniem iOS catalog-sync — zalecane jak najwcześniej; prod dziś korzysta z logu tylko
    przez cache asystenta).
-2. Czy dodać alert na wzrost `catalogSync.deadlocks` (panel „Alerty”) — dziś tylko metryka.
-3. Czy dopisać regułę z Known limitations #2 do checklisty migracji / `CLAUDE.md`.
+2. Czy dodać alert na wzrost `catalogSync.databaseDeadlocks` (panel „Alerty”) — dziś tylko metryka; licznik całej bazy.
+3. ~~Czy dopisać regułę z Known limitations #2 do `CLAUDE.md`~~ — dopisana w review patchu (Addendum).
 4. Test `it.failing` N2-1 z gałęzi nightly (`test/catalog-sync-concurrency.e2e-spec.ts`) nie trafia do `develop`
    — zastępuje go suita z tej gałęzi (do usunięcia z nightly przy porządkach).
 
@@ -212,3 +218,41 @@ stanach). Po rollbacku wraca wyścig N2-1.
 **READY FOR REVIEW**
 
 Nie zmergowane do `develop` ani `main`, nie wdrożone.
+
+## Addendum (review patch, 2026-09-27)
+
+Zakres: tylko 3 punkty review. Architektura triggerów, zamek i protokół catalog-sync — bez zmian;
+wdrożona `migration.sql` nietknięta (suma kontrolna Prismy).
+
+1. **Rollback = forward-only.** ADR §15, sekcja Rollback wyżej i nagłówek `rollback.sql`: migracje
+   produkcyjne są forward-only; zwykłe wycofanie = nowa migracja korygująca z późniejszym znacznikiem;
+   `rollback.sql` = procedura awaryjna / referencja DDL, nie standardowy rollback; bez ręcznej edycji
+   `_prisma_migrations` (usunięte zdanie „wiersz może zostać”).
+2. **`catalogSync.deadlocks` → `catalogSync.databaseDeadlocks`** (`src/observability/ops.controller.ts`, test 16,
+   ADR §16, Rollout, OPEN DECISIONS #2). Komentarz: licznik CAŁEJ bazy; wzrost po deployu = sygnał do analizy,
+   nie dowód, że deadlock wyszedł z `CatalogChange`. Bez nowych metryk.
+3. **Strażnicy założeń.** Reguła w `CLAUDE.md` („Kolejność rewizji `CatalogChange`”: DEFERRABLE INITIALLY
+   DEFERRED, brak `SET CONSTRAINTS … IMMEDIATE`, brak DDL/`LOCK TABLE`/`TRUNCATE` na tabelach katalogu w
+   transakcji z DML katalogu, bez 2PC); test **17** w `test/catalog-change-commit-order.e2e-spec.ts` czyta
+   `pg_trigger` i wymaga `tgdeferrable = tginitdeferred = true` dla `Recipe_catalog_change` i
+   `RecipeIngredient_catalog_change`. Sprawdzony mutacją: na kopii bazy po `rollback.sql` test 17 FAIL
+   (`tginitdeferred: false` ×2).
+
+| Komenda | Wynik |
+|---|---|
+| `catalog-change-commit-order.e2e` + `catalog-sync.e2e` | **27/27** (17 + 10) |
+| test 17 na bazie po `rollback.sql` (mutacja) | FAIL zgodnie z oczekiwaniem |
+| `pnpm test` | **200/200 suit, 3 554/3 554** |
+| `pnpm test:e2e:ci` (świeża baza: 75 migracji + bootstrap, 5 263 wpisy logu, 0 dziur) | **57/57 suit, 644/644** |
+| typecheck / lint:check / openapi:check | OK / 0 błędów (42 ostrzeżenia jak na develop) / OK |
+
+Uwaga (poza zakresem, niezmienione): jeden wcześniejszy pełny bieg e2e dał 1 FAIL w
+`admin-flags-announcements.e2e` › „tworzenie, lista, duplikat 409, audyt” (odczytany wiersz audytu
+`FAILED / duplikat flagi` zamiast `SUCCESS`); kolejny bieg na świeżej bazie — 644/644. Test czyta
+`adminAuditLog.findFirst({ where: { action, targetId } })` BEZ `orderBy`, a pasują dwa wiersze (sukces i
+odrzucony duplikat); plan to Seq Scan, więc wynik zależy od fizycznego położenia wierszy. Który mechanizm
+przestawił wiersze (np. ponowne użycie wolnego miejsca po autovacuum, różne połączenia puli) — nie
+udowodnione. Gałąź nie dotyka `src/admin` ani tego testu; poprawka (`orderBy` albo filtr po `result`) —
+osobny PR.
+
+SHA review patcha: podany w odpowiedzi (commit zawierający ten Addendum, nad `df82951`).

@@ -152,29 +152,30 @@ export class OpsController {
   }
 
   /**
-   * Log synchronizacji katalogu (N2-1): bieżąca rewizja i licznik deadlocków
-   * bazy (`pg_stat_database`). Rewizje nadaje trigger odroczony do COMMIT pod
-   * zamkiem doradczym — rosnący licznik deadlocków po deployu to sygnał, że
-   * ktoś łączy DDL na tabelach katalogu ze zmianami przepisów (ADR
-   * `docs/adr/catalog-change-commit-order.md` §6). Dwie liczby, bez
-   * identyfikatorów i treści przepisów.
+   * Log synchronizacji katalogu (N2-1): bieżąca rewizja (`head`) i
+   * `databaseDeadlocks` — licznik `pg_stat_database.deadlocks` CAŁEJ bieżącej
+   * bazy (wszystkie tabele i transakcje, nie tylko katalog). Wzrost po deployu
+   * to sygnał do analizy (log Postgresa), ale nie dowodzi, że deadlock wyszedł
+   * z `CatalogChange` (ADR `docs/adr/catalog-change-commit-order.md` §6, §16).
+   * Dwie liczby, bez identyfikatorów i treści przepisów.
    */
   private async catalogSyncSnapshot(): Promise<{
     head: number | null;
-    deadlocks: number | null;
+    databaseDeadlocks: number | null;
   }> {
     try {
       const [row] = await this.prisma.$queryRaw<
-        { head: bigint; deadlocks: bigint | null }[]
+        { head: bigint; databaseDeadlocks: bigint | null }[]
       >`SELECT COALESCE((SELECT MAX("revision") FROM "CatalogChange"), 0)::bigint AS "head",
                (SELECT "deadlocks" FROM pg_stat_database
-                 WHERE "datname" = current_database()) AS "deadlocks"`;
+                 WHERE "datname" = current_database()) AS "databaseDeadlocks"`;
       return {
         head: Number(row.head),
-        deadlocks: row.deadlocks === null ? null : Number(row.deadlocks),
+        databaseDeadlocks:
+          row.databaseDeadlocks === null ? null : Number(row.databaseDeadlocks),
       };
     } catch {
-      return { head: null, deadlocks: null };
+      return { head: null, databaseDeadlocks: null };
     }
   }
 }
