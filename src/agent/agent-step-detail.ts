@@ -3,7 +3,6 @@ import {
   DAY_ACCUSATIVE_LABELS,
   DAY_LABELS,
   MEAL_LABELS,
-  mealListLabel,
 } from './cards/agent-cards';
 import {
   isRecipeSearchTag,
@@ -85,7 +84,7 @@ export function describeStep(
       const offered = asNumber(data.offered);
       const eligible = asNumber(data.eligible);
       return joinParts(
-        [...where, ...wishes(input)],
+        [...where, ...topWishes(input)],
         offered === 0
           ? 'za mało pasujących dań'
           : eligible > 0
@@ -105,16 +104,23 @@ export function describeStep(
       const days = asArray(input.days)
         .map((day) => DAY_LABELS[day as DayOfWeek])
         .filter(Boolean);
-      const types = asArray(input.meal_types) as MealType[];
-      const where = [
-        days.length === 7 ? 'Cały tydzień' : days.join(', '),
-        types.length > 0 ? mealListLabel(types) : null,
-      ];
-      return joinParts([...where, ...wishes(input)], plannerOutcome(data));
+      // Sam zakres i wynik (27.09.2026: „pod »Ułożyłem plan« za dużo
+      // zbędnego tekstu”) — pory i życzenia widać w propozycji.
+      const range =
+        days.length === 7
+          ? 'Cały tydzień'
+          : days.length > 2
+            ? `${days.length} ${daysOfPlan(days.length)}`
+            : days.join(', ');
+      return joinParts([range], plannerOutcome(data));
     }
     case 'replace_plan_item':
       return joinParts(
-        [mealOf(input.meal_type), dayOf(input.day_of_week), ...wishes(input)],
+        [
+          mealOf(input.meal_type),
+          dayOf(input.day_of_week),
+          ...topWishes(input),
+        ],
         plannerOutcome(data),
       );
     case 'propose_day_plan':
@@ -271,7 +277,7 @@ function plannerOutcome(data: Record<string, unknown>): string | null {
   const kcal = me ? Math.round(asNumber(me.avgKcal)) : 0;
   const target = me ? Math.round(asNumber(me.avgTargetKcal)) : 0;
   const kcalPart =
-    kcal > 0 && target > 0 ? `śr. ${kcal} z ${target} kcal dziennie` : null;
+    kcal > 0 && target > 0 ? `śr. ${kcal} / ${target} kcal` : null;
   if (status === 'PARTIAL') {
     const filled = asString(planner.filled);
     return joinParts([filled ? `wypełnione ${filled}` : 'częściowo'], kcalPart);
@@ -334,6 +340,13 @@ function searchCriteria(input: Record<string, unknown>): (string | null)[] {
     kcal > 0 ? `do ${kcal} kcal` : null,
     protein > 0 ? `min. ${protein} g białka` : null,
   ];
+}
+
+/** Najwyżej dwa życzenia — linijka faktów, nie przepisana prośba. */
+function topWishes(input: Record<string, unknown>): string[] {
+  return wishes(input)
+    .filter((part): part is string => typeof part === 'string' && part !== '')
+    .slice(0, 2);
 }
 
 /** Życzenia planera (`PLANNER_WISHES`) po ludzku. */
@@ -421,6 +434,7 @@ function plural(count: number, one: string, few: string, many: string) {
 const meals = (n: number) => plural(n, 'posiłek', 'posiłki', 'posiłków');
 const dishes = (n: number) => plural(n, 'danie', 'dania', 'dań');
 const daysWord = (n: number) => plural(n, 'dnia', 'dni', 'dni');
+const daysOfPlan = (n: number) => plural(n, 'dzień', 'dni', 'dni');
 const matching = (n: number) => plural(n, 'pasujące', 'pasujące', 'pasujących');
 const conflicts = (n: number) => plural(n, 'uwaga', 'uwagi', 'uwag');
 const bought = (n: number) => plural(n, 'kupiony', 'kupione', 'kupionych');
