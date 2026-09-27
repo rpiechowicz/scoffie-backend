@@ -33,6 +33,7 @@ import {
   WRITE_STEP_TOOL,
   THINK_STEP_TOOL,
 } from './agent-progress';
+import { describeStep } from './agent-step-detail';
 import { formatTurnTiming } from './agent-timing';
 import {
   AgentPrompt,
@@ -433,14 +434,14 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
         // Domknięcie z tożsamością tury: dostawca nie zna ani użytkownika, ani
         // gospodarstwa, więc nie ma jak sięgnąć do bazy z pominięciem bramek.
         executeTool: async (name, toolInput) => {
-          await this.publishProgress(
+          const step = await this.publishProgress(
             input.turnId,
             progress,
             name,
             toolInput,
             lease?.token,
           );
-          return this.tools.execute(name, toolInput, {
+          const toolResult = await this.tools.execute(name, toolInput, {
             userId: input.userId,
             householdId: input.householdId,
             catalogIndex: prompt.catalogIndex,
@@ -471,6 +472,14 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
                 }
               : {}),
           });
+          // Fakty z wejścia i wyniku do arkusza „Jak pracowałem”. Tylko
+          // w pamięci: trafiają do bazy z następnym krokiem albo przy
+          // domknięciu tury — bez osobnego zapisu na każde narzędzie.
+          if (step?.tool === name) {
+            const detail = describeStep(name, toolInput, toolResult);
+            if (detail) step.detail = detail;
+          }
+          return toolResult;
         },
         // Cisza po narzędziach też jest krokiem — patrz `THINK_STEP_TOOL`.
         // Pod lease to też moment PRZED kolejnym wywołaniem modelu: trwały
@@ -492,14 +501,15 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
         // Myślenie i pisanie z samego strumienia — to jedyne, co dzieje się
         // w turze bez narzędzi, i jedyne, po czym telefon poznaje, że model
         // żyje przez pierwsze pół minuty.
-        onActivity: (activity) =>
-          this.publishProgress(
+        onActivity: async (activity) => {
+          await this.publishProgress(
             input.turnId,
             progress,
             activity === 'reasoning' ? REASON_STEP_TOOL : WRITE_STEP_TOOL,
             {},
             lease?.token,
-          ),
+          );
+        },
         onDraft: (text) => draft.push(text),
         // Księga po każdym wywołaniu — patrz `AgentUsageLedger`.
         onUsage: (call) => turnLedger.record(call),
@@ -862,12 +872,15 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
     input: Record<string, unknown>,
     /** Fencing (Etap 5): worker bez lease nie nadpisze postępu następcy. */
     leaseToken?: string,
-  ): Promise<void> {
+  ): Promise<AgentProgressStep | undefined> {
     // Ziarno z tury: dwie tury opisują tę samą pracę innymi słowami, a jedna
     // tura nigdy nie podmienia tekstu pod ręką użytkownika.
     if (!appendProgress(steps, progressStep(tool, input, new Date(), turnId))) {
-      return;
+      // Powtórka poprzedniego kroku — szczegół nowego wywołania nadpisze
+      // tamten (ten sam wiersz, świeższe fakty).
+      return steps[steps.length - 1];
     }
+    const appended = steps[steps.length - 1];
     try {
       await this.prisma.agentTurn.updateMany({
         where: {
@@ -884,6 +897,7 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
         }`,
       );
     }
+    return appended;
   }
 
   /**

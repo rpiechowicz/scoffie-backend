@@ -506,14 +506,17 @@ describe('WeeklyPlansService', () => {
     it('pominięte porcje nie kasują ręcznego wyboru przy niezmienionym audytorium', async () => {
       mockExistingItem(4, []);
 
-      await service.upsertWeekSlot(
+      const result = await service.upsertWeekSlot(
         mockUserId,
         mockHouseholdId,
         mockWeekStart,
         baseSlot,
       );
 
-      expectUpdatedWithServings(4);
+      // Zapis bez różnicy nic nie zapisuje (i nie stempluje rewizji — ADR
+      // `plan-portions-safe-editing`): ręczne 4 porcje zostają w bazie.
+      expect(prisma.planItem.update).not.toHaveBeenCalled();
+      expect(result).toEqual(expect.objectContaining({ changeKind: 'NOOP' }));
     });
 
     it('pominięte porcje przeliczają się, gdy poprzednia wartość była z reguły auto', async () => {
@@ -661,6 +664,8 @@ describe('WeeklyPlansService', () => {
                   participants: params.replaced.participantIds.map(
                     (userId) => ({ userId }),
                   ),
+                  // Jak `select` w serwisie: pozycja bez alokacji porcji.
+                  portions: [],
                 }
               : null,
           );
@@ -674,6 +679,7 @@ describe('WeeklyPlansService', () => {
                   participants: params.existing.participantIds.map(
                     (userId) => ({ userId }),
                   ),
+                  portions: [],
                 }
               : null,
           );
@@ -875,14 +881,31 @@ describe('WeeklyPlansService', () => {
         where: { id: replacedItemId },
       });
       expect(prisma.planItem.create).not.toHaveBeenCalled();
-      expect(prisma.planItem.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: mockPlanItem.id } }),
-      );
+      // Cel zamiany ma już dokładnie ten stan — zostaje nietknięty.
+      expect(prisma.planItem.update).not.toHaveBeenCalled();
       expect(result).toEqual(
         expect.objectContaining({
           changeKind: 'REPLACED',
           replacedItemIds: [replacedItemId],
         }),
+      );
+    });
+
+    it('podmiana na przepis, który już leży w slocie z innym audytorium, aktualizuje go', async () => {
+      mockSlot({
+        replaced: { plannedServings: 2, participantIds: [] },
+        existing: { plannedServings: 1, participantIds: [mockUserId] },
+      });
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expect(prisma.planItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: mockPlanItem.id } }),
       );
     });
 
@@ -1314,6 +1337,11 @@ describe('WeeklyPlansService', () => {
 
       expect(prisma.membership.findUnique).toHaveBeenCalled();
       expect(prisma.weeklyPlan.create).not.toHaveBeenCalled();
+      // Tydzień, pozycje i porcje to osobne zapytania Prismy — czytane w jednej
+      // migawce (ADR `plan-portions-safe-editing`, token tygodnia = ten stan).
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        isolationLevel: 'RepeatableRead',
+      });
       // Jeden format tygodnia na drucie — ten sam, co w kopercie i w
       // broadcastach; dotąd szedł tu ISO datetime z Prismy.
       expect(result.weekStart).toBe(mockWeekStart);
@@ -1358,13 +1386,15 @@ describe('WeeklyPlansService', () => {
       // iOS dekoduje `id` i `weekStart` jako wymagane, a asystent nie może
       // dostawać 404 za „jeszcze nic nie zaplanowano" — wiersz zakładamy
       // przy odczycie (precedens: `clearWeekPlan` zostawia pusty wiersz).
-      prisma.weeklyPlan.findUnique.mockResolvedValue(null);
-      prisma.weeklyPlan.create.mockResolvedValue({
-        id: 'plan-new',
-        householdId: mockHouseholdId,
-        weekStart: new Date(mockWeekStart),
-        items: [],
-      });
+      prisma.weeklyPlan.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 'plan-new',
+          householdId: mockHouseholdId,
+          weekStart: new Date(mockWeekStart),
+          items: [],
+        });
+      prisma.weeklyPlan.create.mockResolvedValue({ id: 'plan-new' });
 
       const result = await service.getByHouseholdAndWeek(
         mockUserId,
@@ -1391,17 +1421,18 @@ describe('WeeklyPlansService', () => {
     });
 
     it('wyścig dwóch telefonów o pusty tydzień (P2002) → ponowny odczyt, nie CONFLICT', async () => {
-      prisma.weeklyPlan.findUnique.mockResolvedValue(null);
+      prisma.weeklyPlan.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          ...mockWeeklyPlan,
+          id: 'plan-from-other-phone',
+        });
       prisma.weeklyPlan.create.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError('duplicate', {
           code: 'P2002',
           clientVersion: 'test',
         }),
       );
-      prisma.weeklyPlan.findUniqueOrThrow.mockResolvedValue({
-        ...mockWeeklyPlan,
-        id: 'plan-from-other-phone',
-      });
 
       const result = await service.getByHouseholdAndWeek(
         mockUserId,
@@ -1409,7 +1440,8 @@ describe('WeeklyPlansService', () => {
         mockWeekStart,
       );
 
-      expect(prisma.weeklyPlan.findUniqueOrThrow).toHaveBeenCalledTimes(1);
+      // Ponowny odczyt tą samą migawkową ścieżką (drugi `findUnique`).
+      expect(prisma.weeklyPlan.findUnique).toHaveBeenCalledTimes(2);
       expect(result).toEqual(
         expect.objectContaining({
           id: 'plan-from-other-phone',

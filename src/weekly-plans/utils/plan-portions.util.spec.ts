@@ -11,6 +11,13 @@ import {
   PORTION_UNITS_PER_SERVING,
   portionsProblem,
   portionsTotal,
+  planPortionsForExisting,
+  portionIntentOf,
+  type PortionIntent,
+  type PortionsWritePolicy,
+  portionsRemovalDecision,
+  remapPortions,
+  portionsWriteDecision,
   samePortions,
   servingsToUnits,
   toPortionRows,
@@ -237,5 +244,228 @@ describe('lista zakupów: ile gotujemy', () => {
     ).toBe(2.1);
     expect(cookedServings({ plannedServings: 3, portions: [] })).toBe(3);
     expect(cookedServings({ plannedServings: 2 })).toBe(2);
+  });
+});
+
+describe('portionsWriteDecision (ADR plan-portions-write-safety)', () => {
+  const allocated = {
+    participantIds: [] as string[],
+    plannedServings: 3,
+    portions: [
+      { userId: 'a', servings: 0.9 },
+      { userId: 'b', servings: 1.3 },
+    ],
+  };
+  const legacy = {
+    participantIds: [] as string[],
+    plannedServings: 2,
+    portions: [],
+  };
+
+  it('pozycja bez alokacji: zawsze WRITE (legacy bez zmian)', () => {
+    expect(
+      portionsWriteDecision(legacy, {
+        participantIds: ['a'],
+        plannedServings: 4,
+        portions: [],
+      }),
+    ).toBe('WRITE');
+  });
+
+  it('z alokacją, bez porcji: identyczny zapis = KEEP, zmiana = CONFLICT', () => {
+    expect(
+      portionsWriteDecision(allocated, { participantIds: [], portions: [] }),
+    ).toBe('KEEP');
+    expect(
+      portionsWriteDecision(allocated, {
+        participantIds: [],
+        plannedServings: 3,
+        portions: [],
+      }),
+    ).toBe('KEEP');
+    expect(
+      portionsWriteDecision(allocated, {
+        participantIds: ['a'],
+        portions: [],
+      }),
+    ).toBe('CONFLICT');
+    expect(
+      portionsWriteDecision(allocated, {
+        participantIds: [],
+        plannedServings: 2,
+        portions: [],
+      }),
+    ).toBe('CONFLICT');
+  });
+
+  it('jawne porcje inne niż bieżące: `strict` wymaga tokenu, `verified` zapisuje, `no-allocation-changes` odmawia (ADR plan-portions-safe-editing)', () => {
+    const other = {
+      participantIds: [],
+      portions: [
+        { userId: 'a', servings: 1 },
+        { userId: 'b', servings: 1 },
+      ],
+    };
+    expect(portionsWriteDecision(allocated, other)).toBe('REVISION_REQUIRED');
+    expect(portionsWriteDecision(allocated, other, 'verified')).toBe('WRITE');
+    expect(
+      portionsWriteDecision(
+        allocated,
+        { participantIds: [], portions: allocated.portions },
+        'strict',
+      ),
+    ).toBe('WRITE');
+    expect(
+      portionsWriteDecision(allocated, other, 'no-allocation-changes'),
+    ).toBe('CONFLICT');
+    expect(
+      portionsWriteDecision(
+        allocated,
+        { participantIds: [], portions: allocated.portions },
+        'no-allocation-changes',
+      ),
+    ).toBe('WRITE');
+  });
+
+  it('`verified` nie zdejmuje ochrony przed NIEJAWNĄ utratą (brak `portions`)', () => {
+    expect(
+      portionsWriteDecision(
+        allocated,
+        { participantIds: ['a'], portions: [] },
+        'verified',
+      ),
+    ).toBe('CONFLICT');
+  });
+
+  it('usunięcie pozycji z alokacją: token w `strict`, odmowa przy `force`, wolno w `verified`/`authoritative`', () => {
+    expect(portionsRemovalDecision('strict')).toBe('REVISION_REQUIRED');
+    expect(portionsRemovalDecision('no-allocation-changes')).toBe('CONFLICT');
+    expect(portionsRemovalDecision('verified')).toBeNull();
+    expect(portionsRemovalDecision('authoritative')).toBeNull();
+  });
+
+  it('`authoritative`: stan docelowy wygrywa (cofnięcie chronione odciskiem)', () => {
+    expect(
+      portionsWriteDecision(
+        allocated,
+        { participantIds: ['a'], portions: [] },
+        'authoritative',
+      ),
+    ).toBe('WRITE');
+  });
+});
+
+describe('jawna intencja porcji (per-user-portions-write-safety)', () => {
+  const current = {
+    participantIds: [] as string[],
+    plannedServings: 3,
+    portions: [
+      { userId: 'a', servings: 0.8 },
+      { userId: 'b', servings: 1.25 },
+    ],
+  };
+  const request = (
+    intent: PortionIntent,
+    extra: Partial<{
+      participantIds: string[];
+      plannedServings: number;
+      portions: { userId: string; servings: number }[];
+      audience: string[];
+    }> = {},
+  ) => ({
+    participantIds: [] as string[],
+    portions: [] as { userId: string; servings: number }[],
+    audience: ['a', 'b'],
+    intent,
+    ...extra,
+  });
+
+  it('intencja z pola albo z kształtu (legacy: porcje = REPLACE, brak = LEGACY)', () => {
+    expect(portionIntentOf(undefined, [])).toBe('LEGACY');
+    expect(portionIntentOf(undefined, [{ userId: 'a', servings: 1 }])).toBe(
+      'REPLACE',
+    );
+    expect(portionIntentOf('RESET', [])).toBe('RESET');
+  });
+
+  it('remapPortions: zostający zachowują porcję, nowi 1,00, usunięci znikają', () => {
+    expect(remapPortions(current.portions, ['b', 'c'])).toEqual([
+      { userId: 'b', servings: 1.25 },
+      { userId: 'c', servings: 1 },
+    ]);
+  });
+
+  it('PRESERVE: zmiana audytorium wymaga tokenu', () => {
+    expect(
+      planPortionsForExisting(
+        current,
+        request('PRESERVE', { participantIds: ['a'], audience: ['a'] }),
+        'strict',
+      ),
+    ).toEqual({
+      decision: 'REVISION_REQUIRED',
+      portions: [{ userId: 'a', servings: 0.8 }],
+    });
+  });
+
+  it('PRESERVE: plannedServings inne niż ceil(Σ) i suma > 12 → INVALID; force nie zmienia alokacji', () => {
+    expect(
+      planPortionsForExisting(
+        current,
+        request('PRESERVE', { plannedServings: 5 }),
+        'strict',
+      ).decision,
+    ).toBe('INVALID');
+    expect(
+      planPortionsForExisting(
+        {
+          ...current,
+          portions: [
+            { userId: 'a', servings: 6 },
+            { userId: 'b', servings: 6 },
+          ],
+        },
+        request('PRESERVE', { audience: ['a', 'b', 'c'] }),
+        'strict',
+      ).decision,
+    ).toBe('INVALID');
+    expect(
+      planPortionsForExisting(
+        current,
+        request('PRESERVE', { participantIds: ['a'], audience: ['a'] }),
+        'no-allocation-changes',
+      ).decision,
+    ).toBe('CONFLICT');
+  });
+
+  it('RESET: pozycja z alokacją — token wymagany (strict), force odmawia, verified/undo zapisuje', () => {
+    const decide = (policy: PortionsWritePolicy) =>
+      planPortionsForExisting(current, request('RESET'), policy);
+    expect(decide('strict').decision).toBe('REVISION_REQUIRED');
+    expect(decide('no-allocation-changes').decision).toBe('CONFLICT');
+    expect(decide('verified')).toEqual({ decision: 'WRITE', portions: [] });
+    expect(decide('authoritative').decision).toBe('WRITE');
+  });
+
+  it('LEGACY na pozycji z alokacją nigdy nie jest cichym RESET: identyczny = KEEP, zmiana = CONFLICT', () => {
+    expect(
+      planPortionsForExisting(current, request('LEGACY'), 'strict').decision,
+    ).toBe('KEEP');
+    expect(
+      planPortionsForExisting(
+        current,
+        request('LEGACY', { participantIds: ['a'] }),
+        'verified',
+      ).decision,
+    ).toBe('CONFLICT');
+  });
+
+  it('pozycja BEZ alokacji: każda intencja poza REPLACE = zapis jak dotąd', () => {
+    const plain = { ...current, portions: [] };
+    for (const intent of ['LEGACY', 'PRESERVE', 'RESET'] as const) {
+      expect(planPortionsForExisting(plain, request(intent), 'strict')).toEqual(
+        { decision: 'WRITE', portions: [] },
+      );
+    }
   });
 });

@@ -44,6 +44,7 @@ export class OpsController {
       // Stan migracji obok metryk, a nie w `/ops/health`: health jest sondą
       // żywotności i nie ma prawa zależeć od bazy.
       migrations: await this.migrationsSnapshot(),
+      catalogSync: await this.catalogSyncSnapshot(),
     };
   }
 
@@ -147,6 +148,34 @@ export class OpsController {
       // Brak tabeli (świeża baza bez migracji) albo brak połączenia — metryki
       // mają się wtedy dalej otwierać, tylko bez tej sekcji.
       return { applied: null, latest: null };
+    }
+  }
+
+  /**
+   * Log synchronizacji katalogu (N2-1): bieżąca rewizja (`head`) i
+   * `databaseDeadlocks` — licznik `pg_stat_database.deadlocks` CAŁEJ bieżącej
+   * bazy (wszystkie tabele i transakcje, nie tylko katalog). Wzrost po deployu
+   * to sygnał do analizy (log Postgresa), ale nie dowodzi, że deadlock wyszedł
+   * z `CatalogChange` (ADR `docs/adr/catalog-change-commit-order.md` §6, §16).
+   * Dwie liczby, bez identyfikatorów i treści przepisów.
+   */
+  private async catalogSyncSnapshot(): Promise<{
+    head: number | null;
+    databaseDeadlocks: number | null;
+  }> {
+    try {
+      const [row] = await this.prisma.$queryRaw<
+        { head: bigint; databaseDeadlocks: bigint | null }[]
+      >`SELECT COALESCE((SELECT MAX("revision") FROM "CatalogChange"), 0)::bigint AS "head",
+               (SELECT "deadlocks" FROM pg_stat_database
+                 WHERE "datname" = current_database()) AS "databaseDeadlocks"`;
+      return {
+        head: Number(row.head),
+        databaseDeadlocks:
+          row.databaseDeadlocks === null ? null : Number(row.databaseDeadlocks),
+      };
+    } catch {
+      return { head: null, databaseDeadlocks: null };
     }
   }
 }

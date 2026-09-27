@@ -66,6 +66,7 @@ import {
   MacroKey,
   MEAL_LABELS,
   DAY_LABELS,
+  DAY_ACCUSATIVE_LABELS,
   OptionsCardItem,
   SwapCardSide,
 } from '../cards/agent-cards';
@@ -1779,8 +1780,10 @@ export class AgentToolExecutor {
     weekStart: string;
     checkedSlots: number;
     violations: {
-      dayOfWeek: string;
-      mealType: string;
+      // Brak tylko przy naruszeniu całego tygodnia (`PLAN_REVISION_CONFLICT`),
+      // którego podgląd bez tokenu nie zgłasza.
+      dayOfWeek?: string;
+      mealType?: string;
       code: string;
       message: string;
     }[];
@@ -2381,6 +2384,7 @@ export class AgentToolExecutor {
 
     const note = asString(input.note).trim();
     return this.proposals.createDayPlanProposal({
+      origin: 'model',
       memo: context.memo,
       effect: context.effectCommit,
       userId: context.userId,
@@ -2443,6 +2447,7 @@ export class AgentToolExecutor {
     const note = asString(input.note).trim();
     const removalReasons = this.toRemovalReasons(input.removals);
     return this.proposals.createWeekPlanProposal({
+      origin: 'model',
       memo: context.memo,
       effect: context.effectCommit,
       userId: context.userId,
@@ -3213,17 +3218,6 @@ const MEAL_FOR: Record<MealType, string> = {
   SNACK: 'na przekąskę',
 };
 
-/** Biernik dnia: „w środę", „na sobotę". */
-const DAY_ACCUSATIVE: Record<DayOfWeek, string> = {
-  MON: 'poniedziałek',
-  TUE: 'wtorek',
-  WED: 'środę',
-  THU: 'czwartek',
-  FRI: 'piątek',
-  SAT: 'sobotę',
-  SUN: 'niedzielę',
-};
-
 /**
  * Wyróżnik kafelka z danych, nie od modelu: pierwsze = najlepiej pasuje,
  * potem najszybsze i najbardziej białkowe — każdy napis najwyżej raz.
@@ -3268,7 +3262,7 @@ export function turnTextFor(
     offered?: number;
     planner?: { status?: string };
   };
-  const day = DAY_ACCUSATIVE[asString(input.day_of_week) as DayOfWeek];
+  const day = DAY_ACCUSATIVE_LABELS[asString(input.day_of_week) as DayOfWeek];
   const meal = MEAL_FOR[asString(input.meal_type) as MealType];
   switch (name) {
     case 'suggest_meals': {
@@ -3292,7 +3286,7 @@ export function turnTextFor(
       const days = Array.isArray(input.days) ? input.days : [];
       const only =
         days.length === 1
-          ? DAY_ACCUSATIVE[asString(days[0]) as DayOfWeek]
+          ? DAY_ACCUSATIVE_LABELS[asString(days[0]) as DayOfWeek]
           : null;
       return only
         ? `Plan na ${only} gotowy — zatwierdzisz go jednym kliknięciem.`

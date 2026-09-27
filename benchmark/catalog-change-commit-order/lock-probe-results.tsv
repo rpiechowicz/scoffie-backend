@@ -1,0 +1,36 @@
+develop	S1 wyścig	ZGUBIONA (rewizja A <= kursor); T2 done	47 ms
+develop	S1 wyścig	ZGUBIONA (rewizja A <= kursor); T2 done	12 ms
+develop	S1 wyścig	ZGUBIONA (rewizja A <= kursor); T2 done	11 ms
+develop	S2 cykl z polecenia	T1=COMMIT T2=COMMIT	14 ms
+develop	S2 cykl z polecenia	T1=COMMIT T2=COMMIT	13 ms
+develop	S2 cykl z polecenia	T1=COMMIT T2=COMMIT	11 ms
+develop	S3 wzorzec panelu (FOR UPDATE)	T1=COMMIT T2=COMMIT	11 ms
+develop	S3 wzorzec panelu (FOR UPDATE)	T1=COMMIT T2=COMMIT	11 ms
+develop	S3 wzorzec panelu (FOR UPDATE)	T1=COMMIT T2=COMMIT	11 ms
+A	S1 wyścig	OK (A > kursor); T2 blocked	47 ms
+A	S1 wyścig	OK (A > kursor); T2 blocked	15 ms
+A	S1 wyścig	OK (A > kursor); T2 blocked	16 ms
+A	S2 cykl z polecenia	T1=COMMIT T2=DEADLOCK(40P01)	1029 ms
+A	S2 cykl z polecenia	T1=COMMIT T2=DEADLOCK(40P01)	1014 ms
+A	S2 cykl z polecenia	T1=COMMIT T2=DEADLOCK(40P01)	1012 ms
+A	S3 wzorzec panelu (FOR UPDATE)	T1=DEADLOCK(40P01) T2=COMMIT	1014 ms
+A	S3 wzorzec panelu (FOR UPDATE)	T1=DEADLOCK(40P01) T2=COMMIT	1012 ms
+A	S3 wzorzec panelu (FOR UPDATE)	T1=DEADLOCK(40P01) T2=COMMIT	1019 ms
+B	S1 wyścig	OK (A > kursor); T2 blocked	48 ms
+B	S1 wyścig	OK (A > kursor); T2 blocked	16 ms
+B	S1 wyścig	OK (A > kursor); T2 blocked	16 ms
+B	S2 cykl z polecenia	T1=COMMIT T2=DEADLOCK(40P01)	1032 ms
+B	S2 cykl z polecenia	T1=COMMIT T2=DEADLOCK(40P01)	1017 ms
+B	S2 cykl z polecenia	T1=COMMIT T2=DEADLOCK(40P01)	1020 ms
+B	S3 wzorzec panelu (FOR UPDATE)	T1=DEADLOCK(40P01) T2=COMMIT	1022 ms
+B	S3 wzorzec panelu (FOR UPDATE)	T1=DEADLOCK(40P01) T2=COMMIT	1018 ms
+B	S3 wzorzec panelu (FOR UPDATE)	T1=DEADLOCK(40P01) T2=COMMIT	1017 ms
+D	S1 wyścig	OK (A > kursor); T2 done	48 ms
+D	S1 wyścig	OK (A > kursor); T2 done	12 ms
+D	S1 wyścig	OK (A > kursor); T2 done	11 ms
+D	S2 cykl z polecenia	T1=COMMIT T2=COMMIT	11 ms
+D	S2 cykl z polecenia	T1=COMMIT T2=COMMIT	12 ms
+D	S2 cykl z polecenia	T1=COMMIT T2=COMMIT	10 ms
+D	S3 wzorzec panelu (FOR UPDATE)	T1=COMMIT T2=COMMIT	11 ms
+D	S3 wzorzec panelu (FOR UPDATE)	T1=COMMIT T2=COMMIT	11 ms
+D	S3 wzorzec panelu (FOR UPDATE)	T1=COMMIT T2=COMMIT	11 ms

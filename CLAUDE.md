@@ -264,8 +264,12 @@ units)`, 1 jednostka = 0,05 porcji (INT, CHECK 2..120), na drucie `PlanItem.port
   żadnego backfillu. Pozycja Z alokacją: alokacja jest źródłem prawdy (bilans osoby = jej porcja,
   brak wpisu = 1,0), lista zakupów gotuje DOKŁADNIE Σ porcji (ułamkowo), a `plannedServings` to
   pochodna `ceil(Σ)` liczona przez serwer — tylko dla starych klientów (`Int` w ich dekoderze).
-  Zbiór osób alokacji = audytorium pozycji (inaczej `PLAN_PORTIONS_INVALID`); zapis slotu BEZ
-  `portions` (stary iOS, stepper porcji łącznych) wraca do równego podziału. Skład domu: nowy
+  Zbiór osób alokacji = audytorium pozycji (inaczej `PLAN_PORTIONS_INVALID`). Zapis BEZ `portions`
+  (albo `[]`) NIE kasuje istniejącej alokacji (od 27.09.2026, ADR `plan-portions-write-safety`):
+  identyczny ponowny zapis zostawia pozycję nietkniętą, zmiana audytorium/liczby porcji albo zamiana
+  dania z alokacją = `PLAN_PORTIONS_CONFLICT` (upsert 409, `applyWeekPlan` → `applied:false`).
+  Decyzja `portionsWriteDecision` zapada W transakcji po `lockWeekForWrite`; nowa ścieżka zapisu
+  pozycji MUSI ją liczyć. Jawne `portions` nadal zastępują alokację bez CAS. Skład domu: nowy
   domownik dostaje 1,0, wychodzący znika z alokacji (`plan-roster.util.ts`). Reguły w
   `src/weekly-plans/utils/plan-portions.util.ts`; nowa ścieżka zapisu planu MUSI przejść przez
   `portionsProblem`, a zawężenie audytorium — zdjąć porcje osób, które wychodzą (`narrowSlot`).
@@ -307,7 +311,11 @@ catalog:scale-probe` na bazie `*_scale` (`SCALE_DATABASE_URL`), wyniki w `benchm
   (`POST …/report`) jest JEDNO na osobę i odpowiedź — drugie wysłanie POPRAWIA istniejące (powód,
   komentarz, migawka) i przestawia je na `NEW`. Historia i tura DONE oddają przy odpowiedzi asystenta
   `thinking {durationMs, steps}` (ostatnia odpowiedź zakończonej tury), `feedback` i własne `report`
-  (`withAnswerDetails` w `agent-conversations.service.ts`). Przyciski kart mówią dzień w bierniku
+  (`withAnswerDetails` w `agent-conversations.service.ts`). Kciuk w dół może nieść PODPOWIEDŹ
+  (`tags` z `AGENT_FEEDBACK_TAGS` + `comment`; brak pól = podpowiedź bez zmian, `UP` ją czyści) — wtedy
+  ocena zabiera migawkę `messageText`, gołe kciuki mają tylko `messageKind`; historia oddaje `feedbackNote`.
+  To NIE zgłoszenie: panel ma osobny dział „Oceny” (`GET /admin/assistant/feedback?period=7|30|90`,
+  `AdminFeedbackService`). Oceny odchodzą kaskadą z wiadomością (retencja 90 dni). Przyciski kart mówią dzień w bierniku
   (`DAY_ACCUSATIVE_LABELS`: „Zapisz niedzielę”).
 - Trwałe tury (od 27.09.2026, workstream Etap 5, raport `reports/05-durable-turns.md`): wykonanie
   tury NIE żyje w pamięci procesu. `POST /messages` zapisuje wejście (`AgentTurn.execution`,
@@ -344,6 +352,12 @@ catalog:scale-probe` na bazie `*_scale` (`SCALE_DATABASE_URL`), wyniki w `benchm
   Etap 3 zdjął z modelu `propose_week_plan`); nowe narzędzie i tak dawaj z samymi polami
   wymaganymi („brak" = [], NONE, 0, „") — zapas jest na naprawy, nie na wygodę. Jak liczyć: spec „pól nieobowiązkowych mieści się
   w limicie (24)” w `agent-tools.spec.ts`.
+- Kolejność rewizji `CatalogChange` (N2-1, ADR `docs/adr/catalog-change-commit-order.md`): numer nadaje
+  się przy COMMIT pod zamkiem doradczym, a brak zgubionych zmian i deadlocków trzyma się tylko, gdy:
+  (1) `Recipe_catalog_change` i `RecipeIngredient_catalog_change` zostają `DEFERRABLE INITIALLY DEFERRED`
+  (test 17 w `test/catalog-change-commit-order.e2e-spec.ts`); (2) nigdzie `SET CONSTRAINTS … IMMEDIATE`;
+  (3) żadnego DDL / `LOCK TABLE` / `TRUNCATE` na `Recipe`, `RecipeIngredient`, `CatalogChange` w tej samej
+  transakcji co DML katalogu; (4) bez 2PC (`PREPARE TRANSACTION`).
 - Safe-migrate przy starcie: migracje → bootstrap tylko na pustej bazie → jednorazowy loader
   tagów, gdy katalog istnieje, a żaden składnik nie ma tagów (`scripts/lib/bootstrap-decision.js`).
   Puste tagi są dla reguł diet faktem („czysto”), nie brakiem danych.

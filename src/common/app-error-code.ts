@@ -63,6 +63,15 @@ export const APP_ERROR_CODES = [
   'PLAN_SLOT_DUPLICATE',
   // Porcje per osoba niezgodne z audytorium, krokiem 0,05 albo widełkami.
   'PLAN_PORTIONS_INVALID',
+  // Zapis bez jawnej intencji co do porcji per osoba zmieniłby pozycję, która
+  // je ma — skasowałby alokację (ADR `plan-portions-write-safety`).
+  'PLAN_PORTIONS_CONFLICT',
+  // Token (`expectedRevision`) nie zgadza się z bieżącym stanem — plan zmienił
+  // się od odczytu klienta (ADR `plan-portions-safe-editing`). 409.
+  'PLAN_REVISION_CONFLICT',
+  // Zapis, który zastąpiłby albo usunął porcje per osoba, przyszedł bez
+  // tokenu. 428.
+  'PLAN_REVISION_REQUIRED',
   // Danie wstawiane do slotu, do którego się nie nadaje (`suitableMealTypes`).
   // Do Fazy 1 zapis slotu tego nie sprawdzał — asystent mógł wstawić zupę na
   // śniadanie i nikt go nie poprawiał.

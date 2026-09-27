@@ -15,6 +15,10 @@ import { Type } from 'class-transformer';
 import { PlanPortionDto } from './apply-week-plan.dto';
 import { DayOfWeek, MealType } from '@prisma/client';
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
+import {
+  PORTION_POLICIES,
+  type PortionPolicy,
+} from '../utils/plan-portions.util';
 
 /**
  * Dekoratory niżej są od Fazy 0 (krok 2) egzekwowane także na WebSockecie —
@@ -68,9 +72,9 @@ export class UpsertWeekSlotDto {
   /**
    * Porcje per osoba (Etap 2.2) — zbiór osób = audytorium slotu, każda
    * porcja wielokrotnością 0,05. Podane = źródło prawdy (`plannedServings`
-   * liczy serwer). POMINIĘTE = pozycja bez alokacji: zapis ze starszego
-   * klienta albo zmiana łącznej liczby porcji stepperem wraca do równego
-   * podziału — świadomie, bo stare porcje osób nie pasowałyby już do sumy.
+   * liczy serwer); zastąpienie ISTNIEJĄCEJ alokacji wymaga `expectedRevision`.
+   * POMINIĘTE (albo `[]`) nie kasują alokacji, którą pozycja ma (ADR
+   * `plan-portions-write-safety`).
    */
   @ApiPropertyOptional({ type: [PlanPortionDto] })
   @IsOptional()
@@ -100,4 +104,47 @@ export class UpsertWeekSlotDto {
   @IsOptional()
   @IsUUID()
   replaceRecipeId?: string;
+
+  /**
+   * Token pozycji z odczytu (`items[].revision`) — przy `replaceRecipeId`
+   * pozycji ŹRÓDŁOWEJ (wtedy wymaga pary `expectedTargetRevision`).
+   * Niezgodny = `PLAN_REVISION_CONFLICT` (chyba że zapis bez zamiany nic by
+   * nie zmienił); pominięty = zapis bez weryfikacji (legacy), który nie może
+   * zastąpić ani usunąć porcji per osoba (ADR `plan-portions-safe-editing`).
+   */
+  @ApiPropertyOptional({ example: 7, minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedRevision?: number;
+
+  /**
+   * Jawna intencja wobec porcji per osoba:
+   * - `PRESERVE` — zachowaj (przy zmianie audytorium serwer przelicza:
+   *   zostający — swoja porcja, nowi — 1,00, usunięci — znikają; przy
+   *   zamianie dania porcje przechodzą na nowe danie); bez `portions`;
+   * - `REPLACE` — `portions` stają się alokacją (zastąpienie istniejącej
+   *   wymaga tokenu);
+   * - `RESET` — świadomy powrót do równego podziału (tylko z tokenem, gdy
+   *   pozycja ma alokację); bez `portions`.
+   * Pominięte = kontrakt legacy: pozycja z alokacją bez `portions` —
+   * identyczny zapis albo `PLAN_PORTIONS_CONFLICT`, nigdy cichy reset.
+   */
+  @ApiPropertyOptional({ enum: PORTION_POLICIES })
+  @IsOptional()
+  @IsIn(PORTION_POLICIES)
+  portionPolicy?: PortionPolicy;
+
+  /**
+   * Tylko przy `replaceRecipeId`: token CELU zamiany — `items[].revision`
+   * pozycji z przepisem `recipeId`, która już leży w tym slocie, albo `null`,
+   * gdy według odczytu klienta takiej pozycji w slocie NIE MA. Podawany razem
+   * z `expectedRevision` źródła (jedno bez drugiego = `PLAN_REVISION_REQUIRED`);
+   * niezgodny = `PLAN_REVISION_CONFLICT`, nic nie zmienione.
+   */
+  @ApiPropertyOptional({ example: 9, minimum: 0, nullable: true, type: Number })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedTargetRevision?: number | null;
 }

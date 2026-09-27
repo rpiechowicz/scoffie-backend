@@ -1,3 +1,5 @@
+import { doneLabel } from './agent-step-detail';
+
 /**
  * Postęp tury — to, co telefon pokazuje przez te trzydzieści sekund.
  *
@@ -44,6 +46,18 @@ export type AgentProgressStep = {
    * co drugi wiersz. Brak pola = zwykły krok.
    */
   transient?: true;
+  /**
+   * To samo zdanie w czasie PRZESZŁYM („Ułożyłem dzień”) — arkusz „Jak
+   * pracowałem” po turze czyta się jak relacja, a nie jak wiersz na żywo.
+   * Brak = krok przejściowy albo starsza tura; klient bierze wtedy `label`.
+   */
+  done?: string;
+  /**
+   * Jedna linijka faktów z wejścia i wyniku narzędzia („Kolacja · na środę
+   * · lekkie — 3 z 38 pasujących”) — `describeStep`. Dopisywana PO wykonaniu
+   * narzędzia, więc na żywo pojawia się z opóźnieniem jednego kroku.
+   */
+  detail?: string;
 };
 
 /**
@@ -262,11 +276,13 @@ export function progressStep(
   const label = options
     ? pickLabel(options, `${seed}:${tool}`)
     : PROGRESS_FALLBACK;
+  const done = doneLabel(tool, input);
   return {
     tool,
     label,
     at: now.toISOString(),
     writes: WRITING_TOOLS.has(tool) && !dryRun,
+    ...(done ? { done } : {}),
     ...(tool === 'start_planning' ? { phase: 'PLANNING' as const } : {}),
     ...(TRANSIENT_TOOLS.has(tool) ? { transient: true as const } : {}),
   };

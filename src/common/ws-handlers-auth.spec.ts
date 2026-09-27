@@ -72,6 +72,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'weeklyPlans:upsertWeekSlot',
   'weeklyPlans:removeWeekSlot',
   'weeklyPlans:setMealEaten',
+  'weeklyPlans:setPortion',
   'weeklyPlans:getSavedPlan',
   'weeklyPlans:clearWeekPlan',
   // HouseholdsGateway
@@ -92,7 +93,7 @@ const EXPECTED_EVENTS: readonly string[] = [
   'households:removeMember',
   'households:leave',
 ];
-const EXPECTED_HANDLER_COUNT = 51;
+const EXPECTED_HANDLER_COUNT = 52;
 
 // ---------------------------------------------------------------------------
 // Sockety i payload

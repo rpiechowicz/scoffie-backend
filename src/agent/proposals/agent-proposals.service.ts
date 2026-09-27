@@ -1,3 +1,4 @@
+import { prepareProposalSlots, type ProposalOrigin } from './proposal-portions';
 import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AgentProposal, Prisma } from '@prisma/client';
@@ -15,7 +16,11 @@ import { ensureMembership } from '../../weekly-plans/utils/auth-checks.util';
 import { AppException } from '../../common/app-exception';
 import { assertUuid, isUuid } from '../../common/uuid';
 import { readAgentEnv } from '../../config/agent-env';
-import { AgentCardState, PlanRemovalReason } from '../cards/agent-cards';
+import {
+  AgentCardState,
+  PlanRemovalReason,
+  withAccusativeDayActions,
+} from '../cards/agent-cards';
 import {
   appliedMessageText,
   buildAppliedCard,
@@ -78,6 +83,13 @@ export type CreateWeekProposalInput = {
   note?: string;
   /** Powody usunięć (jedno słowo) — dopasowywane do policzonych zniknięć. */
   removalReasons?: PlanRemovalReason[];
+  /**
+   * `model` = stan ułożony przez model (`propose_week_plan` /
+   * `propose_day_plan`): pozycja z porcjami per osoba nie może w nim zniknąć
+   * bez następcy (usunięcie tylko jawnym `propose_remove_meal`). Domyślnie
+   * `server` (revise, planer).
+   */
+  origin?: ProposalOrigin;
 };
 
 export type CreateDayProposalInput = Omit<CreateWeekProposalInput, 'slots'> & {
@@ -253,21 +265,25 @@ export class AgentProposalsService {
   async createWeekPlanProposal(
     input: CreateWeekProposalInput,
   ): Promise<CreateWeekProposalResult> {
-    const preview = await this.weeklyPlans.previewWeekPlan(
-      input.userId,
-      input.householdId,
-      input.weekStart,
-      { slots: input.slots },
-    );
-    if (preview.violations.length > 0 || preview.slots === null) {
-      return { proposed: false, violations: preview.violations };
-    }
-
     const baseline = await this.weeklyPlans.snapshotWeekAsSlots(
       input.userId,
       input.householdId,
       input.weekStart,
     );
+    // Porcje per osoba liczy serwer, nie model (ETAP 9): zachowanie,
+    // przejęcie przy zamianie dania, odmowa zgubienia.
+    const prepared = await this.prepareSlots(input, baseline, input.slots);
+    if ('violations' in prepared) return prepared;
+
+    const preview = await this.weeklyPlans.previewWeekPlan(
+      input.userId,
+      input.householdId,
+      input.weekStart,
+      { slots: prepared.slots },
+    );
+    if (preview.violations.length > 0 || preview.slots === null) {
+      return { proposed: false, violations: preview.violations };
+    }
 
     const env = readAgentEnv();
     const proposalId = randomUUID();
@@ -303,7 +319,7 @@ export class AgentProposalsService {
           // Stan docelowy zostaje po stronie serwera. Klient przysyła sam
           // identyfikator propozycji, więc nie ma jak podmienić tego, co się
           // zapisze — nawet gdyby ktoś ruszył ruch w locie.
-          action: { slots: input.slots } as unknown as Prisma.InputJsonValue,
+          action: { slots: prepared.slots } as unknown as Prisma.InputJsonValue,
           card: card as unknown as Prisma.InputJsonValue,
           baselineHash: weekBaselineHash(baseline),
           expiresAt,
@@ -342,12 +358,14 @@ export class AgentProposalsService {
       ...baseline.filter((slot) => slot.dayOfWeek !== input.dayOfWeek),
       ...input.slots.map((slot) => ({ ...slot, dayOfWeek: input.dayOfWeek })),
     ];
+    const prepared = await this.prepareSlots(input, baseline, merged);
+    if ('violations' in prepared) return prepared;
 
     const preview = await this.weeklyPlans.previewWeekPlan(
       input.userId,
       input.householdId,
       input.weekStart,
-      { slots: merged },
+      { slots: prepared.slots },
     );
     if (preview.violations.length > 0 || preview.slots === null) {
       return { proposed: false, violations: preview.violations };
@@ -387,7 +405,7 @@ export class AgentProposalsService {
           householdId: input.householdId,
           kind: 'PLAN_DAY',
           weekStart: new Date(`${input.weekStart}T00:00:00.000Z`),
-          action: { slots: merged } as unknown as Prisma.InputJsonValue,
+          action: { slots: prepared.slots } as unknown as Prisma.InputJsonValue,
           card: card as unknown as Prisma.InputJsonValue,
           baselineHash: weekBaselineHash(baseline),
           expiresAt,
@@ -630,6 +648,14 @@ export class AgentProposalsService {
       ];
     }
 
+    // Zamiana dania z porcjami per osoba przenosi je na nowe danie (KEEP).
+    const prepared = await this.prepareSlots(
+      { ...input, origin: 'server' },
+      baseline,
+      merged,
+    );
+    if ('violations' in prepared) return prepared;
+    merged = prepared.slots;
     const preview = await this.weeklyPlans.previewWeekPlan(
       input.userId,
       input.householdId,
@@ -880,7 +906,7 @@ export class AgentProposalsService {
       input.householdId,
       input.weekStart,
     );
-    const merged: ApplyWeekSlotDto[] = [
+    const requested: ApplyWeekSlotDto[] = [
       ...baseline.filter(
         (slot) =>
           slot.dayOfWeek !== input.dayOfWeek ||
@@ -894,6 +920,15 @@ export class AgentProposalsService {
         ...(servings ? { portions: servings } : {}),
       } as ApplyWeekSlotDto,
     ];
+    // Osoby z podziału zachowują swoje porcje per osoba z dania, które było
+    // w tym posiłku (bez planera nie ma innego źródła) — nie równy podział.
+    const prepared = await this.prepareSlots(
+      { ...input, origin: 'server' },
+      baseline,
+      requested,
+    );
+    if ('violations' in prepared) return prepared;
+    const merged = prepared.slots;
 
     const preview = await this.weeklyPlans.previewWeekPlan(
       input.userId,
@@ -983,6 +1018,52 @@ export class AgentProposalsService {
    * Potrzebne, żeby rozwinąć „pusta lista = wszyscy" na konkretne osoby —
    * inaczej nie da się z takiej pozycji nikogo wypisać.
    */
+  /**
+   * Sloty propozycji z porcjami per osoba policzonymi przez serwer
+   * (`prepareProposalSlots`). Stan ułożony przez model nie może zgubić
+   * pozycji z alokacją — odmowa jako naruszenie dla modelu.
+   */
+  private async prepareSlots(
+    input: {
+      userId: string;
+      householdId: string;
+      memo?: TurnMemo;
+      origin?: ProposalOrigin;
+    },
+    baseline: ApplyWeekSlotDto[],
+    target: ApplyWeekSlotDto[],
+  ): Promise<
+    | { slots: ApplyWeekSlotDto[] }
+    | { proposed: false; violations: PlanViolation[] }
+  > {
+    // Tydzień bez żadnej alokacji — nie ma czego chronić ani przenosić
+    // (i nie ma po co pytać o skład domu).
+    if (!baseline.some((slot) => (slot.portions ?? []).length > 0)) {
+      return { slots: target };
+    }
+    const members = await this.householdMemberIds(
+      input.userId,
+      input.householdId,
+      input.memo,
+    );
+    const { slots, dropped } = prepareProposalSlots(baseline, target, members);
+    if (input.origin === 'model' && dropped.length > 0) {
+      return {
+        proposed: false,
+        violations: dropped.map((slot) => ({
+          index: -1,
+          dayOfWeek: slot.dayOfWeek,
+          mealType: slot.mealType,
+          recipeId: slot.recipeId,
+          code: 'PLAN_PORTIONS_CONFLICT' as const,
+          message:
+            'To danie ma porcje ustawione osobno dla każdej osoby — plan nie może go pominąć. Zostaw je w planie, zamień przez propose_swap albo usuń jawnie przez propose_remove_meal.',
+        })),
+      };
+    }
+    return { slots };
+  }
+
   private async householdMemberIds(
     userId: string,
     householdId: string,
@@ -1163,6 +1244,14 @@ export class AgentProposalsService {
         weekStart,
         { slots: readSlots(proposal.action) },
         {
+          // Porcje per osoba (ADR-y `plan-portions-write-safety`,
+          // `plan-portions-safe-editing`): bez `force` odcisk tygodnia
+          // (z porcjami) sprawdzany pod zamkiem gwarantuje, że jawne porcje
+          // propozycji liczono na bieżącej alokacji — zapis jest
+          // zweryfikowany (`verified`). Z `force` odcisk jest pominięty, więc
+          // propozycja nie może zmienić istniejącej alokacji — ani pominiętym
+          // polem, ani starszymi porcjami.
+          portionsPolicy: options.force ? 'no-allocation-changes' : 'verified',
           guard: async (tx, current) => {
             const claimed = await tx.agentProposal.updateMany({
               where: { id: proposal.id, status: statusBefore },
@@ -1312,8 +1401,9 @@ export class AgentProposalsService {
     }
 
     if (!result.applied || !message) {
-      // Naruszenia domeny zapadają PRZED transakcją, więc haki nie biegły:
-      // nic nie zostało przejęte ani zdjęte.
+      // Naruszenia domeny zapadają PRZED transakcją (haki nie biegły) albo —
+      // porcje per osoba — W niej, po `guard`, i wtedy cała transakcja jest
+      // wycofana. W obu razach nic nie zostało przejęte ani zdjęte.
       await this.markStatusFrom(proposal.id, statusBefore, 'STALE');
       throw new AppException(
         'AI_PROPOSAL_STALE',
@@ -1420,6 +1510,11 @@ export class AgentProposalsService {
         weekStart,
         { slots: readSlots(proposal.undoSnapshot, 'slots-array') },
         {
+          // Migawka „przed” jest dokładna (z porcjami), a `guard` niżej
+          // wymaga pod zamkiem, żeby tydzień był dokładnie stanem po zapisie —
+          // cofnięcie jest więc intencją chronioną odciskiem, także gdy
+          // przywraca pozycję BEZ alokacji (ADR `plan-portions-write-safety`).
+          portionsPolicy: 'authoritative',
           guard: async (tx, current) => {
             const claimed = await tx.agentProposal.updateMany({
               where: { id: proposal.id, status: 'APPLIED', appliedAt },
@@ -1487,8 +1582,9 @@ export class AgentProposalsService {
     }
 
     if (!result.applied || !message) {
-      // Odmowa domeny zapada PRZED transakcją, więc haki nie biegły:
-      // propozycja zostaje APPLIED — bo plan nadal jest taki, jak go zapisała.
+      // Odmowa domeny zapada PRZED transakcją (haki nie biegły) albo w niej,
+      // z wycofaniem całości: propozycja zostaje APPLIED — bo plan nadal
+      // jest taki, jak go zapisała.
       throw new AppException(
         'AI_PROPOSAL_STALE',
         'Nie da się już przywrócić poprzedniego planu — preferencje domowników albo przepisy zmieniły się od zapisu. Popraw plan ręcznie.',
@@ -1561,12 +1657,14 @@ export class AgentProposalsService {
     const states = await this.cardStatesFor(
       withCards.map((message) => message.id),
     );
-    if (states.size === 0) return messages;
 
     return messages.map((message) => {
+      if (!message.card) return message;
+      // Stare karty w historii: „Zapisz niedziela” → „Zapisz niedzielę”.
+      const card = withAccusativeDayActions(message.card);
       const state = states.get(message.id);
-      if (!state || !message.card) return message;
-      return { ...message, card: { ...message.card, state } };
+      if (!state) return card === message.card ? message : { ...message, card };
+      return { ...message, card: { ...card, state } };
     });
   }
 

@@ -329,11 +329,19 @@ describe('Porcje per osoba E2E', () => {
         },
       );
       expect(again.changes).toEqual({ created: 0, updated: 0, deleted: 0 });
+      // Zastąpienie istniejącej alokacji — z tokenem tygodnia z odczytu
+      // (ADR `plan-portions-safe-editing`).
+      const { revision } = (await weeklyPlans.getByHouseholdAndWeek(
+        asia,
+        householdId,
+        WEEK_START,
+      )) as unknown as { revision: number };
       const changed = await weeklyPlans.applyWeekPlan(
         asia,
         householdId,
         WEEK_START,
         {
+          expectedRevision: revision,
           slots: [
             {
               dayOfWeek: 'MON',
@@ -449,7 +457,7 @@ describe('Porcje per osoba E2E', () => {
       ).toBe('VALIDATION_ERROR');
     });
 
-    it('upsertWeekSlot: porcje imiennego audytorium; zapis bez porcji wraca do równego podziału', async () => {
+    it('upsertWeekSlot: porcje imiennego audytorium; zapis bez porcji NIE kasuje alokacji (PLAN_PORTIONS_CONFLICT)', async () => {
       const { asia, rafal, householdId } = await couple('Upsert');
       expect(
         await code(
@@ -480,15 +488,22 @@ describe('Porcje per osoba E2E', () => {
       expect(item.plannedServings).toBe(3);
 
       // Stary telefon zmienia porcje stepperem: przysyła łączne, bez alokacji.
-      await weeklyPlans.upsertWeekSlot(asia, householdId, WEEK_START, {
-        dayOfWeek: 'TUE',
-        mealType: 'DINNER',
-        recipeId: dinner.id,
-        plannedServings: 2,
-      });
+      // Do workstreamu plan-portions-write-safety to kasowało alokację (równy
+      // podział); teraz to odmowa, a alokacja zostaje
+      // (`docs/adr/plan-portions-write-safety.md`).
+      expect(
+        await code(
+          weeklyPlans.upsertWeekSlot(asia, householdId, WEEK_START, {
+            dayOfWeek: 'TUE',
+            mealType: 'DINNER',
+            recipeId: dinner.id,
+            plannedServings: 2,
+          }),
+        ),
+      ).toBe('PLAN_PORTIONS_CONFLICT');
       [item] = await readItems(asia, householdId);
-      expect(item.portions).toEqual([]);
-      expect(item.plannedServings).toBe(2);
+      expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.4 });
+      expect(item.plannedServings).toBe(3);
     });
   });
 

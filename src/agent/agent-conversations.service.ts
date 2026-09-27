@@ -78,6 +78,11 @@ export type MessageView = {
   /** Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał. */
   feedback?: 'UP' | 'DOWN';
   /**
+   * Podpowiedź do oceny (powody + zdanie; w dół „co nie zagrało”, w górę „co
+   * było dobre”) — telefon otwiera ją do poprawienia. Brak = sam kciuk.
+   */
+  feedbackNote?: { tags: string[]; comment: string | null };
+  /**
    * WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je
    * do poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.
    */
@@ -86,6 +91,11 @@ export type MessageView = {
 
 export type MessageThinking = {
   durationMs: number | null;
+  /**
+   * Start tury (ISO) — od niego telefon liczy, w której sekundzie padł każdy
+   * krok i ile asystent myślał między nimi (arkusz „Jak pracowałem”).
+   */
+  startedAt: string;
   /** Kroki bez przejściowych („Piszę odpowiedź") — `settledProgress`. */
   steps: AgentProgressStep[];
 };
@@ -143,7 +153,7 @@ export async function withAnswerDetails(
       : Promise.resolve([]),
     prisma.agentMessageFeedback.findMany({
       where: { userId, messageId: { in: answerIds } },
-      select: { messageId: true, rating: true },
+      select: { messageId: true, rating: true, tags: true, comment: true },
     }),
     // Najnowsze pierwsze — stare dublety sprzed zasady „jedno na osobę”.
     prisma.agentReport.findMany({
@@ -160,13 +170,14 @@ export async function withAnswerDetails(
     const elapsed = turn.finishedAt.getTime() - turn.startedAt.getTime();
     thinking.set(messageId, {
       durationMs: elapsed >= 0 ? elapsed : null,
+      startedAt: turn.startedAt.toISOString(),
       // Tura domknięta leniwie (`closeTurn`) ma jeszcze kroki przejściowe.
       steps: Array.isArray(turn.progress)
         ? settledProgress(turn.progress as unknown as AgentProgressStep[])
         : [],
     });
   }
-  const rating = new Map(ratings.map((row) => [row.messageId, row.rating]));
+  const rating = new Map(ratings.map((row) => [row.messageId, row]));
   const reported = new Map<
     string,
     { reason: string; comment: string | null }
@@ -179,12 +190,18 @@ export async function withAnswerDetails(
 
   return views.map((view) => {
     const summary = thinking.get(view.id);
-    const feedback = rating.get(view.id);
+    const rated = rating.get(view.id);
+    const feedback = rated?.rating;
     const report = reported.get(view.id);
+    const note =
+      rated && (rated.tags.length > 0 || rated.comment)
+        ? { tags: rated.tags, comment: rated.comment }
+        : undefined;
     return {
       ...view,
       ...(summary ? { thinking: summary } : {}),
       ...(feedback === 'UP' || feedback === 'DOWN' ? { feedback } : {}),
+      ...(note ? { feedbackNote: note } : {}),
       ...(report ? { report } : {}),
     };
   });

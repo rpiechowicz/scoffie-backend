@@ -2,7 +2,19 @@ import {
   derivedPlannedServings,
   PortionView,
   portionsProblem,
+  PORTIONS_CONFLICT_MESSAGE,
+  planPortionsForExisting,
+  portionIntentOf,
+  type PortionPolicy,
+  portionsRemovalDecision,
+  portionsWriteDecision,
+  PRESERVE_SERVINGS_PROBLEM,
+  remapPortions,
+  type PortionsWritePolicy,
+  REVISION_CONFLICT_MESSAGE,
+  REVISION_REQUIRED_MESSAGE,
   samePortions,
+  servingsToUnits,
   toPortionRows,
   toPortionViews,
 } from './utils/plan-portions.util';
@@ -16,6 +28,7 @@ import { ApplyWeekPlanDto, ApplyWeekSlotDto } from './dto/apply-week-plan.dto';
 import { UpsertWeekSlotDto } from './dto/upsert-week-slot.dto';
 import { RemoveWeekSlotDto } from './dto/remove-week-slot.dto';
 import { SetMealEatenDto } from './dto/set-meal-eaten.dto';
+import { SetPortionDto } from './dto/set-portion.dto';
 import { DayOfWeek, MealType, Prisma } from '@prisma/client';
 import { AppErrorCode } from '../common/app-error-code';
 import {
@@ -33,7 +46,10 @@ import {
   ensureRecipeForHousehold,
 } from './utils/auth-checks.util';
 import { runSerializable } from './utils/transaction-runner.util';
-import { lockWeekForWrite } from './utils/week-write-lock.util';
+import {
+  bumpWeekRevision,
+  lockWeekForWrite,
+} from './utils/week-write-lock.util';
 import {
   servingsPerPerson,
   weeklyBalanceForMember,
@@ -79,7 +95,7 @@ const PLAN_ITEM_INCLUDE = {
   },
   participants: { select: { userId: true } },
   consumptions: { select: { userId: true } },
-  portions: { select: { userId: true, units: true } },
+  portions: { select: { userId: true, units: true, revision: true } },
 } satisfies Prisma.PlanItemInclude;
 
 /** Wiersz `PlanItem` dokładnie w kształcie `PLAN_ITEM_INCLUDE`. */
@@ -141,7 +157,13 @@ function withPlanItemRelationIds(item: PlanItemRow) {
     participantIds: participants.map((p) => p.userId),
     eatenByUserIds: consumptions.map((c) => c.userId),
     // Porcje per osoba (Etap 2.2) w porcjach; pusta lista = równy podział.
-    portions: toPortionViews(portions),
+    // `revision` porcji = token `setPortion` tej osoby; `revision` pozycji
+    // (w `rest`) = token `upsertWeekSlot` (ADR `plan-portions-safe-editing`).
+    portions: toPortionViews(portions).map((portion) => ({
+      ...portion,
+      revision:
+        portions.find((row) => row.userId === portion.userId)?.revision ?? 0,
+    })),
   };
 }
 
@@ -182,11 +204,16 @@ type PlannableRecipe = {
 
 /** Jeden powód, dla którego pozycja tygodnia nie może wejść. */
 export type PlanViolation = {
-  /** Pozycja w przysłanej liście `slots` — wołający wie, co poprawić. */
+  /**
+   * Pozycja w przysłanej liście `slots` — wołający wie, co poprawić. `-1` =
+   * pozycja SPOZA stanu docelowego, której zapis nie może usunąć (porcje per
+   * osoba), albo cały tydzień (`PLAN_REVISION_CONFLICT` — wtedy bez
+   * `dayOfWeek`/`mealType`/`recipeId`).
+   */
   index: number;
-  dayOfWeek: DayOfWeek;
-  mealType: MealType;
-  recipeId: string;
+  dayOfWeek?: DayOfWeek;
+  mealType?: MealType;
+  recipeId?: string;
   code: AppErrorCode;
   message: string;
 };
@@ -215,6 +242,15 @@ export type ApplyWeekPlanHooks = {
     tx: Prisma.TransactionClient,
     changes: { created: number; updated: number; deleted: number },
   ) => Promise<void>;
+  /**
+   * Jak zapis traktuje alokację, którą pozycja już ma (domyślnie `strict`) —
+   * patrz `PortionsWritePolicy` i `docs/adr/plan-portions-write-safety.md`.
+   * `verified` i `authoritative` wolno podać WYŁĄCZNIE razem z `guard`, który
+   * w tej samej transakcji sprawdza odcisk tygodnia z porcjami (zapis
+   * i cofnięcie propozycji). Z drutu `verified` powstaje tylko ze zgodnego
+   * `expectedRevision` — polityka nie jest polem DTO.
+   */
+  portionsPolicy?: PortionsWritePolicy;
 };
 
 /** Jedna pozycja proponowanego tygodnia, gotowa do pokazania człowiekowi. */
@@ -334,19 +370,38 @@ export class WeeklyPlansService {
       },
     } satisfies Prisma.WeeklyPlanInclude;
 
-    let plan = await this.prisma.weeklyPlan.findUnique({ where, include });
+    // Prisma czyta `include` OSOBNYMI zapytaniami (tydzień, pozycje, każda
+    // relacja), a bez transakcji każde widzi inny stan (READ COMMITTED) —
+    // zapis zatwierdzony w trakcie dawał `revision` sprzed zmiany z pozycjami
+    // po niej. Token tygodnia musi opisywać DOKŁADNIE zwrócony stan, więc
+    // odczyt idzie w jednej migawce (REPEATABLE READ: wszystkie zapytania
+    // transakcji widzą stan z chwili pierwszego). Transakcja INTERAKTYWNA:
+    // jednoelementowy `$transaction([...])` Prisma wysyła bez BEGIN (zmierzone
+    // w logu Postgresa) i nic nie chroni.
+    const readSnapshot = () =>
+      this.prisma.$transaction(
+        (tx) => tx.weeklyPlan.findUnique({ where, include }),
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+      );
+
+    let plan = await readSnapshot();
     if (!plan) {
-      plan = await this.prisma.weeklyPlan
-        .create({ data: { householdId, weekStart: weekStartDate }, include })
-        .catch(async (error: unknown) => {
+      await this.prisma.weeklyPlan
+        .create({
+          data: { householdId, weekStart: weekStartDate },
+          select: { id: true },
+        })
+        .catch((error: unknown) => {
           if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === 'P2002'
           ) {
-            return this.prisma.weeklyPlan.findUniqueOrThrow({ where, include });
+            return null;
           }
           throw error;
         });
+      plan = await readSnapshot();
+      if (!plan) throw new Error('weeklyPlan: brak wiersza tuż po założeniu');
     }
 
     return {
@@ -459,6 +514,8 @@ export class WeeklyPlansService {
       dto.replaceRecipeId,
       dto.recipeId,
     );
+    assertReplaceTokens(dto, replaceRecipeId);
+    assertPortionPolicyShape(dto.portionPolicy, dto.portions);
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
     // Jedno zapytanie o domowników (identyfikatory, alergeny, wykluczenia)
     // zamiast czterech o ten sam skład — audyt 2: ręczne wstawienie posiłku
@@ -522,6 +579,15 @@ export class WeeklyPlansService {
       await lockWeekForWrite(tx, weeklyPlan.id);
       // Członkostwo jeszcze raz, już pod zamkiem — patrz `ensureMembershipInTx`.
       await ensureMembershipInTx(tx, userId, householdId, participantIds);
+      // Rewizja tygodnia +1 raz na transakcję, przy pierwszym zapisie treści;
+      // ta wartość stempluje zmienione pozycje i porcje. Ack NIE niesie
+      // rewizji tygodnia: token tygodnia wolno brać wyłącznie z pełnego
+      // odczytu (ADR `plan-portions-safe-editing`, decyzja 1).
+      let stamp: number | null = null;
+      const nextStamp = async (): Promise<number> => {
+        if (stamp === null) stamp = await bumpWeekRevision(tx, weeklyPlan.id);
+        return stamp;
+      };
 
       await tx.shoppingListArchiveState.deleteMany({
         where: {
@@ -549,12 +615,110 @@ export class WeeklyPlansService {
             },
             select: {
               id: true,
+              revision: true,
               plannedServings: true,
               participants: { select: { userId: true } },
+              portions: { select: { userId: true, units: true } },
             },
           })
         : null;
+      // The item is identified by its recipe, not just by the slot: a slot can
+      // hold one variant per household split. Re-upserting the same recipe
+      // only rewrites who it is for. Przy zamianie to CEL (przepis, który już
+      // leży w slocie obok) — szukany PRZED usunięciem źródła, bo jego token
+      // też trzeba sprawdzić, zanim cokolwiek się zmieni.
+      //
+      // Dociągamy tu porcje i STARE audytorium, mimo że za chwilę je kasujemy:
+      // bez nich nie da się orzec, czy zapisana liczba porcji to wynik reguły
+      // auto, czy świadomy wybór użytkownika (patrz
+      // `resolveUpdatedPlannedServings`).
+      const existingItem = await tx.planItem.findFirst({
+        where: {
+          weeklyPlanId: weeklyPlan.id,
+          dayOfWeek: dto.dayOfWeek,
+          mealType: dto.mealType,
+          recipeId: dto.recipeId,
+        },
+        select: {
+          id: true,
+          revision: true,
+          plannedServings: true,
+          participants: { select: { userId: true } },
+          portions: { select: { userId: true, units: true } },
+        },
+      });
+
+      // Tokeny (`expectedRevision`, `expectedTargetRevision`) = stemple pozycji
+      // z odczytu klienta. Bez zamiany — tej pozycji. Przy zamianie — źródła
+      // ORAZ celu (parę wymusza `assertReplaceTokens`): `null` celu = „celu
+      // nie ma w slocie”. Cokolwiek się nie zgadza — źródło zniknęło albo
+      // zmieniło się, cel powstał, zniknął, zmienił się albo został odtworzony
+      // — klient zamienia stan, którego już nie ma: konflikt, nic nie zmienione.
+      const expectedRevision = dto.expectedRevision;
+      const expectedTargetRevision = dto.expectedTargetRevision;
+      // PRESERVE przenosi porcje, ale zamiana nadal usuwa źródło i może
+      // przepisać cel. Intencja musi dotyczyć obu odczytanych wersji.
+      if (
+        replaceRecipeId &&
+        dto.portionPolicy === 'PRESERVE' &&
+        expectedRevision === undefined
+      ) {
+        throw revisionRequired(replaced?.id ?? existingItem?.id ?? '');
+      }
+      if (replaceRecipeId && expectedRevision !== undefined) {
+        if (!replaced || replaced.revision !== expectedRevision) {
+          throw revisionConflict(replaced);
+        }
+        const targetMatches =
+          expectedTargetRevision === null
+            ? !existingItem
+            : existingItem?.revision === expectedTargetRevision;
+        if (!targetMatches) throw revisionConflict(existingItem);
+      }
+      if (!replaceRecipeId && expectedRevision !== undefined && !existingItem) {
+        // Token bez zamiany celuje w TĘ pozycję — nie ma jej (usunięta albo
+        // jeszcze nieodtworzona), więc klient pisze do stanu, którego nie ma.
+        throw revisionConflict(null);
+      }
+      // Porcje z żądania — potrzebne już tu: zamiana dania z alokacją BEZ
+      // jawnych porcji usunęłaby ją razem z pozycją, a z jawnymi, ale bez
+      // tokenu — zastąpiła. Decyzja zapada pod zamkiem tygodnia, na pozycji
+      // odczytanej w tej transakcji, PRZED usunięciem źródła (ADR-y
+      // `plan-portions-write-safety`, `plan-portions-safe-editing`).
+      const portions = normalizedPortions(dto.portions);
+      // Jawna intencja (`portionPolicy`); bez pola — z kształtu (legacy):
+      // porcje podane = REPLACE, pominięte = LEGACY (nigdy cichy RESET).
+      const intent = portionIntentOf(dto.portionPolicy, portions);
+      if (replaced && replaced.portions.length > 0) {
+        // LEGACY: klient nie wie o alokacji — zamiana usunęłaby ją po cichu.
+        if (intent === 'LEGACY') throw portionsConflict(replaced.id);
+        // RESET kasuje alokację źródła — tylko ze zweryfikowanym zapisem.
+        if (intent === 'RESET' && expectedRevision === undefined) {
+          throw revisionRequired(replaced.id);
+        }
+        // PRESERVE: porcje osób przechodzą na nowe danie (niżej, gdy znane
+        // jest audytorium). REPLACE: decyzja jak dotąd.
+      }
+      if (replaced && replaced.portions.length > 0 && intent === 'REPLACE') {
+        const sourceDecision = portionsWriteDecision(
+          {
+            participantIds: replaced.participants.map((p) => p.userId),
+            plannedServings: replaced.plannedServings,
+            portions: toPortionViews(replaced.portions),
+          },
+          {
+            participantIds: [],
+            plannedServings: dto.plannedServings,
+            portions,
+          },
+          expectedRevision !== undefined ? 'verified' : 'strict',
+        );
+        if (sourceDecision === 'REVISION_REQUIRED') {
+          throw revisionRequired(replaced.id);
+        }
+      }
       if (replaced) {
+        await nextStamp();
         await tx.planItem.delete({ where: { id: replaced.id } });
       }
       const replacedItemIds = replaced ? [replaced.id] : [];
@@ -605,48 +769,35 @@ export class WeeklyPlansService {
         );
       }
 
-      // The item is identified by its recipe, not just by the slot: a slot can
-      // hold one variant per household split. Re-upserting the same recipe
-      // only rewrites who it is for.
-      //
-      // Dociągamy tu porcje i STARE audytorium, mimo że za chwilę je kasujemy:
-      // bez nich nie da się orzec, czy zapisana liczba porcji to wynik reguły
-      // auto, czy świadomy wybór użytkownika (patrz
-      // `resolveUpdatedPlannedServings`).
-      const existingItem = await tx.planItem.findFirst({
-        where: {
-          weeklyPlanId: weeklyPlan.id,
-          dayOfWeek: dto.dayOfWeek,
-          mealType: dto.mealType,
-          recipeId: dto.recipeId,
-        },
-        select: {
-          id: true,
-          plannedServings: true,
-          participants: { select: { userId: true } },
-          portions: { select: { userId: true, units: true } },
-        },
-      });
+      // Osoby jedzące po zapisie — dla „Wspólne” wszyscy domownicy.
+      const audienceIds = [
+        ...(effectiveParticipantIds.length > 0
+          ? effectiveParticipantIds
+          : memberIdsForGate),
+      ];
+      // Zamiana z PRESERVE (= KEEP): porcje osób ze źródła przechodzą na nowe
+      // danie, przeliczone na jego audytorium (zostający — swoja porcja, nowi
+      // — 1,00). Serwer, nie klient.
+      const carriedPortions =
+        replaced && intent === 'PRESERVE' && replaced.portions.length > 0
+          ? remapPortions(toPortionViews(replaced.portions), audienceIds)
+          : [];
+      // Porcje, które zapis chce ustawić: jawne (REPLACE) albo przeniesione.
+      const requestedPortions =
+        intent === 'REPLACE' ? portions : carriedPortions;
 
       // Porcje per osoba (Etap 2.2): podane = źródło prawdy dla audytorium
-      // tej pozycji; POMINIĘTE = pozycja bez alokacji (równy podział) —
-      // starszy klient i zmiana łącznej liczby stepperem wracają do reguły,
-      // którą znają, zamiast zostawić porcje niepasujące do nowej sumy.
-      const portions = normalizedPortions(dto.portions);
-      if (portions.length > 0) {
-        const audience = new Set(
-          effectiveParticipantIds.length > 0
-            ? effectiveParticipantIds
-            : memberIdsForGate,
-        );
-        const problem = portionsProblem(portions, audience);
-        if (problem) {
-          throw new AppException(
-            'PLAN_PORTIONS_INVALID',
-            problem,
-            HttpStatus.BAD_REQUEST,
-          );
-        }
+      // tej pozycji. POMINIĘTE (albo `[]`) nie kasują już alokacji, którą
+      // pozycja ma — decyzja niżej (`planPortionsForExisting`).
+      if (requestedPortions.length > 0) {
+        const problem =
+          portionsProblem(requestedPortions, new Set(audienceIds)) ??
+          (intent === 'PRESERVE' &&
+          dto.plannedServings != null &&
+          dto.plannedServings !== derivedPlannedServings(requestedPortions)
+            ? PRESERVE_SERVINGS_PROBLEM
+            : null);
+        if (problem) throw portionsInvalid(problem);
       }
 
       if (existingItem) {
@@ -654,9 +805,68 @@ export class WeeklyPlansService {
           (p) => p.userId,
         );
         const currentPortions = toPortionViews(existingItem.portions);
+        // Zweryfikowana jest pozycja, której token klient podał: bez zamiany —
+        // `expectedRevision`, przy zamianie — `expectedTargetRevision` celu
+        // (zgodny, bo niezgodny skończył się wyżej konfliktem). Cel zamiany
+        // bez tokenów (legacy) zostaje `strict`.
+        const tokenGiven = replaceRecipeId
+          ? expectedTargetRevision != null
+          : expectedRevision !== undefined;
+        const tokenStale =
+          !replaceRecipeId &&
+          tokenGiven &&
+          expectedRevision !== existingItem.revision;
+        // Decyzja i docelowa alokacja z intencji (`planPortionsForExisting`):
+        // - LEGACY: identyczny zapis = KEEP, zmiana = CONFLICT (#209);
+        // - REPLACE: jawne porcje inne niż bieżące tylko ze zgodnym tokenem;
+        // - PRESERVE: alokacja przeliczona na nowe audytorium, bez tokenu;
+        // - RESET: usunięcie alokacji tylko ze zgodnym tokenem.
+        // Porcje przeniesione przy zamianie zastępują alokację CELU (REPLACE
+        // wobec celu). Nieaktualny token liczy się jak zgodny, żeby orzec,
+        // czy zapis w ogóle coś zmienia — jeśli tak, niżej i tak konflikt.
+        const targetIntent = carriedPortions.length > 0 ? 'REPLACE' : intent;
+        const plan = planPortionsForExisting(
+          {
+            participantIds: currentParticipantIds,
+            plannedServings: existingItem.plannedServings,
+            portions: currentPortions,
+          },
+          {
+            participantIds: effectiveParticipantIds,
+            plannedServings: dto.plannedServings,
+            portions: targetIntent === 'REPLACE' ? requestedPortions : [],
+            intent: targetIntent,
+            audience: audienceIds,
+          },
+          tokenGiven ? 'verified' : 'strict',
+        );
+        const decision = plan.decision;
+        const finalPortions = plan.portions;
+        // Pozycja zostaje nietknięta (KEEP albo zapis bez różnicy): nic nie
+        // jest zapisywane ani stemplowane.
+        const keepAsIs = async () => {
+          // Usunięte źródło zamiany zmienia listę zakupów; sama pozycja nie.
+          if (replaced) {
+            await this.shoppingListService.markShoppingListStale(
+              householdId,
+              weekStartDate,
+              tx,
+            );
+          }
+          const kept = await tx.planItem.findUniqueOrThrow({
+            where: { id: existingItem.id },
+            include: PLAN_ITEM_INCLUDE,
+          });
+          return {
+            ...withPlanItemRelationIds(kept),
+            replacedItemIds,
+            changeKind: replaced ? ('REPLACED' as const) : ('NOOP' as const),
+          };
+        };
+        if (decision === 'KEEP') return keepAsIs();
         const plannedServingsForUpdate =
-          portions.length > 0
-            ? derivedPlannedServings(portions)
+          finalPortions.length > 0
+            ? derivedPlannedServings(finalPortions)
             : this.resolveUpdatedPlannedServings({
                 currentPlannedServings: existingItem.plannedServings,
                 currentParticipantIds,
@@ -664,29 +874,6 @@ export class WeeklyPlansService {
                 memberCount,
                 requested: dto.plannedServings,
               });
-
-        await tx.planItemParticipant.deleteMany({
-          where: { planItemId: existingItem.id },
-        });
-        const updatedItem = await tx.planItem.update({
-          where: { id: existingItem.id },
-          data: {
-            plannedServings: plannedServingsForUpdate,
-            participants: {
-              create: effectiveParticipantIds.map((id) => ({ userId: id })),
-            },
-            portions: {
-              deleteMany: {},
-              create: toPortionRows(portions),
-            },
-          },
-          include: PLAN_ITEM_INCLUDE,
-        });
-        await this.shoppingListService.markShoppingListStale(
-          householdId,
-          weekStartDate,
-          tx,
-        );
 
         // Przepis jest częścią klucza wyszukania, więc trafienie w istniejący
         // item ZNACZY, że danie się nie zmieniło — ruszyły najwyżej porcje albo
@@ -699,16 +886,54 @@ export class WeeklyPlansService {
         const detailsChanged =
           plannedServingsForUpdate !== existingItem.plannedServings ||
           !sameMemberSet(currentParticipantIds, effectiveParticipantIds) ||
-          !samePortions(currentPortions, portions);
+          !samePortions(currentPortions, finalPortions);
+
+        // Nieaktualny token: zapis, który coś by zmienił, nie wchodzi — także
+        // ponowienie, po którym ktoś zdążył zmienić pozycję. Zapis bez różnicy
+        // (np. ponowienie po utraconej odpowiedzi) jest sukcesem bez zmian.
+        if (tokenStale && (decision !== 'WRITE' || detailsChanged)) {
+          throw revisionConflict(existingItem);
+        }
+        if (decision === 'INVALID') {
+          throw portionsInvalid(plan.problem ?? PRESERVE_SERVINGS_PROBLEM);
+        }
+        if (decision === 'CONFLICT') throw portionsConflict(existingItem.id);
+        if (decision === 'REVISION_REQUIRED') {
+          throw revisionRequired(existingItem.id);
+        }
+        if (!detailsChanged) return keepAsIs();
+
+        const revision = await nextStamp();
+        await tx.planItemParticipant.deleteMany({
+          where: { planItemId: existingItem.id },
+        });
+        const updatedItem = await tx.planItem.update({
+          where: { id: existingItem.id },
+          data: {
+            plannedServings: plannedServingsForUpdate,
+            revision,
+            participants: {
+              create: effectiveParticipantIds.map((id) => ({ userId: id })),
+            },
+            portions: {
+              deleteMany: {},
+              create: stampedPortionRows(finalPortions, revision),
+            },
+          },
+          include: PLAN_ITEM_INCLUDE,
+        });
+        await this.shoppingListService.markShoppingListStale(
+          householdId,
+          weekStartDate,
+          tx,
+        );
 
         return {
           ...withPlanItemRelationIds(updatedItem),
           replacedItemIds,
           changeKind: replaced
             ? ('REPLACED' as const)
-            : detailsChanged
-              ? ('DETAILS_CHANGED' as const)
-              : ('NOOP' as const),
+            : ('DETAILS_CHANGED' as const),
         };
       }
 
@@ -762,8 +987,8 @@ export class WeeklyPlansService {
       // świadome „gotuję 4 porcje" do auto — dokładnie to, przed czym
       // `resolveUpdatedPlannedServings` broni stepper.
       const plannedServings =
-        portions.length > 0
-          ? derivedPlannedServings(portions)
+        requestedPortions.length > 0
+          ? derivedPlannedServings(requestedPortions)
           : replaced
             ? this.resolveUpdatedPlannedServings({
                 currentPlannedServings: replaced.plannedServings,
@@ -776,6 +1001,7 @@ export class WeeklyPlansService {
               })
             : plannedServingsForCreate;
 
+      const revision = await nextStamp();
       const createdItem = await tx.planItem
         .create({
           data: {
@@ -784,11 +1010,16 @@ export class WeeklyPlansService {
             mealType: dto.mealType,
             recipeId: dto.recipeId,
             plannedServings,
+            revision,
             participants: {
               create: effectiveParticipantIds.map((id) => ({ userId: id })),
             },
-            ...(portions.length > 0
-              ? { portions: { create: toPortionRows(portions) } }
+            ...(requestedPortions.length > 0
+              ? {
+                  portions: {
+                    create: stampedPortionRows(requestedPortions, revision),
+                  },
+                }
               : {}),
           },
           include: PLAN_ITEM_INCLUDE,
@@ -863,6 +1094,19 @@ export class WeeklyPlansService {
     input: ApplyWeekPlanDto,
     hooks: ApplyWeekPlanHooks = {},
   ): Promise<ApplyWeekPlanResult> {
+    // `verified` i `authoritative` zdejmują ochronę porcji — wolno
+    // WYŁĄCZNIE z `guard`, który w tej samej transakcji sprawdza odcisk
+    // tygodnia (zapis i cofnięcie propozycji). Bez niego nic nie chroni
+    // alokacji: odmowa przed zapisem.
+    if (
+      (hooks.portionsPolicy === 'authoritative' ||
+        hooks.portionsPolicy === 'verified') &&
+      !hooks.guard
+    ) {
+      throw new Error(
+        `applyWeekPlan: portionsPolicy "${hooks.portionsPolicy}" wymaga guarda sprawdzającego odcisk tygodnia w tej samej transakcji.`,
+      );
+    }
     const dto = await validateDto(ApplyWeekPlanDto, input);
     await ensureMembership(this.prisma, userId, householdId);
     const weekStartDate = parseWeekStart(weekStart);
@@ -892,23 +1136,60 @@ export class WeeklyPlansService {
       };
     }
 
-    const desired = dto.slots.map((slot) => ({
-      ...slot,
-      key: planSlotKey(slot),
-      ...this.normalizeParticipants(slot.participantIds, memberIds),
-      portions: normalizedPortions(slot.portions),
-    }));
+    for (const slot of dto.slots) {
+      assertPortionPolicyShape(slot.portionPolicy, slot.portions);
+    }
+    const desired = this.desiredSlots(dto.slots, memberIds);
 
     if (dryRun) {
-      const changes = await this.previewWeekPlanChanges(
+      // Ten sam token i ta sama decyzja porcji co w zapisie, ale na odczycie
+      // bez zamka — doradczo; wiążąca jest kontrola w transakcji niżej.
+      const week = await this.prisma.weeklyPlan.findUnique({
+        where: {
+          householdId_weekStart: { householdId, weekStart: weekStartDate },
+        },
+        select: { revision: true },
+      });
+      const currentRevision = week?.revision ?? 0;
+      if (
+        dto.expectedRevision !== undefined &&
+        dto.expectedRevision !== currentRevision
+      ) {
+        return {
+          applied: false,
+          dryRun,
+          violations: [weekRevisionConflict()],
+          changes: { created: 0, updated: 0, deleted: 0 },
+          plan: null,
+        };
+      }
+      const portions = await this.advisoryPortions(
         householdId,
         weekStartDate,
         desired,
+        effectivePolicy(hooks.portionsPolicy, dto.expectedRevision),
+        memberIds,
+      );
+      if (portions.conflicts.length > 0) {
+        return {
+          applied: false,
+          dryRun,
+          violations: portions.conflicts,
+          changes: { created: 0, updated: 0, deleted: 0 },
+          plan: null,
+        };
+      }
+      const changes = await this.previewWeekPlanChanges(
+        householdId,
+        weekStartDate,
+        portions.settled,
+        portions.keep,
+        portions.planned,
       );
       return { applied: false, dryRun, violations: [], changes, plan: null };
     }
 
-    const changes = await runSerializable(this.prisma, async (tx) => {
+    const outcome = await runSerializable(this.prisma, async (tx) => {
       const weeklyPlan = await tx.weeklyPlan.upsert({
         where: {
           householdId_weekStart: { householdId, weekStart: weekStartDate },
@@ -921,7 +1202,24 @@ export class WeeklyPlansService {
       // `upsertWeekSlot`) i PRZED odczytem pozycji: wszystko niżej — także
       // warunki z `guard` — liczy się na stanie, którego nikt równolegle
       // nie zmienia.
-      await lockWeekForWrite(tx, weeklyPlan.id);
+      const lockedRevision = await lockWeekForWrite(tx, weeklyPlan.id);
+      // Token pełnego stanu: tydzień zmienił się od odczytu klienta — nic nie
+      // wchodzi (także ponowienie po utraconej odpowiedzi; klient odświeża).
+      if (
+        dto.expectedRevision !== undefined &&
+        dto.expectedRevision !== lockedRevision
+      ) {
+        throw new PortionsConflictRefusal([weekRevisionConflict()]);
+      }
+      const policy = effectivePolicy(
+        hooks.portionsPolicy,
+        dto.expectedRevision,
+      );
+      let stamp: number | null = null;
+      const nextStamp = async (): Promise<number> => {
+        if (stamp === null) stamp = await bumpWeekRevision(tx, weeklyPlan.id);
+        return stamp;
+      };
       await ensureMembershipInTx(
         tx,
         userId,
@@ -969,11 +1267,27 @@ export class WeeklyPlansService {
         current.map((item) => [planSlotKey(item), item]),
       );
       const desiredKeys = new Set(desired.map((slot) => slot.key));
+      // Ten sam zbiór osób co zapisany = bez zmiany reprezentacji audytorium.
+      const settled = settleParticipants(desired, currentByKey);
+
+      // Porcje per osoba — decyzja pod zamkiem, na pozycjach odczytanych w tej
+      // transakcji, PRZED jakimkolwiek zapisem. Odmowa wycofuje całą
+      // transakcję (także to, co zrobił `guard`) i wraca niżej jako naruszenia.
+      const portionsDecisions = this.portionsDecisions(
+        settled,
+        currentByKey,
+        policy,
+        memberIds,
+      );
+      if (portionsDecisions.conflicts.length > 0) {
+        throw new PortionsConflictRefusal(portionsDecisions.conflicts);
+      }
 
       const removedIds = current
         .filter((item) => !desiredKeys.has(planSlotKey(item)))
         .map((item) => item.id);
       if (removedIds.length > 0) {
+        await nextStamp();
         // Kaskada zabiera uczestników i znaczniki zjedzenia — dokładnie tak,
         // jak przy `removeWeekSlot`. Archiwa list zakupów zostają.
         await tx.planItem.deleteMany({ where: { id: { in: removedIds } } });
@@ -981,18 +1295,25 @@ export class WeeklyPlansService {
 
       let created = 0;
       let updated = 0;
-      for (const slot of desired) {
+      for (const slot of settled) {
         const existing = currentByKey.get(slot.key);
+        // Pozycja z alokacją, której slot bez porcji niczego nie zmienia —
+        // zostaje nietknięta (nie liczy się jako zmiana).
+        if (existing && portionsDecisions.keep.has(slot.key)) continue;
+        // Alokacja do zapisania — z intencji slotu (`planPortionsForExisting`).
+        const finalPortions = portionsDecisions.planned.get(slot.key) ?? [];
         if (!existing) {
+          const revision = await nextStamp();
           await tx.planItem.create({
             data: {
               weeklyPlanId: weeklyPlan.id,
               dayOfWeek: slot.dayOfWeek,
               mealType: slot.mealType,
               recipeId: slot.recipeId,
+              revision,
               plannedServings:
-                slot.portions.length > 0
-                  ? derivedPlannedServings(slot.portions)
+                finalPortions.length > 0
+                  ? derivedPlannedServings(finalPortions)
                   : this.resolvePlannedServings(
                       slot.participantIds,
                       memberIds.size,
@@ -1001,8 +1322,12 @@ export class WeeklyPlansService {
               participants: {
                 create: slot.participantIds.map((id) => ({ userId: id })),
               },
-              ...(slot.portions.length > 0
-                ? { portions: { create: toPortionRows(slot.portions) } }
+              ...(finalPortions.length > 0
+                ? {
+                    portions: {
+                      create: stampedPortionRows(finalPortions, revision),
+                    },
+                  }
                 : {}),
             },
           });
@@ -1015,8 +1340,8 @@ export class WeeklyPlansService {
         );
         const currentPortions = toPortionViews(existing.portions);
         const plannedServings =
-          slot.portions.length > 0
-            ? derivedPlannedServings(slot.portions)
+          finalPortions.length > 0
+            ? derivedPlannedServings(finalPortions)
             : this.resolveUpdatedPlannedServings({
                 currentPlannedServings: existing.plannedServings,
                 currentParticipantIds,
@@ -1028,7 +1353,7 @@ export class WeeklyPlansService {
           currentParticipantIds,
           slot.participantIds,
         );
-        const portionsChanged = !samePortions(currentPortions, slot.portions);
+        const portionsChanged = !samePortions(currentPortions, finalPortions);
         if (
           !participantsChanged &&
           !portionsChanged &&
@@ -1039,10 +1364,12 @@ export class WeeklyPlansService {
           continue;
         }
 
+        const revision = await nextStamp();
         await tx.planItem.update({
           where: { id: existing.id },
           data: {
             plannedServings,
+            revision,
             ...(participantsChanged
               ? {
                   participants: {
@@ -1051,14 +1378,15 @@ export class WeeklyPlansService {
                   },
                 }
               : {}),
-            ...(portionsChanged
-              ? {
-                  portions: {
-                    deleteMany: {},
-                    create: toPortionRows(slot.portions),
-                  },
-                }
-              : {}),
+            // Każda zmiana pozycji przestemplowuje WSZYSTKIE jej porcje, jak
+            // w `upsertWeekSlot` — także zmiana samego audytorium przy tych
+            // samych wartościach (jawna lista wszystkich → „Wspólne”): pełny
+            // zapis struktury pozycji unieważnia tokeny porcji. Atomowa edycja
+            // jednej osoby to `setPortion`.
+            portions: {
+              deleteMany: {},
+              create: stampedPortionRows(finalPortions, revision),
+            },
           },
         });
         updated += 1;
@@ -1075,7 +1403,22 @@ export class WeeklyPlansService {
         await hooks.settle(tx, changes);
       }
       return changes;
+    }).catch((error: unknown) => {
+      if (error instanceof PortionsConflictRefusal) return error;
+      throw error;
     });
+    // Kontrakt domenowy bez 409: odmowa = `applied: false` + naruszenia.
+    // Transakcja jest już wycofana w całości, więc nic nie weszło.
+    if (outcome instanceof PortionsConflictRefusal) {
+      return {
+        applied: false,
+        dryRun: false,
+        violations: outcome.violations,
+        changes: { created: 0, updated: 0, deleted: 0 },
+        plan: null,
+      };
+    }
+    const changes = outcome;
 
     // Odczyt po transakcji, tym samym kształtem, co `getByWeek` — klient i
     // broadcast dostają plan w formacie, który już znają.
@@ -1321,6 +1664,24 @@ export class WeeklyPlansService {
    * obejmujące WSZYSTKICH zwija się do pustej listy („Wspólne"), więc obie
    * formy tego samego wyboru dają tyle samo porcji.
    */
+  /**
+   * Sloty stanu docelowego: klucz, audytorium znormalizowane („Wspólne” = `[]`)
+   * i ZAPAMIĘTANY zbiór osób z żądania — `settleParticipants` porówna go
+   * z zapisanym, zanim normalizacja zmieni samą reprezentację.
+   */
+  private desiredSlots(
+    slots: readonly ApplyWeekSlotDto[],
+    memberIds: Set<string>,
+  ): DesiredSlot[] {
+    return slots.map((slot) => ({
+      ...slot,
+      key: planSlotKey(slot),
+      requestedParticipantIds: [...new Set(slot.participantIds ?? [])],
+      ...this.normalizeParticipants(slot.participantIds, memberIds),
+      portions: normalizedPortions(slot.portions),
+    }));
+  }
+
   private normalizeParticipants(
     requested: string[] | undefined,
     memberIds: Set<string>,
@@ -1377,16 +1738,35 @@ export class WeeklyPlansService {
       };
     }
 
-    const desired = dto.slots.map((slot) => ({
-      ...slot,
-      key: planSlotKey(slot),
-      ...this.normalizeParticipants(slot.participantIds, memberIds),
-      portions: normalizedPortions(slot.portions),
-    }));
+    for (const slot of dto.slots) {
+      assertPortionPolicyShape(slot.portionPolicy, slot.portions);
+    }
+    const requested = this.desiredSlots(dto.slots, memberIds);
+    // Karta nie może obiecać zapisu, który odbije się o porcje per osoba.
+    // Zapis propozycji idzie jako `verified` (guard z odciskiem tygodnia),
+    // więc tak samo liczy podgląd; `force` odmówi zmiany alokacji na zapisie.
+    const portions = await this.advisoryPortions(
+      householdId,
+      weekStartDate,
+      requested,
+      'verified',
+      memberIds,
+    );
+    if (portions.conflicts.length > 0) {
+      return {
+        violations: portions.conflicts,
+        changes: { created: 0, updated: 0, deleted: 0 },
+        slots: null,
+        removed: null,
+      };
+    }
+    const desired = portions.settled;
     const changes = await this.previewWeekPlanChanges(
       householdId,
       weekStartDate,
       desired,
+      portions.keep,
+      portions.planned,
     );
 
     // Opis pozycji bierzemy osobnym odczytem: `loadPlannableRecipes` celowo
@@ -1422,6 +1802,16 @@ export class WeeklyPlansService {
     const slots: WeekPlanPreviewSlot[] = desired.map((slot) => {
       const detail = detailsById.get(slot.recipeId);
       const servings = Math.max(1, detail?.servings ?? 1);
+      // Stan EFEKTYWNY: pozycja z decyzją KEEP zostanie przy zapisie
+      // nietknięta, więc karta pokazuje jej zachowaną alokację, a nie równy
+      // podział z pustego pola żądania. Akcja propozycji porcji nie dostaje —
+      // wiążąca decyzja zapada przy zapisie, pod zamkiem.
+      const kept = portions.keep.has(slot.key)
+        ? portions.currentByKey.get(slot.key)
+        : undefined;
+      const slotPortions = kept
+        ? toPortionViews(kept.portions)
+        : (portions.planned.get(slot.key) ?? slot.portions);
       return {
         dayOfWeek: slot.dayOfWeek,
         mealType: slot.mealType,
@@ -1431,8 +1821,8 @@ export class WeeklyPlansService {
         prepTimeMinutes: detail?.prepTimeMinutes ?? 0,
         imageUrl: detail?.imageUrl?.trim() ? detail.imageUrl : null,
         participantIds: slot.participantIds,
-        ...withPortions(slot.portions),
-        ...(slot.portions.length === 0
+        ...withPortions(slotPortions),
+        ...(slotPortions.length === 0
           ? {
               servingsPerPerson: servingsPerPerson(
                 {
@@ -1509,7 +1899,144 @@ export class WeeklyPlansService {
     }));
   }
 
-  /** Ile by się zmieniło, gdyby zapisać — bez zapisywania (`dryRun`). */
+  /**
+   * Decyzja porcji per osoba (`portionsWriteDecision`) dla każdego slotu,
+   * który trafia w istniejącą pozycję: naruszenia `PLAN_PORTIONS_CONFLICT`
+   * i klucze pozycji, które mają zostać nietknięte.
+   *
+   * USUNIĘCIE pozycji z alokacją, której nie ma w stanie docelowym (w tym
+   * zamiana dania wyrażona jako usunięcie starego klucza i nowy klucz), liczy
+   * `portionsRemovalDecision`: `strict` wymaga tokenu (`PLAN_REVISION_REQUIRED`),
+   * `no-allocation-changes` odmawia (`PLAN_PORTIONS_CONFLICT`), `verified`
+   * i `authoritative` usuwają (`index: -1`).
+   */
+  private portionsDecisions(
+    desired: readonly DesiredSlot[],
+    currentByKey: ReadonlyMap<
+      string,
+      {
+        dayOfWeek: DayOfWeek;
+        mealType: MealType;
+        recipeId: string;
+        plannedServings: number;
+        participants: { userId: string }[];
+        portions: { userId: string; units: number }[];
+      }
+    >,
+    policy: PortionsWritePolicy,
+    memberIds: ReadonlySet<string>,
+  ): {
+    conflicts: PlanViolation[];
+    keep: Set<string>;
+    planned: Map<string, PortionView[]>;
+  } {
+    const conflicts: PlanViolation[] = [];
+    const keep = new Set<string>();
+    const planned = new Map<string, PortionView[]>();
+    desired.forEach((slot, index) => {
+      const intent = portionIntentOf(slot.portionPolicy, slot.portions);
+      const existing = currentByKey.get(slot.key);
+      if (!existing) {
+        // Nowa pozycja: alokację tworzą tylko jawne porcje.
+        planned.set(slot.key, intent === 'REPLACE' ? [...slot.portions] : []);
+        return;
+      }
+      const plan = planPortionsForExisting(
+        {
+          participantIds: existing.participants.map((p) => p.userId),
+          plannedServings: existing.plannedServings,
+          portions: toPortionViews(existing.portions),
+        },
+        {
+          participantIds: slot.participantIds,
+          plannedServings: slot.plannedServings,
+          portions: slot.portions,
+          intent,
+          audience:
+            slot.participantIds.length > 0
+              ? slot.participantIds
+              : [...memberIds],
+        },
+        policy,
+      );
+      planned.set(slot.key, plan.portions);
+      if (plan.decision === 'KEEP') keep.add(slot.key);
+      const at = {
+        index,
+        dayOfWeek: slot.dayOfWeek,
+        mealType: slot.mealType,
+        recipeId: slot.recipeId,
+      };
+      if (plan.decision === 'INVALID') {
+        conflicts.push({
+          ...at,
+          code: 'PLAN_PORTIONS_INVALID',
+          message: plan.problem ?? PRESERVE_SERVINGS_PROBLEM,
+        });
+      }
+      if (
+        plan.decision === 'CONFLICT' ||
+        plan.decision === 'REVISION_REQUIRED'
+      ) {
+        conflicts.push({ ...at, ...portionsRefusal(plan.decision) });
+      }
+    });
+    const removal = portionsRemovalDecision(policy);
+    if (removal) {
+      const desiredKeys = new Set(desired.map((slot) => slot.key));
+      for (const [key, existing] of currentByKey) {
+        if (desiredKeys.has(key) || existing.portions.length === 0) continue;
+        conflicts.push({
+          index: -1,
+          dayOfWeek: existing.dayOfWeek,
+          mealType: existing.mealType,
+          recipeId: existing.recipeId,
+          ...portionsRefusal(removal),
+        });
+      }
+    }
+    return { conflicts, keep, planned };
+  }
+
+  /**
+   * `portionsDecisions` na odczycie bez zamka — podgląd i `dryRun` (doradczo;
+   * wiążąca decyzja zapada w transakcji zapisu). Oddaje też pozycje, żeby
+   * podgląd pokazał stan efektywny pozycji KEEP.
+   */
+  private async advisoryPortions(
+    householdId: string,
+    weekStartDate: Date,
+    desired: readonly DesiredSlot[],
+    policy: PortionsWritePolicy,
+    memberIds: ReadonlySet<string>,
+  ) {
+    const items = await this.prisma.planItem.findMany({
+      where: { weeklyPlan: { householdId, weekStart: weekStartDate } },
+      select: {
+        dayOfWeek: true,
+        mealType: true,
+        recipeId: true,
+        plannedServings: true,
+        participants: { select: { userId: true } },
+        portions: { select: { userId: true, units: true } },
+      },
+    });
+    const currentByKey = new Map(
+      items.map((item) => [planSlotKey(item), item]),
+    );
+    const settled = settleParticipants(desired, currentByKey);
+    return {
+      ...this.portionsDecisions(settled, currentByKey, policy, memberIds),
+      currentByKey,
+      settled,
+    };
+  }
+
+  /**
+   * Ile by się zmieniło, gdyby zapisać — bez zapisywania (`dryRun`).
+   * `keep` = pozycje, które zapis zostawi nietknięte (decyzja porcji KEEP) —
+   * nie liczą się jako zmiana, tak jak w zapisie.
+   */
   private async previewWeekPlanChanges(
     householdId: string,
     weekStartDate: Date,
@@ -1519,6 +2046,8 @@ export class WeeklyPlansService {
       plannedServings?: number;
       portions: PortionView[];
     }[],
+    keep: ReadonlySet<string>,
+    planned: ReadonlyMap<string, PortionView[]>,
   ): Promise<{ created: number; updated: number; deleted: number }> {
     const plan = await this.prisma.weeklyPlan.findUnique({
       where: {
@@ -1556,6 +2085,7 @@ export class WeeklyPlansService {
         created += 1;
         continue;
       }
+      if (keep.has(slot.key)) continue;
       const currentParticipantIds = existing.participants.map((p) => p.userId);
       const participantsChanged = !sameIdSet(
         currentParticipantIds,
@@ -1563,9 +2093,10 @@ export class WeeklyPlansService {
       );
       // Ta sama reguła porcji, co przy zapisie — inaczej karta propozycji
       // obiecywała inną liczbę zmian niż potem wykonał zapis.
+      const finalPortions = planned.get(slot.key) ?? slot.portions;
       const plannedServings =
-        slot.portions.length > 0
-          ? derivedPlannedServings(slot.portions)
+        finalPortions.length > 0
+          ? derivedPlannedServings(finalPortions)
           : this.resolveUpdatedPlannedServings({
               currentPlannedServings: existing.plannedServings,
               currentParticipantIds,
@@ -1575,7 +2106,7 @@ export class WeeklyPlansService {
             });
       const servingsChanged =
         plannedServings !== existing.plannedServings ||
-        !samePortions(toPortionViews(existing.portions), slot.portions);
+        !samePortions(toPortionViews(existing.portions), finalPortions);
       if (participantsChanged || servingsChanged) updated += 1;
     }
 
@@ -1651,6 +2182,7 @@ export class WeeklyPlansService {
       if (count === 0) {
         return null;
       }
+      await bumpWeekRevision(tx, weeklyPlan.id);
 
       await this.shoppingListService.markShoppingListStale(
         householdId,
@@ -1659,6 +2191,121 @@ export class WeeklyPlansService {
       );
 
       return { removedItemIds: doomed.map((item) => item.id), count };
+    });
+  }
+
+  /**
+   * Porcja JEDNEJ osoby w pozycji z alokacją (`weeklyPlans:setPortion`,
+   * ADR `plan-portions-safe-editing`, decyzja 2).
+   *
+   * Zapisuje wyłącznie wiersz tej osoby (i pochodne `plannedServings`), więc
+   * edycje porcji RÓŻNYCH osób z tego samego odczytu nie kolidują. Nadpisanie
+   * tej samej osoby chroni stempel jej porcji (`expectedRevision`). Wszystko
+   * pod zamkiem tygodnia — współbieżne przekroczenie sumy widzi porcję
+   * pierwszego zapisu.
+   */
+  async setPortion(
+    userId: string,
+    householdId: string,
+    weekStart: string,
+    input: SetPortionDto,
+  ) {
+    const dto = await validateDto(SetPortionDto, input);
+    await ensureMembership(this.prisma, userId, householdId);
+    const weekStartDate = parseWeekStart(weekStart);
+
+    return this.prisma.$transaction(async (tx) => {
+      const weeklyPlan = await tx.weeklyPlan.findUnique({
+        where: {
+          householdId_weekStart: { householdId, weekStart: weekStartDate },
+        },
+        select: { id: true },
+      });
+      if (!weeklyPlan) throw planItemNotFound();
+      await lockWeekForWrite(tx, weeklyPlan.id);
+      await ensureMembershipInTx(tx, userId, householdId);
+
+      // Pozycja szukana WYŁĄCZNIE w tym tygodniu tego domu: cudza pozycja
+      // wygląda jak nieistniejąca (bez wyroczni istnienia).
+      const item = await tx.planItem.findFirst({
+        where: { id: dto.planItemId, weeklyPlanId: weeklyPlan.id },
+        select: {
+          id: true,
+          portions: { select: { userId: true, units: true, revision: true } },
+        },
+      });
+      if (!item) throw planItemNotFound();
+      if (item.portions.length === 0) {
+        throw portionsConflict(item.id, 'NOT_ALLOCATED');
+      }
+      const mine = item.portions.find((row) => row.userId === dto.userId);
+      if (!mine) throw portionsConflict(item.id, 'NOT_IN_AUDIENCE');
+
+      const unchanged = async () => {
+        const current = await tx.planItem.findUniqueOrThrow({
+          where: { id: item.id },
+          include: PLAN_ITEM_INCLUDE,
+        });
+        return {
+          ...withPlanItemRelationIds(current),
+          changeKind: 'NOOP' as const,
+        };
+      };
+      const requestedUnits = servingsToUnits(dto.servings);
+      if (mine.revision !== dto.expectedRevision) {
+        // Ponowienie po utraconej odpowiedzi: stan już jest żądanym.
+        if (requestedUnits === mine.units) return unchanged();
+        throw revisionConflict({ id: item.id, revision: mine.revision });
+      }
+      if (requestedUnits === mine.units) return unchanged();
+
+      const next = toPortionViews(item.portions).map((portion) =>
+        portion.userId === dto.userId
+          ? { userId: portion.userId, servings: dto.servings }
+          : portion,
+      );
+      const problem = portionsProblem(
+        next,
+        new Set(item.portions.map((row) => row.userId)),
+      );
+      if (problem || requestedUnits === null) {
+        throw new AppException(
+          'PLAN_PORTIONS_INVALID',
+          problem ?? 'Nieprawidłowa porcja.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Kolejność blokad jak w `upsertWeekSlot`: stan archiwum przed
+      // pozycjami i listą zakupów.
+      await tx.shoppingListArchiveState.deleteMany({
+        where: {
+          householdId,
+          weekStart: weekStartDate,
+          currentArchiveId: null,
+        },
+      });
+      const revision = await bumpWeekRevision(tx, weeklyPlan.id);
+      await tx.planItemPortion.update({
+        where: {
+          planItemId_userId: { planItemId: item.id, userId: dto.userId },
+        },
+        data: { units: requestedUnits, revision },
+      });
+      const updated = await tx.planItem.update({
+        where: { id: item.id },
+        data: { plannedServings: derivedPlannedServings(next), revision },
+        include: PLAN_ITEM_INCLUDE,
+      });
+      await this.shoppingListService.markShoppingListStale(
+        householdId,
+        weekStartDate,
+        tx,
+      );
+      return {
+        ...withPlanItemRelationIds(updated),
+        changeKind: 'DETAILS_CHANGED' as const,
+      };
     });
   }
 
@@ -1958,9 +2605,10 @@ export class WeeklyPlansService {
       });
 
       if (weeklyPlan) {
-        await tx.planItem.deleteMany({
+        const { count } = await tx.planItem.deleteMany({
           where: { weeklyPlanId: weeklyPlan.id },
         });
+        if (count > 0) await bumpWeekRevision(tx, weeklyPlan.id);
       }
 
       await tx.shoppingItemCheck.deleteMany({
@@ -2010,4 +2658,211 @@ function normalizedPortions(
 /** `portions` do slotu tylko wtedy, gdy są — stary kształt zostaje bez klucza. */
 function withPortions(portions: PortionView[]): { portions?: PortionView[] } {
   return portions.length > 0 ? { portions } : {};
+}
+
+/**
+ * Odmowa zapisu, który skasowałby alokację pozycji niejawnie; `reason` —
+ * `setPortion` na pozycji bez alokacji albo dla osoby spoza niej.
+ */
+function portionsConflict(
+  planItemId: string,
+  reason?: 'NOT_ALLOCATED' | 'NOT_IN_AUDIENCE',
+): AppException {
+  return new AppException(
+    'PLAN_PORTIONS_CONFLICT',
+    PORTIONS_CONFLICT_MESSAGE,
+    HttpStatus.CONFLICT,
+    [`planItemId:${planItemId}`, ...(reason ? [`reason:${reason}`] : [])],
+  );
+}
+
+/**
+ * Nieaktualny token pozycji (`upsertWeekSlot`) albo porcji (`setPortion`).
+ * `details` niesie bieżący stempel — klient i tak odświeża plan, ale log
+ * pokazuje, o ile się rozjechał. Brak pozycji = bez szczegółów.
+ */
+function revisionConflict(
+  item: { id: string; revision: number } | null,
+): AppException {
+  return new AppException(
+    'PLAN_REVISION_CONFLICT',
+    REVISION_CONFLICT_MESSAGE,
+    HttpStatus.CONFLICT,
+    item ? [`planItemId:${item.id}`, `currentRevision:${item.revision}`] : [],
+  );
+}
+
+/**
+ * Tokeny zamiany dania idą PARAMI: token źródła sam nie chroni celu (przepisu,
+ * który już leży w slocie), a token celu bez źródła nie chroni źródła. Zamiana
+ * bez żadnego tokenu — kontrakt legacy. `expectedTargetRevision` bez zamiany
+ * nie ma czego dotyczyć.
+ */
+function assertReplaceTokens(
+  dto: UpsertWeekSlotDto,
+  replaceRecipeId: string | null,
+): void {
+  const target = dto.expectedTargetRevision !== undefined;
+  if (!replaceRecipeId) {
+    if (target) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'expectedTargetRevision dotyczy wyłącznie zamiany dania (replaceRecipeId)',
+        HttpStatus.BAD_REQUEST,
+        ['expectedTargetRevision'],
+      );
+    }
+    return;
+  }
+  const source = dto.expectedRevision !== undefined;
+  if (source !== target) {
+    throw new AppException(
+      'PLAN_REVISION_REQUIRED',
+      'Zamiana dania z tokenem wymaga tokenów źródła i celu (expectedRevision i expectedTargetRevision; null = celu nie ma).',
+      HttpStatus.PRECONDITION_REQUIRED,
+      [source ? 'missing:expectedTargetRevision' : 'missing:expectedRevision'],
+    );
+  }
+}
+
+/**
+ * Kształt jawnej intencji: `REPLACE` bez porcji albo `PRESERVE`/`RESET` z
+ * porcjami to sprzeczne polecenie — odmowa, zanim cokolwiek się zapisze.
+ */
+function assertPortionPolicyShape(
+  policy: PortionPolicy | undefined,
+  portions: readonly unknown[] | undefined,
+): void {
+  const given = (portions ?? []).length > 0;
+  if (policy === 'REPLACE' && !given) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      'portionPolicy REPLACE wymaga niepustych portions',
+      HttpStatus.BAD_REQUEST,
+      ['portions'],
+    );
+  }
+  if ((policy === 'PRESERVE' || policy === 'RESET') && given) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      `portionPolicy ${policy} wyklucza portions — porcje liczy serwer`,
+      HttpStatus.BAD_REQUEST,
+      ['portions'],
+    );
+  }
+}
+
+function portionsInvalid(problem: string): AppException {
+  return new AppException(
+    'PLAN_PORTIONS_INVALID',
+    problem,
+    HttpStatus.BAD_REQUEST,
+  );
+}
+
+/** Zapis zastąpiłby albo usunął porcje per osoba bez tokenu. */
+function revisionRequired(planItemId: string): AppException {
+  return new AppException(
+    'PLAN_REVISION_REQUIRED',
+    REVISION_REQUIRED_MESSAGE,
+    HttpStatus.PRECONDITION_REQUIRED,
+    [`planItemId:${planItemId}`],
+  );
+}
+
+function planItemNotFound(): AppException {
+  return new AppException(
+    'PLAN_ITEM_NOT_FOUND',
+    'Tego posiłku nie ma w planie tego tygodnia',
+    HttpStatus.NOT_FOUND,
+  );
+}
+
+/** Naruszenie `applyWeekPlan`: tydzień zmienił się od odczytu klienta. */
+function weekRevisionConflict(): PlanViolation {
+  return {
+    index: -1,
+    code: 'PLAN_REVISION_CONFLICT',
+    message: REVISION_CONFLICT_MESSAGE,
+  };
+}
+
+/** Kod i komunikat naruszenia dla odmowy porcji w `applyWeekPlan`. */
+function portionsRefusal(decision: 'CONFLICT' | 'REVISION_REQUIRED'): {
+  code: AppErrorCode;
+  message: string;
+} {
+  return decision === 'CONFLICT'
+    ? { code: 'PLAN_PORTIONS_CONFLICT', message: PORTIONS_CONFLICT_MESSAGE }
+    : { code: 'PLAN_REVISION_REQUIRED', message: REVISION_REQUIRED_MESSAGE };
+}
+
+/**
+ * Polityka zapisu tygodnia: zgodny `expectedRevision` podnosi `strict` do
+ * `verified` (wołający widział dokładnie ten stan). Niezgodny nie dochodzi
+ * tu — kończy się `PLAN_REVISION_CONFLICT` wcześniej.
+ */
+function effectivePolicy(
+  hooksPolicy: PortionsWritePolicy | undefined,
+  expectedRevision: number | undefined,
+): PortionsWritePolicy {
+  const policy = hooksPolicy ?? 'strict';
+  return expectedRevision !== undefined && policy === 'strict'
+    ? 'verified'
+    : policy;
+}
+
+/** Slot stanu docelowego po `desiredSlots`. */
+type DesiredSlot = {
+  key: string;
+  dayOfWeek: DayOfWeek;
+  mealType: MealType;
+  recipeId: string;
+  participantIds: string[];
+  requestedParticipantIds: string[];
+  plannedServings?: number;
+  portions: PortionView[];
+  portionPolicy?: PortionPolicy;
+};
+
+/**
+ * Żądany zbiór osób identyczny z zapisanym = bez zmiany audytorium, także
+ * gdy zapisana jest jawna lista WSZYSTKICH domowników (np. po odejściu
+ * domownika), którą normalizacja zwinęłaby do „Wspólne”. To nie jest ta sama
+ * intencja: „Wspólne” obejmuje przyszłych domowników, lista — nie. Migawka
+ * tygodnia powtórzona bez zmian (propozycje asystenta) zostaje więc
+ * nietknięta bit w bit. Jawne `[]` przy zapisanej liście to realna zmiana.
+ */
+function settleParticipants<T extends DesiredSlot>(
+  desired: readonly T[],
+  currentByKey: ReadonlyMap<string, { participants: { userId: string }[] }>,
+): T[] {
+  return desired.map((slot) => {
+    const existing = currentByKey.get(slot.key);
+    if (!existing) return slot;
+    const stored = existing.participants.map((p) => p.userId);
+    const same =
+      stored.length === slot.requestedParticipantIds.length &&
+      slot.requestedParticipantIds.every((id) => stored.includes(id));
+    return same ? { ...slot, participantIds: stored } : slot;
+  });
+}
+
+/** Wiersze porcji do zapisu ze stemplem rewizji tej transakcji. */
+function stampedPortionRows(
+  portions: readonly PortionView[],
+  revision: number,
+): (ReturnType<typeof toPortionRows>[number] & { revision: number })[] {
+  return toPortionRows(portions).map((row) => ({ ...row, revision }));
+}
+
+/**
+ * Odmowa porcji albo nieaktualnego tokenu wykryta W transakcji
+ * `applyWeekPlan` — rzucona, żeby wycofać ją całą (także przejęcie propozycji
+ * w `guard`), i zamieniona poza nią na `applied: false` + naruszenia.
+ */
+class PortionsConflictRefusal extends Error {
+  constructor(readonly violations: PlanViolation[]) {
+    super('PLAN_PORTIONS_CONFLICT');
+  }
 }
