@@ -6,7 +6,6 @@ import {
 import {
   checkRecipe,
   ConstraintReason,
-  ConstraintSetV1,
 } from '../recipes/constraints/recipe-constraints';
 import {
   AVOIDED,
@@ -18,7 +17,7 @@ import {
   Rng,
   TAGS,
 } from '../recipes/constraints/constraint-fixtures.spec-helper';
-import { hardFilterReason } from './meal-plan-scoring';
+import { hardFilterReason, plannerConstraintSet } from './meal-plan-scoring';
 import {
   HardFilterReason,
   PlannerEater,
@@ -84,37 +83,6 @@ function legacyHardFilterReason(
   return null;
 }
 
-/** Mapowanie wejścia planera na zbiór ograniczeń — kandydat na adapter S2. */
-function plannerSet(
-  mealType: MealType,
-  audience: readonly PlannerEater[],
-  request: Pick<PlanningRequest, 'constraints'>,
-): ConstraintSetV1 {
-  const { constraints } = request;
-  return {
-    v: 1,
-    audience: {
-      allergens: [...new Set(audience.flatMap((e) => e.allergens))],
-      excludedIngredientIds: [
-        ...new Set(audience.flatMap((e) => e.excludedIngredientIds)),
-      ],
-      diets: [...new Set(audience.map((e) => e.diet))],
-    },
-    request: {
-      mealType,
-      excludeRecipeIds: constraints.excludeRecipeIds,
-      maxPrepMinutes:
-        typeof constraints.maxPrepMinutes === 'number'
-          ? constraints.maxPrepMinutes
-          : null,
-      requestDiet: constraints.diet ?? null,
-      requiredTags: constraints.requiredTags,
-      avoidIngredients: constraints.avoidIngredients,
-      requireNutrition: true,
-    },
-  };
-}
-
 type Case = {
   recipe: PlannerRecipe;
   mealType: MealType;
@@ -178,7 +146,7 @@ describe(`silnik ograniczeń ≡ planer (N8A S1) na ${CASES} losowych przypadkac
       );
       const viaSet = checkRecipe(
         c.recipe,
-        plannerSet(c.mealType, c.audience, c.request),
+        plannerConstraintSet(c.mealType, c.audience, c.request),
       );
       const current = hardFilterReason(
         c.recipe,
