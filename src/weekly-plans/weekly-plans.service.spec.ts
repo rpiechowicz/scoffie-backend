@@ -506,14 +506,17 @@ describe('WeeklyPlansService', () => {
     it('pominięte porcje nie kasują ręcznego wyboru przy niezmienionym audytorium', async () => {
       mockExistingItem(4, []);
 
-      await service.upsertWeekSlot(
+      const result = await service.upsertWeekSlot(
         mockUserId,
         mockHouseholdId,
         mockWeekStart,
         baseSlot,
       );
 
-      expectUpdatedWithServings(4);
+      // Zapis bez różnicy nic nie zapisuje (i nie stempluje rewizji — ADR
+      // `plan-portions-safe-editing`): ręczne 4 porcje zostają w bazie.
+      expect(prisma.planItem.update).not.toHaveBeenCalled();
+      expect(result).toEqual(expect.objectContaining({ changeKind: 'NOOP' }));
     });
 
     it('pominięte porcje przeliczają się, gdy poprzednia wartość była z reguły auto', async () => {
@@ -878,14 +881,31 @@ describe('WeeklyPlansService', () => {
         where: { id: replacedItemId },
       });
       expect(prisma.planItem.create).not.toHaveBeenCalled();
-      expect(prisma.planItem.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: mockPlanItem.id } }),
-      );
+      // Cel zamiany ma już dokładnie ten stan — zostaje nietknięty.
+      expect(prisma.planItem.update).not.toHaveBeenCalled();
       expect(result).toEqual(
         expect.objectContaining({
           changeKind: 'REPLACED',
           replacedItemIds: [replacedItemId],
         }),
+      );
+    });
+
+    it('podmiana na przepis, który już leży w slocie z innym audytorium, aktualizuje go', async () => {
+      mockSlot({
+        replaced: { plannedServings: 2, participantIds: [] },
+        existing: { plannedServings: 1, participantIds: [mockUserId] },
+      });
+
+      await service.upsertWeekSlot(
+        mockUserId,
+        mockHouseholdId,
+        mockWeekStart,
+        baseSlot,
+      );
+
+      expect(prisma.planItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: mockPlanItem.id } }),
       );
     });
 

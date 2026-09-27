@@ -1779,8 +1779,10 @@ export class AgentToolExecutor {
     weekStart: string;
     checkedSlots: number;
     violations: {
-      dayOfWeek: string;
-      mealType: string;
+      // Brak tylko przy naruszeniu całego tygodnia (`PLAN_REVISION_CONFLICT`),
+      // którego podgląd bez tokenu nie zgłasza.
+      dayOfWeek?: string;
+      mealType?: string;
       code: string;
       message: string;
     }[];
