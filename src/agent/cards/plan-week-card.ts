@@ -8,6 +8,7 @@ import {
   DAY_LABELS,
   DAY_SHORT_LABELS,
   MEAL_LABELS,
+  mealListLabel,
   PlanWeekCard,
   PlanWeekCardDay,
   dateForDay,
@@ -154,18 +155,8 @@ export function buildPlanWeekCard(input: {
  * pierwsza rzecz, którą użytkownik sprawdza: czy asystek dotknął śniadań.
  */
 function cardTitle(slots: readonly WeekPlanPreviewSlot[]): string {
-  if (slots.length === 0) return 'Propozycja planu';
-
-  const present = MEAL_TYPES_IN_DAY_ORDER.filter((meal) =>
-    slots.some((slot) => slot.mealType === meal),
-  );
-  if (present.length === 0) return 'Propozycja planu';
-  if (present.length >= 4) return 'Plan na tydzień';
-
-  const labels = present.map((meal) => MEAL_LABELS[meal].toLowerCase());
-  const head = labels.slice(0, -1).join(', ');
-  const tail = labels[labels.length - 1];
-  const list = head ? `${head} i ${tail}` : tail;
-
-  return `${list.charAt(0).toUpperCase()}${list.slice(1)} na tydzień`;
+  const present = new Set(slots.map((slot) => slot.mealType));
+  if (present.size >= 4) return 'Plan na tydzień';
+  const list = mealListLabel(present);
+  return list ? `${list} na tydzień` : 'Propozycja planu';
 }
