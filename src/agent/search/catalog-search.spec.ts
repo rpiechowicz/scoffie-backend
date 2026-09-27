@@ -209,6 +209,34 @@ describe('searchRecipes — kryteria z prośby', () => {
     ).toEqual(['Papryka faszerowana']);
   });
 
+  it('„bez ryby” wyklucza po tagu diety, bo składniki to gatunki (M12)', () => {
+    const recipes = [
+      doc('Łosoś z ryżem', { dietTags: ['FISH', 'GRAIN'] }, [
+        ['Łosoś', 'Ryby'],
+        ['Ryż', 'Zboża i makarony'],
+      ]),
+      doc('Schab z ziemniakami', { dietTags: ['MEAT'] }, [
+        ['Schab', 'Mięso'],
+        ['Ziemniaki', 'Warzywa'],
+      ]),
+      doc('Placki ziemniaczane', {}, [['Ziemniaki', 'Warzywa']]),
+    ];
+    expect(
+      titles(
+        searchRecipes(recipes, query({ excludeIngredients: ['ryba'] }), NOBODY),
+      ).sort(),
+    ).toEqual(['Placki ziemniaczane', 'Schab z ziemniakami']);
+    expect(
+      titles(
+        searchRecipes(
+          recipes,
+          query({ excludeIngredients: ['mięsa', 'ryby'] }),
+          NOBODY,
+        ),
+      ),
+    ).toEqual(['Placki ziemniaczane']);
+  });
+
   it('limit czasu nie przepuszcza dań bez czasu (0 = nie wiemy)', () => {
     const recipes = [
       doc('Szybkie', { prepTimeMinutes: 15 }),

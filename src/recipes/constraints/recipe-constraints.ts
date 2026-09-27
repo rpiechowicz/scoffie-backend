@@ -4,7 +4,7 @@ import {
   NutritionPerServing,
   satisfiesDiet,
 } from '../diet-rules.util';
-import { ingredientMatches } from '../ingredient-match.util';
+import { ingredientMatches, queryStems } from '../ingredient-match.util';
 
 /**
  * Jedna definicja DOPUSZCZALNOŚCI przepisu (N8A, `ConstraintSet v1`).
@@ -154,6 +154,44 @@ export function excludedIngredientHits(
   return subject.ingredientIds.filter((id) => excluded.has(id));
 }
 
+/**
+ * Słowa-KATEGORIE w „bez X” (N8A S6, M12): składniki w katalogu to gatunki
+ * (łosoś, dorsz, schab), więc „bez ryby” po nazwie nie trafiało niczego.
+ * Kategoria idzie po tagu diety przepisu — tym samym, który napędza diety
+ * (`satisfiesDiet`). Klucz = początek rdzenia słowa po normalizacji
+ * („ryby”, „rybę”, „rybnego” → `ryb`; „mięsa” → `mies`). Świadomie bez
+ * „drobiu” (MEAT to też wołowina) i „owoców morza” (tagi nie rozróżniają
+ * mięczaków) — tam zostaje dopasowanie po nazwie.
+ */
+const AVOIDED_CATEGORY_TAGS: readonly { root: string; tag: string }[] = [
+  { root: 'ryb', tag: 'FISH' },
+  { root: 'mies', tag: 'MEAT' },
+  { root: 'nabia', tag: 'DAIRY' },
+  { root: 'skorup', tag: 'CRUSTACEAN' },
+];
+
+/**
+ * Czy przepis zawiera to, czego prośba każe unikać: składnik po rdzeniu
+ * słowa (`ingredientMatches`) albo kategorię po tagu diety. Jedna reguła dla
+ * planera (`checkRecipe`) i wyszukiwarki (`exclude_ingredients`).
+ */
+export function containsAvoided(
+  subject: { ingredientNames: readonly string[]; dietTags: readonly string[] },
+  avoided: string,
+): boolean {
+  if (
+    subject.ingredientNames.some((name) => ingredientMatches(name, avoided))
+  ) {
+    return true;
+  }
+  const stems = queryStems(avoided);
+  return AVOIDED_CATEGORY_TAGS.some(
+    ({ root, tag }) =>
+      subject.dietTags.includes(tag) &&
+      stems.some((stem) => stem.startsWith(root)),
+  );
+}
+
 /** Czy przepis spełnia dietę (asymetria jak w iOS — patrz `satisfiesDiet`). */
 export function subjectSatisfiesDiet(
   subject: AudienceSubject,
@@ -218,7 +256,7 @@ export function checkRecipe(
   }
   if (
     request.avoidIngredients.some((avoided) =>
-      subject.ingredientNames.some((name) => ingredientMatches(name, avoided)),
+      containsAvoided(subject, avoided),
     )
   ) {
     return 'AVOIDED_INGREDIENT';

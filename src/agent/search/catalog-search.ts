@@ -11,7 +11,10 @@ import {
 // Dopasowanie składników po rdzeniu żyje w domenie (wspólne z planerem przez
 // `recipe-constraints`); stąd reeksport dla dotychczasowych importów.
 export { ingredientMatches, queryStems, stem };
-import { audienceReason } from '../../recipes/constraints/recipe-constraints';
+import {
+  audienceReason,
+  containsAvoided,
+} from '../../recipes/constraints/recipe-constraints';
 import {
   RECIPE_SEARCH_TAGS,
   RECIPE_TAG_LABELS,
@@ -356,8 +359,14 @@ function passesSoft(
   if (skip !== 'exclude_ingredients') {
     for (const unwanted of query.excludeIngredients) {
       if (
-        recipe.ingredients.some((ingredient) =>
-          ingredientMatches(ingredient.name, unwanted),
+        containsAvoided(
+          {
+            ingredientNames: recipe.ingredients.map(
+              (ingredient) => ingredient.name,
+            ),
+            dietTags: recipe.dietTags,
+          },
+          unwanted,
         )
       ) {
         return false;
