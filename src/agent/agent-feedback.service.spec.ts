@@ -183,6 +183,7 @@ describe('AgentFeedbackService', () => {
         where: {
           id: MESSAGE,
           role: 'ASSISTANT',
+          turnId: { not: null },
           conversation: { userId: USER },
         },
       }),
