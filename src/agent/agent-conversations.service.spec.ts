@@ -247,8 +247,8 @@ describe('AgentConversationsService', () => {
           tags: ['TOO_LONG'],
           comment: 'Krócej',
         },
-        // Pochwała nie niesie podpowiedzi, nawet ze starą pozostałością.
-        { messageId: FIRST, rating: 'UP', tags: ['TOO_SLOW'], comment: null },
+        // Goły kciuk w górę — bez podpowiedzi.
+        { messageId: FIRST, rating: 'UP', tags: [], comment: null },
       ]);
       // Dwa zgłoszenia tej samej odpowiedzi (dublet sprzed zasady) — wygrywa
       // najnowsze, bo baza oddaje je pierwsze.
@@ -267,7 +267,11 @@ describe('AgentConversationsService', () => {
       expect(messages.map((m) => m.thinking)).toEqual([
         undefined,
         undefined,
-        { durationMs: 42_000, steps: [step] },
+        {
+          durationMs: 42_000,
+          startedAt: '2026-08-31T10:00:00.000Z',
+          steps: [step],
+        },
       ]);
       expect(messages.map((m) => m.feedback)).toEqual([
         undefined,

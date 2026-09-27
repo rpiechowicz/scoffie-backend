@@ -2757,6 +2757,10 @@
                 "type": "object",
                 "properties": {
                   "durationMs": { "type": "number", "nullable": true },
+                  "startedAt": {
+                    "description": "Start tury (ISO) — od niego telefon liczy, w której sekundzie padł każdy\nkrok i ile asystent myślał między nimi (arkusz „Jak pracowałem”).",
+                    "type": "string"
+                  },
                   "steps": {
                     "description": "Kroki bez przejściowych („Piszę odpowiedź\") — `settledProgress`.",
                     "type": "array",
@@ -2789,13 +2793,21 @@
                           "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
                           "enum": [true],
                           "type": "boolean"
+                        },
+                        "done": {
+                          "description": "To samo zdanie w czasie PRZESZŁYM („Ułożyłem dzień”) — arkusz „Jak\npracowałem” po turze czyta się jak relacja, a nie jak wiersz na żywo.\nBrak = krok przejściowy albo starsza tura; klient bierze wtedy `label`.",
+                          "type": "string"
+                        },
+                        "detail": {
+                          "description": "Jedna linijka faktów z wejścia i wyniku narzędzia („Kolacja · na środę\n· lekkie — 3 z 38 pasujących”) — `describeStep`. Dopisywana PO wykonaniu\nnarzędzia, więc na żywo pojawia się z opóźnieniem jednego kroku.",
+                          "type": "string"
                         }
                       },
                       "required": ["at", "label", "tool", "writes"]
                     }
                   }
                 },
-                "required": ["durationMs", "steps"]
+                "required": ["durationMs", "startedAt", "steps"]
               },
               "feedback": {
                 "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
@@ -2803,7 +2815,7 @@
                 "type": "string"
               },
               "feedbackNote": {
-                "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                "description": "Podpowiedź do oceny (powody + zdanie; w dół „co nie zagrało”, w górę „co\nbyło dobre”) — telefon otwiera ją do poprawienia. Brak = sam kciuk.",
                 "type": "object",
                 "properties": {
                   "tags": { "type": "array", "items": { "type": "string" } },
@@ -2880,6 +2892,14 @@
                   "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
                   "enum": [true],
                   "type": "boolean"
+                },
+                "done": {
+                  "description": "To samo zdanie w czasie PRZESZŁYM („Ułożyłem dzień”) — arkusz „Jak\npracowałem” po turze czyta się jak relacja, a nie jak wiersz na żywo.\nBrak = krok przejściowy albo starsza tura; klient bierze wtedy `label`.",
+                  "type": "string"
+                },
+                "detail": {
+                  "description": "Jedna linijka faktów z wejścia i wyniku narzędzia („Kolacja · na środę\n· lekkie — 3 z 38 pasujących”) — `describeStep`. Dopisywana PO wykonaniu\nnarzędzia, więc na żywo pojawia się z opóźnieniem jednego kroku.",
+                  "type": "string"
                 }
               },
               "required": ["at", "label", "tool", "writes"]
@@ -4227,6 +4247,10 @@
                   "type": "object",
                   "properties": {
                     "durationMs": { "type": "number", "nullable": true },
+                    "startedAt": {
+                      "description": "Start tury (ISO) — od niego telefon liczy, w której sekundzie padł każdy\nkrok i ile asystent myślał między nimi (arkusz „Jak pracowałem”).",
+                      "type": "string"
+                    },
                     "steps": {
                       "description": "Kroki bez przejściowych („Piszę odpowiedź\") — `settledProgress`.",
                       "type": "array",
@@ -4259,13 +4283,21 @@
                             "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
                             "enum": [true],
                             "type": "boolean"
+                          },
+                          "done": {
+                            "description": "To samo zdanie w czasie PRZESZŁYM („Ułożyłem dzień”) — arkusz „Jak\npracowałem” po turze czyta się jak relacja, a nie jak wiersz na żywo.\nBrak = krok przejściowy albo starsza tura; klient bierze wtedy `label`.",
+                            "type": "string"
+                          },
+                          "detail": {
+                            "description": "Jedna linijka faktów z wejścia i wyniku narzędzia („Kolacja · na środę\n· lekkie — 3 z 38 pasujących”) — `describeStep`. Dopisywana PO wykonaniu\nnarzędzia, więc na żywo pojawia się z opóźnieniem jednego kroku.",
+                            "type": "string"
                           }
                         },
                         "required": ["at", "label", "tool", "writes"]
                       }
                     }
                   },
-                  "required": ["durationMs", "steps"]
+                  "required": ["durationMs", "startedAt", "steps"]
                 },
                 "feedback": {
                   "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
@@ -4273,7 +4305,7 @@
                   "type": "string"
                 },
                 "feedbackNote": {
-                  "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                  "description": "Podpowiedź do oceny (powody + zdanie; w dół „co nie zagrało”, w górę „co\nbyło dobre”) — telefon otwiera ją do poprawienia. Brak = sam kciuk.",
                   "type": "object",
                   "properties": {
                     "tags": { "type": "array", "items": { "type": "string" } },
@@ -4443,6 +4475,14 @@
                   "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
                   "enum": [true],
                   "type": "boolean"
+                },
+                "done": {
+                  "description": "To samo zdanie w czasie PRZESZŁYM („Ułożyłem dzień”) — arkusz „Jak\npracowałem” po turze czyta się jak relacja, a nie jak wiersz na żywo.\nBrak = krok przejściowy albo starsza tura; klient bierze wtedy `label`.",
+                  "type": "string"
+                },
+                "detail": {
+                  "description": "Jedna linijka faktów z wejścia i wyniku narzędzia („Kolacja · na środę\n· lekkie — 3 z 38 pasujących”) — `describeStep`. Dopisywana PO wykonaniu\nnarzędzia, więc na żywo pojawia się z opóźnieniem jednego kroku.",
+                  "type": "string"
                 }
               },
               "required": ["at", "label", "tool", "writes"]
@@ -5790,6 +5830,10 @@
                   "type": "object",
                   "properties": {
                     "durationMs": { "type": "number", "nullable": true },
+                    "startedAt": {
+                      "description": "Start tury (ISO) — od niego telefon liczy, w której sekundzie padł każdy\nkrok i ile asystent myślał między nimi (arkusz „Jak pracowałem”).",
+                      "type": "string"
+                    },
                     "steps": {
                       "description": "Kroki bez przejściowych („Piszę odpowiedź\") — `settledProgress`.",
                       "type": "array",
@@ -5822,13 +5866,21 @@
                             "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
                             "enum": [true],
                             "type": "boolean"
+                          },
+                          "done": {
+                            "description": "To samo zdanie w czasie PRZESZŁYM („Ułożyłem dzień”) — arkusz „Jak\npracowałem” po turze czyta się jak relacja, a nie jak wiersz na żywo.\nBrak = krok przejściowy albo starsza tura; klient bierze wtedy `label`.",
+                            "type": "string"
+                          },
+                          "detail": {
+                            "description": "Jedna linijka faktów z wejścia i wyniku narzędzia („Kolacja · na środę\n· lekkie — 3 z 38 pasujących”) — `describeStep`. Dopisywana PO wykonaniu\nnarzędzia, więc na żywo pojawia się z opóźnieniem jednego kroku.",
+                            "type": "string"
                           }
                         },
                         "required": ["at", "label", "tool", "writes"]
                       }
                     }
                   },
-                  "required": ["durationMs", "steps"]
+                  "required": ["durationMs", "startedAt", "steps"]
                 },
                 "feedback": {
                   "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
@@ -5836,7 +5888,7 @@
                   "type": "string"
                 },
                 "feedbackNote": {
-                  "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                  "description": "Podpowiedź do oceny (powody + zdanie; w dół „co nie zagrało”, w górę „co\nbyło dobre”) — telefon otwiera ją do poprawienia. Brak = sam kciuk.",
                   "type": "object",
                   "properties": {
                     "tags": { "type": "array", "items": { "type": "string" } },
@@ -7270,6 +7322,10 @@
                   "type": "object",
                   "properties": {
                     "durationMs": { "type": "number", "nullable": true },
+                    "startedAt": {
+                      "description": "Start tury (ISO) — od niego telefon liczy, w której sekundzie padł każdy\nkrok i ile asystent myślał między nimi (arkusz „Jak pracowałem”).",
+                      "type": "string"
+                    },
                     "steps": {
                       "description": "Kroki bez przejściowych („Piszę odpowiedź\") — `settledProgress`.",
                       "type": "array",
@@ -7302,13 +7358,21 @@
                             "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
                             "enum": [true],
                             "type": "boolean"
+                          },
+                          "done": {
+                            "description": "To samo zdanie w czasie PRZESZŁYM („Ułożyłem dzień”) — arkusz „Jak\npracowałem” po turze czyta się jak relacja, a nie jak wiersz na żywo.\nBrak = krok przejściowy albo starsza tura; klient bierze wtedy `label`.",
+                            "type": "string"
+                          },
+                          "detail": {
+                            "description": "Jedna linijka faktów z wejścia i wyniku narzędzia („Kolacja · na środę\n· lekkie — 3 z 38 pasujących”) — `describeStep`. Dopisywana PO wykonaniu\nnarzędzia, więc na żywo pojawia się z opóźnieniem jednego kroku.",
+                            "type": "string"
                           }
                         },
                         "required": ["at", "label", "tool", "writes"]
                       }
                     }
                   },
-                  "required": ["durationMs", "steps"]
+                  "required": ["durationMs", "startedAt", "steps"]
                 },
                 "feedback": {
                   "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
@@ -7316,7 +7380,7 @@
                   "type": "string"
                 },
                 "feedbackNote": {
-                  "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                  "description": "Podpowiedź do oceny (powody + zdanie; w dół „co nie zagrało”, w górę „co\nbyło dobre”) — telefon otwiera ją do poprawienia. Brak = sam kciuk.",
                   "type": "object",
                   "properties": {
                     "tags": { "type": "array", "items": { "type": "string" } },
@@ -7372,10 +7436,14 @@
             "items": {
               "enum": [
                 "BAD_DISHES",
+                "CONCISE",
+                "FAST",
+                "GOOD_DISHES",
                 "NOT_WHAT_I_ASKED",
                 "OTHER",
                 "TOO_LONG",
-                "TOO_SLOW"
+                "TOO_SLOW",
+                "UNDERSTOOD"
               ],
               "type": "string"
             }
@@ -8724,6 +8792,10 @@
                 "type": "object",
                 "properties": {
                   "durationMs": { "type": "number", "nullable": true },
+                  "startedAt": {
+                    "description": "Start tury (ISO) — od niego telefon liczy, w której sekundzie padł każdy\nkrok i ile asystent myślał między nimi (arkusz „Jak pracowałem”).",
+                    "type": "string"
+                  },
                   "steps": {
                     "description": "Kroki bez przejściowych („Piszę odpowiedź\") — `settledProgress`.",
                     "type": "array",
@@ -8756,13 +8828,21 @@
                           "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
                           "enum": [true],
                           "type": "boolean"
+                        },
+                        "done": {
+                          "description": "To samo zdanie w czasie PRZESZŁYM („Ułożyłem dzień”) — arkusz „Jak\npracowałem” po turze czyta się jak relacja, a nie jak wiersz na żywo.\nBrak = krok przejściowy albo starsza tura; klient bierze wtedy `label`.",
+                          "type": "string"
+                        },
+                        "detail": {
+                          "description": "Jedna linijka faktów z wejścia i wyniku narzędzia („Kolacja · na środę\n· lekkie — 3 z 38 pasujących”) — `describeStep`. Dopisywana PO wykonaniu\nnarzędzia, więc na żywo pojawia się z opóźnieniem jednego kroku.",
+                          "type": "string"
                         }
                       },
                       "required": ["at", "label", "tool", "writes"]
                     }
                   }
                 },
-                "required": ["durationMs", "steps"]
+                "required": ["durationMs", "startedAt", "steps"]
               },
               "feedback": {
                 "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
@@ -8770,7 +8850,7 @@
                 "type": "string"
               },
               "feedbackNote": {
-                "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                "description": "Podpowiedź do oceny (powody + zdanie; w dół „co nie zagrało”, w górę „co\nbyło dobre”) — telefon otwiera ją do poprawienia. Brak = sam kciuk.",
                 "type": "object",
                 "properties": {
                   "tags": { "type": "array", "items": { "type": "string" } },
@@ -10711,7 +10791,7 @@
           },
           "tags": {
             "type": "array",
-            "description": "Podpowiedź przy `DOWN`. Brak pola = podpowiedź bez zmian (sam kciuk nie\nkasuje tego, co ktoś napisał wcześniej); pusta lista = bez powodów.\nPrzy `UP` i `null` pomijane.",
+            "description": "Podpowiedź do oceny — powody z listy TEGO kierunku (`feedbackTagsFor`;\nobce odpadają). Brak pola = podpowiedź bez zmian, chyba że kierunek oceny\nsię zmienił (wtedy znika); pusta lista = bez powodów. Przy `null` pomijane.",
             "items": {
               "type": "string",
               "enum": [
@@ -10719,7 +10799,11 @@
                 "NOT_WHAT_I_ASKED",
                 "BAD_DISHES",
                 "TOO_SLOW",
-                "OTHER"
+                "OTHER",
+                "UNDERSTOOD",
+                "GOOD_DISHES",
+                "CONCISE",
+                "FAST"
               ]
             }
           },

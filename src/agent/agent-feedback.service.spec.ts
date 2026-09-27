@@ -9,7 +9,11 @@ const TURN = '33333333-3333-4333-8333-333333333333';
 describe('AgentFeedbackService', () => {
   const prisma = {
     agentMessage: { findFirst: jest.fn() },
-    agentMessageFeedback: { upsert: jest.fn(), deleteMany: jest.fn() },
+    agentMessageFeedback: {
+      upsert: jest.fn(),
+      deleteMany: jest.fn(),
+      findUnique: jest.fn(),
+    },
   };
   const service = new AgentFeedbackService(prisma as unknown as PrismaService);
 
@@ -21,6 +25,7 @@ describe('AgentFeedbackService', () => {
       kind: 'PLAN_DAY',
       text: 'Ułożyłem sobotę.',
     });
+    prisma.agentMessageFeedback.findUnique.mockResolvedValue(null);
     prisma.agentMessageFeedback.upsert.mockImplementation(
       (args: {
         create: { rating: string; tags?: string[]; comment?: string | null };
@@ -52,7 +57,7 @@ describe('AgentFeedbackService', () => {
       tags: [],
       comment: null,
     });
-    // Pochwała czyści podpowiedź i nie zabiera treści — sam rodzaj odpowiedzi.
+    // Goły kciuk nie zabiera treści — sam rodzaj odpowiedzi.
     expect(prisma.agentMessageFeedback.upsert).toHaveBeenCalledWith({
       where: { userId_messageId: { userId: USER, messageId: MESSAGE } },
       create: {
@@ -61,13 +66,41 @@ describe('AgentFeedbackService', () => {
         turnId: TURN,
         rating: 'UP',
         messageKind: 'PLAN_DAY',
-        tags: [],
-        comment: null,
-        messageText: null,
       },
-      update: { rating: 'UP', tags: [], comment: null, messageText: null },
+      update: { rating: 'UP' },
       select: { rating: true, tags: true, comment: true },
     });
+  });
+
+  it('zmiana kierunku oceny zdejmuje podpowiedź tamtego kierunku', async () => {
+    prisma.agentMessageFeedback.findUnique.mockResolvedValue({
+      rating: 'DOWN',
+    });
+    await service.rate(USER, MESSAGE, { rating: 'UP' });
+    expect(prisma.agentMessageFeedback.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { rating: 'UP', tags: [], comment: null, messageText: null },
+      }),
+    );
+  });
+
+  it('kciuk w górę niesie „co było dobre” — powody w dół odpadają', async () => {
+    const result = await service.rate(USER, MESSAGE, {
+      rating: 'UP',
+      tags: ['CONCISE', 'TOO_LONG'],
+      comment: 'Świetne dania',
+    });
+    expect(result.tags).toEqual(['CONCISE']);
+    expect(prisma.agentMessageFeedback.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: {
+          rating: 'UP',
+          tags: ['CONCISE'],
+          comment: 'Świetne dania',
+          messageText: 'Ułożyłem sobotę.',
+        },
+      }),
+    );
   });
 
   it('kciuk w dół z podpowiedzią zabiera migawkę odpowiedzi', async () => {

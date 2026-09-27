@@ -562,6 +562,10 @@ describe('Agent E2E', () => {
           at: expect.any(String),
           // Odczyt — klient nie ma po tej turze czego otwierać.
           writes: false,
+          // Po turze: zdanie w czasie przeszłym i fakty z wyniku narzędzia
+          // (arkusz „Jak pracowałem”).
+          done: 'Przejrzałem plan tygodnia',
+          detail: expect.any(String),
         },
       ]);
       // Etykieta jest gotowym zdaniem po polsku, nie kodem do tłumaczenia.
