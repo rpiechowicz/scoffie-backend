@@ -77,6 +77,15 @@ describe('buildPlanDayCard', () => {
     expect(card.title).toBe('Cały dzień, 1067 kcal');
   });
 
+  // 27.09.2026: na karcie niedzieli stało „Zapisz niedziela”.
+  it('przycisk mówi dzień w bierniku — „Zapisz niedzielę”, „Zapisz środę”', () => {
+    expect(build({ dayOfWeek: 'SUN' }).actions[0].label).toBe(
+      'Zapisz niedzielę',
+    );
+    expect(build({ dayOfWeek: 'WED' }).actions[0].label).toBe('Zapisz środę');
+    expect(build({ dayOfWeek: 'SAT' }).actions[0].label).toBe('Zapisz sobotę');
+  });
+
   it('przekroczony cel mówi to wprost, a nie „zostaje −200”', () => {
     const card = build({ targetKcalPerDay: 900 });
     expect(card.summary.goalNote).toBe('167 kcal ponad cel');

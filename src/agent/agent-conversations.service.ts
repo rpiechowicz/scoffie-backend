@@ -1,10 +1,12 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import type { AgentMessage } from '@prisma/client';
 import { AppException } from '../common/app-exception';
 import { assertUuid } from '../common/uuid';
 import { validateDto } from '../common/validate-dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
+import { AgentProgressStep, settledProgress } from './agent-progress';
 import { AgentCard } from './cards/agent-cards';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -65,7 +67,128 @@ export type MessageView = {
    * dla kogo, cel). Tylko przy odpowiedziach asystenta; brak = nie zapisano.
    */
   usedContext?: string[];
+  /**
+   * „Myślałem 42 s" — ile czekał użytkownik (`finishedAt − startedAt` tury,
+   * ta sama liczba, którą telefon liczył na żywo) i co asystent po drodze
+   * zrobił. Tylko przy OSTATNIEJ odpowiedzi zakończonej tury — pod nią telefon
+   * rysuje ten wiersz. Bez tego pola rozmowa otwarta z historii gubiła czas
+   * i kroki, choć tura ma je zapisane (27.09.2026).
+   */
+  thinking?: MessageThinking;
+  /** Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał. */
+  feedback?: 'UP' | 'DOWN';
+  /**
+   * WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je
+   * do poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.
+   */
+  report?: { reason: string; comment: string | null };
 };
+
+export type MessageThinking = {
+  durationMs: number | null;
+  /** Kroki bez przejściowych („Piszę odpowiedź") — `settledProgress`. */
+  steps: AgentProgressStep[];
+};
+
+/** Wiersz z bazy → widok dla telefonu (bez stanu kart i szczegółów tury). */
+export function toMessageView(m: AgentMessage): MessageView {
+  const usedContext = usedContextFrom(m.context);
+  return {
+    id: m.id,
+    role: m.role,
+    kind: m.kind,
+    text: m.text,
+    ...(usedContext ? { usedContext } : {}),
+    clientMessageId: m.clientMessageId,
+    turnId: m.turnId,
+    createdAt: m.createdAt.toISOString(),
+    card: (m.card ?? null) as AgentCard | null,
+  };
+}
+
+/**
+ * Dokleja do odpowiedzi asystenta `thinking` (z tury) i `feedback` (ocenę
+ * TEGO użytkownika). Dwa zapytania po kluczach na całą stronę historii,
+ * nie po jednym na wiadomość.
+ */
+export async function withAnswerDetails(
+  prisma: PrismaService,
+  userId: string,
+  views: MessageView[],
+): Promise<MessageView[]> {
+  const answers = views.filter((view) => view.role === 'ASSISTANT');
+  if (answers.length === 0) return views;
+
+  // Ostatnia odpowiedź każdej tury — `views` idą po czasie.
+  const lastOfTurn = new Map<string, string>();
+  for (const answer of answers) {
+    if (answer.turnId) lastOfTurn.set(answer.turnId, answer.id);
+  }
+
+  const answerIds = answers.map((answer) => answer.id);
+  const [turns, ratings, reports] = await Promise.all([
+    lastOfTurn.size > 0
+      ? prisma.agentTurn.findMany({
+          where: {
+            id: { in: [...lastOfTurn.keys()] },
+            finishedAt: { not: null },
+          },
+          select: {
+            id: true,
+            progress: true,
+            startedAt: true,
+            finishedAt: true,
+          },
+        })
+      : Promise.resolve([]),
+    prisma.agentMessageFeedback.findMany({
+      where: { userId, messageId: { in: answerIds } },
+      select: { messageId: true, rating: true },
+    }),
+    // Najnowsze pierwsze — stare dublety sprzed zasady „jedno na osobę”.
+    prisma.agentReport.findMany({
+      where: { userId, messageId: { in: answerIds } },
+      orderBy: { createdAt: 'desc' },
+      select: { messageId: true, reason: true, comment: true },
+    }),
+  ]);
+
+  const thinking = new Map<string, MessageThinking>();
+  for (const turn of turns) {
+    const messageId = lastOfTurn.get(turn.id);
+    if (!messageId || !turn.finishedAt) continue;
+    const elapsed = turn.finishedAt.getTime() - turn.startedAt.getTime();
+    thinking.set(messageId, {
+      durationMs: elapsed >= 0 ? elapsed : null,
+      // Tura domknięta leniwie (`closeTurn`) ma jeszcze kroki przejściowe.
+      steps: Array.isArray(turn.progress)
+        ? settledProgress(turn.progress as unknown as AgentProgressStep[])
+        : [],
+    });
+  }
+  const rating = new Map(ratings.map((row) => [row.messageId, row.rating]));
+  const reported = new Map<
+    string,
+    { reason: string; comment: string | null }
+  >();
+  for (const row of reports) {
+    if (row.messageId && !reported.has(row.messageId)) {
+      reported.set(row.messageId, { reason: row.reason, comment: row.comment });
+    }
+  }
+
+  return views.map((view) => {
+    const summary = thinking.get(view.id);
+    const feedback = rating.get(view.id);
+    const report = reported.get(view.id);
+    return {
+      ...view,
+      ...(summary ? { thinking: summary } : {}),
+      ...(feedback === 'UP' || feedback === 'DOWN' ? { feedback } : {}),
+      ...(report ? { report } : {}),
+    };
+  });
+}
 
 /** `AgentMessage.context` → napisy; cokolwiek innego niż lista = brak. */
 export function usedContextFrom(context: unknown): string[] | undefined {
@@ -321,19 +444,11 @@ export class AgentConversationsService {
       take: MESSAGES_PAGE_SIZE,
     });
 
-    const views: MessageView[] = messages.map((m) => ({
-      id: m.id,
-      role: m.role,
-      kind: m.kind,
-      text: m.text,
-      ...(usedContextFrom(m.context)
-        ? { usedContext: usedContextFrom(m.context) }
-        : {}),
-      clientMessageId: m.clientMessageId,
-      turnId: m.turnId,
-      createdAt: m.createdAt.toISOString(),
-      card: (m.card ?? null) as AgentCard | null,
-    }));
+    const views = await withAnswerDetails(
+      this.prisma,
+      userId,
+      messages.map(toMessageView),
+    );
 
     return { messages: await this.proposals.withCardState(views) };
   }

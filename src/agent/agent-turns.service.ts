@@ -12,9 +12,10 @@ import { AgentEnv, TURN_TIMEOUT_GRACE_MS } from '../config/agent-env';
 import { AgentConfigService } from './agent-config.service';
 import {
   conversationTitleFrom,
-  usedContextFrom,
   AgentConversationsService,
   MessageView,
+  toMessageView,
+  withAnswerDetails,
 } from './agent-conversations.service';
 import { AgentProgressStep } from './agent-progress';
 import { AgentProposalsService } from './proposals/agent-proposals.service';
@@ -628,20 +629,15 @@ export class AgentTurnsService {
         where: { turnId: turn.id, role: 'ASSISTANT' },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       });
+      // Ten sam kształt co historia — z `thinking` i `feedback`, żeby
+      // odpowiedź świeża i ta sama odpowiedź po powrocie z historii
+      // wyglądały identycznie.
       view.messages = await this.proposals.withCardState(
-        messages.map((m) => ({
-          id: m.id,
-          role: m.role,
-          kind: m.kind,
-          text: m.text,
-          ...(usedContextFrom(m.context)
-            ? { usedContext: usedContextFrom(m.context) }
-            : {}),
-          clientMessageId: m.clientMessageId,
-          turnId: m.turnId,
-          createdAt: m.createdAt.toISOString(),
-          card: (m.card ?? null) as MessageView['card'],
-        })),
+        await withAnswerDetails(
+          this.prisma,
+          userId,
+          messages.map(toMessageView),
+        ),
       );
       view.usage = {
         inputTokens: turn.inputTokens,
