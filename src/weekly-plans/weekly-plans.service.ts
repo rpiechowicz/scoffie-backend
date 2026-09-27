@@ -509,6 +509,7 @@ export class WeeklyPlansService {
       dto.replaceRecipeId,
       dto.recipeId,
     );
+    assertReplaceTokens(dto, replaceRecipeId);
     await ensureRecipeForHousehold(this.prisma, dto.recipeId, householdId);
     // Jedno zapytanie o domowników (identyfikatory, alergeny, wykluczenia)
     // zamiast czterech o ten sam skład — audyt 2: ręczne wstawienie posiłku
@@ -615,14 +616,54 @@ export class WeeklyPlansService {
             },
           })
         : null;
-      // Token zapisu (`expectedRevision`) = stempel pozycji z odczytu klienta;
-      // przy zamianie — pozycji ŹRÓDŁOWEJ. Brak źródła albo inny stempel:
-      // klient zamienia coś, czego już nie ma w tej postaci.
+      // The item is identified by its recipe, not just by the slot: a slot can
+      // hold one variant per household split. Re-upserting the same recipe
+      // only rewrites who it is for. Przy zamianie to CEL (przepis, który już
+      // leży w slocie obok) — szukany PRZED usunięciem źródła, bo jego token
+      // też trzeba sprawdzić, zanim cokolwiek się zmieni.
+      //
+      // Dociągamy tu porcje i STARE audytorium, mimo że za chwilę je kasujemy:
+      // bez nich nie da się orzec, czy zapisana liczba porcji to wynik reguły
+      // auto, czy świadomy wybór użytkownika (patrz
+      // `resolveUpdatedPlannedServings`).
+      const existingItem = await tx.planItem.findFirst({
+        where: {
+          weeklyPlanId: weeklyPlan.id,
+          dayOfWeek: dto.dayOfWeek,
+          mealType: dto.mealType,
+          recipeId: dto.recipeId,
+        },
+        select: {
+          id: true,
+          revision: true,
+          plannedServings: true,
+          participants: { select: { userId: true } },
+          portions: { select: { userId: true, units: true } },
+        },
+      });
+
+      // Tokeny (`expectedRevision`, `expectedTargetRevision`) = stemple pozycji
+      // z odczytu klienta. Bez zamiany — tej pozycji. Przy zamianie — źródła
+      // ORAZ celu (parę wymusza `assertReplaceTokens`): `null` celu = „celu
+      // nie ma w slocie”. Cokolwiek się nie zgadza — źródło zniknęło albo
+      // zmieniło się, cel powstał, zniknął, zmienił się albo został odtworzony
+      // — klient zamienia stan, którego już nie ma: konflikt, nic nie zmienione.
       const expectedRevision = dto.expectedRevision;
+      const expectedTargetRevision = dto.expectedTargetRevision;
       if (replaceRecipeId && expectedRevision !== undefined) {
         if (!replaced || replaced.revision !== expectedRevision) {
           throw revisionConflict(replaced);
         }
+        const targetMatches =
+          expectedTargetRevision === null
+            ? !existingItem
+            : existingItem?.revision === expectedTargetRevision;
+        if (!targetMatches) throw revisionConflict(existingItem);
+      }
+      if (!replaceRecipeId && expectedRevision !== undefined && !existingItem) {
+        // Token bez zamiany celuje w TĘ pozycję — nie ma jej (usunięta albo
+        // jeszcze nieodtworzona), więc klient pisze do stanu, którego nie ma.
+        throw revisionConflict(null);
       }
       // Porcje z żądania — potrzebne już tu: zamiana dania z alokacją BEZ
       // jawnych porcji usunęłaby ją razem z pozycją, a z jawnymi, ale bez
@@ -701,35 +742,6 @@ export class WeeklyPlansService {
         );
       }
 
-      // The item is identified by its recipe, not just by the slot: a slot can
-      // hold one variant per household split. Re-upserting the same recipe
-      // only rewrites who it is for.
-      //
-      // Dociągamy tu porcje i STARE audytorium, mimo że za chwilę je kasujemy:
-      // bez nich nie da się orzec, czy zapisana liczba porcji to wynik reguły
-      // auto, czy świadomy wybór użytkownika (patrz
-      // `resolveUpdatedPlannedServings`).
-      const existingItem = await tx.planItem.findFirst({
-        where: {
-          weeklyPlanId: weeklyPlan.id,
-          dayOfWeek: dto.dayOfWeek,
-          mealType: dto.mealType,
-          recipeId: dto.recipeId,
-        },
-        select: {
-          id: true,
-          revision: true,
-          plannedServings: true,
-          participants: { select: { userId: true } },
-          portions: { select: { userId: true, units: true } },
-        },
-      });
-      // Token bez zamiany celuje w TĘ pozycję — nie ma jej (usunięta albo
-      // jeszcze nieodtworzona), więc klient pisze do stanu, którego nie ma.
-      if (!replaceRecipeId && expectedRevision !== undefined && !existingItem) {
-        throw revisionConflict(null);
-      }
-
       // Porcje per osoba (Etap 2.2): podane = źródło prawdy dla audytorium
       // tej pozycji. POMINIĘTE (albo `[]`) nie kasują już alokacji, którą
       // pozycja ma — decyzja niżej (`portionsWriteDecision`).
@@ -754,11 +766,17 @@ export class WeeklyPlansService {
           (p) => p.userId,
         );
         const currentPortions = toPortionViews(existingItem.portions);
-        // Token dotyczy tej pozycji tylko bez zamiany (przy zamianie —
-        // źródła, sprawdzonego wyżej); cel zamiany zostaje `strict`.
-        const tokenGiven = !replaceRecipeId && expectedRevision !== undefined;
+        // Zweryfikowana jest pozycja, której token klient podał: bez zamiany —
+        // `expectedRevision`, przy zamianie — `expectedTargetRevision` celu
+        // (zgodny, bo niezgodny skończył się wyżej konfliktem). Cel zamiany
+        // bez tokenów (legacy) zostaje `strict`.
+        const tokenGiven = replaceRecipeId
+          ? expectedTargetRevision != null
+          : expectedRevision !== undefined;
         const tokenStale =
-          tokenGiven && expectedRevision !== existingItem.revision;
+          !replaceRecipeId &&
+          tokenGiven &&
+          expectedRevision !== existingItem.revision;
         // Pozycja z alokacją a zapis bez jawnych porcji: zmiana = odmowa,
         // identyczny ponowny zapis = nic do zapisania. Jawne porcje inne niż
         // bieżące — tylko ze zgodnym tokenem. Pozycja bez alokacji — jak
@@ -2571,6 +2589,39 @@ function revisionConflict(
     HttpStatus.CONFLICT,
     item ? [`planItemId:${item.id}`, `currentRevision:${item.revision}`] : [],
   );
+}
+
+/**
+ * Tokeny zamiany dania idą PARAMI: token źródła sam nie chroni celu (przepisu,
+ * który już leży w slocie), a token celu bez źródła nie chroni źródła. Zamiana
+ * bez żadnego tokenu — kontrakt legacy. `expectedTargetRevision` bez zamiany
+ * nie ma czego dotyczyć.
+ */
+function assertReplaceTokens(
+  dto: UpsertWeekSlotDto,
+  replaceRecipeId: string | null,
+): void {
+  const target = dto.expectedTargetRevision !== undefined;
+  if (!replaceRecipeId) {
+    if (target) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'expectedTargetRevision dotyczy wyłącznie zamiany dania (replaceRecipeId)',
+        HttpStatus.BAD_REQUEST,
+        ['expectedTargetRevision'],
+      );
+    }
+    return;
+  }
+  const source = dto.expectedRevision !== undefined;
+  if (source !== target) {
+    throw new AppException(
+      'PLAN_REVISION_REQUIRED',
+      'Zamiana dania z tokenem wymaga tokenów źródła i celu (expectedRevision i expectedTargetRevision; null = celu nie ma).',
+      HttpStatus.PRECONDITION_REQUIRED,
+      [source ? 'missing:expectedTargetRevision' : 'missing:expectedRevision'],
+    );
+  }
 }
 
 /** Zapis zastąpiłby albo usunął porcje per osoba bez tokenu. */

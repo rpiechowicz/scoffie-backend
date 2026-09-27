@@ -1269,7 +1269,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
       expect(byPerson(final.portions)).toEqual({ [asia]: 1.1, [rafal]: 1 });
     });
 
-    it('6. edycja porcji vs zamiana i usunięcie dania: zamiana wymaga porcji i tokenu źródła; stara pozycja → PLAN_ITEM_NOT_FOUND / PLAN_REVISION_CONFLICT', async () => {
+    it('6. edycja porcji vs zamiana i usunięcie dania: zamiana wymaga porcji i tokenów źródła i celu; stara pozycja → PLAN_ITEM_NOT_FOUND / PLAN_REVISION_CONFLICT', async () => {
       const { asia, rafal, householdId } = await couple('Zamiana');
       const portions = [
         { userId: asia, servings: 0.8 },
@@ -1282,6 +1282,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
             recipeId: dinnerB.id,
             replaceRecipeId: dinner.id,
             expectedRevision: seen.revision,
+            expectedTargetRevision: null,
           }),
         ),
       ).toBe('PLAN_PORTIONS_CONFLICT');
@@ -1290,6 +1291,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
         replaceRecipeId: dinner.id,
         portions,
         expectedRevision: seen.revision,
+        expectedTargetRevision: null,
       })) as unknown as Ack;
       expect(swapped.changeKind).toBe('REPLACED');
       expect(byPerson(swapped.portions)).toEqual(byPerson(portions));
@@ -1327,6 +1329,7 @@ describe('Porcje per osoba — bezpieczna edycja', () => {
             replaceRecipeId: dinner.id,
             portions,
             expectedRevision: seen.revision,
+            expectedTargetRevision: null,
           }),
         ),
       ).toBe('PLAN_REVISION_CONFLICT');

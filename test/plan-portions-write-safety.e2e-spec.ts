@@ -612,7 +612,11 @@ describe('Porcje per osoba — zapis ze starego stanu', () => {
         asia,
         householdId,
         WEEK_START,
-        { ...swap, expectedRevision: source.revision },
+        {
+          ...swap,
+          expectedRevision: source.revision,
+          expectedTargetRevision: null,
+        },
       );
       expect(result.changeKind).toBe('REPLACED');
       const items = await readItems(asia, householdId);

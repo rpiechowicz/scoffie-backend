@@ -103,14 +103,27 @@ export class UpsertWeekSlotDto {
 
   /**
    * Token pozycji z odczytu (`items[].revision`) — przy `replaceRecipeId`
-   * pozycji ŹRÓDŁOWEJ. Niezgodny = `PLAN_REVISION_CONFLICT` (chyba że zapis
-   * nic by nie zmienił); pominięty = zapis bez weryfikacji (legacy), który
-   * nie może zastąpić ani usunąć porcji per osoba
-   * (ADR `plan-portions-safe-editing`).
+   * pozycji ŹRÓDŁOWEJ (wtedy wymaga pary `expectedTargetRevision`).
+   * Niezgodny = `PLAN_REVISION_CONFLICT` (chyba że zapis bez zamiany nic by
+   * nie zmienił); pominięty = zapis bez weryfikacji (legacy), który nie może
+   * zastąpić ani usunąć porcji per osoba (ADR `plan-portions-safe-editing`).
    */
   @ApiPropertyOptional({ example: 7, minimum: 0 })
   @IsOptional()
   @IsInt()
   @Min(0)
   expectedRevision?: number;
+
+  /**
+   * Tylko przy `replaceRecipeId`: token CELU zamiany — `items[].revision`
+   * pozycji z przepisem `recipeId`, która już leży w tym slocie, albo `null`,
+   * gdy według odczytu klienta takiej pozycji w slocie NIE MA. Podawany razem
+   * z `expectedRevision` źródła (jedno bez drugiego = `PLAN_REVISION_REQUIRED`);
+   * niezgodny = `PLAN_REVISION_CONFLICT`, nic nie zmienione.
+   */
+  @ApiPropertyOptional({ example: 9, minimum: 0, nullable: true, type: Number })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedTargetRevision?: number | null;
 }
