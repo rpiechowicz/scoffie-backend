@@ -20,7 +20,7 @@ describe('describeStep — fakty kroku do „Jak pracowałem”', () => {
         ok({ offered: 3, eligible: 38 }),
       ),
     ).toBe(
-      'Kolacja · na środę · wegetariańskie · bez: ryba · do 30 min — 3 z 38 pasujących',
+      'Kolacja · na środę · wegetariańskie · bez: ryba — 3 z 38 pasujących',
     );
   });
 
@@ -37,9 +37,7 @@ describe('describeStep — fakty kroku do „Jak pracowałem”', () => {
           },
         }),
       ),
-    ).toBe(
-      'Sobota · Śniadanie, obiad i kolacja — śr. 1978 z 2000 kcal dziennie',
-    );
+    ).toBe('Sobota — śr. 1978 / 2000 kcal');
   });
 
   it('plan tygodnia: pusty i pełny', () => {
