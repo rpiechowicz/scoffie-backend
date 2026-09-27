@@ -163,7 +163,11 @@ describe('Panel — subskrypcje (/admin/subscriptions)', () => {
         messagesLimitSnapshot: 30,
         plansLimitSnapshot: 8,
         lastVerifiedAt: new Date(),
-        ...(data.createdAt ? { createdAt: data.createdAt } : {}),
+        // Domyślnie jawnie, zegarem procesu testu (nie `now()` silnika
+        // Prismy): serwer liczy „teraz” przez `new Date()` (zegar V8), który
+        // na Windows bywa o kilka ms w tyle za zegarem systemu — wiersz sprzed
+        // chwili wypadałby z `createdAt <= now`.
+        createdAt: data.createdAt ?? new Date(Date.now() - 1_000),
       },
       select: { id: true, createdAt: true },
     });
