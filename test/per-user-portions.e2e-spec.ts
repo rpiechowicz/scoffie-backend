@@ -280,8 +280,8 @@ describe('Porcje per osoba E2E', () => {
     it('10. applyWeekPlan z porcjami: round-trip zachowuje alokację, plannedServings = ceil(Σ)', async () => {
       const { asia, rafal, householdId } = await couple('RoundTrip');
       const portions = [
-        { userId: asia, servings: 0.8 },
-        { userId: rafal, servings: 1.3 },
+        { userId: asia, servings: 1 },
+        { userId: rafal, servings: 1.5 },
       ];
       const result = await weeklyPlans.applyWeekPlan(
         asia,
@@ -302,7 +302,7 @@ describe('Porcje per osoba E2E', () => {
       expect(result.applied).toBe(true);
 
       const [item] = await readItems(asia, householdId);
-      expect(byPerson(item.portions)).toEqual({ [asia]: 0.8, [rafal]: 1.3 });
+      expect(byPerson(item.portions)).toEqual({ [asia]: 1, [rafal]: 1.5 });
       expect(item.plannedServings).toBe(3);
       expect(item.participantIds).toEqual([]);
       // W bazie liczby całkowite (jednostki 1/20 porcji).
@@ -310,7 +310,7 @@ describe('Porcje per osoba E2E', () => {
         where: { planItemId: item.id },
         orderBy: { units: 'asc' },
       });
-      expect(rows.map((row) => row.units)).toEqual([16, 26]);
+      expect(rows.map((row) => row.units)).toEqual([20, 30]);
 
       // Ten sam stan docelowy → zero zmian; inna alokacja → jedna aktualizacja.
       const again = await weeklyPlans.applyWeekPlan(
@@ -348,8 +348,8 @@ describe('Porcje per osoba E2E', () => {
               mealType: 'DINNER',
               recipeId: dinner.id,
               portions: [
-                { userId: asia, servings: 0.75 },
-                { userId: rafal, servings: 1.35 },
+                { userId: asia, servings: 0.5 },
+                { userId: rafal, servings: 2 },
               ],
             },
           ],
@@ -358,7 +358,7 @@ describe('Porcje per osoba E2E', () => {
       expect(changed.changes).toEqual({ created: 0, updated: 1, deleted: 0 });
       const [after] = await readItems(asia, householdId);
       expect(after.id).toBe(item.id);
-      expect(byPerson(after.portions)).toEqual({ [asia]: 0.75, [rafal]: 1.35 });
+      expect(byPerson(after.portions)).toEqual({ [asia]: 0.5, [rafal]: 2 });
     });
 
     it('11. pozycja BEZ porcji (stary klient): round-trip bez alokacji, bilans jak dotąd', async () => {
@@ -397,8 +397,8 @@ describe('Porcje per osoba E2E', () => {
             mealType: 'DINNER',
             recipeId: dinner.id,
             portions: [
-              { userId: asia, servings: 0.8 },
-              { userId: rafal, servings: 1.3 },
+              { userId: asia, servings: 1 },
+              { userId: rafal, servings: 1.5 },
             ],
           },
         ],
@@ -407,8 +407,8 @@ describe('Porcje per osoba E2E', () => {
       const kcalOf = async (member: string) =>
         (await weeklyPlans.weeklyBalance(asia, householdId, WEEK_START, member))
           .days[0].planned.kcal;
-      expect(await kcalOf(asia)).toBeCloseTo(perPortion * 0.8, 0);
-      expect(await kcalOf(rafal)).toBeCloseTo(perPortion * 1.3, 0);
+      expect(await kcalOf(asia)).toBeCloseTo(perPortion * 1, 0);
+      expect(await kcalOf(rafal)).toBeCloseTo(perPortion * 1.5, 0);
     });
 
     it('alokacja niezgodna z audytorium: applyWeekPlan zwraca naruszenie i NIC nie zapisuje', async () => {
@@ -436,7 +436,7 @@ describe('Porcje per osoba E2E', () => {
       expect(await readItems(asia, householdId)).toEqual([]);
     });
 
-    it('porcja spoza kroku 0,05 odbija się już na walidacji DTO', async () => {
+    it('porcja spoza kroku 0,5 odbija się już na walidacji DTO', async () => {
       const { asia, rafal, householdId } = await couple('Krok');
       expect(
         await code(
@@ -447,7 +447,7 @@ describe('Porcje per osoba E2E', () => {
                 mealType: 'DINNER',
                 recipeId: dinner.id,
                 portions: [
-                  { userId: asia, servings: 0.8 },
+                  { userId: asia, servings: 1 },
                   { userId: rafal, servings: 1.333 },
                 ],
               },
@@ -479,12 +479,12 @@ describe('Porcje per osoba E2E', () => {
         mealType: 'DINNER',
         recipeId: dinner.id,
         portions: [
-          { userId: asia, servings: 0.9 },
-          { userId: rafal, servings: 1.4 },
+          { userId: asia, servings: 1 },
+          { userId: rafal, servings: 1.5 },
         ],
       });
       let [item] = await readItems(asia, householdId);
-      expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.4 });
+      expect(byPerson(item.portions)).toEqual({ [asia]: 1, [rafal]: 1.5 });
       expect(item.plannedServings).toBe(3);
 
       // Stary telefon zmienia porcje stepperem: przysyła łączne, bez alokacji.
@@ -502,13 +502,13 @@ describe('Porcje per osoba E2E', () => {
         ),
       ).toBe('PLAN_PORTIONS_CONFLICT');
       [item] = await readItems(asia, householdId);
-      expect(byPerson(item.portions)).toEqual({ [asia]: 0.9, [rafal]: 1.4 });
+      expect(byPerson(item.portions)).toEqual({ [asia]: 1, [rafal]: 1.5 });
       expect(item.plannedServings).toBe(3);
     });
   });
 
   describe('lista zakupów', () => {
-    it('3./12. skaluje się przez Σ porcji — także ułamkowo (0,85 + 1,3 = 2,15)', async () => {
+    it('3./12. skaluje się przez Σ porcji — także ułamkowo (1 + 1,5 = 2,5)', async () => {
       type Slots = Parameters<WeeklyPlansService['applyWeekPlan']>[3]['slots'];
       const totals = async (build: (asia: string, rafal: string) => Slots) => {
         const { asia, rafal, householdId } = await couple('Zakupy');
@@ -538,17 +538,17 @@ describe('Porcje per osoba E2E', () => {
         {
           ...base,
           portions: [
-            { userId: asia, servings: 0.85 },
-            { userId: rafal, servings: 1.3 },
+            { userId: asia, servings: 1 },
+            { userId: rafal, servings: 1.5 },
           ],
         },
       ]);
       expect(legacy.size).toBeGreaterThan(0);
       expect([...portioned.keys()].sort()).toEqual([...legacy.keys()].sort());
-      // Σ = 2,15 porcji, NIE ceil(Σ) = 3 i nie równe 2 — dokładnie 1,075 × lista na 2.
+      // Σ = 2,5 porcji, NIE ceil(Σ) = 3 i nie równe 2 — dokładnie 1,25 × lista na 2.
       let fractional = false;
       for (const [key, amount] of legacy) {
-        const expected = amount * (2.15 / 2);
+        const expected = amount * (2.5 / 2);
         const got = portioned.get(key)!;
         expect(Math.abs(got - expected)).toBeLessThanOrEqual(
           Math.max(expected * 0.02, 1),
@@ -718,8 +718,8 @@ describe('Porcje per osoba E2E', () => {
             mealType: 'DINNER',
             recipeId: dinner.id,
             portions: [
-              { userId: asia, servings: 0.8 },
-              { userId: rafal, servings: 1.3 },
+              { userId: asia, servings: 0.5 },
+              { userId: rafal, servings: 2 },
             ],
           },
         ],
@@ -734,16 +734,16 @@ describe('Porcje per osoba E2E', () => {
 
       let [item] = await readItems(asia, householdId, FUTURE_WEEK);
       expect(byPerson(item.portions)).toEqual({
-        [asia]: 0.8,
-        [rafal]: 1.3,
+        [asia]: 0.5,
+        [rafal]: 2,
         [kuba]: 1,
       });
-      expect(item.plannedServings).toBe(4); // ceil(3,1)
+      expect(item.plannedServings).toBe(4); // ceil(3,5)
 
       await households.leave(rafal, householdId);
       [item] = await readItems(asia, householdId, FUTURE_WEEK);
-      expect(byPerson(item.portions)).toEqual({ [asia]: 0.8, [kuba]: 1 });
-      expect(item.plannedServings).toBe(2); // ceil(1,8)
+      expect(byPerson(item.portions)).toEqual({ [asia]: 0.5, [kuba]: 1 });
+      expect(item.plannedServings).toBe(2); // ceil(1,5)
     });
   });
 });

@@ -71,7 +71,7 @@ export class UpsertWeekSlotDto {
 
   /**
    * Porcje per osoba (Etap 2.2) — zbiór osób = audytorium slotu, każda
-   * porcja wielokrotnością 0,05. Podane = źródło prawdy (`plannedServings`
+   * porcja wielokrotnością 0,5. Podane = źródło prawdy (`plannedServings`
    * liczy serwer); zastąpienie ISTNIEJĄCEJ alokacji wymaga `expectedRevision`.
    * POMINIĘTE (albo `[]`) nie kasują alokacji, którą pozycja ma (ADR
    * `plan-portions-write-safety`).
