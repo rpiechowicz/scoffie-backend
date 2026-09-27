@@ -72,14 +72,26 @@ Uzasadnienia:
   - decyzja dla każdego slotu na istniejącej pozycji;
   - jeden CONFLICT = cały zapis odrzucony (brak częściowego zapisu);
   - KEEP = pozycja pominięta (nie liczy się jako zmiana);
-  - pozycje spoza stanu docelowego są usuwane jak dziś (jawne usunięcie w kontrakcie stanu docelowego).
+  - pozycje spoza stanu docelowego są usuwane jak dziś (jawne usunięcie w kontrakcie stanu docelowego) —
+    w polityce `strict`; przy `no-allocation-changes` usunięcie pozycji z alokacją = CONFLICT (patrz niżej).
 - **Polityka zapisu — parametr wewnętrzny `ApplyWeekPlanHooks.portionsPolicy`, nie pole WS:**
   - `strict` (domyślnie): WS, narzędzia AI, apply propozycji bez `force`. Bez `force` `guard` sprawdził pod zamkiem,
     że tydzień = stan, na którym propozycja powstała, więc jej jawne porcje liczono na bieżącej alokacji.
-  - `no-allocation-changes`: apply propozycji z `force`. Odcisk jest pominięty, więc jawne porcje propozycji mogą
-    być starsze niż stan — wolno tylko nie zmieniać istniejącej alokacji.
+  - `no-allocation-changes`: apply propozycji z `force`. Odcisk jest pominięty, więc stan docelowy propozycji
+    może być starszy niż tydzień — nie wolno zmienić istniejącej alokacji: ani aktualizacją pozycji (brak pola,
+    stare porcje), ani USUNIĘCIEM pozycji z alokacją spoza stanu docelowego (także zamiana dania wyrażona jako
+    usunięcie starego klucza i nowy klucz). Naruszenie usunięcia ma `index: -1`.
   - `authoritative`: undo. `guard` w tej samej transakcji wymaga, by tydzień (z porcjami) był dokładnie stanem po
     zapisie, więc migawka „przed” jest intencją chronioną odciskiem — także przywrócenie „bez alokacji”.
+    `applyWeekPlan` odrzuca `authoritative` bez `guard` na wejściu, przed jakąkolwiek operacją na bazie.
+
+**Granica zaufania polityk.** `ApplyWeekPlanHooks` to parametr WYŁĄCZNIE in-process: gateway
+`weeklyPlans:applyWeekPlan` przekazuje samo `payload.data`, a DTO nie ma pola polityki (walidacja wycina nieznane
+pola). Serwis nie umie sprawdzić, CO robi `guard` — wymusza tylko jego obecność. Zaufanie opiera się na tym, że
+jedyne produkcyjne miejsce z `authoritative` to `AgentProposalsService.undo`, którego `guard` porównuje
+`appliedHash` z odciskiem tygodnia odczytanego pod zamkiem (`git grep portionsPolicy`: apply propozycji —
+`strict` / `no-allocation-changes`, undo — `authoritative`). Nowe użycie `authoritative` wymaga takiego samego
+guarda i przeglądu.
 
 ### Kod i koperty
 
@@ -95,8 +107,10 @@ Odmowa w `applyWeekPlan` zapada w transakcji (po `guard`), więc rzucamy wewnęt
 transakcję i dopiero poza nią zamieniamy go na `applied:false`. Nic z `guard`/`settle` (przejęcie propozycji,
 kwota, wiadomość) nie zostaje zatwierdzone.
 
-`dryRun` i `previewWeekPlan` liczą tę samą decyzję na odczycie bez zamka — doradczo, żeby model i karta wiedziały
-wcześniej. Wiążąca jest kontrola w transakcji.
+`dryRun` i `previewWeekPlan` liczą tę samą decyzję (`portionsDecisions`) na odczycie bez zamka — doradczo, żeby
+model i karta wiedziały wcześniej: konflikty jako naruszenia, pozycja KEEP nie liczy się jako zmiana, a slot
+podglądu pokazuje jej ZACHOWANĄ alokację (stan efektywny, zgodny z zapisem i bilansem). Akcja propozycji porcji
+nie dostaje — wiążąca jest kontrola w transakcji zapisu, na stanie pod zamkiem.
 
 ## Współbieżność
 
