@@ -1522,33 +1522,28 @@ const GROUP_10: Scenario[] = [
   {
     name: 'g10-lista-zakupow',
     group: 10,
-    pyta: 'Czy lista zakupów jest kartą, a nie listą przepisaną w odpowiedzi?',
+    pyta: 'Czy „pokaż listę zakupów” odsyła do aplikacji, zamiast budować listę w rozmowie?',
     members: SOLO,
     seed: (world) => fullWeekSeed(world),
     prompts: ['Pokaż mi listę zakupów na ten tydzień.'],
-    expectedTools: ['show_shopping_list'],
+    // Od 27.09.2026 lista jest wyłącznie w aplikacji (Plan → Zakupy) —
+    // `show_shopping_list` jest wycofane z modelu.
+    expectedTools: [],
     forbiddenTools: WRITING_TOOLS,
-    maxRounds: 3,
+    maxRounds: 2,
     verify: (v) => {
       const issues: string[] = [];
-      const card = v.cards.find((entry) => entry.kind === 'SHOPPING_LIST');
-      if (!card) issues.push('brak karty listy zakupow');
-      const call = v.calls.find((entry) => entry.name === 'show_shopping_list');
-      if (card && call) {
-        const summary = (card.payload as { summary?: { remaining?: number } })
-          .summary;
-        const wynik = JSON.parse(call.json) as {
-          data?: { remaining?: number };
-        };
-        if (summary?.remaining !== wynik.data?.remaining) {
-          issues.push('karta i wynik narzedzia mowia rozna liczbe pozycji');
-        }
+      if (v.cards.some((entry) => entry.kind === 'SHOPPING_LIST')) {
+        issues.push('pokazal karte listy zamiast odeslac do aplikacji');
       }
-      // Model NIE MA przepisywać produktów — karta je pokazuje.
+      if (!/zakup/i.test(v.answer)) {
+        issues.push('nie odeslal do Zakupow w aplikacji');
+      }
+      // Model NIE MA przepisywać produktów.
       const linieListy = v.answer
         .split('\n')
         .filter((line) => /^\s*[-*•]\s+\S/.test(line));
-      if (linieListy.length > 5) {
+      if (linieListy.length > 2) {
         issues.push(
           `przepisal liste do odpowiedzi (${linieListy.length} pozycji)`,
         );

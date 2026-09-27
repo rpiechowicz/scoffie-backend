@@ -139,6 +139,7 @@ describe('lista narzędzi modelu po Etapie 3', () => {
     // Wewnętrzny propose_week_plan executor zna, model nie.
     expect(EXECUTABLE_TOOL_NAMES).toContain('propose_week_plan');
     expect(INTERNAL_AGENT_TOOLS.map((tool) => tool.name)).toEqual([
+      'show_shopping_list',
       'propose_week_plan',
     ]);
     expect(EXECUTABLE_TOOL_NAMES).not.toContain('get_household_context');
