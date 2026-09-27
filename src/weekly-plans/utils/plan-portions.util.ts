@@ -23,7 +23,16 @@ export const PORTION_STEP = 1 / PORTION_UNITS_PER_SERVING;
 export const PORTION_WRITE_MIN = 0.1;
 export const PORTION_WRITE_MAX = 6;
 
-export type PortionView = { userId: string; servings: number };
+export type PortionView = {
+  userId: string;
+  /**
+   * Porcja osoby w porcjach przepisu (kontrakt OpenAPI).
+   * @minimum 0.1
+   * @maximum 6
+   * @multipleOf 0.05
+   */
+  servings: number;
+};
 export type PortionRow = { userId: string; units: number };
 
 /** Porcja w jednostkach; `null` = nie wielokrotność 0,05 albo poza widełkami. */

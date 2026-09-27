@@ -6,8 +6,13 @@ export class PlanItemPortionDto {
   @ApiProperty()
   userId: string;
 
-  /** Porcja tej osoby w porcjach przepisu, wielokrotność 0,05. */
-  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6 })
+  /**
+   * Porcja tej osoby w porcjach przepisu, wielokrotność 0,05.
+   * @minimum 0.1
+   * @maximum 6
+   * @multipleOf 0.05
+   */
+  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6, multipleOf: 0.05 })
   servings: number;
 
   /**

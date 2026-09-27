@@ -18,8 +18,13 @@ export class SetPortionDto {
   @IsUUID()
   userId: string;
 
-  /** Nowa porcja tej osoby (wartość bezwzględna), wielokrotność 0,05. */
-  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6 })
+  /**
+   * Nowa porcja tej osoby (wartość bezwzględna), wielokrotność 0,05.
+   * @minimum 0.1
+   * @maximum 6
+   * @multipleOf 0.05
+   */
+  @ApiProperty({ example: 1.25, minimum: 0.1, maximum: 6, multipleOf: 0.05 })
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.1)
   @Max(6)
