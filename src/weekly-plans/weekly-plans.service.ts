@@ -185,7 +185,11 @@ type PlannableRecipe = {
 
 /** Jeden powód, dla którego pozycja tygodnia nie może wejść. */
 export type PlanViolation = {
-  /** Pozycja w przysłanej liście `slots` — wołający wie, co poprawić. */
+  /**
+   * Pozycja w przysłanej liście `slots` — wołający wie, co poprawić. `-1` =
+   * pozycja SPOZA stanu docelowego, której zapis nie może usunąć (porcje per
+   * osoba przy zapisie propozycji z `force`).
+   */
   index: number;
   dayOfWeek: DayOfWeek;
   mealType: MealType;
@@ -1635,6 +1639,11 @@ export class WeeklyPlansService {
    * Decyzja porcji per osoba (`portionsWriteDecision`) dla każdego slotu,
    * który trafia w istniejącą pozycję: naruszenia `PLAN_PORTIONS_CONFLICT`
    * i klucze pozycji, które mają zostać nietknięte.
+   *
+   * Przy `no-allocation-changes` (zapis propozycji z `force`) zapis nie może
+   * też USUNĄĆ pozycji z alokacją, której nie ma w stanie docelowym — w tym
+   * zamiany dania wyrażonej jako usunięcie starego klucza i nowy klucz.
+   * `strict` zostawia kontrakt stanu docelowego bez zmian (usuwa; API GAP).
    */
   private portionsDecisions(
     desired: readonly {
@@ -1649,6 +1658,9 @@ export class WeeklyPlansService {
     currentByKey: ReadonlyMap<
       string,
       {
+        dayOfWeek: DayOfWeek;
+        mealType: MealType;
+        recipeId: string;
         plannedServings: number;
         participants: { userId: string }[];
         portions: { userId: string; units: number }[];
@@ -1686,6 +1698,20 @@ export class WeeklyPlansService {
         });
       }
     });
+    if (policy === 'no-allocation-changes') {
+      const desiredKeys = new Set(desired.map((slot) => slot.key));
+      for (const [key, existing] of currentByKey) {
+        if (desiredKeys.has(key) || existing.portions.length === 0) continue;
+        conflicts.push({
+          index: -1,
+          dayOfWeek: existing.dayOfWeek,
+          mealType: existing.mealType,
+          recipeId: existing.recipeId,
+          code: 'PLAN_PORTIONS_CONFLICT',
+          message: PORTIONS_CONFLICT_MESSAGE,
+        });
+      }
+    }
     return { conflicts, keep };
   }
 
