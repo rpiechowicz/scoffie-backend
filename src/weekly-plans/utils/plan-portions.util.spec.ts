@@ -11,6 +11,7 @@ import {
   PORTION_UNITS_PER_SERVING,
   portionsProblem,
   portionsTotal,
+  portionsWriteDecision,
   samePortions,
   servingsToUnits,
   toPortionRows,
@@ -237,5 +238,88 @@ describe('lista zakupów: ile gotujemy', () => {
     ).toBe(2.1);
     expect(cookedServings({ plannedServings: 3, portions: [] })).toBe(3);
     expect(cookedServings({ plannedServings: 2 })).toBe(2);
+  });
+});
+
+describe('portionsWriteDecision (ADR plan-portions-write-safety)', () => {
+  const allocated = {
+    participantIds: [] as string[],
+    plannedServings: 3,
+    portions: [
+      { userId: 'a', servings: 0.9 },
+      { userId: 'b', servings: 1.3 },
+    ],
+  };
+  const legacy = {
+    participantIds: [] as string[],
+    plannedServings: 2,
+    portions: [],
+  };
+
+  it('pozycja bez alokacji: zawsze WRITE (legacy bez zmian)', () => {
+    expect(
+      portionsWriteDecision(legacy, {
+        participantIds: ['a'],
+        plannedServings: 4,
+        portions: [],
+      }),
+    ).toBe('WRITE');
+  });
+
+  it('z alokacją, bez porcji: identyczny zapis = KEEP, zmiana = CONFLICT', () => {
+    expect(
+      portionsWriteDecision(allocated, { participantIds: [], portions: [] }),
+    ).toBe('KEEP');
+    expect(
+      portionsWriteDecision(allocated, {
+        participantIds: [],
+        plannedServings: 3,
+        portions: [],
+      }),
+    ).toBe('KEEP');
+    expect(
+      portionsWriteDecision(allocated, {
+        participantIds: ['a'],
+        portions: [],
+      }),
+    ).toBe('CONFLICT');
+    expect(
+      portionsWriteDecision(allocated, {
+        participantIds: [],
+        plannedServings: 2,
+        portions: [],
+      }),
+    ).toBe('CONFLICT');
+  });
+
+  it('jawne porcje: WRITE w `strict`; `no-allocation-changes` tylko bez zmiany', () => {
+    const other = {
+      participantIds: [],
+      portions: [
+        { userId: 'a', servings: 1 },
+        { userId: 'b', servings: 1 },
+      ],
+    };
+    expect(portionsWriteDecision(allocated, other)).toBe('WRITE');
+    expect(
+      portionsWriteDecision(allocated, other, 'no-allocation-changes'),
+    ).toBe('CONFLICT');
+    expect(
+      portionsWriteDecision(
+        allocated,
+        { participantIds: [], portions: allocated.portions },
+        'no-allocation-changes',
+      ),
+    ).toBe('WRITE');
+  });
+
+  it('`authoritative`: stan docelowy wygrywa (cofnięcie chronione odciskiem)', () => {
+    expect(
+      portionsWriteDecision(
+        allocated,
+        { participantIds: ['a'], portions: [] },
+        'authoritative',
+      ),
+    ).toBe('WRITE');
   });
 });
