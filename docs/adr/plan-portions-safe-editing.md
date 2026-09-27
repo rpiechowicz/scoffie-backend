@@ -1,6 +1,8 @@
 # ADR: bezpieczna edycja porcji per osoba — rewizje i zmiana porcji jednej osoby
 
-Status: zaakceptowane do implementacji (workstream `plan-portions-safe-editing`, 2026-09-27)
+Status: zaakceptowane do implementacji (workstream `plan-portions-safe-editing`, 2026-09-27); poprawione po
+review (2026-09-27): token tygodnia tylko z pełnej migawki, tokeny celu zamiany, stemple porcji przy zmianie
+audytorium w `applyWeekPlan`.
 Zależy od: `docs/adr/plan-portions-write-safety.md` (PR #209, niezmergowany) — ta gałąź stoi na jego HEAD.
 
 ## Problem (zmierzone, `test/plan-portions-safe-editing.e2e-spec.ts`, regresje A–C na `2a4899b`)
@@ -16,8 +18,8 @@ Zależy od: `docs/adr/plan-portions-write-safety.md` (PR #209, niezmergowany) �
 
 | Zapisujący                                                | Co zmienia                                            | Rewizja po tym ADR                                                                                |
 | --------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `upsertWeekSlot` (+ `replaceRecipeId`)                    | tworzy/aktualizuje pozycję, usuwa źródło zamiany      | +1 tydzień; pozycja i jej porcje = nowa rewizja                                                   |
-| `applyWeekPlan` (WS, narzędzia AI, apply/undo propozycji) | tworzy/aktualizuje/usuwa pozycje                      | +1 tydzień (gdy jest zmiana); zmienione pozycje/porcje = nowa rewizja                             |
+| `upsertWeekSlot` (+ `replaceRecipeId`)                    | tworzy/aktualizuje pozycję, usuwa źródło zamiany      | +1 tydzień (gdy jest zmiana); pozycja i WSZYSTKIE jej porcje = nowa rewizja                       |
+| `applyWeekPlan` (WS, narzędzia AI, apply/undo propozycji) | tworzy/aktualizuje/usuwa pozycje                      | +1 tydzień (gdy jest zmiana); zmienione pozycje i WSZYSTKIE ich porcje = nowa rewizja             |
 | `setPortion` (nowe)                                       | porcja jednej osoby                                   | +1 tydzień; pozycja i ta porcja = nowa rewizja                                                    |
 | `removeWeekSlot`, `clearWeekPlan`                         | usuwa pozycje                                         | +1 tydzień (gdy coś usunięto)                                                                     |
 | zmiana składu domu (`plan-roster.util`)                   | porcje/`plannedServings` pozycji tygodni od bieżącego | +1 każdy tydzień od poniedziałku; WSZYSTKIE pozycje i porcje tych tygodni = nowa rewizja tygodnia |
@@ -47,10 +49,47 @@ treść tygodnia. Pozycja i porcja dostają jako stempel wartość licznika z ch
 Sprawdzenie tokenu i zapis zachodzą w TEJ SAMEJ transakcji, po `lockWeekForWrite`, na stanie odczytanym pod
 zamkiem (READ COMMITTED dla upsert/`setPortion`, SERIALIZABLE z ponowieniem dla `applyWeekPlan`).
 
-Tokeny w odczycie:
+### Kontrakt tokenów (po review)
 
-- `weeklyPlans:getByWeek` → `plan.revision` (tydzień), `items[].revision`, `items[].portions[].revision`;
-- ta sama postać w ackach `upsertWeekSlot`, `setPortion` i w `plan` z `applyWeekPlan`.
+**Token tygodnia (`plan.revision`) jest związany z KOMPLETNYM snapshotem** — z dokładnie tym zestawem pozycji
+i porcji, z którym przyszedł:
+
+- niosą go wyłącznie pełne odczyty: `weeklyPlans:getByWeek` i `plan` w acku `applyWeekPlan`;
+- odczyt tygodnia to jedna migawka bazy. Prisma czyta `include` OSOBNYMI zapytaniami (tydzień, pozycje, każda
+  relacja — sprawdzone w logu Postgresa), więc `getByHouseholdAndWeek` biegnie w transakcji REPEATABLE READ:
+  - wszystkie zapytania widzą stan z chwili pierwszego;
+  - regresja R1c: zapis zatwierdzony w trakcie odczytu dawał wcześniej starą rewizję z nowymi pozycjami;
+  - transakcja jest interaktywna, bo jednoelementowy `$transaction([...])` Prisma wysyła bez `BEGIN`.
+- acki pojedynczej pozycji (`upsertWeekSlot`, `setPortion`) niosą TYLKO tokeny tej pozycji i jej porcji
+  (`revision`, `portions[].revision`), NIE niosą rewizji tygodnia:
+  - pierwotnie niosły `planRevision`, a `ios-contract.md` kazał nią nadpisywać token lokalnego tygodnia;
+  - regresja R1: pełny apply ze starej kopii przechodził wtedy i usuwał pozycję domownika;
+- ack pozycji jest spójny, bo pozycję czyta ta sama transakcja zapisu pod zamkiem tygodnia. Żaden zapis treści
+  tygodnia nie wchodzi w trakcie.
+
+**Obowiązek klienta** — serwer nie rozpozna starej treści, jeśli klient poda do niej nowy, poprawny token:
+
+- `expectedRevision` w `applyWeekPlan` = `plan.revision` z tego samego pełnego odczytu, z którego pochodzi
+  wysyłany stan;
+- tokenu tygodnia nie wolno przepisywać na inną (starszą albo częściowo zaktualizowaną) kopię;
+- po acku pozycji klient aktualizuje tę pozycję i jej tokeny, ale token tygodnia jego kopii zostaje stary. Pełny
+  apply z tej kopii kończy się więc konfliktem, dopóki klient nie zrobi pełnego odczytu.
+
+**Odpowiedzi w odwrotnej kolejności.** Stemple pochodzą z jednego monotonicznego licznika, więc z dwóch wersji tej
+samej pozycji/porcji nowsza ma WYŻSZY stempel. Klient przyjmuje token z acka tylko wtedy, gdy jest wyższy od
+znanego. Tak samo z dwóch pełnych odczytów aktualny jest ten z wyższą `plan.revision` — starszy odrzuca w całości
+(regresja R1b).
+
+### Unieważnianie tokenów porcji
+
+- Pełny zapis pozycji (`upsertWeekSlot`, `applyWeekPlan`), który ją zmienia, przestemplowuje WSZYSTKIE jej
+  porcje. Dotyczy to także zmiany samego audytorium przy identycznych wartościach: jawna lista wszystkich
+  domowników → „Wspólne” (regresja R3, dotąd tylko `upsertWeekSlot`).
+- `setPortion` przestemplowuje wyłącznie porcję swojej osoby — edycje różnych osób pozostają niezależne.
+- Prawdziwy NOOP niczego nie zapisuje ani nie stempluje (R3b). „Wspólne” → lista wszystkich obecnych domowników
+  jest nim z definicji, bo zapis normalizuje taką listę do „Wspólne” (`normalizeParticipants`,
+  `resolveParticipants`). Stan w bazie się nie zmienia, a stare tokeny zostają ważne.
+- Zmiana składu domu przestemplowuje wszystko od bieżącego tygodnia.
 
 Odcisk treści zostaje tam, gdzie już jest (propozycje: `baselineHash`, `appliedHash`) — status propozycji robi
 z nich operację jednorazową, więc ABA nie grozi.
@@ -84,12 +123,28 @@ Autoryzacja jak przy każdym zapisie planu: dowolny członek domu (nie tylko „
 
 ## Decyzja 3 — tokeny na istniejących zapisach i polityka zapisu
 
-`upsertWeekSlot.data.expectedRevision` (opcjonalne) = stempel pozycji, którą zapis zmienia. Przy
-`replaceRecipeId` to stempel pozycji ŹRÓDŁOWEJ.
+`upsertWeekSlot.data.expectedRevision` (opcjonalne) = stempel pozycji, którą zapis zmienia; przy
+`replaceRecipeId` — stempel pozycji ŹRÓDŁOWEJ. Znaczenie pola bez zmian od pierwszej wersji.
 
 - Podany i zgodny → zapis zweryfikowany.
-- Podany i niezgodny: gdy zapis nic by nie zmienił → sukces NOOP; inaczej `PLAN_REVISION_CONFLICT`.
+- Podany i niezgodny: gdy zapis (bez zamiany) nic by nie zmienił → sukces NOOP; inaczej `PLAN_REVISION_CONFLICT`.
 - Podany, a pozycji brak (usunięta, odtworzona) → `PLAN_REVISION_CONFLICT`.
+
+**Zamiana dania chroni źródło I cel.** `upsertWeekSlot.data.expectedTargetRevision` (opcjonalne, wyłącznie przy
+`replaceRecipeId`) = stempel pozycji CELU, czyli pozycji z przepisem `recipeId`, która już leży w slocie, albo
+`null`, gdy według odczytu klienta takiej pozycji w slocie nie ma.
+
+Sam token źródła nie chroni celu. Regresja R2: zamiana X→Y ze zgodnym tokenem X nadpisywała zmienionego po
+odczycie Y i usuwała X.
+
+- Tokeny zamiany idą parami: `expectedRevision` bez `expectedTargetRevision` albo odwrotnie → 428
+  `PLAN_REVISION_REQUIRED`, `details: ['missing:expectedTargetRevision' | 'missing:expectedRevision']`.
+- Bez obu tokenów → zamiana legacy, bez zmian (cel `strict`).
+- `expectedTargetRevision` bez zamiany → `VALIDATION_ERROR`.
+- Pod zamkiem tygodnia, PRZED usunięciem źródła: źródło musi istnieć ze stemplem `expectedRevision`. Cel musi
+  mieć stempel `expectedTargetRevision` albo nie istnieć (gdy `null`). Wszystko inne → `PLAN_REVISION_CONFLICT`,
+  nic nie zmienione: cel zmieniony, powstały po odczycie, usunięty, usunięty i odtworzony (nowy stempel).
+- Zgodny token celu = cel `verified`, więc jawne porcje mogą zastąpić jego alokację.
 
 `applyWeekPlan.data.expectedRevision` (opcjonalne) = rewizja tygodnia.
 
@@ -135,7 +190,8 @@ pozycji z alokacją, podaje JAWNIE pełne `portions` dla nowego audytorium/dania
 
 Zamiana dania z alokacją:
 
-- zachowanie = jawne `portions` nowego dania (np. te same wartości) + token źródła;
+- zachowanie = jawne `portions` nowego dania (np. te same wartości) + tokeny źródła i celu (`null`, gdy celu
+  nie ma w slocie);
 - bez `portions` → `PLAN_PORTIONS_CONFLICT` — odmowa, bez niejawnego resetu;
 - jawnego „resetuj do równego podziału” nie wprowadzamy (OPEN DECISION).
 
@@ -157,6 +213,8 @@ Brak tabeli kluczy = brak retencji i trwałego stanu do sprzątania.
 | surowy WS `applyWeekPlan` bez tokenu | pozycje bez alokacji: kontrakt stanu docelowego bez zmian — usuwa pozycje spoza listy, TAKŻE takie, których klient nie widział (NIE chronimy starego stanu bez tokenu); pozycje z alokacją: usunięcie i jawna zmiana wymagają tokenu (`REVISION_REQUIRED`) |
 | narzędzia AI (bez tokenu, `strict`)  | nie usuną ani nie zastąpią alokacji (naruszenie dla modelu); propozycje idą przez `verified` / `force` / undo — bez nowych wymaganych pól w narzędziach                                                                                                    |
 | propozycje sprzed wdrożenia          | odcisk treści bez zmian (rewizja nie wchodzi do odcisku)                                                                                                                                                                                                   |
+| zamiana bez tokenów (starszy iOS)    | bez zmian — `expectedTargetRevision` jest nowe i opcjonalne; wymagane dopiero razem z `expectedRevision` przy `replaceRecipeId`                                                                                                                            |
+| `planRevision` w ackach              | usunięte przed wydaniem (PR niezmergowany) — żaden klient go nie czytał                                                                                                                                                                                    |
 
 ## Migracja
 
@@ -204,6 +262,15 @@ stub):
 14. migracja (wiersz z `revision = 0`);
 15. token w odczycie = token w odpowiedzi.
 
+Review (describe „review patch — regresje”):
+
+- R1 — ack pozycji nie odświeża tokenu starego snapshotu;
+- R1b — odpowiedzi w odwrotnej kolejności;
+- R1c — spójna migawka odczytu;
+- R2/R2b — cel zamiany: zmieniony, z alokacją, powstały po odczycie, odtworzony, nieistniejący, legacy;
+- R3 (apply/upsert) — zmiana audytorium unieważnia tokeny porcji;
+- R3b — NOOP po normalizacji i niezależność `setPortion`.
+
 Plus poprzedni `plan-portions-write-safety.e2e`.
 
 ## Ograniczenia (świadome)
@@ -220,7 +287,9 @@ Plus poprzedni `plan-portions-write-safety.e2e`.
   transakcję, przy pierwszym faktycznym zapisie — odmowa i zapis bez różnicy nie zmieniają rewizji.
 - `upsertWeekSlot`, który niczego by nie zmienił, nie zapisuje pozycji (wcześniej przepisywał ją identycznie) —
   inaczej przestemplowałby porcje i unieważnił cudze tokeny bez zmiany treści.
-- Acki `upsertWeekSlot` i `setPortion` niosą `planRevision` (bieżąca rewizja tygodnia po zapisie).
+- Acki `upsertWeekSlot` i `setPortion` NIE niosą rewizji tygodnia (patrz „Kontrakt tokenów”; `planRevision`
+  z pierwszej wersji usunięte po review).
 - Naruszenie całego tygodnia (`PLAN_REVISION_CONFLICT`, `index: -1`) nie ma `dayOfWeek`/`mealType`/`recipeId` —
   te pola `PlanViolation` są opcjonalne.
-- Cel zamiany dania (przepis, który już leży w slocie) jest oceniany jako `strict` — token dotyczy źródła, nie celu.
+- Cel zamiany dania jest `verified` tylko ze zgodnym `expectedTargetRevision`; zamiana legacy (bez tokenów)
+  ocenia go jako `strict`.

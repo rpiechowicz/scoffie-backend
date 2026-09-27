@@ -11,11 +11,11 @@ i `openapi/SOCKET-EVENTS.md` (`weeklyPlans:setPortion`).
 `weeklyPlans:getByWeek` (i każdy `plan` w odpowiedzi `applyWeekPlan`) niesie trzy rodzaje tokenów — liczby
 całkowite ≥ 0, nieprzezroczyste dla klienta (nie licz na nich, nie zwiększaj lokalnie, porównuj tylko na równość):
 
-| Pole                          | Token dla                              | Uwagi                                                                                                                  |
-| ----------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `plan.revision`               | `applyWeekPlan.data.expectedRevision`  | rośnie przy KAŻDEJ zmianie treści tygodnia (pozycje, uczestnicy, porcje, `plannedServings`); „zjedzone” go nie zmienia |
-| `items[].revision`            | `upsertWeekSlot.data.expectedRevision` | stempel pozycji; odtworzona pozycja (usunięta i dodana ponownie) ma NOWY, wyższy stempel                               |
-| `items[].portions[].revision` | `setPortion.data.expectedRevision`     | stempel porcji JEDNEJ osoby                                                                                            |
+| Pole                          | Token dla                                                                                               | Uwagi                                                                                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plan.revision`               | `applyWeekPlan.data.expectedRevision`                                                                   | rośnie przy KAŻDEJ zmianie treści tygodnia (pozycje, uczestnicy, porcje, `plannedServings`); „zjedzone” go nie zmienia; WYŁĄCZNIE z pełnego odczytu (§1.1) |
+| `items[].revision`            | `upsertWeekSlot.data.expectedRevision` (przy zamianie: źródło) i `expectedTargetRevision` (cel zamiany) | stempel pozycji; odtworzona pozycja (usunięta i dodana ponownie) ma NOWY, wyższy stempel                                                                   |
+| `items[].portions[].revision` | `setPortion.data.expectedRevision`                                                                      | stempel porcji JEDNEJ osoby                                                                                                                                |
 
 ```json
 {
@@ -41,11 +41,52 @@ całkowite ≥ 0, nieprzezroczyste dla klienta (nie licz na nich, nie zwiększaj
 }
 ```
 
-Po każdym udanym zapisie klient zastępuje lokalne tokeny tymi z odpowiedzi:
+### 1.1. Token tygodnia = kompletny snapshot
 
-- ack `upsertWeekSlot` i `setPortion` — pozycja z nowymi `revision` (pozycja i porcje) oraz `planRevision`
-  (bieżąca `plan.revision`);
-- ack `applyWeekPlan` — `plan` w całości.
+`plan.revision` opisuje DOKŁADNIE `items` z tej samej odpowiedzi. Serwer czyta tydzień w jednej migawce bazy, więc
+rewizja i pozycje pochodzą ze spójnego stanu. Token tygodnia niosą wyłącznie pełne odczyty:
+
+- `weeklyPlans:getByWeek`;
+- `plan` w acku `applyWeekPlan`.
+
+Obowiązki klienta:
+
+- `applyWeekPlan.data.expectedRevision` = `plan.revision` tego samego pełnego odczytu, z którego pochodzi wysyłany
+  stan tygodnia;
+- przed pełnym apply klient MUSI mieć kompletny stan odpowiadający temu tokenowi — nic spoza tego odczytu;
+- tokenu tygodnia nie wolno przepisywać na inną kopię tygodnia (starszą albo częściowo zaktualizowaną ackami).
+
+Serwer NIE wykryje starej treści wysłanej z nowym, poprawnym tokenem. Przykład: A trzyma tydzień z rewizji 12,
+domownik dodaje środę (13), A zmienia porcję (14). Gdyby A oznaczył swoją kopię tokenem 14, pełny apply usunąłby
+środę. Dlatego acki pozycji tokenu tygodnia NIE niosą.
+
+### 1.2. Acki pojedynczej pozycji
+
+Ack `upsertWeekSlot` i `setPortion` to pozycja z nowymi tokenami pozycji i porcji (`revision`,
+`portions[].revision`) — bez rewizji tygodnia:
+
+- klient aktualizuje tę pozycję i jej tokeny w lokalnej kopii;
+- token tygodnia kopii ZOSTAJE stary, więc pełny apply z tej kopii kończy się `PLAN_REVISION_CONFLICT`, dopóki
+  klient nie zrobi pełnego odczytu (`getByWeek`). Konflikt jest zamierzony.
+
+### 1.3. Odpowiedzi w odwrotnej kolejności
+
+Stemple pochodzą z jednego rosnącego licznika — z dwóch wersji tej samej pozycji (albo porcji) nowsza ma WYŻSZY
+stempel. Reguły:
+
+- token z acka przyjmuj tylko wtedy, gdy jest wyższy od znanego dla tej pozycji/porcji — spóźniony, starszy ack
+  nie cofa tokenu;
+- z dwóch pełnych odczytów aktualny jest ten z wyższą `plan.revision`; starszy odrzuć w całości (nie mieszaj
+  pozycji z dwóch odczytów).
+
+### 1.4. Kiedy tokeny porcji przestają pasować
+
+- Pełny zapis pozycji (`upsertWeekSlot`, `applyWeekPlan`), który ją zmienia, nadaje nowe stemple WSZYSTKIM jej
+  porcjom. Dotyczy to także zmiany samego audytorium przy tych samych wartościach, np. jawna lista wszystkich → „Wspólne”.
+- `setPortion` zmienia stempel wyłącznie porcji swojej osoby — tokeny innych osób zostają.
+- Zapis bez różnicy (NOOP) nie zmienia żadnego tokenu. Lista wszystkich obecnych domowników jest zapisywana
+  jako „Wspólne”, więc „Wspólne” → lista wszystkich to NOOP.
+- Zmiana składu domu zmienia wszystkie tokeny tygodni od bieżącego.
 
 Broadcast `weeklyPlans:weekChanged` nie niesie tokenów — po nim klient odświeża tydzień (`getByWeek`), tak jak dziś.
 Wiersze sprzed wdrożenia mają token `0` — jest ważny.
@@ -85,8 +126,7 @@ Ack:
       { "userId": "a1…", "servings": 0.8, "revision": 9 },
       { "userId": "b2…", "servings": 1.5, "revision": 13 }
     ],
-    "changeKind": "DETAILS_CHANGED",
-    "planRevision": 13
+    "changeKind": "DETAILS_CHANGED"
   }
 }
 ```
@@ -129,16 +169,47 @@ Reguły klienta:
 
 ## 4. Zamiana dania z alokacją
 
-`upsertWeekSlot` z nowym `recipeId`, `replaceRecipeId` = stare danie, jawnymi `portions` nowego dania i
-`expectedRevision` = `items[].revision` pozycji ŹRÓDŁOWEJ. Zachowanie porcji = te same wartości w `portions`.
+`upsertWeekSlot` z nowym `recipeId` i `replaceRecipeId` = stare danie. Tokeny idą PARAMI:
 
-- bez `portions` → `PLAN_PORTIONS_CONFLICT` (bez niejawnego resetu);
-- bez tokenu → `PLAN_REVISION_REQUIRED` (chyba że `portions` są identyczne z bieżącymi);
-- źródła już nie ma albo ma inny stempel → `PLAN_REVISION_CONFLICT`.
+- `expectedRevision` = `items[].revision` pozycji ŹRÓDŁOWEJ;
+- `expectedTargetRevision` = `items[].revision` pozycji CELU, czyli pozycji z nowym `recipeId`, która w odczycie
+  klienta już leży w tym slocie. `null`, gdy takiej pozycji w slocie nie ma.
+
+Zachowanie porcji = jawne `portions` nowego dania (np. te same wartości).
+
+```json
+{
+  "householdId": "…",
+  "weekStart": "2026-10-05",
+  "data": {
+    "dayOfWeek": "TUE",
+    "mealType": "DINNER",
+    "recipeId": "NOWE…",
+    "replaceRecipeId": "7d4e…",
+    "portions": [
+      { "userId": "a1…", "servings": 0.8 },
+      { "userId": "b2…", "servings": 1.25 }
+    ],
+    "expectedRevision": 11,
+    "expectedTargetRevision": null
+  }
+}
+```
+
+- bez `portions` na źródle z alokacją → `PLAN_PORTIONS_CONFLICT` (bez niejawnego resetu);
+- jeden token bez drugiego → `PLAN_REVISION_REQUIRED` 428, `details: ["missing:expectedTargetRevision"]` albo
+  `["missing:expectedRevision"]`;
+- bez obu tokenów (legacy) → zamiana jak dotąd, ale źródła z alokacją nie wolno zastąpić innymi porcjami
+  (`PLAN_REVISION_REQUIRED`);
+- `PLAN_REVISION_CONFLICT` (nic nie zmienione, źródło zostaje), gdy:
+  - źródła nie ma albo ma inny stempel;
+  - cel ma inny stempel, powstał po odczycie (przy `null`), zniknął albo został usunięty i odtworzony;
+- `expectedTargetRevision` bez `replaceRecipeId` → `VALIDATION_ERROR`.
 
 ## 5. Pełny tydzień (`applyWeekPlan`)
 
-`data.expectedRevision` = `plan.revision`. Nieaktualny token: `applied: false`,
+`data.expectedRevision` = `plan.revision` z TEGO SAMEGO pełnego odczytu, z którego pochodzą `slots` (§1.1).
+Nieaktualny token: `applied: false`,
 `violations: [{ "index": -1, "code": "PLAN_REVISION_CONFLICT", "message": "…" }]` (bez `dayOfWeek`/`mealType`/
 `recipeId`), `plan: null`, nic nie zapisane. Zgodny token pozwala zastąpić i usunąć pozycje z alokacją. Bez tokenu:
 pozycje BEZ alokacji jak dotąd (usuwane, jeśli ich nie ma w stanie docelowym), pozycje Z alokacją — naruszenie
@@ -146,16 +217,16 @@ pozycje BEZ alokacji jak dotąd (usuwane, jeśli ich nie ma w stanie docelowym),
 
 ## 6. Konflikt → odświeżenie → ponowienie
 
-| Kod (WS `code`, `status`)                                      | Znaczenie                                                                        | Co robi klient                                                                                                                                                                        |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PLAN_REVISION_CONFLICT` 409                                   | ktoś zmienił pozycję/porcję/tydzień od Twojego odczytu (albo pozycji już nie ma) | `getByWeek`; pokaż bieżący stan; ponów intencję użytkownika na NOWYM tokenie tylko, jeśli nadal ma sens (np. porcja innej wartości niż teraz) — nigdy automatycznie ze starym tokenem |
-| `PLAN_REVISION_REQUIRED` 428                                   | zapis zastąpiłby/usunąłby alokację bez tokenu                                    | błąd klienta: dołóż token z odczytu; w produkcji — `getByWeek` i ponów z tokenem                                                                                                      |
-| `PLAN_PORTIONS_CONFLICT` 409, `details` `reason:NOT_ALLOCATED` | `setPortion` na pozycji bez alokacji                                             | alokację zaczyna jawny `upsertWeekSlot` z pełnymi `portions`                                                                                                                          |
-| `PLAN_PORTIONS_CONFLICT` 409, `reason:NOT_IN_AUDIENCE`         | osoby nie ma już w alokacji (zmiana uczestników)                                 | `getByWeek`, pokaż nowe audytorium                                                                                                                                                    |
-| `PLAN_PORTIONS_CONFLICT` 409 (bez `reason`)                    | zapis bez `portions` skasowałby alokację                                         | wyślij pełne `portions`                                                                                                                                                               |
-| `PLAN_ITEM_NOT_FOUND` 404                                      | pozycji nie ma w tym tygodniu tego domu (usunięta, zamieniona — albo cudza)      | `getByWeek`                                                                                                                                                                           |
-| `PLAN_PORTIONS_INVALID` 400                                    | krok/widełki/suma > 12                                                           | komunikat z `message`; nie ponawiaj bez zmiany wartości                                                                                                                               |
-| `VALIDATION_ERROR` 400                                         | zły kształt (np. brak `expectedRevision` w `setPortion`)                         | błąd klienta                                                                                                                                                                          |
+| Kod (WS `code`, `status`)                                      | Znaczenie                                                                                          | Co robi klient                                                                                                                                                                        |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PLAN_REVISION_CONFLICT` 409                                   | ktoś zmienił pozycję/porcję/tydzień od Twojego odczytu (albo pozycji już nie ma)                   | `getByWeek`; pokaż bieżący stan; ponów intencję użytkownika na NOWYM tokenie tylko, jeśli nadal ma sens (np. porcja innej wartości niż teraz) — nigdy automatycznie ze starym tokenem |
+| `PLAN_REVISION_REQUIRED` 428                                   | zapis zastąpiłby/usunąłby alokację bez tokenu; zamiana z tokenem tylko jednej strony (`missing:…`) | błąd klienta: dołóż token(y) z odczytu; w produkcji — `getByWeek` i ponów z tokenami                                                                                                  |
+| `PLAN_PORTIONS_CONFLICT` 409, `details` `reason:NOT_ALLOCATED` | `setPortion` na pozycji bez alokacji                                                               | alokację zaczyna jawny `upsertWeekSlot` z pełnymi `portions`                                                                                                                          |
+| `PLAN_PORTIONS_CONFLICT` 409, `reason:NOT_IN_AUDIENCE`         | osoby nie ma już w alokacji (zmiana uczestników)                                                   | `getByWeek`, pokaż nowe audytorium                                                                                                                                                    |
+| `PLAN_PORTIONS_CONFLICT` 409 (bez `reason`)                    | zapis bez `portions` skasowałby alokację                                                           | wyślij pełne `portions`                                                                                                                                                               |
+| `PLAN_ITEM_NOT_FOUND` 404                                      | pozycji nie ma w tym tygodniu tego domu (usunięta, zamieniona — albo cudza)                        | `getByWeek`                                                                                                                                                                           |
+| `PLAN_PORTIONS_INVALID` 400                                    | krok/widełki/suma > 12                                                                             | komunikat z `message`; nie ponawiaj bez zmiany wartości                                                                                                                               |
+| `VALIDATION_ERROR` 400                                         | zły kształt (np. brak `expectedRevision` w `setPortion`)                                           | błąd klienta                                                                                                                                                                          |
 
 Przykłady odpowiedzi:
 
@@ -196,12 +267,16 @@ Bez klucza operacji. Klient ponawia DOKŁADNIE ten sam payload (ten sam token):
 ## 9. Warunki odblokowania edycji porcji w UI
 
 1. Backend z tym PR (i #209) wdrożony na produkcję; migracja `20260927120000_plan_revisions` zastosowana.
-2. iOS dekoduje `revision` (tydzień, pozycja, porcja) i `planRevision`, trzyma je per pozycja i podmienia po
-   każdym acku / odświeżeniu.
+2. iOS dekoduje `revision` (tydzień, pozycja, porcja) i trzyma tokeny per pozycja/porcja:
+   - z acka przyjmuje tylko wyższe (§1.3);
+   - token tygodnia bierze wyłącznie z pełnego odczytu, razem z całym stanem tygodnia (§1.1);
+   - po acku pozycji token tygodnia zostaje stary.
 3. Stepper porcji jednej osoby → wyłącznie `weeklyPlans:setPortion` (nie pełny `upsertWeekSlot`).
-4. Zmiana uczestników i zamiana dania na pozycji z alokacją → pełne `portions` + `expectedRevision` (sekcje 3–4).
+4. Zmiana uczestników → pełne `portions` + `expectedRevision`. Zamiana dania → tokeny źródła i celu
+   (`expectedTargetRevision`, `null` = celu nie ma) — sekcje 3–4.
 5. Każdy kod z tabeli w sekcji 6 obsłużony; `PLAN_REVISION_CONFLICT` kończy się odświeżeniem, nie cichym
    ponowieniem ze starym tokenem.
 6. Wykrywanie funkcji z sekcji 8 — bez `plan.revision` edycja zostaje zablokowana.
-7. iOS skompilowany i sprawdzony na macOS (testy UI/jednostkowe przepływów z sekcji 2–7) — z Windows NIE jest
-   to możliwe; do tego czasu edycja zostaje zablokowana.
+7. iOS skompilowany i sprawdzony na macOS (testy UI/jednostkowe przepływów z sekcji 1–7) — z Windows NIE jest
+   to możliwe; do tego czasu edycja zostaje zablokowana. Backend sprawdza te przepływy wyłącznie jako MODEL
+   klienta w testach e2e (R1, R1b) — to nie jest test aplikacji iOS.
