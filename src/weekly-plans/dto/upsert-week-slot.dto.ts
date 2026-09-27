@@ -68,9 +68,9 @@ export class UpsertWeekSlotDto {
   /**
    * Porcje per osoba (Etap 2.2) — zbiór osób = audytorium slotu, każda
    * porcja wielokrotnością 0,05. Podane = źródło prawdy (`plannedServings`
-   * liczy serwer). POMINIĘTE = pozycja bez alokacji: zapis ze starszego
-   * klienta albo zmiana łącznej liczby porcji stepperem wraca do równego
-   * podziału — świadomie, bo stare porcje osób nie pasowałyby już do sumy.
+   * liczy serwer); zastąpienie ISTNIEJĄCEJ alokacji wymaga `expectedRevision`.
+   * POMINIĘTE (albo `[]`) nie kasują alokacji, którą pozycja ma (ADR
+   * `plan-portions-write-safety`).
    */
   @ApiPropertyOptional({ type: [PlanPortionDto] })
   @IsOptional()
@@ -100,4 +100,17 @@ export class UpsertWeekSlotDto {
   @IsOptional()
   @IsUUID()
   replaceRecipeId?: string;
+
+  /**
+   * Token pozycji z odczytu (`items[].revision`) — przy `replaceRecipeId`
+   * pozycji ŹRÓDŁOWEJ. Niezgodny = `PLAN_REVISION_CONFLICT` (chyba że zapis
+   * nic by nie zmienił); pominięty = zapis bez weryfikacji (legacy), który
+   * nie może zastąpić ani usunąć porcji per osoba
+   * (ADR `plan-portions-safe-editing`).
+   */
+  @ApiPropertyOptional({ example: 7, minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedRevision?: number;
 }

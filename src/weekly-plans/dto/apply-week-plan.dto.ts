@@ -107,4 +107,18 @@ export class ApplyWeekPlanDto {
   @IsOptional()
   @IsBoolean()
   dryRun?: boolean;
+
+  /**
+   * Token tygodnia z odczytu (`plan.revision`). Zgodny = stan docelowy
+   * zweryfikowany (wolno zastąpić i usunąć porcje per osoba); niezgodny =
+   * `applied: false` z naruszeniem `PLAN_REVISION_CONFLICT` (`index: -1`),
+   * nic nie wchodzi. Pominięty = kontrakt legacy — pozycje bez alokacji spoza
+   * stanu są usuwane, także te, których klient nie widział
+   * (ADR `plan-portions-safe-editing`).
+   */
+  @ApiPropertyOptional({ example: 12, minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedRevision?: number;
 }
