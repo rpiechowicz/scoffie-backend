@@ -966,17 +966,17 @@ export class WeeklyPlansService {
     if (dryRun) {
       // Ta sama decyzja porcji co w zapisie, ale na odczycie bez zamka —
       // doradczo; wiążąca jest kontrola w transakcji niżej.
-      const conflicts = await this.advisoryPortionsConflicts(
+      const portions = await this.advisoryPortions(
         householdId,
         weekStartDate,
         desired,
         hooks.portionsPolicy ?? 'strict',
       );
-      if (conflicts.length > 0) {
+      if (portions.conflicts.length > 0) {
         return {
           applied: false,
           dryRun,
-          violations: conflicts,
+          violations: portions.conflicts,
           changes: { created: 0, updated: 0, deleted: 0 },
           plan: null,
         };
@@ -985,6 +985,7 @@ export class WeeklyPlansService {
         householdId,
         weekStartDate,
         desired,
+        portions.keep,
       );
       return { applied: false, dryRun, violations: [], changes, plan: null };
     }
@@ -1495,15 +1496,15 @@ export class WeeklyPlansService {
       portions: normalizedPortions(slot.portions),
     }));
     // Karta nie może obiecać zapisu, który odbije się o porcje per osoba.
-    const portionConflicts = await this.advisoryPortionsConflicts(
+    const portions = await this.advisoryPortions(
       householdId,
       weekStartDate,
       desired,
       'strict',
     );
-    if (portionConflicts.length > 0) {
+    if (portions.conflicts.length > 0) {
       return {
-        violations: portionConflicts,
+        violations: portions.conflicts,
         changes: { created: 0, updated: 0, deleted: 0 },
         slots: null,
         removed: null,
@@ -1513,6 +1514,7 @@ export class WeeklyPlansService {
       householdId,
       weekStartDate,
       desired,
+      portions.keep,
     );
 
     // Opis pozycji bierzemy osobnym odczytem: `loadPlannableRecipes` celowo
@@ -1548,6 +1550,14 @@ export class WeeklyPlansService {
     const slots: WeekPlanPreviewSlot[] = desired.map((slot) => {
       const detail = detailsById.get(slot.recipeId);
       const servings = Math.max(1, detail?.servings ?? 1);
+      // Stan EFEKTYWNY: pozycja z decyzją KEEP zostanie przy zapisie
+      // nietknięta, więc karta pokazuje jej zachowaną alokację, a nie równy
+      // podział z pustego pola żądania. Akcja propozycji porcji nie dostaje —
+      // wiążąca decyzja zapada przy zapisie, pod zamkiem.
+      const kept = portions.keep.has(slot.key)
+        ? portions.currentByKey.get(slot.key)
+        : undefined;
+      const slotPortions = kept ? toPortionViews(kept.portions) : slot.portions;
       return {
         dayOfWeek: slot.dayOfWeek,
         mealType: slot.mealType,
@@ -1557,8 +1567,8 @@ export class WeeklyPlansService {
         prepTimeMinutes: detail?.prepTimeMinutes ?? 0,
         imageUrl: detail?.imageUrl?.trim() ? detail.imageUrl : null,
         participantIds: slot.participantIds,
-        ...withPortions(slot.portions),
-        ...(slot.portions.length === 0
+        ...withPortions(slotPortions),
+        ...(slotPortions.length === 0
           ? {
               servingsPerPerson: servingsPerPerson(
                 {
@@ -1715,13 +1725,17 @@ export class WeeklyPlansService {
     return { conflicts, keep };
   }
 
-  /** `portionsDecisions` na odczycie bez zamka — podgląd i `dryRun`. */
-  private async advisoryPortionsConflicts(
+  /**
+   * `portionsDecisions` na odczycie bez zamka — podgląd i `dryRun` (doradczo;
+   * wiążąca decyzja zapada w transakcji zapisu). Oddaje też pozycje, żeby
+   * podgląd pokazał stan efektywny pozycji KEEP.
+   */
+  private async advisoryPortions(
     householdId: string,
     weekStartDate: Date,
     desired: Parameters<WeeklyPlansService['portionsDecisions']>[0],
     policy: PortionsWritePolicy,
-  ): Promise<PlanViolation[]> {
+  ) {
     const items = await this.prisma.planItem.findMany({
       where: { weeklyPlan: { householdId, weekStart: weekStartDate } },
       select: {
@@ -1736,10 +1750,17 @@ export class WeeklyPlansService {
     const currentByKey = new Map(
       items.map((item) => [planSlotKey(item), item]),
     );
-    return this.portionsDecisions(desired, currentByKey, policy).conflicts;
+    return {
+      ...this.portionsDecisions(desired, currentByKey, policy),
+      currentByKey,
+    };
   }
 
-  /** Ile by się zmieniło, gdyby zapisać — bez zapisywania (`dryRun`). */
+  /**
+   * Ile by się zmieniło, gdyby zapisać — bez zapisywania (`dryRun`).
+   * `keep` = pozycje, które zapis zostawi nietknięte (decyzja porcji KEEP) —
+   * nie liczą się jako zmiana, tak jak w zapisie.
+   */
   private async previewWeekPlanChanges(
     householdId: string,
     weekStartDate: Date,
@@ -1749,6 +1770,7 @@ export class WeeklyPlansService {
       plannedServings?: number;
       portions: PortionView[];
     }[],
+    keep: ReadonlySet<string>,
   ): Promise<{ created: number; updated: number; deleted: number }> {
     const plan = await this.prisma.weeklyPlan.findUnique({
       where: {
@@ -1786,6 +1808,7 @@ export class WeeklyPlansService {
         created += 1;
         continue;
       }
+      if (keep.has(slot.key)) continue;
       const currentParticipantIds = existing.participants.map((p) => p.userId);
       const participantsChanged = !sameIdSet(
         currentParticipantIds,
