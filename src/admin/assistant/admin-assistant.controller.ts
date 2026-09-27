@@ -18,27 +18,42 @@ import {
 } from '../admin.decorators';
 import { adminActor } from '../audit/admin-audit.service';
 import type { ResolvedAdminSession } from '../auth/admin-sessions.service';
-import type { AgentReport, ProfitData } from '../contract';
-import { ProfitQueryDto, ReportStatusDto } from './admin-assistant.dto';
+import type { AgentFeedbackData, AgentReport, ProfitData } from '../contract';
+import {
+  FeedbackQueryDto,
+  ProfitQueryDto,
+  ReportStatusDto,
+} from './admin-assistant.dto';
+import { AdminFeedbackService } from './admin-feedback.service';
 import { AdminProfitService } from './admin-profit.service';
 import { AdminReportsService } from './admin-reports.service';
 import type { ReportScenarioResult } from './report-scenario';
 
 /**
- * Asystent w panelu: rentowność (ROADMAPA §5.4) i zgłoszenia odpowiedzi
- * (§5.5). Odczyty — `assistant.read`; decyzje o zgłoszeniach — `reports.write`.
+ * Asystent w panelu: rentowność (ROADMAPA §5.4), zgłoszenia odpowiedzi
+ * (§5.5) i oceny odpowiedzi (kciuki z podpowiedziami, 27.09.2026). Odczyty — `assistant.read`; decyzje o zgłoszeniach — `reports.write`.
  */
 @AdminController('assistant')
 export class AdminAssistantController {
   constructor(
     private readonly profitService: AdminProfitService,
     private readonly reports: AdminReportsService,
+    private readonly feedback: AdminFeedbackService,
   ) {}
 
   @Get('profit')
   @AdminRequires('assistant.read')
   profit(@Query() query: ProfitQueryDto): Promise<ProfitData> {
     return this.profitService.profit(query.period ?? '30');
+  }
+
+  /** Oceny odpowiedzi (kciuki i podpowiedzi) — osobny dział od zgłoszeń. */
+  @Get('feedback')
+  @AdminRequires('assistant.read')
+  feedbackOverview(
+    @Query() query: FeedbackQueryDto,
+  ): Promise<AgentFeedbackData> {
+    return this.feedback.overview(query.period ?? '30');
   }
 
   @Get('reports')

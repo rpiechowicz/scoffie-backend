@@ -1285,10 +1285,19 @@ export class AgentTurnRunner implements BeforeApplicationShutdown {
       };
     }
     if (error instanceof AgentProviderError) {
+      // Zwrot także przy błędzie NIE-ponawialnym (27.09.2026). Od 12.09 o zwrocie
+      // decyduje koszt (`refundIfFree`: tylko tura za 0 zł), a wyjątek
+      // „nie-retryable = bez zwrotu" z Fazy 0 zabierał wiadomość za błędy
+      // wyłącznie po NASZEJ stronie: nieważny klucz API (401), zły model
+      // (404), zapytanie odrzucone przez API (400) — tura padała na pierwszym
+      // wywołaniu, nic nie kosztowała, a „Spróbuj ponownie" zjadało kolejną
+      // wiadomość z puli. Odmowa modelu po wydanych tokenach nadal nie wraca:
+      // pilnuje tego koszt, nie rodzaj błędu. Bezpiecznik dalej liczy tylko
+      // błędy ponawialne (429, 5xx, sieć).
       return {
         errorCode: 'AI_PROVIDER_ERROR',
         outcome: 'failed',
-        refund: error.retryable,
+        refund: true,
         countsToBreaker: error.retryable,
       };
     }

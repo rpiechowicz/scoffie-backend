@@ -661,6 +661,50 @@
         "tags": ["agent"]
       }
     },
+    "/agent/messages/{id}/feedback": {
+      "put": {
+        "operationId": "agentRateMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RateMessageDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRateMessageResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Błąd: `{code, message, details?, requestId}`",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "Kciuk pod odpowiedzią — `{ rating: 'UP' | 'DOWN' | null }`, `null`\nzdejmuje ocenę. PUT, bo to stan, nie zdarzenie: powtórzone żądanie\nzostawia to samo. Bez `assertEnabled`, jak zgłoszenie.",
+        "tags": ["agent"]
+      }
+    },
     "/agent/conversations": {
       "post": {
         "operationId": "agentCreateConversation",
@@ -2707,6 +2751,74 @@
                 "description": "„Uwzględniłem: …\" — z czym asystent policzył tę odpowiedź (tydzień,\ndla kogo, cel). Tylko przy odpowiedziach asystenta; brak = nie zapisano.",
                 "type": "array",
                 "items": { "type": "string" }
+              },
+              "thinking": {
+                "description": "„Myślałem 42 s\" — ile czekał użytkownik (`finishedAt − startedAt` tury,\nta sama liczba, którą telefon liczył na żywo) i co asystent po drodze\nzrobił. Tylko przy OSTATNIEJ odpowiedzi zakończonej tury — pod nią telefon\nrysuje ten wiersz. Bez tego pola rozmowa otwarta z historii gubiła czas\ni kroki, choć tura ma je zapisane (27.09.2026).",
+                "type": "object",
+                "properties": {
+                  "durationMs": { "type": "number", "nullable": true },
+                  "steps": {
+                    "description": "Kroki bez przejściowych („Piszę odpowiedź\") — `settledProgress`.",
+                    "type": "array",
+                    "items": {
+                      "description": "Postęp tury — to, co telefon pokazuje przez te trzydzieści sekund.\n\nTura trwa 25–60 s, a klient odpytuje `GET /agent/turns/:id` co sekundę.\nKolumna `AgentTurn.progress` istniała od Fazy 0 i przez cały ten czas\nwracała pusta: kontrakt obiecywał kroki, klient dostawał `[]` i mógł\npokazać wyłącznie kręciołek. Tu powstają wpisy, które ten kontrakt wypełniają.\n\nEtykieta jest gotowym zdaniem PO POLSKU, a nie kodem do przetłumaczenia na\nkliencie — tak samo jak komunikaty błędów z serwera. Klient, który chce\nwłasnej ikony albo własnego tekstu, ma `tool`; klient, który nie chce nic\nmapować, ma `label` i działa od pierwszego dnia.",
+                      "type": "object",
+                      "properties": {
+                        "tool": {
+                          "description": "Nazwa narzędzia (`apply_week_plan`) — dla klienta z własną mapą.",
+                          "type": "string"
+                        },
+                        "label": {
+                          "description": "Gotowe zdanie do pokazania użytkownikowi.",
+                          "type": "string"
+                        },
+                        "at": {
+                          "description": "Kiedy krok się zaczął (ISO 8601, UTC).",
+                          "type": "string"
+                        },
+                        "writes": {
+                          "description": "Czy ten krok ZMIENIA dane gospodarstwa.\n\nKlient po tym poznaje, że po turze jest co oglądać — plan tygodnia albo\nprzepis — i może pokazać skrót „otwórz plan\" zamiast kazać użytkownikowi\nczytać w odpowiedzi, co się właśnie stało. Sama nazwa narzędzia nie\nwystarczy: `apply_week_plan` biegnie w każdej turze najpierw jako próba\n(`dry_run`), która niczego nie zapisuje.",
+                          "type": "boolean"
+                        },
+                        "phase": {
+                          "description": "`PLANNING` = od tego kroku turę prowadzi dokładniejszy model\n(`start_planning`, patrz `AI_MODEL_TOOLS`). Klient rysuje ten krok jako\nosobny moment z licznikiem sekund, nie jako kolejną linijkę — projekt v2.\nBrak pola = zwykły krok.",
+                          "enum": ["PLANNING"],
+                          "type": "string"
+                        },
+                        "transient": {
+                          "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
+                          "enum": [true],
+                          "type": "boolean"
+                        }
+                      },
+                      "required": ["at", "label", "tool", "writes"]
+                    }
+                  }
+                },
+                "required": ["durationMs", "steps"]
+              },
+              "feedback": {
+                "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
+                "enum": ["DOWN", "UP"],
+                "type": "string"
+              },
+              "feedbackNote": {
+                "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                "type": "object",
+                "properties": {
+                  "tags": { "type": "array", "items": { "type": "string" } },
+                  "comment": { "type": "string", "nullable": true }
+                },
+                "required": ["comment", "tags"]
+              },
+              "report": {
+                "description": "WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je\ndo poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.",
+                "type": "object",
+                "properties": {
+                  "reason": { "type": "string" },
+                  "comment": { "type": "string", "nullable": true }
+                },
+                "required": ["comment", "reason"]
               }
             },
             "required": [
@@ -4109,6 +4221,74 @@
                   "description": "„Uwzględniłem: …\" — z czym asystent policzył tę odpowiedź (tydzień,\ndla kogo, cel). Tylko przy odpowiedziach asystenta; brak = nie zapisano.",
                   "type": "array",
                   "items": { "type": "string" }
+                },
+                "thinking": {
+                  "description": "„Myślałem 42 s\" — ile czekał użytkownik (`finishedAt − startedAt` tury,\nta sama liczba, którą telefon liczył na żywo) i co asystent po drodze\nzrobił. Tylko przy OSTATNIEJ odpowiedzi zakończonej tury — pod nią telefon\nrysuje ten wiersz. Bez tego pola rozmowa otwarta z historii gubiła czas\ni kroki, choć tura ma je zapisane (27.09.2026).",
+                  "type": "object",
+                  "properties": {
+                    "durationMs": { "type": "number", "nullable": true },
+                    "steps": {
+                      "description": "Kroki bez przejściowych („Piszę odpowiedź\") — `settledProgress`.",
+                      "type": "array",
+                      "items": {
+                        "description": "Postęp tury — to, co telefon pokazuje przez te trzydzieści sekund.\n\nTura trwa 25–60 s, a klient odpytuje `GET /agent/turns/:id` co sekundę.\nKolumna `AgentTurn.progress` istniała od Fazy 0 i przez cały ten czas\nwracała pusta: kontrakt obiecywał kroki, klient dostawał `[]` i mógł\npokazać wyłącznie kręciołek. Tu powstają wpisy, które ten kontrakt wypełniają.\n\nEtykieta jest gotowym zdaniem PO POLSKU, a nie kodem do przetłumaczenia na\nkliencie — tak samo jak komunikaty błędów z serwera. Klient, który chce\nwłasnej ikony albo własnego tekstu, ma `tool`; klient, który nie chce nic\nmapować, ma `label` i działa od pierwszego dnia.",
+                        "type": "object",
+                        "properties": {
+                          "tool": {
+                            "description": "Nazwa narzędzia (`apply_week_plan`) — dla klienta z własną mapą.",
+                            "type": "string"
+                          },
+                          "label": {
+                            "description": "Gotowe zdanie do pokazania użytkownikowi.",
+                            "type": "string"
+                          },
+                          "at": {
+                            "description": "Kiedy krok się zaczął (ISO 8601, UTC).",
+                            "type": "string"
+                          },
+                          "writes": {
+                            "description": "Czy ten krok ZMIENIA dane gospodarstwa.\n\nKlient po tym poznaje, że po turze jest co oglądać — plan tygodnia albo\nprzepis — i może pokazać skrót „otwórz plan\" zamiast kazać użytkownikowi\nczytać w odpowiedzi, co się właśnie stało. Sama nazwa narzędzia nie\nwystarczy: `apply_week_plan` biegnie w każdej turze najpierw jako próba\n(`dry_run`), która niczego nie zapisuje.",
+                            "type": "boolean"
+                          },
+                          "phase": {
+                            "description": "`PLANNING` = od tego kroku turę prowadzi dokładniejszy model\n(`start_planning`, patrz `AI_MODEL_TOOLS`). Klient rysuje ten krok jako\nosobny moment z licznikiem sekund, nie jako kolejną linijkę — projekt v2.\nBrak pola = zwykły krok.",
+                            "enum": ["PLANNING"],
+                            "type": "string"
+                          },
+                          "transient": {
+                            "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
+                            "enum": [true],
+                            "type": "boolean"
+                          }
+                        },
+                        "required": ["at", "label", "tool", "writes"]
+                      }
+                    }
+                  },
+                  "required": ["durationMs", "steps"]
+                },
+                "feedback": {
+                  "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
+                  "enum": ["DOWN", "UP"],
+                  "type": "string"
+                },
+                "feedbackNote": {
+                  "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                  "type": "object",
+                  "properties": {
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "comment": { "type": "string", "nullable": true }
+                  },
+                  "required": ["comment", "tags"]
+                },
+                "report": {
+                  "description": "WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je\ndo poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.",
+                  "type": "object",
+                  "properties": {
+                    "reason": { "type": "string" },
+                    "comment": { "type": "string", "nullable": true }
+                  },
+                  "required": ["comment", "reason"]
                 }
               },
               "required": [
@@ -5604,6 +5784,74 @@
                   "description": "„Uwzględniłem: …\" — z czym asystent policzył tę odpowiedź (tydzień,\ndla kogo, cel). Tylko przy odpowiedziach asystenta; brak = nie zapisano.",
                   "type": "array",
                   "items": { "type": "string" }
+                },
+                "thinking": {
+                  "description": "„Myślałem 42 s\" — ile czekał użytkownik (`finishedAt − startedAt` tury,\nta sama liczba, którą telefon liczył na żywo) i co asystent po drodze\nzrobił. Tylko przy OSTATNIEJ odpowiedzi zakończonej tury — pod nią telefon\nrysuje ten wiersz. Bez tego pola rozmowa otwarta z historii gubiła czas\ni kroki, choć tura ma je zapisane (27.09.2026).",
+                  "type": "object",
+                  "properties": {
+                    "durationMs": { "type": "number", "nullable": true },
+                    "steps": {
+                      "description": "Kroki bez przejściowych („Piszę odpowiedź\") — `settledProgress`.",
+                      "type": "array",
+                      "items": {
+                        "description": "Postęp tury — to, co telefon pokazuje przez te trzydzieści sekund.\n\nTura trwa 25–60 s, a klient odpytuje `GET /agent/turns/:id` co sekundę.\nKolumna `AgentTurn.progress` istniała od Fazy 0 i przez cały ten czas\nwracała pusta: kontrakt obiecywał kroki, klient dostawał `[]` i mógł\npokazać wyłącznie kręciołek. Tu powstają wpisy, które ten kontrakt wypełniają.\n\nEtykieta jest gotowym zdaniem PO POLSKU, a nie kodem do przetłumaczenia na\nkliencie — tak samo jak komunikaty błędów z serwera. Klient, który chce\nwłasnej ikony albo własnego tekstu, ma `tool`; klient, który nie chce nic\nmapować, ma `label` i działa od pierwszego dnia.",
+                        "type": "object",
+                        "properties": {
+                          "tool": {
+                            "description": "Nazwa narzędzia (`apply_week_plan`) — dla klienta z własną mapą.",
+                            "type": "string"
+                          },
+                          "label": {
+                            "description": "Gotowe zdanie do pokazania użytkownikowi.",
+                            "type": "string"
+                          },
+                          "at": {
+                            "description": "Kiedy krok się zaczął (ISO 8601, UTC).",
+                            "type": "string"
+                          },
+                          "writes": {
+                            "description": "Czy ten krok ZMIENIA dane gospodarstwa.\n\nKlient po tym poznaje, że po turze jest co oglądać — plan tygodnia albo\nprzepis — i może pokazać skrót „otwórz plan\" zamiast kazać użytkownikowi\nczytać w odpowiedzi, co się właśnie stało. Sama nazwa narzędzia nie\nwystarczy: `apply_week_plan` biegnie w każdej turze najpierw jako próba\n(`dry_run`), która niczego nie zapisuje.",
+                            "type": "boolean"
+                          },
+                          "phase": {
+                            "description": "`PLANNING` = od tego kroku turę prowadzi dokładniejszy model\n(`start_planning`, patrz `AI_MODEL_TOOLS`). Klient rysuje ten krok jako\nosobny moment z licznikiem sekund, nie jako kolejną linijkę — projekt v2.\nBrak pola = zwykły krok.",
+                            "enum": ["PLANNING"],
+                            "type": "string"
+                          },
+                          "transient": {
+                            "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
+                            "enum": [true],
+                            "type": "boolean"
+                          }
+                        },
+                        "required": ["at", "label", "tool", "writes"]
+                      }
+                    }
+                  },
+                  "required": ["durationMs", "steps"]
+                },
+                "feedback": {
+                  "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
+                  "enum": ["DOWN", "UP"],
+                  "type": "string"
+                },
+                "feedbackNote": {
+                  "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                  "type": "object",
+                  "properties": {
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "comment": { "type": "string", "nullable": true }
+                  },
+                  "required": ["comment", "tags"]
+                },
+                "report": {
+                  "description": "WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je\ndo poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.",
+                  "type": "object",
+                  "properties": {
+                    "reason": { "type": "string" },
+                    "comment": { "type": "string", "nullable": true }
+                  },
+                  "required": ["comment", "reason"]
                 }
               },
               "required": [
@@ -7016,6 +7264,74 @@
                   "description": "„Uwzględniłem: …\" — z czym asystent policzył tę odpowiedź (tydzień,\ndla kogo, cel). Tylko przy odpowiedziach asystenta; brak = nie zapisano.",
                   "type": "array",
                   "items": { "type": "string" }
+                },
+                "thinking": {
+                  "description": "„Myślałem 42 s\" — ile czekał użytkownik (`finishedAt − startedAt` tury,\nta sama liczba, którą telefon liczył na żywo) i co asystent po drodze\nzrobił. Tylko przy OSTATNIEJ odpowiedzi zakończonej tury — pod nią telefon\nrysuje ten wiersz. Bez tego pola rozmowa otwarta z historii gubiła czas\ni kroki, choć tura ma je zapisane (27.09.2026).",
+                  "type": "object",
+                  "properties": {
+                    "durationMs": { "type": "number", "nullable": true },
+                    "steps": {
+                      "description": "Kroki bez przejściowych („Piszę odpowiedź\") — `settledProgress`.",
+                      "type": "array",
+                      "items": {
+                        "description": "Postęp tury — to, co telefon pokazuje przez te trzydzieści sekund.\n\nTura trwa 25–60 s, a klient odpytuje `GET /agent/turns/:id` co sekundę.\nKolumna `AgentTurn.progress` istniała od Fazy 0 i przez cały ten czas\nwracała pusta: kontrakt obiecywał kroki, klient dostawał `[]` i mógł\npokazać wyłącznie kręciołek. Tu powstają wpisy, które ten kontrakt wypełniają.\n\nEtykieta jest gotowym zdaniem PO POLSKU, a nie kodem do przetłumaczenia na\nkliencie — tak samo jak komunikaty błędów z serwera. Klient, który chce\nwłasnej ikony albo własnego tekstu, ma `tool`; klient, który nie chce nic\nmapować, ma `label` i działa od pierwszego dnia.",
+                        "type": "object",
+                        "properties": {
+                          "tool": {
+                            "description": "Nazwa narzędzia (`apply_week_plan`) — dla klienta z własną mapą.",
+                            "type": "string"
+                          },
+                          "label": {
+                            "description": "Gotowe zdanie do pokazania użytkownikowi.",
+                            "type": "string"
+                          },
+                          "at": {
+                            "description": "Kiedy krok się zaczął (ISO 8601, UTC).",
+                            "type": "string"
+                          },
+                          "writes": {
+                            "description": "Czy ten krok ZMIENIA dane gospodarstwa.\n\nKlient po tym poznaje, że po turze jest co oglądać — plan tygodnia albo\nprzepis — i może pokazać skrót „otwórz plan\" zamiast kazać użytkownikowi\nczytać w odpowiedzi, co się właśnie stało. Sama nazwa narzędzia nie\nwystarczy: `apply_week_plan` biegnie w każdej turze najpierw jako próba\n(`dry_run`), która niczego nie zapisuje.",
+                            "type": "boolean"
+                          },
+                          "phase": {
+                            "description": "`PLANNING` = od tego kroku turę prowadzi dokładniejszy model\n(`start_planning`, patrz `AI_MODEL_TOOLS`). Klient rysuje ten krok jako\nosobny moment z licznikiem sekund, nie jako kolejną linijkę — projekt v2.\nBrak pola = zwykły krok.",
+                            "enum": ["PLANNING"],
+                            "type": "string"
+                          },
+                          "transient": {
+                            "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
+                            "enum": [true],
+                            "type": "boolean"
+                          }
+                        },
+                        "required": ["at", "label", "tool", "writes"]
+                      }
+                    }
+                  },
+                  "required": ["durationMs", "steps"]
+                },
+                "feedback": {
+                  "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
+                  "enum": ["DOWN", "UP"],
+                  "type": "string"
+                },
+                "feedbackNote": {
+                  "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                  "type": "object",
+                  "properties": {
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "comment": { "type": "string", "nullable": true }
+                  },
+                  "required": ["comment", "tags"]
+                },
+                "report": {
+                  "description": "WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je\ndo poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.",
+                  "type": "object",
+                  "properties": {
+                    "reason": { "type": "string" },
+                    "comment": { "type": "string", "nullable": true }
+                  },
+                  "required": ["comment", "reason"]
                 }
               },
               "required": [
@@ -7042,13 +7358,45 @@
         },
         "required": ["messageId", "requestId", "status", "turnId"]
       },
+      "AgentRateMessageResponse": {
+        "type": "object",
+        "properties": {
+          "messageId": { "type": "string" },
+          "rating": {
+            "enum": ["DOWN", "UP"],
+            "type": "string",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "BAD_DISHES",
+                "NOT_WHAT_I_ASKED",
+                "OTHER",
+                "TOO_LONG",
+                "TOO_SLOW"
+              ],
+              "type": "string"
+            }
+          },
+          "comment": { "type": "string", "nullable": true }
+        },
+        "required": ["comment", "messageId", "rating", "tags"]
+      },
       "AgentReportMessageResponse": {
         "type": "object",
         "properties": {
           "id": { "type": "string" },
-          "createdAt": { "type": "string" }
+          "createdAt": { "type": "string" },
+          "reason": { "type": "string" },
+          "comment": { "type": "string", "nullable": true },
+          "updated": {
+            "description": "`true` = poprawione istniejące zgłoszenie, nie nowe.",
+            "type": "boolean"
+          }
         },
-        "required": ["createdAt", "id"]
+        "required": ["comment", "createdAt", "id", "reason", "updated"]
       },
       "AgentUndoProposalResponse": {
         "type": "object",
@@ -8370,6 +8718,74 @@
                 "description": "„Uwzględniłem: …\" — z czym asystent policzył tę odpowiedź (tydzień,\ndla kogo, cel). Tylko przy odpowiedziach asystenta; brak = nie zapisano.",
                 "type": "array",
                 "items": { "type": "string" }
+              },
+              "thinking": {
+                "description": "„Myślałem 42 s\" — ile czekał użytkownik (`finishedAt − startedAt` tury,\nta sama liczba, którą telefon liczył na żywo) i co asystent po drodze\nzrobił. Tylko przy OSTATNIEJ odpowiedzi zakończonej tury — pod nią telefon\nrysuje ten wiersz. Bez tego pola rozmowa otwarta z historii gubiła czas\ni kroki, choć tura ma je zapisane (27.09.2026).",
+                "type": "object",
+                "properties": {
+                  "durationMs": { "type": "number", "nullable": true },
+                  "steps": {
+                    "description": "Kroki bez przejściowych („Piszę odpowiedź\") — `settledProgress`.",
+                    "type": "array",
+                    "items": {
+                      "description": "Postęp tury — to, co telefon pokazuje przez te trzydzieści sekund.\n\nTura trwa 25–60 s, a klient odpytuje `GET /agent/turns/:id` co sekundę.\nKolumna `AgentTurn.progress` istniała od Fazy 0 i przez cały ten czas\nwracała pusta: kontrakt obiecywał kroki, klient dostawał `[]` i mógł\npokazać wyłącznie kręciołek. Tu powstają wpisy, które ten kontrakt wypełniają.\n\nEtykieta jest gotowym zdaniem PO POLSKU, a nie kodem do przetłumaczenia na\nkliencie — tak samo jak komunikaty błędów z serwera. Klient, który chce\nwłasnej ikony albo własnego tekstu, ma `tool`; klient, który nie chce nic\nmapować, ma `label` i działa od pierwszego dnia.",
+                      "type": "object",
+                      "properties": {
+                        "tool": {
+                          "description": "Nazwa narzędzia (`apply_week_plan`) — dla klienta z własną mapą.",
+                          "type": "string"
+                        },
+                        "label": {
+                          "description": "Gotowe zdanie do pokazania użytkownikowi.",
+                          "type": "string"
+                        },
+                        "at": {
+                          "description": "Kiedy krok się zaczął (ISO 8601, UTC).",
+                          "type": "string"
+                        },
+                        "writes": {
+                          "description": "Czy ten krok ZMIENIA dane gospodarstwa.\n\nKlient po tym poznaje, że po turze jest co oglądać — plan tygodnia albo\nprzepis — i może pokazać skrót „otwórz plan\" zamiast kazać użytkownikowi\nczytać w odpowiedzi, co się właśnie stało. Sama nazwa narzędzia nie\nwystarczy: `apply_week_plan` biegnie w każdej turze najpierw jako próba\n(`dry_run`), która niczego nie zapisuje.",
+                          "type": "boolean"
+                        },
+                        "phase": {
+                          "description": "`PLANNING` = od tego kroku turę prowadzi dokładniejszy model\n(`start_planning`, patrz `AI_MODEL_TOOLS`). Klient rysuje ten krok jako\nosobny moment z licznikiem sekund, nie jako kolejną linijkę — projekt v2.\nBrak pola = zwykły krok.",
+                          "enum": ["PLANNING"],
+                          "type": "string"
+                        },
+                        "transient": {
+                          "description": "Krok PRZEJŚCIOWY: mówi, co dzieje się TERAZ, ale nie jest etapem, który\nwarto pamiętać po turze. Dziś jedyny taki to `think` — model czyta wyniki\nnarzędzi i decyduje, co dalej (albo już pisze odpowiedź). Klient pokazuje\ngo w wierszu na żywo, a pomija w zwiniętym podsumowaniu „Myślałem 42 s\"\n— bez tego lista kroków po turze byłaby przeplatana tym samym zdaniem\nco drugi wiersz. Brak pola = zwykły krok.",
+                          "enum": [true],
+                          "type": "boolean"
+                        }
+                      },
+                      "required": ["at", "label", "tool", "writes"]
+                    }
+                  }
+                },
+                "required": ["durationMs", "steps"]
+              },
+              "feedback": {
+                "description": "Ocena tej odpowiedzi przez pytającego (kciuk); brak = nie oceniał.",
+                "enum": ["DOWN", "UP"],
+                "type": "string"
+              },
+              "feedbackNote": {
+                "description": "Podpowiedź do kciuka w dół (powody + zdanie) — telefon otwiera ją do\npoprawienia. Brak = kciuk bez podpowiedzi (albo w górę).",
+                "type": "object",
+                "properties": {
+                  "tags": { "type": "array", "items": { "type": "string" } },
+                  "comment": { "type": "string", "nullable": true }
+                },
+                "required": ["comment", "tags"]
+              },
+              "report": {
+                "description": "WŁASNE zgłoszenie tej odpowiedzi — jedno na osobę; telefon pokazuje je\ndo poprawienia zamiast drugiego „Zgłoś”. Brak = nie zgłaszał.",
+                "type": "object",
+                "properties": {
+                  "reason": { "type": "string" },
+                  "comment": { "type": "string", "nullable": true }
+                },
+                "required": ["comment", "reason"]
               }
             },
             "required": [
@@ -10266,6 +10682,33 @@
           "clientToday",
           "timeZone"
         ]
+      },
+      "RateMessageDto": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "nullable": true,
+            "description": "`null` zdejmuje ocenę (drugie stuknięcie w ten sam kciuk). Pole musi\npaść jawnie — brak pola to błąd, nie „zdejmij\", żeby literówka po\nstronie klienta nie kasowała ocen po cichu.",
+            "enum": ["UP", "DOWN"],
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "description": "Podpowiedź przy `DOWN`. Brak pola = podpowiedź bez zmian (sam kciuk nie\nkasuje tego, co ktoś napisał wcześniej); pusta lista = bez powodów.\nPrzy `UP` i `null` pomijane.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "TOO_LONG",
+                "NOT_WHAT_I_ASKED",
+                "BAD_DISHES",
+                "TOO_SLOW",
+                "OTHER"
+              ]
+            }
+          },
+          "comment": { "type": "object", "nullable": true, "maxLength": 1000 }
+        },
+        "required": ["rating"]
       },
       "RecipeListItem": {
         "description": "Wiersz listy przepisów dla klienta — bez `sourceMeta`, bez ulubionych.",

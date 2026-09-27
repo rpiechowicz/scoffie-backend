@@ -1,5 +1,6 @@
 import { IsIn, IsOptional } from 'class-validator';
-import type { ProfitPeriod, ReportStatus } from '../contract';
+import type { FeedbackPeriod, ProfitPeriod, ReportStatus } from '../contract';
+import { FEEDBACK_PERIODS } from './admin-feedback.service';
 import { PROFIT_PERIODS } from './profit-math';
 import { REPORT_STATUSES } from './report-view';
 
@@ -8,6 +9,13 @@ export class ProfitQueryDto {
   @IsOptional()
   @IsIn(PROFIT_PERIODS)
   period?: ProfitPeriod;
+}
+
+/** `GET /admin/assistant/feedback?period=7|30|90` — bez parametru 30 dni. */
+export class FeedbackQueryDto {
+  @IsOptional()
+  @IsIn(FEEDBACK_PERIODS)
+  period?: FeedbackPeriod;
 }
 
 /**

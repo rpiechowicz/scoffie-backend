@@ -1,5 +1,6 @@
 import { DayOfWeek, MealType } from '@prisma/client';
 import { AiCardsMode } from '../../config/agent-env';
+import { MEAL_TYPES_IN_DAY_ORDER } from '../../common/meal-types';
 
 /**
  * Karty asystenta — kontrakt z TELEFONEM.
@@ -600,6 +601,33 @@ export const MEAL_LABELS: Record<MealType, string> = {
   SNACK: 'Przekąska',
 };
 
+/**
+ * „Obiad i kolacja”, „Śniadanie, II śniadanie i obiad” — pory w porządku
+ * dnia, od wielkiej litery; `null`, gdy nie ma żadnej.
+ *
+ * Wewnątrz zdania pora idzie małą literą, ale skrót „II” zostaje — samo
+ * `toLowerCase()` dawało „ii śniadanie”.
+ */
+export function mealListLabel(mealTypes: Iterable<MealType>): string | null {
+  const present = new Set(mealTypes);
+  const labels = MEAL_TYPES_IN_DAY_ORDER.filter((meal) =>
+    present.has(meal),
+  ).map((meal) => inSentence(MEAL_LABELS[meal]));
+  if (labels.length === 0) return null;
+
+  const head = labels.slice(0, -1).join(', ');
+  const tail = labels[labels.length - 1];
+  const list = head ? `${head} i ${tail}` : tail;
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)}`;
+}
+
+function inSentence(label: string): string {
+  const second = label.charAt(1);
+  return second && second === second.toUpperCase()
+    ? label
+    : `${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+}
+
 /** Nazwa dnia w mianowniku — „Poniedziałek”, nie „na poniedziałek”. */
 export const DAY_LABELS: Record<DayOfWeek, string> = {
   MON: 'Poniedziałek',
@@ -610,6 +638,65 @@ export const DAY_LABELS: Record<DayOfWeek, string> = {
   SAT: 'Sobota',
   SUN: 'Niedziela',
 };
+
+/**
+ * Nazwa dnia w bierniku — „Zapisz środę”, „Zapisz niedzielę”, nie
+ * „Zapisz niedziela” (przycisk karty dnia do 27.09.2026 brał mianownik).
+ * Przycisk mówi zdaniem, a nie hasłem.
+ */
+export const DAY_ACCUSATIVE_LABELS: Record<DayOfWeek, string> = {
+  MON: 'poniedziałek',
+  TUE: 'wtorek',
+  WED: 'środę',
+  THU: 'czwartek',
+  FRI: 'piątek',
+  SAT: 'sobotę',
+  SUN: 'niedzielę',
+};
+
+const NOMINATIVE_TO_ACCUSATIVE: Record<string, string> = {
+  środa: 'środę',
+  sobota: 'sobotę',
+  niedziela: 'niedzielę',
+};
+
+/**
+ * Przycisk karty zapisanej w historii przed 27.09.2026 mówi „Zapisz
+ * niedziela” — karta leży w bazie gotowa, więc poprawka buildera jej nie
+ * dotyka. Przy odczycie przepisujemy dzień po „Zapisz” / „Zapisz na” na
+ * biernik (różnią się tylko środa, sobota i niedziela); reszta etykiety bez
+ * zmian.
+ */
+export function withAccusativeDay(label: string): string {
+  return label.replace(
+    /^(Zapisz(?: na)? )(środa|sobota|niedziela)\b/iu,
+    (_match, head: string, day: string) => {
+      const fixed = NOMINATIVE_TO_ACCUSATIVE[day.toLowerCase()] ?? day;
+      return (
+        head +
+        (day[0] === day[0].toUpperCase()
+          ? fixed[0].toUpperCase() + fixed.slice(1)
+          : fixed)
+      );
+    },
+  );
+}
+
+/** `withAccusativeDay` na każdej akcji karty; karta bez akcji — bez zmian. */
+export function withAccusativeDayActions<T>(card: T): T {
+  const actions = (card as { actions?: unknown }).actions;
+  if (!Array.isArray(actions)) return card;
+  let changed = false;
+  const fixed = actions.map((action: unknown) => {
+    const label = (action as { label?: unknown } | null)?.label;
+    if (typeof label !== 'string') return action;
+    const next = withAccusativeDay(label);
+    if (next === label) return action;
+    changed = true;
+    return { ...(action as object), label: next };
+  });
+  return changed ? { ...card, actions: fixed } : card;
+}
 
 /** Skrót dnia — „Pon”. Siedem wierszy musi zmieścić się w karcie. */
 export const DAY_SHORT_LABELS: Record<DayOfWeek, string> = {

@@ -199,10 +199,10 @@ export interface AgentProvider {
 /**
  * Błąd dostawcy z informacją, czy warto ponowić.
  *
- * `retryable` (429, 5xx, sieć) znaczy dwie rzeczy naraz: kwota wraca do
- * licznika (użytkownik nie płaci za awarię po naszej stronie łańcucha) i
- * błąd liczy się do bezpiecznika. `retryable: false` (zły prompt, odmowa
- * modelu) tury nie zwraca — to nie jest awaria.
+ * `retryable` (429, 5xx, sieć) = warto ponowić i błąd liczy się do
+ * bezpiecznika. O zwrocie wiadomości NIE decyduje (od 27.09.2026): wraca
+ * za każdą turę, która nic nie kosztowała (`refundIfFree`), bez względu na
+ * rodzaj błędu — nieważny klucz albo zły model to awaria po naszej stronie.
  */
 export class AgentProviderError extends Error {
   constructor(

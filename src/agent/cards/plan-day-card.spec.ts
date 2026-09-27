@@ -1,6 +1,13 @@
 import { buildPlanDayCard } from './plan-day-card';
 import { buildClarifyCard } from './clarify-card';
-import { goalNote, shortDateLabel, weekRangeLabel } from './agent-cards';
+import {
+  goalNote,
+  mealListLabel,
+  withAccusativeDay,
+  withAccusativeDayActions,
+  shortDateLabel,
+  weekRangeLabel,
+} from './agent-cards';
 
 // Karta dnia i pytanie to dwie rzeczy, które użytkownik czyta ZANIM czegokolwiek
 // dotknie. Obie muszą dać się sprawdzić bez bazy, dostawcy i tury.
@@ -75,6 +82,33 @@ describe('buildPlanDayCard', () => {
     const card = build({ targetKcalPerDay: null });
     expect(card.summary.goalNote).toBeNull();
     expect(card.title).toBe('Cały dzień, 1067 kcal');
+  });
+
+  // 27.09.2026: sama kolacja stała pod tytułem „Cały dzień, 650 kcal”.
+  it('część dnia nazywa pory, a nie „cały dzień” z jego bilansem', () => {
+    const card = build({ enabledMealTypes: ['BREAKFAST', 'LUNCH', 'DINNER'] });
+    expect(card.title).toBe('Śniadanie i obiad');
+    expect(card.summary.goalNote).toBeNull();
+
+    const full = build({ enabledMealTypes: ['BREAKFAST', 'LUNCH'] });
+    expect(full.title).toBe('Cały dzień pod cel 2100 kcal');
+  });
+
+  it('lista pór zostawia „II” wielkimi literami', () => {
+    expect(mealListLabel(['SECOND_BREAKFAST', 'BREAKFAST', 'DINNER'])).toBe(
+      'Śniadanie, II śniadanie i kolacja',
+    );
+    expect(mealListLabel(['SECOND_BREAKFAST'])).toBe('II śniadanie');
+    expect(mealListLabel([])).toBeNull();
+  });
+
+  // 27.09.2026: na karcie niedzieli stało „Zapisz niedziela”.
+  it('przycisk mówi dzień w bierniku — „Zapisz niedzielę”, „Zapisz środę”', () => {
+    expect(build({ dayOfWeek: 'SUN' }).actions[0].label).toBe(
+      'Zapisz niedzielę',
+    );
+    expect(build({ dayOfWeek: 'WED' }).actions[0].label).toBe('Zapisz środę');
+    expect(build({ dayOfWeek: 'SAT' }).actions[0].label).toBe('Zapisz sobotę');
   });
 
   it('przekroczony cel mówi to wprost, a nie „zostaje −200”', () => {
@@ -153,5 +187,32 @@ describe('etykiety dat', () => {
     expect(goalNote(1800, 2100)).toBe('300 kcal poniżej celu');
     expect(goalNote(2400, 2100)).toBe('300 kcal ponad cel');
     expect(goalNote(2400, null)).toBeNull();
+  });
+});
+
+describe('withAccusativeDay — karty z historii', () => {
+  it('„Zapisz niedziela” sprzed poprawki czyta się „Zapisz niedzielę”', () => {
+    expect(withAccusativeDay('Zapisz niedziela')).toBe('Zapisz niedzielę');
+    expect(withAccusativeDay('Zapisz na środa')).toBe('Zapisz na środę');
+    expect(withAccusativeDay('Zapisz Sobota')).toBe('Zapisz Sobotę');
+    // Poprawne i obce etykiety bez zmian.
+    expect(withAccusativeDay('Zapisz wtorek')).toBe('Zapisz wtorek');
+    expect(withAccusativeDay('Zapisz niedzielę')).toBe('Zapisz niedzielę');
+    expect(withAccusativeDay('Dodaj do planu')).toBe('Dodaj do planu');
+  });
+
+  it('przepisuje tylko akcje karty i nie tworzy kopii, gdy nie ma czego poprawiać', () => {
+    const old = {
+      kind: 'PLAN_DAY',
+      actions: [{ type: 'APPLY', label: 'Zapisz sobota' }],
+    };
+    expect(withAccusativeDayActions(old).actions[0].label).toBe(
+      'Zapisz sobotę',
+    );
+    const fresh = {
+      kind: 'PLAN_DAY',
+      actions: [{ type: 'APPLY', label: 'Zapisz sobotę' }],
+    };
+    expect(withAccusativeDayActions(fresh)).toBe(fresh);
   });
 });
