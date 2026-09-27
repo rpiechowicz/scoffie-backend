@@ -281,6 +281,11 @@ describe('Panel admina — użytkownicy, pulpit, wyszukiwarka', () => {
         ownershipType: 'PURCHASED',
         autoRenewStatus: true,
         expiresAt: new Date(Date.now() + 20 * DAY),
+        // Jawnie, zegarem procesu testu. Domyślne `now()` nadaje silnik
+        // Prismy z zegara systemu, a pulpit liczy „teraz” przez `new Date()`
+        // (zegar V8) — na Windows V8 bywa o kilka ms w tyle, więc wiersz
+        // sprzed chwili wypadał z `createdAt <= now` (activeSubs +0).
+        createdAt: new Date(Date.now() - 1_000),
       },
       select: { id: true },
     });
