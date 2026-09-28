@@ -19,6 +19,7 @@ import {
   DURABLE_EFFECT_CONFLICT,
 } from '../src/agent/tools/agent-tool-executor';
 import { TurnEffects } from '../src/agent/durable/turn-effects';
+import { LeaseLostError } from '../src/agent/durable/turn-lease-config';
 import { AgentCard } from '../src/agent/cards/agent-cards';
 
 /**
@@ -165,7 +166,7 @@ describe('Trwałe tury asystenta E2E (Etap 5)', () => {
     probe: () => Promise<T | null | undefined | false>,
     timeoutMs = 15_000,
   ): Promise<T> => {
-    for (const deadline = Date.now() + timeoutMs; ; ) {
+    for (const deadline = Date.now() + timeoutMs; ;) {
       const value = await probe();
       if (value) return value;
       if (Date.now() > deadline) throw new Error(`nie doczekano: ${what}`);
@@ -350,6 +351,75 @@ describe('Trwałe tury asystenta E2E (Etap 5)', () => {
       `turn:${turnId}:0`,
       `turn:${turnId}:a2:0`,
     ]);
+  });
+
+  it('3b. (N3) lease wygasł, ale poprzedni właściciel jest W TRAKCIE transakcji efektu → przejęcie ją omija; po commicie następca widzi efekt, stary traci fencing', async () => {
+    const who = await household('FenceWindow');
+    process.env.AI_TURN_WORKER = 'off';
+    const turnId = await post(survivor, who, 'Okno fencingu');
+    process.env.AI_TURN_WORKER = 'on';
+    const queue = survivor.get(AgentTurnQueue);
+    const claim = (workerId: string) =>
+      queue.claim({
+        workerId,
+        leaseMs: 60_000,
+        maxAttempts: 3,
+        limit: 1,
+        turnId,
+      });
+
+    const [a] = await claim('A');
+    expect(a.attempt).toBe(1);
+    // A „zamarł" (GC, przeciążenie): lease już wygasł, ale token jest wciąż A.
+    await expireLease(turnId);
+
+    const effectsA = new TurnEffects(prisma, turnId, a.attempt, a.leaseToken);
+    const key = effectsA.keyFor('remember_note', 'keyed');
+    let fenced!: () => void;
+    const aFenced = new Promise<void>((resolve) => (fenced = resolve));
+    let release!: () => void;
+    const aMayCommit = new Promise<void>((resolve) => (release = resolve));
+    const effectTx = prisma.$transaction(
+      async (tx) => {
+        await effectsA.commitFor(key, 'remember_note', { text: 'x' })(tx, {
+          id: 'n1',
+        });
+        fenced();
+        await aMayCommit;
+      },
+      { timeout: 20_000 },
+    );
+    await aFenced;
+
+    // B próbuje przejąć w oknie: wiersz tury trzyma transakcja A → SKIP LOCKED.
+    expect(await claim('B')).toEqual([]);
+
+    release();
+    await effectTx;
+
+    // Po commicie A: B przejmuje i widzi efekt A w dzienniku (odtworzy, nie powtórzy).
+    const [b] = await claim('B');
+    expect(b.attempt).toBe(2);
+    const effectsB = new TurnEffects(prisma, turnId, b.attempt, b.leaseToken);
+    expect(await effectsB.load(key)).toMatchObject({
+      tool: 'remember_note',
+      attempt: 1,
+    });
+
+    // A „odżywa" i próbuje kolejnego efektu — fencing go wycofuje.
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await effectsA.commitFor('remember_note#2', 'remember_note', {
+          text: 'y',
+        })(tx, { id: 'n2' });
+      }),
+    ).rejects.toBeInstanceOf(LeaseLostError);
+    expect(await prisma.agentTurnEffect.count({ where: { turnId } })).toBe(1);
+
+    await prisma.agentTurn.update({
+      where: { id: turnId },
+      data: { status: 'FAILED', errorCode: 'AI_CANCELLED' },
+    });
   });
 
   it('4./5./6./11. (§5.8, §5.18) PRAWDZIWY RESTART: pad po pierwszym wywołaniu z zapisanym kosztem → nowa instancja kończy turę; koszt ani zgubiony, ani zdublowany', async () => {

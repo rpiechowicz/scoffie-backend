@@ -1,5 +1,14 @@
 # Stan workstreamu
 
+## Aktualizacja review — 28.09.2026
+
+Pakiet nocny i poprawka kategorii: [raport domknięcia](reports/07-nightly-closure.md).
+Scalenie raportu przez PR #233 do `develop` zamyka integrację kodu po zielonym CI.
+Live smoke i rollout produkcyjny pozostają otwarte. Starsze statusy poniżej są
+historycznym zapisem 26.09; nie wycofują późniejszego rolloutu porcji ani effort.
+
+---
+
 **Ostatnia aktualizacja:** 26.09.2026 (po Etapie 6.1 — naprawy regresji offline)  
 **Branch startowy:** `claude/admin-crm-planning-b0hmgo`
 

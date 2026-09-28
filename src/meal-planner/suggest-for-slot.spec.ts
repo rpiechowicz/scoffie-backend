@@ -101,13 +101,12 @@ describe('suggestForSlot', () => {
     const recipes = catalog({ perMeal: 30 });
     const result = suggestForSlot(dinnerRequest(), recipes, { count: 3 });
     const lookup = byId(recipes);
-    const proteins = result.suggestions.map(
-      (entry) =>
-        lookup
-          .get(entry.item.recipeId)!
-          .tags.find((tag) =>
-            ['poultry', 'pork', 'beef', 'fish', 'meatless'].includes(tag),
-          )!,
+    const proteins = result.suggestions.map((entry) =>
+      lookup
+        .get(entry.item.recipeId)!
+        .tags.find((tag) =>
+          ['poultry', 'pork', 'beef', 'fish', 'meatless'].includes(tag),
+        )!,
     );
     expect(new Set(proteins).size).toBe(3);
   });

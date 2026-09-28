@@ -108,7 +108,7 @@ describe('RecipesGateway', () => {
     {
       event: 'recipes:findAll',
       call: (client, userId) =>
-        gateway.findAll(client, { userId, householdId: HH, filters } as any),
+        gateway.findAll(client, { userId, householdId: HH, filters }),
       method: 'findAll',
       serviceArgs: (userId) => [userId, filters],
     },
@@ -119,7 +119,7 @@ describe('RecipesGateway', () => {
           userId,
           id: RECIPE,
           householdId: HH,
-        } as any),
+        }),
       method: 'findById',
       serviceArgs: (userId) => [userId, RECIPE, HH],
     },
@@ -133,7 +133,7 @@ describe('RecipesGateway', () => {
     {
       event: 'recipes:setFavorite',
       call: (client, userId) =>
-        gateway.setFavorite(client, { userId, data: favoriteData } as any),
+        gateway.setFavorite(client, { userId, data: favoriteData }),
       method: 'setFavorite',
       serviceArgs: (userId) => [userId, favoriteData],
     },
@@ -187,7 +187,7 @@ describe('RecipesGateway', () => {
     {
       name: 'recipes:findAll z householdId nie-UUID',
       call: (client) =>
-        gateway.findAll(client, { householdId: 'hh-1', filters } as any),
+        gateway.findAll(client, { householdId: 'hh-1', filters }),
       detail: /householdId must be a UUID/,
     },
     {
@@ -202,7 +202,7 @@ describe('RecipesGateway', () => {
     },
     {
       name: 'recipes:findById z id nie-UUID',
-      call: (client) => gateway.findById(client, { id: 'recipe-1' } as any),
+      call: (client) => gateway.findById(client, { id: 'recipe-1' }),
       detail: /id must be a UUID/,
     },
     {
@@ -256,7 +256,7 @@ describe('RecipesGateway', () => {
     const response = await gateway.findById(tokenClient('user-1'), {
       id: RECIPE.toUpperCase(),
       householdId: HH.toUpperCase(),
-    } as any);
+    });
 
     expect(response).toEqual(expect.objectContaining({ ok: true }));
     expect(recipesService.findById).toHaveBeenCalledWith(
@@ -282,7 +282,7 @@ describe('RecipesGateway', () => {
 
       const response = await gateway.findAll(tokenClient('user-1'), {
         filters,
-      } as any);
+      });
 
       expect(response).toEqual({
         ok: true,
@@ -291,7 +291,7 @@ describe('RecipesGateway', () => {
     });
 
     it('bez filtrów przekazuje undefined', async () => {
-      await gateway.findAll(tokenClient('user-1'), {} as any);
+      await gateway.findAll(tokenClient('user-1'), {});
 
       expect(recipesService.findAll).toHaveBeenCalledWith('user-1', undefined);
     });
@@ -313,7 +313,7 @@ describe('RecipesGateway', () => {
       const response = await gateway.setFavorite(tokenClient('user-1'), {
         userId: 'attacker',
         data: favoriteData,
-      } as any);
+      });
 
       expect(response).toEqual({
         ok: true,
@@ -339,7 +339,7 @@ describe('RecipesGateway', () => {
 
       await gateway.setFavorite(tokenClient('user-1'), {
         data: favoriteData,
-      } as any);
+      });
 
       expect(to).toHaveBeenCalledWith([`household:${OTHER_HH}`, 'legacy']);
       expect(emit).toHaveBeenCalledWith('recipes:favoritesChanged', {
@@ -354,7 +354,7 @@ describe('RecipesGateway', () => {
       await gateway.setFavorite(legacyClient(), {
         userId: LEGACY_USER,
         data: { ...favoriteData, isFavorite: false },
-      } as any);
+      });
 
       expect(to).toHaveBeenCalledWith([`household:${HH}`, 'legacy']);
       expect(emit).toHaveBeenCalledWith('recipes:favoritesChanged', {
@@ -368,7 +368,7 @@ describe('RecipesGateway', () => {
     it('rozgłasza dopiero po zapisie w serwisie', async () => {
       await gateway.setFavorite(tokenClient('user-1'), {
         data: favoriteData,
-      } as any);
+      });
 
       const [saved] = recipesService.setFavorite.mock.invocationCallOrder;
       const [broadcast] = emit.mock.invocationCallOrder;
@@ -380,7 +380,7 @@ describe('RecipesGateway', () => {
 
       const response = await gateway.setFavorite(tokenClient('user-1'), {
         data: favoriteData,
-      } as any);
+      });
 
       expect(response).toEqual(expect.objectContaining({ ok: false }));
       expect(emit).not.toHaveBeenCalled();

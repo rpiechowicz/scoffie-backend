@@ -7,7 +7,7 @@ import {
   AdminAuditService,
   type AdminActor,
 } from '../audit/admin-audit.service';
-import type { AdminAlertRow, AlertSeverity, AlertsData } from '../contract';
+import type { AdminAlertRow, AlertsData } from '../contract';
 import { AdminDailyReportService } from './admin-daily-report.service';
 import { AdminWatchService } from './admin-watch.service';
 import { readAlertsEnv } from './alerts-env';
@@ -20,9 +20,7 @@ const toRow = (a: AdminAlert): AdminAlertRow => ({
   id: a.id,
   key: a.key,
   kind: a.kind,
-  severity: (a.severity === 'critical'
-    ? 'critical'
-    : 'warning') as AlertSeverity,
+  severity: a.severity === 'critical' ? 'critical' : 'warning',
   title: a.title,
   detail: a.detail,
   firstAt: a.firstAt.toISOString(),

@@ -17,8 +17,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
  * którego nie ma skąd wziąć.
  */
 type WsEnvelope<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string; code: string };
+  { ok: true; data: T } | { ok: false; error: string; code: string };
 
 type Hit = {
   id: string;

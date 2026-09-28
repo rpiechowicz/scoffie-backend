@@ -79,8 +79,9 @@ describe('Panel — przychód z Apple (/admin/revenue)', () => {
   ].join('\t');
 
   /** Apple: sprzedaż za dwa dni, finanse za jeden miesiąc, reszta 404. */
-  const appleFetch = (status = 200) =>
-    ((input: string | URL) => {
+  const appleFetch =
+    (status = 200) =>
+    (input: string | URL) => {
       if (status !== 200) {
         return Promise.resolve(new Response(null, { status }));
       }
@@ -98,7 +99,7 @@ describe('Panel — przychód z Apple (/admin/revenue)', () => {
             })
           : new Response('{"errors":[{"status":"404"}]}', { status: 404 }),
       );
-    }) as unknown as typeof fetch;
+    };
 
   /** NBP: USD 4.00 i EUR 4.25 z przedwczoraj (wczoraj bez notowania). */
   const nbpFetch = (() =>

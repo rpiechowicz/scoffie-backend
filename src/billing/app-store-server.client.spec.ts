@@ -47,7 +47,7 @@ describe('AppStoreServerClient', () => {
     process.env.APPLE_ENVIRONMENT = 'Production';
     process.env.APPLE_BUNDLE_ID = 'app.scoffie.ios';
     fetchMock = jest.fn();
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock;
     client = new AppStoreServerClient();
   });
 

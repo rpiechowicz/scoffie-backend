@@ -9,10 +9,7 @@ describe('OpsAlertService', () => {
   beforeEach(() => {
     clock = 1_000_000;
     fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
-    service = new OpsAlertService(
-      fetchMock as unknown as typeof fetch,
-      () => clock,
-    );
+    service = new OpsAlertService(fetchMock, () => clock);
     process.env.OPS_ALERT_WEBHOOK_URL = 'https://hooks.example/abc';
   });
 

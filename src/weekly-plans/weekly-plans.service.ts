@@ -35,6 +35,10 @@ import {
   MEAL_TYPES_IN_DAY_ORDER,
   effectiveSuitableMealTypes,
 } from '../common/meal-types';
+import {
+  allergenConflicts,
+  excludedIngredientHits,
+} from '../recipes/constraints/recipe-constraints';
 import { formatWeekStart, parseWeekStart } from './utils/week-formatting.util';
 import {
   autoPlannedServings,
@@ -750,7 +754,7 @@ export class WeeklyPlansService {
             mealType: dto.mealType,
             recipeId: dto.recipeId,
             participantIds: effectiveParticipantIds,
-          } as ApplyWeekSlotDto,
+          },
         ],
         plannableForGate,
         memberIdsForGate,
@@ -1577,14 +1581,21 @@ export class WeeklyPlansService {
         (slot.participantIds ?? []).length > 0
           ? (slot.participantIds ?? [])
           : Array.from(memberIds);
-      const conflicting = Array.from(
+      // Reguły ze wspólnego silnika (`recipe-constraints`, N8A) — te same co
+      // planer i wyszukiwarka. Dieta NIE jest tu sprawdzana: to świadoma
+      // różnica względem planera (ręczny wybór użytkownika), decyzja S5.
+      const audienceAllergens = Array.from(
         new Set(
-          audience.flatMap((memberId) =>
-            (allergensByMember.get(memberId) ?? []).filter((allergen) =>
-              recipe?.allergens.includes(allergen),
-            ),
-          ),
+          audience.flatMap((memberId) => allergensByMember.get(memberId) ?? []),
         ),
+      );
+      const conflictIds = new Set(
+        allergenConflicts(recipe, { allergens: audienceAllergens }),
+      );
+      // Kolejność w komunikacie = kolejność domowników i ich listy (jak przed
+      // N8A), a nie alfabetyczna z `allergenConflicts`.
+      const conflicting = audienceAllergens.filter((allergen) =>
+        conflictIds.has(allergen),
       );
       if (conflicting.length > 0) {
         at(
@@ -1597,17 +1608,16 @@ export class WeeklyPlansService {
       // komunikat: alergen jest o zdrowiu, wykluczenie o gustach. Wspólny
       // kod dawałby zdanie „danie zawiera alergeny: pieczarka", które po
       // prostu nie jest prawdą — a użytkownik czyta te komunikaty.
-      const excluded = new Set(
-        audience.flatMap((memberId) => exclusionsByMember.get(memberId) ?? []),
-      );
-      if (excluded.size > 0) {
-        const hit = recipe.ingredientIds.filter((id) => excluded.has(id));
-        if (hit.length > 0) {
-          at(
-            'RECIPE_EXCLUDED_INGREDIENT',
-            'Danie zawiera składnik, którego ktoś z jedzących nie je.',
-          );
-        }
+      const hit = excludedIngredientHits(recipe, {
+        excludedIngredientIds: audience.flatMap(
+          (memberId) => exclusionsByMember.get(memberId) ?? [],
+        ),
+      });
+      if (hit.length > 0) {
+        at(
+          'RECIPE_EXCLUDED_INGREDIENT',
+          'Danie zawiera składnik, którego ktoś z jedzących nie je.',
+        );
       }
 
       const unknownParticipants = Array.from(

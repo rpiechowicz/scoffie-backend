@@ -1,8 +1,10 @@
 import { DayOfWeek, MealType } from '@prisma/client';
 import {
-  conflictingAllergens,
-  satisfiesDiet,
-} from '../recipes/diet-rules.util';
+  audienceConstraintsOf,
+  checkRecipe,
+  ConstraintSetV1,
+  CONSTRAINT_SET_VERSION,
+} from '../recipes/constraints/recipe-constraints';
 import {
   BalanceMeal,
   nutritionPerPerson,
@@ -180,11 +182,42 @@ export function normalizeParticipants(
 // ── Filtry twarde ──────────────────────────────────────────────────────────
 
 /**
+ * Ograniczenia slotu w kształcie wspólnego silnika (`recipe-constraints`):
+ * suma profili jedzących + twarde wymagania prośby. Budowane RAZ na porę
+ * (nie na przepis) — w gorącej pętli kandydatów zostaje samo `checkRecipe`.
+ */
+export function plannerConstraintSet(
+  mealType: MealType,
+  audience: readonly PlannerEater[],
+  request: Pick<PlanningRequest, 'constraints'>,
+): ConstraintSetV1 {
+  const { constraints } = request;
+  return {
+    v: CONSTRAINT_SET_VERSION,
+    audience: audienceConstraintsOf(audience),
+    request: {
+      mealType,
+      excludeRecipeIds: constraints.excludeRecipeIds,
+      maxPrepMinutes:
+        typeof constraints.maxPrepMinutes === 'number'
+          ? constraints.maxPrepMinutes
+          : null,
+      requestDiet: constraints.diet ?? null,
+      requiredTags: constraints.requiredTags,
+      avoidIngredients: constraints.avoidIngredients,
+      // Planer nie użyje dania bez makr (nie policzy celu); walidator zapisu
+      // takie danie przepuści — to ręczny wybór użytkownika.
+      requireNutrition: true,
+    },
+  };
+}
+
+/**
  * Pierwszy powód, dla którego przepis NIE może stanąć w tym slocie; `null` =
- * może. Te same funkcje co walidator zapisu i wyszukiwarka
- * (`diet-rules.util`), plus wymagania prośby. Dieta jest tu twarda, choć
- * walidator zapisu (`collectPlanViolations`) jej nie sprawdza — planer nie
- * proponuje dania, którego jedzący nie powinien jeść.
+ * może. Reguły żyją we wspólnym silniku (`checkRecipe`, N8A) — te same co
+ * wyszukiwarka i walidator zapisu. Dieta jest tu twarda, choć walidator
+ * zapisu (`collectPlanViolations`) jej nie sprawdza — planer nie proponuje
+ * dania, którego jedzący nie powinien jeść.
  */
 export function hardFilterReason(
   recipe: PlannerRecipe,
@@ -192,49 +225,7 @@ export function hardFilterReason(
   audience: readonly PlannerEater[],
   request: Pick<PlanningRequest, 'constraints'>,
 ): HardFilterReason | null {
-  if (!recipe.active) return 'INACTIVE';
-  if (!recipe.slots.includes(mealType)) return 'MEAL_TYPE';
-  if (request.constraints.excludeRecipeIds.includes(recipe.id)) {
-    return 'EXCLUDED_RECIPE';
-  }
-  const maxPrep = request.constraints.maxPrepMinutes;
-  if (typeof maxPrep === 'number' && recipe.prepTimeMinutes > maxPrep) {
-    return 'PREP_TIME';
-  }
-  const allergens = audience.flatMap((eater) => eater.allergens);
-  if (conflictingAllergens(recipe.allergens, allergens).length > 0) {
-    return 'ALLERGEN';
-  }
-  const excluded = new Set(
-    audience.flatMap((eater) => eater.excludedIngredientIds),
-  );
-  if (recipe.ingredientIds.some((id) => excluded.has(id))) {
-    return 'EXCLUDED_INGREDIENT';
-  }
-  const subject = {
-    dietTags: recipe.dietTags,
-    hasIngredientData: recipe.ingredientIds.length > 0,
-    perServing: recipe.perServing,
-  };
-  if (!audience.every((eater) => satisfiesDiet(eater.diet, subject))) {
-    return 'DIET';
-  }
-  const { diet, requiredTags, avoidIngredients } = request.constraints;
-  if (diet && !satisfiesDiet(diet, subject)) return 'REQUEST_DIET';
-  if (!requiredTags.every((tag) => recipe.tags.includes(tag))) {
-    return 'REQUIRED_TAG';
-  }
-  if (
-    avoidIngredients.some((avoided) =>
-      recipe.ingredientNames.some((name) => name.includes(avoided)),
-    )
-  ) {
-    return 'AVOIDED_INGREDIENT';
-  }
-  // Na końcu: bez makr nie da się policzyć celu, ale to nie jest zakaz —
-  // walidator zapisu takie danie przepuści (ręczny wybór użytkownika).
-  if (!recipe.perServing) return 'NO_NUTRITION';
-  return null;
+  return checkRecipe(recipe, plannerConstraintSet(mealType, audience, request));
 }
 
 // ── Porcje ─────────────────────────────────────────────────────────────────

@@ -20,8 +20,11 @@ export function buildOptionsCard(input: {
   title: string;
   slotLabel?: string | null;
   options: readonly OptionsCardItem[];
+  /** Tydzień posiłku — tylko karty z serwera (`suggest_meals`). */
+  weekStart?: string;
 }): OptionsCard {
   return {
+    ...(input.weekStart ? { weekStart: input.weekStart } : {}),
     kind: 'OPTIONS',
     v: AGENT_CARD_VERSION,
     eyebrow: input.slotLabel?.trim() ? input.slotLabel.trim() : 'Do wyboru',

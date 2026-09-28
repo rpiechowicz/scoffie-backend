@@ -656,11 +656,11 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
         /page must be an integer number/,
       );
       await expectValidationError(
-        service.findAll(mockUserId, { limit: 0 } as any),
+        service.findAll(mockUserId, { limit: 0 }),
         /limit must not be less than 1/,
       );
       await expectValidationError(
-        service.findAll(mockUserId, { limit: 101 } as any),
+        service.findAll(mockUserId, { limit: 101 }),
         /limit must not be greater than 100/,
       );
       expect(prisma.recipe.findMany).not.toHaveBeenCalled();
@@ -679,7 +679,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
 
     it('householdId nie-UUID → VALIDATION_ERROR przed ensureMembership', async () => {
       await expectValidationError(
-        service.findAll(mockUserId, { householdId: 'hh-1' } as any),
+        service.findAll(mockUserId, { householdId: 'hh-1' }),
         /householdId must be a UUID/,
       );
       expect(prisma.membership.findUnique).not.toHaveBeenCalled();
@@ -727,7 +727,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
     });
 
     it('bez householdId widac WYLACZNIE katalog', async () => {
-      await service.findAll(mockUserId, { limit: 5 } as any);
+      await service.findAll(mockUserId, { limit: 5 });
 
       // Lista wolana bez kontekstu domu nie ma prawa pokazac cudzych
       // przepisow — po wprowadzeniu `isCatalog` to jest bramka, nie filtr.
@@ -742,7 +742,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
       await service.findAll(mockUserId, {
         householdId: mockHouseholdId,
         limit: 5,
-      } as any);
+      });
 
       expect(prisma.recipe.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -759,7 +759,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
       await service.findAll(mockUserId, {
         householdId: mockHouseholdId,
         limit: 5,
-      } as any);
+      });
 
       expect(cache.buildRecipesListKey).toHaveBeenCalledWith(
         expect.objectContaining({ householdId: mockHouseholdId }),
@@ -771,7 +771,7 @@ describe('RecipesService — walidacja wejścia pozostałych metod', () => {
         householdId: mockHouseholdId,
         page: 1,
         limit: 100,
-      } as any);
+      });
 
       expect(prisma.recipe.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 0, take: 100 }),
@@ -1018,7 +1018,7 @@ describe('RecipesService — pusta lista nie jest łatką', () => {
     await service.update(mockUserId, RECIPE_ID, {
       householdId: mockHouseholdId,
       title: 'Owsianka inaczej',
-    } as any);
+    });
 
     expect(prisma.recipeIngredient.deleteMany).not.toHaveBeenCalled();
     const data = prisma.recipe.update.mock.calls[0][0].data;

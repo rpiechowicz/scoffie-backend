@@ -124,7 +124,7 @@ async function main() {
     const t = byTurn.get(key) ?? {
       cost: 0,
       rows: 0,
-      apiCalls: 0 as number | null,
+      apiCalls: 0,
       householdId: r.householdId,
     };
     t.cost += r.costMicroUsd;

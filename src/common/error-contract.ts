@@ -173,14 +173,16 @@ export function mapError(error: unknown): MappedError {
 
   // 2. Goły wyjątek Nesta (także z ValidationPipe): kod ze statusu.
   if (error instanceof HttpException) {
-    // `getStatus()` oddaje goły number; porównania z enumem `HttpStatus` są
-    // celowe, stąd rzutowanie (bez niego linter widzi enum kontra number).
+    // `getStatus()` oddaje goły number, a linter nie pozwala porównać go
+    // z enumem `HttpStatus` wprost. Rzutowanie `as number` typescript-eslint
+    // ≥ 8.70 uznaje za zbędne, a `status` jako enum psuje `status >= 500`,
+    // więc wartości enumu zamienia na number `Number(...)`.
     const status = error.getStatus();
     const { message, details } = readHttpMessage(
       error.getResponse(),
       error.message,
     );
-    if (status === (HttpStatus.INTERNAL_SERVER_ERROR as number)) {
+    if (status === Number(HttpStatus.INTERNAL_SERVER_ERROR)) {
       return internalError(error);
     }
     if (status >= 500) {
@@ -194,7 +196,7 @@ export function mapError(error: unknown): MappedError {
       };
     }
     const code =
-      details && status === (HttpStatus.BAD_REQUEST as number)
+      details && status === Number(HttpStatus.BAD_REQUEST)
         ? 'VALIDATION_ERROR'
         : (STATUS_CODE_MAP[status] ?? 'HTTP_ERROR');
     return {

@@ -160,7 +160,7 @@ describe('UsersService.updatePreferences', () => {
       "%s: string 'true' → VALIDATION_ERROR, upsert nie wywołany",
       async (field) => {
         const error = await expectValidationError(
-          service.updatePreferences(mockUserId, { [field]: 'true' } as any),
+          service.updatePreferences(mockUserId, { [field]: 'true' }),
         );
 
         expect(error.details).toEqual([`${field} must be a boolean value`]);
@@ -260,7 +260,7 @@ describe('UsersService.updatePreferences', () => {
       'powinno odrzucić %s = %i poza zakresem (VALIDATION_ERROR, bez upsertu)',
       async (field, input, detail) => {
         const error = await expectValidationError(
-          service.updatePreferences(mockUserId, { [field]: input } as any),
+          service.updatePreferences(mockUserId, { [field]: input }),
         );
 
         expect(error.details).toEqual([detail]);
@@ -317,7 +317,7 @@ describe('UsersService.updatePreferences', () => {
       ['proteinG', '160'],
     ])('powinno odrzucić nieliczbowe %s (%p)', async (field, value) => {
       await expectValidationError(
-        service.updatePreferences(mockUserId, { [field]: value } as any),
+        service.updatePreferences(mockUserId, { [field]: value }),
       );
       expect(prisma.userPreference.upsert).not.toHaveBeenCalled();
     });
@@ -525,7 +525,7 @@ describe('UsersService.updateProfile', () => {
     ],
   ])('%s = %p → VALIDATION_ERROR', async (field, value, detail) => {
     const error = await expectValidationError(
-      service.updateProfile(mockUserId, { [field]: value } as any),
+      service.updateProfile(mockUserId, { [field]: value }),
     );
 
     expect(error.details).toEqual([detail]);

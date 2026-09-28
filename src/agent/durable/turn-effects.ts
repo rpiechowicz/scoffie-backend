@@ -21,11 +21,7 @@ import { AgentTurnQueue } from './agent-turn-queue.service';
  *   gwarancja).
  */
 export type EffectKind =
-  | 'read'
-  | 'card-db'
-  | 'card-memory'
-  | 'keyed'
-  | 'natural';
+  'read' | 'card-db' | 'card-memory' | 'keyed' | 'natural';
 
 const CARD_DB_TOOLS = new Set([
   'propose_week_plan',
@@ -216,7 +212,7 @@ export class TurnEffects {
             tool,
             attempt: this.attempt,
             input: input as Prisma.InputJsonValue,
-            result: { ok: true, data: data ?? null } as Prisma.InputJsonValue,
+            result: { ok: true, data: data ?? null },
           },
         ],
         skipDuplicates: true,
@@ -250,7 +246,7 @@ export class TurnEffects {
             attempt: this.attempt,
             input: input as Prisma.InputJsonValue,
             result: result as unknown as Prisma.InputJsonValue,
-            ...(card ? { card: card as unknown as Prisma.InputJsonValue } : {}),
+            ...(card ? { card: card } : {}),
           },
         ],
         skipDuplicates: true,
@@ -267,7 +263,7 @@ export class TurnEffects {
     await this.prisma.agentTurnEffect.updateMany({
       where: { turnId: this.turnId, key },
       data: {
-        result: { ok: true, data: data ?? null } as Prisma.InputJsonValue,
+        result: { ok: true, data: data ?? null },
       },
     });
   }

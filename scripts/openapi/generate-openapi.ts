@@ -112,7 +112,13 @@ function loadPluginMetadata(): () => Promise<Record<string, any>> {
     (_m, literal: string) => {
       // Ścieżka bywa z ucieczkami (`Rafał`) — najpierw odkoduj literał.
       const spec = JSON.parse(`"${literal}"`) as string;
-      const target = spec.startsWith('./') ? `../src/${spec.slice(2)}` : spec;
+      // Nest CLI 12 dopisuje rozszerzenie ESM (`./auth/dto/x.dto.js`), a
+      // `require` pod ts-node szuka wtedy pliku .js, którego nie ma — obie
+      // wersje CLI dają ten sam moduł po zdjęciu końcówki.
+      const relative = spec.replace(/\.js$/, '');
+      const target = relative.startsWith('./')
+        ? `../src/${relative.slice(2)}`
+        : relative;
       return `Promise.resolve(require(${JSON.stringify(target)}))`;
     },
   );
@@ -553,16 +559,14 @@ function summarize(
   if (schema.$ref) {
     const name = (schema.$ref as string).split('/').pop()!;
     const target = schemas[name];
-    const keys = target?.properties
-      ? Object.keys(target.properties as Schema)
-      : [];
+    const keys = target?.properties ? Object.keys(target.properties) : [];
     const shown = keys.slice(0, 6).join(', ');
     return `\`${name}\`${keys.length ? ` {${shown}${keys.length > 6 ? ', …' : ''}}` : ''}`;
   }
   if (schema.type === 'array')
     return `lista ${summarize(schema.items as Schema, schemas)}`;
   if (schema.properties) {
-    return `{${Object.keys(schema.properties as Schema).join(', ')}}`;
+    return `{${Object.keys(schema.properties).join(', ')}}`;
   }
   if (schema.nullable && schema.allOf) {
     return `${summarize((schema.allOf as Schema[])[0], schemas)} | null`;
@@ -703,11 +707,9 @@ async function main(): Promise<void> {
   const registry = new ComponentRegistry(schemas, definitions, swaggerOwned);
   const probeSchema = (alias: string): Schema => {
     const box = definitions[PROBE_PREFIX + alias] as
-      | { properties?: Record<string, unknown> }
-      | undefined;
+      { properties?: Record<string, unknown> } | undefined;
     const value = box?.properties?.value as
-      | { properties?: Record<string, unknown> }
-      | undefined;
+      { properties?: Record<string, unknown> } | undefined;
     if (value === undefined) return {};
     if (value.properties?.__noContent) return { 'x-no-content': true };
     return registry.convert(value);

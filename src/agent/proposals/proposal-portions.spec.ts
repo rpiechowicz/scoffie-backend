@@ -1,13 +1,12 @@
 import type { ApplyWeekSlotDto } from '../../weekly-plans/dto/apply-week-plan.dto';
 import { prepareProposalSlots } from './proposal-portions';
 
-const slot = (fields: Partial<ApplyWeekSlotDto>): ApplyWeekSlotDto =>
-  ({
-    dayOfWeek: 'TUE',
-    mealType: 'DINNER',
-    recipeId: 'x',
-    ...fields,
-  }) as ApplyWeekSlotDto;
+const slot = (fields: Partial<ApplyWeekSlotDto>): ApplyWeekSlotDto => ({
+  dayOfWeek: 'TUE',
+  mealType: 'DINNER',
+  recipeId: 'x',
+  ...fields,
+});
 
 const allocatedX = slot({
   recipeId: 'x',

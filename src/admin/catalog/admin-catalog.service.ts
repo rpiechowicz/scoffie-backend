@@ -182,27 +182,25 @@ export class AdminCatalogService {
       `);
       const usageOf = new Map(usage.map((row) => [row.ingredientId, row]));
       return rows
-        .map(
-          (row): Ingredient => ({
-            key: row.normalizedName,
-            name: row.name,
-            unit: baseUnitFromUsage(
-              usageOf.get(row.id) ?? { grams: 0, millilitres: 0 },
-            ),
-            // Składnik bez makro (luka w danych, audyt ją zgłasza) ma w
-            // kontrakcie liczby — 0, tak jak pomija go liczenie makro przepisu.
-            kcal: row.nutritionKcalPer100 ?? 0,
-            protein: row.nutritionProteinPer100 ?? 0,
-            // Węglowodany przyswajalne, BEZ błonnika (konwencja IŻŻ, kolumna
-            // `nutritionCarbsPer100`) — błonnik osobno.
-            carbs: row.nutritionCarbsPer100 ?? 0,
-            fat: row.nutritionFatPer100 ?? 0,
-            fiber: row.nutritionFiberPer100 ?? 0,
-            gramsPerPiece: row.gramsPerPiece,
-            allergens: row.allergens,
-            dietTags: row.dietTags,
-          }),
-        )
+        .map((row): Ingredient => ({
+          key: row.normalizedName,
+          name: row.name,
+          unit: baseUnitFromUsage(
+            usageOf.get(row.id) ?? { grams: 0, millilitres: 0 },
+          ),
+          // Składnik bez makro (luka w danych, audyt ją zgłasza) ma w
+          // kontrakcie liczby — 0, tak jak pomija go liczenie makro przepisu.
+          kcal: row.nutritionKcalPer100 ?? 0,
+          protein: row.nutritionProteinPer100 ?? 0,
+          // Węglowodany przyswajalne, BEZ błonnika (konwencja IŻŻ, kolumna
+          // `nutritionCarbsPer100`) — błonnik osobno.
+          carbs: row.nutritionCarbsPer100 ?? 0,
+          fat: row.nutritionFatPer100 ?? 0,
+          fiber: row.nutritionFiberPer100 ?? 0,
+          gramsPerPiece: row.gramsPerPiece,
+          allergens: row.allergens,
+          dietTags: row.dietTags,
+        }))
         .sort((a, b) =>
           comparePolish(
             { text: a.name, id: a.key },

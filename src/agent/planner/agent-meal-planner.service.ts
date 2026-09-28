@@ -29,7 +29,8 @@ import { autoPlannedServings } from '../../weekly-plans/utils/planned-servings.u
 import { WeeklyPlansService } from '../../weekly-plans/weekly-plans.service';
 import { AgentPromptService } from '../agent-prompt.service';
 import { AgentCatalogService } from '../search/agent-catalog.service';
-import { ingredientMatches, SearchableRecipe } from '../search/catalog-search';
+import { SearchableRecipe } from '../search/catalog-search';
+import { mentionsIngredient } from '../../recipes/constraints/recipe-constraints';
 import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
 
 /** Miękkie i twarde życzenia z prośby — to, co model wyczytał ze zdania. */
@@ -244,6 +245,7 @@ export class AgentMealPlannerService {
       slot.dayOfWeek === input.dayOfWeek && slot.mealType === input.mealType;
     const replaced = input.currentSlots.filter(inSlot);
     const kept = input.currentSlots.filter((slot) => !inSlot(slot));
+    assertSlotParticipantsAreMembers(replaced, members);
     const participantIds =
       replaced.length === 0 ||
       replaced.some((slot) => !(slot.participantIds ?? []).length)
@@ -382,8 +384,14 @@ export class AgentMealPlannerService {
             context.pool
               .filter((recipe) =>
                 wanted.every((name) =>
-                  recipe.ingredients.some((ingredient) =>
-                    ingredientMatches(ingredient.name, name),
+                  mentionsIngredient(
+                    {
+                      ingredientNames: recipe.ingredients.map(
+                        (ingredient) => ingredient.name,
+                      ),
+                      dietTags: recipe.dietTags,
+                    },
+                    name,
                   ),
                 ),
               )
@@ -647,6 +655,31 @@ function assertMembers(
   }
 }
 
+/**
+ * N4-1: uczestnik slotu, który nie jest już domownikiem. Zapisany plan jest
+ * czyszczony przy odejściu (`onMemberLeft`), więc taki slot przychodzi tylko
+ * z propozycji PENDING sprzed zmiany składu. `normalizeParticipants` liczyłby
+ * obcego jak domownika (dom {A, B}, slot [A, X] → „Wspólne”), więc odmawiamy
+ * — jak build/suggest przy obcych `for_user_ids`. Bez id w odpowiedzi.
+ */
+function assertSlotParticipantsAreMembers(
+  slots: readonly ApplyWeekSlotDto[],
+  members: MemberContext[],
+) {
+  const known = new Set(members.map((member) => member.userId));
+  const departed = slots
+    .flatMap((slot) => slot.participantIds ?? [])
+    .some((id) => !known.has(id));
+  if (departed) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      'W tym posiłku są osoby, które nie należą już do domu — ta propozycja jest nieaktualna. Ułóż nową zamiast ją poprawiać.',
+      HttpStatus.BAD_REQUEST,
+      ['participantIds'],
+    );
+  }
+}
+
 function toEater(member: MemberContext): PlannerEater {
   return {
     userId: member.userId,
@@ -778,7 +811,7 @@ function toSlot(item: PlannedItem): ApplyWeekSlotDto {
     ...(item.portions?.length
       ? { portions: item.portions }
       : { plannedServings: item.plannedServings }),
-  } as ApplyWeekSlotDto;
+  };
 }
 
 /** Średnie kcal NA OSOBĘ z podmienianych pozycji — dla „podobnie kalorycznie". */

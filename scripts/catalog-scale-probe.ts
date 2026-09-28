@@ -324,7 +324,7 @@ async function main(): Promise<void> {
         };
         const run = (name: string, input: Record<string, unknown>) =>
           measure(
-            () => tools.execute(name, input, context as never),
+            () => tools.execute(name, input, context),
             (value) =>
               json(
                 (value as { data?: unknown; error?: unknown }).data ??

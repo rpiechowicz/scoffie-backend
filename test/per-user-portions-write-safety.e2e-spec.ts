@@ -296,7 +296,7 @@ describe('Per-user portions — write safety', () => {
       })
       .expect(202);
     const turnId = (accepted.body as { turnId: string }).turnId;
-    for (const deadline = Date.now() + 20_000; ; ) {
+    for (const deadline = Date.now() + 20_000; ;) {
       const row = await prisma.agentTurn.findUniqueOrThrow({
         where: { id: turnId },
       });

@@ -285,7 +285,7 @@ describe('HouseholdsGateway', () => {
     );
 
     it('socket legacy BEZ payload.userId → UNAUTHORIZED', async () => {
-      const response = await gateway.findAll(legacyClient(), {} as any);
+      const response = await gateway.findAll(legacyClient(), {});
       expect(response).toEqual(
         expect.objectContaining({ ok: false, code: 'UNAUTHORIZED' }),
       );
@@ -443,7 +443,7 @@ describe('HouseholdsGateway', () => {
     it('UUID wielkimi literami (iOS `uuidString`) przechodzi przez kopertę', async () => {
       const response = await gateway.listMembers(tokenClient(USER), {
         householdId: HH.toUpperCase(),
-      } as any);
+      });
       expect(response).toEqual(expect.objectContaining({ ok: true }));
       expect(householdsService.listMembers).toHaveBeenCalledWith(
         USER,
@@ -475,7 +475,7 @@ describe('HouseholdsGateway', () => {
 
       const response = await gateway.create(tokenClient(USER), {
         data: { name: 'Dom' },
-      } as any);
+      });
 
       expect(response).toEqual(expect.objectContaining({ ok: true }));
       expect(inRoom).toHaveBeenCalledWith('user:' + USER);
@@ -500,7 +500,7 @@ describe('HouseholdsGateway', () => {
 
       const response = await gateway.create(tokenClient(USER), {
         data: { name: 'Dom' },
-      } as any);
+      });
 
       expect(response).toEqual(expect.objectContaining({ ok: false }));
       expect(inRoom).not.toHaveBeenCalled();
@@ -520,7 +520,7 @@ describe('HouseholdsGateway', () => {
         userId: 'attacker',
         householdId: HH,
         memberUserId: MEMBER,
-      } as any);
+      });
 
       expect(response).toEqual(expect.objectContaining({ ok: true }));
       expect(householdsService.removeMember).toHaveBeenCalledWith(
@@ -566,7 +566,7 @@ describe('HouseholdsGateway', () => {
       await gateway.removeMember(tokenClient(USER), {
         householdId: HH,
         memberUserId: MEMBER,
-      } as any);
+      });
 
       expect(inRoom).toHaveBeenCalledTimes(1);
       expect(inRoom).toHaveBeenCalledWith('user:' + MEMBER);
@@ -584,7 +584,7 @@ describe('HouseholdsGateway', () => {
       await gateway.removeMember(tokenClient(USER), {
         householdId: HH,
         memberUserId: MEMBER,
-      } as any);
+      });
 
       expect(emitted('weeklyPlans:weekChanged')).toEqual([]);
       expect(emitted('households:membersChanged')).toHaveLength(1);
@@ -596,7 +596,7 @@ describe('HouseholdsGateway', () => {
       const response = await gateway.removeMember(tokenClient(USER), {
         householdId: HH,
         memberUserId: MEMBER,
-      } as any);
+      });
 
       expect(response).toEqual(expect.objectContaining({ ok: false }));
       expect(emit).not.toHaveBeenCalled();
@@ -615,7 +615,7 @@ describe('HouseholdsGateway', () => {
         new Error('User is not a member of this household'),
       );
 
-      await gateway.leave(tokenClient(USER), { householdId: HH } as any);
+      await gateway.leave(tokenClient(USER), { householdId: HH });
 
       const [event] = emitted('households:membersChanged');
       expect(event).toEqual(
@@ -647,7 +647,7 @@ describe('HouseholdsGateway', () => {
         touchedWeekStarts: ['2026-08-24'],
       });
 
-      await gateway.leave(tokenClient(USER), { householdId: HH } as any);
+      await gateway.leave(tokenClient(USER), { householdId: HH });
 
       expect(inRoom).toHaveBeenCalledTimes(1);
       expect(inRoom).toHaveBeenCalledWith('user:' + USER);
@@ -674,7 +674,7 @@ describe('HouseholdsGateway', () => {
 
       const response = await gateway.acceptInvitation(tokenClient(USER), {
         data: { token: 'tok-12345678', leaveOtherHouseholds: true },
-      } as any);
+      });
 
       expect(response).toEqual(expect.objectContaining({ ok: true }));
       expect(householdsService.acceptInvitation).toHaveBeenCalledWith(USER, {
@@ -714,7 +714,7 @@ describe('HouseholdsGateway', () => {
 
       await gateway.acceptInvitation(tokenClient(USER), {
         data: { token: 'tok-12345678', leaveOtherHouseholds: true },
-      } as any);
+      });
 
       for (const room of inRoom.mock.calls.map(([r]) => r)) {
         expect(room).toBe('user:' + USER);
@@ -730,7 +730,7 @@ describe('HouseholdsGateway', () => {
     it('bez opuszczonych domów: tylko join, bez leave', async () => {
       await gateway.acceptInvitation(tokenClient(USER), {
         data: { token: 'tok-12345678' },
-      } as any);
+      });
 
       expect(socketsJoin).toHaveBeenCalledWith('household:' + HH);
       expect(socketsLeave).not.toHaveBeenCalled();
@@ -742,7 +742,7 @@ describe('HouseholdsGateway', () => {
       await gateway.updateName(tokenClient(USER), {
         householdId: HH,
         data: { name: 'Nowy' },
-      } as any);
+      });
 
       expect(to).toHaveBeenCalledWith(LEGACY);
       expect(emitted('households:membersChanged')).toEqual([
@@ -806,7 +806,7 @@ describe('HouseholdsGateway', () => {
       await gateway.updateMealTimes(tokenClient(USER), {
         householdId: HH,
         data: { mealSlotTimes: { BREAKFAST: 480 } },
-      } as any);
+      });
 
       expect(to).toHaveBeenCalledWith(LEGACY);
       expect(emitted('households:mealTimesChanged')).toEqual([
@@ -832,7 +832,7 @@ describe('HouseholdsGateway', () => {
       await gateway.previewInvitation(tokenClient(USER), {
         userId: 'attacker',
         data: { token: 'tok-12345678' },
-      } as any);
+      });
 
       expect(
         notificationsService.notifyHouseholdInvitation,

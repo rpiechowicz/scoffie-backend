@@ -18,8 +18,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
  * wycofany przepis znika z listy oraz z możliwych wyborów do planu.
  */
 type WsEnvelope<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string; code: string };
+  { ok: true; data: T } | { ok: false; error: string; code: string };
 
 type Recipe = {
   id: string;

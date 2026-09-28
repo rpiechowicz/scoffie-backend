@@ -44,9 +44,7 @@ describe('CookidooServiceClient — sonda mikroserwisu po starcie', () => {
   });
 
   it('mikroserwis odpowiada → adres w logu, bez alertu', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
 
     await client.onApplicationBootstrap();
 
@@ -62,9 +60,7 @@ describe('CookidooServiceClient — sonda mikroserwisu po starcie', () => {
   });
 
   it('mikroserwis nieosiągalny → błąd z ADRESEM w logu i alert dla operatora', async () => {
-    global.fetch = jest
-      .fn()
-      .mockRejectedValue(new Error('ECONNREFUSED')) as unknown as typeof fetch;
+    global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
 
     await client.onApplicationBootstrap();
 
@@ -80,9 +76,7 @@ describe('CookidooServiceClient — sonda mikroserwisu po starcie', () => {
   });
 
   it('zła odpowiedź na /health → też błąd, nie cisza', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValue({ ok: false, status: 502 }) as unknown as typeof fetch;
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 502 });
 
     await client.onApplicationBootstrap();
 
@@ -91,7 +85,7 @@ describe('CookidooServiceClient — sonda mikroserwisu po starcie', () => {
 
   it('integracja wyłączona flagą → nie pukamy nigdzie', async () => {
     process.env.COOKIDOO_INTEGRATION_ENABLED = 'false';
-    global.fetch = jest.fn() as unknown as typeof fetch;
+    global.fetch = jest.fn();
 
     await client.onApplicationBootstrap();
 
@@ -102,7 +96,7 @@ describe('CookidooServiceClient — sonda mikroserwisu po starcie', () => {
   it('sonda nigdy nie wywraca startu, choćby fetch rzucił czymkolwiek', async () => {
     global.fetch = jest.fn().mockImplementation(() => {
       throw new Error('boom');
-    }) as unknown as typeof fetch;
+    });
 
     await expect(client.onApplicationBootstrap()).resolves.toBeUndefined();
   });

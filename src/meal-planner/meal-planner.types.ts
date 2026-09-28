@@ -1,4 +1,5 @@
 import { DayOfWeek, DietPreferenceValue, MealType } from '@prisma/client';
+import { ConstraintReason } from '../recipes/constraints/recipe-constraints';
 
 /**
  * Serwerowy planer posiłków — kontrakt wejścia i wyjścia (workstream, Etap 2).
@@ -194,18 +195,8 @@ export type PlanIssue = {
   message: string;
 };
 
-export type HardFilterReason =
-  | 'INACTIVE'
-  | 'MEAL_TYPE'
-  | 'NO_NUTRITION'
-  | 'ALLERGEN'
-  | 'EXCLUDED_INGREDIENT'
-  | 'DIET'
-  | 'REQUEST_DIET'
-  | 'REQUIRED_TAG'
-  | 'AVOIDED_INGREDIENT'
-  | 'EXCLUDED_RECIPE'
-  | 'PREP_TIME';
+/** Powód odrzucenia przez filtr twardy — słownik wspólnego silnika (N8A). */
+export type HardFilterReason = ConstraintReason;
 
 export type CandidateStats = {
   mealType: MealType;

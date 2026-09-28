@@ -73,14 +73,7 @@ export function normalizeIngredientAmount(
   unit: string,
 ): NormalizedIngredient {
   const normalizedUnit = normalizeText(unit) as
-    | 'g'
-    | 'kg'
-    | 'ml'
-    | 'l'
-    | 'szt'
-    | 'szczypta'
-    | 'lyzeczka'
-    | 'lyzka';
+    'g' | 'kg' | 'ml' | 'l' | 'szt' | 'szczypta' | 'lyzeczka' | 'lyzka';
 
   if (normalizedUnit === 'g')
     return { normalizedAmount: amount, normalizedUnit: 'g' };

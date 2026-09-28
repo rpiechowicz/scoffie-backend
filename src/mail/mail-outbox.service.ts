@@ -104,7 +104,7 @@ export class MailOutboxService {
           template: input.template,
           to: eligibility.to,
           userId: input.userId ?? null,
-          payload: input.payload as unknown as Prisma.InputJsonValue,
+          payload: input.payload,
         },
       ],
       skipDuplicates: true,

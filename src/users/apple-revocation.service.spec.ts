@@ -27,10 +27,8 @@ describe('AppleRevocationService', () => {
   it('bez konfiguracji: not_configured i zero wywołań sieci', async () => {
     const service = new AppleRevocationService();
     const fetchMock = jest.fn();
-    service.useFetch(fetchMock as unknown as typeof fetch);
-    await expect(service.revoke('kod', {} as NodeJS.ProcessEnv)).resolves.toBe(
-      'not_configured',
-    );
+    service.useFetch(fetchMock);
+    await expect(service.revoke('kod', {})).resolves.toBe('not_configured');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -40,7 +38,7 @@ describe('AppleRevocationService', () => {
       .fn()
       .mockResolvedValueOnce(response(200, { refresh_token: 'rt-1' }))
       .mockResolvedValueOnce(response(200));
-    service.useFetch(fetchMock as unknown as typeof fetch);
+    service.useFetch(fetchMock);
 
     await expect(service.revoke('auth-code', env)).resolves.toBe('revoked');
 
@@ -73,16 +71,10 @@ describe('AppleRevocationService', () => {
 
   it('odmowa Apple albo błąd sieci = failed, nigdy wyjątek', async () => {
     const service = new AppleRevocationService();
-    service.useFetch(
-      jest.fn().mockResolvedValueOnce(response(400)) as unknown as typeof fetch,
-    );
+    service.useFetch(jest.fn().mockResolvedValueOnce(response(400)));
     await expect(service.revoke('zły', env)).resolves.toBe('failed');
 
-    service.useFetch(
-      jest
-        .fn()
-        .mockRejectedValueOnce(new Error('sieć')) as unknown as typeof fetch,
-    );
+    service.useFetch(jest.fn().mockRejectedValueOnce(new Error('sieć')));
     await expect(service.revoke('kod', env)).resolves.toBe('failed');
   });
 });

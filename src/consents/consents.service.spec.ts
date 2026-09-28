@@ -152,14 +152,14 @@ describe('ConsentsService', () => {
         kind: 'NEWSLETTER',
         action: 'GRANTED',
         documentVersion: '2026-09-15',
-      } as never),
+      }),
     ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
     await expect(
       service.record(USER, {
         kind: 'AI_ASSISTANT',
         action: 'GRANTED',
         documentVersion: 'v2',
-      } as never),
+      }),
     ).rejects.toBeInstanceOf(AppException);
     expect(prisma.consentEvent.create).not.toHaveBeenCalled();
   });

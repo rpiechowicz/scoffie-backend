@@ -516,11 +516,7 @@ export class ShoppingListService {
       );
     }
 
-    return this.rebuildShoppingListSnapshot(
-      householdId,
-      weekStartDate,
-      client as Prisma.TransactionClient,
-    );
+    return this.rebuildShoppingListSnapshot(householdId, weekStartDate, client);
   }
 
   async markShoppingListStale(

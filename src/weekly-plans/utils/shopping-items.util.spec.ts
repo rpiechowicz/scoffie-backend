@@ -142,7 +142,7 @@ describe('sortShoppingItems', () => {
 
   it('nieznany dział ląduje na końcu, jak „Inne"', () => {
     const sorted = sortShoppingItems([
-      item({ name: 'Coś', department: 'Zupełnie obce' as ShoppingDepartment }),
+      item({ name: 'Coś', department: 'Zupełnie obce' }),
       item({ name: 'Cebula' }),
     ]);
     expect(sorted.map((row) => row.name)).toEqual(['Cebula', 'Coś']);

@@ -26,8 +26,7 @@ export class AppleReportError extends IntegrationError {
 }
 
 export type AppleReportRequest =
-  | { kind: 'sales'; date: string }
-  | { kind: 'finance'; month: string };
+  { kind: 'sales'; date: string } | { kind: 'finance'; month: string };
 
 export function appleReportUrl(
   vendorNumber: string,

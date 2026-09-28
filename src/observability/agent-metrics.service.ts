@@ -22,6 +22,19 @@ export type AgentRejection =
    */
   | 'planRange';
 
+/** Narzędzia z serwerowym planerem — zamknięty słownik (N8C §9). */
+export const PLANNER_METRIC_TOOLS = [
+  'build_meal_plan',
+  'replace_plan_item',
+  'suggest_meals',
+] as const;
+export type PlannerMetricTool = (typeof PLANNER_METRIC_TOOLS)[number];
+export const PLANNER_METRIC_STATUSES = ['OK', 'PARTIAL', 'UNSAT'] as const;
+export type PlannerMetricStatus = (typeof PLANNER_METRIC_STATUSES)[number];
+
+/** Narzędzia, które odwołują się do propozycji po id z historii. */
+export type ProposalRefTool = 'revise_proposal' | 'replace_plan_item';
+
 /**
  * Liczniki asystenta od startu procesu — sekcja `agent` w `/ops/metrics`.
  *
@@ -68,6 +81,27 @@ export class AgentMetricsService {
    * sprzątanie) plus stan kolejki z bazy (`ready`, `claimed`) odświeżany
    * przez sprzątanie co minutę i `running` = tury w biegu w tym procesie.
    */
+  /**
+   * Wyniki serwerowego planera per narzędzie (noc 27/28.09, N8C §9 / N8B S0):
+   * ile tur kończy się PARTIAL/UNSAT — dane pod decyzję o
+   * `AI_PARTIAL_SERVER_TEXT` i o gęstości katalogu. Bez id i treści.
+   */
+  private readonly planner = Object.fromEntries(
+    PLANNER_METRIC_TOOLS.map((tool) => [
+      tool,
+      Object.fromEntries(PLANNER_METRIC_STATUSES.map((status) => [status, 0])),
+    ]),
+  ) as Record<PlannerMetricTool, Record<PlannerMetricStatus, number>>;
+  /** „Pokaż inne”: ile razy wycięto już pokazane dania i ile razy pula się skończyła. */
+  private readonly showOthers = { used: 0, exhausted: 0 };
+  /**
+   * Odwołanie do propozycji, które się nie udało (nieznana, nieaktualna,
+   * wygasła) — sygnał, że model źle odtwarza stan rozmowy (N8C).
+   */
+  private readonly proposalRefErrors: Record<ProposalRefTool, number> = {
+    revise_proposal: 0,
+    replace_plan_item: 0,
+  };
   private readonly jobs = {
     ready: 0,
     claimed: 0,
@@ -169,6 +203,31 @@ export class AgentMetricsService {
     Sentry.metrics.count('scoffie.agent.job.cancelled', 1);
   }
 
+  recordPlannerOutcome(
+    tool: PlannerMetricTool,
+    status: PlannerMetricStatus,
+  ): void {
+    this.planner[tool][status] += 1;
+    Sentry.metrics.count('scoffie.agent.planner', 1, {
+      attributes: { tool, status },
+    });
+  }
+
+  recordShowOthers(exhausted: boolean): void {
+    this.showOthers.used += 1;
+    if (exhausted) this.showOthers.exhausted += 1;
+    Sentry.metrics.count('scoffie.agent.show_others', 1, {
+      attributes: { exhausted: String(exhausted) },
+    });
+  }
+
+  recordProposalRefError(tool: ProposalRefTool): void {
+    this.proposalRefErrors[tool] += 1;
+    Sentry.metrics.count('scoffie.agent.proposal_ref_error', 1, {
+      attributes: { tool },
+    });
+  }
+
   recordJobGauges(gauges: {
     ready: number;
     claimed: number;
@@ -186,6 +245,11 @@ export class AgentMetricsService {
       rejected: { ...this.rejected },
       usage: { ...this.usage },
       upstream: { ...this.upstreamErrors },
+      planner: Object.fromEntries(
+        PLANNER_METRIC_TOOLS.map((tool) => [tool, { ...this.planner[tool] }]),
+      ) as Record<PlannerMetricTool, Record<PlannerMetricStatus, number>>,
+      showOthers: { ...this.showOthers },
+      proposalRefErrors: { ...this.proposalRefErrors },
     };
   }
 }
