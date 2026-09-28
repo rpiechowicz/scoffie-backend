@@ -965,7 +965,7 @@ export const DEFS: Def[] = [
       'Podawaj z ryżem, posypane zieloną częścią dymki i kolendrą.',
     ],
     photo:
-      'Chunks of white cod in a red coconut curry sauce with pepper strips and green beans, beside jasmine rice, topped with sliced spring onion greens and coriander',
+      'Chunks of flaky white cod in a smooth orange-red coconut curry sauce with bright red bell pepper strips and green beans, beside a neat mound of jasmine rice, topped with sliced spring onion and fresh coriander',
     vessel: 'bowl',
   },
   {
