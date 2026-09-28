@@ -10,6 +10,7 @@ import {
   satisfiesDiet,
 } from '../../recipes/diet-rules.util';
 import { hardFilterReason } from '../../meal-planner/meal-plan-scoring';
+import { EMPTY_RECIPE_TAXONOMY } from '../../recipes/recipe-taxonomy';
 import {
   eater,
   recipe,
@@ -51,6 +52,7 @@ function searchable(over: Partial<SearchableRecipe> = {}): SearchableRecipe {
     ],
     mainIngredients: [],
     tags: [],
+    taxonomy: EMPTY_RECIPE_TAXONOMY,
     household: false,
     words: { title: [], tags: [], ingredients: [], description: [] },
     ...over,

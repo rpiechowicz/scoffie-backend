@@ -7,6 +7,7 @@ import {
   randomMembers,
   randomRecipe,
 } from '../../recipes/constraints/constraint-fixtures.spec-helper';
+import { EMPTY_RECIPE_TAXONOMY } from '../../recipes/recipe-taxonomy';
 import {
   passesAudience,
   SearchableRecipe,
@@ -68,6 +69,7 @@ describe(`silnik ograniczeń ≡ find_recipes/passesAudience (N8A S3) na ${CASES
         })),
         mainIngredients: [],
         tags: [],
+        taxonomy: EMPTY_RECIPE_TAXONOMY,
         household: false,
         words: { title: [], tags: [], ingredients: [], description: [] },
       };

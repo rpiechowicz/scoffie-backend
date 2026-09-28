@@ -93,6 +93,12 @@ const RECIPE_SELECT = {
   nutritionCarbs: true,
   allergens: true,
   dietTags: true,
+  cuisine: true,
+  dishType: true,
+  seasons: true,
+  occasions: true,
+  equipment: true,
+  features: true,
   ingredients: {
     select: {
       ingredientId: true,
@@ -119,6 +125,12 @@ type LoadedRow = {
   nutritionCarbs: number;
   allergens: string[];
   dietTags: string[];
+  cuisine?: string;
+  dishType?: string | null;
+  seasons?: string[];
+  occasions?: string[];
+  equipment?: string[];
+  features?: string[];
   ingredients: {
     ingredientId?: string;
     name: string;
