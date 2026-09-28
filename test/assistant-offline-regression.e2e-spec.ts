@@ -152,7 +152,7 @@ describe('Asystent — regresja offline, reguły ogólne (N6)', () => {
     return JSON.stringify({ items, recipes, proposals, notes, plans });
   };
 
-  const person = async (label: string) => {
+  const person = async (label: string, calorieGoal = 2100) => {
     const stamp = `${Date.now()}-${randomUUID().slice(0, 6)}`;
     const user = await prisma.user.create({
       data: {
@@ -173,8 +173,8 @@ describe('Asystent — regresja offline, reguły ogólne (N6)', () => {
     });
     await prisma.userPreference.upsert({
       where: { userId: user.id },
-      create: { userId: user.id, calorieGoal: 2100 },
-      update: { calorieGoal: 2100 },
+      create: { userId: user.id, calorieGoal },
+      update: { calorieGoal },
     });
     const conversation = await prisma.agentConversation.create({
       data: { userId: user.id, householdId: household.id },
@@ -621,42 +621,133 @@ describe('Asystent — regresja offline, reguły ogólne (N6)', () => {
       expect(!result.ok && result.error.message.length).toBeGreaterThan(0);
     });
 
-    // ZNANY BRAK N6-1 (noc 26/27.09) — `it.failing` = test MA dziś padać.
-    // `suggest_meals` przy UNSAT oddaje ogólne „Zdejmij jedno życzenie”, bez
-    // powodu (który filtr wyciął wszystko), a `build_meal_plan` powód podaje.
-    // Poprawka zmienia wynik narzędzia widziany przez model → decyzja + smoke.
-    // Po poprawce zmień `it.failing` na `it`.
-    it.failing(
-      'ZNANY BRAK N6-1: niespełnialne dania na porę → powód słowami, bez karty',
-      async () => {
-        const result = await executor.execute(
-          'suggest_meals',
-          {
-            week_start: WEEK_START,
-            day_of_week: 'FRI',
-            meal_type: 'DINNER',
-            count: 3,
-            include_ingredients: [],
-            for_user_ids: [],
-            diet: 'VEGAN',
-            must_have_tags: ['poultry'],
-            prefer_tags: [],
-            avoid_ingredients: [],
-            max_prep_minutes: 0,
-          },
-          context(home),
-        );
-        const body = text(result);
-        expect(
-          result.ok &&
-            result.endsTurn &&
-            (result.data as { options?: unknown[] })?.options?.length,
-        ).toBeFalsy();
-        expect(body).toMatch(
-          /REQUIRED_TAG|REQUEST_DIET|DIET|NO_CANDIDATES|brak|nie ma/i,
-        );
-      },
-    );
+    // N6-1 (noc 26/27.09): `suggest_meals` przy UNSAT oddawało ogólne
+    // „Zdejmij jedno życzenie”, bez powodu. Poprawka (noc 27/28.09) jest za
+    // `AI_PARTIAL_SERVER_TEXT` — zmienia wynik widziany przez model, więc
+    // włączenie czeka na live smoke. Oba stany flagi są przypięte.
+    const unsatisfiable = {
+      week_start: WEEK_START,
+      day_of_week: 'FRI',
+      meal_type: 'DINNER',
+      count: 3,
+      include_ingredients: [],
+      for_user_ids: [],
+      diet: 'VEGAN',
+      must_have_tags: ['poultry'],
+      prefer_tags: [],
+      avoid_ingredients: [],
+      max_prep_minutes: 0,
+    };
+    const withPartialServerText = async <T>(
+      value: 'true' | undefined,
+      run: () => Promise<T>,
+    ): Promise<T> => {
+      const previous = process.env.AI_PARTIAL_SERVER_TEXT;
+      if (value) process.env.AI_PARTIAL_SERVER_TEXT = value;
+      else delete process.env.AI_PARTIAL_SERVER_TEXT;
+      try {
+        return await run();
+      } finally {
+        if (previous === undefined) delete process.env.AI_PARTIAL_SERVER_TEXT;
+        else process.env.AI_PARTIAL_SERVER_TEXT = previous;
+      }
+    };
+
+    it('N6-1 (AI_PARTIAL_SERVER_TEXT=true): niespełnialne dania na porę → powód od serwera, koniec tury bez karty', async () => {
+      const ctx = context(home, { memo: createTurnMemo() });
+      const result = await withPartialServerText('true', () =>
+        executor.execute('suggest_meals', unsatisfiable, ctx),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.endsTurn).toBe(true);
+      expect(ctx.cards).toHaveLength(0);
+      const data = result.data as {
+        offered: number;
+        unsatisfiable?: boolean;
+        removedBy?: Record<string, number>;
+      };
+      expect(data.offered).toBe(0);
+      expect(data.unsatisfiable).toBe(true);
+      // Wegańskie danie z drobiem: pula pada na diecie prośby albo tagu.
+      expect(
+        (data.removedBy?.REQUEST_DIET ?? 0) +
+          (data.removedBy?.REQUIRED_TAG ?? 0),
+      ).toBeGreaterThan(0);
+      expect(result.turnText).toMatch(
+        /^Nie znalazłem co najmniej dwóch dań na kolację w piątek — najwięcej odpada przez /,
+      );
+      expect(result.turnText).toMatch(/dietę z prośby|wymagany rodzaj dania/);
+    });
+
+    it('N6-1 flaga wyłączona: jak przed poprawką — podpowiedź dla modelu, tura trwa', async () => {
+      const ctx = context(home, { memo: createTurnMemo() });
+      const result = await withPartialServerText(undefined, () =>
+        executor.execute('suggest_meals', unsatisfiable, ctx),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.endsTurn).toBeFalsy();
+      expect(result.turnText).toBeUndefined();
+      expect(ctx.cards).toHaveLength(0);
+      const data = result.data as Record<string, unknown>;
+      expect(data.hint).toEqual(expect.stringContaining('Za mało dań'));
+      expect(data).not.toHaveProperty('removedBy');
+      expect(data).not.toHaveProperty('unsatisfiable');
+    });
+
+    // N8B S0 (noc 27/28.09): plan PARTIAL kończy turę zdaniem serwera z
+    // powodami — za `AI_PARTIAL_SERVER_TEXT`. Cel 6000 kcal na jeden dzień
+    // jest nieosiągalny porcjami (tune 0,75–1,5×), więc plan jest PARTIAL
+    // z KCAL_OUT_OF_TOLERANCE deterministycznie.
+    const partialDay = {
+      ...base,
+      days: ['FRI'],
+      meal_types: [],
+    };
+
+    it('S0 (AI_PARTIAL_SERVER_TEXT=true): plan PARTIAL → karta + zdanie serwera z powodem, bez rundy modelu', async () => {
+      const hungry = await person('glodny-on', 6000);
+      const ctx = context(hungry, { memo: createTurnMemo() });
+      const result = await withPartialServerText('true', () =>
+        executor.execute('build_meal_plan', partialDay, ctx),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const data = result.data as {
+        proposed?: boolean;
+        planner: { status: string; issues: string[] };
+      };
+      expect(data.planner.status).toBe('PARTIAL');
+      expect(data.proposed).not.toBe(false);
+      expect(result.endsTurn).toBe(true);
+      // Karta propozycji żyje w bazie (AgentProposal), nie w `collectCard`.
+      expect(
+        await prisma.agentProposal.count({
+          where: { conversationId: hungry.conversationId },
+        }),
+      ).toBe(1);
+      expect(result.turnText).toMatch(
+        /^Plan na piątek czeka na zatwierdzenie, ale nie wszystko się udało: .*kalorie tego dnia odbiegają od celu o ponad 10 %/,
+      );
+      // Bez identyfikatorów i danych osób w zdaniu.
+      expect(result.turnText).not.toContain(hungry.userId);
+    });
+
+    it('S0 flaga wyłączona: plan PARTIAL → karta bez zdania serwera (model tłumaczy w kolejnej rundzie)', async () => {
+      const hungry = await person('glodny-off', 6000);
+      const ctx = context(hungry, { memo: createTurnMemo() });
+      const result = await withPartialServerText(undefined, () =>
+        executor.execute('build_meal_plan', partialDay, ctx),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(
+        (result.data as { planner: { status: string } }).planner.status,
+      ).toBe('PARTIAL');
+      expect(result.endsTurn).toBe(true);
+      expect(result.turnText).toBeUndefined();
+    });
 
     it('podmiana w nieistniejącym slocie planu → jawna odmowa, nie cicha propozycja', async () => {
       const before = await footprint(home.householdId, home.conversationId);

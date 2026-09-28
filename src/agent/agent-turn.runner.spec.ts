@@ -56,6 +56,7 @@ const ENV: AgentEnv = {
   turnCostReserveUsd: 0.25,
   shutdownGraceMs: 8_000,
   plannerPerUserPortions: false,
+  partialServerText: false,
 };
 
 const RESULT: AgentProviderResult = {
