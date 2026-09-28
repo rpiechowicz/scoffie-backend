@@ -73,7 +73,16 @@ const INGREDIENTS: { id: string; name: string }[] = [
 ];
 export const INGREDIENT_IDS = INGREDIENTS.map((ingredient) => ingredient.id);
 /** Fragmenty „bez X” — część trafia podciągiem w środku słowa. */
-export const AVOIDED = ['ser', 'kur', 'mle', 'ros', 'makaron', 'xyz', 'o'];
+export const AVOIDED = [
+  'ser',
+  'kurczak',
+  'mleko',
+  'jajka',
+  'pomidory',
+  'makaron',
+  'xyz',
+  'o',
+];
 export const TAGS = ['soup', 'poultry', 'quick', 'salad', 'fish', 'pasta'];
 
 const NUTRIENT_STEPS = [0, 5, 10, 19.9, 20, 20.1, 30, 45, 80];

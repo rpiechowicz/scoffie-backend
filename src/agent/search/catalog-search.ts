@@ -1,5 +1,16 @@
 import { DietPreferenceValue, MealType } from '@prisma/client';
 import { normalizeText } from '../../common/normalize-text.util';
+import {
+  hasPrefix,
+  ingredientMatches,
+  queryStems,
+  stem,
+  words,
+} from '../../recipes/ingredient-match.util';
+
+// Dopasowanie składników po rdzeniu żyje w domenie (wspólne z planerem przez
+// `recipe-constraints`); stąd reeksport dla dotychczasowych importów.
+export { ingredientMatches, queryStems, stem };
 import { audienceReason } from '../../recipes/constraints/recipe-constraints';
 import {
   RECIPE_SEARCH_TAGS,
@@ -105,12 +116,6 @@ const FALLBACK_GRAMS_PER_PIECE = 100;
 /** Działy „z szafki" — ich składniki nie liczą się jako wspólne z planem. */
 const PANTRY_DEPARTMENTS = ['przyprawy', 'olej'];
 
-function words(text: string): string[] {
-  return normalizeText(text)
-    .split(/[^a-z0-9]+/)
-    .filter((word) => word.length > 0);
-}
-
 /** Buduje dokument wyszukiwania z wiersza bazy. Deterministycznie. */
 export function toSearchable(
   recipe: SearchSourceRecipe,
@@ -190,103 +195,6 @@ export function toSearchable(
 
 // ── Tekst ──────────────────────────────────────────────────────────────────
 
-/**
- * Słowa, które nic nie mówią o daniu. Pory posiłku też: od nich jest pole
- * `meal_type`, a „obiad" w tekście trafiałby w przypadkowe tytuły.
- */
-const STOPWORDS = new Set([
-  'a',
-  'ale',
-  'albo',
-  'co',
-  'cos',
-  'czyms',
-  'czegos',
-  'dla',
-  'do',
-  'i',
-  'jakies',
-  'jakis',
-  'lub',
-  'mam',
-  'mi',
-  'na',
-  'nie',
-  'o',
-  'od',
-  'po',
-  'pod',
-  'przez',
-  'w',
-  'we',
-  'z',
-  'ze',
-  'za',
-  'danie',
-  'dania',
-  'przepis',
-  'przepisy',
-  'pomysl',
-  'pomysly',
-  'propozycja',
-  'chce',
-  'zrobic',
-  'ugotowac',
-  'sniadanie',
-  'sniadania',
-  'obiad',
-  'obiady',
-  'kolacja',
-  'kolacje',
-  'kolacji',
-  'przekaska',
-  'podwieczorek',
-  'lunch',
-]);
-
-/**
- * Rdzeń słowa dla polskiej odmiany: „kurczakiem" → „kurcza", „zupy" → „zup",
- * „lekkiego" → „lekki". Dopasowanie idzie od POCZĄTKU wyrazu (`hasPrefix`),
- * więc rdzeń nie łapie środka innych słów.
- */
-export function stem(word: string): string {
-  if (word.length <= 3) return word;
-  if (word.length <= 5) return word.slice(0, word.length - 1);
-  return word.slice(0, Math.max(5, Math.ceil(word.length * 0.6)));
-}
-
-/**
- * Znaczące rdzenie zapytania. Słowo po „bez" wypada: „bez mięsa" w tekście
- * nie może PROMOWAĆ dań z mięsem — od wykluczeń jest `exclude_ingredients`.
- */
-export function queryStems(text: string): string[] {
-  const tokens = words(text);
-  const stems: string[] = [];
-  for (let i = 0; i < tokens.length; i += 1) {
-    const token = tokens[i];
-    if (token === 'bez') {
-      i += 1;
-      continue;
-    }
-    if (token.length < 3 || STOPWORDS.has(token)) continue;
-    const root = stem(token);
-    if (!stems.includes(root)) stems.push(root);
-  }
-  return stems;
-}
-
-/**
- * Wyraz zaczyna się od rdzenia. Krótki rdzeń (do 3 liter) łapie tylko krótką
- * końcówkę: „ser" trafia w „serek", ale nie w „sernik", „por" — w „pory",
- * ale nie w „porcję".
- */
-const hasPrefix = (list: readonly string[], root: string): boolean =>
-  list.some(
-    (word) =>
-      word.startsWith(root) &&
-      (root.length > 3 || word.length <= root.length + 2),
-  );
-
 const TEXT_WEIGHTS = {
   title: 3,
   tags: 2,
@@ -320,21 +228,6 @@ function textScore(
     score += best;
   }
   return { score, matched };
-}
-
-/**
- * Czy składnik przepisu odpowiada nazwie z prośby: KAŻDE znaczące słowo
- * nazwy (po rdzeniu) zaczyna któryś wyraz składnika. „pierś z kurczaka"
- * pasuje do „Filet z piersi kurczaka", „jajka" do „Jajko".
- */
-export function ingredientMatches(
-  ingredientName: string,
-  wanted: string,
-): boolean {
-  const roots = queryStems(wanted);
-  if (roots.length === 0) return false;
-  const have = words(ingredientName);
-  return roots.every((root) => hasPrefix(have, root));
 }
 
 // ── Kryteria ───────────────────────────────────────────────────────────────

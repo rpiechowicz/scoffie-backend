@@ -17,6 +17,7 @@ import {
   Rng,
   TAGS,
 } from '../recipes/constraints/constraint-fixtures.spec-helper';
+import { ingredientMatches } from '../recipes/ingredient-match.util';
 import { hardFilterReason, plannerConstraintSet } from './meal-plan-scoring';
 import {
   HardFilterReason,
@@ -33,6 +34,10 @@ import {
  * po przepięciu planera na `checkRecipe` (S2): gdyby oba silniki zmieniły
  * się razem, porównanie z bieżącym kodem byłoby tautologią. Świadoma zmiana
  * semantyki = zmiana wyroczni w tym samym PR, z opisem dlaczego.
+ *
+ * ZMIANA WYROCZNI (28.09.2026, N8A S6): „bez X” po rdzeniu słowa
+ * (`ingredientMatches`, semantyka wyszukiwarki), a nie podciąg — podciąg nie
+ * łapał odmiany („jajka” ≠ „jajko”: 0 z 160 dań z jajkiem w katalogu).
  */
 function legacyHardFilterReason(
   recipe: PlannerRecipe,
@@ -74,7 +79,7 @@ function legacyHardFilterReason(
   }
   if (
     avoidIngredients.some((avoided) =>
-      recipe.ingredientNames.some((name) => name.includes(avoided)),
+      recipe.ingredientNames.some((name) => ingredientMatches(name, avoided)),
     )
   ) {
     return 'AVOIDED_INGREDIENT';
