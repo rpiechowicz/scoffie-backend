@@ -39,8 +39,13 @@ Migracje `20260928120000…`–`20260928140100…` wchodzą same przy starcie ko
 
 ## Zdjęcia
 
-Nowe przepisy mają zaślepkę (`RECIPE_IMAGE_PLACEHOLDER_URL`). Opisy do Recrafta są w
-`prisma/catalog/recipe-image-dishes.json` (styl A, napoje w `cup`). Generowanie:
-`pnpm exec tsx scripts/recraft-recipe-images.ts --ids <id,…>` (klucze `RECRAFT_AI_KEY`, `R2_*`),
-potem `scripts/apply-recipe-images.ts` i `scripts/sync-catalog-image-urls.ts --apply`.
-Koszt i publikacja do R2 — decyzja Rafała.
+GOTOWE (28.09.2026): 572 zdjęcia z Recrafta (styl A) leżą w R2 pod `img.scoffie.app/recipe-images/`
+i są wpisane w `image.imageUrl` pliku katalogu — import z kroku 4 wstawia nowe przepisy od razu
+ze zdjęciami, osobny SQL niepotrzebny. Wygenerowane `recraft-recipe-images.ts --one-shot --no-upload`
+(1 próba na przepis), przejrzane na oko, 38 poprawionych (opisy 11 dań zmienione), wgrane
+`scripts/upload-recipe-images-from-state.ts` (sprawdza skrót treści ↔ klucz), wpisane
+`scripts/apply-recipe-images.ts`. Surowe i poprzednie wersje: `tmp/recipe-images` (gitignored,
+tylko na maszynie, na której generowano).
+
+Po imporcie sprawdzić: `SELECT count(*) FROM "Recipe" WHERE "isCatalog" AND "imageUrl" LIKE
+'%recipe-placeholder%'` = 0.
