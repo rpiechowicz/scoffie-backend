@@ -6,6 +6,7 @@ import {
   ConstraintSetV1,
   ConstraintSubject,
   excludedIngredientHits,
+  mentionsIngredient,
 } from './recipe-constraints';
 
 function subject(over: Partial<ConstraintSubject> = {}): ConstraintSubject {
@@ -42,6 +43,36 @@ function set(over: Partial<ConstraintSetV1['request']> = {}): ConstraintSetV1 {
 }
 
 describe('recipe-constraints', () => {
+  it.each([
+    ['FISH', 'łosoś', 'ryba wędzona'],
+    ['FISH', 'łosoś', 'ryba morska'],
+    ['MEAT', 'schab', 'mięso mielone'],
+    ['DAIRY', 'twaróg', 'nabiał bez laktozy'],
+    ['MEAT', 'schab', 'mieszanka warzyw'],
+  ])('tag %s nie usuwa określeń z prośby o %s / %s', (tag, name, phrase) => {
+    const recipe = subject({ ingredientNames: [name], dietTags: [tag] });
+    expect(mentionsIngredient(recipe, phrase)).toBe(false);
+    expect(checkRecipe(recipe, set({ avoidIngredients: [phrase] }))).toBeNull();
+  });
+
+  it.each([
+    ['FISH', 'ryba wędzona', 'ryba wędzona'],
+    ['MEAT', 'mięso mielone wołowe', 'mięso mielone'],
+    ['FISH', 'łosoś', 'rybą'],
+    ['MEAT', 'schab', 'mięsem'],
+    ['DAIRY', 'twaróg', 'nabiału'],
+    ['CRUSTACEAN', 'krewetki', 'skorupiaków'],
+  ])(
+    'zachowuje dokładny składnik lub samą kategorię: %s / %s / %s',
+    (tag, name, phrase) => {
+      const recipe = subject({ ingredientNames: [name], dietTags: [tag] });
+      expect(mentionsIngredient(recipe, phrase)).toBe(true);
+      expect(checkRecipe(recipe, set({ avoidIngredients: [phrase] }))).toBe(
+        'AVOIDED_INGREDIENT',
+      );
+    },
+  );
+
   it('suma audytorium: bez powtórek, w kolejności pierwszego wystąpienia', () => {
     expect(
       audienceConstraintsOf([

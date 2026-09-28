@@ -17,10 +17,7 @@ import {
   Rng,
   TAGS,
 } from '../recipes/constraints/constraint-fixtures.spec-helper';
-import {
-  ingredientMatches,
-  queryStems,
-} from '../recipes/ingredient-match.util';
+import { ingredientMatches, words } from '../recipes/ingredient-match.util';
 import { hardFilterReason, plannerConstraintSet } from './meal-plan-scoring';
 import {
   HardFilterReason,
@@ -44,18 +41,61 @@ import {
  * ZMIANA WYROCZNI 2 (M12): słowo-kategoria („ryby”, „mięsa”, „nabiału”,
  * „skorupiaków”) wyklucza po tagu diety — składniki to gatunki.
  */
-const CATEGORY_ROOTS: Record<string, string> = {
-  ryb: 'FISH',
-  mies: 'MEAT',
-  nabia: 'DAIRY',
-  skorup: 'CRUSTACEAN',
+// Review 28.09: kategoria bez określeń; tag nie dowodzi „wędzona”/„mielone”.
+// Niezależny słownik odmiany, bez importu reguły produkcyjnej.
+const CATEGORY_FORMS: Record<string, string[]> = {
+  FISH: [
+    'ryba',
+    'ryby',
+    'rybe',
+    'rybie',
+    'rybo',
+    'ryb',
+    'rybom',
+    'rybami',
+    'rybach',
+  ],
+  MEAT: [
+    'mieso',
+    'miesa',
+    'miesu',
+    'miesem',
+    'miesie',
+    'miesom',
+    'miesami',
+    'miesach',
+  ],
+  DAIRY: [
+    'nabial',
+    'nabialu',
+    'nabialowi',
+    'nabialem',
+    'nabialy',
+    'nabialom',
+    'nabialami',
+    'nabialach',
+  ],
+  CRUSTACEAN: [
+    'skorupiak',
+    'skorupiaka',
+    'skorupiakowi',
+    'skorupiakiem',
+    'skorupiaki',
+    'skorupiakow',
+    'skorupiakom',
+    'skorupiakami',
+    'skorupiakach',
+  ],
 };
-const byCategory = (dietTags: readonly string[], avoided: string) =>
-  queryStems(avoided).some((stem) =>
-    Object.entries(CATEGORY_ROOTS).some(
-      ([root, tag]) => stem.startsWith(root) && dietTags.includes(tag),
-    ),
+const byCategory = (dietTags: readonly string[], avoided: string) => {
+  const tokens = words(avoided);
+  return (
+    tokens.length === 1 &&
+    Object.entries(CATEGORY_FORMS).some(
+      ([tag, forms]) => dietTags.includes(tag) && forms.includes(tokens[0]),
+    )
   );
+};
 function legacyHardFilterReason(
   recipe: PlannerRecipe,
   mealType: MealType,

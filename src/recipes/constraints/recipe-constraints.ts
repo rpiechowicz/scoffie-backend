@@ -4,7 +4,7 @@ import {
   NutritionPerServing,
   satisfiesDiet,
 } from '../diet-rules.util';
-import { ingredientMatches, queryStems } from '../ingredient-match.util';
+import { ingredientMatches, words } from '../ingredient-match.util';
 
 /**
  * Jedna definicja DOPUSZCZALNOŚCI przepisu (N8A, `ConstraintSet v1`).
@@ -158,16 +158,17 @@ export function excludedIngredientHits(
  * Słowa-KATEGORIE w „bez X” (N8A S6, M12): składniki w katalogu to gatunki
  * (łosoś, dorsz, schab), więc „bez ryby” po nazwie nie trafiało niczego.
  * Kategoria idzie po tagu diety przepisu — tym samym, który napędza diety
- * (`satisfiesDiet`). Klucz = początek rdzenia słowa po normalizacji
- * („ryby”, „rybę”, „rybnego” → `ryb`; „mięsa” → `mies`). Świadomie bez
+ * (`satisfiesDiet`). Dopasowujemy tylko samą nazwę kategorii w polskiej odmianie.
+ * Tag całego przepisu nie dowodzi określeń typu „wędzona” czy „mielone”.
+ * Świadomie bez
  * „drobiu” (MEAT to też wołowina) i „owoców morza” (tagi nie rozróżniają
  * mięczaków) — tam zostaje dopasowanie po nazwie.
  */
-const AVOIDED_CATEGORY_TAGS: readonly { root: string; tag: string }[] = [
-  { root: 'ryb', tag: 'FISH' },
-  { root: 'mies', tag: 'MEAT' },
-  { root: 'nabia', tag: 'DAIRY' },
-  { root: 'skorup', tag: 'CRUSTACEAN' },
+const AVOIDED_CATEGORY_TAGS: readonly { name: RegExp; tag: string }[] = [
+  { name: /^ryb(a|y|e|ie|o|om|ami|ach)?$/, tag: 'FISH' },
+  { name: /^mies(o|a|u|em|ie|om|ami|ach)$/, tag: 'MEAT' },
+  { name: /^nabial(u|owi|em|y|om|ami|ach)?$/, tag: 'DAIRY' },
+  { name: /^skorupiak(a|owi|iem|i|ow|om|ami|ach)?$/, tag: 'CRUSTACEAN' },
 ];
 
 /**
@@ -184,11 +185,10 @@ export function mentionsIngredient(
   if (subject.ingredientNames.some((name) => ingredientMatches(name, phrase))) {
     return true;
   }
-  const stems = queryStems(phrase);
+  const tokens = words(phrase);
+  if (tokens.length !== 1) return false;
   return AVOIDED_CATEGORY_TAGS.some(
-    ({ root, tag }) =>
-      subject.dietTags.includes(tag) &&
-      stems.some((stem) => stem.startsWith(root)),
+    ({ name, tag }) => subject.dietTags.includes(tag) && name.test(tokens[0]),
   );
 }
 
