@@ -11,14 +11,14 @@
       "prepTimeMinutes": 120,
       "servings": 4,
       "nutrition": {
-        "kcal": 1957,
-        "protein": 128,
+        "kcal": 1639,
+        "protein": 102,
         "carbs": 127,
         "sugars": 24,
-        "fat": 96,
-        "saturatedFat": 26,
+        "fat": 73,
+        "saturatedFat": 20,
         "fiber": 19,
-        "salt": 3,
+        "salt": 2.7,
         "addedSalt": 0.9
       },
       "steps": [
@@ -320,14 +320,14 @@
       "prepTimeMinutes": 60,
       "servings": 2,
       "nutrition": {
-        "kcal": 1678,
-        "protein": 89,
+        "kcal": 1466,
+        "protein": 71,
         "carbs": 139,
         "sugars": 19,
-        "fat": 78,
-        "saturatedFat": 26,
+        "fat": 62,
+        "saturatedFat": 21,
         "fiber": 24,
-        "salt": 3,
+        "salt": 2.8,
         "addedSalt": 1.4
       },
       "steps": [

@@ -566,7 +566,7 @@ Zasady treści:
 - `KO-077` Kalafior w panierce z ostrym sosem — airfryer, wegetariańskie
 - `KO-078` Szaszłyki z halloumi i warzyw — airfryer, wegetariańskie, bez glutenu
 - `KO-079` Brokuł i kalafior z sosem sezamowym — airfryer, wegańskie, lekkie
-- `KO-080` Pieczarki faszerowane szynką i szczypiorkiem — airfryer, wegetariańskie, keto, bez glutenu
+- `KO-080` Pieczarki faszerowane serem i szczypiorkiem — airfryer, wegetariańskie, keto, bez glutenu
 - `KO-081` Pierogi pieczone z sosem czosnkowym — airfryer
 - `KO-082` Tacos z kurczakiem i kapustą — airfryer, kuchnia meksykańska, wysokobiałkowe
 - `KO-083` Pizza na tortilli z warzywami — airfryer, kuchnia włoska, wegetariańskie, do 30 min, dla dzieci
