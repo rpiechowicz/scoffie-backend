@@ -5306,6 +5306,49 @@
       "category": "przyprawy-i-sosy",
       "allergens": [],
       "dietTags": []
+    },
+    {
+      "name": "muffin angielski",
+      "normalizedName": "muffin angielski",
+      "category": "piekarnia",
+      "allergens": [
+        "gluten",
+        "lactose",
+        "milk"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN",
+        "PROCESSED",
+        "DAIRY"
+      ],
+      "note": "Płaska drożdżowa bułeczka do tostowania (English muffin); Selgros, Makro, sezonowo Lidl."
+    },
+    {
+      "name": "kukurydza do popcornu",
+      "normalizedName": "kukurydza do popcornu",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ],
+      "note": "Suche ziarno do prażenia (Lidl, Biedronka — paczka 400–500 g); popcorn gotowy to osobny składnik."
+    },
+    {
+      "name": "kiełbaska koktajlowa",
+      "normalizedName": "kielbaska koktajlowa",
+      "category": "mieso",
+      "allergens": [
+        "celery",
+        "mustard",
+        "soy"
+      ],
+      "dietTags": [
+        "MEAT",
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Małe kiełbaski party/koktajlowe z lady chłodniczej (Biedronka, Lidl, Makro)."
     }
   ]
 }

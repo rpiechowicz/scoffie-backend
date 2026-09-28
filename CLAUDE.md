@@ -92,7 +92,7 @@ etapami i mierzenie efektu zmian.
   niesie ją zawsze w całości (eksport), import bez pól = wartości domyślne kolumn, a kompletność katalogu
   (kuchnia + rodzaj dania dla każdego przepisu) pilnuje test złoty w `catalog-export.spec.ts`. Panel zapisuje
   pola opcjonalnie (pominięte = bez zmian). `features`: `LUNCHBOX`, `SIDE` (dodatek — nie zastępuje posiłku),
-  `OCCASIONAL` (planer tylko w okresie okazji). Lista nowych przepisów: `prisma/catalog/katalog-1000-lista.md`.
+  `OCCASIONAL` (planer tylko w okresie okazji). Lista nowych przepisów: `prisma/catalog/katalog-1000-lista.md`, generator `scripts/lib/katalog-1000-2026-09.ts` (części w `scripts/lib/katalog-1000/`, pilnuje obietnic listy), wdrożenie: `docs/runbooks/katalog-1000-wdrozenie.md`.
   Planer asystenta (plan, podmiana, sugestie) SAM nie bierze dodatku, dania poza sezonem ani `OCCASIONAL`
   poza okresem okazji (`autoPlanBlock`; data = najwcześniejszy planowany dzień, `planDate`) — takie przepisy
   wchodzą do puli jako nieaktywne (liczą się do bilansu, nie są kandydatami). Wybór człowieka
