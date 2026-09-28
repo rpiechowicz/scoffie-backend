@@ -105,7 +105,7 @@ export const DEFS: Def[] = [
       'Zupę schłodź w lodówce, rozlej do misek z makaronem i udekoruj pokrojonymi truskawkami.',
     ],
     photo:
-      'Chilled pink creamy strawberry soup with spiral pasta and sliced fresh strawberries on top',
+      'Chilled smooth pale pink strawberry soup with small cooked fusilli pasta pieces mixed into it and a few sliced fresh strawberries on top',
     vessel: 'bowl',
   },
   {
@@ -796,7 +796,7 @@ export const DEFS: Def[] = [
       'W piekarniku: 200°C, termoobieg; bataty 15 minut, potem z łososiem i fasolką jeszcze 15 minut.',
     ],
     photo:
-      'Oven-roasted salmon fillet cooked all the way through, opaque light coral flesh visibly separating into flakes, golden-brown crisp top, next to golden paprika-roasted sweet potato cubes and bright green beans',
+      'Roasted salmon fillet with crispy golden-brown skin facing up, one corner broken open to show fully cooked flaky pale coral flesh, next to golden paprika-roasted sweet potato cubes and bright green beans',
   },
   {
     plan: 'OB-163',
