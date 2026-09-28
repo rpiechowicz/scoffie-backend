@@ -114,6 +114,8 @@ function parseArgs(argv: string[]) {
     strictEdges: argv.includes('--strict-edges'),
     /** Jedna generacja, bez płatnych dodatków, wynik zawsze przyjęty. */
     oneShot: argv.includes('--one-shot'),
+    /** Ziarno próby w `--one-shot` — poprawka losuje innym niż pierwsza (99). */
+    seed: Number(get('--seed') ?? SEEDS[0]),
     concurrency: Number(get('--concurrency') ?? 3),
     /** `id=plik,…` — zatwierdzone zdjęcia: tylko centrowanie i wgranie. */
     useRaw: get('--use-raw')
@@ -322,12 +324,13 @@ async function processRecipe(
   approvedRaw?: Buffer,
   strictEdges = false,
   oneShot = false,
+  oneShotSeed = SEEDS[0],
 ): Promise<ImageState> {
   const prompt = buildRecipeImagePrompt(entry.dish, entry.vessel);
   const attempts: ImageState['attempts'] = [];
 
   if (oneShot && !approvedRaw) {
-    const seed = SEEDS[0];
+    const seed = oneShotSeed;
     const raw = await recraftGenerate(prompt, seed);
     writeFileSync(join(WORK_DIR, 'raw', `${entry.id}-${seed}.webp`), raw);
     const ev = await evaluate(raw, false, false);
@@ -413,6 +416,7 @@ async function main() {
           approved.get(id),
           args.strictEdges,
           args.oneShot,
+          args.seed,
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

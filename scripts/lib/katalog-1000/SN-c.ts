@@ -719,7 +719,7 @@ export const DEFS: Def[] = [
       'Nałóż farsz łyżeczką do połówek białek, posyp resztą szczypiorku i schłódź przed podaniem.',
     ],
     photo:
-      'Halved hard-boiled eggs generously filled with a mushroom and yolk stuffing, sprinkled with fresh chopped chives',
+      'Six halved hard-boiled eggs, each hollow filled with a creamy pale yellow mixture of mashed yolk and finely chopped sauteed mushrooms, sprinkled with fresh chopped chives',
   },
   {
     plan: 'SN-084',
@@ -782,7 +782,7 @@ export const DEFS: Def[] = [
       'Ułóż jajka w naczyniu żaroodpornym i zapiekaj w piekarniku 10–12 minut, aż wierzch się zrumieni. Podawaj na ciepło.',
     ],
     photo:
-      'Egg halves baked in their lengthwise-cut white shells, heaped with chopped egg filling flecked with chives and dill and topped with a golden buttery breadcrumb crust',
+      'Four egg halves, each still sitting in its own white eggshell cut lengthwise, heaped with chopped egg filling flecked with chives and dill and topped with a golden buttery breadcrumb crust',
   },
   {
     plan: 'SN-086',
@@ -856,7 +856,7 @@ export const DEFS: Def[] = [
       'Ostudź pasztet w formie, a przed krojeniem schłódź w lodówce. Przechowuj w lodówce do 4 dni.',
     ],
     photo:
-      'Thick slices of rustic orange-brown lentil and vegetable pate with a golden baked crust and a dense, finely flecked crumb',
+      'Three neat rectangular slices cut from a baked lentil and vegetable loaf, dense brown-orange texture with visible bits of carrot, golden crust on the top and sides',
     vessel: 'board',
   },
   {

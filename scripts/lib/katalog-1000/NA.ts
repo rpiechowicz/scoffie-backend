@@ -571,7 +571,7 @@ export const DEFS: Def[] = [
       'Miksuj około minuty na gładki koktajl i rozlej do kubków.',
     ],
     photo:
-      'Pastel pink raspberry banana oat milk shake with a smooth surface, a few raspberries and banana slices on top',
+      'Pastel pink raspberry banana oat milk shake with a smooth creamy surface, topped with three fresh raspberries and two fresh pale banana slices',
     vessel: 'cup',
   },
 
@@ -604,7 +604,7 @@ export const DEFS: Def[] = [
       'Wymieszaj sok, rozlej do szklanek i wypij od razu, póki jest świeży.',
     ],
     photo:
-      'Deep burgundy beet carrot apple juice with a light foam on top, an apple slice on the rim',
+      'Deep burgundy beet carrot apple juice with a light pink foam on top, plain surface with no garnish',
     vessel: 'cup',
   },
   {
@@ -632,7 +632,7 @@ export const DEFS: Def[] = [
       'Wymieszaj sok, rozlej do szklanek i podawaj od razu, najlepiej schłodzony.',
     ],
     photo:
-      'Vivid orange carrot, orange and ginger juice with a thin pale foam layer on top',
+      'Smooth vivid orange freshly pressed juice with a thin pale foam layer on top and a plain surface',
     vessel: 'cup',
   },
   {
