@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
-    "@aws-sdk/client-s3": "^3.1139.0",
+    "@aws-sdk/client-s3": "^3.1140.0",
     "@nestjs/common": "^11.2.3",
     "@nestjs/core": "^11.2.3",
     "@nestjs/jwt": "^11.0.2",
