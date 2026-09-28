@@ -549,6 +549,10 @@ export interface Ingredient {
   carbs: number;
   fat: number;
   fiber: number;
+  /** Cukry na 100 g/ml — część `carbs`; 0 = brak danych albo naprawdę zero. */
+  sugars: number;
+  /** Tłuszcze nasycone na 100 g/ml — część `fat`. */
+  saturatedFat: number;
   gramsPerPiece: number | null;
   allergens: string[];
   dietTags: string[];
@@ -565,6 +569,18 @@ export interface RecipeDetail extends RecipeListItem {
   steps: string[];
   ingredients: RecipeIngredientLine[];
   dietTags: string[];
+  /**
+   * Taksonomia (`src/recipes/recipe-taxonomy.ts`, katalog 1000): kuchnia,
+   * rodzaj dania (`null` = nieprzypisany), pory roku (puste = cały rok),
+   * okazje, sprzęt i cechy (`LUNCHBOX`, `SIDE`, `OCCASIONAL`). Zapis przyjmuje
+   * te same pola; pominięte zostaje bez zmian.
+   */
+  cuisine: string;
+  dishType: string | null;
+  seasons: string[];
+  occasions: string[];
+  equipment: string[];
+  features: string[];
 }
 
 /**

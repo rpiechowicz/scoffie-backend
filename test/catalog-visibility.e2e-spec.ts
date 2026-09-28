@@ -108,12 +108,14 @@ describe('Widoczność katalogu E2E', () => {
   // Wszystkie strony, nie pierwsza: katalog przekroczył 100 pozycji
   // (partia „diety" 3.09.2026) i przepis z pierwszego `findFirst` potrafi
   // leżeć na drugiej stronie. Telefon też stronicuje — test ma to odwzorować.
+  // Limit stron to tylko bezpiecznik pętli: katalog 1000 (28.09.2026) ma
+  // ponad 1000 przepisów, więc 10 stron już nie wystarczało.
   const listRecipes = async (
     client: Socket,
     householdId: string,
   ): Promise<RecipeRow[]> => {
     const all: RecipeRow[] = [];
-    for (let page = 1; page <= 10; page += 1) {
+    for (let page = 1; page <= 50; page += 1) {
       const rows = okData(
         await ack<RecipeRow[]>(client, 'recipes:findAll', {
           householdId,

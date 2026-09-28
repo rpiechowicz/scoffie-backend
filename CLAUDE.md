@@ -84,8 +84,20 @@ etapami i mierzenie efektu zmian.
   formatuj. `recipes:import:json` na NIEPUSTYM katalogu odmawia, gdy baza ma zmiany, których
   plik nie ma (`RECIPE_IMPORT_FROM_JSON_CONFIRM=<dzisiejsza data>` = świadome nadpisanie);
   bootstrap pustej bazy działa bez zmian. Kolejność składników = `[createdAt, id]` (zapis nadaje
-  rosnący `createdAt`). Makro = cały przepis, węgle bez błonnika, liczone ze składników.
+  rosnący `createdAt`). Makro = cały przepis, węgle bez błonnika, liczone ze składników; od 28.09.2026 także cukry (część węgli) i tłuszcze nasycone (część tłuszczu) — `sugars`/`saturatedFat` w tabeli składników i w bloku `nutrition` pliku katalogu.
   `servings` 1..8 (nie „zawsze 2”). Składnik: `name` po polsku, `normalizedName` ASCII = klucz.
+- Taksonomia przepisu (katalog 1000, od 28.09.2026): `Recipe.cuisine`, `dishType`, `seasons`, `occasions`,
+  `equipment`, `features` — słowniki i reguły w `src/recipes/recipe-taxonomy.ts` (id = kontrakt z klientami,
+  jak alergeny; klient NIEZNANĄ wartość pomija). To decyzja redakcji, NIE pochodna składników. Plik katalogu
+  niesie ją zawsze w całości (eksport), import bez pól = wartości domyślne kolumn, a kompletność katalogu
+  (kuchnia + rodzaj dania dla każdego przepisu) pilnuje test złoty w `catalog-export.spec.ts`. Panel zapisuje
+  pola opcjonalnie (pominięte = bez zmian). `features`: `LUNCHBOX`, `SIDE` (dodatek — nie zastępuje posiłku),
+  `OCCASIONAL` (planer tylko w okresie okazji). Lista nowych przepisów: `prisma/catalog/katalog-1000-lista.md`, generator `scripts/lib/katalog-1000-2026-09.ts` (części w `scripts/lib/katalog-1000/`, pilnuje obietnic listy), wdrożenie: `docs/runbooks/katalog-1000-wdrozenie.md`.
+  Planer asystenta (plan, podmiana, sugestie) SAM nie bierze dodatku, dania poza sezonem ani `OCCASIONAL`
+  poza okresem okazji (`autoPlanBlock`; data = najwcześniejszy planowany dzień, `planDate`) — takie przepisy
+  wchodzą do puli jako nieaktywne (liczą się do bilansu, nie są kandydatami). Wybór człowieka
+  (`portionsForChoice`), ocena planu, wyszukiwarka i walidator zapisu tych reguł NIE stosują. Słowa taksonomii
+  („wigilijne”, „na grilla”, „włoskie”) są w tekście wyszukiwarki — bez nowych pól w schematach narzędzi.
 - Widoczność przepisów (od Fazy 0, krok 3): `Recipe.isCatalog` rozdziela WSPÓLNY katalog od
   przepisów gospodarstwa. Katalog tworzy WYŁĄCZNIE import (`recipes:import:json`), a zmienia import i panel
   admina; `recipes:create` zawsze daje `isCatalog: false`. Każdy odczyt przepisów MUSI filtrować przez

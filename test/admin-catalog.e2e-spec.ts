@@ -471,7 +471,10 @@ describe('Panel administratora — katalog (e2e)', () => {
         kcal: 64,
         protein: 3.2,
         carbs: 4.8,
+        // Składnik bez danych o cukrach i nasyconych — w kontrakcie 0.
+        sugars: 0,
         fat: 2,
+        saturatedFat: 0,
         fiber: 0,
         gramsPerPiece: null,
         allergens: ['MILK'],
@@ -482,7 +485,9 @@ describe('Panel administratora — katalog (e2e)', () => {
         kcal: 0,
         protein: 0,
         carbs: 0,
+        sugars: 0,
         fat: 0,
+        saturatedFat: 0,
         fiber: 0,
       });
     });

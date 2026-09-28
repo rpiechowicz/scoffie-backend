@@ -27,6 +27,7 @@ import {
 } from '../../common/meal-types';
 import { comparePolish } from '../../common/polish-order';
 import { stepsFromInstructions } from '../recipe-steps.util';
+import { canonicalTaxonomy } from '../recipe-taxonomy';
 import {
   CATALOG_DEFAULT_SOURCE_PROVIDER,
   type CatalogFile,
@@ -49,10 +50,18 @@ export const catalogExportSelect = {
   difficulty: true,
   prepTimeMinutes: true,
   servings: true,
+  cuisine: true,
+  dishType: true,
+  seasons: true,
+  occasions: true,
+  equipment: true,
+  features: true,
   nutritionKcal: true,
   nutritionProtein: true,
   nutritionCarbs: true,
+  nutritionSugars: true,
   nutritionFat: true,
+  nutritionSaturatedFat: true,
   nutritionFiber: true,
   nutritionSalt: true,
   nutritionSaltAdded: true,
@@ -126,11 +135,18 @@ export function catalogEntryFromRow(
     difficulty: row.difficulty,
     prepTimeMinutes: row.prepTimeMinutes,
     servings: row.servings,
+    // Taksonomia zawsze w całości — puste listy też, bo „cały rok” i „bez
+    // okazji” to decyzje redakcji, a nie brak danych.
+    ...canonicalTaxonomy(row),
+    // Kolejność pól jak na etykiecie: węgle → w tym cukry, tłuszcz → w tym
+    // nasycone; pola zawsze obecne (0 = brak danych albo naprawdę zero).
     nutrition: {
       kcal: row.nutritionKcal,
       protein: row.nutritionProtein,
       carbs: row.nutritionCarbs,
+      sugars: row.nutritionSugars,
       fat: row.nutritionFat,
+      saturatedFat: row.nutritionSaturatedFat,
       fiber: row.nutritionFiber,
       salt: row.nutritionSalt,
       addedSalt: row.nutritionSaltAdded,
@@ -172,10 +188,18 @@ export function catalogEntryFromColumns(
     difficulty: columns.difficulty,
     prepTimeMinutes: columns.prepTimeMinutes,
     servings: columns.servings,
+    cuisine: columns.cuisine,
+    dishType: columns.dishType,
+    seasons: columns.seasons,
+    occasions: columns.occasions,
+    equipment: columns.equipment,
+    features: columns.features,
     nutritionKcal: columns.nutritionKcal,
     nutritionProtein: columns.nutritionProtein,
     nutritionCarbs: columns.nutritionCarbs,
+    nutritionSugars: columns.nutritionSugars,
     nutritionFat: columns.nutritionFat,
+    nutritionSaturatedFat: columns.nutritionSaturatedFat,
     nutritionFiber: columns.nutritionFiber,
     nutritionSalt: columns.nutritionSalt,
     nutritionSaltAdded: columns.nutritionSaltAdded,
@@ -301,6 +325,12 @@ const ENTRY_FIELDS: readonly (keyof CatalogRecipeInput)[] = [
   'difficulty',
   'prepTimeMinutes',
   'servings',
+  'cuisine',
+  'dishType',
+  'seasons',
+  'occasions',
+  'equipment',
+  'features',
   'nutrition',
   'sourceProvider',
   'sourceRecipeId',
@@ -469,11 +499,23 @@ export function withCanonicalKeyOrder(
     difficulty: entry.difficulty,
     prepTimeMinutes: entry.prepTimeMinutes,
     servings: entry.servings,
+    ...(entry.cuisine === undefined ? {} : { cuisine: entry.cuisine }),
+    ...(entry.dishType === undefined ? {} : { dishType: entry.dishType }),
+    ...(entry.seasons === undefined ? {} : { seasons: entry.seasons }),
+    ...(entry.occasions === undefined ? {} : { occasions: entry.occasions }),
+    ...(entry.equipment === undefined ? {} : { equipment: entry.equipment }),
+    ...(entry.features === undefined ? {} : { features: entry.features }),
     nutrition: {
       kcal: entry.nutrition.kcal,
       protein: entry.nutrition.protein,
       carbs: entry.nutrition.carbs,
+      ...(entry.nutrition.sugars === undefined
+        ? {}
+        : { sugars: entry.nutrition.sugars }),
       fat: entry.nutrition.fat,
+      ...(entry.nutrition.saturatedFat === undefined
+        ? {}
+        : { saturatedFat: entry.nutrition.saturatedFat }),
       fiber: entry.nutrition.fiber,
       salt: entry.nutrition.salt,
       ...(entry.nutrition.addedSalt === undefined

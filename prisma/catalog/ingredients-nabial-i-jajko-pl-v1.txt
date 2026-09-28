@@ -1,4 +1,6 @@
 jajko
+białko jaja
+żółtko
 jogurt naturalny
 jogurt grecki
 jogurt owocowy
@@ -45,3 +47,7 @@ twarożek
 ser gorgonzola
 ser kozi
 mleko w proszku
+oscypek
+jogurt kokosowy
+jogurt sojowy
+mleko sojowe

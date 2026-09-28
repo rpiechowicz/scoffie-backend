@@ -68,11 +68,19 @@ const base: CatalogRecipeInput = {
   difficulty: 'EASY',
   prepTimeMinutes: 10,
   servings: 2,
+  cuisine: 'POLISH',
+  dishType: 'PORRIDGE',
+  seasons: [],
+  occasions: [],
+  equipment: [],
+  features: [],
   nutrition: {
     kcal: 600,
     protein: 20,
     carbs: 90,
+    sugars: 20,
     fat: 12,
+    saturatedFat: 6,
     fiber: 8,
     salt: 0.4,
     addedSalt: 0,
@@ -181,10 +189,18 @@ describe('eksport katalogu', () => {
       difficulty: 'EASY',
       prepTimeMinutes: 10,
       servings: 2,
+      cuisine: 'POLISH',
+      dishType: 'PORRIDGE',
+      seasons: [],
+      occasions: [],
+      equipment: [],
+      features: [],
       nutritionKcal: 600,
       nutritionProtein: 20,
       nutritionCarbs: 90,
+      nutritionSugars: 20,
       nutritionFat: 12,
+      nutritionSaturatedFat: 6,
       nutritionFiber: 8,
       nutritionSalt: 0.4,
       nutritionSaltAdded: 0,
@@ -215,6 +231,12 @@ describe('eksport katalogu', () => {
         'difficulty',
         'prepTimeMinutes',
         'servings',
+        'cuisine',
+        'dishType',
+        'seasons',
+        'occasions',
+        'equipment',
+        'features',
         'nutrition',
         'steps',
         'ingredients',
@@ -225,6 +247,19 @@ describe('eksport katalogu', () => {
         { step: 2, instruction: 'Wsyp płatki.' },
       ]);
       expect(entry.image).toEqual({ prompt: 'Owsianka', imageUrl: null });
+      // Kolejność jak na etykiecie UE: „w tym cukry” po węglach, „w tym
+      // nasycone” po tłuszczu — zawsze obecne.
+      expect(Object.keys(entry.nutrition)).toEqual([
+        'kcal',
+        'protein',
+        'carbs',
+        'sugars',
+        'fat',
+        'saturatedFat',
+        'fiber',
+        'salt',
+        'addedSalt',
+      ]);
     });
 
     it('wycofany ma `isActive: false` zaraz po id; źródło zewnętrzne zostaje', () => {
@@ -354,6 +389,50 @@ describe('eksport katalogu', () => {
         }),
       ).toHaveLength(3);
     });
+
+    it('taksonomia: nieznana wartość to błąd, listy wracają w porządku słownika', () => {
+      expect(
+        validateCatalogRecipe({
+          ...base,
+          cuisine: 'KLINGON',
+          dishType: 'SOUPS',
+          seasons: ['SUMMER', 'SUMMER'],
+          equipment: ['THERMOMIX'],
+        }),
+      ).toEqual([
+        '"Owsianka na mleku": nieznana kuchnia "KLINGON".',
+        '"Owsianka na mleku": nieznany rodzaj dania "SOUPS".',
+        '"Owsianka na mleku": seasons: wartość powtórzona.',
+        '"Owsianka na mleku": equipment: nieznana wartość "THERMOMIX".',
+      ]);
+      const back = roundTrip({
+        ...base,
+        seasons: ['WINTER', 'AUTUMN'],
+        features: ['OCCASIONAL', 'LUNCHBOX'],
+      });
+      expect(back.seasons).toEqual(['AUTUMN', 'WINTER']);
+      expect(back.features).toEqual(['LUNCHBOX', 'OCCASIONAL']);
+    });
+
+    it('taksonomia pominięta w pliku = wartości domyślne kolumn', () => {
+      const {
+        cuisine: _cuisine,
+        dishType: _dishType,
+        seasons: _seasons,
+        occasions: _occasions,
+        equipment: _equipment,
+        features: _features,
+        ...bare
+      } = base;
+      expect(roundTrip(bare)).toMatchObject({
+        cuisine: 'OTHER',
+        dishType: null,
+        seasons: [],
+        occasions: [],
+        equipment: [],
+        features: [],
+      });
+    });
   });
 
   describe('różnice', () => {
@@ -375,6 +454,10 @@ describe('eksport katalogu', () => {
       ]);
       expect(diff.retired.map((x) => x.id)).toEqual(['b']);
       expect(diff.removed.map((x) => x.id)).toEqual(['c']);
+      expect(
+        diffCatalog([a], [{ ...a, cuisine: 'ITALIAN', seasons: ['SUMMER'] }])
+          .changed[0].fields,
+      ).toEqual(['cuisine', 'seasons']);
       expect(summarizeCatalogDiff(diff)).toBe(
         'zmienione 1, dodane 1, wycofane 1, usunięte 1',
       );
@@ -444,6 +527,25 @@ describe('eksport katalogu', () => {
 
     it('każdy przepis przechodzi walidację importu', () => {
       expect(file.recipes.flatMap(validateCatalogRecipe)).toEqual([]);
+    });
+
+    // Katalog 1000 (28.09.2026): taksonomia jest decyzją redakcji, nie
+    // pochodną składników — przepis bez kuchni albo rodzaju dania wypadłby
+    // po cichu z filtrów kategorii w aplikacji. Import tego nie wymaga (stare
+    // pliki i fikstury), więc kompletność katalogu pilnuje ten test.
+    it('każdy przepis ma pełną taksonomię (kuchnia, rodzaj dania, listy)', () => {
+      const incomplete = file.recipes
+        .filter(
+          (recipe) =>
+            !recipe.cuisine ||
+            !recipe.dishType ||
+            !Array.isArray(recipe.seasons) ||
+            !Array.isArray(recipe.occasions) ||
+            !Array.isArray(recipe.equipment) ||
+            !Array.isArray(recipe.features),
+        )
+        .map((recipe) => recipe.title);
+      expect(incomplete).toEqual([]);
     });
   });
 });

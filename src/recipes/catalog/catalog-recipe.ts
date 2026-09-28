@@ -21,6 +21,12 @@ import {
 } from '../ingredient-amount.util';
 import type { IngredientNutritionPer100 } from '../recipe-nutrition.util';
 import {
+  canonicalTaxonomy,
+  EMPTY_RECIPE_TAXONOMY,
+  taxonomyProblems,
+  type RecipeTaxonomy,
+} from '../recipe-taxonomy';
+import {
   kcalPerServing,
   resolveSuitableMealTypes,
   snackKcalLimit,
@@ -46,11 +52,27 @@ export type CatalogRecipeInput = {
   difficulty: Difficulty;
   prepTimeMinutes: number;
   servings: number;
+  /**
+   * Taksonomia (`recipe-taxonomy.ts`). Eksport pisze ją zawsze, w całości;
+   * pominięte pole w imporcie = wartość domyślna kolumny. Kompletność
+   * katalogu (kuchnia i rodzaj dania dla KAŻDEGO przepisu) pilnuje test
+   * złoty pliku, nie import — stare pliki i fikstury dalej się wczytują.
+   */
+  cuisine?: string;
+  dishType?: string | null;
+  seasons?: string[];
+  occasions?: string[];
+  equipment?: string[];
+  features?: string[];
   nutrition: {
     kcal: number;
     protein: number;
     carbs: number;
+    /** Cukry (część `carbs`); brak w starym pliku = 0. Eksport pisze zawsze. */
+    sugars?: number;
     fat: number;
+    /** Tłuszcze nasycone (część `fat`); brak = 0. Eksport pisze zawsze. */
+    saturatedFat?: number;
     fiber: number;
     /** Sól ŁĄCZNIE (g na przepis). */
     salt: number;
@@ -149,6 +171,9 @@ export function validateCatalogRecipe(recipe: CatalogRecipeInput): string[] {
   if (!Number.isInteger(recipe.prepTimeMinutes) || recipe.prepTimeMinutes < 0) {
     problems.push(`"${title}": zły czas przygotowania.`);
   }
+  for (const problem of taxonomyProblems(recipe)) {
+    problems.push(`"${title}": ${problem}.`);
+  }
   if (!Array.isArray(recipe.steps) || recipe.steps.length === 0) {
     problems.push(`"${title}": przepis musi mieć kroki.`);
   } else if (
@@ -210,6 +235,8 @@ const ingredientRefSelect = {
   nutritionFatPer100: true,
   nutritionFiberPer100: true,
   nutritionSodiumMgPer100: true,
+  nutritionSugarsPer100: true,
+  nutritionSaturatedFatPer100: true,
   gramsPerPiece: true,
 } satisfies Prisma.IngredientSelect;
 
@@ -237,6 +264,8 @@ function toIngredientRef(row: IngredientRefRow): CatalogIngredientRef {
             fat: row.nutritionFatPer100 ?? 0,
             fiber: row.nutritionFiberPer100 ?? 0,
             sodiumMg: row.nutritionSodiumMgPer100 ?? 0,
+            sugars: row.nutritionSugarsPer100 ?? 0,
+            saturatedFat: row.nutritionSaturatedFatPer100 ?? 0,
             gramsPerPiece: row.gramsPerPiece,
           },
   };
@@ -391,11 +420,19 @@ export type CatalogRecipeColumns = {
   nutritionProtein: number;
   nutritionFat: number;
   nutritionCarbs: number;
+  nutritionSugars: number;
+  nutritionSaturatedFat: number;
   nutritionFiber: number;
   nutritionSalt: number;
   nutritionSaltAdded: number;
   allergens: string[];
   dietTags: string[];
+  cuisine: string;
+  dishType: string | null;
+  seasons: string[];
+  occasions: string[];
+  equipment: string[];
+  features: string[];
   sourceProvider: string;
   sourceRecipeId: string | null;
   sourceInstructions: Array<{ step: number; text: string }>;
@@ -437,6 +474,27 @@ export function overLimitManualSlots(
 }
 
 /**
+ * Taksonomia z wejścia w kształcie kolumn: pominięte pole = wartość domyślna
+ * kolumny, listy w porządku słownika. Walidacja (`taxonomyProblems`) idzie
+ * wcześniej, w `validateCatalogRecipe` — tu nieznane wartości już nie trafiają.
+ */
+export function catalogTaxonomyOf(
+  recipe: Pick<
+    CatalogRecipeInput,
+    'cuisine' | 'dishType' | 'seasons' | 'occasions' | 'equipment' | 'features'
+  >,
+): RecipeTaxonomy {
+  return canonicalTaxonomy({
+    cuisine: recipe.cuisine ?? EMPTY_RECIPE_TAXONOMY.cuisine,
+    dishType: recipe.dishType ?? EMPTY_RECIPE_TAXONOMY.dishType,
+    seasons: recipe.seasons ?? [],
+    occasions: recipe.occasions ?? [],
+    equipment: recipe.equipment ?? [],
+    features: recipe.features ?? [],
+  });
+}
+
+/**
  * Kolumny przepisu katalogu z wejścia i rozwiązanych składników. Makro
  * bierze z `recipe.nutrition` (import: z pliku; panel: przeliczone ze
  * składników PRZED wywołaniem), alergeny i tagi diet — z unii tagów
@@ -473,11 +531,14 @@ export function catalogRecipeColumns(
     nutritionProtein: recipe.nutrition.protein,
     nutritionFat: recipe.nutrition.fat,
     nutritionCarbs: recipe.nutrition.carbs,
+    nutritionSugars: recipe.nutrition.sugars ?? 0,
+    nutritionSaturatedFat: recipe.nutrition.saturatedFat ?? 0,
     nutritionFiber: recipe.nutrition.fiber,
     nutritionSalt: recipe.nutrition.salt,
     nutritionSaltAdded: recipe.nutrition.addedSalt ?? 0,
     allergens: tags.allergens,
     dietTags: tags.dietTags,
+    ...catalogTaxonomyOf(recipe),
     sourceProvider: recipe.sourceProvider ?? CATALOG_DEFAULT_SOURCE_PROVIDER,
     sourceRecipeId: recipe.sourceRecipeId ?? null,
     sourceInstructions: recipe.steps.map((step) => ({

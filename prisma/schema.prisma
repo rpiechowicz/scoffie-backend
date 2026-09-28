@@ -296,6 +296,10 @@ model Recipe {
   /// Sól DODANA ręcznie (g na przepis) — jedyna część, której nie da się
   /// policzyć ze składników; recompute liczy resztę i sumuje.
   nutritionSaltAdded    Float      @default(0)
+  /// Cukry (g na CAŁY przepis) — część `nutritionCarbs`, liczona ze składników.
+  nutritionSugars       Float      @default(0)
+  /// Tłuszcze nasycone (g na CAŁY przepis) — część `nutritionFat`.
+  nutritionSaturatedFat Float      @default(0)
   isActive              Boolean    @default(true)
   /// Czy przepis należy do WSPÓLNEGO katalogu (widoczny dla wszystkich
   /// gospodarstw), czy jest prywatnym przepisem swojego gospodarstwa.
@@ -314,6 +318,22 @@ model Recipe {
   /// Unia tagów dietetycznych składników (`src/common/diet-tags.ts`:
   /// MEAT, FISH, DAIRY, EGG, GLUTEN_GRAIN, GRAIN, LEGUME, PROCESSED…).
   dietTags              String[]   @default([])
+  /// Taksonomia przepisu (`src/recipes/recipe-taxonomy.ts`, katalog 1000,
+  /// 28.09.2026) — w odróżnieniu od alergenów i tagów diet NIE wynika ze
+  /// składników, tylko z decyzji redakcji: kuchnia (POLISH, ITALIAN… OTHER).
+  cuisine               String     @default("OTHER")
+  /// Rodzaj dania (SOUP, SALAD, PASTA…); `null` = nieprzypisany (przepisy
+  /// domów). Katalog ma go zawsze — pilnuje test złoty pliku katalogu.
+  dishType              String?
+  /// Pory roku, w których danie ma sens (SPRING…WINTER); puste = cały rok.
+  seasons               String[]   @default([])
+  /// Okazje (CHRISTMAS_EVE, CHRISTMAS, EASTER, BARBECUE, PARTY).
+  occasions             String[]   @default([])
+  /// Sprzęt potrzebny poza płytą i garnkiem (OVEN, AIRFRYER, BLENDER…).
+  equipment             String[]   @default([])
+  /// Cechy dla planera i filtrów: LUNCHBOX, SIDE (dodatek, nie posiłek),
+  /// OCCASIONAL (planer proponuje tylko w okresie swojej okazji).
+  features              String[]   @default([])
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
@@ -360,6 +380,12 @@ model Ingredient {
   /// Sód w mg na 100 g/ml (IZZ/USDA). Sól przepisu = sód ze składników × 2,5
   /// + sól dodana — dotąd „sól" znaczyła dwie różne rzeczy w dwóch partiach.
   nutritionSodiumMgPer100 Float?
+  /// Cukry (cukry proste i dwucukry, jak „w tym cukry” na etykiecie UE) —
+  /// ZAWIERAJĄ się w `nutritionCarbsPer100`. Brak = nieznane (liczone jako 0).
+  nutritionSugarsPer100       Float?
+  /// Kwasy tłuszczowe nasycone („w tym nasycone”) — ZAWIERAJĄ się
+  /// w `nutritionFatPer100`. Brak = nieznane (liczone jako 0).
+  nutritionSaturatedFatPer100 Float?
 
   /// Masa jadalnej czesci 1 sztuki — dla skladnikow mierzonych w `szt`.
   gramsPerPiece Float?

@@ -52,12 +52,25 @@ export const recipeListSelect = {
   nutritionCarbs: true,
   nutritionFiber: true,
   nutritionSalt: true,
+  // Cukry i tłuszcze nasycone (cały przepis, jak reszta makro) — pozycje
+  // „w tym cukry” / „w tym nasycone” etykiety UE.
+  nutritionSugars: true,
+  nutritionSaturatedFat: true,
   isActive: true,
   // Tagi liczone na serwerze (unia tagów składników): klient filtruje po
   // nich dietę i alergeny zamiast zgadywać z nazw. Składniki nadal jadą z
   // listą — stary build iOS bez tych pól dalej klasyfikuje po nazwach.
   allergens: true,
   dietTags: true,
+  // Taksonomia (katalog 1000, `recipe-taxonomy.ts`): filtry główne i filtry
+  // kategorii w aplikacji. Klient NIEZNANĄ wartość pomija — nowa wartość
+  // słownika nie może wywrócić dekodowania.
+  cuisine: true,
+  dishType: true,
+  seasons: true,
+  occasions: true,
+  equipment: true,
+  features: true,
   // Skladniki jada z lista, nie tylko ze szczegolami: klient filtruje
   // katalog po diecie i alergenach uzytkownika, a bez nazw i dzialow nie
   // ma z czego tego policzyc. Projekcja jest wezsza niz w `detailSelect`
@@ -109,6 +122,8 @@ type ResolvedRecipeNutrition = {
   nutritionProtein: number;
   nutritionFat: number;
   nutritionCarbs: number;
+  nutritionSugars: number;
+  nutritionSaturatedFat: number;
   nutritionFiber: number;
   nutritionSalt: number;
   nutritionSaltAdded: number;
@@ -281,6 +296,8 @@ export class RecipesService {
         nutritionFatPer100: true,
         nutritionFiberPer100: true,
         nutritionSodiumMgPer100: true,
+        nutritionSugarsPer100: true,
+        nutritionSaturatedFatPer100: true,
         gramsPerPiece: true,
         allergens: true,
         dietTags: true,
@@ -344,6 +361,8 @@ export class RecipesService {
                 fat: ingredient.nutritionFatPer100 ?? 0,
                 fiber: ingredient.nutritionFiberPer100 ?? 0,
                 sodiumMg: ingredient.nutritionSodiumMgPer100 ?? 0,
+                sugars: ingredient.nutritionSugarsPer100 ?? 0,
+                saturatedFat: ingredient.nutritionSaturatedFatPer100 ?? 0,
                 gramsPerPiece: ingredient.gramsPerPiece,
               },
       };
@@ -383,6 +402,9 @@ export class RecipesService {
         nutritionProtein: data.nutritionProtein ?? 0,
         nutritionFat: data.nutritionFat ?? 0,
         nutritionCarbs: data.nutritionCarbs ?? 0,
+        // Bez składników nie ma z czego policzyć cukrów ani nasyconych.
+        nutritionSugars: 0,
+        nutritionSaturatedFat: 0,
         nutritionFiber: data.nutritionFiber ?? 0,
         nutritionSalt: nutritionSaltAdded,
         nutritionSaltAdded,
@@ -422,10 +444,18 @@ export class RecipesService {
     nutritionCarbs: true,
     nutritionFiber: true,
     nutritionSalt: true,
+    nutritionSugars: true,
+    nutritionSaturatedFat: true,
     isActive: true,
     isCatalog: true,
     allergens: true,
     dietTags: true,
+    cuisine: true,
+    dishType: true,
+    seasons: true,
+    occasions: true,
+    equipment: true,
+    features: true,
     householdId: true,
     sourceInstructions: true,
     ingredients: {

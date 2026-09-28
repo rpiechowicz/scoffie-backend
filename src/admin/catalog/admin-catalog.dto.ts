@@ -22,6 +22,14 @@ import {
 } from 'class-validator';
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 import { ALLOWED_UNITS } from '../../recipes/ingredient-amount.util';
+import {
+  RECIPE_CUISINES,
+  RECIPE_DISH_TYPES,
+  RECIPE_EQUIPMENT,
+  RECIPE_FEATURES,
+  RECIPE_OCCASIONS,
+  RECIPE_SEASONS,
+} from '../../recipes/recipe-taxonomy';
 
 /** `GET /admin/catalog/recipes?active=true|false` — bez parametru cały katalog. */
 export class CatalogRecipesQueryDto {
@@ -64,7 +72,8 @@ export class RecipeIngredientLineDto {
  * (panel wysyła cały obiekt, który dostał z `GET`, z poprawkami).
  *
  * Zapisuje się: tytuł, opis, pora bazowa, sloty, trudność, czas, porcje,
- * kroki i składniki. Makro, alergeny i tagi diet liczy serwer ze składników
+ * kroki, składniki i taksonomia (kuchnia, rodzaj dania, pory roku, okazje,
+ * sprzęt, cechy — każde pole opcjonalne, pominięte zostaje bez zmian). Makro, alergeny i tagi diet liczy serwer ze składników
  * (te same funkcje, co import katalogu). Pola tylko do odczytu (`isActive`,
  * `kcalPerServing`, `inPlans`, `favorites`, `allergens`, `dietTags`) są
  * przyjmowane i POMIJANE — `forbidNonWhitelisted` odrzuciłby inaczej każdy
@@ -128,6 +137,42 @@ export class UpdateCatalogRecipeDto {
 
   @IsISO8601({ strict: true })
   updatedAt!: string;
+
+  // ——— taksonomia (katalog 1000): pominięte pole = bez zmian ———
+
+  @IsOptional()
+  @IsIn([...RECIPE_CUISINES])
+  cuisine?: string;
+
+  // `null` = zdejmij rodzaj dania (`IsOptional` przepuszcza `null`; przepis
+  // katalogu bez rodzaju i tak wyłapie test złoty pliku).
+  @IsOptional()
+  @IsIn([...RECIPE_DISH_TYPES])
+  dishType?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsIn([...RECIPE_SEASONS], { each: true })
+  seasons?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsIn([...RECIPE_OCCASIONS], { each: true })
+  occasions?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsIn([...RECIPE_EQUIPMENT], { each: true })
+  equipment?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsIn([...RECIPE_FEATURES], { each: true })
+  features?: string[];
 
   // ——— tylko do odczytu: przyjmowane i pomijane ———
 

@@ -13,7 +13,9 @@
         "kcal": 1074,
         "protein": 35,
         "carbs": 123,
+        "sugars": 32,
         "fat": 43,
+        "saturatedFat": 25,
         "fiber": 23,
         "salt": 7.5,
         "addedSalt": 0
@@ -118,7 +120,9 @@
         "kcal": 1278,
         "protein": 58,
         "carbs": 66,
+        "sugars": 14,
         "fat": 79,
+        "saturatedFat": 26,
         "fiber": 22,
         "salt": 8.7,
         "addedSalt": 0
@@ -228,7 +232,9 @@
         "kcal": 991,
         "protein": 34,
         "carbs": 123,
+        "sugars": 55,
         "fat": 28,
+        "saturatedFat": 8,
         "fiber": 39,
         "salt": 9.3,
         "addedSalt": 0
@@ -358,7 +364,9 @@
         "kcal": 1241,
         "protein": 80,
         "carbs": 99,
+        "sugars": 32,
         "fat": 51,
+        "saturatedFat": 19,
         "fiber": 29,
         "salt": 4.3,
         "addedSalt": 0
@@ -488,7 +496,9 @@
         "kcal": 1515,
         "protein": 73,
         "carbs": 130,
+        "sugars": 28,
         "fat": 68,
+        "saturatedFat": 24,
         "fiber": 38,
         "salt": 6.2,
         "addedSalt": 0
@@ -603,7 +613,9 @@
         "kcal": 1290,
         "protein": 61,
         "carbs": 108,
+        "sugars": 21,
         "fat": 53,
+        "saturatedFat": 16,
         "fiber": 44,
         "salt": 8.6,
         "addedSalt": 0
@@ -723,7 +735,9 @@
         "kcal": 1241,
         "protein": 71,
         "carbs": 97,
+        "sugars": 17,
         "fat": 61,
+        "saturatedFat": 26,
         "fiber": 12,
         "salt": 4.1,
         "addedSalt": 0
@@ -838,7 +852,9 @@
         "kcal": 1049,
         "protein": 46,
         "carbs": 79,
+        "sugars": 10,
         "fat": 54,
+        "saturatedFat": 26,
         "fiber": 17,
         "salt": 7.9,
         "addedSalt": 0
@@ -933,7 +949,9 @@
         "kcal": 1081,
         "protein": 49,
         "carbs": 127,
+        "sugars": 35,
         "fat": 31,
+        "saturatedFat": 8,
         "fiber": 32,
         "salt": 9.8,
         "addedSalt": 0
@@ -1053,7 +1071,9 @@
         "kcal": 1246,
         "protein": 39,
         "carbs": 122,
+        "sugars": 30,
         "fat": 60,
+        "saturatedFat": 27,
         "fiber": 27,
         "salt": 7.4,
         "addedSalt": 0
@@ -1163,7 +1183,9 @@
         "kcal": 1247,
         "protein": 29,
         "carbs": 130,
+        "sugars": 43,
         "fat": 60,
+        "saturatedFat": 32,
         "fiber": 29,
         "salt": 7.5,
         "addedSalt": 0
@@ -1273,7 +1295,9 @@
         "kcal": 1225,
         "protein": 40,
         "carbs": 116,
+        "sugars": 30,
         "fat": 60,
+        "saturatedFat": 32,
         "fiber": 20,
         "salt": 8.3,
         "addedSalt": 0
@@ -1383,7 +1407,9 @@
         "kcal": 1586,
         "protein": 96,
         "carbs": 149,
+        "sugars": 32,
         "fat": 59,
+        "saturatedFat": 12,
         "fiber": 23,
         "salt": 4.5,
         "addedSalt": 0
@@ -1498,7 +1524,9 @@
         "kcal": 1666,
         "protein": 103,
         "carbs": 134,
+        "sugars": 14,
         "fat": 74,
+        "saturatedFat": 26,
         "fiber": 15,
         "salt": 4.4,
         "addedSalt": 0
@@ -1608,7 +1636,9 @@
         "kcal": 1334,
         "protein": 62,
         "carbs": 101,
+        "sugars": 10,
         "fat": 67,
+        "saturatedFat": 15,
         "fiber": 19,
         "salt": 3.6,
         "addedSalt": 0
@@ -1713,7 +1743,9 @@
         "kcal": 1470,
         "protein": 88,
         "carbs": 120,
+        "sugars": 15,
         "fat": 64,
+        "saturatedFat": 29,
         "fiber": 14,
         "salt": 8.5,
         "addedSalt": 0
@@ -1823,7 +1855,9 @@
         "kcal": 1625,
         "protein": 115,
         "carbs": 118,
+        "sugars": 9,
         "fat": 76,
+        "saturatedFat": 22,
         "fiber": 13,
         "salt": 7,
         "addedSalt": 0
@@ -1933,7 +1967,9 @@
         "kcal": 1528,
         "protein": 74,
         "carbs": 107,
+        "sugars": 17,
         "fat": 83,
+        "saturatedFat": 26,
         "fiber": 19,
         "salt": 5.5,
         "addedSalt": 0
@@ -2038,7 +2074,9 @@
         "kcal": 1711,
         "protein": 75,
         "carbs": 104,
+        "sugars": 29,
         "fat": 104,
+        "saturatedFat": 35,
         "fiber": 13,
         "salt": 6.1,
         "addedSalt": 0
@@ -2143,7 +2181,9 @@
         "kcal": 1550,
         "protein": 100,
         "carbs": 107,
+        "sugars": 30,
         "fat": 73,
+        "saturatedFat": 21,
         "fiber": 24,
         "salt": 5,
         "addedSalt": 0
@@ -2268,7 +2308,9 @@
         "kcal": 1706,
         "protein": 90,
         "carbs": 121,
+        "sugars": 15,
         "fat": 88,
+        "saturatedFat": 30,
         "fiber": 16,
         "salt": 6.8,
         "addedSalt": 0
@@ -2383,7 +2425,9 @@
         "kcal": 1410,
         "protein": 84,
         "carbs": 133,
+        "sugars": 32,
         "fat": 51,
+        "saturatedFat": 18,
         "fiber": 21,
         "salt": 3.7,
         "addedSalt": 0
@@ -2488,7 +2532,9 @@
         "kcal": 1611,
         "protein": 71,
         "carbs": 90,
+        "sugars": 44,
         "fat": 99,
+        "saturatedFat": 32,
         "fiber": 33,
         "salt": 12.3,
         "addedSalt": 0
@@ -2613,7 +2659,9 @@
         "kcal": 1815,
         "protein": 74,
         "carbs": 150,
+        "sugars": 27,
         "fat": 92,
+        "saturatedFat": 25,
         "fiber": 25,
         "salt": 4.7,
         "addedSalt": 0
@@ -2733,7 +2781,9 @@
         "kcal": 1362,
         "protein": 62,
         "carbs": 101,
+        "sugars": 48,
         "fat": 68,
+        "saturatedFat": 24,
         "fiber": 24,
         "salt": 3.6,
         "addedSalt": 0
@@ -2848,7 +2898,9 @@
         "kcal": 1709,
         "protein": 54,
         "carbs": 237,
+        "sugars": 23,
         "fat": 52,
+        "saturatedFat": 30,
         "fiber": 24,
         "salt": 4.4,
         "addedSalt": 0
@@ -2948,7 +3000,9 @@
         "kcal": 1728,
         "protein": 86,
         "carbs": 213,
+        "sugars": 17,
         "fat": 52,
+        "saturatedFat": 14,
         "fiber": 19,
         "salt": 4.7,
         "addedSalt": 0
@@ -3063,7 +3117,9 @@
         "kcal": 1374,
         "protein": 52,
         "carbs": 147,
+        "sugars": 14,
         "fat": 59,
+        "saturatedFat": 17,
         "fiber": 17,
         "salt": 9.1,
         "addedSalt": 0
@@ -3158,7 +3214,9 @@
         "kcal": 1335,
         "protein": 92,
         "carbs": 115,
+        "sugars": 28,
         "fat": 50,
+        "saturatedFat": 31,
         "fiber": 17,
         "salt": 3.6,
         "addedSalt": 0
@@ -3258,7 +3316,9 @@
         "kcal": 1752,
         "protein": 66,
         "carbs": 185,
+        "sugars": 28,
         "fat": 75,
+        "saturatedFat": 15,
         "fiber": 23,
         "salt": 8.8,
         "addedSalt": 0
@@ -3363,7 +3423,9 @@
         "kcal": 1672,
         "protein": 73,
         "carbs": 147,
+        "sugars": 6,
         "fat": 83,
+        "saturatedFat": 32,
         "fiber": 7,
         "salt": 7.5,
         "addedSalt": 0
@@ -3448,7 +3510,9 @@
         "kcal": 1299,
         "protein": 42,
         "carbs": 150,
+        "sugars": 6,
         "fat": 55,
+        "saturatedFat": 14,
         "fiber": 8,
         "salt": 4.4,
         "addedSalt": 0
@@ -3538,7 +3602,9 @@
         "kcal": 1591,
         "protein": 109,
         "carbs": 140,
+        "sugars": 13,
         "fat": 63,
+        "saturatedFat": 27,
         "fiber": 11,
         "salt": 5.8,
         "addedSalt": 0
@@ -3643,7 +3709,9 @@
         "kcal": 1869,
         "protein": 91,
         "carbs": 151,
+        "sugars": 41,
         "fat": 94,
+        "saturatedFat": 45,
         "fiber": 15,
         "salt": 5.1,
         "addedSalt": 0
@@ -3773,7 +3841,9 @@
         "kcal": 1400,
         "protein": 105,
         "carbs": 125,
+        "sugars": 12,
         "fat": 49,
+        "saturatedFat": 11,
         "fiber": 9,
         "salt": 5.6,
         "addedSalt": 0
@@ -3869,7 +3939,9 @@
         "kcal": 1661,
         "protein": 69,
         "carbs": 159,
+        "sugars": 23,
         "fat": 79,
+        "saturatedFat": 49,
         "fiber": 7,
         "salt": 4.7,
         "addedSalt": 0
@@ -3974,7 +4046,9 @@
         "kcal": 1343,
         "protein": 50,
         "carbs": 176,
+        "sugars": 28,
         "fat": 41,
+        "saturatedFat": 19,
         "fiber": 16,
         "salt": 7.5,
         "addedSalt": 0
@@ -4079,7 +4153,9 @@
         "kcal": 1417,
         "protein": 94,
         "carbs": 148,
+        "sugars": 27,
         "fat": 45,
+        "saturatedFat": 6,
         "fiber": 14,
         "salt": 4.9,
         "addedSalt": 0
@@ -4194,7 +4270,9 @@
         "kcal": 1558,
         "protein": 91,
         "carbs": 200,
+        "sugars": 56,
         "fat": 40,
+        "saturatedFat": 6,
         "fiber": 8,
         "salt": 5.6,
         "addedSalt": 0
@@ -4314,7 +4392,9 @@
         "kcal": 1246,
         "protein": 105,
         "carbs": 91,
+        "sugars": 17,
         "fat": 50,
+        "saturatedFat": 10,
         "fiber": 12,
         "salt": 5.4,
         "addedSalt": 0
@@ -4424,7 +4504,9 @@
         "kcal": 1303,
         "protein": 59,
         "carbs": 99,
+        "sugars": 25,
         "fat": 68,
+        "saturatedFat": 16,
         "fiber": 14,
         "salt": 4.4,
         "addedSalt": 0
@@ -4529,7 +4611,9 @@
         "kcal": 1245,
         "protein": 100,
         "carbs": 147,
+        "sugars": 31,
         "fat": 23,
+        "saturatedFat": 3,
         "fiber": 14,
         "salt": 4.8,
         "addedSalt": 0
@@ -4649,7 +4733,9 @@
         "kcal": 1378,
         "protein": 107,
         "carbs": 114,
+        "sugars": 18,
         "fat": 54,
+        "saturatedFat": 15,
         "fiber": 17,
         "salt": 3.9,
         "addedSalt": 0
@@ -4764,7 +4850,9 @@
         "kcal": 1502,
         "protein": 102,
         "carbs": 136,
+        "sugars": 16,
         "fat": 53,
+        "saturatedFat": 13,
         "fiber": 21,
         "salt": 4.3,
         "addedSalt": 0
@@ -4874,7 +4962,9 @@
         "kcal": 1261,
         "protein": 109,
         "carbs": 85,
+        "sugars": 11,
         "fat": 48,
+        "saturatedFat": 20,
         "fiber": 16,
         "salt": 4.6,
         "addedSalt": 0
@@ -4979,7 +5069,9 @@
         "kcal": 1257,
         "protein": 104,
         "carbs": 134,
+        "sugars": 19,
         "fat": 30,
+        "saturatedFat": 7,
         "fiber": 11,
         "salt": 3.6,
         "addedSalt": 0
@@ -5094,7 +5186,9 @@
         "kcal": 1408,
         "protein": 105,
         "carbs": 111,
+        "sugars": 17,
         "fat": 60,
+        "saturatedFat": 21,
         "fiber": 15,
         "salt": 5.9,
         "addedSalt": 0
@@ -5214,7 +5308,9 @@
         "kcal": 1204,
         "protein": 81,
         "carbs": 117,
+        "sugars": 31,
         "fat": 37,
+        "saturatedFat": 3,
         "fiber": 25,
         "salt": 4.1,
         "addedSalt": 0
@@ -5334,7 +5430,9 @@
         "kcal": 1645,
         "protein": 91,
         "carbs": 135,
+        "sugars": 11,
         "fat": 78,
+        "saturatedFat": 10,
         "fiber": 12,
         "salt": 6.2,
         "addedSalt": 0
@@ -5449,7 +5547,9 @@
         "kcal": 1325,
         "protein": 89,
         "carbs": 96,
+        "sugars": 7,
         "fat": 58,
+        "saturatedFat": 18,
         "fiber": 16,
         "salt": 3.5,
         "addedSalt": 0
@@ -5545,7 +5645,9 @@
         "kcal": 1430,
         "protein": 95,
         "carbs": 151,
+        "sugars": 33,
         "fat": 41,
+        "saturatedFat": 6,
         "fiber": 23,
         "salt": 5.3,
         "addedSalt": 0
@@ -5665,7 +5767,9 @@
         "kcal": 1076,
         "protein": 39,
         "carbs": 130,
+        "sugars": 24,
         "fat": 40,
+        "saturatedFat": 23,
         "fiber": 22,
         "salt": 3.4,
         "addedSalt": 0
@@ -5790,7 +5894,9 @@
         "kcal": 1192,
         "protein": 44,
         "carbs": 120,
+        "sugars": 37,
         "fat": 56,
+        "saturatedFat": 34,
         "fiber": 14,
         "salt": 7,
         "addedSalt": 0
@@ -5895,7 +6001,9 @@
         "kcal": 1245,
         "protein": 62,
         "carbs": 128,
+        "sugars": 22,
         "fat": 45,
+        "saturatedFat": 13,
         "fiber": 28,
         "salt": 6,
         "addedSalt": 0
@@ -6020,7 +6128,9 @@
         "kcal": 1351,
         "protein": 42,
         "carbs": 152,
+        "sugars": 25,
         "fat": 55,
+        "saturatedFat": 24,
         "fiber": 29,
         "salt": 6.1,
         "addedSalt": 0
@@ -6150,7 +6260,9 @@
         "kcal": 1148,
         "protein": 62,
         "carbs": 81,
+        "sugars": 16,
         "fat": 57,
+        "saturatedFat": 21,
         "fiber": 17,
         "salt": 4.2,
         "addedSalt": 0
@@ -6265,7 +6377,9 @@
         "kcal": 1000,
         "protein": 86,
         "carbs": 110,
+        "sugars": 18,
         "fat": 20,
+        "saturatedFat": 5,
         "fiber": 18,
         "salt": 5,
         "addedSalt": 0
@@ -6375,7 +6489,9 @@
         "kcal": 1176,
         "protein": 72,
         "carbs": 70,
+        "sugars": 32,
         "fat": 59,
+        "saturatedFat": 22,
         "fiber": 26,
         "salt": 5.9,
         "addedSalt": 0
@@ -6505,7 +6621,9 @@
         "kcal": 1286,
         "protein": 90,
         "carbs": 95,
+        "sugars": 20,
         "fat": 61,
+        "saturatedFat": 41,
         "fiber": 9,
         "salt": 7.1,
         "addedSalt": 0
@@ -6635,7 +6753,9 @@
         "kcal": 1102,
         "protein": 48,
         "carbs": 86,
+        "sugars": 19,
         "fat": 56,
+        "saturatedFat": 29,
         "fiber": 20,
         "salt": 6.2,
         "addedSalt": 0
@@ -6745,7 +6865,9 @@
         "kcal": 1499,
         "protein": 110,
         "carbs": 136,
+        "sugars": 20,
         "fat": 51,
+        "saturatedFat": 17,
         "fiber": 14,
         "salt": 3.8,
         "addedSalt": 0
@@ -6860,7 +6982,9 @@
         "kcal": 1381,
         "protein": 97,
         "carbs": 134,
+        "sugars": 5,
         "fat": 48,
+        "saturatedFat": 20,
         "fiber": 5,
         "salt": 5.3,
         "addedSalt": 0
@@ -6970,7 +7094,9 @@
         "kcal": 1285,
         "protein": 61,
         "carbs": 83,
+        "sugars": 15,
         "fat": 72,
+        "saturatedFat": 17,
         "fiber": 18,
         "salt": 4.4,
         "addedSalt": 0
@@ -7076,7 +7202,9 @@
         "kcal": 1520,
         "protein": 104,
         "carbs": 146,
+        "sugars": 24,
         "fat": 52,
+        "saturatedFat": 24,
         "fiber": 13,
         "salt": 3.8,
         "addedSalt": 0
@@ -7206,7 +7334,9 @@
         "kcal": 1521,
         "protein": 108,
         "carbs": 149,
+        "sugars": 20,
         "fat": 51,
+        "saturatedFat": 7,
         "fiber": 11,
         "salt": 6.2,
         "addedSalt": 0
@@ -7326,7 +7456,9 @@
         "kcal": 1975,
         "protein": 138,
         "carbs": 76,
+        "sugars": 9,
         "fat": 117,
+        "saturatedFat": 38,
         "fiber": 15,
         "salt": 5.2,
         "addedSalt": 0
@@ -7431,7 +7563,9 @@
         "kcal": 1623,
         "protein": 105,
         "carbs": 136,
+        "sugars": 17,
         "fat": 67,
+        "saturatedFat": 26,
         "fiber": 16,
         "salt": 4.7,
         "addedSalt": 0
@@ -7546,7 +7680,9 @@
         "kcal": 1312,
         "protein": 115,
         "carbs": 116,
+        "sugars": 39,
         "fat": 34,
+        "saturatedFat": 12,
         "fiber": 25,
         "salt": 4.6,
         "addedSalt": 0
@@ -7661,7 +7797,9 @@
         "kcal": 1232,
         "protein": 105,
         "carbs": 101,
+        "sugars": 21,
         "fat": 38,
+        "saturatedFat": 8,
         "fiber": 23,
         "salt": 6.9,
         "addedSalt": 0
@@ -7796,7 +7934,9 @@
         "kcal": 1274,
         "protein": 95,
         "carbs": 152,
+        "sugars": 21,
         "fat": 28,
+        "saturatedFat": 3,
         "fiber": 13,
         "salt": 4.8,
         "addedSalt": 0
@@ -7905,7 +8045,9 @@
         "kcal": 1585,
         "protein": 110,
         "carbs": 140,
+        "sugars": 27,
         "fat": 59,
+        "saturatedFat": 21,
         "fiber": 21,
         "salt": 5.3,
         "addedSalt": 0
@@ -8024,7 +8166,9 @@
         "kcal": 1585,
         "protein": 109,
         "carbs": 154,
+        "sugars": 22,
         "fat": 48,
+        "saturatedFat": 8,
         "fiber": 34,
         "salt": 5.6,
         "addedSalt": 0
@@ -8159,7 +8303,9 @@
         "kcal": 1435,
         "protein": 87,
         "carbs": 165,
+        "sugars": 30,
         "fat": 43,
+        "saturatedFat": 7,
         "fiber": 13,
         "salt": 7,
         "addedSalt": 0
@@ -8283,7 +8429,9 @@
         "kcal": 1360,
         "protein": 89,
         "carbs": 85,
+        "sugars": 13,
         "fat": 69,
+        "saturatedFat": 25,
         "fiber": 13,
         "salt": 5.7,
         "addedSalt": 0
@@ -8397,7 +8545,9 @@
         "kcal": 1755,
         "protein": 118,
         "carbs": 23,
+        "sugars": 12,
         "fat": 130,
+        "saturatedFat": 47,
         "fiber": 11,
         "salt": 7.8,
         "addedSalt": 0
@@ -8507,7 +8657,9 @@
         "kcal": 1555,
         "protein": 68,
         "carbs": 66,
+        "sugars": 16,
         "fat": 109,
+        "saturatedFat": 34,
         "fiber": 15,
         "salt": 4.6,
         "addedSalt": 0
@@ -8617,7 +8769,9 @@
         "kcal": 1118,
         "protein": 37,
         "carbs": 98,
+        "sugars": 16,
         "fat": 58,
+        "saturatedFat": 17,
         "fiber": 18,
         "salt": 8.1,
         "addedSalt": 0
@@ -8732,7 +8886,9 @@
         "kcal": 1361,
         "protein": 47,
         "carbs": 143,
+        "sugars": 17,
         "fat": 60,
+        "saturatedFat": 18,
         "fiber": 19,
         "salt": 7.9,
         "addedSalt": 0
@@ -8822,7 +8978,9 @@
         "kcal": 1318,
         "protein": 89,
         "carbs": 148,
+        "sugars": 15,
         "fat": 39,
+        "saturatedFat": 8,
         "fiber": 12,
         "salt": 4.9,
         "addedSalt": 0
@@ -8927,7 +9085,9 @@
         "kcal": 1349,
         "protein": 88,
         "carbs": 80,
+        "sugars": 9,
         "fat": 75,
+        "saturatedFat": 22,
         "fiber": 12,
         "salt": 4.6,
         "addedSalt": 0
@@ -9046,7 +9206,9 @@
         "kcal": 1384,
         "protein": 81,
         "carbs": 113,
+        "sugars": 11,
         "fat": 65,
+        "saturatedFat": 25,
         "fiber": 5,
         "salt": 3.6,
         "addedSalt": 0
@@ -9171,9 +9333,11 @@
         "kcal": 1177,
         "protein": 73,
         "carbs": 129,
+        "sugars": 22,
         "fat": 36,
+        "saturatedFat": 7,
         "fiber": 12,
-        "salt": 7.9,
+        "salt": 4.3,
         "addedSalt": 0
       },
       "steps": [
@@ -9285,7 +9449,9 @@
         "kcal": 1614,
         "protein": 88,
         "carbs": 114,
+        "sugars": 26,
         "fat": 81,
+        "saturatedFat": 40,
         "fiber": 22,
         "salt": 5.7,
         "addedSalt": 0
@@ -9405,7 +9571,9 @@
         "kcal": 1201,
         "protein": 45,
         "carbs": 160,
+        "sugars": 18,
         "fat": 37,
+        "saturatedFat": 11,
         "fiber": 11,
         "salt": 5.6,
         "addedSalt": 0
@@ -9491,7 +9659,9 @@
         "kcal": 1583,
         "protein": 58,
         "carbs": 139,
+        "sugars": 11,
         "fat": 87,
+        "saturatedFat": 45,
         "fiber": 12,
         "salt": 5.6,
         "addedSalt": 0
@@ -9591,7 +9761,9 @@
         "kcal": 1424,
         "protein": 56,
         "carbs": 155,
+        "sugars": 23,
         "fat": 59,
+        "saturatedFat": 20,
         "fiber": 13,
         "salt": 6.6,
         "addedSalt": 0
@@ -9701,7 +9873,9 @@
         "kcal": 1725,
         "protein": 87,
         "carbs": 158,
+        "sugars": 31,
         "fat": 74,
+        "saturatedFat": 26,
         "fiber": 15,
         "salt": 4.8,
         "addedSalt": 0
@@ -9821,7 +9995,9 @@
         "kcal": 1377,
         "protein": 51,
         "carbs": 171,
+        "sugars": 26,
         "fat": 52,
+        "saturatedFat": 28,
         "fiber": 11,
         "salt": 5.8,
         "addedSalt": 0
@@ -9936,7 +10112,9 @@
         "kcal": 1237,
         "protein": 42,
         "carbs": 189,
+        "sugars": 62,
         "fat": 29,
+        "saturatedFat": 17,
         "fiber": 14,
         "salt": 2.2,
         "addedSalt": 0
@@ -10017,7 +10195,9 @@
         "kcal": 1505,
         "protein": 96,
         "carbs": 162,
+        "sugars": 25,
         "fat": 46,
+        "saturatedFat": 12,
         "fiber": 17,
         "salt": 6.9,
         "addedSalt": 0
@@ -10147,7 +10327,9 @@
         "kcal": 1333,
         "protein": 44,
         "carbs": 165,
+        "sugars": 20,
         "fat": 55,
+        "saturatedFat": 26,
         "fiber": 8,
         "salt": 6.5,
         "addedSalt": 0
@@ -10257,7 +10439,9 @@
         "kcal": 1425,
         "protein": 82,
         "carbs": 142,
+        "sugars": 21,
         "fat": 53,
+        "saturatedFat": 11,
         "fiber": 10,
         "salt": 4.8,
         "addedSalt": 0
@@ -10353,7 +10537,9 @@
         "kcal": 993,
         "protein": 79,
         "carbs": 91,
+        "sugars": 27,
         "fat": 26,
+        "saturatedFat": 4,
         "fiber": 21,
         "salt": 4.4,
         "addedSalt": 0
@@ -10464,7 +10650,9 @@
         "kcal": 1578,
         "protein": 98,
         "carbs": 92,
+        "sugars": 11,
         "fat": 83,
+        "saturatedFat": 18,
         "fiber": 17,
         "salt": 5,
         "addedSalt": 0
@@ -10564,7 +10752,9 @@
         "kcal": 1676,
         "protein": 94,
         "carbs": 195,
+        "sugars": 48,
         "fat": 54,
+        "saturatedFat": 27,
         "fiber": 5,
         "salt": 1.6,
         "addedSalt": 0
@@ -10659,7 +10849,9 @@
         "kcal": 1573,
         "protein": 35,
         "carbs": 243,
+        "sugars": 69,
         "fat": 45,
+        "saturatedFat": 20,
         "fiber": 17,
         "salt": 1.3,
         "addedSalt": 0
@@ -10754,7 +10946,9 @@
         "kcal": 1707,
         "protein": 49,
         "carbs": 274,
+        "sugars": 77,
         "fat": 39,
+        "saturatedFat": 21,
         "fiber": 18,
         "salt": 1.4,
         "addedSalt": 0
@@ -10854,7 +11048,9 @@
         "kcal": 1578,
         "protein": 36,
         "carbs": 273,
+        "sugars": 66,
         "fat": 29,
+        "saturatedFat": 15,
         "fiber": 20,
         "salt": 1.6,
         "addedSalt": 0
@@ -10954,7 +11150,9 @@
         "kcal": 1401,
         "protein": 61,
         "carbs": 146,
+        "sugars": 23,
         "fat": 62,
+        "saturatedFat": 21,
         "fiber": 13,
         "salt": 5.3,
         "addedSalt": 0
@@ -11079,7 +11277,9 @@
         "kcal": 1211,
         "protein": 49,
         "carbs": 110,
+        "sugars": 27,
         "fat": 56,
+        "saturatedFat": 27,
         "fiber": 25,
         "salt": 4.3,
         "addedSalt": 0
@@ -11165,7 +11365,9 @@
         "kcal": 1000,
         "protein": 46,
         "carbs": 87,
+        "sugars": 19,
         "fat": 44,
+        "saturatedFat": 12,
         "fiber": 34,
         "salt": 6.7,
         "addedSalt": 0

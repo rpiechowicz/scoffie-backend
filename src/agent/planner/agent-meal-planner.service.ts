@@ -31,6 +31,7 @@ import { AgentPromptService } from '../agent-prompt.service';
 import { AgentCatalogService } from '../search/agent-catalog.service';
 import { SearchableRecipe } from '../search/catalog-search';
 import { mentionsIngredient } from '../../recipes/constraints/recipe-constraints';
+import { autoPlanBlock } from '../../recipes/recipe-taxonomy';
 import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
 
 /** Miękkie i twarde życzenia z prośby — to, co model wyczytał ze zdania. */
@@ -205,7 +206,12 @@ export class AgentMealPlannerService {
           (slot.participantIds ?? []).every((id) => audience.has(id))));
     const kept = baseline.filter((slot) => !replaced(slot));
 
-    const context = await this.context(input, members, kept);
+    const context = await this.context(
+      input,
+      members,
+      kept,
+      planDate(input.weekStart, input.days),
+    );
     const request: PlanningRequest = {
       days: [...days],
       mealTypes,
@@ -255,7 +261,12 @@ export class AgentMealPlannerService {
             eaters,
           );
 
-    const context = await this.context(input, members, input.currentSlots);
+    const context = await this.context(
+      input,
+      members,
+      input.currentSlots,
+      planDate(input.weekStart, [input.dayOfWeek]),
+    );
     const enabled = await this.enabledMealTypes(input);
     const slotKcalTargets: Record<string, number> = {};
     if (input.similarKcal && replaced.length > 0) {
@@ -374,7 +385,12 @@ export class AgentMealPlannerService {
           (slot.participantIds ?? []).every((id) => audience.has(id))));
     const current = baseline.filter(inSlot);
     const kept = baseline.filter((slot) => !inSlot(slot));
-    const context = await this.context(input, members, kept);
+    const context = await this.context(
+      input,
+      members,
+      kept,
+      planDate(input.weekStart, [input.dayOfWeek]),
+    );
     const wanted = input.includeIngredients
       .map((name) => name.trim())
       .filter(Boolean);
@@ -509,6 +525,14 @@ export class AgentMealPlannerService {
     },
     members: MemberContext[],
     slotsInPlay: readonly ApplyWeekSlotDto[],
+    /**
+     * Dzień, na który planer SAM dobiera dania (plan, podmiana, sugestie) —
+     * wtedy przepisy, których nie wolno mu wziąć tego dnia (`autoPlanBlock`:
+     * dodatek, poza sezonem, „od święta” poza okazją), wchodzą jako
+     * nieaktywne: liczą się do bilansu, jeśli już stoją w planie, ale nie są
+     * kandydatami. `null` = wybór człowieka albo ocena planu — bez tych reguł.
+     */
+    autoPlanDate: Date | null = null,
   ) {
     const [{ recipes: pool, signals }, { members: consented }] =
       await Promise.all([
@@ -533,7 +557,16 @@ export class AgentMealPlannerService {
       missing,
     );
     const recipes = [
-      ...pool.map((recipe) => toPlannerRecipe(recipe, true)),
+      ...pool.map((recipe) =>
+        toPlannerRecipe(
+          recipe,
+          // Nieczytelna data = bez reguł dnia (lepiej zaproponować danie
+          // poza sezonem niż nie zaproponować żadnego).
+          !autoPlanDate ||
+            Number.isNaN(autoPlanDate.getTime()) ||
+            autoPlanBlock(recipe.taxonomy, autoPlanDate) === null,
+        ),
+      ),
       ...extra.map((recipe) => toPlannerRecipe(recipe, false)),
     ];
     return {
@@ -716,6 +749,30 @@ function toPlannerRecipe(
     tags: recipe.tags,
     active,
   };
+}
+
+const WEEK_DAYS: readonly DayOfWeek[] = [
+  'MON',
+  'TUE',
+  'WED',
+  'THU',
+  'FRI',
+  'SAT',
+  'SUN',
+];
+
+/**
+ * Data najwcześniejszego z planowanych dni tygodnia (`weekStart` = poniedziałek,
+ * `YYYY-MM-DD`) — według niej planer ocenia sezon i okres okazji. Tydzień na
+ * styku pór roku liczy się porą swojego pierwszego planowanego dnia.
+ */
+export function planDate(weekStart: string, days: readonly DayOfWeek[]): Date {
+  const offsets = days
+    .map((day) => WEEK_DAYS.indexOf(day))
+    .filter((offset) => offset >= 0);
+  const offset = offsets.length > 0 ? Math.min(...offsets) : 0;
+  const start = new Date(`${weekStart.slice(0, 10)}T00:00:00Z`);
+  return new Date(start.getTime() + offset * 24 * 60 * 60 * 1000);
 }
 
 /** Bez życzeń z prośby — wybór konkretnego dania ich nie niesie. */

@@ -11,12 +11,14 @@
       "prepTimeMinutes": 120,
       "servings": 4,
       "nutrition": {
-        "kcal": 1957,
-        "protein": 128,
+        "kcal": 1639,
+        "protein": 102,
         "carbs": 127,
-        "fat": 96,
+        "sugars": 24,
+        "fat": 73,
+        "saturatedFat": 20,
         "fiber": 19,
-        "salt": 3,
+        "salt": 2.7,
         "addedSalt": 0.9
       },
       "steps": [
@@ -115,7 +117,9 @@
         "kcal": 781,
         "protein": 19,
         "carbs": 79,
+        "sugars": 16,
         "fat": 38,
+        "saturatedFat": 23,
         "fiber": 14,
         "salt": 13.7,
         "addedSalt": 0
@@ -211,7 +215,9 @@
         "kcal": 1524,
         "protein": 66,
         "carbs": 77,
+        "sugars": 14,
         "fat": 102,
+        "saturatedFat": 40,
         "fiber": 11,
         "salt": 14.7,
         "addedSalt": 0
@@ -314,12 +320,14 @@
       "prepTimeMinutes": 60,
       "servings": 2,
       "nutrition": {
-        "kcal": 1678,
-        "protein": 89,
+        "kcal": 1466,
+        "protein": 71,
         "carbs": 139,
-        "fat": 78,
+        "sugars": 19,
+        "fat": 62,
+        "saturatedFat": 21,
         "fiber": 24,
-        "salt": 3,
+        "salt": 2.8,
         "addedSalt": 1.4
       },
       "steps": [
@@ -423,7 +431,9 @@
         "kcal": 1633,
         "protein": 87,
         "carbs": 91,
+        "sugars": 29,
         "fat": 93,
+        "saturatedFat": 28,
         "fiber": 22,
         "salt": 3.2,
         "addedSalt": 0.8
@@ -529,7 +539,9 @@
         "kcal": 1004,
         "protein": 32,
         "carbs": 114,
+        "sugars": 25,
         "fat": 42,
+        "saturatedFat": 19,
         "fiber": 22,
         "salt": 8,
         "addedSalt": 0
@@ -635,7 +647,9 @@
         "kcal": 797,
         "protein": 24,
         "carbs": 78,
+        "sugars": 41,
         "fat": 45,
+        "saturatedFat": 13,
         "fiber": 12,
         "salt": 6.8,
         "addedSalt": 0
@@ -736,7 +750,9 @@
         "kcal": 1188,
         "protein": 27,
         "carbs": 163,
+        "sugars": 30,
         "fat": 40,
+        "saturatedFat": 23,
         "fiber": 20,
         "salt": 7.7,
         "addedSalt": 0
