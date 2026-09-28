@@ -578,6 +578,79 @@ describe('Asystent — regresja offline, reguły ogólne (N6)', () => {
     });
   });
 
+  // ── N8C C0: „pokaż inne” rozróżnia tydzień ────────────────────────────
+  describe('C0: dania z kart wyboru innego tygodnia nie są wykluczane', () => {
+    const friday = {
+      week_start: WEEK_START,
+      day_of_week: 'FRI',
+      meal_type: 'DINNER',
+      count: 3,
+      include_ingredients: [],
+      for_user_ids: [],
+      diet: 'NONE',
+      must_have_tags: [],
+      prefer_tags: [],
+      avoid_ingredients: [],
+      max_prep_minutes: 0,
+    };
+    const PREVIOUS_WEEK = '2026-10-05';
+
+    it('karta z innego tygodnia — bez wykluczeń; z tego samego — wyklucza; bez tygodnia (stara) — wyklucza jak dotąd', async () => {
+      const who = await person('c0');
+      const first = context(who, { memo: createTurnMemo() });
+      const shown = await executor.execute('suggest_meals', friday, first);
+      expect(shown.ok && shown.endsTurn).toBe(true);
+      const card = first.cards[0] as unknown as {
+        eyebrow: string;
+        weekStart?: string;
+        options: { recipeId: string }[];
+      };
+      expect(card.weekStart).toBe(WEEK_START);
+      const ids = card.options.map((option) => option.recipeId);
+      expect(ids.length).toBeGreaterThanOrEqual(2);
+
+      const remember = (weekStart: string | undefined) =>
+        prisma.agentMessage.create({
+          data: {
+            conversationId: who.conversationId,
+            role: 'ASSISTANT',
+            kind: 'OPTIONS',
+            text: 'karta',
+            card: {
+              ...card,
+              ...(weekStart ? { weekStart } : { weekStart: undefined }),
+            } as never,
+          },
+        });
+      const skipped = async () => {
+        const result = await executor.execute(
+          'suggest_meals',
+          friday,
+          context(who, { memo: createTurnMemo() }),
+        );
+        expect(result.ok).toBe(true);
+        return result.ok
+          ? (result.data as { skippedShown?: number }).skippedShown
+          : undefined;
+      };
+
+      // Ta sama etykieta („Kolacja · piątek”), inny tydzień → nic nie wypada.
+      await remember(PREVIOUS_WEEK);
+      expect(await skipped()).toBeUndefined();
+
+      // Ten sam tydzień → dania z karty wypadają.
+      await remember(WEEK_START);
+      expect(await skipped()).toBe(ids.length);
+
+      // Karta sprzed zmiany (bez tygodnia) → liczy się jak przedtem.
+      await prisma.agentMessage.deleteMany({
+        where: { conversationId: who.conversationId },
+      });
+      await remember(undefined);
+      expect(await skipped()).toBe(ids.length);
+    });
+  });
+
   // ── FAILURE REASONS: niespełnialna prośba mówi dlaczego ────────────────
   describe('FAILURE REASONS', () => {
     const base = {
