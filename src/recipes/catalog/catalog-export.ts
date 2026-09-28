@@ -27,6 +27,7 @@ import {
 } from '../../common/meal-types';
 import { comparePolish } from '../../common/polish-order';
 import { stepsFromInstructions } from '../recipe-steps.util';
+import { canonicalTaxonomy } from '../recipe-taxonomy';
 import {
   CATALOG_DEFAULT_SOURCE_PROVIDER,
   type CatalogFile,
@@ -49,6 +50,12 @@ export const catalogExportSelect = {
   difficulty: true,
   prepTimeMinutes: true,
   servings: true,
+  cuisine: true,
+  dishType: true,
+  seasons: true,
+  occasions: true,
+  equipment: true,
+  features: true,
   nutritionKcal: true,
   nutritionProtein: true,
   nutritionCarbs: true,
@@ -126,6 +133,9 @@ export function catalogEntryFromRow(
     difficulty: row.difficulty,
     prepTimeMinutes: row.prepTimeMinutes,
     servings: row.servings,
+    // Taksonomia zawsze w całości — puste listy też, bo „cały rok” i „bez
+    // okazji” to decyzje redakcji, a nie brak danych.
+    ...canonicalTaxonomy(row),
     nutrition: {
       kcal: row.nutritionKcal,
       protein: row.nutritionProtein,
@@ -172,6 +182,12 @@ export function catalogEntryFromColumns(
     difficulty: columns.difficulty,
     prepTimeMinutes: columns.prepTimeMinutes,
     servings: columns.servings,
+    cuisine: columns.cuisine,
+    dishType: columns.dishType,
+    seasons: columns.seasons,
+    occasions: columns.occasions,
+    equipment: columns.equipment,
+    features: columns.features,
     nutritionKcal: columns.nutritionKcal,
     nutritionProtein: columns.nutritionProtein,
     nutritionCarbs: columns.nutritionCarbs,
@@ -301,6 +317,12 @@ const ENTRY_FIELDS: readonly (keyof CatalogRecipeInput)[] = [
   'difficulty',
   'prepTimeMinutes',
   'servings',
+  'cuisine',
+  'dishType',
+  'seasons',
+  'occasions',
+  'equipment',
+  'features',
   'nutrition',
   'sourceProvider',
   'sourceRecipeId',
@@ -469,6 +491,12 @@ export function withCanonicalKeyOrder(
     difficulty: entry.difficulty,
     prepTimeMinutes: entry.prepTimeMinutes,
     servings: entry.servings,
+    ...(entry.cuisine === undefined ? {} : { cuisine: entry.cuisine }),
+    ...(entry.dishType === undefined ? {} : { dishType: entry.dishType }),
+    ...(entry.seasons === undefined ? {} : { seasons: entry.seasons }),
+    ...(entry.occasions === undefined ? {} : { occasions: entry.occasions }),
+    ...(entry.equipment === undefined ? {} : { equipment: entry.equipment }),
+    ...(entry.features === undefined ? {} : { features: entry.features }),
     nutrition: {
       kcal: entry.nutrition.kcal,
       protein: entry.nutrition.protein,

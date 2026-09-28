@@ -58,6 +58,15 @@ export const recipeListSelect = {
   // listą — stary build iOS bez tych pól dalej klasyfikuje po nazwach.
   allergens: true,
   dietTags: true,
+  // Taksonomia (katalog 1000, `recipe-taxonomy.ts`): filtry główne i filtry
+  // kategorii w aplikacji. Klient NIEZNANĄ wartość pomija — nowa wartość
+  // słownika nie może wywrócić dekodowania.
+  cuisine: true,
+  dishType: true,
+  seasons: true,
+  occasions: true,
+  equipment: true,
+  features: true,
   // Skladniki jada z lista, nie tylko ze szczegolami: klient filtruje
   // katalog po diecie i alergenach uzytkownika, a bez nazw i dzialow nie
   // ma z czego tego policzyc. Projekcja jest wezsza niz w `detailSelect`
@@ -426,6 +435,12 @@ export class RecipesService {
     isCatalog: true,
     allergens: true,
     dietTags: true,
+    cuisine: true,
+    dishType: true,
+    seasons: true,
+    occasions: true,
+    equipment: true,
+    features: true,
     householdId: true,
     sourceInstructions: true,
     ingredients: {

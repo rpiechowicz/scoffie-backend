@@ -21,6 +21,12 @@ import {
 } from '../ingredient-amount.util';
 import type { IngredientNutritionPer100 } from '../recipe-nutrition.util';
 import {
+  canonicalTaxonomy,
+  EMPTY_RECIPE_TAXONOMY,
+  taxonomyProblems,
+  type RecipeTaxonomy,
+} from '../recipe-taxonomy';
+import {
   kcalPerServing,
   resolveSuitableMealTypes,
   snackKcalLimit,
@@ -46,6 +52,18 @@ export type CatalogRecipeInput = {
   difficulty: Difficulty;
   prepTimeMinutes: number;
   servings: number;
+  /**
+   * Taksonomia (`recipe-taxonomy.ts`). Eksport pisze ją zawsze, w całości;
+   * pominięte pole w imporcie = wartość domyślna kolumny. Kompletność
+   * katalogu (kuchnia i rodzaj dania dla KAŻDEGO przepisu) pilnuje test
+   * złoty pliku, nie import — stare pliki i fikstury dalej się wczytują.
+   */
+  cuisine?: string;
+  dishType?: string | null;
+  seasons?: string[];
+  occasions?: string[];
+  equipment?: string[];
+  features?: string[];
   nutrition: {
     kcal: number;
     protein: number;
@@ -148,6 +166,9 @@ export function validateCatalogRecipe(recipe: CatalogRecipeInput): string[] {
   }
   if (!Number.isInteger(recipe.prepTimeMinutes) || recipe.prepTimeMinutes < 0) {
     problems.push(`"${title}": zły czas przygotowania.`);
+  }
+  for (const problem of taxonomyProblems(recipe)) {
+    problems.push(`"${title}": ${problem}.`);
   }
   if (!Array.isArray(recipe.steps) || recipe.steps.length === 0) {
     problems.push(`"${title}": przepis musi mieć kroki.`);
@@ -396,6 +417,12 @@ export type CatalogRecipeColumns = {
   nutritionSaltAdded: number;
   allergens: string[];
   dietTags: string[];
+  cuisine: string;
+  dishType: string | null;
+  seasons: string[];
+  occasions: string[];
+  equipment: string[];
+  features: string[];
   sourceProvider: string;
   sourceRecipeId: string | null;
   sourceInstructions: Array<{ step: number; text: string }>;
@@ -433,6 +460,27 @@ export function overLimitManualSlots(
   return (recipe.suitableMealTypes ?? []).filter((slot) => {
     const limit = snackKcalLimit(slot);
     return limit !== null && kcal > limit * MANUAL_SLOT_KCAL_TOLERANCE;
+  });
+}
+
+/**
+ * Taksonomia z wejścia w kształcie kolumn: pominięte pole = wartość domyślna
+ * kolumny, listy w porządku słownika. Walidacja (`taxonomyProblems`) idzie
+ * wcześniej, w `validateCatalogRecipe` — tu nieznane wartości już nie trafiają.
+ */
+export function catalogTaxonomyOf(
+  recipe: Pick<
+    CatalogRecipeInput,
+    'cuisine' | 'dishType' | 'seasons' | 'occasions' | 'equipment' | 'features'
+  >,
+): RecipeTaxonomy {
+  return canonicalTaxonomy({
+    cuisine: recipe.cuisine ?? EMPTY_RECIPE_TAXONOMY.cuisine,
+    dishType: recipe.dishType ?? EMPTY_RECIPE_TAXONOMY.dishType,
+    seasons: recipe.seasons ?? [],
+    occasions: recipe.occasions ?? [],
+    equipment: recipe.equipment ?? [],
+    features: recipe.features ?? [],
   });
 }
 
@@ -478,6 +526,7 @@ export function catalogRecipeColumns(
     nutritionSaltAdded: recipe.nutrition.addedSalt ?? 0,
     allergens: tags.allergens,
     dietTags: tags.dietTags,
+    ...catalogTaxonomyOf(recipe),
     sourceProvider: recipe.sourceProvider ?? CATALOG_DEFAULT_SOURCE_PROVIDER,
     sourceRecipeId: recipe.sourceRecipeId ?? null,
     sourceInstructions: recipe.steps.map((step) => ({

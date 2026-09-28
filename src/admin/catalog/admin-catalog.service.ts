@@ -25,6 +25,7 @@ import {
   type CatalogIngredientRow,
   type CatalogRecipeInput,
 } from '../../recipes/catalog/catalog-recipe';
+import { canonicalTaxonomy } from '../../recipes/recipe-taxonomy';
 import {
   AdminAuditService,
   type AdminActor,
@@ -114,6 +115,12 @@ export class AdminCatalogService {
           description: true,
           sourceInstructions: true,
           dietTags: true,
+          cuisine: true,
+          dishType: true,
+          seasons: true,
+          occasions: true,
+          equipment: true,
+          features: true,
           ingredients: {
             orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
             select: {
@@ -143,6 +150,7 @@ export class AdminCatalogService {
           unit: line.unit,
         })),
         dietTags: recipe.dietTags,
+        ...canonicalTaxonomy(recipe),
       };
     });
   }
@@ -341,6 +349,18 @@ export class AdminCatalogService {
             difficulty: dto.difficulty,
             prepTimeMinutes: dto.prepTimeMinutes,
             servings: dto.servings,
+            // Taksonomia: panel sprzed katalogu 1000 jej nie wysyła —
+            // pominięte pole zostaje takie, jakie było w bazie.
+            ...(dto.cuisine !== undefined ? { cuisine: dto.cuisine } : {}),
+            ...(dto.dishType !== undefined ? { dishType: dto.dishType } : {}),
+            ...(dto.seasons !== undefined ? { seasons: dto.seasons } : {}),
+            ...(dto.occasions !== undefined
+              ? { occasions: dto.occasions }
+              : {}),
+            ...(dto.equipment !== undefined
+              ? { equipment: dto.equipment }
+              : {}),
+            ...(dto.features !== undefined ? { features: dto.features } : {}),
             steps: dto.steps.map((text, index) => ({
               step: index + 1,
               instruction: text.trim(),

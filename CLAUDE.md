@@ -86,6 +86,13 @@ etapami i mierzenie efektu zmian.
   bootstrap pustej bazy działa bez zmian. Kolejność składników = `[createdAt, id]` (zapis nadaje
   rosnący `createdAt`). Makro = cały przepis, węgle bez błonnika, liczone ze składników.
   `servings` 1..8 (nie „zawsze 2”). Składnik: `name` po polsku, `normalizedName` ASCII = klucz.
+- Taksonomia przepisu (katalog 1000, od 28.09.2026): `Recipe.cuisine`, `dishType`, `seasons`, `occasions`,
+  `equipment`, `features` — słowniki i reguły w `src/recipes/recipe-taxonomy.ts` (id = kontrakt z klientami,
+  jak alergeny; klient NIEZNANĄ wartość pomija). To decyzja redakcji, NIE pochodna składników. Plik katalogu
+  niesie ją zawsze w całości (eksport), import bez pól = wartości domyślne kolumn, a kompletność katalogu
+  (kuchnia + rodzaj dania dla każdego przepisu) pilnuje test złoty w `catalog-export.spec.ts`. Panel zapisuje
+  pola opcjonalnie (pominięte = bez zmian). `features`: `LUNCHBOX`, `SIDE` (dodatek — nie zastępuje posiłku),
+  `OCCASIONAL` (planer tylko w okresie okazji). Lista nowych przepisów: `prisma/catalog/katalog-1000-lista.md`.
 - Widoczność przepisów (od Fazy 0, krok 3): `Recipe.isCatalog` rozdziela WSPÓLNY katalog od
   przepisów gospodarstwa. Katalog tworzy WYŁĄCZNIE import (`recipes:import:json`), a zmienia import i panel
   admina; `recipes:create` zawsze daje `isCatalog: false`. Każdy odczyt przepisów MUSI filtrować przez
