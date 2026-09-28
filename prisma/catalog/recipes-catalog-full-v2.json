@@ -15412,7 +15412,7 @@
       "title": "Pudding chia z mlekiem kokosowym i malinami",
       "description": "Nasiona chia namoczone przez noc w mleku kokosowym, rano z malinami i bananem. Śniadanie bez gotowania, które robi się samo w lodówce.",
       "mealType": "BREAKFAST",
-      "suitableMealTypes": ["BREAKFAST"],
+      "suitableMealTypes": ["BREAKFAST", "AFTERNOON_SNACK"],
       "difficulty": "EASY",
       "prepTimeMinutes": 10,
       "servings": 2,
