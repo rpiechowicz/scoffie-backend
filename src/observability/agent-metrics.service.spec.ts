@@ -33,6 +33,13 @@ describe('AgentMetricsService', () => {
         costMicroUsd: 0,
       },
       upstream: { total: 0, breakerOpened: 0 },
+      planner: {
+        build_meal_plan: { OK: 0, PARTIAL: 0, UNSAT: 0 },
+        replace_plan_item: { OK: 0, PARTIAL: 0, UNSAT: 0 },
+        suggest_meals: { OK: 0, PARTIAL: 0, UNSAT: 0 },
+      },
+      showOthers: { used: 0, exhausted: 0 },
+      proposalRefErrors: { revise_proposal: 0, replace_plan_item: 0 },
     });
 
     metrics.recordTurnStarted();
@@ -85,7 +92,39 @@ describe('AgentMetricsService', () => {
         costMicroUsd: 9000,
       },
       upstream: { total: 1, breakerOpened: 1 },
+      planner: {
+        build_meal_plan: { OK: 0, PARTIAL: 0, UNSAT: 0 },
+        replace_plan_item: { OK: 0, PARTIAL: 0, UNSAT: 0 },
+        suggest_meals: { OK: 0, PARTIAL: 0, UNSAT: 0 },
+      },
+      showOthers: { used: 0, exhausted: 0 },
+      proposalRefErrors: { revise_proposal: 0, replace_plan_item: 0 },
     });
+  });
+
+  it('liczy wyniki planera, „pokaż inne” i błędy odwołań do propozycji (N8C §9)', () => {
+    const metrics = new AgentMetricsService();
+    metrics.recordPlannerOutcome('build_meal_plan', 'PARTIAL');
+    metrics.recordPlannerOutcome('build_meal_plan', 'PARTIAL');
+    metrics.recordPlannerOutcome('suggest_meals', 'UNSAT');
+    metrics.recordShowOthers(false);
+    metrics.recordShowOthers(true);
+    metrics.recordProposalRefError('revise_proposal');
+    const snapshot = metrics.snapshot();
+    expect(snapshot.planner.build_meal_plan).toEqual({
+      OK: 0,
+      PARTIAL: 2,
+      UNSAT: 0,
+    });
+    expect(snapshot.planner.suggest_meals.UNSAT).toBe(1);
+    expect(snapshot.showOthers).toEqual({ used: 2, exhausted: 1 });
+    expect(snapshot.proposalRefErrors).toEqual({
+      revise_proposal: 1,
+      replace_plan_item: 0,
+    });
+    // Kopie, nie wewnętrzne obiekty — także zagnieżdżone.
+    snapshot.planner.build_meal_plan.PARTIAL = 99;
+    expect(metrics.snapshot().planner.build_meal_plan.PARTIAL).toBe(2);
   });
 
   it('snapshot oddaje kopie, nie wewnętrzne obiekty', () => {

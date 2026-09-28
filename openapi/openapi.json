@@ -2038,6 +2038,10 @@
                           },
                           "required": ["label", "proposalId", "style", "type"]
                         }
+                      },
+                      "weekStart": {
+                        "description": "Tydzień posiłku (RRRR-MM-DD) — klucz „pokaż inne” razem z `eyebrow`\n(N8C C0). Brak = karta sprzed 28.09.2026 albo z `offer_options`; taka\npasuje do każdego tygodnia (jak przedtem). Klient może pole pominąć.",
+                        "type": "string"
                       }
                     },
                     "required": [
@@ -3525,6 +3529,10 @@
                             },
                             "required": ["label", "proposalId", "style", "type"]
                           }
+                        },
+                        "weekStart": {
+                          "description": "Tydzień posiłku (RRRR-MM-DD) — klucz „pokaż inne” razem z `eyebrow`\n(N8C C0). Brak = karta sprzed 28.09.2026 albo z `offer_options`; taka\npasuje do każdego tygodnia (jak przedtem). Klient może pole pominąć.",
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -5108,6 +5116,10 @@
                             },
                             "required": ["label", "proposalId", "style", "type"]
                           }
+                        },
+                        "weekStart": {
+                          "description": "Tydzień posiłku (RRRR-MM-DD) — klucz „pokaż inne” razem z `eyebrow`\n(N8C C0). Brak = karta sprzed 28.09.2026 albo z `offer_options`; taka\npasuje do każdego tygodnia (jak przedtem). Klient może pole pominąć.",
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -6600,6 +6612,10 @@
                             },
                             "required": ["label", "proposalId", "style", "type"]
                           }
+                        },
+                        "weekStart": {
+                          "description": "Tydzień posiłku (RRRR-MM-DD) — klucz „pokaż inne” razem z `eyebrow`\n(N8C C0). Brak = karta sprzed 28.09.2026 albo z `offer_options`; taka\npasuje do każdego tygodnia (jak przedtem). Klient może pole pominąć.",
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -8073,6 +8089,10 @@
                           },
                           "required": ["label", "proposalId", "style", "type"]
                         }
+                      },
+                      "weekStart": {
+                        "description": "Tydzień posiłku (RRRR-MM-DD) — klucz „pokaż inne” razem z `eyebrow`\n(N8C C0). Brak = karta sprzed 28.09.2026 albo z `offer_options`; taka\npasuje do każdego tygodnia (jak przedtem). Klient może pole pominąć.",
+                        "type": "string"
                       }
                     },
                     "required": [

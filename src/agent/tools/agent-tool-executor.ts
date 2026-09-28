@@ -12,7 +12,11 @@ import {
   ApplyWeekPlanResult,
   WeeklyPlansService,
 } from '../../weekly-plans/weekly-plans.service';
-import { AgentMetricsService } from '../../observability/agent-metrics.service';
+import {
+  AgentMetricsService,
+  PLANNER_METRIC_STATUSES,
+  PLANNER_METRIC_TOOLS,
+} from '../../observability/agent-metrics.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AgentMemoryService } from '../agent-memory.service';
 import { AiUsageCountersService } from '../ai-usage-counters.service';
@@ -81,6 +85,11 @@ import {
   plannerResultForModel,
   PlannerWishes,
 } from '../planner/agent-meal-planner.service';
+import {
+  KCAL_DAY_TOLERANCE,
+  PROTEIN_DAY_TOLERANCE,
+} from '../../meal-planner/meal-plan-scoring';
+import { HardFilterReason } from '../../meal-planner/meal-planner.types';
 import { normalizeText } from '../../common/normalize-text.util';
 import { searchStem } from '../../recipes/ingredient-search.util';
 import { isRecipeSearchTag } from '../../recipes/recipe-facets.util';
@@ -920,13 +929,15 @@ export class AgentToolExecutor {
       if (context.planScope) {
         recordPlannedDays(name, input, context.planScope);
       }
+      this.recordOutcome(name, data);
       // Propozycja z naruszeniami (`proposed: false`) NIE kończy tury:
       // model musi poprawić dania i zawołać jeszcze raz.
       const endsTurn =
         (TURN_ENDING_TOOLS.has(name) &&
           (data as { proposed?: unknown } | null)?.proposed !== false) ||
         isReadOnlyRecipeResult(name, data) ||
-        isExhaustedSuggestion(name, data);
+        isExhaustedSuggestion(name, data) ||
+        isUnsatisfiableSuggestion(name, data);
       const turnText = endsTurn ? turnTextFor(name, input, data) : null;
       return {
         ok: true,
@@ -943,6 +954,13 @@ export class AgentToolExecutor {
         throw error;
       }
       const { contract } = mapError(error);
+      if (
+        (name === 'revise_proposal' || name === 'replace_plan_item') &&
+        (contract.code === 'NOT_FOUND' ||
+          contract.code.startsWith('AI_PROPOSAL_'))
+      ) {
+        this.metrics.recordProposalRefError(name);
+      }
       if (!(error instanceof AppException)) {
         // Nieznany błąd to nasza awaria, nie pomyłka modelu — w logu zostaje
         // ślad, do modelu idzie tylko tyle, żeby wiedział, że ma odpuścić.
@@ -959,6 +977,33 @@ export class AgentToolExecutor {
           ...(contract.details ? { details: contract.details } : {}),
         },
       };
+    }
+  }
+
+  /**
+   * Liczniki wyniku planera i „pokaż inne” (N8C §9). Tylko tu, po udanym
+   * wykonaniu — odtworzenie z dziennika efektów (`recognize`) nie liczy
+   * drugi raz.
+   */
+  private recordOutcome(name: string, data: unknown): void {
+    const result = (data ?? {}) as {
+      status?: unknown;
+      planner?: { status?: unknown };
+      skippedShown?: unknown;
+      exhausted?: unknown;
+    };
+    const tool = PLANNER_METRIC_TOOLS.find((known) => known === name);
+    if (!tool) return;
+    const status =
+      tool === 'suggest_meals' ? result.status : result.planner?.status;
+    const known = PLANNER_METRIC_STATUSES.find((value) => value === status);
+    if (known) this.metrics.recordPlannerOutcome(tool, known);
+    if (
+      tool === 'suggest_meals' &&
+      (result.exhausted === true ||
+        (typeof result.skippedShown === 'number' && result.skippedShown > 0))
+    ) {
+      this.metrics.recordShowOthers(result.exhausted === true);
     }
   }
 
@@ -2645,7 +2690,11 @@ export class AgentToolExecutor {
     // rozmowie wypadają — serwer czyta je z historii, model nie przenosi
     // identyfikatorów. Gdy bez nich zostaje za mało dań, pokazujemy znowu
     // całą pulę i mówimy to (`repeatedShown`).
-    const shown = await this.shownOptionIds(context.conversationId, slotLabel);
+    const shown = await this.shownOptionIds(
+      context.conversationId,
+      slotLabel,
+      weekStart,
+    );
     const ask = (excludeRecipeIds: string[]) =>
       this.planner.suggest({
         userId: context.userId,
@@ -2690,6 +2739,18 @@ export class AgentToolExecutor {
           : {}),
       };
     }
+    if (draft.suggestions.length < 2 && readAgentEnv().partialServerText) {
+      // N6-1 (za `AI_PARTIAL_SERVER_TEXT`): serwer wie, które ograniczenie
+      // wycięło pulę (pierwszy powód na przepis), więc mówi to sam i kończy
+      // turę — bez rundy, w której model zgadywał „zdejmij jedno życzenie”.
+      return {
+        proposed: false as const,
+        unsatisfiable: true as const,
+        offered: 0,
+        ...common,
+        removedBy: draft.candidates.removed,
+      };
+    }
     if (draft.suggestions.length < 2) {
       // Jedno danie to nie wybór — karty nie ma, model mówi, czego zabrakło.
       return {
@@ -2731,6 +2792,7 @@ export class AgentToolExecutor {
         title: `${NUMERALS[options.length] ?? options.length} ${quick ? 'szybkie ' : ''}propozycje`,
         options,
         slotLabel,
+        weekStart,
       }),
     );
     const refById = new Map(
@@ -2886,10 +2948,17 @@ export class AgentToolExecutor {
       .then(projectRecipeForModel);
   }
 
-  /** Dania z ostatnich kart wyboru na ten posiłek w tej rozmowie. */
+  /**
+   * Dania z ostatnich kart wyboru na ten posiłek W TYM TYGODNIU w tej
+   * rozmowie. Etykieta („Kolacja · piątek”) nie niesie tygodnia, więc bez
+   * `weekStart` „pokaż inne” na piątek następnego tygodnia wycinało dania
+   * pokazane na piątek bieżącego (N8C C0). Karty bez tygodnia (starsze,
+   * `offer_options`) liczą się jak dotąd.
+   */
   private async shownOptionIds(
     conversationId: string,
     slotLabel: string,
+    weekStart: string,
   ): Promise<string[]> {
     const rows = await this.prisma.agentMessage.findMany({
       where: {
@@ -2906,9 +2975,13 @@ export class AgentToolExecutor {
     for (const row of rows) {
       const card = (row.card ?? {}) as {
         eyebrow?: string;
+        weekStart?: string;
         options?: { recipeId?: string }[];
       };
       if (card.eyebrow !== slotLabel) continue;
+      if (card.weekStart !== undefined && card.weekStart !== weekStart) {
+        continue;
+      }
       for (const option of card.options ?? []) {
         if (typeof option.recipeId === 'string') ids.add(option.recipeId);
       }
@@ -3194,6 +3267,14 @@ function isExhaustedSuggestion(name: string, data: unknown): boolean {
   );
 }
 
+/** `suggest_meals` bez dwóch dań z powodem od serwera (N6-1, za flagą). */
+function isUnsatisfiableSuggestion(name: string, data: unknown): boolean {
+  return (
+    name === 'suggest_meals' &&
+    (data as { unsatisfiable?: unknown } | null)?.unsatisfiable === true
+  );
+}
+
 /** Wynik `update_recipe` dla przepisu z katalogu (Etap 6.1). */
 function isReadOnlyRecipeResult(name: string, data: unknown): boolean {
   return (
@@ -3245,20 +3326,166 @@ function optionTags(
   return tags;
 }
 
+/** To, co z diagnostyki planera widzi model (`plannerResultForModel`). */
+type PlannerSummary = {
+  status?: string;
+  /** „ułożone/proszone”, np. `12/14`. */
+  filled?: string;
+  /** „KOD [DZIEŃ] [PORA] — treść” (kod zawsze pierwszy). */
+  issues?: string[];
+};
+
+type RemovedBy = Partial<Record<HardFilterReason, number>>;
+
+/** Kody problemów z diagnostyki — pierwszy wyraz każdego wpisu. */
+function issueCodes(summary: PlannerSummary): Set<string> {
+  return new Set(
+    (summary.issues ?? []).map((issue) => issue.split(' ')[0] ?? ''),
+  );
+}
+
+const pct = (share: number) => `${Math.round(share * 100)} %`;
+
+/**
+ * Powody niepełnego planu słowami (N8B S0) — tylko z tego, co planer
+ * zmierzył; bez imion i liczb osób (karta je pokazuje, zgody filtruje
+ * `plannerResultForModel`). Pusta lista = powód nieznany → zdania nie ma.
+ */
+function partialReasons(
+  summary: PlannerSummary,
+  scope: 'plan' | 'swap',
+  /** „części dni” (tydzień) albo „tego dnia” (jeden dzień, podmiana). */
+  when: string,
+): string[] {
+  const codes = issueCodes(summary);
+  const reasons: string[] = [];
+  const [filled, requested] = (summary.filled ?? '')
+    .split('/')
+    .map((part) => Number(part));
+  if (
+    scope === 'plan' &&
+    Number.isFinite(filled) &&
+    Number.isFinite(requested) &&
+    filled < requested
+  ) {
+    const missing = requested - filled;
+    reasons.push(
+      `dla ${missing === 1 ? 'jednego posiłku' : `${missing} posiłków`} nie ma dania spełniającego wszystkie ograniczenia`,
+    );
+  }
+  if (codes.has('KCAL_OUT_OF_TOLERANCE')) {
+    reasons.push(
+      `kalorie ${when} odbiegają od celu o ponad ${pct(KCAL_DAY_TOLERANCE)}`,
+    );
+  }
+  if (codes.has('PROTEIN_OUT_OF_TOLERANCE')) {
+    reasons.push(
+      `białko ${when} odbiega od celu o ponad ${pct(PROTEIN_DAY_TOLERANCE)}`,
+    );
+  }
+  if (scope === 'plan' && codes.has('REPEAT_FORCED')) {
+    reasons.push('część dań się powtarza, bo pasujących przepisów jest mało');
+  }
+  return reasons;
+}
+
+function partialPlanText(
+  onlyDay: string | null,
+  summary: PlannerSummary,
+): string | null {
+  const reasons = partialReasons(
+    summary,
+    'plan',
+    onlyDay ? 'tego dnia' : 'części dni',
+  );
+  if (reasons.length === 0) return null;
+  const head = onlyDay
+    ? `Plan na ${onlyDay} czeka na zatwierdzenie`
+    : 'Plan tygodnia czeka na zatwierdzenie';
+  return (
+    `${head}, ale nie wszystko się udało: ${reasons.join('; ')}. ` +
+    'Możesz go zatwierdzić albo powiedzieć, co zmienić.'
+  );
+}
+
+function partialReplaceText(summary: PlannerSummary): string | null {
+  const reasons = partialReasons(summary, 'swap', 'tego dnia');
+  if (reasons.length === 0) return null;
+  return (
+    `Nowe danie czeka na zatwierdzenie w karcie, ale ${reasons.join(' i ')} — ` +
+    'to najlepsze, jakie znalazłem przy tych warunkach.'
+  );
+}
+
+/** Po „przez” — biernik. Pory i nieaktywne przepisy nie są liczone. */
+const REMOVED_BECAUSE: Partial<Record<HardFilterReason, string>> = {
+  ALLERGEN: 'alergeny domowników',
+  EXCLUDED_INGREDIENT: 'składniki, których ktoś nie je',
+  DIET: 'dietę domowników',
+  REQUEST_DIET: 'dietę z prośby',
+  REQUIRED_TAG: 'wymagany rodzaj dania',
+  AVOIDED_INGREDIENT: 'składnik, którego mam unikać',
+  PREP_TIME: 'limit czasu przygotowania',
+  EXCLUDED_RECIPE: 'dania już pokazane',
+  NO_NUTRITION: 'brak wartości odżywczych',
+};
+
+/** Ograniczenia DOMOWNIKÓW — prośbą ich nie zmienisz. */
+const AUDIENCE_REASONS = new Set<string>([
+  'ALLERGEN',
+  'EXCLUDED_INGREDIENT',
+  'DIET',
+]);
+
+function unsatisfiableSuggestionText(
+  meal: string | undefined,
+  day: string | undefined,
+  removedBy: RemovedBy,
+): string {
+  const where = `${meal ?? 'na ten posiłek'}${day ? ` w ${day}` : ''}`;
+  const top = (Object.entries(removedBy) as [HardFilterReason, number][])
+    .filter(
+      ([reason, count]) =>
+        typeof count === 'number' &&
+        count > 0 &&
+        REMOVED_BECAUSE[reason] !== undefined,
+    )
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 2);
+  if (top.length === 0) {
+    return (
+      `Nie znalazłem co najmniej dwóch dań ${where}, które pasują do Waszych ograniczeń i życzeń. ` +
+      'Zmień jedno życzenie albo wybierz inny posiłek.'
+    );
+  }
+  const because = top.map(([reason]) => REMOVED_BECAUSE[reason]).join(' i ');
+  const onlyAudience = top.every(([reason]) => AUDIENCE_REASONS.has(reason));
+  return (
+    `Nie znalazłem co najmniej dwóch dań ${where} — najwięcej odpada przez ${because}. ` +
+    (onlyAudience
+      ? 'To ograniczenia domowników, więc wybierz inny posiłek albo poproś o konkretne danie.'
+      : 'Zmień jedno życzenie (składnik, czas, rodzaj dania) albo wybierz inny posiłek.')
+  );
+}
+
 /**
  * Zdanie SERWERA kończące turę, gdy model nie napisał nic przed kartą
  * (Etap 3.3). Karta pokazuje dania, liczby i przyciski, więc zdanie tylko
  * nazywa, co widać, i co zrobić dalej. `null` = model ma coś do wyjaśnienia
- * (plan PARTIAL, pytanie bez treści) i dostaje kolejną rundę jak dotąd.
+ * (plan PARTIAL bez `AI_PARTIAL_SERVER_TEXT`, pytanie bez treści) i dostaje
+ * kolejną rundę jak dotąd.
  */
 export function turnTextFor(
   name: string,
   input: Record<string, unknown>,
   data: unknown,
+  options: { partialServerText: boolean } = {
+    partialServerText: readAgentEnv().partialServerText,
+  },
 ): string | null {
   const result = (data ?? {}) as {
     offered?: number;
-    planner?: { status?: string };
+    planner?: PlannerSummary;
   };
   const day = DAY_ACCUSATIVE_LABELS[asString(input.day_of_week) as DayOfWeek];
   const meal = MEAL_FOR[asString(input.meal_type) as MealType];
@@ -3273,6 +3500,14 @@ export function turnTextFor(
           '. Możesz wybrać jedno z poprzednich albo zmienić życzenie (składnik, czas, rodzaj dania).'
         );
       }
+      if (isUnsatisfiableSuggestion(name, data)) {
+        if (!options.partialServerText) return null;
+        return unsatisfiableSuggestionText(
+          meal,
+          day,
+          (data as { removedBy?: RemovedBy }).removedBy ?? {},
+        );
+      }
       const count = NUMERALS[result.offered ?? 0];
       if (!count || !meal) return null;
       return `${count} propozycje ${meal}${day ? ` w ${day}` : ''} — wybierz jedną.`;
@@ -3280,19 +3515,26 @@ export function turnTextFor(
     case 'offer_options':
       return 'Wybierz jedno z dań.';
     case 'build_meal_plan': {
-      if (result.planner?.status !== 'OK') return null;
       const days = Array.isArray(input.days) ? input.days : [];
       const only =
         days.length === 1
           ? DAY_ACCUSATIVE_LABELS[asString(days[0]) as DayOfWeek]
           : null;
+      if (result.planner?.status !== 'OK') {
+        return options.partialServerText && result.planner?.status === 'PARTIAL'
+          ? partialPlanText(only, result.planner)
+          : null;
+      }
       return only
         ? `Plan na ${only} gotowy — zatwierdzisz go jednym kliknięciem.`
         : 'Plan tygodnia gotowy — zatwierdzisz go jednym kliknięciem.';
     }
     case 'replace_plan_item':
-      return result.planner?.status === 'OK'
-        ? 'Nowe danie czeka na zatwierdzenie w karcie.'
+      if (result.planner?.status === 'OK') {
+        return 'Nowe danie czeka na zatwierdzenie w karcie.';
+      }
+      return options.partialServerText && result.planner?.status === 'PARTIAL'
+        ? partialReplaceText(result.planner)
         : null;
     case 'revise_proposal':
       return 'Poprawiona propozycja czeka na zatwierdzenie.';

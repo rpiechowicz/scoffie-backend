@@ -236,6 +236,18 @@ export type AgentEnv = {
    * wydaniu aplikacji, która czyta `PlanItem.portions`. `AI_PLANNER_PER_USER_PORTIONS=true`.
    */
   plannerPerUserPortions: boolean;
+  /**
+   * Zdanie SERWERA zamiast kolejnej rundy modelu, gdy wynik planowania jest
+   * niepełny (N8B S0 + N6-1, noc 27/28.09.2026): plan/podmiana PARTIAL
+   * kończy turę zdaniem z powodami (kalorie, białko, brak dań, powtórki),
+   * a `suggest_meals` bez dwóch dań mówi, które ograniczenie wycięło pulę.
+   * Pomiar Etapu 6: 100 % nadmiarowych wywołań w tych narzędziach to PARTIAL
+   * (górna granica 1,40 → 1,19 wywołania na turę). Domyślnie `false`:
+   * w Etapie 6 zdanie serwera zamiast wyjaśnienia modelu było jedną ze
+   * stabilnych regresji jakości — włączać po live smoke.
+   * `AI_PARTIAL_SERVER_TEXT=true`.
+   */
+  partialServerText: boolean;
 };
 
 /**
@@ -616,6 +628,8 @@ export function readAgentEnv(
     ),
     plannerPerUserPortions:
       (env.AI_PLANNER_PER_USER_PORTIONS ?? '').trim().toLowerCase() === 'true',
+    partialServerText:
+      (env.AI_PARTIAL_SERVER_TEXT ?? '').trim().toLowerCase() === 'true',
     shutdownGraceMs: readNumber(
       env,
       'AI_SHUTDOWN_GRACE_MS',

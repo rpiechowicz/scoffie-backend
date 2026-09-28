@@ -245,6 +245,7 @@ export class AgentMealPlannerService {
       slot.dayOfWeek === input.dayOfWeek && slot.mealType === input.mealType;
     const replaced = input.currentSlots.filter(inSlot);
     const kept = input.currentSlots.filter((slot) => !inSlot(slot));
+    assertSlotParticipantsAreMembers(replaced, members);
     const participantIds =
       replaced.length === 0 ||
       replaced.some((slot) => !(slot.participantIds ?? []).length)
@@ -650,6 +651,31 @@ function assertMembers(
       'for_user_ids: to nie są domownicy tego gospodarstwa. Zostaw listę pustą (cały dom) albo weź identyfikatory z kontekstu.',
       HttpStatus.BAD_REQUEST,
       unknown,
+    );
+  }
+}
+
+/**
+ * N4-1: uczestnik slotu, który nie jest już domownikiem. Zapisany plan jest
+ * czyszczony przy odejściu (`onMemberLeft`), więc taki slot przychodzi tylko
+ * z propozycji PENDING sprzed zmiany składu. `normalizeParticipants` liczyłby
+ * obcego jak domownika (dom {A, B}, slot [A, X] → „Wspólne”), więc odmawiamy
+ * — jak build/suggest przy obcych `for_user_ids`. Bez id w odpowiedzi.
+ */
+function assertSlotParticipantsAreMembers(
+  slots: readonly ApplyWeekSlotDto[],
+  members: MemberContext[],
+) {
+  const known = new Set(members.map((member) => member.userId));
+  const departed = slots
+    .flatMap((slot) => slot.participantIds ?? [])
+    .some((id) => !known.has(id));
+  if (departed) {
+    throw new AppException(
+      'VALIDATION_ERROR',
+      'W tym posiłku są osoby, które nie należą już do domu — ta propozycja jest nieaktualna. Ułóż nową zamiast ją poprawiać.',
+      HttpStatus.BAD_REQUEST,
+      ['participantIds'],
     );
   }
 }

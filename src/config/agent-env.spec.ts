@@ -61,6 +61,7 @@ describe('readAgentEnv', () => {
       shutdownGraceMs: 8_000,
       // Porcje per osoba w planerze — włączane po wydaniu iOS (Etap 2.2).
       plannerPerUserPortions: false,
+      partialServerText: false,
     });
   });
 

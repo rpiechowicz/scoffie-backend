@@ -352,6 +352,12 @@ export type OptionsCard = {
   title: string;
   options: OptionsCardItem[];
   actions: AgentCardAction[];
+  /**
+   * Tydzień posiłku (RRRR-MM-DD) — klucz „pokaż inne” razem z `eyebrow`
+   * (N8C C0). Brak = karta sprzed 28.09.2026 albo z `offer_options`; taka
+   * pasuje do każdego tygodnia (jak przedtem). Klient może pole pominąć.
+   */
+  weekStart?: string;
 };
 
 /** Danie po jednej stronie podmiany. */
