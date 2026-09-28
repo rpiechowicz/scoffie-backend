@@ -565,6 +565,18 @@ export interface RecipeDetail extends RecipeListItem {
   steps: string[];
   ingredients: RecipeIngredientLine[];
   dietTags: string[];
+  /**
+   * Taksonomia (`src/recipes/recipe-taxonomy.ts`, katalog 1000): kuchnia,
+   * rodzaj dania (`null` = nieprzypisany), pory roku (puste = cały rok),
+   * okazje, sprzęt i cechy (`LUNCHBOX`, `SIDE`, `OCCASIONAL`). Zapis przyjmuje
+   * te same pola; pominięte zostaje bez zmian.
+   */
+  cuisine: string;
+  dishType: string | null;
+  seasons: string[];
+  occasions: string[];
+  equipment: string[];
+  features: string[];
 }
 
 /**
