@@ -1,9 +1,6 @@
 import { DietPreferenceValue, MealType } from '@prisma/client';
 import { normalizeText } from '../../common/normalize-text.util';
-import {
-  conflictingAllergens,
-  satisfiesDiet,
-} from '../../recipes/diet-rules.util';
+import { audienceReason } from '../../recipes/constraints/recipe-constraints';
 import {
   RECIPE_SEARCH_TAGS,
   RECIPE_TAG_LABELS,
@@ -394,25 +391,27 @@ export const EMPTY_SIGNALS: SearchSignals = {
   popularity: new Map(),
 };
 
+/**
+ * Czy KAŻDY z jedzących może to zjeść (alergeny, wykluczenia, dieta profilu).
+ * Reguły ze wspólnego silnika (`audienceReason`, N8A) — te same co planer
+ * i walidator zapisu. W wyszukiwarce nie da się ich poluzować; luzowanie
+ * dotyczy tylko filtrów prośby (`passesSoft`).
+ */
 export function passesAudience(
   recipe: SearchableRecipe,
   audience: SearchAudience,
 ): boolean {
-  if (conflictingAllergens(recipe.allergens, audience.allergens).length > 0) {
-    return false;
-  }
-  if (audience.excludedIngredientIds.length > 0) {
-    const excluded = new Set(audience.excludedIngredientIds);
-    if (recipe.ingredients.some((ingredient) => excluded.has(ingredient.id))) {
-      return false;
-    }
-  }
-  const subject = {
-    dietTags: recipe.dietTags,
-    hasIngredientData: recipe.ingredients.length > 0,
-    perServing: recipe.perServing,
-  };
-  return audience.diets.every((diet) => satisfiesDiet(diet, subject));
+  return (
+    audienceReason(
+      {
+        allergens: recipe.allergens,
+        ingredientIds: recipe.ingredients.map((ingredient) => ingredient.id),
+        dietTags: recipe.dietTags,
+        perServing: recipe.perServing,
+      },
+      audience,
+    ) === null
+  );
 }
 
 type SoftFilter =

@@ -1,4 +1,5 @@
 import { DayOfWeek, MealType } from '@prisma/client';
+import { checkRecipe } from '../recipes/constraints/recipe-constraints';
 import {
   CandidateStats,
   DayDiagnostics,
@@ -28,6 +29,7 @@ import {
   KCAL_DAY_TOLERANCE,
   MEAL_KCAL_WEIGHT,
   normalizeParticipants,
+  plannerConstraintSet,
   portionFor,
   PROTEIN_DAY_TOLERANCE,
   RecipeLookup,
@@ -277,14 +279,10 @@ function candidatesFor(
 ): { stats: CandidateStats; eligible: PlannerRecipe[] } {
   const removed: Partial<Record<HardFilterReason, number>> = {};
   const eligible: PlannerRecipe[] = [];
+  const constraints = plannerConstraintSet(meal, scope.audience, scope.request);
   for (const recipe of scope.lookup.values()) {
     if (allowed && !allowed.has(recipe.id)) continue;
-    const reason = hardFilterReason(
-      recipe,
-      meal,
-      scope.audience,
-      scope.request,
-    );
+    const reason = checkRecipe(recipe, constraints);
     if (reason) {
       if (reason !== 'MEAL_TYPE' && reason !== 'INACTIVE') {
         removed[reason] = (removed[reason] ?? 0) + 1;
