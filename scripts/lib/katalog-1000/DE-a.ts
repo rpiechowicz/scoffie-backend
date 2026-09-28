@@ -44,8 +44,7 @@ export const DEFS: Def[] = [
       'Wystudź makowiec, utrzyj cukier puder z sokiem z cytryny na gęsty lukier i polej nim wierzch.',
     ],
     photo:
-      'Sliced Polish poppy seed roll showing tight dark spirals of poppy seed filling in golden yeast dough, topped with white lemon icing and chopped walnuts',
-    vessel: 'board',
+      'Two thick slices of Polish poppy seed roll showing tight spirals of dark poppy seed and walnut filling in golden yeast dough, with white lemon icing on the golden crust',
   },
   {
     plan: 'DE-002',
@@ -83,8 +82,7 @@ export const DEFS: Def[] = [
       'Roztop czekoladę w kąpieli wodnej, polej piernik i odstaw do zastygnięcia polewy.',
     ],
     photo:
-      'Layered dark gingerbread cake slices with thin plum jam layers between spiced sponge, covered with glossy dark chocolate glaze',
-    vessel: 'board',
+      'A slice of layered dark Polish gingerbread cake with three spiced dark brown layers and thin plum jam between them, covered with a glossy dark chocolate glaze',
   },
   {
     plan: 'DE-003',
@@ -120,7 +118,7 @@ export const DEFS: Def[] = [
       'Odstaw na 1 godzinę do zastygnięcia lukru. Przechowuj w puszce, z kawałkiem jabłka pierniczki szybciej zmiękną.',
     ],
     photo:
-      'Assorted gingerbread cookies shaped like stars, Christmas trees and hearts, decorated with fine white royal icing patterns',
+      'A few dark brown gingerbread cookies shaped like stars, Christmas trees and hearts, decorated with fine white lemon icing patterns',
     vessel: 'board',
   },
   {
@@ -193,7 +191,7 @@ export const DEFS: Def[] = [
       'Wymieszaj pszenicę z makiem, miodem, bakaliami i skórką pomarańczową. Schłódź co najmniej 1 godzinę przed podaniem.',
     ],
     photo:
-      'Bowl of Polish kutia with cooked wheat berries in dark ground poppy seed and honey, mixed with raisins, chopped walnuts, almonds, dried apricots and figs',
+      'Polish kutia of cooked wheat berries in dark ground poppy seed and honey, mixed with raisins, chopped walnuts, almonds, diced dried apricots, figs and candied orange peel',
     vessel: 'bowl',
   },
   {
@@ -266,8 +264,7 @@ export const DEFS: Def[] = [
       'Piecz w piekarniku nagrzanym do 170°C przez 55–60 minut, do suchego patyczka. Wystudź w formie 15 minut, potem na kratce.',
     ],
     photo:
-      'Sliced golden loaf cake packed with raisins, dried apricots, cranberries, walnuts and candied orange peel, showing a colourful fruit-studded crumb',
-    vessel: 'board',
+      'Two slices of golden loaf cake packed with raisins, dried apricots, cranberries, walnuts and candied orange peel, showing a colourful fruit-studded crumb',
   },
   {
     plan: 'DE-008',
@@ -305,7 +302,7 @@ export const DEFS: Def[] = [
       'Utrzyj cukier puder z sokiem z cytryny i polej lukrem lekko przestudzone ślimaczki.',
     ],
     photo:
-      'Golden yeast pinwheel buns with dark poppy seed swirls, drizzled with thin white lemon icing',
+      'Two golden yeast pinwheel buns with dark poppy seed swirls, drizzled with thin white lemon icing',
     vessel: 'board',
   },
 
@@ -343,8 +340,7 @@ export const DEFS: Def[] = [
       'Ułóż na kajmaku orzechy, migdały i żurawinę we wzór, odstaw na 1 godzinę do stężenia.',
     ],
     photo:
-      'Rectangular Polish mazurek tart with a thick glossy caramel dulce de leche layer decorated with walnuts, almonds and red dried cranberries',
-    vessel: 'board',
+      'A rectangular piece of Polish mazurek with a golden shortcrust base and a thick glossy caramel dulce de leche layer, decorated with walnut halves, almonds and red dried cranberries',
   },
   {
     plan: 'DE-010',
@@ -384,8 +380,7 @@ export const DEFS: Def[] = [
       'Utrzyj cukier puder z sokiem z cytryny i polej wystudzoną babkę.',
     ],
     photo:
-      'Tall fluted Easter yeast bundt cake with dripping white icing, one slice cut to show a fluffy yellow crumb dotted with raisins',
-    vessel: 'board',
+      'A thick slice of Easter yeast babka with white lemon icing running over the golden top, showing a fluffy yellow crumb dotted with raisins and candied orange peel',
   },
   {
     plan: 'DE-011',
@@ -419,8 +414,7 @@ export const DEFS: Def[] = [
       'Wystudź babkę, utrzyj cukier puder z resztą soku z cytryny na lukier i polej wierzch. Posyp odrobiną skórki.',
     ],
     photo:
-      'Golden lemon bundt cake with thick white lemon glaze dripping down the sides, sprinkled with fresh yellow lemon zest',
-    vessel: 'board',
+      'A thick slice of golden lemon babka with a fine pale yellow crumb, topped with thick white lemon glaze and a sprinkle of fresh yellow lemon zest',
   },
   {
     plan: 'DE-012',
@@ -456,7 +450,7 @@ export const DEFS: Def[] = [
       'Wstaw do lodówki na co najmniej 8 godzin, żeby odciekła i stężała. Odwróć na talerz i zdejmij gazę.',
     ],
     photo:
-      'Pyramid-shaped creamy white Easter cheese pascha studded with raisins, orange candied peel, dried apricots and slivered almonds',
+      'A thick slice of dense creamy white Easter cheese pascha studded with raisins, candied orange peel, diced dried apricots and chopped almonds',
   },
   {
     plan: 'DE-013',
@@ -495,8 +489,7 @@ export const DEFS: Def[] = [
       'Odstaw na 1 godzinę do stężenia kremu.',
     ],
     photo:
-      'Rectangular shortcrust mazurek covered with glossy bright orange curd, decorated with almonds, sliced dried figs, raisins and candied orange peel',
-    vessel: 'board',
+      'A rectangular piece of golden shortcrust mazurek covered with glossy bright orange curd, decorated with almonds, strips of dried fig, raisins and candied orange peel',
   },
 
   // ─── Sezonowe ───
@@ -562,8 +555,8 @@ export const DEFS: Def[] = [
       'Układaj w pucharkach warstwy jogurtu i musu, na wierzchu połóż truskawki i listki mięty.',
     ],
     photo:
-      'Glass cups layered with pink rhubarb and strawberry puree and thick white Greek yogurt, topped with halved strawberries and mint leaves',
-    vessel: 'bowl',
+      'Smooth pink rhubarb and strawberry mousse layered with thick white Greek yogurt, topped with halved fresh strawberries and a few mint leaves',
+    vessel: 'cup',
   },
   {
     plan: 'DE-016',
@@ -599,7 +592,7 @@ export const DEFS: Def[] = [
       'Piecz w piekarniku nagrzanym do 180°C przez 20–25 minut, aż drożdżówki się zezłocą.',
     ],
     photo:
-      'Round golden yeast buns filled with juicy dark blueberries and topped with buttery crumble',
+      'Two round golden yeast buns with a centre of juicy dark blueberries, topped with buttery crumble',
     vessel: 'board',
   },
   {
@@ -633,7 +626,7 @@ export const DEFS: Def[] = [
       'Rozsmaruj krem na spodzie, ułóż na nim przekrojone na pół truskawki i schłódź 30 minut przed krojeniem.',
     ],
     photo:
-      'Round golden shortcrust tart filled with white mascarpone cream and neatly arranged halved fresh red strawberries',
+      'A slice of golden shortcrust tart filled with thick white mascarpone cream and topped with neatly arranged halved fresh red strawberries',
   },
   {
     plan: 'DE-018',
@@ -662,7 +655,7 @@ export const DEFS: Def[] = [
       'Przed podaniem odstaw na 10 minut w temperaturze pokojowej i nakładaj gałki łyżką zanurzoną w ciepłej wodzie.',
     ],
     photo:
-      'Scoops of pale pink strawberry frozen yogurt with visible red strawberry pieces, garnished with fresh strawberry halves',
+      'Two scoops of pale pink strawberry frozen yogurt with visible red strawberry pieces, garnished with fresh strawberry halves',
     vessel: 'bowl',
   },
   {
@@ -696,7 +689,7 @@ export const DEFS: Def[] = [
       'Piecz w piekarniku w 180°C przez 35–40 minut, aż krem się zezłoci. Wystudź przed krojeniem.',
     ],
     photo:
-      'Rustic tart with golden almond frangipane and tightly arranged purple plum halves with glossy dark juices, dusted with cinnamon',
+      'A slice of rustic shortcrust tart with golden almond frangipane and tightly arranged purple plum halves with glossy dark juices, dusted with cinnamon',
   },
   {
     plan: 'DE-020',
@@ -726,7 +719,7 @@ export const DEFS: Def[] = [
       'Podawaj ciepłe gruszki z łyżką jogurtu, polane sokiem z naczynia i posypane orzechami.',
     ],
     photo:
-      'Warm roasted pear halves glazed with honey and cinnamon, served with a dollop of thick white Greek yogurt and toasted chopped walnuts',
+      'Two warm roasted pear halves glazed with honey and cinnamon, served with a dollop of thick white Greek yogurt and toasted chopped walnuts',
   },
   {
     plan: 'DE-021',
@@ -763,7 +756,7 @@ export const DEFS: Def[] = [
       'Wystudź ciasto. Serek kremowy utrzyj z cukrem pudrem i rozsmaruj cienko na wierzchu.',
     ],
     photo:
-      'Square slices of moist orange pumpkin cake with a thin layer of white cream cheese frosting, sprinkled with cinnamon and chopped walnuts',
+      'A square slice of moist orange spiced pumpkin cake flecked with chopped walnuts, topped with a thin layer of white cream cheese frosting',
   },
   {
     plan: 'DE-022',
@@ -798,7 +791,7 @@ export const DEFS: Def[] = [
       'Piecz w piekarniku nagrzanym do 180°C przez 22–25 minut, do suchego patyczka. Wystudź na kratce.',
     ],
     photo:
-      'Golden orange pumpkin muffins with domed tops sprinkled with green pumpkin seeds, in paper liners',
+      'Two golden orange pumpkin muffins with domed tops sprinkled with green pumpkin seeds, in paper liners',
     vessel: 'board',
   },
   {
@@ -832,8 +825,7 @@ export const DEFS: Def[] = [
       'Piecz w piekarniku nagrzanym do 175°C przez 40–45 minut, do suchego patyczka. Wystudź i oprósz cukrem pudrem.',
     ],
     photo:
-      'Round golden olive oil orange cake dusted with powdered sugar, one wedge cut to show a moist yellow crumb, with fresh orange slices beside',
-    vessel: 'board',
+      'A wedge of golden olive oil orange cake dusted with powdered sugar, showing a moist yellow crumb flecked with orange zest',
   },
   {
     plan: 'DE-024',
@@ -867,6 +859,6 @@ export const DEFS: Def[] = [
       'Piecz w piekarniku nagrzanym do 175°C przez 45–50 minut, do suchego patyczka. Wystudź w formie.',
     ],
     photo:
-      'Square slices of dark spiced cake with visible chunks of baked apple and raisins, lightly glossy golden-brown top',
+      'Two square slices of dark spiced honey cake with visible chunks of baked apple and raisins, lightly glossy golden-brown top',
   },
 ];

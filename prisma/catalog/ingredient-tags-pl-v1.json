@@ -640,8 +640,8 @@
       "normalizedName": "galaretka",
       "category": "cukiernia",
       "allergens": [],
-      "dietTags": ["ANIMAL_OTHER", "PROCESSED"],
-      "note": "Galaretka w proszku jest na żelatynie wieprzowej, stąd ANIMAL_OTHER; wersje na agarze są wyjątkiem."
+      "dietTags": ["MEAT", "ANIMAL_OTHER", "PROCESSED"],
+      "note": "Galaretka w proszku jest na żelatynie wieprzowej — MEAT (wegetarianie jej nie jedzą) i ANIMAL_OTHER; wersje na agarze są wyjątkiem."
     },
     {
       "name": "gin",
@@ -1110,8 +1110,8 @@
       "normalizedName": "kolagen spozywczy",
       "category": "inne",
       "allergens": [],
-      "dietTags": ["ANIMAL_OTHER"],
-      "note": "Zwykle kolagen wołowy lub wieprzowy; wersje rybie wymagają dodania fish przy konkretnym produkcie."
+      "dietTags": ["MEAT", "ANIMAL_OTHER"],
+      "note": "Kolagen to żelatyna hydrolizowana ze skór i kości — MEAT jak żelatyna."
     },
     {
       "name": "komosa ryżowa",
@@ -2471,8 +2471,8 @@
       "normalizedName": "smalec",
       "category": "olej-i-tluszcz",
       "allergens": [],
-      "dietTags": ["ANIMAL_OTHER"],
-      "note": "Wytopiony tłuszcz wieprzowy — zgodnie z konwencją ANIMAL_OTHER, nie MEAT."
+      "dietTags": ["MEAT", "ANIMAL_OTHER"],
+      "note": "Smalec to wytopiony tłuszcz wieprzowy — MEAT."
     },
     {
       "name": "śmietana 12",
@@ -2956,15 +2956,16 @@
       "normalizedName": "zelatyna",
       "category": "inne",
       "allergens": [],
-      "dietTags": ["ANIMAL_OTHER"]
+      "dietTags": ["MEAT", "ANIMAL_OTHER"],
+      "note": "Żelatyna jest z kości i skór zwierząt z uboju — MEAT, żeby dieta wegetariańska i pescetariańska ją odrzucały."
     },
     {
       "name": "żelka",
       "normalizedName": "zelka",
       "category": "przekaska-i-slodycz",
       "allergens": [],
-      "dietTags": ["ANIMAL_OTHER", "PROCESSED"],
-      "note": "Żelatyna wieprzowa/wołowa (istnieją też wersje na pektynie)."
+      "dietTags": ["MEAT", "ANIMAL_OTHER", "PROCESSED"],
+      "note": "Żelki są na żelatynie — MEAT jak żelatyna; wersje wegańskie na pektynie są wyjątkiem."
     },
     {
       "name": "ziemniak",
@@ -3515,7 +3516,7 @@
       "category": "zboza-i-makarony",
       "allergens": ["gluten"],
       "dietTags": ["GLUTEN_GRAIN", "GRAIN"],
-      "note": "Suchy (sól w cieście); świeży podgotowany z próżniowej paczki ma ok. 2,6× mniej na 100 g."
+      "note": "Masa suchego makaronu. Sód liczony PO ugotowaniu: sól z ciasta w większości przechodzi do wody (tabele MEXT: suchy 4,3 g soli/100 g, gotowany 0,5 g/100 g przy 2,4× przyroście masy ≈ 480 mg sodu na 100 g suchego)."
     },
     {
       "name": "makaron sojowy",

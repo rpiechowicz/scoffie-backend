@@ -110,7 +110,7 @@ export const DEFS: Def[] = [
       'Cebulę pokrój w cienkie piórka i skrop resztą soku z limonki. Podawaj kurczaka z ryżem, cebulą i posiekaną kolendrą.',
     ],
     photo:
-      'Charred orange-red tandoori chicken pieces with basmati rice, thin pink pickled red onion rings, fresh coriander and a lime wedge',
+      'Charred orange-red tandoori chicken pieces with basmati rice, thin lime-dressed red onion slices and chopped fresh coriander',
   },
   {
     plan: 'OB-172',
@@ -247,7 +247,7 @@ export const DEFS: Def[] = [
       'Podawaj klopsiki z kaszą, polane sosem jogurtowym.',
     ],
     photo:
-      'Browned turkey meatballs on a bed of buckwheat groats with a creamy cucumber-yogurt sauce and fresh dill sprigs',
+      'Browned turkey meatballs on a bed of buckwheat groats, topped with a creamy grated cucumber and yogurt sauce flecked with dill',
   },
   // ── Keto i low-carb ──
   {
@@ -317,7 +317,7 @@ export const DEFS: Def[] = [
       'Zapiekaj 20 minut, aż ser się rozpuści i zarumieni. Odstaw na 5 minut przed krojeniem.',
     ],
     photo:
-      'Bubbling cauliflower bake with a golden browned cheddar crust, layered with tomato-rich minced beef, served in a ceramic baking dish',
+      'A square portion of cauliflower bake showing layers of cauliflower florets and tomato-rich minced beef under a bubbling golden browned cheddar crust',
   },
   {
     plan: 'OB-178',
@@ -353,7 +353,7 @@ export const DEFS: Def[] = [
       'Odstaw karkówkę na 3 minuty i podawaj z sałatką z ogórka.',
     ],
     photo:
-      'Chargrilled pork neck steaks with dark grill marks and paprika glaze, next to a creamy cucumber salad with sour cream and fresh dill',
+      'Chargrilled paprika-rubbed pork neck steaks with dark grill marks, next to a creamy cucumber salad with sour cream and fresh dill',
   },
   {
     plan: 'OB-179',
@@ -489,7 +489,8 @@ export const DEFS: Def[] = [
       'Na posiekanej sałacie ułóż w rzędach kurczaka, jajka, boczek, awokado i połówki pomidorków, pokruszoną gorgonzolę. Polej winegretem tuż przed podaniem.',
     ],
     photo:
-      'Cobb salad arranged in neat rows on romaine: diced chicken, quartered boiled eggs, crispy bacon, avocado, cherry tomatoes and crumbled blue cheese',
+      'Cobb salad arranged in neat rows on romaine: diced chicken, quartered boiled eggs, crispy bacon, avocado, halved cherry tomatoes and crumbled gorgonzola, drizzled with mustard vinaigrette',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-183',
@@ -630,7 +631,7 @@ export const DEFS: Def[] = [
       'Odstaw kaczkę na 10 minut, podziel na porcje i podawaj z pieczonymi jabłkami i żurawiną.',
     ],
     photo:
-      'Whole roast duck with glossy crisp mahogany skin surrounded by soft baked apple wedges and a bowl of glistening red cranberries',
+      'A portion of roast duck, a leg and slices of breast with glossy crisp mahogany skin, with soft baked apple quarters and a spoonful of glistening red honey-stewed cranberries',
   },
   {
     plan: 'OB-187',
@@ -671,7 +672,7 @@ export const DEFS: Def[] = [
       'Wyjmij wykałaczki, dopraw sos solą i pieprzem. Podawaj rolady z kluskami polanymi sosem.',
     ],
     photo:
-      'Braised beef roulades sliced to show the pickle and bacon filling, in dark glossy gravy, with round Silesian potato dumplings with a dimple',
+      'A braised beef roulade cut in half to show the pickle, bacon and onion filling, in dark glossy gravy, with round Silesian potato dumplings with a dimple',
   },
   {
     plan: 'OB-188',
@@ -712,7 +713,7 @@ export const DEFS: Def[] = [
       'Odstaw indyka na 15 minut, pokrój w plastry z nadzieniem i podawaj z sosem żurawinowym.',
     ],
     photo:
-      'Golden roast turkey leg sliced to reveal bread and cranberry stuffing, with pan juices and a small bowl of red cranberry sauce',
+      'Two thick slices of golden roast turkey leg with a ring of bread, apple and dried cranberry stuffing inside, glossy pan juices and a spoonful of red cranberry sauce',
   },
   {
     plan: 'OB-189',
@@ -787,7 +788,7 @@ export const DEFS: Def[] = [
       'Grilluj szaszłyki na rozgrzanym grillu ogrodowym (węglowym, gazowym albo elektrycznym) 12–14 minut, obracając co 3 minuty, aż kurczak będzie dopieczony. Na patelni grillowej smaż je na średnim ogniu 14–16 minut, często obracając.',
     ],
     photo:
-      'Grilled chicken skewers alternating with charred red and yellow pepper, red onion and whole mushrooms, with lemon wedges',
+      'Grilled chicken skewers alternating with charred red and yellow pepper, red onion and whole mushrooms, glistening with oregano and paprika marinade',
   },
   // ── Grill i majówka ──
   {
@@ -863,7 +864,7 @@ export const DEFS: Def[] = [
       'Pokrój kurczaka w plastry i podawaj z cukinią, pomidorkami i sosem jogurtowym.',
     ],
     photo:
-      'Sliced grilled chicken breast with char marks, grilled zucchini ribbons and blistered cherry tomatoes with a bowl of white mint yogurt sauce',
+      'Sliced grilled herb chicken breast with char marks, grilled lengthwise zucchini slices and blistered cherry tomatoes with a dollop of white mint yogurt sauce',
   },
   {
     plan: 'OB-193',

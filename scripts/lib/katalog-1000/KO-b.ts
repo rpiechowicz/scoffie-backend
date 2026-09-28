@@ -40,7 +40,7 @@ export const DEFS: Def[] = [
       'Orzeszki ziemne upraż na suchej patelni i posiekaj. Podawaj makaron posypany orzeszkami, zieloną dymką i kolendrą.',
     ],
     photo:
-      'Glossy rice noodles tossed with golden tofu cubes, shredded orange carrot and spring onion, topped with chopped peanuts, cilantro and lime wedges',
+      'Glossy rice noodles tossed with golden tofu cubes, shredded orange carrot and spring onion, topped with chopped roasted peanuts, spring onion greens and cilantro',
     vessel: 'bowl',
   },
   {
@@ -73,7 +73,7 @@ export const DEFS: Def[] = [
       'Piecz tartę 20–25 minut w 180°C, aż masa się zetnie, a ser lekko zarumieni. Odstaw na 5 minut przed krojeniem.',
     ],
     photo:
-      'Golden puff pastry tart filled with soft pale green leek, set egg custard and browned crumbles of goat cheese sprinkled with thyme',
+      'A large wedge of golden flaky puff pastry tart filled with soft pale green leek and set egg custard flecked with thyme, topped with lightly browned crumbles of goat cheese',
   },
   {
     plan: 'KO-032',
@@ -112,7 +112,7 @@ export const DEFS: Def[] = [
       'Skrop sokiem z cytryny i posyp posiekaną natką pietruszki.',
     ],
     photo:
-      'Bowl with a swirl of creamy hummus, fluffy quinoa, roasted orange sweet potato cubes, red pepper strips, zucchini and crispy chickpeas, topped with parsley',
+      'A swirl of creamy hummus with fluffy quinoa, roasted orange sweet potato cubes, red pepper strips, zucchini, red onion wedges and crispy smoky chickpeas, sprinkled with chopped parsley',
     vessel: 'bowl',
   },
   {
@@ -147,7 +147,7 @@ export const DEFS: Def[] = [
       'Piecz 30 minut, aż ziemniaki będą miękkie, a ser złocisty.',
     ],
     photo:
-      'Bubbling potato and broccoli bake with thin potato slices, bright green florets and a golden melted cheese crust in a white baking dish',
+      'A generous portion of creamy potato and broccoli bake with layered thin potato slices, bright green florets and a bubbling golden melted cheese crust',
   },
   {
     plan: 'KO-034',
@@ -186,7 +186,8 @@ export const DEFS: Def[] = [
       'Podawaj z plastrami awokado, sokiem z limonki i posiekaną kolendrą.',
     ],
     photo:
-      'Skillet of tomato-red millet with kidney beans, sweet corn and red pepper, topped with sliced avocado, cilantro and lime wedges',
+      'Tomato-red millet with kidney beans, sweet corn and red pepper, topped with fanned avocado slices and chopped cilantro',
+    vessel: 'bowl',
   },
   {
     plan: 'KO-035',
@@ -219,7 +220,7 @@ export const DEFS: Def[] = [
       'Posmaruj kromki chleba pastą i ułóż na nich ogórek i rzodkiewkę.',
     ],
     photo:
-      'Slices of dark rye bread spread with pale pink salmon and cottage cheese paste, topped with cucumber and radish slices and fresh dill',
+      'Two slices of dark rye bread thickly spread with pale pink roasted salmon and curd cheese paste flecked with dill and spring onion, topped with thin cucumber and radish slices',
     vessel: 'board',
   },
   {
@@ -253,7 +254,8 @@ export const DEFS: Def[] = [
       'Na porwanej sałacie ułóż ziemniaki, ogórek, cebulę i makrelę, polej sosem, dołóż jajka i posyp resztą szczypiorku.',
     ],
     photo:
-      'Salad of warm potato cubes, flaked golden smoked mackerel, egg quarters, cucumber and red onion on romaine, drizzled with creamy mustard dressing and chives',
+      'Torn romaine topped with boiled potato cubes, flaked golden smoked mackerel, cucumber half-moons and thin red onion, drizzled with creamy mustard yogurt dressing, with hard-boiled egg quarters and chopped chives',
+    vessel: 'bowl',
   },
   {
     plan: 'KO-037',
@@ -316,7 +318,7 @@ export const DEFS: Def[] = [
       'Na wierzchu połóż szprotki, skrop je sokiem z cytryny, dodaj cebulę i obficie posyp szczypiorkiem.',
     ],
     photo:
-      'Open rye bread sandwiches with glistening golden sprats, sliced boiled egg, tomato rounds, thin red onion rings and plenty of chopped chives',
+      'Two open rye bread sandwiches with glistening golden sprats, sliced boiled egg, tomato rounds, thin red onion rings and plenty of chopped chives',
     vessel: 'board',
   },
   {
@@ -352,7 +354,7 @@ export const DEFS: Def[] = [
       'Pstrąga zdejmij ze skóry i podziel na duże kawałki. Na talerzach ułóż roszponkę, sałatkę z buraka, obrane ziemniaki i pstrąga, obok podaj sos chrzanowy.',
     ],
     photo:
-      'Flaked golden smoked trout beside deep magenta beet and apple salad on lamb lettuce, halved boiled potatoes and a dollop of white horseradish cream',
+      'Large flakes of golden smoked trout beside deep magenta diced beet and apple salad on lamb lettuce, peeled boiled potatoes and a dollop of white horseradish cream',
   },
   {
     plan: 'KO-040',
@@ -383,7 +385,7 @@ export const DEFS: Def[] = [
       'Ułóż na grzankach plastry pomidora i odsączone sardynki, skrop sokiem z cytryny, posyp papryką wędzoną, cienko pokrojoną cebulą i natką.',
     ],
     photo:
-      'Crusty toasted ciabatta slices rubbed with grated tomato, topped with silver sardines, tomato slices, red onion rings, parsley and a pinch of smoked paprika',
+      'Two crusty toasted ciabatta pieces spread with grated tomato, topped with silver sardines, tomato slices, red onion rings, parsley and a pinch of smoked paprika',
     vessel: 'board',
   },
   {
@@ -416,7 +418,7 @@ export const DEFS: Def[] = [
       'Zdejmij z ognia, skrop sokiem z cytryny i posyp natką. Podawaj od razu z pokrojoną bagietką do maczania w maśle.',
     ],
     photo:
-      'Sizzling pink shrimp in golden garlic butter with sliced garlic, red chili rings and chopped parsley in a small pan, with baguette slices and lemon wedges',
+      'Pink shrimp in glossy golden garlic butter with thin garlic slices, red chili rings and chopped parsley, with a few baguette slices on the side',
   },
   {
     plan: 'KO-042',
@@ -485,7 +487,7 @@ export const DEFS: Def[] = [
       'Zawiń ciasno, przekrój na pół i podawaj od razu.',
     ],
     photo:
-      'Wheat tortilla wrap cut in half showing pink paprika shrimp, crisp iceberg lettuce, tomato, avocado slices and white yogurt dill sauce',
+      'One wheat tortilla wrap cut in half, the cut sides showing pink paprika shrimp, crisp iceberg lettuce, tomato and cucumber sticks, avocado slices and white yogurt dill sauce',
   },
   {
     plan: 'KO-044',
@@ -587,7 +589,7 @@ export const DEFS: Def[] = [
       'Skrop sokiem z cytryny i posyp sezamem.',
     ],
     photo:
-      'Pan of pink sauteed shrimp with bright green broccoli florets, sliced garlic and red chili, sprinkled with toasted sesame seeds and lemon wedges',
+      'Pink sauteed shrimp with bright green broccoli florets, chopped garlic and red chili, sprinkled with golden toasted sesame seeds',
   },
   {
     plan: 'KO-047',
@@ -625,7 +627,7 @@ export const DEFS: Def[] = [
       'Wymieszaj jogurt grecki z resztą czosnku, posiekanym koperkiem i sokiem z cytryny. Podawaj szaszłyki z kukurydzą i sosem.',
     ],
     photo:
-      'Grilled skewers of charred pink shrimp, zucchini, red pepper and red onion with grilled corn on the cob and a bowl of white garlic yogurt sauce with dill',
+      'Two short grilled skewers of charred pink shrimp, zucchini, red pepper and red onion with one grilled corn on the cob and a dollop of white garlic dill yogurt sauce',
   },
   {
     plan: 'KO-048',
@@ -660,7 +662,7 @@ export const DEFS: Def[] = [
       'Po wyjęciu posyp rukolą i od razu krój.',
     ],
     photo:
-      'Thin crispy homemade pizza with tomato sauce, melted mozzarella, sliced mushrooms and torn ham, topped with fresh arugula on a wooden board',
+      'A few slices of thin crispy homemade pizza with tomato sauce, melted mozzarella, sliced mushrooms and torn ham, topped with fresh arugula',
     vessel: 'board',
   },
   {
@@ -769,7 +771,7 @@ export const DEFS: Def[] = [
       'Usuń liść laurowy, dopraw solą i pieprzem. Podawaj posypaną posiekaną natką pietruszki.',
     ],
     photo:
-      'Hearty brown-green lentil soup with orange carrot cubes, celery and tomato, garnished with fresh parsley and a sprig of thyme',
+      'Hearty brown-green lentil soup with orange carrot cubes, celery slices and tomato, sprinkled with chopped fresh parsley',
     vessel: 'bowl',
   },
   {
@@ -874,7 +876,8 @@ export const DEFS: Def[] = [
       'Wymieszaj arbuza, ogórek, cebulę i rukolę z resztą oliwy i sokiem z limonki. Ułóż na wierzchu gorący halloumi, posyp miętą i pestkami dyni.',
     ],
     photo:
-      'Golden grill-marked halloumi slices on a salad of juicy red watermelon cubes, cucumber, thin red onion, arugula, fresh mint leaves and toasted pumpkin seeds',
+      'Golden grill-marked halloumi slices on a salad of juicy red watermelon cubes, cucumber half-moons, thin red onion and arugula, sprinkled with fresh mint leaves and toasted pumpkin seeds',
+    vessel: 'bowl',
   },
   {
     plan: 'KO-055',
@@ -912,7 +915,7 @@ export const DEFS: Def[] = [
       'Odsącz pakory na ręczniku papierowym i podawaj gorące z raitą.',
     ],
     photo:
-      'Pile of crispy golden-orange vegetable pakoras with visible onion and cauliflower pieces next to a bowl of creamy white cucumber mint raita',
+      'A few crispy golden-orange vegetable pakoras with visible onion, cauliflower and spinach pieces, with a generous dollop of creamy white cucumber mint raita',
   },
   {
     plan: 'KO-056',
@@ -947,7 +950,7 @@ export const DEFS: Def[] = [
       'Posyp pokruszoną fetą i kolendrą, skrop resztą soku z limonki i podawaj od razu.',
     ],
     photo:
-      'Crispy corn tostadas layered with black bean spread, mashed avocado, shredded lettuce, diced tomato, red onion, crumbled white feta and cilantro',
+      'Three crispy corn tostadas layered with black bean spread, mashed avocado, shredded lettuce, diced tomato, red onion, crumbled white feta and cilantro',
   },
   {
     plan: 'KO-057',
@@ -981,7 +984,7 @@ export const DEFS: Def[] = [
       'Przekrój bułki i opiecz je krótko na suchej patelni. Nałóż kurczaka BBQ, na wierzch coleslaw i przykryj drugą połówką.',
     ],
     photo:
-      'Soft burger bun filled with glossy shredded barbecue chicken and creamy white cabbage and carrot coleslaw, served on a wooden board',
+      'One lightly toasted burger bun filled with glossy shredded barbecue chicken topped with creamy white cabbage and carrot coleslaw',
     vessel: 'board',
   },
   {

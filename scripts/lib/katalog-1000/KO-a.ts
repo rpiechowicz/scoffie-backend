@@ -38,7 +38,8 @@ export const DEFS: Def[] = [
       'Awokado pokrój w plastry, cebulę w cienkie piórka. Na roszponce ułóż grejpfruta, awokado, cebulę i kurczaka, polej winegretem.',
     ],
     photo:
-      'Plate of lamb lettuce topped with sliced golden chicken breast, pink grapefruit segments, avocado slices and thin red onion rings',
+      'Fresh lamb lettuce topped with strips of golden pan-fried chicken breast, pink grapefruit segments, avocado slices and thin red onion slivers, drizzled with a light honey vinaigrette',
+    vessel: 'bowl',
   },
   {
     plan: 'KO-002',
@@ -104,7 +105,7 @@ export const DEFS: Def[] = [
       'Pestki dyni podpraż na suchej patelni 2 minuty. Podawaj zupę posypaną pestkami i resztą bazylii.',
     ],
     photo:
-      'Smooth bright red tomato cream soup with a swirl of coconut milk, fresh basil leaves and toasted pumpkin seeds',
+      'Smooth, creamy bright orange-red tomato soup topped with toasted pumpkin seeds and a few fresh basil leaves',
     vessel: 'bowl',
   },
   {
@@ -139,7 +140,8 @@ export const DEFS: Def[] = [
       'Ułóż warzywa na talerzach, na wierzch połóż łososia i polej sosem koperkowym.',
     ],
     photo:
-      'Crisp romaine salad with cucumber half-moons, thin radish slices, flaked pink roasted salmon and creamy dill yogurt dressing',
+      'Crisp torn romaine with cucumber half-moons and thin radish slices, topped with large flakes of pink roasted salmon and drizzled with creamy white dill yogurt dressing',
+    vessel: 'bowl',
   },
   {
     plan: 'KO-005',
@@ -173,7 +175,7 @@ export const DEFS: Def[] = [
       'Na każdą tortillę połóż sałatę, plasterki pomidora, farsz z indyka i resztę salsy, zawiń ciasno i przekrój na pół.',
     ],
     photo:
-      'Two halved wholegrain tortilla wraps filled with spiced ground turkey, red kidney beans, diced pepper, lettuce and tomato salsa',
+      'One wholegrain tortilla wrap cut in half, the cut sides showing spiced ground turkey with red kidney beans and diced red pepper, romaine lettuce, tomato slices and tomato salsa',
   },
   {
     plan: 'KO-006',
@@ -208,7 +210,7 @@ export const DEFS: Def[] = [
       'Pestki dyni podpraż na suchej patelni i posyp nimi zupę przed podaniem.',
     ],
     photo:
-      'Pale green zucchini cream soup with a swirl of cream cheese, chopped dill and toasted pumpkin seeds',
+      'Velvety pale green zucchini cream soup flecked with dill, topped with toasted pumpkin seeds',
     vessel: 'bowl',
   },
   {
@@ -313,7 +315,7 @@ export const DEFS: Def[] = [
       'Podawaj z rukolą i przekrojonymi pomidorkami koktajlowymi.',
     ],
     photo:
-      'Golden crispy quinoa and vegetable patties with visible grated carrot, served with fresh arugula and halved cherry tomatoes',
+      'Four golden crispy quinoa and vegetable patties with visible grated carrot and zucchini, served with fresh arugula and halved cherry tomatoes',
   },
   {
     plan: 'KO-010',
@@ -383,7 +385,7 @@ export const DEFS: Def[] = [
       'Podawaj z jogurtem greckim posypanym odłożoną dymką.',
     ],
     photo:
-      'Stack of golden orange savory pumpkin fritters with a dollop of thick Greek yogurt and chopped spring onion greens',
+      'A few golden orange savory pumpkin fritters, slightly overlapping, with a dollop of thick Greek yogurt sprinkled with chopped spring onion greens',
   },
   {
     plan: 'KO-012',
@@ -419,7 +421,7 @@ export const DEFS: Def[] = [
       'Podawaj z plasterkami gruszki i pestkami dyni podprażonymi na suchej patelni.',
     ],
     photo:
-      'Ivory celeriac and pear cream soup garnished with thin fresh pear slices, toasted pumpkin seeds and a pinch of thyme',
+      'Smooth ivory celeriac and pear cream soup garnished with a few thin fresh pear slices and toasted pumpkin seeds',
     vessel: 'bowl',
   },
   {
@@ -456,7 +458,7 @@ export const DEFS: Def[] = [
       'Posyp posiekaną kolendrą i podawaj od razu.',
     ],
     photo:
-      'Baking dish of rolled corn tortillas filled with black beans and corn, covered in tomato sauce and bubbling golden melted mozzarella, sprinkled with cilantro',
+      'Three baked rolled corn tortillas filled with black beans, corn and red pepper, covered in tomato sauce and bubbling golden melted mozzarella, sprinkled with chopped cilantro',
   },
   {
     plan: 'KO-014',
@@ -491,7 +493,7 @@ export const DEFS: Def[] = [
       'Słonecznik podpraż na suchej patelni. Podawaj zupę posypaną słonecznikiem i posiekaną natką.',
     ],
     photo:
-      'Vivid orange carrot ginger cream soup with a swirl of coconut milk, toasted sunflower seeds and chopped parsley',
+      'Velvety vivid orange carrot ginger cream soup topped with toasted sunflower seeds and chopped parsley',
     vessel: 'bowl',
   },
   {
@@ -529,7 +531,7 @@ export const DEFS: Def[] = [
       'Podawaj kurczaka na ryżu, z salsą z mango na wierzchu.',
     ],
     photo:
-      'Sliced paprika-roasted chicken breast on fluffy basmati rice topped with bright mango salsa with red onion, chili and cilantro, lime wedge on the side',
+      'Sliced paprika-roasted chicken breast on fluffy basmati rice, topped with bright diced mango salsa with red onion, chili and cilantro',
   },
   {
     plan: 'KO-016',
@@ -598,7 +600,8 @@ export const DEFS: Def[] = [
       'Ułóż na rukoli, na wierzch połóż kawałki tuńczyka.',
     ],
     photo:
-      'White cannellini beans tossed with thin red onion, halved cherry tomatoes and parsley on arugula, topped with flaked tuna and a drizzle of olive oil',
+      'White beans tossed with thin red onion slivers, halved cherry tomatoes and chopped parsley in glossy olive oil, on a bed of arugula and topped with chunks of tuna',
+    vessel: 'bowl',
   },
   {
     plan: 'KO-018',
@@ -634,7 +637,7 @@ export const DEFS: Def[] = [
       'Wlej olej sezamowy, miód i sok z limonki, smaż jeszcze minutę, aż sos oblepi składniki. Posyp prażonym sezamem i dymką.',
     ],
     photo:
-      'Wok-fried chicken strips with glossy green beans, sliced garlic, spring onion and toasted sesame seeds, lime wedge on the side',
+      'Stir-fried golden chicken strips with glossy honey-glazed green beans, a few chili flakes, spring onion rings and toasted sesame seeds',
   },
   {
     plan: 'KO-019',
@@ -706,7 +709,7 @@ export const DEFS: Def[] = [
       'Dodaj makaron, jajko, sos chili i sok z limonki, wymieszaj i podgrzewaj 2 minuty. Posyp posiekanymi orzeszkami i dymką.',
     ],
     photo:
-      'Stir-fried rice noodles with scrambled egg, carrot sticks, red pepper strips and napa cabbage, topped with chopped peanuts, spring onion and a lime wedge',
+      'Stir-fried rice noodles with scrambled egg, carrot sticks, red pepper strips and napa cabbage, topped with chopped peanuts and spring onion rings',
     vessel: 'bowl',
   },
   {
@@ -742,7 +745,7 @@ export const DEFS: Def[] = [
       'Posyp posiekaną natką i podawaj prosto z patelni.',
     ],
     photo:
-      'Pan of white cod pieces nestled in a rich tomato sauce with red and yellow pepper strips, green olives and chopped parsley',
+      'Two pieces of flaky white cod nestled in a rich smoky tomato sauce with soft red and yellow pepper strips and green olives, sprinkled with chopped parsley',
   },
   {
     plan: 'KO-022',
@@ -780,7 +783,7 @@ export const DEFS: Def[] = [
       'Posyp podprażonym słonecznikiem i posiekaną natką.',
     ],
     photo:
-      'Halved zucchini boats stuffed with golden millet, mushrooms, red pepper and tomato, baked and sprinkled with toasted sunflower seeds and parsley',
+      'Two baked zucchini boat halves stuffed with golden millet, mushrooms, red pepper and tomato, sprinkled with toasted sunflower seeds and chopped parsley',
   },
   {
     plan: 'KO-023',
@@ -815,7 +818,7 @@ export const DEFS: Def[] = [
       'Jogurt kokosowy wymieszaj z przeciśniętym czosnkiem. Podawaj placki z sosem i pomidorem pokrojonym w ćwiartki.',
     ],
     photo:
-      'Golden chickpea flour fritters speckled with grated zucchini, carrot and spinach, with a bowl of white garlic coconut yogurt and tomato wedges',
+      'Golden chickpea flour fritters speckled with grated zucchini, carrot and spinach, with a dollop of white garlic coconut yogurt and fresh tomato wedges',
   },
   {
     plan: 'KO-024',
@@ -884,7 +887,7 @@ export const DEFS: Def[] = [
       'Skrop sokiem z pieczonej cytryny i podawaj prosto z blachy.',
     ],
     photo:
-      'Roasting dish of golden chicken pieces with blistered cherry tomatoes, zucchini, red onion wedges, black olives and roasted lemon slices sprinkled with oregano',
+      'Golden roasted chicken pieces with blistered cherry tomatoes, zucchini half-moons, red onion wedges, black olives and roasted lemon slices, sprinkled with oregano',
   },
   {
     plan: 'KO-026',
@@ -956,7 +959,7 @@ export const DEFS: Def[] = [
       'Włóż kotlety do sosu, podgrzej razem 2 minuty i podawaj.',
     ],
     photo:
-      'Golden red lentil patties resting in a thick tomato sauce with oregano, sprinkled with chopped parsley',
+      'Four golden red lentil patties flecked with parsley, resting in a thick oregano tomato sauce',
   },
   {
     plan: 'KO-028',
@@ -1025,6 +1028,6 @@ export const DEFS: Def[] = [
       'Posyp listkami bazylii i podawaj na ciepło.',
     ],
     photo:
-      'Baking dish of overlapping zucchini and tomato slices covered with melted golden mozzarella and parmesan, topped with fresh basil leaves',
+      'A portion of baked overlapping zucchini and tomato slices covered with melted golden mozzarella and parmesan, topped with fresh basil leaves',
   },
 ];

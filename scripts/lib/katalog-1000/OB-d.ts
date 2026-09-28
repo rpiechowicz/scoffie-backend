@@ -142,7 +142,7 @@ export const DEFS: Def[] = [
       'Dopraw zupę sokiem z cytryny i podawaj posypaną posiekaną natką pietruszki.',
     ],
     photo:
-      'Bowl of red Mediterranean tomato fish soup with chunks of white cod, diced potato, carrot and celery, topped with parsley and a lemon wedge',
+      'Red Mediterranean tomato fish soup with large chunks of white cod, diced potato, carrot and celery, topped with chopped parsley',
     vessel: 'bowl',
   },
   {
@@ -180,7 +180,7 @@ export const DEFS: Def[] = [
       'Ogórek kiszony i koperek posiekaj, wymieszaj z jogurtem. Podawaj rybę z frytkami, sosem i ćwiartkami cytryny.',
     ],
     photo:
-      'Golden crumbed cod fillets with thick-cut crispy potato chips, lemon wedges and a small bowl of creamy dill pickle sauce',
+      'Two golden crumbed cod pieces with thick-cut crispy paprika potato chips, lemon wedges and a dollop of creamy yogurt sauce with chopped pickle and dill',
   },
   {
     plan: 'OB-090',
@@ -252,7 +252,7 @@ export const DEFS: Def[] = [
       'Podawaj prosto z blachy, skropione sokiem z pozostałej cytryny.',
     ],
     photo:
-      'Sheet pan with two roasted salmon fillets topped with lemon slices among charred broccoli, red pepper, zucchini, red onion and cherry tomatoes',
+      'Roasted salmon fillet topped with lemon slices among charred broccoli, red pepper, zucchini, red onion and cherry tomatoes',
   },
   {
     plan: 'OB-092',
@@ -285,6 +285,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Spaghetti tossed in chunky tomato sauce with pieces of sardine, capers, chili flakes, lemon zest and chopped parsley',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-093',
@@ -422,6 +423,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Spaghetti with pink sautéed shrimp, sliced garlic, red chili rings, halved cherry tomatoes and chopped parsley glistening with olive oil',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-097',
@@ -454,7 +456,8 @@ export const DEFS: Def[] = [
       'Podawaj od razu, z cząstkami pozostałej cytryny.',
     ],
     photo:
-      'Tagliatelle ribbons in a pale creamy lemon sauce with pink shrimp, wilted spinach, grated parmesan and lemon zest',
+      'Tagliatelle ribbons in a pale creamy lemon sauce with pink shrimp, wilted spinach, grated parmesan and lemon zest, with a lemon wedge',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-098',
@@ -527,7 +530,7 @@ export const DEFS: Def[] = [
       'Zdejmij z ognia, przykryj ściereczką na 5 minut. Podawaj z natką pietruszki i ćwiartkami cytryny.',
     ],
     photo:
-      'Wide pan of golden saffron-coloured paella rice with pink shrimp, chicken pieces, red pepper strips, green peas and lemon wedges',
+      'A portion of golden turmeric-tinted paella rice with pink shrimp, chicken pieces, red pepper strips, green peas and lemon wedges',
   },
   {
     plan: 'OB-100',
@@ -628,7 +631,7 @@ export const DEFS: Def[] = [
       'Zalej makaron w miskach gorącą zupą i posyp kolendrą.',
     ],
     photo:
-      'Bowl of creamy white coconut soup with pink shrimp, rice noodles, sliced mushrooms, cherry tomatoes, red chili and cilantro',
+      'Creamy white coconut soup with pink shrimp, rice noodles, sliced mushrooms, halved cherry tomatoes, thin ginger slices, red chili rings and cilantro',
     vessel: 'bowl',
   },
   {
@@ -661,7 +664,8 @@ export const DEFS: Def[] = [
       'Posyp posiekaną natką pietruszki i podawaj prosto z patelni.',
     ],
     photo:
-      'Skillet of orzo in thick tomato sauce with pink shrimp and softened crumbled feta, sprinkled with oregano and parsley',
+      'Orzo in a thick oregano-scented tomato sauce with pink shrimp and softened crumbled feta, sprinkled with chopped parsley',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-104',
@@ -735,7 +739,7 @@ export const DEFS: Def[] = [
       'Na tortille nałóż kapustę, krewetki, awokado i salsę z mango, polej sosem jogurtowym i posyp resztą kolendry.',
     ],
     photo:
-      'Three corn tortilla tacos filled with spiced shrimp, shredded purple cabbage, avocado slices and bright mango salsa with lime and cilantro',
+      'Three corn tortilla tacos filled with spiced shrimp, shredded purple cabbage, avocado slices and bright mango and red onion salsa, drizzled with white yogurt sauce and sprinkled with cilantro',
   },
   {
     plan: 'OB-106',
@@ -876,7 +880,7 @@ export const DEFS: Def[] = [
       'Podawaj krewetki z ryżem, ogórkiem i sosem chili do maczania.',
     ],
     photo:
-      'Golden coconut-crusted shrimp with jasmine rice, thin cucumber slices, lime wedge and a small bowl of sweet chili sauce',
+      'Golden coconut-crusted shrimp with jasmine rice, thin cucumber slices and a small pool of glossy sweet chili sauce for dipping',
   },
   // ── Kuchnie świata ──
   {
@@ -911,6 +915,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Penne in rich tomato sauce with golden fried eggplant cubes, topped with a dollop of white ricotta and fresh basil leaves',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-111',

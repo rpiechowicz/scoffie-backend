@@ -39,7 +39,7 @@ export const DEFS: Def[] = [
       'Podawaj saltimboccę polaną sosem, z ziemniakami i garścią rukoli.',
     ],
     photo:
-      'Thin golden turkey escalopes topped with crisp cured ham and sage, glossy lemon butter sauce, boiled potato wedges and fresh rocket on the side',
+      'Two thin golden turkey escalopes topped with crisp cured ham and sage in a glossy lemon butter sauce, with boiled potato quarters and fresh rocket on the side',
   },
   {
     plan: 'OB-114',
@@ -109,7 +109,8 @@ export const DEFS: Def[] = [
       'Podawaj posypane tartym parmezanem i świeżo mielonym pieprzem.',
     ],
     photo:
-      'Spaghetti coated in rich tomato sauce with crispy bacon strips, grated hard cheese and a few red chili flakes',
+      'Spaghetti coated in rich tomato and onion sauce with crispy bacon strips and a few red chili flakes, topped with grated parmesan and cracked black pepper',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-116',
@@ -227,7 +228,7 @@ export const DEFS: Def[] = [
       'Piecz pod folią 40 minut, potem bez folii 25–30 minut, aż ryż będzie miękki, a skórki warzyw lekko przypieczone.',
     ],
     photo:
-      'Baked stuffed red tomatoes and peppers with lightly charred skins and lids, herbed rice filling, roasted potato wedges in olive oil around them',
+      'Two baked stuffed tomatoes and one stuffed red pepper with lightly charred skins and lids, herbed rice and chickpea filling, roasted potato wedges glistening with olive oil around them',
   },
   {
     plan: 'OB-119',
@@ -418,7 +419,7 @@ export const DEFS: Def[] = [
       'Zdejmij z ognia, wmieszaj liście bazylii i podawaj z ryżem.',
     ],
     photo:
-      'Pale green coconut curry with chicken strips, zucchini and green beans, basil leaves on top, bowl of jasmine rice alongside',
+      'Pale green coconut curry with chicken strips, zucchini and green beans, basil leaves on top, with jasmine rice alongside',
     vessel: 'bowl',
   },
   {
@@ -451,7 +452,7 @@ export const DEFS: Def[] = [
       'Dopraw sokiem z limonki i podawaj posypane posiekaną kolendrą.',
     ],
     photo:
-      'Orange-tinted coconut curry soup with chicken strips, sliced mushrooms and red pepper, topped with coriander and a lime wedge',
+      'Orange-tinted coconut curry soup with chicken strips, sliced mushrooms and red pepper, topped with chopped coriander',
     vessel: 'bowl',
   },
   {
@@ -489,7 +490,7 @@ export const DEFS: Def[] = [
       'Zawiń boki do środka, a potem zroluj ciasno. Przyrumień burrito łączeniem w dół na suchej patelni 1–2 minuty z każdej strony.',
     ],
     photo:
-      'Two large golden wheat tortilla burritos cut in half showing spiced ground beef, rice, black beans, melted cheddar and salsa inside',
+      'One large golden wheat tortilla burrito cut in half, showing spiced ground beef, rice, black beans, melted cheddar, salsa and sour cream inside',
     vessel: 'board',
   },
   {
@@ -571,7 +572,7 @@ export const DEFS: Def[] = [
       'Podgrzej tortille na suchej patelni i nakładaj na nie chrupiące carnitas z salsą.',
     ],
     photo:
-      'Corn tortillas piled with crispy-edged shredded pork, fresh diced tomato and red onion salsa, coriander leaves and lime wedges',
+      'Corn tortillas piled with crispy-edged shredded pork, fresh diced tomato and red onion salsa and coriander leaves',
     vessel: 'board',
   },
   {
@@ -606,7 +607,7 @@ export const DEFS: Def[] = [
       'Kukurydzę posmaruj masłem i podawaj z pokrojonym kurczakiem i ziemniakami.',
     ],
     photo:
-      'Sticky glazed barbecue chicken breast sliced on a plate with roasted golden corn on the cob halves and smoky paprika potato wedges',
+      'Sliced sticky glazed barbecue chicken breast with a buttery roasted half corn on the cob and smoky paprika potato wedges',
   },
   {
     plan: 'OB-129',
@@ -682,7 +683,7 @@ export const DEFS: Def[] = [
       'Zdejmij z ognia, przykryj ściereczką na 5 minut. Podawaj z natką i ćwiartkami cytryny.',
     ],
     photo:
-      'Wide pan of saffron-yellow paella rice with red pepper strips, green beans, peas and chickpeas, lemon wedges and parsley on top',
+      'A portion of golden turmeric-tinted paella rice with red pepper strips, green beans, peas and chickpeas, topped with chopped parsley and a lemon wedge',
   },
   {
     plan: 'OB-131',
@@ -719,7 +720,7 @@ export const DEFS: Def[] = [
       'Odstaw na 10 minut przed krojeniem.',
     ],
     photo:
-      'Square slice of vegetable lasagna with visible green spinach ricotta layers, red tomato sauce and a bubbling browned mozzarella top',
+      'Square slice of spinach and ricotta lasagna with visible green spinach ricotta layers, red tomato sauce and a bubbling browned mozzarella top',
   },
   {
     plan: 'OB-132',
@@ -794,7 +795,7 @@ export const DEFS: Def[] = [
       'Podawaj szaszłyki z ryżem, ogórkiem i sosem orzechowym do maczania.',
     ],
     photo:
-      'Chargrilled yellow chicken satay skewers with a bowl of creamy peanut sauce, jasmine rice and thin cucumber slices',
+      'Chargrilled yellow chicken satay skewers with jasmine rice, thin cucumber slices and a small pool of creamy peanut sauce for dipping',
   },
   {
     plan: 'OB-134',
@@ -906,7 +907,7 @@ export const DEFS: Def[] = [
       'Podawaj krem z główkami szparagów i pestkami dyni.',
     ],
     photo:
-      'Smooth bright green asparagus and pea cream soup with a swirl of cream, asparagus tips and toasted pumpkin seeds on top',
+      'Smooth bright green asparagus and pea cream soup topped with tender asparagus tips and toasted pumpkin seeds',
     vessel: 'bowl',
   },
   {
@@ -979,7 +980,7 @@ export const DEFS: Def[] = [
       'Zdejmij z ognia, wmieszaj resztę masła, starty parmezan, skórkę i łyżkę soku z cytryny. Dopraw pieprzem i odstaw na 2 minuty przed podaniem.',
     ],
     photo:
-      'Creamy risotto studded with bright green asparagus pieces and peas, topped with asparagus tips, shaved parmesan and lemon zest',
+      'Creamy parmesan risotto studded with bright green asparagus pieces and peas, topped with asparagus tips and cracked black pepper',
     vessel: 'bowl',
   },
   {
@@ -1016,7 +1017,7 @@ export const DEFS: Def[] = [
       'Śmietanę zahartuj chochlą gorącej zupy i wlej do garnka. Podawaj z jajkiem i posiekanym koperkiem.',
     ],
     photo:
-      'Pink-red young beetroot soup with beet greens, new potato cubes, a halved hard-boiled egg and fresh dill, swirl of sour cream',
+      'Creamy pink young beetroot soup with thin beet sticks, beet greens, new potato cubes and carrot, topped with two halves of a hard-boiled egg and fresh dill',
     vessel: 'bowl',
   },
   {
@@ -1052,6 +1053,6 @@ export const DEFS: Def[] = [
       'Wmieszaj posiekany koperek i podawaj z młodymi ziemniakami.',
     ],
     photo:
-      'Tender braised young cabbage with golden sausage half-moons and plenty of fresh dill, boiled new potatoes on the side',
+      'Tender braised young cabbage with golden sausage half-moons and plenty of fresh dill, boiled new potatoes in their skins on the side',
   },
 ];

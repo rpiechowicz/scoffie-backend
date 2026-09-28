@@ -113,7 +113,7 @@ export const DEFS: Def[] = [
       'Posyp naleśniki mozzarellą i zapiekaj 12–15 minut, aż ser się rozpuści i lekko zrumieni.',
     ],
     photo:
-      'Rolled crepes stuffed with diced chicken and wilted spinach, baked side by side under a layer of melted golden mozzarella',
+      'Two rolled crepes stuffed with diced golden chicken and wilted spinach, baked side by side under a layer of melted, lightly browned mozzarella',
   },
   {
     plan: 'DS-004',
@@ -184,7 +184,7 @@ export const DEFS: Def[] = [
       'Połącz komosę z fasolą, kukurydzą, pomidorkami i cebulą, polej dressingiem, a na wierzchu ułóż awokado.',
     ],
     photo:
-      'Quinoa salad with black beans, yellow sweet corn, cherry tomatoes, red onion, green avocado cubes, fresh coriander and lime wedges',
+      'Quinoa salad with black beans, yellow sweet corn, cherry tomatoes and red onion in a lime and coriander dressing, topped with green avocado cubes',
     vessel: 'bowl',
   },
   {
@@ -294,7 +294,7 @@ export const DEFS: Def[] = [
       'Przełóż do pudełek, a obok każdej porcji nałóż hummus.',
     ],
     photo:
-      'Couscous salad with roasted golden zucchini, red pepper and red onion, chopped parsley and a generous dollop of creamy hummus on the side',
+      'Couscous salad with roasted golden zucchini, red pepper and red onion, chopped parsley and a generous dollop of creamy hummus next to the salad',
     vessel: 'bowl',
   },
   {
@@ -441,7 +441,7 @@ export const DEFS: Def[] = [
       'Połącz kaszę z kurczakiem, pieczarkami, ogórkami i roszponką, posyp natką.',
     ],
     photo:
-      'Buckwheat salad with golden chicken cubes, browned sliced mushrooms, diced pickled cucumber, lamb’s lettuce and chopped parsley',
+      'Buckwheat salad with golden chicken cubes, browned sliced mushrooms with onion, diced pickled cucumber, lamb lettuce and chopped parsley',
     vessel: 'bowl',
   },
   {
@@ -544,7 +544,7 @@ export const DEFS: Def[] = [
       'Połącz warzywa z fasolą i kukurydzą, polej dressingiem i ułóż na wierzchu kurczaka.',
     ],
     photo:
-      'Mexican salad with smoky paprika chicken strips, black beans, sweet corn, diced red pepper, romaine lettuce, coriander and lime wedges',
+      'Mexican salad of romaine lettuce, black beans, sweet corn, diced red pepper and red onion in a lime and coriander dressing, topped with smoky paprika chicken strips',
     vessel: 'bowl',
   },
   {
@@ -659,7 +659,7 @@ export const DEFS: Def[] = [
       'Rozłóż do pudełek i posyp posiekaną kolendrą. W lodówce curry wytrzyma 4 dni.',
     ],
     photo:
-      'Thick golden-orange lentil and sweet potato curry with wilted spinach, a swirl of coconut milk and fresh coriander leaves',
+      'Thick creamy golden-orange red lentil and sweet potato curry with soft sweet potato cubes and wilted spinach, sprinkled with fresh chopped coriander',
     vessel: 'bowl',
   },
   {
@@ -733,7 +733,7 @@ export const DEFS: Def[] = [
       'Rozłóż ryż do misek lub pudełek, ułóż krewetki, ogórek, marchew i edamame, polej sosem i posyp sezamem oraz dymką.',
     ],
     photo:
-      'Rice bowl with pink sautéed shrimp, cucumber half-moons, shredded orange carrot, green edamame, sesame seeds and spring onion with a glossy sesame dressing',
+      'Jasmine rice topped with pink sauteed shrimp, cucumber half-moons, shredded orange carrot, green edamame, sesame seeds and spring onion with a glossy sesame dressing',
     vessel: 'bowl',
   },
   {
@@ -769,7 +769,7 @@ export const DEFS: Def[] = [
       'Na koniec wmieszaj posiekaną natkę pietruszki i przełóż do pudełek.',
     ],
     photo:
-      'Fluffy couscous with pink garlic shrimp, diced red and yellow bell pepper, plenty of chopped green parsley and lemon wedges',
+      'Fluffy couscous with pink paprika garlic shrimp, diced red and yellow bell pepper, a pinch of chili flakes and plenty of chopped green parsley',
     vessel: 'bowl',
   },
 
@@ -879,7 +879,7 @@ export const DEFS: Def[] = [
       'Powtórz z drugą tortillą, a do pudełka przekrój każdą na pół.',
     ],
     photo:
-      'Rolled tortilla wraps cut in half revealing a thin spinach omelette layer, crumbled white feta and red tomato slices',
+      'A rolled wheat tortilla wrap cut in half revealing a thin spinach omelette layer, crumbled white feta and red tomato slices',
     vessel: 'board',
   },
   {
@@ -918,7 +918,7 @@ export const DEFS: Def[] = [
       'Posmaruj wnętrze grubo pastą, włóż warzywa i posyp papryką słodką.',
     ],
     photo:
-      'Warm pita pockets filled with creamy chickpea spread, crisp cucumber and red pepper strips, tomato slices, lettuce and red onion dusted with paprika',
+      'A warm pita pocket spread with creamy chickpea paste and stuffed with crisp cucumber, tomato and red pepper strips, torn lettuce and thin red onion, dusted with paprika',
     vessel: 'board',
   },
   {

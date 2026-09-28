@@ -17,7 +17,11 @@
  * domownika” to zwykłe przecięcie zbiorów — bez tłumaczenia słowników.
  */
 export const DIET_TAG_IDS = [
-  /** Mięso i drób, podroby, wędliny, buliony mięsne. */
+  /**
+   * Mięso i drób, podroby, wędliny, buliony mięsne — oraz produkty uboju:
+   * smalec, żelatyna, kolagen, galaretka i żelki na żelatynie (od 28.09.2026;
+   * wcześniej tylko ANIMAL_OTHER, przez co dieta wegetariańska je przepuszczała).
+   */
   'MEAT',
   /** Ryby i przetwory rybne. */
   'FISH',
@@ -27,7 +31,7 @@ export const DIET_TAG_IDS = [
   'DAIRY',
   /** Jajko i produkty z jajkiem (majonez). */
   'EGG',
-  /** Odzwierzęce poza mięsem/rybą/nabiałem/jajkiem: miód, żelatyna, kolagen, smalec. */
+  /** Odzwierzęce poza mięsem/rybą/nabiałem/jajkiem (miód); produkty uboju mają też MEAT. */
   'ANIMAL_OTHER',
   /** Pszenica, żyto, jęczmień, owies i ich przetwory — zawsze razem z GRAIN. */
   'GLUTEN_GRAIN',

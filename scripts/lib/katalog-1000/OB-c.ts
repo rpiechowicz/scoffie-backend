@@ -77,7 +77,7 @@ export const DEFS: Def[] = [
       'Skrop sokiem z cytryny, posyp posiekaną natką pietruszki i podawaj.',
     ],
     photo:
-      'Golden roasted chicken pieces with crispy chickpeas, charred red pepper strips and red onion wedges, scattered with chopped parsley and a lemon wedge',
+      'Golden roasted chicken pieces with crispy chickpeas, charred red pepper strips and red onion wedges, scattered with chopped parsley',
   },
   {
     plan: 'OB-059',
@@ -188,7 +188,7 @@ export const DEFS: Def[] = [
       'Jogurt wymieszaj z posiekanym koperkiem i podawaj jako sos do pieczarek.',
     ],
     photo:
-      'Large baked mushroom caps heaped with buckwheat, spinach and crumbled feta stuffing, golden on top, with a small bowl of dill yogurt sauce',
+      'Large baked mushroom caps heaped with buckwheat, spinach and crumbled feta stuffing, golden on top, with a dollop of white dill yogurt sauce on the side',
   },
   {
     plan: 'OB-062',
@@ -382,7 +382,7 @@ export const DEFS: Def[] = [
       'Podawaj dal z ryżem, posypany posiekaną kolendrą.',
     ],
     photo:
-      'Creamy golden-orange red lentil dal with wilted spinach next to fluffy basmati rice, garnished with coriander and a lime wedge',
+      'Creamy golden-orange red lentil dal with wilted spinach next to fluffy basmati rice, garnished with chopped coriander',
     vessel: 'bowl',
   },
   {
@@ -489,6 +489,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Spaghetti coated in vivid green kale pesto with blistered cherry tomatoes, chopped toasted walnuts and a pinch of chili flakes',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-070',
@@ -524,7 +525,7 @@ export const DEFS: Def[] = [
       'Podawaj burgery z frytkami z batatów.',
     ],
     photo:
-      'Chickpea burger in a sesame bun with lettuce, tomato slices and creamy garlic sauce, served with a pile of orange baked sweet potato fries',
+      'Chickpea burger in a plain toasted bun with lettuce, tomato slices and creamy garlic sauce, served with a pile of orange baked sweet potato fries',
   },
   {
     plan: 'OB-071',
@@ -665,7 +666,7 @@ export const DEFS: Def[] = [
       'Bataty przekrój wzdłuż, lekko rozgnieć miąższ widelcem, nałóż fasolę, salsę i awokado.',
     ],
     photo:
-      'Halved baked sweet potatoes with orange flesh stuffed with black beans, topped with fresh tomato and corn salsa, avocado cubes and coriander',
+      'A baked sweet potato split lengthwise, its soft orange flesh stuffed with black beans, topped with fresh tomato and corn salsa, avocado cubes and coriander',
   },
   {
     plan: 'OB-075',
@@ -856,7 +857,7 @@ export const DEFS: Def[] = [
       'Na ostatnie 3 minuty wsyp groszek. Zdejmij z ognia, wmieszaj resztę oliwy, sok z cytryny, pieprz i posiekaną natkę. Odstaw na 2 minuty i podawaj.',
     ],
     photo:
-      'Creamy risotto with sliced mushrooms and bright green peas, drizzled with olive oil and sprinkled with chopped parsley and lemon zest',
+      'Creamy risotto with sliced mushrooms, bits of dried porcini and bright green peas, sprinkled with chopped parsley and cracked black pepper',
     vessel: 'bowl',
   },
   {
@@ -929,7 +930,7 @@ export const DEFS: Def[] = [
       'Podawaj z rukolą i ćwiartką cytryny do skropienia ryby.',
     ],
     photo:
-      'Baked salmon fillet topped with green basil pesto, golden rosemary potato wedges, blistered cherry tomatoes, rocket and a lemon wedge',
+      'Baked salmon fillet topped with green basil pesto, golden rosemary-roasted potato quarters, roasted cherry tomatoes, rocket and a lemon wedge',
   },
   {
     plan: 'OB-082',
@@ -964,7 +965,7 @@ export const DEFS: Def[] = [
       'Podawaj z ryżem, posypane zieloną częścią dymki i kolendrą.',
     ],
     photo:
-      'Chunks of white cod in a red coconut curry sauce with pepper strips and green beans, beside jasmine rice, topped with coriander and lime',
+      'Chunks of white cod in a red coconut curry sauce with pepper strips and green beans, beside jasmine rice, topped with sliced spring onion greens and coriander',
     vessel: 'bowl',
   },
   {
@@ -1000,7 +1001,7 @@ export const DEFS: Def[] = [
       'Polej pstrągi masłem z migdałami, podawaj z ziemniakami posypanymi resztą koperku, mizerią i cząstką cytryny.',
     ],
     photo:
-      'Whole pan-fried trout topped with golden toasted almond flakes in brown butter, with dill new potatoes, cucumber salad and a lemon wedge',
+      'Whole pan-fried trout topped with golden toasted almond flakes in butter, with dill new potatoes, creamy cucumber and yogurt salad and a lemon wedge',
   },
   {
     plan: 'OB-084',
@@ -1038,6 +1039,6 @@ export const DEFS: Def[] = [
       'Podawaj makrele z sałatką i resztą cytryny.',
     ],
     photo:
-      'Two whole grilled mackerels with charred striped skin and lemon slices, beside a juicy tomato and red onion salad with parsley',
+      'One whole grilled mackerel with charred striped skin and lemon slices tucked inside, beside a juicy tomato and red onion salad with parsley',
   },
 ];

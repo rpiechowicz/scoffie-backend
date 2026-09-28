@@ -40,6 +40,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Fusilli pasta tossed with golden seared chicken cubes, green zucchini half-moons and burst cherry tomatoes, topped with grated parmesan and fresh basil leaves',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-002',
@@ -108,6 +109,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Penne pasta coated in a glossy broccoli and garlic sauce with small green florets, flecks of red chili, grated parmesan and lemon zest',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-004',
@@ -140,7 +142,7 @@ export const DEFS: Def[] = [
       'Podawaj łososia z kaszą i fasolką, skrop sokiem z cytryny.',
     ],
     photo:
-      'Pan-seared salmon fillet with crispy golden skin beside fluffy yellow millet and buttery green beans sprinkled with dill, with a lemon wedge',
+      'Pan-seared salmon fillet with crispy golden skin beside fluffy yellow millet and buttery green beans sprinkled with dill, the fish glistening with lemon juice',
   },
   {
     plan: 'OB-005',
@@ -174,6 +176,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Tagliatelle ribbons in a creamy sauce with golden turkey strips and sliced brown mushrooms, sprinkled with chopped fresh parsley',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-006',
@@ -208,7 +211,8 @@ export const DEFS: Def[] = [
       'Połącz makaron z sosem i podawaj z porwanymi listkami bazylii.',
     ],
     photo:
-      'Wholewheat pasta coated in a thick rustic tomato sauce with whole and crushed chickpeas, topped with torn fresh basil leaves and chili flakes',
+      'Wholewheat pasta coated in a thick rustic tomato sauce with whole and crushed chickpeas and flecks of chili, topped with torn fresh basil leaves',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-007',
@@ -312,7 +316,8 @@ export const DEFS: Def[] = [
       'Wymieszaj makaron z sosem i podawaj posypany startym parmezanem.',
     ],
     photo:
-      'Spaghetti topped with a thick red tomato sauce with crumbled ground turkey, dusted with grated parmesan and dried herbs',
+      'Spaghetti topped with a thick red tomato sauce with crumbled ground turkey and dried herbs, dusted with grated parmesan',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-010',
@@ -345,7 +350,7 @@ export const DEFS: Def[] = [
       'Wrzuć szpinak, wymieszaj i gotuj 2 minuty, aż zwiędnie. Spróbuj — ciecierzyca i pomidory z puszki są już słone, więc zwykle nie trzeba dosalać.',
     ],
     photo:
-      'Rich tomato stew with tender chicken pieces, whole chickpeas and wilted dark green spinach, dusted with paprika',
+      'Rich paprika-tinted tomato stew with tender browned chicken pieces, whole chickpeas and wilted dark green spinach',
     vessel: 'bowl',
   },
   {
@@ -380,7 +385,7 @@ export const DEFS: Def[] = [
       'Podawaj dorsza z ryżem i ogórkiem, skrop sosem sojowym.',
     ],
     photo:
-      'Golden sesame-crusted cod pieces beside a mound of white jasmine rice and a thinly sliced cucumber salad with green onion',
+      'Golden sesame-crusted cod pieces beside a mound of white jasmine rice and a thinly sliced cucumber salad with green onion, the fish drizzled with soy sauce',
   },
   {
     plan: 'OB-012',
@@ -445,7 +450,7 @@ export const DEFS: Def[] = [
       'Podawaj z ryżem, pomidorkami i garścią rukoli.',
     ],
     photo:
-      'Sliced grilled chicken breast brushed with vibrant green basil pesto, served with white basmati rice, blistered cherry tomatoes and fresh arugula',
+      'Thin golden pan-seared chicken breast cutlet brushed with vibrant green basil pesto, served with white basmati rice, blistered cherry tomatoes and fresh arugula',
   },
   {
     plan: 'OB-014',
@@ -479,7 +484,7 @@ export const DEFS: Def[] = [
       'Odstaw na 2 minuty i podawaj posypane posiekaną natką.',
     ],
     photo:
-      'Hearty one-pot pearl barley with browned sausage half-moons, carrot slices and red pepper in a light tomato sauce, sprinkled with parsley',
+      'Hearty tomato-tinted pearl barley with browned sausage half-moons, carrot slices and red pepper in a light tomato sauce, sprinkled with parsley',
     vessel: 'bowl',
   },
   {
@@ -551,6 +556,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Wholewheat spaghetti topped with a thick, rich red lentil bolognese sauce with tiny carrot and celery pieces and a sprinkle of oregano',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-017',
@@ -586,7 +592,7 @@ export const DEFS: Def[] = [
       'Wymieszaj kuskus z warzywami, resztą soku z cytryny i natką, a na wierzchu ułóż kurczaka.',
     ],
     photo:
-      'Golden lemon-herb chicken strips on fluffy couscous mixed with diced zucchini, yellow pepper and red onion, garnished with parsley and lemon zest',
+      'Golden lemon-herb chicken strips on fluffy couscous mixed with diced zucchini, yellow pepper and red onion, garnished with chopped parsley',
   },
   {
     plan: 'OB-018',
@@ -619,6 +625,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Spaghetti tossed with sauteed shredded green zucchini, crumbled white feta, fresh mint leaves and lemon zest, drizzled with olive oil',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-019',
@@ -654,7 +661,8 @@ export const DEFS: Def[] = [
       'Rozdziel widelcem i podawaj posypane posiekaną natką.',
     ],
     photo:
-      'Skillet of tomato-tinted bulgur with crumbled ground turkey and colorful red and yellow pepper pieces, topped with chopped parsley',
+      'Fluffy tomato-tinted bulgur with crumbled browned ground turkey and colorful red and yellow pepper pieces, topped with chopped parsley',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-020',
@@ -688,6 +696,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Penne pasta in a rich tomato sauce with browned smoked sausage slices, soft halved cherry tomatoes and onion, sprinkled with fresh chopped parsley',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-021',
@@ -758,7 +767,7 @@ export const DEFS: Def[] = [
       'Skrop sokiem z limonki i posyp posiekaną kolendrą.',
     ],
     photo:
-      'Orange-red Mexican-style rice with chicken cubes, sweet corn, red pepper and zucchini, topped with fresh cilantro and lime wedges',
+      'Orange-red Mexican-style rice with chicken cubes, sweet corn, red pepper and zucchini, topped with chopped fresh cilantro',
   },
   {
     plan: 'OB-023',
@@ -824,7 +833,7 @@ export const DEFS: Def[] = [
       'Zapiekaj 10–12 minut, aż ser się roztopi i zrumieni.',
     ],
     photo:
-      'Baking dish of potato dumplings in creamy ricotta and spinach sauce under a layer of bubbling golden melted mozzarella',
+      'A portion of baked potato gnocchi in creamy ricotta and spinach sauce under a layer of bubbling golden melted mozzarella',
   },
   {
     plan: 'OB-025',
@@ -857,6 +866,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Tagliatelle ribbons in a creamy green spinach sauce with strips of sun-dried tomato and crumbled white feta on top',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-026',
@@ -891,6 +901,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Spaghetti with bright green broccoli florets, flaked tuna and capers in a glossy lemon garlic olive oil sauce, topped with parsley and lemon zest',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-027',
@@ -959,7 +970,7 @@ export const DEFS: Def[] = [
       'Podawaj na ryżu, posypane posiekaną kolendrą.',
     ],
     photo:
-      'Bowl of white basmati rice topped with spiced ground beef, red kidney beans and sweet corn in tomato sauce, garnished with fresh cilantro',
+      'White basmati rice topped with spiced ground beef, red kidney beans and sweet corn in tomato sauce, garnished with fresh cilantro',
     vessel: 'bowl',
   },
 ];

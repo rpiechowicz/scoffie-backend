@@ -72,7 +72,7 @@ export const DEFS: Def[] = [
       'Na połowie każdej ciepłej piadiny ułóż mozzarellę, pomidor, szynkę i rukolę, oprósz pieprzem, złóż na pół i od razu podawaj.',
     ],
     photo:
-      'Folded warm Italian flatbread with brown toasted spots, filled with thin prosciutto slices, melting mozzarella, tomato slices and fresh arugula',
+      'One folded warm Italian flatbread with brown toasted spots, filled with thin prosciutto slices, melting mozzarella, tomato slices and fresh arugula',
     vessel: 'board',
   },
   {
@@ -142,7 +142,7 @@ export const DEFS: Def[] = [
       'Pestki dyni upraż na suchej patelni przez 2–3 minuty i posyp nimi zupę w miskach.',
     ],
     photo:
-      'Vivid green smooth pea soup with a swirl of coconut milk, fresh mint leaves and toasted pumpkin seeds on top',
+      'Vivid bright green smooth pea and mint cream soup topped with toasted pumpkin seeds',
     vessel: 'bowl',
   },
   {
@@ -174,7 +174,7 @@ export const DEFS: Def[] = [
       'Zapiekaj 12–15 minut, aż ser się roztopi i zezłoci. Podawaj od razu.',
     ],
     photo:
-      'Baking dish of green asparagus bundles wrapped in pink ham slices under a bubbling golden melted cheese crust',
+      'A few baked green asparagus bundles wrapped in pink ham slices, in a little creamy garlic sauce under a bubbling golden melted cheese crust',
   },
   {
     plan: 'KO-064',
@@ -203,7 +203,7 @@ export const DEFS: Def[] = [
       'Odcedź bób, a w tym samym garnku roztop masło z czosnkiem przez 1 minutę. Wsyp bób, dodaj koperek i pieprz, wymieszaj i podawaj na ciepło.',
     ],
     photo:
-      'Bowl of glossy green boiled broad beans coated in melted butter with plenty of chopped fresh dill',
+      'Glossy green boiled broad beans in their skins, coated in melted garlic butter with plenty of chopped fresh dill',
     vessel: 'bowl',
   },
   {
@@ -239,7 +239,7 @@ export const DEFS: Def[] = [
       'Podawaj gorące ziemniaki z sosem ziołowym; upieczony czosnek wyciśnij ze skórki na ziemniaki.',
     ],
     photo:
-      'Golden roasted baby potatoes with crispy skins and whole roasted garlic cloves, served with a bowl of thick white yogurt herb sauce flecked with dill and chives',
+      'Golden roasted baby potatoes with crispy skins and a few unpeeled roasted garlic cloves, served with a generous dollop of thick white yogurt sauce flecked with dill, chives and parsley',
   },
   {
     plan: 'KO-066',
@@ -269,7 +269,7 @@ export const DEFS: Def[] = [
       'Ułóż kalafior na talerzach i obficie posyp go masłem z bułką tartą.',
     ],
     photo:
-      'Whole boiled white cauliflower topped with golden buttery toasted breadcrumbs, chopped hard-boiled egg and fresh dill',
+      'Large tender white boiled cauliflower florets generously topped with golden buttery toasted breadcrumbs mixed with chopped hard-boiled egg and dill',
   },
   {
     plan: 'KO-067',
@@ -410,7 +410,8 @@ export const DEFS: Def[] = [
       'Na talerzach rozłóż roszponkę, buraki i pomarańczę, pokrusz fetę, posyp orzechami i polej winegretem.',
     ],
     photo:
-      'Deep magenta roasted beet wedges with bright orange slices, crumbled white feta, lamb lettuce and toasted walnuts with a glossy balsamic drizzle',
+      'Deep magenta roasted beet wedges with bright orange slices on lamb lettuce, topped with crumbled white feta and toasted walnuts, with a glossy honey balsamic drizzle',
+    vessel: 'bowl',
   },
   {
     plan: 'KO-071',
@@ -446,7 +447,7 @@ export const DEFS: Def[] = [
       'Nalej zupę do misek, posyp grzankami i posiekaną natką.',
     ],
     photo:
-      'Smooth ivory parsley root cream soup topped with golden crunchy bread croutons, a swirl of cream and chopped parsley',
+      'Smooth ivory parsley root cream soup topped with golden crunchy baguette croutons and chopped parsley',
     vessel: 'bowl',
   },
   {
@@ -482,7 +483,7 @@ export const DEFS: Def[] = [
       'Podawaj gorące ziemniaki z twarożkiem i ogórkiem kiszonym.',
     ],
     photo:
-      'Golden roasted potato wedges with a dollop of white cottage cheese mixed with chives and radish, and sliced green pickled cucumbers on the side',
+      'Golden paprika-roasted potato wedges with a generous dollop of fluffy white curd cheese mixed with chives and diced radish, and sliced pickled cucumbers on the side',
   },
   {
     plan: 'KO-073',
@@ -515,7 +516,7 @@ export const DEFS: Def[] = [
       'Przekrój tosty na trójkąty i podawaj od razu.',
     ],
     photo:
-      'Golden toasted sandwich triangles filled with sliced grilled chicken breast, melting mozzarella, tomato and green spinach leaves',
+      'Two golden toasted sandwich triangles filled with sliced roasted chicken breast, melting mozzarella, tomato and green spinach leaves',
     vessel: 'board',
   },
   {
@@ -550,7 +551,7 @@ export const DEFS: Def[] = [
       'Podawaj ciepłe kotleciki z dipem jogurtowym.',
     ],
     photo:
-      'Golden crispy zucchini fritters flecked with green zucchini and dill, served with a bowl of thick white garlic yogurt dip',
+      'Four golden crispy zucchini patties flecked with green zucchini, dill and white feta, served with a dollop of thick white garlic dill yogurt dip',
   },
   {
     plan: 'KO-075',
@@ -584,7 +585,7 @@ export const DEFS: Def[] = [
       'Pomidor i ogórek pokrój w plastry i podawaj jako sałatkę do ciepłych pierożków.',
     ],
     photo:
-      'Golden flaky puff pastry triangles with fork-crimped edges, one cut open to show savory minced meat filling, with fresh tomato and cucumber slices',
+      'Four golden flaky egg-washed puff pastry triangles with crimped edges, one cut open to show savory minced pork filling, with fresh tomato and cucumber slices on the side',
   },
   {
     plan: 'KO-076',
@@ -620,7 +621,7 @@ export const DEFS: Def[] = [
       'Wymieszaj jogurt z posiekanym koperkiem i podawaj do kotletów.',
     ],
     photo:
-      'Golden breaded buckwheat patties with visible grains and mushroom bits, served with a white yogurt dill sauce',
+      'Three golden breaded buckwheat patties with visible grains and mushroom bits, served with a dollop of white yogurt dill sauce',
   },
   {
     plan: 'KO-077',
@@ -656,7 +657,8 @@ export const DEFS: Def[] = [
       'Przełóż kalafior do miski, polej ostrym sosem, posyp szczypiorkiem i podawaj z jogurtem greckim jako dipem.',
     ],
     photo:
-      'Crispy breaded cauliflower florets glazed with glossy red-orange spicy sriracha butter sauce, sprinkled with chives, with a bowl of white yogurt dip',
+      'Crispy breaded cauliflower florets glazed with glossy red-orange spicy sriracha butter sauce, sprinkled with chopped chives, with a dollop of thick white Greek yogurt on the side',
+    vessel: 'bowl',
   },
   {
     plan: 'KO-078',
@@ -689,7 +691,7 @@ export const DEFS: Def[] = [
       'Podawaj od razu, polane resztą ziołowej oliwy.',
     ],
     photo:
-      'Skewers of golden seared halloumi cubes with charred zucchini, red pepper, red onion and blistered cherry tomatoes, sprinkled with oregano',
+      'Two short skewers of golden roasted halloumi cubes with charred zucchini, red pepper, red onion and blistered cherry tomatoes, drizzled with lemony herb oil and sprinkled with oregano',
   },
   {
     plan: 'KO-079',
@@ -793,7 +795,7 @@ export const DEFS: Def[] = [
       'Wymieszaj jogurt z przeciśniętym czosnkiem i posiekanym koperkiem. Podawaj pierogi z sosem czosnkowym i resztą cebulki.',
     ],
     photo:
-      'Golden crispy baked half-moon pierogi with blistered edges, topped with fried onion, served with a bowl of white garlic dill yogurt sauce',
+      'Golden crispy baked half-moon pierogi with blistered edges, topped with golden fried onion, served with a dollop of white garlic dill yogurt sauce',
   },
   {
     plan: 'KO-082',
@@ -828,7 +830,7 @@ export const DEFS: Def[] = [
       'Na każdą tortillę nałóż kapustę i kurczaka, polej sosem jogurtowym i posyp kolendrą.',
     ],
     photo:
-      'Three soft corn tortilla tacos filled with smoky seared chicken strips, shredded purple cabbage, white yogurt sauce, cilantro and lime wedges',
+      'Three soft corn tortilla tacos filled with smoky roasted chicken strips and shredded purple cabbage, drizzled with white yogurt lime sauce and sprinkled with cilantro',
     vessel: 'board',
   },
   {
@@ -894,7 +896,7 @@ export const DEFS: Def[] = [
       'Rozgnieć lekko widelcem miąższ batatów, nałóż na nie serek i posyp resztą szczypiorku.',
     ],
     photo:
-      'Roasted orange sweet potato halves with scored caramelized flesh, topped with a generous dollop of white herbed cream cheese and chopped chives',
+      'Two roasted orange sweet potato halves with scored caramelized flesh, topped with a generous dollop of white garlic and chive curd cheese and chopped chives',
   },
   {
     plan: 'KO-085',
@@ -1001,6 +1003,6 @@ export const DEFS: Def[] = [
       'Podawaj kiełbasę z ziemniakami i cebulą, z chrzanem do smaku i posypane szczypiorkiem.',
     ],
     photo:
-      'Grilled pale white sausages with golden charred marks, halved grilled baby potatoes, charred red onion rings and a small bowl of grated horseradish',
+      'Grilled pale white sausage with golden charred marks, halved grilled baby potatoes and charred red onion rings, sprinkled with chives, with a small mound of grated horseradish on the side',
   },
 ];

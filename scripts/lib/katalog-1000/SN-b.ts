@@ -55,7 +55,7 @@ export const DEFS: Def[] = [
       'Przed podaniem nałóż na wierzch resztę jogurtu, kostkę jabłka i posiekane orzechy włoskie, oprósz cynamonem.',
     ],
     photo:
-      'Glass jar of creamy overnight oats layered with plant yogurt, topped with diced fresh apple, chopped walnuts and a dusting of cinnamon',
+      'Creamy overnight oats with soy yogurt, topped with a dollop of white soy yogurt, diced fresh apple, chopped walnuts and a dusting of cinnamon',
     vessel: 'bowl',
   },
   {
@@ -188,7 +188,7 @@ export const DEFS: Def[] = [
       'Przekrój pomidorki koktajlowe na połówki i podawaj placki z pomidorami i sosem czosnkowym.',
     ],
     photo:
-      'Stack of golden turmeric chickpea flour pancakes with halved cherry tomatoes, a dollop of garlic plant yogurt and chopped parsley',
+      'Stack of golden turmeric chickpea flour pancakes flecked with spring onion, with halved cherry tomatoes, a dollop of white garlic soy yogurt sauce and chopped parsley',
   },
   {
     plan: 'SN-036',
@@ -256,7 +256,7 @@ export const DEFS: Def[] = [
       'Przełóż chilaquiles na talerze, ułóż na nich jajka, pokruszoną fetę, plastry awokado i listki kolendry. Podawaj od razu.',
     ],
     photo:
-      'Corn tortilla chips tossed in red tomato salsa topped with a sunny-side-up egg, crumbled white cheese, avocado slices and cilantro',
+      'Corn tortilla chips tossed in chunky red tomato chili sauce, topped with a sunny-side-up egg, crumbled white feta, avocado slices and cilantro leaves',
   },
   {
     plan: 'SN-038',
@@ -290,7 +290,8 @@ export const DEFS: Def[] = [
       'Zawiń boki do środka i zroluj ciasno. Do pudełka zawiń burrito w papier do pieczenia.',
     ],
     photo:
-      'Breakfast burrito cut in half showing fluffy scrambled eggs, black beans, red pepper and melted cheddar inside a flour tortilla, with a small bowl of salsa',
+      'Breakfast burrito in a warm flour tortilla cut in half, showing soft scrambled eggs with spring onion, black beans, diced red pepper, melted cheddar and a streak of red tomato salsa inside',
+    vessel: 'board',
   },
   {
     plan: 'SN-039',
@@ -355,7 +356,7 @@ export const DEFS: Def[] = [
       'Zapiekaj w piekarniku 10–12 minut, aż białka się zetną, a żółtka pozostaną płynne. Posyp natką i podawaj.',
     ],
     photo:
-      'Baked eggs with runny yolks nestled in rich red tomato and pepper sauce with slices of chorizo, green peas and chopped parsley in a terracotta dish',
+      'Two baked eggs with runny yolks nestled in rich red tomato and pepper sauce with chorizo half-moons and green peas, sprinkled with chopped parsley',
     vessel: 'bowl',
   },
   {
@@ -384,7 +385,7 @@ export const DEFS: Def[] = [
       'Zdejmij z ognia, pokrusz fetę na wierzch i posyp oregano.',
     ],
     photo:
-      'Soft scrambled eggs cooked into bright red tomato sauce in a skillet, topped with crumbled feta and dried oregano',
+      'Soft creamy scrambled eggs cooked into bright red grated tomato sauce, topped with crumbled white feta and dried oregano',
   },
   {
     plan: 'SN-042',
@@ -481,7 +482,7 @@ export const DEFS: Def[] = [
       'Podawaj posypaną kolendrą, skropioną sokiem z limonki.',
     ],
     photo:
-      'Fluffy yellow semolina upma with diced carrot, green peas, roasted peanuts and fresh cilantro, with a lime wedge on the side',
+      'Fluffy turmeric-yellow semolina upma with grated carrot, green peas, onion and roasted peanuts, sprinkled with fresh cilantro and glistening with lime juice',
     vessel: 'bowl',
   },
   {
@@ -518,7 +519,7 @@ export const DEFS: Def[] = [
       'Dodaj plastry awokado, kolendrę i skrop sokiem z limonki.',
     ],
     photo:
-      'Two fried eggs on warm corn tortillas with smashed black beans, chunky red ranchero salsa, avocado slices, cilantro and lime',
+      'Two fried eggs on two warm corn tortillas spread with smashed black beans, spooned over with chunky red ranchero salsa, with avocado slices and fresh cilantro leaves',
   },
   {
     plan: 'SN-046',
@@ -552,7 +553,7 @@ export const DEFS: Def[] = [
       'Posyp listkami bazylii, pokrój w trójkąty i podawaj z rukolą.',
     ],
     photo:
-      'Golden Italian frittata wedge studded with sun-dried tomato strips and red onion, topped with fresh basil leaves, with a side of arugula',
+      'Two golden Italian frittata wedges studded with sun-dried tomato strips and red onion, with a grated parmesan crust and fresh basil leaves, beside a small heap of arugula',
   },
   {
     plan: 'SN-047',
@@ -770,7 +771,7 @@ export const DEFS: Def[] = [
       'Posyp resztą mięty i pokrój w kawałki.',
     ],
     photo:
-      'Round golden frittata with pale green grated zucchini, crumbled white feta and fresh mint leaves, one slice cut out',
+      'Two wedges of golden frittata with pale green grated zucchini and spring onion, baked crumbled white feta on top and fresh mint leaves',
   },
   {
     plan: 'SN-054',
@@ -832,7 +833,7 @@ export const DEFS: Def[] = [
       'Przed podaniem ułóż na wierzchu resztę malin i porzeczki.',
     ],
     photo:
-      'Glass jar of layered overnight oats with chia and crushed raspberry swirl, topped with fresh raspberries and bright red currants',
+      'Creamy overnight oats with chia seeds swirled with crushed pink raspberries, topped with fresh whole raspberries and bright red currants',
     vessel: 'bowl',
   },
   {
