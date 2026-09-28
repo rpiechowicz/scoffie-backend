@@ -4821,6 +4821,491 @@
         "GRAIN"
       ],
       "note": "Arkusze do sajgonek i spring rolls."
+    },
+    {
+      "name": "szparagi",
+      "normalizedName": "szparagi",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Zielone albo białe, surowe; sezon kwiecień–czerwiec."
+    },
+    {
+      "name": "kurki",
+      "normalizedName": "kurki",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Świeże; sezon lipiec–wrzesień."
+    },
+    {
+      "name": "młoda kapusta",
+      "normalizedName": "mloda kapusta",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Sezon czerwiec–lipiec."
+    },
+    {
+      "name": "granat",
+      "normalizedName": "granat",
+      "category": "owoce",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Jadalne ziarna (arils)."
+    },
+    {
+      "name": "kiełki",
+      "normalizedName": "kielki",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Kiełki rzodkiewki / mieszanka z pudełka."
+    },
+    {
+      "name": "pasternak",
+      "normalizedName": "pasternak",
+      "category": "warzywa",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Nie jest selerem — bez alergenu celery."
+    },
+    {
+      "name": "grzyby leśne mrożone",
+      "normalizedName": "grzyby lesne mrozone",
+      "category": "mrozonka",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Mieszanka leśna (borowik, podgrzybek, kurka)."
+    },
+    {
+      "name": "lody waniliowe",
+      "normalizedName": "lody waniliowe",
+      "category": "mrozonka",
+      "allergens": [
+        "lactose",
+        "milk"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "kaczka",
+      "normalizedName": "kaczka",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT"
+      ],
+      "note": "Tuszka albo udka ze skórą, surowe."
+    },
+    {
+      "name": "szynka dojrzewająca",
+      "normalizedName": "szynka dojrzewajaca",
+      "category": "mieso",
+      "allergens": [],
+      "dietTags": [
+        "MEAT",
+        "PROCESSED"
+      ],
+      "note": "Serrano / parmeńska w plastrach."
+    },
+    {
+      "name": "morszczuk",
+      "normalizedName": "morszczuk",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ],
+      "note": "Filet mrożony, surowy."
+    },
+    {
+      "name": "pstrąg wędzony",
+      "normalizedName": "pstrag wedzony",
+      "category": "ryby-owoce-morza",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH"
+      ],
+      "note": "Wędzenie i solenie bez PROCESSED (jak łosoś wędzony)."
+    },
+    {
+      "name": "szproty w oleju",
+      "normalizedName": "szproty w oleju",
+      "category": "konserwy-i-sloiki",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH",
+        "PROCESSED"
+      ],
+      "note": "Puszka, odsączone (jak sardynka w oleju)."
+    },
+    {
+      "name": "oscypek",
+      "normalizedName": "oscypek",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "lactose",
+        "milk"
+      ],
+      "dietTags": [
+        "DAIRY"
+      ],
+      "note": "Wędzony ser owczo-krowi; w sieciach głównie w sezonie grillowym."
+    },
+    {
+      "name": "tofu wędzone",
+      "normalizedName": "tofu wedzone",
+      "category": "inne",
+      "allergens": [
+        "soy"
+      ],
+      "dietTags": [
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Jak tofu naturalne."
+    },
+    {
+      "name": "jogurt kokosowy",
+      "normalizedName": "jogurt kokosowy",
+      "category": "nabial-i-jajko",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Roślinny, na bazie kokosa — bez milk i DAIRY (jak mleko kokosowe)."
+    },
+    {
+      "name": "jogurt sojowy",
+      "normalizedName": "jogurt sojowy",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "soy"
+      ],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Roślinny, naturalny."
+    },
+    {
+      "name": "mleko sojowe",
+      "normalizedName": "mleko sojowe",
+      "category": "nabial-i-jajko",
+      "allergens": [
+        "soy"
+      ],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Napój sojowy."
+    },
+    {
+      "name": "makaron orzo",
+      "normalizedName": "makaron orzo",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Sucha masa."
+    },
+    {
+      "name": "kasza kukurydziana",
+      "normalizedName": "kasza kukurydziana",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ],
+      "note": "Polenta; sucha masa."
+    },
+    {
+      "name": "mąka gryczana",
+      "normalizedName": "maka gryczana",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ],
+      "note": "Gryka naturalnie bezglutenowa (jak kasza gryczana)."
+    },
+    {
+      "name": "mąka z ciecierzycy",
+      "normalizedName": "maka z ciecierzycy",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Strączkowa, bez glutenu."
+    },
+    {
+      "name": "kasza pęczak",
+      "normalizedName": "kasza peczak",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Jęczmień; sucha masa."
+    },
+    {
+      "name": "płatki jaglane",
+      "normalizedName": "platki jaglane",
+      "category": "zboza-i-makarony",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN"
+      ],
+      "note": "Proso — bez glutenu."
+    },
+    {
+      "name": "otręby owsiane",
+      "normalizedName": "otreby owsiane",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Jak płatki owsiane — owies zwykły zanieczyszczony glutenem."
+    },
+    {
+      "name": "pszenica łuskana",
+      "normalizedName": "pszenica luskana",
+      "category": "zboza-i-makarony",
+      "allergens": [
+        "gluten"
+      ],
+      "dietTags": [
+        "GLUTEN_GRAIN",
+        "GRAIN"
+      ],
+      "note": "Na kutię; sucha masa."
+    },
+    {
+      "name": "siemię lniane",
+      "normalizedName": "siemie lniane",
+      "category": "inne",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Nasiona — bez alergenu (jak chia)."
+    },
+    {
+      "name": "tortilla kukurydziana",
+      "normalizedName": "tortilla kukurydziana",
+      "category": "piekarnia",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Mała tortilla z mąki kukurydzianej (ok. 30 g); bez glutenu."
+    },
+    {
+      "name": "chleb bezglutenowy",
+      "normalizedName": "chleb bezglutenowy",
+      "category": "piekarnia",
+      "allergens": [],
+      "dietTags": [
+        "GRAIN",
+        "PROCESSED"
+      ],
+      "note": "Oznaczony „bez glutenu”."
+    },
+    {
+      "name": "mak",
+      "normalizedName": "mak",
+      "category": "cukiernia",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Niebieski, suchy."
+    },
+    {
+      "name": "masa makowa",
+      "normalizedName": "masa makowa",
+      "category": "cukiernia",
+      "allergens": [
+        "nuts"
+      ],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Gotowa, z bakaliami — nuts nadmiarowo (zwykle z orzechami)."
+    },
+    {
+      "name": "masa kajmakowa",
+      "normalizedName": "masa kajmakowa",
+      "category": "cukiernia",
+      "allergens": [
+        "lactose",
+        "milk"
+      ],
+      "dietTags": [
+        "DAIRY",
+        "PROCESSED"
+      ],
+      "note": "Z puszki/słoika."
+    },
+    {
+      "name": "skórka pomarańczowa kandyzowana",
+      "normalizedName": "skorka pomaranczowa kandyzowana",
+      "category": "cukiernia",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "figi suszone",
+      "normalizedName": "figi suszone",
+      "category": "przekaska-i-slodycz",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Jak daktyle suszone."
+    },
+    {
+      "name": "kotlety sojowe",
+      "normalizedName": "kotlety sojowe",
+      "category": "inne",
+      "allergens": [
+        "soy"
+      ],
+      "dietTags": [
+        "LEGUME",
+        "PROCESSED"
+      ],
+      "note": "Suche, do namoczenia."
+    },
+    {
+      "name": "kapary",
+      "normalizedName": "kapary",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Odsączone z zalewy."
+    },
+    {
+      "name": "papryczki jalapeño",
+      "normalizedName": "papryczki jalapeno",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Marynowane, w plastrach."
+    },
+    {
+      "name": "fasola czarna z puszki",
+      "normalizedName": "fasola czarna z puszki",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Odsączona (jak fasola czerwona z puszki)."
+    },
+    {
+      "name": "mus jabłkowy",
+      "normalizedName": "mus jablkowy",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Bez dodatku cukru albo lekko słodzony."
+    },
+    {
+      "name": "salsa pomidorowa",
+      "normalizedName": "salsa pomidorowa",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ],
+      "note": "Gotowa ze słoika (jak sos pomidorowy)."
+    },
+    {
+      "name": "chrzan tarty",
+      "normalizedName": "chrzan tarty",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Ze słoika."
+    },
+    {
+      "name": "zakwas buraczany",
+      "normalizedName": "zakwas buraczany",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Na barszcz czerwony (jak zakwas na żurek)."
+    },
+    {
+      "name": "woda z ciecierzycy",
+      "normalizedName": "woda z ciecierzycy",
+      "category": "konserwy-i-sloiki",
+      "allergens": [],
+      "dietTags": [
+        "LEGUME"
+      ],
+      "note": "Aquafaba — zalewa z puszki ciecierzycy."
+    },
+    {
+      "name": "sos rybny",
+      "normalizedName": "sos rybny",
+      "category": "przyprawy-i-sosy",
+      "allergens": [
+        "fish"
+      ],
+      "dietTags": [
+        "FISH",
+        "PROCESSED"
+      ],
+      "note": "Fermentowane ryby — danie z nim NIE jest wegetariańskie."
+    },
+    {
+      "name": "sos sriracha",
+      "normalizedName": "sos sriracha",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [
+        "PROCESSED"
+      ]
+    },
+    {
+      "name": "kardamon mielony",
+      "normalizedName": "kardamon mielony",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
+    },
+    {
+      "name": "goździki",
+      "normalizedName": "gozdziki",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": [],
+      "note": "Całe albo mielone."
+    },
+    {
+      "name": "szałwia suszona",
+      "normalizedName": "szalwia suszona",
+      "category": "przyprawy-i-sosy",
+      "allergens": [],
+      "dietTags": []
     }
   ]
 }

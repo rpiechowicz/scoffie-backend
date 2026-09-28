@@ -59,7 +59,9 @@ export const catalogExportSelect = {
   nutritionKcal: true,
   nutritionProtein: true,
   nutritionCarbs: true,
+  nutritionSugars: true,
   nutritionFat: true,
+  nutritionSaturatedFat: true,
   nutritionFiber: true,
   nutritionSalt: true,
   nutritionSaltAdded: true,
@@ -136,11 +138,15 @@ export function catalogEntryFromRow(
     // Taksonomia zawsze w całości — puste listy też, bo „cały rok” i „bez
     // okazji” to decyzje redakcji, a nie brak danych.
     ...canonicalTaxonomy(row),
+    // Kolejność pól jak na etykiecie: węgle → w tym cukry, tłuszcz → w tym
+    // nasycone; pola zawsze obecne (0 = brak danych albo naprawdę zero).
     nutrition: {
       kcal: row.nutritionKcal,
       protein: row.nutritionProtein,
       carbs: row.nutritionCarbs,
+      sugars: row.nutritionSugars,
       fat: row.nutritionFat,
+      saturatedFat: row.nutritionSaturatedFat,
       fiber: row.nutritionFiber,
       salt: row.nutritionSalt,
       addedSalt: row.nutritionSaltAdded,
@@ -191,7 +197,9 @@ export function catalogEntryFromColumns(
     nutritionKcal: columns.nutritionKcal,
     nutritionProtein: columns.nutritionProtein,
     nutritionCarbs: columns.nutritionCarbs,
+    nutritionSugars: columns.nutritionSugars,
     nutritionFat: columns.nutritionFat,
+    nutritionSaturatedFat: columns.nutritionSaturatedFat,
     nutritionFiber: columns.nutritionFiber,
     nutritionSalt: columns.nutritionSalt,
     nutritionSaltAdded: columns.nutritionSaltAdded,
@@ -501,7 +509,13 @@ export function withCanonicalKeyOrder(
       kcal: entry.nutrition.kcal,
       protein: entry.nutrition.protein,
       carbs: entry.nutrition.carbs,
+      ...(entry.nutrition.sugars === undefined
+        ? {}
+        : { sugars: entry.nutrition.sugars }),
       fat: entry.nutrition.fat,
+      ...(entry.nutrition.saturatedFat === undefined
+        ? {}
+        : { saturatedFat: entry.nutrition.saturatedFat }),
       fiber: entry.nutrition.fiber,
       salt: entry.nutrition.salt,
       ...(entry.nutrition.addedSalt === undefined

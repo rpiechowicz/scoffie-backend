@@ -20,6 +20,10 @@ export type IngredientNutritionPer100 = {
   fiber: number;
   /** Sód w mg na 100 g/ml; brak = 0 (stare fixture'y i składniki bez danych). */
   sodiumMg?: number;
+  /** Cukry (część `carbs`) na 100 g/ml; brak = 0, jak `sodiumMg`. */
+  sugars?: number;
+  /** Tłuszcze nasycone (część `fat`) na 100 g/ml; brak = 0. */
+  saturatedFat?: number;
   /** Masa jadalnej części 1 sztuki — wymagana dla jednostki `szt`. */
   gramsPerPiece: number | null;
 };
@@ -28,7 +32,11 @@ export type RecipeNutritionTotals = {
   kcal: number;
   protein: number;
   carbs: number;
+  /** Cukry — część `carbs`. */
+  sugars: number;
   fat: number;
+  /** Tłuszcze nasycone — część `fat`. */
+  saturatedFat: number;
   fiber: number;
   /** Sód w mg na cały przepis — do soli przez `saltGramsFromSodium`. */
   sodiumMg: number;
@@ -71,7 +79,9 @@ export const ZERO_TOTALS: RecipeNutritionTotals = {
   kcal: 0,
   protein: 0,
   carbs: 0,
+  sugars: 0,
   fat: 0,
+  saturatedFat: 0,
   fiber: 0,
   sodiumMg: 0,
 };
@@ -115,7 +125,9 @@ export function computeRecipeNutrition(
     totals.kcal += item.nutrition.kcal * factor;
     totals.protein += item.nutrition.protein * factor;
     totals.carbs += item.nutrition.carbs * factor;
+    totals.sugars += (item.nutrition.sugars ?? 0) * factor;
     totals.fat += item.nutrition.fat * factor;
+    totals.saturatedFat += (item.nutrition.saturatedFat ?? 0) * factor;
     totals.fiber += item.nutrition.fiber * factor;
     totals.sodiumMg += (item.nutrition.sodiumMg ?? 0) * factor;
   }
@@ -152,7 +164,9 @@ export function roundTotals(
     kcal: Math.round(totals.kcal),
     protein: Math.round(totals.protein * 10) / 10,
     carbs: Math.round(totals.carbs * 10) / 10,
+    sugars: Math.round(totals.sugars * 10) / 10,
     fat: Math.round(totals.fat * 10) / 10,
+    saturatedFat: Math.round(totals.saturatedFat * 10) / 10,
     fiber: Math.round(totals.fiber * 10) / 10,
     sodiumMg: Math.round(totals.sodiumMg),
   };
@@ -171,7 +185,9 @@ export function roundTotalsForStorage(
     kcal: Math.round(totals.kcal),
     protein: Math.round(totals.protein),
     carbs: Math.round(totals.carbs),
+    sugars: Math.round(totals.sugars),
     fat: Math.round(totals.fat),
+    saturatedFat: Math.round(totals.saturatedFat),
     fiber: Math.round(totals.fiber),
     sodiumMg: Math.round(totals.sodiumMg),
   };
@@ -183,6 +199,10 @@ export type RecipeNutritionColumns = {
   nutritionProtein: number;
   nutritionFat: number;
   nutritionCarbs: number;
+  /** Cukry — część `nutritionCarbs`. */
+  nutritionSugars: number;
+  /** Tłuszcze nasycone — część `nutritionFat`. */
+  nutritionSaturatedFat: number;
   nutritionFiber: number;
   /** Sól ŁĄCZNIE: z sodu składników + dodana. */
   nutritionSalt: number;
@@ -218,6 +238,8 @@ export function nutritionColumnsFromIngredients(
       nutritionProtein: stored.protein,
       nutritionFat: stored.fat,
       nutritionCarbs: stored.carbs,
+      nutritionSugars: stored.sugars,
+      nutritionSaturatedFat: stored.saturatedFat,
       nutritionFiber: stored.fiber,
       nutritionSalt: totalSaltGrams(totals.sodiumMg, nutritionSaltAdded),
       nutritionSaltAdded,

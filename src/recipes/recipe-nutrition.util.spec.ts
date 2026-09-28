@@ -1,6 +1,7 @@
 import {
   atwaterKcal,
   computeRecipeNutrition,
+  nutritionColumnsFromIngredients,
   relativeDeviation,
   roundTotals,
   saltGramsFromSodium,
@@ -97,7 +98,9 @@ describe('computeRecipeNutrition', () => {
       kcal: 0,
       protein: 0,
       carbs: 0,
+      sugars: 0,
       fat: 0,
+      saturatedFat: 0,
       fiber: 0,
       sodiumMg: 0,
     });
@@ -151,7 +154,9 @@ describe('roundTotals', () => {
         kcal: 893.62,
         protein: 29.94,
         carbs: 136.51,
+        sugars: 41.26,
         fat: 21.38,
+        saturatedFat: 6.04,
         fiber: 18.77,
         sodiumMg: 0,
       }),
@@ -159,10 +164,37 @@ describe('roundTotals', () => {
       kcal: 894,
       protein: 29.9,
       carbs: 136.5,
+      sugars: 41.3,
       fat: 21.4,
+      saturatedFat: 6,
       fiber: 18.8,
       sodiumMg: 0,
     });
+  });
+});
+
+describe('cukry i tłuszcze nasycone', () => {
+  it('sumują się jak reszta makro; brak pola = 0', () => {
+    const { totals } = computeRecipeNutrition([
+      item('mleko', 400, 'ml', { ...milk, sugars: 4.7, saturatedFat: 2.1 }),
+      item('banan', 1, 'szt', { ...banana, sugars: 12.2, saturatedFat: 0.1 }),
+      item('platki owsiane', 100, 'g', oats),
+    ]);
+    // 4 × 4,7 + 1,2 × 12,2 = 33,44 g cukrów; 4 × 2,1 + 1,2 × 0,1 = 8,52 g nasyconych.
+    expect(totals.sugars).toBeCloseTo(33.44, 5);
+    expect(totals.saturatedFat).toBeCloseTo(8.52, 5);
+  });
+
+  it('kolumny przepisu: całe gramy, jak reszta makro', () => {
+    const result = nutritionColumnsFromIngredients(
+      [item('mleko', 400, 'ml', { ...milk, sugars: 4.7, saturatedFat: 2.1 })],
+      0,
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.columns.nutritionSugars).toBe(19);
+      expect(result.columns.nutritionSaturatedFat).toBe(8);
+    }
   });
 });
 

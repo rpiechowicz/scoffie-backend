@@ -84,7 +84,7 @@ etapami i mierzenie efektu zmian.
   formatuj. `recipes:import:json` na NIEPUSTYM katalogu odmawia, gdy baza ma zmiany, których
   plik nie ma (`RECIPE_IMPORT_FROM_JSON_CONFIRM=<dzisiejsza data>` = świadome nadpisanie);
   bootstrap pustej bazy działa bez zmian. Kolejność składników = `[createdAt, id]` (zapis nadaje
-  rosnący `createdAt`). Makro = cały przepis, węgle bez błonnika, liczone ze składników.
+  rosnący `createdAt`). Makro = cały przepis, węgle bez błonnika, liczone ze składników; od 28.09.2026 także cukry (część węgli) i tłuszcze nasycone (część tłuszczu) — `sugars`/`saturatedFat` w tabeli składników i w bloku `nutrition` pliku katalogu.
   `servings` 1..8 (nie „zawsze 2”). Składnik: `name` po polsku, `normalizedName` ASCII = klucz.
 - Taksonomia przepisu (katalog 1000, od 28.09.2026): `Recipe.cuisine`, `dishType`, `seasons`, `occasions`,
   `equipment`, `features` — słowniki i reguły w `src/recipes/recipe-taxonomy.ts` (id = kontrakt z klientami,
