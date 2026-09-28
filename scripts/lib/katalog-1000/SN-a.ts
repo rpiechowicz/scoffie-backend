@@ -199,7 +199,7 @@ export const DEFS: Def[] = [
     plan: 'SN-007',
     title: 'Ryżanka na napoju migdałowym z jabłkiem i cynamonem',
     description:
-      'Kremowy ryż gotowany powoli na napoju migdałowym, z duszonym jabłkiem, cynamonem i prażonymi płatkami migdałów. Smak dzieciństwa w wersji roślinnej, bez glutenu i bez mleka krowiego.',
+      'Kremowy ryż gotowany powoli na napoju migdałowym, z duszonym jabłkiem, cynamonem i prażonymi, posiekanymi migdałami. Smak dzieciństwa w wersji roślinnej, bez glutenu i bez mleka krowiego.',
     mealType: 'BREAKFAST',
     difficulty: 'EASY',
     prepTimeMinutes: 35,

@@ -242,7 +242,7 @@ export const DEFS: Def[] = [
     ],
     steps: [
       'Wybierz 10–12 dużych pieczarek, oczyść je, wykręć nóżki i posiekaj je drobno.',
-      'Wymieszaj posiekane nóżki z serkiem kremowym, przeciśniętym czosnkiem, natką i pieprzem.',
+      'Wymieszaj posiekane nóżki z serkiem kremowym, przeciśniętym czosnkiem, połową posiekanej natki i pieprzem.',
       'Kapelusze posmaruj z zewnątrz oliwą, napełnij farszem i posyp mozzarellą.',
       'Ułóż pieczarki na tacce grillowej, przykryj grill pokrywą i piecz 10–12 minut, aż kapelusze zmiękną, a ser się roztopi. Na patelni grillowej: 10 minut pod przykryciem na średnim ogniu.',
       'Podawaj od razu, posypane resztą natki.',
@@ -480,7 +480,7 @@ export const DEFS: Def[] = [
     occasions: ['BARBECUE'],
     equipment: ['GRILL'],
     ingredients: [
-      ['kiełbasa śląska', 130, 'g'],
+      ['kiełbasa śląska', 180, 'g'],
       ['papryka czerwona', 150, 'g'],
       ['papryka żółta', 150, 'g'],
       ['cebula', 150, 'g'],
@@ -517,10 +517,7 @@ export const DEFS: Def[] = [
     features: ['OCCASIONAL'],
     ingredients: [
       ['burak', 800, 'g'],
-      ['marchew', 150, 'g'],
-      ['pietruszka korzeń', 100, 'g'],
-      ['seler korzeniowy', 100, 'g'],
-      ['cebula', 180, 'g'],
+      ['cebula', 80, 'g'],
       ['grzyb suszony', 40, 'g'],
       ['zakwas buraczany', 300, 'ml'],
       ['czosnek', 2, 'szt'],
@@ -538,10 +535,10 @@ export const DEFS: Def[] = [
     ],
     steps: [
       'Grzyby suszone zalej 500 ml ciepłej wody i odstaw na noc albo na co najmniej 2 godziny, potem ugotuj w tej wodzie 20 minut. Odcedź, wywar zachowaj.',
-      'Buraki, marchew, pietruszkę i seler obierz i pokrój w plastry. Zalej 1,5 l wody, dodaj 100 g cebuli, liść laurowy i ziele angielskie, gotuj na małym ogniu 40 minut.',
-      'Na farsz posiekaj drobno ugotowane grzyby, resztę cebuli i pieczarki. Zeszklij cebulę na maśle, dodaj pieczarki i grzyby, smaż 8 minut, aż odparuje woda. Dopraw pieprzem i szczyptą soli, zagęść bułką tartą i ostudź.',
+      'Buraki obierz i pokrój w cienkie plastry. Zalej 1,5 l wody, dodaj liść laurowy i ziele angielskie, gotuj na małym ogniu 40 minut, aż wywar nabierze głębokiego koloru.',
+      'Na farsz posiekaj drobno ugotowane grzyby, cebulę i pieczarki. Zeszklij cebulę na maśle, dodaj pieczarki i grzyby, smaż 8 minut, aż odparuje woda. Dopraw pieprzem i szczyptą soli, zagęść bułką tartą i ostudź.',
       'Z mąki, jajka, szczypty soli i około 90 ml ciepłej wody zagnieć elastyczne ciasto. Rozwałkuj cienko, wytnij kwadraty 4 cm, nałóż po trochę farszu, złóż w trójkąty i zlep rogi w uszka.',
-      'Wywar warzywny przecedź, dodaj wywar grzybowy, zakwas buraczany, przeciśnięty czosnek i majeranek. Dopraw solą, pieprzem i cukrem, podgrzej, nie doprowadzając do wrzenia, żeby barszcz nie stracił koloru.',
+      'Wywar buraczany przecedź, dodaj wywar grzybowy, zakwas buraczany, przeciśnięty czosnek i majeranek. Dopraw solą, pieprzem i cukrem, podgrzej, nie doprowadzając do wrzenia, żeby barszcz nie stracił koloru.',
       'Uszka gotuj partiami w osolonej wodzie 3 minuty od wypłynięcia. Podawaj w talerzach zalane gorącym barszczem.',
     ],
     photo:
@@ -582,7 +579,7 @@ export const DEFS: Def[] = [
       'Marchew, pietruszkę i seler obierz, zalej 1,5 l wody, dodaj liść laurowy i ziele angielskie, gotuj 20 minut.',
       'Grzyby wyjmij z wody, pokrój w paski i wrzuć do wywaru razem z wodą z moczenia (przelaną przez sitko). Gotuj 30 minut.',
       'Na oleju zeszklij posiekaną cebulę, dodaj pokrojone pieczarki i smaż 6 minut. Oprósz mąką, smaż minutę, rozprowadź chochlą wywaru i przelej do zupy.',
-      'Warzywa wyjmij, marchew pokrój w plasterki i wrzuć z powrotem. Dopraw solą i pieprzem, gotuj jeszcze 10 minut.',
+      'Warzywa wyjmij, marchew i pietruszkę pokrój w plasterki, seler w drobną kostkę i wrzuć z powrotem do zupy. Dopraw solą i pieprzem, gotuj jeszcze 10 minut.',
       'Makaron ugotuj osobno al dente według opisu na opakowaniu. Nałóż do talerzy, zalej zupą i posyp natką.',
     ],
     photo:
@@ -771,7 +768,7 @@ export const DEFS: Def[] = [
     ingredients: [
       ['kapusta kiszona', 200, 'g'],
       ['kapusta biała', 400, 'g'],
-      ['grzyb suszony', 40, 'g'],
+      ['grzyb suszony', 20, 'g'],
       ['pieczarka', 200, 'g'],
       ['cebula', 150, 'g'],
       ['olej rzepakowy', 30, 'ml'],
@@ -899,7 +896,7 @@ export const DEFS: Def[] = [
       'Ostudź 15 minut i pokrój w grube plastry.',
     ],
     photo:
-      'Golden glossy braided yeast loaf sliced to reveal a spiral of sauerkraut and mushroom filling, on a wooden board',
+      'Golden glossy rolled yeast loaf sliced to reveal a spiral of sauerkraut and mushroom filling, on a wooden board',
     vessel: 'board',
   },
 

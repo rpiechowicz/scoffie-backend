@@ -971,7 +971,7 @@ export const DEFS: Def[] = [
     plan: 'OB-083',
     title: 'Pstrąg w migdałach z młodymi ziemniakami',
     description:
-      'Filety pstrąga smażone na maśle i posypane złotymi płatkami migdałów, z młodymi ziemniakami z koperkiem i mizerią na jogurcie. Letni obiad z nutą klasycznej kuchni.',
+      'Całe pstrągi smażone na patelni i polane masłem ze złotymi płatkami migdałów, z młodymi ziemniakami z koperkiem i mizerią na jogurcie. Letni obiad z nutą klasycznej kuchni.',
     mealType: 'LUNCH',
     difficulty: 'MEDIUM',
     prepTimeMinutes: 35,
@@ -980,10 +980,10 @@ export const DEFS: Def[] = [
     dishType: 'MAIN',
     seasons: ['SUMMER'],
     ingredients: [
-      ['pstrąg', 400, 'g'],
+      ['pstrąg', 600, 'g'],
       ['migdał', 30, 'g'],
       ['masło', 20, 'g'],
-      ['olej rzepakowy', 10, 'ml'],
+      ['olej rzepakowy', 15, 'ml'],
       ['ziemniak młody', 500, 'g'],
       ['koperek', 15, 'g'],
       ['cytryna', 40, 'g'],
@@ -995,12 +995,12 @@ export const DEFS: Def[] = [
     steps: [
       'Młode ziemniaki wyszoruj i ugotuj w osolonej wodzie przez 15–18 minut.',
       'Ogórek pokrój w cienkie plasterki, wymieszaj z jogurtem, połową koperku i szczyptą soli.',
-      'Filety pstrąga osusz, oprósz resztą soli i pieprzem. Smaż na oleju skórą w dół 4 minuty, odwróć i smaż 2 minuty. Przełóż na talerze.',
+      'Sprawione pstrągi (2 sztuki) opłucz, osusz i natnij skórę w 2 miejscach, oprósz resztą soli i pieprzem. Smaż na oleju po 5–6 minut z każdej strony, aż mięso zacznie odchodzić od ości. Przełóż na talerze.',
       'Na tej samej patelni roztop masło, wsyp płatki migdałów i praż 2 minuty, aż się zezłocą. Dodaj sok z połowy cytryny.',
-      'Polej pstrąga masłem z migdałami, podawaj z ziemniakami posypanymi resztą koperku, mizerią i cząstką cytryny.',
+      'Polej pstrągi masłem z migdałami, podawaj z ziemniakami posypanymi resztą koperku, mizerią i cząstką cytryny.',
     ],
     photo:
-      'Pan-fried trout fillets topped with golden toasted almond flakes in brown butter, with dill new potatoes, cucumber salad and a lemon wedge',
+      'Whole pan-fried trout topped with golden toasted almond flakes in brown butter, with dill new potatoes, cucumber salad and a lemon wedge',
   },
   {
     plan: 'OB-084',
@@ -1033,7 +1033,7 @@ export const DEFS: Def[] = [
     steps: [
       'Rozpal grill i doprowadź go do średniej temperatury (ok. 200°C). Makrele wypatrosz, opłucz i osusz, na bokach natnij skórę w 3 miejscach.',
       'Natrzyj ryby 10 ml oliwy, słodką papryką, tymiankiem, połową soli i pieprzem. Do środka włóż plasterki czosnku i połowę cytryny w plasterkach.',
-      'Grilluj makrele na natłuszczonym ruszcie albo w koszyku do ryb po 6–8 minut z każdej strony, aż skórka będzie chrupiąca, a mięso odchodzi od ości. Na patelni grillowej smaż je po 6–7 minut z każdej strony na średnim ogniu.',
+      'Grilluj makrele na czystym, dobrze rozgrzanym ruszcie albo w koszyku do ryb po 6–8 minut z każdej strony, aż skórka będzie chrupiąca, a mięso odchodzi od ości. Na patelni grillowej smaż je po 6–7 minut z każdej strony na średnim ogniu.',
       'Pomidory pokrój w ósemki, czerwoną cebulę w cienkie piórka. Wymieszaj z resztą oliwy, octem winnym, resztą soli i posiekaną natką.',
       'Podawaj makrele z sałatką i resztą cytryny.',
     ],

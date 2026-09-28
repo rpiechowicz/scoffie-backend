@@ -369,6 +369,7 @@ export const DEFS: Def[] = [
       ['makaron penne', 160, 'g'],
       ['filet z kurczaka', 350, 'g'],
       ['pomidor suszony w oleju', 60, 'g'],
+      ['oliwa z oliwek', 10, 'ml'],
       ['śmietanka 12', 100, 'ml'],
       ['szpinak', 60, 'g'],
       ['czosnek', 2, 'szt'],
@@ -380,7 +381,7 @@ export const DEFS: Def[] = [
     steps: [
       'Ugotuj penne al dente według opakowania i odlej 100 ml wody z gotowania.',
       'Kurczaka pokrój w paski, suszone pomidory w paseczki, czosnek posiekaj.',
-      'Na patelni rozgrzej łyżkę oleju z suszonych pomidorów i smaż kurczaka 6 minut, aż się zrumieni. Dodaj czosnek, pomidory i oregano, smaż 1 minutę.',
+      'Na patelni rozgrzej oliwę i smaż kurczaka 6 minut, aż się zrumieni. Dodaj czosnek, pomidory i oregano, smaż 1 minutę.',
       'Wlej śmietankę i trochę wody z makaronu, gotuj 2 minuty. Wrzuć szpinak i mieszaj, aż zwiędnie.',
       'Dodaj makaron, wymieszaj, dopraw pieprzem. Podawaj posypane startym parmezanem i listkami bazylii.',
     ],

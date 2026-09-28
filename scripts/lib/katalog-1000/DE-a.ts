@@ -489,7 +489,7 @@ export const DEFS: Def[] = [
     steps: [
       'Posiekaj zimne masło z mąką, cukrem pudrem i proszkiem do pieczenia, dodaj jajka i zagnieć kruche ciasto. Schłódź 30 minut.',
       'Rozwałkuj ciasto na prostokąt 25 × 35 cm, przełóż na blachę z papierem, z resztek zrób brzeg. Piecz w piekarniku nagrzanym do 180°C przez 18–20 minut i wystudź.',
-      'Z pomarańczy zetrzyj skórkę i wyciśnij sok (ok. 250 ml). Zagotuj sok ze skórką i cukrem.',
+      'Z pomarańczy zetrzyj skórkę i wyciśnij sok (ok. 200 ml). Zagotuj sok ze skórką i cukrem.',
       'Mąkę ziemniaczaną rozmieszaj w 3 łyżkach zimnej wody, wlej do gotującego się soku i gotuj, mieszając, 1–2 minuty, aż krem zgęstnieje. Przestudź 10 minut.',
       'Rozsmaruj krem na spodzie. Figi pokrój w paski i ułóż na wierzchu z migdałami, rodzynkami i skórką pomarańczową.',
       'Odstaw na 1 godzinę do stężenia kremu.',

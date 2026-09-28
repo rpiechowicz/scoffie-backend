@@ -89,7 +89,8 @@ export const DEFS: Def[] = [
     seasons: ['SPRING'],
     ingredients: [
       ['szparagi', 500, 'g'],
-      ['jajko', 6, 'szt'],
+      ['jajko', 4, 'szt'],
+      ['żółtko', 1, 'szt'],
       ['masło', 60, 'g'],
       ['cytryna', 15, 'g'],
       ['ocet winny', 10, 'ml'],
@@ -99,8 +100,8 @@ export const DEFS: Def[] = [
     ],
     steps: [
       'Odłam zdrewniałe końcówki szparagów. Gotuj je w osolonej wodzie 4–5 minut, aż będą miękkie, ale jędrne, i odcedź.',
-      'Masło roztop w rondelku. Dwa żółtka ubij w metalowej misce nad garnkiem z gotującą się wodą z sokiem z cytryny przez 3 minuty, aż zgęstnieją.',
-      'Wlewaj do żółtek cienką strużką ciepłe masło, cały czas ubijając, aż sos będzie gęsty i lśniący. Dopraw pieprzem; białka zużyj w innym daniu.',
+      'Masło roztop w rondelku. Żółtko ubij w metalowej misce nad garnkiem z gotującą się wodą z sokiem z cytryny i łyżką wody przez 3 minuty, aż zgęstnieje.',
+      'Wlewaj do żółtka cienką strużką ciepłe masło, cały czas ubijając, aż sos będzie gęsty i lśniący. Dopraw pieprzem.',
       'W szerokim garnku zagotuj wodę z octem, zmniejsz ogień, zamieszaj wir i wpuść po jednym 4 jajka. Gotuj 3 minuty i wyjmij łyżką cedzakową.',
       'Ułóż szparagi na talerzach, na nich jajka w koszulce, polej sosem holenderskim i posyp posiekanym szczypiorkiem.',
     ],
@@ -946,7 +947,7 @@ export const DEFS: Def[] = [
     occasions: ['BARBECUE'],
     equipment: ['GRILL'],
     ingredients: [
-      ['kiełbasa śląska', 130, 'g'],
+      ['kiełbasa śląska', 180, 'g'],
       ['ziemniak młody', 600, 'g'],
       ['ogórek', 150, 'g'],
       ['rzodkiewka', 80, 'g'],
@@ -983,7 +984,7 @@ export const DEFS: Def[] = [
     occasions: ['BARBECUE'],
     equipment: ['GRILL'],
     ingredients: [
-      ['kiełbasa biała', 160, 'g'],
+      ['kiełbasa biała', 200, 'g'],
       ['ziemniak młody', 500, 'g'],
       ['cebula czerwona', 150, 'g'],
       ['olej rzepakowy', 15, 'ml'],

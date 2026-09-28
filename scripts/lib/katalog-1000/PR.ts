@@ -270,7 +270,7 @@ export const DEFS: Def[] = [
     equipment: ['AIRFRYER'],
     ingredients: [
       ['mąka pszenna', 200, 'g'],
-      ['olej rzepakowy', 40, 'ml'],
+      ['olej rzepakowy', 50, 'ml'],
       ['kminek', 1, 'g'],
       ['ziemniak', 400, 'g'],
       ['groszek mrożony', 100, 'g'],
@@ -286,7 +286,7 @@ export const DEFS: Def[] = [
       ['sól', 3, 'g'],
     ],
     steps: [
-      'Wymieszaj mąkę z kminkiem, 1 g soli i 3 łyżkami oleju, rozcieraj palcami na kruszonkę. Dolewaj około 80 ml zimnej wody i zagnieć twarde ciasto. Odstaw pod przykryciem na 30 minut.',
+      'Wymieszaj mąkę z kminkiem, 1 g soli i 2 łyżkami oleju (30 ml), rozcieraj palcami na kruszonkę. Dolewaj około 80 ml zimnej wody i zagnieć twarde ciasto. Odstaw pod przykryciem na 30 minut.',
       'Ugotuj ziemniaki w mundurkach do miękkości (około 20 minut), obierz i pokrój w małą kostkę.',
       'Na łyżce oleju zeszklij posiekaną cebulę, dodaj starty imbir, czosnek, chili, kmin rzymski, kurkumę i garam masalę. Po minucie dodaj ziemniaki, groszek i resztę soli, smaż 3 minuty. Wmieszaj sok z cytryny i posiekaną kolendrę, ostudź.',
       'Podziel ciasto na 6 kul, rozwałkuj każdą na owal i przekrój na pół. Z każdej połówki zwiń stożek, sklej brzeg wodą, napełnij farszem i zlep górę w trójkąt.',
@@ -676,7 +676,7 @@ export const DEFS: Def[] = [
     ],
     steps: [
       'Obierz krewetki, zostawiając ogonki, i osusz je ręcznikiem papierowym.',
-      'Wymieszaj 3 łyżki oliwy z przeciśniętym czosnkiem, startą skórką i sokiem z połowy cytryny, oregano, płatkami chili i solą. Zalej krewetki marynatą i odstaw do lodówki na 20 minut.',
+      'Wymieszaj 2 łyżki oliwy z przeciśniętym czosnkiem, startą skórką i sokiem z połowy cytryny, oregano, płatkami chili i solą. Zalej krewetki marynatą i odstaw do lodówki na 20 minut.',
       'Rozgrzej resztę oliwy na dużej patelni i smaż krewetki na mocnym ogniu po 1–2 minuty z każdej strony, aż zróżowieją.',
       'Przełóż na półmisek, polej sokiem z patelni, posyp posiekaną natką i podawaj z cząstkami cytryny.',
     ],
@@ -744,7 +744,7 @@ export const DEFS: Def[] = [
     ],
     steps: [
       'Odsącz i przepłucz fasolę na sitku.',
-      'Rozgrzej 2 łyżki oliwy w małym rondelku z rozmarynem i przeciśniętym czosnkiem, trzymaj na małym ogniu 2 minuty, żeby oliwa przeszła aromatem.',
+      'Rozgrzej 1 łyżkę oliwy w małym rondelku z rozmarynem i przeciśniętym czosnkiem, trzymaj na małym ogniu 2 minuty, żeby oliwa przeszła aromatem.',
       'Zmiksuj blenderem fasolę z aromatyczną oliwą, sokiem z cytryny, solą i 2–3 łyżkami zimnej wody na gładki krem.',
       'Pokrój marchew, seler naciowy i paprykę w słupki.',
       'Przełóż dip do miseczki, zrób łyżką zagłębienie, wlej resztę oliwy i podawaj z warzywami.',
@@ -1217,7 +1217,7 @@ export const DEFS: Def[] = [
       ['olej rzepakowy', 10, 'ml'],
     ],
     steps: [
-      'Obierz cebule, pokrój w plastry grubości 1 cm i rozdziel na krążki. Najmniejsze środki zostaw na inne danie.',
+      'Obierz cebule, pokrój w plastry grubości 1 cm i rozdziel na krążki.',
       'Wymieszaj mąkę z papryką i solą. W drugiej misce roztrzep jajka z mlekiem, do trzeciej wsyp bułkę tartą.',
       'Obtocz każdy krążek w mące, w jajku i w bułce, a potem jeszcze raz w jajku i w bułce.',
       'Ułóż krążki w koszu airfryera w jednej warstwie, skrop olejem i piecz w 200°C przez 8–10 minut, obracając w połowie. W piekarniku: 220°C, termoobieg, 12–15 minut na blasze z papierem.',

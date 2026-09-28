@@ -36,7 +36,7 @@ export const DEFS: Def[] = [
       'Na każdy plaster połóż szczyptę szałwii i plaster szynki dojrzewającej, dociśnij dłonią, a spód lekko oprósz mąką.',
       'Rozgrzej na patelni oliwę z połową masła. Smaż mięso najpierw stroną z szynką 2 minuty, potem odwróć i smaż jeszcze 2–3 minuty. Przełóż na talerz.',
       'Na patelnię wlej bulion i sok z cytryny, zeskrob przysmażone resztki i gotuj 2 minuty. Zdejmij z ognia i wmieszaj resztę masła.',
-      'Podawaj saltimbokę polaną sosem, z ziemniakami i garścią rukoli.',
+      'Podawaj saltimboccę polaną sosem, z ziemniakami i garścią rukoli.',
     ],
     photo:
       'Thin golden turkey escalopes topped with crisp cured ham and sage, glossy lemon butter sauce, boiled potato wedges and fresh rocket on the side',

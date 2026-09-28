@@ -126,7 +126,7 @@ export const DEFS: Def[] = [
     plan: 'SN-034',
     title: 'Pasta z czerwonej soczewicy z ogórkiem kiszonym na chlebie',
     description:
-      'Gęsta pasta z czerwonej soczewicy z podsmażoną cebulą, koncentratem pomidorowym i majerankiem, podana na chlebie z chrupiącym ogórkiem kiszonym. Porcja wystarczy też na kanapki na kolejny dzień.',
+      'Gęsta pasta z czerwonej soczewicy z podsmażoną cebulą, koncentratem pomidorowym i majerankiem, podana na chlebie z chrupiącym ogórkiem kiszonym. Dobrze znosi drogę w pudełku i smakuje też na zimno.',
     mealType: 'BREAKFAST',
     difficulty: 'EASY',
     prepTimeMinutes: 30,
@@ -135,14 +135,14 @@ export const DEFS: Def[] = [
     dishType: 'DIP',
     features: ['LUNCHBOX'],
     ingredients: [
-      ['soczewica czerwona', 140, 'g'],
+      ['soczewica czerwona', 120, 'g'],
       ['cebula', 60, 'g'],
       ['oliwa z oliwek', 5, 'ml'],
       ['koncentrat pomidorowy', 15, 'g'],
       ['majeranek', 1, 'g'],
       ['kmin rzymski', 1, 'g'],
       ['pieprz czarny', 1, 'g'],
-      ['chleb żytni', 90, 'g'],
+      ['chleb żytni', 100, 'g'],
       ['ogórek kiszony', 100, 'g'],
     ],
     steps: [

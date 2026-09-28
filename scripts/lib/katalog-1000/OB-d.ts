@@ -33,9 +33,9 @@ export const DEFS: Def[] = [
     ],
     steps: [
       'Nagrzej piekarnik do 190°C (góra–dół). Ziemniaki obierz, pokrój na części i gotuj w osolonej wodzie 20 minut.',
-      'Marchew zetrzyj na grubych oczkach, por i cebulę pokrój w cienkie półplasterki. Duś warzywa na oleju pod przykryciem 8–10 minut, aż zmiękną.',
+      'Marchew zetrzyj na grubych oczkach, por i cebulę pokrój w cienkie półplasterki. Duś warzywa na 10 ml oleju pod przykryciem 8–10 minut, aż zmiękną.',
       'Zdejmij warzywa z ognia, wmieszaj śmietanę, dopraw pieprzem i szczyptą soli.',
-      'Filety mintaja osusz, oprósz resztą soli i pieprzem, ułóż w natłuszczonym naczyniu żaroodpornym.',
+      'Filety mintaja osusz, oprósz resztą soli i pieprzem, ułóż w naczyniu żaroodpornym wysmarowanym resztą oleju.',
       'Przykryj rybę warstwą warzyw, posyp startym żółtym serem i zapiekaj 20 minut, aż ser się zezłoci.',
       'Podawaj z ugotowanymi ziemniakami.',
     ],
@@ -313,7 +313,7 @@ export const DEFS: Def[] = [
       'Jajka ugotuj na twardo przez 9 minut, ostudź w zimnej wodzie i obierz.',
       'Cebulę posiekaj i zeszklij na maśle w garnku przez 5 minut. Dodaj curry i kurkumę, smaż 30 sekund.',
       'Wsyp przepłukany ryż, wymieszaj, wlej 300 ml wody, przykryj i gotuj na małym ogniu 12 minut.',
-      'Dosyp groszek, przykryj i trzymaj na ogniu jeszcze 3 minuty. Makrelę obierz ze skóry i ości, rozdrobnij na płatki.',
+      'Dosyp groszek, przykryj i trzymaj na ogniu jeszcze 3 minuty. Makrelę obierz ze skóry i ości (potrzebujesz ok. 160 g samego mięsa, czyli mniej więcej jedną średnią wędzoną makrelę), rozdrobnij na płatki.',
       'Wmieszaj delikatnie makrelę i sok z cytryny, nałóż na talerze, ułóż ćwiartki jajek i posyp natką pietruszki.',
     ],
     photo:
@@ -635,7 +635,7 @@ export const DEFS: Def[] = [
     plan: 'OB-103',
     title: 'Krewetki saganaki w sosie pomidorowym z fetą i orzo',
     description:
-      'Makaron orzo ugotowany wprost w gęstym sosie pomidorowym z oregano, z krewetkami i zapieczoną kruszoną fetą. Greckie danie z jednej patelni, które pachnie wakacjami.',
+      'Makaron orzo ugotowany wprost w gęstym sosie pomidorowym z oregano, z krewetkami i kruszoną fetą zmiękczoną pod pokrywką. Greckie danie z jednej patelni, które pachnie wakacjami.',
     mealType: 'LUNCH',
     difficulty: 'EASY',
     prepTimeMinutes: 35,

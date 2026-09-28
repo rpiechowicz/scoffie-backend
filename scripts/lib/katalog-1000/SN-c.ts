@@ -408,7 +408,7 @@ export const DEFS: Def[] = [
       ['szpinak', 60, 'g'],
       ['papryka czerwona', 80, 'g'],
       ['pomidor koktajlowy', 100, 'g'],
-      ['olej rzepakowy', 5, 'ml'],
+      ['olej rzepakowy', 10, 'ml'],
       ['sól', 1, 'g'],
       ['pieprz czarny', 1, 'g'],
     ],
@@ -810,7 +810,7 @@ export const DEFS: Def[] = [
     ],
     steps: [
       'Filety przekrój wzdłuż na płaty, przykryj folią i rozbij tłuczkiem na cienkie kotlety. Oprósz solą, pieprzem i papryką.',
-      'Na łyżce oliwy podsmaż przeciśnięty czosnek, dodaj szpinak i duś 2–3 minuty, aż zwiędnie i odparuje. Ostudź i wymieszaj z pokruszoną fetą.',
+      'Na łyżeczce oliwy podsmaż przeciśnięty czosnek, dodaj szpinak i duś 2–3 minuty, aż zwiędnie i odparuje. Ostudź i wymieszaj z pokruszoną fetą.',
       'Ułóż kotlety na folii aluminiowej zachodząc na siebie w prostokąt, rozsmaruj farsz i zwiń ciasno w roladę. Zawiń w folię i skręć jej końce.',
       'Rozgrzej piekarnik do 190°C. Piecz roladę w folii 30 minut, potem rozwiń, posmaruj resztą oliwy i piecz jeszcze 10 minut, aż się zrumieni.',
       'Ostudź, owiń folią i schłódź w lodówce co najmniej 2 godziny. Kroi się w cienkie plastry ostrym nożem.',
