@@ -209,6 +209,46 @@ describe('searchRecipes — kryteria z prośby', () => {
     ).toEqual(['Papryka faszerowana']);
   });
 
+  it('„bez ryby” wyklucza po tagu diety, bo składniki to gatunki (M12)', () => {
+    const recipes = [
+      doc('Łosoś z ryżem', { dietTags: ['FISH', 'GRAIN'] }, [
+        ['Łosoś', 'Ryby'],
+        ['Ryż', 'Zboża i makarony'],
+      ]),
+      doc('Schab z ziemniakami', { dietTags: ['MEAT'] }, [
+        ['Schab', 'Mięso'],
+        ['Ziemniaki', 'Warzywa'],
+      ]),
+      doc('Placki ziemniaczane', {}, [['Ziemniaki', 'Warzywa']]),
+    ];
+    expect(
+      titles(
+        searchRecipes(recipes, query({ excludeIngredients: ['ryba'] }), NOBODY),
+      ).sort(),
+    ).toEqual(['Placki ziemniaczane', 'Schab z ziemniakami']);
+    expect(
+      titles(
+        searchRecipes(
+          recipes,
+          query({ excludeIngredients: ['mięsa', 'ryby'] }),
+          NOBODY,
+        ),
+      ),
+    ).toEqual(['Placki ziemniaczane']);
+  });
+
+  it('„z rybą” znajduje dania rybne po tagu diety, nie tylko po nazwie składnika (M12)', () => {
+    const recipes = [
+      doc('Dorsz pieczony', { dietTags: ['FISH'] }, [['Dorsz', 'Ryby']]),
+      doc('Schab pieczony', { dietTags: ['MEAT'] }, [['Schab', 'Mięso']]),
+    ];
+    expect(
+      titles(
+        searchRecipes(recipes, query({ includeIngredients: ['ryba'] }), NOBODY),
+      ),
+    ).toEqual(['Dorsz pieczony']);
+  });
+
   it('limit czasu nie przepuszcza dań bez czasu (0 = nie wiemy)', () => {
     const recipes = [
       doc('Szybkie', { prepTimeMinutes: 15 }),

@@ -6,6 +6,7 @@ import {
   ConstraintSetV1,
   ConstraintSubject,
   excludedIngredientHits,
+  mentionsIngredient,
 } from './recipe-constraints';
 
 function subject(over: Partial<ConstraintSubject> = {}): ConstraintSubject {
@@ -42,6 +43,36 @@ function set(over: Partial<ConstraintSetV1['request']> = {}): ConstraintSetV1 {
 }
 
 describe('recipe-constraints', () => {
+  it.each([
+    ['FISH', 'łosoś', 'ryba wędzona'],
+    ['FISH', 'łosoś', 'ryba morska'],
+    ['MEAT', 'schab', 'mięso mielone'],
+    ['DAIRY', 'twaróg', 'nabiał bez laktozy'],
+    ['MEAT', 'schab', 'mieszanka warzyw'],
+  ])('tag %s nie usuwa określeń z prośby o %s / %s', (tag, name, phrase) => {
+    const recipe = subject({ ingredientNames: [name], dietTags: [tag] });
+    expect(mentionsIngredient(recipe, phrase)).toBe(false);
+    expect(checkRecipe(recipe, set({ avoidIngredients: [phrase] }))).toBeNull();
+  });
+
+  it.each([
+    ['FISH', 'ryba wędzona', 'ryba wędzona'],
+    ['MEAT', 'mięso mielone wołowe', 'mięso mielone'],
+    ['FISH', 'łosoś', 'rybą'],
+    ['MEAT', 'schab', 'mięsem'],
+    ['DAIRY', 'twaróg', 'nabiału'],
+    ['CRUSTACEAN', 'krewetki', 'skorupiaków'],
+  ])(
+    'zachowuje dokładny składnik lub samą kategorię: %s / %s / %s',
+    (tag, name, phrase) => {
+      const recipe = subject({ ingredientNames: [name], dietTags: [tag] });
+      expect(mentionsIngredient(recipe, phrase)).toBe(true);
+      expect(checkRecipe(recipe, set({ avoidIngredients: [phrase] }))).toBe(
+        'AVOIDED_INGREDIENT',
+      );
+    },
+  );
+
   it('suma audytorium: bez powtórek, w kolejności pierwszego wystąpienia', () => {
     expect(
       audienceConstraintsOf([
@@ -155,6 +186,45 @@ describe('recipe-constraints', () => {
     ).toBe('PREP_TIME');
     expect(
       checkRecipe(subject({ prepTimeMinutes: 0 }), set({ maxPrepMinutes: 0 })),
+    ).toBeNull();
+  });
+
+  it('„bez X” jako kategoria: ryby/mięsa/nabiału/skorupiaków po tagu diety, gatunek po nazwie', () => {
+    const salmon = subject({
+      ingredientNames: ['losos', 'ryz'],
+      dietTags: ['FISH'],
+    });
+    expect(checkRecipe(salmon, set({ avoidIngredients: ['ryby'] }))).toBe(
+      'AVOIDED_INGREDIENT',
+    );
+    expect(checkRecipe(salmon, set({ avoidIngredients: ['rybę'] }))).toBe(
+      'AVOIDED_INGREDIENT',
+    );
+    expect(
+      checkRecipe(salmon, set({ avoidIngredients: ['mięsa'] })),
+    ).toBeNull();
+    const pork = subject({ ingredientNames: ['schab'], dietTags: ['MEAT'] });
+    expect(checkRecipe(pork, set({ avoidIngredients: ['mięsa'] }))).toBe(
+      'AVOIDED_INGREDIENT',
+    );
+    const cheese = subject({
+      ingredientNames: ['twarog'],
+      dietTags: ['DAIRY'],
+    });
+    expect(checkRecipe(cheese, set({ avoidIngredients: ['nabiału'] }))).toBe(
+      'AVOIDED_INGREDIENT',
+    );
+    const shrimp = subject({
+      ingredientNames: ['krewetki'],
+      dietTags: ['FISH', 'CRUSTACEAN'],
+    });
+    expect(
+      checkRecipe(shrimp, set({ avoidIngredients: ['skorupiaków'] })),
+    ).toBe('AVOIDED_INGREDIENT');
+    // Bez tagu (brak danych o składnikach) kategoria nie działa — jak diety.
+    const unknown = subject({ ingredientNames: [], dietTags: [] });
+    expect(
+      checkRecipe(unknown, set({ avoidIngredients: ['ryby'] })),
     ).toBeNull();
   });
 

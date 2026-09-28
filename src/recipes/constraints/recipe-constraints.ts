@@ -4,7 +4,7 @@ import {
   NutritionPerServing,
   satisfiesDiet,
 } from '../diet-rules.util';
-import { ingredientMatches } from '../ingredient-match.util';
+import { ingredientMatches, words } from '../ingredient-match.util';
 
 /**
  * Jedna definicja DOPUSZCZALNOŚCI przepisu (N8A, `ConstraintSet v1`).
@@ -154,6 +154,44 @@ export function excludedIngredientHits(
   return subject.ingredientIds.filter((id) => excluded.has(id));
 }
 
+/**
+ * Słowa-KATEGORIE w „bez X” (N8A S6, M12): składniki w katalogu to gatunki
+ * (łosoś, dorsz, schab), więc „bez ryby” po nazwie nie trafiało niczego.
+ * Kategoria idzie po tagu diety przepisu — tym samym, który napędza diety
+ * (`satisfiesDiet`). Dopasowujemy tylko samą nazwę kategorii w polskiej odmianie.
+ * Tag całego przepisu nie dowodzi określeń typu „wędzona” czy „mielone”.
+ * Świadomie bez
+ * „drobiu” (MEAT to też wołowina) i „owoców morza” (tagi nie rozróżniają
+ * mięczaków) — tam zostaje dopasowanie po nazwie.
+ */
+const AVOIDED_CATEGORY_TAGS: readonly { name: RegExp; tag: string }[] = [
+  { name: /^ryb(a|y|e|ie|o|om|ami|ach)?$/, tag: 'FISH' },
+  { name: /^mies(o|a|u|em|ie|om|ami|ach)$/, tag: 'MEAT' },
+  { name: /^nabial(u|owi|em|y|om|ami|ach)?$/, tag: 'DAIRY' },
+  { name: /^skorupiak(a|owi|iem|i|ow|om|ami|ach)?$/, tag: 'CRUSTACEAN' },
+];
+
+/**
+ * Czy przepis ma składnik z prośby: po rdzeniu słowa (`ingredientMatches`)
+ * albo jako kategorię po tagu diety („ryba” → FISH). Jedna reguła dla „bez X”
+ * (planer `checkRecipe`, `exclude_ingredients`) i „z X” (`suggest_meals`,
+ * `include_ingredients`) — inaczej „co na kolację z rybą?” nie znajdowało
+ * żadnego z 30 dań rybnych.
+ */
+export function mentionsIngredient(
+  subject: { ingredientNames: readonly string[]; dietTags: readonly string[] },
+  phrase: string,
+): boolean {
+  if (subject.ingredientNames.some((name) => ingredientMatches(name, phrase))) {
+    return true;
+  }
+  const tokens = words(phrase);
+  if (tokens.length !== 1) return false;
+  return AVOIDED_CATEGORY_TAGS.some(
+    ({ name, tag }) => subject.dietTags.includes(tag) && name.test(tokens[0]),
+  );
+}
+
 /** Czy przepis spełnia dietę (asymetria jak w iOS — patrz `satisfiesDiet`). */
 export function subjectSatisfiesDiet(
   subject: AudienceSubject,
@@ -218,7 +256,7 @@ export function checkRecipe(
   }
   if (
     request.avoidIngredients.some((avoided) =>
-      subject.ingredientNames.some((name) => ingredientMatches(name, avoided)),
+      mentionsIngredient(subject, avoided),
     )
   ) {
     return 'AVOIDED_INGREDIENT';

@@ -29,7 +29,8 @@ import { autoPlannedServings } from '../../weekly-plans/utils/planned-servings.u
 import { WeeklyPlansService } from '../../weekly-plans/weekly-plans.service';
 import { AgentPromptService } from '../agent-prompt.service';
 import { AgentCatalogService } from '../search/agent-catalog.service';
-import { ingredientMatches, SearchableRecipe } from '../search/catalog-search';
+import { SearchableRecipe } from '../search/catalog-search';
+import { mentionsIngredient } from '../../recipes/constraints/recipe-constraints';
 import { memoized, TURN_KEYS, TurnMemo } from '../turn-memo';
 
 /** Miękkie i twarde życzenia z prośby — to, co model wyczytał ze zdania. */
@@ -383,8 +384,14 @@ export class AgentMealPlannerService {
             context.pool
               .filter((recipe) =>
                 wanted.every((name) =>
-                  recipe.ingredients.some((ingredient) =>
-                    ingredientMatches(ingredient.name, name),
+                  mentionsIngredient(
+                    {
+                      ingredientNames: recipe.ingredients.map(
+                        (ingredient) => ingredient.name,
+                      ),
+                      dietTags: recipe.dietTags,
+                    },
+                    name,
                   ),
                 ),
               )

@@ -79,6 +79,8 @@ export const AVOIDED = [
   'mleko',
   'jajka',
   'pomidory',
+  'ryby',
+  'miesa',
   'makaron',
   'xyz',
   'o',

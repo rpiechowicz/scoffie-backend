@@ -11,7 +11,10 @@ import {
 // Dopasowanie składników po rdzeniu żyje w domenie (wspólne z planerem przez
 // `recipe-constraints`); stąd reeksport dla dotychczasowych importów.
 export { ingredientMatches, queryStems, stem };
-import { audienceReason } from '../../recipes/constraints/recipe-constraints';
+import {
+  audienceReason,
+  mentionsIngredient,
+} from '../../recipes/constraints/recipe-constraints';
 import {
   RECIPE_SEARCH_TAGS,
   RECIPE_TAG_LABELS,
@@ -333,6 +336,14 @@ function tagsMatch(
   return true;
 }
 
+/** Nazwy składników i tagi diety — to, czego potrzebuje `mentionsIngredient`. */
+function ingredientSubject(recipe: SearchableRecipe) {
+  return {
+    ingredientNames: recipe.ingredients.map((ingredient) => ingredient.name),
+    dietTags: recipe.dietTags,
+  };
+}
+
 function passesSoft(
   recipe: SearchableRecipe,
   query: RecipeSearchQuery,
@@ -344,22 +355,14 @@ function passesSoft(
   if (skip !== 'tags' && !tagsMatch(recipe, query.tags)) return false;
   if (skip !== 'include_ingredients') {
     for (const wanted of query.includeIngredients) {
-      if (
-        !recipe.ingredients.some((ingredient) =>
-          ingredientMatches(ingredient.name, wanted),
-        )
-      ) {
+      if (!mentionsIngredient(ingredientSubject(recipe), wanted)) {
         return false;
       }
     }
   }
   if (skip !== 'exclude_ingredients') {
     for (const unwanted of query.excludeIngredients) {
-      if (
-        recipe.ingredients.some((ingredient) =>
-          ingredientMatches(ingredient.name, unwanted),
-        )
-      ) {
+      if (mentionsIngredient(ingredientSubject(recipe), unwanted)) {
         return false;
       }
     }
