@@ -12,6 +12,7 @@
  *   pnpm recipes:recompute:nutrition                 # podgląd zmian
  *   pnpm recipes:recompute:nutrition -- --write      # zapis do JSON-ów i bazy
  *   pnpm recipes:recompute:nutrition -- --write --db-only
+ *   pnpm recipes:recompute:nutrition -- --write --json-only   # bez bazy
  */
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -45,6 +46,8 @@ type CatalogEntry = {
   fat: number;
   fiber: number;
   sodiumMg?: number;
+  sugars?: number;
+  saturatedFat?: number;
   gramsPerPiece?: number;
 };
 
@@ -55,7 +58,9 @@ type RecipeJson = {
     kcal: number;
     protein: number;
     carbs: number;
+    sugars?: number;
     fat: number;
+    saturatedFat?: number;
     fiber: number;
     /** Sól ŁĄCZNIE (ze składników + dodana). */
     salt: number;
@@ -91,6 +96,8 @@ function toPer100(entry: CatalogEntry): IngredientNutritionPer100 {
     fat: entry.fat,
     fiber: entry.fiber,
     sodiumMg: entry.sodiumMg ?? 0,
+    sugars: entry.sugars ?? 0,
+    saturatedFat: entry.saturatedFat ?? 0,
     gramsPerPiece: entry.gramsPerPiece ?? null,
   };
 }
@@ -178,14 +185,16 @@ function patchNutritionInText(
       const next = values[index];
       if (!next) return match;
 
+      // Kolejność pól bierzemy z WYNIKU (kanoniczna, jak w eksporcie:
+      // węgle → cukry, tłuszcz → nasycone), a nie z pliku — inaczej nowe pola
+      // lądowałyby na końcu i pełny katalog przestałby być w formacie
+      // `formatCatalogFile`. Pola, których wynik nie zna, zostają na końcu.
       const bodyKeys = [...body.matchAll(/"([a-zA-Z]+)"\s*:/g)].map(
         (entry) => entry[1],
       );
-      // Nowe pola (np. `addedSalt`) dopisują się na końcu — inaczej plik
-      // bez nich nigdy by ich nie dostał.
       const keys = [
-        ...bodyKeys,
-        ...Object.keys(next).filter((key) => !bodyKeys.includes(key)),
+        ...Object.keys(next),
+        ...bodyKeys.filter((key) => !(key in next)),
       ];
       const rendered = keys
         .map((key) => `"${key}": ${next[key as keyof RecipeJson['nutrition']]}`)
@@ -218,6 +227,15 @@ async function recomputeCatalogFiles(
     const recipes = Array.isArray(parsed) ? parsed : parsed.recipes;
 
     if (!Array.isArray(recipes) || recipes.length === 0) continue;
+    // `recipe-image-dishes.json` też zaczyna się od „recipe”, ale to opisy
+    // zdjęć, nie przepisy — plik bez składników i makro pomijamy.
+    if (
+      !recipes.every(
+        (recipe) => Array.isArray(recipe?.ingredients) && recipe.nutrition,
+      )
+    ) {
+      continue;
+    }
 
     let changed = 0;
     const skipped: string[] = [];
@@ -236,7 +254,13 @@ async function recomputeCatalogFiles(
       const { sodiumMg, ...stored } = roundTotalsForStorage(totals);
       const addedSalt = addedSaltOf(recipe.nutrition, totals.sodiumMg);
       const next = {
-        ...stored,
+        kcal: stored.kcal,
+        protein: stored.protein,
+        carbs: stored.carbs,
+        sugars: stored.sugars,
+        fat: stored.fat,
+        saturatedFat: stored.saturatedFat,
+        fiber: stored.fiber,
         salt: totalSaltGrams(totals.sodiumMg, addedSalt),
         addedSalt,
       };
@@ -277,6 +301,8 @@ async function recomputeDatabase(options: Options): Promise<void> {
       fatPer100: number | null;
       fiberPer100: number | null;
       sodiumPer100: number | null;
+      sugarsPer100: number | null;
+      saturatedFatPer100: number | null;
       gramsPerPiece: number | null;
     }>
   >`
@@ -287,6 +313,8 @@ async function recomputeDatabase(options: Options): Promise<void> {
            i."nutritionKcalPer100" AS "kcalPer100", i."nutritionProteinPer100" AS "proteinPer100",
            i."nutritionCarbsPer100" AS "carbsPer100", i."nutritionFatPer100" AS "fatPer100",
            i."nutritionFiberPer100" AS "fiberPer100", i."nutritionSodiumMgPer100" AS "sodiumPer100",
+           i."nutritionSugarsPer100" AS "sugarsPer100",
+           i."nutritionSaturatedFatPer100" AS "saturatedFatPer100",
            i."gramsPerPiece" AS "gramsPerPiece"
     FROM "Recipe" r
     JOIN "RecipeIngredient" ri ON ri."recipeId" = r.id
@@ -332,6 +360,8 @@ async function recomputeDatabase(options: Options): Promise<void> {
               fat: row.fatPer100 ?? 0,
               fiber: row.fiberPer100 ?? 0,
               sodiumMg: row.sodiumPer100 ?? 0,
+              sugars: row.sugarsPer100 ?? 0,
+              saturatedFat: row.saturatedFatPer100 ?? 0,
               gramsPerPiece: row.gramsPerPiece,
             },
     });
@@ -369,7 +399,9 @@ async function recomputeDatabase(options: Options): Promise<void> {
             nutritionKcal: stored.kcal,
             nutritionProtein: stored.protein,
             nutritionCarbs: stored.carbs,
+            nutritionSugars: stored.sugars,
             nutritionFat: stored.fat,
+            nutritionSaturatedFat: stored.saturatedFat,
             nutritionFiber: stored.fiber,
             nutritionSalt: totalSaltGrams(totals.sodiumMg, added),
             nutritionSaltAdded: added,
@@ -386,16 +418,43 @@ async function recomputeDatabase(options: Options): Promise<void> {
   );
 }
 
+/**
+ * Kategorie składników z pliku tagów — dla `--json-only`, który nie powinien
+ * wymagać bazy (przeliczenie plików katalogu na maszynie bez Dockera).
+ * Kategoria liczy się tylko dla łyżek i szczypt (dozwolone wyłącznie dla
+ * przypraw), więc wystarczy odróżnić „Przyprawy i sosy” od reszty.
+ */
+async function loadCategoriesFromTagsFile(): Promise<Map<string, string>> {
+  const raw = await readFile(
+    join(process.cwd(), CATALOG_DIR, 'ingredient-tags-pl-v1.json'),
+    'utf8',
+  );
+  const parsed = JSON.parse(raw) as {
+    ingredients: { normalizedName: string; category: string }[];
+  };
+  return new Map(
+    parsed.ingredients.map((entry) => [
+      entry.normalizedName,
+      entry.category === 'przyprawy-i-sosy'
+        ? 'Przyprawy i sosy'
+        : entry.category,
+    ]),
+  );
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
 
   const table = await loadNutritionTable();
-  const ingredients = await prisma.ingredient.findMany({
-    select: { normalizedName: true, category: true },
-  });
-  const categories = new Map(
-    ingredients.map((row) => [row.normalizedName, row.category]),
-  );
+  const categories = options.jsonOnly
+    ? await loadCategoriesFromTagsFile()
+    : new Map(
+        (
+          await prisma.ingredient.findMany({
+            select: { normalizedName: true, category: true },
+          })
+        ).map((row) => [row.normalizedName, row.category]),
+      );
 
   if (!options.dbOnly) {
     await recomputeCatalogFiles(table, categories, options);

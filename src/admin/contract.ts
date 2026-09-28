@@ -549,6 +549,10 @@ export interface Ingredient {
   carbs: number;
   fat: number;
   fiber: number;
+  /** Cukry na 100 g/ml — część `carbs`; 0 = brak danych albo naprawdę zero. */
+  sugars: number;
+  /** Tłuszcze nasycone na 100 g/ml — część `fat`. */
+  saturatedFat: number;
   gramsPerPiece: number | null;
   allergens: string[];
   dietTags: string[];

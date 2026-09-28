@@ -68,7 +68,11 @@ export type CatalogRecipeInput = {
     kcal: number;
     protein: number;
     carbs: number;
+    /** Cukry (część `carbs`); brak w starym pliku = 0. Eksport pisze zawsze. */
+    sugars?: number;
     fat: number;
+    /** Tłuszcze nasycone (część `fat`); brak = 0. Eksport pisze zawsze. */
+    saturatedFat?: number;
     fiber: number;
     /** Sól ŁĄCZNIE (g na przepis). */
     salt: number;
@@ -231,6 +235,8 @@ const ingredientRefSelect = {
   nutritionFatPer100: true,
   nutritionFiberPer100: true,
   nutritionSodiumMgPer100: true,
+  nutritionSugarsPer100: true,
+  nutritionSaturatedFatPer100: true,
   gramsPerPiece: true,
 } satisfies Prisma.IngredientSelect;
 
@@ -258,6 +264,8 @@ function toIngredientRef(row: IngredientRefRow): CatalogIngredientRef {
             fat: row.nutritionFatPer100 ?? 0,
             fiber: row.nutritionFiberPer100 ?? 0,
             sodiumMg: row.nutritionSodiumMgPer100 ?? 0,
+            sugars: row.nutritionSugarsPer100 ?? 0,
+            saturatedFat: row.nutritionSaturatedFatPer100 ?? 0,
             gramsPerPiece: row.gramsPerPiece,
           },
   };
@@ -412,6 +420,8 @@ export type CatalogRecipeColumns = {
   nutritionProtein: number;
   nutritionFat: number;
   nutritionCarbs: number;
+  nutritionSugars: number;
+  nutritionSaturatedFat: number;
   nutritionFiber: number;
   nutritionSalt: number;
   nutritionSaltAdded: number;
@@ -521,6 +531,8 @@ export function catalogRecipeColumns(
     nutritionProtein: recipe.nutrition.protein,
     nutritionFat: recipe.nutrition.fat,
     nutritionCarbs: recipe.nutrition.carbs,
+    nutritionSugars: recipe.nutrition.sugars ?? 0,
+    nutritionSaturatedFat: recipe.nutrition.saturatedFat ?? 0,
     nutritionFiber: recipe.nutrition.fiber,
     nutritionSalt: recipe.nutrition.salt,
     nutritionSaltAdded: recipe.nutrition.addedSalt ?? 0,

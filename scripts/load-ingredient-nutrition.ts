@@ -35,8 +35,39 @@ type NutritionEntry = {
   fiber: number;
   /** Sód w mg na 100 g/ml — obowiązkowy, bo z niego liczy się sól przepisu. */
   sodiumMg: number;
+  /**
+   * Cukry na 100 g/ml („w tym cukry” z etykiety UE) — CZĘŚĆ `carbs`.
+   * Opcjonalne: brak = kolumna NULL (nieznane, przepis liczy 0).
+   */
+  sugars?: number;
+  /** Tłuszcze nasycone na 100 g/ml — CZĘŚĆ `fat`. Opcjonalne jak `sugars`. */
+  saturatedFat?: number;
   gramsPerPiece?: number;
 };
+
+/** Zapas na zaokrąglenia źródeł (IŻŻ/USDA podają z różną dokładnością). */
+const PART_TOLERANCE = 0.5;
+
+/**
+ * „W tym cukry” nie może przekroczyć węglowodanów, a „w tym nasycone” —
+ * tłuszczu; wartości ujemne to literówka. Błąd przerywa ładowanie, bo takie
+ * liczby trafiłyby na etykietę każdego przepisu z tym składnikiem.
+ */
+function partProblems(entry: NutritionEntry): string[] {
+  const problems: string[] = [];
+  for (const [key, value, whole, wholeKey] of [
+    ['sugars', entry.sugars, entry.carbs, 'carbs'],
+    ['saturatedFat', entry.saturatedFat, entry.fat, 'fat'],
+  ] as const) {
+    if (value === undefined) continue;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      problems.push(`${key} musi być liczbą nieujemną`);
+    } else if (value > whole + PART_TOLERANCE) {
+      problems.push(`${key}=${value} większe niż ${wholeKey}=${whole}`);
+    }
+  }
+  return problems;
+}
 
 type NutritionCatalog = {
   version: string;
@@ -76,6 +107,11 @@ async function main(): Promise<void> {
       );
     }
 
+    const parts = partProblems(entry);
+    if (parts.length > 0) {
+      throw new Error(`${entry.normalizedName}: ${parts.join('; ')}`);
+    }
+
     const deviation = atwaterDeviation(entry);
     if (deviation !== null && Math.abs(deviation) > 0.2) {
       const fromAtwater = Math.round(
@@ -95,6 +131,8 @@ async function main(): Promise<void> {
           "nutritionFatPer100"     = ${entry.fat},
           "nutritionFiberPer100"   = ${entry.fiber},
           "nutritionSodiumMgPer100" = ${entry.sodiumMg},
+          "nutritionSugarsPer100"   = ${entry.sugars ?? null},
+          "nutritionSaturatedFatPer100" = ${entry.saturatedFat ?? null},
           "gramsPerPiece"          = ${entry.gramsPerPiece ?? null},
           "nutritionSource"        = ${catalog.version},
           "updatedAt"              = now()

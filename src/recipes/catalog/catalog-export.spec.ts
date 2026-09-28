@@ -78,7 +78,9 @@ const base: CatalogRecipeInput = {
     kcal: 600,
     protein: 20,
     carbs: 90,
+    sugars: 20,
     fat: 12,
+    saturatedFat: 6,
     fiber: 8,
     salt: 0.4,
     addedSalt: 0,
@@ -196,7 +198,9 @@ describe('eksport katalogu', () => {
       nutritionKcal: 600,
       nutritionProtein: 20,
       nutritionCarbs: 90,
+      nutritionSugars: 20,
       nutritionFat: 12,
+      nutritionSaturatedFat: 6,
       nutritionFiber: 8,
       nutritionSalt: 0.4,
       nutritionSaltAdded: 0,
@@ -243,6 +247,19 @@ describe('eksport katalogu', () => {
         { step: 2, instruction: 'Wsyp płatki.' },
       ]);
       expect(entry.image).toEqual({ prompt: 'Owsianka', imageUrl: null });
+      // Kolejność jak na etykiecie UE: „w tym cukry” po węglach, „w tym
+      // nasycone” po tłuszczu — zawsze obecne.
+      expect(Object.keys(entry.nutrition)).toEqual([
+        'kcal',
+        'protein',
+        'carbs',
+        'sugars',
+        'fat',
+        'saturatedFat',
+        'fiber',
+        'salt',
+        'addedSalt',
+      ]);
     });
 
     it('wycofany ma `isActive: false` zaraz po id; źródło zewnętrzne zostaje', () => {
