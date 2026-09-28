@@ -796,7 +796,7 @@ export const DEFS: Def[] = [
       'W piekarniku: 200°C, termoobieg; bataty 15 minut, potem z łososiem i fasolką jeszcze 15 minut.',
     ],
     photo:
-      'Pink roasted salmon fillet with golden paprika-roasted sweet potato cubes and bright green beans, glistening with lemon juice',
+      'Oven-roasted salmon fillet cooked all the way through, opaque light coral flesh visibly separating into flakes, golden-brown crisp top, next to golden paprika-roasted sweet potato cubes and bright green beans',
   },
   {
     plan: 'OB-163',

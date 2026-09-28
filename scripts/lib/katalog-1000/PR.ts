@@ -1153,7 +1153,7 @@ export const DEFS: Def[] = [
       'Rozsyp pestki na talerzu i ostudź — stwardnieją i będą chrupiące. Przechowuj w słoiku do tygodnia.',
     ],
     photo:
-      'A small handful of glossy dark green roasted pumpkin seeds coated in a savory soy glaze',
+      'Roasted pumpkin seeds, olive green and slightly puffed, lightly glazed and shiny with soy sauce and dusted with paprika',
     vessel: 'bowl',
   },
 

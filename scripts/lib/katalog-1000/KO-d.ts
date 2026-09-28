@@ -542,7 +542,7 @@ export const DEFS: Def[] = [
       'Uszka gotuj partiami w osolonej wodzie 3 minuty od wypłynięcia. Podawaj w talerzach zalane gorącym barszczem.',
     ],
     photo:
-      'Deep ruby-red clear borscht with several small twisted mushroom-filled dumplings floating in the soup',
+      'Deep ruby-red clear beetroot broth with about eight tiny pale boiled pasta dumplings shaped like small tortellini floating in it',
     vessel: 'bowl',
   },
   {
