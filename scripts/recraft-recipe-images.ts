@@ -4,6 +4,13 @@
  *   pnpm exec tsx scripts/recraft-recipe-images.ts --ids <id,id,…>
  *   pnpm exec tsx scripts/recraft-recipe-images.ts --all [--concurrency 3]
  *   pnpm exec tsx scripts/recraft-recipe-images.ts --use-raw <id>=<plik>,…
+ *   pnpm exec tsx scripts/recraft-recipe-images.ts --ids <…> --one-shot --no-upload
+ *
+ * `--one-shot` (katalog 1000, 28.09.2026 — „1 zdjęcie bez poprawek”): jedna
+ * generacja na przepis i NIC płatnego poza nią (bez wycinania tła i bez
+ * crispUpscale — surowy plik zostaje w `raw/`, więc oba da się dołożyć
+ * później przez `--use-raw`). Wynik przyjmowany zawsze; co nie przeszło
+ * kontroli, ląduje w `review` stanu i w `tmp/recipe-images/do-przegladu.md`.
  *
  * Opis dania i naczynie: `prisma/catalog/recipe-image-dishes.json`; szablon:
  * `scripts/lib/recipe-images/prompt.ts`. Stan każdego przepisu ląduje w
@@ -69,6 +76,10 @@ export type ImageState = {
   angleRatio?: number;
   /** Żadna próba nie trafiła w kąt; wzięta najwyższa — do przeglądu. */
   angleWeak?: boolean;
+  /** `--one-shot`: problemy z kontroli do przejrzenia ręcznie (puste = czysto). */
+  review?: string[];
+  /** `--one-shot`: brzeg naczynia nieznaleziony — zwykłe przycięcie środka. */
+  plainCrop?: boolean;
   /** Ostatnia poprawka nie przeszła kontroli — zostaje poprzednie zdjęcie. */
   retryFailedAt?: string;
   retryAttempts?: Array<{ seed: number; problems: string[] }>;
@@ -88,8 +99,12 @@ function parseArgs(argv: string[]) {
     return i >= 0 ? argv[i + 1] : undefined;
   };
   return {
-    ids: get('--ids')
-      ?.split(',')
+    // `--ids-file`: setki id nie mieszczą się w linii poleceń Windowsa (8191 znaków).
+    ids: (get('--ids-file')
+      ? readFileSync(get('--ids-file')!, 'utf8')
+      : get('--ids')
+    )
+      ?.split(/[\s,]+/)
       .map((s) => s.trim())
       .filter(Boolean),
     all: argv.includes('--all'),
@@ -97,6 +112,8 @@ function parseArgs(argv: string[]) {
     noUpload: argv.includes('--no-upload'),
     /** Dodatkowa kontrola obrysu całej potrawy (+0,01 $ za próbę). */
     strictEdges: argv.includes('--strict-edges'),
+    /** Jedna generacja, bez płatnych dodatków, wynik zawsze przyjęty. */
+    oneShot: argv.includes('--one-shot'),
     concurrency: Number(get('--concurrency') ?? 3),
     /** `id=plik,…` — zatwierdzone zdjęcia: tylko centrowanie i wgranie. */
     useRaw: get('--use-raw')
@@ -138,11 +155,15 @@ function createR2(): S3Client {
   });
 }
 
-async function centerOnPlate(raw: Buffer, plate: PlateEllipse) {
+async function centerOnPlate(
+  raw: Buffer,
+  plate: PlateEllipse,
+  allowCrispUpscale = true,
+) {
   const plan = planCentering(plate);
   let source = raw;
   let factor = 1;
-  if (plan.upscale > CRISP_UPSCALE_ABOVE) {
+  if (allowCrispUpscale && plan.upscale > CRISP_UPSCALE_ABOVE) {
     source = await recraftCrispUpscale(raw);
     factor =
       ((await sharp(source).metadata()).width ?? plate.width) / plate.width;
@@ -185,13 +206,14 @@ type Evaluation = {
 async function evaluate(
   raw: Buffer,
   strictEdges: boolean,
+  allowCutout = true,
 ): Promise<Evaluation> {
   const rim = await detectPlate(raw);
   const angleRatio = rim.coverage >= MIN_COVERAGE_FOR_ANGLE ? rim.k : null;
   let plate = rim;
   let detection: Evaluation['detection'] = 'rim';
   let verdict = judgePlate(rim, planCentering(rim));
-  if (!verdict.ok) {
+  if (!verdict.ok && allowCutout) {
     // Brzeg zawiódł (kubek, gruba deska) — druga opinia z wyciętego tła.
     const cutout = await recraftRemoveBackground(raw);
     const fromCutout = await detectFromCutout(cutout, rim.width, rim.height);
@@ -240,8 +262,23 @@ async function finish(
   raw: Buffer,
   seed: number,
   ev: Evaluation,
+  oneShot = false,
 ): Promise<ImageState> {
-  const { webp, plan } = await centerOnPlate(raw, ev.plate);
+  // Jedna próba z nieudaną kontrolą: plan centrowania z fałszywej elipsy
+  // potrafi wyciąć róg obrazka — wtedy zwykłe przycięcie środka.
+  const plain = oneShot && !ev.framingOk;
+  const { webp, plan } = plain
+    ? {
+        webp: await sharp(raw)
+          .resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, {
+            fit: 'cover',
+            kernel: 'lanczos3',
+          })
+          .webp({ quality: 100, effort: 6, smartSubsample: true })
+          .toBuffer(),
+        plan: { upscale: 1 },
+      }
+    : await centerOnPlate(raw, ev.plate, !oneShot);
   writeFileSync(join(WORK_DIR, 'final', `${entry.id}.webp`), webp);
   const hash = createHash('sha256').update(webp).digest('hex').slice(0, 10);
   const prefix = (process.env.R2_KEY_PREFIX?.trim() || 'recipe-images').replace(
@@ -274,6 +311,7 @@ async function finish(
     detection: ev.detection,
     angleRatio: ev.angleRatio ?? undefined,
     angleWeak: !ev.angleOk || undefined,
+    ...(oneShot ? { review: ev.problems, plainCrop: plain || undefined } : {}),
     finishedAt: new Date().toISOString(),
   };
 }
@@ -283,9 +321,19 @@ async function processRecipe(
   r2: S3Client | null,
   approvedRaw?: Buffer,
   strictEdges = false,
+  oneShot = false,
 ): Promise<ImageState> {
   const prompt = buildRecipeImagePrompt(entry.dish, entry.vessel);
   const attempts: ImageState['attempts'] = [];
+
+  if (oneShot && !approvedRaw) {
+    const seed = SEEDS[0];
+    const raw = await recraftGenerate(prompt, seed);
+    writeFileSync(join(WORK_DIR, 'raw', `${entry.id}-${seed}.webp`), raw);
+    const ev = await evaluate(raw, false, false);
+    attempts.push({ seed, problems: ev.problems });
+    return finish(entry, r2, prompt, attempts, raw, seed, ev, true);
+  }
 
   // Zdjęcie wybrane przez Rafała z prób — tylko centrowanie, bez losowania od nowa
   // (Recraft NIE odtwarza obrazka z tego samego ziarna).
@@ -364,6 +412,7 @@ async function main() {
           r2,
           approved.get(id),
           args.strictEdges,
+          args.oneShot,
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -399,7 +448,7 @@ async function main() {
       console.log(
         `[recipe-images] ${done}/${queue.length + done} ${id} ${result.status}` +
           (result.status === 'ok'
-            ? ` (próba ${tries}, k=${result.angleRatio?.toFixed(2) ?? '—'}${result.angleWeak ? ' KĄT SŁABY' : ''}, ${Math.round((result.bytes ?? 0) / 1024)} KB)`
+            ? ` (próba ${tries}, k=${result.angleRatio?.toFixed(2) ?? '—'}${result.angleWeak ? ' KĄT SŁABY' : ''}${result.review?.length ? ` DO PRZEGLĄDU: ${result.review.join('; ')}` : ''}, ${Math.round((result.bytes ?? 0) / 1024)} KB)`
             : ` ${result.error ?? result.attempts.map((a) => a.problems.join('; ')).join(' | ')}`),
       );
     }
@@ -419,6 +468,43 @@ async function main() {
     `[recipe-images] gotowe ${ok.length}/${wanted.length} (słaby kąt ${weak}), nieudane ${wanted.length - ok.length}, generacji ${generations}` +
       (stopReason ? ` — PRZERWANE: ${stopReason}` : ''),
   );
+  if (args.oneShot) writeReviewList(wanted, state, dishes);
+}
+
+/** Lista do ręcznego przeglądu po `--one-shot` — to, czego automat nie przepuścił. */
+function writeReviewList(
+  wanted: string[],
+  state: Record<string, ImageState>,
+  dishes: Map<string, DishEntry>,
+) {
+  const catalog = JSON.parse(
+    readFileSync('prisma/catalog/recipes-catalog-full-v2.json', 'utf8'),
+  ) as { recipes: Array<{ id: string; title: string }> };
+  const titles = new Map(catalog.recipes.map((r) => [r.id, r.title]));
+  const flagged = wanted.filter((id) => state[id]?.review?.length);
+  const missing = wanted.filter((id) => state[id]?.status !== 'ok');
+  const lines = [
+    '# Zdjęcia do przeglądu (--one-shot)',
+    '',
+    `Gotowe ${wanted.length - missing.length}/${wanted.length}, do przeglądu ${flagged.length}, bez zdjęcia ${missing.length}.`,
+    'Pliki: `tmp/recipe-images/final/<id>.webp` (po przycięciu), surowe: `raw/<id>-99.webp`.',
+    '',
+    '## Automat zgłosił problem',
+    '',
+    ...flagged.map(
+      (id) =>
+        `- [ ] ${titles.get(id) ?? id} — ${state[id].review!.join('; ')}${state[id].plainCrop ? ' (przycięty środek, nie talerz)' : ''} · \`${id}\` · ${dishes.get(id)?.vessel}`,
+    ),
+    '',
+    '## Bez zdjęcia (błąd albo brak środków)',
+    '',
+    ...missing.map(
+      (id) =>
+        `- ${titles.get(id) ?? id} · \`${id}\`${state[id]?.error ? ` — ${state[id].error}` : ''}`,
+    ),
+    '',
+  ];
+  writeFileSync(join(WORK_DIR, 'do-przegladu.md'), lines.join('\n'));
 }
 
 if (require.main === module) {
