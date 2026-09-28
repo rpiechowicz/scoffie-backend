@@ -198,3 +198,139 @@ export function seasonOf(date: Date): RecipeSeason {
   if (month >= 9 && month <= 11) return 'AUTUMN';
   return 'WINTER';
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Niedziela Wielkanocna (kalendarz gregoriański, algorytm Meeusa/Butchera), UTC. */
+export function easterSunday(year: number): Date {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/** Dzień w roku jako `MMDD` (liczba) — do okien, które nie zależą od roku. */
+const monthDay = (date: Date) =>
+  (date.getUTCMonth() + 1) * 100 + date.getUTCDate();
+
+/**
+ * Czy data leży w okresie okazji — wtedy planer może SAM zaproponować danie
+ * „od święta” (`OCCASIONAL`). Okna są celowo szersze niż sam dzień: święta
+ * się planuje i gotuje z wyprzedzeniem.
+ * - Wigilia i Boże Narodzenie: 1–26 grudnia;
+ * - Wielkanoc: dwa tygodnie przed Niedzielą Wielkanocną do Poniedziałku;
+ * - grill i majówka: 20 kwietnia – 15 września;
+ * - impreza: 27 grudnia – 1 stycznia (Sylwester); w pozostałe dni tylko na
+ *   prośbę — impreza nie ma pory roku, ale nie jest codziennym posiłkiem.
+ */
+export function isOccasionSeason(occasion: string, date: Date): boolean {
+  const md = monthDay(date);
+  switch (occasion) {
+    case 'CHRISTMAS_EVE':
+    case 'CHRISTMAS':
+      return md >= 1201 && md <= 1226;
+    case 'EASTER': {
+      const easter = easterSunday(date.getUTCFullYear()).getTime();
+      const day = Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+      );
+      return day >= easter - 14 * DAY_MS && day <= easter + DAY_MS;
+    }
+    case 'BARBECUE':
+      return md >= 420 && md <= 915;
+    case 'PARTY':
+      return md >= 1227 || md <= 101;
+    default:
+      return false;
+  }
+}
+
+/** Dlaczego planer nie weźmie przepisu SAM w danym dniu (ręcznie — zawsze może). */
+export type AutoPlanBlock = 'SIDE' | 'OUT_OF_SEASON' | 'OUT_OF_OCCASION';
+
+/**
+ * Czy planer może SAM zaproponować przepis na ten dzień — `null` = tak.
+ * Reguły katalogu 1000 (28.09.2026): dodatek (sok, kompot) nie zastępuje
+ * posiłku; danie sezonowe tylko w swojej porze roku; danie „od święta” tylko
+ * w okresie którejś ze swoich okazji. Wybór człowieka, wyszukiwarka
+ * i walidator zapisu planu tych reguł NIE stosują.
+ */
+export function autoPlanBlock(
+  taxonomy: Pick<RecipeTaxonomy, 'seasons' | 'occasions' | 'features'>,
+  date: Date,
+): AutoPlanBlock | null {
+  if (taxonomy.features.includes('SIDE')) return 'SIDE';
+  if (
+    taxonomy.seasons.length > 0 &&
+    !taxonomy.seasons.includes(seasonOf(date))
+  ) {
+    return 'OUT_OF_SEASON';
+  }
+  if (
+    taxonomy.features.includes('OCCASIONAL') &&
+    !taxonomy.occasions.some((occasion) => isOccasionSeason(occasion, date))
+  ) {
+    return 'OUT_OF_OCCASION';
+  }
+  return null;
+}
+
+/**
+ * Polskie słowa, po których wyszukiwarka asystenta trafia taksonomię
+ * („coś na grilla”, „wigilijne”, „włoskie”, „do pudełka”) — bez nowych
+ * pól w schematach narzędzi (limity API, patrz CLAUDE.md). ASCII, bo tekst
+ * zapytania idzie przez `normalizeText`.
+ */
+export const TAXONOMY_SEARCH_WORDS: Record<string, string> = {
+  POLISH: 'polska polskie tradycyjne',
+  ITALIAN: 'wloska wloskie wlochy',
+  SPANISH: 'hiszpanska hiszpanskie',
+  GREEK: 'grecka greckie',
+  INDIAN: 'indyjska indyjskie',
+  THAI: 'tajska tajskie',
+  MEXICAN: 'meksykanska meksykanskie',
+  AMERICAN: 'amerykanska amerykanskie',
+  SPRING: 'wiosna wiosenne',
+  SUMMER: 'lato letnie',
+  AUTUMN: 'jesien jesienne',
+  WINTER: 'zima zimowe',
+  CHRISTMAS_EVE: 'wigilia wigilijne',
+  CHRISTMAS: 'swieta swiateczne boze narodzenie',
+  EASTER: 'wielkanoc wielkanocne',
+  BARBECUE: 'grill grilla grillowe majowka',
+  PARTY: 'impreza imprezowe sylwester przyjecie goscie',
+  AIRFRYER: 'airfryer frytkownica beztluszczowa',
+  BLENDER: 'blender',
+  GRILL: 'grill grilla',
+  JUICER: 'sokowirowka wyciskarka',
+  WAFFLE_MAKER: 'gofrownica',
+  LUNCHBOX: 'lunchbox pudelko pudelka wynos pracy',
+  SIDE: 'dodatek napoj',
+};
+
+/** Słowa taksonomii przepisu (bez `OVEN` i `OTHER` — nie niosą informacji). */
+export function taxonomySearchText(taxonomy: RecipeTaxonomy): string {
+  return [
+    taxonomy.cuisine,
+    ...taxonomy.seasons,
+    ...taxonomy.occasions,
+    ...taxonomy.equipment,
+    ...taxonomy.features,
+  ]
+    .map((id) => TAXONOMY_SEARCH_WORDS[id] ?? '')
+    .filter(Boolean)
+    .join(' ');
+}

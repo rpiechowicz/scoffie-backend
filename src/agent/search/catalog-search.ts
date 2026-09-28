@@ -23,6 +23,12 @@ import {
   recipeSearchTags,
   tagGroup,
 } from '../../recipes/recipe-facets.util';
+import {
+  canonicalTaxonomy,
+  EMPTY_RECIPE_TAXONOMY,
+  taxonomySearchText,
+  type RecipeTaxonomy,
+} from '../../recipes/recipe-taxonomy';
 import { DIGEST_INGREDIENT_LIMIT } from '../catalog-digest';
 
 /**
@@ -80,6 +86,12 @@ export type SearchableRecipe = {
   /** Pięć najcięższych składników — to samo, co w digeście. */
   mainIngredients: string[];
   tags: RecipeSearchTag[];
+  /**
+   * Taksonomia (katalog 1000) — do reguł planera (`autoPlanBlock`: sezon,
+   * okazje, dodatki); jej słowa idą do `words.tags`, więc „wigilijne” czy
+   * „na grilla” trafiają bez nowych pól w schemacie narzędzi.
+   */
+  taxonomy: RecipeTaxonomy;
   /** Przepis gospodarstwa (nie z katalogu). */
   household: boolean;
   /** Słowa do dopasowania tekstu, już znormalizowane (bez polskich znaków). */
@@ -105,6 +117,13 @@ export type SearchSourceRecipe = {
   nutritionCarbs: number;
   allergens: string[];
   dietTags: string[];
+  /** Taksonomia; pominięte pole = wartość domyślna kolumny (fikstury, stare wiersze). */
+  cuisine?: string;
+  dishType?: string | null;
+  seasons?: string[];
+  occasions?: string[];
+  equipment?: string[];
+  features?: string[];
   ingredients: {
     ingredientId: string;
     name: string;
@@ -169,6 +188,14 @@ export function toSearchable(
       : null,
     ingredients,
   });
+  const taxonomy = canonicalTaxonomy({
+    cuisine: recipe.cuisine ?? EMPTY_RECIPE_TAXONOMY.cuisine,
+    dishType: recipe.dishType ?? EMPTY_RECIPE_TAXONOMY.dishType,
+    seasons: recipe.seasons ?? [],
+    occasions: recipe.occasions ?? [],
+    equipment: recipe.equipment ?? [],
+    features: recipe.features ?? [],
+  });
   return {
     id: recipe.id,
     ref,
@@ -186,10 +213,14 @@ export function toSearchable(
     ingredients,
     mainIngredients,
     tags,
+    taxonomy,
     household,
     words: {
       title: words(recipe.title),
-      tags: tags.flatMap((tag) => words(RECIPE_TAG_LABELS[tag].words)),
+      tags: [
+        ...tags.flatMap((tag) => words(RECIPE_TAG_LABELS[tag].words)),
+        ...words(taxonomySearchText(taxonomy)),
+      ],
       ingredients: ingredients.flatMap((ingredient) => words(ingredient.name)),
       description: words(recipe.description ?? ''),
     },

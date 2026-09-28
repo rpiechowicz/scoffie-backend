@@ -93,6 +93,11 @@ etapami i mierzenie efektu zmian.
   (kuchnia + rodzaj dania dla każdego przepisu) pilnuje test złoty w `catalog-export.spec.ts`. Panel zapisuje
   pola opcjonalnie (pominięte = bez zmian). `features`: `LUNCHBOX`, `SIDE` (dodatek — nie zastępuje posiłku),
   `OCCASIONAL` (planer tylko w okresie okazji). Lista nowych przepisów: `prisma/catalog/katalog-1000-lista.md`.
+  Planer asystenta (plan, podmiana, sugestie) SAM nie bierze dodatku, dania poza sezonem ani `OCCASIONAL`
+  poza okresem okazji (`autoPlanBlock`; data = najwcześniejszy planowany dzień, `planDate`) — takie przepisy
+  wchodzą do puli jako nieaktywne (liczą się do bilansu, nie są kandydatami). Wybór człowieka
+  (`portionsForChoice`), ocena planu, wyszukiwarka i walidator zapisu tych reguł NIE stosują. Słowa taksonomii
+  („wigilijne”, „na grilla”, „włoskie”) są w tekście wyszukiwarki — bez nowych pól w schematach narzędzi.
 - Widoczność przepisów (od Fazy 0, krok 3): `Recipe.isCatalog` rozdziela WSPÓLNY katalog od
   przepisów gospodarstwa. Katalog tworzy WYŁĄCZNIE import (`recipes:import:json`), a zmienia import i panel
   admina; `recipes:create` zawsze daje `isCatalog: false`. Każdy odczyt przepisów MUSI filtrować przez

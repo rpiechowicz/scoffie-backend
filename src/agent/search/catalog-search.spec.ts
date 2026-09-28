@@ -147,6 +147,39 @@ describe('searchRecipes — filtry twarde jedzących', () => {
   });
 });
 
+describe('searchRecipes — taksonomia w tekście zapytania (katalog 1000)', () => {
+  it('„wigilijne”, „na grilla”, „włoskie”, „do pudełka” trafiają po polach, nie po tytule', () => {
+    const recipes = [
+      doc('Karp pieczony z ziołami', { occasions: ['CHRISTMAS_EVE'] }),
+      doc('Szaszłyki z kurczaka', {
+        occasions: ['BARBECUE'],
+        equipment: ['GRILL'],
+      }),
+      doc('Makaron z cukinią', { cuisine: 'ITALIAN' }),
+      doc('Kanapka z indykiem', { features: ['LUNCHBOX'] }),
+      doc('Zupa pomidorowa'),
+    ];
+    const find = (text: string) =>
+      titles(searchRecipes(recipes, query({ text }), NOBODY));
+    expect(find('wigilijne')).toEqual(['Karp pieczony z ziołami']);
+    expect(find('coś na grilla')).toEqual(['Szaszłyki z kurczaka']);
+    expect(find('włoskie')).toEqual(['Makaron z cukinią']);
+    expect(find('do pudełka')).toEqual(['Kanapka z indykiem']);
+  });
+
+  it('wyszukiwarka nie stosuje reguł dnia planera — karp jest i w lipcu', () => {
+    const recipes = [
+      doc('Karp smażony', {
+        occasions: ['CHRISTMAS_EVE'],
+        features: ['OCCASIONAL'],
+      }),
+    ];
+    expect(
+      titles(searchRecipes(recipes, query({ text: 'karp' }), NOBODY)),
+    ).toEqual(['Karp smażony']);
+  });
+});
+
 describe('searchRecipes — kryteria z prośby', () => {
   it('pora: danie pasuje przez suitableMealTypes, pusta lista = mealType', () => {
     const recipes = [
