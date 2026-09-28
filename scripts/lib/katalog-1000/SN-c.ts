@@ -35,7 +35,7 @@ export const DEFS: Def[] = [
       'Wmieszaj do owsianki miód i skórkę pomarańczową, przełóż do misek i ułóż na wierzchu pomarańczę oraz orzechy.',
     ],
     photo:
-      'Dark chocolate oat porridge topped with bright orange segments, toasted chopped hazelnuts and a little grated orange zest',
+      'Dark brown cocoa oat porridge topped with bright orange segments, toasted chopped hazelnuts and a little grated orange zest',
     vessel: 'bowl',
   },
   {
@@ -102,7 +102,8 @@ export const DEFS: Def[] = [
       'Zapiekaj w piekarniku 12–14 minut, aż białka się zetną, a żółtka pozostaną miękkie. Posyp szczypiorkiem i podawaj od razu.',
     ],
     photo:
-      'Two baked eggs with runny yolks in a ramekin on a bed of soft leeks and crispy bacon cubes, with melted cheese and chopped chives',
+      'Two baked eggs with soft runny yolks nestled on a bed of soft sauteed leeks and crispy bacon cubes, ringed with bubbling cream under melted golden cheese, sprinkled with chopped chives',
+    vessel: 'bowl',
   },
 
   // ── Airfryer ──
@@ -166,7 +167,7 @@ export const DEFS: Def[] = [
       'Podawaj z jogurtem i borówkami. Upieczone placuszki przechowuj w lodówce do 3 dni i odgrzej 3 minuty w airfryerze.',
     ],
     photo:
-      'Stack of small golden baked cottage cheese pancakes with a dollop of natural yogurt and fresh blueberries',
+      'Stack of small golden baked quark pancakes with a dollop of natural yogurt and fresh blueberries',
   },
   {
     plan: 'SN-066',
@@ -258,7 +259,7 @@ export const DEFS: Def[] = [
       'Przełóż na talerze i podawaj na ciepło z jogurtem greckim.',
     ],
     photo:
-      'Warm baked cinnamon apple chunks under a golden oat and walnut crumble topping, with a spoonful of thick Greek yogurt',
+      'Warm baked cinnamon apple chunks under a golden oat and walnut crumble topping, with a dollop of thick white Greek yogurt',
   },
   {
     plan: 'SN-069',
@@ -287,7 +288,7 @@ export const DEFS: Def[] = [
       'Wyjmij koszyczki z foremek, posyp szczypiorkiem i podawaj z przekrojonymi pomidorkami koktajlowymi.',
     ],
     photo:
-      'Four ham cups with baked eggs and set yolks, sprinkled with chives, served with halved cherry tomatoes',
+      'Two golden baked ham baskets, each holding a baked egg with a set yolk over melted cheese, sprinkled with chives, with halved cherry tomatoes',
   },
   {
     plan: 'SN-070',
@@ -320,7 +321,7 @@ export const DEFS: Def[] = [
       'Ostudź muffinki na kratce. W pudełku w lodówce wytrzymają 3 dni.',
     ],
     photo:
-      'Golden oat banana muffins with bursting blueberries, one broken in half to show the moist inside',
+      'Three golden oat banana muffins with bursting blueberries, one broken in half to show the moist inside',
     vessel: 'board',
   },
   {
@@ -387,7 +388,7 @@ export const DEFS: Def[] = [
       'Podawaj z łyżką jogurtu naturalnego i posyp obficie posiekanym szczypiorkiem.',
     ],
     photo:
-      'Crispy golden paprika potato cubes with four baked eggs with runny yolks, topped with yogurt and plenty of chopped chives',
+      'Crispy golden paprika potato cubes with two baked eggs with runny yolks, a dollop of white natural yogurt and plenty of chopped chives',
   },
 
   // ── Wysokobiałkowe i keto ──
@@ -448,8 +449,7 @@ export const DEFS: Def[] = [
       'Przełóż do misek, ułóż obok rzodkiewkę i ogórek, posyp resztą szczypiorku i podawaj z pieczywem bezglutenowym.',
     ],
     photo:
-      'Cottage cheese mixed with chopped hard-boiled egg and chives, with sliced radishes, cucumber cubes and a slice of bread',
-    vessel: 'bowl',
+      'A mound of cottage cheese mixed with chopped hard-boiled egg, chives and black pepper, beside thin radish slices, diced cucumber and a slice of gluten-free bread',
   },
   {
     plan: 'SN-075',
@@ -506,7 +506,7 @@ export const DEFS: Def[] = [
       'Przełóż do misek i ułóż na wierzchu jagody.',
     ],
     photo:
-      'Creamy oat porridge enriched with cottage cheese, topped with a generous handful of fresh blueberries and a drizzle of honey',
+      'Creamy oat porridge enriched with white quark, topped with a generous handful of fresh blueberries and a drizzle of honey',
     vessel: 'bowl',
   },
   {
@@ -563,7 +563,7 @@ export const DEFS: Def[] = [
       'Przed podaniem ułóż na wierzchu maliny.',
     ],
     photo:
-      'Thick creamy chia and skyr pudding in a glass jar topped with fresh raspberries',
+      'Thick creamy white chia and skyr pudding speckled with dark chia seeds, topped with fresh red raspberries',
     vessel: 'bowl',
   },
   {
@@ -622,7 +622,7 @@ export const DEFS: Def[] = [
       'Dołóż jajka sadzone, oprósz pieprzem i podawaj od razu.',
     ],
     photo:
-      'Two sunny-side-up eggs with smoked salmon ribbons, sliced avocado, arugula and a lemon wedge',
+      'Two sunny-side-up eggs with runny yolks and cracked black pepper, pink smoked salmon ribbons, fanned avocado slices and a handful of arugula',
   },
   {
     plan: 'SN-081',
@@ -655,7 +655,7 @@ export const DEFS: Def[] = [
       'Piecz w piekarniku 18–20 minut, aż muffinki urosną i się zetną. Ostudzone przechowuj w lodówce do 3 dni.',
     ],
     photo:
-      'Golden baked egg muffins studded with bright green broccoli florets and melted cheddar, one cut in half',
+      'Three golden baked egg muffins studded with bright green broccoli florets and spring onion, topped with melted cheddar, one cut in half',
     vessel: 'board',
   },
   {
@@ -749,7 +749,7 @@ export const DEFS: Def[] = [
       'Nałóż pastę do połówek białek, posyp posiekanym koperkiem i oprósz papryką. Schłódź przed podaniem.',
     ],
     photo:
-      'Deviled egg halves piped with creamy tuna and yolk filling, garnished with fresh dill and a dusting of sweet paprika',
+      'Deviled egg halves heaped with smooth creamy tuna and yolk filling, garnished with fresh dill and a dusting of sweet paprika',
   },
   {
     plan: 'SN-085',
@@ -782,7 +782,7 @@ export const DEFS: Def[] = [
       'Ułóż jajka w naczyniu żaroodpornym i zapiekaj w piekarniku 10–12 minut, aż wierzch się zrumieni. Podawaj na ciepło.',
     ],
     photo:
-      'Halved eggs still in their shells filled with herbed egg stuffing and topped with a golden breadcrumb crust, garnished with chives',
+      'Egg halves baked in their lengthwise-cut white shells, heaped with chopped egg filling flecked with chives and dill and topped with a golden buttery breadcrumb crust',
   },
   {
     plan: 'SN-086',
@@ -816,7 +816,7 @@ export const DEFS: Def[] = [
       'Ostudź, owiń folią i schłódź w lodówce co najmniej 2 godziny. Kroi się w cienkie plastry ostrym nożem.',
     ],
     photo:
-      'Thin slices of chilled chicken roulade with a green spinach and feta spiral in the center, arranged on a platter',
+      'Overlapping thin slices of chilled golden paprika-crusted chicken roulade showing a green spinach and white feta spiral in the center',
   },
   {
     plan: 'SN-087',
@@ -856,7 +856,7 @@ export const DEFS: Def[] = [
       'Ostudź pasztet w formie, a przed krojeniem schłódź w lodówce. Przechowuj w lodówce do 4 dni.',
     ],
     photo:
-      'Slices of rustic orange-brown lentil and vegetable pate with a golden crust, garnished with fresh marjoram',
+      'Thick slices of rustic orange-brown lentil and vegetable pate with a golden baked crust and a dense, finely flecked crumb',
     vessel: 'board',
   },
   {
@@ -891,7 +891,7 @@ export const DEFS: Def[] = [
       'Ostudź schab, a następnie schłódź w lodówce co najmniej 2 godziny. Podawaj w cienkich plastrach.',
     ],
     photo:
-      'Thin slices of cold roast pork loin with a dark prune center, arranged on a platter with a herb garnish',
+      'Overlapping thin slices of cold roast pork loin with a golden-brown mustard and marjoram crust and a dark prune center',
     vessel: 'board',
   },
 ];

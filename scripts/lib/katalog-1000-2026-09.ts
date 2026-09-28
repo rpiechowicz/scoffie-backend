@@ -330,6 +330,16 @@ function buildRecipe(
     errors.push(`${where}: brak opisu zdjęcia (photo)`);
   if (/[ąćęłńóśźż]/i.test(def.photo))
     errors.push(`${where}: photo po angielsku`);
+  // Szablon promptu kończy się „no glass, no transparent dishes, no hands” i
+  // stawia danie w JEDNYM naczyniu z `vessel` — opis, który mu przeczy
+  // (słoik, szklanka, kubek, sztućce, kilka miseczek), daje losowy kadr.
+  const photoConflict = def.photo.match(
+    /\b(glass(es)?|jars?|mason|mugs?|straws?|bottles?|pitcher|hands?|fork|forks|spoons?|knife|knives|cutlery|chopsticks|text|label|cups|bowls|plates|ramekins)\b/i,
+  );
+  if (photoConflict)
+    errors.push(
+      `${where}: photo — „${photoConflict[0]}” kłóci się z szablonem zdjęcia (jedno naczynie ${def.vessel ?? 'plate'}, bez szkła i sztućców)`,
+    );
 
   // ── taksonomia ──
   const taxonomy = catalogTaxonomyOf({

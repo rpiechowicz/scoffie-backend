@@ -7,16 +7,16 @@ może zostać dopracowany, klucz zostaje. Etykiety to ZAMIAR: alergeny i tagi
 diet policzą się ze składników, a kuchnia, sezon, okazja, sprzęt i cechy idą
 do pól taksonomii (`src/recipes/recipe-taxonomy.ts`).
 
-| Kategoria | Nowe |
-|---|---|
-| Śniadania (`SN`) | 88 |
-| Drugie śniadania i lunchboxy (`DS`) | 57 |
-| Obiady (`OB`) | 195 |
-| Kolacje (`KO`) | 116 |
-| Desery i podwieczorki (`DE`) | 47 |
-| Przekąski (`PR`) | 40 |
-| Napoje (`NA`) | 29 |
-| **Razem** | **572** |
+| Kategoria                           | Nowe    |
+| ----------------------------------- | ------- |
+| Śniadania (`SN`)                    | 88      |
+| Drugie śniadania i lunchboxy (`DS`) | 57      |
+| Obiady (`OB`)                       | 195     |
+| Kolacje (`KO`)                      | 116     |
+| Desery i podwieczorki (`DE`)        | 47      |
+| Przekąski (`PR`)                    | 40      |
+| Napoje (`NA`)                       | 29      |
+| **Razem**                           | **572** |
 
 Zasady treści:
 
@@ -38,7 +38,6 @@ Zasady treści:
   na podobny i informacja dla Rafała.
 
 ## Śniadania (`SN`)
-
 
 ### Bezglutenowe i bezmleczne
 
@@ -154,7 +153,6 @@ Zasady treści:
 
 ## Drugie śniadania i lunchboxy (`DS`)
 
-
 ### Sałatki do pudełka
 
 - `DS-001` Sałatka z bulgurem, ciecierzycą i fetą — do pudełka, kuchnia grecka, wegetariańskie, na kilka dni
@@ -231,7 +229,6 @@ Zasady treści:
 - `DS-057` Sałatka makaronowa z szynką i groszkiem — do pudełka, impreza
 
 ## Obiady (`OB`)
-
 
 ### Szybkie (do 30 minut)
 
@@ -463,7 +460,6 @@ Zasady treści:
 
 ## Kolacje (`KO`)
 
-
 ### Szybkie i lekkie
 
 - `KO-001` Sałatka z kurczakiem, grejpfrutem i awokado — zima, lekkie, wysokobiałkowe, bez glutenu, do 30 min
@@ -615,7 +611,6 @@ Zasady treści:
 
 ## Desery i podwieczorki (`DE`)
 
-
 ### Boże Narodzenie
 
 - `DE-001` Makowiec zawijany — Boże Narodzenie, Wigilia
@@ -678,11 +673,10 @@ Zasady treści:
 - `DE-043` Banany z grilla z czekoladą — grill, majówka, wegetariańskie, dla dzieci
 - `DE-044` Brzoskwinie z grilla z jogurtem i miodem — grill, majówka, lato, lekkie, bez glutenu
 - `DE-045` Babeczki z kremem na imprezę — kuchnia amerykańska, impreza, dla dzieci
-- `DE-046` Sernik na zimno z galaretką — impreza, wegetariańskie
+- `DE-046` Sernik na zimno z galaretką — impreza
 - `DE-047` Brownie z orzechami włoskimi — airfryer, wegetariańskie
 
 ## Przekąski (`PR`)
-
 
 ### Impreza i Sylwester
 
@@ -734,7 +728,6 @@ Zasady treści:
 - `PR-040` Kiełbaski koktajlowe w sosie słodko-ostrym — airfryer, impreza, bez mleka
 
 ## Napoje (`NA`)
-
 
 ### Smoothie i koktajle
 

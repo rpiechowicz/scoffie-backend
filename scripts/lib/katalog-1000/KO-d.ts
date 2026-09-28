@@ -110,7 +110,7 @@ export const DEFS: Def[] = [
       'Rozchyl folię, natnij ziemniaki na krzyż, lekko ściśnij i nałóż do środka twarożek.',
     ],
     photo:
-      'Foil-wrapped baked potatoes split open with a cross cut, filled with herbed cottage cheese spread, diced radish and chopped chives',
+      'Two baked potatoes in folded-open foil, each split with a cross cut and filled with a generous dollop of white curd cheese with diced radish and chopped chives',
   },
   {
     plan: 'KO-091',
@@ -147,7 +147,7 @@ export const DEFS: Def[] = [
       'Posmaruj bułki sosem, ułóż sałatę, kotlet, pomidor i cebulę, przykryj wierzchem bułki.',
     ],
     photo:
-      'Two grilled turkey burgers in toasted sesame buns with crisp iceberg lettuce, tomato slices, red onion rings and creamy mustard yogurt sauce',
+      'One grilled turkey burger in a toasted plain bun with crisp iceberg lettuce, tomato slices, red onion rings and creamy mustard yogurt sauce',
   },
   {
     plan: 'KO-092',
@@ -179,7 +179,7 @@ export const DEFS: Def[] = [
       'Zdejmij kolby z rusztu i od razu posmaruj je masłem ziołowym.',
     ],
     photo:
-      'Four charred corn on the cob with golden kernels and dark grill spots, glistening with melting herb butter flecked with parsley and chives',
+      'Two charred corn cobs with golden kernels and dark grill spots, glistening with melting herb butter flecked with parsley and chives',
   },
   {
     plan: 'KO-093',
@@ -215,7 +215,7 @@ export const DEFS: Def[] = [
       'Podawaj łososia z rukolą, przekrojonymi pomidorkami, grillowaną cytryną i resztą koperku.',
     ],
     photo:
-      'Grilled salmon fillets with crispy skin and grill marks, charred lemon slices and fresh dill, served with arugula and halved cherry tomatoes',
+      'One grilled salmon fillet with crispy skin and grill marks, topped with fresh dill, with charred lemon slices, arugula and halved cherry tomatoes',
   },
   {
     plan: 'KO-094',
@@ -248,7 +248,7 @@ export const DEFS: Def[] = [
       'Podawaj od razu, posypane resztą natki.',
     ],
     photo:
-      'Large grilled mushroom caps filled with creamy garlic cheese stuffing under bubbling melted mozzarella, sprinkled with chopped parsley',
+      'Five large grilled mushroom caps filled with creamy garlic cheese stuffing under bubbling melted mozzarella, sprinkled with chopped parsley',
   },
   {
     plan: 'KO-095',
@@ -317,7 +317,7 @@ export const DEFS: Def[] = [
       'Rozpal grill i grilluj szaszłyki 10–12 minut, obracając co 3 minuty, aż warzywa się przypieką. Na patelni grillowej: 10 minut na średnim ogniu, z obracaniem.',
     ],
     photo:
-      'Colorful skewers of golden grilled tofu cubes, red pepper, zucchini, red onion and mushrooms with charred edges on a platter',
+      'Two colorful skewers of golden smoky grilled tofu cubes, red pepper, zucchini, red onion and mushrooms with charred edges',
   },
   {
     plan: 'KO-097',
@@ -351,7 +351,7 @@ export const DEFS: Def[] = [
       'Podawaj posypane listkami bazylii.',
     ],
     photo:
-      'Grilled red bell pepper halves with blistered skin filled with creamy crumbled feta, ricotta and sun-dried tomatoes, topped with fresh basil leaves',
+      'Four grilled red bell pepper halves with blistered skin filled with creamy crumbled feta, ricotta and sun-dried tomatoes, topped with fresh basil leaves',
   },
   {
     plan: 'KO-098',
@@ -391,7 +391,7 @@ export const DEFS: Def[] = [
       'Resztę oliwy wymieszaj z sokiem z cytryny, oregano, solą i pieprzem. Połącz bulgur z warzywami, oliwkami, posiekaną miętą i dressingiem.',
     ],
     photo:
-      'Bowl of fluffy bulgur salad with diced charred zucchini, eggplant, red pepper and onion, halved cherry tomatoes, black olive slices and fresh mint',
+      'Fluffy bulgur salad with diced charred zucchini, eggplant, red pepper and onion, halved cherry tomatoes, black olive slices and fresh mint',
     vessel: 'bowl',
   },
   {
@@ -428,7 +428,7 @@ export const DEFS: Def[] = [
       'Pokrój kurczaka w plastry, posyp resztą natki i podawaj z gorącą bagietką czosnkową.',
     ],
     photo:
-      'Sliced herb-marinated grilled chicken breast with grill marks and chopped parsley, next to a golden garlic butter baguette cut into slices',
+      'Sliced herb-marinated grilled chicken breast with grill marks and chopped parsley, next to a few thick slices of golden garlic butter baguette',
   },
   {
     plan: 'KO-100',
@@ -463,7 +463,7 @@ export const DEFS: Def[] = [
       'Skrop octem balsamicznym i posyp listkami bazylii.',
     ],
     photo:
-      'Layered grilled eggplant slices with charred grill marks, melting mozzarella and ripe tomato slices, drizzled with balsamic glaze and fresh basil leaves',
+      'Layered grilled eggplant slices with charred grill marks, melting mozzarella and ripe tomato slices, drizzled with balsamic vinegar and topped with fresh basil leaves',
   },
   {
     plan: 'KO-101',
@@ -498,7 +498,7 @@ export const DEFS: Def[] = [
       'Podawaj z ketchupem.',
     ],
     photo:
-      'Grilled skewers of browned sausage chunks alternating with red and yellow pepper, onion petals, zucchini and whole mushrooms, with a small bowl of ketchup',
+      'Two grilled skewers of browned sausage chunks alternating with red and yellow pepper, onion petals, zucchini and whole mushrooms, with a dollop of ketchup on the side',
   },
 
   // ── Wigilia ──
@@ -542,7 +542,7 @@ export const DEFS: Def[] = [
       'Uszka gotuj partiami w osolonej wodzie 3 minuty od wypłynięcia. Podawaj w talerzach zalane gorącym barszczem.',
     ],
     photo:
-      'Deep ruby-red clear borscht with small folded mushroom dumplings floating in the soup, garnished with a sprig of fresh marjoram',
+      'Deep ruby-red clear borscht with several small twisted mushroom-filled dumplings floating in the soup',
     vessel: 'bowl',
   },
   {
@@ -583,7 +583,7 @@ export const DEFS: Def[] = [
       'Makaron ugotuj osobno al dente według opisu na opakowaniu. Nałóż do talerzy, zalej zupą i posyp natką.',
     ],
     photo:
-      'Bowl of dark golden-brown mushroom soup with strips of dried forest mushrooms, sliced carrots, small elbow pasta and chopped parsley',
+      'Dark golden-brown mushroom soup with strips of dried forest mushrooms, sliced carrots, small elbow pasta and chopped parsley',
     vessel: 'bowl',
   },
   {
@@ -618,7 +618,7 @@ export const DEFS: Def[] = [
       'Podawaj rybę z ziemniakami, polaną sosem i posypaną posiekanym koperkiem.',
     ],
     photo:
-      'White cod fillets in a creamy pale horseradish sauce sprinkled with fresh dill, served with boiled potatoes',
+      'Two pieces of flaky white cod in a creamy pale horseradish sauce sprinkled with chopped dill, served with boiled potatoes',
   },
   {
     plan: 'KO-105',
@@ -649,7 +649,7 @@ export const DEFS: Def[] = [
       'Odsącz na ręczniku papierowym i podawaj z ćwiartkami reszty cytryny.',
     ],
     photo:
-      'Golden pan-fried carp steaks with crispy floured skin arranged on a plate with lemon wedges',
+      'Two golden pan-fried carp steaks with a crispy floured crust, with a lemon wedge on the side',
   },
   {
     plan: 'KO-106',
@@ -687,7 +687,7 @@ export const DEFS: Def[] = [
       'Posyp resztą natki i podawaj z pieczoną cebulą.',
     ],
     photo:
-      'Whole roasted carp with golden scored skin, lemon slices and herbs on a bed of soft roasted onion rings, sprinkled with chopped parsley',
+      'A thick portion of roasted carp with golden crispy scored skin glistening with herb butter, with roasted lemon slices on a bed of soft roasted onion rings, sprinkled with chopped parsley',
   },
   {
     plan: 'KO-107',
@@ -719,7 +719,7 @@ export const DEFS: Def[] = [
       'Podawaj śledzie z cebulą i kromkami chleba żytniego.',
     ],
     photo:
-      'Pieces of silver herring fillets layered with thin white onion slices in golden oil with allspice and bay leaves, with slices of rye bread',
+      'A few pieces of silvery herring fillet with thin white onion slices glistening in golden oil, with allspice berries and a bay leaf, and one slice of dark rye bread',
   },
   {
     plan: 'KO-108',
@@ -751,7 +751,7 @@ export const DEFS: Def[] = [
       'Podawaj śledzie posypane resztą koperku, z ciepłymi ziemniakami.',
     ],
     photo:
-      'Herring pieces in thick white sour cream sauce with diced green apple, onion and dill, served with boiled potatoes',
+      'Herring pieces in thick white sour cream sauce with finely diced apple and onion, sprinkled with chopped dill, served with two boiled potatoes',
   },
   {
     plan: 'KO-109',
@@ -784,7 +784,7 @@ export const DEFS: Def[] = [
       'Dopraw pieprzem, wyjmij liść laurowy i podawaj na ciepło.',
     ],
     photo:
-      'Bowl of braised sauerkraut and white cabbage with strips of dark forest mushrooms, browned button mushrooms and soft onion',
+      'Braised sauerkraut and white cabbage with strips of dark forest mushrooms, browned button mushrooms and soft onion',
     vessel: 'bowl',
   },
   {
@@ -820,7 +820,7 @@ export const DEFS: Def[] = [
       'Połącz makaron z kapustą, grzybami i pieczarkami z cebulą, dopraw solą i pieprzem, podsmaż razem 3 minuty.',
     ],
     photo:
-      'Square egg noodle pieces tossed with braised cabbage, sauerkraut, dark mushroom strips and golden sautéed button mushrooms and onion',
+      'Square egg noodle pieces tossed with braised cabbage, sauerkraut, dark mushroom strips and golden sauteed button mushrooms and onion',
   },
   {
     plan: 'KO-111',
@@ -856,7 +856,7 @@ export const DEFS: Def[] = [
       'Posmaruj paszteciki roztrzepanym jajkiem i piecz 20–25 minut, aż będą złote i wyrośnięte. Podawaj ciepłe do barszczu.',
     ],
     photo:
-      'Golden flaky puff pastry rolls cut diagonally showing dark mushroom filling, arranged on a plate beside a cup of red borscht',
+      'A few golden flaky egg-washed puff pastry rolls cut diagonally, the cut ends showing a dark chopped mushroom filling',
   },
   {
     plan: 'KO-112',
@@ -896,7 +896,7 @@ export const DEFS: Def[] = [
       'Ostudź 15 minut i pokrój w grube plastry.',
     ],
     photo:
-      'Golden glossy rolled yeast loaf sliced to reveal a spiral of sauerkraut and mushroom filling, on a wooden board',
+      'Two thick slices cut from a golden glossy egg-washed rolled yeast loaf, each showing a spiral of sauerkraut and mushroom filling',
     vessel: 'board',
   },
 
@@ -972,7 +972,7 @@ export const DEFS: Def[] = [
       'Tuż przed podaniem posyp pokruszonymi chipsami kukurydzianymi, żeby zostały chrupiące.',
     ],
     photo:
-      'Glass bowl showing colorful layers of red kidney beans, shredded lettuce, sweet corn, diced tomato, pepper and avocado, topped with white yogurt dressing, grated cheddar and crushed tortilla chips',
+      'A generous scoop of layered Mexican salad with red kidney beans, shredded lettuce, sweet corn, diced tomato, red pepper and avocado, topped with white lime yogurt dressing, grated orange cheddar and crushed corn tortilla chips',
     vessel: 'bowl',
   },
   {
@@ -1006,7 +1006,7 @@ export const DEFS: Def[] = [
       'Połącz tortellini z szynką i warzywami, dodaj sos i delikatnie wymieszaj. Schłodź w lodówce co najmniej 30 minut przed podaniem.',
     ],
     photo:
-      'Bowl of cheese tortellini salad with ham strips, sweet corn, diced red pepper and cucumber in a light creamy dressing, sprinkled with chives',
+      'Chilled cheese tortellini salad with ham strips, sweet corn, diced red pepper and cucumber in a light creamy dressing, sprinkled with chives',
     vessel: 'bowl',
   },
   {
@@ -1041,7 +1041,7 @@ export const DEFS: Def[] = [
       'Posmaruj bułki sosem, ułóż sałatę, kotlecik z serem, pomidorek, ogórek i cebulę, przykryj i spnij wykałaczką.',
     ],
     photo:
-      'Eight mini beef sliders with melted cheddar, cherry tomato slices, pickles and lettuce in small toasted buns pierced with wooden skewers',
+      'Two mini beef sliders with melted cheddar, cherry tomato slices, pickled cucumber, red onion rings and lettuce in small toasted buns, each held with a small wooden pick',
     vessel: 'board',
   },
 ];

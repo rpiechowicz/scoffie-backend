@@ -39,7 +39,7 @@ export const DEFS: Def[] = [
       'Rozlej chłodnik do misek, ułóż połówki jajek, a ziemniaki podaj obok, posypane resztą koperku.',
     ],
     photo:
-      'Pale green cold cucumber yogurt soup with grated cucumber, pink radish slices, chopped dill and halved hard-boiled eggs, small boiled new potatoes on the side',
+      'Pale green cold cucumber yogurt and kefir soup with coarsely grated cucumber, thin pink radish slices and chopped dill, topped with three hard-boiled egg halves',
     vessel: 'bowl',
   },
   {
@@ -74,6 +74,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Penne pasta in creamy sauce with bright green peeled broad beans, crispy bacon cubes, grated parmesan and fresh dill',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-143',
@@ -104,7 +105,7 @@ export const DEFS: Def[] = [
       'Zupę schłodź w lodówce, rozlej do misek z makaronem i udekoruj pokrojonymi truskawkami.',
     ],
     photo:
-      'Pink creamy strawberry soup with spiral pasta and halved fresh strawberries on top',
+      'Chilled pink creamy strawberry soup with spiral pasta and sliced fresh strawberries on top',
     vessel: 'bowl',
   },
   {
@@ -140,7 +141,7 @@ export const DEFS: Def[] = [
       'Na patelni roztop masło, zrumień na nim bułkę tartą przez 2 minuty. Polej knedle, posyp cukrem wymieszanym z cynamonem.',
     ],
     photo:
-      'Round potato dumplings on a plate, one cut open to reveal a dark purple plum inside, topped with golden buttery breadcrumbs and cinnamon sugar',
+      'Round potato dumplings, one cut open to reveal a dark purple plum inside, topped with golden buttery breadcrumbs and cinnamon sugar',
   },
   {
     plan: 'OB-145',
@@ -175,7 +176,7 @@ export const DEFS: Def[] = [
       'Skrop sokiem z cytryny, posyp posiekaną natką i podawaj z ziemniakami.',
     ],
     photo:
-      'Sauteed green beans with golden chicken strips, sliced garlic and chopped parsley, boiled new potatoes and a lemon wedge on the side',
+      'Sauteed green beans with golden chicken strips, sliced garlic and chopped parsley, boiled new potatoes on the side',
   },
   {
     plan: 'OB-146',
@@ -249,7 +250,7 @@ export const DEFS: Def[] = [
       'Pestki dyni upraż na suchej patelni przez 3 minuty i posyp nimi zupę przed podaniem.',
     ],
     photo:
-      'Bright orange velvety pumpkin cream soup with a swirl of coconut milk, toasted pumpkin seeds and a pinch of black pepper',
+      'Bright orange velvety pumpkin and coconut cream soup topped with toasted pumpkin seeds and a pinch of black pepper',
     vessel: 'bowl',
   },
   {
@@ -361,7 +362,7 @@ export const DEFS: Def[] = [
       'Podawaj udka z ziemniakami i owocami, polane sosem z blachy.',
     ],
     photo:
-      'Golden roasted chicken thighs on a baking tray with roasted apple wedges, soft purple plums, red onion and potato quarters glazed in pan juices',
+      'A golden honey-glazed roasted chicken thigh with roasted apple wedges, soft purple plums, red onion and potato quarters glazed in pan juices',
   },
   {
     plan: 'OB-151',
@@ -399,7 +400,7 @@ export const DEFS: Def[] = [
       'Rozlej zupę do misek i podawaj z połówkami jajek.',
     ],
     photo:
-      'Creamy golden soup with chanterelle mushrooms, potato cubes, carrot slices, chopped dill and a halved hard-boiled egg',
+      'Creamy golden soup with chanterelle mushrooms, potato cubes, carrot slices, chopped dill and two hard-boiled egg halves',
     vessel: 'bowl',
   },
   {
@@ -438,7 +439,7 @@ export const DEFS: Def[] = [
       'Jogurt wymieszaj z przeciśniętym czosnkiem i posiekanym koperkiem. Podawaj kotlety z sosem i ogórkiem pokrojonym w plasterki.',
     ],
     photo:
-      'Golden crispy millet and pumpkin patties with a bowl of garlic dill yogurt sauce and fresh cucumber slices',
+      'Four golden crispy millet and pumpkin patties with a dollop of garlic dill yogurt sauce and fresh cucumber slices',
   },
   {
     plan: 'OB-153',
@@ -474,7 +475,7 @@ export const DEFS: Def[] = [
       'Dopraw majerankiem i pieprzem, gotuj jeszcze 5 minut. Podawaj z kawałkami żeberek w każdej misce.',
     ],
     photo:
-      'Hearty sauerkraut soup with pork rib pieces, potato cubes, carrot slices and a sprinkle of marjoram in a rustic bowl',
+      'Hearty sauerkraut soup with pork rib pieces, potato cubes, carrot slices and a sprinkle of dried marjoram',
     vessel: 'bowl',
   },
   {
@@ -586,7 +587,7 @@ export const DEFS: Def[] = [
       'Orzechy posiekaj i upraż na suchej patelni. Rozlej zupę, pokrusz na wierzch kozi ser i posyp orzechami.',
     ],
     photo:
-      'Deep ruby-red beetroot cream soup topped with crumbled white goat cheese, toasted chopped walnuts and a drizzle of olive oil',
+      'Deep ruby-red beetroot cream soup topped with crumbled white goat cheese, toasted chopped walnuts',
     vessel: 'bowl',
   },
   {
@@ -623,7 +624,7 @@ export const DEFS: Def[] = [
       'Wmieszaj pęczak do kapusty z grzybami, dopraw pieprzem i podawaj z tofu na wierzchu.',
     ],
     photo:
-      'Pearl barley stewed with sauerkraut, sliced mushrooms and onion, topped with crispy golden smoked-paprika tofu cubes and dried marjoram',
+      'Pearl barley stewed with sauerkraut, sliced mushrooms and onion, topped with crispy golden smoked-paprika tofu cubes',
   },
   // ── Airfryer ──
   {
@@ -691,7 +692,7 @@ export const DEFS: Def[] = [
       'W piekarniku: frytki 220°C, termoobieg, 20–25 minut; kotlety 200°C, 15 minut na kratce.',
     ],
     photo:
-      'Beef cheeseburger with melted cheddar, lettuce, tomato, red onion and pickles in a soft sesame bun, golden fries on the side',
+      'Beef cheeseburger with melted cheddar, lettuce, tomato, red onion, pickles and ketchup in a soft toasted plain bun, golden fries on the side',
     vessel: 'board',
   },
   {
@@ -728,7 +729,7 @@ export const DEFS: Def[] = [
       'W piekarniku: 200°C, termoobieg, 20–22 minuty na blasze z papierem, w połowie odwracając.',
     ],
     photo:
-      'Golden crunchy cornflake-crusted chicken strips with boiled potatoes sprinkled with dill and a bowl of creamy cucumber salad',
+      'Golden crunchy cornflake-crusted chicken strips with boiled potatoes and a heap of creamy cucumber salad with yogurt and dill',
   },
   {
     plan: 'OB-161',
@@ -795,7 +796,7 @@ export const DEFS: Def[] = [
       'W piekarniku: 200°C, termoobieg; bataty 15 minut, potem z łososiem i fasolką jeszcze 15 minut.',
     ],
     photo:
-      'Pink roasted salmon fillet with golden sweet potato cubes, bright green beans and lemon wedges',
+      'Pink roasted salmon fillet with golden paprika-roasted sweet potato cubes and bright green beans, glistening with lemon juice',
   },
   {
     plan: 'OB-163',
@@ -908,7 +909,7 @@ export const DEFS: Def[] = [
       'W piekarniku: 220°C, termoobieg, 35–40 minut na kratce nad blachą, po obtoczeniu w sosie jeszcze 5 minut.',
     ],
     photo:
-      'Sticky glossy barbecue chicken wings with a bowl of creamy white cabbage and carrot coleslaw',
+      'Sticky glossy barbecue chicken wings with a heap of creamy white cabbage and carrot coleslaw',
   },
   {
     plan: 'OB-166',
@@ -981,7 +982,7 @@ export const DEFS: Def[] = [
       'W piekarniku: 190°C, termoobieg, 30–35 minut w naczyniu żaroodpornym.',
     ],
     photo:
-      'Four roasted red bell peppers stuffed with golden millet, crumbled feta and zucchini, lightly charred skins and chopped parsley on top',
+      'Two roasted red bell peppers with their lids, stuffed with golden millet, crumbled feta and diced zucchini, lightly charred skins and chopped parsley on top',
   },
   {
     plan: 'OB-168',
@@ -1017,6 +1018,6 @@ export const DEFS: Def[] = [
       'W piekarniku: 200°C, termoobieg, indyk 22–25 minut, brokuł obok przez ostatnie 12 minut.',
     ],
     photo:
-      'Sliced golden herb-crusted turkey breast with brown buckwheat groats and roasted broccoli florets, lemon wedge on the side',
+      'Sliced golden herb-crusted turkey breast with brown buckwheat groats and roasted broccoli florets glistening with lemon juice',
   },
 ];

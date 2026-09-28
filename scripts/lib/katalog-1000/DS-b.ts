@@ -36,6 +36,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Wheat tortilla wrap cut in half showing layers of beige hummus, bright grated carrot, fresh baby spinach and toasted pumpkin seeds',
+    vessel: 'board',
   },
   {
     plan: 'DS-031',
@@ -107,7 +108,7 @@ export const DEFS: Def[] = [
       'Wystudź muffinki na kratce i przechowuj w lodówce w szczelnym pudełku do 3 dni.',
     ],
     photo:
-      'Golden savory muffins with visible green zucchini shreds and white feta crumbs, one broken open to show a moist crumb flecked with dill',
+      'Two golden savory muffins with visible green zucchini shreds and white feta crumbs, one broken open to show a moist crumb flecked with dill',
     vessel: 'board',
   },
   {
@@ -141,7 +142,7 @@ export const DEFS: Def[] = [
       'Piecz 18–20 minut, aż frittaty urosną i będą ścięte w środku. Wystudź 5 minut przed wyjęciem z formy.',
     ],
     photo:
-      'Mini egg frittatas baked in muffin shape, golden tops studded with red pepper, pink ham cubes, spinach and chives',
+      'Four mini egg frittatas baked in muffin shape, puffed golden tops studded with red pepper, pink ham cubes, spinach, chives and melted cheese',
   },
   {
     plan: 'DS-034',
@@ -173,7 +174,7 @@ export const DEFS: Def[] = [
       'Odsącz placuszki na ręczniku papierowym i wystudź przed zapakowaniem do pudełka.',
     ],
     photo:
-      'Stack of small bright green spinach pancakes with golden edges and melted cheese spots, served on a plate with a few fresh spinach leaves',
+      'Stack of small bright green spinach pancakes with golden edges and spots of melted cheese',
   },
   {
     plan: 'DS-035',
@@ -209,7 +210,7 @@ export const DEFS: Def[] = [
       'Piecz 18–20 minut, aż będą złote i wyraźnie wyrośnięte.',
     ],
     photo:
-      'Golden flaky puff pastry rolls cut into pieces, showing a dark mushroom and onion filling with parsley, arranged on a wooden board',
+      'Short golden egg-glazed puff pastry roll pieces, flaky and risen, with cut ends showing a dark mushroom and onion filling flecked with parsley',
     vessel: 'board',
   },
   {
@@ -245,7 +246,7 @@ export const DEFS: Def[] = [
       'Posmaruj pierożki mlekiem sojowym i piecz 20–25 minut, aż będą złote.',
     ],
     photo:
-      'Golden baked half-moon dumplings with fork-crimped edges, one cut open to show an orange lentil and potato filling',
+      'Golden baked half-moon dumplings with crimped edges, one cut open to show an orange lentil and potato filling',
   },
   {
     plan: 'DS-037',
@@ -278,7 +279,7 @@ export const DEFS: Def[] = [
       'Wystudź całkowicie w formie, pokrój na 8 batonów i przechowuj w szczelnym pudełku do tygodnia.',
     ],
     photo:
-      'Rectangular golden oat bars packed with chopped walnuts, hazelnuts and sticky date pieces, stacked on a wooden board',
+      'Two rectangular golden-brown baked oat bars packed with chopped walnuts, hazelnuts and sticky date pieces',
     vessel: 'board',
   },
   {
@@ -309,7 +310,7 @@ export const DEFS: Def[] = [
       'Schłodź kulki w lodówce przez 10 minut i przechowuj w pudełku do 5 dni.',
     ],
     photo:
-      'Round cocoa-brown protein balls with visible oat flakes, a few cut in half, arranged in a small pile on a plate',
+      'Three round cocoa-brown protein balls with visible oat flakes, one cut in half',
   },
   {
     plan: 'DS-039',
@@ -344,7 +345,7 @@ export const DEFS: Def[] = [
       'Posmaruj bułeczki roztrzepanym drugim jajkiem i piecz 18–20 minut, aż będą złote.',
     ],
     photo:
-      'Soft golden glossy yeast buns, one torn open to reveal pink ham and melted yellow cheese inside, on a wooden board',
+      'Two soft golden egg-glazed yeast buns, one torn open to reveal pink ham and melted yellow cheese inside',
     vessel: 'board',
   },
   {
@@ -375,7 +376,7 @@ export const DEFS: Def[] = [
       'Zakręć słoiki i wstaw do lodówki co najmniej na 4 godziny albo na noc.',
     ],
     photo:
-      'Glass jar with a creamy white chia yogurt pudding layer topped with vivid pink raspberry puree and whole fresh raspberries',
+      'Creamy white chia yogurt pudding speckled with chia seeds, topped with a thick layer of vivid pink crushed raspberry mousse and whole fresh raspberries',
     vessel: 'cup',
   },
   {
@@ -405,7 +406,7 @@ export const DEFS: Def[] = [
       'Zakręć słoiki i odstaw do lodówki na noc, najmniej na 6 godzin. Przechowuj do 3 dni.',
     ],
     photo:
-      'Glass jar of chocolate overnight oats with a dark cocoa layer topped with glossy red sour cherries and their juice',
+      'Creamy dark brown cocoa overnight oats topped with glossy red sour cherries and their ruby juice',
     vessel: 'cup',
   },
   {
@@ -589,7 +590,7 @@ export const DEFS: Def[] = [
       'Wymieszaj sok z pomarańczy z syropem klonowym i cynamonem, polej owoce i posyp granatem oraz listkami mięty.',
     ],
     photo:
-      'Winter fruit salad with orange segments, green kiwi half-moons, apple slices and ruby pomegranate seeds dusted with cinnamon',
+      'Winter fruit salad with orange segments, green kiwi half-moons and apple slices glossy with orange-cinnamon syrup, scattered with ruby pomegranate seeds and fresh mint leaves',
     vessel: 'bowl',
   },
   {
@@ -652,7 +653,7 @@ export const DEFS: Def[] = [
       'Przekrój jajka na połówki i ułóż w pudełku z warzywami, a sos przełóż do osobnego pojemnika.',
     ],
     photo:
-      'Halved hard-boiled eggs with bright yolks next to cucumber and red pepper sticks, cherry tomatoes, radishes and a small bowl of dill yogurt dip',
+      'Halved hard-boiled eggs with bright yellow yolks next to cucumber and red pepper sticks, whole cherry tomatoes, halved radishes and a generous dollop of thick white garlic dill yogurt dip',
   },
   {
     plan: 'DS-050',
@@ -714,7 +715,7 @@ export const DEFS: Def[] = [
       'Zwiń ciasno roladki i ułóż łączeniem do dołu na talerzu albo w pudełku.',
     ],
     photo:
-      'Pink ham roll-ups filled with white herbed quark and crisp cucumber sticks, arranged in a row and sprinkled with chives',
+      'Pink ham roll-ups filled with white chive-flecked quark and crisp cucumber sticks, arranged in a row and sprinkled with chives',
   },
   {
     plan: 'DS-052',
@@ -751,8 +752,7 @@ export const DEFS: Def[] = [
       'Przełóż hummus do pudełek i zapakuj obok warzywa do maczania.',
     ],
     photo:
-      'Bright orange pumpkin hummus swirled with olive oil and cumin, surrounded by carrot, cucumber and red pepper sticks',
-    vessel: 'bowl',
+      'A generous swoosh of smooth bright orange pumpkin hummus in the middle, surrounded by crisp carrot, cucumber and red pepper sticks',
   },
   {
     plan: 'DS-053',
@@ -789,7 +789,7 @@ export const DEFS: Def[] = [
       'Wystudź kurczaka i zapakuj do pudełka z raitą w osobnym pojemniku.',
     ],
     photo:
-      'Orange-red tandoori chicken pieces with charred edges next to a bowl of creamy cucumber mint raita garnished with mint leaves',
+      'Orange-red tandoori chicken pieces with charred edges next to a generous dollop of thick white cucumber mint raita flecked with grated cucumber and chopped mint',
   },
   {
     plan: 'DS-054',
@@ -818,7 +818,7 @@ export const DEFS: Def[] = [
       'Ułóż koreczki na półmisku, skrop oliwą i octem balsamicznym, oprósz świeżo mielonym pieprzem.',
     ],
     photo:
-      'Caprese skewers with red cherry tomatoes, white mozzarella balls and green basil leaves drizzled with olive oil and balsamic glaze on a board',
+      'Short caprese skewers of red cherry tomatoes, green basil leaves and white mozzarella pieces, drizzled with olive oil and dark balsamic vinegar and dusted with black pepper',
     vessel: 'board',
   },
   {
@@ -885,7 +885,7 @@ export const DEFS: Def[] = [
       'Wystudź kotleciki, przechowuj w lodówce do 3 dni i podawaj z dipem.',
     ],
     photo:
-      'Small golden turkey and zucchini patties with green herb flecks next to a bowl of white garlic dill yogurt dip',
+      'Small golden turkey and zucchini patties flecked with green dill, next to a generous dollop of thick white garlic dill yogurt dip',
   },
   {
     plan: 'DS-057',
@@ -920,7 +920,7 @@ export const DEFS: Def[] = [
       'Połącz w dużej misce makaron, szynkę, jajka, warzywa i sos. Schłódź 20 minut przed podaniem.',
     ],
     photo:
-      'Creamy pasta salad with spiral pasta, pink ham cubes, green peas, yellow corn, chopped egg and chives',
+      'Creamy pasta salad with spiral pasta, pink ham cubes, green peas, yellow corn, diced pickled gherkin, chopped egg and chives',
     vessel: 'bowl',
   },
 ];

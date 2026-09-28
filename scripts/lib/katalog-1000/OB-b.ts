@@ -41,7 +41,7 @@ export const DEFS: Def[] = [
       'Podawaj od razu, posypane dymką.',
     ],
     photo:
-      'Glossy rice noodles tossed with seared beef strips, red pepper, carrot ribbons and zucchini, topped with sliced spring onion and a lime wedge',
+      'Glossy rice noodles tossed with seared beef strips, red pepper and zucchini sticks and thin carrot strips, topped with sliced spring onion',
     vessel: 'bowl',
   },
   {
@@ -110,7 +110,7 @@ export const DEFS: Def[] = [
       'Kuskus wymieszaj z sokiem z cytryny i połową posiekanej natki. Podawaj dorsza z sosem na kuskusie, posypanego resztą natki.',
     ],
     photo:
-      'White cod fillet nestled in blistered cherry tomatoes with black olive halves and red onion, served over fluffy couscous sprinkled with parsley',
+      'White cod fillet nestled in soft stewed cherry tomatoes with black olive halves and red onion, served over fluffy couscous sprinkled with parsley',
   },
   {
     plan: 'OB-032',
@@ -172,7 +172,7 @@ export const DEFS: Def[] = [
       'Dopraw pieprzem i podawaj gorącą.',
     ],
     photo:
-      'Thick rustic tomato soup with whole chickpeas, diced carrot and wilted spinach leaves, dusted with smoked paprika',
+      'Thick rustic smoked-paprika tomato soup with whole and partly mashed chickpeas, small diced carrot and wilted spinach leaves',
     vessel: 'bowl',
   },
   {
@@ -319,7 +319,7 @@ export const DEFS: Def[] = [
       'Podawaj z ryżem, skropione sokiem z cytryny i posypane natką.',
     ],
     photo:
-      'Browned minced beef with zucchini cubes in a light tomato sauce beside white basmati rice, topped with parsley and a lemon wedge',
+      'Browned minced beef with zucchini cubes in a light tomato sauce beside white basmati rice, topped with chopped parsley',
   },
   {
     plan: 'OB-038',
@@ -386,7 +386,7 @@ export const DEFS: Def[] = [
       'Dodaj makaron, wymieszaj, dopraw pieprzem. Podawaj posypane startym parmezanem i listkami bazylii.',
     ],
     photo:
-      'Penne pasta coated in a creamy orange sun-dried tomato sauce with sliced chicken, wilted spinach, shaved parmesan and fresh basil leaves',
+      'Penne pasta coated in a creamy orange sun-dried tomato sauce with golden chicken strips, wilted spinach, grated parmesan and fresh basil leaves',
     vessel: 'bowl',
   },
   {
@@ -531,6 +531,7 @@ export const DEFS: Def[] = [
     ],
     photo:
       'Spaghetti tossed with sauteed zucchini half-moons and garlic, topped with flaked crispy-skin salmon, grated parmesan, parsley and lemon zest',
+    vessel: 'bowl',
   },
   {
     plan: 'OB-044',
@@ -566,7 +567,7 @@ export const DEFS: Def[] = [
       'Podawaj od razu z plasterkami cytryny.',
     ],
     photo:
-      'Baked white cod fillets on a colorful bed of roasted zucchini, red pepper, red onion, baby potatoes, burst cherry tomatoes and black olives',
+      'Baked white cod fillet on a colorful bed of roasted zucchini, red pepper, red onion, baby potatoes, burst cherry tomatoes and black olives, with two lemon slices',
   },
   {
     plan: 'OB-045',
@@ -600,7 +601,7 @@ export const DEFS: Def[] = [
       'Zmiksuj zupę blenderem na gładki krem, wlej śmietankę, dopraw gałką muszkatołową i pieprzem. Podawaj posypaną pestkami.',
     ],
     photo:
-      'Smooth vibrant green broccoli cream soup with a swirl of cream and toasted pumpkin seeds on top',
+      'Smooth velvety vibrant green broccoli cream soup topped with a scattering of toasted pumpkin seeds',
     vessel: 'bowl',
   },
   {
@@ -637,7 +638,7 @@ export const DEFS: Def[] = [
       'Odstaw na 3 minuty, pokrój kurczaka w plastry i podawaj z warzywami.',
     ],
     photo:
-      'Sliced golden paprika-roasted chicken breast on a tray of caramelized carrot, parsnip-like parsley root, celeriac sticks and red onion wedges',
+      'Sliced golden paprika-roasted chicken breast with caramelized roasted sticks of carrot, white parsley root and celeriac and red onion wedges',
   },
   {
     plan: 'OB-047',
@@ -737,7 +738,7 @@ export const DEFS: Def[] = [
       'Marchew wymieszaj z oliwą i resztą koperku. Podawaj rybę z kaszą i marchewką.',
     ],
     photo:
-      'Steamed white pollock fillet with fresh dill and a lemon slice, served with golden millet and glazed carrot coins',
+      'Steamed white pollock fillet sprinkled with fresh dill, served with golden millet and carrot coins tossed with olive oil and dill',
   },
   {
     plan: 'OB-050',
@@ -808,7 +809,7 @@ export const DEFS: Def[] = [
       'Podawaj gorącą, posypaną posiekaną natką.',
     ],
     photo:
-      'Thick deep red tomato and red lentil soup with a sprinkle of chopped parsley and a drizzle of olive oil',
+      'Thick deep red tomato and red lentil soup with a sprinkle of chopped parsley',
     vessel: 'bowl',
   },
   {
@@ -847,7 +848,7 @@ export const DEFS: Def[] = [
       'Dopraw sokiem z limonki i solą, podawaj posypane kolendrą.',
     ],
     photo:
-      'Red coconut curry with cauliflower florets, chickpeas and red pepper strips, topped with fresh cilantro and lime wedges',
+      'Red coconut curry with cauliflower florets, chickpeas and red pepper strips, topped with fresh cilantro',
     vessel: 'bowl',
   },
   {
@@ -883,7 +884,7 @@ export const DEFS: Def[] = [
       'Jogurt wymieszaj z posiekanym koperkiem i przeciśniętym czosnkiem. Podawaj kotlety z kaszą i sosem.',
     ],
     photo:
-      'Small golden turkey and zucchini patties with buckwheat groats and a bowl of creamy dill yogurt sauce',
+      'Four small golden turkey and zucchini patties with brown buckwheat groats and a dollop of creamy dill and garlic yogurt sauce',
   },
   {
     plan: 'OB-054',

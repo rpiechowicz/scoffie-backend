@@ -39,7 +39,7 @@ export const DEFS: Def[] = [
       'Piecz 25 minut — środek ma zostać lekko wilgotny. Wystudź w formie, a potem pokrój na 8 kwadratów.',
     ],
     photo:
-      'Dark fudgy black bean brownie squares with a crackly top and melted dark chocolate chunks, stacked on a plate',
+      'One thick square of dark fudgy black bean brownie with a crackly top, moist center and melted dark chocolate chunks',
   },
   {
     plan: 'DE-026',
@@ -103,7 +103,7 @@ export const DEFS: Def[] = [
       'Piecz 15–18 minut, aż brzegi się zezłocą. Ostudź na blasze — po wystygnięciu ciasteczka stężeją.',
     ],
     photo:
-      'Soft round banana oat cookies with raisins and sunflower seeds, golden edges, scattered on a plate',
+      'Four soft round flat banana oat cookies with raisins and sunflower seeds and golden edges',
   },
   {
     plan: 'DE-028',
@@ -131,8 +131,8 @@ export const DEFS: Def[] = [
       'Przełóż mus do 4 pucharków i schłódź w lodówce 2 godziny. Podawaj z malinami.',
     ],
     photo:
-      'Airy dark chocolate mousse in small glass cups, topped with fresh raspberries and a light dusting of cocoa',
-    vessel: 'bowl',
+      'Airy, silky dark chocolate mousse topped with a few fresh raspberries',
+    vessel: 'cup',
   },
   {
     plan: 'DE-029',
@@ -163,7 +163,7 @@ export const DEFS: Def[] = [
       'Schłódź w lodówce co najmniej godzinę, potem pokrój na 8 batoników. Przechowuj w lodówce do 5 dni.',
     ],
     photo:
-      'Chewy oat protein bars with peanut butter, drizzled with thin stripes of dark chocolate, cut and stacked on a board',
+      'Two chewy oat and peanut butter protein bars drizzled with thin stripes of dark chocolate, one resting across the other',
     vessel: 'board',
   },
   {
@@ -224,8 +224,8 @@ export const DEFS: Def[] = [
       'Schłódź w lodówce 2–3 godziny, aż galaretka całkiem stężeje.',
     ],
     photo:
-      'Layered dessert glasses with white yogurt at the bottom and clear red strawberry jelly filled with strawberries and blueberries',
-    vessel: 'bowl',
+      'Glossy clear red jelly set over a white honey yogurt layer, with quartered strawberries and blueberries suspended in the jelly',
+    vessel: 'cup',
   },
   {
     plan: 'DE-032',
@@ -255,8 +255,8 @@ export const DEFS: Def[] = [
       'Schłódź w lodówce co najmniej 3 godziny, a przed podaniem oprósz kakao przez sitko.',
     ],
     photo:
-      'Layered tiramisu in glass cups with coffee-soaked sponge fingers, thick white skyr cream and a dusting of cocoa powder',
-    vessel: 'bowl',
+      'Layered tiramisu of coffee-soaked sponge fingers and thick white skyr cream, the top evenly dusted with cocoa powder',
+    vessel: 'cup',
   },
   {
     plan: 'DE-033',
@@ -286,8 +286,8 @@ export const DEFS: Def[] = [
       'Przełóż budyń do 4 pucharków, ułóż ananasa i posyp wiórkami. Podawaj ciepły albo schłodzony.',
     ],
     photo:
-      'Smooth white coconut pudding in glass cups topped with bright yellow diced pineapple and golden toasted coconut flakes',
-    vessel: 'bowl',
+      'Smooth creamy white coconut pudding topped with bright yellow diced pineapple and golden toasted desiccated coconut',
+    vessel: 'cup',
   },
   {
     plan: 'DE-034',
@@ -320,7 +320,7 @@ export const DEFS: Def[] = [
       'Rozłóż ciasto do papilotek i piecz 22–25 minut, aż patyczek wbity w środek będzie suchy. Ostudź na kratce.',
     ],
     photo:
-      'Golden wholemeal banana muffins in paper cases with juicy blueberries bursting through the domed tops',
+      'One golden wholemeal banana muffin in a paper case with juicy blueberries bursting through the domed top',
   },
   {
     plan: 'DE-035',
@@ -349,8 +349,8 @@ export const DEFS: Def[] = [
       'Przelej budyń do 2 pucharków, ułóż resztę malin i posyp migdałami.',
     ],
     photo:
-      'Smooth pink millet raspberry pudding in two glass cups topped with whole raspberries and toasted chopped almonds',
-    vessel: 'bowl',
+      'Smooth pink millet raspberry pudding topped with whole fresh raspberries and toasted chopped almonds',
+    vessel: 'cup',
   },
   // ── Kuchnie świata ──
   {
@@ -380,7 +380,7 @@ export const DEFS: Def[] = [
       'Wystudź, a potem schłódź w lodówce co najmniej 3 godziny. Obwiedź nożem brzegi i odwróć flan na talerz, żeby karmel spłynął.',
     ],
     photo:
-      'Glossy golden caramel flan unmolded on a plate, smooth custard with amber caramel sauce pooling around it',
+      'A wedge of glossy golden caramel flan with smooth set custard, amber caramel sauce pooling around it',
   },
   {
     plan: 'DE-037',
@@ -409,7 +409,7 @@ export const DEFS: Def[] = [
       'Przełóż ryż do 4 miseczek i polej musem truskawkowym.',
     ],
     photo:
-      'Creamy rice pudding in bowls topped with a bright red fresh strawberry mousse and a halved strawberry',
+      'Creamy white rice pudding topped with a thick layer of bright red fresh strawberry puree',
     vessel: 'bowl',
   },
   {
@@ -444,7 +444,7 @@ export const DEFS: Def[] = [
       'Śmietankę podgrzej do wrzenia, zdejmij z ognia, dodaj połamaną czekoladę i mieszaj, aż sos będzie gładki. Podawaj churros z sosem do maczania.',
     ],
     photo:
-      'Golden ridged churros coated in cinnamon sugar next to a small cup of thick glossy dark chocolate dipping sauce',
+      'A few golden ridged churros coated in cinnamon sugar, with a small pool of thick glossy dark chocolate sauce on the side of the plate',
   },
   {
     plan: 'DE-039',
@@ -476,7 +476,7 @@ export const DEFS: Def[] = [
       'Piecz 30–35 minut, aż ciasto będzie złociste. Wystudź w formie przed krojeniem na 8 kawałków.',
     ],
     photo:
-      'Golden Italian crostata with a shortcrust lattice top over glossy orange apricot jam, one slice cut out',
+      'A slice of golden Italian crostata with a shortcrust lattice top over glossy orange apricot jam',
   },
   {
     plan: 'DE-040',
@@ -504,7 +504,7 @@ export const DEFS: Def[] = [
       'Migdały pokrój w słupki. Rozlej kheer do miseczek i posyp migdałami — podawaj ciepły albo schłodzony.',
     ],
     photo:
-      'Creamy Indian kheer rice pudding in bowls garnished with slivered almonds, plump raisins and a pinch of ground cardamom',
+      'Thick creamy ivory Indian kheer rice pudding with plump raisins, garnished with slivered almonds',
     vessel: 'bowl',
   },
   {
@@ -567,7 +567,7 @@ export const DEFS: Def[] = [
       'Piecz 10–12 minut, aż brzegi się zezłocą, a środek będzie jeszcze miękki. Zostaw na blasze na 5 minut, potem przełóż na kratkę.',
     ],
     photo:
-      'Stack of golden chocolate chip cookies with crisp edges, soft centres and melting milk chocolate chunks',
+      'Two golden chocolate chip cookies with crisp edges, soft centers and melting milk chocolate chunks',
   },
   // ── Grill i impreza ──
   {
@@ -598,7 +598,7 @@ export const DEFS: Def[] = [
       'Rozchyl folię, posyp banany orzechami i szczyptą cynamonu i podawaj od razu z łyżeczkami.',
     ],
     photo:
-      'Grilled bananas in blackened peels split open, filled with melted milk chocolate and sprinkled with chopped hazelnuts',
+      'One grilled banana in its blackened peel, split open lengthwise and filled with melted milk chocolate, sprinkled with chopped hazelnuts and a pinch of cinnamon',
   },
   {
     plan: 'DE-044',
@@ -631,7 +631,7 @@ export const DEFS: Def[] = [
       'Ułóż brzoskwinie na talerzu, nałóż do każdej łyżkę jogurtu greckiego, polej miodem, oprósz cynamonem i posyp migdałami i listkami mięty.',
     ],
     photo:
-      'Caramelised grilled peach halves with char marks, dollops of thick Greek yogurt, drizzled honey, chopped almonds and mint leaves',
+      'Two caramelized grilled peach halves with char marks, each with a dollop of thick Greek yogurt, drizzled with honey, dusted with cinnamon and sprinkled with toasted chopped almonds and a few mint leaves',
   },
   {
     plan: 'DE-045',
@@ -669,7 +669,7 @@ export const DEFS: Def[] = [
       'Wyciśnij krem na babeczki i udekoruj każdą malinami.',
     ],
     photo:
-      'Vanilla cupcakes with tall swirls of white mascarpone frosting, each topped with fresh raspberries, arranged on a plate',
+      'One vanilla cupcake in a paper case with a tall piped swirl of white mascarpone frosting, topped with fresh raspberries',
   },
   {
     plan: 'DE-046',
@@ -736,6 +736,6 @@ export const DEFS: Def[] = [
       'Wystudź w formie co najmniej 30 minut i pokrój na 6 kawałków.',
     ],
     photo:
-      'Fudgy square pieces of dark chocolate brownie with a shiny crackled top and chopped walnuts, on a plate',
+      'One thick square of fudgy dark chocolate brownie with a shiny crackled top and chopped walnuts',
   },
 ];

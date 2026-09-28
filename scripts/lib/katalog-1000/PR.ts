@@ -79,7 +79,7 @@ export const DEFS: Def[] = [
       'Podawaj od razu z resztą salsy i ćwiartkami limonki.',
     ],
     photo:
-      'Golden crispy rolled corn taquitos stacked on a plate with a small bowl of red tomato salsa and lime wedges',
+      'Two golden crispy rolled corn taquitos with chicken and cheddar filling peeking out of the ends, with a small mound of red tomato salsa and a lime wedge on the side',
   },
   {
     plan: 'PR-002',
@@ -116,7 +116,7 @@ export const DEFS: Def[] = [
       'Przełóż guacamole do miseczki i podawaj z ostudzonymi chipsami.',
     ],
     photo:
-      'Crispy golden corn tortilla chips around a bowl of chunky green guacamole with diced tomato, red onion and fresh coriander',
+      'A mound of chunky green guacamole with diced tomato, red onion, chili and cilantro on one side of the board, with crispy golden paprika corn tortilla chips arranged beside it',
     vessel: 'board',
   },
   {
@@ -149,7 +149,7 @@ export const DEFS: Def[] = [
       'Wyjmij tartaletki z foremki, skrop miodem i posyp tymiankiem. Podawaj ciepłe albo letnie.',
     ],
     photo:
-      'Golden puff pastry tartlets filled with creamy goat cheese, glossy red cranberry sauce, chopped walnuts and a drizzle of honey',
+      'Two golden puff pastry tartlets filled with glossy red cranberry sauce, soft goat cheese and chopped walnuts, drizzled with honey and sprinkled with thyme',
     vessel: 'board',
   },
   {
@@ -181,7 +181,7 @@ export const DEFS: Def[] = [
       'Piecz 14–16 minut, aż będą złociste i chrupiące. Ostudź na kratce.',
     ],
     photo:
-      'Long golden breadsticks coated in toasted sesame seeds, stacked loosely on a wooden board',
+      'Four golden crispy breadsticks coated in toasted sesame seeds, lying loosely side by side',
     vessel: 'board',
   },
   {
@@ -218,7 +218,7 @@ export const DEFS: Def[] = [
       'Podawaj kulki od razu, z ciepłym sosem pomidorowym do maczania.',
     ],
     photo:
-      'Golden breaded mozzarella balls, one broken open with stretchy melted cheese, next to a small bowl of red tomato basil dip',
+      'A few golden breaded mozzarella balls, one broken open with stretchy melted cheese, with a small pool of warm red tomato sauce on the side',
   },
   {
     plan: 'PR-006',
@@ -252,7 +252,7 @@ export const DEFS: Def[] = [
       'Przelej miód do małej miseczki, postaw na desce i podawaj od razu.',
     ],
     photo:
-      'Cheese board with wedges of camembert, gouda sticks, blue cheese and goat cheese slices, red grapes, pear slices, dried figs, walnuts and a small bowl of honey',
+      'Wedges of camembert, gouda sticks, thick slices of blue cheese and goat cheese with small clusters of red grapes, thin pear slices, halved dried figs and walnuts, the goat cheese drizzled with honey',
     vessel: 'board',
   },
   {
@@ -294,7 +294,7 @@ export const DEFS: Def[] = [
       'Podawaj ciepłe, najlepiej od razu po upieczeniu.',
     ],
     photo:
-      'Golden crispy triangular samosas, one cut open to show yellow spiced potato and green pea filling, with fresh coriander and lemon wedges',
+      'Three golden crispy baked triangular samosas, one cut open to show yellow spiced potato and green pea filling flecked with cilantro',
   },
   {
     plan: 'PR-008',
@@ -321,7 +321,7 @@ export const DEFS: Def[] = [
       'Przesyp popcorn do dużej miski, polej masłem, posól i wymieszaj rękami albo potrząsając miską.',
     ],
     photo:
-      'Large bowl of fluffy white popcorn glistening with melted butter and a sprinkle of salt',
+      'A heap of fluffy white popcorn glistening with melted butter and sprinkled with salt',
     vessel: 'bowl',
   },
   {
@@ -355,7 +355,7 @@ export const DEFS: Def[] = [
       'Podawaj gorące ziemniaczki z dipem czosnkowym.',
     ],
     photo:
-      'Golden roasted baby potatoes with crispy skins and rosemary next to a bowl of thick white garlic yogurt dip with dill',
+      'Golden roasted baby potatoes with crispy paprika skins flecked with rosemary, with a generous dollop of thick white garlic yogurt dip with dill',
   },
   {
     plan: 'PR-010',
@@ -384,7 +384,7 @@ export const DEFS: Def[] = [
       'Piecz 15–18 minut, aż boczek się wytopi i zrumieni. Podawaj ciepłe.',
     ],
     photo:
-      'Crispy bacon-wrapped prunes held with wooden toothpicks, glossy and browned, arranged on a white plate',
+      'Three crispy browned bacon-wrapped prunes, each held with a wooden toothpick, dusted with black pepper',
   },
   {
     plan: 'PR-011',
@@ -414,7 +414,7 @@ export const DEFS: Def[] = [
       'Na patelni grillowej: przekrój bagietkę wzdłuż, posmaruj masłem i opiekaj po 3–4 minuty z każdej strony. Podawaj ciepłą.',
     ],
     photo:
-      'Sliced golden baguette with grill marks, melted garlic herb butter and green parsley between the slices, on a wooden board',
+      'A short section of golden grilled baguette with grill marks, cut into thick slices almost all the way through, with melted garlic butter and green parsley between the slices',
     vessel: 'board',
   },
   {
@@ -445,7 +445,7 @@ export const DEFS: Def[] = [
       'Wstaw na 10 minut do lodówki, aż czekolada stężeje, i podawaj.',
     ],
     photo:
-      'Colourful fruit skewers with strawberries, green grapes, pineapple and banana drizzled with thin streaks of dark chocolate',
+      'Three short colorful fruit skewers with strawberries, green grapes, pineapple cubes and banana slices, drizzled with thin set streaks of dark chocolate',
     vessel: 'board',
   },
   {
@@ -479,7 +479,7 @@ export const DEFS: Def[] = [
       'Podawaj gorące na wykałaczkach, z sosem chili słodkim do maczania.',
     ],
     photo:
-      'Golden sesame-crusted chicken bites on toothpicks with a small bowl of glossy orange sweet chili dipping sauce',
+      'Golden sesame-crusted chicken bites, a few with wooden toothpicks, with a small pool of glossy orange sweet chili sauce on the side',
   },
   {
     plan: 'PR-014',
@@ -512,7 +512,7 @@ export const DEFS: Def[] = [
       'Przelej dip do miseczki, udekoruj plasterkami jalapeño i podawaj ciepły z chipsami kukurydzianymi.',
     ],
     photo:
-      'Bowl of smooth golden cheddar cheese dip topped with green jalapeno slices, surrounded by crunchy corn tortilla chips',
+      'Smooth glossy golden cheddar cheese dip topped with green jalapeno slices, with a few crunchy corn tortilla chips tucked into the edge of the dip',
     vessel: 'bowl',
   },
   {
@@ -546,7 +546,7 @@ export const DEFS: Def[] = [
       'Odstaw salsę na 10 minut, żeby smaki się połączyły, i podawaj z chipsami kukurydzianymi.',
     ],
     photo:
-      'Colourful fresh tomato salsa with yellow sweet corn, red onion and green coriander in a bowl beside corn tortilla chips',
+      'Colorful fresh diced tomato salsa with yellow sweet corn, red onion, chili and green cilantro, with a few corn tortilla chips tucked into the edge of the salsa',
     vessel: 'bowl',
   },
   {
@@ -581,8 +581,7 @@ export const DEFS: Def[] = [
       'Podawaj ciepłe precle z sosem serowym do maczania.',
     ],
     photo:
-      'Shiny dark golden soft pretzels sprinkled with coarse salt next to a small bowl of creamy yellow cheddar cheese sauce',
-    vessel: 'board',
+      'Two shiny dark golden soft pretzels sprinkled with coarse salt, with a small pool of creamy yellow cheddar cheese sauce on the side',
   },
   {
     plan: 'PR-017',
@@ -616,7 +615,7 @@ export const DEFS: Def[] = [
       'Podawaj od razu z sosem chili słodkim i ćwiartkami limonki.',
     ],
     photo:
-      'Crispy golden breaded shrimp with tails on, arranged around a small bowl of glossy sweet chili sauce with lime wedges',
+      'Six crispy golden breaded shrimp with tails on, with a small pool of glossy sweet chili sauce and a lime wedge on the side',
   },
   {
     plan: 'PR-018',
@@ -649,8 +648,8 @@ export const DEFS: Def[] = [
       'Oprósz słodką papryką, udekoruj cząstką cytryny i podawaj schłodzone.',
     ],
     photo:
-      'Classic shrimp cocktail in a glass bowl with shredded iceberg lettuce, avocado cubes, pink shrimp and creamy pink cocktail sauce dusted with paprika',
-    vessel: 'bowl',
+      'Classic shrimp cocktail: finely shredded iceberg lettuce and avocado cubes topped with pink shrimp and creamy pink cocktail sauce dusted with paprika, with a lemon wedge',
+    vessel: 'cup',
   },
   {
     plan: 'PR-019',
@@ -681,7 +680,7 @@ export const DEFS: Def[] = [
       'Przełóż na półmisek, polej sokiem z patelni, posyp posiekaną natką i podawaj z cząstkami cytryny.',
     ],
     photo:
-      'Pink sautéed shrimp glistening in garlicky olive oil with chopped parsley, chili flakes and lemon wedges on a white platter',
+      'Pink seared shrimp with tails on glistening in garlicky lemon olive oil, sprinkled with chopped parsley and chili flakes, with lemon wedges',
   },
 
   // ─── Chrupiące i fit ───
@@ -750,7 +749,7 @@ export const DEFS: Def[] = [
       'Przełóż dip do miseczki, zrób łyżką zagłębienie, wlej resztę oliwy i podawaj z warzywami.',
     ],
     photo:
-      'Creamy white bean dip swirled with olive oil and dried rosemary, surrounded by orange carrot sticks, celery and red pepper strips',
+      'A thick swoosh of creamy white bean dip spread across one side of the board, with a little pool of golden olive oil in its hollow, and orange carrot sticks, celery sticks and red pepper strips arranged beside it',
     vessel: 'board',
   },
   {
@@ -781,7 +780,7 @@ export const DEFS: Def[] = [
       'Wymieszaj orzechy z żurawiną, morelami i rodzynkami, przesyp do szczelnego słoika. Przechowuj do 2 tygodni i odmierzaj po garści (około 40 g) na porcję.',
     ],
     photo:
-      'Bowl of mixed roasted almonds, hazelnuts, walnuts and pumpkin seeds with red dried cranberries, orange apricot strips and raisins',
+      'A small handful of mixed roasted almonds, hazelnuts, walnuts and pumpkin seeds with red dried cranberries, orange dried apricot strips and raisins',
     vessel: 'bowl',
   },
   {
@@ -813,7 +812,7 @@ export const DEFS: Def[] = [
       'Zalej oliwki marynatą, wymieszaj i odstaw do lodówki na co najmniej 2 godziny, najlepiej na noc. Wyjmij 15 minut przed podaniem.',
     ],
     photo:
-      'Small bowl of glossy green and black olives in golden olive oil with garlic slices, lemon zest, oregano and red chili flakes',
+      'Glossy green and black olives in golden olive oil with thin garlic slices, lemon zest, oregano and red chili flakes',
     vessel: 'bowl',
   },
   {
@@ -842,7 +841,7 @@ export const DEFS: Def[] = [
       'Ostudź na blasze — migdały stwardnieją i zrobią się chrupiące. Przechowuj w szczelnym słoiku do tygodnia.',
     ],
     photo:
-      'Roasted whole almonds coated in rusty red smoked paprika in a small ceramic bowl',
+      'A small handful of roasted whole almonds coated in rusty red smoked paprika seasoning',
     vessel: 'bowl',
   },
   {
@@ -907,7 +906,7 @@ export const DEFS: Def[] = [
       'Podawaj gorące frytki z dipem.',
     ],
     photo:
-      'Golden roasted celeriac fries with browned edges next to a bowl of thick white yogurt dip with chopped chives',
+      'Golden roasted celeriac fries with browned edges and a dusting of paprika, with a generous dollop of thick white garlic yogurt dip with chopped chives',
   },
   {
     plan: 'PR-027',
@@ -940,7 +939,7 @@ export const DEFS: Def[] = [
       'Podawaj od razu, póki są chrupiące.',
     ],
     photo:
-      'Golden crispy zucchini fries coated in parmesan breadcrumbs, piled on a plate with a sprinkle of grated parmesan and oregano',
+      'Golden crispy zucchini fries coated in parmesan and oregano breadcrumbs, loosely piled',
   },
   {
     plan: 'PR-028',
@@ -972,7 +971,7 @@ export const DEFS: Def[] = [
       'Ułóż warzywa wokół miseczki z dipem i podawaj od razu.',
     ],
     photo:
-      'Colourful crudités of carrot, cucumber, red pepper sticks and halved radishes around a bowl of white herb yogurt dip with dill and chives',
+      'A thick swoosh of white herb yogurt dip flecked with dill and chives spread across one side of the board, with carrot, cucumber and red pepper sticks and halved radishes arranged beside it',
     vessel: 'board',
   },
   {
@@ -1003,7 +1002,7 @@ export const DEFS: Def[] = [
       'Praż 12–14 minut, mieszając w połowie, aż orzechy się zezłocą. Ostudź na blasze, a potem rozdziel posklejane kawałki.',
     ],
     photo:
-      'Glossy honey-roasted walnuts, hazelnuts and almonds flecked with rosemary in a small rustic bowl',
+      'A small handful of glossy honey-roasted walnuts, hazelnuts and almonds flecked with rosemary',
     vessel: 'bowl',
   },
   {
@@ -1035,7 +1034,7 @@ export const DEFS: Def[] = [
       'Ostudź w uchylonym piekarniku i połam krakersy wzdłuż nacięć. Przechowuj w puszce do tygodnia.',
     ],
     photo:
-      'Rustic crispy seed crackers with flax, chia, sunflower, pumpkin and sesame seeds stacked on a wooden board',
+      'A few rustic crispy rectangular seed crackers packed with flax, chia, sunflower, pumpkin and sesame seeds, loosely stacked',
     vessel: 'board',
   },
   {
@@ -1067,7 +1066,7 @@ export const DEFS: Def[] = [
       'Napełnij pomidorki pastą za pomocą łyżeczki albo woreczka z odciętym rogiem i ułóż na półmisku. Podawaj schłodzone.',
     ],
     photo:
-      'Red cherry tomatoes stuffed with white herbed cottage cheese, topped with chives and dill, arranged on a white platter',
+      'Five hollowed red cherry tomatoes filled with smooth white curd cheese paste flecked with chives and dill',
   },
   {
     plan: 'PR-032',
@@ -1093,7 +1092,7 @@ export const DEFS: Def[] = [
       'Podawaj od razu, zanim jabłka ściemnieją.',
     ],
     photo:
-      'Crisp apple rings spread with creamy peanut butter, sprinkled with chopped peanuts and cinnamon on a plate',
+      'Crisp cored apple rings spread with a thin layer of creamy peanut butter, sprinkled with chopped peanuts and a dusting of cinnamon',
   },
   {
     plan: 'PR-033',
@@ -1126,7 +1125,7 @@ export const DEFS: Def[] = [
       'Wyszoruj młode marchewki, zostawiając kawałek natki, i przekrój grubsze wzdłuż. Podawaj z hummusem.',
     ],
     photo:
-      'Bunch of young orange carrots with short green tops beside a bowl of smooth hummus drizzled with olive oil and paprika',
+      'A thick swoosh of smooth hummus spread across one side of the board, drizzled with olive oil and dusted with paprika, with a few young orange carrots with short green tops arranged beside it',
     vessel: 'board',
   },
   {
@@ -1154,7 +1153,7 @@ export const DEFS: Def[] = [
       'Rozsyp pestki na talerzu i ostudź — stwardnieją i będą chrupiące. Przechowuj w słoiku do tygodnia.',
     ],
     photo:
-      'Glossy dark green roasted pumpkin seeds coated in soy sauce glaze in a small ceramic bowl',
+      'A small handful of glossy dark green roasted pumpkin seeds coated in a savory soy glaze',
     vessel: 'bowl',
   },
 
@@ -1190,7 +1189,7 @@ export const DEFS: Def[] = [
       'Podawaj gorące z ketchupem do maczania.',
     ],
     photo:
-      'Golden breaded cauliflower nuggets piled on a plate with a small bowl of red ketchup',
+      'Golden crispy breaded cauliflower nuggets, loosely piled, with a small pool of red ketchup on the side',
   },
   {
     plan: 'PR-036',
@@ -1224,7 +1223,7 @@ export const DEFS: Def[] = [
       'Podawaj od razu, póki panierka jest chrupiąca.',
     ],
     photo:
-      'Stack of golden crispy breaded onion rings on a plate, crunchy coating with visible crumbs',
+      'A loose low pile of golden crispy breaded onion rings with a crunchy coating of visible crumbs',
   },
   {
     plan: 'PR-037',
@@ -1260,7 +1259,7 @@ export const DEFS: Def[] = [
       'Podawaj gorące pieczarki z sosem czosnkowym.',
     ],
     photo:
-      'Golden breaded whole button mushrooms on a plate with a bowl of creamy white garlic dill sauce',
+      'Golden breaded whole button mushrooms with a generous dollop of creamy white garlic dill sauce on the side',
   },
   {
     plan: 'PR-038',
@@ -1290,7 +1289,7 @@ export const DEFS: Def[] = [
       'Posól frytki zaraz po wyjęciu i podawaj gorące.',
     ],
     photo:
-      'Golden crispy homemade french fries dusted with red paprika seasoning in a paper-lined basket style pile on a plate',
+      'A loose pile of golden crispy homemade french fries dusted with red paprika seasoning',
   },
   {
     plan: 'PR-039',
@@ -1324,7 +1323,7 @@ export const DEFS: Def[] = [
       'Piecz w 200°C przez 10–12 minut, aż się zezłocą. W piekarniku: 220°C, termoobieg, 15–18 minut na blasze z papierem. Podawaj ciepłe.',
     ],
     photo:
-      'Golden breaded potato balls, one broken open revealing melted stretchy cheese and green chives inside',
+      'Four golden breaded potato balls, one broken open revealing melted stretchy cheese and green chives inside',
   },
   {
     plan: 'PR-040',
@@ -1357,7 +1356,7 @@ export const DEFS: Def[] = [
       'Posyp posiekaną dymką i podawaj z wykałaczkami.',
     ],
     photo:
-      'Glossy cocktail sausages coated in sticky red sweet chili glaze, sprinkled with sliced green onion, with toothpicks in a bowl',
+      'Glossy cocktail sausages with cross-cut splayed ends, coated in sticky red sweet chili glaze and sprinkled with sliced green onion, a few pierced with wooden toothpicks',
     vessel: 'bowl',
   },
 ];

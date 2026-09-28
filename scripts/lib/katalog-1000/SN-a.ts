@@ -95,7 +95,7 @@ export const DEFS: Def[] = [
       'Podawaj placuszki z jogurtem naturalnym i borówkami.',
     ],
     photo:
-      'Stack of small golden buckwheat banana pancakes with a spoonful of natural yogurt and fresh blueberries',
+      'Stack of small golden-brown buckwheat banana pancakes topped with a dollop of white natural yogurt and fresh blueberries',
   },
   {
     plan: 'SN-004',
@@ -128,7 +128,7 @@ export const DEFS: Def[] = [
       'Awokado przekrój, wyjmij pestkę i pokrój miąższ w plastry. Ułóż na hashu i posyp posiekaną natką pietruszki.',
     ],
     photo:
-      'Skillet of golden roasted sweet potato cubes with red onion and bell pepper, two fried eggs with runny yolks, sliced avocado and chopped parsley',
+      'Golden pan-fried sweet potato hash with red onion and diced red bell pepper, topped with two eggs with runny yolks, fanned avocado slices and chopped parsley',
   },
   {
     plan: 'SN-005',
@@ -161,7 +161,7 @@ export const DEFS: Def[] = [
       'Piecz frittatę 15–18 minut, aż środek się zetnie, a brzegi lekko zrumienią. Odstaw na 3 minuty i pokrój w kawałki.',
     ],
     photo:
-      'Thick golden baked frittata in a skillet studded with roasted zucchini, red pepper strips, red onion and blistered cherry tomato halves',
+      'Two thick wedges of golden baked frittata studded with roasted zucchini, red pepper strips, red onion and blistered cherry tomato halves, flecked with dried herbs',
   },
   {
     plan: 'SN-006',
@@ -285,7 +285,7 @@ export const DEFS: Def[] = [
       'Wymieszaj jogurt kokosowy z posiekanym koperkiem i podawaj z ciepłymi plackami.',
     ],
     photo:
-      'Golden millet fritters flecked with grated carrot and zucchini, served with a bowl of white coconut yogurt sprinkled with fresh dill',
+      'Golden millet fritters flecked with grated carrot, zucchini and spring onion, with a dollop of white coconut yogurt mixed with fresh chopped dill',
   },
   {
     plan: 'SN-010',
@@ -438,7 +438,7 @@ export const DEFS: Def[] = [
       'Ułóż warzywa i kromki chleba na talerzach, posyp szczypiorkiem, a jajka dopraw solą i pieprzem po ścięciu czubka.',
     ],
     photo:
-      'Soft-boiled eggs in egg cups with runny orange yolks, a slice of dark rye bread, tomato wedges, cucumber slices, halved radishes and chives',
+      'Two peeled soft-boiled eggs halved to show runny orange yolks, seasoned with black pepper, next to a slice of dark rye bread, tomato wedges, cucumber slices, halved radishes and chopped chives',
   },
   {
     plan: 'SN-015',
@@ -469,7 +469,7 @@ export const DEFS: Def[] = [
       'Nałóż na grzanki pomidory z bazylią tuż przed podaniem, żeby pieczywo nie zmiękło.',
     ],
     photo:
-      'Grilled ciabatta slices with char marks topped with glistening diced red tomatoes, torn fresh basil leaves and a drizzle of olive oil',
+      'Grilled ciabatta slices with char marks topped with glistening diced red tomatoes dressed with olive oil and balsamic vinegar, and torn fresh basil leaves',
     vessel: 'board',
   },
   {
@@ -551,7 +551,7 @@ export const DEFS: Def[] = [
       'Posmaruj wafle ryżowe pastą, ułóż plasterki rzodkiewki i posyp resztą szczypiorku.',
     ],
     photo:
-      'Rice cakes spread with fluffy white cottage cheese and chives, topped with overlapping thin pink radish slices',
+      'Round rice cakes spread with smooth white quark flecked with chives, topped with overlapping thin pink radish slices and more chopped chives',
     vessel: 'board',
   },
   {
@@ -584,7 +584,7 @@ export const DEFS: Def[] = [
       'Posyp posiekanym szczypiorkiem i podawaj od razu.',
     ],
     photo:
-      'Roasted red bell pepper halves each cradling a baked egg with a glossy yolk, cherry tomato halves, oregano and chopped chives',
+      'Two roasted red bell pepper halves each cradling a baked egg with a glossy yolk, cherry tomato halves, oregano and chopped chives',
   },
   {
     plan: 'SN-020',
@@ -638,7 +638,7 @@ export const DEFS: Def[] = [
       'Przełóż serek wiejski do miseczek, dodaj jabłko, posyp cynamonem i orzechami, polej miodem.',
     ],
     photo:
-      'Bowl of cottage cheese curds topped with fresh diced apple, chopped walnuts, a dusting of cinnamon and a drizzle of honey',
+      'Creamy cottage cheese curds topped with fresh diced apple, chopped walnuts, a dusting of cinnamon and a drizzle of honey',
     vessel: 'bowl',
   },
   {
@@ -796,7 +796,7 @@ export const DEFS: Def[] = [
       'Podawaj ciepłe placki z musem jabłkowym.',
     ],
     photo:
-      'Stack of small golden banana oat pancakes served with a bowl of smooth pale apple sauce',
+      'Stack of small golden-brown banana oat pancakes topped with a generous dollop of smooth pale apple sauce',
   },
   {
     plan: 'SN-027',
@@ -889,7 +889,7 @@ export const DEFS: Def[] = [
       'Podawaj z jogurtem sojowym i borówkami. Granola w szczelnym słoiku zachowa chrupkość do 2 tygodni, więc śmiało upiecz od razu podwójną porcję.',
     ],
     photo:
-      'Bowl of white soy yogurt topped with golden clustered homemade granola with hazelnuts, almonds and pumpkin seeds and fresh blueberries',
+      'White soy yogurt topped with golden clustered homemade granola with hazelnuts, almonds and pumpkin seeds, and fresh blueberries',
     vessel: 'bowl',
   },
   {

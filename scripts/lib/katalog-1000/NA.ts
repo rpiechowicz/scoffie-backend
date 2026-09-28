@@ -124,7 +124,7 @@ export const DEFS: Def[] = [
       'Rozlej do szklanek i podawaj schłodzone.',
     ],
     photo:
-      'Rich chocolate banana peanut butter shake with a velvety brown surface, dusted with cocoa powder',
+      'Thick cocoa banana peanut butter shake with a velvety chocolate-brown surface, dusted with cocoa powder',
     vessel: 'cup',
   },
   {
@@ -272,7 +272,7 @@ export const DEFS: Def[] = [
       'Miksuj około minuty na gładkie smoothie, rozlej do szklanek i podawaj schłodzone.',
     ],
     photo:
-      'Creamy pale yellow pineapple coconut smoothie with a pineapple wedge on the rim and a sprinkle of lime zest',
+      'Creamy pale yellow pineapple, mango and coconut smoothie with a thick smooth surface and a small pineapple wedge on the rim',
     vessel: 'cup',
   },
   {
@@ -336,7 +336,7 @@ export const DEFS: Def[] = [
       'Rozlej do szklanek i oprósz szczyptą cynamonu.',
     ],
     photo:
-      'Creamy orange pumpkin spice shake dusted with cinnamon, with a cinnamon stick leaning in the glass',
+      'Thick creamy orange pumpkin spice shake with a smooth surface, dusted with a pinch of ground cinnamon',
     vessel: 'cup',
   },
   {
@@ -367,7 +367,7 @@ export const DEFS: Def[] = [
       'Rozlej do szklanek i podawaj schłodzone.',
     ],
     photo:
-      'Pastel pink strawberry rhubarb smoothie with a creamy surface, a fresh strawberry and a thin rhubarb stick on the side',
+      'Thick pastel pink strawberry rhubarb smoothie with a creamy surface and tiny oat flecks, topped with a halved fresh strawberry',
     vessel: 'cup',
   },
   {
@@ -632,7 +632,7 @@ export const DEFS: Def[] = [
       'Wymieszaj sok, rozlej do szklanek i podawaj od razu, najlepiej schłodzony.',
     ],
     photo:
-      'Vivid orange carrot and orange juice with a thin foam layer, an orange slice and a piece of fresh ginger beside it',
+      'Vivid orange carrot, orange and ginger juice with a thin pale foam layer on top',
     vessel: 'cup',
   },
   {
@@ -662,7 +662,7 @@ export const DEFS: Def[] = [
       'Wymieszaj, rozlej do szklanek i wypij od razu.',
     ],
     photo:
-      'Bright green celery cucumber apple juice with a light foam top, a celery stalk standing in the glass',
+      'Bright green celery, cucumber and apple juice with a light foam top, a short leafy celery stalk standing in the drink',
     vessel: 'cup',
   },
   {
@@ -696,7 +696,7 @@ export const DEFS: Def[] = [
       'Odstaw na 10 minut, żeby się przegryzło. Podawaj ciepły albo schłodzony, razem z owocami.',
     ],
     photo:
-      'Dark amber dried fruit compote with plump prunes, apricots and figs floating in it, a cinnamon stick on the side',
+      'Dark amber dried fruit compote with plump stewed prunes, dried apricots, fig halves and raisins floating in it',
     vessel: 'cup',
   },
   {
@@ -729,7 +729,7 @@ export const DEFS: Def[] = [
       'Tuż przed podaniem dolej schłodzoną wodę gazowaną i delikatnie wymieszaj.',
     ],
     photo:
-      'Bright pink watermelon lemonade with ice cubes, fresh mint leaves and lime slices, tiny bubbles on the surface',
+      'Bright pink sparkling watermelon lemonade with ice cubes and bruised fresh mint leaves floating on top, tiny bubbles on the surface',
     vessel: 'cup',
   },
 
@@ -759,7 +759,7 @@ export const DEFS: Def[] = [
       'Rozlej do kubków i oprósz szczyptą cynamonu.',
     ],
     photo:
-      'Steaming mug of hot cocoa with a milky brown surface and a light dusting of cinnamon, a cinnamon stick beside it',
+      'Steaming hot cocoa with a smooth milky brown surface and a light dusting of ground cinnamon',
     vessel: 'cup',
   },
   {
@@ -789,8 +789,7 @@ export const DEFS: Def[] = [
       'Podgrzewaj na małym ogniu 5 minut, często mieszając trzepaczką, nie doprowadzając do wrzenia.',
       'Zdejmij z ognia, wmieszaj syrop klonowy i przecedź przez sitko do kubków.',
     ],
-    photo:
-      'Warm golden yellow turmeric latte in a mug with a light froth, dusted with cinnamon',
+    photo: 'Warm golden yellow turmeric latte with a light creamy froth on top',
     vessel: 'cup',
   },
   {
@@ -820,7 +819,7 @@ export const DEFS: Def[] = [
       'Rozlej do kubków i podawaj od razu.',
     ],
     photo:
-      'Thick glossy dark hot chocolate in a mug with a rich velvety surface and a few chocolate shavings on top',
+      'Thick glossy dark hot chocolate with a rich velvety surface, steaming',
     vessel: 'cup',
   },
   {
@@ -853,7 +852,7 @@ export const DEFS: Def[] = [
       'Jeśli lubisz piankę, spień napój przez kilka sekund trzepaczką albo spieniaczem.',
     ],
     photo:
-      'Creamy light caramel-colored chai latte in a mug with a soft foam top, dusted with cinnamon, a cinnamon stick beside it',
+      'Creamy light caramel-colored chai latte with a soft milky foam top, steaming',
     vessel: 'cup',
   },
   {
@@ -885,7 +884,7 @@ export const DEFS: Def[] = [
       'Przecedź do kubków lub szklanek do grzańca i udekoruj plasterkiem pomarańczy.',
     ],
     photo:
-      'Steaming amber mulled apple juice in a glass mug with orange slices, cloves and a cinnamon stick',
+      'Steaming clear amber mulled apple juice with a thin fresh orange slice floating on top',
     vessel: 'cup',
   },
 ];
