@@ -205,6 +205,7 @@ const PRICES: [prefix: string, price: Price][] = [
   ['claude-opus-4-6', price(5, 25)],
   ['claude-opus-4-5', price(5, 25)],
   ['claude-opus-4', price(15, 75)],
+  ['claude-sonnet-5-5', price(2, 10)],
   ['claude-sonnet-5', price(2, 10)],
   ['claude-sonnet-4', price(3, 15)],
   ['claude-3-7-sonnet', price(3, 15)],
