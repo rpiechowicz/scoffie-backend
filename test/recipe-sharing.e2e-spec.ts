@@ -625,6 +625,8 @@ describe('Udostępnianie przepisów E2E', () => {
       const res = await request(app.getHttpServer()).get(path).expect(404);
       expect(res.body.code).toBe('RECIPE_NOT_FOUND');
       expect(res.body.message).toBe('Ten przepis nie jest już dostępny.');
+      // „Nie ma” nie może utknąć w cache — przepis mógł zaraz powstać.
+      expect(res.headers['cache-control'] ?? '').not.toMatch(/public/);
     });
 
     it.each([
