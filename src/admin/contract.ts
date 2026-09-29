@@ -564,7 +564,27 @@ export interface RecipeIngredientLine {
   unit: string;
 }
 
+/** Liczniki udostępnień przepisu (`RecipeShareEvent`), z całego czasu. */
+export interface RecipeShareStats {
+  /** zakończone arkusze „Udostępnij” w aplikacji */
+  shared: number;
+  /** linki otwarte w aplikacji */
+  opened: number;
+  /** kopie „Zapisz u siebie” (tylko przepisy domów — w katalogu zawsze 0) */
+  saved: number;
+}
+
 export interface RecipeDetail extends RecipeListItem {
+  /**
+   * Adres na stronie: `https://scoffie.app/przepis/<slug>`. Nadaje go baza;
+   * zapis przyjmuje nowy (`^[a-z0-9]+(-[a-z0-9]+)*$`, ≤ 80 znaków) — stary
+   * zostaje w `slugAliases` i dalej prowadzi do przepisu (301).
+   */
+  slug: string | null;
+  /** stare adresy po zmianach slugu — tylko do odczytu */
+  slugAliases: string[];
+  /** tylko do odczytu */
+  shares: RecipeShareStats;
   description: string;
   steps: string[];
   ingredients: RecipeIngredientLine[];
@@ -613,6 +633,24 @@ export type RecipeSaveRequest = Pick<
   | 'updatedAt'
 > &
   Partial<RecipeDetail>;
+
+/**
+ * `POST /admin/recipe-shares/revoke` — wyłączenie zgłoszonego linku do
+ * przepisu gospodarstwa (`https://scoffie.app/przepis/u/<token>`). Przyjmuje
+ * token albo cały adres. Odpowiedź nie zdradza, czyj to przepis — sam tytuł,
+ * żeby operator wiedział, co wyłączył.
+ */
+export interface RecipeShareRevokeRequest {
+  /** token (22 znaki) albo pełny adres linku */
+  link: string;
+  reason: string;
+}
+
+export interface RecipeShareRevokeResult {
+  /** `false` — link nie istniał albo był już wyłączony */
+  revoked: boolean;
+  recipeTitle: string | null;
+}
 
 export interface SearchResults {
   users: UserListItem[];
@@ -1548,6 +1586,10 @@ export interface CatalogPopularity {
   eaten: CatalogRankItem[];
   /** `RecipeFavorite` — łącznie, bez okna */
   favorites: CatalogRankItem[];
+  /** zakończone udostępnienia linkiem z aplikacji (`RecipeShareEvent` SHARED) w oknie */
+  shared: CatalogRankItem[];
+  /** linki otwarte w aplikacji (`RecipeShareEvent` OPENED) w oknie */
+  linkOpens: CatalogRankItem[];
   /** nowe dania w kartach propozycji asystenta (`AgentProposal`) w oknie */
   proposed: CatalogRankItem[];
   /** aktywne przepisy, których nikt nigdy nie dodał do planu (do 50) */

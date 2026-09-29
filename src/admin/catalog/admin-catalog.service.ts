@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { MealType, Prisma } from '@prisma/client';
+import { MealType, Prisma, RecipeShareEventKind } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RecipesCacheService } from '../../recipes/recipes-cache.service';
@@ -30,7 +30,16 @@ import {
   AdminAuditService,
   type AdminActor,
 } from '../audit/admin-audit.service';
-import type { Ingredient, RecipeDetail, RecipeListItem } from '../contract';
+import type {
+  Ingredient,
+  RecipeDetail,
+  RecipeListItem,
+  RecipeShareRevokeResult,
+} from '../contract';
+import {
+  RECIPE_SHARE_TOKEN_PATTERN,
+  isRecipeShareToken,
+} from '../../recipes/sharing/recipe-share-links';
 import { readOnlyQuery } from '../read-only-query';
 import { inPlansByRecipe } from '../common/recipe-in-plans';
 import {
@@ -112,6 +121,7 @@ export class AdminCatalogService {
         where: { id, isCatalog: true },
         select: {
           ...recipeListSelect,
+          slug: true,
           description: true,
           sourceInstructions: true,
           dietTags: true,
@@ -136,8 +146,27 @@ export class AdminCatalogService {
       const favorites = await tx.recipeFavorite.count({
         where: { recipeId: id },
       });
+      const aliases = await tx.recipeSlugAlias.findMany({
+        where: { recipeId: id },
+        orderBy: [{ createdAt: 'desc' }, { slug: 'asc' }],
+        select: { slug: true },
+      });
+      const events = await tx.recipeShareEvent.groupBy({
+        by: ['kind'],
+        where: { recipeId: id },
+        _count: { _all: true },
+      });
+      const eventCount = (kind: RecipeShareEventKind) =>
+        events.find((row) => row.kind === kind)?._count._all ?? 0;
       return {
         ...toRecipeListItem(recipe, inPlans, favorites),
+        slug: recipe.slug,
+        slugAliases: aliases.map((row) => row.slug),
+        shares: {
+          shared: eventCount('SHARED'),
+          opened: eventCount('OPENED'),
+          saved: eventCount('SAVED'),
+        },
         description: recipe.description ?? '',
         steps: stepsFromInstructions(recipe.sourceInstructions),
         // `key` = `Ingredient.normalizedName`, ten sam klucz, co w
@@ -442,7 +471,8 @@ export class AdminCatalogService {
             rows,
             row.imageUrl,
           );
-          const changed = changedCatalogFields(before, after);
+          const changed: string[] = changedCatalogFields(before, after);
+          const slug = await this.nextSlug(tx, id, dto.slug);
           if (changed.length > 0) {
             const rewriteIngredients = !sameIngredientLines(
               before.ingredients,
@@ -463,6 +493,13 @@ export class AdminCatalogService {
               },
             });
           }
+          if (slug !== null) {
+            // Trigger `recipe_assign_slug` przenosi stary adres do aliasów
+            // (link dalej prowadzi do przepisu), a log katalogu wysyła nowy
+            // adres do telefonów.
+            await tx.recipe.update({ where: { id }, data: { slug } });
+            changed.push('slug');
+          }
           return { changed, recomputedNutrition: recomputed };
         }),
       // Same nazwy pól — bez treści przepisu.
@@ -476,4 +513,93 @@ export class AdminCatalogService {
     this.recipesCache.invalidateRecipesList();
     return this.recipe(id);
   }
+
+  /**
+   * Wyłączenie zgłoszonego linku do przepisu gospodarstwa. Przyjmuje token
+   * albo cały adres (operator wkleja to, co dostał w zgłoszeniu). W dzienniku
+   * zostaje id udostępnienia i tytuł — nie token, bo to wciąż byłby klucz do
+   * odczytu, gdyby link kiedyś przywrócić.
+   */
+  async revokeShare(
+    actor: AdminActor,
+    link: string,
+    reason: string,
+  ): Promise<RecipeShareRevokeResult> {
+    const token = shareTokenFromLink(link);
+    const share = token
+      ? await this.prisma.recipeShare.findUnique({
+          where: { token },
+          select: {
+            id: true,
+            revokedAt: true,
+            recipe: { select: { title: true } },
+          },
+        })
+      : null;
+    return this.audit.run(
+      actor,
+      {
+        action: 'recipe.share.revoke',
+        targetType: 'RecipeShare',
+        targetId: share?.id ?? null,
+        reason,
+      },
+      async () => {
+        if (!share) return { revoked: false, recipeTitle: null };
+        const result = await this.prisma.recipeShare.updateMany({
+          where: { id: share.id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        return { revoked: result.count > 0, recipeTitle: share.recipe.title };
+      },
+      (result) => ({ revoked: result.revoked }),
+    );
+  }
+
+  /**
+   * Nowy slug z edytora albo `null`, gdy nic się nie zmienia. Zajęty adres
+   * (inny przepis albo cudzy stary adres) = 400 z polem `slug` — tę samą
+   * regułę pilnuje trigger, ale komunikat z bazy nie nadaje się dla panelu.
+   */
+  private async nextSlug(
+    tx: Prisma.TransactionClient,
+    id: string,
+    requested: string | undefined,
+  ): Promise<string | null> {
+    if (requested === undefined) return null;
+    const current = await tx.recipe.findUniqueOrThrow({
+      where: { id },
+      select: { slug: true },
+    });
+    if (current.slug === requested) return null;
+    const [takenByRecipe, takenByAlias] = await Promise.all([
+      tx.recipe.findFirst({
+        where: { slug: requested, id: { not: id } },
+        select: { id: true },
+      }),
+      tx.recipeSlugAlias.findFirst({
+        where: { slug: requested, recipeId: { not: id } },
+        select: { recipeId: true },
+      }),
+    ]);
+    if (takenByRecipe || takenByAlias) {
+      throw new AppException(
+        'VALIDATION_ERROR',
+        'Ten adres ma już inny przepis (teraz albo wcześniej).',
+        HttpStatus.BAD_REQUEST,
+        ['slug'],
+      );
+    }
+    return requested;
+  }
+}
+
+/** Token z wklejonego linku (`…/przepis/u/<token>`) albo sam token. */
+function shareTokenFromLink(link: string): string | null {
+  const trimmed = link.trim();
+  if (isRecipeShareToken(trimmed)) return trimmed;
+  const match = new RegExp(
+    `/przepis/u/(${RECIPE_SHARE_TOKEN_PATTERN.source.slice(1, -1)})/?(?:[?#].*)?$`,
+  ).exec(trimmed);
+  return match?.[1] ?? null;
 }

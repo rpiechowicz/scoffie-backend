@@ -155,6 +155,11 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
   'recipes:setFavorite': {
     data: { recipeId: RECIPE, householdId: HH, isFavorite: true },
   },
+  'recipes:shareLink': { householdId: HH, recipeId: RECIPE },
+  'recipes:revokeShare': { householdId: HH, recipeId: RECIPE },
+  'recipes:shared': { householdId: HH, recipeId: RECIPE },
+  'recipes:openShared': { householdId: HH, slug: 'kremowe-curry' },
+  'recipes:saveShared': { householdId: HH, token: 'AbCdEfGhIjKlMnOpQrStUv' },
   // NotificationsGateway
   'notifications:registerDevice': {
     data: {
@@ -280,6 +285,22 @@ export const VALID_PAYLOADS: Readonly<Record<string, object>> = {
 
 const NOT_UUID = 'hh-1';
 const UUID_DETAIL = 'must be a UUID';
+
+/** Koperta `{ householdId, recipeId }` zdarzeń udostępniania. */
+function shareTargetInvalid() {
+  return [
+    {
+      name: 'brak recipeId',
+      payload: { householdId: HH },
+      detail: 'recipeId must be a UUID',
+    },
+    {
+      name: 'householdId nie-UUID',
+      payload: { householdId: NOT_UUID, recipeId: RECIPE },
+      detail: 'householdId must be a UUID',
+    },
+  ];
+}
 const DATA_DETAIL = 'data must be an object';
 
 const badHouseholdId = (rest: object): InvalidCase => ({
@@ -357,6 +378,33 @@ export const INVALID_PAYLOADS: Readonly<Record<string, InvalidCase[]>> = {
     {
       name: 'householdId nie-UUID',
       payload: { id: RECIPE, householdId: NOT_UUID },
+      detail: 'householdId must be a UUID',
+    },
+  ],
+  'recipes:shareLink': shareTargetInvalid(),
+  'recipes:revokeShare': shareTargetInvalid(),
+  'recipes:shared': shareTargetInvalid(),
+  'recipes:openShared': [
+    {
+      name: 'brak householdId',
+      payload: { slug: 'kremowe-curry' },
+      detail: 'householdId must be a UUID',
+    },
+    {
+      name: 'slug nie jest tekstem',
+      payload: { householdId: HH, slug: 42 },
+      detail: 'slug must be a string',
+    },
+  ],
+  'recipes:saveShared': [
+    {
+      name: 'brak tokenu',
+      payload: { householdId: HH },
+      detail: 'token must be a string',
+    },
+    {
+      name: 'householdId nie-UUID',
+      payload: { householdId: NOT_UUID, token: 'AbCdEfGhIjKlMnOpQrStUv' },
       detail: 'householdId must be a UUID',
     },
   ],

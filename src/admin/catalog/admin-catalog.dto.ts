@@ -9,6 +9,7 @@ import {
   IsInt,
   IsISO8601,
   IsNumber,
+  IsObject,
   IsOptional,
   IsPositive,
   IsString,
@@ -23,6 +24,10 @@ import {
 import { MEAL_TYPE_VALUES } from '../../common/meal-types';
 import { ALLOWED_UNITS } from '../../recipes/ingredient-amount.util';
 import {
+  RECIPE_SLUG_MAX_LENGTH,
+  RECIPE_SLUG_PATTERN,
+} from '../../recipes/sharing/recipe-share-links';
+import {
   RECIPE_CUISINES,
   RECIPE_DISH_TYPES,
   RECIPE_EQUIPMENT,
@@ -30,6 +35,20 @@ import {
   RECIPE_OCCASIONS,
   RECIPE_SEASONS,
 } from '../../recipes/recipe-taxonomy';
+
+/** `POST /admin/recipe-shares/revoke` — wyłączenie zgłoszonego linku. */
+export class RevokeRecipeShareDto {
+  /** Token (22 znaki) albo cały adres `https://scoffie.app/przepis/u/<token>`. */
+  @IsString()
+  @MinLength(22)
+  @MaxLength(300)
+  link!: string;
+
+  @IsString()
+  @MinLength(5)
+  @MaxLength(500)
+  reason!: string;
+}
 
 /** `GET /admin/catalog/recipes?active=true|false` — bez parametru cały katalog. */
 export class CatalogRecipesQueryDto {
@@ -87,6 +106,29 @@ export class UpdateCatalogRecipeDto {
   @IsOptional()
   @IsUUID()
   id?: string;
+
+  /**
+   * Nowy adres przepisu na stronie. Pominięty albo taki sam = bez zmian;
+   * stary adres zostaje aliasem (301), więc wysłane linki działają dalej.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(RECIPE_SLUG_MAX_LENGTH)
+  @Matches(RECIPE_SLUG_PATTERN, {
+    message: 'slug: same małe litery, cyfry i pojedyncze myślniki',
+  })
+  slug?: string;
+
+  /** Tylko do odczytu — przyjmowane i pomijane (panel odsyła cały `GET`). */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  slugAliases?: string[];
+
+  /** Tylko do odczytu — przyjmowane i pomijane. */
+  @IsOptional()
+  @IsObject()
+  shares?: Record<string, number>;
 
   @IsString()
   @Matches(NOT_BLANK, { message: 'title nie może być pusty' })

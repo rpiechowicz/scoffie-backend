@@ -83,6 +83,25 @@ oryginału), oryginały bez zmian w `originals/recipe-images/`. Pliki mają
 nigdy nadpisanie pod starym adresem (telefony i Cloudflare trzymają starą
 wersję; `CachedAsyncImage` w iOS kluczuje po URL-u).
 
+### Udostępnianie przepisów (od 29.09.2026)
+
+Linki `https://scoffie.app/przepis/<slug>` (katalog) i `/przepis/u/<token>`
+(przepis gospodarstwa) — kontrakt w `docs/plans/udostepnianie-przepisow/KONTRAKT.md`.
+
+- `WEB_RENDER_SECRET` (≥ 32 znaki) — ten sam sekret co w Workerze
+  `scoffie-web` (`wrangler secret put WEB_RENDER_SECRET`). Worker pyta
+  `GET /public/recipes/…` w imieniu wszystkich odwiedzających; bez sekretu
+  dostawałby limit `THROTTLE_PUBLIC_LIMIT` (60/min) na swoje adresy.
+- `PUBLIC_WEB_BASE_URL` — opcjonalnie, domyślnie `https://scoffie.app`.
+- `THROTTLE_PUBLIC_LIMIT` — opcjonalnie, domyślnie 60/min na IP.
+
+Slug nadaje baza (trigger `recipe_assign_slug`) każdemu przepisowi katalogu —
+import, panel i ręczny SQL nie muszą o nim pamiętać; zmiana w panelu zostawia
+stary adres w `RecipeSlugAlias` (strona robi 301). Token linku gospodarstwa
+leży w bazie jawnie (komentarz przy `RecipeShare`), więc nic nie trzeba
+rotować; „Wyłącz link” w aplikacji albo `POST /admin/recipe-shares/revoke`
+gasi go na zawsze.
+
 ## Cookidoo service (second Railway service)
 
 The Thermomix integration talks to a small Python service

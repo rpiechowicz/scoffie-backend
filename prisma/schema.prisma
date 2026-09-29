@@ -57,6 +57,7 @@ model User {
   updatedAt             DateTime     @updatedAt
 
   recipes         Recipe[]
+  recipeShares    RecipeShare[]
   subscriptions   Subscription[]  @relation("SubscriptionPurchaser")
   memberships     Membership[]
   createdHomes    Household[]     @relation("HouseholdCreator")
@@ -334,19 +335,35 @@ model Recipe {
   /// Cechy dla planera i filtrów: LUNCHBOX, SIDE (dodatek, nie posiłek),
   /// OCCASIONAL (planer proponuje tylko w okresie swojej okazji).
   features              String[]   @default([])
+  /// Adres przepisu KATALOGU na stronie: `https://scoffie.app/przepis/<slug>`
+  /// (udostępnianie, 29.09.2026). Nadaje go baza — trigger `recipe_assign_slug`
+  /// przy pierwszym zapisie przepisu katalogu z pustym slugiem — więc import,
+  /// panel i ręczny SQL nie muszą o nim pamiętać. Zmiana tytułu slugu NIE
+  /// zmienia (wysłane linki mają działać); świadoma zmiana zostawia stary
+  /// w `RecipeSlugAlias`. Przepisy gospodarstw mają `null` — udostępnia się
+  /// je tokenem (`RecipeShare`).
+  slug                  String?    @unique
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
-  authorId    String    @db.Uuid
-  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  householdId String    @db.Uuid
-  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  authorId           String    @db.Uuid
+  author             User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  householdId        String    @db.Uuid
+  household          Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  /// Źródło kopii „Zapisz u siebie” z udostępnionego linku. `SetNull`: kopia
+  /// jest już przepisem tego domu i żyje dalej, gdy oryginał zniknie.
+  copiedFromRecipeId String?   @db.Uuid
+  copiedFrom         Recipe?   @relation("RecipeCopies", fields: [copiedFromRecipeId], references: [id], onDelete: SetNull)
+  copies             Recipe[]  @relation("RecipeCopies")
 
   planItems          PlanItem[]
   ingredients        RecipeIngredient[]
   /// Składniki dopisane z tego przepisu do list zakupów („brakuje mi").
   shoppingListExtras ShoppingListExtra[]
   favorites          RecipeFavorite[]
+  slugAliases        RecipeSlugAlias[]
+  shares             RecipeShare[]
+  shareEvents        RecipeShareEvent[]
 
   // Druga gałąź filtru widoczności (`isCatalog = true OR householdId = …`).
   // Sam `isCatalog` indeksu nie dostaje — jest niskoselektywny.
@@ -357,6 +374,8 @@ model Recipe {
   // „Bez alergenu X" / „bez tagu Y" to też zawieranie w tablicy.
   @@index([allergens], type: Gin)
   @@index([dietTags], type: Gin)
+  // „Czy ten dom zapisał już kopię tego przepisu” (`recipes:saveShared`).
+  @@index([copiedFromRecipeId, householdId])
 }
 
 model Ingredient {
@@ -372,14 +391,14 @@ model Ingredient {
   // stan surowy. `nutritionCarbsPer100` to weglowodany przyswajalne, bez
   // blonnika. Nullable: nowy skladnik bez makro ma sie dodac, audyt zglosi
   // go jako luke. Zrodlo: prisma/catalog/ingredient-nutrition-pl-v1.json
-  nutritionKcalPer100     Float?
-  nutritionProteinPer100  Float?
-  nutritionCarbsPer100    Float?
-  nutritionFatPer100      Float?
-  nutritionFiberPer100    Float?
+  nutritionKcalPer100         Float?
+  nutritionProteinPer100      Float?
+  nutritionCarbsPer100        Float?
+  nutritionFatPer100          Float?
+  nutritionFiberPer100        Float?
   /// Sód w mg na 100 g/ml (IZZ/USDA). Sól przepisu = sód ze składników × 2,5
   /// + sól dodana — dotąd „sól" znaczyła dwie różne rzeczy w dwóch partiach.
-  nutritionSodiumMgPer100 Float?
+  nutritionSodiumMgPer100     Float?
   /// Cukry (cukry proste i dwucukry, jak „w tym cukry” na etykiecie UE) —
   /// ZAWIERAJĄ się w `nutritionCarbsPer100`. Brak = nieznane (liczone jako 0).
   nutritionSugarsPer100       Float?
@@ -441,6 +460,7 @@ model Household {
   memberships               Membership[]
   recipes                   Recipe[]
   invitations               Invitation[]
+  recipeShares              RecipeShare[]
   weeklyPlans               WeeklyPlan[]
   shoppingLists             ShoppingList[]
   shoppingItemChecks        ShoppingItemCheck[]
@@ -671,6 +691,74 @@ model RecipeFavorite {
 
   @@unique([recipeId, householdId])
   @@index([householdId])
+}
+
+/// Stary adres przepisu katalogu po świadomej zmianie slugu w panelu — link
+/// wysłany wcześniej dalej prowadzi do przepisu (strona robi 301). Wpisuje
+/// go trigger `recipe_assign_slug`; slug nie może być jednocześnie aktualnym
+/// adresem innego przepisu (pilnuje tego ten sam trigger).
+model RecipeSlugAlias {
+  slug      String   @id
+  recipeId  String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId])
+}
+
+/// Link do przepisu GOSPODARSTWA: `https://scoffie.app/przepis/u/<token>`.
+///
+/// Token leży w bazie jawnie, świadomie inaczej niż `Invitation.tokenHash`:
+/// zaproszenie otwiera wejście do domu, a ten token wyłącznie odczyt treści
+/// przepisu, która i tak leży w tej samej bazie — kto ma zrzut tabeli, ma też
+/// `Recipe`. Jawny token pozwala oddać TEN SAM link każdemu domownikowi przy
+/// kolejnym „Udostępnij”, bez sekretu serwera, którego rotacja gasiłaby linki.
+///
+/// Jeden aktywny link na (przepis, dom) — częściowy indeks unikalny
+/// `RecipeShare_active_key` (w migracji; Prisma nie opisuje indeksów z WHERE).
+/// „Wyłącz link” ustawia `revokedAt` na zawsze; następne udostępnienie
+/// wydaje nowy token.
+model RecipeShare {
+  id          String    @id @default(uuid()) @db.Uuid
+  token       String    @unique
+  recipeId    String    @db.Uuid
+  householdId String    @db.Uuid
+  /// Kto utworzył link — tylko dla panelu; `SetNull` przy usunięciu konta,
+  /// bo przepis (i link) należą do domu, nie do osoby.
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  recipe    Recipe    @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([recipeId, householdId])
+  @@index([householdId])
+}
+
+enum RecipeShareEventKind {
+  /// Aplikacja zgłosiła zakończone udostępnienie (arkusz systemowy).
+  SHARED
+  /// Link otwarty w aplikacji (`recipes:openShared`).
+  OPENED
+  /// „Zapisz u siebie” utworzyło kopię.
+  SAVED
+}
+
+/// Liczniki udostępnień dla panelu. Bez użytkownika i domu — sama liczba
+/// zdarzeń na przepis wystarcza do „najczęściej udostępniane”.
+model RecipeShareEvent {
+  id        String               @id @default(uuid()) @db.Uuid
+  recipeId  String               @db.Uuid
+  kind      RecipeShareEventKind
+  createdAt DateTime             @default(now())
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId, kind])
+  @@index([createdAt])
 }
 
 model Membership {
