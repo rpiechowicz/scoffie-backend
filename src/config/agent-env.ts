@@ -31,7 +31,7 @@ export const TURN_TIMEOUT_GRACE_MS = 5_000;
 export const AI_PROVIDERS = ['anthropic', 'stub'] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
-export const AI_MODEL_DEFAULT = 'claude-sonnet-5';
+export const AI_MODEL_DEFAULT = 'claude-sonnet-5-5';
 
 /**
  * Poziom wysiłku modelu (`output_config.effort`).

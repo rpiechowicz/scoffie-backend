@@ -40,6 +40,9 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   'claude-opus-5': { thinking: 'adaptive', effort: true },
   'claude-opus-4-8': { thinking: 'adaptive', effort: true },
   'claude-opus-4-7': { thinking: 'adaptive', effort: true },
+  // Sonnet 5.5 ODRZUCA `thinking: {type:'disabled'}` (400) — tu go nie
+  // wysyłamy nigdy, więc `adaptive` + effort wystarcza.
+  'claude-sonnet-5-5': { thinking: 'adaptive', effort: true },
   'claude-sonnet-5': { thinking: 'adaptive', effort: true },
   // Tylko budżet myślenia:
   'claude-opus-4-5': { thinking: 'budget', effort: true },

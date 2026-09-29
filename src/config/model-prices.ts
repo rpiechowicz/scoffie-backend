@@ -9,6 +9,9 @@
 export const PRICE_PER_MTOK: Record<string, { input: number; output: number }> =
   {
     'claude-opus-5': { input: 5, output: 25 },
+    // Sonnet 5.5 (29.09.2026): ten sam cennik co Sonnet 5, odczyt z cache 0,20 $
+    // = 0,1× wejścia, więc mnożniki niżej pasują bez zmian.
+    'claude-sonnet-5-5': { input: 2, output: 10 },
     'claude-sonnet-5': { input: 2, output: 10 },
     'claude-haiku-4-5': { input: 1, output: 5 },
   };
