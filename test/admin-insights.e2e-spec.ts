@@ -353,6 +353,25 @@ describe('Panel — katalog: jakość, baza danych, ruch, sterowanie', () => {
   });
 
   it('popularność: plany, zjedzone, ulubione, propozycje, nieużyte, wykluczenia', async () => {
+    // Udostępnienia linkiem: 30 zdarzeń wystarczy, żeby wejść do pierwszej
+    // dziesiątki nawet na bazie, na której ktoś już udostępniał. Przepis domu
+    // nie wchodzi do rankingu katalogu.
+    await prisma.recipeShareEvent.createMany({
+      data: [
+        ...Array.from({ length: 30 }, () => ({
+          recipeId: ids.good,
+          kind: 'SHARED' as const,
+        })),
+        ...Array.from({ length: 29 }, () => ({
+          recipeId: ids.good,
+          kind: 'OPENED' as const,
+        })),
+        ...Array.from({ length: 40 }, () => ({
+          recipeId: ids.private,
+          kind: 'SHARED' as const,
+        })),
+      ],
+    });
     const { popularity } = (await get('/admin/catalog/insights').expect(200))
       .body as CatalogInsights;
     const count = (list: { id: string; count: number }[], id: string) =>
@@ -367,6 +386,9 @@ describe('Panel — katalog: jakość, baza danych, ruch, sterowanie', () => {
     expect(popularity.planned.every((row) => row.id !== ids.private)).toBe(
       true,
     );
+    expect(count(popularity.shared, ids.good)).toBe(30);
+    expect(count(popularity.linkOpens, ids.good)).toBe(29);
+    expect(popularity.shared.every((row) => row.id !== ids.private)).toBe(true);
     const egg = popularity.excludedIngredients.find(
       (row) => row.key === `jajko-b4-${stamp}`,
     );

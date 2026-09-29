@@ -36,6 +36,7 @@ import { SearchIngredientsDto } from './dto/search-ingredients.dto';
 import { IngredientsService } from './ingredients.service';
 import { Server, Socket } from 'socket.io';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
+import { RecipeSharingService } from './sharing/recipe-sharing.service';
 
 // Koperty zdarzeń: KAŻDE pole ma dekorator, bo `validateWsPayload` działa
 // z whitelistą i wycina pola bez dekoratora. `data`/`filters` tylko
@@ -192,6 +193,64 @@ class RecipesSetFavoritePayload {
   data: UpdateRecipeFavoriteDto;
 }
 
+/**
+ * Udostępnianie (`recipes:shareLink`, `recipes:revokeShare`, `recipes:shared`)
+ * — przepis w domu pytającego. Kontrakt:
+ * `docs/plans/udostepnianie-przepisow/KONTRAKT.md`.
+ */
+class RecipesShareTargetPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsUUID()
+  householdId: string;
+
+  @IsUUID()
+  recipeId: string;
+}
+
+/**
+ * `recipes:openShared` — link otwarty w aplikacji: slug katalogu (też UUID
+ * i stary slug) ALBO token linku gospodarstwa. Kształt slugu/tokenu sprawdza
+ * serwis — zły to ten sam 404 co wyłączony link, nie błąd walidacji.
+ */
+class RecipesOpenSharedPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsUUID()
+  householdId: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  slug?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  token?: string;
+}
+
+/** `recipes:saveShared` — „Zapisz u siebie” z linku gospodarstwa. */
+class RecipesSaveSharedPayload {
+  /** Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem. */
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsUUID()
+  householdId: string;
+
+  @IsString()
+  @MaxLength(64)
+  token: string;
+}
+
 @WebSocketGateway(WS_GATEWAY_OPTIONS)
 export class RecipesGateway
   implements OnGatewayConnection, OnGatewayDisconnect
@@ -204,6 +263,7 @@ export class RecipesGateway
     private readonly catalogSync: CatalogSyncService,
     private readonly ingredientsService: IngredientsService,
     private readonly wsTelemetry: WsTelemetryService,
+    private readonly sharing: RecipeSharingService,
   ) {}
 
   handleConnection(_client: Socket) {
@@ -394,6 +454,121 @@ export class RecipesGateway
   }
 
   /**
+   * Adres do arkusza „Udostępnij”: katalog → `/przepis/<slug>`, przepis domu
+   * → aktywny link `/przepis/u/<token>` (pierwszy raz: nowy — wtedy domownicy
+   * dostają `recipes:changed`, żeby zobaczyć `shareUrl` i „Wyłącz link”).
+   */
+  @SubscribeMessage('recipes:shareLink')
+  shareLink(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesShareTargetPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesShareTargetPayload, payload);
+      const { created, ...link } = await this.sharing.shareLink(
+        userId,
+        payload.householdId,
+        payload.recipeId,
+      );
+      if (created) {
+        this.broadcastRecipeChange(
+          payload.householdId,
+          payload.recipeId,
+          'UPDATED',
+          userId,
+        );
+      }
+      return link;
+    });
+  }
+
+  /** „Wyłącz link” — gasi aktywny link przepisu domu. */
+  @SubscribeMessage('recipes:revokeShare')
+  revokeShare(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesShareTargetPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesShareTargetPayload, payload);
+      const result = await this.sharing.revokeShare(
+        userId,
+        payload.householdId,
+        payload.recipeId,
+      );
+      if (result.revoked) {
+        this.broadcastRecipeChange(
+          payload.householdId,
+          payload.recipeId,
+          'UPDATED',
+          userId,
+        );
+      }
+      return result;
+    });
+  }
+
+  /** Licznik „udostępniono” — klient woła PO zakończonym arkuszu systemowym. */
+  @SubscribeMessage('recipes:shared')
+  shared(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesShareTargetPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesShareTargetPayload, payload);
+      return this.sharing.recordShared(
+        userId,
+        payload.householdId,
+        payload.recipeId,
+      );
+    });
+  }
+
+  /** Link otwarty w aplikacji → przepis + skąd pochodzi (`origin`). */
+  @SubscribeMessage('recipes:openShared')
+  openShared(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesOpenSharedPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesOpenSharedPayload, payload);
+      return this.sharing.openShared(userId, payload.householdId, {
+        slug: payload.slug,
+        token: payload.token,
+      });
+    });
+  }
+
+  /** „Zapisz u siebie” — kopia przepisu z linku w domu pytającego. */
+  @SubscribeMessage('recipes:saveShared')
+  saveShared(
+    @ConnectedSocket() client: AppSocket,
+    @MessageBody() payload: RecipesSaveSharedPayload,
+  ) {
+    return wsRespond(async () => {
+      const userId = actorId(client, payload);
+      await validateWsPayload(RecipesSaveSharedPayload, payload);
+      const result = await this.sharing.saveShared(
+        userId,
+        payload.householdId,
+        payload.token,
+      );
+      if (result.created) {
+        this.broadcastRecipeChange(
+          payload.householdId,
+          result.recipe.id,
+          'CREATED',
+          userId,
+        );
+      }
+      return result;
+    });
+  }
+
+  /**
    * Sygnał „katalog gospodarstwa się zmienił".
    *
    * Zdarzenie jest nowe i obecny build iOS go nie zna — nieznane zdarzenie
@@ -404,7 +579,7 @@ export class RecipesGateway
   private broadcastRecipeChange(
     householdId: string,
     recipeId: string,
-    action: 'UPDATED' | 'DELETED',
+    action: 'CREATED' | 'UPDATED' | 'DELETED',
     changedByUserId: string,
   ): void {
     broadcastToHousehold(this.server, householdId, 'recipes:changed', {

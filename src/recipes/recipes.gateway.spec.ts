@@ -4,6 +4,7 @@ import { RecipesGateway } from './recipes.gateway';
 import { RecipesService } from './recipes.service';
 import { IngredientsService } from './ingredients.service';
 import { WsTelemetryService } from '../common/ws-telemetry.service';
+import { RecipeSharingService } from './sharing/recipe-sharing.service';
 
 // Gateway ma na własność trzy rzeczy: skąd bierze tożsamość (socket z tokenem
 // ignoruje payload.userId, socket legacy ufa mu jak dawniej, anonim dostaje
@@ -68,6 +69,7 @@ describe('RecipesGateway', () => {
           provide: WsTelemetryService,
           useValue: { onConnect: jest.fn(), onDisconnect: jest.fn() },
         },
+        { provide: RecipeSharingService, useValue: {} },
       ],
     }).compile();
 

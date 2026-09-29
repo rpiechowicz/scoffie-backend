@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { RecipesModule } from '../../recipes/recipes.module';
 import { AdminCoreModule } from '../admin-core.module';
 import { AdminCatalogController } from './admin-catalog.controller';
+import { AdminRecipeSharesController } from './admin-recipe-shares.controller';
 import { AdminCatalogInsightsService } from './admin-catalog-insights.service';
 import { AdminCatalogService } from './admin-catalog.service';
 
@@ -12,7 +13,7 @@ import { AdminCatalogService } from './admin-catalog.service';
  */
 @Module({
   imports: [AdminCoreModule, RecipesModule],
-  controllers: [AdminCatalogController],
+  controllers: [AdminCatalogController, AdminRecipeSharesController],
   providers: [AdminCatalogService, AdminCatalogInsightsService],
 })
 export class AdminCatalogModule {}

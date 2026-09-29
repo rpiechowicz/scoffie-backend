@@ -29,6 +29,7 @@ export const THROTTLE_KEYS = [
   'THROTTLE_ADMIN_LIMIT',
   'THROTTLE_ADMIN_AUTH_LIMIT',
   'THROTTLE_ADMIN_CODE_LIMIT',
+  'THROTTLE_PUBLIC_LIMIT',
 ] as const;
 
 export type ThrottleKey = (typeof THROTTLE_KEYS)[number];
@@ -65,6 +66,10 @@ export const THROTTLE_DEFAULTS: Readonly<Record<ThrottleKey, number>> = {
   // …i osobno próby kodu / klucza (logowanie, step-up) per adres z bramki —
   // tania zapora w pamięci przed blokadą w bazie (5 porażek / 15 min).
   THROTTLE_ADMIN_CODE_LIMIT: 10,
+  // Publiczne dane udostępnionego przepisu (`/public/recipes/*`) per IP bez
+  // sekretu Workera strony — człowiek otwiera kilka linków na minutę, więcej
+  // to już przeglądanie katalogu skryptem.
+  THROTTLE_PUBLIC_LIMIT: 60,
 };
 
 /**

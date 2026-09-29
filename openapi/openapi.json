@@ -248,6 +248,74 @@
         "security": [{ "bearer": [] }]
       }
     },
+    "/public/recipes/slug/{slug}": {
+      "get": {
+        "operationId": "publicRecipesBySlug",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRecipesBySlugResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Błąd: `{code, message, details?, requestId}`",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "tags": ["PublicRecipes"]
+      }
+    },
+    "/public/recipes/shared/{token}": {
+      "get": {
+        "operationId": "publicRecipesByToken",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRecipesByTokenResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Błąd: `{code, message, details?, requestId}`",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "tags": ["PublicRecipes"]
+      }
+    },
     "/me/consents": {
       "get": {
         "operationId": "consentsStatus",
@@ -10272,7 +10340,24 @@
               ]
             }
           },
-          "activityDays": { "type": "array", "items": { "type": "string" } }
+          "activityDays": { "type": "array", "items": { "type": "string" } },
+          "recipeShares": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "createdAt": { "type": "string", "format": "date-time" },
+                "householdId": { "type": "string" },
+                "revokedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                },
+                "recipeId": { "type": "string" }
+              },
+              "required": ["createdAt", "householdId", "recipeId", "revokedAt"]
+            }
+          }
         },
         "required": [
           "activityDays",
@@ -10288,6 +10373,7 @@
           "meals",
           "preferences",
           "profile",
+          "recipeShares",
           "recipes",
           "subscriptions"
         ]
@@ -10800,6 +10886,126 @@
           "timeZone"
         ]
       },
+      "PublicRecipesBySlugResponse": {
+        "description": "Przepis dla strony (`GET /public/recipes/…`) — bez autora, domu i kroków.",
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["CATALOG", "SHARED"], "type": "string" },
+          "slug": {
+            "description": "Kanoniczny slug katalogu — strona robi 301, gdy adres był inny.",
+            "type": "string",
+            "nullable": true
+          },
+          "title": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "imageUrl": { "type": "string" },
+          "mealType": { "$ref": "#/components/schemas/MealType" },
+          "difficulty": { "$ref": "#/components/schemas/Difficulty" },
+          "prepTimeMinutes": { "type": "number" },
+          "servings": { "type": "number" },
+          "perServing": {
+            "type": "object",
+            "properties": {
+              "kcal": { "type": "number" },
+              "protein": { "type": "number" },
+              "fat": { "type": "number" },
+              "carbs": { "type": "number" }
+            },
+            "required": ["carbs", "fat", "kcal", "protein"]
+          },
+          "allergens": { "type": "array", "items": { "type": "string" } },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "amount": { "type": "number" },
+                "unit": { "type": "string" }
+              },
+              "required": ["amount", "name", "unit"]
+            }
+          },
+          "stepCount": { "type": "number" },
+          "thermomix": { "type": "boolean" }
+        },
+        "required": [
+          "allergens",
+          "description",
+          "difficulty",
+          "imageUrl",
+          "ingredients",
+          "kind",
+          "mealType",
+          "perServing",
+          "prepTimeMinutes",
+          "servings",
+          "slug",
+          "stepCount",
+          "thermomix",
+          "title"
+        ]
+      },
+      "PublicRecipesByTokenResponse": {
+        "description": "Przepis dla strony (`GET /public/recipes/…`) — bez autora, domu i kroków.",
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["CATALOG", "SHARED"], "type": "string" },
+          "slug": {
+            "description": "Kanoniczny slug katalogu — strona robi 301, gdy adres był inny.",
+            "type": "string",
+            "nullable": true
+          },
+          "title": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "imageUrl": { "type": "string" },
+          "mealType": { "$ref": "#/components/schemas/MealType" },
+          "difficulty": { "$ref": "#/components/schemas/Difficulty" },
+          "prepTimeMinutes": { "type": "number" },
+          "servings": { "type": "number" },
+          "perServing": {
+            "type": "object",
+            "properties": {
+              "kcal": { "type": "number" },
+              "protein": { "type": "number" },
+              "fat": { "type": "number" },
+              "carbs": { "type": "number" }
+            },
+            "required": ["carbs", "fat", "kcal", "protein"]
+          },
+          "allergens": { "type": "array", "items": { "type": "string" } },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "amount": { "type": "number" },
+                "unit": { "type": "string" }
+              },
+              "required": ["amount", "name", "unit"]
+            }
+          },
+          "stepCount": { "type": "number" },
+          "thermomix": { "type": "boolean" }
+        },
+        "required": [
+          "allergens",
+          "description",
+          "difficulty",
+          "imageUrl",
+          "ingredients",
+          "kind",
+          "mealType",
+          "perServing",
+          "prepTimeMinutes",
+          "servings",
+          "slug",
+          "stepCount",
+          "thermomix",
+          "title"
+        ]
+      },
       "RateMessageDto": {
         "type": "object",
         "properties": {
@@ -10830,6 +11036,10 @@
           "comment": { "type": "object", "nullable": true, "maxLength": 1000 }
         },
         "required": ["rating"]
+      },
+      "RecipeLinkOrigin": {
+        "enum": ["CATALOG", "HOUSEHOLD", "SHARED"],
+        "type": "string"
       },
       "RecipeListItem": {
         "description": "Wiersz listy przepisów dla klienta — bez `sourceMeta`, bez ulubionych.",
@@ -10866,6 +11076,7 @@
           "occasions": { "type": "array", "items": { "type": "string" } },
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
+          "slug": { "type": "string", "nullable": true },
           "ingredients": {
             "type": "array",
             "items": {
@@ -10915,6 +11126,7 @@
           "prepTimeMinutes",
           "seasons",
           "servings",
+          "slug",
           "sourceProvider",
           "sourceRecipeId",
           "suitableMealTypes",
@@ -10979,6 +11191,33 @@
         },
         "required": ["householdId"]
       },
+      "RecipesOpenSharedPayload": {
+        "description": "`recipes:openShared` — link otwarty w aplikacji: slug katalogu (też UUID\ni stary slug) ALBO token linku gospodarstwa. Kształt slugu/tokenu sprawdza\nserwis — zły to ten sam 404 co wyłączony link, nie błąd walidacji.",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "householdId": { "type": "string" },
+          "slug": { "type": "string" },
+          "token": { "type": "string" }
+        },
+        "required": ["householdId"]
+      },
+      "RecipesSaveSharedPayload": {
+        "description": "`recipes:saveShared` — „Zapisz u siebie” z linku gospodarstwa.",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "householdId": { "type": "string" },
+          "token": { "type": "string" }
+        },
+        "required": ["householdId", "token"]
+      },
       "RecipesSetFavoritePayload": {
         "type": "object",
         "properties": {
@@ -10989,6 +11228,19 @@
           "data": { "$ref": "#/components/schemas/UpdateRecipeFavoriteDto" }
         },
         "required": ["data"]
+      },
+      "RecipesShareTargetPayload": {
+        "description": "Udostępnianie (`recipes:shareLink`, `recipes:revokeShare`, `recipes:shared`)\n— przepis w domu pytającego. Kontrakt:\n`docs/plans/udostepnianie-przepisow/KONTRAKT.md`.",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "description": "Legacy: tożsamość jest w socket.data; pole ignorowane dla socketów z tokenem.",
+            "type": "string"
+          },
+          "householdId": { "type": "string" },
+          "recipeId": { "type": "string" }
+        },
+        "required": ["householdId", "recipeId"]
       },
       "RecipeStepDto": {
         "description": "Jeden krok przygotowania.\n\n`stepNumber` jest opcjonalny i służy WYŁĄCZNIE do ustalenia kolejności —\nnumery i tak nadajemy od nowa (`normalizeRecipeSteps`), żeby „1, 2, 2, 5\"\nod modelu nie zapisało się jako przepis z duplikatem i dziurą.",
@@ -12442,11 +12694,22 @@
             "type": "array",
             "items": { "type": "string" }
           },
-          "authorId": { "type": "string" }
+          "slug": {
+            "description": "Adres przepisu KATALOGU na stronie: `https://scoffie.app/przepis/<slug>`\n(udostępnianie, 29.09.2026). Nadaje go baza — trigger `recipe_assign_slug`\nprzy pierwszym zapisie przepisu katalogu z pustym slugiem — więc import,\npanel i ręczny SQL nie muszą o nim pamiętać. Zmiana tytułu slugu NIE\nzmienia (wysłane linki mają działać); świadoma zmiana zostawia stary\nw `RecipeSlugAlias`. Przepisy gospodarstw mają `null` — udostępnia się\nje tokenem (`RecipeShare`).",
+            "type": "string",
+            "nullable": true
+          },
+          "authorId": { "type": "string" },
+          "copiedFromRecipeId": {
+            "description": "Źródło kopii „Zapisz u siebie” z udostępnionego linku. `SetNull`: kopia\njest już przepisem tego domu i żyje dalej, gdy oryginał zniknie.",
+            "type": "string",
+            "nullable": true
+          }
         },
         "required": [
           "allergens",
           "authorId",
+          "copiedFromRecipeId",
           "createdAt",
           "cuisine",
           "description",
@@ -12475,6 +12738,7 @@
           "prepTimeMinutes",
           "seasons",
           "servings",
+          "slug",
           "sourceCategory",
           "sourceChefNotes",
           "sourceCuisine",
@@ -12538,6 +12802,7 @@
           "occasions": { "type": "array", "items": { "type": "string" } },
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
+          "slug": { "type": "string", "nullable": true },
           "ingredients": {
             "type": "array",
             "items": {
@@ -12588,6 +12853,7 @@
           "prepTimeMinutes",
           "seasons",
           "servings",
+          "slug",
           "sourceProvider",
           "sourceRecipeId",
           "suitableMealTypes",
@@ -12632,6 +12898,7 @@
           "occasions": { "type": "array", "items": { "type": "string" } },
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
+          "slug": { "type": "string", "nullable": true },
           "ingredients": {
             "type": "array",
             "items": {
@@ -12690,6 +12957,7 @@
           "prepTimeMinutes",
           "seasons",
           "servings",
+          "slug",
           "sourceInstructions",
           "sourceProvider",
           "sourceRecipeId",
@@ -12707,6 +12975,7 @@
               "type": "object",
               "properties": {
                 "isFavorite": { "type": "boolean" },
+                "shareUrl": { "type": "string", "nullable": true },
                 "title": { "type": "string" },
                 "description": { "type": "string", "nullable": true },
                 "id": { "type": "string" },
@@ -12738,6 +13007,7 @@
                 "occasions": { "type": "array", "items": { "type": "string" } },
                 "equipment": { "type": "array", "items": { "type": "string" } },
                 "features": { "type": "array", "items": { "type": "string" } },
+                "slug": { "type": "string", "nullable": true },
                 "ingredients": {
                   "type": "array",
                   "items": {
@@ -12788,6 +13058,8 @@
                 "prepTimeMinutes",
                 "seasons",
                 "servings",
+                "shareUrl",
+                "slug",
                 "sourceProvider",
                 "sourceRecipeId",
                 "suitableMealTypes",
@@ -12801,6 +13073,123 @@
           }
         },
         "required": ["favoriteRecipeIds", "householdId", "recipes"]
+      },
+      "WsRecipesRevokeShareData": {
+        "type": "object",
+        "properties": { "revoked": { "type": "boolean" } },
+        "required": ["revoked"]
+      },
+      "WsRecipesSaveSharedData": {
+        "type": "object",
+        "properties": {
+          "recipe": {
+            "type": "object",
+            "properties": {
+              "suitableMealTypes": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/MealType" }
+              },
+              "imageUrl": { "type": "string" },
+              "isFavorite": { "type": "boolean" },
+              "title": { "type": "string" },
+              "description": { "type": "string", "nullable": true },
+              "id": { "type": "string" },
+              "householdId": { "type": "string" },
+              "allergens": { "type": "array", "items": { "type": "string" } },
+              "sourceProvider": { "type": "string", "nullable": true },
+              "sourceRecipeId": { "type": "string", "nullable": true },
+              "sourceInstructions": { "description": "Dowolny JSON" },
+              "mealType": { "$ref": "#/components/schemas/MealType" },
+              "difficulty": { "$ref": "#/components/schemas/Difficulty" },
+              "prepTimeMinutes": { "type": "number" },
+              "servings": { "type": "number" },
+              "nutritionKcal": { "type": "number" },
+              "nutritionProtein": { "type": "number" },
+              "nutritionFat": { "type": "number" },
+              "nutritionCarbs": { "type": "number" },
+              "nutritionFiber": { "type": "number" },
+              "nutritionSalt": { "type": "number" },
+              "nutritionSugars": { "type": "number" },
+              "nutritionSaturatedFat": { "type": "number" },
+              "isActive": { "type": "boolean" },
+              "isCatalog": { "type": "boolean" },
+              "dietTags": { "type": "array", "items": { "type": "string" } },
+              "cuisine": { "type": "string" },
+              "dishType": { "type": "string", "nullable": true },
+              "seasons": { "type": "array", "items": { "type": "string" } },
+              "occasions": { "type": "array", "items": { "type": "string" } },
+              "equipment": { "type": "array", "items": { "type": "string" } },
+              "features": { "type": "array", "items": { "type": "string" } },
+              "slug": { "type": "string", "nullable": true },
+              "ingredients": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "unit": { "type": "string" },
+                    "name": { "type": "string" },
+                    "id": { "type": "string" },
+                    "ingredientId": { "type": "string" },
+                    "recipeId": { "type": "string" },
+                    "amount": { "type": "number" },
+                    "normalizedAmount": { "type": "number" },
+                    "normalizedUnit": { "type": "string" },
+                    "department": { "type": "string" }
+                  },
+                  "required": [
+                    "amount",
+                    "department",
+                    "id",
+                    "ingredientId",
+                    "name",
+                    "normalizedAmount",
+                    "normalizedUnit",
+                    "recipeId",
+                    "unit"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "allergens",
+              "cuisine",
+              "description",
+              "dietTags",
+              "difficulty",
+              "dishType",
+              "equipment",
+              "features",
+              "householdId",
+              "id",
+              "imageUrl",
+              "ingredients",
+              "isActive",
+              "isCatalog",
+              "isFavorite",
+              "mealType",
+              "nutritionCarbs",
+              "nutritionFat",
+              "nutritionFiber",
+              "nutritionKcal",
+              "nutritionProtein",
+              "nutritionSalt",
+              "nutritionSaturatedFat",
+              "nutritionSugars",
+              "occasions",
+              "prepTimeMinutes",
+              "seasons",
+              "servings",
+              "slug",
+              "sourceInstructions",
+              "sourceProvider",
+              "sourceRecipeId",
+              "suitableMealTypes",
+              "title"
+            ]
+          },
+          "created": { "type": "boolean" }
+        },
+        "required": ["created", "recipe"]
       },
       "WsRecipesSetFavoriteData": {
         "type": "object",
@@ -12840,6 +13229,7 @@
           "occasions": { "type": "array", "items": { "type": "string" } },
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
+          "slug": { "type": "string", "nullable": true },
           "ingredients": {
             "type": "array",
             "items": {
@@ -12898,12 +13288,27 @@
           "prepTimeMinutes",
           "seasons",
           "servings",
+          "slug",
           "sourceInstructions",
           "sourceProvider",
           "sourceRecipeId",
           "suitableMealTypes",
           "title"
         ]
+      },
+      "WsRecipesSharedData": {
+        "type": "object",
+        "properties": { "ok": { "type": "boolean", "enum": [true] } },
+        "required": ["ok"]
+      },
+      "WsRecipesShareLinkData": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" },
+          "kind": { "enum": ["CATALOG", "HOUSEHOLD"], "type": "string" },
+          "token": { "type": "string", "nullable": true }
+        },
+        "required": ["kind", "token", "url"]
       },
       "WsRecipesUpdateData": {
         "type": "object",
@@ -12943,6 +13348,7 @@
           "occasions": { "type": "array", "items": { "type": "string" } },
           "equipment": { "type": "array", "items": { "type": "string" } },
           "features": { "type": "array", "items": { "type": "string" } },
+          "slug": { "type": "string", "nullable": true },
           "ingredients": {
             "type": "array",
             "items": {
@@ -13001,6 +13407,7 @@
           "prepTimeMinutes",
           "seasons",
           "servings",
+          "slug",
           "sourceInstructions",
           "sourceProvider",
           "sourceRecipeId",

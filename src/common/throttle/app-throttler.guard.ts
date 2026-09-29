@@ -16,6 +16,7 @@ import type {
 import { parseBearer } from '../../auth/access-token.service';
 import { RequestMetricsService } from '../../observability/request-metrics.service';
 import { AppException } from '../app-exception';
+import { fromWebRenderer } from '../../recipes/sharing/web-renderer';
 
 type ThrottledRequest = {
   ip?: string;
@@ -62,7 +63,14 @@ export class AppThrottlerGuard extends ThrottlerGuard {
   }
 
   protected shouldSkip(context: ExecutionContext): Promise<boolean> {
-    return Promise.resolve(context.getType() !== 'http');
+    if (context.getType() !== 'http') return Promise.resolve(true);
+    // Worker strony z sekretem mówi w imieniu wszystkich odwiedzających naraz
+    // (patrz `web-renderer.ts`) — tylko na publicznych trasach przepisów.
+    const request = context.switchToHttp().getRequest<ThrottledRequest>();
+    const path = request.path ?? request.originalUrl ?? '';
+    return Promise.resolve(
+      path.startsWith('/public/') && fromWebRenderer(request.headers),
+    );
   }
 
   protected async getTracker(req: Record<string, any>): Promise<string> {
