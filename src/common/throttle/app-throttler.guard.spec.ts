@@ -36,8 +36,55 @@ describe('AppThrottlerGuard', () => {
       ['rpc', 'rpc', true],
     ])('%s → %s', async (_label, type, expected) => {
       const guard = buildGuard();
-      const context = { getType: () => type } as unknown as ExecutionContext;
+      const context = {
+        getType: () => type,
+        switchToHttp: () => ({ getRequest: () => ({ path: '/auth/me' }) }),
+      } as unknown as ExecutionContext;
       await expect(guard['shouldSkip'](context)).resolves.toBe(expected);
+    });
+
+    describe('Worker strony (publiczne przepisy)', () => {
+      const SECRET = 'w'.repeat(40);
+      const saved = process.env.WEB_RENDER_SECRET;
+      beforeEach(() => {
+        process.env.WEB_RENDER_SECRET = SECRET;
+      });
+      afterAll(() => {
+        if (saved === undefined) delete process.env.WEB_RENDER_SECRET;
+        else process.env.WEB_RENDER_SECRET = saved;
+      });
+      const httpContext = (path: string, secret?: string) =>
+        ({
+          getType: () => 'http',
+          switchToHttp: () => ({
+            getRequest: () => ({
+              path,
+              headers: secret ? { 'x-scoffie-web-secret': secret } : {},
+            }),
+          }),
+        }) as unknown as ExecutionContext;
+
+      it.each([
+        ['z sekretem na /public/', '/public/recipes/slug/abc', SECRET, true],
+        ['bez sekretu', '/public/recipes/slug/abc', undefined, false],
+        ['zły sekret', '/public/recipes/slug/abc', 'x'.repeat(40), false],
+        ['sekret poza /public/', '/auth/me', SECRET, false],
+      ])('%s', async (_label, path, secret, expected) => {
+        const guard = buildGuard();
+        await expect(
+          guard['shouldSkip'](httpContext(path, secret)),
+        ).resolves.toBe(expected);
+      });
+
+      it('krótki sekret w env nie otwiera niczego', async () => {
+        process.env.WEB_RENDER_SECRET = 'krotki';
+        const guard = buildGuard();
+        await expect(
+          guard['shouldSkip'](
+            httpContext('/public/recipes/slug/abc', 'krotki'),
+          ),
+        ).resolves.toBe(false);
+      });
     });
   });
 

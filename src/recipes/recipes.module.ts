@@ -4,14 +4,18 @@ import { RecipesService } from './recipes.service';
 import { RecipesCacheService } from './recipes-cache.service';
 import { IngredientsService } from './ingredients.service';
 import { CatalogSyncService } from './catalog-sync.service';
+import { RecipeSharingService } from './sharing/recipe-sharing.service';
+import { PublicRecipesController } from './sharing/public-recipes.controller';
 
 @Module({
+  controllers: [PublicRecipesController],
   providers: [
     RecipesService,
     RecipesGateway,
     RecipesCacheService,
     IngredientsService,
     CatalogSyncService,
+    RecipeSharingService,
   ],
   // Serwisy wystawione dla `src/agent/`: narzędzia asystenta wołają domenę
   // in-process, przez te same metody, co handlery WS.
@@ -20,6 +24,7 @@ import { CatalogSyncService } from './catalog-sync.service';
     RecipesService,
     IngredientsService,
     CatalogSyncService,
+    RecipeSharingService,
   ],
 })
 export class RecipesModule {}

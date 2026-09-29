@@ -101,6 +101,19 @@ export class AdminCatalogInsightsService {
         ORDER BY count DESC
         LIMIT ${TOP}`;
 
+      // Udostępnienia linkiem (29.09.2026): zakończone arkusze w aplikacji
+      // i otwarcia linku w aplikacji — tylko katalog, w oknie.
+      const shareEvents = (kind: 'SHARED' | 'OPENED') => tx.$queryRaw<Count[]>`
+        SELECT e."recipeId"::text AS "recipeId", COUNT(*)::int AS count
+        FROM "RecipeShareEvent" e
+        JOIN "Recipe" r ON r.id = e."recipeId" AND r."isCatalog" = true
+        WHERE e.kind = ${kind}::"RecipeShareEventKind" AND e."createdAt" >= ${since}
+        GROUP BY e."recipeId"
+        ORDER BY count DESC
+        LIMIT ${TOP}`;
+      const shared = await shareEvents('SHARED');
+      const linkOpens = await shareEvents('OPENED');
+
       // Nowe dania w kartach propozycji. `action.slots` to STAN DOCELOWY
       // tygodnia (także dania, które już tam stały), więc liczymy z karty:
       // sloty `change = NEW` (PLAN_WEEK, PLAN_DAY) i `to` podmiany (SWAP).
@@ -167,6 +180,8 @@ export class AdminCatalogInsightsService {
           planned: rank(planned, meta, TOP),
           eaten: rank(eaten, meta, TOP),
           favorites: rank(favorites, meta, TOP),
+          shared: rank(shared, meta, TOP),
+          linkOpens: rank(linkOpens, meta, TOP),
           proposed: rank(proposed, meta, TOP),
           neverUsed: neverUsed.slice(0, NEVER_USED_LIMIT),
           neverUsedTotal: neverUsed.length,

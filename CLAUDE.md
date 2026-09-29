@@ -137,6 +137,14 @@ etapami i mierzenie efektu zmian.
   (4) `removeMember` gasi WSZYSTKIE otwarte zaproszenia domu (`revokeOpenInvitationsOf`) — wyrzucony zna
   też cudze linki; `leave` tego nie robi; (5) `acceptInvitation` ma ważność i `declinedAt` w warunku
   samego `updateMany`, nie tylko w kontroli przed transakcją.
+- Udostępnianie przepisów (od 29.09.2026, kontrakt `docs/plans/udostepnianie-przepisow/KONTRAKT.md`):
+  katalog = `scoffie.app/przepis/<slug>`, przepis domu = `/przepis/u/<token>` (`RecipeShare`, jeden AKTYWNY
+  na przepis i dom — częściowy indeks unikalny w migracji). `Recipe.slug` nadaje TRIGGER `recipe_assign_slug`
+  (przy imporcie, panelu i ręcznym SQL), zmiana zostawia alias. Każdy zły/wyłączony/wycofany link = TEN SAM
+  404 `RECIPE_NOT_FOUND` (też w publicznym `GET /public/recipes/*` bez logowania). Obcy dom widzi przepis
+  z linku przez `recipes:openShared` (`origin: SHARED`, `householdId: null`), `findById` dalej daje mu 404;
+  „Zapisz u siebie” = `recipes:saveShared` (kopia z `copiedFromRecipeId`, idempotentna pod zamkiem doradczym).
+  Dowód: `test/recipe-sharing.e2e-spec.ts`.
 - Trasy `/ops/*` (poza `/ops/health`): `OpsTokenGuard` jest fail-closed — pusty `OPS_TOKEN` = 403 w KAŻDYM
   środowisku (dev, staging, prod); jedyny wyjątek to dokładnie `NODE_ENV=test`. Tokenu nie logujemy.
 - Apple sign-in: adres e-mail i `emailVerified` idą WYŁĄCZNIE z claimów zweryfikowanego identity tokenu;

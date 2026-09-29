@@ -29,6 +29,7 @@ import {
 import { resolveSuitableMealTypes } from './suitable-meal-types.util';
 import { normalizeRecipeSteps } from './recipe-steps.util';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
+import { sharedRecipeUrl } from './sharing/recipe-share-links';
 
 export const recipeListSelect = {
   id: true,
@@ -57,6 +58,10 @@ export const recipeListSelect = {
   nutritionSugars: true,
   nutritionSaturatedFat: true,
   isActive: true,
+  // Adres przepisu katalogu na stronie (`scoffie.app/przepis/<slug>`) —
+  // klient buduje z niego link „Udostępnij” bez pytania serwera. `null` dla
+  // przepisów gospodarstw (te udostępnia się tokenem, `recipes:shareLink`).
+  slug: true,
   // Tagi liczone na serwerze (unia tagów składników): klient filtruje po
   // nich dietę i alergeny zamiast zgadywać z nazw. Składniki nadal jadą z
   // listą — stary build iOS bez tych pól dalej klasyfikuje po nazwach.
@@ -91,6 +96,11 @@ export const recipeListSelect = {
 
 export type RecipeListRow = Prisma.RecipeGetPayload<{
   select: typeof recipeListSelect;
+}>;
+
+/** Wiersz szczegółów (`RecipesService.detailSelect`). */
+export type RecipeDetailRow = Prisma.RecipeGetPayload<{
+  select: RecipesService['detailSelect'];
 }>;
 
 /** Wiersz listy przepisów dla klienta — bez `sourceMeta`, bez ulubionych. */
@@ -177,7 +187,7 @@ export class RecipesService {
     .map((url) => url.trim().replace(/\/+$/g, ''))
     .filter(Boolean);
 
-  private async resolveUserId(userIdentifier: string): Promise<string> {
+  async resolveUserId(userIdentifier: string): Promise<string> {
     const byId = await this.prisma.user.findUnique({
       where: { id: userIdentifier },
       select: { id: true },
@@ -205,7 +215,7 @@ export class RecipesService {
    * linia chroniła każdą ścieżkę, która dostaje `householdId` z koperty
    * albo z argumentu narzędzia asystenta (bez tego `hh-1` kończył się P2023).
    */
-  private async ensureMembership(userIdentifier: string, householdId: string) {
+  async ensureMembership(userIdentifier: string, householdId: string) {
     assertUuid(householdId, 'householdId');
     const userId = await this.resolveUserId(userIdentifier);
     const membership = await this.prisma.membership.findUnique({
@@ -425,7 +435,7 @@ export class RecipesService {
 
   private readonly listSelect = recipeListSelect;
 
-  private readonly detailSelect = {
+  readonly detailSelect = {
     id: true,
     title: true,
     description: true,
@@ -448,6 +458,7 @@ export class RecipesService {
     nutritionSaturatedFat: true,
     isActive: true,
     isCatalog: true,
+    slug: true,
     allergens: true,
     dietTags: true,
     cuisine: true,
@@ -527,7 +538,7 @@ export class RecipesService {
     return `${this.imageGeneratorBaseUrl}/${encodedPrompt}?seed=${encodeURIComponent(seed)}${query}`;
   }
 
-  private resolveRecipeImageUrl(recipe: RecipeImageSource): string {
+  resolveRecipeImageUrl(recipe: RecipeImageSource): string {
     const currentImageUrl = recipe.imageUrl?.trim() ?? '';
     if (
       currentImageUrl &&
@@ -694,7 +705,7 @@ export class RecipesService {
     assertUuid(householdId, 'householdId');
     const userId = await this.resolveUserId(userIdentifier);
     await this.ensureMembership(userId, householdId);
-    const [rows, favorites] = await Promise.all([
+    const [rows, favorites, shares] = await Promise.all([
       this.prisma.recipe.findMany({
         where: { householdId, isCatalog: false, isActive: true },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -705,14 +716,26 @@ export class RecipesService {
         select: { recipeId: true },
         orderBy: { recipeId: 'asc' },
       }),
+      // Aktywne linki domu — z nich klient wie, czy pokazać „Wyłącz link”.
+      this.prisma.recipeShare.findMany({
+        where: { householdId, revokedAt: null },
+        select: { recipeId: true, token: true },
+      }),
     ]);
     const favoriteIds = new Set(favorites.map((row) => row.recipeId));
+    const shareTokens = new Map(
+      shares.map((share) => [share.recipeId, share.token]),
+    );
     return {
       householdId,
-      recipes: rows.map((row) => ({
-        ...this.toListItem(row),
-        isFavorite: favoriteIds.has(row.id),
-      })),
+      recipes: rows.map((row) => {
+        const token = shareTokens.get(row.id);
+        return {
+          ...this.toListItem(row),
+          isFavorite: favoriteIds.has(row.id),
+          shareUrl: token ? sharedRecipeUrl(token) : null,
+        };
+      }),
       favoriteRecipeIds: [...favoriteIds],
     };
   }
@@ -810,20 +833,30 @@ export class RecipesService {
       );
     }
 
+    return this.toDetail(recipe, householdId ?? null);
+  }
+
+  /**
+   * Wiersz `detailSelect` → ack szczegółów (`recipes:findById`), z flagą
+   * ulubionego dla `favoriteHouseholdId`. BEZ bramki widoczności — wołający
+   * ustalił ją sam (`findById`: katalog albo własny dom; udostępnianie: ważny
+   * link). Jedna definicja kształtu dla obu dróg.
+   */
+  async toDetail(recipe: RecipeDetailRow, favoriteHouseholdId: string | null) {
     let isFavorite = false;
-    if (householdId) {
+    if (favoriteHouseholdId) {
       const favorite = await this.prisma.recipeFavorite.findUnique({
         where: {
           recipeId_householdId: {
             recipeId: recipe.id,
-            householdId,
+            householdId: favoriteHouseholdId,
           },
         },
         select: { id: true },
       });
       isFavorite = Boolean(favorite);
     }
-    const { sourceMeta, ...base } = recipe;
+    const { sourceMeta: _sourceMeta, ...base } = recipe;
     return {
       ...base,
       suitableMealTypes: effectiveSuitableMealTypes(recipe),

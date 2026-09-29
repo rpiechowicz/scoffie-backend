@@ -802,4 +802,88 @@ describe('Panel administratora — katalog (e2e)', () => {
       });
     });
   });
+
+  describe('adres przepisu i linki (udostępnianie)', () => {
+    const put = (body: unknown) =>
+      request(server())
+        .put(`/admin/catalog/recipes/${ids.editable}`)
+        .set('Cookie', session.cookie)
+        .send(body as object);
+    const detail = async (id = ids.editable) =>
+      (await get(`/recipes/${id}`).expect(200)).body as RecipeDetail;
+
+    it('szczegół niesie slug nadany przez bazę, aliasy i liczniki', async () => {
+      const recipe = await detail(ids.active);
+      expect(recipe.slug).toMatch(/^owsianka-a3-/);
+      expect(recipe.slugAliases).toEqual([]);
+      expect(recipe.shares).toEqual({ shared: 0, opened: 0, saved: 0 });
+    });
+
+    it('zmiana adresu: nowy slug, stary w aliasach, audyt z polem slug', async () => {
+      const before = await detail();
+      const oldSlug = before.slug;
+      const newSlug = `mleko-na-dobranoc-${stamp}`;
+      const saved = (await put({ ...before, slug: newSlug }).expect(200))
+        .body as RecipeDetail;
+      expect(saved.slug).toBe(newSlug);
+      expect(saved.slugAliases).toEqual([oldSlug]);
+      const audit = await prisma.adminAuditLog.findFirstOrThrow({
+        where: { action: 'recipe.update', targetId: ids.editable },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect((audit.details as { changed: string[] }).changed).toEqual([
+        'slug',
+      ]);
+    });
+
+    it('adres zajęty przez inny przepis (teraz albo kiedyś) — 400 slug', async () => {
+      const before = await detail();
+      const taken = (await detail(ids.active)).slug;
+      const res = await put({ ...before, slug: taken }).expect(400);
+      expect(res.body).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        details: ['slug'],
+      });
+      await put({ ...before, slug: 'Zły Adres!' }).expect(400);
+      expect((await detail()).slug).toBe(before.slug);
+    });
+
+    it('wyłączenie zgłoszonego linku po adresie; drugi raz i nieznany — revoked: false', async () => {
+      const token = randomBytes(16).toString('base64url');
+      await prisma.recipeShare.create({
+        data: { token, recipeId: ids.private, householdId: ids.hAuthor },
+      });
+      const revoke = (link: string) =>
+        request(server())
+          .post('/admin/recipe-shares/revoke')
+          .set('Cookie', noStepUp.cookie)
+          .send({ link, reason: 'Zgłoszenie treści' });
+
+      const res = await revoke(
+        ` https://scoffie.app/przepis/u/${token}/ `,
+      ).expect(200);
+      expect(res.body).toEqual({
+        revoked: true,
+        recipeTitle: `Prywatna A3 ${stamp}`,
+      });
+      expect(
+        (await prisma.recipeShare.findUniqueOrThrow({ where: { token } }))
+          .revokedAt,
+      ).not.toBeNull();
+      expect((await revoke(token).expect(200)).body).toMatchObject({
+        revoked: false,
+      });
+      expect(
+        (await revoke(randomBytes(16).toString('base64url')).expect(200)).body,
+      ).toEqual({ revoked: false, recipeTitle: null });
+
+      const audit = await prisma.adminAuditLog.findFirstOrThrow({
+        where: { action: 'recipe.share.revoke' },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(audit.reason).toBe('Zgłoszenie treści');
+      // Token to klucz do odczytu przepisu — do dziennika nie trafia.
+      expect(JSON.stringify(audit)).not.toContain(token);
+    });
+  });
 });

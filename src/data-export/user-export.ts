@@ -70,6 +70,7 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
     memoryNotes,
     subscriptions,
     activityDays,
+    recipeShares,
   ] = await Promise.all([
     prisma.consentEvent.findMany({
       where: { userId },
@@ -298,6 +299,18 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
       orderBy: { date: 'asc' },
       select: { date: true },
     }),
+    // Linki do przepisów, które ta osoba udostępniła — BEZ tokenu: to klucz
+    // do odczytu przepisu, a paczka eksportu bywa przechowywana byle gdzie.
+    prisma.recipeShare.findMany({
+      where: { createdById: userId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        recipeId: true,
+        householdId: true,
+        createdAt: true,
+        revokedAt: true,
+      },
+    }),
   ]);
 
   // `identityHash` NIE wychodzi w eksporcie: to nasz klucz wewnętrzny, a jego
@@ -381,6 +394,7 @@ export async function buildUserExport(prisma: PrismaClient, userId: string) {
     activityDays: activityDays.map((day) =>
       day.date.toISOString().slice(0, 10),
     ),
+    recipeShares,
   };
 }
 
