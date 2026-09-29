@@ -13074,6 +13074,129 @@
         },
         "required": ["favoriteRecipeIds", "householdId", "recipes"]
       },
+      "WsRecipesOpenSharedData": {
+        "description": "`recipes:openShared` — JEDEN nazwany kształt (schemat w OpenAPI), nie suma\ntrzech wariantów: `recipe.householdId` jest `null` dla przepisu innego domu.",
+        "type": "object",
+        "properties": {
+          "origin": { "$ref": "#/components/schemas/RecipeLinkOrigin" },
+          "recipe": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "description": { "type": "string", "nullable": true },
+              "id": { "type": "string" },
+              "allergens": { "type": "array", "items": { "type": "string" } },
+              "sourceProvider": { "type": "string", "nullable": true },
+              "sourceRecipeId": { "type": "string", "nullable": true },
+              "sourceInstructions": { "description": "Dowolny JSON" },
+              "mealType": { "$ref": "#/components/schemas/MealType" },
+              "suitableMealTypes": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/MealType" }
+              },
+              "difficulty": { "$ref": "#/components/schemas/Difficulty" },
+              "prepTimeMinutes": { "type": "number" },
+              "servings": { "type": "number" },
+              "imageUrl": { "type": "string" },
+              "nutritionKcal": { "type": "number" },
+              "nutritionProtein": { "type": "number" },
+              "nutritionFat": { "type": "number" },
+              "nutritionCarbs": { "type": "number" },
+              "nutritionFiber": { "type": "number" },
+              "nutritionSalt": { "type": "number" },
+              "nutritionSugars": { "type": "number" },
+              "nutritionSaturatedFat": { "type": "number" },
+              "isActive": { "type": "boolean" },
+              "isCatalog": { "type": "boolean" },
+              "dietTags": { "type": "array", "items": { "type": "string" } },
+              "cuisine": { "type": "string" },
+              "dishType": { "type": "string", "nullable": true },
+              "seasons": { "type": "array", "items": { "type": "string" } },
+              "occasions": { "type": "array", "items": { "type": "string" } },
+              "equipment": { "type": "array", "items": { "type": "string" } },
+              "features": { "type": "array", "items": { "type": "string" } },
+              "slug": { "type": "string", "nullable": true },
+              "ingredients": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "unit": { "type": "string" },
+                    "name": { "type": "string" },
+                    "id": { "type": "string" },
+                    "ingredientId": { "type": "string" },
+                    "recipeId": { "type": "string" },
+                    "amount": { "type": "number" },
+                    "normalizedAmount": { "type": "number" },
+                    "normalizedUnit": { "type": "string" },
+                    "department": { "type": "string" }
+                  },
+                  "required": [
+                    "amount",
+                    "department",
+                    "id",
+                    "ingredientId",
+                    "name",
+                    "normalizedAmount",
+                    "normalizedUnit",
+                    "recipeId",
+                    "unit"
+                  ]
+                }
+              },
+              "isFavorite": { "type": "boolean" },
+              "householdId": { "type": "string", "nullable": true }
+            },
+            "required": [
+              "allergens",
+              "cuisine",
+              "description",
+              "dietTags",
+              "difficulty",
+              "dishType",
+              "equipment",
+              "features",
+              "householdId",
+              "id",
+              "imageUrl",
+              "ingredients",
+              "isActive",
+              "isCatalog",
+              "isFavorite",
+              "mealType",
+              "nutritionCarbs",
+              "nutritionFat",
+              "nutritionFiber",
+              "nutritionKcal",
+              "nutritionProtein",
+              "nutritionSalt",
+              "nutritionSaturatedFat",
+              "nutritionSugars",
+              "occasions",
+              "prepTimeMinutes",
+              "seasons",
+              "servings",
+              "slug",
+              "sourceInstructions",
+              "sourceProvider",
+              "sourceRecipeId",
+              "suitableMealTypes",
+              "title"
+            ]
+          },
+          "savedRecipeId": {
+            "description": "SHARED: aktywna kopia, którą dom pytającego już zapisał.",
+            "type": "string",
+            "nullable": true
+          },
+          "shareToken": {
+            "description": "Token linku, gdy otwarto po tokenie.",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["origin", "recipe", "savedRecipeId", "shareToken"]
+      },
       "WsRecipesRevokeShareData": {
         "type": "object",
         "properties": { "revoked": { "type": "boolean" } },

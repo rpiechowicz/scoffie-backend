@@ -30,6 +30,22 @@ export type RecipeShareLink = {
 
 export type RecipeLinkOrigin = 'CATALOG' | 'HOUSEHOLD' | 'SHARED';
 
+/** Szczegóły przepisu — ten sam kształt co ack `recipes:findById`. */
+type RecipeDetailAck = Awaited<ReturnType<RecipesService['toDetail']>>;
+
+/**
+ * `recipes:openShared` — JEDEN nazwany kształt (schemat w OpenAPI), nie suma
+ * trzech wariantów: `recipe.householdId` jest `null` dla przepisu innego domu.
+ */
+export type OpenedRecipeLink = {
+  origin: RecipeLinkOrigin;
+  recipe: Omit<RecipeDetailAck, 'householdId'> & { householdId: string | null };
+  /** SHARED: aktywna kopia, którą dom pytającego już zapisał. */
+  savedRecipeId: string | null;
+  /** Token linku, gdy otwarto po tokenie. */
+  shareToken: string | null;
+};
+
 /** Przepis dla strony (`GET /public/recipes/…`) — bez autora, domu i kroków. */
 export type PublicRecipe = {
   kind: 'CATALOG' | 'SHARED';
@@ -275,7 +291,7 @@ export class RecipeSharingService {
     userIdentifier: string,
     householdId: string,
     link: { slug?: string; token?: string },
-  ) {
+  ): Promise<OpenedRecipeLink> {
     await this.recipes.ensureMembership(userIdentifier, householdId);
     const hasSlug = link.slug !== undefined;
     const hasToken = link.token !== undefined;
@@ -291,7 +307,7 @@ export class RecipeSharingService {
       if (!row) throw recipeLinkNotFound();
       await this.recordEvent(row.id, 'OPENED');
       return {
-        origin: 'CATALOG' as RecipeLinkOrigin,
+        origin: 'CATALOG',
         recipe: await this.recipes.toDetail(row, householdId),
         savedRecipeId: null,
         shareToken: null,
@@ -309,7 +325,7 @@ export class RecipeSharingService {
 
     if (share.householdId === householdId) {
       return {
-        origin: 'HOUSEHOLD' as RecipeLinkOrigin,
+        origin: 'HOUSEHOLD',
         recipe: await this.recipes.toDetail(row, householdId),
         savedRecipeId: null,
         shareToken: link.token!,
@@ -318,7 +334,7 @@ export class RecipeSharingService {
     const saved = await this.savedCopyOf(row.id, householdId);
     const detail = await this.recipes.toDetail(row, null);
     return {
-      origin: 'SHARED' as RecipeLinkOrigin,
+      origin: 'SHARED',
       // Cudzy dom nie wychodzi poza serwer — w kopii odbiorcy i tak będzie jego.
       recipe: { ...detail, householdId: null },
       savedRecipeId: saved?.id ?? null,
