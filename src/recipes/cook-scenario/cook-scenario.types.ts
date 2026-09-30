@@ -26,8 +26,18 @@ export const COOK_SCENARIO_SCHEMA_VERSION = 1;
  * `.3` (30.09, decyzje Rafała po pilocie): timer od 4 min, najwyżej dwa
  * odliczania naraz, kroki „w międzyczasie” mieszczą się po ludzku (±2 min),
  * tryb piekarnika zawsze podany, praktyczne wskazówki dozwolone.
+ * `.4` (30.09): informacja raz, nagrzewanie na czas, ostrzeżenia tylko
+ * nieoczywiste, „W MIĘDZYCZASIE” tylko z `during`.
+ * `.5` (30.09): teksty pod zatwierdzony dok — tytuł ≤ 30, treść ≤ 260,
+ * `startLabel` ≤ 20 jako sam warunek startu (`COOK_AUTHOR_LIMITS`).
+ * `.6` (noc 30.09, przegląd całego systemu z Codexem): drugi wariant
+ * urządzenia („W piekarniku: …”) tylko w radzie; `part` zgodny z ilością
+ * i kolejnością; `during` tylko pod trwającym timerem; `totalMinutes` nie
+ * krótszy niż odliczania; token `{count:…}` tylko w `body`; nazwa timera
+ * biegnącego z drugim to rzecz, nie czynność; sygnał „po czym poznać”
+ * w kroku obróbki; bez czasu nagrzewania w tekście.
  */
-export const COOK_SCENARIO_RULES_VERSION = '2026-09-30.5';
+export const COOK_SCENARIO_RULES_VERSION = '2026-09-30.6';
 
 export const COOK_STEP_PHASES = ['PREP', 'COOK', 'FINISH', 'SERVE'] as const;
 export type CookStepPhase = (typeof COOK_STEP_PHASES)[number];
@@ -105,7 +115,10 @@ export interface CookTimer {
   /** Górna granica zakresu („10–12 min”); alarm proponuje „+2 min” do niej. */
   maxSeconds: number;
   trigger: CookTimerTrigger;
-  /** Etykieta startu, mówi KIEDY stuknąć („Woda wrze — odliczaj 20 min”). */
+  /**
+   * SAM warunek startu na kapsule „do włączenia” w doku („Gdy woda
+   * zawrze”, „Kotlety na patelni”) — bez czasu, który stoi obok.
+   */
   startLabel: string;
   alert: { title: string; body: string };
 }
@@ -118,7 +131,10 @@ export interface CookStep {
   stage: string | null;
   /** Co robisz teraz — jedno zdanie w trybie rozkazującym. */
   title: string;
-  /** Jak — prostym językem; liczby porcjowe tylko przez tokeny `{count:…}`. */
+  /**
+   * Jak — prostym językem; liczby porcjowe tylko przez tokeny `{count:…}`
+   * i TYLKO tutaj — telefon podstawia liczbę wyłącznie w `body`.
+   */
   body: string;
   ingredients: CookStepIngredient[];
   /** Przywołania bez ilości (`Ingredient.id`) — „z talerzy z panierką”. */
@@ -133,6 +149,9 @@ export interface CookStep {
    * „Dalej” dopiero po alarmie (albo świadomym „gotowe wcześniej”). Timer
    * startowany w kroku z `during` biegnie dalej sam, także po końcu
    * nadrzędnego (ziemniaki nastawione, gdy masło chłodzi się w zamrażarce).
+   * „+2 min” przy alarmie PRZEDŁUŻA ten sam krok — kolejny krok główny
+   * dalej czeka na koniec (inaczej przy zakresie „10–20 min” mogłyby biec
+   * trzy odliczania naraz; review Codexa, noc 30.09).
    */
   during: string | null;
   /** Nota skali pokazywana dopiero od `fromPortions` porcji. */

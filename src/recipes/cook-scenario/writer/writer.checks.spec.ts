@@ -4,7 +4,10 @@ import {
   qualityChecks,
   recipeDurations,
   resolveWriterOutput,
+  shownLength,
   skipGuard,
+  splitRecipeVariants,
+  timelineFloorSeconds,
 } from './writer.checks';
 import {
   clone,
@@ -155,13 +158,15 @@ describe('system pisania — walidatory twarde', () => {
     step.timer!.startLabel = 'Kotlety na dużej patelni';
     const errors = qualityChecks(kotlet, content).errors;
     expect(errors).toContainEqual(
-      expect.stringContaining(`${step.id}.title: 31 znaków, limit 30`),
+      expect.stringContaining(
+        `${step.id}.title „${'x'.repeat(31)}”: 31 znaków, limit 30`,
+      ),
     );
-    // 240 liter + spacja + token (~10 znaków na ekranie) = 251 → mieści się.
+    // 240 liter + spacja + token (liczba + „kotletów” = 12 znaków) = 253 → mieści się.
     expect(errors.filter((e) => e.startsWith(`${step.id}.body:`))).toEqual([]);
     expect(errors).toContainEqual(
       expect.stringContaining(
-        `${step.id}.timer.startLabel: 24 znaków, limit 20`,
+        `${step.id}.timer.startLabel „Kotlety na dużej patelni”: 24 znaków, limit 20`,
       ),
     );
     step.body = 'a'.repeat(261);
@@ -195,7 +200,7 @@ describe('system pisania — walidatory twarde', () => {
       'Pokrój ogórek, posól, dodaj śmietanę i pieprz — serwuj od razu.';
     expect(
       qualityChecks(kotlet, content).warnings.filter((w) =>
-        w.startsWith('s10:'),
+        w.startsWith('s10: składnik'),
       ),
     ).toEqual([]);
     s10.body = 'Pokrój ogórek, dodaj śmietanę i pieprz — serwuj od razu.';
@@ -362,6 +367,7 @@ describe('system pisania — walidatory twarde', () => {
     )!;
     withTimer.timer!.minSeconds = 1800;
     withTimer.timer!.maxSeconds = 1800;
+    content.totalMinutes = 60; // osobno od reguły czasu całości
     const result = qualityChecks(kotlet, content);
     expect(result.errors).toEqual([
       expect.stringContaining('takiego czasu nie ma w przepisie'),
@@ -451,7 +457,11 @@ describe('system pisania — walidatory twarde', () => {
     ]) {
       const content = clone(example.content);
       const step = content.steps.find(
-        (st) => !st.timer && !st.during && /smaż|patel/i.test(st.body),
+        (st) =>
+          !st.timer &&
+          !st.during &&
+          !/piekarnik/i.test(st.title) &&
+          /smaż|patel/i.test(st.body),
       )!;
       step.body = body;
       expect(
@@ -1051,6 +1061,294 @@ describe('system pisania — walidatory twarde', () => {
       s10.during = 't-oven';
       s10.timer = { ...content.steps[8].timer!, id: 't-third' };
       expect(errorsOf(content)).toEqual([expect.stringContaining('s10.timer')]);
+    });
+  });
+
+  describe('zasady .6 — przegląd całego systemu (Codex, noc 30.09)', () => {
+    const step = (content: Content, id: string) =>
+      content.steps.find((st) => st.id === id)!;
+
+    it('splitRecipeVariants: zdanie „W piekarniku: …” to drugi wariant, reszta linii zostaje', () => {
+      expect(
+        splitRecipeVariants([
+          'Piecz w airfryerze w 170°C 12–14 minut, aż się zrumienią. W piekarniku: 190°C, 20–22 minuty na blasze. Wymieszaj skyr.',
+          'Podawaj od razu.',
+        ]),
+      ).toEqual({
+        primary: [
+          'Piecz w airfryerze w 170°C 12–14 minut, aż się zrumienią. Wymieszaj skyr.',
+          'Podawaj od razu.',
+        ],
+        alternative: ['W piekarniku: 190°C, 20–22 minuty na blasze.'],
+      });
+    });
+
+    it('czas i temperatura DRUGIEGO wariantu: w timerze i kroku błąd z podpowiedzią, w radzie wolno', () => {
+      const recipe: WriterRecipe = {
+        ...kotlet,
+        instructions: kotlet.instructions.map((line, i) =>
+          i === 4 ? `${line} W piekarniku: 200°C, 8 minut.` : line,
+        ),
+      };
+      const good = clone(example.content);
+      good.tips = [
+        ...good.tips.slice(0, 2),
+        'Bez patelni: w piekarniku 200°C, 8 minut.',
+      ];
+      expect(qualityChecks(recipe, good).errors).toEqual([]);
+
+      const mixed = clone(example.content);
+      const oven = mixed.steps.find((st) => st.timer?.id === 't-oven')!;
+      oven.timer = { ...oven.timer!, minSeconds: 480, maxSeconds: 480 };
+      oven.body = `${oven.body} Ustaw 200°C.`;
+      const errors = qualityChecks(recipe, mixed).errors;
+      expect(errors).toContainEqual(
+        expect.stringMatching(/timer.*DRUGIEGO wariantu/),
+      );
+      expect(errors).toContainEqual(
+        expect.stringMatching(/temperatury 200°C.*DRUGIEGO wariantu/),
+      );
+    });
+
+    it('part: jeden krok = ALL; podzielony bez ALL; HALF = połowa; REST tylko na końcu', () => {
+      const errorsFor = (mutate: (content: Content) => void) => {
+        const content = clone(example.content);
+        mutate(content);
+        return qualityChecks(kotlet, content).errors;
+      };
+      expect(
+        errorsFor((c) => {
+          step(c, 's4').ingredients[0].part = 'PART';
+        }),
+      ).toContainEqual(
+        expect.stringContaining(
+          's4: „mąka pszenna” trafia do dania tylko w tym kroku',
+        ),
+      );
+      expect(
+        errorsFor((c) => {
+          step(c, 's2').ingredients[1].part = 'ALL';
+        }),
+      ).toContainEqual(expect.stringContaining('s2: „sól” jest podzielony'));
+      expect(
+        errorsFor((c) => {
+          step(c, 's2').ingredients[2].amount = 0.7;
+          step(c, 's10').ingredients[3].amount = 0.3;
+        }),
+      ).toContainEqual(
+        expect.stringContaining('s2: „pieprz czarny” HALF, a to 70% ilości'),
+      );
+      expect(
+        errorsFor((c) => {
+          step(c, 's1').ingredients[1].part = 'REST';
+          step(c, 's11').ingredients[0].part = 'HALF';
+        }),
+      ).toContainEqual(
+        expect.stringContaining(
+          's1: „koperek” REST (reszta), a składnik wraca',
+        ),
+      );
+    });
+
+    it('during tylko pod timerem, który w tym miejscu jeszcze biegnie', () => {
+      const content = clone(example.content);
+      // Masło skończyło się, zanim ruszyły kroki główne s5+.
+      step(content, 's10').during = 't-butter';
+      expect(qualityChecks(kotlet, content).errors).toContainEqual(
+        expect.stringContaining(
+          's10.during „t-butter”: ten timer w tym miejscu już nie biegnie',
+        ),
+      );
+    });
+
+    it('totalMinutes nie krótszy niż odliczania po kolei', () => {
+      // Masło 15 min, potem kotlety 10 i piekarnik 5 — ziemniaki w tle.
+      expect(timelineFloorSeconds(example.content)).toBe(1800);
+      const content = clone(example.content);
+      content.totalMinutes = 20;
+      expect(qualityChecks(kotlet, content).errors).toContainEqual(
+        expect.stringContaining(
+          'totalMinutes 20: same odliczania trwają co najmniej 30 min',
+        ),
+      );
+    });
+
+    it('token {count:…} tylko w body, forma do 20 znaków, długość po najdłuższej formie', () => {
+      const content = clone(example.content);
+      step(content, 's2').title =
+        'Rozbij {count:cutlets|kotlet|kotlety|kotletów}';
+      step(content, 's1').body =
+        `${step(content, 's1').body} Uformuj {count:rolls|wałeczek|wałeczki|wałeczkówwałeczkówwał}.`;
+      const errors = qualityChecks(kotlet, content).errors;
+      expect(errors).toContainEqual(
+        expect.stringContaining(
+          's2.title: token {count:…} wolno tylko w treści kroku',
+        ),
+      );
+      expect(errors).toContainEqual(
+        expect.stringMatching(/s1\.body: forma w tokenie .* ma 21 znaków/),
+      );
+      expect(shownLength('{count:x|a|bb|ccc} z')).toBe(9);
+    });
+
+    it('„Włącz piekarnik na 180°C” też nagrzewa; krok nagrzewania mówiący „w piekarniku” to nie użycie', () => {
+      const content = clone(example.content);
+      step(content, 's5').title = 'Włącz piekarnik na 180°C';
+      step(content, 's5').body =
+        'Ustaw w piekarniku grzanie góra–dół, bez termoobiegu.';
+      expect(
+        qualityChecks(kotlet, content).errors.filter((e) =>
+          e.includes('piekarnik'),
+        ),
+      ).toEqual([]);
+    });
+
+    it('„100 ml wody, a potem mleko” — woda spoza listy nie jest ilością mleka; „100 ml mleka” jest', () => {
+      const recipe: WriterRecipe = {
+        ...kotlet,
+        ingredients: [
+          ...kotlet.ingredients,
+          { ingredientId: 'mleko', name: 'mleko', amount: 200, unit: 'ml' },
+        ],
+        instructions: [
+          ...kotlet.instructions,
+          'Zagotuj 100 ml wody, a potem wlej mleko.',
+        ],
+      };
+      const content = clone(example.content);
+      const s12 = step(content, 's12');
+      s12.body = 'Zagotuj 100 ml wody, a potem wlej mleko.';
+      const numberErrors = () =>
+        qualityChecks(recipe, content).errors.filter((e) =>
+          e.includes('liczba „100”'),
+        );
+      expect(numberErrors()).toEqual([]);
+      s12.body = 'Wlej 100 ml mleka.';
+      expect(numberErrors()).toHaveLength(1);
+    });
+
+    it('owoce morza mają własny sygnał („różowe i jędrne”), nie rybi', () => {
+      const recipe: WriterRecipe = {
+        ...kotlet,
+        ingredients: kotlet.ingredients.map((row) =>
+          row.name === 'filet z kurczaka'
+            ? {
+                ...row,
+                ingredientId: 'krewetki',
+                name: 'krewetki',
+                department: 'Ryby',
+              }
+            : row,
+        ),
+      };
+      const content = clone(example.content);
+      for (const st of content.steps) {
+        for (const item of st.ingredients) {
+          if (item.ingredientId === 'filet z kurczaka')
+            item.ingredientId = 'krewetki';
+        }
+        st.mentions = st.mentions.map((id) =>
+          id === 'filet z kurczaka' ? 'krewetki' : id,
+        );
+      }
+      const oven = content.steps.find((st) => st.timer?.id === 't-oven')!;
+      oven.note = { kind: 'CUE', text: 'Krewetki są różowe i jędrne.' };
+      const safety = () =>
+        qualityChecks(recipe, content).errors.filter((e) =>
+          e.startsWith('bezpieczeństwo'),
+        );
+      expect(safety()).toEqual([]);
+      oven.note = { kind: 'CUE', text: 'Panierka jest złota.' };
+      expect(safety()).toEqual([
+        expect.stringContaining('owoce morza: „krewetki”'),
+      ]);
+    });
+
+    it('sygnał „po czym poznać” w kroku przygotowania nie wystarcza — ma stać w kroku obróbki', () => {
+      const content = clone(example.content);
+      content.steps.find((st) => st.timer?.id === 't-oven')!.note = null;
+      step(content, 's2').note = {
+        kind: 'CUE',
+        text: 'Po upieczeniu w środku ma być 74°C.',
+      };
+      expect(qualityChecks(kotlet, content).errors).toContainEqual(
+        expect.stringContaining(
+          'stoi w kroku przygotowania — przenieś je do kroku obróbki',
+        ),
+      );
+    });
+
+    it('litery innych alfabetów udające łacinę = błąd (cyrylica z próby .5)', () => {
+      const content = clone(example.content);
+      step(content, 's11').body = 'Postaw garnek na chwilę w ciепle.';
+      expect(qualityChecks(kotlet, content).errors).toContainEqual(
+        expect.stringContaining('s11.body: znak „е” spoza polskiego alfabetu'),
+      );
+    });
+
+    it('dwa odliczania naraz: nazwa-czynność albo ta sama nazwa = błąd; pojedynczo nazwa-czynność wolno', () => {
+      const labelErrors = (mutate: (content: Content) => void) => {
+        const content = clone(example.content);
+        mutate(content);
+        return qualityChecks(kotlet, content).errors.filter((e) =>
+          /biegnie razem/.test(e),
+        );
+      };
+      // Masło chłodzi się, gdy gotują się ziemniaki.
+      expect(
+        labelErrors((c) => {
+          step(c, 's1').timer!.label = 'Chłodzenie';
+        }),
+      ).toEqual([expect.stringContaining('„Chłodzenie” biegnie razem')]);
+      expect(
+        labelErrors((c) => {
+          step(c, 's3').timer!.label = 'Masło';
+        }),
+      ).toEqual([
+        expect.stringContaining('biegnie razem z timerem o tej samej nazwie'),
+      ]);
+      // Piekarnik rusza, gdy ziemniaki już się ugotowały — sam.
+      expect(
+        labelErrors((c) => {
+          c.steps.find((st) => st.timer?.id === 't-oven')!.timer!.label =
+            'Pieczenie';
+        }),
+      ).toEqual([]);
+    });
+
+    it('EVENT bez „Gdy…” i NOW z „Gdy…” — ostrzeżenia dla recenzenta', () => {
+      const content = clone(example.content);
+      step(content, 's3').timer!.startLabel = 'Garnek na ogniu';
+      step(content, 's1').timer!.startLabel = 'Gdy masło stwardnieje';
+      const warnings = qualityChecks(kotlet, content).warnings;
+      expect(warnings).toContainEqual(
+        expect.stringContaining('s3.timer: trigger EVENT'),
+      );
+      expect(warnings).toContainEqual(expect.stringContaining('a trigger NOW'));
+    });
+
+    it('SKIP: krótki czas aktywnej czynności („miksuj 30–40 s”) go nie blokuje', () => {
+      expect(
+        skipGuard({
+          ...kotlet,
+          title: 'Koktajl bananowy',
+          instructions: ['Zmiksuj wszystkie składniki na gładko 30–40 sekund.'],
+          equipment: ['BLENDER'],
+          prepTimeMinutes: 5,
+        }),
+      ).toBeNull();
+    });
+
+    it('błąd kształtu podaje id kroku i cytuje napis do skrócenia (próba .5: schab trzy razy)', () => {
+      const bad = output() as unknown as {
+        scenario: { steps: Array<{ timer: { label: string } | null }> };
+      };
+      bad.scenario.steps[8].timer!.label = 'Kotlety na złoto';
+      expect(resolveWriterOutput(kotlet, bad).errors).toContainEqual(
+        expect.stringContaining(
+          's9.timer.label „Kotlety na złoto”: 16 znaków, limit 14',
+        ),
+      );
     });
   });
 });

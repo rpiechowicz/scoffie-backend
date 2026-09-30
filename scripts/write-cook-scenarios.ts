@@ -31,6 +31,9 @@
  * Opcje: --limit N (najwyżej N przepisów faktycznie pisanych),
  *   --skip-written (pomija przepisy z aktualnym wynikiem dla obecnej treści),
  *   --concurrency 3 (tryb na żywo), --out raport.json.
+ * Bramka jakości (paczki, po każdej rundzie, od 30 wyników): --gate-reject
+ *   0.2 (udział REJECTED), --gate-cost 0.1 (średni $ na przepis),
+ *   --no-gate. Na końcu: stan CAŁEGO katalogu przy obecnych zasadach.
  * Modele: COOK_WRITER_MODEL, COOK_REVIEWER_MODEL, COOK_WRITER_EFFORT,
  *   COOK_REVIEWER_EFFORT.
  */
@@ -107,6 +110,9 @@ interface Args {
   journal: string | null;
   resume: string | null;
   breakLock: boolean;
+  gateReject: number;
+  gateCost: number;
+  noGate: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -125,6 +131,9 @@ function parseArgs(argv: string[]): Args {
     journal: null,
     resume: null,
     breakLock: false,
+    gateReject: 0.2,
+    gateCost: 0.1,
+    noGate: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -154,6 +163,9 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--journal') args.journal = next();
     else if (flag === '--resume') args.resume = next();
     else if (flag === '--break-lock') args.breakLock = true;
+    else if (flag === '--gate-reject') args.gateReject = positive(next());
+    else if (flag === '--gate-cost') args.gateCost = positive(next());
+    else if (flag === '--no-gate') args.noGate = true;
     else throw new Error(`nieznana opcja ${flag}`);
   }
   if (
@@ -336,6 +348,53 @@ async function writeJournal(path: string, journal: JournalFile) {
   }
 }
 
+/**
+ * Bramka jakości serii (review Codexa, noc 30.09): systemowy problem —
+ * np. cała kategoria przepisów odrzucana — ma zatrzymać serię, zanim
+ * zapłacimy za cały katalog. Liczy tylko zadania z wynikiem, od 30.
+ */
+function qualityGate(jobs: ScenarioJob[], args: Args): string | null {
+  const finished = jobs
+    .filter((job) => job.hasResult)
+    .map((job) => job.outcome());
+  if (finished.length < 30) return null;
+  const rejected = finished.filter((o) => o.status === 'REJECTED').length;
+  if (rejected / finished.length > args.gateReject) {
+    return `odrzuconych ${rejected} z ${finished.length} (próg ${Math.round(args.gateReject * 100)}%)`;
+  }
+  const cost =
+    finished.reduce((sum, o) => sum + o.usage.costMicroUsd, 0) /
+    finished.length /
+    1_000_000;
+  if (cost > args.gateCost) {
+    return `średni koszt ${cost.toFixed(3)} $ na przepis (próg ${args.gateCost} $)`;
+  }
+  return null;
+}
+
+/**
+ * Stan CAŁEGO katalogu przy obecnych zasadach (review Codexa, noc 30.09):
+ * `--skip-written` pomija przepisy z wcześniejszych serii — także ich
+ * REJECTED — więc sam raport serii nie mówi, ile naprawdę zostało.
+ */
+async function catalogSummary(prisma: PrismaClient): Promise<string> {
+  const rows = await prisma.$queryRaw<{ status: string; n: number }[]>`
+    SELECT s."status", count(*)::int AS "n" FROM (
+      SELECT DISTINCT ON (c."recipeId") c."status"::text AS "status"
+        FROM "RecipeCookScenario" c
+        JOIN "Recipe" r ON r."id" = c."recipeId"
+       WHERE r."isCatalog" AND r."isActive"
+         AND c."rulesVersion" = ${COOK_SCENARIO_RULES_VERSION}
+       ORDER BY c."recipeId", c."version" DESC) s
+     GROUP BY 1 ORDER BY 1`;
+  const [{ total }] = await prisma.$queryRaw<{ total: number }[]>`
+    SELECT count(*)::int AS "total" FROM "Recipe" r
+     WHERE r."isCatalog" AND r."isActive"
+       AND EXISTS (SELECT 1 FROM "RecipeIngredient" ri WHERE ri."recipeId" = r."id")`;
+  const written = rows.reduce((sum, row) => sum + row.n, 0);
+  return `katalog przy zasadach ${COOK_SCENARIO_RULES_VERSION}: ${rows.map((row) => `${row.status} ${row.n}`).join(' · ') || 'nic'} · bez wyniku ${total - written} (z ${total}, łącznie ze wzorcem)`;
+}
+
 /** Odcisk promptów serii — wznowienie musi pisać DOKŁADNIE tymi samymi. */
 const promptHash = (example: WriterExample) =>
   createHash('sha256')
@@ -349,8 +408,12 @@ async function main() {
   assertLocalDatabase();
   // Wyłączna blokada dziennika PRZED jego odczytem czy utworzeniem — dwa
   // procesy na jednym dzienniku zapłaciłyby podwójnie (writer.lock.ts).
+  // Domyślna nazwa z datą (review Codexa, noc 30.09): „.done” pilota nie
+  // koliduje z kolejną serią.
   const journalPath =
-    args.resume ?? args.journal ?? 'cook-scenarios-journal.json';
+    args.resume ??
+    args.journal ??
+    `cook-scenarios-journal-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
   // Blokada GLOBALNA (na komputer) przed blokadą dziennika: paczki z konta
   // wysyła naraz jeden przebieg, więc przy wyszukiwaniu paczki o nieznanym
   // wyniku pasująca paczka w toku jest nasza, a nie z innej serii (review
@@ -553,6 +616,7 @@ async function main() {
             spentMicroUsd: () => budget.spentMicroUsd,
             resume: resumed ?? undefined,
             runId,
+            gate: args.noGate ? undefined : () => qualityGate(jobs, args),
           },
         );
         // Seria skończona — dziennik zostaje obok jako ślad, pod inną nazwą.
@@ -654,7 +718,7 @@ async function main() {
     }
     if (stoppedBatch) {
       console.log(
-        `\nZATRZYMANO: ${stoppedBatch.message}. Stan jest w dzienniku — dokończ: pnpm cook-scenarios:write --resume ${args.resume ?? args.journal ?? 'cook-scenarios-journal.json'} --budget-usd <łączny limit serii>`,
+        `\nZATRZYMANO: ${stoppedBatch.message}. Stan jest w dzienniku — dokończ: pnpm cook-scenarios:write --resume ${journalPath} --budget-usd <łączny limit serii>`,
       );
       process.exitCode = 2;
     }
@@ -662,6 +726,7 @@ async function main() {
       await writeFile(args.out, JSON.stringify(report, null, 2));
       console.log(`raport: ${args.out}`);
     }
+    console.log(await catalogSummary(prisma));
   } finally {
     await prisma.$disconnect();
     await releaseLock?.();

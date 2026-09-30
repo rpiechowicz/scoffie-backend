@@ -68,7 +68,7 @@ export interface BatchRunResult {
   /** Wysyłka o nieznanym wyniku (błąd `create`) — do wyjaśnienia przy wznowieniu. */
   pending?: PendingSubmission;
   /** Dlaczego przebieg staje; `null` = całość. */
-  stopReason: 'budget' | 'transport' | 'journal' | null;
+  stopReason: 'budget' | 'transport' | 'journal' | 'account' | null;
 }
 
 /**
@@ -120,18 +120,29 @@ export const batchCallId = (recipeId: string, round: number, runId = '') =>
 
 export class BatchStoppedError extends Error {
   constructor(
-    readonly reason: 'budget' | 'transport' | 'save' | 'incomplete' | 'journal',
+    readonly reason:
+      | 'budget'
+      | 'transport'
+      | 'save'
+      | 'incomplete'
+      | 'journal'
+      | 'account'
+      | 'gate',
+    detail?: string,
   ) {
     super(
       {
         budget: 'budżet wyczerpany — doładuj i wznów (--resume)',
+        account:
+          'API odmówiło całej paczki (środki na koncie, limit albo klucz) — sprawdź konto Anthropic i wznów (--resume)',
+        gate: 'bramka jakości zatrzymała serię — przejrzyj wyniki; wznowienie (--resume) z tą samą bramką znów stanie',
         journal:
           'dziennik nie daje się zapisać — przebieg stanął po odebraniu wysłanych paczek; napraw dysk i wznów (--resume)',
         save: 'nie wszystkie gotowe wyniki są zapisane w bazie — sprawdź bazę i wznów (--resume)',
         incomplete:
           'część przepisów bez wyniku po ponowieniach (błędy API) — wznów (--resume), dostaną nową serię prób',
         transport: 'przerwa w komunikacji z Batch API — wznów (--resume)',
-      }[reason],
+      }[reason] + (detail ? ` (${detail})` : ''),
     );
     this.name = 'BatchStoppedError';
   }
@@ -166,6 +177,12 @@ export interface BatchRunOptions {
   runId?: string;
   /** Ile razy próbować zapisu jednego przepisu. */
   saveAttempts?: number;
+  /**
+   * Bramka jakości po każdej rundzie (review Codexa, noc 30.09): powód
+   * zatrzymania albo `null`. Seria staje z pełnym dziennikiem, zanim
+   * systemowy problem zdąży kosztować cały katalog.
+   */
+  gate?: () => string | null;
   sleep?: (ms: number) => Promise<void>;
 }
 
@@ -370,6 +387,11 @@ export async function runBatchRounds(
     await saveDone();
     if (outcome.stopReason) throw new BatchStoppedError(outcome.stopReason);
     if (journalBroken) throw new BatchStoppedError('journal');
+    const gate = options.gate?.() ?? null;
+    if (gate) {
+      log(`bramka jakości: ${gate}`);
+      throw new BatchStoppedError('gate', gate);
+    }
   }
 }
 
@@ -458,6 +480,19 @@ export class AnthropicBatchModel implements BatchModel {
         });
         batchId = batch.id;
       } catch (error) {
+        if (isAccountRefusal(error)) {
+          // Odmowa KONTA (brak środków, limit, klucz) dotyczy każdej paczki,
+          // nie tych pozycji — cała seria staje, zadania bez nowych błędów
+          // (review Codexa, noc 30.09: wcześniej każde zadanie dostawało
+          // trzy „błędy API” i seria kończyła się jako niekompletna).
+          for (const entry of chunk) this.guard.settle(entry.reserved, 0);
+          this.log(`API odmówiło paczki (konto): ${messageOf(error)}`);
+          await hooks.onCollected?.(
+            { batchId: 'odrzucona', ids: pending.ids, reservedMicroUsd: 0 },
+            new Map(),
+          );
+          return { results, interrupted: [], stopReason: 'account' };
+        }
         if (isDefinitiveRejection(error)) {
           // API ODPOWIEDZIAŁO odmową (4xx: zły żądanie, limit, uprawnienia) —
           // paczki na pewno nie ma. Rezerwacja wraca, pozycje dostają błąd
@@ -696,6 +731,23 @@ export class AnthropicBatchModel implements BatchModel {
       }
     }
   }
+}
+
+/**
+ * Odmowa dotycząca KONTA, nie treści: 401/403 (klucz, uprawnienia), 402,
+ * 429 (limit) albo komunikat o środkach — ponawianie pozycji nic nie da.
+ */
+export function isAccountRefusal(error: unknown): boolean {
+  const status = (error as { status?: unknown } | null)?.status;
+  if (status === 401 || status === 402 || status === 403 || status === 429) {
+    return true;
+  }
+  return (
+    typeof status === 'number' &&
+    status >= 400 &&
+    status < 500 &&
+    /credit balance|billing|insufficient|quota/i.test(messageOf(error))
+  );
 }
 
 /**

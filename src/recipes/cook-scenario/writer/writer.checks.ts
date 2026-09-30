@@ -33,6 +33,42 @@ export interface ResolvedOutput {
 }
 
 /**
+ * Błąd kształtu tak, żeby autor wiedział, CO poprawić (próba .5: autor trzy
+ * razy oddał tę samą 15-znakową etykietę, bo dostał „steps[5].timer.label:
+ * 15 znaków, limit 14” — bez id kroku i bez tekstu): `steps[5]` → id kroku,
+ * przy przekroczonym limicie — cytat napisu.
+ */
+function forAuthor(error: string, scenario: Rec): string {
+  const match =
+    /^((?:steps|tips)\[\d+\](?:\.[A-Za-z]+|\[\d+\])*|nextTimeTip)(:.*)$/.exec(
+      error,
+    );
+  if (!match) return error;
+  const [, path, rest] = match;
+  let value: unknown = scenario;
+  for (const part of path.match(/[A-Za-z]+|\d+/g) ?? []) {
+    value =
+      isRecord(value) || Array.isArray(value)
+        ? (value as Record<string, unknown>)[part]
+        : undefined;
+  }
+  const stepIndex = /^steps\[(\d+)\]/.exec(path);
+  const step = stepIndex
+    ? (scenario.steps as unknown[])[Number(stepIndex[1])]
+    : undefined;
+  const where =
+    stepIndex && isRecord(step) && typeof step.id === 'string'
+      ? path.replace(stepIndex[0], step.id)
+      : path;
+  const quote =
+    typeof value === 'string' && /znaków, limit/.test(rest)
+      ? ` „${value}”`
+      : '';
+  const hint = quote ? ' — skróć, np. usuń jedno słowo' : '';
+  return `${where}${quote}${rest}${hint}`;
+}
+
+/**
  * Odpowiedź modelu → treść scenariusza: klucze → id składników, porcje
  * i jednostki z przepisu, potem walidator kształtu i zgodności z przepisem.
  */
@@ -117,13 +153,15 @@ export function resolveWriterOutput(
     steps,
   });
   errors.push(
-    ...parsed.errors.filter(
-      (error) =>
-        !unresolved.some(
-          (place) =>
-            error.startsWith(`${place}.`) || error.startsWith(`${place}:`),
-        ),
-    ),
+    ...parsed.errors
+      .filter(
+        (error) =>
+          !unresolved.some(
+            (place) =>
+              error.startsWith(`${place}.`) || error.startsWith(`${place}:`),
+          ),
+      )
+      .map((error) => forAuthor(error, scenario)),
   );
   if (!parsed.content || errors.length) {
     return { decision: 'WRITE', skipReason: null, content: null, errors };
@@ -162,6 +200,9 @@ const toNumber = (raw: string) => Number(raw.replace(',', '.'));
 /** Zakresy czasów [min, max] w sekundach wymienione w krokach przepisu. */
 /** Aktywna obróbka przy patelni — stoi się przy niej, bez łącznego timera. */
 const ACTIVE_PAN = /(smaż|podsmaż|usmaż|opiekaj|obsmaż|patel)/iu;
+/** Aktywna praca rąk albo przy garnku — bez timera (prompt). */
+const ACTIVE_WORK =
+  /(smaż|podsmaż|usmaż|opiekaj|obsmaż|patel|szklij|podgrzew|podgrzej|wyrabiaj|zagniataj|ugniataj|mieszając|miksuj|ubijaj)/iu;
 
 const PER_SIDE =
   /^\s*(?:[^\s.,;]+\s+){0,2}?z\s+(?:każdej|obu|jednej\s+i\s+drugiej)\s+stron/iu;
@@ -179,6 +220,13 @@ export interface DurationPool {
    * (review Codexa; prompt: krótka aktywna czynność bez timera).
    */
   perSide: { singles: [number, number]; combined: number | null }[];
+  /**
+   * Indeksy `ranges` ze zdań o AKTYWNEJ pracy („smaż 5 minut, mieszając”,
+   * „wyrabiaj 8–10 minut”) — prompt każe je pisać bez timera, więc brak
+   * timera to nie sygnał dla recenzenta (pomiar na próbie .5: 15 z 17
+   * ostrzeżeń „nie ma timera” to była właśnie aktywna praca).
+   */
+  active: Set<number>;
 }
 
 export function recipeDurations(instructions: string[]): [number, number][] {
@@ -216,15 +264,61 @@ function sentenceEnd(line: string, at: number): number | undefined {
   return undefined;
 }
 
+/**
+ * Zdanie DRUGIEGO wariantu urządzenia (review Codexa, noc 30.09): 59
+ * przepisów katalogu kończy krok airfryera zdaniem „W piekarniku: 190°C,
+ * 20–22 minuty.”. Kroki i timery prowadzą PIERWSZY wariant (prompt), więc
+ * czasy i temperatury z takiego zdania wolno podać tylko w radzie kucharza
+ * — inaczej „piecz w airfryerze w 190°C 20–22 min” przeszłoby, bo obie
+ * liczby są „gdzieś w przepisie”.
+ */
+const VARIANT_SENTENCE =
+  /^W\s+(?:piekarniku|airfryerze|mikrofalówce|garnku|szybkowarze)\s*:/u;
+
+export interface RecipeVariants {
+  /** Kroki przepisu bez zdań drugiego wariantu — źródło kroków i timerów. */
+  primary: string[];
+  /** Same zdania drugiego wariantu — wolno z nich tylko w radach. */
+  alternative: string[];
+}
+
+export function splitRecipeVariants(instructions: string[]): RecipeVariants {
+  const primary: string[] = [];
+  const alternative: string[] = [];
+  for (const line of instructions) {
+    const sentences: string[] = [];
+    let start = 0;
+    for (const match of line.matchAll(SENTENCE_BREAK)) {
+      const end = (match.index ?? 0) + match[0].length;
+      sentences.push(line.slice(start, end));
+      start = end;
+    }
+    sentences.push(line.slice(start));
+    const main = sentences.filter((s) => !VARIANT_SENTENCE.test(s.trim()));
+    alternative.push(
+      ...sentences
+        .filter((s) => VARIANT_SENTENCE.test(s.trim()))
+        .map((s) => s.trim()),
+    );
+    const kept = main.join('').trim();
+    if (kept) primary.push(kept);
+  }
+  return { primary, alternative };
+}
+
 export function recipeDurationPool(instructions: string[]): DurationPool {
   const found: [number, number][] = [];
   const perSide: DurationPool['perSide'] = [];
+  const active = new Set<number>();
   for (const line of instructions) {
     for (const match of line.matchAll(DURATION)) {
       const seconds = unitSeconds(match[3]);
       const from = toNumber(match[1]) * seconds;
       const to = match[2] ? toNumber(match[2]) * seconds : from;
       const range: [number, number] = [Math.min(from, to), Math.max(from, to)];
+      const at = match.index ?? 0;
+      const own = line.slice(sentenceStart(line, at), sentenceEnd(line, at));
+      if (ACTIVE_WORK.test(own)) active.add(found.length);
       found.push(range);
       // „Po 3 minuty z każdej strony” to DWA odliczania albo jedno łączne
       // (pilot E3b: ryba po grecku, gruszka) — oba zapisy są wierne przepisowi.
@@ -256,7 +350,7 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
     if (lower.includes('półtorej godziny')) found.push([5400, 5400]);
     if (/(^|[^\d\s]\s*)godzinę/.test(lower)) found.push([3600, 3600]);
   }
-  return { ranges: found, perSide };
+  return { ranges: found, perSide, active };
 }
 
 const tolerance = (seconds: number) => Math.max(60, seconds * 0.1);
@@ -264,6 +358,19 @@ const tolerance = (seconds: number) => Math.max(60, seconds * 0.1);
 // ── Cyfry i tokeny w tekście ────────────────────────────────────────────
 
 const COUNT_TOKEN = /\{count:[a-z][a-z-]*\|[^|{}]+\|[^|{}]+\|[^|{}]+\}/g;
+/** Najdłuższa forma w tokenie — „wałeczków” ma 9, zapas na złożone nazwy. */
+const COUNT_FORM_MAX = 20;
+/** Formy odmiany z tokenu `{count:id|1|2-4|5+}`. */
+const countForms = (token: string): string[] =>
+  token.slice(1, -1).split('|').slice(1);
+/**
+ * Tekst tak długi, jak go zobaczy telefon: token → liczba (do 3 cyfr),
+ * spacja i NAJDŁUŻSZA forma (review Codexa, noc 30.09).
+ */
+export const shownLength = (text: string): number =>
+  text.replace(COUNT_TOKEN, (token) =>
+    'x'.repeat(4 + Math.max(...countForms(token).map((f) => f.length))),
+  ).length;
 const NUMBER_IN_TEXT = new RegExp(
   `\\d+(?:[.,]\\d+)?(?:\\s*(?:[–—-]|do)\\s*\\d+(?:[.,]\\d+)?)?`,
   'g',
@@ -336,7 +443,13 @@ function mentionsIngredient(
   // Do granicy ZDANIA albo nawiasu — przecinek bywa wewnątrz wyrażenia
   // („przegotowanego, zimnego mleka”), a nawias zamyka dopowiedzenie
   // („ciepłej wody (100 ml), oleju” — 100 ml to woda, nie olej).
-  const tail = text.slice(unitEnd).split(/[.;:!?()—–]/)[0];
+  // Nowa część zdania („100 ml wody, a potem mleko”) mówi już o czymś
+  // innym (review Codexa, noc 30.09).
+  const tail = text
+    .slice(unitEnd)
+    .split(
+      /[.;:!?()—–]|,\s*(?:a|i|oraz|potem|następnie|później)\s|\s(?:a|i|oraz|albo|lub|potem|następnie)\s/u,
+    )[0];
   const around = [
     ...words(text.slice(0, numberStart)).slice(-1),
     ...words(tail),
@@ -396,6 +509,22 @@ function checkNumbersInText(
     .filter((name) => /\d/.test(name))
     .sort((a, b) => b.length - a.length);
   for (const [path, raw] of textFields(content)) {
+    const tokens = raw.match(COUNT_TOKEN) ?? [];
+    // Review Codexa (noc 30.09): telefon podstawia liczbę TYLKO w treści
+    // kroku — token w tytule, alarmie czy etykiecie zostałby surowym tekstem.
+    if (tokens.length && !path.endsWith('.body')) {
+      errors.push(
+        `${path}: token {count:…} wolno tylko w treści kroku (body) — tu napisz bez liczby („każdy kotlet”)`,
+      );
+    }
+    for (const token of tokens) {
+      const longest = Math.max(...countForms(token).map((f) => f.length));
+      if (longest > COUNT_FORM_MAX) {
+        errors.push(
+          `${path}: forma w tokenie ${token} ma ${longest} znaków — najwyżej ${COUNT_FORM_MAX}`,
+        );
+      }
+    }
     let value = raw.replace(COUNT_TOKEN, ' ');
     if (/[{}]/.test(value)) {
       errors.push(
@@ -524,8 +653,21 @@ const TYPO = new RegExp(
   'giu',
 );
 
+/**
+ * Litery innych alfabetów udające łacinę (próba .5: „Ciasto w ciепle” —
+ * dwie litery cyrylicy, recenzent dał MINOR). Wyglądają tak samo, ale
+ * wyszukiwanie i czytnik ekranu się na nich wykładają.
+ */
+const FOREIGN_SCRIPT = /[\u0370-\u03ff\u0400-\u052f\u0590-\u06ff]/u;
+
 function checkSpelling(content: CookScenarioContent, errors: string[]) {
   for (const [path, text] of textFields(content)) {
+    const foreign = FOREIGN_SCRIPT.exec(text);
+    if (foreign) {
+      errors.push(
+        `${path}: znak „${foreign[0]}” spoza polskiego alfabetu (cyrylica/greka) w „${text}” — przepisz słowo polskimi literami`,
+      );
+    }
     for (const match of text.matchAll(TYPO)) {
       const right = MISSING_DIACRITICS[match[1].toLowerCase()];
       errors.push(`${path}: pisownia „${match[1]}” → „${right}”`);
@@ -595,6 +737,70 @@ function checkIngredientsNamed(
         `${step.id}: składnik „${name}” ma w kroku ilość, ale tytuł ani treść kroku go nie wymienia`,
       );
     }
+  }
+}
+
+/**
+ * Część składnika (`part`) zgodna z ilością i kolejnością (review Codexa,
+ * noc 30.09) — telefon pisze przy kroku „połowa”, „reszta”, a suma ilości
+ * tego nie sprawdza („połowa 200 ml” z całych 200 ml przechodziła):
+ * - składnik tylko w jednym kroku = całość (`ALL`);
+ * - podzielony między kroki: żadnej części `ALL`, `HALF` ≈ połowa ilości,
+ *   `REST` wyłącznie przy ostatnim użyciu.
+ * Słowa „połowę”, „resztę” w tekście nie wymagamy — telefon pisze je przy
+ * ilości (informacja raz).
+ */
+function checkParts(
+  recipe: WriterRecipe,
+  content: CookScenarioContent,
+  errors: string[],
+) {
+  const rows = new Map(
+    recipe.ingredients.map((row) => [row.ingredientId, row]),
+  );
+  type Use = {
+    step: CookScenarioContent['steps'][number];
+    amount: number;
+    part: string;
+  };
+  const uses = new Map<string, Use[]>();
+  for (const step of content.steps) {
+    for (const item of step.ingredients) {
+      const list = uses.get(item.ingredientId) ?? [];
+      list.push({ step, amount: item.amount, part: item.part });
+      uses.set(item.ingredientId, list);
+    }
+  }
+  for (const [id, list] of uses) {
+    const row = rows.get(id);
+    if (!row) continue;
+    if (list.length === 1) {
+      if (list[0].part !== 'ALL') {
+        errors.push(
+          `${list[0].step.id}: „${row.name}” trafia do dania tylko w tym kroku — part ALL (jest ${list[0].part})`,
+        );
+      }
+      continue;
+    }
+    const where = list.map((use) => use.step.id).join(', ');
+    list.forEach((use, index) => {
+      if (use.part === 'ALL') {
+        errors.push(
+          `${use.step.id}: „${row.name}” jest podzielony między kroki ${where} — tu nie całość (ALL), tylko HALF, PART albo REST`,
+        );
+      }
+      const off = Math.abs(use.amount - row.amount / 2);
+      if (use.part === 'HALF' && off > Math.max(row.amount * 0.05, 0.01)) {
+        errors.push(
+          `${use.step.id}: „${row.name}” HALF, a to ${Math.round((use.amount / row.amount) * 100)}% ilości — połowa to HALF, inna część to PART`,
+        );
+      }
+      if (use.part === 'REST' && index !== list.length - 1) {
+        errors.push(
+          `${use.step.id}: „${row.name}” REST (reszta), a składnik wraca jeszcze później (${where}) — reszta idzie przy ostatnim użyciu`,
+        );
+      }
+    });
   }
 }
 
@@ -792,8 +998,28 @@ const TIME_IN_LABEL = new RegExp(
   'iu',
 );
 
-function checkStartLabels(content: CookScenarioContent, errors: string[]) {
+function checkStartLabels(
+  content: CookScenarioContent,
+  errors: string[],
+  warnings: string[],
+) {
   for (const step of content.steps) {
+    const timer = step.timer;
+    if (timer) {
+      // EVENT czeka na zdarzenie („Gdy woda zawrze”), NOW rusza od stanu
+      // („Kotlety na patelni”) — niespójność to sygnał dla recenzenta.
+      const when = /^(gdy|kiedy)\b/iu.test(timer.startLabel.trim());
+      if (timer.trigger === 'EVENT' && !when) {
+        warnings.push(
+          `${step.id}.timer: trigger EVENT, a startLabel „${timer.startLabel}” nie mówi o zdarzeniu („Gdy woda zawrze”) — może to NOW`,
+        );
+      }
+      if (timer.trigger === 'NOW' && when) {
+        warnings.push(
+          `${step.id}.timer: startLabel „${timer.startLabel}” czeka na zdarzenie, a trigger NOW — może to EVENT`,
+        );
+      }
+    }
     const label = step.timer?.startLabel;
     if (label && TIME_IN_LABEL.test(label)) {
       errors.push(
@@ -806,24 +1032,27 @@ function checkStartLabels(content: CookScenarioContent, errors: string[]) {
 /**
  * Limity pisania (zasady .5, \`COOK_AUTHOR_LIMITS\`) — ostrzejsze niż limity
  * formatu, które sprawdza też odczyt starszych zapisów. Treść liczona tak,
- * jak ją widać: token liczby sztuk to ok. 10 znaków („2 kotlety”).
+ * jak ją widać: token liczby sztuk = liczba i najdłuższa forma
+ * (`shownLength`).
  */
 function checkAuthorLimits(content: CookScenarioContent, errors: string[]) {
   const A = COOK_AUTHOR_LIMITS;
   for (const step of content.steps) {
     if (step.title.length > A.title) {
       errors.push(
-        `${step.id}.title: ${step.title.length} znaków, limit ${A.title} (dwie linijki na ekranie kroku)`,
+        `${step.id}.title „${step.title}”: ${step.title.length} znaków, limit ${A.title} (dwie linijki na ekranie kroku) — skróć o ${step.title.length - A.title} lub więcej, np. usuń jedno słowo`,
       );
     }
-    const shown = step.body.replace(COUNT_TOKEN, '1234567890').length;
+    const shown = shownLength(step.body);
     if (shown > A.body) {
-      errors.push(`${step.id}.body: ${shown} znaków, limit ${A.body}`);
+      errors.push(
+        `${step.id}.body: ${shown} znaków, limit ${A.body} — usuń jedno zdanie`,
+      );
     }
     const label = step.timer?.startLabel;
     if (label && label.length > A.timerStartLabel) {
       errors.push(
-        `${step.id}.timer.startLabel: ${label.length} znaków, limit ${A.timerStartLabel} (przycisk timera w doku)`,
+        `${step.id}.timer.startLabel „${label}”: ${label.length} znaków, limit ${A.timerStartLabel} (przycisk timera w doku) — skróć o ${label.length - A.timerStartLabel} lub więcej`,
       );
     }
   }
@@ -833,8 +1062,10 @@ function checkAuthorLimits(content: CookScenarioContent, errors: string[]) {
 
 const OVEN_USE = /(do piekarnika|w piekarniku|z piekarnika)(?!\s*mikrofal)/i;
 const OVEN_PREHEAT = new RegExp(
-  `(nagrzej|rozgrzej|nagrzewaj)[${PL}]*\\s[^.]*piekarnik`,
-  'i',
+  // „Włącz piekarnik na 180°C” też nagrzewa (review Codexa, noc 30.09) —
+  // ale „ustaw blachę w piekarniku” już nie, stąd temperatura zaraz potem.
+  `(nagrzej|rozgrzej|nagrzewaj)[${PL}]*\\s[^.]*piekarnik|(włącz|ustaw|nastaw)[${PL}]*\\s+piekarnik[${PL}]*\\s+(?:na|do)\\s+\\d{2,3}`,
+  'iu',
 );
 
 const stepText = (step: CookScenarioContent['steps'][number]) =>
@@ -842,7 +1073,11 @@ const stepText = (step: CookScenarioContent['steps'][number]) =>
 
 function checkOven(content: CookScenarioContent, errors: string[]) {
   const texts = content.steps.map(stepText);
-  const firstUse = texts.findIndex((line) => OVEN_USE.test(line));
+  // Krok nagrzewania sam mówi „ustaw w piekarniku grill” — to nie użycie
+  // (próba .5: szaszłyki odrzucone trzy razy za własny krok nagrzewania).
+  const firstUse = texts.findIndex(
+    (line) => OVEN_USE.test(line) && !OVEN_PREHEAT.test(line),
+  );
   if (firstUse < 0) return;
   const preheat = texts.findIndex((line) => OVEN_PREHEAT.test(line));
   if (preheat < 0 || preheat >= firstUse) {
@@ -894,7 +1129,10 @@ const POULTRY = /(kurczak|kurczę|indyk|indycz|kacz|drobi|gęś|gęsi)/iu;
 const MINCED =
   /^(?=.*mielon)(?=.*(wieprz|wołow|mięs|indyk|kurcz|cielę|jagni|baran)).*/iu;
 const FISH =
-  /(łoso|dorsz|mintaj|pstrąg|makrel|halibut|morszczuk|tilapi|panga|okoń|sandacz|karp|tuńczyk|ryb|krewet|sardyn|śledź|szprot)/iu;
+  /(łoso|dorsz|mintaj|pstrąg|makrel|halibut|morszczuk|tilapi|panga|okoń|sandacz|karp|tuńczyk|ryb|sardyn|śledź|szprot)/iu;
+/** Skorupiaki i głowonogi — inny sygnał niż ryba (review Codexa, noc 30.09). */
+const SHELLFISH =
+  /(krewet|małż|mul[eia]|kalmar|ośmiorni|homar|krab|przegrzeb|langust)/iu;
 
 /**
  * Sygnały „gotowe” muszą być TWIERDZĄCE (review Codexa, E3a runda 1): samo
@@ -923,6 +1161,12 @@ const SAFETY: {
     ingredient: MINCED,
     cue: new RegExp(String.raw`7[1-9]\s*°C|${NO_PINK}`, 'giu'),
     hint: '71°C w środku albo „bez różowego w środku”',
+  },
+  {
+    label: 'owoce morza',
+    ingredient: SHELLFISH,
+    cue: /6[3-9]\s*°C|różow|nieprzezroczyst|jędrn|matow|zwin|skręc|otworz/giu,
+    hint: 'krewetki różowe i jędrne, nieprzezroczyste; małże otwarte',
   },
   {
     label: 'ryba',
@@ -959,18 +1203,29 @@ function checkSafety(
       if (!rule.ingredient.test(raw.name) || !needsDonenessCue(raw)) continue;
       // Sygnał musi stać w kroku, który ma TEN surowiec (w składnikach albo
       // przywołaniach) — „74°C” przy indyku nie mówi nic o kurczaku
-      // smażonym osobno (review Codexa, E3a runda 5).
-      const cued = content.steps.some(
+      // smażonym osobno (review Codexa, E3a runda 5) — i to w kroku
+      // OBRÓBKI: sygnał przy krojeniu surowego fileta użytkownik zobaczy,
+      // zanim cokolwiek się upiecze (review Codexa, noc 30.09). Gdy żaden
+      // krok obróbki surowca nie przywołuje — jak dotąd, dowolny krok z nim.
+      const withRaw = content.steps.filter(
         (step) =>
-          (step.ingredients.some(
+          step.ingredients.some(
             (item) => item.ingredientId === raw.ingredientId,
-          ) ||
-            step.mentions.includes(raw.ingredientId)) &&
-          hasAffirmativeCue(stepText(step), rule.cue),
+          ) || step.mentions.includes(raw.ingredientId),
+      );
+      const cooking = withRaw.filter(
+        (step) => step.phase === 'COOK' || step.phase === 'FINISH',
+      );
+      const where = cooking.length ? cooking : withRaw;
+      const cued = where.some((step) =>
+        hasAffirmativeCue(stepText(step), rule.cue),
       );
       if (!cued) {
         errors.push(
-          `bezpieczeństwo (${rule.label}: „${raw.name}”): brak „po czym poznać” w kroku z tym składnikiem (w składnikach albo przywołaniach) — ${rule.hint}`,
+          cooking.length &&
+            withRaw.some((step) => hasAffirmativeCue(stepText(step), rule.cue))
+            ? `bezpieczeństwo (${rule.label}: „${raw.name}”): „po czym poznać” stoi w kroku przygotowania — przenieś je do kroku obróbki (${cooking.map((step) => step.id).join(', ')}) — ${rule.hint}`
+            : `bezpieczeństwo (${rule.label}: „${raw.name}”): brak „po czym poznać” w kroku z tym składnikiem (w składnikach albo przywołaniach) — ${rule.hint}`,
         );
       }
     }
@@ -1001,32 +1256,49 @@ const fitsRange = (value: [number, number], range: [number, number]) =>
  * Każda temperatura z tekstu musi być w przepisie; każdy czas z tekstu —
  * w przepisie albo w granicach timera kroku (punkt kontrolny „po 3 minutach
  * obróć” w 10–12 min smażenia). Tekst nie może przeczyć timerowi kroku
- * („piecz 30 min” przy timerze 20 min).
+ * („piecz 30 min” przy timerze 20 min). Kroki biorą czasy i temperatury
+ * tylko z PIERWSZEGO wariantu przepisu; rady — z obu (drugi wariant opisuje
+ * rada kucharza).
  */
 function checkTextClaims(
   recipe: WriterRecipe,
   content: CookScenarioContent,
-  recipeRanges: [number, number][],
+  variants: RecipeVariants,
   errors: string[],
   warnings: string[],
 ) {
-  const recipeText = [recipe.description ?? '', ...recipe.instructions].join(
-    ' ',
+  const recipeRanges = recipeDurationPool(variants.primary).ranges;
+  const allRanges = [
+    ...recipeRanges,
+    ...recipeDurationPool(variants.alternative).ranges,
+  ];
+  const description = recipe.description ?? '';
+  const stepTemperatures = new Set(
+    temperaturesIn([description, ...variants.primary].join(' ')),
   );
-  const recipeTemperatures = new Set(temperaturesIn(recipeText));
+  const tipTemperatures = new Set([
+    ...stepTemperatures,
+    ...temperaturesIn(variants.alternative.join(' ')),
+  ]);
   const timerMax = new Map(
     content.steps.flatMap((step) =>
       step.timer ? [[step.timer.id, step.timer.maxSeconds] as const] : [],
     ),
   );
 
-  const checkTemperatures = (path: string, text: string) => {
+  const checkTemperatures = (
+    path: string,
+    text: string,
+    allowed: Set<number>,
+  ) => {
     for (const value of temperaturesIn(text)) {
-      if (!recipeTemperatures.has(value) && !SAFETY_TEMPERATURES.has(value)) {
-        errors.push(
-          `${path}: temperatury ${value}°C nie ma w przepisie (przepis: ${[...recipeTemperatures].join(', ') || 'brak'}°C)`,
-        );
-      }
+      if (allowed.has(value) || SAFETY_TEMPERATURES.has(value)) continue;
+      const other = tipTemperatures.has(value)
+        ? ' — to temperatura DRUGIEGO wariantu („W piekarniku: …”); kroki prowadzą pierwszy wariant, drugi opisz jedną radą kucharza'
+        : '';
+      errors.push(
+        `${path}: temperatury ${value}°C nie ma w przepisie (przepis: ${[...allowed].join(', ') || 'brak'}°C)${other}`,
+      );
     }
   };
 
@@ -1036,14 +1308,14 @@ function checkTextClaims(
   ]);
   if (content.nextTimeTip) general.push(['nextTimeTip', content.nextTimeTip]);
   for (const [path, text] of general) {
-    checkTemperatures(path, text);
+    checkTemperatures(path, text, tipTemperatures);
     for (const range of claimedDurations(text)) {
       // Rady mówią też o planie („obiad zajmie wtedy 25 minut”) — do czasu
       // całego scenariusza wolno; dłużej tylko czas z przepisu.
       if (
         range[1] > SHORT_SECONDS &&
         range[1] > content.totalMinutes * 60 &&
-        !recipeRanges.some((r) => fitsRange(range, r))
+        !allRanges.some((r) => fitsRange(range, r))
       ) {
         errors.push(
           `${path}: czasu ${describeRange(range)} nie ma w przepisie`,
@@ -1062,10 +1334,10 @@ function checkTextClaims(
       step.timer?.alert.title ?? '',
       step.timer?.alert.body ?? '',
     ].join(' ');
-    checkTemperatures(step.id, texts);
-    // Krok „Nagrzej piekarnik” mówi, za ile coś do niego trafi — to plan
-    // pracy, nie czas obróbki.
-    if (OVEN_PREHEAT.test(stepText(step))) continue;
+    checkTemperatures(step.id, texts, stepTemperatures);
+    // Krok nagrzewania NIE ma wyjątku (review Codexa, noc 30.09): „za
+    // kwadrans” to czas spoza przepisu — nagrzewanie to estymata autora do
+    // ułożenia kroków, nie tekst dla użytkownika.
     const own = step.timer?.maxSeconds;
     const during = step.during ? timerMax.get(step.during) : undefined;
     for (const range of claimedDurations(texts)) {
@@ -1085,8 +1357,11 @@ function checkTextClaims(
           `${step.id}: krótki czas ${describeRange(range)} spoza przepisu`,
         );
       } else {
+        const other = allRanges.some((r) => fitsRange(range, r))
+          ? ' — to czas DRUGIEGO wariantu („W piekarniku: …”); kroki prowadzą pierwszy wariant, drugi opisz jedną radą kucharza'
+          : '';
         errors.push(
-          `${step.id}: czasu ${describeRange(range)} nie ma w przepisie`,
+          `${step.id}: czasu ${describeRange(range)} nie ma w przepisie${other}`,
         );
       }
     }
@@ -1103,6 +1378,7 @@ function checkTimers(
   pool: DurationPool,
   errors: string[],
   warnings: string[],
+  alternativeRanges: [number, number][] = [],
 ) {
   const recipeRanges = pool.ranges;
   const timers = content.steps.flatMap((step) =>
@@ -1205,11 +1481,16 @@ function checkTimers(
         ...(group.combined === null ? [] : [group.combined]),
       ].some((range) => fits(index, range)),
     );
+    const other = alternativeRanges.some((range) =>
+      fitsRange([timer.minSeconds, timer.maxSeconds], range),
+    )
+      ? ' — to czas DRUGIEGO wariantu („W piekarniku: …”); timer prowadzi pierwszy wariant, drugi opisz jedną radą kucharza'
+      : '';
     errors.push(
       !any
         ? `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: takiego czasu nie ma w przepisie (przepis: ${
             recipeRanges.map(describeRange).join(', ') || 'brak czasów'
-          })`
+          })${other}`
         : perSide
           ? `timery dublują czas „z każdej strony” ${describeRange([timer.minSeconds, timer.maxSeconds])}: albo dwa odliczania po tyle, albo jedno łączne — nie oba`
           : `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: przepis ma ten czas mniej razy, niż jest takich timerów`,
@@ -1225,7 +1506,11 @@ function checkTimers(
   // o łącznym czasie.
   for (const index of ordinary) {
     const range = recipeRanges[index];
-    if (range[1] >= MIN_TIMER_SECONDS && !result.owner.has(index)) {
+    if (
+      range[1] >= MIN_TIMER_SECONDS &&
+      !result.owner.has(index) &&
+      !pool.active.has(index)
+    ) {
       warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
     }
   }
@@ -1263,12 +1548,31 @@ const parallelSlack = (seconds: number) => Math.max(120, seconds * 0.2);
  * niż `MAX_PARALLEL_TIMERS` odliczania — także gdy odliczanie z „w
  * międzyczasie” trwa dłużej niż nadrzędne i zachodzi na kolejne kroki.
  */
+/**
+ * Nazwa timera będąca czynnością albo urządzeniem, nie rzeczą. Sama w sobie
+ * jest OK (jeden timer — kontekst daje krok), błędem jest dopiero przy
+ * dwóch odliczaniach naraz.
+ */
+const PROCESS_LABEL =
+  /^(gotowanie|pieczenie|smażenie|duszenie|odpoczynek|chłodzenie|studzenie|marynowanie|marynata|czekanie|timer|gotowe|moczenie|zamrażanie|mrożenie|wyrastanie|rośnięcie|parzenie|zapiekanie|grillowanie|podgrzewanie|dogrzewanie|piekarnik|lodówka|zamrażarka|garnek|patelnia)$/iu;
+
 function checkTimerTimeline(content: CookScenarioContent, errors: string[]) {
-  let active: { id: string; end: number }[] = [];
+  let active: { id: string; end: number; label: string }[] = [];
   let now = 0;
   let waitUntil = 0;
   let waitingFor: string | null = null;
   for (const step of content.steps) {
+    if (
+      step.during &&
+      !active.some((t) => t.id === step.during && t.end > now)
+    ) {
+      // Review Codexa (noc 30.09): `during` wskazywał timer, który skończył
+      // się, zanim krok główny ruszył dalej — telefon grupowałby krok pod
+      // nieistniejącą kapsułą.
+      errors.push(
+        `${step.id}.during „${step.during}”: ten timer w tym miejscu już nie biegnie (krok główny ruszył po jego alarmie) — „w międzyczasie” tylko pod trwającym odliczaniem`,
+      );
+    }
     if (!step.during) {
       // Krok główny rusza PO alarmie timera poprzedniego kroku głównego —
       // ten timer się skończył, więc już nie biegnie (review Codexa: przy
@@ -1283,6 +1587,26 @@ function checkTimerTimeline(content: CookScenarioContent, errors: string[]) {
     }
     if (!step.timer) continue;
     const running = active.filter((t) => t.end > now);
+    // Dwa odliczania naraz = dwie kapsuły w doku i dwa w Dynamic Island:
+    // nazwa ma mówić, CO się odlicza (próba .5: „Odpoczynek” obok
+    // „Pieczenie”, 12 z 68 timerów nazwanych czynnością).
+    for (const other of running) {
+      const a = step.timer.label.trim().toLowerCase();
+      const b = other.label.trim().toLowerCase();
+      if (a === b) {
+        errors.push(
+          `${step.id}.timer „${step.timer.label}”: biegnie razem z timerem o tej samej nazwie (${other.id}) — nazwij je różnie, po tym, co się odlicza`,
+        );
+      } else {
+        for (const label of [step.timer.label, other.label]) {
+          if (PROCESS_LABEL.test(label.trim())) {
+            errors.push(
+              `${step.id}.timer: „${label}” biegnie razem z drugim odliczaniem — nazwa czynności nie mówi, który to timer; nazwij go rzeczą („Ziemniaki”, „Ciasto”, „Kasza”)`,
+            );
+          }
+        }
+      }
+    }
     if (running.length + 1 > MAX_PARALLEL_TIMERS) {
       errors.push(
         `${step.id}.timer „${step.timer.label}”: w tej chwili biegną już ${running.length} odliczania (${running
@@ -1292,11 +1616,49 @@ function checkTimerTimeline(content: CookScenarioContent, errors: string[]) {
           )}) — najwyżej ${MAX_PARALLEL_TIMERS} naraz; przesuń krok albo połącz czynności`,
       );
     }
-    active.push({ id: step.timer.id, end: now + step.timer.maxSeconds });
+    active.push({
+      id: step.timer.id,
+      end: now + step.timer.maxSeconds,
+      label: step.timer.label,
+    });
     if (!step.during) {
       waitUntil = now + step.timer.minSeconds;
       waitingFor = step.timer.id;
     }
+  }
+}
+
+/**
+ * Najkrótszy możliwy czas całości: odliczania kroków głównych po kolei
+ * (`minSeconds`), a odliczania „w międzyczasie” od startu swojego timera —
+ * czynności ręczne liczone jako zero. `totalMinutes` na ekranie powitania
+ * nie może obiecać mniej (review Codexa, noc 30.09: timer 60 min
+ * i „5 minut” przechodziło).
+ */
+export function timelineFloorSeconds(content: CookScenarioContent): number {
+  let now = 0;
+  let waitUntil = 0;
+  let finish = 0;
+  for (const step of content.steps) {
+    if (!step.during) {
+      now = Math.max(now, waitUntil);
+      waitUntil = 0;
+    }
+    if (!step.timer) continue;
+    // Krok „w międzyczasie” dzieje się od razu po starcie kroku głównego.
+    finish = Math.max(finish, now + step.timer.minSeconds);
+    if (!step.during) waitUntil = now + step.timer.minSeconds;
+  }
+  return Math.max(finish, now, waitUntil);
+}
+
+function checkTotalMinutes(content: CookScenarioContent, errors: string[]) {
+  const floor = timelineFloorSeconds(content);
+  // Zaokrąglenie w dół o minutę nie jest kłamstwem.
+  if (content.totalMinutes * 60 + 60 < floor) {
+    errors.push(
+      `totalMinutes ${content.totalMinutes}: same odliczania trwają co najmniej ${Math.ceil(floor / 60)} min — czas całości nie może być krótszy`,
+    );
   }
 }
 
@@ -1380,20 +1742,28 @@ export function qualityChecks(
 ): CheckResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const pool = recipeDurationPool(recipe.instructions);
-  const recipeRanges = pool.ranges;
+  const variants = splitRecipeVariants(recipe.instructions);
+  const pool = recipeDurationPool(variants.primary);
 
   checkNumbersInText(recipe, content, errors);
   checkSpelling(content, errors);
   checkStageDuring(content, errors);
-  checkStartLabels(content, errors);
+  checkStartLabels(content, errors, warnings);
   checkAuthorLimits(content, errors);
   checkIngredientsNamed(recipe, content, warnings);
+  checkParts(recipe, content, errors);
   checkTitleEcho(content, warnings);
   checkOven(content, errors);
   checkSafety(recipe, content, errors);
-  checkTextClaims(recipe, content, recipeRanges, errors, warnings);
-  checkTimers(content, pool, errors, warnings);
+  checkTextClaims(recipe, content, variants, errors, warnings);
+  checkTimers(
+    content,
+    pool,
+    errors,
+    warnings,
+    recipeDurationPool(variants.alternative).ranges,
+  );
+  checkTotalMinutes(content, errors);
 
   if (recipe.prepTimeMinutes > 0) {
     const ratio = content.totalMinutes / recipe.prepTimeMinutes;
@@ -1420,7 +1790,13 @@ const TRIVIAL_EQUIPMENT = new Set(['BLENDER']);
  * i techniki.
  */
 export function skipGuard(recipe: WriterRecipe): string | null {
-  if (recipeDurations(recipe.instructions).length) {
+  // Czas poniżej progu timera to aktywna czynność („miksuj 30–40 s”) —
+  // nie czyni przepisu nietrywialnym (review Codexa, noc 30.09).
+  if (
+    recipeDurations(recipe.instructions).some(
+      ([, to]) => to >= MIN_TIMER_SECONDS,
+    )
+  ) {
     return 'SKIP niedozwolony: przepis ma czasy (gotowanie, pieczenie, chłodzenie) — napisz scenariusz';
   }
   if (recipe.instructions.length > 4 || recipe.prepTimeMinutes > 15) {

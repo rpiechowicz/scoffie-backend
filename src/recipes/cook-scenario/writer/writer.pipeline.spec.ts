@@ -1,6 +1,6 @@
 import { clone, kotletExample } from './writer.fixtures.spec-helper';
 import { DEFAULT_WRITER_OPTIONS, writeCookScenario } from './writer.pipeline';
-import { exampleOutput } from './writer.prompt';
+import { exampleOutput, REVIEWER_SYSTEM } from './writer.prompt';
 import type {
   WriterModel,
   WriterModelCall,
@@ -198,15 +198,92 @@ describe('system pisania — przebieg', () => {
     expect(model.calls).toHaveLength(1);
   });
 
-  it('zepsuta odpowiedź recenzenta = REJECTED bez przepisywania w kółko', async () => {
-    const model = new StubModel([good(), { score: 9 }]);
+  it('zepsuta odpowiedź recenzenta: ponawiamy SAMĄ recenzję, autor nie pisze od nowa', async () => {
+    const model = new StubModel([good(), { score: 9 }, review(5)]);
+    const outcome = await writeCookScenario(model, kotlet, example);
+    expect(outcome.status).toBe('VALIDATED');
+    expect(outcome.attempts).toHaveLength(1);
+    expect(model.calls.map((call) => call.model)).toEqual([
+      DEFAULT_WRITER_OPTIONS.writerModel,
+      DEFAULT_WRITER_OPTIONS.reviewerModel,
+      DEFAULT_WRITER_OPTIONS.reviewerModel,
+    ]);
+    expect(outcome.attempts[0].warnings).toContainEqual(
+      expect.stringContaining('ponawiam recenzję'),
+    );
+  });
+
+  it('recenzja zepsuta za każdym razem = REJECTED po ponowieniach, bez przepisywania w kółko', async () => {
+    const model = new StubModel([good(), { score: 9 }, { score: 9 }, {}]);
     const outcome = await writeCookScenario(model, kotlet, example);
     expect(outcome.status).toBe('REJECTED');
     expect(outcome.attempts).toHaveLength(1);
     expect(outcome.attempts[0].errors).toEqual([
       'recenzent: odpowiedź niezgodna ze schematem',
     ]);
-    expect(model.calls).toHaveLength(2);
+    expect(model.calls).toHaveLength(4);
+  });
+
+  it('ucięta recenzja (max_tokens) też idzie jeszcze raz — to nie wina autora', async () => {
+    const model = new StubModel([good(), review(5), review(5)]);
+    const original = model.complete.bind(model);
+    let reviews = 0;
+    model.complete = async (call) => {
+      const result = await original(call);
+      // Autor i recenzent to ten sam model — recenzenta poznajemy po prompcie.
+      if (call.system === REVIEWER_SYSTEM && !reviews++) {
+        return { ...result, stopReason: 'max_tokens' };
+      }
+      return result;
+    };
+    const outcome = await writeCookScenario(model, kotlet, example);
+    expect(outcome.status).toBe('VALIDATED');
+    expect(outcome.attempts).toHaveLength(1);
+  });
+
+  it('ocena poniżej progu bez BLOCKER/MAJOR: autor dostaje MINOR; gdy dalej nic nie blokuje — VALIDATED, nie REJECTED', async () => {
+    const minor = [
+      { stepId: 's7', severity: 'MINOR', text: 'Alarm powtarza adnotację.' },
+    ];
+    const model = new StubModel([
+      good(),
+      review(3, minor),
+      good(),
+      review(3, minor),
+      good(),
+      review(3, minor),
+    ]);
+    const outcome = await writeCookScenario(model, kotlet, example);
+    // Bez tej poprawki autor dostawał samą ocenę, bez żadnej uwagi.
+    expect(model.calls[2].user).toContain('Alarm powtarza adnotację.');
+    expect(outcome.status).toBe('VALIDATED');
+    expect(outcome.review?.score).toBe(3);
+    expect(outcome.attempts).toHaveLength(3);
+  });
+
+  it('wersja bez BLOCKER/MAJOR zostaje w odwodzie, gdy dalsza poprawka padnie na walidatorach', async () => {
+    const minor = [{ stepId: 's7', severity: 'MINOR', text: 'Skróć treść.' }];
+    const model = new StubModel([good(), review(3, minor), badKey(), badKey()]);
+    const outcome = await writeCookScenario(model, kotlet, example);
+    expect(outcome.status).toBe('VALIDATED');
+    expect(outcome.content).toEqual(example.content);
+    expect(outcome.review?.score).toBe(3);
+  });
+
+  it('MAJOR do końca = REJECTED (wersji w odwodzie nie ma)', async () => {
+    const major = [
+      { stepId: 's7', severity: 'MAJOR', text: 'Nie wiadomo, kiedy wyjąć.' },
+    ];
+    const model = new StubModel([
+      good(),
+      review(3, major),
+      good(),
+      review(3, major),
+      good(),
+      review(3, major),
+    ]);
+    const outcome = await writeCookScenario(model, kotlet, example);
+    expect(outcome.status).toBe('REJECTED');
   });
 
   it('ucięta odpowiedź (max_tokens) wraca do autora jako błąd', async () => {

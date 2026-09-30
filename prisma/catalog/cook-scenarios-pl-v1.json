@@ -1,6 +1,6 @@
 {
   "version": "cook-scenarios-pl-v1",
-  "rulesVersion": "2026-09-30.5",
+  "rulesVersion": "2026-09-30.6",
   "convention": "Scenariusze trybu Gotuj pisane ręcznie (wzorce dla systemu pisania, scoffie-ios docs/workstreams/gotuj/README.md §10). Składniki po NAZWIE z przepisu (`ingredient`, `mentions`) — loader zamienia je na `ingredientId` danej bazy. Wgranie: pnpm cook-scenarios:load.",
   "scenarios": [
     {
@@ -16,8 +16,8 @@
         "totalMinutes": 50,
         "tips": [
           "Masło musi być miękkie — prosto z lodówki rozgnieć je widelcem w ciepłej miseczce.",
-          "Zawijaj ciasno i zakładaj boki do środka — od tego zależy, czy masło zostanie w kotlecie.",
-          "Kotlet przekrój dopiero na talerzu, ostrożnie: w środku jest gorące masło."
+          "Filety wybierz podobnej wielkości — kotlety usmażą się i dopieką w tym samym czasie.",
+          "Przy obracaniu nie przekłuwaj kotletów widelcem — przez dziurkę wycieknie masło."
         ],
         "nextTimeTip": "Kotlety możesz zawinąć dzień wcześniej i trzymać w lodówce — obiad zajmie wtedy 25 minut.",
         "steps": [
@@ -132,7 +132,7 @@
             "id": "s4",
             "phase": "PREP",
             "stage": "W MIĘDZYCZASIE",
-            "title": "Przygotuj talerze do panierki",
+            "title": "Przygotuj panierkę",
             "body": "Do pierwszego talerza wsyp mąkę, w drugim roztrzep jajko widelcem, do trzeciego wsyp bułkę tartą. Ustaw je w rzędzie w tej kolejności — przyda się to przy podwójnej panierce.",
             "ingredients": [
               {
@@ -165,7 +165,7 @@
             "phase": "COOK",
             "stage": null,
             "title": "Nagrzej piekarnik do 180°C",
-            "body": "Ustaw grzanie góra–dół, bez termoobiegu. Za kwadrans kotlety trafią do środka na 5 minut.",
+            "body": "Ustaw grzanie góra–dół, bez termoobiegu. Nagrzeje się, zanim usmażysz kotlety.",
             "ingredients": [],
             "mentions": [],
             "note": null,
@@ -243,7 +243,7 @@
             "id": "s9",
             "phase": "COOK",
             "stage": null,
-            "title": "Dopiecz kotlety w piekarniku",
+            "title": "Dopiecz w piekarniku",
             "body": "Przełóż je do naczynia żaroodpornego albo na blachę i wstaw na środkową półkę.",
             "ingredients": [],
             "mentions": ["filet z kurczaka"],
@@ -253,7 +253,7 @@
             },
             "timer": {
               "id": "t-oven",
-              "label": "Piekarnik",
+              "label": "Kotlety",
               "minSeconds": 300,
               "maxSeconds": 300,
               "trigger": "NOW",
