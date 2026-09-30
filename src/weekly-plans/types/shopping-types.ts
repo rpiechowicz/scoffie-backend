@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import type { KitchenMeasure } from '../../recipes/ingredient-amount.util';
 import type { PrismaService } from '../../prisma/prisma.service';
 
 export type ShoppingAccumulator = {
@@ -11,6 +12,8 @@ export type ShoppingAccumulator = {
 
 export type ShoppingListItem = ShoppingAccumulator & {
   isChecked: boolean;
+  /** Miara kuchenna przypraw — tylko w odpowiedzi dla telefonu, nie w bazie. */
+  kitchenMeasure?: KitchenMeasure;
 };
 
 export type ShoppingListArchiveSnapshot = {

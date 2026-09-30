@@ -9,6 +9,7 @@ import {
   roundShoppingAmount,
   sortShoppingItems,
   toShoppingUnit,
+  withShoppingKitchenMeasure,
 } from './shopping-items.util';
 
 const item = (
@@ -191,5 +192,28 @@ describe('roundShoppingAmount', () => {
   it('gramy i mililitry — dwa miejsca po przecinku, jak dotąd', () => {
     expect(roundShoppingAmount(0.375, 'g')).toBe(0.38);
     expect(roundShoppingAmount(7.5, 'ml')).toBe(7.5);
+  });
+});
+
+describe('withShoppingKitchenMeasure', () => {
+  const spice = (name: string, unit = 'g') =>
+    item({ name, unit, department: ShoppingDepartment.SPICES, totalAmount: 6 });
+
+  it('przyprawa dostaje miarę — także z dopiskiem jednostki w nazwie', () => {
+    expect(withShoppingKitchenMeasure(spice('Sól')).kitchenMeasure).toEqual({
+      kind: 'spoon',
+      per: 6,
+    });
+    expect(withShoppingKitchenMeasure(spice('Sól (g)')).kitchenMeasure).toEqual(
+      { kind: 'spoon', per: 6 },
+    );
+    expect(
+      withShoppingKitchenMeasure(spice('Sos sojowy', 'ml')).kitchenMeasure,
+    ).toEqual({ kind: 'spoon', per: 5 });
+  });
+
+  it('reszta listy bez zmian', () => {
+    const carrot = item({ name: 'Marchew' });
+    expect(withShoppingKitchenMeasure(carrot)).toBe(carrot);
   });
 });
