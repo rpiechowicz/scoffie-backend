@@ -259,20 +259,70 @@ const sameUnit = (a: string, b: string) => {
  * pokaże przy kroku, więc tekst musi to powiedzieć. Ilość składnika z listy
  * („320 g”) nadal wolno podać tylko przy kroku.
  */
+/**
+ * Czy ilość w tekście dotyczy składnika z listy (review Codexa): po polsku
+ * ilość określa rzeczownik ZARAZ po jednostce („100 ml mleka”, „100 ml
+ * zimnej wody”) — sprawdzamy najwyżej 2 słowa po jednostce (do przecinka
+ * czy kropki) i 1 słowo tuż przed liczbą, i tylko składniki w TEJ SAMEJ
+ * jednostce („1,5 l” nie dotyczy masła w gramach). Porównanie po pierwszych
+ * 3 literach słów nazwy — z zapasem na odmianę („mleko” / „mleka”).
+ */
+function mentionsIngredient(
+  recipe: WriterRecipe,
+  text: string,
+  numberStart: number,
+  unitEnd: number,
+  unit: string,
+): boolean {
+  const words = (fragment: string): string[] =>
+    fragment.toLowerCase().match(new RegExp(`[${PL}]+`, 'giu')) ?? [];
+  const tail = text.slice(unitEnd).split(/[.,;:!?(—–]/)[0];
+  const around = [
+    ...words(text.slice(0, numberStart)).slice(-1),
+    ...words(tail).slice(0, 2),
+  ];
+  const stems = recipe.ingredients
+    .filter((row) => sameUnit(row.unit, unit))
+    .flatMap((row) =>
+      words(row.name)
+        .filter((word) => word.length >= 3)
+        .map((word) => word.slice(0, 3)),
+    );
+  return around.some((word) => stems.some((stem) => word.startsWith(stem)));
+}
+
+/**
+ * Liczba z jednostką przepisana DOSŁOWNIE z kroków przepisu, która nie
+ * jest ilością składnika z listy (pilot E3b, 30.09): „naczynie ok. 1,5 l”,
+ * „100 ml zimnej wody”, gdy wody nie ma w składnikach — tego telefon nie
+ * pokaże przy kroku, więc tekst musi to powiedzieć. Ilość składnika z listy
+ * — całość („320 g”) ALBO część („100 ml mleka” z 200 ml) — nadal tylko
+ * przy kroku: w tekście nie przeskalowałaby się z porcjami.
+ */
 function isRecipeQuantity(
   recipe: WriterRecipe,
   amount: number,
   unit: string,
 ): boolean {
-  const inRecipe = recipe.instructions.some((line) =>
-    [...line.matchAll(QUANTITY_IN_RECIPE)].some(
-      (match) => toAmount(match[1]) === amount && sameUnit(match[2], unit),
-    ),
-  );
   const isIngredientAmount = recipe.ingredients.some(
     (row) => row.amount === amount && sameUnit(row.unit, unit),
   );
-  return inRecipe && !isIngredientAmount;
+  if (isIngredientAmount) return false;
+  return recipe.instructions.some((line) =>
+    [...line.matchAll(QUANTITY_IN_RECIPE)].some((match) => {
+      if (toAmount(match[1]) !== amount || !sameUnit(match[2], unit)) {
+        return false;
+      }
+      const start = match.index ?? 0;
+      return !mentionsIngredient(
+        recipe,
+        line,
+        start,
+        start + match[0].length,
+        unit,
+      );
+    }),
+  );
 }
 
 function checkNumbersInText(
@@ -303,10 +353,15 @@ function checkNumbersInText(
       if (ALLOWED_AFTER_NUMBER.test(after)) continue;
       const unit = UNIT_AFTER.exec(after)?.[1];
       const single = /^\d+(?:[.,]\d+)?$/.test(match[0]);
+      const start = match.index ?? 0;
+      const unitEnd =
+        start + match[0].length + (UNIT_AFTER.exec(after)?.[0].length ?? 0);
       if (
         unit &&
         single &&
-        isRecipeQuantity(recipe, toAmount(match[0]), unit)
+        isRecipeQuantity(recipe, toAmount(match[0]), unit) &&
+        // Także w tekście scenariusza liczba nie może stać przy składniku.
+        !mentionsIngredient(recipe, value, start, unitEnd, unit)
       ) {
         continue;
       }
@@ -795,6 +850,24 @@ function checkTimerLayout(content: CookScenarioContent, errors: string[]) {
       );
     }
   }
+  // Pod jednym timerem najwyżej JEDNO odliczanie „w międzyczasie” — model
+  // danych nie wymusza, że drugie startuje po końcu pierwszego, więc dwa
+  // takie kroki to potencjalnie trzy odliczania naraz (review Codexa).
+  for (const { step, timer } of timers.values()) {
+    const withTimers = content.steps.filter(
+      (other) => other.during === timer.id && other.timer,
+    );
+    if (withTimers.length > 1) {
+      errors.push(
+        `${step.id}.timer „${timer.label}”: pod nim ${withTimers.length} kroki z własnym odliczaniem (${withTimers
+          .map((other) => other.id)
+          .join(
+            ', ',
+          )}) — najwyżej jeden; kolejny zacznij po końcu poprzedniego (bez „w międzyczasie”) albo połącz czynności`,
+      );
+    }
+  }
+
   // Odliczania startowane po kolei pod jednym timerem: wszystkie POZA
   // OSTATNIM muszą się w nim zmieścić (ostatnie może biec dalej samo, jak
   // ziemniaki nastawione, gdy masło chłodzi się w zamrażarce).

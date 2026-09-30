@@ -613,4 +613,69 @@ describe('system pisania — walidatory twarde', () => {
       expect.stringContaining('timery dublują czas „z każdej strony”'),
     ]);
   });
+  it('częściowa ilość składnika z przepisu („100 ml mleka” z 200 ml) nie może stać w tekście; naczynie i woda spoza listy — mogą', () => {
+    const withMilk: WriterRecipe = {
+      ...kotlet,
+      ingredients: [
+        ...kotlet.ingredients,
+        { ingredientId: 'mleko', name: 'mleko', amount: 200, unit: 'ml' },
+      ],
+      instructions: [
+        ...kotlet.instructions,
+        'Wlej 100 ml mleka do rondla i wstaw naczynie ok. 1,5 l, dolej 100 ml zimnej wody.',
+      ],
+    };
+    const withBody = (body: string) => {
+      const content = clone(example.content);
+      content.steps[1].body = body;
+      return qualityChecks(withMilk, content).errors.filter((e) =>
+        e.includes('liczba'),
+      );
+    };
+    expect(withBody('Wlej 100 ml mleka do rondla.')).toEqual([
+      expect.stringContaining('liczba „100”'),
+    ]);
+    expect(
+      withBody('Przygotuj naczynie ok. 1,5 l i dolej 100 ml zimnej wody.'),
+    ).toEqual([]);
+  });
+
+  it('pod jednym timerem najwyżej jeden krok z własnym odliczaniem (inaczej potencjalnie trzy naraz)', () => {
+    const content = clone(example.content);
+    const s2 = content.steps.find((st) => st.id === 's2')!;
+    s2.timer = {
+      ...content.steps[0].timer!,
+      id: 't-sibling',
+      minSeconds: 300,
+      maxSeconds: 300,
+    };
+    const errors = qualityChecks(kotlet, content).errors;
+    expect(errors).toEqual(
+      expect.arrayContaining([expect.stringContaining('najwyżej jeden')]),
+    );
+  });
+  it('ilość przy SĄSIEDNIM słowie-składniku to nie ilość składnika („naczynie 1,5 l wysmaruj masłem”, „bulion i 300 ml wody”)', () => {
+    const recipe: WriterRecipe = {
+      ...kotlet,
+      ingredients: [
+        ...kotlet.ingredients,
+        {
+          ingredientId: 'bulion',
+          name: 'bulion warzywny',
+          amount: 800,
+          unit: 'ml',
+        },
+      ],
+      instructions: [
+        ...kotlet.instructions,
+        'Naczynie o pojemności ok. 1,5 l wysmaruj masłem. Wlej bulion i 300 ml wody.',
+      ],
+    };
+    const content = clone(example.content);
+    content.steps[1].body =
+      'Naczynie ok. 1,5 l wysmaruj masłem. Wlej bulion i 300 ml wody, zagotuj.';
+    expect(
+      qualityChecks(recipe, content).errors.filter((e) => e.includes('liczba')),
+    ).toEqual([]);
+  });
 });
