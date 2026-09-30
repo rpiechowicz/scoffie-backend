@@ -8,7 +8,6 @@ import {
 import { parseCookScenarioContent } from '../src/recipes/cook-scenario/cook-scenario.validate';
 import type { WriteOutcome } from '../src/recipes/cook-scenario/writer/writer.pipeline';
 import {
-  hasCurrentWrite,
   loadWriterRecipe,
   saveWrittenScenario,
   writerInputHash,
@@ -290,10 +289,7 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
       inputHash: writerInputHash(loaded.recipe),
     });
     const current = async () =>
-      hasCurrentWrite(
-        prisma,
-        (await loadWriterRecipe(prisma, KOTLET.recipeId))!,
-      );
+      (await loadWriterRecipe(prisma, KOTLET.recipeId))!.current;
     expect(await current()).toBe(true);
 
     const chicken = await prisma.recipeIngredient.findFirstOrThrow({
@@ -319,5 +315,15 @@ describe('System pisania scenariuszy — zapis (E2E)', () => {
       });
     }
     expect(await current()).toBe(true);
+
+    // Wiersz bez odcisku wejścia (np. wzorzec pisany ręcznie) nie jest
+    // „aktualnym wynikiem” — bez względu na status.
+    // (wszystkie wiersze tego pliku — wcześniejsze testy też zapisały
+    // wyniki dla obecnej treści).
+    await prisma.recipeCookScenario.updateMany({
+      where: { id: { in: created } },
+      data: { validationReport: { outcome: 'VALIDATED' } },
+    });
+    expect(await current()).toBe(false);
   });
 });

@@ -7,23 +7,34 @@ import { COOK_SCENARIO_RULES_VERSION } from '../cook-scenario.types';
 import type { WriteOutcome } from './writer.pipeline';
 import type { WriterRecipe } from './writer.types';
 
+/** Przepis gotowy do pisania: wejście modelu, podpis i stan wyników. */
+export interface LoadedWriterRecipe {
+  recipe: WriterRecipe;
+  signature: string;
+  /** Jest już wynik systemu pisania dla TEJ treści (`hasCurrentWrite`). */
+  current: boolean;
+}
+
 /**
- * Przepis dla systemu pisania + podpis jego treści z TEJ SAMEJ migawki
- * (REPEATABLE READ). Podpis zapisujemy przy wersji (`recipeContentHash`,
- * po nim baza unieważnia opublikowany scenariusz), a przy zapisie
- * porównujemy CAŁE wejście modelu — patrz `saveWrittenScenario`.
+ * Przepis dla systemu pisania, jego podpis i „czy już napisany” — wszystko
+ * z JEDNEJ migawki (REPEATABLE READ), więc decyzja o pominięciu zawsze
+ * dotyczy dokładnie tej treści, którą zwracamy (review Codexa, E3a runda 6).
+ * Podpis zapisujemy przy wersji (`recipeContentHash`, po nim baza unieważnia
+ * opublikowany scenariusz), a przy zapisie porównujemy CAŁE wejście modelu —
+ * patrz `saveWrittenScenario`.
  */
 export async function loadWriterRecipe(
   prisma: PrismaClient,
   recipeId: string,
-): Promise<{ recipe: WriterRecipe; signature: string } | null> {
+): Promise<LoadedWriterRecipe | null> {
   return prisma.$transaction(
     async (tx) => {
       const recipe = await readWriterRecipe(tx, recipeId);
       if (!recipe) return null;
       const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
         SELECT recipe_content_signature(${recipeId}::uuid) AS "signature"`;
-      return { recipe, signature };
+      const current = await hasCurrentWrite(tx, recipe, signature);
+      return { recipe, signature, current };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   );
@@ -178,30 +189,30 @@ export function writerInputHash(recipe: WriterRecipe): string {
 
 /**
  * Czy przepis ma już wynik systemu pisania DLA SWOJEJ OBECNEJ TREŚCI
- * (review Codexa, E3a runda 4). Wersje robocze nie dostają STALE od
+ * (review Codexa, E3a rundy 4 i 6). Wersje robocze nie dostają STALE od
  * triggera (ten pilnuje tylko PUBLISHED), więc „jest wiersz” to za mało:
- * wiersz liczy się tylko przy tych samych zasadach, tym samym podpisie
- * i — dla wyników systemu pisania — tym samym odcisku wejścia. Wzorzec
- * pisany ręcznie (PUBLISHED bez odcisku) liczy się po podpisie, który
- * trigger trzyma w ryzach.
+ * liczy się tylko wiersz przy tych samych zasadach, tym samym podpisie
+ * i TYM SAMYM odcisku wejścia — bez wyjątku dla statusu. Wzorzec pisany
+ * ręcznie (bez odcisku) nie jest wynikiem systemu pisania; publikacja
+ * z panelu (E3c) musi przenosić `inputHash` wersji, którą publikuje.
  */
-export async function hasCurrentWrite(
-  prisma: PrismaClient,
-  loaded: { recipe: WriterRecipe; signature: string },
+async function hasCurrentWrite(
+  tx: Prisma.TransactionClient,
+  recipe: WriterRecipe,
+  signature: string,
 ): Promise<boolean> {
-  const rows = await prisma.recipeCookScenario.findMany({
+  const rows = await tx.recipeCookScenario.findMany({
     where: {
-      recipeId: loaded.recipe.id,
+      recipeId: recipe.id,
       rulesVersion: COOK_SCENARIO_RULES_VERSION,
-      recipeContentHash: loaded.signature,
+      recipeContentHash: signature,
       status: { in: ['VALIDATED', 'REJECTED', 'SKIPPED', 'PUBLISHED'] },
     },
-    select: { status: true, validationReport: true },
+    select: { validationReport: true },
   });
-  const hash = writerInputHash(loaded.recipe);
+  const hash = writerInputHash(recipe);
   return rows.some((row) => {
     const report = row.validationReport as { inputHash?: unknown } | null;
-    if (typeof report?.inputHash === 'string') return report.inputHash === hash;
-    return row.status === 'PUBLISHED';
+    return report?.inputHash === hash;
   });
 }

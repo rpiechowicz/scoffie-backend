@@ -52,7 +52,6 @@ import {
   type WriterExample,
 } from '../src/recipes/cook-scenario/writer/writer.prompt';
 import {
-  hasCurrentWrite,
   loadWriterRecipe,
   saveWrittenScenario,
 } from '../src/recipes/cook-scenario/writer/writer.store';
@@ -208,18 +207,7 @@ async function selectRecipes(
     ids.push(...rows.slice(0, args.pilot).map((row) => row.id));
   }
   ids = [...new Set(ids)];
-  if (args.skipWritten) {
-    // Pomijamy tylko przepisy, których wynik pasuje do OBECNEJ treści —
-    // przepis zmieniony po generowaniu idzie jeszcze raz.
-    const pending: string[] = [];
-    for (const id of ids) {
-      const loaded = await loadWriterRecipe(prisma, id);
-      if (!loaded || !(await hasCurrentWrite(prisma, loaded))) pending.push(id);
-    }
-    ids = pending;
-  }
-
-  return args.limit ? ids.slice(0, args.limit) : ids;
+  return ids;
 }
 
 interface ReportEntry {
@@ -247,7 +235,7 @@ async function main() {
     const example = await loadExample(prisma);
     const ids = await selectRecipes(prisma, args, example.recipe.id);
     console.log(
-      `przepisów: ${ids.length} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $`,
+      `kandydatów: ${ids.length}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $`,
     );
 
     if (args.dryRun) {
@@ -282,6 +270,8 @@ async function main() {
 
     const report: ReportEntry[] = [];
     let stopped = false;
+    let started = 0;
+    let upToDate = 0;
     const queue = [...ids];
 
     const worker = async () => {
@@ -297,6 +287,19 @@ async function main() {
           });
           continue;
         }
+        // „Już napisany” rozstrzyga ta sama migawka, z której piszemy
+        // (loadWriterRecipe) — nie osobny odczyt przy wyborze listy.
+        if (args.skipWritten && loaded.current) {
+          upToDate += 1;
+          continue;
+        }
+        // Sprawdzenie i zwiększenie bez `await` pomiędzy — równoległe
+        // wątki nie przekroczą --limit.
+        if (args.limit && started >= args.limit) {
+          stopped = true;
+          break;
+        }
+        started += 1;
         const { recipe, signature } = loaded;
         try {
           const outcome = await writeCookScenario(
@@ -369,7 +372,10 @@ async function main() {
       `\nVALIDATED ${count('VALIDATED')} · REJECTED ${count('REJECTED')} · SKIPPED ${count('SKIPPED')} · STALE ${count('STALE')} · FAILED ${count('FAILED')} · BUDGET ${count('BUDGET')}`,
     );
     console.log(`koszt: ${(budget.spentMicroUsd / 1_000_000).toFixed(3)} $`);
-    if (stopped) {
+    if (upToDate) {
+      console.log(`pominięte (wynik aktualny dla obecnej treści): ${upToDate}`);
+    }
+    if (count('BUDGET')) {
       console.log(
         `ZATRZYMANO: budżet ${args.budgetUsd} $ nie wystarcza na kolejne wywołanie`,
       );
