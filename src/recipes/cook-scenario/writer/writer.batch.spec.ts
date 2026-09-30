@@ -108,6 +108,10 @@ class FakeBatchModel implements BatchModel {
     return { results: this.answer(calls), interrupted: [], stopReason: null };
   }
 
+  reconcile(): Promise<InflightBatch | null> {
+    return Promise.resolve(null);
+  }
+
   collect(batch: InflightBatch, calls: BatchCall[]): Promise<BatchRunResult> {
     expect(calls.map((c) => c.id)).toEqual(batch.ids);
     this.stopAfter = Infinity;
@@ -191,6 +195,7 @@ describe('system pisania — rundy paczek', () => {
           stopReason: null,
         }),
       collect: () => Promise.reject(new Error('nieużywane')),
+      reconcile: () => Promise.resolve(null),
     };
     const jobs = newJobs();
     const saved: string[] = [];
@@ -256,6 +261,7 @@ describe('system pisania — rundy paczek', () => {
     const idle: BatchModel = {
       run: () => Promise.reject(new Error('nie powinno wołać modelu')),
       collect: () => Promise.reject(new Error('nie powinno wołać modelu')),
+      reconcile: () => Promise.reject(new Error('nie powinno wołać modelu')),
     };
     await runBatchRounds(restored, idle, {
       onDone,
@@ -522,8 +528,10 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
   const smartClient = (
     created: { ids: string[]; review: boolean[] }[],
     failResultsOf = new Set<number>(),
-  ) =>
-    ({
+    createFaults: { lostResponse?: number; rejected?: number } = {},
+  ) => {
+    let createCalls = 0;
+    return {
       messages: {
         batches: {
           create: (body: {
@@ -532,14 +540,41 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
               params: { system: { text: string }[] };
             }[];
           }) => {
+            createCalls += 1;
+            if (createFaults.rejected === createCalls) {
+              return Promise.reject(new Error('ECONNREFUSED'));
+            }
             created.push({
               ids: body.requests.map((r) => r.custom_id),
               review: body.requests.map((r) =>
                 r.params.system[0].text.startsWith('Jesteś recenzentem'),
               ),
             });
+            // Paczka przyjęta, ale odpowiedź „zginęła w sieci”.
+            if (createFaults.lostResponse === createCalls) {
+              return Promise.reject(new Error('socket hang up'));
+            }
             return Promise.resolve({ id: `b${created.length}` });
           },
+          // Paczki u „dostawcy”, od najnowszych.
+          list: () =>
+            (async function* () {
+              for (let n = created.length; n >= 1; n -= 1) {
+                await Promise.resolve();
+                yield {
+                  id: `b${n}`,
+                  created_at: new Date().toISOString(),
+                  processing_status: 'ended',
+                  request_counts: {
+                    processing: 0,
+                    succeeded: created[n - 1].ids.length,
+                    errored: 0,
+                    canceled: 0,
+                    expired: 0,
+                  },
+                };
+              }
+            })(),
           retrieve: () =>
             Promise.resolve({
               processing_status: 'ended',
@@ -585,7 +620,8 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
           },
         },
       },
-    }) as unknown as Anthropic;
+    } as unknown as Anthropic;
+  };
   const oneCall = (job: ScenarioJob) => job.nextCall()!;
   // Sonnet 5.5 za pozycję w paczce: (1000 × 2 + 100 × 10) × 0,5 = 1500 µ$.
   const ACTUAL = 1500;
@@ -705,5 +741,115 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
       'VALIDATED',
       'VALIDATED',
     ]);
+  });
+  describe('wysyłka paczki o nieznanym wyniku', () => {
+    const onDone = () => Promise.resolve();
+    const start = (
+      created: { ids: string[]; review: boolean[] }[],
+      faults: { lostResponse?: number; rejected?: number },
+    ) => {
+      const journals: BatchJournal[] = [];
+      const guard = new BudgetGuard(1e9);
+      const run = runBatchRounds(
+        newJobs(),
+        new AnthropicBatchModel(
+          smartClient(created, new Set(), faults),
+          guard,
+          undefined,
+          {
+            sleep: noSleep,
+          },
+        ),
+        {
+          onDone,
+          persist: (j) => {
+            journals.push(clone(j));
+            return Promise.resolve();
+          },
+          spentMicroUsd: () => guard.spentMicroUsd,
+          runId: 'abc123',
+        },
+      );
+      return { run, journals };
+    };
+    const resumeFrom = async (
+      journal: BatchJournal,
+      created: { ids: string[]; review: boolean[] }[],
+    ) => {
+      const guard = new BudgetGuard(1e9, journal.spentMicroUsd);
+      const jobs = journal.jobs.map((st) => ScenarioJob.restore(st, example));
+      await runBatchRounds(
+        jobs,
+        new AnthropicBatchModel(smartClient(created), guard, undefined, {
+          sleep: noSleep,
+        }),
+        {
+          onDone,
+          persist: () => Promise.resolve(),
+          spentMicroUsd: () => guard.spentMicroUsd,
+          resume: journal,
+        },
+      );
+      return { jobs, guard };
+    };
+
+    it('paczkę przyjęto, a odpowiedź zginęła: wznowienie ją odnajduje i NIE wysyła ponownie', async () => {
+      const created: { ids: string[]; review: boolean[] }[] = [];
+      const { run, journals } = start(created, { lostResponse: 1 });
+      await expect(run).rejects.toMatchObject({ reason: 'transport' });
+      const last = journals[journals.length - 1];
+      expect(last.submitting?.ids).toHaveLength(2);
+      expect(last.inflight).toEqual([]);
+      expect(created).toHaveLength(1);
+      expect(created[0].ids[0]).toMatch(/-r1-abc123$/);
+
+      const { jobs, guard } = await resumeFrom(last, created);
+      // Autorów nie wysłano drugi raz — kolejna paczka to już recenzje.
+      expect(created).toHaveLength(2);
+      expect(created[1].review.every(Boolean)).toBe(true);
+      expect(jobs.map((j) => j.outcome().status)).toEqual([
+        'VALIDATED',
+        'VALIDATED',
+      ]);
+      // 2 × autor + 2 × recenzja, każda pozycja policzona raz.
+      expect(guard.spentMicroUsd).toBe(4 * ACTUAL);
+    });
+
+    it('paczki naprawdę nie przyjęto: wznowienie wysyła ją ponownie', async () => {
+      const created: { ids: string[]; review: boolean[] }[] = [];
+      const { run, journals } = start(created, { rejected: 1 });
+      await expect(run).rejects.toMatchObject({ reason: 'transport' });
+      const last = journals[journals.length - 1];
+      expect(last.submitting).not.toBeNull();
+      expect(created).toHaveLength(0);
+
+      const { jobs } = await resumeFrom(last, created);
+      expect(created[0].review.some(Boolean)).toBe(false);
+      expect(jobs.map((j) => j.outcome().status)).toEqual([
+        'VALIDATED',
+        'VALIDATED',
+      ]);
+    });
+
+    it('proces padł między przyjęciem paczki a zapisem jej id: zapowiedź w dzienniku wystarcza', async () => {
+      const created: { ids: string[]; review: boolean[] }[] = [];
+      const { run, journals } = start(created, {});
+      await run;
+      // Stan dziennika z chwili tuż przed `create` (zapowiedź, bez id paczki).
+      const crashed = journals.find((j) => j.submitting && !j.inflight.length)!;
+      expect(crashed.round).toBe(1);
+      const before = created.length;
+
+      const { jobs } = await resumeFrom(crashed, created);
+      const sentAfter = created.slice(before);
+      // Po wznowieniu żadna paczka autorów rundy 1 nie poszła drugi raz.
+      expect(
+        sentAfter.some((b) => b.ids.some((id) => id.endsWith('-r1-abc123'))),
+      ).toBe(false);
+      expect(jobs.map((j) => j.outcome().status)).toEqual([
+        'VALIDATED',
+        'VALIDATED',
+      ]);
+    });
   });
 });

@@ -32,6 +32,7 @@
  * Modele: COOK_WRITER_MODEL, COOK_REVIEWER_MODEL, COOK_WRITER_EFFORT,
  *   COOK_REVIEWER_EFFORT.
  */
+import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import Anthropic from '@anthropic-ai/sdk';
@@ -469,6 +470,9 @@ async function main() {
         `w paczkach: ${jobs.length} przepisów · dziennik ${journalPath}`,
       );
       const createdAt = resumed?.createdAt ?? new Date().toISOString();
+      // Znacznik serii w id pozycji paczek (wyszukiwanie paczki o nieznanym
+      // wyniku nie pomyli jej z inną serią).
+      const runId = resumed?.runId ?? randomBytes(3).toString('hex');
       try {
         await runBatchRounds(
           jobs,
@@ -494,6 +498,7 @@ async function main() {
               }),
             spentMicroUsd: () => budget.spentMicroUsd,
             resume: resumed ?? undefined,
+            runId,
           },
         );
         // Seria skończona — dziennik zostaje obok jako ślad, pod inną nazwą.

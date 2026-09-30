@@ -43,12 +43,27 @@ export interface InflightBatch {
   reservedMicroUsd: number;
 }
 
+/**
+ * Paczka w trakcie wysyłania — zapisana w dzienniku PRZED `create` (review
+ * Codexa): gdy odpowiedź API zginie albo proces padnie przed zapisem id,
+ * wznowienie szuka u dostawcy paczki z tymi pozycjami, zamiast wysyłać
+ * i płacić drugi raz.
+ */
+export interface PendingSubmission {
+  ids: string[];
+  reservedMicroUsd: number;
+  /** Chwila tuż przed `create` (ISO) — okno wyszukiwania paczki. */
+  at: string;
+}
+
 export interface BatchRunResult {
   results: Map<string, BatchCallResult>;
   /** Przyjęte, a nieodebrane (błąd sieci) — do odebrania przy wznowieniu. */
   interrupted: InflightBatch[];
-  /** Dlaczego przebieg staje: brak budżetu albo transport; `null` = całość. */
-  stopReason: 'budget' | 'transport' | null;
+  /** Wysyłka o nieznanym wyniku (błąd `create`) — do wyjaśnienia przy wznowieniu. */
+  pending?: PendingSubmission;
+  /** Dlaczego przebieg staje; `null` = całość. */
+  stopReason: 'budget' | 'transport' | 'journal' | null;
 }
 
 /**
@@ -62,6 +77,8 @@ export interface BatchRunResult {
  *   działa — nowe paczki byłyby nieśledzone).
  */
 export interface BatchHooks {
+  /** Przed `create`; musi się udać (inaczej paczka nie idzie). */
+  onSubmitting?: (pending: PendingSubmission) => Promise<void>;
   onSubmitted?: (batch: InflightBatch) => Promise<void>;
   onCollected?: (
     batch: InflightBatch,
@@ -74,11 +91,20 @@ export interface BatchModel {
   run(calls: BatchCall[], hooks?: BatchHooks): Promise<BatchRunResult>;
   /** Odbiór wyników paczki wysłanej wcześniej (wznowienie). */
   collect(batch: InflightBatch, calls: BatchCall[]): Promise<BatchRunResult>;
+  /**
+   * Wysyłka o nieznanym wyniku: paczka z tymi pozycjami u dostawcy albo
+   * `null` = nie została przyjęta (można wysłać ponownie).
+   */
+  reconcile(pending: PendingSubmission): Promise<InflightBatch | null>;
 }
 
-/** Id pozycji: przepis bez myślników + numer rundy (unikalne w paczce). */
-export const batchCallId = (recipeId: string, round: number) =>
-  `${recipeId.replace(/-/g, '')}-r${round}`;
+/**
+ * Id pozycji: przepis bez myślników + runda + znacznik SERII — ta sama
+ * pozycja z innej serii (np. wcześniejszego testu) nigdy nie pomyli się
+ * przy wyszukiwaniu paczki o nieznanym wyniku. Mieści się w 64 znakach.
+ */
+export const batchCallId = (recipeId: string, round: number, runId = '') =>
+  `${recipeId.replace(/-/g, '')}-r${round}${runId ? `-${runId}` : ''}`;
 
 export class BatchStoppedError extends Error {
   constructor(
@@ -107,6 +133,10 @@ export interface BatchJournal {
   /** Zadania już zapisane w bazie (albo zgłoszone jako błąd). */
   handled: string[];
   inflight: InflightBatch[];
+  /** Wysyłka o nieznanym wyniku (patrz `PendingSubmission`). */
+  submitting: PendingSubmission | null;
+  /** Znacznik serii w id pozycji. */
+  runId: string;
   jobs: JobState[];
 }
 
@@ -118,7 +148,10 @@ export interface BatchRunOptions {
   persist?: (journal: BatchJournal) => Promise<void>;
   spentMicroUsd?: () => number;
   /** Stan z dziennika przy wznowieniu. */
-  resume?: Pick<BatchJournal, 'round' | 'handled' | 'inflight'>;
+  resume?: Pick<BatchJournal, 'round' | 'handled' | 'inflight'> &
+    Partial<Pick<BatchJournal, 'submitting' | 'runId'>>;
+  /** Znacznik nowej serii (przy wznowieniu bierzemy z dziennika). */
+  runId?: string;
   /** Ile razy próbować zapisu jednego przepisu. */
   saveAttempts?: number;
   sleep?: (ms: number) => Promise<void>;
@@ -139,6 +172,8 @@ export async function runBatchRounds(
     ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   const handled = new Set(options.resume?.handled ?? []);
   let inflight: InflightBatch[] = [...(options.resume?.inflight ?? [])];
+  let submitting: PendingSubmission | null = options.resume?.submitting ?? null;
+  const runId = options.resume?.runId ?? options.runId ?? '';
   let round = options.resume?.round ?? 0;
 
   // Dziennik: zapis z ponowieniem; trwały błąd nie przerywa odbioru paczek
@@ -154,6 +189,8 @@ export async function runBatchRounds(
           spentMicroUsd: options.spentMicroUsd?.() ?? 0,
           handled: [...handled],
           inflight,
+          submitting,
+          runId,
           jobs: jobs.map((job) => job.snapshot()),
         });
         journalBroken = false;
@@ -172,7 +209,7 @@ export async function runBatchRounds(
     jobs.flatMap((job) => {
       const call = job.nextCall();
       return call
-        ? [{ job, call, id: batchCallId(job.recipe.id, forRound) }]
+        ? [{ job, call, id: batchCallId(job.recipe.id, forRound, runId) }]
         : [];
     });
 
@@ -220,6 +257,22 @@ export async function runBatchRounds(
   // Wznowienie: nieudane zadania dostają nową serię prób…
   if (options.resume) {
     for (const job of jobs) job.resetFailure();
+  }
+  // Wysyłka o nieznanym wyniku: szukamy paczki u dostawcy, zanim cokolwiek
+  // pójdzie drugi raz.
+  if (submitting) {
+    log(
+      `wyjaśniam wysyłkę z ${submitting.at} (${submitting.ids.length} pozycji)`,
+    );
+    const found = await model.reconcile(submitting);
+    if (found) {
+      log(`paczka ${found.batchId} jednak przyjęta — odbieram ją`);
+      inflight.push(found);
+    } else {
+      log('paczki nie przyjęto — pozycje pójdą ponownie');
+    }
+    submitting = null;
+    await persist();
   }
   // …a najpierw odbiór paczek opłaconych przed przerwą.
   if (inflight.length) {
@@ -269,7 +322,15 @@ export async function runBatchRounds(
     const outcome = await model.run(
       pending.map(({ id, call }) => ({ id, call })),
       {
+        onSubmitting: async (pending) => {
+          submitting = pending;
+          if (!(await persist())) {
+            submitting = null;
+            throw new Error('dziennik nie przyjął zapowiedzi paczki');
+          }
+        },
         onSubmitted: async (batch) => {
+          submitting = null;
           inflight.push(batch);
           await persist();
         },
@@ -283,6 +344,8 @@ export async function runBatchRounds(
     );
     apply(pending, outcome.results);
     inflight = outcome.interrupted;
+    // Błąd `create` = wynik nieznany — zapowiedź zostaje w dzienniku.
+    submitting = outcome.pending ?? null;
     await saveDone();
     if (outcome.stopReason) throw new BatchStoppedError(outcome.stopReason);
     if (journalBroken) throw new BatchStoppedError('journal');
@@ -292,6 +355,7 @@ export async function runBatchRounds(
 export interface AnthropicBatchOptions {
   /** Co ile sekund pytać o stan paczki. */
   pollSeconds?: number;
+  now?: () => number;
   /** Ile razy ponowić odpytanie/odbiór po chwilowym błędzie. */
   retries?: number;
   sleep?: (ms: number) => Promise<void>;
@@ -308,6 +372,7 @@ export class AnthropicBatchModel implements BatchModel {
   private readonly pollMs: number;
   private readonly retries: number;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly now: () => number;
 
   constructor(
     private readonly client: Anthropic,
@@ -317,6 +382,7 @@ export class AnthropicBatchModel implements BatchModel {
   ) {
     this.pollMs = (options.pollSeconds ?? 30) * 1000;
     this.retries = options.retries ?? 8;
+    this.now = options.now ?? (() => Date.now());
     this.sleep =
       options.sleep ??
       ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -348,6 +414,19 @@ export class AnthropicBatchModel implements BatchModel {
         return { results, interrupted: [], stopReason: 'budget' };
       }
       const reservedTotal = chunk.reduce((sum, e) => sum + e.reserved, 0);
+      const pending: PendingSubmission = {
+        ids: chunk.map((e) => e.item.id),
+        reservedMicroUsd: reservedTotal,
+        at: new Date(this.now()).toISOString(),
+      };
+      // Zapowiedź w dzienniku PRZED wysyłką — bez niej paczka nie idzie.
+      try {
+        await hooks.onSubmitting?.(pending);
+      } catch (error) {
+        for (const entry of chunk) this.guard.settle(entry.reserved, 0);
+        this.log(`paczka niewysłana (dziennik): ${messageOf(error)}`);
+        return { results, interrupted: [], stopReason: 'journal' };
+      }
       let batchId: string;
       try {
         const batch = await this.client.messages.batches.create({
@@ -358,10 +437,11 @@ export class AnthropicBatchModel implements BatchModel {
         });
         batchId = batch.id;
       } catch (error) {
-        // Nieprzyjęta paczka nic nie kosztuje — zwalniamy rezerwację i stajemy.
-        for (const entry of chunk) this.guard.settle(entry.reserved, 0);
-        this.log(`paczka nieprzyjęta: ${messageOf(error)}`);
-        return { results, interrupted: [], stopReason: 'transport' };
+        // Wynik NIEZNANY: API mogło paczkę przyjąć, a odpowiedź zginąć.
+        // Rezerwacja zostaje, zapowiedź w dzienniku — wznowienie sprawdzi
+        // u dostawcy, zanim wyśle cokolwiek ponownie.
+        this.log(`wysyłka paczki bez odpowiedzi: ${messageOf(error)}`);
+        return { results, interrupted: [], pending, stopReason: 'transport' };
       }
       const inflight: InflightBatch = {
         batchId,
@@ -411,6 +491,51 @@ export class AnthropicBatchModel implements BatchModel {
     return collected
       ? { results, interrupted: [], stopReason: null }
       : { results, interrupted: [batch], stopReason: 'transport' };
+  }
+
+  /**
+   * Szuka paczki z pozycjami zapowiedzi: wśród paczek utworzonych w oknie
+   * wokół `at` (±5 min przed, do 20 min po) z tą samą liczbą pozycji —
+   * i sprawdza ich `custom_id` (id z `runId` serii, więc jednoznaczne).
+   * Paczkę w toku trzeba doczekać: pozycje są widoczne dopiero w wynikach.
+   */
+  async reconcile(pending: PendingSubmission): Promise<InflightBatch | null> {
+    const at = Date.parse(pending.at);
+    const from = at - 5 * 60_000;
+    const until = at + 20 * 60_000;
+    const wanted = new Set(pending.ids);
+    for await (const batch of this.client.messages.batches.list({
+      limit: 100,
+    })) {
+      const created = Date.parse(batch.created_at);
+      if (created < from) break; // lista od najnowszych
+      if (created > until) continue;
+      const c = batch.request_counts;
+      const total =
+        c.processing + c.succeeded + c.errored + c.canceled + c.expired;
+      if (total !== pending.ids.length) continue;
+      let state = batch;
+      while (state.processing_status !== 'ended') {
+        await this.sleep(this.pollMs);
+        state = await this.retry(() =>
+          this.client.messages.batches.retrieve(batch.id),
+        );
+      }
+      const lines = await this.retry(() =>
+        this.client.messages.batches.results(batch.id),
+      );
+      for await (const line of lines) {
+        if (wanted.has(line.custom_id)) {
+          return {
+            batchId: batch.id,
+            ids: pending.ids,
+            reservedMicroUsd: pending.reservedMicroUsd,
+          };
+        }
+        break; // pierwsza pozycja rozstrzyga — id serii są unikalne
+      }
+    }
+    return null;
   }
 
   /** Czeka na koniec paczki i odbiera wyniki; `false` = nie udało się. */
