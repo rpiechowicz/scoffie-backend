@@ -45,10 +45,7 @@ import {
   resolveGoldenContent,
   type GoldenScenarioFile,
 } from '../src/recipes/cook-scenario/cook-scenario.golden';
-import {
-  COOK_SCENARIO_RULES_VERSION,
-  type CookScenarioContent,
-} from '../src/recipes/cook-scenario/cook-scenario.types';
+import { COOK_SCENARIO_RULES_VERSION } from '../src/recipes/cook-scenario/cook-scenario.types';
 import {
   checkScenarioAgainstRecipe,
   parseCookScenarioContent,
@@ -81,6 +78,10 @@ import {
   type WriterExample,
 } from '../src/recipes/cook-scenario/writer/writer.prompt';
 import { acquireLock } from '../src/recipes/cook-scenario/writer/writer.lock';
+import {
+  batchReport,
+  type ReportEntry,
+} from '../src/recipes/cook-scenario/writer/writer.report';
 import {
   loadWriterRecipe,
   saveWrittenScenario,
@@ -342,22 +343,6 @@ const promptHash = (example: WriterExample) =>
     .update(REVIEWER_SYSTEM)
     .digest('hex');
 
-interface ReportEntry {
-  recipeId: string;
-  title: string;
-  status: string;
-  version?: number;
-  score?: number;
-  attempts?: number;
-  costUsd?: number;
-  skipReason?: string | null;
-  warnings?: string[];
-  review?: unknown;
-  errors?: string[];
-  content?: CookScenarioContent | null;
-  failure?: string;
-}
-
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   assertLocalDatabase();
@@ -557,8 +542,25 @@ async function main() {
         if (!(error instanceof BatchStoppedError)) throw error;
         stoppedBatch = error;
       }
-      for (const job of jobs) {
-        if (job.failure) failed({ recipe: job.recipe }, job.failure);
+      // Raport z CAŁEJ serii (także sprzed wznowienia i zapisów-duplikatów):
+      // status i wersja z bazy po kluczu zadania.
+      const rows = await prisma.$queryRaw<
+        { jobId: string; version: number; status: string }[]
+      >`
+        SELECT "validationReport"->>'jobId' AS "jobId", "version", "status"::text AS "status"
+          FROM "RecipeCookScenario"
+         WHERE "validationReport"->>'jobId' = ANY(${jobs.map((job) => job.jobId)}::text[])`;
+      report.splice(
+        0,
+        report.length,
+        ...batchReport(jobs, new Map(rows.map((row) => [row.jobId, row]))),
+      );
+      for (const entry of report) {
+        if (entry.failure) {
+          console.log(
+            `${entry.status.padEnd(9)} · ${entry.title}: ${entry.failure}`,
+          );
+        }
       }
     } else {
       const model = new BudgetedWriterModel(
@@ -620,7 +622,7 @@ async function main() {
     const count = (status: string) =>
       report.filter((r) => r.status === status).length;
     console.log(
-      `\nVALIDATED ${count('VALIDATED')} · REJECTED ${count('REJECTED')} · SKIPPED ${count('SKIPPED')} · STALE ${count('STALE')} · FAILED ${count('FAILED')} · BUDGET ${count('BUDGET')}`,
+      `\nVALIDATED ${count('VALIDATED')} · REJECTED ${count('REJECTED')} · SKIPPED ${count('SKIPPED')} · STALE ${count('STALE')} · FAILED ${count('FAILED')} · BUDGET ${count('BUDGET')}${count('PENDING') + count('UNSAVED') ? ` · W TOKU ${count('PENDING')} · NIEZAPISANE ${count('UNSAVED')}` : ''}`,
     );
     console.log(`koszt: ${(budget.spentMicroUsd / 1_000_000).toFixed(3)} $`);
     if (upToDate) {
