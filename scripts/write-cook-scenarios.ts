@@ -37,7 +37,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { open, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaClient, type Prisma } from '@prisma/client';
 import { priceFor } from '../src/config/model-prices';
@@ -350,10 +351,28 @@ async function main() {
   // procesy na jednym dzienniku zapłaciłyby podwójnie (writer.lock.ts).
   const journalPath =
     args.resume ?? args.journal ?? 'cook-scenarios-journal.json';
-  const releaseLock =
+  // Blokada GLOBALNA (na komputer) przed blokadą dziennika: paczki z konta
+  // wysyła naraz jeden przebieg, więc przy wyszukiwaniu paczki o nieznanym
+  // wyniku pasująca paczka w toku jest nasza, a nie z innej serii (review
+  // Codexa). Kolejność zawsze ta sama — bez zakleszczeń.
+  const releaseGlobal =
     args.batch || args.resume
-      ? await acquireLock(`${journalPath}.lock`, { breakStale: args.breakLock })
+      ? await acquireLock(join(homedir(), '.scoffie-cook-batch.lock'), {
+          breakStale: args.breakLock,
+        })
       : null;
+  let releaseLock: (() => Promise<void>) | null = null;
+  try {
+    releaseLock =
+      args.batch || args.resume
+        ? await acquireLock(`${journalPath}.lock`, {
+            breakStale: args.breakLock,
+          })
+        : null;
+  } catch (error) {
+    await releaseGlobal?.();
+    throw error;
+  }
   const prisma = new PrismaClient();
   try {
     const resumed = args.resume ? await readJournal(args.resume) : null;
@@ -646,6 +665,7 @@ async function main() {
   } finally {
     await prisma.$disconnect();
     await releaseLock?.();
+    await releaseGlobal?.();
   }
 }
 
