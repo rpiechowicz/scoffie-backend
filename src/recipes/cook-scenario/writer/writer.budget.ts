@@ -55,10 +55,19 @@ export function worstCaseMicroUsd(
  * nie prześcigną się — suma wydanego nigdy nie przekroczy limitu.
  */
 export class BudgetGuard {
-  private spent = 0;
+  private spent: number;
   private reserved = 0;
 
-  constructor(readonly limitMicroUsd: number) {}
+  /**
+   * `spentMicroUsd` — wydane wcześniej (wznowienie przebiegu z dziennika):
+   * limit dotyczy CAŁEJ serii, nie jednego uruchomienia.
+   */
+  constructor(
+    readonly limitMicroUsd: number,
+    spentMicroUsd = 0,
+  ) {
+    this.spent = spentMicroUsd;
+  }
 
   get spentMicroUsd(): number {
     return this.spent;
@@ -72,6 +81,14 @@ export class BudgetGuard {
         amount,
       );
     }
+    this.reserved += amount;
+  }
+
+  /**
+   * Rezerwacja bez sprawdzania limitu — dla paczki wysłanej w poprzednim
+   * uruchomieniu: pieniądze już poszły, odbieramy tylko wynik.
+   */
+  forceReserve(amount: number): void {
     this.reserved += amount;
   }
 

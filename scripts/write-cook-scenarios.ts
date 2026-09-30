@@ -21,13 +21,19 @@
  *   pnpm cook-scenarios:write --batch --sample 50         # próba kontrolna
  *   pnpm cook-scenarios:write --batch --all --skip-written --budget-usd 40
  *   pnpm cook-scenarios:write --recipe <id> [--recipe <id>…]
+ *   pnpm cook-scenarios:write --resume cook-scenarios-journal.json --budget-usd 60
+ * Paczki: dziennik `--journal plik` (domyślnie cook-scenarios-journal.json)
+ *   z id paczek w locie i stanem zadań; przerwa (sieć, budżet, proces) →
+ *   `--resume` odbiera opłacone paczki i jedzie dalej; `--budget-usd` przy
+ *   wznowieniu = łączny limit CAŁEJ serii.
  * Opcje: --limit N (najwyżej N przepisów faktycznie pisanych),
  *   --skip-written (pomija przepisy z aktualnym wynikiem dla obecnej treści),
  *   --concurrency 3 (tryb na żywo), --out raport.json.
  * Modele: COOK_WRITER_MODEL, COOK_REVIEWER_MODEL, COOK_WRITER_EFFORT,
  *   COOK_REVIEWER_EFFORT.
  */
-import { readFile, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { readFile, rename, writeFile } from 'node:fs/promises';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaClient, type Prisma } from '@prisma/client';
 import { priceFor } from '../src/config/model-prices';
@@ -35,7 +41,10 @@ import {
   resolveGoldenContent,
   type GoldenScenarioFile,
 } from '../src/recipes/cook-scenario/cook-scenario.golden';
-import type { CookScenarioContent } from '../src/recipes/cook-scenario/cook-scenario.types';
+import {
+  COOK_SCENARIO_RULES_VERSION,
+  type CookScenarioContent,
+} from '../src/recipes/cook-scenario/cook-scenario.types';
 import {
   checkScenarioAgainstRecipe,
   parseCookScenarioContent,
@@ -43,7 +52,9 @@ import {
 import { AnthropicWriterModel } from '../src/recipes/cook-scenario/writer/writer.anthropic';
 import {
   AnthropicBatchModel,
+  BatchStoppedError,
   runBatchRounds,
+  type BatchJournal,
 } from '../src/recipes/cook-scenario/writer/writer.batch';
 import {
   BudgetedWriterModel,
@@ -85,6 +96,8 @@ interface Args {
   budgetUsd: number;
   concurrency: number;
   out: string | null;
+  journal: string | null;
+  resume: string | null;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -100,6 +113,8 @@ function parseArgs(argv: string[]): Args {
     budgetUsd: 5,
     concurrency: 3,
     out: null,
+    journal: null,
+    resume: null,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -126,11 +141,19 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--concurrency')
       args.concurrency = Math.floor(positive(next()));
     else if (flag === '--out') args.out = next();
+    else if (flag === '--journal') args.journal = next();
+    else if (flag === '--resume') args.resume = next();
     else throw new Error(`nieznana opcja ${flag}`);
   }
-  if (!args.recipes.length && !args.pilot && !args.sample && !args.all) {
+  if (
+    !args.resume &&
+    !args.recipes.length &&
+    !args.pilot &&
+    !args.sample &&
+    !args.all
+  ) {
     throw new Error(
-      'podaj --recipe <id>, --pilot <N>, --sample <N> albo --all',
+      'podaj --recipe <id>, --pilot <N>, --sample <N>, --all albo --resume <dziennik>',
     );
   }
   return args;
@@ -246,6 +269,40 @@ async function selectRecipes(
   return [...new Set(ids)];
 }
 
+/**
+ * Dziennik przebiegu paczek na dysku: stan zadań + id paczek w locie +
+ * to, czego zapis potrzebuje (podpisy przepisów), + zasady i modele, żeby
+ * wznowienie pisało dokładnie tak samo.
+ */
+type JournalFile = BatchJournal & {
+  createdAt: string;
+  promptVersion: string;
+  rulesVersion: string;
+  options: WriterOptions;
+  signatures: Record<string, string>;
+};
+
+async function readJournal(path: string): Promise<JournalFile> {
+  const journal = JSON.parse(await readFile(path, 'utf8')) as JournalFile;
+  if (journal.version !== 1)
+    throw new Error(`${path}: nieznana wersja dziennika`);
+  if (
+    journal.promptVersion !== COOK_WRITER_PROMPT_VERSION ||
+    journal.rulesVersion !== COOK_SCENARIO_RULES_VERSION
+  ) {
+    throw new Error(
+      `${path}: dziennik z innych zasad/promptu (${journal.rulesVersion}/${journal.promptVersion}) — wznowienie pisałoby inaczej niż początek serii`,
+    );
+  }
+  return journal;
+}
+
+async function writeJournal(path: string, journal: JournalFile) {
+  // Zapis przez plik tymczasowy — urwany zapis nie zostawia połowy dziennika.
+  await writeFile(`${path}.tmp`, JSON.stringify(journal));
+  await rename(`${path}.tmp`, path);
+}
+
 interface ReportEntry {
   recipeId: string;
   title: string;
@@ -267,11 +324,15 @@ async function main() {
   assertLocalDatabase();
   const prisma = new PrismaClient();
   try {
-    const options = writerOptions();
+    const resumed = args.resume ? await readJournal(args.resume) : null;
+    // Wznowienie pisze tymi samymi modelami co początek serii.
+    const options = resumed ? resumed.options : writerOptions();
     const example = await loadExample(prisma);
-    const ids = await selectRecipes(prisma, args, example.recipe.id);
+    const ids = resumed
+      ? []
+      : await selectRecipes(prisma, args, example.recipe.id);
     console.log(
-      `kandydatów: ${ids.length}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $`,
+      `${resumed ? `wznowienie ${args.resume} (zadań ${resumed.jobs.length})` : `kandydatów: ${ids.length}`}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $`,
     );
 
     if (args.dryRun) {
@@ -297,7 +358,15 @@ async function main() {
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY jest pusty');
     const client = new Anthropic({ apiKey });
-    const budget = new BudgetGuard(Math.round(args.budgetUsd * 1_000_000));
+    // Budżet dotyczy CAŁEJ serii: przy wznowieniu startujemy od wydanego
+    // (bez rezerwacji paczek w locie — te wrócą przy ich odbiorze).
+    const budget = new BudgetGuard(
+      Math.round(args.budgetUsd * 1_000_000),
+      resumed
+        ? resumed.spentMicroUsd -
+            resumed.inflight.reduce((sum, b) => sum + b.reservedMicroUsd, 0)
+        : 0,
+    );
 
     const report: ReportEntry[] = [];
     let upToDate = 0;
@@ -315,9 +384,10 @@ async function main() {
       attempts: outcome.attempts.length,
     });
     const save = async (
-      loaded: LoadedWriterRecipe,
+      loaded: Pick<LoadedWriterRecipe, 'recipe' | 'signature'>,
       outcome: WriteOutcome,
       transport: string,
+      jobId?: string,
     ) => {
       const saved = await prisma.$transaction((tx) =>
         saveWrittenScenario(tx, {
@@ -325,8 +395,10 @@ async function main() {
           signature: loaded.signature,
           outcome,
           generator: generator(outcome, transport),
+          jobId,
         }),
       );
+      if (saved.duplicate) return;
       const costUsd = outcome.usage.costMicroUsd / 1_000_000;
       report.push({
         recipeId: loaded.recipe.id,
@@ -346,7 +418,10 @@ async function main() {
         `${saved.status.padEnd(9)} v${saved.version} · ${outcome.review ? `${outcome.review.score}/5` : '—'} · prób ${outcome.attempts.length} · ${costUsd.toFixed(3)} $ · ${loaded.recipe.title}`,
       );
     };
-    const failed = (loaded: LoadedWriterRecipe, message: string) => {
+    const failed = (
+      loaded: Pick<LoadedWriterRecipe, 'recipe'>,
+      message: string,
+    ) => {
       const overBudget = message === 'budżet wyczerpany';
       report.push({
         recipeId: loaded.recipe.id,
@@ -359,34 +434,76 @@ async function main() {
       );
     };
 
-    if (args.batch) {
-      // Wszystkie przepisy z jednej migawki na przepis; „już napisany”
-      // rozstrzyga ta sama migawka, z której piszemy.
-      const loadedById = new Map<string, LoadedWriterRecipe>();
-      for (const id of ids) {
-        if (args.limit && loadedById.size >= args.limit) break;
-        const loaded = await loadWriterRecipe(prisma, id);
-        if (!loaded) continue;
-        if (args.skipWritten && loaded.current) {
-          upToDate += 1;
-          continue;
+    let stoppedBatch: BatchStoppedError | null = null;
+    if (args.batch || resumed) {
+      const journalPath =
+        args.resume ?? args.journal ?? 'cook-scenarios-journal.json';
+      let jobs: ScenarioJob[];
+      const signatures: Record<string, string> = {};
+      if (resumed) {
+        jobs = resumed.jobs.map((state) =>
+          ScenarioJob.restore(state, example, options),
+        );
+        Object.assign(signatures, resumed.signatures);
+      } else {
+        if (existsSync(journalPath)) {
+          throw new Error(
+            `dziennik ${journalPath} już istnieje — wznów (--resume ${journalPath}) albo usuń go świadomie`,
+          );
         }
-        loadedById.set(id, loaded);
+        // Wszystkie przepisy z jednej migawki na przepis; „już napisany”
+        // rozstrzyga ta sama migawka, z której piszemy.
+        jobs = [];
+        for (const id of ids) {
+          if (args.limit && jobs.length >= args.limit) break;
+          const loaded = await loadWriterRecipe(prisma, id);
+          if (!loaded) continue;
+          if (args.skipWritten && loaded.current) {
+            upToDate += 1;
+            continue;
+          }
+          const job = new ScenarioJob(loaded.recipe, example, options);
+          signatures[job.jobId] = loaded.signature;
+          jobs.push(job);
+        }
       }
-      console.log(`do napisania w paczkach: ${loadedById.size}`);
-      const jobs = [...loadedById.values()].map(
-        (loaded) => new ScenarioJob(loaded.recipe, example, options),
+      console.log(
+        `w paczkach: ${jobs.length} przepisów · dziennik ${journalPath}`,
       );
-      await runBatchRounds(
-        jobs,
-        new AnthropicBatchModel(client, budget, (line) => console.log(line)),
-        async (job) => {
-          const loaded = loadedById.get(job.recipe.id)!;
-          if (job.failure) failed(loaded, job.failure);
-          else await save(loaded, job.outcome(), 'batch');
-        },
-        (line) => console.log(line),
-      );
+      const createdAt = resumed?.createdAt ?? new Date().toISOString();
+      try {
+        await runBatchRounds(
+          jobs,
+          new AnthropicBatchModel(client, budget, (line) => console.log(line)),
+          {
+            onDone: async (job) => {
+              const loaded = {
+                recipe: job.recipe,
+                signature: signatures[job.jobId],
+              };
+              if (job.failure) failed(loaded, job.failure);
+              else await save(loaded, job.outcome(), 'batch', job.jobId);
+            },
+            log: (line) => console.log(line),
+            persist: (journal) =>
+              writeJournal(journalPath, {
+                ...journal,
+                createdAt,
+                promptVersion: COOK_WRITER_PROMPT_VERSION,
+                rulesVersion: COOK_SCENARIO_RULES_VERSION,
+                options,
+                signatures,
+              }),
+            spentMicroUsd: () => budget.spentMicroUsd,
+            resume: resumed ?? undefined,
+          },
+        );
+        // Seria skończona — dziennik zostaje obok jako ślad, pod inną nazwą.
+        await rename(journalPath, `${journalPath}.done`);
+      } catch (error) {
+        if (!(error instanceof BatchStoppedError)) throw error;
+        stoppedBatch = error;
+      }
     } else {
       const model = new BudgetedWriterModel(
         new AnthropicWriterModel(client),
@@ -457,6 +574,12 @@ async function main() {
       console.log(
         `ZATRZYMANO: budżet ${args.budgetUsd} $ nie wystarcza — reszta po doładowaniu (--skip-written dokończy)`,
       );
+    }
+    if (stoppedBatch) {
+      console.log(
+        `\nZATRZYMANO: ${stoppedBatch.message}. Stan jest w dzienniku — dokończ: pnpm cook-scenarios:write --resume ${args.resume ?? args.journal ?? 'cook-scenarios-journal.json'} --budget-usd <łączny limit serii>`,
+      );
+      process.exitCode = 2;
     }
     if (args.out) {
       await writeFile(args.out, JSON.stringify(report, null, 2));

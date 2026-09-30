@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { CookScenarioContent } from '../cook-scenario.types';
 import { qualityChecks, resolveWriterOutput, skipGuard } from './writer.checks';
 import {
@@ -142,9 +143,36 @@ const reviewFeedback = (review: Review) => [
  * przepisów naraz) — wynik zależy tylko od odpowiedzi modelu, nie od trybu.
  * Nie dotyka bazy — wynik zapisuje `saveWrittenScenario`.
  */
+/**
+ * Stan zadania do zapisania na dysku (dziennik przebiegu paczek) — same
+ * dane, bez funkcji. `pendingReviewAttempt` wskazuje próbę w `attempts`
+ * (raport recenzji dopisuje się do tego samego obiektu).
+ */
+export interface JobState {
+  jobId: string;
+  recipe: WriterRecipe;
+  attempts: AttemptReport[];
+  usage: WriterUsage;
+  feedback: string[];
+  previous: unknown;
+  previousIssues: string[];
+  lastContent: CookScenarioContent | null;
+  lastReview: Review | null;
+  lastWarnings: string[];
+  pendingReview: {
+    content: CookScenarioContent;
+    warnings: string[];
+    attemptIndex: number;
+  } | null;
+  result: WriteOutcome | null;
+  failure: string | null;
+}
+
 export class ScenarioJob {
+  /** Klucz zadania — zapis tego samego zadania drugi raz nic nie dopisuje. */
+  readonly jobId: string;
   private readonly system: string;
-  private readonly attempts: AttemptReport[] = [];
+  private attempts: AttemptReport[] = [];
   private usage = ZERO_USAGE;
   private feedback: string[] = [];
   // Poprzednia odpowiedź autora (do poprawki zamiast pisania od zera)
@@ -168,8 +196,65 @@ export class ScenarioJob {
     readonly recipe: WriterRecipe,
     example: WriterExample,
     private readonly options: WriterOptions = DEFAULT_WRITER_OPTIONS,
+    jobId: string = randomUUID(),
   ) {
     this.system = buildWriterSystem(example);
+    this.jobId = jobId;
+  }
+
+  /** Stan do dziennika (kopia przez JSON — bez wspólnych referencji). */
+  snapshot(): JobState {
+    const pending = this.pendingReview;
+    return JSON.parse(
+      JSON.stringify({
+        jobId: this.jobId,
+        recipe: this.recipe,
+        attempts: this.attempts,
+        usage: this.usage,
+        feedback: this.feedback,
+        previous: this.previous,
+        previousIssues: this.previousIssues,
+        lastContent: this.lastContent,
+        lastReview: this.lastReview,
+        lastWarnings: this.lastWarnings,
+        pendingReview: pending
+          ? {
+              content: pending.content,
+              warnings: pending.warnings,
+              attemptIndex: this.attempts.indexOf(pending.report),
+            }
+          : null,
+        result: this.result,
+        failure: this.failure,
+      } satisfies JobState),
+    ) as JobState;
+  }
+
+  /** Zadanie odtworzone z dziennika — dalej dokładnie tam, gdzie stanęło. */
+  static restore(
+    state: JobState,
+    example: WriterExample,
+    options: WriterOptions = DEFAULT_WRITER_OPTIONS,
+  ): ScenarioJob {
+    const job = new ScenarioJob(state.recipe, example, options, state.jobId);
+    job.attempts = state.attempts;
+    job.usage = state.usage;
+    job.feedback = state.feedback;
+    job.previous = state.previous;
+    job.previousIssues = state.previousIssues;
+    job.lastContent = state.lastContent;
+    job.lastReview = state.lastReview;
+    job.lastWarnings = state.lastWarnings;
+    job.pendingReview = state.pendingReview
+      ? {
+          content: state.pendingReview.content,
+          warnings: state.pendingReview.warnings,
+          report: job.attempts[state.pendingReview.attemptIndex],
+        }
+      : null;
+    job.result = state.result;
+    job.failure = state.failure;
+    return job;
   }
 
   get done(): boolean {

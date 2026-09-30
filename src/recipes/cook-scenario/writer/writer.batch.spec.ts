@@ -2,10 +2,14 @@ import type Anthropic from '@anthropic-ai/sdk';
 import {
   AnthropicBatchModel,
   batchCallId,
+  BatchStoppedError,
   runBatchRounds,
   type BatchCall,
   type BatchCallResult,
+  type BatchJournal,
   type BatchModel,
+  type BatchRunResult,
+  type InflightBatch,
 } from './writer.batch';
 import { BudgetGuard, worstCaseMicroUsd } from './writer.budget';
 import { clone, kotletExample } from './writer.fixtures.spec-helper';
@@ -50,82 +54,134 @@ const result = (json: unknown): WriterModelResult => ({
   },
 });
 const recipeWithId = (id: string): WriterRecipe => ({ ...kotlet, id });
+const idA = '11111111-1111-4111-8111-111111111111';
+const idB = '22222222-2222-4222-8222-222222222222';
+const key = (id: string) => id.replace(/-/g, '');
+const noSleep = () => Promise.resolve();
 
-/** Paczki z kolejką odpowiedzi PER PRZEPIS — jak Batch API, tylko w pamięci. */
+/**
+ * Paczki w pamięci z kolejką odpowiedzi PER PRZEPIS. `stopAfter` = ile
+ * wywołań `run` przejdzie, zanim kolejne „zerwie komunikację” (paczka
+ * przyjęta, wyniki nieodebrane) albo skończy się budżet — do testów
+ * wznowienia.
+ */
 class FakeBatchModel implements BatchModel {
   readonly batches: BatchCall[][] = [];
-  constructor(private readonly replies: Map<string, unknown[]>) {}
-  run(calls: BatchCall[]): Promise<Map<string, BatchCallResult>> {
-    this.batches.push(calls);
+  constructor(
+    private readonly replies: Map<string, unknown[]>,
+    private stopAfter = Infinity,
+    private readonly stopReason: 'transport' | 'budget' = 'transport',
+  ) {}
+
+  private answer(calls: BatchCall[]) {
     const out = new Map<string, BatchCallResult>();
     for (const { id } of calls) {
-      const recipe = id.split('-r')[0];
-      const queue = this.replies.get(recipe) ?? [];
+      const queue = this.replies.get(id.split('-r')[0]) ?? [];
       out.set(id, { ok: true, result: result(queue.shift()) });
     }
-    return Promise.resolve(out);
+    return out;
+  }
+
+  async run(
+    calls: BatchCall[],
+    onSubmitted?: (batch: InflightBatch) => Promise<void>,
+  ): Promise<BatchRunResult> {
+    if (this.stopAfter <= 0 && this.stopReason === 'budget') {
+      return { results: new Map(), interrupted: [], stopReason: 'budget' };
+    }
+    this.batches.push(calls);
+    const inflight = {
+      batchId: `b${this.batches.length}`,
+      ids: calls.map((c) => c.id),
+      reservedMicroUsd: 100,
+    };
+    await onSubmitted?.(inflight);
+    if (this.stopAfter <= 0) {
+      return {
+        results: new Map(),
+        interrupted: [inflight],
+        stopReason: 'transport',
+      };
+    }
+    this.stopAfter -= 1;
+    return { results: this.answer(calls), interrupted: [], stopReason: null };
+  }
+
+  collect(batch: InflightBatch, calls: BatchCall[]): Promise<BatchRunResult> {
+    expect(calls.map((c) => c.id)).toEqual(batch.ids);
+    this.stopAfter = Infinity;
+    return Promise.resolve({
+      results: this.answer(calls),
+      interrupted: [],
+      stopReason: null,
+    });
   }
 }
 
-describe('system pisania — Batch API', () => {
-  const idA = '11111111-1111-4111-8111-111111111111';
-  const idB = '22222222-2222-4222-8222-222222222222';
+const replies = () =>
+  new Map([
+    [key(idA), [good(), review(5)]],
+    [key(idB), [badKey(), good(), review(4)]],
+  ]);
+const newJobs = () => [
+  new ScenarioJob(recipeWithId(idA), example),
+  new ScenarioJob(recipeWithId(idB), example),
+];
+const live = (answers: unknown[]): WriterModel => {
+  const queue = clone(answers);
+  return { complete: () => Promise.resolve(result(queue.shift())) };
+};
 
-  it('rundy prowadzą zadania do końca i dają TEN SAM wynik co wywołania na żywo', async () => {
-    const repliesA = [good(), review(5)];
-    const repliesB = [badKey(), good(), review(4)];
-    const model = new FakeBatchModel(
-      new Map([
-        [idA.replace(/-/g, ''), clone(repliesA)],
-        [idB.replace(/-/g, ''), clone(repliesB)],
-      ]),
-    );
-    const jobs = [
-      new ScenarioJob(recipeWithId(idA), example),
-      new ScenarioJob(recipeWithId(idB), example),
-    ];
-    const done: string[] = [];
-    await runBatchRounds(jobs, model, (job) => {
-      done.push(job.recipe.id);
-      return Promise.resolve();
+describe('system pisania — rundy paczek', () => {
+  it('prowadzą zadania do końca i dają TEN SAM wynik co wywołania na żywo', async () => {
+    const model = new FakeBatchModel(replies());
+    const jobs = newJobs();
+    const saved: string[] = [];
+    await runBatchRounds(jobs, model, {
+      onDone: (job) => {
+        saved.push(job.recipe.id);
+        return Promise.resolve();
+      },
     });
-
     // Runda 1: dwóch autorów; 2: recenzent A + poprawka B; 3: recenzent B.
     expect(model.batches.map((batch) => batch.length)).toEqual([2, 2, 1]);
     expect(model.batches[0].map((c) => c.id)).toEqual([
       batchCallId(idA, 1),
       batchCallId(idB, 1),
     ]);
-    expect(done).toEqual([idA, idB]);
-
-    // Ten sam przepis, te same odpowiedzi, na żywo — identyczny wynik.
-    const live = (replies: unknown[]): WriterModel => {
-      const queue = clone(replies);
-      return { complete: () => Promise.resolve(result(queue.shift())) };
-    };
+    expect(saved).toEqual([idA, idB]);
     expect(jobs[0].outcome()).toEqual(
-      await writeCookScenario(live(repliesA), recipeWithId(idA), example),
+      await writeCookScenario(
+        live([good(), review(5)]),
+        recipeWithId(idA),
+        example,
+      ),
     );
     expect(jobs[1].outcome()).toEqual(
-      await writeCookScenario(live(repliesB), recipeWithId(idB), example),
+      await writeCookScenario(
+        live([badKey(), good(), review(4)]),
+        recipeWithId(idB),
+        example,
+      ),
     );
-    expect(jobs[1].outcome().status).toBe('VALIDATED');
-    expect(jobs[1].outcome().attempts).toHaveLength(2);
   });
 
   it('błąd pozycji przerywa tylko to zadanie (bez wyniku, do ponowienia)', async () => {
     const model: BatchModel = {
       run: (calls) =>
-        Promise.resolve(
-          new Map(
+        Promise.resolve({
+          results: new Map(
             calls.map((c): [string, BatchCallResult] => [
               c.id,
-              c.id.startsWith(idA.replace(/-/g, ''))
+              c.id.startsWith(key(idA))
                 ? { ok: false, error: 'błąd API: overloaded' }
                 : { ok: true, result: result(good()) },
             ]),
           ),
-        ),
+          interrupted: [],
+          stopReason: null,
+        }),
+      collect: () => Promise.reject(new Error('nieużywane')),
     };
     const jobs = [
       new ScenarioJob(recipeWithId(idA), example),
@@ -135,17 +191,115 @@ describe('system pisania — Batch API', () => {
       }),
     ];
     const done: ScenarioJob[] = [];
-    await runBatchRounds(jobs, model, (job) => {
-      done.push(job);
-      return Promise.resolve();
+    await runBatchRounds(jobs, model, {
+      onDone: (job) => {
+        done.push(job);
+        return Promise.resolve();
+      },
     });
     expect(jobs[0].failure).toBe('błąd API: overloaded');
-    expect(() => jobs[0].outcome()).toThrow('overloaded');
     expect(done).toHaveLength(2);
+  });
+
+  it('padający zapis jednego przepisu nie gubi pozostałych; chwilowy błąd zapisu jest ponawiany', async () => {
+    const model = new FakeBatchModel(replies());
+    const jobs = newJobs();
+    const tries = new Map<string, number>();
+    let journal: BatchJournal | null = null;
+    await runBatchRounds(jobs, model, {
+      onDone: (job) => {
+        const n = (tries.get(job.recipe.id) ?? 0) + 1;
+        tries.set(job.recipe.id, n);
+        if (job.recipe.id === idA) {
+          return Promise.reject(new Error('baza leży'));
+        }
+        if (n === 1) return Promise.reject(new Error('chwilowo'));
+        return Promise.resolve();
+      },
+      persist: (j) => {
+        journal = clone(j);
+        return Promise.resolve();
+      },
+      sleep: noSleep,
+    });
+    // A: próby po każdej rundzie i nadal niezapisany — ale B zapisany.
+    expect(tries.get(idA)).toBeGreaterThanOrEqual(3);
+    expect(tries.get(idB)).toBe(2);
+    expect(journal!.handled).toEqual([jobs[1].jobId]);
+    // Wynik A nie przepadł — jest w dzienniku do zapisania po wznowieniu.
+    expect(journal!.jobs[0].result?.status).toBe('VALIDATED');
+  });
+
+  it('zerwana komunikacja zatrzymuje przebieg; wznowienie odbiera opłaconą paczkę i kończy tak samo', async () => {
+    const journals: BatchJournal[] = [];
+    const persist = (j: BatchJournal) => {
+      journals.push(clone(j));
+      return Promise.resolve();
+    };
+    // Runda 1 przechodzi, w rundzie 2 paczka przyjęta, ale nieodebrana.
+    const model = new FakeBatchModel(replies(), 1);
+    const jobs = newJobs();
+    await expect(
+      runBatchRounds(jobs, model, { onDone: () => Promise.resolve(), persist }),
+    ).rejects.toBeInstanceOf(BatchStoppedError);
+    const stopped = journals[journals.length - 1];
+    expect(stopped.round).toBe(2);
+    expect(stopped.inflight.map((b) => b.batchId)).toEqual(['b2']);
+
+    // Nowy proces: zadania z dziennika, najpierw odbiór paczki b2.
+    const restored = stopped.jobs.map((state) =>
+      ScenarioJob.restore(state, example),
+    );
+    const saved: string[] = [];
+    await runBatchRounds(restored, model, {
+      onDone: (job) => {
+        saved.push(job.recipe.id);
+        return Promise.resolve();
+      },
+      persist,
+      resume: stopped,
+    });
+    expect(saved).toEqual([idA, idB]);
+    // Bez przerwy wyszłoby to samo.
+    const reference = newJobs();
+    await runBatchRounds(reference, new FakeBatchModel(replies()), {
+      onDone: () => Promise.resolve(),
+    });
+    expect(restored.map((j) => j.outcome())).toEqual(
+      reference.map((j) => j.outcome()),
+    );
+    // Paczka b2 nie poszła drugi raz: wysłane b1, b2, b3.
+    expect(model.batches).toHaveLength(3);
+  });
+
+  it('brak budżetu zatrzymuje przebieg bez porzucania zadań — po doładowaniu jadą dalej', async () => {
+    let journal: BatchJournal | null = null;
+    const shared = replies();
+    const model = new FakeBatchModel(shared, 1, 'budget');
+    const jobs = newJobs();
+    await expect(
+      runBatchRounds(jobs, model, {
+        onDone: () => Promise.resolve(),
+        persist: (j) => {
+          journal = clone(j);
+          return Promise.resolve();
+        },
+      }),
+    ).rejects.toMatchObject({ reason: 'budget' });
+    expect(jobs.every((j) => !j.done && !j.failure)).toBe(true);
+    const restored = journal!.jobs.map((s) => ScenarioJob.restore(s, example));
+    await runBatchRounds(restored, new FakeBatchModel(shared), {
+      onDone: () => Promise.resolve(),
+      resume: journal!,
+    });
+    expect(restored.map((j) => j.outcome().status)).toEqual([
+      'VALIDATED',
+      'VALIDATED',
+    ]);
   });
 });
 
-describe('Anthropic Message Batches — budżet i rozliczenie', () => {
+describe('Anthropic Message Batches — budżet, ponowienia, odbiór', () => {
   const call: WriterModelCall = {
     model: 'claude-sonnet-5-5',
     effort: 'medium',
@@ -155,9 +309,11 @@ describe('Anthropic Message Batches — budżet i rozliczenie', () => {
     maxTokens: 1000,
   };
   const worst = worstCaseMicroUsd(call, 0.5);
-  const message = (text: string) =>
+  // Sonnet 5.5: (1000 × 2 + 100 × 10) µ$ × 0,5 (paczka) = 1500 µ$ za pozycję.
+  const ACTUAL = 1500;
+  const message = () =>
     ({
-      content: [{ type: 'text', text }],
+      content: [{ type: 'text', text: '{"a":1}' }],
       stop_reason: 'end_turn',
       usage: {
         input_tokens: 1000,
@@ -167,21 +323,27 @@ describe('Anthropic Message Batches — budżet i rozliczenie', () => {
       },
     }) as unknown as Anthropic.Message;
 
-  /** Klient z paczkami kończącymi się od razu; pozycja „x-bad” = błąd. */
-  const fakeClient = (created: string[][], failCreate = false) =>
-    ({
+  /** Klient z paczkami; `faults` steruje awariami poszczególnych metod. */
+  const fakeClient = (
+    created: string[][],
+    faults: { create?: boolean; retrieve?: number; results?: number } = {},
+  ) => {
+    let retrieveFails = faults.retrieve ?? 0;
+    let resultsFails = faults.results ?? 0;
+    return {
       messages: {
         batches: {
           create: (body: { requests: { custom_id: string }[] }) => {
-            if (failCreate) return Promise.reject(new Error('400 invalid'));
+            if (faults.create) return Promise.reject(new Error('400 invalid'));
             created.push(body.requests.map((r) => r.custom_id));
-            return Promise.resolve({
-              id: `b${created.length}`,
-              processing_status: 'in_progress',
-            });
+            return Promise.resolve({ id: `b${created.length}` });
           },
-          retrieve: () =>
-            Promise.resolve({
+          retrieve: () => {
+            if (retrieveFails > 0) {
+              retrieveFails -= 1;
+              return Promise.reject(new Error('ECONNRESET'));
+            }
+            return Promise.resolve({
               processing_status: 'ended',
               request_counts: {
                 succeeded: 0,
@@ -189,9 +351,14 @@ describe('Anthropic Message Batches — budżet i rozliczenie', () => {
                 expired: 0,
                 canceled: 0,
               },
-            }),
-          results: () => {
-            const ids = created[created.length - 1];
+            });
+          },
+          results: (batchId: string) => {
+            if (resultsFails > 0) {
+              resultsFails -= 1;
+              return Promise.reject(new Error('502'));
+            }
+            const ids = created[Number(batchId.slice(1)) - 1];
             return Promise.resolve(
               (async function* () {
                 for (const id of ids) {
@@ -206,10 +373,7 @@ describe('Anthropic Message Batches — budżet i rozliczenie', () => {
                       }
                     : {
                         custom_id: id,
-                        result: {
-                          type: 'succeeded',
-                          message: message('{"a":1}'),
-                        },
+                        result: { type: 'succeeded', message: message() },
                       };
                 }
               })(),
@@ -217,73 +381,92 @@ describe('Anthropic Message Batches — budżet i rozliczenie', () => {
           },
         },
       },
-    }) as unknown as Anthropic;
-
-  const noSleep = { sleep: () => Promise.resolve() };
+    } as unknown as Anthropic;
+  };
+  const model = (client: Anthropic, guard: BudgetGuard, retries = 3) =>
+    new AnthropicBatchModel(client, guard, undefined, {
+      sleep: noSleep,
+      retries,
+    });
 
   it('paczka bierze tyle pozycji, ile mieści budżet; reszta idzie następną paczką', async () => {
     const created: string[][] = [];
-    // Miejsce na JEDNĄ rezerwację naraz — dwie pozycje = dwie paczki.
     const guard = new BudgetGuard(worst + worst / 2);
-    const model = new AnthropicBatchModel(
-      fakeClient(created),
-      guard,
-      undefined,
-      noSleep,
-    );
-    const results = await model.run([
+    const outcome = await model(fakeClient(created), guard).run([
       { id: 'a-r1', call },
       { id: 'b-r1', call },
     ]);
     expect(created).toEqual([['a-r1'], ['b-r1']]);
-    expect([...results.values()].every((r) => r.ok)).toBe(true);
-    // Sonnet 5.5: (1000 × 2 + 100 × 10) µ$ × 0,5 (paczka) = 1500 µ$ za pozycję.
-    expect(guard.spentMicroUsd).toBe(3000);
+    expect(outcome.stopReason).toBeNull();
+    expect(guard.spentMicroUsd).toBe(2 * ACTUAL);
   });
 
-  it('błędna pozycja nic nie kosztuje, a brak budżetu nawet na jedną = błąd budżetu', async () => {
+  it('błędna pozycja nic nie kosztuje; brak budżetu nawet na jedną = stop „budget”', async () => {
     const created: string[][] = [];
     const guard = new BudgetGuard(worst * 3);
-    const model = new AnthropicBatchModel(
-      fakeClient(created),
-      guard,
-      undefined,
-      noSleep,
-    );
-    const results = await model.run([
+    const outcome = await model(fakeClient(created), guard).run([
       { id: 'a-r1', call },
       { id: 'x-bad-r1', call },
     ]);
-    expect(results.get('x-bad-r1')).toMatchObject({ ok: false });
-    expect(guard.spentMicroUsd).toBe(1500);
+    expect(outcome.results.get('x-bad-r1')).toMatchObject({ ok: false });
+    expect(guard.spentMicroUsd).toBe(ACTUAL);
 
-    const poor = new AnthropicBatchModel(
-      fakeClient([]),
-      new BudgetGuard(worst - 1),
-      undefined,
-      noSleep,
-    );
-    const none = await poor.run([{ id: 'a-r1', call }]);
-    expect(none.get('a-r1')).toEqual({
-      ok: false,
-      error: 'budżet wyczerpany',
-      budget: true,
-    });
+    const poor = await model(fakeClient([]), new BudgetGuard(worst - 1)).run([
+      { id: 'a-r1', call },
+    ]);
+    expect(poor).toMatchObject({ stopReason: 'budget', interrupted: [] });
+    expect(poor.results.size).toBe(0);
   });
 
-  it('paczka nieprzyjęta przez API nic nie kosztuje i nie wysadza przebiegu', async () => {
+  it('paczka nieprzyjęta: stop „transport”, zero kosztu, zadania nietknięte', async () => {
     const guard = new BudgetGuard(worst * 3);
-    const model = new AnthropicBatchModel(
-      fakeClient([], true),
-      guard,
-      undefined,
-      noSleep,
-    );
-    const results = await model.run([{ id: 'a-r1', call }]);
-    expect(results.get('a-r1')).toEqual({
-      ok: false,
-      error: 'paczka przerwana',
-    });
+    const outcome = await model(fakeClient([], { create: true }), guard).run([
+      { id: 'a-r1', call },
+    ]);
+    expect(outcome).toMatchObject({ stopReason: 'transport', interrupted: [] });
+    expect(outcome.results.size).toBe(0);
     expect(guard.spentMicroUsd).toBe(0);
+  });
+
+  it('chwilowy błąd odpytywania jest ponawiany i paczka zostaje odebrana', async () => {
+    const created: string[][] = [];
+    const guard = new BudgetGuard(worst * 3);
+    const outcome = await model(
+      fakeClient(created, { retrieve: 2, results: 1 }),
+      guard,
+    ).run([{ id: 'a-r1', call }]);
+    expect(outcome.stopReason).toBeNull();
+    expect(outcome.results.get('a-r1')).toMatchObject({ ok: true });
+    expect(guard.spentMicroUsd).toBe(ACTUAL);
+  });
+
+  it('nieodebrana paczka idzie do dziennika; odbiór po wznowieniu rozlicza ją dokładnie raz', async () => {
+    const created: string[][] = [];
+    const guard = new BudgetGuard(worst * 3);
+    const submitted: InflightBatch[] = [];
+    const outcome = await model(
+      fakeClient(created, { results: 10 }),
+      guard,
+      2,
+    ).run([{ id: 'a-r1', call }], (b) => {
+      submitted.push(b);
+      return Promise.resolve();
+    });
+    expect(outcome.stopReason).toBe('transport');
+    expect(outcome.interrupted).toEqual(submitted);
+    // W tym procesie rezerwacja liczy się jako wydana (ostrożnie).
+    expect(guard.spentMicroUsd).toBe(outcome.interrupted[0].reservedMicroUsd);
+
+    // Nowy proces: wydane bez rezerwacji paczek w locie, potem odbiór.
+    const resumed = new BudgetGuard(
+      worst * 3,
+      guard.spentMicroUsd - outcome.interrupted[0].reservedMicroUsd,
+    );
+    const collected = await model(fakeClient(created), resumed).collect(
+      outcome.interrupted[0],
+      [{ id: 'a-r1', call }],
+    );
+    expect(collected.results.get('a-r1')).toMatchObject({ ok: true });
+    expect(resumed.spentMicroUsd).toBe(ACTUAL);
   });
 });
