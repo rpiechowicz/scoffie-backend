@@ -178,7 +178,8 @@ describe('system pisania — walidatory twarde', () => {
     ]);
   });
 
-  it('„po X min z każdej strony” = dwa odliczania albo jedno łączne', () => {
+  it('„po X min z każdej strony” = dwa odliczania; łączny wariant tylko bez patelni', () => {
+    // Smażenie: stoi się przy patelni — tylko dwa odliczania po X.
     expect(
       recipeDurations([
         'Smaż rybę po 3 minuty z każdej strony.',
@@ -187,13 +188,19 @@ describe('system pisania — walidatory twarde', () => {
     ).toEqual([
       [180, 180],
       [180, 180],
-      [360, 360],
       [300, 300],
     ]);
     expect(recipeDurations(['Opiekaj 2 min na patelni z obu stron.'])).toEqual([
       [120, 120],
       [120, 120],
-      [240, 240],
+    ]);
+    // Pieczenie: dwa po X albo jedno łączne 2X.
+    expect(
+      recipeDurations(['Piecz placki po 5 minut z każdej strony.']),
+    ).toEqual([
+      [300, 300],
+      [300, 300],
+      [600, 600],
     ]);
   });
 
@@ -581,6 +588,32 @@ describe('system pisania — walidatory twarde', () => {
       's2.body: pisownia „poloz” → „połóż”',
     ]);
   });
+  it('aktywne smażenie „po 4 min z każdej strony” — łącznego timera 8 min NIE ma; pieczenie „po 5 min” — łączny 10 min jest', () => {
+    const withTimer = (instruction: string, seconds: number) => {
+      const recipe: WriterRecipe = {
+        ...kotlet,
+        instructions: [...kotlet.instructions, instruction],
+      };
+      const content = clone(example.content);
+      content.steps.find((st) => st.id === 's12')!.timer = {
+        ...content.steps[8].timer!,
+        id: 't-side',
+        label: 'Strona',
+        minSeconds: seconds,
+        maxSeconds: seconds,
+      };
+      return qualityChecks(recipe, content).errors.filter((e) =>
+        e.includes('nie ma w przepisie'),
+      );
+    };
+    expect(withTimer('Smaż rybę po 4 minuty z każdej strony.', 480)).toEqual([
+      expect.stringContaining('takiego czasu nie ma w przepisie'),
+    ]);
+    expect(withTimer('Piecz placki po 5 minut z każdej strony.', 600)).toEqual(
+      [],
+    );
+  });
+
   it('„po X min z każdej strony”: dwa odliczania ALBO jedno łączne — oba naraz = błąd', () => {
     const recipe: WriterRecipe = {
       ...kotlet,

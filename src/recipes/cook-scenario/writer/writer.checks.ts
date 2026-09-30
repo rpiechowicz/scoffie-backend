@@ -157,6 +157,9 @@ const unitSeconds = (unit: string) => {
 const toNumber = (raw: string) => Number(raw.replace(',', '.'));
 
 /** Zakresy czasów [min, max] w sekundach wymienione w krokach przepisu. */
+/** Aktywna obróbka przy patelni — stoi się przy niej, bez łącznego timera. */
+const ACTIVE_PAN = /(smaż|podsmaż|usmaż|opiekaj|obsmaż|patel)/iu;
+
 const PER_SIDE =
   /^\s*(?:[^\s.,;]+\s+){0,2}?z\s+(?:każdej|obu|jednej\s+i\s+drugiej)\s+stron/iu;
 
@@ -167,7 +170,12 @@ const PER_SIDE =
  */
 export interface DurationPool {
   ranges: [number, number][];
-  perSide: { singles: [number, number]; combined: number }[];
+  /**
+   * `combined` = `null` przy aktywnej obróbce na patelni („smaż po 3 min
+   * z każdej strony”): łączny timer odpada — użytkownik stoi przy patelni
+   * (review Codexa; prompt: krótka aktywna czynność bez timera).
+   */
+  perSide: { singles: [number, number]; combined: number | null }[];
 }
 
 export function recipeDurations(instructions: string[]): [number, number][] {
@@ -191,8 +199,19 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
         .slice(0, 40);
       if (PER_SIDE.test(after)) {
         const first = found.length - 1;
-        found.push(range, [range[0] * 2, range[1] * 2]);
-        perSide.push({ singles: [first, first + 1], combined: first + 2 });
+        // Zdanie, w którym stoi czas — czy to aktywne smażenie na patelni.
+        const start = match.index ?? 0;
+        const sentence = line.slice(
+          Math.max(0, line.lastIndexOf('.', start) + 1),
+          line.indexOf('.', start) < 0 ? undefined : line.indexOf('.', start),
+        );
+        found.push(range);
+        if (ACTIVE_PAN.test(sentence)) {
+          perSide.push({ singles: [first, first + 1], combined: null });
+        } else {
+          found.push([range[0] * 2, range[1] * 2]);
+          perSide.push({ singles: [first, first + 1], combined: first + 2 });
+        }
       }
     }
     const lower = line.toLowerCase();
@@ -761,7 +780,9 @@ function checkTimers(
     return fitsRange([timer.minSeconds, timer.maxSeconds], recipeRanges[range]);
   };
   const inGroup = new Set(
-    pool.perSide.flatMap((g) => [...g.singles, g.combined]),
+    pool.perSide.flatMap((g) =>
+      g.combined === null ? g.singles : [...g.singles, g.combined],
+    ),
   );
   const ordinary = recipeRanges
     .map((_, index) => index)
@@ -797,9 +818,11 @@ function checkTimers(
   for (let g = 0; g < pool.perSide.length; g += 1) {
     const next: Mode[][] = [];
     for (const combo of combos) {
-      for (const mode of ['none', 'singles', 'combined'] as const) {
-        next.push([...combo, mode]);
-      }
+      const modes: Mode[] =
+        pool.perSide[g].combined === null
+          ? ['none', 'singles']
+          : ['none', 'singles', 'combined'];
+      for (const mode of modes) next.push([...combo, mode]);
     }
     combos.splice(0, combos.length, ...next);
   }
@@ -814,7 +837,9 @@ function checkTimers(
     const allowed = [...ordinary];
     pool.perSide.forEach((group, g) => {
       if (modes[g] === 'singles') allowed.push(...group.singles);
-      if (modes[g] === 'combined') allowed.push(group.combined);
+      if (modes[g] === 'combined' && group.combined !== null) {
+        allowed.push(group.combined);
+      }
     });
     const { owner, unmatched } = match(allowed);
     const half = pool.perSide
@@ -842,7 +867,10 @@ function checkTimers(
     const { step, timer } = timers[index];
     const any = recipeRanges.some((_, range) => fits(index, range));
     const perSide = pool.perSide.some((group) =>
-      [...group.singles, group.combined].some((range) => fits(index, range)),
+      [
+        ...group.singles,
+        ...(group.combined === null ? [] : [group.combined]),
+      ].some((range) => fits(index, range)),
     );
     errors.push(
       !any
@@ -869,8 +897,10 @@ function checkTimers(
     }
   }
   pool.perSide.forEach((group, g) => {
-    const range = recipeRanges[group.combined];
-    if (result.modes[g] === 'none' && range[1] >= MIN_TIMER_SECONDS) {
+    if (result.modes[g] !== 'none') return;
+    // Bez łącznego wariantu (patelnia) ostrzegamy o czasie jednej strony.
+    const range = recipeRanges[group.combined ?? group.singles[0]];
+    if (range[1] >= MIN_TIMER_SECONDS) {
       warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
     }
   });

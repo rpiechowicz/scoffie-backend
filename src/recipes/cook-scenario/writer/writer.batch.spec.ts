@@ -551,6 +551,8 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
       lostResponse?: number;
       rejected?: number;
       hiddenListCalls?: number;
+      /** Na liście najpierw OBCA paczka tej samej wielkości, w toku. */
+      foreignProcessing?: boolean;
     } = {},
   ) => {
     let createCalls = 0;
@@ -586,6 +588,20 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
               if ((createFaults.hiddenListCalls ?? 0) > 0) {
                 createFaults.hiddenListCalls! -= 1;
                 return;
+              }
+              if (createFaults.foreignProcessing && created.length) {
+                yield {
+                  id: 'obca',
+                  created_at: new Date().toISOString(),
+                  processing_status: 'in_progress',
+                  request_counts: {
+                    processing: created[0].ids.length,
+                    succeeded: 0,
+                    errored: 0,
+                    canceled: 0,
+                    expired: 0,
+                  },
+                };
               }
               for (let n = created.length; n >= 1; n -= 1) {
                 await Promise.resolve();
@@ -887,6 +903,22 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
       // Chwilę później już widać — odbiór zamiast drugiej wysyłki.
       const { jobs } = await resumeFrom(last, created, { minutesLater: 5 });
       expect(created[1].review.every(Boolean)).toBe(true);
+      expect(jobs.map((j) => j.outcome().status)).toEqual([
+        'VALIDATED',
+        'VALIDATED',
+      ]);
+    });
+
+    it('obca paczka tej samej wielkości w toku nie blokuje wyszukiwania (nie czekamy na nią 24 h)', async () => {
+      const created: { ids: string[]; review: boolean[] }[] = [];
+      const { run, journals } = start(created, { lostResponse: 1 });
+      await expect(run).rejects.toMatchObject({ reason: 'transport' });
+      const last = journals[journals.length - 1];
+      // Nasza paczka jest na liście (zakończona) — obca w toku jej nie przesłania.
+      const { jobs } = await resumeFrom(last, created, {
+        client: smartClient(created, new Set(), { foreignProcessing: true }),
+        minutesLater: 30,
+      });
       expect(jobs.map((j) => j.outcome().status)).toEqual([
         'VALIDATED',
         'VALIDATED',
