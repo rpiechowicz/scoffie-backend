@@ -348,5 +348,7 @@ describe('system pisania — przebieg', () => {
     const outcome = await writeCookScenario(model, kotlet, example);
     expect(outcome.status).toBe('VALIDATED');
     expect(outcome.attempts[0].errors[0]).toContain('odpowiedź ucięta');
+    // Druga próba autora z wyższym limitem (długie przepisy, próba w7).
+    expect(model.calls[1].maxTokens).toBeGreaterThan(model.calls[0].maxTokens);
   });
 });

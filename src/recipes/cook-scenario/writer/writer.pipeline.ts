@@ -189,6 +189,8 @@ export interface JobState {
   reviewFailures?: number;
   /** Ostatnia recenzja ucięta (max_tokens) — ponowienie z wyższym limitem. */
   reviewTruncated?: boolean;
+  /** Ostatnia odpowiedź autora ucięta — kolejna próba z wyższym limitem. */
+  writerTruncated?: boolean;
   /** Ostatnia wersja bez BLOCKER/MAJOR — wynik, gdy dalsze poprawki padną. */
   acceptable?: {
     content: CookScenarioContent;
@@ -208,7 +210,11 @@ export const MAX_TRANSPORT_ERRORS = 3;
  */
 export const MAX_REVIEW_FAILURES = 1;
 
-/** Ponowienie po uciętej recenzji dostaje tyle razy wyższy limit tokenów. */
+/**
+ * Ponowienie po uciętej odpowiedzi (recenzji albo autora) dostaje tyle razy
+ * wyższy limit tokenów — długie przepisy (barszcz z uszkami, kulebiak)
+ * nie mieszczą myślenia i scenariusza w 12 tys. (próba w7).
+ */
 const TRUNCATED_REVIEW_BOOST = 1.5;
 
 export class ScenarioJob {
@@ -237,6 +243,7 @@ export class ScenarioJob {
   private transportErrors = 0;
   private reviewFailures = 0;
   private reviewTruncated = false;
+  private writerTruncated = false;
   private acceptable: JobState['acceptable'] = null;
 
   constructor(
@@ -276,6 +283,7 @@ export class ScenarioJob {
         transportErrors: this.transportErrors,
         reviewFailures: this.reviewFailures,
         reviewTruncated: this.reviewTruncated,
+        writerTruncated: this.writerTruncated,
         acceptable: this.acceptable,
       } satisfies JobState),
     ) as JobState;
@@ -308,6 +316,7 @@ export class ScenarioJob {
     job.transportErrors = state.transportErrors ?? 0;
     job.reviewFailures = state.reviewFailures ?? 0;
     job.reviewTruncated = state.reviewTruncated ?? false;
+    job.writerTruncated = state.writerTruncated ?? false;
     job.acceptable = state.acceptable ?? null;
     return job;
   }
@@ -352,7 +361,9 @@ export class ScenarioJob {
       system: this.system,
       user: buildWriterUser(this.recipe, this.feedback, this.previous),
       schema: WRITER_OUTPUT_SCHEMA,
-      maxTokens: this.options.maxTokens,
+      maxTokens: this.writerTruncated
+        ? Math.round(this.options.maxTokens * TRUNCATED_REVIEW_BOOST)
+        : this.options.maxTokens,
     };
   }
 
@@ -405,6 +416,7 @@ export class ScenarioJob {
     };
     this.attempts.push(report);
 
+    this.writerTruncated = written.stopReason === 'max_tokens';
     if (written.stopReason === 'max_tokens') {
       report.errors.push(
         'odpowiedź ucięta (max_tokens) — pisz zwięźlej, najwyżej 30 kroków',
