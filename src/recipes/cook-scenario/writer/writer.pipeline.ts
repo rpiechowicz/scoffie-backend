@@ -18,6 +18,7 @@ import {
   ZERO_USAGE,
   type WriterModel,
   type WriterModelCall,
+  type WriterModelResult,
   type WriterRecipe,
   type WriterUsage,
 } from './writer.types';
@@ -35,13 +36,17 @@ export interface WriterOptions {
 }
 
 export const DEFAULT_WRITER_OPTIONS: WriterOptions = {
-  writerModel: 'claude-opus-5-5',
+  // Rafał 30.09: Sonnet 5.5 — porównanie na pilocie 18/20 (Opus) vs 17/20
+  // przy ~40% niższym koszcie; weryfikacja mocniejszym modelem później.
+  writerModel: 'claude-sonnet-5-5',
   writerEffort: 'medium',
   reviewerModel: 'claude-sonnet-5-5',
   reviewerEffort: 'medium',
   maxAttempts: 3,
   minScore: 4,
-  maxTokens: 16_000,
+  // Pilot: autor najwyżej ~5,2 tys. tokenów wyjścia (średnio 3,4 tys.) —
+  // 12 tys. to ponad 2× zapasu, a ucięta odpowiedź i tak wraca do poprawki.
+  maxTokens: 12_000,
 };
 
 export interface Review {
@@ -129,9 +134,212 @@ const reviewFeedback = (review: Review) => [
 ];
 
 /**
- * Jeden przepis przez cały system: autor → walidatory → recenzent, z
- * poprawkami. Nie dotyka bazy — wynik zapisuje `saveWrittenScenario`.
- * Błąd API (sieć, limit) leci wyżej: wołający decyduje, czy ponowić przepis.
+ * Jeden przepis przez cały system — jako ZADANIE krok po kroku: `nextCall()`
+ * mówi, jakiego wywołania modelu potrzebuje (autor albo recenzent),
+ * `accept()` przyjmuje odpowiedź i przesuwa stan (walidatory, poprawki,
+ * recenzja). Dzięki temu ta sama logika działa wywołanie po wywołaniu
+ * (`writeCookScenario`) i w paczkach Batch API (`runBatchRounds`, setki
+ * przepisów naraz) — wynik zależy tylko od odpowiedzi modelu, nie od trybu.
+ * Nie dotyka bazy — wynik zapisuje `saveWrittenScenario`.
+ */
+export class ScenarioJob {
+  private readonly system: string;
+  private readonly attempts: AttemptReport[] = [];
+  private usage = ZERO_USAGE;
+  private feedback: string[] = [];
+  // Poprzednia odpowiedź autora (do poprawki zamiast pisania od zera)
+  // i uwagi recenzenta do niej (żeby się z nich nie wycofywał).
+  private previous: unknown = null;
+  private previousIssues: string[] = [];
+  private lastContent: CookScenarioContent | null = null;
+  private lastReview: Review | null = null;
+  private lastWarnings: string[] = [];
+  /** Treść czekająca na recenzję (po walidatorach). */
+  private pendingReview: {
+    content: CookScenarioContent;
+    warnings: string[];
+    report: AttemptReport;
+  } | null = null;
+  private result: WriteOutcome | null = null;
+  /** Błąd API (sieć, limit, paczka) — zadanie przerwane bez wyniku. */
+  failure: string | null = null;
+
+  constructor(
+    readonly recipe: WriterRecipe,
+    example: WriterExample,
+    private readonly options: WriterOptions = DEFAULT_WRITER_OPTIONS,
+  ) {
+    this.system = buildWriterSystem(example);
+  }
+
+  get done(): boolean {
+    return this.result !== null || this.failure !== null;
+  }
+
+  /** Następne potrzebne wywołanie modelu albo `null`, gdy zadanie skończone. */
+  nextCall(): WriterModelCall | null {
+    if (this.done) return null;
+    if (this.pendingReview) {
+      return {
+        model: this.options.reviewerModel,
+        effort: this.options.reviewerEffort,
+        system: REVIEWER_SYSTEM,
+        user: buildReviewerUser(
+          this.recipe,
+          this.pendingReview.content,
+          this.pendingReview.warnings,
+          this.previousIssues,
+        ),
+        schema: REVIEWER_OUTPUT_SCHEMA,
+        maxTokens: this.options.maxTokens,
+      };
+    }
+    return {
+      model: this.options.writerModel,
+      effort: this.options.writerEffort,
+      system: this.system,
+      user: buildWriterUser(this.recipe, this.feedback, this.previous),
+      schema: WRITER_OUTPUT_SCHEMA,
+      maxTokens: this.options.maxTokens,
+    };
+  }
+
+  accept(response: WriterModelResult): void {
+    if (this.done) throw new Error('zadanie już zakończone');
+    if (this.pendingReview) this.acceptReview(response);
+    else this.acceptWriter(response);
+  }
+
+  /** Przerywa zadanie po błędzie API — bez wyniku, do ponowienia później. */
+  abort(reason: string): void {
+    if (!this.done) this.failure = reason;
+  }
+
+  outcome(): WriteOutcome {
+    if (!this.result) {
+      throw new Error(this.failure ?? 'zadanie jeszcze trwa');
+    }
+    return this.result;
+  }
+
+  private acceptWriter(written: WriterModelResult): void {
+    this.usage = addUsage(this.usage, written.usage);
+    const report: AttemptReport = {
+      attempt: this.attempts.length + 1,
+      decision: null,
+      errors: [],
+      warnings: [],
+      review: null,
+      usage: written.usage,
+    };
+    this.attempts.push(report);
+
+    if (written.stopReason === 'max_tokens') {
+      report.errors.push(
+        'odpowiedź ucięta (max_tokens) — pisz zwięźlej, najwyżej 30 kroków',
+      );
+      this.retryOrReject(report.errors);
+      return;
+    }
+
+    this.previous =
+      typeof written.json === 'object' && written.json !== null
+        ? written.json
+        : null;
+    const resolved = resolveWriterOutput(this.recipe, written.json);
+    report.decision = resolved.decision;
+    report.errors.push(...resolved.errors);
+
+    if (resolved.decision === 'SKIP' && resolved.errors.length === 0) {
+      const blocked = skipGuard(this.recipe);
+      if (!blocked) {
+        this.finish({
+          status: 'SKIPPED',
+          content: null,
+          skipReason: resolved.skipReason,
+          review: null,
+          warnings: [],
+        });
+        return;
+      }
+      report.errors.push(blocked);
+    }
+    if (report.errors.length || !resolved.content) {
+      this.retryOrReject(report.errors);
+      return;
+    }
+
+    const quality = qualityChecks(this.recipe, resolved.content);
+    report.errors.push(...quality.errors);
+    report.warnings = quality.warnings;
+    if (quality.errors.length) {
+      this.retryOrReject(quality.errors);
+      return;
+    }
+    this.lastContent = resolved.content;
+    this.lastWarnings = quality.warnings;
+    this.pendingReview = {
+      content: resolved.content,
+      warnings: quality.warnings,
+      report,
+    };
+  }
+
+  private acceptReview(reviewed: WriterModelResult): void {
+    const { content, warnings, report } = this.pendingReview!;
+    this.pendingReview = null;
+    this.usage = addUsage(this.usage, reviewed.usage);
+    report.usage = addUsage(report.usage, reviewed.usage);
+    const review = parseReview(reviewed.json);
+    if (!review) {
+      // Zepsuta odpowiedź recenzenta nie jest winą autora — bez oceny nie
+      // przepuszczamy, ale też nie przepisujemy treści w kółko.
+      report.errors.push('recenzent: odpowiedź niezgodna ze schematem');
+      this.reject();
+      return;
+    }
+    report.review = review;
+    this.lastReview = review;
+    if (reviewPasses(review, this.options.minScore)) {
+      this.finish({
+        status: 'VALIDATED',
+        content,
+        skipReason: null,
+        review,
+        warnings,
+      });
+      return;
+    }
+    this.previousIssues = review.issues.map(
+      (issue) =>
+        `${issue.stepId ? `[${issue.stepId}] ` : ''}${issue.severity}: ${issue.text}`,
+    );
+    this.retryOrReject(reviewFeedback(review));
+  }
+
+  private retryOrReject(feedback: string[]): void {
+    this.feedback = feedback.slice(0, FEEDBACK_LIMIT);
+    if (this.attempts.length >= this.options.maxAttempts) this.reject();
+  }
+
+  private reject(): void {
+    this.finish({
+      status: 'REJECTED',
+      content: this.lastContent,
+      skipReason: null,
+      review: this.lastReview,
+      warnings: this.lastWarnings,
+    });
+  }
+
+  private finish(outcome: Omit<WriteOutcome, 'attempts' | 'usage'>): void {
+    this.result = { ...outcome, attempts: this.attempts, usage: this.usage };
+  }
+}
+
+/**
+ * Jeden przepis, wywołanie po wywołaniu. Błąd API (sieć, limit) leci wyżej:
+ * wołający decyduje, czy ponowić przepis.
  */
 export async function writeCookScenario(
   model: WriterModel,
@@ -139,133 +347,9 @@ export async function writeCookScenario(
   example: WriterExample,
   options: WriterOptions = DEFAULT_WRITER_OPTIONS,
 ): Promise<WriteOutcome> {
-  const system = buildWriterSystem(example);
-  const attempts: AttemptReport[] = [];
-  let usage = ZERO_USAGE;
-  let feedback: string[] = [];
-  // Poprzednia odpowiedź autora (do poprawki zamiast pisania od zera)
-  // i uwagi recenzenta do niej (żeby się z nich nie wycofywał).
-  let previous: unknown = null;
-  let previousIssues: string[] = [];
-  let lastContent: CookScenarioContent | null = null;
-  let lastReview: Review | null = null;
-  let lastWarnings: string[] = [];
-
-  for (let attempt = 1; attempt <= options.maxAttempts; attempt += 1) {
-    const written = await model.complete({
-      model: options.writerModel,
-      effort: options.writerEffort,
-      system,
-      user: buildWriterUser(recipe, feedback, previous),
-      schema: WRITER_OUTPUT_SCHEMA,
-      maxTokens: options.maxTokens,
-    });
-    usage = addUsage(usage, written.usage);
-    const report: AttemptReport = {
-      attempt,
-      decision: null,
-      errors: [],
-      warnings: [],
-      review: null,
-      usage: written.usage,
-    };
-    attempts.push(report);
-
-    if (written.stopReason === 'max_tokens') {
-      report.errors.push(
-        'odpowiedź ucięta (max_tokens) — pisz zwięźlej, najwyżej 30 kroków',
-      );
-      feedback = report.errors;
-      continue;
-    }
-
-    previous =
-      typeof written.json === 'object' && written.json !== null
-        ? written.json
-        : null;
-    const resolved = resolveWriterOutput(recipe, written.json);
-    report.decision = resolved.decision;
-    report.errors.push(...resolved.errors);
-
-    if (resolved.decision === 'SKIP' && resolved.errors.length === 0) {
-      const blocked = skipGuard(recipe);
-      if (!blocked) {
-        return {
-          status: 'SKIPPED',
-          content: null,
-          skipReason: resolved.skipReason,
-          review: null,
-          warnings: [],
-          attempts,
-          usage,
-        };
-      }
-      report.errors.push(blocked);
-    }
-    if (report.errors.length || !resolved.content) {
-      feedback = report.errors.slice(0, FEEDBACK_LIMIT);
-      continue;
-    }
-
-    const quality = qualityChecks(recipe, resolved.content);
-    report.errors.push(...quality.errors);
-    report.warnings = quality.warnings;
-    if (quality.errors.length) {
-      feedback = quality.errors.slice(0, FEEDBACK_LIMIT);
-      continue;
-    }
-    lastContent = resolved.content;
-    lastWarnings = quality.warnings;
-
-    const reviewed = await model.complete({
-      model: options.reviewerModel,
-      effort: options.reviewerEffort,
-      system: REVIEWER_SYSTEM,
-      user: buildReviewerUser(
-        recipe,
-        resolved.content,
-        quality.warnings,
-        previousIssues,
-      ),
-      schema: REVIEWER_OUTPUT_SCHEMA,
-      maxTokens: options.maxTokens,
-    });
-    usage = addUsage(usage, reviewed.usage);
-    report.usage = addUsage(report.usage, reviewed.usage);
-    const review = parseReview(reviewed.json);
-    if (!review) {
-      // Zepsuta odpowiedź recenzenta nie jest winą autora — bez oceny nie
-      // przepuszczamy, ale też nie przepisujemy treści w kółko.
-      report.errors.push('recenzent: odpowiedź niezgodna ze schematem');
-      break;
-    }
-    report.review = review;
-    lastReview = review;
-    if (reviewPasses(review, options.minScore)) {
-      return {
-        status: 'VALIDATED',
-        content: resolved.content,
-        skipReason: null,
-        review,
-        warnings: quality.warnings,
-        attempts,
-        usage,
-      };
-    }
-    feedback = reviewFeedback(review).slice(0, FEEDBACK_LIMIT);
-    previousIssues = review.issues.map(
-      (issue) =>
-        `${issue.stepId ? `[${issue.stepId}] ` : ''}${issue.severity}: ${issue.text}`,
-    );
+  const job = new ScenarioJob(recipe, example, options);
+  for (let call = job.nextCall(); call; call = job.nextCall()) {
+    job.accept(await model.complete(call));
   }
-
-  return {
-    status: 'REJECTED',
-    content: lastContent,
-    skipReason: null,
-    review: lastReview,
-    warnings: lastWarnings,
-    attempts,
-    usage,
-  };
+  return job.outcome();
 }

@@ -1,28 +1,36 @@
 /**
- * System pisania scenariuszy Gotuj (Etap E3a) — uruchamiany ręcznie.
+ * System pisania scenariuszy Gotuj (Etap E3) — uruchamiany ręcznie.
  *
  * Dla każdego przepisu: autor (model) → walidatory twarde → recenzent (model)
  * → wersja VALIDATED / REJECTED / SKIPPED w `RecipeCookScenario`. NIC nie
  * publikuje: telefon nie widzi tych wersji, dopóki ktoś świadomie ich nie
- * opublikuje (panel, E3c).
+ * opublikuje (panel, E3c, `publishWrittenScenario`).
  *
- * Bezpiecznik: działa tylko na bazie lokalnej. Zdalna (Railway) wymaga
- * jawnego COOK_WRITER_ALLOW_REMOTE=1 — i świadomej decyzji, bo to koszt API
- * i zapis do cudzej bazy.
+ * Dwa tryby, ta sama logika (`ScenarioJob`):
+ * - na żywo (domyślnie) — wywołanie po wywołaniu, kilka przepisów naraz;
+ * - `--batch` — Batch API: rundy paczek dla setek przepisów, pół ceny,
+ *   wynik w minutach–godzinach (katalog).
+ *
+ * Bezpieczniki: tylko baza lokalna (zdalna wymaga COOK_WRITER_ALLOW_REMOTE=1);
+ * twardy budżet (`--budget-usd`, rezerwacja najgorszego kosztu przed każdym
+ * wywołaniem/paczką); model spoza cennika odrzucany.
  *
  * Uruchomienie:
  *   pnpm cook-scenarios:write --dry-run --pilot 20        # prompt bez API
  *   pnpm cook-scenarios:write --pilot 20 --limit 3        # pierwsze 3 z pilota
- *   pnpm cook-scenarios:write --pilot 20 --skip-written   # reszta pilota
+ *   pnpm cook-scenarios:write --batch --sample 50         # próba kontrolna
+ *   pnpm cook-scenarios:write --batch --all --skip-written --budget-usd 40
  *   pnpm cook-scenarios:write --recipe <id> [--recipe <id>…]
- * Opcje: --budget-usd 5 (twardy limit: wywołanie, na które nie starczy
- *   w najgorszym razie, się nie odbywa), --concurrency 3,
- *   --out raport.json. Modele: COOK_WRITER_MODEL, COOK_REVIEWER_MODEL,
- *   COOK_WRITER_EFFORT, COOK_REVIEWER_EFFORT.
+ * Opcje: --limit N (najwyżej N przepisów faktycznie pisanych),
+ *   --skip-written (pomija przepisy z aktualnym wynikiem dla obecnej treści),
+ *   --concurrency 3 (tryb na żywo), --out raport.json.
+ * Modele: COOK_WRITER_MODEL, COOK_REVIEWER_MODEL, COOK_WRITER_EFFORT,
+ *   COOK_REVIEWER_EFFORT.
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaClient, type Prisma } from '@prisma/client';
+import { priceFor } from '../src/config/model-prices';
 import {
   resolveGoldenContent,
   type GoldenScenarioFile,
@@ -32,8 +40,11 @@ import {
   checkScenarioAgainstRecipe,
   parseCookScenarioContent,
 } from '../src/recipes/cook-scenario/cook-scenario.validate';
-import { priceFor } from '../src/config/model-prices';
 import { AnthropicWriterModel } from '../src/recipes/cook-scenario/writer/writer.anthropic';
+import {
+  AnthropicBatchModel,
+  runBatchRounds,
+} from '../src/recipes/cook-scenario/writer/writer.batch';
 import {
   BudgetedWriterModel,
   BudgetExceededError,
@@ -42,7 +53,9 @@ import {
 import { qualityChecks } from '../src/recipes/cook-scenario/writer/writer.checks';
 import {
   DEFAULT_WRITER_OPTIONS,
+  ScenarioJob,
   writeCookScenario,
+  type WriteOutcome,
   type WriterOptions,
 } from '../src/recipes/cook-scenario/writer/writer.pipeline';
 import {
@@ -54,6 +67,7 @@ import {
 import {
   loadWriterRecipe,
   saveWrittenScenario,
+  type LoadedWriterRecipe,
 } from '../src/recipes/cook-scenario/writer/writer.store';
 
 const GOLDEN_FILE = 'prisma/catalog/cook-scenarios-pl-v1.json';
@@ -62,6 +76,9 @@ const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 interface Args {
   recipes: string[];
   pilot: number | null;
+  sample: number | null;
+  all: boolean;
+  batch: boolean;
   limit: number | null;
   skipWritten: boolean;
   dryRun: boolean;
@@ -74,6 +91,9 @@ function parseArgs(argv: string[]): Args {
   const args: Args = {
     recipes: [],
     pilot: null,
+    sample: null,
+    all: false,
+    batch: false,
     limit: null,
     skipWritten: false,
     dryRun: false,
@@ -96,6 +116,9 @@ function parseArgs(argv: string[]): Args {
     if (flag === '--') continue;
     else if (flag === '--recipe') args.recipes.push(next());
     else if (flag === '--pilot') args.pilot = Math.floor(positive(next()));
+    else if (flag === '--sample') args.sample = Math.floor(positive(next()));
+    else if (flag === '--all') args.all = true;
+    else if (flag === '--batch') args.batch = true;
     else if (flag === '--limit') args.limit = Math.floor(positive(next()));
     else if (flag === '--skip-written') args.skipWritten = true;
     else if (flag === '--dry-run') args.dryRun = true;
@@ -105,8 +128,10 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--out') args.out = next();
     else throw new Error(`nieznana opcja ${flag}`);
   }
-  if (!args.recipes.length && !args.pilot) {
-    throw new Error('podaj --recipe <id> albo --pilot <N>');
+  if (!args.recipes.length && !args.pilot && !args.sample && !args.all) {
+    throw new Error(
+      'podaj --recipe <id>, --pilot <N>, --sample <N> albo --all',
+    );
   }
   return args;
 }
@@ -190,12 +215,13 @@ async function loadExample(prisma: PrismaClient): Promise<WriterExample> {
   return { recipe: loaded.recipe, content: parsed.content };
 }
 
+/** Kandydaci (bez wzorca — ten ma scenariusz pisany ręcznie). */
 async function selectRecipes(
   prisma: PrismaClient,
   args: Args,
   exampleId: string,
 ): Promise<string[]> {
-  let ids = [...args.recipes];
+  const ids = [...args.recipes];
   if (args.pilot) {
     // Pilot: po jednym przepisie z każdego rodzaju dania — deterministycznie.
     const rows = await prisma.$queryRaw<{ id: string }[]>`
@@ -206,8 +232,18 @@ async function selectRecipes(
        ORDER BY coalesce(r."dishType", ''), r."id"`;
     ids.push(...rows.slice(0, args.pilot).map((row) => row.id));
   }
-  ids = [...new Set(ids)];
-  return ids;
+  if (args.sample || args.all) {
+    // Próba: kolejność „losowa”, ale zawsze ta sama (skrót id) — próba
+    // kontrolna i jej powtórka biorą te same przepisy.
+    const rows = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT r."id" FROM "Recipe" r
+       WHERE r."isCatalog" AND r."isActive" AND r."id" <> ${exampleId}::uuid
+         AND EXISTS (SELECT 1 FROM "RecipeIngredient" ri WHERE ri."recipeId" = r."id")
+       ORDER BY md5(r."id"::text || 'gotuj'), r."id"`;
+    const picked = args.all ? rows : rows.slice(0, args.sample ?? 0);
+    ids.push(...picked.map((row) => row.id));
+  }
+  return [...new Set(ids)];
 }
 
 interface ReportEntry {
@@ -235,7 +271,7 @@ async function main() {
     const example = await loadExample(prisma);
     const ids = await selectRecipes(prisma, args, example.recipe.id);
     console.log(
-      `kandydatów: ${ids.length}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $`,
+      `kandydatów: ${ids.length}${args.limit ? ` (napisze najwyżej ${args.limit})` : ''} · ${args.batch ? 'Batch API' : 'na żywo'} · autor ${options.writerModel}/${options.writerEffort} · recenzent ${options.reviewerModel}/${options.reviewerEffort} · budżet ${args.budgetUsd} $`,
     );
 
     if (args.dryRun) {
@@ -249,8 +285,8 @@ async function main() {
     }
 
     // Twardy limit ma sens tylko przy znanej cenie: model spoza cennika
-    // liczyłby się po stawce zastępczej, która może być za niska (review
-    // Codexa, E3a runda 3). Nowy model = najpierw wpis w src/config/model-prices.ts.
+    // liczyłby się po stawce zastępczej, która może być za niska. Nowy
+    // model = najpierw wpis w src/config/model-prices.ts.
     for (const name of [options.writerModel, options.reviewerModel]) {
       if (!priceFor(name).known) {
         throw new Error(
@@ -260,111 +296,153 @@ async function main() {
     }
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY jest pusty');
-    // Twardy limit: każde wywołanie modelu rezerwuje najgorszy koszt, zanim
-    // pójdzie; bez budżetu wywołanie się nie odbywa (writer.budget.ts).
+    const client = new Anthropic({ apiKey });
     const budget = new BudgetGuard(Math.round(args.budgetUsd * 1_000_000));
-    const model = new BudgetedWriterModel(
-      new AnthropicWriterModel(new Anthropic({ apiKey })),
-      budget,
-    );
 
     const report: ReportEntry[] = [];
-    let stopped = false;
-    let started = 0;
     let upToDate = 0;
-    const queue = [...ids];
+    const generator = (
+      outcome: WriteOutcome,
+      transport: string,
+    ): Prisma.InputJsonValue => ({
+      source: 'writer',
+      transport,
+      promptVersion: COOK_WRITER_PROMPT_VERSION,
+      writerModel: options.writerModel,
+      writerEffort: options.writerEffort,
+      reviewerModel: options.reviewerModel,
+      reviewerEffort: options.reviewerEffort,
+      attempts: outcome.attempts.length,
+    });
+    const save = async (
+      loaded: LoadedWriterRecipe,
+      outcome: WriteOutcome,
+      transport: string,
+    ) => {
+      const saved = await prisma.$transaction((tx) =>
+        saveWrittenScenario(tx, {
+          recipe: loaded.recipe,
+          signature: loaded.signature,
+          outcome,
+          generator: generator(outcome, transport),
+        }),
+      );
+      const costUsd = outcome.usage.costMicroUsd / 1_000_000;
+      report.push({
+        recipeId: loaded.recipe.id,
+        title: loaded.recipe.title,
+        status: saved.status,
+        version: saved.version,
+        score: outcome.review?.score,
+        attempts: outcome.attempts.length,
+        costUsd,
+        skipReason: outcome.skipReason,
+        warnings: outcome.warnings,
+        review: outcome.review,
+        errors: outcome.attempts.flatMap((a) => a.errors),
+        content: outcome.content,
+      });
+      console.log(
+        `${saved.status.padEnd(9)} v${saved.version} · ${outcome.review ? `${outcome.review.score}/5` : '—'} · prób ${outcome.attempts.length} · ${costUsd.toFixed(3)} $ · ${loaded.recipe.title}`,
+      );
+    };
+    const failed = (loaded: LoadedWriterRecipe, message: string) => {
+      const overBudget = message === 'budżet wyczerpany';
+      report.push({
+        recipeId: loaded.recipe.id,
+        title: loaded.recipe.title,
+        status: overBudget ? 'BUDGET' : 'FAILED',
+        failure: message,
+      });
+      console.log(
+        `${overBudget ? 'BUDGET   ' : 'FAILED   '} · ${loaded.recipe.title}: ${message}`,
+      );
+    };
 
-    const worker = async () => {
-      while (queue.length && !stopped) {
-        const recipeId = queue.shift()!;
-        const loaded = await loadWriterRecipe(prisma, recipeId);
-        if (!loaded) {
-          report.push({
-            recipeId,
-            title: '?',
-            status: 'FAILED',
-            failure: 'brak przepisu',
-          });
-          continue;
-        }
-        // „Już napisany” rozstrzyga ta sama migawka, z której piszemy
-        // (loadWriterRecipe) — nie osobny odczyt przy wyborze listy.
+    if (args.batch) {
+      // Wszystkie przepisy z jednej migawki na przepis; „już napisany”
+      // rozstrzyga ta sama migawka, z której piszemy.
+      const loadedById = new Map<string, LoadedWriterRecipe>();
+      for (const id of ids) {
+        if (args.limit && loadedById.size >= args.limit) break;
+        const loaded = await loadWriterRecipe(prisma, id);
+        if (!loaded) continue;
         if (args.skipWritten && loaded.current) {
           upToDate += 1;
           continue;
         }
-        // Sprawdzenie i zwiększenie bez `await` pomiędzy — równoległe
-        // wątki nie przekroczą --limit.
-        if (args.limit && started >= args.limit) {
-          stopped = true;
-          break;
-        }
-        started += 1;
-        const { recipe, signature } = loaded;
-        try {
-          const outcome = await writeCookScenario(
-            model,
-            recipe,
-            example,
-            options,
-          );
-          const generator: Prisma.InputJsonValue = {
-            source: 'writer',
-            promptVersion: COOK_WRITER_PROMPT_VERSION,
-            writerModel: options.writerModel,
-            writerEffort: options.writerEffort,
-            reviewerModel: options.reviewerModel,
-            reviewerEffort: options.reviewerEffort,
-            attempts: outcome.attempts.length,
-          };
-          const saved = await prisma.$transaction((tx) =>
-            saveWrittenScenario(tx, {
-              recipe,
-              signature,
-              outcome,
-              generator,
-            }),
-          );
-          const costUsd = outcome.usage.costMicroUsd / 1_000_000;
-          report.push({
-            recipeId,
-            title: recipe.title,
-            status: saved.status,
-            version: saved.version,
-            score: outcome.review?.score,
-            attempts: outcome.attempts.length,
-            costUsd,
-            skipReason: outcome.skipReason,
-            warnings: outcome.warnings,
-            review: outcome.review,
-            errors: outcome.attempts.flatMap((a) => a.errors),
-            content: outcome.content,
-          });
-          console.log(
-            `${saved.status.padEnd(9)} v${saved.version} · ${outcome.review ? `${outcome.review.score}/5` : '—'} · prób ${outcome.attempts.length} · ${costUsd.toFixed(3)} $ · ${recipe.title}`,
-          );
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          // Brak budżetu: przepis nie zapisany (bez pełnego przejścia nie ma
-          // czego zapisać), a reszta serii staje.
-          const overBudget = error instanceof BudgetExceededError;
-          if (overBudget) stopped = true;
-          report.push({
-            recipeId,
-            title: recipe.title,
-            status: overBudget ? 'BUDGET' : 'FAILED',
-            failure: message,
-          });
-          console.log(
-            `${overBudget ? 'BUDGET   ' : 'FAILED   '} · ${recipe.title}: ${message}`,
-          );
-        }
+        loadedById.set(id, loaded);
       }
-    };
-    await Promise.all(
-      Array.from({ length: Math.min(args.concurrency, ids.length) }, worker),
-    );
+      console.log(`do napisania w paczkach: ${loadedById.size}`);
+      const jobs = [...loadedById.values()].map(
+        (loaded) => new ScenarioJob(loaded.recipe, example, options),
+      );
+      await runBatchRounds(
+        jobs,
+        new AnthropicBatchModel(client, budget, (line) => console.log(line)),
+        async (job) => {
+          const loaded = loadedById.get(job.recipe.id)!;
+          if (job.failure) failed(loaded, job.failure);
+          else await save(loaded, job.outcome(), 'batch');
+        },
+        (line) => console.log(line),
+      );
+    } else {
+      const model = new BudgetedWriterModel(
+        new AnthropicWriterModel(client),
+        budget,
+      );
+      let stopped = false;
+      let started = 0;
+      const queue = [...ids];
+      const worker = async () => {
+        while (queue.length && !stopped) {
+          const recipeId = queue.shift()!;
+          const loaded = await loadWriterRecipe(prisma, recipeId);
+          if (!loaded) {
+            report.push({
+              recipeId,
+              title: '?',
+              status: 'FAILED',
+              failure: 'brak przepisu',
+            });
+            continue;
+          }
+          if (args.skipWritten && loaded.current) {
+            upToDate += 1;
+            continue;
+          }
+          // Sprawdzenie i zwiększenie bez `await` pomiędzy — równoległe
+          // wątki nie przekroczą --limit.
+          if (args.limit && started >= args.limit) {
+            stopped = true;
+            break;
+          }
+          started += 1;
+          try {
+            const outcome = await writeCookScenario(
+              model,
+              loaded.recipe,
+              example,
+              options,
+            );
+            await save(loaded, outcome, 'live');
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            if (error instanceof BudgetExceededError) {
+              stopped = true;
+              failed(loaded, 'budżet wyczerpany');
+            } else {
+              failed(loaded, message);
+            }
+          }
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(args.concurrency, ids.length) }, worker),
+      );
+    }
 
     const count = (status: string) =>
       report.filter((r) => r.status === status).length;
@@ -377,7 +455,7 @@ async function main() {
     }
     if (count('BUDGET')) {
       console.log(
-        `ZATRZYMANO: budżet ${args.budgetUsd} $ nie wystarcza na kolejne wywołanie`,
+        `ZATRZYMANO: budżet ${args.budgetUsd} $ nie wystarcza — reszta po doładowaniu (--skip-written dokończy)`,
       );
     }
     if (args.out) {

@@ -31,7 +31,10 @@ const REQUEST_OVERHEAD_TOKENS = 2_000;
  * cache i pełne `max_tokens` wyjścia (myślenie się w nim mieści). Z górą —
  * dzięki temu limit jest twardy.
  */
-export function worstCaseMicroUsd(call: WriterModelCall): number {
+export function worstCaseMicroUsd(
+  call: WriterModelCall,
+  priceMultiplier = 1,
+): number {
   const price = priceFor(call.model);
   const inputTokens =
     Buffer.byteLength(call.system, 'utf8') +
@@ -39,8 +42,9 @@ export function worstCaseMicroUsd(call: WriterModelCall): number {
     Buffer.byteLength(JSON.stringify(call.schema), 'utf8') +
     REQUEST_OVERHEAD_TOKENS;
   return Math.ceil(
-    inputTokens * price.input * WORST_INPUT_MULTIPLIER +
-      call.maxTokens * price.output,
+    (inputTokens * price.input * WORST_INPUT_MULTIPLIER +
+      call.maxTokens * price.output) *
+      priceMultiplier,
   );
 }
 
