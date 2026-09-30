@@ -25,7 +25,7 @@
 --    rewizji katalogu — ewentualne czekanie na wiersz przepisu przypada przed
 --    zamkiem (ADR catalog-change-commit-order §6). Żadnego DDL/LOCK w DML.
 --
--- Rollback: DROP TRIGGER ×2, DROP FUNCTION ×3, DROP TABLE "RecipeCookScenario",
+-- Rollback: DROP TRIGGER ×3, DROP FUNCTION ×3, DROP TABLE "RecipeCookScenario",
 -- DROP TYPE "CookScenarioStatus", ALTER TABLE "Recipe" DROP COLUMN "cookScenarioVersion".
 
 -- CreateEnum
@@ -102,6 +102,16 @@ DECLARE
   published TEXT;
   current_signature TEXT;
 BEGIN
+  -- NAJPIERW blokada wiersza przepisu, dopiero potem odczyt (review Codexa,
+  -- runda 3). Bez niej pierwsza publikacja (`publishCookScenario` trzyma
+  -- `FOR UPDATE` i czyta stare składniki) i zmiana składnika zatwierdzana
+  -- w tym samym czasie mijały się: ten trigger nie widział jeszcze
+  -- niezatwierdzonego scenariusza, a publikacja nie widziała nowych ilości —
+  -- scenariusz ze starymi ilościami zostawał opublikowany na stałe. Z blokadą
+  -- czekamy na publikację i porównujemy już z nią. Kolejne instrukcje
+  -- (READ COMMITTED) widzą to, co zatwierdziła.
+  PERFORM 1 FROM "Recipe" WHERE "id" = target FOR NO KEY UPDATE;
+
   SELECT s."recipeContentHash" INTO published
     FROM "RecipeCookScenario" s
    WHERE s."recipeId" = target AND s."status" = 'PUBLISHED';
@@ -160,10 +170,23 @@ WHEN (
 )
 EXECUTE FUNCTION cook_scenario_staleness();
 
--- Składniki: każda zmiana; funkcja kończy od razu, gdy przepis nie ma
--- opublikowanego scenariusza (jedno zapytanie po indeksie).
+-- Składniki: dodanie i usunięcie zawsze; zmiana tylko wtedy, gdy dotyka
+-- podpisu (przepis, składnik, ilość, jednostka) — hurtowa poprawka nazw
+-- (`normalize-ingredients-polish`) nie blokuje wierszy przepisów.
 CREATE CONSTRAINT TRIGGER "RecipeIngredient_a_cook_scenario_staleness"
-AFTER INSERT OR UPDATE OR DELETE ON "RecipeIngredient"
+AFTER INSERT OR DELETE ON "RecipeIngredient"
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW
+EXECUTE FUNCTION cook_scenario_staleness();
+
+CREATE CONSTRAINT TRIGGER "RecipeIngredient_a_cook_scenario_staleness_upd"
+AFTER UPDATE ON "RecipeIngredient"
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW
+WHEN (
+  OLD."recipeId" IS DISTINCT FROM NEW."recipeId"
+  OR OLD."ingredientId" IS DISTINCT FROM NEW."ingredientId"
+  OR OLD."amount" IS DISTINCT FROM NEW."amount"
+  OR OLD."unit" IS DISTINCT FROM NEW."unit"
+)
 EXECUTE FUNCTION cook_scenario_staleness();
