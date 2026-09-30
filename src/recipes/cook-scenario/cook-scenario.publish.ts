@@ -2,7 +2,6 @@ import { isDeepStrictEqual } from 'node:util';
 import { HttpStatus } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../../common/app-exception';
-import { recipeContentHash } from './cook-scenario.hash';
 import {
   checkScenarioAgainstRecipe,
   parseCookScenarioContent,
@@ -19,7 +18,10 @@ export interface PublishCookScenarioInput {
 export interface PublishCookScenarioResult {
   recipeId: string;
   version: number;
-  /** `false` = obowiązująca wersja ma już tę treść dla tego przepisu (nic nie zapisano). */
+  /**
+   * `false` = obowiązująca wersja ma już tę treść, te zasady i ten podpis
+   * przepisu (nic nie zapisano).
+   */
   changed: boolean;
 }
 
@@ -32,8 +34,11 @@ export interface PublishCookScenarioResult {
  *    rozjadą (częściowy indeks unikalny jest drugą siatką);
  * 2. kształt + zgodność z przepisem — przy błędzie 400 z listą, nic się nie
  *    zapisuje;
- * 3. ta sama treść i ten sam odcisk co obowiązująca wersja → bez zapisu
- *    (loader jest idempotentny, a log katalogu nie dostaje pustej zmiany);
+ * 3. ta sama treść, te same zasady (`rulesVersion`) i ten sam podpis przepisu
+ *    co obowiązująca wersja → bez zapisu (loader jest idempotentny, a log
+ *    katalogu nie dostaje pustej zmiany). Nowe zasady przy tej samej treści
+ *    to NOWA wersja — zmiana zasad oznacza ponowne przejście (§5), a wersja
+ *    ma mówić, według czego scenariusz jest ważny;
  * 4. dotychczasowy PUBLISHED → RETIRED, nowy wiersz PUBLISHED z kolejną
  *    wersją, `Recipe.cookScenarioVersion` = nowa wersja. Ta ostatnia zmiana
  *    przesuwa log katalogu (trigger `Recipe_catalog_change`) — telefony
@@ -79,14 +84,24 @@ export async function publishCookScenario(
     );
   }
 
-  const hash = recipeContentHash(recipe);
+  // Podpis liczy BAZA (`recipe_content_signature`) — ta sama funkcja, którą
+  // trigger `cook_scenario_staleness` porównuje przy każdej zmianie przepisu.
+  const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
+    SELECT recipe_content_signature(${recipe.id}::uuid) AS "signature"`;
   const current = await tx.recipeCookScenario.findFirst({
     where: { recipeId: recipe.id, status: 'PUBLISHED' },
-    select: { id: true, version: true, recipeContentHash: true, content: true },
+    select: {
+      id: true,
+      version: true,
+      rulesVersion: true,
+      recipeContentHash: true,
+      content: true,
+    },
   });
   if (
     current &&
-    current.recipeContentHash === hash &&
+    current.recipeContentHash === signature &&
+    current.rulesVersion === input.rulesVersion &&
     isDeepStrictEqual(current.content, parsed.content)
   ) {
     return { recipeId: recipe.id, version: current.version, changed: false };
@@ -108,7 +123,7 @@ export async function publishCookScenario(
       recipeId: recipe.id,
       version,
       status: 'PUBLISHED',
-      recipeContentHash: hash,
+      recipeContentHash: signature,
       rulesVersion: input.rulesVersion,
       content: parsed.content as unknown as Prisma.InputJsonValue,
       generator: input.generator,

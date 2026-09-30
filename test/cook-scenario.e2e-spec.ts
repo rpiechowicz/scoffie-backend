@@ -139,15 +139,30 @@ describe('Scenariusze Gotuj E2E', () => {
     return resolved.content;
   };
 
-  const publish = (recipeId: string, content: unknown) =>
+  const publish = (
+    recipeId: string,
+    content: unknown,
+    rulesVersion = GOLDEN.rulesVersion,
+  ) =>
     prisma.$transaction((tx) =>
       publishCookScenario(tx, {
         recipeId,
         content,
-        rulesVersion: GOLDEN.rulesVersion,
+        rulesVersion,
         generator: { source: 'golden', file: 'e2e' },
       }),
     );
+
+  const scenarioState = async (recipeId: string) => {
+    const recipe = await prisma.recipe.findUniqueOrThrow({
+      where: { id: recipeId },
+      select: { cookScenarioVersion: true },
+    });
+    const published = await prisma.recipeCookScenario.count({
+      where: { recipeId, status: 'PUBLISHED' },
+    });
+    return { version: recipe.cookScenarioVersion, published };
+  };
 
   const maxRevision = async (recipeId: string): Promise<bigint> => {
     const rows = await prisma.$queryRaw<{ max: bigint | null }[]>`
@@ -385,7 +400,91 @@ describe('Scenariusze Gotuj E2E', () => {
     expect(data).toEqual({ recipeId: privateRecipeId, scenario: null });
   });
 
-  it('zmieniony przepis: scenariusz nieaktualny nie wychodzi do telefonu', async () => {
+  it('nowa wersja zasad przy tej samej treści = nowa wersja scenariusza', async () => {
+    const content = await kotletContent();
+    const current = await publish(KOTLET.recipeId, content);
+    const next = await publish(KOTLET.recipeId, content, '2099-01-01');
+    expect(next).toEqual({
+      recipeId: KOTLET.recipeId,
+      version: current.version + 1,
+      changed: true,
+    });
+    const row = await prisma.recipeCookScenario.findUniqueOrThrow({
+      where: {
+        recipeId_version: { recipeId: KOTLET.recipeId, version: next.version },
+      },
+      select: { rulesVersion: true, status: true },
+    });
+    expect(row).toEqual({ rulesVersion: '2099-01-01', status: 'PUBLISHED' });
+  });
+
+  it('przepisanie składników tymi samymi wierszami NIE unieważnia (liczy się stan przy COMMIT)', async () => {
+    const before = await scenarioState(KOTLET.recipeId);
+    expect(before.published).toBe(1);
+    // Tak robi import JSON: kasuje wszystkie składniki i wstawia je od nowa.
+    await prisma.$transaction(async (tx) => {
+      const rows = await tx.recipeIngredient.findMany({
+        where: { recipeId: KOTLET.recipeId },
+        orderBy: { createdAt: 'asc' },
+      });
+      await tx.recipeIngredient.deleteMany({
+        where: { recipeId: KOTLET.recipeId },
+      });
+      await tx.recipeIngredient.createMany({ data: rows });
+    });
+    expect(await scenarioState(KOTLET.recipeId)).toEqual(before);
+  });
+
+  it('zmiana ilości składnika: STALE, wersja zdjęta, delta katalogu, telefon dostaje null', async () => {
+    const before = await scenarioState(KOTLET.recipeId);
+    const revisionBefore = await maxRevision(KOTLET.recipeId);
+    const butter = await prisma.recipeIngredient.findFirstOrThrow({
+      where: { recipeId: KOTLET.recipeId, name: 'masło' },
+      select: { id: true, amount: true },
+    });
+    // Zwykły zapis spoza aplikacji — trigger działa na każdej ścieżce.
+    await prisma.recipeIngredient.update({
+      where: { id: butter.id },
+      data: { amount: butter.amount + 10 },
+    });
+    try {
+      expect(await scenarioState(KOTLET.recipeId)).toEqual({
+        version: null,
+        published: 0,
+      });
+      const stale = await prisma.recipeCookScenario.findUniqueOrThrow({
+        where: {
+          recipeId_version: {
+            recipeId: KOTLET.recipeId,
+            version: before.version!,
+          },
+        },
+        select: { status: true },
+      });
+      expect(stale.status).toBe('STALE');
+      // Telefon, który trzyma scenariusz offline, dowie się z delty katalogu.
+      expect(await maxRevision(KOTLET.recipeId)).toBeGreaterThan(
+        revisionBefore,
+      );
+      expect(
+        okData(await cookScenario(socketA, KOTLET.recipeId, householdA)),
+      ).toEqual({ recipeId: KOTLET.recipeId, scenario: null });
+    } finally {
+      await prisma.recipeIngredient.update({
+        where: { id: butter.id },
+        data: { amount: butter.amount },
+      });
+    }
+    // Po przywróceniu przepisu wzorzec da się opublikować ponownie.
+    const again = await publish(KOTLET.recipeId, await kotletContent());
+    expect(again.changed).toBe(true);
+    expect(await scenarioState(KOTLET.recipeId)).toEqual({
+      version: again.version,
+      published: 1,
+    });
+  });
+
+  it('zmiana porcji przepisu domu unieważnia jego scenariusz', async () => {
     const content = {
       schemaVersion: 1,
       basePortions: 1,
@@ -419,6 +518,10 @@ describe('Scenariusze Gotuj E2E', () => {
     await prisma.recipe.update({
       where: { id: privateRecipeId },
       data: { servings: 2 },
+    });
+    expect(await scenarioState(privateRecipeId)).toEqual({
+      version: null,
+      published: 0,
     });
     expect(
       okData(await cookScenario(socketA, privateRecipeId, householdA)),

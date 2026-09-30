@@ -3,7 +3,6 @@ import { AppException } from '../../common/app-exception';
 import { assertUuid } from '../../common/uuid';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RecipesService } from '../recipes.service';
-import { recipeContentHash } from './cook-scenario.hash';
 import type { CookScenarioResponse } from './cook-scenario.types';
 import { parseCookScenarioContent } from './cook-scenario.validate';
 
@@ -41,16 +40,7 @@ export class CookScenariosService {
         isActive: true,
         OR: [{ isCatalog: true }, { householdId }],
       },
-      select: {
-        id: true,
-        title: true,
-        servings: true,
-        sourceInstructions: true,
-        cookScenarioVersion: true,
-        ingredients: {
-          select: { ingredientId: true, amount: true, unit: true },
-        },
-      },
+      select: { id: true, cookScenarioVersion: true },
     });
     if (!recipe) {
       throw new AppException(
@@ -64,25 +54,14 @@ export class CookScenariosService {
 
     const row = await this.prisma.recipeCookScenario.findFirst({
       where: { recipeId, status: 'PUBLISHED' },
-      select: {
-        version: true,
-        rulesVersion: true,
-        recipeContentHash: true,
-        content: true,
-      },
+      select: { version: true, rulesVersion: true, content: true },
     });
+    // Nieaktualnego scenariusza nie ma tu co sprawdzać: zmiana treści
+    // przepisu (dowolną ścieżką) przy COMMIT zdejmuje PUBLISHED i zeruje
+    // `cookScenarioVersion` — trigger `cook_scenario_staleness` w migracji
+    // 20260930120000. Dzięki temu dowiaduje się o tym także telefon, który
+    // trzyma scenariusz offline (delta katalogu), a nie tylko ten, który pyta.
     if (!row) return none;
-
-    // Przepis zmienił się po napisaniu scenariusza (edycja w panelu, import):
-    // ilości albo kroki mogą już nie pasować, więc lepiej bez trybu Gotuj niż
-    // z błędnymi ilościami. Oznaczenie STALE i ponowne pisanie zrobi system
-    // pisania (Etap E3) — tu tylko nie wydajemy nieaktualnej treści.
-    if (row.recipeContentHash !== recipeContentHash(recipe)) {
-      this.logger.warn(
-        `scenariusz Gotuj nieaktualny: recipeId=${recipeId} v${row.version}`,
-      );
-      return none;
-    }
     const parsed = parseCookScenarioContent(row.content);
     if (!parsed.content) {
       this.logger.error(

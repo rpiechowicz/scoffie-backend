@@ -348,8 +348,9 @@ model Recipe {
   /// albo scenariusz nieaktualny). Kopia z tabeli scenariuszy, bo tamta nie
   /// przesuwa logu katalogu, a ta kolumna — tak (trigger `Recipe_catalog_change`
   /// widzi zmianę wiersza): telefon dostaje „jest Gotuj / nowa wersja” zwykłą
-  /// deltą katalogu i pobiera scenariusz dopiero wtedy. Pisze ją WYŁĄCZNIE
-  /// `CookScenariosService`, w tej samej transakcji co wiersz scenariusza.
+  /// deltą katalogu i pobiera scenariusz dopiero wtedy. Ustawia ją WYŁĄCZNIE
+  /// `publishCookScenario` (w transakcji z wierszem scenariusza), a zeruje
+  /// trigger `cook_scenario_staleness`, gdy przepis się zmieni.
   cookScenarioVersion   Int?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
@@ -802,8 +803,10 @@ model RecipeCookScenario {
   /// `Recipe.cookScenarioVersion`.
   version           Int
   status            CookScenarioStatus
-  /// sha256 treści przepisu (tytuł, porcje, składniki, kroki) z chwili
-  /// wygenerowania — inny niż obecny = scenariusz nieaktualny (`STALE`).
+  /// Podpis treści przepisu z chwili publikacji — funkcja SQL
+  /// `recipe_content_signature` (tytuł, porcje, kroki, składniki). Trigger
+  /// `cook_scenario_staleness` przy COMMIT każdej zmiany przepisu porównuje go
+  /// z bieżącym: inny = `STALE` i `Recipe.cookScenarioVersion` = null.
   recipeContentHash String
   /// Wersja zasad pisania (§5), według których powstał — zmiana zasad = ponowne przejście.
   rulesVersion      String

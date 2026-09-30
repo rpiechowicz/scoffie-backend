@@ -12935,7 +12935,7 @@
             "nullable": true
           },
           "cookScenarioVersion": {
-            "description": "Wersja OPUBLIKOWANEGO scenariusza trybu Gotuj (`RecipeCookScenario`),\n`null` = przepis nie ma trybu Gotuj (brak scenariusza, przepis trywialny\nalbo scenariusz nieaktualny). Kopia z tabeli scenariuszy, bo tamta nie\nprzesuwa logu katalogu, a ta kolumna — tak (trigger `Recipe_catalog_change`\nwidzi zmianę wiersza): telefon dostaje „jest Gotuj / nowa wersja” zwykłą\ndeltą katalogu i pobiera scenariusz dopiero wtedy. Pisze ją WYŁĄCZNIE\n`CookScenariosService`, w tej samej transakcji co wiersz scenariusza.",
+            "description": "Wersja OPUBLIKOWANEGO scenariusza trybu Gotuj (`RecipeCookScenario`),\n`null` = przepis nie ma trybu Gotuj (brak scenariusza, przepis trywialny\nalbo scenariusz nieaktualny). Kopia z tabeli scenariuszy, bo tamta nie\nprzesuwa logu katalogu, a ta kolumna — tak (trigger `Recipe_catalog_change`\nwidzi zmianę wiersza): telefon dostaje „jest Gotuj / nowa wersja” zwykłą\ndeltą katalogu i pobiera scenariusz dopiero wtedy. Ustawia ją WYŁĄCZNIE\n`publishCookScenario` (w transakcji z wierszem scenariusza), a zeruje\ntrigger `cook_scenario_staleness`, gdy przepis się zmieni.",
             "type": "number",
             "nullable": true
           },
