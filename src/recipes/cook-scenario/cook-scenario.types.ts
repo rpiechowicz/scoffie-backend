@@ -110,7 +110,15 @@ export interface CookStep {
   mentions: string[];
   note: CookStepNote | null;
   timer: CookTimer | null;
-  /** `id` timera z WCZEŚNIEJSZEGO kroku, pod którym ten krok się mieści. */
+  /**
+   * `id` timera z WCZEŚNIEJSZEGO kroku, pod którym ten krok się mieści.
+   *
+   * KONTRAKT OŚ CZASU (walidator `checkTimerTimeline`, telefon E4): krok
+   * BEZ `during` po kroku z timerem zaczyna się po końcu tego timera —
+   * „Dalej” dopiero po alarmie (albo świadomym „gotowe wcześniej”). Timer
+   * startowany w kroku z `during` biegnie dalej sam, także po końcu
+   * nadrzędnego (ziemniaki nastawione, gdy masło chłodzi się w zamrażarce).
+   */
   during: string | null;
   /** Nota skali pokazywana dopiero od `fromPortions` porcji. */
   scaleNote: { fromPortions: number; text: string } | null;

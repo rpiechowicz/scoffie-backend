@@ -892,7 +892,42 @@ export const MAX_PARALLEL_TIMERS = 2;
  */
 const parallelSlack = (seconds: number) => Math.max(120, seconds * 0.2);
 
+/**
+ * Oś czasu scenariusza w NAJGORSZYM wariancie (review Codexa): czynności
+ * ręczne trwają zero, odliczania — najdłużej (`maxSeconds`), a krok bez
+ * `during` rusza po NAJWCZEŚNIEJSZYM końcu timera kroku głównego przed nim
+ * (kontrakt przy `CookStep.during`). W żadnej chwili nie mogą biec więcej
+ * niż `MAX_PARALLEL_TIMERS` odliczania — także gdy odliczanie z „w
+ * międzyczasie” trwa dłużej niż nadrzędne i zachodzi na kolejne kroki.
+ */
+function checkTimerTimeline(content: CookScenarioContent, errors: string[]) {
+  const active: { id: string; end: number }[] = [];
+  let now = 0;
+  let waitUntil = 0;
+  for (const step of content.steps) {
+    if (!step.during) {
+      // Krok główny: czeka na koniec timera poprzedniego kroku głównego.
+      now = Math.max(now, waitUntil);
+      waitUntil = 0;
+    }
+    if (!step.timer) continue;
+    const running = active.filter((t) => t.end > now);
+    if (running.length + 1 > MAX_PARALLEL_TIMERS) {
+      errors.push(
+        `${step.id}.timer „${step.timer.label}”: w tej chwili biegną już ${running.length} odliczania (${running
+          .map((t) => t.id)
+          .join(
+            ', ',
+          )}) — najwyżej ${MAX_PARALLEL_TIMERS} naraz; przesuń krok albo połącz czynności`,
+      );
+    }
+    active.push({ id: step.timer.id, end: now + step.timer.maxSeconds });
+    if (!step.during) waitUntil = now + step.timer.minSeconds;
+  }
+}
+
 function checkTimerLayout(content: CookScenarioContent, errors: string[]) {
+  checkTimerTimeline(content, errors);
   const timers = new Map(
     content.steps.flatMap((step) =>
       step.timer ? [[step.timer.id, { step, timer: step.timer }] as const] : [],

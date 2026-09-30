@@ -712,4 +712,34 @@ describe('system pisania — walidatory twarde', () => {
       qualityChecks(recipe, content).errors.filter((e) => e.includes('liczba')),
     ).toEqual([]);
   });
+  describe('oś czasu: najwyżej dwa odliczania naraz (kontrakt przy CookStep.during)', () => {
+    const errorsOf = (content: Content) =>
+      qualityChecks(kotlet, content).errors.filter((e) =>
+        e.includes('biegną już'),
+      );
+
+    it('wzorzec kotleta: ziemniaki zachodzą na smażenie — dwa naraz, w porządku', () => {
+      expect(errorsOf(clone(example.content))).toEqual([]);
+    });
+
+    it('kolejne kroki główne z timerami idą po sobie (każdy czeka na koniec poprzedniego)', () => {
+      const content = clone(example.content);
+      // s5 (nagrzewanie, krok główny) dostaje własny timer — zaczyna się po
+      // maśle, więc biegnie obok ziemniaków: dwa naraz.
+      content.steps.find((st) => st.id === 's5')!.timer = {
+        ...content.steps[8].timer!,
+        id: 't-preheat',
+      };
+      expect(errorsOf(content)).toEqual([]);
+    });
+
+    it('trzecie odliczanie, gdy dwa jeszcze biegną (smażenie + piekarnik) = błąd', () => {
+      const content = clone(example.content);
+      // Kolejne odliczanie „w międzyczasie”, gdy biegną smażenie i piekarnik.
+      const s10 = content.steps.find((st) => st.id === 's10')!;
+      s10.during = 't-cutlets';
+      s10.timer = { ...content.steps[8].timer!, id: 't-third' };
+      expect(errorsOf(content)).toEqual([expect.stringContaining('s10.timer')]);
+    });
+  });
 });
