@@ -192,6 +192,16 @@ describe('system pisania — rundy paczek', () => {
     expect(journals.at(-1)?.round).toBe(2);
   });
 
+  it('bramka nie zatrzymuje serii, która już się skończyła', async () => {
+    const model = new FakeBatchModel(replies());
+    const jobs = newJobs();
+    await runBatchRounds(jobs, model, {
+      onDone: () => Promise.resolve(),
+      gate: () => (jobs.every((job) => job.done) ? 'za późno' : null),
+    });
+    expect(jobs.every((job) => job.hasResult)).toBe(true);
+  });
+
   it('błąd pozycji API jest ponawiany w kolejnych rundach; po 3 pod rząd przebieg jest NIEKOMPLETNY, a wznowienie daje nową serię prób', async () => {
     let failuresLeftForA = 5;
     const model: BatchModel = {

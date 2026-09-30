@@ -387,7 +387,11 @@ export async function runBatchRounds(
     await saveDone();
     if (outcome.stopReason) throw new BatchStoppedError(outcome.stopReason);
     if (journalBroken) throw new BatchStoppedError('journal');
-    const gate = options.gate?.() ?? null;
+    // Bramka ma sens tylko, gdy jest jeszcze co wydać — po ostatniej rundzie
+    // zatrzymanie oznaczałoby skończoną serię jako przerwaną.
+    const gate = jobs.some((job) => !job.done)
+      ? (options.gate?.() ?? null)
+      : null;
     if (gate) {
       log(`bramka jakości: ${gate}`);
       throw new BatchStoppedError('gate', gate);
