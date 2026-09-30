@@ -65,11 +65,13 @@ export const batchCallId = (recipeId: string, round: number) =>
   `${recipeId.replace(/-/g, '')}-r${round}`;
 
 export class BatchStoppedError extends Error {
-  constructor(readonly reason: 'budget' | 'transport') {
+  constructor(readonly reason: 'budget' | 'transport' | 'save') {
     super(
       reason === 'budget'
         ? 'budżet wyczerpany — doładuj i wznów (--resume)'
-        : 'przerwa w komunikacji z Batch API — wznów (--resume)',
+        : reason === 'save'
+          ? 'nie wszystkie gotowe wyniki są zapisane w bazie — sprawdź bazę i wznów (--resume)'
+          : 'przerwa w komunikacji z Batch API — wznów (--resume)',
     );
     this.name = 'BatchStoppedError';
   }
@@ -198,7 +200,14 @@ export async function runBatchRounds(
 
   for (;;) {
     const pending = callsOf(round + 1);
-    if (!pending.length) return;
+    if (!pending.length) {
+      // Sukces tylko wtedy, gdy KAŻDY gotowy wynik jest w bazie (review
+      // Codexa) — inaczej opłacony, a niezapisany wynik zniknąłby z oczu.
+      if (jobs.some((job) => job.done && !handled.has(job.jobId))) {
+        throw new BatchStoppedError('save');
+      }
+      return;
+    }
     round += 1;
     log(`runda ${round}: ${pending.length} wywołań`);
     const outcome = await model.run(

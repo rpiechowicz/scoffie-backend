@@ -201,33 +201,51 @@ describe('system pisania — rundy paczek', () => {
     expect(done).toHaveLength(2);
   });
 
-  it('padający zapis jednego przepisu nie gubi pozostałych; chwilowy błąd zapisu jest ponawiany', async () => {
+  it('padający zapis jednego przepisu nie gubi pozostałych; trwały błąd zapisu = stop do wznowienia', async () => {
     const model = new FakeBatchModel(replies());
     const jobs = newJobs();
     const tries = new Map<string, number>();
     let journal: BatchJournal | null = null;
-    await runBatchRounds(jobs, model, {
-      onDone: (job) => {
-        const n = (tries.get(job.recipe.id) ?? 0) + 1;
-        tries.set(job.recipe.id, n);
-        if (job.recipe.id === idA) {
-          return Promise.reject(new Error('baza leży'));
-        }
-        if (n === 1) return Promise.reject(new Error('chwilowo'));
-        return Promise.resolve();
-      },
-      persist: (j) => {
-        journal = clone(j);
-        return Promise.resolve();
-      },
-      sleep: noSleep,
-    });
-    // A: próby po każdej rundzie i nadal niezapisany — ale B zapisany.
-    expect(tries.get(idA)).toBeGreaterThanOrEqual(3);
+    let databaseUp = false;
+    const onDone = (job: ScenarioJob) => {
+      const n = (tries.get(job.recipe.id) ?? 0) + 1;
+      tries.set(job.recipe.id, n);
+      if (job.recipe.id === idA && !databaseUp) {
+        return Promise.reject(new Error('baza leży'));
+      }
+      if (job.recipe.id === idB && n === 1) {
+        return Promise.reject(new Error('chwilowo'));
+      }
+      return Promise.resolve();
+    };
+    const persist = (j: BatchJournal) => {
+      journal = clone(j);
+      return Promise.resolve();
+    };
+    await expect(
+      runBatchRounds(jobs, model, { onDone, persist, sleep: noSleep }),
+    ).rejects.toMatchObject({ reason: 'save' });
+    // B zapisany (2. próba), A nie — ale jego wynik czeka w dzienniku.
     expect(tries.get(idB)).toBe(2);
     expect(journal!.handled).toEqual([jobs[1].jobId]);
-    // Wynik A nie przepadł — jest w dzienniku do zapisania po wznowieniu.
     expect(journal!.jobs[0].result?.status).toBe('VALIDATED');
+
+    // Baza wróciła: wznowienie zapisuje A bez żadnego wywołania modelu.
+    databaseUp = true;
+    const restored = journal!.jobs.map((s) => ScenarioJob.restore(s, example));
+    const idle: BatchModel = {
+      run: () => Promise.reject(new Error('nie powinno wołać modelu')),
+      collect: () => Promise.reject(new Error('nie powinno wołać modelu')),
+    };
+    await runBatchRounds(restored, idle, {
+      onDone,
+      persist,
+      resume: journal!,
+      sleep: noSleep,
+    });
+    expect(journal!.handled.sort()).toEqual(
+      [jobs[0].jobId, jobs[1].jobId].sort(),
+    );
   });
 
   it('zerwana komunikacja zatrzymuje przebieg; wznowienie odbiera opłaconą paczkę i kończy tak samo', async () => {
