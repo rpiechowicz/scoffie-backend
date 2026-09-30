@@ -32,6 +32,8 @@ export interface WriterIngredient {
   name: string;
   amount: number;
   unit: string;
+  /** Dział katalogu („Mięso”, „Ryby”, „Konserwy”…) — zakres reguł bezpieczeństwa. */
+  department?: string | null;
 }
 
 /** Wynik jednego wywołania modelu. */

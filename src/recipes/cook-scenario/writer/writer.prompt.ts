@@ -52,6 +52,7 @@ TIMERY
 BEZPIECZEŃSTWO
 - Drób: w kroku kończącym obróbkę zawsze „po czym poznać”: 74°C w środku albo „sok przezroczysty, bez różowego w środku”.
 - Mięso mielone: 71°C w środku / bez różowego. Ryba: mięso matowe, nieprzezroczyste, łatwo się rozdziela.
+- „Po czym poznać” stoi w kroku, który ma TEN surowiec w \`ingredients\` albo \`mentions\` (np. krok pieczenia kotletów przywołuje filet). Każdy surowiec osobno: dwa mięsa smażone osobno = dwa sygnały.
 - Ostrzeżenia (\`note\` rodzaju WARNING) tylko tam, gdzie realnie grozi oparzenie lub skaleczenie: gorący tłuszcz, para, gorące nadzienie.
 
 POZOSTAŁE POLA

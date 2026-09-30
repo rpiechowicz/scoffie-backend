@@ -54,6 +54,7 @@ async function readWriterRecipe(
           name: true,
           amount: true,
           unit: true,
+          department: true,
         },
       },
     },

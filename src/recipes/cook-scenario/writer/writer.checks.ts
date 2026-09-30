@@ -7,7 +7,7 @@ import {
   parseCookScenarioContent,
 } from '../cook-scenario.validate';
 import { ingredientKey } from './writer.prompt';
-import type { WriterRecipe } from './writer.types';
+import type { WriterIngredient, WriterRecipe } from './writer.types';
 
 /**
  * Walidatory twarde systemu pisania (§7.3) — deterministyczne, w kodzie.
@@ -271,12 +271,30 @@ function checkOven(content: CookScenarioContent, errors: string[]) {
 // ── Bezpieczeństwo (§5.5) ───────────────────────────────────────────────
 
 /**
- * Tylko produkty jednoznacznie gotowe do jedzenia (wędzone, z puszki,
- * wędliny, buliony, pasty, sosy). NIE „marynowany” ani „w sosie” — surowy
- * kurczak w marynacie nadal wymaga dopieczenia (review Codexa, E3a runda 3).
+ * Kogo dotyczy reguła „po czym poznać” (review Codexa, E3a rundy 3 i 5):
+ * - zakres wg DZIAŁU katalogu — Mięso, Ryby, Mrożonki; „Konserwy” (tuńczyk
+ *   w puszce) i „Przyprawy i sosy” (papryka mielona) z definicji nie; bez
+ *   działu (przepis domu) decyduje nazwa;
+ * - wyjątek tylko dla jednoznacznych produktów gotowych do jedzenia, pisanych
+ *   od początku nazwy („wędlina…”, „szynka…”, „parówka…”) albo wędzonych
+ *   i z puszki — i nigdy, gdy nazwa mówi „surowy” / „do gotowania”;
+ *   „marynowany”, „w sosie”, „kiełbasa” wyjątkiem nie są.
  */
-const READY_TO_EAT =
-  /(bulion|rosół|rosoł|wywar|kostk|wędzon|wędlin|szynk|parówk|kiełbas|pusz[ck]|konserw|w oleju|pasztet|pieczon|gotowan|^sos |^pasta )/iu;
+const RAW_DEPARTMENTS = new Set(['Mięso', 'Ryby', 'Mrożonki']);
+const READY_PRODUCT =
+  /^(?:wędlin|szynk|parówk|pasztet|bulion|rosół|wywar|kostk|sos |pasta )|wędzon|w puszce|z puszki|konserw|w oleju/iu;
+const RAW_MARKER =
+  /(surow|do gotowania|do pieczenia|do smażenia|do duszenia)/iu;
+
+function needsDonenessCue(ingredient: WriterIngredient): boolean {
+  if (ingredient.department && !RAW_DEPARTMENTS.has(ingredient.department)) {
+    return false;
+  }
+  return (
+    RAW_MARKER.test(ingredient.name) || !READY_PRODUCT.test(ingredient.name)
+  );
+}
+
 const POULTRY = /(kurczak|kurczę|indyk|indycz|kacz|drobi|gęś|gęsi)/iu;
 /** Mielone MIĘSO — „papryka mielona” i „imbir mielony” to przyprawy. */
 const MINCED =
@@ -344,23 +362,21 @@ function checkSafety(
 ) {
   for (const rule of SAFETY) {
     for (const raw of recipe.ingredients) {
-      if (!rule.ingredient.test(raw.name) || READY_TO_EAT.test(raw.name))
-        continue;
-      // Sygnał liczy się dopiero od kroku, w którym surowiec wchodzi do pracy
-      // — „bez różowego” w rozgrzewce nie mówi nic o gotowym mięsie.
-      const enters = content.steps.findIndex(
+      if (!rule.ingredient.test(raw.name) || !needsDonenessCue(raw)) continue;
+      // Sygnał musi stać w kroku, który ma TEN surowiec (w składnikach albo
+      // przywołaniach) — „74°C” przy indyku nie mówi nic o kurczaku
+      // smażonym osobno (review Codexa, E3a runda 5).
+      const cued = content.steps.some(
         (step) =>
-          step.ingredients.some(
+          (step.ingredients.some(
             (item) => item.ingredientId === raw.ingredientId,
-          ) || step.mentions.includes(raw.ingredientId),
+          ) ||
+            step.mentions.includes(raw.ingredientId)) &&
+          hasAffirmativeCue(stepText(step), rule.cue),
       );
-      const from = enters < 0 ? 0 : enters;
-      const cued = content.steps
-        .slice(from)
-        .some((step) => hasAffirmativeCue(stepText(step), rule.cue));
       if (!cued) {
         errors.push(
-          `bezpieczeństwo (${rule.label}: „${raw.name}”): brak „po czym poznać” — ${rule.hint}`,
+          `bezpieczeństwo (${rule.label}: „${raw.name}”): brak „po czym poznać” w kroku z tym składnikiem (w składnikach albo przywołaniach) — ${rule.hint}`,
         );
       }
     }

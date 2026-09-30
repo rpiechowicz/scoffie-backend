@@ -4,7 +4,11 @@ import {
   resolveWriterOutput,
   skipGuard,
 } from './writer.checks';
-import { clone, kotletExample } from './writer.fixtures.spec-helper';
+import {
+  clone,
+  kotletExample,
+  type Content,
+} from './writer.fixtures.spec-helper';
 import { buildWriterSystem, exampleOutput } from './writer.prompt';
 import type { WriterRecipe } from './writer.types';
 
@@ -349,6 +353,96 @@ describe('system pisania — walidatory twarde', () => {
       'sardynka w oleju',
     ])('„%s” nie wymaga', (name) => {
       expect(safetyErrors(name)).toEqual([]);
+    });
+  });
+  describe('bezpieczeństwo: sygnał przy właściwym surowcu i dział katalogu', () => {
+    const turkey = {
+      ingredientId: 'filet z indyka',
+      name: 'filet z indyka',
+      amount: 200,
+      unit: 'g',
+      department: 'Mięso',
+    };
+    const withTurkey: WriterRecipe = {
+      ...kotlet,
+      ingredients: [...kotlet.ingredients, turkey],
+    };
+    const turkeyStep = (body: string) => ({
+      ...clone(example.content.steps[7]),
+      id: 's13',
+      title: 'Usmaż indyka osobno',
+      body,
+      ingredients: [
+        {
+          ingredientId: turkey.ingredientId,
+          amount: 200,
+          unit: 'g',
+          part: 'ALL' as const,
+        },
+      ],
+      mentions: [],
+      note: null,
+      timer: null,
+      during: null,
+    });
+    const safety = (recipe: WriterRecipe, content: Content) =>
+      qualityChecks(recipe, content).errors.filter((e) =>
+        e.includes('bezpieczeństwo'),
+      );
+
+    it('dwa mięsa smażone osobno: sygnał tylko przy kurczaku nie zalicza indyka', () => {
+      const content = clone(example.content);
+      content.steps.push(turkeyStep('Smaż na złoto z obu stron.'));
+      expect(safety(withTurkey, content)).toEqual([
+        expect.stringContaining('„filet z indyka”'),
+      ]);
+    });
+
+    it('…i odwrotnie: sygnał tylko przy indyku nie zalicza kurczaka', () => {
+      const content = clone(example.content);
+      content.steps.find((s) => s.id === 's9')!.note = null;
+      content.steps.push(turkeyStep('Smaż, aż w środku będzie 74°C.'));
+      expect(safety(withTurkey, content)).toEqual([
+        expect.stringContaining('„filet z kurczaka”'),
+      ]);
+    });
+
+    const noCueErrors = (name: string, department: string | null) => {
+      const content = clone(example.content);
+      content.steps.find((s) => s.id === 's9')!.note = null;
+      return safety(
+        {
+          ...kotlet,
+          ingredients: kotlet.ingredients.map((row) =>
+            row.name === 'filet z kurczaka'
+              ? { ...row, name, department }
+              : row,
+          ),
+        },
+        content,
+      );
+    };
+
+    it.each([
+      ['surowa kiełbasa drobiowa', 'Mięso'],
+      ['kiełbasa drobiowa', 'Mięso'],
+      ['kurczak do gotowania', 'Mięso'],
+      ['szynka z indyka surowa', 'Mięso'],
+      ['łosoś', 'Mrożonki'],
+      ['filet z kurczaka', null],
+    ])('„%s” (%s) wymaga sygnału', (name, department) => {
+      expect(noCueErrors(name, department)).toHaveLength(1);
+    });
+
+    it.each([
+      ['tuńczyk w puszce', 'Konserwy'],
+      ['bulion drobiowy', 'Konserwy'],
+      ['papryka słodka mielona', 'Przyprawy i sosy'],
+      ['szynka z indyka', 'Mięso'],
+      ['wędlina drobiowa', 'Mięso'],
+      ['łosoś wędzony', 'Ryby'],
+    ])('„%s” (%s) nie wymaga', (name, department) => {
+      expect(noCueErrors(name, department)).toEqual([]);
     });
   });
 });
