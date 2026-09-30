@@ -530,4 +530,62 @@ describe('Scenariusze Gotuj E2E', () => {
       scenario: null,
     });
   });
+
+  it('przeniesienie składnika do innego przepisu unieważnia OBA scenariusze', async () => {
+    // Oba przepisy z opublikowanym scenariuszem: kotlet (wzorzec) i tost domu.
+    const kotlet = await publish(KOTLET.recipeId, await kotletContent());
+    const toast = await prisma.recipe.findUniqueOrThrow({
+      where: { id: privateRecipeId },
+      select: { servings: true },
+    });
+    await publish(privateRecipeId, {
+      schemaVersion: 1,
+      basePortions: toast.servings,
+      portionUnit: null,
+      totalMinutes: 5,
+      tips: [],
+      nextTimeTip: null,
+      steps: [
+        {
+          id: 's1',
+          phase: 'COOK',
+          stage: null,
+          title: 'Opiecz tost',
+          body: 'Włóż chleb do tostera na 2 minuty.',
+          ingredients: [],
+          mentions: [],
+          note: null,
+          timer: null,
+          during: null,
+          scaleNote: null,
+        },
+      ],
+    });
+    expect((await scenarioState(KOTLET.recipeId)).version).toBe(kotlet.version);
+    expect((await scenarioState(privateRecipeId)).published).toBe(1);
+
+    const butter = await prisma.recipeIngredient.findFirstOrThrow({
+      where: { recipeId: KOTLET.recipeId, name: 'masło' },
+      select: { id: true },
+    });
+    await prisma.recipeIngredient.update({
+      where: { id: butter.id },
+      data: { recipeId: privateRecipeId },
+    });
+    try {
+      expect(await scenarioState(KOTLET.recipeId)).toEqual({
+        version: null,
+        published: 0,
+      });
+      expect(await scenarioState(privateRecipeId)).toEqual({
+        version: null,
+        published: 0,
+      });
+    } finally {
+      await prisma.recipeIngredient.update({
+        where: { id: butter.id },
+        data: { recipeId: KOTLET.recipeId },
+      });
+    }
+  });
 });

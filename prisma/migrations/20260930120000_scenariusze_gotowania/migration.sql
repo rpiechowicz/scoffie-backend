@@ -25,7 +25,7 @@
 --    rewizji katalogu — ewentualne czekanie na wiersz przepisu przypada przed
 --    zamkiem (ADR catalog-change-commit-order §6). Żadnego DDL/LOCK w DML.
 --
--- Rollback: DROP TRIGGER ×2, DROP FUNCTION ×2, DROP TABLE "RecipeCookScenario",
+-- Rollback: DROP TRIGGER ×2, DROP FUNCTION ×3, DROP TABLE "RecipeCookScenario",
 -- DROP TYPE "CookScenarioStatus", ALTER TABLE "Recipe" DROP COLUMN "cookScenarioVersion".
 
 -- CreateEnum
@@ -94,31 +94,24 @@ LANGUAGE sql STABLE AS $$
   WHERE r."id" = p_recipe
 $$;
 
-CREATE OR REPLACE FUNCTION cook_scenario_staleness() RETURNS trigger
+-- Sprawdzenie JEDNEGO przepisu: opublikowany scenariusz z innym podpisem niż
+-- bieżący → STALE i `cookScenarioVersion` = NULL.
+CREATE OR REPLACE FUNCTION cook_scenario_check(target UUID) RETURNS void
 LANGUAGE plpgsql AS $$
 DECLARE
-  target UUID;
   published TEXT;
   current_signature TEXT;
 BEGIN
-  IF TG_TABLE_NAME = 'Recipe' THEN
-    target := NEW."id";
-  ELSIF TG_OP = 'DELETE' THEN
-    target := OLD."recipeId";
-  ELSE
-    target := NEW."recipeId";
-  END IF;
-
   SELECT s."recipeContentHash" INTO published
     FROM "RecipeCookScenario" s
    WHERE s."recipeId" = target AND s."status" = 'PUBLISHED';
   IF published IS NULL THEN
-    RETURN NULL;
+    RETURN;
   END IF;
   current_signature := recipe_content_signature(target);
   -- Przepis skasowany w tej transakcji (kaskada) — scenariusze odejdą z nim.
   IF current_signature IS NULL OR current_signature = published THEN
-    RETURN NULL;
+    RETURN;
   END IF;
 
   -- Kolejność blokad jak w `publishCookScenario`: wiersz przepisu, potem
@@ -129,6 +122,24 @@ BEGIN
   UPDATE "RecipeCookScenario"
      SET "status" = 'STALE', "updatedAt" = CURRENT_TIMESTAMP
    WHERE "recipeId" = target AND "status" = 'PUBLISHED';
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION cook_scenario_staleness() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_TABLE_NAME = 'Recipe' THEN
+    PERFORM cook_scenario_check(NEW."id");
+  ELSIF TG_OP = 'DELETE' THEN
+    PERFORM cook_scenario_check(OLD."recipeId");
+  ELSE
+    PERFORM cook_scenario_check(NEW."recipeId");
+    -- Składnik przeniesiony do innego przepisu zmienia OBA — jak w
+    -- `catalog_change_from_recipe_ingredient` (review Codexa, 30.09.2026).
+    IF TG_OP = 'UPDATE' AND OLD."recipeId" IS DISTINCT FROM NEW."recipeId" THEN
+      PERFORM cook_scenario_check(OLD."recipeId");
+    END IF;
+  END IF;
   RETURN NULL;
 END;
 $$;
