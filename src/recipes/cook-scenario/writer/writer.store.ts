@@ -110,6 +110,12 @@ export interface SaveWrittenInput {
   signature: string;
   outcome: WriteOutcome;
   generator: Prisma.InputJsonValue;
+  /**
+   * Klucz zadania (`ScenarioJob.jobId`): gdy wersja z tym kluczem już jest,
+   * zapis nic nie dopisuje — ponowienie po niejasnym błędzie (transakcja
+   * przeszła, potwierdzenie zginęło) nie tworzy duplikatu.
+   */
+  jobId?: string;
 }
 
 /**
@@ -129,7 +135,7 @@ export interface SaveWrittenInput {
 export async function saveWrittenScenario(
   tx: Prisma.TransactionClient,
   input: SaveWrittenInput,
-): Promise<{ version: number; status: string }> {
+): Promise<{ version: number; status: string; duplicate?: boolean }> {
   const locked = await tx.$queryRaw<{ id: string }[]>`
     SELECT "id" FROM "Recipe" WHERE "id" = ${input.recipe.id}::uuid FOR UPDATE`;
   if (locked.length === 0) {
@@ -138,6 +144,13 @@ export async function saveWrittenScenario(
       'Nie znaleziono przepisu.',
       HttpStatus.NOT_FOUND,
     );
+  }
+  if (input.jobId) {
+    const existing = await tx.$queryRaw<{ version: number; status: string }[]>`
+      SELECT "version", "status"::text AS "status" FROM "RecipeCookScenario"
+       WHERE "recipeId" = ${input.recipe.id}::uuid
+         AND "validationReport"->>'jobId' = ${input.jobId}`;
+    if (existing.length) return { ...existing[0], duplicate: true };
   }
   const [{ signature }] = await tx.$queryRaw<{ signature: string }[]>`
     SELECT recipe_content_signature(${input.recipe.id}::uuid) AS "signature"`;
@@ -166,6 +179,7 @@ export async function saveWrittenScenario(
       generator: input.generator,
       validationReport: {
         outcome: outcome.status,
+        ...(input.jobId ? { jobId: input.jobId } : {}),
         inputHash: writerInputHash(input.recipe),
         recipeChangedDuringWrite: changed,
         review: outcome.review,

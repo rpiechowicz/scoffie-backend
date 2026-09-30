@@ -18,8 +18,16 @@
 
 export const COOK_SCENARIO_SCHEMA_VERSION = 1;
 
-/** Zasady pisania (§5), według których powstał scenariusz wzorcowy. */
-export const COOK_SCENARIO_RULES_VERSION = '2026-09-30';
+/**
+ * Zasady pisania (§5), według których powstał scenariusz wzorcowy.
+ * `.2` (30.09, po pilocie E3b): liczba z jednostką przepisana dosłownie
+ * z kroków przepisu, gdy nie jest ilością składnika; jeden czas z przepisu =
+ * jeden timer.
+ * `.3` (30.09, decyzje Rafała po pilocie): timer od 4 min, najwyżej dwa
+ * odliczania naraz, kroki „w międzyczasie” mieszczą się po ludzku (±2 min),
+ * tryb piekarnika zawsze podany, praktyczne wskazówki dozwolone.
+ */
+export const COOK_SCENARIO_RULES_VERSION = '2026-09-30.3';
 
 export const COOK_STEP_PHASES = ['PREP', 'COOK', 'FINISH', 'SERVE'] as const;
 export type CookStepPhase = (typeof COOK_STEP_PHASES)[number];
@@ -102,7 +110,15 @@ export interface CookStep {
   mentions: string[];
   note: CookStepNote | null;
   timer: CookTimer | null;
-  /** `id` timera z WCZEŚNIEJSZEGO kroku, pod którym ten krok się mieści. */
+  /**
+   * `id` timera z WCZEŚNIEJSZEGO kroku, pod którym ten krok się mieści.
+   *
+   * KONTRAKT OŚ CZASU (walidator `checkTimerTimeline`, telefon E4): krok
+   * BEZ `during` po kroku z timerem zaczyna się po końcu tego timera —
+   * „Dalej” dopiero po alarmie (albo świadomym „gotowe wcześniej”). Timer
+   * startowany w kroku z `during` biegnie dalej sam, także po końcu
+   * nadrzędnego (ziemniaki nastawione, gdy masło chłodzi się w zamrażarce).
+   */
   during: string | null;
   /** Nota skali pokazywana dopiero od `fromPortions` porcji. */
   scaleNote: { fromPortions: number; text: string } | null;

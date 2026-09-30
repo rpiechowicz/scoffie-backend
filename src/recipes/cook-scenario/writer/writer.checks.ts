@@ -141,6 +141,7 @@ export function resolveWriterOutput(
 // ── Czasy z przepisu ────────────────────────────────────────────────────
 
 const PL = 'a-ząćęłńóśźż';
+const PL_UPPER = 'A-ZĄĆĘŁŃÓŚŹŻ';
 const NUM = String.raw`(\d+(?:[.,]\d+)?)`;
 const TIME_UNIT = `(min[${PL}.]*|godz[${PL}.]*|h(?![${PL}])|sek[${PL}.]*)`;
 const DURATION = new RegExp(
@@ -157,14 +158,95 @@ const unitSeconds = (unit: string) => {
 const toNumber = (raw: string) => Number(raw.replace(',', '.'));
 
 /** Zakresy czasów [min, max] w sekundach wymienione w krokach przepisu. */
+/** Aktywna obróbka przy patelni — stoi się przy niej, bez łącznego timera. */
+const ACTIVE_PAN = /(smaż|podsmaż|usmaż|opiekaj|obsmaż|patel)/iu;
+
+const PER_SIDE =
+  /^\s*(?:[^\s.,;]+\s+){0,2}?z\s+(?:każdej|obu|jednej\s+i\s+drugiej)\s+stron/iu;
+
+/**
+ * Czasy przepisu z informacją, które są WYMIENNE: „po X min z każdej
+ * strony” = dwa odliczania po X (`singles`) ALBO jedno łączne 2X
+ * (`combined`) — nigdy wszystkie trzy (review Codexa).
+ */
+export interface DurationPool {
+  ranges: [number, number][];
+  /**
+   * `combined` = `null` przy aktywnej obróbce na patelni („smaż po 3 min
+   * z każdej strony”): łączny timer odpada — użytkownik stoi przy patelni
+   * (review Codexa; prompt: krótka aktywna czynność bez timera).
+   */
+  perSide: { singles: [number, number]; combined: number | null }[];
+}
+
 export function recipeDurations(instructions: string[]): [number, number][] {
+  return recipeDurationPool(instructions).ranges;
+}
+
+/**
+ * Czasy, które tekst NAPRAWDĘ podaje — bez łącznego „z każdej strony”
+ * wyliczonego do puli (tekst „po 2 minuty z każdej strony” nie twierdzi,
+ * że coś trwa 4 minuty).
+ */
+function claimedDurations(text: string): [number, number][] {
+  const pool = recipeDurationPool([text]);
+  const derived = new Set(pool.perSide.map((group) => group.combined));
+  return pool.ranges.filter((_, i) => !derived.has(i));
+}
+
+/** Koniec zdania: [.!?] i spacja przed wielką literą (nie skrót „ok.”). */
+const SENTENCE_BREAK = new RegExp(`[.!?]\\s+(?=[${PL_UPPER}])`, 'gu');
+
+function sentenceStart(line: string, at: number): number {
+  let start = 0;
+  for (const match of line.matchAll(SENTENCE_BREAK)) {
+    const end = (match.index ?? 0) + match[0].length;
+    if (end > at) break;
+    start = end;
+  }
+  return start;
+}
+
+function sentenceEnd(line: string, at: number): number | undefined {
+  for (const match of line.matchAll(SENTENCE_BREAK)) {
+    if ((match.index ?? 0) >= at) return match.index;
+  }
+  return undefined;
+}
+
+export function recipeDurationPool(instructions: string[]): DurationPool {
   const found: [number, number][] = [];
+  const perSide: DurationPool['perSide'] = [];
   for (const line of instructions) {
     for (const match of line.matchAll(DURATION)) {
       const seconds = unitSeconds(match[3]);
       const from = toNumber(match[1]) * seconds;
       const to = match[2] ? toNumber(match[2]) * seconds : from;
-      found.push([Math.min(from, to), Math.max(from, to)]);
+      const range: [number, number] = [Math.min(from, to), Math.max(from, to)];
+      found.push(range);
+      // „Po 3 minuty z każdej strony” to DWA odliczania albo jedno łączne
+      // (pilot E3b: ryba po grecku, gruszka) — oba zapisy są wierne przepisowi.
+      const after = line
+        .slice((match.index ?? 0) + match[0].length)
+        .slice(0, 40);
+      if (PER_SIDE.test(after)) {
+        const first = found.length - 1;
+        // Zdanie, w którym stoi czas — czy to aktywne smażenie na patelni.
+        // Granica zdania to kropka przed WIELKĄ literą: „smaż ok. 2 minuty”
+        // (skrót „ok.”) to wciąż jedno zdanie (test paczek E3b, gruszka).
+        const start = match.index ?? 0;
+        const sentence = line.slice(
+          sentenceStart(line, start),
+          sentenceEnd(line, start),
+        );
+        found.push(range);
+        if (ACTIVE_PAN.test(sentence)) {
+          perSide.push({ singles: [first, first + 1], combined: null });
+        } else {
+          found.push([range[0] * 2, range[1] * 2]);
+          perSide.push({ singles: [first, first + 1], combined: first + 2 });
+        }
+      }
     }
     const lower = line.toLowerCase();
     if (lower.includes('kwadrans')) found.push([900, 900]);
@@ -172,7 +254,7 @@ export function recipeDurations(instructions: string[]): [number, number][] {
     if (lower.includes('półtorej godziny')) found.push([5400, 5400]);
     if (/(^|[^\d\s]\s*)godzinę/.test(lower)) found.push([3600, 3600]);
   }
-  return found;
+  return { ranges: found, perSide };
 }
 
 const tolerance = (seconds: number) => Math.max(60, seconds * 0.1);
@@ -184,8 +266,9 @@ const NUMBER_IN_TEXT = new RegExp(
   `\\d+(?:[.,]\\d+)?(?:\\s*(?:[–—-]|do)\\s*\\d+(?:[.,]\\d+)?)?`,
   'g',
 );
+// Wymiar „3 × 4 cm”, „20 x 30 cm” — pierwsza liczba też jest rozmiarem.
 const ALLOWED_AFTER_NUMBER = new RegExp(
-  `^\\s*(?:min|godz|h(?![${PL}])|sek|s(?![${PL}])|°|stopni|cm|mm|%)`,
+  `^\\s*(?:min|godz|h(?![${PL}])|sek|s(?![${PL}])|°|stopni|cm|mm|%|[×x]\\s*\\d+(?:[.,]\\d+)?\\s*(?:cm|mm))`,
   'i',
 );
 
@@ -209,6 +292,95 @@ function textFields(content: CookScenarioContent): [string, string][] {
     }
   });
   return fields;
+}
+
+const QUANTITY_IN_RECIPE = new RegExp(
+  `(\\d+(?:[.,]\\d+)?)\\s*([${PL}]+)`,
+  'giu',
+);
+const UNIT_AFTER = new RegExp(`^\\s*([${PL}]+)`, 'iu');
+const toAmount = (raw: string) => Number(raw.replace(',', '.'));
+const sameUnit = (a: string, b: string) => {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  return x.startsWith(y) || y.startsWith(x);
+};
+
+/**
+ * Liczba z jednostką przepisana DOSŁOWNIE z kroków przepisu, która nie
+ * jest ilością składnika z listy (pilot E3b, 30.09): „naczynie ok. 1,5 l”,
+ * „100 ml zimnej wody”, gdy wody nie ma w składnikach — tego telefon nie
+ * pokaże przy kroku, więc tekst musi to powiedzieć. Ilość składnika z listy
+ * („320 g”) nadal wolno podać tylko przy kroku.
+ */
+/**
+ * Czy ilość w tekście dotyczy składnika z listy (review Codexa): po polsku
+ * ilość określa rzeczownik po jednostce, czasem po przymiotnikach („100 ml
+ * świeżo wyciśniętego soku”) — sprawdzamy CAŁĄ resztę zdania po jednostce
+ * i 1 słowo tuż przed liczbą, i tylko składniki w TEJ
+ * SAMEJ jednostce („1,5 l” nie dotyczy masła w gramach). Zachowawczo:
+ * fałszywy alarm każe tylko przepisać zdanie bez liczby. Porównanie po pierwszych
+ * 3 literach słów nazwy — z zapasem na odmianę („mleko” / „mleka”).
+ */
+function mentionsIngredient(
+  recipe: WriterRecipe,
+  text: string,
+  numberStart: number,
+  unitEnd: number,
+  unit: string,
+): boolean {
+  const words = (fragment: string): string[] =>
+    fragment.toLowerCase().match(new RegExp(`[${PL}]+`, 'giu')) ?? [];
+  // Do granicy ZDANIA albo nawiasu — przecinek bywa wewnątrz wyrażenia
+  // („przegotowanego, zimnego mleka”), a nawias zamyka dopowiedzenie
+  // („ciepłej wody (100 ml), oleju” — 100 ml to woda, nie olej).
+  const tail = text.slice(unitEnd).split(/[.;:!?()—–]/)[0];
+  const around = [
+    ...words(text.slice(0, numberStart)).slice(-1),
+    ...words(tail),
+  ];
+  const stems = recipe.ingredients
+    .filter((row) => sameUnit(row.unit, unit))
+    .flatMap((row) =>
+      words(row.name)
+        .filter((word) => word.length >= 3)
+        .map((word) => word.slice(0, 3)),
+    );
+  return around.some((word) => stems.some((stem) => word.startsWith(stem)));
+}
+
+/**
+ * Liczba z jednostką przepisana DOSŁOWNIE z kroków przepisu, która nie
+ * jest ilością składnika z listy (pilot E3b, 30.09): „naczynie ok. 1,5 l”,
+ * „100 ml zimnej wody”, gdy wody nie ma w składnikach — tego telefon nie
+ * pokaże przy kroku, więc tekst musi to powiedzieć. Ilość składnika z listy
+ * — całość („320 g”) ALBO część („100 ml mleka” z 200 ml) — nadal tylko
+ * przy kroku: w tekście nie przeskalowałaby się z porcjami.
+ */
+function isRecipeQuantity(
+  recipe: WriterRecipe,
+  amount: number,
+  unit: string,
+): boolean {
+  const isIngredientAmount = recipe.ingredients.some(
+    (row) => row.amount === amount && sameUnit(row.unit, unit),
+  );
+  if (isIngredientAmount) return false;
+  return recipe.instructions.some((line) =>
+    [...line.matchAll(QUANTITY_IN_RECIPE)].some((match) => {
+      if (toAmount(match[1]) !== amount || !sameUnit(match[2], unit)) {
+        return false;
+      }
+      const start = match.index ?? 0;
+      return !mentionsIngredient(
+        recipe,
+        line,
+        start,
+        start + match[0].length,
+        unit,
+      );
+    }),
+  );
 }
 
 function checkNumbersInText(
@@ -236,11 +408,125 @@ function checkNumbersInText(
     }
     for (const match of value.matchAll(NUMBER_IN_TEXT)) {
       const after = value.slice((match.index ?? 0) + match[0].length);
-      if (!ALLOWED_AFTER_NUMBER.test(after)) {
-        errors.push(
-          `${path}: liczba „${match[0]}” w tekście — ilości tylko przy kroku, sztuki tokenem {count:…}; cyfry wolno tylko dla czasu, temperatury i rozmiaru`,
-        );
+      if (ALLOWED_AFTER_NUMBER.test(after)) continue;
+      const unit = UNIT_AFTER.exec(after)?.[1];
+      const single = /^\d+(?:[.,]\d+)?$/.test(match[0]);
+      const start = match.index ?? 0;
+      const unitEnd =
+        start + match[0].length + (UNIT_AFTER.exec(after)?.[0].length ?? 0);
+      if (
+        unit &&
+        single &&
+        isRecipeQuantity(recipe, toAmount(match[0]), unit) &&
+        // Także w tekście scenariusza liczba nie może stać przy składniku.
+        !mentionsIngredient(recipe, value, start, unitEnd, unit)
+      ) {
+        continue;
       }
+      errors.push(
+        `${path}: liczba „${match[0]}” w tekście — ilości składników tylko przy kroku, sztuki tokenem {count:…}; cyframi wolno czas, temperaturę, rozmiar albo liczbę z jednostką przepisaną dosłownie z kroków przepisu (np. „1,5 l”, gdy nie jest ilością składnika)`,
+      );
+    }
+  }
+}
+
+// ── Pisownia (D32) ──────────────────────────────────────────────────────
+
+/**
+ * Słowa kuchenne, które model czasem pisze BEZ polskich znaków (pilot:
+ * „kroj” dwa razy przeszło recenzenta). Tylko formy, które same nie są
+ * poprawnymi słowami — „cebule”, „soli”, „ze” tu nie trafiają. Lista rośnie
+ * z przeglądem; recenzent pilnuje reszty.
+ */
+const MISSING_DIACRITICS: Record<string, string> = {
+  kroj: 'krój',
+  pokroj: 'pokrój',
+  ukroj: 'ukrój',
+  wykroj: 'wykrój',
+  kroic: 'kroić',
+  wloz: 'włóż',
+  poloz: 'połóż',
+  odloz: 'odłóż',
+  przeloz: 'przełóż',
+  doloz: 'dołóż',
+  wyloz: 'wyłóż',
+  zloz: 'złóż',
+  wlacz: 'włącz',
+  wylacz: 'wyłącz',
+  obroc: 'obróć',
+  przewroc: 'przewróć',
+  wez: 'weź',
+  smaz: 'smaż',
+  usmaz: 'usmaż',
+  podsmaz: 'podsmaż',
+  posol: 'posól',
+  osol: 'osól',
+  zeszklij: 'zeszklij',
+  maslo: 'masło',
+  masla: 'masła',
+  maslem: 'masłem',
+  mieso: 'mięso',
+  miesa: 'mięsa',
+  miesem: 'mięsem',
+  make: 'mąkę',
+  maki: 'mąki',
+  maka: 'mąka',
+  zoltko: 'żółtko',
+  zoltka: 'żółtka',
+  zolty: 'żółty',
+  zlote: 'złote',
+  zloty: 'złoty',
+  zlota: 'złota',
+  lyzka: 'łyżka',
+  lyzke: 'łyżkę',
+  lyzki: 'łyżki',
+  lyzeczka: 'łyżeczka',
+  lyzeczke: 'łyżeczkę',
+  szczypte: 'szczyptę',
+  wode: 'wodę',
+  goracy: 'gorący',
+  goraca: 'gorąca',
+  gorace: 'gorące',
+  goracej: 'gorącej',
+  goracym: 'gorącym',
+  miekki: 'miękki',
+  miekka: 'miękka',
+  miekkie: 'miękkie',
+  srodek: 'środek',
+  srodka: 'środka',
+  srodku: 'środku',
+  sredni: 'średni',
+  sredniego: 'średniego',
+  sredniej: 'średniej',
+  ogien: 'ogień',
+  dluzej: 'dłużej',
+  krotko: 'krótko',
+  pozniej: 'później',
+  wczesniej: 'wcześniej',
+  juz: 'już',
+  moze: 'może',
+  az: 'aż',
+  zeby: 'żeby',
+  rowno: 'równo',
+  rowniez: 'również',
+  wiecej: 'więcej',
+  mniej: 'mniej',
+};
+// `zeszklij` i `mniej` są poprawne — zostają w mapie tylko jako strażnicy
+// przed pomyłką przy dopisywaniu; filtr niżej je pomija.
+const TYPO_WORDS = Object.entries(MISSING_DIACRITICS).filter(
+  ([wrong, right]) => wrong !== right,
+);
+const TYPO = new RegExp(
+  `(?<![\\p{L}])(${TYPO_WORDS.map(([wrong]) => wrong).join('|')})(?![\\p{L}])`,
+  'giu',
+);
+
+function checkSpelling(content: CookScenarioContent, errors: string[]) {
+  for (const [path, text] of textFields(content)) {
+    for (const match of text.matchAll(TYPO)) {
+      const right = MISSING_DIACRITICS[match[1].toLowerCase()];
+      errors.push(`${path}: pisownia „${match[1]}” → „${right}”`);
     }
   }
 }
@@ -265,8 +551,18 @@ function checkOven(content: CookScenarioContent, errors: string[]) {
     errors.push(
       `${content.steps[firstUse].id}: piekarnik używany bez wcześniejszego kroku „Nagrzej piekarnik do …°C”`,
     );
+    return;
+  }
+  // Rafał 30.09: użytkownik ma wiedzieć, JAK ustawić piekarnik — tryb
+  // grzania zawsze w kroku nagrzewania (z przepisu, domyślnie góra–dół).
+  if (!OVEN_MODE.test(texts[preheat])) {
+    errors.push(
+      `${content.steps[preheat].id}: krok nagrzewania nie mówi, jak ustawić piekarnik — napisz tryb (góra–dół, termoobieg, grill); gdy przepis nie mówi, góra–dół`,
+    );
   }
 }
+
+const OVEN_MODE = /(góra|dół|termoobieg|grill|grzałk|górn|doln|wentylator)/iu;
 
 // ── Bezpieczeństwo (§5.5) ───────────────────────────────────────────────
 
@@ -443,7 +739,7 @@ function checkTextClaims(
   if (content.nextTimeTip) general.push(['nextTimeTip', content.nextTimeTip]);
   for (const [path, text] of general) {
     checkTemperatures(path, text);
-    for (const range of recipeDurations([text])) {
+    for (const range of claimedDurations(text)) {
       // Rady mówią też o planie („obiad zajmie wtedy 25 minut”) — do czasu
       // całego scenariusza wolno; dłużej tylko czas z przepisu.
       if (
@@ -474,7 +770,7 @@ function checkTextClaims(
     if (OVEN_PREHEAT.test(stepText(step))) continue;
     const own = step.timer?.maxSeconds;
     const during = step.during ? timerMax.get(step.during) : undefined;
-    for (const range of recipeDurations([texts])) {
+    for (const range of claimedDurations(texts)) {
       if (own !== undefined && range[1] > own + tolerance(own)) {
         errors.push(
           `${step.id}: tekst mówi ${describeRange(range)}, a timer kroku ${own} s — tekst i timer muszą się zgadzać`,
@@ -506,45 +802,275 @@ function checkTextClaims(
  */
 function checkTimers(
   content: CookScenarioContent,
-  recipeRanges: [number, number][],
+  pool: DurationPool,
   errors: string[],
   warnings: string[],
 ) {
+  const recipeRanges = pool.ranges;
   const timers = content.steps.flatMap((step) =>
     step.timer ? [{ step: step.id, timer: step.timer }] : [],
   );
-  const candidates = timers.map(({ timer }) =>
-    recipeRanges.flatMap((range, index) =>
-      fitsRange([timer.minSeconds, timer.maxSeconds], range) ? [index] : [],
+  const fits = (timerIndex: number, range: number) => {
+    const { timer } = timers[timerIndex];
+    return fitsRange([timer.minSeconds, timer.maxSeconds], recipeRanges[range]);
+  };
+  const inGroup = new Set(
+    pool.perSide.flatMap((g) =>
+      g.combined === null ? g.singles : [...g.singles, g.combined],
     ),
   );
-  const owner = new Array<number>(recipeRanges.length).fill(-1);
-  const assign = (timer: number, seen: Set<number>): boolean => {
-    for (const range of candidates[timer]) {
-      if (seen.has(range)) continue;
-      seen.add(range);
-      if (owner[range] < 0 || assign(owner[range], seen)) {
-        owner[range] = timer;
-        return true;
+  const ordinary = recipeRanges
+    .map((_, index) => index)
+    .filter((index) => !inGroup.has(index));
+
+  /** Skojarzenie timerów z dozwolonymi wystąpieniami (graf dwudzielny). */
+  const match = (allowed: number[]) => {
+    const owner = new Map<number, number>();
+    const assign = (timer: number, seen: Set<number>): boolean => {
+      for (const range of allowed) {
+        if (seen.has(range) || !fits(timer, range)) continue;
+        seen.add(range);
+        const current = owner.get(range);
+        if (current === undefined || assign(current, seen)) {
+          owner.set(range, timer);
+          return true;
+        }
       }
-    }
-    return false;
+      return false;
+    };
+    const unmatched = timers
+      .map((_, index) => index)
+      .filter((index) => !assign(index, new Set()));
+    return { owner, unmatched };
   };
-  timers.forEach(({ step, timer }, index) => {
-    if (assign(index, new Set())) return;
-    errors.push(
-      candidates[index].length
-        ? `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: przepis ma ten czas mniej razy, niż jest takich timerów`
-        : `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: takiego czasu nie ma w przepisie (przepis: ${
-            recipeRanges.map(describeRange).join(', ') || 'brak czasów'
-          })`,
+
+  // „Z każdej strony” to wybór wariantu PER GRUPA (review Codexa): bez
+  // timera / dwa po X / jedno 2X. Sprawdzamy wszystkie kombinacje (grup jest
+  // 0–2, więc najwyżej 9) i bierzemy tę, w której wszystko się zgadza —
+  // zwykły czas o tej samej długości nie zostanie wzięty za „stronę”.
+  type Mode = 'none' | 'singles' | 'combined';
+  const combos: Mode[][] = [[]];
+  for (let g = 0; g < pool.perSide.length; g += 1) {
+    const next: Mode[][] = [];
+    for (const combo of combos) {
+      const modes: Mode[] =
+        pool.perSide[g].combined === null
+          ? ['none', 'singles']
+          : ['none', 'singles', 'combined'];
+      for (const mode of modes) next.push([...combo, mode]);
+    }
+    combos.splice(0, combos.length, ...next);
+  }
+  let best: {
+    modes: Mode[];
+    owner: Map<number, number>;
+    unmatched: number[];
+    half: number[];
+    score: number;
+  } | null = null;
+  for (const modes of combos) {
+    const allowed = [...ordinary];
+    pool.perSide.forEach((group, g) => {
+      if (modes[g] === 'singles') allowed.push(...group.singles);
+      if (modes[g] === 'combined' && group.combined !== null) {
+        allowed.push(group.combined);
+      }
+    });
+    const { owner, unmatched } = match(allowed);
+    const half = pool.perSide
+      .map((group, g) => ({ group, g }))
+      .filter(
+        ({ group, g }) =>
+          modes[g] === 'singles' &&
+          group.singles.filter((i) => owner.has(i)).length === 1,
+      )
+      .map(({ g }) => g);
+    // Wariant „dwa po X” bez żadnego odliczania nie ma sensu — nie liczymy
+    // go jako trafienia.
+    const empty = pool.perSide.filter(
+      (group, g) =>
+        modes[g] === 'singles' && !group.singles.some((i) => owner.has(i)),
+    ).length;
+    const score = unmatched.length * 100 + half.length * 10 + empty;
+    if (!best || score < best.score) {
+      best = { modes, owner, unmatched, half, score };
+    }
+  }
+  const result = best!;
+
+  for (const index of result.unmatched) {
+    const { step, timer } = timers[index];
+    const any = recipeRanges.some((_, range) => fits(index, range));
+    const perSide = pool.perSide.some((group) =>
+      [
+        ...group.singles,
+        ...(group.combined === null ? [] : [group.combined]),
+      ].some((range) => fits(index, range)),
     );
-  });
-  recipeRanges.forEach((range, index) => {
-    if (range[1] >= 180 && owner[index] < 0) {
+    errors.push(
+      !any
+        ? `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: takiego czasu nie ma w przepisie (przepis: ${
+            recipeRanges.map(describeRange).join(', ') || 'brak czasów'
+          })`
+        : perSide
+          ? `timery dublują czas „z każdej strony” ${describeRange([timer.minSeconds, timer.maxSeconds])}: albo dwa odliczania po tyle, albo jedno łączne — nie oba`
+          : `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: przepis ma ten czas mniej razy, niż jest takich timerów`,
+    );
+  }
+  for (const g of result.half) {
+    errors.push(
+      `timer „z każdej strony” ${describeRange(recipeRanges[pool.perSide[g].singles[0]])} tylko dla jednej strony — daj dwa odliczania albo jedno łączne`,
+    );
+  }
+
+  // Ostrzeżenia: zwykły czas bez timera; grupa bez żadnego wariantu — raz,
+  // o łącznym czasie.
+  for (const index of ordinary) {
+    const range = recipeRanges[index];
+    if (range[1] >= MIN_TIMER_SECONDS && !result.owner.has(index)) {
+      warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
+    }
+  }
+  pool.perSide.forEach((group, g) => {
+    if (result.modes[g] !== 'none') return;
+    // Bez łącznego wariantu (patelnia) ostrzegamy o czasie jednej strony.
+    const range = recipeRanges[group.combined ?? group.singles[0]];
+    if (range[1] >= MIN_TIMER_SECONDS) {
       warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
     }
   });
+  checkTimerLayout(content, errors);
+}
+
+/**
+ * Timer tylko na czekanie od 4 minut — krótka, aktywna czynność przy
+ * garnku („podsmaż cebulę ok. 3 min”, „smaż po 3 min z każdej strony”)
+ * idzie tekstem i sygnałem „po czym poznać”; użytkownik i tak stoi przy
+ * patelni (Rafał 30.09: trzy timery naraz = użytkownik się gubi).
+ */
+export const MIN_TIMER_SECONDS = 240;
+/** Najwyżej tyle odliczań naraz — design Dynamic Island ma stany 0/1/2. */
+export const MAX_PARALLEL_TIMERS = 2;
+/**
+ * Kroki „w międzyczasie” mają się zmieścić w swoim timerze PO LUDZKU
+ * (Rafał 30.09): minuta czy dwie w tę albo w tamtą niczego nie psuje.
+ */
+const parallelSlack = (seconds: number) => Math.max(120, seconds * 0.2);
+
+/**
+ * Oś czasu scenariusza w NAJGORSZYM wariancie (review Codexa): czynności
+ * ręczne trwają zero, odliczania — najdłużej (`maxSeconds`), a krok bez
+ * `during` rusza po NAJWCZEŚNIEJSZYM końcu timera kroku głównego przed nim
+ * (kontrakt przy `CookStep.during`). W żadnej chwili nie mogą biec więcej
+ * niż `MAX_PARALLEL_TIMERS` odliczania — także gdy odliczanie z „w
+ * międzyczasie” trwa dłużej niż nadrzędne i zachodzi na kolejne kroki.
+ */
+function checkTimerTimeline(content: CookScenarioContent, errors: string[]) {
+  let active: { id: string; end: number }[] = [];
+  let now = 0;
+  let waitUntil = 0;
+  let waitingFor: string | null = null;
+  for (const step of content.steps) {
+    if (!step.during) {
+      // Krok główny rusza PO alarmie timera poprzedniego kroku głównego —
+      // ten timer się skończył, więc już nie biegnie (review Codexa: przy
+      // zakresach „10–12 min” liczony do `maxSeconds` dawał fałszywe trzy).
+      now = Math.max(now, waitUntil);
+      if (waitingFor) {
+        const ended = waitingFor;
+        active = active.filter((t) => t.id !== ended);
+      }
+      waitUntil = 0;
+      waitingFor = null;
+    }
+    if (!step.timer) continue;
+    const running = active.filter((t) => t.end > now);
+    if (running.length + 1 > MAX_PARALLEL_TIMERS) {
+      errors.push(
+        `${step.id}.timer „${step.timer.label}”: w tej chwili biegną już ${running.length} odliczania (${running
+          .map((t) => t.id)
+          .join(
+            ', ',
+          )}) — najwyżej ${MAX_PARALLEL_TIMERS} naraz; przesuń krok albo połącz czynności`,
+      );
+    }
+    active.push({ id: step.timer.id, end: now + step.timer.maxSeconds });
+    if (!step.during) {
+      waitUntil = now + step.timer.minSeconds;
+      waitingFor = step.timer.id;
+    }
+  }
+}
+
+function checkTimerLayout(content: CookScenarioContent, errors: string[]) {
+  checkTimerTimeline(content, errors);
+  const timers = new Map(
+    content.steps.flatMap((step) =>
+      step.timer ? [[step.timer.id, { step, timer: step.timer }] as const] : [],
+    ),
+  );
+  for (const { step, timer } of timers.values()) {
+    if (timer.minSeconds < MIN_TIMER_SECONDS) {
+      errors.push(
+        `${step.id}.timer „${timer.label}” ${timer.minSeconds} s: krótsze niż 4 min — bez timera, napisz czas w treści i po czym poznać koniec`,
+      );
+    }
+    // Ile odliczań biegnie naraz: timer + łańcuch timerów, w trakcie których
+    // startuje. Rodzeństwo pod tym samym timerem idzie po kolei.
+    let depth = 1;
+    let parent = step.during ? timers.get(step.during) : undefined;
+    const seen = new Set([timer.id]);
+    while (parent && !seen.has(parent.timer.id)) {
+      seen.add(parent.timer.id);
+      depth += 1;
+      parent = parent.step.during ? timers.get(parent.step.during) : undefined;
+    }
+    if (depth > MAX_PARALLEL_TIMERS) {
+      errors.push(
+        `${step.id}.timer „${timer.label}”: to ${depth}. odliczanie naraz — najwyżej ${MAX_PARALLEL_TIMERS}; połącz czynności albo przesuń krok`,
+      );
+    }
+  }
+  // Pod jednym timerem najwyżej JEDNO odliczanie „w międzyczasie” — model
+  // danych nie wymusza, że drugie startuje po końcu pierwszego, więc dwa
+  // takie kroki to potencjalnie trzy odliczania naraz (review Codexa).
+  for (const { step, timer } of timers.values()) {
+    const withTimers = content.steps.filter(
+      (other) => other.during === timer.id && other.timer,
+    );
+    if (withTimers.length > 1) {
+      errors.push(
+        `${step.id}.timer „${timer.label}”: pod nim ${withTimers.length} kroki z własnym odliczaniem (${withTimers
+          .map((other) => other.id)
+          .join(
+            ', ',
+          )}) — najwyżej jeden; kolejny zacznij po końcu poprzedniego (bez „w międzyczasie”) albo połącz czynności`,
+      );
+    }
+  }
+
+  // Odliczania startowane po kolei pod jednym timerem: wszystkie POZA
+  // OSTATNIM muszą się w nim zmieścić (ostatnie może biec dalej samo, jak
+  // ziemniaki nastawione, gdy masło chłodzi się w zamrażarce).
+  for (const { step, timer } of timers.values()) {
+    const children = content.steps.filter(
+      (other) => other.during === timer.id && other.timer,
+    );
+    const before = children.slice(0, -1);
+    const needed = before.reduce(
+      (sum, other) => sum + (other.timer?.minSeconds ?? 0),
+      0,
+    );
+    if (needed > timer.maxSeconds + parallelSlack(timer.maxSeconds)) {
+      errors.push(
+        `${step.id}.timer „${timer.label}” ${timer.maxSeconds} s: odliczania „w międzyczasie” (${before
+          .map((other) => other.id)
+          .join(
+            ', ',
+          )}) trwają po kolei co najmniej ${needed} s — nie zmieszczą się; przesuń je albo zacznij wcześniej`,
+      );
+    }
+  }
 }
 
 // ── Całość ──────────────────────────────────────────────────────────────
@@ -556,13 +1082,15 @@ export function qualityChecks(
 ): CheckResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const recipeRanges = recipeDurations(recipe.instructions);
+  const pool = recipeDurationPool(recipe.instructions);
+  const recipeRanges = pool.ranges;
 
   checkNumbersInText(recipe, content, errors);
+  checkSpelling(content, errors);
   checkOven(content, errors);
   checkSafety(recipe, content, errors);
   checkTextClaims(recipe, content, recipeRanges, errors, warnings);
-  checkTimers(content, recipeRanges, errors, warnings);
+  checkTimers(content, pool, errors, warnings);
 
   if (recipe.prepTimeMinutes > 0) {
     const ratio = content.totalMinutes / recipe.prepTimeMinutes;

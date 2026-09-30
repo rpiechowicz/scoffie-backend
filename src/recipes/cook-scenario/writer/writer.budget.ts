@@ -31,7 +31,10 @@ const REQUEST_OVERHEAD_TOKENS = 2_000;
  * cache i pełne `max_tokens` wyjścia (myślenie się w nim mieści). Z górą —
  * dzięki temu limit jest twardy.
  */
-export function worstCaseMicroUsd(call: WriterModelCall): number {
+export function worstCaseMicroUsd(
+  call: WriterModelCall,
+  priceMultiplier = 1,
+): number {
   const price = priceFor(call.model);
   const inputTokens =
     Buffer.byteLength(call.system, 'utf8') +
@@ -39,8 +42,9 @@ export function worstCaseMicroUsd(call: WriterModelCall): number {
     Buffer.byteLength(JSON.stringify(call.schema), 'utf8') +
     REQUEST_OVERHEAD_TOKENS;
   return Math.ceil(
-    inputTokens * price.input * WORST_INPUT_MULTIPLIER +
-      call.maxTokens * price.output,
+    (inputTokens * price.input * WORST_INPUT_MULTIPLIER +
+      call.maxTokens * price.output) *
+      priceMultiplier,
   );
 }
 
@@ -51,13 +55,27 @@ export function worstCaseMicroUsd(call: WriterModelCall): number {
  * nie prześcigną się — suma wydanego nigdy nie przekroczy limitu.
  */
 export class BudgetGuard {
-  private spent = 0;
+  private spent: number;
   private reserved = 0;
 
-  constructor(readonly limitMicroUsd: number) {}
+  /**
+   * `spentMicroUsd` — wydane wcześniej (wznowienie przebiegu z dziennika):
+   * limit dotyczy CAŁEJ serii, nie jednego uruchomienia.
+   */
+  constructor(
+    readonly limitMicroUsd: number,
+    spentMicroUsd = 0,
+  ) {
+    this.spent = spentMicroUsd;
+  }
 
+  /** Rozliczone — BEZ rezerwacji w locie (te dziennik trzyma osobno). */
   get spentMicroUsd(): number {
     return this.spent;
+  }
+
+  get reservedMicroUsd(): number {
+    return this.reserved;
   }
 
   reserve(amount: number): void {
@@ -68,6 +86,14 @@ export class BudgetGuard {
         amount,
       );
     }
+    this.reserved += amount;
+  }
+
+  /**
+   * Rezerwacja bez sprawdzania limitu — dla paczki wysłanej w poprzednim
+   * uruchomieniu: pieniądze już poszły, odbieramy tylko wynik.
+   */
+  forceReserve(amount: number): void {
     this.reserved += amount;
   }
 
