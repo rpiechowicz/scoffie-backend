@@ -1,4 +1,8 @@
-import { COOK_LIMITS, type CookScenarioContent } from '../cook-scenario.types';
+import {
+  COOK_AUTHOR_LIMITS,
+  COOK_LIMITS,
+  type CookScenarioContent,
+} from '../cook-scenario.types';
 import type { WriterIngredient, WriterRecipe } from './writer.types';
 
 /**
@@ -9,15 +13,15 @@ import type { WriterIngredient, WriterRecipe } from './writer.types';
  */
 export const COOK_WRITER_PROMPT_VERSION = 'w5-2026-09-30';
 
-const L = COOK_LIMITS;
+const L = { ...COOK_LIMITS, ...COOK_AUTHOR_LIMITS };
 
 export const WRITER_RULES = `Piszesz scenariusz trybu „Gotuj” aplikacji Scoffie: przepis rozpisany na kroki, które użytkownik wykonuje jeden po drugim na pełnym ekranie telefonu, z timerami systemowymi. Użytkownik stoi w kuchni, ma brudne ręce i zerka na ekran — każdy krok ma dać się przeczytać w kilka sekund.
 
 POZIOM SZCZEGÓŁU
 - Nie tłumacz podstaw: jak pokroić cebulę, obrać ziemniaki, zagotować wodę.
 - Tłumacz techniki, od których zależy wynik: zawijanie roladek, panierka, zeszklenie, zasmażka, ubijanie piany, temperowanie, wyrabianie ciasta.
-- Zawsze mów, PO CZYM POZNAĆ, że etap skończony: kolor, zapach, konsystencja, temperatura w środku. Najlepiej w adnotacji \`note\` rodzaju CUE.
-- Tytuł kroku to KRÓTKIE polecenie: czasownik + rzecz („Zrób masło koperkowe”, „Smaż kotlety na złoto”), bez szczegółów, czasów i drugiej czynności — te są w treści. Telefon pokazuje go dużą czcionką w dwóch linijkach.
+- Zawsze mów, PO CZYM POZNAĆ, że etap skończony: kolor, zapach, konsystencja, temperatura w środku. Najlepiej w adnotacji \`note\` rodzaju CUE — adnotacja podaje WYŁĄCZNIE sam sygnał (kolor, zapach, konsystencja, temperatura w środku), bez powtarzania czynności z treści.
+- Tytuł kroku to KRÓTKIE polecenie nazywające cel kroku: czasownik + rzecz („Zrób masło koperkowe”, „Smaż kotlety na złoto”), bez szczegółów i czasów — te są w treści. Telefon pokazuje go dużą czcionką w dwóch linijkach. Treść rozwija tytuł (jak, w jakiej kolejności, po czym poznać) i NIE zaczyna od jego powtórzenia.
 - Jeden krok = jedna czynność z perspektywy rąk (może mieć kilka ruchów, ale jeden cel). Typowo 8–14 kroków na obiad, 3–6 na śniadanie. Bez sztucznego rozdrabniania.
 
 JĘZYK I TON
@@ -32,6 +36,7 @@ UKŁAD PRACY
 - Wolno przestawiać kolejność względem kroków przepisu, jeśli dzięki temu wszystko jest gotowe naraz (ziemniaki startują wcześniej).
 - Nagrzewanie (piekarnik ok. 10–15 min, gofrownica, grill, olej do smażenia w głębokim tłuszczu) włącz tak, żeby urządzenie było gotowe akurat wtedy, gdy trzeba: w kroku, po którym do użycia zostaje ok. 10–15 min pracy. Nie jako pierwszy krok, jeśli przygotowanie trwa dłużej, i nie dopiero wtedy, gdy ciasto już czeka.
 - Praktyczne wskazówki są MILE WIDZIANE, jeśli pomagają wykonać przepis: jak ustawić piekarnik, czym wyłożyć blachę, jaki garnek, gdzie odłożyć gotową rzecz. Nie zmieniają składników, ilości, temperatur ani czasów. Każda ma mieć sens przy TYM daniu — nie pisz tego, co dorosły wie sam.
+- Gdy przepis podaje warianty (grill albo patelnia, dzwonka albo cała ryba), kroki i timer prowadzą PIERWSZY wariant z przepisu; drugi opisz jedną radą kucharza — bez osobnego timera i bez mieszania czasów obu wariantów w jednym kroku.
 - NIE WOLNO zmieniać składników, ilości, temperatur ani czasów z przepisu. Nie dodawaj żadnego składnika, nawet „dla smaku” — to kwestia alergenów. Nie wymyślaj czasów, których przepis nie podaje: jeśli przepis mówi „do miękkości”, napisz, po czym poznać, bez timera.
 - Każdy czas oczekiwania z przepisu od 4 minut (gotowanie, pieczenie — także w gofrownicy, tosterze czy mikrofalówce —, chłodzenie, marynowanie, zamrażanie) to timer. Krótszą albo aktywną czynność przy garnku („podsmaż cebulę ok. 3 min”, „smaż po 3 min z każdej strony”) opisz w treści z czasem i sygnałem „po czym poznać” — BEZ timera; użytkownik i tak stoi przy patelni.
 - Najwyżej DWA odliczania naraz — przy trzecim użytkownik się gubi. Jeśli przepis każe robić trzy rzeczy równolegle, ułóż kroki tak, żeby trzecia była krótką czynnością bez timera albo zaczęła się po pierwszej.
@@ -68,7 +73,7 @@ BEZPIECZEŃSTWO
 POZOSTAŁE POLA
 - \`phase\`: PREP (przygotowanie), COOK (obróbka cieplna), FINISH (składanie, doprawianie), SERVE (podanie).
 - \`stage\`: krótka etykieta nad tytułem WIELKIMI LITERAMI („SMAŻENIE”, „W MIĘDZYCZASIE”) albo null.
-- \`tips\`: 1–${L.tipsMax} rady kucharza na powitaniu — to, co decyduje o udanym daniu.
+- \`tips\`: 1–${L.tipsMax} rady kucharza na powitaniu — to, co decyduje o udanym daniu, a czego NIE ma w krokach: wybór składników, co przygotować wcześniej, na co uważać w całym daniu. Rada, która już stoi w którymś kroku, to powtórzenie — usuń ją.
 - \`nextTimeTip\`: jedna rada „na następny raz” na zakończenie (np. co można zrobić dzień wcześniej) albo null.
 - \`scaleNote\`: tylko gdy przy większej liczbie porcji trzeba zmienić sposób pracy („przy 4+ porcjach smaż w dwóch turach”); fromPortions = od ilu porcji.
 - \`totalMinutes\`: realny czas od pierwszego kroku do podania, przy równoległej pracy.
@@ -222,16 +227,16 @@ Walidatory w kodzie sprawdziły już format, limity znaków, sumy ilości, cyfry
 5. Kolejność i timery: czy wszystko jest gotowe naraz, czy kroki „w międzyczasie” mieszczą się w swoim timerze PO LUDZKU (minuta czy dwie różnicy to nie problem — nie licz co do sekundy), czy nie biegną więcej niż dwa odliczania naraz, czy żaden krok nie wymaga dwóch par rąk naraz.
 7. Pisownia: każda literówka i brak polskiego znaku („Kroj” zamiast „Krój”) to MAJOR — podaj poprawną formę.
 6. Bezpieczeństwo: drób, mięso mielone, ryby, nieoczywiste ryzyko oparzenia. NIE żądaj ostrzeżeń o oczywistościach (gorąca blacha, gorący piekarnik, ostry nóż) — ich brak to nie problem.
-8. Składniki w tekście: każdy składnik z ilością w kroku ma paść w tym kroku („posól”, „dodaj mąkę”); brak = MAJOR (użytkownik nie wie, co zrobić z ilością).
+8. Składniki w tekście: każdy składnik z ilością w kroku ma paść w tym kroku („posól”, „dodaj mąkę”). Oczywiste odwołanie innym słowem („rurki” przy makaronie cannelloni, „mięso”, „przyprawy”) JEST wymienieniem. MAJOR tylko wtedy, gdy nic w kroku nie mówi, co zrobić z tą ilością.
 
 Ocena 1–5: 5 = publikować bez zmian; 4 = publikować, tylko drobiazgi (MINOR); 3 = wymaga poprawek; 2 = poważne błędy; 1 = nie nadaje się.
 Problemy:
 - BLOCKER = błąd merytoryczny lub bezpieczeństwa: składnik, czas albo temperatura spoza przepisu; surowe mięso bez „po czym poznać”; czynność z NIEOCZYWISTYM ryzykiem oparzenia (np. gorący karmel, wlewanie płynu do gorącego tłuszczu) bez ostrzeżenia.
 - MAJOR = tylko gdy użytkownik NIE BĘDZIE WIEDZIAŁ, co zrobić (brakuje informacji potrzebnej do wykonania kroku), albo danie wyjdzie WYRAŹNIE gorzej (coś się przypali, rozgotuje, wystygnie przed podaniem, nie zetnie się).
-- MINOR = wszystko inne: styl, powtórzenia, drobne usprawnienia kolejności, nieoptymalny moment nagrzewania, sformułowania, rozjazd czasu o minutę–dwie.
+- MINOR = wszystko inne: styl, powtórzenia, drobne usprawnienia kolejności, nieoptymalny moment nagrzewania, sformułowania, rozjazd czasu o minutę–dwie. Moment nagrzewania piekarnika czy grilla to ZAWSZE MINOR, chyba że przez niego danie wyraźnie ucierpi (grill wygaśnie, ciasto opadnie).
 Praktyczne wskazówki (tryb piekarnika, papier na blachę, jaki garnek) NIE są „spoza przepisu” — zgłaszaj tylko te, które zmieniają składnik, ilość, czas albo temperaturę.
 Każdy problem konkretnie: który krok i co zmienić. Nie wymyślaj problemów na siłę.
-NIE proponuj niczego, czego zasady zabraniają: ilości składnika z listy w tekście (cyfrą ani słownie), składnika spoza listy, czasu spoza przepisu, podziału jednego czasu na dwa timery. Liczba z jednostką przepisana dosłownie z kroków przepisu, która nie jest ilością składnika (np. „naczynie ok. 1,5 l”, „100 ml wody”, gdy wody nie ma w składnikach), JEST dozwolona.`;
+NIE proponuj niczego, czego zasady zabraniają: ilości składnika z listy w tekście (cyfrą ani słownie), składnika spoza listy, czasu ani temperatury (także „w środku”) spoza przepisu — poza sygnałami bezpieczeństwa z zasad (drób 74°C, mięso mielone 71°C) — podziału jednego czasu na dwa timery. Liczba z jednostką przepisana dosłownie z kroków przepisu, która nie jest ilością składnika (np. „naczynie ok. 1,5 l”, „100 ml wody”, gdy wody nie ma w składnikach), JEST dozwolona.`;
 
 /** Scenariusz czytelny dla recenzenta — nazwy i ilości zamiast kluczy. */
 export function renderScenarioForReview(

@@ -49,25 +49,36 @@ export type CookTimerTrigger = (typeof COOK_TIMER_TRIGGERS)[number];
 
 /** Limity tekstów — design ekranu kroku, wyspy i ekranu blokady (§5.2, §13). */
 export const COOK_LIMITS = {
-  // Tytuł kroku ma 40 pt — dwie linijki na szerokość telefonu (design 30.09).
-  title: 30,
-  // Treść + tytuł + adnotacja mieszczą się nad dokiem z dwoma timerami.
-  body: 260,
+  title: 60,
+  body: 320,
   stage: 24,
   note: 140,
   tip: 140,
   tipsMax: 3,
   nextTimeTip: 180,
   timerLabel: 14,
-  // Mała linijka kapsuły „do włączenia” w doku (przy dwóch timerach ~118 pt) —
-  // sam warunek startu; 20 znaków zmierzone w przeglądarce 30.09.
-  timerStartLabel: 20,
+  timerStartLabel: 40,
   timerAlertTitle: 40,
   timerAlertBody: 120,
   scaleNote: 120,
   stepsMin: 1,
   stepsMax: 30,
   timerSecondsMax: 12 * 60 * 60,
+} as const;
+
+/**
+ * Ostrzejsze limity dla NOWO pisanych scenariuszy (zasady .5, design doku
+ * 30.09, zmierzone w przeglądarce). Osobno od \`COOK_LIMITS\` celowo (review
+ * Codexa): tamte sprawdza też ODCZYT (\`parseCookScenarioContent\` w WS),
+ * więc zaostrzenie ich schowałoby zapisy .3/.4. Pilnuje ich system pisania.
+ */
+export const COOK_AUTHOR_LIMITS = {
+  // Tytuł kroku ma 40 pt — dwie linijki na szerokość telefonu.
+  title: 30,
+  // Tytuł + treść + adnotacja mieszczą się nad dokiem z dwoma timerami.
+  body: 260,
+  // Mała linijka kapsuły „do włączenia” w doku (przy dwóch timerach ~118 pt).
+  timerStartLabel: 20,
 } as const;
 
 export interface CookStepIngredient {

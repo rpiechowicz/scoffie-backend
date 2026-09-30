@@ -91,8 +91,8 @@
           {
             "id": "s3",
             "phase": "PREP",
-            "stage": null,
-            "title": "Obierz ziemniaki i nastaw wodę",
+            "stage": "W MIĘDZYCZASIE",
+            "title": "Obierz i nastaw ziemniaki",
             "body": "Większe ziemniaki przekrój na pół, żeby wszystkie ugotowały się w tym samym czasie. Zalej je zimną wodą tak, by były przykryte, posól i postaw na dużym ogniu. Gdy woda zawrze, zmniejsz ogień do średniego i włącz odliczanie.",
             "ingredients": [
               {
@@ -131,7 +131,7 @@
           {
             "id": "s4",
             "phase": "PREP",
-            "stage": null,
+            "stage": "W MIĘDZYCZASIE",
             "title": "Przygotuj talerze do panierki",
             "body": "Do pierwszego talerza wsyp mąkę, w drugim roztrzep jajko widelcem, do trzeciego wsyp bułkę tartą. Ustaw je w rzędzie w tej kolejności — przyda się to przy podwójnej panierce.",
             "ingredients": [
@@ -308,8 +308,8 @@
             "id": "s11",
             "phase": "FINISH",
             "stage": null,
-            "title": "Odcedź i posyp koperkiem",
-            "body": "Odcedź ziemniaki i odstaw na chwilę na gorącej płycie bez pokrywki, żeby odparowały. Posyp koperkiem.",
+            "title": "Odcedź ziemniaki",
+            "body": "Postaw garnek na chwilę na gorącej płycie bez pokrywki, żeby odparowały, i posyp resztą koperku.",
             "ingredients": [
               {
                 "ingredient": "koperek",

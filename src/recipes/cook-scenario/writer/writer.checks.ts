@@ -1,4 +1,5 @@
 import {
+  COOK_AUTHOR_LIMITS,
   COOK_SCENARIO_SCHEMA_VERSION,
   type CookScenarioContent,
 } from '../cook-scenario.types';
@@ -541,6 +542,13 @@ function checkSpelling(content: CookScenarioContent, errors: string[]) {
  */
 function checkStageDuring(content: CookScenarioContent, errors: string[]) {
   for (const step of content.steps) {
+    // I w drugą stronę (review Codexa): krok w trakcie timera ma DOKŁADNIE tę
+    // etykietę — na 76 takich krokach z prób 76/76 już ją miało.
+    if (step.during && step.stage?.trim().toUpperCase() !== 'W MIĘDZYCZASIE') {
+      errors.push(
+        `${step.id}.stage: krok w trakcie timera (\`during\`) ma etykietę „W MIĘDZYCZASIE”`,
+      );
+    }
     if (step.stage && /MI[EĘ]DZYCZASIE/i.test(step.stage) && !step.during) {
       errors.push(
         `${step.id}.stage: „W MIĘDZYCZASIE” bez \`during\` — krok nie dzieje się w trakcie timera; daj etykietę czynności albo null`,
@@ -567,30 +575,78 @@ function checkIngredientsNamed(
     recipe.ingredients.map((row) => [row.ingredientId, row.name]),
   );
   for (const step of content.steps) {
-    const text = normalizeText(
-      [
-        step.title,
-        step.body,
-        step.note?.text ?? '',
-        step.timer?.startLabel ?? '',
-        step.timer?.alert.title ?? '',
-        step.timer?.alert.body ?? '',
-      ].join(' '),
-    );
+    // Tylko tytuł i treść — tam zasada każe wymienić składnik.
+    const words = normalizeText(`${step.title} ${step.body}`)
+      .split(/[^a-z]+/)
+      .filter(Boolean);
     for (const use of step.ingredients) {
       const name = names.get(use.ingredientId);
-      if (!name) continue;
-      const stems = normalizeText(name)
-        .split(/[^a-z]+/)
-        .filter((word) => word.length >= 3)
-        .map((word) => word.slice(0, 3));
-      if (stems.length > 0 && !stems.some((stem) => text.includes(stem))) {
-        warnings.push(
-          `${step.id}: składnik „${name}” ma w kroku ilość, ale tekst kroku go nie wymienia`,
-        );
-      }
+      if (!name || ingredientNamed(name, words)) continue;
+      warnings.push(
+        `${step.id}: składnik „${name}” ma w kroku ilość, ale tytuł ani treść kroku go nie wymienia`,
+      );
     }
   }
+}
+
+/**
+ * Treść zaczyna od powtórzenia tytułu („Odcedź i posyp koperkiem” → „Odcedź
+ * ziemniaki…”) — ostrzeżenie; review Codexa znalazło to we wzorcu.
+ */
+function checkTitleEcho(content: CookScenarioContent, warnings: string[]) {
+  for (const step of content.steps) {
+    const first = (text: string) =>
+      normalizeText(text)
+        .split(/[^a-z]+/)
+        .find(Boolean);
+    const verb = first(step.title);
+    if (verb && verb === first(step.body)) {
+      warnings.push(
+        `${step.id}: treść zaczyna od powtórzenia tytułu („${step.title}”)`,
+      );
+    }
+  }
+}
+
+/** Przedrostki czasowników: „posól”, „dosyp”, „zalej” — rdzeń stoi za nimi. */
+const VERB_PREFIXES = [
+  'przy',
+  'prze',
+  'pod',
+  'roz',
+  'po',
+  'do',
+  'za',
+  'na',
+  'wy',
+];
+
+/**
+ * Czy któreś słowo tekstu to odmiana słowa z nazwy. Rdzeń od POCZĄTKU słowa
+ * (review Codexa: „mak” w środku „do smaku” to nie mąka): 4 litery dla słów
+ * dłuższych, 3 dla krótkich — a krótkie mogą urosnąć najwyżej o końcówkę
+ * („ser” → „serem”, ale nie „serwuj”).
+ */
+function ingredientNamed(name: string, words: string[]): boolean {
+  const parts = normalizeText(name)
+    .split(/[^a-z]+/)
+    .filter((word) => word.length >= 3);
+  if (parts.length === 0) return true;
+  return parts.some((part) => {
+    const short = part.length < 5;
+    const stem = part.slice(0, short ? 3 : 4);
+    return words.some((word) =>
+      [
+        word,
+        ...VERB_PREFIXES.filter((p) => word.startsWith(p)).map((p) =>
+          word.slice(p.length),
+        ),
+      ].some(
+        (core) =>
+          core.startsWith(stem) && (!short || core.length <= part.length + 2),
+      ),
+    );
+  });
 }
 
 /**
@@ -598,12 +654,44 @@ function checkIngredientsNamed(
  * zawrze”) — czas stoi tuż obok, więc liczba albo „odliczaj” to powtórzenie
  * (zasady .5; wcześniej „Woda wrze — odliczaj 20 min”).
  */
+// Wyrażenie czasu, nie każda cyfra (review Codexa): „Śmietana 12%” jest OK.
+const TIME_IN_LABEL = new RegExp(
+  `${DURATION.source}|odlicz|kwadrans|pół godziny|godzin`,
+  'i',
+);
+
 function checkStartLabels(content: CookScenarioContent, errors: string[]) {
   for (const step of content.steps) {
     const label = step.timer?.startLabel;
-    if (label && /\d|odlicz/i.test(label)) {
+    if (label && TIME_IN_LABEL.test(label)) {
       errors.push(
         `${step.id}.timer.startLabel: „${label}” — sam warunek startu, bez czasu i „odliczaj” (np. „Gdy woda zawrze”)`,
+      );
+    }
+  }
+}
+
+/**
+ * Limity pisania (zasady .5, \`COOK_AUTHOR_LIMITS\`) — ostrzejsze niż limity
+ * formatu, które sprawdza też odczyt starszych zapisów. Treść liczona tak,
+ * jak ją widać: token liczby sztuk to ok. 10 znaków („2 kotlety”).
+ */
+function checkAuthorLimits(content: CookScenarioContent, errors: string[]) {
+  const A = COOK_AUTHOR_LIMITS;
+  for (const step of content.steps) {
+    if (step.title.length > A.title) {
+      errors.push(
+        `${step.id}.title: ${step.title.length} znaków, limit ${A.title} (dwie linijki na ekranie kroku)`,
+      );
+    }
+    const shown = step.body.replace(COUNT_TOKEN, '1234567890').length;
+    if (shown > A.body) {
+      errors.push(`${step.id}.body: ${shown} znaków, limit ${A.body}`);
+    }
+    const label = step.timer?.startLabel;
+    if (label && label.length > A.timerStartLabel) {
+      errors.push(
+        `${step.id}.timer.startLabel: ${label.length} znaków, limit ${A.timerStartLabel} (przycisk timera w doku)`,
       );
     }
   }
@@ -1167,7 +1255,9 @@ export function qualityChecks(
   checkSpelling(content, errors);
   checkStageDuring(content, errors);
   checkStartLabels(content, errors);
+  checkAuthorLimits(content, errors);
   checkIngredientsNamed(recipe, content, warnings);
+  checkTitleEcho(content, warnings);
   checkOven(content, errors);
   checkSafety(recipe, content, errors);
   checkTextClaims(recipe, content, recipeRanges, errors, warnings);

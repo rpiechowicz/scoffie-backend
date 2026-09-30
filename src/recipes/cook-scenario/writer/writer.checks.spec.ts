@@ -117,6 +117,81 @@ describe('system pisania — walidatory twarde', () => {
     expect(qualityChecks(kotlet, content).errors).toContainEqual(
       expect.stringContaining(`${step.id}.timer.startLabel`),
     );
+    // Liczba w nazwie składnika to nie czas (review Codexa).
+    step.timer!.startLabel = 'Śmietana 12% w misce';
+    expect(
+      qualityChecks(kotlet, content).errors.filter((e) =>
+        e.includes('startLabel'),
+      ),
+    ).toEqual([]);
+    step.timer!.startLabel = 'Za kwadrans';
+    expect(qualityChecks(kotlet, content).errors).toContainEqual(
+      expect.stringContaining(`${step.id}.timer.startLabel`),
+    );
+  });
+
+  it('limity pisania (.5): tytuł 30, treść 260 (token liczony jak widać), startLabel 20', () => {
+    const content = clone(example.content);
+    const step = content.steps.find((s) => s.timer)!;
+    step.title = 'x'.repeat(31);
+    step.body = `${'a'.repeat(240)} {count:cutlets|kotlet|kotlety|kotletów}`;
+    step.timer!.startLabel = 'Kotlety na dużej patelni';
+    const errors = qualityChecks(kotlet, content).errors;
+    expect(errors).toContainEqual(
+      expect.stringContaining(`${step.id}.title: 31 znaków, limit 30`),
+    );
+    // 240 liter + spacja + token (~10 znaków na ekranie) = 251 → mieści się.
+    expect(errors.filter((e) => e.startsWith(`${step.id}.body:`))).toEqual([]);
+    expect(errors).toContainEqual(
+      expect.stringContaining(
+        `${step.id}.timer.startLabel: 24 znaków, limit 20`,
+      ),
+    );
+    step.body = 'a'.repeat(261);
+    expect(qualityChecks(kotlet, content).errors).toContainEqual(
+      expect.stringContaining(`${step.id}.body: 261 znaków, limit 260`),
+    );
+  });
+
+  it('„W MIĘDZYCZASIE” w obie strony: krok z during ma dokładnie tę etykietę (review Codexa)', () => {
+    for (const stage of [null, 'PRZYGOTOWANIE', 'W MIEDZYCZASIE']) {
+      const content = clone(example.content);
+      const step = content.steps.find((s) => s.during)!;
+      step.stage = stage;
+      expect(qualityChecks(kotlet, content).errors).toContainEqual(
+        expect.stringContaining(`${step.id}.stage: krok w trakcie timera`),
+      );
+    }
+  });
+
+  it('składnik w tekście: rdzeń od początku słowa — „do smaku” to nie mąka, „serwuj” to nie ser, „posól” to sól', () => {
+    const content = clone(example.content);
+    const s4 = content.steps.find((s) => s.id === 's4')!;
+    s4.body =
+      'W drugim talerzu roztrzep jajko, do trzeciego wsyp bułkę tartą, dopraw do smaku.';
+    expect(qualityChecks(kotlet, content).warnings).toContainEqual(
+      expect.stringContaining('s4: składnik „mąka pszenna”'),
+    );
+    const s10 = content.steps.find((s) => s.id === 's10')!;
+    s10.title = 'Zrób mizerię';
+    s10.body =
+      'Pokrój ogórek, posól, dodaj śmietanę i pieprz — serwuj od razu.';
+    expect(
+      qualityChecks(kotlet, content).warnings.filter((w) =>
+        w.startsWith('s10:'),
+      ),
+    ).toEqual([]);
+    s10.body = 'Pokrój ogórek, dodaj śmietanę i pieprz — serwuj od razu.';
+    expect(qualityChecks(kotlet, content).warnings).toContainEqual(
+      expect.stringContaining('s10: składnik „sól”'),
+    );
+  });
+
+  it('wzorzec kotleta przechodzi też ostrzeżenia reguł .4/.5 (składniki w tekście, tytuł bez echa)', () => {
+    const warnings = qualityChecks(kotlet, clone(example.content)).warnings;
+    expect(
+      warnings.filter((w) => /nie wymienia|powtórzenia tytułu/.test(w)),
+    ).toEqual([]);
   });
 
   it('„W MIĘDZYCZASIE” tylko przy kroku z during (zasady .4)', () => {
