@@ -690,31 +690,49 @@ const PURPOSE = new Set(['do', 'dla', 'na']);
 /** Po nich stoi ŹRÓDŁO — też nazwa rzeczy („filet z kurczaka” → „kurczak”). */
 const SOURCE = new Set(['z', 'ze']);
 /**
- * Ogólne rzeczowniki, przy których o rzeczy mówi dopiero drugi człon
- * („ser feta” → „feta”, „sos sojowy”, „makaron cannelloni”).
+ * Dalsze człony, które SAME nazywają składnik („ser feta” → „fetę”,
+ * „cebula dymka” → „dymkę”, „makaron penne”). Zamknięta lista z katalogu
+ * (review Codexa, runda 4): określenie za ogólnym rzeczownikiem („cebula
+ * czerwona”, „sos pomidorowy”) nie nazywa rzeczy — „czerwona papryka” to
+ * nie cebula. Po końcówce się ich nie odróżni („penne”, „mascarpone”,
+ * „curry” wyglądają jak przymiotniki), więc nowy człon spoza listy da
+ * najwyżej ostrzeżenie, nigdy przeoczenie. „Pestki dyni” celowo bez
+ * „dyni” — to inny składnik.
  */
-const GENERIC_HEADS = new Set([
-  'ser',
-  'sos',
-  'pasta',
-  'makaron',
-  'kasza',
-  'filet',
-  'piers',
-  'udko',
-  'udka',
-  'mieso',
-  'koncentrat',
-  'mleko',
-  // Pomiar na 627 parach krok–składnik (runda 3): tu o rzeczy mówi drugi
-  // człon — „papryczka chili” → „chili”, „nasiona chia”, „cebula dymka”.
-  'papryczka',
-  'platki',
-  'nasiona',
-  'pestki',
-  'cebula',
-  'lisc',
-  'liscie',
+const NAMING_WORDS = new Set([
+  // Sery
+  'camembert',
+  'cheddar',
+  'feta',
+  'gorgonzola',
+  'gouda',
+  'halloumi',
+  'mascarpone',
+  'parmezan',
+  'ricotta',
+  'twarog',
+  // Makarony i kasze
+  'cannelloni',
+  'kolanka',
+  'lasagne',
+  'lazanki',
+  'nitki',
+  'orzo',
+  'penne',
+  'spaghetti',
+  'swider',
+  'tagliatelle',
+  'udon',
+  'kuskus',
+  'manna',
+  'peczak',
+  // Reszta
+  'barbecue',
+  'chia',
+  'chili',
+  'curry',
+  'dymka',
+  'sriracha',
 ]);
 
 /** Mięso i ryby tekst często nazywa ogólnie („wymieszaj mięso z ryżem”). */
@@ -724,10 +742,10 @@ const DEPARTMENT_WORDS: Record<string, string[]> = {
 };
 
 /**
- * Człony, które NAZYWAJĄ składnik (review Codexa, runda 3): człon główny,
- * źródło po „z” i — przy ogólnym rzeczowniku — drugi człon. Same
- * określenia („czarny”, „pszenna”, „rzepakowy”) nie wystarczą: „czarna
- * fasola” to nie „pieprz czarny”. Po „do / dla / na” nazwa się kończy.
+ * Człony, które NAZYWAJĄ składnik (review Codexa, rundy 3–4): człon
+ * główny, źródło po „z” i słowa z `NAMING_WORDS`. Same określenia
+ * („czarny”, „pszenna”, „czerwona”) nie wystarczą: „czarna fasola” to nie
+ * „pieprz czarny”. Po „do / dla / na” nazwa się kończy.
  */
 function significantParts(name: string): string[] {
   const words = normalizeText(name)
@@ -739,8 +757,8 @@ function significantParts(name: string): string[] {
     if (PURPOSE.has(word)) break;
     const head = out.length === 0 && word.length >= 3;
     const source = i > 0 && SOURCE.has(words[i - 1]) && word.length >= 3;
-    const second = i === 1 && GENERIC_HEADS.has(words[0]) && word.length >= 3;
-    if (head || source || second) out.push(word);
+    const naming = i > 0 && NAMING_WORDS.has(word);
+    if (head || source || naming) out.push(word);
   }
   return out;
 }

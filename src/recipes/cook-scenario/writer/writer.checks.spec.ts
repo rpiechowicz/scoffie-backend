@@ -231,10 +231,17 @@ describe('system pisania — walidatory twarde', () => {
       ['mąka pszenna', 'Wsyp pszenną bułkę.', false],
       ['ser feta', 'Pokrusz fetę.', true],
       ['sos sojowy', 'Skrop sosem sojowym.', true],
-      // Pomiar na korpusie (runda 3): drugi człon po ogólnym rzeczowniku.
+      // Pomiar na korpusie (runda 3): człon, który sam nazywa składnik.
       ['papryczka chili', 'Chili pokrój w cienkie kawałki.', true],
       ['nasiona chia', 'Ułóż pasek chia.', true],
       ['cebula dymka', 'Dymkę pokrój w plasterki.', true],
+      ['makaron penne', 'Wrzuć penne do wrzątku.', true],
+      ['ser twaróg półtłusty', 'Rozgnieć twaróg widelcem.', true],
+      // Runda 4 Codexa: określenie za ogólnym rzeczownikiem nie nazywa rzeczy.
+      ['cebula czerwona', 'Dodaj czerwoną paprykę.', false],
+      ['sos pomidorowy', 'Wlej passatę pomidorową.', false],
+      ['mleko kokosowe z puszki', 'Posyp wiórkami kokosowymi.', false],
+      ['pestki dyni', 'Pokrój dynię w kostkę.', false],
       // Pomiar na 728 parach (runda 4): imiesłów, synonim, ser bez „ser”.
       ['sól', 'Wsyp ryż do osolonego wrzątku.', true],
       ['sól', 'Zagotuj wodę i osól ją.', true],
