@@ -101,6 +101,54 @@ describe('system pisania — walidatory twarde', () => {
     });
   });
 
+  it('„W MIĘDZYCZASIE” tylko przy kroku z during (zasady .4)', () => {
+    const content = clone(example.content);
+    const withDuring = content.steps.find((step) => step.during);
+    expect(withDuring).toBeDefined();
+    withDuring!.stage = 'W MIĘDZYCZASIE';
+    expect(
+      qualityChecks(kotlet, content).errors.filter((e) =>
+        e.includes('MIĘDZYCZASIE'),
+      ),
+    ).toEqual([]);
+    const plain = content.steps.find((step) => !step.during)!;
+    plain.stage = 'W MIĘDZYCZASIE';
+    expect(qualityChecks(kotlet, content).errors).toContainEqual(
+      expect.stringContaining(`${plain.id}.stage: „W MIĘDZYCZASIE” bez`),
+    );
+  });
+
+  it('składnik z ilością, którego tekst kroku nie wymienia = ostrzeżenie; odmiana przechodzi', () => {
+    const content = clone(example.content);
+    const step = content.steps.find(
+      (s) => s.ingredients.length > 0 && !s.timer,
+    )!;
+    const name = kotlet.ingredients.find(
+      (row) => row.ingredientId === step.ingredients[0].ingredientId,
+    )!.name;
+    const others = step.ingredients
+      .slice(1)
+      .map(
+        (use) =>
+          kotlet.ingredients.find(
+            (row) => row.ingredientId === use.ingredientId,
+          )!.name,
+      );
+    step.title = 'Przygotuj';
+    step.note = null;
+    step.body = `Weź ${others.join(', ')} i odstaw.`;
+    expect(qualityChecks(kotlet, content).warnings).toContainEqual(
+      expect.stringContaining(`${step.id}: składnik „${name}”`),
+    );
+    // Odmiana i czasownik („posól”) to wymienienie składnika.
+    step.body = `Weź ${others.join(', ')}, dodaj ${name.slice(0, 3)}ę i posól.`;
+    expect(
+      qualityChecks(kotlet, content).warnings.filter((w) =>
+        w.startsWith(`${step.id}: składnik`),
+      ),
+    ).toEqual([]);
+  });
+
   it('piekarnik użyty przed nagrzaniem = błąd', () => {
     const content = clone(example.content);
     const preheat = content.steps.findIndex((step) =>

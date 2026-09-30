@@ -6,6 +6,7 @@ import {
   checkScenarioAgainstRecipe,
   parseCookScenarioContent,
 } from '../cook-scenario.validate';
+import { normalizeText } from '../../../common/normalize-text.util';
 import { ingredientKey } from './writer.prompt';
 import type { WriterIngredient, WriterRecipe } from './writer.types';
 
@@ -527,6 +528,67 @@ function checkSpelling(content: CookScenarioContent, errors: string[]) {
     for (const match of text.matchAll(TYPO)) {
       const right = MISSING_DIACRITICS[match[1].toLowerCase()];
       errors.push(`${path}: pisownia „${match[1]}” → „${right}”`);
+    }
+  }
+}
+
+// ── Etykieta „W MIĘDZYCZASIE” i składniki w tekście (zasady .4) ────────
+
+/**
+ * „W MIĘDZYCZASIE” tylko przy kroku, który dzieje się w trakcie timera
+ * (`during`). Test paczek E3b: krok ubijania śmietanki z tą etykietą, choć
+ * nic nie odliczało — użytkownik szuka timera, którego nie ma.
+ */
+function checkStageDuring(content: CookScenarioContent, errors: string[]) {
+  for (const step of content.steps) {
+    if (step.stage && /MI[EĘ]DZYCZASIE/i.test(step.stage) && !step.during) {
+      errors.push(
+        `${step.id}.stage: „W MIĘDZYCZASIE” bez \`during\` — krok nie dzieje się w trakcie timera; daj etykietę czynności albo null`,
+      );
+    }
+  }
+}
+
+/**
+ * Składnik z ilością w kroku musi paść w tekście tego kroku — inaczej
+ * telefon pokazuje „sól 1 g”, a użytkownik nie wie, co z nią zrobić (test
+ * paczek E3b: sałatka hawajska). Porównanie po 3 pierwszych literach słów
+ * nazwy, także w środku słów tekstu („posól” ma „sol”), bez polskich znaków.
+ * OSTRZEŻENIE, nie błąd: na 56 scenariuszach 3 z 4 trafień były fałszywe —
+ * oboczności („ocet” → „octem”, „mąka” → „w mące”) i synonimy („kmin
+ * rzymski” → „kumin”). Błąd wymuszałby poprawki dobrych scenariuszy.
+ */
+function checkIngredientsNamed(
+  recipe: WriterRecipe,
+  content: CookScenarioContent,
+  warnings: string[],
+) {
+  const names = new Map(
+    recipe.ingredients.map((row) => [row.ingredientId, row.name]),
+  );
+  for (const step of content.steps) {
+    const text = normalizeText(
+      [
+        step.title,
+        step.body,
+        step.note?.text ?? '',
+        step.timer?.startLabel ?? '',
+        step.timer?.alert.title ?? '',
+        step.timer?.alert.body ?? '',
+      ].join(' '),
+    );
+    for (const use of step.ingredients) {
+      const name = names.get(use.ingredientId);
+      if (!name) continue;
+      const stems = normalizeText(name)
+        .split(/[^a-z]+/)
+        .filter((word) => word.length >= 3)
+        .map((word) => word.slice(0, 3));
+      if (stems.length > 0 && !stems.some((stem) => text.includes(stem))) {
+        warnings.push(
+          `${step.id}: składnik „${name}” ma w kroku ilość, ale tekst kroku go nie wymienia`,
+        );
+      }
     }
   }
 }
@@ -1087,6 +1149,8 @@ export function qualityChecks(
 
   checkNumbersInText(recipe, content, errors);
   checkSpelling(content, errors);
+  checkStageDuring(content, errors);
+  checkIngredientsNamed(recipe, content, warnings);
   checkOven(content, errors);
   checkSafety(recipe, content, errors);
   checkTextClaims(recipe, content, recipeRanges, errors, warnings);
