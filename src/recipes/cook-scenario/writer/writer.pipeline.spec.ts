@@ -142,6 +142,7 @@ describe('system pisania — przebieg', () => {
     const yogurt: WriterRecipe = {
       ...kotlet,
       title: 'Jogurt z granolą',
+      equipment: [],
       prepTimeMinutes: 5,
       instructions: ['Jogurt przełóż do miseczki.', 'Posyp granolą i owocami.'],
     };

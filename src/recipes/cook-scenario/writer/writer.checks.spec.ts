@@ -179,6 +179,8 @@ describe('system pisania — walidatory twarde', () => {
     expect(
       skipGuard({
         ...kotlet,
+        title: 'Jogurt z granolą',
+        equipment: [],
         prepTimeMinutes: 5,
         instructions: [
           'Jogurt przełóż do miseczki.',
@@ -230,6 +232,80 @@ describe('system pisania — walidatory twarde', () => {
           e.includes('bezpieczeństwo'),
         ),
       ).toHaveLength(1);
+    });
+  });
+  it('SKIP: krótki przepis z obróbką bez liczby albo ze sprzętem jest zablokowany', () => {
+    const yogurt: WriterRecipe = {
+      ...kotlet,
+      title: 'Jogurt z granolą',
+      equipment: [],
+      prepTimeMinutes: 5,
+      instructions: ['Jogurt przełóż do miseczki.', 'Posyp granolą i owocami.'],
+    };
+    expect(skipGuard(yogurt)).toBeNull();
+    expect(skipGuard({ ...yogurt, equipment: ['BLENDER'] })).toBeNull();
+    expect(
+      skipGuard({
+        ...yogurt,
+        title: 'Omlet',
+        instructions: ['Jajka roztrzep z solą.', 'Smaż na maśle do ścięcia.'],
+      }),
+    ).toContain('„Smaż”');
+    expect(skipGuard({ ...yogurt, equipment: ['OVEN'] })).toContain('OVEN');
+  });
+
+  describe('czasy i temperatury w tekście mają pokrycie', () => {
+    const cutlets = () => {
+      const content = clone(example.content);
+      return {
+        content,
+        step: content.steps.find((s) => s.timer?.id === 't-cutlets')!,
+      };
+    };
+
+    it('tekst przeczy timerowi kroku = błąd, choć timer zgodny z przepisem', () => {
+      const { content, step } = cutlets();
+      step.body = 'Smaż 30 minut, obracając.';
+      expect(qualityChecks(kotlet, content).errors).toEqual([
+        expect.stringContaining('tekst i timer muszą się zgadzać'),
+      ]);
+    });
+
+    it('temperatura spoza przepisu = błąd; temperatura bezpieczeństwa przechodzi', () => {
+      const { content, step } = cutlets();
+      step.body = 'Rozgrzej olej do 220°C i smaż, obracając.';
+      expect(qualityChecks(kotlet, content).errors).toEqual([
+        expect.stringContaining('temperatury 220°C nie ma w przepisie'),
+      ]);
+      step.body = 'Smaż, aż w środku będzie 74°C.';
+      expect(qualityChecks(kotlet, content).errors).toEqual([]);
+    });
+
+    it('czas bez pokrycia w kroku bez timera = błąd, krótki = ostrzeżenie', () => {
+      const content = clone(example.content);
+      const plain = content.steps.find(
+        (s) => !s.timer && !s.during && !/Nagrzej/.test(s.title),
+      )!;
+      plain.body = 'Odstaw na 30 minut.';
+      expect(qualityChecks(kotlet, content).errors).toEqual([
+        expect.stringContaining(`${plain.id}: czasu 1800 s nie ma w przepisie`),
+      ]);
+      plain.body = 'Mieszaj 1 minutę.';
+      const result = qualityChecks(kotlet, content);
+      expect(result.errors).toEqual([]);
+      expect(result.warnings).toContain(
+        `${plain.id}: krótki czas 60 s spoza przepisu`,
+      );
+    });
+
+    it('jedno wystąpienie czasu w przepisie nie uzasadni dwóch timerów', () => {
+      const content = clone(example.content);
+      const potatoes = content.steps.find((s) => s.timer?.id === 't-potatoes')!;
+      const other = content.steps.find((s) => s.id === 's4')!;
+      other.timer = { ...potatoes.timer!, id: 't-copy' };
+      expect(qualityChecks(kotlet, content).errors).toEqual([
+        expect.stringContaining('przepis ma ten czas mniej razy'),
+      ]);
     });
   });
 });

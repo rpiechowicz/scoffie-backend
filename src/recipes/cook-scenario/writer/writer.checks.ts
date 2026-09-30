@@ -359,6 +359,170 @@ function checkSafety(
   }
 }
 
+// ── Czasy i temperatury w tekście (review Codexa, E3a runda 2) ───────────
+
+/** Temperatury „po czym poznać” (§5.5) — wolno je pisać bez przepisu. */
+const SAFETY_TEMPERATURES = new Set([63, 71, 74]);
+const TEMPERATURE = /(\d{2,3})\s*(?:°\s*C|°|stopni)/giu;
+
+/** Krótkie czynności („mieszaj 1 minutę”) nie zmieniają czasu dania. */
+const SHORT_SECONDS = 120;
+
+export function temperaturesIn(text: string): number[] {
+  return [...text.matchAll(TEMPERATURE)].map((match) => Number(match[1]));
+}
+
+const describeRange = ([from, to]: [number, number]) =>
+  from === to ? `${from} s` : `${from}–${to} s`;
+
+const fitsRange = (value: [number, number], range: [number, number]) =>
+  value[0] >= range[0] - tolerance(range[0]) &&
+  value[1] <= range[1] + tolerance(range[1]);
+
+/**
+ * Każda temperatura z tekstu musi być w przepisie; każdy czas z tekstu —
+ * w przepisie albo w granicach timera kroku (punkt kontrolny „po 3 minutach
+ * obróć” w 10–12 min smażenia). Tekst nie może przeczyć timerowi kroku
+ * („piecz 30 min” przy timerze 20 min).
+ */
+function checkTextClaims(
+  recipe: WriterRecipe,
+  content: CookScenarioContent,
+  recipeRanges: [number, number][],
+  errors: string[],
+  warnings: string[],
+) {
+  const recipeText = [recipe.description ?? '', ...recipe.instructions].join(
+    ' ',
+  );
+  const recipeTemperatures = new Set(temperaturesIn(recipeText));
+  const timerMax = new Map(
+    content.steps.flatMap((step) =>
+      step.timer ? [[step.timer.id, step.timer.maxSeconds] as const] : [],
+    ),
+  );
+
+  const checkTemperatures = (path: string, text: string) => {
+    for (const value of temperaturesIn(text)) {
+      if (!recipeTemperatures.has(value) && !SAFETY_TEMPERATURES.has(value)) {
+        errors.push(
+          `${path}: temperatury ${value}°C nie ma w przepisie (przepis: ${[...recipeTemperatures].join(', ') || 'brak'}°C)`,
+        );
+      }
+    }
+  };
+
+  const general: [string, string][] = content.tips.map((tip, i) => [
+    `tips[${i}]`,
+    tip,
+  ]);
+  if (content.nextTimeTip) general.push(['nextTimeTip', content.nextTimeTip]);
+  for (const [path, text] of general) {
+    checkTemperatures(path, text);
+    for (const range of recipeDurations([text])) {
+      // Rady mówią też o planie („obiad zajmie wtedy 25 minut”) — do czasu
+      // całego scenariusza wolno; dłużej tylko czas z przepisu.
+      if (
+        range[1] > SHORT_SECONDS &&
+        range[1] > content.totalMinutes * 60 &&
+        !recipeRanges.some((r) => fitsRange(range, r))
+      ) {
+        errors.push(
+          `${path}: czasu ${describeRange(range)} nie ma w przepisie`,
+        );
+      }
+    }
+  }
+
+  for (const step of content.steps) {
+    const texts = [
+      step.title,
+      step.body,
+      step.note?.text ?? '',
+      step.scaleNote?.text ?? '',
+      step.timer?.startLabel ?? '',
+      step.timer?.alert.title ?? '',
+      step.timer?.alert.body ?? '',
+    ].join(' ');
+    checkTemperatures(step.id, texts);
+    // Krok „Nagrzej piekarnik” mówi, za ile coś do niego trafi — to plan
+    // pracy, nie czas obróbki.
+    if (OVEN_PREHEAT.test(stepText(step))) continue;
+    const own = step.timer?.maxSeconds;
+    const during = step.during ? timerMax.get(step.during) : undefined;
+    for (const range of recipeDurations([texts])) {
+      if (own !== undefined && range[1] > own + tolerance(own)) {
+        errors.push(
+          `${step.id}: tekst mówi ${describeRange(range)}, a timer kroku ${own} s — tekst i timer muszą się zgadzać`,
+        );
+        continue;
+      }
+      const grounded = recipeRanges.some((r) => fitsRange(range, r));
+      const withinTimer = [own, during].some(
+        (limit) => limit !== undefined && range[1] <= limit + tolerance(limit),
+      );
+      if (grounded || withinTimer) continue;
+      if (range[1] <= SHORT_SECONDS) {
+        warnings.push(
+          `${step.id}: krótki czas ${describeRange(range)} spoza przepisu`,
+        );
+      } else {
+        errors.push(
+          `${step.id}: czasu ${describeRange(range)} nie ma w przepisie`,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Timery ↔ czasy przepisu jak pary (skojarzenie w grafie dwudzielnym):
+ * każdy timer musi mieć WŁASNE wystąpienie pasującego czasu w przepisie.
+ * Jedno „20 minut” w przepisie nie uzasadni dwóch timerów po 20 minut.
+ */
+function checkTimers(
+  content: CookScenarioContent,
+  recipeRanges: [number, number][],
+  errors: string[],
+  warnings: string[],
+) {
+  const timers = content.steps.flatMap((step) =>
+    step.timer ? [{ step: step.id, timer: step.timer }] : [],
+  );
+  const candidates = timers.map(({ timer }) =>
+    recipeRanges.flatMap((range, index) =>
+      fitsRange([timer.minSeconds, timer.maxSeconds], range) ? [index] : [],
+    ),
+  );
+  const owner = new Array<number>(recipeRanges.length).fill(-1);
+  const assign = (timer: number, seen: Set<number>): boolean => {
+    for (const range of candidates[timer]) {
+      if (seen.has(range)) continue;
+      seen.add(range);
+      if (owner[range] < 0 || assign(owner[range], seen)) {
+        owner[range] = timer;
+        return true;
+      }
+    }
+    return false;
+  };
+  timers.forEach(({ step, timer }, index) => {
+    if (assign(index, new Set())) return;
+    errors.push(
+      candidates[index].length
+        ? `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: przepis ma ten czas mniej razy, niż jest takich timerów`
+        : `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: takiego czasu nie ma w przepisie (przepis: ${
+            recipeRanges.map(describeRange).join(', ') || 'brak czasów'
+          })`,
+    );
+  });
+  recipeRanges.forEach((range, index) => {
+    if (range[1] >= 180 && owner[index] < 0) {
+      warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
+    }
+  });
+}
+
 // ── Całość ──────────────────────────────────────────────────────────────
 
 /** Walidatory jakości treści, która już przeszła kształt i sumy. */
@@ -368,45 +532,13 @@ export function qualityChecks(
 ): CheckResult {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const recipeRanges = recipeDurations(recipe.instructions);
 
   checkNumbersInText(recipe, content, errors);
   checkOven(content, errors);
   checkSafety(recipe, content, errors);
-
-  // Timery tylko z czasami z przepisu (§5.3: czasów nie zmieniamy).
-  const durations = recipeDurations(recipe.instructions);
-  const timers = content.steps.flatMap((step) =>
-    step.timer ? [{ step: step.id, timer: step.timer }] : [],
-  );
-  for (const { step, timer } of timers) {
-    const fits = durations.some(
-      ([from, to]) =>
-        timer.minSeconds >= from - tolerance(from) &&
-        timer.maxSeconds <= to + tolerance(to),
-    );
-    if (!fits) {
-      errors.push(
-        `${step}.timer „${timer.label}” ${timer.minSeconds}–${timer.maxSeconds} s: takiego czasu nie ma w przepisie (przepis: ${
-          durations
-            .map(([a, b]) => (a === b ? `${a}` : `${a}–${b}`))
-            .join(', ') || 'brak czasów'
-        } s)`,
-      );
-    }
-  }
-  for (const [from, to] of durations) {
-    if (to < 180) continue;
-    const covered = timers.some(
-      ({ timer }) =>
-        timer.maxSeconds >= from - tolerance(from) &&
-        timer.minSeconds <= to + tolerance(to),
-    );
-    if (!covered) {
-      warnings.push(
-        `czas z przepisu ${from === to ? from : `${from}–${to}`} s nie ma timera`,
-      );
-    }
-  }
+  checkTextClaims(recipe, content, recipeRanges, errors, warnings);
+  checkTimers(content, recipeRanges, errors, warnings);
 
   if (recipe.prepTimeMinutes > 0) {
     const ratio = content.totalMinutes / recipe.prepTimeMinutes;
@@ -419,9 +551,18 @@ export function qualityChecks(
   return { errors, warnings };
 }
 
+/** Obróbka cieplna, czekanie albo technika — wtedy przepis nie jest trywialny. */
+const NOT_TRIVIAL =
+  /(smaż|piecz|gotuj|zagotuj|dus[zi]|zapiek|grill|opiek|blanszuj|podgrzej|rozgrzej|nagrzej|parz|wrząc|wrzą|wrze|piekarnik|patel|garn|rondel|toster|tostuj|mikrofal|gofr|ubij|wyrabiaj|zagniataj|marynuj|chłodź|lodówk|zamraż|zamroź|odstaw|namocz|przez noc|na noc)/iu;
+/** Sprzęt, który nie czyni przepisu nietrywialnym. */
+const TRIVIAL_EQUIPMENT = new Set(['BLENDER']);
+
 /**
- * D29: pominąć wolno tylko przepis naprawdę trywialny. Deterministyczna
- * bramka — model nie może „oszczędzić sobie pracy” na przepisie z czasem.
+ * D29: pominąć wolno tylko przepis, o którym WIEMY, że jest samym
+ * złożeniem (review Codexa, E3a runda 2 — brak liczby w przepisie to za
+ * mało: „smaż do ścięcia” czasu nie podaje). Wszystkie warunki naraz: bez
+ * czasów, krótki, bez sprzętu grzejnego i bez słów obróbki, czekania
+ * i techniki.
  */
 export function skipGuard(recipe: WriterRecipe): string | null {
   if (recipeDurations(recipe.instructions).length) {
@@ -429,6 +570,18 @@ export function skipGuard(recipe: WriterRecipe): string | null {
   }
   if (recipe.instructions.length > 4 || recipe.prepTimeMinutes > 15) {
     return `SKIP niedozwolony: przepis ma ${recipe.instructions.length} kroków i ${recipe.prepTimeMinutes} min — napisz scenariusz`;
+  }
+  const equipment = recipe.equipment.filter(
+    (item) => !TRIVIAL_EQUIPMENT.has(item),
+  );
+  if (equipment.length) {
+    return `SKIP niedozwolony: przepis wymaga sprzętu (${equipment.join(', ')}) — napisz scenariusz`;
+  }
+  const found = NOT_TRIVIAL.exec(
+    [recipe.title, ...recipe.instructions].join(' '),
+  );
+  if (found) {
+    return `SKIP niedozwolony: przepis ma obróbkę, czekanie albo technikę („${found[0]}”) — napisz scenariusz`;
   }
   return null;
 }
