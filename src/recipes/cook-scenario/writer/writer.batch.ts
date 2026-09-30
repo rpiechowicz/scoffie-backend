@@ -549,7 +549,11 @@ export class AnthropicBatchModel implements BatchModel {
     // pojawić na liście — wcześniej „nie ma” nie znaczy „nie przyjęto”.
     const until = at + VISIBILITY_WINDOW_MS;
     const wanted = new Set(pending.ids);
-    let undecided = false;
+    // Najpóźniejsze wygaśnięcie pasującej paczki w toku — do tej chwili
+    // czekamy (świadomy wybór: bez znacznika paczki u dostawcy nie odróżnimy
+    // naszej w toku od obcej; czekanie grozi opóźnieniem, a zgadywanie —
+    // podwójną płatnością; paczki z tego konta wysyła tylko ten skrypt).
+    let undecidedUntil = 0;
     for await (const batch of this.client.messages.batches.list({
       limit: 100,
     })) {
@@ -564,7 +568,10 @@ export class AnthropicBatchModel implements BatchModel {
       // na nią (może być obca i trwać do 24 h, review Codexa); zapamiętujemy
       // i najwyżej odpowiadamy „za wcześnie”.
       if (batch.processing_status !== 'ended') {
-        undecided = true;
+        undecidedUntil = Math.max(
+          undecidedUntil,
+          Date.parse(batch.expires_at ?? '') || created + 24 * 3_600_000,
+        );
         continue;
       }
       const lines = await this.retry(() =>
@@ -593,8 +600,9 @@ export class AnthropicBatchModel implements BatchModel {
     }
     // Nierozstrzygnięte (pasująca paczka jeszcze w toku) albo okno widoczności
     // trwa — czekamy; dopiero potem „nie przyjęto”.
-    if (undecided || this.now() < until) {
-      return { kind: 'wait', until: new Date(until).toISOString() };
+    const waitUntil = Math.max(until, undecidedUntil);
+    if (this.now() < waitUntil) {
+      return { kind: 'wait', until: new Date(waitUntil).toISOString() };
     }
     return { kind: 'absent' };
   }

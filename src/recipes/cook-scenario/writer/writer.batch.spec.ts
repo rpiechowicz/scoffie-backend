@@ -593,6 +593,9 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
                 yield {
                   id: 'obca',
                   created_at: new Date().toISOString(),
+                  expires_at: new Date(
+                    Date.now() + 24 * 3_600_000,
+                  ).toISOString(),
                   processing_status: 'in_progress',
                   request_counts: {
                     processing: created[0].ids.length,
@@ -923,6 +926,55 @@ describe('dziennik paczek — niezmienniki po awariach (review Codexa)', () => {
         'VALIDATED',
         'VALIDATED',
       ]);
+    });
+
+    it('naszej paczki nie ma, a obca tej samej wielkości w toku: czekamy do jej wygaśnięcia (bez ryzyka podwójnej płatności) i podajemy PRZYSZŁĄ godzinę', async () => {
+      const created: { ids: string[]; review: boolean[] }[] = [];
+      const { run, journals } = start(created, { rejected: 1 });
+      await expect(run).rejects.toMatchObject({ reason: 'transport' });
+      const last = journals[journals.length - 1];
+      // Lista: tylko obca paczka w toku (wielkość jak nasza zapowiedź).
+      const foreignOnly = {
+        messages: {
+          batches: {
+            list: () =>
+              (async function* () {
+                await Promise.resolve();
+                yield {
+                  id: 'obca',
+                  created_at: new Date().toISOString(),
+                  expires_at: new Date(
+                    Date.now() + 24 * 3_600_000,
+                  ).toISOString(),
+                  processing_status: 'in_progress',
+                  request_counts: {
+                    processing: last.submitting!.ids.length,
+                    succeeded: 0,
+                    errored: 0,
+                    canceled: 0,
+                    expired: 0,
+                  },
+                };
+              })(),
+          },
+        },
+      } as unknown as Anthropic;
+      const model = new AnthropicBatchModel(
+        foreignOnly,
+        new BudgetGuard(1e9),
+        undefined,
+        {
+          sleep: noSleep,
+          now: () => Date.now() + 30 * 60_000,
+        },
+      );
+      const verdict = await model.reconcile(last.submitting!);
+      expect(verdict.kind).toBe('wait');
+      if (verdict.kind === 'wait') {
+        expect(Date.parse(verdict.until)).toBeGreaterThan(
+          Date.now() + 23 * 3_600_000,
+        );
+      }
     });
 
     it('proces padł między przyjęciem paczki a zapisem jej id: zapowiedź w dzienniku wystarcza', async () => {
