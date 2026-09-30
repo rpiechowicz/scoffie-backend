@@ -341,11 +341,6 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
         active.add(found.length);
       }
       found.push(range);
-      if (BATCH_WORK.test(own)) {
-        // Druga tura tym samym czasem (więcej tur — przy skali, scaleNote).
-        extraTurns.add(found.length);
-        found.push(range);
-      }
       // „Po 3 minuty z każdej strony” to DWA odliczania albo jedno łączne
       // (pilot E3b: ryba po grecku, gruszka) — oba zapisy są wierne przepisowi.
       const after = line
@@ -368,6 +363,12 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
           found.push([range[0] * 2, range[1] * 2]);
           perSide.push({ singles: [first, first + 1], combined: first + 2 });
         }
+      } else if (BATCH_WORK.test(own)) {
+        // Druga tura tym samym czasem (więcej tur — przy skali, scaleNote).
+        // Dopisana PO grupie „z każdej strony” i tylko bez niej — kopia
+        // przed grupą przesuwała jej indeksy (przegląd nocny).
+        extraTurns.add(found.length);
+        found.push(range);
       }
     }
     const lower = line.toLowerCase();

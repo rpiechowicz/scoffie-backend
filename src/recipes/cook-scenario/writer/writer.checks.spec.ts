@@ -2,6 +2,7 @@ import { normalizeText } from '../../../common/normalize-text.util';
 import {
   ingredientNamed,
   qualityChecks,
+  recipeDurationPool,
   recipeDurations,
   resolveWriterOutput,
   shownLength,
@@ -1259,6 +1260,19 @@ describe('system pisania — walidatory twarde', () => {
       };
       expect(withTurns(2)).toEqual([]);
       expect(withTurns(3)).toHaveLength(1);
+    });
+
+    it('tury i „z każdej strony” w jednym zdaniu nie psują grupy stron', () => {
+      const pool = recipeDurationPool([
+        'Smaż partiami po 3 minuty z każdej strony, aż będą złote.',
+      ]);
+      // Tylko grupa stron (dwa odliczania po 3 min, bez łącznego — patelnia).
+      expect(pool.ranges).toEqual([
+        [180, 180],
+        [180, 180],
+      ]);
+      expect(pool.perSide).toEqual([{ singles: [0, 1], combined: null }]);
+      expect([...pool.extraTurns]).toEqual([]);
     });
 
     it('totalMinutes nie krótszy niż odliczania po kolei', () => {
