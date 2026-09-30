@@ -571,8 +571,8 @@ function checkIngredientsNamed(
   content: CookScenarioContent,
   warnings: string[],
 ) {
-  const names = new Map(
-    recipe.ingredients.map((row) => [row.ingredientId, row.name]),
+  const rows = new Map(
+    recipe.ingredients.map((row) => [row.ingredientId, row]),
   );
   for (const step of content.steps) {
     // Tylko tytuł i treść — tam zasada każe wymienić składnik.
@@ -580,8 +580,17 @@ function checkIngredientsNamed(
       .split(/[^a-z]+/)
       .filter(Boolean);
     for (const use of step.ingredients) {
-      const name = names.get(use.ingredientId);
-      if (!name || ingredientNamed(name, words)) continue;
+      const row = rows.get(use.ingredientId);
+      if (!row) continue;
+      const name = row.name;
+      const general =
+        DEPARTMENT_WORDS[normalizeText(row.department ?? '')] ?? [];
+      if (
+        ingredientNamed(name, words) ||
+        words.some((word) => general.some((stem) => word.startsWith(stem)))
+      ) {
+        continue;
+      }
       warnings.push(
         `${step.id}: składnik „${name}” ma w kroku ilość, ale tytuł ani treść kroku go nie wymienia`,
       );
@@ -620,15 +629,41 @@ const VERB_PREFIXES = [
   'na',
   'wy',
 ];
+/**
+ * „o” tylko przed KRÓTKĄ nazwą („osól”, „osolonego”) — przed dłuższą łapie
+ * obce słowa („oprósz” → „proszek do pieczenia”).
+ */
+const SHORT_PREFIXES = ['o'];
+
+/**
+ * Inne słowa na TEN SAM składnik, których rdzeń nie złapie: synonim („kmin
+ * rzymski” → „kuminem”, „cannelloni” → „rurki”) i ser bez „ser” w nazwie („mozzarella” → „połową
+ * sera”). Pomiar na 728 parach krok–składnik, runda 4.
+ */
+const ALIASES: Record<string, string[]> = {
+  kmin: ['kumin'],
+  cannelloni: ['rurek'],
+  mozzarella: ['ser'],
+  oscypek: ['ser'],
+};
+
+/**
+ * Krótkie słowo rośnie o końcówkę albo o imiesłów („sól” → „osolonego”):
+ * „on”/„ow” i do 3 liter końcówki.
+ */
+const SHORT_GROWTH = /^[a-z]{0,2}$|^(on|ow)[a-z]{0,3}$/;
 
 /**
  * Czy któreś słowo tekstu to odmiana słowa z nazwy. Rdzeń od POCZĄTKU słowa
  * (review Codexa: „mak” w środku „do smaku” to nie mąka): 4 litery dla słów
- * dłuższych, 3 dla krótkich — a krótkie mogą urosnąć najwyżej o końcówkę
+ * dłuższych, 3 dla krótkich — a krótkie mogą urosnąć tylko o końcówkę
  * („ser” → „serem”, ale nie „serwuj”).
  */
 export function ingredientNamed(name: string, words: string[]): boolean {
-  const parts = significantParts(name);
+  const parts = significantParts(name).flatMap((part) => [
+    part,
+    ...(ALIASES[part] ?? []),
+  ]);
   if (parts.length === 0) return true;
   return parts.some((part) => {
     const short = part.length < 5;
@@ -636,49 +671,76 @@ export function ingredientNamed(name: string, words: string[]): boolean {
     return words.some((word) =>
       [
         word,
-        ...VERB_PREFIXES.filter((p) => word.startsWith(p)).map((p) =>
-          word.slice(p.length),
-        ),
+        ...[...VERB_PREFIXES, ...(short ? SHORT_PREFIXES : [])]
+          .filter((p) => word.startsWith(p))
+          .map((p) => word.slice(p.length)),
       ].some((core) =>
         stems.some(
           (stem) =>
-            core.startsWith(stem) && (!short || core.length <= part.length + 2),
+            core.startsWith(stem) &&
+            (!short || SHORT_GROWTH.test(core.slice(part.length))),
         ),
       ),
     );
   });
 }
 
-/** Przyimki i spójniki w nazwach („filet z kurczaka”, „sól i pieprz”). */
-const NAME_STOPWORDS = new Set([
-  'do',
-  'dla',
-  'na',
-  'z',
-  'ze',
-  'w',
-  'we',
-  'i',
-  'od',
-  'bez',
-  'po',
-]);
 /** Po nich nazwa mówi, DO CZEGO składnik jest („przyprawa do kurczaka”), nie czym jest. */
 const PURPOSE = new Set(['do', 'dla', 'na']);
+/** Po nich stoi ŹRÓDŁO — też nazwa rzeczy („filet z kurczaka” → „kurczak”). */
+const SOURCE = new Set(['z', 'ze']);
+/**
+ * Ogólne rzeczowniki, przy których o rzeczy mówi dopiero drugi człon
+ * („ser feta” → „feta”, „sos sojowy”, „makaron cannelloni”).
+ */
+const GENERIC_HEADS = new Set([
+  'ser',
+  'sos',
+  'pasta',
+  'makaron',
+  'kasza',
+  'filet',
+  'piers',
+  'udko',
+  'udka',
+  'mieso',
+  'koncentrat',
+  'mleko',
+  // Pomiar na 627 parach krok–składnik (runda 3): tu o rzeczy mówi drugi
+  // człon — „papryczka chili” → „chili”, „nasiona chia”, „cebula dymka”.
+  'papryczka',
+  'platki',
+  'nasiona',
+  'pestki',
+  'cebula',
+  'lisc',
+  'liscie',
+]);
+
+/** Mięso i ryby tekst często nazywa ogólnie („wymieszaj mięso z ryżem”). */
+const DEPARTMENT_WORDS: Record<string, string[]> = {
+  mieso: ['mies'],
+  ryby: ['ryb'],
+};
 
 /**
- * Znaczące człony nazwy (review Codexa, runda 2): bez przyimków i bez tego,
- * co stoi po „do / dla / na” — „kurczaka” nie wymienia „przyprawy do
- * kurczaka”; po „z” człon się liczy („filet z kurczaka” → „kurczaka”).
+ * Człony, które NAZYWAJĄ składnik (review Codexa, runda 3): człon główny,
+ * źródło po „z” i — przy ogólnym rzeczowniku — drugi człon. Same
+ * określenia („czarny”, „pszenna”, „rzepakowy”) nie wystarczą: „czarna
+ * fasola” to nie „pieprz czarny”. Po „do / dla / na” nazwa się kończy.
  */
 function significantParts(name: string): string[] {
-  const out: string[] = [];
-  for (const word of normalizeText(name)
+  const words = normalizeText(name)
     .split(/[^a-z]+/)
-    .filter(Boolean)) {
+    .filter(Boolean);
+  const out: string[] = [];
+  for (let i = 0; i < words.length; i += 1) {
+    const word = words[i];
     if (PURPOSE.has(word)) break;
-    if (NAME_STOPWORDS.has(word) || word.length < 3) continue;
-    out.push(word);
+    const head = out.length === 0 && word.length >= 3;
+    const source = i > 0 && SOURCE.has(words[i - 1]) && word.length >= 3;
+    const second = i === 1 && GENERIC_HEADS.has(words[0]) && word.length >= 3;
+    if (head || source || second) out.push(word);
   }
   return out;
 }
@@ -708,8 +770,8 @@ function stemVariants(part: string): string[] {
  */
 // Wyrażenie czasu, nie każda cyfra (review Codexa): „Śmietana 12%” jest OK.
 const TIME_IN_LABEL = new RegExp(
-  `${DURATION.source}|odlicz|kwadrans|sekund|minut|godzin|półtorej`,
-  'i',
+  `${DURATION.source}|odlicz|kwadrans|sekund|minut|minuc|godzin|półtorej|(^|[^\\p{L}])(min|sek|godz)\\.?($|[^\\p{L}])`,
+  'iu',
 );
 
 function checkStartLabels(content: CookScenarioContent, errors: string[]) {

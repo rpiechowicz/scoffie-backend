@@ -131,6 +131,10 @@ describe('system pisania — walidatory twarde', () => {
       'Po pięciu minutach',
       'Za dwie minuty',
       'Po półtorej',
+      // Runda 3 Codexa: odmiana „minucie” i skróty bez liczby.
+      'Po minucie',
+      'Po min.',
+      'Po sek.',
     ]) {
       step.timer!.startLabel = label;
       expect(qualityChecks(kotlet, content).errors).toContainEqual(
@@ -221,6 +225,24 @@ describe('system pisania — walidatory twarde', () => {
       ['ser feta', 'Serwuj od razu.', false],
       ['sól', 'Posól wodę.', true],
       ['koperek', 'Posyp resztą koperku.', true],
+      // Runda 3 Codexa: samo określenie nie nazywa składnika.
+      ['pieprz czarny', 'Dodaj czarną fasolę.', false],
+      ['pieprz czarny', 'Dopraw pieprzem.', true],
+      ['mąka pszenna', 'Wsyp pszenną bułkę.', false],
+      ['ser feta', 'Pokrusz fetę.', true],
+      ['sos sojowy', 'Skrop sosem sojowym.', true],
+      // Pomiar na korpusie (runda 3): drugi człon po ogólnym rzeczowniku.
+      ['papryczka chili', 'Chili pokrój w cienkie kawałki.', true],
+      ['nasiona chia', 'Ułóż pasek chia.', true],
+      ['cebula dymka', 'Dymkę pokrój w plasterki.', true],
+      // Pomiar na 728 parach (runda 4): imiesłów, synonim, ser bez „ser”.
+      ['sól', 'Wsyp ryż do osolonego wrzątku.', true],
+      ['sól', 'Zagotuj wodę i osól ją.', true],
+      ['sól', 'Podaj z sosem.', false],
+      ['proszek do pieczenia', 'Oprósz formę mąką.', false],
+      ['kmin rzymski', 'Dopraw kuminem.', true],
+      ['mozzarella tarta', 'Posyp tortille połową sera.', true],
+      ['makaron cannelloni', 'Napełnij rurki farszem.', true],
     ])('%s ← „%s” → %s', (name, text, expected) => {
       expect(ingredientNamed(name, words(text))).toBe(expected);
     });
