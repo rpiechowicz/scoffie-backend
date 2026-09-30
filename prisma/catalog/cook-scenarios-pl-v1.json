@@ -9,7 +9,10 @@
       "content": {
         "schemaVersion": 1,
         "basePortions": 2,
-        "portionUnit": { "id": "cutlet", "forms": ["kotlet", "kotlety", "kotletów"] },
+        "portionUnit": {
+          "id": "cutlet",
+          "forms": ["kotlet", "kotlety", "kotletów"]
+        },
         "totalMinutes": 50,
         "tips": [
           "Masło musi być miękkie — prosto z lodówki rozgnieć je widelcem w ciepłej miseczce.",
@@ -25,8 +28,18 @@
             "title": "Zrób masło koperkowe i schowaj je do zamrażarki",
             "body": "Posiekaj cały koperek drobno i odłóż połowę — przyda się do ziemniaków. Masło rozgnieć widelcem z koperkiem na gładką masę. Na folii uformuj {count:rolls|wałeczek|wałeczki|wałeczków} grubości palca, zawiń szczelnie i połóż płasko w zamrażarce.",
             "ingredients": [
-              { "ingredient": "masło", "amount": 30, "unit": "g", "part": "ALL" },
-              { "ingredient": "koperek", "amount": 5, "unit": "g", "part": "HALF" }
+              {
+                "ingredient": "masło",
+                "amount": 30,
+                "unit": "g",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "koperek",
+                "amount": 5,
+                "unit": "g",
+                "part": "HALF"
+              }
             ],
             "mentions": [],
             "note": null,
@@ -37,7 +50,10 @@
               "maxSeconds": 900,
               "trigger": "NOW",
               "startLabel": "Schowane — odliczaj 15 min",
-              "alert": { "title": "Masło gotowe", "body": "Wyjmij wałeczki z zamrażarki." }
+              "alert": {
+                "title": "Masło gotowe",
+                "body": "Wyjmij wałeczki z zamrażarki."
+              }
             },
             "during": null,
             "scaleNote": null
@@ -49,12 +65,25 @@
             "title": "Rozbij filety na cienkie kotlety",
             "body": "Każdy filet połóż płasko i przetnij poziomo na dwa cieńsze płaty, jak otwierając książkę — wyjdą {count:cutlets|kotlet|kotlety|kotletów}. Przykryj folią i rozbijaj tłuczkiem od środka na zewnątrz, aż mięso będzie miało ok. 0,5 cm. Równa grubość = równe smażenie. Posól i popieprz z obu stron.",
             "ingredients": [
-              { "ingredient": "filet z kurczaka", "amount": 320, "unit": "g", "part": "ALL" },
+              {
+                "ingredient": "filet z kurczaka",
+                "amount": 320,
+                "unit": "g",
+                "part": "ALL"
+              },
               { "ingredient": "sól", "amount": 1, "unit": "g", "part": "PART" },
-              { "ingredient": "pieprz czarny", "amount": 0.5, "unit": "g", "part": "HALF" }
+              {
+                "ingredient": "pieprz czarny",
+                "amount": 0.5,
+                "unit": "g",
+                "part": "HALF"
+              }
             ],
             "mentions": [],
-            "note": { "kind": "TIP", "text": "Folia nie pozwala mięsu się porwać i pryskać po kuchni." },
+            "note": {
+              "kind": "TIP",
+              "text": "Folia nie pozwala mięsu się porwać i pryskać po kuchni."
+            },
             "timer": null,
             "during": "t-butter",
             "scaleNote": null
@@ -66,8 +95,18 @@
             "title": "Obierz ziemniaki i nastaw wodę",
             "body": "Większe ziemniaki przekrój na pół, żeby wszystkie ugotowały się w tym samym czasie. Zalej je zimną wodą tak, by były przykryte, posól i postaw na dużym ogniu. Gdy woda zawrze, zmniejsz ogień do średniego i włącz odliczanie.",
             "ingredients": [
-              { "ingredient": "ziemniak", "amount": 500, "unit": "g", "part": "ALL" },
-              { "ingredient": "sól", "amount": 1.5, "unit": "g", "part": "PART" }
+              {
+                "ingredient": "ziemniak",
+                "amount": 500,
+                "unit": "g",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "sól",
+                "amount": 1.5,
+                "unit": "g",
+                "part": "PART"
+              }
             ],
             "mentions": [],
             "note": null,
@@ -78,10 +117,16 @@
               "maxSeconds": 1200,
               "trigger": "EVENT",
               "startLabel": "Woda wrze — odliczaj 20 min",
-              "alert": { "title": "Ziemniaki gotowe?", "body": "Nóż ma wchodzić bez oporu." }
+              "alert": {
+                "title": "Ziemniaki gotowe?",
+                "body": "Nóż ma wchodzić bez oporu."
+              }
             },
             "during": "t-butter",
-            "scaleNote": { "fromPortions": 5, "text": "Przy tylu porcjach weź największy garnek — woda ma przykryć ziemniaki." }
+            "scaleNote": {
+              "fromPortions": 5,
+              "text": "Przy tylu porcjach weź największy garnek — woda ma przykryć ziemniaki."
+            }
           },
           {
             "id": "s4",
@@ -90,9 +135,24 @@
             "title": "Przygotuj trzy talerze do panierki",
             "body": "Do pierwszego talerza wsyp mąkę, w drugim roztrzep jajko widelcem, do trzeciego wsyp bułkę tartą. Ustaw je w rzędzie w tej kolejności — przyda się to przy podwójnej panierce.",
             "ingredients": [
-              { "ingredient": "mąka pszenna", "amount": 20, "unit": "g", "part": "ALL" },
-              { "ingredient": "jajko", "amount": 1, "unit": "szt", "part": "ALL" },
-              { "ingredient": "bułka tarta", "amount": 50, "unit": "g", "part": "ALL" }
+              {
+                "ingredient": "mąka pszenna",
+                "amount": 20,
+                "unit": "g",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "jajko",
+                "amount": 1,
+                "unit": "szt",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "bułka tarta",
+                "amount": 50,
+                "unit": "g",
+                "part": "ALL"
+              }
             ],
             "mentions": [],
             "note": null,
@@ -121,7 +181,10 @@
             "body": "Wyjmij wałeczki z zamrażarki. Każdy połóż na brzegu kotleta, krótszym bokiem do siebie. Zawiń raz, załóż boki kotleta do środka, jak przy naleśniku z nadzieniem, i zwijaj dalej ciasno do końca. Łączeniem do dołu — tak roladka się nie rozwinie.",
             "ingredients": [],
             "mentions": ["masło", "filet z kurczaka"],
-            "note": { "kind": "CUE", "text": "Z żadnej strony nie widać masła. Jeśli widać — dociśnij mięso palcami." },
+            "note": {
+              "kind": "CUE",
+              "text": "Z żadnej strony nie widać masła. Jeśli widać — dociśnij mięso palcami."
+            },
             "timer": null,
             "during": null,
             "scaleNote": null
@@ -146,10 +209,18 @@
             "title": "Smaż kotlety na złoto",
             "body": "Rozgrzej olej na patelni na średnim ogniu — jest gotowy, gdy okruch bułki od razu zaczyna skwierczeć. Połóż kotlety łączeniem do dołu, żeby się zasklepiły. Obracaj co 3 minuty, aż będą złote ze wszystkich stron.",
             "ingredients": [
-              { "ingredient": "olej rzepakowy", "amount": 30, "unit": "ml", "part": "ALL" }
+              {
+                "ingredient": "olej rzepakowy",
+                "amount": 30,
+                "unit": "ml",
+                "part": "ALL"
+              }
             ],
             "mentions": [],
-            "note": { "kind": "WARNING", "text": "Olej pryska — kładź kotlety od siebie." },
+            "note": {
+              "kind": "WARNING",
+              "text": "Olej pryska — kładź kotlety od siebie."
+            },
             "timer": {
               "id": "t-cutlets",
               "label": "Kotlety",
@@ -157,10 +228,16 @@
               "maxSeconds": 720,
               "trigger": "NOW",
               "startLabel": "Na patelni — odliczaj 10 min",
-              "alert": { "title": "Sprawdź kolor", "body": "Blade? Dosmaż jeszcze chwilę." }
+              "alert": {
+                "title": "Sprawdź kolor",
+                "body": "Blade? Dosmaż jeszcze chwilę."
+              }
             },
             "during": null,
-            "scaleNote": { "fromPortions": 4, "text": "Smaż w dwóch turach — ciasna patelnia gotuje zamiast smażyć." }
+            "scaleNote": {
+              "fromPortions": 4,
+              "text": "Smaż w dwóch turach — ciasna patelnia gotuje zamiast smażyć."
+            }
           },
           {
             "id": "s9",
@@ -169,8 +246,11 @@
             "title": "Przełóż kotlety do piekarnika na 5 minut",
             "body": "Przełóż je do naczynia żaroodpornego albo na blachę i wstaw na środkową półkę.",
             "ingredients": [],
-            "mentions": [],
-            "note": { "kind": "CUE", "text": "W środku 74°C albo po nakłuciu wypływa przezroczysty sok, bez różowego." },
+            "mentions": ["filet z kurczaka"],
+            "note": {
+              "kind": "CUE",
+              "text": "W środku 74°C albo po nakłuciu wypływa przezroczysty sok, bez różowego."
+            },
             "timer": {
               "id": "t-oven",
               "label": "Piekarnik",
@@ -178,7 +258,10 @@
               "maxSeconds": 300,
               "trigger": "NOW",
               "startLabel": "W piekarniku — odliczaj 5 min",
-              "alert": { "title": "Kotlety gotowe", "body": "Wyjmij je z piekarnika." }
+              "alert": {
+                "title": "Kotlety gotowe",
+                "body": "Wyjmij je z piekarnika."
+              }
             },
             "during": null,
             "scaleNote": null
@@ -190,10 +273,30 @@
             "title": "Zrób mizerię",
             "body": "Pokrój ogórek w cienkie plasterki, posól i odstaw na chwilę. Odciśnij wodę dłońmi — mizeria nie będzie wodnista. Wymieszaj ze śmietaną i pieprzem.",
             "ingredients": [
-              { "ingredient": "ogórek", "amount": 250, "unit": "g", "part": "ALL" },
-              { "ingredient": "sól", "amount": 0.5, "unit": "g", "part": "REST" },
-              { "ingredient": "śmietana 12", "amount": 60, "unit": "g", "part": "ALL" },
-              { "ingredient": "pieprz czarny", "amount": 0.5, "unit": "g", "part": "REST" }
+              {
+                "ingredient": "ogórek",
+                "amount": 250,
+                "unit": "g",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "sól",
+                "amount": 0.5,
+                "unit": "g",
+                "part": "REST"
+              },
+              {
+                "ingredient": "śmietana 12",
+                "amount": 60,
+                "unit": "g",
+                "part": "ALL"
+              },
+              {
+                "ingredient": "pieprz czarny",
+                "amount": 0.5,
+                "unit": "g",
+                "part": "REST"
+              }
             ],
             "mentions": [],
             "note": null,
@@ -208,7 +311,12 @@
             "title": "Odcedź ziemniaki i posyp koperkiem",
             "body": "Odcedź ziemniaki i odstaw na chwilę na gorącej płycie bez pokrywki, żeby odparowały. Posyp koperkiem.",
             "ingredients": [
-              { "ingredient": "koperek", "amount": 5, "unit": "g", "part": "REST" }
+              {
+                "ingredient": "koperek",
+                "amount": 5,
+                "unit": "g",
+                "part": "REST"
+              }
             ],
             "mentions": [],
             "note": null,
@@ -224,7 +332,10 @@
             "body": "Na talerz połóż kotlet, ziemniaki i mizerię.",
             "ingredients": [],
             "mentions": [],
-            "note": { "kind": "WARNING", "text": "Kotlet przekrój dopiero na talerzu i ostrożnie — ze środka wypłynie gorące masło." },
+            "note": {
+              "kind": "WARNING",
+              "text": "Kotlet przekrój dopiero na talerzu i ostrożnie — ze środka wypłynie gorące masło."
+            },
             "timer": null,
             "during": null,
             "scaleNote": null
