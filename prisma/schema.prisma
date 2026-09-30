@@ -343,6 +343,14 @@ model Recipe {
   /// w `RecipeSlugAlias`. Przepisy gospodarstw mają `null` — udostępnia się
   /// je tokenem (`RecipeShare`).
   slug                  String?    @unique
+  /// Wersja OPUBLIKOWANEGO scenariusza trybu Gotuj (`RecipeCookScenario`),
+  /// `null` = przepis nie ma trybu Gotuj (brak scenariusza, przepis trywialny
+  /// albo scenariusz nieaktualny). Kopia z tabeli scenariuszy, bo tamta nie
+  /// przesuwa logu katalogu, a ta kolumna — tak (trigger `Recipe_catalog_change`
+  /// widzi zmianę wiersza): telefon dostaje „jest Gotuj / nowa wersja” zwykłą
+  /// deltą katalogu i pobiera scenariusz dopiero wtedy. Pisze ją WYŁĄCZNIE
+  /// `CookScenariosService`, w tej samej transakcji co wiersz scenariusza.
+  cookScenarioVersion   Int?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
@@ -364,6 +372,7 @@ model Recipe {
   slugAliases        RecipeSlugAlias[]
   shares             RecipeShare[]
   shareEvents        RecipeShareEvent[]
+  cookScenarios      RecipeCookScenario[]
 
   // Druga gałąź filtru widoczności (`isCatalog = true OR householdId = …`).
   // Sam `isCatalog` indeksu nie dostaje — jest niskoselektywny.
@@ -759,6 +768,62 @@ model RecipeShareEvent {
 
   @@index([recipeId, kind])
   @@index([createdAt])
+}
+
+/// Stan wersji scenariusza trybu Gotuj (docs: scoffie-ios
+/// `docs/workstreams/gotuj/README.md` §7.5). Telefon widzi WYŁĄCZNIE
+/// `PUBLISHED`; reszta to kuchnia systemu pisania i panelu.
+enum CookScenarioStatus {
+  /// Wynik modelu przed walidatorami.
+  DRAFT
+  /// Przeszedł walidatory i recenzenta, czeka na publikację.
+  VALIDATED
+  /// Obowiązujący — najwyżej jeden na przepis (częściowy indeks unikalny).
+  PUBLISHED
+  /// Był opublikowany, zastąpiła go nowsza wersja.
+  RETIRED
+  /// Odrzucony przez walidator, recenzenta albo człowieka.
+  REJECTED
+  /// Przepis zmienił się po wygenerowaniu (inny `recipeContentHash`).
+  STALE
+  /// Przepis bez trybu Gotuj (trywialny, D29) — `content` pusty, powód w `skipReason`.
+  SKIPPED
+}
+
+/// Scenariusz trybu Gotuj: przepis rozpisany na kroki z ilościami, timerami
+/// i radami (kształt `CookScenarioContent`, `src/recipes/cook-scenario/`).
+/// Zapisany na stałe przy przepisie — gotowy PRZED wejściem w tryb, nigdy
+/// generowany w locie (D2, D15). Każda zmiana treści = nowy wiersz z kolejną
+/// `version`; stare zostają (historia, diff w panelu).
+model RecipeCookScenario {
+  id                String             @id @default(uuid()) @db.Uuid
+  recipeId          String             @db.Uuid
+  /// Kolejny numer w obrębie przepisu, od 1. Opublikowany trafia też do
+  /// `Recipe.cookScenarioVersion`.
+  version           Int
+  status            CookScenarioStatus
+  /// sha256 treści przepisu (tytuł, porcje, składniki, kroki) z chwili
+  /// wygenerowania — inny niż obecny = scenariusz nieaktualny (`STALE`).
+  recipeContentHash String
+  /// Wersja zasad pisania (§5), według których powstał — zmiana zasad = ponowne przejście.
+  rulesVersion      String
+  /// Treść scenariusza; `null` tylko dla `SKIPPED`.
+  content           Json?
+  /// Dlaczego przepis nie ma trybu Gotuj (`SKIPPED`), np. „bez obróbki, 2 kroki”.
+  skipReason        String?
+  /// Skąd się wziął: `{ source: 'golden' | 'model', model?, promptVersion? }`.
+  generator         Json?
+  /// Raport walidatorów i recenzenta (panel).
+  validationReport  Json?
+  publishedAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, version])
+  @@index([recipeId, status])
+  @@index([status])
 }
 
 model Membership {
