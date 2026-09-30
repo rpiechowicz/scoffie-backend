@@ -20,12 +20,14 @@
 --    a `cookScenarioVersion` wraca do NULL → delta „Gotuj zniknął”.
 --    Triggery są ODROCZONE do COMMIT: liczy się stan końcowy transakcji, więc
 --    import, który kasuje i wstawia te same składniki, niczego nie unieważnia.
---    Nazwy `…_a_cook_scenario_staleness` sortują się PRZED `…_catalog_change`,
---    więc w obrębie zdarzenia ten trigger działa, zanim transakcja weźmie zamek
---    rewizji katalogu — ewentualne czekanie na wiersz przepisu przypada przed
---    zamkiem (ADR catalog-change-commit-order §6). Żadnego DDL/LOCK w DML.
+--    Wiersze przepisów blokuje INSTRUKCJA na składnikach (triggery
+--    `…_cook_scenario_lock_*`, patrz niżej), więc sprawdzenie przy COMMIT
+--    nie czeka na żadną blokadę wiersza, nawet trzymając już zamek rewizji
+--    katalogu (ADR catalog-change-commit-order §6). Żadnego DDL/LOCK w DML.
+--    Kto zmienia wiersze "RecipeCookScenario", najpierw blokuje przepis
+--    (`publishCookScenario`: SELECT … FOR UPDATE).
 --
--- Rollback: DROP TRIGGER ×3, DROP FUNCTION ×3, DROP TABLE "RecipeCookScenario",
+-- Rollback: DROP TRIGGER ×6, DROP FUNCTION ×4, DROP TABLE "RecipeCookScenario",
 -- DROP TYPE "CookScenarioStatus", ALTER TABLE "Recipe" DROP COLUMN "cookScenarioVersion".
 
 -- CreateEnum
@@ -102,16 +104,11 @@ DECLARE
   published TEXT;
   current_signature TEXT;
 BEGIN
-  -- NAJPIERW blokada wiersza przepisu, dopiero potem odczyt (review Codexa,
-  -- runda 3). Bez niej pierwsza publikacja (`publishCookScenario` trzyma
-  -- `FOR UPDATE` i czyta stare składniki) i zmiana składnika zatwierdzana
-  -- w tym samym czasie mijały się: ten trigger nie widział jeszcze
-  -- niezatwierdzonego scenariusza, a publikacja nie widziała nowych ilości —
-  -- scenariusz ze starymi ilościami zostawał opublikowany na stałe. Z blokadą
-  -- czekamy na publikację i porównujemy już z nią. Kolejne instrukcje
-  -- (READ COMMITTED) widzą to, co zatwierdziła.
-  PERFORM 1 FROM "Recipe" WHERE "id" = target FOR NO KEY UPDATE;
-
+  -- Wiersz przepisu ta transakcja JUŻ trzyma: zmieniła go sama (trigger
+  -- `Recipe`) albo zablokował go `cook_scenario_lock_recipes` przy instrukcji
+  -- na składnikach. Dlatego ani odczyt niżej, ani UPDATE nie czekają na cudzą
+  -- blokadę — a mogą działać, gdy transakcja trzyma już zamek rewizji katalogu
+  -- z wcześniejszego zdarzenia (ADR catalog-change-commit-order §6).
   SELECT s."recipeContentHash" INTO published
     FROM "RecipeCookScenario" s
    WHERE s."recipeId" = target AND s."status" = 'PUBLISHED';
@@ -125,7 +122,8 @@ BEGIN
   END IF;
 
   -- Kolejność blokad jak w `publishCookScenario`: wiersz przepisu, potem
-  -- scenariusze.
+  -- scenariusze. Wiersze scenariuszy zmienia tylko ten, kto trzyma wiersz
+  -- przepisu — więc i tu nikt nas nie zatrzyma.
   UPDATE "Recipe"
      SET "cookScenarioVersion" = NULL
    WHERE "id" = target AND "cookScenarioVersion" IS NOT NULL;
@@ -190,3 +188,67 @@ WHEN (
   OR OLD."unit" IS DISTINCT FROM NEW."unit"
 )
 EXECUTE FUNCTION cook_scenario_staleness();
+
+-- Blokady przepisów BRANE PRZY INSTRUKCJI, nie przy COMMIT (review Codexa,
+-- rundy 3–4). Instrukcja na składnikach od razu blokuje wiersze swoich
+-- przepisów (FOR NO KEY UPDATE, w kolejności id), więc:
+-- • pierwsza publikacja (`publishCookScenario`: FOR UPDATE na przepisie,
+--   odczyt zatwierdzonych składników) i zmiana składnika nie mijają się —
+--   jedna czeka na drugą, a trigger przy COMMIT widzi już opublikowany
+--   scenariusz albo publikacja widzi już nowe ilości;
+-- • odroczone sprawdzenie przy COMMIT niczego nowego nie blokuje. Gdyby brało
+--   blokadę samo, transakcja wieloprzepisowa blokowałaby przepis B, trzymając
+--   już zamek rewizji katalogu po zdarzeniu przepisu A — a publikacja
+--   trzymająca B czekałaby na ten zamek (zakleszczenie z zamkiem w cyklu).
+-- Czekanie przypada tu PRZED jakimkolwiek zamkiem katalogu (ten bierze się
+-- dopiero przy COMMIT). FOR NO KEY UPDATE nie koliduje z FOR KEY SHARE
+-- z kluczy obcych — zwykłe dodawanie składników do przepisu się nie kolejkuje.
+-- Zmiana samej nazwy (bez pól podpisu) niczego nie blokuje.
+CREATE OR REPLACE FUNCTION cook_scenario_lock_recipes() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    PERFORM 1 FROM "Recipe" r
+     WHERE r."id" IN (SELECT n."recipeId" FROM new_rows n)
+     ORDER BY r."id"
+       FOR NO KEY UPDATE;
+  ELSIF TG_OP = 'DELETE' THEN
+    PERFORM 1 FROM "Recipe" r
+     WHERE r."id" IN (SELECT o."recipeId" FROM old_rows o)
+     ORDER BY r."id"
+       FOR NO KEY UPDATE;
+  ELSE
+    PERFORM 1 FROM "Recipe" r
+     WHERE r."id" IN (
+       SELECT unnest(ARRAY[o."recipeId", n."recipeId"])
+         FROM old_rows o
+         JOIN new_rows n ON n."id" = o."id"
+        WHERE o."recipeId" IS DISTINCT FROM n."recipeId"
+           OR o."ingredientId" IS DISTINCT FROM n."ingredientId"
+           OR o."amount" IS DISTINCT FROM n."amount"
+           OR o."unit" IS DISTINCT FROM n."unit")
+     ORDER BY r."id"
+       FOR NO KEY UPDATE;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+-- Tabele przejściowe działają tylko z jednym zdarzeniem na trigger — stąd trzy.
+CREATE TRIGGER "RecipeIngredient_cook_scenario_lock_ins"
+AFTER INSERT ON "RecipeIngredient"
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT
+EXECUTE FUNCTION cook_scenario_lock_recipes();
+
+CREATE TRIGGER "RecipeIngredient_cook_scenario_lock_upd"
+AFTER UPDATE ON "RecipeIngredient"
+REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
+FOR EACH STATEMENT
+EXECUTE FUNCTION cook_scenario_lock_recipes();
+
+CREATE TRIGGER "RecipeIngredient_cook_scenario_lock_del"
+AFTER DELETE ON "RecipeIngredient"
+REFERENCING OLD TABLE AS old_rows
+FOR EACH STATEMENT
+EXECUTE FUNCTION cook_scenario_lock_recipes();

@@ -65,6 +65,7 @@ describe('Scenariusze Gotuj E2E', () => {
   let privateRecipeId: string;
   let kotletVersionBefore: number | null = null;
   let kotletScenarioIdsBefore: string[] = [];
+  let otherRecipeId: string | null = null;
 
   const devLogin = async (label: string): Promise<Session> => {
     const stamp = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -170,6 +171,52 @@ describe('Scenariusze Gotuj E2E', () => {
     return rows[0]?.max ?? 0n;
   };
 
+  // Najprostszy poprawny scenariusz: jeden krok ze wszystkimi składnikami.
+  const wholeRecipeContent = async (recipeId: string) => {
+    const recipe = await prisma.recipe.findUniqueOrThrow({
+      where: { id: recipeId },
+      select: {
+        servings: true,
+        ingredients: {
+          select: { ingredientId: true, amount: true, unit: true },
+        },
+      },
+    });
+    return {
+      schemaVersion: 1,
+      basePortions: recipe.servings,
+      portionUnit: null,
+      totalMinutes: 10,
+      tips: [],
+      nextTimeTip: null,
+      steps: [
+        {
+          id: 's1',
+          phase: 'COOK',
+          stage: null,
+          title: 'Ugotuj',
+          body: 'Połącz wszystkie składniki i gotuj do miękkości.',
+          ingredients: recipe.ingredients.map((row) => ({
+            ...row,
+            part: 'ALL',
+          })),
+          mentions: [],
+          note: null,
+          timer: null,
+          during: null,
+          scaleNote: null,
+        },
+      ],
+    };
+  };
+
+  const gate = () => {
+    let open!: () => void;
+    const opened = new Promise<void>((resolve) => (open = resolve));
+    return { open, opened };
+  };
+  const slow = { maxWait: 20_000, timeout: 20_000 };
+
   beforeAll(async () => {
     process.env.WS_AUTH_MODE = 'strict';
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -261,6 +308,17 @@ describe('Scenariusze Gotuj E2E', () => {
         data: { cookScenarioVersion: kotletVersionBefore },
       });
     });
+    // Drugi przepis katalogu (test wieloprzepisowy) nie miał scenariusza.
+    if (otherRecipeId) {
+      const recipeId = otherRecipeId;
+      await prisma.$transaction(async (tx) => {
+        await tx.recipe.update({
+          where: { id: recipeId },
+          data: { cookScenarioVersion: null },
+        });
+        await tx.recipeCookScenario.deleteMany({ where: { recipeId } });
+      });
+    }
     if (createdRecipeIds.length) {
       await prisma.recipe.deleteMany({
         where: { id: { in: createdRecipeIds } },
@@ -597,18 +655,12 @@ describe('Scenariusze Gotuj E2E', () => {
       where: { recipeId: KOTLET.recipeId, name: 'masło' },
       select: { id: true, amount: true },
     });
-    const gate = () => {
-      let open!: () => void;
-      const opened = new Promise<void>((resolve) => (open = resolve));
-      return { open, opened };
-    };
-    const edited = gate();
-    const published = gate();
     const commitEdit = gate();
     const commitPublish = gate();
-    const slow = { maxWait: 20_000, timeout: 20_000 };
 
-    // T2: zmienia ilość masła i czeka z COMMIT.
+    // T2: zmienia ilość masła (instrukcja od razu blokuje wiersz przepisu)
+    // i czeka z COMMIT.
+    const edited = gate();
     const edit = prisma.$transaction(async (tx) => {
       await tx.recipeIngredient.update({
         where: { id: butter.id },
@@ -620,13 +672,94 @@ describe('Scenariusze Gotuj E2E', () => {
     edit.catch(() => edited.open());
     await edited.opened;
 
-    // T1: publikuje, czytając jeszcze stare (zatwierdzone) ilości, i czeka z COMMIT.
+    // T1: publikacja. Bez blokady z instrukcji T2 przeczytałaby stare
+    // (zatwierdzone) ilości i zatwierdziła PO T2 — trigger T2 nie widziałby
+    // jeszcze scenariusza i ten zostałby na stałe ze starymi ilościami.
     const publication = prisma.$transaction(async (tx) => {
       const result = await publishCookScenario(tx, {
         recipeId: KOTLET.recipeId,
         content,
         rulesVersion: GOLDEN.rulesVersion,
         generator: { source: 'golden', file: 'e2e-race' },
+      });
+      await commitPublish.opened;
+      return result;
+    }, slow);
+    // Odrzucenie przychodzi w trakcie odczekiwania niżej — wynik zbiera allSettled.
+    publication.catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    try {
+      // T2 zatwierdza pierwsza, T1 chwilę po niej. Obie bramki otwarte bez
+      // czekania na siebie — test nie zawiśnie przy żadnej kolejności blokad.
+      commitEdit.open();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      commitPublish.open();
+      const [editOutcome, outcome] = await Promise.allSettled([
+        edit,
+        publication,
+      ]);
+      expect(editOutcome.status).toBe('fulfilled');
+      // T1 czekała na T2 i zobaczyła nowe ilości — wzorzec już nie pasuje.
+      expect(outcome.status).toBe('rejected');
+      if (outcome.status === 'rejected') {
+        expect(outcome.reason).toMatchObject({ code: 'VALIDATION_ERROR' });
+      }
+      // Niezmiennik: opublikowany scenariusz, jeśli jest, ma podpis przepisu.
+      const stale = await prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT count(*) AS "count" FROM "RecipeCookScenario" s
+         WHERE s."recipeId" = ${KOTLET.recipeId}::uuid AND s."status" = 'PUBLISHED'
+           AND s."recipeContentHash" <> recipe_content_signature(s."recipeId")`;
+      expect(stale[0].count).toBe(0n);
+      expect(await scenarioState(KOTLET.recipeId)).toEqual({
+        version: null,
+        published: 0,
+      });
+    } finally {
+      commitEdit.open();
+      commitPublish.open();
+      await Promise.allSettled([edit, publication]);
+      await prisma.recipeIngredient.update({
+        where: { id: butter.id },
+        data: { amount: butter.amount },
+      });
+    }
+  });
+
+  it('transakcja na dwóch przepisach naraz z publikacją drugiego: bez zakleszczenia, drugi STALE', async () => {
+    // B: inny przepis katalogu, bez scenariusza, bez powtórzonych składników.
+    const candidates = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT r."id" FROM "Recipe" r
+        JOIN "RecipeIngredient" ri ON ri."recipeId" = r."id"
+       WHERE r."isCatalog" AND r."isActive" AND r."cookScenarioVersion" IS NULL
+         AND r."id" <> ${KOTLET.recipeId}::uuid
+         AND NOT EXISTS (SELECT 1 FROM "RecipeCookScenario" s WHERE s."recipeId" = r."id")
+       GROUP BY r."id"
+      HAVING count(*) = count(DISTINCT ri."ingredientId")
+       ORDER BY r."id" LIMIT 1`;
+    expect(candidates).toHaveLength(1);
+    const recipeB = candidates[0].id;
+    otherRecipeId = recipeB;
+    const contentB = await wholeRecipeContent(recipeB);
+    const butter = await prisma.recipeIngredient.findFirstOrThrow({
+      where: { recipeId: KOTLET.recipeId, name: 'masło' },
+      select: { id: true, amount: true },
+    });
+    const ingredientB = await prisma.recipeIngredient.findFirstOrThrow({
+      where: { recipeId: recipeB },
+      orderBy: { id: 'asc' },
+      select: { id: true, amount: true },
+    });
+    const published = gate();
+    const commitPublish = gate();
+
+    // P: publikuje B (trzyma wiersz B) i czeka z COMMIT.
+    const publication = prisma.$transaction(async (tx) => {
+      const result = await publishCookScenario(tx, {
+        recipeId: recipeB,
+        content: contentB,
+        rulesVersion: GOLDEN.rulesVersion,
+        generator: { source: 'golden', file: 'e2e-multi' },
       });
       published.open();
       await commitPublish.opened;
@@ -635,24 +768,31 @@ describe('Scenariusze Gotuj E2E', () => {
     publication.catch(() => published.open());
     await published.opened;
 
-    // T2 zatwierdza pierwsza: jej trigger czeka na wiersz przepisu (T1),
-    // potem T1 zatwierdza publikację.
-    commitEdit.open();
+    // W: zmienia składnik kotleta (A — katalog, przy COMMIT weźmie zamek
+    // rewizji), potem składnik B. Gdyby blokada B przypadała dopiero na
+    // COMMIT, W czekałby na B z zamkiem katalogu, a P — na zamek: cykl.
+    const edit = prisma.$transaction(async (tx) => {
+      await tx.recipeIngredient.update({
+        where: { id: butter.id },
+        data: { amount: butter.amount + 10 },
+      });
+      await tx.recipeIngredient.update({
+        where: { id: ingredientB.id },
+        data: { amount: ingredientB.amount + 1 },
+      });
+    }, slow);
     await new Promise((resolve) => setTimeout(resolve, 300));
     commitPublish.open();
     try {
-      const [, result] = await Promise.all([edit, publication]);
+      const [result] = await Promise.all([publication, edit]);
       expect(result.changed).toBe(true);
-      expect(await scenarioState(KOTLET.recipeId)).toEqual({
+      expect(await scenarioState(recipeB)).toEqual({
         version: null,
         published: 0,
       });
       const row = await prisma.recipeCookScenario.findUniqueOrThrow({
         where: {
-          recipeId_version: {
-            recipeId: KOTLET.recipeId,
-            version: result.version,
-          },
+          recipeId_version: { recipeId: recipeB, version: result.version },
         },
         select: { status: true },
       });
@@ -661,6 +801,10 @@ describe('Scenariusze Gotuj E2E', () => {
       await prisma.recipeIngredient.update({
         where: { id: butter.id },
         data: { amount: butter.amount },
+      });
+      await prisma.recipeIngredient.update({
+        where: { id: ingredientB.id },
+        data: { amount: ingredientB.amount },
       });
     }
   });
