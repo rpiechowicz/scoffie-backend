@@ -141,6 +141,7 @@ export function resolveWriterOutput(
 // ── Czasy z przepisu ────────────────────────────────────────────────────
 
 const PL = 'a-ząćęłńóśźż';
+const PL_UPPER = 'A-ZĄĆĘŁŃÓŚŹŻ';
 const NUM = String.raw`(\d+(?:[.,]\d+)?)`;
 const TIME_UNIT = `(min[${PL}.]*|godz[${PL}.]*|h(?![${PL}])|sek[${PL}.]*)`;
 const DURATION = new RegExp(
@@ -182,6 +183,37 @@ export function recipeDurations(instructions: string[]): [number, number][] {
   return recipeDurationPool(instructions).ranges;
 }
 
+/**
+ * Czasy, które tekst NAPRAWDĘ podaje — bez łącznego „z każdej strony”
+ * wyliczonego do puli (tekst „po 2 minuty z każdej strony” nie twierdzi,
+ * że coś trwa 4 minuty).
+ */
+function claimedDurations(text: string): [number, number][] {
+  const pool = recipeDurationPool([text]);
+  const derived = new Set(pool.perSide.map((group) => group.combined));
+  return pool.ranges.filter((_, i) => !derived.has(i));
+}
+
+/** Koniec zdania: [.!?] i spacja przed wielką literą (nie skrót „ok.”). */
+const SENTENCE_BREAK = new RegExp(`[.!?]\\s+(?=[${PL_UPPER}])`, 'gu');
+
+function sentenceStart(line: string, at: number): number {
+  let start = 0;
+  for (const match of line.matchAll(SENTENCE_BREAK)) {
+    const end = (match.index ?? 0) + match[0].length;
+    if (end > at) break;
+    start = end;
+  }
+  return start;
+}
+
+function sentenceEnd(line: string, at: number): number | undefined {
+  for (const match of line.matchAll(SENTENCE_BREAK)) {
+    if ((match.index ?? 0) >= at) return match.index;
+  }
+  return undefined;
+}
+
 export function recipeDurationPool(instructions: string[]): DurationPool {
   const found: [number, number][] = [];
   const perSide: DurationPool['perSide'] = [];
@@ -200,10 +232,12 @@ export function recipeDurationPool(instructions: string[]): DurationPool {
       if (PER_SIDE.test(after)) {
         const first = found.length - 1;
         // Zdanie, w którym stoi czas — czy to aktywne smażenie na patelni.
+        // Granica zdania to kropka przed WIELKĄ literą: „smaż ok. 2 minuty”
+        // (skrót „ok.”) to wciąż jedno zdanie (test paczek E3b, gruszka).
         const start = match.index ?? 0;
         const sentence = line.slice(
-          Math.max(0, line.lastIndexOf('.', start) + 1),
-          line.indexOf('.', start) < 0 ? undefined : line.indexOf('.', start),
+          sentenceStart(line, start),
+          sentenceEnd(line, start),
         );
         found.push(range);
         if (ACTIVE_PAN.test(sentence)) {
@@ -232,8 +266,9 @@ const NUMBER_IN_TEXT = new RegExp(
   `\\d+(?:[.,]\\d+)?(?:\\s*(?:[–—-]|do)\\s*\\d+(?:[.,]\\d+)?)?`,
   'g',
 );
+// Wymiar „3 × 4 cm”, „20 x 30 cm” — pierwsza liczba też jest rozmiarem.
 const ALLOWED_AFTER_NUMBER = new RegExp(
-  `^\\s*(?:min|godz|h(?![${PL}])|sek|s(?![${PL}])|°|stopni|cm|mm|%)`,
+  `^\\s*(?:min|godz|h(?![${PL}])|sek|s(?![${PL}])|°|stopni|cm|mm|%|[×x]\\s*\\d+(?:[.,]\\d+)?\\s*(?:cm|mm))`,
   'i',
 );
 
@@ -704,7 +739,7 @@ function checkTextClaims(
   if (content.nextTimeTip) general.push(['nextTimeTip', content.nextTimeTip]);
   for (const [path, text] of general) {
     checkTemperatures(path, text);
-    for (const range of recipeDurations([text])) {
+    for (const range of claimedDurations(text)) {
       // Rady mówią też o planie („obiad zajmie wtedy 25 minut”) — do czasu
       // całego scenariusza wolno; dłużej tylko czas z przepisu.
       if (
@@ -735,7 +770,7 @@ function checkTextClaims(
     if (OVEN_PREHEAT.test(stepText(step))) continue;
     const own = step.timer?.maxSeconds;
     const during = step.during ? timerMax.get(step.during) : undefined;
-    for (const range of recipeDurations([texts])) {
+    for (const range of claimedDurations(texts)) {
       if (own !== undefined && range[1] > own + tolerance(own)) {
         errors.push(
           `${step.id}: tekst mówi ${describeRange(range)}, a timer kroku ${own} s — tekst i timer muszą się zgadzać`,

@@ -85,6 +85,15 @@ describe('system pisania — walidatory twarde', () => {
       ).toEqual([]);
     });
 
+    it('wymiar „3 × 4 cm” przechodzi (test paczek E3b, nuggetsy)', () => {
+      expect(
+        withBody('Pokrój w kawałki ok. 3 × 4 cm, a blachę 20 x 30 cm wyłóż.'),
+      ).toEqual([]);
+      expect(withBody('Weź 3 × jajko.')).toEqual([
+        expect.stringContaining('s2.body: liczba „3”'),
+      ]);
+    });
+
     it('zły token = błąd', () => {
       expect(withBody('Uformuj {ilość} wałeczków.')).toEqual([
         expect.stringContaining('zły token'),
@@ -202,6 +211,46 @@ describe('system pisania — walidatory twarde', () => {
       [300, 300],
       [600, 600],
     ]);
+    // Skrót „ok.” nie kończy zdania — to wciąż smażenie (test paczek E3b).
+    expect(
+      recipeDurations(['Ułóż gruszkę i smaż ok. 2 minuty z każdej strony.']),
+    ).toEqual([
+      [120, 120],
+      [120, 120],
+    ]);
+    // Nowe zdanie po kropce — smażenie z poprzedniego już nie liczy się.
+    expect(
+      recipeDurations(['Smaż cebulę. Piecz placki po 5 min z każdej strony.']),
+    ).toEqual([
+      [300, 300],
+      [300, 300],
+      [600, 600],
+    ]);
+  });
+
+  it('tekst „po 2 minuty z każdej strony” nie twierdzi, że coś trwa 4 minuty', () => {
+    // Sam ten krok przepisu — żadne inne „4 minuty” nie uzasadnią czasu.
+    const recipe: WriterRecipe = {
+      ...kotlet,
+      instructions: [
+        'Na patelni rozpuść masło i smaż gruszkę 2 minuty z każdej strony.',
+      ],
+    };
+    for (const body of [
+      'Rozpuść masło na patelni. Ułóż gruszkę i smaż ok. 2 minuty z każdej strony.',
+      'Ułóż gruszkę i piecz ok. 2 minuty z każdej strony.',
+    ]) {
+      const content = clone(example.content);
+      const step = content.steps.find(
+        (st) => !st.timer && !st.during && /smaż|patel/i.test(st.body),
+      )!;
+      step.body = body;
+      expect(
+        qualityChecks(recipe, content).errors.filter((e) =>
+          e.startsWith(`${step.id}:`),
+        ),
+      ).toEqual([]);
+    }
   });
 
   it('SKIP dozwolony tylko dla przepisu bez czasów i krótkiego', () => {
