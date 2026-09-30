@@ -901,14 +901,22 @@ const parallelSlack = (seconds: number) => Math.max(120, seconds * 0.2);
  * międzyczasie” trwa dłużej niż nadrzędne i zachodzi na kolejne kroki.
  */
 function checkTimerTimeline(content: CookScenarioContent, errors: string[]) {
-  const active: { id: string; end: number }[] = [];
+  let active: { id: string; end: number }[] = [];
   let now = 0;
   let waitUntil = 0;
+  let waitingFor: string | null = null;
   for (const step of content.steps) {
     if (!step.during) {
-      // Krok główny: czeka na koniec timera poprzedniego kroku głównego.
+      // Krok główny rusza PO alarmie timera poprzedniego kroku głównego —
+      // ten timer się skończył, więc już nie biegnie (review Codexa: przy
+      // zakresach „10–12 min” liczony do `maxSeconds` dawał fałszywe trzy).
       now = Math.max(now, waitUntil);
+      if (waitingFor) {
+        const ended = waitingFor;
+        active = active.filter((t) => t.id !== ended);
+      }
       waitUntil = 0;
+      waitingFor = null;
     }
     if (!step.timer) continue;
     const running = active.filter((t) => t.end > now);
@@ -922,7 +930,10 @@ function checkTimerTimeline(content: CookScenarioContent, errors: string[]) {
       );
     }
     active.push({ id: step.timer.id, end: now + step.timer.maxSeconds });
-    if (!step.during) waitUntil = now + step.timer.minSeconds;
+    if (!step.during) {
+      waitUntil = now + step.timer.minSeconds;
+      waitingFor = step.timer.id;
+    }
   }
 }
 

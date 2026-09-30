@@ -733,11 +733,31 @@ describe('system pisania — walidatory twarde', () => {
       expect(errorsOf(content)).toEqual([]);
     });
 
-    it('trzecie odliczanie, gdy dwa jeszcze biegną (smażenie + piekarnik) = błąd', () => {
+    it('kolejne kroki główne z timerami o zakresach („10–12 min”) nie liczą się jako równoczesne', () => {
       const content = clone(example.content);
-      // Kolejne odliczanie „w międzyczasie”, gdy biegną smażenie i piekarnik.
+      // Trzy kroki główne pod rząd, każdy z zakresem — każdy rusza po alarmie
+      // poprzedniego, więc naraz biegnie najwyżej jeden (+ ziemniaki).
+      const range = { minSeconds: 600, maxSeconds: 720 };
+      for (const id of ['s5', 's6', 's7']) {
+        content.steps.find((st) => st.id === id)!.timer = {
+          ...content.steps[7].timer!,
+          ...range,
+          id: `t-${id}`,
+        };
+      }
+      expect(errorsOf(content)).toEqual([]);
+    });
+
+    it('trzecie odliczanie naraz: długie ziemniaki + piekarnik + odliczanie „w międzyczasie” pod piekarnikiem = błąd', () => {
+      const content = clone(example.content);
+      // Ziemniaki (z „w międzyczasie” pod masłem) gotują się tak długo, że
+      // biegną jeszcze przy piekarniku; pod piekarnikiem trzecie odliczanie.
+      const potatoes = content.steps.find(
+        (st) => st.timer?.id === 't-potatoes',
+      )!;
+      potatoes.timer = { ...potatoes.timer!, maxSeconds: 3600 };
       const s10 = content.steps.find((st) => st.id === 's10')!;
-      s10.during = 't-cutlets';
+      s10.during = 't-oven';
       s10.timer = { ...content.steps[8].timer!, id: 't-third' };
       expect(errorsOf(content)).toEqual([expect.stringContaining('s10.timer')]);
     });

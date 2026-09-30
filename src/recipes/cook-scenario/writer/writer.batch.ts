@@ -354,6 +354,8 @@ export async function runBatchRounds(
           await persist();
         },
         onCollected: async (batch, results) => {
+          // Odebrana (albo odrzucona przez API) — zapowiedź nieaktualna.
+          submitting = null;
           apply(pending, results);
           inflight = inflight.filter((b) => b.batchId !== batch.batchId);
           await persist();
@@ -456,6 +458,28 @@ export class AnthropicBatchModel implements BatchModel {
         });
         batchId = batch.id;
       } catch (error) {
+        if (isDefinitiveRejection(error)) {
+          // API ODPOWIEDZIAŁO odmową (4xx: zły żądanie, limit, uprawnienia) —
+          // paczki na pewno nie ma. Rezerwacja wraca, pozycje dostają błąd
+          // (zadania ponowią w następnej rundzie, najwyżej 3 razy) — bez
+          // 20-minutowego czekania na wynik, który nie istnieje (review Codexa).
+          for (const entry of chunk) this.guard.settle(entry.reserved, 0);
+          const message = `API odrzuciło paczkę: ${messageOf(error)}`;
+          this.log(message);
+          const rejected = new Map<string, BatchCallResult>(
+            chunk.map((entry) => [
+              entry.item.id,
+              { ok: false, error: message } as const,
+            ]),
+          );
+          for (const [id, value] of rejected) results.set(id, value);
+          await hooks.onCollected?.(
+            { batchId: 'odrzucona', ids: pending.ids, reservedMicroUsd: 0 },
+            rejected,
+          );
+          queue = rest;
+          continue;
+        }
         // Wynik NIEZNANY: API mogło paczkę przyjąć, a odpowiedź zginąć.
         // Rezerwacja zostaje, zapowiedź w dzienniku — wznowienie sprawdzi
         // u dostawcy, zanim wyśle cokolwiek ponownie.
@@ -660,6 +684,15 @@ export class AnthropicBatchModel implements BatchModel {
       }
     }
   }
+}
+
+/**
+ * Odmowa z odpowiedzią HTTP 4xx = paczki na pewno nie przyjęto. Brak
+ * odpowiedzi (sieć, limit czasu) i 5xx — wynik nieznany.
+ */
+function isDefinitiveRejection(error: unknown): boolean {
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === 'number' && status >= 400 && status < 500;
 }
 
 const messageOf = (error: unknown) =>

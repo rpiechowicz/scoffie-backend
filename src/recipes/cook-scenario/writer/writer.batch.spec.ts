@@ -463,6 +463,24 @@ describe('Anthropic Message Batches — budżet, ponowienia, odbiór', () => {
     expect(poor.results.size).toBe(0);
   });
 
+  it('API odmówiło (4xx): paczki na pewno nie ma — pozycje z błędem, zero kosztu, bez czekania na okno widoczności', async () => {
+    const guard = new BudgetGuard(worst * 3);
+    const client = fakeClient([], { create: true });
+    // Odmowa z odpowiedzią HTTP (np. zły parametr) — jak `BadRequestError`.
+    (
+      client.messages.batches as unknown as { create: () => Promise<never> }
+    ).create = () =>
+      Promise.reject(
+        Object.assign(new Error('400 invalid_request_error'), { status: 400 }),
+      );
+    const outcome = await model(client, guard).run([{ id: 'a-r1', call }]);
+    expect(outcome.stopReason).toBeNull();
+    expect(outcome.pending).toBeUndefined();
+    expect(outcome.results.get('a-r1')).toMatchObject({ ok: false });
+    expect(guard.spentMicroUsd).toBe(0);
+    expect(guard.reservedMicroUsd).toBe(0);
+  });
+
   it('paczka nieprzyjęta: stop „transport”, zero kosztu, zadania nietknięte', async () => {
     const guard = new BudgetGuard(worst * 3);
     const outcome = await model(fakeClient([], { create: true }), guard).run([
