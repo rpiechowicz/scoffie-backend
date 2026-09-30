@@ -320,8 +320,18 @@ function checkOven(content: CookScenarioContent, errors: string[]) {
     errors.push(
       `${content.steps[firstUse].id}: piekarnik używany bez wcześniejszego kroku „Nagrzej piekarnik do …°C”`,
     );
+    return;
+  }
+  // Rafał 30.09: użytkownik ma wiedzieć, JAK ustawić piekarnik — tryb
+  // grzania zawsze w kroku nagrzewania (z przepisu, domyślnie góra–dół).
+  if (!OVEN_MODE.test(texts[preheat])) {
+    errors.push(
+      `${content.steps[preheat].id}: krok nagrzewania nie mówi, jak ustawić piekarnik — napisz tryb (góra–dół, termoobieg, grill); gdy przepis nie mówi, góra–dół`,
+    );
   }
 }
+
+const OVEN_MODE = /(góra|dół|termoobieg|grill|grzałk|górn|doln|wentylator)/iu;
 
 // ── Bezpieczeństwo (§5.5) ───────────────────────────────────────────────
 
@@ -596,10 +606,78 @@ function checkTimers(
     );
   });
   recipeRanges.forEach((range, index) => {
-    if (range[1] >= 180 && owner[index] < 0) {
+    if (range[1] >= MIN_TIMER_SECONDS && owner[index] < 0) {
       warnings.push(`czas z przepisu ${describeRange(range)} nie ma timera`);
     }
   });
+  checkTimerLayout(content, errors);
+}
+
+/**
+ * Timer tylko na czekanie od 4 minut — krótka, aktywna czynność przy
+ * garnku („podsmaż cebulę ok. 3 min”, „smaż po 3 min z każdej strony”)
+ * idzie tekstem i sygnałem „po czym poznać”; użytkownik i tak stoi przy
+ * patelni (Rafał 30.09: trzy timery naraz = użytkownik się gubi).
+ */
+export const MIN_TIMER_SECONDS = 240;
+/** Najwyżej tyle odliczań naraz — design Dynamic Island ma stany 0/1/2. */
+export const MAX_PARALLEL_TIMERS = 2;
+/**
+ * Kroki „w międzyczasie” mają się zmieścić w swoim timerze PO LUDZKU
+ * (Rafał 30.09): minuta czy dwie w tę albo w tamtą niczego nie psuje.
+ */
+const parallelSlack = (seconds: number) => Math.max(120, seconds * 0.2);
+
+function checkTimerLayout(content: CookScenarioContent, errors: string[]) {
+  const timers = new Map(
+    content.steps.flatMap((step) =>
+      step.timer ? [[step.timer.id, { step, timer: step.timer }] as const] : [],
+    ),
+  );
+  for (const { step, timer } of timers.values()) {
+    if (timer.minSeconds < MIN_TIMER_SECONDS) {
+      errors.push(
+        `${step.id}.timer „${timer.label}” ${timer.minSeconds} s: krótsze niż 4 min — bez timera, napisz czas w treści i po czym poznać koniec`,
+      );
+    }
+    // Ile odliczań biegnie naraz: timer + łańcuch timerów, w trakcie których
+    // startuje. Rodzeństwo pod tym samym timerem idzie po kolei.
+    let depth = 1;
+    let parent = step.during ? timers.get(step.during) : undefined;
+    const seen = new Set([timer.id]);
+    while (parent && !seen.has(parent.timer.id)) {
+      seen.add(parent.timer.id);
+      depth += 1;
+      parent = parent.step.during ? timers.get(parent.step.during) : undefined;
+    }
+    if (depth > MAX_PARALLEL_TIMERS) {
+      errors.push(
+        `${step.id}.timer „${timer.label}”: to ${depth}. odliczanie naraz — najwyżej ${MAX_PARALLEL_TIMERS}; połącz czynności albo przesuń krok`,
+      );
+    }
+  }
+  // Odliczania startowane po kolei pod jednym timerem: wszystkie POZA
+  // OSTATNIM muszą się w nim zmieścić (ostatnie może biec dalej samo, jak
+  // ziemniaki nastawione, gdy masło chłodzi się w zamrażarce).
+  for (const { step, timer } of timers.values()) {
+    const children = content.steps.filter(
+      (other) => other.during === timer.id && other.timer,
+    );
+    const before = children.slice(0, -1);
+    const needed = before.reduce(
+      (sum, other) => sum + (other.timer?.minSeconds ?? 0),
+      0,
+    );
+    if (needed > timer.maxSeconds + parallelSlack(timer.maxSeconds)) {
+      errors.push(
+        `${step.id}.timer „${timer.label}” ${timer.maxSeconds} s: odliczania „w międzyczasie” (${before
+          .map((other) => other.id)
+          .join(
+            ', ',
+          )}) trwają po kolei co najmniej ${needed} s — nie zmieszczą się; przesuń je albo zacznij wcześniej`,
+      );
+    }
+  }
 }
 
 // ── Całość ──────────────────────────────────────────────────────────────

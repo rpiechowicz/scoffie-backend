@@ -326,9 +326,11 @@ describe('system pisania — walidatory twarde', () => {
       const potatoes = content.steps.find((s) => s.timer?.id === 't-potatoes')!;
       const other = content.steps.find((s) => s.id === 's4')!;
       other.timer = { ...potatoes.timer!, id: 't-copy' };
-      expect(qualityChecks(kotlet, content).errors).toEqual([
-        expect.stringContaining('przepis ma ten czas mniej razy'),
-      ]);
+      expect(qualityChecks(kotlet, content).errors).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('przepis ma ten czas mniej razy'),
+        ]),
+      );
     });
   });
   describe('bezpieczeństwo: co jest surowe, a co gotowe do jedzenia', () => {
@@ -500,6 +502,72 @@ describe('system pisania — walidatory twarde', () => {
       };
       expect(withBody(withAmount, 'Rozbij 320 g filetu na kotlety.')).toEqual([
         expect.stringContaining('liczba „320”'),
+      ]);
+    });
+  });
+  describe('układ timerów po ludzku (decyzje z 30.09)', () => {
+    const errorsOf = (content: Content) =>
+      qualityChecks(kotlet, content).errors;
+
+    it('timer krótszy niż 4 min = błąd (krótką czynność opisz tekstem)', () => {
+      const content = clone(example.content);
+      const oven = content.steps.find((s) => s.timer?.id === 't-oven')!;
+      oven.timer = { ...oven.timer!, minSeconds: 180, maxSeconds: 180 };
+      expect(errorsOf(content)).toEqual(
+        expect.arrayContaining([expect.stringContaining('krótsze niż 4 min')]),
+      );
+    });
+
+    it('trzecie odliczanie naraz = błąd', () => {
+      const content = clone(example.content);
+      // s4 startuje w trakcie ziemniaków, które startują w trakcie masła.
+      const s4 = content.steps.find((s) => s.id === 's4')!;
+      s4.during = 't-potatoes';
+      s4.timer = { ...content.steps[8].timer!, id: 't-third' };
+      expect(errorsOf(content)).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('3. odliczanie naraz'),
+        ]),
+      );
+    });
+
+    it('odliczania po kolei pod jednym timerem: zapas 2 min przechodzi, więcej nie', () => {
+      const content = clone(example.content);
+      // Pod masłem (15 min): 14 min, potem ziemniaki (ostatnie, mogą biec dalej).
+      const s2 = content.steps.find((s) => s.id === 's2')!;
+      s2.timer = {
+        ...content.steps[0].timer!,
+        id: 't-a',
+        minSeconds: 840,
+        maxSeconds: 840,
+      };
+      const withRecipe = {
+        ...kotlet,
+        instructions: [
+          ...kotlet.instructions,
+          'Odstaw na 14 minut.',
+          'Odstaw na 19 minut.',
+        ],
+      };
+      expect(
+        qualityChecks(withRecipe, content).errors.filter((e) =>
+          e.includes('nie zmieszczą'),
+        ),
+      ).toEqual([]);
+      s2.timer = { ...s2.timer, minSeconds: 1140, maxSeconds: 1140 };
+      expect(
+        qualityChecks(withRecipe, content).errors.filter((e) =>
+          e.includes('nie zmieszczą'),
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('krok nagrzewania bez trybu piekarnika = błąd', () => {
+      const content = clone(example.content);
+      const preheat = content.steps.find((s) => s.title.startsWith('Nagrzej'))!;
+      preheat.body = 'Za kwadrans kotlety trafią do środka na 5 minut.';
+      expect(errorsOf(content)).toEqual([
+        expect.stringContaining('nie mówi, jak ustawić piekarnik'),
       ]);
     });
   });
