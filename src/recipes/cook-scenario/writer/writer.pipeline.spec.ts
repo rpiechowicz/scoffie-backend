@@ -97,6 +97,23 @@ describe('system pisania — przebieg', () => {
     expect(model.calls[2].user).not.toContain('przecinek');
   });
 
+  it('MAJOR też odrzuca przy ocenie 4 i 5 — o przejściu decyduje kod, nie ocena', async () => {
+    const major = (score: number) =>
+      review(score, [{ stepId: 's6', severity: 'MAJOR', text: 'niejasne' }]);
+    const model = new StubModel([
+      good(),
+      major(5),
+      good(),
+      major(4),
+      good(),
+      review(4),
+    ]);
+    const outcome = await writeCookScenario(model, kotlet, example);
+    expect(outcome.status).toBe('VALIDATED');
+    expect(outcome.attempts).toHaveLength(3);
+    expect(outcome.attempts.map((a) => a.review?.score)).toEqual([5, 4, 4]);
+  });
+
   it('BLOCKER odrzuca nawet przy ocenie 5; po wyczerpaniu prób REJECTED z ostatnią treścią', async () => {
     const blocker = review(5, [
       { stepId: 's2', severity: 'BLOCKER', text: 'składnik spoza przepisu' },

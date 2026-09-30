@@ -308,4 +308,47 @@ describe('system pisania — walidatory twarde', () => {
       ]);
     });
   });
+  describe('bezpieczeństwo: co jest surowe, a co gotowe do jedzenia', () => {
+    // Wzorzec bez żadnego sygnału „gotowe” — liczy się tylko, czy reguła
+    // w ogóle obejmuje składnik.
+    const noCue = () => {
+      const content = clone(example.content);
+      content.steps.find((s) => s.id === 's9')!.note = null;
+      return content;
+    };
+    const safetyErrors = (name: string) =>
+      qualityChecks(
+        {
+          ...kotlet,
+          ingredients: kotlet.ingredients.map((row) =>
+            row.name === 'filet z kurczaka' ? { ...row, name } : row,
+          ),
+        },
+        noCue(),
+      ).errors.filter((e) => e.includes('bezpieczeństwo'));
+
+    it.each([
+      ['kurczak marynowany w jogurcie', 'drób'],
+      ['udko z kurczaka w sosie', 'drób'],
+      ['wątróbka drobiowa', 'drób'],
+      ['wieprzowina mielona', 'mięso mielone'],
+      ['łosoś', 'ryba'],
+    ])('„%s” wymaga „po czym poznać” (%s)', (name, label) => {
+      expect(safetyErrors(name)).toEqual([
+        expect.stringContaining(`bezpieczeństwo (${label}: „${name}”)`),
+      ]);
+    });
+
+    it.each([
+      'papryka słodka mielona',
+      'imbir mielony',
+      'tuńczyk w puszce',
+      'łosoś wędzony',
+      'wędlina drobiowa',
+      'bulion drobiowy',
+      'sardynka w oleju',
+    ])('„%s” nie wymaga', (name) => {
+      expect(safetyErrors(name)).toEqual([]);
+    });
+  });
 });

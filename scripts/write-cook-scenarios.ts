@@ -263,6 +263,16 @@ async function main() {
       return;
     }
 
+    // Twardy limit ma sens tylko przy znanej cenie: model spoza cennika
+    // liczyłby się po stawce zastępczej, która może być za niska (review
+    // Codexa, E3a runda 3). Nowy model = najpierw wpis w src/config/model-prices.ts.
+    for (const name of [options.writerModel, options.reviewerModel]) {
+      if (!priceFor(name).known) {
+        throw new Error(
+          `model ${name} nie ma ceny w src/config/model-prices.ts — bez niej budżet nie jest twardy`,
+        );
+      }
+    }
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY jest pusty');
     // Twardy limit: każde wywołanie modelu rezerwuje najgorszy koszt, zanim
@@ -272,9 +282,6 @@ async function main() {
       new AnthropicWriterModel(new Anthropic({ apiKey })),
       budget,
     );
-    const priceKnown =
-      priceFor(options.writerModel).known &&
-      priceFor(options.reviewerModel).known;
 
     const report: ReportEntry[] = [];
     let stopped = false;
@@ -364,9 +371,7 @@ async function main() {
     console.log(
       `\nVALIDATED ${count('VALIDATED')} · REJECTED ${count('REJECTED')} · SKIPPED ${count('SKIPPED')} · STALE ${count('STALE')} · FAILED ${count('FAILED')} · BUDGET ${count('BUDGET')}`,
     );
-    console.log(
-      `koszt: ${(budget.spentMicroUsd / 1_000_000).toFixed(3)} $${priceKnown ? '' : ' (szacunek: model spoza cennika liczony po najdroższej stawce)'}`,
-    );
+    console.log(`koszt: ${(budget.spentMicroUsd / 1_000_000).toFixed(3)} $`);
     if (stopped) {
       console.log(
         `ZATRZYMANO: budżet ${args.budgetUsd} $ nie wystarcza na kolejne wywołanie`,

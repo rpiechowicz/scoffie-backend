@@ -107,9 +107,16 @@ function parseReview(value: unknown): Review | null {
   return { score: raw.score, issues, summary: raw.summary };
 }
 
+/**
+ * Przechodzi tylko ocena >= progu BEZ żadnego BLOCKER ani MAJOR — schemat nie
+ * wiąże oceny z wagą problemów, więc „4/5 + MAJOR” rozstrzyga kod, nie model
+ * (review Codexa, E3a runda 3).
+ */
 const reviewPasses = (review: Review, minScore: number) =>
   review.score >= minScore &&
-  !review.issues.some((issue) => issue.severity === 'BLOCKER');
+  !review.issues.some(
+    (issue) => issue.severity === 'BLOCKER' || issue.severity === 'MAJOR',
+  );
 
 const reviewFeedback = (review: Review) => [
   `Recenzent ocenił na ${review.score}/5: ${review.summary}`,

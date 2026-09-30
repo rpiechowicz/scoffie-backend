@@ -195,7 +195,7 @@ Walidatory w kodzie sprawdziły już format, limity znaków, sumy ilości, cyfry
 5. Kolejność i timery: czy wszystko jest gotowe naraz, czy kroki „w międzyczasie” mieszczą się w swoim timerze, czy żaden krok nie wymaga dwóch par rąk naraz.
 6. Bezpieczeństwo: drób, mięso mielone, ryby, gorący tłuszcz.
 
-Ocena 1–5: 5 = publikować bez zmian; 4 = publikować, drobiazgi; 3 = wymaga poprawek; 2 = poważne błędy; 1 = nie nadaje się.
+Ocena 1–5: 5 = publikować bez zmian; 4 = publikować, tylko drobiazgi (MINOR); 3 = wymaga poprawek; 2 = poważne błędy; 1 = nie nadaje się.
 Problemy: BLOCKER = błąd merytoryczny lub bezpieczeństwa (np. składnik spoza przepisu, zmieniony czas, surowy drób bez sprawdzenia); MAJOR = użytkownik się pogubi lub danie wyjdzie gorzej; MINOR = styl. Każdy problem konkretnie: który krok i co zmienić. Nie wymyślaj problemów na siłę.`;
 
 /** Scenariusz czytelny dla recenzenta — nazwy i ilości zamiast kluczy. */

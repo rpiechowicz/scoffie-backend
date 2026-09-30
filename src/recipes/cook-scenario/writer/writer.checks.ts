@@ -270,12 +270,19 @@ function checkOven(content: CookScenarioContent, errors: string[]) {
 
 // ── Bezpieczeństwo (§5.5) ───────────────────────────────────────────────
 
-const PROCESSED =
-  /(bulion|rosół|rosoł|wywar|kostk|wędzon|szynk|parówk|kiełbas|puszk|konserw|w sosie|sos |marynowan|solon|pasta|w oleju|pasztet)/i;
-const POULTRY = /(kurczak|kurczę|indyk|indycz|kacz|drobi|gęś|gęsi)/i;
-const MINCED = /mielon/i;
+/**
+ * Tylko produkty jednoznacznie gotowe do jedzenia (wędzone, z puszki,
+ * wędliny, buliony, pasty, sosy). NIE „marynowany” ani „w sosie” — surowy
+ * kurczak w marynacie nadal wymaga dopieczenia (review Codexa, E3a runda 3).
+ */
+const READY_TO_EAT =
+  /(bulion|rosół|rosoł|wywar|kostk|wędzon|wędlin|szynk|parówk|kiełbas|pusz[ck]|konserw|w oleju|pasztet|pieczon|gotowan|^sos |^pasta )/iu;
+const POULTRY = /(kurczak|kurczę|indyk|indycz|kacz|drobi|gęś|gęsi)/iu;
+/** Mielone MIĘSO — „papryka mielona” i „imbir mielony” to przyprawy. */
+const MINCED =
+  /^(?=.*mielon)(?=.*(wieprz|wołow|mięs|indyk|kurcz|cielę|jagni|baran)).*/iu;
 const FISH =
-  /(łoso|dorsz|mintaj|pstrąg|makrel|halibut|morszczuk|tilapi|panga|okoń|sandacz|karp|tuńczyk|ryb|krewet)/i;
+  /(łoso|dorsz|mintaj|pstrąg|makrel|halibut|morszczuk|tilapi|panga|okoń|sandacz|karp|tuńczyk|ryb|krewet|sardyn|śledź|szprot)/iu;
 
 /**
  * Sygnały „gotowe” muszą być TWIERDZĄCE (review Codexa, E3a runda 1): samo
@@ -337,7 +344,8 @@ function checkSafety(
 ) {
   for (const rule of SAFETY) {
     for (const raw of recipe.ingredients) {
-      if (!rule.ingredient.test(raw.name) || PROCESSED.test(raw.name)) continue;
+      if (!rule.ingredient.test(raw.name) || READY_TO_EAT.test(raw.name))
+        continue;
       // Sygnał liczy się dopiero od kroku, w którym surowiec wchodzi do pracy
       // — „bez różowego” w rozgrzewce nie mówi nic o gotowym mięsie.
       const enters = content.steps.findIndex(
