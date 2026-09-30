@@ -1,6 +1,6 @@
 {
   "version": "cook-scenarios-pl-v1",
-  "rulesVersion": "2026-09-30.3",
+  "rulesVersion": "2026-09-30.4",
   "convention": "Scenariusze trybu Gotuj pisane ręcznie (wzorce dla systemu pisania, scoffie-ios docs/workstreams/gotuj/README.md §10). Składniki po NAZWIE z przepisu (`ingredient`, `mentions`) — loader zamienia je na `ingredientId` danej bazy. Wgranie: pnpm cook-scenarios:load.",
   "scenarios": [
     {
